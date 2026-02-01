@@ -1838,7 +1838,7 @@
   #organizersLogos > img.advant{
     grid-column: 2;
     grid-row: 1;
-    height: clamp(42px, 12.5vw, 56px) !important; /* come Revilaw */
+    height: clamp(44px, 13vw, 60px) !important; /* come Revilaw */
     width: auto;
     justify-self: start;
   }
@@ -1876,6 +1876,54 @@
   #mobilePartnersRow{ display:none !important; }
 }
 
+/* =========================================================
+   OVERRIDE FINALE – MOBILE
+   Unindustria sotto Il Sole 24 Ore
+   ========================================================= */
+@media (max-width: 680px){
+
+  /* Griglia mobile: 2 colonne
+     SX = Revilaw + Advant
+     DX = Sole / Unindustria */
+  #organizersLogos{
+    display: grid !important;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    row-gap: 6px;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* Revilaw */
+  #organizersLogos > img.revilaw{
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  /* ADVANT */
+  #organizersLogos > img.advant{
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  /* Il Sole 24 Ore – in alto a destra */
+  #organizersLogos > #sole24TopLogo{
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  /* Unindustria – sotto Il Sole */
+  #organizersLogos > img.unindustria,
+  #organizersLogos > #unindustriaBadge{
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: end;
+    margin-left: 0 !important;
+  }
+
+}
 
 
 
