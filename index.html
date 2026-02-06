@@ -1562,6 +1562,16 @@
       text-transform:uppercase;
     }
 
+
+    /* POPUP PARTNER: centra la card ADVANT (in fondo) in modo che sia allineata al Main Sponsor */
+    @media (min-width: 681px){
+      #partnersModal .partners-grid .sponsor-item.partner-advant{
+        grid-column: 1 / -1;      /* prende tutta la riga */
+        justify-self: center;     /* e si centra */
+        width: min(100%, 260px);  /* evita che diventi “gigante” */
+      }
+    }
+
     /* Nota nel popup Partner: centrata anche come blocco (override della regola .modal-card p) */
     .modal-card p.partners-modal-note{
       margin:14px auto 0;
@@ -2416,7 +2426,7 @@
                   <div class="speakers-label">Relatori</div>
                   <ul class="speakers-list">
                     <li><strong>Stefano Pizzutelli</strong> <span class="speaker-meta">Presidente del Comitato Scientifico di Revilaw S.p.A.</span></li>
-                    <li><strong>Ulteriore relatore</strong><span class="speaker-note pending">da confermare</span></li>
+                    <li><strong>Mirco Comparini</strong> <span class="speaker-meta">Consulente al franchising di Revilaw S.p.A.</span></li>
                   </ul>
                 </div>
               </div>
@@ -2429,7 +2439,7 @@
             <p class="desc">Chiusura e indicazioni finali.</p>
 
                  <div class="speakers">
-                  <ul class="speakers-list">
+               
                   </ul>
                 </div>
               </div>
@@ -2583,6 +2593,13 @@
               </a>
             </div>
 
+            <div class="sponsor-item" style="--zoom:1.12;">
+              <a class="sponsor-link" href="https://www.bancodesio.it/it" target="_blank" rel="noopener noreferrer" aria-label="Apri sito sponsor">
+                <div class="sponsor-logo"><img loading="lazy" src="banco-desio.jpg" alt="BANCO DESIO"></div>
+                <div class="sponsor-file">BANCO DESIO</div>
+              </a>
+            </div>
+
             <div class="sponsor-item" style="--zoom:1.15;">
               <a class="sponsor-link" href="https://fiscalrevisione.it/" target="_blank" rel="noopener noreferrer" aria-label="Apri sito sponsor">
                 <div class="sponsor-logo"><img loading="lazy" src="fiscalrevisione.jpg" alt="FISCALREVISIONE"></div>
@@ -2672,13 +2689,20 @@
                 <div class="sponsor-logo"><img loading="lazy" src="EX%20MACHINA.JPG" alt=""></div>
                 <div class="sponsor-file">EX MACHINA</div>
               </a>
-               <div class="sponsor-item" aria-hidden="true" style="--zoom:1.35;">
+            </div>
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.35;">
               <a class="sponsor-link" href="https://www.bps.it/home" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-label="Apri sito sponsor">
                 <div class="sponsor-logo"><img loading="lazy" src="Banca%20Patrimoni%20Sella.jpg" alt=""></div>
                 <div class="sponsor-file">BANCA PATRIMONI SELLA</div>
               </a>
             </div>
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.12;">
+              <a class="sponsor-link" href="https://www.bancodesio.it/it" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-label="Apri sito sponsor">
+                <div class="sponsor-logo"><img loading="lazy" src="banco-desio.jpg" alt=""></div>
+                <div class="sponsor-file">BANCO DESIO</div>
+              </a>
             </div>
+
             <div class="sponsor-item" aria-hidden="true" style="--zoom:1.15;">
               <a class="sponsor-link" href="https://fiscalrevisione.it/" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-label="Apri sito sponsor">
                 <div class="sponsor-logo"><img loading="lazy" src="fiscalrevisione.jpg" alt=""></div>
@@ -3118,6 +3142,12 @@
                 <div class="sponsor-file">BANCA PATRIMONI SELLA</div>
               </a>
             </div>
+            <div class="sponsor-item" style="--zoom:1.12;">
+              <a class="sponsor-link" href="https://www.bancodesio.it/it" target="_blank" rel="noopener noreferrer" aria-label="BANCO DESIO (apre in una nuova scheda)">
+                <div class="sponsor-logo"><img loading="lazy" src="banco-desio.jpg" alt="BANCO DESIO"></div>
+                <div class="sponsor-file">BANCO DESIO</div>
+              </a>
+            </div>
             <div class="sponsor-item" style="--zoom:1.15;">
               <a class="sponsor-link" href="https://fiscalrevisione.it/" target="_blank" rel="noopener noreferrer" aria-label="FISCALREVISIONE (apre in una nuova scheda)">
                 <div class="sponsor-logo"><img loading="lazy" src="fiscalrevisione.jpg" alt="FISCALREVISIONE"></div>
@@ -3174,7 +3204,7 @@
                 <div class="sponsor-file">RUGGHIA & ASSOCIATI</div>
               </a>
             </div>
-            <div class="sponsor-item" style="--zoom:1.30;">
+            <div class="sponsor-item partner-advant" style="--zoom:1.30;">
               <a class="sponsor-link" href="https://www.advant-nctm.com/en/" target="_blank" rel="noopener noreferrer" aria-label="ADVANT NCTM (apre in una nuova scheda)">
                 <div class="sponsor-logo"><img loading="lazy" src="Advant%20(1).png" alt="ADVANT NCTM"></div>
                 <div class="sponsor-file">ADVANT NCTM</div>
