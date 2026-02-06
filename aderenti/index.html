@@ -515,7 +515,20 @@
       .modal-card{width:96vw; max-height: calc(100dvh - 20px);}
       .main-sponsor-logo img{ height:74px; }
     }
-  </style>
+  
+
+    /* =========================================================
+       PATCH: POPUP PARTNER (ADERENTI)
+       - ADVANT centrato (desktop) per allineamento verticale con "Il Sole 24 Ore"
+       ========================================================= */
+    @media (min-width: 681px){
+      #partnersModal .partners-grid .sponsor-item.partner-advant{
+        grid-column: 1 / -1;
+        justify-self: center;
+        width: min(100%, 260px);
+      }
+    }
+</style>
 </head>
 
 <body>
@@ -826,7 +839,8 @@
         <div class="sponsor-item"><a class="sponsor-link" href="https://www.presutto.com/" target="_blank" rel="noopener noreferrer"><div class="sponsor-logo"><img loading="lazy" src="presutto.jpg" alt="PRESUTTO"></div><div class="sponsor-file">PRESUTTO</div></a></div>
         <div class="sponsor-item"><a class="sponsor-link" href="https://www.projectclean.it/" target="_blank" rel="noopener noreferrer"><div class="sponsor-logo"><img loading="lazy" src="projectclean.jpg" alt="PROJECT CLEAN GROUP"></div><div class="sponsor-file">PROJECT CLEAN GROUP</div></a></div>
         <div class="sponsor-item"><a class="sponsor-link" href="https://rugghiaeassociati.com/" target="_blank" rel="noopener noreferrer"><div class="sponsor-logo"><img loading="lazy" src="RUGGHIA%20%26%20ASSOCIATI.jpg" alt="RUGGHIA &amp; ASSOCIATI"></div><div class="sponsor-file">RUGGHIA &amp; ASSOCIATI</div></a></div>
-        <div class="sponsor-item"><a class="sponsor-link" href="https://www.advant-nctm.com/en/" target="_blank" rel="noopener noreferrer"><div class="sponsor-logo"><img loading="lazy" src="Advant%20(1).png" alt="ADVANT NCTM"></div><div class="sponsor-file">ADVANT NCTM</div></a></div>
+                <div class="sponsor-item"><a class="sponsor-link" href="https://www.bancodesio.it/it" target="_blank" rel="noopener noreferrer"><div class="sponsor-logo"><img loading="lazy" src="banco-desio.jpg" alt="BANCO DESIO"></div><div class="sponsor-file">BANCO DESIO</div></a></div>
+<div class="sponsor-item partner-advant"><a class="sponsor-link" href="https://www.advant-nctm.com/en/" target="_blank" rel="noopener noreferrer"><div class="sponsor-logo"><img loading="lazy" src="Advant%20(1).png" alt="ADVANT NCTM"></div><div class="sponsor-file">ADVANT NCTM</div></a></div>
       </div>
 
       <p style="margin:14px auto 0; max-width:78ch; font-size:12px; color:var(--muted2); line-height:1.55; text-align:center;">
