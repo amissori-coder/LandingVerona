@@ -1978,7 +1978,7 @@
 
 
 /* =========================================================
-   PATCH: HEADER LOGHI PARTNER (Unindustria + Il Sole 24 Ore)
+   PATCH: HEADER LOGHI PARTNER (Il Sole 24 Ore)
    - fuori dal box (niente pill)
    - dimensioni omogenee
    - spazio coerente tra i loghi
@@ -2014,22 +2014,13 @@
     width:100%;
   }
 
-  #organizersLogos > img.unindustria,
-  #organizersLogos > #unindustriaBadge,
   #organizersLogos > #sole24TopLogo{
     height:46px !important;
     width:auto !important;
     object-fit:contain;
-  }
-
-  /* spinge il blocco partner a destra (Unindustria è il primo dei due) */
-  #organizersLogos > img.unindustria,
-  #organizersLogos > #unindustriaBadge{
     margin-left:auto !important;
   }
 
-  /* fallback badge coerente */
-  .unindustria-fallback{ height:46px; }
 }
 
 
@@ -2069,12 +2060,12 @@
         </div>
 
         <div class="topbar-right" aria-label="Azioni header">
-          <div class="partners no-select" id="unindustriaDesktopSlot" aria-label="Logo Unindustria">
+          <div class="partners no-select" id="unindustriaDesktopSlot" aria-label="Logo Il Sole 24 Ore">
             <img
-              id="unindustriaLogo"
-              class="unindustria"
-              src="Unindustria.jpg"
-              alt="Logo Unindustria"
+              id="sole24TopLogo"
+              class="sole24-top"
+              src="IlSole24ore.jpg"
+              alt="Il Sole 24 Ore"
               loading="eager"
               decoding="async"
             >
@@ -2426,7 +2417,7 @@
                   <div class="speakers-label">Relatori</div>
                   <ul class="speakers-list">
                     <li><strong>Stefano Pizzutelli</strong> <span class="speaker-meta">Presidente del Comitato Scientifico di Revilaw S.p.A.</span></li>
-                    <li><strong>Mirco Comparini</strong> <span class="speaker-meta">Consulente al franchising di Revilaw S.p.A.</span></li>
+                    <li><strong>Ulteriore relatore</strong><span class="speaker-note pending">da confermare</span></li>
                   </ul>
                 </div>
               </div>
@@ -3300,57 +3291,18 @@
       window.addEventListener('orientationchange', function(){ setTimeout(fitHero, 200); });
     })();
 
-  // sposta UNINDUSTRIA + IL SOLE 24 ORE (header) – fuori dal box + dimensioni omogenee
+  // sposta IL SOLE 24 ORE (header) tra desktop (a destra) e mobile (accanto ai loghi)
 (function(){
   var desktopSlot = document.getElementById('unindustriaDesktopSlot');
   var mobileSlot  = document.getElementById('organizersLogos');
-  if(!desktopSlot || !mobileSlot) return;
-
-  function getUnindustriaNode(){
-    return document.getElementById('unindustriaLogo') || document.getElementById('unindustriaBadge');
-  }
-
-  function getSoleNode(){
-    var img = document.getElementById('sole24TopLogo');
-    if(img) return img;
-
-    img = document.createElement('img');
-    img.id = 'sole24TopLogo';
-    img.className = 'sole24-top';
-    img.src = 'IlSole24ore.jpg';
-    img.alt = 'Il Sole 24 Ore';
-    img.loading = 'eager';
-    img.decoding = 'async';
-
-    img.style.width = 'auto';
-    img.style.objectFit = 'contain';
-    img.style.filter = 'contrast(1.05)';
-    img.style.pointerEvents = 'none';
-
-    return img;
-  }
+  var sole        = document.getElementById('sole24TopLogo');
+  if(!desktopSlot || !mobileSlot || !sole) return;
 
   function place(){
-    var uni = getUnindustriaNode();
-    if(!uni) return;
-
-    var sole = getSoleNode();
     var isMobile = window.matchMedia && window.matchMedia('(max-width: 680px)').matches;
-
-    // pulizia eventuale wrapper legacy
-    var rowExisting = document.getElementById('mobilePartnersRow');
-    if(rowExisting) rowExisting.remove();
-
-    // rimuovi qualsiasi altezza inline: le dimensioni le gestisce il CSS
-    sole.style.height = '';
-    if(uni.tagName === 'IMG') uni.style.height = '';
-
     if(isMobile){
-      // Ordine coerente: Unindustria poi Il Sole 24 Ore
-      mobileSlot.appendChild(uni);
       mobileSlot.appendChild(sole);
     }else{
-      desktopSlot.appendChild(uni);
       desktopSlot.appendChild(sole);
     }
   }
@@ -3359,6 +3311,7 @@
   addPassive(window, 'resize', place);
   addPassive(window, 'orientationchange', place);
 })();
+
 
 
 
