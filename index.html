@@ -2108,6 +2108,37 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
   }
 }
 
+
+/* Modal "teatro" (ingrandisci) — sempre in viewport, niente fullscreen nativo */
+#introVideoModal.is-theater{ --intro-ui: 150px; }
+#introVideoModal.is-theater .modal-badge,
+#introVideoModal.is-theater .intro-video-note,
+#introVideoModal.is-theater .modal-actions,
+#introVideoModal.is-theater .modal-head p{ display:none !important; }
+
+#introVideoModal.is-theater .modal-head{ padding-bottom: 2px; }
+
+#introVideoModal.is-theater .modal-card{
+  width: min(
+    740px,
+    96vw,
+    calc((100dvh - 20px - var(--intro-ui)) * 9 / 16)
+  );
+  max-height: calc(100dvh - 20px);
+}
+
+@supports not (height: 100dvh){
+  #introVideoModal.is-theater .modal-card{
+    width: min(
+      740px,
+      96vw,
+      calc((100vh - 20px - var(--intro-ui)) * 9 / 16)
+    );
+    max-height: calc(100vh - 20px);
+  }
+}
+
+
 /* Wrapper video responsive (ratio 9:16) */
 .intro-video-wrap{
   margin:12px auto 0;
@@ -2137,6 +2168,78 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
   object-fit: cover;
   background:#000;
 }
+
+
+/* Controlli custom (niente fullscreen nativo) */
+.intro-controls{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  z-index:6;
+  padding:10px 10px 12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background: linear-gradient(to top, rgba(0,0,0,.72), rgba(0,0,0,0));
+  opacity:0;
+  pointer-events:none;
+  transform: translateY(6px);
+  transition: opacity .18s var(--ease), transform .18s var(--ease);
+}
+.intro-video-wrap.is-playing .intro-controls,
+.intro-video-wrap.is-controls-visible .intro-controls{
+  opacity:1;
+  pointer-events:auto;
+  transform: translateY(0);
+}
+
+.intro-ctl{
+  width:40px;
+  height:40px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.22);
+  background: rgba(2,6,23,.38);
+  color:#fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  backdrop-filter: blur(6px);
+  -webkit-tap-highlight-color: transparent;
+}
+.intro-ctl:active{ transform: scale(.98); }
+
+.intro-ctl svg{ width:18px; height:18px; }
+.intro-ctl [data-icon]{ display:none; }
+
+.intro-pp.is-play [data-icon="play"]{ display:block; }
+.intro-pp.is-pause [data-icon="pause"]{ display:block; }
+
+.intro-mute.is-unmuted [data-icon="unmuted"]{ display:block; }
+.intro-mute.is-muted [data-icon="muted"]{ display:block; }
+
+.intro-theater.is-expand [data-icon="expand"]{ display:block; }
+.intro-theater.is-collapse [data-icon="collapse"]{ display:block; }
+
+.intro-seek{
+  flex:1;
+  min-width:0;
+  height:6px;
+  opacity:.95;
+  cursor:pointer;
+  accent-color: #ffffff;
+}
+.intro-time{
+  color: rgba(255,255,255,.90);
+  font-size:12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width:680px){
+  .intro-ctl{ width:38px; height:38px; }
+  .intro-time{ display:none; }
+}
+
 
 /* Preview (poster) prima del play */
 .intro-video-preview{
@@ -3067,11 +3170,14 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       <div class="intro-video-wrap" aria-label="Player video">
         <video
           id="introVideoVideo"
+          class="intro-video"
           title="Video di presentazione"
           data-src="NGB_27%20Marzo_LOW.mp4"
           preload="none"
           playsinline
-          controls
+          webkit-playsinline
+          controlslist="nodownload noplaybackrate nofullscreen"
+          disablepictureinpicture
           poster="VideoPreview.JPG"
         ></video>
         <button class="intro-video-preview" type="button" data-intro-play aria-label="Riproduci video">
@@ -3082,6 +3188,42 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
             </svg>
           </span>
         </button>
+
+        <div class="intro-controls" data-intro-controls aria-label="Controlli video">
+          <button class="intro-ctl intro-pp is-play" type="button" data-intro-pp aria-label="Riproduci">
+            <svg data-icon="play" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M10 8.5v7l6-3.5-6-3.5z" fill="currentColor"/>
+            </svg>
+            <svg data-icon="pause" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M7.5 6.5h3v11h-3zM13.5 6.5h3v11h-3z" fill="currentColor"/>
+            </svg>
+          </button>
+
+          <input class="intro-seek" type="range" min="0" max="1000" value="0" step="1" data-intro-seek aria-label="Avanzamento video">
+
+          <div class="intro-time" data-intro-time aria-hidden="true">0:00</div>
+
+          <button class="intro-ctl intro-mute is-unmuted" type="button" data-intro-mute aria-label="Disattiva audio">
+            <svg data-icon="unmuted" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/>
+              <path d="M15.5 8.5a3.5 3.5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M17.5 6a7 7 0 0 1 0 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <svg data-icon="muted" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/>
+              <path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+
+          <button class="intro-ctl intro-theater is-expand" type="button" data-intro-theater aria-label="Ingrandisci">
+            <svg data-icon="expand" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg data-icon="collapse" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 8h5V3M21 8h-5V3M21 16h-5v5M3 16h5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
 
       </div>
 
@@ -3703,6 +3845,161 @@ function introPreviewEl(){
   return document.querySelector('#introVideoModal .intro-video-preview');
 }
 
+function introWrapEl(){
+  return document.querySelector('#introVideoModal .intro-video-wrap');
+}
+function introSeekEl(){
+  return document.querySelector('#introVideoModal [data-intro-seek]');
+}
+function introPPBtn(){
+  return document.querySelector('#introVideoModal [data-intro-pp]');
+}
+function introMuteBtn(){
+  return document.querySelector('#introVideoModal [data-intro-mute]');
+}
+function introTheaterBtn(){
+  return document.querySelector('#introVideoModal [data-intro-theater]');
+}
+function introTimeEl(){
+  return document.querySelector('#introVideoModal [data-intro-time]');
+}
+
+function fmtTime(sec){
+  if(!isFinite(sec) || sec < 0) sec = 0;
+  sec = Math.floor(sec);
+  var m = Math.floor(sec / 60);
+  var s = sec % 60;
+  return m + ':' + (s < 10 ? '0' + s : String(s));
+}
+
+var introControlsBound = false;
+
+function syncIntroProgress(){
+  var v = introVideoEl();
+  var seek = introSeekEl();
+  if(!v || !seek) return;
+
+  var d = v.duration || 0;
+  if(!d || !isFinite(d)){
+    seek.value = '0';
+    var tt0 = introTimeEl();
+    if(tt0) tt0.textContent = '0:00';
+    return;
+  }
+
+  var val = Math.round((v.currentTime / d) * 1000);
+  seek.value = String(Math.max(0, Math.min(1000, val)));
+
+  var tt = introTimeEl();
+  if(tt) tt.textContent = fmtTime(v.currentTime) + ' / ' + fmtTime(d);
+}
+
+function syncIntroUi(){
+  var v = introVideoEl();
+  var wrap = introWrapEl();
+  if(wrap && v){
+    if(!v.paused && !v.ended) wrap.classList.add('is-playing');
+    else wrap.classList.remove('is-playing');
+  }
+
+  var pp = introPPBtn();
+  if(pp && v){
+    if(v.paused || v.ended){
+      pp.classList.add('is-play'); pp.classList.remove('is-pause');
+      pp.setAttribute('aria-label','Riproduci');
+    }else{
+      pp.classList.add('is-pause'); pp.classList.remove('is-play');
+      pp.setAttribute('aria-label','Pausa');
+    }
+  }
+
+  var mute = introMuteBtn();
+  if(mute && v){
+    var isMuted = (v.muted || v.volume === 0);
+    if(isMuted){
+      mute.classList.add('is-muted'); mute.classList.remove('is-unmuted');
+      mute.setAttribute('aria-label','Attiva audio');
+    }else{
+      mute.classList.add('is-unmuted'); mute.classList.remove('is-muted');
+      mute.setAttribute('aria-label','Disattiva audio');
+    }
+  }
+
+  var modal = document.getElementById('introVideoModal');
+  var th = introTheaterBtn();
+  if(modal && th){
+    var isTh = modal.classList.contains('is-theater');
+    if(isTh){
+      th.classList.add('is-collapse'); th.classList.remove('is-expand');
+      th.setAttribute('aria-label','Riduci');
+    }else{
+      th.classList.add('is-expand'); th.classList.remove('is-collapse');
+      th.setAttribute('aria-label','Ingrandisci');
+    }
+  }
+
+  syncIntroProgress();
+}
+
+function bindIntroControls(){
+  if(introControlsBound) return;
+  var v = introVideoEl();
+  if(!v) return;
+
+  introControlsBound = true;
+
+  v.addEventListener('loadedmetadata', syncIntroUi);
+  v.addEventListener('timeupdate', syncIntroProgress);
+  v.addEventListener('play', syncIntroUi);
+  v.addEventListener('pause', syncIntroUi);
+  v.addEventListener('volumechange', syncIntroUi);
+  v.addEventListener('ended', function(){
+    unloadIntroVideo();
+    resetIntroPreview();
+  });
+
+  // blocca il "doppio click => fullscreen" in alcuni browser
+  v.addEventListener('dblclick', function(ev){
+    ev.preventDefault();
+    toggleIntroTheater();
+  });
+}
+
+function toggleIntroPlayPause(){
+  var v = introVideoEl();
+  if(!v) return;
+
+  // se non è ancora stato caricato, avvia come “play”
+  if(!v.getAttribute('src')){
+    playIntroVideo();
+    return;
+  }
+
+  if(v.paused) {
+    var pr;
+    try{ pr = v.play(); }catch(e){ pr = null; }
+    if(pr && pr.catch){ pr.catch(function(){}); }
+  } else {
+    try{ v.pause(); }catch(e){}
+  }
+  syncIntroUi();
+}
+
+function toggleIntroMute(){
+  var v = introVideoEl();
+  if(!v) return;
+  v.muted = !v.muted;
+  syncIntroUi();
+}
+
+function toggleIntroTheater(){
+  var modal = document.getElementById('introVideoModal');
+  if(!modal) return;
+  modal.classList.toggle('is-theater');
+  syncIntroUi();
+  fitModal('introVideoModal');
+}
+
 function resetIntroPreview(){
   var p = introPreviewEl();
   if(p) p.classList.remove('is-hidden');
@@ -3724,6 +4021,7 @@ function loadIntroVideo(){
 function playIntroVideo(){
   var v = introVideoEl();
   if(!v) return;
+  bindIntroControls();
   loadIntroVideo();
 
   // nasconde il poster custom
@@ -3734,11 +4032,18 @@ function playIntroVideo(){
   var pr;
   try{ pr = v.play(); }catch(e){ pr = null; }
   if(pr && pr.catch){ pr.catch(function(){}); }
+  syncIntroUi();
 }
 
 function unloadIntroVideo(){
   var v = introVideoEl();
   if(!v) return;
+  var wrap = introWrapEl();
+  if(wrap){ wrap.classList.remove('is-playing'); wrap.classList.remove('is-controls-visible'); }
+  var seek = introSeekEl();
+  if(seek) seek.value = '0';
+  var tt = introTimeEl();
+  if(tt) tt.textContent = '0:00';
   try{ v.pause(); }catch(e){}
   try{ v.currentTime = 0; }catch(e){}
   // scarica il file dalla pipeline di rete
@@ -3756,6 +4061,8 @@ function shouldAutoShowIntroVideo(){
 function openIntroVideoModal(force){
   if(!force && !shouldAutoShowIntroVideo()) return;
   openModal('introVideoModal');
+  var mm = document.getElementById('introVideoModal');
+  if(mm) mm.classList.remove('is-theater');
   // stato “pulito” ogni apertura
   unloadIntroVideo();
   resetIntroPreview();
@@ -3767,6 +4074,8 @@ function openIntroVideoModal(force){
 
 function closeIntroVideoModal(){
   unloadIntroVideo();
+  var mm = document.getElementById('introVideoModal');
+  if(mm) mm.classList.remove('is-theater');
   closeModal('introVideoModal');
 }
 
@@ -3790,6 +4099,26 @@ document.addEventListener('click', function(e){
         return;
       }
 
+      // Controlli video (play/pause, audio, ingrandisci)
+      var ppBtn = (el.closest ? el.closest('[data-intro-pp]') : null);
+      if(ppBtn){
+        e.preventDefault();
+        toggleIntroPlayPause();
+        return;
+      }
+      var muteBtn = (el.closest ? el.closest('[data-intro-mute]') : null);
+      if(muteBtn){
+        e.preventDefault();
+        toggleIntroMute();
+        return;
+      }
+      var thBtn = (el.closest ? el.closest('[data-intro-theater]') : null);
+      if(thBtn){
+        e.preventDefault();
+        toggleIntroTheater();
+        return;
+      }
+
       // Apri popup Partner (es. dal link nel consenso)
       var opener = (el.closest ? el.closest('[data-open-partners]') : null);
       if(opener){
@@ -3807,6 +4136,29 @@ document.addEventListener('click', function(e){
       if(which === 'partners') closeModal('partnersModal');
       if(which === 'introVideo') closeIntroVideoModal();
     });
+
+
+document.addEventListener('input', function(e){
+  var el = e.target;
+  if(!el) return;
+  if(!(el.matches ? el.matches('[data-intro-seek]') : false)) return;
+
+  var v = introVideoEl();
+  if(!v) return;
+
+  // se il video non è stato caricato, caricalo (senza autoplay) e lascia la preview visibile
+  if(!v.getAttribute('src')) loadIntroVideo();
+
+  var d = v.duration || 0;
+  if(!d || !isFinite(d)) return;
+
+  var val = parseInt(el.value, 10);
+  if(!isFinite(val)) return;
+  val = Math.max(0, Math.min(1000, val));
+  try{ v.currentTime = (val / 1000) * d; }catch(err){}
+  syncIntroProgress();
+});
+
 
         document.addEventListener('keydown', function(e){
       if(e.key !== 'Escape') return;
