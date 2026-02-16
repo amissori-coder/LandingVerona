@@ -2128,14 +2128,14 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
   padding-top: var(--intro-video-padding);
 }
 
-.intro-video-wrap iframe{
+.intro-video-wrap video{
   position:absolute;
   inset:0;
   width:100%;
   height:100%;
-  border:0;
   display:block;
-  background:transparent;
+  object-fit: cover;
+  background:#000;
 }
 
 /* Preview (poster) prima del play */
@@ -2202,18 +2202,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
   opacity:0;
   pointer-events:none;
   transition: opacity .25s var(--ease);
-}
-
-/* Click-shield INVISIBILE: blocca solo l'icona "apri in nuova scheda" di Drive (se presente) */
-.drive-clickshield{
-  position:absolute;
-  top:0;
-  right:0;
-  width:96px;
-  height:56px;
-  background: transparent;
-  pointer-events:auto;
-  z-index:3;
 }
 
 .intro-video-note{
@@ -3077,16 +3065,15 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       </div>
 
       <div class="intro-video-wrap" aria-label="Player video">
-        <iframe
-          id="introVideoFrame"
+        <video
+          id="introVideoVideo"
           title="Video di presentazione"
-          data-src="https://drive.google.com/file/d/1_fwNV9fgDE0Y_jfi0hVrR2GXa6FjEbv9/preview"
-          src="about:blank"
-          allow="autoplay; fullscreen"
-          allowfullscreen
-          referrerpolicy="strict-origin-when-cross-origin"
-        ></iframe>
-        <div class="drive-clickshield" aria-hidden="true"></div>
+          data-src="NGB_27%20Marzo_LOW.mp4"
+          preload="none"
+          playsinline
+          controls
+          poster="VideoPreview.JPG"
+        ></video>
         <button class="intro-video-preview" type="button" data-intro-play aria-label="Riproduci video">
           <img src="VideoPreview.JPG" alt="" loading="eager" decoding="async">
           <span class="intro-play-btn" aria-hidden="true">
@@ -3099,7 +3086,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       </div>
 
       <div class="intro-video-note">
-        Tocca l’immagine per avviare il video. Se non parte subito, premi <strong>Play</strong> nel player.
+        Tocca l’immagine per avviare il video.
       </div>
 
       <div class="modal-actions">
@@ -3708,90 +3695,86 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
        =============================== */
     var INTRO_VIDEO_SEEN_KEY = 'ngb_intro_video_seen';
 
-    function introVideoFrame(){
-      return document.getElementById('introVideoFrame');
-    }
+function introVideoEl(){
+  return document.getElementById('introVideoVideo');
+}
 
-    function introPreviewEl(){
-      return document.querySelector('#introVideoModal .intro-video-preview');
-    }
+function introPreviewEl(){
+  return document.querySelector('#introVideoModal .intro-video-preview');
+}
 
-    function resetIntroPreview(){
-      var p = introPreviewEl();
-      if(p) p.classList.remove('is-hidden');
-    }
+function resetIntroPreview(){
+  var p = introPreviewEl();
+  if(p) p.classList.remove('is-hidden');
+}
 
-    function buildIntroVideoSrc(autoplay){
-      var f = introVideoFrame();
-      if(!f) return '';
-      var base = (f.getAttribute('data-src') || '').trim();
-      if(!base) return '';
-      if(!autoplay) return base;
+function loadIntroVideo(){
+  var v = introVideoEl();
+  if(!v) return;
+  var src = (v.getAttribute('data-src') || '').trim();
+  if(!src) return;
 
-      // aggiunge autoplay=1 in modo robusto
-      if(base.indexOf('?') === -1) return base + '?autoplay=1';
-      if(/(^|[?&])autoplay=/.test(base)) return base;
-      return base + '&autoplay=1';
-    }
+  // Evita ricarichi inutili
+  if(v.getAttribute('src') === src) return;
 
-    function loadIntroVideo(autoplay){
-      var f = introVideoFrame();
-      if(!f) return;
-      var src = buildIntroVideoSrc(!!autoplay);
-      if(!src) return;
-      if(f.getAttribute('src') === src) return;
-      f.setAttribute('src', src);
-    }
+  v.setAttribute('src', src);
+  try{ v.load(); }catch(e){}
+}
 
-    function unloadIntroVideo(){
-      var f = introVideoFrame();
-      if(!f) return;
-      // Svuota il player per fermare il playback quando chiudi il popup
-      f.setAttribute('src', 'about:blank');
-    }
+function playIntroVideo(){
+  var v = introVideoEl();
+  if(!v) return;
+  loadIntroVideo();
 
-    function shouldAutoShowIntroVideo(){
-      try{
-        if(sessionStorage.getItem(INTRO_VIDEO_SEEN_KEY) === '1') return false;
-      }catch(e){}
-      return true;
-    }
+  // nasconde il poster custom
+  var p = introPreviewEl();
+  if(p) p.classList.add('is-hidden');
 
-    function openIntroVideoModal(force){
-      if(!force && !shouldAutoShowIntroVideo()) return;
+  // tenta la riproduzione (dopo gesto utente => ok anche con audio)
+  var pr;
+  try{ pr = v.play(); }catch(e){ pr = null; }
+  if(pr && pr.catch){ pr.catch(function(){}); }
+}
 
-      // sempre: ripristina poster + ferma eventuale playback precedente
-      unloadIntroVideo();
-      resetIntroPreview();
+function unloadIntroVideo(){
+  var v = introVideoEl();
+  if(!v) return;
+  try{ v.pause(); }catch(e){}
+  try{ v.currentTime = 0; }catch(e){}
+  // scarica il file dalla pipeline di rete
+  v.removeAttribute('src');
+  try{ v.load(); }catch(e){}
+}
 
-      openModal('introVideoModal');
+function shouldAutoShowIntroVideo(){
+  try{
+    if(sessionStorage.getItem(INTRO_VIDEO_SEEN_KEY) === '1') return false;
+  }catch(e){}
+  return true;
+}
 
-      try{ sessionStorage.setItem(INTRO_VIDEO_SEEN_KEY, '1'); }catch(e){}
-      var closeBtn = document.querySelector('#introVideoModal .modal-close');
-      if(closeBtn){ try{ closeBtn.focus(); }catch(e){} }
-    }
+function openIntroVideoModal(force){
+  if(!force && !shouldAutoShowIntroVideo()) return;
+  openModal('introVideoModal');
+  // stato “pulito” ogni apertura
+  unloadIntroVideo();
+  resetIntroPreview();
 
-    function closeIntroVideoModal(){
-      unloadIntroVideo();
-      resetIntroPreview();
-      closeModal('introVideoModal');
-    }
+  try{ sessionStorage.setItem(INTRO_VIDEO_SEEN_KEY, '1'); }catch(e){}
+  var closeBtn = document.querySelector('#introVideoModal .modal-close');
+  if(closeBtn){ try{ closeBtn.focus(); }catch(e){} }
+}
 
-    function playIntroVideo(){
-      // Nasconde il poster e carica il player.
-      // Autoplay provato solo dopo gesto utente (click/tap) -> molto più affidabile.
-      var p = introPreviewEl();
-      if(p) p.classList.add('is-hidden');
+function closeIntroVideoModal(){
+  unloadIntroVideo();
+  closeModal('introVideoModal');
+}
 
-      // carica con autoplay=1; se il browser lo blocca, l'utente può comunque premere Play nel player
-      loadIntroVideo(true);
-    }
-
-    // Apertura automatica all'avvio (solo 1 volta per sessione / tab)
-    window.addEventListener('load', function(){
-      if(!shouldAutoShowIntroVideo()) return;
-      setTimeout(function(){ openIntroVideoModal(false); }, 650);
-    });
+// Apertura automatica all'avvio (solo 1 volta per sessione / tab)
+window.addEventListener('load', function(){
+  if(!shouldAutoShowIntroVideo()) return;
+  setTimeout(function(){ openIntroVideoModal(false); }, 650);
+});
 
 
 
