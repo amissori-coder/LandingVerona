@@ -2061,14 +2061,57 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
    INTRO VIDEO MODAL (apertura)
    =============================== */
 
-/* Popup più compatto per video verticale */
+/*
+  Obiettivo: video verticale (9:16) sempre “in viewport” senza necessità di scroll.
+  La larghezza del popup viene limitata in base all’altezza disponibile.
+*/
+
+#introVideoModal{
+  /* Spazio “non video” stimato (badge + titolo + nota + pulsante + padding) */
+  --intro-ui: 260px;
+}
+
+/* Mobile: UI più compatta */
+@media (max-width:680px){
+  #introVideoModal{ --intro-ui: 228px; }
+}
+
+/* Schermi bassi (landscape / device piccoli): taglia testi non essenziali */
+@media (max-height:700px){
+  #introVideoModal{ --intro-ui: 175px; }
+  #introVideoModal .modal-head p{ display:none; }
+  #introVideoModal .intro-video-note{ display:none; }
+}
+
+/* Popup dimensionato per NON superare l’altezza visibile */
 #introVideoModal .modal-card{
-  width: min(520px, 94vw);
+  width: min(
+    520px,
+    94vw,
+    calc((100dvh - 28px - var(--intro-ui)) * 9 / 16)
+  );
+  max-height: calc(100dvh - 28px);
+  overflow: hidden; /* evita scroll dentro il popup */
+  display:flex;
+  flex-direction:column;
+}
+
+/* Fallback browser senza dvh */
+@supports not (height: 100dvh){
+  #introVideoModal .modal-card{
+    width: min(
+      520px,
+      94vw,
+      calc((100vh - 28px - var(--intro-ui)) * 9 / 16)
+    );
+    max-height: calc(100vh - 28px);
+  }
 }
 
 /* Wrapper video responsive (ratio 9:16) */
 .intro-video-wrap{
-  margin-top:12px;
+  margin:12px auto 0;
+  width:100%;
   border-radius:22px;
   overflow:hidden;
   background:#0b1224;
@@ -2182,10 +2225,10 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 }
 
 @media (max-width:680px){
-  #introVideoModal .modal-card{ width:96vw; }
-  .intro-video-wrap{ border-radius:18px; }
+  .intro-video-wrap{ border-radius:18px; margin-top:10px; }
   .intro-play-btn{ width:68px; height:68px; }
 }
+
 
 
 </style>
