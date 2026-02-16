@@ -2186,7 +2186,8 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
   transition: opacity .18s var(--ease), transform .18s var(--ease);
 }
 .intro-video-wrap.is-playing .intro-controls,
-.intro-video-wrap.is-controls-visible .intro-controls{
+.intro-video-wrap.is-controls-visible .intro-controls,
+.intro-video-wrap.is-paused .intro-controls{
   opacity:1;
   pointer-events:auto;
   transform: translateY(0);
@@ -3148,12 +3149,10 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
     <!-- MODAL VIDEO PRESENTAZIONE (apertura pagina) -->
   <div class="modal" id="introVideoModal" role="dialog" aria-modal="true" aria-hidden="true">
-    <div class="modal-backdrop" data-close-modal="introVideo"></div>
+    <div class="modal-backdrop" aria-hidden="true"></div>
 
     <div class="modal-card" role="document" aria-label="Video di presentazione">
-      <button class="modal-close" type="button" aria-label="Chiudi" data-close-modal="introVideo">×</button>
-
-      <div class="modal-badge">VIDEO PRESENTAZIONE</div>
+<div class="modal-badge">VIDEO PRESENTAZIONE</div>
 
       <div class="modal-head">
         <div class="modal-icon" aria-hidden="true">
@@ -3163,7 +3162,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
         </div>
         <div>
           <h3>Guarda il video di presentazione</h3>
-          <p>Puoi chiuderlo in qualsiasi momento e continuare la navigazione.</p>
+          <p>Premi “Continua al sito” per proseguire.</p>
         </div>
       </div>
 
@@ -3874,6 +3873,33 @@ function fmtTime(sec){
 
 var introControlsBound = false;
 
+var introCtlTimer = null;
+
+function introShowControls(persist){
+  var wrap = introWrapEl();
+  if(!wrap) return;
+  wrap.classList.add('is-controls-visible');
+
+  if(introCtlTimer){ clearTimeout(introCtlTimer); introCtlTimer = null; }
+
+  var v = introVideoEl();
+  if(!persist && v && !v.paused && !v.ended){
+    introCtlTimer = setTimeout(function(){
+      var w = introWrapEl();
+      var vv = introVideoEl();
+      if(w && vv && !vv.paused && !vv.ended){
+        w.classList.remove('is-controls-visible');
+      }
+    }, 2200);
+  }
+}
+
+function introClearControlsTimer(){
+  if(introCtlTimer){ clearTimeout(introCtlTimer); introCtlTimer = null; }
+}
+
+
+
 function syncIntroProgress(){
   var v = introVideoEl();
   var seek = introSeekEl();
@@ -3898,11 +3924,20 @@ function syncIntroUi(){
   var v = introVideoEl();
   var wrap = introWrapEl();
   if(wrap && v){
-    if(!v.paused && !v.ended) wrap.classList.add('is-playing');
-    else wrap.classList.remove('is-playing');
+    var playing = (!v.paused && !v.ended);
+    if(playing){
+      wrap.classList.add('is-playing');
+      wrap.classList.remove('is-paused');
+      // non forziamo qui la visibilità: la gestisce introShowControls()
+    }else{
+      wrap.classList.remove('is-playing');
+      wrap.classList.add('is-paused');
+      // quando è in pausa, i controlli devono rimanere visibili
+      wrap.classList.add('is-controls-visible');
+    }
   }
 
-  var pp = introPPBtn();
+var pp = introPPBtn();
   if(pp && v){
     if(v.paused || v.ended){
       pp.classList.add('is-play'); pp.classList.remove('is-pause');
@@ -3950,8 +3985,8 @@ function bindIntroControls(){
 
   v.addEventListener('loadedmetadata', syncIntroUi);
   v.addEventListener('timeupdate', syncIntroProgress);
-  v.addEventListener('play', syncIntroUi);
-  v.addEventListener('pause', syncIntroUi);
+  v.addEventListener('play', function(){ syncIntroUi(); introShowControls(false); });
+  v.addEventListener('pause', function(){ syncIntroUi(); introShowControls(true); });
   v.addEventListener('volumechange', syncIntroUi);
   v.addEventListener('ended', function(){
     unloadIntroVideo();
@@ -3963,6 +3998,23 @@ function bindIntroControls(){
     ev.preventDefault();
     toggleIntroTheater();
   });
+
+  // Mostra i controlli quando l’utente interagisce col video (mobile/desktop)
+  var wrap = introWrapEl();
+  if(wrap){
+    var show = function(ev){
+      // se l'utente sta cliccando sui controlli, non fare nulla qui
+      if(ev && ev.target && ev.target.closest && ev.target.closest('.intro-controls')) return;
+      var vv = introVideoEl();
+      if(vv && (vv.paused || vv.ended)) introShowControls(true);
+      else introShowControls(false);
+    };
+    ['pointermove','mousemove','touchstart','click'].forEach(function(evt){
+      try{ wrap.addEventListener(evt, show, {passive:true}); }catch(e){ wrap.addEventListener(evt, show); }
+    });
+  }
+
+
 }
 
 function toggleIntroPlayPause(){
@@ -3982,6 +4034,8 @@ function toggleIntroPlayPause(){
   } else {
     try{ v.pause(); }catch(e){}
   }
+  // dopo un comando, mantieni i controlli visibili
+  try{ introShowControls(v.paused || v.ended); }catch(e){}
   syncIntroUi();
 }
 
@@ -3989,6 +4043,7 @@ function toggleIntroMute(){
   var v = introVideoEl();
   if(!v) return;
   v.muted = !v.muted;
+  try{ introShowControls(true); }catch(e){}
   syncIntroUi();
 }
 
@@ -3996,6 +4051,7 @@ function toggleIntroTheater(){
   var modal = document.getElementById('introVideoModal');
   if(!modal) return;
   modal.classList.toggle('is-theater');
+  try{ introShowControls(true); }catch(e){}
   syncIntroUi();
   fitModal('introVideoModal');
 }
@@ -4032,6 +4088,7 @@ function playIntroVideo(){
   var pr;
   try{ pr = v.play(); }catch(e){ pr = null; }
   if(pr && pr.catch){ pr.catch(function(){}); }
+  introShowControls(false);
   syncIntroUi();
 }
 
@@ -4039,7 +4096,8 @@ function unloadIntroVideo(){
   var v = introVideoEl();
   if(!v) return;
   var wrap = introWrapEl();
-  if(wrap){ wrap.classList.remove('is-playing'); wrap.classList.remove('is-controls-visible'); }
+  introClearControlsTimer();
+  if(wrap){ wrap.classList.remove('is-playing'); wrap.classList.remove('is-paused'); wrap.classList.remove('is-controls-visible'); }
   var seek = introSeekEl();
   if(seek) seek.value = '0';
   var tt = introTimeEl();
@@ -4068,8 +4126,8 @@ function openIntroVideoModal(force){
   resetIntroPreview();
 
   try{ sessionStorage.setItem(INTRO_VIDEO_SEEN_KEY, '1'); }catch(e){}
-  var closeBtn = document.querySelector('#introVideoModal .modal-close');
-  if(closeBtn){ try{ closeBtn.focus(); }catch(e){} }
+  var contBtn = document.querySelector('#introVideoModal [data-close-modal="introVideo"]');
+  if(contBtn){ try{ contBtn.focus(); }catch(e){} }
 }
 
 function closeIntroVideoModal(){
@@ -4162,12 +4220,6 @@ document.addEventListener('input', function(e){
 
         document.addEventListener('keydown', function(e){
       if(e.key !== 'Escape') return;
-
-      var intro = document.getElementById('introVideoModal');
-      if(intro && intro.classList.contains('show')){
-        closeIntroVideoModal();
-        return;
-      }
 
       var partners = document.getElementById('partnersModal');
       if(partners && partners.classList.contains('show')){
