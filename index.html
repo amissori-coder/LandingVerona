@@ -3152,6 +3152,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     <div class="modal-backdrop" aria-hidden="true"></div>
 
     <div class="modal-card" role="document" aria-label="Video di presentazione">
+      <button class="modal-close" type="button" aria-label="Chiudi" data-close-modal="introVideo">×</button>
 <div class="modal-badge">VIDEO PRESENTAZIONE</div>
 
       <div class="modal-head">
@@ -4126,7 +4127,7 @@ function openIntroVideoModal(force){
   resetIntroPreview();
 
   try{ sessionStorage.setItem(INTRO_VIDEO_SEEN_KEY, '1'); }catch(e){}
-  var contBtn = document.querySelector('#introVideoModal [data-close-modal="introVideo"]');
+  var contBtn = document.querySelector('#introVideoModal .modal-actions [data-close-modal="introVideo"]');
   if(contBtn){ try{ contBtn.focus(); }catch(e){} }
 }
 
