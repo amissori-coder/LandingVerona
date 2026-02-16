@@ -2057,6 +2057,58 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 }
 
 
+/* ===============================
+   INTRO VIDEO MODAL (apertura)
+   =============================== */
+.intro-video-wrap{
+  margin-top:12px;
+  border-radius:22px;
+  overflow:hidden;
+  background:#ffffff;
+  border:1px solid rgba(15,23,42,.10);
+  box-shadow: 0 18px 36px rgba(2,6,23,.14);
+  position:relative;
+  --intro-video-padding: 56.25%;
+}
+/* Ratio dinamico (default 16:9) */
+.intro-video-wrap::before{
+  content:"";
+  display:block;
+  padding-top: var(--intro-video-padding);
+}
+.intro-video-wrap iframe{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  border:0;
+  display:block;
+  background:transparent;
+}
+.intro-video-note{
+  margin:10px 4px 0;
+  color: var(--muted2);
+  font-size:12px;
+  line-height:1.45;
+  text-align:center;
+}
+.drive-hide-corner{
+  position:absolute;
+  top:0;
+  right:0;
+  width:92px;
+  height:50px;
+  background: rgba(2,6,23,.42);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom-left-radius: 18px;
+  pointer-events:auto; /* blocca click sul pulsante Drive */
+}
+
+@media (max-width:680px){
+  .intro-video-wrap{ border-radius:18px; }
+}
+
 </style>
 
 
@@ -2881,6 +2933,50 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 </div>
   </footer>
 
+    <!-- MODAL VIDEO PRESENTAZIONE (apertura pagina) -->
+  <div class="modal" id="introVideoModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="introVideo"></div>
+
+    <div class="modal-card" role="document" aria-label="Video di presentazione">
+      <button class="modal-close" type="button" aria-label="Chiudi" data-close-modal="introVideo">×</button>
+
+      <div class="modal-badge">VIDEO PRESENTAZIONE</div>
+
+      <div class="modal-head">
+        <div class="modal-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M8 5v14l11-7-11-7z" fill="currentColor"/>
+          </svg>
+        </div>
+        <div>
+          <h3>Guarda il video di presentazione</h3>
+          <p>Puoi chiuderlo in qualsiasi momento e continuare la navigazione.</p>
+        </div>
+      </div>
+
+      <div class="intro-video-wrap" aria-label="Player video">
+        <iframe
+          id="introVideoFrame"
+          title="Video di presentazione"
+          data-src="https://drive.google.com/file/d/1_fwNV9fgDE0Y_jfi0hVrR2GXa6FjEbv9/preview?autoplay=1"
+          src="about:blank"
+          allow="autoplay; fullscreen"
+          allowfullscreen
+          referrerpolicy="strict-origin-when-cross-origin"
+        ></iframe>
+        <div class="drive-hide-corner" aria-hidden="true"></div>
+      </div>
+
+      <div class="intro-video-note">
+        Se il video non parte automaticamente, premi <strong>Play</strong> nel player.
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn primary" type="button" data-close-modal="introVideo">Continua al sito</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ✅ IFRAME NASCOSTO: serve per inviare il POST senza CORS -->
   <iframe name="sheet_sink" style="display:none;width:0;height:0;border:0" aria-hidden="true"></iframe>
 
@@ -3476,7 +3572,63 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       document.documentElement.style.setProperty('--modalScale', '1');
     }
 
-    document.addEventListener('click', function(e){
+    /* ===============================
+       INTRO VIDEO MODAL (apertura)
+       =============================== */
+    var INTRO_VIDEO_SEEN_KEY = 'ngb_intro_video_seen';
+
+    function introVideoFrame(){
+      return document.getElementById('introVideoFrame');
+    }
+
+    function loadIntroVideo(){
+      var f = introVideoFrame();
+      if(!f) return;
+      var src = f.getAttribute('data-src') || '';
+      if(!src) return;
+      if(f.getAttribute('src') === src) return;
+      f.setAttribute('src', src);
+    }
+
+    function unloadIntroVideo(){
+      var f = introVideoFrame();
+      if(!f) return;
+      // Svuota il player per fermare il playback quando chiudi il popup
+      f.setAttribute('src', 'about:blank');
+    }
+
+    function shouldAutoShowIntroVideo(){
+      try{
+        if(sessionStorage.getItem(INTRO_VIDEO_SEEN_KEY) === '1') return false;
+      }catch(e){}
+      return true;
+    }
+
+    function openIntroVideoModal(force){
+      if(!force && !shouldAutoShowIntroVideo()) return;
+      openModal('introVideoModal');
+
+      // Nota: l'autoplay in iframe può essere limitato da browser/OS.
+      // Carichiamo comunque il player subito; se non parte, basta premere Play.
+      setTimeout(loadIntroVideo, 60);
+
+      try{ sessionStorage.setItem(INTRO_VIDEO_SEEN_KEY, '1'); }catch(e){}
+      var closeBtn = document.querySelector('#introVideoModal .modal-close');
+      if(closeBtn){ try{ closeBtn.focus(); }catch(e){} }
+    }
+
+    function closeIntroVideoModal(){
+      unloadIntroVideo();
+      closeModal('introVideoModal');
+    }
+
+    // Apertura automatica all'avvio (solo 1 volta per sessione / tab)
+    window.addEventListener('load', function(){
+      if(!shouldAutoShowIntroVideo()) return;
+      setTimeout(function(){ openIntroVideoModal(false); }, 650);
+    });
+
+document.addEventListener('click', function(e){
       var el = e.target;
       if(!el) return;
 
@@ -3495,10 +3647,17 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       if(which === 'signup') closeModal('signupModal');
       if(which === 'thanks') closeModal('thanksModal');
       if(which === 'partners') closeModal('partnersModal');
+      if(which === 'introVideo') closeIntroVideoModal();
     });
 
-    document.addEventListener('keydown', function(e){
+        document.addEventListener('keydown', function(e){
       if(e.key !== 'Escape') return;
+
+      var intro = document.getElementById('introVideoModal');
+      if(intro && intro.classList.contains('show')){
+        closeIntroVideoModal();
+        return;
+      }
 
       var partners = document.getElementById('partnersModal');
       if(partners && partners.classList.contains('show')){
@@ -3517,7 +3676,10 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       }
     });
 
-    addPassive(window, 'resize', function(){
+        addPassive(window, 'resize', function(){
+      var v = document.getElementById('introVideoModal');
+      if(v && v.classList.contains('show')) fitModal('introVideoModal');
+
       var s = document.getElementById('signupModal');
       if(s && s.classList.contains('show')) fitModal('signupModal');
       var t = document.getElementById('thanksModal');
