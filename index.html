@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="it">
 <head>
   <!-- Google tag (gtag.js) -->
@@ -2625,6 +2625,76 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
   }
 }
 
+
+/* ===============================
+   ESG VIDEO MODAL
+   Stesse caratteristiche del video in apertura landing
+   =============================== */
+
+#esgVideoModal{
+  --intro-ui: 260px; /* spazio UI sopra/sotto video */
+}
+@media (max-width:680px){
+  #esgVideoModal{ --intro-ui: 228px; }
+}
+@media (max-height:700px){
+  #esgVideoModal{ --intro-ui: 175px; }
+  #esgVideoModal .modal-head p{ display:none; }
+  #esgVideoModal .intro-video-note{ display:none; }
+}
+
+#esgVideoModal .modal-card{
+  width: min(
+    520px,
+    94vw,
+    calc((100dvh - 28px - var(--intro-ui)) * 9 / 16)
+  );
+  max-height: calc(100dvh - 28px);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+
+@supports not (height: 100dvh){
+  #esgVideoModal .modal-card{
+    width: min(
+      520px,
+      94vw,
+      calc((100vh - 28px - var(--intro-ui)) * 9 / 16)
+    );
+    max-height: calc(100vh - 28px);
+  }
+}
+
+/* Modal "teatro" (ingrandisci) */
+#esgVideoModal.is-theater{ --intro-ui: 150px; }
+#esgVideoModal.is-theater .modal-badge,
+#esgVideoModal.is-theater .intro-video-note,
+#esgVideoModal.is-theater .modal-actions,
+#esgVideoModal.is-theater .modal-head p{ display:none !important; }
+
+#esgVideoModal.is-theater .modal-head{ padding-bottom: 2px; }
+
+#esgVideoModal.is-theater .modal-card{
+  width: min(
+    740px,
+    96vw,
+    calc((100dvh - 20px - var(--intro-ui)) * 9 / 16)
+  );
+  max-height: calc(100dvh - 20px);
+}
+@supports not (height: 100dvh){
+  #esgVideoModal.is-theater .modal-card{
+    width: min(
+      740px,
+      96vw,
+      calc((100vh - 20px - var(--intro-ui)) * 9 / 16)
+    );
+    max-height: calc(100vh - 20px);
+  }
+}
+
+
 </style>
 
 
@@ -2853,7 +2923,19 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
             <div class="slot">
               <div class="time">09:45</div>
               <div>
-                <p class="topic">Sostenibilità ed ESG</p>
+                <p class="topic has-play"><span class="topic-text">Sostenibilità ed ESG</span>
+                  <button type="button"
+                          class="agenda-play-btn"
+                          data-open-esg-video="1"
+                          aria-haspopup="dialog"
+                          aria-controls="esgVideoModal"
+                          aria-label="Riproduci il video: Tavola rotonda Sostenibilità ed ESG"
+                          title="Guarda il video">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M8 5v14l11-7-11-7z" fill="currentColor"/>
+                    </svg>
+                  </button>
+                </p>
                 <p class="desc">Impatto su mercato, reputazione e credito.</p>
 
                 <div class="speakers">
@@ -3738,6 +3820,100 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       </div>
     </div>
   </div>
+
+
+  <!-- MODAL VIDEO TAVOLA ROTONDA (ESG) -->
+  <div class="modal" id="esgVideoModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal-backdrop" aria-hidden="true"></div>
+
+    <div class="modal-card" role="document" aria-label="Video tavola rotonda: Sostenibilità ed ESG">
+      <button class="modal-close" type="button" aria-label="Chiudi" data-close-modal="esgVideo">×</button>
+
+      <div class="modal-badge">VIDEO TAVOLA ROTONDA</div>
+
+      <div class="modal-head">
+        <div class="modal-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M8 5v14l11-7-11-7z" fill="currentColor"/>
+          </svg>
+        </div>
+        <div>
+          <h3>Sostenibilità ed ESG</h3>
+          <p>Guarda il video della tavola rotonda.</p>
+        </div>
+      </div>
+
+      <div class="intro-video-wrap" aria-label="Player video">
+        <video
+          id="esgVideoVideo"
+          class="intro-video"
+          title="Video tavola rotonda ESG"
+          data-src="Verona_27%20marzo_Natu_low.mp4"
+          preload="none"
+          playsinline
+          webkit-playsinline
+          controlslist="nodownload noplaybackrate nofullscreen"
+          disablepictureinpicture
+          poster="Cover_ESG.jpg"
+        ></video>
+
+        <button class="intro-video-preview" type="button" data-esg-play aria-label="Riproduci video">
+          <img src="Cover_ESG.jpg" alt="" loading="eager" decoding="async">
+          <span class="intro-play-btn" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M10 8.5v7l6-3.5-6-3.5z" fill="currentColor"/>
+            </svg>
+          </span>
+        </button>
+
+        <div class="intro-controls" data-esg-controls aria-label="Controlli video">
+          <button class="intro-ctl intro-pp is-play" type="button" data-esg-pp aria-label="Riproduci">
+            <svg data-icon="play" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M10 8.5v7l6-3.5-6-3.5z" fill="currentColor"/>
+            </svg>
+            <svg data-icon="pause" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M7.5 6.5h3v11h-3zM13.5 6.5h3v11h-3z" fill="currentColor"/>
+            </svg>
+          </button>
+
+          <input class="intro-seek" type="range" min="0" max="1000" value="0" step="1" data-esg-seek aria-label="Avanzamento video">
+
+          <div class="intro-time" data-esg-time aria-hidden="true">0:00</div>
+
+          <button class="intro-ctl intro-mute is-unmuted" type="button" data-esg-mute aria-label="Disattiva audio">
+            <svg data-icon="unmuted" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/>
+              <path d="M15.5 8.5a3.5 3.5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M17.5 6a7 7 0 0 1 0 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <svg data-icon="muted" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/>
+              <path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+
+          <button class="intro-ctl intro-theater is-expand" type="button" data-esg-theater aria-label="Ingrandisci">
+            <svg data-icon="expand" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg data-icon="collapse" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 8h5V3M21 8h-5V3M21 16h-5v5M3 16h5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="intro-video-note">
+        Tocca l’immagine per avviare il video.
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn primary" type="button" data-close-modal="esgVideo">Chiudi video</button>
+      </div>
+    </div>
+  </div>
+
+
 
 <!-- ✅ IFRAME NASCOSTO: serve per inviare il POST senza CORS -->
   <iframe name="sheet_sink" style="display:none;width:0;height:0;border:0" aria-hidden="true"></iframe>
@@ -5203,6 +5379,288 @@ function closeAiVideoModal(){
   closeModal('aiVideoModal');
 }
 
+
+/* ===============================
+   ESG VIDEO MODAL (manuale)
+   Stesse logiche/controlli del video in apertura
+   =============================== */
+
+function esgVideoEl(){
+  return document.getElementById('esgVideoVideo');
+}
+function esgPreviewEl(){
+  return document.querySelector('#esgVideoModal .intro-video-preview');
+}
+function esgWrapEl(){
+  return document.querySelector('#esgVideoModal .intro-video-wrap');
+}
+function esgSeekEl(){
+  return document.querySelector('#esgVideoModal [data-esg-seek]');
+}
+function esgPPBtn(){
+  return document.querySelector('#esgVideoModal [data-esg-pp]');
+}
+function esgMuteBtn(){
+  return document.querySelector('#esgVideoModal [data-esg-mute]');
+}
+function esgTheaterBtn(){
+  return document.querySelector('#esgVideoModal [data-esg-theater]');
+}
+function esgTimeEl(){
+  return document.querySelector('#esgVideoModal [data-esg-time]');
+}
+
+var esgControlsBound = false;
+var esgCtlTimer = null;
+
+function esgShowControls(persist){
+  var wrap = esgWrapEl();
+  if(!wrap) return;
+  wrap.classList.add('is-controls-visible');
+
+  if(esgCtlTimer){ clearTimeout(esgCtlTimer); esgCtlTimer = null; }
+
+  var v = esgVideoEl();
+  if(!persist && v && !v.paused && !v.ended){
+    esgCtlTimer = setTimeout(function(){
+      var w = esgWrapEl();
+      var vv = esgVideoEl();
+      if(w && vv && !vv.paused && !vv.ended){
+        w.classList.remove('is-controls-visible');
+      }
+    }, 2200);
+  }
+}
+function esgClearControlsTimer(){
+  if(esgCtlTimer){ clearTimeout(esgCtlTimer); esgCtlTimer = null; }
+}
+
+function syncEsgProgress(){
+  var v = esgVideoEl();
+  var seek = esgSeekEl();
+  if(!v || !seek) return;
+
+  var d = v.duration || 0;
+  if(!d || !isFinite(d)){
+    seek.value = '0';
+    var tt0 = esgTimeEl();
+    if(tt0) tt0.textContent = '0:00';
+    return;
+  }
+
+  var val = Math.round((v.currentTime / d) * 1000);
+  seek.value = String(Math.max(0, Math.min(1000, val)));
+
+  var tt = esgTimeEl();
+  if(tt) tt.textContent = fmtTime(v.currentTime) + ' / ' + fmtTime(d);
+}
+
+function syncEsgUi(){
+  var v = esgVideoEl();
+  var wrap = esgWrapEl();
+
+  if(wrap && v){
+    var playing = (!v.paused && !v.ended);
+    if(playing){
+      wrap.classList.add('is-playing');
+      wrap.classList.remove('is-paused');
+    }else{
+      wrap.classList.remove('is-playing');
+      wrap.classList.add('is-paused');
+      wrap.classList.add('is-controls-visible');
+    }
+  }
+
+  var pp = esgPPBtn();
+  if(pp && v){
+    if(v.paused || v.ended){
+      pp.classList.add('is-play'); pp.classList.remove('is-pause');
+      pp.setAttribute('aria-label','Riproduci');
+    }else{
+      pp.classList.add('is-pause'); pp.classList.remove('is-play');
+      pp.setAttribute('aria-label','Pausa');
+    }
+  }
+
+  var mute = esgMuteBtn();
+  if(mute && v){
+    var isMuted = (v.muted || v.volume === 0);
+    if(isMuted){
+      mute.classList.add('is-muted'); mute.classList.remove('is-unmuted');
+      mute.setAttribute('aria-label','Attiva audio');
+    }else{
+      mute.classList.add('is-unmuted'); mute.classList.remove('is-muted');
+      mute.setAttribute('aria-label','Disattiva audio');
+    }
+  }
+
+  var modal = document.getElementById('esgVideoModal');
+  var th = esgTheaterBtn();
+  if(modal && th){
+    var isTh = modal.classList.contains('is-theater');
+    if(isTh){
+      th.classList.add('is-collapse'); th.classList.remove('is-expand');
+      th.setAttribute('aria-label','Riduci');
+    }else{
+      th.classList.add('is-expand'); th.classList.remove('is-collapse');
+      th.setAttribute('aria-label','Ingrandisci');
+    }
+  }
+
+  syncEsgProgress();
+}
+
+function bindEsgControls(){
+  if(esgControlsBound) return;
+  var v = esgVideoEl();
+  if(!v) return;
+
+  esgControlsBound = true;
+
+  v.addEventListener('loadedmetadata', syncEsgUi);
+  v.addEventListener('timeupdate', syncEsgProgress);
+  v.addEventListener('play', function(){ syncEsgUi(); esgShowControls(false); });
+  v.addEventListener('pause', function(){ syncEsgUi(); esgShowControls(true); });
+  v.addEventListener('volumechange', syncEsgUi);
+  v.addEventListener('ended', function(){
+    unloadEsgVideo();
+    resetEsgPreview();
+  });
+
+  // blocca il "doppio click => fullscreen" in alcuni browser
+  v.addEventListener('dblclick', function(ev){
+    ev.preventDefault();
+    toggleEsgTheater();
+  });
+
+  // Mostra i controlli quando l’utente interagisce col video
+  var wrap = esgWrapEl();
+  if(wrap){
+    var show = function(ev){
+      if(ev && ev.target && ev.target.closest && ev.target.closest('.intro-controls')) return;
+      var vv = esgVideoEl();
+      if(vv && (vv.paused || vv.ended)) esgShowControls(true);
+      else esgShowControls(false);
+    };
+    ['pointermove','mousemove','touchstart','click'].forEach(function(evt){
+      try{ wrap.addEventListener(evt, show, {passive:true}); }catch(e){ wrap.addEventListener(evt, show); }
+    });
+  }
+}
+
+function toggleEsgPlayPause(){
+  var v = esgVideoEl();
+  if(!v) return;
+
+  if(!v.getAttribute('src')){
+    playEsgVideo();
+    return;
+  }
+
+  if(v.paused) {
+    var pr;
+    try{ pr = v.play(); }catch(e){ pr = null; }
+    if(pr && pr.catch){ pr.catch(function(){}); }
+  } else {
+    try{ v.pause(); }catch(e){}
+  }
+
+  try{ esgShowControls(v.paused || v.ended); }catch(e){}
+  syncEsgUi();
+}
+
+function toggleEsgMute(){
+  var v = esgVideoEl();
+  if(!v) return;
+  v.muted = !v.muted;
+  try{ esgShowControls(true); }catch(e){}
+  syncEsgUi();
+}
+
+function toggleEsgTheater(){
+  var modal = document.getElementById('esgVideoModal');
+  if(!modal) return;
+  modal.classList.toggle('is-theater');
+  try{ esgShowControls(true); }catch(e){}
+  syncEsgUi();
+  fitModal('esgVideoModal');
+}
+
+function resetEsgPreview(){
+  var p = esgPreviewEl();
+  if(p) p.classList.remove('is-hidden');
+}
+
+function loadEsgVideo(){
+  var v = esgVideoEl();
+  if(!v) return;
+  var src = (v.getAttribute('data-src') || '').trim();
+  if(!src) return;
+  if(v.getAttribute('src') === src) return;
+
+  v.setAttribute('src', src);
+  try{ v.load(); }catch(e){}
+}
+
+function playEsgVideo(){
+  var v = esgVideoEl();
+  if(!v) return;
+  bindEsgControls();
+  loadEsgVideo();
+
+  var p = esgPreviewEl();
+  if(p) p.classList.add('is-hidden');
+
+  var pr;
+  try{ pr = v.play(); }catch(e){ pr = null; }
+  if(pr && pr.catch){ pr.catch(function(){}); }
+  esgShowControls(false);
+  syncEsgUi();
+}
+
+function unloadEsgVideo(){
+  var v = esgVideoEl();
+  if(!v) return;
+  var wrap = esgWrapEl();
+  esgClearControlsTimer();
+  if(wrap){
+    wrap.classList.remove('is-playing');
+    wrap.classList.remove('is-paused');
+    wrap.classList.remove('is-controls-visible');
+  }
+  var seek = esgSeekEl();
+  if(seek) seek.value = '0';
+  var tt = esgTimeEl();
+  if(tt) tt.textContent = '0:00';
+
+  try{ v.pause(); }catch(e){}
+  try{ v.currentTime = 0; }catch(e){}
+  v.removeAttribute('src');
+  try{ v.load(); }catch(e){}
+}
+
+function openEsgVideoModal(){
+  openModal('esgVideoModal');
+  var mm = document.getElementById('esgVideoModal');
+  if(mm) mm.classList.remove('is-theater');
+
+  // stato “pulito” ad ogni apertura
+  unloadEsgVideo();
+  resetEsgPreview();
+
+  var closeBtn = document.querySelector('#esgVideoModal [data-close-modal="esgVideo"]');
+  if(closeBtn){ try{ closeBtn.focus(); }catch(e){} }
+}
+
+function closeEsgVideoModal(){
+  unloadEsgVideo();
+  var mm = document.getElementById('esgVideoModal');
+  if(mm) mm.classList.remove('is-theater');
+  closeModal('esgVideoModal');
+}
+
+
+
 // Apertura automatica all'avvio (solo 1 volta per sessione / tab)
 window.addEventListener('load', function(){
   if(!shouldAutoShowIntroVideo()) return;
@@ -5300,6 +5758,36 @@ document.addEventListener('click', function(e){
         return;
       }
 
+
+
+      // Play ESG video (poster)
+      var esgPlayBtn = (el.closest ? el.closest('[data-esg-play]') : null);
+      if(esgPlayBtn){
+        e.preventDefault();
+        playEsgVideo();
+        return;
+      }
+
+      // Controlli video ESG (play/pause, audio, ingrandisci)
+      var esgPpBtn = (el.closest ? el.closest('[data-esg-pp]') : null);
+      if(esgPpBtn){
+        e.preventDefault();
+        toggleEsgPlayPause();
+        return;
+      }
+      var esgMuteBtn = (el.closest ? el.closest('[data-esg-mute]') : null);
+      if(esgMuteBtn){
+        e.preventDefault();
+        toggleEsgMute();
+        return;
+      }
+      var esgThBtn = (el.closest ? el.closest('[data-esg-theater]') : null);
+      if(esgThBtn){
+        e.preventDefault();
+        toggleEsgTheater();
+        return;
+      }
+
       // Apri video AI (tavola rotonda)
       var aiOpener = (el.closest ? el.closest('[data-open-ai-video]') : null);
       if(aiOpener){
@@ -5315,6 +5803,16 @@ document.addEventListener('click', function(e){
         e.preventDefault();
         openHoldingVideoModal();
         playHoldingVideo();
+        return;
+      }
+
+
+      // Apri video ESG (tavola rotonda)
+      var esgOpener = (el.closest ? el.closest('[data-open-esg-video]') : null);
+      if(esgOpener){
+        e.preventDefault();
+        openEsgVideoModal();
+        playEsgVideo();
         return;
       }
 
@@ -5336,6 +5834,7 @@ document.addEventListener('click', function(e){
       if(which === 'introVideo') closeIntroVideoModal();
       if(which === 'holdingVideo') closeHoldingVideoModal();
       if(which === 'aiVideo') closeAiVideoModal();
+      if(which === 'esgVideo') closeEsgVideoModal();
     });
 
 
@@ -5402,10 +5901,36 @@ document.addEventListener('input', function(e){
   syncAiProgress();
 });
 
+document.addEventListener('input', function(e){
+  var el = e.target;
+  if(!el) return;
+  if(!(el.matches ? el.matches('[data-esg-seek]') : false)) return;
+
+  var v = esgVideoEl();
+  if(!v) return;
+
+  // se il video non è stato caricato, caricalo (senza autoplay) e lascia la preview visibile
+  if(!v.getAttribute('src')) loadEsgVideo();
+
+  var d = v.duration || 0;
+  if(!d || !isFinite(d)) return;
+
+  var val = Number(el.value || 0);
+  val = Math.max(0, Math.min(1000, val));
+  try{ v.currentTime = (val / 1000) * d; }catch(err){}
+  syncEsgProgress();
+});
+
 
 
         document.addEventListener('keydown', function(e){
       if(e.key !== 'Escape') return;
+
+      var esg = document.getElementById('esgVideoModal');
+      if(esg && esg.classList.contains('show')){
+        closeEsgVideoModal();
+        return;
+      }
 
       var ai = document.getElementById('aiVideoModal');
       if(ai && ai.classList.contains('show')){
@@ -5442,6 +5967,9 @@ document.addEventListener('input', function(e){
 
       var hv = document.getElementById('holdingVideoModal');
       if(hv && hv.classList.contains('show')) fitModal('holdingVideoModal');
+
+      var ev = document.getElementById('esgVideoModal');
+      if(ev && ev.classList.contains('show')) fitModal('esgVideoModal');
 
       var av = document.getElementById('aiVideoModal');
       if(av && av.classList.contains('show')) fitModal('aiVideoModal');
