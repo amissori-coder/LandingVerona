@@ -193,103 +193,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       align-items:center;
     }
 
-    .top-countdown{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      padding:10px 12px;
-      border-radius:22px;
-      background: linear-gradient(135deg, #0b1224 0%, #111b35 55%, #16294a 100%);
-      color:#fff;
-      border:1px solid rgba(15,23,42,.10);
-      box-shadow: 0 14px 30px rgba(2,6,23,.12);
-      flex-wrap:wrap;
-    }
-    .top-countdown-copy{
-      display:flex;
-      flex-direction:column;
-      gap:3px;
-      min-width:max-content;
-    }
-    .top-countdown-kicker{
-      font-size:10px;
-      font-weight:800;
-      letter-spacing:.16em;
-      text-transform:uppercase;
-      color: rgba(255,255,255,.68);
-      line-height:1;
-    }
-    .top-countdown-copy strong{
-      font-size:13px;
-      font-weight:800;
-      letter-spacing:-.02em;
-      line-height:1.1;
-      white-space:nowrap;
-    }
-    .top-countdown-grid{
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .countdown-unit{
-      min-width:52px;
-      padding:8px 9px 7px;
-      border-radius:16px;
-      background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.08));
-      border:1px solid rgba(255,255,255,.14);
-      text-align:center;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-    .countdown-value{
-      display:block;
-      font-size:18px;
-      font-weight:800;
-      letter-spacing:-.04em;
-      line-height:1;
-      font-variant-numeric: tabular-nums;
-    }
-    .countdown-label{
-      display:block;
-      margin-top:4px;
-      font-size:9px;
-      font-weight:800;
-      letter-spacing:.16em;
-      text-transform:uppercase;
-      color: rgba(255,255,255,.72);
-      line-height:1;
-    }
-    .top-countdown-live{
-      display:none;
-      align-items:center;
-      gap:8px;
-      padding:8px 11px;
-      border-radius:999px;
-      background: rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.16);
-      font-size:11px;
-      font-weight:800;
-      letter-spacing:.14em;
-      text-transform:uppercase;
-      color:#fff;
-      white-space:nowrap;
-    }
-    .top-countdown-live::before{
-      content:"";
-      width:8px;
-      height:8px;
-      border-radius:999px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      box-shadow: 0 0 0 6px rgba(20,184,166,.12);
-      flex:0 0 auto;
-    }
-    .top-countdown.is-live .top-countdown-grid{
-      display:none;
-    }
-    .top-countdown.is-live .top-countdown-live{
-      display:inline-flex;
-    }
-
     .brand{
       font-weight:900;
       letter-spacing:-.02em;
@@ -1533,24 +1436,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       .pill-grid.three{ grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
 
-        @media (max-width: 1120px){
-      .top-countdown{
-        gap:10px;
-        padding:9px 10px;
-      }
-      .top-countdown-copy strong{
-        font-size:12px;
-      }
-      .countdown-unit{
-        min-width:48px;
-        padding:7px 8px 6px;
-      }
-      .countdown-value{
-        font-size:16px;
-      }
-    }
-
-@media (max-width: 980px){
+    @media (max-width: 980px){
       .hero-wrap{grid-template-columns:1fr}
       .hero-media{min-height: 520px}
       .panel{min-height:auto; height:auto;}
@@ -1575,33 +1461,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       .topbar-right{ width:100%; }
       .topbar-actions{ width:100%; }
       .topbar-actions .btn{ width:100%; }
-
-      .top-countdown{
-        width:100%;
-        justify-content:space-between;
-        order:-1;
-        padding:10px 12px;
-        border-radius:20px;
-      }
-      .top-countdown-copy{
-        min-width:0;
-      }
-      .top-countdown-copy strong{
-        font-size:12px;
-      }
-      .top-countdown-grid{
-        gap:6px;
-      }
-      .countdown-unit{
-        min-width:44px;
-        padding:7px 7px 6px;
-      }
-      .countdown-value{
-        font-size:15px;
-      }
-      .countdown-label{
-        font-size:8px;
-      }
 
 
       .brand-logos{
@@ -1676,21 +1535,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       .hero-overlay{ padding: 12px 12px; }
       .kicker{ font-size:11px; }
     }
-    @media (max-width: 480px){
-      .top-countdown{
-        flex-direction:column;
-        align-items:stretch;
-      }
-      .top-countdown-copy{
-        align-items:center;
-        text-align:center;
-      }
-      .top-countdown-grid,
-      .top-countdown-live{
-        justify-content:center;
-      }
-    }
-
 @media (max-width: 420px){
       .signup-form{grid-template-columns: 1fr;}
     }
@@ -2993,7 +2837,178 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
   }
 }
 
-</style>
+
+
+    /* Header countdown + anteprima evento */
+    .countdown-chip{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-width:260px;
+      max-width:320px;
+      padding:10px 14px;
+      border-radius:20px;
+      background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color:#fff;
+      border:1px solid rgba(148,163,184,.24);
+      box-shadow:0 18px 34px rgba(15,23,42,.16);
+    }
+    .countdown-chip.is-live{
+      background:linear-gradient(135deg, #0f766e 0%, #0ea5e9 100%);
+    }
+    .countdown-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .countdown-kicker{
+      font-size:10px;
+      font-weight:900;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      color:rgba(255,255,255,.76);
+      white-space:nowrap;
+    }
+    .countdown-date{
+      font-size:12px;
+      font-weight:800;
+      color:rgba(255,255,255,.92);
+      white-space:nowrap;
+    }
+    .countdown-grid{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0,1fr));
+      gap:8px;
+    }
+    .countdown-unit{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:8px 6px;
+      border-radius:14px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.10);
+      min-width:48px;
+    }
+    .countdown-value{
+      font-size:22px;
+      line-height:1;
+      font-weight:900;
+      letter-spacing:-.04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .countdown-label{
+      margin-top:4px;
+      font-size:10px;
+      line-height:1;
+      font-weight:800;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      color:rgba(255,255,255,.66);
+    }
+    .countdown-status{
+      font-size:12px;
+      line-height:1.5;
+      color:rgba(255,255,255,.82);
+    }
+
+    .event-preview-cta{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      padding:18px 20px;
+      margin-bottom:18px;
+      border-radius:24px;
+      background:linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      border:1px solid rgba(15,23,42,.10);
+      box-shadow:var(--shadow);
+    }
+    .event-preview-copy{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width:0;
+    }
+    .event-preview-kicker{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:max-content;
+      max-width:100%;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(14,165,233,.08);
+      color:#0369a1;
+      font-size:11px;
+      line-height:1;
+      font-weight:900;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+    }
+    .event-preview-copy strong{
+      font-size:20px;
+      line-height:1.15;
+      letter-spacing:-.02em;
+      color:var(--text);
+    }
+    .event-preview-copy p{
+      margin:0;
+      color:var(--muted2);
+      font-size:14px;
+      line-height:1.65;
+      max-width:70ch;
+    }
+    .event-preview-trigger{
+      min-width:220px;
+      flex:0 0 auto;
+    }
+    .event-preview-modal-card{
+      width:min(920px, 96vw);
+    }
+    .event-preview-video-shell{
+      margin-top:14px;
+      border-radius:20px;
+      overflow:hidden;
+      background:#020617;
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 26px 60px rgba(2,6,23,.28);
+    }
+    .event-preview-modal-video{
+      display:block;
+      width:100%;
+      height:auto;
+      max-height:min(72vh, 720px);
+      background:#000;
+    }
+
+    @media (max-width: 980px){
+      .countdown-chip{ min-width:230px; max-width:280px; }
+    }
+    @media (max-width: 820px){
+      .event-preview-cta{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      .event-preview-trigger{
+        width:100%;
+        min-width:0;
+      }
+    }
+    @media (max-width: 680px){
+      .countdown-chip{
+        width:100%;
+        max-width:100%;
+      }
+      .countdown-grid{ gap:6px; }
+      .countdown-value{ font-size:18px; }
+      .countdown-date{ font-size:11px; }
+      .event-preview-copy strong{ font-size:18px; }
+    }
+
+  </style>
 
 
   <!-- =========================================
@@ -3029,32 +3044,19 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
         </div>
 
         <div class="topbar-right" aria-label="Azioni header">
-          <div class="top-countdown" id="headerCountdown" data-countdown-target="2026-03-27T09:00:00+01:00" aria-label="Countdown all'evento">
-            <div class="top-countdown-copy">
-              <span class="top-countdown-kicker">Countdown evento</span>
-              <strong>27 Marzo · ore 09:00</strong>
+          
+          <div class="countdown-chip" id="eventCountdown" aria-label="Countdown al 27 marzo 2026 alle ore 09:00">
+            <div class="countdown-head">
+              <span class="countdown-kicker">Countdown evento</span>
+              <span class="countdown-date">27 marzo · 09:00</span>
             </div>
-
-            <div class="top-countdown-grid" aria-hidden="true">
-              <div class="countdown-unit">
-                <span class="countdown-value" id="countdownDays">00</span>
-                <span class="countdown-label">Giorni</span>
-              </div>
-              <div class="countdown-unit">
-                <span class="countdown-value" id="countdownHours">00</span>
-                <span class="countdown-label">Ore</span>
-              </div>
-              <div class="countdown-unit">
-                <span class="countdown-value" id="countdownMinutes">00</span>
-                <span class="countdown-label">Min</span>
-              </div>
-              <div class="countdown-unit">
-                <span class="countdown-value" id="countdownSeconds">00</span>
-                <span class="countdown-label">Sec</span>
-              </div>
+            <div class="countdown-grid" aria-live="polite">
+              <div class="countdown-unit"><span class="countdown-value" data-countdown-days>--</span><span class="countdown-label">GG</span></div>
+              <div class="countdown-unit"><span class="countdown-value" data-countdown-hours>--</span><span class="countdown-label">ORE</span></div>
+              <div class="countdown-unit"><span class="countdown-value" data-countdown-minutes>--</span><span class="countdown-label">MIN</span></div>
+              <div class="countdown-unit"><span class="countdown-value" data-countdown-seconds>--</span><span class="countdown-label">SEC</span></div>
             </div>
-
-            <div class="top-countdown-live" aria-hidden="true">Evento in corso</div>
+            <div class="countdown-status" data-countdown-status>Verso l'apertura del 27 marzo 2026.</div>
           </div>
 
           <div class="partners no-select" id="unindustriaDesktopSlot" aria-label="Logo Il Sole 24 Ore">
@@ -3214,6 +3216,15 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 <!-- AGENDA -->
   <section id="agenda" style="background:var(--soft)" aria-label="Agenda evento">
     <div class="container">
+
+      <div class="event-preview-cta reveal" aria-label="Anteprima evento">
+        <div class="event-preview-copy">
+          <span class="event-preview-kicker">Anteprima evento</span>
+          <strong>Guarda il teaser video dell’evento prima di consultare l’agenda.</strong>
+                  </div>
+        <button class="btn primary event-preview-trigger" type="button" data-open-modal="eventPreview">Guarda l’anteprima</button>
+      </div>
+
       <div class="section-head reveal">
         <h2>Agenda</h2>
         <p>Programma giornata: 27 Marzo 2026, 09:00-18:00</p>
@@ -4497,6 +4508,40 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
   <iframe name="sheet_sink" style="display:none;width:0;height:0;border:0" aria-hidden="true"></iframe>
 
   <!-- MODAL ISCRIZIONE -->
+
+  <div class="modal" id="eventPreviewModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="eventPreview" aria-hidden="true"></div>
+
+    <div class="modal-card large event-preview-modal-card" role="document" aria-label="Anteprima evento">
+      <button class="modal-close" type="button" aria-label="Chiudi" data-close-modal="eventPreview">×</button>
+      <div class="modal-badge">ANTEPRIMA EVENTO</div>
+
+      <div class="modal-head">
+        <div class="modal-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 6v12l10-6z"></path>
+          </svg>
+        </div>
+        <div>
+          <h3>Next Generation Business · teaser video</h3>
+          <p>Anteprima breve ottimizzata per la landing page e per un download più semplice dei file.</p>
+        </div>
+      </div>
+
+      <div class="event-preview-video-shell">
+        <video id="eventPreviewVideo" class="event-preview-modal-video" controls preload="metadata" playsinline poster="video-promo-preview.jpg">
+          <source src="video-promo-anteprima.MOV" type="video/mp4">
+          Il tuo browser non supporta il video HTML5.
+        </video>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn primary" type="button" data-close-modal="eventPreview">Chiudi video</button>
+      </div>
+    </div>
+  </div>
+
+
   <div class="modal" id="signupModal" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="signup"></div>
 
@@ -7563,61 +7608,110 @@ function openSignup(mode){
 
       return false;
     }
-  </script>
-  <script>
+  
+
     (function(){
-      var countdown = document.getElementById('headerCountdown');
-      if(!countdown) return;
+      var countdown = document.getElementById('eventCountdown');
+      if(countdown){
+        var daysEl = countdown.querySelector('[data-countdown-days]');
+        var hoursEl = countdown.querySelector('[data-countdown-hours]');
+        var minutesEl = countdown.querySelector('[data-countdown-minutes]');
+        var secondsEl = countdown.querySelector('[data-countdown-seconds]');
+        var statusEl = countdown.querySelector('[data-countdown-status]');
+        var target = new Date('2026-03-27T09:00:00+01:00').getTime();
 
-      var targetRaw = countdown.getAttribute('data-countdown-target') || '2026-03-27T09:00:00+01:00';
-      var target = new Date(targetRaw).getTime();
-      if(!isFinite(target)) return;
-
-      var daysEl = document.getElementById('countdownDays');
-      var hoursEl = document.getElementById('countdownHours');
-      var minutesEl = document.getElementById('countdownMinutes');
-      var secondsEl = document.getElementById('countdownSeconds');
-      var copyStrong = countdown.querySelector('.top-countdown-copy strong');
-      var copyKicker = countdown.querySelector('.top-countdown-kicker');
-
-      function pad(value){
-        return String(value).padStart(2, '0');
-      }
-
-      function updateCountdown(){
-        var diff = target - Date.now();
-
-        if(diff <= 0){
-          countdown.classList.add('is-live');
-          if(copyKicker) copyKicker.textContent = 'Ora in diretta';
-          if(copyStrong) copyStrong.textContent = '27 Marzo · evento iniziato';
-          return false;
+        function pad(val){
+          val = Math.max(0, parseInt(val, 10) || 0);
+          return String(val).padStart(2, '0');
         }
 
-        var totalSeconds = Math.floor(diff / 1000);
-        var days = Math.floor(totalSeconds / 86400);
-        var hours = Math.floor((totalSeconds % 86400) / 3600);
-        var minutes = Math.floor((totalSeconds % 3600) / 60);
-        var seconds = totalSeconds % 60;
+        function updateCountdown(){
+          var now = Date.now();
+          var diff = target - now;
 
-        if(daysEl) daysEl.textContent = String(days).padStart(2, '0');
-        if(hoursEl) hoursEl.textContent = pad(hours);
-        if(minutesEl) minutesEl.textContent = pad(minutes);
-        if(secondsEl) secondsEl.textContent = pad(seconds);
+          if(diff <= 0){
+            if(daysEl) daysEl.textContent = '00';
+            if(hoursEl) hoursEl.textContent = '00';
+            if(minutesEl) minutesEl.textContent = '00';
+            if(secondsEl) secondsEl.textContent = '00';
+            if(statusEl) statusEl.textContent = 'Evento in corso';
+            countdown.classList.add('is-live');
+            return;
+          }
 
-        return true;
+          countdown.classList.remove('is-live');
+          var totalSeconds = Math.floor(diff / 1000);
+          var days = Math.floor(totalSeconds / 86400);
+          var hours = Math.floor((totalSeconds % 86400) / 3600);
+          var minutes = Math.floor((totalSeconds % 3600) / 60);
+          var seconds = totalSeconds % 60;
+
+          if(daysEl) daysEl.textContent = pad(days);
+          if(hoursEl) hoursEl.textContent = pad(hours);
+          if(minutesEl) minutesEl.textContent = pad(minutes);
+          if(secondsEl) secondsEl.textContent = pad(seconds);
+          if(statusEl) statusEl.textContent = 'Mancano ' + days + ' giorni all’apertura del 27 marzo 2026.';
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
       }
 
-      var active = updateCountdown();
-      if(!active) return;
+      function eventPreviewVideoEl(){
+        return document.getElementById('eventPreviewVideo');
+      }
 
-      var timer = setInterval(function(){
-        var keepGoing = updateCountdown();
-        if(!keepGoing) clearInterval(timer);
-      }, 1000);
+      function openEventPreviewModal(){
+        openModal('eventPreviewModal');
+        fitModal('eventPreviewModal');
+        var video = eventPreviewVideoEl();
+        if(!video) return;
+        try{
+          var playPromise = video.play();
+          if(playPromise && playPromise.catch) playPromise.catch(function(){});
+        }catch(err){}
+      }
+
+      function closeEventPreviewModal(){
+        var video = eventPreviewVideoEl();
+        if(video){
+          try{ video.pause(); }catch(err){}
+          try{ video.currentTime = 0; }catch(err){}
+        }
+        closeModal('eventPreviewModal');
+      }
+
+      document.addEventListener('click', function(e){
+        var el = e.target;
+        if(!el) return;
+
+        var opener = (el.closest ? el.closest('[data-open-modal="eventPreview"]') : null);
+        if(opener){
+          e.preventDefault();
+          openEventPreviewModal();
+          return;
+        }
+
+        var closer = (el.closest ? el.closest('[data-close-modal="eventPreview"]') : null);
+        if(closer){
+          e.preventDefault();
+          closeEventPreviewModal();
+        }
+      });
+
+      document.addEventListener('keydown', function(e){
+        if(e.key !== 'Escape') return;
+        var modal = document.getElementById('eventPreviewModal');
+        if(modal && modal.classList.contains('show')) closeEventPreviewModal();
+      });
+
+      addPassive(window, 'resize', function(){
+        var modal = document.getElementById('eventPreviewModal');
+        if(modal && modal.classList.contains('show')) fitModal('eventPreviewModal');
+      });
     })();
-  </script>
 
+  </script>
 <script type="text/javascript">
 (function (w,d) {var loader = function () {var s = d.createElement("script"), tag = d.getElementsByTagName("script")[0]; s.src="https://cdn.iubenda.com/iubenda.js"; tag.parentNode.insertBefore(s,tag);}; if(w.addEventListener){w.addEventListener("load", loader, false);}else if(w.attachEvent){w.attachEvent("onload", loader);}else{w.onload = loader;}})(window, document);
 </script>
