@@ -3008,6 +3008,323 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       .event-preview-copy strong{ font-size:18px; }
     }
 
+    /* =========================================================
+       PATCH FINALE – countdown compatto + Banca Valsabbina
+       ========================================================= */
+    @media (min-width: 900px){
+      .topbar-inner{
+        display:grid !important;
+        grid-template-columns:auto minmax(14px,1fr) auto minmax(14px,1fr) auto;
+        align-items:center;
+        gap:16px;
+      }
+      .topbar-right{
+        display:contents !important;
+        margin-left:0 !important;
+      }
+      .brand{
+        grid-column:1;
+        min-width:0;
+        max-width:min(100%, 520px);
+      }
+      #eventCountdown{
+        grid-column:3;
+        justify-self:center;
+      }
+      #unindustriaDesktopSlot{
+        grid-column:5;
+        justify-self:end;
+      }
+    }
+
+    #eventCountdown.countdown-chip{
+      width:clamp(220px, 22vw, 248px);
+      min-width:220px;
+      max-width:248px;
+      padding:8px 12px;
+      gap:6px;
+      border-radius:18px;
+    }
+    #eventCountdown .countdown-head{ gap:8px; }
+    #eventCountdown .countdown-kicker{
+      font-size:9px;
+      letter-spacing:.14em;
+    }
+    #eventCountdown .countdown-date{
+      font-size:11px;
+    }
+    #eventCountdown .countdown-grid{
+      gap:6px;
+    }
+    #eventCountdown .countdown-unit{
+      padding:6px 5px;
+      border-radius:12px;
+      min-width:0;
+    }
+    #eventCountdown .countdown-value{
+      font-size:19px;
+    }
+    #eventCountdown .countdown-label{
+      margin-top:3px;
+      font-size:9px;
+      letter-spacing:.11em;
+    }
+    #eventCountdown .countdown-status{
+      font-size:11px;
+      line-height:1.25;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    #partnersModal .partners-grid .partners-closing-row{
+      grid-column:1 / -1;
+      display:flex;
+      justify-content:center;
+      align-items:stretch;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:2px;
+    }
+    #partnersModal .partners-grid .partners-closing-row .sponsor-item{
+      width:min(100%, 240px);
+    }
+
+    .partner-banca-valsabbina{
+      width:250px;
+    }
+    .partner-banca-valsabbina .sponsor-link{
+      gap:0;
+    }
+    .partner-banca-valsabbina .sponsor-logo{
+      width:100%;
+      height:100%;
+      padding:0;
+    }
+    .partner-banca-valsabbina .sponsor-file{
+      display:none;
+    }
+    .partner-banca-valsabbina .sponsor-logo img{
+      transform:scale(1.18) !important;
+    }
+
+    .partner-advant-nctm .sponsor-logo img{
+      transform:scale(1.05) !important;
+    }
+
+    @media (max-width: 980px) and (min-width: 900px){
+      #eventCountdown.countdown-chip{
+        width:228px;
+        min-width:228px;
+        max-width:228px;
+      }
+      #eventCountdown .countdown-value{
+        font-size:18px;
+      }
+    }
+
+    @media (max-width: 680px){
+      #eventCountdown.countdown-chip{
+        width:100%;
+        min-width:0;
+        max-width:100%;
+        padding:9px 12px;
+      }
+      #eventCountdown .countdown-status{
+        white-space:normal;
+        overflow:visible;
+        text-overflow:unset;
+      }
+      .partner-banca-valsabbina{
+        width:220px;
+      }
+      #partnersModal .partners-grid .partners-closing-row .sponsor-item{
+        width:min(100%, 220px);
+      }
+    }
+
+
+    /* =========================================================
+       PATCH FINALE V2 – header desktop + nuovo logo Valsabbina
+       ========================================================= */
+    @media (min-width: 900px){
+      .topbar-inner{
+        display:grid !important;
+        grid-template-columns:minmax(0, 1fr) auto auto;
+        align-items:center;
+        column-gap:18px;
+        row-gap:10px;
+      }
+      .topbar-right{
+        display:contents !important;
+        margin-left:0 !important;
+      }
+      .brand{
+        grid-column:1;
+        min-width:0;
+        max-width:none;
+        flex-wrap:nowrap;
+        gap:14px;
+      }
+      #unindustriaDesktopSlot{
+        grid-column:2;
+        justify-self:start;
+        align-self:center;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        margin-left:4px;
+      }
+      #eventCountdown{
+        grid-column:3;
+        justify-self:end;
+      }
+      #unindustriaDesktopSlot #sole24TopLogo{
+        height:72px !important;
+        width:auto !important;
+        max-width:min(240px, 18vw);
+        object-fit:contain;
+      }
+    }
+
+    @media (min-width: 900px) and (max-width: 1040px){
+      #unindustriaDesktopSlot #sole24TopLogo{
+        height:64px !important;
+        max-width:200px;
+      }
+      #eventCountdown.countdown-chip{
+        width:220px;
+        min-width:220px;
+        max-width:220px;
+      }
+      .brand{
+        gap:12px;
+      }
+    }
+
+    .partner-banca-valsabbina{
+      width:320px;
+    }
+    .sponsor-marquee .partner-banca-valsabbina{
+      width:320px;
+    }
+    .partner-banca-valsabbina .sponsor-link{
+      gap:0;
+    }
+    .partner-banca-valsabbina .sponsor-logo{
+      width:100%;
+      height:100%;
+      padding:6px 8px 2px;
+    }
+    .partner-banca-valsabbina .sponsor-logo img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      transform:none !important;
+      filter:none;
+    }
+    .partner-banca-valsabbina .sponsor-file{
+      display:none;
+    }
+
+    #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina,
+    #partnersModal .partners-grid .partners-closing-row .partner-advant-nctm{
+      width:min(100%, 250px);
+    }
+    #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina.partner-banca-valsabbina-text .sponsor-link{
+      gap:0;
+    }
+    #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina.partner-banca-valsabbina-text .partner-text-link{
+      width:100%;
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 14px;
+      text-align:center;
+      font-size:15px;
+      font-weight:900;
+      line-height:1.15;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      color:#0f172a;
+    }
+    #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina.partner-banca-valsabbina-text .sponsor-link:hover .partner-text-link{
+      text-decoration:underline;
+    }
+
+    @media (max-width: 680px){
+      .partner-banca-valsabbina,
+      .sponsor-marquee .partner-banca-valsabbina{
+        width:min(100%, 270px);
+      }
+      #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina,
+      #partnersModal .partners-grid .partners-closing-row .partner-advant-nctm{
+        width:min(100%, 220px);
+      }
+      #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina.partner-banca-valsabbina-text .partner-text-link{
+        font-size:14px;
+      }
+    }
+
+
+    /* =========================================================
+       PATCH V3 – Banca Valsabbina: nome sotto il logo
+       ========================================================= */
+    .partner-banca-valsabbina .sponsor-link{
+      gap:10px;
+    }
+    .partner-banca-valsabbina .sponsor-logo{
+      width:100%;
+      flex:1 1 auto;
+      height:auto;
+      min-height:0;
+      padding:8px 8px 2px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .partner-banca-valsabbina .sponsor-logo img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      transform:none !important;
+      filter:none;
+    }
+    .partner-banca-valsabbina .sponsor-file{
+      display:-webkit-box !important;
+      flex:0 0 auto;
+      width:100%;
+      text-align:center;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.04em;
+      line-height:1.12;
+      text-transform:uppercase;
+      color:var(--muted2);
+    }
+    .sponsor-marquee .partner-banca-valsabbina{
+      width:320px;
+    }
+    #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina{
+      width:min(100%, 250px);
+    }
+    #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina .sponsor-logo{
+      max-height:88px;
+    }
+    @media (max-width: 680px){
+      .sponsor-marquee .partner-banca-valsabbina{
+        width:min(100%, 270px);
+      }
+      #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina{
+        width:min(100%, 220px);
+      }
+      .partner-banca-valsabbina .sponsor-file{
+        font-size:10.5px;
+      }
+    }
+
+
   </style>
 
 
@@ -3045,6 +3362,17 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
         <div class="topbar-right" aria-label="Azioni header">
           
+          <div class="partners no-select" id="unindustriaDesktopSlot" aria-label="Logo Il Sole 24 Ore">
+            <img
+              id="sole24TopLogo"
+              class="sole24-top"
+              src="IlSole24ore.jpg"
+              alt="Il Sole 24 Ore"
+              loading="eager"
+              decoding="async"
+            >
+          </div>
+
           <div class="countdown-chip" id="eventCountdown" aria-label="Countdown al 27 marzo 2026 alle ore 09:00">
             <div class="countdown-head">
               <span class="countdown-kicker">Countdown evento</span>
@@ -3057,17 +3385,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
               <div class="countdown-unit"><span class="countdown-value" data-countdown-seconds>--</span><span class="countdown-label">SEC</span></div>
             </div>
             <div class="countdown-status" data-countdown-status>Verso l'apertura del 27 marzo 2026.</div>
-          </div>
-
-          <div class="partners no-select" id="unindustriaDesktopSlot" aria-label="Logo Il Sole 24 Ore">
-            <img
-              id="sole24TopLogo"
-              class="sole24-top"
-              src="IlSole24ore.jpg"
-              alt="Il Sole 24 Ore"
-              loading="eager"
-              decoding="async"
-            >
           </div>
 
         </div>
@@ -3251,8 +3568,8 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
                   <ul class="speakers-list">
                     <li><strong>Pier Luigi Sterzi</strong> <span class="speaker-meta">Amministratore Unico di Revilaw S.p.A.</span></li>
                     <li><strong>Paolo Gallarati</strong> <span class="speaker-meta">Partner ADVANT NCTM</span></li>
-                    <li><strong>Alberto Castagnetti</strong> <span class="speaker-meta">Presidente dell’Ordine dei Dottori Commercialisti di Verona</span></li>
-                    <li><strong>Gian Luca Ancarani</strong> <span class="speaker-meta">Membro del Consiglio Nazionale Dottori Commercialisti ed Esperti Contabili</span></li>
+                    <li><strong>Alberto Castagnetti</strong> <span class="speaker-meta">Presidente ODCEC di Verona</span></li>
+                    <li><strong>Gian Luca Ancarani</strong> <span class="speaker-meta">Consigliere CNDCEC</span></li>
                   </ul>
                 </div>
               </div>
@@ -3438,7 +3755,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
                   <div class="speakers-label">Relatori</div>
                   <ul class="speakers-list">
                     <li><strong>Patrizio Novembre</strong> <span class="speaker-meta">Founding Partner Revilaw S.p.A.</span></li>
-                    <li><strong>Emanuele Longo</strong> <span class="speaker-meta">Private Banker Banca Patrimoni Sella & C. </span></li>
+                    <li><strong>Valentina Aversa</strong> <span class="speaker-meta">Resp. Trust e Family Planning Sella Fiduciaria S.p.A.</span></li>
                     <li><strong>Paolo Gallarati</strong> <span class="speaker-meta">Partner ADVANT NCTM</span></li>
                   </ul>
                 </div>
@@ -3650,6 +3967,13 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
               </a>
             </div>
 
+            <div class="sponsor-item partner-banca-valsabbina">
+              <a class="sponsor-link" href="https://www.bancavalsabbina.com/" target="_blank" rel="noopener noreferrer" aria-label="Banca Valsabbina (apre in una nuova scheda)">
+                <div class="sponsor-logo"><img loading="lazy" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDAwIDI2MCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgogIDx0aXRsZSBpZD0idGl0bGUiPkJhbmNhIFZhbHNhYmJpbmE8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5Xb3JkbWFyayBCYW5jYSBWYWxzYWJiaW5hIHdpdGggZ3JlZW4gdG8gYmx1ZSB1bmRlcmxpbmUuPC9kZXNjPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJiYXIiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzU5YmY2OSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjU2JSIgc3RvcC1jb2xvcj0iIzQ5YjZiOCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM1ZWE3ZGQiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDx0ZXh0IHg9IjcwMCIgeT0iMTEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDAwMDAwIgogICAgICAgIGZvbnQtZmFtaWx5PSJBcmlhbCwgSGVsdmV0aWNhLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwOCIgZm9udC13ZWlnaHQ9IjcwMCIgbGV0dGVyLXNwYWNpbmc9Ii0yIj4KICAgIEJhbmNhIFZhbHNhYmJpbmEKICA8L3RleHQ+CiAgPHJlY3QgeD0iMTIwIiB5PSIxNjUiIHdpZHRoPSIxMTYwIiBoZWlnaHQ9IjI0IiByeD0iMiIgZmlsbD0idXJsKCNiYXIpIi8+Cjwvc3ZnPg==" alt="Banca Valsabbina"></div>
+                <div class="sponsor-file">BANCA VALSABBINA</div>
+              </a>
+            </div>
+
             <div class="sponsor-item" style="--zoom:1.15;">
               <a class="sponsor-link" href="https://fiscalrevisione.it/" target="_blank" rel="noopener noreferrer" aria-label="Apri sito sponsor">
                 <div class="sponsor-logo"><img loading="lazy" src="fiscalrevisione.jpg" alt="FISCALREVISIONE"></div>
@@ -3777,6 +4101,13 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
               <a class="sponsor-link" href="https://www.bancodesio.it/it" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-label="Apri sito sponsor">
                 <div class="sponsor-logo"><img loading="lazy" src="banco-desio.jpg" alt=""></div>
                 <div class="sponsor-file">BANCO DESIO</div>
+              </a>
+            </div>
+
+            <div class="sponsor-item partner-banca-valsabbina" aria-hidden="true">
+              <a class="sponsor-link" href="https://www.bancavalsabbina.com/" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-label="Banca Valsabbina (apre in una nuova scheda)">
+                <div class="sponsor-logo"><img loading="lazy" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDAwIDI2MCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgogIDx0aXRsZSBpZD0idGl0bGUiPkJhbmNhIFZhbHNhYmJpbmE8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5Xb3JkbWFyayBCYW5jYSBWYWxzYWJiaW5hIHdpdGggZ3JlZW4gdG8gYmx1ZSB1bmRlcmxpbmUuPC9kZXNjPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJiYXIiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzU5YmY2OSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjU2JSIgc3RvcC1jb2xvcj0iIzQ5YjZiOCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM1ZWE3ZGQiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDx0ZXh0IHg9IjcwMCIgeT0iMTEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDAwMDAwIgogICAgICAgIGZvbnQtZmFtaWx5PSJBcmlhbCwgSGVsdmV0aWNhLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwOCIgZm9udC13ZWlnaHQ9IjcwMCIgbGV0dGVyLXNwYWNpbmc9Ii0yIj4KICAgIEJhbmNhIFZhbHNhYmJpbmEKICA8L3RleHQ+CiAgPHJlY3QgeD0iMTIwIiB5PSIxNjUiIHdpZHRoPSIxMTYwIiBoZWlnaHQ9IjI0IiByeD0iMiIgZmlsbD0idXJsKCNiYXIpIi8+Cjwvc3ZnPg==" alt="Banca Valsabbina"></div>
+                <div class="sponsor-file">BANCA VALSABBINA</div>
               </a>
             </div>
 
@@ -4926,6 +5257,21 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
                 <a class="sponsor-link" href="https://www.impresasalus.it/" target="_blank" rel="noopener noreferrer" aria-label="SALUS (apre in una nuova scheda)">
                   <div class="sponsor-logo"><img loading="lazy" src="SALUS.png" alt="SALUS"></div>
                   <div class="sponsor-file">SALUS</div>
+                </a>
+              </div>
+            </div>
+
+            <div class="partners-closing-row" aria-label="Partner finali">
+              <div class="sponsor-item partner-banca-valsabbina">
+                <a class="sponsor-link" href="https://www.bancavalsabbina.com/" target="_blank" rel="noopener noreferrer" aria-label="Banca Valsabbina (apre in una nuova scheda)">
+                  <div class="sponsor-logo"><img loading="lazy" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDAwIDI2MCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgogIDx0aXRsZSBpZD0idGl0bGUiPkJhbmNhIFZhbHNhYmJpbmE8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5Xb3JkbWFyayBCYW5jYSBWYWxzYWJiaW5hIHdpdGggZ3JlZW4gdG8gYmx1ZSB1bmRlcmxpbmUuPC9kZXNjPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJiYXIiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzU5YmY2OSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjU2JSIgc3RvcC1jb2xvcj0iIzQ5YjZiOCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM1ZWE3ZGQiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDx0ZXh0IHg9IjcwMCIgeT0iMTEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDAwMDAwIgogICAgICAgIGZvbnQtZmFtaWx5PSJBcmlhbCwgSGVsdmV0aWNhLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwOCIgZm9udC13ZWlnaHQ9IjcwMCIgbGV0dGVyLXNwYWNpbmc9Ii0yIj4KICAgIEJhbmNhIFZhbHNhYmJpbmEKICA8L3RleHQ+CiAgPHJlY3QgeD0iMTIwIiB5PSIxNjUiIHdpZHRoPSIxMTYwIiBoZWlnaHQ9IjI0IiByeD0iMiIgZmlsbD0idXJsKCNiYXIpIi8+Cjwvc3ZnPg==" alt="Banca Valsabbina"></div>
+                  <div class="sponsor-file">BANCA VALSABBINA</div>
+                </a>
+              </div>
+              <div class="sponsor-item partner-advant-nctm" style="--zoom:1.05;">
+                <a class="sponsor-link" href="https://www.advant-nctm.com/en/" target="_blank" rel="noopener noreferrer" aria-label="ADVANT Nctm (apre in una nuova scheda)">
+                  <div class="sponsor-logo"><img loading="lazy" src="Advant%20(1).png" alt="ADVANT Nctm"></div>
+                  <div class="sponsor-file">ADVANT NCTM</div>
                 </a>
               </div>
             </div>
