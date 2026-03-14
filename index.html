@@ -92,7 +92,8 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     "sponsor": [
       { "@type": "Organization", "name": "Il Sole 24 Ore", "url": "https://www.ilsole24ore.com/" },
       { "@type": "Organization", "name": "SAM Italia", "url": "https://www.sylink.fr/it" },
-      { "@type": "Organization", "name": "SALUS", "url": "https://www.impresasalus.it/" }
+      { "@type": "Organization", "name": "SALUS", "url": "https://www.impresasalus.it/" },
+      { "@type": "Organization", "name": "24Bottles", "url": "https://24bottles.com/it" }
     ]
   }
   </script>
@@ -3112,6 +3113,10 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       transform:scale(1.05) !important;
     }
 
+    .partner-24bottles .sponsor-logo img{
+      transform:scale(.96) !important;
+    }
+
     @media (max-width: 980px) and (min-width: 900px){
       #eventCountdown.countdown-chip{
         width:228px;
@@ -3228,6 +3233,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     }
 
     #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina,
+    #partnersModal .partners-grid .partners-closing-row .partner-24bottles,
     #partnersModal .partners-grid .partners-closing-row .partner-advant-nctm{
       width:min(100%, 250px);
     }
@@ -3259,6 +3265,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
         width:min(100%, 270px);
       }
       #partnersModal .partners-grid .partners-closing-row .partner-banca-valsabbina,
+      #partnersModal .partners-grid .partners-closing-row .partner-24bottles,
       #partnersModal .partners-grid .partners-closing-row .partner-advant-nctm{
         width:min(100%, 220px);
       }
@@ -3462,7 +3469,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
               </div>
               <div class="mode-actions mode-actions-stack">
                 <div class="limit-badge" aria-hidden="true">POSTI LIMITATI IN PRESENZA</div>
-                <span class="btn primary btn-stack" aria-hidden="true"><span class="btn-main">ISCRIVITI IN PRESENZA</span><span class="btn-sub">Riservato alle aziende</span></span>
+                <span class="btn primary btn-stack" aria-hidden="true"><span class="btn-main">ISCRIVITI IN PRESENZA</span><span class="btn-sub">Aziende e professionisti</span></span>
               </div>
             </button>
 
@@ -4045,6 +4052,13 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
                 <div class="sponsor-file">MAGGIOLI</div>
               </a>
             </div>
+
+            <div class="sponsor-item partner-24bottles" style="--zoom:1.00;">
+              <a class="sponsor-link" href="https://24bottles.com/it" target="_blank" rel="noopener noreferrer" aria-label="24Bottles (apre in una nuova scheda)">
+                <div class="sponsor-logo"><img loading="lazy" src="24bottles.JPG" alt="24Bottles"></div>
+                <div class="sponsor-file">24BOTTLES</div>
+              </a>
+            </div>
             <div class="sponsor-item" style="--zoom:1.05;">
               <a class="sponsor-link" href="https://www.sylink.fr/it" target="_blank" rel="noopener noreferrer" aria-label="SAM Italia (apre in una nuova scheda)">
                 <div class="sponsor-logo"><img loading="lazy" src="SAM.jpg" alt="SAM ITALIA"></div>
@@ -4186,6 +4200,13 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
               </a>
             </div>
 
+
+            <div class="sponsor-item partner-24bottles" aria-hidden="true" style="--zoom:1.00;">
+              <a class="sponsor-link" href="https://24bottles.com/it" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-label="24Bottles (apre in una nuova scheda)">
+                <div class="sponsor-logo"><img loading="lazy" src="24bottles.JPG" alt=""></div>
+                <div class="sponsor-file">24BOTTLES</div>
+              </a>
+            </div>
             <div class="sponsor-item" aria-hidden="true" style="--zoom:1.05;">
               <a class="sponsor-link" href="https://www.sylink.fr/it" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-label="SAM Italia (apre in una nuova scheda)">
                 <div class="sponsor-logo"><img loading="lazy" src="SAM.jpg" alt=""></div>
@@ -5266,6 +5287,13 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
                 <a class="sponsor-link" href="https://www.bancavalsabbina.com/" target="_blank" rel="noopener noreferrer" aria-label="Banca Valsabbina (apre in una nuova scheda)">
                   <div class="sponsor-logo"><img loading="lazy" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNDAwIDI2MCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsbGVkYnk9InRpdGxlIGRlc2MiPgogIDx0aXRsZSBpZD0idGl0bGUiPkJhbmNhIFZhbHNhYmJpbmE8L3RpdGxlPgogIDxkZXNjIGlkPSJkZXNjIj5Xb3JkbWFyayBCYW5jYSBWYWxzYWJiaW5hIHdpdGggZ3JlZW4gdG8gYmx1ZSB1bmRlcmxpbmUuPC9kZXNjPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJiYXIiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjAlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzU5YmY2OSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjU2JSIgc3RvcC1jb2xvcj0iIzQ5YjZiOCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM1ZWE3ZGQiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDx0ZXh0IHg9IjcwMCIgeT0iMTEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDAwMDAwIgogICAgICAgIGZvbnQtZmFtaWx5PSJBcmlhbCwgSGVsdmV0aWNhLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwOCIgZm9udC13ZWlnaHQ9IjcwMCIgbGV0dGVyLXNwYWNpbmc9Ii0yIj4KICAgIEJhbmNhIFZhbHNhYmJpbmEKICA8L3RleHQ+CiAgPHJlY3QgeD0iMTIwIiB5PSIxNjUiIHdpZHRoPSIxMTYwIiBoZWlnaHQ9IjI0IiByeD0iMiIgZmlsbD0idXJsKCNiYXIpIi8+Cjwvc3ZnPg==" alt="Banca Valsabbina"></div>
                   <div class="sponsor-file">BANCA VALSABBINA</div>
+                </a>
+              </div>
+
+              <div class="sponsor-item partner-24bottles" style="--zoom:1.00;">
+                <a class="sponsor-link" href="https://24bottles.com/it" target="_blank" rel="noopener noreferrer" aria-label="24Bottles (apre in una nuova scheda)">
+                  <div class="sponsor-logo"><img loading="lazy" src="24bottles.JPG" alt="24Bottles"></div>
+                  <div class="sponsor-file">24BOTTLES</div>
                 </a>
               </div>
               <div class="sponsor-item partner-advant-nctm" style="--zoom:1.05;">
@@ -7815,25 +7843,21 @@ function openSignup(mode){
         var isPresenza = (mode === 'presenza');
         if(modalita) modalita.value = isPresenza ? 'presenza' : 'diretta_web';
 
-        // Regola: i PROFESSIONISTI possono iscriversi solo alla DIRETTA WEB
+        // In presenza e in diretta web sono ammesse sia aziende sia professionisti
         var help = document.getElementById('tipoHelp');
         var profRadio = form ? form.querySelector('#tipo_professionista') : null;
         var profText = document.getElementById('tipoProfessionistaText');
         if(profRadio){
-          profRadio.disabled = !!isPresenza;
+          profRadio.disabled = false;
         }
         if(help){
-          help.innerHTML = isPresenza
-            ? 'In <strong>presenza</strong> è disponibile solo la selezione <strong>Azienda</strong>.'
-            : 'Seleziona una delle due opzioni per proseguire con il modulo.';
+          help.innerHTML = 'Seleziona <strong>Azienda</strong> o <strong>Professionista</strong> per proseguire con il modulo.';
         }
         if(profText){
-          profText.textContent = isPresenza
-            ? 'Disponibile solo per la diretta web.'
-            : 'Iscrizione per professionisti.';
+          profText.textContent = 'Iscrizione per professionisti.';
         }
 
-        if(title) title.textContent = isPresenza ? 'Iscrizione in presenza (aziende)' : 'Iscrizione diretta web';
+        if(title) title.textContent = isPresenza ? 'Iscrizione in presenza' : 'Iscrizione diretta web';
 
         if(note){
           note.textContent = isPresenza
@@ -7881,12 +7905,8 @@ function openSignup(mode){
       var hidden = document.getElementById('modalita');
       var mode = hidden ? hidden.value : 'presenza';
 
-      // Blocco di sicurezza: in presenza sono ammesse solo le AZIENDE
+      // In presenza e in diretta web sono ammesse sia aziende sia professionisti
       var tipoSel = form.querySelector('input[name="tipo_iscrizione"]:checked');
-      if(mode === 'presenza' && tipoSel && tipoSel.value === 'professionista'){
-        alert('La partecipazione in presenza è riservata alle aziende. I professionisti possono iscriversi alla diretta web.');
-        return false;
-      }
 
       var btn = document.getElementById('m_submit');
       var oldLabel = btn ? btn.textContent : '';
