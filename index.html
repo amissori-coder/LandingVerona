@@ -3569,6 +3569,113 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     }
 
 
+    /* ===============================
+       DIRETTA STREAMING
+       =============================== */
+    .streaming-section[hidden]{ display:none !important; }
+    .streaming-card{
+      padding:20px;
+      display:grid;
+      gap:14px;
+    }
+    .streaming-status{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      padding:12px 14px;
+      border-radius:18px;
+      background: linear-gradient(135deg, rgba(14,165,233,.10), rgba(20,184,166,.10));
+      border:1px solid rgba(14,165,233,.18);
+      color:var(--text);
+      font-size:14px;
+      line-height:1.6;
+    }
+    .streaming-status strong{ color:var(--text); }
+    .streaming-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:7px 10px;
+      border-radius:999px;
+      background:#0f172a;
+      color:#fff;
+      font-size:10px;
+      font-weight:900;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      white-space:nowrap;
+      flex:0 0 auto;
+    }
+    .streaming-player{
+      position:relative;
+      width:100%;
+      aspect-ratio: 16 / 9;
+      border-radius:24px;
+      overflow:hidden;
+      background:#020617;
+      border:1px solid rgba(15,23,42,.10);
+      box-shadow: var(--shadow);
+    }
+    .streaming-player iframe{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      border:0;
+      display:block;
+    }
+    .streaming-support{
+      font-size:13px;
+      color: var(--muted2);
+      line-height:1.6;
+    }
+    .streaming-access-form{
+      display:grid;
+      gap:12px;
+      margin-top:14px;
+    }
+    .streaming-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .streaming-form-note{
+      padding:12px 14px;
+      border-radius:16px;
+      background:#f8fafc;
+      border:1px solid rgba(15,23,42,.08);
+      color: var(--muted2);
+      font-size:12px;
+      line-height:1.55;
+    }
+    .streaming-error{
+      padding:12px 14px;
+      border-radius:16px;
+      background: rgba(239,68,68,.08);
+      border:1px solid rgba(239,68,68,.18);
+      color:#991b1b;
+      font-size:12.5px;
+      line-height:1.5;
+    }
+    .streaming-error[hidden]{ display:none !important; }
+    .streaming-login-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-top:4px;
+    }
+    .streaming-hero-btn{
+      min-width:232px;
+    }
+
+    @media (max-width: 680px){
+      .streaming-grid{ grid-template-columns:1fr; }
+      .streaming-hero-btn{ min-width:0; }
+      .streaming-player{ border-radius:18px; }
+    }
+
+
   </style>
 
 
@@ -3682,7 +3789,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
             </div>
 
             <div class="hero-cta">
-              <a class="btn primary" href="#signup">Richiedi la partecipazione</a>
+              <button class="btn primary streaming-hero-btn" type="button" data-open-streaming-access="1">Accedi alla diretta streaming</button>
               <a class="btn ghost" href="#agenda">Vedi agenda</a>
             </div>
           </div>
@@ -3761,6 +3868,32 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     </div>
   </header>
 
+
+  <section id="diretta-streaming" class="streaming-section" aria-label="Diretta streaming" hidden>
+    <div class="container">
+      <div class="section-head">
+        <h2>Diretta streaming</h2>
+        <p>Accesso riservato ai partecipanti con credenziali ricevute via email.</p>
+      </div>
+
+      <div class="card streaming-card">
+        <div class="streaming-status">
+          <span class="streaming-badge">LIVE</span>
+          <div>
+            <strong>Accesso autorizzato.</strong> Dopo la verifica di nome utente e password, la diretta viene mostrata direttamente in questa landing page.
+          </div>
+        </div>
+
+        <div class="streaming-player" id="streamingPlayerShell" aria-label="Player diretta streaming"></div>
+
+        <div class="streaming-support">
+          Problemi di accesso? Scrivi a <strong>info@nextgenerationbusiness.it</strong>.
+        </div>
+      </div>
+    </div>
+  </section>
+
+
   <section aria-label="Contenuti per PMI">
     <div class="container">
       <div class="section-head reveal">
@@ -3796,6 +3929,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
           <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap">
             <a class="btn primary" href="#signup">Registrati</a>
             <a class="btn" href="#agenda">Vedi agenda</a>
+            <button class="btn" type="button" data-open-streaming-access="1">Accedi alla diretta streaming</button>
           </div>
         </div>
 
@@ -5162,6 +5296,51 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     </div>
   </div>
 
+
+
+
+  <div class="modal" id="streamingAccessModal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="streamingAccess"></div>
+
+    <div class="modal-card" role="document" aria-label="Accesso diretta streaming">
+      <button class="modal-close" type="button" aria-label="Chiudi" data-close-modal="streamingAccess">×</button>
+
+      <div class="modal-badge">DIRETTA STREAMING</div>
+
+      <div class="modal-head">
+        <div class="modal-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M8 5v14l11-7-11-7z" fill="currentColor"/>
+          </svg>
+        </div>
+        <div>
+          <h3>Accedi alla diretta streaming</h3>
+          <p>Inserisci nome utente e password ricevuti via email. In caso di problemi puoi scrivere a <strong>info@nextgenerationbusiness.it</strong>.</p>
+        </div>
+      </div>
+
+      <form id="streamingAccessForm" class="streaming-access-form" novalidate>
+        <div class="streaming-grid">
+          <div>
+            <label for="streamingUsername">Nome utente</label>
+            <input id="streamingUsername" name="streaming_username" type="text" placeholder="Inserisci il nome utente" autocomplete="username" required>
+          </div>
+
+          <div>
+            <label for="streamingPassword">Password</label>
+            <input id="streamingPassword" name="streaming_password" type="password" placeholder="Inserisci la password" autocomplete="current-password" required>
+          </div>
+        </div>
+
+        <div class="streaming-error" id="streamingAccessError" hidden></div>
+
+        <div class="streaming-login-actions">
+          <button class="btn primary" id="streamingAccessSubmit" type="submit">Entra nella diretta</button>
+          <button class="btn" type="button" data-close-modal="streamingAccess">Chiudi</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <div class="modal" id="signupModal" role="dialog" aria-modal="true" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal="signup"></div>
@@ -8342,6 +8521,861 @@ function openSignup(mode){
         var modal = document.getElementById('eventPreviewModal');
         if(modal && modal.classList.contains('show')) fitModal('eventPreviewModal');
       });
+
+    /* ===============================
+       DIRETTA STREAMING
+       =============================== */
+    var STREAMING_AUTH_URL = 'https://script.google.com/macros/s/AKfycbynKK4FYh-DsXziLkMz9nR1_Qn5vLbatNW_gXQ8tmu3CIpaYUznXo6n21SZ65XDTsoDkg/exec';
+    var STREAMING_EMBED_URL = 'https://www.youtube.com/embed/nUO7CT9J-u0?rel=0&modestbranding=1';
+    var STREAMING_SESSION_KEY = 'ngb_streaming_access_ok';
+
+    function streamingTrim(value){
+      return String(value == null ? '' : value).trim();
+    }
+
+    function streamingNormalizeUser(value){
+      return streamingTrim(value).toLowerCase();
+    }
+
+    function streamingModalEl(){
+      return document.getElementById('streamingAccessModal');
+    }
+
+    function streamingFormEl(){
+      return document.getElementById('streamingAccessForm');
+    }
+
+    function streamingSubmitEl(){
+      return document.getElementById('streamingAccessSubmit');
+    }
+
+    function streamingErrorEl(){
+      return document.getElementById('streamingAccessError');
+    }
+
+    function streamingSectionEl(){
+      return document.getElementById('diretta-streaming');
+    }
+
+    function streamingShellEl(){
+      return document.getElementById('streamingPlayerShell');
+    }
+
+    function hideStreamingError(){
+      var box = streamingErrorEl();
+      if(!box) return;
+      box.hidden = true;
+      box.textContent = '';
+    }
+
+    function showStreamingError(message){
+      var box = streamingErrorEl();
+      if(!box) return;
+      box.textContent = message;
+      box.hidden = false;
+    }
+
+    function isStreamingUnlocked(){
+      try{
+        return sessionStorage.getItem(STREAMING_SESSION_KEY) === '1';
+      }catch(err){
+        return false;
+      }
+    }
+
+    function setStreamingUnlocked(value){
+      try{
+        if(value) sessionStorage.setItem(STREAMING_SESSION_KEY, '1');
+        else sessionStorage.removeItem(STREAMING_SESSION_KEY);
+      }catch(err){}
+    }
+
+    function syncStreamingAccessButtons(){
+      var buttons = document.querySelectorAll('[data-open-streaming-access]');
+      var unlocked = isStreamingUnlocked();
+      for(var i=0;i<buttons.length;i++){
+        buttons[i].textContent = unlocked ? 'Vai alla diretta streaming' : 'Accedi alla diretta streaming';
+      }
+    }
+
+    function mountStreamingPlayer(){
+      var shell = streamingShellEl();
+      if(!shell) return;
+
+      var iframe = shell.querySelector('iframe');
+      if(!iframe){
+        iframe = document.createElement('iframe');
+        iframe.title = 'Diretta streaming Next Generation Business';
+        iframe.loading = 'lazy';
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+        iframe.allowFullscreen = true;
+        shell.innerHTML = '';
+        shell.appendChild(iframe);
+      }
+
+      if(iframe.getAttribute('src') !== STREAMING_EMBED_URL){
+        iframe.setAttribute('src', STREAMING_EMBED_URL);
+      }
+    }
+
+    function renderStreamingSection(scrollIntoView){
+      var section = streamingSectionEl();
+      if(!section) return;
+
+      section.hidden = false;
+      mountStreamingPlayer();
+      syncStreamingAccessButtons();
+
+      if(scrollIntoView !== false){
+        setTimeout(function(){
+          try{
+            section.scrollIntoView({behavior:'smooth', block:'start'});
+          }catch(err){
+            location.hash = 'diretta-streaming';
+          }
+        }, 40);
+      }
+    }
+
+    function openStreamingAccessModal(){
+      var form = streamingFormEl();
+      if(form) form.reset();
+      hideStreamingError();
+      openModal('streamingAccessModal');
+      var field = document.getElementById('streamingUsername');
+      if(field){
+        setTimeout(function(){
+          try{ field.focus(); }catch(err){}
+        }, 40);
+      }
+    }
+
+    function closeStreamingAccessModal(){
+      hideStreamingError();
+      closeModal('streamingAccessModal');
+    }
+
+    function streamingNormalizeKey(key){
+      return String(key || '').toLowerCase().replace(/[\s_\-]/g, '');
+    }
+
+    function streamingGetObjectValue(obj, names){
+      if(!obj || typeof obj !== 'object') return '';
+      var wanted = {};
+      for(var i=0;i<names.length;i++){
+        wanted[streamingNormalizeKey(names[i])] = true;
+      }
+      for(var key in obj){
+        if(Object.prototype.hasOwnProperty.call(obj, key) && wanted[streamingNormalizeKey(key)]){
+          return obj[key];
+        }
+      }
+      return '';
+    }
+
+    function streamingArrayPair(row){
+      if(!Array.isArray(row)) return { username:'', password:'' };
+
+      if(row.length >= 9){
+        return {
+          username: row[7],
+          password: row[8]
+        };
+      }
+
+      if(row.length >= 2){
+        return {
+          username: row[row.length - 2],
+          password: row[row.length - 1]
+        };
+      }
+
+      return {
+        username: row[0],
+        password: ''
+      };
+    }
+
+    function streamingRowUsername(row){
+      if(Array.isArray(row)){
+        return streamingArrayPair(row).username;
+      }
+      return streamingGetObjectValue(row, ['username','user','login','nomeUtente','nome_utente','H']);
+    }
+
+    function streamingRowPassword(row){
+      if(Array.isArray(row)){
+        return streamingArrayPair(row).password;
+      }
+      return streamingGetObjectValue(row, ['password','pwd','pass','passwd','I']);
+    }
+
+    function streamingLooksLikeHeader(value){
+      var normalized = streamingNormalizeUser(value).replace(/\s+/g, '');
+      return !normalized ||
+        normalized === 'username' ||
+        normalized === 'user' ||
+        normalized === 'login' ||
+        normalized === 'nomeutente' ||
+        normalized === 'h';
+    }
+
+    function streamingGvizRows(table){
+      if(!table || !Array.isArray(table.rows)) return [];
+      var out = [];
+      for(var i=0;i<table.rows.length;i++){
+        var row = table.rows[i];
+        var cells = row && Array.isArray(row.c) ? row.c : [];
+        var current = [];
+        for(var j=0;j<cells.length;j++){
+          var cell = cells[j] || {};
+          if(cell && typeof cell === 'object'){
+            if(cell.v != null) current.push(cell.v);
+            else if(cell.f != null) current.push(cell.f);
+            else current.push('');
+          }else{
+            current.push(cell);
+          }
+        }
+        out.push(current);
+      }
+      return out;
+    }
+
+    function streamingRowsInfo(payload){
+      if(payload == null) return { rows: [], explicit: false };
+
+      if(Array.isArray(payload)){
+        return { rows: payload, explicit: true };
+      }
+
+      if(typeof payload !== 'object') return { rows: [], explicit: false };
+
+      if(payload.table && Array.isArray(payload.table.rows)){
+        return { rows: streamingGvizRows(payload.table), explicit: true };
+      }
+
+      var keys = ['data','rows','values','records','items','result','results','list','entries','matches','credentials'];
+      for(var i=0;i<keys.length;i++){
+        var current = payload[keys[i]];
+
+        if(Array.isArray(current)){
+          return { rows: current, explicit: true };
+        }
+
+        if(current && typeof current === 'object'){
+          if(current.table && Array.isArray(current.table.rows)){
+            return { rows: streamingGvizRows(current.table), explicit: true };
+          }
+          if(Array.isArray(current.rows)){
+            return { rows: current.rows, explicit: true };
+          }
+          if(Array.isArray(current.data)){
+            return { rows: current.data, explicit: true };
+          }
+          if(current.row && (Array.isArray(current.row) || typeof current.row === 'object')){
+            return { rows: [current.row], explicit: true };
+          }
+        }
+      }
+
+      if(payload.row && (Array.isArray(payload.row) || typeof payload.row === 'object')){
+        return { rows: [payload.row], explicit: true };
+      }
+
+      var directUser = streamingGetObjectValue(payload, ['username','user','login','nomeUtente','nome_utente','nomeutente','userName','user_name','H']);
+      var directPass = streamingGetObjectValue(payload, ['password','pwd','pass','passwd','passWord','I']);
+      if(streamingTrim(directUser) || streamingTrim(directPass)){
+        return { rows: [payload], explicit: true };
+      }
+
+      return { rows: [], explicit: false };
+    }
+
+    function streamingRowsFromPayload(payload){
+      return streamingRowsInfo(payload).rows;
+    }
+
+    function streamingScalarVerdict(value){
+      if(value === true) return true;
+      if(value === false) return false;
+
+      if(typeof value === 'number'){
+        if(value === 1) return true;
+        if(value === 0) return false;
+      }
+
+      if(typeof value !== 'string') return null;
+
+      var normalized = streamingNormalizeUser(value)
+        .replace(/&nbsp;/g, '')
+        .replace(/["'`]+/g, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/\s+/g, '');
+
+      if(!normalized) return null;
+
+      if(
+        normalized === 'authenticated' ||
+        normalized === 'authorized' ||
+        normalized === 'valid' ||
+        normalized === 'accessgranted' ||
+        normalized === 'okauth' ||
+        normalized === 'ok' ||
+        normalized === 'true' ||
+        normalized === '1' ||
+        normalized === 'yes' ||
+        normalized === 'success' ||
+        normalized === 'succeeded' ||
+        normalized === 'match' ||
+        normalized === 'matched' ||
+        normalized === 'found' ||
+        normalized === 'exists' ||
+        normalized === 'allowed' ||
+        normalized === 'granted'
+      ){
+        return true;
+      }
+
+      if(
+        normalized === 'invalid' ||
+        normalized === 'denied' ||
+        normalized === 'forbidden' ||
+        normalized === 'unauthorized' ||
+        normalized === 'notauthorized' ||
+        normalized === 'ko' ||
+        normalized === 'false' ||
+        normalized === '0' ||
+        normalized === 'no' ||
+        normalized === 'nomatch' ||
+        normalized === 'notfound' ||
+        normalized === 'missing' ||
+        normalized === 'blocked' ||
+        normalized === 'rejected' ||
+        normalized === 'declined'
+      ){
+        return false;
+      }
+
+      return null;
+    }
+
+    function streamingPhraseVerdict(text){
+      var value = String(text || '');
+      if(!streamingTrim(value)) return null;
+
+      var scalar = streamingScalarVerdict(value);
+      if(scalar !== null) return scalar;
+
+      var normalized = value.toLowerCase();
+
+      if(
+        /credenziali\s+(valide|corrette|ok)/i.test(normalized) ||
+        /credentials?\s+(valid|correct)/i.test(normalized) ||
+        /accesso\s+(autorizzato|consentito)/i.test(normalized) ||
+        /access\s+(granted|allowed)/i.test(normalized) ||
+        /login\s+(ok|riuscito|consentito|successful)/i.test(normalized) ||
+        /(utente|user(name)?)\s+trovat[oa]/i.test(normalized) ||
+        /password\s+corrett[ao]/i.test(normalized) ||
+        /match\s+found/i.test(normalized)
+      ){
+        return true;
+      }
+
+      if(
+        /credenziali\s+non\s+(valide|corrette)/i.test(normalized) ||
+        /credentials?\s+(invalid|wrong)/i.test(normalized) ||
+        /accesso\s+(negato|rifiutato)/i.test(normalized) ||
+        /access\s+(denied|refused)/i.test(normalized) ||
+        /login\s+(negato|fallito|failed)/i.test(normalized) ||
+        /(utente|user(name)?)\s+non\s+trovat[oa]/i.test(normalized) ||
+        /password\s+(errata|non\s+corretta|wrong|invalid)/i.test(normalized) ||
+        /no\s+match/i.test(normalized) ||
+        /not\s+found/i.test(normalized) ||
+        /unauthorized/i.test(normalized) ||
+        /forbidden/i.test(normalized) ||
+        /invalid/i.test(normalized)
+      ){
+        return false;
+      }
+
+      return null;
+    }
+
+    function streamingDirectVerdictFromObject(payload){
+      if(!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+
+      var directKeys = ['authenticated','authorized','valid','allowed','accessGranted','loginOk','isValid','success','ok','found','exists','match','matched'];
+      for(var i=0;i<directKeys.length;i++){
+        if(Object.prototype.hasOwnProperty.call(payload, directKeys[i])){
+          var directVerdict = streamingScalarVerdict(payload[directKeys[i]]);
+          if(directVerdict !== null) return directVerdict;
+        }
+      }
+
+      var textualKeys = ['authStatus','authentication','authorization','loginStatus','status','result','message','detail'];
+      for(var j=0;j<textualKeys.length;j++){
+        if(Object.prototype.hasOwnProperty.call(payload, textualKeys[j])){
+          var textVerdict = streamingPhraseVerdict(payload[textualKeys[j]]);
+          if(textVerdict !== null) return textVerdict;
+        }
+      }
+
+      return null;
+    }
+
+    function streamingDirectVerdictFromText(text){
+      if(text == null) return null;
+      return streamingPhraseVerdict(String(text));
+    }
+
+    function streamingFindJsonFragment(text){
+      var source = String(text || '');
+      var braceIndex = source.indexOf('{');
+      var bracketIndex = source.indexOf('[');
+      var start = -1;
+
+      if(braceIndex === -1) start = bracketIndex;
+      else if(bracketIndex === -1) start = braceIndex;
+      else start = Math.min(braceIndex, bracketIndex);
+
+      if(start === -1) return '';
+
+      var openChar = source.charAt(start);
+      var closeChar = openChar === '{' ? '}' : ']';
+      var depth = 0;
+      var inString = false;
+      var escaped = false;
+
+      for(var i=start;i<source.length;i++){
+        var ch = source.charAt(i);
+
+        if(inString){
+          if(escaped){
+            escaped = false;
+          }else if(ch === '\\'){
+            escaped = true;
+          }else if(ch === '"'){
+            inString = false;
+          }
+          continue;
+        }
+
+        if(ch === '"'){
+          inString = true;
+          continue;
+        }
+
+        if(ch === openChar) depth += 1;
+        else if(ch === closeChar){
+          depth -= 1;
+          if(depth === 0){
+            return source.slice(start, i + 1);
+          }
+        }
+      }
+
+      return '';
+    }
+
+    function streamingParseResponseText(text){
+      var raw = streamingTrim(text);
+      if(!raw) return null;
+
+      try{
+        return JSON.parse(raw);
+      }catch(err){}
+
+      var gvizMatch = raw.match(/setResponse\(([\s\S]+)\)\s*;?\s*$/i);
+      if(gvizMatch && gvizMatch[1]){
+        try{
+          return JSON.parse(gvizMatch[1]);
+        }catch(gvizErr){}
+      }
+
+      var jsonFragment = streamingFindJsonFragment(raw);
+      if(jsonFragment && jsonFragment !== raw){
+        try{
+          return JSON.parse(jsonFragment);
+        }catch(fragmentErr){}
+      }
+
+      if(/<[^>]+>/.test(raw) && typeof DOMParser !== 'undefined'){
+        try{
+          var doc = new DOMParser().parseFromString(raw, 'text/html');
+          var pre = doc.querySelector('pre, code');
+          if(pre){
+            var preText = streamingTrim(pre.textContent || '');
+            if(preText){
+              var parsedPre = streamingParseResponseText(preText);
+              if(parsedPre !== null) return parsedPre;
+            }
+          }
+
+          var tables = doc.querySelectorAll('table');
+          if(tables && tables.length){
+            var htmlRows = [];
+            for(var t=0;t<tables.length;t++){
+              var trList = tables[t].querySelectorAll('tr');
+              for(var r=0;r<trList.length;r++){
+                var cellNodes = trList[r].querySelectorAll('th, td');
+                var cellRow = [];
+                for(var c=0;c<cellNodes.length;c++){
+                  cellRow.push(streamingTrim(cellNodes[c].textContent || ''));
+                }
+                if(cellRow.length) htmlRows.push(cellRow);
+              }
+            }
+            if(htmlRows.length) return htmlRows;
+          }
+
+          var bodyText = streamingTrim(doc.body ? doc.body.textContent : '');
+          if(bodyText && bodyText !== raw){
+            var parsedBody = streamingParseResponseText(bodyText);
+            if(parsedBody !== null) return parsedBody;
+            return bodyText;
+          }
+        }catch(htmlErr){}
+      }
+
+      var lines = raw.split(/\r?\n/).map(streamingTrim).filter(Boolean);
+      if(lines.length > 1){
+        var separator = null;
+        if(lines.some(function(line){ return line.indexOf('\t') !== -1; })) separator = '\t';
+        else if(lines.some(function(line){ return line.indexOf(';') !== -1; })) separator = ';';
+        else if(lines.some(function(line){ return line.indexOf(',') !== -1; })) separator = ',';
+
+        if(separator){
+          return lines.map(function(line){
+            return line.split(separator);
+          });
+        }
+      }
+
+      return raw;
+    }
+
+    function streamingPayloadMatches(payload, username, password){
+      var rowsInfo = streamingRowsInfo(payload);
+      var rows = rowsInfo.rows;
+
+      if(rowsInfo.explicit){
+        if(!rows.length) return false;
+
+        var expectedUser = streamingNormalizeUser(username);
+        var expectedPassword = streamingTrim(password);
+
+        for(var i=0;i<rows.length;i++){
+          var row = rows[i];
+          var candidateUser = streamingNormalizeUser(streamingRowUsername(row));
+          var candidatePassword = streamingTrim(streamingRowPassword(row));
+
+          if(streamingLooksLikeHeader(candidateUser)) continue;
+          if(candidateUser !== expectedUser) continue;
+
+          if(candidatePassword){
+            return candidatePassword === expectedPassword;
+          }
+        }
+
+        return false;
+      }
+
+      var directObjectVerdict = streamingDirectVerdictFromObject(payload);
+      if(directObjectVerdict !== null) return directObjectVerdict;
+
+      return null;
+    }
+
+    function buildStreamingFieldMap(username, password){
+      return {
+        action: 'validate',
+        mode: 'streaming_access',
+        username: username,
+        user: username,
+        login: username,
+        nome_utente: username,
+        nomeutente: username,
+        nomeUtente: username,
+        user_name: username,
+        userName: username,
+        password: password,
+        pwd: password,
+        pass: password,
+        passwd: password,
+        H: username,
+        I: password,
+        username_col: 'H',
+        password_col: 'I',
+        col_username: 'H',
+        col_password: 'I',
+        sheet_user_col: 'H',
+        sheet_pass_col: 'I',
+        columnUsername: 'H',
+        columnPassword: 'I',
+        usernameColumn: 'H',
+        passwordColumn: 'I',
+        credentialColumns: 'H,I',
+        columns: 'H,I'
+      };
+    }
+
+    function streamingFieldVariants(username, password){
+      return [
+        { username: username, password: password },
+        { user: username, pass: password },
+        { login: username, pwd: password },
+        { nome_utente: username, password: password },
+        { nomeUtente: username, password: password },
+        { H: username, I: password },
+        buildStreamingFieldMap(username, password)
+      ];
+    }
+
+    function streamingBuildSearchParams(fields){
+      var search = new URLSearchParams();
+      for(var key in fields){
+        if(Object.prototype.hasOwnProperty.call(fields, key) && fields[key] != null && fields[key] !== ''){
+          search.append(key, fields[key]);
+        }
+      }
+      return search;
+    }
+
+    function streamingBuildFormData(fields){
+      var formData = new FormData();
+      for(var key in fields){
+        if(Object.prototype.hasOwnProperty.call(fields, key) && fields[key] != null && fields[key] !== ''){
+          formData.append(key, fields[key]);
+        }
+      }
+      return formData;
+    }
+
+    function buildStreamingAuthAttempts(username, password){
+      var variants = streamingFieldVariants(username, password);
+      var attempts = [];
+      var seen = {};
+
+      for(var i=0;i<variants.length;i++){
+        var fields = variants[i];
+        var search = streamingBuildSearchParams(fields);
+        var signature = search.toString();
+
+        if(signature && !seen['search:' + signature]){
+          seen['search:' + signature] = true;
+          attempts.push({
+            url: STREAMING_AUTH_URL,
+            init: {
+              method: 'POST',
+              body: search,
+              cache: 'no-store',
+              credentials: 'omit',
+              redirect: 'follow'
+            }
+          });
+        }
+
+        if(i === variants.length - 1){
+          attempts.push({
+            url: STREAMING_AUTH_URL,
+            init: {
+              method: 'POST',
+              body: streamingBuildFormData(fields),
+              cache: 'no-store',
+              credentials: 'omit',
+              redirect: 'follow'
+            }
+          });
+
+          attempts.push({
+            url: STREAMING_AUTH_URL,
+            init: {
+              method: 'POST',
+              headers: {'Content-Type': 'text/plain;charset=UTF-8'},
+              body: signature,
+              cache: 'no-store',
+              credentials: 'omit',
+              redirect: 'follow'
+            }
+          });
+        }
+      }
+
+      return attempts;
+    }
+
+    function streamingFetchWithTimeout(url, init, timeoutMs){
+      if(typeof AbortController === 'undefined'){
+        return fetch(url, init);
+      }
+
+      var controller = new AbortController();
+      var finalInit = {};
+      for(var key in init){
+        if(Object.prototype.hasOwnProperty.call(init, key)){
+          finalInit[key] = init[key];
+        }
+      }
+      finalInit.signal = controller.signal;
+
+      var timer = setTimeout(function(){
+        controller.abort();
+      }, timeoutMs || 12000);
+
+      return fetch(url, finalInit).finally(function(){
+        clearTimeout(timer);
+      });
+    }
+
+    async function validateStreamingCredentials(username, password){
+      var attempts = buildStreamingAuthAttempts(username, password);
+      var lastError = null;
+
+      for(var i=0;i<attempts.length;i++){
+        try{
+          var response = await streamingFetchWithTimeout(attempts[i].url, attempts[i].init, 12000);
+          var text = '';
+          try{
+            text = await response.text();
+          }catch(readError){}
+
+          var payload = streamingParseResponseText(text);
+          var verdict = streamingPayloadMatches(payload, username, password);
+          if(verdict === true) return {ok:true};
+          if(verdict === false) return {ok:false, reason:'invalid'};
+
+          var textVerdict = streamingDirectVerdictFromText(text);
+          if(textVerdict === true) return {ok:true};
+          if(textVerdict === false) return {ok:false, reason:'invalid'};
+
+          if(response && (response.status === 401 || response.status === 403)){
+            return {ok:false, reason:'invalid'};
+          }
+
+          if(/script\s+function\s+not\s+found/i.test(String(text || '')) || /doget/i.test(String(text || '')) || /dopost/i.test(String(text || ''))){
+            lastError = new Error('Servizio di verifica non configurato correttamente.');
+          }else if(response && response.ok && payload === null && !streamingTrim(text)){
+            lastError = new Error('Il servizio di verifica ha restituito una risposta vuota.');
+          }else{
+            lastError = new Error('Risposta del servizio di verifica non interpretabile.');
+          }
+        }catch(err){
+          lastError = err;
+        }
+      }
+
+      return {
+        ok: false,
+        reason: 'unavailable',
+        error: lastError
+      };
+    }
+
+    document.addEventListener('click', function(e){
+      var el = e.target;
+      if(!el) return;
+
+      var trigger = (el.closest ? el.closest('[data-open-streaming-access]') : null);
+      if(trigger){
+        e.preventDefault();
+        if(isStreamingUnlocked()){
+          renderStreamingSection(true);
+        }else{
+          openStreamingAccessModal();
+        }
+        return;
+      }
+
+      var closer = (el.closest ? el.closest('[data-close-modal="streamingAccess"]') : null);
+      if(closer){
+        e.preventDefault();
+        closeStreamingAccessModal();
+      }
+    });
+
+    document.addEventListener('submit', function(e){
+      var form = e.target;
+      if(!form || form.id !== 'streamingAccessForm') return;
+
+      e.preventDefault();
+
+      var usernameField = document.getElementById('streamingUsername');
+      var passwordField = document.getElementById('streamingPassword');
+      var username = usernameField ? streamingTrim(usernameField.value) : '';
+      var password = passwordField ? streamingTrim(passwordField.value) : '';
+
+      if(!username || !password){
+        showStreamingError('Inserisci sia il nome utente sia la password ricevuti via email. In caso di problemi scrivi a info@nextgenerationbusiness.it.');
+        return;
+      }
+
+      hideStreamingError();
+
+      var button = streamingSubmitEl();
+      var previousLabel = button ? button.textContent : '';
+      if(button){
+        button.disabled = true;
+        button.textContent = 'Verifica in corso...';
+      }
+
+      validateStreamingCredentials(username, password)
+        .then(function(result){
+          if(result && result.ok){
+            setStreamingUnlocked(true);
+            closeStreamingAccessModal();
+            renderStreamingSection(true);
+            return;
+          }
+
+          if(result && result.reason === 'invalid'){
+            showStreamingError('Credenziali non valide. Controlla nome utente e password ricevuti via email. In caso di problemi scrivi a info@nextgenerationbusiness.it.');
+            return;
+          }
+
+          if(window.location && window.location.protocol === 'file:'){
+            showStreamingError('La verifica delle credenziali non funziona in anteprima da file locale. Carica la landing su un dominio HTTPS e riprova, oppure scrivi a info@nextgenerationbusiness.it.');
+            return;
+          }
+
+          if(window.console && console.warn){
+            console.warn('Verifica streaming non disponibile', result && result.error ? result.error : result);
+          }
+
+          showStreamingError('Non riesco a verificare le credenziali con il servizio remoto in questo momento. Riprova tra poco oppure scrivi a info@nextgenerationbusiness.it.');
+        })
+        .catch(function(){
+          showStreamingError('Si è verificato un errore durante la verifica delle credenziali. Scrivi a info@nextgenerationbusiness.it se il problema persiste.');
+        })
+        .finally(function(){
+          if(button){
+            button.disabled = false;
+            button.textContent = previousLabel || 'Entra nella diretta';
+          }
+        });
+    });
+
+    document.addEventListener('keydown', function(e){
+      if(e.key !== 'Escape') return;
+      var modal = streamingModalEl();
+      if(modal && modal.classList.contains('show')){
+        closeStreamingAccessModal();
+      }
+    });
+
+    addPassive(window, 'resize', function(){
+      var modal = streamingModalEl();
+      if(modal && modal.classList.contains('show')) fitModal('streamingAccessModal');
+    });
+
+    if(isStreamingUnlocked()){
+      renderStreamingSection(false);
+    }else{
+      syncStreamingAccessButtons();
+    }
+
+
     })();
 
   </script>
