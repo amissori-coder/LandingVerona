@@ -3676,6 +3676,456 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     }
 
 
+  
+    /* ===============================
+       PAGINA DEDICATA DIRETTA STREAMING
+       =============================== */
+    .streaming-password-wrap{
+      position:relative;
+    }
+    .streaming-password-wrap input{
+      padding-right:88px;
+    }
+    .streaming-password-toggle{
+      position:absolute;
+      right:8px;
+      top:50%;
+      transform:translateY(-50%);
+      border:1px solid rgba(15,23,42,.14);
+      background:#fff;
+      color:var(--text);
+      border-radius:999px;
+      padding:7px 12px;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.02em;
+      cursor:pointer;
+      transition:transform .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
+    }
+    .streaming-password-toggle:hover{
+      transform:translateY(calc(-50% - 1px));
+      box-shadow:0 10px 22px rgba(2,6,23,.08);
+      border-color:rgba(14,165,233,.32);
+    }
+    .streaming-password-toggle:focus-visible{
+      outline:none;
+      border-color: rgba(14,165,233,.55);
+      box-shadow: 0 0 0 4px rgba(14,165,233,.12);
+    }
+    .streaming-password-hint{
+      margin-top:8px;
+      font-size:11px;
+      line-height:1.5;
+      color:var(--muted2);
+    }
+
+    .streaming-view-page[hidden]{ display:none !important; }
+
+    body.is-streaming-view{
+      background:#020617;
+      color:#e5eefb;
+    }
+    body.is-streaming-view > *:not(.streaming-view-page):not(script){
+      display:none !important;
+    }
+
+    .streaming-view-page{
+      min-height:100vh;
+      padding:clamp(16px, 2.4vw, 30px);
+      background:
+        radial-gradient(circle at 20% 0%, rgba(14,165,233,.18), transparent 32%),
+        radial-gradient(circle at 90% 12%, rgba(20,184,166,.14), transparent 26%),
+        linear-gradient(180deg, #020617 0%, #071124 100%);
+      color:#e5eefb;
+    }
+    .streaming-view-shell{
+      width:min(1440px, 100%);
+      margin:0 auto;
+      display:grid;
+      gap:18px;
+    }
+    .streaming-view-head{
+      display:grid;
+      gap:8px;
+      justify-items:start;
+    }
+    .streaming-view-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.12);
+      color:#cfe5ff;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+    }
+    .streaming-view-title{
+      margin:0;
+      font-size:clamp(28px, 4vw, 48px);
+      line-height:1.03;
+      letter-spacing:-.04em;
+      color:#fff;
+    }
+    .streaming-view-copy{
+      margin:0;
+      max-width:80ch;
+      color:rgba(226,232,240,.88);
+      font-size:15px;
+      line-height:1.65;
+    }
+    .streaming-view-stage{
+      display:grid;
+      gap:16px;
+      padding:20px;
+      border-radius:30px;
+      background:rgba(7,18,38,.78);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 24px 70px rgba(2,6,23,.35);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .streaming-view-logo-row{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:12px;
+    }
+    .streaming-view-logo{
+      min-height:94px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      border-radius:22px;
+      background:rgba(255,255,255,.96);
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 12px 32px rgba(2,6,23,.18);
+    }
+    .streaming-view-logo img{
+      display:block;
+      width:auto;
+      max-width:100%;
+      height:52px;
+      object-fit:contain;
+    }
+    .streaming-view-logo.is-advant img{
+      height:74px;
+    }
+    .streaming-view-logo.is-sole img{
+      height:46px;
+    }
+    .streaming-view-logo.is-confimi img{
+      height:56px;
+    }
+
+    .streaming-view-controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+    .streaming-view-ctrl{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:44px;
+      padding:0 16px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(255,255,255,.05);
+      color:#e2e8f0;
+      font-size:13px;
+      font-weight:800;
+      letter-spacing:.01em;
+      cursor:pointer;
+      transition:transform .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
+    }
+    .streaming-view-ctrl:hover{
+      transform:translateY(-1px);
+      box-shadow:0 12px 28px rgba(2,6,23,.24);
+      border-color:rgba(56,189,248,.34);
+    }
+    .streaming-view-ctrl:focus-visible{
+      outline:none;
+      border-color:rgba(56,189,248,.58);
+      box-shadow:0 0 0 4px rgba(14,165,233,.14);
+    }
+    .streaming-view-ctrl.is-active,
+    .streaming-view-ctrl[aria-pressed="true"]{
+      color:#fff;
+      border-color:rgba(34,197,94,.42);
+      background:linear-gradient(135deg, rgba(22,163,74,.32), rgba(34,197,94,.26));
+      box-shadow:0 12px 24px rgba(22,163,74,.18);
+    }
+    .streaming-view-ctrl.is-primary{
+      border-color:rgba(56,189,248,.42);
+      background:linear-gradient(135deg, rgba(14,165,233,.34), rgba(20,184,166,.30));
+      color:#fff;
+      box-shadow:0 14px 26px rgba(14,165,233,.18);
+    }
+    .streaming-player-controls-wrap{
+      display:grid;
+      gap:10px;
+    }
+    .streaming-player-controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+    .streaming-player-volume{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      min-height:44px;
+      padding:0 14px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(255,255,255,.05);
+      color:#e2e8f0;
+      font-size:13px;
+      font-weight:800;
+      letter-spacing:.01em;
+    }
+    .streaming-player-volume span{
+      white-space:nowrap;
+    }
+    .streaming-player-volume-range{
+      width:132px;
+      accent-color:#38bdf8;
+      cursor:pointer;
+      background:transparent;
+    }
+    .streaming-player-volume-range:disabled{
+      cursor:not-allowed;
+      opacity:.45;
+    }
+    .streaming-player-status{
+      min-height:20px;
+      color:rgba(226,232,240,.82);
+      font-size:12.5px;
+      font-weight:700;
+      letter-spacing:.01em;
+    }
+
+    .streaming-view-player-shell{
+      position:relative;
+      width:100%;
+      aspect-ratio:16 / 9;
+      border-radius:26px;
+      overflow:hidden;
+      background:#020617;
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow:0 18px 50px rgba(2,6,23,.40);
+    }
+    .streaming-view-player-shell iframe{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      border:0;
+      display:block;
+      background:#000;
+    }
+    .streaming-view-support{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 14px;
+      align-items:center;
+      justify-content:space-between;
+      color:rgba(226,232,240,.84);
+      font-size:13px;
+      line-height:1.65;
+    }
+    .streaming-view-support a{
+      color:#7dd3fc;
+      text-decoration:none;
+      font-weight:700;
+    }
+    .streaming-view-support a:hover{
+      text-decoration:underline;
+    }
+    .streaming-view-partners{
+      display:grid;
+      gap:10px;
+    }
+    .streaming-view-partners-head{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px 14px;
+      align-items:flex-end;
+      justify-content:space-between;
+    }
+    .streaming-view-partners-title{
+      margin:0;
+      font-size:18px;
+      font-weight:800;
+      color:#fff;
+      letter-spacing:-.02em;
+    }
+    .streaming-view-partners-copy{
+      margin:0;
+      color:rgba(226,232,240,.78);
+      font-size:13px;
+      line-height:1.6;
+    }
+    .streaming-view-partners .sponsor-card{
+      margin:0;
+      background:rgba(255,255,255,.96);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 16px 40px rgba(2,6,23,.22);
+    }
+
+    body.is-streaming-view.streaming-page-wide .streaming-view-shell{
+      width:min(1640px, calc(100vw - 32px));
+    }
+    body.is-streaming-view.streaming-page-focus .streaming-view-shell{
+      width:min(1680px, calc(100vw - 32px));
+    }
+    body.is-streaming-view.streaming-page-focus .streaming-view-copy,
+    body.is-streaming-view.streaming-page-focus .streaming-view-support,
+    body.is-streaming-view.streaming-page-focus .streaming-view-partners{
+      display:none;
+    }
+    body.is-streaming-view.streaming-page-partners-hidden .streaming-view-partners{
+      display:none;
+    }
+
+    .streaming-view-stage:fullscreen,
+    .streaming-view-stage:-webkit-full-screen{
+      width:100vw;
+      height:100vh;
+      max-width:none;
+      border-radius:0;
+      border:0;
+      box-shadow:none;
+      padding:18px;
+      background:linear-gradient(180deg, #020617 0%, #081227 100%);
+      align-content:start;
+    }
+    .streaming-view-stage:fullscreen .streaming-view-player-shell,
+    .streaming-view-stage:-webkit-full-screen .streaming-view-player-shell{
+      flex:1 1 auto;
+      height:100%;
+      min-height:0;
+      aspect-ratio:auto;
+    }
+
+    .streaming-view-gate{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:24px;
+    }
+    .streaming-view-gate-card{
+      width:min(720px, 100%);
+      display:grid;
+      gap:14px;
+      padding:28px;
+      border-radius:28px;
+      background:rgba(7,18,38,.82);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 24px 70px rgba(2,6,23,.35);
+      text-align:center;
+    }
+    .streaming-view-gate-card h2{
+      margin:0;
+      font-size:clamp(24px, 3vw, 34px);
+      line-height:1.06;
+      color:#fff;
+      letter-spacing:-.03em;
+    }
+    .streaming-view-gate-card p{
+      margin:0;
+      color:rgba(226,232,240,.82);
+      font-size:15px;
+      line-height:1.7;
+      max-width:none;
+    }
+    .streaming-view-gate-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:center;
+      margin-top:4px;
+    }
+
+    @media (max-width: 980px){
+      .streaming-view-logo-row{
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px){
+      .streaming-view-page{
+        padding:14px;
+      }
+      .streaming-view-stage{
+        padding:14px;
+        border-radius:22px;
+      }
+      .streaming-view-logo{
+        min-height:82px;
+        border-radius:18px;
+        padding:14px;
+      }
+      .streaming-view-logo img{
+        height:40px;
+      }
+      .streaming-view-logo.is-advant img{
+        height:56px;
+      }
+      .streaming-view-logo.is-confimi img{
+        height:44px;
+      }
+      .streaming-view-controls{
+        gap:8px;
+      }
+      .streaming-view-ctrl{
+        flex:1 1 calc(50% - 8px);
+        min-width:0;
+      }
+      .streaming-player-controls{
+        gap:8px;
+      }
+      .streaming-player-controls .streaming-view-ctrl{
+        flex:1 1 calc(50% - 8px);
+      }
+      .streaming-player-volume{
+        flex:1 1 100%;
+        width:100%;
+        justify-content:space-between;
+      }
+      .streaming-player-volume-range{
+        width:100%;
+      }
+      .streaming-view-support{
+        font-size:12.5px;
+      }
+    }
+
+    @media (max-width: 560px){
+      .streaming-view-logo-row{
+        grid-template-columns:1fr;
+      }
+      .streaming-view-ctrl{
+        flex:1 1 100%;
+      }
+      .streaming-player-controls .streaming-view-ctrl{
+        flex:1 1 100%;
+      }
+      .streaming-player-volume{
+        flex:1 1 100%;
+      }
+      .streaming-view-gate-card{
+        padding:22px 18px;
+      }
+    }
+
+
   </style>
 
 
@@ -3880,7 +4330,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
         <div class="streaming-status">
           <span class="streaming-badge">LIVE</span>
           <div>
-            <strong>Accesso autorizzato.</strong> Dopo la verifica di nome utente e password, la diretta viene mostrata direttamente in questa landing page.
+            <strong>Accesso autorizzato.</strong> Dopo la verifica di nome utente e password, la diretta si apre in una pagina dedicata con il player e i partner dell’evento.
           </div>
         </div>
 
@@ -3893,6 +4343,71 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     </div>
   </section>
 
+  <section id="streamingExperiencePage" class="streaming-view-page" aria-label="Pagina diretta streaming" hidden>
+    <div class="streaming-view-gate" id="streamingAccessGate" hidden>
+      <div class="streaming-view-gate-card">
+        <span class="streaming-view-kicker">Accesso riservato</span>
+        <h2>La diretta streaming richiede credenziali valide</h2>
+        <p>Per aprire questa pagina entra dalla landing, clicca su <strong>Accedi alla diretta streaming</strong> e inserisci nome utente e password ricevuti via email.</p>
+        <p>Per assistenza puoi scrivere a <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>.</p>
+        <div class="streaming-view-gate-actions">
+          <a class="streaming-view-ctrl is-primary" id="streamingBackToLanding" href="#">Torna alla landing</a>
+          
+        </div>
+      </div>
+    </div>
+
+    <div class="streaming-view-shell" id="streamingExperienceShell" hidden>
+      <div class="streaming-view-head">
+        <span class="streaming-view-kicker">Diretta streaming · Next Generation Business</span>
+        <h1 class="streaming-view-title">Diretta streaming riservata</h1>
+        <p class="streaming-view-copy">Qui trovi la diretta in una pagina dedicata. Sopra al player sono presenti i loghi di Revilaw, ADVANT, Il Sole 24 Ore e Confimi; sotto al video trovi la barra scorrevole con tutti i partner dell’evento.</p>
+      </div>
+
+      <div class="streaming-view-stage" id="streamingViewStage">
+        <div class="streaming-view-logo-row" id="streamingBrandRow" aria-label="Organizzatori e partner principali"></div>
+
+        <div class="streaming-view-controls" aria-label="Layout diretta streaming">
+          <button class="streaming-view-ctrl is-active" type="button" data-stream-view="default">Vista standard</button>
+          <button class="streaming-view-ctrl" type="button" data-stream-view="wide">Vista ampia</button>
+          <button class="streaming-view-ctrl" type="button" data-stream-view="focus">Focus video</button>
+          <button class="streaming-view-ctrl" type="button" id="streamingTogglePartnersBtn" data-stream-toggle-partners="1" aria-pressed="false">Nascondi partner</button>
+        </div>
+
+        <div class="streaming-view-player-shell" id="streamingStandalonePlayerShell" aria-label="Player diretta streaming"></div>
+
+        <div class="streaming-player-controls-wrap">
+          <div class="streaming-player-controls" aria-label="Controlli video">
+            <button class="streaming-view-ctrl is-primary" type="button" id="streamingPlayerPlayPauseBtn" data-stream-player="playpause" aria-pressed="false">Avvia diretta</button>
+            <button class="streaming-view-ctrl" type="button" id="streamingPlayerMuteBtn" data-stream-player="mute" aria-pressed="false">Disattiva audio</button>
+            <button class="streaming-view-ctrl" type="button" data-stream-player="volume-down">Volume -</button>
+            <label class="streaming-player-volume" for="streamingPlayerVolumeRange">
+              <span>Volume</span>
+              <input id="streamingPlayerVolumeRange" class="streaming-player-volume-range" type="range" min="0" max="100" step="1" value="85" aria-label="Volume video">
+            </label>
+            <button class="streaming-view-ctrl" type="button" data-stream-player="volume-up">Volume +</button>
+            <button class="streaming-view-ctrl" type="button" data-stream-player="golive">Vai al live</button>
+            <button class="streaming-view-ctrl" type="button" data-stream-player="reload">Aggiorna diretta</button>
+            <button class="streaming-view-ctrl is-primary" type="button" id="streamingFullscreenBtn" data-stream-fullscreen="1" aria-pressed="false">Schermo intero</button>
+          </div>
+          <div class="streaming-player-status" id="streamingPlayerStatus" aria-live="polite">Diretta pronta.</div>
+        </div>
+
+        <div class="streaming-view-support">
+          <span>Puoi gestire la visualizzazione con i controlli della pagina e del video, compresa la modalità a schermo intero.</span>
+          <span>Problemi di accesso? Scrivi a <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>.</span>
+        </div>
+      </div>
+
+      <div class="streaming-view-partners" id="streamingPartnersSection">
+        <div class="streaming-view-partners-head">
+          <h2 class="streaming-view-partners-title">Partner dell’evento</h2>
+          <p class="streaming-view-partners-copy">Scorrimento continuo di tutti i partner presenti nella landing.</p>
+        </div>
+        <div id="streamingPartnerMarqueeHost"></div>
+      </div>
+    </div>
+  </section>
 
   <section aria-label="Contenuti per PMI">
     <div class="container">
@@ -5328,7 +5843,11 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
           <div>
             <label for="streamingPassword">Password</label>
-            <input id="streamingPassword" name="streaming_password" type="password" placeholder="Inserisci la password" autocomplete="current-password" required>
+            <div class="streaming-password-wrap">
+              <input id="streamingPassword" name="streaming_password" type="password" placeholder="Inserisci la password" autocomplete="current-password" required>
+              <button class="streaming-password-toggle" id="streamingPasswordToggle" type="button" aria-controls="streamingPassword" aria-pressed="false">Mostra</button>
+            </div>
+            <div class="streaming-password-hint">Puoi mostrare o nascondere la password prima di entrare nella diretta.</div>
           </div>
         </div>
 
@@ -8107,9 +8626,7 @@ document.addEventListener('input', function(e){
   syncEsgProgress();
 });
 
-
-
-        document.addEventListener('keydown', function(e){
+document.addEventListener('keydown', function(e){
       if(e.key !== 'Escape') return;
 
       var esg = document.getElementById('esgVideoModal');
@@ -8526,8 +9043,33 @@ function openSignup(mode){
        DIRETTA STREAMING
        =============================== */
     var STREAMING_AUTH_URL = 'https://script.google.com/macros/s/AKfycbynKK4FYh-DsXziLkMz9nR1_Qn5vLbatNW_gXQ8tmu3CIpaYUznXo6n21SZ65XDTsoDkg/exec';
-    var STREAMING_EMBED_URL = 'https://www.youtube.com/embed/nUO7CT9J-u0?rel=0&modestbranding=1';
+    var STREAMING_VIDEO_ID = 'nUO7CT9J-u0';
+    var STREAMING_WATCH_URL = 'https://youtube.com/live/nUO7CT9J-u0?feature=share';
+    var STREAMING_EMBED_URL = 'https://www.youtube.com/embed/' + STREAMING_VIDEO_ID + '?autoplay=1&controls=1&fs=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3';
+    var STREAMING_YT_API_URL = 'https://www.youtube.com/iframe_api';
+    var STREAMING_YT_EMBED_HOST = 'https://www.youtube-nocookie.com';
+    var STREAMING_PLAYER_VOLUME_DEFAULT = 85;
     var STREAMING_SESSION_KEY = 'ngb_streaming_access_ok';
+    var STREAMING_SESSION_TS_KEY = 'ngb_streaming_access_ts';
+    var STREAMING_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+    var STREAMING_VIEW_PARAM = 'diretta';
+    var streamingValidationToken = 0;
+    var streamingPlayerApiPromise = null;
+    var streamingStandalonePlayer = null;
+    var streamingStandalonePlayerReady = false;
+    var streamingStandalonePlayerFallbackMode = false;
+
+    function cancelStreamingValidation(){
+      streamingValidationToken += 1;
+    }
+
+    function resetStreamingSubmitButton(){
+      var button = streamingSubmitEl();
+      if(!button) return;
+      button.disabled = false;
+      button.textContent = 'Entra nella diretta';
+    }
+
 
     function streamingTrim(value){
       return String(value == null ? '' : value).trim();
@@ -8575,26 +9117,71 @@ function openSignup(mode){
       box.hidden = false;
     }
 
-    function isStreamingUnlocked(){
+    function streamingStorages(){
+      var stores = [];
       try{
-        return sessionStorage.getItem(STREAMING_SESSION_KEY) === '1';
-      }catch(err){
-        return false;
+        if(window.sessionStorage) stores.push(window.sessionStorage);
+      }catch(err){}
+      try{
+        if(window.localStorage) stores.push(window.localStorage);
+      }catch(err){}
+      return stores;
+    }
+
+    function clearStreamingAccessState(){
+      var stores = streamingStorages();
+      for(var i=0;i<stores.length;i++){
+        try{
+          stores[i].removeItem(STREAMING_SESSION_KEY);
+          stores[i].removeItem(STREAMING_SESSION_TS_KEY);
+        }catch(err){}
       }
     }
 
+    function isStreamingUnlocked(){
+      var stores = streamingStorages();
+      var now = Date.now();
+      var unlocked = false;
+
+      for(var i=0;i<stores.length;i++){
+        try{
+          var flag = stores[i].getItem(STREAMING_SESSION_KEY);
+          var ts = parseInt(stores[i].getItem(STREAMING_SESSION_TS_KEY) || '0', 10);
+
+          if(flag === '1'){
+            if(!ts || (now - ts) <= STREAMING_SESSION_TTL_MS){
+              unlocked = true;
+            }else{
+              stores[i].removeItem(STREAMING_SESSION_KEY);
+              stores[i].removeItem(STREAMING_SESSION_TS_KEY);
+            }
+          }
+        }catch(err){}
+      }
+
+      return unlocked;
+    }
+
     function setStreamingUnlocked(value){
-      try{
-        if(value) sessionStorage.setItem(STREAMING_SESSION_KEY, '1');
-        else sessionStorage.removeItem(STREAMING_SESSION_KEY);
-      }catch(err){}
+      var stores = streamingStorages();
+      for(var i=0;i<stores.length;i++){
+        try{
+          if(value){
+            stores[i].setItem(STREAMING_SESSION_KEY, '1');
+            stores[i].setItem(STREAMING_SESSION_TS_KEY, String(Date.now()));
+          }else{
+            stores[i].removeItem(STREAMING_SESSION_KEY);
+            stores[i].removeItem(STREAMING_SESSION_TS_KEY);
+          }
+        }catch(err){}
+      }
     }
 
     function syncStreamingAccessButtons(){
       var buttons = document.querySelectorAll('[data-open-streaming-access]');
       var unlocked = isStreamingUnlocked();
       for(var i=0;i<buttons.length;i++){
-        buttons[i].textContent = unlocked ? 'Vai alla diretta streaming' : 'Accedi alla diretta streaming';
+        buttons[i].textContent = unlocked ? 'Apri la diretta streaming' : 'Accedi alla diretta streaming';
       }
     }
 
@@ -8638,10 +9225,624 @@ function openSignup(mode){
       }
     }
 
+    function isStreamingViewRequested(){
+      try{
+        return new URL(window.location.href).searchParams.get(STREAMING_VIEW_PARAM) === '1';
+      }catch(err){
+        return /(?:^|[?&])diretta=1(?:&|$)/.test(window.location.search || '');
+      }
+    }
+
+    function buildStreamingExperienceUrl(){
+      try{
+        var url = new URL(window.location.href);
+        url.hash = '';
+        url.searchParams.set(STREAMING_VIEW_PARAM, '1');
+        return url.toString();
+      }catch(err){
+        return (window.location.pathname || 'index.html') + '?diretta=1';
+      }
+    }
+
+    function buildStreamingLandingUrl(){
+      try{
+        var url = new URL(window.location.href);
+        url.hash = '';
+        url.searchParams.delete(STREAMING_VIEW_PARAM);
+        return url.toString();
+      }catch(err){
+        return window.location.pathname || 'index.html';
+      }
+    }
+
+    function openStreamingPendingWindow(){
+      try{
+        var pending = window.open('', '_blank');
+        if(pending && pending.document){
+          pending.document.open();
+          pending.document.write(
+            '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Accesso diretta streaming</title><style>body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#020617;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;padding:24px}main{max-width:520px;text-align:center}strong{display:block;font-size:24px;margin-bottom:10px;color:#fff}p{margin:0;color:#cbd5e1;line-height:1.7}</style></head><body><main><strong>Verifica credenziali in corso…</strong><p>La diretta si aprirà qui automaticamente appena la verifica sarà completata.</p></main></body></html>'
+          );
+          pending.document.close();
+        }
+        return pending;
+      }catch(err){
+        return null;
+      }
+    }
+
+    function closeStreamingPendingWindow(pendingWindow){
+      try{
+        if(pendingWindow && !pendingWindow.closed){
+          pendingWindow.close();
+        }
+      }catch(err){}
+    }
+
+    function openStreamingExperience(pendingWindow){
+      var targetUrl = buildStreamingExperienceUrl();
+
+      try{
+        if(pendingWindow && !pendingWindow.closed){
+          pendingWindow.location.replace(targetUrl);
+          pendingWindow.focus();
+          return;
+        }
+      }catch(err){}
+
+      try{
+        var opened = window.open(targetUrl, '_blank');
+        if(opened) return;
+      }catch(err){}
+
+      window.location.href = targetUrl;
+    }
+
+    function streamingPageEl(){
+      return document.getElementById('streamingExperiencePage');
+    }
+
+    function streamingGateEl(){
+      return document.getElementById('streamingAccessGate');
+    }
+
+    function streamingExperienceShellEl(){
+      return document.getElementById('streamingExperienceShell');
+    }
+
+    function streamingBrandHostEl(){
+      return document.getElementById('streamingBrandRow');
+    }
+
+    function streamingStandaloneShellEl(){
+      return document.getElementById('streamingStandalonePlayerShell');
+    }
+
+    function streamingPartnerHostEl(){
+      return document.getElementById('streamingPartnerMarqueeHost');
+    }
+
+    function streamingStageEl(){
+      return document.getElementById('streamingViewStage');
+    }
+
+    function stripIds(root){
+      if(!root || !root.querySelectorAll) return;
+      if(root.id) root.removeAttribute('id');
+      var nodes = root.querySelectorAll('[id]');
+      for(var i=0;i<nodes.length;i++){
+        nodes[i].removeAttribute('id');
+      }
+    }
+
+    function makeStreamingLogo(src, alt, extraClass){
+      if(!src) return null;
+      var item = document.createElement('div');
+      item.className = 'streaming-view-logo' + (extraClass ? ' ' + extraClass : '');
+
+      var img = document.createElement('img');
+      img.src = src;
+      img.alt = alt || '';
+      img.loading = 'eager';
+      img.decoding = 'async';
+
+      item.appendChild(img);
+      return item;
+    }
+
+    function populateStreamingBrandRow(){
+      var host = streamingBrandHostEl();
+      if(!host || host.childElementCount) return;
+
+      var revilawSrc = (document.querySelector('#organizersLogos .revilaw') || {}).getAttribute ? document.querySelector('#organizersLogos .revilaw').getAttribute('src') : 'Immagine2.png';
+      var advantSrc = (document.querySelector('#organizersLogos .advant') || {}).getAttribute ? document.querySelector('#organizersLogos .advant').getAttribute('src') : 'Advant%20(1).png';
+      var soleSrc = (document.getElementById('sole24TopLogo') || {}).getAttribute ? document.getElementById('sole24TopLogo').getAttribute('src') : 'IlSole24ore.jpg';
+      var confimiImg = document.querySelector('#topPatronage img');
+      var confimiSrc = confimiImg ? confimiImg.getAttribute('src') : '';
+
+      var logos = [
+        makeStreamingLogo(revilawSrc, 'Revilaw', 'is-revilaw'),
+        makeStreamingLogo(advantSrc, 'ADVANT Nctm', 'is-advant'),
+        makeStreamingLogo(soleSrc, 'Il Sole 24 Ore', 'is-sole'),
+        makeStreamingLogo(confimiSrc, 'Confimi Industria', 'is-confimi')
+      ];
+
+      for(var i=0;i<logos.length;i++){
+        if(logos[i]) host.appendChild(logos[i]);
+      }
+    }
+
+    function populateStreamingPartnerRail(){
+      var host = streamingPartnerHostEl();
+      if(!host || host.childElementCount) return;
+
+      var original = document.querySelector('#partner .sponsor-card');
+      if(!original) return;
+
+      var clone = original.cloneNode(true);
+      clone.classList.remove('reveal');
+      stripIds(clone);
+      host.appendChild(clone);
+    }
+
+    function streamingPlayerStatusEl(){
+      return document.getElementById('streamingPlayerStatus');
+    }
+
+    function streamingPlayerVolumeRangeEl(){
+      return document.getElementById('streamingPlayerVolumeRange');
+    }
+
+    function setStreamingPlayerStatus(message){
+      var status = streamingPlayerStatusEl();
+      if(status) status.textContent = message || '';
+    }
+
+    function streamingPlayerIsControllable(){
+      return !!(streamingStandalonePlayer && streamingStandalonePlayerReady && !streamingStandalonePlayerFallbackMode);
+    }
+
+    function syncStreamingPlayerControls(){
+      var playBtn = document.getElementById('streamingPlayerPlayPauseBtn');
+      var muteBtn = document.getElementById('streamingPlayerMuteBtn');
+      var volumeRange = streamingPlayerVolumeRangeEl();
+      var controlButtons = document.querySelectorAll('[data-stream-player]');
+      var controllable = streamingPlayerIsControllable();
+      var disabled = !controllable;
+      var isPlaying = false;
+      var isMuted = false;
+      var volume = parseInt(volumeRange && volumeRange.value ? volumeRange.value : STREAMING_PLAYER_VOLUME_DEFAULT, 10);
+
+      if(controllable){
+        try{
+          if(window.YT && YT.PlayerState){
+            isPlaying = streamingStandalonePlayer.getPlayerState() === YT.PlayerState.PLAYING;
+          }
+        }catch(err){}
+        try{
+          isMuted = !!streamingStandalonePlayer.isMuted();
+        }catch(err){}
+        try{
+          volume = parseInt(streamingStandalonePlayer.getVolume(), 10);
+        }catch(err){}
+      }
+
+      for(var i=0;i<controlButtons.length;i++){
+        controlButtons[i].disabled = disabled;
+        controlButtons[i].setAttribute('aria-disabled', disabled ? 'true' : 'false');
+      }
+
+      if(playBtn){
+        playBtn.textContent = controllable && isPlaying ? 'Pausa' : 'Avvia diretta';
+        playBtn.classList.toggle('is-active', controllable && isPlaying);
+        playBtn.setAttribute('aria-pressed', controllable && isPlaying ? 'true' : 'false');
+      }
+
+      if(muteBtn){
+        muteBtn.textContent = controllable && isMuted ? 'Attiva audio' : 'Disattiva audio';
+        muteBtn.classList.toggle('is-active', controllable && isMuted);
+        muteBtn.setAttribute('aria-pressed', controllable && isMuted ? 'true' : 'false');
+      }
+
+      if(volumeRange){
+        volumeRange.disabled = disabled;
+        volumeRange.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        volumeRange.value = String(Math.max(0, Math.min(100, parseInt(volume, 10) || STREAMING_PLAYER_VOLUME_DEFAULT)));
+      }
+    }
+
+    function ensureStreamingPlayerApi(){
+      if(streamingPlayerApiPromise) return streamingPlayerApiPromise;
+
+      streamingPlayerApiPromise = new Promise(function(resolve, reject){
+        if(window.YT && typeof window.YT.Player === 'function'){
+          resolve(window.YT);
+          return;
+        }
+
+        var timedOut = false;
+        var timeout = setTimeout(function(){
+          timedOut = true;
+          reject(new Error('Timeout caricamento player diretta.'));
+        }, 15000);
+
+        var previousReady = window.onYouTubeIframeAPIReady;
+        window.onYouTubeIframeAPIReady = function(){
+          if(typeof previousReady === 'function'){
+            try{ previousReady(); }catch(err){}
+          }
+          if(timedOut) return;
+          clearTimeout(timeout);
+          resolve(window.YT);
+        };
+
+        var existing = document.getElementById('streamingYoutubeApiScript');
+        if(existing){
+          existing.addEventListener('error', function(){
+            if(timedOut) return;
+            clearTimeout(timeout);
+            reject(new Error('Caricamento player diretta non riuscito.'));
+          }, { once:true });
+          return;
+        }
+
+        var script = document.createElement('script');
+        script.id = 'streamingYoutubeApiScript';
+        script.src = STREAMING_YT_API_URL;
+        script.async = true;
+        script.onerror = function(){
+          if(timedOut) return;
+          clearTimeout(timeout);
+          reject(new Error('Caricamento player diretta non riuscito.'));
+        };
+        document.head.appendChild(script);
+      });
+
+      return streamingPlayerApiPromise;
+    }
+
+    function mountStandaloneStreamingIframeFallback(){
+      var shell = streamingStandaloneShellEl();
+      if(!shell) return null;
+
+      streamingStandalonePlayer = null;
+      streamingStandalonePlayerReady = false;
+      streamingStandalonePlayerFallbackMode = true;
+      shell.innerHTML = '';
+
+      var iframe = document.createElement('iframe');
+      iframe.title = 'Diretta streaming Next Generation Business';
+      iframe.loading = 'eager';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+      iframe.allowFullscreen = true;
+      iframe.src = 'https://www.youtube-nocookie.com/embed/' + STREAMING_VIDEO_ID + '?autoplay=1&controls=1&fs=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3';
+      shell.appendChild(iframe);
+
+      setStreamingPlayerStatus('Diretta aperta. Se i controlli avanzati non sono disponibili, usa il pulsante schermo intero.');
+      syncStreamingPlayerControls();
+      return iframe;
+    }
+
+    function mountStandaloneStreamingPlayer(){
+      var shell = streamingStandaloneShellEl();
+      if(!shell) return Promise.resolve(null);
+
+      setStreamingPlayerStatus('Preparazione diretta...');
+      streamingStandalonePlayerFallbackMode = false;
+      syncStreamingPlayerControls();
+
+      return ensureStreamingPlayerApi()
+        .then(function(){
+          if(!shell.isConnected) return null;
+
+          if(streamingStandalonePlayer){
+            try{
+              streamingStandalonePlayer.playVideo();
+            }catch(err){}
+            syncStreamingPlayerControls();
+            return streamingStandalonePlayer;
+          }
+
+          shell.innerHTML = '';
+          streamingStandalonePlayerReady = false;
+
+          streamingStandalonePlayer = new YT.Player(shell, {
+            videoId: STREAMING_VIDEO_ID,
+            host: STREAMING_YT_EMBED_HOST,
+            playerVars: {
+              autoplay: 1,
+              controls: 0,
+              rel: 0,
+              modestbranding: 1,
+              playsinline: 1,
+              iv_load_policy: 3,
+              fs: 0,
+              disablekb: 1
+            },
+            events: {
+              onReady: function(event){
+                streamingStandalonePlayerReady = true;
+                streamingStandalonePlayerFallbackMode = false;
+
+                var volumeRange = streamingPlayerVolumeRangeEl();
+                var desiredVolume = parseInt(volumeRange && volumeRange.value ? volumeRange.value : STREAMING_PLAYER_VOLUME_DEFAULT, 10);
+                desiredVolume = Math.max(0, Math.min(100, desiredVolume || STREAMING_PLAYER_VOLUME_DEFAULT));
+
+                try{ event.target.setVolume(desiredVolume); }catch(err){}
+                try{
+                  if(desiredVolume > 0) event.target.unMute();
+                }catch(err){}
+                try{ event.target.playVideo(); }catch(err){}
+
+                setStreamingPlayerStatus('Diretta pronta.');
+                syncStreamingPlayerControls();
+              },
+              onStateChange: function(event){
+                syncStreamingPlayerControls();
+
+                if(!window.YT || !YT.PlayerState) return;
+                if(event.data === YT.PlayerState.PLAYING){
+                  setStreamingPlayerStatus('Diretta in riproduzione.');
+                }else if(event.data === YT.PlayerState.PAUSED){
+                  setStreamingPlayerStatus('Diretta in pausa.');
+                }else if(event.data === YT.PlayerState.BUFFERING){
+                  setStreamingPlayerStatus('Caricamento diretta...');
+                }else if(event.data === YT.PlayerState.CUED){
+                  setStreamingPlayerStatus('Diretta pronta.');
+                }else if(event.data === YT.PlayerState.ENDED){
+                  setStreamingPlayerStatus('Diretta terminata.');
+                }
+              },
+              onError: function(){
+                setStreamingPlayerStatus('La diretta non è disponibile in questo momento.');
+                syncStreamingPlayerControls();
+              }
+            }
+          });
+
+          return streamingStandalonePlayer;
+        })
+        .catch(function(){
+          streamingPlayerApiPromise = null;
+          return mountStandaloneStreamingIframeFallback();
+        });
+    }
+
+    function setStreamingPlayerVolume(value){
+      var numeric = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
+      var volumeRange = streamingPlayerVolumeRangeEl();
+      if(volumeRange) volumeRange.value = String(numeric);
+
+      if(!streamingPlayerIsControllable()){
+        syncStreamingPlayerControls();
+        return;
+      }
+
+      try{
+        streamingStandalonePlayer.setVolume(numeric);
+        if(numeric <= 0){
+          streamingStandalonePlayer.mute();
+        }else{
+          streamingStandalonePlayer.unMute();
+        }
+      }catch(err){}
+
+      syncStreamingPlayerControls();
+    }
+
+    function handleStreamingPlayerAction(action){
+      if(streamingStandalonePlayerFallbackMode){
+        setStreamingPlayerStatus('La diretta è aperta. Usa il pulsante schermo intero per ampliare la visualizzazione.');
+        return;
+      }
+
+      if(!streamingPlayerIsControllable()){
+        mountStandaloneStreamingPlayer();
+        return;
+      }
+
+      try{
+        if(action === 'playpause'){
+          if(window.YT && YT.PlayerState && streamingStandalonePlayer.getPlayerState() === YT.PlayerState.PLAYING){
+            streamingStandalonePlayer.pauseVideo();
+          }else{
+            streamingStandalonePlayer.playVideo();
+          }
+        }else if(action === 'mute'){
+          if(streamingStandalonePlayer.isMuted()){
+            streamingStandalonePlayer.unMute();
+          }else{
+            streamingStandalonePlayer.mute();
+          }
+        }else if(action === 'volume-down'){
+          setStreamingPlayerVolume((streamingStandalonePlayer.getVolume() || STREAMING_PLAYER_VOLUME_DEFAULT) - 10);
+          return;
+        }else if(action === 'volume-up'){
+          setStreamingPlayerVolume((streamingStandalonePlayer.getVolume() || STREAMING_PLAYER_VOLUME_DEFAULT) + 10);
+          return;
+        }else if(action === 'reload'){
+          streamingStandalonePlayer.loadVideoById(STREAMING_VIDEO_ID);
+          streamingStandalonePlayer.playVideo();
+          setStreamingPlayerStatus('Aggiornamento diretta...');
+        }else if(action === 'golive'){
+          var duration = 0;
+          try{ duration = streamingStandalonePlayer.getDuration() || 0; }catch(err){}
+          if(duration > 0 && typeof streamingStandalonePlayer.seekTo === 'function'){
+            try{ streamingStandalonePlayer.seekTo(Math.max(0, duration - 2), true); }catch(err){}
+          }else{
+            streamingStandalonePlayer.loadVideoById(STREAMING_VIDEO_ID);
+          }
+          streamingStandalonePlayer.playVideo();
+          setStreamingPlayerStatus('Allineamento alla diretta in corso...');
+        }
+      }catch(err){}
+
+      syncStreamingPlayerControls();
+    }
+
+    function streamingPasswordToggleEl(){
+      return document.getElementById('streamingPasswordToggle');
+    }
+
+    function setStreamingPasswordVisibility(forceVisible){
+      var passwordField = document.getElementById('streamingPassword');
+      var toggle = streamingPasswordToggleEl();
+      if(!passwordField || !toggle) return;
+
+      var visible = typeof forceVisible === 'boolean'
+        ? forceVisible
+        : passwordField.getAttribute('type') === 'password';
+
+      passwordField.setAttribute('type', visible ? 'text' : 'password');
+      toggle.textContent = visible ? 'Nascondi' : 'Mostra';
+      toggle.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    }
+
+    function updateStreamingBackLink(){
+      var link = document.getElementById('streamingBackToLanding');
+      if(link){
+        link.setAttribute('href', buildStreamingLandingUrl());
+      }
+    }
+
+    function resetStreamingExperienceState(){
+      var page = streamingPageEl();
+      var gate = streamingGateEl();
+      var shell = streamingExperienceShellEl();
+
+      document.body.classList.remove(
+        'is-streaming-view',
+        'streaming-page-wide',
+        'streaming-page-focus',
+        'streaming-page-partners-hidden',
+        'streaming-page-fullscreen'
+      );
+
+      if(page) page.hidden = true;
+      if(gate) gate.hidden = true;
+      if(shell) shell.hidden = true;
+    }
+
+    function restoreLandingStreamingState(){
+      if(isStreamingViewRequested()) return;
+      resetStreamingExperienceState();
+      closeStreamingAccessModal();
+      resetStreamingSubmitButton();
+      setStreamingPasswordVisibility(false);
+      syncStreamingAccessButtons();
+    }
+
+    function streamingSetViewMode(mode){
+      var body = document.body;
+      if(!body) return;
+
+      body.classList.remove('streaming-page-wide', 'streaming-page-focus');
+      if(mode === 'wide'){
+        body.classList.add('streaming-page-wide');
+      }else if(mode === 'focus'){
+        body.classList.add('streaming-page-focus');
+      }
+
+      var buttons = document.querySelectorAll('[data-stream-view]');
+      for(var i=0;i<buttons.length;i++){
+        var active = buttons[i].getAttribute('data-stream-view') === mode || (!mode && buttons[i].getAttribute('data-stream-view') === 'default');
+        buttons[i].classList.toggle('is-active', active);
+        buttons[i].setAttribute('aria-pressed', active ? 'true' : 'false');
+      }
+    }
+
+    function syncStreamingPartnersButton(){
+      var button = document.getElementById('streamingTogglePartnersBtn');
+      if(!button) return;
+      var hidden = document.body.classList.contains('streaming-page-partners-hidden');
+      button.textContent = hidden ? 'Mostra partner' : 'Nascondi partner';
+      button.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+      button.classList.toggle('is-active', hidden);
+    }
+
+    function streamingTogglePartners(){
+      document.body.classList.toggle('streaming-page-partners-hidden');
+      syncStreamingPartnersButton();
+    }
+
+    function streamingFullscreenEl(){
+      return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
+    }
+
+    function syncStreamingFullscreenButton(){
+      var button = document.getElementById('streamingFullscreenBtn');
+      var fullscreen = !!streamingFullscreenEl();
+      document.body.classList.toggle('streaming-page-fullscreen', fullscreen);
+      if(!button) return;
+      button.textContent = fullscreen ? 'Esci da schermo intero' : 'Schermo intero';
+      button.setAttribute('aria-pressed', fullscreen ? 'true' : 'false');
+      button.classList.toggle('is-active', fullscreen);
+    }
+
+    function toggleStreamingFullscreen(){
+      var stage = streamingStageEl();
+      if(!stage) return;
+
+      var fullscreen = streamingFullscreenEl();
+      if(fullscreen){
+        if(document.exitFullscreen) document.exitFullscreen();
+        else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if(document.msExitFullscreen) document.msExitFullscreen();
+        return;
+      }
+
+      if(stage.requestFullscreen) stage.requestFullscreen();
+      else if(stage.webkitRequestFullscreen) stage.webkitRequestFullscreen();
+      else if(stage.msRequestFullscreen) stage.msRequestFullscreen();
+    }
+
+    function showStreamingAccessGate(){
+      document.body.classList.add('is-streaming-view');
+      document.body.classList.remove('streaming-page-wide', 'streaming-page-focus', 'streaming-page-partners-hidden', 'streaming-page-fullscreen');
+
+      var page = streamingPageEl();
+      var gate = streamingGateEl();
+      var shell = streamingExperienceShellEl();
+
+      if(page) page.hidden = false;
+      if(gate) gate.hidden = false;
+      if(shell) shell.hidden = true;
+
+      updateStreamingBackLink();
+      document.title = 'Accesso diretta streaming | Next Generation Business';
+    }
+
+    function renderStreamingExperiencePage(){
+      document.body.classList.add('is-streaming-view');
+
+      var page = streamingPageEl();
+      var gate = streamingGateEl();
+      var shell = streamingExperienceShellEl();
+
+      if(page) page.hidden = false;
+      if(gate) gate.hidden = true;
+      if(shell) shell.hidden = false;
+
+      populateStreamingBrandRow();
+      populateStreamingPartnerRail();
+      setStreamingPlayerStatus('Preparazione diretta...');
+      syncStreamingPlayerControls();
+      mountStandaloneStreamingPlayer();
+      updateStreamingBackLink();
+      streamingSetViewMode('default');
+      syncStreamingPartnersButton();
+      syncStreamingFullscreenButton();
+      document.title = 'Diretta streaming | Next Generation Business';
+    }
+
     function openStreamingAccessModal(){
+      cancelStreamingValidation();
       var form = streamingFormEl();
       if(form) form.reset();
       hideStreamingError();
+      resetStreamingSubmitButton();
+      setStreamingPasswordVisibility(false);
       openModal('streamingAccessModal');
       var field = document.getElementById('streamingUsername');
       if(field){
@@ -8652,7 +9853,9 @@ function openSignup(mode){
     }
 
     function closeStreamingAccessModal(){
+      cancelStreamingValidation();
       hideStreamingError();
+      resetStreamingSubmitButton();
       closeModal('streamingAccessModal');
     }
 
@@ -9277,11 +10480,46 @@ function openSignup(mode){
       var el = e.target;
       if(!el) return;
 
+      var passwordToggle = (el.closest ? el.closest('#streamingPasswordToggle') : null);
+      if(passwordToggle){
+        e.preventDefault();
+        setStreamingPasswordVisibility();
+        return;
+      }
+
+      var playerTrigger = (el.closest ? el.closest('[data-stream-player]') : null);
+      if(playerTrigger){
+        e.preventDefault();
+        handleStreamingPlayerAction(playerTrigger.getAttribute('data-stream-player') || '');
+        return;
+      }
+
+      var viewTrigger = (el.closest ? el.closest('[data-stream-view]') : null);
+      if(viewTrigger){
+        e.preventDefault();
+        streamingSetViewMode(viewTrigger.getAttribute('data-stream-view') || 'default');
+        return;
+      }
+
+      var partnerToggle = (el.closest ? el.closest('[data-stream-toggle-partners]') : null);
+      if(partnerToggle){
+        e.preventDefault();
+        streamingTogglePartners();
+        return;
+      }
+
+      var fullscreenToggle = (el.closest ? el.closest('[data-stream-fullscreen]') : null);
+      if(fullscreenToggle){
+        e.preventDefault();
+        toggleStreamingFullscreen();
+        return;
+      }
+
       var trigger = (el.closest ? el.closest('[data-open-streaming-access]') : null);
       if(trigger){
         e.preventDefault();
         if(isStreamingUnlocked()){
-          renderStreamingSection(true);
+          openStreamingExperience();
         }else{
           openStreamingAccessModal();
         }
@@ -9308,10 +10546,19 @@ function openSignup(mode){
 
       if(!username || !password){
         showStreamingError('Inserisci sia il nome utente sia la password ricevuti via email. In caso di problemi scrivi a info@nextgenerationbusiness.it.');
+        if(!username && usernameField){
+          try{ usernameField.focus(); }catch(err){}
+        }else if(passwordField){
+          try{ passwordField.focus(); }catch(err){}
+        }
         return;
       }
 
       hideStreamingError();
+
+      var pendingStreamingWindow = openStreamingPendingWindow();
+      var currentValidationToken = streamingValidationToken + 1;
+      streamingValidationToken = currentValidationToken;
 
       var button = streamingSubmitEl();
       var previousLabel = button ? button.textContent : '';
@@ -9322,15 +10569,25 @@ function openSignup(mode){
 
       validateStreamingCredentials(username, password)
         .then(function(result){
-          if(result && result.ok){
-            setStreamingUnlocked(true);
-            closeStreamingAccessModal();
-            renderStreamingSection(true);
+          if(currentValidationToken !== streamingValidationToken){
+            closeStreamingPendingWindow(pendingStreamingWindow);
             return;
           }
 
+          if(result && result.ok){
+            setStreamingUnlocked(true);
+            closeStreamingAccessModal();
+            openStreamingExperience(pendingStreamingWindow);
+            return;
+          }
+
+          closeStreamingPendingWindow(pendingStreamingWindow);
+
           if(result && result.reason === 'invalid'){
             showStreamingError('Credenziali non valide. Controlla nome utente e password ricevuti via email. In caso di problemi scrivi a info@nextgenerationbusiness.it.');
+            if(usernameField){
+              try{ usernameField.focus(); }catch(err){}
+            }
             return;
           }
 
@@ -9346,14 +10603,34 @@ function openSignup(mode){
           showStreamingError('Non riesco a verificare le credenziali con il servizio remoto in questo momento. Riprova tra poco oppure scrivi a info@nextgenerationbusiness.it.');
         })
         .catch(function(){
+          if(currentValidationToken !== streamingValidationToken){
+            closeStreamingPendingWindow(pendingStreamingWindow);
+            return;
+          }
+          closeStreamingPendingWindow(pendingStreamingWindow);
           showStreamingError('Si è verificato un errore durante la verifica delle credenziali. Scrivi a info@nextgenerationbusiness.it se il problema persiste.');
         })
         .finally(function(){
+          if(currentValidationToken !== streamingValidationToken) return;
           if(button){
             button.disabled = false;
             button.textContent = previousLabel || 'Entra nella diretta';
           }
         });
+    });
+
+    document.addEventListener('input', function(e){
+      var el = e.target;
+      if(!el) return;
+
+      if(el.id === 'streamingPlayerVolumeRange'){
+        setStreamingPlayerVolume(el.value);
+        return;
+      }
+
+      if(el.id === 'streamingUsername' || el.id === 'streamingPassword'){
+        hideStreamingError();
+      }
     });
 
     document.addEventListener('keydown', function(e){
@@ -9369,16 +10646,458 @@ function openSignup(mode){
       if(modal && modal.classList.contains('show')) fitModal('streamingAccessModal');
     });
 
-    if(isStreamingUnlocked()){
-      renderStreamingSection(false);
+    document.addEventListener('fullscreenchange', syncStreamingFullscreenButton);
+    document.addEventListener('webkitfullscreenchange', syncStreamingFullscreenButton);
+    document.addEventListener('msfullscreenchange', syncStreamingFullscreenButton);
+
+    window.addEventListener('pageshow', function(){
+      restoreLandingStreamingState();
+    });
+
+    updateStreamingBackLink();
+    setStreamingPasswordVisibility(false);
+    syncStreamingAccessButtons();
+    syncStreamingPlayerControls();
+
+    if(isStreamingViewRequested()){
+      if(isStreamingUnlocked()){
+        renderStreamingExperiencePage();
+      }else{
+        showStreamingAccessGate();
+      }
     }else{
-      syncStreamingAccessButtons();
+      restoreLandingStreamingState();
     }
 
 
     })();
 
   </script>
+
+<script>
+(function(){
+  var PATCH_KEY = '__ngbSignupCountdownPatch_v1';
+  if(window[PATCH_KEY]) return;
+  window[PATCH_KEY] = true;
+
+  function qs(sel, root){ return (root || document).querySelector(sel); }
+  function qsa(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+  function safeOpenModal(modalId){
+    var modal = document.getElementById(modalId);
+    if(!modal) return;
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    try{ document.documentElement.classList.add('modal-open'); }catch(err){}
+    try{
+      if(typeof fitModal === 'function') fitModal(modalId);
+    }catch(err){}
+  }
+
+  function safeCloseModal(modalId){
+    var modal = document.getElementById(modalId);
+    if(!modal) return;
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+    try{
+      if(!document.querySelector('.modal.show')){
+        document.documentElement.classList.remove('modal-open');
+      }
+    }catch(err){}
+  }
+
+  function ensureSignupConfig(){
+    var form = document.getElementById('signupForm');
+    if(!form) return null;
+
+    try{
+      if(typeof signupActionUrl === 'function'){
+        form.action = signupActionUrl();
+      }else if(window.SIGNUP_SCRIPT_URL_BASE){
+        var action = window.SIGNUP_SCRIPT_URL_BASE;
+        if(window.SIGNUP_TOKEN){
+          action += (action.indexOf('?') > -1 ? '&' : '?') + 'token=' + encodeURIComponent(window.SIGNUP_TOKEN);
+        }
+        form.action = action;
+      }
+    }catch(err){}
+
+    var tokenField = document.getElementById('tokenField');
+    if(tokenField && window.SIGNUP_TOKEN){
+      tokenField.value = window.SIGNUP_TOKEN;
+    }
+
+    var uaField = document.getElementById('user_agent');
+    if(uaField && !uaField.value){
+      uaField.value = navigator.userAgent || '';
+    }
+
+    return form;
+  }
+
+  function ensureSignupSink(){
+    var sink = document.querySelector('iframe[name="sheet_sink"]');
+    if(sink) return sink;
+    sink = document.createElement('iframe');
+    sink.name = 'sheet_sink';
+    sink.setAttribute('aria-hidden', 'true');
+    sink.style.cssText = 'display:none;width:0;height:0;border:0';
+    document.body.appendChild(sink);
+    return sink;
+  }
+
+  function setSignupDetailsHidden(hidden){
+    var form = ensureSignupConfig();
+    if(!form) return;
+    var details = qsa('[data-details="1"]', form);
+    for(var i=0;i<details.length;i++){
+      details[i].classList.toggle('is-hidden', !!hidden);
+      var inputs = qsa('input, textarea, select', details[i]);
+      for(var j=0;j<inputs.length;j++){
+        inputs[j].disabled = !!hidden;
+      }
+    }
+  }
+
+  function showSignupAziendaFields(){
+    var azi = document.getElementById('aziendaOnlyBlock');
+    if(azi){
+      azi.style.display = '';
+      azi.classList.remove('is-hidden');
+      var aziInputs = qsa('input', azi);
+      for(var i=0;i<aziInputs.length;i++) aziInputs[i].disabled = false;
+      var fat1 = document.getElementById('fat_1');
+      var dip1 = document.getElementById('dip_1');
+      if(fat1) fat1.required = true;
+      if(dip1) dip1.required = true;
+    }
+
+    var prof = document.getElementById('profOnlyBlock');
+    if(prof){
+      prof.style.display = 'none';
+      var profInputs = qsa('input', prof);
+      for(var k=0;k<profInputs.length;k++){
+        profInputs[k].checked = false;
+        profInputs[k].disabled = true;
+        profInputs[k].required = false;
+      }
+    }
+  }
+
+  function showSignupProfessionistaFields(){
+    var azi = document.getElementById('aziendaOnlyBlock');
+    if(azi){
+      azi.style.display = 'none';
+      var aziInputs = qsa('input', azi);
+      for(var i=0;i<aziInputs.length;i++){
+        aziInputs[i].checked = false;
+        aziInputs[i].disabled = true;
+        aziInputs[i].required = false;
+      }
+    }
+
+    var prof = document.getElementById('profOnlyBlock');
+    if(prof){
+      prof.style.display = '';
+      prof.classList.remove('is-hidden');
+      var profInputs = qsa('input', prof);
+      for(var k=0;k<profInputs.length;k++){
+        profInputs[k].disabled = false;
+      }
+      var first = document.getElementById('prof_rev');
+      if(first) first.required = true;
+    }
+  }
+
+  function bindSignupTypeListeners(){
+    var form = ensureSignupConfig();
+    if(!form) return;
+
+    var aziendaRadio = document.getElementById('tipo_azienda');
+    var professionistaRadio = document.getElementById('tipo_professionista');
+
+    if(aziendaRadio && !aziendaRadio.__ngbBound){
+      aziendaRadio.__ngbBound = true;
+      aziendaRadio.addEventListener('change', function(){
+        setSignupDetailsHidden(false);
+        showSignupAziendaFields();
+      });
+    }
+
+    if(professionistaRadio && !professionistaRadio.__ngbBound){
+      professionistaRadio.__ngbBound = true;
+      professionistaRadio.addEventListener('change', function(){
+        setSignupDetailsHidden(false);
+        showSignupProfessionistaFields();
+      });
+    }
+  }
+
+  function openSignupPatched(mode){
+    var form = ensureSignupConfig();
+    if(!form) return;
+
+    try{ form.reset(); }catch(err){}
+
+    var tokenField = document.getElementById('tokenField');
+    if(tokenField && window.SIGNUP_TOKEN) tokenField.value = window.SIGNUP_TOKEN;
+
+    setSignupDetailsHidden(true);
+
+    var aziendaRadio = document.getElementById('tipo_azienda');
+    var professionistaRadio = document.getElementById('tipo_professionista');
+    if(aziendaRadio) aziendaRadio.checked = false;
+    if(professionistaRadio) professionistaRadio.checked = false;
+
+    bindSignupTypeListeners();
+
+    var isPresenza = (mode === 'presenza');
+    var modalita = document.getElementById('modalita');
+    if(modalita) modalita.value = isPresenza ? 'presenza' : 'diretta_web';
+
+    var help = document.getElementById('tipoHelp');
+    var profText = document.getElementById('tipoProfessionistaText');
+    if(professionistaRadio) professionistaRadio.disabled = false;
+    if(help) help.innerHTML = 'Seleziona <strong>Azienda</strong> o <strong>Professionista</strong> per proseguire con il modulo.';
+    if(profText) profText.textContent = 'Iscrizione per professionisti.';
+
+    var title = document.getElementById('signupTitle');
+    var note = document.getElementById('signupNote');
+    var submit = document.getElementById('m_submit');
+
+    if(title) title.textContent = isPresenza ? 'Iscrizione in presenza' : 'Iscrizione diretta web';
+    if(note){
+      note.textContent = isPresenza
+        ? 'Compila i dati. Per completare l’iscrizione è necessario confermare tramite l’email che riceverai all’indirizzo indicato (controlla anche Spam/Promozioni).'
+        : 'Compila i dati. Per completare l’iscrizione è necessario confermare tramite l’email che riceverai all’indirizzo indicato (controlla anche Spam/Promozioni). Il link di accesso alla diretta e le istruzioni verranno inviati via email la settimana dell’evento.';
+    }
+    if(submit){
+      submit.disabled = false;
+      submit.textContent = isPresenza ? 'Invia richiesta (presenza)' : 'Invia richiesta (diretta web)';
+    }
+
+    safeOpenModal('signupModal');
+
+    var firstField = document.getElementById('tipo_azienda') || qs('#signupForm input:not([type="hidden"])');
+    if(firstField){
+      setTimeout(function(){ try{ firstField.focus(); }catch(err){} }, 30);
+    }
+  }
+
+  function buildTemporarySignupForm(entries){
+    ensureSignupSink();
+    var tempForm = document.createElement('form');
+    tempForm.method = 'post';
+    tempForm.target = 'sheet_sink';
+    tempForm.action = (typeof signupActionUrl === 'function') ? signupActionUrl() : (window.SIGNUP_SCRIPT_URL_BASE || '#');
+    tempForm.style.display = 'none';
+
+    for(var i=0;i<entries.length;i++){
+      var pair = entries[i];
+      var input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = pair[0];
+      input.value = pair[1] == null ? '' : String(pair[1]);
+      tempForm.appendChild(input);
+    }
+
+    document.body.appendChild(tempForm);
+    return tempForm;
+  }
+
+  function showSignupThanks(mode, email){
+    var title = document.getElementById('modalTitle');
+    var text = document.getElementById('modalText');
+    var safeEmail = String(email || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    var emailStrong = safeEmail ? (' <strong>' + safeEmail + '</strong>') : '';
+
+    if(title){
+      title.textContent = mode === 'presenza'
+        ? 'Grazie. Iscrizione ricevuta (presenza)'
+        : 'Grazie. Iscrizione ricevuta (diretta web)';
+    }
+
+    if(text){
+      if(mode === 'presenza'){
+        text.innerHTML = 'Per completare l’iscrizione è necessario confermare l’email che riceverai all’indirizzo' + emailStrong + '. Apri il messaggio e clicca sul <strong>link di conferma</strong>. Controlla anche la cartella <strong>Spam/Posta indesiderata</strong>. In caso di problemi scrivi a <strong>info@nextgenerationbusiness.it</strong>.';
+      }else{
+        text.innerHTML = 'Per completare l’iscrizione è necessario confermare l’email che riceverai all’indirizzo' + emailStrong + '. Apri il messaggio e clicca sul <strong>link di conferma</strong>. Controlla anche la cartella <strong>Spam/Posta indesiderata</strong>. Il link di accesso alla diretta e le istruzioni verranno inviati <strong>la settimana dell’evento</strong>. In caso di problemi scrivi a <strong>info@nextgenerationbusiness.it</strong>.';
+      }
+    }
+
+    safeOpenModal('thanksModal');
+  }
+
+  function patchedHandleSubmit(event){
+    if(event && event.preventDefault) event.preventDefault();
+
+    var form = ensureSignupConfig();
+    if(!form) return false;
+
+    var honeypot = qs('input[name="website"]', form);
+    if(honeypot && String(honeypot.value || '').trim() !== ''){
+      safeCloseModal('signupModal');
+      showSignupThanks('presenza', '');
+      return false;
+    }
+
+    if(typeof form.checkValidity === 'function' && !form.checkValidity()){
+      if(typeof form.reportValidity === 'function') form.reportValidity();
+      return false;
+    }
+
+    var button = document.getElementById('m_submit');
+    var oldLabel = button ? button.textContent : '';
+    if(button){
+      button.disabled = true;
+      button.textContent = 'Invio in corso...';
+    }
+
+    var modalita = document.getElementById('modalita');
+    var mode = modalita ? modalita.value : 'presenza';
+    var emailField = document.getElementById('m_email');
+    var email = emailField ? String(emailField.value || '').trim() : '';
+
+    var data = new FormData(form);
+    if(window.SIGNUP_TOKEN && !data.get('token')) data.set('token', window.SIGNUP_TOKEN);
+    var uaField = document.getElementById('user_agent');
+    if(uaField && !data.get('user_agent')) data.set('user_agent', uaField.value || navigator.userAgent || '');
+
+    var entries = [];
+    data.forEach(function(value, key){ entries.push([key, value]); });
+
+    try{
+      var tempForm = buildTemporarySignupForm(entries);
+      tempForm.submit();
+      setTimeout(function(){
+        try{ tempForm.remove(); }catch(err){}
+      }, 1200);
+    }catch(err){
+      if(button){
+        button.disabled = false;
+        button.textContent = oldLabel || 'Invia richiesta';
+      }
+      safeOpenModal('signupModal');
+      try{ alert('Errore invio. Riprova.'); }catch(alertErr){}
+      return false;
+    }
+
+    safeCloseModal('signupModal');
+    setTimeout(function(){ safeCloseModal('signupModal'); }, 40);
+    showSignupThanks(mode, email);
+
+    try{
+      if(window.lintrk) window.lintrk('track', { conversion_id: 25866282 });
+    }catch(err){}
+
+    setTimeout(function(){
+      if(button){
+        button.disabled = false;
+        button.textContent = oldLabel || 'Invia richiesta';
+      }
+    }, 900);
+
+    return false;
+  }
+
+  function initSignupPatch(){
+    ensureSignupConfig();
+    bindSignupTypeListeners();
+    window.__openSignup = openSignupPatched;
+    window.openSignup = openSignupPatched;
+    window.handleSubmit = patchedHandleSubmit;
+
+    var form = document.getElementById('signupForm');
+    if(form){
+      form.onsubmit = patchedHandleSubmit;
+    }
+  }
+
+  function initSignupDelegation(){
+    document.addEventListener('click', function(e){
+      var trigger = e.target && e.target.closest ? e.target.closest('[data-open-signup]') : null;
+      if(trigger){
+        e.preventDefault();
+        openSignupPatched(trigger.getAttribute('data-open-signup') || 'presenza');
+        return;
+      }
+
+      var closeTrigger = e.target && e.target.closest ? e.target.closest('[data-close-modal="signup"]') : null;
+      if(closeTrigger){
+        e.preventDefault();
+        safeCloseModal('signupModal');
+      }
+    }, true);
+
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){
+        var modal = document.getElementById('signupModal');
+        if(modal && modal.classList.contains('show')) safeCloseModal('signupModal');
+      }
+    }, true);
+  }
+
+  function initCountdownPatch(){
+    var countdown = document.getElementById('panelEventCountdown');
+    if(!countdown) return;
+
+    var daysEl = countdown.querySelector('[data-countdown-days]');
+    var hoursEl = countdown.querySelector('[data-countdown-hours]');
+    var minutesEl = countdown.querySelector('[data-countdown-minutes]');
+    var secondsEl = countdown.querySelector('[data-countdown-seconds]');
+    var statusEl = countdown.querySelector('[data-countdown-status]');
+    var target = new Date('2026-03-27T09:00:00+01:00').getTime();
+
+    function pad(value){
+      value = Math.max(0, parseInt(value, 10) || 0);
+      return String(value).padStart(2, '0');
+    }
+
+    function tick(){
+      var diff = target - Date.now();
+      if(diff <= 0){
+        if(daysEl) daysEl.textContent = '00';
+        if(hoursEl) hoursEl.textContent = '00';
+        if(minutesEl) minutesEl.textContent = '00';
+        if(secondsEl) secondsEl.textContent = '00';
+        if(statusEl) statusEl.textContent = 'Evento in corso';
+        countdown.classList.add('is-live');
+        return;
+      }
+
+      countdown.classList.remove('is-live');
+      var totalSeconds = Math.floor(diff / 1000);
+      var days = Math.floor(totalSeconds / 86400);
+      var hours = Math.floor((totalSeconds % 86400) / 3600);
+      var minutes = Math.floor((totalSeconds % 3600) / 60);
+      var seconds = totalSeconds % 60;
+
+      if(daysEl) daysEl.textContent = pad(days);
+      if(hoursEl) hoursEl.textContent = pad(hours);
+      if(minutesEl) minutesEl.textContent = pad(minutes);
+      if(secondsEl) secondsEl.textContent = pad(seconds);
+      if(statusEl) statusEl.textContent = 'Mancano ' + days + ' giorni al 27 marzo 2026.';
+    }
+
+    tick();
+    try{ if(window.__ngbCountdownTimer) clearInterval(window.__ngbCountdownTimer); }catch(err){}
+    window.__ngbCountdownTimer = setInterval(tick, 1000);
+  }
+
+  function start(){
+    initSignupPatch();
+    initSignupDelegation();
+    initCountdownPatch();
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', start, {once:true});
+  }else{
+    start();
+  }
+})();
+</script>
+
 <script type="text/javascript">
 (function (w,d) {var loader = function () {var s = d.createElement("script"), tag = d.getElementsByTagName("script")[0]; s.src="https://cdn.iubenda.com/iubenda.js"; tag.parentNode.insertBefore(s,tag);}; if(w.addEventListener){w.addEventListener("load", loader, false);}else if(w.attachEvent){w.attachEvent("onload", loader);}else{w.onload = loader;}})(window, document);
 </script>
