@@ -3873,15 +3873,18 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
         border-radius:20px;
       }
       .streaming-view-controls{
-        gap:8px;
-        padding:8px 10px;
+        gap:10px;
+        padding:10px 12px;
       }
       .streaming-icon-btn{
-        width:42px;
-        height:42px;
+        width:46px;
+        height:46px;
       }
       .streaming-volume-range{
-        width:104px;
+        width:min(36vw, 140px);
+      }
+      body.streaming-pseudo-fullscreen .streaming-view-controls{
+        width:calc(100vw - 20px);
       }
     }
     @media (max-width: 520px){
@@ -4136,6 +4139,59 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     .streaming-view-player-stage:-webkit-full-screen .streaming-view-controls{
       bottom:max(16px, env(safe-area-inset-bottom));
     }
+    .streaming-view-player-stage,
+    .streaming-view-controls,
+    .streaming-icon-btn,
+    .streaming-volume-range{
+      touch-action:manipulation;
+    }
+    html.streaming-pseudo-fullscreen,
+    body.streaming-pseudo-fullscreen{
+      height:100%;
+      overflow:hidden;
+      overscroll-behavior:none;
+    }
+    body.streaming-pseudo-fullscreen{
+      background:#000 !important;
+    }
+    body.streaming-pseudo-fullscreen .streaming-view-page{
+      min-height:100vh;
+      min-height:100dvh;
+      padding:0 !important;
+      background:#000 !important;
+    }
+    body.streaming-pseudo-fullscreen .streaming-view-shell{
+      width:100%;
+      max-width:none;
+      gap:0;
+    }
+    body.streaming-pseudo-fullscreen .streaming-view-brand-row,
+    body.streaming-pseudo-fullscreen .streaming-view-partners{
+      display:none !important;
+    }
+    body.streaming-pseudo-fullscreen .streaming-view-player-stage{
+      position:fixed !important;
+      inset:0 !important;
+      width:100vw !important;
+      height:100vh !important;
+      height:100dvh !important;
+      max-width:none !important;
+      margin:0 !important;
+      aspect-ratio:auto !important;
+      border-radius:0 !important;
+      z-index:2147483000;
+      background:#000 !important;
+    }
+    body.streaming-pseudo-fullscreen .streaming-view-player-shell::before{
+      height:max(72px, calc(env(safe-area-inset-top) + 44px));
+    }
+    body.streaming-pseudo-fullscreen .streaming-view-live-badge{
+      top:max(12px, calc(env(safe-area-inset-top) + 8px));
+      left:max(12px, calc(env(safe-area-inset-left) + 8px));
+    }
+    body.streaming-pseudo-fullscreen .streaming-view-controls{
+      bottom:max(14px, calc(env(safe-area-inset-bottom) + 8px));
+    }
     @media (max-width: 900px){
       .streaming-view-brand-band-inner{
         justify-content:center;
@@ -4228,6 +4284,10 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
         width:calc(100% - 12px);
         justify-content:space-between;
       }
+      .streaming-icon-btn{
+        width:44px;
+        height:44px;
+      }
       .streaming-volume-wrap{
         flex:1 1 auto;
         min-width:0;
@@ -4238,7 +4298,10 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       }
       .streaming-volume-range{
         width:100%;
-        min-width:70px;
+        min-width:78px;
+      }
+      body.streaming-pseudo-fullscreen .streaming-view-controls{
+        width:calc(100vw - 16px);
       }
       .streaming-view-partners > #streamingPartnerMarqueeHost{
         width:calc(100vw - 16px);
@@ -9142,6 +9205,7 @@ function openSignup(mode){
   var streamingPlayerReady = false;
   var streamingApiPromise = null;
   var streamingLastVolume = 70;
+  var streamingPseudoFullscreenScrollTop = 0;
 
   function streamingTrim(value){
     return String(value == null ? '' : value).trim();
@@ -9599,27 +9663,131 @@ function openSignup(mode){
     return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
   }
 
+  function streamingIsPseudoFullscreen(){
+    return document.body.classList.contains('streaming-pseudo-fullscreen') || document.documentElement.classList.contains('streaming-pseudo-fullscreen');
+  }
+
+  function streamingLockOrientationLandscape(){
+    try{
+      if(window.screen && screen.orientation && typeof screen.orientation.lock === 'function'){
+        var lockResult = screen.orientation.lock('landscape');
+        if(lockResult && typeof lockResult.catch === 'function') lockResult.catch(function(){});
+      }
+    }catch(err){}
+  }
+
+  function streamingUnlockOrientation(){
+    try{
+      if(window.screen && screen.orientation && typeof screen.orientation.unlock === 'function'){
+        screen.orientation.unlock();
+      }
+    }catch(err){}
+  }
+
+  function enterStreamingPseudoFullscreen(){
+    if(streamingIsPseudoFullscreen()) return;
+    streamingPseudoFullscreenScrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    document.documentElement.classList.add('streaming-pseudo-fullscreen');
+    document.body.classList.add('streaming-pseudo-fullscreen');
+    try{ window.scrollTo(0, 0); }catch(err){}
+    streamingLockOrientationLandscape();
+    syncStreamingFullscreenButton();
+  }
+
+  function exitStreamingPseudoFullscreen(){
+    if(!streamingIsPseudoFullscreen()) return;
+    document.documentElement.classList.remove('streaming-pseudo-fullscreen');
+    document.body.classList.remove('streaming-pseudo-fullscreen');
+    streamingUnlockOrientation();
+    syncStreamingFullscreenButton();
+    if(streamingPseudoFullscreenScrollTop > 0){
+      var restoreY = streamingPseudoFullscreenScrollTop;
+      setTimeout(function(){
+        try{ window.scrollTo(0, restoreY); }catch(err){}
+      }, 0);
+    }
+  }
+
   function syncStreamingFullscreenButton(){
     var btn = streamingFullscreenBtnEl();
     if(!btn) return;
-    var active = streamingFullscreenEl() === streamingPlayerStageEl();
+    var active = streamingIsPseudoFullscreen() || streamingFullscreenEl() === streamingPlayerStageEl();
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
     btn.setAttribute('aria-label', active ? 'Esci da schermo intero' : 'Schermo intero');
+    btn.classList.toggle('is-active', active);
   }
 
   function toggleStreamingFullscreen(){
     var stage = streamingPlayerStageEl();
     if(!stage) return;
-    var current = streamingFullscreenEl();
-    if(current){
-      if(document.exitFullscreen) document.exitFullscreen();
-      else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
-      else if(document.msExitFullscreen) document.msExitFullscreen();
+
+    if(streamingIsPseudoFullscreen()){
+      exitStreamingPseudoFullscreen();
       return;
     }
-    if(stage.requestFullscreen) stage.requestFullscreen();
-    else if(stage.webkitRequestFullscreen) stage.webkitRequestFullscreen();
-    else if(stage.msRequestFullscreen) stage.msRequestFullscreen();
+
+    var current = streamingFullscreenEl();
+    if(current){
+      try{
+        if(document.exitFullscreen) document.exitFullscreen();
+        else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if(document.msExitFullscreen) document.msExitFullscreen();
+        else exitStreamingPseudoFullscreen();
+      }catch(err){
+        exitStreamingPseudoFullscreen();
+      }
+      return;
+    }
+
+    var request = stage.requestFullscreen || stage.webkitRequestFullscreen || stage.msRequestFullscreen;
+    if(!request){
+      enterStreamingPseudoFullscreen();
+      return;
+    }
+
+    var resolved = false;
+    try{
+      var result = request.call(stage);
+      if(result && typeof result.then === 'function'){
+        result.then(function(){
+          resolved = true;
+          streamingLockOrientationLandscape();
+          syncStreamingFullscreenButton();
+        }).catch(function(){
+          enterStreamingPseudoFullscreen();
+        });
+      }else{
+        setTimeout(function(){
+          if(streamingFullscreenEl() === stage){
+            resolved = true;
+            streamingLockOrientationLandscape();
+            syncStreamingFullscreenButton();
+          }else{
+            enterStreamingPseudoFullscreen();
+          }
+        }, 320);
+      }
+    }catch(err){
+      enterStreamingPseudoFullscreen();
+      return;
+    }
+
+    setTimeout(function(){
+      if(!resolved && streamingFullscreenEl() !== stage && !streamingIsPseudoFullscreen()){
+        enterStreamingPseudoFullscreen();
+      }
+    }, 800);
+  }
+
+  function handleStreamingFullscreenChange(){
+    var activeNative = streamingFullscreenEl() === streamingPlayerStageEl();
+    if(activeNative){
+      if(streamingIsPseudoFullscreen()) exitStreamingPseudoFullscreen();
+      streamingLockOrientationLandscape();
+    }else if(!streamingIsPseudoFullscreen()){
+      streamingUnlockOrientation();
+    }
+    syncStreamingFullscreenButton();
   }
 
   function mountStreamingPlayer(){
@@ -9676,6 +9844,8 @@ function openSignup(mode){
   }
 
   function renderStreamingExperiencePage(){
+    document.documentElement.classList.remove('streaming-pseudo-fullscreen');
+    document.body.classList.remove('streaming-pseudo-fullscreen');
     document.body.classList.add('is-streaming-view');
     var page = streamingPageEl();
     if(page) page.hidden = false;
@@ -9688,7 +9858,9 @@ function openSignup(mode){
   }
 
   function resetStreamingLandingView(){
+    exitStreamingPseudoFullscreen();
     document.body.classList.remove('is-streaming-view');
+    document.documentElement.classList.remove('streaming-pseudo-fullscreen');
     var page = streamingPageEl();
     if(page) page.hidden = true;
   }
@@ -10245,6 +10417,11 @@ function openSignup(mode){
 
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Escape') return;
+    if(streamingIsPseudoFullscreen()){
+      e.preventDefault();
+      exitStreamingPseudoFullscreen();
+      return;
+    }
     var modal = streamingModalEl();
     if(modal && modal.classList.contains('show')){
       cancelStreamingValidation();
@@ -10252,14 +10429,18 @@ function openSignup(mode){
     }
   });
 
-  document.addEventListener('fullscreenchange', syncStreamingFullscreenButton);
-  document.addEventListener('webkitfullscreenchange', syncStreamingFullscreenButton);
-  document.addEventListener('msfullscreenchange', syncStreamingFullscreenButton);
+  document.addEventListener('fullscreenchange', handleStreamingFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', handleStreamingFullscreenChange);
+  document.addEventListener('msfullscreenchange', handleStreamingFullscreenChange);
 
   if(typeof addPassive === 'function'){
     addPassive(window, 'resize', function(){
       var modal = streamingModalEl();
       if(modal && modal.classList.contains('show') && typeof fitModal === 'function') fitModal('streamingAccessModal');
+      syncStreamingFullscreenButton();
+    });
+    addPassive(window, 'orientationchange', function(){
+      syncStreamingFullscreenButton();
     });
   }
 
