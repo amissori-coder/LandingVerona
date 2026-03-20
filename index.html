@@ -4154,8 +4154,10 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     body.streaming-mobile-fullscreen .streaming-view-player-stage.is-mobile-fullscreen{
       position:fixed;
       inset:0;
-      width:var(--streaming-vw, 100vw);
-      height:var(--streaming-vh, 100vh);
+      width:100dvw;
+      height:100dvh;
+      width:var(--streaming-vw, 100dvw);
+      height:var(--streaming-vh, 100dvh);
       max-width:none;
       margin:0;
       aspect-ratio:auto;
@@ -4165,18 +4167,16 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       z-index:9999;
     }
     body.streaming-mobile-fullscreen .streaming-view-player-stage.is-mobile-fullscreen .streaming-view-player-shell{
-      inset:0;
-      width:100%;
-      height:100%;
-      transform:none;
-      transform-origin:center center;
-    }
-    body.streaming-mobile-fullscreen.is-streaming-portrait .streaming-view-player-stage.is-mobile-fullscreen .streaming-view-player-shell{
+      position:absolute;
       top:50%;
       left:50%;
       inset:auto;
-      width:var(--streaming-vh, 100vh);
-      height:var(--streaming-vw, 100vw);
+      width:var(--streaming-mobile-video-width, 100dvw);
+      height:var(--streaming-mobile-video-height, 56.25dvw);
+      transform:translate(-50%, -50%);
+      transform-origin:center center;
+    }
+    body.streaming-mobile-fullscreen.is-streaming-portrait .streaming-view-player-stage.is-mobile-fullscreen .streaming-view-player-shell{
       transform:translate(-50%, -50%) rotate(90deg);
     }
     body.streaming-mobile-fullscreen .streaming-view-player-stage.is-mobile-fullscreen .streaming-view-controls{
@@ -9710,9 +9710,27 @@ function openSignup(mode){
     if(!streamingCustomFullscreenActive) return;
     var size = getStreamingViewportSize();
     var root = document.documentElement;
-    root.style.setProperty('--streaming-vw', size.width + 'px');
-    root.style.setProperty('--streaming-vh', size.height + 'px');
-    document.body.classList.toggle('is-streaming-portrait', size.height > size.width);
+    var viewportWidth = Math.max(1, parseInt(size.width, 10) || 0);
+    var viewportHeight = Math.max(1, parseInt(size.height, 10) || 0);
+    var isPortrait = viewportHeight > viewportWidth;
+    var ratio = 16 / 9;
+    var playerWidth = 0;
+    var playerHeight = 0;
+
+    root.style.setProperty('--streaming-vw', viewportWidth + 'px');
+    root.style.setProperty('--streaming-vh', viewportHeight + 'px');
+
+    if(isPortrait){
+      playerWidth = Math.max(viewportHeight, Math.ceil(viewportWidth * ratio));
+      playerHeight = Math.ceil(playerWidth / ratio);
+    }else{
+      playerWidth = Math.max(viewportWidth, Math.ceil(viewportHeight * ratio));
+      playerHeight = Math.ceil(playerWidth / ratio);
+    }
+
+    root.style.setProperty('--streaming-mobile-video-width', playerWidth + 'px');
+    root.style.setProperty('--streaming-mobile-video-height', playerHeight + 'px');
+    document.body.classList.toggle('is-streaming-portrait', isPortrait);
   }
 
   function tryLockStreamingLandscape(){
@@ -9753,6 +9771,8 @@ function openSignup(mode){
     try{
       document.documentElement.style.removeProperty('--streaming-vw');
       document.documentElement.style.removeProperty('--streaming-vh');
+      document.documentElement.style.removeProperty('--streaming-mobile-video-width');
+      document.documentElement.style.removeProperty('--streaming-mobile-video-height');
     }catch(err){}
     tryUnlockStreamingLandscape();
     syncStreamingFullscreenButton();
