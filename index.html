@@ -3658,8 +3658,8 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
     .streaming-view-page[hidden]{ display:none !important; }
     body.is-streaming-view{
-      background:#020617;
-      color:#e5eefb;
+      background:#fff;
+      color:var(--text);
       overflow-x:hidden;
     }
     body.is-streaming-view > *:not(#streamingExperiencePage):not(script){
@@ -3667,63 +3667,62 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     }
     .streaming-view-page{
       min-height:100vh;
-      padding:clamp(14px, 2.4vw, 28px);
-      background:
-        radial-gradient(circle at 14% 0%, rgba(14,165,233,.18), transparent 30%),
-        radial-gradient(circle at 88% 8%, rgba(20,184,166,.16), transparent 24%),
-        linear-gradient(180deg, #020617 0%, #071124 100%);
+      padding:0 0 clamp(16px, 2.8vw, 26px);
+      background:#fff;
     }
     .streaming-view-shell{
-      width:min(1120px, 100%);
-      margin:0 auto;
-      display:grid;
-      gap:16px;
-    }
-    .streaming-view-brand-row,
-    .streaming-view-player-stage,
-    .streaming-view-partners{
       width:100%;
-      max-width:960px;
-      margin-inline:auto;
+      margin:0;
+      display:grid;
+      gap:clamp(16px, 2.4vw, 24px);
     }
     .streaming-view-brand-row{
-      display:grid;
-      grid-template-columns:repeat(4, minmax(0, 1fr));
-      gap:12px;
-      align-items:stretch;
-    }
-    .streaming-view-brand-card{
-      min-height:94px;
+      width:100%;
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:16px;
-      border-radius:24px;
-      background:rgba(255,255,255,.98);
-      border:1px solid rgba(255,255,255,.18);
-      box-shadow:0 16px 36px rgba(2,6,23,.24);
+      gap:clamp(18px, 3.2vw, 44px);
+      flex-wrap:wrap;
+      padding:clamp(14px, 2.4vw, 20px) clamp(16px, 4vw, 40px);
+      margin:0;
+      background:#fff;
+      border-bottom:1px solid rgba(15,23,42,.10);
+    }
+    .streaming-view-brand-card{
+      min-height:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0;
+      border-radius:0;
+      background:transparent;
+      border:0;
+      box-shadow:none;
+      flex:0 0 auto;
     }
     .streaming-view-brand-card img{
       display:block;
       width:auto;
       max-width:100%;
-      height:48px;
+      height:46px;
       object-fit:contain;
+      filter:contrast(1.02);
     }
-    .streaming-view-brand-card.is-advant img{ height:72px; }
-    .streaming-view-brand-card.is-sole img{ height:44px; }
-    .streaming-view-brand-card.is-confimi img{ height:54px; }
+    .streaming-view-brand-card.is-advant img{ height:84px; }
+    .streaming-view-brand-card.is-sole img{ height:58px; }
+    .streaming-view-brand-card.is-confimi img{ height:58px; }
 
     .streaming-view-player-stage{
       position:relative;
-      width:100%;
+      width:min(960px, calc(100vw - 32px));
+      margin-inline:auto;
       aspect-ratio:16 / 9;
       min-height:0;
-      border-radius:28px;
+      border-radius:22px;
       overflow:hidden;
       background:#000;
-      border:1px solid rgba(255,255,255,.08);
-      box-shadow:0 24px 70px rgba(2,6,23,.40);
+      border:1px solid rgba(15,23,42,.12);
+      box-shadow:none;
     }
     .streaming-view-player-shell{
       position:absolute;
@@ -3741,21 +3740,49 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       border:0;
       display:block;
       background:#000;
+      pointer-events:none;
+    }
+    .streaming-live-badge{
+      position:absolute;
+      top:14px;
+      left:14px;
+      z-index:4;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(15,23,42,.78);
+      color:#fff;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+    .streaming-live-badge::before{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:#ef4444;
+      flex:0 0 auto;
     }
     .streaming-view-controls{
       position:absolute;
       left:50%;
       bottom:14px;
-      z-index:3;
+      z-index:4;
       transform:translateX(-50%);
       display:flex;
       align-items:center;
       gap:12px;
       padding:10px 14px;
       border-radius:999px;
-      background:rgba(2,6,23,.76);
+      background:rgba(2,6,23,.78);
       border:1px solid rgba(148,163,184,.24);
-      box-shadow:0 14px 30px rgba(2,6,23,.32);
+      box-shadow:none;
       backdrop-filter:blur(12px);
       -webkit-backdrop-filter:blur(12px);
     }
@@ -3770,14 +3797,15 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       background:rgba(255,255,255,.08);
       color:#fff;
       cursor:pointer;
-      transition:transform .18s var(--ease), border-color .18s var(--ease), box-shadow .18s var(--ease), background .18s var(--ease);
+      transition:transform .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
       flex:0 0 auto;
+      box-shadow:none;
     }
     .streaming-icon-btn:hover{
       transform:translateY(-1px);
       border-color:rgba(56,189,248,.34);
-      box-shadow:0 14px 26px rgba(2,6,23,.28);
       background:rgba(255,255,255,.12);
+      box-shadow:none;
     }
     .streaming-icon-btn:focus-visible{
       outline:none;
@@ -3815,14 +3843,32 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       cursor:pointer;
     }
     .streaming-view-partners{
-      display:grid;
-      gap:0;
+      width:100%;
+      margin:0;
+      background:#fff;
+      border-top:1px solid rgba(15,23,42,.10);
+      border-bottom:1px solid rgba(15,23,42,.10);
+      box-shadow:none;
     }
     .streaming-view-partners .sponsor-card{
+      width:100%;
       margin:0;
-      background:rgba(255,255,255,.98);
-      border:1px solid rgba(148,163,184,.18);
-      box-shadow:0 16px 36px rgba(2,6,23,.22);
+      padding:0;
+      background:#fff;
+      border:0;
+      border-radius:0;
+      box-shadow:none;
+    }
+    .streaming-view-partners .sponsor-marquee{
+      margin-top:0;
+      padding:14px clamp(16px, 4vw, 40px);
+      --fade:72px;
+    }
+    .streaming-view-partners .sponsor-marquee::before{
+      background: linear-gradient(90deg, #fff 0%, rgba(255,255,255,0) 100%);
+    }
+    .streaming-view-partners .sponsor-marquee::after{
+      background: linear-gradient(270deg, #fff 0%, rgba(255,255,255,0) 100%);
     }
 
     .streaming-view-player-stage:fullscreen,
@@ -3840,12 +3886,12 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     .streaming-view-player-stage:-webkit-full-screen .streaming-view-controls{
       bottom:max(16px, env(safe-area-inset-bottom));
     }
-
-    @media (max-width: 980px){
-      .streaming-view-brand-row{
-        grid-template-columns:repeat(2, minmax(0, 1fr));
-      }
+    .streaming-view-player-stage:fullscreen .streaming-live-badge,
+    .streaming-view-player-stage:-webkit-full-screen .streaming-live-badge{
+      top:max(16px, env(safe-area-inset-top));
+      left:max(16px, env(safe-area-inset-left));
     }
+
     @media (max-width: 760px){
       .streaming-hero-btn{
         min-width:0;
@@ -3854,49 +3900,57 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
         grid-template-columns:1fr;
       }
       .streaming-view-page{
-        padding:12px;
+        padding:0 0 16px;
       }
       .streaming-view-brand-row{
-        gap:10px;
-      }
-      .streaming-view-brand-card{
-        min-height:78px;
-        padding:14px;
-        border-radius:18px;
+        gap:14px 24px;
+        padding:12px 16px;
       }
       .streaming-view-brand-card img{
-        height:40px;
+        height:36px;
       }
       .streaming-view-brand-card.is-advant img{ height:58px; }
+      .streaming-view-brand-card.is-sole img{ height:44px; }
       .streaming-view-brand-card.is-confimi img{ height:44px; }
       .streaming-view-player-stage{
-        border-radius:20px;
+        width:calc(100vw - 24px);
+        border-radius:18px;
       }
       .streaming-view-controls{
-        gap:8px;
+        gap:10px;
         padding:8px 10px;
+        max-width:calc(100% - 18px);
       }
       .streaming-icon-btn{
         width:42px;
         height:42px;
       }
+      .streaming-volume-wrap span{
+        display:none;
+      }
       .streaming-volume-range{
-        width:104px;
+        width:96px;
+      }
+      .streaming-live-badge{
+        top:10px;
+        left:10px;
+        padding:7px 10px;
+        font-size:10px;
+      }
+      .streaming-view-partners .sponsor-marquee{
+        padding:12px 16px;
+        --fade:48px;
       }
     }
     @media (max-width: 520px){
       .streaming-view-brand-row{
-        grid-template-columns:repeat(2, minmax(0, 1fr));
-      }
-      .streaming-view-brand-card{
-        min-height:72px;
-        padding:12px;
+        gap:12px 18px;
       }
       .streaming-view-brand-card img{
-        height:34px;
+        height:32px;
       }
-      .streaming-view-brand-card.is-advant img{ height:48px; }
-      .streaming-view-brand-card.is-sole img{ height:32px; }
+      .streaming-view-brand-card.is-advant img{ height:50px; }
+      .streaming-view-brand-card.is-sole img{ height:38px; }
       .streaming-view-brand-card.is-confimi img{ height:38px; }
       .streaming-view-controls{
         width:calc(100% - 18px);
@@ -3909,7 +3963,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       }
       .streaming-volume-range{
         width:100%;
-        min-width:74px;
+        min-width:72px;
       }
     }
 
@@ -4112,6 +4166,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
       <div class="streaming-view-player-stage" id="streamingPlayerStage" aria-label="Diretta streaming">
         <div class="streaming-view-player-shell" id="streamingStandalonePlayerShell"></div>
+        <div class="streaming-live-badge" aria-hidden="true">Dal vivo</div>
 
         <div class="streaming-view-controls" aria-label="Controlli player">
           <button class="streaming-icon-btn is-muted" type="button" id="streamingMuteToggle" aria-label="Attiva audio" aria-pressed="true">
@@ -9104,6 +9159,8 @@ function openSignup(mode){
     var source = document.querySelector('#partner .sponsor-card');
     if(!source) return;
     var clone = source.cloneNode(true);
+    clone.classList.remove('reveal');
+    clone.classList.add('show');
     stripIds(clone);
     host.appendChild(clone);
   }
