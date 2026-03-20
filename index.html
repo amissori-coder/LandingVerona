@@ -3679,6 +3679,13 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       display:grid;
       gap:16px;
     }
+    .streaming-view-brand-row,
+    .streaming-view-player-stage,
+    .streaming-view-partners{
+      width:100%;
+      max-width:960px;
+      margin-inline:auto;
+    }
     .streaming-view-brand-row{
       display:grid;
       grid-template-columns:repeat(4, minmax(0, 1fr));
@@ -3711,7 +3718,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       position:relative;
       width:100%;
       aspect-ratio:16 / 9;
-      min-height:240px;
+      min-height:0;
       border-radius:28px;
       overflow:hidden;
       background:#000;
