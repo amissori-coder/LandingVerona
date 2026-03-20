@@ -3658,8 +3658,8 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
     .streaming-view-page[hidden]{ display:none !important; }
     body.is-streaming-view{
-      background:#fff;
-      color:var(--text);
+      background:#020617;
+      color:#e5eefb;
       overflow-x:hidden;
     }
     body.is-streaming-view > *:not(#streamingExperiencePage):not(script){
@@ -3667,62 +3667,63 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     }
     .streaming-view-page{
       min-height:100vh;
-      padding:0 0 clamp(16px, 2.8vw, 26px);
-      background:#fff;
+      padding:clamp(14px, 2.4vw, 28px);
+      background:
+        radial-gradient(circle at 14% 0%, rgba(14,165,233,.18), transparent 30%),
+        radial-gradient(circle at 88% 8%, rgba(20,184,166,.16), transparent 24%),
+        linear-gradient(180deg, #020617 0%, #071124 100%);
     }
     .streaming-view-shell{
-      width:100%;
-      margin:0;
+      width:min(1120px, 100%);
+      margin:0 auto;
       display:grid;
-      gap:clamp(16px, 2.4vw, 24px);
+      gap:16px;
+    }
+    .streaming-view-brand-row,
+    .streaming-view-player-stage,
+    .streaming-view-partners{
+      width:100%;
+      max-width:960px;
+      margin-inline:auto;
     }
     .streaming-view-brand-row{
-      width:100%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:clamp(18px, 3.2vw, 44px);
-      flex-wrap:wrap;
-      padding:clamp(14px, 2.4vw, 20px) clamp(16px, 4vw, 40px);
-      margin:0;
-      background:#fff;
-      border-bottom:1px solid rgba(15,23,42,.10);
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:12px;
+      align-items:stretch;
     }
     .streaming-view-brand-card{
-      min-height:0;
+      min-height:94px;
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:0;
-      border-radius:0;
-      background:transparent;
-      border:0;
-      box-shadow:none;
-      flex:0 0 auto;
+      padding:16px;
+      border-radius:24px;
+      background:rgba(255,255,255,.98);
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow:0 16px 36px rgba(2,6,23,.24);
     }
     .streaming-view-brand-card img{
       display:block;
       width:auto;
       max-width:100%;
-      height:46px;
+      height:48px;
       object-fit:contain;
-      filter:contrast(1.02);
     }
-    .streaming-view-brand-card.is-advant img{ height:84px; }
-    .streaming-view-brand-card.is-sole img{ height:58px; }
-    .streaming-view-brand-card.is-confimi img{ height:58px; }
+    .streaming-view-brand-card.is-advant img{ height:72px; }
+    .streaming-view-brand-card.is-sole img{ height:44px; }
+    .streaming-view-brand-card.is-confimi img{ height:54px; }
 
     .streaming-view-player-stage{
       position:relative;
-      width:min(960px, calc(100vw - 32px));
-      margin-inline:auto;
+      width:100%;
       aspect-ratio:16 / 9;
       min-height:0;
-      border-radius:22px;
+      border-radius:28px;
       overflow:hidden;
       background:#000;
-      border:1px solid rgba(15,23,42,.12);
-      box-shadow:none;
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow:0 24px 70px rgba(2,6,23,.40);
     }
     .streaming-view-player-shell{
       position:absolute;
@@ -3740,49 +3741,21 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       border:0;
       display:block;
       background:#000;
-      pointer-events:none;
-    }
-    .streaming-live-badge{
-      position:absolute;
-      top:14px;
-      left:14px;
-      z-index:4;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(15,23,42,.78);
-      color:#fff;
-      font-size:11px;
-      font-weight:800;
-      letter-spacing:.10em;
-      text-transform:uppercase;
-      backdrop-filter:blur(10px);
-      -webkit-backdrop-filter:blur(10px);
-    }
-    .streaming-live-badge::before{
-      content:"";
-      width:8px;
-      height:8px;
-      border-radius:50%;
-      background:#ef4444;
-      flex:0 0 auto;
     }
     .streaming-view-controls{
       position:absolute;
       left:50%;
       bottom:14px;
-      z-index:4;
+      z-index:3;
       transform:translateX(-50%);
       display:flex;
       align-items:center;
       gap:12px;
       padding:10px 14px;
       border-radius:999px;
-      background:rgba(2,6,23,.78);
+      background:rgba(2,6,23,.76);
       border:1px solid rgba(148,163,184,.24);
-      box-shadow:none;
+      box-shadow:0 14px 30px rgba(2,6,23,.32);
       backdrop-filter:blur(12px);
       -webkit-backdrop-filter:blur(12px);
     }
@@ -3797,15 +3770,14 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       background:rgba(255,255,255,.08);
       color:#fff;
       cursor:pointer;
-      transition:transform .18s var(--ease), border-color .18s var(--ease), background .18s var(--ease);
+      transition:transform .18s var(--ease), border-color .18s var(--ease), box-shadow .18s var(--ease), background .18s var(--ease);
       flex:0 0 auto;
-      box-shadow:none;
     }
     .streaming-icon-btn:hover{
       transform:translateY(-1px);
       border-color:rgba(56,189,248,.34);
+      box-shadow:0 14px 26px rgba(2,6,23,.28);
       background:rgba(255,255,255,.12);
-      box-shadow:none;
     }
     .streaming-icon-btn:focus-visible{
       outline:none;
@@ -3843,32 +3815,14 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       cursor:pointer;
     }
     .streaming-view-partners{
-      width:100%;
-      margin:0;
-      background:#fff;
-      border-top:1px solid rgba(15,23,42,.10);
-      border-bottom:1px solid rgba(15,23,42,.10);
-      box-shadow:none;
+      display:grid;
+      gap:0;
     }
     .streaming-view-partners .sponsor-card{
-      width:100%;
       margin:0;
-      padding:0;
-      background:#fff;
-      border:0;
-      border-radius:0;
-      box-shadow:none;
-    }
-    .streaming-view-partners .sponsor-marquee{
-      margin-top:0;
-      padding:14px clamp(16px, 4vw, 40px);
-      --fade:72px;
-    }
-    .streaming-view-partners .sponsor-marquee::before{
-      background: linear-gradient(90deg, #fff 0%, rgba(255,255,255,0) 100%);
-    }
-    .streaming-view-partners .sponsor-marquee::after{
-      background: linear-gradient(270deg, #fff 0%, rgba(255,255,255,0) 100%);
+      background:rgba(255,255,255,.98);
+      border:1px solid rgba(148,163,184,.18);
+      box-shadow:0 16px 36px rgba(2,6,23,.22);
     }
 
     .streaming-view-player-stage:fullscreen,
@@ -3886,12 +3840,12 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     .streaming-view-player-stage:-webkit-full-screen .streaming-view-controls{
       bottom:max(16px, env(safe-area-inset-bottom));
     }
-    .streaming-view-player-stage:fullscreen .streaming-live-badge,
-    .streaming-view-player-stage:-webkit-full-screen .streaming-live-badge{
-      top:max(16px, env(safe-area-inset-top));
-      left:max(16px, env(safe-area-inset-left));
-    }
 
+    @media (max-width: 980px){
+      .streaming-view-brand-row{
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+      }
+    }
     @media (max-width: 760px){
       .streaming-hero-btn{
         min-width:0;
@@ -3900,57 +3854,49 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
         grid-template-columns:1fr;
       }
       .streaming-view-page{
-        padding:0 0 16px;
+        padding:12px;
       }
       .streaming-view-brand-row{
-        gap:14px 24px;
-        padding:12px 16px;
+        gap:10px;
       }
-      .streaming-view-brand-card img{
-        height:36px;
-      }
-      .streaming-view-brand-card.is-advant img{ height:58px; }
-      .streaming-view-brand-card.is-sole img{ height:44px; }
-      .streaming-view-brand-card.is-confimi img{ height:44px; }
-      .streaming-view-player-stage{
-        width:calc(100vw - 24px);
+      .streaming-view-brand-card{
+        min-height:78px;
+        padding:14px;
         border-radius:18px;
       }
+      .streaming-view-brand-card img{
+        height:40px;
+      }
+      .streaming-view-brand-card.is-advant img{ height:58px; }
+      .streaming-view-brand-card.is-confimi img{ height:44px; }
+      .streaming-view-player-stage{
+        border-radius:20px;
+      }
       .streaming-view-controls{
-        gap:10px;
+        gap:8px;
         padding:8px 10px;
-        max-width:calc(100% - 18px);
       }
       .streaming-icon-btn{
         width:42px;
         height:42px;
       }
-      .streaming-volume-wrap span{
-        display:none;
-      }
       .streaming-volume-range{
-        width:96px;
-      }
-      .streaming-live-badge{
-        top:10px;
-        left:10px;
-        padding:7px 10px;
-        font-size:10px;
-      }
-      .streaming-view-partners .sponsor-marquee{
-        padding:12px 16px;
-        --fade:48px;
+        width:104px;
       }
     }
     @media (max-width: 520px){
       .streaming-view-brand-row{
-        gap:12px 18px;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+      }
+      .streaming-view-brand-card{
+        min-height:72px;
+        padding:12px;
       }
       .streaming-view-brand-card img{
-        height:32px;
+        height:34px;
       }
-      .streaming-view-brand-card.is-advant img{ height:50px; }
-      .streaming-view-brand-card.is-sole img{ height:38px; }
+      .streaming-view-brand-card.is-advant img{ height:48px; }
+      .streaming-view-brand-card.is-sole img{ height:32px; }
       .streaming-view-brand-card.is-confimi img{ height:38px; }
       .streaming-view-controls{
         width:calc(100% - 18px);
@@ -3963,7 +3909,339 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       }
       .streaming-volume-range{
         width:100%;
-        min-width:72px;
+        min-width:74px;
+      }
+    }
+
+
+  
+
+    /* STREAMING PAGE — barra loghi e barra partner come landing */
+    body.is-streaming-view{
+      background:#ffffff;
+      color:var(--text);
+    }
+    .streaming-view-page{
+      min-height:100vh;
+      padding:0 0 24px;
+      background:#ffffff;
+    }
+    .streaming-view-shell{
+      width:100%;
+      max-width:none;
+      margin:0 auto;
+      display:grid;
+      gap:0;
+    }
+    .streaming-view-brand-row,
+    .streaming-view-partners{
+      display:block;
+      width:100vw;
+      max-width:none;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+      background:#ffffff;
+      box-shadow:none;
+    }
+    .streaming-view-brand-row{
+      border-bottom:1px solid rgba(15,23,42,.10);
+      padding-top:env(safe-area-inset-top);
+    }
+    .streaming-view-brand-band-inner{
+      width:min(var(--max), calc(100vw - 32px));
+      margin:0 auto;
+      padding:12px 0;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px 28px;
+      flex-wrap:wrap;
+    }
+    .streaming-view-brand-band-main,
+    .streaming-view-brand-band-side{
+      display:flex;
+      align-items:center;
+      gap:18px 24px;
+      flex-wrap:wrap;
+    }
+    .streaming-view-brand-band-side{
+      margin-left:auto;
+    }
+    .streaming-view-brand-pill{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .streaming-view-brand-pill img,
+    .streaming-view-partner-logo img,
+    .streaming-view-confimi img{
+      display:block;
+      width:auto;
+      object-fit:contain;
+      filter:none;
+    }
+    .streaming-view-brand-pill img.revilaw{
+      height:46px;
+    }
+    .streaming-view-brand-pill img.advant{
+      height:90px;
+    }
+    .streaming-view-partner-logo,
+    .streaming-view-confimi{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+    }
+    .streaming-view-partner-logo img{
+      height:56px;
+      max-width:min(320px, 46vw);
+    }
+    .streaming-view-confimi img{
+      width:min(290px, 52vw);
+      height:auto;
+    }
+    .streaming-view-player-stage{
+      position:relative;
+      width:min(960px, calc(100vw - 32px));
+      margin:20px auto 16px;
+      aspect-ratio:16 / 9;
+      min-height:0;
+      border-radius:18px;
+      overflow:hidden;
+      background:#000;
+      border:0;
+      box-shadow:none;
+    }
+    .streaming-view-player-shell{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      background:#000;
+    }
+    .streaming-view-player-shell > div,
+    .streaming-view-player-shell iframe{
+      position:absolute !important;
+      inset:0;
+      width:100% !important;
+      height:100% !important;
+      border:0;
+      display:block;
+      background:#000;
+      z-index:1;
+    }
+    .streaming-view-player-shell::before{
+      content:"";
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      height:72px;
+      z-index:2;
+      pointer-events:none;
+      background:linear-gradient(180deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.38) 58%, rgba(0,0,0,0) 100%);
+    }
+    .streaming-view-player-shell::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:2;
+      background:transparent;
+    }
+    .streaming-view-live-badge{
+      position:absolute;
+      top:16px;
+      left:16px;
+      z-index:4;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(2,6,23,.72);
+      color:#ffffff;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      pointer-events:none;
+    }
+    .streaming-view-live-dot{
+      width:8px;
+      height:8px;
+      border-radius:999px;
+      background:#ef4444;
+      box-shadow:0 0 0 6px rgba(239,68,68,.14);
+    }
+    .streaming-view-controls{
+      position:absolute;
+      left:50%;
+      bottom:14px;
+      z-index:4;
+      transform:translateX(-50%);
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(2,6,23,.76);
+      border:1px solid rgba(148,163,184,.24);
+      box-shadow:none;
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+    }
+    .streaming-view-partners{
+      border-top:1px solid rgba(15,23,42,.10);
+      border-bottom:1px solid rgba(15,23,42,.10);
+      padding:8px 0;
+    }
+    .streaming-view-partners > #streamingPartnerMarqueeHost{
+      width:min(var(--max), calc(100vw - 32px));
+      margin:0 auto;
+    }
+    .streaming-view-partners .sponsor-card{
+      margin:0;
+      background:#ffffff;
+      border:0;
+      box-shadow:none;
+      border-radius:0;
+      padding:0;
+    }
+    .streaming-view-partners .sponsor-marquee{
+      margin-top:0;
+      padding-top:8px;
+      padding-bottom:8px;
+    }
+    .streaming-view-partners .sponsor-marquee::before{
+      background:linear-gradient(90deg, #ffffff 0%, rgba(255,255,255,0) 100%);
+    }
+    .streaming-view-partners .sponsor-marquee::after{
+      background:linear-gradient(270deg, #ffffff 0%, rgba(255,255,255,0) 100%);
+    }
+    .streaming-view-player-stage:fullscreen,
+    .streaming-view-player-stage:-webkit-full-screen{
+      width:100vw;
+      height:100vh;
+      max-width:none;
+      margin:0;
+      aspect-ratio:auto;
+      border-radius:0;
+      border:0;
+      box-shadow:none;
+      background:#000;
+    }
+    .streaming-view-player-stage:fullscreen .streaming-view-controls,
+    .streaming-view-player-stage:-webkit-full-screen .streaming-view-controls{
+      bottom:max(16px, env(safe-area-inset-bottom));
+    }
+    @media (max-width: 900px){
+      .streaming-view-brand-band-inner{
+        justify-content:center;
+      }
+      .streaming-view-brand-band-main,
+      .streaming-view-brand-band-side{
+        justify-content:center;
+        width:100%;
+      }
+      .streaming-view-brand-band-side{
+        margin-left:0;
+      }
+    }
+    @media (max-width: 760px){
+      .streaming-view-page{
+        padding:0 0 18px;
+      }
+      .streaming-view-brand-band-inner{
+        width:calc(100vw - 24px);
+        padding:10px 0;
+        gap:12px 18px;
+      }
+      .streaming-view-brand-pill{
+        justify-content:center;
+      }
+      .streaming-view-brand-pill img.revilaw{
+        height:34px;
+      }
+      .streaming-view-brand-pill img.advant{
+        height:62px;
+      }
+      .streaming-view-partner-logo img{
+        height:44px;
+        max-width:min(260px, 68vw);
+      }
+      .streaming-view-confimi img{
+        width:min(235px, 70vw);
+      }
+      .streaming-view-player-stage{
+        width:calc(100vw - 24px);
+        margin:14px auto 12px;
+        border-radius:14px;
+      }
+      .streaming-view-live-badge{
+        top:12px;
+        left:12px;
+        padding:7px 10px;
+        font-size:10px;
+      }
+      .streaming-view-controls{
+        gap:8px;
+        padding:8px 10px;
+      }
+      .streaming-icon-btn{
+        width:42px;
+        height:42px;
+      }
+      .streaming-volume-range{
+        width:104px;
+      }
+      .streaming-view-partners > #streamingPartnerMarqueeHost{
+        width:calc(100vw - 24px);
+      }
+    }
+    @media (max-width: 520px){
+      .streaming-view-brand-band-inner{
+        width:calc(100vw - 20px);
+      }
+      .streaming-view-brand-pill{
+        gap:12px;
+      }
+      .streaming-view-brand-pill img.revilaw{
+        height:28px;
+      }
+      .streaming-view-brand-pill img.advant{
+        height:52px;
+      }
+      .streaming-view-partner-logo img{
+        height:38px;
+        max-width:min(220px, 74vw);
+      }
+      .streaming-view-confimi img{
+        width:min(210px, 76vw);
+      }
+      .streaming-view-player-stage{
+        width:calc(100vw - 16px);
+        border-radius:12px;
+      }
+      .streaming-view-controls{
+        width:calc(100% - 12px);
+        justify-content:space-between;
+      }
+      .streaming-volume-wrap{
+        flex:1 1 auto;
+        min-width:0;
+        gap:8px;
+      }
+      .streaming-volume-wrap span{
+        display:none;
+      }
+      .streaming-volume-range{
+        width:100%;
+        min-width:70px;
+      }
+      .streaming-view-partners > #streamingPartnerMarqueeHost{
+        width:calc(100vw - 16px);
       }
     }
 
@@ -4166,7 +4444,11 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
       <div class="streaming-view-player-stage" id="streamingPlayerStage" aria-label="Diretta streaming">
         <div class="streaming-view-player-shell" id="streamingStandalonePlayerShell"></div>
-        <div class="streaming-live-badge" aria-hidden="true">Dal vivo</div>
+
+        <div class="streaming-view-live-badge" aria-hidden="true">
+          <span class="streaming-view-live-dot"></span>
+          <span>Dal vivo</span>
+        </div>
 
         <div class="streaming-view-controls" aria-label="Controlli player">
           <button class="streaming-icon-btn is-muted" type="button" id="streamingMuteToggle" aria-label="Attiva audio" aria-pressed="true">
@@ -9119,50 +9401,92 @@ function openSignup(mode){
     for(var i=0;i<nodes.length;i++) nodes[i].removeAttribute('id');
   }
 
-  function makeStreamingBrandCard(src, alt, extraClass){
+  function createStreamingBrandImg(src, alt, extraClass){
     if(!src) return null;
-    var item = document.createElement('div');
-    item.className = 'streaming-view-brand-card' + (extraClass ? ' ' + extraClass : '');
     var img = document.createElement('img');
     img.src = src;
     img.alt = alt || '';
     img.loading = 'eager';
     img.decoding = 'async';
-    item.appendChild(img);
-    return item;
+    if(extraClass) img.className = extraClass;
+    return img;
   }
 
   function populateStreamingBrandRow(){
     var host = streamingBrandHostEl();
-    if(!host || host.childElementCount) return;
+    if(!host || host.getAttribute('data-streaming-ready') === '1') return;
+
+    host.innerHTML = '';
 
     var rev = document.querySelector('#organizersLogos .revilaw');
     var adv = document.querySelector('#organizersLogos .advant');
     var sole = document.getElementById('sole24TopLogo');
-    var confimi = document.querySelector('#topPatronage img');
+    var confimiLink = document.getElementById('topPatronage');
+    var confimi = confimiLink ? confimiLink.querySelector('img') : null;
 
-    var items = [
-      makeStreamingBrandCard(rev ? rev.getAttribute('src') : '', rev ? rev.getAttribute('alt') : 'Revilaw', ''),
-      makeStreamingBrandCard(adv ? adv.getAttribute('src') : '', adv ? adv.getAttribute('alt') : 'ADVANT', 'is-advant'),
-      makeStreamingBrandCard(sole ? sole.getAttribute('src') : '', sole ? sole.getAttribute('alt') : 'Il Sole 24 Ore', 'is-sole'),
-      makeStreamingBrandCard(confimi ? confimi.getAttribute('src') : '', confimi ? confimi.getAttribute('alt') : 'Confimi Industria', 'is-confimi')
-    ];
+    var inner = document.createElement('div');
+    inner.className = 'streaming-view-brand-band-inner';
 
-    for(var i=0;i<items.length;i++){
-      if(items[i]) host.appendChild(items[i]);
+    var main = document.createElement('div');
+    main.className = 'streaming-view-brand-band-main';
+
+    var organizers = document.createElement('div');
+    organizers.className = 'streaming-view-brand-pill';
+
+    var revImg = createStreamingBrandImg(rev ? rev.getAttribute('src') : '', rev ? (rev.getAttribute('alt') || 'Revilaw') : 'Revilaw', 'revilaw');
+    var advImg = createStreamingBrandImg(adv ? adv.getAttribute('src') : '', adv ? (adv.getAttribute('alt') || 'ADVANT Nctm') : 'ADVANT Nctm', 'advant');
+
+    if(revImg) organizers.appendChild(revImg);
+    if(advImg) organizers.appendChild(advImg);
+    if(organizers.childElementCount) main.appendChild(organizers);
+
+    var side = document.createElement('div');
+    side.className = 'streaming-view-brand-band-side';
+
+    if(sole){
+      var soleWrap = document.createElement('div');
+      soleWrap.className = 'streaming-view-partner-logo';
+      var soleImg = createStreamingBrandImg(sole.getAttribute('src'), sole.getAttribute('alt') || 'Il Sole 24 Ore', 'sole24-top');
+      if(soleImg) soleWrap.appendChild(soleImg);
+      if(soleWrap.childElementCount) side.appendChild(soleWrap);
     }
+
+    if(confimi){
+      var confWrap;
+      if(confimiLink && confimiLink.getAttribute('href')){
+        confWrap = document.createElement('a');
+        confWrap.href = confimiLink.getAttribute('href');
+        confWrap.target = '_blank';
+        confWrap.rel = 'noopener noreferrer';
+        confWrap.setAttribute('aria-label', confimi.getAttribute('alt') || 'Confimi Industria');
+      }else{
+        confWrap = document.createElement('div');
+      }
+      confWrap.className = 'streaming-view-confimi';
+      var confImg = createStreamingBrandImg(confimi.getAttribute('src'), confimi.getAttribute('alt') || 'Confimi Industria', 'confimi');
+      if(confImg) confWrap.appendChild(confImg);
+      if(confWrap.childElementCount) side.appendChild(confWrap);
+    }
+
+    inner.appendChild(main);
+    if(side.childElementCount) inner.appendChild(side);
+    host.appendChild(inner);
+    host.setAttribute('data-streaming-ready', '1');
   }
 
   function populateStreamingPartnerRail(){
     var host = streamingPartnerHostEl();
-    if(!host || host.childElementCount) return;
+    if(!host || host.getAttribute('data-streaming-ready') === '1') return;
+    host.innerHTML = '';
+
     var source = document.querySelector('#partner .sponsor-card');
     if(!source) return;
+
     var clone = source.cloneNode(true);
     clone.classList.remove('reveal');
-    clone.classList.add('show');
     stripIds(clone);
     host.appendChild(clone);
+    host.setAttribute('data-streaming-ready', '1');
   }
 
   function loadStreamingYoutubeApi(){
