@@ -4170,14 +4170,18 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       position:absolute;
       top:50%;
       left:50%;
-      inset:auto;
+      right:auto;
+      bottom:auto;
       width:var(--streaming-mobile-video-width, 100dvw);
       height:var(--streaming-mobile-video-height, 56.25dvw);
-      transform:translate(-50%, -50%);
+      transform:translate3d(-50%, -50%, 0);
       transform-origin:center center;
+      will-change:transform;
+      backface-visibility:hidden;
+      -webkit-backface-visibility:hidden;
     }
     body.streaming-mobile-fullscreen.is-streaming-portrait .streaming-view-player-stage.is-mobile-fullscreen .streaming-view-player-shell{
-      transform:translate(-50%, -50%) rotate(90deg);
+      transform:translate3d(-50%, -50%, 0) rotate(90deg);
     }
     body.streaming-mobile-fullscreen .streaming-view-player-stage.is-mobile-fullscreen .streaming-view-controls{
       left:50%;
@@ -9733,6 +9737,17 @@ function openSignup(mode){
     document.body.classList.toggle('is-streaming-portrait', isPortrait);
   }
 
+  function scheduleStreamingCustomFullscreenRelayout(){
+    var delays = [0, 60, 140, 260, 420, 800];
+    for(var i=0;i<delays.length;i++){
+      (function(delay){
+        setTimeout(function(){
+          if(streamingCustomFullscreenActive) updateStreamingCustomFullscreenLayout();
+        }, delay);
+      })(delays[i]);
+    }
+  }
+
   function tryLockStreamingLandscape(){
     try{
       if(screen.orientation && typeof screen.orientation.lock === 'function'){
@@ -9758,6 +9773,7 @@ function openSignup(mode){
     document.body.classList.add('streaming-mobile-fullscreen');
     updateStreamingCustomFullscreenLayout();
     tryLockStreamingLandscape();
+    scheduleStreamingCustomFullscreenRelayout();
     try{ window.scrollTo(0, 0); }catch(err){}
     syncStreamingFullscreenButton();
   }
@@ -10504,6 +10520,15 @@ function openSignup(mode){
   if(window.visualViewport && typeof window.visualViewport.addEventListener === 'function'){
     window.visualViewport.addEventListener('resize', refreshStreamingViewportState);
   }
+
+  try{
+    if(screen.orientation && typeof screen.orientation.addEventListener === 'function'){
+      screen.orientation.addEventListener('change', function(){
+        setTimeout(refreshStreamingViewportState, 60);
+        setTimeout(refreshStreamingViewportState, 180);
+      });
+    }
+  }catch(err){}
 
   if(typeof addPassive === 'function'){
     addPassive(window, 'resize', function(){
