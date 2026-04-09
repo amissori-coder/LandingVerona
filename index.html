@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="it">
 <head>
   <!-- Google tag (gtag.js) -->
@@ -3662,7 +3662,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       color:#e5eefb;
       overflow-x:hidden;
     }
-    body.is-streaming-view > *:not(#streamingExperiencePage):not(script){
+    body.is-streaming-view > *:not(#streamingExperiencePage):not(#replayExperiencePage):not(script){
       display:none !important;
     }
     .streaming-view-page{
@@ -4049,6 +4049,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       inset:0;
       z-index:2;
       background:transparent;
+      pointer-events:none;
     }
     .streaming-view-live-badge{
       position:absolute;
@@ -4096,6 +4097,17 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       border-top:1px solid rgba(15,23,42,.10);
       border-bottom:1px solid rgba(15,23,42,.10);
       padding:8px 0;
+    }
+    .replay-view-stack{
+      width:min(1180px, calc(100vw - 32px));
+      margin:20px auto 16px;
+      display:grid;
+      gap:18px;
+    }
+    .replay-view-stack .streaming-view-player-stage{
+      width:100%;
+      max-width:none;
+      margin:0;
     }
     .streaming-view-partners > #streamingPartnerMarqueeHost{
       width:min(var(--max), calc(100vw - 32px));
@@ -4271,6 +4283,10 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       .streaming-view-partners > #streamingPartnerMarqueeHost{
         width:calc(100vw - 24px);
       }
+      .replay-view-stack{
+        width:calc(100vw - 24px);
+        gap:12px;
+      }
     }
     @media (max-width: 520px){
       .streaming-view-brand-band-inner{
@@ -4313,6 +4329,151 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
         min-width:70px;
       }
       .streaming-view-partners > #streamingPartnerMarqueeHost{
+        width:calc(100vw - 16px);
+      }
+      .replay-view-stack{
+        width:calc(100vw - 16px);
+      }
+    }
+
+
+  
+
+    /* ===============================
+       DIFFERITA EVENTO (Google Drive)
+       =============================== */
+    .replay-view-page{
+      background:#ffffff;
+    }
+    .replay-stage-shell{
+      width:min(960px, calc(100vw - 32px));
+      margin:20px auto 16px;
+      display:grid;
+      gap:18px;
+    }
+    .replay-stage-head{
+      display:grid;
+      gap:10px;
+      text-align:center;
+      padding:8px 0 2px;
+    }
+    .replay-stage-kicker{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:max-content;
+      max-width:100%;
+      margin:0 auto;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(14,165,233,.08);
+      color:#0369a1;
+      font-size:11px;
+      line-height:1;
+      font-weight:900;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+    }
+    .replay-stage-head h2{
+      margin:0;
+      font-size:32px;
+      line-height:1.08;
+      letter-spacing:-.03em;
+      color:var(--text);
+    }
+    .replay-stage-head p{
+      margin:0 auto;
+      max-width:78ch;
+      color:var(--muted2);
+      font-size:14px;
+      line-height:1.7;
+    }
+    .replay-player-list{
+      display:grid;
+      gap:18px;
+    }
+    .replay-video-card{
+      display:grid;
+      gap:12px;
+    }
+    .replay-video-meta{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .replay-video-heading{
+      display:grid;
+      gap:6px;
+      min-width:0;
+    }
+    .replay-video-title{
+      margin:0;
+      font-size:20px;
+      line-height:1.15;
+      letter-spacing:-.02em;
+      color:var(--text);
+    }
+    .replay-video-note{
+      margin:0;
+      color:var(--muted2);
+      font-size:13px;
+      line-height:1.6;
+      max-width:72ch;
+    }
+    .replay-video-actions{
+      display:none;
+    }
+    .replay-view-page .streaming-view-player-stage{
+      width:100%;
+      margin:0;
+      border-radius:18px;
+      overflow:hidden;
+      background:#000;
+      border:1px solid rgba(15,23,42,.08);
+      box-shadow:0 24px 60px rgba(2,6,23,.18);
+    }
+    .replay-view-page .streaming-view-player-shell::before,
+    .replay-view-page .streaming-view-player-shell::after{
+      display:none !important;
+    }
+    .replay-view-page .streaming-view-player-shell{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      background:#000;
+      z-index:1;
+    }
+    .replay-view-page .streaming-view-player-shell iframe{
+      position:absolute !important;
+      inset:0;
+      width:100% !important;
+      height:100% !important;
+      border:0;
+      display:block;
+      background:#000;
+      z-index:1;
+    }
+    .replay-view-page .streaming-view-live-badge{
+      background:rgba(2,6,23,.84);
+    }
+    @media (max-width: 760px){
+      .replay-stage-shell{
+        width:calc(100vw - 24px);
+        margin:14px auto 12px;
+        gap:14px;
+      }
+      .replay-stage-head h2{
+        font-size:24px;
+      }
+      .replay-video-title{
+        font-size:18px;
+      }
+    }
+    @media (max-width: 520px){
+      .replay-stage-shell{
         width:calc(100vw - 16px);
       }
     }
@@ -4432,6 +4593,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
             <div class="hero-cta">
               <button class="btn primary streaming-hero-btn" type="button" data-open-streaming-access="1">Accedi alla diretta streaming</button>
+              <button class="btn" type="button" data-open-replay-view="1">Guarda la differita</button>
               <a class="btn ghost" href="#agenda">Vedi agenda</a>
             </div>
           </div>
@@ -4562,6 +4724,27 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     </div>
   </section>
 
+
+
+  <section id="replayExperiencePage" class="streaming-view-page replay-view-page" aria-label="Pagina differita evento" hidden>
+    <div class="streaming-view-shell">
+      <div class="streaming-view-brand-row" id="replayBrandRow" aria-label="Organizzatori e partner principali"></div>
+
+      <section class="replay-stage-shell" aria-label="Player differita">
+        <div class="replay-stage-head">
+          <span class="replay-stage-kicker">Differita integrale</span>
+          <h2>Rivedi Next Generation Business</h2>
+          <p>La registrazione completa è disponibile in due parti, incorporata direttamente nella pagina.</p>
+        </div>
+
+        <div class="replay-player-list" id="replayStandalonePlayerShell" aria-live="polite"></div>
+      </section>
+
+      <div class="streaming-view-partners" aria-label="Partner dell'evento">
+        <div id="replayPartnerMarqueeHost"></div>
+      </div>
+    </div>
+  </section>
 
   <section aria-label="Contenuti per PMI">
     <div class="container">
@@ -9202,7 +9385,10 @@ function openSignup(mode){
 (function(){
   var STREAMING_AUTH_URL = 'https://script.google.com/macros/s/AKfycbynKK4FYh-DsXziLkMz9nR1_Qn5vLbatNW_gXQ8tmu3CIpaYUznXo6n21SZ65XDTsoDkg/exec';
   var STREAMING_VIDEO_ID = 'nUO7CT9J-u0';
+  var REPLAY_VIDEO_PART_1_ID = '1PbsW_-efDYIHMnXQgs4ARW6WJ7MqAab5';
+  var REPLAY_VIDEO_PART_2_ID = '1jbhLSH-8pMEd005IdtcIJLQI9Lmifm8u';
   var STREAMING_VIEW_PARAM = 'diretta';
+  var REPLAY_VIEW_PARAM = 'differita';
   var STREAMING_OPEN_PARAM = 'streamingAccess';
   var STREAMING_SESSION_KEY = 'ngb_streaming_access_ok';
   var STREAMING_SESSION_TS_KEY = 'ngb_streaming_access_ts';
@@ -9226,51 +9412,21 @@ function openSignup(mode){
   }
 
   function streamingStorages(){
-    var stores = [];
-    try{ if(window.sessionStorage) stores.push(window.sessionStorage); }catch(err){}
-    try{ if(window.localStorage) stores.push(window.localStorage); }catch(err){}
-    return stores;
+    return [];
   }
 
   function setStreamingUnlocked(value){
-    var stores = streamingStorages();
-    for(var i=0;i<stores.length;i++){
-      try{
-        if(value){
-          stores[i].setItem(STREAMING_SESSION_KEY, '1');
-          stores[i].setItem(STREAMING_SESSION_TS_KEY, String(Date.now()));
-        }else{
-          stores[i].removeItem(STREAMING_SESSION_KEY);
-          stores[i].removeItem(STREAMING_SESSION_TS_KEY);
-        }
-      }catch(err){}
-    }
+    return !!value;
   }
 
   function isStreamingUnlocked(){
-    var stores = streamingStorages();
-    var now = Date.now();
-    for(var i=0;i<stores.length;i++){
-      try{
-        var flag = stores[i].getItem(STREAMING_SESSION_KEY);
-        var ts = parseInt(stores[i].getItem(STREAMING_SESSION_TS_KEY) || '0', 10);
-        if(flag === '1'){
-          if(!ts || (now - ts) <= STREAMING_SESSION_TTL_MS){
-            return true;
-          }
-          stores[i].removeItem(STREAMING_SESSION_KEY);
-          stores[i].removeItem(STREAMING_SESSION_TS_KEY);
-        }
-      }catch(err){}
-    }
     return false;
   }
 
   function syncStreamingAccessButtons(){
     var buttons = document.querySelectorAll('[data-open-streaming-access]');
-    var unlocked = isStreamingUnlocked();
     for(var i=0;i<buttons.length;i++){
-      buttons[i].textContent = unlocked ? 'Apri la diretta streaming' : 'Accedi alla diretta streaming';
+      buttons[i].textContent = 'Accedi alla diretta streaming';
     }
   }
 
@@ -9286,6 +9442,19 @@ function openSignup(mode){
     }
   }
 
+  function buildReplayExperienceUrl(){
+    try{
+      var url = new URL(window.location.href);
+      url.hash = '';
+      url.searchParams.set(REPLAY_VIEW_PARAM, '1');
+      url.searchParams.delete(STREAMING_VIEW_PARAM);
+      url.searchParams.delete(STREAMING_OPEN_PARAM);
+      return url.toString();
+    }catch(err){
+      return (window.location.pathname || 'index.html') + '?differita=1';
+    }
+  }
+
   function buildStreamingLandingUrl(openAccessModal){
     try{
       var url = new URL(window.location.href);
@@ -9296,6 +9465,14 @@ function openSignup(mode){
       return url.toString();
     }catch(err){
       return window.location.pathname || 'index.html';
+    }
+  }
+
+  function isReplayViewRequested(){
+    try{
+      return new URL(window.location.href).searchParams.get(REPLAY_VIEW_PARAM) === '1';
+    }catch(err){
+      return /(?:^|[?&])differita=1(?:&|$)/.test(window.location.search || '');
     }
   }
 
@@ -9324,6 +9501,10 @@ function openSignup(mode){
     }catch(err){}
   }
 
+  function replayPageEl(){ return document.getElementById('replayExperiencePage'); }
+  function replayBrandHostEl(){ return document.getElementById('replayBrandRow'); }
+  function replayPartnerHostEl(){ return document.getElementById('replayPartnerMarqueeHost'); }
+  function replayPlayerShellEl(){ return document.getElementById('replayStandalonePlayerShell'); }
   function streamingPageEl(){ return document.getElementById('streamingExperiencePage'); }
   function streamingBrandHostEl(){ return document.getElementById('streamingBrandRow'); }
   function streamingPartnerHostEl(){ return document.getElementById('streamingPartnerMarqueeHost'); }
@@ -9465,6 +9646,7 @@ function openSignup(mode){
       }
     }catch(err){}
 
+    stampStreamingWindowFlag(window);
     window.location.href = targetUrl;
   }
 
@@ -9486,8 +9668,7 @@ function openSignup(mode){
     return img;
   }
 
-  function populateStreamingBrandRow(){
-    var host = streamingBrandHostEl();
+  function populateBrandRowInto(host){
     if(!host || host.getAttribute('data-streaming-ready') === '1') return;
 
     host.innerHTML = '';
@@ -9548,8 +9729,15 @@ function openSignup(mode){
     host.setAttribute('data-streaming-ready', '1');
   }
 
-  function populateStreamingPartnerRail(){
-    var host = streamingPartnerHostEl();
+  function populateStreamingBrandRow(){
+    populateBrandRowInto(streamingBrandHostEl());
+  }
+
+  function populateReplayBrandRow(){
+    populateBrandRowInto(replayBrandHostEl());
+  }
+
+  function populatePartnerRailInto(host){
     if(!host || host.getAttribute('data-streaming-ready') === '1') return;
     host.innerHTML = '';
 
@@ -9561,6 +9749,14 @@ function openSignup(mode){
     stripIds(clone);
     host.appendChild(clone);
     host.setAttribute('data-streaming-ready', '1');
+  }
+
+  function populateStreamingPartnerRail(){
+    populatePartnerRailInto(streamingPartnerHostEl());
+  }
+
+  function populateReplayPartnerRail(){
+    populatePartnerRailInto(replayPartnerHostEl());
   }
 
   function loadStreamingYoutubeApi(){
@@ -9917,6 +10113,50 @@ function openSignup(mode){
     });
   }
 
+  function mountReplayPlayer(){
+    var shell = replayPlayerShellEl();
+    if(!shell) return;
+    if(shell.getAttribute('data-replay-mounted') === '1') return;
+
+    function replayBlock(title, partTitle, fileId){
+      var previewSrc = 'https://drive.google.com/file/d/' + fileId + '/preview';
+      return '' +
+        '<article class="replay-video-card">' +
+          '<div class="replay-video-meta">' +
+            '<div class="replay-video-heading">' +
+              '<h3 class="replay-video-title">' + partTitle + '</h3>' +
+              '<p class="replay-video-note">Riproduzione incorporata da Google Drive direttamente nella pagina.</p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="streaming-view-player-stage" aria-label="' + title + '">' +
+            '<div class="streaming-view-player-shell">' +
+              '<iframe title="' + title + '" src="' + previewSrc + '" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000;"></iframe>' +
+            '</div>' +
+            '<div class="streaming-view-live-badge" aria-hidden="true">' +
+              '<span class="streaming-view-live-dot"></span>' +
+              '<span>' + partTitle + '</span>' +
+            '</div>' +
+          '</div>' +
+        '</article>';
+    }
+
+    shell.innerHTML =
+      replayBlock('Differita Next Generation Business - Parte 1', 'Differita · Parte 1', REPLAY_VIDEO_PART_1_ID) +
+      replayBlock('Differita Next Generation Business - Parte 2', 'Differita · Parte 2', REPLAY_VIDEO_PART_2_ID);
+
+    shell.setAttribute('data-replay-mounted', '1');
+  }
+
+  function renderReplayExperiencePage(){
+    document.body.classList.add('is-streaming-view');
+    var page = replayPageEl();
+    if(page) page.hidden = false;
+    populateReplayBrandRow();
+    populateReplayPartnerRail();
+    document.title = 'Differita | Next Generation Business';
+    mountReplayPlayer();
+  }
+
   function renderStreamingExperiencePage(){
     document.body.classList.add('is-streaming-view');
     var page = streamingPageEl();
@@ -9933,6 +10173,12 @@ function openSignup(mode){
     if(streamingCustomFullscreenActive) exitStreamingCustomFullscreen();
     document.body.classList.remove('is-streaming-view');
     var page = streamingPageEl();
+    if(page) page.hidden = true;
+  }
+
+  function resetReplayLandingView(){
+    document.body.classList.remove('is-streaming-view');
+    var page = replayPageEl();
     if(page) page.hidden = true;
   }
 
@@ -10361,8 +10607,14 @@ function openSignup(mode){
     var trigger = (el.closest ? el.closest('[data-open-streaming-access]') : null);
     if(trigger){
       e.preventDefault();
-      if(isStreamingUnlocked()) openStreamingExperience();
-      else openStreamingAccessModal();
+      openStreamingAccessModal();
+      return;
+    }
+
+    var replayTrigger = (el.closest ? el.closest('[data-open-replay-view]') : null);
+    if(replayTrigger){
+      e.preventDefault();
+      window.location.href = buildReplayExperienceUrl();
       return;
     }
 
@@ -10446,7 +10698,6 @@ function openSignup(mode){
         activeStreamingPendingWindow = null;
 
         if(result && result.ok){
-          setStreamingUnlocked(true);
           stampStreamingWindowFlag(pendingWindow);
           closeStreamingAccessModal();
           openStreamingExperience(pendingWindow);
@@ -10549,17 +10800,19 @@ function openSignup(mode){
   syncStreamingAccessButtons();
   setStreamingPasswordVisibility(false);
 
-  if(isStreamingViewRequested()){
-    if(isStreamingUnlocked() || hasStreamingWindowFlag()){
-      if(hasStreamingWindowFlag()){
-        clearStreamingWindowFlag();
-        setStreamingUnlocked(true);
-      }
+  if(isReplayViewRequested()){
+    resetStreamingLandingView();
+    renderReplayExperiencePage();
+  }else if(isStreamingViewRequested()){
+    resetReplayLandingView();
+    if(hasStreamingWindowFlag()){
+      clearStreamingWindowFlag();
       renderStreamingExperiencePage();
     }else{
       window.location.replace(buildStreamingLandingUrl(true));
     }
   }else{
+    resetReplayLandingView();
     resetStreamingLandingView();
     if(shouldAutoOpenStreamingModal()){
       consumeAutoOpenStreamingParam();
