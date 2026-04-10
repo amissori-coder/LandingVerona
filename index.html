@@ -3662,7 +3662,7 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       color:#e5eefb;
       overflow-x:hidden;
     }
-    body.is-streaming-view > *:not(#streamingExperiencePage):not(#replayExperiencePage):not(script){
+    body.is-streaming-view > *:not(#streamingExperiencePage):not(script){
       display:none !important;
     }
     .streaming-view-page{
@@ -4049,7 +4049,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       inset:0;
       z-index:2;
       background:transparent;
-      pointer-events:none;
     }
     .streaming-view-live-badge{
       position:absolute;
@@ -4097,17 +4096,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       border-top:1px solid rgba(15,23,42,.10);
       border-bottom:1px solid rgba(15,23,42,.10);
       padding:8px 0;
-    }
-    .replay-view-stack{
-      width:min(1180px, calc(100vw - 32px));
-      margin:20px auto 16px;
-      display:grid;
-      gap:18px;
-    }
-    .replay-view-stack .streaming-view-player-stage{
-      width:100%;
-      max-width:none;
-      margin:0;
     }
     .streaming-view-partners > #streamingPartnerMarqueeHost{
       width:min(var(--max), calc(100vw - 32px));
@@ -4283,10 +4271,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       .streaming-view-partners > #streamingPartnerMarqueeHost{
         width:calc(100vw - 24px);
       }
-      .replay-view-stack{
-        width:calc(100vw - 24px);
-        gap:12px;
-      }
     }
     @media (max-width: 520px){
       .streaming-view-brand-band-inner{
@@ -4330,384 +4314,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
       }
       .streaming-view-partners > #streamingPartnerMarqueeHost{
         width:calc(100vw - 16px);
-      }
-      .replay-view-stack{
-        width:calc(100vw - 16px);
-      }
-    }
-
-
-  
-
-    /* ===============================
-       DIFFERITA EVENTO (Google Drive)
-       =============================== */
-    .replay-view-page{
-      background:#ffffff;
-    }
-    .replay-stage-shell{
-      width:min(960px, calc(100vw - 32px));
-      margin:20px auto 16px;
-      display:grid;
-      gap:18px;
-    }
-    .replay-stage-head{
-      display:grid;
-      gap:10px;
-      text-align:center;
-      padding:8px 0 2px;
-    }
-    .replay-stage-kicker{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      width:max-content;
-      max-width:100%;
-      margin:0 auto;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(14,165,233,.08);
-      color:#0369a1;
-      font-size:11px;
-      line-height:1;
-      font-weight:900;
-      letter-spacing:.14em;
-      text-transform:uppercase;
-    }
-    .replay-stage-head h2{
-      margin:0;
-      font-size:32px;
-      line-height:1.08;
-      letter-spacing:-.03em;
-      color:var(--text);
-    }
-    .replay-stage-head p{
-      margin:0 auto;
-      max-width:78ch;
-      color:var(--muted2);
-      font-size:14px;
-      line-height:1.7;
-    }
-    .replay-player-list{
-      display:grid;
-      gap:18px;
-    }
-    .replay-video-card{
-      display:grid;
-      gap:12px;
-    }
-    .replay-video-meta{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-    .replay-video-heading{
-      display:grid;
-      gap:6px;
-      min-width:0;
-    }
-    .replay-video-title{
-      margin:0;
-      font-size:20px;
-      line-height:1.15;
-      letter-spacing:-.02em;
-      color:var(--text);
-    }
-    .replay-video-note{
-      margin:0;
-      color:var(--muted2);
-      font-size:13px;
-      line-height:1.6;
-      max-width:72ch;
-    }
-    .replay-video-actions{
-      display:none;
-    }
-    .replay-view-page .streaming-view-player-stage{
-      width:100%;
-      margin:0;
-      border-radius:18px;
-      overflow:hidden;
-      background:#000;
-      border:1px solid rgba(15,23,42,.08);
-      box-shadow:0 24px 60px rgba(2,6,23,.18);
-    }
-    .replay-view-page .streaming-view-player-shell::before,
-    .replay-view-page .streaming-view-player-shell::after{
-      display:none !important;
-    }
-    .replay-view-page .streaming-view-player-shell{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      background:#000;
-      z-index:1;
-    }
-    .replay-view-page .streaming-view-player-shell iframe{
-      position:absolute !important;
-      inset:0;
-      width:100% !important;
-      height:100% !important;
-      border:0;
-      display:block;
-      background:#000;
-      z-index:1;
-    }
-    .replay-view-page .streaming-view-live-badge{
-      background:rgba(2,6,23,.84);
-    }
-    @media (max-width: 760px){
-      .replay-stage-shell{
-        width:calc(100vw - 24px);
-        margin:14px auto 12px;
-        gap:14px;
-      }
-      .replay-stage-head h2{
-        font-size:24px;
-      }
-      .replay-video-title{
-        font-size:18px;
-      }
-    }
-    @media (max-width: 520px){
-      .replay-stage-shell{
-        width:calc(100vw - 16px);
-      }
-    }
-
-
-    /* ===============================
-       DIFFERITA EVENTO — PLAYER INTERNI
-       =============================== */
-    .replay-video-card{
-      gap:14px;
-    }
-    .replay-video-meta{
-      gap:10px;
-      align-items:flex-start;
-    }
-    .replay-video-heading{
-      gap:8px;
-    }
-    .replay-video-title{
-      font-size:21px;
-    }
-    .replay-video-note{
-      font-size:13px;
-      line-height:1.65;
-      max-width:74ch;
-    }
-    .replay-video-shell{
-      position:relative;
-      border-radius:22px;
-      overflow:hidden;
-      background:#020617;
-      border:1px solid rgba(15,23,42,.10);
-      box-shadow:0 24px 60px rgba(2,6,23,.18);
-      padding:0;
-    }
-    .replay-part-badge{
-      position:absolute;
-      top:14px;
-      left:14px;
-      z-index:5;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(2,6,23,.76);
-      color:#fff;
-      font-size:11px;
-      font-weight:900;
-      letter-spacing:.12em;
-      text-transform:uppercase;
-      pointer-events:none;
-      box-shadow:0 14px 28px rgba(2,6,23,.24);
-      backdrop-filter:blur(10px);
-      -webkit-backdrop-filter:blur(10px);
-    }
-    .replay-part-dot{
-      width:8px;
-      height:8px;
-      border-radius:999px;
-      background:#38bdf8;
-      box-shadow:0 0 0 5px rgba(56,189,248,.16);
-      flex:0 0 auto;
-    }
-    .replay-player-wrap{
-      margin:0;
-      width:100%;
-      border-radius:0;
-      border:0;
-      box-shadow:none;
-      --intro-video-padding:56.25%;
-      background:#000;
-    }
-    .replay-player-wrap::before{
-      padding-top:var(--intro-video-padding);
-    }
-    .replay-player-wrap video{
-      object-fit:contain;
-      background:#000;
-    }
-    .replay-player-wrap .intro-video-preview img{
-      object-fit:cover;
-    }
-    .replay-player-wrap .intro-controls{
-      z-index:7;
-    }
-    .replay-player-wrap .intro-time{
-      display:block;
-    }
-    .replay-player-wrap.is-playing .intro-controls,
-    .replay-player-wrap.is-controls-visible .intro-controls,
-    .replay-player-wrap.is-paused .intro-controls{
-      opacity:1;
-      pointer-events:auto;
-      transform:translateY(0);
-    }
-    .replay-video-error{
-      padding:12px 14px;
-      border-radius:16px;
-      background:rgba(239,68,68,.08);
-      border:1px solid rgba(239,68,68,.18);
-      color:#991b1b;
-      font-size:12.5px;
-      line-height:1.55;
-    }
-    .replay-video-error[hidden]{
-      display:none !important;
-    }
-    .replay-video-tip{
-      margin:0;
-      font-size:12px;
-      line-height:1.6;
-      color:var(--muted2);
-    }
-
-    html.replay-mobile-fullscreen,
-    body.replay-mobile-fullscreen{
-      overflow:hidden;
-      overscroll-behavior:none;
-      background:#000;
-    }
-    body.replay-mobile-fullscreen .replay-view-page{
-      min-height:100vh;
-      padding:0;
-      background:#000;
-    }
-    body.replay-mobile-fullscreen .replay-view-page .streaming-view-brand-row,
-    body.replay-mobile-fullscreen .replay-view-page .streaming-view-partners,
-    body.replay-mobile-fullscreen .replay-stage-head,
-    body.replay-mobile-fullscreen .replay-video-card:not(.is-replay-fullscreen){
-      display:none !important;
-    }
-    body.replay-mobile-fullscreen .replay-stage-shell,
-    body.replay-mobile-fullscreen .replay-player-list{
-      width:100%;
-      max-width:none;
-      margin:0;
-      gap:0;
-    }
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen{
-      position:fixed;
-      inset:0;
-      z-index:9999;
-      width:var(--replay-vw, 100dvw);
-      height:var(--replay-vh, 100dvh);
-      max-width:none;
-      margin:0;
-      background:#000;
-      border-radius:0;
-      box-shadow:none;
-      display:block;
-    }
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .replay-video-meta,
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .replay-video-tip,
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .replay-video-error{
-      display:none !important;
-    }
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .replay-video-shell{
-      position:absolute;
-      inset:0;
-      border-radius:0;
-      border:0;
-      box-shadow:none;
-      background:#000;
-    }
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .replay-player-wrap{
-      position:absolute;
-      top:50%;
-      left:50%;
-      width:var(--replay-mobile-video-width, 100dvw);
-      height:var(--replay-mobile-video-height, 56.25dvw);
-      transform:translate3d(-50%, -50%, 0);
-      transform-origin:center center;
-      will-change:transform;
-      backface-visibility:hidden;
-      -webkit-backface-visibility:hidden;
-      border-radius:0;
-    }
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .replay-player-wrap::before{
-      display:none;
-    }
-    body.replay-mobile-fullscreen.is-replay-portrait .replay-video-card.is-replay-fullscreen .replay-player-wrap{
-      transform:translate3d(-50%, -50%, 0) rotate(90deg);
-    }
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .replay-player-wrap video,
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .intro-video-preview{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-    }
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .intro-controls{
-      bottom:max(12px, env(safe-area-inset-bottom));
-    }
-    body.replay-mobile-fullscreen .replay-video-card.is-replay-fullscreen .replay-part-badge{
-      top:calc(12px + env(safe-area-inset-top));
-      left:calc(12px + env(safe-area-inset-left));
-    }
-
-    @media (max-width:760px){
-      .replay-stage-shell{
-        width:calc(100vw - 20px);
-      }
-      .replay-video-card{
-        gap:12px;
-      }
-      .replay-video-title{
-        font-size:18px;
-      }
-      .replay-video-note,
-      .replay-video-tip{
-        font-size:12px;
-      }
-      .replay-player-wrap .intro-controls{
-        padding:8px 10px 10px;
-        gap:8px;
-      }
-      .replay-player-wrap .intro-ctl{
-        width:38px;
-        height:38px;
-      }
-      .replay-player-wrap .intro-time{
-        display:none;
-      }
-    }
-    @media (max-width:520px){
-      .replay-stage-shell{
-        width:calc(100vw - 16px);
-      }
-      .replay-part-badge{
-        top:12px;
-        left:12px;
-        padding:7px 10px;
-        font-size:10px;
       }
     }
 
@@ -4826,7 +4432,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
             <div class="hero-cta">
               <button class="btn primary streaming-hero-btn" type="button" data-open-streaming-access="1">Accedi alla diretta streaming</button>
-              <button class="btn" type="button" data-open-replay-view="1">Guarda la differita</button>
               <a class="btn ghost" href="#agenda">Vedi agenda</a>
             </div>
           </div>
@@ -4957,27 +4562,6 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
     </div>
   </section>
 
-
-
-  <section id="replayExperiencePage" class="streaming-view-page replay-view-page" aria-label="Pagina differita evento" hidden>
-    <div class="streaming-view-shell">
-      <div class="streaming-view-brand-row" id="replayBrandRow" aria-label="Organizzatori e partner principali"></div>
-
-      <section class="replay-stage-shell" aria-label="Player differita">
-        <div class="replay-stage-head">
-          <span class="replay-stage-kicker">Differita integrale</span>
-          <h2>Rivedi Next Generation Business</h2>
-          <p>La registrazione completa è disponibile in due parti con player ottimizzato anche per smartphone.</p>
-        </div>
-
-        <div class="replay-player-list" id="replayStandalonePlayerShell" aria-live="polite"></div>
-      </section>
-
-      <div class="streaming-view-partners" aria-label="Partner dell'evento">
-        <div id="replayPartnerMarqueeHost"></div>
-      </div>
-    </div>
-  </section>
 
   <section aria-label="Contenuti per PMI">
     <div class="container">
@@ -9618,10 +9202,7 @@ function openSignup(mode){
 (function(){
   var STREAMING_AUTH_URL = 'https://script.google.com/macros/s/AKfycbynKK4FYh-DsXziLkMz9nR1_Qn5vLbatNW_gXQ8tmu3CIpaYUznXo6n21SZ65XDTsoDkg/exec';
   var STREAMING_VIDEO_ID = 'nUO7CT9J-u0';
-  var REPLAY_VIDEO_PART_1_ID = '1PbsW_-efDYIHMnXQgs4ARW6WJ7MqAab5';
-  var REPLAY_VIDEO_PART_2_ID = '1jbhLSH-8pMEd005IdtcIJLQI9Lmifm8u';
   var STREAMING_VIEW_PARAM = 'diretta';
-  var REPLAY_VIEW_PARAM = 'differita';
   var STREAMING_OPEN_PARAM = 'streamingAccess';
   var STREAMING_SESSION_KEY = 'ngb_streaming_access_ok';
   var STREAMING_SESSION_TS_KEY = 'ngb_streaming_access_ts';
@@ -9645,21 +9226,51 @@ function openSignup(mode){
   }
 
   function streamingStorages(){
-    return [];
+    var stores = [];
+    try{ if(window.sessionStorage) stores.push(window.sessionStorage); }catch(err){}
+    try{ if(window.localStorage) stores.push(window.localStorage); }catch(err){}
+    return stores;
   }
 
   function setStreamingUnlocked(value){
-    return !!value;
+    var stores = streamingStorages();
+    for(var i=0;i<stores.length;i++){
+      try{
+        if(value){
+          stores[i].setItem(STREAMING_SESSION_KEY, '1');
+          stores[i].setItem(STREAMING_SESSION_TS_KEY, String(Date.now()));
+        }else{
+          stores[i].removeItem(STREAMING_SESSION_KEY);
+          stores[i].removeItem(STREAMING_SESSION_TS_KEY);
+        }
+      }catch(err){}
+    }
   }
 
   function isStreamingUnlocked(){
+    var stores = streamingStorages();
+    var now = Date.now();
+    for(var i=0;i<stores.length;i++){
+      try{
+        var flag = stores[i].getItem(STREAMING_SESSION_KEY);
+        var ts = parseInt(stores[i].getItem(STREAMING_SESSION_TS_KEY) || '0', 10);
+        if(flag === '1'){
+          if(!ts || (now - ts) <= STREAMING_SESSION_TTL_MS){
+            return true;
+          }
+          stores[i].removeItem(STREAMING_SESSION_KEY);
+          stores[i].removeItem(STREAMING_SESSION_TS_KEY);
+        }
+      }catch(err){}
+    }
     return false;
   }
 
   function syncStreamingAccessButtons(){
     var buttons = document.querySelectorAll('[data-open-streaming-access]');
+    var unlocked = isStreamingUnlocked();
     for(var i=0;i<buttons.length;i++){
-      buttons[i].textContent = 'Accedi alla diretta streaming';
+      buttons[i].textContent = unlocked ? 'Apri la diretta streaming' : 'Accedi alla diretta streaming';
     }
   }
 
@@ -9675,19 +9286,6 @@ function openSignup(mode){
     }
   }
 
-  function buildReplayExperienceUrl(){
-    try{
-      var url = new URL(window.location.href);
-      url.hash = '';
-      url.searchParams.set(REPLAY_VIEW_PARAM, '1');
-      url.searchParams.delete(STREAMING_VIEW_PARAM);
-      url.searchParams.delete(STREAMING_OPEN_PARAM);
-      return url.toString();
-    }catch(err){
-      return (window.location.pathname || 'index.html') + '?differita=1';
-    }
-  }
-
   function buildStreamingLandingUrl(openAccessModal){
     try{
       var url = new URL(window.location.href);
@@ -9698,14 +9296,6 @@ function openSignup(mode){
       return url.toString();
     }catch(err){
       return window.location.pathname || 'index.html';
-    }
-  }
-
-  function isReplayViewRequested(){
-    try{
-      return new URL(window.location.href).searchParams.get(REPLAY_VIEW_PARAM) === '1';
-    }catch(err){
-      return /(?:^|[?&])differita=1(?:&|$)/.test(window.location.search || '');
     }
   }
 
@@ -9734,10 +9324,6 @@ function openSignup(mode){
     }catch(err){}
   }
 
-  function replayPageEl(){ return document.getElementById('replayExperiencePage'); }
-  function replayBrandHostEl(){ return document.getElementById('replayBrandRow'); }
-  function replayPartnerHostEl(){ return document.getElementById('replayPartnerMarqueeHost'); }
-  function replayPlayerShellEl(){ return document.getElementById('replayStandalonePlayerShell'); }
   function streamingPageEl(){ return document.getElementById('streamingExperiencePage'); }
   function streamingBrandHostEl(){ return document.getElementById('streamingBrandRow'); }
   function streamingPartnerHostEl(){ return document.getElementById('streamingPartnerMarqueeHost'); }
@@ -9879,7 +9465,6 @@ function openSignup(mode){
       }
     }catch(err){}
 
-    stampStreamingWindowFlag(window);
     window.location.href = targetUrl;
   }
 
@@ -9901,7 +9486,8 @@ function openSignup(mode){
     return img;
   }
 
-  function populateBrandRowInto(host){
+  function populateStreamingBrandRow(){
+    var host = streamingBrandHostEl();
     if(!host || host.getAttribute('data-streaming-ready') === '1') return;
 
     host.innerHTML = '';
@@ -9962,15 +9548,8 @@ function openSignup(mode){
     host.setAttribute('data-streaming-ready', '1');
   }
 
-  function populateStreamingBrandRow(){
-    populateBrandRowInto(streamingBrandHostEl());
-  }
-
-  function populateReplayBrandRow(){
-    populateBrandRowInto(replayBrandHostEl());
-  }
-
-  function populatePartnerRailInto(host){
+  function populateStreamingPartnerRail(){
+    var host = streamingPartnerHostEl();
     if(!host || host.getAttribute('data-streaming-ready') === '1') return;
     host.innerHTML = '';
 
@@ -9982,14 +9561,6 @@ function openSignup(mode){
     stripIds(clone);
     host.appendChild(clone);
     host.setAttribute('data-streaming-ready', '1');
-  }
-
-  function populateStreamingPartnerRail(){
-    populatePartnerRailInto(streamingPartnerHostEl());
-  }
-
-  function populateReplayPartnerRail(){
-    populatePartnerRailInto(replayPartnerHostEl());
   }
 
   function loadStreamingYoutubeApi(){
@@ -10346,587 +9917,6 @@ function openSignup(mode){
     });
   }
 
-  
-  var replayPlayers = {};
-  var replayCustomFullscreenActive = false;
-  var replayFullscreenScrollY = 0;
-  var replayActiveFullscreenPart = '';
-
-  function replayVideoSourceCandidates(fileId){
-    var id = encodeURIComponent(String(fileId || '').trim());
-    return [
-      'https://drive.google.com/uc?export=download&id=' + id,
-      'https://drive.google.com/uc?export=download&confirm=t&id=' + id,
-      'https://drive.usercontent.google.com/download?id=' + id + '&export=download&confirm=t'
-    ];
-  }
-
-  function replayPlayerId(part){
-    return String(part || '');
-  }
-
-  function replayRefs(part){
-    var id = replayPlayerId(part);
-    return {
-      card: document.querySelector('[data-replay-card="' + id + '"]'),
-      shell: document.querySelector('[data-replay-shell="' + id + '"]'),
-      wrap: document.querySelector('[data-replay-wrap="' + id + '"]'),
-      video: document.querySelector('[data-replay-video="' + id + '"]'),
-      preview: document.querySelector('[data-replay-play="' + id + '"]'),
-      pp: document.querySelector('[data-replay-pp="' + id + '"]'),
-      seek: document.querySelector('[data-replay-seek="' + id + '"]'),
-      time: document.querySelector('[data-replay-time="' + id + '"]'),
-      mute: document.querySelector('[data-replay-mute="' + id + '"]'),
-      fullscreen: document.querySelector('[data-replay-fullscreen="' + id + '"]'),
-      error: document.querySelector('[data-replay-error="' + id + '"]')
-    };
-  }
-
-  function replayViewportSize(){
-    var width = 0;
-    var height = 0;
-    try{
-      if(window.visualViewport){
-        width = Math.round(window.visualViewport.width || 0);
-        height = Math.round(window.visualViewport.height || 0);
-      }
-    }catch(err){}
-    if(!width || !height){
-      width = Math.round(window.innerWidth || document.documentElement.clientWidth || screen.width || 0);
-      height = Math.round(window.innerHeight || document.documentElement.clientHeight || screen.height || 0);
-    }
-    return { width: width || 0, height: height || 0 };
-  }
-
-  function isReplayMobileDevice(){
-    var size = replayViewportSize();
-    var shortestSide = Math.min(size.width || 0, size.height || 0) || 0;
-    var coarsePointer = false;
-    try{ coarsePointer = window.matchMedia('(hover: none) and (pointer: coarse)').matches; }catch(err){}
-    var touchPoints = 0;
-    try{ touchPoints = navigator.maxTouchPoints || navigator.msMaxTouchPoints || 0; }catch(err){}
-    var ua = '';
-    try{ ua = navigator.userAgent || ''; }catch(err){}
-    return shortestSide <= 1024 && (coarsePointer || touchPoints > 1 || /Android|iPhone|iPad|iPod|Mobile/i.test(ua));
-  }
-
-  function tryLockReplayLandscape(){
-    try{
-      if(screen.orientation && typeof screen.orientation.lock === 'function'){
-        var result = screen.orientation.lock('landscape');
-        if(result && typeof result.catch === 'function') result.catch(function(){});
-      }
-    }catch(err){}
-  }
-
-  function tryUnlockReplayLandscape(){
-    try{
-      if(screen.orientation && typeof screen.orientation.unlock === 'function') screen.orientation.unlock();
-    }catch(err){}
-  }
-
-  function updateReplayCustomFullscreenLayout(){
-    if(!replayCustomFullscreenActive || !replayActiveFullscreenPart) return;
-    var size = replayViewportSize();
-    var root = document.documentElement;
-    var viewportWidth = Math.max(1, parseInt(size.width, 10) || 0);
-    var viewportHeight = Math.max(1, parseInt(size.height, 10) || 0);
-    var isPortrait = viewportHeight > viewportWidth;
-    var ratio = 16 / 9;
-    var playerWidth = 0;
-    var playerHeight = 0;
-
-    root.style.setProperty('--replay-vw', viewportWidth + 'px');
-    root.style.setProperty('--replay-vh', viewportHeight + 'px');
-
-    if(isPortrait){
-      playerWidth = Math.max(viewportHeight, Math.ceil(viewportWidth * ratio));
-      playerHeight = Math.ceil(playerWidth / ratio);
-    }else{
-      playerWidth = Math.max(viewportWidth, Math.ceil(viewportHeight * ratio));
-      playerHeight = Math.ceil(playerWidth / ratio);
-    }
-
-    root.style.setProperty('--replay-mobile-video-width', playerWidth + 'px');
-    root.style.setProperty('--replay-mobile-video-height', playerHeight + 'px');
-    document.body.classList.toggle('is-replay-portrait', isPortrait);
-  }
-
-  function scheduleReplayCustomFullscreenRelayout(){
-    var delays = [0, 60, 140, 260, 420, 800];
-    for(var i=0;i<delays.length;i++){
-      (function(delay){
-        setTimeout(function(){
-          if(replayCustomFullscreenActive) updateReplayCustomFullscreenLayout();
-        }, delay);
-      })(delays[i]);
-    }
-  }
-
-  function replayNativeFullscreenEl(){
-    return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
-  }
-
-  function replayFullscreenTarget(part){
-    var refs = replayRefs(part);
-    return refs.shell || refs.card || null;
-  }
-
-  function syncReplayFullscreenButtons(){
-    var buttons = document.querySelectorAll('[data-replay-fullscreen]');
-    var native = replayNativeFullscreenEl();
-    for(var i=0;i<buttons.length;i++){
-      var btn = buttons[i];
-      var part = btn.getAttribute('data-replay-fullscreen') || '';
-      var target = replayFullscreenTarget(part);
-      var active = false;
-      if(replayCustomFullscreenActive && replayActiveFullscreenPart){
-        active = part === replayActiveFullscreenPart;
-      }else if(native && target){
-        active = native === target;
-      }
-      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-      btn.setAttribute('aria-label', active ? 'Esci da schermo intero' : 'Schermo intero');
-      btn.classList.toggle('is-collapse', active);
-      btn.classList.toggle('is-expand', !active);
-    }
-  }
-
-  function enterReplayCustomFullscreen(part){
-    var refs = replayRefs(part);
-    if(!refs.card || replayCustomFullscreenActive) return;
-    try{ replayFullscreenScrollY = window.scrollY || window.pageYOffset || 0; }catch(err){ replayFullscreenScrollY = 0; }
-    replayCustomFullscreenActive = true;
-    replayActiveFullscreenPart = String(part || '');
-    refs.card.classList.add('is-replay-fullscreen');
-    document.documentElement.classList.add('replay-mobile-fullscreen');
-    document.body.classList.add('replay-mobile-fullscreen');
-    updateReplayCustomFullscreenLayout();
-    scheduleReplayCustomFullscreenRelayout();
-    tryLockReplayLandscape();
-    try{ window.scrollTo(0, 0); }catch(err){}
-    syncReplayFullscreenButtons();
-  }
-
-  function exitReplayCustomFullscreen(){
-    if(replayActiveFullscreenPart){
-      var refs = replayRefs(replayActiveFullscreenPart);
-      if(refs.card) refs.card.classList.remove('is-replay-fullscreen');
-    }
-    replayCustomFullscreenActive = false;
-    replayActiveFullscreenPart = '';
-    document.documentElement.classList.remove('replay-mobile-fullscreen');
-    document.body.classList.remove('replay-mobile-fullscreen', 'is-replay-portrait');
-    try{
-      document.documentElement.style.removeProperty('--replay-vw');
-      document.documentElement.style.removeProperty('--replay-vh');
-      document.documentElement.style.removeProperty('--replay-mobile-video-width');
-      document.documentElement.style.removeProperty('--replay-mobile-video-height');
-    }catch(err){}
-    tryUnlockReplayLandscape();
-    syncReplayFullscreenButtons();
-    setTimeout(function(){
-      try{ window.scrollTo(0, replayFullscreenScrollY || 0); }catch(err){}
-    }, 0);
-  }
-
-  function requestReplayNativeFullscreen(part){
-    return new Promise(function(resolve){
-      var target = replayFullscreenTarget(part);
-      if(!target){ resolve(false); return; }
-      try{
-        var result = null;
-        if(target.requestFullscreen){
-          try{ result = target.requestFullscreen({ navigationUI:'hide' }); }
-          catch(err){ result = target.requestFullscreen(); }
-        }else if(target.webkitRequestFullscreen){
-          result = target.webkitRequestFullscreen();
-        }else if(target.msRequestFullscreen){
-          result = target.msRequestFullscreen();
-        }else{
-          resolve(false);
-          return;
-        }
-        if(result && typeof result.then === 'function'){
-          result.then(function(){ resolve(true); }).catch(function(){ resolve(false); });
-        }else{
-          resolve(true);
-        }
-      }catch(err){
-        resolve(false);
-      }
-    });
-  }
-
-  function toggleReplayFullscreen(part){
-    var target = replayFullscreenTarget(part);
-    if(!target) return;
-
-    if(replayCustomFullscreenActive){
-      if(String(part || '') === replayActiveFullscreenPart) exitReplayCustomFullscreen();
-      return;
-    }
-
-    var current = replayNativeFullscreenEl();
-    if(current){
-      tryUnlockReplayLandscape();
-      if(document.exitFullscreen) document.exitFullscreen();
-      else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
-      else if(document.msExitFullscreen) document.msExitFullscreen();
-      return;
-    }
-
-    if(isReplayMobileDevice()){
-      enterReplayCustomFullscreen(part);
-      return;
-    }
-
-    requestReplayNativeFullscreen(part).then(function(opened){
-      if(opened) tryLockReplayLandscape();
-      syncReplayFullscreenButtons();
-    });
-  }
-
-  function replayShowError(part, message){
-    var refs = replayRefs(part);
-    if(refs.error){
-      refs.error.textContent = message;
-      refs.error.hidden = false;
-    }
-  }
-
-  function replayHideError(part){
-    var refs = replayRefs(part);
-    if(refs.error) refs.error.hidden = true;
-  }
-
-  function syncReplayProgress(part){
-    var refs = replayRefs(part);
-    var video = refs.video;
-    var seek = refs.seek;
-    if(!video || !seek) return;
-    var duration = video.duration || 0;
-    if(!duration || !isFinite(duration)){
-      seek.value = '0';
-      if(refs.time) refs.time.textContent = '0:00';
-      return;
-    }
-    var value = Math.round((video.currentTime / duration) * 1000);
-    seek.value = String(Math.max(0, Math.min(1000, value)));
-    if(refs.time) refs.time.textContent = fmtTime(video.currentTime) + ' / ' + fmtTime(duration);
-  }
-
-  function replayShowControls(part, persist){
-    var state = replayPlayers[part];
-    var refs = replayRefs(part);
-    if(!refs.wrap) return;
-    refs.wrap.classList.add('is-controls-visible');
-    if(state && state.controlsTimer){ clearTimeout(state.controlsTimer); state.controlsTimer = null; }
-    var video = refs.video;
-    if(!persist && video && !video.paused && !video.ended){
-      if(!state) state = replayPlayers[part] = {};
-      state.controlsTimer = setTimeout(function(){
-        var latest = replayRefs(part);
-        if(latest.wrap && latest.video && !latest.video.paused && !latest.video.ended){
-          latest.wrap.classList.remove('is-controls-visible');
-        }
-      }, 2200);
-    }
-  }
-
-  function replayClearControlsTimer(part){
-    var state = replayPlayers[part];
-    if(state && state.controlsTimer){ clearTimeout(state.controlsTimer); state.controlsTimer = null; }
-  }
-
-  function syncReplayUi(part){
-    var refs = replayRefs(part);
-    var video = refs.video;
-    if(refs.wrap && video){
-      var playing = (!video.paused && !video.ended);
-      if(playing){
-        refs.wrap.classList.add('is-playing');
-        refs.wrap.classList.remove('is-paused');
-      }else{
-        refs.wrap.classList.remove('is-playing');
-        refs.wrap.classList.add('is-paused');
-        refs.wrap.classList.add('is-controls-visible');
-      }
-    }
-    if(refs.pp && video){
-      if(video.paused || video.ended){
-        refs.pp.classList.add('is-play');
-        refs.pp.classList.remove('is-pause');
-        refs.pp.setAttribute('aria-label', 'Riproduci');
-      }else{
-        refs.pp.classList.add('is-pause');
-        refs.pp.classList.remove('is-play');
-        refs.pp.setAttribute('aria-label', 'Pausa');
-      }
-    }
-    if(refs.mute && video){
-      var isMuted = (video.muted || video.volume === 0);
-      refs.mute.classList.toggle('is-muted', isMuted);
-      refs.mute.classList.toggle('is-unmuted', !isMuted);
-      refs.mute.setAttribute('aria-label', isMuted ? 'Attiva audio' : 'Disattiva audio');
-    }
-    syncReplayProgress(part);
-    syncReplayFullscreenButtons();
-  }
-
-  function loadReplayVideo(part){
-    var refs = replayRefs(part);
-    var video = refs.video;
-    if(!video) return;
-    var state = replayPlayers[part];
-    if(!state) state = replayPlayers[part] = {};
-    var sources = state.sources || [];
-    var index = parseInt(state.sourceIndex || 0, 10) || 0;
-    if(!sources.length) return;
-    if(video.getAttribute('src') === sources[index]) return;
-    video.setAttribute('src', sources[index]);
-    try{ video.load(); }catch(err){}
-  }
-
-  function tryNextReplaySource(part){
-    var state = replayPlayers[part];
-    var refs = replayRefs(part);
-    if(!state || !refs.video) return false;
-    if(state.sourceIndex >= state.sources.length - 1) return false;
-    state.sourceIndex += 1;
-    loadReplayVideo(part);
-    return true;
-  }
-
-  function playReplayVideo(part){
-    var refs = replayRefs(part);
-    var video = refs.video;
-    if(!video) return;
-    replayHideError(part);
-    loadReplayVideo(part);
-    if(refs.preview) refs.preview.classList.add('is-hidden');
-    var promise = null;
-    try{ promise = video.play(); }catch(err){ promise = null; }
-    if(promise && typeof promise.catch === 'function'){
-      promise.catch(function(){
-        replayShowError(part, 'Impossibile avviare il video. Controlla i permessi del file sorgente e riprova.');
-      });
-    }
-    replayShowControls(part, false);
-    syncReplayUi(part);
-  }
-
-  function toggleReplayPlayPause(part){
-    var refs = replayRefs(part);
-    var video = refs.video;
-    if(!video) return;
-    if(!video.getAttribute('src')){
-      playReplayVideo(part);
-      return;
-    }
-    if(video.paused){
-      var promise = null;
-      try{ promise = video.play(); }catch(err){ promise = null; }
-      if(promise && typeof promise.catch === 'function') promise.catch(function(){});
-    }else{
-      try{ video.pause(); }catch(err){}
-    }
-    replayShowControls(part, video.paused || video.ended);
-    syncReplayUi(part);
-  }
-
-  function toggleReplayMute(part){
-    var refs = replayRefs(part);
-    var video = refs.video;
-    if(!video) return;
-    video.muted = !video.muted;
-    replayShowControls(part, true);
-    syncReplayUi(part);
-  }
-
-  function bindReplayPlayer(part){
-    var refs = replayRefs(part);
-    var video = refs.video;
-    if(!video || video.getAttribute('data-replay-bound') === '1') return;
-    video.setAttribute('data-replay-bound', '1');
-    var state = replayPlayers[part];
-    if(!state) state = replayPlayers[part] = {};
-
-    video.addEventListener('loadedmetadata', function(){
-      state.loadFailed = false;
-      replayHideError(part);
-      syncReplayUi(part);
-    });
-    video.addEventListener('timeupdate', function(){ syncReplayProgress(part); });
-    video.addEventListener('play', function(){ syncReplayUi(part); replayShowControls(part, false); });
-    video.addEventListener('pause', function(){ syncReplayUi(part); replayShowControls(part, true); });
-    video.addEventListener('volumechange', function(){ syncReplayUi(part); });
-    video.addEventListener('ended', function(){
-      replayClearControlsTimer(part);
-      if(refs.wrap){ refs.wrap.classList.remove('is-playing'); refs.wrap.classList.add('is-paused'); refs.wrap.classList.add('is-controls-visible'); }
-      if(refs.preview) refs.preview.classList.remove('is-hidden');
-      try{ video.currentTime = 0; }catch(err){}
-      syncReplayUi(part);
-    });
-    video.addEventListener('error', function(){
-      if(tryNextReplaySource(part)) return;
-      replayShowError(part, 'Il video non può essere caricato. Verifica che il file sorgente sia disponibile in visualizzazione per chi deve guardarlo.');
-      syncReplayUi(part);
-    });
-    video.addEventListener('dblclick', function(ev){
-      ev.preventDefault();
-      toggleReplayFullscreen(part);
-    });
-
-    var showControls = function(ev){
-      if(ev && ev.target && ev.target.closest && ev.target.closest('.intro-controls')) return;
-      if(video.paused || video.ended) replayShowControls(part, true);
-      else replayShowControls(part, false);
-    };
-    if(refs.wrap){
-      ['pointermove','mousemove','touchstart','click'].forEach(function(evt){
-        try{ refs.wrap.addEventListener(evt, showControls, {passive:true}); }
-        catch(err){ refs.wrap.addEventListener(evt, showControls); }
-      });
-    }
-  }
-
-  function buildReplayPlayerCard(partNumber, partTitle, fileId){
-    var part = replayPlayerId(partNumber);
-    var sources = replayVideoSourceCandidates(fileId);
-    replayPlayers[part] = {
-      sources: sources,
-      sourceIndex: 0,
-      controlsTimer: null,
-      loadFailed: false
-    };
-    return '' +
-      '<article class="replay-video-card" data-replay-card="' + part + '">' +
-        '<div class="replay-video-meta">' +
-          '<div class="replay-video-heading">' +
-            '<h3 class="replay-video-title">' + partTitle + '</h3>' +
-            '<p class="replay-video-note">Player interno ottimizzato per smartphone e schermo intero. Se il video non parte, normalmente dipende dai permessi del file sorgente.</p>' +
-          '</div>' +
-        '</div>' +
-        '<div class="replay-video-shell" data-replay-shell="' + part + '">' +
-          '<div class="replay-part-badge" aria-hidden="true"><span class="replay-part-dot"></span><span>' + partTitle + '</span></div>' +
-          '<div class="intro-video-wrap replay-player-wrap" data-replay-wrap="' + part + '" aria-label="Player ' + partTitle + '">' +
-            '<video class="intro-video" data-replay-video="' + part + '" data-src="' + sources[0] + '" preload="metadata" playsinline webkit-playsinline controlslist="nodownload noplaybackrate nofullscreen" disablepictureinpicture poster="event.jpg"></video>' +
-            '<button class="intro-video-preview" type="button" data-replay-play="' + part + '" aria-label="Riproduci ' + partTitle + '">' +
-              '<img src="event.jpg" alt="" loading="lazy" decoding="async">' +
-              '<span class="intro-play-btn" aria-hidden="true">' +
-                '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 8.5v7l6-3.5-6-3.5z" fill="currentColor"/></svg>' +
-              '</span>' +
-            '</button>' +
-            '<div class="intro-controls" aria-label="Controlli ' + partTitle + '">' +
-              '<button class="intro-ctl intro-pp is-play" type="button" data-replay-pp="' + part + '" aria-label="Riproduci">' +
-                '<svg data-icon="play" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 8.5v7l6-3.5-6-3.5z" fill="currentColor"/></svg>' +
-                '<svg data-icon="pause" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7.5 6.5h3v11h-3zM13.5 6.5h3v11h-3z" fill="currentColor"/></svg>' +
-              '</button>' +
-              '<input class="intro-seek" type="range" min="0" max="1000" value="0" step="1" data-replay-seek="' + part + '" aria-label="Avanzamento ' + partTitle + '">' +
-              '<div class="intro-time" data-replay-time="' + part + '" aria-hidden="true">0:00</div>' +
-              '<button class="intro-ctl intro-mute is-unmuted" type="button" data-replay-mute="' + part + '" aria-label="Disattiva audio">' +
-                '<svg data-icon="unmuted" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a3.5 3.5 0 0 1 0 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17.5 6a7 7 0 0 1 0 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
-                '<svg data-icon="muted" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>' +
-              '</button>' +
-              '<button class="intro-ctl intro-theater is-expand" type="button" data-replay-fullscreen="' + part + '" aria-label="Schermo intero">' +
-                '<svg data-icon="expand" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-                '<svg data-icon="collapse" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 8h5V3M21 8h-5V3M21 16h-5v5M3 16h5v5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-              '</button>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<p class="replay-video-tip">Su smartphone usa il pulsante schermo intero e ruota il telefono in orizzontale per una visione migliore.</p>' +
-        '<div class="replay-video-error" data-replay-error="' + part + '" hidden></div>' +
-      '</article>';
-  }
-
-  function mountReplayPlayer(){
-    var shell = replayPlayerShellEl();
-    if(!shell) return;
-    if(shell.getAttribute('data-replay-mounted') === '1') return;
-
-    shell.innerHTML =
-      buildReplayPlayerCard('1', 'Differita · Parte 1', REPLAY_VIDEO_PART_1_ID) +
-      buildReplayPlayerCard('2', 'Differita · Parte 2', REPLAY_VIDEO_PART_2_ID);
-
-    shell.setAttribute('data-replay-mounted', '1');
-    bindReplayPlayer('1');
-    bindReplayPlayer('2');
-    syncReplayFullscreenButtons();
-  }
-
-  document.addEventListener('click', function(e){
-    var el = e.target;
-    if(!el) return;
-    var playBtn = (el.closest ? el.closest('[data-replay-play]') : null);
-    if(playBtn){
-      e.preventDefault();
-      playReplayVideo(playBtn.getAttribute('data-replay-play'));
-      return;
-    }
-    var ppBtn = (el.closest ? el.closest('[data-replay-pp]') : null);
-    if(ppBtn){
-      e.preventDefault();
-      toggleReplayPlayPause(ppBtn.getAttribute('data-replay-pp'));
-      return;
-    }
-    var muteBtn = (el.closest ? el.closest('[data-replay-mute]') : null);
-    if(muteBtn){
-      e.preventDefault();
-      toggleReplayMute(muteBtn.getAttribute('data-replay-mute'));
-      return;
-    }
-  });
-
-  document.addEventListener('input', function(e){
-    var el = e.target;
-    if(!el || !el.matches || !el.matches('[data-replay-seek]')) return;
-    var part = el.getAttribute('data-replay-seek') || '';
-    var refs = replayRefs(part);
-    var video = refs.video;
-    if(!video) return;
-    var duration = video.duration || 0;
-    if(!duration || !isFinite(duration)) return;
-    video.currentTime = (parseInt(el.value || '0', 10) / 1000) * duration;
-    syncReplayProgress(part);
-  });
-
-  document.addEventListener('click', function(e){
-    var el = e.target;
-    if(!el) return;
-    var fullscreenBtn = (el.closest ? el.closest('[data-replay-fullscreen]') : null);
-    if(fullscreenBtn){
-      e.preventDefault();
-      toggleReplayFullscreen(fullscreenBtn.getAttribute('data-replay-fullscreen'));
-      return;
-    }
-  });
-
-  document.addEventListener('fullscreenchange', function(){
-    if(!replayNativeFullscreenEl()) tryUnlockReplayLandscape();
-    syncReplayFullscreenButtons();
-  });
-  document.addEventListener('webkitfullscreenchange', function(){
-    if(!replayNativeFullscreenEl()) tryUnlockReplayLandscape();
-    syncReplayFullscreenButtons();
-  });
-  window.addEventListener('resize', function(){ if(replayCustomFullscreenActive) updateReplayCustomFullscreenLayout(); });
-  window.addEventListener('orientationchange', function(){ if(replayCustomFullscreenActive) scheduleReplayCustomFullscreenRelayout(); });
-  document.addEventListener('keydown', function(e){
-    if((e.key === 'Escape' || e.key === 'Esc') && replayCustomFullscreenActive) exitReplayCustomFullscreen();
-  });
-
-  function renderReplayExperiencePage(){
-    document.body.classList.add('is-streaming-view');
-    var page = replayPageEl();
-    if(page) page.hidden = false;
-    populateReplayBrandRow();
-    populateReplayPartnerRail();
-    document.title = 'Differita | Next Generation Business';
-    mountReplayPlayer();
-  }
-
   function renderStreamingExperiencePage(){
     document.body.classList.add('is-streaming-view');
     var page = streamingPageEl();
@@ -10943,12 +9933,6 @@ function openSignup(mode){
     if(streamingCustomFullscreenActive) exitStreamingCustomFullscreen();
     document.body.classList.remove('is-streaming-view');
     var page = streamingPageEl();
-    if(page) page.hidden = true;
-  }
-
-  function resetReplayLandingView(){
-    document.body.classList.remove('is-streaming-view');
-    var page = replayPageEl();
     if(page) page.hidden = true;
   }
 
@@ -11377,14 +10361,8 @@ function openSignup(mode){
     var trigger = (el.closest ? el.closest('[data-open-streaming-access]') : null);
     if(trigger){
       e.preventDefault();
-      openStreamingAccessModal();
-      return;
-    }
-
-    var replayTrigger = (el.closest ? el.closest('[data-open-replay-view]') : null);
-    if(replayTrigger){
-      e.preventDefault();
-      window.location.href = buildReplayExperienceUrl();
+      if(isStreamingUnlocked()) openStreamingExperience();
+      else openStreamingAccessModal();
       return;
     }
 
@@ -11468,6 +10446,7 @@ function openSignup(mode){
         activeStreamingPendingWindow = null;
 
         if(result && result.ok){
+          setStreamingUnlocked(true);
           stampStreamingWindowFlag(pendingWindow);
           closeStreamingAccessModal();
           openStreamingExperience(pendingWindow);
@@ -11570,19 +10549,17 @@ function openSignup(mode){
   syncStreamingAccessButtons();
   setStreamingPasswordVisibility(false);
 
-  if(isReplayViewRequested()){
-    resetStreamingLandingView();
-    renderReplayExperiencePage();
-  }else if(isStreamingViewRequested()){
-    resetReplayLandingView();
-    if(hasStreamingWindowFlag()){
-      clearStreamingWindowFlag();
+  if(isStreamingViewRequested()){
+    if(isStreamingUnlocked() || hasStreamingWindowFlag()){
+      if(hasStreamingWindowFlag()){
+        clearStreamingWindowFlag();
+        setStreamingUnlocked(true);
+      }
       renderStreamingExperiencePage();
     }else{
       window.location.replace(buildStreamingLandingUrl(true));
     }
   }else{
-    resetReplayLandingView();
     resetStreamingLandingView();
     if(shouldAutoOpenStreamingModal()){
       consumeAutoOpenStreamingParam();
