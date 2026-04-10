@@ -1,0 +1,1447 @@
+﻿<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Next Generation Business | Verona 27 Marzo 2026</title>
+  <meta name="description" content="Evento corporate per imprenditori e manager di PMI. Innovazione, protezione, sostenibilita. Verona, 27 Marzo 2026. Hotel Leon d'Oro." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --max:1180px;
+      --text:#0f172a;
+      --muted:#334155;
+      --muted2:#64748b;
+      --border:rgba(15,23,42,.12);
+      --soft:#f6f7fb;
+      --shadow:0 18px 36px rgba(2,6,23,.10);
+      --shadow2:0 10px 22px rgba(2,6,23,.08);
+      --radius:18px;
+      --radius2:26px;
+      --accent:#0ea5e9;
+      --accent2:#14b8a6;
+      --ease:cubic-bezier(.2,.8,.2,1);
+
+      --topbarH:72px;
+      --prebarH:64px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%; overflow-x:hidden;}
+    html{scroll-padding-top: calc(var(--topbarH, 72px) + 14px);}
+    html.prebar-on{scroll-padding-top: calc(var(--topbarH, 72px) + var(--prebarH, 64px) + 14px);}
+
+    body{
+      margin:0;
+      font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background:#ffffff;
+      color:var(--text);
+      overflow-x:hidden;
+      padding-top: var(--topbarH, 72px);
+      transition: padding-top .30s var(--ease);
+    }
+    html.prebar-on body{
+      padding-top: calc(var(--topbarH, 72px) + var(--prebarH, 64px));
+    }
+
+    a{color:inherit; text-decoration:none}
+    img{max-width:100%; height:auto}
+    .container{max-width:var(--max); margin:0 auto; padding:0 16px}
+
+    /* ==========================================================
+       PREBAR FIXED (UNINDUSTRIA + CSIT): appare durante scroll e poi sparisce
+       ========================================================== */
+    .prebar-fixed{
+      position:fixed;
+      left:0; right:0; top:0;
+      z-index:2147483600;
+
+      height: var(--prebarH);
+      display:flex;
+      align-items:center;
+
+      background:#fff;
+      border-bottom:1px solid rgba(15,23,42,.10);
+
+      transform: translateY(-110%);
+      opacity:0;
+      pointer-events:none;
+
+      transition: transform .34s var(--ease), opacity .20s var(--ease);
+    }
+    html.prebar-on .prebar-fixed{
+      transform: translateY(0);
+      opacity:1;
+      pointer-events:auto;
+    }
+
+    .prebar-inner{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .prebar-label{
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      color: var(--muted2);
+      white-space:nowrap;
+    }
+    .prebar-logos{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+
+    .logo-plate{
+      background:#fff;
+      border:0;
+      box-shadow:none;
+      padding:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .logo-plate img{
+      display:block;
+      object-fit:contain;
+      background:#fff;
+      filter: contrast(1.05);
+    }
+    .logo-plate img.unindustria{height:46px;}
+    .logo-plate img.csit{height:34px;}
+
+    /* ==========================================================
+       TOPBAR FIXED
+       ========================================================== */
+    .topbar{
+      position:fixed;
+      left:0; right:0; top:0;
+      z-index:2147483500;
+      background:rgba(255,255,255,.92);
+      backdrop-filter: blur(12px);
+      border-bottom:1px solid var(--border);
+      transform: translateY(0);
+      transition: transform .34s var(--ease);
+    }
+    html.prebar-on .topbar{
+      transform: translateY(var(--prebarH));
+    }
+
+    .topbar-inner{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px;
+      padding:10px 0;
+      flex-wrap:wrap;
+    }
+
+    .brand{
+      font-weight:900;
+      letter-spacing:-.02em;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .brand-logos{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:9px 12px;
+      border-radius:999px;
+      background: rgba(255,255,255,.95);
+      border:1px solid rgba(15,23,42,.12);
+      box-shadow: 0 10px 22px rgba(2,6,23,.06);
+    }
+    .brand-logos img{
+      height:46px;
+      width:auto;
+      display:block;
+      object-fit:contain;
+      filter: contrast(1.05);
+    }
+    .brand-logos img.advant{height:74px;}
+
+    .actions{display:flex; gap:10px; flex-wrap:wrap}
+
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      padding:12px 16px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-weight:800;
+      color:var(--text);
+      transition: transform .18s var(--ease), box-shadow .18s var(--ease), background .18s var(--ease);
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .btn:hover{transform: translateY(-1px); box-shadow: var(--shadow2)}
+    .btn.primary{
+      border:0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color:#fff;
+      box-shadow: 0 16px 30px rgba(14,165,233,.22);
+    }
+    .btn.ghost{
+      background: rgba(0,0,0,.30);
+      border:1px solid rgba(255,255,255,.28);
+      color:#fff;
+    }
+
+    /* ==========================================================
+       HERO
+       ========================================================== */
+    .hero{
+      background: radial-gradient(1100px 520px at 70% 0%, rgba(20,184,166,.18), transparent 55%),
+                  radial-gradient(1000px 520px at 20% 0%, rgba(14,165,233,.18), transparent 55%),
+                  linear-gradient(180deg, #070a12 0%, #0b1224 100%);
+      color:#fff;
+      padding: 18px 0 34px;
+    }
+    .hero-wrap{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:16px;
+      align-items:start;
+    }
+
+    .hero-media{
+      border-radius: var(--radius2);
+      overflow:hidden;
+      box-shadow: 0 26px 60px rgba(0,0,0,.38);
+      min-height: 560px;
+      position:relative;
+      background: #0b1224;
+    }
+    .hero-media img{
+      width:100%; height:100%;
+      object-fit:cover;
+      display:block;
+      filter: saturate(1.05) contrast(1.06);
+    }
+
+    /* ✅ nessuna filigrana scura: solo un box “glass” per testi */
+    .hero-overlay{
+      position:absolute; inset:0;
+      display:flex;
+      flex-direction:column;
+      justify-content:flex-end;
+      gap:12px;
+      pointer-events:none;
+
+      max-width: 740px;
+      margin: 28px;
+      background: linear-gradient(180deg, rgba(2,6,23,.52), rgba(2,6,23,.30));
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 22px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 28px;
+      box-shadow: 0 18px 46px rgba(0,0,0,.22);
+    }
+
+    .kicker{
+      display:inline-flex; align-items:center; gap:10px;
+      padding:10px 14px;
+      border-radius:999px;
+      background: rgba(0,0,0,.34);
+      border: 1px solid rgba(255,255,255,.22);
+      backdrop-filter: blur(8px);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      width:fit-content;
+    }
+
+    .hero-title{
+      margin:0;
+      font-size:56px;
+      line-height:1.01;
+      letter-spacing:-.045em;
+      max-width: 18ch;
+      text-shadow: 0 12px 30px rgba(0,0,0,.78);
+    }
+
+    .hero-sub{
+      margin:0;
+      max-width: 70ch;
+      line-height:1.6;
+      color: rgba(255,255,255,.98);
+      font-size:16px;
+      text-shadow: 0 12px 28px rgba(0,0,0,.70);
+    }
+
+    .hero-meta{display:flex; flex-wrap:wrap; gap:10px; margin-top: 8px;}
+    .pill{
+      display:inline-flex; align-items:center; gap:10px;
+      padding:11px 13px;
+      border-radius:999px;
+      background: rgba(0,0,0,.28);
+      border: 1px solid rgba(255,255,255,.28);
+      backdrop-filter: blur(8px);
+      font-weight:900;
+      color: rgba(255,255,255,.99);
+      font-size:13px;
+      text-shadow: 0 10px 22px rgba(0,0,0,.50);
+    }
+
+    .hero-cta{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top: 10px;
+      pointer-events:auto;
+    }
+
+    /* ==========================================================
+       PANEL (signup)
+       ========================================================== */
+    .panel{
+      border-radius: var(--radius2);
+      background: rgba(255,255,255,.97);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: 0 26px 60px rgba(0,0,0,.26);
+      padding:18px;
+      color: var(--text);
+    }
+    .panel h2{margin:0; font-size:18px; letter-spacing:-.01em}
+    .panel p{margin:8px 0 0; color: var(--muted2); font-size:13px; line-height:1.55}
+
+    label{font-size:12px; font-weight:900; color: var(--muted); letter-spacing:.02em}
+    input:not([type="checkbox"]):not([type="radio"]), textarea{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(15,23,42,.14);
+      outline:none;
+      background:#fff;
+      font-size:13px;
+      transition: box-shadow .18s var(--ease), border-color .18s var(--ease);
+    }
+    input:not([type="checkbox"]):not([type="radio"]):focus, textarea:focus{
+      border-color: rgba(14,165,233,.55);
+      box-shadow: 0 0 0 4px rgba(14,165,233,.12);
+    }
+    textarea{min-height:76px; resize:vertical}
+
+    .help{
+      margin-top:6px;
+      font-size:11px;
+      color: var(--muted2);
+      line-height:1.4;
+    }
+
+    .benefit{
+      margin-top:10px;
+      border-radius:14px;
+      background:#ffffff;
+      border:1px solid rgba(15,23,42,.10);
+      padding:12px;
+    }
+    .benefit strong{
+      display:block;
+      font-size:12px;
+      font-weight:900;
+      color: var(--text);
+      letter-spacing:.02em;
+    }
+    .benefit ul{
+      margin:8px 0 0;
+      padding-left:18px;
+      color: var(--muted2);
+      font-size:12px;
+      line-height:1.55;
+    }
+
+    .signup-wrap{display:grid; gap:10px; margin-top: 10px;}
+    details.signup{
+      border-radius: 18px;
+      border: 1px solid rgba(15,23,42,.12);
+      background: #fff;
+      box-shadow: 0 12px 24px rgba(2,6,23,.06);
+      overflow:hidden;
+    }
+    details.signup summary{
+      list-style:none;
+      cursor:pointer;
+      padding:12px 12px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      user-select:none;
+    }
+    details.signup summary::-webkit-details-marker{display:none;}
+    .sum-left{display:flex; flex-direction:column; gap:6px;}
+    .sum-title{
+      font-weight:900;
+      font-size:14px;
+      letter-spacing:-.01em;
+      color: var(--text);
+      line-height:1.2;
+    }
+    .sum-sub{
+      margin:0;
+      font-size:12px;
+      line-height:1.45;
+      color: var(--muted2);
+    }
+    .sum-tags{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px;}
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(15,23,42,.12);
+      background:#f8fafc;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      color: var(--muted);
+      white-space:nowrap;
+    }
+    .tag.grad{
+      border:0;
+      color:#fff;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 12px 22px rgba(14,165,233,.16);
+    }
+    .chev{
+      width:34px; height:34px;
+      border-radius:999px;
+      border:1px solid rgba(15,23,42,.12);
+      background:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex:0 0 auto;
+      transition: transform .22s var(--ease);
+      color: var(--muted);
+      font-weight:900;
+    }
+    details.signup[open] .chev{transform: rotate(180deg);}
+
+    .signup-body{
+      padding:12px;
+      border-top:1px solid rgba(15,23,42,.08);
+      background: linear-gradient(180deg, #f8fafc, #ffffff);
+    }
+    .mode-note{
+      border-radius:14px;
+      border:1px solid rgba(15,23,42,.10);
+      background:#fff;
+      padding:12px;
+      color: var(--muted2);
+      font-size:12px;
+      line-height:1.55;
+      margin-bottom:10px;
+    }
+    .mode-note strong{color: var(--text);}
+
+    .signup-form{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      margin:0;
+    }
+    .full{grid-column: 1 / -1;}
+
+    /* ✅ CONSENSO UNICO (privacy + marketing nello stesso flag) */
+    .consent-single{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:14px;
+      border-radius:16px;
+      background:#f8fafc;
+      border:1px solid rgba(15,23,42,.08);
+      color: var(--muted2);
+      line-height:1.55;
+      font-size:12px;
+    }
+    .consent-single input[type="checkbox"]{
+      width:18px;height:18px;margin-top:2px;
+      accent-color: var(--accent);
+      flex:0 0 auto;
+    }
+    .consent-single strong{color:#0f172a;}
+
+    .panel-actions{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      margin-top: 2px;
+    }
+    .note{font-size:12px; color: var(--muted2); line-height:1.45; max-width: 50ch}
+
+    /* ==========================================================
+       SECTIONS
+       ========================================================== */
+    section{padding: 52px 0}
+    .section-head{
+      display:flex; justify-content:space-between; align-items:flex-end;
+      gap:16px; margin-bottom: 14px;
+    }
+    .section-head h3{margin:0; font-size:26px; letter-spacing:-.02em}
+    .section-head p{margin:0; color: var(--muted2); font-size:14px; line-height:1.6; max-width: 72ch; text-align:right}
+
+    .split{display:grid; grid-template-columns: 1fr 1fr; gap:16px; align-items:stretch;}
+    .card{
+      border-radius: var(--radius2);
+      background:#fff;
+      border:1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding:20px;
+    }
+    .bullets{
+      margin:10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size:14px;
+      line-height:1.75;
+    }
+
+    .image-card{
+      border-radius: var(--radius2);
+      overflow:hidden;
+      box-shadow: var(--shadow);
+      border:1px solid rgba(15,23,42,.10);
+      background:#0b1224;
+      min-height: 340px;
+      position:relative;
+    }
+    .image-card img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+      filter:saturate(1.05) contrast(1.06);
+    }
+    .image-card::after{
+      content:"";
+      position:absolute; inset:0;
+      background: linear-gradient(180deg, rgba(2,6,23,.06) 0%, rgba(2,6,23,.18) 100%);
+      pointer-events:none;
+    }
+
+    /* ==========================================================
+       AGENDA
+       ========================================================== */
+    .agenda{
+      border-radius: var(--radius2);
+      background:#fff;
+      border:1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .agenda-grid{display:grid; grid-template-columns: 1fr 1fr}
+    .agenda-col{padding:18px 18px 8px; border-right:1px solid rgba(15,23,42,.08)}
+    .agenda-col:last-child{border-right:0}
+    .agenda-title{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom: 12px}
+    .agenda-title strong{font-size:12px; font-weight:900; letter-spacing:.14em; text-transform:uppercase; color: var(--muted2)}
+    .slot{
+      display:grid;
+      grid-template-columns: 82px 1fr;
+      gap:12px;
+      padding:12px 0;
+      border-top: 1px solid rgba(15,23,42,.07);
+    }
+    .slot:first-of-type{border-top:0}
+    .time{font-weight:900; color: var(--text); font-size:13px}
+    .topic{margin:0; font-weight:900; font-size:14px}
+    .desc{margin:6px 0 0; color: var(--muted2); font-size:13px; line-height:1.45}
+
+    /* ==========================================================
+       SPONSOR: autoscroll continuo senza scrollbar + nome file sotto
+       ========================================================== */
+    .sponsor-card{
+      border-radius: var(--radius2);
+      background:#fff;
+      border:1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding:20px;
+    }
+    .sponsor-marquee{
+      --fade: 56px;
+      --duration: 30s;
+
+      position:relative;
+      overflow:hidden;
+      margin-top:12px;
+      padding: 8px var(--fade);
+      scrollbar-width:none;
+      -ms-overflow-style:none;
+    }
+    .sponsor-marquee::-webkit-scrollbar{display:none;}
+
+    .sponsor-marquee::before,
+    .sponsor-marquee::after{
+      content:"";
+      position:absolute;
+      top:0; bottom:0;
+      width:var(--fade);
+      z-index:3;
+      pointer-events:none;
+    }
+    .sponsor-marquee::before{
+      left:0;
+      background: linear-gradient(90deg, #fff 0%, rgba(255,255,255,0) 100%);
+    }
+    .sponsor-marquee::after{
+      right:0;
+      background: linear-gradient(270deg, #fff 0%, rgba(255,255,255,0) 100%);
+    }
+
+    .sponsor-track{
+      display:flex;
+      gap:14px;
+      width:max-content;
+      animation: sponsorScroll var(--duration) linear infinite;
+      will-change: transform;
+    }
+    @keyframes sponsorScroll{
+      from{ transform: translateX(0); }
+      to{ transform: translateX(-50%); }
+    }
+
+    .sponsor-item{
+      --zoom: 1;
+      --tx: 0%;
+      --ty: 0%;
+
+      flex: 0 0 auto;
+      width: 230px;
+      height: 148px;
+
+      border-radius:22px;
+      border:1px solid rgba(15,23,42,.10);
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      box-shadow: 0 14px 26px rgba(2,6,23,.06);
+
+      padding:12px 12px 10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      overflow:hidden;
+      align-items:center;
+      justify-content:center;
+    }
+    .sponsor-logo{
+      width:100%;
+      flex: 1 1 auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+    }
+    .sponsor-logo img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      display:block;
+      transform: translate(var(--tx), var(--ty)) scale(var(--zoom));
+      transform-origin:center;
+      filter: contrast(1.03);
+    }
+    .sponsor-file{
+      flex: 0 0 auto;
+      width:100%;
+      text-align:center;
+      font-size:11px;
+      font-weight:900;
+      color: var(--muted2);
+      letter-spacing:.02em;
+      line-height:1.15;
+
+      display:-webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow:hidden;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .sponsor-marquee{ --duration: 55s; }
+    }
+
+    /* ==========================================================
+       LOGISTICA
+       ========================================================== */
+    .logistics{display:grid; grid-template-columns: 1.1fr .9fr; gap:16px; align-items:stretch}
+    .map{border-radius: var(--radius2); overflow:hidden; box-shadow: var(--shadow); border:1px solid var(--border); min-height: 320px; background:#fff}
+    .map iframe{width:100%;height:100%;border:0}
+
+    .kv{
+      display:grid;
+      grid-template-columns: 150px 1fr;
+      gap:10px;
+      padding:12px 0;
+      border-top:1px solid rgba(15,23,42,.07);
+      align-items:start;
+    }
+    .kv:first-child{border-top:0}
+    .k{
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      color: var(--muted2);
+      white-space:nowrap;
+    }
+    .v{color: var(--muted); font-size:14px; line-height:1.5}
+
+    /* ==========================================================
+       FOOTER
+       ========================================================== */
+    footer{border-top: 1px solid rgba(15,23,42,.10); padding:22px 0 30px; background:#fff}
+    .foot{display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; align-items:flex-start}
+    .chips{display:flex; gap:10px; flex-wrap:wrap}
+    .chip{display:inline-flex; align-items:center; padding:10px 12px; border-radius:999px; border:1px solid rgba(15,23,42,.10); background:#f8fafc; font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color: var(--muted)}
+    .foot small{color: var(--muted2); line-height:1.7}
+
+    /* REVEAL */
+    .reveal{opacity:0; transform: translateY(12px); transition: opacity .6s var(--ease), transform .6s var(--ease)}
+    .reveal.show{opacity:1; transform: translateY(0)}
+
+    /* ==========================================================
+       MOBILE OPTIMIZATION
+       ========================================================== */
+    @media (max-width: 980px){
+      .hero-wrap{grid-template-columns:1fr}
+      .hero-media{min-height: 520px}
+      .split{grid-template-columns:1fr}
+      .agenda-grid{grid-template-columns:1fr}
+      .agenda-col{border-right:0; border-top:1px solid rgba(15,23,42,.08)}
+      .agenda-col:first-child{border-top:0}
+      .logistics{grid-template-columns:1fr}
+      .section-head{flex-direction:column; align-items:flex-start}
+      .section-head p{text-align:left}
+      .signup-form{grid-template-columns: 1fr;}
+      .full{grid-column:auto;}
+    }
+
+    @media (max-width: 680px){
+      section{padding: 42px 0;}
+
+      .hero{padding: 14px 0 28px;}
+      .hero-title{font-size:38px;}
+      .hero-sub{font-size:14px;}
+      .hero-media{min-height: 460px;}
+      .hero-overlay{ margin: 16px; padding: 16px; }
+
+      .brand-logos{width:100%; justify-content:flex-start;}
+      .brand-logos img{height:40px}
+      .brand-logos img.advant{height:58px}
+
+      .prebar-label{display:none;}
+      .logo-plate img.unindustria{height:42px;}
+      .logo-plate img.csit{height:30px;}
+
+      .panel{padding:16px;}
+      .image-card{min-height: 220px;}
+
+      .sponsor-marquee{ --fade: 34px; --duration: 26s; }
+      .sponsor-item{width: 185px; height: 132px;}
+      .sponsor-file{font-size:10.5px;}
+
+      .kv{grid-template-columns: 1fr; gap:6px;}
+      .k{white-space:normal;}
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- PREBAR: appare durante lo scroll e poi sparisce -->
+  <div class="prebar-fixed" aria-label="Loghi istituzionali e partner">
+    <div class="container">
+      <div class="prebar-inner">
+        <span class="prebar-label">In collaborazione con</span>
+
+        <div class="prebar-logos" aria-label="Loghi">
+          <!-- ✅ Unindustria: eager (no lazy) + fallback embedded -->
+          <div class="logo-plate" aria-label="Unindustria">
+            <img
+              id="unindustriaLogo"
+              class="unindustria"
+              src="Unindustria.jpg"
+              alt="Unindustria"
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+            >
+          </div>
+
+          <div class="logo-plate" aria-label="CSIT">
+            <img
+              class="csit"
+              src="logoCSIT.jpg"
+              alt="CSIT"
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="container">
+      <div class="topbar-inner">
+        <div class="brand">
+          <span>Next Generation Business</span>
+          <span class="brand-logos" aria-label="Organizzatori">
+            <img class="revilaw" src="Immagine2.png" alt="Revilaw">
+            <img class="advant" src="Advant (1).png" alt="ADVANT Nctm">
+          </span>
+        </div>
+
+        <div class="actions">
+          <a class="btn" href="#agenda">Agenda</a>
+          <a class="btn primary" href="#signup">Sign Up</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="container">
+      <div class="hero-wrap">
+
+        <div class="hero-media reveal">
+          <img src="event.jpg" alt="Evento - sala conferenze" />
+
+          <div class="hero-overlay">
+            <div class="kicker">Evento corporate per PMI: innovazione, protezione, sostenibilita</div>
+            <h1 class="hero-title">Next Generation Business</h1>
+            <p class="hero-sub">
+              Una giornata di contenuti ad alta densita operativa per imprenditori e manager di PMI.
+              ESG, AI, cybersecurity, governance, incentivi e sviluppo internazionale.
+            </p>
+
+            <div class="hero-meta">
+              <div class="pill">27 Marzo 2026</div>
+              <div class="pill">09:00-18:00</div>
+              <div class="pill">Hotel Leon d'Oro, Verona</div>
+            </div>
+
+            <div class="hero-cta">
+              <a class="btn primary" href="#signup">Richiedi la partecipazione</a>
+              <a class="btn ghost" href="#agenda">Vedi agenda</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL -->
+        <div class="panel reveal" id="signup">
+          <h2>Richiedi la partecipazione</h2>
+          <p>Scegli la modalità e compila i dati. Riceverai conferma via email con i dettagli organizzativi.</p>
+
+          <div class="benefit" aria-label="Benefit inclusi">
+            <strong>Incluso con la registrazione (presenza o diretta web)</strong>
+            <ul>
+              <li>Strumento Excel per la gestione dei KPI e confronto con il Budget</li>
+              <li>Aggiornamenti sulle principali novità sui temi trattati il 27 marzo 2026</li>
+            </ul>
+          </div>
+
+          <div class="signup-wrap" aria-label="Iscrizione (presenza o diretta web)">
+
+            <!-- PRESENZA -->
+            <details class="signup" data-accordion>
+              <summary>
+                <div class="sum-left">
+                  <div class="sum-title">Iscrizione evento in presenza</div>
+                  <p class="sum-sub">Hotel Leon d’Oro, Verona — 27 Marzo 2026</p>
+                  <div class="sum-tags">
+                    <span class="tag grad">Rimborso spese</span>
+                    <span class="tag">Networking</span>
+                  </div>
+                </div>
+                <div class="chev">▾</div>
+              </summary>
+
+              <div class="signup-body">
+                <div class="mode-note">
+                  <strong>Nota:</strong> per la partecipazione in presenza saranno <strong>rimborsate le spese di spostamento</strong>
+                  per raggiungere l’evento (modalità comunicate via email di conferma).
+                </div>
+
+                <form class="signup-form" action="#" method="post" onsubmit="return handleSubmit(event)">
+                  <input type="hidden" name="modalita" value="presenza">
+
+                  <div>
+                    <label for="nome_p">Nome e Cognome</label>
+                    <input id="nome_p" name="nome" type="text" placeholder="Nome Cognome" required>
+                  </div>
+
+                  <div>
+                    <label for="citta_p">Città</label>
+                    <input id="citta_p" name="citta" type="text" placeholder="Es. Verona" required>
+                  </div>
+
+                  <div>
+                    <label for="ruolo_p">Ruolo</label>
+                    <input id="ruolo_p" name="ruolo" type="text" placeholder="Es. CEO, CFO, Owner" required>
+                  </div>
+
+                  <div>
+                    <label for="azienda_p">Azienda</label>
+                    <input id="azienda_p" name="azienda" type="text" placeholder="Ragione sociale" required>
+                  </div>
+
+                  <div>
+                    <label for="email_p">Email</label>
+                    <input id="email_p" name="email" type="email" placeholder="nome@azienda.it" required>
+                  </div>
+
+                  <div>
+                    <label for="cf_p">Codice Fiscale</label>
+                    <input id="cf_p" name="codice_fiscale" type="text" placeholder="Es. RSSMRA80A01H501U" required>
+                    <div class="help">Inserisci CF (oppure CF aziendale se applicabile).</div>
+                  </div>
+
+                  <div class="full">
+                    <label for="piva_p">Partita IVA</label>
+                    <input id="piva_p" name="partita_iva" type="text" placeholder="Es. 01234567890" required>
+                    <div class="help">Per aziende: inserire P.IVA (11 cifre).</div>
+                  </div>
+
+                  <div class="full">
+                    <label for="note_p">Note (opzionale)</label>
+                    <textarea id="note_p" name="note" placeholder="Richieste logistiche o informazioni aggiuntive"></textarea>
+                  </div>
+
+                  <!-- ✅ UNICO FLAG -->
+                  <div class="consent-single full">
+                    <input type="checkbox" id="consenso_p" name="consenso_privacy_marketing" value="1" required>
+                    <div>
+                      <strong>Consenso privacy e comunicazioni</strong><br>
+                      Autorizzo il trattamento dei miei dati personali per finalità organizzative dell’evento, gestione della registrazione,
+                      comunicazioni operative, invio materiali (incluso lo strumento Excel KPI/Budget) e per l’invio di comunicazioni informative
+                      e/o promozionali (marketing) su iniziative e aggiornamenti relativi ai temi trattati.
+                    </div>
+                  </div>
+
+                  <div class="panel-actions full">
+                    <button class="btn primary" type="submit">Invia richiesta (presenza)</button>
+                    <div class="note">
+                      Registrazione soggetta a conferma.<br>
+                      Supporto: <strong>info@revilaw.it</strong>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </details>
+
+            <!-- DIRETTA WEB -->
+            <details class="signup" data-accordion>
+              <summary>
+                <div class="sum-left">
+                  <div class="sum-title">Iscrizione diretta web</div>
+                  <p class="sum-sub">Accesso online — riceverai link e istruzioni via email</p>
+                  <div class="sum-tags">
+                    <span class="tag grad">Diretta</span>
+                    <span class="tag">Materiali inclusi</span>
+                  </div>
+                </div>
+                <div class="chev">▾</div>
+              </summary>
+
+              <div class="signup-body">
+                <div class="mode-note">
+                  <strong>Nota:</strong> riceverai via email <strong>link di accesso</strong> e indicazioni operative per seguire la diretta.
+                </div>
+
+                <form class="signup-form" action="#" method="post" onsubmit="return handleSubmit(event)">
+                  <input type="hidden" name="modalita" value="diretta_web">
+
+                  <div>
+                    <label for="nome_w">Nome e Cognome</label>
+                    <input id="nome_w" name="nome" type="text" placeholder="Nome Cognome" required>
+                  </div>
+
+                  <div>
+                    <label for="citta_w">Città</label>
+                    <input id="citta_w" name="citta" type="text" placeholder="Es. Milano" required>
+                  </div>
+
+                  <div>
+                    <label for="ruolo_w">Ruolo</label>
+                    <input id="ruolo_w" name="ruolo" type="text" placeholder="Es. CEO, CFO, Owner" required>
+                  </div>
+
+                  <div>
+                    <label for="azienda_w">Azienda</label>
+                    <input id="azienda_w" name="azienda" type="text" placeholder="Ragione sociale" required>
+                  </div>
+
+                  <div>
+                    <label for="email_w">Email</label>
+                    <input id="email_w" name="email" type="email" placeholder="nome@azienda.it" required>
+                  </div>
+
+                  <div>
+                    <label for="cf_w">Codice Fiscale</label>
+                    <input id="cf_w" name="codice_fiscale" type="text" placeholder="Es. RSSMRA80A01H501U" required>
+                    <div class="help">Inserisci CF (oppure CF aziendale se applicabile).</div>
+                  </div>
+
+                  <div class="full">
+                    <label for="piva_w">Partita IVA</label>
+                    <input id="piva_w" name="partita_iva" type="text" placeholder="Es. 01234567890" required>
+                    <div class="help">Per aziende: inserire P.IVA (11 cifre).</div>
+                  </div>
+
+                  <div class="full">
+                    <label for="note_w">Note (opzionale)</label>
+                    <textarea id="note_w" name="note" placeholder="Richieste o informazioni aggiuntive"></textarea>
+                  </div>
+
+                  <!-- ✅ UNICO FLAG -->
+                  <div class="consent-single full">
+                    <input type="checkbox" id="consenso_w" name="consenso_privacy_marketing" value="1" required>
+                    <div>
+                      <strong>Consenso privacy e comunicazioni</strong><br>
+                      Autorizzo il trattamento dei miei dati personali per finalità organizzative dell’evento, gestione della registrazione,
+                      comunicazioni operative, invio materiali (incluso lo strumento Excel KPI/Budget) e per l’invio di comunicazioni informative
+                      e/o promozionali (marketing) su iniziative e aggiornamenti relativi ai temi trattati.
+                    </div>
+                  </div>
+
+                  <div class="panel-actions full">
+                    <button class="btn primary" type="submit">Invia richiesta (diretta web)</button>
+                    <div class="note">
+                      Registrazione soggetta a conferma.<br>
+                      Supporto: <strong>info@revilaw.it</strong>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </details>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- SECTION 1 -->
+  <section>
+    <div class="container">
+      <div class="section-head reveal">
+        <h3>Per PMI: contenuti orientati a decisione e implementazione</h3>
+        <p>Approfondimenti pratici su leve strategiche che incidono su competitivita, rischio e crescita.</p>
+      </div>
+
+      <div class="split" style="margin-top:16px;">
+        <div class="card reveal">
+          <ul class="bullets">
+            <li>ESG e sostenibilita: impatti su mercato, reputazione e credito</li>
+            <li>AI: produttivita, automazione, riduzione costi e governance dati</li>
+            <li>Cybersecurity: continuita operativa, prevenzione e risposta</li>
+            <li>Marchi, brevetti e Patent Box: valorizzazione e vantaggi fiscali</li>
+            <li>231/2001 e Tax Control Framework: modelli e presidi operativi</li>
+            <li>Incentivi, finanza agevolata e ZES Unica: accesso alle misure</li>
+            <li>Adeguati assetti: organizzazione, controllo e prevenzione crisi</li>
+          </ul>
+          <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap">
+            <a class="btn primary" href="#signup">Registrati</a>
+            <a class="btn" href="#agenda">Vedi agenda</a>
+          </div>
+        </div>
+
+        <div class="image-card reveal" aria-label="Immagine evento">
+          <img src="event.jpg" alt="Evento - platea e palco" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENDA -->
+  <section id="agenda" style="background:var(--soft)">
+    <div class="container">
+      <div class="section-head reveal">
+        <h3>Agenda</h3>
+        <p>Programma giornata: 27 Marzo 2026, 09:00-18:00.</p>
+      </div>
+
+      <div class="agenda reveal">
+        <div class="agenda-grid">
+          <div class="agenda-col">
+            <div class="agenda-title">
+              <strong>Sessione mattino</strong>
+              <span style="color:#64748b;font-weight:900;font-size:13px">09:00-13:30</span>
+            </div>
+
+            <div class="slot"><div class="time">09:00</div><div><p class="topic">Registrazione</p><p class="desc">Accredito partecipanti.</p></div></div>
+            <div class="slot"><div class="time">09:30</div><div><p class="topic">Inizio lavori e saluti</p><p class="desc">Apertura e inquadramento contenuti.</p></div></div>
+            <div class="slot"><div class="time">09:45</div><div><p class="topic">Sostenibilita e fattori ESG</p><p class="desc">Impatto su mercato, reputazione e credito.</p></div></div>
+            <div class="slot"><div class="time">10:30</div><div><p class="topic">Intelligenza Artificiale</p><p class="desc">Efficienza operativa e decisioni data-driven.</p></div></div>
+            <div class="slot"><div class="time">11:15</div><div><p class="topic">Cybersecurity</p><p class="desc">Rischi operativi e strategie di protezione.</p></div></div>
+            <div class="slot"><div class="time">12:00</div><div><p class="topic">Internazionalizzazione</p><p class="desc">Espansione e principali snodi operativi.</p></div></div>
+            <div class="slot"><div class="time">12:45</div><div><p class="topic">La parola agli imprenditori</p><p class="desc">Confronto e quesiti.</p></div></div>
+            <div class="slot"><div class="time">13:30</div><div><p class="topic">Lunch buffet</p><p class="desc">Networking.</p></div></div>
+          </div>
+
+          <div class="agenda-col">
+            <div class="agenda-title">
+              <strong>Sessione pomeriggio</strong>
+              <span style="color:#64748b;font-weight:900;font-size:13px">14:30-18:00</span>
+            </div>
+
+            <div class="slot"><div class="time">14:30</div><div><p class="topic">Marchi, brevetti e Patent Box</p><p class="desc">Valorizzazione intangibili e profili fiscali.</p></div></div>
+            <div class="slot"><div class="time">15:15</div><div><p class="topic">Holding di famiglia e protezione patrimonio</p><p class="desc">Assetti societari e continuita.</p></div></div>
+            <div class="slot"><div class="time">16:00</div><div><p class="topic">D.Lgs. 231/2001 e Tax Control Framework</p><p class="desc">Presidi e affidabilita del sistema di controllo.</p></div></div>
+            <div class="slot"><div class="time">16:45</div><div><p class="topic">Incentivi, finanza agevolata e ZES Unica</p><p class="desc">Strumenti per accelerare investimenti.</p></div></div>
+            <div class="slot"><div class="time">17:30</div><div><p class="topic">Adeguati assetti organizzativi</p><p class="desc">Governance, monitoraggio, prevenzione crisi.</p></div></div>
+            <div class="slot"><div class="time">18:00</div><div><p class="topic">Fine lavori e saluti</p><p class="desc">Chiusura e indicazioni finali.</p></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap" class="reveal">
+        <a class="btn primary" href="#signup">Richiedi la partecipazione</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SPONSOR -->
+  <section id="sponsor">
+    <div class="container">
+      <div class="section-head reveal">
+        <h3>Sponsor</h3>
+        <p>Partner che supportano l’evento.</p>
+      </div>
+
+      <div class="sponsor-card reveal">
+        <div style="font-weight:900; letter-spacing:-.01em;">Loghi sponsor</div>
+
+        <div class="sponsor-marquee" aria-label="Loghi sponsor in scorrimento automatico continuo">
+          <div class="sponsor-track">
+
+            <!-- SET 1 -->
+            <div class="sponsor-item" style="--zoom:1.05;">
+              <div class="sponsor-logo"><img loading="lazy" src="nomios.png" alt="NOMIOS"></div>
+              <div class="sponsor-file">NOMIOS</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.02;">
+              <div class="sponsor-logo"><img loading="lazy" src="CONSULTING STELLINA.png" alt="CONSULTING STELLINA"></div>
+              <div class="sponsor-file">CONSULTING STELLINA</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.02;">
+              <div class="sponsor-logo"><img loading="lazy" src="DATEV KOINOS.png" alt="DATEV KOINOS"></div>
+              <div class="sponsor-file">DATEV KOINOS</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.06;">
+              <div class="sponsor-logo"><img loading="lazy" src="EX MACHINA.JPG" alt="EX MACHINA"></div>
+              <div class="sponsor-file">EX MACHINA</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.02;">
+              <div class="sponsor-logo"><img loading="lazy" src="FISCALFOCUS.png" alt="FISCALFOCUS"></div>
+              <div class="sponsor-file">FISCALFOCUS</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.08;">
+              <div class="sponsor-logo"><img loading="lazy" src="fiscalrevisione.jpg" alt="FISCALREVISIONE"></div>
+              <div class="sponsor-file">FISCALREVISIONE</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.04;">
+              <div class="sponsor-logo"><img loading="lazy" src="IC &amp; PARTNERS.png" alt="IC &amp; PARTNERS"></div>
+              <div class="sponsor-file">IC &amp; PARTNERS</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.04;">
+              <div class="sponsor-logo"><img loading="lazy" src="jethr.JPG" alt="JETHR"></div>
+              <div class="sponsor-file">JETHR</div>
+            </div>
+
+            <!-- ✅ MAISANO aggiornato -->
+            <div class="sponsor-item" style="--zoom:1.03;">
+              <div class="sponsor-logo"><img loading="lazy" src="MAISANO INVESTMENTS.JPG" alt="MAISANO INVESTMENTS"></div>
+              <div class="sponsor-file">MAISANO INVESTMENTS</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.05;">
+              <div class="sponsor-logo"><img loading="lazy" src="metroconsult.jpg" alt="METROCONSULT"></div>
+              <div class="sponsor-file">METROCONSULT</div>
+            </div>
+
+            <!-- ✅ NUOVI SPONSOR -->
+            <div class="sponsor-item" style="--zoom:1.05;">
+              <div class="sponsor-logo"><img loading="lazy" src="presutto.jpg" alt="PRESUTTO"></div>
+              <div class="sponsor-file">PRESUTTO</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.04;">
+              <div class="sponsor-logo"><img loading="lazy" src="projectclean.jpg" alt="PROJECT CLEAN GROUP"></div>
+              <div class="sponsor-file">PROJECT CLEAN GROUP</div>
+            </div>
+
+            <div class="sponsor-item" style="--zoom:1.04;">
+              <div class="sponsor-logo"><img loading="lazy" src="RUGGHIA &amp; ASSOCIATI.jpg" alt="RUGGHIA &amp; ASSOCIATI"></div>
+              <div class="sponsor-file">RUGGHIA &amp; ASSOCIATI</div>
+            </div>
+
+            <!-- SET 2 (duplicato per loop fluido) -->
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.05;">
+              <div class="sponsor-logo"><img loading="lazy" src="nomios.png" alt=""></div>
+              <div class="sponsor-file">NOMIOS</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.02;">
+              <div class="sponsor-logo"><img loading="lazy" src="CONSULTING STELLINA.png" alt=""></div>
+              <div class="sponsor-file">CONSULTING STELLINA</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.02;">
+              <div class="sponsor-logo"><img loading="lazy" src="DATEV KOINOS.png" alt=""></div>
+              <div class="sponsor-file">DATEV KOINOS</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.06;">
+              <div class="sponsor-logo"><img loading="lazy" src="EX MACHINA.JPG" alt=""></div>
+              <div class="sponsor-file">EX MACHINA</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.02;">
+              <div class="sponsor-logo"><img loading="lazy" src="FISCALFOCUS.png" alt=""></div>
+              <div class="sponsor-file">FISCALFOCUS</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.08;">
+              <div class="sponsor-logo"><img loading="lazy" src="fiscalrevisione.jpg" alt=""></div>
+              <div class="sponsor-file">FISCALREVISIONE</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.04;">
+              <div class="sponsor-logo"><img loading="lazy" src="IC &amp; PARTNERS.png" alt=""></div>
+              <div class="sponsor-file">IC &amp; PARTNERS</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.04;">
+              <div class="sponsor-logo"><img loading="lazy" src="jethr.JPG" alt=""></div>
+              <div class="sponsor-file">JETHR</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.03;">
+              <div class="sponsor-logo"><img loading="lazy" src="MAISANO INVESTMENTS.JPG" alt=""></div>
+              <div class="sponsor-file">MAISANO INVESTMENTS</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.05;">
+              <div class="sponsor-logo"><img loading="lazy" src="metroconsult.jpg" alt=""></div>
+              <div class="sponsor-file">METROCONSULT</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.05;">
+              <div class="sponsor-logo"><img loading="lazy" src="presutto.jpg" alt=""></div>
+              <div class="sponsor-file">PRESUTTO</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.04;">
+              <div class="sponsor-logo"><img loading="lazy" src="projectclean.jpg" alt=""></div>
+              <div class="sponsor-file">PROJECT CLEAN GROUP</div>
+            </div>
+
+            <div class="sponsor-item" aria-hidden="true" style="--zoom:1.04;">
+              <div class="sponsor-logo"><img loading="lazy" src="RUGGHIA &amp; ASSOCIATI.jpg" alt=""></div>
+              <div class="sponsor-file">RUGGHIA &amp; ASSOCIATI</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOGISTICA -->
+  <section id="logistica">
+    <div class="container">
+      <div class="section-head reveal">
+        <h3>Logistica</h3>
+        <p>Verona, Hotel Leon d'Oro. 27 Marzo 2026.</p>
+      </div>
+
+      <div class="logistics">
+        <div class="map reveal">
+          <iframe title="Mappa Hotel Leon d'Oro Verona" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+            src="https://www.google.com/maps?q=Hotel%20Leon%20d%27Oro%20Verona&output=embed"></iframe>
+        </div>
+
+        <div class="card reveal">
+          <div class="kv"><div class="k">Data</div><div class="v">27 Marzo 2026</div></div>
+          <div class="kv"><div class="k">Orario</div><div class="v">09:00-18:00</div></div>
+          <div class="kv"><div class="k">Sede</div><div class="v">Hotel Leon d'Oro, Verona</div></div>
+          <div class="kv"><div class="k">Organizzatore</div><div class="v">Revilaw, ADVANT Nctm</div></div>
+
+          <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap">
+            <a class="btn primary" href="#signup">Sign Up</a>
+            <a class="btn" href="#agenda">Agenda</a>
+          </div>
+
+          <div style="margin-top:14px; color:#64748b; font-size:12px; line-height:1.6">
+            Supporto: <strong style="color:#334155">info@revilaw.it</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <div class="foot">
+        <div>
+          <div class="chips">
+            <span class="chip">Revilaw</span>
+            <span class="chip">ADVANT Nctm</span>
+          </div>
+          <small>
+            Copyright © 2026 Revilaw S.p.A. Tutti i diritti riservati.<br>
+            Contatti: info@revilaw.it
+          </small>
+        </div>
+        <div class="actions">
+          <a class="btn" href="#agenda">Agenda</a>
+          <a class="btn primary" href="#signup">Sign Up</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // reveal on scroll (con fallback)
+    (function(){
+      const els = document.querySelectorAll('.reveal');
+      if(!('IntersectionObserver' in window)){
+        els.forEach(el => el.classList.add('show'));
+        return;
+      }
+      const io = new IntersectionObserver((entries)=>{
+        entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('show'); })
+      }, {threshold: .12});
+      els.forEach(el=>io.observe(el));
+    })();
+
+    // accordion: una scheda aperta alla volta
+    (function(){
+      const items = Array.from(document.querySelectorAll('details[data-accordion]'));
+      items.forEach(d => {
+        d.addEventListener('toggle', () => {
+          if(d.open){
+            items.forEach(other => { if(other !== d) other.open = false; });
+          }
+        });
+      });
+    })();
+
+    // ✅ calcolo altezza topbar per padding body/ancore
+    (function(){
+      const topbar = document.querySelector('.topbar');
+      function syncTopbarHeight(){
+        if(!topbar) return;
+        const h = Math.round(topbar.getBoundingClientRect().height);
+        document.documentElement.style.setProperty('--topbarH', h + 'px');
+      }
+      window.addEventListener('resize', syncTopbarHeight, {passive:true});
+      window.addEventListener('load', syncTopbarHeight);
+      syncTopbarHeight();
+    })();
+
+    // ✅ Unindustria fallback: se il file non è raggiungibile, usa embedded (così su PC lo vedi sempre)
+    (function(){
+      const img = document.getElementById('unindustriaLogo');
+      if(!img) return;
+
+      const embedded = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAoHBwgHBgoICAkKCgkLDhgQDg0NDh0VFhEYFxUZGBYfHysjGh0oHRUWJDUlKC0vMjIyGiE3PDcwOyswMi4BCwsLDw4PHRERHTIpIigwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMv/AABEIAOEA4QMBIgACEQEDEQH/xAAbAAEAAgMBAQAAAAAAAAAAAAAABQYBAwQCB//EAD0QAAIBAgQDBQYEBQMFAAAAAAECAwQRAAUSITFBBhMiUWEHFDKBkaGxByNCUmLB0UOS8PEjM3OC/8QAGQEAAwEBAQAAAAAAAAAAAAAAAAECAwQF/8QAJhEBAAICAQQBBAMAAAAAAAAAAAECEQMhBBIxQVEiYXGBkaH/2gAMAwEAAhEDEQA/AO5oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//Z";
+
+      function useEmbedded(){
+        if(img.dataset.inlined) return;
+        img.dataset.inlined = "1";
+        img.src = embedded;
+      }
+
+      img.addEventListener('error', useEmbedded, {once:true});
+
+      // se per qualche motivo resta “vuota”, forza il fallback
+      setTimeout(() => {
+        if(!img.complete || img.naturalWidth === 0) useEmbedded();
+      }, 900);
+    })();
+
+    // ✅ PREBAR: robust su PC — usa RAF
+    (function(){
+      const SHOW_AFTER = 6;     // px
+      const HIDE_DELAY = 1400;  // ms
+
+      let lastY = -1;
+      let lastMove = performance.now();
+
+      function getY(){
+        const se = document.scrollingElement || document.documentElement;
+        return (typeof window.scrollY === 'number') ? window.scrollY : (se.scrollTop || 0);
+      }
+
+      function show(){ document.documentElement.classList.add('prebar-on'); }
+      function hide(){ document.documentElement.classList.remove('prebar-on'); }
+
+      function tick(now){
+        const y = getY();
+
+        if(y !== lastY){
+          lastY = y;
+          lastMove = now;
+
+          if(y >= SHOW_AFTER) show();
+          else hide();
+        }else{
+          if(y < SHOW_AFTER) hide();
+          else if(now - lastMove > HIDE_DELAY) hide();
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
+    })();
+
+    // form demo (da sostituire con CRM)
+    function handleSubmit(e){
+      e.preventDefault();
+      const form = e.target;
+      const mode = form.querySelector('input[name="modalita"]')?.value;
+
+      const msg = (mode === "presenza")
+        ? "Richiesta inviata (presenza). Riceverai conferma via email con i dettagli organizzativi, rimborso spese e materiali inclusi."
+        : "Richiesta inviata (diretta web). Riceverai via email il link di accesso e i materiali inclusi.";
+
+      alert(msg);
+      form.reset();
+      return false;
+    }
+  </script>
+
+</body>
+</html>
