@@ -90,12 +90,10 @@
             </div>
         </div>
 
-        <!-- ========== RIGHT: eventi + contenuti stacked ========== -->
+        <!-- ========== MIDDLE: eventi ========== -->
         <div class="split-content">
             <div class="content-inner">
-
-                <!-- 01 · Eventi -->
-                <section class="col-section sect-events" id="eventi">
+                <section class="sect-events" id="eventi">
                     <header class="sect-head">
                         <span class="sect-number">01</span>
                         <div class="sect-head-body">
@@ -146,48 +144,41 @@
                         </a>
                     </div>
                 </section>
-
-                <!-- 02 · Contenuti — dark panel -->
-                <section class="col-section sect-contents" id="contenuti">
-                    <header class="sect-head">
-                        <span class="sect-number">02</span>
-                        <div class="sect-head-body">
-                            <span class="sect-eyebrow">Contenuti</span>
-                            <h2 class="sect-title">Approfondimenti &amp; Risorse</h2>
-                        </div>
-                    </header>
-
-                    <div class="contents-layout">
-                        <!-- Sidebar: filter categories as a vertical nav -->
-                        <aside class="contents-sidebar">
-                            <span class="contents-sidebar-label">Categorie</span>
-                            <div class="contents-toolbar" id="contentsToolbar" role="tablist" aria-label="Filtra per categoria"></div>
-                            <p class="contents-count" id="contentsCount" aria-live="polite"></p>
-                        </aside>
-
-                        <!-- Main: vertical menu of content entries (TOC-style) -->
-                        <div class="contents-main">
-                            <div class="contents-list" id="contentsGrid">
-                                <a href="zls_zes/" class="content-card" data-category="agevolazioni-fiscali">
-                                    <div class="content-card-body">
-                                        <span class="content-tag">Agevolazioni Fiscali</span>
-                                        <h3 class="content-title">ZLS &amp; ZES &mdash; Credito d'Imposta 2026</h3>
-                                    </div>
-                                    <span class="content-link" aria-hidden="true">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                                            <polyline points="12 5 19 12 12 19"></polyline>
-                                        </svg>
-                                    </span>
-                                </a>
-                            </div>
-                            <p class="contents-empty" id="contentsEmpty" hidden>Nessun contenuto in questa categoria.</p>
-                        </div>
-                    </div>
-                </section>
-
             </div>
         </div>
+
+        <!-- ========== RIGHT: contenuti vertical rail ========== -->
+        <aside class="split-rail" id="contenuti">
+            <div class="rail-inner">
+                <header class="sect-head">
+                    <span class="sect-number">02</span>
+                    <div class="sect-head-body">
+                        <span class="sect-eyebrow">Contenuti</span>
+                        <h2 class="sect-title">Approfondimenti &amp; Risorse</h2>
+                    </div>
+                </header>
+
+                <div class="contents-toolbar" id="contentsToolbar" role="tablist" aria-label="Filtra per categoria"></div>
+
+                <div class="contents-list" id="contentsGrid">
+                    <a href="zls_zes/" class="content-card" data-category="agevolazioni-fiscali">
+                        <div class="content-card-body">
+                            <span class="content-tag">Agevolazioni Fiscali</span>
+                            <h3 class="content-title">ZLS &amp; ZES &mdash; Credito d'Imposta 2026</h3>
+                        </div>
+                        <span class="content-link" aria-hidden="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </span>
+                    </a>
+                </div>
+
+                <p class="contents-empty" id="contentsEmpty" hidden>Nessun contenuto in questa categoria.</p>
+                <p class="contents-count" id="contentsCount" aria-live="polite"></p>
+            </div>
+        </aside>
     </section>
 
     <!-- Partner -->
