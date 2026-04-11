@@ -473,16 +473,11 @@ ul {
     animation: fadeInUp 0.8s ease 1.05s both;
 }
 
-/* Scroll indicator removed — replaced by CSS scroll-snap below */
-
-/* === Sections Common === */
+/* === Sections Common ===
+   Sections no longer force 100vh: they size to their content so
+   the page scrolls naturally instead of acting as a slide deck. */
 .section {
-    padding: 90px 0 70px;
-    min-height: 100vh;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    padding: 110px 0 90px;
     box-sizing: border-box;
     position: relative;
 }

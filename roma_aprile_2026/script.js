@@ -6,32 +6,25 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // ========================
-    // SMOOTH SCROLL (Lenis) + ONE-WHEEL-ONE-SECTION
+    // SMOOTH SCROLL (Lenis) — free scroll, no section snap
     // ========================
-    // Ogni wheel/swipe/tasto muove esattamente di una sezione in avanti o
-    // indietro, con transizione fluida Lenis. Niente scroll libero: la
-    // pagina si comporta come una sequenza di slide a scorrimento rapido.
+    // Lenis stays on just for the soft-easing smooth wheel/touch feel.
+    // We no longer hijack the wheel or keyboard: the page scrolls
+    // naturally from top to bottom. The only explicit scroll-to
+    // action left is the anchor-link navigation further down.
     let lenis = null;
-    const snapTargets = Array.from(
-        document.querySelectorAll('.hero, .section')
-    );
-    const footerEl = document.querySelector('.footer');
-    if (footerEl) snapTargets.push(footerEl);
-
-    const TRANSITION_DURATION = 1.0; // secondi per la transizione
-    const WHEEL_COOLDOWN      = 1100; // ms di "cooldown" tra due transizioni
-    const softEasing          = (t) => 1 - Math.pow(1 - t, 3); // cubic.out
-
-    let currentSectionIndex = 0;
-    let isTransitioning = false;
-    let wheelCooldownUntil = 0;
+    const softEasing = (t) => 1 - Math.pow(1 - t, 3); // cubic.out
+    // Kept for backwards compatibility with the anchor-link code below;
+    // nothing reads snapTargets anymore, but the array is still exposed
+    // so any legacy call doesn't throw.
+    const snapTargets = [];
 
     if (typeof Lenis !== 'undefined') {
         lenis = new Lenis({
-            duration: TRANSITION_DURATION,
+            duration: 1.1,
             easing: softEasing,
-            smoothWheel: false,   // gestiamo noi la rotella
-            smoothTouch: false,   // touch resta nativo su mobile
+            smoothWheel: true,
+            smoothTouch: false,
             wheelMultiplier: 1,
             touchMultiplier: 1,
         });
@@ -49,211 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         window.lenis = lenis;
-    }
-
-    // --- Calcola l'indice della sezione attualmente visibile ---
-    const getCurrentSectionIndex = () => {
-        if (!lenis) return 0;
-        const scroll = lenis.scroll + 60;
-        let index = 0;
-        for (let i = 0; i < snapTargets.length; i++) {
-            if (snapTargets[i].offsetTop <= scroll) index = i;
-        }
-        return index;
-    };
-
-    // --- Quando una sezione è più alta della viewport (es. form, timeline),
-    //     permettiamo lo scroll interno prima di saltare alla successiva ---
-    const canScrollWithinCurrent = (direction) => {
-        if (!lenis) return false;
-        const section = snapTargets[getCurrentSectionIndex()];
-        if (!section) return false;
-
-        const sectionTop = section.offsetTop;
-        const sectionHeight = section.offsetHeight;
-        const sectionBottom = sectionTop + sectionHeight;
-        const viewportHeight = window.innerHeight;
-        const currentScroll = lenis.scroll;
-
-        // Solo per sezioni più alte della viewport
-        if (sectionHeight <= viewportHeight + 20) return false;
-
-        if (direction === 1) {
-            return currentScroll + viewportHeight < sectionBottom - 8;
-        } else {
-            return currentScroll > sectionTop + 8;
-        }
-    };
-
-    // --- Scroll fluido parziale all'interno di una sezione alta ---
-    const scrollWithinCurrent = (direction) => {
-        if (!lenis) return;
-        const section = snapTargets[getCurrentSectionIndex()];
-        if (!section) return;
-
-        const sectionTop = section.offsetTop;
-        const sectionBottom = sectionTop + section.offsetHeight;
-        const viewportHeight = window.innerHeight;
-        const step = viewportHeight * 0.85;
-
-        let nextScroll;
-        if (direction === 1) {
-            nextScroll = Math.min(lenis.scroll + step, sectionBottom - viewportHeight);
-        } else {
-            nextScroll = Math.max(lenis.scroll - step, sectionTop);
-        }
-
-        isTransitioning = true;
-        wheelCooldownUntil = Date.now() + 900;
-
-        lenis.scrollTo(nextScroll, {
-            duration: 0.85,
-            easing: softEasing,
-            lock: true,
-            onComplete: () => {
-                setTimeout(() => { isTransitioning = false; }, 60);
-            },
-        });
-    };
-
-    // --- Transizione verso una sezione specifica ---
-    const goToSection = (index) => {
-        if (!lenis) return;
-        if (isTransitioning) return;
-        if (index < 0 || index >= snapTargets.length) return;
-
-        currentSectionIndex = index;
-        isTransitioning = true;
-        wheelCooldownUntil = Date.now() + WHEEL_COOLDOWN;
-
-        const target = snapTargets[index];
-        const maxScroll = lenis.limit;
-        const targetScroll = Math.min(target.offsetTop, maxScroll);
-
-        lenis.scrollTo(targetScroll, {
-            duration: TRANSITION_DURATION,
-            easing: softEasing,
-            lock: true,
-            onComplete: () => {
-                setTimeout(() => { isTransitioning = false; }, 80);
-            },
-        });
-    };
-
-    currentSectionIndex = getCurrentSectionIndex();
-
-    // --- Wheel: una rotella = una sezione (o scroll parziale in sezioni alte) ---
-    const onWheel = (e) => {
-        if (!lenis) return;
-        e.preventDefault();
-
-        const now = Date.now();
-        if (isTransitioning || now < wheelCooldownUntil) return;
-
-        // Ignora micro-movimenti (trackpad noise)
-        if (Math.abs(e.deltaY) < 4) return;
-
-        const direction = e.deltaY > 0 ? 1 : -1;
-
-        if (canScrollWithinCurrent(direction)) {
-            scrollWithinCurrent(direction);
-        } else {
-            goToSection(getCurrentSectionIndex() + direction);
-        }
-    };
-    window.addEventListener('wheel', onWheel, { passive: false });
-
-    // --- Tastiera: frecce, PageUp/Down, Home, End ---
-    const onKeydown = (e) => {
-        // Non intercettare se l'utente sta scrivendo in un input/textarea
-        if (e.target.matches && e.target.matches('input, textarea, select, [contenteditable]')) {
-            return;
-        }
-
-        let direction = 0;
-        if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') direction = 1;
-        else if (e.key === 'ArrowUp' || e.key === 'PageUp') direction = -1;
-        else if (e.key === 'Home') {
-            e.preventDefault();
-            goToSection(0);
-            return;
-        }
-        else if (e.key === 'End') {
-            e.preventDefault();
-            goToSection(snapTargets.length - 1);
-            return;
-        }
-
-        if (direction === 0) return;
-        if (isTransitioning) { e.preventDefault(); return; }
-
-        e.preventDefault();
-
-        if (canScrollWithinCurrent(direction)) {
-            scrollWithinCurrent(direction);
-        } else {
-            goToSection(getCurrentSectionIndex() + direction);
-        }
-    };
-    window.addEventListener('keydown', onKeydown);
-
-    // --- Touch: su mobile lasciamo lo scroll nativo del browser.
-    //     Dopo che lo scroll si ferma, un debounce allinea dolcemente
-    //     alla sezione più vicina (solo se non siamo già a distanza <10px). ---
-    let touchSnapTimer = null;
-    const TOUCH_SNAP_DELAY = 200;
-
-    const softTouchSnap = () => {
-        if (!lenis || isTransitioning) return;
-        const currentScroll = lenis.scroll;
-        const maxScroll = lenis.limit;
-        if (currentScroll >= maxScroll - 6) return;
-
-        // Se la sezione corrente è alta e l'utente sta navigando internamente, non agganciare
-        const currentSection = snapTargets[getCurrentSectionIndex()];
-        if (currentSection) {
-            const sectionTop = currentSection.offsetTop;
-            const sectionBottom = sectionTop + currentSection.offsetHeight;
-            const viewportHeight = window.innerHeight;
-            if (
-                currentSection.offsetHeight > viewportHeight + 20 &&
-                currentScroll > sectionTop + 8 &&
-                currentScroll + viewportHeight < sectionBottom - 8
-            ) {
-                return;
-            }
-        }
-
-        let targetScroll = null;
-        let closestDistance = Infinity;
-        for (const el of snapTargets) {
-            const scrollFor = Math.min(el.offsetTop, maxScroll);
-            const distance = Math.abs(scrollFor - currentScroll);
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                targetScroll = scrollFor;
-            }
-        }
-
-        if (targetScroll === null || closestDistance < 10) return;
-
-        isTransitioning = true;
-        lenis.scrollTo(targetScroll, {
-            duration: 1.1,
-            easing: softEasing,
-            lock: true,
-            onComplete: () => {
-                setTimeout(() => { isTransitioning = false; }, 80);
-            },
-        });
-    };
-
-    if (lenis) {
-        lenis.on('scroll', () => {
-            if (isTransitioning) return;
-            clearTimeout(touchSnapTimer);
-            touchSnapTimer = setTimeout(softTouchSnap, TOUCH_SNAP_DELAY);
-        });
     }
 
     // ========================
@@ -535,22 +323,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             e.preventDefault();
 
-            // Se il target è una delle nostre sezioni, usa goToSection per
-            // mantenere sincronizzato currentSectionIndex
-            const idx = snapTargets.indexOf(target);
-            if (idx !== -1 && lenis) {
-                goToSection(idx);
-                return;
-            }
-
             if (lenis) {
                 lenis.scrollTo(target, {
-                    offset: -70,
-                    duration: 1.2,
+                    offset: -80,
+                    duration: 1.1,
                     easing: softEasing,
                 });
             } else {
-                const offsetTop = target.getBoundingClientRect().top + window.pageYOffset - 70;
+                const offsetTop = target.getBoundingClientRect().top + window.pageYOffset - 80;
                 window.scrollTo({
                     top: offsetTop,
                     behavior: 'smooth'
