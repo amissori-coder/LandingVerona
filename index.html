@@ -190,10 +190,14 @@
                 <p class="section-description">Guide e approfondimenti tematici sulle opportunità normative per imprese e professionisti.</p>
             </div>
 
-            <div class="contents-grid">
+            <!-- Filter toolbar (auto-populated by script.js from card data-category) -->
+            <div class="contents-toolbar" id="contentsToolbar" role="tablist" aria-label="Filtra per categoria"></div>
+
+            <!-- Grid of content cards -->
+            <div class="contents-grid" id="contentsGrid">
 
                 <!-- ZLS e ZES — featured -->
-                <a href="zls_zes/" class="content-card">
+                <a href="zls_zes/" class="content-card" data-category="agevolazioni-fiscali">
                     <div class="content-card-icon" aria-hidden="true">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/>
@@ -228,6 +232,12 @@
                 </a>
 
             </div>
+
+            <!-- Empty state shown when filter matches nothing -->
+            <p class="contents-empty" id="contentsEmpty" hidden>Nessun contenuto in questa categoria.</p>
+
+            <!-- Live count display -->
+            <p class="contents-count" id="contentsCount" aria-live="polite"></p>
         </div>
     </section>
 
