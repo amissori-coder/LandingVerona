@@ -62,15 +62,15 @@
         <div class="split-content">
             <div class="content-inner">
 
-                <!-- Eventi -->
-                <div class="col-section" id="eventi">
-                    <div class="col-head">
-                        <span class="col-tag col-tag-events">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            Eventi
-                        </span>
-                        <span class="col-head-line"></span>
-                    </div>
+                <!-- 01 · Eventi -->
+                <section class="col-section sect-events" id="eventi">
+                    <header class="sect-head">
+                        <span class="sect-number">01</span>
+                        <div class="sect-head-body">
+                            <span class="sect-eyebrow">Eventi</span>
+                            <h2 class="sect-title">Le edizioni del ciclo</h2>
+                        </div>
+                    </header>
 
                     <div class="events-stack">
                         <a href="roma_aprile_2026/" class="event-card event-upcoming">
@@ -113,17 +113,17 @@
                             </div>
                         </a>
                     </div>
-                </div>
+                </section>
 
-                <!-- Contenuti -->
-                <div class="col-section" id="contenuti">
-                    <div class="col-head">
-                        <span class="col-tag col-tag-contents">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h10a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4V4z"/><line x1="8" y1="9" x2="14" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>
-                            Contenuti
-                        </span>
-                        <span class="col-head-line"></span>
-                    </div>
+                <!-- 02 · Contenuti — dark panel -->
+                <section class="col-section sect-contents" id="contenuti">
+                    <header class="sect-head">
+                        <span class="sect-number">02</span>
+                        <div class="sect-head-body">
+                            <span class="sect-eyebrow">Contenuti</span>
+                            <h2 class="sect-title">Approfondimenti &amp; Risorse</h2>
+                        </div>
+                    </header>
 
                     <div class="contents-toolbar" id="contentsToolbar" role="tablist" aria-label="Filtra per categoria"></div>
 
@@ -145,26 +145,43 @@
 
                     <p class="contents-empty" id="contentsEmpty" hidden>Nessun contenuto in questa categoria.</p>
                     <p class="contents-count" id="contentsCount" aria-live="polite"></p>
-                </div>
+                </section>
 
             </div>
         </div>
     </section>
 
-    <!-- Partner: solo "A cura di" -->
+    <!-- Partner -->
     <section class="partners">
         <div class="container">
-            <div class="partners-row">
-                <div class="partners-label">
-                    <span class="label-line"></span>
-                    <span class="label-text">A cura di</span>
-                    <span class="label-line"></span>
+            <div class="partners-stage">
+
+                <div class="partners-row">
+                    <div class="partners-label">
+                        <span class="label-line"></span>
+                        <span class="label-text">A cura di</span>
+                        <span class="label-line"></span>
+                    </div>
+                    <div class="partners-logos">
+                        <a href="https://www.revilaw.it" target="_blank" rel="noopener" class="partner-brand" aria-label="Revilaw S.p.A.">
+                            <img src="assets/logo-revilaw.png" alt="Revilaw S.p.A." class="partner-brand-img">
+                        </a>
+                    </div>
                 </div>
-                <div class="partners-logos">
-                    <a href="https://www.revilaw.it" target="_blank" rel="noopener" class="partner-brand" aria-label="Revilaw S.p.A.">
-                        <img src="assets/logo-revilaw.png" alt="Revilaw S.p.A." class="partner-brand-img">
-                    </a>
+
+                <div class="partners-row">
+                    <div class="partners-label">
+                        <span class="label-line"></span>
+                        <span class="label-text">Con il patrocinio di</span>
+                        <span class="label-line"></span>
+                    </div>
+                    <div class="partners-logos">
+                        <div class="partner-brand">
+                            <img src="assets/logo-unindustria.png" alt="Unindustria" class="partner-brand-img partner-brand-img-lg">
+                        </div>
+                    </div>
                 </div>
+
             </div>
         </div>
     </section>
