@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+                            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+
+    <!-- Landing: main NGB ciclo di convegni -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+
+    <!-- Roma — 29 Aprile 2026 event -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/roma_aprile_2026/</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
+    <!-- Verona — 27 Marzo 2026 past edition -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/verona_marzo_2026/</loc>
+        <lastmod>2026-03-27</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
+
+    <!-- ZLS & ZES content hub -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/zls_zes/</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <url>
+        <loc>https://nextgenerationbusiness.it/zls_zes/zls.html</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+
+    <url>
+        <loc>https://nextgenerationbusiness.it/zls_zes/zes.html</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+
+    <!-- Rating di Legalità -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/rating_legalita/</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- Adeguati Assetti Organizzativi, Amministrativi e Contabili -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/adeguati_assetti/</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- Modello 231 -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/modello_231/</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+</urlset>

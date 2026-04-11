@@ -1,0 +1,16 @@
+# Next Generation Business — robots.txt
+# https://nextgenerationbusiness.it
+
+User-agent: *
+Allow: /
+
+# Explicitly allow the JavaScript and CSS bundles so Googlebot
+# can render the pages correctly.
+Allow: /*.css$
+Allow: /*.js$
+Allow: /assets/
+
+# No wildcard exclusions — every page is public and intended
+# to be indexed.
+
+Sitemap: https://nextgenerationbusiness.it/sitemap.xml

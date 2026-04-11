@@ -85,8 +85,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData(contactForm);
             const data = Object.fromEntries(formData.entries());
 
-            // Validate required fields
-            if (!data.nome || !data.azienda || !data.email) {
+            // Validate required fields (same schema as landing newsletter
+            // and Roma event registration)
+            if (!data.nome || !data.cognome || !data.email || !data.azienda || !data.ruolo) {
                 showNotification('Compila tutti i campi obbligatori.', 'error');
                 return;
             }
@@ -101,12 +102,29 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.textContent = 'Invio in corso...';
             submitBtn.disabled = true;
 
+            // Shared NGB schema: every form on the domain posts the same
+            // fields so the Google Sheet keeps a consistent column layout.
+            // `pagina` identifies the source page, `data` is a pre-formatted
+            // Italian timestamp (dd/MM/yyyy HH:mm:ss) so the sheet always
+            // has a readable Date column even if the Apps Script doesn't
+            // call new Date() on its side.
+            const _n = new Date();
+            const _pad = (x) => String(x).padStart(2, '0');
+            const _ts = _pad(_n.getDate()) + '/' + _pad(_n.getMonth() + 1) + '/' + _n.getFullYear()
+                      + ' ' + _pad(_n.getHours()) + ':' + _pad(_n.getMinutes()) + ':' + _pad(_n.getSeconds());
+
             const jsonData = {
-                nome: data.nome,
-                azienda: data.azienda,
-                email: data.email,
-                telefono: data.telefono || '',
-                messaggio: data.messaggio || ''
+                data:      _ts,
+                pagina:    contactForm.dataset.pagina || 'ZLS & ZES - Contatto',
+                nome:      data.nome,
+                cognome:   data.cognome,
+                email:     data.email,
+                azienda:   data.azienda,
+                ruolo:     data.ruolo,
+                telefono:  data.telefono || '',
+                messaggio: '',
+                privacy:   !!data.privacy,
+                marketing: !!data.marketing
             };
 
             var GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
@@ -120,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showNotification('Grazie! La tua richiesta è stata inviata. Ti ricontatteremo al più presto.', 'success');
                 contactForm.reset();
             }).catch(() => {
-                showNotification('Errore di connessione. Riprova o contattaci a andreamissori@revilaw.it', 'error');
+                showNotification('Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it', 'error');
             }).finally(() => {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
