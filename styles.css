@@ -673,8 +673,59 @@ ul {
     color: var(--navy-dark);
     line-height: 1.32;
     letter-spacing: -0.2px;
-    margin-bottom: 20px;
-    flex: 1;
+    margin-bottom: 12px;
+}
+
+.event-venue {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+}
+
+.event-venue-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--navy-light);
+    margin-top: 2px;
+}
+
+.event-collab {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 2px;
+}
+
+.event-collab-label {
+    font-family: var(--font-display);
+    font-size: 0.56rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.event-collab-logo {
+    height: 22px;
+    width: auto;
+    object-fit: contain;
+    opacity: 0.82;
+    filter: grayscale(0.15);
+    transition: all 0.3s ease;
+    mix-blend-mode: multiply;
+}
+
+.event-card:hover .event-collab-logo {
+    opacity: 1;
+    filter: grayscale(0);
 }
 
 .event-link {
@@ -688,6 +739,7 @@ ul {
     letter-spacing: 0.8px;
     text-transform: uppercase;
     padding: 14px 0 0;
+    margin-top: auto;
     border-top: 1px solid rgba(22, 64, 104, 0.1);
     width: 100%;
     transition: all 0.3s ease;
@@ -963,6 +1015,152 @@ ul {
     text-transform: uppercase;
     text-align: left;
     opacity: 0.75;
+}
+
+/* ============================================
+   OBIETTIVI section (between split and partners)
+   ============================================ */
+.objectives {
+    background: var(--white);
+    padding: 104px 0 96px;
+    border-top: 1px solid rgba(22, 64, 104, 0.08);
+    position: relative;
+}
+
+.objectives .container {
+    max-width: 1140px;
+}
+
+.objectives-header {
+    text-align: center;
+    max-width: 740px;
+    margin: 0 auto 44px;
+}
+
+.objectives-eyebrow {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 2.8px;
+    text-transform: uppercase;
+    color: var(--navy-light);
+    margin-bottom: 14px;
+}
+
+.objectives-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    font-weight: 700;
+    color: var(--navy-dark);
+    line-height: 1.22;
+    letter-spacing: -0.6px;
+    margin-bottom: 20px;
+}
+
+.objectives-divider {
+    width: 48px;
+    height: 2px;
+    background: var(--navy);
+    margin: 0 auto;
+}
+
+.objectives-lead {
+    max-width: 780px;
+    margin: 0 auto 64px;
+}
+
+.objectives-lead p {
+    font-size: 1rem;
+    line-height: 1.85;
+    color: var(--text-muted);
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    margin-bottom: 20px;
+}
+
+.objectives-lead p:last-child {
+    margin-bottom: 0;
+}
+
+.objectives-lead p strong {
+    color: var(--navy-dark);
+}
+
+.objectives-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 22px;
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
+.objective-card {
+    background: var(--white);
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 12px;
+    padding: 30px 26px 28px;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.objective-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--navy);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.4s ease;
+}
+
+.objective-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(22, 64, 104, 0.32);
+    box-shadow: 0 16px 40px rgba(10, 40, 68, 0.09);
+}
+
+.objective-card:hover::before {
+    transform: scaleX(1);
+}
+
+.objective-number {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 300;
+    color: var(--navy-light);
+    letter-spacing: 1.2px;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(22, 64, 104, 0.12);
+}
+
+.objective-card h3 {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--navy-dark);
+    line-height: 1.3;
+    letter-spacing: -0.2px;
+    margin-bottom: 12px;
+}
+
+.objective-card p {
+    font-size: 0.86rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+    margin: 0;
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
 }
 
 /* ============================================
@@ -1310,6 +1508,38 @@ ul {
    - 900-1099: 2-col, rail drops below events (grid-areas)
    - <900: full stack
    ============================================ */
+@media (max-width: 1100px) {
+    .objectives-grid {
+        grid-template-columns: repeat(2, 1fr);
+        max-width: 720px;
+    }
+}
+
+@media (max-width: 560px) {
+    .objectives-grid {
+        grid-template-columns: 1fr;
+        max-width: 480px;
+        gap: 18px;
+    }
+
+    .objectives {
+        padding: 80px 0 72px;
+    }
+
+    .objectives-lead {
+        margin-bottom: 44px;
+    }
+
+    .event-collab {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .event-collab-logo {
+        height: 20px;
+    }
+}
+
 @media (max-width: 1200px) {
     .landing-split {
         grid-template-columns: 38% 42% 20%;
