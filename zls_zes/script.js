@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const jsonData = {
                 data:      _ts,
-                pagina:    'ZLS & ZES - Contatto',
+                pagina:    contactForm.dataset.pagina || 'ZLS & ZES - Contatto',
                 nome:      data.nome,
                 cognome:   data.cognome,
                 email:     data.email,

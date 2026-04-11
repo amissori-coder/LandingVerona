@@ -50,4 +50,28 @@
         <priority>0.7</priority>
     </url>
 
+    <!-- Rating di Legalità -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/rating_legalita/</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- Adeguati Assetti Organizzativi, Amministrativi e Contabili -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/adeguati_assetti/</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- Modello 231 -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/modello_231/</loc>
+        <lastmod>2026-04-11</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
 </urlset>

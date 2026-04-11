@@ -1,0 +1,301 @@
+/* ============================================
+   NGB content-page — shared overrides for the
+   content hub pages (rating_legalita, adeguati_assetti,
+   modello_231). Sits on top of zls_zes/style.css
+   and adds the layouts specific to these pages:
+   levels-grid, pillars-grid, components-grid, benefits-grid.
+   ============================================ */
+
+/* ---------- 3-column feature grid: levels / pillars ---------- */
+.levels-grid,
+.pillars-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 48px;
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.level-card,
+.pillar-card {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-radius: 14px;
+    padding: 32px 28px 30px;
+    box-shadow: 0 2px 10px rgba(10, 40, 68, 0.04);
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+.level-card::before,
+.pillar-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(22, 64, 104, 0.15);
+    transition: background 0.3s ease;
+}
+
+.level-card-mid::before { background: #2A5A85; }
+.level-card-top::before { background: #164068; }
+
+.level-card:hover,
+.pillar-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 42px rgba(10, 40, 68, 0.1);
+    border-color: rgba(22, 64, 104, 0.3);
+}
+
+.level-stars,
+.pillar-number {
+    font-family: 'Inter', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #164068;
+    letter-spacing: 1px;
+    line-height: 1;
+    margin-bottom: 16px;
+}
+
+.level-card-mid .level-stars { color: #2A5A85; }
+.level-card-top  .level-stars { color: #164068; }
+
+.pillar-number {
+    font-size: 2.6rem;
+    letter-spacing: -2px;
+}
+
+.level-card h3,
+.pillar-card h3 {
+    font-size: 1.18rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin-bottom: 6px;
+    line-height: 1.25;
+}
+
+.level-label,
+.pillar-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    color: #5A6270;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(22, 64, 104, 0.1);
+}
+
+.level-list,
+.pillar-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.level-list li,
+.pillar-list li {
+    position: relative;
+    padding-left: 22px;
+    font-size: 0.88rem;
+    color: #5A6270;
+    line-height: 1.55;
+}
+
+.level-list li::before,
+.pillar-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #164068;
+}
+
+/* ---------- 4-column components grid: Modello 231 ---------- */
+.components-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-top: 48px;
+    max-width: 1140px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.component-card {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-radius: 12px;
+    padding: 24px 22px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+}
+
+.component-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(22, 64, 104, 0.3);
+    box-shadow: 0 14px 34px rgba(10, 40, 68, 0.1);
+}
+
+.component-number {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #2A5A85;
+}
+
+.component-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.component-card p {
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: #5A6270;
+    margin: 0;
+}
+
+/* ---------- 2-column benefits grid ---------- */
+.benefits-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-top: 48px;
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.benefit-item {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-radius: 12px;
+    padding: 26px 28px;
+    transition: all 0.3s ease;
+}
+
+.benefit-item:hover {
+    border-color: rgba(22, 64, 104, 0.3);
+    box-shadow: 0 12px 32px rgba(10, 40, 68, 0.08);
+    transform: translateY(-2px);
+}
+
+.benefit-icon-wrap {
+    width: 46px;
+    height: 46px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    background: rgba(22, 64, 104, 0.08);
+    color: #164068;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(22, 64, 104, 0.15);
+}
+
+.benefit-icon-wrap svg {
+    width: 22px;
+    height: 22px;
+}
+
+.benefit-item h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin-bottom: 6px;
+    margin-top: 0;
+    line-height: 1.3;
+}
+
+.benefit-item > div {
+    min-width: 0;
+}
+
+.benefit-item p {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: #5A6270;
+    margin: 0;
+}
+
+/* ---------- Theme variations on the hero ---------- */
+.theme-rating .hero,
+.theme-assetti .hero,
+.theme-231 .hero {
+    /* subtle accent tint differences per topic */
+}
+
+.theme-rating .hero-stats .stat-number {
+    letter-spacing: 2px;
+}
+
+.theme-assetti .hero-badge,
+.theme-231 .hero-badge {
+    /* inherits zls_zes look */
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1024px) {
+    .components-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 860px) {
+    .levels-grid,
+    .pillars-grid {
+        grid-template-columns: 1fr;
+        max-width: 520px;
+    }
+
+    .benefits-grid {
+        grid-template-columns: 1fr;
+        max-width: 560px;
+    }
+
+    .components-grid {
+        grid-template-columns: 1fr;
+        max-width: 520px;
+    }
+}
+
+@media (max-width: 560px) {
+    .level-card,
+    .pillar-card {
+        padding: 28px 22px 26px;
+    }
+
+    .benefit-item {
+        padding: 22px 22px;
+        gap: 16px;
+    }
+
+    .component-card {
+        padding: 20px 20px;
+    }
+}
