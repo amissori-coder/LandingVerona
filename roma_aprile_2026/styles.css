@@ -50,28 +50,9 @@
 }
 
 html {
-    scroll-behavior: auto;
+    scroll-behavior: smooth;
     font-size: 16px;
     overflow-x: clip;
-}
-
-/* Lenis smooth scroll helper classes */
-html.lenis,
-html.lenis body {
-    height: auto;
-    min-height: auto;
-}
-
-.lenis.lenis-smooth {
-    scroll-behavior: auto !important;
-}
-
-.lenis.lenis-smooth [data-lenis-prevent] {
-    overscroll-behavior: contain;
-}
-
-.lenis.lenis-stopped {
-    overflow: hidden;
 }
 
 body {

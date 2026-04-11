@@ -6,43 +6,11 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // ========================
-    // SMOOTH SCROLL (Lenis) — free scroll, no section snap
+    // SCROLL — native browser scroll, no library
     // ========================
-    // Lenis stays on just for the soft-easing smooth wheel/touch feel.
-    // We no longer hijack the wheel or keyboard: the page scrolls
-    // naturally from top to bottom. The only explicit scroll-to
-    // action left is the anchor-link navigation further down.
-    let lenis = null;
-    const softEasing = (t) => 1 - Math.pow(1 - t, 3); // cubic.out
-    // Kept for backwards compatibility with the anchor-link code below;
-    // nothing reads snapTargets anymore, but the array is still exposed
-    // so any legacy call doesn't throw.
-    const snapTargets = [];
-
-    if (typeof Lenis !== 'undefined') {
-        lenis = new Lenis({
-            duration: 1.1,
-            easing: softEasing,
-            smoothWheel: true,
-            smoothTouch: false,
-            wheelMultiplier: 1,
-            touchMultiplier: 1,
-        });
-
-        function raf(time) {
-            lenis.raf(time);
-            requestAnimationFrame(raf);
-        }
-        requestAnimationFrame(raf);
-
-        const resizeLenis = () => lenis && lenis.resize();
-        window.addEventListener('load', () => setTimeout(resizeLenis, 150));
-        if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(() => setTimeout(resizeLenis, 100));
-        }
-
-        window.lenis = lenis;
-    }
+    // The Roma page now relies on the browser's native scrolling.
+    // No smooth-scroll library, no wheel hijacking, no snap:
+    // scroll feels exactly like any normal web page.
 
     // ========================
     // NAVBAR SCROLL BEHAVIOR
@@ -314,6 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================
     // SMOOTH SCROLL FOR ANCHORS
     // ========================
+    // Native smooth-scroll with a fixed offset for the navbar.
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
@@ -323,19 +292,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             e.preventDefault();
 
-            if (lenis) {
-                lenis.scrollTo(target, {
-                    offset: -80,
-                    duration: 1.1,
-                    easing: softEasing,
-                });
-            } else {
-                const offsetTop = target.getBoundingClientRect().top + window.pageYOffset - 80;
-                window.scrollTo({
-                    top: offsetTop,
-                    behavior: 'smooth'
-                });
-            }
+            const offsetTop = target.getBoundingClientRect().top + window.pageYOffset - 80;
+            window.scrollTo({
+                top: offsetTop,
+                behavior: 'smooth'
+            });
         });
     });
 
