@@ -85,8 +85,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData(contactForm);
             const data = Object.fromEntries(formData.entries());
 
-            // Validate required fields
-            if (!data.nome || !data.azienda || !data.email) {
+            // Validate required fields (same schema as landing newsletter
+            // and Roma event registration)
+            if (!data.nome || !data.cognome || !data.email || !data.azienda || !data.ruolo) {
                 showNotification('Compila tutti i campi obbligatori.', 'error');
                 return;
             }
@@ -116,14 +117,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 data:      _ts,
                 pagina:    'ZLS & ZES - Contatto',
                 nome:      data.nome,
-                cognome:   '',
+                cognome:   data.cognome,
                 email:     data.email,
                 azienda:   data.azienda,
-                ruolo:     '',
+                ruolo:     data.ruolo,
                 telefono:  data.telefono || '',
-                messaggio: data.messaggio || '',
+                messaggio: '',
                 privacy:   !!data.privacy,
-                marketing: false
+                marketing: !!data.marketing
             };
 
             var GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';

@@ -224,16 +224,42 @@
                     <p class="footer-newsletter-description">Ricevi in anteprima gli aggiornamenti sui prossimi convegni e le novità normative selezionate dalla redazione.</p>
                 </div>
                 <form class="footer-newsletter-form" id="newsletterForm" novalidate>
-                    <div class="newsletter-fields">
-                        <input type="text" name="nome" placeholder="Il tuo nome" autocomplete="given-name" aria-label="Nome">
-                        <input type="email" name="email" required placeholder="Email professionale *" autocomplete="email" aria-label="Email professionale">
+                    <div class="newsletter-grid">
+                        <div class="newsletter-field">
+                            <label for="nlNome">Nome *</label>
+                            <input type="text" id="nlNome" name="nome" required placeholder="Nome" autocomplete="given-name">
+                        </div>
+                        <div class="newsletter-field">
+                            <label for="nlCognome">Cognome *</label>
+                            <input type="text" id="nlCognome" name="cognome" required placeholder="Cognome" autocomplete="family-name">
+                        </div>
+                        <div class="newsletter-field newsletter-field-full">
+                            <label for="nlEmail">Email professionale *</label>
+                            <input type="email" id="nlEmail" name="email" required placeholder="nome@azienda.it" autocomplete="email">
+                        </div>
+                        <div class="newsletter-field">
+                            <label for="nlAzienda">Azienda / Studio *</label>
+                            <input type="text" id="nlAzienda" name="azienda" required placeholder="Denominazione" autocomplete="organization">
+                        </div>
+                        <div class="newsletter-field">
+                            <label for="nlRuolo">Ruolo *</label>
+                            <input type="text" id="nlRuolo" name="ruolo" required placeholder="Qualifica" autocomplete="organization-title">
+                        </div>
+                        <div class="newsletter-field newsletter-field-full">
+                            <label for="nlTelefono">Telefono <span class="newsletter-optional">(facoltativo)</span></label>
+                            <input type="tel" id="nlTelefono" name="telefono" placeholder="+39 000 000 0000" autocomplete="tel">
+                        </div>
                     </div>
                     <label class="newsletter-consent">
-                        <input type="checkbox" name="privacy" required>
-                        <span>Acconsento al trattamento dei dati ai sensi del Regolamento UE 2016/679 (GDPR). *</span>
+                        <input type="checkbox" id="nlPrivacy" name="privacy" required>
+                        <span>Acconsento al trattamento dei dati personali ai sensi del Regolamento UE 2016/679 (GDPR). *</span>
+                    </label>
+                    <label class="newsletter-consent">
+                        <input type="checkbox" id="nlMarketing" name="marketing">
+                        <span>Desidero ricevere comunicazioni su futuri eventi e iniziative.</span>
                     </label>
                     <button type="submit" class="newsletter-submit" id="newsletterSubmit">
-                        <span>Iscriviti</span>
+                        <span>Iscriviti alla newsletter</span>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="5" y1="12" x2="19" y2="12"></line>
                             <polyline points="12 5 19 12 12 19"></polyline>

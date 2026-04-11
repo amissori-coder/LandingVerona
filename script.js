@@ -260,9 +260,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === Newsletter submission ===
+    // The landing newsletter collects the same user information as
+    // the Roma registration form and the ZLS/ZES contact form, so
+    // the NGB Google Sheet has a uniform row structure regardless
+    // of source page.
     const newsletterForm = document.getElementById('newsletterForm');
     if (newsletterForm) {
         const submitBtn = document.getElementById('newsletterSubmit');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        const setFieldError = (name, hasError) => {
+            const input = newsletterForm.querySelector('[name="' + name + '"]');
+            const field = input ? input.closest('.newsletter-field') : null;
+            if (field) field.classList.toggle('is-error', !!hasError);
+        };
 
         newsletterForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -270,30 +281,56 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData(newsletterForm);
             const data = Object.fromEntries(formData.entries());
 
-            if (!data.email) {
+            // Required text fields
+            const required = ['nome', 'cognome', 'email', 'azienda', 'ruolo'];
+            let firstMissing = null;
+            required.forEach(name => {
+                const value = (data[name] || '').trim();
+                const missing = !value;
+                setFieldError(name, missing);
+                if (missing && !firstMissing) firstMissing = name;
+            });
+
+            if (firstMissing) {
+                showNgbNotification('Compila tutti i campi obbligatori prima di proseguire.', 'error');
+                const el = newsletterForm.querySelector('[name="' + firstMissing + '"]');
+                if (el) el.focus();
+                return;
+            }
+
+            // Email format
+            if (!emailRegex.test((data.email || '').trim())) {
+                setFieldError('email', true);
                 showNgbNotification('Inserisci un indirizzo email valido.', 'error');
                 return;
             }
+
+            // GDPR consent
             if (!data.privacy) {
                 showNgbNotification('È necessario accettare il trattamento dei dati personali.', 'error');
                 return;
             }
 
             const originalContent = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<span>Invio...</span>';
+            submitBtn.innerHTML = '<span>Invio in corso...</span>';
             submitBtn.disabled = true;
 
             const payload = buildNgbPayload('Landing - Newsletter', {
-                nome: data.nome || '',
-                email: data.email,
-                privacy: !!data.privacy,
-                marketing: true // newsletter subscription implies marketing consent
+                nome:      (data.nome     || '').trim(),
+                cognome:   (data.cognome  || '').trim(),
+                email:     (data.email    || '').trim(),
+                azienda:   (data.azienda  || '').trim(),
+                ruolo:     (data.ruolo    || '').trim(),
+                telefono:  (data.telefono || '').trim(),
+                privacy:   !!data.privacy,
+                marketing: !!data.marketing
             });
 
             ngbSubmit(payload)
                 .then(() => {
                     showNgbNotification('Iscrizione avvenuta con successo. A presto!', 'success');
                     newsletterForm.reset();
+                    required.forEach(name => setFieldError(name, false));
                 })
                 .catch(() => {
                     showNgbNotification('Errore di connessione. Riprova o scrivici a info@nextgenerationbusiness.it', 'error');
@@ -302,6 +339,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     submitBtn.innerHTML = originalContent;
                     submitBtn.disabled = false;
                 });
+        });
+
+        // Clear the error state on a field as soon as the user edits it
+        newsletterForm.querySelectorAll('.newsletter-field input').forEach(input => {
+            input.addEventListener('input', () => setFieldError(input.name, false));
         });
     }
 

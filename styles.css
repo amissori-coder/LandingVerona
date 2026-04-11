@@ -1071,16 +1071,17 @@ ul {
 /* ===== Newsletter subscription ===== */
 .footer-newsletter {
     display: grid;
-    grid-template-columns: 1fr 1.1fr;
+    grid-template-columns: 0.85fr 1.25fr;
     gap: 56px;
-    align-items: center;
-    padding-bottom: 44px;
-    margin-bottom: 44px;
+    align-items: start;
+    padding-bottom: 48px;
+    margin-bottom: 48px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .footer-newsletter-copy {
     max-width: 460px;
+    padding-top: 6px;
 }
 
 .footer-newsletter-eyebrow {
@@ -1113,17 +1114,45 @@ ul {
 .footer-newsletter-form {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 18px;
 }
 
-.newsletter-fields {
+.newsletter-grid {
     display: grid;
-    grid-template-columns: 0.9fr 1.2fr;
-    gap: 10px;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 12px;
 }
 
-.newsletter-fields input {
-    padding: 13px 16px;
+.newsletter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.newsletter-field-full {
+    grid-column: 1 / -1;
+}
+
+.newsletter-field label {
+    font-family: var(--font-display);
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.newsletter-optional {
+    font-weight: 500;
+    letter-spacing: 0.8px;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: none;
+    margin-left: 4px;
+}
+
+.newsletter-field input {
+    padding: 12px 14px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 4px;
@@ -1132,16 +1161,22 @@ ul {
     font-size: 0.86rem;
     transition: all 0.25s ease;
     min-width: 0;
+    width: 100%;
 }
 
-.newsletter-fields input::placeholder {
-    color: rgba(255, 255, 255, 0.4);
+.newsletter-field input::placeholder {
+    color: rgba(255, 255, 255, 0.36);
 }
 
-.newsletter-fields input:focus {
+.newsletter-field input:focus {
     outline: none;
     background: rgba(255, 255, 255, 0.09);
-    border-color: rgba(255, 255, 255, 0.35);
+    border-color: rgba(255, 255, 255, 0.38);
+}
+
+.newsletter-field.is-error input {
+    border-color: rgba(239, 68, 68, 0.55);
+    background: rgba(239, 68, 68, 0.05);
 }
 
 .newsletter-consent {
@@ -1150,7 +1185,7 @@ ul {
     gap: 10px;
     cursor: pointer;
     font-size: 0.72rem;
-    color: rgba(255, 255, 255, 0.52);
+    color: rgba(255, 255, 255, 0.54);
     line-height: 1.55;
 }
 
@@ -1174,6 +1209,7 @@ ul {
     gap: 10px;
     align-self: flex-start;
     padding: 13px 30px;
+    margin-top: 4px;
     background: var(--white);
     color: var(--navy-dark);
     border: 2px solid var(--white);
@@ -1417,7 +1453,7 @@ ul {
         display: none;
     }
 
-    .newsletter-fields {
+    .newsletter-grid {
         grid-template-columns: 1fr;
     }
 
