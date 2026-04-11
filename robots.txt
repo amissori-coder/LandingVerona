@@ -10,7 +10,8 @@ Allow: /*.css$
 Allow: /*.js$
 Allow: /assets/
 
-# No wildcard exclusions — every page is public and intended
-# to be indexed.
+# Work-in-progress areas and internal tools: do not index.
+Disallow: /stima-ore-test/
+Disallow: /tools/
 
 Sitemap: https://nextgenerationbusiness.it/sitemap.xml
