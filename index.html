@@ -157,26 +157,33 @@
                         </div>
                     </header>
 
-                    <div class="contents-toolbar" id="contentsToolbar" role="tablist" aria-label="Filtra per categoria"></div>
+                    <div class="contents-layout">
+                        <!-- Sidebar: filter categories as a vertical nav -->
+                        <aside class="contents-sidebar">
+                            <span class="contents-sidebar-label">Categorie</span>
+                            <div class="contents-toolbar" id="contentsToolbar" role="tablist" aria-label="Filtra per categoria"></div>
+                            <p class="contents-count" id="contentsCount" aria-live="polite"></p>
+                        </aside>
 
-                    <div class="contents-list" id="contentsGrid">
-                        <a href="zls_zes/" class="content-card" data-category="agevolazioni-fiscali">
-                            <span class="content-tag">Agevolazioni Fiscali</span>
-                            <div class="content-card-body">
-                                <h3 class="content-title">ZLS &amp; ZES &mdash; Credito d'Imposta 2026</h3>
-                                <p class="content-excerpt">Zone Logistiche Semplificate e ZES Unica Mezzogiorno: credito d'imposta fino al <strong>60%</strong>.</p>
+                        <!-- Main: vertical menu of content entries (TOC-style) -->
+                        <div class="contents-main">
+                            <div class="contents-list" id="contentsGrid">
+                                <a href="zls_zes/" class="content-card" data-category="agevolazioni-fiscali">
+                                    <div class="content-card-body">
+                                        <span class="content-tag">Agevolazioni Fiscali</span>
+                                        <h3 class="content-title">ZLS &amp; ZES &mdash; Credito d'Imposta 2026</h3>
+                                    </div>
+                                    <span class="content-link" aria-hidden="true">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                            <polyline points="12 5 19 12 12 19"></polyline>
+                                        </svg>
+                                    </span>
+                                </a>
                             </div>
-                            <span class="content-link" aria-hidden="true">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                                    <polyline points="12 5 19 12 12 19"></polyline>
-                                </svg>
-                            </span>
-                        </a>
+                            <p class="contents-empty" id="contentsEmpty" hidden>Nessun contenuto in questa categoria.</p>
+                        </div>
                     </div>
-
-                    <p class="contents-empty" id="contentsEmpty" hidden>Nessun contenuto in questa categoria.</p>
-                    <p class="contents-count" id="contentsCount" aria-live="polite"></p>
                 </section>
 
             </div>
@@ -186,29 +193,20 @@
     <!-- Partner -->
     <section class="partners">
         <div class="container">
-            <div class="partners-stage">
-
-                <div class="partners-row">
-                    <div class="partners-label">
-                        <span class="label-line"></span>
-                        <span class="label-text">A cura di</span>
-                        <span class="label-line"></span>
-                    </div>
-                    <div class="partners-logos">
-                        <a href="https://www.revilaw.it" target="_blank" rel="noopener" class="partner-brand" aria-label="Revilaw S.p.A.">
-                            <img src="assets/logo-revilaw.png" alt="Revilaw S.p.A." class="partner-brand-img">
-                        </a>
+            <div class="partners-row">
+                <div class="partners-label">
+                    <span class="label-line"></span>
+                    <span class="label-text">A cura di</span>
+                    <span class="label-line"></span>
+                </div>
+                <div class="partners-logos">
+                    <a href="https://www.revilaw.it" target="_blank" rel="noopener" class="partner-brand" aria-label="Revilaw S.p.A.">
+                        <img src="assets/logo-revilaw.png" alt="Revilaw S.p.A." class="partner-brand-img">
+                    </a>
+                    <div class="partner-brand">
+                        <img src="assets/logo-unindustria.png" alt="Unindustria" class="partner-brand-img partner-brand-img-lg">
                     </div>
                 </div>
-
-                <div class="partners-row partners-row-bare">
-                    <div class="partners-logos">
-                        <div class="partner-brand">
-                            <img src="assets/logo-unindustria.png" alt="Unindustria" class="partner-brand-img partner-brand-img-lg">
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </div>
     </section>
