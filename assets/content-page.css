@@ -6,6 +6,32 @@
    levels-grid, pillars-grid, components-grid, benefits-grid.
    ============================================ */
 
+/* ---------- Justified text on multi-line paragraphs ----------
+   Only the .content-page body (i.e. the three content hub pages)
+   switches to justify, with soft hyphenation to avoid ugly gaps
+   on narrow screens. Section tags, labels and headings stay as
+   they are. */
+.content-page .section-desc,
+.content-page .detail-block p,
+.content-page .benefit-item p,
+.content-page .perche-item p {
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
+    word-spacing: -0.01em;
+}
+
+.content-page .detail-block {
+    max-width: 860px;
+}
+
+.content-page .detail-block p {
+    font-size: 1.02rem;
+    line-height: 1.85;
+}
+
 /* ---------- 3-column feature grid: levels / pillars ---------- */
 .levels-grid,
 .pillars-grid {
@@ -181,55 +207,77 @@
 .benefits-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 24px;
+    gap: 26px;
     margin-top: 48px;
-    max-width: 1000px;
+    max-width: 1040px;
     margin-left: auto;
     margin-right: auto;
 }
 
 .benefit-item {
     display: flex;
-    gap: 20px;
+    gap: 22px;
     align-items: flex-start;
     background: #ffffff;
     border: 1px solid rgba(22, 64, 104, 0.12);
+    border-left: 3px solid #164068;
     border-radius: 12px;
-    padding: 26px 28px;
+    padding: 28px 30px 26px;
     transition: all 0.3s ease;
+    position: relative;
+}
+
+.benefit-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -3px;
+    width: 3px;
+    height: 100%;
+    background: #164068;
+    transform: scaleY(0.45);
+    transform-origin: top;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .benefit-item:hover {
     border-color: rgba(22, 64, 104, 0.3);
-    box-shadow: 0 12px 32px rgba(10, 40, 68, 0.08);
-    transform: translateY(-2px);
+    border-left-color: #164068;
+    box-shadow: 0 14px 36px rgba(10, 40, 68, 0.1);
+    transform: translateY(-3px);
+}
+
+.benefit-item:hover::before {
+    transform: scaleY(1);
 }
 
 .benefit-icon-wrap {
-    width: 46px;
-    height: 46px;
+    width: 52px;
+    height: 52px;
     flex-shrink: 0;
-    border-radius: 10px;
-    background: rgba(22, 64, 104, 0.08);
-    color: #164068;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #164068 0%, #2A5A85 100%);
+    color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(22, 64, 104, 0.15);
+    border: none;
+    box-shadow: 0 6px 18px rgba(22, 64, 104, 0.2);
 }
 
 .benefit-icon-wrap svg {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
 }
 
 .benefit-item h3 {
-    font-size: 1rem;
+    font-size: 1.08rem;
     font-weight: 700;
     color: #0A2844;
-    margin-bottom: 6px;
-    margin-top: 0;
+    margin-bottom: 10px;
+    margin-top: 2px;
     line-height: 1.3;
+    letter-spacing: -0.2px;
 }
 
 .benefit-item > div {
@@ -237,10 +285,27 @@
 }
 
 .benefit-item p {
-    font-size: 0.88rem;
-    line-height: 1.6;
+    font-size: 0.9rem;
+    line-height: 1.68;
     color: #5A6270;
     margin: 0;
+}
+
+/* Key figures / keywords inside a benefit — picked out in navy
+   to make the payoff for the company visually obvious */
+.benefit-item p strong,
+.content-page .detail-block p strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+.benefit-key {
+    display: inline-block;
+    padding: 1px 6px;
+    background: rgba(22, 64, 104, 0.08);
+    color: #0A2844;
+    font-weight: 700;
+    border-radius: 4px;
 }
 
 /* ---------- Theme variations on the hero ---------- */
