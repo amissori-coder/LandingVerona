@@ -7,9 +7,21 @@
 // ======================================================================
 // Shared backend for every form on the NGB domain (landing, roma, zls_zes)
 // Each submission carries a `pagina` field so rows in the sheet can be
-// grouped by source.
+// grouped by source, and a `data` field pre-formatted as dd/MM/yyyy HH:mm:ss
+// so the spreadsheet always has a human-readable timestamp column.
 // ======================================================================
 const NGB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
+
+/**
+ * Italian-formatted timestamp for the submission. Runs at call time.
+ *   → "11/04/2026 15:30:42"
+ */
+function ngbTimestamp() {
+    const n = new Date();
+    const p = (x) => String(x).padStart(2, '0');
+    return p(n.getDate()) + '/' + p(n.getMonth() + 1) + '/' + n.getFullYear()
+         + ' ' + p(n.getHours()) + ':' + p(n.getMinutes()) + ':' + p(n.getSeconds());
+}
 
 /**
  * Build a full payload object. Unused fields are sent as empty strings so
@@ -17,6 +29,7 @@ const NGB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2
  */
 function buildNgbPayload(pagina, overrides) {
     return Object.assign({
+        data: ngbTimestamp(),
         pagina: pagina,
         nome: '',
         cognome: '',

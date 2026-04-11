@@ -103,8 +103,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Shared NGB schema: every form on the domain posts the same
             // fields so the Google Sheet keeps a consistent column layout.
-            // The `pagina` field identifies which page the row came from.
+            // `pagina` identifies the source page, `data` is a pre-formatted
+            // Italian timestamp (dd/MM/yyyy HH:mm:ss) so the sheet always
+            // has a readable Date column even if the Apps Script doesn't
+            // call new Date() on its side.
+            const _n = new Date();
+            const _pad = (x) => String(x).padStart(2, '0');
+            const _ts = _pad(_n.getDate()) + '/' + _pad(_n.getMonth() + 1) + '/' + _n.getFullYear()
+                      + ' ' + _pad(_n.getHours()) + ':' + _pad(_n.getMinutes()) + ':' + _pad(_n.getSeconds());
+
             const jsonData = {
+                data:      _ts,
                 pagina:    'ZLS & ZES - Contatto',
                 nome:      data.nome,
                 cognome:   '',

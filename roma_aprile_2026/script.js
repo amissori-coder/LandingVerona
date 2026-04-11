@@ -435,9 +435,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // Build payload matching the shared NGB schema. Every form on
             // the domain posts to the same Google Sheet endpoint and the
             // `pagina` field identifies which page the submission came from.
+            // `data` is a pre-formatted Italian timestamp so the sheet
+            // always has a readable Date column without relying on the
+            // Apps Script to call new Date() server-side.
             const NGB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
 
+            const _n = new Date();
+            const _pad = (x) => String(x).padStart(2, '0');
+            const _ts = _pad(_n.getDate()) + '/' + _pad(_n.getMonth() + 1) + '/' + _n.getFullYear()
+                      + ' ' + _pad(_n.getHours()) + ':' + _pad(_n.getMinutes()) + ':' + _pad(_n.getSeconds());
+
             const payload = {
+                data:      _ts,
                 pagina:    'Roma 29 Aprile 2026 - Iscrizione',
                 nome:      (form.querySelector('#nome')    || {}).value || '',
                 cognome:   (form.querySelector('#cognome') || {}).value || '',
