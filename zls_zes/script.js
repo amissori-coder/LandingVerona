@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 showNotification('Grazie! La tua richiesta è stata inviata. Ti ricontatteremo al più presto.', 'success');
                 contactForm.reset();
             }).catch(() => {
-                showNotification('Errore di connessione. Riprova o contattaci a andreamissori@revilaw.it', 'error');
+                showNotification('Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it', 'error');
             }).finally(() => {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
