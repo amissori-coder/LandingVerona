@@ -1,7 +1,103 @@
 /**
  * Next Generation Business — Main Landing
- * Vanilla JS: navbar scroll effect, smooth anchors, contents filter.
+ * Vanilla JS: navbar scroll effect, smooth anchors, contents filter,
+ * newsletter submission (shared Google Sheet endpoint with roma and zls_zes).
  */
+
+// ======================================================================
+// Shared backend for every form on the NGB domain (landing, roma, zls_zes)
+// Each submission carries a `pagina` field so rows in the sheet can be
+// grouped by source.
+// ======================================================================
+const NGB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
+
+/**
+ * Build a full payload object. Unused fields are sent as empty strings so
+ * every submission writes to the exact same columns in the target sheet.
+ */
+function buildNgbPayload(pagina, overrides) {
+    return Object.assign({
+        pagina: pagina,
+        nome: '',
+        cognome: '',
+        email: '',
+        azienda: '',
+        ruolo: '',
+        telefono: '',
+        messaggio: '',
+        privacy: false,
+        marketing: false
+    }, overrides || {});
+}
+
+function ngbSubmit(payload) {
+    return fetch(NGB_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+}
+
+/**
+ * Corner notification used as form feedback.
+ */
+function showNgbNotification(message, type) {
+    const existing = document.querySelector('.ngb-notification');
+    if (existing) existing.remove();
+
+    const notification = document.createElement('div');
+    notification.className = 'ngb-notification ngb-notification-' + type;
+    notification.innerHTML = '<span></span><button type="button" aria-label="Chiudi">&times;</button>';
+    notification.querySelector('span').textContent = message;
+
+    Object.assign(notification.style, {
+        position: 'fixed',
+        bottom: '24px',
+        right: '24px',
+        maxWidth: '420px',
+        padding: '16px 22px',
+        borderRadius: '10px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px',
+        zIndex: '9999',
+        fontSize: '0.9rem',
+        fontFamily: "'Inter', -apple-system, sans-serif",
+        lineHeight: '1.45',
+        boxShadow: '0 14px 40px rgba(10, 40, 68, 0.35)',
+        background: type === 'success' ? '#0F3D2E' : '#5C1A1F',
+        color: '#F1F5F9',
+        border: '1px solid ' + (type === 'success' ? '#10B981' : '#EF4444'),
+        transform: 'translateY(16px)',
+        opacity: '0',
+        transition: 'opacity 0.35s ease, transform 0.35s ease'
+    });
+
+    const closeBtn = notification.querySelector('button');
+    Object.assign(closeBtn.style, {
+        background: 'transparent',
+        border: 'none',
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: '1.3rem',
+        cursor: 'pointer',
+        padding: '0',
+        lineHeight: '1'
+    });
+    closeBtn.addEventListener('click', () => notification.remove());
+
+    document.body.appendChild(notification);
+    requestAnimationFrame(() => {
+        notification.style.opacity = '1';
+        notification.style.transform = 'translateY(0)';
+    });
+
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateY(12px)';
+        setTimeout(() => notification.remove(), 400);
+    }, 5500);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -148,6 +244,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Initial count render
         updateCount(total);
+    }
+
+    // === Newsletter submission ===
+    const newsletterForm = document.getElementById('newsletterForm');
+    if (newsletterForm) {
+        const submitBtn = document.getElementById('newsletterSubmit');
+
+        newsletterForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(newsletterForm);
+            const data = Object.fromEntries(formData.entries());
+
+            if (!data.email) {
+                showNgbNotification('Inserisci un indirizzo email valido.', 'error');
+                return;
+            }
+            if (!data.privacy) {
+                showNgbNotification('È necessario accettare il trattamento dei dati personali.', 'error');
+                return;
+            }
+
+            const originalContent = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<span>Invio...</span>';
+            submitBtn.disabled = true;
+
+            const payload = buildNgbPayload('Landing - Newsletter', {
+                nome: data.nome || '',
+                email: data.email,
+                privacy: !!data.privacy,
+                marketing: true // newsletter subscription implies marketing consent
+            });
+
+            ngbSubmit(payload)
+                .then(() => {
+                    showNgbNotification('Iscrizione avvenuta con successo. A presto!', 'success');
+                    newsletterForm.reset();
+                })
+                .catch(() => {
+                    showNgbNotification('Errore di connessione. Riprova o scrivici a info@nextgenerationbusiness.it', 'error');
+                })
+                .finally(() => {
+                    submitBtn.innerHTML = originalContent;
+                    submitBtn.disabled = false;
+                });
+        });
     }
 
 });

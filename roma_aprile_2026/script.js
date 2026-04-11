@@ -432,12 +432,51 @@ document.addEventListener('DOMContentLoaded', () => {
             btnLoading.style.display = 'inline-flex';
             submitBtn.disabled = true;
 
-            // Simulate form submission (replace with actual API endpoint)
-            setTimeout(() => {
+            // Build payload matching the shared NGB schema. Every form on
+            // the domain posts to the same Google Sheet endpoint and the
+            // `pagina` field identifies which page the submission came from.
+            const NGB_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
+
+            const payload = {
+                pagina:    'Roma 29 Aprile 2026 - Iscrizione',
+                nome:      (form.querySelector('#nome')    || {}).value || '',
+                cognome:   (form.querySelector('#cognome') || {}).value || '',
+                email:     (form.querySelector('#email')   || {}).value || '',
+                azienda:   (form.querySelector('#azienda') || {}).value || '',
+                ruolo:     (form.querySelector('#ruolo')   || {}).value || '',
+                telefono:  (form.querySelector('#telefono')|| {}).value || '',
+                messaggio: '',
+                privacy:   !!(form.querySelector('#privacy')   && form.querySelector('#privacy').checked),
+                marketing: !!(form.querySelector('#marketing') && form.querySelector('#marketing').checked)
+            };
+
+            fetch(NGB_SHEET_URL, {
+                method:  'POST',
+                mode:    'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify(payload)
+            }).then(() => {
                 form.style.display = 'none';
                 formSuccess.style.display = 'block';
                 formSuccess.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 1500);
+            }).catch(() => {
+                btnText.style.display = 'inline-flex';
+                btnLoading.style.display = 'none';
+                submitBtn.disabled = false;
+
+                // Show a lightweight inline error below the submit button
+                let errEl = document.getElementById('submitError');
+                if (!errEl) {
+                    errEl = document.createElement('p');
+                    errEl.id = 'submitError';
+                    errEl.className = 'form-submit-error';
+                    errEl.style.cssText = 'margin-top:14px;color:#B1213B;font-size:0.85rem;text-align:center;';
+                    const footnote = submitBtn.parentElement.querySelector('.form-footnote');
+                    if (footnote) footnote.after(errEl);
+                    else submitBtn.parentElement.appendChild(errEl);
+                }
+                errEl.textContent = "Errore di connessione. Riprova più tardi o scrivici a info@nextgenerationbusiness.it";
+            });
         });
     }
 

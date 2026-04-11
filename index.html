@@ -215,6 +215,33 @@
     <!-- Footer -->
     <footer class="footer" id="contatti">
         <div class="container">
+
+            <!-- Newsletter subscription strip -->
+            <div class="footer-newsletter">
+                <div class="footer-newsletter-copy">
+                    <span class="footer-newsletter-eyebrow">Newsletter</span>
+                    <h3 class="footer-newsletter-title">Resta aggiornato sul ciclo</h3>
+                    <p class="footer-newsletter-description">Ricevi in anteprima gli aggiornamenti sui prossimi convegni e le novità normative selezionate dalla redazione.</p>
+                </div>
+                <form class="footer-newsletter-form" id="newsletterForm" novalidate>
+                    <div class="newsletter-fields">
+                        <input type="text" name="nome" placeholder="Il tuo nome" autocomplete="given-name" aria-label="Nome">
+                        <input type="email" name="email" required placeholder="Email professionale *" autocomplete="email" aria-label="Email professionale">
+                    </div>
+                    <label class="newsletter-consent">
+                        <input type="checkbox" name="privacy" required>
+                        <span>Acconsento al trattamento dei dati ai sensi del Regolamento UE 2016/679 (GDPR). *</span>
+                    </label>
+                    <button type="submit" class="newsletter-submit" id="newsletterSubmit">
+                        <span>Iscriviti</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+
             <div class="footer-grid">
                 <div class="footer-col footer-brand">
                     <div class="brand-logo">

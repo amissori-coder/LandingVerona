@@ -101,12 +101,20 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.textContent = 'Invio in corso...';
             submitBtn.disabled = true;
 
+            // Shared NGB schema: every form on the domain posts the same
+            // fields so the Google Sheet keeps a consistent column layout.
+            // The `pagina` field identifies which page the row came from.
             const jsonData = {
-                nome: data.nome,
-                azienda: data.azienda,
-                email: data.email,
-                telefono: data.telefono || '',
-                messaggio: data.messaggio || ''
+                pagina:    'ZLS & ZES - Contatto',
+                nome:      data.nome,
+                cognome:   '',
+                email:     data.email,
+                azienda:   data.azienda,
+                ruolo:     '',
+                telefono:  data.telefono || '',
+                messaggio: data.messaggio || '',
+                privacy:   !!data.privacy,
+                marketing: false
             };
 
             var GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
