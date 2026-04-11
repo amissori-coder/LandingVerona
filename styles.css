@@ -697,14 +697,16 @@ ul {
 .event-collab {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 18px;
-    padding-bottom: 2px;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    border-top: 1px dashed rgba(22, 64, 104, 0.14);
+    border-bottom: 1px dashed rgba(22, 64, 104, 0.14);
 }
 
 .event-collab-label {
     font-family: var(--font-display);
-    font-size: 0.56rem;
+    font-size: 0.58rem;
     font-weight: 700;
     letter-spacing: 1.6px;
     text-transform: uppercase;
@@ -714,11 +716,11 @@ ul {
 }
 
 .event-collab-logo {
-    height: 22px;
+    height: 34px;
     width: auto;
     object-fit: contain;
-    opacity: 0.82;
-    filter: grayscale(0.15);
+    opacity: 0.9;
+    filter: grayscale(0.1);
     transition: all 0.3s ease;
     mix-blend-mode: multiply;
 }
@@ -726,6 +728,7 @@ ul {
 .event-card:hover .event-collab-logo {
     opacity: 1;
     filter: grayscale(0);
+    transform: scale(1.02);
 }
 
 .event-link {
@@ -1018,12 +1021,297 @@ ul {
 }
 
 /* ============================================
-   OBIETTIVI section (between split and partners)
+   CHI SIAMO section (Revilaw + motto + brochure)
+   ============================================ */
+.chi-siamo {
+    background: var(--light-gray);
+    padding: 112px 0 104px;
+    border-top: 1px solid rgba(22, 64, 104, 0.08);
+    position: relative;
+}
+
+.chi-siamo .container {
+    max-width: 1180px;
+}
+
+.chi-siamo-header {
+    text-align: center;
+    max-width: 780px;
+    margin: 0 auto 64px;
+}
+
+.chi-siamo-eyebrow {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 2.8px;
+    text-transform: uppercase;
+    color: var(--navy-light);
+    margin-bottom: 14px;
+}
+
+.chi-siamo-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+    font-weight: 700;
+    color: var(--navy-dark);
+    line-height: 1.18;
+    letter-spacing: -0.6px;
+    margin-bottom: 22px;
+}
+
+.chi-siamo-title-accent {
+    display: inline-block;
+    font-weight: 400;
+    color: var(--navy-light);
+    font-size: 0.78em;
+    letter-spacing: 0.2px;
+}
+
+.chi-siamo-divider {
+    width: 48px;
+    height: 2px;
+    background: var(--navy);
+    margin: 0 auto;
+}
+
+.chi-siamo-layout {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 64px;
+    align-items: start;
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
+.chi-siamo-body {
+    min-width: 0;
+}
+
+.chi-siamo-body p {
+    font-size: 1rem;
+    line-height: 1.9;
+    color: var(--text-muted);
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    margin-bottom: 22px;
+}
+
+.chi-siamo-body p strong {
+    color: var(--navy-dark);
+    font-weight: 700;
+}
+
+/* --- Motto "Oltre la verifica, verso il valore" --- */
+.chi-siamo-motto {
+    position: relative;
+    font-family: var(--font-display);
+    font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+    font-weight: 500;
+    font-style: italic;
+    color: var(--navy-dark);
+    line-height: 1.35;
+    letter-spacing: -0.3px;
+    text-align: center;
+    margin: 32px 0 36px;
+    padding: 26px 36px;
+    border-top: 2px solid var(--navy);
+    border-bottom: 2px solid var(--navy);
+    background: #FFFFFF;
+}
+
+.chi-siamo-motto-mark {
+    font-family: 'Georgia', serif;
+    font-size: 2.2em;
+    font-weight: 700;
+    font-style: normal;
+    line-height: 0;
+    color: var(--navy-light);
+    margin: 0 6px;
+    vertical-align: -0.35em;
+    opacity: 0.55;
+}
+
+.chi-siamo-motto-mark-right {
+    vertical-align: -0.35em;
+}
+
+.chi-siamo-facts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(22, 64, 104, 0.14);
+}
+
+.chi-siamo-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chi-siamo-fact-label {
+    font-family: var(--font-display);
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: var(--navy-light);
+}
+
+.chi-siamo-fact-value {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--navy-dark);
+    line-height: 1.35;
+}
+
+/* --- Brochure card --- */
+.chi-siamo-brochure {
+    background: var(--white);
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 18px 48px rgba(10, 40, 68, 0.1);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 100px;
+}
+
+.brochure-cover-link {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 3 / 4;
+    background: var(--navy-dark);
+}
+
+.brochure-cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.brochure-cover-link:hover .brochure-cover-img {
+    transform: scale(1.03);
+}
+
+.brochure-cover-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(10, 40, 68, 0.55);
+    color: var(--white);
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(2px);
+}
+
+.brochure-cover-link:hover .brochure-cover-overlay {
+    opacity: 1;
+}
+
+.brochure-meta {
+    padding: 28px 28px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.brochure-meta-label {
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--navy-light);
+}
+
+.brochure-meta-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--navy-dark);
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    margin: 0;
+}
+
+.brochure-meta-description {
+    font-size: 0.86rem;
+    line-height: 1.65;
+    color: var(--text-muted);
+    margin: 0 0 6px;
+}
+
+.brochure-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.brochure-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 13px 20px;
+    border-radius: 6px;
+    font-family: var(--font-display);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    border: 2px solid var(--navy);
+}
+
+.brochure-btn-primary {
+    background: var(--navy);
+    color: var(--white);
+}
+
+.brochure-btn-primary:hover {
+    background: var(--navy-dark);
+    border-color: var(--navy-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(10, 40, 68, 0.2);
+}
+
+.brochure-btn-outline {
+    background: transparent;
+    color: var(--navy);
+}
+
+.brochure-btn-outline:hover {
+    background: rgba(22, 64, 104, 0.06);
+    transform: translateY(-2px);
+}
+
+/* ============================================
+   OBIETTIVI section (between chi-siamo and partners)
    ============================================ */
 .objectives {
     background: var(--white);
     padding: 104px 0 96px;
-    border-top: 1px solid rgba(22, 64, 104, 0.08);
     position: relative;
 }
 
@@ -1513,6 +1801,33 @@ ul {
         grid-template-columns: repeat(2, 1fr);
         max-width: 720px;
     }
+
+    .chi-siamo-layout {
+        gap: 48px;
+    }
+}
+
+@media (max-width: 900px) {
+    .chi-siamo-layout {
+        grid-template-columns: 1fr;
+        gap: 56px;
+        max-width: 640px;
+    }
+
+    .chi-siamo-brochure {
+        position: static;
+        max-width: 440px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    .brochure-actions {
+        flex-direction: row;
+    }
+
+    .brochure-btn {
+        flex: 1;
+    }
 }
 
 @media (max-width: 560px) {
@@ -1522,21 +1837,38 @@ ul {
         gap: 18px;
     }
 
-    .objectives {
+    .objectives,
+    .chi-siamo {
         padding: 80px 0 72px;
     }
 
-    .objectives-lead {
+    .objectives-lead,
+    .chi-siamo-header {
         margin-bottom: 44px;
+    }
+
+    .chi-siamo-motto {
+        font-size: 1.15rem;
+        padding: 22px 24px;
+        margin: 26px 0 30px;
+    }
+
+    .chi-siamo-facts {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .brochure-actions {
+        flex-direction: column;
     }
 
     .event-collab {
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 10px;
     }
 
     .event-collab-logo {
-        height: 20px;
+        height: 28px;
     }
 }
 
