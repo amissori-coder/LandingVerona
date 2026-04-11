@@ -1,0 +1,3133 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestione Compensi/Team Revilaw S.p.A.</title>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f7fb;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0 0 20px;
+    }
+    .container {
+      background-color: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      max-width: 1450px;
+      width: 100%;
+      margin: 0 auto;
+      position: relative;
+    }
+    h1 { color: #1f4e79; text-align: center; font-size: 22px; margin-bottom: 6px; }
+    .subtitle { text-align: center; color: #607d8b; font-size: 13px; margin-bottom: 12px; }
+    .section-title {
+      color: #1f4e79;
+      border-bottom: 2px solid #e6edf5;
+      padding-bottom: 5px;
+      margin-top: 22px;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+    label { display: block; margin-bottom: 6px; font-weight: 600; color: #34495e; font-size: 14px; }
+    input[type="text"], input[type="number"], input[type="date"], select, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 6px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    input:focus, select:focus, textarea:focus { border-color: #3498db; outline: none; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; }
+
+    .hint { font-size: 12px; color: #95a5a6; margin-bottom: 10px; display: block; }
+    .hint.warning { color: #c0392b; font-weight: 800; }
+    .media-display {
+      background: #f8f9fa;
+      padding: 10px;
+      text-align: center;
+      border-radius: 6px;
+      color: #555;
+      font-weight: bold;
+      margin-bottom: 8px;
+      border: 1px dashed #ccc;
+    }
+
+    .year-box {
+      background: #f7fafc;
+      border: 1px solid #e6edf5;
+      padding: 14px;
+      border-radius: 12px;
+      margin-top: 10px;
+      text-align: center;
+    }
+    .year-box .year-title { font-weight: 900; color: #2c3e50; margin-bottom: 8px; }
+    .year-box input[type="number"] {
+      max-width: 220px;
+      margin: 0 auto;
+      text-align: center;
+      font-size: 18px;
+      font-weight: 800;
+      padding: 10px;
+    }
+    .year-line { margin-top: 8px; font-size: 13px; color: #34495e; opacity: 0.9; }
+
+    .banner {
+      display: none;
+      background: #fff7e6;
+      border: 1px solid #f5c26b;
+      color: #8a5a00;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .banner strong { font-weight: 800; }
+
+    .cap-box {
+      display: none;
+      background: #f4fbff;
+      border: 1px solid #cfe9ff;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 10px;
+    }
+    .cap-suggestion { margin-top: 8px; font-size: 12px; color: #607d8b; line-height: 1.4; }
+
+    .case-box {
+      background: #fbfbff;
+      border: 1px solid #e5e7ff;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 10px;
+    }
+    .case-box h3 { margin: 0 0 10px; font-size: 14px; color: #2c3e50; }
+    .case-grid { display: grid; grid-template-columns: 1fr 140px; gap: 10px 14px; align-items: center; }
+    .case-item { display: flex; gap: 10px; align-items: center; font-size: 14px; color: #34495e; }
+    .case-item input[type="checkbox"] { transform: scale(1.1); }
+
+    .note-row {
+      display: none;
+      grid-column: 1 / -1;
+      margin-top: 6px;
+      background: #ffffff;
+      border: 1px dashed #d8dbff;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .note-row label { margin-bottom: 6px; font-weight: 600; font-size: 13px; }
+    .note-row input[type="text"] { margin-bottom: 0; font-size: 14px; padding: 9px; }
+
+    .rate-box {
+      margin-top: 16px;
+      background: #eaf4ff;
+      border: 2px solid #b7dcff;
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+    }
+    .rate-box .rate-title { font-weight: 900; color: #1f4e79; margin-bottom: 10px; font-size: 15px; }
+    .rate-box input[type="number"] {
+      max-width: 240px;
+      margin: 0 auto;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 900;
+      padding: 10px;
+      border-radius: 10px;
+      border: 2px solid #7cc0ff;
+    }
+    .rate-box .rate-hint { margin-top: 8px; font-size: 12px; color: #1f4e79; opacity: 0.85; }
+
+    /* RISULTATI (compensi) */
+    
+    /* Leggibilità conteggi ore */
+    .result-row{
+      padding: 6px 0;
+      border-bottom: 1px dashed #d1f2eb;
+    }
+    .result-row:last-child{ border-bottom: none; }
+    .result-row span:last-child{
+      font-weight: 900;
+      font-size: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+    .media-display{
+      font-variant-numeric: tabular-nums;
+      white-space: pre-line;
+    }
+
+.result-box {
+      background-color: #f0f6ff;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 24px;
+      border: 1px solid #cfe2f6;
+    }
+    .result-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 15px; }
+    .small-row { font-size: 13px; color: #2c3e50; opacity: 0.9; }
+    .disclaimer { font-size: 12px; color: #7f8c8d; margin-top: 12px; line-height: 1.4; }
+
+    .actions { display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap; }
+    .actions.is-hidden { display: none !important; }
+    .actions.is-bottom { margin-top: 18px; }
+    .btn { border: none; border-radius: 8px; padding: 10px 14px; cursor: pointer; font-weight: 700; font-size: 14px; transition: transform 0.05s ease-in-out; }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: #1f4e79; color: #fff; }
+    .btn-secondary { background: #2e7d32; color: #fff; }
+    .btn-dark { background: #233444; color: #fff; }
+    .btn-danger { background: #c0392b; color: #fff; }
+    .btn-sm { padding: 8px 10px; border-radius: 10px; font-size: 13px; }
+
+    .year-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .year-table th, .year-table td { padding: 10px 10px; border-bottom: 1px solid #eaeaea; font-size: 13px; }
+    .year-table th { background: #f7fafc; color: #2c3e50; font-weight: 800; text-align: left; white-space: nowrap; }
+    .year-table td.num, .year-table th.num { text-align: right; }
+    .year-table td.money, .year-table th.money { text-align: right; }
+    .year-table td.num, .year-table td.money { font-variant-numeric: tabular-nums; }
+    
+    /* Evidenza riga Quota Revilaw (stampa team) */
+    .revilaw-row td{
+      font-weight: 900 !important;
+      background: #f0f6ff;
+    }
+    .revilaw-row td:first-child{
+      border-left: 6px solid #1f4e79;
+    }
+
+.year-main td { font-weight: 900; background: #f7fafc; }
+    .year-sub td  { font-size: 12.8px; color: #2c3e50; background: #ffffff; }
+    .year-sub2 td { font-size: 12.2px; color: #34495e; background: #ffffff; }
+    .sub-label  { padding-left: 22px !important; opacity: 0.95; font-weight: 800; }
+    .sub2-label { padding-left: 44px !important; opacity: 0.85; }
+    .detail-row { display: none; }
+
+    .toggle-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px; border-radius: 7px;
+      border: 1px solid #cfe2f6; background: #ffffff;
+      cursor: pointer; font-weight: 900; color: #1f4e79;
+      margin-right: 10px; user-select: none;
+    }
+    .toggle-btn:hover { background: #eef6ff; }
+    .year-cell { display: flex; align-items: center; gap: 8px; }
+
+    /* TEAM UI (più evidente) */
+
+    /* Team: evidenza annualità */
+    .team-year-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom: 10px;
+      padding-bottom: 2px;
+    }
+    .team-year-title{
+      font-weight: 900;
+      color: #1f4e79;
+      font-size: 14px;
+      background: #f0f6ff;
+      border: 1px solid #cfe2f6;
+      border-left: 6px solid #1f4e79;
+      padding: 8px 12px;
+      border-radius: 12px;
+      letter-spacing: 0.2px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .team-year-help{
+      font-size: 12px;
+      color: #607d8b;
+      font-weight: 700;
+      margin: -4px 0 10px 0;
+      line-height: 1.35;
+    }
+
+    /* Quota Revilaw: callout più evidente */
+    .quota-box{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top: 10px;
+      background: #f0f6ff;
+      border: 2px solid #cfe2f6;
+      border-left: 6px solid #1f4e79;
+      color: #1f4e79;
+      font-weight: 900;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+
+    .team-wrap {
+      margin-top: 16px;
+      border: 2px solid #cfe2f6;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 6px 18px rgba(31,78,121,0.08);
+    }
+    .team-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      background: linear-gradient(180deg, #eaf4ff, #f7fafc);
+      border: none;
+      cursor: pointer;
+      font-weight: 900;
+      color: #2c3e50;
+      font-size: 15px;
+      border-bottom: 2px solid #cfe2f6;
+    }
+    .team-toggle span:last-child {
+      font-weight: 900;
+      color: #1f4e79;
+      font-size: 16px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: #ffffff;
+      border: 1px solid #cfe2f6;
+    }
+    .team-toggle-main{
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap: 2px;
+      text-align:left;
+    }
+    .team-toggle-title{
+      font-weight: 900;
+      color: #2c3e50;
+      font-size: 15px;
+      line-height: 1.15;
+    }
+    .team-toggle-desc{
+      font-weight: 700;
+      color: #34495e;
+      font-size: 12.5px;
+      opacity: 0.95;
+      line-height: 1.2;
+    }
+
+    .team-content {
+      display: none;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .team-box { background: #fff; border: 1px solid #e6edf5; border-radius: 12px; padding: 14px; margin-top: 10px; }
+    .team-head { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; align-items: end; }
+    .checkbox-row { display: flex; gap: 10px; align-items: center; padding: 10px; background: #f7fafc; border: 1px solid #e6edf5; border-radius: 10px; }
+    .checkbox-row input { transform: scale(1.1); }
+
+    .team-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #e6edf5;
+      background: #fff;
+    }
+    .team-table th, .team-table td { padding: 8px 8px; border-bottom: 1px solid #eef2f6; font-size: 13px; vertical-align: top; }
+    .team-table th { background: #f7fafc; color: #2c3e50; font-weight: 900; text-align: left; white-space: nowrap; }
+    .team-table td.num, .team-table th.num { text-align: right; }
+    .team-table td.money, .team-table th.money { text-align: right; }
+    .team-table input[type="text"], .team-table input[type="number"], .team-table select { margin-bottom: 0; padding: 8px; font-size: 13px; }
+
+    .team-flags { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding-top: 2px; }
+    .team-flags label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12.5px; margin: 0; color: #34495e; }
+    .team-flags input[type="checkbox"] { transform: scale(1.05); }
+    .team-flags .disabled { opacity: 0.35; pointer-events: none; }
+
+    .team-summary { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 12px; margin-top: 10px; }
+    .pill { border: 1px solid #e6edf5; background: #f7fafc; border-radius: 10px; padding: 10px; font-size: 13px; color: #2c3e50; font-weight: 900; line-height: 1.35; }
+
+    
+    .quota-box{
+      margin-top: 10px;
+      background: #eef6ff;
+      border: 1px solid #cfe2f6;
+      color: #1f4e79;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-weight: 900;
+      font-size: 13px;
+      line-height: 1.35;
+      font-variant-numeric: tabular-nums;
+    }
+
+.mini-fee {
+      margin-top: 6px;
+      font-size: 12.5px;
+      font-weight: 900;
+      color: #1f4e79;
+      background: #eef6ff;
+      border: 1px solid #cfe2f6;
+      padding: 7px 10px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    /* ARCHIVIO TOP (sticky) */
+    .archive-topbar{
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      background:#ffffff;
+      border-bottom: 1px solid #e6edf5;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+      padding: 4px 0;
+      margin-bottom: 8px;
+      width: 100%;
+    }
+    .archive-bar-grid{
+      display: grid;
+      grid-template-columns: 1fr 520px;
+      gap: 8px 12px;
+      align-items: center;
+    
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    .archive-bar-title{
+      font-weight: 900;
+      color:#2c3e50;
+      font-size:12.5px;
+      margin: 0 0 2px 0;
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .archive-bar-sub{
+      display:none;
+      font-size:12px;
+      color:#607d8b;
+      line-height:1.35;
+      margin: 0;
+    }
+    .archive-bar-right label{
+      display:none;
+      margin-bottom: 0;
+      font-weight: 900;
+      font-size: 12px;
+      color:#34495e;
+    }
+    .archive-bar-controls{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .archive-bar-controls select{
+      min-width: 220px;
+      margin-bottom: 0;
+      padding: 7px 9px;
+      font-size: 12.5px;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .archive-bar-actions{
+      display:flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .archive-bar-actions .btn{
+      padding: 6px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.1;
+    }
+
+    @media (max-width: 980px){
+      .archive-bar-grid{ grid-template-columns: 1fr; padding: 0 10px; }
+      .archive-bar-controls{ justify-content: flex-start; }
+      .archive-bar-controls select{ width: 100%; min-width: 0; }
+      .archive-bar-actions{ width:100%; }
+      .archive-bar-actions .btn{ flex:1; }
+    }
+
+    /* Badge usata in archivio */
+    .badge-local{
+      font-size:11px;
+      color:#4b6473;
+      font-weight:900;
+      border:1px solid #e6edf5;
+      background:#f7fafc;
+      padding: 3px 7px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+/* PRINT */
+    .print-only { display: none; }
+    .print-header { display: none; margin-top: 10px; padding: 16px; border-radius: 12px; border: 1px solid #e6edf5; background: #f7fafc; }
+    .print-header h2 { margin: 0 0 10px; font-size: 18px; color: #2c3e50; }
+    .print-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; font-size: 13px; color: #2c3e50; }
+    .print-grid div strong { display: inline-block; min-width: 140px; color: #1f4e79; }
+
+    .cnd-box { display: none; margin-top: 14px; padding: 14px; border-radius: 12px; border: 1px solid #e6edf5; background: #ffffff; }
+    .cnd-box h3 { margin: 0 0 10px; font-size: 15px; color: #1f4e79; }
+    .cnd-box ul { margin: 0; padding-left: 18px; font-size: 12.6px; color: #2c3e50; line-height: 1.35; }
+
+    .print-year-page { display: none; margin-top: 10px; padding: 14px; border-radius: 12px; border: 1px solid #e6edf5; background: #ffffff; }
+    .print-year-page h2 { margin: 0 0 8px; font-size: 16px; color: #2c3e50; font-weight: 900; }
+    .print-notes { margin-top: 10px; border: 1px dashed #b7dcff; border-radius: 10px; padding: 10px; background: #fff; }
+    .print-notes h3 { margin: 0 0 6px; font-size: 13px; color: #1f4e79; }
+
+    .print-team-page { display: none; margin-top: 10px; padding: 14px; border-radius: 12px; border: 1px solid #e6edf5; background: #ffffff; }
+    .print-team-page h2 { margin: 0 0 8px; font-size: 16px; color: #2c3e50; font-weight: 900; }
+    .print-team-page h3 { margin: 14px 0 8px; font-size: 14px; color: #1f4e79; }
+
+    .page-break { display: none; height: 0; page-break-after: always; break-after: page; }
+    .print-footer { display: none; }
+
+    @media print {
+      @page { size: A4 landscape; margin: 10mm; }
+      body { background: #fff; padding: 0; }
+      .container { box-shadow: none; max-width: 100%; border-radius: 0; padding: 14px; }
+      .no-print { display: none !important; }
+      .print-only { display: block; }
+      .print-header { display: block; }
+      .cnd-box { display: block; }
+      .print-year-page { display: block; }
+      .print-team-page { display: block; }
+      .page-break { display: block; }
+      .detail-row { display: table-row !important; }
+      .year-table th, .year-table td { font-size: 11.5px; padding: 6px 7px; }
+      .year-table { border-radius: 0; }
+      .print-footer{
+        display: block;
+        position: fixed;
+        bottom: 6mm;
+        right: 10mm;
+        font-size: 10.5px;
+        color: #2c3e50;
+        opacity: 0.85;
+      }
+    }
+
+    .copyright {
+      margin-top: 18px;
+      text-align: center;
+      font-size: 12px;
+      color: #607d8b;
+      font-weight: 800;
+      opacity: 0.9;
+    }
+  
+    /* COPY SYNC (copia team con aggiornamenti) */
+    .copy-sync-row{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap: 10px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #f5c26b;
+      background: #fff7e6;
+      color: #8a5a00;
+      font-weight: 900;
+      font-size: 12.5px;
+    }
+    .copy-sync-row .btn{ padding: 7px 10px; }
+
+    .copy-local-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      gap: 10px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #f5c26b;
+      background: #fff7e6;
+      color: #8a5a00;
+      font-weight: 900;
+      font-size: 12.5px;
+    }
+    .copy-local-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .copy-local-row .btn{ padding: 7px 10px; }
+
+
+    
+    .copy-sync-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:12px;
+      border:1px solid #cfe2f6;
+      background:#eef6ff;
+      color:#1f4e79;
+      white-space: nowrap;
+    }
+    .copy-sync-badge.ok{
+      border-color:#b7e1c0;
+      background:#e8f6f3;
+      color:#1b5e20;
+    }
+    .copy-sync-badge.warn{
+      border-color:#f5c26b;
+      background:#fff7e6;
+      color:#8a5a00;
+    }
+    .copy-sync-badge.edit{
+      border-color:#f5c26b;
+      background:#fff7e6;
+      color:#8a5a00;
+    }
+
+
+/* Meta dati su ogni pagina stampata */
+    .print-meta-bar{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content: space-between;
+      gap: 8px 14px;
+      margin: 6px 0 10px;
+      font-size: 11.5px;
+      color: #2c3e50;
+      opacity: 0.95;
+    }
+    .print-meta-bar strong{ color:#1f4e79; }
+
+    /* MOBILE - ottimizzazioni */
+    @media (max-width: 820px){
+      body{ padding: 10px; }
+      .container{ padding: 14px; }
+      h1{ font-size: 20px; }
+      .subtitle{ font-size: 13px; }
+      .grid-2, .grid-3{ grid-template-columns: 1fr; }
+      .team-head{ grid-template-columns: 1fr; }
+      .team-summary{ grid-template-columns: 1fr; }
+      .archive-topbar{ top: 8px; }
+      .archive-bar-controls{ justify-content: flex-start; }
+      .archive-bar-controls select{ min-width: 100%; width: 100%; }
+      .archive-bar-actions{ width: 100%; display:flex; flex-wrap:wrap; gap: 8px; justify-content:flex-start; }
+      .archive-bar-actions .btn{ flex: 1 1 auto; }
+      .year-table, .team-table{ display:block; overflow-x:auto; -webkit-overflow-scrolling: touch; }
+    }
+
+  </style>
+</head>
+
+<body>
+  
+  <!-- ARCHIVIO CALCOLI (sticky) -->
+    <div class="no-print archive-topbar">
+      <div class="archive-bar-grid">
+        <div class="archive-bar-left">
+          <div class="archive-bar-title">
+            <span>Archivio calcoli</span>
+            <span class="badge-local">Locale (browser)</span>
+          </div>
+          <p class="archive-bar-sub">Carica / elimina in un click. Il salvataggio genera anche un file .json scaricabile.</p>
+        </div>
+
+        <div class="archive-bar-right">
+          <label for="savedList">Calcoli salvati</label>
+          <div class="archive-bar-controls">
+            <select id="savedList"></select>
+            <div class="archive-bar-actions">
+              <button class="btn btn-primary btn-sm" type="button" onclick="caricaDaArchivio()">Carica</button>
+              <button class="btn btn-secondary btn-sm" id="btnPrintTop" type="button" onclick="stampa()">🖨️ Stampa / Salva PDF</button>
+              <button class="btn btn-dark btn-sm" id="btnSaveTop" type="button" onclick="salvaCalcolo()">💾 Salva calcolo</button>
+              <button class="btn btn-danger btn-sm" type="button" onclick="eliminaDaArchivio()">Elimina</button>
+              <button class="btn btn-dark btn-sm" type="button" onclick="nuovoCalcolo()">➕ Nuovo calcolo</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<div class="container">
+    <h1>Gestione Compensi/Team Revilaw S.p.A.</h1>
+    <p class="subtitle">
+      Modalità Standard (incarico triennale) con extra ore per casistiche + tetto ore base oltre 50M.
+    </p>
+
+    <!-- PRINT - PAGINA 1 -->
+    <div class="print-only print-header">
+      <h2>Proposta economica - Revisione Legale</h2>
+      <div class="print-grid">
+        <div><strong>Cliente:</strong> <span id="p_rs">—</span></div>
+        <div><strong>Indirizzo:</strong> <span id="p_indirizzo">—</span></div>
+        <div><strong>Attività:</strong> <span id="p_attivita">—</span></div>
+        <div><strong>Codice Fiscale:</strong> <span id="p_cf">—</span></div>
+        <div><strong>Partita IVA:</strong> <span id="p_piva">—</span></div>
+        <div><strong>PEC:</strong> <span id="p_pec">—</span></div>
+        <div><strong>Triennio:</strong> <span id="p_triennio">—</span></div>
+        <div><strong>Media dimensionale:</strong> <span id="p_media">—</span></div>
+        <div><strong>Tariffa oraria:</strong> <span id="p_tariffa">—</span></div>
+        <div><strong>Settore:</strong> <span id="p_settore">—</span></div>
+        <div><strong>Rischio:</strong> <span id="p_rischio">—</span></div>
+        <div><strong>Note rischio:</strong> <span id="p_rischio_note">—</span></div>
+        <div><strong>Predisposto da:</strong> <span id="p_pred">—</span></div>
+        <div><strong>Data predisposizione:</strong> <span id="p_data">—</span></div>
+      </div>
+    </div>
+
+    <div class="print-only cnd-box">
+      <h3>Raccomandazioni operative (CNDCEC) sull’utilizzo dell’applicativo</h3>
+      <ul>
+        <li>Le ore calcolate costituiscono una <strong>stima orientativa</strong> basata su parametri dimensionali e correttivi qualitativi.</li>
+        <li>Il compenso deve risultare <strong>adeguato</strong> a garantire qualità, indipendenza e completezza delle procedure di revisione.</li>
+        <li>È opportuno <strong>documentare e motivare</strong> eventuali scostamenti (in aumento o diminuzione) rispetto alla stima, in funzione della complessità dell’incarico.</li>
+        <li>Il budget ore deve considerare <strong>rischio, settore, struttura organizzativa, sistemi informativi, consolidato, attività aggiuntive</strong> e l’eventuale subentro/primo anno.</li>
+        <li>In presenza di condizioni straordinarie è consigliato <strong>integrare il budget</strong> con ore ulteriori.</li>
+        <li>La stima va <strong>aggiornata annualmente</strong> in base all’evoluzione della società e agli esiti della pianificazione e del risk assessment.</li>
+      </ul>
+    </div>
+
+    <div class="page-break print-only"></div>
+
+    <!-- PRINT - ANNO 1 -->
+    <div class="print-only print-year-page">
+      <h2 id="py1_title">Dettaglio annualità - Anno 1</h2>
+      <div class="print-meta-bar">
+        <div><strong>Cliente:</strong> <span class="p_rs_all">—</span></div>
+        <div><strong>Predisposto da:</strong> <span class="p_pred_all">—</span></div>
+        <div><strong>Data:</strong> <span class="p_data_all">—</span></div>
+      </div>
+
+      <table class="year-table">
+        <thead>
+          <tr>
+            <th>Attività</th>
+            <th class="num">Ore</th>
+            <th class="money">Compenso</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="print_y1_body"></tbody>
+      </table>
+      <div class="print-notes">
+        <h3>Note (editabili) – Anno 1</h3>
+        <textarea id="note_y1"></textarea>
+      </div>
+    </div>
+
+    <div class="page-break print-only"></div>
+
+    <!-- PRINT - ANNO 2 -->
+    <div class="print-only print-year-page">
+      <h2 id="py2_title">Dettaglio annualità - Anno 2</h2>
+      <div class="print-meta-bar">
+        <div><strong>Cliente:</strong> <span class="p_rs_all">—</span></div>
+        <div><strong>Predisposto da:</strong> <span class="p_pred_all">—</span></div>
+        <div><strong>Data:</strong> <span class="p_data_all">—</span></div>
+      </div>
+
+      <table class="year-table">
+        <thead>
+          <tr>
+            <th>Attività</th>
+            <th class="num">Ore</th>
+            <th class="money">Compenso</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="print_y2_body"></tbody>
+      </table>
+      <div class="print-notes">
+        <h3>Note (editabili) – Anno 2</h3>
+        <textarea id="note_y2"></textarea>
+      </div>
+    </div>
+
+    <div class="page-break print-only"></div>
+
+    <!-- PRINT - ANNO 3 -->
+    <div class="print-only print-year-page">
+      <h2 id="py3_title">Dettaglio annualità - Anno 3</h2>
+      <div class="print-meta-bar">
+        <div><strong>Cliente:</strong> <span class="p_rs_all">—</span></div>
+        <div><strong>Predisposto da:</strong> <span class="p_pred_all">—</span></div>
+        <div><strong>Data:</strong> <span class="p_data_all">—</span></div>
+      </div>
+
+      <table class="year-table">
+        <thead>
+          <tr>
+            <th>Attività</th>
+            <th class="num">Ore</th>
+            <th class="money">Compenso</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="print_y3_body"></tbody>
+      </table>
+      <div class="print-notes">
+        <h3>Note (editabili) – Anno 3</h3>
+        <textarea id="note_y3"></textarea>
+      </div>
+    </div>
+
+    <!-- PRINT - TEAM (PAGINE PER ANNO) -->
+    <div class="page-break print-only"></div>
+
+    <!-- TEAM - ANNO 1 -->
+    <div class="print-only print-team-page">
+      <h2>Composizione del team di revisione (ore, compensi e residui) – Anno 1</h2>
+      <div class="print-meta-bar">
+        <div><strong>Cliente:</strong> <span class="p_rs_all">—</span></div>
+        <div><strong>Predisposto da:</strong> <span class="p_pred_all">—</span></div>
+        <div><strong>Data:</strong> <span class="p_data_all">—</span></div>
+      </div>
+
+
+      <div class="print-grid" style="margin-bottom:6px;">
+        <div><strong>Resp. incarico:</strong> <span id="pte_y1_ri">—</span></div>
+        <div><strong>Resp. qualità:</strong> <span id="pte_y1_rq">—</span></div>
+      </div>
+      <div class="print-grid" style="margin-bottom:6px;">
+        <div><strong>Ore totali:</strong> <span id="pte_y1_tot">—</span></div>
+        <div><strong>Ore residue:</strong> <span id="pte_y1_rem">—</span></div>
+      </div>
+      <div class="print-grid" style="margin-bottom:10px;">
+        <div><strong>Compenso totale:</strong> <span id="pte_y1_fee">—</span></div>
+        <div><strong>Compenso residuo:</strong> <span id="pte_y1_fee_rem">—</span></div>
+      </div>
+      <table class="year-table">
+        <thead>
+          <tr>
+            <th>Componente</th>
+            <th>Ruolo</th>
+            <th>Attività</th>
+            <th class="num">Ore</th>
+            <th class="money">Compenso</th>
+            <th class="money">Rimborsi</th>
+          </tr>
+        </thead>
+        <tbody id="print_team_y1"></tbody>
+      </table>
+
+      <div class="disclaimer" style="margin-top:10px;">
+        *Vincoli: ore team assegnate + ore Resp. Qualità + ore Resp. Incarico (5%) + Quota Revilaw (30%) ≤ ore totali annue; e compensi+rimborsi ≤ compenso annuo.*
+      </div>
+    </div>
+
+    <div class="page-break print-only"></div>
+
+    <!-- TEAM - ANNO 2 -->
+    <div class="print-only print-team-page">
+      <h2>Composizione del team di revisione (ore, compensi e residui) – Anno 2</h2>
+      <div class="print-meta-bar">
+        <div><strong>Cliente:</strong> <span class="p_rs_all">—</span></div>
+        <div><strong>Predisposto da:</strong> <span class="p_pred_all">—</span></div>
+        <div><strong>Data:</strong> <span class="p_data_all">—</span></div>
+      </div>
+
+
+      <div class="print-grid" style="margin-bottom:6px;">
+        <div><strong>Resp. incarico:</strong> <span id="pte_y2_ri">—</span></div>
+        <div><strong>Resp. qualità:</strong> <span id="pte_y2_rq">—</span></div>
+      </div>
+      <div class="print-grid" style="margin-bottom:6px;">
+        <div><strong>Ore totali:</strong> <span id="pte_y2_tot">—</span></div>
+        <div><strong>Ore residue:</strong> <span id="pte_y2_rem">—</span></div>
+      </div>
+      <div class="print-grid" style="margin-bottom:10px;">
+        <div><strong>Compenso totale:</strong> <span id="pte_y2_fee">—</span></div>
+        <div><strong>Compenso residuo:</strong> <span id="pte_y2_fee_rem">—</span></div>
+      </div>
+      <table class="year-table">
+        <thead>
+          <tr>
+            <th>Componente</th>
+            <th>Ruolo</th>
+            <th>Attività</th>
+            <th class="num">Ore</th>
+            <th class="money">Compenso</th>
+            <th class="money">Rimborsi</th>
+          </tr>
+        </thead>
+        <tbody id="print_team_y2"></tbody>
+      </table>
+
+      <div class="disclaimer" style="margin-top:10px;">
+        *Vincoli: ore team assegnate + ore Resp. Qualità + ore Resp. Incarico (5%) + Quota Revilaw (30%) ≤ ore totali annue; e compensi+rimborsi ≤ compenso annuo.*
+      </div>
+    </div>
+
+    <div class="page-break print-only"></div>
+
+    <!-- TEAM - ANNO 3 -->
+    <div class="print-only print-team-page">
+      <h2>Composizione del team di revisione (ore, compensi e residui) – Anno 3</h2>
+      <div class="print-meta-bar">
+        <div><strong>Cliente:</strong> <span class="p_rs_all">—</span></div>
+        <div><strong>Predisposto da:</strong> <span class="p_pred_all">—</span></div>
+        <div><strong>Data:</strong> <span class="p_data_all">—</span></div>
+      </div>
+
+
+      <div class="print-grid" style="margin-bottom:6px;">
+        <div><strong>Resp. incarico:</strong> <span id="pte_y3_ri">—</span></div>
+        <div><strong>Resp. qualità:</strong> <span id="pte_y3_rq">—</span></div>
+      </div>
+      <div class="print-grid" style="margin-bottom:6px;">
+        <div><strong>Ore totali:</strong> <span id="pte_y3_tot">—</span></div>
+        <div><strong>Ore residue:</strong> <span id="pte_y3_rem">—</span></div>
+      </div>
+      <div class="print-grid" style="margin-bottom:10px;">
+        <div><strong>Compenso totale:</strong> <span id="pte_y3_fee">—</span></div>
+        <div><strong>Compenso residuo:</strong> <span id="pte_y3_fee_rem">—</span></div>
+      </div>
+      <table class="year-table">
+        <thead>
+          <tr>
+            <th>Componente</th>
+            <th>Ruolo</th>
+            <th>Attività</th>
+            <th class="num">Ore</th>
+            <th class="money">Compenso</th>
+            <th class="money">Rimborsi</th>
+          </tr>
+        </thead>
+        <tbody id="print_team_y3"></tbody>
+      </table>
+
+      <div class="disclaimer" style="margin-top:10px;">
+        *Vincoli: ore team assegnate + ore Resp. Qualità + ore Resp. Incarico (5%) + Quota Revilaw (30%) ≤ ore totali annue; e compensi+rimborsi ≤ compenso annuo.*
+      </div>
+    </div>
+
+
+<div class="print-only print-footer">
+      © Andrea Missori — Equity Partner Revilaw S.p.A. — Tutti i diritti riservati
+    </div>
+
+    <!-- VIDEO -->
+    <div class="no-print">
+
+        <div class="year-box">
+          <div class="year-title">📅 Primo anno di revisione (incarico triennale)</div>
+          <input type="number" id="anno1" value="2026" min="2000" step="1" oninput="calcola()">
+          <div class="year-line">
+            Triennio: <strong id="anno2lbl">2027</strong> • <strong id="anno3lbl">2028</strong>
+          </div>
+        </div>
+
+        <div class="section-title">0. Dati Cliente</div>
+        <div class="grid-2">
+          <div>
+            <label>Ragione Sociale *</label>
+            <input type="text" id="rs" placeholder="Es. Alfa S.p.A." oninput="calcola()">
+            <span class="hint">Campo obbligatorio per stampa e salvataggio.</span>
+          </div>
+          <div>
+            <label>Indirizzo</label>
+            <input type="text" id="indirizzo" placeholder="Via..., CAP, Città (Prov.)" oninput="calcola()">
+          </div>
+        </div>
+        <div class="grid-3">
+          <div>
+            <label>Codice Fiscale</label>
+            <input type="text" id="cf" placeholder="CF..." oninput="calcola()">
+          </div>
+          <div>
+            <label>Partita IVA</label>
+            <input type="text" id="piva" placeholder="P.IVA..." oninput="calcola()">
+          </div>
+          <div>
+            <label>PEC</label>
+            <input type="text" id="pec" placeholder="pec@..." oninput="calcola()">
+          </div>
+        </div>
+
+        <div>
+          <label>Attività del cliente</label>
+          <textarea id="attivita_cliente" placeholder="Descrivi in breve l'attività (es. produzione, commercio, servizi...)"
+                    oninput="calcola()"></textarea>
+        </div>
+
+        <div class="section-title">0.1 Predisposizione</div>
+        <div class="grid-2">
+          <div>
+            <label>Predisposto da</label>
+            <input type="text" id="predisposto" placeholder="Nome e Cognome" oninput="calcola()">
+          </div>
+          <div>
+            <label>Data predisposizione</label>
+            <input type="date" id="dataPred" oninput="calcola()">
+          </div>
+        </div>
+
+        <div class="section-title">1. Dati di Bilancio</div>
+        <div class="grid-2">
+          <div>
+            <label>Totale Attivo Patrimoniale (€)</label>
+            <input type="text" id="attivo" placeholder="Es. 1.000.000" oninput="calcola()">
+            <span class="hint" id="hint-attivo">Inserisci cifra (puoi usare punti o virgole)</span>
+          </div>
+          <div>
+            <label>Ricavi delle Vendite (€)</label>
+            <input type="text" id="ricavi" placeholder="Es. 2.000.000" oninput="calcola()">
+            <span class="hint" id="hint-ricavi">Inserisci cifra (puoi usare punti o virgole)</span>
+          </div>
+        </div>
+
+        <div class="media-display" id="media-display">Media Dimensionale: € 0,00</div>
+        <span class="hint" id="hint-warning"></span>
+        <div class="banner" id="banner-cap">
+          <strong>⚠️ Media &gt; 50M:</strong> ore base applicate con <strong>tetto = 400</strong>.
+          Qui puoi aggiungere ore extra (oltre 50M) per adeguare il budget.
+        </div>
+
+        <div class="cap-box" id="cap-box">
+          <div class="grid-2">
+            <div>
+              <label>Extra Ore (solo se media &gt; 50M)</label>
+              <input type="number" id="extraOre50" value="0" min="0" step="1" oninput="calcola()">
+            </div>
+            <div>
+              <label>&nbsp;</label>
+              <div class="cap-suggestion" id="cap-suggestion">Consiglio: —</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:10px;">
+          <div>
+            <label>Aumento ore base manuale (h)</label>
+            <input type="number" id="oreBasePlus" value="0" min="0" step="1" oninput="calcola()">
+            <span class="hint">Aggiunge ore alle ore base calcolate dagli scaglioni (e, se &gt;50M, si somma anche alle Extra Ore).</span>
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <div class="media-display" id="oreBaseEffDisplay">Ore base effettive: 0 h</div>
+          </div>
+        </div>
+
+<div class="section-title">2. Parametri Qualitativi</div>
+        <div class="grid-2">
+          <div>
+            <label>Settore di Attività</label>
+            <select id="settore" onchange="calcola()">
+              <option value="1.0">Produzione / Altro (Standard)</option>
+              <option value="0.5">Immobiliare (-50%)</option>
+              <option value="0.85">Commerciale / Servizi (-15%)</option>
+              <option value="1.1">Lavori su Commessa (+10%)</option>
+            </select>
+          </div>
+          <div>
+            <label>Rischio Incarico</label>
+            <select id="rischio" onchange="calcola()">
+              <option value="1.0">Basso (Standard)</option>
+              <option value="1.2" selected>Moderato (+20%)</option>
+              <option value="1.4">Alto (+40%)</option>
+            </select>
+            <label style="margin-top:10px;">Note rischio incarico</label>
+            <textarea id="rischio_note" placeholder="Es. criticità governance, IT, complessità operazioni, contenziosi..."
+                      oninput="calcola()"></textarea>
+          </div>
+        </div>
+
+        <div class="media-display" id="qual-mult-display" style="text-align:left;font-weight:900;">
+          Ore base effettive × Settore × Rischio: —
+        </div>
+
+        <div class="section-title">3. Extra Ore per Casistiche</div>
+        <div class="case-box">
+          <h3>Campi ore extra a zero. Note SOLO per “Altro”.</h3>
+
+          <div class="case-grid">
+            <div class="case-item">
+              <input type="checkbox" id="c_consolidato" onchange="calcola();updateFlagsAvailabilityAll();">
+              <label for="c_consolidato" style="margin:0;">Consolidato (ricorrente)</label>
+            </div>
+            <input type="number" id="h_consolidato" value="0" min="0" step="1" oninput="calcola()">
+
+            <div class="case-item">
+              <input type="checkbox" id="c_ifrs" onchange="calcola();updateFlagsAvailabilityAll();">
+              <label for="c_ifrs" style="margin:0;">IFRS / principi particolari (ricorrente)</label>
+            </div>
+            <input type="number" id="h_ifrs" value="0" min="0" step="1" oninput="calcola()">
+
+            <div class="case-item">
+              <input type="checkbox" id="c_it" onchange="calcola();updateFlagsAvailabilityAll();">
+              <label for="c_it" style="margin:0;">Sistemi IT / Data Analytics (ricorrente)</label>
+            </div>
+            <input type="number" id="h_it" value="0" min="0" step="1" oninput="calcola()">
+
+            <div class="case-item">
+              <input type="checkbox" id="c_altro" onchange="toggleAltroNote(); calcola();updateFlagsAvailabilityAll();">
+              <label for="c_altro" style="margin:0;">Altro (ricorrente) — con note</label>
+            </div>
+            <input type="number" id="h_altro" value="0" min="0" step="1" oninput="calcola()">
+
+            <div class="note-row" id="n_altro">
+              <label>Note (Altro)</label>
+              <input type="text" id="t_altro" placeholder="" oninput="calcola()">
+            </div>
+
+            <div class="case-item">
+              <input type="checkbox" id="c_volontaria" onchange="calcola();updateFlagsAvailabilityAll();">
+              <label for="c_volontaria" style="margin:0;">Revisione volontaria anno precedente (solo Anno 1)</label>
+            </div>
+            <input type="number" id="h_volontaria" value="0" min="0" step="1" oninput="calcola()">
+
+            <div class="case-item">
+              <input type="checkbox" id="c_primoanno" onchange="calcola();updateFlagsAvailabilityAll();">
+              <label for="c_primoanno" style="margin:0;">Primo anno incarico / subentro (solo Anno 1)</label>
+            </div>
+            <input type="number" id="h_primoanno" value="0" min="0" step="1" oninput="calcola()">
+          </div>
+
+          <div class="media-display" id="years-hours-display" style="text-align:left;font-weight:900;margin-top:10px;">
+            Ore annue aggiornate: —
+          </div>
+        </div>
+
+        <div class="rate-box">
+          <div class="rate-title">💶 Tariffa Oraria Media (€)</div>
+          <input type="number" id="tariffa" value="85" min="0" step="1" oninput="calcola()">
+          <div class="rate-hint">Suggerimento: tariffa media ponderata (partner/manager/senior/junior).</div>
+        </div>
+
+        <!-- TABELLONE COMPENSI -->
+        <div class="result-box">
+          <div class="result-row"><span>Ore Base (scaglioni Standard):</span><span id="res-ore-base">0 h</span></div>
+          <div class="result-row small-row"><span>Aumento ore base manuale:</span><span id="res-ore-base-extra">0 h</span></div>
+        <div class="result-row"><span>Ore base effettive (Scaglione + Aumento + Extra &gt; 50M):</span><span id="res-ore-base-eff">0 h</span></div>
+        <div class="result-row"><span>Ore Base corrette (Settore × Rischio):</span><span id="res-ore-corr">0 h</span></div>
+          <div class="result-row small-row"><span>Extra ore ricorrenti (tutti gli anni):</span><span id="res-extra-rec">0 h</span></div>
+          <div class="result-row small-row"><span>Extra ore solo Anno 1:</span><span id="res-extra-y1">0 h</span></div>
+          <div class="result-row small-row"><span>Extra ore (oltre 50M) — incluse nelle ore base effettive:</span><span id="res-extra-50">0 h</span></div>
+
+          <table class="year-table">
+            <thead>
+              <tr>
+                <th>Anno</th>
+                <th class="num">Ore</th>
+                <th class="money">Compenso Annuo</th>
+                <th class="money">Compenso Mensile</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="year-main">
+                <td><div class="year-cell"><span class="toggle-btn" id="tbtn-y1" onclick="toggleYear('y1')">+</span><span id="y1-lbl">Anno 1</span></div></td>
+                <td class="num" id="y1-tot">0</td>
+                <td class="money" id="y1-fee">€ 0,00</td>
+                <td class="money" id="y1-month">€ 0,00</td>
+              </tr>
+              <tr class="year-sub detail-row y1-detail" data-kind="legal">
+                <td class="sub-label">↳ Revisione Legale</td><td class="num" id="y1-legal">0</td><td class="money" id="y1-legal-fee">€ 0,00</td><td></td>
+              </tr>
+              <tr class="year-sub detail-row y1-detail" data-kind="otherTotal">
+                <td class="sub-label">↳ Altre attività (totale)</td><td class="num" id="y1-other"></td><td class="money" id="y1-other-fee"></td><td></td>
+              </tr>
+              <tr class="year-sub detail-row y1-detail" data-kind="ri5">
+                <td class="sub-label">↳ Quota Resp. incarico (5% ore) <span style="font-weight:700;opacity:.75;">(inclusa nel totale)</span></td>
+                <td class="num" id="y1-ri5">0</td><td class="money" id="y1-ri5-fee">€ 0,00</td><td></td>
+              </tr>
+
+              <tr class="year-sub2 detail-row y1-detail" data-kind="consolidato"><td class="sub2-label">↳ Consolidato</td><td class="num" id="y1-consolidato">0</td><td class="money" id="y1-consolidato-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y1-detail" data-kind="ifrs"><td class="sub2-label">↳ IFRS / principi particolari</td><td class="num" id="y1-ifrs">0</td><td class="money" id="y1-ifrs-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y1-detail" data-kind="it"><td class="sub2-label">↳ IT / Data Analytics</td><td class="num" id="y1-it">0</td><td class="money" id="y1-it-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y1-detail" data-kind="altro"><td class="sub2-label">↳ Altro</td><td class="num" id="y1-altro">0</td><td class="money" id="y1-altro-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y1-detail" data-kind="volontaria"><td class="sub2-label">↳ Revisione volontaria anno precedente</td><td class="num" id="y1-volontaria">0</td><td class="money" id="y1-volontaria-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y1-detail" data-kind="primoanno"><td class="sub2-label">↳ Primo anno incarico / subentro</td><td class="num" id="y1-primoanno">0</td><td class="money" id="y1-primoanno-fee">€ 0,00</td><td></td></tr>
+
+              <tr class="year-main">
+                <td><div class="year-cell"><span class="toggle-btn" id="tbtn-y2" onclick="toggleYear('y2')">+</span><span id="y2-lbl">Anno 2</span></div></td>
+                <td class="num" id="y2-tot">0</td>
+                <td class="money" id="y2-fee">€ 0,00</td>
+                <td class="money" id="y2-month">€ 0,00</td>
+              </tr>
+              <tr class="year-sub detail-row y2-detail" data-kind="legal"><td class="sub-label">↳ Revisione Legale</td><td class="num" id="y2-legal">0</td><td class="money" id="y2-legal-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub detail-row y2-detail" data-kind="otherTotal"><td class="sub-label">↳ Altre attività (totale)</td><td class="num" id="y2-other"></td><td class="money" id="y2-other-fee"></td><td></td></tr>
+              <tr class="year-sub detail-row y2-detail" data-kind="ri5"><td class="sub-label">↳ Quota Resp. incarico (5% ore) <span style="font-weight:700;opacity:.75;">(inclusa nel totale)</span></td><td class="num" id="y2-ri5">0</td><td class="money" id="y2-ri5-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y2-detail" data-kind="consolidato"><td class="sub2-label">↳ Consolidato</td><td class="num" id="y2-consolidato">0</td><td class="money" id="y2-consolidato-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y2-detail" data-kind="ifrs"><td class="sub2-label">↳ IFRS / principi particolari</td><td class="num" id="y2-ifrs">0</td><td class="money" id="y2-ifrs-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y2-detail" data-kind="it"><td class="sub2-label">↳ IT / Data Analytics</td><td class="num" id="y2-it">0</td><td class="money" id="y2-it-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y2-detail" data-kind="altro"><td class="sub2-label">↳ Altro</td><td class="num" id="y2-altro">0</td><td class="money" id="y2-altro-fee">€ 0,00</td><td></td></tr>
+
+              <tr class="year-main">
+                <td><div class="year-cell"><span class="toggle-btn" id="tbtn-y3" onclick="toggleYear('y3')">+</span><span id="y3-lbl">Anno 3</span></div></td>
+                <td class="num" id="y3-tot">0</td>
+                <td class="money" id="y3-fee">€ 0,00</td>
+                <td class="money" id="y3-month">€ 0,00</td>
+              </tr>
+              <tr class="year-sub detail-row y3-detail" data-kind="legal"><td class="sub-label">↳ Revisione Legale</td><td class="num" id="y3-legal">0</td><td class="money" id="y3-legal-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub detail-row y3-detail" data-kind="otherTotal"><td class="sub-label">↳ Altre attività (totale)</td><td class="num" id="y3-other"></td><td class="money" id="y3-other-fee"></td><td></td></tr>
+              <tr class="year-sub detail-row y3-detail" data-kind="ri5"><td class="sub-label">↳ Quota Resp. incarico (5% ore) <span style="font-weight:700;opacity:.75;">(inclusa nel totale)</span></td><td class="num" id="y3-ri5">0</td><td class="money" id="y3-ri5-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y3-detail" data-kind="consolidato"><td class="sub2-label">↳ Consolidato</td><td class="num" id="y3-consolidato">0</td><td class="money" id="y3-consolidato-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y3-detail" data-kind="ifrs"><td class="sub2-label">↳ IFRS / principi particolari</td><td class="num" id="y3-ifrs">0</td><td class="money" id="y3-ifrs-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y3-detail" data-kind="it"><td class="sub2-label">↳ IT / Data Analytics</td><td class="num" id="y3-it">0</td><td class="money" id="y3-it-fee">€ 0,00</td><td></td></tr>
+              <tr class="year-sub2 detail-row y3-detail" data-kind="altro"><td class="sub2-label">↳ Altro</td><td class="num" id="y3-altro">0</td><td class="money" id="y3-altro-fee">€ 0,00</td><td></td></tr>
+            </tbody>
+          </table>
+
+          <div class="disclaimer">
+            *Il dettaglio mostra solo le attività effettivamente selezionate (ore &gt; 0). In stampa il dettaglio è sempre visibile.*
+          </div>
+
+          <!-- MENU TEAM A SCOMPARSA -->
+          <div class="team-wrap">
+            <button class="team-toggle" type="button" onclick="toggleTeamPanel()">
+              <span class="team-toggle-main">
+                <span class="team-toggle-title">👥 Team e Responsabili (ore/compensi)</span>
+                <span class="team-toggle-desc">Assegna ore e ruoli per annualità (RI 5% e RQ inclusi), verifica vincoli e stampa il dettaglio nel PDF.</span>
+              </span>
+              <span id="teamToggleIcon">▼</span>
+            </button>
+            <div class="team-content" id="teamPanel">
+
+              <!-- ANNO 1 -->
+              <div class="team-box">
+                <div class="team-year-row"><div class="team-year-title">Anno 1</div></div>
+
+                <div class="team-head">
+                  <div>
+                    <label>Responsabile dell'incarico</label>
+                    <input type="text" id="ri_y1" placeholder="Nome e Cognome" oninput="calcola()">
+                    <div class="mini-fee" id="ri5fee_y1">Compenso Resp. incarico: —</div>
+                  </div>
+                  <div>
+                    <label>Responsabile qualità</label>
+                    <input type="text" id="rq_y1" placeholder="Nome e Cognome" oninput="calcola()">
+                    <div class="mini-fee" id="rqfee_y1">Compenso Resp. qualità: —</div>
+                  </div>
+                  <div>
+                    <label>Ore Resp. Qualità (incluse nel totale)</label>
+                    <input type="number" id="rqhrs_y1" value="0" min="0" step="0.5" oninput="calcola()">
+                    <div class="checkbox-row" style="margin-top:8px;">
+                      <input type="checkbox" id="ri5_y1" onchange="calcola()">
+                      <div>
+                        <div style="font-weight:800;color:#2c3e50;">Quota Resp. incarico = 5% ore</div>
+                        <div class="hint" style="margin:2px 0 0 0;">La quota è <strong>tolta</strong> dalle ore assegnabili al team (non aggiunta).</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid-2" style="margin-top:10px;">
+                  <div>
+                    <label>Componenti team (1–10)</label>
+                    <select id="teamN_y1" onchange="renderTeamTable('y1'); calcola();">
+                      <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option>
+                      <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+                      <option value="9">9</option><option value="10">10</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Vincoli (Anno 1)</label>
+                    <div class="media-display" id="teamWarn_y1" style="text-align:left;font-weight:900;">—</div>
+                  </div>
+                </div>
+
+                
+                <div class="quota-box" id="rwBox_y1">Quota Revilaw (30%): —</div>
+<table class="team-table" id="teamTable_y1"></table>
+
+                <div class="team-summary">
+                  <div class="pill" id="pill_tot_y1">Ore totali: —</div>
+                  <div class="pill" id="pill_rem_y1">Ore residue: —</div>
+                  <div class="pill" id="pill_fee_y1">Compenso residuo: —</div>
+                </div>
+              </div>
+
+              <!-- ANNO 2 -->
+              <div class="team-box">
+                <div class="team-year-row">
+                  <div class="team-year-title">Anno 2</div>
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <label style="margin:0;font-weight:900;color:#2c3e50;">Copia da:</label>
+                    <select id="copy_y2" onchange="handleCopySelect('y2')" style="width:170px;margin-bottom:0;">
+                      <option value="none" selected>— nessuna —</option>
+                      <option value="y1">Anno 1</option>
+                    </select>
+                    <span class="copy-sync-badge" id="copySyncBadge_y2" style="display:none;">✅ Allineato</span>
+                    <span class="copy-sync-badge edit" id="copyLocalBadge_y2" style="display:none;">✏️ Modifiche locali</span>
+                  </div>
+                </div>
+
+
+                <div class="copy-sync-row" id="copySyncRow_y2" style="display:none;">
+                  <span id="copySyncText_y2">⚠️ L&#39;anno origine è stato modificato dopo la copia.</span>
+                  <button class="btn btn-secondary btn-sm" id="copySyncBtn_y2" type="button" onclick="syncCopy('y2')">Aggiorna</button>
+                </div>
+
+                
+                <div class="copy-local-row" id="copyLocalRow_y2" style="display:none;">
+                  <span id="copyLocalText_y2">✏️ Modifiche locali rilevate.</span>
+                  <div class="copy-local-actions">
+                    <button class="btn btn-dark btn-sm" type="button" onclick="restoreCopiedOriginal('y2')">Ripristina valori copiati</button>
+                    <button class="btn btn-danger btn-sm" type="button" onclick="confirmLocalOverride('y2')">Conferma variazione (togli copia)</button>
+                  </div>
+                </div>
+<div class="team-head" style="margin-top:10px;">
+                  <div>
+                    <label>Responsabile dell'incarico</label>
+                    <input type="text" id="ri_y2" placeholder="Nome e Cognome" oninput="calcola()">
+                    <div class="mini-fee" id="ri5fee_y2">Compenso Resp. incarico: —</div>
+                  </div>
+                  <div>
+                    <label>Responsabile qualità</label>
+                    <input type="text" id="rq_y2" placeholder="Nome e Cognome" oninput="calcola()">
+                    <div class="mini-fee" id="rqfee_y2">Compenso Resp. qualità: —</div>
+                  </div>
+                  <div>
+                    <label>Ore Resp. Qualità (incluse nel totale)</label>
+                    <input type="number" id="rqhrs_y2" value="0" min="0" step="0.5" oninput="calcola()">
+                    <div class="checkbox-row" style="margin-top:8px;">
+                      <input type="checkbox" id="ri5_y2" onchange="calcola()">
+                      <div>
+                        <div style="font-weight:800;color:#2c3e50;">Quota Resp. incarico = 5% ore</div>
+                        <div class="hint" style="margin:2px 0 0 0;">Tolte dalle ore assegnabili.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid-2" style="margin-top:10px;">
+                  <div>
+                    <label>Componenti team (1–10)</label>
+                    <select id="teamN_y2" onchange="renderTeamTable('y2'); calcola();">
+                      <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option>
+                      <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+                      <option value="9">9</option><option value="10">10</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Vincoli (Anno 2)</label>
+                    <div class="media-display" id="teamWarn_y2" style="text-align:left;font-weight:900;">—</div>
+                  </div>
+                </div>
+
+                
+                <div class="quota-box" id="rwBox_y2">Quota Revilaw (30%): —</div>
+<table class="team-table" id="teamTable_y2"></table>
+
+                <div class="team-summary">
+                  <div class="pill" id="pill_tot_y2">Ore totali: —</div>
+                  <div class="pill" id="pill_rem_y2">Ore residue: —</div>
+                  <div class="pill" id="pill_fee_y2">Compenso residuo: —</div>
+                </div>
+              </div>
+
+              <!-- ANNO 3 -->
+              <div class="team-box">
+                <div class="team-year-row">
+                  <div class="team-year-title">Anno 3</div>
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <label style="margin:0;font-weight:900;color:#2c3e50;">Copia da:</label>
+                    <select id="copy_y3" onchange="handleCopySelect('y3')" style="width:170px;margin-bottom:0;">
+                      <option value="none" selected>— nessuna —</option>
+                      <option value="y1">Anno 1</option>
+                      <option value="y2">Anno 2</option>
+                    </select>
+                    <span class="copy-sync-badge" id="copySyncBadge_y3" style="display:none;">✅ Allineato</span>
+                    <span class="copy-sync-badge edit" id="copyLocalBadge_y3" style="display:none;">✏️ Modifiche locali</span>
+                  </div>
+                </div>
+
+
+                <div class="copy-sync-row" id="copySyncRow_y3" style="display:none;">
+                  <span id="copySyncText_y3">⚠️ L&#39;anno origine è stato modificato dopo la copia.</span>
+                  <button class="btn btn-secondary btn-sm" id="copySyncBtn_y3" type="button" onclick="syncCopy('y3')">Aggiorna</button>
+                </div>
+
+                
+                <div class="copy-local-row" id="copyLocalRow_y3" style="display:none;">
+                  <span id="copyLocalText_y3">✏️ Modifiche locali rilevate.</span>
+                  <div class="copy-local-actions">
+                    <button class="btn btn-dark btn-sm" type="button" onclick="restoreCopiedOriginal('y3')">Ripristina valori copiati</button>
+                    <button class="btn btn-danger btn-sm" type="button" onclick="confirmLocalOverride('y3')">Conferma variazione (togli copia)</button>
+                  </div>
+                </div>
+<div class="team-head" style="margin-top:10px;">
+                  <div>
+                    <label>Responsabile dell'incarico</label>
+                    <input type="text" id="ri_y3" placeholder="Nome e Cognome" oninput="calcola()">
+                    <div class="mini-fee" id="ri5fee_y3">Compenso Resp. incarico: —</div>
+                  </div>
+                  <div>
+                    <label>Responsabile qualità</label>
+                    <input type="text" id="rq_y3" placeholder="Nome e Cognome" oninput="calcola()">
+                    <div class="mini-fee" id="rqfee_y3">Compenso Resp. qualità: —</div>
+                  </div>
+                  <div>
+                    <label>Ore Resp. Qualità (incluse nel totale)</label>
+                    <input type="number" id="rqhrs_y3" value="0" min="0" step="0.5" oninput="calcola()">
+                    <div class="checkbox-row" style="margin-top:8px;">
+                      <input type="checkbox" id="ri5_y3" onchange="calcola()">
+                      <div>
+                        <div style="font-weight:800;color:#2c3e50;">Quota Resp. incarico = 5% ore</div>
+                        <div class="hint" style="margin:2px 0 0 0;">Tolte dalle ore assegnabili.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid-2" style="margin-top:10px;">
+                  <div>
+                    <label>Componenti team (1–10)</label>
+                    <select id="teamN_y3" onchange="renderTeamTable('y3'); calcola();">
+                      <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option>
+                      <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+                      <option value="9">9</option><option value="10">10</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label>Vincoli (Anno 3)</label>
+                    <div class="media-display" id="teamWarn_y3" style="text-align:left;font-weight:900;">—</div>
+                  </div>
+                </div>
+
+                
+                <div class="quota-box" id="rwBox_y3">Quota Revilaw (30%): —</div>
+<table class="team-table" id="teamTable_y3"></table>
+
+                <div class="team-summary">
+                  <div class="pill" id="pill_tot_y3">Ore totali: —</div>
+                  <div class="pill" id="pill_rem_y3">Ore residue: —</div>
+                  <div class="pill" id="pill_fee_y3">Compenso residuo: —</div>
+                </div>
+              </div>
+
+              <!-- PULSANTI (solo quando team aperto) -->
+              <div class="actions is-hidden is-bottom" id="actionsBottom">
+                <button class="btn btn-secondary" type="button" onclick="stampa()">🖨️ Stampa / Salva PDF</button>
+                <button class="btn btn-dark" type="button" onclick="salvaCalcolo()">💾 Salva calcolo</button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <div class="copyright">
+          © Andrea Missori — Equity Partner Revilaw S.p.A. — Tutti i diritti riservati
+        </div>
+      
+    </div>
+
+  </div>
+
+  <script>
+    const eur = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' });
+    const yearOpen = { y1: false, y2: false, y3: false };
+    let loadedArchiveId = null;
+    const lastCopy = { y2: "none", y3: "none" };
+
+    // Stato sincronizzazione copia team (y2/y3): memorizza la firma della sorgente al momento della copia
+    const copySync = {
+      y2: { from: "none", sig: "", dstSig: "", baseline: null },
+      y3: { from: "none", sig: "", dstSig: "", baseline: null }
+    };
+
+    const budget = {
+      y1: { hoursTotal: 0, feeTotal: 0, ri5Hours: 0, rqHours: 0, rwHours: 0 },
+      y2: { hoursTotal: 0, feeTotal: 0, ri5Hours: 0, rqHours: 0, rwHours: 0 },
+      y3: { hoursTotal: 0, feeTotal: 0, ri5Hours: 0, rqHours: 0, rwHours: 0 }
+    };
+
+    function toggleTeamPanel() {
+      const panel = document.getElementById('teamPanel');
+      const icon = document.getElementById('teamToggleIcon');
+      const bottom = document.getElementById('actionsBottom');
+      const btnPrintTop = document.getElementById('btnPrintTop');
+      const btnSaveTop  = document.getElementById('btnSaveTop');
+
+      const isOpen = panel.style.display === "block";
+      const nextOpen = !isOpen;
+
+      panel.style.display = nextOpen ? "block" : "none";
+      icon.textContent = nextOpen ? "▲" : "▼";
+
+      // Team aperto/chiuso: i pulsanti Stampa/Salva restano SEMPRE nella barra in alto.
+      if (bottom) bottom.classList.toggle("is-hidden", !nextOpen);
+    }
+
+    function todayISO() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    function nowStamp() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}_${hh}-${mi}-${ss}`;
+    }
+    function parseEuro(val) {
+      if (!val) return 0;
+      return parseFloat(val.toString().replace(/\s/g, '').replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    function safeText(v) { return (v || "").toString().trim(); }
+    function cleanFileName(s) {
+      return safeText(s)
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/_{2,}/g, '_')
+        .slice(0, 80) || "Calcolo";
+    }
+    function requireCliente() {
+      const rs = safeText(document.getElementById('rs').value);
+      if (!rs) {
+        alert("⚠️ Inserisci la Ragione Sociale del cliente prima di stampare o salvare.");
+        document.getElementById('rs').focus();
+        return false;
+      }
+      return true;
+    }
+
+    function toggleAltroNote() {
+      const chk = document.getElementById('c_altro');
+      const noteRow = document.getElementById('n_altro');
+      noteRow.style.display = chk.checked ? "block" : "none";
+      if (!chk.checked) document.getElementById('t_altro').value = "";
+    }
+    function getCaseHours(chkId, hrsId) {
+      const checked = document.getElementById(chkId).checked;
+      const hours = parseFloat(document.getElementById(hrsId).value) || 0;
+      return checked ? Math.max(0, hours) : 0;
+    }
+
+    function toggleYear(year) {
+      yearOpen[year] = !yearOpen[year];
+      document.getElementById(`tbtn-${year}`).innerText = yearOpen[year] ? "–" : "+";
+      refreshDetailsVisibility(false);
+    }
+    function setDetailRowVisible(row, visible) { row.style.display = visible ? "table-row" : "none"; }
+
+    function refreshDetailsVisibility(forceOpen) {
+      ['y1','y2','y3'].forEach(y => {
+        const rows = document.querySelectorAll(`.${y}-detail`);
+        rows.forEach(r => {
+          const kind = r.getAttribute('data-kind');
+          const shouldOpen = forceOpen ? true : yearOpen[y];
+          if (!shouldOpen) { setDetailRowVisible(r, false); return; }
+          if (kind === 'legal' || kind === 'otherTotal') { setDetailRowVisible(r, true); return; }
+          if (kind === 'ri5') {
+            const el = document.getElementById(`${y}-ri5`);
+            const val = el ? (parseFloat((el.innerText || "0").replace(",", ".")) || 0) : 0;
+            setDetailRowVisible(r, val > 0);
+            return;
+          }
+          if ((kind === "volontaria" || kind === "primoanno") && y !== "y1") { setDetailRowVisible(r, false); return; }
+          const el = document.getElementById(`${y}-${kind}`);
+          const val = el ? (parseFloat((el.innerText || "0").replace(",", ".")) || 0) : 0;
+          setDetailRowVisible(r, val > 0);
+        });
+      });
+    }
+
+    function setDetail(y, kind, hours, tariffa, decimals) {
+      const oreEl = document.getElementById(`${y}-${kind}`);
+      const feeEl = document.getElementById(`${y}-${kind}-fee`);
+      const d = (decimals !== undefined) ? decimals : 0;
+
+      const h = (hours || 0);
+      const fee = h * (tariffa || 0);
+
+      if (kind === "otherTotal" && h <= 0) {
+        if (oreEl) oreEl.innerText = "";
+        if (feeEl) feeEl.innerText = "";
+        return;
+      }
+
+      if (oreEl) oreEl.innerText = h.toFixed(d);
+      if (feeEl) feeEl.innerText = eur.format(fee);
+    }
+
+    /* =========================
+       TEAM
+    ========================== */
+    const FLAG_DEFS = [
+      { key: "tri",  label: "Trimestrali", always: true },
+      { key: "bil",  label: "Bilancio", always: true },
+      { key: "cons", label: "Consolidato", depends: "consolidato" },
+      { key: "ifrs", label: "IFRS", depends: "ifrs" },
+      { key: "it",   label: "IT / Data Analytics", depends: "it" },
+      { key: "altro",label: "Altro", depends: "altro" },
+      { key: "vol",  label: "Rev. volontaria (A1)", depends: "volontaria", onlyY: "y1" },
+      { key: "pri",  label: "Primo anno/subentro (A1)", depends: "primoanno", onlyY: "y1" },
+    ];
+
+    function teamNameId(y, i) { return `tm_${y}_${i}_name`; }
+    function teamRoleId(y, i) { return `tm_${y}_${i}_role`; }
+    function teamHoursId(y, i) { return `tm_${y}_${i}_hrs`; }
+    function teamFeeCellId(y, i) { return `tm_${y}_${i}_fee`; }
+    function teamRimbId(y, i) { return `tm_${y}_${i}_rimb`; }
+    function teamRimbWrapId(y,i){ return `tm_${y}_${i}_rimbwrap`; }
+    function teamFlagId(y, i, key) { return `tm_${y}_${i}_f_${key}`; }
+
+    function isCasePresent(caseKey) {
+      const map = {
+        consolidato: document.getElementById('c_consolidato')?.checked,
+        ifrs: document.getElementById('c_ifrs')?.checked,
+        it: document.getElementById('c_it')?.checked,
+        altro: document.getElementById('c_altro')?.checked,
+        volontaria: document.getElementById('c_volontaria')?.checked,
+        primoanno: document.getElementById('c_primoanno')?.checked,
+      };
+      return !!map[caseKey];
+    }
+
+    function updateFlagsAvailability(y) {
+      const n = parseInt(document.getElementById(`teamN_${y}`).value, 10) || 1;
+      for (let i=1; i<=n; i++) {
+        FLAG_DEFS.forEach(fd => {
+          if (fd.onlyY && fd.onlyY !== y) return;
+          const cb = document.getElementById(teamFlagId(y,i,fd.key));
+          const lbl = cb ? cb.closest('label') : null;
+          if (!cb || !lbl) return;
+
+          const enabled = fd.always ? true : (fd.depends ? isCasePresent(fd.depends) : true);
+          if (!enabled) {
+            cb.checked = false;
+            lbl.classList.add('disabled');
+          } else {
+            lbl.classList.remove('disabled');
+          }
+        });
+      }
+    }
+    function updateFlagsAvailabilityAll() {
+      ['y1','y2','y3'].forEach(y => updateFlagsAvailability(y));
+      calcola();
+    }
+
+    function renderTeamTable(y) {
+      const table = document.getElementById(`teamTable_${y}`);
+      const n = parseInt(document.getElementById(`teamN_${y}`).value, 10) || 1;
+
+      const thead = `
+        <thead>
+          <tr>
+            <th style="width:20%;">Componente</th>
+            <th style="width:12%;">Ruolo</th>
+            <th style="width:38%;">Attività (flag)</th>
+            <th class="num" style="width:10%;">Ore</th>
+            <th class="money" style="width:10%;">Compenso</th>
+            <th class="money" style="width:10%;">Rimborsi (Praticante)</th>
+          </tr>
+        </thead>
+      `;
+
+      const rows = [];
+      for (let i=1; i<=n; i++) {
+        const flagsHtml = FLAG_DEFS
+          .filter(fd => fd.always || (fd.onlyY ? fd.onlyY === y : true))
+          .map(fd => `<label><input type="checkbox" id="${teamFlagId(y,i,fd.key)}" onchange="calcola()"> ${fd.label}</label>`)
+          .join("");
+
+        rows.push(`
+          <tr>
+            <td><input type="text" id="${teamNameId(y,i)}" placeholder="Nome e Cognome" oninput="calcola()"></td>
+            <td>
+              <select id="${teamRoleId(y,i)}" onchange="onRoleChange('${y}',${i}); calcola();">
+                <option value="Revisore" selected>Revisore</option>
+                <option value="Junior">Junior</option>
+                <option value="Praticante">Praticante</option>
+              </select>
+            </td>
+            <td><div class="team-flags">${flagsHtml}</div></td>
+            <td class="num">
+              <input type="number" id="${teamHoursId(y,i)}" value="0" min="0" step="0.5" oninput="calcola()">
+            </td>
+            <td class="money" id="${teamFeeCellId(y,i)}">€ 0,00</td>
+            <td class="money">
+              <div id="${teamRimbWrapId(y,i)}" style="display:none;">
+                <input type="number" id="${teamRimbId(y,i)}" value="0" min="0" step="1" oninput="calcola()">
+              </div>
+              <span id="${teamRimbWrapId(y,i)}_dash" style="opacity:.6;">—</span>
+            </td>
+          </tr>
+        `);
+      }
+
+      table.innerHTML = thead + `<tbody>${rows.join("")}</tbody>`;
+      updateFlagsAvailability(y);
+      for (let i=1; i<=n; i++) onRoleChange(y,i,false);
+      calcola();
+    }
+
+    function onRoleChange(y,i, doCalc=true) {
+      const role = document.getElementById(teamRoleId(y,i))?.value || "Revisore";
+
+      const hoursEl = document.getElementById(teamHoursId(y,i));
+      const wrap = document.getElementById(teamRimbWrapId(y,i));
+      const dash = document.getElementById(`${teamRimbWrapId(y,i)}_dash`);
+      const rimbEl = document.getElementById(teamRimbId(y,i));
+
+      if (role === "Praticante") {
+        if (hoursEl) { hoursEl.value = "0"; hoursEl.disabled = true; }
+        if (wrap) wrap.style.display = "block";
+        if (dash) dash.style.display = "none";
+      } else {
+        if (hoursEl) { hoursEl.disabled = false; }
+        if (rimbEl) rimbEl.value = "0";
+        if (wrap) wrap.style.display = "none";
+        if (dash) dash.style.display = "inline";
+      }
+
+      if (doCalc) calcola();
+    }
+
+    function collectTeamSnapshot(y) {
+      const n = parseInt(document.getElementById(`teamN_${y}`).value, 10) || 1;
+      const members = [];
+      for (let i=1; i<=n; i++) {
+        const flags = {};
+        FLAG_DEFS.forEach(fd => {
+          if (fd.onlyY && fd.onlyY !== y) return;
+          const cb = document.getElementById(teamFlagId(y,i,fd.key));
+          if (cb) flags[fd.key] = !!cb.checked;
+        });
+        members.push({
+          name: safeText(document.getElementById(teamNameId(y,i))?.value || ""),
+          role: document.getElementById(teamRoleId(y,i))?.value || "Revisore",
+          hours: parseFloat(document.getElementById(teamHoursId(y,i))?.value) || 0,
+          rimb: parseFloat(document.getElementById(teamRimbId(y,i))?.value) || 0,
+          flags
+        });
+      }
+      return { n, members };
+    }
+
+    function applyTeamSnapshot(y, snap) {
+      const n = snap?.n ? snap.n : 1;
+      document.getElementById(`teamN_${y}`).value = String(Math.min(10, Math.max(1, n)));
+      renderTeamTable(y);
+
+      const nn = parseInt(document.getElementById(`teamN_${y}`).value, 10) || 1;
+      for (let i=1; i<=nn; i++) {
+        const m = snap?.members?.[i-1] || {};
+        const nm = document.getElementById(teamNameId(y,i));
+        const rl = document.getElementById(teamRoleId(y,i));
+        const hr = document.getElementById(teamHoursId(y,i));
+        const rb = document.getElementById(teamRimbId(y,i));
+        if (nm) nm.value = m.name || "";
+        if (rl) rl.value = m.role || "Revisore";
+        onRoleChange(y,i,false);
+
+        if (hr) hr.value = (rl.value === "Praticante") ? 0 : ((m.hours !== undefined && m.hours !== null) ? m.hours : 0);
+        if (rb) rb.value = (rl.value === "Praticante") ? ((m.rimb !== undefined && m.rimb !== null) ? m.rimb : 0) : 0;
+
+        const flags = m.flags || {};
+        FLAG_DEFS.forEach(fd => {
+          if (fd.onlyY && fd.onlyY !== y) return;
+          const cb = document.getElementById(teamFlagId(y,i,fd.key));
+          if (cb) cb.checked = !!flags[fd.key];
+        });
+      }
+      updateFlagsAvailability(y);
+    }
+
+    function clearYearTeam(y) {
+      document.getElementById(`ri_${y}`).value = "";
+      document.getElementById(`rq_${y}`).value = "";
+      document.getElementById(`rqhrs_${y}`).value = 0;
+      document.getElementById(`ri5_${y}`).checked = false;
+      document.getElementById(`teamN_${y}`).value = "1";
+      renderTeamTable(y);
+      calcola();
+    }
+
+    function copyFromTo(src, dst) {
+      document.getElementById(`ri_${dst}`).value = safeText(document.getElementById(`ri_${src}`).value);
+      document.getElementById(`rq_${dst}`).value = safeText(document.getElementById(`rq_${src}`).value);
+      document.getElementById(`rqhrs_${dst}`).value = parseFloat(document.getElementById(`rqhrs_${src}`).value) || 0;
+      document.getElementById(`ri5_${dst}`).checked = !!document.getElementById(`ri5_${src}`).checked;
+      applyTeamSnapshot(dst, collectTeamSnapshot(src));
+    }
+
+    
+    function yearTeamSignature(y) {
+      // Firma (stringa) dello stato sorgente: responsabili + team + settaggi
+      return JSON.stringify({
+        ri: safeText(document.getElementById(`ri_${y}`)?.value || ""),
+        rq: safeText(document.getElementById(`rq_${y}`)?.value || ""),
+        rqhrs: parseFloat(document.getElementById(`rqhrs_${y}`)?.value) || 0,
+        ri5: !!document.getElementById(`ri5_${y}`)?.checked,
+        team: collectTeamSnapshot(y)
+      });
+    }
+
+
+    function collectYearState(y) {
+      return {
+        ri: safeText(document.getElementById(`ri_${y}`)?.value || ""),
+        rq: safeText(document.getElementById(`rq_${y}`)?.value || ""),
+        rqhrs: parseFloat(document.getElementById(`rqhrs_${y}`)?.value) || 0,
+        ri5: !!document.getElementById(`ri5_${y}`)?.checked,
+        team: collectTeamSnapshot(y)
+      };
+    }
+    function applyYearState(y, state) {
+      if (!state) return;
+      const riEl = document.getElementById(`ri_${y}`);
+      const rqEl = document.getElementById(`rq_${y}`);
+      const rqH  = document.getElementById(`rqhrs_${y}`);
+      const ri5  = document.getElementById(`ri5_${y}`);
+      if (riEl) riEl.value = state.ri || "";
+      if (rqEl) rqEl.value = state.rq || "";
+      if (rqH)  rqH.value  = (state.rqhrs !== undefined && state.rqhrs !== null) ? String(state.rqhrs) : "0";
+      if (ri5)  ri5.checked = !!state.ri5;
+      applyTeamSnapshot(y, state.team || { n: 1, members: [] });
+      updateFlagsAvailability(y);
+    }
+
+    function setCopyLocalBadge(dst, on) {
+      const badge = document.getElementById(`copyLocalBadge_${dst}`);
+      if (!badge) return;
+      badge.style.display = on ? "inline-flex" : "none";
+    }
+    function setCopyLocalRow(dst, visible, fromLabel) {
+      const row = document.getElementById(`copyLocalRow_${dst}`);
+      if (!row) return;
+      row.style.display = visible ? "flex" : "none";
+      const txt = document.getElementById(`copyLocalText_${dst}`);
+      if (txt && visible) {
+        const dstLabel = (dst === "y2") ? "Anno 2" : (dst === "y3") ? "Anno 3" : dst;
+        txt.innerText = `✏️ Hai modificato ${dstLabel} dopo aver copiato da ${fromLabel}.`;
+      }
+    }
+
+    function checkCopyLocal(dst) {
+      const sel = document.getElementById(`copy_${dst}`);
+      if (!sel) return;
+      const from = sel.value || "none";
+
+      if (from === "none") {
+        setCopyLocalRow(dst, false, "");
+        setCopyLocalBadge(dst, false);
+        return;
+      }
+
+      // Se non abbiamo una baseline (vecchi file), la inizializziamo allo stato corrente.
+      if (!copySync[dst]) copySync[dst] = { from, sig: yearTeamSignature(from), dstSig: "", baseline: null };
+      if (!copySync[dst].baseline || !copySync[dst].dstSig) {
+        copySync[dst].baseline = collectYearState(dst);
+        copySync[dst].dstSig = yearTeamSignature(dst);
+      }
+
+      const curDstSig = yearTeamSignature(dst);
+      const modified = !!copySync[dst].dstSig && (curDstSig !== copySync[dst].dstSig);
+
+      const fromLabel = (from === "y1") ? "Anno 1" : (from === "y2") ? "Anno 2" : "Origine";
+      setCopyLocalRow(dst, modified, fromLabel);
+      setCopyLocalBadge(dst, modified);
+    }
+
+    function checkCopyLocalAll() {
+      checkCopyLocal('y2');
+      checkCopyLocal('y3');
+    }
+
+    function confirmLocalOverride(dst) {
+      // Mantieni i valori attuali, ma togli il legame "Copia da"
+      const sel = document.getElementById(`copy_${dst}`);
+      if (sel) sel.value = "none";
+      lastCopy[dst] = "none";
+
+      copySync[dst] = { from: "none", sig: "", dstSig: "", baseline: null };
+      setCopySyncRow(dst, false, "");
+      setCopySyncBadge(dst, "none");
+      setCopyLocalRow(dst, false, "");
+      setCopyLocalBadge(dst, false);
+      calcola();
+    }
+
+    function restoreCopiedOriginal(dst) {
+      // Ripristina i valori copiati al momento della copia (non quelli attuali dell'origine)
+      const meta = copySync[dst];
+      if (!meta || !meta.baseline) return;
+
+      applyYearState(dst, meta.baseline);
+      // dopo applicazione, aggiorna firma di baseline (per evitare warning subito dopo)
+      meta.dstSig = yearTeamSignature(dst);
+
+      setCopyLocalRow(dst, false, "");
+      setCopyLocalBadge(dst, false);
+      checkCopySync(dst);
+      calcola();
+    }
+
+    /* =========================
+       COPY POPUP (solo se applicate correzioni automatiche)
+    ========================== */
+    function yearLabel(y) {
+      const el = document.getElementById(`${y}-lbl`);
+      const t = el ? safeText(el.innerText) : "";
+      return t || (y === "y1" ? "Anno 1" : y === "y2" ? "Anno 2" : y === "y3" ? "Anno 3" : y);
+    }
+    function sumTeamHoursFromSnap(snap) {
+      let sum = 0;
+      (snap?.members || []).forEach(m => {
+        const role = (m.role || "Revisore");
+        if (role === "Praticante") return;
+        sum += Math.max(0, parseFloat(m.hours) || 0);
+      });
+      return sum;
+    }
+    function sumRimbFromSnap(snap) {
+      let sum = 0;
+      (snap?.members || []).forEach(m => {
+        const role = (m.role || "Revisore");
+        if (role !== "Praticante") return;
+        sum += Math.max(0, parseFloat(m.rimb) || 0);
+      });
+      return sum;
+    }
+
+    function collectYearForCopyPopup(y) {
+      const tariffa = parseFloat(document.getElementById('tariffa')?.value) || 0;
+      const total = budget[y]?.hoursTotal || 0;
+      const feeTotal = budget[y]?.feeTotal || (total * tariffa);
+
+      const ri5On = !!document.getElementById(`ri5_${y}`)?.checked;
+      const ri5H = budget[y]?.ri5Hours || (ri5On ? Math.ceil(total * 0.05) : 0);
+
+      const rqH = (budget[y]?.rqHours !== undefined && budget[y]?.rqHours !== null)
+        ? (budget[y].rqHours || 0)
+        : (Math.max(0, parseFloat(document.getElementById(`rqhrs_${y}`)?.value) || 0));
+
+      const rwH = (budget[y]?.rwHours !== undefined && budget[y]?.rwHours !== null)
+        ? (budget[y].rwHours || 0)
+        : (Math.round(total * 0.30 * 2) / 2);
+
+      const maxTeam = Math.max(0, total - ri5H - rqH - rwH);
+
+      const team = collectTeamSnapshot(y);
+      return {
+        y,
+        label: yearLabel(y),
+        tariffa,
+        total,
+        feeTotal,
+        ri5On,
+        ri5H,
+        rqH,
+        rwH,
+        maxTeam,
+        team,
+        teamHours: sumTeamHoursFromSnap(team),
+        rimb: sumRimbFromSnap(team)
+      };
+    }
+
+    function maybeShowCopyAdjustPopup(srcY, dstY, srcState) {
+      const src = srcState || collectYearForCopyPopup(srcY);
+      const dst = collectYearForCopyPopup(dstY);
+
+      const rqReduced = (dst.rqH < (src.rqH - 1e-9));
+      const teamReduced = (dst.teamHours < (src.teamHours - 1e-9));
+      const rimbReduced = (dst.rimb < (src.rimb - 1e-6));
+
+      const memberLines = [];
+      const sM = src.team?.members || [];
+      const dM = dst.team?.members || [];
+      const n = Math.min(sM.length, dM.length);
+
+      for (let i=0; i<n; i++) {
+        const sMem = sM[i] || {};
+        const dMem = dM[i] || {};
+        const role = (dMem.role || sMem.role || "Revisore");
+        const name = safeText(dMem.name || sMem.name) || `Componente ${i+1}`;
+
+        if (role === "Praticante") {
+          const sr = Math.max(0, parseFloat(sMem.rimb) || 0);
+          const dr = Math.max(0, parseFloat(dMem.rimb) || 0);
+          if (dr < sr - 1e-6) memberLines.push(`- ${name} (Praticante): rimborsi ${eur.format(sr)} → ${eur.format(dr)}`);
+        } else {
+          const sh = Math.max(0, parseFloat(sMem.hours) || 0);
+          const dh = Math.max(0, parseFloat(dMem.hours) || 0);
+          if (dh < sh - 1e-9) memberLines.push(`- ${name}: ore ${sh.toFixed(1)}h → ${dh.toFixed(1)}h`);
+        }
+        if (memberLines.length >= 10) break;
+      }
+
+      if (!rqReduced && !teamReduced && !rimbReduced && memberLines.length === 0) return;
+
+      let msg = `⚠️ Copia team: correzioni automatiche applicate\n\n`;
+
+      msg += `Origine: ${src.label}\n`;
+      msg += `• Ore totali: ${src.total.toFixed(0)} h\n`;
+      msg += `• Compenso annuo: ${eur.format(src.feeTotal)}\n\n`;
+
+      msg += `Destinazione: ${dst.label}\n`;
+      msg += `• Ore totali: ${dst.total.toFixed(0)} h\n`;
+      msg += `• Compenso annuo: ${eur.format(dst.feeTotal)}\n\n`;
+
+      msg += `Vincoli (destinazione)\n`;
+      msg += `• Quota Revilaw (30% ore): ${dst.rwH.toFixed(1)} h (${eur.format(dst.rwH * (dst.tariffa||0))})\n`;
+      msg += `• Quota RI (5% ore): ${dst.ri5H.toFixed(0)} h\n`;
+      msg += `• Ore RQ: ${dst.rqH.toFixed(1)} h\n`;
+      msg += `• Ore team massime ripartibili: ${dst.maxTeam.toFixed(1)} h\n\n`;
+
+      msg += `Correzioni applicate\n`;
+      if (teamReduced) msg += `• Ore team: ${src.teamHours.toFixed(1)} h → ${dst.teamHours.toFixed(1)} h (−${(src.teamHours - dst.teamHours).toFixed(1)} h)\n`;
+      if (rqReduced)   msg += `• Ore RQ: ${src.rqH.toFixed(1)} h → ${dst.rqH.toFixed(1)} h (−${(src.rqH - dst.rqH).toFixed(1)} h)\n`;
+      if (rimbReduced) msg += `• Rimborsi praticanti: ${eur.format(src.rimb)} → ${eur.format(dst.rimb)} (−${eur.format(src.rimb - dst.rimb)})\n`;
+
+      if (memberLines.length) {
+        msg += `\nDettaglio riduzioni (componenti)\n`;
+        msg += memberLines.join("\n");
+      }
+
+      alert(msg);
+    }
+
+
+
+    function setCopySyncRow(dst, visible, fromLabel) {
+      const row = document.getElementById(`copySyncRow_${dst}`);
+      if (!row) return;
+      row.style.display = visible ? "flex" : "none";
+      const txt = document.getElementById(`copySyncText_${dst}`);
+      if (txt && visible) {
+        txt.innerText = `⚠️ ${fromLabel} è stato modificato dopo la copia.`;
+      }
+    }
+
+    function setCopySyncBadge(dst, state) {
+      const badge = document.getElementById(`copySyncBadge_${dst}`);
+      if (!badge) return;
+
+      if (!state || state === "none") {
+        badge.style.display = "none";
+        badge.classList.remove("ok","warn");
+        return;
+      }
+
+      badge.style.display = "inline-flex";
+      badge.classList.remove("ok","warn");
+
+      if (state === "ok") {
+        badge.classList.add("ok");
+        badge.innerText = "✅ Allineato";
+      } else if (state === "warn") {
+        badge.classList.add("warn");
+        badge.innerText = "⚠️ Da aggiornare";
+      } else {
+        badge.innerText = state;
+      }
+    }
+
+    function checkCopySync(dst) {
+      const sel = document.getElementById(`copy_${dst}`);
+      if (!sel) return;
+      const from = sel.value || "none";
+
+      if (from === "none") {
+        copySync[dst] = { from: "none", sig: "", dstSig: "", baseline: null };
+        setCopySyncRow(dst, false, "");
+        setCopySyncBadge(dst, "none");
+        return;
+      }
+
+      // se cambia l'origine, considera "in sync" al primo giro
+      if (!copySync[dst] || copySync[dst].from !== from) {
+        copySync[dst] = { from, sig: yearTeamSignature(from), dstSig: yearTeamSignature(dst), baseline: collectYearState(dst) };
+        setCopySyncRow(dst, false, "");
+        setCopySyncBadge(dst, "ok");
+        return;
+      }
+
+      const currentSig = yearTeamSignature(from);
+      const changed = !!copySync[dst].sig && (currentSig !== copySync[dst].sig);
+
+      const fromLabel = (from === "y1") ? "Anno 1" : (from === "y2") ? "Anno 2" : "Origine";
+      setCopySyncRow(dst, changed, fromLabel);
+      setCopySyncBadge(dst, changed ? "warn" : "ok");
+    }
+
+    function checkCopySyncAll() {
+      checkCopySync('y2');
+      checkCopySync('y3');
+    }
+
+    function syncCopy(dst) {
+      const sel = document.getElementById(`copy_${dst}`);
+      if (!sel) return;
+      const from = sel.value || "none";
+      if (from === "none") return;
+
+      const srcState = collectYearForCopyPopup(from);
+
+      copyFromTo(from, dst);
+      copySync[dst] = { from, sig: yearTeamSignature(from), dstSig: yearTeamSignature(dst), baseline: collectYearState(dst) };
+      setCopySyncRow(dst, false, "");
+      setCopyLocalRow(dst, false, "");
+      setCopyLocalBadge(dst, false);
+      checkCopySync(dst);
+      checkCopyLocal(dst);
+      calcola();
+      // Popup solo se durante la copia sono state applicate correzioni automatiche
+      maybeShowCopyAdjustPopup(from, dst, srcState);
+    }
+    function handleCopySelect(year) {
+      const sel = document.getElementById(`copy_${year}`);
+      if (!sel) return;
+      const from = sel.value;
+
+      if (from === lastCopy[year]) return;
+      lastCopy[year] = from;
+
+      if (from === "none") {
+        clearYearTeam(year);
+        copySync[year] = { from: "none", sig: "", dstSig: "", baseline: null };
+        setCopyLocalRow(year, false, "");
+        setCopyLocalBadge(year, false);
+        checkCopySync(year);
+        calcola();
+
+      // Popup solo se durante la copia sono state applicate correzioni automatiche
+      maybeShowCopyAdjustPopup(from, year, srcState);
+        return;
+      }
+
+      const srcState = collectYearForCopyPopup(from);
+
+      copyFromTo(from, year);
+      copySync[year] = { from, sig: yearTeamSignature(from), dstSig: yearTeamSignature(year), baseline: collectYearState(year) };
+      setCopyLocalRow(year, false, "");
+      setCopyLocalBadge(year, false);
+      checkCopySync(year);
+      checkCopyLocal(year);
+      calcola();
+
+      // Popup solo se durante la copia sono state applicate correzioni automatiche
+      maybeShowCopyAdjustPopup(from, year, srcState);
+    }
+
+
+    function getAssignedTeamHours(y) {
+      const n = parseInt(document.getElementById(`teamN_${y}`).value, 10) || 1;
+      let sum = 0;
+      for (let i=1; i<=n; i++) {
+        const role = document.getElementById(teamRoleId(y,i))?.value || "Revisore";
+        const hr = parseFloat(document.getElementById(teamHoursId(y,i))?.value) || 0;
+        sum += (role === "Praticante") ? 0 : Math.max(0, hr);
+      }
+      return sum;
+    }
+
+    function getAssignedRimborsi(y) {
+      const n = parseInt(document.getElementById(`teamN_${y}`).value, 10) || 1;
+      let sum = 0;
+      for (let i=1; i<=n; i++) {
+        const role = document.getElementById(teamRoleId(y,i))?.value || "Revisore";
+        if (role !== "Praticante") continue;
+        const rb = parseFloat(document.getElementById(teamRimbId(y,i))?.value) || 0;
+        sum += Math.max(0, rb);
+      }
+      return sum;
+    }
+
+    function enforceBudgets(y, tariffa) {
+      const total = budget[y].hoursTotal || 0;
+      const ri5 = budget[y].ri5Hours || 0;
+      const rq = budget[y].rqHours || 0;
+      const rw = budget[y].rwHours || 0;
+      const maxTeamHours = Math.max(0, total - ri5 - rq - rw);
+
+      const n = parseInt(document.getElementById(`teamN_${y}`).value, 10) || 1;
+
+      let hours = [];
+      let sum = 0;
+      for (let i=1; i<=n; i++) {
+        const role = document.getElementById(teamRoleId(y,i))?.value || "Revisore";
+        const el = document.getElementById(teamHoursId(y,i));
+        let v = Math.max(0, parseFloat(el?.value) || 0);
+        if (role === "Praticante") v = 0;
+        hours[i] = v;
+        sum += v;
+      }
+      if (sum > maxTeamHours + 1e-9) {
+        let excess = sum - maxTeamHours;
+        for (let i=n; i>=1 && excess > 1e-9; i--) {
+          const role = document.getElementById(teamRoleId(y,i))?.value || "Revisore";
+          if (role === "Praticante") continue;
+          const take = Math.min(hours[i], excess);
+          hours[i] -= take;
+          excess -= take;
+        }
+        for (let i=1; i<=n; i++) {
+          const el = document.getElementById(teamHoursId(y,i));
+          const role = document.getElementById(teamRoleId(y,i))?.value || "Revisore";
+          if (el) el.value = (role === "Praticante") ? "0" : String(Math.round(hours[i]*2)/2);
+        }
+      }
+
+      const feeTotal = budget[y].feeTotal || 0;
+      const teamHours = getAssignedTeamHours(y);
+      const baseHoursSpent = ri5 + rq + rw + teamHours;
+      const baseFeeSpent = baseHoursSpent * (tariffa || 0);
+
+      let rimbSum = getAssignedRimborsi(y);
+      if (baseFeeSpent + rimbSum > feeTotal + 1e-6) {
+        let excess = (baseFeeSpent + rimbSum) - feeTotal;
+        for (let i=n; i>=1 && excess > 1e-6; i--) {
+          const role = document.getElementById(teamRoleId(y,i))?.value || "Revisore";
+          if (role !== "Praticante") continue;
+          const el = document.getElementById(teamRimbId(y,i));
+          if (!el) continue;
+          let v = Math.max(0, parseFloat(el.value) || 0);
+          const take = Math.min(v, excess);
+          v -= take;
+          excess -= take;
+          el.value = String(Math.round(v));
+        }
+        rimbSum = getAssignedRimborsi(y);
+        if (baseFeeSpent + rimbSum > feeTotal + 1e-6) {
+          for (let i=1; i<=n; i++) {
+            const role = document.getElementById(teamRoleId(y,i))?.value || "Revisore";
+            if (role !== "Praticante") continue;
+            const el = document.getElementById(teamRimbId(y,i));
+            if (el) el.value = "0";
+          }
+        }
+      }
+    }
+
+    function updateMiniFees(y, tariffa) {
+      const ri5On = document.getElementById(`ri5_${y}`)?.checked;
+      const ri5H = budget[y].ri5Hours || 0;
+      const ri5FeeEl = document.getElementById(`ri5fee_${y}`);
+      if (ri5FeeEl) {
+        if (ri5On && ri5H > 0) {
+          ri5FeeEl.style.display = "block";
+          ri5FeeEl.textContent = `Compenso Resp. incarico (5%): ${eur.format(ri5H * (tariffa||0))}`;
+        } else {
+          ri5FeeEl.style.display = "none";
+        }
+      }
+
+      const rqH = budget[y].rqHours || 0;
+      const rqFeeEl = document.getElementById(`rqfee_${y}`);
+      if (rqFeeEl) {
+        if (rqH > 0) {
+          rqFeeEl.style.display = "block";
+          rqFeeEl.textContent = `Compenso Resp. qualità: ${eur.format(rqH * (tariffa||0))}`;
+        } else {
+          rqFeeEl.style.display = "none";
+        }
+      }
+    }
+
+    function updateTeamComputed(y, tariffa) {
+      const total = budget[y].hoursTotal || 0;
+      const ri5 = budget[y].ri5Hours || 0;
+
+      // clamp rq (sempre inclusa nel totale)
+      const rqEl = document.getElementById(`rqhrs_${y}`);
+      let rq = Math.max(0, parseFloat(rqEl?.value) || 0);
+      rq = Math.min(rq, Math.max(0, total - ri5));
+      if (rqEl) rqEl.value = String(rq);
+      budget[y].rqHours = rq;
+
+      // Quota Revilaw: 30% delle ore TOTALI annue (non varia con RI 5% o RQ)
+      const rw = Math.round(total * 0.30 * 2) / 2; // step 0,5h
+      budget[y].rwHours = rw;
+
+      enforceBudgets(y, tariffa);
+
+      const teamHours = getAssignedTeamHours(y);
+      const rimb = getAssignedRimborsi(y);
+
+      const maxTeamHours = Math.max(0, total - budget[y].ri5Hours - budget[y].rqHours - budget[y].rwHours);
+      const hoursRemaining = maxTeamHours - teamHours;
+
+      const feeTotal = budget[y].feeTotal || 0;
+      const feeSpent = ((budget[y].ri5Hours + budget[y].rqHours + budget[y].rwHours + teamHours) * (tariffa || 0)) + rimb;
+      const feeRemaining = feeTotal - feeSpent;
+
+      const n = parseInt(document.getElementById(`teamN_${y}`).value, 10) || 1;
+      for (let i=1; i<=n; i++) {
+        const role = document.getElementById(teamRoleId(y,i))?.value || "Revisore";
+        const hr = Math.max(0, parseFloat(document.getElementById(teamHoursId(y,i))?.value) || 0);
+        const fee = (role === "Praticante") ? 0 : hr * (tariffa || 0);
+        const feeEl = document.getElementById(teamFeeCellId(y,i));
+        if (feeEl) feeEl.innerText = eur.format(fee);
+      }
+
+      const totEl = document.getElementById(`pill_tot_${y}`);
+      const remEl = document.getElementById(`pill_rem_${y}`);
+      const feeEl = document.getElementById(`pill_fee_${y}`);
+      if (totEl) totEl.innerHTML =
+        `Ore totali: ${total.toFixed(0)} h<br>` +
+        `Quota Revilaw (30% ore totali): ${budget[y].rwHours.toFixed(1)} h (${eur.format(budget[y].rwHours * (tariffa||0))})<br>` +
+        `Quote incluse nel totale: RI (5%): ${budget[y].ri5Hours.toFixed(0)} h • RQ: ${budget[y].rqHours.toFixed(1)} h`;
+
+      if (remEl) remEl.innerHTML =
+        `Ore team assegnabili: ${maxTeamHours.toFixed(1)} h<br>` +
+        `Ore team residue: ${hoursRemaining.toFixed(1)} h`;
+
+      if (feeEl) feeEl.innerHTML =
+        `Compenso totale: ${eur.format(feeTotal)}<br>` +
+        `Compenso residuo: ${eur.format(Math.max(0, feeRemaining))}`;
+
+      const warn = document.getElementById(`teamWarn_${y}`);
+      if (warn) {
+        const okH = Math.abs(hoursRemaining) < 1e-6;
+        const okF = feeRemaining >= -1e-3;
+        if (okH && okF) {
+          warn.innerText =
+            `✅ OK: ore e compensi dentro i limiti (residuo ore ${hoursRemaining.toFixed(1)}h, residuo € ${eur.format(Math.max(0, feeRemaining))}).
+` +
+            `Quota Revilaw (30% ore totali): ${budget[y].rwHours.toFixed(1)}h (${eur.format(budget[y].rwHours*(tariffa||0))})`;
+        } else {
+          warn.innerText =
+            `Vincoli attivi: ore team ≤ ${maxTeamHours.toFixed(1)}h (ore totali − Quota Revilaw 30% − RI 5% − RQ) • compensi+rimborsi ≤ ${eur.format(feeTotal)}.`;
+        }
+      }
+
+      const rwBox = document.getElementById(`rwBox_${y}`);
+      if (rwBox) {
+        rwBox.innerText = `Quota Revilaw (30% ore totali) — non ripartibile: ${budget[y].rwHours.toFixed(1)} h  •  Compenso: ${eur.format(budget[y].rwHours * (tariffa||0))}`;
+      }
+
+      updateFlagsAvailability(y);
+      updateMiniFees(y, tariffa);
+    }
+
+    /* =========================
+       ARCHIVIO (locale)
+    ========================== */
+    function storageKey() { return "revcalc_archive_v11_sidebar_no_reset"; }
+    function loadArchive() { try { return JSON.parse(localStorage.getItem(storageKey()) || "[]"); } catch { return []; } }
+    function saveArchive(list) { localStorage.setItem(storageKey(), JSON.stringify(list || [])); }
+
+    function refreshSavedList() {
+      const list = loadArchive();
+      const sel = document.getElementById('savedList');
+      if (!sel) return;
+      sel.innerHTML = "";
+
+      const ph = document.createElement("option");
+      ph.value = "";
+      ph.textContent = "— Seleziona un calcolo —";
+      sel.appendChild(ph);
+
+      if (!list.length) return;
+
+      list.sort((a,b) => (b.savedAt || "").localeCompare(a.savedAt || "")).forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item.id;
+        opt.textContent = item.label;
+        sel.appendChild(opt);
+      });
+    }
+
+    function collectSnapshot() {
+      return {
+        version: "revcalc_v11_sidebar_no_reset",
+        savedAt: todayISO(),
+        fields: {
+          anno1: document.getElementById('anno1').value,
+          rs: document.getElementById('rs').value,
+          indirizzo: document.getElementById('indirizzo').value,
+          attivita_cliente: document.getElementById('attivita_cliente').value,
+          cf: document.getElementById('cf').value,
+          piva: document.getElementById('piva').value,
+          pec: document.getElementById('pec').value,
+          predisposto: document.getElementById('predisposto').value,
+          dataPred: document.getElementById('dataPred').value,
+
+          attivo: document.getElementById('attivo').value,
+          ricavi: document.getElementById('ricavi').value,
+
+          settore: document.getElementById('settore').value,
+          rischio: document.getElementById('rischio').value,
+          rischio_note: document.getElementById('rischio_note').value,
+
+          extraOre50: document.getElementById('extraOre50').value,
+          oreBasePlus: document.getElementById('oreBasePlus')?.value || "0",
+          tariffa: document.getElementById('tariffa').value,
+
+          flags: {
+            consolidato: document.getElementById('c_consolidato').checked,
+            ifrs: document.getElementById('c_ifrs').checked,
+            it: document.getElementById('c_it').checked,
+            altro: document.getElementById('c_altro').checked,
+            volontaria: document.getElementById('c_volontaria').checked,
+            primoanno: document.getElementById('c_primoanno').checked
+          },
+          hours: {
+            consolidato: document.getElementById('h_consolidato').value,
+            ifrs: document.getElementById('h_ifrs').value,
+            it: document.getElementById('h_it').value,
+            altro: document.getElementById('h_altro').value,
+            volontaria: document.getElementById('h_volontaria').value,
+            primoanno: document.getElementById('h_primoanno').value
+          },
+          noteAltro: document.getElementById('t_altro').value,
+          notes: {
+            y1: document.getElementById('note_y1').value,
+            y2: document.getElementById('note_y2').value,
+            y3: document.getElementById('note_y3').value
+          },
+
+          copySel: {
+            y2: document.getElementById('copy_y2').value,
+            y3: document.getElementById('copy_y3').value
+          },
+
+          copySyncMeta: {
+            y2: copySync.y2,
+            y3: copySync.y3
+          },
+
+          responsabili: {
+            ri_y1: document.getElementById('ri_y1').value,
+            rq_y1: document.getElementById('rq_y1').value,
+            rqhrs_y1: document.getElementById('rqhrs_y1').value,
+            ri5_y1: document.getElementById('ri5_y1').checked,
+
+            ri_y2: document.getElementById('ri_y2').value,
+            rq_y2: document.getElementById('rq_y2').value,
+            rqhrs_y2: document.getElementById('rqhrs_y2').value,
+            ri5_y2: document.getElementById('ri5_y2').checked,
+
+            ri_y3: document.getElementById('ri_y3').value,
+            rq_y3: document.getElementById('rq_y3').value,
+            rqhrs_y3: document.getElementById('rqhrs_y3').value,
+            ri5_y3: document.getElementById('ri5_y3').checked
+          },
+
+          team: {
+            y1: collectTeamSnapshot('y1'),
+            y2: collectTeamSnapshot('y2'),
+            y3: collectTeamSnapshot('y3')
+          },
+
+          teamPanelOpen: document.getElementById('teamPanel').style.display === "block"
+        }
+      };
+    }
+
+    function applySnapshot(s) {
+      if (!s || !s.fields) return;
+      const f = s.fields;
+
+      document.getElementById('anno1').value = f.anno1 || new Date().getFullYear();
+      document.getElementById('rs').value = f.rs || "";
+      document.getElementById('indirizzo').value = f.indirizzo || "";
+      document.getElementById('attivita_cliente').value = f.attivita_cliente || "";
+      document.getElementById('cf').value = f.cf || "";
+      document.getElementById('piva').value = f.piva || "";
+      document.getElementById('pec').value = f.pec || "";
+      document.getElementById('predisposto').value = f.predisposto || "";
+      document.getElementById('dataPred').value = f.dataPred || todayISO();
+
+      document.getElementById('attivo').value = f.attivo || "";
+      document.getElementById('ricavi').value = f.ricavi || "";
+
+      document.getElementById('settore').value = f.settore || "1.0";
+      document.getElementById('rischio').value = f.rischio || "1.2";
+      document.getElementById('rischio_note').value = f.rischio_note || "";
+
+      document.getElementById('extraOre50').value = f.extraOre50 || "0";
+      if (document.getElementById('oreBasePlus')) document.getElementById('oreBasePlus').value = f.oreBasePlus || "0";
+      document.getElementById('tariffa').value = f.tariffa || "85";
+
+      document.getElementById('c_consolidato').checked = !!(f.flags && f.flags.consolidato);
+      document.getElementById('c_ifrs').checked = !!(f.flags && f.flags.ifrs);
+      document.getElementById('c_it').checked = !!(f.flags && f.flags.it);
+      document.getElementById('c_altro').checked = !!(f.flags && f.flags.altro);
+      document.getElementById('c_volontaria').checked = !!(f.flags && f.flags.volontaria);
+      document.getElementById('c_primoanno').checked = !!(f.flags && f.flags.primoanno);
+
+      document.getElementById('h_consolidato').value = (f.hours && f.hours.consolidato) || "0";
+      document.getElementById('h_ifrs').value = (f.hours && f.hours.ifrs) || "0";
+      document.getElementById('h_it').value = (f.hours && f.hours.it) || "0";
+      document.getElementById('h_altro').value = (f.hours && f.hours.altro) || "0";
+      document.getElementById('h_volontaria').value = (f.hours && f.hours.volontaria) || "0";
+      document.getElementById('h_primoanno').value = (f.hours && f.hours.primoanno) || "0";
+
+      document.getElementById('t_altro').value = f.noteAltro || "";
+      toggleAltroNote();
+
+      document.getElementById('note_y1').value = (f.notes && f.notes.y1) || "";
+      document.getElementById('note_y2').value = (f.notes && f.notes.y2) || "";
+      document.getElementById('note_y3').value = (f.notes && f.notes.y3) || "";
+
+      renderTeamTable('y1');
+      renderTeamTable('y2');
+      renderTeamTable('y3');
+
+      document.getElementById('ri_y1').value = f.responsabili?.ri_y1 || "";
+      document.getElementById('rq_y1').value = f.responsabili?.rq_y1 || "";
+      document.getElementById('rqhrs_y1').value = f.responsabili?.rqhrs_y1 || "0";
+      document.getElementById('ri5_y1').checked = !!f.responsabili?.ri5_y1;
+
+      document.getElementById('ri_y2').value = f.responsabili?.ri_y2 || "";
+      document.getElementById('rq_y2').value = f.responsabili?.rq_y2 || "";
+      document.getElementById('rqhrs_y2').value = f.responsabili?.rqhrs_y2 || "0";
+      document.getElementById('ri5_y2').checked = !!f.responsabili?.ri5_y2;
+
+      document.getElementById('ri_y3').value = f.responsabili?.ri_y3 || "";
+      document.getElementById('rq_y3').value = f.responsabili?.rq_y3 || "";
+      document.getElementById('rqhrs_y3').value = f.responsabili?.rqhrs_y3 || "0";
+      document.getElementById('ri5_y3').checked = !!f.responsabili?.ri5_y3;
+
+      applyTeamSnapshot('y1', f.team?.y1 || { n: 3, members: [] });
+      applyTeamSnapshot('y2', f.team?.y2 || { n: 3, members: [] });
+      applyTeamSnapshot('y3', f.team?.y3 || { n: 3, members: [] });
+
+      document.getElementById('copy_y2').value = f.copySel?.y2 || "none";
+      document.getElementById('copy_y3').value = f.copySel?.y3 || "none";
+      lastCopy.y2 = document.getElementById('copy_y2').value;
+      lastCopy.y3 = document.getElementById('copy_y3').value;
+
+      // Ripristina stato sync copie (se presente nel file)
+      if (f.copySyncMeta) {
+        copySync.y2 = f.copySyncMeta.y2 || { from: (f.copySel?.y2 || 'none'), sig: '' };
+        copySync.y3 = f.copySyncMeta.y3 || { from: (f.copySel?.y3 || 'none'), sig: '' };
+      } else {
+        copySync.y2 = { from: (f.copySel?.y2 || 'none'), sig: '' };
+        copySync.y3 = { from: (f.copySel?.y3 || 'none'), sig: '' };
+      }
+      checkCopySyncAll();
+      checkCopyLocalAll();
+
+
+      // Team panel open/closed restore + pulsanti
+      const panel = document.getElementById('teamPanel');
+      const icon = document.getElementById('teamToggleIcon');
+      const bottom = document.getElementById('actionsBottom');
+      const btnPrintTop = document.getElementById('btnPrintTop');
+      const btnSaveTop  = document.getElementById('btnSaveTop');
+
+      if (f.teamPanelOpen) {
+        panel.style.display = "block"; icon.textContent = "▲";
+        if (bottom) bottom.classList.remove("is-hidden");
+      } else {
+        panel.style.display = "none"; icon.textContent = "▼";
+        if (bottom) bottom.classList.add("is-hidden");
+        if (btnPrintTop) btnPrintTop.style.display = "inline-flex";
+        if (btnSaveTop)  btnSaveTop.style.display  = "inline-flex";
+      }
+      if (btnPrintTop) btnPrintTop.style.display = "inline-flex";
+      if (btnSaveTop)  btnSaveTop.style.display  = "inline-flex";
+
+
+updateFlagsAvailabilityAll();
+      calcola();
+    }
+
+    function salvaCalcolo() {
+      if (!requireCliente()) return;
+
+      const snap = collectSnapshot();
+      const f = snap.fields;
+
+      const anno1 = parseInt(f.anno1, 10) || new Date().getFullYear();
+      const anno3 = anno1 + 2;
+      const rs = safeText(f.rs) || "Cliente";
+      const dataPred = safeText(f.dataPred) || todayISO();
+      const ts = nowStamp();
+
+      const archive = loadArchive();
+
+      if (loadedArchiveId) {
+        const overwrite = confirm("Vuoi sovrascrivere il calcolo salvato corrente?\nOK = sostituisci\nAnnulla = salva come nuovo");
+        if (overwrite) {
+          const idx = archive.findIndex(x => x.id === loadedArchiveId);
+          if (idx >= 0) {
+            archive[idx].snapshot = snap;
+            archive[idx].savedAt = todayISO();
+            archive[idx].label = `${rs} | ${anno1}-${anno3} | ${dataPred} | ${ts}`;
+            saveArchive(archive);
+            refreshSavedList();
+            alert("✅ Calcolo sovrascritto con successo.");
+            return;
+          }
+        }
+      }
+
+      const id = `${cleanFileName(rs)}_${anno1}-${anno3}_${dataPred}_${ts}`;
+      const label = `${rs} | ${anno1}-${anno3} | ${dataPred} | ${ts}`;
+      const entry = { id, label, savedAt: todayISO(), snapshot: snap };
+
+      archive.push(entry);
+      saveArchive(archive);
+      refreshSavedList();
+      loadedArchiveId = id;
+
+      const fileName = `${cleanFileName(rs)}_${anno1}-${anno3}_${dataPred}_${ts}.json`;
+      const blob = new Blob([JSON.stringify(entry, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      alert("✅ Calcolo salvato.");
+    }
+
+    function caricaDaArchivio() {
+      const sel = document.getElementById('savedList');
+      const id = sel.value;
+      if (!id) return;
+      const archive = loadArchive();
+      const found = archive.find(x => x.id === id);
+      if (!found) return;
+
+      loadedArchiveId = found.id;
+      applySnapshot(found.snapshot);
+
+      // ✅ pulisci tendina dopo il caricamento
+      sel.value = "";
+
+      alert("✅ Calcolo caricato. Puoi modificarlo e salvarlo sovrascrivendo il precedente.");
+    }
+
+    function eliminaDaArchivio() {
+      const sel = document.getElementById('savedList');
+      const id = sel.value;
+      if (!id) return;
+      let archive = loadArchive();
+      archive = archive.filter(x => x.id !== id);
+      saveArchive(archive);
+      refreshSavedList();
+      if (loadedArchiveId === id) loadedArchiveId = null;
+      sel.value = "";
+    }
+
+    function nuovoCalcolo() {
+      loadedArchiveId = null;
+
+      document.getElementById('anno1').value = new Date().getFullYear();
+      document.getElementById('attivo').value = "";
+      document.getElementById('ricavi').value = "";
+      document.getElementById('settore').value = "1.0";
+      document.getElementById('rischio').value = "1.2";
+      document.getElementById('rischio_note').value = "";
+      document.getElementById('extraOre50').value = 0;
+      if (document.getElementById('oreBasePlus')) document.getElementById('oreBasePlus').value = 0;
+
+      ['consolidato','ifrs','it','altro','volontaria','primoanno'].forEach(k => {
+        document.getElementById(`c_${k}`).checked = false;
+        document.getElementById(`h_${k}`).value = 0;
+      });
+
+      document.getElementById('t_altro').value = "";
+      document.getElementById('n_altro').style.display = "none";
+      document.getElementById('tariffa').value = 85;
+
+      document.getElementById('rs').value = "";
+      document.getElementById('indirizzo').value = "";
+      document.getElementById('attivita_cliente').value = "";
+      document.getElementById('cf').value = "";
+      document.getElementById('piva').value = "";
+      document.getElementById('pec').value = "";
+      document.getElementById('predisposto').value = "";
+      document.getElementById('dataPred').value = todayISO();
+
+      document.getElementById('note_y1').value = "";
+      document.getElementById('note_y2').value = "";
+      document.getElementById('note_y3').value = "";
+
+      document.getElementById('copy_y2').value = "none";
+      document.getElementById('copy_y3').value = "none";
+      lastCopy.y2 = "none";
+      lastCopy.y3 = "none";
+
+      ['y1','y2','y3'].forEach(y => clearYearTeam(y));
+
+      yearOpen.y1 = false; yearOpen.y2 = false; yearOpen.y3 = false;
+      document.getElementById('tbtn-y1').innerText = "+";
+      document.getElementById('tbtn-y2').innerText = "+";
+      document.getElementById('tbtn-y3').innerText = "+";
+
+      // chiudi team + ripristina pulsanti
+      document.getElementById('teamPanel').style.display = "none";
+      document.getElementById('teamToggleIcon').textContent = "▼";
+      const bottom = document.getElementById('actionsBottom');
+      const btnPrintTop = document.getElementById('btnPrintTop');
+      const btnSaveTop  = document.getElementById('btnSaveTop');
+      if (bottom) bottom.classList.add("is-hidden");
+      if (btnPrintTop) btnPrintTop.style.display = "inline-flex";
+      if (btnSaveTop)  btnSaveTop.style.display  = "inline-flex";
+
+      // pulisci tendina archivio
+      const sel = document.getElementById('savedList');
+      if (sel) sel.value = "";
+
+      updateFlagsAvailabilityAll();
+      calcola();
+    }
+
+    /* =========================
+       STAMPA
+    ========================== */
+    function updatePrintFields(data) {
+      const rs = safeText(document.getElementById('rs').value) || "—";
+      const indirizzo = safeText(document.getElementById('indirizzo').value) || "—";
+      const attivita = safeText(document.getElementById('attivita_cliente').value) || "—";
+      const cf = safeText(document.getElementById('cf').value) || "—";
+      const piva = safeText(document.getElementById('piva').value) || "—";
+      const pec = safeText(document.getElementById('pec').value) || "—";
+
+      const predisposto = safeText(document.getElementById('predisposto').value) || "—";
+      const dataPred = safeText(document.getElementById('dataPred').value) || "—";
+
+      const rischioNote = safeText(document.getElementById('rischio_note').value) || "—";
+
+      document.getElementById('p_rs').innerText = rs;
+      document.getElementById('p_indirizzo').innerText = indirizzo;
+      document.getElementById('p_attivita').innerText = attivita;
+      document.getElementById('p_cf').innerText = cf;
+      document.getElementById('p_piva').innerText = piva;
+      document.getElementById('p_pec').innerText = pec;
+
+      document.getElementById('p_pred').innerText = predisposto;
+      document.getElementById('p_data').innerText = dataPred;
+
+      document.getElementById('p_triennio').innerText = `${data.anno1} - ${data.anno3}`;
+      document.getElementById('p_media').innerText = eur.format(data.media || 0);
+      document.getElementById('p_tariffa').innerText = eur.format(data.tariffa || 0);
+
+      document.getElementById('p_settore').innerText = data.settoreText || "—";
+      document.getElementById('p_rischio').innerText = data.rischioText || "—";
+      document.getElementById('p_rischio_note').innerText = rischioNote;
+
+      // Riporta su ogni foglio (pagine anno/team)
+      document.querySelectorAll('.p_rs_all').forEach(el => el.innerText = rs);
+      document.querySelectorAll('.p_pred_all').forEach(el => el.innerText = predisposto);
+      document.querySelectorAll('.p_data_all').forEach(el => el.innerText = dataPred);
+    }
+
+    function buildPrintYearRows(yearKey) {
+      const map = [
+        { kind: 'legal', label: 'Revisione Legale', level: 1 },
+        { kind: 'otherTotal', label: 'Altre attività (totale)', level: 1 },
+        { kind: 'ri5', label: 'Quota Resp. incarico (5% ore) - inclusa nel totale', level: 1 },
+        { kind: 'consolidato', label: 'Consolidato', level: 2 },
+        { kind: 'ifrs', label: 'IFRS / principi particolari', level: 2 },
+        { kind: 'it', label: 'IT / Data Analytics', level: 2 },
+        { kind: 'altro', label: 'Altro', level: 2 },
+        { kind: 'volontaria', label: 'Revisione volontaria anno precedente', level: 2 },
+        { kind: 'primoanno', label: 'Primo anno incarico / subentro', level: 2 },
+      ];
+      const rows = [];
+      map.forEach(x => {
+        const oreEl = document.getElementById(`${yearKey}-${x.kind}`);
+        const feeEl = document.getElementById(`${yearKey}-${x.kind}-fee`);
+        const ore = oreEl ? (oreEl.innerText || "").trim() : "";
+        const fee = feeEl ? (feeEl.innerText || "").trim() : "";
+        if (x.kind === 'legal' || x.kind === 'otherTotal') { rows.push({ ...x, ore, fee }); return; }
+        if (x.kind === 'ri5') {
+          const oreNum = parseFloat(ore.replace(",", ".")) || 0;
+          if (oreNum > 0) rows.push({ ...x, ore, fee });
+          return;
+        }
+        const oreNum = parseFloat(ore.replace(",", ".")) || 0;
+        if (oreNum > 0) rows.push({ ...x, ore, fee });
+      });
+      return rows;
+    }
+
+    function renderPrintTable(bodyId, rows) {
+      const tbody = document.getElementById(bodyId);
+      tbody.innerHTML = "";
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        const roleTxt = (r.role || "").toString().toLowerCase();
+        if (roleTxt.includes("quota revilaw")) tr.classList.add("revilaw-row");
+        const labelCls = r.level === 1 ? "sub-label" : "sub2-label";
+        tr.innerHTML = `
+          <td class="${labelCls}">↳ ${r.label}</td>
+          <td class="num">${r.ore}</td>
+          <td class="money">${r.fee}</td>
+          <td></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function flagsToText(y, flags) {
+      const parts = [];
+      FLAG_DEFS.forEach(fd => {
+        if (fd.onlyY && fd.onlyY !== y) return;
+        const enabled = fd.always ? true : (fd.depends ? isCasePresent(fd.depends) : true);
+        if (!enabled) return;
+        if (flags && flags[fd.key]) parts.push(fd.label);
+      });
+      return parts.length ? parts.join(", ") : "—";
+    }
+
+    function buildTeamRowsForPrint(y, tariffa) {
+      const t = collectTeamSnapshot(y);
+      const rows = [];
+
+      // Riga evidenza Quota Revilaw (30% ore)
+      const total = budget[y]?.hoursTotal || 0;
+      const rw = budget[y]?.rwHours || (Math.round(total * 0.30 * 2) / 2);
+      rows.push({
+        name: 'Revilaw S.p.A.',
+        role: 'Quota Revilaw (30% ore totali)',
+        act: '—',
+        hrs: rw,
+        fee: rw * (tariffa || 0),
+        rimb: 0
+      });
+      (t.members || []).forEach(m => {
+        const role = m.role || "—";
+        const hrs = (role === "Praticante") ? 0 : Math.max(0, parseFloat(m.hours) || 0);
+        const rimb = (role === "Praticante") ? Math.max(0, parseFloat(m.rimb) || 0) : 0;
+        rows.push({
+          name: m.name || "—",
+          role,
+          act: flagsToText(y, m.flags || {}),
+          hrs,
+          fee: hrs * (tariffa || 0),
+          rimb
+        });
+      });
+      return rows;
+    }
+
+    function renderTeamPrintTbody(tbodyId, rows) {
+      const tb = document.getElementById(tbodyId);
+      tb.innerHTML = "";
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        const roleTxt = (r.role || "").toString().toLowerCase();
+        if (roleTxt.includes("quota revilaw")) tr.classList.add("revilaw-row");
+        tr.innerHTML = `
+          <td>${r.name}</td>
+          <td>${r.role}</td>
+          <td>${r.act}</td>
+          <td class="num">${r.hrs.toFixed(1)}</td>
+          <td class="money">${eur.format(r.fee)}</td>
+          <td class="money">${r.rimb ? eur.format(r.rimb) : "—"}</td>
+        `;
+        tb.appendChild(tr);
+      });
+    }
+
+    function stampa() {
+      if (!requireCliente()) return;
+
+      refreshDetailsVisibility(true);
+      renderPrintTable("print_y1_body", buildPrintYearRows("y1"));
+      renderPrintTable("print_y2_body", buildPrintYearRows("y2"));
+      renderPrintTable("print_y3_body", buildPrintYearRows("y3"));
+
+      const tariffa = parseFloat(document.getElementById('tariffa').value) || 0;
+
+      document.getElementById("pte_y1_ri").innerText = safeText(document.getElementById("ri_y1").value) || "—";
+      document.getElementById("pte_y1_rq").innerText = safeText(document.getElementById("rq_y1").value) || "—";
+      document.getElementById("pte_y2_ri").innerText = safeText(document.getElementById("ri_y2").value) || "—";
+      document.getElementById("pte_y2_rq").innerText = safeText(document.getElementById("rq_y2").value) || "—";
+      document.getElementById("pte_y3_ri").innerText = safeText(document.getElementById("ri_y3").value) || "—";
+      document.getElementById("pte_y3_rq").innerText = safeText(document.getElementById("rq_y3").value) || "—";
+
+      ['y1','y2','y3'].forEach(y => {
+        const total = budget[y].hoursTotal || 0;
+        const ri5 = budget[y].ri5Hours || 0;
+        const rq = budget[y].rqHours || 0;
+        const rw = budget[y].rwHours || (Math.round(total * 0.30 * 2) / 2);
+        const maxTeam = Math.max(0, total - ri5 - rq - rw);
+        const teamH = getAssignedTeamHours(y);
+        const remH = maxTeam - teamH;
+
+        const feeTot = budget[y].feeTotal || 0;
+        const rimb = getAssignedRimborsi(y);
+        const feeSpent = ((ri5 + rq + rw + teamH) * (tariffa || 0)) + rimb;
+        const feeRem = feeTot - feeSpent;
+
+        document.getElementById(`pte_${y}_tot`).innerText = `${total.toFixed(0)} h (Quota Revilaw ${rw.toFixed(1)} h • team max ${maxTeam.toFixed(1)} h)`;
+        document.getElementById(`pte_${y}_rem`).innerText = `${remH.toFixed(1)} h`;
+        document.getElementById(`pte_${y}_fee`).innerText = eur.format(feeTot);
+        document.getElementById(`pte_${y}_fee_rem`).innerText = eur.format(Math.max(0, feeRem));
+      });
+
+      renderTeamPrintTbody("print_team_y1", buildTeamRowsForPrint("y1", tariffa));
+      renderTeamPrintTbody("print_team_y2", buildTeamRowsForPrint("y2", tariffa));
+      renderTeamPrintTbody("print_team_y3", buildTeamRowsForPrint("y3", tariffa));
+
+      const rs = safeText(document.getElementById("rs").value) || "Cliente";
+      const anno1 = parseInt(document.getElementById("anno1").value, 10) || new Date().getFullYear();
+      const anno3 = anno1 + 2;
+      const dataPred = safeText(document.getElementById("dataPred").value) || todayISO();
+      const ts = nowStamp();
+      const suggested = `${cleanFileName(rs)}_${anno1}-${anno3}_${dataPred}_${ts}`;
+
+      const oldTitle = document.title;
+      document.title = suggested;
+      window.print();
+      document.title = oldTitle;
+
+      refreshDetailsVisibility(false);
+    }
+
+    /* =========================
+       CALCOLO PRINCIPALE
+    ========================== */
+    function calcola() {
+      const anno1 = parseInt(document.getElementById('anno1').value, 10) || new Date().getFullYear();
+      const anno2 = anno1 + 1;
+      const anno3 = anno1 + 2;
+
+      document.getElementById('anno2lbl').innerText = anno2;
+      document.getElementById('anno3lbl').innerText = anno3;
+
+      const tariffa = parseFloat(document.getElementById('tariffa').value) || 0;
+
+      const attivo = parseEuro(document.getElementById('attivo').value);
+      const ricavi = parseEuro(document.getElementById('ricavi').value);
+
+      document.getElementById('hint-attivo').innerText = attivo ? eur.format(attivo) : "Inserisci cifra (puoi usare punti o virgole)";
+      document.getElementById('hint-ricavi').innerText = ricavi ? eur.format(ricavi) : "Inserisci cifra (puoi usare punti o virgole)";
+
+      const warningEl = document.getElementById('hint-warning');
+      if (!attivo || !ricavi) {
+        warningEl.classList.add("warning");
+        warningEl.innerText = "⚠️ Inserisci sia Attivo che Ricavi per una stima più affidabile.";
+      } else {
+        warningEl.classList.remove("warning");
+        warningEl.innerText = "";
+      }
+
+      const media = (attivo + ricavi) / 2;
+      document.getElementById('media-display').innerText = "Media Dimensionale: " + eur.format(media);
+
+      const settoreSel = document.getElementById('settore');
+      const rischioSel = document.getElementById('rischio');
+      const moltSettore = parseFloat(settoreSel.value);
+      const moltRischio = parseFloat(rischioSel.value);
+
+      let oreBaseRaw = 0;
+      if (media <= 0) oreBaseRaw = 0;
+      else if (media <= 2000000) oreBaseRaw = 80;
+      else if (media <= 5000000) oreBaseRaw = 130;
+      else if (media <= 7000000) oreBaseRaw = 160;
+      else if (media <= 10000000) oreBaseRaw = 180;
+      else if (media <= 15000000) oreBaseRaw = 220;
+      else if (media <= 20000000) oreBaseRaw = 250;
+      else if (media <= 30000000) oreBaseRaw = 310;
+      else if (media <= 40000000) oreBaseRaw = 360;
+      else if (media <= 50000000) oreBaseRaw = 400;
+      else oreBaseRaw = 400;
+
+      const isOver50M = media > 50000000;
+      document.getElementById('banner-cap').style.display = isOver50M ? "block" : "none";
+      document.getElementById('cap-box').style.display = isOver50M ? "block" : "none";
+
+      if (!isOver50M) {
+        document.getElementById('extraOre50').value = 0;
+        document.getElementById('cap-suggestion').innerText = "Consiglio: —";
+      }
+
+      // Extra ore oltre 50M (se applicabile)
+      let extraOre50 = parseFloat(document.getElementById('extraOre50').value) || 0;
+      extraOre50 = Math.max(0, Math.round(extraOre50));
+
+      // Aumento ore base manuale (sempre)
+      let oreBasePlus = parseFloat(document.getElementById('oreBasePlus')?.value) || 0;
+      oreBasePlus = Math.max(0, Math.round(oreBasePlus));
+
+      // Ore base effettive = ore base scaglione + aumento manuale + extra oltre 50M (solo se media > 50M)
+      const extra50Used = isOver50M ? extraOre50 : 0;
+      const oreBaseEff = oreBaseRaw + oreBasePlus + extra50Used;
+
+      // Ore corrette qualitative
+      const oreCorrette = oreBaseEff * moltSettore * moltRischio;
+
+      const qualMultEl = document.getElementById('qual-mult-display');
+      if (qualMultEl) {
+        qualMultEl.innerText = `Ore base effettive ${oreBaseEff.toFixed(0)} h × Settore (${moltSettore}) × Rischio (${moltRischio}) = ${oreCorrette.toFixed(1)} h`;
+      }
+
+      if (isOver50M) {
+        const sMin = Math.max(0, Math.round(oreCorrette * 0.10));
+        const sMax = Math.max(0, Math.round(oreCorrette * 0.20));
+        document.getElementById('cap-suggestion').innerText =
+          `Consiglio (orientativo): +${sMin} / +${sMax} ore (≈ 10%–20% delle ore corrette).`;
+      }
+
+
+
+      const hConsolidato = getCaseHours('c_consolidato','h_consolidato');
+      const hIFRS        = getCaseHours('c_ifrs','h_ifrs');
+      const hIT          = getCaseHours('c_it','h_it');
+      const hAltro       = getCaseHours('c_altro','h_altro');
+      const hVolontaria  = getCaseHours('c_volontaria','h_volontaria');
+      const hPrimoAnno   = getCaseHours('c_primoanno','h_primoanno');
+
+      const extraRicorrenti = hConsolidato + hIFRS + hIT + hAltro;
+      const extraSoloAnno1  = hVolontaria + hPrimoAnno;
+
+      const legalHoursInt = Math.ceil(oreCorrette);
+
+      const y1Hours = legalHoursInt + extraRicorrenti + extraSoloAnno1;
+      const y2Hours = legalHoursInt + extraRicorrenti;
+      const y3Hours = legalHoursInt + extraRicorrenti;
+
+      const y1Fee = y1Hours * tariffa;
+      const y2Fee = y2Hours * tariffa;
+      const y3Fee = y3Hours * tariffa;
+
+      const ri5y1 = document.getElementById('ri5_y1')?.checked ? Math.ceil(y1Hours * 0.05) : 0;
+      const ri5y2 = document.getElementById('ri5_y2')?.checked ? Math.ceil(y2Hours * 0.05) : 0;
+      const ri5y3 = document.getElementById('ri5_y3')?.checked ? Math.ceil(y3Hours * 0.05) : 0;
+
+      budget.y1.hoursTotal = y1Hours; budget.y1.feeTotal = y1Fee; budget.y1.ri5Hours = ri5y1;
+      budget.y2.hoursTotal = y2Hours; budget.y2.feeTotal = y2Fee; budget.y2.ri5Hours = ri5y2;
+      budget.y3.hoursTotal = y3Hours; budget.y3.feeTotal = y3Fee; budget.y3.ri5Hours = ri5y3;
+
+      document.getElementById('res-ore-base').innerText = `${oreBaseRaw.toFixed(0)} h`;
+      if (document.getElementById('res-ore-base-extra')) document.getElementById('res-ore-base-extra').innerText = `${oreBasePlus.toFixed(0)} h`;
+      if (document.getElementById('res-ore-base-eff')) document.getElementById('res-ore-base-eff').innerText = `${oreBaseEff.toFixed(0)} h`;
+      if (document.getElementById('oreBaseEffDisplay')) document.getElementById('oreBaseEffDisplay').innerText = `Ore base effettive: ${oreBaseEff.toFixed(0)} h
+Scaglione: ${oreBaseRaw.toFixed(0)} h • Aumento: ${oreBasePlus.toFixed(0)} h • Extra>50M: ${extra50Used.toFixed(0)} h`;
+      document.getElementById('res-ore-corr').innerText = `${oreCorrette.toFixed(1)} h`;
+      document.getElementById('res-extra-rec').innerText = `${extraRicorrenti.toFixed(0)} h`;
+      document.getElementById('res-extra-y1').innerText = `${extraSoloAnno1.toFixed(0)} h`;
+      document.getElementById('res-extra-50').innerText = `${extraOre50.toFixed(0)} h`;
+
+      document.getElementById('y1-lbl').innerText = `Anno 1 (${anno1})`;
+      document.getElementById('y2-lbl').innerText = `Anno 2 (${anno2})`;
+      document.getElementById('y3-lbl').innerText = `Anno 3 (${anno3})`;
+
+      const yearsHoursEl = document.getElementById('years-hours-display');
+      if (yearsHoursEl) {
+        yearsHoursEl.innerText = `Ore annue aggiornate:
+Anno 1 (${anno1}): ${y1Hours.toFixed(0)} h
+Anno 2 (${anno2}): ${y2Hours.toFixed(0)} h
+Anno 3 (${anno3}): ${y3Hours.toFixed(0)} h`;
+      }
+
+      document.getElementById('y1-tot').innerText = y1Hours.toFixed(0);
+      document.getElementById('y2-tot').innerText = y2Hours.toFixed(0);
+      document.getElementById('y3-tot').innerText = y3Hours.toFixed(0);
+
+      document.getElementById('y1-fee').innerText = eur.format(y1Fee);
+      document.getElementById('y2-fee').innerText = eur.format(y2Fee);
+      document.getElementById('y3-fee').innerText = eur.format(y3Fee);
+
+      document.getElementById('y1-month').innerText = eur.format(y1Fee/12);
+      document.getElementById('y2-month').innerText = eur.format(y2Fee/12);
+      document.getElementById('y3-month').innerText = eur.format(y3Fee/12);
+
+      document.getElementById('py1_title').innerText = `Dettaglio annualità - Anno 1 (${anno1})`;
+      document.getElementById('py2_title').innerText = `Dettaglio annualità - Anno 2 (${anno2})`;
+      document.getElementById('py3_title').innerText = `Dettaglio annualità - Anno 3 (${anno3})`;
+
+      // Allineamento ore: la revisione legale è arrotondata per far tornare i totali annui
+      // (extra ore sono intere => totali = legalHoursInt + extra)
+      setDetail('y1','legal', legalHoursInt, tariffa, 0);
+      setDetail('y2','legal', legalHoursInt, tariffa, 0);
+      setDetail('y3','legal', legalHoursInt, tariffa, 0);
+
+      setDetail('y1','otherTotal', extraRicorrenti + extraSoloAnno1, tariffa, 0);
+      setDetail('y2','otherTotal', extraRicorrenti, tariffa, 0);
+      setDetail('y3','otherTotal', extraRicorrenti, tariffa, 0);
+
+      setDetail('y1','ri5', ri5y1, tariffa, 0);
+      setDetail('y2','ri5', ri5y2, tariffa, 0);
+      setDetail('y3','ri5', ri5y3, tariffa, 0);
+
+      setDetail('y1','consolidato', hConsolidato, tariffa, 0);
+      setDetail('y2','consolidato', hConsolidato, tariffa, 0);
+      setDetail('y3','consolidato', hConsolidato, tariffa, 0);
+
+      setDetail('y1','ifrs', hIFRS, tariffa, 0);
+      setDetail('y2','ifrs', hIFRS, tariffa, 0);
+      setDetail('y3','ifrs', hIFRS, tariffa, 0);
+
+      setDetail('y1','it', hIT, tariffa, 0);
+      setDetail('y2','it', hIT, tariffa, 0);
+      setDetail('y3','it', hIT, tariffa, 0);
+
+      setDetail('y1','altro', hAltro, tariffa, 0);
+      setDetail('y2','altro', hAltro, tariffa, 0);
+      setDetail('y3','altro', hAltro, tariffa, 0);
+
+      setDetail('y1','volontaria', hVolontaria, tariffa, 0);
+      setDetail('y2','volontaria', 0, tariffa, 0);
+      setDetail('y3','volontaria', 0, tariffa, 0);
+
+      setDetail('y1','primoanno', hPrimoAnno, tariffa, 0);
+      setDetail('y2','primoanno', 0, tariffa, 0);
+      setDetail('y3','primoanno', 0, tariffa, 0);
+
+      refreshDetailsVisibility(false);
+
+      updateTeamComputed('y1', tariffa);
+      updateTeamComputed('y2', tariffa);
+      updateTeamComputed('y3', tariffa);
+
+      // verifica se le copie team (Anno 2/3) sono fuori sync rispetto alla sorgente
+      checkCopySyncAll();
+      checkCopyLocalAll();
+
+      // update print header data (non stampa subito, ma aggiorna valori)
+      const settoreText = settoreSel.options[settoreSel.selectedIndex]?.text || "";
+      const rischioText = rischioSel.options[rischioSel.selectedIndex]?.text || "";
+      updatePrintFields({ anno1, anno3, media, tariffa, settoreText, rischioText });
+    }
+
+    function init() {
+      const dp = document.getElementById('dataPred');
+      if (!dp.value) dp.value = todayISO();
+      refreshSavedList();
+
+      renderTeamTable('y1');
+      renderTeamTable('y2');
+      renderTeamTable('y3');
+
+      // pulsanti default
+      document.getElementById('actionsBottom')?.classList.add('is-hidden');
+      const bp = document.getElementById('btnPrintTop'); if (bp) bp.style.display = "inline-flex";
+      const bs = document.getElementById('btnSaveTop');  if (bs) bs.style.display = "inline-flex";
+
+      updateFlagsAvailabilityAll();
+      calcola();
+    }
+    init();
+  </script>
+</body>
+</html>
