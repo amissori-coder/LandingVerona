@@ -308,6 +308,28 @@
     border-radius: 4px;
 }
 
+/* ---------- FAQ tweaks (on top of zls_zes/style.css) ----------
+   The base accordion collapses at 500px of max-height, which is
+   too tight for the long answers we write on the hub pages.
+   Bump the open state to 1200px and justify the answer body
+   so it matches the rest of the content-page typography. */
+.content-page .faq-item.active .faq-answer {
+    max-height: 1200px;
+}
+
+.content-page .faq-answer-inner {
+    padding: 4px 24px 22px;
+    line-height: 1.8;
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.content-page .faq-answer-inner strong {
+    color: #0A2844;
+}
+
 /* ---------- Theme variations on the hero ---------- */
 .theme-rating .hero,
 .theme-assetti .hero,
