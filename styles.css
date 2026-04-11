@@ -151,7 +151,14 @@ ul {
     align-items: center;
 }
 
-.nav-menu a {
+.nav-menu > li {
+    position: relative;
+}
+
+.nav-menu > li > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     color: var(--white);
     font-size: 0.85rem;
     font-weight: 500;
@@ -159,7 +166,7 @@ ul {
     position: relative;
 }
 
-.nav-menu a::after {
+.nav-menu > li > a::after {
     content: '';
     position: absolute;
     bottom: -4px;
@@ -170,8 +177,107 @@ ul {
     transition: width 0.3s ease;
 }
 
-.nav-menu a:hover::after {
+.nav-menu > li > a:hover::after {
     width: 100%;
+}
+
+/* ===== Submenu dropdown ===== */
+.has-submenu {
+    position: relative;
+}
+
+/* Invisible bridge between trigger and submenu so the hover
+   state survives the vertical gap */
+.has-submenu::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: -24px;
+    right: -24px;
+    height: 16px;
+}
+
+.submenu-caret {
+    opacity: 0.7;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+}
+
+.has-submenu:hover .submenu-caret,
+.has-submenu:focus-within .submenu-caret {
+    transform: rotate(-180deg);
+    opacity: 1;
+}
+
+.submenu {
+    position: absolute;
+    top: calc(100% + 16px);
+    left: -16px;
+    min-width: 280px;
+    padding: 10px;
+    background: rgba(10, 40, 68, 0.97);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-md);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    list-style: none;
+    z-index: 100;
+    margin: 0;
+}
+
+.has-submenu:hover .submenu,
+.has-submenu:focus-within .submenu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.submenu li {
+    display: block;
+}
+
+.submenu a {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 12px 16px;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.88);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.submenu a::after {
+    display: none;
+}
+
+.submenu a:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--white);
+}
+
+.submenu-label {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    font-size: 0.86rem;
+}
+
+.submenu-meta {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.55);
+    letter-spacing: 0.3px;
+}
+
+.submenu a:hover .submenu-meta {
+    color: rgba(255, 255, 255, 0.75);
 }
 
 /* ============================================
@@ -686,21 +792,55 @@ ul {
     color: var(--navy-dark);
 }
 
+/* Horizontal scrollable strip */
 .contents-list {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    gap: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 2px 14px;
+    margin: 0 -2px;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: 2px;
+    /* soft fade on the right edge hints that more cards are
+       available when the strip overflows */
+    -webkit-mask-image: linear-gradient(to right, black 0%, black calc(100% - 44px), transparent 100%);
+            mask-image: linear-gradient(to right, black 0%, black calc(100% - 44px), transparent 100%);
+    /* slim custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+.contents-list::-webkit-scrollbar {
+    height: 6px;
+}
+
+.contents-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.contents-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 3px;
+}
+
+.contents-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.42);
 }
 
 .content-card {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 10px 20px;
-    align-items: center;
+    flex: 0 0 260px;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: var(--radius-md);
-    padding: 20px 22px;
+    padding: 22px 20px 18px;
+    min-height: 200px;
     color: var(--white);
     transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
@@ -710,24 +850,24 @@ ul {
 .content-card::before {
     content: '';
     position: absolute;
-    left: 0;
     top: 0;
-    bottom: 0;
-    width: 3px;
+    left: 0;
+    right: 0;
+    height: 2px;
     background: var(--white);
-    transform: scaleY(0);
-    transform-origin: top;
+    transform: scaleX(0);
+    transform-origin: left;
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .content-card:hover {
     background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.28);
-    transform: translateX(4px);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-4px);
 }
 
 .content-card:hover::before {
-    transform: scaleY(1);
+    transform: scaleX(1);
 }
 
 .content-card.is-hidden {
@@ -736,8 +876,7 @@ ul {
 
 .content-tag {
     display: inline-block;
-    justify-self: start;
-    grid-column: 1;
+    align-self: flex-start;
     font-family: var(--font-display);
     font-size: 0.58rem;
     font-weight: 700;
@@ -749,7 +888,6 @@ ul {
     color: rgba(255, 255, 255, 0.92);
     border: 1px solid rgba(255, 255, 255, 0.22);
     white-space: nowrap;
-    margin-bottom: 4px;
 }
 
 .content-card-body {
@@ -757,12 +895,12 @@ ul {
     flex-direction: column;
     gap: 6px;
     min-width: 0;
-    grid-column: 1;
+    flex: 1;
 }
 
 .content-title {
     font-family: var(--font-display);
-    font-size: 1rem;
+    font-size: 0.98rem;
     font-weight: 700;
     color: var(--white);
     line-height: 1.3;
@@ -770,10 +908,15 @@ ul {
 }
 
 .content-excerpt {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: rgba(255, 255, 255, 0.68);
     line-height: 1.55;
     margin: 0;
+    /* clamp to 3 lines so all cards stay the same visual height */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .content-excerpt strong {
@@ -782,20 +925,19 @@ ul {
 }
 
 .content-link {
-    grid-column: 2;
-    grid-row: 1 / span 2;
+    align-self: flex-end;
+    margin-top: auto;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.3);
     color: var(--white);
     flex-shrink: 0;
     transition: all 0.3s ease;
-    align-self: center;
 }
 
 .content-card:hover .content-link {
@@ -1184,20 +1326,22 @@ ul {
     }
 
     .content-card {
-        padding: 20px 20px;
+        flex: 0 0 250px;
+        padding: 20px 18px 16px;
+        min-height: 196px;
     }
 
     .content-title {
-        font-size: 0.98rem;
+        font-size: 0.96rem;
     }
 
     .content-excerpt {
-        font-size: 0.8rem;
+        font-size: 0.78rem;
     }
 
     .content-link {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
     }
 
     .partners {
@@ -1274,14 +1418,8 @@ ul {
     }
 
     .content-card {
-        padding: 18px 16px;
-        grid-template-columns: 1fr;
-    }
-
-    .content-link {
-        grid-column: 1;
-        grid-row: auto;
-        justify-self: flex-start;
-        margin-top: 8px;
+        flex: 0 0 240px;
+        padding: 20px 18px 16px;
+        min-height: 190px;
     }
 }

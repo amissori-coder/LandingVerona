@@ -27,8 +27,40 @@
                 </div>
             </a>
             <ul class="nav-menu">
-                <li><a href="#eventi">Eventi</a></li>
-                <li><a href="#contenuti">Contenuti</a></li>
+                <li class="has-submenu">
+                    <a href="#eventi" aria-haspopup="true" aria-expanded="false">
+                        Eventi
+                        <svg class="submenu-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </a>
+                    <ul class="submenu" role="menu">
+                        <li role="none">
+                            <a href="roma_aprile_2026/" role="menuitem">
+                                <span class="submenu-label">Roma</span>
+                                <span class="submenu-meta">29 Aprile 2026 &middot; Prossimo evento</span>
+                            </a>
+                        </li>
+                        <li role="none">
+                            <a href="verona_marzo_2026/" role="menuitem">
+                                <span class="submenu-label">Verona</span>
+                                <span class="submenu-meta">27 Marzo 2026 &middot; Edizione precedente</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="has-submenu">
+                    <a href="#contenuti" aria-haspopup="true" aria-expanded="false">
+                        Contenuti
+                        <svg class="submenu-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </a>
+                    <ul class="submenu" role="menu">
+                        <li role="none">
+                            <a href="zls_zes/" role="menuitem">
+                                <span class="submenu-label">ZLS &amp; ZES</span>
+                                <span class="submenu-meta">Credito d'imposta 2026</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
                 <li><a href="#contatti">Contatti</a></li>
             </ul>
         </div>
@@ -169,12 +201,7 @@
                     </div>
                 </div>
 
-                <div class="partners-row">
-                    <div class="partners-label">
-                        <span class="label-line"></span>
-                        <span class="label-text">Con il patrocinio di</span>
-                        <span class="label-line"></span>
-                    </div>
+                <div class="partners-row partners-row-bare">
                     <div class="partners-logos">
                         <div class="partner-brand">
                             <img src="assets/logo-unindustria.png" alt="Unindustria" class="partner-brand-img partner-brand-img-lg">
