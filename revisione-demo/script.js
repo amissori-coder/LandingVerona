@@ -286,17 +286,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 bar.className = 'gantt-bar';
                 bar.style.gridColumn = (item.start + 1) + ' / ' + (item.end + 1);
                 bar.style.background = item.color;
-                bar.style.animationDelay = (idx * 0.08) + 's';
+                bar.style.animationDelay = (idx * 0.06) + 's';
 
                 const duration = item.end - item.start;
-                const durLabel = document.createElement('span');
-                durLabel.className = 'gantt-bar-duration';
-                if (duration >= 2) {
-                    durLabel.textContent = duration + ' mesi';
-                } else {
-                    durLabel.textContent = duration + ' mese';
-                }
-                bar.appendChild(durLabel);
 
                 const tooltip = document.createElement('div');
                 tooltip.className = 'gantt-bar-tooltip';
@@ -759,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 wCtx.font = '11px Inter';
                 wCtx.fillStyle = '#94a3b8';
                 wCtx.textAlign = 'left';
-                wCtx.fillText('Esempio su fatturato 5M\u20AC, rischio medio', padding.left, 46);
+                wCtx.fillText('Esempio su societa\' manifatturiera con rischio medio', padding.left, 46);
             }
         }
 
