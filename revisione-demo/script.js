@@ -772,9 +772,119 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // ORBIT PAUSE ON HOVER
+    // ORBIT PAUSE ON HOVER + SERVICE DETAILS
     // ==========================================
     const orbit = document.querySelector('.hub-orbit');
+    const servizioDetail = document.getElementById('servizioDetail');
+
+    const serviziData = {
+        audit: {
+            label: 'Core',
+            title: 'Audit & Assurance',
+            desc: 'Revisione legale dei conti ai sensi del D.Lgs. 39/2010 per societa\' private, Enti di Interesse Pubblico ed Enti Sottoposti a Regime Intermedio, secondo la metodologia ISA Italia.',
+            list: [
+                'Revisione contabile di bilanci d\'esercizio e consolidati (principi italiani e internazionali)',
+                'Revisione di situazioni infrannuali e relazioni semestrali',
+                'Revisione di reporting packages per gruppi multinazionali',
+                'Visto di conformita\' per l\'utilizzo di crediti d\'imposta in compensazione',
+                'Certificazione per la sussistenza dei requisiti dei crediti d\'imposta'
+            ]
+        },
+        esg: {
+            label: 'Sostenibilita\'',
+            title: 'ESG & Sostenibilita\'',
+            desc: 'Supportiamo le aziende nell\'integrazione dei principi ambientali, sociali e di governance nelle strategie aziendali, con revisione dei bilanci di sostenibilita\' secondo gli standard europei ESRS.',
+            list: [
+                'Consulenza strategica ESG e identificazione rischi/opportunita\'',
+                'Implementazione di sistemi di gestione ESG',
+                'Redazione di report di sostenibilita\' conformi agli standard internazionali',
+                'Revisione dei bilanci di sostenibilita\' (assurance ESRS)',
+                'Risk advisory su rischi climatici, sociali e di governance'
+            ]
+        },
+        risk: {
+            label: 'Compliance',
+            title: 'Risk Advisory & Compliance',
+            desc: 'Consulenza specialistica in materia di D.Lgs. 262/05 e D.Lgs. 231/01, con supporto nello studio, implementazione e gestione dei modelli organizzativi e dei sistemi di controllo interno.',
+            list: [
+                'Redazione e aggiornamento dei Modelli Organizzativi 231',
+                'Supporto agli Organismi di Vigilanza (OdV)',
+                'Affiancamento alla funzione di Internal Audit',
+                'Verifiche di conformita\' normativa',
+                'Esternalizzazione parziale o totale dell\'Internal Audit'
+            ]
+        },
+        valuation: {
+            label: 'Valutazioni',
+            title: 'Business Valuation Services',
+            desc: 'Servizi di valutazione erogati in conformita\' agli standard internazionali e alle migliori pratiche aziendali, per supportare operazioni straordinarie, bilanci e contenziosi.',
+            list: [
+                'Valutazioni per la redazione del bilancio (fair value beni immateriali)',
+                'Valutazioni per acquisizioni, conferimenti, fusioni e cessioni',
+                'Valutazioni di partecipazioni di maggioranza e minoranza',
+                'Supporto peritale in cause legali valutative',
+                'Definizione di aspettative realistiche sul prezzo di cessione'
+            ]
+        },
+        transaction: {
+            label: 'M&A',
+            title: 'Transaction Services',
+            desc: 'Supporto a aziende, investitori e private equity nel processo di valutazione degli investimenti attraverso due diligence, acquisition investigation e business review.',
+            list: [
+                'Due diligence economico-finanziarie, organizzative e contabili',
+                'Due diligence fiscali',
+                'Assistenza nel processo di quotazione su mercati regolamentati',
+                'Emissione di comfort letter per processi di IPO',
+                'Impairment test IAS 36 e Purchase Price Allocation IFRS 3'
+            ]
+        },
+        litigation: {
+            label: 'Contenzioso',
+            title: 'Litigation Services',
+            desc: 'Assistenza qualificata ad aziende e professionisti nell\'ambito di accertamenti di frodi, azioni di responsabilita\', contenziosi e procedure fallimentari.',
+            list: [
+                'Analisi, ricostruzione e documentazione di illeciti aziendali',
+                'Quantificazione dei danni a supporto di studi legali',
+                'Perizie contabili e assistenza a collegi arbitrali',
+                'Determinazione di tassi di usura e anatocismo',
+                'Valutazione di azioni revocatorie in procedure fallimentari'
+            ]
+        },
+        crisi: {
+            label: 'Crisi',
+            title: 'Crisi d\'Impresa',
+            desc: 'Assistenza specializzata in procedure concorsuali e preconcorsuali, con sistemi di allerta precoce per la rilevazione tempestiva di segnali di difficolta\' aziendale.',
+            list: [
+                'Assessment del sistema di allerta esistente',
+                'Realizzazione di modelli di Early Warning System',
+                'Rilevazione di squilibri patrimoniali, economici e finanziari',
+                'Verifica della sostenibilita\' del debito e continuita\' aziendale',
+                'Piani attestati di risanamento e accordi di ristrutturazione'
+            ]
+        }
+    };
+
+    function showServizioDetail(key) {
+        if (!servizioDetail) return;
+        const data = serviziData[key];
+        if (!data) return;
+        document.getElementById('servizioLabel').textContent = data.label;
+        document.getElementById('servizioTitle').textContent = data.title;
+        document.getElementById('servizioDesc').textContent = data.desc;
+        const list = document.getElementById('servizioList');
+        list.innerHTML = '';
+        data.list.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            list.appendChild(li);
+        });
+        servizioDetail.classList.add('active');
+    }
+
+    function hideServizioDetail() {
+        if (servizioDetail) servizioDetail.classList.remove('active');
+    }
+
     if (orbit) {
         orbit.addEventListener('mouseenter', () => {
             orbit.style.animationPlayState = 'paused';
@@ -783,6 +893,13 @@ document.addEventListener('DOMContentLoaded', () => {
         orbit.addEventListener('mouseleave', () => {
             orbit.style.animationPlayState = 'running';
             orbit.querySelectorAll('.hub-node').forEach(n => n.style.animationPlayState = 'running');
+            hideServizioDetail();
+        });
+
+        orbit.querySelectorAll('.hub-node').forEach(node => {
+            node.addEventListener('mouseenter', () => {
+                showServizioDetail(node.dataset.service);
+            });
         });
     }
 
