@@ -367,7 +367,7 @@ img { max-width:100%; display:block; }
 .beneficio-card h3 { font-size:1.1rem; font-weight:700; margin-bottom:10px; }
 .beneficio-card > p { font-size:0.9rem; line-height:1.7; color:var(--text-secondary); margin-bottom:20px; }
 .beneficio-card > p strong { color:var(--text-primary); }
-.beneficio-chart { height:120px; margin-bottom:16px; }
+.beneficio-chart { height:150px; margin-bottom:16px; }
 .beneficio-chart canvas { width:100%!important; height:100%!important; }
 .beneficio-stat { display:flex; align-items:baseline; gap:10px; padding-top:16px; border-top:1px solid var(--bg-tertiary); }
 .stat-big { font-family:'Montserrat',sans-serif; font-size:1.6rem; font-weight:800; color:var(--navy); }

@@ -423,6 +423,121 @@ ul {
     letter-spacing: 0.3px;
 }
 
+/* ===== CORE SERVICE CARD (La Revisione Legale) ===== */
+.core-service-card {
+    position: relative;
+    display: block;
+    margin-top: 28px;
+    padding: 24px 28px 26px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: var(--white);
+    text-decoration: none;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: fadeInUp 0.8s ease 0.7s both;
+}
+.core-service-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(91, 137, 184, 0.14) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+.core-service-card::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.core-service-card:hover {
+    border-color: rgba(255, 255, 255, 0.32);
+    background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.25);
+}
+.core-service-card:hover::before { opacity: 1; }
+.core-service-card:hover::after { transform: translateX(100%); }
+
+.core-service-pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+}
+.pulse-dot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #7fbaff;
+    box-shadow: 0 0 12px rgba(127, 186, 255, 0.6);
+}
+.pulse-ring {
+    position: absolute;
+    top: 50%; left: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid #7fbaff;
+    transform: translate(-50%, -50%);
+    animation: corePulse 2s ease-out infinite;
+}
+@keyframes corePulse {
+    0%   { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+    80%  { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+}
+.pulse-label {
+    font-size: 0.64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #7fbaff;
+}
+
+.core-service-body { position: relative; z-index: 1; }
+.core-service-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--white);
+    margin: 0 0 6px;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+}
+.core-service-desc {
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.72);
+    margin: 0 0 14px;
+}
+.core-service-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 0.3px;
+    transition: gap 0.3s ease;
+}
+.core-service-cta svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.3s ease;
+}
+.core-service-card:hover .core-service-cta { gap: 12px; }
+.core-service-card:hover .core-service-cta svg { transform: translateX(3px); }
+
 /* ===== MIDDLE: events column ===== */
 .split-content {
     background: var(--light-gray);
@@ -1841,6 +1956,9 @@ ul {
     grid-template-columns: 1.6fr 1fr 1fr;
     gap: 48px;
     margin-bottom: 40px;
+}
+.footer-col ul li a:hover {
+    color: var(--navy-glow, #5B89B8);
 }
 
 .footer-brand .brand-logo {

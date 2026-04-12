@@ -323,24 +323,32 @@ document.addEventListener('DOMContentLoaded', () => {
             type: 'bar',
             labels: ['Senza revisione', 'Con revisione'],
             data: [45, 80],
-            colors: ['rgba(26,58,92,0.2)', '#1a3a5c']
+            unit: '/100',
+            axisLabel: 'Indice di affidabilita\' bancaria',
+            colors: ['rgba(26,58,92,0.25)', '#164068']
         },
         rischio: {
             type: 'bar',
             labels: ['Prima', 'Dopo 1 anno', 'Dopo 3 anni'],
             data: [85, 50, 35],
+            unit: '/100',
+            axisLabel: 'Indice di rischio frodi',
             colors: ['#0A2844', '#2A5A85', '#5B89B8']
         },
         compliance: {
             type: 'bar',
-            labels: ['Sanzioni', 'Contenziosi', 'Rischio fiscale'],
+            labels: ['Sanzioni', 'Contenziosi', 'Risk fiscale'],
             data: [95, 90, 88],
+            unit: '%',
+            axisLabel: 'Copertura conformita\' normativa',
             colors: ['#0A2844', '#164068', '#2A5A85']
         },
         efficienza: {
             type: 'bar',
             labels: ['Anno 1', 'Anno 2', 'Anno 3'],
             data: [10, 18, 25],
+            unit: '%',
+            axisLabel: 'Incremento efficienza processi',
             colors: ['#5B89B8', '#2A5A85', '#164068']
         }
     };
@@ -354,23 +362,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const dpr = window.devicePixelRatio || 1;
         const rect = canvas.parentElement.getBoundingClientRect();
         canvas.width = rect.width * dpr;
-        canvas.height = 120 * dpr;
+        canvas.height = 150 * dpr;
         canvas.style.width = rect.width + 'px';
-        canvas.style.height = '120px';
+        canvas.style.height = '150px';
         ctx.scale(dpr, dpr);
 
         const w = rect.width;
-        const h = 120;
-        const padding = { top: 20, right: 10, bottom: 24, left: 10 };
+        const h = 150;
+        const padding = { top: 36, right: 10, bottom: 30, left: 10 };
         const chartW = w - padding.left - padding.right;
         const chartH = h - padding.top - padding.bottom;
-        const barW = Math.min(40, chartW / config.data.length - 16);
+        const barW = Math.min(44, chartW / config.data.length - 16);
         const maxVal = Math.max(...config.data);
+        const unit = config.unit || '';
 
         let animP = 0;
 
         function drawBenefitChart(progress) {
             ctx.clearRect(0, 0, w, h);
+
+            // Axis title (top)
+            if (config.axisLabel) {
+                ctx.font = '10px Inter';
+                ctx.fillStyle = '#94a3b8';
+                ctx.textAlign = 'center';
+                ctx.fillText(config.axisLabel, w / 2, 14);
+            }
 
             // Base line
             ctx.beginPath();
@@ -398,12 +415,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.fillStyle = config.colors[i] || config.colors[0];
                 ctx.fill();
 
-                // Value on top
+                // Value on top with unit
                 if (progress > 0.8) {
                     ctx.font = 'bold 11px Inter';
-                    ctx.fillStyle = '#1a3a5c';
+                    ctx.fillStyle = '#164068';
                     ctx.textAlign = 'center';
-                    ctx.fillText(val + (key === 'efficienza' ? '%' : ''), x + barW / 2, y - 6);
+                    ctx.fillText(val + unit, x + barW / 2, y - 6);
                 }
 
                 // Label
