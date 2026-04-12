@@ -42,6 +42,27 @@ a { text-decoration:none; color:inherit; transition:var(--transition); }
 img { max-width:100%; display:block; }
 
 /* ============================================
+   GLOBAL JUSTIFIED TEXT
+   ============================================ */
+.section-desc,
+.step-content > p,
+.beneficio-card > p,
+.risparmio-source-content > p,
+.risparmio-example,
+.pilastro-info p,
+.cta-text > p,
+.servizio-popover > p,
+.roi-disclaimer,
+.servizi-hub-hint {
+    text-align:justify;
+    text-justify:inter-word;
+    hyphens:auto;
+    -webkit-hyphens:auto;
+    -ms-hyphens:auto;
+    word-spacing:-0.01em;
+}
+
+/* ============================================
    NAVBAR
    ============================================ */
 .navbar {
@@ -498,10 +519,10 @@ img { max-width:100%; display:block; }
 /* Popover card — appears in the center of the orbit on hover */
 .servizio-popover {
     position:absolute; top:50%; left:50%;
-    width:clamp(340px, 75%, 440px);
+    width:clamp(360px, 78%, 460px);
     transform:translate(-50%, -50%) scale(0.75);
     background:#fff; border:1px solid var(--border-color);
-    border-radius:var(--radius-lg); padding:32px 34px;
+    border-radius:var(--radius-lg); padding:36px 38px;
     box-shadow:0 30px 80px rgba(10,40,68,0.22), 0 8px 24px rgba(10,40,68,0.08);
     opacity:0; pointer-events:none;
     transition:opacity 0.32s ease, transform 0.38s cubic-bezier(0.22,1,0.36,1);
@@ -514,28 +535,31 @@ img { max-width:100%; display:block; }
 
 .servizio-popover-label {
     display:inline-block; font-size:0.68rem; font-weight:700; text-transform:uppercase;
-    letter-spacing:1.5px; color:var(--navy); padding:5px 12px;
-    background:var(--accent-bg); border-radius:100px; margin-bottom:14px;
+    letter-spacing:1.6px; color:var(--navy); padding:6px 14px;
+    background:var(--accent-bg); border-radius:100px; margin-bottom:18px;
 }
 .servizio-popover h3 {
-    font-family:'Montserrat',sans-serif; font-size:1.3rem; font-weight:800;
-    color:var(--text-primary); margin-bottom:12px; line-height:1.25;
-    letter-spacing:-0.2px;
+    font-family:'Montserrat',sans-serif; font-size:1.4rem; font-weight:800;
+    color:var(--text-primary); margin:0 0 14px; line-height:1.25;
+    letter-spacing:-0.3px;
 }
 .servizio-popover > p {
-    font-size:0.88rem; line-height:1.7; color:var(--text-secondary); margin-bottom:18px;
+    font-size:0.92rem; line-height:1.75; color:var(--text-secondary);
+    margin:0 0 22px; padding-bottom:22px;
+    border-bottom:1px solid var(--border-color);
 }
 .servizio-popover ul {
     list-style:none; padding:0; margin:0;
-    display:flex; flex-direction:column; gap:7px;
+    display:flex; flex-direction:column; gap:10px;
 }
 .servizio-popover ul li {
-    position:relative; padding:4px 0 4px 20px; font-size:0.82rem; line-height:1.55;
-    color:var(--text-secondary);
+    position:relative; padding:2px 0 2px 22px;
+    font-size:0.86rem; line-height:1.6; color:var(--text-secondary);
+    text-align:left;
 }
 .servizio-popover ul li::before {
-    content:''; position:absolute; left:0; top:13px;
-    width:9px; height:2px; background:var(--navy); border-radius:1px;
+    content:''; position:absolute; left:0; top:11px;
+    width:10px; height:2px; background:var(--navy); border-radius:1px;
 }
 
 .hub-center {

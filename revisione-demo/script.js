@@ -779,81 +779,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const serviziData = {
         audit: {
-            label: 'Core',
+            label: 'Core service',
             title: 'Audit & Assurance',
-            desc: 'Revisione legale dei conti ai sensi del D.Lgs. 39/2010 per societa\' private, Enti di Interesse Pubblico ed Enti Sottoposti a Regime Intermedio, secondo la metodologia ISA Italia.',
+            desc: 'Revisione legale dei conti secondo la metodologia ISA Italia per societa\' private, Enti di Interesse Pubblico ed Enti Sottoposti a Regime Intermedio, ai sensi del D.Lgs. 39/2010.',
             list: [
-                'Revisione contabile di bilanci d\'esercizio e consolidati (principi italiani e internazionali)',
+                'Revisione di bilanci d\'esercizio e consolidati, principi italiani e internazionali',
                 'Revisione di situazioni infrannuali e relazioni semestrali',
                 'Revisione di reporting packages per gruppi multinazionali',
-                'Visto di conformita\' per l\'utilizzo di crediti d\'imposta in compensazione',
-                'Certificazione per la sussistenza dei requisiti dei crediti d\'imposta'
+                'Visto di conformita\' per l\'utilizzo di crediti d\'imposta',
+                'Certificazione dei requisiti per l\'ottenimento di crediti d\'imposta'
             ]
         },
         esg: {
             label: 'Sostenibilita\'',
             title: 'ESG & Sostenibilita\'',
-            desc: 'Supportiamo le aziende nell\'integrazione dei principi ambientali, sociali e di governance nelle strategie aziendali, con revisione dei bilanci di sostenibilita\' secondo gli standard europei ESRS.',
+            desc: 'Accompagniamo le imprese nell\'integrazione dei criteri ambientali, sociali e di governance, con servizi di assurance del bilancio di sostenibilita\' secondo lo standard europeo ESRS.',
             list: [
-                'Consulenza strategica ESG e identificazione rischi/opportunita\'',
-                'Implementazione di sistemi di gestione ESG',
-                'Redazione di report di sostenibilita\' conformi agli standard internazionali',
-                'Revisione dei bilanci di sostenibilita\' (assurance ESRS)',
-                'Risk advisory su rischi climatici, sociali e di governance'
+                'Consulenza strategica ESG e definizione del piano di sostenibilita\'',
+                'Identificazione e gestione dei rischi climatici, sociali e di governance',
+                'Redazione di report di sostenibilita\' conformi agli standard ESRS',
+                'Revisione del bilancio di sostenibilita\' (assurance CSRD)',
+                'Supporto nell\'accesso alla finanza sostenibile'
             ]
         },
         risk: {
             label: 'Compliance',
             title: 'Risk Advisory & Compliance',
-            desc: 'Consulenza specialistica in materia di D.Lgs. 262/05 e D.Lgs. 231/01, con supporto nello studio, implementazione e gestione dei modelli organizzativi e dei sistemi di controllo interno.',
+            desc: 'Consulenza specialistica in materia di D.Lgs. 231/01 e D.Lgs. 262/05 per rafforzare il sistema di controllo interno e prevenire la responsabilita\' amministrativa degli enti.',
             list: [
                 'Redazione e aggiornamento dei Modelli Organizzativi 231',
                 'Supporto agli Organismi di Vigilanza (OdV)',
                 'Affiancamento alla funzione di Internal Audit',
-                'Verifiche di conformita\' normativa',
+                'Verifiche periodiche di conformita\' normativa',
                 'Esternalizzazione parziale o totale dell\'Internal Audit'
             ]
         },
         valuation: {
             label: 'Valutazioni',
             title: 'Business Valuation Services',
-            desc: 'Servizi di valutazione erogati in conformita\' agli standard internazionali e alle migliori pratiche aziendali, per supportare operazioni straordinarie, bilanci e contenziosi.',
+            desc: 'Servizi di valutazione erogati in conformita\' agli standard internazionali e alle best practice aziendali, a supporto di bilanci, operazioni straordinarie e contenziosi.',
             list: [
-                'Valutazioni per la redazione del bilancio (fair value beni immateriali)',
+                'Valutazione del fair value di beni immateriali per il bilancio',
                 'Valutazioni per acquisizioni, conferimenti, fusioni e cessioni',
                 'Valutazioni di partecipazioni di maggioranza e minoranza',
-                'Supporto peritale in cause legali valutative',
-                'Definizione di aspettative realistiche sul prezzo di cessione'
+                'Perizie valutative a supporto di controversie legali',
+                'Supporto nella definizione del prezzo di cessione'
             ]
         },
         transaction: {
             label: 'M&A',
             title: 'Transaction Services',
-            desc: 'Supporto a aziende, investitori e private equity nel processo di valutazione degli investimenti attraverso due diligence, acquisition investigation e business review.',
+            desc: 'Supporto ad aziende, investitori e private equity nelle operazioni straordinarie attraverso due diligence, acquisition investigation e business review di dettaglio.',
             list: [
-                'Due diligence economico-finanziarie, organizzative e contabili',
-                'Due diligence fiscali',
-                'Assistenza nel processo di quotazione su mercati regolamentati',
-                'Emissione di comfort letter per processi di IPO',
+                'Due diligence economico-finanziaria, contabile e organizzativa',
+                'Due diligence fiscale e predisposizione di proiezioni economico-finanziarie',
+                'Assistenza al processo di quotazione su mercati regolamentati',
+                'Comfort letter per IPO e operazioni straordinarie',
                 'Impairment test IAS 36 e Purchase Price Allocation IFRS 3'
             ]
         },
         litigation: {
             label: 'Contenzioso',
             title: 'Litigation Services',
-            desc: 'Assistenza qualificata ad aziende e professionisti nell\'ambito di accertamenti di frodi, azioni di responsabilita\', contenziosi e procedure fallimentari.',
+            desc: 'Assistenza qualificata ad aziende, studi legali e organi giudicanti nell\'ambito di frodi, azioni di responsabilita\', contenziosi e procedure fallimentari.',
             list: [
-                'Analisi, ricostruzione e documentazione di illeciti aziendali',
+                'Ricostruzione e documentazione di illeciti aziendali e frodi',
                 'Quantificazione dei danni a supporto di studi legali',
                 'Perizie contabili e assistenza a collegi arbitrali',
-                'Determinazione di tassi di usura e anatocismo',
-                'Valutazione di azioni revocatorie in procedure fallimentari'
+                'Determinazione di tassi di usura e anatocismo bancario',
+                'Valutazione di azioni revocatorie in procedure concorsuali'
             ]
         },
         crisi: {
-            label: 'Crisi',
+            label: 'Crisi d\'impresa',
             title: 'Crisi d\'Impresa',
-            desc: 'Assistenza specializzata in procedure concorsuali e preconcorsuali, con sistemi di allerta precoce per la rilevazione tempestiva di segnali di difficolta\' aziendale.',
+            desc: 'Assistenza specializzata nella gestione della crisi d\'impresa, con sistemi di allerta precoce per l\'intercettazione tempestiva dei segnali di difficolta\' aziendale.',
             list: [
                 'Assessment del sistema di allerta esistente',
                 'Realizzazione di modelli di Early Warning System',
