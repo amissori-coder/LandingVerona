@@ -12,6 +12,7 @@ Allow: /assets/
 
 # Work-in-progress areas and internal tools: do not index.
 Disallow: /stima-ore-test/
+Disallow: /revisione-test/
 Disallow: /tools/
 
 Sitemap: https://nextgenerationbusiness.it/sitemap.xml
