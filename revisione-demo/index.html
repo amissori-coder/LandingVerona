@@ -624,8 +624,8 @@
                 </p>
             </div>
 
-            <div class="servizi-layout">
-                <div class="servizi-hub">
+            <div class="servizi-hub-wrapper">
+                <div class="servizi-hub" id="servizihub">
                     <div class="hub-center">
                         <div class="hub-core">
                             <strong>Revisione<br>Legale</strong>
@@ -678,20 +678,15 @@
                     </div>
                 </div>
 
-                <!-- Service detail panel (updated on hover) -->
-                <div class="servizio-detail" id="servizioDetail">
-                    <div class="servizio-detail-default">
-                        <span class="servizio-detail-hint">Passa il mouse sulle icone</span>
-                        <h3>Scopri i servizi Revilaw</h3>
-                        <p>Oltre alla revisione legale, Revilaw offre un ecosistema integrato di servizi professionali. Esplora ogni area per scoprire le attivita' specifiche che svolgiamo.</p>
-                    </div>
-                    <div class="servizio-detail-content">
-                        <span class="servizio-detail-label" id="servizioLabel">&nbsp;</span>
-                        <h3 id="servizioTitle">&nbsp;</h3>
-                        <p id="servizioDesc">&nbsp;</p>
-                        <ul id="servizioList"></ul>
-                    </div>
+                <!-- Popover card overlayed on orbit center -->
+                <div class="servizio-popover" id="servizioDetail">
+                    <span class="servizio-popover-label" id="servizioLabel">&nbsp;</span>
+                    <h3 id="servizioTitle">&nbsp;</h3>
+                    <p id="servizioDesc">&nbsp;</p>
+                    <ul id="servizioList"></ul>
                 </div>
+
+                <p class="servizi-hub-hint">Passa il mouse sulle icone per scoprire i servizi</p>
             </div>
         </div>
     </section>

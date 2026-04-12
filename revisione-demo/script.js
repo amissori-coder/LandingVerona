@@ -864,6 +864,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const hubWrapper = document.querySelector('.servizi-hub-wrapper');
+
     function showServizioDetail(key) {
         if (!servizioDetail) return;
         const data = serviziData[key];
@@ -879,18 +881,21 @@ document.addEventListener('DOMContentLoaded', () => {
             list.appendChild(li);
         });
         servizioDetail.classList.add('active');
+        if (hubWrapper) hubWrapper.classList.add('active');
     }
 
     function hideServizioDetail() {
         if (servizioDetail) servizioDetail.classList.remove('active');
+        if (hubWrapper) hubWrapper.classList.remove('active');
     }
 
-    if (orbit) {
-        orbit.addEventListener('mouseenter', () => {
+    if (orbit && hubWrapper) {
+        // Pause orbit when mouse is anywhere over the hub wrapper
+        hubWrapper.addEventListener('mouseenter', () => {
             orbit.style.animationPlayState = 'paused';
             orbit.querySelectorAll('.hub-node').forEach(n => n.style.animationPlayState = 'paused');
         });
-        orbit.addEventListener('mouseleave', () => {
+        hubWrapper.addEventListener('mouseleave', () => {
             orbit.style.animationPlayState = 'running';
             orbit.querySelectorAll('.hub-node').forEach(n => n.style.animationPlayState = 'running');
             hideServizioDetail();
@@ -898,6 +903,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         orbit.querySelectorAll('.hub-node').forEach(node => {
             node.addEventListener('mouseenter', () => {
+                showServizioDetail(node.dataset.service);
+            });
+            // Touch/click support for mobile
+            node.addEventListener('click', (e) => {
+                e.preventDefault();
                 showServizioDetail(node.dataset.service);
             });
         });

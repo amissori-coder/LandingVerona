@@ -475,66 +475,74 @@ img { max-width:100%; display:block; }
 .roi-disclaimer { font-size:0.8rem; line-height:1.6; color:var(--text-muted); margin:0; padding:16px 0 0; border-top:1px solid var(--border-color); }
 
 /* ============================================
-   SERVIZI HUB (Orbit Diagram + Detail Panel)
+   SERVIZI HUB (Orbit Diagram + Popover)
    ============================================ */
-.servizi-layout {
-    display:grid; grid-template-columns:520px 1fr; gap:48px;
-    max-width:1100px; margin:0 auto; align-items:center;
+.servizi-hub-wrapper {
+    position:relative; max-width:720px; margin:0 auto;
+    display:flex; flex-direction:column; align-items:center;
 }
-.servizi-hub { position:relative; width:520px; height:520px; }
+.servizi-hub-hint {
+    margin-top:24px; font-size:0.85rem; color:var(--text-muted);
+    font-weight:500; letter-spacing:0.3px; text-align:center;
+    transition:opacity 0.3s ease;
+}
+.servizi-hub-wrapper.active .servizi-hub-hint { opacity:0; }
 
-/* Service detail panel */
-.servizio-detail {
-    position:relative; min-height:420px;
-    background:#fff; border:1px solid var(--border-color); border-radius:var(--radius-lg);
-    padding:40px 38px; box-shadow:var(--shadow);
-}
-.servizio-detail-default,
-.servizio-detail-content {
-    position:absolute; inset:40px 38px; transition:opacity 0.35s ease;
-}
-.servizio-detail-default { opacity:1; }
-.servizio-detail-content { opacity:0; pointer-events:none; }
-.servizio-detail.active .servizio-detail-default { opacity:0; pointer-events:none; }
-.servizio-detail.active .servizio-detail-content { opacity:1; }
+.servizi-hub { position:relative; width:520px; height:520px; transition:transform 0.35s ease; }
+.servizi-hub-wrapper.active .servizi-hub { transform:scale(0.96); }
 
-.servizio-detail-hint {
-    display:inline-block; font-size:0.7rem; font-weight:700; text-transform:uppercase;
-    letter-spacing:1.5px; color:var(--text-muted); padding:6px 14px;
-    background:var(--bg-secondary); border-radius:100px; margin-bottom:20px;
+.servizi-hub-wrapper.active .hub-center { opacity:0; transform:translate(-50%,-50%) scale(0.85); }
+.hub-center { transition:opacity 0.3s ease, transform 0.35s cubic-bezier(0.22,1,0.36,1); }
+
+/* Popover card — appears in the center of the orbit on hover */
+.servizio-popover {
+    position:absolute; top:50%; left:50%;
+    width:clamp(320px, 70%, 420px);
+    max-height:440px; overflow-y:auto;
+    transform:translate(-50%, -50%) scale(0.75);
+    background:#fff; border:1px solid var(--border-color);
+    border-radius:var(--radius-lg); padding:32px 34px;
+    box-shadow:0 30px 80px rgba(10,40,68,0.22), 0 8px 24px rgba(10,40,68,0.08);
+    opacity:0; pointer-events:none;
+    transition:opacity 0.32s ease, transform 0.38s cubic-bezier(0.22,1,0.36,1);
+    z-index:10;
 }
-.servizio-detail-default h3 {
-    font-family:'Montserrat',sans-serif; font-size:1.6rem; font-weight:800;
-    color:var(--text-primary); margin-bottom:14px; line-height:1.25;
-}
-.servizio-detail-default p {
-    font-size:0.95rem; line-height:1.75; color:var(--text-secondary); margin:0;
+.servizio-popover.active {
+    opacity:1; pointer-events:auto;
+    transform:translate(-50%, -50%) scale(1);
 }
 
-.servizio-detail-label {
-    display:inline-block; font-size:0.7rem; font-weight:700; text-transform:uppercase;
-    letter-spacing:1.5px; color:var(--navy); padding:6px 14px;
-    background:var(--accent-bg); border-radius:100px; margin-bottom:18px;
+.servizio-popover-label {
+    display:inline-block; font-size:0.68rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:1.5px; color:var(--navy); padding:5px 12px;
+    background:var(--accent-bg); border-radius:100px; margin-bottom:14px;
 }
-.servizio-detail-content h3 {
-    font-family:'Montserrat',sans-serif; font-size:1.5rem; font-weight:800;
+.servizio-popover h3 {
+    font-family:'Montserrat',sans-serif; font-size:1.3rem; font-weight:800;
     color:var(--text-primary); margin-bottom:12px; line-height:1.25;
+    letter-spacing:-0.2px;
 }
-.servizio-detail-content > p {
-    font-size:0.92rem; line-height:1.7; color:var(--text-secondary); margin-bottom:18px;
+.servizio-popover > p {
+    font-size:0.88rem; line-height:1.7; color:var(--text-secondary); margin-bottom:18px;
 }
-.servizio-detail-content ul {
+.servizio-popover ul {
     list-style:none; padding:0; margin:0;
-    display:flex; flex-direction:column; gap:8px;
+    display:flex; flex-direction:column; gap:7px;
 }
-.servizio-detail-content ul li {
-    position:relative; padding:6px 0 6px 22px; font-size:0.86rem; line-height:1.6;
+.servizio-popover ul li {
+    position:relative; padding:4px 0 4px 20px; font-size:0.82rem; line-height:1.55;
     color:var(--text-secondary);
 }
-.servizio-detail-content ul li::before {
-    content:''; position:absolute; left:0; top:14px;
-    width:10px; height:2px; background:var(--navy); border-radius:1px;
+.servizio-popover ul li::before {
+    content:''; position:absolute; left:0; top:13px;
+    width:9px; height:2px; background:var(--navy); border-radius:1px;
 }
+
+/* Scrollbar styling */
+.servizio-popover::-webkit-scrollbar { width:6px; }
+.servizio-popover::-webkit-scrollbar-thumb { background:var(--border-color); border-radius:3px; }
+.servizio-popover::-webkit-scrollbar-thumb:hover { background:var(--navy); }
+
 .hub-center {
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
     width:140px; height:140px; border-radius:50%;
@@ -710,14 +718,13 @@ img { max-width:100%; display:block; }
     .roi-simulator { grid-template-columns:1fr; }
     .roi-inputs { position:static; }
     .cta-wrapper { grid-template-columns:1fr; gap:40px; }
-    .servizi-layout { grid-template-columns:1fr; gap:32px; max-width:560px; }
-    .servizi-hub { width:400px; height:400px; margin:0 auto; }
-    .hub-center { width:110px; height:110px; }
-    .hub-core strong { font-size:0.85rem; }
-    .hub-node { transform:rotate(var(--angle)) translateX(170px) rotate(calc(-1 * var(--angle))); margin:-45px 0 0 -45px; }
-    .servizio-detail { min-height:340px; padding:32px 28px; }
-    .servizio-detail-default,
-    .servizio-detail-content { inset:32px 28px; }
+    .servizi-hub { width:440px; height:440px; margin:0 auto; }
+    .hub-center { width:120px; height:120px; }
+    .hub-core strong { font-size:0.88rem; }
+    .hub-node { transform:rotate(var(--angle)) translateX(186px) rotate(calc(-1 * var(--angle))); margin:-45px 0 0 -45px; }
+    .servizio-popover { width:clamp(280px, 78%, 360px); padding:26px 28px; max-height:360px; }
+    .servizio-popover h3 { font-size:1.15rem; }
+    .servizio-popover > p { font-size:0.84rem; }
 }
 
 @media (max-width:768px) {
