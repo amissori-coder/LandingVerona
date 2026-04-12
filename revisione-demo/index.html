@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Revisione Legale Interattiva | Revilaw S.p.A.</title>
+    <meta name="description" content="Scopri come Revilaw svolge la revisione legale: processo, metodo, benefici per l'azienda. Demo interattiva con grafici e diagrammi.">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" href="../assets/favicon.png">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <a href="../" class="logo">
+                <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="logo-img">
+                <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+            </a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#processo">Il Processo</a></li>
+                <li><a href="#metodo">Il Metodo</a></li>
+                <li><a href="#gantt">Timeline</a></li>
+                <li><a href="#benefici">Benefici</a></li>
+                <li><a href="#roi">ROI</a></li>
+                <li><a href="#contatti" class="nav-cta">Contattaci</a></li>
+            </ul>
+            <button class="hamburger" id="hamburger" aria-label="Apri menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero" id="hero">
+        <div class="hero-bg-overlay"></div>
+        <div class="hero-particles" id="heroParticles"></div>
+        <div class="container hero-content">
+            <div class="hero-badge">Demo Interattiva &middot; Revisione Legale</div>
+            <h1>Come Revilaw svolge la<br><span class="text-accent">Revisione Legale</span></h1>
+            <p class="hero-subtitle">
+                La revisione legale non e' un mero adempimento: e' un <strong>investimento strategico</strong>
+                che tutela il patrimonio aziendale, previene frodi e crisi finanziarie, e rafforza la credibilita'
+                verso investitori e istituti di credito.
+            </p>
+            <div class="hero-actions">
+                <a href="#processo" class="btn btn-primary">Esplora il processo</a>
+                <a href="#benefici" class="btn btn-outline">Scopri i benefici</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-number" data-count="130">0</span>
+                    <span class="stat-label">Revisori nella rete</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-number">ISA Italia</span>
+                    <span class="stat-label">Standard internazionali</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-number">Top-Down</span>
+                    <span class="stat-label">Approccio metodologico</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROCESSO DI REVISIONE - Interactive Steps -->
+    <section class="section" id="processo">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Il Processo &middot; Step by Step</span>
+                <h2>Le <span class="text-accent">5 Fasi</span> della Revisione</h2>
+                <p class="section-desc">
+                    Il nostro processo di revisione si articola in fasi interconnesse,
+                    ciascuna fondamentale per garantire un controllo completo e approfondito.
+                    <strong>Clicca su ogni fase</strong> per esplorarne i dettagli.
+                </p>
+            </div>
+
+            <div class="process-interactive">
+                <!-- Progress bar -->
+                <div class="process-progress">
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-steps">
+                        <button class="progress-dot active" data-step="0">1</button>
+                        <button class="progress-dot" data-step="1">2</button>
+                        <button class="progress-dot" data-step="2">3</button>
+                        <button class="progress-dot" data-step="3">4</button>
+                        <button class="progress-dot" data-step="4">5</button>
+                    </div>
+                </div>
+
+                <!-- Step cards -->
+                <div class="step-display">
+                    <div class="step-card active" data-step="0">
+                        <div class="step-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        </div>
+                        <div class="step-content">
+                            <span class="step-label">FASE 01</span>
+                            <h3>Analisi Preliminare e Pianificazione</h3>
+                            <p>Comprendiamo l'ambiente operativo dell'azienda attraverso l'esame dei processi chiave. Individuiamo le aree di rischio dove e' piu' probabile che si verifichino errori di rilevazione, valutazione e rappresentazione dei dati finanziari.</p>
+                            <ul class="step-checklist">
+                                <li>Comprensione dell'attivita' e del settore</li>
+                                <li>Identificazione dei rischi significativi</li>
+                                <li>Definizione della strategia di revisione</li>
+                                <li>Pianificazione delle risorse e tempistiche</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="step-card" data-step="1">
+                        <div class="step-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="step-content">
+                            <span class="step-label">FASE 02</span>
+                            <h3>Valutazione del Sistema di Controllo Interno</h3>
+                            <p>Esaminiamo l'efficacia dei controlli interni dell'azienda. Un sistema di controllo solido riduce significativamente il rischio di errori materiali nel bilancio e rappresenta la prima linea di difesa del patrimonio aziendale.</p>
+                            <ul class="step-checklist">
+                                <li>Mappatura dei processi aziendali</li>
+                                <li>Test di conformita' dei controlli (walkthrough)</li>
+                                <li>Valutazione dei rischi di frode</li>
+                                <li>Identificazione dei punti critici</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="step-card" data-step="2">
+                        <div class="step-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        </div>
+                        <div class="step-content">
+                            <span class="step-label">FASE 03</span>
+                            <h3>Procedure di Revisione Sostanziali</h3>
+                            <p>Eseguiamo verifiche analitiche e di dettaglio sulle voci di bilancio. L'approccio top-down ci consente di concentrare le risorse sulle aree a maggior rischio, garantendo efficacia ed efficienza del processo.</p>
+                            <ul class="step-checklist">
+                                <li>Analisi comparative e indici finanziari</li>
+                                <li>Verifiche di dettaglio sui saldi</li>
+                                <li>Conferme esterne (banche, clienti, fornitori)</li>
+                                <li>Test sulle operazioni e sulle transazioni</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="step-card" data-step="3">
+                        <div class="step-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </div>
+                        <div class="step-content">
+                            <span class="step-label">FASE 04</span>
+                            <h3>Comunicazione e Confronto Continuo</h3>
+                            <p>Il nostro processo si distingue per un flusso continuo di comunicazione con l'azienda. Non aspettiamo la fine per condividere i risultati: ogni criticita' viene segnalata tempestivamente per consentire interventi correttivi immediati.</p>
+                            <ul class="step-checklist">
+                                <li>Report periodici al management</li>
+                                <li>Segnalazione tempestiva delle criticita'</li>
+                                <li>Suggerimenti operativi per il miglioramento</li>
+                                <li>Dialogo con il Collegio Sindacale</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="step-card" data-step="4">
+                        <div class="step-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        </div>
+                        <div class="step-content">
+                            <span class="step-label">FASE 05</span>
+                            <h3>Relazione e Documentazione Finale</h3>
+                            <p>Emettiamo la relazione di revisione conforme agli ISA Italia. L'output e' una documentazione completa con suggerimenti preziosi per soci, amministratori, CFO, controller e responsabili dell'audit interno.</p>
+                            <ul class="step-checklist">
+                                <li>Emissione della relazione di revisione</li>
+                                <li>Lettera alla direzione (Management Letter)</li>
+                                <li>Raccomandazioni per il miglioramento</li>
+                                <li>Archiviazione conforme del fascicolo</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- IL METODO - Radar Chart -->
+    <section class="section section-alt" id="metodo">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Il Metodo &middot; I Pilastri</span>
+                <h2>I <span class="text-accent">7 Pilastri</span> del Controllo Qualita'</h2>
+                <p class="section-desc">
+                    Il nostro sistema di controllo qualita' e' progettato per superare le aspettative.
+                    Passa il mouse su ogni pilastro per esplorarne il dettaglio.
+                </p>
+            </div>
+
+            <div class="metodo-layout">
+                <div class="radar-chart-wrap">
+                    <canvas id="radarChart" width="400" height="400"></canvas>
+                </div>
+                <div class="pilastri-list">
+                    <div class="pilastro-item active" data-index="0">
+                        <div class="pilastro-number">01</div>
+                        <div class="pilastro-info">
+                            <h4>Responsabilita' e Leadership</h4>
+                            <p>Ogni membro del team, dai revisori ai soci, si assume la responsabilita' di mantenere elevati standard di qualita'.</p>
+                        </div>
+                    </div>
+                    <div class="pilastro-item" data-index="1">
+                        <div class="pilastro-number">02</div>
+                        <div class="pilastro-info">
+                            <h4>Etica Professionale</h4>
+                            <p>Integrita', obiettivita', indipendenza, riservatezza e competenza guidano ogni nostra azione.</p>
+                        </div>
+                    </div>
+                    <div class="pilastro-item" data-index="2">
+                        <div class="pilastro-number">03</div>
+                        <div class="pilastro-info">
+                            <h4>Gestione degli Incarichi</h4>
+                            <p>Procedure rigorose per l'assunzione e il mantenimento degli incarichi, valutando indipendenza e capacita'.</p>
+                        </div>
+                    </div>
+                    <div class="pilastro-item" data-index="3">
+                        <div class="pilastro-number">04</div>
+                        <div class="pilastro-info">
+                            <h4>Conformita' e Standard</h4>
+                            <p>Revisioni condotte nel rispetto delle normative e dei principi di revisione ISA Italia applicabili.</p>
+                        </div>
+                    </div>
+                    <div class="pilastro-item" data-index="4">
+                        <div class="pilastro-number">05</div>
+                        <div class="pilastro-info">
+                            <h4>Revisione delle Pratiche</h4>
+                            <p>Revisioni periodiche dei fascicoli per garantire la coerenza e la qualita' del nostro lavoro.</p>
+                        </div>
+                    </div>
+                    <div class="pilastro-item" data-index="5">
+                        <div class="pilastro-number">06</div>
+                        <div class="pilastro-info">
+                            <h4>Formazione Continua</h4>
+                            <p>Investiamo nella formazione professionale tramite il Revilaw Campus per assicurare aggiornamento costante.</p>
+                        </div>
+                    </div>
+                    <div class="pilastro-item" data-index="6">
+                        <div class="pilastro-number">07</div>
+                        <div class="pilastro-info">
+                            <h4>Monitoraggio e Miglioramento</h4>
+                            <p>Monitoraggio continuo per identificare aree di miglioramento e adattare il sistema alle nuove sfide.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GANTT TIMELINE -->
+    <section class="section" id="gantt">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Timeline &middot; Piano Annuale</span>
+                <h2>Il <span class="text-accent">Calendario</span> della Revisione</h2>
+                <p class="section-desc">
+                    La revisione legale si sviluppa nell'arco dell'intero esercizio con attivita' distribuite
+                    strategicamente. Esplora il diagramma di Gantt per comprendere le tempistiche.
+                </p>
+            </div>
+
+            <div class="gantt-wrapper">
+                <div class="gantt-controls">
+                    <button class="gantt-filter active" data-filter="all">Tutte le fasi</button>
+                    <button class="gantt-filter" data-filter="planning">Pianificazione</button>
+                    <button class="gantt-filter" data-filter="interim">Interim</button>
+                    <button class="gantt-filter" data-filter="final">Finale</button>
+                </div>
+                <div class="gantt-chart" id="ganttChart">
+                    <!-- Header months -->
+                    <div class="gantt-header">
+                        <div class="gantt-label-col">Attivita'</div>
+                        <div class="gantt-months">
+                            <span>Gen</span><span>Feb</span><span>Mar</span><span>Apr</span>
+                            <span>Mag</span><span>Giu</span><span>Lug</span><span>Ago</span>
+                            <span>Set</span><span>Ott</span><span>Nov</span><span>Dic</span>
+                        </div>
+                    </div>
+                    <!-- Rows populated by JS -->
+                    <div class="gantt-body" id="ganttBody"></div>
+                </div>
+                <div class="gantt-legend">
+                    <span class="legend-item"><span class="legend-color" style="background:#1a3a5c"></span> Pianificazione</span>
+                    <span class="legend-item"><span class="legend-color" style="background:#2a6496"></span> Interim</span>
+                    <span class="legend-item"><span class="legend-color" style="background:#3d8fd4"></span> Finale</span>
+                    <span class="legend-item"><span class="legend-color" style="background:#10b981"></span> Reporting</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- BENEFICI - Interactive Cards with Charts -->
+    <section class="section section-alt" id="benefici">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Benefici &middot; Per l'Azienda</span>
+                <h2>I <span class="text-accent">Vantaggi Concreti</span> della Revisione</h2>
+                <p class="section-desc">
+                    La revisione legale non e' un costo, ma un investimento strategico.
+                    Scopri come ogni aspetto della revisione genera valore per la tua azienda.
+                </p>
+            </div>
+
+            <div class="benefici-grid">
+                <div class="beneficio-card fade-in" data-metric="credibilita">
+                    <div class="beneficio-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <h3>Credibilita' verso Terzi</h3>
+                    <p>Un bilancio certificato accresce la credibilita' dell'azienda e <strong>agevola l'accesso al credito</strong> bancario e agli investimenti.</p>
+                    <div class="beneficio-chart">
+                        <canvas data-chart="credibilita"></canvas>
+                    </div>
+                    <div class="beneficio-stat">
+                        <span class="stat-big">+35%</span>
+                        <span class="stat-desc">Miglioramento accesso al credito</span>
+                    </div>
+                </div>
+
+                <div class="beneficio-card fade-in" data-metric="rischio">
+                    <div class="beneficio-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <h3>Prevenzione Frodi e Rischi</h3>
+                    <p>Il revisore individua anomalie nei bilanci e segnala potenziali rischi, <strong>rafforzando l'integrita' contabile</strong> e prevenendo crisi.</p>
+                    <div class="beneficio-chart">
+                        <canvas data-chart="rischio"></canvas>
+                    </div>
+                    <div class="beneficio-stat">
+                        <span class="stat-big">-60%</span>
+                        <span class="stat-desc">Riduzione rischio di frodi</span>
+                    </div>
+                </div>
+
+                <div class="beneficio-card fade-in" data-metric="compliance">
+                    <div class="beneficio-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    </div>
+                    <h3>Conformita' Normativa</h3>
+                    <p>Il rispetto delle normative contabili e fiscali <strong>evita sanzioni e contenziosi</strong>, riducendo il rischio di impatti economici negativi.</p>
+                    <div class="beneficio-chart">
+                        <canvas data-chart="compliance"></canvas>
+                    </div>
+                    <div class="beneficio-stat">
+                        <span class="stat-big">100%</span>
+                        <span class="stat-desc">Conformita' normativa garantita</span>
+                    </div>
+                </div>
+
+                <div class="beneficio-card fade-in" data-metric="efficienza">
+                    <div class="beneficio-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    </div>
+                    <h3>Efficienza Operativa</h3>
+                    <p>L'analisi dei processi e dei controlli interni porta a <strong>ottimizzare i flussi di lavoro</strong> e ridurre i costi legati all'inefficienza.</p>
+                    <div class="beneficio-chart">
+                        <canvas data-chart="efficienza"></canvas>
+                    </div>
+                    <div class="beneficio-stat">
+                        <span class="stat-big">+25%</span>
+                        <span class="stat-desc">Miglioramento efficienza processi</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ROI SIMULATOR -->
+    <section class="section" id="roi">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">ROI &middot; Simulatore Interattivo</span>
+                <h2>Calcola il <span class="text-accent">Ritorno sull'Investimento</span></h2>
+                <p class="section-desc">
+                    Scopri quanto vale la revisione legale per la tua azienda.
+                    Sposta i cursori per personalizzare la simulazione in base alla tua realta'.
+                </p>
+            </div>
+
+            <div class="roi-simulator">
+                <div class="roi-inputs">
+                    <div class="roi-input-group">
+                        <label>Fatturato annuo</label>
+                        <input type="range" id="roiFatturato" min="500000" max="50000000" step="500000" value="5000000">
+                        <div class="roi-value" id="roiFatturatoVal">5.000.000 &euro;</div>
+                    </div>
+                    <div class="roi-input-group">
+                        <label>Dipendenti</label>
+                        <input type="range" id="roiDipendenti" min="10" max="500" step="5" value="50">
+                        <div class="roi-value" id="roiDipendentiVal">50</div>
+                    </div>
+                    <div class="roi-input-group">
+                        <label>Settore di rischio</label>
+                        <select id="roiSettore">
+                            <option value="1">Basso rischio (servizi)</option>
+                            <option value="1.5" selected>Medio rischio (manifattura)</option>
+                            <option value="2">Alto rischio (costruzioni/finanza)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="roi-results">
+                    <div class="roi-chart-wrap">
+                        <canvas id="roiChart" width="400" height="300"></canvas>
+                    </div>
+                    <div class="roi-kpi-grid">
+                        <div class="roi-kpi">
+                            <span class="roi-kpi-value" id="kpiCosto">--</span>
+                            <span class="roi-kpi-label">Costo stimato revisione</span>
+                        </div>
+                        <div class="roi-kpi highlight">
+                            <span class="roi-kpi-value" id="kpiRisparmio">--</span>
+                            <span class="roi-kpi-label">Risparmio potenziale annuo</span>
+                        </div>
+                        <div class="roi-kpi">
+                            <span class="roi-kpi-value" id="kpiROI">--</span>
+                            <span class="roi-kpi-label">ROI stimato</span>
+                        </div>
+                        <div class="roi-kpi">
+                            <span class="roi-kpi-value" id="kpiPayback">--</span>
+                            <span class="roi-kpi-label">Payback period</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SERVIZI OVERVIEW - Flow Diagram -->
+    <section class="section section-alt" id="servizi">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Servizi &middot; Ecosistema Completo</span>
+                <h2>L'<span class="text-accent">Ecosistema</span> Revilaw</h2>
+                <p class="section-desc">
+                    Oltre alla revisione legale, Revilaw offre un ecosistema integrato di servizi
+                    che si rafforzano reciprocamente per massimizzare il valore per l'azienda.
+                </p>
+            </div>
+
+            <div class="servizi-hub">
+                <div class="hub-center">
+                    <div class="hub-core">
+                        <strong>Revisione<br>Legale</strong>
+                        <span>Core Service</span>
+                    </div>
+                </div>
+                <div class="hub-orbit">
+                    <div class="hub-node" data-service="audit" style="--angle: 0deg">
+                        <div class="node-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        </div>
+                        <span>Audit &amp; Assurance</span>
+                    </div>
+                    <div class="hub-node" data-service="esg" style="--angle: 51deg">
+                        <div class="node-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                        </div>
+                        <span>ESG &amp; Sostenibilita'</span>
+                    </div>
+                    <div class="hub-node" data-service="risk" style="--angle: 102deg">
+                        <div class="node-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <span>Risk Advisory</span>
+                    </div>
+                    <div class="hub-node" data-service="valuation" style="--angle: 153deg">
+                        <div class="node-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        </div>
+                        <span>Business Valuation</span>
+                    </div>
+                    <div class="hub-node" data-service="transaction" style="--angle: 204deg">
+                        <div class="node-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                        </div>
+                        <span>Transaction Services</span>
+                    </div>
+                    <div class="hub-node" data-service="litigation" style="--angle: 255deg">
+                        <div class="node-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/></svg>
+                        </div>
+                        <span>Litigation Services</span>
+                    </div>
+                    <div class="hub-node" data-service="crisi" style="--angle: 306deg">
+                        <div class="node-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <span>Crisi d'Impresa</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA / CONTATTI -->
+    <section class="section section-cta" id="contatti">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Proteggi il valore della tua impresa</h2>
+                <p>Contattaci per una consulenza gratuita e scopri come la revisione legale puo' diventare un vantaggio competitivo per la tua azienda.</p>
+                <div class="cta-actions">
+                    <a href="mailto:info@revilaw.it" class="btn btn-primary btn-lg">Richiedi una consulenza</a>
+                    <a href="tel:+390458010734" class="btn btn-outline btn-lg">Chiama +39 045 80 10 734</a>
+                </div>
+                <div class="cta-trust">
+                    <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="cta-logo">
+                    <span>Revilaw S.p.A. &middot; Via XX Settembre, 9 &middot; 37129 Verona</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 Revilaw S.p.A. - P.I. 04641610235 &middot; Societa' di Revisione Legale iscritta al Registro dei Revisori Legali</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
