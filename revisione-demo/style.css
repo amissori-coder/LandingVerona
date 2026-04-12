@@ -368,6 +368,38 @@ img { max-width:100%; display:block; }
 .roi-kpi.highlight .roi-kpi-label { color:rgba(255,255,255,0.7); }
 .roi-kpi-value { display:block; font-family:'Montserrat',sans-serif; font-size:1.4rem; font-weight:800; color:var(--navy); margin-bottom:4px; }
 .roi-kpi-label { font-size:0.78rem; color:var(--text-muted); font-weight:500; }
+/* Attivita split panel */
+.ore-attivita-panel {
+    background:#fff; border:1px solid var(--border-color); border-radius:var(--radius-lg);
+    padding:28px 32px; box-shadow:var(--shadow);
+}
+.ore-attivita-panel h4 { font-size:0.9rem; font-weight:700; margin-bottom:20px; color:var(--text-primary); }
+.attivita-chart-wrap { margin-bottom:24px; }
+.attivita-chart-wrap canvas { width:100%!important; display:block; }
+.attivita-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.attivita-card {
+    background:var(--bg-secondary); border:1px solid var(--border-color);
+    border-radius:12px; padding:20px 16px; text-align:center;
+}
+.attivita-bar {
+    width:100%; height:6px; border-radius:3px; margin-bottom:14px; position:relative;
+}
+.attivita-pct {
+    position:absolute; right:0; top:-18px; font-size:0.72rem; font-weight:700;
+    color:var(--text-muted); letter-spacing:0.5px;
+}
+.attivita-card strong {
+    display:block; font-family:'Montserrat',sans-serif; font-size:1.3rem;
+    font-weight:800; color:var(--navy); margin-bottom:4px;
+}
+.attivita-card > span {
+    display:block; font-size:0.78rem; font-weight:700; color:var(--text-primary);
+    margin-bottom:10px; text-transform:uppercase; letter-spacing:0.5px;
+}
+.attivita-card p {
+    font-size:0.76rem; line-height:1.55; color:var(--text-muted); margin:0;
+}
+
 .roi-disclaimer { font-size:0.8rem; line-height:1.6; color:var(--text-muted); margin:0; padding:16px 0 0; border-top:1px solid var(--border-color); }
 
 /* ============================================
@@ -555,6 +587,8 @@ img { max-width:100%; display:block; }
     .gantt-month-cells span { font-size:0.55rem; padding:6px 1px; }
     .gantt-year-label { font-size:0.6rem; }
     .risparmio-source { flex-direction:column; gap:16px; padding:24px; }
+    .attivita-cards { grid-template-columns:1fr; }
+    .ore-triennio { grid-template-columns:1fr; }
     .risparmio-waterfall-wrap { padding:20px 12px; }
     .cta-wrapper { grid-template-columns:1fr; gap:32px; }
     .cta-form form { padding:28px; }

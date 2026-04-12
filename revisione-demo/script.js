@@ -428,18 +428,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ==========================================
-    // ROI + STIMA ORE SIMULATOR
+    // STIMA ORE SIMULATOR
     // ==========================================
     const roiAttivo = document.getElementById('roiAttivo');
     const roiRicavi = document.getElementById('roiRicavi');
     const roiDipendenti = document.getElementById('roiDipendenti');
     const roiSettore = document.getElementById('roiSettore');
     const roiRischio = document.getElementById('roiRischio');
-    const roiChart = document.getElementById('roiChart');
+    const attivitaCanvas = document.getElementById('attivitaChart');
 
-    if (roiAttivo && roiRicavi && roiDipendenti && roiSettore && roiRischio && roiChart) {
-        const roiCtx = roiChart.getContext('2d');
-        const dpr = window.devicePixelRatio || 1;
+    if (roiAttivo && roiRicavi && roiDipendenti && roiSettore && roiRischio) {
         const numFmt = new Intl.NumberFormat('it-IT');
         const eurFmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 
@@ -471,14 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return 400;
         }
 
-        // Tariffa oraria media di mercato modulata dal rischio
-        function tariffaOraria(rischio) {
-            // Base ~55-65 EUR/h per rischio basso, sale con il rischio
-            const base = 58;
-            return base * rischio;
-        }
-
-        function calculateROI() {
+        function calcolaOre() {
             const attivo = parseNumero(roiAttivo.value);
             const ricavi = parseNumero(roiRicavi.value);
             const media = (attivo + ricavi) / 2;
@@ -486,130 +477,111 @@ document.addEventListener('DOMContentLoaded', () => {
             const moltSettore = parseFloat(roiSettore.value) || 1;
             const moltRischio = parseFloat(roiRischio.value) || 1;
 
-            // Display values
             document.getElementById('roiMediaVal').textContent = eurFmt.format(media);
             document.getElementById('roiDipendentiVal').textContent = dipendenti;
 
             // Ore CNDCEC
             const oreBase = oreBaseDaMedia(media);
             const oreFinali = Math.ceil(oreBase * moltSettore * moltRischio);
-            const y1 = oreFinali;
-            const y2 = oreFinali;
-            const y3 = oreFinali;
 
-            // Update ore panel
             document.getElementById('kpiOreBase').textContent = numFmt.format(oreBase) + ' h';
             document.getElementById('kpiMoltSettore').textContent = '\u00D7 ' + moltSettore.toFixed(2).replace('.', ',');
             document.getElementById('kpiMoltRischio').textContent = '\u00D7 ' + moltRischio.toFixed(2).replace('.', ',');
             document.getElementById('kpiOreFinali').textContent = numFmt.format(oreFinali) + ' h';
-            document.getElementById('kpiY1').textContent = numFmt.format(y1) + ' h';
-            document.getElementById('kpiY2').textContent = numFmt.format(y2) + ' h';
-            document.getElementById('kpiY3').textContent = numFmt.format(y3) + ' h';
+            document.getElementById('kpiY1').textContent = numFmt.format(oreFinali) + ' h';
+            document.getElementById('kpiY2').textContent = numFmt.format(oreFinali) + ' h';
+            document.getElementById('kpiY3').textContent = numFmt.format(oreFinali) + ' h';
 
-            // Compenso = ore * tariffa (modulata dal rischio)
-            const tariffa = tariffaOraria(moltRischio);
-            const costo = Math.round(oreFinali * tariffa);
+            // Suddivisione attivita': 30% periodiche, 60% bilancio, 10% dichiarativi
+            const oreVerifiche = Math.round(oreFinali * 0.30);
+            const oreBilancio = Math.round(oreFinali * 0.60);
+            const oreDichiarativi = oreFinali - oreVerifiche - oreBilancio;
 
-            // Stima risparmio (basata su ricavi come proxy del fatturato)
-            const fatturato = Math.max(ricavi, attivo, 1);
-            const prevenzioneFrodi = fatturato * 0.005 * moltRischio;
-            const efficienza = fatturato * 0.003;
-            const reputazione = fatturato * 0.002;
-            const sanzioni = fatturato * 0.004 * moltRischio;
-            const risparmio = Math.round(prevenzioneFrodi + efficienza + reputazione + sanzioni);
-            const roi = costo > 0 ? Math.round(((risparmio - costo) / costo) * 100) : 0;
-            const payback = risparmio > 0 ? Math.max(1, Math.round((costo / risparmio) * 12)) : 0;
+            document.getElementById('oreVerifiche').textContent = numFmt.format(oreVerifiche) + ' h';
+            document.getElementById('oreBilancio').textContent = numFmt.format(oreBilancio) + ' h';
+            document.getElementById('oreDichiarativi').textContent = numFmt.format(oreDichiarativi) + ' h';
 
-            // Update KPIs
-            document.getElementById('kpiCosto').textContent = costo > 0 ? eurFmt.format(costo) : '--';
-            document.getElementById('kpiRisparmio').textContent = risparmio > 0 ? eurFmt.format(risparmio) : '--';
-            document.getElementById('kpiROI').textContent = costo > 0 ? roi + '%' : '--';
-            document.getElementById('kpiPayback').textContent = costo > 0 ? payback + ' mesi' : '--';
-
-            // Draw donut chart
-            if (risparmio > 0) {
-                drawROIChart(prevenzioneFrodi, efficienza, reputazione, sanzioni);
+            // Draw activity donut chart
+            if (attivitaCanvas && oreFinali > 0) {
+                drawAttivitaChart(oreVerifiche, oreBilancio, oreDichiarativi, oreFinali);
             }
         }
 
-        function drawROIChart(frodi, efficienza, reputazione, sanzioni) {
-            const rect = roiChart.parentElement.getBoundingClientRect();
+        function drawAttivitaChart(verifiche, bilancio, dichiarativi, totale) {
+            const ctx = attivitaCanvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = attivitaCanvas.parentElement.getBoundingClientRect();
             const w = rect.width;
-            const h = 300;
-            roiChart.width = w * dpr;
-            roiChart.height = h * dpr;
-            roiChart.style.width = w + 'px';
-            roiChart.style.height = h + 'px';
-            roiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            const h = 260;
+            attivitaCanvas.width = w * dpr;
+            attivitaCanvas.height = h * dpr;
+            attivitaCanvas.style.width = w + 'px';
+            attivitaCanvas.style.height = h + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
 
             const cx = w / 2;
-            const cy = 140;
-            const outerR = 110;
-            const innerR = 65;
-            const total = frodi + efficienza + reputazione + sanzioni;
+            const cy = 115;
+            const outerR = Math.min(95, w / 2 - 40);
+            const innerR = outerR * 0.58;
 
             const segments = [
-                { val: frodi, color: '#0A2844', label: 'Prevenzione frodi' },
-                { val: efficienza, color: '#164068', label: 'Efficienza operativa' },
-                { val: reputazione, color: '#2A5A85', label: 'Reputazione' },
-                { val: sanzioni, color: '#5B89B8', label: 'Riduzione sanzioni' },
+                { val: verifiche, color: '#0A2844', label: 'Verifiche periodiche', pct: '30%' },
+                { val: bilancio, color: '#164068', label: 'Verifiche sul bilancio', pct: '60%' },
+                { val: dichiarativi, color: '#2A5A85', label: 'Controllo dichiarativi', pct: '10%' },
             ];
 
-            roiCtx.clearRect(0, 0, w, h);
-
+            // Donut
             let startAngle = -Math.PI / 2;
             segments.forEach(seg => {
-                const sliceAngle = (seg.val / total) * Math.PI * 2;
-                roiCtx.beginPath();
-                roiCtx.arc(cx, cy, outerR, startAngle, startAngle + sliceAngle);
-                roiCtx.arc(cx, cy, innerR, startAngle + sliceAngle, startAngle, true);
-                roiCtx.closePath();
-                roiCtx.fillStyle = seg.color;
-                roiCtx.fill();
+                const sliceAngle = (seg.val / totale) * Math.PI * 2;
+                ctx.beginPath();
+                ctx.arc(cx, cy, outerR, startAngle, startAngle + sliceAngle);
+                ctx.arc(cx, cy, innerR, startAngle + sliceAngle, startAngle, true);
+                ctx.closePath();
+                ctx.fillStyle = seg.color;
+                ctx.fill();
                 startAngle += sliceAngle;
             });
 
-            roiCtx.font = 'bold 22px Montserrat';
-            roiCtx.fillStyle = '#1a3a5c';
-            roiCtx.textAlign = 'center';
-            roiCtx.textBaseline = 'middle';
-            roiCtx.fillText(eurFmt.format(Math.round(total)), cx, cy - 8);
-            roiCtx.font = '11px Inter';
-            roiCtx.fillStyle = '#94a3b8';
-            roiCtx.fillText('Risparmio totale', cx, cy + 14);
+            // Center text
+            ctx.font = 'bold 24px Montserrat';
+            ctx.fillStyle = '#0A2844';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(numFmt.format(totale) + ' h', cx, cy - 6);
+            ctx.font = '11px Inter';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('ore annue', cx, cy + 14);
 
-            const legendY = cy + outerR + 30;
-            const legendCols = 2;
-            const colW = w / legendCols;
+            // Legend below donut
+            const legendY = cy + outerR + 24;
             segments.forEach((seg, i) => {
-                const col = i % legendCols;
-                const row = Math.floor(i / legendCols);
-                const lx = col * colW + 20;
-                const ly = legendY + row * 24;
+                const lx = 16;
+                const ly = legendY + i * 22;
 
-                roiCtx.fillStyle = seg.color;
-                roiCtx.beginPath();
-                roiCtx.roundRect(lx, ly, 12, 12, 2);
-                roiCtx.fill();
+                ctx.fillStyle = seg.color;
+                ctx.beginPath();
+                ctx.roundRect(lx, ly, 12, 12, 2);
+                ctx.fill();
 
-                roiCtx.font = '12px Inter';
-                roiCtx.fillStyle = '#475569';
-                roiCtx.textAlign = 'left';
-                const pct = Math.round((seg.val / total) * 100);
-                roiCtx.fillText(seg.label + ' (' + pct + '%)', lx + 18, ly + 10);
+                ctx.font = '12px Inter';
+                ctx.fillStyle = '#475569';
+                ctx.textAlign = 'left';
+                ctx.fillText(seg.label + '  ' + seg.pct + '  (' + numFmt.format(seg.val) + ' h)', lx + 18, ly + 10);
             });
         }
 
         // Wire events
-        roiDipendenti.addEventListener('input', calculateROI);
-        roiSettore.addEventListener('change', calculateROI);
-        roiRischio.addEventListener('change', calculateROI);
+        roiDipendenti.addEventListener('input', calcolaOre);
+        roiSettore.addEventListener('change', calcolaOre);
+        roiRischio.addEventListener('change', calcolaOre);
         [roiAttivo, roiRicavi].forEach(el => {
-            el.addEventListener('input', calculateROI);
-            el.addEventListener('blur', () => { formatInputNumero(el); calculateROI(); });
+            el.addEventListener('input', calcolaOre);
+            el.addEventListener('blur', () => { formatInputNumero(el); calcolaOre(); });
         });
 
-        calculateROI();
+        calcolaOre();
     }
 
     // ==========================================
@@ -640,7 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function drawWaterfall(progress) {
             const rect = waterfallCanvas.parentElement.getBoundingClientRect();
             const w = Math.min(rect.width, 800);
-            const h = 350;
+            const h = 400;
             waterfallCanvas.width = w * wDpr;
             waterfallCanvas.height = h * wDpr;
             waterfallCanvas.style.width = w + 'px';
@@ -648,11 +620,11 @@ document.addEventListener('DOMContentLoaded', () => {
             wCtx.setTransform(wDpr, 0, 0, wDpr, 0, 0);
             wCtx.clearRect(0, 0, w, h);
 
-            const padding = { top: 40, right: 20, bottom: 60, left: 70 };
+            const padding = { top: 70, right: 20, bottom: 60, left: 50 };
             const chartW = w - padding.left - padding.right;
             const chartH = h - padding.top - padding.bottom;
 
-            // Data: costo negativo, poi risparmi positivi, totale netto
+            // Data: costo negativo, poi risparmi positivi
             const items = [
                 { label: 'Costo\nrevisione', value: -15000, color: '#0A2844' },
                 { label: 'Errori\nevitati', value: 25000, color: '#132d47' },
@@ -663,10 +635,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ];
 
             const netTotal = items.reduce((sum, i) => sum + i.value, 0);
-            const maxAbs = 160000; // scale
-            const barW = Math.min(80, chartW / items.length - 20);
+            const maxAbs = 160000;
+            const barW = Math.min(72, chartW / items.length - 16);
             const gap = (chartW - barW * items.length) / (items.length + 1);
-            const zeroY = padding.top + chartH * 0.12; // zero line near top since most are positive
 
             // Axis
             wCtx.strokeStyle = '#e2e8f0';
@@ -694,6 +665,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     barBottom = baseY;
                 }
 
+                // Clamp barTop so labels don't overflow
+                barTop = Math.max(barTop, padding.top + 18);
+
                 // Bar with rounded top
                 wCtx.beginPath();
                 const r = 4;
@@ -707,13 +681,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 wCtx.fillStyle = item.color;
                 wCtx.fill();
 
-                // Value label
+                // Value label - ensure it stays inside the canvas
                 if (progress > 0.7) {
                     wCtx.font = 'bold 11px Inter';
                     wCtx.fillStyle = item.color;
                     wCtx.textAlign = 'center';
                     const sign = item.value < 0 ? '-' : '+';
-                    wCtx.fillText(sign + Math.abs(item.value / 1000).toFixed(0) + 'k', x + barW / 2, barTop - 8);
+                    const labelY = Math.max(barTop - 8, padding.top + 4);
+                    wCtx.fillText(sign + Math.abs(item.value / 1000).toFixed(0) + 'k \u20AC', x + barW / 2, labelY);
                 }
 
                 // X-axis label (multiline)
@@ -744,12 +719,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (progress > 0.9) {
                 wCtx.font = 'bold 14px Montserrat';
                 wCtx.fillStyle = '#164068';
-                wCtx.textAlign = 'right';
-                wCtx.fillText('Valore netto generato: +' + (netTotal / 1000).toFixed(0) + '.000 \u20AC', w - padding.right, padding.top - 10);
+                wCtx.textAlign = 'left';
+                wCtx.fillText('Valore netto generato: +' + (netTotal / 1000).toFixed(0) + '.000 \u20AC', padding.left, 22);
 
                 wCtx.font = '11px Inter';
-                wCtx.fillStyle = '#475569';
-                wCtx.fillText('(su un fatturato di 5M\u20AC, rischio medio)', w - padding.right, padding.top + 6);
+                wCtx.fillStyle = '#94a3b8';
+                wCtx.textAlign = 'left';
+                wCtx.fillText('Esempio su fatturato 5M\u20AC, rischio medio', padding.left, 40);
             }
         }
 

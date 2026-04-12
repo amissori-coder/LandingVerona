@@ -31,7 +31,7 @@
                 <li><a href="#gantt">Timeline</a></li>
                 <li><a href="#benefici">Benefici</a></li>
                 <li><a href="#risparmio">Risparmio</a></li>
-                <li><a href="#roi">ROI</a></li>
+                <li><a href="#roi">Stima Ore</a></li>
                 <li><a href="#contatti" class="nav-cta">Contattaci</a></li>
             </ul>
             <button class="hamburger" id="hamburger" aria-label="Apri menu">
@@ -489,15 +489,15 @@
         </div>
     </section>
 
-    <!-- ROI SIMULATOR + STIMA ORE -->
+    <!-- STIMA ORE -->
     <section class="section section-alt" id="roi">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">Simulatore &middot; Ore e Compensi</span>
-                <h2>Stima <span class="text-accent">Ore e Investimento</span></h2>
+                <span class="section-tag">Simulatore &middot; Stima Ore</span>
+                <h2>Stima le <span class="text-accent">Ore di Revisione</span></h2>
                 <p class="section-desc">
                     Inserisci i dati della tua azienda per ottenere una stima delle ore di revisione
-                    secondo gli scaglioni CNDCEC e del compenso basato sul livello di rischio.
+                    secondo gli scaglioni CNDCEC, suddivise per tipologia di attivita'.
                 </p>
             </div>
 
@@ -545,7 +545,7 @@
                 </div>
 
                 <div class="roi-results">
-                    <!-- Stima ore -->
+                    <!-- Stima ore breakdown -->
                     <div class="roi-ore-panel">
                         <h4>Stima ore di revisione</h4>
                         <div class="ore-breakdown">
@@ -573,29 +573,41 @@
                         </div>
                     </div>
 
-                    <!-- Compensi e ROI -->
-                    <div class="roi-chart-wrap">
-                        <canvas id="roiChart" width="400" height="300"></canvas>
+                    <!-- Suddivisione attivita' -->
+                    <div class="ore-attivita-panel">
+                        <h4>Suddivisione per attivita'</h4>
+                        <div class="attivita-chart-wrap">
+                            <canvas id="attivitaChart" width="400" height="260"></canvas>
+                        </div>
+                        <div class="attivita-cards">
+                            <div class="attivita-card">
+                                <div class="attivita-bar" style="background:#0A2844">
+                                    <span class="attivita-pct">30%</span>
+                                </div>
+                                <strong id="oreVerifiche">0 h</strong>
+                                <span>Verifiche periodiche</span>
+                                <p>Controlli interim, test sui controlli interni, analisi processi chiave, comunicazioni periodiche al management</p>
+                            </div>
+                            <div class="attivita-card">
+                                <div class="attivita-bar" style="background:#164068">
+                                    <span class="attivita-pct">60%</span>
+                                </div>
+                                <strong id="oreBilancio">0 h</strong>
+                                <span>Verifiche sul bilancio</span>
+                                <p>Procedure sostanziali, conferme esterne, analisi voci di bilancio, verifica eventi successivi, relazione finale</p>
+                            </div>
+                            <div class="attivita-card">
+                                <div class="attivita-bar" style="background:#2A5A85">
+                                    <span class="attivita-pct">10%</span>
+                                </div>
+                                <strong id="oreDichiarativi">0 h</strong>
+                                <span>Controllo dichiarativi</span>
+                                <p>Verifica coerenza tra bilancio e dichiarazioni fiscali, controllo conformita' normativa, visto di conformita'</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="roi-kpi-grid">
-                        <div class="roi-kpi">
-                            <span class="roi-kpi-value" id="kpiCosto">--</span>
-                            <span class="roi-kpi-label">Compenso stimato annuo</span>
-                        </div>
-                        <div class="roi-kpi highlight">
-                            <span class="roi-kpi-value" id="kpiRisparmio">--</span>
-                            <span class="roi-kpi-label">Risparmio potenziale annuo</span>
-                        </div>
-                        <div class="roi-kpi">
-                            <span class="roi-kpi-value" id="kpiROI">--</span>
-                            <span class="roi-kpi-label">ROI stimato</span>
-                        </div>
-                        <div class="roi-kpi">
-                            <span class="roi-kpi-value" id="kpiPayback">--</span>
-                            <span class="roi-kpi-label">Payback period</span>
-                        </div>
-                    </div>
-                    <p class="roi-disclaimer">Le ore sono calcolate secondo gli scaglioni dimensionali CNDCEC. Il compenso e' una stima orientativa basata su una tariffa media di mercato modulata dal livello di rischio. Per il dimensionamento definitivo dell'incarico e' necessario il confronto con il team Revilaw.</p>
+
+                    <p class="roi-disclaimer">Le ore sono calcolate secondo gli scaglioni dimensionali CNDCEC con i correttivi qualitativi (settore e rischio). La suddivisione tra attivita' e' indicativa e puo' variare in base alla complessita' dell'incarico. Per il dimensionamento definitivo e' necessario il confronto con il team Revilaw.</p>
                 </div>
             </div>
         </div>
