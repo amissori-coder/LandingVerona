@@ -53,8 +53,25 @@ img { max-width:100%; display:block; }
     border-bottom:1px solid var(--border-color); padding:12px 0;
     box-shadow:var(--shadow-sm);
 }
-.nav-container { display:flex; align-items:center; justify-content:space-between; }
+.nav-container { display:flex; align-items:center; justify-content:space-between; gap:20px; }
+.nav-brand-group { display:flex; align-items:center; gap:14px; }
 .logo { display:flex; align-items:center; gap:10px; font-size:1.5rem; font-weight:800; letter-spacing:-0.5px; }
+.nav-home-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:7px 14px; border-radius:100px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18);
+    color:rgba(255,255,255,0.85); font-size:0.78rem; font-weight:600;
+    transition:var(--transition);
+}
+.nav-home-btn svg { width:14px; height:14px; }
+.nav-home-btn:hover {
+    background:rgba(255,255,255,0.15); border-color:rgba(255,255,255,0.35); color:#fff;
+    transform:translateX(-2px);
+}
+.navbar.scrolled .nav-home-btn {
+    background:var(--accent-bg); border-color:var(--border-color); color:var(--text-secondary);
+}
+.navbar.scrolled .nav-home-btn:hover { background:var(--navy); color:#fff; border-color:var(--navy); }
 .logo-img { height:36px; width:auto; filter:brightness(0) invert(1); transition:var(--transition); }
 .navbar.scrolled .logo-img { filter:none; }
 .logo-revilaw { color:#fff; transition:var(--transition); }
@@ -210,44 +227,114 @@ img { max-width:100%; display:block; }
 /* ============================================
    GANTT CHART
    ============================================ */
-.gantt-wrapper { max-width:1100px; margin:0 auto; }
-.gantt-controls { display:flex; gap:8px; margin-bottom:24px; flex-wrap:wrap; }
+.gantt-wrapper { max-width:1160px; margin:0 auto; }
+.gantt-controls { display:flex; gap:10px; margin-bottom:28px; flex-wrap:wrap; justify-content:center; }
 .gantt-filter {
-    padding:8px 20px; border-radius:100px; border:1px solid var(--border-color);
+    padding:10px 22px; border-radius:100px; border:1px solid var(--border-color);
     background:#fff; font-size:0.82rem; font-weight:600; color:var(--text-secondary);
     cursor:pointer; transition:var(--transition); font-family:inherit;
+    display:inline-flex; align-items:center; gap:8px;
 }
-.gantt-filter.active, .gantt-filter:hover { background:var(--navy); color:#fff; border-color:var(--navy); }
+.gantt-filter::before {
+    content:''; width:8px; height:8px; border-radius:50%; background:currentColor; opacity:0.5;
+}
+.gantt-filter:hover { background:var(--accent-bg); color:var(--navy); border-color:var(--navy); }
+.gantt-filter.active { background:var(--navy); color:#fff; border-color:var(--navy); box-shadow:0 4px 14px rgba(26,58,92,0.25); }
+.gantt-filter.active::before { opacity:1; background:#fff; }
 
-.gantt-chart { background:#fff; border:1px solid var(--border-color); border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow); }
-.gantt-header { display:flex; border-bottom:2px solid var(--border-color); background:var(--bg-secondary); }
-.gantt-label-col { width:220px; flex-shrink:0; padding:12px 16px; font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); }
-.gantt-months { flex:1; display:flex; }
-.gantt-months span { padding:12px 4px; text-align:center; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+.gantt-chart {
+    background:#fff; border:1px solid var(--border-color); border-radius:var(--radius-lg);
+    overflow:hidden; box-shadow:var(--shadow-lg);
+}
+.gantt-header {
+    display:flex; border-bottom:2px solid var(--border-color);
+    background:linear-gradient(180deg, #fafbfc 0%, #f3f5f8 100%);
+}
+.gantt-label-col {
+    width:240px; flex-shrink:0; padding:18px 20px;
+    font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:1.4px;
+    color:var(--navy); display:flex; align-items:flex-end;
+}
 
-.gantt-row { display:flex; border-bottom:1px solid var(--bg-tertiary); transition:var(--transition); }
-.gantt-row:hover { background:var(--accent-bg); }
+.gantt-body { position:relative; }
+
+.gantt-row {
+    display:flex; border-bottom:1px solid var(--bg-tertiary);
+    transition:background 0.25s ease; position:relative;
+}
+.gantt-row:last-child { border-bottom:none; }
+.gantt-row:hover { background:rgba(26,58,92,0.03); }
 .gantt-row.hidden { display:none; }
-.gantt-row-label { width:220px; flex-shrink:0; padding:14px 16px; font-size:0.84rem; font-weight:500; color:var(--text-primary); display:flex; align-items:center; gap:8px; }
-.gantt-row-label .row-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.gantt-bars { flex:1; display:grid; grid-template-columns:repeat(13,1fr); position:relative; padding:8px 0; align-items:center; }
-.gantt-bar {
-    height:28px; border-radius:6px; position:relative; opacity:0;
-    animation:ganttSlide 0.6s ease forwards; cursor:pointer;
-    transition:var(--transition);
+.gantt-row-label {
+    width:240px; flex-shrink:0; padding:16px 20px;
+    font-size:0.84rem; font-weight:600; color:var(--text-primary);
+    display:flex; align-items:center; gap:12px;
+    border-right:1px solid rgba(26,58,92,0.08);
+    background:#fff;
 }
-.gantt-bar:hover { transform:scaleY(1.15); filter:brightness(1.1); }
+.gantt-row-label .row-dot {
+    width:10px; height:10px; border-radius:50%; flex-shrink:0;
+    background:currentColor; box-shadow:0 0 0 3px rgba(0,0,0,0.04);
+}
+.gantt-bars {
+    flex:1; display:grid; grid-template-columns:repeat(13,1fr);
+    position:relative; padding:14px 0; align-items:center;
+}
+.gantt-bars::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background-image:repeating-linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(100% / 13 - 1px),
+        rgba(26, 58, 92, 0.06) calc(100% / 13 - 1px),
+        rgba(26, 58, 92, 0.06) calc(100% / 13)
+    );
+}
+.gantt-bar { z-index:1; }
+.gantt-bar {
+    height:30px; border-radius:8px; position:relative; opacity:0;
+    animation:ganttSlide 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    cursor:pointer; transition:transform 0.25s ease, filter 0.25s ease, box-shadow 0.25s ease;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 8px rgba(26,58,92,0.15);
+}
+.gantt-bar::after {
+    content:''; position:absolute; inset:0; border-radius:8px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 50%);
+    pointer-events:none;
+}
+.gantt-bar-duration {
+    position:relative; z-index:2; color:#fff;
+    font-family:'Montserrat',sans-serif; font-size:0.7rem; font-weight:700;
+    letter-spacing:0.5px; text-shadow:0 1px 2px rgba(0,0,0,0.2); opacity:0;
+    animation:fadeInDelay 0.4s ease 0.6s forwards;
+}
+.gantt-bar:hover {
+    transform:translateY(-2px); filter:brightness(1.08);
+    box-shadow:0 6px 18px rgba(26,58,92,0.35);
+}
 .gantt-bar-tooltip {
-    display:none; position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
-    background:var(--text-primary); color:#fff; padding:8px 14px; border-radius:8px;
-    font-size:0.78rem; white-space:nowrap; z-index:10; pointer-events:none;
+    display:none; position:absolute; bottom:calc(100% + 12px); left:50%; transform:translateX(-50%);
+    background:var(--text-primary); color:#fff; padding:10px 16px; border-radius:10px;
+    font-size:0.78rem; font-weight:500; white-space:nowrap; z-index:10; pointer-events:none;
+    box-shadow:0 8px 24px rgba(0,0,0,0.25);
+}
+.gantt-bar-tooltip::after {
+    content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+    border:6px solid transparent; border-top-color:var(--text-primary);
 }
 .gantt-bar:hover .gantt-bar-tooltip { display:block; }
-@keyframes ganttSlide { from { opacity:0; transform:scaleX(0); transform-origin:left; } to { opacity:1; transform:scaleX(1); } }
+@keyframes ganttSlide {
+    from { opacity:0; transform:scaleX(0); transform-origin:left; }
+    to { opacity:1; transform:scaleX(1); }
+}
+@keyframes fadeInDelay {
+    from { opacity:0; } to { opacity:1; }
+}
 
-.gantt-legend { display:flex; gap:24px; justify-content:center; margin-top:20px; flex-wrap:wrap; }
-.legend-item { display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--text-secondary); }
-.legend-color { width:12px; height:12px; border-radius:3px; }
+.gantt-legend { display:flex; gap:28px; justify-content:center; margin-top:24px; flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:10px; font-size:0.84rem; color:var(--text-secondary); font-weight:500; }
+.legend-color { width:14px; height:14px; border-radius:4px; box-shadow:0 2px 6px rgba(26,58,92,0.15); }
 
 /* ============================================
    BENEFICI GRID
@@ -500,17 +587,32 @@ img { max-width:100%; display:block; }
 .gantt-chart-wide .gantt-months { display:flex; flex:1; }
 .gantt-chart-wide .gantt-months.gantt-months-16 { display:flex; flex:1; }
 .gantt-year-group { display:flex; flex-direction:column; }
-.gantt-year-group:first-child { flex:9; border-right:2px solid var(--navy); }
+.gantt-year-group:first-child { flex:9; border-right:2px solid rgba(26,58,92,0.2); }
 .gantt-year-group:last-child { flex:4; }
 .gantt-year-label {
-    text-align:center; font-size:0.7rem; font-weight:700; letter-spacing:1.5px;
-    text-transform:uppercase; color:var(--navy); padding:6px 0 2px;
-    background:rgba(26,58,92,0.05);
+    text-align:center; font-size:0.68rem; font-weight:800; letter-spacing:2px;
+    text-transform:uppercase; color:var(--navy); padding:10px 0 4px;
+    background:rgba(26,58,92,0.06); border-bottom:1px solid rgba(26,58,92,0.1);
 }
 .gantt-month-cells { display:grid; flex:1; }
 .gantt-year-group:first-child .gantt-month-cells { grid-template-columns:repeat(9,1fr); }
 .gantt-year-group:last-child .gantt-month-cells { grid-template-columns:repeat(4,1fr); }
-.gantt-month-cells span { padding:8px 4px; text-align:center; font-size:0.7rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+.gantt-month-cells span {
+    padding:10px 4px; text-align:center; font-size:0.72rem; font-weight:700;
+    color:var(--navy); text-transform:uppercase; letter-spacing:0.8px;
+    border-left:1px solid rgba(26,58,92,0.06);
+}
+.gantt-month-cells span:first-child { border-left:none; }
+
+/* Highlight "Apr" in Year N+1 as the delivery month */
+.gantt-year-group:last-child .gantt-month-cells span:last-child {
+    background:rgba(26,58,92,0.08); color:var(--navy-dark); font-weight:800;
+    position:relative;
+}
+.gantt-year-group:last-child .gantt-month-cells span:last-child::after {
+    content:''; position:absolute; bottom:0; left:20%; right:20%; height:3px;
+    background:var(--navy); border-radius:2px 2px 0 0;
+}
 
 /* ============================================
    RISPARMIO (Savings Breakdown)
@@ -602,6 +704,8 @@ img { max-width:100%; display:block; }
     .node-icon { width:40px; height:40px; }
     .node-icon svg { width:18px; height:18px; }
     .hub-node span { font-size:0.62rem; }
+    .nav-home-btn span { display:none; }
+    .nav-home-btn { padding:7px 10px; }
     .nav-links {
         display:none; position:fixed; top:0; left:0; right:0; bottom:0;
         background:rgba(15,30,46,0.98); flex-direction:column; justify-content:center;

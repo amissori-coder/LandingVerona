@@ -21,10 +21,16 @@
     <!-- NAVBAR -->
     <nav class="navbar" id="navbar">
         <div class="container nav-container">
-            <a href="../" class="logo">
-                <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="logo-img">
-                <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
-            </a>
+            <div class="nav-brand-group">
+                <a href="../" class="logo">
+                    <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="logo-img">
+                    <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                </a>
+                <a href="../" class="nav-home-btn" aria-label="Torna alla home">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    <span>Home</span>
+                </a>
+            </div>
             <ul class="nav-links" id="navLinks">
                 <li><a href="#processo">Il Processo</a></li>
                 <li><a href="#metodo">Il Metodo</a></li>
@@ -515,13 +521,6 @@
                     <div class="roi-media-callout">
                         <span class="media-label">Media dimensionale</span>
                         <span class="media-value" id="roiMediaVal">&euro; 0</span>
-                    </div>
-
-                    <h4 class="roi-section-title">Dipendenti</h4>
-                    <div class="roi-input-group">
-                        <label for="roiDipendenti">Numero dipendenti</label>
-                        <input type="range" id="roiDipendenti" min="0" max="3000" step="1" value="0">
-                        <div class="roi-value" id="roiDipendentiVal">0</div>
                     </div>
 
                     <h4 class="roi-section-title">Fattori qualitativi</h4>

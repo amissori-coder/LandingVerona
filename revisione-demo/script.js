@@ -276,21 +276,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const label = document.createElement('div');
                 label.className = 'gantt-row-label';
-                label.innerHTML = `<span class="row-dot" style="background:${item.color}"></span>${item.label}`;
+                label.innerHTML = '<span class="row-dot" style="color:' + item.color + '"></span>' + item.label;
 
                 const bars = document.createElement('div');
                 bars.className = 'gantt-bars';
-                bars.style.gridTemplateColumns = `repeat(${TOTAL_COLS}, 1fr)`;
+                bars.style.gridTemplateColumns = 'repeat(' + TOTAL_COLS + ', 1fr)';
 
                 const bar = document.createElement('div');
                 bar.className = 'gantt-bar';
-                bar.style.gridColumn = `${item.start + 1} / ${item.end + 1}`;
+                bar.style.gridColumn = (item.start + 1) + ' / ' + (item.end + 1);
                 bar.style.background = item.color;
                 bar.style.animationDelay = (idx * 0.08) + 's';
 
+                const duration = item.end - item.start;
+                const durLabel = document.createElement('span');
+                durLabel.className = 'gantt-bar-duration';
+                if (duration >= 2) {
+                    durLabel.textContent = duration + ' mesi';
+                } else {
+                    durLabel.textContent = duration + ' mese';
+                }
+                bar.appendChild(durLabel);
+
                 const tooltip = document.createElement('div');
                 tooltip.className = 'gantt-bar-tooltip';
-                tooltip.textContent = `${monthLabels[item.start]} - ${monthLabels[item.end - 1]}`;
+                const fromLabel = monthLabels[item.start];
+                const toLabel = monthLabels[item.end - 1];
+                tooltip.innerHTML = '<strong>' + item.label + '</strong><br>' + fromLabel + ' \u2192 ' + toLabel + ' \u00B7 ' + duration + ' mes' + (duration === 1 ? 'e' : 'i');
                 bar.appendChild(tooltip);
 
                 bars.appendChild(bar);
@@ -432,12 +444,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     const roiAttivo = document.getElementById('roiAttivo');
     const roiRicavi = document.getElementById('roiRicavi');
-    const roiDipendenti = document.getElementById('roiDipendenti');
     const roiSettore = document.getElementById('roiSettore');
     const roiRischio = document.getElementById('roiRischio');
     const attivitaCanvas = document.getElementById('attivitaChart');
 
-    if (roiAttivo && roiRicavi && roiDipendenti && roiSettore && roiRischio) {
+    if (roiAttivo && roiRicavi && roiSettore && roiRischio) {
         const numFmt = new Intl.NumberFormat('it-IT');
         const eurFmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 
@@ -473,12 +484,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const attivo = parseNumero(roiAttivo.value);
             const ricavi = parseNumero(roiRicavi.value);
             const media = (attivo + ricavi) / 2;
-            const dipendenti = parseInt(roiDipendenti.value) || 0;
             const moltSettore = parseFloat(roiSettore.value) || 1;
             const moltRischio = parseFloat(roiRischio.value) || 1;
 
             document.getElementById('roiMediaVal').textContent = eurFmt.format(media);
-            document.getElementById('roiDipendentiVal').textContent = dipendenti;
 
             // Ore CNDCEC
             const oreBase = oreBaseDaMedia(media);
@@ -573,7 +582,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Wire events
-        roiDipendenti.addEventListener('input', calcolaOre);
         roiSettore.addEventListener('change', calcolaOre);
         roiRischio.addEventListener('change', calcolaOre);
         [roiAttivo, roiRicavi].forEach(el => {
@@ -611,8 +619,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function drawWaterfall(progress) {
             const rect = waterfallCanvas.parentElement.getBoundingClientRect();
-            const w = Math.min(rect.width, 800);
-            const h = 400;
+            const w = Math.min(rect.width, 820);
+            const h = 440;
             waterfallCanvas.width = w * wDpr;
             waterfallCanvas.height = h * wDpr;
             waterfallCanvas.style.width = w + 'px';
@@ -620,11 +628,14 @@ document.addEventListener('DOMContentLoaded', () => {
             wCtx.setTransform(wDpr, 0, 0, wDpr, 0, 0);
             wCtx.clearRect(0, 0, w, h);
 
-            const padding = { top: 70, right: 20, bottom: 60, left: 50 };
-            const chartW = w - padding.left - padding.right;
-            const chartH = h - padding.top - padding.bottom;
+            // Layout: title area | chart area | axis+labels area
+            const padding = { top: 70, right: 24, bottom: 90, left: 60 };
+            const negSpace = 60; // space below zero line for negative bars
+            const chartTop = padding.top;
+            const zeroLineY = h - padding.bottom - negSpace;
+            const chartH = zeroLineY - chartTop;
 
-            // Data: costo negativo, poi risparmi positivi
+            // Data
             const items = [
                 { label: 'Costo\nrevisione', value: -15000, color: '#0A2844' },
                 { label: 'Errori\nevitati', value: 25000, color: '#132d47' },
@@ -635,79 +646,89 @@ document.addEventListener('DOMContentLoaded', () => {
             ];
 
             const netTotal = items.reduce((sum, i) => sum + i.value, 0);
-            const maxAbs = 160000;
-            const barW = Math.min(72, chartW / items.length - 16);
+            const maxPos = 160000; // max positive value we want to scale to chartH
+            const maxNeg = 50000;  // max negative value we want to scale to negSpace
+            const chartW = w - padding.left - padding.right;
+            const barW = Math.min(76, chartW / items.length - 18);
             const gap = (chartW - barW * items.length) / (items.length + 1);
 
-            // Axis
-            wCtx.strokeStyle = '#e2e8f0';
+            const valueToY = (val) => {
+                if (val >= 0) return zeroLineY - (val / maxPos) * chartH;
+                return zeroLineY - (val / maxNeg) * negSpace;
+            };
+
+            // Zero line
+            wCtx.strokeStyle = '#cbd5e1';
             wCtx.lineWidth = 1;
+            wCtx.setLineDash([4, 4]);
             wCtx.beginPath();
-            wCtx.moveTo(padding.left, padding.top);
-            wCtx.lineTo(padding.left, h - padding.bottom);
-            wCtx.lineTo(w - padding.right, h - padding.bottom);
+            wCtx.moveTo(padding.left, zeroLineY);
+            wCtx.lineTo(w - padding.right, zeroLineY);
             wCtx.stroke();
+            wCtx.setLineDash([]);
+
+            // Zero label
+            wCtx.font = '10px Inter';
+            wCtx.fillStyle = '#94a3b8';
+            wCtx.textAlign = 'right';
+            wCtx.fillText('0 \u20AC', padding.left - 8, zeroLineY + 3);
 
             // Running total waterfall
-            let runningBase = 0;
+            let runningTotal = 0;
 
             items.forEach((item, i) => {
                 const x = padding.left + gap + i * (barW + gap);
-                const valH = Math.abs(item.value) / maxAbs * chartH * progress;
-                const baseY = h - padding.bottom - (runningBase / maxAbs * chartH);
-                let barTop, barBottom;
+                const startY = valueToY(runningTotal);
+                const endVal = runningTotal + item.value;
+                const endY = valueToY(endVal);
+                const animStartY = zeroLineY + (startY - zeroLineY) * progress;
+                const animEndY = zeroLineY + (endY - zeroLineY) * progress;
 
-                if (item.value < 0) {
-                    barTop = baseY;
-                    barBottom = baseY + valH;
-                } else {
-                    barTop = baseY - valH;
-                    barBottom = baseY;
+                // Bar spans between startY and endY
+                const barTop = Math.min(animStartY, animEndY);
+                const barBottom = Math.max(animStartY, animEndY);
+                const barHeight = barBottom - barTop;
+
+                // Bar with rounded corners
+                if (barHeight > 1) {
+                    wCtx.beginPath();
+                    const r = Math.min(4, barHeight / 2);
+                    wCtx.moveTo(x + r, barTop);
+                    wCtx.lineTo(x + barW - r, barTop);
+                    wCtx.quadraticCurveTo(x + barW, barTop, x + barW, barTop + r);
+                    wCtx.lineTo(x + barW, barBottom - r);
+                    wCtx.quadraticCurveTo(x + barW, barBottom, x + barW - r, barBottom);
+                    wCtx.lineTo(x + r, barBottom);
+                    wCtx.quadraticCurveTo(x, barBottom, x, barBottom - r);
+                    wCtx.lineTo(x, barTop + r);
+                    wCtx.quadraticCurveTo(x, barTop, x + r, barTop);
+                    wCtx.fillStyle = item.color;
+                    wCtx.fill();
                 }
 
-                // Clamp barTop so labels don't overflow
-                barTop = Math.max(barTop, padding.top + 18);
-
-                // Bar with rounded top
-                wCtx.beginPath();
-                const r = 4;
-                wCtx.moveTo(x + r, barTop);
-                wCtx.lineTo(x + barW - r, barTop);
-                wCtx.quadraticCurveTo(x + barW, barTop, x + barW, barTop + r);
-                wCtx.lineTo(x + barW, barBottom);
-                wCtx.lineTo(x, barBottom);
-                wCtx.lineTo(x, barTop + r);
-                wCtx.quadraticCurveTo(x, barTop, x + r, barTop);
-                wCtx.fillStyle = item.color;
-                wCtx.fill();
-
-                // Value label - ensure it stays inside the canvas
+                // Value label (above bar for positive, below for negative)
                 if (progress > 0.7) {
-                    wCtx.font = 'bold 11px Inter';
+                    wCtx.font = 'bold 12px Inter';
                     wCtx.fillStyle = item.color;
                     wCtx.textAlign = 'center';
                     const sign = item.value < 0 ? '-' : '+';
-                    const labelY = Math.max(barTop - 8, padding.top + 4);
-                    wCtx.fillText(sign + Math.abs(item.value / 1000).toFixed(0) + 'k \u20AC', x + barW / 2, labelY);
+                    const valLabel = sign + Math.abs(item.value / 1000).toFixed(0) + 'k \u20AC';
+                    if (item.value < 0) {
+                        wCtx.fillText(valLabel, x + barW / 2, barBottom + 14);
+                    } else {
+                        wCtx.fillText(valLabel, x + barW / 2, barTop - 8);
+                    }
                 }
 
-                // X-axis label (multiline)
-                wCtx.font = '10px Inter';
-                wCtx.fillStyle = '#475569';
-                wCtx.textAlign = 'center';
-                const lines = item.label.split('\n');
-                lines.forEach((line, li) => {
-                    wCtx.fillText(line, x + barW / 2, h - padding.bottom + 16 + li * 14);
-                });
-
                 // Connector line to next bar
-                runningBase += item.value;
+                runningTotal = endVal;
                 if (i < items.length - 1) {
-                    const nextBaseY = h - padding.bottom - (runningBase / maxAbs * chartH);
+                    const nextStartY = valueToY(runningTotal);
+                    const animNextY = zeroLineY + (nextStartY - zeroLineY) * progress;
                     wCtx.beginPath();
                     wCtx.setLineDash([3, 3]);
-                    wCtx.moveTo(x + barW, item.value < 0 ? barBottom : barTop);
-                    wCtx.lineTo(x + barW + gap, nextBaseY);
+                    wCtx.moveTo(x + barW, animEndY);
+                    wCtx.lineTo(x + barW + gap, animNextY);
                     wCtx.strokeStyle = '#94a3b8';
                     wCtx.lineWidth = 1;
                     wCtx.stroke();
@@ -715,17 +736,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Net result label
+            // X-axis labels (drawn after bars, well below negSpace)
+            wCtx.font = '11px Inter';
+            wCtx.fillStyle = '#475569';
+            wCtx.textAlign = 'center';
+            items.forEach((item, i) => {
+                const x = padding.left + gap + i * (barW + gap) + barW / 2;
+                const lines = item.label.split('\n');
+                const labelStartY = h - padding.bottom + 20;
+                lines.forEach((line, li) => {
+                    wCtx.fillText(line, x, labelStartY + li * 15);
+                });
+            });
+
+            // Net result label (top-left)
             if (progress > 0.9) {
                 wCtx.font = 'bold 14px Montserrat';
                 wCtx.fillStyle = '#164068';
                 wCtx.textAlign = 'left';
-                wCtx.fillText('Valore netto generato: +' + (netTotal / 1000).toFixed(0) + '.000 \u20AC', padding.left, 22);
+                wCtx.fillText('Valore netto generato: +' + (netTotal / 1000).toFixed(0) + '.000 \u20AC', padding.left, 26);
 
                 wCtx.font = '11px Inter';
                 wCtx.fillStyle = '#94a3b8';
                 wCtx.textAlign = 'left';
-                wCtx.fillText('Esempio su fatturato 5M\u20AC, rischio medio', padding.left, 40);
+                wCtx.fillText('Esempio su fatturato 5M\u20AC, rischio medio', padding.left, 46);
             }
         }
 
