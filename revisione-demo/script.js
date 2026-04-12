@@ -250,19 +250,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const monthLabels = ['Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic','Gen','Feb','Mar','Apr'];
 
         const ganttData = [
-            { label: 'Accettazione incarico',      phase: 'accettazione', start: 0, end: 3,  color: '#6b21a8' },
-            { label: 'Pianificazione strategica',   phase: 'planning',    start: 2, end: 5,  color: '#1a3a5c' },
-            { label: 'Comprensione azienda',        phase: 'planning',    start: 2, end: 6,  color: '#1a3a5c' },
-            { label: 'Valutazione rischi',          phase: 'planning',    start: 4, end: 7,  color: '#1a3a5c' },
-            { label: 'Test controlli interni',      phase: 'interim',     start: 5, end: 8,  color: '#2a6496' },
-            { label: 'Analisi processi chiave',     phase: 'interim',     start: 5, end: 9,  color: '#2a6496' },
-            { label: 'Verifiche interim',           phase: 'interim',     start: 6, end: 9,  color: '#2a6496' },
-            { label: 'Comunicazioni periodiche',    phase: 'interim',     start: 5, end: 12, color: '#2a6496' },
-            { label: 'Procedure sostanziali',       phase: 'final',       start: 9, end: 12, color: '#3d8fd4' },
-            { label: 'Conferme esterne',            phase: 'final',       start: 9, end: 11, color: '#3d8fd4' },
-            { label: 'Verifica eventi successivi',  phase: 'final',       start: 10,end: 12, color: '#3d8fd4' },
-            { label: 'Relazione di revisione',      phase: 'final',       start: 12,end: 13, color: '#10b981' },
-            { label: 'Management Letter',           phase: 'final',       start: 12,end: 13, color: '#10b981' },
+            { label: 'Accettazione incarico',      phase: 'accettazione', start: 0, end: 3,  color: '#0A2844' },
+            { label: 'Pianificazione strategica',   phase: 'planning',    start: 2, end: 5,  color: '#164068' },
+            { label: 'Comprensione azienda',        phase: 'planning',    start: 2, end: 6,  color: '#164068' },
+            { label: 'Valutazione rischi',          phase: 'planning',    start: 4, end: 7,  color: '#164068' },
+            { label: 'Test controlli interni',      phase: 'interim',     start: 5, end: 8,  color: '#2A5A85' },
+            { label: 'Analisi processi chiave',     phase: 'interim',     start: 5, end: 9,  color: '#2A5A85' },
+            { label: 'Verifiche interim',           phase: 'interim',     start: 6, end: 9,  color: '#2A5A85' },
+            { label: 'Comunicazioni periodiche',    phase: 'interim',     start: 5, end: 12, color: '#2A5A85' },
+            { label: 'Procedure sostanziali',       phase: 'final',       start: 9, end: 12, color: '#3C6FA0' },
+            { label: 'Conferme esterne',            phase: 'final',       start: 9, end: 11, color: '#3C6FA0' },
+            { label: 'Verifica eventi successivi',  phase: 'final',       start: 10,end: 12, color: '#3C6FA0' },
+            { label: 'Relazione di revisione',      phase: 'final',       start: 12,end: 13, color: '#5B89B8' },
+            { label: 'Management Letter',           phase: 'final',       start: 12,end: 13, color: '#5B89B8' },
         ];
 
         function renderGantt(filter) {
@@ -325,19 +325,19 @@ document.addEventListener('DOMContentLoaded', () => {
             type: 'bar',
             labels: ['Prima', 'Dopo 1 anno', 'Dopo 3 anni'],
             data: [85, 50, 35],
-            colors: ['#dc2626', '#f59e0b', '#10b981']
+            colors: ['#0A2844', '#2A5A85', '#5B89B8']
         },
         compliance: {
             type: 'bar',
             labels: ['Sanzioni', 'Contenziosi', 'Rischio fiscale'],
             data: [95, 90, 88],
-            colors: ['#1a3a5c', '#2a6496', '#3d8fd4']
+            colors: ['#0A2844', '#164068', '#2A5A85']
         },
         efficienza: {
             type: 'bar',
             labels: ['Anno 1', 'Anno 2', 'Anno 3'],
             data: [10, 18, 25],
-            colors: ['#3d8fd4', '#2a6496', '#1a3a5c']
+            colors: ['#5B89B8', '#2A5A85', '#164068']
         }
     };
 
@@ -452,9 +452,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('roiFatturatoVal').textContent = fmt(fatturato) + ' \u20AC';
             document.getElementById('roiDipendentiVal').textContent = dipendenti;
 
-            // Estimate audit cost (simplified model)
-            const baseCost = Math.max(8000, fatturato * 0.001 + dipendenti * 80);
-            const costo = Math.round(baseCost * rischio);
+            // Estimate audit cost (simplified model based on D.M. 140/2012)
+            // Base: small companies ~8-15k, scales sub-linearly with size
+            const logFatt = Math.log10(Math.max(fatturato, 500000));
+            const baseCost = 2000 * logFatt + dipendenti * 15 + 2000;
+            const costo = Math.round(Math.min(Math.max(baseCost * rischio, 5000), fatturato * 0.002));
 
             // Estimate savings
             const prevenzioneFrodi = fatturato * 0.005 * rischio;
@@ -492,10 +494,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const total = frodi + efficienza + reputazione + sanzioni;
 
             const segments = [
-                { val: frodi, color: '#1a3a5c', label: 'Prevenzione frodi' },
-                { val: efficienza, color: '#2a6496', label: 'Efficienza operativa' },
-                { val: reputazione, color: '#3d8fd4', label: 'Reputazione' },
-                { val: sanzioni, color: '#10b981', label: 'Riduzione sanzioni' },
+                { val: frodi, color: '#0A2844', label: 'Prevenzione frodi' },
+                { val: efficienza, color: '#164068', label: 'Efficienza operativa' },
+                { val: reputazione, color: '#2A5A85', label: 'Reputazione' },
+                { val: sanzioni, color: '#5B89B8', label: 'Riduzione sanzioni' },
             ];
 
             roiCtx.clearRect(0, 0, w, h);
@@ -596,12 +598,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Data: costo negativo, poi risparmi positivi, totale netto
             const items = [
-                { label: 'Costo\nrevisione', value: -15000, color: '#dc2626' },
-                { label: 'Errori\nevitati', value: 25000, color: '#1a3a5c' },
-                { label: 'Frodi\nprevenute', value: 75000, color: '#6b21a8' },
-                { label: 'Credito\nrisparmiato', value: 10000, color: '#2a6496' },
-                { label: 'Processi\nottimizzati', value: 12000, color: '#10b981' },
-                { label: 'Sanzioni\nevitate', value: 30000, color: '#f59e0b' },
+                { label: 'Costo\nrevisione', value: -15000, color: '#0A2844' },
+                { label: 'Errori\nevitati', value: 25000, color: '#132d47' },
+                { label: 'Frodi\nprevenute', value: 75000, color: '#164068' },
+                { label: 'Credito\nrisparmiato', value: 10000, color: '#2A5A85' },
+                { label: 'Processi\nottimizzati', value: 12000, color: '#3C6FA0' },
+                { label: 'Sanzioni\nevitate', value: 30000, color: '#5B89B8' },
             ];
 
             const netTotal = items.reduce((sum, i) => sum + i.value, 0);
@@ -685,7 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Net result label
             if (progress > 0.9) {
                 wCtx.font = 'bold 14px Montserrat';
-                wCtx.fillStyle = '#10b981';
+                wCtx.fillStyle = '#164068';
                 wCtx.textAlign = 'right';
                 wCtx.fillText('Valore netto generato: +' + (netTotal / 1000).toFixed(0) + '.000 \u20AC', w - padding.right, padding.top - 10);
 
@@ -724,5 +726,104 @@ document.addEventListener('DOMContentLoaded', () => {
             orbit.style.animationPlayState = 'running';
             orbit.querySelectorAll('.hub-node').forEach(n => n.style.animationPlayState = 'running');
         });
+    }
+
+    // ==========================================
+    // CONTACT FORM (same schema as all NGB pages)
+    // ==========================================
+    const contactForm = document.getElementById('contactForm');
+    if (contactForm) {
+        contactForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(contactForm);
+            const data = Object.fromEntries(formData.entries());
+
+            if (!data.nome || !data.cognome || !data.email || !data.azienda || !data.ruolo) {
+                showNotification('Compila tutti i campi obbligatori.', 'error');
+                return;
+            }
+            if (!data.privacy) {
+                showNotification('Devi accettare il trattamento dei dati personali.', 'error');
+                return;
+            }
+
+            const submitBtn = contactForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Invio in corso...';
+            submitBtn.disabled = true;
+
+            const _n = new Date();
+            const _pad = (x) => String(x).padStart(2, '0');
+            const _ts = _pad(_n.getDate()) + '/' + _pad(_n.getMonth() + 1) + '/' + _n.getFullYear()
+                      + ' ' + _pad(_n.getHours()) + ':' + _pad(_n.getMinutes()) + ':' + _pad(_n.getSeconds());
+
+            const jsonData = {
+                data:      _ts,
+                pagina:    contactForm.dataset.pagina || 'Revisione Legale Demo - Contatto',
+                nome:      data.nome,
+                cognome:   data.cognome,
+                email:     data.email,
+                azienda:   data.azienda,
+                ruolo:     data.ruolo,
+                telefono:  data.telefono || '',
+                messaggio: '',
+                privacy:   !!data.privacy,
+                marketing: !!data.marketing
+            };
+
+            var GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
+
+            fetch(GOOGLE_SHEET_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(jsonData)
+            }).then(() => {
+                showNotification('Grazie! La tua richiesta e\' stata inviata. Ti ricontatteremo al piu\' presto.', 'success');
+                contactForm.reset();
+            }).catch(() => {
+                showNotification('Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it', 'error');
+            }).finally(() => {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            });
+        });
+    }
+
+    // ==========================================
+    // NOTIFICATION SYSTEM
+    // ==========================================
+    function showNotification(message, type) {
+        const existing = document.querySelector('.notification');
+        if (existing) existing.remove();
+
+        const notification = document.createElement('div');
+        notification.className = 'notification notification-' + type;
+        notification.innerHTML = '<span>' + message + '</span><button onclick="this.parentElement.remove()" aria-label="Chiudi">&times;</button>';
+
+        Object.assign(notification.style, {
+            position: 'fixed', bottom: '24px', right: '24px', maxWidth: '420px',
+            padding: '16px 24px', borderRadius: '12px', display: 'flex',
+            alignItems: 'center', gap: '12px', zIndex: '9999', fontSize: '0.95rem',
+            fontFamily: 'Inter, sans-serif', animation: 'fadeInUp 0.4s ease-out',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            background: type === 'success' ? '#0A2844' : '#7f1d1d',
+            color: '#f1f5f9',
+            border: '1px solid ' + (type === 'success' ? '#2A5A85' : '#ef4444')
+        });
+
+        const closeBtn = notification.querySelector('button');
+        Object.assign(closeBtn.style, {
+            background: 'none', border: 'none', color: '#94a3b8',
+            fontSize: '1.3rem', cursor: 'pointer', padding: '0', lineHeight: '1'
+        });
+
+        document.body.appendChild(notification);
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateY(12px)';
+            notification.style.transition = '0.3s ease-out';
+            setTimeout(() => notification.remove(), 300);
+        }, 5000);
     }
 });

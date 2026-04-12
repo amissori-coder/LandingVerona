@@ -88,6 +88,7 @@ img { max-width:100%; display:block; }
 .btn-outline { background:transparent; color:#fff; border:1px solid rgba(255,255,255,0.3); }
 .btn-outline:hover { border-color:rgba(255,255,255,0.6); background:rgba(255,255,255,0.1); }
 .btn-lg { padding:16px 40px; font-size:1.05rem; }
+.btn-full { width:100%; }
 
 /* ============================================
    HERO
@@ -361,21 +362,57 @@ img { max-width:100%; display:block; }
 .hub-node span { font-size:0.72rem; font-weight:600; color:var(--text-secondary); white-space:nowrap; }
 
 /* ============================================
-   CTA SECTION
+   CTA + CONTATTI
    ============================================ */
-.section-cta { background:var(--gradient-hero); color:#fff; text-align:center; padding:80px 0; }
-.cta-content { max-width:640px; margin:0 auto; }
-.cta-content h2 { font-family:'Montserrat',sans-serif; font-size:clamp(1.6rem,3vw,2.2rem); font-weight:800; margin-bottom:16px; }
-.cta-content > p { font-size:1.05rem; line-height:1.8; color:rgba(255,255,255,0.8); margin-bottom:32px; }
-.cta-actions { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-bottom:40px; }
-.cta-trust { display:flex; align-items:center; gap:12px; justify-content:center; opacity:0.6; font-size:0.82rem; }
-.cta-trust img { height:24px; filter:brightness(0) invert(1); }
+.section-cta { background:var(--bg-secondary); padding:100px 0 60px; }
+.cta-wrapper { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:start; }
+.cta-text .section-tag { margin-bottom:20px; }
+.cta-text h2 { font-size:2.2rem; font-weight:800; letter-spacing:-1px; margin-bottom:20px; line-height:1.2; color:var(--text-primary); }
+.cta-text > p { color:var(--text-secondary); font-size:1.05rem; line-height:1.8; margin-bottom:32px; }
+.contact-info { display:flex; flex-direction:column; gap:16px; }
+.contact-item { display:flex; align-items:center; gap:14px; color:var(--text-secondary); font-size:0.95rem; }
+.contact-item svg { width:20px; height:20px; color:var(--accent); min-width:20px; }
+.contact-item a { color:var(--text-secondary); }
+.contact-item a:hover { color:var(--accent); }
+
+/* FORM */
+.cta-form form {
+    background:var(--bg-primary); border:1px solid var(--border-color);
+    border-radius:var(--radius-lg); padding:40px; box-shadow:var(--shadow);
+}
+.cta-form h3 { font-size:1.3rem; font-weight:700; margin-bottom:28px; text-align:center; color:var(--text-primary); }
+.form-group { margin-bottom:20px; }
+.form-group label { display:block; font-size:0.85rem; font-weight:600; color:var(--text-secondary); margin-bottom:8px; }
+.form-optional { font-weight:400; color:var(--text-muted); }
+.form-group input,
+.form-group textarea {
+    width:100%; padding:12px 16px; background:var(--bg-secondary);
+    border:1px solid var(--border-color); border-radius:8px; color:var(--text-primary);
+    font-size:0.95rem; font-family:inherit; transition:var(--transition);
+}
+.form-group input:focus,
+.form-group textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,58,92,0.06); background:var(--bg-primary); }
+.form-group input::placeholder { color:var(--text-muted); }
+.form-check { display:flex; align-items:flex-start; gap:12px; }
+.form-check input[type="checkbox"] { width:auto; margin-top:3px; accent-color:var(--accent); }
+.form-check label { font-size:0.8rem; color:var(--text-muted); margin-bottom:0; cursor:pointer; }
+.cta-form .btn { margin-top:8px; font-size:1.05rem; padding:16px; }
 
 /* ============================================
    FOOTER
    ============================================ */
-.footer { padding:24px 0; text-align:center; border-top:1px solid var(--border-color); }
-.footer p { font-size:0.78rem; color:var(--text-muted); }
+.footer { padding:48px 0 32px; border-top:1px solid var(--border-color); background:var(--navy); color:rgba(255,255,255,0.6); }
+.footer .logo-revilaw { color:#fff; }
+.footer .logo-img { filter:brightness(0) invert(1); }
+.footer .logo-spa { color:#8bb8d4; }
+.footer-content { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; }
+.footer-brand p { color:rgba(255,255,255,0.4); font-size:0.85rem; margin-top:4px; }
+.footer-links { display:flex; gap:24px; }
+.footer-links a { color:rgba(255,255,255,0.5); font-size:0.85rem; }
+.footer-links a:hover { color:#8bb8d4; }
+.footer-bottom { text-align:center; padding-top:24px; border-top:1px solid rgba(255,255,255,0.1); }
+.footer-bottom p { color:rgba(255,255,255,0.4); font-size:0.8rem; }
+.footer-legal { margin-top:4px; font-size:0.75rem!important; }
 
 /* ============================================
    GANTT WIDE LAYOUT (13-column: Apr-Dec + Jan-Apr+1)
@@ -451,6 +488,7 @@ img { max-width:100%; display:block; }
     .pilastri-list { order:1; }
     .roi-simulator { grid-template-columns:1fr; }
     .roi-inputs { position:static; }
+    .cta-wrapper { grid-template-columns:1fr; gap:40px; }
     .servizi-hub { width:400px; height:400px; }
     .hub-center { width:110px; height:110px; }
     .hub-core strong { font-size:0.85rem; }
@@ -470,6 +508,10 @@ img { max-width:100%; display:block; }
     .gantt-year-label { font-size:0.6rem; }
     .risparmio-source { flex-direction:column; gap:16px; padding:24px; }
     .risparmio-waterfall-wrap { padding:20px 12px; }
+    .cta-wrapper { grid-template-columns:1fr; gap:32px; }
+    .cta-form form { padding:28px; }
+    .footer-content { flex-direction:column; gap:20px; text-align:center; }
+    .footer-links { flex-wrap:wrap; justify-content:center; }
     .servizi-hub { width:320px; height:320px; }
     .hub-center { width:90px; height:90px; }
     .hub-core strong { font-size:0.75rem; }
