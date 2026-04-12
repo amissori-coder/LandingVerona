@@ -244,20 +244,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     const ganttBody = document.getElementById('ganttBody');
     if (ganttBody) {
+        // Timeline: 13 colonne = Apr..Dic (Anno N, 9 mesi) + Gen..Apr (Anno N+1, 4 mesi)
+        // Indici: 0=Apr, 1=Mag, 2=Giu, 3=Lug, 4=Ago, 5=Set, 6=Ott, 7=Nov, 8=Dic, 9=Gen+1, 10=Feb+1, 11=Mar+1, 12=Apr+1
+        const TOTAL_COLS = 13;
+        const monthLabels = ['Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic','Gen','Feb','Mar','Apr'];
+
         const ganttData = [
-            { label: 'Accettazione incarico', phase: 'planning', start: 0, end: 1, color: '#1a3a5c' },
-            { label: 'Pianificazione strategica', phase: 'planning', start: 1, end: 3, color: '#1a3a5c' },
-            { label: 'Comprensione azienda', phase: 'planning', start: 1, end: 4, color: '#1a3a5c' },
-            { label: 'Valutazione rischi', phase: 'planning', start: 2, end: 4, color: '#1a3a5c' },
-            { label: 'Test controlli interni', phase: 'interim', start: 3, end: 6, color: '#2a6496' },
-            { label: 'Verifiche interim', phase: 'interim', start: 5, end: 8, color: '#2a6496' },
-            { label: 'Analisi processi chiave', phase: 'interim', start: 4, end: 7, color: '#2a6496' },
-            { label: 'Comunicazioni periodiche', phase: 'interim', start: 3, end: 10, color: '#2a6496' },
-            { label: 'Procedure sostanziali', phase: 'final', start: 8, end: 11, color: '#3d8fd4' },
-            { label: 'Conferme esterne', phase: 'final', start: 9, end: 11, color: '#3d8fd4' },
-            { label: 'Verifica eventi successivi', phase: 'final', start: 10, end: 11, color: '#3d8fd4' },
-            { label: 'Relazione di revisione', phase: 'final', start: 11, end: 12, color: '#10b981' },
-            { label: 'Management Letter', phase: 'final', start: 11, end: 12, color: '#10b981' },
+            { label: 'Accettazione incarico',      phase: 'accettazione', start: 0, end: 3,  color: '#6b21a8' },
+            { label: 'Pianificazione strategica',   phase: 'planning',    start: 2, end: 5,  color: '#1a3a5c' },
+            { label: 'Comprensione azienda',        phase: 'planning',    start: 2, end: 6,  color: '#1a3a5c' },
+            { label: 'Valutazione rischi',          phase: 'planning',    start: 4, end: 7,  color: '#1a3a5c' },
+            { label: 'Test controlli interni',      phase: 'interim',     start: 5, end: 8,  color: '#2a6496' },
+            { label: 'Analisi processi chiave',     phase: 'interim',     start: 5, end: 9,  color: '#2a6496' },
+            { label: 'Verifiche interim',           phase: 'interim',     start: 6, end: 9,  color: '#2a6496' },
+            { label: 'Comunicazioni periodiche',    phase: 'interim',     start: 5, end: 12, color: '#2a6496' },
+            { label: 'Procedure sostanziali',       phase: 'final',       start: 9, end: 12, color: '#3d8fd4' },
+            { label: 'Conferme esterne',            phase: 'final',       start: 9, end: 11, color: '#3d8fd4' },
+            { label: 'Verifica eventi successivi',  phase: 'final',       start: 10,end: 12, color: '#3d8fd4' },
+            { label: 'Relazione di revisione',      phase: 'final',       start: 12,end: 13, color: '#10b981' },
+            { label: 'Management Letter',           phase: 'final',       start: 12,end: 13, color: '#10b981' },
         ];
 
         function renderGantt(filter) {
@@ -275,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const bars = document.createElement('div');
                 bars.className = 'gantt-bars';
+                bars.style.gridTemplateColumns = `repeat(${TOTAL_COLS}, 1fr)`;
 
                 const bar = document.createElement('div');
                 bar.className = 'gantt-bar';
@@ -282,10 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 bar.style.background = item.color;
                 bar.style.animationDelay = (idx * 0.08) + 's';
 
-                const months = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
                 const tooltip = document.createElement('div');
                 tooltip.className = 'gantt-bar-tooltip';
-                tooltip.textContent = `${months[item.start]} - ${months[item.end - 1]}`;
+                tooltip.textContent = `${monthLabels[item.start]} - ${monthLabels[item.end - 1]}`;
                 bar.appendChild(tooltip);
 
                 bars.appendChild(bar);
@@ -561,10 +566,150 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
 
-    document.querySelectorAll('.fade-in, .beneficio-card, .step-card, .pilastro-item, .roi-kpi, .gantt-row').forEach(el => {
+    document.querySelectorAll('.fade-in, .beneficio-card, .step-card, .pilastro-item, .roi-kpi, .gantt-row, .risparmio-source').forEach(el => {
         el.classList.add('fade-in');
         fadeObserver.observe(el);
     });
+
+    // ==========================================
+    // WATERFALL CHART (Risparmio breakdown)
+    // ==========================================
+    const waterfallCanvas = document.getElementById('waterfallChart');
+    if (waterfallCanvas) {
+        const wCtx = waterfallCanvas.getContext('2d');
+        const wDpr = window.devicePixelRatio || 1;
+
+        function drawWaterfall(progress) {
+            const rect = waterfallCanvas.parentElement.getBoundingClientRect();
+            const w = Math.min(rect.width, 800);
+            const h = 350;
+            waterfallCanvas.width = w * wDpr;
+            waterfallCanvas.height = h * wDpr;
+            waterfallCanvas.style.width = w + 'px';
+            waterfallCanvas.style.height = h + 'px';
+            wCtx.setTransform(wDpr, 0, 0, wDpr, 0, 0);
+            wCtx.clearRect(0, 0, w, h);
+
+            const padding = { top: 40, right: 20, bottom: 60, left: 70 };
+            const chartW = w - padding.left - padding.right;
+            const chartH = h - padding.top - padding.bottom;
+
+            // Data: costo negativo, poi risparmi positivi, totale netto
+            const items = [
+                { label: 'Costo\nrevisione', value: -15000, color: '#dc2626' },
+                { label: 'Errori\nevitati', value: 25000, color: '#1a3a5c' },
+                { label: 'Frodi\nprevenute', value: 75000, color: '#6b21a8' },
+                { label: 'Credito\nrisparmiato', value: 10000, color: '#2a6496' },
+                { label: 'Processi\nottimizzati', value: 12000, color: '#10b981' },
+                { label: 'Sanzioni\nevitate', value: 30000, color: '#f59e0b' },
+            ];
+
+            const netTotal = items.reduce((sum, i) => sum + i.value, 0);
+            const maxAbs = 160000; // scale
+            const barW = Math.min(80, chartW / items.length - 20);
+            const gap = (chartW - barW * items.length) / (items.length + 1);
+            const zeroY = padding.top + chartH * 0.12; // zero line near top since most are positive
+
+            // Axis
+            wCtx.strokeStyle = '#e2e8f0';
+            wCtx.lineWidth = 1;
+            wCtx.beginPath();
+            wCtx.moveTo(padding.left, padding.top);
+            wCtx.lineTo(padding.left, h - padding.bottom);
+            wCtx.lineTo(w - padding.right, h - padding.bottom);
+            wCtx.stroke();
+
+            // Running total waterfall
+            let runningBase = 0;
+
+            items.forEach((item, i) => {
+                const x = padding.left + gap + i * (barW + gap);
+                const valH = Math.abs(item.value) / maxAbs * chartH * progress;
+                const baseY = h - padding.bottom - (runningBase / maxAbs * chartH);
+                let barTop, barBottom;
+
+                if (item.value < 0) {
+                    barTop = baseY;
+                    barBottom = baseY + valH;
+                } else {
+                    barTop = baseY - valH;
+                    barBottom = baseY;
+                }
+
+                // Bar with rounded top
+                wCtx.beginPath();
+                const r = 4;
+                wCtx.moveTo(x + r, barTop);
+                wCtx.lineTo(x + barW - r, barTop);
+                wCtx.quadraticCurveTo(x + barW, barTop, x + barW, barTop + r);
+                wCtx.lineTo(x + barW, barBottom);
+                wCtx.lineTo(x, barBottom);
+                wCtx.lineTo(x, barTop + r);
+                wCtx.quadraticCurveTo(x, barTop, x + r, barTop);
+                wCtx.fillStyle = item.color;
+                wCtx.fill();
+
+                // Value label
+                if (progress > 0.7) {
+                    wCtx.font = 'bold 11px Inter';
+                    wCtx.fillStyle = item.color;
+                    wCtx.textAlign = 'center';
+                    const sign = item.value < 0 ? '-' : '+';
+                    wCtx.fillText(sign + Math.abs(item.value / 1000).toFixed(0) + 'k', x + barW / 2, barTop - 8);
+                }
+
+                // X-axis label (multiline)
+                wCtx.font = '10px Inter';
+                wCtx.fillStyle = '#475569';
+                wCtx.textAlign = 'center';
+                const lines = item.label.split('\n');
+                lines.forEach((line, li) => {
+                    wCtx.fillText(line, x + barW / 2, h - padding.bottom + 16 + li * 14);
+                });
+
+                // Connector line to next bar
+                runningBase += item.value;
+                if (i < items.length - 1) {
+                    const nextBaseY = h - padding.bottom - (runningBase / maxAbs * chartH);
+                    wCtx.beginPath();
+                    wCtx.setLineDash([3, 3]);
+                    wCtx.moveTo(x + barW, item.value < 0 ? barBottom : barTop);
+                    wCtx.lineTo(x + barW + gap, nextBaseY);
+                    wCtx.strokeStyle = '#94a3b8';
+                    wCtx.lineWidth = 1;
+                    wCtx.stroke();
+                    wCtx.setLineDash([]);
+                }
+            });
+
+            // Net result label
+            if (progress > 0.9) {
+                wCtx.font = 'bold 14px Montserrat';
+                wCtx.fillStyle = '#10b981';
+                wCtx.textAlign = 'right';
+                wCtx.fillText('Valore netto generato: +' + (netTotal / 1000).toFixed(0) + '.000 \u20AC', w - padding.right, padding.top - 10);
+
+                wCtx.font = '11px Inter';
+                wCtx.fillStyle = '#475569';
+                wCtx.fillText('(su un fatturato di 5M\u20AC, rischio medio)', w - padding.right, padding.top + 6);
+            }
+        }
+
+        const waterfallObserver = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                let wP = 0;
+                function animW() {
+                    wP += 0.025;
+                    if (wP > 1) wP = 1;
+                    drawWaterfall(wP);
+                    if (wP < 1) requestAnimationFrame(animW);
+                }
+                animW();
+                waterfallObserver.unobserve(waterfallCanvas);
+            }
+        }, { threshold: 0.3 });
+        waterfallObserver.observe(waterfallCanvas);
+    }
 
     // ==========================================
     // ORBIT PAUSE ON HOVER
