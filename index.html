@@ -140,24 +140,28 @@
                     <span class="curator-label">A cura di</span>
                     <span class="curator-name">Revilaw S.p.A.</span>
                 </div>
-
-                <!-- Core service CTA: interactive demo of Revilaw's core service -->
-                <a href="revisione-demo/" class="core-service-card">
-                    <div class="core-service-pulse">
-                        <span class="pulse-dot"></span>
-                        <span class="pulse-ring"></span>
-                        <span class="pulse-label">Core service</span>
-                    </div>
-                    <div class="core-service-body">
-                        <h3 class="core-service-title">La Revisione Legale</h3>
-                        <p class="core-service-desc">Scopri come Revilaw svolge la revisione legale in un percorso interattivo.</p>
-                        <span class="core-service-cta">
-                            Esplora il servizio
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                        </span>
-                    </div>
-                </a>
             </div>
+
+            <!-- Core service rotating stamp: creative link to Revisione Legale -->
+            <a href="revisione-demo/" class="core-stamp" aria-label="Scopri la Revisione Legale, il nostro core service">
+                <svg class="core-stamp-ring" viewBox="0 0 200 200">
+                    <defs>
+                        <path id="coreStampCircle" d="M 100, 100 m -74, 0 a 74,74 0 1,1 148,0 a 74,74 0 1,1 -148,0"/>
+                    </defs>
+                    <text class="core-stamp-text">
+                        <textPath href="#coreStampCircle" startOffset="0">
+                            REVISIONE LEGALE &#xA0;&#xB7;&#xA0; IL NOSTRO CORE SERVICE &#xA0;&#xB7;&#xA0;
+                        </textPath>
+                    </text>
+                </svg>
+                <div class="core-stamp-inner">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="core-stamp-arrow">
+                        <path d="M7 17 17 7"/>
+                        <path d="M7 7h10v10"/>
+                    </svg>
+                    <span class="core-stamp-pulse"></span>
+                </div>
+            </a>
         </div>
 
         <!-- ========== MIDDLE: eventi ========== -->
