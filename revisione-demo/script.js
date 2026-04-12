@@ -428,56 +428,111 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ==========================================
-    // ROI SIMULATOR
+    // ROI + STIMA ORE SIMULATOR
     // ==========================================
-    const roiFatturato = document.getElementById('roiFatturato');
+    const roiAttivo = document.getElementById('roiAttivo');
+    const roiRicavi = document.getElementById('roiRicavi');
     const roiDipendenti = document.getElementById('roiDipendenti');
     const roiSettore = document.getElementById('roiSettore');
+    const roiRischio = document.getElementById('roiRischio');
     const roiChart = document.getElementById('roiChart');
 
-    if (roiFatturato && roiDipendenti && roiSettore && roiChart) {
+    if (roiAttivo && roiRicavi && roiDipendenti && roiSettore && roiRischio && roiChart) {
         const roiCtx = roiChart.getContext('2d');
         const dpr = window.devicePixelRatio || 1;
+        const numFmt = new Intl.NumberFormat('it-IT');
+        const eurFmt = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 
-        function fmt(n) {
-            return n.toLocaleString('it-IT');
+        function parseNumero(str) {
+            if (!str) return 0;
+            const cleaned = String(str).replace(/[.\s]/g, '').replace(',', '.');
+            const n = parseFloat(cleaned);
+            return isNaN(n) ? 0 : n;
+        }
+
+        function formatInputNumero(el) {
+            const raw = parseNumero(el.value);
+            if (raw <= 0) { el.value = ''; return 0; }
+            el.value = numFmt.format(raw);
+            return raw;
+        }
+
+        // Scaglioni CNDCEC (identici a stima-ore-test)
+        function oreBaseDaMedia(media) {
+            if (media <= 0) return 0;
+            if (media <= 2000000)  return 80;
+            if (media <= 5000000)  return 130;
+            if (media <= 7000000)  return 160;
+            if (media <= 10000000) return 180;
+            if (media <= 15000000) return 220;
+            if (media <= 20000000) return 250;
+            if (media <= 30000000) return 310;
+            if (media <= 40000000) return 360;
+            return 400;
+        }
+
+        // Tariffa oraria media di mercato modulata dal rischio
+        function tariffaOraria(rischio) {
+            // Base ~55-65 EUR/h per rischio basso, sale con il rischio
+            const base = 58;
+            return base * rischio;
         }
 
         function calculateROI() {
-            const fatturato = parseInt(roiFatturato.value);
-            const dipendenti = parseInt(roiDipendenti.value);
-            const rischio = parseFloat(roiSettore.value);
+            const attivo = parseNumero(roiAttivo.value);
+            const ricavi = parseNumero(roiRicavi.value);
+            const media = (attivo + ricavi) / 2;
+            const dipendenti = parseInt(roiDipendenti.value) || 0;
+            const moltSettore = parseFloat(roiSettore.value) || 1;
+            const moltRischio = parseFloat(roiRischio.value) || 1;
 
-            // Display slider values
-            document.getElementById('roiFatturatoVal').textContent = fmt(fatturato) + ' \u20AC';
+            // Display values
+            document.getElementById('roiMediaVal').textContent = eurFmt.format(media);
             document.getElementById('roiDipendentiVal').textContent = dipendenti;
 
-            // Estimate audit cost (simplified model based on D.M. 140/2012)
-            // Base: small companies ~8-15k, scales sub-linearly with size
-            const logFatt = Math.log10(Math.max(fatturato, 500000));
-            const baseCost = 2000 * logFatt + dipendenti * 15 + 2000;
-            const costo = Math.round(Math.min(Math.max(baseCost * rischio, 5000), fatturato * 0.002));
+            // Ore CNDCEC
+            const oreBase = oreBaseDaMedia(media);
+            const oreFinali = Math.ceil(oreBase * moltSettore * moltRischio);
+            const y1 = oreFinali;
+            const y2 = oreFinali;
+            const y3 = oreFinali;
 
-            // Estimate savings
-            const prevenzioneFrodi = fatturato * 0.005 * rischio;
+            // Update ore panel
+            document.getElementById('kpiOreBase').textContent = numFmt.format(oreBase) + ' h';
+            document.getElementById('kpiMoltSettore').textContent = '\u00D7 ' + moltSettore.toFixed(2).replace('.', ',');
+            document.getElementById('kpiMoltRischio').textContent = '\u00D7 ' + moltRischio.toFixed(2).replace('.', ',');
+            document.getElementById('kpiOreFinali').textContent = numFmt.format(oreFinali) + ' h';
+            document.getElementById('kpiY1').textContent = numFmt.format(y1) + ' h';
+            document.getElementById('kpiY2').textContent = numFmt.format(y2) + ' h';
+            document.getElementById('kpiY3').textContent = numFmt.format(y3) + ' h';
+
+            // Compenso = ore * tariffa (modulata dal rischio)
+            const tariffa = tariffaOraria(moltRischio);
+            const costo = Math.round(oreFinali * tariffa);
+
+            // Stima risparmio (basata su ricavi come proxy del fatturato)
+            const fatturato = Math.max(ricavi, attivo, 1);
+            const prevenzioneFrodi = fatturato * 0.005 * moltRischio;
             const efficienza = fatturato * 0.003;
             const reputazione = fatturato * 0.002;
-            const sanzioni = fatturato * 0.004 * rischio;
+            const sanzioni = fatturato * 0.004 * moltRischio;
             const risparmio = Math.round(prevenzioneFrodi + efficienza + reputazione + sanzioni);
-            const roi = Math.round(((risparmio - costo) / costo) * 100);
-            const payback = Math.max(1, Math.round((costo / risparmio) * 12));
+            const roi = costo > 0 ? Math.round(((risparmio - costo) / costo) * 100) : 0;
+            const payback = risparmio > 0 ? Math.max(1, Math.round((costo / risparmio) * 12)) : 0;
 
             // Update KPIs
-            document.getElementById('kpiCosto').textContent = fmt(costo) + ' \u20AC';
-            document.getElementById('kpiRisparmio').textContent = fmt(risparmio) + ' \u20AC';
-            document.getElementById('kpiROI').textContent = roi + '%';
-            document.getElementById('kpiPayback').textContent = payback + ' mesi';
+            document.getElementById('kpiCosto').textContent = costo > 0 ? eurFmt.format(costo) : '--';
+            document.getElementById('kpiRisparmio').textContent = risparmio > 0 ? eurFmt.format(risparmio) : '--';
+            document.getElementById('kpiROI').textContent = costo > 0 ? roi + '%' : '--';
+            document.getElementById('kpiPayback').textContent = costo > 0 ? payback + ' mesi' : '--';
 
             // Draw donut chart
-            drawROIChart(prevenzioneFrodi, efficienza, reputazione, sanzioni, costo);
+            if (risparmio > 0) {
+                drawROIChart(prevenzioneFrodi, efficienza, reputazione, sanzioni);
+            }
         }
 
-        function drawROIChart(frodi, efficienza, reputazione, sanzioni, costo) {
+        function drawROIChart(frodi, efficienza, reputazione, sanzioni) {
             const rect = roiChart.parentElement.getBoundingClientRect();
             const w = rect.width;
             const h = 300;
@@ -502,7 +557,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             roiCtx.clearRect(0, 0, w, h);
 
-            // Draw donut
             let startAngle = -Math.PI / 2;
             segments.forEach(seg => {
                 const sliceAngle = (seg.val / total) * Math.PI * 2;
@@ -515,17 +569,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 startAngle += sliceAngle;
             });
 
-            // Center text
             roiCtx.font = 'bold 22px Montserrat';
             roiCtx.fillStyle = '#1a3a5c';
             roiCtx.textAlign = 'center';
             roiCtx.textBaseline = 'middle';
-            roiCtx.fillText(fmt(Math.round(total)) + ' \u20AC', cx, cy - 8);
+            roiCtx.fillText(eurFmt.format(Math.round(total)), cx, cy - 8);
             roiCtx.font = '11px Inter';
             roiCtx.fillStyle = '#94a3b8';
             roiCtx.fillText('Risparmio totale', cx, cy + 14);
 
-            // Legend below
             const legendY = cy + outerR + 30;
             const legendCols = 2;
             const colW = w / legendCols;
@@ -548,11 +600,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        roiFatturato.addEventListener('input', calculateROI);
+        // Wire events
         roiDipendenti.addEventListener('input', calculateROI);
         roiSettore.addEventListener('change', calculateROI);
+        roiRischio.addEventListener('change', calculateROI);
+        [roiAttivo, roiRicavi].forEach(el => {
+            el.addEventListener('input', calculateROI);
+            el.addEventListener('blur', () => { formatInputNumero(el); calculateROI(); });
+        });
 
-        // Initial calculation
         calculateROI();
     }
 

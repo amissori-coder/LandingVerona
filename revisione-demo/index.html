@@ -489,48 +489,98 @@
         </div>
     </section>
 
-    <!-- ROI SIMULATOR -->
+    <!-- ROI SIMULATOR + STIMA ORE -->
     <section class="section section-alt" id="roi">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">ROI &middot; Simulatore Interattivo</span>
-                <h2>Calcola il <span class="text-accent">Ritorno sull'Investimento</span></h2>
+                <span class="section-tag">Simulatore &middot; Ore e Compensi</span>
+                <h2>Stima <span class="text-accent">Ore e Investimento</span></h2>
                 <p class="section-desc">
-                    Scopri quanto vale la revisione legale per la tua azienda.
-                    Sposta i cursori per personalizzare la simulazione in base alla tua realta'.
+                    Inserisci i dati della tua azienda per ottenere una stima delle ore di revisione
+                    secondo gli scaglioni CNDCEC e del compenso basato sul livello di rischio.
                 </p>
             </div>
 
             <div class="roi-simulator">
                 <div class="roi-inputs">
+                    <h4 class="roi-section-title">Dati dimensionali</h4>
                     <div class="roi-input-group">
-                        <label>Fatturato annuo</label>
-                        <input type="range" id="roiFatturato" min="500000" max="2000000000" step="500000" value="5000000">
-                        <div class="roi-value" id="roiFatturatoVal">5.000.000 &euro;</div>
+                        <label for="roiAttivo">Totale attivo patrimoniale (&euro;)</label>
+                        <input type="text" id="roiAttivo" inputmode="numeric" placeholder="Es. 1.000.000" value="">
                     </div>
                     <div class="roi-input-group">
-                        <label>Dipendenti</label>
-                        <input type="range" id="roiDipendenti" min="10" max="3000" step="5" value="50">
-                        <div class="roi-value" id="roiDipendentiVal">50</div>
+                        <label for="roiRicavi">Ricavi delle vendite (&euro;)</label>
+                        <input type="text" id="roiRicavi" inputmode="numeric" placeholder="Es. 2.000.000" value="">
                     </div>
+                    <div class="roi-media-callout">
+                        <span class="media-label">Media dimensionale</span>
+                        <span class="media-value" id="roiMediaVal">&euro; 0</span>
+                    </div>
+
+                    <h4 class="roi-section-title">Dipendenti</h4>
                     <div class="roi-input-group">
-                        <label>Settore di rischio</label>
+                        <label for="roiDipendenti">Numero dipendenti</label>
+                        <input type="range" id="roiDipendenti" min="0" max="3000" step="1" value="0">
+                        <div class="roi-value" id="roiDipendentiVal">0</div>
+                    </div>
+
+                    <h4 class="roi-section-title">Fattori qualitativi</h4>
+                    <div class="roi-input-group">
+                        <label for="roiSettore">Settore di attivita'</label>
                         <select id="roiSettore">
-                            <option value="1">Basso rischio (servizi)</option>
-                            <option value="1.5" selected>Medio rischio (manifattura)</option>
-                            <option value="2">Alto rischio (costruzioni/finanza)</option>
+                            <option value="0.5">Immobiliare (-50%)</option>
+                            <option value="0.85">Commerciale / Servizi (-15%)</option>
+                            <option value="1.0" selected>Produzione / Altro (standard)</option>
+                            <option value="1.1">Lavori su commessa (+10%)</option>
+                        </select>
+                    </div>
+                    <div class="roi-input-group">
+                        <label for="roiRischio">Rischio incarico</label>
+                        <select id="roiRischio">
+                            <option value="1.0">Basso (standard)</option>
+                            <option value="1.2" selected>Moderato (+20%)</option>
+                            <option value="1.4">Alto (+40%)</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="roi-results">
+                    <!-- Stima ore -->
+                    <div class="roi-ore-panel">
+                        <h4>Stima ore di revisione</h4>
+                        <div class="ore-breakdown">
+                            <div class="ore-row">
+                                <span>Ore base (scaglione CNDCEC)</span>
+                                <strong id="kpiOreBase">0 h</strong>
+                            </div>
+                            <div class="ore-row">
+                                <span>Moltiplicatore settore</span>
+                                <strong id="kpiMoltSettore">&times; 1,00</strong>
+                            </div>
+                            <div class="ore-row">
+                                <span>Moltiplicatore rischio</span>
+                                <strong id="kpiMoltRischio">&times; 1,20</strong>
+                            </div>
+                            <div class="ore-row ore-row-total">
+                                <span>Ore annue stimate</span>
+                                <strong id="kpiOreFinali">0 h</strong>
+                            </div>
+                        </div>
+                        <div class="ore-triennio">
+                            <div class="ore-year"><span>Anno 1</span><strong id="kpiY1">0 h</strong></div>
+                            <div class="ore-year"><span>Anno 2</span><strong id="kpiY2">0 h</strong></div>
+                            <div class="ore-year"><span>Anno 3</span><strong id="kpiY3">0 h</strong></div>
+                        </div>
+                    </div>
+
+                    <!-- Compensi e ROI -->
                     <div class="roi-chart-wrap">
                         <canvas id="roiChart" width="400" height="300"></canvas>
                     </div>
                     <div class="roi-kpi-grid">
                         <div class="roi-kpi">
                             <span class="roi-kpi-value" id="kpiCosto">--</span>
-                            <span class="roi-kpi-label">Costo stimato revisione</span>
+                            <span class="roi-kpi-label">Compenso stimato annuo</span>
                         </div>
                         <div class="roi-kpi highlight">
                             <span class="roi-kpi-value" id="kpiRisparmio">--</span>
@@ -545,6 +595,7 @@
                             <span class="roi-kpi-label">Payback period</span>
                         </div>
                     </div>
+                    <p class="roi-disclaimer">Le ore sono calcolate secondo gli scaglioni dimensionali CNDCEC. Il compenso e' una stima orientativa basata su una tariffa media di mercato modulata dal livello di rischio. Per il dimensionamento definitivo dell'incarico e' necessario il confronto con il team Revilaw.</p>
                 </div>
             </div>
         </div>

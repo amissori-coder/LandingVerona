@@ -298,14 +298,61 @@ img { max-width:100%; display:block; }
     -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
     background:var(--navy); cursor:pointer; box-shadow:0 2px 8px rgba(26,58,92,0.3);
 }
+.roi-input-group input[type="text"] {
+    width:100%; padding:12px 16px; border:1px solid var(--border-color);
+    border-radius:8px; font-size:0.95rem; font-family:inherit; background:#fff;
+    color:var(--text-primary); font-weight:600; transition:var(--transition);
+}
+.roi-input-group input[type="text"]:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(26,58,92,0.06); }
+.roi-input-group input[type="text"]::placeholder { color:var(--text-muted); font-weight:400; }
 .roi-input-group select {
     width:100%; padding:12px 16px; border:1px solid var(--border-color);
     border-radius:8px; font-size:0.9rem; font-family:inherit; background:#fff;
     cursor:pointer; color:var(--text-primary);
 }
 .roi-value { text-align:center; font-family:'Montserrat',sans-serif; font-size:1.2rem; font-weight:700; color:var(--navy); margin-top:8px; }
+.roi-section-title {
+    font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.4px;
+    color:var(--navy); margin:0; padding-top:8px; border-top:1px solid var(--border-color);
+}
+.roi-section-title:first-child { border-top:none; padding-top:0; }
+.roi-media-callout {
+    background:rgba(26,58,92,0.04); border:1px solid var(--border-color);
+    border-left:3px solid var(--navy); border-radius:8px; padding:14px 18px;
+    display:flex; justify-content:space-between; align-items:center;
+}
+.media-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; color:var(--navy); }
+.media-value { font-family:'Montserrat',sans-serif; font-size:1.15rem; font-weight:800; color:var(--navy); }
 
-.roi-results { display:flex; flex-direction:column; gap:28px; }
+.roi-results { display:flex; flex-direction:column; gap:24px; }
+
+/* Ore panel */
+.roi-ore-panel {
+    background:#fff; border:1px solid var(--border-color); border-radius:var(--radius-lg);
+    padding:28px 32px; box-shadow:var(--shadow);
+}
+.roi-ore-panel h4 { font-size:0.9rem; font-weight:700; margin-bottom:20px; color:var(--text-primary); }
+.ore-breakdown { margin-bottom:20px; }
+.ore-row {
+    display:flex; justify-content:space-between; align-items:center; padding:10px 0;
+    border-bottom:1px dashed var(--border-color); font-size:0.88rem;
+}
+.ore-row:last-child { border-bottom:none; }
+.ore-row span { color:var(--text-secondary); }
+.ore-row strong { font-family:'Montserrat',sans-serif; font-weight:800; color:var(--navy); font-variant-numeric:tabular-nums; }
+.ore-row-total {
+    border-top:2px solid var(--navy); border-bottom:none; margin-top:4px; padding-top:14px;
+}
+.ore-row-total span { font-weight:700; color:var(--text-primary); text-transform:uppercase; font-size:0.78rem; letter-spacing:0.5px; }
+.ore-row-total strong { font-size:1.15rem; }
+.ore-triennio { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.ore-year {
+    background:var(--bg-secondary); border:1px solid var(--border-color);
+    border-radius:8px; padding:16px; text-align:center;
+}
+.ore-year span { display:block; font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); margin-bottom:6px; }
+.ore-year strong { font-family:'Montserrat',sans-serif; font-size:1.3rem; font-weight:800; color:var(--navy); }
+
 .roi-chart-wrap {
     background:#fff; border:1px solid var(--border-color); border-radius:var(--radius-lg);
     padding:24px; box-shadow:var(--shadow);
@@ -321,6 +368,7 @@ img { max-width:100%; display:block; }
 .roi-kpi.highlight .roi-kpi-label { color:rgba(255,255,255,0.7); }
 .roi-kpi-value { display:block; font-family:'Montserrat',sans-serif; font-size:1.4rem; font-weight:800; color:var(--navy); margin-bottom:4px; }
 .roi-kpi-label { font-size:0.78rem; color:var(--text-muted); font-weight:500; }
+.roi-disclaimer { font-size:0.8rem; line-height:1.6; color:var(--text-muted); margin:0; padding:16px 0 0; border-top:1px solid var(--border-color); }
 
 /* ============================================
    SERVIZI HUB (Orbit Diagram)
