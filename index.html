@@ -142,26 +142,41 @@
                 </div>
             </div>
 
-            <!-- Core service rotating stamp: creative link to Revisione Legale -->
-            <a href="revisione-demo/" class="core-stamp" aria-label="Scopri la Revisione Legale, il nostro core service">
-                <svg class="core-stamp-ring" viewBox="0 0 220 220">
+            <!-- Core service seal: minimal, static, professional -->
+            <a href="revisione-demo/" class="core-seal" aria-label="Scopri la Revisione Legale, il nostro core service">
+                <svg class="core-seal-svg" viewBox="0 0 220 220">
                     <defs>
-                        <path id="coreStampCircle" d="M 110, 110 m -82, 0 a 82,82 0 1,1 164,0 a 82,82 0 1,1 -164,0"/>
+                        <!-- Top arc path: 9 o'clock → 12 → 3 o'clock (clockwise, large-arc=0, sweep=1) -->
+                        <path id="coreSealTop" d="M 26 110 A 84 84 0 0 1 194 110"/>
                     </defs>
-                    <circle cx="110" cy="110" r="96" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-                    <circle cx="110" cy="110" r="68" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
-                    <text class="core-stamp-text">
-                        <textPath href="#coreStampCircle" startOffset="0">
-                            REVISIONE LEGALE &#x2022;&#xA0; REVISIONE LEGALE &#x2022;&#xA0;
+                    <!-- Outer ring -->
+                    <circle cx="110" cy="110" r="98" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
+                    <!-- Inner ring (double border) -->
+                    <circle cx="110" cy="110" r="92" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>
+                    <circle cx="110" cy="110" r="88" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+
+                    <!-- Top text: REVISIONE LEGALE curving along the top -->
+                    <text class="core-seal-top-text">
+                        <textPath href="#coreSealTop" startOffset="50%" text-anchor="middle">
+                            REVISIONE LEGALE
                         </textPath>
                     </text>
+
+                    <!-- Decorative diamonds at 9 and 3 o'clock (ring separators) -->
+                    <g fill="rgba(255,255,255,0.55)">
+                        <rect x="20" y="108" width="4" height="4" transform="rotate(45 22 110)"/>
+                        <rect x="196" y="108" width="4" height="4" transform="rotate(45 198 110)"/>
+                    </g>
+
+                    <!-- Bottom label: SERVIZIO CORE (static, horizontal) -->
+                    <text x="110" y="178" text-anchor="middle" class="core-seal-bottom-text">IL NOSTRO CORE SERVICE</text>
                 </svg>
-                <div class="core-stamp-inner">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="core-stamp-arrow">
-                        <path d="M7 17 17 7"/>
-                        <path d="M7 7h10v10"/>
+                <div class="core-seal-center">
+                    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="core-seal-emblem">
+                        <!-- Elegant monogram: shield + check -->
+                        <path d="M24 6 L38 12 L38 24 C38 33 32 40 24 42 C16 40 10 33 10 24 L10 12 Z"/>
+                        <path d="M18 24 L22 28 L30 20"/>
                     </svg>
-                    <span class="core-stamp-pulse"></span>
                 </div>
             </a>
         </div>

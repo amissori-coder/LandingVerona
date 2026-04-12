@@ -423,113 +423,97 @@ ul {
     letter-spacing: 0.3px;
 }
 
-/* ===== CORE SERVICE ROTATING STAMP =====
-   Circular rotating badge placed at the top-right of the brand
-   column as a creative link to the Revisione Legale page. */
-.core-stamp {
+/* ===== CORE SERVICE SEAL =====
+   Static, professional circular seal placed at the top-right of
+   the brand column. A sober link to the Revisione Legale page. */
+.core-seal {
     position: absolute;
     top: 120px;
     right: 32px;
-    width: 210px;
-    height: 210px;
+    width: 196px;
+    height: 196px;
     display: block;
     cursor: pointer;
     z-index: 3;
     color: var(--white);
     text-decoration: none;
     animation: fadeInUp 0.9s ease 0.6s both;
-    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.core-stamp::before {
+.core-seal::before {
     content: "";
     position: absolute;
-    inset: -16px;
+    inset: -14px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(91, 137, 184, 0.25) 0%, transparent 60%);
+    background: radial-gradient(circle, rgba(91, 137, 184, 0.18) 0%, transparent 60%);
     opacity: 0;
     transition: opacity 0.5s ease;
     pointer-events: none;
 }
 
-.core-stamp:hover { transform: scale(1.05); }
-.core-stamp:hover::before { opacity: 1; }
+.core-seal:hover { transform: scale(1.04); }
+.core-seal:hover::before { opacity: 1; }
 
-.core-stamp-ring {
+.core-seal-svg {
     width: 100%;
     height: 100%;
-    animation: coreStampSpin 24s linear infinite;
-    transform-origin: center;
     overflow: visible;
+    transition: opacity 0.3s ease;
 }
 
-.core-stamp:hover .core-stamp-ring { animation-duration: 10s; }
-
-@keyframes coreStampSpin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-}
-
-.core-stamp-text {
+.core-seal-top-text {
     font-family: var(--font-display);
-    font-size: 17px;
-    font-weight: 900;
-    letter-spacing: 2px;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 2.8px;
     text-transform: uppercase;
     fill: #ffffff;
-    paint-order: stroke;
-    stroke: rgba(10, 40, 68, 0.25);
-    stroke-width: 0.5px;
 }
 
-.core-stamp-inner {
+.core-seal-bottom-text {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 2.6px;
+    text-transform: uppercase;
+    fill: rgba(255, 255, 255, 0.55);
+}
+
+.core-seal-center {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 96px;
-    height: 96px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.04) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.32);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    width: 72px;
+    height: 72px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-.core-stamp:hover .core-stamp-inner {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.08) 100%);
-    border-color: rgba(255, 255, 255, 0.55);
-}
-
-.core-stamp-arrow {
-    width: 30px;
-    height: 30px;
-    color: var(--white);
     transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-    z-index: 2;
 }
 
-.core-stamp:hover .core-stamp-arrow {
-    transform: translate(3px, -3px);
+.core-seal:hover .core-seal-center {
+    transform: translate(-50%, -50%) scale(1.08);
 }
 
-.core-stamp-pulse {
-    position: absolute;
-    inset: -1px;
-    border-radius: 50%;
-    border: 1px solid rgba(127, 186, 255, 0.7);
-    animation: coreStampPulse 2.8s ease-out infinite;
+.core-seal-emblem {
+    width: 100%;
+    height: 100%;
+    color: #ffffff;
+    stroke-width: 1.8;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
 }
 
-@keyframes coreStampPulse {
-    0%   { transform: scale(1);    opacity: 0.85; }
-    70%  { transform: scale(1.55); opacity: 0; }
-    100% { transform: scale(1.55); opacity: 0; }
+/* Subtle breathing glow instead of rotation */
+.core-seal-svg circle:nth-child(2) {
+    animation: coreSealBreath 4s ease-in-out infinite;
+    transform-origin: center;
+}
+
+@keyframes coreSealBreath {
+    0%, 100% { opacity: 0.35; }
+    50%      { opacity: 0.65; }
 }
 
 /* ===== MIDDLE: events column ===== */
@@ -2137,13 +2121,13 @@ ul {
             "brand rail";
     }
 
-    .core-stamp {
-        width: 180px; height: 180px;
+    .core-seal {
+        width: 168px; height: 168px;
         top: 110px; right: 22px;
     }
-    .core-stamp-inner { width: 84px; height: 84px; }
-    .core-stamp-arrow { width: 26px; height: 26px; }
-    .core-stamp-text { font-size: 16px; letter-spacing: 1.8px; }
+    .core-seal-top-text { font-size: 16px; letter-spacing: 2.4px; }
+    .core-seal-bottom-text { font-size: 8px; letter-spacing: 2.2px; }
+    .core-seal-center { width: 62px; height: 62px; }
 
     .split-brand { grid-area: brand; }
     .split-content { grid-area: content; }
@@ -2188,12 +2172,12 @@ ul {
         text-align: center;
     }
 
-    /* Re-position stamp on stacked layout: centered above hero text */
-    .core-stamp {
+    /* Re-position seal on stacked layout: centered above hero text */
+    .core-seal {
         position: relative;
         top: auto; right: auto;
         margin: 0 auto 32px;
-        width: 180px; height: 180px;
+        width: 170px; height: 170px;
         order: -1;
     }
     .split-brand {
