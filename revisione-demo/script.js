@@ -523,8 +523,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('oreBilancio').textContent = numFmt.format(oreBilancio) + ' h';
             document.getElementById('oreDichiarativi').textContent = numFmt.format(oreDichiarativi) + ' h';
 
-            // Draw activity donut chart
-            if (attivitaCanvas && oreFinali > 0) {
+            // Draw activity donut chart (always, even when ore = 0)
+            if (attivitaCanvas) {
                 drawAttivitaChart(oreVerifiche, oreBilancio, oreDichiarativi, oreFinali);
             }
         }
@@ -547,34 +547,53 @@ document.addEventListener('DOMContentLoaded', () => {
             const outerR = Math.min(95, w / 2 - 40);
             const innerR = outerR * 0.58;
 
-            const segments = [
+            // When there are no hours, draw the donut using the canonical
+            // 30/60/10 split so the chart is still visible as a placeholder.
+            const isEmpty = totale <= 0;
+            const segments = isEmpty ? [
+                { val: 30, color: '#0A2844', label: 'Verifiche periodiche', pct: '30%' },
+                { val: 60, color: '#164068', label: 'Verifiche sul bilancio', pct: '60%' },
+                { val: 10, color: '#2A5A85', label: 'Controllo dichiarativi', pct: '10%' },
+            ] : [
                 { val: verifiche, color: '#0A2844', label: 'Verifiche periodiche', pct: '30%' },
                 { val: bilancio, color: '#164068', label: 'Verifiche sul bilancio', pct: '60%' },
                 { val: dichiarativi, color: '#2A5A85', label: 'Controllo dichiarativi', pct: '10%' },
             ];
+            const sum = segments.reduce((a, s) => a + s.val, 0);
 
-            // Donut
+            // Donut slices
             let startAngle = -Math.PI / 2;
             segments.forEach(seg => {
-                const sliceAngle = (seg.val / totale) * Math.PI * 2;
+                const sliceAngle = (seg.val / sum) * Math.PI * 2;
                 ctx.beginPath();
                 ctx.arc(cx, cy, outerR, startAngle, startAngle + sliceAngle);
                 ctx.arc(cx, cy, innerR, startAngle + sliceAngle, startAngle, true);
                 ctx.closePath();
                 ctx.fillStyle = seg.color;
+                if (isEmpty) ctx.globalAlpha = 0.35;
                 ctx.fill();
+                ctx.globalAlpha = 1;
                 startAngle += sliceAngle;
             });
 
             // Center text
-            ctx.font = 'bold 24px Montserrat';
-            ctx.fillStyle = '#0A2844';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(numFmt.format(totale) + ' h', cx, cy - 6);
-            ctx.font = '11px Inter';
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillText('ore annue', cx, cy + 14);
+            if (isEmpty) {
+                ctx.font = 'bold 15px Montserrat';
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillText('Inserisci i dati', cx, cy - 6);
+                ctx.font = '10px Inter';
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fillText('per vedere le ore', cx, cy + 12);
+            } else {
+                ctx.font = 'bold 24px Montserrat';
+                ctx.fillStyle = '#0A2844';
+                ctx.fillText(numFmt.format(totale) + ' h', cx, cy - 6);
+                ctx.font = '11px Inter';
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillText('ore annue', cx, cy + 14);
+            }
 
             // Legend below donut
             const legendY = cy + outerR + 24;
@@ -583,14 +602,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ly = legendY + i * 22;
 
                 ctx.fillStyle = seg.color;
+                ctx.globalAlpha = isEmpty ? 0.5 : 1;
                 ctx.beginPath();
                 ctx.roundRect(lx, ly, 12, 12, 2);
                 ctx.fill();
+                ctx.globalAlpha = 1;
 
                 ctx.font = '12px Inter';
-                ctx.fillStyle = '#475569';
+                ctx.fillStyle = isEmpty ? '#94a3b8' : '#475569';
                 ctx.textAlign = 'left';
-                ctx.fillText(seg.label + '  ' + seg.pct + '  (' + numFmt.format(seg.val) + ' h)', lx + 18, ly + 10);
+                const hoursText = isEmpty ? '-- h' : numFmt.format(seg.val) + ' h';
+                ctx.fillText(seg.label + '  ' + seg.pct + '  (' + hoursText + ')', lx + 18, ly + 10);
             });
         }
 
