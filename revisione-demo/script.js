@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { label: 'Procedure sostanziali',       phase: 'final',       start: 9, end: 12, color: '#3C6FA0' },
             { label: 'Conferme esterne',            phase: 'final',       start: 9, end: 11, color: '#3C6FA0' },
             { label: 'Verifica eventi successivi',  phase: 'final',       start: 10,end: 12, color: '#3C6FA0' },
-            { label: 'Management Letter',           phase: 'final',       start: 12,end: 13, color: '#5B89B8' },
+            { label: 'Management Letter',           phase: 'final',       start: 11,end: 12, color: '#5B89B8' },
             { label: 'Relazione di revisione',      phase: 'final',       start: 12,end: 13, color: '#5B89B8', halfFirst: true, tooltipRange: '1 Apr \u2192 15 Apr' },
         ];
 
