@@ -245,9 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const ganttBody = document.getElementById('ganttBody');
     if (ganttBody) {
         // Timeline: 13 colonne = Apr..Dic (Anno N, 9 mesi) + Gen..Apr (Anno N+1, 4 mesi)
-        // Timeline: 14 colonne = Apr..Dic (Anno N, 9 mesi) + Gen..Apr (Anno N+1, 4 mesi) + 1 colonna buffer
-        // Indici: 0=Apr, 1=Mag, 2=Giu, 3=Lug, 4=Ago, 5=Set, 6=Ott, 7=Nov, 8=Dic, 9=Gen+1, 10=Feb+1, 11=Mar+1, 12=Apr+1, 13=buffer
-        const TOTAL_COLS = 14;
+        // Timeline: 13 colonne = Apr..Dic (Anno N, 9 mesi) + Gen..Apr (Anno N+1, 4 mesi)
+        // Indici: 0=Apr, 1=Mag, 2=Giu, 3=Lug, 4=Ago, 5=Set, 6=Ott, 7=Nov, 8=Dic, 9=Gen+1, 10=Feb+1, 11=Mar+1, 12=Apr+1
+        const TOTAL_COLS = 13;
         const monthLabels = ['Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic','Gen','Feb','Mar','Apr'];
 
         const ganttData = [
@@ -595,7 +595,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.fillText('ore annue', cx, cy + 14);
             }
 
-            // Legend below donut
+            // Legend below donut — clean label + hours, no percentage
+            const realValues = [verifiche, bilancio, dichiarativi];
             const legendY = cy + outerR + 24;
             segments.forEach((seg, i) => {
                 const lx = 16;
@@ -611,8 +612,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.font = '12px Inter';
                 ctx.fillStyle = isEmpty ? '#94a3b8' : '#475569';
                 ctx.textAlign = 'left';
-                const hoursText = isEmpty ? '-- h' : numFmt.format(seg.val) + ' h';
-                ctx.fillText(seg.label + '  ' + seg.pct + '  (' + hoursText + ')', lx + 18, ly + 10);
+                const hoursText = isEmpty ? '-- h' : numFmt.format(realValues[i]) + ' h';
+                ctx.fillText(seg.label + '  \u00B7  ' + hoursText, lx + 18, ly + 10);
             });
         }
 
