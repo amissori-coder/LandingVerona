@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { label: 'Conferme esterne',            phase: 'final',       start: 9, end: 11, color: '#3C6FA0' },
             { label: 'Verifica eventi successivi',  phase: 'final',       start: 10,end: 12, color: '#3C6FA0' },
             { label: 'Management Letter',           phase: 'final',       start: 12,end: 13, color: '#5B89B8' },
-            { label: 'Relazione di revisione',      phase: 'final',       start: 12,end: 13, color: '#5B89B8' },
+            { label: 'Relazione di revisione',      phase: 'final',       start: 12,end: 13, color: '#5B89B8', halfFirst: true, tooltipRange: '1 Apr \u2192 15 Apr' },
         ];
 
         function renderGantt(filter) {
@@ -288,6 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Bars that end in the Apr N+1 delivery column get a "tail"
                 // class so the tooltip anchors to the right and doesn't clip.
                 if (item.end >= 13) bar.classList.add('gantt-bar-tail');
+                // Bars that occupy only the first half of their grid cell
+                // (e.g. Relazione di revisione: 1-15 Aprile)
+                if (item.halfFirst) bar.classList.add('gantt-bar-half-first');
                 bar.style.gridColumn = (item.start + 1) + ' / ' + (item.end + 1);
                 bar.style.background = item.color;
                 bar.style.animationDelay = (idx * 0.06) + 's';
@@ -298,7 +301,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 tooltip.className = 'gantt-bar-tooltip';
                 const fromLabel = monthLabels[item.start];
                 const toLabel = monthLabels[item.end - 1];
-                tooltip.innerHTML = '<strong>' + item.label + '</strong><br>' + fromLabel + ' \u2192 ' + toLabel + ' \u00B7 ' + duration + ' mes' + (duration === 1 ? 'e' : 'i');
+                const rangeText = item.tooltipRange || (fromLabel + ' \u2192 ' + toLabel + ' \u00B7 ' + duration + ' mes' + (duration === 1 ? 'e' : 'i'));
+                tooltip.innerHTML = '<strong>' + item.label + '</strong><br>' + rangeText;
                 bar.appendChild(tooltip);
 
                 bars.appendChild(bar);
@@ -534,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dpr = window.devicePixelRatio || 1;
             const rect = attivitaCanvas.parentElement.getBoundingClientRect();
             const w = rect.width;
-            const h = 260;
+            const h = 240;
             attivitaCanvas.width = w * dpr;
             attivitaCanvas.height = h * dpr;
             attivitaCanvas.style.width = w + 'px';
@@ -543,21 +547,23 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.clearRect(0, 0, w, h);
 
             const cx = w / 2;
-            const cy = 115;
-            const outerR = Math.min(95, w / 2 - 40);
+            const cy = h / 2;
+            const outerR = Math.min(110, Math.min(w, h) / 2 - 20);
             const innerR = outerR * 0.58;
 
             // When there are no hours, draw the donut using the canonical
             // 30/60/10 split so the chart is still visible as a placeholder.
             const isEmpty = totale <= 0;
+            // Colors mirror the .attivita-card .attivita-bar backgrounds
+            // below the donut so the chart and the cards are coherent.
             const segments = isEmpty ? [
-                { val: 30, color: '#0A2844', label: 'Verifiche periodiche', pct: '30%' },
-                { val: 60, color: '#164068', label: 'Verifiche sul bilancio', pct: '60%' },
-                { val: 10, color: '#2A5A85', label: 'Controllo dichiarativi', pct: '10%' },
+                { val: 30, color: '#0A2844', label: 'Verifiche periodiche' },
+                { val: 60, color: '#164068', label: 'Verifiche sul bilancio' },
+                { val: 10, color: '#2A5A85', label: 'Controllo dichiarativi' },
             ] : [
-                { val: verifiche, color: '#0A2844', label: 'Verifiche periodiche', pct: '30%' },
-                { val: bilancio, color: '#164068', label: 'Verifiche sul bilancio', pct: '60%' },
-                { val: dichiarativi, color: '#2A5A85', label: 'Controllo dichiarativi', pct: '10%' },
+                { val: verifiche,    color: '#0A2844', label: 'Verifiche periodiche' },
+                { val: bilancio,     color: '#164068', label: 'Verifiche sul bilancio' },
+                { val: dichiarativi, color: '#2A5A85', label: 'Controllo dichiarativi' },
             ];
             const sum = segments.reduce((a, s) => a + s.val, 0);
 
@@ -587,34 +593,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.fillStyle = '#cbd5e1';
                 ctx.fillText('per vedere le ore', cx, cy + 12);
             } else {
-                ctx.font = 'bold 24px Montserrat';
+                ctx.font = 'bold 28px Montserrat';
                 ctx.fillStyle = '#0A2844';
                 ctx.fillText(numFmt.format(totale) + ' h', cx, cy - 6);
                 ctx.font = '11px Inter';
                 ctx.fillStyle = '#94a3b8';
-                ctx.fillText('ore annue', cx, cy + 14);
+                ctx.fillText('ore annue', cx, cy + 16);
             }
-
-            // Legend below donut — clean label + hours, no percentage
-            const realValues = [verifiche, bilancio, dichiarativi];
-            const legendY = cy + outerR + 24;
-            segments.forEach((seg, i) => {
-                const lx = 16;
-                const ly = legendY + i * 22;
-
-                ctx.fillStyle = seg.color;
-                ctx.globalAlpha = isEmpty ? 0.5 : 1;
-                ctx.beginPath();
-                ctx.roundRect(lx, ly, 12, 12, 2);
-                ctx.fill();
-                ctx.globalAlpha = 1;
-
-                ctx.font = '12px Inter';
-                ctx.fillStyle = isEmpty ? '#94a3b8' : '#475569';
-                ctx.textAlign = 'left';
-                const hoursText = isEmpty ? '-- h' : numFmt.format(realValues[i]) + ' h';
-                ctx.fillText(seg.label + '  \u00B7  ' + hoursText, lx + 18, ly + 10);
-            });
         }
 
         // Wire events

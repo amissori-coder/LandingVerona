@@ -343,6 +343,11 @@ img { max-width:100%; display:block; }
 .gantt-bar.gantt-bar-tail .gantt-bar-tooltip::after {
     left:auto; right:14px; transform:none;
 }
+/* Half bars — bar occupies only the first half of its grid cell
+   (used for Relazione di revisione to show Apr 1 - Apr 15). */
+.gantt-bar.gantt-bar-half-first {
+    width:50%; justify-self:start;
+}
 .gantt-bar:hover .gantt-bar-tooltip { display:block; }
 @keyframes ganttSlide {
     from { opacity:0; transform:scaleX(0); transform-origin:left; }
