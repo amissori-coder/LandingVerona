@@ -297,7 +297,7 @@ img { max-width:100%; display:block; }
     background:currentColor;
 }
 .gantt-bars {
-    flex:1; display:grid; grid-template-columns:repeat(13,1fr);
+    flex:1; display:grid; grid-template-columns:repeat(14,1fr);
     position:relative; padding:10px 0; align-items:center; min-height:44px;
 }
 .gantt-bars::before {
@@ -305,9 +305,9 @@ img { max-width:100%; display:block; }
     background-image:repeating-linear-gradient(
         to right,
         transparent 0,
-        transparent calc(100% / 13 - 1px),
-        rgba(26, 58, 92, 0.05) calc(100% / 13 - 1px),
-        rgba(26, 58, 92, 0.05) calc(100% / 13)
+        transparent calc(100% / 14 - 1px),
+        rgba(26, 58, 92, 0.05) calc(100% / 14 - 1px),
+        rgba(26, 58, 92, 0.05) calc(100% / 14)
     );
 }
 .gantt-bar {
@@ -327,10 +327,20 @@ img { max-width:100%; display:block; }
     background:var(--text-primary); color:#fff; padding:10px 16px; border-radius:10px;
     font-size:0.78rem; font-weight:500; white-space:nowrap; z-index:10; pointer-events:none;
     box-shadow:0 8px 24px rgba(0,0,0,0.25);
+    line-height:1.5;
 }
 .gantt-bar-tooltip::after {
     content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
     border:6px solid transparent; border-top-color:var(--text-primary);
+}
+/* Tail bars (Relazione / Management Letter at Apr+1) — anchor
+   tooltip to the right edge of the bar so the text stays inside
+   the chart and never gets clipped by the buffer column. */
+.gantt-bar.gantt-bar-tail .gantt-bar-tooltip {
+    left:auto; right:-10px; transform:none;
+}
+.gantt-bar.gantt-bar-tail .gantt-bar-tooltip::after {
+    left:auto; right:16px; transform:none;
 }
 .gantt-bar:hover .gantt-bar-tooltip { display:block; }
 @keyframes ganttSlide {
@@ -657,7 +667,13 @@ img { max-width:100%; display:block; }
 .gantt-chart-wide .gantt-months.gantt-months-16 { display:flex; flex:1; }
 .gantt-year-group { display:flex; flex-direction:column; }
 .gantt-year-group:first-child { flex:9; border-right:1px solid var(--border-color); }
-.gantt-year-group:last-child { flex:4; }
+.gantt-year-group:nth-child(2) { flex:4; }
+.gantt-year-group.gantt-year-buffer { flex:1; border-left:1px dashed rgba(26,58,92,0.2); }
+.gantt-year-buffer .gantt-year-label { visibility:hidden; }
+.gantt-year-buffer .gantt-month-cells span {
+    color:var(--text-muted); font-size:0.85rem; font-weight:500;
+    display:flex; align-items:center; justify-content:center;
+}
 .gantt-year-label {
     text-align:center; font-size:0.64rem; font-weight:700; letter-spacing:1.5px;
     text-transform:uppercase; color:var(--text-muted); padding:8px 0 4px;

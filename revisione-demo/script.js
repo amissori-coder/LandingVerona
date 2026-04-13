@@ -245,8 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const ganttBody = document.getElementById('ganttBody');
     if (ganttBody) {
         // Timeline: 13 colonne = Apr..Dic (Anno N, 9 mesi) + Gen..Apr (Anno N+1, 4 mesi)
-        // Indici: 0=Apr, 1=Mag, 2=Giu, 3=Lug, 4=Ago, 5=Set, 6=Ott, 7=Nov, 8=Dic, 9=Gen+1, 10=Feb+1, 11=Mar+1, 12=Apr+1
-        const TOTAL_COLS = 13;
+        // Timeline: 14 colonne = Apr..Dic (Anno N, 9 mesi) + Gen..Apr (Anno N+1, 4 mesi) + 1 colonna buffer
+        // Indici: 0=Apr, 1=Mag, 2=Giu, 3=Lug, 4=Ago, 5=Set, 6=Ott, 7=Nov, 8=Dic, 9=Gen+1, 10=Feb+1, 11=Mar+1, 12=Apr+1, 13=buffer
+        const TOTAL_COLS = 14;
         const monthLabels = ['Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic','Gen','Feb','Mar','Apr'];
 
         const ganttData = [
@@ -261,8 +262,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { label: 'Procedure sostanziali',       phase: 'final',       start: 9, end: 12, color: '#3C6FA0' },
             { label: 'Conferme esterne',            phase: 'final',       start: 9, end: 11, color: '#3C6FA0' },
             { label: 'Verifica eventi successivi',  phase: 'final',       start: 10,end: 12, color: '#3C6FA0' },
-            { label: 'Relazione di revisione',      phase: 'final',       start: 12,end: 13, color: '#5B89B8' },
             { label: 'Management Letter',           phase: 'final',       start: 12,end: 13, color: '#5B89B8' },
+            { label: 'Relazione di revisione',      phase: 'final',       start: 12,end: 13, color: '#5B89B8' },
         ];
 
         function renderGantt(filter) {
@@ -284,6 +285,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const bar = document.createElement('div');
                 bar.className = 'gantt-bar';
+                // Bars that end in the Apr N+1 delivery column get a "tail"
+                // class so the tooltip anchors to the right and doesn't clip.
+                if (item.end >= 13) bar.classList.add('gantt-bar-tail');
                 bar.style.gridColumn = (item.start + 1) + ' / ' + (item.end + 1);
                 bar.style.background = item.color;
                 bar.style.animationDelay = (idx * 0.06) + 's';
