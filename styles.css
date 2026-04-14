@@ -1614,23 +1614,6 @@ ul {
 
 .sedi-map-wrap {
     position: relative;
-    background: linear-gradient(160deg, #F3F6FB 0%, #E8EEF6 100%);
-    border: 1px solid rgba(22, 64, 104, 0.12);
-    border-radius: 18px;
-    padding: 28px 22px;
-    box-shadow: 0 20px 48px rgba(10, 40, 68, 0.08);
-    overflow: hidden;
-}
-
-.sedi-map-wrap::before {
-    content: '';
-    position: absolute;
-    top: -80px;
-    right: -80px;
-    width: 260px;
-    height: 260px;
-    background: radial-gradient(circle, rgba(22, 64, 104, 0.08) 0%, transparent 70%);
-    pointer-events: none;
 }
 
 .sedi-map {
@@ -1642,12 +1625,12 @@ ul {
 }
 
 .sedi-dot {
-    fill: rgba(22, 64, 104, 0.22);
+    fill: rgba(22, 64, 104, 0.28);
     transition: fill 0.4s ease;
 }
 
 .sedi-map-wrap:hover .sedi-dot {
-    fill: rgba(22, 64, 104, 0.32);
+    fill: rgba(22, 64, 104, 0.4);
 }
 
 .sedi-marker {
