@@ -534,20 +534,49 @@ document.addEventListener('DOMContentLoaded', () => {
             markersContainer.appendChild(marker);
         });
 
-        // Build alphabetical list (locale-aware for Italian)
+        // Build alphabetical index grouped by initial letter (Italian locale)
         const sortedCities = CITIES.slice().sort((a, b) =>
             a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })
         );
 
+        const groups = new Map();
         sortedCities.forEach((city) => {
-            const slug = slugify(city.name);
-            const li = document.createElement('li');
-            li.setAttribute('data-city', slug);
-            li.textContent = city.name;
-            li.addEventListener('mouseenter', () => activate(city));
-            li.addEventListener('mouseleave', deactivate);
-            li.addEventListener('click', () => activate(city));
-            listContainer.appendChild(li);
+            const letter = city.name.charAt(0).toUpperCase();
+            if (!groups.has(letter)) groups.set(letter, []);
+            groups.get(letter).push(city);
+        });
+
+        groups.forEach((cities, letter) => {
+            const row = document.createElement('div');
+            row.className = 'sedi-index-row';
+
+            const letterEl = document.createElement('span');
+            letterEl.className = 'sedi-index-letter';
+            letterEl.textContent = letter;
+            row.appendChild(letterEl);
+
+            const citiesEl = document.createElement('div');
+            citiesEl.className = 'sedi-index-cities';
+
+            cities.forEach((city, i) => {
+                const slug = slugify(city.name);
+                const span = document.createElement('span');
+                span.className = 'sedi-index-city';
+                span.setAttribute('data-city', slug);
+                span.textContent = city.name;
+                span.addEventListener('mouseenter', () => activate(city));
+                span.addEventListener('mouseleave', deactivate);
+                span.addEventListener('click', () => activate(city));
+                citiesEl.appendChild(span);
+                if (i < cities.length - 1) {
+                    // Separator lives outside the clickable span so it isn't
+                    // highlighted when the adjacent city is hovered.
+                    citiesEl.appendChild(document.createTextNode(' · '));
+                }
+            });
+
+            row.appendChild(citiesEl);
+            listContainer.appendChild(row);
         });
 
         // Reposition the tooltip on window resize while a marker is active

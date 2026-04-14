@@ -1754,64 +1754,69 @@ ul {
     line-height: 1.4;
 }
 
-.sedi-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 2px 18px;
-    max-height: 520px;
-    overflow-y: auto;
-    padding-right: 6px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--navy-light) transparent;
-}
-
-.sedi-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.sedi-list::-webkit-scrollbar-thumb {
-    background: rgba(22, 64, 104, 0.3);
-    border-radius: 3px;
-}
-
-.sedi-list li {
-    font-family: var(--font-display);
-    font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--text-muted);
+.sedi-index {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 8px;
-    border-radius: 6px;
-    transition: color 0.2s ease, background 0.2s ease;
-    cursor: pointer;
-    user-select: none;
+    flex-direction: column;
+    gap: 14px;
 }
 
-.sedi-list li::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--navy-light);
-    opacity: 0.55;
-    flex-shrink: 0;
-    transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+.sedi-index-row {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 14px;
+    align-items: start;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(22, 64, 104, 0.08);
 }
 
-.sedi-list li:hover,
-.sedi-list li.is-active {
+.sedi-index-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.sedi-index-letter {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 800;
     color: var(--navy-dark);
-    background: rgba(22, 64, 104, 0.06);
-    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.3px;
+    position: relative;
+    padding-top: 2px;
 }
 
-.sedi-list li:hover::before,
-.sedi-list li.is-active::before {
-    background: var(--navy-dark);
-    opacity: 1;
-    transform: scale(1.5);
+.sedi-index-letter::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 2px;
+    width: 14px;
+    height: 2px;
+    background: var(--navy);
+    opacity: 0.5;
+}
+
+.sedi-index-cities {
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    line-height: 1.9;
+    color: rgba(22, 64, 104, 0.55);
+}
+
+.sedi-index-city {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.2s ease, background 0.2s ease;
+    user-select: none;
+    font-weight: 500;
+}
+
+.sedi-index-city:hover,
+.sedi-index-city.is-active {
+    color: var(--navy-dark);
+    background: rgba(22, 64, 104, 0.08);
+    font-weight: 700;
 }
 
 @media (max-width: 960px) {
@@ -1825,9 +1830,6 @@ ul {
     .sedi-list-wrap {
         position: static;
     }
-    .sedi-list {
-        max-height: none;
-    }
 }
 
 @media (max-width: 600px) {
@@ -1837,14 +1839,11 @@ ul {
     .sedi-header {
         margin-bottom: 44px;
     }
-    .sedi-map-wrap {
-        padding: 18px 12px;
-    }
-    .sedi-list {
-        grid-template-columns: 1fr;
-    }
     .sedi-list-count {
         font-size: 2.2rem;
+    }
+    .sedi-index-cities {
+        font-size: 0.78rem;
     }
 }
 
