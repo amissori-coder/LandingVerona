@@ -1641,17 +1641,13 @@ ul {
     z-index: 1;
 }
 
-.sedi-country {
-    fill: rgba(22, 64, 104, 0.09);
-    stroke: var(--navy);
-    stroke-width: 1.4;
-    stroke-linejoin: round;
-    stroke-linecap: round;
+.sedi-dot {
+    fill: rgba(22, 64, 104, 0.22);
     transition: fill 0.4s ease;
 }
 
-.sedi-map-wrap:hover .sedi-country {
-    fill: rgba(22, 64, 104, 0.13);
+.sedi-map-wrap:hover .sedi-dot {
+    fill: rgba(22, 64, 104, 0.32);
 }
 
 .sedi-marker {
