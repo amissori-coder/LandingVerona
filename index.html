@@ -113,6 +113,7 @@
             </a>
             <ul class="nav-menu">
                 <li><a href="#chi-siamo">Chi siamo</a></li>
+                <li><a href="#sedi">Sedi</a></li>
                 <li><a href="#obiettivi">Perché NGB</a></li>
                 <li><a href="#contatti">Contatti</a></li>
             </ul>
@@ -405,6 +406,52 @@
                         </a>
                     </div>
                 </aside>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sedi: mappa interattiva della rete Revilaw sul territorio -->
+    <section class="sedi" id="sedi" aria-labelledby="sedi-title">
+        <div class="container">
+            <header class="sedi-header">
+                <span class="sedi-eyebrow">La nostra rete</span>
+                <h2 class="sedi-title" id="sedi-title">Una presenza capillare su tutta Italia</h2>
+                <div class="sedi-divider"></div>
+                <p class="sedi-intro">Professionisti e sedi distribuiti da Nord a Sud per garantire vicinanza operativa alle imprese su tutto il territorio nazionale. Passa il cursore sulla mappa o sull'elenco per esplorare le nostre sedi.</p>
+            </header>
+
+            <div class="sedi-layout">
+                <div class="sedi-map-wrap" role="figure" aria-label="Mappa interattiva delle sedi Revilaw in Italia">
+                    <svg class="sedi-map" viewBox="0 0 450 620" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                        <defs>
+                            <radialGradient id="sediMapBg" cx="50%" cy="40%" r="70%">
+                                <stop offset="0%" stop-color="#E8EEF6"/>
+                                <stop offset="100%" stop-color="#D7DFEB"/>
+                            </radialGradient>
+                        </defs>
+                        <g class="sedi-map-outline">
+                            <!-- Mainland Italy (simplified coastline) -->
+                            <path class="sedi-country" d="M 27.5 54 L 80 37.5 L 150 32 L 220 26.5 L 255 37.5 L 265.5 76 L 263.75 84.25 L 220 98 L 216.5 125.5 L 213 158.5 L 234 180.5 L 255 197 L 269 235.5 L 297 285 L 325 290.5 L 346 290.5 L 353 296 L 374 334.5 L 409 362 L 430 395 L 426.5 406 L 409 389.5 L 370.5 400.5 L 370.5 433.5 L 367 455.5 L 363.5 483 L 339 505 L 330.25 499.5 L 335.5 477.5 L 342.5 444.5 L 321.5 395 L 307.5 378.5 L 300.5 362 L 283 351 L 258.5 329 L 237.5 318 L 213 296 L 174.5 263 L 150 230 L 143 191.5 L 129 169.5 L 104.5 158.5 L 94 153 L 69.5 169.5 L 45 186 L 27.5 169.5 L 13.5 120 L 20.5 109 L 27.5 92.5 L 24 70.5 Z"/>
+                            <!-- Sicily -->
+                            <path class="sedi-country" d="M 241 488.5 L 220 494 L 216.5 516 L 237.5 554.5 L 272.5 576.5 L 311 576.5 L 314.5 532.5 L 318 505 L 325 488.5 L 251.5 494 Z"/>
+                            <!-- Sardinia -->
+                            <path class="sedi-country" d="M 104.5 329 L 115 345.5 L 122 378.5 L 118.5 444.5 L 97.5 455.5 L 76.5 439 L 76.5 400.5 L 73 367.5 L 76.5 340 Z"/>
+                        </g>
+                        <g class="sedi-markers" id="sediMarkers"></g>
+                    </svg>
+                    <div class="sedi-tooltip" id="sediTooltip" hidden role="tooltip" aria-live="polite">
+                        <span class="sedi-tooltip-label">Sede Revilaw</span>
+                        <span class="sedi-tooltip-city"></span>
+                    </div>
+                </div>
+
+                <div class="sedi-list-wrap">
+                    <div class="sedi-list-header">
+                        <span class="sedi-list-count" id="sediCount">—</span>
+                        <span class="sedi-list-label">Sedi sul territorio italiano</span>
+                    </div>
+                    <ul class="sedi-list" id="sediList" aria-label="Elenco delle sedi"></ul>
+                </div>
             </div>
         </div>
     </section>

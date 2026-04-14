@@ -347,4 +347,192 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ==================================================================
+    // Sedi: interactive Italy map
+    // Coordinates are already projected into the SVG viewBox (0 0 450 620)
+    // so no runtime lat/lon conversion is needed. Markers and list items
+    // are generated from a single source of truth and cross-linked by slug.
+    // ==================================================================
+    (function initSediMap() {
+        const markersContainer = document.getElementById('sediMarkers');
+        const listContainer = document.getElementById('sediList');
+        const countEl = document.getElementById('sediCount');
+        const tooltip = document.getElementById('sediTooltip');
+        const mapWrap = document.querySelector('.sedi-map-wrap');
+        const mapSvg = document.querySelector('.sedi-map');
+        if (!markersContainer || !listContainer || !tooltip || !mapWrap || !mapSvg) return;
+
+        const CITIES = [
+            { name: 'Roma',            x: 219.87, y: 290.35 },
+            { name: 'Verona',          x: 167.21, y: 95.89 },
+            { name: 'Milano',          x: 104.15, y: 94.47 },
+            { name: 'Brescia',         x: 139.91, y: 90.21 },
+            { name: 'Cosenza',         x: 351.39, y: 433.56 },
+            { name: 'Padova',          x: 198.19, y: 97.65 },
+            { name: 'Venezia',         x: 213.54, y: 95.76 },
+            { name: 'Vicenza',         x: 186.24, y: 90.00 },
+            { name: 'Treviso',         x: 210.51, y: 83.32 },
+            { name: 'Rovigo',          x: 195.15, y: 116.14 },
+            { name: 'Belluno',         x: 210.05, y: 57.33 },
+            { name: 'Bolzano',         x: 179.42, y: 37.59 },
+            { name: 'Monza',           x: 107.10, y: 87.85 },
+            { name: 'Mantova',         x: 160.20, y: 111.40 },
+            { name: 'Bergamo',         x: 121.21, y: 81.59 },
+            { name: 'Pavia',           x: 103.04, y: 109.84 },
+            { name: 'Cremona',         x: 133.29, y: 112.66 },
+            { name: 'Alessandria',     x: 83.54,  y: 124.81 },
+            { name: 'Cuneo',           x: 45.99,  y: 153.88 },
+            { name: 'Torino',          x: 51.04,  y: 116.13 },
+            { name: 'Sanremo',         x: 54.16,  y: 185.13 },
+            { name: 'Savona',          x: 78.85,  y: 158.09 },
+            { name: 'Firenze',         x: 175.95, y: 187.67 },
+            { name: 'Livorno',         x: 142.87, y: 199.83 },
+            { name: 'Lucca',           x: 149.59, y: 183.64 },
+            { name: 'Pisa',            x: 146.06, y: 190.25 },
+            { name: 'Prato',           x: 170.58, y: 181.73 },
+            { name: 'Siena',           x: 178.57, y: 212.47 },
+            { name: 'Parma',           x: 143.48, y: 130.92 },
+            { name: 'Bologna',         x: 178.99, y: 147.78 },
+            { name: 'Ravenna',         x: 208.88, y: 152.04 },
+            { name: 'Pistoia',         x: 164.08, y: 178.67 },
+            { name: 'Perugia',         x: 215.61, y: 223.83 },
+            { name: 'Viterbo',         x: 205.77, y: 261.86 },
+            { name: 'Latina',          x: 233.63, y: 314.28 },
+            { name: 'Rieti',           x: 231.98, y: 262.75 },
+            { name: 'Campobasso',      x: 295.38, y: 309.21 },
+            { name: 'Chieti',          x: 277.87, y: 265.69 },
+            { name: 'Pescara',         x: 279.50, y: 259.46 },
+            { name: 'Teramo',          x: 261.65, y: 248.76 },
+            { name: 'Ancona',          x: 255.16, y: 196.13 },
+            { name: 'Macerata',        x: 252.87, y: 213.46 },
+            { name: 'Pesaro',          x: 233.97, y: 179.94 },
+            { name: 'Bari',            x: 373.02, y: 333.56 },
+            { name: 'Barletta',        x: 352.35, y: 322.40 },
+            { name: 'Foggia',          x: 326.56, y: 314.59 },
+            { name: 'Lecce',           x: 418.63, y: 375.67 },
+            { name: 'Taranto',         x: 385.90, y: 368.93 },
+            { name: 'Potenza',         x: 335.70, y: 359.88 },
+            { name: 'Catanzaro',       x: 363.08, y: 455.46 },
+            { name: 'Reggio Calabria', x: 330.17, y: 499.38 },
+            { name: 'Palmi',           x: 336.64, y: 485.80 },
+            { name: 'Avellino',        x: 299.76, y: 344.70 },
+            { name: 'Caserta',         x: 283.60, y: 336.04 },
+            { name: 'Salerno',         x: 298.57, y: 357.45 },
+            { name: 'Napoli',          x: 281.38, y: 348.15 },
+            { name: 'Catania',         x: 310.41, y: 532.56 },
+            { name: 'Messina',         x: 326.89, y: 494.84 },
+            { name: 'Palermo',         x: 270.15, y: 499.14 },
+            { name: 'Caltanissetta',   x: 274.69, y: 533.70 },
+            { name: 'Trapani',         x: 221.78, y: 504.53 },
+            { name: 'Cagliari',        x: 101.76, y: 437.69 },
+            { name: 'Sud Sardegna',    x: 80.80,  y: 440.84 }
+        ];
+
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+        const slugify = (name) => name.toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
+
+        countEl.textContent = CITIES.length;
+
+        const tooltipCityEl = tooltip.querySelector('.sedi-tooltip-city');
+        let activeSlug = null;
+
+        function positionTooltipFor(city) {
+            const svgRect = mapSvg.getBoundingClientRect();
+            const wrapRect = mapWrap.getBoundingClientRect();
+            const vb = mapSvg.viewBox.baseVal;
+            if (!vb.width || !vb.height) return;
+            const scaleX = svgRect.width / vb.width;
+            const scaleY = svgRect.height / vb.height;
+            const offsetX = svgRect.left - wrapRect.left;
+            const offsetY = svgRect.top - wrapRect.top;
+            tooltip.style.left = (offsetX + city.x * scaleX) + 'px';
+            tooltip.style.top  = (offsetY + city.y * scaleY) + 'px';
+        }
+
+        function activate(city) {
+            const slug = slugify(city.name);
+            if (activeSlug === slug) {
+                positionTooltipFor(city);
+                return;
+            }
+            deactivate();
+            activeSlug = slug;
+            tooltipCityEl.textContent = city.name;
+            tooltip.hidden = false;
+            requestAnimationFrame(() => {
+                tooltip.setAttribute('data-visible', 'true');
+                positionTooltipFor(city);
+            });
+            const marker = markersContainer.querySelector('[data-city="' + slug + '"]');
+            if (marker) marker.classList.add('is-active');
+            const li = listContainer.querySelector('[data-city="' + slug + '"]');
+            if (li) li.classList.add('is-active');
+        }
+
+        function deactivate() {
+            if (!activeSlug) return;
+            tooltip.removeAttribute('data-visible');
+            tooltip.hidden = true;
+            const prevMarker = markersContainer.querySelector('.sedi-marker.is-active');
+            if (prevMarker) prevMarker.classList.remove('is-active');
+            const prevLi = listContainer.querySelector('.sedi-list > li.is-active');
+            if (prevLi) prevLi.classList.remove('is-active');
+            activeSlug = null;
+        }
+
+        // Build markers on the SVG
+        CITIES.forEach((city) => {
+            const slug = slugify(city.name);
+
+            const pulse = document.createElementNS(SVG_NS, 'circle');
+            pulse.setAttribute('cx', city.x);
+            pulse.setAttribute('cy', city.y);
+            pulse.setAttribute('r', '4');
+            pulse.setAttribute('class', 'sedi-marker-pulse');
+            markersContainer.appendChild(pulse);
+
+            const marker = document.createElementNS(SVG_NS, 'circle');
+            marker.setAttribute('cx', city.x);
+            marker.setAttribute('cy', city.y);
+            marker.setAttribute('r', '4');
+            marker.setAttribute('class', 'sedi-marker');
+            marker.setAttribute('data-city', slug);
+            marker.setAttribute('tabindex', '0');
+            marker.setAttribute('role', 'button');
+            marker.setAttribute('aria-label', 'Sede Revilaw: ' + city.name);
+
+            marker.addEventListener('mouseenter', () => activate(city));
+            marker.addEventListener('mouseleave', deactivate);
+            marker.addEventListener('focus', () => activate(city));
+            marker.addEventListener('blur', deactivate);
+            marker.addEventListener('click', (e) => { e.preventDefault(); activate(city); });
+            markersContainer.appendChild(marker);
+        });
+
+        // Build alphabetical list (locale-aware for Italian)
+        const sortedCities = CITIES.slice().sort((a, b) =>
+            a.name.localeCompare(b.name, 'it', { sensitivity: 'base' })
+        );
+
+        sortedCities.forEach((city) => {
+            const slug = slugify(city.name);
+            const li = document.createElement('li');
+            li.setAttribute('data-city', slug);
+            li.textContent = city.name;
+            li.addEventListener('mouseenter', () => activate(city));
+            li.addEventListener('mouseleave', deactivate);
+            li.addEventListener('click', () => activate(city));
+            listContainer.appendChild(li);
+        });
+
+        // Reposition the tooltip on window resize while a marker is active
+        window.addEventListener('resize', () => {
+            if (!activeSlug) return;
+            const current = CITIES.find((c) => slugify(c.name) === activeSlug);
+            if (current) positionTooltipFor(current);
+        });
+    })();
+
 });

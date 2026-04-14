@@ -1548,6 +1548,328 @@ ul {
 }
 
 /* ============================================
+   SEDI section (interactive Italy map)
+   ============================================ */
+.sedi {
+    background: var(--white);
+    padding: 112px 0 104px;
+    border-top: 1px solid rgba(22, 64, 104, 0.08);
+    position: relative;
+}
+
+.sedi .container {
+    max-width: 1180px;
+}
+
+.sedi-header {
+    text-align: center;
+    max-width: 780px;
+    margin: 0 auto 64px;
+}
+
+.sedi-eyebrow {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 2.8px;
+    text-transform: uppercase;
+    color: var(--navy-light);
+    margin-bottom: 14px;
+}
+
+.sedi-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+    font-weight: 700;
+    color: var(--navy-dark);
+    line-height: 1.18;
+    letter-spacing: -0.6px;
+    margin-bottom: 22px;
+}
+
+.sedi-divider {
+    width: 48px;
+    height: 2px;
+    background: var(--navy);
+    margin: 0 auto 26px;
+}
+
+.sedi-intro {
+    font-size: 1rem;
+    line-height: 1.85;
+    color: var(--text-muted);
+    margin: 0 auto;
+    max-width: 680px;
+}
+
+.sedi-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 56px;
+    align-items: start;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.sedi-map-wrap {
+    position: relative;
+    background: linear-gradient(160deg, #F3F6FB 0%, #E8EEF6 100%);
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-radius: 18px;
+    padding: 28px 22px;
+    box-shadow: 0 20px 48px rgba(10, 40, 68, 0.08);
+    overflow: hidden;
+}
+
+.sedi-map-wrap::before {
+    content: '';
+    position: absolute;
+    top: -80px;
+    right: -80px;
+    width: 260px;
+    height: 260px;
+    background: radial-gradient(circle, rgba(22, 64, 104, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.sedi-map {
+    width: 100%;
+    height: auto;
+    display: block;
+    position: relative;
+    z-index: 1;
+}
+
+.sedi-country {
+    fill: rgba(22, 64, 104, 0.09);
+    stroke: var(--navy);
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    transition: fill 0.4s ease;
+}
+
+.sedi-map-wrap:hover .sedi-country {
+    fill: rgba(22, 64, 104, 0.13);
+}
+
+.sedi-marker {
+    fill: var(--navy);
+    stroke: #FFFFFF;
+    stroke-width: 1.4;
+    cursor: pointer;
+    transition: transform 0.2s ease, fill 0.2s ease, stroke-width 0.2s ease;
+    transform-origin: center;
+    transform-box: fill-box;
+}
+
+.sedi-marker:hover,
+.sedi-marker:focus,
+.sedi-marker.is-active {
+    fill: var(--navy-dark);
+    stroke-width: 2;
+    transform: scale(1.7);
+    outline: none;
+}
+
+.sedi-marker-pulse {
+    fill: var(--navy-light);
+    opacity: 0.35;
+    transform-origin: center;
+    transform-box: fill-box;
+    pointer-events: none;
+    animation: sediPulse 2.6s ease-out infinite;
+}
+
+@keyframes sediPulse {
+    0% { transform: scale(1); opacity: 0.5; }
+    80% { transform: scale(3.2); opacity: 0; }
+    100% { transform: scale(3.2); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sedi-marker-pulse { animation: none; opacity: 0; }
+    .sedi-marker { transition: fill 0.2s ease; }
+}
+
+.sedi-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--navy-dark);
+    color: var(--white);
+    padding: 10px 16px;
+    border-radius: 10px;
+    box-shadow: 0 14px 32px rgba(10, 40, 68, 0.32);
+    transform: translate(-50%, calc(-100% - 16px));
+    font-family: var(--font-display);
+    white-space: nowrap;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.sedi-tooltip[data-visible="true"] {
+    opacity: 1;
+}
+
+.sedi-tooltip::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -5px;
+    width: 10px;
+    height: 10px;
+    background: var(--navy-dark);
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.sedi-tooltip-label {
+    display: block;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.62);
+    margin-bottom: 3px;
+}
+
+.sedi-tooltip-city {
+    display: block;
+    font-size: 0.98rem;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+
+.sedi-list-wrap {
+    position: sticky;
+    top: 100px;
+}
+
+.sedi-list-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(22, 64, 104, 0.15);
+    margin-bottom: 22px;
+}
+
+.sedi-list-count {
+    font-family: var(--font-display);
+    font-size: 2.8rem;
+    font-weight: 800;
+    color: var(--navy-dark);
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+.sedi-list-label {
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--navy-light);
+    max-width: 160px;
+    line-height: 1.4;
+}
+
+.sedi-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 18px;
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--navy-light) transparent;
+}
+
+.sedi-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sedi-list::-webkit-scrollbar-thumb {
+    background: rgba(22, 64, 104, 0.3);
+    border-radius: 3px;
+}
+
+.sedi-list li {
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    transition: color 0.2s ease, background 0.2s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.sedi-list li::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--navy-light);
+    opacity: 0.55;
+    flex-shrink: 0;
+    transition: transform 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+}
+
+.sedi-list li:hover,
+.sedi-list li.is-active {
+    color: var(--navy-dark);
+    background: rgba(22, 64, 104, 0.06);
+    font-weight: 700;
+}
+
+.sedi-list li:hover::before,
+.sedi-list li.is-active::before {
+    background: var(--navy-dark);
+    opacity: 1;
+    transform: scale(1.5);
+}
+
+@media (max-width: 960px) {
+    .sedi {
+        padding: 88px 0 80px;
+    }
+    .sedi-layout {
+        grid-template-columns: 1fr;
+        gap: 48px;
+    }
+    .sedi-list-wrap {
+        position: static;
+    }
+    .sedi-list {
+        max-height: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .sedi {
+        padding: 72px 0 64px;
+    }
+    .sedi-header {
+        margin-bottom: 44px;
+    }
+    .sedi-map-wrap {
+        padding: 18px 12px;
+    }
+    .sedi-list {
+        grid-template-columns: 1fr;
+    }
+    .sedi-list-count {
+        font-size: 2.2rem;
+    }
+}
+
+/* ============================================
    OBIETTIVI section (between chi-siamo and partners)
    ============================================ */
 .objectives {
