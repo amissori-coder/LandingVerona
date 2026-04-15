@@ -240,6 +240,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
+    // PIANO DI REVISIONE — Materiality calculator
+    // ==========================================
+    (function initPianoMateriality() {
+        const params = document.querySelectorAll('.piano-param');
+        const amountEl = document.getElementById('pianoMaterialityAmount');
+        const selParamEl = document.getElementById('pianoSelectedParam');
+        const selPctEl = document.getElementById('pianoSelectedPct');
+        if (!params.length || !amountEl) return;
+
+        const PARAM_LABELS = {
+            ricavi: 'Ricavi',
+            attivo: 'Totale attivo',
+            patrimonio: 'Patrimonio netto',
+            utile: 'Utile ante imposte'
+        };
+
+        const formatEur = (n) => '€\u00A0' + Math.round(n).toLocaleString('it-IT');
+        const formatPct = (p) => p.toString().replace('.', ',') + '%';
+
+        function activate(btn) {
+            params.forEach((p) => {
+                p.classList.remove('active');
+                p.setAttribute('aria-checked', 'false');
+            });
+            btn.classList.add('active');
+            btn.setAttribute('aria-checked', 'true');
+
+            const value = parseFloat(btn.dataset.value);
+            const pct = parseFloat(btn.dataset.pct);
+            const paramKey = btn.dataset.param;
+            const materiality = value * (pct / 100);
+
+            amountEl.textContent = formatEur(materiality);
+            selParamEl.textContent = PARAM_LABELS[paramKey] || paramKey;
+            selPctEl.textContent = formatPct(pct);
+        }
+
+        params.forEach((btn) => {
+            btn.addEventListener('click', () => activate(btn));
+        });
+    })();
+
+    // ==========================================
     // GANTT CHART
     // ==========================================
     const ganttBody = document.getElementById('ganttBody');
