@@ -438,7 +438,7 @@
                 <div class="piano-materialita-header">
                     <span class="piano-eyebrow">Materialità operativa pianificata</span>
                     <h3>Dal parametro di riferimento alla soglia di significatività</h3>
-                    <p>La materialità definisce la soglia oltre la quale un errore è considerato significativo. Seleziona uno o più parametri di riferimento, imposta la percentuale prescelta (nel range IFAC-CNDCEC) e il valore di bilancio stimato: la materialità pianificata viene calcolata come media dei parametri selezionati, con successive soglie per la materialità operativa e per l'errore trascurabile.</p>
+                    <p>La materialità definisce la soglia oltre la quale un errore è considerato significativo. Seleziona uno o più parametri di riferimento, imposta la percentuale prescelta (entro il range IFAC-CNDCEC) e il valore di bilancio stimato. La <strong>Materialità</strong> è la media dei prodotti <em>valore × percentuale</em> delle righe selezionate; <strong>Materialità operativa</strong> ed <strong>errore trascurabile</strong> sono percentuali di tale soglia.</p>
                 </div>
 
                 <!-- Top table: parameter selection -->
@@ -447,12 +447,14 @@
                         <div class="piano-mat-group piano-mat-group-param">Parametri scelti</div>
                         <div class="piano-mat-group piano-mat-group-pct">Percentuale</div>
                         <div class="piano-mat-group piano-mat-group-val">Pianificata (pre-bilancio)</div>
+                        <div class="piano-mat-group piano-mat-group-row">Materialità di riga</div>
 
                         <div class="piano-mat-subh piano-mat-col-check">Scelta</div>
                         <div class="piano-mat-subh piano-mat-col-name">Parametri</div>
                         <div class="piano-mat-subh piano-mat-col-ifac">IFAC · CNDCEC</div>
                         <div class="piano-mat-subh piano-mat-col-pctin">Scelta</div>
                         <div class="piano-mat-subh piano-mat-col-valin">Valore bilancio stimato</div>
+                        <div class="piano-mat-subh piano-mat-col-rowresult">= Valore × %</div>
                     </div>
 
                     <div class="piano-mat-tbody" id="pianoMatBody">
@@ -476,6 +478,7 @@
                                     <input type="text" class="piano-mat-input piano-mat-val" value="11.609.327" inputmode="numeric">
                                 </div>
                             </div>
+                            <div class="piano-mat-col-rowresult" data-row-result>&euro;&nbsp;206.646</div>
                         </div>
 
                         <div class="piano-mat-row" data-row="patr-netto" data-ifac-min="3" data-ifac-max="5">
@@ -498,6 +501,7 @@
                                     <input type="text" class="piano-mat-input piano-mat-val" value="1.850.000" inputmode="numeric">
                                 </div>
                             </div>
+                            <div class="piano-mat-col-rowresult" data-row-result>&mdash;</div>
                         </div>
 
                         <div class="piano-mat-row" data-row="ricavi" data-ifac-min="1" data-ifac-max="3">
@@ -520,6 +524,7 @@
                                     <input type="text" class="piano-mat-input piano-mat-val" value="2.991.085" inputmode="numeric">
                                 </div>
                             </div>
+                            <div class="piano-mat-col-rowresult" data-row-result>&euro;&nbsp;53.241</div>
                         </div>
 
                         <div class="piano-mat-row" data-row="ris-op" data-ifac-min="3" data-ifac-max="7">
@@ -542,6 +547,7 @@
                                     <input type="text" class="piano-mat-input piano-mat-val" value="520.000" inputmode="numeric">
                                 </div>
                             </div>
+                            <div class="piano-mat-col-rowresult" data-row-result>&mdash;</div>
                         </div>
 
                         <div class="piano-mat-row" data-row="ris-netto" data-ifac-min="3" data-ifac-max="7">
@@ -564,51 +570,56 @@
                                     <input type="text" class="piano-mat-input piano-mat-val" value="380.000" inputmode="numeric">
                                 </div>
                             </div>
+                            <div class="piano-mat-col-rowresult" data-row-result>&mdash;</div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Result table: materiality levels -->
-                <div class="piano-mat-result" role="table" aria-label="Valori di materialità">
-                    <div class="piano-mat-result-head">
-                        <div class="piano-mat-result-title">Valore della materialità &middot; significatività</div>
-                        <div class="piano-mat-result-hpct">%</div>
-                        <div class="piano-mat-result-hval">Pianificata</div>
+                <!-- Averaging visualization -->
+                <div class="piano-mat-avg" aria-hidden="true">
+                    <div class="piano-mat-avg-line"></div>
+                    <div class="piano-mat-avg-badge">
+                        <span class="piano-mat-avg-formula">&Sigma; materialità di riga &divide; <span id="pianoMatCount">2</span></span>
+                        <span class="piano-mat-avg-label">media aritmetica</span>
                     </div>
-                    <div class="piano-mat-result-body">
-                        <div class="piano-mat-result-row piano-mat-result-row-primary">
-                            <div class="piano-mat-result-label">
-                                <strong>Materialità</strong>
-                                <span class="piano-mat-result-sub">media dei parametri selezionati</span>
+                    <div class="piano-mat-avg-line"></div>
+                </div>
+
+                <!-- Result cards -->
+                <div class="piano-mat-cards">
+                    <div class="piano-mat-card piano-mat-card-primary">
+                        <div class="piano-mat-card-label">Materialità</div>
+                        <div class="piano-mat-card-amount" id="pianoMatTot" aria-live="polite">&euro;&nbsp;129.944</div>
+                        <div class="piano-mat-card-sub">Media dei parametri selezionati</div>
+                    </div>
+
+                    <div class="piano-mat-card-arrow" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </div>
+
+                    <div class="piano-mat-card piano-mat-card-derived">
+                        <div class="piano-mat-card-label">Materialità operativa</div>
+                        <div class="piano-mat-card-amount piano-mat-card-amount-md" id="pianoMatOp" aria-live="polite">&euro;&nbsp;84.463</div>
+                        <div class="piano-mat-card-ctrl">
+                            <span class="piano-mat-card-ctrl-label">% applicata</span>
+                            <div class="piano-mat-input-wrap piano-mat-input-wrap-sm">
+                                <input type="text" class="piano-mat-input piano-mat-op-pct" value="65,00" inputmode="decimal" aria-label="Percentuale materialità operativa">
+                                <span class="piano-mat-suffix">%</span>
                             </div>
-                            <div class="piano-mat-result-pct">&mdash;</div>
-                            <div class="piano-mat-result-amount" id="pianoMatTot" aria-live="polite">&euro;&nbsp;129.944</div>
+                            <span class="piano-mat-card-ctrl-range">65% &ndash; 85%</span>
                         </div>
-                        <div class="piano-mat-result-row">
-                            <div class="piano-mat-result-label">
-                                <strong>Materialità operativa</strong>
-                                <span class="piano-mat-result-sub">valore suggerito 65% &ndash; 85%</span>
+                    </div>
+
+                    <div class="piano-mat-card piano-mat-card-derived">
+                        <div class="piano-mat-card-label">Errore trascurabile</div>
+                        <div class="piano-mat-card-amount piano-mat-card-amount-md" id="pianoMatErr" aria-live="polite">&euro;&nbsp;6.497</div>
+                        <div class="piano-mat-card-ctrl">
+                            <span class="piano-mat-card-ctrl-label">% applicata</span>
+                            <div class="piano-mat-input-wrap piano-mat-input-wrap-sm">
+                                <input type="text" class="piano-mat-input piano-mat-err-pct" value="5,00" inputmode="decimal" aria-label="Percentuale errore trascurabile">
+                                <span class="piano-mat-suffix">%</span>
                             </div>
-                            <div class="piano-mat-result-pct">
-                                <div class="piano-mat-input-wrap">
-                                    <input type="text" class="piano-mat-input piano-mat-op-pct" value="65,00" inputmode="decimal" aria-label="Percentuale materialità operativa">
-                                    <span class="piano-mat-suffix">%</span>
-                                </div>
-                            </div>
-                            <div class="piano-mat-result-amount" id="pianoMatOp" aria-live="polite">&euro;&nbsp;84.463</div>
-                        </div>
-                        <div class="piano-mat-result-row">
-                            <div class="piano-mat-result-label">
-                                <strong>Errore trascurabile</strong>
-                                <span class="piano-mat-result-sub">valore suggerito 5% &ndash; 15%</span>
-                            </div>
-                            <div class="piano-mat-result-pct">
-                                <div class="piano-mat-input-wrap">
-                                    <input type="text" class="piano-mat-input piano-mat-err-pct" value="5,00" inputmode="decimal" aria-label="Percentuale errore trascurabile">
-                                    <span class="piano-mat-suffix">%</span>
-                                </div>
-                            </div>
-                            <div class="piano-mat-result-amount" id="pianoMatErr" aria-live="polite">&euro;&nbsp;6.497</div>
+                            <span class="piano-mat-card-ctrl-range">5% &ndash; 15%</span>
                         </div>
                     </div>
                 </div>

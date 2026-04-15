@@ -388,82 +388,121 @@ img { max-width:100%; display:block; }
     border:1px solid var(--border-color);
     border-radius:var(--radius);
     overflow:hidden;
-    margin-bottom:28px;
+    margin-bottom:0;
+    box-shadow:var(--shadow-sm);
 }
 
+/* 6-column grid: check | name | ifac | % | valore | row-result */
 .piano-mat-thead {
     display:grid;
-    grid-template-columns:64px minmax(0, 1.45fr) 140px 140px 220px;
+    grid-template-columns:60px minmax(0, 1.3fr) 120px 130px 200px 150px;
     grid-template-rows:auto auto;
-    background:var(--accent);
+    background:linear-gradient(135deg, var(--accent-dark) 0%, var(--accent) 100%);
     color:#fff;
 }
 
 .piano-mat-group {
-    padding:12px 14px 8px;
+    padding:13px 14px 9px;
     font-family:'Montserrat',sans-serif;
-    font-size:0.7rem;
+    font-size:0.68rem;
     font-weight:800;
-    letter-spacing:1.5px;
+    letter-spacing:1.4px;
     text-transform:uppercase;
     text-align:center;
     border-bottom:1px solid rgba(255,255,255,0.16);
+    color:rgba(255,255,255,0.92);
 }
 
-.piano-mat-group-param { grid-column:1 / span 2; }
-.piano-mat-group-pct   { grid-column:3 / span 2; border-left:1px solid rgba(255,255,255,0.16); }
-.piano-mat-group-val   { grid-column:5 / span 1; border-left:1px solid rgba(255,255,255,0.16); }
+.piano-mat-group-param  { grid-column:1 / span 2; }
+.piano-mat-group-pct    { grid-column:3 / span 2; border-left:1px solid rgba(255,255,255,0.12); }
+.piano-mat-group-val    { grid-column:5 / span 1; border-left:1px solid rgba(255,255,255,0.12); }
+.piano-mat-group-row    { grid-column:6 / span 1; border-left:1px solid rgba(255,255,255,0.12); background:rgba(0,0,0,0.12); }
 
 .piano-mat-subh {
-    padding:10px 14px 12px;
+    padding:9px 14px 13px;
     font-family:'Montserrat',sans-serif;
-    font-size:0.68rem;
+    font-size:0.64rem;
     font-weight:700;
-    letter-spacing:1.2px;
+    letter-spacing:1px;
     text-transform:uppercase;
     text-align:center;
-    color:rgba(255,255,255,0.88);
+    color:rgba(255,255,255,0.72);
 }
 
 .piano-mat-subh.piano-mat-col-name { text-align:left; }
 .piano-mat-subh.piano-mat-col-ifac { background:rgba(255,255,255,0.06); }
+.piano-mat-subh.piano-mat-col-rowresult {
+    background:rgba(0,0,0,0.12);
+    color:rgba(255,255,255,0.85);
+    font-weight:800;
+}
 
 .piano-mat-tbody { background:#fff; }
 
 .piano-mat-row {
     display:grid;
-    grid-template-columns:64px minmax(0, 1.45fr) 140px 140px 220px;
+    grid-template-columns:60px minmax(0, 1.3fr) 120px 130px 200px 150px;
     align-items:center;
     border-top:1px solid var(--border-color);
-    transition:background 0.2s ease;
+    transition:background 0.2s ease, opacity 0.3s ease;
 }
 
 .piano-mat-row:first-child { border-top:none; }
 .piano-mat-row:hover { background:var(--bg-secondary); }
 
 .piano-mat-row > div {
-    padding:14px 14px;
+    padding:16px 14px;
     font-size:0.88rem;
     color:var(--text-primary);
 }
 
 .piano-mat-col-check { text-align:center; }
-.piano-mat-col-name { font-weight:500; }
+.piano-mat-col-name  { font-weight:600; }
 .piano-mat-col-ifac {
     background:#fdf1df;
     color:var(--text-secondary);
     text-align:center;
-    font-weight:600;
-    font-size:0.8rem;
+    font-weight:700;
+    font-size:0.78rem;
     letter-spacing:0.2px;
+    align-self:stretch;
+    display:flex;
+    align-items:center;
+    justify-content:center;
 }
 .piano-mat-col-pctin,
 .piano-mat-col-valin { text-align:center; }
 
+.piano-mat-col-rowresult {
+    background:var(--accent-bg);
+    text-align:right;
+    font-family:'Montserrat',sans-serif;
+    font-weight:800;
+    font-size:0.92rem;
+    color:var(--accent-dark);
+    letter-spacing:-0.2px;
+    align-self:stretch;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    padding-right:20px !important;
+    transition:background 0.25s ease, color 0.25s ease;
+}
+
+.piano-mat-row.is-unchecked .piano-mat-col-rowresult {
+    background:var(--bg-tertiary);
+    color:var(--text-muted);
+    font-weight:600;
+    font-size:0.85rem;
+}
+
 /* Dimmed state when row is unchecked */
 .piano-mat-row.is-unchecked .piano-mat-col-name,
-.piano-mat-row.is-unchecked .piano-mat-col-ifac { opacity:0.55; }
-.piano-mat-row.is-unchecked .piano-mat-input-wrap { opacity:0; pointer-events:none; }
+.piano-mat-row.is-unchecked .piano-mat-col-ifac { opacity:0.5; }
+.piano-mat-row.is-unchecked .piano-mat-input-wrap {
+    opacity:0.35;
+    pointer-events:none;
+}
 
 /* ---------- Custom checkbox ---------- */
 .piano-mat-checkbox {
@@ -557,141 +596,320 @@ img { max-width:100%; display:block; }
 /* Pct inputs narrower */
 .piano-mat-col-pctin .piano-mat-input-wrap { width:96px; }
 .piano-mat-col-valin .piano-mat-input-wrap { width:180px; }
+.piano-mat-input-wrap-sm { width:100px; padding:5px 10px; }
 
-/* ---------- Bottom result table ---------- */
-.piano-mat-result {
-    border:1px solid var(--border-color);
-    border-radius:var(--radius);
-    overflow:hidden;
-}
-
-.piano-mat-result-head {
-    display:grid;
-    grid-template-columns:minmax(0, 1fr) 140px 220px;
-    background:var(--accent);
-    color:#fff;
-    padding:14px 20px;
+/* ---------- Averaging visualization bridge ---------- */
+.piano-mat-avg {
+    display:flex;
     align-items:center;
+    gap:18px;
+    margin:32px 0 28px;
+    padding:0 40px;
 }
 
-.piano-mat-result-title {
-    font-family:'Montserrat',sans-serif;
-    font-size:0.72rem;
-    font-weight:800;
-    letter-spacing:1.5px;
-    text-transform:uppercase;
-}
-.piano-mat-result-hpct,
-.piano-mat-result-hval {
-    font-family:'Montserrat',sans-serif;
-    font-size:0.7rem;
-    font-weight:800;
-    letter-spacing:1.5px;
-    text-transform:uppercase;
-    text-align:center;
-    color:rgba(255,255,255,0.88);
+.piano-mat-avg-line {
+    flex:1;
+    height:2px;
+    background:linear-gradient(90deg, transparent 0%, var(--accent-border) 50%, var(--accent-border) 100%);
+    border-radius:1px;
 }
 
-.piano-mat-result-body { background:#fff; }
-
-.piano-mat-result-row {
-    display:grid;
-    grid-template-columns:minmax(0, 1fr) 140px 220px;
-    align-items:center;
-    padding:18px 20px;
-    border-top:1px solid var(--border-color);
+.piano-mat-avg .piano-mat-avg-line:last-child {
+    background:linear-gradient(90deg, var(--accent-border) 0%, var(--accent-border) 50%, transparent 100%);
 }
-.piano-mat-result-row:first-child { border-top:none; }
 
-.piano-mat-result-label {
+.piano-mat-avg-badge {
     display:flex;
     flex-direction:column;
-    gap:3px;
+    align-items:center;
+    gap:2px;
+    padding:10px 22px;
+    background:var(--accent-bg);
+    border:1.5px solid var(--accent-border);
+    border-radius:100px;
+    white-space:nowrap;
+    position:relative;
 }
-.piano-mat-result-label strong {
+
+.piano-mat-avg-badge::before,
+.piano-mat-avg-badge::after {
+    content:'';
+    position:absolute;
+    top:50%;
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--accent);
+    transform:translateY(-50%);
+}
+.piano-mat-avg-badge::before { left:-4px; }
+.piano-mat-avg-badge::after  { right:-4px; }
+
+.piano-mat-avg-formula {
     font-family:'Montserrat',sans-serif;
-    font-size:0.98rem;
+    font-size:0.85rem;
     font-weight:800;
-    color:var(--text-primary);
+    color:var(--accent-dark);
     letter-spacing:-0.2px;
 }
-.piano-mat-result-sub {
-    font-size:0.74rem;
+
+.piano-mat-avg-formula #pianoMatCount {
+    display:inline-block;
+    min-width:1em;
+    text-align:center;
+    padding:1px 8px;
+    margin-left:4px;
+    background:var(--accent);
+    color:#fff;
+    border-radius:100px;
+    font-size:0.75rem;
+    font-weight:800;
+}
+
+.piano-mat-avg-label {
+    font-size:0.62rem;
+    font-weight:700;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    color:var(--accent);
+    opacity:0.68;
+}
+
+/* ---------- Result cards ---------- */
+.piano-mat-cards {
+    display:grid;
+    grid-template-columns:minmax(0, 1.25fr) auto minmax(0, 1fr) minmax(0, 1fr);
+    gap:20px;
+    align-items:stretch;
+}
+
+.piano-mat-card {
+    background:#fff;
+    border:1.5px solid var(--border-color);
+    border-radius:var(--radius);
+    padding:28px 26px 24px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    position:relative;
+    overflow:hidden;
+    transition:var(--transition);
+}
+
+.piano-mat-card-primary {
+    background:linear-gradient(160deg, var(--accent-dark) 0%, var(--accent) 60%, var(--accent-light) 100%);
+    border-color:var(--accent-dark);
+    color:#fff;
+    box-shadow:0 20px 48px rgba(10,25,45,0.22);
+    padding:34px 30px 30px;
+}
+
+.piano-mat-card-primary::before {
+    content:'';
+    position:absolute;
+    top:-40px;
+    right:-40px;
+    width:160px;
+    height:160px;
+    background:radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+    pointer-events:none;
+}
+
+.piano-mat-card-derived {
+    background:var(--bg-secondary);
+}
+
+.piano-mat-card-derived:hover {
+    background:#fff;
+    border-color:var(--accent-border);
+    transform:translateY(-3px);
+    box-shadow:var(--shadow-lg);
+}
+
+.piano-mat-card-label {
+    font-family:'Montserrat',sans-serif;
+    font-size:0.62rem;
+    font-weight:800;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--text-muted);
+}
+
+.piano-mat-card-primary .piano-mat-card-label {
+    color:rgba(255,255,255,0.6);
+}
+
+.piano-mat-card-amount {
+    font-family:'Montserrat',sans-serif;
+    font-size:2.6rem;
+    font-weight:900;
+    line-height:1.05;
+    letter-spacing:-1.2px;
+    color:var(--accent-dark);
+    position:relative;
+    z-index:1;
+    transition:color 0.2s ease;
+}
+
+.piano-mat-card-amount-md {
+    font-size:1.7rem;
+    color:var(--accent);
+}
+
+.piano-mat-card-primary .piano-mat-card-amount {
+    color:#fff;
+}
+
+.piano-mat-card-sub {
+    font-size:0.78rem;
+    font-style:italic;
+    color:rgba(255,255,255,0.62);
+    margin-top:auto;
+}
+
+.piano-mat-card-ctrl {
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:6px 10px;
+    margin-top:auto;
+    padding-top:14px;
+    border-top:1px solid var(--border-color);
+}
+
+.piano-mat-card-ctrl-label {
+    font-size:0.64rem;
+    font-weight:700;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    color:var(--text-muted);
+}
+
+.piano-mat-card-ctrl-range {
+    font-size:0.68rem;
     color:var(--text-muted);
     font-style:italic;
+    margin-left:auto;
 }
 
-.piano-mat-result-pct {
-    text-align:center;
-    color:var(--text-muted);
-    font-size:0.95rem;
-}
-
-.piano-mat-result-amount {
-    font-family:'Montserrat',sans-serif;
-    font-size:1.35rem;
-    font-weight:800;
+.piano-mat-card-arrow {
+    display:flex;
+    align-items:center;
+    justify-content:center;
     color:var(--accent);
-    text-align:right;
-    letter-spacing:-0.3px;
-    padding-right:6px;
+    opacity:0.35;
+    width:28px;
 }
 
-.piano-mat-result-row-primary {
-    background:linear-gradient(135deg, var(--accent-bg) 0%, #fff 100%);
+.piano-mat-card-arrow svg { width:24px; height:24px; }
+
+/* Amount "pulse" animation when value updates */
+@keyframes pianoMatFlash {
+    0%   { background:var(--accent-bg); }
+    100% { background:transparent; }
 }
-.piano-mat-result-row-primary .piano-mat-result-amount {
-    font-size:1.7rem;
-    color:var(--accent-dark);
+
+.piano-mat-card-amount.is-flashing {
+    animation:pianoMatFlash 0.45s ease-out;
+    border-radius:6px;
+    padding:0 6px;
+    margin:0 -6px;
+}
+
+@media (max-width: 1100px) {
+    .piano-mat-cards {
+        grid-template-columns:1fr 1fr;
+        gap:16px;
+    }
+    .piano-mat-card-primary { grid-column:1 / -1; }
+    .piano-mat-card-arrow { display:none; }
 }
 
 @media (max-width: 900px) {
     .piano-materialita { padding:32px 24px; }
     .piano-mat-thead,
     .piano-mat-row {
-        grid-template-columns:48px minmax(0, 1fr) 90px 100px 150px;
+        grid-template-columns:48px minmax(0, 1fr) 88px 96px 140px 110px;
     }
     .piano-mat-group,
-    .piano-mat-subh { font-size:0.62rem; letter-spacing:0.8px; padding:8px 6px; }
-    .piano-mat-row > div { padding:12px 8px; font-size:0.82rem; }
-    .piano-mat-col-ifac { font-size:0.72rem; }
-    .piano-mat-col-pctin .piano-mat-input-wrap { width:80px; padding:5px 8px; }
-    .piano-mat-col-valin .piano-mat-input-wrap { width:140px; padding:5px 8px; }
-    .piano-mat-input { font-size:0.82rem; }
-
-    .piano-mat-result-head,
-    .piano-mat-result-row {
-        grid-template-columns:minmax(0, 1fr) 100px 140px;
-        padding:14px 14px;
-    }
-    .piano-mat-result-amount { font-size:1.15rem; }
-    .piano-mat-result-row-primary .piano-mat-result-amount { font-size:1.4rem; }
+    .piano-mat-subh { font-size:0.58rem; letter-spacing:0.7px; padding:7px 4px; }
+    .piano-mat-row > div { padding:12px 8px; font-size:0.8rem; }
+    .piano-mat-col-ifac { font-size:0.7rem; }
+    .piano-mat-col-pctin .piano-mat-input-wrap { width:78px; padding:5px 8px; }
+    .piano-mat-col-valin .piano-mat-input-wrap { width:130px; padding:5px 8px; }
+    .piano-mat-input { font-size:0.8rem; }
+    .piano-mat-col-rowresult { font-size:0.82rem; padding-right:12px !important; }
+    .piano-mat-avg { padding:0 12px; margin:26px 0 22px; }
+    .piano-mat-avg-formula { font-size:0.76rem; }
+    .piano-mat-avg-label { font-size:0.58rem; }
+    .piano-mat-card-amount { font-size:2.1rem; }
+    .piano-mat-card-amount-md { font-size:1.45rem; }
 }
 
-@media (max-width: 680px) {
-    .piano-materialita { padding:24px 16px; }
-    .piano-mat-table,
-    .piano-mat-result { font-size:0.8rem; }
-    .piano-mat-thead,
-    .piano-mat-row {
-        grid-template-columns:40px minmax(0, 1.3fr) 72px 86px 120px;
-    }
-    .piano-mat-col-pctin .piano-mat-input-wrap { width:70px; }
-    .piano-mat-col-valin .piano-mat-input-wrap { width:110px; }
-    .piano-mat-group,
-    .piano-mat-subh { font-size:0.56rem; }
-    .piano-mat-row > div { padding:10px 6px; }
-    .piano-mat-col-ifac { font-size:0.65rem; }
+@media (max-width: 720px) {
+    .piano-materialita { padding:24px 18px; }
+    .piano-mat-table { font-size:0.78rem; }
 
-    .piano-mat-result-head,
-    .piano-mat-result-row {
-        grid-template-columns:minmax(0, 1fr) 74px 100px;
-        padding:12px 10px;
+    /* Collapse table into stacked cards on small screens */
+    .piano-mat-thead { display:none; }
+    .piano-mat-row {
+        display:grid;
+        grid-template-columns:28px 1fr;
+        grid-template-areas:
+            "check name"
+            "check ifac"
+            "check pct"
+            "check val"
+            "check result";
+        gap:6px 12px;
+        padding:16px 18px;
+        background:#fff;
     }
-    .piano-mat-result-label strong { font-size:0.85rem; }
-    .piano-mat-result-sub { font-size:0.68rem; }
-    .piano-mat-result-amount { font-size:0.95rem; }
-    .piano-mat-result-row-primary .piano-mat-result-amount { font-size:1.15rem; }
+    .piano-mat-row:nth-child(even) { background:var(--bg-secondary); }
+    .piano-mat-row > div { padding:0; font-size:0.85rem; text-align:left; }
+    .piano-mat-col-check { grid-area:check; align-self:start; padding-top:2px !important; }
+    .piano-mat-col-name { grid-area:name; font-weight:800; font-size:0.95rem; }
+    .piano-mat-col-ifac {
+        grid-area:ifac;
+        background:transparent;
+        padding:0 !important;
+        align-self:start;
+        justify-self:start;
+    }
+    .piano-mat-col-ifac::before {
+        content:'IFAC-CNDCEC · ';
+        font-size:0.62rem;
+        letter-spacing:0.8px;
+        color:var(--text-muted);
+        font-weight:700;
+        text-transform:uppercase;
+        margin-right:4px;
+    }
+    .piano-mat-col-pctin { grid-area:pct; justify-self:start; }
+    .piano-mat-col-valin { grid-area:val; justify-self:start; }
+    .piano-mat-col-rowresult {
+        grid-area:result;
+        background:transparent;
+        padding:6px 0 0 !important;
+        justify-content:flex-start;
+        font-size:1rem;
+    }
+    .piano-mat-col-rowresult::before {
+        content:'Materialità riga: ';
+        font-size:0.62rem;
+        letter-spacing:0.8px;
+        color:var(--text-muted);
+        font-weight:700;
+        text-transform:uppercase;
+        margin-right:6px;
+    }
+    .piano-mat-col-pctin .piano-mat-input-wrap { width:110px; }
+    .piano-mat-col-valin .piano-mat-input-wrap { width:170px; }
+
+    .piano-mat-cards { grid-template-columns:1fr; gap:14px; }
+    .piano-mat-card-primary { padding:28px 24px 24px; }
+    .piano-mat-card-amount { font-size:2rem; }
+    .piano-mat-card-amount-md { font-size:1.35rem; }
 }
 
 /* --- C) Audit areas grid --- */

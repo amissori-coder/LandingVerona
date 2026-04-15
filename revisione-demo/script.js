@@ -245,7 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
     //   1. User picks one or more reference parameters via checkbox
     //   2. For each picked row:
     //        materiality_i = valore_bilancio_stimato * (pct / 100)
-    //   3. Materialità = average of the picked materiality_i values
+    //      (displayed live in the "Materialità di riga" column)
+    //   3. Materialità = average of the materiality_i values of selected rows
     //   4. Materialità operativa = Materialità * (op_pct / 100)   [65–85%]
     //   5. Errore trascurabile   = Materialità * (err_pct / 100)  [5–15%]
     // All numbers display in Italian format (1.234.567).
@@ -255,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totEl = document.getElementById('pianoMatTot');
         const opEl = document.getElementById('pianoMatOp');
         const errEl = document.getElementById('pianoMatErr');
+        const countEl = document.getElementById('pianoMatCount');
         const opPctInput = document.querySelector('.piano-mat-op-pct');
         const errPctInput = document.querySelector('.piano-mat-err-pct');
         if (!rows.length || !totEl || !opPctInput || !errPctInput) return;
@@ -262,63 +264,84 @@ document.addEventListener('DOMContentLoaded', () => {
         // ---------- Italian number parsing / formatting ----------
         const parseItNumber = (str) => {
             if (str == null) return 0;
-            // Strip non-digit / non-separator, keep , and .
             const cleaned = String(str).replace(/[^0-9,.\-]/g, '').trim();
             if (!cleaned) return 0;
-            // If both separators present, the last one is the decimal separator
             const lastComma = cleaned.lastIndexOf(',');
             const lastDot = cleaned.lastIndexOf('.');
             let normalized;
             if (lastComma === -1 && lastDot === -1) {
                 normalized = cleaned;
             } else if (lastComma > lastDot) {
-                // comma is decimal separator → remove dots (thousands)
                 normalized = cleaned.replace(/\./g, '').replace(',', '.');
             } else {
-                // dot is decimal separator → remove commas (thousands)
                 normalized = cleaned.replace(/,/g, '');
             }
             const n = parseFloat(normalized);
             return isFinite(n) ? n : 0;
         };
 
-        const formatIntIt = (n) =>
-            Math.round(n).toLocaleString('it-IT');
-        const formatEur = (n) =>
-            '\u20AC\u00A0' + formatIntIt(n);
+        const formatIntIt = (n) => Math.round(n).toLocaleString('it-IT');
+        const formatEur = (n) => '\u20AC\u00A0' + formatIntIt(n);
         const formatDec2 = (n) =>
             n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // ---------- Clamp helpers ----------
         const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+        // ---------- Flash animation for result amounts ----------
+        const prevValues = { tot: null, op: null, err: null };
+        const flash = (el) => {
+            el.classList.remove('is-flashing');
+            void el.offsetWidth; // force reflow
+            el.classList.add('is-flashing');
+        };
 
         // ---------- Core calculation ----------
         function recompute() {
             const selectedMaterialities = [];
+
             rows.forEach((row) => {
                 const checkbox = row.querySelector('input[type="checkbox"]');
-                const isChecked = checkbox.checked;
-                row.classList.toggle('is-unchecked', !isChecked);
-                if (!isChecked) return;
+                const resultEl = row.querySelector('[data-row-result]');
                 const pctEl = row.querySelector('.piano-mat-pct');
                 const valEl = row.querySelector('.piano-mat-val');
+                const isChecked = checkbox.checked;
+                row.classList.toggle('is-unchecked', !isChecked);
+
+                if (!isChecked) {
+                    if (resultEl) resultEl.innerHTML = '&mdash;';
+                    return;
+                }
+
                 const pct = parseItNumber(pctEl.value);
                 const val = parseItNumber(valEl.value);
                 if (val > 0 && pct > 0) {
-                    selectedMaterialities.push(val * (pct / 100));
+                    const rowMat = val * (pct / 100);
+                    selectedMaterialities.push(rowMat);
+                    if (resultEl) resultEl.textContent = formatEur(rowMat);
+                } else {
+                    if (resultEl) resultEl.innerHTML = '&mdash;';
                 }
             });
 
-            const materialita = selectedMaterialities.length
-                ? selectedMaterialities.reduce((s, m) => s + m, 0) / selectedMaterialities.length
+            const n = selectedMaterialities.length;
+            const materialita = n
+                ? selectedMaterialities.reduce((s, m) => s + m, 0) / n
                 : 0;
 
             const opPct = clamp(parseItNumber(opPctInput.value), 0, 100);
             const errPct = clamp(parseItNumber(errPctInput.value), 0, 100);
 
-            totEl.textContent = formatEur(materialita);
-            opEl.textContent = formatEur(materialita * (opPct / 100));
-            errEl.textContent = formatEur(materialita * (errPct / 100));
+            // Update averaging badge
+            if (countEl) countEl.textContent = n || '0';
+
+            // Update result cards with flash animation on change
+            const newTot = formatEur(materialita);
+            const newOp  = formatEur(materialita * (opPct / 100));
+            const newErr = formatEur(materialita * (errPct / 100));
+
+            if (newTot !== prevValues.tot) { totEl.textContent = newTot; flash(totEl); prevValues.tot = newTot; }
+            if (newOp  !== prevValues.op)  { opEl.textContent  = newOp;  flash(opEl);  prevValues.op  = newOp;  }
+            if (newErr !== prevValues.err) { errEl.textContent = newErr; flash(errEl); prevValues.err = newErr; }
         }
 
         // ---------- Event wiring ----------
@@ -353,6 +376,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Initial paint: seed prevValues so the initial render doesn't flash
+        prevValues.tot = totEl.textContent;
+        prevValues.op  = opEl.textContent;
+        prevValues.err = errEl.textContent;
         recompute();
     })();
 
