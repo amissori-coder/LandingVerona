@@ -241,45 +241,119 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ==========================================
     // PIANO DI REVISIONE — Materiality calculator
+    // Model:
+    //   1. User picks one or more reference parameters via checkbox
+    //   2. For each picked row:
+    //        materiality_i = valore_bilancio_stimato * (pct / 100)
+    //   3. Materialità = average of the picked materiality_i values
+    //   4. Materialità operativa = Materialità * (op_pct / 100)   [65–85%]
+    //   5. Errore trascurabile   = Materialità * (err_pct / 100)  [5–15%]
+    // All numbers display in Italian format (1.234.567).
     // ==========================================
     (function initPianoMateriality() {
-        const params = document.querySelectorAll('.piano-param');
-        const amountEl = document.getElementById('pianoMaterialityAmount');
-        const selParamEl = document.getElementById('pianoSelectedParam');
-        const selPctEl = document.getElementById('pianoSelectedPct');
-        if (!params.length || !amountEl) return;
+        const rows = document.querySelectorAll('#pianoMatBody .piano-mat-row');
+        const totEl = document.getElementById('pianoMatTot');
+        const opEl = document.getElementById('pianoMatOp');
+        const errEl = document.getElementById('pianoMatErr');
+        const opPctInput = document.querySelector('.piano-mat-op-pct');
+        const errPctInput = document.querySelector('.piano-mat-err-pct');
+        if (!rows.length || !totEl || !opPctInput || !errPctInput) return;
 
-        const PARAM_LABELS = {
-            ricavi: 'Ricavi',
-            attivo: 'Totale attivo',
-            patrimonio: 'Patrimonio netto',
-            utile: 'Utile ante imposte'
+        // ---------- Italian number parsing / formatting ----------
+        const parseItNumber = (str) => {
+            if (str == null) return 0;
+            // Strip non-digit / non-separator, keep , and .
+            const cleaned = String(str).replace(/[^0-9,.\-]/g, '').trim();
+            if (!cleaned) return 0;
+            // If both separators present, the last one is the decimal separator
+            const lastComma = cleaned.lastIndexOf(',');
+            const lastDot = cleaned.lastIndexOf('.');
+            let normalized;
+            if (lastComma === -1 && lastDot === -1) {
+                normalized = cleaned;
+            } else if (lastComma > lastDot) {
+                // comma is decimal separator → remove dots (thousands)
+                normalized = cleaned.replace(/\./g, '').replace(',', '.');
+            } else {
+                // dot is decimal separator → remove commas (thousands)
+                normalized = cleaned.replace(/,/g, '');
+            }
+            const n = parseFloat(normalized);
+            return isFinite(n) ? n : 0;
         };
 
-        const formatEur = (n) => '€\u00A0' + Math.round(n).toLocaleString('it-IT');
-        const formatPct = (p) => p.toString().replace('.', ',') + '%';
+        const formatIntIt = (n) =>
+            Math.round(n).toLocaleString('it-IT');
+        const formatEur = (n) =>
+            '\u20AC\u00A0' + formatIntIt(n);
+        const formatDec2 = (n) =>
+            n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        function activate(btn) {
-            params.forEach((p) => {
-                p.classList.remove('active');
-                p.setAttribute('aria-checked', 'false');
+        // ---------- Clamp helpers ----------
+        const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+        // ---------- Core calculation ----------
+        function recompute() {
+            const selectedMaterialities = [];
+            rows.forEach((row) => {
+                const checkbox = row.querySelector('input[type="checkbox"]');
+                const isChecked = checkbox.checked;
+                row.classList.toggle('is-unchecked', !isChecked);
+                if (!isChecked) return;
+                const pctEl = row.querySelector('.piano-mat-pct');
+                const valEl = row.querySelector('.piano-mat-val');
+                const pct = parseItNumber(pctEl.value);
+                const val = parseItNumber(valEl.value);
+                if (val > 0 && pct > 0) {
+                    selectedMaterialities.push(val * (pct / 100));
+                }
             });
-            btn.classList.add('active');
-            btn.setAttribute('aria-checked', 'true');
 
-            const value = parseFloat(btn.dataset.value);
-            const pct = parseFloat(btn.dataset.pct);
-            const paramKey = btn.dataset.param;
-            const materiality = value * (pct / 100);
+            const materialita = selectedMaterialities.length
+                ? selectedMaterialities.reduce((s, m) => s + m, 0) / selectedMaterialities.length
+                : 0;
 
-            amountEl.textContent = formatEur(materiality);
-            selParamEl.textContent = PARAM_LABELS[paramKey] || paramKey;
-            selPctEl.textContent = formatPct(pct);
+            const opPct = clamp(parseItNumber(opPctInput.value), 0, 100);
+            const errPct = clamp(parseItNumber(errPctInput.value), 0, 100);
+
+            totEl.textContent = formatEur(materialita);
+            opEl.textContent = formatEur(materialita * (opPct / 100));
+            errEl.textContent = formatEur(materialita * (errPct / 100));
         }
 
-        params.forEach((btn) => {
-            btn.addEventListener('click', () => activate(btn));
+        // ---------- Event wiring ----------
+        rows.forEach((row) => {
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            checkbox.addEventListener('change', recompute);
+
+            const valInput = row.querySelector('.piano-mat-val');
+            const pctInput = row.querySelector('.piano-mat-pct');
+
+            valInput.addEventListener('input', recompute);
+            valInput.addEventListener('blur', () => {
+                const n = parseItNumber(valInput.value);
+                valInput.value = n > 0 ? formatIntIt(n) : '';
+                recompute();
+            });
+
+            pctInput.addEventListener('input', recompute);
+            pctInput.addEventListener('blur', () => {
+                const n = parseItNumber(pctInput.value);
+                pctInput.value = n > 0 ? formatDec2(n) : '';
+                recompute();
+            });
         });
+
+        [opPctInput, errPctInput].forEach((input) => {
+            input.addEventListener('input', recompute);
+            input.addEventListener('blur', () => {
+                const n = parseItNumber(input.value);
+                input.value = n > 0 ? formatDec2(n) : '';
+                recompute();
+            });
+        });
+
+        recompute();
     })();
 
     // ==========================================

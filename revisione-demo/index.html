@@ -432,82 +432,184 @@
             </div>
 
             <!-- ============================================
-                 B) MATERIALITY CALCULATOR — interactive parameter selector
+                 B) MATERIALITY CALCULATOR — multi-parameter table
                  ============================================ -->
             <div class="piano-materialita">
                 <div class="piano-materialita-header">
-                    <div>
-                        <span class="piano-eyebrow">Materialità operativa pianificata</span>
-                        <h3>Dal parametro di riferimento alla soglia di significatività</h3>
-                        <p>La materialità definisce la soglia oltre la quale un errore è considerato significativo. Seleziona un parametro di riferimento per vedere come cambia la soglia. I valori di esempio sono quelli del bilancio di una GDO di medie dimensioni.</p>
+                    <span class="piano-eyebrow">Materialità operativa pianificata</span>
+                    <h3>Dal parametro di riferimento alla soglia di significatività</h3>
+                    <p>La materialità definisce la soglia oltre la quale un errore è considerato significativo. Seleziona uno o più parametri di riferimento, imposta la percentuale prescelta (nel range IFAC-CNDCEC) e il valore di bilancio stimato: la materialità pianificata viene calcolata come media dei parametri selezionati, con successive soglie per la materialità operativa e per l'errore trascurabile.</p>
+                </div>
+
+                <!-- Top table: parameter selection -->
+                <div class="piano-mat-table" role="table" aria-label="Calcolo della materialità">
+                    <div class="piano-mat-thead">
+                        <div class="piano-mat-group piano-mat-group-param">Parametri scelti</div>
+                        <div class="piano-mat-group piano-mat-group-pct">Percentuale</div>
+                        <div class="piano-mat-group piano-mat-group-val">Pianificata (pre-bilancio)</div>
+
+                        <div class="piano-mat-subh piano-mat-col-check">Scelta</div>
+                        <div class="piano-mat-subh piano-mat-col-name">Parametri</div>
+                        <div class="piano-mat-subh piano-mat-col-ifac">IFAC · CNDCEC</div>
+                        <div class="piano-mat-subh piano-mat-col-pctin">Scelta</div>
+                        <div class="piano-mat-subh piano-mat-col-valin">Valore bilancio stimato</div>
+                    </div>
+
+                    <div class="piano-mat-tbody" id="pianoMatBody">
+                        <div class="piano-mat-row" data-row="tot-att" data-ifac-min="1" data-ifac-max="3">
+                            <div class="piano-mat-col-check">
+                                <label class="piano-mat-checkbox">
+                                    <input type="checkbox" checked>
+                                    <span class="piano-mat-checkbox-ui" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="piano-mat-col-name">Totale attività</div>
+                            <div class="piano-mat-col-ifac">1% &ndash; 3%</div>
+                            <div class="piano-mat-col-pctin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-pct" value="1,78" inputmode="decimal">
+                                    <span class="piano-mat-suffix">%</span>
+                                </div>
+                            </div>
+                            <div class="piano-mat-col-valin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-val" value="11.609.327" inputmode="numeric">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="piano-mat-row" data-row="patr-netto" data-ifac-min="3" data-ifac-max="5">
+                            <div class="piano-mat-col-check">
+                                <label class="piano-mat-checkbox">
+                                    <input type="checkbox">
+                                    <span class="piano-mat-checkbox-ui" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="piano-mat-col-name">Patrimonio netto</div>
+                            <div class="piano-mat-col-ifac">3% &ndash; 5%</div>
+                            <div class="piano-mat-col-pctin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-pct" value="4,00" inputmode="decimal">
+                                    <span class="piano-mat-suffix">%</span>
+                                </div>
+                            </div>
+                            <div class="piano-mat-col-valin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-val" value="1.850.000" inputmode="numeric">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="piano-mat-row" data-row="ricavi" data-ifac-min="1" data-ifac-max="3">
+                            <div class="piano-mat-col-check">
+                                <label class="piano-mat-checkbox">
+                                    <input type="checkbox" checked>
+                                    <span class="piano-mat-checkbox-ui" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="piano-mat-col-name">Ricavi &middot; Valore della produzione</div>
+                            <div class="piano-mat-col-ifac">1% &ndash; 3%</div>
+                            <div class="piano-mat-col-pctin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-pct" value="1,78" inputmode="decimal">
+                                    <span class="piano-mat-suffix">%</span>
+                                </div>
+                            </div>
+                            <div class="piano-mat-col-valin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-val" value="2.991.085" inputmode="numeric">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="piano-mat-row" data-row="ris-op" data-ifac-min="3" data-ifac-max="7">
+                            <div class="piano-mat-col-check">
+                                <label class="piano-mat-checkbox">
+                                    <input type="checkbox">
+                                    <span class="piano-mat-checkbox-ui" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="piano-mat-col-name">Risultato operativo</div>
+                            <div class="piano-mat-col-ifac">3% &ndash; 7%</div>
+                            <div class="piano-mat-col-pctin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-pct" value="5,00" inputmode="decimal">
+                                    <span class="piano-mat-suffix">%</span>
+                                </div>
+                            </div>
+                            <div class="piano-mat-col-valin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-val" value="520.000" inputmode="numeric">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="piano-mat-row" data-row="ris-netto" data-ifac-min="3" data-ifac-max="7">
+                            <div class="piano-mat-col-check">
+                                <label class="piano-mat-checkbox">
+                                    <input type="checkbox">
+                                    <span class="piano-mat-checkbox-ui" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="piano-mat-col-name">Risultato netto</div>
+                            <div class="piano-mat-col-ifac">3% &ndash; 7%</div>
+                            <div class="piano-mat-col-pctin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-pct" value="5,00" inputmode="decimal">
+                                    <span class="piano-mat-suffix">%</span>
+                                </div>
+                            </div>
+                            <div class="piano-mat-col-valin">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-val" value="380.000" inputmode="numeric">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="piano-materialita-grid">
-                    <div class="piano-params" role="radiogroup" aria-label="Parametro di riferimento">
-                        <button class="piano-param active" data-param="ricavi" data-value="260407287" data-pct="0.75" role="radio" aria-checked="true">
-                            <div class="piano-param-label">
-                                <span class="piano-param-dot"></span>
-                                Ricavi delle vendite
-                            </div>
-                            <div class="piano-param-value">&euro; 260.407.287</div>
-                            <div class="piano-param-meta">percentuale tipica <strong>0,5% &ndash; 1%</strong></div>
-                            <div class="piano-param-bar"><div class="piano-param-bar-fill" style="width:100%"></div></div>
-                        </button>
-                        <button class="piano-param" data-param="attivo" data-value="117575506" data-pct="2" role="radio" aria-checked="false">
-                            <div class="piano-param-label">
-                                <span class="piano-param-dot"></span>
-                                Totale attivo
-                            </div>
-                            <div class="piano-param-value">&euro; 117.575.506</div>
-                            <div class="piano-param-meta">percentuale tipica <strong>1% &ndash; 2%</strong></div>
-                            <div class="piano-param-bar"><div class="piano-param-bar-fill" style="width:45%"></div></div>
-                        </button>
-                        <button class="piano-param" data-param="patrimonio" data-value="43163290" data-pct="5" role="radio" aria-checked="false">
-                            <div class="piano-param-label">
-                                <span class="piano-param-dot"></span>
-                                Patrimonio netto
-                            </div>
-                            <div class="piano-param-value">&euro; 43.163.290</div>
-                            <div class="piano-param-meta">percentuale tipica <strong>2% &ndash; 5%</strong></div>
-                            <div class="piano-param-bar"><div class="piano-param-bar-fill" style="width:17%"></div></div>
-                        </button>
-                        <button class="piano-param" data-param="utile" data-value="8252990" data-pct="5" role="radio" aria-checked="false">
-                            <div class="piano-param-label">
-                                <span class="piano-param-dot"></span>
-                                Utile ante imposte
-                            </div>
-                            <div class="piano-param-value">&euro; 8.252.990</div>
-                            <div class="piano-param-meta">percentuale tipica <strong>5% &ndash; 10%</strong></div>
-                            <div class="piano-param-bar"><div class="piano-param-bar-fill" style="width:3%"></div></div>
-                        </button>
+                <!-- Result table: materiality levels -->
+                <div class="piano-mat-result" role="table" aria-label="Valori di materialità">
+                    <div class="piano-mat-result-head">
+                        <div class="piano-mat-result-title">Valore della materialità &middot; significatività</div>
+                        <div class="piano-mat-result-hpct">%</div>
+                        <div class="piano-mat-result-hval">Pianificata</div>
                     </div>
-
-                    <div class="piano-materialita-result" aria-live="polite">
-                        <div class="piano-result-eyebrow">Soglia calcolata</div>
-                        <div class="piano-result-amount" id="pianoMaterialityAmount">&euro; 1.953.055</div>
-                        <div class="piano-result-formula">
-                            <span id="pianoMaterialityFormula">
-                                <strong id="pianoSelectedParam">Ricavi</strong>
-                                &nbsp;&times;&nbsp;
-                                <strong id="pianoSelectedPct">0,75%</strong>
-                            </span>
+                    <div class="piano-mat-result-body">
+                        <div class="piano-mat-result-row piano-mat-result-row-primary">
+                            <div class="piano-mat-result-label">
+                                <strong>Materialità</strong>
+                                <span class="piano-mat-result-sub">media dei parametri selezionati</span>
+                            </div>
+                            <div class="piano-mat-result-pct">&mdash;</div>
+                            <div class="piano-mat-result-amount" id="pianoMatTot" aria-live="polite">&euro;&nbsp;129.944</div>
                         </div>
-                        <div class="piano-result-divider"></div>
-                        <dl class="piano-result-meta">
-                            <div>
-                                <dt>Rischio incarico</dt>
-                                <dd><span class="piano-risk piano-risk-medio">Medio</span></dd>
+                        <div class="piano-mat-result-row">
+                            <div class="piano-mat-result-label">
+                                <strong>Materialità operativa</strong>
+                                <span class="piano-mat-result-sub">valore suggerito 65% &ndash; 85%</span>
                             </div>
-                            <div>
-                                <dt>Principi di riferimento</dt>
-                                <dd>ISA Italia &middot; ODCEC</dd>
+                            <div class="piano-mat-result-pct">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-op-pct" value="65,00" inputmode="decimal" aria-label="Percentuale materialità operativa">
+                                    <span class="piano-mat-suffix">%</span>
+                                </div>
                             </div>
-                            <div>
-                                <dt>Ore base (CNDCEC)</dt>
-                                <dd><strong>680 h</strong> <span class="piano-result-annot">dopo rettifiche di settore</span></dd>
+                            <div class="piano-mat-result-amount" id="pianoMatOp" aria-live="polite">&euro;&nbsp;84.463</div>
+                        </div>
+                        <div class="piano-mat-result-row">
+                            <div class="piano-mat-result-label">
+                                <strong>Errore trascurabile</strong>
+                                <span class="piano-mat-result-sub">valore suggerito 5% &ndash; 15%</span>
                             </div>
-                        </dl>
+                            <div class="piano-mat-result-pct">
+                                <div class="piano-mat-input-wrap">
+                                    <input type="text" class="piano-mat-input piano-mat-err-pct" value="5,00" inputmode="decimal" aria-label="Percentuale errore trascurabile">
+                                    <span class="piano-mat-suffix">%</span>
+                                </div>
+                            </div>
+                            <div class="piano-mat-result-amount" id="pianoMatErr" aria-live="polite">&euro;&nbsp;6.497</div>
+                        </div>
                     </div>
                 </div>
             </div>
