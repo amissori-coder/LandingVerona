@@ -262,20 +262,54 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!rows.length || !totEl || !opPctInput || !errPctInput) return;
 
         // ---------- Italian number parsing / formatting ----------
+        // Handles Italian (1.234.567,89) and English (1,234,567.89) formats
+        // as well as plain integers and single-decimal values.
         const parseItNumber = (str) => {
             if (str == null) return 0;
             const cleaned = String(str).replace(/[^0-9,.\-]/g, '').trim();
             if (!cleaned) return 0;
-            const lastComma = cleaned.lastIndexOf(',');
-            const lastDot = cleaned.lastIndexOf('.');
+
+            const hasComma = cleaned.indexOf(',') !== -1;
+            const hasDot = cleaned.indexOf('.') !== -1;
             let normalized;
-            if (lastComma === -1 && lastDot === -1) {
-                normalized = cleaned;
-            } else if (lastComma > lastDot) {
-                normalized = cleaned.replace(/\./g, '').replace(',', '.');
+
+            if (hasComma && hasDot) {
+                // Both present: the LAST one is the decimal separator
+                const lastComma = cleaned.lastIndexOf(',');
+                const lastDot = cleaned.lastIndexOf('.');
+                if (lastComma > lastDot) {
+                    // Italian: "1.234.567,89" → dots are thousands
+                    normalized = cleaned.replace(/\./g, '').replace(',', '.');
+                } else {
+                    // English: "1,234,567.89" → commas are thousands
+                    normalized = cleaned.replace(/,/g, '');
+                }
+            } else if (hasComma) {
+                // Only comma(s): Italian decimal OR English thousands.
+                // Multiple commas → thousands; single comma → decimal (Italian).
+                const commaCount = (cleaned.match(/,/g) || []).length;
+                normalized = commaCount > 1
+                    ? cleaned.replace(/,/g, '')
+                    : cleaned.replace(',', '.');
+            } else if (hasDot) {
+                // Only dot(s): multiple dots → thousands (Italian "1.234.567").
+                // Single dot with exactly 3 digits after → thousands ("1.234").
+                // Single dot otherwise → decimal ("1.78", "0.5").
+                const dotCount = (cleaned.match(/\./g) || []).length;
+                if (dotCount > 1) {
+                    normalized = cleaned.replace(/\./g, '');
+                } else {
+                    const parts = cleaned.split('.');
+                    if (parts.length === 2 && parts[1].length === 3 && parts[0].length > 0) {
+                        normalized = parts.join('');
+                    } else {
+                        normalized = cleaned;
+                    }
+                }
             } else {
-                normalized = cleaned.replace(/,/g, '');
+                normalized = cleaned;
             }
+
             const n = parseFloat(normalized);
             return isFinite(n) ? n : 0;
         };
@@ -381,6 +415,353 @@ document.addEventListener('DOMContentLoaded', () => {
         prevValues.op  = opEl.textContent;
         prevValues.err = errEl.textContent;
         recompute();
+    })();
+
+    // ==========================================
+    // PIANO DI REVISIONE — Audit areas cube matrix
+    // 20 balance areas rendered as a grid of interactive cubes.
+    // Clicking (or focusing) a cube updates the detail panel below
+    // with assertions, audit procedures and main risks.
+    // ==========================================
+    (function initPianoAreas() {
+        const matrix = document.getElementById('pianoAreeMatrix');
+        const detailIcon = document.getElementById('pianoAreaDetailIcon');
+        const detailName = document.getElementById('pianoAreaDetailName');
+        const detailChips = document.getElementById('pianoAreaDetailChips');
+        const detailProcedures = document.getElementById('pianoAreaDetailProcedures');
+        const detailRisks = document.getElementById('pianoAreaDetailRisks');
+        if (!matrix || !detailName) return;
+        // Idempotent: skip if already populated
+        if (matrix.querySelector('.piano-cube')) return;
+
+        // Inline SVG factory — avoids repeating the same wrapper attributes
+        const svg = (path) =>
+            `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+
+        const AREAS = [
+            {
+                id: 'rimanenze',
+                name: 'Rimanenze',
+                icon: svg('<path d="M20 7 12 3 4 7v10l8 4 8-4z"/><path d="M12 12 4 7"/><path d="m12 12 8-5"/><path d="M12 12v9"/>'),
+                asserzioni: ['Esistenza', 'Completezza', 'Valutazione', 'Diritti'],
+                procedure: [
+                    'Partecipazione alla rilevazione fisica e conteggio a campione',
+                    'Verifica del valore al minore tra costo e valore di mercato',
+                    'Analisi della rotazione e dell\u2019obsolescenza delle scorte',
+                    'Riconciliazione tra magazzino contabile e fisico'
+                ],
+                rischi: ['Obsolescenza o danneggiamento', 'Furti e ammanchi', 'Valutazione sovrastimata']
+            },
+            {
+                id: 'crediti',
+                name: 'Crediti vs clienti',
+                icon: svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>'),
+                asserzioni: ['Esistenza', 'Completezza', 'Valutazione', 'Classificazione'],
+                procedure: [
+                    'Circolarizzazione di un campione di clienti',
+                    'Analisi dell\u2019anzianit\u00E0 dei crediti (aging)',
+                    'Verifica della congruit\u00E0 del fondo svalutazione',
+                    'Test di cut-off su fatture di fine esercizio'
+                ],
+                rischi: ['Insolvenza dei clienti', 'Ricavi fittizi', 'Sopravvalutazione dei crediti']
+            },
+            {
+                id: 'immob-mat',
+                name: 'Immobilizzazioni materiali',
+                icon: svg('<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01"/><path d="M9 12v.01"/><path d="M9 15v.01"/><path d="M9 18v.01"/>'),
+                asserzioni: ['Esistenza', 'Diritti', 'Valutazione', 'Completezza'],
+                procedure: [
+                    'Verifica dei titoli di propriet\u00E0 e dei contratti',
+                    'Ricalcolo degli ammortamenti e vita utile',
+                    'Test di impairment e verifica indicatori',
+                    'Ispezione fisica dei cespiti significativi'
+                ],
+                rischi: ['Capitalizzazioni non giustificate', 'Vita utile sovrastimata', 'Mancata svalutazione']
+            },
+            {
+                id: 'immob-imm',
+                name: 'Immobilizzazioni immateriali',
+                icon: svg('<path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/>'),
+                asserzioni: ['Esistenza', 'Valutazione', 'Diritti'],
+                procedure: [
+                    'Verifica della capitalizzabilit\u00E0 di costi sviluppo',
+                    'Ricalcolo ammortamenti e periodo di riferimento',
+                    'Impairment test su avviamento e marchi',
+                    'Revisione della documentazione di supporto'
+                ],
+                rischi: ['Avviamento non recuperabile', 'Capitalizzazione di costi operativi', 'Stime discrezionali']
+            },
+            {
+                id: 'partecipazioni',
+                name: 'Partecipazioni',
+                icon: svg('<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'),
+                asserzioni: ['Esistenza', 'Diritti', 'Valutazione'],
+                procedure: [
+                    'Esame del bilancio delle societ\u00E0 partecipate',
+                    'Verifica del metodo di valutazione (costo o PN)',
+                    'Impairment test su partecipazioni significative',
+                    'Analisi dei flussi di cassa attesi'
+                ],
+                rischi: ['Perdite durevoli non rilevate', 'Valutazione al costo non giustificata', 'Transazioni infragruppo']
+            },
+            {
+                id: 'disponibilita',
+                name: 'Disponibilit\u00E0 liquide',
+                icon: svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="14" r="1.5"/>'),
+                asserzioni: ['Esistenza', 'Completezza', 'Classificazione', 'Diritti'],
+                procedure: [
+                    'Richiesta di conferma saldi alle banche',
+                    'Verifica riconciliazioni bancarie di fine periodo',
+                    'Conteggio fisico del contante in cassa',
+                    'Analisi dei movimenti successivi alla chiusura'
+                ],
+                rischi: ['Ammanchi di cassa', 'Firme non autorizzate', 'Conti non dichiarati']
+            },
+            {
+                id: 'debiti-comm',
+                name: 'Debiti commerciali',
+                icon: svg('<path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h12"/><path d="m17 15-3 3 3 3"/>'),
+                asserzioni: ['Completezza', 'Valutazione', 'Classificazione', 'Cut-off'],
+                procedure: [
+                    'Conferma esterna dei saldi con i fornitori',
+                    'Test di completezza (ricerca debiti non registrati)',
+                    'Verifica cut-off su fatture da ricevere',
+                    'Analisi dell\u2019anzianit\u00E0 e dei tempi di pagamento'
+                ],
+                rischi: ['Debiti sottostimati', 'Fatture da ricevere omesse', 'Passivit\u00E0 nascoste']
+            },
+            {
+                id: 'debiti-fin',
+                name: 'Debiti finanziari',
+                icon: svg('<path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
+                asserzioni: ['Completezza', 'Valutazione', 'Classificazione'],
+                procedure: [
+                    'Conferma esterna ai finanziatori',
+                    'Verifica del rispetto dei covenant',
+                    'Ricalcolo degli interessi passivi maturati',
+                    'Analisi del piano di rimborso e delle scadenze'
+                ],
+                rischi: ['Rottura di covenant', 'Errata classificazione corrente/non corrente', 'Interessi non contabilizzati']
+            },
+            {
+                id: 'debiti-trib',
+                name: 'Debiti tributari',
+                icon: svg('<path d="M4 10h16"/><path d="M4 14h16"/><path d="M9 6h6"/><path d="M9 18h6"/><rect x="3" y="6" width="18" height="12" rx="1"/>'),
+                asserzioni: ['Completezza', 'Accuratezza', 'Valutazione'],
+                procedure: [
+                    'Riscontro con dichiarazioni fiscali e F24',
+                    'Verifica delle ritenute operate e versate',
+                    'Analisi dei contenziosi tributari in essere',
+                    'Ricalcolo delle imposte correnti dell\u2019esercizio'
+                ],
+                rischi: ['Contenziosi fiscali', 'Omessi versamenti', 'Sanzioni e interessi non rilevati']
+            },
+            {
+                id: 'tfr',
+                name: 'TFR e fondi personale',
+                icon: svg('<circle cx="12" cy="8" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>'),
+                asserzioni: ['Completezza', 'Valutazione'],
+                procedure: [
+                    'Ricalcolo analitico del fondo TFR per dipendente',
+                    'Verifica dei movimenti dell\u2019esercizio (anticipi, liquidazioni)',
+                    'Riscontro con LUL e cedolini paga',
+                    'Confronto con le risultanze del consulente del lavoro'
+                ],
+                rischi: ['Errato ricalcolo OIC 31', 'Movimenti non contabilizzati', 'Stime attuariali discrezionali']
+            },
+            {
+                id: 'fondi-rischi',
+                name: 'Fondi per rischi e oneri',
+                icon: svg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/>'),
+                asserzioni: ['Completezza', 'Valutazione', 'Classificazione'],
+                procedure: [
+                    'Richiesta ai legali sulle cause in corso',
+                    'Analisi delle stime e delle probabilit\u00E0 di esborso',
+                    'Verifica movimenti (accantonamenti, utilizzi, rilasci)',
+                    'Valutazione della sufficienza delle informazioni in NI'
+                ],
+                rischi: ['Passivit\u00E0 potenziali non rilevate', 'Stime insufficienti', 'Contenziosi non comunicati']
+            },
+            {
+                id: 'ratei',
+                name: 'Ratei e risconti',
+                icon: svg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
+                asserzioni: ['Completezza', 'Accuratezza', 'Cut-off'],
+                procedure: [
+                    'Verifica di competenza economica (OIC 18)',
+                    'Ricalcolo su contratti pluriennali',
+                    'Analisi delle poste di cut-off a cavallo esercizio',
+                    'Riconciliazione con i partitari contabili'
+                ],
+                rischi: ['Errata competenza economica', 'Poste omesse', 'Duplicazioni con fatture emesse/ricevute']
+            },
+            {
+                id: 'patrimonio',
+                name: 'Patrimonio netto',
+                icon: svg('<path d="M12 2 2 22h20z"/><path d="M12 8v6"/><circle cx="12" cy="17" r="1"/>'),
+                asserzioni: ['Completezza', 'Valutazione', 'Classificazione'],
+                procedure: [
+                    'Verifica dei verbali assembleari e del CdA',
+                    'Riscontro delle variazioni con atti notarili',
+                    'Analisi della destinazione dell\u2019utile d\u2019esercizio',
+                    'Controllo dei vincoli su riserve'
+                ],
+                rischi: ['Distribuzione di riserve non distribuibili', 'Errata classificazione riserve', 'Operazioni straordinarie']
+            },
+            {
+                id: 'ricavi',
+                name: 'Ricavi',
+                icon: svg('<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>'),
+                asserzioni: ['Occorrenza', 'Completezza', 'Accuratezza', 'Cut-off'],
+                procedure: [
+                    'Test documentale su campione (DDT, fatture, contratti)',
+                    'Analisi comparativa con dati storici e budget',
+                    'Test di cut-off a cavallo esercizio',
+                    'Verifica resi, abbuoni e sconti sui volumi'
+                ],
+                rischi: ['Ricavi fittizi o anticipati', 'Side letter non disclosed', 'Errata applicazione OIC 15']
+            },
+            {
+                id: 'costi',
+                name: 'Costi della produzione',
+                icon: svg('<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>'),
+                asserzioni: ['Occorrenza', 'Completezza', 'Classificazione', 'Cut-off'],
+                procedure: [
+                    'Test documentale su campione fatture passive',
+                    'Analisi per natura e per destinazione',
+                    'Cut-off sulle prestazioni di fine esercizio',
+                    'Verifica di competenza di costi pluriennali'
+                ],
+                rischi: ['Costi non competenza', 'Classificazione errata', 'Omissione di costi per rettifiche indebite']
+            },
+            {
+                id: 'oneri-fin',
+                name: 'Proventi e oneri finanziari',
+                icon: svg('<path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/>'),
+                asserzioni: ['Completezza', 'Accuratezza', 'Classificazione'],
+                procedure: [
+                    'Ricalcolo degli interessi attivi/passivi',
+                    'Verifica degli effetti cambio su poste in valuta',
+                    'Analisi dei derivati di copertura',
+                    'Riconciliazione con estratti conto bancari'
+                ],
+                rischi: ['Interessi omessi', 'Differenze cambio errate', 'Derivati speculativi non disclosed']
+            },
+            {
+                id: 'imposte',
+                name: 'Imposte correnti e differite',
+                icon: svg('<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h5"/><path d="M14 18h2"/>'),
+                asserzioni: ['Completezza', 'Accuratezza', 'Valutazione'],
+                procedure: [
+                    'Ricalcolo della base imponibile IRES/IRAP',
+                    'Verifica del prospetto di raccordo civilistico-fiscale',
+                    'Analisi della recuperabilit\u00E0 delle imposte differite attive',
+                    'Riscontro con le dichiarazioni dei redditi'
+                ],
+                rischi: ['Imposte differite non recuperabili', 'Errata base imponibile', 'Mancato rispetto OIC 25']
+            },
+            {
+                id: 'parti-correlate',
+                name: 'Parti correlate',
+                icon: svg('<circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="17" cy="7" r="4"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/>'),
+                asserzioni: ['Completezza', 'Occorrenza', 'Informativa'],
+                procedure: [
+                    'Mappatura delle parti correlate tramite dichiarazione',
+                    'Verifica delle transazioni a condizioni di mercato',
+                    'Lettura delle informative in nota integrativa',
+                    'Controllo dei saldi infragruppo'
+                ],
+                rischi: ['Transazioni non at arm\u2019s length', 'Mancata disclosure', 'Trasferimenti di valore nascosti']
+            },
+            {
+                id: 'fatti-succ',
+                name: 'Fatti successivi',
+                icon: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="15" r="2"/>'),
+                asserzioni: ['Occorrenza', 'Completezza', 'Cut-off'],
+                procedure: [
+                    'Lettura verbali assembleari post-chiusura',
+                    'Richiesta informazioni alla direzione',
+                    'Analisi della stampa di settore successiva',
+                    'Review dei movimenti bancari successivi'
+                ],
+                rischi: ['Eventi rettificativi omessi', 'Eventi non rettificativi senza disclosure', 'Modifiche al going concern']
+            },
+            {
+                id: 'continuita',
+                name: 'Continuit\u00E0 aziendale',
+                icon: svg('<path d="M12 2v6"/><path d="M12 22v-6"/><path d="m4.22 10.22 4.24 4.24"/><path d="m15.54 9.46 4.24-4.24"/><path d="M2 12h6"/><path d="M22 12h-6"/><path d="m4.22 13.78 4.24-4.24"/><path d="m15.54 14.54 4.24 4.24"/>'),
+                asserzioni: ['Presupposto going concern', 'Informativa'],
+                procedure: [
+                    'Analisi del budget 12 mesi e del cash flow previsionale',
+                    'Verifica degli indicatori della crisi (CCII)',
+                    'Test di stress su covenant e liquidit\u00E0',
+                    'Valutazione degli allarmi dell\u2019organo di controllo'
+                ],
+                rischi: ['Incertezza significativa non disclosed', 'Indicatori CCII trascurati', 'Andamento negativo prolungato']
+            }
+        ];
+
+        // Build cubes
+        const frag = document.createDocumentFragment();
+        AREAS.forEach((area, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'piano-cube';
+            btn.setAttribute('data-area', area.id);
+            btn.setAttribute('role', 'listitem');
+            btn.setAttribute('aria-label', 'Area: ' + area.name);
+            btn.style.setProperty('--cube-i', i);
+            btn.innerHTML = `
+                <span class="piano-cube-face piano-cube-face-top" aria-hidden="true"></span>
+                <span class="piano-cube-face piano-cube-face-right" aria-hidden="true"></span>
+                <span class="piano-cube-face piano-cube-face-front">
+                    <span class="piano-cube-icon">${area.icon}</span>
+                    <span class="piano-cube-name">${area.name}</span>
+                </span>
+            `;
+            frag.appendChild(btn);
+        });
+        matrix.appendChild(frag);
+
+        // Show area in detail panel
+        function showArea(area) {
+            detailIcon.innerHTML = area.icon;
+            detailName.textContent = area.name;
+
+            detailChips.innerHTML = '';
+            area.asserzioni.forEach((a) => {
+                const span = document.createElement('span');
+                span.className = 'piano-area-detail-chip';
+                span.textContent = a;
+                detailChips.appendChild(span);
+            });
+
+            detailProcedures.innerHTML = '';
+            area.procedure.forEach((p) => {
+                const li = document.createElement('li');
+                li.textContent = p;
+                detailProcedures.appendChild(li);
+            });
+
+            detailRisks.innerHTML = '';
+            area.rischi.forEach((r) => {
+                const li = document.createElement('li');
+                li.textContent = r;
+                detailRisks.appendChild(li);
+            });
+
+            matrix.querySelectorAll('.piano-cube').forEach((c) =>
+                c.classList.toggle('is-active', c.dataset.area === area.id)
+            );
+        }
+
+        matrix.querySelectorAll('.piano-cube').forEach((btn, i) => {
+            btn.addEventListener('click', () => showArea(AREAS[i]));
+            btn.addEventListener('focus', () => showArea(AREAS[i]));
+        });
+
+        // Initial state: show the first area
+        showArea(AREAS[0]);
     })();
 
     // ==========================================
