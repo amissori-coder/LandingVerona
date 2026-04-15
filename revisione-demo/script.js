@@ -418,23 +418,25 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 
     // ==========================================
-    // PIANO DI REVISIONE — Audit areas cube matrix
-    // 20 balance areas rendered as a grid of interactive cubes.
-    // Clicking (or focusing) a cube updates the detail panel below
-    // with assertions, audit procedures and main risks.
+    // PIANO DI REVISIONE — 3D cube matrix
+    // 27 balance areas arranged in a real 3×3×3 cube that rotates with
+    // mouse drag. The parent .piano-cube-space rotates in 3D space, each
+    // sub-cube has 6 faces (CSS transform). Clicking a cube updates the
+    // detail panel below.
     // ==========================================
-    (function initPianoAreas() {
-        const matrix = document.getElementById('pianoAreeMatrix');
+    (function initPianoCubeMatrix() {
+        const scene = document.getElementById('pianoCubeScene');
+        const space = document.getElementById('pianoCubeSpace');
+        const tooltip = document.getElementById('pianoCubeTooltip');
         const detailIcon = document.getElementById('pianoAreaDetailIcon');
         const detailName = document.getElementById('pianoAreaDetailName');
         const detailChips = document.getElementById('pianoAreaDetailChips');
         const detailProcedures = document.getElementById('pianoAreaDetailProcedures');
         const detailRisks = document.getElementById('pianoAreaDetailRisks');
-        if (!matrix || !detailName) return;
-        // Idempotent: skip if already populated
-        if (matrix.querySelector('.piano-cube')) return;
+        if (!scene || !space || !detailName) return;
+        // Idempotent guard
+        if (space.querySelector('.piano-cube-item')) return;
 
-        // Inline SVG factory — avoids repeating the same wrapper attributes
         const svg = (path) =>
             `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 
@@ -698,33 +700,104 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Valutazione degli allarmi dell\u2019organo di controllo'
                 ],
                 rischi: ['Incertezza significativa non disclosed', 'Indicatori CCII trascurati', 'Andamento negativo prolungato']
+            },
+            {
+                id: 'avviamento',
+                name: 'Avviamento',
+                icon: svg('<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>'),
+                asserzioni: ['Valutazione', 'Esistenza', 'Informativa'],
+                procedure: [
+                    'Impairment test secondo OIC 9',
+                    'Analisi dei flussi di cassa attesi della CGU',
+                    'Verifica del tasso di attualizzazione utilizzato',
+                    'Confronto tra valore contabile e valore recuperabile'
+                ],
+                rischi: ['Avviamento non recuperabile', 'Tassi di sconto inadeguati', 'Ammortamento non coerente con vita utile']
+            },
+            {
+                id: 'derivati',
+                name: 'Strumenti finanziari derivati',
+                icon: svg('<path d="M3 12c2-6 4 6 6 0s4 6 6 0 4 6 6 0"/>'),
+                asserzioni: ['Esistenza', 'Valutazione', 'Informativa'],
+                procedure: [
+                    'Mappatura dei contratti derivati in essere',
+                    'Verifica del fair value a fine esercizio',
+                    'Test di efficacia delle coperture (hedge accounting)',
+                    'Valutazione dell\u2019informativa in NI secondo OIC 32'
+                ],
+                rischi: ['Derivati speculativi non disclosed', 'Fair value errato', 'Perdite nascoste su contratti aperti']
+            },
+            {
+                id: 'leasing',
+                name: 'Leasing e canoni pluriennali',
+                icon: svg('<path d="M3 9 12 3l9 6v12H3V9z"/><path d="M9 21v-6h6v6"/>'),
+                asserzioni: ['Completezza', 'Valutazione', 'Classificazione'],
+                procedure: [
+                    'Verifica dei contratti di leasing in essere',
+                    'Ricalcolo dei canoni di competenza',
+                    'Informativa metodo finanziario in nota integrativa',
+                    'Analisi dei riscatti esercitati nell\u2019esercizio'
+                ],
+                rischi: ['Classificazione errata op/fin', 'Canoni non di competenza', 'Impegni futuri non disclosed']
+            },
+            {
+                id: 'crediti-gruppo',
+                name: 'Crediti vs gruppo',
+                icon: svg('<circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 12h6"/><path d="m8 10 8-4"/><path d="m8 14 8 4"/>'),
+                asserzioni: ['Esistenza', 'Completezza', 'Valutazione'],
+                procedure: [
+                    'Riconciliazione dei saldi intercompany',
+                    'Analisi delle operazioni a condizioni di mercato',
+                    'Verifica delle garanzie infragruppo',
+                    'Controllo delle compensazioni e dei netting'
+                ],
+                rischi: ['Saldi non riconciliati', 'Transazioni non at arm\u2019s length', 'Svalutazioni omesse su controllate in perdita']
+            },
+            {
+                id: 'conti-ordine',
+                name: 'Garanzie e conti d\u2019ordine',
+                icon: svg('<path d="M12 3 2 7.5v9L12 21l10-4.5v-9L12 3z"/><path d="M8 11h8"/><path d="M8 14h5"/>'),
+                asserzioni: ['Completezza', 'Informativa'],
+                procedure: [
+                    'Richiesta circolari a banche su fideiussioni rilasciate',
+                    'Analisi dei contratti di garanzia in essere',
+                    'Verifica delle informazioni in nota integrativa',
+                    'Quantificazione degli impegni assunti'
+                ],
+                rischi: ['Garanzie omesse', 'Impegni futuri non disclosed', 'Escussione di garanzie']
+            },
+            {
+                id: 'valuta-estera',
+                name: 'Operazioni in valuta estera',
+                icon: svg('<circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/><path d="M12 2a15.3 15.3 0 0 0-4 10 15.3 15.3 0 0 0 4 10"/><path d="M2 12h20"/>'),
+                asserzioni: ['Valutazione', 'Accuratezza'],
+                procedure: [
+                    'Verifica del tasso di cambio alla data di chiusura',
+                    'Ricalcolo delle poste monetarie in valuta',
+                    'Analisi degli effetti cambio su risultato',
+                    'Riconciliazione con le registrazioni contabili'
+                ],
+                rischi: ['Cambi non aggiornati', 'Differenze di conversione errate', 'Poste monetarie non rivalutate']
+            },
+            {
+                id: 'frodi',
+                name: 'Frodi e atti illeciti',
+                icon: svg('<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/><line x1="4" y1="4" x2="20" y2="20"/>'),
+                asserzioni: ['Completezza', 'Occorrenza', 'Scetticismo'],
+                procedure: [
+                    'Valutazione del rischio di frode ex ISA 240',
+                    'Intervista al management e al Collegio Sindacale',
+                    'Analisi delle scritture contabili inusuali (JET)',
+                    'Test sui controlli anti-frode e override del management'
+                ],
+                rischi: ['Override dei controlli interni', 'Appropriazione indebita', 'Riciclaggio e antiriciclaggio']
             }
         ];
 
-        // Build cubes
-        const frag = document.createDocumentFragment();
-        AREAS.forEach((area, i) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'piano-cube';
-            btn.setAttribute('data-area', area.id);
-            btn.setAttribute('role', 'listitem');
-            btn.setAttribute('aria-label', 'Area: ' + area.name);
-            btn.style.setProperty('--cube-i', i);
-            btn.innerHTML = `
-                <span class="piano-cube-face piano-cube-face-top" aria-hidden="true"></span>
-                <span class="piano-cube-face piano-cube-face-right" aria-hidden="true"></span>
-                <span class="piano-cube-face piano-cube-face-front">
-                    <span class="piano-cube-icon">${area.icon}</span>
-                    <span class="piano-cube-name">${area.name}</span>
-                </span>
-            `;
-            frag.appendChild(btn);
-        });
-        matrix.appendChild(frag);
-
-        // Show area in detail panel
+        // Build detail-panel updater
+        let currentArea = null;
         function showArea(area) {
+            currentArea = area;
             detailIcon.innerHTML = area.icon;
             detailName.textContent = area.name;
 
@@ -750,17 +823,170 @@ document.addEventListener('DOMContentLoaded', () => {
                 detailRisks.appendChild(li);
             });
 
-            matrix.querySelectorAll('.piano-cube').forEach((c) =>
+            space.querySelectorAll('.piano-cube-item').forEach((c) =>
                 c.classList.toggle('is-active', c.dataset.area === area.id)
             );
         }
 
-        matrix.querySelectorAll('.piano-cube').forEach((btn, i) => {
-            btn.addEventListener('click', () => showArea(AREAS[i]));
-            btn.addEventListener('focus', () => showArea(AREAS[i]));
+        // ------------------------------------------------------------
+        // Build the 3×3×3 matrix of sub-cubes
+        // ------------------------------------------------------------
+        // Each sub-cube is a DOM element positioned via CSS custom
+        // properties --tx, --ty, --tz on a 3-grid {-1, 0, +1}. Each has
+        // 6 faces (front, back, right, left, top, bottom). Abbreviated
+        // labels on every face make the content visible from any angle.
+        const POSITIONS = [];
+        for (let zz = -1; zz <= 1; zz++) {
+            for (let yy = -1; yy <= 1; yy++) {
+                for (let xx = -1; xx <= 1; xx++) {
+                    POSITIONS.push({ x: xx, y: yy, z: zz });
+                }
+            }
+        }
+
+        const abbrOf = (name) => {
+            const words = name.replace(/[·\u00B7]/g, ' ').split(/\s+/).filter(Boolean);
+            if (words.length === 1) return words[0].substr(0, 3).toUpperCase();
+            return words.slice(0, 3).map((w) => w.charAt(0).toUpperCase()).join('');
+        };
+
+        const frag = document.createDocumentFragment();
+        AREAS.slice(0, 27).forEach((area, i) => {
+            const pos = POSITIONS[i];
+            const item = document.createElement('div');
+            item.className = 'piano-cube-item';
+            item.setAttribute('data-area', area.id);
+            item.setAttribute('tabindex', '0');
+            item.setAttribute('role', 'button');
+            item.setAttribute('aria-label', 'Area: ' + area.name);
+            item.style.setProperty('--gx', pos.x);
+            item.style.setProperty('--gy', pos.y);
+            item.style.setProperty('--gz', pos.z);
+
+            const abbr = abbrOf(area.name);
+            ['f', 'b', 'r', 'l', 't', 'd'].forEach((f) => {
+                const face = document.createElement('div');
+                face.className = 'piano-cube-face piano-cube-face-' + f;
+                face.innerHTML = '<span class="piano-cube-face-abbr">' + abbr + '</span>';
+                item.appendChild(face);
+            });
+
+            // Keyboard activation
+            item.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    showArea(area);
+                }
+            });
+            item.addEventListener('focus', () => showArea(area));
+
+            // Hover tooltip
+            item.addEventListener('mouseenter', (e) => {
+                tooltip.textContent = area.name;
+                tooltip.hidden = false;
+            });
+            item.addEventListener('mouseleave', () => {
+                tooltip.hidden = true;
+            });
+            item.addEventListener('mousemove', (e) => {
+                const rect = scene.getBoundingClientRect();
+                tooltip.style.left = (e.clientX - rect.left) + 'px';
+                tooltip.style.top  = (e.clientY - rect.top - 14) + 'px';
+            });
+
+            frag.appendChild(item);
+        });
+        space.appendChild(frag);
+
+        // ------------------------------------------------------------
+        // Rotation: pointer drag on the scene
+        // ------------------------------------------------------------
+        let rx = -22;   // rotateX (deg)
+        let ry = 32;    // rotateY (deg)
+        const applyRotation = () => {
+            space.style.setProperty('--rx', rx + 'deg');
+            space.style.setProperty('--ry', ry + 'deg');
+        };
+        applyRotation();
+
+        let isDown = false;
+        let hasDragged = false;
+        let startX = 0, startY = 0, startRx = 0, startRy = 0;
+        const DRAG_THRESHOLD = 5; // px
+
+        scene.addEventListener('pointerdown', (e) => {
+            if (e.button !== undefined && e.button !== 0) return;
+            isDown = true;
+            hasDragged = false;
+            startX = e.clientX;
+            startY = e.clientY;
+            startRx = rx;
+            startRy = ry;
+            try { scene.setPointerCapture(e.pointerId); } catch (_) {}
+            e.preventDefault();
         });
 
-        // Initial state: show the first area
+        scene.addEventListener('pointermove', (e) => {
+            if (!isDown) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            if (!hasDragged && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+                hasDragged = true;
+                scene.classList.add('is-dragging');
+                tooltip.hidden = true;
+            }
+            if (hasDragged) {
+                ry = startRy + dx * 0.45;
+                rx = startRx - dy * 0.45;
+                // Clamp vertical to avoid upside-down disorientation
+                rx = Math.max(-82, Math.min(82, rx));
+                applyRotation();
+            }
+        });
+
+        const endDrag = (e) => {
+            if (!isDown) return;
+            if (!hasDragged) {
+                // Click — find the cube under the pointer
+                const target = document.elementFromPoint(e.clientX, e.clientY);
+                const cube = target && target.closest && target.closest('.piano-cube-item');
+                if (cube) {
+                    const area = AREAS.find((a) => a.id === cube.dataset.area);
+                    if (area) showArea(area);
+                }
+            }
+            isDown = false;
+            hasDragged = false;
+            scene.classList.remove('is-dragging');
+        };
+        scene.addEventListener('pointerup', endDrag);
+        scene.addEventListener('pointercancel', () => {
+            isDown = false;
+            hasDragged = false;
+            scene.classList.remove('is-dragging');
+        });
+
+        // Subtle auto-orbit while idle (disabled once the user interacts)
+        let hasInteracted = false;
+        scene.addEventListener('pointerdown', () => { hasInteracted = true; }, { once: true });
+        const nowMs = () =>
+            (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        let lastT = nowMs();
+        const autoOrbit = () => {
+            const now = nowMs();
+            const dt = Math.min(60, now - lastT); // clamp to avoid huge jumps after tab switch
+            lastT = now;
+            if (!hasInteracted && !isDown && isFinite(dt)) {
+                ry += dt * 0.008;
+                applyRotation();
+            }
+            requestAnimationFrame(autoOrbit);
+        };
+        if (!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            requestAnimationFrame(autoOrbit);
+        }
+
+        // Initial state: show the first area in the detail panel
         showArea(AREAS[0]);
     })();
 

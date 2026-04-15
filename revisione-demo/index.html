@@ -635,7 +635,14 @@
                     <p>Sulla base della valutazione dei rischi e della materialità, identifichiamo le aree di bilancio prioritarie. Per ciascuna definiamo le <strong>asserzioni</strong> da verificare, le <strong>procedure</strong> da applicare e i <strong>rischi</strong> da presidiare. Clicca un cubo per esplorare il dettaglio.</p>
                 </div>
 
-                <div class="piano-aree-matrix" id="pianoAreeMatrix" role="list" aria-label="Matrice delle aree di bilancio"></div>
+                <div class="piano-cube-scene" id="pianoCubeScene" aria-label="Matrice tridimensionale delle aree di bilancio">
+                    <div class="piano-cube-space" id="pianoCubeSpace"></div>
+                    <div class="piano-cube-tooltip" id="pianoCubeTooltip" hidden role="tooltip"></div>
+                    <div class="piano-cube-hint">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12c0-4.4 3.6-8 8-8"/><path d="M20 12c0 4.4-3.6 8-8 8"/><path d="M12 4V2"/><path d="M12 22v-2"/><path d="m18 8 1.5-1.5"/><path d="M4.5 17.5 6 16"/></svg>
+                        trascina per ruotare · clicca un cubo per il dettaglio
+                    </div>
+                </div>
 
                 <div class="piano-area-detail" id="pianoAreaDetail" aria-live="polite">
                     <div class="piano-area-detail-head">
