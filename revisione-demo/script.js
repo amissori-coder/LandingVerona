@@ -314,10 +314,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return isFinite(n) ? n : 0;
         };
 
-        const formatIntIt = (n) => Math.round(n).toLocaleString('it-IT');
+        // Italian number formatting — manual implementation that always
+        // uses dots as thousands separators and comma as decimal, regardless
+        // of the browser's Intl/ICU locale support.
+        const formatIntIt = (n) => {
+            const s = String(Math.abs(Math.round(n)));
+            const withDots = s.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return n < 0 ? '-' + withDots : withDots;
+        };
         const formatEur = (n) => '\u20AC\u00A0' + formatIntIt(n);
-        const formatDec2 = (n) =>
-            n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const formatDec2 = (n) => {
+            const fixed = Math.abs(n).toFixed(2);
+            const parts = fixed.split('.');
+            const intFormatted = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return (n < 0 ? '-' : '') + intFormatted + ',' + parts[1];
+        };
 
         const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
