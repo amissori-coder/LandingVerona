@@ -113,11 +113,13 @@
             {
                 "@type": "Person",
                 "name": "Oscar Ricci",
+                "jobTitle": "Presidente Piccola Industria di Roma",
                 "worksFor": { "@type": "Organization", "name": "Unindustria" }
             },
             {
                 "@type": "Person",
                 "name": "Eugenio Samori",
+                "jobTitle": "Presidente Gruppo Giovani Imprenditori",
                 "worksFor": { "@type": "Organization", "name": "Unindustria" }
             },
             {
@@ -147,7 +149,7 @@
             {
                 "@type": "Person",
                 "name": "Francesco Follieri",
-                "jobTitle": "Avvocato",
+                "jobTitle": "Professore Avvocato",
                 "worksFor": { "@type": "Organization", "name": "Advant Nctm" }
             },
             {
@@ -344,82 +346,42 @@
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">Relatori</span>
-                <h2 class="section-title">I Relatori</h2>
+                <h2 class="section-title">Il Panel di Esperti</h2>
                 <div class="section-divider"></div>
+                <p class="section-description">Otto voci autorevoli a confronto, dall'industria alla revisione legale, dalla consulenza societaria alla grande impresa. Esplora il panel: clicca un relatore per il profilo completo, oppure lascia scorrere lo spotlight.</p>
             </div>
-            <div class="speakers-grid">
-                <div class="speaker-card">
-                    <div class="speaker-info">
-                        <h3 class="speaker-name">Oscar Ricci</h3>
-                        <p class="speaker-role">Relatore</p>
-                        <p class="speaker-company">Unindustria</p>
-                        <div class="speaker-divider"></div>
-                        <p class="speaker-bio">Rappresentante di Unindustria, porta il punto di vista del sistema industriale sulle opportunità di sviluppo territoriale e sui benefici concreti che le Zone Logistiche Semplificate offrono alle imprese del Lazio e del Centro Italia.</p>
+
+            <div class="speakers-showcase" id="speakersShowcase" aria-live="polite">
+                <div class="speaker-spotlight" id="speakerSpotlight">
+                    <div class="speaker-spotlight-bg" aria-hidden="true"></div>
+                    <div class="speaker-spotlight-avatar" aria-hidden="true">
+                        <span class="speaker-avatar-initials" id="spotlightInitials">VN</span>
+                        <span class="speaker-avatar-ring"></span>
+                    </div>
+                    <div class="speaker-spotlight-content">
+                        <span class="speaker-spotlight-org" id="spotlightOrg">Revilaw S.p.A.</span>
+                        <h3 class="speaker-spotlight-name" id="spotlightName">Vincenzo A. Napolitano</h3>
+                        <p class="speaker-spotlight-role" id="spotlightRole">Equity Partner</p>
+                        <div class="speaker-spotlight-divider"></div>
+                        <p class="speaker-spotlight-bio" id="spotlightBio">Equity Partner di Revilaw.</p>
+                    </div>
+                    <div class="speaker-spotlight-footer">
+                        <button type="button" class="speaker-nav-btn" id="speakerPrev" aria-label="Relatore precedente">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18 9 12l6-6"/></svg>
+                        </button>
+                        <div class="speaker-nav-counter">
+                            <strong id="spotlightIndex">1</strong>
+                            <span class="speaker-nav-sep">/</span>
+                            <span id="spotlightTotal">8</span>
+                        </div>
+                        <div class="speaker-nav-progress"><div class="speaker-nav-progress-fill" id="spotlightProgress"></div></div>
+                        <button type="button" class="speaker-nav-btn" id="speakerNext" aria-label="Relatore successivo">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
                     </div>
                 </div>
-                <div class="speaker-card">
-                    <div class="speaker-info">
-                        <h3 class="speaker-name">Eugenio Samori</h3>
-                        <p class="speaker-role">Relatore</p>
-                        <p class="speaker-company">Unindustria</p>
-                        <div class="speaker-divider"></div>
-                        <p class="speaker-bio">Rappresentante di Unindustria, interviene sulle tematiche di competitività del sistema produttivo e sul ruolo del Rating di Legalità come leva reputazionale e strumento di accesso a benefici economici e finanziari per le imprese associate.</p>
-                    </div>
-                </div>
-                <div class="speaker-card">
-                    <div class="speaker-info">
-                        <h3 class="speaker-name">Vincenzo A. Napolitano</h3>
-                        <p class="speaker-role">Equity Partner</p>
-                        <p class="speaker-company">Revilaw S.p.A.</p>
-                        <div class="speaker-divider"></div>
-                        <p class="speaker-bio">Equity Partner di Revilaw, vanta una consolidata esperienza nel diritto societario, nella revisione legale e nella fiscalità d'impresa. Affianca gruppi industriali e investitori nell'analisi degli strumenti di sviluppo territoriale, con particolare riferimento alle Zone Logistiche Semplificate e alle opportunità connesse ai regimi agevolativi.</p>
-                    </div>
-                </div>
-                <div class="speaker-card">
-                    <div class="speaker-info">
-                        <h3 class="speaker-name">Stefano Pizzutelli</h3>
-                        <p class="speaker-role">Presidente del Comitato Scientifico</p>
-                        <p class="speaker-company">Revilaw S.p.A.</p>
-                        <div class="speaker-divider"></div>
-                        <p class="speaker-bio">Presidente del Comitato Scientifico di Revilaw, unisce l'attività professionale a un costante impegno di ricerca in materia di revisione legale, governance societaria e compliance. Riconosciuto esperto nel Rating di Legalità, è autore di pubblicazioni e interventi formativi su sistemi di controllo interno e responsabilità amministrativa degli enti.</p>
-                    </div>
-                </div>
-                <div class="speaker-card">
-                    <div class="speaker-info">
-                        <h3 class="speaker-name">Antonella Candelieri</h3>
-                        <p class="speaker-role">Associate</p>
-                        <p class="speaker-company">Revilaw S.p.A.</p>
-                        <div class="speaker-divider"></div>
-                        <p class="speaker-bio">Associate di Revilaw, focalizza la propria attività sulla consulenza in materia di Rating di Legalità, compliance e diritto societario. Assiste imprese e studi professionali nelle procedure di acquisizione e mantenimento del rating, curando profili reputazionali, organizzativi e di controllo, con specifica esperienza in operazioni straordinarie e due diligence.</p>
-                    </div>
-                </div>
-                <div class="speaker-card">
-                    <div class="speaker-info">
-                        <h3 class="speaker-name">Francesca Rogai</h3>
-                        <p class="speaker-role">Avvocato</p>
-                        <p class="speaker-company">Advant NCTM</p>
-                        <div class="speaker-divider"></div>
-                        <p class="speaker-bio">Avvocato dello studio Advant NCTM, esperta di diritto commerciale e contrattualistica d'impresa. Affianca clienti italiani e internazionali in operazioni di M&amp;A, ristrutturazioni societarie e contenzioso civile e commerciale, con particolare attenzione ai contesti regolamentari complessi e alle operazioni cross-border.</p>
-                    </div>
-                </div>
-                <div class="speaker-card">
-                    <div class="speaker-info">
-                        <h3 class="speaker-name">Francesco Follieri</h3>
-                        <p class="speaker-role">Avvocato</p>
-                        <p class="speaker-company">Advant NCTM</p>
-                        <div class="speaker-divider"></div>
-                        <p class="speaker-bio">Avvocato dello studio Advant NCTM, con esperienza consolidata nel diritto amministrativo e nella regolamentazione dei settori produttivi. Assiste imprese e investitori nell'analisi dei profili autorizzatori e regolatori, con particolare riferimento agli strumenti di promozione degli investimenti e alle discipline applicabili alle Zone Logistiche Semplificate.</p>
-                    </div>
-                </div>
-                <div class="speaker-card">
-                    <div class="speaker-info">
-                        <h3 class="speaker-name">Ludovica Abbatiello</h3>
-                        <p class="speaker-role">Relatrice</p>
-                        <p class="speaker-company">Eni S.p.A.</p>
-                        <div class="speaker-divider"></div>
-                        <p class="speaker-bio">Rappresentante di Eni S.p.A., porta la testimonianza di uno dei principali operatori industriali italiani sulle strategie di investimento nelle aree logistiche e sui benefici operativi derivanti dal ricorso agli strumenti agevolativi previsti dalle Zone Logistiche Semplificate.</p>
-                    </div>
-                </div>
+
+                <div class="speakers-roster" id="speakersRoster" role="tablist" aria-label="Elenco relatori per organizzazione"></div>
             </div>
         </div>
     </section>
