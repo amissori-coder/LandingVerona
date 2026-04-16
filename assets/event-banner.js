@@ -48,11 +48,6 @@
     const path = (window.location.pathname || '').toLowerCase();
     if (next.pagePath && path.indexOf(next.pagePath.toLowerCase()) !== -1) return;
 
-    // Skip if the user dismissed the banner during this session.
-    try {
-        if (window.sessionStorage && sessionStorage.getItem('ngbEventBanner:' + next.date)) return;
-    } catch (_) { /* ignore storage errors (private mode, etc.) */ }
-
     // ---------------- URL resolution ----------------
     // The banner can be included from any depth in the site. We resolve
     // the event URL using the script's own <script src="..."> to anchor
@@ -184,7 +179,6 @@
         '</button>';
 
     banner.querySelector('.ngb-eb-close').addEventListener('click', function () {
-        try { sessionStorage.setItem('ngbEventBanner:' + next.date, '1'); } catch (_) {}
         banner.classList.remove('is-visible');
         setTimeout(function () { if (banner.parentNode) banner.parentNode.removeChild(banner); }, 500);
     });
