@@ -193,12 +193,18 @@
     <!-- Navigation -->
     <nav class="navbar" id="navbar">
         <div class="container nav-container">
-            <a href="#hero" class="nav-logo">
-                <img src="assets/logo-revilaw-mark.png" alt="Revilaw" class="logo-mark-img" onerror="this.style.display='none'">
-                <img src="assets/logo-advant-nctm.png" alt="Advant Nctm" class="logo-advant-img" onerror="this.style.display='none'">
-                <span class="logo-divider"></span>
-                <span class="logo-text">Next Generation Business</span>
-            </a>
+            <div class="nav-brand-group">
+                <a href="../" class="nav-back" aria-label="Torna alla home di Next Generation Business">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </a>
+                <span class="nav-divider-vert" aria-hidden="true"></span>
+                <a href="#hero" class="nav-logo">
+                    <img src="assets/logo-revilaw-mark.png" alt="Revilaw" class="logo-mark-img" onerror="this.style.display='none'">
+                    <img src="assets/logo-advant-nctm.png" alt="Advant Nctm" class="logo-advant-img" onerror="this.style.display='none'">
+                    <span class="logo-divider"></span>
+                    <span class="logo-text">Next Generation Business</span>
+                </a>
+            </div>
             <button class="nav-toggle" id="navToggle" aria-label="Apri menu di navigazione">
                 <span></span>
                 <span></span>
@@ -206,10 +212,10 @@
             </button>
             <ul class="nav-menu" id="navMenu">
                 <li><a href="#evento">L'Evento</a></li>
+                <li><a href="#temi">I Temi</a></li>
                 <li><a href="#relatori">Relatori</a></li>
                 <li><a href="#programma">Programma</a></li>
                 <li><a href="#sede">Sede</a></li>
-                <li><a href="#partner">Partner</a></li>
                 <li><a href="#accreditamento" class="nav-cta">Riserva il tuo Posto</a></li>
             </ul>
         </div>
@@ -337,6 +343,58 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- I Temi del Convegno: ZLS + Rating di Legalità -->
+    <section class="section section-light" id="temi">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">I Temi</span>
+                <h2 class="section-title">Di cosa parleremo</h2>
+                <div class="section-divider"></div>
+                <p class="section-description">Due strumenti normativi distinti ma complementari, entrambi pensati per sostenere la competitività delle imprese italiane. Di seguito un'introduzione sintetica; per approfondire rimandiamo ai nostri content hub dedicati.</p>
+            </div>
+
+            <div class="temi-grid">
+                <article class="tema-card">
+                    <div class="tema-card-head">
+                        <span class="tema-card-number">01</span>
+                        <span class="tema-card-label">Agevolazioni fiscali</span>
+                    </div>
+                    <h3 class="tema-card-title">Zone Logistiche Semplificate</h3>
+                    <p class="tema-card-lead">Le <strong>ZLS</strong> sono aree del Centro-Nord individuate dal Governo per attrarre investimenti produttivi e logistici, con un regime semplificato di procedure amministrative e un <strong>credito d'imposta</strong> sugli investimenti in beni strumentali.</p>
+                    <ul class="tema-card-points">
+                        <li>Istituite dalla Legge di Bilancio 2018 ed estese con la <strong>Legge 162/2023</strong>.</li>
+                        <li>Credito d'imposta fino al <strong>40%</strong> sugli investimenti (con i massimali del GBER UE).</li>
+                        <li>Semplificazioni autorizzative e <strong>sportello unico</strong> per i procedimenti.</li>
+                        <li>Durata del regime fino al <strong>31 dicembre 2026</strong>.</li>
+                    </ul>
+                    <a href="../zls_zes/" class="tema-card-link">
+                        Approfondisci ZLS &amp; ZES
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
+                </article>
+
+                <article class="tema-card">
+                    <div class="tema-card-head">
+                        <span class="tema-card-number">02</span>
+                        <span class="tema-card-label">Reputazione &amp; compliance</span>
+                    </div>
+                    <h3 class="tema-card-title">Rating di Legalità</h3>
+                    <p class="tema-card-lead">Il <strong>Rating di Legalità</strong> è il punteggio attribuito dall'<strong>AGCM</strong> alle imprese con fatturato ≥ 2 milioni di euro che rispettano elevati standard di legalità, trasparenza e responsabilità. Da semplice distintivo reputazionale è diventato una leva concreta di competitività.</p>
+                    <ul class="tema-card-points">
+                        <li>Punteggio da <strong>★ a ★★★</strong>, rinnovabile ogni due anni.</li>
+                        <li><strong>Priorità</strong> nell'accesso a finanziamenti pubblici e bandi PNRR.</li>
+                        <li>Condizioni migliorative su <strong>credito bancario</strong> e istruttorie più rapide.</li>
+                        <li>Punteggio utile nelle <strong>procedure di affidamento</strong> degli appalti pubblici.</li>
+                    </ul>
+                    <a href="../rating_legalita/" class="tema-card-link">
+                        Approfondisci il Rating di Legalità
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </a>
+                </article>
             </div>
         </div>
     </section>

@@ -110,6 +110,46 @@ ul {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 18px;
+}
+
+.nav-brand-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.nav-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: var(--white);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+    flex-shrink: 0;
+}
+
+.nav-back svg {
+    width: 18px;
+    height: 18px;
+}
+
+.nav-back:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.32);
+    transform: translateX(-2px);
+}
+
+.nav-divider-vert {
+    width: 1px;
+    height: 22px;
+    background: rgba(255, 255, 255, 0.18);
+    flex-shrink: 0;
 }
 
 .nav-logo {
@@ -117,6 +157,7 @@ ul {
     align-items: center;
     gap: 14px;
     color: var(--white);
+    min-width: 0;
 }
 
 .logo-mark-img {
@@ -739,6 +780,170 @@ ul {
     }
     .speaker-item-bio {
         font-size: 0.8rem;
+    }
+}
+
+/* ============================================
+   TEMI — ZLS + Rating di Legalità intro cards
+   ============================================ */
+.temi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 28px;
+    max-width: 1020px;
+    margin: 0 auto;
+}
+
+.tema-card {
+    background: var(--white);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 38px 36px 34px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.tema-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, var(--navy-dark) 0%, var(--navy) 100%);
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+.tema-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 40px rgba(10, 25, 45, 0.1);
+    border-color: rgba(10, 25, 45, 0.14);
+}
+
+.tema-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tema-card-number {
+    font-family: var(--font-display);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--navy-dark);
+    font-variant-numeric: tabular-nums;
+}
+
+.tema-card-label {
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: rgba(10, 25, 45, 0.55);
+    padding: 4px 10px;
+    background: rgba(10, 25, 45, 0.06);
+    border-radius: 100px;
+}
+
+.tema-card-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--navy-dark);
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    margin: 4px 0 0;
+}
+
+.tema-card-lead {
+    font-size: 0.92rem;
+    line-height: 1.72;
+    color: var(--text-muted, #5a6270);
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    margin: 0;
+}
+
+.tema-card-points {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tema-card-points li {
+    position: relative;
+    padding-left: 22px;
+    font-size: 0.84rem;
+    line-height: 1.6;
+    color: var(--text-muted, #5a6270);
+}
+
+.tema-card-points li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 8px;
+    height: 8px;
+    background: var(--navy);
+    border-radius: 2px;
+    transform: rotate(45deg);
+}
+
+.tema-card-points strong {
+    color: var(--navy-dark);
+    font-weight: 700;
+}
+
+.tema-card-lead strong {
+    color: var(--navy-dark);
+    font-weight: 700;
+}
+
+.tema-card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid rgba(10, 25, 45, 0.1);
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--navy-dark);
+    transition: gap 0.25s ease, color 0.25s ease;
+}
+
+.tema-card-link svg {
+    transition: transform 0.25s ease;
+}
+
+.tema-card-link:hover {
+    gap: 14px;
+    color: var(--navy);
+}
+
+.tema-card-link:hover svg {
+    transform: translateX(3px);
+}
+
+@media (max-width: 600px) {
+    .tema-card {
+        padding: 30px 26px 26px;
+    }
+    .tema-card-title {
+        font-size: 1.3rem;
     }
 }
 

@@ -9435,7 +9435,8 @@ function openSignup(mode){
       if(pending && pending.document){
         pending.document.open();
         pending.document.write(
-          '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Apertura diretta streaming</title><style>body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#020617;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;padding:24px}main{max-width:520px;text-align:center}strong{display:block;font-size:24px;margin-bottom:10px;color:#fff}p{margin:0;color:#cbd5e1;line-height:1.7}</style></head><body><main><strong>Verifica credenziali in corso…</strong><p>La diretta si aprirà qui automaticamente appena la verifica sarà completata.</p></main></body></html>'
+          '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Apertura diretta streaming</title><style>body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#020617;color:#e2e8f0;display:grid;place-items:center;min-height:100vh;padding:24px}main{max-width:520px;text-align:center}strong{display:block;font-size:24px;margin-bottom:10px;color:#fff}p{margin:0;color:#cbd5e1;line-height:1.7}</style></head><body><main><strong>Verifica credenziali in corso…</strong><p>La diretta si aprirà qui automaticamente appena la verifica sarà completata.</p></main>    <script src="../assets/event-banner.js" defer></script>
+</body></html>'
         );
         pending.document.close();
       }

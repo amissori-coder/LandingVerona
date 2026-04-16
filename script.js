@@ -114,6 +114,34 @@ function showNgbNotification(message, type) {
 
 document.addEventListener('DOMContentLoaded', () => {
 
+    // ==================================================================
+    // Upcoming → past auto-demotion for event cards
+    // ==================================================================
+    // Any <a class="event-card" data-event-date="YYYY-MM-DD"> is kept
+    // in its "upcoming" state (class .event-upcoming) until the end of
+    // the event date. From the day after, it is demoted to .event-past
+    // and the badge/link labels are swapped using the data attributes
+    //   data-event-badge-past   (default: "Evento precedente")
+    //   data-event-link-past    (default: "Rivedi l'evento")
+    // This runs before any other listeners so the UI reflects the
+    // correct state on first paint.
+    (function autoDemoteEventCards() {
+        const now = new Date();
+        const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        document.querySelectorAll('.event-card[data-event-date]').forEach((card) => {
+            const d = new Date(card.dataset.eventDate + 'T00:00:00');
+            if (isNaN(d.getTime())) return;
+            // Keep visible on the event day; demote from the following day.
+            if (d.getTime() >= todayMid.getTime()) return;
+            card.classList.remove('event-upcoming');
+            card.classList.add('event-past');
+            const badge = card.querySelector('.event-badge-text');
+            if (badge) badge.textContent = card.dataset.eventBadgePast || 'Evento precedente';
+            const linkText = card.querySelector('.event-link-text');
+            if (linkText) linkText.textContent = card.dataset.eventLinkPast || 'Rivedi l\u2019evento';
+        });
+    })();
+
     // === Navbar: add .scrolled class after 60px of scroll ===
     const navbar = document.getElementById('navbar');
     if (navbar) {
