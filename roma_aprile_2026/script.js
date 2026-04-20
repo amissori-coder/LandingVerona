@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========================
     // COUNTDOWN TIMER
     // ========================
-    const eventDate = new Date('2026-04-29T14:00:00+02:00').getTime();
+    const eventDate = new Date('2026-04-29T14:30:00+02:00').getTime();
     const countdownEl = document.getElementById('countdown');
     const daysEl = document.getElementById('days');
     const hoursEl = document.getElementById('hours');
