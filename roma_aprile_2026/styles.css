@@ -1424,6 +1424,166 @@ ul {
     font-weight: 600;
 }
 
+/* === Register Card (Unindustria redirect) === */
+.register-card {
+    max-width: 720px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-lg);
+    padding: 48px 52px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    text-align: center;
+}
+
+.register-card-head {
+    margin-bottom: 20px;
+}
+
+.register-card-eyebrow {
+    display: inline-block;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.55);
+    margin-bottom: 12px;
+}
+
+.register-card-title {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+}
+
+.register-card-lead {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 1rem;
+    line-height: 1.75;
+    max-width: 560px;
+    margin: 0 auto 32px;
+}
+
+.register-card-cta-wrap {
+    margin-bottom: 40px;
+}
+
+.btn-register {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: var(--white);
+    color: var(--navy-dark);
+    border: 2px solid var(--white);
+    padding: 16px 40px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.35s ease;
+    min-width: 320px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+
+.btn-register:hover,
+.btn-register:focus-visible {
+    background: transparent;
+    color: var(--white);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.38);
+    outline: none;
+}
+
+.btn-register svg {
+    transition: transform 0.3s ease;
+}
+
+.btn-register:hover svg {
+    transform: translate(2px, -2px);
+}
+
+.register-card-note {
+    margin-top: 14px;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+.register-card-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding-top: 32px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: left;
+}
+
+.register-card-meta-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.register-card-meta-item svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.register-card-meta-item .meta-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+    margin-bottom: 2px;
+}
+
+.register-card-meta-item .meta-value {
+    display: block;
+    font-size: 0.92rem;
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.5;
+}
+
+.register-card-meta-item .meta-value a {
+    color: var(--white);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    transition: border-color 0.25s ease;
+}
+
+.register-card-meta-item .meta-value a:hover {
+    border-bottom-color: var(--white);
+}
+
+@media (max-width: 640px) {
+    .register-card {
+        padding: 36px 24px;
+    }
+
+    .register-card-title {
+        font-size: 1.4rem;
+    }
+
+    .btn-register {
+        min-width: 0;
+        width: 100%;
+        padding: 15px 24px;
+        font-size: 0.88rem;
+    }
+}
+
 /* === Partners Section — Integrated, no boxes === */
 .section-partners {
     background: var(--white);
