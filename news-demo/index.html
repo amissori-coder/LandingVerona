@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News &amp; Insight · Next Generation Business (prototipo)</title>
+    <meta name="robots" content="noindex,nofollow">
+
+    <link rel="icon" type="image/png" href="../assets/favicon.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+
+    <style>
+    :root {
+        --navy-dark: #0A2844;
+        --navy:      #164068;
+        --navy-soft: #2A5A85;
+        --accent:    #B1213B;
+        --ink:       #1A2332;
+        --muted:     #5A6270;
+        --rule:      #E2E5EB;
+        --paper:     #FAF8F4;
+        --cream:     #F4EFE6;
+        --white:     #FFFFFF;
+        --font-serif:   'Fraunces', Georgia, serif;
+        --font-display: 'Montserrat', -apple-system, sans-serif;
+        --font-body:    'Inter', -apple-system, sans-serif;
+    }
+
+    *,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body {
+        font-family: var(--font-body);
+        background: var(--paper);
+        color: var(--ink);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    img { max-width:100%; height:auto; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+    /* === Masthead strip (sober, newspaper-like) === */
+    .masthead {
+        background: var(--white);
+        border-bottom: 1px solid var(--rule);
+        padding: 18px 0;
+        position: sticky; top: 0; z-index: 50;
+    }
+    .masthead-row {
+        display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    }
+    .masthead-brand {
+        display: flex; align-items: center; gap: 14px;
+    }
+    .masthead-back {
+        width: 36px; height: 36px; border: 1px solid var(--rule);
+        border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        color: var(--navy); transition: all 0.25s ease;
+    }
+    .masthead-back:hover { background: var(--navy); color: var(--white); border-color: var(--navy); }
+    .masthead-title {
+        font-family: var(--font-serif);
+        font-weight: 700; font-size: 1.25rem; color: var(--navy-dark);
+        letter-spacing: -0.5px;
+    }
+    .masthead-date {
+        font-family: var(--font-display); font-size: 0.72rem; font-weight: 600;
+        color: var(--muted); text-transform: uppercase; letter-spacing: 2px;
+    }
+
+    /* === Intestazione sezione (editoriale) === */
+    .intro {
+        padding: 72px 0 40px;
+        background: linear-gradient(180deg, var(--cream) 0%, var(--paper) 100%);
+        border-bottom: 1px solid var(--rule);
+    }
+    .intro-kicker {
+        font-family: var(--font-display);
+        font-size: 0.72rem; font-weight: 700; color: var(--accent);
+        text-transform: uppercase; letter-spacing: 3.6px;
+        display: inline-flex; align-items: center; gap: 12px;
+    }
+    .intro-kicker::before, .intro-kicker::after {
+        content: ""; width: 28px; height: 1.5px; background: var(--accent);
+    }
+    .intro-headline {
+        font-family: var(--font-serif);
+        font-weight: 700; font-size: clamp(2.8rem, 6vw, 4.2rem); line-height: 1.05;
+        color: var(--navy-dark); margin: 18px 0 18px; letter-spacing: -1.5px;
+        max-width: 900px;
+    }
+    .intro-headline em { font-style: italic; color: var(--accent); font-weight: 400; }
+    .intro-lede {
+        font-family: var(--font-serif); font-style: italic; font-weight: 400;
+        font-size: 1.12rem; line-height: 1.7; color: var(--muted);
+        max-width: 680px;
+    }
+
+    /* === Tabs filter === */
+    .filters {
+        border-bottom: 1px solid var(--rule);
+        padding: 18px 0; background: var(--paper);
+        position: sticky; top: 71px; z-index: 40;
+    }
+    .filters-row {
+        display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
+    }
+    .filters-label {
+        font-family: var(--font-display); font-size: 0.68rem; font-weight: 700;
+        color: var(--muted); text-transform: uppercase; letter-spacing: 2px;
+        padding-right: 16px; border-right: 1px solid var(--rule); margin-right: 12px;
+    }
+    .filter-btn {
+        font-family: var(--font-display); font-size: 0.78rem; font-weight: 600;
+        color: var(--muted); padding: 8px 14px; border-radius: 20px;
+        border: 1px solid transparent; background: transparent; cursor: pointer;
+        transition: all 0.25s ease; letter-spacing: 0.3px;
+    }
+    .filter-btn:hover { color: var(--navy-dark); }
+    .filter-btn.active {
+        background: var(--navy-dark); color: var(--white);
+    }
+
+    /* === Main grid: Feature + sidebar === */
+    .main {
+        padding: 56px 0 72px;
+        display: grid; grid-template-columns: 1fr; gap: 56px;
+    }
+    .main-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        gap: 56px;
+        align-items: start;
+    }
+
+    /* Feature card */
+    .feature {
+        background: var(--white);
+        border: 1px solid var(--rule);
+        padding: 44px;
+        position: relative;
+        transition: box-shadow 0.3s ease;
+    }
+    .feature:hover { box-shadow: 0 12px 40px rgba(10,40,68,0.08); }
+    .feature::before {
+        content: ""; position: absolute; top: 0; left: 0;
+        width: 4px; height: 100%; background: var(--accent);
+    }
+    .feature-meta {
+        display: flex; align-items: center; gap: 12px; margin-bottom: 24px;
+        font-family: var(--font-display);
+    }
+    .category {
+        font-size: 0.68rem; font-weight: 700; color: var(--accent);
+        text-transform: uppercase; letter-spacing: 2.2px;
+    }
+    .meta-sep {
+        width: 4px; height: 4px; background: var(--muted); border-radius: 50%; opacity: 0.45;
+    }
+    .date {
+        font-size: 0.72rem; font-weight: 500; color: var(--muted);
+        text-transform: uppercase; letter-spacing: 1.5px;
+    }
+    .feature-headline {
+        font-family: var(--font-serif);
+        font-weight: 700; font-size: 2.2rem; line-height: 1.2;
+        color: var(--navy-dark); margin-bottom: 16px; letter-spacing: -0.5px;
+    }
+    .feature-excerpt {
+        font-size: 1rem; line-height: 1.75; color: var(--ink);
+        margin-bottom: 28px; max-width: 620px;
+    }
+    .feature-cta {
+        display: inline-flex; align-items: center; gap: 10px;
+        font-family: var(--font-display); font-size: 0.82rem; font-weight: 700;
+        color: var(--navy-dark); text-transform: uppercase; letter-spacing: 1.2px;
+        padding-bottom: 4px; border-bottom: 2px solid var(--navy-dark);
+        transition: all 0.25s ease;
+    }
+    .feature-cta:hover { color: var(--accent); border-bottom-color: var(--accent); gap: 14px; }
+    .feature-signature {
+        margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--rule);
+        display: flex; align-items: center; gap: 12px;
+    }
+    .sig-avatar {
+        width: 36px; height: 36px; border-radius: 50%; background: var(--navy);
+        color: var(--white); display: flex; align-items: center; justify-content: center;
+        font-family: var(--font-display); font-weight: 700; font-size: 0.78rem; letter-spacing: 0.5px;
+    }
+    .sig-text {
+        font-family: var(--font-body); font-size: 0.78rem; color: var(--muted);
+    }
+    .sig-text strong {
+        font-weight: 600; color: var(--ink); display: block;
+    }
+
+    /* Sidebar: In agenda */
+    .sidebar {
+        position: sticky; top: 140px;
+        background: transparent;
+    }
+    .sidebar-head {
+        display: flex; align-items: baseline; gap: 12px; margin-bottom: 24px;
+        padding-bottom: 14px; border-bottom: 2px solid var(--navy-dark);
+    }
+    .sidebar-title {
+        font-family: var(--font-display); font-size: 0.78rem; font-weight: 800;
+        color: var(--navy-dark); text-transform: uppercase; letter-spacing: 2.4px;
+    }
+    .sidebar-counter {
+        font-family: var(--font-serif); font-style: italic; font-size: 0.78rem; color: var(--muted);
+    }
+    .sidebar-list {
+        list-style: none; display: flex; flex-direction: column; gap: 22px;
+    }
+    .sidebar-item {
+        display: grid; grid-template-columns: 56px 1fr; gap: 16px;
+        padding-bottom: 22px; border-bottom: 1px solid var(--rule);
+    }
+    .sidebar-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .sidebar-date {
+        font-family: var(--font-serif); font-weight: 700;
+        color: var(--navy-dark); text-align: center; line-height: 1;
+    }
+    .sidebar-date .day { display: block; font-size: 1.6rem; }
+    .sidebar-date .mon {
+        display: block; font-family: var(--font-display); font-size: 0.62rem;
+        text-transform: uppercase; letter-spacing: 2px;
+        color: var(--muted); margin-top: 4px; font-weight: 600;
+    }
+    .sidebar-content .category { margin-bottom: 4px; display: inline-block; font-size: 0.62rem; letter-spacing: 1.8px; }
+    .sidebar-content .item-headline {
+        font-family: var(--font-serif); font-weight: 600; font-size: 1rem;
+        line-height: 1.35; color: var(--navy-dark); letter-spacing: -0.2px;
+    }
+    .sidebar-content a:hover .item-headline { color: var(--accent); }
+
+    /* === Secondary cards row === */
+    .cards-row {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
+    }
+    .card {
+        background: var(--white);
+        border: 1px solid var(--rule);
+        padding: 28px 28px 32px;
+        display: flex; flex-direction: column;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    .card:hover {
+        box-shadow: 0 8px 24px rgba(10,40,68,0.06);
+        transform: translateY(-2px);
+        border-color: rgba(22, 64, 104, 0.2);
+    }
+    .card-head {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--rule);
+    }
+    .card-headline {
+        font-family: var(--font-serif); font-weight: 700; font-size: 1.25rem;
+        line-height: 1.3; color: var(--navy-dark); margin-bottom: 12px;
+        letter-spacing: -0.3px;
+    }
+    .card-excerpt {
+        font-size: 0.88rem; line-height: 1.65; color: var(--muted);
+        margin-bottom: 20px; flex: 1;
+    }
+    .card-foot {
+        display: flex; justify-content: space-between; align-items: center;
+        font-family: var(--font-display); font-size: 0.72rem;
+    }
+    .card-source {
+        color: var(--muted); font-weight: 500; letter-spacing: 0.3px;
+    }
+    .card-arrow {
+        width: 28px; height: 28px; border-radius: 50%;
+        background: var(--navy-dark); color: var(--white);
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.25s ease;
+    }
+    .card:hover .card-arrow { background: var(--accent); transform: rotate(-45deg); }
+
+    /* === Archive strip === */
+    .archive {
+        background: var(--navy-dark);
+        color: var(--white);
+        padding: 72px 0;
+        border-top: 4px solid var(--accent);
+    }
+    .archive-head {
+        display: flex; align-items: baseline; justify-content: space-between;
+        margin-bottom: 40px; padding-bottom: 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+    .archive-title {
+        font-family: var(--font-serif); font-weight: 700; font-size: 2rem;
+        letter-spacing: -0.3px;
+    }
+    .archive-title em { font-style: italic; color: rgba(255,255,255,0.5); font-weight: 400; }
+    .archive-link {
+        font-family: var(--font-display); font-size: 0.76rem; font-weight: 700;
+        color: var(--white); text-transform: uppercase; letter-spacing: 1.8px;
+        display: inline-flex; align-items: center; gap: 8px;
+        opacity: 0.9; transition: all 0.25s ease;
+    }
+    .archive-link:hover { opacity: 1; gap: 12px; }
+    .archive-list {
+        list-style: none; display: grid; grid-template-columns: repeat(2, 1fr);
+        gap: 0 56px;
+    }
+    .archive-item {
+        display: grid; grid-template-columns: 90px 1fr 80px; gap: 20px;
+        padding: 22px 0; border-bottom: 1px solid rgba(255,255,255,0.1);
+        align-items: center; transition: all 0.25s ease;
+    }
+    .archive-item:hover { transform: translateX(4px); }
+    .archive-item:hover .archive-headline { color: var(--accent); }
+    .archive-date {
+        font-family: var(--font-display); font-size: 0.72rem;
+        color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 1.8px;
+        font-weight: 600;
+    }
+    .archive-headline {
+        font-family: var(--font-serif); font-weight: 600; font-size: 1rem;
+        line-height: 1.35; transition: color 0.25s ease;
+    }
+    .archive-cat {
+        font-family: var(--font-display); font-size: 0.62rem; font-weight: 700;
+        color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 1.8px;
+        text-align: right;
+    }
+
+    /* === Footer === */
+    .prot-footer {
+        padding: 40px 0; text-align: center;
+        font-family: var(--font-display); font-size: 0.72rem;
+        color: var(--muted); text-transform: uppercase; letter-spacing: 2px;
+        border-top: 1px solid var(--rule);
+    }
+
+    /* === Responsive === */
+    @media (max-width: 980px) {
+        .main-grid { grid-template-columns: 1fr; gap: 48px; }
+        .sidebar { position: static; }
+        .cards-row { grid-template-columns: 1fr; gap: 20px; }
+        .archive-list { grid-template-columns: 1fr; gap: 0; }
+        .archive-item { grid-template-columns: 70px 1fr; }
+        .archive-cat { display: none; }
+        .feature { padding: 32px 24px; }
+        .feature-headline { font-size: 1.7rem; }
+        .container { padding: 0 20px; }
+        .filters-label { border-right: none; padding-right: 0; margin-right: 0; }
+    }
+
+    @media (max-width: 640px) {
+        .intro { padding: 48px 0 32px; }
+        .main { padding: 40px 0 56px; }
+        .archive { padding: 56px 0; }
+        .archive-head { flex-direction: column; align-items: flex-start; gap: 12px; }
+        .archive-title { font-size: 1.5rem; }
+    }
+    </style>
+</head>
+<body>
+
+    <!-- Masthead -->
+    <div class="masthead">
+        <div class="container masthead-row">
+            <div class="masthead-brand">
+                <a href="../" class="masthead-back" aria-label="Torna alla home">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </a>
+                <div>
+                    <div class="masthead-title">Next Generation Business</div>
+                </div>
+            </div>
+            <span class="masthead-date">Aggiornato al 20 aprile 2026</span>
+        </div>
+    </div>
+
+    <!-- Intro -->
+    <section class="intro">
+        <div class="container">
+            <span class="intro-kicker">News &amp; Insight</span>
+            <h1 class="intro-headline">Dalla nostra <em>redazione.</em></h1>
+            <p class="intro-lede">Aggiornamenti normativi, rassegna stampa, interventi e segnalazioni sui temi del diritto d'impresa, della revisione legale e degli strumenti di competitività per il sistema produttivo italiano.</p>
+        </div>
+    </section>
+
+    <!-- Filters -->
+    <div class="filters">
+        <div class="container filters-row">
+            <span class="filters-label">Filtra per</span>
+            <button class="filter-btn active">Tutto</button>
+            <button class="filter-btn">Normativa</button>
+            <button class="filter-btn">Eventi</button>
+            <button class="filter-btn">Rassegna stampa</button>
+            <button class="filter-btn">Interviste</button>
+            <button class="filter-btn">Case study</button>
+        </div>
+    </div>
+
+    <!-- Main grid -->
+    <main class="main">
+        <div class="container">
+            <div class="main-grid">
+
+                <!-- Feature article -->
+                <article class="feature">
+                    <div class="feature-meta">
+                        <span class="category">In primo piano</span>
+                        <span class="meta-sep"></span>
+                        <span class="date">15 Aprile 2026</span>
+                        <span class="meta-sep"></span>
+                        <span class="date">Lettura 4 min</span>
+                    </div>
+                    <h2 class="feature-headline">Credito d'imposta ZLS: pubblicato il provvedimento attuativo, via alle istanze dal 2 maggio</h2>
+                    <p class="feature-excerpt">L'Agenzia delle Entrate ha pubblicato il provvedimento operativo che disciplina la presentazione delle istanze per il credito d'imposta ZLS 2025-2026. Analizziamo le modalità di compilazione, la finestra temporale e gli snodi interpretativi che richiedono attenzione per le imprese del Centro-Nord.</p>
+                    <a href="#" class="feature-cta">
+                        Continua a leggere
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </a>
+                    <div class="feature-signature">
+                        <div class="sig-avatar">VN</div>
+                        <div class="sig-text">
+                            <strong>Vincenzo A. Napolitano</strong>
+                            Equity Partner — Revilaw S.p.A.
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Sidebar: In agenda -->
+                <aside class="sidebar">
+                    <div class="sidebar-head">
+                        <span class="sidebar-title">In agenda</span>
+                        <span class="sidebar-counter">5 segnalazioni</span>
+                    </div>
+                    <ul class="sidebar-list">
+                        <li class="sidebar-item">
+                            <div class="sidebar-date"><span class="day">29</span><span class="mon">Apr</span></div>
+                            <div class="sidebar-content">
+                                <span class="category">Evento</span>
+                                <a href="../roma_aprile_2026/"><h3 class="item-headline">Convegno Roma — ZLS &amp; Rating di Legalità</h3></a>
+                            </div>
+                        </li>
+                        <li class="sidebar-item">
+                            <div class="sidebar-date"><span class="day">10</span><span class="mon">Apr</span></div>
+                            <div class="sidebar-content">
+                                <span class="category">Rassegna stampa</span>
+                                <a href="#"><h3 class="item-headline">Il Sole 24 Ore intervista Pizzutelli sul Rating di Legalità</h3></a>
+                            </div>
+                        </li>
+                        <li class="sidebar-item">
+                            <div class="sidebar-date"><span class="day">05</span><span class="mon">Apr</span></div>
+                            <div class="sidebar-content">
+                                <span class="category">Normativa</span>
+                                <a href="#"><h3 class="item-headline">DPCM 4 settembre 2024 — chiarimenti applicativi</h3></a>
+                            </div>
+                        </li>
+                        <li class="sidebar-item">
+                            <div class="sidebar-date"><span class="day">28</span><span class="mon">Mar</span></div>
+                            <div class="sidebar-content">
+                                <span class="category">Studio</span>
+                                <a href="#"><h3 class="item-headline">Revilaw apre la nuova sede di Roma</h3></a>
+                            </div>
+                        </li>
+                        <li class="sidebar-item">
+                            <div class="sidebar-date"><span class="day">20</span><span class="mon">Mar</span></div>
+                            <div class="sidebar-content">
+                                <span class="category">Case study</span>
+                                <a href="#"><h3 class="item-headline">Ottenimento Rating ★★★ per gruppo industriale</h3></a>
+                            </div>
+                        </li>
+                    </ul>
+                </aside>
+            </div>
+
+            <!-- Secondary cards row -->
+            <div class="cards-row" style="margin-top:56px;">
+                <article class="card">
+                    <div class="card-head">
+                        <span class="category">Normativa</span>
+                        <span class="date">02 Apr 2026</span>
+                    </div>
+                    <h3 class="card-headline">AGCM aggiorna le linee guida sul Rating di Legalità</h3>
+                    <p class="card-excerpt">Nuova delibera dell'Autorità con precisazioni sulle procedure di attribuzione e rinnovo del Rating per le imprese con fatturato superiore a 2 milioni.</p>
+                    <div class="card-foot">
+                        <span class="card-source">Delibera AGCM n. 32085</span>
+                        <span class="card-arrow">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </span>
+                    </div>
+                </article>
+
+                <article class="card">
+                    <div class="card-head">
+                        <span class="category">Interviste</span>
+                        <span class="date">28 Mar 2026</span>
+                    </div>
+                    <h3 class="card-headline">«La revisione legale come leva di governance»</h3>
+                    <p class="card-excerpt">Intervista a Stefano Pizzutelli, Presidente del Comitato Scientifico Revilaw, sul ruolo della revisione legale e dei sistemi di controllo nelle PMI italiane.</p>
+                    <div class="card-foot">
+                        <span class="card-source">Redazione NGB</span>
+                        <span class="card-arrow">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </span>
+                    </div>
+                </article>
+
+                <article class="card">
+                    <div class="card-head">
+                        <span class="category">Rassegna</span>
+                        <span class="date">24 Mar 2026</span>
+                    </div>
+                    <h3 class="card-headline">ZLS Centro-Nord: mappa aggiornata e perimetri operativi</h3>
+                    <p class="card-excerpt">Panoramica dei perimetri ZLS del Centro-Nord, con approfondimento sulle aree portuali e logistiche ammesse al credito d'imposta nel biennio 2025-2026.</p>
+                    <div class="card-foot">
+                        <span class="card-source">Approfondimento tecnico</span>
+                        <span class="card-arrow">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+                        </span>
+                    </div>
+                </article>
+            </div>
+        </div>
+    </main>
+
+    <!-- Archive strip -->
+    <section class="archive">
+        <div class="container">
+            <div class="archive-head">
+                <h2 class="archive-title">Archivio <em>— news precedenti</em></h2>
+                <a href="#" class="archive-link">
+                    Tutte le news
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </a>
+            </div>
+            <ul class="archive-list">
+                <li class="archive-item">
+                    <span class="archive-date">12 Mar 2026</span>
+                    <a href="#" class="archive-headline">D.L. 60/2024: le modifiche in sede di conversione</a>
+                    <span class="archive-cat">Normativa</span>
+                </li>
+                <li class="archive-item">
+                    <span class="archive-date">05 Mar 2026</span>
+                    <a href="#" class="archive-headline">Rating di Legalità nel 2025: numeri, trend e interpretazioni</a>
+                    <span class="archive-cat">Report</span>
+                </li>
+                <li class="archive-item">
+                    <span class="archive-date">22 Feb 2026</span>
+                    <a href="#" class="archive-headline">Convegno Verona: cronaca e materiali della giornata</a>
+                    <span class="archive-cat">Eventi</span>
+                </li>
+                <li class="archive-item">
+                    <span class="archive-date">15 Feb 2026</span>
+                    <a href="#" class="archive-headline">Revilaw entra nel network europeo di revisione legale</a>
+                    <span class="archive-cat">Studio</span>
+                </li>
+                <li class="archive-item">
+                    <span class="archive-date">08 Feb 2026</span>
+                    <a href="#" class="archive-headline">Adeguati Assetti: le verifiche nelle operazioni di M&amp;A</a>
+                    <span class="archive-cat">Interviste</span>
+                </li>
+                <li class="archive-item">
+                    <span class="archive-date">30 Gen 2026</span>
+                    <a href="#" class="archive-headline">Modello 231 e compliance: il punto del Comitato Scientifico</a>
+                    <span class="archive-cat">Approfondimenti</span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <footer class="prot-footer">
+        <div class="container">Prototipo News &amp; Insight — Next Generation Business</div>
+    </footer>
+
+    <script>
+    // Filter-tab visual toggle (demo only)
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+    </script>
+</body>
+</html>
