@@ -1062,43 +1062,78 @@ ul {
     word-spacing: -0.02em;
 }
 
-.timeline-speaker {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1px;
-    margin-top: 10px;
-    margin-right: 8px;
-    padding: 8px 14px;
-    background: rgba(22, 64, 104, 0.05);
-    border: 1px solid rgba(22, 64, 104, 0.14);
-    border-radius: var(--radius-sm);
-    line-height: 1.3;
-    transition: all 0.25s ease;
+/* Editorial speakers block inside timeline */
+.timeline-speakers {
+    display: block;
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(22, 64, 104, 0.1);
 }
 
-.timeline-speaker:hover {
-    background: rgba(22, 64, 104, 0.08);
-    border-color: rgba(22, 64, 104, 0.22);
-}
-
-.timeline-speaker strong {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 0.82rem;
-    color: var(--navy-dark);
-    letter-spacing: -0.1px;
-}
-
-.timeline-speaker em {
-    font-style: normal;
-    font-weight: 600;
+.speakers-label {
+    display: inline-block;
+    font-family: var(--font-body);
     font-size: 0.66rem;
-    color: var(--navy);
-    opacity: 0.72;
+    font-weight: 700;
+    color: var(--accent);
     text-transform: uppercase;
-    letter-spacing: 0.7px;
-    margin-top: 2px;
+    letter-spacing: 2.4px;
+    margin-bottom: 14px;
+    position: relative;
+    padding-left: 22px;
+}
+
+.speakers-label::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 1.5px;
+    background: var(--accent);
+}
+
+.speakers-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    column-gap: 32px;
+    row-gap: 14px;
+}
+
+.speakers-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    position: relative;
+    padding-left: 14px;
+    border-left: 2px solid rgba(22, 64, 104, 0.18);
+    transition: border-color 0.25s ease;
+}
+
+.speakers-list li:hover {
+    border-left-color: var(--accent);
+}
+
+.speaker-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--navy-dark);
+    letter-spacing: -0.2px;
+    line-height: 1.3;
+}
+
+.speaker-role {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    letter-spacing: 0.1px;
 }
 
 /* === Location Section === */
@@ -2142,18 +2177,28 @@ ul {
         transform: none;
     }
 
-    .timeline-speaker {
-        margin-top: 8px;
-        padding: 7px 12px;
+    .timeline-speakers {
+        margin-top: 18px;
+        padding-top: 16px;
     }
 
-    .timeline-speaker strong {
-        font-size: 0.76rem;
-    }
-
-    .timeline-speaker em {
+    .speakers-label {
         font-size: 0.62rem;
-        letter-spacing: 0.5px;
+        letter-spacing: 2px;
+        margin-bottom: 12px;
+    }
+
+    .speakers-list {
+        grid-template-columns: 1fr;
+        row-gap: 12px;
+    }
+
+    .speaker-name {
+        font-size: 0.9rem;
+    }
+
+    .speaker-role {
+        font-size: 0.72rem;
     }
 
     /* --- Location --- */
