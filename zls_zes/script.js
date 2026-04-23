@@ -211,42 +211,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const REGIONI_ZLS = {
         'liguria-genova': {
             nome: 'ZLS Porto e Retroporto di Genova',
-            regione: 'Liguria',
+            regione: 'Liguria (con estensioni in Piemonte, Lombardia ed Emilia-Romagna)',
             tagline: 'Cluster portuale del Mar Ligure occidentale',
             istitutivo: 'DPCM istitutivo (2024)',
             anno: '2024',
-            lead: "Una delle ZLS più estese del Centro-Nord, ricomprende lo scalo portuale genovese e i retroporti del Basso Piemonte e dell'asse Alessandria-Piacenza-Milano, integrati nel cluster manifatturiero del Nord-Ovest.",
-            superficie: 'Sistema porto + retroporti',
-            estensione: 'Liguria, Piemonte e Lombardia',
+            lead: "Una delle ZLS più estese del Centro-Nord: ricomprende lo scalo portuale genovese e si sviluppa lungo gli assi ferroviari e autostradali verso l'entroterra piemontese, lombardo ed emiliano, fino agli interporti del Nord-Ovest.",
+            superficie: 'Sistema porto + retroporti interregionali',
+            estensione: 'Liguria, Piemonte, Lombardia ed Emilia-Romagna',
             aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
-            ports: ['Porto di Genova', 'Voltri-Pra\'', 'Vado Ligure', 'Interporto di Rivalta Scrivia', 'Milano Smistamento'],
-            comuni: ['Genova', 'Vado Ligure', 'Rivalta Scrivia', 'Arquata Scrivia', 'Novi Ligure', 'Alessandria', 'Castellazzo Bormida', 'Ovada', 'Tortona', 'Dinazzano', 'Milano Smistamento', 'Melzo', 'Piacenza']
+            ports: ['Porto di Genova', 'Voltri-Pra\'', 'Vado Ligure', 'Interporto di Rivalta Scrivia', 'Milano Smistamento', 'Dinazzano (RE)'],
+            comuni: ['Genova', 'Vado Ligure', 'Rivalta Scrivia', 'Arquata Scrivia', 'Novi Ligure', 'Alessandria', 'Castellazzo Bormida', 'Ovada', 'Tortona', 'Piacenza', 'Dinazzano', 'Melzo', 'Pioltello', 'Segrate', 'Vignate', 'Milano Smistamento']
         },
         'liguria-spezia': {
             nome: 'ZLS Porto e Retroporto della Spezia',
-            regione: 'Liguria',
+            regione: 'Liguria (con estensione in Emilia-Romagna)',
             tagline: 'Nuova ZLS attivata il 19 gennaio 2026',
             istitutivo: 'DPCM 19 gennaio 2026',
             anno: '2026',
             lead: "Istituita con DPCM del 19 gennaio 2026, è la più recente ZLS attivata. Comprende il sistema portuale spezzino, le aree retroportuali della Val di Magra e si estende anche su alcuni Comuni dell'Emilia-Romagna lungo l'asse logistico Spezia-Parma.",
             superficie: 'Sistema porto + retroporto',
-            estensione: 'Liguria + alcuni Comuni emiliani',
+            estensione: 'Liguria + estensioni in Emilia',
             aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
             ports: ['Porto della Spezia', 'Santo Stefano di Magra', 'Aree retroportuali Val di Magra'],
             comuni: ['La Spezia', 'Arcola', 'Follo', 'Santo Stefano di Magra', 'Vezzano Ligure']
         },
         'lombardia': {
-            nome: 'ZLS Lombardia',
+            nome: 'ZLS Regione Lombardia',
             regione: 'Lombardia',
-            tagline: 'Hub interportuale del Nord Italia',
-            istitutivo: 'DPCM istitutivo',
+            tagline: 'Sistema dei porti fluviali lombardi',
+            istitutivo: 'DPCM 27 dicembre 2024',
             anno: '2024',
-            lead: 'Ricomprende i principali nodi interportuali lombardi e si integra con il sistema portuale ligure attraverso i corridoi infrastrutturali del Nord-Ovest.',
-            superficie: 'Aree interportuali e retroportuali',
-            estensione: 'Più poli logistici lombardi',
+            lead: 'La ZLS Regione Lombardia riguarda il sistema dei porti fluviali e interportuali delle province di Cremona e Mantova, lungo il corridoio del Po e i suoi affluenti, 18 Comuni complessivi (9 in provincia di Cremona e 9 in provincia di Mantova).',
+            superficie: 'Porti fluviali + interporti',
+            estensione: 'Province di Cremona e Mantova',
             aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
-            ports: ['Interporto di Mortara', 'Milano Smistamento', 'Hub logistici dell\'asse Milano-Ovest'],
-            comuni: ['Mortara', 'Milano (aree logistiche)', 'Melzo', 'Pavia (aree logistiche)']
+            ports: ['Porto di Cremona', 'Porto di Mantova', 'Hub fluviali del Po'],
+            comuni: ['Cremona', 'Mantova', '7 Comuni della provincia di Cremona', '8 Comuni della provincia di Mantova']
         },
         'veneto': {
             nome: 'ZLS Veneto - Porto di Venezia-Rodigino',
@@ -259,20 +259,20 @@ document.addEventListener('DOMContentLoaded', () => {
             estensione: 'Province di Venezia e Rovigo',
             aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
             ports: ['Porto di Venezia', 'Porto Marghera', 'Interporto di Rovigo'],
-            comuni: ['Venezia (Marghera, Campalto, Murano, Tronchetto)', 'Rovigo', 'Occhiobello', 'Polesella', 'Castelmassa', 'Bagnolo di Po', 'Ficarolo', 'Stienta', 'Trecenta', 'Fiesso Umbertiano', 'Bergantino', 'Melara']
+            comuni: ['Venezia (Marghera, Campalto, Murano, Tronchetto)', 'Rovigo', 'Occhiobello', 'Polesella', 'Castelmassa', 'Bagnolo di Po', 'Ficarolo', 'Stienta', 'Trecenta', 'Fiesso Umbertiano', 'Bergantino', 'Melara', 'Bosaro', 'Calto', 'Canaro', 'Castelnovo Bariano', 'Ceneselli', 'Gaiba', 'Salara']
         },
         'fvg': {
             nome: 'ZLS Friuli-Venezia Giulia',
             regione: 'Friuli-Venezia Giulia',
             tagline: 'Porta orientale dei traffici europei',
-            istitutivo: 'DPCM istitutivo',
-            anno: '2024',
-            lead: 'Si estende sul sistema portuale di Trieste, Monfalcone e San Giorgio di Nogaro, snodo strategico per i traffici ferroviari e marittimi tra Mediterraneo, Centro Europa e Balcani.',
-            superficie: 'Sistema porto + retroporto',
-            estensione: 'Province di Trieste, Gorizia, Udine e Pordenone',
+            istitutivo: 'DPCM 3 febbraio 2025',
+            anno: '2025',
+            lead: 'Si estende sul sistema portuale di Trieste, Monfalcone e San Giorgio di Nogaro, snodo strategico per i traffici ferroviari e marittimi tra Mediterraneo, Centro Europa e Balcani: 26 Comuni in tre province.',
+            superficie: '3 porti + interporti + aree industriali',
+            estensione: '26 Comuni in province di Trieste, Gorizia, Udine e Pordenone',
             aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
-            ports: ['Porto di Trieste', 'Porto di Monfalcone', 'Porto di San Giorgio di Nogaro', 'Interporto di Cervignano'],
-            comuni: ['Trieste', 'Monfalcone', 'San Giorgio di Nogaro', 'Cervignano', 'Gorizia', 'Ronchi dei Legionari', 'Staranzano', 'Torviscosa', 'Buttrio', 'Pavia di Udine', 'Manzano', 'San Giovanni al Natisone', 'Mossa', 'Brugnera']
+            ports: ['Porto di Trieste', 'Porto di Monfalcone', 'Porto di San Giorgio di Nogaro', 'Interporto di Cervignano', 'Interporto di Pordenone'],
+            comuni: ['Trieste', 'Monfalcone', 'Gorizia', 'Ronchi dei Legionari', 'Staranzano', 'Mossa', 'San Giorgio di Nogaro', 'Torviscosa', 'Cervignano del Friuli', 'Udine', 'Pavia di Udine', 'Buttrio', 'Manzano', 'San Giovanni al Natisone', 'Cividale del Friuli', 'Moimacco', 'Buja', 'Osoppo', 'Venzone', 'Amaro', 'Tarvisio', 'Mereto di Tomba', 'Pordenone', 'Brugnera', 'San Vito al Tagliamento', 'Spilimbergo', 'Zoppola']
         },
         'emilia': {
             nome: 'ZLS Emilia-Romagna',
@@ -280,12 +280,12 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline: 'Logistica integrata padana',
             istitutivo: 'DPCM 11 ottobre 2024',
             anno: '2024',
-            lead: "Combina il porto di Ravenna con la rete interportuale emiliano-romagnola, una delle più dense d'Europa: 11 nodi intermodali, 25 aree produttive, 9 province e circa 4.500 ettari di territorio.",
+            lead: "Combina il porto di Ravenna con la rete interportuale emiliano-romagnola, una delle più dense d'Europa: 11 nodi intermodali, 25 aree produttive, 9 province e circa 4.500 ettari di territorio, su 28 Comuni.",
             superficie: 'Porto + 11 nodi intermodali',
-            estensione: '9 province, 28 Comuni',
+            estensione: '28 Comuni in 9 province',
             aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
             ports: ['Porto di Ravenna', 'Interporto di Bologna', 'Interporto CePIM (Parma)', 'Hub ferroviario di Piacenza', 'Dinazzano (RE)'],
-            comuni: ['Ravenna', 'Bologna', 'Parma', 'Piacenza', 'Modena', 'Reggio Emilia (Reggiolo, Rubiera, Casalgrande)', 'Ferrara', 'Bondeno', 'Codigoro', 'Argenta', 'Bagnacavallo', 'Lugo', 'Faenza', 'Imola', 'Forlì', 'Forlimpopoli', 'Cesena', 'Rimini', 'Misano Adriatico', 'Mirandola', 'Concordia sulla Secchia', 'Guastalla', 'Fontevivo', 'Bentivoglio', 'San Giorgio di Piano', 'Conselice', 'Cotignola', 'Ostellato']
+            comuni: ['Ravenna', 'Bologna', 'Parma', 'Piacenza', 'Modena', 'Reggiolo', 'Rubiera', 'Casalgrande', 'Ferrara', 'Bondeno', 'Codigoro', 'Argenta', 'Bagnacavallo', 'Lugo', 'Faenza', 'Imola', 'Forlì', 'Forlimpopoli', 'Cesena', 'Rimini', 'Misano Adriatico', 'Mirandola', 'Concordia sulla Secchia', 'Guastalla', 'Fontevivo', 'Bentivoglio', 'San Giorgio di Piano', 'Conselice', 'Cotignola', 'Ostellato']
         },
         'toscana': {
             nome: 'ZLS Toscana',
@@ -293,9 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline: 'Sistema portuale del Mar Tirreno settentrionale',
             istitutivo: 'DPCM 25 novembre 2024',
             anno: '2024',
-            lead: 'Ricomprende quattro porti della costa toscana, l\'aeroporto di Pisa e i due principali interporti regionali: snodo per i traffici merci verso Sardegna, Corsica e Mediterraneo.',
+            lead: "Ricomprende quattro porti della costa toscana, l'aeroporto di Pisa e i due principali interporti regionali: snodo per i traffici merci verso Sardegna, Corsica e Mediterraneo.",
             superficie: '4 porti + 2 interporti + 1 aeroporto',
-            estensione: '10 Comuni della costa e dell\'asse Firenze-Prato',
+            estensione: '10 Comuni tra costa e asse Firenze-Prato',
             aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
             ports: ['Porto di Livorno', 'Porto di Piombino', 'Porto di Marina di Carrara', 'Porto di Portoferraio', 'Interporto Toscano A. Vespucci (Guasticce)', 'Interporto della Toscana Centrale (Prato)', 'Aeroporto di Pisa'],
             comuni: ['Livorno', 'Collesalvetti', 'Piombino', 'Pisa', 'Carrara', 'Massa', 'Prato', 'Campi Bisenzio', 'Firenze', 'Portoferraio']
@@ -304,20 +304,20 @@ document.addEventListener('DOMContentLoaded', () => {
             nome: 'ZLS Umbria',
             regione: 'Umbria',
             tagline: 'Regione in transizione - intensità maggiorate',
-            istitutivo: 'Estensione ZLS regioni in transizione',
+            istitutivo: 'Estensione alle regioni in transizione',
             anno: '2024',
             lead: "Estensione delle ZLS alle aree logistico-produttive dell'Umbria. Trattandosi di regione in transizione, può accedere alle intensità di aiuto più favorevoli previste dalla Carta aiuti regionali.",
             superficie: 'Aree logistico-produttive',
             estensione: 'Province di Perugia e Terni',
             aliquote: { piccole: '35%', medie: '25%', grandi: '15%' },
             ports: ['Polo logistico di Terni-Narni', 'Hub di Perugia', 'Aree industriali umbre'],
-            comuni: ['Terni', 'Narni', 'Perugia (aree logistiche)', 'Foligno']
+            comuni: ['Terni', 'Narni', 'Perugia (aree logistiche)', 'Foligno', 'Spoleto']
         },
         'marche': {
             nome: 'ZLS Marche',
             regione: 'Marche',
             tagline: 'Regione in transizione - intensità maggiorate',
-            istitutivo: 'Estensione ZLS regioni in transizione',
+            istitutivo: 'Estensione alle regioni in transizione',
             anno: '2024',
             lead: "ZLS attivata sull'asse portuale di Ancona e sulle aree retroportuali marchigiane in qualità di regione in transizione non ricompresa nella ZES Mezzogiorno: l'intera regione accede alle intensità di aiuto più favorevoli.",
             superficie: 'Porto + retroporto',
@@ -330,14 +330,14 @@ document.addEventListener('DOMContentLoaded', () => {
             nome: 'ZLS Lazio',
             regione: 'Lazio',
             tagline: 'Sistema portuale del Mar Tirreno centrale',
-            istitutivo: 'DGR 797 del 15/10/2024',
-            anno: '2024',
-            lead: "Comprende i porti di Civitavecchia, Fiumicino e Gaeta, l'aeroporto di Fiumicino e una rete di nodi logistici che si estende a 49 Comuni nelle 5 province laziali: snodo per il Mediterraneo centrale e per i collegamenti con l'area metropolitana di Roma.",
-            superficie: '3 porti + nodi logistici',
-            estensione: '49 Comuni in 5 province',
+            istitutivo: 'DPCM 17 novembre 2025',
+            anno: '2025',
+            lead: "Istituita con DPCM del 17 novembre 2025 (registrato alla Corte dei Conti il 16 gennaio 2026). Comprende i porti di Civitavecchia, Fiumicino e Gaeta, i relativi retroporti e una rete di nodi logistici distribuita su 64 Comuni in 5 province: di questi, 36 sono ammessi alle deroghe previste per gli aiuti a finalità regionale.",
+            superficie: '3 porti + aeroporto + nodi logistici',
+            estensione: '64 Comuni in 5 province (di cui 36 in zone agevolate)',
             aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
             ports: ['Porto di Civitavecchia', 'Porto di Fiumicino', 'Porto di Gaeta', 'Aeroporto di Fiumicino', 'Hub logistici dell\'area romana'],
-            comuni: ['Civitavecchia', 'Fiumicino', 'Gaeta', 'Roma (Tiburtina e aree logistiche)', 'Pomezia', 'Aprilia', 'Cisterna di Latina', 'Latina', 'Formia', 'Minturno', 'Itri', 'Fondi', 'Frosinone', 'Ferentino', 'Cassino', 'Ceccano', 'Piedimonte San Germano', 'Villa Santa Lucia', 'San Vittore del Lazio', 'Tivoli', 'Guidonia Montecelio', 'Rieti', 'Cittaducale', 'Amatrice', 'Leonessa', 'Viterbo', 'Tarquinia', 'Civita Castellana', 'Orte']
+            comuni: ['Roma', 'Civitavecchia', 'Fiumicino', 'Formello', 'Fiano Romano', 'Guidonia Montecelio', 'Tivoli', 'Pomezia', 'Ardea', 'Albano Laziale', 'Velletri', 'Marino', 'Ciampino', 'Colleferro', 'Campagnano di Roma', 'Anguillara Sabazia', 'Allumiere', 'Viterbo', 'Tarquinia', 'Civita Castellana', 'Orte', 'Rieti', 'Cittaducale', 'Amatrice', 'Accumoli', 'Leonessa', 'Fara in Sabina', 'Latina', 'Aprilia', 'Cisterna di Latina', 'Sermoneta', 'Sezze', 'Pontinia', 'Terracina', 'Fondi', 'Monte San Biagio', 'Itri', 'Gaeta', 'Formia', 'Minturno', 'Castelforte', 'Santi Cosma e Damiano', 'Frosinone', 'Cassino', 'Anagni', 'Ferentino', 'Ceccano', 'Ceprano', 'Sora', 'Isola del Liri', 'Roccasecca', 'Patrica', 'Piedimonte San Germano', 'Villa Santa Lucia', 'San Vittore del Lazio', 'San Giorgio a Liri', 'Sant\'Apollinare', 'Sant\'Ambrogio sul Garigliano', 'Sant\'Andrea del Garigliano', 'Ausonia', 'Castelnuovo Parano', 'Coreno Ausonio', 'Esperia', 'Pignataro Interamna']
         }
     };
 
