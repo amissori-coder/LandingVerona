@@ -202,28 +202,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Regioni ZLS interactive explorer ---
+    // Aliquote: intensità massime indicative ai sensi della Carta degli aiuti
+    // a finalità regionale 2022-2027 (zone "c"). Il valore puntuale dipende
+    // dal singolo Comune: per le regioni in transizione (Marche, Umbria) e
+    // per le zone "c" predefinite si applica fino al 15% per le grandi
+    // imprese; nelle altre zone "c" del Centro-Nord il massimale base per
+    // le grandi imprese è 10%. Maggiorazioni: +20% piccole, +10% medie.
     const REGIONI_ZLS = {
         'liguria-genova': {
             nome: 'ZLS Porto e Retroporto di Genova',
             regione: 'Liguria',
             tagline: 'Cluster portuale del Mar Ligure occidentale',
-            istitutivo: 'DPCM 31 luglio 2024',
+            istitutivo: 'DPCM istitutivo (2024)',
             anno: '2024',
-            lead: "Una delle prime ZLS operative del Centro-Nord, ricomprende lo scalo portuale genovese e le aree retroportuali destinate alla logistica e alla manifattura collegate al traffico merci del Mediterraneo nord-occidentale.",
-            superficie: 'Sistema porto + retroporto',
-            estensione: '7 Comuni',
-            ports: ['Porto di Genova', 'Voltri-Pra\'', 'Retroporto di Rivalta Scrivia', 'Alessandria-Tortona']
+            lead: "Una delle ZLS più estese del Centro-Nord, ricomprende lo scalo portuale genovese e i retroporti del Basso Piemonte e dell'asse Alessandria-Piacenza-Milano, integrati nel cluster manifatturiero del Nord-Ovest.",
+            superficie: 'Sistema porto + retroporti',
+            estensione: 'Liguria, Piemonte e Lombardia',
+            aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
+            ports: ['Porto di Genova', 'Voltri-Pra\'', 'Vado Ligure', 'Interporto di Rivalta Scrivia', 'Milano Smistamento'],
+            comuni: ['Genova', 'Vado Ligure', 'Rivalta Scrivia', 'Arquata Scrivia', 'Novi Ligure', 'Alessandria', 'Castellazzo Bormida', 'Ovada', 'Tortona', 'Dinazzano', 'Milano Smistamento', 'Melzo', 'Piacenza']
         },
         'liguria-spezia': {
             nome: 'ZLS Porto e Retroporto della Spezia',
             regione: 'Liguria',
-            tagline: 'La nuova ZLS istituita nel 2026',
+            tagline: 'Nuova ZLS attivata il 19 gennaio 2026',
             istitutivo: 'DPCM 19 gennaio 2026',
             anno: '2026',
-            lead: "Istituita con DPCM del 19 gennaio 2026, è l'ultima ZLS attivata. Comprende il sistema portuale spezzino e le aree retroportuali della Val di Magra fino agli snodi logistici toscani settentrionali.",
+            lead: "Istituita con DPCM del 19 gennaio 2026, è la più recente ZLS attivata. Comprende il sistema portuale spezzino, le aree retroportuali della Val di Magra e si estende anche su alcuni Comuni dell'Emilia-Romagna lungo l'asse logistico Spezia-Parma.",
             superficie: 'Sistema porto + retroporto',
-            estensione: 'Aree portuali e retroportuali',
-            ports: ['Porto della Spezia', 'Santo Stefano Magra', 'Aree retroportuali Val di Magra']
+            estensione: 'Liguria + alcuni Comuni emiliani',
+            aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
+            ports: ['Porto della Spezia', 'Santo Stefano di Magra', 'Aree retroportuali Val di Magra'],
+            comuni: ['La Spezia', 'Arcola', 'Follo', 'Santo Stefano di Magra', 'Vezzano Ligure']
         },
         'lombardia': {
             nome: 'ZLS Lombardia',
@@ -231,21 +241,25 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline: 'Hub interportuale del Nord Italia',
             istitutivo: 'DPCM istitutivo',
             anno: '2024',
-            lead: 'Ricomprende i principali nodi interportuali e logistici lombardi, integrati con il sistema portuale ligure attraverso i corridoi infrastrutturali del Nord-Ovest.',
-            superficie: 'Aree interportuali multiple',
-            estensione: 'Più poli logistici',
-            ports: ['Interporto di Mortara', 'Hub logistici dell\'asse Milano-Ovest']
+            lead: 'Ricomprende i principali nodi interportuali lombardi e si integra con il sistema portuale ligure attraverso i corridoi infrastrutturali del Nord-Ovest.',
+            superficie: 'Aree interportuali e retroportuali',
+            estensione: 'Più poli logistici lombardi',
+            aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
+            ports: ['Interporto di Mortara', 'Milano Smistamento', 'Hub logistici dell\'asse Milano-Ovest'],
+            comuni: ['Mortara', 'Milano (aree logistiche)', 'Melzo', 'Pavia (aree logistiche)']
         },
         'veneto': {
             nome: 'ZLS Veneto - Porto di Venezia-Rodigino',
             regione: 'Veneto',
             tagline: 'Sistema portuale Alto Adriatico',
-            istitutivo: 'DPCM istitutivo',
-            anno: '2024',
-            lead: "Comprende il porto di Venezia, l'area retroportuale di Marghera e l'asse logistico-produttivo del Polesine, integrato con i nodi infrastrutturali del Nord-Est.",
+            istitutivo: 'DPCM 5 ottobre 2022',
+            anno: '2022',
+            lead: "Una delle prime ZLS istituite in Italia. Comprende il porto di Venezia, Marghera e l'asse logistico-produttivo del Polesine, integrato con i nodi del Nord-Est e del corridoio Mediterraneo.",
             superficie: 'Porto + retroporto + area rodigina',
             estensione: 'Province di Venezia e Rovigo',
-            ports: ['Porto di Venezia', 'Porto Marghera', 'Interporto di Rovigo', 'Area produttiva polesana']
+            aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
+            ports: ['Porto di Venezia', 'Porto Marghera', 'Interporto di Rovigo'],
+            comuni: ['Venezia (Marghera, Campalto, Murano, Tronchetto)', 'Rovigo', 'Occhiobello', 'Polesella', 'Castelmassa', 'Bagnolo di Po', 'Ficarolo', 'Stienta', 'Trecenta', 'Fiesso Umbertiano', 'Bergantino', 'Melara']
         },
         'fvg': {
             nome: 'ZLS Friuli-Venezia Giulia',
@@ -253,65 +267,77 @@ document.addEventListener('DOMContentLoaded', () => {
             tagline: 'Porta orientale dei traffici europei',
             istitutivo: 'DPCM istitutivo',
             anno: '2024',
-            lead: 'Si estende al sistema portuale di Trieste e Monfalcone, snodo strategico per i traffici ferroviari e marittimi tra Mediterraneo, Centro Europa e Balcani.',
+            lead: 'Si estende sul sistema portuale di Trieste, Monfalcone e San Giorgio di Nogaro, snodo strategico per i traffici ferroviari e marittimi tra Mediterraneo, Centro Europa e Balcani.',
             superficie: 'Sistema porto + retroporto',
-            estensione: 'Province di Trieste e Gorizia',
-            ports: ['Porto di Trieste', 'Porto di Monfalcone', 'Interporto di Cervignano', 'Aree retroportuali']
+            estensione: 'Province di Trieste, Gorizia, Udine e Pordenone',
+            aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
+            ports: ['Porto di Trieste', 'Porto di Monfalcone', 'Porto di San Giorgio di Nogaro', 'Interporto di Cervignano'],
+            comuni: ['Trieste', 'Monfalcone', 'San Giorgio di Nogaro', 'Cervignano', 'Gorizia', 'Ronchi dei Legionari', 'Staranzano', 'Torviscosa', 'Buttrio', 'Pavia di Udine', 'Manzano', 'San Giovanni al Natisone', 'Mossa', 'Brugnera']
         },
         'emilia': {
             nome: 'ZLS Emilia-Romagna',
             regione: 'Emilia-Romagna',
             tagline: 'Logistica integrata padana',
-            istitutivo: 'DPCM istitutivo',
+            istitutivo: 'DPCM 11 ottobre 2024',
             anno: '2024',
-            lead: "Combina il porto di Ravenna con la rete interportuale emiliano-romagnola, una delle più dense d'Europa, lungo i corridoi logistici dell'Adriatico e della Pianura Padana.",
-            superficie: 'Porto + interporti',
-            estensione: 'Più province emiliano-romagnole',
-            ports: ['Porto di Ravenna', 'Interporto di Bologna', 'Interporto di Parma (CePIM)', 'Dinazzano (RE)']
+            lead: "Combina il porto di Ravenna con la rete interportuale emiliano-romagnola, una delle più dense d'Europa: 11 nodi intermodali, 25 aree produttive, 9 province e circa 4.500 ettari di territorio.",
+            superficie: 'Porto + 11 nodi intermodali',
+            estensione: '9 province, 28 Comuni',
+            aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
+            ports: ['Porto di Ravenna', 'Interporto di Bologna', 'Interporto CePIM (Parma)', 'Hub ferroviario di Piacenza', 'Dinazzano (RE)'],
+            comuni: ['Ravenna', 'Bologna', 'Parma', 'Piacenza', 'Modena', 'Reggio Emilia (Reggiolo, Rubiera, Casalgrande)', 'Ferrara', 'Bondeno', 'Codigoro', 'Argenta', 'Bagnacavallo', 'Lugo', 'Faenza', 'Imola', 'Forlì', 'Forlimpopoli', 'Cesena', 'Rimini', 'Misano Adriatico', 'Mirandola', 'Concordia sulla Secchia', 'Guastalla', 'Fontevivo', 'Bentivoglio', 'San Giorgio di Piano', 'Conselice', 'Cotignola', 'Ostellato']
         },
         'toscana': {
             nome: 'ZLS Toscana',
             regione: 'Toscana',
             tagline: 'Sistema portuale del Mar Tirreno settentrionale',
-            istitutivo: 'DPCM istitutivo',
+            istitutivo: 'DPCM 25 novembre 2024',
             anno: '2024',
-            lead: 'Ricomprende il sistema portuale di Livorno e Piombino e le aree retroportuali e interportuali toscane, snodo per i traffici merci verso Sardegna, Corsica e Mediterraneo.',
-            superficie: 'Più porti + interporto',
-            estensione: 'Costa tirrenica toscana',
-            ports: ['Porto di Livorno', 'Porto di Piombino', 'Interporto Toscano "A. Vespucci" (Guasticce)']
+            lead: 'Ricomprende quattro porti della costa toscana, l\'aeroporto di Pisa e i due principali interporti regionali: snodo per i traffici merci verso Sardegna, Corsica e Mediterraneo.',
+            superficie: '4 porti + 2 interporti + 1 aeroporto',
+            estensione: '10 Comuni della costa e dell\'asse Firenze-Prato',
+            aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
+            ports: ['Porto di Livorno', 'Porto di Piombino', 'Porto di Marina di Carrara', 'Porto di Portoferraio', 'Interporto Toscano A. Vespucci (Guasticce)', 'Interporto della Toscana Centrale (Prato)', 'Aeroporto di Pisa'],
+            comuni: ['Livorno', 'Collesalvetti', 'Piombino', 'Pisa', 'Carrara', 'Massa', 'Prato', 'Campi Bisenzio', 'Firenze', 'Portoferraio']
         },
         'umbria': {
             nome: 'ZLS Umbria',
             regione: 'Umbria',
-            tagline: 'Nodo logistico interregionale',
-            istitutivo: 'DPCM istitutivo',
+            tagline: 'Regione in transizione - intensità maggiorate',
+            istitutivo: 'Estensione ZLS regioni in transizione',
             anno: '2024',
-            lead: 'Estensione delle ZLS alle aree logistico-produttive dell\'Umbria, regione in transizione, con l\'obiettivo di valorizzare i nodi interportuali del Centro Italia.',
+            lead: "Estensione delle ZLS alle aree logistico-produttive dell'Umbria. Trattandosi di regione in transizione, può accedere alle intensità di aiuto più favorevoli previste dalla Carta aiuti regionali.",
             superficie: 'Aree logistico-produttive',
             estensione: 'Province di Perugia e Terni',
-            ports: ['Polo logistico di Terni-Narni', 'Aree industriali umbre']
+            aliquote: { piccole: '35%', medie: '25%', grandi: '15%' },
+            ports: ['Polo logistico di Terni-Narni', 'Hub di Perugia', 'Aree industriali umbre'],
+            comuni: ['Terni', 'Narni', 'Perugia (aree logistiche)', 'Foligno']
         },
         'marche': {
             nome: 'ZLS Marche',
             regione: 'Marche',
-            tagline: 'Porto adriatico del Centro Italia',
-            istitutivo: 'DPCM istitutivo',
+            tagline: 'Regione in transizione - intensità maggiorate',
+            istitutivo: 'Estensione ZLS regioni in transizione',
             anno: '2024',
-            lead: "ZLS attivata sull'asse portuale di Ancona e sulle aree retroportuali marchigiane, in qualità di regione in transizione non ricompresa nella ZES Mezzogiorno.",
+            lead: "ZLS attivata sull'asse portuale di Ancona e sulle aree retroportuali marchigiane in qualità di regione in transizione non ricompresa nella ZES Mezzogiorno: l'intera regione accede alle intensità di aiuto più favorevoli.",
             superficie: 'Porto + retroporto',
             estensione: 'Asse adriatico marchigiano',
-            ports: ['Porto di Ancona', 'Interporto Marche', 'Aree retroportuali']
+            aliquote: { piccole: '35%', medie: '25%', grandi: '15%' },
+            ports: ['Porto di Ancona', 'Interporto Marche (Jesi)', 'Aree retroportuali'],
+            comuni: ['Ancona', 'Jesi', 'Falconara Marittima', 'Senigallia', 'Pesaro', 'Fano', 'Civitanova Marche']
         },
         'lazio': {
             nome: 'ZLS Lazio',
             regione: 'Lazio',
             tagline: 'Sistema portuale del Mar Tirreno centrale',
-            istitutivo: 'DPCM istitutivo',
+            istitutivo: 'DGR 797 del 15/10/2024',
             anno: '2024',
-            lead: "Comprende il porto di Civitavecchia e i nodi logistici del Lazio, centrale per i traffici crocieristici e commerciali del Mediterraneo centrale e per l'integrazione tra l'area metropolitana di Roma e le grandi reti europee.",
-            superficie: 'Porto + nodi logistici',
-            estensione: 'Asse tirrenico laziale',
-            ports: ['Porto di Civitavecchia', 'Porto di Gaeta', 'Hub logistici dell\'area romana']
+            lead: "Comprende i porti di Civitavecchia, Fiumicino e Gaeta, l'aeroporto di Fiumicino e una rete di nodi logistici che si estende a 49 Comuni nelle 5 province laziali: snodo per il Mediterraneo centrale e per i collegamenti con l'area metropolitana di Roma.",
+            superficie: '3 porti + nodi logistici',
+            estensione: '49 Comuni in 5 province',
+            aliquote: { piccole: '30%', medie: '20%', grandi: '10%' },
+            ports: ['Porto di Civitavecchia', 'Porto di Fiumicino', 'Porto di Gaeta', 'Aeroporto di Fiumicino', 'Hub logistici dell\'area romana'],
+            comuni: ['Civitavecchia', 'Fiumicino', 'Gaeta', 'Roma (Tiburtina e aree logistiche)', 'Pomezia', 'Aprilia', 'Cisterna di Latina', 'Latina', 'Formia', 'Minturno', 'Itri', 'Fondi', 'Frosinone', 'Ferentino', 'Cassino', 'Ceccano', 'Piedimonte San Germano', 'Villa Santa Lucia', 'San Vittore del Lazio', 'Tivoli', 'Guidonia Montecelio', 'Rieti', 'Cittaducale', 'Amatrice', 'Leonessa', 'Viterbo', 'Tarquinia', 'Civita Castellana', 'Orte']
         }
     };
 
@@ -319,17 +345,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (regioniWrap) {
         const detail = regioniWrap.querySelector('#regioneDetail');
         const pills = regioniWrap.querySelectorAll('.regione-pill');
-        const markers = regioniWrap.querySelectorAll('.region-marker');
 
         const renderRegione = (key) => {
             const r = REGIONI_ZLS[key];
             if (!r) return;
             const portsHtml = r.ports.map((p) => `<li>${p}</li>`).join('');
+            const comuniHtml = r.comuni.map((c) => `<li>${c}</li>`).join('');
             detail.innerHTML = `
                 <div class="regione-detail-head">
                     <div>
                         <h3>${r.nome}</h3>
-                        <p>${r.regione} &middot; ${r.tagline}</p>
+                        <p>${r.regione} &bull; ${r.tagline}</p>
                     </div>
                     <span class="regione-detail-badge">${r.istitutivo}</span>
                 </div>
@@ -348,9 +374,42 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p>${r.estensione}</p>
                     </div>
                 </div>
+
+                <div class="regione-detail-aliquote">
+                    <div class="aliquote-head">
+                        <h4>Intensità massima del credito</h4>
+                        <span class="aliquote-note">Carta aiuti regionali 2022-2027 (zone "c")</span>
+                    </div>
+                    <div class="aliquote-grid">
+                        <div class="aliquota-card aliquota-piccole">
+                            <span class="aliquota-percent">${r.aliquote.piccole}</span>
+                            <span class="aliquota-label">Piccole imprese</span>
+                            <span class="aliquota-desc">aliquota base + maggiorazione +20%</span>
+                        </div>
+                        <div class="aliquota-card aliquota-medie">
+                            <span class="aliquota-percent">${r.aliquote.medie}</span>
+                            <span class="aliquota-label">Medie imprese</span>
+                            <span class="aliquota-desc">aliquota base + maggiorazione +10%</span>
+                        </div>
+                        <div class="aliquota-card aliquota-grandi">
+                            <span class="aliquota-percent">${r.aliquote.grandi}</span>
+                            <span class="aliquota-label">Grandi imprese</span>
+                            <span class="aliquota-desc">aliquota base senza maggiorazione</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="regione-detail-ports">
                     <h4>Porti, interporti e nodi logistici principali</h4>
                     <ul>${portsHtml}</ul>
+                </div>
+
+                <div class="regione-detail-comuni">
+                    <div class="comuni-head">
+                        <h4>Comuni interessati</h4>
+                        <span class="comuni-count">${r.comuni.length} principali</span>
+                    </div>
+                    <ul class="comuni-list">${comuniHtml}</ul>
                 </div>
             `;
         };
@@ -360,9 +419,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isActive = p.dataset.region === key;
                 p.setAttribute('aria-selected', isActive ? 'true' : 'false');
                 p.tabIndex = isActive ? 0 : -1;
-            });
-            markers.forEach((m) => {
-                m.classList.toggle('active', m.dataset.region === key);
             });
             renderRegione(key);
         };
@@ -382,10 +438,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     setActive(prev.dataset.region);
                 }
             });
-        });
-
-        markers.forEach((marker) => {
-            marker.addEventListener('click', () => setActive(marker.dataset.region));
         });
 
         // Initial render

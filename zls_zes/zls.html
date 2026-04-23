@@ -183,37 +183,29 @@
             </div>
 
             <div class="regioni-explorer" data-regioni>
-                <div class="regioni-map-wrap" aria-hidden="true">
-                    <svg class="regioni-map" viewBox="0 0 300 360" role="img" aria-label="Mappa schematica delle Zone Logistiche Semplificate italiane">
-                        <defs>
-                            <linearGradient id="mapGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stop-color="#f0f4f8"/>
-                                <stop offset="100%" stop-color="#e2e8f0"/>
-                            </linearGradient>
-                        </defs>
-                        <!-- Italy outline (simplified, schematic) -->
-                        <path class="regioni-map-outline" d="M148 20 L164 24 L172 38 L168 58 L156 78 L146 96 L130 110 L110 116 L92 108 L74 96 L62 84 L56 70 L66 62 L80 54 L96 44 L118 34 Z M96 120 L112 130 L118 152 L130 168 L138 188 L148 210 L156 228 L164 240 L172 252 L188 264 L206 272 L222 280 L240 292 L252 308 L258 324 L250 338 L234 340 L216 332 L198 320 L182 306 L164 294 L148 282 L132 270 L116 256 L100 240 L88 222 L78 204 L72 184 L70 164 L74 144 L82 128 Z" fill="url(#mapGradient)" stroke="#cbd5e1" stroke-width="1.5" stroke-linejoin="round"/>
-                        <!-- ZLS markers (lon/lat mapped schematically) -->
-                        <g class="regioni-map-markers">
-                            <g class="region-marker" data-region="liguria-genova"><circle cx="86" cy="108" r="8"/><text x="86" y="112" text-anchor="middle">GE</text></g>
-                            <g class="region-marker" data-region="liguria-spezia"><circle cx="100" cy="124" r="8"/><text x="100" y="128" text-anchor="middle">SP</text></g>
-                            <g class="region-marker" data-region="lombardia"><circle cx="118" cy="90" r="8"/><text x="118" y="94" text-anchor="middle">LO</text></g>
-                            <g class="region-marker" data-region="veneto"><circle cx="154" cy="86" r="8"/><text x="154" y="90" text-anchor="middle">VE</text></g>
-                            <g class="region-marker" data-region="fvg"><circle cx="176" cy="74" r="8"/><text x="176" y="78" text-anchor="middle">FVG</text></g>
-                            <g class="region-marker" data-region="emilia"><circle cx="146" cy="122" r="8"/><text x="146" y="126" text-anchor="middle">ER</text></g>
-                            <g class="region-marker" data-region="toscana"><circle cx="134" cy="160" r="8"/><text x="134" y="164" text-anchor="middle">TO</text></g>
-                            <g class="region-marker" data-region="umbria"><circle cx="158" cy="182" r="8"/><text x="158" y="186" text-anchor="middle">UM</text></g>
-                            <g class="region-marker" data-region="marche"><circle cx="182" cy="174" r="8"/><text x="182" y="178" text-anchor="middle">MA</text></g>
-                            <g class="region-marker" data-region="lazio"><circle cx="156" cy="212" r="8"/><text x="156" y="216" text-anchor="middle">LA</text></g>
-                        </g>
-                    </svg>
-                    <p class="regioni-map-caption">Distribuzione schematica delle aree ZLS del Centro-Nord</p>
+                <div class="regioni-stats">
+                    <div class="regioni-stat">
+                        <span class="regioni-stat-num">10</span>
+                        <span class="regioni-stat-label">ZLS istituite</span>
+                    </div>
+                    <div class="regioni-stat">
+                        <span class="regioni-stat-num">2026<span class="regioni-stat-suffix">-2028</span></span>
+                        <span class="regioni-stat-label">Triennio agevolato</span>
+                    </div>
+                    <div class="regioni-stat">
+                        <span class="regioni-stat-num">200k<span class="regioni-stat-suffix">€ min</span></span>
+                        <span class="regioni-stat-label">Investimento per progetto</span>
+                    </div>
+                    <div class="regioni-stat">
+                        <span class="regioni-stat-num">100<span class="regioni-stat-suffix">mln € max</span></span>
+                        <span class="regioni-stat-label">Tetto per progetto</span>
+                    </div>
                 </div>
 
                 <div class="regioni-panel">
                     <div class="regioni-tabs" role="tablist" aria-label="Seleziona una ZLS">
-                        <button class="regione-pill" data-region="liguria-genova" role="tab" aria-selected="true" tabindex="0">Liguria &mdash; Genova</button>
-                        <button class="regione-pill" data-region="liguria-spezia" role="tab" aria-selected="false" tabindex="-1">Liguria &mdash; La Spezia <span class="regione-pill-badge">novità</span></button>
+                        <button class="regione-pill" data-region="liguria-genova" role="tab" aria-selected="true" tabindex="0">Liguria - Genova</button>
+                        <button class="regione-pill" data-region="liguria-spezia" role="tab" aria-selected="false" tabindex="-1">Liguria - La Spezia <span class="regione-pill-badge">novità</span></button>
                         <button class="regione-pill" data-region="lombardia" role="tab" aria-selected="false" tabindex="-1">Lombardia</button>
                         <button class="regione-pill" data-region="veneto" role="tab" aria-selected="false" tabindex="-1">Veneto</button>
                         <button class="regione-pill" data-region="fvg" role="tab" aria-selected="false" tabindex="-1">Friuli-Venezia Giulia</button>

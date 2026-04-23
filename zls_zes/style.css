@@ -1699,75 +1699,50 @@ img {
 }
 
 .regioni-explorer {
-    display: grid;
-    grid-template-columns: minmax(260px, 340px) 1fr;
-    gap: 48px;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
     margin-top: 24px;
 }
 
-.regioni-map-wrap {
-    position: sticky;
-    top: 100px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 28px 20px;
+.regioni-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 24px 28px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     box-shadow: 0 6px 24px rgba(15, 23, 42, 0.04);
 }
 
-.regioni-map {
-    width: 100%;
-    max-width: 300px;
-    height: auto;
+.regioni-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 16px;
+    border-left: 3px solid var(--accent);
 }
 
-.regioni-map-outline {
-    transition: var(--transition);
-}
-
-.regioni-map-markers g.region-marker {
-    cursor: pointer;
-    transition: var(--transition);
-}
-
-.regioni-map-markers g.region-marker circle {
-    fill: var(--accent-light);
-    stroke: #ffffff;
-    stroke-width: 2;
-    transition: var(--transition);
-}
-
-.regioni-map-markers g.region-marker text {
-    fill: #ffffff;
-    font-size: 8px;
+.regioni-stat-num {
+    font-size: 1.9rem;
     font-weight: 700;
-    font-family: 'Inter', sans-serif;
-    pointer-events: none;
-    dominant-baseline: middle;
+    color: var(--accent);
+    line-height: 1.1;
 }
 
-.regioni-map-markers g.region-marker:hover circle {
-    fill: var(--accent-dark);
-    r: 10;
-}
-
-.regioni-map-markers g.region-marker.active circle {
-    fill: #d97706;
-    stroke: #fbbf24;
-    r: 11;
-    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));
-}
-
-.regioni-map-caption {
-    font-size: 0.78rem;
+.regioni-stat-suffix {
+    font-size: 0.85rem;
+    font-weight: 500;
     color: var(--text-muted);
-    text-align: center;
-    line-height: 1.5;
+    margin-left: 4px;
+}
+
+.regioni-stat-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
 }
 
 .regioni-panel {
@@ -1917,6 +1892,86 @@ img {
     margin: 0;
 }
 
+.regione-detail-aliquote {
+    margin-top: 28px;
+    padding: 20px 22px;
+    background: linear-gradient(135deg, var(--accent-bg) 0%, #ffffff 100%);
+    border: 1px solid var(--accent-border);
+    border-radius: 12px;
+}
+
+.aliquote-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.aliquote-head h4 {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: 0.01em;
+}
+
+.aliquote-note {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.aliquote-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.aliquota-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 14px;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    text-align: center;
+    transition: var(--transition);
+}
+
+.aliquota-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.aliquota-percent {
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1.1;
+}
+
+.aliquota-piccole .aliquota-percent { color: #047857; }
+.aliquota-medie .aliquota-percent { color: #b45309; }
+.aliquota-grandi .aliquota-percent { color: var(--accent); }
+
+.aliquota-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: 0.01em;
+}
+
+.aliquota-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 2px;
+}
+
 .regione-detail-ports {
     margin-top: 24px;
 }
@@ -1948,6 +2003,56 @@ img {
     color: var(--text-secondary);
 }
 
+.regione-detail-comuni {
+    margin-top: 24px;
+}
+
+.comuni-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.comuni-head h4 {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.comuni-count {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 2px 10px;
+    background: var(--accent-bg);
+    border-radius: 999px;
+}
+
+.comuni-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.comuni-list li {
+    padding: 5px 11px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: 6px;
+    font-size: 0.83rem;
+    color: var(--accent-dark);
+    font-weight: 500;
+}
+
 .regioni-disclaimer {
     margin-top: 32px;
     padding: 16px 20px;
@@ -1970,19 +2075,16 @@ img {
     color: var(--accent-dark);
 }
 
-@media (max-width: 968px) {
-    .regioni-explorer {
-        grid-template-columns: 1fr;
-        gap: 32px;
-    }
-    .regioni-map-wrap {
-        position: static;
-        max-width: 360px;
-        margin: 0 auto;
-    }
-}
-
 @media (max-width: 768px) {
+    .regioni-stats {
+        padding: 16px 18px;
+    }
+    .regioni-stat {
+        padding: 8px 12px;
+    }
+    .regioni-stat-num {
+        font-size: 1.5rem;
+    }
     .regione-pill {
         padding: 8px 14px;
         font-size: 0.85rem;
@@ -1993,5 +2095,26 @@ img {
     .regione-detail-head {
         flex-direction: column;
         align-items: flex-start;
+    }
+    .aliquote-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .aliquota-card {
+        flex-direction: row;
+        align-items: center;
+        text-align: left;
+        gap: 14px;
+        padding: 12px 14px;
+    }
+    .aliquota-percent {
+        font-size: 1.4rem;
+        min-width: 60px;
+    }
+    .aliquota-label {
+        flex: 1;
+    }
+    .aliquota-desc {
+        display: none;
     }
 }
