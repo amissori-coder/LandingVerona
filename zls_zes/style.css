@@ -1690,3 +1690,308 @@ img {
 .hero-zes .hero-subtitle strong {
     color: #ffffff;
 }
+
+/* ============================================
+   REGIONI ZLS - interactive explorer
+   ============================================ */
+.section-regioni {
+    background: linear-gradient(180deg, var(--bg-primary) 0%, var(--accent-bg) 100%);
+}
+
+.regioni-explorer {
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) 1fr;
+    gap: 48px;
+    align-items: start;
+    margin-top: 24px;
+}
+
+.regioni-map-wrap {
+    position: sticky;
+    top: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 28px 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 24px rgba(15, 23, 42, 0.04);
+}
+
+.regioni-map {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+}
+
+.regioni-map-outline {
+    transition: var(--transition);
+}
+
+.regioni-map-markers g.region-marker {
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.regioni-map-markers g.region-marker circle {
+    fill: var(--accent-light);
+    stroke: #ffffff;
+    stroke-width: 2;
+    transition: var(--transition);
+}
+
+.regioni-map-markers g.region-marker text {
+    fill: #ffffff;
+    font-size: 8px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    pointer-events: none;
+    dominant-baseline: middle;
+}
+
+.regioni-map-markers g.region-marker:hover circle {
+    fill: var(--accent-dark);
+    r: 10;
+}
+
+.regioni-map-markers g.region-marker.active circle {
+    fill: #d97706;
+    stroke: #fbbf24;
+    r: 11;
+    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));
+}
+
+.regioni-map-caption {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.5;
+}
+
+.regioni-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.regioni-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.regione-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.regione-pill:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+}
+
+.regione-pill[aria-selected="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(26, 58, 92, 0.2);
+}
+
+.regione-pill-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #fbbf24;
+    color: #78350f;
+}
+
+.regione-pill[aria-selected="true"] .regione-pill-badge {
+    background: #fde68a;
+}
+
+.regione-detail {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 32px;
+    box-shadow: 0 6px 24px rgba(15, 23, 42, 0.04);
+    animation: regioneFadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes regioneFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.regione-detail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.regione-detail-head h3 {
+    font-size: 1.4rem;
+    line-height: 1.25;
+    color: var(--text-primary);
+    margin: 0 0 6px 0;
+}
+
+.regione-detail-head p {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin: 0;
+}
+
+.regione-detail-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+.regione-detail-lead {
+    font-size: 0.98rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+}
+
+.regione-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.regione-detail-item {
+    padding: 16px 18px;
+    background: var(--accent-bg);
+    border-radius: 10px;
+    border-left: 3px solid var(--accent);
+}
+
+.regione-detail-item h4 {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 6px 0;
+}
+
+.regione-detail-item p {
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.regione-detail-ports {
+    margin-top: 24px;
+}
+
+.regione-detail-ports h4 {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 12px 0;
+}
+
+.regione-detail-ports ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.regione-detail-ports li {
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.regioni-disclaimer {
+    margin-top: 32px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+}
+
+.regioni-disclaimer a {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.regioni-disclaimer a:hover {
+    color: var(--accent-dark);
+}
+
+@media (max-width: 968px) {
+    .regioni-explorer {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+    .regioni-map-wrap {
+        position: static;
+        max-width: 360px;
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .regione-pill {
+        padding: 8px 14px;
+        font-size: 0.85rem;
+    }
+    .regione-detail {
+        padding: 24px 20px;
+    }
+    .regione-detail-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

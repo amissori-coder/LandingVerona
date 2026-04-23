@@ -201,6 +201,198 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000);
     }
 
+    // --- Regioni ZLS interactive explorer ---
+    const REGIONI_ZLS = {
+        'liguria-genova': {
+            nome: 'ZLS Porto e Retroporto di Genova',
+            regione: 'Liguria',
+            tagline: 'Cluster portuale del Mar Ligure occidentale',
+            istitutivo: 'DPCM 31 luglio 2024',
+            anno: '2024',
+            lead: "Una delle prime ZLS operative del Centro-Nord, ricomprende lo scalo portuale genovese e le aree retroportuali destinate alla logistica e alla manifattura collegate al traffico merci del Mediterraneo nord-occidentale.",
+            superficie: 'Sistema porto + retroporto',
+            estensione: '7 Comuni',
+            ports: ['Porto di Genova', 'Voltri-Pra\'', 'Retroporto di Rivalta Scrivia', 'Alessandria-Tortona']
+        },
+        'liguria-spezia': {
+            nome: 'ZLS Porto e Retroporto della Spezia',
+            regione: 'Liguria',
+            tagline: 'La nuova ZLS istituita nel 2026',
+            istitutivo: 'DPCM 19 gennaio 2026',
+            anno: '2026',
+            lead: "Istituita con DPCM del 19 gennaio 2026, è l'ultima ZLS attivata. Comprende il sistema portuale spezzino e le aree retroportuali della Val di Magra fino agli snodi logistici toscani settentrionali.",
+            superficie: 'Sistema porto + retroporto',
+            estensione: 'Aree portuali e retroportuali',
+            ports: ['Porto della Spezia', 'Santo Stefano Magra', 'Aree retroportuali Val di Magra']
+        },
+        'lombardia': {
+            nome: 'ZLS Lombardia',
+            regione: 'Lombardia',
+            tagline: 'Hub interportuale del Nord Italia',
+            istitutivo: 'DPCM istitutivo',
+            anno: '2024',
+            lead: 'Ricomprende i principali nodi interportuali e logistici lombardi, integrati con il sistema portuale ligure attraverso i corridoi infrastrutturali del Nord-Ovest.',
+            superficie: 'Aree interportuali multiple',
+            estensione: 'Più poli logistici',
+            ports: ['Interporto di Mortara', 'Hub logistici dell\'asse Milano-Ovest']
+        },
+        'veneto': {
+            nome: 'ZLS Veneto - Porto di Venezia-Rodigino',
+            regione: 'Veneto',
+            tagline: 'Sistema portuale Alto Adriatico',
+            istitutivo: 'DPCM istitutivo',
+            anno: '2024',
+            lead: "Comprende il porto di Venezia, l'area retroportuale di Marghera e l'asse logistico-produttivo del Polesine, integrato con i nodi infrastrutturali del Nord-Est.",
+            superficie: 'Porto + retroporto + area rodigina',
+            estensione: 'Province di Venezia e Rovigo',
+            ports: ['Porto di Venezia', 'Porto Marghera', 'Interporto di Rovigo', 'Area produttiva polesana']
+        },
+        'fvg': {
+            nome: 'ZLS Friuli-Venezia Giulia',
+            regione: 'Friuli-Venezia Giulia',
+            tagline: 'Porta orientale dei traffici europei',
+            istitutivo: 'DPCM istitutivo',
+            anno: '2024',
+            lead: 'Si estende al sistema portuale di Trieste e Monfalcone, snodo strategico per i traffici ferroviari e marittimi tra Mediterraneo, Centro Europa e Balcani.',
+            superficie: 'Sistema porto + retroporto',
+            estensione: 'Province di Trieste e Gorizia',
+            ports: ['Porto di Trieste', 'Porto di Monfalcone', 'Interporto di Cervignano', 'Aree retroportuali']
+        },
+        'emilia': {
+            nome: 'ZLS Emilia-Romagna',
+            regione: 'Emilia-Romagna',
+            tagline: 'Logistica integrata padana',
+            istitutivo: 'DPCM istitutivo',
+            anno: '2024',
+            lead: "Combina il porto di Ravenna con la rete interportuale emiliano-romagnola, una delle più dense d'Europa, lungo i corridoi logistici dell'Adriatico e della Pianura Padana.",
+            superficie: 'Porto + interporti',
+            estensione: 'Più province emiliano-romagnole',
+            ports: ['Porto di Ravenna', 'Interporto di Bologna', 'Interporto di Parma (CePIM)', 'Dinazzano (RE)']
+        },
+        'toscana': {
+            nome: 'ZLS Toscana',
+            regione: 'Toscana',
+            tagline: 'Sistema portuale del Mar Tirreno settentrionale',
+            istitutivo: 'DPCM istitutivo',
+            anno: '2024',
+            lead: 'Ricomprende il sistema portuale di Livorno e Piombino e le aree retroportuali e interportuali toscane, snodo per i traffici merci verso Sardegna, Corsica e Mediterraneo.',
+            superficie: 'Più porti + interporto',
+            estensione: 'Costa tirrenica toscana',
+            ports: ['Porto di Livorno', 'Porto di Piombino', 'Interporto Toscano "A. Vespucci" (Guasticce)']
+        },
+        'umbria': {
+            nome: 'ZLS Umbria',
+            regione: 'Umbria',
+            tagline: 'Nodo logistico interregionale',
+            istitutivo: 'DPCM istitutivo',
+            anno: '2024',
+            lead: 'Estensione delle ZLS alle aree logistico-produttive dell\'Umbria, regione in transizione, con l\'obiettivo di valorizzare i nodi interportuali del Centro Italia.',
+            superficie: 'Aree logistico-produttive',
+            estensione: 'Province di Perugia e Terni',
+            ports: ['Polo logistico di Terni-Narni', 'Aree industriali umbre']
+        },
+        'marche': {
+            nome: 'ZLS Marche',
+            regione: 'Marche',
+            tagline: 'Porto adriatico del Centro Italia',
+            istitutivo: 'DPCM istitutivo',
+            anno: '2024',
+            lead: "ZLS attivata sull'asse portuale di Ancona e sulle aree retroportuali marchigiane, in qualità di regione in transizione non ricompresa nella ZES Mezzogiorno.",
+            superficie: 'Porto + retroporto',
+            estensione: 'Asse adriatico marchigiano',
+            ports: ['Porto di Ancona', 'Interporto Marche', 'Aree retroportuali']
+        },
+        'lazio': {
+            nome: 'ZLS Lazio',
+            regione: 'Lazio',
+            tagline: 'Sistema portuale del Mar Tirreno centrale',
+            istitutivo: 'DPCM istitutivo',
+            anno: '2024',
+            lead: "Comprende il porto di Civitavecchia e i nodi logistici del Lazio, centrale per i traffici crocieristici e commerciali del Mediterraneo centrale e per l'integrazione tra l'area metropolitana di Roma e le grandi reti europee.",
+            superficie: 'Porto + nodi logistici',
+            estensione: 'Asse tirrenico laziale',
+            ports: ['Porto di Civitavecchia', 'Porto di Gaeta', 'Hub logistici dell\'area romana']
+        }
+    };
+
+    const regioniWrap = document.querySelector('[data-regioni]');
+    if (regioniWrap) {
+        const detail = regioniWrap.querySelector('#regioneDetail');
+        const pills = regioniWrap.querySelectorAll('.regione-pill');
+        const markers = regioniWrap.querySelectorAll('.region-marker');
+
+        const renderRegione = (key) => {
+            const r = REGIONI_ZLS[key];
+            if (!r) return;
+            const portsHtml = r.ports.map((p) => `<li>${p}</li>`).join('');
+            detail.innerHTML = `
+                <div class="regione-detail-head">
+                    <div>
+                        <h3>${r.nome}</h3>
+                        <p>${r.regione} &middot; ${r.tagline}</p>
+                    </div>
+                    <span class="regione-detail-badge">${r.istitutivo}</span>
+                </div>
+                <p class="regione-detail-lead">${r.lead}</p>
+                <div class="regione-detail-grid">
+                    <div class="regione-detail-item">
+                        <h4>Anno di istituzione</h4>
+                        <p>${r.anno}</p>
+                    </div>
+                    <div class="regione-detail-item">
+                        <h4>Composizione</h4>
+                        <p>${r.superficie}</p>
+                    </div>
+                    <div class="regione-detail-item">
+                        <h4>Estensione territoriale</h4>
+                        <p>${r.estensione}</p>
+                    </div>
+                </div>
+                <div class="regione-detail-ports">
+                    <h4>Porti, interporti e nodi logistici principali</h4>
+                    <ul>${portsHtml}</ul>
+                </div>
+            `;
+        };
+
+        const setActive = (key) => {
+            pills.forEach((p) => {
+                const isActive = p.dataset.region === key;
+                p.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                p.tabIndex = isActive ? 0 : -1;
+            });
+            markers.forEach((m) => {
+                m.classList.toggle('active', m.dataset.region === key);
+            });
+            renderRegione(key);
+        };
+
+        pills.forEach((pill, idx) => {
+            pill.addEventListener('click', () => setActive(pill.dataset.region));
+            pill.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const next = pills[(idx + 1) % pills.length];
+                    next.focus();
+                    setActive(next.dataset.region);
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prev = pills[(idx - 1 + pills.length) % pills.length];
+                    prev.focus();
+                    setActive(prev.dataset.region);
+                }
+            });
+        });
+
+        markers.forEach((marker) => {
+            marker.addEventListener('click', () => setActive(marker.dataset.region));
+        });
+
+        // Initial render
+        const initial = regioniWrap.querySelector('.regione-pill[aria-selected="true"]');
+        setActive(initial ? initial.dataset.region : 'liguria-genova');
+    }
+
     // --- Smooth scroll for same-page anchor links ---
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
