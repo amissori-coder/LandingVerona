@@ -346,11 +346,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const detail = regioniWrap.querySelector('#regioneDetail');
         const pills = regioniWrap.querySelectorAll('.regione-pill');
 
+        const sortIT = (a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' });
+
         const renderRegione = (key) => {
             const r = REGIONI_ZLS[key];
             if (!r) return;
             const portsHtml = r.ports.map((p) => `<li>${p}</li>`).join('');
-            const comuniHtml = r.comuni.map((c) => `<li>${c}</li>`).join('');
+            const comuniHtml = r.comuni.slice().sort(sortIT).map((c) => `<li>${c}</li>`).join('');
             detail.innerHTML = `
                 <div class="regione-detail-head">
                     <div>
@@ -442,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Initial render
         const initial = regioniWrap.querySelector('.regione-pill[aria-selected="true"]');
-        setActive(initial ? initial.dataset.region : 'liguria-genova');
+        setActive(initial ? initial.dataset.region : 'emilia');
     }
 
     // --- Smooth scroll for same-page anchor links ---
