@@ -18,6 +18,13 @@
     'use strict';
 
     // ---------------- Config ----------------
+    // Each entry supports:
+    //   date     YYYY-MM-DD shown in the banner badge and used for sorting
+    //   expires  YYYY-MM-DD optional — internal cut-off; the banner is
+    //            removed the day after this date. If omitted, falls back
+    //            to `date`. Never shown to the user.
+    //   meta     optional custom text for the small grey line under the
+    //            title. If omitted, auto-generated as "Wkd Day Month · City".
     const NGB_EVENTS = [
         {
             city: 'Roma',
@@ -29,9 +36,11 @@
         },
         {
             city: 'Lazio',
-            date: '2026-05-30',
+            date: '2026-05-11',
+            expires: '2026-05-30',
             title: 'Bandi Regione Lazio 2026',
-            tagline: 'Sportello aperto fino al',
+            tagline: 'Apertura sportello',
+            meta: 'A partire da lun 11 maggio &middot; Regione Lazio',
             url: 'lazio_bandi_2026/',
             pagePath: 'lazio_bandi_2026'
         }
@@ -44,8 +53,13 @@
     const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const upcoming = NGB_EVENTS
-        .map((e) => Object.assign({}, e, { _d: new Date(e.date + 'T00:00:00') }))
-        .filter((e) => !isNaN(e._d.getTime()) && e._d.getTime() >= todayMid.getTime())
+        .map((e) => Object.assign({}, e, {
+            _d: new Date(e.date + 'T00:00:00'),
+            // Internal cut-off: defaults to `date` so legacy entries
+            // without `expires` keep their original lifespan.
+            _exp: new Date((e.expires || e.date) + 'T00:00:00')
+        }))
+        .filter((e) => !isNaN(e._exp.getTime()) && e._exp.getTime() >= todayMid.getTime())
         .sort((a, b) => a._d.getTime() - b._d.getTime());
 
     if (upcoming.length === 0) return;
@@ -163,7 +177,10 @@
         const monthAbbr = MONTHS_SHORT[event._d.getMonth()];
         const weekdayAbbr = WEEKDAYS_SHORT[event._d.getDay()];
         const monthFull = MONTHS_FULL[event._d.getMonth()];
-        const metaText = weekdayAbbr + ' ' + dayNum + ' ' + monthFull + ' · ' + event.city;
+        // Custom meta wins over the auto-generated "Wkd Day Month · City".
+        // Custom meta is treated as trusted HTML so &middot; etc. render.
+        const autoMeta = escapeHtml(weekdayAbbr + ' ' + dayNum + ' ' + monthFull + ' · ' + event.city);
+        const metaHtml = event.meta || autoMeta;
         const resolvedUrl = resolveUrl(event.url);
 
         const banner = document.createElement('aside');
@@ -178,7 +195,7 @@
             '<div class="ngb-eb-content">' +
                 '<span class="ngb-eb-label">' + escapeHtml(event.tagline) + '</span>' +
                 '<h4 class="ngb-eb-title">' + escapeHtml(event.title) + '</h4>' +
-                '<p class="ngb-eb-meta">' + escapeHtml(metaText) + '</p>' +
+                '<p class="ngb-eb-meta">' + metaHtml + '</p>' +
                 '<a class="ngb-eb-cta" href="' + escapeAttr(resolvedUrl) + '">' +
                     'Scopri di piu' +
                     '<svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
