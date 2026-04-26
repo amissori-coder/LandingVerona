@@ -75,40 +75,10 @@
         var fill = $('#wizardProgressFill');
         if (fill) fill.style.width = pct + '%';
 
-        updateToolbar();
-
         // Scroll into view (skip on initial load)
         if (!opts || opts.scroll !== false) {
             var sim = $('#simulatore');
             if (sim) sim.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }
-
-    // Returns the previous step for the current state, or null when we
-    // are at the first step. Step "lead" rolls back to the simulator if
-    // the user could simulate, otherwise to the result panel.
-    function previousStepOf(currentStep) {
-        if (currentStep === 'eligibility') return 'routing';
-        if (currentStep === 'result') return 'eligibility';
-        if (currentStep === 'simulator') return 'result';
-        if (currentStep === 'lead') {
-            return (state.result && state.result.canSimulate) ? 'simulator' : 'result';
-        }
-        return null;
-    }
-
-    function updateToolbar() {
-        var backBtn = $('#wizardBack');
-        if (!backBtn) return;
-        var prev = previousStepOf(state.step);
-        if (prev) {
-            backBtn.disabled = false;
-            backBtn.dataset.targetStep = prev;
-            backBtn.removeAttribute('aria-disabled');
-        } else {
-            backBtn.disabled = true;
-            backBtn.dataset.targetStep = '';
-            backBtn.setAttribute('aria-disabled', 'true');
         }
     }
 
@@ -341,29 +311,57 @@
 
     function renderResult() {
         var r = state.result;
-        var bandoLabel = BANDI[state.bando].label;
-        var emoji, title, summary;
+        var b = BANDI[state.bando];
+        var emoji, title, summary, spotlightLabel, spotlightCta;
+
         if (r.tier === 'green') {
             emoji = '✓';
-            title = 'Sembra che tu sia ammissibile';
-            summary = 'Sulla base delle tue risposte, hai tutti i requisiti chiave per il ' + bandoLabel + '. ' +
+            title = 'Hai i requisiti per accedere';
+            summary = 'Sulla base delle tue risposte, rispetti tutti i requisiti chiave del ' + b.label + '. ' +
                       'Vai al passo successivo per calcolare la rata.';
+            spotlightLabel = 'Il bando giusto per te';
+            spotlightCta = 'Sei ammissibile';
         } else if (r.tier === 'yellow') {
             emoji = '!';
-            title = 'Sei probabilmente ammissibile, ma ci sono cose da verificare';
-            summary = 'Sembri compatibile con il ' + bandoLabel + ', ma ci sono ' + r.warnCount +
-                      ' punto/i che vanno controllati prima della domanda. Puoi comunque proseguire con il calcolo della rata.';
+            title = 'Probabilmente ammissibile, con qualche verifica';
+            summary = 'Sembri compatibile con il ' + b.label + ', ma ci sono ' + r.warnCount +
+                      ' punto' + (r.warnCount === 1 ? '' : 'i') + ' da approfondire prima della domanda. ' +
+                      'Puoi comunque proseguire con il calcolo della rata.';
+            spotlightLabel = 'Il bando piu adatto al tuo profilo';
+            spotlightCta = 'Da verificare';
         } else {
             emoji = '✕';
             title = 'Cosi non sei ammissibile';
-            summary = 'Sulla base delle risposte, ' + r.koCount + ' requisito/i del ' + bandoLabel +
-                      ' non e/sono soddisfatto/i. Valuta l\'altro bando oppure parla con noi: in molti casi si trova una soluzione.';
+            summary = 'Sulla base delle risposte, ' + r.koCount + ' requisito' +
+                      (r.koCount === 1 ? '' : ' (o piu)') + ' del ' + b.label +
+                      ' non risulta soddisfatto. Valuta l\'altro bando oppure parla con noi: in molti casi si trova una soluzione.';
+            spotlightLabel = 'Bando analizzato';
+            spotlightCta = 'Non in linea';
         }
 
         var html = '<div class="result-card result-' + r.tier + '">';
-        html += '<span class="result-bando-tag">' + bandoLabel + '</span>';
-        html += '<h3><span class="result-emoji">' + emoji + '</span> ' + title + '</h3>';
-        html += '<p class="result-summary">' + summary + '</p>';
+
+        // Spotlight: bando in evidenza
+        html += '<div class="result-spotlight">';
+        html +=     '<span class="result-spotlight-label">' + spotlightLabel + '</span>';
+        html +=     '<div class="result-spotlight-name-row">';
+        html +=         '<h3 class="result-spotlight-name">' + b.label + '</h3>';
+        html +=         '<span class="result-spotlight-short">' + b.short + '</span>';
+        html +=     '</div>';
+        html +=     '<span class="result-spotlight-status">' + spotlightCta + '</span>';
+        html += '</div>';
+
+        // Verdict: titolo + summary
+        html += '<div class="result-verdict">';
+        html +=     '<span class="result-emoji" aria-hidden="true">' + emoji + '</span>';
+        html +=     '<div class="result-verdict-body">';
+        html +=         '<h4 class="result-verdict-title">' + title + '</h4>';
+        html +=         '<p class="result-verdict-summary">' + summary + '</p>';
+        html +=     '</div>';
+        html += '</div>';
+
+        // Punto per punto
+        html += '<h4 class="result-checks-title">Punto per punto:</h4>';
         html += '<ul class="result-checks">';
         r.checks.forEach(function (c) {
             var cls = c.status === 'ok' ? 'ck-ok' : (c.status === 'warn' ? 'ck-warn' : 'ck-ko');
@@ -711,16 +709,6 @@
         }
     }
 
-    function initBackButton() {
-        var btn = $('#wizardBack');
-        if (!btn) return;
-        btn.addEventListener('click', function () {
-            if (btn.disabled) return;
-            var target = btn.dataset.targetStep;
-            if (target) showStep(target);
-        });
-    }
-
     // ============================================
     // NAVBAR scroll + mobile menu
     // ============================================
@@ -804,7 +792,6 @@
         initRouting();
         initBackButtons();
         initRestartButton();
-        initBackButton();
         // Wire up the public contact form at the bottom of the page
         // immediately. The wizard step-5 form (same id is *not* used —
         // they have different ids) gets wired again from prepareLeadForm,
