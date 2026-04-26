@@ -148,20 +148,19 @@
     function renderRoutingHint(routing, bando) {
         var b = BANDI[bando];
         if (routing === 'costituenda') {
-            return '<strong>Probabile match: ' + b.label + ' (NFF).</strong> ' +
-                   'Pensato per microimprese in fase di avviamento e progetti da costituire entro 30 giorni dalla delibera.';
+            return '<strong>Il bando giusto per te e il ' + b.label + '.</strong> ' +
+                   'E pensato per chi sta avviando un\'attivita o vuole aprirla a breve.';
         }
         if (routing === 'under36') {
-            return '<strong>Probabile match: ' + b.label + ' (NFF).</strong> ' +
-                   'Le microimprese costituite da non oltre 36 mesi (per i liberi professionisti vale la data di apertura P.IVA) ' +
-                   'rientrano nel target del Nuovo Fondo Futuro.';
+            return '<strong>Il bando giusto per te e il ' + b.label + '.</strong> ' +
+                   'Riguarda le microimprese aperte da meno di 3 anni e i liberi professionisti con partita IVA recente.';
         }
         if (routing === 'over36') {
-            return '<strong>Probabile match: ' + b.label + ' (NFPC).</strong> ' +
-                   'Le MPMI con almeno 2 bilanci/dichiarazioni complete possono accedere al Nuovo Fondo Piccolo Credito a tasso zero.';
+            return '<strong>Il bando giusto per te e il ' + b.label + '.</strong> ' +
+                   'E un finanziamento a tasso zero per imprese gia avviate da almeno 2 anni.';
         }
-        return '<strong>Procediamo con il NFPC come ipotesi di default.</strong> ' +
-               'Dalle prossime risposte capiremo se invece il NFF e piu adatto al tuo caso. Niente di definitivo qui: si torna sempre indietro.';
+        return '<strong>Proviamo con il ' + b.label + ' come prima ipotesi.</strong> ' +
+               'Dalle prossime risposte capiremo se invece l\'altro bando e piu adatto al tuo caso. Puoi sempre tornare indietro.';
     }
 
     // ============================================
@@ -170,15 +169,15 @@
     function prepareEligibilityStep() {
         var label = BANDI[state.bando].label;
         $('#eligibilityBandoLabel').textContent = label;
-        $('#eligibilityTitle').textContent = 'Verifichiamo i requisiti per il ' + label;
+        $('#eligibilityTitle').textContent = 'Hai i requisiti per il ' + label + '?';
 
         var lead;
         if (state.bando === 'nfpc') {
-            lead = 'Sei domande sui requisiti soggettivi e dimensionali. Tutti i campi influiscono sull\'esito; ' +
-                   'nessun dato viene salvato finche non confermi il form a fine percorso.';
+            lead = 'Rispondi a 6 domande veloci. Bastano due minuti. ' +
+                   'Le risposte restano sul tuo dispositivo: non salviamo nulla finche non invii tu il modulo finale.';
         } else {
-            lead = 'Cinque domande sulla forma giuridica, sulla compagine e sull\'eta dell\'impresa. ' +
-                   'Niente di vincolante: serve a darti un orientamento prima di parlare con un consulente.';
+            lead = 'Rispondi a 5 domande veloci. Bastano due minuti. ' +
+                   'Le risposte restano sul tuo dispositivo: non salviamo nulla finche non invii tu il modulo finale.';
         }
         $('#eligibilityLead').textContent = lead;
 
@@ -246,58 +245,58 @@
         var e = state.elig;
 
         if (state.bando === 'nfpc') {
-            if (e.sede === 'si') add('ok', 'Sede operativa nel Lazio: confermata.');
-            else if (e.sede === 'entro') add('ok', 'Sede da attivare entro la stipula del contratto: ammesso dall\'Avviso.');
-            else add('ko', 'Sede operativa nel Lazio: requisito non soddisfatto.');
+            if (e.sede === 'si') add('ok', 'Sede operativa nel Lazio: ce l\'hai.');
+            else if (e.sede === 'entro') add('ok', 'Sede operativa nel Lazio: la aprirai prima della firma, ammesso dal bando.');
+            else add('ko', 'Sede operativa nel Lazio: ti serve, altrimenti non puoi accedere al bando.');
 
             if (e.forma === 'mpmi' || e.forma === 'consorzio' || e.forma === 'lp') {
-                add('ok', 'Forma giuridica ammessa al NFPC.');
+                add('ok', 'Forma giuridica: e ammessa dal bando.');
             } else {
-                add('ko', 'Forma giuridica non rientra tra MPMI / Consorzi-Reti con soggettivita / LP.');
+                add('ko', 'Forma giuridica: non e ammessa. Il bando prende solo societa, consorzi/reti con personalita giuridica e liberi professionisti.');
             }
 
-            if (e.bilanci === 'si') add('ok', 'Almeno 2 annualita complete: requisito soddisfatto.');
-            else add('ko', 'Servono almeno 2 bilanci depositati o 2 dichiarazioni dei redditi su annualita complete. Senza, il NFPC non e accessibile (valuta il NFF).');
+            if (e.bilanci === 'si') add('ok', 'Bilanci o dichiarazioni dei redditi: ne hai almeno 2, ok.');
+            else add('ko', 'Bilanci o dichiarazioni dei redditi: ne servono almeno 2 su anni interi. Senza, devi guardare al Fondo Futuro.');
 
-            if (e.espo === 'under') add('ok', 'Esposizione bancaria entro il limite di 100.000 €.');
-            else if (e.espo === 'over') add('ko', 'Esposizione bancaria oltre 100.000 €: limite del NFPC superato.');
-            else add('warn', 'Esposizione bancaria da verificare in Centrale dei Rischi: dato necessario al protocollo.');
+            if (e.espo === 'under') add('ok', 'Prestiti bancari aperti: sotto i 100.000 €, dentro il limite.');
+            else if (e.espo === 'over') add('ko', 'Prestiti bancari aperti: sopra i 100.000 €, fuori dal limite del bando.');
+            else add('warn', 'Prestiti bancari aperti: chiedi alla tua banca o consulta la Centrale dei Rischi prima di presentare la domanda.');
 
-            if (e.mpmi === 'si') add('ok', 'Parametri dimensionali MPMI rispettati.');
-            else add('ko', 'L\'impresa supera i parametri MPMI (250 dipendenti / 50M fatturato / 43M attivo). Lo strumento e dedicato alle MPMI.');
+            if (e.mpmi === 'si') add('ok', 'Dimensioni dell\'impresa: rientri nei limiti per micro, piccole e medie imprese.');
+            else add('ko', 'Dimensioni dell\'impresa: sei sopra i limiti (250 dipendenti, 50 milioni di fatturato o 43 milioni di attivo). Il bando e solo per MPMI.');
 
             if (!e.ateco) {
-                add('warn', 'Codice ATECO non indicato: verifica le esclusioni dell\'Appendice 4 dell\'Avviso prima del protocollo.');
+                add('warn', 'Codice ATECO: non indicato. Controlla le esclusioni dell\'Appendice 4 del bando prima della domanda.');
             } else {
                 var prefix2 = e.ateco.replace(/\D/g, '').substr(0, 2);
                 if (ATECO_ESCLUSI.indexOf(prefix2) !== -1) {
-                    add('ko', 'Il codice ATECO ' + e.ateco + ' rientra in una macro-categoria esclusa dall\'Appendice 4 (es. attivita finanziarie, gioco, tabacco).');
+                    add('ko', 'Codice ATECO ' + e.ateco + ': rientra in un settore escluso dal bando (per esempio finanza, gioco d\'azzardo, tabacco).');
                 } else {
-                    add('ok', 'Codice ATECO ' + e.ateco + ' non risulta tra le macro-categorie escluse (verifica puntuale dell\'Appendice 4 in fase di domanda).');
+                    add('ok', 'Codice ATECO ' + e.ateco + ': non rientra tra i settori esclusi (verifica puntuale al momento della domanda).');
                 }
             }
 
         } else {
-            if (e.sede === 'si') add('ok', 'Sede operativa nel Lazio: confermata.');
-            else if (e.sede === 'entro') add('ok', 'Sede da attivare entro la stipula del contratto: ammesso dall\'Avviso.');
-            else add('ko', 'Sede operativa nel Lazio: requisito non soddisfatto.');
+            if (e.sede === 'si') add('ok', 'Sede operativa nel Lazio: ce l\'hai.');
+            else if (e.sede === 'entro') add('ok', 'Sede operativa nel Lazio: la aprirai prima della firma, ammesso dal bando.');
+            else add('ko', 'Sede operativa nel Lazio: ti serve, altrimenti non puoi accedere al bando.');
 
             var formaOk = ['lp', 'ditta', 'snc', 'sas', 'coop', 'srl', 'srls'];
-            if (formaOk.indexOf(e.forma) !== -1) add('ok', 'Forma giuridica ammessa al NFF.');
-            else add('ko', 'Forma giuridica esclusa dal NFF (sono ammesse solo LP, Ditta individuale, Snc, Sas, Coop, Srl, Srls).');
+            if (formaOk.indexOf(e.forma) !== -1) add('ok', 'Forma giuridica: e ammessa dal bando.');
+            else add('ko', 'Forma giuridica: non e ammessa (Spa, Sapa e altre societa di capitali sono escluse).');
 
-            if (e.compagine === 'pulita') add('ok', 'Compagine sociale compatibile con i requisiti del NFF.');
-            else if (e.compagine === 'ba') add('ko', 'Presenza di Business Angels o investitori istituzionali: esclusione esplicita dal NFF.');
-            else add('ko', 'Presenza di holding finanziarie o familiari nella compagine: esclusione esplicita dal NFF.');
+            if (e.compagine === 'pulita') add('ok', 'Soci: solo persone fisiche operative, va bene.');
+            else if (e.compagine === 'ba') add('ko', 'Soci: la presenza di Business Angels o investitori istituzionali esclude dal bando.');
+            else add('ko', 'Soci: la presenza di holding finanziarie o di famiglia esclude dal bando.');
 
             if (e.eta === 'costituenda' || e.eta === 'under36') {
-                add('ok', 'Eta dell\'impresa nel target del NFF (costituende o entro 36 mesi).');
+                add('ok', 'Eta dell\'impresa: rientra nel target del bando (in apertura o entro 3 anni).');
             } else {
-                add('ko', 'L\'impresa e attiva da oltre 36 mesi: il NFF e dedicato alle microimprese in avviamento. Valuta il Nuovo Fondo Piccolo Credito.');
+                add('ko', 'Eta dell\'impresa: la tua e attiva da piu di 3 anni. Per te e piu adatto il Nuovo Fondo Piccolo Credito.');
             }
 
-            if (e.importo === 'entro') add('ok', 'Importo richiesto entro 25.000 €: copertura fino al 100% del fabbisogno.');
-            else add('warn', 'Importo richiesto oltre 25.000 €: il NFF copre solo una quota del fabbisogno totale, da integrare con altre fonti.');
+            if (e.importo === 'entro') add('ok', 'Importo richiesto: fino a 25.000 €, copertura piena.');
+            else add('warn', 'Importo richiesto: oltre 25.000 € il bando copre solo una parte del progetto, dovrai trovare il resto altrove.');
         }
 
         var tier = (koCount > 0) ? 'red' : (warnCount > 0 ? 'yellow' : 'green');
@@ -316,19 +315,19 @@
         var emoji, title, summary;
         if (r.tier === 'green') {
             emoji = '✓';
-            title = 'Profilo compatibile';
-            summary = 'Sulla base delle risposte, l\'impresa rispetta tutti i requisiti chiave del ' + bandoLabel + '. ' +
-                      'Procedi con la simulazione finanziaria per stimare rata e durata.';
+            title = 'Sembra che tu sia ammissibile';
+            summary = 'Sulla base delle tue risposte, hai tutti i requisiti chiave per il ' + bandoLabel + '. ' +
+                      'Vai al passo successivo per calcolare la rata.';
         } else if (r.tier === 'yellow') {
-            emoji = '⚠';
-            title = 'Profilo da verificare';
-            summary = 'Il profilo e sostanzialmente compatibile con il ' + bandoLabel + ', ma ci sono ' + r.warnCount +
-                      ' punto/i che richiedono una verifica puntuale. Puoi comunque procedere alla simulazione.';
+            emoji = '!';
+            title = 'Sei probabilmente ammissibile, ma ci sono cose da verificare';
+            summary = 'Sembri compatibile con il ' + bandoLabel + ', ma ci sono ' + r.warnCount +
+                      ' punto/i che vanno controllati prima della domanda. Puoi comunque proseguire con il calcolo della rata.';
         } else {
             emoji = '✕';
-            title = 'Profilo non compatibile';
+            title = 'Cosi non sei ammissibile';
             summary = 'Sulla base delle risposte, ' + r.koCount + ' requisito/i del ' + bandoLabel +
-                      ' non risulta/no soddisfatto/i. Valuta lo strumento alternativo o contattaci per un\'analisi puntuale.';
+                      ' non e/sono soddisfatto/i. Valuta l\'altro bando oppure parla con noi: in molti casi si trova una soluzione.';
         }
 
         var html = '<div class="result-card result-' + r.tier + '">';
@@ -365,8 +364,8 @@
         var b = BANDI[state.bando];
         $('#simBandoLabel').textContent = b.label;
         $('#simLead').textContent = (state.bando === 'nfpc'
-            ? 'Trascina lo slider per simulare l\'importo richiesto. Il NFPC ha durata complessiva di 60 mesi (12 di preammortamento + 48 di ammortamento) a tasso zero, senza commissioni.'
-            : 'Trascina lo slider per simulare l\'importo richiesto. Il NFF ha durata complessiva di 72 mesi (12 di preammortamento + 60 di ammortamento). Con il toggle puoi vedere l\'effetto dell\'abbuono ex Art. 14 sulle ultime 12 rate.');
+            ? 'Sposta lo slider per scegliere l\'importo che vuoi chiedere. Il Piccolo Credito dura in tutto 5 anni: il primo anno non paghi rate, poi paghi per 4 anni a tasso zero senza commissioni.'
+            : 'Sposta lo slider per scegliere l\'importo che vuoi chiedere. Il Fondo Futuro dura in tutto 6 anni: il primo anno non paghi rate, poi paghi per 5 anni. Con il pulsante qui sotto puoi vedere come cambia la rata se ottieni la cancellazione delle ultime 12 rate.');
 
         var slider = $('#simAmount');
         slider.min = b.min;
@@ -377,7 +376,7 @@
         $('#simAmountMin').innerHTML = fmtEurNoSym(b.min);
         $('#simAmountMax').innerHTML = fmtEurNoSym(b.max);
 
-        $('#kpiDurataFoot').textContent = '12 preamm. + ' + b.durataAmm + ' ammortamento';
+        $('#kpiDurataFoot').textContent = '12 mesi senza pagare + ' + b.durataAmm + ' mesi di rate';
         $('#simAbbuonoWrap').hidden = !b.hasAbbuono;
         $('#kpiAbbuonoCard').hidden = !b.hasAbbuono;
         $('#simTrancheBlock').hidden = !b.hasTranche;
@@ -422,8 +421,8 @@
         $('#kpiDurata').textContent = state.sim.durataTot + ' mesi';
         $('#kpiTotale').textContent = fmtEur(totalePagato);
         $('#kpiTotaleFoot').textContent = useAbb
-            ? 'su ' + rateEffettive + ' rate (12 abbonate)'
-            : 'su ' + rateEffettive + ' rate, tasso 0%';
+            ? 'paghi ' + rateEffettive + ' rate (12 cancellate)'
+            : 'paghi ' + rateEffettive + ' rate, interessi zero';
         if (b.hasAbbuono) {
             $('#kpiAbbuono').textContent = fmtEur(risparmio);
         }
@@ -523,7 +522,7 @@
                 '<tr class="' + cls + '">' +
                     '<td>' + m + '</td>' +
                     '<td>' + fase + '</td>' +
-                    '<td>' + (rata > 0 ? fmtEur(rata) : '—') + '</td>' +
+                    '<td>' + (rata > 0 ? fmtEur(rata) : 'nessuna') + '</td>' +
                     '<td>' + fmtEur(residuo) + '</td>' +
                 '</tr>'
             );
@@ -555,7 +554,7 @@
     }
 
     function tierLabel(t) {
-        return t === 'green' ? 'compatibile' : (t === 'yellow' ? 'da verificare' : 'non compatibile');
+        return t === 'green' ? 'ammissibile' : (t === 'yellow' ? 'ammissibile con riserve' : 'non ammissibile');
     }
 
     function buildSummaryMessage() {
