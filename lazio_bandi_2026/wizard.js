@@ -565,21 +565,23 @@
         }
         var b = BANDI[state.bando];
         var lines = [];
-        lines.push('=== Riepilogo simulatore Bandi Lazio ===');
+        // IMPORTANT: never start a line with =, +, - or @ — Google Sheets
+        // would interpret the whole cell as a formula and show #ERROR!.
+        lines.push('Riepilogo simulatore Bandi Lazio');
         lines.push('Bando: ' + b.label + ' (' + b.short + ')');
         lines.push('Inquadramento: ' + state.routingChoice);
         lines.push('Esito eligibility: ' + tierLabel(state.result.tier) +
-                   ' (ok=' + (state.result.checks.length - state.result.koCount - state.result.warnCount) +
-                   ', warn=' + state.result.warnCount +
-                   ', ko=' + state.result.koCount + ')');
+                   ' (ok ' + (state.result.checks.length - state.result.koCount - state.result.warnCount) +
+                   ', warn ' + state.result.warnCount +
+                   ', ko ' + state.result.koCount + ')');
         if (state.result.canSimulate && state.sim.amount) {
             lines.push('Importo simulato: ' + Math.round(state.sim.amount) + ' EUR');
             lines.push('Rata mensile: ' + Math.round(state.sim.rata) + ' EUR');
-            lines.push('Durata totale: ' + state.sim.durataTot + ' mesi (12 preamm. + ' + state.sim.durataAmm + ' amm.)');
+            lines.push('Durata totale: ' + state.sim.durataTot + ' mesi (12 preamm. piu ' + state.sim.durataAmm + ' amm.)');
             lines.push('Totale rimborsato: ' + Math.round(state.sim.totale) + ' EUR');
             if (state.sim.useAbbuono) lines.push('Abbuono ultime 12 rate considerato: ' + Math.round(state.sim.abbuono) + ' EUR');
         }
-        lines.push('--- Risposte eligibility ---');
+        lines.push('Risposte eligibility:');
         Object.keys(state.elig).forEach(function (k) {
             lines.push('  ' + k + ': ' + state.elig[k]);
         });
