@@ -330,38 +330,122 @@
    ============================================ */
 .wizard-toolbar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
-    margin: 0 0 18px;
-    padding: 10px 14px;
-    background: rgba(22, 64, 104, 0.04);
-    border-radius: 10px;
-    border: 1px solid rgba(22, 64, 104, 0.08);
-}
-.wizard-toolbar-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: #164068;
+    gap: 8px;
+    margin: 0 0 22px;
+    padding: 0;
     background: none;
     border: none;
+}
+.wizard-toolbar-spacer { flex: 1 1 auto; min-width: 4px; }
+
+/* Base button (chip / pill) */
+.wizard-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    color: #475569;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 6px;
-    font-size: 0.82rem;
+    border-radius: 999px;
+    font-size: 0.84rem;
     font-weight: 600;
     font-family: inherit;
     text-decoration: none;
-    transition: background 0.15s, color 0.15s;
+    line-height: 1;
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s cubic-bezier(.22, 1, .36, 1);
+    -webkit-tap-highlight-color: transparent;
 }
-.wizard-toolbar-link:hover {
-    background: rgba(22, 64, 104, 0.1);
-    color: #0f2944;
+.wizard-toolbar-btn span { white-space: nowrap; }
+.wizard-toolbar-btn svg { flex-shrink: 0; }
+
+.wizard-toolbar-btn:hover:not(:disabled):not([disabled]) {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+    color: #164068;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
-.wizard-toolbar-restart { color: #b45309; }
-.wizard-toolbar-restart:hover { background: rgba(212, 164, 68, 0.15); color: #92400e; }
+.wizard-toolbar-btn:active:not(:disabled):not([disabled]) {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+/* Primary "Indietro" — sempre visibile, prominente quando attivo */
+.wizard-toolbar-btn-back {
+    background: linear-gradient(135deg, #164068 0%, #1e5384 100%);
+    border-color: #164068;
+    color: #fff;
+    padding: 10px 18px;
+    box-shadow: 0 4px 12px rgba(22, 64, 104, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.wizard-toolbar-btn-back svg { transition: transform 0.25s cubic-bezier(.22, 1, .36, 1); }
+.wizard-toolbar-btn-back:hover:not(:disabled):not([disabled]) {
+    background: linear-gradient(135deg, #0f2944 0%, #164068 100%);
+    border-color: #0f2944;
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(22, 64, 104, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+}
+.wizard-toolbar-btn-back:hover:not(:disabled):not([disabled]) svg {
+    transform: translateX(-3px);
+}
+.wizard-toolbar-btn-back:disabled,
+.wizard-toolbar-btn-back[disabled] {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #cbd5e1;
+    cursor: not-allowed;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+/* Ghost buttons (Ricomincia, Vai alla descrizione) — più discreti */
+.wizard-toolbar-btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: #64748b;
+    padding: 9px 14px;
+}
+.wizard-toolbar-btn-ghost:hover:not(:disabled):not([disabled]) {
+    background: rgba(22, 64, 104, 0.06);
+    border-color: transparent;
+    color: #164068;
+    transform: none;
+    box-shadow: none;
+}
+.wizard-toolbar-btn-ghost svg { transition: transform 0.25s cubic-bezier(.22, 1, .36, 1); }
+
+/* Mobile: stack verticale, indietro full-width */
+@media (max-width: 600px) {
+    .wizard-toolbar { gap: 6px; }
+    .wizard-toolbar-btn-back {
+        order: -1;
+        width: 100%;
+        justify-content: center;
+        padding: 12px 18px;
+    }
+    .wizard-toolbar-spacer { display: none; }
+    .wizard-toolbar-btn-ghost {
+        flex: 1;
+        justify-content: center;
+        font-size: 0.78rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wizard-toolbar-btn,
+    .wizard-toolbar-btn svg { transition: none; }
+    .wizard-toolbar-btn:hover { transform: none; }
+}
 
 /* ============================================
    WIZARD (riprendo dalla demo + adattamenti)

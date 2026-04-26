@@ -648,15 +648,20 @@
             </div>
 
             <!-- Toolbar simulatore: torna alla descrizione + ricomincia -->
-            <div class="wizard-toolbar">
-                <a href="#scegli-bando" class="wizard-toolbar-link">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                    Torna alla descrizione dei bandi
-                </a>
-                <button type="button" id="wizardRestart" class="wizard-toolbar-link wizard-toolbar-restart" title="Riavvia il simulatore dall'inizio">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>
-                    Ricomincia da capo
+            <div class="wizard-toolbar" role="toolbar" aria-label="Azioni del simulatore">
+                <button type="button" id="wizardBack" class="wizard-toolbar-btn wizard-toolbar-btn-back" disabled title="Torna al passo precedente del simulatore">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+                    <span>Indietro</span>
                 </button>
+                <div class="wizard-toolbar-spacer" aria-hidden="true"></div>
+                <button type="button" id="wizardRestart" class="wizard-toolbar-btn wizard-toolbar-btn-ghost" title="Riavvia il simulatore dall'inizio">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>
+                    <span>Ricomincia</span>
+                </button>
+                <a href="#scegli-bando" class="wizard-toolbar-btn wizard-toolbar-btn-ghost" title="Torna alle descrizioni dei bandi">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                    <span>Vai alla descrizione</span>
+                </a>
             </div>
 
             <!-- Progress -->

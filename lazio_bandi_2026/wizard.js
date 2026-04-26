@@ -75,10 +75,40 @@
         var fill = $('#wizardProgressFill');
         if (fill) fill.style.width = pct + '%';
 
+        updateToolbar();
+
         // Scroll into view (skip on initial load)
         if (!opts || opts.scroll !== false) {
             var sim = $('#simulatore');
             if (sim) sim.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    // Returns the previous step for the current state, or null when we
+    // are at the first step. Step "lead" rolls back to the simulator if
+    // the user could simulate, otherwise to the result panel.
+    function previousStepOf(currentStep) {
+        if (currentStep === 'eligibility') return 'routing';
+        if (currentStep === 'result') return 'eligibility';
+        if (currentStep === 'simulator') return 'result';
+        if (currentStep === 'lead') {
+            return (state.result && state.result.canSimulate) ? 'simulator' : 'result';
+        }
+        return null;
+    }
+
+    function updateToolbar() {
+        var backBtn = $('#wizardBack');
+        if (!backBtn) return;
+        var prev = previousStepOf(state.step);
+        if (prev) {
+            backBtn.disabled = false;
+            backBtn.dataset.targetStep = prev;
+            backBtn.removeAttribute('aria-disabled');
+        } else {
+            backBtn.disabled = true;
+            backBtn.dataset.targetStep = '';
+            backBtn.setAttribute('aria-disabled', 'true');
         }
     }
 
@@ -681,6 +711,16 @@
         }
     }
 
+    function initBackButton() {
+        var btn = $('#wizardBack');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            if (btn.disabled) return;
+            var target = btn.dataset.targetStep;
+            if (target) showStep(target);
+        });
+    }
+
     // ============================================
     // NAVBAR scroll + mobile menu
     // ============================================
@@ -764,6 +804,7 @@
         initRouting();
         initBackButtons();
         initRestartButton();
+        initBackButton();
         // Wire up the public contact form at the bottom of the page
         // immediately. The wizard step-5 form (same id is *not* used —
         // they have different ids) gets wired again from prepareLeadForm,
