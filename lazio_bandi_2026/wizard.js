@@ -550,7 +550,7 @@
         summary += '</div>';
         $('#leadSummary').innerHTML = summary;
 
-        wireForm();
+        wireForms();
     }
 
     function tierLabel(t) {
@@ -558,6 +558,11 @@
     }
 
     function buildSummaryMessage() {
+        // Generic submission from the public contact form at the bottom of
+        // the page (user did not go through the simulator).
+        if (!state.bando || !state.result) {
+            return 'Richiesta inviata dal modulo di contatto della pagina Bandi Regione Lazio 2026, senza completare il simulatore.';
+        }
         var b = BANDI[state.bando];
         var lines = [];
         lines.push('=== Riepilogo simulatore Bandi Lazio ===');
@@ -581,65 +586,73 @@
         return lines.join('\n');
     }
 
-    function wireForm() {
-        var form = $('#contactForm');
-        if (!form || form.dataset.wired === '1') return;
-        form.dataset.wired = '1';
+    // Attaches the same submit handler to every form on the page that
+    // declares a data-pagina attribute. The handler builds the summary
+    // message dynamically: from the wizard state if the user completed
+    // the simulator, otherwise a generic note. Idempotent (skips forms
+    // already wired).
+    function wireForms() {
+        $$('form[data-pagina]').forEach(function (form) {
+            if (form.dataset.wired === '1') return;
+            form.dataset.wired = '1';
+            form.addEventListener('submit', handleFormSubmit);
+        });
+    }
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
+    function handleFormSubmit(e) {
+        e.preventDefault();
+        var form = e.currentTarget;
 
-            var fd = new FormData(form);
-            var data = {};
-            fd.forEach(function (v, k) { data[k] = v; });
+        var fd = new FormData(form);
+        var data = {};
+        fd.forEach(function (v, k) { data[k] = v; });
 
-            if (!data.nome || !data.cognome || !data.email || !data.azienda || !data.ruolo) {
-                showNotification('Compila tutti i campi obbligatori.', 'error');
-                return;
-            }
-            if (!data.privacy) {
-                showNotification('Devi accettare il trattamento dei dati personali.', 'error');
-                return;
-            }
+        if (!data.nome || !data.cognome || !data.email || !data.azienda || !data.ruolo) {
+            showNotification('Compila tutti i campi obbligatori.', 'error');
+            return;
+        }
+        if (!data.privacy) {
+            showNotification('Devi accettare il trattamento dei dati personali.', 'error');
+            return;
+        }
 
-            var btn = form.querySelector('button[type="submit"]');
-            var originalText = btn.textContent;
-            btn.textContent = 'Invio in corso...';
-            btn.disabled = true;
+        var btn = form.querySelector('button[type="submit"]');
+        var originalText = btn.textContent;
+        btn.textContent = 'Invio in corso...';
+        btn.disabled = true;
 
-            var n = new Date();
-            var pad = function (x) { return String(x).padStart(2, '0'); };
-            var ts = pad(n.getDate()) + '/' + pad(n.getMonth() + 1) + '/' + n.getFullYear() +
-                     ' ' + pad(n.getHours()) + ':' + pad(n.getMinutes()) + ':' + pad(n.getSeconds());
+        var n = new Date();
+        var pad = function (x) { return String(x).padStart(2, '0'); };
+        var ts = pad(n.getDate()) + '/' + pad(n.getMonth() + 1) + '/' + n.getFullYear() +
+                 ' ' + pad(n.getHours()) + ':' + pad(n.getMinutes()) + ':' + pad(n.getSeconds());
 
-            var jsonData = {
-                data: ts,
-                pagina: form.dataset.pagina || 'Bandi Lazio 2026 - Contatto',
-                nome: data.nome,
-                cognome: data.cognome,
-                email: data.email,
-                azienda: data.azienda,
-                ruolo: data.ruolo,
-                telefono: data.telefono || '',
-                messaggio: buildSummaryMessage(),
-                privacy: !!data.privacy,
-                marketing: !!data.marketing
-            };
+        var jsonData = {
+            data: ts,
+            pagina: form.dataset.pagina || 'Bandi Lazio 2026 - Contatto',
+            nome: data.nome,
+            cognome: data.cognome,
+            email: data.email,
+            azienda: data.azienda,
+            ruolo: data.ruolo,
+            telefono: data.telefono || '',
+            messaggio: buildSummaryMessage(),
+            privacy: !!data.privacy,
+            marketing: !!data.marketing
+        };
 
-            fetch(GOOGLE_SHEET_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(jsonData)
-            }).then(function () {
-                showNotification('Grazie! La richiesta e stata registrata. Ti contatteremo a breve.', 'success');
-                form.reset();
-            }).catch(function () {
-                showNotification('Errore di connessione. Riprova o scrivici a info@nextgenerationbusiness.it', 'error');
-            }).finally(function () {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            });
+        fetch(GOOGLE_SHEET_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(jsonData)
+        }).then(function () {
+            showNotification('Grazie! La richiesta e stata registrata. Ti contatteremo a breve.', 'success');
+            form.reset();
+        }).catch(function () {
+            showNotification('Errore di connessione. Riprova o scrivici a info@nextgenerationbusiness.it', 'error');
+        }).finally(function () {
+            btn.textContent = originalText;
+            btn.disabled = false;
         });
     }
 
@@ -749,6 +762,11 @@
         initRouting();
         initBackButtons();
         initRestartButton();
+        // Wire up the public contact form at the bottom of the page
+        // immediately. The wizard step-5 form (same id is *not* used —
+        // they have different ids) gets wired again from prepareLeadForm,
+        // but the dataset.wired guard makes that idempotent.
+        wireForms();
         showStep('routing', { scroll: false });
     });
 
