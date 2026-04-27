@@ -1123,3 +1123,159 @@
 .cta-single { grid-template-columns: 1fr !important; }
 .cta-single .cta-text { max-width: 720px; margin: 0 auto; text-align: center; }
 .cta-single .contact-info { justify-content: center; }
+
+/* ============================================
+   MOBILE READABILITY OVERRIDES
+   Targeted improvements for phone screens.
+   ============================================ */
+
+/* Tablet portrait (<= 768px): tighten the bando summary grid so values
+   like "da 10.000 a 50.000 €" do not wrap onto three lines. */
+@media (max-width: 768px) {
+    .bando-summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .bando-summary-cell { padding: 14px 16px; }
+    .bando-summary-value { font-size: 1.2rem; line-height: 1.2; }
+    .container, .container-narrow { padding: 0 20px; }
+}
+
+/* Phones (<= 600px): main visibility pass. */
+@media (max-width: 600px) {
+    /* Tighter container, reduce horizontal padding so cards keep useful width. */
+    .container, .container-narrow { padding: 0 16px; }
+
+    /* Hero: reduce padding and stack the stats vertically without dividers. */
+    .hero { padding: 90px 0 48px; }
+    .hero h1 { font-size: clamp(2rem, 9vw, 2.6rem); letter-spacing: -1px; }
+    .hero-subtitle {
+        font-size: 1rem;
+        line-height: 1.65;
+        margin-bottom: 28px;
+    }
+    .hero-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        margin-bottom: 36px;
+    }
+    .hero-actions .btn {
+        width: 100%;
+        text-align: center;
+        padding: 14px 18px;
+        font-size: 0.95rem;
+    }
+    .hero-stats {
+        flex-direction: column;
+        gap: 18px;
+        align-items: stretch;
+    }
+    .hero-stats .stat-divider { display: none; }
+    .hero-stats .stat {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: row;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        text-align: left;
+    }
+    .hero-stats .stat-number { font-size: 1.6rem; }
+    .hero-stats .stat-label {
+        font-size: 0.78rem;
+        text-align: right;
+        line-height: 1.35;
+    }
+
+    /* Section vertical padding: keep some breathing room but less. */
+    .section { padding: 48px 0; }
+    .section-header { margin-bottom: 28px; }
+    .section-header h2 { font-size: clamp(1.5rem, 7vw, 2rem); line-height: 1.2; }
+    .section-desc { font-size: 0.95rem; line-height: 1.65; }
+    .section-tag { font-size: 0.7rem; }
+
+    /* Unindustria banner less tall. */
+    .unindustria-banner { padding: 18px 0; }
+    .unindustria-banner img { height: 56px; }
+
+    /* Two-bandi cards: less padding so content breathes. */
+    .area-card { padding: 28px 22px; border-radius: 14px; }
+    .area-card h3 { font-size: 1.4rem; margin-bottom: 8px; }
+    .area-card .area-percent { font-size: 1.8rem; }
+
+    /* Bando summary: 1 col, smaller value. */
+    .bando-summary-grid { grid-template-columns: 1fr; }
+    .bando-summary { padding: 6px; }
+    .bando-summary-cell { padding: 12px 14px; gap: 2px; }
+    .bando-summary-label { font-size: 0.7rem; }
+    .bando-summary-value { font-size: 1.1rem; }
+    .bando-summary-foot { font-size: 0.74rem; }
+
+    /* Bando blocks (paragraphs + list). */
+    .bando-block { margin-bottom: 24px; padding-bottom: 24px; }
+    .bando-block h3 { font-size: 1.1rem; margin-bottom: 10px; }
+    .bando-block h4 { font-size: 0.95rem; }
+    .bando-block p { font-size: 0.94rem; line-height: 1.6; }
+    .bando-list li { font-size: 0.9rem; padding: 10px 14px 10px 32px; }
+    .bando-list li::before { left: 12px; }
+
+    /* Timeline cards (tempistiche): a bit more compact. */
+    .timeline-step { padding: 14px 16px; }
+    .timeline-when { font-size: 0.74rem; }
+    .timeline-what { font-size: 0.95rem; }
+    .timeline-what-pct { font-size: 1.4rem; }
+    .timeline-desc { font-size: 0.84rem; }
+
+    /* CTA row: stack buttons full-width for easier tap. */
+    .bando-cta { flex-direction: column; gap: 10px; padding-top: 20px; }
+    .bando-cta .btn { width: 100%; text-align: center; }
+
+    /* Wizard simulator: prevent iOS auto-zoom on inputs (16px),
+       enlarge tap target heights, smaller KPI numbers. */
+    .wizard-card h2 { font-size: clamp(1.25rem, 6vw, 1.55rem); }
+    .wizard-lead { font-size: 0.92rem; }
+    .wizard-fieldset > legend { font-size: 0.94rem; }
+    .wizard-input,
+    .wizard-form .form-group input[type="text"],
+    .wizard-form .form-group input[type="email"],
+    .wizard-form .form-group input[type="tel"] {
+        font-size: 16px;
+        padding: 12px 14px;
+    }
+    .option-grid { grid-template-columns: 1fr; }
+    .option-card { padding: 14px; }
+    .option-pill { padding: 9px 14px; font-size: 0.88rem; }
+    .sim-kpi-grid { grid-template-columns: 1fr; gap: 10px; }
+    .sim-kpi { padding: 14px 16px; }
+    .sim-kpi-value { font-size: 1.35rem; }
+
+    /* Result card: more compact spotlight. */
+    .result-spotlight-name { font-size: clamp(1.2rem, 6vw, 1.5rem); }
+    .result-actions { flex-direction: column; gap: 10px; }
+    .result-actions .btn { width: 100%; text-align: center; }
+
+    /* Wizard disclaimer: bump up tiny text a touch. */
+    .wizard-disclaimer { font-size: 0.82rem; padding: 12px 14px; }
+
+    /* Form group: bigger labels + checkbox label readable. */
+    .wizard-form .form-group label { font-size: 0.88rem; }
+    .wizard-form .form-check label { font-size: 0.86rem; }
+
+    /* Lead summary box. */
+    .lead-summary { padding: 12px 14px; font-size: 0.86rem; }
+
+    /* Sticky event banner: keep one line tall enough to be readable. */
+    .event-banner { font-size: 0.78rem; padding: 10px 0; line-height: 1.45; }
+    .event-banner-inner { gap: 8px; }
+    .event-banner-pill { font-size: 0.66rem; padding: 2px 9px; }
+}
+
+/* Small phones (<= 380px): final compact pass for narrow devices. */
+@media (max-width: 380px) {
+    .container, .container-narrow { padding: 0 14px; }
+    .hero h1 { font-size: 1.85rem; }
+    .hero-stats .stat-number { font-size: 1.45rem; }
+    .section-header h2 { font-size: 1.45rem; }
+    .area-card { padding: 24px 18px; }
+    .bando-summary-value { font-size: 1.05rem; }
+}
