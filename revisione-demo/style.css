@@ -2009,36 +2009,84 @@ img { max-width:100%; display:block; }
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
-    font-family: 'Montserrat', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 700;
+    gap: 14px;
+    padding: 14px 16px;
     color: var(--accent);
-    transition: background 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease;
     user-select: none;
 }
 .principio-details-summary::-webkit-details-marker { display: none; }
 .principio-details-summary::marker { display: none; content: ''; }
-.principio-details-summary:hover { background: var(--accent-bg); }
+.principio-details-summary:hover {
+    background: var(--accent-bg);
+}
+.principio-details-summary:hover .principio-details-mark {
+    background: var(--accent);
+    color: #ffffff;
+    transform: scale(1.05);
+}
 .principio-details[open] .principio-details-summary {
     background: var(--accent-bg);
     border-bottom: 1px solid var(--border-color);
 }
-.principio-details-label {
+.principio-details[open] .principio-details-mark {
+    background: var(--accent);
+    color: #ffffff;
+}
+.principio-details-mark {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.principio-details-mark svg {
+    width: 18px;
+    height: 18px;
+}
+.principio-details-text {
     flex: 1;
-    letter-spacing: 0.01em;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.principio-details-label {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+.principio-details-helper {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--text-secondary);
 }
 .principio-details-meta {
-    font-size: 0.74rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    padding: 3px 9px;
-    background: #ffffff;
-    border: 1px solid var(--border-color);
+    flex-shrink: 0;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #ffffff;
+    background: var(--accent);
     border-radius: 999px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
 }
 .principio-details-icon {
     width: 18px;
@@ -2151,6 +2199,18 @@ img { max-width:100%; display:block; }
         hyphens: none;
         -webkit-hyphens: none;
     }
+    .principio-details-summary {
+        gap: 10px;
+        padding: 12px 14px;
+    }
+    .principio-details-mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+    }
+    .principio-details-mark svg { width: 16px; height: 16px; }
+    .principio-details-label { font-size: 0.88rem; }
+    .principio-details-helper { display: none; }
 }
 .principio-citation {
     display: flex;
