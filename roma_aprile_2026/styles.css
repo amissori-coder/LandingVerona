@@ -1136,6 +1136,18 @@ ul {
     letter-spacing: 0.1px;
 }
 
+.speaker-talk {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 0.82rem;
+    color: var(--accent);
+    line-height: 1.5;
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(22, 64, 104, 0.18);
+}
+
 /* === Location Section === */
 .location-grid {
     display: grid;
@@ -2199,6 +2211,10 @@ ul {
 
     .speaker-role {
         font-size: 0.72rem;
+    }
+
+    .speaker-talk {
+        font-size: 0.78rem;
     }
 
     /* --- Location --- */
