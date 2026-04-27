@@ -1,86 +1,106 @@
 /**
- * Next Generation Business — Upcoming event banner
+ * Next Generation Business — Upcoming events banner
  * ---------------------------------------------------------------
- * Drop-in, zero-dependency script that injects a floating banner
- * pointing at the next upcoming NGB event on every content page.
- * The banner hides itself automatically the day after the event.
+ * Drop-in, zero-dependency script that injects one floating banner
+ * per upcoming NGB event on every content page. Banners stack
+ * vertically in the bottom-right corner.
+ *
+ * Each banner hides itself automatically the day after its event
+ * date. If the visitor is already on the event's own page (detected
+ * via the pagePath token) that banner is skipped.
  *
  * Usage: add to any content page just before </body>:
  *   <script src="../assets/event-banner.js" defer></script>
  *
- * Config: add new events to the NGB_EVENTS array below. Each event is
- * displayed from the moment the script runs until 23:59 of its event
- * date; from the following day it is filtered out. If the visitor is
- * already on the event's own page (detected via the pagePath token)
- * the banner is not shown.
+ * Config: add new entries to the NGB_EVENTS array below.
  */
 (function () {
     'use strict';
 
     // ---------------- Config ----------------
+    // Each entry supports:
+    //   date     YYYY-MM-DD shown in the banner badge and used for sorting
+    //   expires  YYYY-MM-DD optional — internal cut-off; the banner is
+    //            removed the day after this date. If omitted, falls back
+    //            to `date`. Never shown to the user.
+    //   meta     optional custom text for the small grey line under the
+    //            title. If omitted, auto-generated as "Wkd Day Month · City".
     const NGB_EVENTS = [
         {
             city: 'Roma',
-            date: '2026-04-29',            // YYYY-MM-DD of the event
-            title: 'ZLS e Rating di Legalità',
+            date: '2026-04-29',
+            title: 'ZLS e Rating di Legalita',
             tagline: 'Prossimo convegno',
-            url: 'roma_aprile_2026/',       // relative to site root
-            pagePath: 'roma_aprile_2026'    // substring of location.pathname that means "already on this event's page"
+            url: 'roma_aprile_2026/',
+            pagePath: 'roma_aprile_2026'
+        },
+        {
+            city: 'Lazio',
+            date: '2026-05-11',
+            expires: '2026-05-30',
+            title: 'Bandi Regione Lazio 2026',
+            tagline: 'Apertura sportello',
+            meta: 'A partire da lun 11 maggio &middot; Regione Lazio',
+            url: 'lazio_bandi_2026/',
+            pagePath: 'lazio_bandi_2026'
         }
     ];
 
     // ---------------- Guards ----------------
     if (typeof window === 'undefined' || !document || !document.createElement) return;
 
-    // Pick the nearest event whose date is today or in the future.
     const now = new Date();
     const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const upcoming = NGB_EVENTS
-        .map((e) => Object.assign({}, e, { _d: new Date(e.date + 'T00:00:00') }))
-        .filter((e) => !isNaN(e._d.getTime()) && e._d.getTime() >= todayMid.getTime())
+        .map((e) => Object.assign({}, e, {
+            _d: new Date(e.date + 'T00:00:00'),
+            // Internal cut-off: defaults to `date` so legacy entries
+            // without `expires` keep their original lifespan.
+            _exp: new Date((e.expires || e.date) + 'T00:00:00')
+        }))
+        .filter((e) => !isNaN(e._exp.getTime()) && e._exp.getTime() >= todayMid.getTime())
         .sort((a, b) => a._d.getTime() - b._d.getTime());
 
     if (upcoming.length === 0) return;
-    const next = upcoming[0];
 
-    // Skip if the visitor is already on the event's own page.
+    // Skip events whose page the visitor is already on.
     const path = (window.location.pathname || '').toLowerCase();
-    if (next.pagePath && path.indexOf(next.pagePath.toLowerCase()) !== -1) return;
+    const visible = upcoming.filter(function (e) {
+        return !(e.pagePath && path.indexOf(e.pagePath.toLowerCase()) !== -1);
+    });
+    if (visible.length === 0) return;
 
     // ---------------- URL resolution ----------------
-    // The banner can be included from any depth in the site. We resolve
-    // the event URL using the script's own <script src="..."> to anchor
-    // paths to the site root (…/assets/event-banner.js → site root).
-    let resolvedUrl = next.url;
+    // Anchor relative URLs to the site root using the script's own src.
+    let scriptRoot = null;
     try {
         const scriptEl = document.currentScript ||
             Array.prototype.slice.call(document.scripts).reverse().find(function (s) {
                 return s.src && s.src.indexOf('event-banner.js') !== -1;
             });
         if (scriptEl && scriptEl.src) {
-            const root = new URL('..', scriptEl.src); // …/assets/ → …/
-            resolvedUrl = new URL(next.url.replace(/^\//, ''), root).href;
+            scriptRoot = new URL('..', scriptEl.src).href; // …/assets/ → …/
         }
-    } catch (_) { /* best-effort; fall back to the raw url */ }
+    } catch (_) { /* fall back to raw urls */ }
+
+    function resolveUrl(rawUrl) {
+        if (!scriptRoot) return rawUrl;
+        try { return new URL(rawUrl.replace(/^\//, ''), scriptRoot).href; }
+        catch (_) { return rawUrl; }
+    }
 
     // ---------------- Italian date formatting ----------------
     const MONTHS_SHORT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
     const MONTHS_FULL  = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
     const WEEKDAYS_SHORT = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
-    const dayNum = next._d.getDate();
-    const monthAbbr = MONTHS_SHORT[next._d.getMonth()];
-    const weekdayAbbr = WEEKDAYS_SHORT[next._d.getDay()];
-    const monthFull = MONTHS_FULL[next._d.getMonth()];
-    const metaText = weekdayAbbr + ' ' + dayNum + ' ' + monthFull + ' · ' + next.city;
-
-    // ---------------- Style injection ----------------
+    // ---------------- Style injection (once) ----------------
     const style = document.createElement('style');
     style.setAttribute('data-ngb-event-banner', '');
     style.textContent = [
         '.ngb-event-banner{',
-        '  position:fixed;right:24px;bottom:24px;z-index:9998;',
+        '  position:fixed;right:24px;z-index:9998;',
         '  max-width:360px;width:calc(100% - 48px);',
         '  background:linear-gradient(160deg,#0A2844 0%,#164068 60%,#2A5A85 100%);',
         '  color:#fff;border-radius:14px;padding:18px 40px 18px 18px;',
@@ -88,7 +108,7 @@
         "  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;",
         '  display:flex;gap:14px;align-items:flex-start;',
         '  transform:translateY(24px);opacity:0;',
-        '  transition:transform .55s cubic-bezier(.22,1,.36,1),opacity .55s ease;',
+        '  transition:transform .55s cubic-bezier(.22,1,.36,1),opacity .55s ease,bottom .35s ease;',
         '  border:1px solid rgba(255,255,255,.1);box-sizing:border-box;',
         '}',
         '.ngb-event-banner::before{',
@@ -143,61 +163,98 @@
         '.ngb-eb-close:hover{background:rgba(255,255,255,.12);color:#fff;}',
         '.ngb-eb-close svg{width:14px;height:14px;stroke:currentColor;fill:none;}',
         '@media (max-width:640px){',
-        '  .ngb-event-banner{right:12px;left:12px;bottom:12px;max-width:none;width:auto;}',
+        '  .ngb-event-banner{right:12px;left:12px;max-width:none;width:auto;}',
         '}',
         '@media (prefers-reduced-motion:reduce){',
-        '  .ngb-event-banner{transition:opacity .2s ease;}',
+        '  .ngb-event-banner{transition:opacity .2s ease,bottom .2s ease;}',
         '}'
     ].join('');
     document.head.appendChild(style);
 
-    // ---------------- DOM construction ----------------
-    const banner = document.createElement('aside');
-    banner.className = 'ngb-event-banner';
-    banner.setAttribute('role', 'complementary');
-    banner.setAttribute('aria-label', 'Prossimo evento Next Generation Business');
-    banner.innerHTML =
-        '<div class="ngb-eb-date" aria-hidden="true">' +
-            '<span class="ngb-eb-day">' + dayNum + '</span>' +
-            '<span class="ngb-eb-month">' + monthAbbr + '</span>' +
-        '</div>' +
-        '<div class="ngb-eb-content">' +
-            '<span class="ngb-eb-label">' + escapeHtml(next.tagline) + '</span>' +
-            '<h4 class="ngb-eb-title">' + escapeHtml(next.title) + '</h4>' +
-            '<p class="ngb-eb-meta">' + escapeHtml(metaText) + '</p>' +
-            '<a class="ngb-eb-cta" href="' + escapeAttr(resolvedUrl) + '">' +
-                'Scopri l\u2019evento' +
-                '<svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-                    '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>' +
-                '</svg>' +
-            '</a>' +
-        '</div>' +
-        '<button class="ngb-eb-close" type="button" aria-label="Chiudi il banner">' +
-            '<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-                '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' +
-            '</svg>' +
-        '</button>';
+    // ---------------- Banner factory ----------------
+    function createBanner(event) {
+        const dayNum = event._d.getDate();
+        const monthAbbr = MONTHS_SHORT[event._d.getMonth()];
+        const weekdayAbbr = WEEKDAYS_SHORT[event._d.getDay()];
+        const monthFull = MONTHS_FULL[event._d.getMonth()];
+        // Custom meta wins over the auto-generated "Wkd Day Month · City".
+        // Custom meta is treated as trusted HTML so &middot; etc. render.
+        const autoMeta = escapeHtml(weekdayAbbr + ' ' + dayNum + ' ' + monthFull + ' · ' + event.city);
+        const metaHtml = event.meta || autoMeta;
+        const resolvedUrl = resolveUrl(event.url);
 
-    banner.querySelector('.ngb-eb-close').addEventListener('click', function () {
-        banner.classList.remove('is-visible');
-        setTimeout(function () { if (banner.parentNode) banner.parentNode.removeChild(banner); }, 500);
-    });
+        const banner = document.createElement('aside');
+        banner.className = 'ngb-event-banner';
+        banner.setAttribute('role', 'complementary');
+        banner.setAttribute('aria-label', 'Comunicazione Next Generation Business');
+        banner.innerHTML =
+            '<div class="ngb-eb-date" aria-hidden="true">' +
+                '<span class="ngb-eb-day">' + dayNum + '</span>' +
+                '<span class="ngb-eb-month">' + monthAbbr + '</span>' +
+            '</div>' +
+            '<div class="ngb-eb-content">' +
+                '<span class="ngb-eb-label">' + escapeHtml(event.tagline) + '</span>' +
+                '<h4 class="ngb-eb-title">' + escapeHtml(event.title) + '</h4>' +
+                '<p class="ngb-eb-meta">' + metaHtml + '</p>' +
+                '<a class="ngb-eb-cta" href="' + escapeAttr(resolvedUrl) + '">' +
+                    'Scopri di piu' +
+                    '<svg viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+                        '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>' +
+                    '</svg>' +
+                '</a>' +
+            '</div>' +
+            '<button class="ngb-eb-close" type="button" aria-label="Chiudi il banner">' +
+                '<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+                    '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' +
+                '</svg>' +
+            '</button>';
+
+        banner.querySelector('.ngb-eb-close').addEventListener('click', function () {
+            banner.classList.remove('is-visible');
+            setTimeout(function () {
+                if (banner.parentNode) banner.parentNode.removeChild(banner);
+                restack();
+            }, 500);
+        });
+
+        return banner;
+    }
+
+    // ---------------- Stacking ----------------
+    function restack() {
+        const isMobile = window.matchMedia('(max-width:640px)').matches;
+        const baseOffset = isMobile ? 12 : 24;
+        const gap = isMobile ? 10 : 14;
+        let bottomOffset = baseOffset;
+        const all = document.querySelectorAll('.ngb-event-banner');
+        for (let i = 0; i < all.length; i++) {
+            all[i].style.bottom = bottomOffset + 'px';
+            bottomOffset += all[i].offsetHeight + gap;
+        }
+    }
 
     // ---------------- Mount ----------------
+    const banners = visible.map(createBanner);
+
     const mount = function () {
         if (!document.body) return;
-        document.body.appendChild(banner);
-        // Small delay to let the browser register the element before
-        // applying the is-visible class for the entry transition.
+        banners.forEach(function (b) { document.body.appendChild(b); });
         requestAnimationFrame(function () {
-            banner.classList.add('is-visible');
+            restack();
+            // Reveal after positioning so the entry animation fires from
+            // the correct stacked location.
+            banners.forEach(function (b) { b.classList.add('is-visible'); });
         });
     };
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', mount);
     } else {
         mount();
     }
+
+    // Re-stack on resize so mobile/desktop transitions stay tidy.
+    window.addEventListener('resize', restack);
 
     // ---------------- Helpers ----------------
     function escapeHtml(s) {
