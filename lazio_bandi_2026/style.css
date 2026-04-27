@@ -1128,11 +1128,27 @@
    MOBILE IMPROVEMENTS
    Tutto il fine-tuning responsive in fondo per comodita: niente
    override sparpagliati, basta scrollare qui per vedere come la
-   pagina si comporta sotto 640px (smartphone medi) e 380px
-   (smartphone piccoli).
+   pagina si comporta sotto 1024px (tablet), 640px (smartphone medi)
+   e 380px (smartphone piccoli).
    ============================================ */
+@media (max-width: 1024px) {
+    /* Tablet portrait + smartphone landscape: la pagina si stringe ma
+       resta a 2 colonne dove ha senso. */
+    .container { padding: 0 20px; }
+    .container-narrow { padding: 0 20px; }
+    .hero h1 { font-size: clamp(2rem, 5.5vw, 3rem); }
+    .hero-subtitle { font-size: 1.05rem; }
+    .section { padding: 72px 0; }
+    .bando-summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .bando-summary-cell { padding: 14px 16px; }
+    .bando-summary-value { font-size: 1.25rem; line-height: 1.2; }
+    .area-cards { grid-template-columns: 1fr 1fr; gap: 20px; }
+    .area-card { padding: 36px 28px; }
+}
+
 @media (max-width: 640px) {
     /* Container piu stretto: recupero ~16px per lato sui display piccoli */
+    .container,
     .container-narrow { padding: 0 16px; }
 
     /* Event banner: font piu piccolo, padding ridotto, allineamento
@@ -1165,22 +1181,36 @@
     .hero-actions { flex-direction: column; align-items: stretch; gap: 10px; }
     .hero-actions .btn { width: 100%; text-align: center; }
 
-    /* Hero stats: impilati in colonna, divider verticali sostituiti
-       da bordi orizzontali piu discreti */
+    /* Hero stats: impilati in colonna come righe scannabili. Numero
+       grande a sinistra, label a destra: a colpo d'occhio si capisce
+       subito il "quanto puoi avere", che e' il vero valore della pagina. */
     .hero-stats {
         flex-direction: column;
-        gap: 0;
-        margin-top: 24px;
+        gap: 8px;
+        margin-top: 28px;
+        align-items: stretch;
     }
     .hero-stats .stat {
-        padding: 14px 0;
-        text-align: center;
+        display: flex;
+        align-items: baseline;
+        justify-content: flex-start;
+        gap: 14px;
+        padding: 12px 16px;
+        text-align: left;
+        background: rgba(255, 255, 255, 0.06);
+        border-left: 3px solid #d4a444;
+        border-radius: 8px;
     }
-    .hero-stats .stat-divider {
-        display: none;
+    .hero-stats .stat-divider { display: none; }
+    .hero-stats .stat-number {
+        font-size: 1.6rem;
+        flex-shrink: 0;
+        min-width: 80px;
     }
-    .hero-stats .stat + .stat {
-        border-top: 1px solid rgba(255, 255, 255, 0.12);
+    .hero-stats .stat-label {
+        font-size: 0.84rem;
+        line-height: 1.35;
+        opacity: 0.85;
     }
 
     /* Bando block headings: piu compatti */
