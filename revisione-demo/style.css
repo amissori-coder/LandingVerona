@@ -1930,6 +1930,22 @@ img { max-width:100%; display:block; }
     color: var(--text-primary);
 }
 
+/* Callout: paragrafo evidenziato all'interno della card */
+.principio-callout {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+    margin: 4px 0 16px;
+    padding: 16px 18px;
+    background: linear-gradient(135deg, #fff8e1 0%, #fffdf5 100%);
+    border-left: 3px solid #d4a444;
+    border-radius: 8px;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+.principio-callout strong { color: var(--text-primary); }
+
 /* Sub-block "Casi tipici di non indipendenza" */
 .principio-block {
     margin: 4px 0 18px;
@@ -2015,6 +2031,7 @@ img { max-width:100%; display:block; }
     .principio-block { padding: 16px 14px 12px; }
     .principio-lead,
     .principio-card > p,
+    .principio-callout,
     .principio-block-intro {
         text-align: left;
         hyphens: none;
