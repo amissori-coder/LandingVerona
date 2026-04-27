@@ -1123,3 +1123,199 @@
 .cta-single { grid-template-columns: 1fr !important; }
 .cta-single .cta-text { max-width: 720px; margin: 0 auto; text-align: center; }
 .cta-single .contact-info { justify-content: center; }
+
+/* ============================================
+   MOBILE IMPROVEMENTS
+   Tutto il fine-tuning responsive in fondo per comodita: niente
+   override sparpagliati, basta scrollare qui per vedere come la
+   pagina si comporta sotto 640px (smartphone medi) e 380px
+   (smartphone piccoli).
+   ============================================ */
+@media (max-width: 640px) {
+    /* Container piu stretto: recupero ~16px per lato sui display piccoli */
+    .container-narrow { padding: 0 16px; }
+
+    /* Event banner: font piu piccolo, padding ridotto, allineamento
+       a colonna se non ci sta in una riga */
+    .event-banner {
+        padding: 7px 0;
+        font-size: 0.78rem;
+        line-height: 1.35;
+    }
+    .event-banner-inner {
+        gap: 8px;
+        padding: 0 12px;
+    }
+    .event-banner-pill {
+        font-size: 0.62rem;
+        padding: 2px 8px;
+    }
+
+    /* Navbar offset: la altezza dell'event banner cambia in base a
+       quante righe occupa. Calcolata in modo che la navbar non si
+       sovrapponga mai al banner anche se il testo va a 2-3 righe. */
+    .navbar { top: 60px; }
+
+    /* Hero: titoli piu piccoli, sottotitolo con respiro coerente.
+       I <br> nell'HTML diventano spazi cosi il testo si compone in
+       maniera fluida senza spezzature innaturali. */
+    .hero h1 { font-size: clamp(1.7rem, 8vw, 2.4rem); }
+    .hero-subtitle { font-size: 0.95rem; line-height: 1.55; }
+    .hero-subtitle br { display: none; }
+    .hero-actions { flex-direction: column; align-items: stretch; gap: 10px; }
+    .hero-actions .btn { width: 100%; text-align: center; }
+
+    /* Hero stats: impilati in colonna, divider verticali sostituiti
+       da bordi orizzontali piu discreti */
+    .hero-stats {
+        flex-direction: column;
+        gap: 0;
+        margin-top: 24px;
+    }
+    .hero-stats .stat {
+        padding: 14px 0;
+        text-align: center;
+    }
+    .hero-stats .stat-divider {
+        display: none;
+    }
+    .hero-stats .stat + .stat {
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    /* Bando block headings: piu compatti */
+    .bando-block { margin-bottom: 24px; padding-bottom: 24px; }
+    .bando-block h3 { font-size: 1.1rem; }
+    .bando-block h4 { font-size: 0.95rem; }
+    .bando-list li { font-size: 0.9rem; padding: 10px 12px 10px 32px; }
+    .bando-list li::before { left: 12px; }
+
+    /* Bando-summary cells: piu respiro verticale */
+    .bando-summary { margin-bottom: 28px; }
+    .bando-summary-cell { padding: 14px 16px; }
+    .bando-summary-value { font-size: 1.25rem; }
+
+    /* Bando-cta (PDF + Lazio Innova): impilati full-width per touch */
+    .bando-cta { flex-direction: column; gap: 10px; }
+    .bando-cta .btn { width: 100%; text-align: center; }
+
+    /* Bando-cta-sim: la pillola CTA gia diventa full-width grazie
+       alla regola sopra, ma riduco il padding verticale per riempire
+       meno spazio */
+    .btn-sim-cta { padding: 14px 22px; gap: 10px; }
+    .btn-sim-cta-arrow { width: 18px; height: 18px; }
+
+    /* Wizard progress: testo dei passi piu piccolo, scroll-x sicuro */
+    .wizard-progress { margin-bottom: 24px; }
+    .wizard-steps {
+        font-size: 0.7rem;
+        gap: 4px;
+        margin-top: 10px;
+        padding-bottom: 4px; /* spazio per scrollbar */
+    }
+    .wizard-steps li > span { width: 20px; height: 20px; font-size: 0.66rem; }
+
+    /* Wizard card: padding leggermente piu compatto */
+    .wizard-card { padding: 22px 16px 20px; border-radius: 14px; }
+    .wizard-eyebrow { font-size: 0.68rem; padding: 3px 10px; margin-bottom: 14px; }
+    .wizard-card h2 { font-size: 1.3rem; }
+    .wizard-lead { font-size: 0.92rem; margin-bottom: 18px; }
+
+    /* Routing: option-card a colonna unica (non c'e abbastanza spazio
+       per due da 220px). Touch target di almeno ~56px sull'altezza. */
+    .option-grid { grid-template-columns: 1fr; gap: 10px; }
+    .option-card { padding: 16px; }
+
+    /* Option-pill (eligibility): full-width per dito facile, evita
+       le righe orfane a pillola singola che spaccano l'allineamento.
+       Tap area di almeno 44px (linee guida iOS / Android). */
+    .option-row { flex-direction: column; gap: 8px; }
+    .option-pill {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 12px 16px;
+        font-size: 0.92rem;
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+
+    /* Wizard input ATECO: full-width sotto i 640px */
+    .wizard-input { max-width: none; padding: 12px 14px; font-size: 0.95rem; }
+
+    /* Routing hint balloon: piu respiro */
+    .wizard-routing-hint {
+        margin-top: 12px;
+        padding: 12px 14px;
+        font-size: 0.85rem;
+    }
+
+    /* Slider thumb piu grasso per il touch (32px invece di 22px) */
+    .sim-slider { height: 8px; }
+    .sim-slider::-webkit-slider-thumb {
+        width: 30px; height: 30px;
+        border-width: 4px;
+    }
+    .sim-slider::-moz-range-thumb {
+        width: 30px; height: 30px;
+        border-width: 4px;
+    }
+    .sim-amount-bounds { font-size: 0.74rem; }
+
+    /* Toggle abbuono: piu padding per accomodare il pollice */
+    .sim-toggle { margin-top: 18px; padding-top: 16px; }
+    .switch { gap: 14px; align-items: flex-start; }
+    .switch-text { font-size: 0.86rem; line-height: 1.4; }
+
+    /* KPI grid: 1 colonna piu leggibile */
+    .sim-kpi-grid { grid-template-columns: 1fr; gap: 10px; margin-bottom: 20px; }
+    .sim-kpi { padding: 14px 16px; }
+    .sim-kpi-value { font-size: 1.4rem; }
+
+    /* Chart leggermente piu basso per non occupare mezzo schermo */
+    .sim-chart-wrap svg { height: 180px; }
+    .sim-chart-block h3 { font-size: 0.92rem; }
+    .sim-chart-legend { font-size: 0.72rem; gap: 10px; }
+
+    /* Tabella ammortamento: font piu piccolo + padding ridotto per
+       far stare 4 colonne in larghezza ridotta */
+    .sim-table { font-size: 0.78rem; }
+    .sim-table th, .sim-table td { padding: 7px 10px; }
+    .sim-table-wrap > summary { font-size: 0.86rem; padding: 10px 14px; }
+
+    /* Disclaimer */
+    .wizard-disclaimer { font-size: 0.74rem; padding: 10px 14px; }
+
+    /* Lead form summary */
+    .lead-summary { padding: 12px 14px; font-size: 0.84rem; }
+
+    /* Section padding generale: l'editorialita guadagna 16px verticali */
+    .section { padding: 56px 0; }
+    .section-header { margin-bottom: 28px; }
+}
+
+@media (max-width: 380px) {
+    /* Smartphone molto piccoli (es. iPhone SE 1a gen, 320px): un'altra
+       passata di compressione per il primo viewport. */
+    .container,
+    .container-narrow { padding: 0 14px; }
+
+    .hero h1 { font-size: 1.55rem; }
+    .hero-subtitle { font-size: 0.9rem; }
+    .hero-stats .stat-number { font-size: 1.6rem; }
+    .hero-stats .stat-label { font-size: 0.78rem; }
+
+    .wizard-card { padding: 20px 14px 16px; }
+    .bando-summary-value { font-size: 1.15rem; }
+    .bando-block h3 { font-size: 1.05rem; }
+
+    .option-pill { font-size: 0.88rem; padding: 11px 14px; }
+
+    .sim-kpi-value { font-size: 1.3rem; }
+    .sim-chart-wrap svg { height: 160px; }
+
+    .btn-sim-cta {
+        padding: 13px 18px;
+        font-size: 0.85rem;
+        letter-spacing: 0.04em;
+    }
+}
