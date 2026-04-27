@@ -1832,6 +1832,7 @@ img { max-width:100%; display:block; }
     gap: 28px;
     max-width: 1080px;
     margin: 0 auto;
+    align-items: start;
 }
 .principio-card {
     background: #fff;
@@ -1945,6 +1946,75 @@ img { max-width:100%; display:block; }
     -webkit-hyphens: auto;
 }
 .principio-callout strong { color: var(--text-primary); }
+
+/* Collapsible details (apri "casi tipici" / "ambiti di supporto") */
+.principio-details {
+    margin: 14px 0 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: #ffffff;
+    overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.principio-details[open] {
+    border-color: var(--accent);
+    box-shadow: 0 6px 20px rgba(26, 58, 92, 0.06);
+}
+.principio-details-summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    transition: background 0.2s ease;
+    user-select: none;
+}
+.principio-details-summary::-webkit-details-marker { display: none; }
+.principio-details-summary::marker { display: none; content: ''; }
+.principio-details-summary:hover { background: var(--accent-bg); }
+.principio-details[open] .principio-details-summary {
+    background: var(--accent-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+.principio-details-label {
+    flex: 1;
+    letter-spacing: 0.01em;
+}
+.principio-details-meta {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 3px 9px;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.principio-details-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--accent);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.principio-details[open] .principio-details-icon {
+    transform: rotate(180deg);
+}
+.principio-details-body {
+    padding: 16px 18px 14px;
+    background: var(--bg-secondary);
+    animation: principioFadeIn 0.3s ease-out;
+}
+@keyframes principioFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 
 /* Sub-block "Casi tipici di non indipendenza" */
 .principio-block {
