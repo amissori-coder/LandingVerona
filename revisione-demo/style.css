@@ -1887,14 +1887,34 @@ img { max-width:100%; display:block; }
     height: 26px;
 }
 .principio-eyebrow {
-    font-size: 0.72rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.12em;
     color: var(--accent);
-    padding: 4px 10px;
+    padding: 5px 14px 5px 5px;
     background: var(--accent-bg);
+    border: 1px solid var(--accent-border, #c8d8e8);
     border-radius: 999px;
+    line-height: 1;
+}
+.principio-eyebrow-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #ffffff;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0;
 }
 .principio-card h3 {
     font-family: 'Montserrat', sans-serif;
@@ -1946,6 +1966,30 @@ img { max-width:100%; display:block; }
     -webkit-hyphens: auto;
 }
 .principio-callout strong { color: var(--text-primary); }
+
+/* Variante "punto critico": stessa forma del callout ma con flag
+   in alto e colorazione rossa attenuata per segnalare il rischio */
+.principio-callout-key {
+    background: linear-gradient(135deg, #fff5f5 0%, #fffafa 100%);
+    border-left: 3px solid #b91c1c;
+    padding-top: 14px;
+    position: relative;
+}
+.principio-callout-flag {
+    display: inline-block;
+    margin-bottom: 8px;
+    padding: 3px 10px;
+    background: #b91c1c;
+    color: #fff;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-radius: 999px;
+    line-height: 1.4;
+}
+.principio-callout-key strong { color: #1a1a1a; }
 
 /* Collapsible details (apri "casi tipici" / "ambiti di supporto") */
 .principio-details {
