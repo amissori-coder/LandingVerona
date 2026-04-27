@@ -1823,6 +1823,140 @@ img { max-width:100%; display:block; }
     .servizio-popover > p { font-size:0.84rem; }
 }
 
+/* ============================================
+   PRINCIPI - Foundational principles section
+   ============================================ */
+.principi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    max-width: 1080px;
+    margin: 0 auto;
+}
+.principio-card {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 36px 36px 32px;
+    position: relative;
+    overflow: hidden;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+}
+.principio-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--navy), var(--navy-light));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.5s ease;
+}
+.principio-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+.principio-card:hover::before {
+    transform: scaleX(1);
+}
+.principio-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.principio-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(26, 58, 92, 0.22);
+    flex-shrink: 0;
+}
+.principio-icon svg {
+    width: 26px;
+    height: 26px;
+}
+.principio-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+    padding: 4px 10px;
+    background: var(--accent-bg);
+    border-radius: 999px;
+}
+.principio-card h3 {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+}
+.principio-lead {
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--text-primary);
+    margin-bottom: 14px;
+    padding: 14px 18px;
+    background: var(--accent-bg);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+}
+.principio-card > p {
+    font-size: 0.95rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+}
+.principio-card > p strong {
+    color: var(--text-primary);
+}
+.principio-citation {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px dashed var(--border-color);
+}
+.principio-citation-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.02em;
+}
+@media (max-width: 900px) {
+    .principi-grid { grid-template-columns: 1fr; gap: 20px; }
+    .principio-card { padding: 28px 24px 24px; }
+    .principio-card h3 { font-size: 1.3rem; }
+    .principio-lead { font-size: 0.95rem; padding: 12px 14px; }
+    .principio-card > p { font-size: 0.92rem; }
+}
+@media (max-width: 480px) {
+    .principio-card { padding: 24px 20px 20px; }
+    .principio-icon { width: 44px; height: 44px; }
+    .principio-icon svg { width: 22px; height: 22px; }
+    .principio-card h3 { font-size: 1.18rem; }
+}
+
 @media (max-width:768px) {
     .hero-stats { flex-direction:column; gap:20px; }
     .stat-divider { width:40px; height:1px; }
