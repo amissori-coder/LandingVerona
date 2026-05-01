@@ -115,6 +115,111 @@ function showNgbNotification(message, type) {
 document.addEventListener('DOMContentLoaded', () => {
 
     // ==================================================================
+    // Responsibilities hub diagram (mission block - art. 2086 c.c.)
+    // ==================================================================
+    // Six interactive nodes around a central hub: clicking a node (or its
+    // mobile pill) highlights the node + connection line and renders the
+    // detail panel below. Keyboard arrows cycle through nodes.
+    const RESP_DATA = {
+        societa: {
+            step: '01',
+            ref: 'Art. 2392 e 2476 c.c.',
+            title: 'Verso la società',
+            text: "Azione di responsabilità nei confronti degli amministratori per gestione non diligente e per la mancata predisposizione di assetti adeguati alla natura e alle dimensioni dell'impresa."
+        },
+        creditori: {
+            step: '02',
+            ref: 'Art. 2394 c.c.',
+            title: 'Verso i creditori sociali',
+            text: 'Inosservanza degli obblighi di conservazione del patrimonio sociale, esercitabile dai creditori quando il patrimonio risulti insufficiente al loro soddisfacimento.'
+        },
+        'soci-terzi': {
+            step: '03',
+            ref: 'Art. 2395 e 2476 c.c.',
+            title: 'Verso soci e terzi',
+            text: "Risarcimento del danno diretto subito da singoli soci o da terzi a causa di atti dolosi o colposi degli amministratori che abbiano leso direttamente il loro patrimonio."
+        },
+        concorsuale: {
+            step: '04',
+            ref: 'Art. 255 CCII · D.Lgs. 14/2019',
+            title: 'In sede concorsuale',
+            text: "In caso di apertura di liquidazione giudiziale o concordato, danno parametrato alla differenza tra il patrimonio netto al momento della doverosa rilevazione della crisi e quello all'apertura della procedura."
+        },
+        penale: {
+            step: '05',
+            ref: 'CCII e Legge fallimentare',
+            title: 'Profili penali',
+            text: "Possibili profili di bancarotta semplice in caso di liquidazione giudiziale per gestione imprudente e per la mancata tempestiva attivazione degli strumenti di superamento della crisi."
+        },
+        controlli: {
+            step: '06',
+            ref: 'Art. 2407 c.c. · Art. 15 D.Lgs. 39/2010',
+            title: 'Sindaci e revisore',
+            text: "Responsabilità solidale del collegio sindacale e del revisore per l'omesso o inadeguato controllo sull'adeguatezza degli assetti e sulla rilevazione tempestiva della crisi."
+        }
+    };
+
+    const respWrap = document.querySelector('[data-responsibilities]');
+    if (respWrap) {
+        const detail = respWrap.querySelector('#respDetail');
+        const nodes  = respWrap.querySelectorAll('.resp-node');
+        const lines  = respWrap.querySelectorAll('.resp-line');
+        const pills  = respWrap.querySelectorAll('.resp-pill');
+        const order  = ['societa', 'creditori', 'soci-terzi', 'concorsuale', 'penale', 'controlli'];
+
+        const render = (key) => {
+            const r = RESP_DATA[key];
+            if (!r || !detail) return;
+            detail.innerHTML = `
+                <div class="resp-detail-step">${r.step}</div>
+                <div class="resp-detail-body">
+                    <span class="resp-detail-ref">${r.ref}</span>
+                    <h5 class="resp-detail-title">${r.title}</h5>
+                    <p class="resp-detail-text">${r.text}</p>
+                </div>
+            `;
+        };
+
+        const setActive = (key) => {
+            nodes.forEach((n) => n.classList.toggle('is-active', n.dataset.node === key));
+            lines.forEach((l) => l.classList.toggle('is-active', l.dataset.line === key));
+            pills.forEach((p) => p.setAttribute('aria-selected', p.dataset.node === key ? 'true' : 'false'));
+            render(key);
+        };
+
+        nodes.forEach((node) => {
+            node.addEventListener('click', () => setActive(node.dataset.node));
+            node.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setActive(node.dataset.node);
+                }
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const idx = order.indexOf(node.dataset.node);
+                    const next = order[(idx + 1) % order.length];
+                    setActive(next);
+                    respWrap.querySelector(`.resp-node[data-node="${next}"]`).focus();
+                }
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const idx = order.indexOf(node.dataset.node);
+                    const prev = order[(idx - 1 + order.length) % order.length];
+                    setActive(prev);
+                    respWrap.querySelector(`.resp-node[data-node="${prev}"]`).focus();
+                }
+            });
+        });
+
+        pills.forEach((pill) => {
+            pill.addEventListener('click', () => setActive(pill.dataset.node));
+        });
+
+        // Initial state
+        setActive('societa');
+    }
+
+    // ==================================================================
     // Upcoming → past auto-demotion for event cards
     // ==================================================================
     // Any <a class="event-card" data-event-date="YYYY-MM-DD"> is kept

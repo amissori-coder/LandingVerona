@@ -529,42 +529,80 @@
                         </li>
                     </ul>
 
-                    <div class="mission-risks">
+                    <div class="mission-risks" data-responsibilities>
                         <header class="mission-risks-head">
                             <span class="mission-risks-flag">Quando l'assetto è inadeguato</span>
                             <h4 class="mission-risks-title">Le responsabilità che si attivano</h4>
+                            <p class="mission-risks-sub">Esplora le sei direzioni in cui può manifestarsi la responsabilità degli organi sociali. Seleziona un nodo per leggere il dettaglio.</p>
                         </header>
-                        <div class="mission-risks-grid">
-                            <article class="mission-risk-card">
-                                <span class="mission-risk-card-ref">Art. 2392 e 2476 c.c.</span>
-                                <h5 class="mission-risk-card-title">Verso la società</h5>
-                                <p>Azione di responsabilità per gestione non diligente e per la mancata predisposizione di assetti adeguati alla natura e alle dimensioni dell'impresa.</p>
-                            </article>
-                            <article class="mission-risk-card">
-                                <span class="mission-risk-card-ref">Art. 2394 c.c.</span>
-                                <h5 class="mission-risk-card-title">Verso i creditori sociali</h5>
-                                <p>Inosservanza degli obblighi di conservazione del patrimonio sociale, quando questo risulti insufficiente al soddisfacimento dei creditori.</p>
-                            </article>
-                            <article class="mission-risk-card">
-                                <span class="mission-risk-card-ref">Art. 2395 e 2476 c.c.</span>
-                                <h5 class="mission-risk-card-title">Verso soci e terzi</h5>
-                                <p>Risarcimento del danno diretto subito da singoli soci o da terzi a causa di atti dolosi o colposi degli amministratori.</p>
-                            </article>
-                            <article class="mission-risk-card">
-                                <span class="mission-risk-card-ref">Art. 255 CCII &middot; D.Lgs. 14/2019</span>
-                                <h5 class="mission-risk-card-title">In sede concorsuale</h5>
-                                <p>Danno parametrato alla differenza tra il patrimonio netto al momento della doverosa rilevazione della crisi e quello all'apertura della procedura.</p>
-                            </article>
-                            <article class="mission-risk-card">
-                                <span class="mission-risk-card-ref">CCII e Legge fallimentare</span>
-                                <h5 class="mission-risk-card-title">Profili penali</h5>
-                                <p>In liquidazione giudiziale, possibili profili di bancarotta semplice per gestione imprudente e mancata attivazione degli strumenti di superamento della crisi.</p>
-                            </article>
-                            <article class="mission-risk-card">
-                                <span class="mission-risk-card-ref">Art. 2407 c.c. &middot; Art. 15 D.Lgs. 39/2010</span>
-                                <h5 class="mission-risk-card-title">Sindaci e revisore</h5>
-                                <p>Responsabilità solidale del collegio sindacale e del revisore per l'omesso o inadeguato controllo sull'adeguatezza degli assetti societari.</p>
-                            </article>
+
+                        <div class="resp-diagram">
+                            <svg class="resp-svg" viewBox="0 0 600 420" role="img" aria-label="Diagramma delle sei responsabilità che si attivano in caso di assetto inadeguato">
+                                <!-- Connection lines (drawn first so nodes overlap them) -->
+                                <g class="resp-lines">
+                                    <line class="resp-line" data-line="societa"     x1="300" y1="210" x2="300" y2="80"/>
+                                    <line class="resp-line" data-line="creditori"   x1="300" y1="210" x2="445" y2="135"/>
+                                    <line class="resp-line" data-line="soci-terzi"  x1="300" y1="210" x2="445" y2="285"/>
+                                    <line class="resp-line" data-line="concorsuale" x1="300" y1="210" x2="300" y2="340"/>
+                                    <line class="resp-line" data-line="penale"      x1="300" y1="210" x2="155" y2="285"/>
+                                    <line class="resp-line" data-line="controlli"   x1="300" y1="210" x2="155" y2="135"/>
+                                </g>
+
+                                <!-- Central hub -->
+                                <g class="resp-hub">
+                                    <circle class="resp-hub-bg" cx="300" cy="210" r="64"/>
+                                    <circle class="resp-hub-ring" cx="300" cy="210" r="64"/>
+                                    <text class="resp-hub-eyebrow" x="300" y="194" text-anchor="middle">Art. 2086 c.c.</text>
+                                    <text class="resp-hub-title-1" x="300" y="216" text-anchor="middle">Assetto</text>
+                                    <text class="resp-hub-title-2" x="300" y="232" text-anchor="middle">inadeguato</text>
+                                </g>
+
+                                <!-- 6 satellite nodes -->
+                                <g class="resp-node" data-node="societa" tabindex="0" role="button" aria-label="Verso la società">
+                                    <circle class="resp-node-bg" cx="300" cy="60" r="32"/>
+                                    <text class="resp-node-step" x="300" y="58" text-anchor="middle">01</text>
+                                    <text class="resp-node-label" x="300" y="76" text-anchor="middle">Società</text>
+                                </g>
+                                <g class="resp-node" data-node="creditori" tabindex="0" role="button" aria-label="Verso i creditori sociali">
+                                    <circle class="resp-node-bg" cx="465" cy="135" r="32"/>
+                                    <text class="resp-node-step" x="465" y="133" text-anchor="middle">02</text>
+                                    <text class="resp-node-label" x="465" y="151" text-anchor="middle">Creditori</text>
+                                </g>
+                                <g class="resp-node" data-node="soci-terzi" tabindex="0" role="button" aria-label="Verso soci e terzi">
+                                    <circle class="resp-node-bg" cx="465" cy="285" r="32"/>
+                                    <text class="resp-node-step" x="465" y="283" text-anchor="middle">03</text>
+                                    <text class="resp-node-label" x="465" y="301" text-anchor="middle">Soci e terzi</text>
+                                </g>
+                                <g class="resp-node" data-node="concorsuale" tabindex="0" role="button" aria-label="In sede concorsuale">
+                                    <circle class="resp-node-bg" cx="300" cy="360" r="32"/>
+                                    <text class="resp-node-step" x="300" y="358" text-anchor="middle">04</text>
+                                    <text class="resp-node-label" x="300" y="376" text-anchor="middle">Concorsuale</text>
+                                </g>
+                                <g class="resp-node" data-node="penale" tabindex="0" role="button" aria-label="Profili penali">
+                                    <circle class="resp-node-bg" cx="135" cy="285" r="32"/>
+                                    <text class="resp-node-step" x="135" y="283" text-anchor="middle">05</text>
+                                    <text class="resp-node-label" x="135" y="301" text-anchor="middle">Penale</text>
+                                </g>
+                                <g class="resp-node" data-node="controlli" tabindex="0" role="button" aria-label="Sindaci e revisore">
+                                    <circle class="resp-node-bg" cx="135" cy="135" r="32"/>
+                                    <text class="resp-node-step" x="135" y="133" text-anchor="middle">06</text>
+                                    <text class="resp-node-label" x="135" y="151" text-anchor="middle">Controlli</text>
+                                </g>
+                            </svg>
+                        </div>
+
+                        <!-- Mobile / fallback: lista verticale di pillole con stessi data-node -->
+                        <div class="resp-pills" role="tablist" aria-label="Sei direzioni di responsabilità">
+                            <button class="resp-pill" data-node="societa" role="tab" aria-selected="true">01 &middot; Verso la società</button>
+                            <button class="resp-pill" data-node="creditori" role="tab" aria-selected="false">02 &middot; Verso i creditori</button>
+                            <button class="resp-pill" data-node="soci-terzi" role="tab" aria-selected="false">03 &middot; Verso soci e terzi</button>
+                            <button class="resp-pill" data-node="concorsuale" role="tab" aria-selected="false">04 &middot; In sede concorsuale</button>
+                            <button class="resp-pill" data-node="penale" role="tab" aria-selected="false">05 &middot; Profili penali</button>
+                            <button class="resp-pill" data-node="controlli" role="tab" aria-selected="false">06 &middot; Sindaci e revisore</button>
+                        </div>
+
+                        <div class="resp-detail" id="respDetail" aria-live="polite">
+                            <!-- populated by JS -->
                         </div>
                     </div>
                 </div>

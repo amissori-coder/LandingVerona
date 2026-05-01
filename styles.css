@@ -1996,35 +1996,47 @@ ul {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 18px;
-    padding: 28px 20px;
-    background: linear-gradient(160deg, var(--navy-dark) 0%, var(--navy) 100%);
+    gap: 16px;
+    padding: 22px 18px;
+    background: linear-gradient(160deg, #f4f7fb 0%, #fbfcfe 100%);
+    border: 1px solid rgba(22, 64, 104, 0.16);
     border-radius: 14px;
-    color: var(--white);
+    color: var(--navy-dark);
     text-align: center;
     position: relative;
-    box-shadow: 0 14px 30px rgba(10, 40, 68, 0.22);
     align-self: stretch;
+}
+
+.mission-marker::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--navy) 0%, #d4a444 100%);
+    border-radius: 14px 14px 0 0;
 }
 
 .mission-marker-tag {
     font-family: var(--font-display);
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     padding: 5px 12px;
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: var(--white);
+    border: 1px solid rgba(22, 64, 104, 0.18);
     border-radius: 999px;
     line-height: 1;
+    color: var(--navy);
 }
 
 .mission-marker-icon {
-    width: 64px;
-    height: 64px;
-    color: #d4a444;
-    filter: drop-shadow(0 6px 12px rgba(212, 164, 68, 0.4));
+    width: 56px;
+    height: 56px;
+    color: var(--navy);
+    filter: drop-shadow(0 4px 8px rgba(212, 164, 68, 0.2));
 }
 
 .mission-body {
@@ -2209,75 +2221,262 @@ ul {
     line-height: 1.3;
 }
 
-.mission-risks-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+.mission-risks-sub {
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--text-muted);
+    margin: 8px 0 0;
 }
 
-.mission-risk-card {
-    position: relative;
-    background: #ffffff;
-    border: 1px solid rgba(22, 64, 104, 0.12);
+/* Interactive hub diagram */
+.resp-diagram {
+    margin-top: 4px;
+    padding: 12px 0 4px;
+}
+
+.resp-svg {
+    width: 100%;
+    max-width: 600px;
+    height: auto;
+    margin: 0 auto;
+    display: block;
+}
+
+.resp-lines line {
+    stroke: rgba(22, 64, 104, 0.18);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 4;
+    transition: stroke 0.3s ease, stroke-width 0.3s ease;
+}
+
+.resp-line.is-active {
+    stroke: #d4a444;
+    stroke-width: 2.5;
+    stroke-dasharray: none;
+}
+
+.resp-hub-bg {
+    fill: var(--navy-dark);
+}
+
+.resp-hub-ring {
+    fill: none;
+    stroke: #d4a444;
+    stroke-width: 2;
+    transform-origin: 300px 210px;
+    animation: respHubRing 6s linear infinite;
+}
+
+@keyframes respHubRing {
+    from { transform: rotate(0deg); stroke-dasharray: 30 380; }
+    to   { transform: rotate(360deg); stroke-dasharray: 30 380; }
+}
+
+.resp-hub-eyebrow {
+    fill: #d4a444;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+}
+
+.resp-hub-title-1,
+.resp-hub-title-2 {
+    fill: #ffffff;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+
+.resp-node {
+    cursor: pointer;
+    transition: transform 0.25s ease;
+}
+
+.resp-node:focus { outline: none; }
+.resp-node:focus .resp-node-bg {
+    stroke: var(--navy);
+    stroke-width: 3;
+}
+
+.resp-node-bg {
+    fill: var(--white);
+    stroke: rgba(22, 64, 104, 0.22);
+    stroke-width: 1.5;
+    transition: fill 0.3s ease, stroke 0.3s ease, stroke-width 0.3s ease;
+}
+
+.resp-node-step {
+    fill: var(--navy);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    pointer-events: none;
+    transition: fill 0.3s ease;
+}
+
+.resp-node-label {
+    fill: var(--navy-dark);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+    pointer-events: none;
+    transition: fill 0.3s ease;
+}
+
+.resp-node:hover .resp-node-bg,
+.resp-node.is-active .resp-node-bg {
+    fill: var(--navy-dark);
+    stroke: #d4a444;
+    stroke-width: 2;
+}
+
+.resp-node:hover .resp-node-step,
+.resp-node.is-active .resp-node-step {
+    fill: #d4a444;
+}
+
+.resp-node:hover .resp-node-label,
+.resp-node.is-active .resp-node-label {
+    fill: #ffffff;
+}
+
+.resp-node:hover { transform: translateY(-2px); }
+
+/* Mobile pills (visible solo sotto 720px, vedi media query) */
+.resp-pills {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 4px 0 16px;
+}
+
+.resp-pill {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    padding: 10px 12px;
+    background: var(--white);
+    border: 1px solid rgba(22, 64, 104, 0.16);
+    border-radius: 10px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--navy-dark);
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.22s ease;
+}
+
+.resp-pill[aria-selected="true"] {
+    background: var(--navy-dark);
+    border-color: var(--navy-dark);
+    color: #ffffff;
+    box-shadow: 0 6px 14px rgba(10, 40, 68, 0.18);
+}
+
+.resp-pill:not([aria-selected="true"]):hover {
+    border-color: rgba(22, 64, 104, 0.4);
+    background: var(--accent-bg);
+}
+
+/* Detail panel */
+.resp-detail {
+    margin-top: 18px;
+    padding: 20px 22px;
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfd 100%);
+    border: 1px solid rgba(22, 64, 104, 0.14);
     border-radius: 12px;
-    padding: 22px 22px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 18px;
+    align-items: start;
+    position: relative;
+    overflow: hidden;
+    animation: respDetailIn 0.3s ease-out;
 }
 
-.mission-risk-card::before {
+.resp-detail::before {
     content: '';
     position: absolute;
     top: 0;
-    left: 22px;
-    right: 22px;
-    height: 2px;
-    background: linear-gradient(90deg, var(--navy) 0%, #d4a444 100%);
-    border-radius: 0 0 2px 2px;
-    opacity: 0.6;
-    transition: opacity 0.25s ease;
+    left: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--navy) 0%, #d4a444 100%);
 }
 
-.mission-risk-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(22, 64, 104, 0.3);
-    box-shadow: 0 14px 28px rgba(10, 40, 68, 0.08);
+@keyframes respDetailIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-.mission-risk-card:hover::before { opacity: 1; }
+.resp-detail-step {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--navy-dark), var(--navy));
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    box-shadow: 0 6px 14px rgba(10, 40, 68, 0.2);
+}
 
-.mission-risk-card-ref {
-    font-family: var(--font-display);
-    font-size: 0.72rem;
+.resp-detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.resp-detail-ref {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--navy);
-    width: max-content;
-    max-width: 100%;
-    line-height: 1.35;
-    padding-bottom: 8px;
-    border-bottom: 1px dashed rgba(22, 64, 104, 0.22);
+    line-height: 1.3;
 }
 
-.mission-risk-card-title {
-    font-family: var(--font-display);
+.resp-detail-title {
+    font-family: 'Montserrat', sans-serif;
     font-size: 1.18rem;
     font-weight: 800;
     color: var(--navy-dark);
     margin: 0;
-    letter-spacing: -0.2px;
+    letter-spacing: -0.3px;
     line-height: 1.25;
 }
 
-.mission-risk-card p {
-    font-family: var(--font-body);
+.resp-detail-text {
+    font-family: 'Inter', sans-serif;
     font-size: 0.95rem;
-    line-height: 1.65;
-    color: var(--text-primary);
-    margin: 0;
+    line-height: 1.7;
+    color: var(--text-muted);
+    margin: 4px 0 0;
+}
+
+@media (max-width: 720px) {
+    .resp-diagram { display: none; }
+    .resp-pills { display: flex; }
+    .resp-detail { padding: 16px 18px; gap: 14px; }
+    .resp-detail-step { width: 44px; height: 44px; font-size: 1rem; }
+    .resp-detail-title { font-size: 1.05rem; }
+}
+
+@media (max-width: 480px) {
+    .resp-pill { flex: 1 1 100%; }
 }
 
 @media (max-width: 900px) {
@@ -2310,10 +2509,8 @@ ul {
         gap: 10px;
     }
     .mission-risks-title { font-size: 1rem; }
-    .mission-risks-grid { grid-template-columns: 1fr; }
-    .mission-risk-card { padding: 14px 16px; }
     .mission-lead,
-    .mission-risk-card p {
+    .resp-detail-text {
         text-align: left;
         hyphens: none;
         -webkit-hyphens: none;
