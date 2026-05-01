@@ -2583,14 +2583,14 @@ ul {
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(212, 164, 68, 0.55), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
 }
 
 /* Strato inferiore: avorio chiaro con i loghi */
 .curated-bottom {
     padding: 44px 0 56px;
     background: #f6f4ee;
-    border-top: 1px solid rgba(212, 164, 68, 0.45);
+    border-top: 1px solid rgba(255, 255, 255, 0.6);
     position: relative;
 }
 
@@ -2601,7 +2601,7 @@ ul {
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(212, 164, 68, 0.7), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
 }
 
 .curated-inner {
