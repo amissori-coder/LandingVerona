@@ -2171,26 +2171,33 @@ ul {
 /* Risks block: pluralita di responsabilita ex art. 2086 c.c.
    Trattamento sobrio coerente con la palette navy/oro del brand. */
 .mission-risks {
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 6px 0 0 22px;
-    border-left: 2px solid rgba(212, 164, 68, 0.55);
+    max-width: 920px;
+    margin: 24px auto 0;
+    padding: 36px 0 0;
+    border-top: 1px solid rgba(22, 64, 104, 0.12);
     position: relative;
-}
-
-.mission-risks::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -2px;
-    width: 2px;
-    height: 56px;
-    background: #d4a444;
+    text-align: center;
 }
 
 .mission-risks-head {
-    margin-bottom: 22px;
+    margin: 0 auto 32px;
     max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.mission-risks-glyph {
+    width: 44px;
+    height: 44px;
+    color: var(--navy);
+    margin-bottom: 16px;
+    opacity: 0.85;
+}
+
+.mission-risks-glyph svg {
+    width: 100%;
+    height: 100%;
 }
 
 .mission-risks-flag {
@@ -2199,40 +2206,45 @@ ul {
     font-size: 0.66rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--text-muted);
-    margin-bottom: 10px;
+    letter-spacing: 0.22em;
+    color: var(--navy);
+    margin-bottom: 14px;
+    padding: 4px 12px;
+    background: rgba(22, 64, 104, 0.06);
+    border-radius: 999px;
 }
 
 .mission-risks-title {
     font-family: var(--font-display);
-    font-size: clamp(1.2rem, 2vw, 1.5rem);
+    font-size: clamp(1.5rem, 2.6vw, 2rem);
     font-weight: 700;
     color: var(--navy-dark);
-    margin: 0 0 14px;
-    letter-spacing: -0.3px;
-    line-height: 1.25;
+    margin: 0 0 16px;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    max-width: 600px;
 }
 
 .mission-risks-sub {
     font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.75;
+    font-size: 1rem;
+    line-height: 1.85;
     color: var(--text-muted);
     margin: 0;
-    text-align: justify;
-    text-justify: inter-word;
-    hyphens: auto;
-    -webkit-hyphens: auto;
+    text-align: center;
 }
 
 .mission-risks-sub strong { color: var(--navy-dark); font-weight: 700; }
 
 /* Editorial responsibilities list - pure typography, no panels */
 .resp-list {
-    margin-top: 8px;
+    margin-top: 12px;
     display: flex;
     flex-direction: column;
+    text-align: left;
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .resp-block + .resp-block {
@@ -2542,97 +2554,165 @@ ul {
 /* ============================================
    PARTNERS (solo "A cura di")
    ============================================ */
-.partners {
-    background: var(--white);
-    padding: 72px 0;
+/* ============================================
+   CURATED BY (sostituisce .partners)
+   Sezione editoriale d'impatto su sfondo navy
+   ============================================ */
+.curated {
+    position: relative;
+    padding: 96px 0 88px;
+    background:
+        radial-gradient(circle at 20% 0%, rgba(212, 164, 68, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 80% 100%, rgba(22, 64, 104, 0.6) 0%, transparent 50%),
+        linear-gradient(180deg, var(--navy-dark) 0%, #0a2844 100%);
+    color: rgba(255, 255, 255, 0.92);
+    overflow: hidden;
+}
+
+.curated::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212, 164, 68, 0.55), transparent);
+}
+
+.curated::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212, 164, 68, 0.35), transparent);
+}
+
+.curated-inner {
+    max-width: 880px;
+    margin: 0 auto;
+    text-align: center;
     position: relative;
 }
 
-.partners::before,
-.partners::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(90%, 960px);
-    height: 1px;
-    background: linear-gradient(to right, transparent, rgba(22, 64, 104, 0.25), transparent);
+.curated-eyebrow {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.32em;
+    color: #d4a444;
+    margin-bottom: 22px;
+    padding: 5px 14px;
+    border: 1px solid rgba(212, 164, 68, 0.45);
+    border-radius: 999px;
 }
 
-.partners::before { top: 28px; }
-.partners::after  { bottom: 28px; }
+.curated-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.85rem, 4vw, 2.8rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.6px;
+    color: #ffffff;
+    margin: 0 0 8px;
+}
 
-.partners-row {
+.curated-title-accent {
+    color: #d4a444;
+    font-weight: 800;
+}
+
+.curated-tagline {
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    font-style: italic;
+    color: rgba(212, 164, 68, 0.85);
+    margin: 0 0 28px;
+    letter-spacing: 0.04em;
+}
+
+.curated-statement {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.85;
+    color: rgba(255, 255, 255, 0.78);
+    margin: 0 auto 56px;
+    max-width: 700px;
+}
+
+.curated-brands {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 56px;
+    margin-top: 44px;
+    padding-top: 44px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.curated-brand {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 28px;
-    width: 100%;
-    max-width: 720px;
-    margin: 0 auto;
+    gap: 16px;
+    text-decoration: none;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.partners-label {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    width: 100%;
-}
-
-.label-line {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(to right, transparent, rgba(22, 64, 104, 0.3), transparent);
-}
-
-.label-text {
-    font-family: var(--font-display);
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 3.5px;
-    text-transform: uppercase;
-    color: var(--navy);
-    white-space: nowrap;
-}
-
-.partners-logos {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 64px;
-    flex-wrap: wrap;
-}
-
-.partner-brand {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    filter: grayscale(0.15);
-    opacity: 0.9;
-}
-
-.partner-brand:hover {
-    filter: grayscale(0);
-    opacity: 1;
+.curated-brand:hover {
     transform: translateY(-3px);
 }
 
-.partner-brand-img {
-    max-width: 260px;
-    max-height: 88px;
+.curated-brand-main:hover .curated-brand-img {
+    filter: brightness(1) invert(1) drop-shadow(0 0 16px rgba(212, 164, 68, 0.35));
+}
+
+.curated-brand-role {
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.28em;
+    color: rgba(212, 164, 68, 0.8);
+}
+
+.curated-brand-second .curated-brand-role {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.curated-brand-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.curated-brand-img {
+    max-width: 220px;
+    max-height: 82px;
     width: auto;
     height: auto;
     object-fit: contain;
-    display: block;
-    mix-blend-mode: multiply;
+    transition: filter 0.4s ease;
 }
 
-/* Unindustria logo: just a touch smaller than Revilaw so
-   the two brands feel balanced side by side */
-.partner-brand-img-lg {
-    max-width: 250px;
-    max-height: 84px;
+.curated-brand-main .curated-brand-img {
+    filter: brightness(1) invert(1);
+}
+
+.curated-brand-second .curated-brand-img {
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+    max-height: 72px;
+    max-width: 190px;
+}
+
+.curated-brand-divider {
+    width: 1px;
+    height: 80px;
+    background: linear-gradient(180deg, transparent 0%, rgba(212, 164, 68, 0.45) 50%, transparent 100%);
 }
 
 /* === Footer === */
@@ -3248,29 +3328,36 @@ ul {
         height: 28px;
     }
 
-    .partners {
-        padding: 54px 0;
+    .curated {
+        padding: 64px 0 60px;
     }
 
-    .partners::before { top: 22px; }
-    .partners::after  { bottom: 22px; }
-
-    .partners-row {
-        gap: 22px;
+    .curated-statement {
+        margin-bottom: 36px;
     }
 
-    .partners-logos {
-        gap: 48px;
+    .curated-brands {
+        grid-template-columns: 1fr;
+        gap: 32px;
+        padding-top: 32px;
+        margin-top: 32px;
     }
 
-    .partner-brand-img {
-        max-width: 200px;
-        max-height: 68px;
+    .curated-brand-divider {
+        width: 60%;
+        height: 1px;
+        background: linear-gradient(90deg, transparent 0%, rgba(212, 164, 68, 0.45) 50%, transparent 100%);
+        justify-self: center;
     }
 
-    .partner-brand-img-lg {
-        max-width: 192px;
-        max-height: 66px;
+    .curated-brand-img {
+        max-width: 180px;
+        max-height: 64px;
+    }
+
+    .curated-brand-second .curated-brand-img {
+        max-height: 58px;
+        max-width: 160px;
     }
 
     .footer {
