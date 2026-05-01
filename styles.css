@@ -2657,7 +2657,7 @@ ul {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     text-decoration: none;
     transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -2666,8 +2666,9 @@ ul {
     transform: translateY(-3px);
 }
 
-.curated-brand-main:hover .curated-brand-img {
-    filter: brightness(1) invert(1) drop-shadow(0 0 16px rgba(212, 164, 68, 0.35));
+.curated-brand:hover .curated-brand-card {
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28),
+                0 0 0 1px rgba(212, 164, 68, 0.4);
 }
 
 .curated-brand-role {
@@ -2683,35 +2684,41 @@ ul {
     color: rgba(255, 255, 255, 0.55);
 }
 
-.curated-brand-logo {
+.curated-brand-card {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 18px 28px;
+    min-height: 96px;
+    min-width: 220px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+    transition: box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .curated-brand-img {
     max-width: 220px;
-    max-height: 82px;
+    max-height: 60px;
     width: auto;
     height: auto;
     object-fit: contain;
-    transition: filter 0.4s ease;
+    display: block;
 }
 
-.curated-brand-main .curated-brand-img {
-    filter: brightness(1) invert(1);
+.curated-brand-second .curated-brand-card {
+    padding: 14px 22px;
+    min-height: 96px;
 }
 
 .curated-brand-second .curated-brand-img {
-    filter: brightness(0) invert(1);
-    opacity: 0.85;
-    max-height: 72px;
-    max-width: 190px;
+    max-height: 68px;
+    max-width: 200px;
 }
 
 .curated-brand-divider {
     width: 1px;
-    height: 80px;
+    height: 96px;
     background: linear-gradient(180deg, transparent 0%, rgba(212, 164, 68, 0.45) 50%, transparent 100%);
 }
 
