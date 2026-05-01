@@ -174,6 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const render = (key) => {
             const r = RESP_DATA[key];
             if (!r || !detail) return;
+            const idx = order.indexOf(key);
             detail.innerHTML = `
                 <div class="resp-spotlight-head">
                     <span class="resp-spotlight-step">${r.step}</span>
@@ -181,6 +182,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="resp-spotlight-tier">${r.tier}</span>
                         <span class="resp-spotlight-ref">${r.ref}</span>
                     </div>
+                    <span class="resp-spotlight-pager" aria-label="Voce ${idx + 1} di ${order.length}">
+                        <span class="resp-spotlight-pager-now">${String(idx + 1).padStart(2, '0')}</span>
+                        <span class="resp-spotlight-pager-divider">/</span>
+                        <span class="resp-spotlight-pager-total">${String(order.length).padStart(2, '0')}</span>
+                    </span>
                 </div>
                 <h5 class="resp-spotlight-title">${r.title}</h5>
                 <p class="resp-spotlight-text">${r.text}</p>

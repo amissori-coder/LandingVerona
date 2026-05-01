@@ -2089,7 +2089,7 @@ ul {
 
 .mission-pillars {
     list-style: none;
-    margin: 18px 0 0;
+    margin: 22px 0 0;
     padding: 0;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -2097,60 +2097,88 @@ ul {
 }
 
 .mission-pillar {
+    position: relative;
     display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 16px 16px 14px;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px 18px 16px;
     background: var(--white);
     border: 1px solid rgba(22, 64, 104, 0.1);
     border-radius: 12px;
     transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    overflow: hidden;
+}
+
+.mission-pillar::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--navy) 0%, #d4a444 100%);
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .mission-pillar:hover {
     transform: translateY(-3px);
-    border-color: rgba(22, 64, 104, 0.3);
-    box-shadow: 0 12px 24px rgba(10, 40, 68, 0.08);
+    border-color: rgba(22, 64, 104, 0.28);
+    box-shadow: 0 14px 28px rgba(10, 40, 68, 0.08);
+}
+
+.mission-pillar:hover::before {
+    width: 100%;
 }
 
 .mission-pillar-step {
     flex-shrink: 0;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: 10px;
     background: linear-gradient(135deg, var(--navy-dark), var(--navy));
     color: var(--white);
     font-family: var(--font-display);
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     font-weight: 800;
-    letter-spacing: 0;
+    letter-spacing: -0.2px;
+    box-shadow: 0 4px 10px rgba(10, 40, 68, 0.18);
+    position: relative;
+}
+
+.mission-pillar-step::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 8px;
+    border: 1px solid rgba(212, 164, 68, 0.3);
+    pointer-events: none;
 }
 
 .mission-pillar-text {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
 }
 
 .mission-pillar-text strong {
     font-family: var(--font-display);
-    font-size: 0.95rem;
-    font-weight: 700;
+    font-size: 1rem;
+    font-weight: 800;
     color: var(--navy-dark);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.2px;
     line-height: 1.2;
 }
 
 .mission-pillar-text span {
     font-family: var(--font-body);
-    font-size: 0.82rem;
+    font-size: 0.85rem;
     font-weight: 500;
-    color: var(--text-secondary);
-    line-height: 1.45;
+    color: var(--text-muted);
+    line-height: 1.55;
 }
 
 /* Risks block: pluralita di responsabilita ex art. 2086 c.c.
@@ -2294,6 +2322,7 @@ ul {
 }
 
 .resp-stage-num {
+    position: relative;
     width: 38px;
     height: 38px;
     border-radius: 50%;
@@ -2309,6 +2338,29 @@ ul {
     letter-spacing: -0.2px;
     transition: all 0.25s ease;
     box-shadow: 0 0 0 4px var(--white);
+}
+
+.resp-stage-num::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--white);
+    background: var(--navy);
+    transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.resp-stage-tier-civile      .resp-stage-num::after { background: var(--navy); }
+.resp-stage-tier-concorsuale .resp-stage-num::after { background: #b45309; }
+.resp-stage-tier-penale      .resp-stage-num::after { background: #7a1313; }
+.resp-stage-tier-controlli   .resp-stage-num::after { background: #047857; }
+
+.resp-stage-btn[aria-selected="true"] .resp-stage-num::after {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 1px rgba(212, 164, 68, 0.6);
 }
 
 .resp-stage-body {
@@ -2429,6 +2481,37 @@ ul {
     margin-bottom: 20px;
 }
 
+.resp-spotlight-pager {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    font-family: var(--font-display);
+    color: var(--text-muted);
+    font-feature-settings: 'tnum';
+    font-variant-numeric: tabular-nums;
+}
+
+.resp-spotlight-pager-now {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--navy-dark);
+    letter-spacing: -0.5px;
+}
+
+.resp-spotlight-pager-divider {
+    font-size: 0.95rem;
+    font-weight: 400;
+    color: rgba(22, 64, 104, 0.3);
+    margin: 0 1px;
+}
+
+.resp-spotlight-pager-total {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
 .resp-spotlight-step {
     flex-shrink: 0;
     width: 56px;
@@ -2499,6 +2582,10 @@ ul {
     line-height: 1.75;
     color: var(--text-muted);
     margin: 0;
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
 }
 
 @media (max-width: 920px) {
@@ -2563,7 +2650,7 @@ ul {
     }
     .mission-risks-title { font-size: 1rem; }
     .mission-lead,
-    .resp-detail-text {
+    .resp-spotlight-text {
         text-align: left;
         hyphens: none;
         -webkit-hyphens: none;
