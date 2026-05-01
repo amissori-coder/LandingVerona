@@ -2556,20 +2556,27 @@ ul {
    ============================================ */
 /* ============================================
    CURATED BY (sostituisce .partners)
-   Sezione editoriale d'impatto su sfondo navy
+   Sezione editoriale a doppio strato:
+   - top: navy con messaggio editoriale
+   - bottom: chiaro con i loghi nel loro colore naturale
    ============================================ */
 .curated {
     position: relative;
-    padding: 96px 0 88px;
+    overflow: hidden;
+}
+
+/* Strato superiore: navy con messaggio editoriale */
+.curated-top {
+    padding: 88px 0 56px;
     background:
         radial-gradient(circle at 20% 0%, rgba(212, 164, 68, 0.12) 0%, transparent 45%),
         radial-gradient(circle at 80% 100%, rgba(22, 64, 104, 0.6) 0%, transparent 50%),
         linear-gradient(180deg, var(--navy-dark) 0%, #0a2844 100%);
     color: rgba(255, 255, 255, 0.92);
-    overflow: hidden;
+    position: relative;
 }
 
-.curated::before {
+.curated-top::before {
     content: '';
     position: absolute;
     top: 0;
@@ -2579,14 +2586,22 @@ ul {
     background: linear-gradient(90deg, transparent, rgba(212, 164, 68, 0.55), transparent);
 }
 
-.curated::after {
+/* Strato inferiore: avorio chiaro con i loghi */
+.curated-bottom {
+    padding: 44px 0 56px;
+    background: #f6f4ee;
+    border-top: 1px solid rgba(212, 164, 68, 0.45);
+    position: relative;
+}
+
+.curated-bottom::before {
     content: '';
     position: absolute;
-    bottom: 0;
+    top: -1px;
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(212, 164, 68, 0.35), transparent);
+    background: linear-gradient(90deg, transparent, rgba(212, 164, 68, 0.7), transparent);
 }
 
 .curated-inner {
@@ -2639,18 +2654,17 @@ ul {
     font-size: 1rem;
     line-height: 1.85;
     color: rgba(255, 255, 255, 0.78);
-    margin: 0 auto 56px;
+    margin: 0 auto;
     max-width: 700px;
 }
 
 .curated-brands {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
-    align-items: end;
-    gap: 56px;
-    margin-top: 44px;
-    padding-top: 44px;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    align-items: center;
+    gap: 64px;
+    max-width: 760px;
+    margin: 0 auto;
 }
 
 .curated-brand {
@@ -2663,12 +2677,11 @@ ul {
 }
 
 .curated-brand:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
 }
 
-.curated-brand:hover .curated-brand-card {
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28),
-                0 0 0 1px rgba(212, 164, 68, 0.4);
+.curated-brand-main:hover .curated-brand-img {
+    filter: drop-shadow(0 4px 14px rgba(22, 64, 104, 0.18));
 }
 
 .curated-brand-role {
@@ -2677,49 +2690,28 @@ ul {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.28em;
-    color: rgba(212, 164, 68, 0.8);
-}
-
-.curated-brand-second .curated-brand-role {
-    color: rgba(255, 255, 255, 0.55);
-}
-
-.curated-brand-card {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #ffffff;
-    border-radius: 10px;
-    padding: 18px 28px;
-    min-height: 96px;
-    min-width: 220px;
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-    transition: box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    color: var(--navy);
 }
 
 .curated-brand-img {
     max-width: 220px;
-    max-height: 60px;
+    max-height: 64px;
     width: auto;
     height: auto;
     object-fit: contain;
     display: block;
-}
-
-.curated-brand-second .curated-brand-card {
-    padding: 14px 22px;
-    min-height: 96px;
+    transition: filter 0.4s ease;
 }
 
 .curated-brand-second .curated-brand-img {
-    max-height: 68px;
+    max-height: 70px;
     max-width: 200px;
 }
 
 .curated-brand-divider {
     width: 1px;
-    height: 96px;
-    background: linear-gradient(180deg, transparent 0%, rgba(212, 164, 68, 0.45) 50%, transparent 100%);
+    height: 70px;
+    background: linear-gradient(180deg, transparent 0%, rgba(22, 64, 104, 0.25) 50%, transparent 100%);
 }
 
 /* === Footer === */
@@ -3335,36 +3327,34 @@ ul {
         height: 28px;
     }
 
-    .curated {
-        padding: 64px 0 60px;
+    .curated-top {
+        padding: 60px 0 40px;
     }
 
-    .curated-statement {
-        margin-bottom: 36px;
+    .curated-bottom {
+        padding: 36px 0 44px;
     }
 
     .curated-brands {
         grid-template-columns: 1fr;
-        gap: 32px;
-        padding-top: 32px;
-        margin-top: 32px;
+        gap: 28px;
     }
 
     .curated-brand-divider {
         width: 60%;
         height: 1px;
-        background: linear-gradient(90deg, transparent 0%, rgba(212, 164, 68, 0.45) 50%, transparent 100%);
+        background: linear-gradient(90deg, transparent 0%, rgba(22, 64, 104, 0.25) 50%, transparent 100%);
         justify-self: center;
     }
 
     .curated-brand-img {
         max-width: 180px;
-        max-height: 64px;
+        max-height: 60px;
     }
 
     .curated-brand-second .curated-brand-img {
-        max-height: 58px;
-        max-width: 160px;
+        max-height: 60px;
+        max-width: 170px;
     }
 
     .footer {
