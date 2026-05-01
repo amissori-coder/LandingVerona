@@ -2173,11 +2173,24 @@ ul {
 .mission-risks {
     max-width: 980px;
     margin: 0 auto;
-    padding-top: 8px;
+    padding: 6px 0 0 22px;
+    border-left: 2px solid rgba(212, 164, 68, 0.55);
+    position: relative;
+}
+
+.mission-risks::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -2px;
+    width: 2px;
+    height: 56px;
+    background: #d4a444;
 }
 
 .mission-risks-head {
-    margin-bottom: 18px;
+    margin-bottom: 22px;
+    max-width: 720px;
 }
 
 .mission-risks-flag {
@@ -2188,26 +2201,32 @@ ul {
     text-transform: uppercase;
     letter-spacing: 0.18em;
     color: var(--text-muted);
-    margin-bottom: 6px;
+    margin-bottom: 10px;
 }
 
 .mission-risks-title {
     font-family: var(--font-display);
-    font-size: 1.05rem;
+    font-size: clamp(1.2rem, 2vw, 1.5rem);
     font-weight: 700;
     color: var(--navy-dark);
-    margin: 0;
-    letter-spacing: -0.2px;
-    line-height: 1.3;
+    margin: 0 0 14px;
+    letter-spacing: -0.3px;
+    line-height: 1.25;
 }
 
 .mission-risks-sub {
     font-family: var(--font-body);
-    font-size: 0.92rem;
-    line-height: 1.6;
+    font-size: 0.95rem;
+    line-height: 1.75;
     color: var(--text-muted);
-    margin: 8px 0 0;
+    margin: 0;
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
 }
+
+.mission-risks-sub strong { color: var(--navy-dark); font-weight: 700; }
 
 /* Editorial responsibilities list - pure typography, no panels */
 .resp-list {
@@ -2350,15 +2369,14 @@ ul {
     .theme-card { padding: 24px 22px 22px; }
     .theme-card-title { font-size: 1.18rem; }
     .theme-card-text { text-align: left; hyphens: none; -webkit-hyphens: none; }
-    .mission-risks { padding: 22px 20px 20px; }
-    .mission-risks-head {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
+    .mission-risks { padding: 4px 0 0 18px; }
+    .mission-risks-title { font-size: 1.15rem; }
+    .mission-risks-sub {
+        text-align: left;
+        hyphens: none;
+        -webkit-hyphens: none;
     }
-    .mission-risks-title { font-size: 1rem; }
-    .mission-lead,
-    .resp-item-body p {
+    .mission-lead {
         text-align: left;
         hyphens: none;
         -webkit-hyphens: none;
