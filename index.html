@@ -536,103 +536,103 @@
                             <p class="mission-risks-sub">Esplora le sei direzioni in cui può manifestarsi la responsabilità degli organi sociali. Seleziona un nodo per leggere il dettaglio.</p>
                         </header>
 
-                        <div class="resp-diagram">
-                            <svg class="resp-svg" viewBox="0 0 720 460" role="img" aria-label="Diagramma delle sei responsabilità che si attivano in caso di assetto inadeguato">
-                                <defs>
-                                    <linearGradient id="respLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <stop offset="0%"  stop-color="#1a3a5c" stop-opacity="0.7"/>
-                                        <stop offset="100%" stop-color="#d4a444" stop-opacity="0.55"/>
-                                    </linearGradient>
-                                    <linearGradient id="respHubGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                        <stop offset="0%"  stop-color="#1a3a5c"/>
-                                        <stop offset="100%" stop-color="#0a2844"/>
-                                    </linearGradient>
-                                    <radialGradient id="respHubGlow" cx="50%" cy="50%" r="50%">
-                                        <stop offset="0%"  stop-color="#d4a444" stop-opacity="0.18"/>
-                                        <stop offset="70%" stop-color="#d4a444" stop-opacity="0"/>
-                                    </radialGradient>
-                                    <filter id="respGlow" x="-50%" y="-50%" width="200%" height="200%">
-                                        <feGaussianBlur stdDeviation="6" result="blur"/>
-                                        <feMerge>
-                                            <feMergeNode in="blur"/>
-                                            <feMergeNode in="SourceGraphic"/>
-                                        </feMerge>
-                                    </filter>
-                                </defs>
+                        <div class="resp-stack">
+                            <ol class="resp-stages" role="tablist" aria-label="Sei responsabilità che si attivano">
+                                <li class="resp-stage resp-stage-tier-civile">
+                                    <button class="resp-stage-btn" data-node="societa" role="tab" aria-selected="true">
+                                        <span class="resp-stage-num">01</span>
+                                        <span class="resp-stage-body">
+                                            <span class="resp-stage-tier">Responsabilità civile</span>
+                                            <span class="resp-stage-title">Verso la società</span>
+                                        </span>
+                                        <span class="resp-stage-arrow" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                                <polyline points="12 5 19 12 12 19"/>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </li>
+                                <li class="resp-stage resp-stage-tier-civile">
+                                    <button class="resp-stage-btn" data-node="creditori" role="tab" aria-selected="false">
+                                        <span class="resp-stage-num">02</span>
+                                        <span class="resp-stage-body">
+                                            <span class="resp-stage-tier">Responsabilità civile</span>
+                                            <span class="resp-stage-title">Verso i creditori sociali</span>
+                                        </span>
+                                        <span class="resp-stage-arrow" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                                <polyline points="12 5 19 12 12 19"/>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </li>
+                                <li class="resp-stage resp-stage-tier-civile">
+                                    <button class="resp-stage-btn" data-node="soci-terzi" role="tab" aria-selected="false">
+                                        <span class="resp-stage-num">03</span>
+                                        <span class="resp-stage-body">
+                                            <span class="resp-stage-tier">Responsabilità civile</span>
+                                            <span class="resp-stage-title">Verso soci e terzi</span>
+                                        </span>
+                                        <span class="resp-stage-arrow" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                                <polyline points="12 5 19 12 12 19"/>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </li>
+                                <li class="resp-stage resp-stage-tier-concorsuale">
+                                    <button class="resp-stage-btn" data-node="concorsuale" role="tab" aria-selected="false">
+                                        <span class="resp-stage-num">04</span>
+                                        <span class="resp-stage-body">
+                                            <span class="resp-stage-tier">Crisi e insolvenza</span>
+                                            <span class="resp-stage-title">In sede concorsuale</span>
+                                        </span>
+                                        <span class="resp-stage-arrow" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                                <polyline points="12 5 19 12 12 19"/>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </li>
+                                <li class="resp-stage resp-stage-tier-penale">
+                                    <button class="resp-stage-btn" data-node="penale" role="tab" aria-selected="false">
+                                        <span class="resp-stage-num">05</span>
+                                        <span class="resp-stage-body">
+                                            <span class="resp-stage-tier">Profili penali</span>
+                                            <span class="resp-stage-title">Bancarotta semplice</span>
+                                        </span>
+                                        <span class="resp-stage-arrow" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                                <polyline points="12 5 19 12 12 19"/>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </li>
+                                <li class="resp-stage resp-stage-tier-controlli">
+                                    <button class="resp-stage-btn" data-node="controlli" role="tab" aria-selected="false">
+                                        <span class="resp-stage-num">06</span>
+                                        <span class="resp-stage-body">
+                                            <span class="resp-stage-tier">Organi di controllo</span>
+                                            <span class="resp-stage-title">Sindaci e revisore</span>
+                                        </span>
+                                        <span class="resp-stage-arrow" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                                <polyline points="12 5 19 12 12 19"/>
+                                            </svg>
+                                        </span>
+                                    </button>
+                                </li>
+                            </ol>
 
-                                <!-- Subtle orbital rings for depth -->
-                                <g class="resp-orbits" aria-hidden="true">
-                                    <circle cx="360" cy="230" r="200" fill="none" stroke="rgba(22,64,104,0.08)" stroke-width="1" stroke-dasharray="2 6"/>
-                                    <circle cx="360" cy="230" r="148" fill="none" stroke="rgba(22,64,104,0.12)" stroke-width="1"/>
-                                    <circle cx="360" cy="230" r="120" fill="url(#respHubGlow)"/>
-                                </g>
-
-                                <!-- Connection paths drawn before nodes -->
-                                <g class="resp-lines">
-                                    <path class="resp-line" data-line="societa"     d="M 360 180 C 360 130, 360 110, 360 90"/>
-                                    <path class="resp-line" data-line="creditori"   d="M 405 195 C 450 175, 470 165, 490 155"/>
-                                    <path class="resp-line" data-line="soci-terzi"  d="M 405 265 C 450 285, 470 295, 490 305"/>
-                                    <path class="resp-line" data-line="concorsuale" d="M 360 280 C 360 330, 360 350, 360 370"/>
-                                    <path class="resp-line" data-line="penale"      d="M 315 265 C 270 285, 250 295, 230 305"/>
-                                    <path class="resp-line" data-line="controlli"   d="M 315 195 C 270 175, 250 165, 230 155"/>
-                                </g>
-
-                                <!-- Central hub: rounded square + shield icon + label -->
-                                <g class="resp-hub">
-                                    <rect class="resp-hub-bg" x="310" y="180" width="100" height="100" rx="22" ry="22"/>
-                                    <g class="resp-hub-icon" transform="translate(330, 198) scale(2.5)">
-                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="#d4a444" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <path d="M9 12l2 2 4-4" fill="none" stroke="#d4a444" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </g>
-                                    <text class="resp-hub-tag" x="360" y="262" text-anchor="middle">ART. 2086 C.C.</text>
-                                </g>
-
-                                <!-- 6 satellite nodes with external labels -->
-                                <g class="resp-node" data-node="societa" tabindex="0" role="button" aria-label="Verso la società">
-                                    <circle class="resp-node-bg" cx="360" cy="58" r="34"/>
-                                    <text class="resp-node-step" x="360" y="64" text-anchor="middle">01</text>
-                                    <text class="resp-node-label" x="360" y="116" text-anchor="middle">Verso la società</text>
-                                </g>
-                                <g class="resp-node" data-node="creditori" tabindex="0" role="button" aria-label="Verso i creditori sociali">
-                                    <circle class="resp-node-bg" cx="510" cy="135" r="34"/>
-                                    <text class="resp-node-step" x="510" y="141" text-anchor="middle">02</text>
-                                    <text class="resp-node-label resp-node-label-right" x="554" y="139" text-anchor="start">Verso i creditori</text>
-                                </g>
-                                <g class="resp-node" data-node="soci-terzi" tabindex="0" role="button" aria-label="Verso soci e terzi">
-                                    <circle class="resp-node-bg" cx="510" cy="325" r="34"/>
-                                    <text class="resp-node-step" x="510" y="331" text-anchor="middle">03</text>
-                                    <text class="resp-node-label resp-node-label-right" x="554" y="329" text-anchor="start">Verso soci e terzi</text>
-                                </g>
-                                <g class="resp-node" data-node="concorsuale" tabindex="0" role="button" aria-label="In sede concorsuale">
-                                    <circle class="resp-node-bg" cx="360" cy="402" r="34"/>
-                                    <text class="resp-node-step" x="360" y="408" text-anchor="middle">04</text>
-                                    <text class="resp-node-label" x="360" y="448" text-anchor="middle">In sede concorsuale</text>
-                                </g>
-                                <g class="resp-node" data-node="penale" tabindex="0" role="button" aria-label="Profili penali">
-                                    <circle class="resp-node-bg" cx="210" cy="325" r="34"/>
-                                    <text class="resp-node-step" x="210" y="331" text-anchor="middle">05</text>
-                                    <text class="resp-node-label resp-node-label-left" x="166" y="329" text-anchor="end">Profili penali</text>
-                                </g>
-                                <g class="resp-node" data-node="controlli" tabindex="0" role="button" aria-label="Sindaci e revisore">
-                                    <circle class="resp-node-bg" cx="210" cy="135" r="34"/>
-                                    <text class="resp-node-step" x="210" y="141" text-anchor="middle">06</text>
-                                    <text class="resp-node-label resp-node-label-left" x="166" y="139" text-anchor="end">Sindaci e revisore</text>
-                                </g>
-                            </svg>
-                        </div>
-
-                        <!-- Mobile / fallback: lista verticale di pillole con stessi data-node -->
-                        <div class="resp-pills" role="tablist" aria-label="Sei direzioni di responsabilità">
-                            <button class="resp-pill" data-node="societa" role="tab" aria-selected="true">01 &middot; Verso la società</button>
-                            <button class="resp-pill" data-node="creditori" role="tab" aria-selected="false">02 &middot; Verso i creditori</button>
-                            <button class="resp-pill" data-node="soci-terzi" role="tab" aria-selected="false">03 &middot; Verso soci e terzi</button>
-                            <button class="resp-pill" data-node="concorsuale" role="tab" aria-selected="false">04 &middot; In sede concorsuale</button>
-                            <button class="resp-pill" data-node="penale" role="tab" aria-selected="false">05 &middot; Profili penali</button>
-                            <button class="resp-pill" data-node="controlli" role="tab" aria-selected="false">06 &middot; Sindaci e revisore</button>
-                        </div>
-
-                        <div class="resp-detail" id="respDetail" aria-live="polite">
-                            <!-- populated by JS -->
+                            <aside class="resp-spotlight" id="respDetail" aria-live="polite">
+                                <!-- populated by JS -->
+                            </aside>
                         </div>
                     </div>
                 </div>

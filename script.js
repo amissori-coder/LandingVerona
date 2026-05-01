@@ -123,96 +123,93 @@ document.addEventListener('DOMContentLoaded', () => {
     const RESP_DATA = {
         societa: {
             step: '01',
+            tier: 'Responsabilità civile · ordinaria',
             ref: 'Art. 2392 e 2476 c.c.',
             title: 'Verso la società',
-            text: "Azione di responsabilità nei confronti degli amministratori per gestione non diligente e per la mancata predisposizione di assetti adeguati alla natura e alle dimensioni dell'impresa."
+            text: "Azione di responsabilità nei confronti degli amministratori per gestione non diligente e per la mancata predisposizione di assetti adeguati alla natura e alle dimensioni dell'impresa. La società può promuoverla autonomamente o su iniziativa dei soci di minoranza."
         },
         creditori: {
             step: '02',
+            tier: 'Responsabilità civile · creditori',
             ref: 'Art. 2394 c.c.',
             title: 'Verso i creditori sociali',
-            text: 'Inosservanza degli obblighi di conservazione del patrimonio sociale, esercitabile dai creditori quando il patrimonio risulti insufficiente al loro soddisfacimento.'
+            text: "Inosservanza degli obblighi di conservazione dell'integrità del patrimonio sociale, esercitabile dai creditori quando il patrimonio risulti insufficiente al loro soddisfacimento. Si attiva in fase di crisi conclamata e prelude tipicamente alla procedura concorsuale."
         },
         'soci-terzi': {
             step: '03',
-            ref: 'Art. 2395 e 2476 c.c.',
+            tier: 'Responsabilità civile · diretta',
+            ref: 'Art. 2395 e 2476, c. 7, c.c.',
             title: 'Verso soci e terzi',
-            text: "Risarcimento del danno diretto subito da singoli soci o da terzi a causa di atti dolosi o colposi degli amministratori che abbiano leso direttamente il loro patrimonio."
+            text: "Risarcimento del danno diretto subito da singoli soci o da terzi a causa di atti dolosi o colposi degli amministratori che abbiano leso direttamente il loro patrimonio, indipendentemente dal pregiudizio arrecato alla società."
         },
         concorsuale: {
             step: '04',
+            tier: 'Crisi e insolvenza',
             ref: 'Art. 255 CCII · D.Lgs. 14/2019',
             title: 'In sede concorsuale',
-            text: "In caso di apertura di liquidazione giudiziale o concordato, danno parametrato alla differenza tra il patrimonio netto al momento della doverosa rilevazione della crisi e quello all'apertura della procedura."
+            text: "All'apertura della liquidazione giudiziale o di un concordato, il danno è parametrato alla differenza tra il patrimonio netto al momento in cui andava rilevata la crisi e quello all'apertura della procedura. È l'azione tipicamente più gravosa sul piano economico."
         },
         penale: {
             step: '05',
+            tier: 'Profili penali',
             ref: 'CCII e Legge fallimentare',
-            title: 'Profili penali',
-            text: "Possibili profili di bancarotta semplice in caso di liquidazione giudiziale per gestione imprudente e per la mancata tempestiva attivazione degli strumenti di superamento della crisi."
+            title: 'Bancarotta semplice',
+            text: "In caso di liquidazione giudiziale, possibili profili di bancarotta semplice per gestione imprudente, scritture irregolari e mancata tempestiva attivazione degli strumenti di superamento della crisi previsti dal Codice della Crisi d'Impresa."
         },
         controlli: {
             step: '06',
+            tier: 'Organi di controllo',
             ref: 'Art. 2407 c.c. · Art. 15 D.Lgs. 39/2010',
             title: 'Sindaci e revisore',
-            text: "Responsabilità solidale del collegio sindacale e del revisore per l'omesso o inadeguato controllo sull'adeguatezza degli assetti e sulla rilevazione tempestiva della crisi."
+            text: "Responsabilità solidale del collegio sindacale e del revisore per l'omesso o inadeguato controllo sull'adeguatezza degli assetti e sulla rilevazione tempestiva della crisi. Si aggiunge a quella degli amministratori, non la sostituisce."
         }
     };
 
     const respWrap = document.querySelector('[data-responsibilities]');
     if (respWrap) {
         const detail = respWrap.querySelector('#respDetail');
-        const nodes  = respWrap.querySelectorAll('.resp-node');
-        const lines  = respWrap.querySelectorAll('.resp-line');
-        const pills  = respWrap.querySelectorAll('.resp-pill');
-        const order  = ['societa', 'creditori', 'soci-terzi', 'concorsuale', 'penale', 'controlli'];
+        const buttons = respWrap.querySelectorAll('.resp-stage-btn');
+        const order = ['societa', 'creditori', 'soci-terzi', 'concorsuale', 'penale', 'controlli'];
 
         const render = (key) => {
             const r = RESP_DATA[key];
             if (!r || !detail) return;
             detail.innerHTML = `
-                <div class="resp-detail-step">${r.step}</div>
-                <div class="resp-detail-body">
-                    <span class="resp-detail-ref">${r.ref}</span>
-                    <h5 class="resp-detail-title">${r.title}</h5>
-                    <p class="resp-detail-text">${r.text}</p>
+                <div class="resp-spotlight-head">
+                    <span class="resp-spotlight-step">${r.step}</span>
+                    <div class="resp-spotlight-meta">
+                        <span class="resp-spotlight-tier">${r.tier}</span>
+                        <span class="resp-spotlight-ref">${r.ref}</span>
+                    </div>
                 </div>
+                <h5 class="resp-spotlight-title">${r.title}</h5>
+                <p class="resp-spotlight-text">${r.text}</p>
             `;
         };
 
         const setActive = (key) => {
-            nodes.forEach((n) => n.classList.toggle('is-active', n.dataset.node === key));
-            lines.forEach((l) => l.classList.toggle('is-active', l.dataset.line === key));
-            pills.forEach((p) => p.setAttribute('aria-selected', p.dataset.node === key ? 'true' : 'false'));
+            buttons.forEach((b) => b.setAttribute('aria-selected', b.dataset.node === key ? 'true' : 'false'));
             render(key);
         };
 
-        nodes.forEach((node) => {
-            node.addEventListener('click', () => setActive(node.dataset.node));
-            node.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+        buttons.forEach((btn) => {
+            btn.addEventListener('click', () => setActive(btn.dataset.node));
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
                     e.preventDefault();
-                    setActive(node.dataset.node);
-                }
-                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    const idx = order.indexOf(node.dataset.node);
+                    const idx = order.indexOf(btn.dataset.node);
                     const next = order[(idx + 1) % order.length];
                     setActive(next);
-                    respWrap.querySelector(`.resp-node[data-node="${next}"]`).focus();
+                    respWrap.querySelector(`.resp-stage-btn[data-node="${next}"]`).focus();
                 }
-                if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
                     e.preventDefault();
-                    const idx = order.indexOf(node.dataset.node);
+                    const idx = order.indexOf(btn.dataset.node);
                     const prev = order[(idx - 1 + order.length) % order.length];
                     setActive(prev);
-                    respWrap.querySelector(`.resp-node[data-node="${prev}"]`).focus();
+                    respWrap.querySelector(`.resp-stage-btn[data-node="${prev}"]`).focus();
                 }
             });
-        });
-
-        pills.forEach((pill) => {
-            pill.addEventListener('click', () => setActive(pill.dataset.node));
         });
 
         // Initial state
