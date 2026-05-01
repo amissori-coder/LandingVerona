@@ -1964,112 +1964,39 @@ ul {
 /* ============================================
    MISSION BLOCK (cornice 2086 c.c. dentro #obiettivi)
    ============================================ */
-.mission-block {
-    max-width: 980px;
-    margin: 56px auto 64px;
-    padding: 40px 44px 36px;
-    background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 251, 255, 0.96) 100%);
-    border: 1px solid rgba(22, 64, 104, 0.12);
-    border-radius: 20px;
-    box-shadow: 0 24px 60px rgba(10, 40, 68, 0.08);
-    display: grid;
-    grid-template-columns: minmax(150px, 200px) 1fr;
-    gap: 36px;
-    align-items: start;
-    position: relative;
-    overflow: hidden;
-}
-
-.mission-block::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, var(--navy-dark) 0%, var(--navy) 50%, #d4a444 100%);
-}
-
-.mission-marker {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    padding: 22px 18px;
-    background: linear-gradient(160deg, #f4f7fb 0%, #fbfcfe 100%);
-    border: 1px solid rgba(22, 64, 104, 0.16);
-    border-radius: 14px;
-    color: var(--navy-dark);
+/* Mission editorial: simple light intro */
+.mission-editorial {
+    max-width: 760px;
+    margin: 24px auto 48px;
     text-align: center;
-    position: relative;
-    align-self: stretch;
-}
-
-.mission-marker::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--navy) 0%, #d4a444 100%);
-    border-radius: 14px 14px 0 0;
-}
-
-.mission-marker-tag {
-    font-family: var(--font-display);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    padding: 5px 12px;
-    background: var(--white);
-    border: 1px solid rgba(22, 64, 104, 0.18);
-    border-radius: 999px;
-    line-height: 1;
-    color: var(--navy);
-}
-
-.mission-marker-icon {
-    width: 56px;
-    height: 56px;
-    color: var(--navy);
-    filter: drop-shadow(0 4px 8px rgba(212, 164, 68, 0.2));
-}
-
-.mission-body {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
 }
 
 .mission-eyebrow {
+    display: inline-block;
     font-family: var(--font-display);
-    font-size: 0.74rem;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.18em;
     color: var(--navy-light);
-    margin-bottom: 4px;
+    margin-bottom: 16px;
 }
 
 .mission-headline {
     font-family: var(--font-display);
-    font-size: clamp(1.55rem, 2.6vw, 2rem);
-    font-weight: 800;
-    line-height: 1.18;
-    letter-spacing: -0.5px;
+    font-size: clamp(1.5rem, 2.4vw, 1.85rem);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.4px;
     color: var(--navy-dark);
-    margin: 0 0 10px;
+    margin: 0 0 18px;
 }
 
 .mission-headline-accent {
     color: var(--navy);
-    background: linear-gradient(120deg, transparent 0%, transparent 50%, rgba(212, 164, 68, 0.28) 50%, rgba(212, 164, 68, 0.28) 95%, transparent 95%);
+    background: linear-gradient(120deg, transparent 0%, transparent 45%, rgba(212, 164, 68, 0.28) 45%, rgba(212, 164, 68, 0.28) 95%, transparent 95%);
     background-repeat: no-repeat;
-    background-size: 100% 70%;
+    background-size: 100% 60%;
     background-position: 0 88%;
     padding: 0 2px;
 }
@@ -2077,171 +2004,196 @@ ul {
 .mission-lead {
     font-family: var(--font-body);
     font-size: 1rem;
-    line-height: 1.72;
-    color: var(--text-secondary);
+    line-height: 1.85;
+    color: var(--text-muted);
     margin: 0;
     text-align: justify;
+    text-justify: inter-word;
     hyphens: auto;
     -webkit-hyphens: auto;
 }
 
-.mission-lead strong { color: var(--navy-dark); }
+.mission-lead strong { color: var(--navy-dark); font-weight: 700; }
 
-.mission-pillars {
-    list-style: none;
-    margin: 22px 0 0;
-    padding: 0;
+/* Two complementary tools panel: assetti adeguati + rating di legalita */
+.themes-panel {
+    max-width: 980px;
+    margin: 0 auto 56px;
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    align-items: stretch;
 }
 
-.mission-pillar {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 18px 18px 16px;
+.theme-card {
     background: var(--white);
     border: 1px solid rgba(22, 64, 104, 0.1);
-    border-radius: 12px;
+    border-radius: 16px;
+    padding: 30px 28px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-    overflow: hidden;
+    position: relative;
 }
 
-.mission-pillar::before {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 0;
-    height: 2px;
-    background: linear-gradient(90deg, var(--navy) 0%, #d4a444 100%);
-    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.mission-pillar:hover {
+.theme-card:hover {
     transform: translateY(-3px);
-    border-color: rgba(22, 64, 104, 0.28);
-    box-shadow: 0 14px 28px rgba(10, 40, 68, 0.08);
+    border-color: rgba(22, 64, 104, 0.22);
+    box-shadow: 0 18px 36px rgba(10, 40, 68, 0.07);
 }
 
-.mission-pillar:hover::before {
-    width: 100%;
+.theme-card-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
 }
 
-.mission-pillar-step {
-    flex-shrink: 0;
-    width: 36px;
-    height: 36px;
+.theme-card-mark {
+    width: 40px;
+    height: 40px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 10px;
-    background: linear-gradient(135deg, var(--navy-dark), var(--navy));
-    color: var(--white);
+    background: rgba(22, 64, 104, 0.06);
+    color: var(--navy);
+    flex-shrink: 0;
+}
+
+.theme-card-rating .theme-card-mark {
+    background: rgba(212, 164, 68, 0.12);
+    color: #92400e;
+}
+
+.theme-card-mark svg {
+    width: 20px;
+    height: 20px;
+}
+
+.theme-card-eyebrow {
     font-family: var(--font-display);
-    font-size: 0.82rem;
-    font-weight: 800;
-    letter-spacing: -0.2px;
-    box-shadow: 0 4px 10px rgba(10, 40, 68, 0.18);
-    position: relative;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--text-muted);
 }
 
-.mission-pillar-step::after {
-    content: '';
-    position: absolute;
-    inset: 3px;
-    border-radius: 8px;
-    border: 1px solid rgba(212, 164, 68, 0.3);
-    pointer-events: none;
-}
-
-.mission-pillar-text {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-}
-
-.mission-pillar-text strong {
+.theme-card-title {
     font-family: var(--font-display);
-    font-size: 1rem;
-    font-weight: 800;
+    font-size: 1.3rem;
+    font-weight: 700;
     color: var(--navy-dark);
-    letter-spacing: -0.2px;
     line-height: 1.2;
+    letter-spacing: -0.3px;
+    margin: 0;
 }
 
-.mission-pillar-text span {
+.theme-card-ref {
     font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-weight: 500;
     color: var(--text-muted);
-    line-height: 1.55;
+    margin: 4px 0 12px;
+    letter-spacing: 0.02em;
+}
+
+.theme-card-text {
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+    margin: 0 0 18px;
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.theme-card-text strong { color: var(--navy-dark); }
+
+.theme-card-link {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--navy);
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: color 0.25s ease, gap 0.25s ease;
+}
+
+.theme-card-link svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.25s ease;
+}
+
+.theme-card-link:hover {
+    color: var(--navy-dark);
+    gap: 12px;
+}
+
+.theme-card-link:hover svg {
+    transform: translateX(3px);
+}
+
+/* Center divider with "+" */
+.themes-divider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    gap: 10px;
+}
+
+.themes-divider-line {
+    flex: 1;
+    width: 1px;
+    background: linear-gradient(180deg, transparent 0%, rgba(22, 64, 104, 0.18) 30%, rgba(22, 64, 104, 0.18) 70%, transparent 100%);
+}
+
+.themes-divider-mark {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 300;
+    color: rgba(22, 64, 104, 0.4);
+    line-height: 1;
 }
 
 /* Risks block: pluralita di responsabilita ex art. 2086 c.c.
    Trattamento sobrio coerente con la palette navy/oro del brand. */
 .mission-risks {
-    margin-top: 26px;
-    padding: 28px 28px 26px;
-    background: linear-gradient(180deg, #ffffff 0%, #fafbfd 100%);
-    border: 1px solid rgba(22, 64, 104, 0.12);
-    border-radius: 16px;
-    position: relative;
-    overflow: hidden;
-}
-
-.mission-risks::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--navy-dark) 0%, var(--navy) 50%, #d4a444 100%);
+    max-width: 980px;
+    margin: 0 auto;
+    padding-top: 8px;
 }
 
 .mission-risks-head {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 22px;
-    padding-bottom: 18px;
-    border-bottom: 1px solid rgba(22, 64, 104, 0.08);
+    margin-bottom: 18px;
 }
 
 .mission-risks-flag {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    display: inline-block;
     font-family: var(--font-display);
-    font-size: 0.7rem;
+    font-size: 0.66rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: var(--navy-dark);
-    background: #f5efe0;
-    padding: 6px 12px 6px 10px;
-    border: 1px solid #e7d8b3;
-    border-radius: 999px;
-    line-height: 1.3;
-}
-
-.mission-risks-flag::before {
-    content: '';
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #d4a444;
+    letter-spacing: 0.18em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
 }
 
 .mission-risks-title {
     font-family: var(--font-display);
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-weight: 700;
     color: var(--navy-dark);
     margin: 0;
@@ -2373,28 +2325,31 @@ ul {
 }
 
 @media (max-width: 900px) {
-    .mission-block {
+    .themes-panel {
         grid-template-columns: 1fr;
-        padding: 32px 28px 28px;
-        gap: 24px;
+        gap: 16px;
     }
-    .mission-marker {
-        padding: 20px 16px;
-        gap: 12px;
+    .themes-divider {
         flex-direction: row;
-        justify-content: center;
+        width: auto;
+        height: 28px;
+        gap: 14px;
     }
-    .mission-marker-icon { width: 44px; height: 44px; }
-    .mission-pillars {
-        grid-template-columns: 1fr;
-        gap: 10px;
+    .themes-divider-line {
+        height: 1px;
+        width: auto;
+        flex: 1;
+        background: linear-gradient(90deg, transparent 0%, rgba(22, 64, 104, 0.18) 30%, rgba(22, 64, 104, 0.18) 70%, transparent 100%);
     }
 }
 
 @media (max-width: 600px) {
-    .mission-block { padding: 26px 22px 22px; margin: 40px auto 48px; }
-    .mission-headline { font-size: 1.4rem; }
-    .mission-lead { font-size: 0.95rem; }
+    .mission-editorial { margin: 16px auto 36px; }
+    .mission-headline { font-size: 1.35rem; }
+    .mission-lead { font-size: 0.95rem; line-height: 1.75; text-align: left; hyphens: none; -webkit-hyphens: none; }
+    .theme-card { padding: 24px 22px 22px; }
+    .theme-card-title { font-size: 1.18rem; }
+    .theme-card-text { text-align: left; hyphens: none; -webkit-hyphens: none; }
     .mission-risks { padding: 22px 20px 20px; }
     .mission-risks-head {
         flex-direction: column;
