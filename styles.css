@@ -2232,65 +2232,62 @@ ul {
 /* Interactive hub diagram */
 .resp-diagram {
     margin-top: 4px;
-    padding: 12px 0 4px;
+    padding: 8px 0 4px;
 }
 
 .resp-svg {
     width: 100%;
-    max-width: 600px;
+    max-width: 720px;
     height: auto;
     margin: 0 auto;
     display: block;
 }
 
-.resp-lines line {
-    stroke: rgba(22, 64, 104, 0.18);
+.resp-orbits circle:nth-child(2) {
+    transform-origin: 360px 230px;
+    animation: respOrbitSpin 32s linear infinite;
+}
+
+@keyframes respOrbitSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+.resp-line {
+    fill: none;
+    stroke: rgba(22, 64, 104, 0.22);
     stroke-width: 1.5;
-    stroke-dasharray: 4 4;
-    transition: stroke 0.3s ease, stroke-width 0.3s ease;
+    stroke-dasharray: 5 5;
+    transition: stroke 0.35s ease, stroke-width 0.35s ease, stroke-dasharray 0.35s ease;
 }
 
 .resp-line.is-active {
-    stroke: #d4a444;
+    stroke: url(#respLineGrad);
     stroke-width: 2.5;
     stroke-dasharray: none;
 }
 
+/* Hub: rounded square */
 .resp-hub-bg {
-    fill: var(--navy-dark);
-}
-
-.resp-hub-ring {
-    fill: none;
+    fill: url(#respHubGrad);
     stroke: #d4a444;
-    stroke-width: 2;
-    transform-origin: 300px 210px;
-    animation: respHubRing 6s linear infinite;
+    stroke-width: 1.5;
+    filter: drop-shadow(0 12px 28px rgba(10, 40, 68, 0.28));
 }
 
-@keyframes respHubRing {
-    from { transform: rotate(0deg); stroke-dasharray: 30 380; }
-    to   { transform: rotate(360deg); stroke-dasharray: 30 380; }
+.resp-hub-icon path {
+    /* gold strokes already applied inline */
 }
 
-.resp-hub-eyebrow {
+.resp-hub-tag {
     fill: #d4a444;
     font-family: 'Montserrat', sans-serif;
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 700;
     letter-spacing: 1.6px;
-    text-transform: uppercase;
 }
 
-.resp-hub-title-1,
-.resp-hub-title-2 {
-    fill: #ffffff;
-    font-family: 'Montserrat', sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: -0.2px;
-}
-
+/* Nodes */
 .resp-node {
     cursor: pointer;
     transition: transform 0.25s ease;
@@ -2303,50 +2300,58 @@ ul {
 }
 
 .resp-node-bg {
-    fill: var(--white);
+    fill: #ffffff;
     stroke: rgba(22, 64, 104, 0.22);
-    stroke-width: 1.5;
-    transition: fill 0.3s ease, stroke 0.3s ease, stroke-width 0.3s ease;
+    stroke-width: 2;
+    transition: fill 0.3s ease, stroke 0.3s ease, stroke-width 0.3s ease, filter 0.3s ease;
 }
 
 .resp-node-step {
     fill: var(--navy);
     font-family: 'Montserrat', sans-serif;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 800;
-    letter-spacing: -0.2px;
+    letter-spacing: -0.3px;
     pointer-events: none;
     transition: fill 0.3s ease;
 }
 
 .resp-node-label {
     fill: var(--navy-dark);
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.1px;
+    letter-spacing: -0.1px;
     pointer-events: none;
-    transition: fill 0.3s ease;
+    transition: fill 0.3s ease, font-weight 0.3s ease;
 }
 
-.resp-node:hover .resp-node-bg,
-.resp-node.is-active .resp-node-bg {
-    fill: var(--navy-dark);
-    stroke: #d4a444;
-    stroke-width: 2;
-}
-
-.resp-node:hover .resp-node-step,
-.resp-node.is-active .resp-node-step {
-    fill: #d4a444;
+.resp-node:hover .resp-node-bg {
+    stroke: rgba(22, 64, 104, 0.5);
+    fill: #fafbfd;
 }
 
 .resp-node:hover .resp-node-label,
 .resp-node.is-active .resp-node-label {
-    fill: #ffffff;
+    font-weight: 700;
 }
 
-.resp-node:hover { transform: translateY(-2px); }
+.resp-node.is-active .resp-node-bg {
+    fill: var(--navy-dark);
+    stroke: #d4a444;
+    stroke-width: 3;
+    filter: drop-shadow(0 6px 16px rgba(212, 164, 68, 0.45));
+}
+
+.resp-node.is-active .resp-node-step {
+    fill: #d4a444;
+}
+
+.resp-node.is-active .resp-node-label {
+    fill: var(--navy-dark);
+}
+
+.resp-node:hover { transform: translateY(-1px); }
 
 /* Mobile pills (visible solo sotto 720px, vedi media query) */
 .resp-pills {
