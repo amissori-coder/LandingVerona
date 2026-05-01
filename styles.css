@@ -2340,14 +2340,14 @@ ul {
 
 .objectives-lead p {
     font-family: var(--font-body);
-    font-size: 1.03rem;
-    line-height: 1.78;
-    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1.9;
+    color: var(--text-muted);
     text-align: justify;
     text-justify: inter-word;
     hyphens: auto;
     -webkit-hyphens: auto;
-    margin: 0 0 18px;
+    margin: 0 0 22px;
 }
 
 .objectives-lead p:last-child {
@@ -2420,52 +2420,60 @@ ul {
 
 .objective-icon {
     flex-shrink: 0;
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     background: var(--white);
     border: 1px solid rgba(22, 64, 104, 0.14);
-    border-radius: 12px;
+    border-radius: 10px;
     color: var(--navy);
     transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease;
 }
 
 .objective-icon svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
 }
 
 .objective-number {
     font-family: var(--font-display);
-    font-size: 1.65rem;
-    font-weight: 800;
-    color: var(--navy-dark);
-    letter-spacing: -0.5px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--navy-light);
+    letter-spacing: 0.18em;
     line-height: 1;
-    background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 60%, #d4a444 130%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+}
+
+.objective-number::before {
+    content: 'Punto ';
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.14em;
 }
 
 .objective-card h3 {
     font-family: var(--font-display);
-    font-size: 1.18rem;
-    font-weight: 800;
+    font-size: 1.1rem;
+    font-weight: 700;
     color: var(--navy-dark);
-    line-height: 1.25;
-    letter-spacing: -0.3px;
+    line-height: 1.3;
+    letter-spacing: -0.2px;
     margin: 0 0 12px;
 }
 
 .objective-card p {
     font-family: var(--font-body);
-    font-size: 0.93rem;
-    line-height: 1.7;
-    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.75;
+    color: var(--text-muted);
     margin: 0;
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
 }
 
 /* ============================================
