@@ -2646,7 +2646,7 @@ ul {
 .curated-brands {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
-    align-items: center;
+    align-items: end;
     gap: 56px;
     margin-top: 44px;
     padding-top: 44px;
