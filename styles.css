@@ -2586,10 +2586,11 @@ ul {
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
 }
 
-/* Strato inferiore: avorio chiaro con i loghi */
+/* Strato inferiore: bianco puro per uniformarsi al fondo bianco
+   "incorporato" nei PNG dei loghi (Revilaw e Unindustria) */
 .curated-bottom {
     padding: 44px 0 56px;
-    background: #f6f4ee;
+    background: #ffffff;
     border-top: 1px solid rgba(255, 255, 255, 0.6);
     position: relative;
 }
