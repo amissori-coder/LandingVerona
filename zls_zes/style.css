@@ -2118,3 +2118,9 @@ img {
         display: none;
     }
 }
+
+/* === Mobile: stack landing area cards (ZLS/ZES) to single column === */
+@media (max-width: 640px) {
+    .area-cards { grid-template-columns: 1fr; gap: 20px; }
+    .area-card { padding: 32px 22px; }
+}

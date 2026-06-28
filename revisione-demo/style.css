@@ -2293,3 +2293,15 @@ img { max-width:100%; display:block; }
     .servizi-hub { width:280px; height:280px; }
     .hub-node { transform:rotate(var(--angle)) translateX(110px) rotate(calc(-1 * var(--angle))); margin:-35px 0 0 -35px; width:70px; }
 }
+
+/* === Mobile: keep the 3D cube hint within the viewport (no horizontal scroll) === */
+@media (max-width: 560px) {
+    .piano-cube-hint { white-space: normal; max-width: 90vw; text-align: center; line-height: 1.4; }
+}
+
+/* === Mobile/tablet: wide gantt timeline scrolls horizontally instead of being clipped === */
+@media (max-width: 768px) {
+    .gantt-chart { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+    .gantt-chart-wide .gantt-header,
+    .gantt-chart-wide .gantt-row { min-width: 640px; }
+}
