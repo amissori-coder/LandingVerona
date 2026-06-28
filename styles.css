@@ -892,6 +892,37 @@ ul {
     border-top-color: rgba(22, 64, 104, 0.2);
 }
 
+/* ---- Upcoming events without a fixed day / detail page ---- */
+.event-day--tba {
+    font-size: 1.9rem;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    padding-top: 6px;
+}
+
+.event-soon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding: 14px 0 0;
+    border-top: 1px solid rgba(22, 64, 104, 0.1);
+    width: 100%;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.event-soon-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--navy-light);
+}
+
 .event-card:hover .event-link svg {
     transform: translateX(4px);
 }
