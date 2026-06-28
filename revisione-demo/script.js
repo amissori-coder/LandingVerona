@@ -1094,7 +1094,7 @@ document.addEventListener('DOMContentLoaded', () => {
             labels: ['Senza revisione', 'Con revisione'],
             data: [45, 80],
             unit: '/100',
-            axisLabel: 'Indice di affidabilita\' bancaria',
+            axisLabel: 'Indice di affidabilità bancaria',
             colors: ['rgba(26,58,92,0.25)', '#164068']
         },
         rischio: {
@@ -1110,7 +1110,7 @@ document.addEventListener('DOMContentLoaded', () => {
             labels: ['Sanzioni', 'Contenziosi', 'Risk fiscale'],
             data: [95, 90, 88],
             unit: '%',
-            axisLabel: 'Copertura conformita\' normativa',
+            axisLabel: 'Copertura conformità normativa',
             colors: ['#0A2844', '#164068', '#2A5A85']
         },
         efficienza: {
@@ -1280,7 +1280,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('kpiY2').textContent = numFmt.format(oreFinali) + ' h';
             document.getElementById('kpiY3').textContent = numFmt.format(oreFinali) + ' h';
 
-            // Suddivisione attivita': 30% periodiche, 60% bilancio, 10% dichiarativi
+            // Suddivisione attività: 30% periodiche, 60% bilancio, 10% dichiarativi
             const oreVerifiche = Math.round(oreFinali * 0.30);
             const oreBilancio = Math.round(oreFinali * 0.60);
             const oreDichiarativi = oreFinali - oreVerifiche - oreBilancio;
@@ -1542,7 +1542,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 wCtx.font = '11px Inter';
                 wCtx.fillStyle = '#94a3b8';
                 wCtx.textAlign = 'left';
-                wCtx.fillText('Esempio su societa\' manifatturiera con rischio medio', padding.left, 46);
+                wCtx.fillText('Esempio su società manifatturiera con rischio medio', padding.left, 46);
             }
         }
 
@@ -1572,43 +1572,43 @@ document.addEventListener('DOMContentLoaded', () => {
         audit: {
             label: 'Core service',
             title: 'Audit & Assurance',
-            desc: 'Revisione legale dei conti secondo la metodologia ISA Italia per societa\' private, Enti di Interesse Pubblico ed Enti Sottoposti a Regime Intermedio, ai sensi del D.Lgs. 39/2010.',
+            desc: 'Revisione legale dei conti secondo la metodologia ISA Italia per società private, Enti di Interesse Pubblico ed Enti Sottoposti a Regime Intermedio, ai sensi del D.Lgs. 39/2010.',
             list: [
                 'Revisione di bilanci d\'esercizio e consolidati, principi italiani e internazionali',
                 'Revisione di situazioni infrannuali e relazioni semestrali',
                 'Revisione di reporting packages per gruppi multinazionali',
-                'Visto di conformita\' per l\'utilizzo di crediti d\'imposta',
+                'Visto di conformità per l\'utilizzo di crediti d\'imposta',
                 'Certificazione dei requisiti per l\'ottenimento di crediti d\'imposta'
             ]
         },
         esg: {
-            label: 'Sostenibilita\'',
-            title: 'ESG & Sostenibilita\'',
-            desc: 'Accompagniamo le imprese nell\'integrazione dei criteri ambientali, sociali e di governance, con servizi di assurance del bilancio di sostenibilita\' secondo lo standard europeo ESRS.',
+            label: 'Sostenibilità',
+            title: 'ESG & Sostenibilità',
+            desc: 'Accompagniamo le imprese nell\'integrazione dei criteri ambientali, sociali e di governance, con servizi di assurance del bilancio di sostenibilità secondo lo standard europeo ESRS.',
             list: [
-                'Consulenza strategica ESG e definizione del piano di sostenibilita\'',
+                'Consulenza strategica ESG e definizione del piano di sostenibilità',
                 'Identificazione e gestione dei rischi climatici, sociali e di governance',
-                'Redazione di report di sostenibilita\' conformi agli standard ESRS',
-                'Revisione del bilancio di sostenibilita\' (assurance CSRD)',
+                'Redazione di report di sostenibilità conformi agli standard ESRS',
+                'Revisione del bilancio di sostenibilità (assurance CSRD)',
                 'Supporto nell\'accesso alla finanza sostenibile'
             ]
         },
         risk: {
             label: 'Compliance',
             title: 'Risk Advisory & Compliance',
-            desc: 'Consulenza specialistica in materia di D.Lgs. 231/01 e D.Lgs. 262/05 per rafforzare il sistema di controllo interno e prevenire la responsabilita\' amministrativa degli enti.',
+            desc: 'Consulenza specialistica in materia di D.Lgs. 231/01 e D.Lgs. 262/05 per rafforzare il sistema di controllo interno e prevenire la responsabilità amministrativa degli enti.',
             list: [
                 'Redazione e aggiornamento dei Modelli Organizzativi 231',
                 'Supporto agli Organismi di Vigilanza (OdV)',
                 'Affiancamento alla funzione di Internal Audit',
-                'Verifiche periodiche di conformita\' normativa',
+                'Verifiche periodiche di conformità normativa',
                 'Esternalizzazione parziale o totale dell\'Internal Audit'
             ]
         },
         valuation: {
             label: 'Valutazioni',
             title: 'Business Valuation Services',
-            desc: 'Servizi di valutazione erogati in conformita\' agli standard internazionali e alle best practice aziendali, a supporto di bilanci, operazioni straordinarie e contenziosi.',
+            desc: 'Servizi di valutazione erogati in conformità agli standard internazionali e alle best practice aziendali, a supporto di bilanci, operazioni straordinarie e contenziosi.',
             list: [
                 'Valutazione del fair value di beni immateriali per il bilancio',
                 'Valutazioni per acquisizioni, conferimenti, fusioni e cessioni',
@@ -1632,7 +1632,7 @@ document.addEventListener('DOMContentLoaded', () => {
         litigation: {
             label: 'Contenzioso',
             title: 'Litigation Services',
-            desc: 'Assistenza qualificata ad aziende, studi legali e organi giudicanti nell\'ambito di frodi, azioni di responsabilita\', contenziosi e procedure fallimentari.',
+            desc: 'Assistenza qualificata ad aziende, studi legali e organi giudicanti nell\'ambito di frodi, azioni di responsabilità, contenziosi e procedure fallimentari.',
             list: [
                 'Ricostruzione e documentazione di illeciti aziendali e frodi',
                 'Quantificazione dei danni a supporto di studi legali',
@@ -1644,12 +1644,12 @@ document.addEventListener('DOMContentLoaded', () => {
         crisi: {
             label: 'Crisi d\'impresa',
             title: 'Crisi d\'Impresa',
-            desc: 'Assistenza specializzata nella gestione della crisi d\'impresa, con sistemi di allerta precoce per l\'intercettazione tempestiva dei segnali di difficolta\' aziendale.',
+            desc: 'Assistenza specializzata nella gestione della crisi d\'impresa, con sistemi di allerta precoce per l\'intercettazione tempestiva dei segnali di difficoltà aziendale.',
             list: [
                 'Assessment del sistema di allerta esistente',
                 'Realizzazione di modelli di Early Warning System',
                 'Rilevazione di squilibri patrimoniali, economici e finanziari',
-                'Verifica della sostenibilita\' del debito e continuita\' aziendale',
+                'Verifica della sostenibilità del debito e continuità aziendale',
                 'Piani attestati di risanamento e accordi di ristrutturazione'
             ]
         }
@@ -1755,7 +1755,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(jsonData)
             }).then(() => {
-                showNotification('Grazie! La tua richiesta e\' stata inviata. Ti ricontatteremo al piu\' presto.', 'success');
+                showNotification('Grazie! La tua richiesta è stata inviata. Ti ricontatteremo al più presto.', 'success');
                 contactForm.reset();
             }).catch(() => {
                 showNotification('Errore di connessione. Riprova o contattaci a info@nextgenerationbusiness.it', 'error');

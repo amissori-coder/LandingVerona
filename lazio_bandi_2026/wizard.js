@@ -148,19 +148,19 @@
     function renderRoutingHint(routing, bando) {
         var b = BANDI[bando];
         if (routing === 'costituenda') {
-            return '<strong>Il bando giusto per te e il ' + b.label + '.</strong> ' +
-                   'E pensato per chi sta avviando un\'attivita o vuole aprirla a breve.';
+            return '<strong>Il bando giusto per te è il ' + b.label + '.</strong> ' +
+                   'È pensato per chi sta avviando un\'attività o vuole aprirla a breve.';
         }
         if (routing === 'under36') {
-            return '<strong>Il bando giusto per te e il ' + b.label + '.</strong> ' +
+            return '<strong>Il bando giusto per te è il ' + b.label + '.</strong> ' +
                    'Riguarda le microimprese aperte da meno di 3 anni e i liberi professionisti con partita IVA recente.';
         }
         if (routing === 'over36') {
-            return '<strong>Il bando giusto per te e il ' + b.label + '.</strong> ' +
-                   'E un finanziamento a tasso zero per imprese gia avviate da almeno 2 anni.';
+            return '<strong>Il bando giusto per te è il ' + b.label + '.</strong> ' +
+                   'È un finanziamento a tasso zero per imprese già avviate da almeno 2 anni.';
         }
         return '<strong>Proviamo con il ' + b.label + ' come prima ipotesi.</strong> ' +
-               'Dalle prossime risposte capiremo se invece l\'altro bando e piu adatto al tuo caso. Puoi sempre tornare indietro.';
+               'Dalle prossime risposte capiremo se invece l\'altro bando è più adatto al tuo caso. Puoi sempre tornare indietro.';
     }
 
     // ============================================
@@ -174,10 +174,10 @@
         var lead;
         if (state.bando === 'nfpc') {
             lead = 'Rispondi a 6 domande veloci. Bastano due minuti. ' +
-                   'Le risposte restano sul tuo dispositivo: non salviamo nulla finche non invii tu il modulo finale.';
+                   'Le risposte restano sul tuo dispositivo: non salviamo nulla finché non invii tu il modulo finale.';
         } else {
             lead = 'Rispondi a 5 domande veloci. Bastano due minuti. ' +
-                   'Le risposte restano sul tuo dispositivo: non salviamo nulla finche non invii tu il modulo finale.';
+                   'Le risposte restano sul tuo dispositivo: non salviamo nulla finché non invii tu il modulo finale.';
         }
         $('#eligibilityLead').textContent = lead;
 
@@ -250,9 +250,9 @@
             else add('ko', 'Sede operativa nel Lazio: ti serve, altrimenti non puoi accedere al bando.');
 
             if (e.forma === 'mpmi' || e.forma === 'consorzio' || e.forma === 'lp') {
-                add('ok', 'Forma giuridica: e ammessa dal bando.');
+                add('ok', 'Forma giuridica: è ammessa dal bando.');
             } else {
-                add('ko', 'Forma giuridica: non e ammessa. Il bando prende solo societa, consorzi/reti con personalita giuridica e liberi professionisti.');
+                add('ko', 'Forma giuridica: non è ammessa. Il bando prende solo società, consorzi/reti con personalità giuridica e liberi professionisti.');
             }
 
             if (e.bilanci === 'si') add('ok', 'Bilanci o dichiarazioni dei redditi: ne hai almeno 2, ok.');
@@ -263,7 +263,7 @@
             else add('warn', 'Prestiti bancari aperti: chiedi alla tua banca o consulta la Centrale dei Rischi prima di presentare la domanda.');
 
             if (e.mpmi === 'si') add('ok', 'Dimensioni dell\'impresa: rientri nei limiti per micro, piccole e medie imprese.');
-            else add('ko', 'Dimensioni dell\'impresa: sei sopra i limiti (250 dipendenti, 50 milioni di fatturato o 43 milioni di attivo). Il bando e solo per MPMI.');
+            else add('ko', 'Dimensioni dell\'impresa: sei sopra i limiti (250 dipendenti, 50 milioni di fatturato o 43 milioni di attivo). Il bando è solo per MPMI.');
 
             if (!e.ateco) {
                 add('warn', 'Codice ATECO: non indicato. Controlla le esclusioni dell\'Appendice 4 del bando prima della domanda.');
@@ -282,17 +282,17 @@
             else add('ko', 'Sede operativa nel Lazio: ti serve, altrimenti non puoi accedere al bando.');
 
             var formaOk = ['lp', 'ditta', 'snc', 'sas', 'coop', 'srl', 'srls'];
-            if (formaOk.indexOf(e.forma) !== -1) add('ok', 'Forma giuridica: e ammessa dal bando.');
-            else add('ko', 'Forma giuridica: non e ammessa (Spa, Sapa e altre societa di capitali sono escluse).');
+            if (formaOk.indexOf(e.forma) !== -1) add('ok', 'Forma giuridica: è ammessa dal bando.');
+            else add('ko', 'Forma giuridica: non è ammessa (Spa, Sapa e altre società di capitali sono escluse).');
 
             if (e.compagine === 'pulita') add('ok', 'Soci: solo persone fisiche operative, va bene.');
             else if (e.compagine === 'ba') add('ko', 'Soci: la presenza di Business Angels o investitori istituzionali esclude dal bando.');
             else add('ko', 'Soci: la presenza di holding finanziarie o di famiglia esclude dal bando.');
 
             if (e.eta === 'costituenda' || e.eta === 'under36') {
-                add('ok', 'Eta dell\'impresa: rientra nel target del bando (in apertura o entro 3 anni).');
+                add('ok', 'Età dell\'impresa: rientra nel target del bando (in apertura o entro 3 anni).');
             } else {
-                add('ko', 'Eta dell\'impresa: la tua e attiva da piu di 3 anni. Per te e piu adatto il Nuovo Fondo Piccolo Credito.');
+                add('ko', 'Età dell\'impresa: la tua è attiva da più di 3 anni. Per te è più adatto il Nuovo Fondo Piccolo Credito.');
             }
 
             if (e.importo === 'entro') add('ok', 'Importo richiesto: fino a 25.000 €, copertura piena.');
@@ -327,13 +327,13 @@
             summary = 'Sembri compatibile con il ' + b.label + ', ma ci sono ' + r.warnCount +
                       ' punto' + (r.warnCount === 1 ? '' : 'i') + ' da approfondire prima della domanda. ' +
                       'Puoi comunque proseguire con il calcolo della rata.';
-            spotlightLabel = 'Il bando piu adatto al tuo profilo';
+            spotlightLabel = 'Il bando più adatto al tuo profilo';
             spotlightCta = 'Da verificare';
         } else {
             emoji = '✕';
-            title = 'Cosi non sei ammissibile';
+            title = 'Così non sei ammissibile';
             summary = 'Sulla base delle risposte, ' + r.koCount + ' requisito' +
-                      (r.koCount === 1 ? '' : ' (o piu)') + ' del ' + b.label +
+                      (r.koCount === 1 ? '' : ' (o più)') + ' del ' + b.label +
                       ' non risulta soddisfatto. Valuta l\'altro bando oppure parla con noi: in molti casi si trova una soluzione.';
             spotlightLabel = 'Bando analizzato';
             spotlightCta = 'Non in linea';
@@ -605,7 +605,7 @@
         if (state.result.canSimulate && state.sim.amount) {
             lines.push('Importo simulato: ' + Math.round(state.sim.amount) + ' EUR');
             lines.push('Rata mensile: ' + Math.round(state.sim.rata) + ' EUR');
-            lines.push('Durata totale: ' + state.sim.durataTot + ' mesi (12 preamm. piu ' + state.sim.durataAmm + ' amm.)');
+            lines.push('Durata totale: ' + state.sim.durataTot + ' mesi (12 preamm. più ' + state.sim.durataAmm + ' amm.)');
             lines.push('Totale rimborsato: ' + Math.round(state.sim.totale) + ' EUR');
             if (state.sim.useAbbuono) lines.push('Abbuono ultime 12 rate considerato: ' + Math.round(state.sim.abbuono) + ' EUR');
         }
@@ -676,7 +676,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(jsonData)
         }).then(function () {
-            showNotification('Grazie! La richiesta e stata registrata. Ti contatteremo a breve.', 'success');
+            showNotification('Grazie! La richiesta è stata registrata. Ti contatteremo a breve.', 'success');
             form.reset();
         }).catch(function () {
             showNotification('Errore di connessione. Riprova o scrivici a info@nextgenerationbusiness.it', 'error');
