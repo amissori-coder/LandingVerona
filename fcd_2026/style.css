@@ -1,0 +1,777 @@
+/* ============================================================
+   Fondo Contrasto Deindustrializzazione 2026 - stili di pagina
+   Estende ../zls_zes/style.css (base) e ../lazio_bandi_2026/style.css
+   (banner, navbar, hero, wizard, result, form). Qui solo i componenti
+   nuovi: ambiti, autocomplete comune, calcolatore, barra, FAQ.
+   ============================================================ */
+
+:root {
+    --fcd-navy: #164068;
+    --fcd-navy-dark: #0A2844;
+    --fcd-ok: #047857;
+    --fcd-ok-bg: #ecfdf5;
+    --fcd-warn: #b45309;
+    --fcd-warn-bg: #fffbeb;
+    --fcd-line: #e2e8f0;
+    --fcd-muted: #64748b;
+    --fcd-impresa: #cbd5e1;
+}
+
+.container-narrow { max-width: 880px; }
+
+/* ---------- Ambiti agevolabili ---------- */
+.ambiti-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+}
+.ambito {
+    position: relative;
+    flex: 1 1 260px;
+    max-width: 360px;
+    background: #fff;
+    border: 1px solid var(--fcd-line);
+    border-top: 4px solid var(--fcd-navy);
+    border-radius: 14px;
+    padding: 26px 24px 22px;
+    box-shadow: 0 4px 16px rgba(10, 40, 68, 0.06);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.ambito:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(10, 40, 68, 0.12); }
+.ambito-icon { margin-bottom: 14px; }
+.ambito-num {
+    position: absolute;
+    top: 16px; right: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: rgba(22, 64, 104, 0.1);
+    color: var(--fcd-navy);
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 0.82rem;
+}
+.ambito h3 { font-size: 1.1rem; margin: 0 0 8px; color: #0f172a; padding-right: 28px; }
+.ambito p { font-size: 0.9rem; line-height: 1.6; color: var(--fcd-muted); margin: 0; }
+
+/* ---------- Spese: due colonne ---------- */
+.spese-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    align-items: start;
+}
+.spese-cols .bando-block { margin: 0; }
+@media (max-width: 760px) { .spese-cols { grid-template-columns: 1fr; } }
+
+/* ---------- Intestazioni simulatori ---------- */
+.sim-heading {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 8px 0 20px;
+    padding-top: 8px;
+}
+.sim-badge {
+    flex-shrink: 0;
+    display: inline-block;
+    background: var(--fcd-navy);
+    color: #fff;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 0.72rem;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 999px;
+}
+.sim-heading h3 { margin: 0; font-size: 1.35rem; color: #0f172a; }
+#sim-contributo { margin-top: 48px; }
+
+/* ---------- Autocomplete comune ---------- */
+.ac-wrap { position: relative; max-width: 460px; }
+.fcd-comune-input { max-width: none; width: 100%; }
+.ac-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    z-index: 30;
+    margin: 0; padding: 4px;
+    list-style: none;
+    background: #fff;
+    border: 1px solid var(--fcd-line);
+    border-radius: 10px;
+    box-shadow: 0 16px 40px rgba(10, 40, 68, 0.16);
+    max-height: 280px;
+    overflow-y: auto;
+}
+.ac-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 0.92rem;
+    color: #1f2937;
+}
+.ac-list li:hover,
+.ac-list li.active { background: #f1f5fb; }
+.ac-nome { font-weight: 500; }
+.ac-cons {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--fcd-navy);
+    background: rgba(22, 64, 104, 0.08);
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+/* ---------- Note (avvisi e info) ---------- */
+.req-note {
+    margin: 10px 0 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+.req-note-warn { background: var(--fcd-warn-bg); color: var(--fcd-warn); border: 1px solid #fcd34d; }
+.req-note-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+
+/* ---------- Ambiti come checkbox card ---------- */
+.ambiti-check {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+.ambiti-check .option-card input[type="checkbox"] {
+    margin-top: 3px;
+    width: 18px; height: 18px;
+    accent-color: var(--fcd-navy);
+    flex-shrink: 0;
+}
+
+/* sottotitolo nello spotlight territoriale del risultato */
+.result-spotlight-sub {
+    margin: 8px 0 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    opacity: 0.92;
+}
+
+/* ============================================================
+   SIMULATORE 2: calcolatore
+   ============================================================ */
+.calc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+}
+.calc-grid-2 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+
+.calc-field { display: flex; flex-direction: column; }
+.calc-field > label {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 6px;
+    line-height: 1.35;
+}
+.calc-input {
+    display: flex;
+    align-items: stretch;
+    border: 1.5px solid var(--fcd-line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.calc-input:focus-within { border-color: var(--fcd-navy); box-shadow: 0 0 0 3px rgba(22, 64, 104, 0.12); }
+.calc-input input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    padding: 11px 12px;
+    font-size: 1rem;
+    font-family: 'Inter', sans-serif;
+    color: #0f172a;
+    background: transparent;
+    text-align: right;
+}
+.calc-unit {
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    background: #f1f5f9;
+    color: var(--fcd-muted);
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-left: 1px solid var(--fcd-line);
+}
+.calc-input.input-error,
+.calc-input:has(.input-error) { border-color: #ef4444; }
+.calc-input .input-error { color: #b91c1c; }
+.calc-input-sm { max-width: 140px; }
+
+.calc-iva {
+    margin: 22px 0;
+    padding: 16px 18px;
+    background: #f8fafc;
+    border: 1px solid var(--fcd-line);
+    border-radius: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+}
+.calc-aliquota { display: flex; align-items: center; gap: 10px; }
+.calc-aliquota label { font-size: 0.86rem; font-weight: 600; color: #334155; }
+
+.calc-errori {
+    margin: 18px 0 0;
+    padding: 14px 16px;
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    border-radius: 10px;
+    color: #b91c1c;
+    font-size: 0.9rem;
+}
+.calc-errori ul { margin: 6px 0 0; padding-left: 20px; }
+.calc-errori li { margin: 2px 0; }
+
+.calc-empty {
+    margin: 24px 0 0;
+    padding: 22px;
+    text-align: center;
+    color: var(--fcd-muted);
+    background: #f8fafc;
+    border: 1px dashed var(--fcd-line);
+    border-radius: 12px;
+    font-size: 0.92rem;
+}
+
+/* KPI calcolatore */
+.calc-kpis {
+    margin: 26px 0 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+@media (max-width: 700px) { .calc-kpis { grid-template-columns: 1fr; } }
+.calc-kpi {
+    background: #f8fafc;
+    border: 1px solid var(--fcd-line);
+    border-radius: 12px;
+    padding: 18px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.calc-kpi-main {
+    background: linear-gradient(160deg, var(--fcd-navy) 0%, var(--fcd-navy-dark) 100%);
+    border-color: var(--fcd-navy-dark);
+    color: #fff;
+}
+.calc-kpi-label { font-size: 0.78rem; font-weight: 600; color: var(--fcd-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.calc-kpi-main .calc-kpi-label { color: rgba(255, 255, 255, 0.75); }
+.calc-kpi-value { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.7rem; color: #0f172a; line-height: 1.1; }
+.calc-kpi-main .calc-kpi-value { color: #fff; font-size: 2rem; }
+.calc-kpi-foot { font-size: 0.76rem; color: #94a3b8; line-height: 1.4; }
+.calc-kpi-main .calc-kpi-foot { color: rgba(255, 255, 255, 0.7); }
+
+/* Barra di composizione */
+.calc-bar-block { margin: 24px 0 0; }
+.calc-bar-title { display: block; font-size: 0.86rem; font-weight: 600; color: #334155; margin-bottom: 8px; }
+.calc-bar {
+    display: flex;
+    width: 100%;
+    height: 28px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #eef2f7;
+    border: 1px solid var(--fcd-line);
+}
+.calc-bar-seg { height: 100%; transition: width 0.3s ease; }
+.calc-bar-contrib { background: var(--fcd-navy); }
+.calc-bar-impresa { background: var(--fcd-impresa); }
+.calc-bar-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-top: 10px;
+    font-size: 0.84rem;
+    color: #334155;
+}
+.calc-bar-legend .lg { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+.lg-contrib { background: var(--fcd-navy); }
+.lg-impresa { background: var(--fcd-impresa); }
+
+/* Dettaglio voci */
+.calc-detail { margin: 24px 0 0; border-top: 1px solid var(--fcd-line); }
+.calc-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 11px 2px;
+    border-bottom: 1px solid var(--fcd-line);
+}
+.calc-row dt { margin: 0; color: #475569; font-size: 0.92rem; }
+.calc-row dd { margin: 0; font-weight: 700; color: #0f172a; font-size: 0.98rem; white-space: nowrap; }
+
+.calc-avvisi { margin: 20px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.calc-avviso {
+    margin: 0;
+    padding: 11px 14px;
+    background: var(--fcd-warn-bg);
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    color: var(--fcd-warn);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+.calc-avviso span { font-weight: 800; margin-right: 6px; }
+
+/* ---------- FAQ ---------- */
+.faq-list { display: flex; flex-direction: column; gap: 12px; }
+.faq-item {
+    background: #fff;
+    border: 1px solid var(--fcd-line);
+    border-radius: 12px;
+    padding: 4px 20px;
+    box-shadow: 0 2px 8px rgba(10, 40, 68, 0.04);
+}
+.faq-item summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 16px 28px 16px 0;
+    position: relative;
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 1rem;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after {
+    content: "+";
+    position: absolute;
+    right: 0; top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.4rem;
+    color: var(--fcd-navy);
+    line-height: 1;
+}
+.faq-item[open] summary::after { content: "\2212"; }
+.faq-body { padding: 0 0 16px; }
+.faq-body p { margin: 0; color: #475569; font-size: 0.92rem; line-height: 1.65; }
+
+/* ---------- Fonti ---------- */
+.fonti {
+    margin: 28px 0 0;
+    padding: 16px 18px;
+    background: #f8fafc;
+    border: 1px solid var(--fcd-line);
+    border-radius: 10px;
+    font-size: 0.84rem;
+    color: var(--fcd-muted);
+    line-height: 1.6;
+}
+.fonti a { color: var(--fcd-navy); font-weight: 600; }
+
+/* ============================================================
+   Aggiornamenti UX + fix di layout (audit del 28 giugno 2026)
+   ============================================================ */
+
+/* Offset per le ancore: header = banner + navbar */
+html { scroll-padding-top: 112px; }
+@media (max-width: 640px) { html { scroll-padding-top: 140px; } }
+
+/* .hint-text indipendente dal contenitore (anche fuori da .wizard-fieldset) */
+.hint-text { font-size: 0.82rem; color: var(--fcd-muted); line-height: 1.5; margin: 6px 0 0; }
+
+/* Fix overflow: card territoriali a una colonna su mobile */
+@media (max-width: 720px) { .area-cards { grid-template-columns: 1fr; } }
+
+/* Autocomplete: righe che vanno a capo invece di uscire dal riquadro */
+.ac-list li { flex-wrap: wrap; align-items: flex-start; }
+.ac-nome { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+/* Guard overflow su KPI e righe del calcolatore (schermi piccoli) */
+.calc-kpi-value { overflow-wrap: anywhere; min-width: 0; }
+.calc-row { flex-wrap: wrap; }
+.calc-row dt { min-width: 0; overflow-wrap: anywhere; }
+
+/* Focus visibile sui controlli da tastiera */
+.option-card:has(input:focus-visible),
+.option-pill:has(input:focus-visible) { outline: 2px solid var(--fcd-navy); outline-offset: 2px; }
+.faq-item summary:focus-visible,
+.sim-overview-card:focus-visible,
+.ac-list li:focus-visible { outline: 2px solid var(--fcd-navy); outline-offset: 2px; border-radius: 8px; }
+.ac-list li.active { box-shadow: inset 0 0 0 2px var(--fcd-navy); }
+
+/* Switch IVA raggiungibile da tastiera (override del display:none della base) */
+.calc-iva .switch input { display: block; position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.calc-iva .switch input:focus-visible + .switch-track { box-shadow: 0 0 0 3px rgba(22, 64, 104, 0.35); }
+
+/* Nota di esito positivo (conferma ATECO) */
+.req-note-ok { background: var(--fcd-ok-bg); color: var(--fcd-ok); border: 1px solid #6ee7b7; }
+
+/* Hero allineato alla palette navy della pagina */
+.hero { background: linear-gradient(160deg, var(--fcd-navy-dark) 0%, var(--fcd-navy) 72%); }
+.hero .text-accent, .hero .stat-number { color: #8fb9dd; }
+
+/* Banda di autorita / fiducia */
+.trust-band { background: #fff; border-bottom: 1px solid var(--fcd-line); }
+.trust-band-inner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 14px; padding-bottom: 14px; }
+.trust-band-lead { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; color: var(--fcd-navy); font-size: 0.84rem; }
+.trust-band-lead svg { width: 18px; height: 18px; }
+.trust-chip { font-size: 0.8rem; color: #334155; background: #f1f5f9; border: 1px solid var(--fcd-line); border-radius: 999px; padding: 6px 12px; }
+
+/* Territorio: totale in evidenza, pin nelle card */
+.territorio-total { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 26px; }
+.territorio-total-num { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 2.4rem; color: var(--fcd-navy); line-height: 1; }
+.territorio-total-txt { font-size: 0.95rem; color: #475569; max-width: 240px; text-align: left; }
+.area-pin { display: inline-flex; justify-content: center; color: var(--fcd-navy); margin-bottom: 4px; }
+.area-pin svg { width: 30px; height: 30px; }
+
+/* Overview dei due strumenti */
+.sim-overview { display: flex; align-items: stretch; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+.sim-overview-card { display: flex; align-items: center; gap: 12px; flex: 1 1 280px; max-width: 380px; text-decoration: none; background: #fff; border: 1px solid var(--fcd-line); border-radius: 12px; padding: 14px 18px; transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s; }
+.sim-overview-card:hover { border-color: var(--fcd-navy); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(10, 40, 68, 0.1); }
+.sim-overview-num { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--fcd-navy); color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.sim-overview-body { display: flex; flex-direction: column; }
+.sim-overview-body strong { color: #0f172a; font-size: 0.98rem; }
+.sim-overview-body span { color: var(--fcd-muted); font-size: 0.82rem; line-height: 1.35; }
+.sim-overview-arrow { display: inline-flex; align-items: center; align-self: center; flex: 0 0 auto; color: #94a3b8; }
+.sim-overview-arrow svg { width: 22px; height: 22px; }
+@media (max-width: 620px) { .sim-overview-arrow { transform: rotate(90deg); } }
+
+/* Helper ATECO su R1 */
+.ateco-helper { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--fcd-line); }
+.ateco-helper-label { display: block; font-size: 0.84rem; font-weight: 600; color: #334155; margin-bottom: 8px; }
+
+/* Sim 2: testata del risultato + nudge */
+.calc-result-head { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--fcd-line); }
+.calc-nudge { margin-top: 16px; padding: 14px 16px; background: var(--fcd-ok-bg); border: 1px solid #6ee7b7; border-radius: 10px; color: #065f46; font-size: 0.92rem; line-height: 1.5; }
+
+/* Contributo come headline: KPI principale a tutta larghezza */
+.calc-kpis { grid-template-columns: 1fr 1fr; }
+.calc-kpi-main { grid-column: 1 / -1; }
+.calc-kpi-main .calc-kpi-value { font-size: 2.6rem; }
+@media (max-width: 520px) { .calc-kpis { grid-template-columns: 1fr; } .calc-kpi-main .calc-kpi-value { font-size: 2.1rem; } }
+.calc-kpi-main.pulse { animation: fcdPulse 0.8s ease; }
+@keyframes fcdPulse {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.035); box-shadow: 0 14px 38px rgba(10, 40, 68, 0.42); }
+    100% { transform: scale(1); }
+}
+
+/* Empty state piu invitante */
+.calc-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.calc-empty svg { width: 40px; height: 40px; color: var(--fcd-navy); opacity: 0.5; }
+.calc-empty p { margin: 0; }
+
+/* ---------- Rispetto delle preferenze di movimento ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .ambito, .calc-bar-seg, .sim-overview-card, .area-card { transition: none; }
+    .calc-kpi-main.pulse { animation: none; }
+}
+
+/* ============================================================
+   RIFINITURA PREMIUM / ISTITUZIONALE  (scoped: .fcd-premium)
+   Titoli con serif elegante (Fraunces), accenti oro tenue su navy,
+   superfici a filo con ombre morbide, ritmo tipografico ampio.
+   Tutto limitato a questa pagina: non tocca il resto del sito.
+   ============================================================ */
+.fcd-premium {
+    --fcd-gold: #b0894e;
+    --fcd-gold-soft: #d8c29a;
+    --fcd-ink: #112c45;
+    --fcd-paper: #fbfaf7;
+    --fcd-hair2: #e8e4dc;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* --- Titoli: serif raffinata --- */
+.fcd-premium .hero h1,
+.fcd-premium h2,
+.fcd-premium .ambito h3,
+.fcd-premium .area-card h3,
+.fcd-premium .sim-heading h3 {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    font-optical-sizing: auto;
+}
+.fcd-premium h2 { font-size: clamp(1.9rem, 4.4vw, 2.6rem); line-height: 1.16; color: var(--fcd-ink); }
+.fcd-premium .section-header h2 .text-accent { color: var(--fcd-gold); }
+.fcd-premium .section-desc { color: #46566a; font-size: 1rem; line-height: 1.75; }
+
+/* --- Kicker di sezione: etichetta sobria con filetto oro --- */
+.fcd-premium .section-tag {
+    background: none;
+    color: var(--fcd-gold);
+    padding: 0;
+    border-radius: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.fcd-premium .section-tag::before {
+    content: "";
+    width: 30px;
+    height: 1px;
+    background: var(--fcd-gold);
+    opacity: 0.8;
+}
+
+/* --- Superfici di sezione --- */
+.fcd-premium .section-alt { background: var(--fcd-paper); }
+
+/* --- HERO --- */
+.fcd-premium .hero {
+    background:
+        radial-gradient(120% 90% at 50% -20%, rgba(176, 137, 78, 0.16), transparent 55%),
+        linear-gradient(157deg, #081f37 0%, #0f2c49 55%, #16406a 100%);
+}
+.fcd-premium .hero h1 { font-size: clamp(2rem, 6vw, 4rem); line-height: 1.1; font-weight: 600; overflow-wrap: break-word; hyphens: auto; }
+.fcd-premium .hero .text-accent { color: var(--fcd-gold-soft); }
+.fcd-premium .hero-subtitle { color: #c4d2e0; font-size: 1.06rem; line-height: 1.7; }
+.fcd-premium .hero-badge {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(216, 194, 154, 0.35);
+    color: #d8c29a;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.66rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+}
+.fcd-premium .hero-badge::before {
+    content: "";
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--fcd-gold-soft);
+}
+.fcd-premium .hero-stats .stat-number { color: #fff; letter-spacing: -0.01em; }
+.fcd-premium .hero-stats .stat-label {
+    color: rgba(255, 255, 255, 0.62);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+}
+.fcd-premium .hero-stats .stat-divider { background: rgba(255, 255, 255, 0.14); }
+
+/* --- Banda di autorita: sobria, con separatori a filo --- */
+.fcd-premium .trust-band { background: #fff; border-top: 1px solid var(--fcd-hair2); border-bottom: 1px solid var(--fcd-hair2); }
+.fcd-premium .trust-band-inner { gap: 0 26px; }
+.fcd-premium .trust-band-lead { color: var(--fcd-ink); text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.72rem; }
+.fcd-premium .trust-band-lead svg { color: var(--fcd-gold); }
+.fcd-premium .trust-chip {
+    background: none;
+    border: none;
+    border-radius: 0;
+    color: #54657a;
+    padding: 6px 0;
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+    position: relative;
+}
+.fcd-premium .trust-chip + .trust-chip { padding-left: 27px; }
+.fcd-premium .trust-chip + .trust-chip::before {
+    content: "";
+    position: absolute; left: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 1px; height: 15px;
+    background: var(--fcd-hair2);
+}
+
+/* --- Tabella sintesi del fondo --- */
+.fcd-premium .bando-summary {
+    border-color: var(--fcd-hair2);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(17, 44, 69, 0.04), 0 24px 50px -34px rgba(17, 44, 69, 0.25);
+}
+.fcd-premium .bando-summary-value { color: var(--fcd-ink); }
+.fcd-premium .bando-summary-label { letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.7rem; }
+
+/* --- Cards ambiti: a filo, accento sull'icona --- */
+.fcd-premium .ambito {
+    border: 1px solid var(--fcd-hair2);
+    border-top: 1px solid var(--fcd-hair2);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(17, 44, 69, 0.04), 0 18px 40px -28px rgba(17, 44, 69, 0.22);
+}
+.fcd-premium .ambito::before {
+    content: "";
+    position: absolute; left: 24px; right: 24px; top: 0; height: 2px;
+    background: linear-gradient(90deg, var(--fcd-gold), transparent);
+    opacity: 0; transition: opacity 0.25s ease;
+}
+.fcd-premium .ambito:hover::before { opacity: 1; }
+.fcd-premium .ambito-icon.card-icon {
+    background: #fff;
+    border: 1.5px solid var(--fcd-ink);
+    color: var(--fcd-ink);
+    transition: background 0.25s ease, color 0.25s ease;
+}
+.fcd-premium .ambito:hover .ambito-icon.card-icon { background: var(--fcd-ink); color: #fff; }
+.fcd-premium .ambito-num { background: rgba(176, 137, 78, 0.12); color: var(--fcd-gold); }
+.fcd-premium .ambito h3 { color: var(--fcd-ink); }
+
+/* --- Liste spese: spunte/croci piu sobrie --- */
+.fcd-premium .bando-list-checked li::before { color: var(--fcd-gold); }
+
+/* --- Territorio --- */
+.fcd-premium .territorio-total-num { color: var(--fcd-ink); }
+.fcd-premium .area-card {
+    border: 1px solid var(--fcd-hair2);
+    border-top: 3px solid var(--fcd-gold);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(17, 44, 69, 0.04), 0 20px 44px -30px rgba(17, 44, 69, 0.22);
+}
+.fcd-premium .area-card .area-percent { color: var(--fcd-ink); }
+.fcd-premium .area-pin { color: var(--fcd-gold); }
+
+/* --- Strumenti (wizard + calcolatore): superfici raffinate --- */
+.fcd-premium .sim-badge { background: var(--fcd-ink); letter-spacing: 0.1em; }
+.fcd-premium .sim-heading h3 { color: var(--fcd-ink); }
+.fcd-premium .wizard-card {
+    border-radius: 18px;
+    border: 1px solid var(--fcd-hair2);
+    box-shadow: 0 1px 2px rgba(17, 44, 69, 0.04), 0 30px 60px -36px rgba(17, 44, 69, 0.28);
+}
+.fcd-premium .sim-overview-num,
+.fcd-premium .sim-overview-card:hover { border-color: var(--fcd-gold); }
+.fcd-premium .calc-kpi-main {
+    background: linear-gradient(157deg, #0c2741 0%, #06182c 100%);
+    border-color: #06182c;
+}
+.fcd-premium .calc-kpi-value { color: var(--fcd-ink); }
+.fcd-premium .calc-bar-contrib { background: var(--fcd-ink); }
+
+/* --- Pulsanti --- */
+.fcd-premium .btn-primary { background: var(--fcd-ink); letter-spacing: 0.01em; }
+.fcd-premium .btn-primary:hover { background: #0b2138; }
+
+/* --- FAQ --- */
+.fcd-premium .faq-item { border-color: var(--fcd-hair2); border-radius: 14px; }
+.fcd-premium .faq-item summary::after { color: var(--fcd-gold); }
+.fcd-premium .faq-item[open] { box-shadow: 0 1px 2px rgba(17, 44, 69, 0.04), 0 16px 36px -28px rgba(17, 44, 69, 0.22); }
+
+/* --- CTA finale --- */
+.fcd-premium .section-cta .cta-form form { border-radius: 18px; }
+
+/* --- Numeri in stile tabellare (allineamento elegante) --- */
+.fcd-premium .stat-number,
+.fcd-premium .calc-kpi-value,
+.fcd-premium .territorio-total-num,
+.fcd-premium .area-percent,
+.fcd-premium .calc-row dd { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   COMPONENTI BRIEF COMPLETO (stato, ripartizione, timeline,
+   checklist documentale, footer note)
+   ============================================================ */
+
+/* Banner di stato della misura */
+.event-banner.stato-apertura { background: linear-gradient(90deg, #164068, #1e5384, #164068); }
+.event-banner.stato-registrazione { background: linear-gradient(90deg, #155e75, #0e7490, #155e75); }
+.event-banner.stato-aperto { background: linear-gradient(90deg, #065f46, #047857, #065f46); }
+.event-banner.stato-chiuso { background: linear-gradient(90deg, #475569, #334155, #475569); }
+
+/* Tabella ripartizione del Fondo */
+.table-wrap { overflow-x: auto; border: 1px solid var(--fcd-line); border-radius: 14px; -webkit-overflow-scrolling: touch; }
+.fcd-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; background: #fff; min-width: 540px; }
+.fcd-table th { text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fcd-muted); background: #f8fafc; padding: 12px 16px; border-bottom: 1px solid var(--fcd-line); }
+.fcd-table td { padding: 12px 16px; border-bottom: 1px solid var(--fcd-line); color: #334155; }
+.fcd-table th:last-child, .fcd-table td:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fcd-table tbody tr:last-child td { border-bottom: none; }
+.fcd-table .fcd-table-sub td { font-weight: 600; background: #f8fafc; color: #0f172a; }
+.fcd-table .fcd-table-tot td { font-weight: 800; background: var(--fcd-navy); color: #fff; border-bottom: none; }
+
+/* Timeline */
+.fcd-timeline { list-style: none; margin: 0; padding: 0; position: relative; max-width: 760px; }
+.fcd-timeline::before { content: ""; position: absolute; left: 9px; top: 6px; bottom: 6px; width: 2px; background: var(--fcd-line); }
+.fcd-timeline li { position: relative; padding: 0 0 22px 38px; }
+.fcd-timeline li::before { content: ""; position: absolute; left: 2px; top: 4px; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--fcd-navy); }
+.fcd-timeline li.tl-key::before { background: var(--fcd-navy); }
+.fcd-timeline li:last-child { padding-bottom: 0; }
+.tl-date { display: block; font-weight: 700; color: var(--fcd-navy); font-size: 0.9rem; }
+.tl-event { display: block; color: #475569; font-size: 0.95rem; line-height: 1.5; margin-top: 2px; }
+
+/* Checklist documentale (Simulatore 3) */
+.ck-count { font-size: 0.85rem; color: var(--fcd-muted); margin: 0 0 12px; font-weight: 600; }
+.ck-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ck-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: #fff; border: 1px solid var(--fcd-line); border-radius: 10px; }
+.ck-item input.ck-doc { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--fcd-navy); flex-shrink: 0; }
+.ck-item label { display: flex; flex-direction: column; gap: 2px; cursor: pointer; min-width: 0; }
+.ck-doc-nome { font-weight: 600; color: #0f172a; font-size: 0.95rem; }
+.ck-doc-firma { font-size: 0.82rem; color: var(--fcd-muted); }
+.ck-doc-nota { font-size: 0.82rem; color: var(--fcd-warn); background: var(--fcd-warn-bg); border: 1px solid #fcd34d; border-radius: 6px; padding: 4px 8px; margin-top: 4px; }
+
+/* Footer note (su sfondo scuro) */
+.footer-note { font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); line-height: 1.65; margin: 0 0 18px; padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+
+/* Accenti premium per i nuovi componenti */
+.fcd-premium .fcd-table .fcd-table-tot td { background: var(--fcd-ink); }
+.fcd-premium .fcd-timeline li::before { border-color: var(--fcd-navy); }
+.fcd-premium .fcd-timeline li.tl-key::before { background: var(--fcd-gold); border-color: var(--fcd-gold); }
+.fcd-premium .tl-date { color: var(--fcd-ink); }
+
+/* Responsive */
+@media (max-width: 600px) {
+    .fcd-timeline li { padding-left: 32px; }
+}
+
+/* ============================================================
+   MIGLIORIE SIMULATORI (contatori esito, barra plafond, sottotitoli)
+   ============================================================ */
+/* Simulatore 1: contatori di esito */
+.result-counts { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+.rc { font-size: 0.8rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; }
+.rc-ok { background: #ecfdf5; color: #047857; border: 1px solid #6ee7b7; }
+.rc-warn { background: #fffbeb; color: #b45309; border: 1px solid #fcd34d; }
+.rc-ko { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+/* Sottotitoli di gruppo nel wizard requisiti */
+.wizard-subhead { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fcd-navy); margin: 26px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--fcd-line); }
+.wizard-subhead:first-of-type { margin-top: 4px; }
+
+/* Simulatore 2: barra plafond de minimis */
+.calc-bar-pregresso { background: #94a3b8; }
+.calc-bar-residuo { background: #e2e8f0; }
+.lg-pregresso { background: #94a3b8; }
+.lg-residuo { background: #e2e8f0; border: 1px solid #cbd5e1; }
+
+/* ============================================================
+   SINTESI DEL FONDO: griglia uniforme 4x2 (8 voci)
+   Separatori a filo via gap, celle di pari altezza.
+   ============================================================ */
+.bando-summary { padding: 0; overflow: hidden; }
+.bando-summary-grid { grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--fcd-line); }
+.bando-summary-cell { border: none; background: #fff; padding: 18px 18px 16px; justify-content: flex-start; }
+.bando-summary-label { min-height: 2.2em; display: flex; align-items: flex-start; }
+@media (max-width: 820px) {
+    .bando-summary-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 460px) {
+    .bando-summary-grid { grid-template-columns: 1fr; }
+    .bando-summary-label { min-height: 0; }
+}
+
+/* Calcolatore: etichette di altezza uniforme per allineare gli input sulla stessa riga */
+.calc-field > label { min-height: 2.4rem; }
+@media (max-width: 520px) { .calc-field > label { min-height: 0; } }
