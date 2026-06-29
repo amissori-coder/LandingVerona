@@ -3542,13 +3542,26 @@ ul {
 .core-seal.orbit-sun:hover { transform: scale(1.05); }
 
 /* Planets: positioned on the ring via per-planet --a angle, label kept upright */
+.orbit-arm {
+    position: absolute;
+    inset: 0;
+    transform-origin: 50% 50%;
+    pointer-events: none;
+}
+.orbit-arm .planet { pointer-events: auto; }
+.orbit-arm-1 { animation: orbitRevolve 36s linear infinite; }
+.orbit-arm-2 { animation: orbitRevolve 48s linear infinite reverse; }
+.orbit-arm-3 { animation: orbitRevolve 27s linear infinite; }
+.orbit-arm-4 { animation: orbitRevolve 42s linear infinite reverse; }
+.orbit-arm-5 { animation: orbitRevolve 33s linear infinite; }
+@keyframes orbitRevolve { to { transform: rotate(360deg); } }
+
 .planet {
     position: absolute;
     width: 80px;
     height: 80px;
     margin: -40px 0 0 -40px;
     text-decoration: none;
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     z-index: 3;
 }
 .planet-face {
@@ -3562,8 +3575,20 @@ ul {
     background: radial-gradient(circle at 35% 28%, rgba(91, 137, 184, 0.55), rgba(11, 34, 58, 0.94));
     border: 1px solid rgba(255, 255, 255, 0.22);
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, filter 0.3s ease;
 }
+.orbit-arm-1 .planet-face { animation: orbitCounter 36s linear infinite; }
+.orbit-arm-2 .planet-face { animation: orbitCounter 48s linear infinite reverse; }
+.orbit-arm-3 .planet-face { animation: orbitCounter 27s linear infinite; }
+.orbit-arm-4 .planet-face { animation: orbitCounter 42s linear infinite reverse; }
+.orbit-arm-5 .planet-face { animation: orbitCounter 33s linear infinite; }
+@keyframes orbitCounter { to { transform: rotate(-360deg); } }
+.planet-face.shape-circle   { border-radius: 50%; }
+.planet-face.shape-soft     { border-radius: 24%; }
+.planet-face.shape-squircle { border-radius: 38%; }
+.planet-face.shape-egg      { border-radius: 56% 56% 46% 46% / 64% 64% 40% 40%; }
+.planet-face.shape-hex      { border: none; box-shadow: none; clip-path: polygon(50% 1%, 94% 25%, 94% 75%, 50% 99%, 6% 75%, 6% 25%); }
+.planet--hex { filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4)); }
 .planet-label {
     font-family: var(--font-display);
     font-size: 8.7px;
@@ -3573,18 +3598,16 @@ ul {
     text-transform: uppercase;
     color: #eaf2fb;
 }
-.planet:hover {
-    transform: scale(1.13);
-    z-index: 5;
-}
+.planet:hover { z-index: 5; }
 .planet:hover .planet-face {
     border-color: rgba(127, 186, 255, 0.7);
     background: radial-gradient(circle at 35% 28%, rgba(127, 186, 255, 0.5), rgba(20, 54, 90, 0.96));
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42), 0 0 0 4px rgba(127, 186, 255, 0.14);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42), 0 0 0 4px rgba(127, 186, 255, 0.16);
+    filter: brightness(1.12);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .orbit-ring-1, .orbit-ring-2 { animation: none; }
+    .orbit-ring-1, .orbit-ring-2, .orbit-arm, .planet-face { animation: none; }
 }
 
 @media (max-width: 1099px) {
