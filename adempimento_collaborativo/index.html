@@ -1,573 +1,593 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tax Control Framework e Adempimento Collaborativo | Revilaw</title>
-<meta name="author" content="Revilaw S.p.A.">
-<meta name="robots" content="index, follow, max-image-preview:large">
-<meta name="theme-color" content="#0C2E4E">
-<link rel="canonical" href="https://nextgenerationbusiness.it/adempimento_collaborativo/">
-<link rel="icon" type="image/png" href="../assets/favicon.png">
-<link rel="apple-touch-icon" href="../assets/favicon.png">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Next Generation Business">
-<meta property="og:url" content="https://nextgenerationbusiness.it/adempimento_collaborativo/">
-<meta property="og:title" content="Tax Control Framework e Adempimento Collaborativo | Revilaw">
-<meta property="og:description" content="Adempimento collaborativo e Tax Control Framework: trasparenza verso il fisco, certezza per l'impresa. Revilaw accompagna le imprese dalla costruzione del TCF alla certificazione.">
-<meta property="og:image" content="https://nextgenerationbusiness.it/assets/og-revilaw-1200x630.jpg">
-<meta property="og:locale" content="it_IT">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Tax Control Framework e Adempimento Collaborativo | Revilaw">
-<meta name="twitter:description" content="Trasparenza verso il fisco, certezza per l'impresa: dalla costruzione del Tax Control Framework alla sua certificazione.">
-<meta name="twitter:image" content="https://nextgenerationbusiness.it/assets/og-revilaw-1200x630.jpg">
-<meta name="description" content="Adempimento collaborativo e Tax Control Framework: trasparenza verso il fisco, certezza per l'impresa. Revilaw accompagna le imprese dalla costruzione del TCF alla certificazione.">
-<script>document.documentElement.className+=' js';</script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{
-  --navy:#12426C; --navy-deep:#0C2E4E; --navy-2:#1A4B79;
-  --ink:#16293B; --slate:#46586A; --muted-d:#A9C0D6;
-  --gold:#C8A24C; --gold-soft:#E0A93B;
-  --paper:#EEF2F7; --bg:#F6F8FB; --card:#FFFFFF; --line:#DCE4EC; --line-d:#2A547C;
-  --serif:'Spectral',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
-  --wrap:1160px;
-}
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
-  margin:0; font-family:var(--sans); color:var(--ink); background:var(--bg);
-  -webkit-font-smoothing:antialiased; line-height:1.6; font-size:17px;
-}
-.wrap{max-width:var(--wrap); margin:0 auto; padding:0 28px}
-img{max-width:100%; display:block}
-a{color:inherit; text-decoration:none}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-/* labels */
-.eyebrow{
-  font-family:var(--mono); font-size:12.5px; letter-spacing:.22em; text-transform:uppercase;
-  color:var(--gold); font-weight:500; margin:0 0 18px;
-}
-.eyebrow.on-light{color:#9A7A2E}
-h1,h2,h3{font-family:var(--serif); font-weight:600; line-height:1.08; margin:0; letter-spacing:-.01em}
-h2{font-size:clamp(28px,4.2vw,46px)}
-h3{font-size:21px; font-weight:600; letter-spacing:-.005em}
-p{margin:0 0 16px}
-.lead{font-size:clamp(18px,2vw,21px); color:var(--slate); line-height:1.55}
-.section{padding:clamp(66px,9vw,116px) 0}
-.section--navy{background:var(--navy-deep); color:#EaF1F8}
-.section--navy h2{color:#fff}
-.section--navy .lead{color:var(--muted-d)}
-.section--paper{background:var(--paper)}
-.head-block{max-width:760px; margin-bottom:48px}
+    <!-- Primary Meta Tags -->
+    <title>Tax Control Framework e Adempimento Collaborativo | Revilaw S.p.A.</title>
+    <meta name="title" content="Tax Control Framework e Adempimento Collaborativo | Revilaw S.p.A.">
+    <meta name="description" content="Adempimento collaborativo e Tax Control Framework: trasparenza verso il fisco, certezza per l'impresa. Sanzioni ridotte o escluse, termini di accertamento più brevi, interpello vincolante. Revilaw accompagna l'impresa dalla costruzione del TCF alla certificazione.">
+    <meta name="keywords" content="Tax Control Framework, TCF, adempimento collaborativo, cooperative compliance, D.Lgs. 128/2015, rischio fiscale, certificazione TCF, adeguati assetti, Modello 231, Revilaw, Next Generation Business">
+    <meta name="author" content="Revilaw S.p.A.">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="googlebot" content="index, follow">
+    <meta name="language" content="Italian">
+    <meta name="theme-color" content="#164068">
+    <link rel="canonical" href="https://nextgenerationbusiness.it/adempimento_collaborativo/">
 
-/* buttons */
-.btn{
-  display:inline-flex; align-items:center; gap:10px; font-family:var(--sans); font-weight:600;
-  font-size:15.5px; padding:14px 26px; border-radius:2px; border:1.5px solid transparent; cursor:pointer;
-  transition:transform .15s ease, background .2s ease, color .2s ease, border-color .2s ease;
-}
-.btn-gold{background:var(--gold); color:#23303C}
-.btn-gold:hover{background:#d4b25e; transform:translateY(-1px)}
-.btn-ghost{border-color:rgba(255,255,255,.4); color:#fff}
-.btn-ghost:hover{border-color:#fff; background:rgba(255,255,255,.08)}
-.btn-ink{border-color:var(--navy); color:var(--navy)}
-.btn-ink:hover{background:var(--navy); color:#fff; transform:translateY(-1px)}
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../assets/favicon.png">
+    <link rel="apple-touch-icon" href="../assets/favicon.png">
 
-/* header */
-header{
-  position:sticky; top:0; z-index:50; background:rgba(255,255,255,.94);
-  backdrop-filter:saturate(180%) blur(8px); border-bottom:1px solid var(--line);
-}
-.nav{display:flex; align-items:center; justify-content:space-between; height:70px}
-.brand{display:flex; align-items:center; gap:11px}
-.brand img{height:30px; width:auto}
-.brand .wm{font-family:var(--serif); font-weight:700; font-size:21px; letter-spacing:.04em; color:var(--navy)}
-.navlinks{display:flex; gap:30px; align-items:center}
-.navlinks a{font-size:14.5px; color:var(--slate); font-weight:500; transition:color .15s}
-.navlinks a:hover{color:var(--navy)}
-.nav .btn{padding:11px 20px; font-size:14.5px}
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Next Generation Business">
+    <meta property="og:url" content="https://nextgenerationbusiness.it/adempimento_collaborativo/">
+    <meta property="og:title" content="Tax Control Framework e Adempimento Collaborativo">
+    <meta property="og:description" content="Trasparenza verso il fisco, certezza per l'impresa: dalla costruzione del Tax Control Framework alla sua certificazione. A cura di Revilaw S.p.A.">
+    <meta property="og:image" content="https://nextgenerationbusiness.it/assets/og-revilaw-1200x630.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="it_IT">
 
-/* hero */
-.hero{background:linear-gradient(160deg,#0C2E4E 0%, #12426C 62%, #16517f 100%); color:#fff; position:relative; overflow:hidden}
-.hero::after{
-  content:""; position:absolute; right:-160px; top:-160px; width:520px; height:520px; border-radius:50%;
-  background:radial-gradient(circle at center, rgba(200,162,76,.16), transparent 62%); pointer-events:none;
-}
-.hero-inner{padding:clamp(72px,11vw,128px) 0 clamp(52px,7vw,84px); position:relative; z-index:2}
-.hero h1{font-size:clamp(38px,6vw,70px); color:#fff; max-width:14ch}
-.hero .kj{color:var(--gold-soft); font-style:italic; font-weight:500}
-.hero-sub{max-width:60ch; color:#CFE0EF; font-size:clamp(18px,2.1vw,21px); margin-top:26px; line-height:1.55}
-.hero-cta{display:flex; gap:14px; flex-wrap:wrap; margin-top:36px}
-.hero-foot{
-  margin-top:40px; font-family:var(--mono); font-size:12.5px; letter-spacing:.04em; color:#9DB6CE;
-  border-top:1px solid rgba(255,255,255,.14); padding-top:18px; max-width:60ch;
-}
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Tax Control Framework e Adempimento Collaborativo">
+    <meta name="twitter:description" content="Cooperative compliance e TCF: sanzioni ridotte o escluse, termini di accertamento più brevi, interpello vincolante.">
+    <meta name="twitter:image" content="https://nextgenerationbusiness.it/assets/og-revilaw-1200x630.jpg">
 
-/* exchange signature */
-.exchange{position:relative; z-index:2; padding-bottom:clamp(64px,9vw,104px)}
-.exchange-grid{display:grid; grid-template-columns:1fr auto 1fr; gap:26px; align-items:stretch}
-.xcard{
-  background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.16); border-radius:4px;
-  padding:30px 30px 32px; backdrop-filter:blur(2px);
-}
-.xcard .xk{font-family:var(--mono); font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted-d); margin-bottom:14px}
-.xcard h3{color:#fff; font-size:26px; margin-bottom:10px}
-.xcard p{color:#CBDCEC; margin:0; font-size:15.5px; line-height:1.55}
-.xcard.give{border-left:3px solid rgba(169,192,214,.7)}
-.xcard.get{border-left:3px solid var(--gold)}
-.hinge{display:flex; align-items:center; justify-content:center}
-.hinge span{font-family:var(--serif); font-style:italic; font-size:19px; color:var(--gold-soft); white-space:nowrap; padding:0 4px}
+    <!-- Styles / Fonts -->
+    <link rel="stylesheet" href="../zls_zes/style.css">
+    <link rel="stylesheet" href="../assets/content-page.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-/* generic grids */
-.grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:22px}
-.grid-2{display:grid; grid-template-columns:repeat(2,1fr); gap:22px}
-.grid-4{display:grid; grid-template-columns:repeat(4,1fr); gap:20px}
-
-/* benefit cards */
-.card{
-  background:var(--card); border:1px solid var(--line); border-radius:5px; padding:30px 28px;
-  transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-}
-.card:hover{transform:translateY(-3px); box-shadow:0 18px 40px -24px rgba(12,46,78,.45); border-color:#CBD8E5}
-.card .tag{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:#9A7A2E; margin-bottom:16px; display:flex; align-items:center; gap:9px}
-.card .tag::before{content:""; width:22px; height:2px; background:var(--gold); display:inline-block}
-.card h3{margin-bottom:9px; color:var(--navy)}
-.card p{margin:0; color:var(--slate); font-size:15.5px}
-
-/* pillars (numbered) */
-.pillar{background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.15); border-radius:5px; padding:28px 24px}
-.pillar .num{font-family:var(--mono); font-size:13px; color:var(--gold); letter-spacing:.1em; margin-bottom:18px}
-.pillar h3{color:#fff; margin-bottom:10px; font-size:20px}
-.pillar p{color:#C4D6E7; font-size:14.5px; margin:0; line-height:1.55}
-
-/* audience timeline */
-.tl{display:grid; grid-template-columns:repeat(2,1fr); gap:20px}
-.tl-item{display:flex; gap:20px; padding:24px 24px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.15); border-radius:5px}
-.tl-when{font-family:var(--mono); font-size:13px; letter-spacing:.08em; color:var(--gold); min-width:104px; padding-top:3px; font-weight:500}
-.tl-item h3{color:#fff; font-size:19px; margin-bottom:7px}
-.tl-item p{color:#C4D6E7; font-size:14.5px; margin:0}
-
-/* steps */
-.steps{display:grid; grid-template-columns:repeat(2,1fr); gap:22px}
-.step{display:flex; gap:22px; padding:28px 26px; background:var(--card); border:1px solid var(--line); border-radius:5px}
-.step .sn{font-family:var(--serif); font-size:34px; font-weight:600; color:var(--gold); line-height:1; min-width:46px}
-.step h3{color:var(--navy); margin-bottom:8px}
-.step p{color:var(--slate); font-size:15px; margin:0}
-
-/* aside metaphor */
-.aside{
-  margin-top:34px; border-left:3px solid var(--gold); background:#fff; border-radius:0 5px 5px 0;
-  padding:26px 30px; box-shadow:0 14px 36px -28px rgba(12,46,78,.4);
-}
-.aside .ak{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:#9A7A2E; margin-bottom:10px}
-.aside p{margin:0; color:var(--ink); font-size:16.5px; font-family:var(--serif); line-height:1.5}
-
-/* why list */
-.why-grid{display:grid; grid-template-columns:1.05fr 1fr; gap:48px; align-items:start}
-.why-list{list-style:none; margin:0; padding:0}
-.why-list li{padding:20px 0; border-top:1px solid var(--line); display:flex; gap:16px}
-.why-list li:first-child{border-top:none}
-.why-list .wk{font-family:var(--mono); color:var(--gold); font-size:13px; padding-top:3px; min-width:26px; font-weight:600}
-.why-list strong{display:block; font-family:var(--serif); font-size:18px; color:var(--navy); margin-bottom:3px; font-weight:600}
-.why-list span{color:var(--slate); font-size:15px}
-
-/* cta band */
-.cta-band{background:linear-gradient(150deg,#0C2E4E,#12426C); color:#fff; border-radius:8px; padding:clamp(40px,6vw,68px); position:relative; overflow:hidden}
-.cta-band::after{content:""; position:absolute; left:-120px; bottom:-160px; width:420px; height:420px; border-radius:50%; background:radial-gradient(circle,rgba(200,162,76,.14),transparent 60%)}
-.cta-inner{position:relative; z-index:2; max-width:720px}
-.cta-band h2{color:#fff; margin-bottom:14px}
-.cta-band p{color:#CFE0EF; font-size:19px; max-width:58ch}
-.cta-row{display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-top:30px}
-.cta-contacts{display:flex; gap:28px; flex-wrap:wrap; margin-top:30px; font-family:var(--mono); font-size:13.5px; color:#AFC6DD; letter-spacing:.02em}
-.cta-contacts b{color:#fff; font-weight:500}
-
-/* footer */
-footer{background:#0A2540; color:#9DB6CE; padding:60px 0 36px}
-.foot-top{display:flex; justify-content:space-between; gap:40px; flex-wrap:wrap; padding-bottom:34px; border-bottom:1px solid rgba(255,255,255,.12)}
-.foot-brand{max-width:340px}
-.foot-brand .brand .wm{color:#fff}
-.foot-brand img{height:30px}
-.foot-brand p{margin-top:16px; font-size:14.5px; color:#8FA9C2}
-.foot-cols{display:flex; gap:64px; flex-wrap:wrap}
-.foot-col h4{font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:#7E98B2; margin:0 0 14px; font-weight:500}
-.foot-col a{display:block; font-size:14.5px; color:#B9CCDF; margin-bottom:9px}
-.foot-col a:hover{color:#fff}
-.foot-bottom{padding-top:24px; font-size:12.5px; color:#7890A8; line-height:1.7}
-.foot-bottom .dis{max-width:880px; margin-bottom:12px}
-
-/* context: adeguati assetti + 231 */
-.ctx-card{background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.16); border-top:3px solid var(--gold); border-radius:5px; padding:32px 30px}
-.ctx-card .ctx-k{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold); margin-bottom:14px}
-.ctx-card h3{color:#fff; font-size:23px; margin-bottom:11px}
-.ctx-card p{color:#C4D6E7; font-size:15.5px; margin:0; line-height:1.6}
-.ctx-synth{margin-top:24px; display:flex; gap:24px; align-items:flex-start; background:rgba(200,162,76,.08); border:1px solid rgba(200,162,76,.30); border-radius:5px; padding:26px 30px}
-.ctx-synth-k{font-family:var(--mono); font-size:11.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold-soft); white-space:nowrap; padding-top:6px}
-.ctx-synth p{margin:0; color:#E9F1F8; font-family:var(--serif); font-size:18.5px; line-height:1.5}
-
-/* reveal (no-JS safe: hidden only when .js is present) */
-.reveal{opacity:1; transform:none}
-.js .reveal{opacity:0; transform:translateY(18px); transition:opacity .6s ease, transform .6s ease}
-.js .reveal.in{opacity:1; transform:none}
-
-@media (max-width:860px){
-  .navlinks{display:none}
-  .exchange-grid{grid-template-columns:1fr}
-  .hinge{padding:4px 0}
-  .hinge span{font-size:16px}
-  .grid-3,.grid-4,.tl,.steps,.grid-2{grid-template-columns:1fr}
-  .why-grid{grid-template-columns:1fr; gap:30px}
-  .ctx-synth{flex-direction:column; gap:10px}
-}
-@media (prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  .reveal,.js .reveal{opacity:1; transform:none; transition:none}
-  .card:hover,.btn:hover{transform:none}
-}
-@media (max-width:420px){
-  .brand .wm{display:none}
-  .nav .btn{padding:10px 14px; font-size:13.5px}
-}
-</style>
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Article",
+                "@id": "https://nextgenerationbusiness.it/adempimento_collaborativo/#article",
+                "headline": "Tax Control Framework e Adempimento Collaborativo",
+                "description": "Guida all'adempimento collaborativo (cooperative compliance) e al Tax Control Framework: requisiti, vantaggi, platea, architettura del sistema e integrazione con adeguati assetti e Modello 231.",
+                "image": "https://nextgenerationbusiness.it/assets/og-revilaw-1200x630.jpg",
+                "inLanguage": "it-IT",
+                "author": { "@type": "Organization", "name": "Revilaw S.p.A.", "url": "https://www.revilaw.it" },
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "Next Generation Business",
+                    "logo": { "@type": "ImageObject", "url": "https://nextgenerationbusiness.it/assets/logo-revilaw.png" }
+                },
+                "datePublished": "2026-06-29",
+                "dateModified": "2026-06-29",
+                "mainEntityOfPage": "https://nextgenerationbusiness.it/adempimento_collaborativo/"
+            },
+            {
+                "@type": "Service",
+                "name": "Costruzione e certificazione del Tax Control Framework",
+                "description": "Supporto Revilaw S.p.A. per l'accesso all'adempimento collaborativo e al regime opzionale: analisi dei requisiti, disegno e implementazione del Tax Control Framework, documentazione, certificazione del sistema e dialogo con l'Agenzia delle Entrate.",
+                "provider": { "@type": "Organization", "name": "Revilaw S.p.A.", "url": "https://www.revilaw.it" },
+                "areaServed": { "@type": "Country", "name": "Italia" },
+                "serviceType": "Compliance fiscale e risk management",
+                "offers": { "@type": "Offer", "priceCurrency": "EUR" }
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    { "@type": "ListItem", "position": 1, "name": "Next Generation Business", "item": "https://nextgenerationbusiness.it/" },
+                    { "@type": "ListItem", "position": 2, "name": "Tax Control Framework e Adempimento Collaborativo", "item": "https://nextgenerationbusiness.it/adempimento_collaborativo/" }
+                ]
+            }
+        ]
+    }
+    </script>
 </head>
-<body>
+<body class="content-page theme-231">
 
-<header>
-  <div class="wrap nav">
-    <a class="brand" href="../" aria-label="Torna alla home Next Generation Business">
-      <img src="data:image/png;base64,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" alt="Revilaw">
-      <span class="wm">REVILAW</span>
-    </a>
-    <nav class="navlinks">
-      <a href="#cos-e">Cos'&egrave;</a>
-      <a href="#vantaggi">Vantaggi</a>
-      <a href="#platea">A chi si rivolge</a>
-      <a href="#percorso">Il percorso</a>
-      <a href="#contatti">Contatti</a>
+    <!-- NAVBAR -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <div class="nav-brand-group">
+                <a href="../" class="nav-back" aria-label="Torna alla home">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </a>
+                <span class="nav-divider"></span>
+                <a href="../" class="logo">
+                    <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="logo-img">
+                    <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                </a>
+            </div>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#cos-e">Cos'è</a></li>
+                <li><a href="#contesto">Contesto</a></li>
+                <li><a href="#vantaggi">Vantaggi</a></li>
+                <li><a href="#platea">A chi si rivolge</a></li>
+                <li><a href="#percorso">Il percorso</a></li>
+                <li><a href="#contatti" class="nav-cta">Contattaci</a></li>
+            </ul>
+            <button class="hamburger" id="hamburger" aria-label="Apri menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
     </nav>
-    <a href="#contatti" class="btn btn-ink navcta">Richiedi una valutazione</a>
-  </div>
-</header>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="wrap hero-inner">
-    <p class="eyebrow">Tax Control Framework e Adempimento Collaborativo</p>
-    <h1>Trasparenza verso il fisco, <span class="kj">certezza</span> per l'impresa.</h1>
-    <p class="hero-sub">L'adempimento collaborativo trasforma il rischio fiscale in un percorso di certezza: dialogo preventivo con l'Agenzia delle Entrate, sanzioni ridotte o escluse, termini di accertamento pi&ugrave; brevi. Revilaw accompagna l'impresa dalla costruzione del Tax Control Framework fino alla sua certificazione.</p>
-    <div class="hero-cta">
-      <a href="#contatti" class="btn btn-gold">Richiedi una valutazione</a>
-      <a href="#vantaggi" class="btn btn-ghost">Scopri i vantaggi</a>
-    </div>
-    <p class="hero-foot">Regime introdotto dal D.Lgs. 128/2015 e profondamente rinnovato dalla riforma fiscale 2023-2025: certificazione del sistema, riduzione dei termini di accertamento, ampliamento della platea.</p>
-  </div>
+    <!-- HERO -->
+    <section class="hero" id="hero">
+        <div class="hero-bg-overlay"></div>
+        <div class="container hero-content">
+            <div class="hero-badge">D.Lgs. 128/2015 &middot; Riforma fiscale 2023-2025</div>
+            <h1>Tax Control Framework e<br><span class="text-accent">Adempimento Collaborativo</span></h1>
+            <p class="hero-subtitle">
+                L'adempimento collaborativo trasforma il rischio fiscale in un percorso di certezza:
+                <strong>dialogo preventivo con l'Agenzia delle Entrate</strong>, sanzioni ridotte o escluse,
+                termini di accertamento più brevi. Revilaw accompagna l'impresa dalla costruzione del
+                Tax Control Framework fino alla sua certificazione.
+            </p>
+            <div class="hero-actions">
+                <a href="#contatti" class="btn btn-primary">Richiedi una valutazione</a>
+                <a href="#vantaggi" class="btn btn-outline">Scopri i vantaggi</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-number">&minus;2 anni</span>
+                    <span class="stat-label">Termini di accertamento con TCF certificato</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-number">45 gg</span>
+                    <span class="stat-label">Interpello con risposta vincolante</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-number">100 mln</span>
+                    <span class="stat-label">Soglia di accesso dal 2028</span>
+                </div>
+            </div>
+        </div>
+    </section>
 
-  <!-- EXCHANGE signature -->
-  <div class="wrap exchange">
-    <div class="exchange-grid">
-      <div class="xcard give reveal">
-        <div class="xk">L'impresa offre</div>
-        <h3>Trasparenza</h3>
-        <p>Comunica in via preventiva i rischi fiscali significativi e apre il proprio sistema di controllo al confronto con l'Agenzia.</p>
-      </div>
-      <div class="hinge reveal"><span>in cambio di</span></div>
-      <div class="xcard get reveal">
-        <div class="xk">L'impresa ottiene</div>
-        <h3>Certezza</h3>
-        <p>Trattamento anticipato e vincolante delle operazioni, riduzione di sanzioni e termini, un interlocutore unico e stabile.</p>
-      </div>
-    </div>
-  </div>
-</section>
+    <!-- COS'E' -->
+    <section class="section" id="cos-e">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Cos'è</span>
+                <h2>Dal controllo dopo, alla <span class="text-accent">gestione prima</span></h2>
+                <p class="section-desc">
+                    L'adempimento collaborativo (<em>cooperative compliance</em>) è un regime opzionale di
+                    rapporto rafforzato tra l'impresa e l'Agenzia delle Entrate.
+                </p>
+            </div>
 
-<!-- COS'E -->
-<section class="section" id="cos-e">
-  <div class="wrap">
-    <div class="head-block">
-      <p class="eyebrow on-light">Cos'&egrave;</p>
-      <h2>Dal controllo dopo, alla gestione prima</h2>
-    </div>
-    <div class="grid-2">
-      <div class="reveal">
-        <p class="lead">L'adempimento collaborativo (cooperative compliance) &egrave; un regime opzionale di rapporto rafforzato tra l'impresa e l'Agenzia delle Entrate.</p>
-        <p style="color:var(--slate)">Il suo presupposto &egrave; un Tax Control Framework idoneo: un sistema integrato per rilevare, misurare, gestire e controllare il rischio fiscale, inserito nel governo e nel controllo interno dell'impresa.</p>
-      </div>
-      <div class="reveal">
-        <p style="color:var(--slate)">La logica cambia in modo netto. Non si attende l'accertamento per scoprire un errore: si presidia il rischio prima che si traduca in contestazione. Meno contenzioso, meno asimmetrie informative, maggiore prevedibilit&agrave; delle scelte d'impresa.</p>
-        <p style="color:var(--slate); margin-bottom:0">Non &egrave; un adempimento in pi&ugrave;, ma un investimento in certezza che si integra con gli adeguati assetti gi&agrave; richiesti dall'art. 2086 del Codice civile.</p>
-      </div>
-    </div>
-    <div class="aside reveal">
-      <div class="ak">Una metafora utile</div>
-      <p>Il regime non sanziona la distrazione di un istante, come un autovelox in un punto. Premia un comportamento corretto e costante lungo tutto il percorso, come un sistema tutor. Conta la gestione del rischio nel continuo, non l'errore isolato.</p>
-    </div>
-  </div>
-</section>
+            <div class="detail-block">
+                <p>
+                    Il suo presupposto è un <strong>Tax Control Framework idoneo</strong>: un sistema integrato per
+                    rilevare, misurare, gestire e controllare il rischio fiscale, inserito nel governo e nel
+                    controllo interno dell'impresa.
+                </p>
+                <p>
+                    La logica cambia in modo netto. Non si attende l'accertamento per scoprire un errore: si
+                    <strong>presidia il rischio prima</strong> che si traduca in contestazione. Meno contenzioso, meno
+                    asimmetrie informative, maggiore prevedibilità delle scelte d'impresa.
+                </p>
+                <p>
+                    Non è un adempimento in più, ma un <strong>investimento in certezza</strong> che si integra con gli
+                    adeguati assetti già richiesti dall'art. 2086 del Codice civile.
+                </p>
+                <p>
+                    <strong>Una metafora utile.</strong> Il regime non sanziona la distrazione di un istante, come un
+                    autovelox in un punto. Premia un comportamento corretto e costante lungo tutto il percorso,
+                    come un sistema tutor. Conta la gestione del rischio nel continuo, non l'errore isolato.
+                </p>
+            </div>
+        </div>
+    </section>
 
-<!-- CONTESTO: adeguati assetti + 231 -->
-<section class="section section--navy" id="contesto">
-  <div class="wrap">
-    <div class="head-block">
-      <p class="eyebrow">Dove si colloca</p>
-      <h2>Un sistema integrato, non un adempimento in pi&ugrave;</h2>
-      <p class="lead" style="margin-top:18px">Il Tax Control Framework non nasce isolato. &Egrave; la dimensione fiscale degli adeguati assetti richiesti dalla legge e si integra con il Modello 231, riutilizzando i presidi che l'impresa gi&agrave; possiede ed evitando duplicazioni.</p>
-    </div>
-    <div class="grid-2">
-      <div class="ctx-card reveal">
-        <div class="ctx-k">Adeguati assetti, art. 2086 c.c.</div>
-        <h3>La dimensione fiscale dell'adeguatezza</h3>
-        <p>Dopo la riforma del Codice della crisi, l'imprenditore deve dotarsi di assetti organizzativi, amministrativi e contabili adeguati alla natura e alle dimensioni dell'impresa. Un Tax Control Framework idoneo &egrave; la declinazione fiscale di questo dovere: presidia in modo strutturato il rischio tributario e serve i quattro obiettivi del controllo interno, dall'attendibilit&agrave; dell'informativa alla conformit&agrave; alle norme e alla salvaguardia del patrimonio.</p>
-      </div>
-      <div class="ctx-card reveal">
-        <div class="ctx-k">Modello 231, D.Lgs. 231/2001</div>
-        <h3>Il presidio dei reati tributari</h3>
-        <p>Diversi reati tributari sono oggi reati presupposto della responsabilit&agrave; degli enti: il Modello 231 deve quindi presidiare anche il rischio fiscale di natura penale. Il Tax Control Framework &egrave; lo strumento naturale per farlo, perch&eacute; mappa rischi e controlli con un dettaglio che alimenta e rafforza la parte tributaria del Modello, a beneficio anche dell'Organismo di Vigilanza.</p>
-      </div>
-    </div>
-    <div class="ctx-synth reveal">
-      <span class="ctx-synth-k">Un solo sistema</span>
-      <p>La governance del Tax Control Framework, costruita sulle tre linee di difesa, dialoga con i presidi gi&agrave; presenti: il codice etico, i controlli sull'informativa contabile (L. 262/2005), il Modello 231 e lo status doganale AEO. Il risultato &egrave; un unico sistema di controllo coerente, non tre adempimenti separati.</p>
-    </div>
-  </div>
-</section>
+    <!-- CONTESTO -->
+    <section class="section section-alt" id="contesto">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Dove si colloca</span>
+                <h2>Un sistema integrato, non un <span class="text-accent">adempimento in più</span></h2>
+                <p class="section-desc">
+                    Il Tax Control Framework non nasce isolato. È la dimensione fiscale degli adeguati assetti
+                    richiesti dalla legge e si integra con il Modello 231, riutilizzando i presidi che l'impresa
+                    già possiede ed evitando duplicazioni.
+                </p>
+            </div>
 
-<!-- VANTAGGI -->
-<section class="section section--paper" id="vantaggi">
-  <div class="wrap">
-    <div class="head-block">
-      <p class="eyebrow on-light">I vantaggi concreti</p>
-      <h2>Ci&ograve; che l'impresa ottiene in cambio della trasparenza</h2>
-    </div>
-    <div class="grid-3">
-      <div class="card reveal">
-        <div class="tag">Sanzioni escluse</div>
-        <h3>Sanzioni disapplicate</h3>
-        <p>Per i rischi comunicati in modo tempestivo ed esauriente, disapplicazione integrale delle sanzioni amministrative ed esclusione di quelle penali per dichiarazione infedele.</p>
-      </div>
-      <div class="card reveal">
-        <div class="tag">Accertamento</div>
-        <h3>Termini pi&ugrave; brevi</h3>
-        <p>Termini di accertamento ridotti di due anni con il Tax Control Framework certificato, fino a tre anni in meno con la certificazione tributaria.</p>
-      </div>
-      <div class="card reveal">
-        <div class="tag">Certezza preventiva</div>
-        <h3>Risposte vincolanti</h3>
-        <p>Interpello con risposta vincolante in 45 giorni e dialogo costante con l'Agenzia su operazioni complesse e straordinarie.</p>
-      </div>
-      <div class="card reveal">
-        <div class="tag">Sanzioni ridotte</div>
-        <h3>Riduzione del 50%</h3>
-        <p>Per i rischi non significativi correttamente mappati, sanzioni ridotte alla met&agrave;, con riscossione sospesa fino alla definitivit&agrave; dell'accertamento.</p>
-      </div>
-      <div class="card reveal">
-        <div class="tag">Rimborsi</div>
-        <h3>Rimborsi senza garanzie</h3>
-        <p>Esonero dall'obbligo di prestare garanzie per i rimborsi delle imposte dirette e indirette, per tutta la permanenza nel regime.</p>
-      </div>
-      <div class="card reveal">
-        <div class="tag">Reputazione</div>
-        <h3>Affidabilit&agrave; riconosciuta</h3>
-        <p>Inserimento nell'elenco pubblico dei soggetti aderenti e considerazione dell'adesione come indice di minor rischio nei controlli.</p>
-      </div>
-    </div>
-  </div>
-</section>
+            <div class="benefits-grid">
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <div>
+                        <h3>Adeguati assetti, art. 2086 c.c.</h3>
+                        <p>Dopo la riforma del Codice della crisi, l'imprenditore deve dotarsi di assetti organizzativi, amministrativi e contabili adeguati alla natura e alle dimensioni dell'impresa. Un Tax Control Framework idoneo è la <strong>declinazione fiscale</strong> di questo dovere: presidia in modo strutturato il rischio tributario e serve i quattro obiettivi del controllo interno, dall'attendibilità dell'informativa alla conformità alle norme e alla salvaguardia del patrimonio.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    </div>
+                    <div>
+                        <h3>Modello 231, D.Lgs. 231/2001</h3>
+                        <p>Diversi reati tributari sono oggi reati presupposto della responsabilità degli enti: il Modello 231 deve quindi presidiare anche il <strong>rischio fiscale di natura penale</strong>. Il Tax Control Framework è lo strumento naturale per farlo, perché mappa rischi e controlli con un dettaglio che alimenta e rafforza la parte tributaria del Modello, a beneficio anche dell'Organismo di Vigilanza.</p>
+                    </div>
+                </div>
+            </div>
 
-<!-- A CHI SI RIVOLGE -->
-<section class="section section--navy" id="platea">
-  <div class="wrap">
-    <div class="head-block">
-      <p class="eyebrow">A chi si rivolge</p>
-      <h2>Una platea che si allarga</h2>
-      <p class="lead" style="margin-top:18px">La riforma ha ridotto progressivamente la soglia dimensionale di accesso e ha aperto nuove vie. Oggi il tema riguarda un numero crescente di imprese e di gruppi.</p>
-    </div>
-    <div class="tl">
-      <div class="tl-item reveal">
-        <div class="tl-when">Dal 2026</div>
-        <div>
-          <h3>Soglia a 500 milioni</h3>
-          <p>Accesso per i contribuenti con ricavi o volume d'affari pari ad almeno 500 milioni di euro.</p>
+            <div class="detail-block">
+                <p>
+                    <strong>Un solo sistema.</strong> La governance del Tax Control Framework, costruita sulle tre linee
+                    di difesa, dialoga con i presidi già presenti: il codice etico, i controlli sull'informativa
+                    contabile (L. 262/2005), il Modello 231 e lo status doganale AEO. Il risultato è un unico
+                    sistema di controllo coerente, non tre adempimenti separati.
+                </p>
+            </div>
         </div>
-      </div>
-      <div class="tl-item reveal">
-        <div class="tl-when">Dal 2028</div>
-        <div>
-          <h3>Soglia a 100 milioni</h3>
-          <p>La soglia dimensionale di accesso scende a 100 milioni di euro, ampliando in modo significativo la platea.</p>
-        </div>
-      </div>
-      <div class="tl-item reveal">
-        <div class="tl-when">Gruppi</div>
-        <div>
-          <h3>Accesso di gruppo</h3>
-          <p>Accesso esteso ai gruppi su base civilistica (controllo ai sensi dell'art. 2359 c.c.), con un Tax Control Framework integrato a governance accentrata.</p>
-        </div>
-      </div>
-      <div class="tl-item reveal">
-        <div class="tl-when">Sotto soglia</div>
-        <div>
-          <h3>Regime opzionale</h3>
-          <p>Con il regime opzionale (art. 7-bis) anche le imprese che non raggiungono la soglia possono adottare e certificare volontariamente un TCF, con protezione dalle sanzioni sulle fattispecie portate a interpello.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- QUATTRO PILASTRI -->
-<section class="section section--navy" style="padding-top:0">
-  <div class="wrap">
-    <div class="head-block">
-      <p class="eyebrow">L'architettura del sistema</p>
-      <h2>Quattro pilastri, un sistema</h2>
-      <p class="lead" style="margin-top:18px">Un Tax Control Framework idoneo, costruito sul framework internazionale COSO, poggia su quattro aree che l'Agenzia e il certificatore valutano.</p>
-    </div>
-    <div class="grid-4">
-      <div class="pillar reveal">
-        <div class="num">01</div>
-        <h3>Ambiente di controllo</h3>
-        <p>Valori, strategia fiscale e propensione al rischio. Una bassa propensione al rischio e l'esempio del vertice sono il fondamento del sistema.</p>
-      </div>
-      <div class="pillar reveal">
-        <div class="num">02</div>
-        <h3>Governance</h3>
-        <p>Ruoli e responsabilit&agrave; chiari, secondo il modello delle tre linee di difesa e con segregazione dei compiti.</p>
-      </div>
-      <div class="pillar reveal">
-        <div class="num">03</div>
-        <h3>Tax Risk Assessment</h3>
-        <p>Identificazione, misurazione e gestione dei rischi: la mappa dei rischi e dei controlli e la policy del rischio interpretativo.</p>
-      </div>
-      <div class="pillar reveal">
-        <div class="num">04</div>
-        <h3>Monitoraggio</h3>
-        <p>Verifica continua dell'efficacia dei controlli, gestione delle carenze e relazione annuale agli organi di gestione e all'Agenzia.</p>
-      </div>
-    </div>
-  </div>
-</section>
+    <!-- VANTAGGI -->
+    <section class="section" id="vantaggi">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">I vantaggi concreti</span>
+                <h2>Ciò che l'impresa ottiene in cambio della <span class="text-accent">trasparenza</span></h2>
+                <p class="section-desc">
+                    L'adesione non è un costo di conformità: è uno scambio. L'impresa offre trasparenza preventiva
+                    e in cambio ottiene certezza, protezione e tempi più brevi.
+                </p>
+            </div>
 
-<!-- IL PERCORSO -->
-<section class="section" id="percorso">
-  <div class="wrap">
-    <div class="head-block">
-      <p class="eyebrow on-light">Il percorso con Revilaw</p>
-      <h2>Come vi accompagniamo</h2>
-    </div>
-    <div class="steps">
-      <div class="step reveal">
-        <div class="sn">1</div>
-        <div>
-          <h3>Valutazione e analisi dei requisiti</h3>
-          <p>Verifichiamo la posizione dimensionale, la via di accesso pi&ugrave; adatta (adempimento collaborativo, gruppo o regime opzionale) e lo stato dei presidi gi&agrave; presenti.</p>
+            <div class="benefits-grid">
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                    </div>
+                    <div>
+                        <h3>Sanzioni disapplicate</h3>
+                        <p>Per i rischi comunicati in modo tempestivo ed esauriente, <strong>disapplicazione integrale</strong> delle sanzioni amministrative ed esclusione di quelle penali per dichiarazione infedele.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div>
+                        <h3>Termini di accertamento più brevi</h3>
+                        <p>Termini ridotti di <strong>due anni</strong> con il Tax Control Framework certificato, fino a <strong>tre anni</strong> in meno con la certificazione tributaria.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    </div>
+                    <div>
+                        <h3>Risposte vincolanti</h3>
+                        <p>Interpello con <strong>risposta vincolante in 45 giorni</strong> e dialogo costante con l'Agenzia su operazioni complesse e straordinarie.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </div>
+                    <div>
+                        <h3>Riduzione del 50%</h3>
+                        <p>Per i rischi non significativi correttamente mappati, <strong>sanzioni ridotte alla metà</strong>, con riscossione sospesa fino alla definitività dell'accertamento.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    </div>
+                    <div>
+                        <h3>Rimborsi senza garanzie</h3>
+                        <p><strong>Esonero dall'obbligo di prestare garanzie</strong> per i rimborsi delle imposte dirette e indirette, per tutta la permanenza nel regime.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    </div>
+                    <div>
+                        <h3>Affidabilità riconosciuta</h3>
+                        <p>Inserimento nell'<strong>elenco pubblico dei soggetti aderenti</strong> e considerazione dell'adesione come indice di minor rischio nei controlli.</p>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-      <div class="step reveal">
-        <div class="sn">2</div>
-        <div>
-          <h3>Disegno e implementazione del TCF</h3>
-          <p>Costruiamo il sistema sui quattro pilastri: strategia fiscale, governance, mappa dei rischi e dei controlli, policy del rischio interpretativo e piano di monitoraggio.</p>
-        </div>
-      </div>
-      <div class="step reveal">
-        <div class="sn">3</div>
-        <div>
-          <h3>Documentazione e integrazione</h3>
-          <p>Predisponiamo il Tax Compliance Model e gli allegati, integrando i presidi esistenti (adeguati assetti, Modello 231, informativa contabile) per evitare duplicazioni.</p>
-        </div>
-      </div>
-      <div class="step reveal">
-        <div class="sn">4</div>
-        <div>
-          <h3>Certificazione e rapporto continuativo</h3>
-          <p>Gestiamo il percorso di certificazione del sistema, nel rispetto dei requisiti di indipendenza, e vi affianchiamo nel dialogo con l'Agenzia: comunicazioni di rischio, interpelli e relazione annuale.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- PERCHE REVILAW -->
-<section class="section section--paper" id="perche">
-  <div class="wrap">
-    <div class="why-grid">
-      <div class="reveal">
-        <p class="eyebrow on-light">Perch&eacute; Revilaw</p>
-        <h2>Competenza integrata, una sola squadra</h2>
-        <p class="lead" style="margin-top:18px">Il regime richiede una figura ibrida: controllo interno, contabilit&agrave; e diritto tributario. &Egrave; il profilo su cui &egrave; costruito il nostro studio.</p>
-        <a href="#contatti" class="btn btn-ink" style="margin-top:10px">Parliamone</a>
-      </div>
-      <ul class="why-list reveal">
-        <li><span class="wk">01</span><div><strong>Revisione e governance d'impresa</strong><span>Dottori commercialisti e revisori legali, con esperienza consolidata in revisione legale e sistemi di controllo interno.</span></div></li>
-        <li><span class="wk">02</span><div><strong>Adeguati assetti e Modello 231</strong><span>Il TCF si innesta su presidi che gi&agrave; conosciamo: adeguati assetti ex art. 2086 c.c. e modelli di organizzazione e controllo.</span></div></li>
-        <li><span class="wk">03</span><div><strong>Requisiti del certificatore</strong><span>Operiamo nel rispetto dei requisiti di indipendenza e professionalit&agrave; previsti dalla normativa per la certificazione del sistema.</span></div></li>
-        <li><span class="wk">04</span><div><strong>Dalla singola impresa al gruppo</strong><span>Rete nazionale e approccio su misura, con la scalabilit&agrave; necessaria per i Tax Control Framework integrati di gruppo.</span></div></li>
-      </ul>
-    </div>
-  </div>
-</section>
+    <!-- A CHI SI RIVOLGE -->
+    <section class="section section-alt" id="platea">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">A chi si rivolge</span>
+                <h2>Una platea che <span class="text-accent">si allarga</span></h2>
+                <p class="section-desc">
+                    La riforma ha ridotto progressivamente la soglia dimensionale di accesso e ha aperto nuove vie.
+                    Oggi il tema riguarda un numero crescente di imprese e di gruppi.
+                </p>
+            </div>
 
-<!-- CTA -->
-<section class="section" id="contatti">
-  <div class="wrap">
-    <div class="cta-band reveal">
-      <div class="cta-inner">
-        <p class="eyebrow">Parliamo della vostra posizione</p>
-        <h2>Una prima valutazione, senza impegno</h2>
-        <p>Capiamo insieme se e come l'adempimento collaborativo o il regime opzionale possono portare valore alla vostra impresa, e quali presidi sono gi&agrave; a vostro favore.</p>
-        <div class="cta-row">
-          <a href="mailto:info@nextgenerationbusiness.it" class="btn btn-gold">Richiedi una valutazione</a>
+            <div class="components-grid">
+                <article class="component-card">
+                    <span class="component-number">2026</span>
+                    <h3>Soglia a 500 milioni</h3>
+                    <p>Accesso per i contribuenti con ricavi o volume d'affari pari ad almeno 500 milioni di euro.</p>
+                </article>
+                <article class="component-card">
+                    <span class="component-number">2028</span>
+                    <h3>Soglia a 100 milioni</h3>
+                    <p>La soglia dimensionale di accesso scende a 100 milioni di euro, ampliando in modo significativo la platea.</p>
+                </article>
+                <article class="component-card">
+                    <span class="component-number">Gruppi</span>
+                    <h3>Accesso di gruppo</h3>
+                    <p>Accesso esteso ai gruppi su base civilistica (controllo ai sensi dell'art. 2359 c.c.), con un Tax Control Framework integrato a governance accentrata.</p>
+                </article>
+                <article class="component-card">
+                    <span class="component-number">7-bis</span>
+                    <h3>Regime opzionale, anche sotto soglia</h3>
+                    <p>Con il regime opzionale (art. 7-bis) anche le imprese che non raggiungono la soglia possono adottare e certificare volontariamente un TCF, con protezione dalle sanzioni sulle fattispecie portate a interpello.</p>
+                </article>
+            </div>
         </div>
-        <div class="cta-contacts">
-          <span>Email <b>info@nextgenerationbusiness.it</b></span>
-          <span>Telefono <b>(+39) 045 8010734</b></span>
-          <span>Studio <b>Roma</b></span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<footer>
-  <div class="wrap">
-    <div class="foot-top">
-      <div class="foot-brand">
-        <a class="brand" href="../"><img src="data:image/png;base64,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" alt="Revilaw"><span class="wm">REVILAW</span></a>
-        <p>Revisione legale, governance e fiscalit&agrave; d'impresa. Accompagniamo le imprese nella costruzione e nella certificazione del Tax Control Framework.</p>
-      </div>
-      <div class="foot-cols">
-        <div class="foot-col">
-          <h4>La pagina</h4>
-          <a href="#cos-e">Cos'&egrave;</a>
-          <a href="#vantaggi">Vantaggi</a>
-          <a href="#platea">A chi si rivolge</a>
-          <a href="#percorso">Il percorso</a>
-        </div>
-        <div class="foot-col">
-          <h4>Contatti</h4>
-          <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>
-          <a href="tel:+390458010734">(+39) 045 8010734</a>
-          <a href="#contatti">Studio di Roma</a>
-        </div>
-      </div>
-    </div>
-    <div class="foot-bottom">
-      <p class="dis">Contenuti a scopo informativo, aggiornati alle principali fonti normative in materia di adempimento collaborativo e Tax Control Framework (D.Lgs. 128/2015 e successive modifiche). Non sostituiscono un parere professionale: per ogni decisione si rinvia alle disposizioni ufficiali vigenti e a una valutazione del caso concreto.</p>
-      <p>&copy; 2026 Revilaw. Tutti i diritti riservati.</p>
-    </div>
-  </div>
-</footer>
+    <!-- QUATTRO PILASTRI -->
+    <section class="section" id="pilastri">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">L'architettura del sistema</span>
+                <h2>Quattro <span class="text-accent">pilastri</span>, un sistema</h2>
+                <p class="section-desc">
+                    Un Tax Control Framework idoneo, costruito sul framework internazionale COSO, poggia su quattro
+                    aree che l'Agenzia e il certificatore valutano.
+                </p>
+            </div>
 
-<script>
-(function(){
-  var io = new IntersectionObserver(function(entries){
-    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
-  }, {threshold:0.12, rootMargin:'0px 0px -8% 0px'});
-  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
-})();
-</script>
-<script src="/assets/fcd-popup.js" defer></script>
+            <div class="pillars-grid">
+                <article class="pillar-card">
+                    <div class="pillar-number">01</div>
+                    <h3>Ambiente di controllo</h3>
+                    <p class="pillar-label">Valori e propensione al rischio</p>
+                    <ul class="pillar-list">
+                        <li>Strategia fiscale e propensione al rischio definite</li>
+                        <li>Bassa propensione al rischio come fondamento</li>
+                        <li>Esempio e indirizzo del vertice aziendale</li>
+                    </ul>
+                </article>
+                <article class="pillar-card">
+                    <div class="pillar-number">02</div>
+                    <h3>Governance</h3>
+                    <p class="pillar-label">Ruoli e responsabilità</p>
+                    <ul class="pillar-list">
+                        <li>Modello delle tre linee di difesa</li>
+                        <li>Ruoli e responsabilità chiari</li>
+                        <li>Segregazione dei compiti</li>
+                    </ul>
+                </article>
+                <article class="pillar-card">
+                    <div class="pillar-number">03</div>
+                    <h3>Tax Risk Assessment</h3>
+                    <p class="pillar-label">Identificazione e gestione</p>
+                    <ul class="pillar-list">
+                        <li>Mappa dei rischi e dei controlli</li>
+                        <li>Misurazione e gestione del rischio</li>
+                        <li>Policy del rischio interpretativo</li>
+                    </ul>
+                </article>
+                <article class="pillar-card">
+                    <div class="pillar-number">04</div>
+                    <h3>Monitoraggio</h3>
+                    <p class="pillar-label">Verifica continua</p>
+                    <ul class="pillar-list">
+                        <li>Efficacia dei controlli nel continuo</li>
+                        <li>Gestione delle carenze rilevate</li>
+                        <li>Relazione annuale agli organi e all'Agenzia</li>
+                    </ul>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- IL PERCORSO -->
+    <section class="section section-alt" id="percorso">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Il percorso con Revilaw</span>
+                <h2>Come vi <span class="text-accent">accompagniamo</span></h2>
+                <p class="section-desc">
+                    Dall'analisi dei requisiti alla certificazione del sistema e al rapporto continuativo con
+                    l'Agenzia: un percorso unico, con una sola squadra.
+                </p>
+            </div>
+
+            <div class="components-grid">
+                <article class="component-card">
+                    <span class="component-number">01</span>
+                    <h3>Valutazione e analisi dei requisiti</h3>
+                    <p>Verifichiamo la posizione dimensionale, la via di accesso più adatta (adempimento collaborativo, gruppo o regime opzionale) e lo stato dei presidi già presenti.</p>
+                </article>
+                <article class="component-card">
+                    <span class="component-number">02</span>
+                    <h3>Disegno e implementazione del TCF</h3>
+                    <p>Costruiamo il sistema sui quattro pilastri: strategia fiscale, governance, mappa dei rischi e dei controlli, policy del rischio interpretativo e piano di monitoraggio.</p>
+                </article>
+                <article class="component-card">
+                    <span class="component-number">03</span>
+                    <h3>Documentazione e integrazione</h3>
+                    <p>Predisponiamo il Tax Compliance Model e gli allegati, integrando i presidi esistenti (adeguati assetti, Modello 231, informativa contabile) per evitare duplicazioni.</p>
+                </article>
+                <article class="component-card">
+                    <span class="component-number">04</span>
+                    <h3>Certificazione e rapporto continuativo</h3>
+                    <p>Gestiamo il percorso di certificazione del sistema, nel rispetto dei requisiti di indipendenza, e vi affianchiamo nel dialogo con l'Agenzia: comunicazioni di rischio, interpelli e relazione annuale.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- PERCHE REVILAW -->
+    <section class="section" id="perche-noi">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Perché Revilaw</span>
+                <h2>Competenza integrata, una <span class="text-accent">sola squadra</span></h2>
+                <p class="section-desc">
+                    Il regime richiede una figura ibrida: controllo interno, contabilità e diritto tributario.
+                    È il profilo su cui è costruito il nostro studio.
+                </p>
+            </div>
+
+            <div class="perche-grid">
+                <div class="perche-item">
+                    <div class="perche-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </div>
+                    <div>
+                        <h3>Revisione e governance d'impresa</h3>
+                        <p>Dottori commercialisti e revisori legali, con esperienza consolidata in revisione legale e sistemi di controllo interno.</p>
+                    </div>
+                </div>
+                <div class="perche-item">
+                    <div class="perche-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <div>
+                        <h3>Adeguati assetti e Modello 231</h3>
+                        <p>Il TCF si innesta su presidi che già conosciamo: adeguati assetti ex art. 2086 c.c. e modelli di organizzazione e controllo.</p>
+                    </div>
+                </div>
+                <div class="perche-item">
+                    <div class="perche-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    </div>
+                    <div>
+                        <h3>Requisiti del certificatore</h3>
+                        <p>Operiamo nel rispetto dei requisiti di indipendenza e professionalità previsti dalla normativa per la certificazione del sistema.</p>
+                    </div>
+                </div>
+                <div class="perche-item">
+                    <div class="perche-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div>
+                        <h3>Dalla singola impresa al gruppo</h3>
+                        <p>Rete nazionale e approccio su misura, con la scalabilità necessaria per i Tax Control Framework integrati di gruppo.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA + CONTATTI -->
+    <section class="section section-cta" id="contatti">
+        <div class="container">
+            <div class="cta-wrapper">
+                <div class="cta-text">
+                    <span class="section-tag">Parliamo della vostra posizione</span>
+                    <h2>Una prima valutazione, <span class="text-accent">senza impegno</span></h2>
+                    <p>
+                        Capiamo insieme se e come l'adempimento collaborativo o il regime opzionale possono portare
+                        valore alla vostra impresa, e quali presidi sono già a vostro favore.
+                    </p>
+                    <div class="contact-info">
+                        <div class="contact-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                            <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>
+                        </div>
+                        <div class="contact-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                            <span>(+39) 045 8010734</span>
+                        </div>
+                        <div class="contact-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span>Via XX Settembre, 9 - 37129 Verona (VR)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="cta-form">
+                    <form id="contactForm" data-pagina="Tax Control Framework e Adempimento Collaborativo - Contatto">
+                        <h3>Richiedi una valutazione</h3>
+                        <div class="form-group">
+                            <label for="nome">Nome *</label>
+                            <input type="text" id="nome" name="nome" required placeholder="Nome" autocomplete="given-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="cognome">Cognome *</label>
+                            <input type="text" id="cognome" name="cognome" required placeholder="Cognome" autocomplete="family-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email professionale *</label>
+                            <input type="email" id="email" name="email" required placeholder="nome@azienda.it" autocomplete="email">
+                        </div>
+                        <div class="form-group">
+                            <label for="azienda">Azienda / Studio *</label>
+                            <input type="text" id="azienda" name="azienda" required placeholder="Denominazione" autocomplete="organization">
+                        </div>
+                        <div class="form-group">
+                            <label for="ruolo">Ruolo *</label>
+                            <input type="text" id="ruolo" name="ruolo" required placeholder="Qualifica professionale" autocomplete="organization-title">
+                        </div>
+                        <div class="form-group">
+                            <label for="telefono">Telefono <span class="form-optional">(facoltativo)</span></label>
+                            <input type="tel" id="telefono" name="telefono" placeholder="+39 000 000 0000" autocomplete="tel">
+                        </div>
+                        <div class="form-group form-check">
+                            <input type="checkbox" id="privacy" name="privacy" required>
+                            <label for="privacy">Acconsento al trattamento dei dati personali ai sensi del Regolamento UE 2016/679 (GDPR). *</label>
+                        </div>
+                        <div class="form-group form-check">
+                            <input type="checkbox" id="marketing" name="marketing">
+                            <label for="marketing">Desidero ricevere comunicazioni su futuri eventi e iniziative.</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Invia Richiesta</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="logo-img" style="height:30px;">
+                        <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                    </div>
+                    <p>Società di Revisione Legale</p>
+                </div>
+                <div class="footer-links">
+                    <a href="../modello_231/">Modello 231</a>
+                    <a href="../adeguati_assetti/">Adeguati Assetti</a>
+                    <a href="../revisione-demo/">Revisione Legale</a>
+                    <a href="../rating_legalita/">Rating di Legalità</a>
+                    <a href="../">Next Generation Business</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p class="footer-legal" style="max-width:880px;margin-bottom:12px;">
+                    Contenuti a scopo informativo, aggiornati alle principali fonti normative in materia di
+                    adempimento collaborativo e Tax Control Framework (D.Lgs. 128/2015 e successive modifiche).
+                    Non sostituiscono un parere professionale: per ogni decisione si rinvia alle disposizioni
+                    ufficiali vigenti e a una valutazione del caso concreto.
+                </p>
+                <p>&copy; 2026 Revilaw SPA - Società di Revisione Legale. Tutti i diritti riservati.</p>
+                <p class="footer-legal">P.IVA: 04641610235 | REA: VR 437220 | Sede: Via XX Settembre, 9 - 37129 Verona (VR)</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../zls_zes/script.js"></script>
+    <script src="../assets/event-banner.js" defer></script>
+    <script src="/assets/fcd-popup.js" defer></script>
 </body>
 </html>
