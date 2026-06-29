@@ -106,4 +106,12 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Sostenibilità d'impresa ed ESG -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/sostenibilita_esg/</loc>
+        <lastmod>2026-06-29</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
 </urlset>
