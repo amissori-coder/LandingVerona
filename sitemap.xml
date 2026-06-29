@@ -98,4 +98,12 @@
         <priority>0.9</priority>
     </url>
 
+    <!-- Tax Control Framework e Adempimento Collaborativo -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/adempimento_collaborativo/</loc>
+        <lastmod>2026-06-29</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
 </urlset>
