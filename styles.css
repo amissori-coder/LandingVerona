@@ -3488,3 +3488,173 @@ ul {
         height: 28px;
     }
 }
+
+/* ============================================================
+   LEFT COLUMN: ecosystem orbit (Revisione Legale core + servizi)
+   Added: brand text on top, orbit (sun + 5 planets) below.
+   ============================================================ */
+.split-brand {
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(30px, 5vh, 54px);
+}
+
+.orbit {
+    position: relative;
+    --r: 126px;                 /* radius from sun centre to planet centre */
+    width: 326px;
+    height: 326px;
+    margin: 0 auto;
+    flex-shrink: 0;
+    z-index: 2;
+}
+
+.orbit-ring {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+}
+.orbit-ring-1 {
+    inset: 6px;
+    border: 1px dashed rgba(255, 255, 255, 0.17);
+    animation: orbitSpin 70s linear infinite;
+}
+.orbit-ring-2 {
+    inset: 66px;
+    border: 1px solid rgba(127, 186, 255, 0.14);
+    animation: orbitSpin 110s linear infinite reverse;
+}
+@keyframes orbitSpin { to { transform: rotate(360deg); } }
+
+/* Sun = the existing "Revisione Legale" seal, re-centred and resized */
+.core-seal.orbit-sun {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    margin: -76px 0 0 -76px;
+    width: 152px;
+    height: 152px;
+    transform: none;
+    animation: none;
+}
+.core-seal.orbit-sun:hover { transform: scale(1.05); }
+
+/* Planets: positioned on the ring via per-planet --a angle, label kept upright */
+.planet {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    margin: -40px 0 0 -40px;
+    text-decoration: none;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 3;
+}
+.planet-face {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 28%, rgba(91, 137, 184, 0.55), rgba(11, 34, 58, 0.94));
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+.planet-label {
+    font-family: var(--font-display);
+    font-size: 8.7px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #eaf2fb;
+}
+.planet:hover {
+    transform: scale(1.13);
+    z-index: 5;
+}
+.planet:hover .planet-face {
+    border-color: rgba(127, 186, 255, 0.7);
+    background: radial-gradient(circle at 35% 28%, rgba(127, 186, 255, 0.5), rgba(20, 54, 90, 0.96));
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.42), 0 0 0 4px rgba(127, 186, 255, 0.14);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .orbit-ring-1, .orbit-ring-2 { animation: none; }
+}
+
+@media (max-width: 1099px) {
+    .orbit { --r: 112px; width: 296px; height: 296px; }
+    .core-seal.orbit-sun { width: 138px; height: 138px; margin: -69px 0 0 -69px; }
+    .planet { width: 74px; height: 74px; margin: -37px 0 0 -37px; }
+}
+@media (max-width: 480px) {
+    .orbit { --r: 98px; width: 256px; height: 256px; }
+    .core-seal.orbit-sun { width: 120px; height: 120px; margin: -60px 0 0 -60px; }
+    .planet { width: 66px; height: 66px; margin: -33px 0 0 -33px; }
+    .planet-label { font-size: 7.9px; }
+}
+
+/* ============================================================
+   EVENTS: collapsible groups (prossimi / passati)
+   ============================================================ */
+.events-group {
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    background: var(--white);
+    overflow: hidden;
+}
+.events-group[open] { box-shadow: 0 2px 14px rgba(10, 40, 68, 0.05); }
+
+.events-group-head {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--navy-dark);
+    user-select: none;
+}
+.events-group-head::-webkit-details-marker { display: none; }
+.events-group-head::marker { content: ""; }
+.events-group-title {
+    font-size: 0.82rem;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+}
+.events-group-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--navy);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+.events-group-chevron {
+    width: 18px;
+    height: 18px;
+    margin-left: auto;
+    color: var(--navy-light);
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+}
+.events-group[open] .events-group-chevron { transform: rotate(180deg); }
+.events-group-head:hover .events-group-chevron { color: var(--navy-dark); }
+.events-group-body {
+    padding: 2px 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}

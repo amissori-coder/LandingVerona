@@ -143,8 +143,27 @@
                 </div>
             </div>
 
+            <!-- Ecosystem orbit: Revisione Legale (core) circondata dai servizi -->
+            <div class="orbit" role="group" aria-label="I servizi Revilaw attorno alla Revisione Legale">
+                <span class="orbit-ring orbit-ring-1" aria-hidden="true"></span>
+                <span class="orbit-ring orbit-ring-2" aria-hidden="true"></span>
+                <a class="planet" style="top:11.35%; left:50%" href="adeguati_assetti/" aria-label="Adeguati Assetti">
+                    <span class="planet-face"><span class="planet-label">Adeguati<br>Assetti</span></span>
+                </a>
+                <a class="planet" style="top:38.06%; left:86.76%" href="modello_231/" aria-label="Modello 231">
+                    <span class="planet-face"><span class="planet-label">Modello<br>231</span></span>
+                </a>
+                <a class="planet" style="top:81.27%; left:72.73%" href="rating_legalita/" aria-label="Rating di Legalità">
+                    <span class="planet-face"><span class="planet-label">Rating di<br>Legalità</span></span>
+                </a>
+                <a class="planet" style="top:81.27%; left:27.27%" href="adempimento_collaborativo/" aria-label="Tax Control Framework">
+                    <span class="planet-face"><span class="planet-label">TCF</span></span>
+                </a>
+                <a class="planet" style="top:38.06%; left:13.24%" href="adempimento_collaborativo/#contesto" aria-label="ESG e sostenibilità">
+                    <span class="planet-face"><span class="planet-label">ESG</span></span>
+                </a>
             <!-- Core service seal: static text + dynamic sweeping arc -->
-            <a href="revisione-demo/" class="core-seal" aria-label="Scopri la Revisione Legale, il nostro core service">
+            <a href="revisione-demo/" class="core-seal orbit-sun" aria-label="Scopri la Revisione Legale, il nostro core service">
                 <svg class="core-seal-svg" viewBox="0 0 220 220">
                     <defs>
                         <!-- Top arc path: 9 o'clock → 12 → 3 o'clock -->
@@ -184,6 +203,7 @@
                     <span class="core-seal-ripple"></span>
                 </div>
             </a>
+            </div>
         </div>
 
         <!-- ========== MIDDLE: eventi ========== -->
@@ -199,6 +219,13 @@
                     </header>
 
                     <div class="events-stack">
+                        <details class="events-group" open>
+                            <summary class="events-group-head">
+                                <span class="events-group-title">Prossimi eventi</span>
+                                <span class="events-group-count">3</span>
+                                <svg class="events-group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </summary>
+                            <div class="events-group-body">
                         <div class="event-card event-upcoming" data-event-date="2026-10-02" data-event-badge-past="Evento concluso" aria-label="Evento Napoli 2 Ottobre 2026">
                             <div class="event-date-col">
                                 <span class="event-day">2</span>
@@ -300,7 +327,16 @@
                                 </span>
                             </div>
                         </div>
+                            </div>
+                        </details>
 
+                        <details class="events-group">
+                            <summary class="events-group-head">
+                                <span class="events-group-title">Eventi passati</span>
+                                <span class="events-group-count">2</span>
+                                <svg class="events-group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </summary>
+                            <div class="events-group-body">
                         <a href="roma_aprile_2026/" class="event-card event-upcoming" data-event-date="2026-04-29" data-event-badge-upcoming="Prossimo evento" data-event-badge-past="Evento precedente" data-event-link-upcoming="Scopri l'evento e iscriviti" data-event-link-past="Rivedi l'evento" aria-label="Evento Roma 29 Aprile 2026">
                             <div class="event-date-col">
                                 <span class="event-day">29</span>
@@ -372,6 +408,8 @@
                                 </span>
                             </div>
                         </a>
+                            </div>
+                        </details>
                     </div>
                 </section>
             </div>
