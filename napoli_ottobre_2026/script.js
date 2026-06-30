@@ -407,151 +407,39 @@ document.addEventListener('DOMContentLoaded', () => {
     setActive('impr');
 })();
 
-/* ===== Percorso: interactive 3D cube (2x2x2 = 8 tappe) ===== */
-(function initPercorsoCube() {
-    var wrap = document.getElementById('cubeWrap');
-    if (!wrap) return;
-    var stage = document.getElementById('cubeStage');
-    var cube = document.getElementById('cube');
-    var nav = document.getElementById('cubeNav');
-    var stepEl = document.getElementById('cubeStep');
-    var labelEl = document.getElementById('cubeLabel');
-    var titleEl = document.getElementById('cubeTitle');
-    var textEl = document.getElementById('cubeText');
-    var linkEl = document.getElementById('cubeLink');
-    var prevBtn = document.getElementById('cubePrev');
-    var nextBtn = document.getElementById('cubeNext');
-    var counterEl = document.getElementById('cubeCounter');
-    if (!stage || !cube) return;
+/* ===== Percorso: vertical roadmap spine — staggered scroll reveal =====
+   Self-contained and namespaced so it does not touch the existing
+   .fade-in / .visible observer. Steps are fully visible by default; the
+   entrance animation is "armed" only once JS + IntersectionObserver are
+   available, so nothing is ever left hidden if this code does not run. */
+(function initPercorsoSpine() {
+    var spine = document.getElementById('percorsoSpine');
+    if (!spine) return;
 
-    var STEPS = [
-        { n: '01', label: 'Organizzazione',      title: 'Adeguati Assetti', text: "Assetti organizzativi, amministrativi e contabili adeguati: la base di un'impresa che si conosce, si misura e sa decidere.", href: '../adeguati_assetti/', link: 'Approfondisci gli adeguati assetti' },
-        { n: '02', label: 'Controllo',           title: 'Governance e Controllo di Gestione', text: "Strumenti di governance e controllo di gestione per guidare l'impresa con dati, indicatori e responsabilità chiare.", href: null },
-        { n: '03', label: 'Gestione dei rischi', title: 'Modello 231 e Tax Control Framework', text: 'Presidiare i rischi penali e fiscali con il Modello 231 e il Tax Control Framework, in un unico sistema di controllo.', href: '../modello_231/', link: 'Approfondisci il Modello 231' },
-        { n: '04', label: 'Reputazione',         title: 'Rating di Legalità', text: "Dimostrare affidabilità e trasparenza con il Rating di Legalità rilasciato dall'AGCM, valorizzandolo verso banche e mercato.", href: '../rating_legalita/', link: 'Approfondisci il Rating di Legalità' },
-        { n: '05', label: 'Valore nel tempo',    title: 'ESG e Sostenibilità', text: 'Integrare sostenibilità e fattori ESG nella strategia per creare valore duraturo e accedere a nuove opportunità.', href: '../sostenibilita_esg/', link: 'Approfondisci ESG e sostenibilità' },
-        { n: '06', label: 'Banche e investitori', title: 'Merito Creditizio', text: "Migliorare il merito creditizio rafforzando il dialogo con banche e investitori: un'impresa organizzata è un'impresa più finanziabile.", href: null },
-        { n: '07', label: 'Opportunità',         title: 'Finanza Agevolata', text: 'Cogliere le opportunità della finanza agevolata e dei grandi programmi di sviluppo, trasformandole in progetti concreti.', href: null },
-        { n: '08', label: 'Territorio',          title: "Bagnoli e America's Cup 2027", text: "Le grandi opportunità di sviluppo del territorio: la rigenerazione di Bagnoli e gli investimenti collegati all'America's Cup 2027.", href: null }
-    ];
-    var corners = [[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1],[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1]];
-    var faces = ['front','back','right','left','top','bottom'];
-    var off = 53;
-    var cubelets = [];
-    var current = 0;
+    var steps = spine.querySelectorAll('.spine-step');
+    if (!steps.length) return;
 
-    function baseTransform(p) { return 'translate3d(' + (p[0]*off) + 'px,' + (p[1]*off) + 'px,' + (p[2]*off) + 'px)'; }
-    function popTransform(p) { return 'translate3d(' + (p[0]*off*1.34) + 'px,' + (p[1]*off*1.34) + 'px,' + (p[2]*off*1.34) + 'px)'; }
+    var prefersReduced = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    STEPS.forEach(function (s, i) {
-        var c = document.createElement('div');
-        c.className = 'cubelet';
-        c.dataset.step = i;
-        c.setAttribute('role', 'button');
-        c.setAttribute('aria-label', 'Tappa ' + s.n + ': ' + s.title);
-        c.style.transform = baseTransform(corners[i]);
-        faces.forEach(function (f) {
-            var fe = document.createElement('span');
-            fe.className = 'cubelet-face cf-' + f;
-            fe.textContent = s.n;
-            c.appendChild(fe);
+    // No IntersectionObserver or reduced motion: leave everything visible.
+    if (prefersReduced || !('IntersectionObserver' in window)) return;
+
+    // Arm the entrance animation (steps start hidden only from here on).
+    spine.classList.add('spine-armed');
+
+    var spineObserver = new IntersectionObserver(function (entries, obs) {
+        entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add('is-in');
+            obs.unobserve(entry.target);
         });
-        cube.appendChild(c);
-        cubelets.push(c);
+    }, { threshold: 0.18, rootMargin: '0px 0px -40px 0px' });
 
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = s.n;
-        b.setAttribute('role', 'tab');
-        b.setAttribute('aria-label', 'Tappa ' + s.n + ': ' + s.title);
-        b.addEventListener('click', function () { setStep(i); });
-        nav.appendChild(b);
-    });
-    var navBtns = nav.querySelectorAll('button');
+    steps.forEach(function (s) { spineObserver.observe(s); });
 
-    var rotX = -24, rotY = -32, targetX = null, targetY = null, autoResumeAt = 0;
-    var dragging = false, moved = false, hovering = false, lx = 0, ly = 0;
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    function showcase(i) {
-        var p = corners[i];
-        var ty = 13 - Math.atan2(p[0], p[2]) * 180 / Math.PI;   // bring that column to the front
-        ty = ty + 360 * Math.round((rotY - ty) / 360);          // nearest equivalent to current angle
-        targetY = ty;
-        targetX = p[1] < 0 ? -24 : 18;                          // tilt to reveal top / bottom corner
-        autoResumeAt = 0;
-    }
-
-    function setStep(i) {
-        current = i;
-        var s = STEPS[i];
-        cubelets.forEach(function (c, idx) {
-            var active = idx === i;
-            c.classList.toggle('is-active', active);
-            c.classList.toggle('dim', !active);
-            c.style.transform = active ? popTransform(corners[idx]) : baseTransform(corners[idx]);
-        });
-        navBtns.forEach(function (b, idx) {
-            b.classList.toggle('is-active', idx === i);
-            b.setAttribute('aria-selected', idx === i ? 'true' : 'false');
-        });
-        if (stepEl) stepEl.textContent = s.n;
-        if (labelEl) labelEl.textContent = s.label;
-        if (titleEl) titleEl.textContent = s.title;
-        if (textEl) textEl.textContent = s.text;
-        if (counterEl) counterEl.innerHTML = '<b>' + s.n + '</b> / 08';
-        if (linkEl) {
-            if (s.href) { linkEl.href = s.href; linkEl.textContent = s.link; linkEl.hidden = false; }
-            else { linkEl.hidden = true; linkEl.removeAttribute('href'); }
-        }
-        if (!reduce) showcase(i);
-    }
-
-    cubelets.forEach(function (c) {
-        c.addEventListener('click', function () { if (!moved) setStep(+c.dataset.step); });
-    });
-    if (prevBtn) prevBtn.addEventListener('click', function () { setStep((current + 7) % 8); });
-    if (nextBtn) nextBtn.addEventListener('click', function () { setStep((current + 1) % 8); });
-
-    function apply() { cube.style.transform = 'rotateX(' + rotX + 'deg) rotateY(' + rotY + 'deg)'; }
-    function frame(now) {
-        if (targetY !== null) {
-            rotX += (targetX - rotX) * 0.12;
-            rotY += (targetY - rotY) * 0.12;
-            if (Math.abs(targetY - rotY) < 0.4 && Math.abs(targetX - rotX) < 0.4) {
-                rotX = targetX; rotY = targetY; targetX = targetY = null; autoResumeAt = now + 2200;
-            }
-            apply();
-        } else if (!dragging && !hovering && !reduce && now > autoResumeAt) {
-            rotY += 0.16; apply();
-        }
-        requestAnimationFrame(frame);
-    }
-    apply();
-    if (window.requestAnimationFrame) requestAnimationFrame(frame);
-
-    stage.addEventListener('pointerenter', function () { hovering = true; });
-    stage.addEventListener('pointerleave', function () { hovering = false; });
-    stage.addEventListener('pointerdown', function (e) {
-        dragging = true; moved = false; lx = e.clientX; ly = e.clientY;
-        targetX = targetY = null; stage.classList.add('is-dragging');
-    });
-    window.addEventListener('pointermove', function (e) {
-        if (!dragging) return;
-        var dx = e.clientX - lx, dy = e.clientY - ly;
-        if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
-        rotY += dx * 0.4; rotX -= dy * 0.4;
-        rotX = Math.max(-85, Math.min(85, rotX));
-        lx = e.clientX; ly = e.clientY; apply();
-    });
-    window.addEventListener('pointerup', function () {
-        dragging = false; stage.classList.remove('is-dragging'); autoResumeAt = (window.performance ? performance.now() : Date.now()) + 2200;
-    });
-    stage.setAttribute('tabindex', '0');
-    stage.addEventListener('keydown', function (e) {
-        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); setStep((current + 1) % 8); }
-        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); setStep((current + 7) % 8); }
-    });
-
-    setStep(0);
+    // Fail-safe: reveal anything still hidden after 2.5s.
+    setTimeout(function () {
+        steps.forEach(function (s) { s.classList.add('is-in'); });
+    }, 2500);
 })();
