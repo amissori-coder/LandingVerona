@@ -240,51 +240,21 @@
                 <p class="section-description">Le relazioni della giornata seguiranno un filo conduttore preciso. Ogni tappa completa la precedente, trasformando il convegno in un'esperienza concreta e immediatamente applicabile.</p>
             </div>
 
-            <div class="temi-grid">
-                <article class="tema-card">
-                    <div class="tema-card-head"><span class="tema-card-number">01</span><span class="tema-card-label">Organizzazione</span></div>
-                    <h3 class="tema-card-title">Adeguati Assetti</h3>
-                    <p class="tema-card-lead">Assetti organizzativi, amministrativi e contabili adeguati: la base di un'impresa che si conosce, si misura e sa decidere.</p>
-                    <a href="../adeguati_assetti/" class="tema-card-link">Approfondisci gli adeguati assetti<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
-                </article>
-                <article class="tema-card">
-                    <div class="tema-card-head"><span class="tema-card-number">02</span><span class="tema-card-label">Controllo</span></div>
-                    <h3 class="tema-card-title">Governance e Controllo di Gestione</h3>
-                    <p class="tema-card-lead">Strumenti di governance e controllo di gestione per guidare l'impresa con dati, indicatori e responsabilità chiare.</p>
-                </article>
-                <article class="tema-card">
-                    <div class="tema-card-head"><span class="tema-card-number">03</span><span class="tema-card-label">Gestione dei rischi</span></div>
-                    <h3 class="tema-card-title">Modello 231 e Tax Control Framework</h3>
-                    <p class="tema-card-lead">Presidiare i rischi penali e fiscali con il Modello 231 e il Tax Control Framework, in un unico sistema di controllo.</p>
-                    <a href="../modello_231/" class="tema-card-link">Approfondisci il Modello 231<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
-                </article>
-                <article class="tema-card">
-                    <div class="tema-card-head"><span class="tema-card-number">04</span><span class="tema-card-label">Reputazione</span></div>
-                    <h3 class="tema-card-title">Rating di Legalità</h3>
-                    <p class="tema-card-lead">Dimostrare affidabilità e trasparenza con il Rating di Legalità rilasciato dall'AGCM, valorizzandolo verso banche e mercato.</p>
-                    <a href="../rating_legalita/" class="tema-card-link">Approfondisci il Rating di Legalità<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
-                </article>
-                <article class="tema-card">
-                    <div class="tema-card-head"><span class="tema-card-number">05</span><span class="tema-card-label">Valore nel tempo</span></div>
-                    <h3 class="tema-card-title">ESG e Sostenibilità</h3>
-                    <p class="tema-card-lead">Integrare sostenibilità e fattori ESG nella strategia per creare valore duraturo e accedere a nuove opportunità.</p>
-                    <a href="../sostenibilita_esg/" class="tema-card-link">Approfondisci ESG e sostenibilità<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
-                </article>
-                <article class="tema-card">
-                    <div class="tema-card-head"><span class="tema-card-number">06</span><span class="tema-card-label">Banche e investitori</span></div>
-                    <h3 class="tema-card-title">Merito Creditizio</h3>
-                    <p class="tema-card-lead">Migliorare il merito creditizio rafforzando il dialogo con banche e investitori: un'impresa organizzata è un'impresa più finanziabile.</p>
-                </article>
-                <article class="tema-card">
-                    <div class="tema-card-head"><span class="tema-card-number">07</span><span class="tema-card-label">Opportunità</span></div>
-                    <h3 class="tema-card-title">Finanza Agevolata</h3>
-                    <p class="tema-card-lead">Cogliere le opportunità della finanza agevolata e dei grandi programmi di sviluppo, trasformandole in progetti concreti.</p>
-                </article>
-                <article class="tema-card">
-                    <div class="tema-card-head"><span class="tema-card-number">08</span><span class="tema-card-label">Territorio</span></div>
-                    <h3 class="tema-card-title">Bagnoli e America's Cup 2027</h3>
-                    <p class="tema-card-lead">Le grandi opportunità di sviluppo del territorio: la rigenerazione di Bagnoli e gli investimenti collegati all'America's Cup 2027.</p>
-                </article>
+            <div class="cube-wrap" id="cubeWrap">
+                <div class="cube-stage" id="cubeStage" aria-hidden="true">
+                    <div class="cube" id="cube"></div>
+                    <span class="cube-hint">Trascina per ruotare &middot; tocca una tappa</span>
+                </div>
+                <div class="cube-panel" id="cubePanel" aria-live="polite">
+                    <div class="cube-panel-head">
+                        <span class="cube-panel-step" id="cubeStep">01</span>
+                        <span class="cube-panel-label" id="cubeLabel"></span>
+                    </div>
+                    <h3 class="cube-panel-title" id="cubeTitle"></h3>
+                    <p class="cube-panel-text" id="cubeText"></p>
+                    <a class="cube-panel-link" id="cubeLink" hidden></a>
+                    <div class="cube-nav" id="cubeNav" role="tablist" aria-label="Le otto tappe del percorso"></div>
+                </div>
             </div>
 
             <div class="matching-band">

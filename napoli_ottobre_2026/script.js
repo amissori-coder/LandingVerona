@@ -406,3 +406,108 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     setActive('impr');
 })();
+
+
+/* ===== Percorso: interactive 3D cube (2x2x2 = 8 tappe) ===== */
+(function initPercorsoCube() {
+    var wrap = document.getElementById('cubeWrap');
+    if (!wrap) return;
+    var stage = document.getElementById('cubeStage');
+    var cube = document.getElementById('cube');
+    var nav = document.getElementById('cubeNav');
+    var stepEl = document.getElementById('cubeStep');
+    var labelEl = document.getElementById('cubeLabel');
+    var titleEl = document.getElementById('cubeTitle');
+    var textEl = document.getElementById('cubeText');
+    var linkEl = document.getElementById('cubeLink');
+    if (!stage || !cube) return;
+
+    var STEPS = [
+        { n: '01', label: 'Organizzazione',      title: 'Adeguati Assetti', text: "Assetti organizzativi, amministrativi e contabili adeguati: la base di un'impresa che si conosce, si misura e sa decidere.", href: '../adeguati_assetti/', link: 'Approfondisci gli adeguati assetti' },
+        { n: '02', label: 'Controllo',           title: 'Governance e Controllo di Gestione', text: "Strumenti di governance e controllo di gestione per guidare l'impresa con dati, indicatori e responsabilità chiare.", href: null },
+        { n: '03', label: 'Gestione dei rischi', title: 'Modello 231 e Tax Control Framework', text: 'Presidiare i rischi penali e fiscali con il Modello 231 e il Tax Control Framework, in un unico sistema di controllo.', href: '../modello_231/', link: 'Approfondisci il Modello 231' },
+        { n: '04', label: 'Reputazione',         title: 'Rating di Legalità', text: "Dimostrare affidabilità e trasparenza con il Rating di Legalità rilasciato dall'AGCM, valorizzandolo verso banche e mercato.", href: '../rating_legalita/', link: 'Approfondisci il Rating di Legalità' },
+        { n: '05', label: 'Valore nel tempo',    title: 'ESG e Sostenibilità', text: 'Integrare sostenibilità e fattori ESG nella strategia per creare valore duraturo e accedere a nuove opportunità.', href: '../sostenibilita_esg/', link: 'Approfondisci ESG e sostenibilità' },
+        { n: '06', label: 'Banche e investitori', title: 'Merito Creditizio', text: "Migliorare il merito creditizio rafforzando il dialogo con banche e investitori: un'impresa organizzata è un'impresa più finanziabile.", href: null },
+        { n: '07', label: 'Opportunità',         title: 'Finanza Agevolata', text: 'Cogliere le opportunità della finanza agevolata e dei grandi programmi di sviluppo, trasformandole in progetti concreti.', href: null },
+        { n: '08', label: 'Territorio',          title: "Bagnoli e America's Cup 2027", text: "Le grandi opportunità di sviluppo del territorio: la rigenerazione di Bagnoli e gli investimenti collegati all'America's Cup 2027.", href: null }
+    ];
+    var corners = [[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1],[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1]];
+    var faces = ['front','back','right','left','top','bottom'];
+    var off = 52;
+    var cubelets = [];
+
+    STEPS.forEach(function (s, i) {
+        var c = document.createElement('div');
+        c.className = 'cubelet';
+        c.dataset.step = i;
+        c.setAttribute('role', 'button');
+        c.setAttribute('aria-label', 'Tappa ' + s.n + ': ' + s.title);
+        var p = corners[i];
+        c.style.transform = 'translate3d(' + (p[0] * off) + 'px,' + (p[1] * off) + 'px,' + (p[2] * off) + 'px)';
+        faces.forEach(function (f) {
+            var fe = document.createElement('span');
+            fe.className = 'cubelet-face cf-' + f;
+            fe.textContent = s.n;
+            c.appendChild(fe);
+        });
+        cube.appendChild(c);
+        cubelets.push(c);
+
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = s.n;
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-label', 'Tappa ' + s.n + ': ' + s.title);
+        b.addEventListener('click', function () { setStep(i); });
+        nav.appendChild(b);
+    });
+    var navBtns = nav.querySelectorAll('button');
+
+    function setStep(i) {
+        var s = STEPS[i];
+        cubelets.forEach(function (c, idx) {
+            c.classList.toggle('is-active', idx === i);
+            c.classList.toggle('dim', idx !== i);
+        });
+        navBtns.forEach(function (b, idx) {
+            b.classList.toggle('is-active', idx === i);
+            b.setAttribute('aria-selected', idx === i ? 'true' : 'false');
+        });
+        if (stepEl) stepEl.textContent = s.n;
+        if (labelEl) labelEl.textContent = s.label;
+        if (titleEl) titleEl.textContent = s.title;
+        if (textEl) textEl.textContent = s.text;
+        if (linkEl) {
+            if (s.href) { linkEl.href = s.href; linkEl.textContent = s.link; linkEl.hidden = false; }
+            else { linkEl.hidden = true; linkEl.removeAttribute('href'); }
+        }
+    }
+
+    cubelets.forEach(function (c) {
+        c.addEventListener('click', function () { if (!moved) setStep(+c.dataset.step); });
+    });
+
+    var rotX = -24, rotY = -32, dragging = false, moved = false, lx = 0, ly = 0;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function apply() { cube.style.transform = 'rotateX(' + rotX + 'deg) rotateY(' + rotY + 'deg)'; }
+    function frame() { if (!dragging && !reduce) { rotY += 0.22; apply(); } requestAnimationFrame(frame); }
+    apply();
+    if (!reduce && window.requestAnimationFrame) requestAnimationFrame(frame);
+
+    stage.addEventListener('pointerdown', function (e) {
+        dragging = true; moved = false; lx = e.clientX; ly = e.clientY;
+        stage.classList.add('is-dragging');
+    });
+    window.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        var dx = e.clientX - lx, dy = e.clientY - ly;
+        if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+        rotY += dx * 0.4; rotX -= dy * 0.4;
+        rotX = Math.max(-85, Math.min(85, rotX));
+        lx = e.clientX; ly = e.clientY; apply();
+    });
+    window.addEventListener('pointerup', function () { dragging = false; stage.classList.remove('is-dragging'); });
+
+    setStep(0);
+})();
