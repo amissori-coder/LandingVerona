@@ -2798,6 +2798,21 @@ ul {
 .spine-card-link:hover { gap: 14px; color: #fff; }
 .spine-card-link:hover svg { transform: translateX(3px); }
 
+/* Group of multiple approfondimenti: one shared separator, links stacked */
+.spine-card-links {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    margin-top: 4px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.spine-card-links .spine-card-link {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
 .spine-card-flag {
     align-self: flex-start;
     margin-top: 4px;
