@@ -407,7 +407,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setActive('impr');
 })();
 
-
 /* ===== Percorso: interactive 3D cube (2x2x2 = 8 tappe) ===== */
 (function initPercorsoCube() {
     var wrap = document.getElementById('cubeWrap');
@@ -420,6 +419,9 @@ document.addEventListener('DOMContentLoaded', () => {
     var titleEl = document.getElementById('cubeTitle');
     var textEl = document.getElementById('cubeText');
     var linkEl = document.getElementById('cubeLink');
+    var prevBtn = document.getElementById('cubePrev');
+    var nextBtn = document.getElementById('cubeNext');
+    var counterEl = document.getElementById('cubeCounter');
     if (!stage || !cube) return;
 
     var STEPS = [
@@ -434,8 +436,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
     var corners = [[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1],[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1]];
     var faces = ['front','back','right','left','top','bottom'];
-    var off = 52;
+    var off = 53;
     var cubelets = [];
+    var current = 0;
+
+    function baseTransform(p) { return 'translate3d(' + (p[0]*off) + 'px,' + (p[1]*off) + 'px,' + (p[2]*off) + 'px)'; }
+    function popTransform(p) { return 'translate3d(' + (p[0]*off*1.34) + 'px,' + (p[1]*off*1.34) + 'px,' + (p[2]*off*1.34) + 'px)'; }
 
     STEPS.forEach(function (s, i) {
         var c = document.createElement('div');
@@ -443,8 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
         c.dataset.step = i;
         c.setAttribute('role', 'button');
         c.setAttribute('aria-label', 'Tappa ' + s.n + ': ' + s.title);
-        var p = corners[i];
-        c.style.transform = 'translate3d(' + (p[0] * off) + 'px,' + (p[1] * off) + 'px,' + (p[2] * off) + 'px)';
+        c.style.transform = baseTransform(corners[i]);
         faces.forEach(function (f) {
             var fe = document.createElement('span');
             fe.className = 'cubelet-face cf-' + f;
@@ -464,11 +469,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     var navBtns = nav.querySelectorAll('button');
 
+    var rotX = -24, rotY = -32, targetX = null, targetY = null, autoResumeAt = 0;
+    var dragging = false, moved = false, hovering = false, lx = 0, ly = 0;
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function showcase(i) {
+        var p = corners[i];
+        var ty = 13 - Math.atan2(p[0], p[2]) * 180 / Math.PI;   // bring that column to the front
+        ty = ty + 360 * Math.round((rotY - ty) / 360);          // nearest equivalent to current angle
+        targetY = ty;
+        targetX = p[1] < 0 ? -24 : 18;                          // tilt to reveal top / bottom corner
+        autoResumeAt = 0;
+    }
+
     function setStep(i) {
+        current = i;
         var s = STEPS[i];
         cubelets.forEach(function (c, idx) {
-            c.classList.toggle('is-active', idx === i);
-            c.classList.toggle('dim', idx !== i);
+            var active = idx === i;
+            c.classList.toggle('is-active', active);
+            c.classList.toggle('dim', !active);
+            c.style.transform = active ? popTransform(corners[idx]) : baseTransform(corners[idx]);
         });
         navBtns.forEach(function (b, idx) {
             b.classList.toggle('is-active', idx === i);
@@ -478,26 +499,42 @@ document.addEventListener('DOMContentLoaded', () => {
         if (labelEl) labelEl.textContent = s.label;
         if (titleEl) titleEl.textContent = s.title;
         if (textEl) textEl.textContent = s.text;
+        if (counterEl) counterEl.innerHTML = '<b>' + s.n + '</b> / 08';
         if (linkEl) {
             if (s.href) { linkEl.href = s.href; linkEl.textContent = s.link; linkEl.hidden = false; }
             else { linkEl.hidden = true; linkEl.removeAttribute('href'); }
         }
+        if (!reduce) showcase(i);
     }
 
     cubelets.forEach(function (c) {
         c.addEventListener('click', function () { if (!moved) setStep(+c.dataset.step); });
     });
+    if (prevBtn) prevBtn.addEventListener('click', function () { setStep((current + 7) % 8); });
+    if (nextBtn) nextBtn.addEventListener('click', function () { setStep((current + 1) % 8); });
 
-    var rotX = -24, rotY = -32, dragging = false, moved = false, lx = 0, ly = 0;
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     function apply() { cube.style.transform = 'rotateX(' + rotX + 'deg) rotateY(' + rotY + 'deg)'; }
-    function frame() { if (!dragging && !reduce) { rotY += 0.22; apply(); } requestAnimationFrame(frame); }
+    function frame(now) {
+        if (targetY !== null) {
+            rotX += (targetX - rotX) * 0.12;
+            rotY += (targetY - rotY) * 0.12;
+            if (Math.abs(targetY - rotY) < 0.4 && Math.abs(targetX - rotX) < 0.4) {
+                rotX = targetX; rotY = targetY; targetX = targetY = null; autoResumeAt = now + 2200;
+            }
+            apply();
+        } else if (!dragging && !hovering && !reduce && now > autoResumeAt) {
+            rotY += 0.16; apply();
+        }
+        requestAnimationFrame(frame);
+    }
     apply();
-    if (!reduce && window.requestAnimationFrame) requestAnimationFrame(frame);
+    if (window.requestAnimationFrame) requestAnimationFrame(frame);
 
+    stage.addEventListener('pointerenter', function () { hovering = true; });
+    stage.addEventListener('pointerleave', function () { hovering = false; });
     stage.addEventListener('pointerdown', function (e) {
         dragging = true; moved = false; lx = e.clientX; ly = e.clientY;
-        stage.classList.add('is-dragging');
+        targetX = targetY = null; stage.classList.add('is-dragging');
     });
     window.addEventListener('pointermove', function (e) {
         if (!dragging) return;
@@ -507,7 +544,14 @@ document.addEventListener('DOMContentLoaded', () => {
         rotX = Math.max(-85, Math.min(85, rotX));
         lx = e.clientX; ly = e.clientY; apply();
     });
-    window.addEventListener('pointerup', function () { dragging = false; stage.classList.remove('is-dragging'); });
+    window.addEventListener('pointerup', function () {
+        dragging = false; stage.classList.remove('is-dragging'); autoResumeAt = (window.performance ? performance.now() : Date.now()) + 2200;
+    });
+    stage.setAttribute('tabindex', '0');
+    stage.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); setStep((current + 1) % 8); }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); setStep((current + 7) % 8); }
+    });
 
     setStep(0);
 })();
