@@ -28,6 +28,14 @@
         <priority>0.6</priority>
     </url>
 
+    <!-- Napoli — 2 Ottobre 2026 event -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/napoli_ottobre_2026/</loc>
+        <lastmod>2026-06-29</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
     <!-- ZLS & ZES content hub -->
     <url>
         <loc>https://nextgenerationbusiness.it/zls_zes/</loc>
