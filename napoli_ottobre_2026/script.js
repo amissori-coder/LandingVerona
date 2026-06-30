@@ -347,3 +347,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+
+/* ===== Relationships interactive graph (Relatori section) ===== */
+(function initRelGraph() {
+    var graph = document.getElementById('relGraph');
+    if (!graph) return;
+    var names = { ist: 'Istituzioni', banc: 'Mondo bancario', prof: 'Professioni', impr: 'Imprenditoria' };
+    var REL = {
+        impr: [
+            { to: 'ist',  text: "Coglie le opportunità di sviluppo, gli incentivi e i programmi promossi dalle istituzioni." },
+            { to: 'banc', text: "Costruisce il proprio merito creditizio per accedere a credito e investimenti a condizioni migliori." },
+            { to: 'prof', text: "Si affida ai professionisti per dotarsi di assetti, governance e controlli evoluti." }
+        ],
+        ist: [
+            { to: 'impr', text: "Offrono alle imprese opportunità di sviluppo del territorio, incentivi e grandi programmi come Bagnoli e l'America's Cup 2027." },
+            { to: 'banc', text: "Definiscono garanzie pubbliche e strumenti di finanza agevolata che orientano il credito." },
+            { to: 'prof', text: "Stabiliscono le regole (Modello 231, Rating di Legalità, ESG) che i professionisti aiutano ad applicare." }
+        ],
+        banc: [
+            { to: 'impr', text: "Valutano affidabilità e merito creditizio dell'impresa e ne sostengono la crescita con il credito." },
+            { to: 'ist',  text: "Operano con le garanzie e gli strumenti pubblici della finanza agevolata." },
+            { to: 'prof', text: "Leggono bilanci, rating ed ESG predisposti dai professionisti per decidere se e come finanziare." }
+        ],
+        prof: [
+            { to: 'impr', text: "Costruiscono adeguati assetti, governance, compliance e rendicontazione che rendono l'impresa più solida." },
+            { to: 'banc', text: "Traducono la solidità dell'impresa in dati e rating leggibili e affidabili per le banche." },
+            { to: 'ist',  text: "Assicurano la conformità alle norme e l'accesso agli strumenti messi a disposizione dalle istituzioni." }
+        ]
+    };
+    var titleEl = document.getElementById('relTitle');
+    var listEl  = document.getElementById('relList');
+    var nodes = graph.querySelectorAll('.rel-node');
+    var edges = graph.querySelectorAll('.rel-edge');
+    function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function setActive(key) {
+        nodes.forEach(function (n) {
+            var k = n.getAttribute('data-key');
+            n.classList.toggle('active', k === key);
+            n.classList.toggle('dim', k !== key);
+            n.setAttribute('aria-pressed', k === key ? 'true' : 'false');
+        });
+        edges.forEach(function (e) {
+            var on = e.getAttribute('data-a') === key || e.getAttribute('data-b') === key;
+            e.classList.toggle('on', on);
+            e.classList.toggle('off', !on);
+        });
+        if (titleEl) titleEl.textContent = names[key];
+        if (listEl) listEl.innerHTML = REL[key].map(function (r) {
+            return '<li class="rel-rel"><span class="rel-rel-to">' + esc(names[r.to]) + '</span><span class="rel-rel-text">' + esc(r.text) + '</span></li>';
+        }).join('');
+    }
+    nodes.forEach(function (n) {
+        n.addEventListener('click', function () { setActive(n.getAttribute('data-key')); });
+        n.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); setActive(n.getAttribute('data-key')); }
+        });
+    });
+    setActive('impr');
+})();

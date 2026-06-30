@@ -302,13 +302,54 @@
                 <span class="section-tag">Relatori</span>
                 <h2 class="section-title">Voci autorevoli a confronto</h2>
                 <div class="section-divider"></div>
-                <p class="section-description">Interverranno autorevoli rappresentanti delle istituzioni, del mondo bancario, delle professioni e dell'imprenditoria. I nomi dei relatori e il programma definitivo saranno annunciati nei prossimi giorni.</p>
+                <p class="section-description">L'evento mette in dialogo quattro mondi: istituzioni, mondo bancario, professioni e imprenditoria. Esplora qui sotto come si rafforzano a vicenda nel costruire l'impresa. I nomi dei relatori e il programma definitivo saranno annunciati nei prossimi giorni.</p>
             </div>
-            <div class="temi-grid">
-                <article class="tema-card"><div class="tema-card-head"><span class="tema-card-number">&mdash;</span><span class="tema-card-label">Ambito</span></div><h3 class="tema-card-title">Istituzioni</h3><p class="tema-card-lead">La prospettiva delle istituzioni sulle opportunità di sviluppo per le imprese e per il territorio.</p></article>
-                <article class="tema-card"><div class="tema-card-head"><span class="tema-card-number">&mdash;</span><span class="tema-card-label">Ambito</span></div><h3 class="tema-card-title">Mondo bancario</h3><p class="tema-card-lead">Il punto di vista delle banche su merito creditizio, affidabilità e dialogo con l'impresa.</p></article>
-                <article class="tema-card"><div class="tema-card-head"><span class="tema-card-number">&mdash;</span><span class="tema-card-label">Ambito</span></div><h3 class="tema-card-title">Professioni</h3><p class="tema-card-lead">Revisione, governance, fiscalità e compliance: gli strumenti che rendono l'impresa più solida.</p></article>
-                <article class="tema-card"><div class="tema-card-head"><span class="tema-card-number">&mdash;</span><span class="tema-card-label">Ambito</span></div><h3 class="tema-card-title">Imprenditoria</h3><p class="tema-card-lead">L'esperienza diretta di chi guida l'impresa e costruisce, ogni giorno, valore e competitività.</p></article>
+
+            <div class="rel-graph" id="relGraph">
+                <div class="rel-stage">
+                    <svg class="rel-svg" viewBox="0 0 640 500" role="img" aria-label="Mappa interattiva delle relazioni tra istituzioni, mondo bancario, professioni e imprenditoria">
+                        <g class="rel-edges">
+                            <line class="rel-edge" data-a="ist" data-b="banc" x1="320" y1="85" x2="480" y2="240"/>
+                            <line class="rel-edge" data-a="ist" data-b="impr" x1="320" y1="85" x2="320" y2="395"/>
+                            <line class="rel-edge" data-a="ist" data-b="prof" x1="320" y1="85" x2="160" y2="240"/>
+                            <line class="rel-edge" data-a="banc" data-b="impr" x1="480" y1="240" x2="320" y2="395"/>
+                            <line class="rel-edge" data-a="banc" data-b="prof" x1="480" y1="240" x2="160" y2="240"/>
+                            <line class="rel-edge" data-a="impr" data-b="prof" x1="320" y1="395" x2="160" y2="240"/>
+                        </g>
+                        <g class="rel-nodes">
+                            <g class="rel-node" data-key="ist" tabindex="0" role="button" aria-pressed="false" aria-label="Istituzioni: mostra le relazioni" transform="translate(320,85)">
+                                <circle class="rel-node-ring" r="60"/>
+                                <circle class="rel-node-circle" r="50"/>
+                                <g class="rel-node-icon" transform="translate(-13.5,-13.5) scale(1.13)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V9.5"/><path d="M19 21V9.5"/><path d="M9 21v-5h6v5"/><path d="M12 3 4 8v1.5h16V8z"/></g>
+                                <text class="rel-node-label" y="82">Istituzioni</text>
+                            </g>
+                            <g class="rel-node" data-key="banc" tabindex="0" role="button" aria-pressed="false" aria-label="Mondo bancario: mostra le relazioni" transform="translate(480,240)">
+                                <circle class="rel-node-ring" r="60"/>
+                                <circle class="rel-node-circle" r="50"/>
+                                <g class="rel-node-icon" transform="translate(-13.5,-13.5) scale(1.13)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="13" rx="2"/><path d="M2.5 10.5h19"/></g>
+                                <text class="rel-node-label" y="82">Mondo bancario</text>
+                            </g>
+                            <g class="rel-node" data-key="impr" tabindex="0" role="button" aria-pressed="false" aria-label="Imprenditoria: mostra le relazioni" transform="translate(320,395)">
+                                <circle class="rel-node-ring" r="60"/>
+                                <circle class="rel-node-circle" r="50"/>
+                                <g class="rel-node-icon" transform="translate(-13.5,-13.5) scale(1.13)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></g>
+                                <text class="rel-node-label" y="82">Imprenditoria</text>
+                            </g>
+                            <g class="rel-node" data-key="prof" tabindex="0" role="button" aria-pressed="false" aria-label="Professioni: mostra le relazioni" transform="translate(160,240)">
+                                <circle class="rel-node-ring" r="60"/>
+                                <circle class="rel-node-circle" r="50"/>
+                                <g class="rel-node-icon" transform="translate(-13.5,-13.5) scale(1.13)" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></g>
+                                <text class="rel-node-label" y="82">Professioni</text>
+                            </g>
+                        </g>
+                    </svg>
+                </div>
+                <div class="rel-panel" id="relPanel" aria-live="polite">
+                    <span class="rel-panel-eyebrow">Le relazioni di</span>
+                    <h3 class="rel-panel-title" id="relTitle">Imprenditoria</h3>
+                    <ul class="rel-panel-list" id="relList"></ul>
+                    <p class="rel-panel-hint">Tocca un nodo del grafico per esplorare le altre relazioni.</p>
+                </div>
             </div>
         </div>
     </section>
