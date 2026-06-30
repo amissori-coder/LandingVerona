@@ -96,7 +96,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const animateElements = document.querySelectorAll(
         '.about-card, .about-feature, .speaker-item, .timeline-item, ' +
-        '.location-info, .location-map, .partner-category, .form-wrapper'
+        '.location-info, .location-map, .partner-category, .form-wrapper, ' +
+        '.tema-card, .evento-intro, .evento-quote, .matching-band, ' +
+        '.section-header, .form-benefits-strip, .partner-brand, .register-card'
     );
 
     animateElements.forEach((el, index) => {
@@ -104,6 +106,15 @@ document.addEventListener('DOMContentLoaded', () => {
         el.style.transitionDelay = `${(index % 4) * 0.08}s`;
         observer.observe(el);
     });
+
+    // Fail-safe: never leave content permanently hidden. If the observer
+    // hasn't revealed an element (unusual rendering contexts, prerender, etc.),
+    // reveal everything after a short delay so nothing stays invisible.
+    setTimeout(function () {
+        document.querySelectorAll('.fade-in:not(.visible)').forEach(function (el) {
+            el.classList.add('visible');
+        });
+    }, 2500);
 
     // ========================
     // HERO BACKGROUND PARTICLES
