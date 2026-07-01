@@ -122,4 +122,12 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Iper Ammortamento 2026-2028 — Piano Transizione 5.0 -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/iper_ammortamento/</loc>
+        <lastmod>2026-07-01</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
 </urlset>
