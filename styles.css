@@ -1018,9 +1018,8 @@ ul {
 
 /* Filter toolbar as a vertical compact nav */
 .contents-toolbar {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 5px;
     margin: 22px 0 14px;
     padding: 16px 0 0;
@@ -1028,29 +1027,41 @@ ul {
     min-height: 0;
 }
 
+/* "Tutti" occupa l'intera riga, le altre categorie si allineano in coppie */
+.content-filter[data-filter="all"] {
+    grid-column: 1 / -1;
+}
+
+/* Nelle chip di categoria il conteggio è ridondante e ruba spazio
+   all'etichetta: resta solo su "Tutti" (totale dei contenuti). */
+.content-filter:not([data-filter="all"]) .filter-count {
+    display: none;
+}
+
 .contents-toolbar:empty {
     display: none;
 }
 
 .content-filter {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 5px;
-    width: auto;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
     white-space: nowrap;
-    padding: 4px 9px;
+    padding: 6px 10px;
     background: var(--white);
     border: 1px solid rgba(22, 64, 104, 0.18);
-    border-radius: 100px;
+    border-radius: 7px;
     color: var(--text-muted);
     font-family: var(--font-display);
     font-size: 0.52rem;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     text-transform: uppercase;
     cursor: pointer;
-    text-align: center;
+    text-align: left;
     transition: all 0.25s ease;
     position: relative;
 }

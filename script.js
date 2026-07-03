@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // fall back to a Title Case conversion of the slug itself,
         // so any new data-category value still renders cleanly.
         const CATEGORY_LABELS = {
-            'agevolazioni-fiscali': 'Agevolazioni',
+            'agevolazioni-fiscali': 'Incentivi',
             'compliance':           'Compliance',
             'diritto-societario':   'Societario',
             'revisione-legale':     'Revisione',
@@ -217,7 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
             'finanza-agevolata':    'Finanza',
             'patrimonio':           'Patrimonio',
             'crisi-impresa':        'Crisi',
-            'giurisprudenza':       'Giurisprudenza'
+            'bandi-lazio':          'Bandi Lazio',
+            'bandi-nazionali':      'Nazionali',
+            'giurisprudenza':       'Sentenze'
         };
 
         const slugToLabel = (slug) => {
