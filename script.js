@@ -196,7 +196,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'internazionalizzazione': 'Internazionalizzazione',
             'finanza-agevolata':    'Finanza Agevolata',
             'patrimonio':           'Patrimonio',
-            'crisi-impresa':        "Crisi d'Impresa"
+            'crisi-impresa':        "Crisi d'Impresa",
+            'giurisprudenza':       'Giurisprudenza'
         };
 
         const slugToLabel = (slug) => {

@@ -146,4 +146,12 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Osservatorio giurisprudenza: Cass. 7134/2026, adeguati assetti e accesso al credito -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/cassazione_7134_2026/</loc>
+        <lastmod>2026-07-03</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
 </urlset>
