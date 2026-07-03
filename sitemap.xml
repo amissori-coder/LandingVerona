@@ -130,4 +130,12 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Holding, Protezione del Patrimonio e Trust -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/protezione_patrimonio/</loc>
+        <lastmod>2026-07-03</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
 </urlset>
