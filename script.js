@@ -156,6 +156,26 @@ document.addEventListener('DOMContentLoaded', () => {
         onScroll();
     }
 
+    // === News banner: fixed strip under the navbar ===
+    // Highlights the latest Osservatorio content. Dismissable per session.
+    const newsBanner = document.getElementById('newsBanner');
+    if (newsBanner && navbar && !sessionStorage.getItem('ngbNewsBannerClosed')) {
+        newsBanner.hidden = false;
+        const positionBanner = () => {
+            newsBanner.style.top = navbar.getBoundingClientRect().height + 'px';
+        };
+        positionBanner();
+        window.addEventListener('resize', positionBanner);
+        window.addEventListener('scroll', positionBanner, { passive: true });
+        const bannerClose = document.getElementById('newsBannerClose');
+        if (bannerClose) {
+            bannerClose.addEventListener('click', () => {
+                newsBanner.remove();
+                sessionStorage.setItem('ngbNewsBannerClosed', '1');
+            });
+        }
+    }
+
     // === Smooth-scroll for in-page anchor links ===
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', (e) => {
@@ -261,6 +281,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `Mostrando ${visible} di ${total} ${word}`;
         };
 
+        // Compact rail: the list is height-capped with a fade and a toggle
+        // that expands it. The fade only shows when content actually overflows,
+        // so short filtered lists render without cap artifacts.
+        const toggle = document.getElementById('contentsToggle');
+        const toggleLabel = toggle ? toggle.querySelector('.contents-toggle-label') : null;
+        const updateCap = () => {
+            if (!toggle) return;
+            const capped = grid.classList.contains('is-capped');
+            const overflowing = grid.scrollHeight > grid.clientHeight + 4;
+            grid.classList.toggle('has-overflow', capped && overflowing);
+            toggle.hidden = capped && !overflowing;
+            toggle.classList.toggle('is-open', !capped);
+            if (toggleLabel) {
+                toggleLabel.textContent = capped
+                    ? 'Mostra tutti gli approfondimenti'
+                    : 'Mostra meno';
+            }
+        };
+        if (toggle) {
+            toggle.addEventListener('click', () => {
+                grid.classList.toggle('is-capped');
+                updateCap();
+            });
+        }
+
         // Apply a filter and refresh empty state / counter
         const applyFilter = (filterKey) => {
             let visible = 0;
@@ -271,6 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (empty) empty.hidden = visible !== 0;
             updateCount(visible);
+            updateCap();
         };
 
         // Delegate clicks on the toolbar
@@ -288,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Initial count render
         updateCount(total);
+        updateCap();
     }
 
     // === Newsletter submission ===

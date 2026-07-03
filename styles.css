@@ -1019,12 +1019,27 @@ ul {
 /* Filter toolbar as a vertical compact nav */
 .contents-toolbar {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin: 22px 0 18px;
-    padding: 16px 0 0;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin: 22px 0 14px;
+    padding: 16px 0 8px;
     border-top: 1px solid rgba(22, 64, 104, 0.12);
     min-height: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(22, 64, 104, 0.25) transparent;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent 100%);
+    mask-image: linear-gradient(90deg, #000 88%, transparent 100%);
+}
+
+.contents-toolbar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.contents-toolbar::-webkit-scrollbar-thumb {
+    background: rgba(22, 64, 104, 0.25);
+    border-radius: 2px;
 }
 
 .contents-toolbar:empty {
@@ -1032,41 +1047,31 @@ ul {
 }
 
 .content-filter {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    width: 100%;
-    padding: 9px 12px;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
+    justify-content: center;
+    gap: 6px;
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 5px 11px;
+    background: var(--white);
+    border: 1px solid rgba(22, 64, 104, 0.18);
+    border-radius: 100px;
     color: var(--text-muted);
     font-family: var(--font-display);
-    font-size: 0.62rem;
-    font-weight: 600;
+    font-size: 0.56rem;
+    font-weight: 700;
     letter-spacing: 0.6px;
     text-transform: uppercase;
     cursor: pointer;
-    text-align: left;
+    text-align: center;
     transition: all 0.25s ease;
     position: relative;
 }
 
-.content-filter::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 0;
-    background: var(--navy);
-    transition: height 0.25s ease;
-}
-
 .content-filter:hover {
-    background: rgba(22, 64, 104, 0.06);
+    border-color: var(--navy);
     color: var(--navy);
 }
 
@@ -1076,12 +1081,9 @@ ul {
 }
 
 .content-filter.is-active {
-    background: rgba(22, 64, 104, 0.08);
-    color: var(--navy-dark);
-}
-
-.content-filter.is-active::before {
-    height: 64%;
+    background: var(--navy);
+    border-color: var(--navy);
+    color: var(--white);
 }
 
 .filter-label {
@@ -1111,7 +1113,7 @@ ul {
 }
 
 .content-filter.is-active .filter-count {
-    background: var(--navy);
+    background: rgba(255, 255, 255, 0.22);
     color: var(--white);
 }
 
@@ -1265,6 +1267,173 @@ ul {
     border-radius: 100px;
     margin-left: 8px;
     vertical-align: middle;
+}
+
+/* Compact rail: capped list height with fade + "show all" toggle.
+   Keeps the rail short and invites exploration instead of a long scroll. */
+.contents-list.is-capped {
+    max-height: 430px;
+    overflow: hidden;
+    position: relative;
+}
+
+.contents-list.is-capped.has-overflow::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 72px;
+    background: linear-gradient(180deg, rgba(230, 234, 240, 0) 0%, #E6EAF0 92%);
+    pointer-events: none;
+}
+
+.contents-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: transparent;
+    border: 1px dashed rgba(22, 64, 104, 0.35);
+    border-radius: var(--radius-md);
+    color: var(--navy);
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.contents-toggle:hover {
+    background: rgba(22, 64, 104, 0.06);
+    border-color: var(--navy);
+}
+
+.contents-toggle svg {
+    transition: transform 0.25s ease;
+}
+
+.contents-toggle.is-open svg {
+    transform: rotate(180deg);
+}
+
+/* News banner: fixed strip under the navbar for the latest highlight */
+.news-banner {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: 70px;
+    z-index: 900;
+    background: linear-gradient(90deg, var(--navy-dark) 0%, var(--navy) 60%, var(--navy-light) 100%);
+    color: var(--white);
+    box-shadow: 0 6px 18px rgba(10, 40, 68, 0.25);
+}
+
+.news-banner-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 20px;
+}
+
+.news-banner-link {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+    color: var(--white);
+    text-decoration: none;
+}
+
+.news-banner-tag {
+    flex-shrink: 0;
+    font-family: var(--font-display);
+    font-size: 0.56rem;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--navy-dark);
+    background: var(--white);
+    padding: 3px 10px;
+    border-radius: 100px;
+}
+
+.news-banner-text {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.news-banner-text strong {
+    font-weight: 700;
+}
+
+.news-banner-cta {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--white);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 100px;
+    padding: 5px 13px;
+    transition: all 0.25s ease;
+}
+
+.news-banner-link:hover .news-banner-cta {
+    background: var(--white);
+    color: var(--navy-dark);
+    border-color: var(--white);
+}
+
+.news-banner-close {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.news-banner-close:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--white);
+}
+
+@media (max-width: 700px) {
+    .news-banner-cta {
+        display: none;
+    }
+    .news-banner-text {
+        white-space: normal;
+        font-size: 0.76rem;
+    }
 }
 
 .contents-empty {

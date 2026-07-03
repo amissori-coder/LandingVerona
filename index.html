@@ -120,6 +120,21 @@
         </div>
     </nav>
 
+    <!-- News banner: Osservatorio giurisprudenza, Cass. 7134/2026 -->
+    <div class="news-banner" id="newsBanner" hidden>
+        <div class="news-banner-inner">
+            <a class="news-banner-link" href="cassazione_7134_2026/">
+                <span class="news-banner-tag">Novità</span>
+                <span class="news-banner-text"><strong>Cassazione n. 7134/2026:</strong> nullo il finanziamento all'impresa decotta, anche con garanzia MCC. Gli adeguati assetti diventano condizione di bancabilità.</span>
+                <span class="news-banner-cta">
+                    Leggi l'approfondimento
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                </span>
+            </a>
+            <button type="button" class="news-banner-close" id="newsBannerClose" aria-label="Chiudi avviso">&times;</button>
+        </div>
+    </div>
+
     <!-- Landing split: left = brand/hero, right = eventi + contenuti -->
     <section class="landing-split" id="hero">
 
@@ -436,7 +451,7 @@
 
                 <div class="contents-toolbar" id="contentsToolbar" role="tablist" aria-label="Filtra per categoria"></div>
 
-                <div class="contents-list" id="contentsGrid">
+                <div class="contents-list is-capped" id="contentsGrid">
                     <a href="cassazione_7134_2026/" class="content-card is-featured" data-category="giurisprudenza">
                         <div class="content-card-body">
                             <span class="content-tag">Giurisprudenza<span class="content-badge">Novità</span></span>
@@ -594,6 +609,10 @@
                     </a>
                 </div>
 
+                <button type="button" class="contents-toggle" id="contentsToggle" hidden>
+                    <span class="contents-toggle-label">Mostra tutti gli approfondimenti</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
                 <p class="contents-empty" id="contentsEmpty" hidden>Nessun contenuto in questa categoria.</p>
                 <p class="contents-count" id="contentsCount" aria-live="polite"></p>
             </div>
