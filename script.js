@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'patrimonio':           'Patrimonio',
             'crisi-impresa':        'Crisi',
             'bandi-lazio':          'Bandi Lazio',
-            'bandi-nazionali':      'Nazionali',
+            'bandi-nazionali':      'Bandi Nazionali',
             'giurisprudenza':       'Sentenze'
         };
 

@@ -1027,8 +1027,11 @@ ul {
     min-height: 0;
 }
 
-/* "Tutti" occupa l'intera riga, le altre categorie si allineano in coppie */
-.content-filter[data-filter="all"] {
+/* "Tutti" occupa l'intera riga, le altre categorie si allineano in coppie.
+   Anche le etichette lunghe che non stanno in mezza colonna prendono
+   la riga intera, così non vengono mai troncate. */
+.content-filter[data-filter="all"],
+.content-filter[data-filter="bandi-nazionali"] {
     grid-column: 1 / -1;
 }
 
