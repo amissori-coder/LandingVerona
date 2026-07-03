@@ -2124,3 +2124,37 @@ img {
     .area-cards { grid-template-columns: 1fr; gap: 20px; }
     .area-card { padding: 32px 22px; }
 }
+
+/* ===== Voce "Scarica la brochure" in evidenza nel menu =====
+   Navbar trasparente sull'hero: pillola bianca. Navbar scrollata
+   (fondo bianco): pillola nel colore accent. Nel pannello mobile
+   (fondo chiaro) vale la variante accent. */
+.navbar .nav-links a.nav-brochure {
+    border: 1.5px solid rgba(255, 255, 255, 0.65);
+    color: #ffffff !important;
+    padding: 8px 18px;
+    border-radius: 100px;
+    font-weight: 700 !important;
+}
+.navbar .nav-links a.nav-brochure::after { display: none !important; }
+.navbar .nav-links a.nav-brochure:hover {
+    background: #ffffff;
+    color: var(--accent) !important;
+    transform: translateY(-1px);
+}
+.navbar.scrolled .nav-links a.nav-brochure {
+    border-color: var(--accent);
+    color: var(--accent) !important;
+}
+.navbar.scrolled .nav-links a.nav-brochure:hover {
+    background: var(--accent);
+    color: #ffffff !important;
+}
+@media (max-width: 768px) {
+    .navbar .nav-links a.nav-brochure,
+    .navbar.scrolled .nav-links a.nav-brochure {
+        border-color: var(--accent);
+        color: var(--accent) !important;
+        background: transparent;
+    }
+}

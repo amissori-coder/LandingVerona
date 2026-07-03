@@ -2870,3 +2870,16 @@ ul {
     .spine-step:hover .spine-card,
     .spine-step:hover .spine-node { transform: none; }
 }
+
+/* ===== Voce "Scarica la brochure" in evidenza nel menu ===== */
+.nav-menu a.nav-brochure {
+    border: 1.5px solid rgba(255, 255, 255, 0.55);
+    border-radius: 100px;
+    padding: 8px 16px;
+}
+.nav-menu a.nav-brochure::after { display: none !important; }
+.nav-menu a.nav-brochure:hover {
+    background: var(--white);
+    border-color: var(--white);
+    color: var(--navy-dark);
+}
