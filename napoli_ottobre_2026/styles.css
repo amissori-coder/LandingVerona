@@ -494,31 +494,6 @@ ul {
     letter-spacing: 0.4px;
     animation: fadeInUp 0.8s ease 1.05s both;
 }
-
-/* Hero CTA group: primary "Riserva la data" + secondary "Scarica la brochure" */
-.hero-cta-group {
-    display: inline-flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 14px;
-}
-
-/* Secondary CTA: transparent outline that mirrors the primary on hover */
-.hero-cta-secondary {
-    background: transparent;
-    color: var(--white);
-    box-shadow: none;
-}
-
-.hero-cta-secondary:hover {
-    background: var(--white);
-    color: var(--navy-dark);
-}
-
-.hero-cta-secondary:hover svg {
-    transform: translateY(2px);
-}
-
 /* === Sections Common ===
    Sections no longer force 100vh: they size to their content so
    the page scrolls naturally instead of acting as a slide deck. */
