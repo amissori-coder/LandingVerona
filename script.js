@@ -194,7 +194,9 @@ document.addEventListener('DOMContentLoaded', () => {
             'rating-legalita':      'Rating di Legalità',
             'esg':                  'ESG & Sostenibilità',
             'internazionalizzazione': 'Internazionalizzazione',
-            'finanza-agevolata':    'Finanza Agevolata'
+            'finanza-agevolata':    'Finanza Agevolata',
+            'patrimonio':           'Patrimonio',
+            'crisi-impresa':        "Crisi d'Impresa"
         };
 
         const slugToLabel = (slug) => {

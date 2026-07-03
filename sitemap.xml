@@ -138,4 +138,12 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- La Crisi d'Impresa -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/crisi_impresa/</loc>
+        <lastmod>2026-07-03</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
 </urlset>
