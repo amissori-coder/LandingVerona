@@ -207,16 +207,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // fall back to a Title Case conversion of the slug itself,
         // so any new data-category value still renders cleanly.
         const CATEGORY_LABELS = {
-            'agevolazioni-fiscali': 'Agevolazioni Fiscali',
+            'agevolazioni-fiscali': 'Agevolazioni',
             'compliance':           'Compliance',
-            'diritto-societario':   'Diritto Societario',
-            'revisione-legale':     'Revisione Legale',
-            'rating-legalita':      'Rating di Legalità',
-            'esg':                  'ESG & Sostenibilità',
-            'internazionalizzazione': 'Internazionalizzazione',
-            'finanza-agevolata':    'Finanza Agevolata',
+            'diritto-societario':   'Societario',
+            'revisione-legale':     'Revisione',
+            'rating-legalita':      'Rating',
+            'esg':                  'ESG',
+            'internazionalizzazione': 'Estero',
+            'finanza-agevolata':    'Finanza',
             'patrimonio':           'Patrimonio',
-            'crisi-impresa':        "Crisi d'Impresa",
+            'crisi-impresa':        'Crisi',
             'giurisprudenza':       'Giurisprudenza'
         };
 
