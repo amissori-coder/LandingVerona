@@ -156,6 +156,24 @@ document.addEventListener('DOMContentLoaded', () => {
         onScroll();
     }
 
+    // === Mobile menu toggle ===
+    const navToggle = document.getElementById('navToggle');
+    const navMenuEl = document.querySelector('.nav-menu');
+    if (navToggle && navMenuEl) {
+        navToggle.addEventListener('click', () => {
+            const open = navMenuEl.classList.toggle('active');
+            navToggle.classList.toggle('active', open);
+            navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        navMenuEl.querySelectorAll('a').forEach(a => {
+            a.addEventListener('click', () => {
+                navMenuEl.classList.remove('active');
+                navToggle.classList.remove('active');
+                navToggle.setAttribute('aria-expanded', 'false');
+            });
+        });
+    }
+
     // === News banner: fixed strip under the navbar ===
     // Highlights the latest Osservatorio content. Dismissable per session.
     const newsBanner = document.getElementById('newsBanner');

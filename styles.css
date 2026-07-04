@@ -107,6 +107,42 @@ ul {
     justify-content: space-between;
 }
 
+/* Hamburger: visibile solo su mobile */
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 42px;
+    height: 42px;
+    padding: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.nav-toggle span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--white);
+    border-radius: 2px;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.nav-toggle.active span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.nav-toggle.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.nav-toggle.active span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
 .brand-logo {
     display: flex;
     align-items: center;
@@ -3506,8 +3542,45 @@ ul {
         padding: 0 20px;
     }
 
+    .nav-toggle {
+        display: flex;
+    }
+
+    /* Menu mobile: pannello a tendina agganciato sotto la navbar */
     .nav-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
         display: none;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        padding: 12px 20px 18px;
+        background: rgba(10, 40, 68, 0.98);
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.35);
+    }
+
+    .nav-menu.active {
+        display: flex;
+    }
+
+    .nav-menu > li {
+        width: 100%;
+    }
+
+    .nav-menu > li > a {
+        display: block;
+        padding: 11px 4px;
+        font-size: 0.88rem;
+    }
+
+    .nav-menu > li > a.nav-brochure {
+        display: inline-flex;
+        margin-top: 8px;
+        padding: 9px 18px;
     }
 
     .newsletter-grid {
