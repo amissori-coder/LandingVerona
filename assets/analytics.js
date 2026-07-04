@@ -16,7 +16,7 @@
 (function () {
     'use strict';
 
-    var NGB_GA_ID = ''; // TODO: ID misurazione GA4 (G-...)
+    var NGB_GA_ID = 'G-TDKR0JGG60'; // ID misurazione GA4
 
     /* ---- Consent Mode v2: default negato, prima di ogni altro script ---- */
     window.dataLayer = window.dataLayer || [];
@@ -31,8 +31,17 @@
         wait_for_update: 2000
     });
 
-    /* ---- GA4: caricato solo con un ID configurato ---- */
-    if (NGB_GA_ID) {
+    /* ---- GA4: caricato SOLO dopo il consenso dell'utente ----
+       Approccio "basic consent mode", il piu' prudente per l'Italia:
+       finche' l'utente non acconsente alla misurazione, nessuno script
+       di Google viene caricato e nessun dato lascia il browser. Il
+       consenso memorizzato riattiva il caricamento alle visite
+       successive tramite la callback iubenda qui sotto. */
+    var gaLoaded = false;
+    function loadGA() {
+        if (gaLoaded || !NGB_GA_ID) return;
+        gaLoaded = true;
+
         var ga = document.createElement('script');
         ga.async = true;
         ga.src = 'https://www.googletagmanager.com/gtag/js?id=' + NGB_GA_ID;
@@ -50,6 +59,16 @@
         floatingPreferencesButtonDisplay: false,
         perPurposeConsent: true,
         googleConsentMode: true,
+        callback: {
+            /* Chiamata sia alla scelta dell'utente sia, nelle visite
+               successive, quando la preferenza salvata viene riletta. */
+            onPreferenceExpressedOrNotNeeded: function (preference) {
+                if (!preference) return;
+                var misurazione = preference.consent === true ||
+                    !!(preference.purposes && preference.purposes[4]);
+                if (misurazione) loadGA();
+            }
+        },
         banner: {
             position: 'float-bottom-center',
             acceptButtonDisplay: true,
