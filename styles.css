@@ -1279,6 +1279,77 @@ ul {
     transition: transform 0.3s ease;
 }
 
+/* Richiamo in evidenza nel lato brand della home: percorso operativo
+   sugli adeguati assetti (7 azioni). Stesso linguaggio navy della colonna. */
+.brand-highlight {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 36px;
+    padding: 16px 20px;
+    max-width: 460px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-left: 3px solid var(--white);
+    border-radius: var(--radius-md);
+    color: var(--white);
+    transition: all 0.3s ease;
+}
+
+.brand-highlight:hover {
+    background: rgba(255, 255, 255, 0.13);
+    border-color: rgba(255, 255, 255, 0.5);
+    border-left-color: var(--white);
+    transform: translateY(-2px);
+}
+
+.brand-highlight-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.brand-highlight-tag {
+    font-family: var(--font-display);
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.brand-highlight-text {
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.brand-highlight-text strong {
+    color: var(--white);
+    font-weight: 700;
+}
+
+.brand-highlight-arrow {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    color: var(--white);
+    transition: all 0.3s ease;
+}
+
+.brand-highlight:hover .brand-highlight-arrow {
+    background: var(--white);
+    color: var(--navy-dark);
+    border-color: var(--white);
+}
+
 /* Featured content card: mette in risalto il contenuto più recente */
 .content-card.is-featured {
     background: rgba(22, 64, 104, 0.05);
