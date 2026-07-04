@@ -210,6 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const _ts = _pad(_n.getDate()) + '/' + _pad(_n.getMonth() + 1) + '/' + _n.getFullYear()
                       + ' ' + _pad(_n.getHours()) + ':' + _pad(_n.getMinutes()) + ':' + _pad(_n.getSeconds());
 
+            if (typeof window.gtag === 'function') window.gtag('event', 'invio_form', { pagina: document.title });
             const payload = {
                 data:      _ts,
                 pagina:    'Napoli 2 Ottobre 2026 - Manifestazione di interesse',

@@ -185,6 +185,10 @@ document.addEventListener('DOMContentLoaded', () => {
         positionBanner();
         window.addEventListener('resize', positionBanner);
         window.addEventListener('scroll', positionBanner, { passive: true });
+        const bannerLink = newsBanner.querySelector('.news-banner-link');
+        if (bannerLink) bannerLink.addEventListener('click', () => {
+            if (typeof window.gtag === 'function') window.gtag('event', 'click_banner_novita', { destinazione: bannerLink.getAttribute('href') });
+        });
         const bannerClose = document.getElementById('newsBannerClose');
         if (bannerClose) {
             bannerClose.addEventListener('click', () => {
@@ -413,6 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.innerHTML = '<span>Invio in corso...</span>';
             submitBtn.disabled = true;
 
+            if (typeof window.gtag === 'function') window.gtag('event', 'invio_form', { pagina: 'Landing - Newsletter' });
             const payload = buildNgbPayload('Landing - Newsletter', {
                 nome:      (data.nome     || '').trim(),
                 cognome:   (data.cognome  || '').trim(),

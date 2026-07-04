@@ -129,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             var GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
 
+            if (typeof window.gtag === 'function') window.gtag('event', 'invio_form', { pagina: (contactForm.dataset.pagina || 'ZLS & ZES - Contatto') });
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST',
                 mode: 'no-cors',
