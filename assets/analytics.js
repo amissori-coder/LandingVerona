@@ -54,6 +54,7 @@
     /* ---- Banner iubenda Cookie Solution ---- */
     window._iub = window._iub || [];
     window._iub.csConfiguration = {
+        siteId: 4392696,
         cookiePolicyId: 40996386,
         lang: 'it',
         floatingPreferencesButtonDisplay: false,
