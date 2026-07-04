@@ -1449,32 +1449,41 @@ img {
 }
 
 @media (max-width: 768px) {
+    /* Menu mobile: pannello a tendina agganciato sotto la navbar,
+       identico a quello della home */
     .nav-links {
-        position: fixed;
-        top: 0;
-        right: -100%;
-        width: 280px;
-        height: 100vh;
-        background: var(--bg-primary);
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        display: none;
         flex-direction: column;
-        justify-content: center;
-        gap: 24px;
-        padding: 40px;
-        border-left: 1px solid var(--border-color);
-        transition: var(--transition);
-        box-shadow: -8px 0 32px rgba(0, 0, 0, 0.1);
+        align-items: flex-start;
+        gap: 2px;
+        padding: 12px 20px 18px;
+        background: rgba(10, 40, 68, 0.98);
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.35);
+    }
+
+    .nav-links li {
+        width: 100%;
     }
 
     .nav-links a {
-        color: var(--text-secondary) !important;
+        color: #ffffff !important;
+        display: block;
+        width: 100%;
+        padding: 11px 4px;
     }
 
     .nav-links a:hover {
-        color: var(--text-primary) !important;
+        color: #ffffff !important;
     }
 
     .nav-links.active {
-        right: 0;
+        display: flex;
     }
 
     .hamburger {
@@ -2151,10 +2160,14 @@ img {
     color: #ffffff !important;
 }
 @media (max-width: 768px) {
+    /* Nel pannello mobile (fondo navy) la pillola resta bianca e inline */
     .navbar .nav-links a.nav-brochure,
     .navbar.scrolled .nav-links a.nav-brochure {
-        border-color: var(--accent);
-        color: var(--accent) !important;
+        border-color: rgba(255, 255, 255, 0.65);
+        color: #ffffff !important;
         background: transparent;
+        display: inline-flex;
+        width: auto;
+        margin-top: 8px;
     }
 }
