@@ -37,6 +37,16 @@
        di Google viene caricato e nessun dato lascia il browser. Il
        consenso memorizzato riattiva il caricamento alle visite
        successive tramite la callback iubenda qui sotto. */
+    /* Modalita' diagnostica: aprendo una pagina con ?ga_debug=1 gli
+       eventi del dispositivo compaiono in tempo reale in Analytics >
+       Amministrazione > DebugView. Persiste per la sessione di
+       navigazione, cosi' vale anche sulle pagine successive. */
+    try {
+        if (/[?&]ga_debug=1/.test(window.location.search)) {
+            sessionStorage.setItem('ngbGaDebug', '1');
+        }
+    } catch (e) { /* storage non disponibile */ }
+
     var gaLoaded = false;
     function loadGA() {
         if (gaLoaded || !NGB_GA_ID) return;
@@ -47,8 +57,13 @@
         ga.src = 'https://www.googletagmanager.com/gtag/js?id=' + NGB_GA_ID;
         document.head.appendChild(ga);
 
+        var cfg = { anonymize_ip: true };
+        try {
+            if (sessionStorage.getItem('ngbGaDebug') === '1') cfg.debug_mode = true;
+        } catch (e) { /* storage non disponibile */ }
+
         window.gtag('js', new Date());
-        window.gtag('config', NGB_GA_ID, { anonymize_ip: true });
+        window.gtag('config', NGB_GA_ID, cfg);
     }
 
     /* ---- Banner iubenda Cookie Solution ---- */
