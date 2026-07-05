@@ -163,6 +163,11 @@ img {
     align-items: center;
     gap: 14px;
 }
+/* Col menu esteso visibile il marchio non si comprime mai: senza questo
+   vincolo, quando lo spazio e' giusto le voci finiscono sopra il logo. */
+@media (min-width: 1200px) {
+    .nav-brand-group { flex-shrink: 0; }
+}
 .nav-back {
     display: inline-flex;
     align-items: center;
@@ -1450,11 +1455,12 @@ img {
     }
 }
 
-/* Menu a tendina fino a 1149px: la famiglia di pagine che condivide
+/* Menu a tendina fino a 1199px: la famiglia di pagine che condivide
    questo foglio arriva a 7 voci piu' brochure e CTA, e il menu esteso
-   piu' largo (Iper Ammortamento) richiede circa 1090px. Pannello
-   identico a quello della home. */
-@media (max-width: 1149px) {
+   piu' largo (Iper Ammortamento) richiede circa 1090px; la soglia a
+   1200px lascia margine per barra di scorrimento e font piu' larghi.
+   Pannello identico a quello della home. */
+@media (max-width: 1199px) {
     .nav-links {
         position: absolute;
         top: 100%;
@@ -2166,7 +2172,7 @@ img {
     background: var(--accent);
     color: #ffffff !important;
 }
-@media (max-width: 1149px) {
+@media (max-width: 1199px) {
     /* Nel pannello a tendina (fondo navy) la pillola resta bianca e inline */
     .navbar .nav-links a.nav-brochure,
     .navbar.scrolled .nav-links a.nav-brochure {

@@ -159,6 +159,11 @@ ul {
     color: var(--white);
     min-width: 0;
 }
+/* Col menu esteso visibile il marchio non si comprime mai: senza questo
+   vincolo, quando lo spazio e' giusto le voci finiscono sopra il logo. */
+@media (min-width: 1000px) {
+    .nav-logo { flex-shrink: 0; min-width: auto; }
+}
 
 .logo-mark-img {
     height: 38px;

@@ -76,6 +76,9 @@ img { max-width:100%; display:block; }
 }
 .nav-container { display:flex; align-items:center; justify-content:space-between; gap:20px; }
 .nav-brand-group { display:flex; align-items:center; gap:14px; }
+/* Col menu esteso visibile il marchio non si comprime mai: senza questo
+   vincolo, quando lo spazio e' giusto le voci finiscono sopra il logo. */
+@media (min-width:1250px) { .nav-brand-group { flex-shrink:0; } }
 .logo { display:flex; align-items:center; gap:10px; font-size:1.5rem; font-weight:800; letter-spacing:-0.5px; }
 
 /* Back arrow - minimal, inline with brand */
@@ -2279,10 +2282,10 @@ img { max-width:100%; display:block; }
     .nav-divider { display:none; }
 }
 
-/* Menu a tendina fino a 1199px: con 7 voci piu' brochure e CTA il menu
-   esteso richiede circa 1200px, sotto questa soglia le voci andrebbero
-   a capo sfalsandosi. Pannello identico alla home. */
-@media (max-width:1199px) {
+/* Menu a tendina fino a 1249px: con 7 voci piu' brochure e CTA il menu
+   esteso richiede circa 1200px; la soglia a 1250px lascia margine per
+   barra di scorrimento e font piu' larghi. Pannello identico alla home. */
+@media (max-width:1249px) {
     .nav-links {
         display:none; position:absolute; top:100%; left:0; right:0;
         background:rgba(10,40,68,0.98); backdrop-filter:blur(14px); flex-direction:column;
@@ -2339,7 +2342,7 @@ img { max-width:100%; display:block; }
     background: var(--accent);
     color: #ffffff !important;
 }
-@media (max-width: 1199px) {
+@media (max-width: 1249px) {
     /* Nel pannello a tendina (fondo navy) la pillola resta bianca e inline */
     .navbar .nav-links a.nav-brochure,
     .navbar.scrolled .nav-links a.nav-brochure {
