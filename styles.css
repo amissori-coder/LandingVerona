@@ -183,7 +183,8 @@ ul {
 
 .nav-menu {
     display: flex;
-    gap: 36px;
+    flex-wrap: nowrap;
+    gap: clamp(14px, 1.8vw, 36px);
     align-items: center;
 }
 
@@ -200,6 +201,7 @@ ul {
     font-weight: 500;
     letter-spacing: 0.3px;
     position: relative;
+    white-space: nowrap;
 }
 
 .nav-menu > li > a::after {
@@ -3604,15 +3606,9 @@ ul {
     }
 }
 
-@media (max-width: 768px) {
-    html {
-        font-size: 15px;
-    }
-
-    .container {
-        padding: 0 20px;
-    }
-
+/* Menu a tendina fino a 899px: sotto questa soglia il menu esteso
+   con la pillola della brochure non sta su una riga sola. */
+@media (max-width: 899px) {
     .nav-toggle {
         display: flex;
     }
@@ -3646,12 +3642,23 @@ ul {
         display: block;
         padding: 11px 4px;
         font-size: 0.88rem;
+        white-space: normal;
     }
 
     .nav-menu > li > a.nav-brochure {
         display: inline-flex;
         margin-top: 8px;
         padding: 9px 18px;
+    }
+}
+
+@media (max-width: 768px) {
+    html {
+        font-size: 15px;
+    }
+
+    .container {
+        padding: 0 20px;
     }
 
     .newsletter-grid {

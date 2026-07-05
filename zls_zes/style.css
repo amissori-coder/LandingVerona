@@ -256,7 +256,8 @@ img {
 .nav-links {
     display: flex;
     align-items: center;
-    gap: 32px;
+    flex-wrap: nowrap;
+    gap: clamp(12px, 1.6vw, 28px);
     list-style: none;
 }
 
@@ -264,6 +265,7 @@ img {
     font-size: 0.9rem;
     font-weight: 500;
     position: relative;
+    white-space: nowrap;
 }
 
 .nav-links a::after {
@@ -1448,9 +1450,11 @@ img {
     }
 }
 
-@media (max-width: 768px) {
-    /* Menu mobile: pannello a tendina agganciato sotto la navbar,
-       identico a quello della home */
+/* Menu a tendina fino a 1149px: la famiglia di pagine che condivide
+   questo foglio arriva a 7 voci piu' brochure e CTA, e il menu esteso
+   piu' largo (Iper Ammortamento) richiede circa 1090px. Pannello
+   identico a quello della home. */
+@media (max-width: 1149px) {
     .nav-links {
         position: absolute;
         top: 100%;
@@ -1476,6 +1480,7 @@ img {
         display: block;
         width: 100%;
         padding: 11px 4px;
+        white-space: normal;
     }
 
     .nav-links a:hover {
@@ -1502,7 +1507,9 @@ img {
     .hamburger.active span:nth-child(3) {
         transform: rotate(-45deg) translate(5px, -5px);
     }
+}
 
+@media (max-width: 768px) {
     .section {
         padding: 64px 0;
     }
@@ -2159,8 +2166,8 @@ img {
     background: var(--accent);
     color: #ffffff !important;
 }
-@media (max-width: 768px) {
-    /* Nel pannello mobile (fondo navy) la pillola resta bianca e inline */
+@media (max-width: 1149px) {
+    /* Nel pannello a tendina (fondo navy) la pillola resta bianca e inline */
     .navbar .nav-links a.nav-brochure,
     .navbar.scrolled .nav-links a.nav-brochure {
         border-color: rgba(255, 255, 255, 0.65);

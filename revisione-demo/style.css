@@ -103,8 +103,8 @@ img { max-width:100%; display:block; }
 .logo-spa { color:#8bb8d4; transition:var(--transition); }
 .navbar.scrolled .logo-revilaw { color:var(--text-primary); }
 .navbar.scrolled .logo-spa { color:var(--accent); }
-.nav-links { display:flex; align-items:center; gap:32px; list-style:none; }
-.nav-links a { font-size:0.9rem; font-weight:500; color:rgba(255,255,255,0.8); position:relative; }
+.nav-links { display:flex; align-items:center; flex-wrap:nowrap; gap:clamp(12px, 1.6vw, 28px); list-style:none; }
+.nav-links a { font-size:0.9rem; font-weight:500; color:rgba(255,255,255,0.8); position:relative; white-space:nowrap; }
 .nav-links a:hover { color:#fff; }
 .nav-links a::after { content:''; position:absolute; bottom:-4px; left:0; width:0; height:2px; background:var(--accent); transition:var(--transition); }
 .nav-links a:hover::after { width:100%; }
@@ -2277,7 +2277,12 @@ img { max-width:100%; display:block; }
     .nav-back { width:30px; height:30px; }
     .nav-back svg { width:16px; height:16px; }
     .nav-divider { display:none; }
-    /* Menu mobile: pannello a tendina sotto la navbar, come la home */
+}
+
+/* Menu a tendina fino a 1199px: con 7 voci piu' brochure e CTA il menu
+   esteso richiede circa 1200px, sotto questa soglia le voci andrebbero
+   a capo sfalsandosi. Pannello identico alla home. */
+@media (max-width:1199px) {
     .nav-links {
         display:none; position:absolute; top:100%; left:0; right:0;
         background:rgba(10,40,68,0.98); backdrop-filter:blur(14px); flex-direction:column;
@@ -2286,7 +2291,7 @@ img { max-width:100%; display:block; }
     }
     .nav-links.active { display:flex; }
     .nav-links li { width:100%; }
-    .nav-links a { color:#fff!important; font-size:0.95rem; display:block; width:100%; padding:11px 4px; }
+    .nav-links a { color:#fff!important; font-size:0.95rem; display:block; width:100%; padding:11px 4px; white-space:normal; }
     .hamburger { display:flex; z-index:1001; }
 }
 
@@ -2334,8 +2339,8 @@ img { max-width:100%; display:block; }
     background: var(--accent);
     color: #ffffff !important;
 }
-@media (max-width: 768px) {
-    /* Nel pannello mobile (fondo navy) la pillola resta bianca e inline */
+@media (max-width: 1199px) {
+    /* Nel pannello a tendina (fondo navy) la pillola resta bianca e inline */
     .navbar .nav-links a.nav-brochure,
     .navbar.scrolled .nav-links a.nav-brochure {
         border-color: rgba(255, 255, 255, 0.65);
