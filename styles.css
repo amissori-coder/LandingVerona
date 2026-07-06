@@ -3300,18 +3300,38 @@ ul {
     transform: none;
 }
 
-.footer-grid {
-    display: grid;
-    grid-template-columns: 1.6fr 1fr 1fr;
-    gap: 48px;
-    margin-bottom: 40px;
+/* Footer compatto, stessa struttura di tutte le pagine:
+   marchio a sinistra, link essenziali a destra, note legali sotto. */
+.footer-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    margin-bottom: 36px;
 }
-.footer-col ul li a:hover {
-    color: var(--navy-glow, #5B89B8);
+
+.footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.footer-links a {
+    font-size: 0.86rem;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: nowrap;
+}
+
+.footer-links a:hover {
+    color: var(--white);
 }
 
 .footer-brand .brand-logo {
     margin-bottom: 18px;
+}
+
+.footer-brand p {
+    max-width: 380px;
 }
 
 .footer h4 {
@@ -3350,6 +3370,19 @@ ul {
     font-size: 0.76rem;
     color: rgba(255, 255, 255, 0.4);
     text-align: center;
+}
+
+.footer-bottom a {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.footer-bottom a:hover {
+    color: var(--white);
+}
+
+.footer-legal {
+    margin-top: 4px;
+    font-size: 0.72rem;
 }
 
 /* === Animations === */
@@ -3807,9 +3840,10 @@ ul {
         padding: 48px 0 22px;
     }
 
-    .footer-grid {
-        grid-template-columns: 1fr;
-        gap: 28px;
+    .footer-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 22px;
         margin-bottom: 30px;
     }
 }
