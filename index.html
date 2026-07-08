@@ -649,6 +649,23 @@
     </section>
 
     <!-- Chi Siamo -->
+    <!-- Video di presentazione: parte da solo quando entra in vista scorrendo la pagina -->
+    <section class="video-home" id="video" aria-labelledby="video-title">
+        <div class="container">
+            <header class="video-home-header">
+                <span class="video-home-eyebrow">Il progetto</span>
+                <h2 class="video-home-title" id="video-title">Next Generation Business</h2>
+                <div class="video-home-divider"></div>
+            </header>
+            <div class="video-home-frame">
+                <video id="ngbHomeVideo" muted loop playsinline preload="metadata" aria-label="Video di presentazione di Next Generation Business">
+                    <source src="https://github.com/amissori-coder/LandingVerona/releases/download/media-home/video-homepage-ngb.mp4" type="video/mp4">
+                    Il tuo browser non supporta la riproduzione del video.
+                </video>
+            </div>
+        </div>
+    </section>
+
     <section class="chi-siamo" id="chi-siamo">
         <div class="container">
             <header class="chi-siamo-header">
@@ -693,27 +710,6 @@
                     </div>
                 </div>
 
-            </div>
-        </div>
-    </section>
-
-    <!-- Video di presentazione: parte da solo quando entra in vista scorrendo la pagina -->
-    <section class="video-home" id="video" aria-labelledby="video-title">
-        <div class="container">
-            <header class="video-home-header">
-                <span class="video-home-eyebrow">Il progetto</span>
-                <h2 class="video-home-title" id="video-title">Next Generation Business <span class="video-home-title-accent">in video</span></h2>
-                <div class="video-home-divider"></div>
-            </header>
-            <div class="video-home-frame">
-                <video id="ngbHomeVideo" muted loop playsinline preload="metadata" aria-label="Video di presentazione di Next Generation Business">
-                    <source src="https://github.com/amissori-coder/LandingVerona/releases/download/media-home/video-homepage-ngb.mp4" type="video/mp4">
-                    Il tuo browser non supporta la riproduzione del video.
-                </video>
-                <button type="button" class="video-home-sound" id="ngbVideoSound" aria-label="Attiva l'audio del video">
-                    <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-                    <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                </button>
             </div>
         </div>
     </section>
