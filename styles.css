@@ -1989,6 +1989,126 @@ ul {
 /* ============================================
    SEDI section (interactive Italy map)
    ============================================ */
+/* ===== Sezione video della home =====
+   Banda navy a tutta larghezza fra Chi siamo e Sedi: il video parte
+   da solo (silenziato) quando entra in vista e si ferma quando esce. */
+.video-home {
+    background: linear-gradient(165deg, var(--navy-dark) 0%, var(--navy) 100%);
+    padding: 104px 0 112px;
+    position: relative;
+}
+
+.video-home-header {
+    text-align: center;
+    margin-bottom: 46px;
+}
+
+.video-home-eyebrow {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 2.8px;
+    text-transform: uppercase;
+    color: var(--navy-glow);
+    margin-bottom: 14px;
+}
+
+.video-home-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.18;
+    letter-spacing: -0.6px;
+    margin-bottom: 22px;
+}
+
+.video-home-title-accent {
+    display: inline-block;
+    font-weight: 400;
+    color: var(--navy-glow);
+}
+
+.video-home-divider {
+    width: 48px;
+    height: 3px;
+    background: var(--navy-glow);
+    margin: 0 auto;
+    border-radius: 2px;
+}
+
+.video-home-frame {
+    position: relative;
+    max-width: 960px;
+    margin: 0 auto;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+    background: #000;
+}
+
+.video-home-frame video {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.video-home-sound {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 40, 68, 0.75);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: var(--white);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.video-home-sound:hover {
+    background: var(--white);
+    color: var(--navy-dark);
+    transform: translateY(-2px);
+}
+
+.video-home-sound svg {
+    width: 20px;
+    height: 20px;
+}
+
+.video-home-sound .icon-on { display: none; }
+.video-home-sound.is-on .icon-on { display: block; }
+.video-home-sound.is-on .icon-off { display: none; }
+
+@media (max-width: 768px) {
+    .video-home {
+        padding: 68px 0 76px;
+    }
+
+    .video-home-header {
+        margin-bottom: 30px;
+    }
+
+    .video-home-frame {
+        border-radius: 10px;
+    }
+
+    .video-home-sound {
+        right: 12px;
+        bottom: 12px;
+        width: 42px;
+        height: 42px;
+    }
+}
+
 .sedi {
     background: var(--white);
     padding: 112px 0 104px;

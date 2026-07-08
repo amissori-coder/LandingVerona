@@ -691,3 +691,38 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 
 });
+
+// Video della home: parte da solo (silenziato) quando entra in vista
+// scorrendo la pagina, si ferma quando esce. Il pulsante attiva l'audio.
+(function () {
+    var video = document.getElementById('ngbHomeVideo');
+    var soundBtn = document.getElementById('ngbVideoSound');
+    if (!video) return;
+
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || !('IntersectionObserver' in window)) {
+        video.controls = true;
+        if (soundBtn) soundBtn.style.display = 'none';
+        return;
+    }
+
+    var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.35) {
+                var avvio = video.play();
+                if (avvio && avvio.catch) avvio.catch(function () { video.controls = true; });
+            } else {
+                video.pause();
+            }
+        });
+    }, { threshold: [0, 0.35] });
+    observer.observe(video);
+
+    if (soundBtn) {
+        soundBtn.addEventListener('click', function () {
+            video.muted = !video.muted;
+            soundBtn.classList.toggle('is-on', !video.muted);
+            soundBtn.setAttribute('aria-label', video.muted ? "Attiva l'audio del video" : "Disattiva l'audio del video");
+        });
+    }
+})();
