@@ -255,7 +255,7 @@
             </div>
             <div class="player-frame" id="playerFrame">
                 <video id="playerVideo" controls preload="auto" playsinline poster="poster/miele.jpg">
-                    <source id="playerSorgente" src="https://github.com/amissori-coder/LandingVerona/releases/download/media-interviste-verona-2026/intervista-miele.mp4" type="video/mp4">
+                    <source id="playerSorgente" src="https://github.com/amissori-coder/LandingVerona/releases/download/media-interviste-verona-2026/intervista-miele.mp4?v=2" type="video/mp4">
                     Il tuo browser non supporta la riproduzione del video.
                 </video>
                 <div class="player-caricamento" aria-hidden="true">
@@ -381,8 +381,10 @@
             return (parti[0][0] + parti[parti.length - 1][0]).toUpperCase();
         }
 
+        // ?v=2: versione dei file dopo la correzione della sincronia audio,
+        // forza i browser a scaricare le copie nuove invece di quelle in cache
         function seleziona(voce, card, riproduci) {
-            sorgente.src = BASE + 'intervista-' + voce.slug + '.mp4';
+            sorgente.src = BASE + 'intervista-' + voce.slug + '.mp4?v=2';
             video.poster = 'poster/' + voce.slug + '.jpg';
             video.preload = 'auto';
             video.load();
