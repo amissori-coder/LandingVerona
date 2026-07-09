@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Le interviste di Verona | Next Generation Business</title>
+    <script src="/assets/analytics.js"></script>
+    <!-- Pagina riservata: visibile solo a chi possiede il collegamento.
+         Niente indicizzazione, niente sitemap, nessun link dalle altre pagine. -->
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Le interviste ai protagonisti del convegno Next Generation Business di Verona, 27 marzo 2026. Anteprima riservata.">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../zls_zes/style.css">
+    <link rel="stylesheet" href="../assets/content-page.css">
+
+    <style>
+        /* ===== Player ===== */
+        .player-band {
+            background: linear-gradient(165deg, #0A2844 0%, #164068 100%);
+            padding: 56px 0 72px;
+        }
+        .player-frame {
+            max-width: 960px;
+            margin: 0 auto;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+            background: #000;
+        }
+        .player-frame video {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .player-head {
+            max-width: 960px;
+            margin: 0 auto 22px;
+            color: #fff;
+        }
+        .player-head .player-eyebrow {
+            display: inline-block;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 2.6px;
+            text-transform: uppercase;
+            color: #8bb8d4;
+            margin-bottom: 8px;
+        }
+        .player-head h2 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: clamp(1.4rem, 2.6vw, 2rem);
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 6px;
+        }
+        .player-head p {
+            color: rgba(255, 255, 255, 0.65);
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        /* ===== Elenco intervistati ===== */
+        .interviste-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 22px;
+            margin-top: 40px;
+        }
+        .intervista-card {
+            background: #ffffff;
+            border: 1px solid rgba(22, 64, 104, 0.14);
+            border-left: 4px solid #2A5A85;
+            border-radius: 12px;
+            padding: 22px 24px;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+            font: inherit;
+        }
+        .intervista-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 34px rgba(10, 40, 68, 0.14);
+        }
+        .intervista-card.attiva {
+            border-color: #164068;
+            border-left-color: #164068;
+            box-shadow: 0 16px 34px rgba(10, 40, 68, 0.18);
+        }
+        .intervista-card h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0A2844;
+            margin: 0;
+        }
+        .intervista-card .ruolo {
+            font-size: 0.74rem;
+            font-weight: 600;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            color: #2A5A85;
+        }
+        .intervista-card p {
+            font-size: 0.88rem;
+            line-height: 1.55;
+            color: #4A5568;
+            margin: 0;
+            flex-grow: 1;
+        }
+        .intervista-card .guarda {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #164068;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .intervista-card.attiva .guarda::after { content: " · in riproduzione"; font-weight: 500; }
+
+        .nota-riservata {
+            max-width: 760px;
+            margin: 18px auto 0;
+            text-align: center;
+            font-size: 0.82rem;
+            color: rgba(255, 255, 255, 0.55);
+        }
+        @media (max-width: 640px) {
+            .interviste-grid { grid-template-columns: 1fr; }
+            .player-band { padding: 40px 0 52px; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <div class="nav-brand-group">
+                <a href="../" class="nav-back" aria-label="Torna alla home">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </a>
+                <span class="nav-divider"></span>
+                <a href="../" class="logo">
+                    <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="logo-img">
+                    <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                </a>
+            </div>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#player">Il video</a></li>
+                <li><a href="#interviste">Le interviste</a></li>
+                <li><a href="../assets/Brochure-Revilaw.pdf" download class="nav-brochure">Scarica la brochure</a></li>
+                <li><a href="../#contatti" class="nav-cta">Contattaci</a></li>
+            </ul>
+            <button class="hamburger" id="hamburger" aria-label="Apri menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <span class="hero-badge">Anteprima riservata · Solo con collegamento</span>
+                <h1>Le interviste di <span class="text-accent">Verona</span></h1>
+                <p class="hero-subtitle">
+                    Le voci dei protagonisti del convegno <strong>Next Generation Business</strong> del
+                    27 marzo 2026: professionisti della rete Revilaw, ospiti e partner raccontano
+                    revisione legale, governance, ESG, intelligenza artificiale e strumenti per l'impresa.
+                    Scegli un'intervista dall'elenco e guarda il video.
+                </p>
+            </div>
+        </div>
+    </header>
+
+    <section class="player-band" id="player">
+        <div class="container">
+            <div class="player-head">
+                <span class="player-eyebrow">Intervista</span>
+                <h2 id="playerNome">Matteo Baroni</h2>
+                <p id="playerRuolo">Amministratore Delegato di Metroconsult</p>
+            </div>
+            <div class="player-frame">
+                <video id="playerVideo" controls preload="none" playsinline poster="poster/baroni.jpg">
+                    <source id="playerSorgente" src="https://github.com/amissori-coder/LandingVerona/releases/download/media-interviste-verona-2026/intervista-baroni.mp4" type="video/mp4">
+                    Il tuo browser non supporta la riproduzione del video.
+                </video>
+            </div>
+            <p class="nota-riservata">
+                Contenuto in anteprima riservata: ti chiediamo di non diffondere il collegamento
+                a questa pagina senza autorizzazione.
+            </p>
+        </div>
+    </section>
+
+    <section class="section" id="interviste">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">L'elenco</span>
+                <h2 class="section-title">Scegli l'<span class="text-accent">intervistato</span></h2>
+                <p class="section-subtitle">
+                    Venti interviste realizzate durante il convegno: sotto ogni nome trovi
+                    una sintesi dei temi trattati. Un clic e il video parte qui sopra.
+                </p>
+            </div>
+
+            <div class="interviste-grid" id="grigliaInterviste"></div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="logo-img" style="height:30px;">
+                        <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                    </div>
+                    <p>Società di Revisione Legale</p>
+                </div>
+                <div class="footer-links">
+                    <a href="../">Home</a>
+                    <a href="../#eventi">Prossimi eventi</a>
+                    <a href="../#contenuti">Approfondimenti e risorse</a>
+                    <a href="../#contatti">Contatti</a>
+                    <a href="https://www.revilaw.it" target="_blank" rel="noopener">revilaw.it</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p class="footer-legal" style="max-width:880px;margin-bottom:12px;">
+                    Interviste realizzate durante il convegno Next Generation Business, Verona,
+                    27 marzo 2026. Materiale in anteprima riservata: non diffondere il collegamento
+                    senza autorizzazione.
+                </p>
+                <p>&copy; 2026 Next Generation Business &middot; A cura di Revilaw S.p.A. &middot; <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></p>
+                <p class="footer-privacy"><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Privacy Policy</a> &middot; <a href="https://www.iubenda.com/privacy-policy/40996386/cookie-policy" target="_blank" rel="noopener">Cookie Policy</a> &middot; <a href="#" class="iubenda-cs-preferences-link">Preferenze cookie</a></p>
+                <p class="footer-legal">P.IVA: 04641610235 | REA: VR 437220 | Sede: Via XX Settembre, 9 - 37129 Verona (VR)</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="../zls_zes/script.js"></script>
+    <script>
+    (function () {
+        var BASE = 'https://github.com/amissori-coder/LandingVerona/releases/download/media-interviste-verona-2026/';
+        var INTERVISTE = [
+            { slug: 'baroni', nome: 'Matteo Baroni', ruolo: 'Amministratore Delegato di Metroconsult',
+              desc: 'La proprietà industriale come processo aziendale: marchi, brevetti e il coordinamento tra ricerca, legale, finanza e marketing per proteggere le idee.' },
+            { slug: 'cambrea', nome: 'Dario Cambrea', ruolo: 'Professionista associato Revilaw',
+              desc: 'Perché la rete di revisori è un modello innovativo: capillarità sul territorio, autorevolezza verso i mercati e scambio continuo di competenze.' },
+            { slug: 'candelieri', nome: 'Antonella Candelieri', ruolo: 'Professionista associata, vice capo area Toscana',
+              desc: 'La revisione dei report ESG: come si garantisce l\'affidabilità di dati anche qualitativi e perché la verifica allontana il rischio greenwashing.' },
+            { slug: 'cassia', nome: 'Lorenzo Cassia', ruolo: 'Professionista associato, capo area Sicilia',
+              desc: 'Revisione legale e Modello 231 come due facce della stessa medaglia: controlli effettivi sulle aree sensibili per prevenire rischi e responsabilità.' },
+            { slug: 'cecchinato', nome: 'Rita Cecchinato', ruolo: 'Professionista associata, capo area Veneto',
+              desc: 'La collaborazione quotidiana tra i professionisti della rete: confronto costante, carte di lavoro condivise e metodologia comune per revisioni solide.' },
+            { slug: 'comparini', nome: 'Mirco Comparini', ruolo: 'Commercialista, ideatore della struttura della rete',
+              desc: 'La nascita della prima rete professionale italiana di revisione legale e la revisione specializzata per il franchising, con l\'attestazione per le reti.' },
+            { slug: 'lo-piccolo', nome: 'Filippo Lo Piccolo', ruolo: 'Professionista associato, capo area Emilia-Romagna',
+              desc: 'Le resistenze delle PMI verso la revisione e come superarle: il bilancio revisionato come garanzia del dato e vantaggio competitivo per l\'impresa.' },
+            { slug: 'losi', nome: 'Riccardo Losi', ruolo: 'Sindaco e revisore legale',
+              desc: 'Il punto di vista del sindaco: perché affidare la revisione legale a una struttura specializzata riduce rischi e complessità degli incarichi.' },
+            { slug: 'magaraci', nome: 'Ombretta Magaraci', ruolo: 'Equity partner Revilaw',
+              desc: 'Il valore di una comunità di oltre 150 professionisti: formazione interna, specializzazioni che si integrano e consulenza a tutto campo per il cliente.' },
+            { slug: 'marengo', nome: 'Federica Marengo', ruolo: 'Vice capo area Piemonte',
+              desc: 'Le ragioni dell\'adesione alla rete: il confronto tra professionisti e una metodologia standardizzata per incarichi più efficienti e sicuri.' },
+            { slug: 'melo-martella', nome: 'Melo Martella', ruolo: 'Componente del Comitato Scientifico Revilaw',
+              desc: 'Il revisore a supporto del tax control framework: adempimento collaborativo e presidio del rischio fiscale dentro i processi aziendali.' },
+            { slug: 'miele', nome: 'Sergio Miele', ruolo: 'Responsabile marketing e comunicazione Revilaw',
+              desc: 'Il bilancio del convegno: 400 adesioni, 10 tavole rotonde, 25 relatori, 22 sponsor e la copertura mediatica del Sole 24 Ore. Un format da ripetere.' },
+            { slug: 'missori', nome: 'Andrea Missori', ruolo: 'Equity partner, capo area Lazio, Umbria e Marche',
+              desc: 'I rischi dell\'intelligenza artificiale senza adeguati controlli: decisioni, compliance e tracciabilità. La revisione come presidio della continuità.' },
+            { slug: 'napolitano', nome: 'Vincenzo A. Napolitano', ruolo: 'Equity partner Revilaw',
+              desc: 'Indipendenza professionale e forza del gruppo: l\'approccio integrato ai rischi e la revisione che evolve verso l\'analisi continua dei dati.' },
+            { slug: 'pani', nome: 'Francesco Pani', ruolo: 'Equity partner Revilaw',
+              desc: 'La revisione nella valutazione dei rischi cyber: prevenzione dei danni reputazionali, team multidisciplinari e controllo qualità multilivello.' },
+            { slug: 'novembre', nome: 'Patrick Novembre', ruolo: 'Dottore commercialista e founder di Revilaw',
+              desc: 'La holding spiegata all\'imprenditore: protezione del patrimonio, passaggio generazionale e i vantaggi fiscali delle riorganizzazioni ben motivate.' },
+            { slug: 'pisano', nome: 'Alfonsina Pisano', ruolo: 'Equity partner, capo area Calabria',
+              desc: 'Il revisore specializzato: solo revisione, team dedicati alle singole aree di bilancio e formazione continua che va oltre gli obblighi normativi.' },
+            { slug: 'pizzutelli', nome: 'Stefano Pizzutelli', ruolo: 'Presidente del Comitato Scientifico Revilaw',
+              desc: 'Revisione, governance e sistema di controllo interno: come si integrano, e le opportunità dell\'AI per analizzare l\'intero universo dei dati.' },
+            { slug: 'sideri', nome: 'Patrizia Sideri', ruolo: 'Professionista associata, capo area Toscana',
+              desc: 'Il motto oltre la verifica, verso il valore nella pratica quotidiana: dal controllo formale al miglioramento concreto dei processi aziendali.' },
+            { slug: 'testa', nome: 'Massimiliano Testa', ruolo: 'Associato Revilaw, capo area Sardegna',
+              desc: 'Il revisore come certificatore degli investimenti ZES: requisiti, rischi di disconoscimento del credito e la leva strategica per la crescita del Sud.' }
+        ];
+
+        var griglia = document.getElementById('grigliaInterviste');
+        var video = document.getElementById('playerVideo');
+        var sorgente = document.getElementById('playerSorgente');
+        var nomeEl = document.getElementById('playerNome');
+        var ruoloEl = document.getElementById('playerRuolo');
+
+        function seleziona(voce, card, riproduci) {
+            sorgente.src = BASE + 'intervista-' + voce.slug + '.mp4';
+            video.poster = 'poster/' + voce.slug + '.jpg';
+            video.load();
+            nomeEl.textContent = voce.nome;
+            ruoloEl.textContent = voce.ruolo;
+            Array.prototype.forEach.call(griglia.children, function (c) { c.classList.remove('attiva'); });
+            if (card) card.classList.add('attiva');
+            if (riproduci) {
+                document.getElementById('player').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                var p = video.play();
+                if (p && p.catch) p.catch(function () {});
+                if (typeof gtag === 'function') {
+                    gtag('event', 'intervista_play', { intervistato: voce.nome, pagina: 'interviste_verona_2026' });
+                }
+            }
+        }
+
+        INTERVISTE.forEach(function (voce, i) {
+            var card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'intervista-card' + (i === 0 ? ' attiva' : '');
+            card.innerHTML =
+                '<h3></h3>' +
+                '<span class="ruolo"></span>' +
+                '<p></p>' +
+                '<span class="guarda">Guarda l\'intervista</span>';
+            card.querySelector('h3').textContent = voce.nome;
+            card.querySelector('.ruolo').textContent = voce.ruolo;
+            card.querySelector('p').textContent = voce.desc;
+            card.addEventListener('click', function () { seleziona(voce, card, true); });
+            griglia.appendChild(card);
+        });
+    })();
+    </script>
+    <script src="/assets/fcd-popup.js" defer></script>
+</body>
+</html>
