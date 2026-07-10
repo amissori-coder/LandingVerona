@@ -241,7 +241,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'crisi-impresa':        'Crisi',
             'bandi-lazio':          'Bandi Lazio',
             'bandi-nazionali':      'Bandi Nazionali',
-            'giurisprudenza':       'Sentenze'
+            'giurisprudenza':       'Sentenze',
+            'video':                'Video'
         };
 
         const slugToLabel = (slug) => {

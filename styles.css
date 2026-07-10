@@ -1591,6 +1591,121 @@ ul {
 /* ============================================
    CHI SIAMO section (Revilaw + motto + brochure)
    ============================================ */
+/* ===== Banda di lancio delle interviste di Verona =====
+   Striscia chiara fra il video di presentazione e Chi siamo: testo a
+   sinistra, fila di avatar con le iniziali degli intervistati a destra. */
+.interviste-banda {
+    background: var(--white);
+    padding: 88px 0;
+    border-top: 1px solid rgba(22, 64, 104, 0.08);
+}
+
+.interviste-banda-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 48px;
+}
+
+.interviste-eyebrow {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 2.8px;
+    text-transform: uppercase;
+    color: var(--navy-light);
+    margin-bottom: 14px;
+}
+
+.interviste-titolo {
+    font-family: var(--font-display);
+    font-size: clamp(1.7rem, 2.8vw, 2.3rem);
+    font-weight: 700;
+    color: var(--navy-dark);
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
+}
+
+.interviste-descrizione {
+    max-width: 560px;
+    font-size: 0.96rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+    margin-bottom: 26px;
+}
+
+.interviste-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--navy-dark);
+    color: var(--white);
+    padding: 14px 30px;
+    border-radius: 100px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    transition: all 0.3s ease;
+}
+
+.interviste-cta svg {
+    width: 14px;
+    height: 14px;
+}
+
+.interviste-cta:hover {
+    background: var(--navy-light);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(10, 40, 68, 0.25);
+}
+
+.interviste-avatars {
+    display: flex;
+    flex-shrink: 0;
+}
+
+.interviste-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(150deg, var(--navy-dark) 0%, var(--navy-light) 100%);
+    color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: 3px solid var(--white);
+    box-shadow: 0 6px 16px rgba(10, 40, 68, 0.22);
+    margin-left: -14px;
+}
+
+.interviste-avatar:first-child {
+    margin-left: 0;
+}
+
+.interviste-avatar-resto {
+    background: var(--light-gray);
+    color: var(--navy-dark);
+    border-color: var(--white);
+}
+
+@media (max-width: 900px) {
+    .interviste-banda {
+        padding: 64px 0;
+    }
+
+    .interviste-banda-inner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 30px;
+    }
+}
+
 .chi-siamo {
     background: var(--light-gray);
     padding: 112px 0 104px;
