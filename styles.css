@@ -2199,26 +2199,26 @@ ul {
 }
 
 .chi-siamo-etico-testo {
-    max-width: 58ch;
     font-size: 0.93rem;
     line-height: 1.7;
     color: var(--text-muted);
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     text-align: justify;
 }
 
 .chi-siamo-etico-link {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    background: var(--navy-dark);
+    color: var(--white);
+    padding: 13px 28px;
+    border-radius: 100px;
     font-family: var(--font-display);
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.4px;
-    color: var(--navy-dark);
-    border-bottom: 2px solid var(--navy-glow);
-    padding-bottom: 3px;
-    transition: color 0.25s ease, border-color 0.25s ease;
+    transition: all 0.3s ease;
 }
 
 .chi-siamo-etico-link svg {
@@ -2228,8 +2228,9 @@ ul {
 }
 
 .chi-siamo-etico-link:hover {
-    color: var(--navy-light);
-    border-color: var(--navy-light);
+    background: var(--navy-light);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px rgba(10, 40, 68, 0.25);
 }
 
 .chi-siamo-etico-link:hover svg {
