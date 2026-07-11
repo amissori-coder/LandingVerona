@@ -140,6 +140,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const linkText = card.querySelector('.event-link-text');
             if (linkText) linkText.textContent = card.dataset.eventLinkPast || 'Rivedi l\u2019evento';
         });
+
+        // Il prossimo evento piu' vicino nel tempo viene messo in
+        // evidenza; quando la data passa, il risalto scala da solo
+        // all'evento successivo.
+        let inEvidenza = null;
+        let dataMinima = null;
+        document.querySelectorAll('.event-card.event-upcoming[data-event-date]').forEach((card) => {
+            const d = new Date(card.dataset.eventDate + 'T00:00:00');
+            if (isNaN(d.getTime()) || d.getTime() < todayMid.getTime()) return;
+            if (dataMinima === null || d.getTime() < dataMinima) {
+                dataMinima = d.getTime();
+                inEvidenza = card;
+            }
+        });
+        if (inEvidenza) inEvidenza.classList.add('event-card--in-evidenza');
     })();
 
     // === Navbar: add .scrolled class after 60px of scroll ===

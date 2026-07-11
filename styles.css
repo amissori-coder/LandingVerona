@@ -850,6 +850,29 @@ ul {
     animation: pulse 2.5s ease-in-out infinite;
 }
 
+/* Il prossimo evento piu' vicino (classe assegnata dal JS in base
+   alle date): bordo navy, fondo appena tinto e badge pieno. */
+.event-card--in-evidenza {
+    border: 2px solid var(--navy);
+    background: linear-gradient(135deg, rgba(22, 64, 104, 0.055) 0%, var(--white) 55%);
+    box-shadow: 0 16px 38px rgba(10, 40, 68, 0.14);
+    padding: 29px 29px 25px 29px;
+}
+
+.event-card--in-evidenza .event-badge {
+    background: var(--navy-dark);
+    border-color: var(--navy-dark);
+    color: var(--white);
+}
+
+.event-card--in-evidenza .event-badge-dot {
+    background: #9fd3a8;
+}
+
+.event-card--in-evidenza .event-day {
+    color: var(--navy-dark);
+}
+
 .event-city {
     font-family: var(--font-display);
     font-size: 0.58rem;
