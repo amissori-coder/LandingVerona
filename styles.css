@@ -919,6 +919,22 @@ ul {
     mix-blend-mode: multiply;
 }
 
+/* Variante per marchi molto larghi (es. Unindustria): etichetta
+   sopra e logo sotto, a tutta larghezza del riquadro. */
+.event-collab:has(.event-collab-logo--largo) {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.event-collab-logo--largo {
+    height: auto;
+    width: 100%;
+    max-width: 300px;
+    min-width: 0;
+}
+
 .event-card:hover .event-collab-logo {
     opacity: 1;
     filter: grayscale(0);
@@ -3679,6 +3695,11 @@ ul {
 
     .event-collab-logo {
         height: 40px;
+    }
+
+    .event-collab-logo--largo {
+        height: auto;
+        max-width: 240px;
     }
 }
 
