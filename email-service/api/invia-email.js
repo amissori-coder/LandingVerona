@@ -15,17 +15,40 @@
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 
+// Legge la chiave di servizio dalla variabile d'ambiente.
+// Accetta due formati, per comodità di inserimento su Vercel:
+//   - JSON grezzo (il contenuto del file .json, inizia con "{")
+//   - la stessa cosa codificata in base64 (una sola riga: si incolla
+//     senza problemi di a-capo ed evita l'escape degli \n nella chiave)
+function leggiServiceAccount() {
+    const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
+    if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT mancante');
+    let testo = raw;
+    // Se non sembra JSON, proviamo a interpretarlo come base64.
+    if (testo[0] !== '{') {
+        try {
+            const decodificato = Buffer.from(testo, 'base64').toString('utf8').trim();
+            if (decodificato[0] === '{') testo = decodificato;
+        } catch (_) { /* lasciamo testo invariato: sarà JSON.parse a segnalare l'errore */ }
+    }
+    let cred;
+    try {
+        cred = JSON.parse(testo);
+    } catch (_) {
+        throw new Error('FIREBASE_SERVICE_ACCOUNT non valido: atteso il JSON della chiave o lo stesso JSON in base64');
+    }
+    // In alcuni incolli la private_key arriva con \n "letterali": li ripristiniamo.
+    if (cred.private_key && cred.private_key.includes('\\n')) {
+        cred.private_key = cred.private_key.replace(/\\n/g, '\n');
+    }
+    return cred;
+}
+
 // inizializzazione una sola volta (riusata tra le invocazioni "calde")
 let appPronta = false;
 function initAdmin() {
     if (appPronta) return;
-    const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT mancante');
-    const cred = JSON.parse(raw);
-    if (cred.private_key && cred.private_key.includes('\\n')) {
-        cred.private_key = cred.private_key.replace(/\\n/g, '\n');
-    }
-    admin.initializeApp({ credential: admin.credential.cert(cred) });
+    admin.initializeApp({ credential: admin.credential.cert(leggiServiceAccount()) });
     appPronta = true;
 }
 

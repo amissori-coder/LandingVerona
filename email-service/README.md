@@ -38,7 +38,7 @@ Serve per generare i link di reimpostazione password.
 
 | Nome | Valore |
 |---|---|
-| `FIREBASE_SERVICE_ACCOUNT` | incolla **tutto** il contenuto del file JSON scaricato al passo 2 |
+| `FIREBASE_SERVICE_ACCOUNT` | la chiave del passo 2, **in base64** (vedi nota qui sotto) |
 | `SMTP_HOST` | `smtps.aruba.it` |
 | `SMTP_PORT` | `465` |
 | `SMTP_USER` | `noreply@nextgenerationbusiness.it` |
@@ -47,6 +47,19 @@ Serve per generare i link di reimpostazione password.
 | `SMTP_FROM_EMAIL` | `noreply@nextgenerationbusiness.it` |
 | `APP_BASE_URL` | `https://nextgenerationbusiness.it` |
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
+
+> **Nota sulla chiave (`FIREBASE_SERVICE_ACCOUNT`).** Il file JSON è su più righe e
+> Vercel non lo fa incollare bene nel campo valore. Conviene incollarlo **in base64**
+> (una sola riga). Dal tuo PC, in **PowerShell**, esegui — sostituendo il percorso col
+> file scaricato al passo 2 — questo comando, che copia la stringa già negli appunti:
+>
+> ```powershell
+> [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\percorso\della\chiave.json")) | Set-Clipboard
+> ```
+>
+> Poi incolla (Ctrl+V) nel campo valore di `FIREBASE_SERVICE_ACCOUNT`. La funzione
+> riconosce da sola sia il base64 sia il JSON grezzo. La chiave resta solo su Vercel,
+> mai nel repository.
 
 Poi premi **Deploy**.
 
