@@ -32,5 +32,4 @@ window.RV_FIREBASE_CONFIG = {
    Con l'indirizzo compilato, le email di accesso partono dal server di
    posta dello studio (mittente Revilaw, link sul dominio nextgenerationbusiness.it).
    Con null, l'app usa l'invio standard di sistema. */
-window.RV_EMAIL_SERVICE_URL = null;
-// Esempio: window.RV_EMAIL_SERVICE_URL = "https://revilaw-email.vercel.app/api/invia-email";
+window.RV_EMAIL_SERVICE_URL = "https://revilaw-email.vercel.app/api/invia-email";
