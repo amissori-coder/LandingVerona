@@ -3411,22 +3411,27 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             mostraApp();
         });
 
-        document.getElementById('btn-prima-password').addEventListener('click', () => {
-            chiediEmail('Richiedi la prima password',
-                Cloud.attivo
-                    ? 'Riceverai una email con il collegamento per impostare la tua password. L\'accesso funziona solo per gli indirizzi abilitati dall\'amministratore.'
-                    : 'Se il tuo indirizzo e stato abilitato dall\'amministratore, verra generata una password temporanea per il primo accesso.',
-                async email => {
-                    const esito = await Auth.richiediPrimaPassword(email);
-                    if (esito.ok) {
-                        chiudiModale();
-                        document.getElementById('login-email').value = email;
-                        if (esito.viaEmail) mostraMessaggio('Email inviata', 'Abbiamo inviato a ' + email + ' una email con il collegamento per impostare la password. Controlla anche la posta indesiderata, poi torna qui per accedere.');
-                        else mostraPasswordTemporanea(email, esito.temp);
-                    }
-                    return esito;
-                });
-        });
+        // In modalita Firebase gli account sono creati solo dall'amministratore
+        // (vista Utenti): niente auto-registrazione dalla pagina di accesso.
+        const btnPrima = document.getElementById('btn-prima-password');
+        if (Cloud.attivo) {
+            btnPrima.classList.add('hidden');
+        } else {
+            btnPrima.addEventListener('click', () => {
+                chiediEmail('Richiedi la prima password',
+                    'Se il tuo indirizzo e stato abilitato dall\'amministratore, verra generata una password temporanea per il primo accesso.',
+                    async email => {
+                        const esito = await Auth.richiediPrimaPassword(email);
+                        if (esito.ok) {
+                            chiudiModale();
+                            document.getElementById('login-email').value = email;
+                            if (esito.viaEmail) mostraMessaggio('Email inviata', 'Abbiamo inviato a ' + email + ' una email con il collegamento per impostare la password. Controlla anche la posta indesiderata, poi torna qui per accedere.');
+                            else mostraPasswordTemporanea(email, esito.temp);
+                        }
+                        return esito;
+                    });
+            });
+        }
 
         document.getElementById('link-recupero').addEventListener('click', () => {
             chiediEmail('Recupero password',
@@ -3515,7 +3520,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         collegaLogin();
         if (Cloud.attivo) {
             const avviso = document.querySelector('.avviso-demo');
-            if (avviso) avviso.innerHTML = '<strong>Accesso protetto con Firebase.</strong> La password si imposta e si recupera tramite email; i dati sono condivisi tra gli utenti abilitati (Cloud Firestore).';
+            if (avviso) avviso.innerHTML = '<strong>Accesso protetto con Firebase.</strong> L\'accesso e riservato agli utenti abilitati dall\'amministratore; la password si imposta e si recupera tramite email. Se non hai ancora le credenziali, contatta l\'amministratore.';
             const u = await Cloud.utenteDaSessione();
             if (u) { Auth.utenteCorrente = u; mostraApp(); return; }
             mostraLogin();
