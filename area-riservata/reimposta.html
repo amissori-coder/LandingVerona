@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imposta la password | Revilaw S.p.A.</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" href="../assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="login-wrap">
+        <div class="login-card">
+            <div class="logo-area">
+                <span class="marchio">
+                    <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw">
+                    <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                </span>
+            </div>
+            <h1>Imposta la tua password</h1>
+            <p class="sottotitolo" id="sottotitolo">Verifica del collegamento in corso...</p>
+
+            <form id="form-reset" class="hidden" autocomplete="off">
+                <div class="campo">
+                    <label for="p1">Nuova password</label>
+                    <input type="password" id="p1" required autocomplete="new-password">
+                    <div class="hint">Almeno 8 caratteri, una maiuscola, una minuscola e una cifra.</div>
+                </div>
+                <div class="campo">
+                    <label for="p2">Ripeti la password</label>
+                    <input type="password" id="p2" required autocomplete="new-password">
+                    <div class="msg-errore hidden" id="errore"></div>
+                </div>
+                <div class="login-azioni">
+                    <button type="submit" class="btn btn-primary btn-block" id="btn-salva">Salva la password</button>
+                </div>
+            </form>
+
+            <div class="login-links" style="justify-content:center; margin-top:18px;">
+                <a href="./">Vai all'accesso</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script type="module">
+        const cfg = window.RV_FIREBASE_CONFIG;
+        const sottotitolo = document.getElementById('sottotitolo');
+        const form = document.getElementById('form-reset');
+        const errore = document.getElementById('errore');
+
+        function mostraErrore(msg) { errore.textContent = msg; errore.classList.remove('hidden'); }
+        function validaPassword(p) {
+            if (!p || p.length < 8) return 'La password deve avere almeno 8 caratteri.';
+            if (!/[A-Z]/.test(p)) return 'Serve almeno una lettera maiuscola.';
+            if (!/[a-z]/.test(p)) return 'Serve almeno una lettera minuscola.';
+            if (!/[0-9]/.test(p)) return 'Serve almeno una cifra.';
+            return null;
+        }
+
+        const params = new URLSearchParams(location.search);
+        const oobCode = params.get('oobCode');
+        const mode = params.get('mode') || 'resetPassword';
+
+        (async () => {
+            if (!cfg || !cfg.apiKey) { sottotitolo.textContent = 'Configurazione non disponibile. Contatta l\'amministratore.'; return; }
+            if (!oobCode) { sottotitolo.textContent = 'Collegamento non valido o incompleto.'; return; }
+            const V = '11.6.1';
+            const [{ initializeApp }, authMod] = await Promise.all([
+                import('https://www.gstatic.com/firebasejs/' + V + '/firebase-app.js'),
+                import('https://www.gstatic.com/firebasejs/' + V + '/firebase-auth.js')
+            ]);
+            const app = initializeApp(cfg);
+            const auth = authMod.getAuth(app);
+            auth.languageCode = 'it';
+
+            let email = '';
+            try {
+                email = await authMod.verifyPasswordResetCode(auth, oobCode);
+            } catch (e) {
+                sottotitolo.textContent = 'Il collegamento è scaduto o è già stato usato. Richiedi una nuova email dalla pagina di accesso.';
+                return;
+            }
+            sottotitolo.innerHTML = 'Stai impostando la password per <strong>' + email.replace(/[<>&]/g, '') + '</strong>.';
+            form.classList.remove('hidden');
+
+            form.addEventListener('submit', async e => {
+                e.preventDefault();
+                errore.classList.add('hidden');
+                const p1 = document.getElementById('p1').value;
+                const p2 = document.getElementById('p2').value;
+                if (p1 !== p2) { mostraErrore('Le due password non coincidono.'); return; }
+                const v = validaPassword(p1);
+                if (v) { mostraErrore(v); return; }
+                const btn = document.getElementById('btn-salva');
+                btn.disabled = true; btn.textContent = 'Salvataggio...';
+                try {
+                    await authMod.confirmPasswordReset(auth, oobCode, p1);
+                    form.classList.add('hidden');
+                    sottotitolo.innerHTML = '<strong>Password impostata.</strong> Ora puoi accedere all\'area riservata.';
+                } catch (err) {
+                    btn.disabled = false; btn.textContent = 'Salva la password';
+                    mostraErrore('Non è stato possibile salvare la password. Il collegamento potrebbe essere scaduto: richiedine uno nuovo.');
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

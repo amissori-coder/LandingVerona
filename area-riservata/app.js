@@ -564,6 +564,22 @@
             return { ok: true, mustChange: false };
         },
 
+        // invia tramite il servizio email dedicato, se configurato
+        async inviaTramiteServizio(email, tipo) {
+            const url = window.RV_EMAIL_SERVICE_URL;
+            if (!url) return null; // non configurato: si usa l'invio standard
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, tipo })
+                });
+                if (!r.ok) return { ok: false, msg: 'Servizio email non disponibile (' + r.status + ').' };
+                return { ok: true, viaEmail: true };
+            } catch (e) {
+                return { ok: false, msg: 'Servizio email non raggiungibile.' };
+            }
+        },
+
         /* prima password: crea l'account se manca (su una app secondaria,
            senza toccare la sessione corrente) e invia l'email con il
            collegamento per impostare la password */
@@ -578,6 +594,9 @@
                     await createUserWithEmailAndPassword(authSec, email, generaPasswordTemporanea() + generaPasswordTemporanea());
                     await signOut(authSec);
                 } catch (e) { /* account gia esistente: si prosegue con l'email */ }
+                // l'account ora esiste: se c'e il servizio dedicato, invia da li
+                const viaServizio = await this.inviaTramiteServizio(email, 'attivazione');
+                if (viaServizio) return viaServizio;
                 await sendPasswordResetEmail(this.auth, email);
                 return { ok: true, viaEmail: true };
             } catch (e) {
@@ -587,6 +606,8 @@
 
         async recuperaPassword(email) {
             try {
+                const viaServizio = await this.inviaTramiteServizio(email, 'recupero');
+                if (viaServizio) return viaServizio;
                 await this.fb.authMod.sendPasswordResetEmail(this.auth, email);
                 return { ok: true, viaEmail: true };
             } catch (e) { return { ok: false, msg: this.msgErrore(e) }; }
