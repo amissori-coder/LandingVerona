@@ -467,8 +467,64 @@
             .sim-form-wrap { padding: 22px 18px; }
             .res-card { padding: 22px 18px; }
             .bank-grid { grid-template-columns: 1fr; }
-            .mcc-kpis { grid-template-columns: 1fr; }
+            .mcc-kpis { grid-template-columns: 1fr; gap: 10px; }
             .mcc-seg { font-size: 0.62rem; height: 28px; }
+
+            /* Banner: testo sopra, pulsanti impilati a tutta larghezza */
+            .sim-banner { flex-direction: column; align-items: stretch; }
+            .sim-banner-actions {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 8px;
+                width: 100%;
+            }
+            .sim-banner-actions .sim-btn-ghost {
+                width: 100%;
+                text-align: center;
+                padding: 11px 14px;
+            }
+
+            /* Totali: una voce per riga, etichetta a sinistra e valore a destra */
+            .sim-totals { flex-direction: column; align-items: stretch; gap: 9px; }
+            .sim-totals .tot {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 12px;
+            }
+            .sim-quad { width: 100%; text-align: center; }
+
+            /* Invio: pulsante a tutta larghezza, messaggio centrato */
+            .sim-submit-row { flex-direction: column; align-items: stretch; gap: 12px; }
+            .sim-submit-row .btn { width: 100%; text-align: center; }
+            .sim-error { text-align: center; }
+
+            /* Avviso di scorrimento sopra le tabelle larghe */
+            .mcc-table-wrap::before,
+            .cndcec-table-wrap::before {
+                content: 'Scorri la tabella lateralmente per vedere tutte le colonne';
+                display: block;
+                font-size: 0.7rem;
+                color: #94a3b8;
+                margin-bottom: 6px;
+            }
+
+            /* Etichette Z-Score: in colonna con pallino colorato, non piu' su una riga */
+            .z-labels { flex-direction: column; align-items: stretch; gap: 5px; margin-top: 12px; }
+            .z-labels span { display: flex; align-items: center; gap: 8px; }
+            .z-labels span::before {
+                content: '';
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+            .z-labels span:nth-child(1)::before { background: #e59a94; }
+            .z-labels span:nth-child(2)::before { background: #ecd28a; }
+            .z-labels span:nth-child(3)::before { background: #9ccfae; }
+
+            /* Card bancabilita': il badge puo' andare a capo senza disallineare */
+            .bank-card .b-head { flex-wrap: wrap; row-gap: 4px; }
         }
 
         .sim-field input.plain { padding-left: 12px; }
