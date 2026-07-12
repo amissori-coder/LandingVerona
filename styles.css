@@ -237,6 +237,28 @@ ul {
     color: var(--navy-dark);
 }
 
+.nav-menu > li > a.nav-riservata {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 100px;
+    padding: 8px 16px;
+    background: var(--gold, #C9A227);
+    color: var(--navy-dark, #0A2844);
+    font-weight: 700;
+    transition: filter .18s ease, background .18s ease;
+}
+.nav-menu > li > a.nav-riservata svg {
+    width: 15px;
+    height: 15px;
+}
+.nav-menu > li > a.nav-riservata::after {
+    display: none;
+}
+.nav-menu > li > a.nav-riservata:hover {
+    filter: brightness(1.08);
+}
+
 .nav-menu > li > a:hover::after {
     width: 100%;
 }
@@ -3957,6 +3979,12 @@ ul {
     .nav-menu > li > a.nav-brochure {
         display: inline-flex;
         margin-top: 8px;
+        padding: 9px 18px;
+    }
+
+    .nav-menu > li > a.nav-riservata {
+        display: inline-flex;
+        margin-top: 6px;
         padding: 9px 18px;
     }
 }

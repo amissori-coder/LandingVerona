@@ -1101,7 +1101,25 @@
                 '<svg class="icona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + v.icona + '"/></svg>' +
                 esc(v.nome) + '</button>').join('');
         nav.querySelectorAll('.nav-voce').forEach(b =>
-            b.addEventListener('click', () => naviga(b.dataset.vista)));
+            b.addEventListener('click', () => { naviga(b.dataset.vista); chiudiMenuMobile(); }));
+    }
+
+    /* menu a comparsa su smartphone */
+    function chiudiMenuMobile() {
+        const sidebar = document.querySelector('.sidebar');
+        const ham = document.getElementById('nav-hamburger');
+        if (sidebar) sidebar.classList.remove('menu-aperto');
+        if (ham) ham.setAttribute('aria-expanded', 'false');
+    }
+    function collegaHamburger() {
+        const ham = document.getElementById('nav-hamburger');
+        if (!ham || ham._collegato) return;
+        ham._collegato = true;
+        ham.addEventListener('click', () => {
+            const sidebar = document.querySelector('.sidebar');
+            const aperto = sidebar.classList.toggle('menu-aperto');
+            ham.setAttribute('aria-expanded', aperto ? 'true' : 'false');
+        });
     }
 
     /* =========================================================
@@ -1170,18 +1188,18 @@
     function tabellaScadenze(lista) {
         if (!lista.length) return '<p class="tabella-vuota">Nessun incarico in scadenza nei prossimi sei mesi.</p>';
         const puoRinnovare = Auth.puoModificare();
-        return `<div class="tabella-wrap"><table class="dati"><thead><tr>
+        return `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
             <th>Cliente</th><th>Tipo</th><th>Scadenza</th><th>Resp. incarico</th><th>Qualita</th><th>Stato</th>${puoRinnovare ? '<th></th>' : ''}
         </tr></thead><tbody>` + lista.map(i => {
             const s = Incarichi.statoScadenza(i);
             return `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                <td class="cliente-cella">${esc(i.cliente)}</td>
-                <td>${badgeTipo(i.tipo)}</td>
-                <td>${esc(fmtData(i.rinnovo || i.dataFine))}</td>
-                <td>${esc(i.respIncarico || '')}</td>
-                <td>${esc(i.qualita || '')}</td>
-                <td><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                ${puoRinnovare ? `<td><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button></td>` : ''}
+                <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                <td data-label="Scadenza">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
+                <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
+                <td data-label="Qualita">${esc(i.qualita || '')}</td>
+                <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
+                ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button></td>` : ''}
             </tr>`;
         }).join('') + '</tbody></table></div>';
     }
@@ -1324,24 +1342,24 @@
             { chiave: 'scadenza', nome: 'Stato' }
         ];
         const puoRinnovare = Auth.puoModificare();
-        cont.innerHTML = `<div class="tabella-wrap"><table class="dati"><thead><tr>` +
+        cont.innerHTML = `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>` +
             colonne.map(c => `<th class="${c.num ? 'num' : ''}" data-ordina="${c.chiave}">${c.nome}${filtriIncarichi.ordina === c.chiave ? (filtriIncarichi.verso > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') +
             (puoRinnovare ? '<th></th>' : '') +
             `</tr></thead><tbody>` +
             lista.map(i => {
                 const s = Incarichi.statoScadenza(i);
                 return `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                    <td class="cliente-cella">${esc(i.cliente)}</td>
-                    <td>${badgeTipo(i.tipo)}</td>
-                    <td>${i.dataInizio ? esc(fmtData(i.dataInizio)) : esc(i.dataInizioNote || '')}</td>
-                    <td>${esc(fmtData(i.rinnovo || i.dataFine))}</td>
-                    <td>${esc(i.area || '')}</td>
-                    <td>${esc(i.qualita || '')}</td>
-                    <td>${esc(i.respIncarico || '')}</td>
-                    <td>${esc(i.team || '')}</td>
-                    <td class="num">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) : ''}</td>
-                    <td><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                    ${puoRinnovare ? `<td><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button></td>` : ''}
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                    <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                    <td data-label="Inizio">${i.dataInizio ? esc(fmtData(i.dataInizio)) : esc(i.dataInizioNote || '')}</td>
+                    <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
+                    <td data-label="Area">${esc(i.area || '')}</td>
+                    <td data-label="Qualita">${esc(i.qualita || '')}</td>
+                    <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
+                    <td data-label="Team">${esc(i.team || '')}</td>
+                    <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) : ''}</td>
+                    <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
+                    ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button></td>` : ''}
                 </tr>`;
             }).join('') +
             `</tbody><tfoot><tr><td colspan="8">Totale (${lista.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`;
@@ -2067,17 +2085,17 @@
             </div>
             <div class="card">
                 <h2>Dettaglio rate ${anno}</h2>
-                <div class="tabella-wrap"><table class="dati"><thead><tr>
+                <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
                     <th>Cliente</th><th>Periodicita</th><th>Rata</th><th>Mese</th><th class="num">Importo</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
             rate.map(r => `<tr>
-                    <td class="cliente-cella">${esc(r.incarico.cliente)}</td>
-                    <td>${esc(r.incarico.fatturazione || 'annuale')}</td>
-                    <td>${r.numero} di ${r.totale}</td>
-                    <td>${mesi[r.mese - 1]}</td>
-                    <td class="num">${eurFmt2.format(r.importo)}</td>
-                    <td><span class="badge ${r.stato === 'incassata' ? 'verde' : (r.stato === 'emessa' ? 'ambra' : 'neutro')}">${esc(r.stato)}</span></td>
-                    ${Auth.puoModificare() ? `<td>
+                    <td class="cliente-cella" data-label="Cliente">${esc(r.incarico.cliente)}</td>
+                    <td data-label="Periodicita">${esc(r.incarico.fatturazione || 'annuale')}</td>
+                    <td data-label="Rata">${r.numero} di ${r.totale}</td>
+                    <td data-label="Mese">${mesi[r.mese - 1]}</td>
+                    <td class="num" data-label="Importo">${eurFmt2.format(r.importo)}</td>
+                    <td data-label="Stato"><span class="badge ${r.stato === 'incassata' ? 'verde' : (r.stato === 'emessa' ? 'ambra' : 'neutro')}">${esc(r.stato)}</span></td>
+                    ${Auth.puoModificare() ? `<td data-label="Aggiorna">
                         <select class="stato-rata" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" style="padding:4px 8px; border-radius:6px; border:1px solid var(--grigio-200); font-size:0.8rem;">
                             <option value="da emettere" ${r.stato === 'da emettere' ? 'selected' : ''}>da emettere</option>
                             <option value="emessa" ${r.stato === 'emessa' ? 'selected' : ''}>emessa</option>
@@ -3361,6 +3379,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         segnaAttivita();
         document.getElementById('schermata-login').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
+        collegaHamburger();
         document.getElementById('utente-nome').textContent = Auth.utenteCorrente.nome;
         const RUOLI = { admin: 'Amministratore', qualita: 'Responsabile qualita', procuratore: 'Procuratore' };
         document.getElementById('utente-ruolo').textContent = RUOLI[Auth.utenteCorrente.ruolo] || Auth.utenteCorrente.ruolo;

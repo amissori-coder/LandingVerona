@@ -127,8 +127,11 @@ a { color: var(--blu-700); }
     width: 240px; flex-shrink: 0; background: var(--blu-900); color: #fff;
     display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
 }
-.sidebar .brand { padding: 20px 18px 14px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+.sidebar .brand { padding: 20px 18px 14px; border-bottom: 1px solid rgba(255,255,255,0.12); position: relative; }
 .sidebar .brand .titolo-area { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-top: 8px; font-weight: 600; }
+/* hamburger: nascosto su desktop, visibile su smartphone */
+.nav-hamburger { display: none; position: absolute; top: 18px; right: 14px; width: 40px; height: 40px; background: rgba(255,255,255,0.10); border: none; border-radius: 8px; cursor: pointer; padding: 11px 9px; flex-direction: column; justify-content: space-between; }
+.nav-hamburger span { display: block; height: 2px; background: #fff; border-radius: 2px; transition: transform .2s ease, opacity .2s ease; }
 .sidebar nav { flex: 1; padding: 14px 10px; overflow-y: auto; }
 .nav-voce {
     display: flex; align-items: center; gap: 10px; width: 100%;
@@ -152,10 +155,73 @@ a { color: var(--blu-700); }
 
 @media (max-width: 900px) {
     .app-shell { flex-direction: column; }
-    .sidebar { width: 100%; height: auto; position: static; }
+    .sidebar { width: 100%; height: auto; position: sticky; top: 0; z-index: 30; }
     .sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; }
     .nav-voce { width: auto; }
     .contenuto { padding: 20px 16px 60px; }
+
+    /* menu a comparsa: nav e utente nascosti finche non si tocca l'hamburger */
+    .nav-hamburger { display: flex; }
+    .sidebar .brand { padding: 14px 16px; border-bottom: none; display: flex; align-items: center; }
+    .sidebar .brand .titolo-area { display: none; }
+    .sidebar nav, .sidebar .utente-box { display: none; }
+    .sidebar.menu-aperto { border-bottom: 1px solid rgba(255,255,255,0.12); }
+    .sidebar.menu-aperto nav { display: flex; flex-direction: column; flex-wrap: nowrap; padding: 6px 12px 12px; }
+    .sidebar.menu-aperto .nav-voce { width: 100%; font-size: 0.98rem; padding: 12px 14px; }
+    .sidebar.menu-aperto .utente-box { display: block; }
+    .sidebar.menu-aperto .nav-hamburger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+    .sidebar.menu-aperto .nav-hamburger span:nth-child(2) { opacity: 0; }
+    .sidebar.menu-aperto .nav-hamburger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+}
+
+/* ---------- Smartphone: schede al posto delle tabelle larghe ---------- */
+@media (max-width: 620px) {
+    html { font-size: 15px; }
+    .card { padding: 16px; }
+    .contenuto > header { flex-direction: column; align-items: stretch; }
+    .header-azioni { width: 100%; }
+    .header-azioni .btn { flex: 1 1 auto; justify-content: center; }
+    .kpi-griglia { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kpi { padding: 12px 14px; }
+    .kpi .valore { font-size: 1.25rem; }
+    .filtri { flex-direction: column; align-items: stretch; }
+    .filtri .campo, .filtri .campo.ricerca { min-width: 0; width: 100%; }
+    .wizard-passi { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+    .wizard-passo { flex: 0 0 auto; }
+    .griglia-2, .griglia-3 { grid-template-columns: 1fr; }
+    .barra-stampa { flex-direction: column; align-items: stretch; }
+    .barra-stampa .btn { width: 100%; justify-content: center; }
+    .modale { padding: 20px 16px; }
+    .lettera-anteprima { padding: 24px 18px; }
+
+    /* ogni riga della tabella diventa una scheda impilata e leggibile */
+    table.dati.a-schede,
+    table.dati.a-schede thead,
+    table.dati.a-schede tbody,
+    table.dati.a-schede tr,
+    table.dati.a-schede td { display: block; width: 100%; }
+    table.dati.a-schede thead { display: none; }
+    table.dati.a-schede tfoot { display: block; }
+    table.dati.a-schede tfoot tr { display: flex; justify-content: space-between; padding: 12px 14px; }
+    table.dati.a-schede tfoot td { display: inline; padding: 0; border: none; }
+    .tabella-wrap:has(table.a-schede) { overflow-x: visible; background: transparent; box-shadow: none; }
+    table.dati.a-schede tbody tr {
+        background: #fff; border: 1px solid var(--grigio-200); border-radius: 12px;
+        box-shadow: var(--ombra); padding: 6px 4px; margin-bottom: 12px;
+    }
+    table.dati.a-schede tbody td {
+        display: flex; justify-content: space-between; align-items: center; gap: 12px;
+        padding: 8px 14px; border: none; border-bottom: 1px solid var(--grigio-100); text-align: right;
+    }
+    table.dati.a-schede tbody td:last-child { border-bottom: none; }
+    table.dati.a-schede tbody td::before {
+        content: attr(data-label); font-weight: 600; color: var(--grigio-600);
+        font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; text-align: left; flex: 0 0 auto;
+    }
+    table.dati.a-schede tbody td.cliente-cella { font-size: 1rem; }
+    table.dati.a-schede tbody td[data-label=""]::before { content: none; }
+    table.dati.a-schede tbody td[data-label=""] { justify-content: stretch; }
+    table.dati.a-schede tbody td[data-label=""] .btn { width: 100%; justify-content: center; }
 }
 
 /* ---------- Card e KPI ---------- */
