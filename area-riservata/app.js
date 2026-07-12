@@ -2532,7 +2532,7 @@
                     <option value="procuratore">Procuratore</option>
                     <option value="admin">Amministratore</option>
                 </select></div>
-                <p class="descrizione">L'utente ricevera una email con il collegamento per impostare la password.</p>
+                <p class="descrizione">L'utente ricevera una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password. Ricordagli di controllare anche la posta indesiderata / spam.</p>
                 <div class="modale-azioni">
                     <button class="btn btn-ghost" id="m-annulla">Annulla</button>
                     <button class="btn btn-primary" id="m-salva">Abilita e invia email</button>
@@ -2548,7 +2548,7 @@
                     Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, [{ campo: 'Ruolo', prima: 'vuoto', dopo: ruolo }]);
                     const invio = await Cloud.primaPassword(email);
                     chiudiModale();
-                    toast(invio.ok ? 'Utente abilitato: email di impostazione password inviata.' : 'Utente abilitato, ma invio email non riuscito: ' + invio.msg, invio.ok ? 'verde' : 'rosso');
+                    toast(invio.ok ? 'Utente abilitato: email di impostazione password inviata. Avvisa il collega di controllare anche lo spam.' : 'Utente abilitato, ma invio email non riuscito: ' + invio.msg, invio.ok ? 'verde' : 'rosso');
                     vistaUtentiCloud();
                 } catch (e) {
                     toast('Operazione non riuscita: ' + (e && e.message ? e.message : e), 'rosso');
@@ -2590,7 +2590,7 @@
             // primaPassword crea l'account se non e mai stato attivato, poi invia l'email
             const esito = await Cloud.primaPassword(b.dataset.email);
             Audit.registra(Auth.utenteCorrente, 'Email reimpostazione password inviata', 'utente', b.dataset.email, null, null);
-            toast(esito.ok ? 'Email inviata a ' + b.dataset.email : esito.msg, esito.ok ? 'verde' : 'rosso');
+            toast(esito.ok ? 'Email inviata a ' + b.dataset.email + ' (potrebbe finire nello spam).' : esito.msg, esito.ok ? 'verde' : 'rosso');
         }));
         document.querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', async () => {
             const attivo = b.dataset.attivo !== '1';
@@ -3465,7 +3465,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                     if (esito.ok) {
                         chiudiModale();
                         document.getElementById('login-email').value = email;
-                        if (esito.viaEmail) mostraMessaggio('Email inviata', 'Se l\'indirizzo ' + email + ' corrisponde a un account, ricevera una email con il collegamento per reimpostare la password.');
+                        if (esito.viaEmail) mostraMessaggio('Email inviata', 'Se l\'indirizzo ' + email + ' corrisponde a un account, ricevera una email (da noreply@nextgenerationbusiness.it) con il collegamento per reimpostare la password. Controlla anche la posta indesiderata / spam.');
                         else mostraPasswordTemporanea(email, esito.temp);
                     }
                     return esito;
