@@ -105,6 +105,7 @@ ul {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: clamp(16px, 2vw, 40px);
 }
 
 /* Hamburger: visibile solo su mobile */
@@ -151,7 +152,7 @@ ul {
 }
 /* Col menu esteso visibile il marchio non si comprime mai: senza questo
    vincolo, quando lo spazio e' giusto le voci finiscono sopra il logo. */
-@media (min-width: 900px) {
+@media (min-width: 1100px) {
     .nav-container > .brand-logo { flex-shrink: 0; }
 }
 
@@ -189,7 +190,7 @@ ul {
 .nav-menu {
     display: flex;
     flex-wrap: nowrap;
-    gap: clamp(14px, 1.8vw, 36px);
+    gap: clamp(10px, 1vw, 20px);
     align-items: center;
 }
 
@@ -202,9 +203,9 @@ ul {
     align-items: center;
     gap: 6px;
     color: var(--white);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 500;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
     position: relative;
     white-space: nowrap;
 }
@@ -224,7 +225,7 @@ ul {
 .nav-menu > li > a.nav-brochure {
     border: 1.5px solid rgba(255, 255, 255, 0.55);
     border-radius: 100px;
-    padding: 8px 16px;
+    padding: 7px 13px;
 }
 
 .nav-menu > li > a.nav-brochure::after {
@@ -240,9 +241,9 @@ ul {
 .nav-menu > li > a.nav-riservata {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     border-radius: 100px;
-    padding: 8px 16px;
+    padding: 7px 13px;
     background: var(--gold, #C9A227);
     color: var(--navy-dark, #0A2844);
     font-weight: 700;
@@ -3937,9 +3938,9 @@ ul {
     }
 }
 
-/* Menu a tendina fino a 899px: sotto questa soglia il menu esteso
-   con la pillola della brochure non sta su una riga sola. */
-@media (max-width: 899px) {
+/* Menu a tendina fino a 1099px: sotto questa soglia il menu esteso
+   (7 voci, con brochure e area riservata) non sta su una riga sola. */
+@media (max-width: 1099px) {
     .nav-toggle {
         display: flex;
     }
