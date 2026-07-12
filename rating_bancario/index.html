@@ -148,6 +148,7 @@
             border: none;
             padding: 0;
             margin: 0 0 26px;
+            min-width: 0; /* i fieldset non si restringono sotto il contenuto senza questo */
         }
         .sim-fieldset legend {
             font-size: 0.72rem;
@@ -530,6 +531,184 @@
         .sim-field input.plain { padding-left: 12px; }
         .sim-field input.attn { border-color: #c9971c; background: #fdfaf0; }
 
+        .metodo-cta {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            margin-top: 44px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 560px) {
+            .metodo-cta { flex-direction: column; align-items: stretch; }
+            .metodo-cta .btn { text-align: center; }
+        }
+
+        /* Link interni nelle card del metodo */
+        .pillar-list a {
+            color: #164068;
+            font-weight: 600;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .pillar-list a:hover { color: #0A2844; }
+
+        /* ---------- I tre passi del simulatore ---------- */
+        .sim-steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 22px;
+        }
+        .sim-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #ffffff;
+            border: 1px solid rgba(22, 64, 104, 0.14);
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+        .sim-step .n {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: #f0f4f8;
+            color: #164068;
+            font-weight: 800;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .sim-step strong { display: block; font-size: 0.88rem; color: #0A2844; line-height: 1.25; }
+        .sim-step span.d { display: block; font-size: 0.72rem; color: #5A6270; line-height: 1.35; }
+        .sim-step.is-cr {
+            background: linear-gradient(135deg, #164068 0%, #2A5A85 100%);
+            border-color: #164068;
+            box-shadow: 0 8px 22px rgba(22, 64, 104, 0.25);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .sim-step.is-cr:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(22, 64, 104, 0.35);
+        }
+        .sim-step.is-cr .n { background: rgba(255, 255, 255, 0.15); color: #ffffff; }
+        .sim-step.is-cr strong { color: #ffffff; }
+        .sim-step.is-cr span.d { color: rgba(255, 255, 255, 0.75); }
+        @media (max-width: 860px) {
+            .sim-steps { grid-template-columns: 1fr; }
+        }
+
+        /* Richiamo andamentale nel risultato MCC */
+        .mcc-cr-nudge {
+            display: block;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            line-height: 1.5;
+            margin-top: 14px;
+        }
+        .mcc-cr-nudge.ok { background: #e6f4ec; color: #185f37; }
+        .mcc-cr-nudge.warn { background: #fdf5e0; color: #6d5405; }
+        .mcc-cr-nudge a { color: #164068; text-decoration: underline; font-weight: 700; }
+
+        /* ---------- Sezione Centrale dei Rischi ---------- */
+        .cr-panel {
+            background: linear-gradient(135deg, #f0f4f8 0%, #ffffff 70%);
+            border: 1px solid #c8d8e8;
+            border-left: 4px solid #164068;
+            border-radius: 12px;
+            padding: 20px 22px 18px;
+        }
+        .cr-badge-new {
+            display: inline-block;
+            font-size: 0.6rem;
+            font-weight: 800;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            background: #164068;
+            color: #ffffff;
+            border-radius: 12px;
+            padding: 3px 10px;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        .cr-toggle-row { display: flex; align-items: flex-start; gap: 12px; }
+        .cr-toggle-row input[type="checkbox"] {
+            width: 18px; height: 18px; margin-top: 2px;
+            accent-color: #164068; flex-shrink: 0; cursor: pointer;
+        }
+        .cr-toggle-row label { font-size: 0.88rem; color: #0A2844; font-weight: 600; cursor: pointer; line-height: 1.45; }
+        .cr-toggle-row label .sub { display: block; font-weight: 500; font-size: 0.78rem; color: #5A6270; margin-top: 3px; }
+        .cr-box { margin-top: 18px; }
+        .cr-info {
+            background: #f0f4f8;
+            border: 1px solid #c8d8e8;
+            border-radius: 10px;
+            padding: 14px 18px;
+            font-size: 0.82rem;
+            color: #475569;
+            line-height: 1.65;
+            margin-bottom: 16px;
+            text-align: justify;
+        }
+        .cr-info strong { color: #0A2844; }
+        .cr-info a { color: #164068; font-weight: 700; text-decoration: underline; }
+        .cr-grid-wrap { overflow-x: auto; }
+        .cr-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 660px; }
+        .cr-table th {
+            text-align: left;
+            font-size: 0.64rem;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: #94a3b8;
+            font-weight: 700;
+            padding: 6px 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .cr-table td { padding: 5px 6px; border-bottom: 1px solid #f1f5f9; }
+        .cr-table td:first-child { font-weight: 600; color: #0A2844; white-space: nowrap; font-size: 0.78rem; }
+        .cr-table input {
+            width: 100%;
+            min-width: 110px;
+            font: inherit;
+            font-size: 0.85rem;
+            color: #0f172a;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 7px 9px;
+        }
+        .cr-table input:focus { outline: none; border-color: #164068; background: #ffffff; box-shadow: 0 0 0 2px rgba(22, 64, 104, 0.1); }
+        .cr-table input.invalid { border-color: #b3352c; background: #fdf6f5; }
+        .cr-actions { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; margin-top: 14px; }
+        .cr-soff { display: flex; align-items: flex-start; gap: 8px; font-size: 0.82rem; color: #0A2844; font-weight: 600; cursor: pointer; }
+        .cr-soff input { width: 16px; height: 16px; margin-top: 2px; accent-color: #b3352c; cursor: pointer; }
+        .cr-warn { margin-top: 12px; font-size: 0.8rem; color: #a5561a; font-weight: 600; line-height: 1.5; }
+        .cr-import {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 16px;
+            margin-bottom: 14px;
+        }
+        .cr-import-note { font-size: 0.75rem; color: #94a3b8; line-height: 1.45; max-width: 460px; }
+        @media (max-width: 560px) {
+            .cr-import { flex-direction: column; align-items: stretch; }
+            .cr-import .sim-btn-ghost { width: 100%; text-align: center; }
+            .cr-grid-wrap::before {
+                content: 'Scorri la griglia lateralmente per tutti i campi';
+                display: block;
+                font-size: 0.7rem;
+                color: #94a3b8;
+                margin-bottom: 6px;
+            }
+            .cr-actions { flex-direction: column; align-items: stretch; }
+            .cr-actions .sim-btn-ghost { width: 100%; text-align: center; }
+        }
+
         .sim-btn-solid {
             background: #164068;
             color: #ffffff;
@@ -684,6 +863,7 @@
                 <li><a href="#modello">Il modello</a></li>
                 <li><a href="#simulatore">Simulatore</a></li>
                 <li><a href="#lettura">Come leggerlo</a></li>
+                <li><a href="#metodo">Il metodo</a></li>
                 <li><a href="../assets/Brochure-Revilaw.pdf" download class="nav-brochure">Scarica la brochure</a></li>
                 <li><a href="#contatti" class="nav-cta">Contattaci</a></li>
             </ul>
@@ -703,8 +883,9 @@
                 Ogni volta che un'impresa chiede credito, la banca la traduce in un numero: il <strong>rating</strong>.
                 Da quel numero dipendono l'esito della pratica, il prezzo del denaro e le garanzie richieste.
                 Il simulatore di questa pagina replica il <strong>modello di valutazione del Fondo di Garanzia PMI</strong>
-                (il rating MCC) e lo affianca a un <strong>cruscotto di bancabilità</strong> con DSCR, indici della crisi
-                CNDCEC e Z-Score: bastano i dati dell'ultimo bilancio, il calcolo avviene interamente nel tuo browser.
+                (il rating MCC), completo del modulo andamentale se carichi la <strong>Centrale dei Rischi</strong>,
+                e lo affianca a un <strong>cruscotto di bancabilità</strong> con DSCR, indici della crisi CNDCEC e Z-Score:
+                bastano l'ultimo bilancio (anche in XBRL) e il PDF della CR, il calcolo avviene interamente nel tuo browser.
             </p>
             <div class="hero-actions">
                 <a href="#simulatore" class="btn btn-primary">Vai al simulatore</a>
@@ -743,9 +924,31 @@
 
             <div class="detail-block">
                 <p>Il rating è una stima della <strong>probabilità di inadempimento</strong> (PD, probability of default) dell'impresa entro un orizzonte di riferimento, di regola dodici mesi. Gli accordi di <strong>Basilea</strong> impongono alle banche di misurarla per ogni affidato: più alta è la probabilità stimata, più capitale la banca deve accantonare e più caro diventa il credito. Per questo due imprese con lo stesso fatturato possono ricevere condizioni molto diverse: non conta solo quanto vendono, ma quanto sono solide e capaci di generare cassa.</p>
-                <p>I modelli delle banche combinano tre famiglie di informazioni: la componente <strong>economico-finanziaria</strong> (i numeri di bilancio), la componente <strong>andamentale</strong> (come l'impresa usa il credito: utilizzi, sconfini, segnalazioni in Centrale Rischi) e la componente <strong>qualitativa</strong> (settore, governance, piani industriali). La parte andamentale è visibile solo a banche e intermediari; la parte di bilancio, però, è per tutti la base del giudizio ed è quella su cui l'impresa può lavorare con più anticipo.</p>
+                <p>I modelli delle banche combinano tre famiglie di informazioni: la componente <strong>economico-finanziaria</strong> (i numeri di bilancio), la componente <strong>andamentale</strong> (come l'impresa usa il credito: utilizzi e sconfini in Centrale Rischi, movimentazione dei conti correnti, puntualità nei pagamenti) e la componente <strong>qualitativa</strong> (settore di attività, qualità della governance, business plan e prospettive, garanzie offerte). Nessuna banca si affida al solo modello del Fondo di Garanzia: ogni istituto integra i dati con sistemi interni di rating e con informazioni comportamentali che nessuno strumento esterno può osservare.</p>
                 <p>Esiste inoltre un rating "pubblico" che ogni impresa può conoscere e simulare: quello del <strong>Fondo di Garanzia per le PMI</strong>, gestito da Mediocredito Centrale. Il modello è pubblicato nelle Disposizioni Operative del Fondo, con variabili, coefficienti e soglie: assegna una classe da 1 a 12, raggruppata in <strong>cinque fasce</strong>, e stabilisce chi può accedere alla garanzia pubblica, oggi decisiva in gran parte dei finanziamenti alle PMI. La quinta fascia (classi 11 e 12) esclude dalla garanzia.</p>
-                <p>Conoscere in anticipo la propria classe cambia la trattativa: consente di <strong>presentarsi in banca preparati</strong>, di correggere per tempo gli indicatori che penalizzano il giudizio e di scegliere il momento giusto per chiedere nuova finanza. È lo stesso principio degli adeguati assetti richiesti dall'<strong>art. 2086 c.c.</strong>: monitorare i numeri prima che lo facciano i creditori.</p>
+                <p>Un simulatore costruito su fonti pubbliche va quindi letto per ciò che è. Rispetto all'<strong>ammissibilità alla garanzia del Fondo</strong> è un indicatore solido, perché replica il modello ufficiale con cui il Gestore valuta le domande; rispetto al <strong>giudizio finale di una singola banca</strong> è una bussola direzionale, non una previsione: la capacità predittiva è inevitabilmente inferiore, perché ogni istituto pesa a modo proprio elementi che qui non entrano. È la differenza tra conoscere la propria posizione di partenza e conoscere l'esito della gara.</p>
+                <p>Conoscere in anticipo la propria classe cambia comunque la trattativa: consente di <strong>presentarsi in banca preparati</strong>, di correggere per tempo gli indicatori che penalizzano il giudizio e di scegliere il momento giusto per chiedere nuova finanza. È lo stesso principio degli adeguati assetti richiesti dall'<strong>art. 2086 c.c.</strong>: monitorare i numeri prima che lo facciano i creditori.</p>
+            </div>
+
+            <div class="benefits-grid">
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    </div>
+                    <div>
+                        <h3>Quello che il simulatore può dirti</h3>
+                        <p>La <strong>classe di merito</strong> con cui il Fondo di Garanzia valuta la domanda, calcolata con il modello ufficiale e, se fornisci la Centrale dei Rischi, con il modulo andamentale; gli <strong>indicatori</strong> che le istruttorie di fido guardano per primi, confrontati con soglie pubbliche; le <strong>leve concrete</strong> su cui intervenire, voce per voce, per migliorare la classe prima di chiedere credito.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </div>
+                    <div>
+                        <h3>Quello che vede solo la banca</h3>
+                        <p>La <strong>movimentazione dei conti correnti</strong> e la puntualità dei pagamenti verso fornitori, dipendenti e fisco; la valutazione di <strong>governance, business plan e garanzie</strong> offerte a supporto della richiesta; i <strong>sistemi interni di rating</strong> di ogni istituto, che integrano il modello pubblico con pesi e correttivi propri. Per questo nessun simulatore può promettere il giudizio finale.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -769,7 +972,7 @@
                     </div>
                     <div>
                         <h3>Il rating MCC del Fondo di Garanzia</h3>
-                        <p>Il simulatore replica il <strong>modulo economico-finanziario</strong> del modello MCC per le società di capitali in contabilità ordinaria, con le variabili, i coefficienti e le soglie ufficiali delle Specifiche Tecniche in vigore. Il risultato è la classe da 1 a 12, la fascia da 1 a 5, la probabilità di inadempimento associata e il giudizio di <strong>ammissibilità alla garanzia</strong> pubblica.</p>
+                        <p>Il simulatore replica il <strong>modulo economico-finanziario</strong> del modello MCC per le società di capitali, con coefficienti e soglie ufficiali delle Specifiche Tecniche, e con i dati della Centrale dei Rischi calcola anche il <strong>modulo andamentale</strong>. Il risultato è la classe da 1 a 12, la fascia, la probabilità di inadempimento e il giudizio di <strong>ammissibilità alla garanzia</strong> pubblica.</p>
                     </div>
                 </div>
                 <div class="benefit-item">
@@ -810,7 +1013,8 @@
                 <span class="section-tag">Il simulatore</span>
                 <h2>Simula il rating <span class="text-accent">con i dati del bilancio</span></h2>
                 <p class="section-desc">
-                    Importa il file XBRL del bilancio depositato o inserisci le voci a mano: il calcolo avviene
+                    Importa il file XBRL del bilancio depositato o inserisci le voci a mano; per il rating completo
+                    aggiungi la Centrale dei Rischi, anche caricando il PDF della Banca d'Italia. Il calcolo avviene
                     interamente nel tuo browser e nessun dato viene trasmesso o salvato.
                 </p>
             </div>
@@ -819,13 +1023,29 @@
                 <div class="sim-banner">
                     <p><strong>Ambito del simulatore:</strong> società di capitali in contabilità ordinaria. Importi in euro,
                     come da bilancio ex artt. 2424 e 2425 c.c. I campi indicati come facoltativi valgono zero se lasciati vuoti.
-                    Con <strong>Importa bilancio XBRL</strong> puoi caricare il file .xbrl depositato al Registro delle Imprese:
-                    i campi si compilano automaticamente e il file resta nel tuo browser.</p>
+                    Con <strong>Importa bilancio XBRL</strong> puoi caricare il file .xbrl depositato al Registro delle Imprese;
+                    nella sezione evidenziata più sotto puoi aggiungere la <strong>Centrale dei Rischi</strong>, anche caricando
+                    il PDF della Banca d'Italia. Tutti i file restano nel tuo browser.</p>
                     <div class="sim-banner-actions">
                         <button type="button" class="sim-btn-ghost sim-btn-solid" id="btnXbrl">Importa bilancio XBRL</button>
                         <button type="button" class="sim-btn-ghost" id="btnEsempio">Carica un esempio</button>
                         <button type="button" class="sim-btn-ghost" id="btnAzzera">Azzera</button>
                         <input type="file" id="xbrlFile" accept=".xbrl,.xml" hidden>
+                    </div>
+                </div>
+
+                <div class="sim-steps">
+                    <div class="sim-step">
+                        <span class="n">1</span>
+                        <div><strong>Bilancio</strong><span class="d">Importa il file XBRL depositato o inserisci le voci a mano</span></div>
+                    </div>
+                    <a class="sim-step is-cr" href="#crPanel">
+                        <span class="n">2</span>
+                        <div><strong>Centrale dei Rischi</strong><span class="d">Carica il PDF della Banca d'Italia: attiva il rating completo</span></div>
+                    </a>
+                    <div class="sim-step">
+                        <span class="n">3</span>
+                        <div><strong>Calcola</strong><span class="d">Rating MCC, cruscotto di bancabilità e report da stampare</span></div>
                     </div>
                 </div>
 
@@ -1016,6 +1236,66 @@
                             </div>
                         </fieldset>
 
+                        <fieldset class="sim-fieldset">
+                            <legend>Modulo andamentale: Centrale dei Rischi<span class="cr-badge-new">Rating completo</span></legend>
+                            <div class="cr-panel" id="crPanel">
+                            <div class="cr-toggle-row">
+                                <input type="checkbox" id="crToggle">
+                                <label for="crToggle">Includi la Centrale dei Rischi degli ultimi 6 mesi
+                                    <span class="sub">È il passaggio che rende il rating davvero completo: si attiva il modulo andamentale
+                                    ufficiale del modello MCC e la classe integrata viene calcolata con la matrice vera del Fondo.
+                                    La casella si attiva da sola quando importi il PDF o compili la griglia; se resta disattivata
+                                    il calcolo procede senza andamentale.</span>
+                                </label>
+                            </div>
+                            <div class="cr-box" id="crBox">
+                                <div class="cr-import">
+                                    <button type="button" class="sim-btn-ghost sim-btn-solid" id="btnCrPdf">Importa il PDF della Centrale dei Rischi</button>
+                                    <input type="file" id="crPdfFile" accept=".pdf,application/pdf" hidden>
+                                    <span class="cr-import-note">Carica il PDF ricevuto dalla Banca d'Italia: viene letto solo nel tuo browser
+                                    e i valori compaiono nella griglia qui sotto, dove puoi verificarli e correggerli prima del calcolo.</span>
+                                </div>
+                                <div class="xbrl-status" id="crPdfStatus" hidden></div>
+                                <div class="cr-info">
+                                    <strong>Non hai la Centrale dei Rischi?</strong> Ogni impresa può richiedere gratuitamente i propri dati
+                                    alla Banca d'Italia dalla pagina
+                                    <a href="https://www.bancaditalia.it/servizi-cittadino/servizi/accesso-cr/" target="_blank" rel="noopener">Accesso ai dati della Centrale dei Rischi</a>:
+                                    si entra nel portale <a href="https://servizionline.bancaditalia.it/" target="_blank" rel="noopener">Servizi online</a>
+                                    con SPID, CIE o CNS e, per le società, la richiesta è presentata dal legale rappresentante. Il prospetto
+                                    arriva di norma in pochi giorni. Dal documento ricevuto riporta qui, per ciascuno degli ultimi sei mesi
+                                    rilevati, l'accordato operativo e l'utilizzato dei <strong>crediti per cassa</strong> (totale delle categorie
+                                    autoliquidanti, a scadenza e a revoca) e la parte riferita ai soli <strong>rischi a scadenza</strong>.
+                                </div>
+                                <div class="cr-grid-wrap">
+                                    <table class="cr-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Rilevazione</th>
+                                                <th>Accordato per cassa (totale)</th>
+                                                <th>Utilizzato per cassa (totale)</th>
+                                                <th>di cui a scadenza: accordato</th>
+                                                <th>di cui a scadenza: utilizzato</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr><td id="crlbl1">Mese 1 (più recente)</td><td><input type="text" id="crat1" inputmode="decimal"></td><td><input type="text" id="crut1" inputmode="decimal"></td><td><input type="text" id="cras1" inputmode="decimal"></td><td><input type="text" id="crus1" inputmode="decimal"></td></tr>
+                                            <tr><td id="crlbl2">Mese 2</td><td><input type="text" id="crat2" inputmode="decimal"></td><td><input type="text" id="crut2" inputmode="decimal"></td><td><input type="text" id="cras2" inputmode="decimal"></td><td><input type="text" id="crus2" inputmode="decimal"></td></tr>
+                                            <tr><td id="crlbl3">Mese 3</td><td><input type="text" id="crat3" inputmode="decimal"></td><td><input type="text" id="crut3" inputmode="decimal"></td><td><input type="text" id="cras3" inputmode="decimal"></td><td><input type="text" id="crus3" inputmode="decimal"></td></tr>
+                                            <tr><td id="crlbl4">Mese 4</td><td><input type="text" id="crat4" inputmode="decimal"></td><td><input type="text" id="crut4" inputmode="decimal"></td><td><input type="text" id="cras4" inputmode="decimal"></td><td><input type="text" id="crus4" inputmode="decimal"></td></tr>
+                                            <tr><td id="crlbl5">Mese 5</td><td><input type="text" id="crat5" inputmode="decimal"></td><td><input type="text" id="crut5" inputmode="decimal"></td><td><input type="text" id="cras5" inputmode="decimal"></td><td><input type="text" id="crus5" inputmode="decimal"></td></tr>
+                                            <tr><td id="crlbl6">Mese 6</td><td><input type="text" id="crat6" inputmode="decimal"></td><td><input type="text" id="crut6" inputmode="decimal"></td><td><input type="text" id="cras6" inputmode="decimal"></td><td><input type="text" id="crus6" inputmode="decimal"></td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="cr-actions">
+                                    <button type="button" class="sim-btn-ghost" id="crCopia">Ripeti il mese 1 su tutti i mesi</button>
+                                    <label class="cr-soff"><input type="checkbox" id="crSofferenze"> Negli ultimi 6 mesi risultano sofferenze segnalate a sistema</label>
+                                </div>
+                                <div class="cr-warn" id="crWarn" hidden></div>
+                            </div>
+                            </div>
+                        </fieldset>
+
                         <div class="sim-totals" id="simTotals">
                             <span class="tot">Totale attivo: <strong id="totAttivo">0</strong></span>
                             <span class="tot">Totale passivo: <strong id="totPassivo">0</strong></span>
@@ -1066,6 +1346,7 @@
                                 <div class="k-note" id="mccAmmissibileNote"></div>
                             </div>
                         </div>
+                        <div class="mcc-cr-nudge" id="mccCrNudge"></div>
                         <details class="mcc-detail">
                             <summary>Dettaglio del calcolo: variabili, coefficienti e contributi allo score</summary>
                             <div class="mcc-table-wrap">
@@ -1077,10 +1358,7 @@
                                 </table>
                             </div>
                         </details>
-                        <p class="mcc-note">La simulazione replica il solo modulo economico-finanziario del modello MCC e assume il modulo
-                        andamentale non disponibile, come previsto dalle Disposizioni Operative in assenza di dati di Centrale Rischi e Credit
-                        Bureau. Il rating effettivo assegnato dal Gestore può differire, in particolare in presenza di tensioni andamentali
-                        o eventi pregiudizievoli.</p>
+                        <p class="mcc-note" id="mccModNote"></p>
                     </div>
 
                     <div class="res-card">
@@ -1124,15 +1402,18 @@
                             <strong>Fonti dei modelli.</strong> Rating MCC: Specifiche tecniche per il calcolo della probabilità di inadempimento
                             del Fondo di Garanzia PMI (versione in vigore dal 15 febbraio 2020) e Parte IX delle Disposizioni Operative; la
                             simulazione applica il modulo economico-finanziario per le società di capitali con il raccordo settoriale ATECO
-                            previsto dal modello. Indici della crisi: documento CNDCEC del 20 ottobre 2019 con le soglie settoriali ufficiali;
+                            previsto dal modello e, se vengono forniti i dati della Centrale dei Rischi degli ultimi sei mesi, il modulo
+                            andamentale (sottomodulo CR) con la matrice di integrazione ufficiale. Indici della crisi: documento CNDCEC del
+                            20 ottobre 2019 con le soglie settoriali ufficiali;
                             dopo il D.Lgs. 83/2022 gli indici non hanno più valore di legge ma restano il benchmark professionale per gli
                             adeguati assetti ex art. 2086 c.c. Z-Score: varianti Z' e Z'' di Altman per imprese non quotate. Soglie del cruscotto
                             di bancabilità: prassi di mercato documentata (covenant tipici, istruttorie di fido, linee guida EBA sull'erogazione
                             e monitoraggio del credito, che impongono l'analisi dei flussi di cassa senza fissare soglie numeriche).
                             <br><br>
-                            <strong>Limiti della simulazione.</strong> Il risultato è una stima orientativa costruita sui soli dati di bilancio
-                            forniti: non considera il modulo andamentale (Centrale Rischi e Credit Bureau), gli eventi pregiudizievoli, i dati
-                            qualitativi né le politiche interne dei singoli istituti, e alcuni aggregati sono ricostruiti dalle voci inserite.
+                            <strong>Limiti della simulazione.</strong> Il risultato è una stima orientativa costruita sui dati forniti
+                            dall'utente: il modulo andamentale è calcolato solo se vengono inseriti i dati della Centrale dei Rischi e non
+                            comprende il sottomodulo Credit Bureau; non sono considerati gli eventi pregiudizievoli, i dati qualitativi né
+                            le politiche interne dei singoli istituti, e alcuni aggregati sono ricostruiti dalle voci inserite.
                             Non costituisce il rating ufficiale del Fondo di Garanzia né il rating di una banca, e non sostituisce una diagnosi
                             professionale del merito creditizio. <strong>Privacy:</strong> tutti i calcoli avvengono nel browser; nessun dato
                             inserito viene trasmesso, salvato o comunicato a terzi.
@@ -1205,8 +1486,64 @@
         </div>
     </section>
 
+    <!-- IL METODO -->
+    <section class="section" id="metodo">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Il metodo</span>
+                <h2>Oggi il tuo rating è questo: <span class="text-accent">vediamo come migliorarlo</span></h2>
+                <p class="section-desc">
+                    Il simulatore non è un punto di arrivo ma l'inizio di un percorso: si misura la classe di oggi,
+                    si interviene sulle cause, si misura di nuovo.
+                </p>
+            </div>
+
+            <div class="detail-block">
+                <p>L'approccio è volutamente semplice da raccontare a un imprenditore: prima la <strong>misura</strong>, poi gli <strong>interventi</strong>, poi la <strong>verifica</strong>. Visti da questa prospettiva, gli strumenti di organizzazione e controllo smettono di essere adempimenti e diventano investimenti con un ritorno misurabile, perché ogni progresso negli assetti, nella governance e nella marginalità si riflette negli indicatori che banche e Fondo di Garanzia leggono davvero. Collegare direttamente gli interventi organizzativi alla possibilità di ottenere <strong>credito a condizioni migliori</strong> rende visibile il valore del lavoro fatto: la classe di rating diventa il termometro del percorso, da misurare prima, durante e dopo.</p>
+            </div>
+
+            <div class="pillars-grid">
+                <article class="pillar-card">
+                    <span class="pillar-number">01</span>
+                    <h3>Misura</h3>
+                    <span class="pillar-label">La fotografia di oggi</span>
+                    <ul class="pillar-list">
+                        <li>Simula la classe MCC con bilancio, file XBRL e Centrale dei Rischi</li>
+                        <li>Il dettaglio del calcolo mostra quali indicatori pesano di più sul giudizio</li>
+                        <li>La stampa del report fissa il punto di partenza del percorso</li>
+                    </ul>
+                </article>
+                <article class="pillar-card">
+                    <span class="pillar-number">02</span>
+                    <h3>Migliora</h3>
+                    <span class="pillar-label">Gli interventi sulle cause</span>
+                    <ul class="pillar-list">
+                        <li><a href="../adeguati_assetti/">Adeguati assetti organizzativi</a> e controllo di gestione</li>
+                        <li><a href="../assetti_early_warning/">Monitoraggio ed early warning</a> con la pianificazione finanziaria</li>
+                        <li><a href="../rating_legalita/">Rating di legalità</a>, <a href="../modello_231/">Modello 231</a> e <a href="../sostenibilita_esg/">sostenibilità ESG</a></li>
+                    </ul>
+                </article>
+                <article class="pillar-card">
+                    <span class="pillar-number">03</span>
+                    <h3>Rimisura</h3>
+                    <span class="pillar-label">La verifica dei risultati</span>
+                    <ul class="pillar-list">
+                        <li>Nuova simulazione dopo gli interventi e i bilanci successivi</li>
+                        <li>Confronto tra i report stampati: la classe deve migliorare nel tempo</li>
+                        <li>Richieste di fido presentate nel momento più favorevole</li>
+                    </ul>
+                </article>
+            </div>
+
+            <div class="metodo-cta">
+                <a href="#simulatore" class="btn btn-primary">Fai la prima misurazione</a>
+                <a href="#contatti" class="btn btn-outline-dark">Costruisci il percorso con Revilaw</a>
+            </div>
+        </div>
+    </section>
+
     <!-- FAQ -->
-    <section class="section" id="faq">
+    <section class="section section-alt" id="faq">
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">Domande frequenti</span>
@@ -1225,7 +1562,7 @@
                     </button>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            No, e nessun simulatore può farlo: ogni banca usa modelli proprietari che combinano i dati di bilancio con la componente <strong>andamentale</strong> (Centrale Rischi, utilizzi dei fidi, sconfini) e con valutazioni qualitative. Il simulatore replica però il modello pubblico del <strong>Fondo di Garanzia PMI</strong>, che le banche stesse consultano, e gli indicatori standard delle istruttorie di fido: il risultato è quindi una stima realistica dell'ordine di grandezza del giudizio e, soprattutto, delle leve su cui intervenire per migliorarlo.
+                            No, e nessun simulatore può farlo: ogni banca usa modelli proprietari che combinano i dati di bilancio con la componente <strong>andamentale</strong> (Centrale Rischi, movimentazione dei conti, puntualità dei pagamenti) e con valutazioni qualitative (governance, business plan, garanzie offerte). Il simulatore replica però il modello pubblico del <strong>Fondo di Garanzia PMI</strong>, che le banche stesse consultano, e gli indicatori standard delle istruttorie di fido; inserendo i dati della <strong>Centrale dei Rischi</strong> calcola anche il modulo andamentale ufficiale del Fondo. Per l'ammissibilità alla garanzia pubblica è quindi un indicatore solido; rispetto al giudizio finale di una banca è una stima direzionale, utile soprattutto per capire su quali leve intervenire.
                         </div>
                     </div>
                 </div>
@@ -1506,6 +1843,22 @@
         var F_SOGLIE = [-4.706674576, -4.433824062, -4.254777908, -3.888909817, -3.467784882,
                         -3.213093996, -2.884413958, -2.619804621, -2.19819808, -1.532480597];
 
+        // Matrice di integrazione per le società di capitali (righe = classe F del
+        // modulo economico-finanziario, colonne = classe andamentale A1-A11)
+        var MATRIX_SDC = [
+            [1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 6],
+            [1, 2, 2, 2, 2, 3, 3, 4, 5, 6, 7],
+            [1, 2, 3, 3, 3, 3, 4, 5, 5, 6, 8],
+            [1, 2, 3, 4, 4, 5, 5, 6, 6, 7, 9],
+            [2, 2, 3, 4, 5, 5, 5, 6, 7, 8, 10],
+            [3, 3, 3, 4, 5, 6, 6, 6, 8, 9, 11],
+            [3, 3, 3, 4, 5, 6, 7, 7, 8, 10, 11],
+            [4, 4, 4, 5, 6, 7, 7, 8, 9, 10, 12],
+            [5, 5, 5, 5, 7, 8, 8, 9, 9, 11, 12],
+            [7, 7, 7, 7, 8, 9, 10, 10, 11, 11, 12],
+            [9, 9, 9, 9, 10, 11, 11, 12, 12, 12, 12]
+        ];
+
         // Scala finale: classe integrata, fascia, PD empirica (Tabella 57)
         var CLASSI = {
             1:  { fascia: 1, pd: 0.12 },  2:  { fascia: 2, pd: 0.33 },  3:  { fascia: 2, pd: 0.67 },
@@ -1585,7 +1938,7 @@
         }
 
         // ------- Motore MCC -------
-        function computeMcc(secKey, x) {
+        function computeMcc(secKey, x, cr) {
             var m = MCC[secKey];
             var raw = {}, isNa = {};
 
@@ -1665,17 +2018,29 @@
             for (var j = 0; j < F_SOGLIE.length; j++) {
                 if (xb <= F_SOGLIE[j]) { fClass = j + 1; break; }
             }
-            // Andamentale non disponibile: colonna UN della matrice di integrazione
-            // (per le società di capitali la classe integrata coincide con la classe F, salvo F11 che diventa 12)
-            var integrata = fClass === 11 ? 12 : fClass;
+
+            // Integrazione con il modulo andamentale: se sono disponibili i dati di
+            // Centrale Rischi si usa la matrice completa del Fondo, altrimenti la
+            // colonna UN (classe integrata = classe F, salvo F11 che diventa 12)
+            var aClasse = null, integrata;
+            if (cr && cr.active) {
+                aClasse = cr.classe;
+                integrata = MATRIX_SDC[fClass - 1][aClasse - 1];
+            } else {
+                integrata = fClass === 11 ? 12 : fClass;
+            }
+            var sofferenze = !!(cr && cr.sofferenze);
 
             return {
                 xb: xb,
                 fClass: fClass,
+                aClasse: aClasse,
+                cr: cr && cr.active ? cr : null,
+                sofferenze: sofferenze,
                 integrata: integrata,
                 fascia: CLASSI[integrata].fascia,
                 pd: CLASSI[integrata].pd,
-                ammissibile: integrata <= 10,
+                ammissibile: integrata <= 10 && !sofferenze,
                 rows: rows,
                 costante: m.c,
                 settoreLabel: m.label
@@ -1887,6 +2252,395 @@
                 lo: 1.10, hi: 2.60, min: -1, max: 5.5
             };
         }
+
+        /* =====================================================================
+           MODULO ANDAMENTALE: sottomodulo Centrale dei Rischi (Specifiche
+           tecniche del Fondo, par. 4.2). Ultimi 6 mesi di accordato/utilizzato
+           per cassa e rischi a scadenza; sofferenze = non ammissibilità.
+           ===================================================================== */
+
+        function readCr() {
+            if (!el('crToggle').checked) return { active: false };
+            var rows = [], any = false, m;
+            for (m = 1; m <= 6; m++) {
+                var at = parseNum(el('crat' + m).value);
+                var ut = parseNum(el('crut' + m).value);
+                var as = parseNum(el('cras' + m).value);
+                var us = parseNum(el('crus' + m).value);
+                if (at !== null || ut !== null || as !== null || us !== null) any = true;
+                rows.push({ m: m, at: at || 0, ut: ut || 0, as: as || 0, us: us || 0 });
+            }
+            var soff = el('crSofferenze').checked;
+            if (!any) return { active: false, emptyToggle: true, sofferenze: soff };
+
+            // Quality check: i rischi a scadenza non possono superare i totali per cassa
+            var badMonths = [];
+            rows.forEach(function (r) {
+                if (r.as > r.at || r.us > r.ut) badMonths.push(r.m);
+            });
+            if (badMonths.length) return { active: false, badMonths: badMonths, sofferenze: soff };
+
+            // Derivate: autoliquidanti + revoca = cassa - scadenza
+            var sumUtiAR = 0, sumAccAR = 0, c2 = 0, c3 = 0, c4 = 0;
+            rows.forEach(function (r) {
+                sumUtiAR += r.ut - r.us;
+                sumAccAR += r.at - r.as;
+                if (r.ut > r.at) c2++;              // mesi con sconfino di cassa
+                if (r.us > r.as) c3++;              // mesi con sconfino su rischi a scadenza
+                if (r.at === 0 && r.ut === 0) c4++; // mesi senza rapporti censiti
+            });
+            var c1s;
+            if (sumAccAR === 0) c1s = sumUtiAR > 0 ? 1 : 0;  // valori .a / .b delle Specifiche
+            else c1s = Math.min(1.2, Math.max(0, sumUtiAR / sumAccAR));
+            var dc1 = c4 >= 4 ? c1s : 0;
+            var dc3 = c3 > 0 ? 1 : 0;
+
+            var score = -4.984468 + 3.179026 * c1s - 1.066972 * dc1 + 0.720867 * dc3 + 0.0326226 * c2;
+            var p1 = 0.0518888, p2 = 0.0502134;
+            score += Math.log((p1 / (1 - p1)) * ((1 - p2) / p2)); // aggiustamento SdC
+
+            var classe = 11;
+            for (var j = 0; j < F_SOGLIE.length; j++) {
+                if (score <= F_SOGLIE[j]) { classe = j + 1; break; }
+            }
+            return { active: true, rows: rows, c1: c1s, c2: c2, c3: c3, c4: c4, score: score, classe: classe, sofferenze: soff };
+        }
+
+        /* =====================================================================
+           IMPORTAZIONE PDF CENTRALE DEI RISCHI (prospetto Banca d'Italia).
+           Il PDF viene letto con pdf.js interamente nel browser. Ancore e
+           colonne verificate sulla guida ufficiale alla lettura del prospetto
+           (Banca d'Italia, aggiornamento febbraio 2026).
+           ===================================================================== */
+
+        function loadPdfJs() {
+            return new Promise(function (resolve, reject) {
+                if (window.pdfjsLib) { resolve(); return; }
+                var s = document.createElement('script');
+                s.src = '../assets/vendor/pdfjs/pdf.min.js';
+                s.onload = function () {
+                    window.pdfjsLib.GlobalWorkerOptions.workerSrc = '../assets/vendor/pdfjs/pdf.worker.min.js';
+                    resolve();
+                };
+                s.onerror = function () { reject(new Error('Impossibile caricare il lettore PDF.')); };
+                document.head.appendChild(s);
+            });
+        }
+
+        // Estrae il testo del PDF pagina per pagina, ricostruendo le righe
+        // tramite la coordinata verticale e ordinandole da sinistra a destra.
+        function pdfToLines(data) {
+            return window.pdfjsLib.getDocument({ data: data }).promise.then(function (doc) {
+                var chain = Promise.resolve([]);
+                var pn;
+                var makeStep = function (pageNum) {
+                    return function (lines) {
+                        return doc.getPage(pageNum).then(function (page) {
+                            return page.getTextContent();
+                        }).then(function (tc) {
+                            var rows = [];
+                            tc.items.forEach(function (it) {
+                                if (!it.str || !it.str.trim()) return;
+                                var y = it.transform[5];
+                                var row = null;
+                                for (var r = 0; r < rows.length; r++) {
+                                    if (Math.abs(rows[r].y - y) <= 2.5) { row = rows[r]; break; }
+                                }
+                                if (!row) { row = { y: y, items: [] }; rows.push(row); }
+                                row.items.push({ x: it.transform[4], w: it.width || 0, s: it.str });
+                            });
+                            rows.sort(function (a, b) { return b.y - a.y; });
+                            rows.forEach(function (row) {
+                                row.items.sort(function (a, b) { return a.x - b.x; });
+                                // Ricompone i numeri spezzati in piu' frammenti (es. "45" + ".000")
+                                var items = [];
+                                row.items.forEach(function (it) {
+                                    var prev = items[items.length - 1];
+                                    var gap = prev ? it.x - (prev.x + prev.w) : 99;
+                                    if (prev && gap < 6 &&
+                                        ((/\d$/.test(prev.s) && /^\.\d{3}/.test(it.s)) ||
+                                         (/\.$/.test(prev.s) && /^\d{3}/.test(it.s)))) {
+                                        prev.s += it.s;
+                                        prev.w = (it.x + it.w) - prev.x;
+                                    } else {
+                                        items.push({ x: it.x, w: it.w, s: it.s });
+                                    }
+                                });
+                                lines.push({
+                                    items: items,
+                                    text: items.map(function (i) { return i.s; }).join(' ').replace(/\s+/g, ' ').trim()
+                                });
+                            });
+                            return lines;
+                        });
+                    };
+                };
+                for (pn = 1; pn <= doc.numPages; pn++) chain = chain.then(makeStep(pn));
+                return chain;
+            });
+        }
+
+        var CR_MESI = {
+            gennaio: 1, febbraio: 2, marzo: 3, aprile: 4, maggio: 5, giugno: 6,
+            luglio: 7, agosto: 8, settembre: 9, ottobre: 10, novembre: 11, dicembre: 12
+        };
+        var CR_MESI_BREVI = ['', 'gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+        var CR_CATEGORIE = ['RISCHI AUTOLIQUIDANTI', 'RISCHI A SCADENZA', 'RISCHI A REVOCA', 'SOFFERENZE'];
+        var CR_ESCLUSIONI = ['CREDITI SCADUTI', 'PASSATI A PERDITA', 'CEDUTI', 'POOL', 'CONTO DI TERZI'];
+        var CR_SOTTOSEZIONI_ALTRE = ['crediti di firma', 'garanzie ricevute', 'derivati finanziari',
+            'sezione informativa', 'informazioni sui garanti', 'informazioni sui debitori ceduti'];
+
+        function parseCrPdf(lines) {
+            var months = {};          // chiave aaaa*100+mm -> {at, ut, as, us}
+            var state = {
+                month: null,          // bucket del mese corrente
+                sub: null,            // 'cassa' | 'soff' | 'altro'
+                storico: false,       // righe storiche delle correzioni: da ignorare
+                hdr: null             // posizioni x delle colonne dell'ultima intestazione
+            };
+            var sofferenze = false;
+            var intermediari = {};
+            var intestatario = null;
+            var vecchioFormato = false;
+
+            function normalizza(t) { return t.toLowerCase().replace(/\s+/g, ' ').trim(); }
+            function importo(s) {
+                var t = s.trim();
+                if (!/^\d{1,3}(\.\d{3})*$/.test(t) && !/^\d+$/.test(t)) return null;
+                return parseInt(t.replace(/\./g, ''), 10);
+            }
+
+            for (var iLine = 0; iLine < lines.length; iLine++) {
+                var line = lines[iLine];
+                var text = line.text;
+                var norm = normalizza(text);
+
+                if (!intestatario) {
+                    var mInt = text.match(/Intestatario:\s*(.+)$/);
+                    if (mInt) intestatario = mInt[1].trim();
+                }
+                if (norm.indexOf('prospetto sintetico') !== -1) vecchioFormato = true;
+
+                // Ancora del mese: layout attuale e layout 2010-2015
+                var mData = text.match(/DATA (?:DI RIFERIMENTO|CONTABILE):\s*([a-zA-Zàèéìòù]+)\s+(\d{4})/);
+                if (mData) {
+                    var mm = CR_MESI[mData[1].toLowerCase()];
+                    if (mm) {
+                        var key = parseInt(mData[2], 10) * 100 + mm;
+                        if (!months[key]) months[key] = { key: key, anno: mData[2], mese: mm, at: 0, ut: 0, as: 0, us: 0 };
+                        state.month = months[key];
+                        state.sub = null; state.storico = false; state.hdr = null;
+                    }
+                    continue;
+                }
+
+                var mInterm = text.match(/^Intermediario:\s*(.+)$/);
+                if (mInterm) {
+                    intermediari[mInterm[1].trim()] = true;
+                    state.sub = null; state.storico = false; state.hdr = null;
+                    continue;
+                }
+
+                // Titoli di sottosezione
+                if (norm === 'crediti per cassa') { state.sub = 'cassa'; state.storico = false; state.hdr = null; continue; }
+                if (text.trim() === 'Sofferenze') { state.sub = 'soff'; state.storico = false; state.hdr = null; continue; }
+                var altra = false;
+                for (var so = 0; so < CR_SOTTOSEZIONI_ALTRE.length; so++) {
+                    if (norm === CR_SOTTOSEZIONI_ALTRE[so]) { altra = true; break; }
+                }
+                if (altra) { state.sub = 'altro'; state.storico = false; state.hdr = null; continue; }
+                if (norm === 'situazione corrente') { state.storico = false; continue; }
+                if (norm.indexOf('per questa data la situazione corrente') === 0) { state.storico = true; continue; }
+
+                // Intestazione di tabella: le celle vanno a capo su piu' righe fisiche
+                // (es. "Accordato" sopra e "Operativo" sotto), quindi si uniscono gli
+                // item della riga con "Utilizzato" e delle righe adiacenti e si usano
+                // le parole distintive per fissare la x di ciascuna colonna.
+                if (state.sub === 'cassa' || state.sub === 'soff') {
+                    var isHdrLine = line.items.some(function (it) { return it.s.trim() === 'Utilizzato'; });
+                    if (isHdrLine) {
+                        var merged = [];
+                        for (var mL = Math.max(0, iLine - 1); mL <= Math.min(lines.length - 1, iLine + 1); mL++) {
+                            merged = merged.concat(lines[mL].items);
+                        }
+                        var hdr = {};
+                        var accXs = [];
+                        merged.forEach(function (it) {
+                            var s = it.s.trim();
+                            var cx = it.x + (it.w || 0) / 2;
+                            if (s === 'Accordato') accXs.push(cx);
+                            else if (s === 'Accordato Operativo' || s === 'Operativo') hdr.accOp = cx;
+                            else if (s === 'Utilizzato') hdr.uti = cx;
+                            else if (s === 'Saldo Medio' || s === 'Medio') hdr.saldo = cx;
+                            else if (s === 'Importo Garantito' || s === 'Garantito') hdr.imp = cx;
+                            else if (s === 'Ruolo Affidato' || s === 'Affidato') hdr.ruolo = cx;
+                        });
+                        // "Accordato" compare sia come colonna propria sia come prima
+                        // parola di "Accordato Operativo": tiene quella piu' lontana
+                        // dalla colonna Operativo gia' individuata.
+                        if (accXs.length) {
+                            if (hdr.accOp === undefined && accXs.length >= 2) {
+                                accXs.sort(function (a, b) { return a - b; });
+                                hdr.acc = accXs[0];
+                                hdr.accOp = accXs[1];
+                            } else {
+                                var bestAcc = null, bestDist = -1;
+                                accXs.forEach(function (ax) {
+                                    var d = hdr.accOp === undefined ? 1 : Math.abs(ax - hdr.accOp);
+                                    if (d > bestDist) { bestDist = d; bestAcc = ax; }
+                                });
+                                if (hdr.accOp === undefined || bestDist > 15) hdr.acc = bestAcc;
+                            }
+                        }
+                        if (hdr.uti !== undefined) { state.hdr = hdr; continue; }
+                    }
+                }
+
+                // Riga di categoria con importi
+                if ((state.sub !== 'cassa' && state.sub !== 'soff') || state.storico || !state.month) continue;
+                var cat = null;
+                for (var c = 0; c < CR_CATEGORIE.length; c++) {
+                    if (text.indexOf(CR_CATEGORIE[c]) === 0) { cat = CR_CATEGORIE[c]; break; }
+                }
+                if (!cat) continue;
+                var escl = false;
+                for (var e = 0; e < CR_ESCLUSIONI.length; e++) {
+                    if (text.indexOf(CR_ESCLUSIONI[e]) !== -1) { escl = true; break; }
+                }
+                if (escl) continue;
+
+                // Estrai gli importi e assegnali alla colonna piu' vicina
+                var nums = [];
+                line.items.forEach(function (it) {
+                    var v = importo(it.s);
+                    if (v !== null) nums.push({ v: v, cx: it.x + (it.w || 0) / 2 });
+                });
+                if (!nums.length) continue;
+
+                var vals = { acc: null, accOp: null, uti: null };
+                if (state.hdr) {
+                    nums.forEach(function (n) {
+                        var best = null, bestD = 1e9;
+                        ['ruolo', 'acc', 'accOp', 'uti', 'saldo', 'imp'].forEach(function (colName) {
+                            if (state.hdr[colName] === undefined) return;
+                            var d = Math.abs(n.cx - state.hdr[colName]);
+                            if (d < bestD) { bestD = d; best = colName; }
+                        });
+                        if (best && bestD < 90 && (best === 'acc' || best === 'accOp' || best === 'uti') && vals[best] === null) {
+                            vals[best] = n.v;
+                        }
+                    });
+                } else if (cat === 'SOFFERENZE' && nums.length >= 1) {
+                    // fallback senza intestazione: per le sofferenze il primo importo e' l'utilizzato
+                    vals.uti = nums[nums.length >= 2 ? nums.length - 2 : 0].v;
+                } else if (nums.length >= 3) {
+                    // fallback senza intestazione: primi tre importi = accordato, operativo, utilizzato
+                    vals.acc = nums[0].v; vals.accOp = nums[1].v; vals.uti = nums[2].v;
+                }
+
+                if (cat === 'SOFFERENZE') {
+                    if (vals.uti !== null && vals.uti > 0) sofferenze = true;
+                    continue;
+                }
+                var accUsato = (vals.accOp !== null && vals.accOp > 0) ? vals.accOp : (vals.acc !== null ? vals.acc : (vals.accOp || 0));
+                var uti = vals.uti !== null ? vals.uti : 0;
+                state.month.at += accUsato;
+                state.month.ut += uti;
+                if (cat === 'RISCHI A SCADENZA') {
+                    state.month.as += accUsato;
+                    state.month.us += uti;
+                }
+            }
+
+            // Sofferenze anche dagli eventi inframensili non cancellati
+            for (var li = 0; li < lines.length; li++) {
+                var t = lines[li].text;
+                if (/\d{2}\/\d{2}\/\d{4}\s+SOFFERENZE\s+NO\b/.test(t)) { sofferenze = true; break; }
+            }
+
+            var list = Object.keys(months).map(function (k) { return months[k]; });
+            list.sort(function (a, b) { return b.key - a.key; });
+
+            if (!list.length) {
+                return {
+                    error: vecchioFormato
+                        ? 'Il file sembra un prospetto in formato precedente al layout attuale della Banca d\'Italia: usa l\'inserimento manuale della griglia.'
+                        : 'Nel PDF non sono state trovate rilevazioni mensili della Centrale dei Rischi. Verifica di aver caricato il prospetto della Banca d\'Italia; in alternativa usa l\'inserimento manuale.',
+                    sofferenze: sofferenze
+                };
+            }
+            return {
+                months: list.slice(0, 6),
+                totaliMesi: list.length,
+                sofferenze: sofferenze,
+                intestatario: intestatario,
+                intermediari: Object.keys(intermediari).length
+            };
+        }
+
+        function applyCrPdf(res) {
+            var status = el('crPdfStatus');
+            if (res.error) {
+                status.className = 'xbrl-status err';
+                status.innerHTML = '<strong>Importazione non riuscita.</strong> ' + esc(res.error);
+                status.hidden = false;
+                return;
+            }
+            CR_IDS.forEach(function (id) { el(id).value = ''; el(id).classList.remove('invalid'); });
+            res.months.forEach(function (mo, i) {
+                var n = i + 1;
+                el('crat' + n).value = fmtInt.format(mo.at);
+                el('crut' + n).value = fmtInt.format(mo.ut);
+                el('cras' + n).value = fmtInt.format(mo.as);
+                el('crus' + n).value = fmtInt.format(mo.us);
+                el('crlbl' + n).textContent = CR_MESI_BREVI[mo.mese] + ' ' + mo.anno + (i === 0 ? ' (più recente)' : '');
+            });
+            for (var n2 = res.months.length + 1; n2 <= 6; n2++) {
+                el('crlbl' + n2).textContent = 'Mese ' + n2;
+            }
+            el('crSofferenze').checked = res.sofferenze;
+            el('crToggle').checked = true;
+
+            var html = '<strong>Centrale dei Rischi importata</strong>' +
+                (res.intestatario ? ' (' + esc(res.intestatario) + ')' : '') + ': lette ' +
+                (res.months.length === 1 ? '1 rilevazione mensile' : res.months.length + ' rilevazioni mensili') +
+                (res.totaliMesi > 6 ? ' (le 6 più recenti su ' + res.totaliMesi + ' presenti nel prospetto)' : '') +
+                ', ' + res.intermediari + (res.intermediari === 1 ? ' intermediario segnalante' : ' intermediari segnalanti') +
+                ', sofferenze: ' + (res.sofferenze ? 'presenti' : 'non presenti') +
+                '. Verifica i valori nella griglia prima di calcolare.';
+            var warn = res.months.length < 6;
+            if (warn) {
+                html += '<ul><li>Il prospetto contiene meno di 6 mensilità: il modello MCC usa gli ultimi 6 mesi, completa la griglia se disponi degli altri dati.</li></ul>';
+            }
+            status.className = 'xbrl-status ' + (warn ? 'warn' : 'ok');
+            status.innerHTML = html;
+            status.hidden = false;
+        }
+
+        el('btnCrPdf').addEventListener('click', function () { el('crPdfFile').click(); });
+        el('crPdfFile').addEventListener('change', function () {
+            var f = el('crPdfFile').files[0];
+            if (!f) return;
+            var status = el('crPdfStatus');
+            status.className = 'xbrl-status warn';
+            status.textContent = 'Lettura del PDF in corso...';
+            status.hidden = false;
+            loadPdfJs().then(function () {
+                return f.arrayBuffer();
+            }).then(function (buf) {
+                return pdfToLines(new Uint8Array(buf));
+            }).then(function (lines) {
+                applyCrPdf(parseCrPdf(lines));
+            }).catch(function (err) {
+                applyCrPdf({ error: 'Impossibile leggere il file: ' + (err && err.message ? err.message : 'formato non riconosciuto.') });
+            });
+            el('crPdfFile').value = '';
+        });
+
+        // esposti per i test in console
+        window.__crParse = parseCrPdf;
+        window.__pdfToLines = pdfToLines;
+        window.__loadPdfJs = loadPdfJs;
 
         /* =====================================================================
            IMPORTAZIONE BILANCIO XBRL (tassonomia itcc-ci, bilanci depositati
@@ -2239,6 +2993,11 @@
            INTERFACCIA
            ===================================================================== */
 
+        var CR_IDS = [];
+        ['crat', 'crut', 'cras', 'crus'].forEach(function (p) {
+            for (var m = 1; m <= 6; m++) CR_IDS.push(p + m);
+        });
+
         // Formattazione live degli importi e totali
         function attachFormatting() {
             FIELD_IDS.forEach(function (id) {
@@ -2251,6 +3010,17 @@
                 input.addEventListener('input', function () {
                     input.classList.remove('invalid');
                     el('simError').hidden = true;
+                });
+            });
+            CR_IDS.forEach(function (id) {
+                var input = el(id);
+                input.addEventListener('blur', function () {
+                    var n = parseNum(input.value);
+                    if (n !== null) input.value = fmtInt.format(n);
+                });
+                input.addEventListener('input', function () {
+                    input.classList.remove('invalid');
+                    if (input.value.trim() !== '') el('crToggle').checked = true;
                 });
             });
         }
@@ -2301,15 +3071,47 @@
             }
 
             el('mccClasse').textContent = mcc.integrata + ' / 12';
-            el('mccClasseNote').textContent = 'Modulo economico-finanziario: classe F' + mcc.fClass +
-                ' (score ' + fmtDec4.format(mcc.xb) + ')';
+            el('mccClasseNote').textContent = mcc.aClasse
+                ? 'Economico-finanziario F' + mcc.fClass + ' e andamentale A' + mcc.aClasse + ' (matrice di integrazione)'
+                : 'Modulo economico-finanziario: classe F' + mcc.fClass + ' (score ' + fmtDec4.format(mcc.xb) + ')';
             el('mccFascia').textContent = mcc.fascia + ' / 5';
             el('mccPd').textContent = fmtPct(mcc.pd, 2);
             el('mccAmmissibile').textContent = mcc.ammissibile ? 'Ammissibile' : 'Non ammissibile';
             el('mccAmmissibile').style.color = mcc.ammissibile ? '#1e7d46' : '#b3352c';
-            el('mccAmmissibileNote').textContent = mcc.ammissibile
-                ? 'Classe entro la soglia di ammissibilità (fino alla classe 10)'
-                : 'La fascia 5 (classi 11 e 12) è esclusa dalla garanzia del Fondo';
+            el('mccAmmissibileNote').textContent = mcc.sofferenze
+                ? 'La presenza di sofferenze in Centrale Rischi esclude dalla garanzia a prescindere dalla classe'
+                : (mcc.ammissibile
+                    ? 'Classe entro la soglia di ammissibilità (fino alla classe 10)'
+                    : 'La fascia 5 (classi 11 e 12) è esclusa dalla garanzia del Fondo');
+
+            var nudge = el('mccCrNudge');
+            if (mcc.cr) {
+                nudge.className = 'mcc-cr-nudge ok';
+                nudge.innerHTML = 'Modulo andamentale incluso: Centrale dei Rischi degli ultimi 6 mesi, classe A' + mcc.aClasse + '.';
+            } else {
+                nudge.className = 'mcc-cr-nudge warn';
+                nudge.innerHTML = 'Rating calcolato senza modulo andamentale: <a href="#crPanel">aggiungi la Centrale dei Rischi</a> per la classe integrata completa.';
+            }
+
+            var modNote;
+            if (mcc.cr) {
+                modNote = 'La simulazione integra il modulo economico-finanziario (classe F' + mcc.fClass + ', score ' +
+                    fmtDec4.format(mcc.xb) + ') con il modulo andamentale calcolato dai dati di Centrale dei Rischi: ' +
+                    'utilizzo medio delle linee autoliquidanti e a revoca ' + fmtPct(mcc.cr.c1 * 100, 1) + ', ' +
+                    mcc.cr.c2 + (mcc.cr.c2 === 1 ? ' mese' : ' mesi') + ' con sconfino di cassa, ' +
+                    mcc.cr.c3 + (mcc.cr.c3 === 1 ? ' mese' : ' mesi') + ' con sconfino sui rischi a scadenza ' +
+                    '(score andamentale ' + fmtDec4.format(mcc.cr.score) + ', classe A' + mcc.aClasse + '). ' +
+                    'Il sottomodulo Credit Bureau, non accessibile al pubblico, non è considerato: le Disposizioni ' +
+                    'Operative prevedono in tal caso l\'uso del solo sottomodulo disponibile. Il rating effettivo ' +
+                    'assegnato dal Gestore può comunque differire, in particolare per gli eventi pregiudizievoli.';
+            } else {
+                modNote = 'La simulazione replica il solo modulo economico-finanziario del modello MCC e assume il modulo ' +
+                    'andamentale non disponibile, come previsto dalle Disposizioni Operative in assenza di dati di Centrale ' +
+                    'Rischi e Credit Bureau. Inserendo i dati della Centrale dei Rischi nella sezione dedicata del form la ' +
+                    'classe integrata viene calcolata con la matrice completa del Fondo. Il rating effettivo assegnato dal ' +
+                    'Gestore può differire, in particolare in presenza di tensioni andamentali o eventi pregiudizievoli.';
+            }
+            el('mccModNote').textContent = modNote;
 
             var tbody = el('mccTable').querySelector('tbody');
             tbody.innerHTML = '';
@@ -2454,7 +3256,7 @@
             var zZone = z.value < z.lo ? 'rischio' : (z.value <= z.hi ? 'incertezza' : 'sicurezza');
 
             var level, title, text;
-            var critico = cn.pnNeg || (cn.row && cn.tuttiAccesi) || (dscr !== null && dscr < 1) || mcc.fascia === 5;
+            var critico = cn.pnNeg || (cn.row && cn.tuttiAccesi) || (dscr !== null && dscr < 1) || mcc.fascia === 5 || mcc.sofferenze;
             if (critico) {
                 level = 'rosso';
                 title = 'Area critica: servono interventi strutturali';
@@ -2474,8 +3276,13 @@
             }
 
             text += 'rating MCC simulato in <strong>classe ' + mcc.integrata + ' su 12</strong> (fascia ' + mcc.fascia +
-                ', probabilità di inadempimento ' + fmtPct(mcc.pd, 2) + '), ' +
+                ', probabilità di inadempimento ' + fmtPct(mcc.pd, 2) + ')' +
+                (mcc.aClasse ? ', con modulo andamentale da Centrale dei Rischi in classe A' + mcc.aClasse : '') + ', ' +
                 (mcc.ammissibile ? 'entro' : 'oltre') + ' la soglia di ammissibilità alla garanzia del Fondo. ';
+            if (mcc.sofferenze) {
+                text += 'La presenza di <strong>sofferenze in Centrale Rischi</strong> esclude in ogni caso dalla garanzia pubblica ' +
+                    'e rende prioritario il confronto con i creditori. ';
+            }
             text += 'Nel cruscotto di bancabilità ' + verde + ' indicatori su ' + bank.cards.length + ' sono in area verde';
             text += dscr !== null ? ', con un DSCR di ' + fmtDec2.format(dscr) + '. ' : ' (DSCR non calcolato). ';
             if (cn.row) {
@@ -2527,6 +3334,7 @@
                 '<span>Modello MCC: <strong>' + esc(mcc.settoreLabel) + '</strong></span>' +
                 (anno ? '<span>Esercizio: <strong>' + esc(anno) + '</strong></span>' : '') +
                 '<span>Forma: <strong>Società di capitali</strong></span>' +
+                '<span>Andamentale: <strong>' + (mcc.cr ? 'Centrale dei Rischi (6 mesi)' : 'non disponibile') + '</strong></span>' +
                 '</div>';
 
             // 1. Sintesi
@@ -2536,9 +3344,11 @@
                 '<span class="pr-verdict ' + lvlClass[verdictLevel] + '">' + esc(verdictEl.textContent) + ': ' + esc(el('sumTitle').textContent) + '</span>' +
                 '<p>' + esc(el('sumText').textContent) + '</p>' +
                 '<div class="pr-kpis">' +
-                '<div class="pr-kpi"><div class="lab">Classe MCC</div><div class="val">' + mcc.integrata + ' / 12</div><div class="sub">Modulo economico-finanziario F' + mcc.fClass + '</div></div>' +
+                '<div class="pr-kpi"><div class="lab">Classe MCC</div><div class="val">' + mcc.integrata + ' / 12</div><div class="sub">' +
+                    (mcc.aClasse ? 'Integrazione F' + mcc.fClass + ' × A' + mcc.aClasse : 'Modulo economico-finanziario F' + mcc.fClass) + '</div></div>' +
                 '<div class="pr-kpi"><div class="lab">Fascia</div><div class="val">' + mcc.fascia + ' / 5</div><div class="sub">Probabilità di inadempimento ' + fmtPct(mcc.pd, 2) + '</div></div>' +
-                '<div class="pr-kpi"><div class="lab">Garanzia del Fondo</div><div class="val ' + (mcc.ammissibile ? 'c-verde' : 'c-rosso') + '">' + (mcc.ammissibile ? 'Ammissibile' : 'Non ammissibile') + '</div><div class="sub">Soglia: fino alla classe 10 (fascia 4)</div></div>' +
+                '<div class="pr-kpi"><div class="lab">Garanzia del Fondo</div><div class="val ' + (mcc.ammissibile ? 'c-verde' : 'c-rosso') + '">' + (mcc.ammissibile ? 'Ammissibile' : 'Non ammissibile') + '</div><div class="sub">' +
+                    (mcc.sofferenze ? 'Esclusione per sofferenze in Centrale Rischi' : 'Soglia: fino alla classe 10 (fascia 4)') + '</div></div>' +
                 '<div class="pr-kpi"><div class="lab">DSCR</div><div class="val">' + (dscr === null ? 'n.d.' : fmtDec2.format(dscr)) + '</div><div class="sub">Servizio del debito a 12 mesi</div></div>' +
                 '<div class="pr-kpi"><div class="lab">' + (z.model === 'Z1' ? "Z'-Score" : "Z''-Score") + '</div><div class="val">' + fmtDec2.format(z.value) + '</div><div class="sub">Zona di ' + (z.value < z.lo ? 'rischio' : (z.value <= z.hi ? 'incertezza' : 'sicurezza')) + '</div></div>' +
                 '</div></div>';
@@ -2546,8 +3356,13 @@
             // 2. Rating MCC con tabella variabili
             h += '<div class="pr-section"><h2>2. Rating MCC simulato (Fondo di Garanzia PMI)</h2>' +
                 '<p>Modulo economico-finanziario per società di capitali, modello di settore <strong>' + esc(mcc.settoreLabel) + '</strong>. ' +
-                'Score complessivo <strong>' + fmtDec4.format(mcc.xb) + '</strong>, classe parziale <strong>F' + mcc.fClass + '</strong>; in assenza di dati andamentali la classe integrata è <strong>' + mcc.integrata + ' su 12</strong> (fascia <strong>' + mcc.fascia + '</strong>, PD <strong>' + fmtPct(mcc.pd, 2) + '</strong>), ' +
-                (mcc.ammissibile ? 'entro' : 'oltre') + ' la soglia di ammissibilità alla garanzia pubblica.</p>' +
+                'Score complessivo <strong>' + fmtDec4.format(mcc.xb) + '</strong>, classe parziale <strong>F' + mcc.fClass + '</strong>; ' +
+                (mcc.aClasse
+                    ? 'con il modulo andamentale da Centrale dei Rischi (score ' + fmtDec4.format(mcc.cr.score) + ', classe <strong>A' + mcc.aClasse + '</strong>) la matrice di integrazione del Fondo assegna la classe <strong>' + mcc.integrata + ' su 12</strong>'
+                    : 'in assenza di dati andamentali la classe integrata è <strong>' + mcc.integrata + ' su 12</strong>') +
+                ' (fascia <strong>' + mcc.fascia + '</strong>, PD <strong>' + fmtPct(mcc.pd, 2) + '</strong>), ' +
+                ((mcc.integrata <= 10) ? 'entro' : 'oltre') + ' la soglia di ammissibilità alla garanzia pubblica' +
+                (mcc.sofferenze ? '; la presenza di sofferenze segnalate in Centrale Rischi comporta comunque la non ammissibilità' : '') + '.</p>' +
                 '<table><thead><tr><th>Indicatore</th><th class="num">Valore</th><th class="num">Valore trattato</th><th class="num">Coefficiente</th><th class="num">Contributo</th></tr></thead><tbody>';
             mcc.rows.forEach(function (r) {
                 var rawTxt = r.name.charAt(0) === 'D' ? '' : (r.na ? 'n.c.' : (r.raw === null ? '' : fmtDec4.format(r.raw)));
@@ -2556,7 +3371,8 @@
             });
             h += '<tr><td>Costante del modello</td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num">' + fmtDec4.format(mcc.costante) + '</td></tr>' +
                 '<tr><td><strong>Score complessivo (xb)</strong></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"><strong>' + fmtDec4.format(mcc.xb) + '</strong></td></tr>' +
-                '</tbody></table></div>';
+                '</tbody></table>' +
+                '<p class="pr-note">' + esc(el('mccModNote').textContent) + '</p></div>';
 
             // 3. Cruscotto bancabilità
             h += '<div class="pr-section"><h2>3. Cruscotto di bancabilità</h2>' +
@@ -2611,12 +3427,31 @@
                 h += '<tr><td>' + esc(a[0]) + '</td><td class="num">' + esc(a[1]) + '</td>' +
                     (b ? '<td>' + esc(b[0]) + '</td><td class="num">' + esc(b[1]) + '</td>' : '<td></td><td></td>') + '</tr>';
             }
-            h += '</tbody></table></div>';
+            h += '</tbody></table>';
+            if (mcc.cr) {
+                h += '<p style="margin-top:10px;"><strong>Centrale dei Rischi, ultimi 6 mesi</strong>' +
+                    (mcc.cr.sofferenze ? ' (con sofferenze segnalate a sistema):' : ' (nessuna sofferenza segnalata):') + '</p>' +
+                    '<table><thead><tr><th>Rilevazione</th><th class="num">Accordato per cassa</th><th class="num">Utilizzato per cassa</th>' +
+                    '<th class="num">di cui a scadenza: accordato</th><th class="num">di cui a scadenza: utilizzato</th></tr></thead><tbody>';
+                mcc.cr.rows.forEach(function (r) {
+                    h += '<tr><td>Mese ' + r.m + (r.m === 1 ? ' (più recente)' : '') + '</td>' +
+                        '<td class="num">' + fmtEuro(r.at) + '</td><td class="num">' + fmtEuro(r.ut) + '</td>' +
+                        '<td class="num">' + fmtEuro(r.as) + '</td><td class="num">' + fmtEuro(r.us) + '</td></tr>';
+                });
+                h += '</tbody></table>';
+            } else if (mcc.sofferenze) {
+                h += '<p class="pr-note">Segnalata la presenza di sofferenze in Centrale dei Rischi negli ultimi 6 mesi.</p>';
+            }
+            h += '</div>';
 
             // Fonti e disclaimer
             h += '<div class="pr-foot"><strong>Metodologia e fonti.</strong> Rating MCC: Specifiche tecniche per il calcolo della probabilità di inadempimento ' +
-                'del Fondo di Garanzia PMI (in vigore dal 15/02/2020) e Parte IX delle Disposizioni Operative; simulazione del solo modulo economico-finanziario ' +
-                'per società di capitali, modulo andamentale assunto non disponibile. Indici della crisi: documento CNDCEC del 20 ottobre 2019 (soglie settoriali ' +
+                'del Fondo di Garanzia PMI (in vigore dal 15/02/2020) e Parte IX delle Disposizioni Operative; modulo economico-finanziario ' +
+                'per società di capitali' +
+                (mcc.cr
+                    ? ' integrato con il modulo andamentale calcolato dal sottomodulo Centrale dei Rischi (il sottomodulo Credit Bureau non è disponibile al pubblico); eventi pregiudizievoli esclusi'
+                    : ', modulo andamentale assunto non disponibile') +
+                '. Indici della crisi: documento CNDCEC del 20 ottobre 2019 (soglie settoriali ' +
                 'ufficiali); dopo il D.Lgs. 83/2022 gli indici non hanno valore di legge ma restano il benchmark professionale per gli adeguati assetti ex art. 2086 c.c. ' +
                 'Z-Score: varianti Z\' e Z\'\' di Altman per imprese non quotate. Soglie di bancabilità: prassi di mercato (covenant tipici, istruttorie di fido, ' +
                 'linee guida EBA su erogazione e monitoraggio del credito). <strong>Avvertenze.</strong> Il presente report è una simulazione orientativa costruita ' +
@@ -2638,7 +3473,25 @@
             var x = buildX(v);
             var sec = SETTORI[el('settore').value];
 
-            var mcc = computeMcc(sec.mcc, x);
+            var cr = readCr();
+            var crWarn = el('crWarn');
+            document.querySelectorAll('.cr-table input.invalid').forEach(function (i) { i.classList.remove('invalid'); });
+            if (cr.badMonths) {
+                cr.badMonths.forEach(function (bm) {
+                    el('cras' + bm).classList.add('invalid');
+                    el('crus' + bm).classList.add('invalid');
+                });
+                crWarn.textContent = 'Centrale Rischi non considerata: nei mesi ' + cr.badMonths.join(', ') +
+                    ' i rischi a scadenza superano i totali per cassa. Correggi i valori evidenziati e ricalcola.';
+                crWarn.hidden = false;
+            } else if (cr.emptyToggle) {
+                crWarn.textContent = 'Hai attivato la sezione Centrale Rischi senza inserire importi: il calcolo è stato eseguito senza modulo andamentale.';
+                crWarn.hidden = false;
+            } else {
+                crWarn.hidden = true;
+            }
+
+            var mcc = computeMcc(sec.mcc, x, cr);
             var bank = computeBank(x);
             var cn = computeCndcec(x, sec.cndcec, bank.dscr);
             var z = computeZ(x, sec.z);
@@ -2673,19 +3526,40 @@
             for (var id in demo) { el(id).value = fmtInt.format(demo[id]); el(id).classList.remove('invalid'); }
             el('settore').value = 'manif';
             el('settore').classList.remove('invalid');
+            // Andamentale di esempio: posizione stabile, nessuno sconfino
+            el('crToggle').checked = true;
+            var demoCr = { crat: 1150000, crut: 730000, cras: 550000, crus: 520000 };
+            for (var p in demoCr) {
+                for (var mm = 1; mm <= 6; mm++) { el(p + mm).value = fmtInt.format(demoCr[p]); el(p + mm).classList.remove('invalid'); }
+            }
+            el('crSofferenze').checked = false;
+            el('crWarn').hidden = true;
             updateTotals();
         });
 
         el('btnAzzera').addEventListener('click', function () {
             FIELD_IDS.forEach(function (id) { el(id).value = ''; el(id).classList.remove('invalid'); });
+            CR_IDS.forEach(function (id) { el(id).value = ''; el(id).classList.remove('invalid'); });
             el('settore').value = '';
             el('denominazione').value = '';
             el('esercizio').value = '';
+            el('crToggle').checked = false;
+            el('crSofferenze').checked = false;
+            el('crWarn').hidden = true;
+            el('crPdfStatus').hidden = true;
+            for (var lb = 1; lb <= 6; lb++) el('crlbl' + lb).textContent = 'Mese ' + lb + (lb === 1 ? ' (più recente)' : '');
             el('simResults').hidden = true;
             el('simError').hidden = true;
             el('printReport').innerHTML = '';
             document.body.classList.remove('has-report');
             updateTotals();
+        });
+
+        el('crCopia').addEventListener('click', function () {
+            ['crat', 'crut', 'cras', 'crus'].forEach(function (p) {
+                var v = el(p + '1').value;
+                for (var mm = 2; mm <= 6; mm++) el(p + mm).value = v;
+            });
         });
 
         attachFormatting();
