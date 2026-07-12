@@ -1,0 +1,2640 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Primary Meta Tags -->
+    <title>Rating bancario: simulatore MCC e cruscotto di bancabilità | Revilaw</title>
+    <script src="/assets/analytics.js"></script>
+    <meta name="title" content="Rating bancario: simulatore MCC e cruscotto di bancabilità | Revilaw">
+    <meta name="description" content="Simula il rating bancario della tua società: modello MCC del Fondo di Garanzia, DSCR, indici CNDCEC e Z-Score, calcolati nel browser dai dati di bilancio.">
+    <meta name="keywords" content="rating bancario, merito creditizio, modello MCC, Fondo di Garanzia PMI, Mediocredito Centrale, DSCR, PFN EBITDA, indici di allerta CNDCEC, Z-Score, bancabilità, accesso al credito, rating advisory, Revilaw, Next Generation Business">
+    <meta name="author" content="Revilaw S.p.A.">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="googlebot" content="index, follow">
+    <meta name="language" content="Italian">
+    <meta name="theme-color" content="#164068">
+    <link rel="canonical" href="https://nextgenerationbusiness.it/rating_bancario/">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../assets/favicon.png">
+    <link rel="apple-touch-icon" href="../assets/favicon.png">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="Next Generation Business">
+    <meta property="og:url" content="https://nextgenerationbusiness.it/rating_bancario/">
+    <meta property="og:title" content="Rating bancario: simulatore MCC e cruscotto di bancabilità | Revilaw">
+    <meta property="og:description" content="Simula il rating bancario della tua società: modello MCC del Fondo di Garanzia, DSCR, indici CNDCEC e Z-Score, calcolati nel browser dai dati di bilancio.">
+    <meta property="og:image" content="https://nextgenerationbusiness.it/assets/og-revilaw-1200x630.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="it_IT">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Rating bancario: simulatore MCC e cruscotto di bancabilità | Revilaw">
+    <meta name="twitter:description" content="Simula il rating bancario della tua società: modello MCC del Fondo di Garanzia, DSCR, indici CNDCEC e Z-Score, calcolati nel browser dai dati di bilancio.">
+    <meta name="twitter:image" content="https://nextgenerationbusiness.it/assets/og-revilaw-1200x630.jpg">
+
+    <!-- Styles / Fonts -->
+    <link rel="stylesheet" href="../zls_zes/style.css">
+    <link rel="stylesheet" href="../assets/content-page.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Article",
+                "@id": "https://nextgenerationbusiness.it/rating_bancario/#article",
+                "headline": "Il rating bancario: come le banche valutano l'impresa e come simularlo",
+                "description": "Guida al rating bancario delle PMI: il modello di valutazione del Fondo di Garanzia (MCC), il DSCR e gli indicatori di bancabilità, gli indici della crisi CNDCEC e lo Z-Score, con un simulatore gratuito che calcola tutto nel browser.",
+                "image": "https://nextgenerationbusiness.it/assets/og-revilaw-1200x630.jpg",
+                "inLanguage": "it-IT",
+                "author": { "@type": "Organization", "name": "Revilaw S.p.A.", "url": "https://www.revilaw.it" },
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "Next Generation Business",
+                    "logo": { "@type": "ImageObject", "url": "https://nextgenerationbusiness.it/assets/logo-revilaw.png" }
+                },
+                "datePublished": "2026-07-12",
+                "dateModified": "2026-07-12",
+                "mainEntityOfPage": "https://nextgenerationbusiness.it/rating_bancario/"
+            },
+            {
+                "@type": "WebApplication",
+                "name": "Simulatore di rating bancario",
+                "url": "https://nextgenerationbusiness.it/rating_bancario/#simulatore",
+                "applicationCategory": "FinanceApplication",
+                "operatingSystem": "Web",
+                "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+                "description": "Simulatore gratuito del rating bancario per società di capitali: modulo economico-finanziario del modello MCC, DSCR, indici CNDCEC e Z-Score. I dati restano nel browser."
+            },
+            {
+                "@type": "Service",
+                "name": "Rating advisory e preparazione al credito",
+                "description": "Supporto Revilaw S.p.A. nella diagnosi del merito creditizio, nel miglioramento del rating bancario e nella preparazione della documentazione per banche e Fondo di Garanzia.",
+                "provider": { "@type": "Organization", "name": "Revilaw S.p.A.", "url": "https://www.revilaw.it" },
+                "areaServed": { "@type": "Country", "name": "Italia" },
+                "serviceType": "Rating advisory e finanza d'impresa",
+                "offers": { "@type": "Offer", "priceCurrency": "EUR" }
+            },
+            {
+                "@type": "BreadcrumbList",
+                "itemListElement": [
+                    { "@type": "ListItem", "position": 1, "name": "Next Generation Business", "item": "https://nextgenerationbusiness.it/" },
+                    { "@type": "ListItem", "position": 2, "name": "Il Rating Bancario", "item": "https://nextgenerationbusiness.it/rating_bancario/" }
+                ]
+            }
+        ]
+    }
+    </script>
+
+    <style>
+        /* ============ Simulatore rating bancario: stili dedicati ============ */
+        .sim-shell {
+            max-width: 1100px;
+            margin: 48px auto 0;
+        }
+        .sim-banner {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            background: #ffffff;
+            border: 1px solid rgba(22, 64, 104, 0.14);
+            border-left: 3px solid #164068;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 26px;
+        }
+        .sim-banner p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #5A6270;
+            line-height: 1.55;
+        }
+        .sim-banner p strong { color: #0A2844; }
+        .sim-banner-actions { display: flex; gap: 10px; flex-shrink: 0; }
+        .sim-btn-ghost {
+            font: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #164068;
+            background: rgba(22, 64, 104, 0.06);
+            border: 1px solid rgba(22, 64, 104, 0.18);
+            border-radius: 8px;
+            padding: 8px 14px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .sim-btn-ghost:hover { background: rgba(22, 64, 104, 0.12); }
+
+        .sim-form-wrap {
+            background: #ffffff;
+            border: 1px solid rgba(22, 64, 104, 0.12);
+            border-radius: 14px;
+            padding: 30px 30px 26px;
+            box-shadow: 0 2px 10px rgba(10, 40, 68, 0.04);
+        }
+        .sim-fieldset {
+            border: none;
+            padding: 0;
+            margin: 0 0 26px;
+        }
+        .sim-fieldset legend {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.6px;
+            color: #164068;
+            padding: 0 0 12px;
+            border-bottom: 1px solid rgba(22, 64, 104, 0.1);
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        .sim-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px 18px;
+        }
+        .sim-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+        .sim-field label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #0A2844;
+            line-height: 1.3;
+        }
+        .sim-field label .opt {
+            font-weight: 500;
+            color: #94a3b8;
+            font-size: 0.72rem;
+        }
+        .sim-field .hint { font-size: 0.7rem; color: #94a3b8; line-height: 1.3; }
+        .sim-input-wrap { position: relative; }
+        .sim-input-wrap .euro {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.85rem;
+            color: #94a3b8;
+            pointer-events: none;
+        }
+        .sim-field input[type="text"],
+        .sim-field select {
+            width: 100%;
+            font: inherit;
+            font-size: 0.92rem;
+            color: #0f172a;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px 10px 30px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .sim-field select { padding-left: 12px; }
+        .sim-field input:focus,
+        .sim-field select:focus {
+            outline: none;
+            border-color: #164068;
+            box-shadow: 0 0 0 3px rgba(22, 64, 104, 0.1);
+            background: #ffffff;
+        }
+        .sim-field input.invalid { border-color: #b3352c; background: #fdf6f5; }
+        .sim-field.wide { grid-column: span 3; }
+        .sim-field.two { grid-column: span 2; }
+
+        .sim-totals {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 28px;
+            align-items: center;
+            background: #f0f4f8;
+            border: 1px solid #c8d8e8;
+            border-radius: 10px;
+            padding: 14px 20px;
+            margin: 6px 0 22px;
+        }
+        .sim-totals .tot { font-size: 0.84rem; color: #475569; }
+        .sim-totals .tot strong { color: #0A2844; font-size: 0.95rem; }
+        .sim-quad {
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.3px;
+        }
+        .sim-quad.ok { background: #e6f4ec; color: #1e7d46; }
+        .sim-quad.ko { background: #fdeaea; color: #b3352c; }
+
+        .sim-submit-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+        .sim-error {
+            font-size: 0.82rem;
+            color: #b3352c;
+            font-weight: 600;
+        }
+
+        /* ---------- Risultati ---------- */
+        .sim-results { margin-top: 34px; display: flex; flex-direction: column; gap: 26px; }
+        .res-card {
+            background: #ffffff;
+            border: 1px solid rgba(22, 64, 104, 0.12);
+            border-radius: 14px;
+            padding: 28px 30px;
+            box-shadow: 0 2px 10px rgba(10, 40, 68, 0.04);
+        }
+        .res-card > h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #0A2844;
+            margin-bottom: 4px;
+        }
+        .res-card > .res-sub {
+            font-size: 0.82rem;
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+        .res-summary {
+            border-left: 4px solid #164068;
+            background: linear-gradient(135deg, #f0f4f8 0%, #ffffff 70%);
+        }
+        .res-summary .verdict {
+            display: inline-block;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            padding: 5px 14px;
+            border-radius: 20px;
+            margin-bottom: 14px;
+        }
+        .res-summary p { font-size: 0.95rem; color: #475569; line-height: 1.75; text-align: justify; hyphens: auto; }
+        .res-summary p strong { color: #0A2844; }
+
+        .lvl-verde   { background: #e6f4ec; color: #1e7d46; }
+        .lvl-giallo  { background: #fdf5e0; color: #8a6a06; }
+        .lvl-arancio { background: #fdeedd; color: #a5561a; }
+        .lvl-rosso   { background: #fdeaea; color: #b3352c; }
+        .lvl-neutro  { background: #eef2f7; color: #475569; }
+
+        /* Scala MCC 1-12 */
+        .mcc-scale { display: flex; gap: 4px; margin: 18px 0 8px; }
+        .mcc-seg {
+            flex: 1;
+            height: 34px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: rgba(10, 40, 68, 0.45);
+            background: #eef2f7;
+            position: relative;
+        }
+        .mcc-seg.f1 { background: #dff1e6; }
+        .mcc-seg.f2 { background: #e8f3d9; }
+        .mcc-seg.f3 { background: #fdf5d8; }
+        .mcc-seg.f4 { background: #fdeadd; }
+        .mcc-seg.f5 { background: #fbdddd; }
+        .mcc-seg.active {
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(10, 40, 68, 0.25);
+            transform: scale(1.12);
+            z-index: 2;
+        }
+        .mcc-seg.active.f1 { background: #1e7d46; }
+        .mcc-seg.active.f2 { background: #5c9b32; }
+        .mcc-seg.active.f3 { background: #c9971c; }
+        .mcc-seg.active.f4 { background: #c46a1e; }
+        .mcc-seg.active.f5 { background: #b3352c; }
+        .mcc-scale-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-bottom: 18px;
+        }
+        .mcc-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 8px; }
+        .mcc-kpi {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+        .mcc-kpi .k-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 4px; }
+        .mcc-kpi .k-value { font-size: 1.25rem; font-weight: 800; color: #0A2844; line-height: 1.2; }
+        .mcc-kpi .k-note { font-size: 0.7rem; color: #94a3b8; margin-top: 2px; }
+        .mcc-note { font-size: 0.78rem; color: #94a3b8; line-height: 1.55; margin-top: 12px; text-align: justify; }
+
+        details.mcc-detail { margin-top: 16px; }
+        details.mcc-detail summary {
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #164068;
+            padding: 8px 0;
+            user-select: none;
+        }
+        .mcc-table-wrap { overflow-x: auto; margin-top: 10px; }
+        .mcc-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 560px; }
+        .mcc-table th {
+            text-align: left;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #94a3b8;
+            font-weight: 700;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .mcc-table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .mcc-table td:first-child { white-space: normal; color: #0A2844; font-weight: 600; }
+        .mcc-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        .mcc-table th.num { text-align: right; }
+        .mcc-table tr.total td { font-weight: 800; color: #0A2844; border-top: 2px solid #e2e8f0; }
+
+        /* Semafori bancabilità */
+        .bank-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .bank-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .bank-card .b-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .bank-card .b-name { font-size: 0.8rem; font-weight: 700; color: #0A2844; line-height: 1.25; }
+        .bank-card .b-badge {
+            font-size: 0.66rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 3px 9px;
+            border-radius: 14px;
+            white-space: nowrap;
+        }
+        .bank-card .b-value { font-size: 1.35rem; font-weight: 800; color: #0A2844; font-variant-numeric: tabular-nums; }
+        .bank-card .b-ref { font-size: 0.7rem; color: #94a3b8; line-height: 1.45; }
+
+        /* Indici CNDCEC */
+        .allerta-status {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .allerta-chip {
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 18px;
+        }
+        .cndcec-table-wrap { overflow-x: auto; }
+        .cndcec-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 600px; }
+        .cndcec-table th {
+            text-align: left;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #94a3b8;
+            font-weight: 700;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .cndcec-table td { padding: 9px 10px; border-bottom: 1px solid #f1f5f9; color: #475569; }
+        .cndcec-table td:first-child { color: #0A2844; font-weight: 600; }
+        .cndcec-table td.num, .cndcec-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .cndcec-badge {
+            font-size: 0.66rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 3px 9px;
+            border-radius: 14px;
+            white-space: nowrap;
+        }
+
+        /* Z-Score bar */
+        .z-bar-wrap { margin: 22px 0 6px; }
+        .z-bar {
+            position: relative;
+            height: 14px;
+            border-radius: 8px;
+            background: linear-gradient(90deg, #e59a94 0%, #e59a94 33%, #ecd28a 33%, #ecd28a 66%, #9ccfae 66%, #9ccfae 100%);
+        }
+        .z-marker {
+            position: absolute;
+            top: -7px;
+            width: 4px;
+            height: 28px;
+            background: #0A2844;
+            border-radius: 2px;
+            transform: translateX(-50%);
+        }
+        .z-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: #94a3b8; margin-top: 8px; }
+        .z-value-row { display: flex; align-items: baseline; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+        .z-value-row .z-num { font-size: 1.6rem; font-weight: 800; color: #0A2844; }
+
+        .res-method { font-size: 0.76rem; color: #94a3b8; line-height: 1.6; text-align: justify; hyphens: auto; }
+        .res-method strong { color: #5A6270; }
+
+        @media (max-width: 900px) {
+            .sim-grid { grid-template-columns: repeat(2, 1fr); }
+            .sim-field.wide { grid-column: span 2; }
+            .sim-field.two { grid-column: span 2; }
+            .mcc-kpis { grid-template-columns: repeat(2, 1fr); }
+            .bank-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 560px) {
+            .sim-grid { grid-template-columns: 1fr; }
+            .sim-field.wide, .sim-field.two { grid-column: span 1; }
+            .sim-form-wrap { padding: 22px 18px; }
+            .res-card { padding: 22px 18px; }
+            .bank-grid { grid-template-columns: 1fr; }
+            .mcc-kpis { grid-template-columns: 1fr; }
+            .mcc-seg { font-size: 0.62rem; height: 28px; }
+        }
+
+        .sim-field input.plain { padding-left: 12px; }
+        .sim-field input.attn { border-color: #c9971c; background: #fdfaf0; }
+
+        .sim-btn-solid {
+            background: #164068;
+            color: #ffffff;
+            border-color: #164068;
+        }
+        .sim-btn-solid:hover { background: #0A2844; }
+
+        .xbrl-status {
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-bottom: 22px;
+            font-size: 0.84rem;
+            line-height: 1.6;
+        }
+        .xbrl-status.ok { background: #e6f4ec; border: 1px solid #b5dcc4; color: #185f37; }
+        .xbrl-status.warn { background: #fdf5e0; border: 1px solid #ecd28a; color: #6d5405; }
+        .xbrl-status.err { background: #fdeaea; border: 1px solid #efb9b4; color: #93261e; }
+        .xbrl-status strong { font-weight: 700; }
+        .xbrl-status ul { margin: 6px 0 0 18px; padding: 0; }
+
+        /* ============ Report di stampa professionale ============ */
+        #printReport { display: none; }
+
+        @media print {
+            @page { size: A4; margin: 14mm 12mm; }
+            body.has-report > *:not(#printReport) { display: none !important; }
+            body.has-report #printReport { display: block !important; }
+            .navbar, .hero-actions, .sim-banner-actions { display: none !important; }
+        }
+
+        #printReport {
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: #1a1a1a;
+            font-size: 10.5pt;
+            line-height: 1.55;
+        }
+        #printReport .pr-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 20px;
+            border-bottom: 3px solid #164068;
+            padding-bottom: 12px;
+            margin-bottom: 18px;
+        }
+        #printReport .pr-brand { font-size: 9pt; color: #475569; line-height: 1.4; }
+        #printReport .pr-brand strong { color: #0A2844; font-size: 11pt; letter-spacing: -0.3px; }
+        #printReport .pr-title { text-align: right; }
+        #printReport .pr-title h1 { font-size: 16pt; font-weight: 800; color: #0A2844; margin: 0; line-height: 1.2; }
+        #printReport .pr-title .pr-date { font-size: 9pt; color: #64748b; margin-top: 2px; }
+        #printReport .pr-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 28px;
+            background: #f0f4f8;
+            border: 1px solid #c8d8e8;
+            border-radius: 6px;
+            padding: 8px 14px;
+            margin-bottom: 16px;
+            font-size: 9.5pt;
+        }
+        #printReport .pr-meta span { color: #475569; }
+        #printReport .pr-meta strong { color: #0A2844; }
+        #printReport .pr-section { margin: 14px 0; }
+        #printReport .pr-section h2 {
+            font-size: 12pt;
+            font-weight: 700;
+            color: #164068;
+            border-bottom: 1px solid #c8d8e8;
+            padding-bottom: 4px;
+            margin: 0 0 8px;
+            break-after: avoid;
+        }
+        #printReport .pr-verdict {
+            display: inline-block;
+            font-weight: 800;
+            font-size: 10pt;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        #printReport p { margin: 0 0 8px; text-align: justify; }
+        #printReport .pr-kpis {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        #printReport .pr-kpi {
+            flex: 1;
+            border: 1px solid #d5dde6;
+            border-radius: 6px;
+            padding: 8px 10px;
+            break-inside: avoid;
+        }
+        #printReport .pr-kpi .lab { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b; }
+        #printReport .pr-kpi .val { font-size: 13pt; font-weight: 800; color: #0A2844; }
+        #printReport .pr-kpi .sub { font-size: 8pt; color: #64748b; }
+        #printReport table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+            margin: 6px 0 4px;
+        }
+        #printReport th {
+            background: #f0f4f8;
+            color: #164068;
+            font-weight: 700;
+            text-align: left;
+            border: 1px solid #d5dde6;
+            padding: 5px 8px;
+        }
+        #printReport td {
+            border: 1px solid #d5dde6;
+            padding: 4px 8px;
+            vertical-align: top;
+        }
+        #printReport td.num, #printReport th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        #printReport tr { break-inside: avoid; }
+        #printReport .pr-note { font-size: 8.5pt; color: #475569; text-align: justify; margin-top: 4px; }
+        #printReport .pr-foot {
+            margin-top: 18px;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 8px;
+            font-size: 8pt;
+            color: #64748b;
+            text-align: justify;
+        }
+        #printReport .c-verde { color: #1e7d46; font-weight: 700; }
+        #printReport .c-giallo { color: #8a6a06; font-weight: 700; }
+        #printReport .c-arancio { color: #a5561a; font-weight: 700; }
+        #printReport .c-rosso { color: #b3352c; font-weight: 700; }
+        #printReport .c-neutro { color: #475569; font-weight: 700; }
+    </style>
+</head>
+<body class="content-page theme-rating">
+
+    <!-- NAVBAR -->
+    <nav class="navbar" id="navbar">
+        <div class="container nav-container">
+            <div class="nav-brand-group">
+                <a href="../" class="nav-back" aria-label="Torna alla home">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </a>
+                <span class="nav-divider"></span>
+                <a href="../" class="logo">
+                    <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="logo-img">
+                    <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                </a>
+            </div>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#cosa">Cos'è</a></li>
+                <li><a href="#modello">Il modello</a></li>
+                <li><a href="#simulatore">Simulatore</a></li>
+                <li><a href="#lettura">Come leggerlo</a></li>
+                <li><a href="../assets/Brochure-Revilaw.pdf" download class="nav-brochure">Scarica la brochure</a></li>
+                <li><a href="#contatti" class="nav-cta">Contattaci</a></li>
+            </ul>
+            <button class="hamburger" id="hamburger" aria-label="Apri menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero" id="hero">
+        <div class="hero-bg-overlay"></div>
+        <div class="container hero-content">
+            <div class="hero-badge">Rating bancario e merito creditizio</div>
+            <h1>Conosci il tuo rating<br><span class="text-accent">prima che lo calcoli la banca</span></h1>
+            <p class="hero-subtitle">
+                Ogni volta che un'impresa chiede credito, la banca la traduce in un numero: il <strong>rating</strong>.
+                Da quel numero dipendono l'esito della pratica, il prezzo del denaro e le garanzie richieste.
+                Il simulatore di questa pagina replica il <strong>modello di valutazione del Fondo di Garanzia PMI</strong>
+                (il rating MCC) e lo affianca a un <strong>cruscotto di bancabilità</strong> con DSCR, indici della crisi
+                CNDCEC e Z-Score: bastano i dati dell'ultimo bilancio, il calcolo avviene interamente nel tuo browser.
+            </p>
+            <div class="hero-actions">
+                <a href="#simulatore" class="btn btn-primary">Vai al simulatore</a>
+                <a href="#cosa" class="btn btn-outline">Come funziona</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-number">12 classi</span>
+                    <span class="stat-label">La scala del modello di rating del Fondo di Garanzia (MCC)</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-number">5 indici</span>
+                    <span class="stat-label">Le soglie di allerta CNDCEC calibrate sul settore di attività</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-number">0 dati inviati</span>
+                    <span class="stat-label">Il calcolo resta nel browser: nessun numero lascia il tuo computer</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- COS'E' IL RATING -->
+    <section class="section" id="cosa">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Il punto di partenza</span>
+                <h2>Il rating bancario <span class="text-accent">decide prezzo e accesso al credito</span></h2>
+                <p class="section-desc">
+                    Prima di deliberare un fido o un mutuo, ogni banca assegna all'impresa una classe di rischio:
+                    capire come nasce quel giudizio è il primo passo per migliorarlo.
+                </p>
+            </div>
+
+            <div class="detail-block">
+                <p>Il rating è una stima della <strong>probabilità di inadempimento</strong> (PD, probability of default) dell'impresa entro un orizzonte di riferimento, di regola dodici mesi. Gli accordi di <strong>Basilea</strong> impongono alle banche di misurarla per ogni affidato: più alta è la probabilità stimata, più capitale la banca deve accantonare e più caro diventa il credito. Per questo due imprese con lo stesso fatturato possono ricevere condizioni molto diverse: non conta solo quanto vendono, ma quanto sono solide e capaci di generare cassa.</p>
+                <p>I modelli delle banche combinano tre famiglie di informazioni: la componente <strong>economico-finanziaria</strong> (i numeri di bilancio), la componente <strong>andamentale</strong> (come l'impresa usa il credito: utilizzi, sconfini, segnalazioni in Centrale Rischi) e la componente <strong>qualitativa</strong> (settore, governance, piani industriali). La parte andamentale è visibile solo a banche e intermediari; la parte di bilancio, però, è per tutti la base del giudizio ed è quella su cui l'impresa può lavorare con più anticipo.</p>
+                <p>Esiste inoltre un rating "pubblico" che ogni impresa può conoscere e simulare: quello del <strong>Fondo di Garanzia per le PMI</strong>, gestito da Mediocredito Centrale. Il modello è pubblicato nelle Disposizioni Operative del Fondo, con variabili, coefficienti e soglie: assegna una classe da 1 a 12, raggruppata in <strong>cinque fasce</strong>, e stabilisce chi può accedere alla garanzia pubblica, oggi decisiva in gran parte dei finanziamenti alle PMI. La quinta fascia (classi 11 e 12) esclude dalla garanzia.</p>
+                <p>Conoscere in anticipo la propria classe cambia la trattativa: consente di <strong>presentarsi in banca preparati</strong>, di correggere per tempo gli indicatori che penalizzano il giudizio e di scegliere il momento giusto per chiedere nuova finanza. È lo stesso principio degli adeguati assetti richiesti dall'<strong>art. 2086 c.c.</strong>: monitorare i numeri prima che lo facciano i creditori.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- IL MODELLO -->
+    <section class="section section-alt" id="modello">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Dentro il motore</span>
+                <h2>Cosa calcola <span class="text-accent">il simulatore</span></h2>
+                <p class="section-desc">
+                    Quattro strumenti complementari, tutti basati su fonti pubbliche e ufficiali: insieme restituiscono
+                    una fotografia credibile di come banche e garanti leggono il bilancio.
+                </p>
+            </div>
+
+            <div class="benefits-grid">
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                    </div>
+                    <div>
+                        <h3>Il rating MCC del Fondo di Garanzia</h3>
+                        <p>Il simulatore replica il <strong>modulo economico-finanziario</strong> del modello MCC per le società di capitali in contabilità ordinaria, con le variabili, i coefficienti e le soglie ufficiali delle Specifiche Tecniche in vigore. Il risultato è la classe da 1 a 12, la fascia da 1 a 5, la probabilità di inadempimento associata e il giudizio di <strong>ammissibilità alla garanzia</strong> pubblica.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div>
+                        <h3>Il cruscotto di bancabilità</h3>
+                        <p>Sei indicatori che ogni analista fidi guarda per primi: <strong>DSCR</strong>, PFN su EBITDA, PFN su patrimonio netto, oneri finanziari su ricavi, copertura degli interessi e peso del patrimonio sull'attivo. Per ciascuno il cruscotto mostra il valore dell'impresa e il <strong>semaforo</strong> rispetto alle soglie della prassi bancaria, quelle usate nei covenant e nelle istruttorie di affidamento.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div>
+                        <h3>Gli indici della crisi CNDCEC</h3>
+                        <p>I cinque indici settoriali elaborati dal Consiglio Nazionale dei Commercialisti per il Codice della crisi, con le <strong>soglie ufficiali del settore</strong> di appartenenza: sostenibilità degli oneri finanziari, adeguatezza patrimoniale, ritorno liquido dell'attivo, liquidità a breve e indebitamento previdenziale e tributario. Restano il <strong>benchmark di riferimento</strong> per gli adeguati assetti ex art. 2086 c.c.</p>
+                    </div>
+                </div>
+                <div class="benefit-item">
+                    <div class="benefit-icon-wrap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    </div>
+                    <div>
+                        <h3>Lo Z-Score di Altman</h3>
+                        <p>Il più celebre indicatore sintetico di rischio insolvenza, nella variante per <strong>imprese non quotate</strong>: la versione Z' per le manifatturiere e la versione Z'' per commercio, servizi e costruzioni. Un unico numero colloca l'impresa in zona di <strong>sicurezza, incertezza o rischio</strong>, ed è spesso usato da analisti e attestatori come controllo incrociato dei giudizi di rating.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SIMULATORE -->
+    <section class="section" id="simulatore">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Il simulatore</span>
+                <h2>Simula il rating <span class="text-accent">con i dati del bilancio</span></h2>
+                <p class="section-desc">
+                    Importa il file XBRL del bilancio depositato o inserisci le voci a mano: il calcolo avviene
+                    interamente nel tuo browser e nessun dato viene trasmesso o salvato.
+                </p>
+            </div>
+
+            <div class="sim-shell">
+                <div class="sim-banner">
+                    <p><strong>Ambito del simulatore:</strong> società di capitali in contabilità ordinaria. Importi in euro,
+                    come da bilancio ex artt. 2424 e 2425 c.c. I campi indicati come facoltativi valgono zero se lasciati vuoti.
+                    Con <strong>Importa bilancio XBRL</strong> puoi caricare il file .xbrl depositato al Registro delle Imprese:
+                    i campi si compilano automaticamente e il file resta nel tuo browser.</p>
+                    <div class="sim-banner-actions">
+                        <button type="button" class="sim-btn-ghost sim-btn-solid" id="btnXbrl">Importa bilancio XBRL</button>
+                        <button type="button" class="sim-btn-ghost" id="btnEsempio">Carica un esempio</button>
+                        <button type="button" class="sim-btn-ghost" id="btnAzzera">Azzera</button>
+                        <input type="file" id="xbrlFile" accept=".xbrl,.xml" hidden>
+                    </div>
+                </div>
+
+                <div class="xbrl-status" id="xbrlStatus" hidden></div>
+
+                <div class="sim-form-wrap">
+                    <form id="simForm" novalidate>
+                        <fieldset class="sim-fieldset">
+                            <legend>Profilo dell'impresa</legend>
+                            <div class="sim-grid">
+                                <div class="sim-field two">
+                                    <label for="settore">Settore di attività prevalente *</label>
+                                    <select id="settore" required>
+                                        <option value="">Seleziona il settore</option>
+                                        <option value="manif">Industria manifatturiera, estrattiva, energia</option>
+                                        <option value="agri">Agricoltura, silvicoltura e pesca</option>
+                                        <option value="acqua">Acqua, reti fognarie, gestione rifiuti</option>
+                                        <option value="edif">Costruzione di edifici</option>
+                                        <option value="ingcivile">Ingegneria civile e costruzioni specializzate</option>
+                                        <option value="ingrosso">Commercio all'ingrosso e di autoveicoli</option>
+                                        <option value="dettaglio">Commercio al dettaglio</option>
+                                        <option value="ristoro">Bar e ristorazione</option>
+                                        <option value="trasporti">Trasporto, magazzinaggio, alberghi</option>
+                                        <option value="servimp">Servizi alle imprese</option>
+                                        <option value="servpers">Servizi alle persone</option>
+                                        <option value="immob">Attività immobiliari</option>
+                                    </select>
+                                    <span class="hint">Determina il modello MCC, le soglie CNDCEC e la variante di Z-Score applicate.</span>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="denominazione">Denominazione impresa <span class="opt">(per il report)</span></label>
+                                    <input type="text" id="denominazione" class="plain" placeholder="Es. Alfa S.r.l." autocomplete="off">
+                                </div>
+                                <div class="sim-field">
+                                    <label for="esercizio">Esercizio di riferimento <span class="opt">(facoltativo)</span></label>
+                                    <input type="text" id="esercizio" class="plain" inputmode="numeric" placeholder="Es. 2025" autocomplete="off">
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="sim-fieldset">
+                            <legend>Conto economico (ultimo esercizio)</legend>
+                            <div class="sim-grid">
+                                <div class="sim-field">
+                                    <label for="ricavi">Ricavi delle vendite (A.1) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="ricavi" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="ricaviPrec">Ricavi esercizio precedente *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="ricaviPrec" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="vdp">Valore della produzione (A) <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="vdp" inputmode="decimal"></div>
+                                    <span class="hint">Se vuoto si assume pari ai ricavi.</span>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="vdpPrec">Valore produzione es. precedente <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="vdpPrec" inputmode="decimal"></div>
+                                    <span class="hint">Se vuoto si assume pari ai ricavi precedenti.</span>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="mol">Margine operativo lordo (EBITDA) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="mol" inputmode="decimal" required></div>
+                                    <span class="hint">Valore della produzione meno costi operativi, prima di ammortamenti e accantonamenti.</span>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="ebit">Risultato operativo (EBIT, A meno B) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="ebit" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="ammort">Ammortamenti, svalutazioni e accantonamenti *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="ammort" inputmode="decimal" required></div>
+                                    <span class="hint">Voci B.10, B.12 e B.13 del conto economico.</span>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="oneriFin">Interessi e altri oneri finanziari (C.17) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="oneriFin" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="imposte">Imposte sul reddito dell'esercizio *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="imposte" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="utile">Utile o perdita dell'esercizio *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="utile" inputmode="decimal" required></div>
+                                    <span class="hint">Indicare le perdite con il segno meno.</span>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="sim-fieldset">
+                            <legend>Stato patrimoniale: attivo</legend>
+                            <div class="sim-grid">
+                                <div class="sim-field">
+                                    <label for="immob">Totale immobilizzazioni (B) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="immob" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="rimanenze">Rimanenze (C.I) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="rimanenze" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="creditiEntro">Crediti entro l'esercizio successivo *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="creditiEntro" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="creditiOltre">Crediti oltre l'esercizio <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="creditiOltre" inputmode="decimal"></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="attFin">Attività finanziarie non immobilizzate (C.III) <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="attFin" inputmode="decimal"></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="liquidita">Disponibilità liquide (C.IV) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="liquidita" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="rateiAttivi">Ratei e risconti attivi (D) <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="rateiAttivi" inputmode="decimal"></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="creditiSoci">Crediti verso soci (A) <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="creditiSoci" inputmode="decimal"></div>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="sim-fieldset">
+                            <legend>Stato patrimoniale: passivo</legend>
+                            <div class="sim-grid">
+                                <div class="sim-field">
+                                    <label for="pn">Patrimonio netto (A) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="pn" inputmode="decimal" required></div>
+                                    <span class="hint">Indicare con il segno meno se negativo.</span>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="riserveUtili">di cui riserve di utili <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="riserveUtili" inputmode="decimal"></div>
+                                    <span class="hint">Riserva legale, straordinaria e utili portati a nuovo: serve per lo Z-Score.</span>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="fondi">Fondi per rischi e oneri (B) <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="fondi" inputmode="decimal"></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="tfr">Trattamento di fine rapporto (C) <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="tfr" inputmode="decimal"></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="debitiEntro">Debiti entro l'esercizio successivo (D) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="debitiEntro" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="debitiOltre">Debiti oltre l'esercizio successivo (D) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="debitiOltre" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="rateiPassivi">Ratei e risconti passivi (E) <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="rateiPassivi" inputmode="decimal"></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="debTribPrev">di cui debiti tributari e previdenziali (D.12 e D.13) *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="debTribPrev" inputmode="decimal" required></div>
+                                    <span class="hint">Somma di entro e oltre l'esercizio: serve per gli indici CNDCEC.</span>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="sim-fieldset">
+                            <legend>Debito finanziario e servizio del debito</legend>
+                            <div class="sim-grid">
+                                <div class="sim-field">
+                                    <label for="debFinBreve">Debiti verso banche e finanziatori entro 12 mesi *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="debFinBreve" inputmode="decimal" required></div>
+                                    <span class="hint">Quota a breve di mutui e finanziamenti, utilizzi di fidi e anticipi.</span>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="debFinLungo">Debiti verso banche e finanziatori oltre 12 mesi *</label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="debFinLungo" inputmode="decimal" required></div>
+                                </div>
+                                <div class="sim-field">
+                                    <label for="quotaCapitale">Quota capitale in scadenza nei prossimi 12 mesi <span class="opt">(facoltativo)</span></label>
+                                    <div class="sim-input-wrap"><span class="euro">€</span><input type="text" id="quotaCapitale" inputmode="decimal"></div>
+                                    <span class="hint">Rate di mutui, finanziamenti e leasing: serve per il DSCR. Se vuoto il DSCR non viene calcolato.</span>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <div class="sim-totals" id="simTotals">
+                            <span class="tot">Totale attivo: <strong id="totAttivo">0</strong></span>
+                            <span class="tot">Totale passivo: <strong id="totPassivo">0</strong></span>
+                            <span class="sim-quad ok" id="quadBadge">Quadratura OK</span>
+                            <span class="tot">PFN: <strong id="totPfn">0</strong></span>
+                        </div>
+
+                        <div class="sim-submit-row">
+                            <button type="submit" class="btn btn-primary">Calcola il rating</button>
+                            <span class="sim-error" id="simError" hidden>Compila i campi obbligatori evidenziati.</span>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- RISULTATI -->
+                <div class="sim-results" id="simResults" hidden>
+
+                    <div class="res-card res-summary" id="resSummary">
+                        <span class="verdict" id="sumVerdict"></span>
+                        <h3 id="sumTitle"></h3>
+                        <p id="sumText"></p>
+                    </div>
+
+                    <div class="res-card">
+                        <h3>Rating MCC simulato (Fondo di Garanzia PMI)</h3>
+                        <p class="res-sub">Modulo economico-finanziario, società di capitali, settore <span id="mccSettore"></span></p>
+                        <div class="mcc-scale" id="mccScale"></div>
+                        <div class="mcc-scale-labels"><span>Classe 1: rischio minimo</span><span>Classe 12: rischio massimo</span></div>
+                        <div class="mcc-kpis">
+                            <div class="mcc-kpi">
+                                <div class="k-label">Classe integrata</div>
+                                <div class="k-value" id="mccClasse"></div>
+                                <div class="k-note" id="mccClasseNote"></div>
+                            </div>
+                            <div class="mcc-kpi">
+                                <div class="k-label">Fascia di valutazione</div>
+                                <div class="k-value" id="mccFascia"></div>
+                                <div class="k-note">Scala da 1 (migliore) a 5 (peggiore)</div>
+                            </div>
+                            <div class="mcc-kpi">
+                                <div class="k-label">Probabilità di inadempimento</div>
+                                <div class="k-value" id="mccPd"></div>
+                                <div class="k-note">PD empirica associata alla classe</div>
+                            </div>
+                            <div class="mcc-kpi">
+                                <div class="k-label">Garanzia del Fondo</div>
+                                <div class="k-value" id="mccAmmissibile"></div>
+                                <div class="k-note" id="mccAmmissibileNote"></div>
+                            </div>
+                        </div>
+                        <details class="mcc-detail">
+                            <summary>Dettaglio del calcolo: variabili, coefficienti e contributi allo score</summary>
+                            <div class="mcc-table-wrap">
+                                <table class="mcc-table" id="mccTable">
+                                    <thead>
+                                        <tr><th>Indicatore</th><th class="num">Valore</th><th class="num">Valore trattato</th><th class="num">Coefficiente</th><th class="num">Contributo</th></tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </details>
+                        <p class="mcc-note">La simulazione replica il solo modulo economico-finanziario del modello MCC e assume il modulo
+                        andamentale non disponibile, come previsto dalle Disposizioni Operative in assenza di dati di Centrale Rischi e Credit
+                        Bureau. Il rating effettivo assegnato dal Gestore può differire, in particolare in presenza di tensioni andamentali
+                        o eventi pregiudizievoli.</p>
+                    </div>
+
+                    <div class="res-card">
+                        <h3>Cruscotto di bancabilità</h3>
+                        <p class="res-sub">Gli indicatori della prassi bancaria: valori dell'impresa e soglie di riferimento delle istruttorie di fido</p>
+                        <div class="bank-grid" id="bankGrid"></div>
+                    </div>
+
+                    <div class="res-card">
+                        <h3>Indici della crisi d'impresa (CNDCEC)</h3>
+                        <p class="res-sub" id="cndcecSub"></p>
+                        <div class="allerta-status" id="allertaStatus"></div>
+                        <div class="cndcec-table-wrap">
+                            <table class="cndcec-table" id="cndcecTable">
+                                <thead>
+                                    <tr><th>Indice</th><th class="num">Valore impresa</th><th class="num">Soglia settore</th><th>Verso di allerta</th><th>Esito</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        <p class="mcc-note" id="cndcecNote"></p>
+                    </div>
+
+                    <div class="res-card">
+                        <h3 id="zTitle">Z-Score di Altman</h3>
+                        <p class="res-sub" id="zSub"></p>
+                        <div class="z-bar-wrap">
+                            <div class="z-bar"><div class="z-marker" id="zMarker"></div></div>
+                            <div class="z-labels" id="zLabels"></div>
+                        </div>
+                        <div class="z-value-row">
+                            <span class="z-num" id="zValue"></span>
+                            <span class="b-badge" id="zBadge" style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;padding:4px 12px;border-radius:16px;"></span>
+                        </div>
+                        <p class="mcc-note" id="zNote"></p>
+                    </div>
+
+                    <div class="res-card">
+                        <h3>Nota metodologica e avvertenze</h3>
+                        <p class="res-method">
+                            <strong>Fonti dei modelli.</strong> Rating MCC: Specifiche tecniche per il calcolo della probabilità di inadempimento
+                            del Fondo di Garanzia PMI (versione in vigore dal 15 febbraio 2020) e Parte IX delle Disposizioni Operative; la
+                            simulazione applica il modulo economico-finanziario per le società di capitali con il raccordo settoriale ATECO
+                            previsto dal modello. Indici della crisi: documento CNDCEC del 20 ottobre 2019 con le soglie settoriali ufficiali;
+                            dopo il D.Lgs. 83/2022 gli indici non hanno più valore di legge ma restano il benchmark professionale per gli
+                            adeguati assetti ex art. 2086 c.c. Z-Score: varianti Z' e Z'' di Altman per imprese non quotate. Soglie del cruscotto
+                            di bancabilità: prassi di mercato documentata (covenant tipici, istruttorie di fido, linee guida EBA sull'erogazione
+                            e monitoraggio del credito, che impongono l'analisi dei flussi di cassa senza fissare soglie numeriche).
+                            <br><br>
+                            <strong>Limiti della simulazione.</strong> Il risultato è una stima orientativa costruita sui soli dati di bilancio
+                            forniti: non considera il modulo andamentale (Centrale Rischi e Credit Bureau), gli eventi pregiudizievoli, i dati
+                            qualitativi né le politiche interne dei singoli istituti, e alcuni aggregati sono ricostruiti dalle voci inserite.
+                            Non costituisce il rating ufficiale del Fondo di Garanzia né il rating di una banca, e non sostituisce una diagnosi
+                            professionale del merito creditizio. <strong>Privacy:</strong> tutti i calcoli avvengono nel browser; nessun dato
+                            inserito viene trasmesso, salvato o comunicato a terzi.
+                        </p>
+                        <div style="margin-top:18px; display:flex; gap:12px; flex-wrap:wrap;">
+                            <button type="button" class="sim-btn-ghost" onclick="window.print()">Stampa il report</button>
+                            <a href="#contatti" class="sim-btn-ghost" style="text-decoration:none; display:inline-block;">Richiedi una diagnosi professionale</a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- COME LEGGERE I RISULTATI -->
+    <section class="section section-alt" id="lettura">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Come leggerlo</span>
+                <h2>Dal numero <span class="text-accent">alle decisioni</span></h2>
+                <p class="section-desc">
+                    Il valore del simulatore non è il punteggio in sé, ma ciò che permette di decidere: quando chiedere
+                    credito, cosa sistemare prima, con quali argomenti presentarsi in banca.
+                </p>
+            </div>
+
+            <div class="components-grid">
+                <article class="component-card">
+                    <span class="component-number">Fasce 1 e 2</span>
+                    <h3>Profilo solido</h3>
+                    <p>L'impresa accede al credito e alla garanzia pubblica senza attriti: è il momento di <strong>negoziare le condizioni</strong>, non di accettarle.</p>
+                    <ul class="pillar-list">
+                        <li>Confrontare gli spread applicati con il merito creditizio reale</li>
+                        <li>Allungare le scadenze del debito finché il rating lo consente</li>
+                        <li>Consolidare il monitoraggio periodico degli indicatori</li>
+                    </ul>
+                </article>
+                <article class="component-card">
+                    <span class="component-number">Fascia 3</span>
+                    <h3>Equilibrio da presidiare</h3>
+                    <p>Il credito arriva, ma a condizioni migliorabili: piccoli interventi sugli indici possono <strong>cambiare classe</strong> e prezzo del denaro.</p>
+                    <ul class="pillar-list">
+                        <li>Ridurre il circolante che assorbe cassa e gonfia i debiti a breve</li>
+                        <li>Riequilibrare fonti a breve e a medio-lungo termine</li>
+                        <li>Programmare le richieste di fido dopo un bilancio in miglioramento</li>
+                    </ul>
+                </article>
+                <article class="component-card">
+                    <span class="component-number">Fascia 4</span>
+                    <h3>Zona di attenzione</h3>
+                    <p>L'accesso al credito è ancora possibile ma fragile: serve un <strong>piano di rafforzamento</strong> prima che il giudizio peggiori.</p>
+                    <ul class="pillar-list">
+                        <li>Intervenire su patrimonializzazione e capacità di generare MOL</li>
+                        <li>Verificare DSCR prospettico e sostenibilità delle rate future</li>
+                        <li>Attivare il confronto con banche e garanti prima delle scadenze</li>
+                    </ul>
+                </article>
+                <article class="component-card">
+                    <span class="component-number">Fascia 5</span>
+                    <h3>Area critica</h3>
+                    <p>La garanzia pubblica è preclusa e gli indicatori segnalano squilibri: è il terreno degli <strong>adeguati assetti</strong> e della diagnosi precoce.</p>
+                    <ul class="pillar-list">
+                        <li>Verificare i segnali di crisi ex art. 3 del Codice della crisi</li>
+                        <li>Costruire un piano di risanamento con flussi di cassa credibili</li>
+                        <li>Valutare gli strumenti di composizione con professionisti esperti</li>
+                    </ul>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" id="faq">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Domande frequenti</span>
+                <h2>Le domande <span class="text-accent">più comuni</span></h2>
+                <p class="section-desc">
+                    Le risposte alle domande che imprenditori e responsabili amministrativi ci pongono più spesso sul
+                    rating bancario e sul simulatore.
+                </p>
+            </div>
+
+            <div class="faq-list">
+                <div class="faq-item">
+                    <button class="faq-question" type="button">
+                        <span>Il risultato del simulatore coincide con il rating che assegnerà la banca?</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            No, e nessun simulatore può farlo: ogni banca usa modelli proprietari che combinano i dati di bilancio con la componente <strong>andamentale</strong> (Centrale Rischi, utilizzi dei fidi, sconfini) e con valutazioni qualitative. Il simulatore replica però il modello pubblico del <strong>Fondo di Garanzia PMI</strong>, che le banche stesse consultano, e gli indicatori standard delle istruttorie di fido: il risultato è quindi una stima realistica dell'ordine di grandezza del giudizio e, soprattutto, delle leve su cui intervenire per migliorarlo.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">
+                        <span>Perché il rating MCC è così importante per una PMI?</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Perché gran parte dei finanziamenti alle PMI italiane è assistita dalla <strong>garanzia pubblica del Fondo</strong>, gestito da Mediocredito Centrale: la garanzia riduce il rischio della banca e spesso è la condizione che rende possibile l'erogazione. L'accesso dipende dalla classe di merito assegnata dal modello del Fondo: le imprese fino alla <strong>fascia 4</strong> (classe 10) sono ammissibili, mentre la fascia 5 è esclusa. Conoscere la propria classe prima di presentare la domanda evita dinieghi e consente di scegliere tempi e importi con maggiore consapevolezza.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">
+                        <span>I dati di bilancio che inserisco vengono salvati o trasmessi?</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            No. Il simulatore è costruito perché tutti i calcoli avvengano <strong>esclusivamente nel tuo browser</strong>: i numeri inseriti non vengono inviati ad alcun server, non sono salvati e non sono visibili a Revilaw né a terzi. Lo stesso vale per il <strong>file XBRL</strong> importato: viene letto localmente dal browser e non viene mai caricato altrove. Chiudendo o ricaricando la pagina, i dati inseriti vengono persi. È una scelta deliberata: i dati economico-finanziari di un'impresa sono informazioni riservate e devono restare tali.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">
+                        <span>Cosa posso fare concretamente per migliorare la classe di rating?</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Le leve ricorrenti sono quattro: <strong>patrimonializzazione</strong> (aumenti di capitale, rinuncia a finanziamenti soci, utili trattenuti), <strong>marginalità</strong> (recupero di MOL su costi e prezzi), <strong>struttura del debito</strong> (spostare l'indebitamento dal breve al medio-lungo termine, ridurre gli utilizzi di fido a fine esercizio) e <strong>gestione del circolante</strong> (incassi, magazzino, dilazioni). Il dettaglio del calcolo mostrato dal simulatore indica quali variabili pesano di più nel tuo caso: è il punto di partenza di un percorso di rating advisory strutturato.
+                        </div>
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-question" type="button">
+                        <span>Il simulatore vale anche per società di persone e ditte individuali?</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            La replica del modello MCC pubblicata in questa pagina riguarda le <strong>società di capitali in contabilità ordinaria</strong>, che hanno variabili e coefficienti dedicati. Per società di persone e ditte individuali il Fondo applica modelli diversi, con altri indicatori e altre soglie; anche gli indici CNDCEC presuppongono lo schema di bilancio ordinario. Se operi con una forma giuridica diversa, contattaci: la diagnosi va costruita sul caso concreto con gli strumenti appropriati.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA + CONTATTI -->
+    <section class="section section-cta" id="contatti">
+        <div class="container">
+            <div class="cta-wrapper">
+                <div class="cta-text">
+                    <span class="section-tag">Il passo successivo</span>
+                    <h2>Dal rating simulato <span class="text-accent">al rating migliorato</span></h2>
+                    <p>
+                        Il simulatore fotografa la situazione; migliorarla è un lavoro di <strong>rating advisory</strong>:
+                        analisi del merito creditizio con i dati andamentali reali, piano di intervento sugli indicatori,
+                        preparazione della documentazione per banche e Fondo di Garanzia. Se il risultato della simulazione
+                        ti ha incuriosito o preoccupato, parliamone: un <strong>check-up riservato e senza impegno</strong>
+                        con i professionisti Revilaw è il modo più rapido per capire quanto margine di miglioramento esiste.
+                    </p>
+                    <div class="contact-info">
+                        <div class="contact-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                            <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a>
+                        </div>
+                        <div class="contact-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                            <span>(+39) 045 8010734</span>
+                        </div>
+                        <div class="contact-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            <span>Via XX Settembre, 9 - 37129 Verona (VR)</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="cta-form">
+                    <form id="contactForm" data-pagina="Rating Bancario - Contatto">
+                        <h3>Richiedi un check-up del merito creditizio</h3>
+                        <div class="form-group">
+                            <label for="nome">Nome *</label>
+                            <input type="text" id="nome" name="nome" required placeholder="Nome" autocomplete="given-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="cognome">Cognome *</label>
+                            <input type="text" id="cognome" name="cognome" required placeholder="Cognome" autocomplete="family-name">
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email professionale *</label>
+                            <input type="email" id="email" name="email" required placeholder="nome@azienda.it" autocomplete="email">
+                        </div>
+                        <div class="form-group">
+                            <label for="azienda">Azienda / Studio *</label>
+                            <input type="text" id="azienda" name="azienda" required placeholder="Denominazione" autocomplete="organization">
+                        </div>
+                        <div class="form-group">
+                            <label for="ruolo">Ruolo *</label>
+                            <input type="text" id="ruolo" name="ruolo" required placeholder="Qualifica professionale" autocomplete="organization-title">
+                        </div>
+                        <div class="form-group">
+                            <label for="telefono">Telefono <span class="form-optional">(facoltativo)</span></label>
+                            <input type="tel" id="telefono" name="telefono" placeholder="+39 000 000 0000" autocomplete="tel">
+                        </div>
+                        <div class="form-group form-check">
+                            <input type="checkbox" id="privacy" name="privacy" required>
+                            <label for="privacy">Acconsento al trattamento dei dati personali ai sensi del Regolamento UE 2016/679 (GDPR). *</label>
+                        </div>
+                        <div class="form-group form-check">
+                            <input type="checkbox" id="marketing" name="marketing">
+                            <label for="marketing">Desidero ricevere comunicazioni su futuri eventi e iniziative.</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Invia Richiesta</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw" class="logo-img" style="height:30px;">
+                        <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                    </div>
+                    <p>Società di Revisione Legale</p>
+                </div>
+                <div class="footer-links">
+                    <a href="../">Home</a>
+                    <a href="../#eventi">Prossimi eventi</a>
+                    <a href="../interviste_verona_2026/">Interviste di Verona</a>
+                    <a href="../#contenuti">Approfondimenti e risorse</a>
+                    <a href="#contatti">Contatti</a>
+                    <a href="https://www.revilaw.it" target="_blank" rel="noopener">revilaw.it</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p class="footer-legal" style="max-width:880px;margin-bottom:12px;">
+                    Contenuti a scopo informativo sul rating bancario e sul merito creditizio, basati su fonti pubbliche
+                    (Disposizioni Operative e Specifiche tecniche del Fondo di Garanzia PMI, documento CNDCEC 20 ottobre 2019,
+                    letteratura sullo Z-Score, linee guida EBA su erogazione e monitoraggio del credito). Il simulatore fornisce
+                    stime orientative e non costituisce rating ufficiale né parere professionale: ogni valutazione richiede
+                    l'analisi del caso concreto con i consulenti dell'impresa.
+                </p>
+                <p>&copy; 2026 Next Generation Business &middot; A cura di Revilaw S.p.A. &middot; <a href="mailto:info@nextgenerationbusiness.it">info@nextgenerationbusiness.it</a></p>
+                <p class="footer-privacy"><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Privacy Policy</a> &middot; <a href="https://www.iubenda.com/privacy-policy/40996386/cookie-policy" target="_blank" rel="noopener">Cookie Policy</a> &middot; <a href="#" class="iubenda-cs-preferences-link">Preferenze cookie</a></p>
+                <p class="footer-legal">P.IVA: 04641610235 | REA: VR 437220 | Sede: Via XX Settembre, 9 - 37129 Verona (VR)</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Report di stampa: popolato dal simulatore, visibile solo in stampa -->
+    <div id="printReport" aria-hidden="true"></div>
+
+    <script src="../zls_zes/script.js"></script>
+    <script src="../assets/event-banner.js" defer></script>
+    <script src="/assets/fcd-popup.js" defer></script>
+
+    <script>
+    (function () {
+        'use strict';
+
+        /* =====================================================================
+           MOTORE DI CALCOLO
+           Fonti: Specifiche tecniche per il calcolo della probabilità di
+           inadempimento del Fondo di Garanzia PMI (in vigore dal 15/02/2020),
+           Parte IX delle Disposizioni Operative; documento CNDCEC 20/10/2019;
+           Altman Z' / Z''; prassi bancaria (covenant tipici, linee guida EBA).
+           ===================================================================== */
+
+        // ------- Mappa settori: modello MCC, riga CNDCEC, variante Z-Score -------
+        var SETTORI = {
+            manif:     { mcc: 'industria',   cndcec: 1,    z: 'Z1', label: 'Industria manifatturiera, estrattiva, energia' },
+            agri:      { mcc: 'industria',   cndcec: 0,    z: 'Z2', label: 'Agricoltura, silvicoltura e pesca' },
+            acqua:     { mcc: 'industria',   cndcec: 2,    z: 'Z2', label: 'Acqua, reti fognarie, gestione rifiuti' },
+            edif:      { mcc: 'edilizia',    cndcec: 3,    z: 'Z2', label: 'Costruzione di edifici' },
+            ingcivile: { mcc: 'edilizia',    cndcec: 4,    z: 'Z2', label: 'Ingegneria civile e costruzioni specializzate' },
+            ingrosso:  { mcc: 'commercio',   cndcec: 5,    z: 'Z2', label: 'Commercio all\'ingrosso e di autoveicoli' },
+            dettaglio: { mcc: 'commercio',   cndcec: 6,    z: 'Z2', label: 'Commercio al dettaglio' },
+            ristoro:   { mcc: 'servizi',     cndcec: 6,    z: 'Z2', label: 'Bar e ristorazione' },
+            trasporti: { mcc: 'servizi',     cndcec: 7,    z: 'Z2', label: 'Trasporto, magazzinaggio, alberghi' },
+            servimp:   { mcc: 'servizi',     cndcec: 8,    z: 'Z2', label: 'Servizi alle imprese' },
+            servpers:  { mcc: 'servizi',     cndcec: 9,    z: 'Z2', label: 'Servizi alle persone' },
+            immob:     { mcc: 'immobiliare', cndcec: null, z: 'Z2', label: 'Attività immobiliari' }
+        };
+
+        // ------- Modello MCC: trattamenti (cap/floor/.a) e coefficienti per settore (SdC) -------
+        var MCC = {
+            industria: {
+                label: 'Industria',
+                treat: {
+                    V1: { cap: 1.4,  floor: 0.4,   na: 1 },
+                    V2: { cap: 1,    floor: -1,    na: 0.1 },
+                    V3: { cap: 0.06, floor: 0.01,  na: 0.06 },
+                    V4: { cap: 0.3,  floor: 0.01,  na: 0.2 },
+                    V5: { cap: 11,   floor: 1.4,   na: 11 },
+                    V7: { cap: 0.64, floor: 0,     na: 0.1 },
+                    V6: { pre: -0.1, cap: 0.6, floor: -0.4, na: 0.2 }
+                },
+                terms: [['V1', 1.709764], ['V2', 1.006155], ['D1', -1.380648], ['D2', 0.502537],
+                        ['V3', 21.7339], ['V4', -3.257383], ['V5', -0.035931], ['V7', -1.842869],
+                        ['V6', 0.874921], ['D3', -1.318575], ['D4', 0.925375], ['D5', -0.672704],
+                        ['D6', -11.51058], ['D7', 1.934049]],
+                c: -4.584023
+            },
+            edilizia: {
+                label: 'Edilizia',
+                treat: {
+                    V2:  { cap: 1,    floor: -1, na: 1 },
+                    V3:  { cap: 0.03, floor: 0,  na: 0.01 },
+                    V7:  { cap: 2,    floor: 0,  na: 0.03 },
+                    V9:  { cap: 1,    floor: 0,  na: 1 },
+                    V10: { cap: 1,    floor: 0,  na: 0.8 },
+                    V11: { cap: 0.07, floor: 0,  na: 0.05 },
+                    V12: { cap: 8,    floor: 0,  na: 3 },
+                    V13: { pre: -0.1, cap: 1.6, floor: -0.6, na: 0.2 }
+                },
+                terms: [['V2', 0.37765], ['D1', -0.779867], ['V3', 34.64145], ['V7', -1.882866],
+                        ['V9', 1.314629], ['V10', 0.448655], ['V11', -5.638927], ['V12', -0.05176],
+                        ['V13', 0.329288], ['D8', -0.998434], ['D4', 0.48568], ['D9', -0.655727]],
+                c: -4.258458
+            },
+            commercio: {
+                label: 'Commercio',
+                treat: {
+                    V14: { cap: 0.3,  floor: 0,    na: 0.2 },
+                    V7:  { cap: 1.6,  floor: 0,    na: 0.04 },
+                    V2:  { cap: 1,    floor: -1,   na: 1 },
+                    V3:  { cap: 0.08, floor: 0,    na: 0.06 },
+                    V4:  { cap: 0.1,  floor: 0.01, na: 0.02 },
+                    V15: { cap: 2,    floor: 0,    na: 2 },
+                    V16: { cap: 1.7,  floor: 0.5,  na: 0.9 },
+                    V6:  { pre: -0.06, cap: 0.54, floor: -0.36, na: 0.24 }
+                },
+                terms: [['V14', -1.68061], ['V7', -2.86327], ['V2', 0.73753], ['D1', -1.3164],
+                        ['V3', 16.97147], ['V4', -3.97341], ['V15', -0.33307], ['V16', -0.85672],
+                        ['V6', 1.446892], ['D3', -2.98436], ['D10', 1.368938], ['D11', 0.207691],
+                        ['D6', -8.28285]],
+                c: -1.88977
+            },
+            immobiliare: {
+                label: 'Immobiliare',
+                treat: {
+                    V7:  { cap: 1,    floor: 0,    na: 0.1 },
+                    V3:  { cap: 0.06, floor: 0,    na: 0.01 },
+                    V2:  { cap: 1,    floor: -0.8, na: 0.8 },
+                    V21: { cap: 10,   floor: 0.3,  na: 1.5 }
+                },
+                terms: [['V7', -2.721187], ['V3', 14.0119], ['V2', 0.8130648], ['D1', -1.401464],
+                        ['V21', -0.1391083], ['D4', -0.5688427], ['D10', 1.765224]],
+                c: -2.569235
+            },
+            servizi: {
+                label: 'Servizi',
+                treat: {
+                    V1:  { cap: 2.5,  floor: 0.2,  na: 2 },
+                    V2:  { cap: 1,    floor: -1,   na: 0.4 },
+                    V18: { cap: 0.04, floor: 0,    na: 0.04 },
+                    V19: { cap: 20,   floor: -2,   na: 10 },
+                    V4:  { cap: 0.16, floor: 0.01, na: 0.02 },
+                    V6:  { pre: -0.06, cap: 0.84, floor: -0.36, na: 0.14 },
+                    V10: { cap: 1,    floor: 0,    na: 0.8 }
+                },
+                terms: [['V1', 0.427293], ['V2A', 0.400514], ['V18', 29.88155], ['V19', 0.031407],
+                        ['D12', 0.542214], ['V4', -7.428313], ['V6', 0.668981], ['D3', -1.558519],
+                        ['V10', 0.82794], ['D5', -0.245774], ['D7', 5.362561]],
+                c: -4.689249
+            }
+        };
+
+        // Soglie di classe sullo score xb (Tabella 30 delle Specifiche tecniche)
+        var F_SOGLIE = [-4.706674576, -4.433824062, -4.254777908, -3.888909817, -3.467784882,
+                        -3.213093996, -2.884413958, -2.619804621, -2.19819808, -1.532480597];
+
+        // Scala finale: classe integrata, fascia, PD empirica (Tabella 57)
+        var CLASSI = {
+            1:  { fascia: 1, pd: 0.12 },  2:  { fascia: 2, pd: 0.33 },  3:  { fascia: 2, pd: 0.67 },
+            4:  { fascia: 2, pd: 1.02 },  5:  { fascia: 3, pd: 1.61 },  6:  { fascia: 3, pd: 2.87 },
+            7:  { fascia: 3, pd: 3.62 },  8:  { fascia: 4, pd: 5.18 },  9:  { fascia: 4, pd: 8.45 },
+            10: { fascia: 4, pd: 9.43 },  11: { fascia: 5, pd: 16.30 }, 12: { fascia: 5, pd: 22.98 }
+        };
+
+        var V_LABELS = {
+            V1:  'Debiti a breve / Fatturato',
+            V2:  'Oneri finanziari / MOL',
+            V2A: 'Oneri finanziari / MOL (corretto)',
+            V3:  'Oneri finanziari / Totale debiti',
+            V4:  'Liquidità / Fatturato',
+            V5:  'Fatturato / Rimanenze',
+            V6:  'Variazione % del fatturato',
+            V7:  'Autonomia finanziaria',
+            V9:  'Totale debiti / Valore della produzione',
+            V10: 'Incidenza del passivo corrente',
+            V11: 'Risultato netto / Valore della produzione',
+            V12: 'Copertura immobilizzazioni con PN',
+            V13: 'Variazione % del valore della produzione',
+            V14: 'MOL / (Oneri finanziari + Totale debiti)',
+            V15: 'Liquidità primaria (quick ratio)',
+            V16: 'Turnover (Fatturato / Totale attivo)',
+            V18: 'Oneri finanziari / Valore della produzione',
+            V19: 'Totale debiti / Patrimonio netto',
+            V21: 'Valore produzione / Attivo circolante',
+            D1:  'Correttivo per MOL negativo',
+            D2:  'Indicatore di MOL negativo',
+            D3:  'Correttivo per fatturato in calo',
+            D4:  'Fatturato fino a 500.000 euro',
+            D5:  'Interazione dimensione: debiti a breve',
+            D6:  'Interazione dimensione: costo del debito',
+            D7:  'Interazione dimensione: liquidità',
+            D8:  'Correttivo per produzione in calo',
+            D9:  'Interazione dimensione: indebitamento',
+            D10: 'Interazione dimensione: autonomia',
+            D11: 'Interazione dimensione: turnover',
+            D12: 'Patrimonio netto negativo'
+        };
+
+        // ------- Indici CNDCEC: soglie ufficiali per settore (documento 20/10/2019) -------
+        var CNDCEC = [
+            { label: 'Agricoltura, silvicoltura e pesca',                    of: 2.8, pn: 9.4, liq: 92.1,  cf: 0.3, trib: 5.6 },
+            { label: 'Estrattiva, manifattura, produzione di energia',      of: 3.0, pn: 7.6, liq: 93.7,  cf: 0.5, trib: 4.9 },
+            { label: 'Acqua, reti fognarie, rifiuti',                        of: 2.6, pn: 6.7, liq: 84.2,  cf: 1.9, trib: 6.5 },
+            { label: 'Costruzione di edifici',                               of: 3.8, pn: 4.9, liq: 108.0, cf: 0.4, trib: 3.8 },
+            { label: 'Ingegneria civile e costruzioni specializzate',        of: 2.8, pn: 5.3, liq: 101.1, cf: 1.4, trib: 5.3 },
+            { label: 'Commercio all\'ingrosso e di autoveicoli',             of: 2.1, pn: 6.3, liq: 101.4, cf: 0.6, trib: 2.9 },
+            { label: 'Commercio al dettaglio, bar e ristoranti',             of: 1.5, pn: 4.2, liq: 89.8,  cf: 1.0, trib: 7.8 },
+            { label: 'Trasporto, magazzinaggio, alberghi',                   of: 1.5, pn: 4.1, liq: 86.0,  cf: 1.4, trib: 10.2 },
+            { label: 'Servizi alle imprese',                                 of: 1.8, pn: 5.2, liq: 95.4,  cf: 1.7, trib: 11.9 },
+            { label: 'Servizi alle persone',                                 of: 2.7, pn: 2.3, liq: 69.8,  cf: 0.5, trib: 14.6 }
+        ];
+
+        // ------- Utility numeriche -------
+        var fmtInt = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0 });
+        var fmtDec2 = new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        var fmtDec4 = new Intl.NumberFormat('it-IT', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+
+        function parseNum(str) {
+            if (str === null || str === undefined) return null;
+            var s = String(str).trim();
+            if (s === '') return null;
+            s = s.replace(/\s/g, '').replace(/€/g, '');
+            // formato italiano: punto migliaia, virgola decimali
+            s = s.replace(/\./g, '').replace(/,/g, '.');
+            var n = parseFloat(s);
+            return isNaN(n) ? null : n;
+        }
+
+        function fmtEuro(n) { return fmtInt.format(Math.round(n)) + ' €'; }
+        function fmtPct(n, dec) {
+            var f = new Intl.NumberFormat('it-IT', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+            return f.format(n) + '%';
+        }
+
+        // ------- Motore MCC -------
+        function computeMcc(secKey, x) {
+            var m = MCC[secKey];
+            var raw = {}, isNa = {};
+
+            function set(k, num, den) {
+                if (den === 0) { raw[k] = null; isNa[k] = true; }
+                else { raw[k] = num / den; isNa[k] = false; }
+            }
+
+            set('V1', x.SP19, x.CE01);
+            set('V2', x.CE19, x.MOL);
+            set('V3', x.CE19, x.SP21);
+            set('V4', x.SP11, x.CE01);
+            set('V5', x.CE01, x.SP06);
+            set('V6', x.CE01 - x.CE01p, x.CE01p);
+            set('V7', x.SP15 - x.SP01, x.SP23 - x.SP01);
+            set('V9', x.SP21, x.CE06);
+            set('V10', x.SP19 + x.SP22, x.SP23 - x.SP01);
+            set('V11', x.CE25, x.CE06);
+            set('V12', x.SP15 - x.SP01, x.SP05 + x.SP08);
+            set('V13', x.CE06 - x.CE06p, x.CE06p);
+            set('V14', x.MOL, x.CE19 + x.SP21);
+            set('V15', x.SP11 + x.SP07 + x.SP10, x.SP19 + x.SP22);
+            set('V16', x.CE01, x.SP14 - x.SP01);
+            set('V18', x.CE19, x.CE06);
+            set('V19', x.SP21, x.SP15 - x.SP01);
+            set('V21', x.CE06, x.SP12);
+
+            // pre-trattamento, cap e floor; se denominatore nullo si usa il valore ".a"
+            var star = {};
+            for (var k in m.treat) {
+                var t = m.treat[k];
+                if (isNa[k] || raw[k] === null || !isFinite(raw[k])) {
+                    star[k] = t.na;
+                } else {
+                    var v = raw[k] + (t.pre || 0);
+                    star[k] = Math.min(t.cap, Math.max(t.floor, v));
+                }
+            }
+
+            var molNeg = x.MOL < 0;
+            var d4 = x.CE01 <= 500000 ? 1 : 0;
+            var pool = {};
+            for (var s in star) pool[s] = star[s];
+            pool.D1 = molNeg ? (star.V2 !== undefined ? star.V2 : 0) : 0;
+            pool.D2 = molNeg ? 1 : 0;
+            pool.D3 = (star.V6 !== undefined && star.V6 < 0) ? star.V6 : 0;
+            pool.D4 = d4;
+            pool.D5 = (star.V1 !== undefined ? star.V1 : 0) * d4;
+            pool.D6 = (star.V3 !== undefined ? star.V3 : 0) * d4;
+            pool.D7 = (star.V4 !== undefined ? star.V4 : 0) * d4;
+            pool.D8 = (star.V13 !== undefined && star.V13 < 0) ? star.V13 : 0;
+            pool.D9 = (star.V9 !== undefined ? star.V9 : 0) * d4;
+            pool.D10 = (star.V7 !== undefined ? star.V7 : 0) * d4;
+            pool.D11 = (star.V16 !== undefined ? star.V16 : 0) * d4;
+            pool.D12 = (x.SP15 - x.SP01) < 0 ? 1 : 0;
+            pool.V2A = (molNeg && (star.V2 !== undefined ? star.V2 : 0) < 0) ? 1 : (star.V2 !== undefined ? star.V2 : 0);
+
+            var xb = m.c;
+            var rows = [];
+            for (var i = 0; i < m.terms.length; i++) {
+                var name = m.terms[i][0], coef = m.terms[i][1];
+                var val = pool[name] !== undefined ? pool[name] : 0;
+                var contrib = val * coef;
+                xb += contrib;
+                rows.push({
+                    name: name,
+                    label: V_LABELS[name] || name,
+                    raw: (name in raw) ? raw[name] : null,
+                    treated: val,
+                    na: !!isNa[name],
+                    coef: coef,
+                    contrib: contrib
+                });
+            }
+
+            var fClass = 11;
+            for (var j = 0; j < F_SOGLIE.length; j++) {
+                if (xb <= F_SOGLIE[j]) { fClass = j + 1; break; }
+            }
+            // Andamentale non disponibile: colonna UN della matrice di integrazione
+            // (per le società di capitali la classe integrata coincide con la classe F, salvo F11 che diventa 12)
+            var integrata = fClass === 11 ? 12 : fClass;
+
+            return {
+                xb: xb,
+                fClass: fClass,
+                integrata: integrata,
+                fascia: CLASSI[integrata].fascia,
+                pd: CLASSI[integrata].pd,
+                ammissibile: integrata <= 10,
+                rows: rows,
+                costante: m.c,
+                settoreLabel: m.label
+            };
+        }
+
+        // ------- Lettura input -------
+        var FIELD_IDS = ['ricavi', 'ricaviPrec', 'vdp', 'vdpPrec', 'mol', 'ebit', 'ammort', 'oneriFin',
+                         'imposte', 'utile', 'immob', 'rimanenze', 'creditiEntro', 'creditiOltre', 'attFin',
+                         'liquidita', 'rateiAttivi', 'creditiSoci', 'pn', 'riserveUtili', 'fondi', 'tfr',
+                         'debitiEntro', 'debitiOltre', 'rateiPassivi', 'debTribPrev', 'debFinBreve',
+                         'debFinLungo', 'quotaCapitale'];
+        var REQUIRED = ['ricavi', 'ricaviPrec', 'mol', 'ebit', 'ammort', 'oneriFin', 'imposte', 'utile',
+                        'immob', 'rimanenze', 'creditiEntro', 'liquidita', 'pn', 'debitiEntro',
+                        'debitiOltre', 'debTribPrev', 'debFinBreve', 'debFinLungo'];
+
+        function el(id) { return document.getElementById(id); }
+
+        function readInputs() {
+            var vals = {};
+            for (var i = 0; i < FIELD_IDS.length; i++) {
+                vals[FIELD_IDS[i]] = parseNum(el(FIELD_IDS[i]).value);
+            }
+            return vals;
+        }
+
+        function buildX(v) {
+            var x = {};
+            x.SP01 = v.creditiSoci || 0;
+            x.SP05 = v.immob || 0;
+            x.SP06 = v.rimanenze || 0;
+            x.SP07 = v.creditiEntro || 0;
+            x.SP08 = v.creditiOltre || 0;
+            x.SP09 = x.SP07 + x.SP08;
+            x.SP10 = v.attFin || 0;
+            x.SP11 = v.liquidita || 0;
+            x.SP12 = x.SP06 + x.SP09 + x.SP10 + x.SP11;
+            x.SP13 = v.rateiAttivi || 0;
+            x.SP14 = x.SP01 + x.SP05 + x.SP12 + x.SP13;
+            x.SP15 = v.pn || 0;
+            x.SP17 = v.fondi || 0;
+            x.SP18 = v.tfr || 0;
+            x.SP19 = v.debitiEntro || 0;
+            x.SP20 = v.debitiOltre || 0;
+            x.SP21 = x.SP19 + x.SP20;
+            x.SP22 = v.rateiPassivi || 0;
+            x.SP23 = x.SP15 + x.SP17 + x.SP18 + x.SP21 + x.SP22;
+            x.CE01 = v.ricavi || 0;
+            x.CE01p = v.ricaviPrec || 0;
+            x.CE06 = (v.vdp !== null && v.vdp !== undefined) ? v.vdp : x.CE01;
+            x.CE06p = (v.vdpPrec !== null && v.vdpPrec !== undefined) ? v.vdpPrec : x.CE01p;
+            x.CE19 = v.oneriFin || 0;
+            x.CE25 = v.utile || 0;
+            x.MOL = v.mol || 0;
+            x.EBIT = v.ebit || 0;
+            x.IMPOSTE = v.imposte || 0;
+            x.AMMORT = v.ammort || 0;
+            x.RISERVE = v.riserveUtili || 0;
+            x.DEBTRIB = v.debTribPrev || 0;
+            x.DEBFINB = v.debFinBreve || 0;
+            x.DEBFINL = v.debFinLungo || 0;
+            x.QUOTACAP = v.quotaCapitale; // null se non indicata
+            x.PFN = x.DEBFINB + x.DEBFINL - x.SP11 - x.SP10;
+            x.ATT_BREVE = x.SP06 + x.SP07 + x.SP10 + x.SP11 + x.SP13;
+            x.PASS_BREVE = x.SP19 + x.SP22;
+            return x;
+        }
+
+        // ------- Cruscotto bancabilità -------
+        function computeBank(x) {
+            var cards = [];
+
+            // DSCR semplificato a 12 mesi
+            var dscr = null;
+            if (x.QUOTACAP !== null && x.QUOTACAP !== undefined && (x.QUOTACAP + x.CE19) > 0) {
+                dscr = (x.MOL - x.IMPOSTE) / (x.QUOTACAP + x.CE19);
+            }
+            cards.push({
+                name: 'DSCR (12 mesi, semplificato)',
+                value: dscr === null ? 'n.d.' : fmtDec2.format(dscr),
+                level: dscr === null ? 'neutro' : (dscr < 1 ? 'rosso' : (dscr < 1.2 ? 'giallo' : 'verde')),
+                badge: dscr === null ? 'Non calcolato' : (dscr < 1 ? 'Insufficiente' : (dscr < 1.2 ? 'Al limite' : 'Adeguato')),
+                ref: dscr === null
+                    ? 'Indica la quota capitale in scadenza per calcolarlo. Formula: (EBITDA meno imposte) su (quota capitale più interessi).'
+                    : 'Sotto 1 i flussi non coprono il servizio del debito; le banche chiedono di norma almeno 1,1-1,2.'
+            });
+
+            // PFN / EBITDA
+            var pfnEbitda = null, pfnLvl = 'neutro', pfnBadge = '', pfnRef = '';
+            if (x.PFN <= 0) {
+                pfnBadge = 'Cassa netta'; pfnLvl = 'verde';
+                pfnRef = 'La liquidità supera i debiti finanziari: posizione finanziaria netta positiva.';
+            } else if (x.MOL <= 0) {
+                pfnBadge = 'Non sostenibile'; pfnLvl = 'rosso';
+                pfnRef = 'Con EBITDA nullo o negativo il debito finanziario non è ripagabile con i flussi della gestione.';
+            } else {
+                pfnEbitda = x.PFN / x.MOL;
+                pfnLvl = pfnEbitda < 3 ? 'verde' : (pfnEbitda < 4 ? 'giallo' : (pfnEbitda < 6 ? 'arancio' : 'rosso'));
+                pfnBadge = pfnEbitda < 2 ? 'Ottimo' : (pfnEbitda < 3 ? 'Buono' : (pfnEbitda < 4 ? 'Attenzione' : (pfnEbitda < 6 ? 'Critico' : 'Leva estrema')));
+                pfnRef = 'Prassi: fino a 3 buono, 3-4 zona di sorveglianza, oltre 4 critico; oltre 6 la leva è considerata eccezionale dalla vigilanza europea.';
+            }
+            cards.push({
+                name: 'PFN / EBITDA',
+                value: pfnEbitda === null ? (x.PFN <= 0 ? 'negativa' : 'n.s.') : fmtDec2.format(pfnEbitda) + 'x',
+                level: pfnLvl, badge: pfnBadge, ref: pfnRef
+            });
+
+            // PFN / PN
+            var pfnPn = null, lvl3 = 'neutro', b3 = '', r3 = 'Prassi: fino a 1,5 equilibrato, oltre 3 squilibrio strutturale tra debito e mezzi propri.';
+            if (x.SP15 <= 0) { b3 = 'PN non positivo'; lvl3 = 'rosso'; r3 = 'Con patrimonio netto nullo o negativo il rapporto non è significativo: priorità alla ricapitalizzazione.'; }
+            else if (x.PFN <= 0) { b3 = 'Cassa netta'; lvl3 = 'verde'; pfnPn = x.PFN / x.SP15; }
+            else {
+                pfnPn = x.PFN / x.SP15;
+                lvl3 = pfnPn <= 1.5 ? 'verde' : (pfnPn <= 3 ? 'giallo' : 'rosso');
+                b3 = pfnPn <= 1.5 ? 'Equilibrato' : (pfnPn <= 3 ? 'Attenzione' : 'Squilibrato');
+            }
+            cards.push({
+                name: 'PFN / Patrimonio netto',
+                value: pfnPn === null ? 'n.s.' : fmtDec2.format(pfnPn) + 'x',
+                level: lvl3, badge: b3, ref: r3
+            });
+
+            // Oneri finanziari / Ricavi
+            var ofRic = x.CE01 > 0 ? x.CE19 / x.CE01 * 100 : null;
+            cards.push({
+                name: 'Oneri finanziari / Ricavi',
+                value: ofRic === null ? 'n.d.' : fmtPct(ofRic, 2),
+                level: ofRic === null ? 'neutro' : (ofRic <= 3 ? 'verde' : (ofRic <= 5 ? 'giallo' : 'rosso')),
+                badge: ofRic === null ? 'Non calcolabile' : (ofRic <= 3 ? 'Fisiologico' : (ofRic <= 5 ? 'Attenzione' : 'Eccessivo')),
+                ref: 'Prassi: fino al 3% fisiologico, oltre il 5% segnale di squilibrio del costo del debito.'
+            });
+
+            // EBITDA / Oneri finanziari
+            var cover = null, lvl5 = 'neutro', b5 = '', r5 = 'Prassi: oltre 4 solido, tra 2 e 4 da monitorare, sotto 2 fragile.';
+            if (x.CE19 <= 0) { b5 = 'Nessun onere'; lvl5 = 'verde'; r5 = 'In assenza di oneri finanziari la copertura degli interessi non è un vincolo.'; }
+            else {
+                cover = x.MOL / x.CE19;
+                lvl5 = cover > 4 ? 'verde' : (cover >= 2 ? 'giallo' : 'rosso');
+                b5 = cover > 4 ? 'Solida' : (cover >= 2 ? 'Da monitorare' : 'Fragile');
+            }
+            cards.push({
+                name: 'Copertura interessi (EBITDA / OF)',
+                value: cover === null ? 'n.s.' : fmtDec2.format(cover) + 'x',
+                level: lvl5, badge: b5, ref: r5
+            });
+
+            // Equity ratio
+            var eq = x.SP14 > 0 ? x.SP15 / x.SP14 * 100 : null;
+            cards.push({
+                name: 'Patrimonio netto / Totale attivo',
+                value: eq === null ? 'n.d.' : fmtPct(eq, 1),
+                level: eq === null ? 'neutro' : (eq > 35 ? 'verde' : (eq >= 20 ? 'giallo' : 'rosso')),
+                badge: eq === null ? 'Non calcolabile' : (eq > 35 ? 'Solido' : (eq >= 20 ? 'Nella media' : 'Sottocapitalizzata')),
+                ref: 'Prassi: oltre il 35% solido, tra il 20% e il 35% nella media, sotto il 20% sottocapitalizzazione.'
+            });
+
+            return { cards: cards, dscr: dscr };
+        }
+
+        // ------- Indici CNDCEC -------
+        function computeCndcec(x, rowIdx, dscr) {
+            var res = { rows: [], pnNeg: (x.SP15 - x.SP01) < 0, dscrAlert: dscr !== null && dscr < 1, row: null };
+            if (rowIdx === null || rowIdx === undefined) return res;
+            var s = CNDCEC[rowIdx];
+            res.row = s;
+
+            function idx(label, num, den, soglia, dir, denZeroOn) {
+                // dir: 'ge' acceso se valore >= soglia; 'le' acceso se valore <= soglia
+                var val = null, on = false;
+                if (den === 0) { on = denZeroOn(num); }
+                else {
+                    val = num / den * 100;
+                    on = dir === 'ge' ? (val >= soglia) : (val <= soglia);
+                }
+                res.rows.push({ label: label, val: val, soglia: soglia, dir: dir, on: on });
+            }
+
+            idx('Oneri finanziari / Ricavi', x.CE19, x.CE01, s.of, 'ge', function (n) { return n > 0; });
+            idx('Patrimonio netto / Debiti totali', x.SP15 - x.SP01, x.SP21 + x.SP22, s.pn, 'le', function (n) { return n <= 0; });
+            idx('Attività a breve / Passività a breve', x.ATT_BREVE, x.PASS_BREVE, s.liq, 'le', function (n) { return n <= 0; });
+            idx('Cash flow / Totale attivo', x.CE25 + x.AMMORT, x.SP14, s.cf, 'le', function (n) { return n <= 0; });
+            idx('Debiti previdenziali e tributari / Attivo', x.DEBTRIB, x.SP14, s.trib, 'ge', function (n) { return n > 0; });
+
+            res.tuttiAccesi = res.rows.every(function (r) { return r.on; });
+            return res;
+        }
+
+        // ------- Z-Score -------
+        function computeZ(x, model) {
+            var debTerzi = x.SP17 + x.SP18 + x.SP21 + x.SP22;
+            var x1 = x.SP14 > 0 ? (x.ATT_BREVE - x.PASS_BREVE) / x.SP14 : 0;
+            var x2 = x.SP14 > 0 ? x.RISERVE / x.SP14 : 0;
+            var x3 = x.SP14 > 0 ? x.EBIT / x.SP14 : 0;
+            var x4 = debTerzi > 0 ? x.SP15 / debTerzi : 0;
+            var x5 = x.SP14 > 0 ? x.CE01 / x.SP14 : 0;
+
+            if (model === 'Z1') {
+                return {
+                    model: 'Z1',
+                    label: "Z'-Score (imprese manifatturiere non quotate)",
+                    value: 0.717 * x1 + 0.847 * x2 + 3.107 * x3 + 0.420 * x4 + 0.998 * x5,
+                    lo: 1.23, hi: 2.90, min: 0, max: 4.5
+                };
+            }
+            return {
+                model: 'Z2',
+                label: "Z''-Score (imprese non manifatturiere)",
+                value: 6.56 * x1 + 3.26 * x2 + 6.72 * x3 + 1.05 * x4,
+                lo: 1.10, hi: 2.60, min: -1, max: 5.5
+            };
+        }
+
+        /* =====================================================================
+           IMPORTAZIONE BILANCIO XBRL (tassonomia itcc-ci, bilanci depositati
+           al Registro Imprese). Il file viene letto e analizzato interamente
+           nel browser: nessun dato viene trasmesso.
+           ===================================================================== */
+
+        // Righe del dettaglio crediti (schema ordinario), suffisso Entro/Oltre
+        var XBRL_CREDITI_RIGHE = ['CreditiVersoClienti', 'CreditiVersoImpreseControllate',
+            'CreditiVersoImpreseCollegate', 'CreditiVersoControllanti',
+            'CreditiVersoImpreseSottoposteControlloControllanti', 'CreditiCreditiTributari',
+            'CreditiVersoAltri'];
+        // Righe del dettaglio debiti (schema ordinario), suffisso Entro/Oltre
+        var XBRL_DEBITI_RIGHE = ['DebitiObbligazioni', 'DebitiObbligazioniConvertibili',
+            'DebitiDebitiVersoSociFinanziamenti', 'DebitiDebitiVersoBanche',
+            'DebitiDebitiVersoAltriFinanziatori', 'DebitiAcconti', 'DebitiDebitiVersoFornitori',
+            'DebitiDebitiRappresentatiTitoliCredito', 'DebitiDebitiVersoImpreseControllate',
+            'DebitiDebitiVersoImpreseCollegate', 'DebitiDebitiVersoControllanti',
+            'DebitiDebitiVersoImpreseSottoposteControlloControllanti', 'DebitiDebitiTributari',
+            'DebitiDebitiVersoIstitutiPrevidenzaSicurezzaSociale', 'DebitiAltriDebiti'];
+        // Debiti di natura finanziaria (per PFN e DSCR)
+        var XBRL_DEBITI_FIN = ['DebitiObbligazioni', 'DebitiObbligazioniConvertibili',
+            'DebitiDebitiVersoSociFinanziamenti', 'DebitiDebitiVersoBanche',
+            'DebitiDebitiVersoAltriFinanziatori'];
+
+        function atecoToSettore(code) {
+            var m = String(code || '').match(/(\d{2})/);
+            if (!m) return null;
+            var d = parseInt(m[1], 10);
+            if (d >= 1 && d <= 3) return 'agri';
+            if ((d >= 5 && d <= 33) || d === 35) return 'manif';
+            if (d >= 36 && d <= 39) return 'acqua';
+            if (d === 41) return 'edif';
+            if (d === 42 || d === 43) return 'ingcivile';
+            if (d === 45 || d === 46) return 'ingrosso';
+            if (d === 47) return 'dettaglio';
+            if ((d >= 49 && d <= 53) || d === 55) return 'trasporti';
+            if (d === 56) return 'ristoro';
+            if ((d >= 58 && d <= 63) || (d >= 69 && d <= 75) || (d >= 77 && d <= 82)) return 'servimp';
+            if (d === 68) return 'immob';
+            if (d >= 85 && d <= 98 && d !== 84) return 'servpers';
+            return null;
+        }
+
+        function parseXbrl(xmlText) {
+            var doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+            if (doc.getElementsByTagName('parsererror').length) {
+                return { error: 'Il file non è un XML valido.' };
+            }
+            var all = doc.getElementsByTagName('*');
+            var i, node;
+
+            // 1. Context di base (senza segment/scenario): instant e duration
+            var instants = [], durations = [];
+            for (i = 0; i < all.length; i++) {
+                node = all[i];
+                if (node.localName !== 'context') continue;
+                var hasDim = false, period = null, ch;
+                // Un context è "dimensionale" (colonna di tabella di nota integrativa)
+                // solo se scenario/segment contengono elementi diversi dal marcatore
+                // itcc-ci:scen (depositato/bozza) usato dai file reali InfoCamere.
+                function dimensionale(container) {
+                    var els = container.getElementsByTagName('*');
+                    for (var e = 0; e < els.length; e++) {
+                        if (els[e].localName !== 'scen') return true;
+                    }
+                    return false;
+                }
+                for (ch = node.firstElementChild; ch; ch = ch.nextElementSibling) {
+                    if (ch.localName === 'scenario' && dimensionale(ch)) hasDim = true;
+                    if (ch.localName === 'segment' && dimensionale(ch)) hasDim = true;
+                    if (ch.localName === 'entity') {
+                        var seg = ch.getElementsByTagName('*');
+                        for (var s = 0; s < seg.length; s++) {
+                            if (seg[s].localName === 'segment' && dimensionale(seg[s])) hasDim = true;
+                        }
+                    }
+                    if (ch.localName === 'period') period = ch;
+                }
+                if (hasDim || !period) continue;
+                var inst = null, start = null, end = null;
+                for (ch = period.firstElementChild; ch; ch = ch.nextElementSibling) {
+                    if (ch.localName === 'instant') inst = ch.textContent.trim();
+                    if (ch.localName === 'startDate') start = ch.textContent.trim();
+                    if (ch.localName === 'endDate') end = ch.textContent.trim();
+                }
+                if (inst) instants.push({ id: node.getAttribute('id'), date: inst });
+                else if (end) durations.push({ id: node.getAttribute('id'), start: start, end: end });
+            }
+            if (!instants.length) return { error: 'Nel file non sono presenti i periodi contabili attesi (context XBRL).' };
+
+            instants.sort(function (a, b) { return b.date.localeCompare(a.date); });
+            var curDate = instants[0].date;
+            var curI = instants.filter(function (c) { return c.date === curDate; }).map(function (c) { return c.id; });
+            var prevDates = instants.filter(function (c) { return c.date !== curDate; });
+            var prevDate = prevDates.length ? prevDates[0].date : null;
+            var prevI = prevDate ? prevDates.filter(function (c) { return c.date === prevDate; }).map(function (c) { return c.id; }) : [];
+
+            durations.sort(function (a, b) { return b.end.localeCompare(a.end); });
+            var curD = durations.filter(function (c) { return c.end === curDate; }).map(function (c) { return c.id; });
+            if (!curD.length && durations.length) curD = [durations[0].id];
+            var prevD = prevDate ? durations.filter(function (c) { return c.end === prevDate; }).map(function (c) { return c.id; }) : [];
+
+            // 2. Fatti della tassonomia itcc-ci, indicizzati per nome e context
+            var facts = {};
+            for (i = 0; i < all.length; i++) {
+                node = all[i];
+                var ns = node.namespaceURI || '';
+                if (ns.indexOf('/itcc/ci') === -1) continue;
+                var ctx = node.getAttribute('contextRef');
+                if (!ctx) continue;
+                if (!facts[node.localName]) facts[node.localName] = {};
+                if (!(ctx in facts[node.localName])) facts[node.localName][ctx] = node.textContent.trim();
+            }
+
+            // 3. Tipo di schema dal riferimento alla tassonomia
+            var schema = 'sconosciuto';
+            for (i = 0; i < all.length; i++) {
+                if (all[i].localName !== 'schemaRef') continue;
+                var href = all[i].getAttributeNS('http://www.w3.org/1999/xlink', 'href') || all[i].getAttribute('xlink:href') || '';
+                if (href.indexOf('itcc-ci-abb') !== -1) schema = 'abbreviato';
+                else if (href.indexOf('itcc-ci-micr') !== -1) schema = 'micro';
+                else if (href.indexOf('itcc-ci-ese') !== -1) schema = 'ordinario';
+                break;
+            }
+
+            function pick(name, ctxIds) {
+                var byCtx = facts[name];
+                if (!byCtx) return null;
+                for (var k = 0; k < ctxIds.length; k++) {
+                    if (ctxIds[k] in byCtx) {
+                        var n = parseFloat(byCtx[ctxIds[k]]);
+                        return isNaN(n) ? null : n;
+                    }
+                }
+                return null;
+            }
+            function pickStr(name) {
+                var byCtx = facts[name];
+                if (!byCtx) return null;
+                for (var k in byCtx) { if (byCtx[k]) return byCtx[k]; }
+                return null;
+            }
+            function sum(names, ctxIds) {
+                var tot = 0, found = 0;
+                names.forEach(function (n) {
+                    var v = pick(n, ctxIds);
+                    if (v !== null) { tot += v; found++; }
+                });
+                return { value: tot, found: found };
+            }
+
+            return {
+                schema: schema, curI: curI, prevI: prevI, curD: curD, prevD: prevD,
+                curDate: curDate, prevDate: prevDate,
+                pick: pick, pickStr: pickStr, sum: sum
+            };
+        }
+
+        function importXbrl(xmlText) {
+            var p = parseXbrl(xmlText);
+            if (p.error) return p;
+
+            var w = [];   // avvertenze
+            var attn = []; // campi da verificare manualmente
+            var out = {};  // id campo -> valore numerico
+
+            function setIf(id, v) { if (v !== null && v !== undefined) out[id] = v; }
+
+            // ---- Conto economico, esercizio corrente e precedente ----
+            setIf('ricavi', p.pick('ValoreProduzioneRicaviVenditePrestazioni', p.curD));
+            setIf('ricaviPrec', p.pick('ValoreProduzioneRicaviVenditePrestazioni', p.prevD));
+            setIf('vdp', p.pick('TotaleValoreProduzione', p.curD));
+            setIf('vdpPrec', p.pick('TotaleValoreProduzione', p.prevD));
+
+            var ammCur = p.sum(['CostiProduzioneAmmortamentiSvalutazioniTotaleAmmortamentiSvalutazioni',
+                'CostiProduzioneAccantonamentiRischi', 'CostiProduzioneAltriAccantonamenti'], p.curD);
+            if (ammCur.found) setIf('ammort', ammCur.value);
+
+            var ebit = p.pick('DifferenzaValoreCostiProduzione', p.curD);
+            setIf('ebit', ebit);
+            if (ebit !== null && ammCur.found) setIf('mol', ebit + ammCur.value);
+
+            setIf('oneriFin', p.pick('ProventiOneriFinanziariInteressiAltriOneriFinanziariTotaleInteressiAltriOneriFinanziari', p.curD));
+            setIf('imposte', p.pick('ImposteRedditoEsercizioCorrentiDifferiteAnticipateTotaleImposteRedditoEsercizioCorrentiDifferiteAnticipate', p.curD));
+            var utile = p.pick('UtilePerditaEsercizio', p.curD);
+            if (utile === null) utile = p.pick('PatrimonioNettoUtilePerditaEsercizio', p.curI);
+            setIf('utile', utile);
+
+            // ---- Stato patrimoniale: attivo ----
+            setIf('creditiSoci', p.pick('TotaleCreditiVersoSociVersamentiAncoraDovuti', p.curI));
+            setIf('immob', p.pick('TotaleImmobilizzazioni', p.curI));
+            var rim = p.sum(['TotaleRimanenze', 'ImmobilizzazioniMaterialiDestinateAllaVendita'], p.curI);
+            if (rim.found) setIf('rimanenze', rim.value);
+            setIf('attFin', p.pick('TotaleAttivitaFinanziarieNonCostituisconoImmobilizzazioni', p.curI));
+            setIf('liquidita', p.pick('TotaleDisponibilitaLiquide', p.curI));
+            setIf('rateiAttivi', p.pick('AttivoRateiRisconti', p.curI));
+
+            // Crediti entro/oltre: aggregati (abbreviato/micro) o somma delle righe (ordinario)
+            var credEntro = p.pick('CreditiEsigibiliEntroEsercizioSuccessivo', p.curI);
+            var credOltre = p.pick('CreditiEsigibiliOltreEsercizioSuccessivo', p.curI);
+            var impAnt = p.pick('CreditiImposteAnticipateTotaleImposteAnticipate', p.curI) || 0;
+            if (credEntro === null && credOltre === null) {
+                var e = p.sum(XBRL_CREDITI_RIGHE.map(function (n) { return n + 'EsigibiliEntroEsercizioSuccessivo'; }), p.curI);
+                var o = p.sum(XBRL_CREDITI_RIGHE.map(function (n) { return n + 'EsigibiliOltreEsercizioSuccessivo'; }), p.curI);
+                if (e.found || o.found) { credEntro = e.value; credOltre = o.value; }
+            }
+            var totCrediti = p.pick('TotaleCrediti', p.curI);
+            if (credEntro === null && totCrediti !== null) {
+                credEntro = totCrediti - impAnt; credOltre = 0;
+                w.push('La ripartizione dei crediti tra entro e oltre l\'esercizio non è presente nel file: il totale è stato attribuito alla quota entro l\'esercizio. Verifica il dato.');
+                attn.push('creditiEntro', 'creditiOltre');
+            }
+            if (credEntro !== null) setIf('creditiEntro', credEntro);
+            if (credOltre !== null || impAnt) setIf('creditiOltre', (credOltre || 0) + impAnt);
+
+            // ---- Stato patrimoniale: passivo ----
+            setIf('pn', p.pick('TotalePatrimonioNetto', p.curI));
+            var ris = p.sum(['PatrimonioNettoRiservaLegale', 'PatrimonioNettoRiserveStatutarie',
+                'PatrimonioNettoAltreRiserveDistintamenteIndicateRiservaStraordinaria',
+                'PatrimonioNettoUtiliPerditePortatiNuovo'], p.curI);
+            if (ris.found) setIf('riserveUtili', ris.value);
+            setIf('fondi', p.pick('TotaleFondiRischiOneri', p.curI));
+            setIf('tfr', p.pick('TrattamentoFineRapportoLavoroSubordinato', p.curI));
+            setIf('rateiPassivi', p.pick('PassivoRateiRisconti', p.curI));
+
+            // Debiti entro/oltre: aggregati (abbreviato/micro) o somma delle righe (ordinario)
+            var debEntro = p.pick('DebitiEsigibiliEntroEsercizioSuccessivo', p.curI);
+            var debOltre = p.pick('DebitiEsigibiliOltreEsercizioSuccessivo', p.curI);
+            if (debEntro === null && debOltre === null) {
+                var de = p.sum(XBRL_DEBITI_RIGHE.map(function (n) { return n + 'EsigibiliEntroEsercizioSuccessivo'; }), p.curI);
+                var doo = p.sum(XBRL_DEBITI_RIGHE.map(function (n) { return n + 'EsigibiliOltreEsercizioSuccessivo'; }), p.curI);
+                if (de.found || doo.found) { debEntro = de.value; debOltre = doo.value; }
+            }
+            var totDebiti = p.pick('TotaleDebiti', p.curI);
+            if (debEntro === null && totDebiti !== null) {
+                debEntro = totDebiti; debOltre = 0;
+                w.push('La ripartizione dei debiti tra entro e oltre l\'esercizio non è presente nel file: il totale è stato attribuito alla quota entro l\'esercizio. Verifica il dato.');
+                attn.push('debitiEntro', 'debitiOltre');
+            }
+            if (debEntro !== null) setIf('debitiEntro', debEntro);
+            if (debOltre !== null) setIf('debitiOltre', debOltre);
+
+            // Debiti tributari e previdenziali (solo schema ordinario)
+            var trib = p.sum(['DebitiDebitiTributariTotaleDebitiTributari',
+                'DebitiDebitiVersoIstitutiPrevidenzaSicurezzaSocialeTotaleDebitiVersoIstitutiPrevidenzaSicurezzaSociale'], p.curI);
+            if (trib.found) { setIf('debTribPrev', trib.value); }
+            else {
+                var tribE = p.sum(['DebitiDebitiTributariEsigibiliEntroEsercizioSuccessivo',
+                    'DebitiDebitiTributariEsigibiliOltreEsercizioSuccessivo',
+                    'DebitiDebitiVersoIstitutiPrevidenzaSicurezzaSocialeEsigibiliEntroEsercizioSuccessivo',
+                    'DebitiDebitiVersoIstitutiPrevidenzaSicurezzaSocialeEsigibiliOltreEsercizioSuccessivo'], p.curI);
+                if (tribE.found) setIf('debTribPrev', tribE.value);
+                else {
+                    w.push('Il bilancio ' + p.schema + ' non espone i debiti tributari e previdenziali: inseriscili manualmente per gli indici CNDCEC.');
+                    attn.push('debTribPrev');
+                }
+            }
+
+            // Debiti finanziari entro/oltre (solo schema ordinario)
+            var finE = p.sum(XBRL_DEBITI_FIN.map(function (n) { return n + 'EsigibiliEntroEsercizioSuccessivo'; }), p.curI);
+            var finO = p.sum(XBRL_DEBITI_FIN.map(function (n) { return n + 'EsigibiliOltreEsercizioSuccessivo'; }), p.curI);
+            if (finE.found || finO.found) {
+                setIf('debFinBreve', finE.value);
+                setIf('debFinLungo', finO.value);
+            } else {
+                var finT = p.sum(['DebitiObbligazioniTotaleObbligazioni',
+                    'DebitiObbligazioniConvertibiliTotaleObbligazioniConvertibili',
+                    'DebitiDebitiVersoSociFinanziamentiTotaleDebitiVersoSociFinanziamenti',
+                    'DebitiDebitiVersoBancheTotaleDebitiVersoBanche',
+                    'DebitiDebitiVersoAltriFinanziatoriTotaleDebitiVersoAltriFinanziatori'], p.curI);
+                if (finT.found) {
+                    setIf('debFinBreve', finT.value);
+                    setIf('debFinLungo', 0);
+                    w.push('La ripartizione del debito finanziario tra breve e medio-lungo termine non è presente nel file: l\'importo complessivo è stato indicato nella quota entro 12 mesi (ai fini della PFN conta solo la somma). Ripartiscilo se vuoi maggiore precisione.');
+                } else {
+                    w.push('Il bilancio ' + p.schema + ' non espone il dettaglio dei debiti verso banche e finanziatori: inserisci manualmente il debito finanziario per PFN e DSCR.');
+                }
+                attn.push('debFinBreve', 'debFinLungo');
+            }
+
+            // ---- Anagrafica ----
+            var den = p.pickStr('DatiAnagraficiDenominazione');
+            var ateco = p.pickStr('DatiAnagraficiSettoreAttivitaPrevalenteAteco');
+            var settore = atecoToSettore(ateco);
+            var anno = (p.curDate || '').slice(0, 4);
+
+            var filled = Object.keys(out).length;
+            if (!filled) return { error: 'Nel file non sono state trovate voci di bilancio della tassonomia italiana itcc-ci.' };
+
+            w.push('La quota capitale dei finanziamenti in scadenza nei prossimi 12 mesi non è desumibile dal bilancio: inseriscila per calcolare il DSCR.');
+            attn.push('quotaCapitale');
+
+            return {
+                fields: out, warnings: w, attn: attn, schema: p.schema,
+                denominazione: den, settore: settore, anno: anno,
+                curDate: p.curDate, prevDate: p.prevDate, ateco: ateco, filled: filled
+            };
+        }
+
+        function applyXbrl(res) {
+            var status = el('xbrlStatus');
+            if (res.error) {
+                status.className = 'xbrl-status err';
+                status.innerHTML = '<strong>Importazione non riuscita.</strong> ' + esc(res.error);
+                status.hidden = false;
+                return;
+            }
+            FIELD_IDS.forEach(function (id) {
+                el(id).value = '';
+                el(id).classList.remove('invalid', 'attn');
+            });
+            for (var id in res.fields) { el(id).value = fmtInt.format(res.fields[id]); }
+            res.attn.forEach(function (id) { el(id).classList.add('attn'); });
+            if (res.denominazione) el('denominazione').value = res.denominazione;
+            if (res.anno) el('esercizio').value = res.anno;
+            if (res.settore) el('settore').value = res.settore;
+            el('simResults').hidden = true;
+            updateTotals();
+
+            var html = '<strong>Bilancio importato correttamente</strong> (schema ' + esc(res.schema) +
+                (res.denominazione ? ', ' + esc(res.denominazione) : '') +
+                (res.curDate ? ', esercizio chiuso al ' + esc(res.curDate.split('-').reverse().join('/')) : '') +
+                '): ' + res.filled + ' voci compilate' +
+                (res.settore ? ', settore riconosciuto dal codice ATECO' : ', seleziona il settore di attività') + '.';
+            if (res.warnings.length) {
+                html += '<ul>';
+                res.warnings.forEach(function (m) { html += '<li>' + esc(m) + '</li>'; });
+                html += '</ul>';
+            }
+            status.className = 'xbrl-status ' + (res.warnings.length ? 'warn' : 'ok');
+            status.innerHTML = html;
+            status.hidden = false;
+            status.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        el('btnXbrl').addEventListener('click', function () { el('xbrlFile').click(); });
+        el('xbrlFile').addEventListener('change', function () {
+            var f = el('xbrlFile').files[0];
+            if (!f) return;
+            f.text().then(function (t) { applyXbrl(importXbrl(t)); })
+                .catch(function () { applyXbrl({ error: 'Impossibile leggere il file selezionato.' }); });
+            el('xbrlFile').value = '';
+        });
+
+        // esposto per i test in console
+        window.__xbrlImport = importXbrl;
+
+        /* =====================================================================
+           INTERFACCIA
+           ===================================================================== */
+
+        // Formattazione live degli importi e totali
+        function attachFormatting() {
+            FIELD_IDS.forEach(function (id) {
+                var input = el(id);
+                input.addEventListener('blur', function () {
+                    var n = parseNum(input.value);
+                    if (n !== null) input.value = fmtInt.format(n);
+                    updateTotals();
+                });
+                input.addEventListener('input', function () {
+                    input.classList.remove('invalid');
+                    el('simError').hidden = true;
+                });
+            });
+        }
+
+        function updateTotals() {
+            var v = readInputs();
+            var x = buildX(v);
+            el('totAttivo').textContent = fmtEuro(x.SP14);
+            el('totPassivo').textContent = fmtEuro(x.SP23);
+            el('totPfn').textContent = (x.PFN < 0 ? 'cassa netta ' : '') + fmtEuro(Math.abs(x.PFN));
+            var diff = Math.abs(x.SP14 - x.SP23);
+            var badge = el('quadBadge');
+            if (x.SP14 === 0 && x.SP23 === 0) {
+                badge.className = 'sim-quad ok'; badge.textContent = 'In attesa dei dati';
+            } else if (diff <= Math.max(100, 0.005 * Math.max(x.SP14, x.SP23))) {
+                badge.className = 'sim-quad ok'; badge.textContent = 'Quadratura OK';
+            } else {
+                badge.className = 'sim-quad ko';
+                badge.textContent = 'Attivo e passivo differiscono di ' + fmtEuro(diff);
+            }
+        }
+
+        function validate() {
+            var ok = true;
+            REQUIRED.forEach(function (id) {
+                var input = el(id);
+                if (parseNum(input.value) === null) { input.classList.add('invalid'); ok = false; }
+            });
+            if (!el('settore').value) { el('settore').classList.add('invalid'); ok = false; }
+            return ok;
+        }
+
+        // ------- Rendering risultati -------
+        function badgeSpan(level, text) {
+            return '<span class="b-badge lvl-' + level + '">' + text + '</span>';
+        }
+
+        function renderMcc(mcc, sectorLabel) {
+            el('mccSettore').textContent = mcc.settoreLabel + ' (' + sectorLabel + ')';
+
+            var scale = el('mccScale');
+            scale.innerHTML = '';
+            for (var c = 1; c <= 12; c++) {
+                var seg = document.createElement('div');
+                seg.className = 'mcc-seg f' + CLASSI[c].fascia + (c === mcc.integrata ? ' active' : '');
+                seg.textContent = c;
+                scale.appendChild(seg);
+            }
+
+            el('mccClasse').textContent = mcc.integrata + ' / 12';
+            el('mccClasseNote').textContent = 'Modulo economico-finanziario: classe F' + mcc.fClass +
+                ' (score ' + fmtDec4.format(mcc.xb) + ')';
+            el('mccFascia').textContent = mcc.fascia + ' / 5';
+            el('mccPd').textContent = fmtPct(mcc.pd, 2);
+            el('mccAmmissibile').textContent = mcc.ammissibile ? 'Ammissibile' : 'Non ammissibile';
+            el('mccAmmissibile').style.color = mcc.ammissibile ? '#1e7d46' : '#b3352c';
+            el('mccAmmissibileNote').textContent = mcc.ammissibile
+                ? 'Classe entro la soglia di ammissibilità (fino alla classe 10)'
+                : 'La fascia 5 (classi 11 e 12) è esclusa dalla garanzia del Fondo';
+
+            var tbody = el('mccTable').querySelector('tbody');
+            tbody.innerHTML = '';
+            mcc.rows.forEach(function (r) {
+                var tr = document.createElement('tr');
+                var rawTxt = r.name.charAt(0) === 'D' ? '' : (r.na ? 'n.c.' : (r.raw === null ? '' : fmtDec4.format(r.raw)));
+                tr.innerHTML = '<td>' + r.label + '</td>' +
+                    '<td class="num">' + rawTxt + '</td>' +
+                    '<td class="num">' + fmtDec4.format(r.treated) + '</td>' +
+                    '<td class="num">' + fmtDec4.format(r.coef) + '</td>' +
+                    '<td class="num">' + fmtDec4.format(r.contrib) + '</td>';
+                tbody.appendChild(tr);
+            });
+            var trc = document.createElement('tr');
+            trc.innerHTML = '<td>Costante del modello</td><td class="num"></td><td class="num"></td><td class="num"></td>' +
+                '<td class="num">' + fmtDec4.format(mcc.costante) + '</td>';
+            tbody.appendChild(trc);
+            var trt = document.createElement('tr');
+            trt.className = 'total';
+            trt.innerHTML = '<td>Score complessivo (xb)</td><td class="num"></td><td class="num"></td><td class="num"></td>' +
+                '<td class="num">' + fmtDec4.format(mcc.xb) + '</td>';
+            tbody.appendChild(trt);
+        }
+
+        function renderBank(bank) {
+            var grid = el('bankGrid');
+            grid.innerHTML = '';
+            bank.cards.forEach(function (c) {
+                var div = document.createElement('div');
+                div.className = 'bank-card';
+                div.innerHTML = '<div class="b-head"><span class="b-name">' + c.name + '</span>' +
+                    badgeSpan(c.level, c.badge) + '</div>' +
+                    '<span class="b-value">' + c.value + '</span>' +
+                    '<span class="b-ref">' + c.ref + '</span>';
+                grid.appendChild(div);
+            });
+        }
+
+        function renderCndcec(cn, x, dscr) {
+            var status = el('allertaStatus');
+            var tbody = el('cndcecTable').querySelector('tbody');
+            var note = el('cndcecNote');
+            status.innerHTML = '';
+            tbody.innerHTML = '';
+
+            function chip(level, text) {
+                var s = document.createElement('span');
+                s.className = 'allerta-chip lvl-' + level;
+                s.textContent = text;
+                status.appendChild(s);
+            }
+
+            chip(cn.pnNeg ? 'rosso' : 'verde', cn.pnNeg ? 'Patrimonio netto negativo' : 'Patrimonio netto positivo');
+            if (dscr !== null) {
+                chip(dscr < 1 ? 'rosso' : 'verde', 'DSCR ' + fmtDec2.format(dscr) + (dscr < 1 ? ' (sotto 1)' : ' (sopra 1)'));
+            } else {
+                chip('neutro', 'DSCR non calcolato');
+            }
+
+            if (!cn.row) {
+                el('cndcecSub').textContent = 'Settore non coperto dalla tabella CNDCEC';
+                note.textContent = 'Il documento CNDCEC del 20 ottobre 2019 non prevede soglie per le attività immobiliari: ' +
+                    'gli indici restano calcolabili ma privi di un riferimento settoriale ufficiale. Valgono comunque i segnali di ' +
+                    'primo livello: patrimonio netto negativo e DSCR inferiore a 1.';
+                return;
+            }
+
+            el('cndcecSub').textContent = 'Soglie ufficiali del settore: ' + cn.row.label;
+            if (cn.tuttiAccesi) {
+                chip('rosso', 'Tutti e 5 gli indici oltre soglia: presunzione di crisi');
+            } else {
+                var accesi = cn.rows.filter(function (r) { return r.on; }).length;
+                chip(accesi > 0 ? 'giallo' : 'verde',
+                    accesi === 1 ? '1 indice su 5 oltre soglia' : accesi + ' indici su 5 oltre soglia');
+            }
+
+            cn.rows.forEach(function (r) {
+                var tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + r.label + '</td>' +
+                    '<td class="num">' + (r.val === null ? 'n.c.' : fmtPct(r.val, 1)) + '</td>' +
+                    '<td class="num">' + fmtPct(r.soglia, 1) + '</td>' +
+                    '<td>' + (r.dir === 'ge' ? 'Allerta se maggiore o uguale' : 'Allerta se minore o uguale') + '</td>' +
+                    '<td><span class="cndcec-badge lvl-' + (r.on ? 'rosso' : 'verde') + '">' + (r.on ? 'Oltre soglia' : 'Nella norma') + '</span></td>';
+                tbody.appendChild(tr);
+            });
+
+            var msg;
+            if (cn.pnNeg) {
+                msg = 'Il patrimonio netto negativo è di per sé il primo indicatore di crisi previsto dal documento CNDCEC, ' +
+                    'a prescindere dagli altri indici: la priorità è la ricapitalizzazione.';
+            } else if (cn.dscrAlert) {
+                msg = 'Un DSCR inferiore a 1 segnala flussi di cassa attesi insufficienti a coprire il servizio del debito: ' +
+                    'nel sistema CNDCEC è presunzione di crisi anche con gli indici settoriali nella norma.';
+            } else if (cn.tuttiAccesi) {
+                msg = 'Il superamento congiunto di tutte e cinque le soglie settoriali fa scattare la presunzione di squilibrio: ' +
+                    'è il momento di attivare le verifiche previste dagli adeguati assetti.';
+            } else {
+                msg = 'La presunzione di crisi scatta solo se tutti e cinque gli indici superano la soglia contemporaneamente. ' +
+                    'Gli eventuali indici oltre soglia restano comunque punti di attenzione da monitorare nel tempo.';
+            }
+            note.textContent = msg + ' Dopo il D.Lgs. 83/2022 gli indici CNDCEC non hanno più valore di legge, ma restano il ' +
+                'benchmark tecnico di riferimento per il monitoraggio richiesto dall\'art. 2086 c.c. e dall\'art. 3 del Codice della crisi.';
+        }
+
+        function renderZ(z) {
+            el('zTitle').textContent = z.label;
+            el('zSub').textContent = z.model === 'Z1'
+                ? "Variante di Altman per imprese manifatturiere non quotate: zone 1,23 e 2,90"
+                : "Variante di Altman per imprese non manifatturiere: zone 1,10 e 2,60";
+
+            var zone = z.value < z.lo ? 'rischio' : (z.value <= z.hi ? 'incertezza' : 'sicurezza');
+            var level = zone === 'rischio' ? 'rosso' : (zone === 'incertezza' ? 'giallo' : 'verde');
+
+            // marker: barra con zone proporzionali su scala min..max
+            var span = z.max - z.min;
+            var clamped = Math.min(z.max, Math.max(z.min, z.value));
+            var pct = (clamped - z.min) / span * 100;
+            el('zMarker').style.left = pct + '%';
+
+            var bar = document.querySelector('.z-bar');
+            var loPct = (z.lo - z.min) / span * 100;
+            var hiPct = (z.hi - z.min) / span * 100;
+            bar.style.background = 'linear-gradient(90deg, #e59a94 0%, #e59a94 ' + loPct + '%, #ecd28a ' + loPct + '%, #ecd28a ' + hiPct + '%, #9ccfae ' + hiPct + '%, #9ccfae 100%)';
+
+            el('zLabels').innerHTML = '<span>Zona di rischio: sotto ' + fmtDec2.format(z.lo) + '</span>' +
+                '<span>Zona di incertezza</span>' +
+                '<span>Zona di sicurezza: oltre ' + fmtDec2.format(z.hi) + '</span>';
+            el('zValue').textContent = fmtDec2.format(z.value);
+            var zb = el('zBadge');
+            zb.className = 'b-badge lvl-' + level;
+            zb.textContent = 'Zona di ' + zone;
+            el('zNote').textContent = 'Lo Z-Score sintetizza equilibrio patrimoniale, redditività e rotazione dell\'attivo in un unico ' +
+                'indicatore statistico. Se le riserve di utili non sono state indicate, la componente X2 è prudenzialmente pari a zero.';
+        }
+
+        function renderSummary(mcc, bank, cn, z, dscr) {
+            var verde = 0, rosso = 0;
+            bank.cards.forEach(function (c) {
+                if (c.level === 'verde') verde++;
+                if (c.level === 'rosso' || c.level === 'arancio') rosso++;
+            });
+            var zZone = z.value < z.lo ? 'rischio' : (z.value <= z.hi ? 'incertezza' : 'sicurezza');
+
+            var level, title, text;
+            var critico = cn.pnNeg || (cn.row && cn.tuttiAccesi) || (dscr !== null && dscr < 1) || mcc.fascia === 5;
+            if (critico) {
+                level = 'rosso';
+                title = 'Area critica: servono interventi strutturali';
+                text = 'La simulazione colloca l\'impresa in un\'area di squilibrio rilevante: ';
+            } else if (mcc.fascia === 4 || zZone === 'rischio' || rosso >= 2) {
+                level = 'arancio';
+                title = 'Zona di attenzione: il merito creditizio è fragile';
+                text = 'La simulazione segnala una situazione da presidiare con urgenza: ';
+            } else if (mcc.fascia === 3 || zZone === 'incertezza' || rosso === 1) {
+                level = 'giallo';
+                title = 'Equilibrio con margini di miglioramento';
+                text = 'La simulazione restituisce un profilo nel complesso equilibrato: ';
+            } else {
+                level = 'verde';
+                title = 'Profilo solido: ora si negozia';
+                text = 'La simulazione restituisce un profilo di merito creditizio solido: ';
+            }
+
+            text += 'rating MCC simulato in <strong>classe ' + mcc.integrata + ' su 12</strong> (fascia ' + mcc.fascia +
+                ', probabilità di inadempimento ' + fmtPct(mcc.pd, 2) + '), ' +
+                (mcc.ammissibile ? 'entro' : 'oltre') + ' la soglia di ammissibilità alla garanzia del Fondo. ';
+            text += 'Nel cruscotto di bancabilità ' + verde + ' indicatori su ' + bank.cards.length + ' sono in area verde';
+            text += dscr !== null ? ', con un DSCR di ' + fmtDec2.format(dscr) + '. ' : ' (DSCR non calcolato). ';
+            if (cn.row) {
+                var accesi = cn.rows.filter(function (r) { return r.on; }).length;
+                text += 'Gli indici CNDCEC del settore mostrano ' +
+                    (accesi === 1 ? 'una soglia superata' : accesi + ' soglie superate') + ' su 5' +
+                    (cn.pnNeg ? ' e un patrimonio netto negativo' : '') + '. ';
+            } else if (cn.pnNeg) {
+                text += 'Il patrimonio netto risulta negativo: è il primo segnale di crisi da rimuovere. ';
+            }
+            text += 'Lo Z-Score si colloca in zona di ' + zZone + '. ';
+            text += 'Il dettaglio del calcolo MCC, più sotto, mostra quali variabili pesano di più sul risultato: sono le prime leve su cui lavorare.';
+
+            var v = el('sumVerdict');
+            v.className = 'verdict lvl-' + level;
+            v.textContent = level === 'verde' ? 'Profilo solido' : (level === 'giallo' ? 'Equilibrio migliorabile' : (level === 'arancio' ? 'Zona di attenzione' : 'Area critica'));
+            el('sumTitle').textContent = title;
+            el('sumText').innerHTML = text;
+        }
+
+        // ------- Report di stampa professionale -------
+        function esc(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function fieldLabel(id) {
+            var lab = document.querySelector('label[for="' + id + '"]');
+            if (!lab) return id;
+            return lab.textContent.replace(/\(facoltativo\)|\(per il report\)/g, '').replace(/\*/g, '').trim();
+        }
+
+        function buildPrintReport(ctx) {
+            var den = (el('denominazione').value || '').trim();
+            var anno = (el('esercizio').value || '').trim();
+            var oggi = new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
+            var lvlClass = { verde: 'c-verde', giallo: 'c-giallo', arancio: 'c-arancio', rosso: 'c-rosso', neutro: 'c-neutro' };
+            var mcc = ctx.mcc, bank = ctx.bank, cn = ctx.cn, z = ctx.z, x = ctx.x, dscr = ctx.dscr;
+            var h = '';
+
+            // Intestazione
+            h += '<div class="pr-head">' +
+                '<div class="pr-brand"><strong>Next Generation Business</strong><br>A cura di Revilaw S.p.A., Società di Revisione Legale<br>Via XX Settembre, 9 - 37129 Verona (VR) &middot; nextgenerationbusiness.it</div>' +
+                '<div class="pr-title"><h1>Report di simulazione<br>del rating bancario</h1>' +
+                '<div class="pr-date">Generato il ' + oggi + '</div></div></div>';
+
+            h += '<div class="pr-meta">' +
+                (den ? '<span>Impresa: <strong>' + esc(den) + '</strong></span>' : '') +
+                '<span>Settore: <strong>' + esc(ctx.secLabel) + '</strong></span>' +
+                '<span>Modello MCC: <strong>' + esc(mcc.settoreLabel) + '</strong></span>' +
+                (anno ? '<span>Esercizio: <strong>' + esc(anno) + '</strong></span>' : '') +
+                '<span>Forma: <strong>Società di capitali</strong></span>' +
+                '</div>';
+
+            // 1. Sintesi
+            var verdictEl = el('sumVerdict');
+            var verdictLevel = (verdictEl.className.match(/lvl-(\w+)/) || [null, 'neutro'])[1];
+            h += '<div class="pr-section"><h2>1. Sintesi della valutazione</h2>' +
+                '<span class="pr-verdict ' + lvlClass[verdictLevel] + '">' + esc(verdictEl.textContent) + ': ' + esc(el('sumTitle').textContent) + '</span>' +
+                '<p>' + esc(el('sumText').textContent) + '</p>' +
+                '<div class="pr-kpis">' +
+                '<div class="pr-kpi"><div class="lab">Classe MCC</div><div class="val">' + mcc.integrata + ' / 12</div><div class="sub">Modulo economico-finanziario F' + mcc.fClass + '</div></div>' +
+                '<div class="pr-kpi"><div class="lab">Fascia</div><div class="val">' + mcc.fascia + ' / 5</div><div class="sub">Probabilità di inadempimento ' + fmtPct(mcc.pd, 2) + '</div></div>' +
+                '<div class="pr-kpi"><div class="lab">Garanzia del Fondo</div><div class="val ' + (mcc.ammissibile ? 'c-verde' : 'c-rosso') + '">' + (mcc.ammissibile ? 'Ammissibile' : 'Non ammissibile') + '</div><div class="sub">Soglia: fino alla classe 10 (fascia 4)</div></div>' +
+                '<div class="pr-kpi"><div class="lab">DSCR</div><div class="val">' + (dscr === null ? 'n.d.' : fmtDec2.format(dscr)) + '</div><div class="sub">Servizio del debito a 12 mesi</div></div>' +
+                '<div class="pr-kpi"><div class="lab">' + (z.model === 'Z1' ? "Z'-Score" : "Z''-Score") + '</div><div class="val">' + fmtDec2.format(z.value) + '</div><div class="sub">Zona di ' + (z.value < z.lo ? 'rischio' : (z.value <= z.hi ? 'incertezza' : 'sicurezza')) + '</div></div>' +
+                '</div></div>';
+
+            // 2. Rating MCC con tabella variabili
+            h += '<div class="pr-section"><h2>2. Rating MCC simulato (Fondo di Garanzia PMI)</h2>' +
+                '<p>Modulo economico-finanziario per società di capitali, modello di settore <strong>' + esc(mcc.settoreLabel) + '</strong>. ' +
+                'Score complessivo <strong>' + fmtDec4.format(mcc.xb) + '</strong>, classe parziale <strong>F' + mcc.fClass + '</strong>; in assenza di dati andamentali la classe integrata è <strong>' + mcc.integrata + ' su 12</strong> (fascia <strong>' + mcc.fascia + '</strong>, PD <strong>' + fmtPct(mcc.pd, 2) + '</strong>), ' +
+                (mcc.ammissibile ? 'entro' : 'oltre') + ' la soglia di ammissibilità alla garanzia pubblica.</p>' +
+                '<table><thead><tr><th>Indicatore</th><th class="num">Valore</th><th class="num">Valore trattato</th><th class="num">Coefficiente</th><th class="num">Contributo</th></tr></thead><tbody>';
+            mcc.rows.forEach(function (r) {
+                var rawTxt = r.name.charAt(0) === 'D' ? '' : (r.na ? 'n.c.' : (r.raw === null ? '' : fmtDec4.format(r.raw)));
+                h += '<tr><td>' + esc(r.label) + '</td><td class="num">' + rawTxt + '</td><td class="num">' + fmtDec4.format(r.treated) +
+                    '</td><td class="num">' + fmtDec4.format(r.coef) + '</td><td class="num">' + fmtDec4.format(r.contrib) + '</td></tr>';
+            });
+            h += '<tr><td>Costante del modello</td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num">' + fmtDec4.format(mcc.costante) + '</td></tr>' +
+                '<tr><td><strong>Score complessivo (xb)</strong></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"><strong>' + fmtDec4.format(mcc.xb) + '</strong></td></tr>' +
+                '</tbody></table></div>';
+
+            // 3. Cruscotto bancabilità
+            h += '<div class="pr-section"><h2>3. Cruscotto di bancabilità</h2>' +
+                '<table><thead><tr><th>Indicatore</th><th class="num">Valore</th><th>Giudizio</th><th>Riferimento di prassi</th></tr></thead><tbody>';
+            bank.cards.forEach(function (c) {
+                h += '<tr><td>' + esc(c.name) + '</td><td class="num">' + esc(c.value) + '</td>' +
+                    '<td class="' + lvlClass[c.level] + '">' + esc(c.badge) + '</td><td>' + esc(c.ref) + '</td></tr>';
+            });
+            h += '</tbody></table></div>';
+
+            // 4. Indici CNDCEC
+            h += '<div class="pr-section"><h2>4. Indici della crisi d\'impresa (CNDCEC)</h2>';
+            h += '<p>Patrimonio netto: <span class="' + (cn.pnNeg ? 'c-rosso' : 'c-verde') + '">' + (cn.pnNeg ? 'negativo' : 'positivo') + '</span>. ' +
+                'DSCR: ' + (dscr === null ? '<span class="c-neutro">non calcolato</span>' : '<span class="' + (dscr < 1 ? 'c-rosso' : 'c-verde') + '">' + fmtDec2.format(dscr) + (dscr < 1 ? ' (sotto la soglia di 1)' : ' (sopra la soglia di 1)') + '</span>') + '.</p>';
+            if (cn.row) {
+                var accesi = cn.rows.filter(function (r) { return r.on; }).length;
+                h += '<p>Soglie ufficiali del settore: <strong>' + esc(cn.row.label) + '</strong>. Indici oltre soglia: <strong>' + accesi + ' su 5</strong>' +
+                    (cn.tuttiAccesi ? ' <span class="c-rosso">(presunzione di squilibrio)</span>' : '') + '.</p>' +
+                    '<table><thead><tr><th>Indice</th><th class="num">Valore impresa</th><th class="num">Soglia settore</th><th>Verso di allerta</th><th>Esito</th></tr></thead><tbody>';
+                cn.rows.forEach(function (r) {
+                    h += '<tr><td>' + esc(r.label) + '</td><td class="num">' + (r.val === null ? 'n.c.' : fmtPct(r.val, 1)) + '</td>' +
+                        '<td class="num">' + fmtPct(r.soglia, 1) + '</td>' +
+                        '<td>' + (r.dir === 'ge' ? 'Maggiore o uguale' : 'Minore o uguale') + '</td>' +
+                        '<td class="' + (r.on ? 'c-rosso' : 'c-verde') + '">' + (r.on ? 'Oltre soglia' : 'Nella norma') + '</td></tr>';
+                });
+                h += '</tbody></table>';
+            }
+            h += '<p class="pr-note">' + esc(el('cndcecNote').textContent) + '</p></div>';
+
+            // 5. Z-Score
+            var zZone = z.value < z.lo ? 'rischio' : (z.value <= z.hi ? 'incertezza' : 'sicurezza');
+            var zLvl = zZone === 'rischio' ? 'c-rosso' : (zZone === 'incertezza' ? 'c-giallo' : 'c-verde');
+            h += '<div class="pr-section"><h2>5. Z-Score di Altman</h2>' +
+                '<p>' + esc(z.label) + ': valore <strong>' + fmtDec2.format(z.value) + '</strong>, ' +
+                '<span class="' + zLvl + '">zona di ' + zZone + '</span> ' +
+                '(soglie: rischio sotto ' + fmtDec2.format(z.lo) + ', sicurezza oltre ' + fmtDec2.format(z.hi) + ').</p></div>';
+
+            // 6. Dati di input
+            h += '<div class="pr-section"><h2>6. Dati di bilancio utilizzati</h2>' +
+                '<table><thead><tr><th>Voce</th><th class="num">Importo</th><th>Voce</th><th class="num">Importo</th></tr></thead><tbody>';
+            var pairs = [];
+            FIELD_IDS.forEach(function (id) {
+                var n = parseNum(el(id).value);
+                pairs.push([fieldLabel(id), n === null ? 'non indicato' : fmtEuro(n)]);
+            });
+            pairs.push(['Totale attivo (ricostruito)', fmtEuro(x.SP14)]);
+            pairs.push(['Totale passivo (ricostruito)', fmtEuro(x.SP23)]);
+            pairs.push(['Posizione finanziaria netta', (x.PFN < 0 ? 'cassa netta ' : '') + fmtEuro(Math.abs(x.PFN))]);
+            var half = Math.ceil(pairs.length / 2);
+            for (var i = 0; i < half; i++) {
+                var a = pairs[i], b = pairs[i + half];
+                h += '<tr><td>' + esc(a[0]) + '</td><td class="num">' + esc(a[1]) + '</td>' +
+                    (b ? '<td>' + esc(b[0]) + '</td><td class="num">' + esc(b[1]) + '</td>' : '<td></td><td></td>') + '</tr>';
+            }
+            h += '</tbody></table></div>';
+
+            // Fonti e disclaimer
+            h += '<div class="pr-foot"><strong>Metodologia e fonti.</strong> Rating MCC: Specifiche tecniche per il calcolo della probabilità di inadempimento ' +
+                'del Fondo di Garanzia PMI (in vigore dal 15/02/2020) e Parte IX delle Disposizioni Operative; simulazione del solo modulo economico-finanziario ' +
+                'per società di capitali, modulo andamentale assunto non disponibile. Indici della crisi: documento CNDCEC del 20 ottobre 2019 (soglie settoriali ' +
+                'ufficiali); dopo il D.Lgs. 83/2022 gli indici non hanno valore di legge ma restano il benchmark professionale per gli adeguati assetti ex art. 2086 c.c. ' +
+                'Z-Score: varianti Z\' e Z\'\' di Altman per imprese non quotate. Soglie di bancabilità: prassi di mercato (covenant tipici, istruttorie di fido, ' +
+                'linee guida EBA su erogazione e monitoraggio del credito). <strong>Avvertenze.</strong> Il presente report è una simulazione orientativa costruita ' +
+                'sui soli dati di bilancio forniti dall\'utente: non costituisce il rating ufficiale del Fondo di Garanzia né il rating di un istituto di credito ' +
+                'e non sostituisce una diagnosi professionale del merito creditizio. I calcoli avvengono esclusivamente nel browser dell\'utente: nessun dato ' +
+                'viene trasmesso o conservato. &copy; ' + new Date().getFullYear() + ' Next Generation Business, a cura di Revilaw S.p.A.</div>';
+
+            el('printReport').innerHTML = h;
+            document.body.classList.add('has-report');
+        }
+
+        // ------- Submit -------
+        el('simForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (!validate()) { el('simError').hidden = false; return; }
+            el('simError').hidden = true;
+
+            var v = readInputs();
+            var x = buildX(v);
+            var sec = SETTORI[el('settore').value];
+
+            var mcc = computeMcc(sec.mcc, x);
+            var bank = computeBank(x);
+            var cn = computeCndcec(x, sec.cndcec, bank.dscr);
+            var z = computeZ(x, sec.z);
+
+            renderMcc(mcc, sec.label);
+            renderBank(bank);
+            renderCndcec(cn, x, bank.dscr);
+            renderZ(z);
+            renderSummary(mcc, bank, cn, z, bank.dscr);
+            buildPrintReport({ secLabel: sec.label, mcc: mcc, bank: bank, cn: cn, z: z, x: x, dscr: bank.dscr });
+
+            var results = el('simResults');
+            results.hidden = false;
+            results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        el('settore').addEventListener('change', function () {
+            el('settore').classList.remove('invalid');
+        });
+
+        // ------- Esempio e azzeramento -------
+        el('btnEsempio').addEventListener('click', function () {
+            var demo = {
+                ricavi: 4200000, ricaviPrec: 3900000, vdp: 4300000, vdpPrec: 3980000,
+                mol: 480000, ebit: 300000, ammort: 180000, oneriFin: 85000, imposte: 60000, utile: 140000,
+                immob: 1600000, rimanenze: 700000, creditiEntro: 1100000, creditiOltre: 30000, attFin: 0,
+                liquidita: 250000, rateiAttivi: 20000, creditiSoci: 0,
+                pn: 1150000, riserveUtili: 600000, fondi: 40000, tfr: 210000,
+                debitiEntro: 1700000, debitiOltre: 570000, rateiPassivi: 30000, debTribPrev: 120000,
+                debFinBreve: 500000, debFinLungo: 550000, quotaCapitale: 180000
+            };
+            for (var id in demo) { el(id).value = fmtInt.format(demo[id]); el(id).classList.remove('invalid'); }
+            el('settore').value = 'manif';
+            el('settore').classList.remove('invalid');
+            updateTotals();
+        });
+
+        el('btnAzzera').addEventListener('click', function () {
+            FIELD_IDS.forEach(function (id) { el(id).value = ''; el(id).classList.remove('invalid'); });
+            el('settore').value = '';
+            el('denominazione').value = '';
+            el('esercizio').value = '';
+            el('simResults').hidden = true;
+            el('simError').hidden = true;
+            el('printReport').innerHTML = '';
+            document.body.classList.remove('has-report');
+            updateTotals();
+        });
+
+        attachFormatting();
+        updateTotals();
+    })();
+    </script>
+</body>
+</html>

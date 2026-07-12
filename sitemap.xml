@@ -146,6 +146,14 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Il Rating Bancario: simulatore MCC e cruscotto di bancabilità -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/rating_bancario/</loc>
+        <lastmod>2026-07-12</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
     <!-- Osservatorio giurisprudenza: Cass. 7134/2026, adeguati assetti e accesso al credito -->
     <url>
         <loc>https://nextgenerationbusiness.it/cassazione_7134_2026/</loc>
