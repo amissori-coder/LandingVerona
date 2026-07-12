@@ -61,6 +61,32 @@ function trasporto() {
     });
 }
 
+// Rate limit per email, robusto anche a richieste concorrenti (transazione).
+// Ritorna true se l'invio è consentito e "consuma" un gettone; false se è
+// troppo presto o si è superato il tetto orario per quell'indirizzo.
+const RL_PAUSA_MS = 5 * 60 * 1000;   // almeno 5 minuti tra un invio e il successivo
+const RL_MAX_ORA = 5;                // massimo 5 invii per email in un'ora
+const RL_ORA_MS = 60 * 60 * 1000;
+async function consumaGettone(email) {
+    const ref = admin.firestore().collection('email_throttle').doc(email);
+    return admin.firestore().runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const ora = Date.now();
+        const d = snap.exists ? snap.data() : { inizioFinestra: 0, conteggio: 0, ultimo: 0 };
+        const stessaFinestra = (ora - (d.inizioFinestra || 0)) < RL_ORA_MS;
+        const conteggio = stessaFinestra ? (d.conteggio || 0) : 0;
+        if ((ora - (d.ultimo || 0)) < RL_PAUSA_MS || conteggio >= RL_MAX_ORA) {
+            return false;
+        }
+        tx.set(ref, {
+            ultimo: ora,
+            inizioFinestra: stessaFinestra ? d.inizioFinestra : ora,
+            conteggio: conteggio + 1
+        }, { merge: true });
+        return true;
+    });
+}
+
 function corpoEmail(link, tipo) {
     const intro = tipo === 'recupero'
         ? 'Hai richiesto di reimpostare la password per accedere all\'Area riservata incarichi di Revilaw S.p.A.'
@@ -119,6 +145,18 @@ module.exports = async (req, res) => {
         const doc = await admin.firestore().collection('utenti').doc(email).get();
         if (!doc.exists || doc.data().attivo === false) {
             // per non rivelare chi è abilitato, rispondiamo comunque ok senza inviare
+            res.status(200).json({ ok: true });
+            return;
+        }
+
+        // Anti-abuso: l'endpoint è pubblico, quindi limitiamo gli invii per email
+        // (pausa minima + tetto orario) per impedire il "mail-bombing" di un utente
+        // e l'esaurimento della quota SMTP dello studio. L'Admin SDK ignora le regole
+        // di Firestore, quindi non serve modificarle: scriviamo in "email_throttle".
+        // La transazione rende il limite robusto anche a richieste concorrenti.
+        const consentito = await consumaGettone(email);
+        if (!consentito) {
+            // non riveliamo il blocco: stessa risposta "ok" del gate
             res.status(200).json({ ok: true });
             return;
         }
