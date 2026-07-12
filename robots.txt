@@ -14,5 +14,6 @@ Allow: /assets/
 Disallow: /stima-ore-test/
 Disallow: /revisione-test/
 Disallow: /tools/
+Disallow: /area-riservata/
 
 Sitemap: https://nextgenerationbusiness.it/sitemap.xml

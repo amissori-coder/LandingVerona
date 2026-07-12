@@ -1,0 +1,333 @@
+/* ============================================================
+   AREA RISERVATA REVILAW - Stili
+   Palette e font coerenti con il sito (revisione-demo)
+   ============================================================ */
+
+:root {
+    --blu-900: #0A2844;
+    --blu-700: #164068;
+    --blu-500: #2A5A85;
+    --blu-100: #E8EFF6;
+    --blu-050: #F4F8FB;
+    --oro: #C9A227;
+    --verde: #1E7F4F;
+    --verde-bg: #E6F4EC;
+    --rosso: #B3261E;
+    --rosso-bg: #FBEAE9;
+    --ambra: #9A6700;
+    --ambra-bg: #FFF4D6;
+    --grigio-900: #1E293B;
+    --grigio-600: #475569;
+    --grigio-400: #94A3B8;
+    --grigio-200: #E2E8F0;
+    --grigio-100: #F1F5F9;
+    --bianco: #FFFFFF;
+    --ombra: 0 2px 12px rgba(10, 40, 68, 0.10);
+    --ombra-lg: 0 12px 40px rgba(10, 40, 68, 0.18);
+    --raggio: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { font-size: 16px; }
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--blu-050);
+    color: var(--grigio-900);
+    line-height: 1.55;
+    min-height: 100vh;
+}
+
+h1, h2, h3, h4 { font-family: 'Montserrat', 'Inter', sans-serif; color: var(--blu-900); line-height: 1.25; }
+
+button { font-family: inherit; cursor: pointer; }
+input, select, textarea { font-family: inherit; font-size: 0.95rem; }
+
+a { color: var(--blu-700); }
+
+.hidden { display: none !important; }
+
+/* ---------- Pulsanti ---------- */
+.btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px; border-radius: 8px; border: 1px solid transparent;
+    font-weight: 600; font-size: 0.92rem; transition: all .15s ease;
+    text-decoration: none;
+}
+.btn-primary { background: var(--blu-700); color: #fff; }
+.btn-primary:hover { background: var(--blu-900); }
+.btn-secondary { background: #fff; color: var(--blu-700); border-color: var(--blu-500); }
+.btn-secondary:hover { background: var(--blu-100); }
+.btn-ghost { background: transparent; color: var(--blu-700); }
+.btn-ghost:hover { background: var(--blu-100); }
+.btn-danger { background: var(--rosso); color: #fff; }
+.btn-danger:hover { background: #8F1E17; }
+.btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.btn-block { width: 100%; justify-content: center; }
+
+/* ---------- Form ---------- */
+.campo { margin-bottom: 16px; }
+.campo label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--blu-900); margin-bottom: 6px; }
+.campo input, .campo select, .campo textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--grigio-200);
+    border-radius: 8px; background: #fff; color: var(--grigio-900);
+}
+.campo input:focus, .campo select:focus, .campo textarea:focus {
+    outline: none; border-color: var(--blu-500); box-shadow: 0 0 0 3px rgba(42, 90, 133, 0.15);
+}
+.campo .hint { font-size: 0.78rem; color: var(--grigio-600); margin-top: 4px; }
+.campo.errore input { border-color: var(--rosso); }
+.campo .msg-errore { font-size: 0.78rem; color: var(--rosso); margin-top: 4px; }
+
+.griglia-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.griglia-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 20px; }
+@media (max-width: 720px) { .griglia-2, .griglia-3 { grid-template-columns: 1fr; } }
+
+/* ---------- Schermata di accesso ---------- */
+.login-wrap {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--blu-900) 0%, var(--blu-700) 55%, var(--blu-500) 100%);
+    padding: 24px;
+}
+.login-card {
+    background: #fff; border-radius: 16px; box-shadow: var(--ombra-lg);
+    width: 100%; max-width: 440px; padding: 36px 32px;
+}
+.login-card .logo-area { text-align: center; margin-bottom: 20px; }
+
+/* Marchio Revilaw: simbolo + scritta, come nelle altre pagine del sito */
+.marchio {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'Montserrat', 'Inter', sans-serif;
+    font-size: 1.45rem; font-weight: 800; letter-spacing: -0.5px;
+}
+.marchio img { height: 40px; width: auto; }
+.marchio .logo-revilaw { color: var(--grigio-900); }
+.marchio .logo-spa { color: #8bb8d4; }
+.marchio.chiaro img { filter: brightness(0) invert(1); }
+.marchio.chiaro .logo-revilaw { color: #fff; }
+.marchio.chiaro { font-size: 1.15rem; }
+.marchio.chiaro img { height: 30px; }
+.login-card h1 { font-size: 1.3rem; text-align: center; margin-bottom: 4px; }
+.login-card .sottotitolo { text-align: center; color: var(--grigio-600); font-size: 0.9rem; margin-bottom: 24px; }
+.login-azioni { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.login-links { display: flex; justify-content: space-between; margin-top: 14px; font-size: 0.85rem; }
+.login-links a { cursor: pointer; }
+.avviso-demo {
+    margin-top: 22px; padding: 12px 14px; border-radius: 8px;
+    background: var(--ambra-bg); color: var(--ambra); font-size: 0.78rem; line-height: 1.5;
+}
+
+/* ---------- Shell applicazione ---------- */
+.app-shell { display: flex; min-height: 100vh; }
+
+.sidebar {
+    width: 240px; flex-shrink: 0; background: var(--blu-900); color: #fff;
+    display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+}
+.sidebar .brand { padding: 20px 18px 14px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+.sidebar .brand .titolo-area { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-top: 8px; font-weight: 600; }
+.sidebar nav { flex: 1; padding: 14px 10px; overflow-y: auto; }
+.nav-voce {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 10px 12px; margin-bottom: 2px; border: none; background: transparent;
+    color: rgba(255,255,255,0.82); font-size: 0.9rem; font-weight: 500;
+    border-radius: 8px; text-align: left;
+}
+.nav-voce:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.nav-voce.attiva { background: var(--blu-500); color: #fff; font-weight: 600; }
+.nav-voce .icona { width: 18px; height: 18px; flex-shrink: 0; }
+.sidebar .utente-box { padding: 14px 18px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 0.82rem; }
+.sidebar .utente-box .nome { font-weight: 700; }
+.sidebar .utente-box .ruolo { color: rgba(255,255,255,0.6); font-size: 0.75rem; text-transform: capitalize; }
+.sidebar .utente-box button { margin-top: 10px; }
+
+.contenuto { flex: 1; padding: 28px 32px 60px; max-width: 1500px; min-width: 0; }
+.contenuto > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.contenuto > header h1 { font-size: 1.45rem; }
+.contenuto > header .descrizione { color: var(--grigio-600); font-size: 0.9rem; margin-top: 4px; max-width: 640px; }
+.header-azioni { display: flex; gap: 10px; flex-wrap: wrap; }
+
+@media (max-width: 900px) {
+    .app-shell { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; position: static; }
+    .sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; }
+    .nav-voce { width: auto; }
+    .contenuto { padding: 20px 16px 60px; }
+}
+
+/* ---------- Card e KPI ---------- */
+.card { background: #fff; border-radius: var(--raggio); box-shadow: var(--ombra); padding: 22px; margin-bottom: 20px; }
+.card h2 { font-size: 1.05rem; margin-bottom: 14px; }
+.card h3 { font-size: 0.95rem; margin-bottom: 10px; }
+
+.kpi-griglia { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.kpi {
+    background: #fff; border-radius: var(--raggio); box-shadow: var(--ombra);
+    padding: 16px 18px; border-left: 4px solid var(--blu-500);
+}
+.kpi .etichetta { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--grigio-600); }
+.kpi .valore { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; font-weight: 800; color: var(--blu-900); margin-top: 4px; }
+.kpi .nota { font-size: 0.78rem; color: var(--grigio-600); margin-top: 2px; }
+.kpi.verde { border-left-color: var(--verde); }
+.kpi.ambra { border-left-color: var(--oro); }
+.kpi.rosso { border-left-color: var(--rosso); }
+
+/* ---------- Filtri ---------- */
+.filtri { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end; }
+.filtri .campo { margin-bottom: 0; min-width: 150px; flex: 0 1 auto; }
+.filtri .campo.ricerca { flex: 1 1 220px; }
+.filtri .campo label { font-size: 0.75rem; }
+.filtri .campo input, .filtri .campo select { padding: 8px 10px; font-size: 0.88rem; }
+
+/* ---------- Tabelle ---------- */
+.tabella-wrap { overflow-x: auto; background: #fff; border-radius: var(--raggio); box-shadow: var(--ombra); }
+table.dati { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+table.dati th {
+    background: var(--blu-900); color: #fff; text-align: left; padding: 10px 12px;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+    position: sticky; top: 0; cursor: pointer; user-select: none;
+}
+table.dati th.num, table.dati td.num { text-align: right; }
+table.dati td { padding: 9px 12px; border-bottom: 1px solid var(--grigio-100); vertical-align: top; }
+table.dati tbody tr:hover { background: var(--blu-050); }
+table.dati tbody tr.cliccabile { cursor: pointer; }
+table.dati .cliente-cella { font-weight: 600; color: var(--blu-900); }
+table.dati tfoot td { font-weight: 700; background: var(--blu-100); border-top: 2px solid var(--blu-500); }
+.tabella-vuota { padding: 40px; text-align: center; color: var(--grigio-600); }
+
+/* ---------- Badge ---------- */
+.badge {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+}
+.badge.legale { background: var(--blu-100); color: var(--blu-700); }
+.badge.volontaria { background: #EFE6F7; color: #6B3FA0; }
+.badge.collegio { background: #E0F2F1; color: #00695C; }
+.badge.assistenza { background: var(--grigio-100); color: var(--grigio-600); }
+.badge.verde { background: var(--verde-bg); color: var(--verde); }
+.badge.ambra { background: var(--ambra-bg); color: var(--ambra); }
+.badge.rosso { background: var(--rosso-bg); color: var(--rosso); }
+.badge.neutro { background: var(--grigio-100); color: var(--grigio-600); }
+
+/* ---------- Modale ---------- */
+.modale-sfondo {
+    position: fixed; inset: 0; background: rgba(10, 40, 68, 0.55);
+    display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+}
+.modale {
+    background: #fff; border-radius: 14px; box-shadow: var(--ombra-lg);
+    width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; padding: 26px;
+}
+.modale.larga { max-width: 900px; }
+.modale h2 { font-size: 1.15rem; margin-bottom: 14px; }
+.modale-azioni { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+.password-temporanea {
+    font-family: 'Consolas', monospace; font-size: 1.3rem; font-weight: 700;
+    background: var(--blu-100); color: var(--blu-900); padding: 12px 16px;
+    border-radius: 8px; text-align: center; letter-spacing: 0.08em; margin: 12px 0;
+    user-select: all;
+}
+
+/* ---------- Wizard ---------- */
+.wizard-passi { display: flex; gap: 6px; margin-bottom: 22px; flex-wrap: wrap; }
+.wizard-passo {
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+    border-radius: 999px; background: var(--grigio-100); color: var(--grigio-600);
+    font-size: 0.8rem; font-weight: 600;
+}
+.wizard-passo .n {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--grigio-200);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;
+}
+.wizard-passo.attivo { background: var(--blu-700); color: #fff; }
+.wizard-passo.attivo .n { background: rgba(255,255,255,0.25); color: #fff; }
+.wizard-passo.fatto { background: var(--verde-bg); color: var(--verde); }
+.wizard-passo.fatto .n { background: var(--verde); color: #fff; }
+
+.calc-riquadro { background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: 10px; padding: 16px; margin: 14px 0; }
+.calc-riga { display: flex; justify-content: space-between; padding: 5px 0; font-size: 0.9rem; }
+.calc-riga.totale { border-top: 2px solid var(--blu-500); margin-top: 8px; padding-top: 10px; font-weight: 800; font-size: 1.05rem; color: var(--blu-900); }
+.calc-riga .val { font-weight: 700; }
+
+.riepilogo-blocco { border: 1px solid var(--grigio-200); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+.riepilogo-blocco h4 { font-size: 0.85rem; margin-bottom: 8px; color: var(--blu-500); text-transform: uppercase; letter-spacing: 0.05em; }
+.riepilogo-riga { display: flex; justify-content: space-between; gap: 16px; padding: 3px 0; font-size: 0.88rem; }
+.riepilogo-riga .etichetta { color: var(--grigio-600); }
+.riepilogo-riga .valore { font-weight: 600; text-align: right; }
+
+/* ---------- Dettaglio incarico ---------- */
+.dettaglio-griglia { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start; }
+@media (max-width: 1000px) { .dettaglio-griglia { grid-template-columns: 1fr; } }
+
+.storia-voce { border-left: 3px solid var(--blu-100); padding: 8px 0 8px 14px; margin-left: 4px; font-size: 0.84rem; }
+.storia-voce .quando { color: var(--grigio-400); font-size: 0.75rem; }
+.storia-voce .chi { font-weight: 700; color: var(--blu-700); }
+.storia-voce .campi { color: var(--grigio-600); margin-top: 3px; }
+.storia-voce .campi li { margin-left: 16px; }
+
+/* ---------- Grafici ---------- */
+.grafico-wrap { position: relative; width: 100%; }
+.grafico-wrap canvas { width: 100%; display: block; }
+.legenda { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.8rem; color: var(--grigio-600); }
+.legenda .voce { display: inline-flex; align-items: center; gap: 6px; }
+.legenda .quadrato { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+/* ---------- Toast ---------- */
+.toast-area { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+    background: var(--blu-900); color: #fff; padding: 12px 18px; border-radius: 10px;
+    box-shadow: var(--ombra-lg); font-size: 0.88rem; max-width: 380px;
+    animation: toast-in .25s ease;
+}
+.toast.verde { background: var(--verde); }
+.toast.rosso { background: var(--rosso); }
+@keyframes toast-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---------- Stampa lettera di incarico ---------- */
+.lettera-anteprima {
+    background: #fff; box-shadow: var(--ombra); border-radius: var(--raggio);
+    max-width: 860px; margin: 0 auto; padding: 60px 70px;
+}
+.lettera {
+    font-family: Georgia, 'Times New Roman', serif; font-size: 11.5pt;
+    color: #111; line-height: 1.6;
+}
+.lettera .intestazione { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
+.lettera .marchio-lettera { display: inline-flex; align-items: center; gap: 10px; font-family: 'Montserrat', 'Inter', sans-serif; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.5px; }
+.lettera .marchio-lettera img { height: 42px; width: auto; }
+.lettera .marchio-lettera .lr { color: #1E293B; }
+.lettera .marchio-lettera .ls { color: #8bb8d4; }
+.lettera .societa-dati { font-size: 8.5pt; color: #444; text-align: right; line-height: 1.45; }
+.lettera .destinatario { margin: 26px 0; white-space: pre-line; }
+.lettera .luogo-data { text-align: right; margin-bottom: 20px; }
+.lettera .oggetto { font-weight: bold; margin: 20px 0; }
+.lettera h2 { font-family: Georgia, serif; font-size: 12pt; color: #111; margin: 22px 0 8px; }
+.lettera p { margin-bottom: 10px; text-align: justify; }
+.lettera ul, .lettera ol { margin: 0 0 10px 24px; }
+.lettera li { margin-bottom: 4px; text-align: justify; }
+.lettera table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 10.5pt; }
+.lettera table th, .lettera table td { border: 1px solid #999; padding: 6px 10px; text-align: left; }
+.lettera table th { background: #EFEFEF; }
+.lettera table td.num, .lettera table th.num { text-align: right; }
+.lettera .firme { display: flex; justify-content: space-between; gap: 40px; margin-top: 50px; }
+.lettera .firma-blocco { flex: 1; text-align: center; }
+.lettera .firma-linea { border-top: 1px solid #333; margin-top: 60px; padding-top: 6px; font-size: 10pt; }
+.lettera .accettazione { margin-top: 36px; page-break-inside: avoid; }
+
+.barra-stampa {
+    max-width: 860px; margin: 0 auto 18px; display: flex; gap: 10px;
+    justify-content: space-between; align-items: center; flex-wrap: wrap;
+}
+
+@media print {
+    body { background: #fff; }
+    .sidebar, .barra-stampa, .toast-area, .contenuto > header, .no-stampa { display: none !important; }
+    .contenuto { padding: 0; max-width: none; }
+    .lettera-anteprima { box-shadow: none; border-radius: 0; padding: 0; max-width: none; }
+    .app-shell { display: block; }
+    @page { margin: 2cm 1.8cm; }
+}

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Area riservata incarichi | Revilaw S.p.A.</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/png" href="../assets/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- ======== SCHERMATA DI ACCESSO ======== -->
+    <div id="schermata-login" class="login-wrap hidden">
+        <div class="login-card">
+            <div class="logo-area">
+                <span class="marchio">
+                    <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw">
+                    <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                </span>
+            </div>
+            <h1>Area riservata incarichi</h1>
+            <p class="sottotitolo">Gestione degli incarichi di revisione</p>
+
+            <form id="form-login" autocomplete="off">
+                <div class="campo">
+                    <label for="login-email">Indirizzo email</label>
+                    <input type="email" id="login-email" required autocomplete="username" placeholder="nome@studio.it">
+                </div>
+                <div class="campo">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required autocomplete="current-password">
+                    <div class="msg-errore hidden" id="login-errore"></div>
+                </div>
+                <div class="login-azioni">
+                    <button type="submit" class="btn btn-primary btn-block">Accedi</button>
+                    <button type="button" class="btn btn-secondary btn-block" id="btn-prima-password">Richiedi la prima password</button>
+                </div>
+                <div class="login-links">
+                    <a id="link-recupero">Password dimenticata?</a>
+                    <a href="../revisione-demo/">Pagina revisione legale</a>
+                </div>
+            </form>
+
+            <div class="avviso-demo">
+                <strong>Prototipo dimostrativo.</strong> L'autenticazione e i dati sono gestiti
+                solo in questo browser (localStorage): nessuna informazione viene inviata a un server.
+                Per un utilizzo reale servono un backend e un sistema di autenticazione certificato.
+            </div>
+        </div>
+    </div>
+
+    <!-- ======== APPLICAZIONE ======== -->
+    <div id="app" class="app-shell hidden">
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="marchio chiaro">
+                    <img src="../zls_zes/img/logo-revilaw.png" alt="Revilaw">
+                    <span class="logo-revilaw">Revilaw</span><span class="logo-spa">SPA</span>
+                </span>
+                <div class="titolo-area">Area riservata incarichi</div>
+            </div>
+            <nav id="nav-principale"></nav>
+            <div class="utente-box">
+                <div class="nome" id="utente-nome"></div>
+                <div class="ruolo" id="utente-ruolo"></div>
+                <button class="btn btn-sm btn-secondary" id="btn-logout">Esci</button>
+            </div>
+        </aside>
+        <main class="contenuto" id="vista"></main>
+    </div>
+
+    <div class="toast-area" id="toast-area"></div>
+    <div id="modale-contenitore"></div>
+
+    <script src="firebase-config.js"></script>
+    <script src="dati-demo.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
