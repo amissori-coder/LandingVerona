@@ -748,7 +748,7 @@
         },
 
         async carica(tipo, file) {
-            if (!Cloud.attivo || !Cloud.pronto) throw new Error('I modelli PDF richiedono Firebase attivo.');
+            if (!Cloud.attivo || !Cloud.pronto) throw new Error('I modelli PDF richiedono l\'accesso al cloud condiviso.');
             const bytes = new Uint8Array(await file.arrayBuffer());
             if (bytes.length > 9 * 1024 * 1024) throw new Error('File troppo grande (massimo 9 MB).');
             const b64 = this._b64DaBytes(bytes);
@@ -2216,25 +2216,26 @@
             <header>
                 <div>
                     <h1>Persone</h1>
-                    <p class="descrizione">Anagrafica del team: chi puo essere responsabile della qualita, responsabile dell'incarico o componente del team di revisione. Le tendine del wizard leggono da questo elenco.</p>
+                    <p class="descrizione">Anagrafica completa: nominativi, contatti (email, telefono, regione) e ruoli. Chi puo essere responsabile della qualita, responsabile dell'incarico o componente del team. Le tendine del wizard leggono da questo elenco.</p>
                 </div>
                 <div class="header-azioni">
                     ${Auth.puoModificare() ? '<button class="btn btn-primary" id="btn-nuova-persona">+ Aggiungi persona</button>' : ''}
                 </div>
             </header>
-            <div class="tabella-wrap"><table class="dati"><thead><tr>
-                <th>Cognome</th><th>Nome completo</th><th>Qualita</th><th>Resp. incarico</th><th>Team</th><th class="num">Incarichi (resp.)</th><th class="num">Incarichi (qualita)</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
+            <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <th>Cognome</th><th>Nome completo</th><th>Email</th><th>Regione</th><th>Qualita</th><th>Resp. incarico</th><th>Team</th><th class="num">Inc. (resp.)</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             persone.map(p => `<tr>
-                <td class="cliente-cella">${esc(p.nome)}</td>
-                <td>${p.nomeCompleto ? esc(p.nomeCompleto) : '<span style="color:var(--grigio-400)">—</span>'}</td>
-                <td>${spunta(p.qualita)}</td>
-                <td>${spunta(p.respIncarico)}</td>
-                <td>${spunta(p.team)}</td>
-                <td class="num">${(conteggi[p.nome] || {}).resp || ''}</td>
-                <td class="num">${(conteggi[p.nome] || {}).qual || ''}</td>
-                <td>${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
-                ${Auth.puoModificare() ? `<td style="white-space:nowrap;">
+                <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
+                <td data-label="Nome completo">${p.nomeCompleto ? esc(p.nomeCompleto) : '<span style="color:var(--grigio-400)">—</span>'}</td>
+                <td data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : '<span style="color:var(--grigio-400)">—</span>'}</td>
+                <td data-label="Regione">${esc(p.regione || '')}</td>
+                <td data-label="Qualita">${spunta(p.qualita)}</td>
+                <td data-label="Resp. incarico">${spunta(p.respIncarico)}</td>
+                <td data-label="Team">${spunta(p.team)}</td>
+                <td class="num" data-label="Inc. (resp.)">${(conteggi[p.nome] || {}).resp || ''}</td>
+                <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
+                ${Auth.puoModificare() ? `<td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary p-modifica" data-id="${esc(p.id)}">Modifica</button>
                     <button class="btn btn-sm ${p.attivo ? 'btn-danger' : 'btn-secondary'} p-attiva" data-id="${esc(p.id)}">${p.attivo ? 'Disattiva' : 'Riattiva'}</button>
                 </td>` : ''}
@@ -2263,19 +2264,27 @@
         const lista = Persone.tutte();
         const p = id ? lista.find(x => x.id === id) : null;
         apriModale(`<h2>${p ? 'Modifica persona' : 'Aggiungi persona'}</h2>
-            <div class="campo"><label>Cognome (o cognome e nome)</label><input id="m-p-nome" value="${p ? esc(p.nome) : ''}"></div>
-            <div class="campo"><label>Nome completo (nome e cognome)</label><input id="m-p-completo" value="${p && p.nomeCompleto ? esc(p.nomeCompleto) : ''}" placeholder="es. Mario Rossi"><div class="hint">Usato nelle lettere di incarico (Dott. Nome Cognome).</div></div>
+            <div class="griglia-2">
+                <div class="campo"><label>Cognome (o cognome e nome)</label><input id="m-p-nome" value="${p ? esc(p.nome) : ''}"></div>
+                <div class="campo"><label>Nome completo (nome e cognome)</label><input id="m-p-completo" value="${p && p.nomeCompleto ? esc(p.nomeCompleto) : ''}" placeholder="es. Mario Rossi"><div class="hint">Usato nelle lettere (Dott. Nome Cognome).</div></div>
+                <div class="campo"><label>Email</label><input id="m-p-email" type="email" value="${p && p.email ? esc(p.email) : ''}"></div>
+                <div class="campo"><label>Telefono</label><input id="m-p-telefono" value="${p && p.telefono ? esc(p.telefono) : ''}"></div>
+                <div class="campo"><label>Regione</label><input id="m-p-regione" value="${p && p.regione ? esc(p.regione) : ''}"></div>
+                <div class="campo"><label>Provincia</label><input id="m-p-provincia" value="${p && p.provincia ? esc(p.provincia) : ''}"></div>
+                <div class="campo"><label>Localita</label><input id="m-p-localita" value="${p && p.localita ? esc(p.localita) : ''}"></div>
+                <div class="campo"><label>Indirizzo</label><input id="m-p-indirizzo" value="${p && p.indirizzo ? esc(p.indirizzo) : ''}"></div>
+            </div>
             <div class="campo"><label>Ruoli</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-qualita" ${p && p.qualita ? 'checked' : ''} style="width:auto;">Responsabile qualita</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-resp" ${p && p.respIncarico ? 'checked' : ''} style="width:auto;">Responsabile incarico</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-team" ${!p || p.team ? 'checked' : ''} style="width:auto;">Team di revisione / referente</label>
             </div>
-            ${p ? '<p class="descrizione">Se cambi il nome, viene aggiornato anche negli incarichi che lo citano.</p>' : ''}
+            ${p ? '<p class="descrizione">Se cambi il cognome, viene aggiornato anche negli incarichi che lo citano.</p>' : ''}
             <div class="msg-errore hidden" id="m-p-errore"></div>
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="m-annulla">Annulla</button>
                 <button class="btn btn-primary" id="m-salva">Salva</button>
-            </div>`);
+            </div>`, { classe: 'larga' });
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
         document.getElementById('m-salva').addEventListener('click', () => {
             const nome = document.getElementById('m-p-nome').value.trim();
@@ -2285,28 +2294,41 @@
             if (/[,;]/.test(nome)) { err.textContent = 'Il nome non puo contenere virgole o punti e virgola.'; err.classList.remove('hidden'); return; }
             const omonimo = Persone.trovaPerNome(nome);
             if (omonimo && (!p || omonimo.id !== p.id)) { err.textContent = 'Esiste gia una persona con questo nome.'; err.classList.remove('hidden'); return; }
-            const nomeCompleto = document.getElementById('m-p-completo').value.trim();
+            const contatti = {
+                nomeCompleto: document.getElementById('m-p-completo').value.trim(),
+                email: document.getElementById('m-p-email').value.trim(),
+                telefono: document.getElementById('m-p-telefono').value.trim(),
+                regione: document.getElementById('m-p-regione').value.trim(),
+                provincia: document.getElementById('m-p-provincia').value.trim(),
+                localita: document.getElementById('m-p-localita').value.trim(),
+                indirizzo: document.getElementById('m-p-indirizzo').value.trim()
+            };
             const ruoli = {
                 qualita: document.getElementById('m-p-qualita').checked,
                 respIncarico: document.getElementById('m-p-resp').checked,
                 team: document.getElementById('m-p-team').checked
             };
+            const CAMPI_PERSONA = [
+                { chiave: 'nome', nome: 'Cognome' }, { chiave: 'nomeCompleto', nome: 'Nome completo' },
+                { chiave: 'email', nome: 'Email' }, { chiave: 'telefono', nome: 'Telefono' },
+                { chiave: 'regione', nome: 'Regione' }, { chiave: 'provincia', nome: 'Provincia' },
+                { chiave: 'localita', nome: 'Localita' }, { chiave: 'indirizzo', nome: 'Indirizzo' },
+                { chiave: 'qualita', nome: 'Ruolo qualita' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
+                { chiave: 'team', nome: 'Ruolo team' }
+            ];
             if (p) {
                 const prima = { ...p };
                 const vecchioNome = p.nome;
-                Object.assign(p, { nome, nomeCompleto, ...ruoli });
+                Object.assign(p, { nome, ...contatti, ...ruoli });
                 Persone.salva(lista);
                 let rinominati = 0;
                 if (vecchioNome !== nome) rinominati = rinominaPersonaNegliIncarichi(vecchioNome, nome);
                 Audit.registra(Auth.utenteCorrente, 'Persona modificata', 'persona', p.id, nome,
-                    Audit.confronta(prima, p, [
-                        { chiave: 'nome', nome: 'Nome' }, { chiave: 'nomeCompleto', nome: 'Nome completo' },
-                        { chiave: 'qualita', nome: 'Ruolo qualita' },
-                        { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' }, { chiave: 'team', nome: 'Ruolo team' }
-                    ]).concat(rinominati ? [{ campo: 'Incarichi aggiornati', prima: vecchioNome, dopo: nome + ' (' + rinominati + ')' }] : []));
+                    Audit.confronta(prima, p, CAMPI_PERSONA)
+                        .concat(rinominati ? [{ campo: 'Incarichi aggiornati', prima: vecchioNome, dopo: nome + ' (' + rinominati + ')' }] : []));
                 toast('Persona aggiornata.' + (rinominati ? ' Aggiornati ' + rinominati + ' incarichi.' : ''), 'verde');
             } else {
-                lista.push({ id: uid(), nome, nomeCompleto, ...ruoli, attivo: true });
+                lista.push({ id: uid(), nome, ...contatti, ...ruoli, attivo: true });
                 Persone.salva(lista);
                 Audit.registra(Auth.utenteCorrente, 'Persona aggiunta', 'persona', null, nome, null);
                 toast('Persona aggiunta: ' + nome, 'verde');
@@ -2494,7 +2516,7 @@
             <header>
                 <div>
                     <h1>Utenti abilitati</h1>
-                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono accedere. La password si imposta e si recupera tramite email (Firebase Authentication).</p>
+                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono accedere. La password si imposta e si recupera tramite email.</p>
                 </div>
                 <div class="header-azioni"><button class="btn btn-primary" id="btn-nuovo-utente">+ Abilita utente</button></div>
             </header>
@@ -2621,13 +2643,13 @@
                 ${Cloud.attivo
                     ? `<p class="descrizione" style="margin-bottom:12px;">Carica qui i PDF originali con i campi modulo: vengono archiviati su Firestore (visibili solo agli utenti abilitati) e usati dal pulsante "Scarica PDF ufficiale" della lettera. L'app compila i dati dell'incarico e lascia compilabili i campi riservati al cliente.</p>
                        <div id="modelli-stato" class="tabella-vuota">Caricamento stato modelli...</div>`
-                    : '<p class="descrizione">Disponibile con Firebase attivo.</p>'}
+                    : '<p class="descrizione">Disponibile con l\'accesso al cloud condiviso.</p>'}
             </div>` : ''}
             <div class="card">
                 <h2>Modalita di funzionamento</h2>
                 ${Cloud.attivo
-                    ? '<p class="descrizione">Firebase attivo: accessi gestiti da Firebase Authentication (password via email) e dati condivisi su Cloud Firestore tra gli utenti abilitati.</p>'
-                    : '<p class="descrizione">Modalita dimostrativa: accessi e dati vivono solo in questo browser. Per avere la password via email e i dati condivisi tra colleghi, attiva Firebase seguendo la guida <a href="FIREBASE-SETUP.md" target="_blank">FIREBASE-SETUP.md</a> (15 minuti, piano gratuito) e compila <code>firebase-config.js</code>.</p>'}
+                    ? '<p class="descrizione">Accesso protetto attivo: ogni utente entra con le proprie credenziali (password via email) e i dati sono condivisi in tempo reale tra gli utenti abilitati.</p>'
+                    : '<p class="descrizione">Modalita dimostrativa: accessi e dati vivono solo in questo browser. Per avere la password via email e i dati condivisi tra colleghi occorre attivare il servizio cloud seguendo la <a href="FIREBASE-SETUP.md" target="_blank">guida di configurazione</a>.</p>'}
             </div>`;
         if (Auth.eAdmin() && Cloud.attivo) disegnaStatoModelli();
 
@@ -2762,7 +2784,7 @@
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
             document.getElementById('m-conferma').addEventListener('click', () => {
                 if (Cloud.attivo) {
-                    toast('Con Firebase attivo i dati sono condivisi: il ripristino demo non e disponibile.', 'rosso');
+                    toast('Con il cloud condiviso attivo i dati sono condivisi: il ripristino demo non e disponibile.', 'rosso');
                     chiudiModale();
                     return;
                 }
@@ -3505,6 +3527,52 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             Audit.registra(Auth.utenteCorrente, 'Nominativi completi importati', 'sistema', null, null,
                 aggiornate + ' aggiornate, ' + create + ' create dai dati ASSOCIATI');
             return { aggiornate, create };
+        },
+
+        // importaAderenti([{nominativo,cognome,nomeCompleto,email,cellulare,telefono,regione,provincia,localita,indirizzo}, ...]):
+        // arricchisce le persone esistenti (match per cognome come parola iniziale del nominativo)
+        // e aggiunge le nuove. I dati restano solo nel cloud, mai nel repo.
+        importaAderenti: (aderenti) => {
+            const lista = Persone.tutte();
+            const perCognome = {};
+            lista.forEach(p => { perCognome[p.nome.toLowerCase()] = p; });
+            let aggiornate = 0, create = 0;
+            const applica = (p, a) => {
+                const contatti = {
+                    nomeCompleto: a.nomeCompleto || p.nomeCompleto || '',
+                    email: a.email || p.email || '',
+                    telefono: a.cellulare || a.telefono || p.telefono || '',
+                    regione: a.regione || p.regione || '',
+                    provincia: a.provincia || p.provincia || '',
+                    localita: a.localita || p.localita || '',
+                    indirizzo: a.indirizzo || p.indirizzo || ''
+                };
+                Object.assign(p, contatti);
+            };
+            aderenti.forEach(a => {
+                const nomLow = String(a.nominativo || '').toLowerCase();
+                // fra le persone esistenti, quella il cui cognome e parola iniziale del nominativo
+                // (prende il cognome piu lungo per gestire "Lo Piccolo" vs "Lo")
+                let match = null;
+                lista.forEach(p => {
+                    const c = p.nome.toLowerCase();
+                    if (nomLow === c || nomLow.startsWith(c + ' ')) {
+                        if (!match || p.nome.length > match.nome.length) match = p;
+                    }
+                });
+                if (match) { applica(match, a); aggiornate++; return; }
+                // nessun match: nuova persona (evita doppioni per cognome nello stesso import)
+                const chiave = String(a.cognome || '').toLowerCase();
+                if (!chiave) return;
+                if (perCognome[chiave]) { applica(perCognome[chiave], a); aggiornate++; return; }
+                const nuova = { id: uid(), nome: a.cognome, qualita: false, respIncarico: false, team: true, attivo: true };
+                applica(nuova, a);
+                lista.push(nuova); perCognome[chiave] = nuova; create++;
+            });
+            Persone.salva(lista);
+            Audit.registra(Auth.utenteCorrente, 'Anagrafica aderenti importata', 'sistema', null, null,
+                aggiornate + ' persone arricchite, ' + create + ' aggiunte (elenco aderenti Revilaw)');
+            return { aggiornate, create, totale: lista.length };
         }
     };
 
@@ -3520,7 +3588,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         collegaLogin();
         if (Cloud.attivo) {
             const avviso = document.querySelector('.avviso-demo');
-            if (avviso) avviso.innerHTML = '<strong>Accesso protetto con Firebase.</strong> L\'accesso e riservato agli utenti abilitati dall\'amministratore; la password si imposta e si recupera tramite email. Se non hai ancora le credenziali, contatta l\'amministratore.';
+            if (avviso) avviso.innerHTML = '<strong>Accesso protetto.</strong> L\'accesso e riservato agli utenti abilitati dall\'amministratore; la password si imposta e si recupera tramite email. Se non hai ancora le credenziali, contatta l\'amministratore.';
             const u = await Cloud.utenteDaSessione();
             if (u) { Auth.utenteCorrente = u; mostraApp(); return; }
             mostraLogin();
