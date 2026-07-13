@@ -1125,6 +1125,39 @@
         }
     }
 
+    /* Aggiunge una casella di ricerca sopra la prima tabella "dati" contenuta in
+       scopeEl e filtra le righe per testo su TUTTE le colonne. Riusa lo stile
+       .filtri/.campo gia presente; nessuna dipendenza dalla vista specifica. */
+    function abilitaRicercaTabella(scopeEl, placeholder) {
+        if (!scopeEl) return;
+        const tabella = scopeEl.querySelector('table.dati');
+        if (!tabella || !tabella.tBodies[0]) return;
+        const ancora = tabella.closest('.tabella-wrap') || tabella;
+        // evita doppioni se la funzione venisse richiamata sulla stessa tabella
+        if (ancora.previousElementSibling && ancora.previousElementSibling.classList.contains('filtri')) return;
+        const barra = document.createElement('div');
+        barra.className = 'filtri';
+        barra.innerHTML = '<div class="campo ricerca"><label>Cerca</label>'
+            + '<input type="search" placeholder="' + esc(placeholder || 'Cerca in tabella...') + '"></div>'
+            + '<div class="filtro-conteggio" aria-live="polite"></div>';
+        ancora.parentElement.insertBefore(barra, ancora);
+        const input = barra.querySelector('input');
+        const conteggio = barra.querySelector('.filtro-conteggio');
+        const applica = () => {
+            const t = input.value.trim().toLowerCase();
+            const righe = Array.from(tabella.tBodies[0].rows);
+            let visibili = 0;
+            righe.forEach(tr => {
+                const ok = !t || tr.textContent.toLowerCase().includes(t);
+                tr.style.display = ok ? '' : 'none';
+                if (ok) visibili++;
+            });
+            conteggio.textContent = t ? (visibili + ' di ' + righe.length) : '';
+        };
+        input.addEventListener('input', applica);
+        return applica;
+    }
+
     function apriModale(html, opts) {
         const cont = document.getElementById('modale-contenitore');
         cont.innerHTML = '<div class="modale-sfondo"><div class="modale ' + ((opts && opts.classe) || '') + '">' + html + '</div></div>';
@@ -2186,6 +2219,7 @@
             `</tbody><tfoot><tr><td colspan="4">Totale</td><td class="num">${eurFmt2.format(totale)}</td><td colspan="${Auth.puoModificare() ? 2 : 1}"></td></tr></tfoot></table></div>
             </div>`;
 
+        abilitaRicercaTabella(corpo, 'Cerca per cliente, periodicita, mese o stato...');
         corpo.querySelectorAll('.stato-rata').forEach(sel =>
             sel.addEventListener('change', () => {
                 Fatture.cambiaStato(sel.dataset.chiave, sel.value, Auth.utenteCorrente, sel.dataset.cliente);
@@ -2323,6 +2357,7 @@
             `</tbody></table></div>
             <p class="descrizione" style="margin-top:10px;">Le persone disattivate non compaiono piu nelle tendine ma restano negli incarichi gia registrati.</p>`;
 
+        abilitaRicercaTabella($vista(), 'Cerca per cognome, nome, email o regione...');
         const btnNuova = document.getElementById('btn-nuova-persona');
         if (btnNuova) btnNuova.addEventListener('click', () => modalePersona(null));
         $vista().querySelectorAll('.p-modifica').forEach(b =>
@@ -2536,6 +2571,7 @@
             </tr>`).join('') +
             `</tbody></table></div>`;
 
+        abilitaRicercaTabella($vista(), 'Cerca per nome, email o ruolo...');
         document.getElementById('btn-nuovo-utente').addEventListener('click', () => {
             apriModale(`<h2>Abilita nuovo utente</h2>
                 <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
@@ -2668,6 +2704,7 @@
             </tr>`).join('') +
             `</tbody></table></div>`;
 
+        abilitaRicercaTabella($vista(), 'Cerca per nome, email o ruolo...');
         document.querySelectorAll('.u-reimposta').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             // primaPassword crea l'account se non e mai stato attivato, poi invia l'email
             const esito = await Cloud.primaPassword(b.dataset.email);

@@ -149,6 +149,9 @@ a { color: var(--blu-700); }
 .campo input:disabled { background: var(--grigio-100, #f1f5f9); color: var(--grigio-600); cursor: not-allowed; }
 .mostra-password:disabled { cursor: not-allowed; opacity: .5; }
 
+/* Conteggio risultati accanto alla casella di ricerca delle tabelle */
+.filtro-conteggio { align-self: center; font-size: 0.8rem; color: var(--grigio-600); white-space: nowrap; }
+
 /* ---------- Shell applicazione ---------- */
 .app-shell { display: flex; min-height: 100vh; }
 
