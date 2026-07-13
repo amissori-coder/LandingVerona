@@ -1315,7 +1315,9 @@
                 if (valori.size === 0) return; // colonna vuota
                 const distinti = Array.from(valori);
                 const maxLen = distinti.reduce((m, v) => Math.max(m, v.length), 0);
-                const categoriale = distinti.length >= 2 && distinti.length <= 12 && maxLen <= 24;
+                // categoriale (tendina) se pochi valori distinti e corti: cattura
+                // Regione (~20), Ruolo, Stato, Si/No; Cognome/Nome/Email restano testo.
+                const categoriale = distinti.length >= 2 && distinti.length <= 25 && maxLen <= 24;
                 const campo = document.createElement('div');
                 campo.className = 'campo';
                 if (categoriale) {
