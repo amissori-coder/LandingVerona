@@ -3432,27 +3432,60 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
     function collegaLogin() {
         document.getElementById('form-login').addEventListener('submit', async e => {
             e.preventDefault();
+            const btnAccedi = e.currentTarget.querySelector('button[type="submit"]');
+            // evita il doppio invio mentre l'accesso e in corso
+            if (btnAccedi.classList.contains('caricamento')) return;
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
             const err = document.getElementById('login-errore');
             err.classList.add('hidden');
-            const esito = await Auth.accedi(email, password);
-            if (!esito.ok) {
-                err.textContent = esito.msg;
-                err.classList.remove('hidden');
-                return;
+            // avvia il caricamento: spinner sul pulsante finche l'accesso non risponde
+            btnAccedi.classList.add('caricamento');
+            btnAccedi.disabled = true;
+            try {
+                const esito = await Auth.accedi(email, password);
+                if (!esito.ok) {
+                    err.textContent = esito.msg;
+                    err.classList.remove('hidden');
+                    return;
+                }
+                if (esito.mustChange) {
+                    chiediCambioPassword(email, true, () => {
+                        const u = Auth.trova(email);
+                        Auth.utenteCorrente = u;
+                        sessionStorage.setItem('rvArea.sessione', JSON.stringify({ email: u.email, ts: Date.now() }));
+                        mostraApp();
+                    });
+                    return;
+                }
+                mostraApp();
+            } finally {
+                btnAccedi.classList.remove('caricamento');
+                btnAccedi.disabled = false;
             }
-            if (esito.mustChange) {
-                chiediCambioPassword(email, true, () => {
-                    const u = Auth.trova(email);
-                    Auth.utenteCorrente = u;
-                    sessionStorage.setItem('rvArea.sessione', JSON.stringify({ email: u.email, ts: Date.now() }));
-                    mostraApp();
-                });
-                return;
-            }
-            mostraApp();
         });
+
+        // Mostra/nascondi la password nella schermata di accesso
+        const inputPwd = document.getElementById('login-password');
+        const btnPwd = document.getElementById('toggle-password');
+        if (btnPwd && inputPwd) {
+            const ICONA_MOSTRA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+            const ICONA_NASCONDI = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+            const impostaVisibilita = mostra => {
+                inputPwd.type = mostra ? 'text' : 'password';
+                btnPwd.innerHTML = mostra ? ICONA_NASCONDI : ICONA_MOSTRA;
+                btnPwd.setAttribute('aria-pressed', mostra ? 'true' : 'false');
+                const testo = mostra ? 'Nascondi la password' : 'Mostra la password';
+                btnPwd.setAttribute('aria-label', testo);
+                btnPwd.title = testo;
+            };
+            btnPwd.addEventListener('click', () => {
+                impostaVisibilita(inputPwd.type === 'password');
+                inputPwd.focus();
+            });
+            // richiudi sempre alla visualizzazione della schermata di accesso
+            btnPwd._reset = () => impostaVisibilita(false);
+        }
 
         // In modalita Firebase gli account sono creati solo dall'amministratore
         // (vista Utenti): niente auto-registrazione dalla pagina di accesso.
@@ -3496,6 +3529,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         document.getElementById('btn-logout').addEventListener('click', () => {
             Auth.esci();
             document.getElementById('login-password').value = '';
+            if (btnPwd && btnPwd._reset) btnPwd._reset();
             mostraLogin();
         });
     }

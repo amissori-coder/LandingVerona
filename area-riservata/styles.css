@@ -120,6 +120,29 @@ a { color: var(--blu-700); }
     background: var(--ambra-bg); color: var(--ambra); font-size: 0.78rem; line-height: 1.5;
 }
 
+/* Campo password con pulsante mostra/nascondi */
+.campo-password { position: relative; }
+.campo-password input { padding-right: 44px; }
+.mostra-password {
+    position: absolute; top: 0; right: 0; height: 100%; width: 42px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; border: none; background: transparent;
+    color: var(--grigio-600); cursor: pointer; transition: color .15s ease;
+}
+.mostra-password:hover { color: var(--blu-700); }
+.mostra-password:focus-visible { outline: 2px solid var(--blu-500); outline-offset: 2px; border-radius: 6px; }
+.mostra-password svg { width: 18px; height: 18px; display: block; pointer-events: none; }
+
+/* Spinner di caricamento sul pulsante durante l'accesso */
+.btn.caricamento { position: relative; color: transparent !important; pointer-events: none; opacity: 1; }
+.btn.caricamento::after {
+    content: ''; position: absolute; width: 18px; height: 18px;
+    top: 50%; left: 50%; margin: -9px 0 0 -9px;
+    border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff;
+    border-radius: 50%; animation: rv-spin .6s linear infinite;
+}
+@keyframes rv-spin { to { transform: rotate(360deg); } }
+
 /* ---------- Shell applicazione ---------- */
 .app-shell { display: flex; min-height: 100vh; }
 
