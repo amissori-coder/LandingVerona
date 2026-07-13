@@ -180,20 +180,28 @@ module.exports = async (req, res) => {
                     await applicaPatch(rif, com.id, { prog: { attiva: false } });
                     continue;
                 }
-                const n = await inviaUna(trans, com, risolviDestinatariCron(com, persone, utenti));
+                // avanza la schedulazione fino a superare "ora" (recupera i periodi saltati
+                // con un solo invio). Vale sia che si invii sia che si salti per 0 destinatari.
+                let next = prossimaData(p.prossimoInvio, p.frequenza);
+                if (next != null) { while (next <= ora) next = prossimaData(next, p.frequenza); }
+                const avanza = () => {
+                    if (next == null) return { attiva: false };                                    // unica: conclusa
+                    if (p.fine && next > p.fine) return { attiva: false, prossimoInvio: next };     // ultima occorrenza
+                    return { prossimoInvio: next, ultimoInvio: ora };
+                };
+                const destinatari = risolviDestinatariCron(com, persone, utenti);
+                if (!destinatari.length) {
+                    // nessun destinatario risolto (gruppo vuoto e nessun indirizzo manuale):
+                    // non inviare, ma avanza comunque per non ritentare ogni giorno all'infinito.
+                    await applicaPatch(rif, com.id, { prog: avanza() });
+                    continue;
+                }
+                const n = await inviaUna(trans, com, destinatari);
                 inviate++;
                 const voce = { il: ora, n, da: 'programmato' };
-                // avanza fino a superare "ora" (recupera eventuali periodi saltati con un solo invio)
-                let next = prossimaData(p.prossimoInvio, p.frequenza);
-                let patch;
-                if (next == null) {
-                    // frequenza unica: completata
-                    patch = { stato: 'inviata', prog: { attiva: false }, inviata: { da: 'programmato', il: ora, n }, voce };
-                } else {
-                    while (next <= ora) next = prossimaData(next, p.frequenza);
-                    if (p.fine && next > p.fine) patch = { prog: { attiva: false, prossimoInvio: next }, voce }; // ultima occorrenza: serie conclusa
-                    else patch = { prog: { prossimoInvio: next, ultimoInvio: ora }, voce };
-                }
+                const patch = (next == null)
+                    ? { stato: 'inviata', prog: { attiva: false }, inviata: { da: 'programmato', il: ora, n }, voce } // unica: completata
+                    : { prog: avanza(), voce };
                 // Persistenza incrementale: registra subito l'avanzamento, cosi un
                 // timeout/crash successivo non re-invia le comunicazioni gia spedite.
                 await applicaPatch(rif, com.id, patch);

@@ -115,10 +115,20 @@ in **Settings → Environment Variables** una variabile:
 | `CRON_SECRET` | una stringa segreta a piacere (lunga e casuale) |
 
 Vercel invierà quel segreto nell'header `Authorization` a ogni esecuzione del
-cron; la funzione rifiuta chiunque non lo presenti. Dopo averla aggiunta, fai
-un **Redeploy**. Senza `CRON_SECRET` il cron resta inattivo (l'invio immediato
-e la composizione funzionano comunque).
+cron; la funzione rifiuta chiunque non lo presenti. La variabile va abilitata per
+l'ambiente **Production** (è lì che gira il cron). Dopo averla aggiunta, fai un
+**Redeploy della Production**. Senza `CRON_SECRET` il cron resta inattivo (l'invio
+immediato e la composizione funzionano comunque).
 
-Nota: sul piano Hobby il cron gira **una volta al giorno**, quindi una mail
-programmata parte entro la giornata dell'orario scelto — perfetto per invii
-settimanali/mensili/trimestrali/annuali.
+> **Prima di attivare, controlla le "Comunicazioni programmate".** Al primo giro
+> del cron dopo il redeploy vengono inviate **davvero** tutte le comunicazioni
+> ancora attive con data già passata (comprese eventuali prove). Apri Area
+> riservata → Comunicazioni e invia a mano, annulla o riprogramma a una data
+> futura ogni record scaduto, così non parte nulla di inatteso.
+
+Nota: sul piano Hobby il cron gira **una volta al giorno** alle **06:00 UTC**
+(≈ 08:00 in ora legale, 07:00 in ora solare), a orario approssimativo. Una mail
+programmata parte quindi al primo mattino utile **a partire dalla** data scelta,
+non all'ora esatta impostata — perfetto per invii settimanali/mensili/
+trimestrali/annuali. Il `vercel.json` alza il timeout della funzione cron a
+`maxDuration: 60` (tetto Hobby) per gestire più invii nello stesso mattino.
