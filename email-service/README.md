@@ -88,3 +88,37 @@ servizio per tutte le email di accesso, con mittente e link Revilaw.
 
 Se `RV_EMAIL_SERVICE_URL` non è configurato, l'app continua a usare l'invio
 standard (mittente firebaseapp.com): niente si rompe durante la transizione.
+
+---
+
+## Comunicazioni (mail composte nell'area riservata)
+
+Oltre a `invia-email`, il progetto include due funzioni per la sezione
+**Comunicazioni**:
+
+- `POST /api/invia-comunicazione` — invia una mail composta dall'utente.
+  Verifica l'**ID token Firebase** del mittente (solo utenti abilitati possono
+  inviare: niente relay aperto), poi invia via Aruba SMTP (più destinatari → BCC).
+  Usa le stesse variabili d'ambiente già configurate. L'app la richiama tramite
+  `window.RV_COMUNICAZIONI_URL` (in `firebase-config.js`).
+- `GET /api/cron-comunicazioni` — invii **programmati/periodici**. Vercel la
+  richiama **una volta al giorno** (vedi `vercel.json`): invia le comunicazioni
+  in stato "programmata" la cui data è arrivata e aggiorna la pianificazione.
+
+### Variabile in più da impostare su Vercel: `CRON_SECRET`
+
+Perché gli invii programmati partano (e solo Vercel possa attivarli), aggiungi
+in **Settings → Environment Variables** una variabile:
+
+| Nome | Valore |
+|---|---|
+| `CRON_SECRET` | una stringa segreta a piacere (lunga e casuale) |
+
+Vercel invierà quel segreto nell'header `Authorization` a ogni esecuzione del
+cron; la funzione rifiuta chiunque non lo presenti. Dopo averla aggiunta, fai
+un **Redeploy**. Senza `CRON_SECRET` il cron resta inattivo (l'invio immediato
+e la composizione funzionano comunque).
+
+Nota: sul piano Hobby il cron gira **una volta al giorno**, quindi una mail
+programmata parte entro la giornata dell'orario scelto — perfetto per invii
+settimanali/mensili/trimestrali/annuali.

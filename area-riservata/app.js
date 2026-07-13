@@ -2774,9 +2774,9 @@
             lista.map(c => `<tr>
                 <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
                 <td class="num" data-label="Destinatari">${(c.destinatari || []).length}</td>
-                <td data-label="Stato">${c.stato === 'inviata' ? '<span class="badge verde">inviata</span>' : '<span class="badge ambra">bozza</span>'}</td>
+                <td data-label="Stato">${c.stato === 'inviata' ? '<span class="badge verde">inviata</span>' : (c.stato === 'programmata' ? '<span class="badge legale">programmata</span>' : '<span class="badge ambra">bozza</span>')}</td>
                 <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
-                <td data-label="Data">${c.inviata ? fmtDataOra(c.inviata.il) : (c.creato ? fmtDataOra(c.creato.il) : '')}</td>
+                <td data-label="Data">${c.stato === 'programmata' && c.programmazione ? 'prossimo: ' + fmtDataOra(c.programmazione.prossimoInvio) + (c.programmazione.frequenza && c.programmazione.frequenza !== 'unica' ? ' (' + esc(c.programmazione.frequenza) + ')' : '') : (c.inviata ? fmtDataOra(c.inviata.il) : (c.creato ? fmtDataOra(c.creato.il) : ''))}</td>
                 <td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">${c.stato === 'inviata' ? 'Vedi / Rinvia' : 'Apri'}</button>
                     <button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>
@@ -2807,25 +2807,88 @@
         const c = id ? Comunicazioni.trova(id) : null;
         const inviata = c && c.stato === 'inviata';
         const dest = new Set((c && c.destinatari) || []);
-        // persone con email, per la selezione dall'anagrafica
+        const reEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+        const prog = (c && c.programmazione) || null;
+        const perDatetimeLocal = ts => {
+            if (!ts) return '';
+            const d = new Date(ts), z = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes());
+        };
+        // AREA 1 - Persone Revilaw con email, con i ruoli per il filtro
         const conMail = Persone.tutte().filter(p => p.email && p.attivo)
-            .sort((a, b) => (a.nome + a.nomeProprio).localeCompare(b.nome + b.nomeProprio));
+            .sort((a, b) => (a.nome + (a.nomeProprio || '')).localeCompare(b.nome + (b.nomeProprio || '')));
         const emailPersone = new Set(conMail.map(p => p.email.toLowerCase()));
-        // indirizzi liberi = destinatari che non appartengono a una persona in elenco
-        const altri = Array.from(dest).filter(e => !emailPersone.has(String(e).toLowerCase()));
+        // AREA 2 - Clienti: contatti (email1/email2) dagli incarichi, dedup per email
+        const contattiCliente = [];
+        const vistiCli = new Set();
+        Incarichi.tutti().forEach(i => {
+            [i.email1, i.email2].forEach(em => {
+                const e = String(em || '').trim().toLowerCase();
+                if (!reEmail.test(e) || vistiCli.has(e)) return;
+                vistiCli.add(e);
+                contattiCliente.push({ cliente: i.cliente || '', email: e, tipo: i.tipo || '', area: i.area || '', regione: i.regione || '', stato: i.stato || '' });
+            });
+        });
+        contattiCliente.sort((a, b) => a.cliente.localeCompare(b.cliente));
+        const emailClienti = new Set(contattiCliente.map(c => c.email));
+        // indirizzi liberi = destinatari che non sono ne persone ne clienti in elenco
+        const altri = Array.from(dest).filter(e => { const x = String(e).toLowerCase(); return !emailPersone.has(x) && !emailClienti.has(x); });
+        const opzCli = campo => Array.from(new Set(contattiCliente.map(c => c[campo]).filter(Boolean))).sort();
+        const tipiCli = opzCli('tipo'), areeCli = opzCli('area'), regioniCli = opzCli('regione'), statiCli = opzCli('stato');
+        const selFiltro = (id, etichetta, valori) => valori.length ? `<select id="${id}"><option value="">${etichetta}</option>${valori.map(v => `<option>${esc(v)}</option>`).join('')}</select>` : '';
 
         apriModale(`<h2>${inviata ? 'Comunicazione inviata' : (c ? 'Modifica comunicazione' : 'Nuova comunicazione')}</h2>
             ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
             <div class="campo"><label>Oggetto</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}"></div>
             <div class="campo"><label>Messaggio</label><textarea id="c-testo" rows="8" placeholder="Scrivi qui il testo della mail...">${esc((c && c.testo) || '')}</textarea></div>
             <div class="campo">
-                <label>Destinatari dall'anagrafica <span class="hint" id="c-conta"></span></label>
-                <input id="c-cerca" type="search" placeholder="Filtra per cognome, nome o email..." style="margin-bottom:6px;">
-                <div class="lista-destinatari" id="c-lista">
-                    ${conMail.length ? conMail.map(p => `<label class="riga-dest"><input type="checkbox" value="${esc(p.email)}" ${dest.has(p.email) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
+                <label>Destinatari <span class="hint" id="c-conta"></span></label>
+                <div class="tab-dest">
+                    <button type="button" class="tab-btn attivo" data-pane="pane-persone">Persone Revilaw</button>
+                    <button type="button" class="tab-btn" data-pane="pane-clienti">Clienti</button>
+                    <button type="button" class="tab-btn" data-pane="pane-altri">Altri indirizzi</button>
+                </div>
+                <div class="tab-pane" id="pane-persone">
+                    <div class="filtri-dest">
+                        <input id="cp-cerca" type="search" placeholder="Filtra per cognome, nome, email...">
+                        <select id="cp-ruolo"><option value="">Tutti i ruoli</option><option value="qualita">Responsabile qualita</option><option value="respIncarico">Responsabile incarico (procuratori)</option><option value="team">Team di revisione</option></select>
+                    </div>
+                    <div class="lista-destinatari" id="cp-lista">
+                        ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.team ? 'team' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(p.email) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
+                    </div>
+                </div>
+                <div class="tab-pane nascosto" id="pane-clienti">
+                    <div class="filtri-dest">
+                        <input id="cc-cerca" type="search" placeholder="Filtra per cliente o email...">
+                        ${selFiltro('cc-tipo', 'Tutti i tipi', tipiCli)}
+                        ${selFiltro('cc-area', 'Tutte le aree', areeCli)}
+                        ${selFiltro('cc-regione', 'Tutte le regioni', regioniCli)}
+                        ${selFiltro('cc-stato', 'Tutti gli stati', statiCli)}
+                    </div>
+                    <div class="lista-destinatari" id="cc-lista">
+                        ${contattiCliente.length ? contattiCliente.map(cc => `<label class="riga-dest" data-tipo="${esc(cc.tipo)}" data-area="${esc(cc.area)}" data-regione="${esc(cc.regione)}" data-stato="${esc(cc.stato)}"><input type="checkbox" value="${esc(cc.email)}" ${dest.has(cc.email) ? 'checked' : ''}><span>${esc(cc.cliente)} <span class="riga-dest-mail">${esc(cc.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessun cliente con email negli incarichi.</div>'}
+                    </div>
+                </div>
+                <div class="tab-pane nascosto" id="pane-altri">
+                    <textarea id="c-altri" rows="3" placeholder="Un indirizzo per riga o separati da virgola: mario.rossi@esempio.it, ...">${esc(altri.join(', '))}</textarea>
                 </div>
             </div>
-            <div class="campo"><label>Altri indirizzi (uno per riga o separati da virgola)</label><textarea id="c-altri" rows="2" placeholder="mario.rossi@esempio.it, ...">${esc(altri.join(', '))}</textarea></div>
+            <div class="campo">
+                <label style="display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer;"><input type="checkbox" id="c-prog" style="width:auto;" ${prog ? 'checked' : ''}> Programma l'invio (una volta o periodico)</label>
+                <div id="c-prog-box" class="${prog ? '' : 'nascosto'}" style="margin-top:8px;">
+                    <div class="griglia-2">
+                        <div class="campo"><label>Frequenza</label><select id="c-freq">
+                            <option value="unica">Una volta</option>
+                            <option value="settimanale">Ogni settimana</option>
+                            <option value="mensile">Ogni mese</option>
+                            <option value="trimestrale">Ogni trimestre</option>
+                            <option value="annuale">Ogni anno</option>
+                        </select></div>
+                        <div class="campo"><label>Data e ora del (primo) invio</label><input type="datetime-local" id="c-quando" value="${prog ? perDatetimeLocal(prog.prossimoInvio) : ''}"></div>
+                    </div>
+                    <p class="hint">Gli invii programmati partono automaticamente dal server (con verifica giornaliera). La comunicazione resta modificabile fino all'invio.</p>
+                </div>
+            </div>
             <div class="msg-errore hidden" id="c-errore"></div>
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="c-annulla">Annulla</button>
@@ -2834,18 +2897,48 @@
             </div>`, { classe: 'larga' });
 
         const $ = x => document.getElementById(x);
-        // filtro live della lista anagrafica
-        $('c-cerca').addEventListener('input', () => {
-            const t = $('c-cerca').value.trim().toLowerCase();
-            $('c-lista').querySelectorAll('.riga-dest').forEach(r => { r.style.display = (!t || r.textContent.toLowerCase().includes(t)) ? '' : 'none'; });
+        // schede destinatari
+        document.querySelectorAll('.tab-dest .tab-btn').forEach(b => b.addEventListener('click', () => {
+            document.querySelectorAll('.tab-dest .tab-btn').forEach(x => x.classList.toggle('attivo', x === b));
+            ['pane-persone', 'pane-clienti', 'pane-altri'].forEach(p => $(p).classList.toggle('nascosto', p !== b.dataset.pane));
+        }));
+        // filtro Persone (ricerca + ruolo)
+        const filtraPersone = () => {
+            const t = ($('cp-cerca').value || '').trim().toLowerCase();
+            const r = $('cp-ruolo').value;
+            $('cp-lista').querySelectorAll('.riga-dest').forEach(row => {
+                const okT = !t || row.textContent.toLowerCase().includes(t);
+                const okR = !r || (row.dataset.ruoli || '').split(' ').includes(r);
+                row.style.display = (okT && okR) ? '' : 'none';
+            });
+        };
+        $('cp-cerca').addEventListener('input', filtraPersone);
+        $('cp-ruolo').addEventListener('change', filtraPersone);
+        // filtro Clienti (ricerca + tipo/area/regione/stato)
+        const filtraClienti = () => {
+            const t = ($('cc-cerca').value || '').trim().toLowerCase();
+            const val = idf => { const el = $(idf); return el ? el.value : ''; };
+            const ft = val('cc-tipo'), fa = val('cc-area'), fr = val('cc-regione'), fs = val('cc-stato');
+            $('cc-lista').querySelectorAll('.riga-dest').forEach(row => {
+                const ok = (!t || row.textContent.toLowerCase().includes(t))
+                    && (!ft || row.dataset.tipo === ft) && (!fa || row.dataset.area === fa)
+                    && (!fr || row.dataset.regione === fr) && (!fs || row.dataset.stato === fs);
+                row.style.display = ok ? '' : 'none';
+            });
+        };
+        ['cc-cerca', 'cc-tipo', 'cc-area', 'cc-regione', 'cc-stato'].forEach(idf => {
+            const el = $(idf); if (el) el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', filtraClienti);
         });
+
         const raccogli = () => {
-            const daLista = Array.from($('c-lista').querySelectorAll('input:checked')).map(i => i.value.trim().toLowerCase());
-            const liberi = $('c-altri').value.split(/[\n,;]+/).map(s => s.trim().toLowerCase()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
-            return Array.from(new Set(daLista.concat(liberi)));
+            const daP = Array.from($('cp-lista').querySelectorAll('input:checked')).map(i => i.value.trim().toLowerCase());
+            const daC = Array.from($('cc-lista').querySelectorAll('input:checked')).map(i => i.value.trim().toLowerCase());
+            const liberi = $('c-altri').value.split(/[\n,;]+/).map(s => s.trim().toLowerCase()).filter(e => reEmail.test(e));
+            return Array.from(new Set(daP.concat(daC, liberi)));
         };
         const aggiornaConta = () => { $('c-conta').textContent = '(' + raccogli().length + ' destinatari)'; };
-        $('c-lista').addEventListener('change', aggiornaConta);
+        $('cp-lista').addEventListener('change', aggiornaConta);
+        $('cc-lista').addEventListener('change', aggiornaConta);
         $('c-altri').addEventListener('input', aggiornaConta);
         aggiornaConta();
 
@@ -2859,11 +2952,28 @@
         });
         const mostraErr = m => { const e = $('c-errore'); e.textContent = m; e.classList.remove('hidden'); };
 
+        // programmazione: mostra/nascondi opzioni e adatta l'etichetta del pulsante
+        const chkProg = $('c-prog');
+        if (prog && prog.frequenza) $('c-freq').value = prog.frequenza;
+        const relabel = () => { $('c-invia').textContent = chkProg.checked ? 'Programma' : 'Invia'; };
+        chkProg.addEventListener('change', () => { $('c-prog-box').classList.toggle('nascosto', !chkProg.checked); relabel(); });
+        relabel();
+        const leggiProg = () => {
+            if (!chkProg.checked) return { prog: null };
+            const q = $('c-quando').value;
+            const t = q ? new Date(q).getTime() : NaN;
+            if (!q || isNaN(t)) return { errore: 'Imposta la data e ora del (primo) invio.' };
+            return { prog: { attiva: true, frequenza: $('c-freq').value, prossimoInvio: t } };
+        };
+
         $('c-annulla').addEventListener('click', chiudiModale);
         $('c-bozza').addEventListener('click', () => {
             const rec = componiRecord();
             if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErr('La bozza e vuota.'); return; }
-            rec.stato = inviata ? 'inviata' : 'bozza';
+            const lp = leggiProg();
+            if (lp.errore) { mostraErr(lp.errore); return; }
+            rec.programmazione = lp.prog;                // la pianificazione resta salvata
+            rec.stato = inviata ? 'inviata' : 'bozza';   // bozza = non parte finche non premi Programma/Invia
             Comunicazioni.salvaUna(rec);
             Audit.registra(Auth.utenteCorrente, 'Comunicazione salvata (bozza)', 'comunicazione', rec.id, rec.oggetto || null, null);
             chiudiModale(); toast('Bozza salvata.', 'verde'); vistaComunicazioni();
@@ -2875,9 +2985,27 @@
             if (!rec.oggetto) { mostraErr('Inserisci l\'oggetto.'); return; }
             if (!rec.testo) { mostraErr('Scrivi il testo del messaggio.'); return; }
             if (!rec.destinatari.length) { mostraErr('Seleziona almeno un destinatario.'); return; }
+            const lp = leggiProg();
+            if (lp.errore) { mostraErr(lp.errore); return; }
+
+            if (lp.prog) {
+                // PROGRAMMA: non invia ora, sara' il server a inviare alla data prevista
+                if (!Cloud.attivo) { mostraErr('La programmazione richiede l\'accesso protetto attivo.'); return; }
+                rec.programmazione = lp.prog;
+                rec.stato = 'programmata';
+                Comunicazioni.salvaUna(rec);
+                Audit.registra(Auth.utenteCorrente, 'Comunicazione programmata', 'comunicazione', rec.id, rec.oggetto,
+                    [{ campo: 'Primo invio', prima: '', dopo: fmtDataOra(lp.prog.prossimoInvio) }, { campo: 'Frequenza', prima: '', dopo: lp.prog.frequenza }]);
+                chiudiModale();
+                toast('Comunicazione programmata per il ' + fmtDataOra(lp.prog.prossimoInvio) + '.', 'verde');
+                vistaComunicazioni();
+                return;
+            }
+
+            // INVIO IMMEDIATO
             if (!Cloud.attivo) { mostraErr('L\'invio richiede l\'accesso protetto attivo. Puoi comunque salvare la bozza.'); return; }
-            // salva prima come bozza (non si perde nulla se l'invio fallisce)
-            Comunicazioni.salvaUna(rec);
+            rec.programmazione = null;
+            Comunicazioni.salvaUna(rec); // salva prima: non si perde nulla se l'invio fallisce
             const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, rec.destinatari);
             if (!esito.ok) { mostraErr('Invio non riuscito: ' + esito.msg); return; }
             rec.stato = 'inviata';
@@ -2888,7 +3016,7 @@
             chiudiModale();
             toast('Comunicazione inviata a ' + esito.inviati + ' destinatari.', 'verde');
             vistaComunicazioni();
-        }, { testo: 'Invio…' }));
+        }, { testo: 'Attendere…' }));
     }
 
     /* =========================================================

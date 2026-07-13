@@ -158,6 +158,13 @@ a { color: var(--blu-700); }
 .riga-dest:hover { background: var(--grigio-100); }
 .riga-dest input { width: auto; margin: 0; flex: 0 0 auto; }
 .riga-dest-mail { color: var(--grigio-600); font-size: 0.82rem; }
+/* Schede destinatari (Persone Revilaw / Clienti / Altri) */
+.tab-dest { display: flex; gap: 4px; border-bottom: 1px solid var(--grigio-200); margin-bottom: 8px; flex-wrap: wrap; }
+.tab-btn { padding: 7px 12px; border: none; background: transparent; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--grigio-600); border-bottom: 2px solid transparent; }
+.tab-btn.attivo { color: var(--blu-700); border-bottom-color: var(--blu-500); }
+.filtri-dest { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.filtri-dest input, .filtri-dest select { padding: 6px 8px; font-size: 0.82rem; border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff; flex: 1 1 120px; min-width: 0; }
+.tab-pane.nascosto { display: none; }
 
 /* ---------- Shell applicazione ---------- */
 .app-shell { display: flex; min-height: 100vh; }
