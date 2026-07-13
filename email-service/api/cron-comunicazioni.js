@@ -53,6 +53,18 @@ const FIRMA = '<table role="presentation" cellpadding="0" cellspacing="0" style=
     + '<a href="https://nextgenerationbusiness.it" style="color:#164068;text-decoration:none;">nextgenerationbusiness.it</a>'
     + '</td></tr></table>';
 
+const MESI_IT = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+// riferimento del periodo in base alla frequenza (per l'oggetto)
+function etichettaPeriodo(freq, ts) {
+    if (!ts) return '';
+    const d = new Date(ts), anno = d.getFullYear(), z = n => String(n).padStart(2, '0');
+    if (freq === 'trimestrale') return ['primo', 'secondo', 'terzo', 'quarto'][Math.floor(d.getMonth() / 3)] + ' trimestre ' + anno;
+    if (freq === 'mensile') return MESI_IT[d.getMonth()] + ' ' + anno;
+    if (freq === 'annuale') return String(anno);
+    if (freq === 'settimanale') return 'settimana del ' + z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + anno;
+    return '';
+}
+
 // sposta un timestamp al periodo successivo secondo la frequenza
 function prossimaData(ts, freq) {
     const d = new Date(ts);
@@ -88,7 +100,14 @@ async function inviaUna(trans, com, destinatari) {
     const replyTo = (com.creato && com.creato.da) || fromEmail;
     const html = '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">'
         + esc(com.testo || '').replace(/\n/g, '<br>') + FIRMA + '</div>';
-    const msg = { from: '"' + fromName + '" <' + fromEmail + '>', replyTo, subject: com.oggetto || '(senza oggetto)', text: com.testo || '', html };
+    // oggetto con il riferimento del periodo (es. "... - primo trimestre 2026")
+    const p = com.programmazione || {};
+    let oggetto = com.oggetto || '(senza oggetto)';
+    if (p.periodoNelOggetto && p.frequenza && p.frequenza !== 'unica') {
+        const per = etichettaPeriodo(p.frequenza, p.prossimoInvio);
+        if (per) oggetto = oggetto + ' - ' + per;
+    }
+    const msg = { from: '"' + fromName + '" <' + fromEmail + '>', replyTo, subject: oggetto, text: com.testo || '', html };
     if (destinatari.length === 1) msg.to = destinatari[0];
     else { msg.to = replyTo; msg.bcc = destinatari; }
     await trans.sendMail(msg);
@@ -130,19 +149,28 @@ module.exports = async (req, res) => {
         let inviate = 0;
         for (const com of dovute) {
             try {
+                const p = com.programmazione;
+                // programmazione scaduta (oltre la data di fine): disattiva senza inviare
+                if (p.fine && p.prossimoInvio > p.fine) {
+                    aggiornamenti[com.id] = { programmazione: Object.assign({}, p, { attiva: false }) };
+                    continue;
+                }
                 const n = await inviaUna(trans, com, risolviDestinatariCron(com, persone, utenti));
                 inviate++;
-                const p = com.programmazione;
-                let prossimo = p.prossimoInvio;
                 // avanza fino a superare "ora" (recupera eventuali periodi saltati con un solo invio)
-                let next = prossimaData(prossimo, p.frequenza);
+                let next = prossimaData(p.prossimoInvio, p.frequenza);
                 const storia = (com.invii || []).concat([{ il: ora, n, da: 'programmato' }]);
                 if (next == null) {
                     // frequenza unica: completata
                     aggiornamenti[com.id] = { stato: 'inviata', programmazione: Object.assign({}, p, { attiva: false }), inviata: { da: 'programmato', il: ora, n }, invii: storia };
                 } else {
                     while (next <= ora) next = prossimaData(next, p.frequenza);
-                    aggiornamenti[com.id] = { programmazione: Object.assign({}, p, { prossimoInvio: next, ultimoInvio: ora }), invii: storia };
+                    if (p.fine && next > p.fine) {
+                        // ultima occorrenza inviata: la serie e conclusa
+                        aggiornamenti[com.id] = { programmazione: Object.assign({}, p, { attiva: false, prossimoInvio: next }), invii: storia };
+                    } else {
+                        aggiornamenti[com.id] = { programmazione: Object.assign({}, p, { prossimoInvio: next, ultimoInvio: ora }), invii: storia };
+                    }
                 }
             } catch (e) {
                 console.error('Comunicazione programmata non inviata (' + (com.id || '?') + '):', e && e.message);

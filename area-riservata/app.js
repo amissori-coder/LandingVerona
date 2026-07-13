@@ -2809,6 +2809,26 @@
         return d.getTime();
     }
 
+    const MESI_IT = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+    /* Riferimento del periodo in base alla frequenza e alla data (per l'oggetto):
+       trimestrale -> "primo trimestre 2026", mensile -> "gennaio 2026",
+       annuale -> "2026", settimanale -> "settimana del 15/01/2026". */
+    function etichettaPeriodo(freq, ts) {
+        if (!ts) return '';
+        const d = new Date(ts), anno = d.getFullYear(), z = n => String(n).padStart(2, '0');
+        if (freq === 'trimestrale') return ['primo', 'secondo', 'terzo', 'quarto'][Math.floor(d.getMonth() / 3)] + ' trimestre ' + anno;
+        if (freq === 'mensile') return MESI_IT[d.getMonth()] + ' ' + anno;
+        if (freq === 'annuale') return String(anno);
+        if (freq === 'settimanale') return 'settimana del ' + z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + anno;
+        return '';
+    }
+    /* Oggetto finale con il periodo aggiunto (se richiesto e ricorrente). */
+    function oggettoConPeriodo(oggetto, prog) {
+        if (!prog || !prog.periodoNelOggetto) return oggetto;
+        const p = etichettaPeriodo(prog.frequenza, prog.prossimoInvio);
+        return p ? (oggetto + ' - ' + p) : oggetto;
+    }
+
     /* Descrizione leggibile di QUANDO parte una comunicazione programmata. */
     function descriviProgrammazione(prog) {
         if (!prog || !prog.prossimoInvio) return '';
@@ -2817,13 +2837,17 @@
         const z = n => String(n).padStart(2, '0');
         const ora = z(d.getHours()) + ':' + z(d.getMinutes());
         const gg = d.getDate();
+        if (prog.frequenza === 'unica' || !prog.frequenza) return 'Una volta, il ' + fmtDataOra(prog.prossimoInvio);
+        let base;
         switch (prog.frequenza) {
-            case 'settimanale': return 'Ogni settimana, di ' + giorni[d.getDay()] + ' alle ' + ora;
-            case 'mensile': return 'Ogni mese, il giorno ' + gg + ' alle ' + ora;
-            case 'trimestrale': return 'Ogni 3 mesi, il giorno ' + gg + ' alle ' + ora;
-            case 'annuale': return 'Ogni anno, il ' + z(gg) + '/' + z(d.getMonth() + 1) + ' alle ' + ora;
-            default: return 'Una volta, il ' + fmtDataOra(prog.prossimoInvio);
+            case 'settimanale': base = 'Ogni settimana, di ' + giorni[d.getDay()] + ' alle ' + ora; break;
+            case 'mensile': base = 'Ogni mese, il giorno ' + gg + ' alle ' + ora; break;
+            case 'trimestrale': base = 'Ogni 3 mesi, il giorno ' + gg + ' alle ' + ora; break;
+            case 'annuale': base = 'Ogni anno, il ' + z(gg) + '/' + z(d.getMonth() + 1) + ' alle ' + ora; break;
+            default: base = 'Periodicamente';
         }
+        const fine = prog.fine ? (() => { const f = new Date(prog.fine); return ', fino al ' + z(f.getDate()) + '/' + z(f.getMonth() + 1) + '/' + f.getFullYear(); })() : ', senza fine';
+        return base + fine;
     }
 
     /* Stato della vista Comunicazioni: 'elenco' o 'calendario', e il mese mostrato. */
@@ -3009,6 +3033,11 @@
             const d = new Date(ts), z = n => String(n).padStart(2, '0');
             return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes());
         };
+        const perDateLocal = ts => {
+            if (!ts) return '';
+            const d = new Date(ts), z = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+        };
         // AREA 1 - Persone Revilaw con email, con i ruoli per il filtro
         const conMail = Persone.tutte().filter(p => p.email && p.attivo)
             .sort((a, b) => (a.nome + (a.nomeProprio || '')).localeCompare(b.nome + (b.nomeProprio || '')));
@@ -3065,6 +3094,7 @@
                         <input id="cp-cerca" type="search" placeholder="Oppure scegli singole persone: filtra per cognome, nome, email...">
                         <select id="cp-ruolo"><option value="">Tutti i ruoli</option><option value="qualita">Responsabile qualita</option><option value="respIncarico">Responsabile incarico (procuratori)</option><option value="team">Team di revisione</option></select>
                     </div>
+                    <div class="sel-azioni"><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="1">Seleziona tutti (filtrati)</button><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="0">Deseleziona</button><span class="hint" id="cp-conta"></span></div>
                     <div class="lista-destinatari" id="cp-lista">
                         ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.team ? 'team' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(p.email) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
                     </div>
@@ -3077,6 +3107,7 @@
                         ${selFiltro('cc-regione', 'Tutte le regioni', regioniCli)}
                         ${selFiltro('cc-stato', 'Tutti gli stati', statiCli)}
                     </div>
+                    <div class="sel-azioni"><button type="button" class="btn btn-sm btn-ghost" data-selpane="cc-lista" data-seltutti="1">Seleziona tutti (filtrati)</button><button type="button" class="btn btn-sm btn-ghost" data-selpane="cc-lista" data-seltutti="0">Deseleziona</button><span class="hint" id="cc-conta"></span></div>
                     <div class="lista-destinatari" id="cc-lista">
                         ${contattiCliente.length ? contattiCliente.map(cc => `<label class="riga-dest" data-tipo="${esc(cc.tipo)}" data-area="${esc(cc.area)}" data-regione="${esc(cc.regione)}" data-stato="${esc(cc.stato)}"><input type="checkbox" value="${esc(cc.email)}" ${dest.has(cc.email) ? 'checked' : ''}><span>${esc(cc.cliente)} <span class="riga-dest-mail">${esc(cc.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessun cliente con email negli incarichi.</div>'}
                     </div>
@@ -3098,7 +3129,18 @@
                         </select></div>
                         <div class="campo"><label>Data e ora del (primo) invio</label><input type="datetime-local" id="c-quando" value="${prog ? perDatetimeLocal(prog.prossimoInvio) : ''}"></div>
                     </div>
+                    <div id="c-ricorrenti" class="${prog && prog.frequenza && prog.frequenza !== 'unica' ? '' : 'nascosto'}">
+                        <div class="griglia-2">
+                            <div class="campo"><label>Termine</label><select id="c-fine-tipo">
+                                <option value="senza">Senza fine (finche non la fermi)</option>
+                                <option value="data">Fino a una data</option>
+                            </select></div>
+                            <div class="campo nascosto" id="c-fine-data-box"><label>Fino al</label><input type="date" id="c-fine-data" value="${prog && prog.fine ? perDateLocal(prog.fine) : ''}"></div>
+                        </div>
+                        <label class="hint" style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:6px;"><input type="checkbox" id="c-periodo" style="width:auto;" ${(!prog || prog.periodoNelOggetto !== false) ? 'checked' : ''}> Aggiungi il periodo all'oggetto (es. "primo trimestre 2026")</label>
+                    </div>
                     <p class="hint" id="c-prog-riepilogo" style="font-weight:600;color:var(--blu-700);"></p>
+                    <p class="hint" id="c-oggetto-riepilogo" style="color:var(--grigio-600);"></p>
                     <p class="hint">Gli invii programmati partono automaticamente dal server (con verifica giornaliera). La comunicazione resta modificabile fino all'invio.</p>
                 </div>
             </div>
@@ -3168,14 +3210,27 @@
             manuali().forEach(e => set.add(e));
             return Array.from(set);
         };
+        const spuntati = idLista => Array.from($(idLista).querySelectorAll('input:checked')).length;
         const aggiornaConta = () => {
             const g = gruppiSel();
             $('c-conta').textContent = '(' + tuttiDestinatari().length + ' destinatari' + (g.length ? ' - include i gruppi: ' + g.map(nomeGruppo).join(', ') : '') + ')';
+            $('cp-conta').textContent = spuntati('cp-lista') + ' selezionati';
+            $('cc-conta').textContent = spuntati('cc-lista') + ' selezionati';
         };
         $('cp-lista').addEventListener('change', aggiornaConta);
         $('cc-lista').addEventListener('change', aggiornaConta);
         $('c-altri').addEventListener('input', aggiornaConta);
         document.querySelectorAll('.c-gruppo').forEach(cb => cb.addEventListener('change', aggiornaConta));
+        // seleziona tutti / deseleziona (solo le righe filtrate visibili)
+        document.querySelectorAll('[data-selpane]').forEach(b => b.addEventListener('click', () => {
+            const on = b.dataset.seltutti === '1';
+            $(b.dataset.selpane).querySelectorAll('.riga-dest').forEach(row => {
+                if (row.style.display === 'none') return;
+                const cb = row.querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = on;
+            });
+            aggiornaConta();
+        }));
         // carica gli utenti abilitati (per risolvere il gruppo "Utenti abilitati")
         if (Cloud.attivo && typeof Cloud.listaUtenti === 'function') {
             Cloud.listaUtenti().then(u => { utentiAbilitati = u || []; aggiornaConta(); }).catch(() => { });
@@ -3201,22 +3256,39 @@
         // programmazione: mostra/nascondi opzioni e adatta l'etichetta del pulsante
         const chkProg = $('c-prog');
         if (prog && prog.frequenza) $('c-freq').value = prog.frequenza;
+        if (prog && prog.fine) $('c-fine-tipo').value = 'data';
         const relabel = () => { $('c-invia').textContent = chkProg.checked ? 'Programma' : 'Invia'; };
-        const aggiornaRiepilogo = () => {
-            const q = $('c-quando').value, t = q ? new Date(q).getTime() : NaN;
-            $('c-prog-riepilogo').textContent = (chkProg.checked && q && !isNaN(t)) ? descriviProgrammazione({ frequenza: $('c-freq').value, prossimoInvio: t }) : '';
-        };
-        chkProg.addEventListener('change', () => { $('c-prog-box').classList.toggle('nascosto', !chkProg.checked); relabel(); aggiornaRiepilogo(); });
-        $('c-freq').addEventListener('change', aggiornaRiepilogo);
-        $('c-quando').addEventListener('input', aggiornaRiepilogo);
-        relabel(); aggiornaRiepilogo();
         const leggiProg = () => {
             if (!chkProg.checked) return { prog: null };
             const q = $('c-quando').value;
             const t = q ? new Date(q).getTime() : NaN;
             if (!q || isNaN(t)) return { errore: 'Imposta la data e ora del (primo) invio.' };
-            return { prog: { attiva: true, frequenza: $('c-freq').value, prossimoInvio: t } };
+            const freq = $('c-freq').value, ricorrente = freq !== 'unica';
+            let fine = null;
+            if (ricorrente && $('c-fine-tipo').value === 'data') {
+                const fd = $('c-fine-data').value;
+                if (!fd) return { errore: 'Imposta la data di fine, oppure scegli "Senza fine".' };
+                fine = new Date(fd + 'T23:59:59').getTime();
+                if (fine < t) return { errore: 'La data di fine e precedente al primo invio.' };
+            }
+            return { prog: { attiva: true, frequenza: freq, prossimoInvio: t, fine: fine, periodoNelOggetto: ricorrente ? $('c-periodo').checked : false } };
         };
+        const aggiornaRiepilogo = () => {
+            const freq = $('c-freq').value, ricorrente = freq !== 'unica';
+            $('c-ricorrenti').classList.toggle('nascosto', !ricorrente);
+            $('c-fine-data-box').classList.toggle('nascosto', $('c-fine-tipo').value !== 'data');
+            const q = $('c-quando').value, t = q ? new Date(q).getTime() : NaN;
+            const attivo = chkProg.checked && q && !isNaN(t);
+            const lp = attivo ? leggiProg() : null;
+            $('c-prog-riepilogo').textContent = (lp && lp.prog) ? descriviProgrammazione(lp.prog) : '';
+            const per = (attivo && ricorrente && $('c-periodo').checked) ? etichettaPeriodo(freq, t) : '';
+            $('c-oggetto-riepilogo').textContent = per ? ('Oggetto del primo invio: "' + (($('c-oggetto').value.trim() || '(oggetto)') + ' - ' + per) + '"') : '';
+        };
+        chkProg.addEventListener('change', () => { $('c-prog-box').classList.toggle('nascosto', !chkProg.checked); relabel(); aggiornaRiepilogo(); });
+        ['c-freq', 'c-quando', 'c-fine-tipo', 'c-fine-data', 'c-periodo', 'c-oggetto'].forEach(idw => {
+            const el = $(idw); if (el) el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', aggiornaRiepilogo);
+        });
+        relabel(); aggiornaRiepilogo();
 
         $('c-annulla').addEventListener('click', chiudiModale);
         $('c-bozza').addEventListener('click', () => {

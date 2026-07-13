@@ -164,6 +164,8 @@ a { color: var(--blu-700); }
 .gruppi-chip { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip-gruppo { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; background: #fff; border: 1px solid var(--grigio-200); border-radius: 100px; padding: 4px 12px; cursor: pointer; }
 .chip-gruppo input { width: auto; margin: 0; }
+.sel-azioni { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.sel-azioni .hint { margin-left: auto; }
 /* Anteprima della mail nel compositore */
 .mail-anteprima { border: 1px solid var(--grigio-200); border-radius: 8px; background: #fff; overflow: hidden; }
 .mail-intest { background: var(--grigio-100); padding: 10px 14px; font-size: 0.82rem; color: var(--grigio-600); border-bottom: 1px solid var(--grigio-200); }
