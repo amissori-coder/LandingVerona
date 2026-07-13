@@ -967,13 +967,23 @@ ul {
 /* Più marchi affiancati (es. Partner + Media partner): ogni coppia
    etichetta+logo resta unita e va a capo come blocco sui formati stretti. */
 .event-collab--multi {
-    column-gap: 24px;
+    column-gap: 28px;
 }
 
 .event-collab-item {
     display: inline-flex;
-    align-items: center;
-    gap: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+}
+
+/* Loghi partner della card alla stessa altezza visiva: il logo ADVANT usa
+   la versione senza margini (…-trim.png), con la stessa proporzione di
+   riempimento del logo Sole 24 Ore. Altezza contenuta perché la colonna
+   della card è stretta (~207px) e il marchio ADVANT è molto largo. */
+.event-collab--multi .event-collab-logo {
+    height: 21px;
+    max-width: 100%;
 }
 
 .event-collab-label {

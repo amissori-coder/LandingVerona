@@ -2832,7 +2832,7 @@
         const aggiungi = (ts, c, tipo) => {
             if (!ts || ts < inizioMs || ts > fineMs) return;
             const k = chiave(ts);
-            (perGiorno[k] = perGiorno[k] || []).push({ comId: c.id, oggetto: c.oggetto || '(senza oggetto)', contesto: c.contesto, tipo, ts });
+            (perGiorno[k] = perGiorno[k] || []).push({ comId: c.id, etichetta: c.nome || c.oggetto || '(senza nome)', contesto: c.contesto, tipo, ts });
         };
         lista.forEach(c => {
             const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il }] : []);
@@ -2857,7 +2857,7 @@
         for (let g = 1; g <= numGiorni; g++) {
             const k = anno + '-' + String(mese + 1).padStart(2, '0') + '-' + String(g).padStart(2, '0');
             const ev = (perGiorno[k] || []).sort((a, b) => a.ts - b.ts);
-            const chips = ev.map(e => `<button class="cal-chip badge ${contesto(e.contesto).classe}" data-id="${esc(e.comId)}" title="${esc(e.oggetto)}${e.tipo === 'programmato' ? ' (programmato)' : ''}">${e.tipo === 'programmato' ? '&#9202; ' : ''}${esc(e.oggetto)}</button>`).join('');
+            const chips = ev.map(e => `<button class="cal-chip badge ${contesto(e.contesto).classe}" data-id="${esc(e.comId)}" title="${esc(e.etichetta)}${e.tipo === 'programmato' ? ' (programmato)' : ''}">${e.tipo === 'programmato' ? '&#9202; ' : ''}${esc(e.etichetta)}</button>`).join('');
             celle += `<div class="cal-cella${k === oggiK ? ' cal-oggi' : ''}"><div class="cal-num">${g}</div>${chips}</div>`;
         }
         return `<div class="cal-barra">
@@ -2882,7 +2882,7 @@
         const invii = [];
         lista.forEach(c => {
             const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da }] : []);
-            storia.forEach(s => invii.push({ contesto: c.contesto, oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '' }));
+            storia.forEach(s => invii.push({ contesto: c.contesto, nome: c.nome, oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '' }));
         });
         invii.sort((a, b) => (b.il || 0) - (a.il || 0));
 
@@ -2893,11 +2893,11 @@
         const sezProgrammate = programmate.length ? `<div class="card" id="sez-programmate">
             <h2>Comunicazioni programmate (${programmate.length})</h2>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Contesto</th><th>Oggetto</th><th class="num">Destinatari</th><th>Quando</th><th>Prossimo invio</th><th>Creata da</th><th></th>
+                <th>Contesto</th><th>Nome</th><th class="num">Destinatari</th><th>Quando</th><th>Prossimo invio</th><th>Creata da</th><th></th>
             </tr></thead><tbody>` +
             programmate.map(c => `<tr>
                 <td data-label="Contesto">${badgeContesto(c.contesto)}</td>
-                <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
+                <td class="cliente-cella" data-label="Nome">${esc(c.nome || c.oggetto || '(senza nome)')}${c.nome && c.oggetto ? '<div class="hint">' + esc(c.oggetto) + '</div>' : ''}</td>
                 <td data-label="Destinatari">${(c.destinatari || []).length}${(c.gruppi && c.gruppi.length) ? ' <span class="hint">+ ' + esc(c.gruppi.map(nomeGruppo).join(', ')) + '</span>' : ''}</td>
                 <td data-label="Quando">${esc(descriviProgrammazione(c.programmazione))}</td>
                 <td data-label="Prossimo invio">${c.programmazione ? fmtDataOra(c.programmazione.prossimoInvio) : ''}</td>
@@ -2908,11 +2908,11 @@
         const sezBozze = bozze.length ? `<div class="card" id="sez-bozze">
             <h2>Bozze (${bozze.length})</h2>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Contesto</th><th>Oggetto</th><th class="num">Destinatari</th><th>Creata da</th><th>Creata il</th><th></th>
+                <th>Contesto</th><th>Nome</th><th class="num">Destinatari</th><th>Creata da</th><th>Creata il</th><th></th>
             </tr></thead><tbody>` +
             bozze.map(c => `<tr>
                 <td data-label="Contesto">${badgeContesto(c.contesto)}</td>
-                <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
+                <td class="cliente-cella" data-label="Nome">${esc(c.nome || c.oggetto || '(senza nome)')}${c.nome && c.oggetto ? '<div class="hint">' + esc(c.oggetto) + '</div>' : ''}</td>
                 <td data-label="Destinatari">${(c.destinatari || []).length}${(c.gruppi && c.gruppi.length) ? ' <span class="hint">+ ' + esc(c.gruppi.map(nomeGruppo).join(', ')) + '</span>' : ''}</td>
                 <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
                 <td data-label="Creata il">${c.creato ? fmtDataOra(c.creato.il) : ''}</td>
@@ -2922,11 +2922,11 @@
         const sezInvii = invii.length ? `<div class="card" id="sez-invii">
             <h2>Invii effettuati (${invii.length})</h2>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Contesto</th><th>Oggetto</th><th>Inviata il</th><th class="num">Destinatari</th><th>Tipo</th><th>Da</th>
+                <th>Contesto</th><th>Nome</th><th>Inviata il</th><th class="num">Destinatari</th><th>Tipo</th><th>Da</th>
             </tr></thead><tbody>` +
             invii.map(s => `<tr>
                 <td data-label="Contesto">${badgeContesto(s.contesto)}</td>
-                <td class="cliente-cella" data-label="Oggetto">${esc(s.oggetto)}</td>
+                <td class="cliente-cella" data-label="Nome">${esc(s.nome || s.oggetto)}${s.nome && s.oggetto ? '<div class="hint">' + esc(s.oggetto) + '</div>' : ''}</td>
                 <td data-label="Inviata il">${fmtDataOra(s.il)}</td>
                 <td class="num" data-label="Destinatari">${s.n || ''}</td>
                 <td data-label="Tipo">${s.da === 'programmato' ? '<span class="badge legale">programmato</span>' : '<span class="badge neutro">manuale</span>'}</td>
@@ -3025,9 +3025,19 @@
             ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
             <div class="griglia-2">
                 <div class="campo"><label>Contesto</label><select id="c-contesto">${CONTESTI.map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select></div>
-                <div class="campo"><label>Oggetto</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}" placeholder="Oggetto della mail"></div>
+                <div class="campo"><label>Nome della comunicazione</label><input id="c-nome" value="${esc((c && c.nome) || '')}" placeholder="es. Promemoria scadenze trimestrali"><div class="hint">Etichetta interna per riconoscerla in elenco e nel calendario.</div></div>
             </div>
+            <div class="campo"><label>Oggetto della mail</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}" placeholder="Oggetto che vedra il destinatario"></div>
             <div class="campo"><label>Messaggio</label><textarea id="c-testo" rows="8" placeholder="Scrivi qui il testo della mail...">${esc((c && c.testo) || '')}</textarea></div>
+            <div class="campo"><label>Anteprima della mail</label>
+                <div class="mail-anteprima">
+                    <div class="mail-intest">
+                        <div><strong>Da:</strong> Revilaw S.p.A. &lt;noreply@nextgenerationbusiness.it&gt;</div>
+                        <div><strong>Oggetto:</strong> <span id="ap-oggetto"></span></div>
+                    </div>
+                    <div class="mail-corpo" id="ap-corpo"></div>
+                </div>
+            </div>
             <div class="campo">
                 <label>Destinatari <span class="hint" id="c-conta"></span></label>
                 <div class="tab-dest">
@@ -3090,6 +3100,15 @@
 
         const $ = x => document.getElementById(x);
         $('c-contesto').value = (c && c.contesto) || 'generale';
+        // anteprima live della mail (come la vedra il destinatario)
+        const aggiornaAnteprima = () => {
+            $('ap-oggetto').textContent = $('c-oggetto').value.trim() || '(nessun oggetto)';
+            const t = $('c-testo').value.trim();
+            $('ap-corpo').innerHTML = t ? esc(t).replace(/\n/g, '<br>') : '<span class="hint">(qui comparira il testo del messaggio)</span>';
+        };
+        $('c-oggetto').addEventListener('input', aggiornaAnteprima);
+        $('c-testo').addEventListener('input', aggiornaAnteprima);
+        aggiornaAnteprima();
         // schede destinatari
         document.querySelectorAll('.tab-dest .tab-btn').forEach(b => b.addEventListener('click', () => {
             document.querySelectorAll('.tab-dest .tab-btn').forEach(x => x.classList.toggle('attivo', x === b));
@@ -3154,6 +3173,7 @@
         const componiRecord = () => ({
             id: (c && c.id) || uid(),
             contesto: $('c-contesto').value,
+            nome: $('c-nome').value.trim(),
             oggetto: $('c-oggetto').value.trim(),
             testo: $('c-testo').value.trim(),
             gruppi: gruppiSel(),                  // gruppi dinamici (risolti all'invio)
