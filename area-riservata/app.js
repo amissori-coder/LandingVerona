@@ -654,6 +654,7 @@
         },
 
         esci() {
+            this.fermaPresenza();
             this.sottoscrizioni.forEach(s => { try { s(); } catch (e) { } });
             this.sottoscrizioni = [];
             // invia subito le scritture ancora in coda prima di chiudere
@@ -746,6 +747,42 @@
                     }
                 });
             });
+        },
+
+        /* --- Presenza: mostra sempre gli utenti connessi ---
+           Ogni scheda aggiorna il proprio "ultimoAccesso" a intervalli (heartbeat,
+           l'unico campo che le regole consentono di aggiornare da soli) e ascolta
+           l'intera collezione "utenti" in tempo reale: e "connesso" chi ha un
+           battito negli ultimi ~2 minuti. Nessuna modifica alle regole Firestore. */
+        _presenzaAvviata: false,
+        _presenzaTimer: null,
+        avviaPresenza() {
+            if (!this.attivo || !this.pronto || this._presenzaAvviata) return;
+            const email = Auth.utenteCorrente ? Auth.utenteCorrente.email : null;
+            if (!email) return;
+            this._presenzaAvviata = true;
+            const { collection, onSnapshot } = this.fb.fsMod;
+            const battito = () => { this.salvaUtente(email, { ultimoAccesso: Date.now() }).catch(() => { }); };
+            battito(); // subito, poi ogni 45s
+            this._presenzaTimer = setInterval(battito, 45000);
+            const stacca = onSnapshot(collection(this.db, 'utenti'), snap => {
+                const ora = Date.now();
+                const connessi = [];
+                snap.forEach(d => {
+                    const u = d.data() || {};
+                    if (u.attivo !== false && u.ultimoAccesso && (ora - u.ultimoAccesso) < 120000) {
+                        connessi.push({ email: d.id, nome: u.nome || d.id });
+                    }
+                });
+                connessi.sort((a, b) => a.nome.localeCompare(b.nome));
+                aggiornaPresenza(connessi);
+            }, () => { });
+            this.sottoscrizioni.push(stacca);
+        },
+        fermaPresenza() {
+            this._presenzaAvviata = false;
+            if (this._presenzaTimer) { clearInterval(this._presenzaTimer); this._presenzaTimer = null; }
+            aggiornaPresenza([]);
         },
 
         /* --- gestione utenti abilitati (Firestore, solo admin) --- */
@@ -1167,6 +1204,19 @@
         return cont;
     }
     function chiudiModale() { document.getElementById('modale-contenitore').innerHTML = ''; }
+
+    /* Mostra nella sidebar gli utenti attualmente connessi (heartbeat recente). */
+    function aggiornaPresenza(connessi) {
+        const box = document.getElementById('presenza-box');
+        if (!box) return;
+        if (!connessi || !connessi.length) { box.innerHTML = ''; return; }
+        const mio = Auth.utenteCorrente ? Auth.utenteCorrente.email : '';
+        const voci = connessi.map(c => {
+            const etichetta = c.nome + (c.email === mio ? ' (tu)' : '');
+            return '<span class="presenza-utente"><span class="pallino"></span>' + esc(etichetta) + '</span>';
+        }).join('');
+        box.innerHTML = '<div class="presenza-titolo">Connessi ora · ' + connessi.length + '</div>' + voci;
+    }
 
     /* =========================================================
        NAVIGAZIONE
@@ -3520,6 +3570,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         document.getElementById('utente-nome').textContent = Auth.utenteCorrente.nome;
         const RUOLI = { admin: 'Amministratore', qualita: 'Responsabile qualita', procuratore: 'Procuratore' };
         document.getElementById('utente-ruolo').textContent = RUOLI[Auth.utenteCorrente.ruolo] || Auth.utenteCorrente.ruolo;
+        if (typeof Cloud !== 'undefined' && Cloud.attivo) Cloud.avviaPresenza();
         naviga('dashboard');
     }
 

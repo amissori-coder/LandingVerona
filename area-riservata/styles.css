@@ -179,6 +179,14 @@ a { color: var(--blu-700); }
 .sidebar .utente-box .ruolo { color: rgba(255,255,255,0.6); font-size: 0.75rem; text-transform: capitalize; }
 .sidebar .utente-box button { margin-top: 10px; }
 
+/* Box "utenti connessi ora" */
+.sidebar .presenza-box { padding: 10px 18px; border-top: 1px solid rgba(255,255,255,0.10); font-size: 0.78rem; display: flex; flex-direction: column; gap: 5px; }
+.sidebar .presenza-box:empty { display: none; }
+.presenza-titolo { color: rgba(255,255,255,0.55); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+.presenza-utente { display: flex; align-items: center; gap: 7px; color: rgba(255,255,255,0.9); }
+.presenza-utente .pallino { width: 8px; height: 8px; border-radius: 50%; background: #35c26a; box-shadow: 0 0 0 2px rgba(53,194,106,0.25); flex-shrink: 0; animation: rv-pulse 2s ease-in-out infinite; }
+@keyframes rv-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
 .contenuto { flex: 1; padding: 28px 32px 60px; max-width: 1500px; min-width: 0; }
 .contenuto > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
 .contenuto > header h1 { font-size: 1.45rem; }
@@ -196,11 +204,12 @@ a { color: var(--blu-700); }
     .nav-hamburger { display: flex; }
     .sidebar .brand { padding: 14px 16px; border-bottom: none; display: flex; align-items: center; }
     .sidebar .brand .titolo-area { display: none; }
-    .sidebar nav, .sidebar .utente-box { display: none; }
+    .sidebar nav, .sidebar .utente-box, .sidebar .presenza-box { display: none; }
     .sidebar.menu-aperto { border-bottom: 1px solid rgba(255,255,255,0.12); }
     .sidebar.menu-aperto nav { display: flex; flex-direction: column; flex-wrap: nowrap; padding: 6px 12px 12px; }
     .sidebar.menu-aperto .nav-voce { width: 100%; font-size: 0.98rem; padding: 12px 14px; }
     .sidebar.menu-aperto .utente-box { display: block; }
+    .sidebar.menu-aperto .presenza-box { display: flex; }
     .sidebar.menu-aperto .nav-hamburger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
     .sidebar.menu-aperto .nav-hamburger span:nth-child(2) { opacity: 0; }
     .sidebar.menu-aperto .nav-hamburger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
