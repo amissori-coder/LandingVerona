@@ -158,6 +158,12 @@ a { color: var(--blu-700); }
 .riga-dest:hover { background: var(--grigio-100); }
 .riga-dest input { width: auto; margin: 0; flex: 0 0 auto; }
 .riga-dest-mail { color: var(--grigio-600); font-size: 0.82rem; }
+/* Gruppi dinamici di destinatari */
+.gruppi-dinamici { background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.gruppi-titolo { font-size: 0.74rem; color: var(--blu-700); margin-bottom: 6px; font-weight: 600; }
+.gruppi-chip { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-gruppo { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; background: #fff; border: 1px solid var(--grigio-200); border-radius: 100px; padding: 4px 12px; cursor: pointer; }
+.chip-gruppo input { width: auto; margin: 0; }
 /* Schede destinatari (Persone Revilaw / Clienti / Altri) */
 .tab-dest { display: flex; gap: 4px; border-bottom: 1px solid var(--grigio-200); margin-bottom: 8px; flex-wrap: wrap; }
 .tab-btn { padding: 7px 12px; border: none; background: transparent; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--grigio-600); border-bottom: 2px solid transparent; }

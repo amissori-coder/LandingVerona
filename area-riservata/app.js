@@ -2765,6 +2765,28 @@
     function contesto(id) { return CONTESTI.find(x => x.id === id) || CONTESTI.find(x => x.id === 'generale'); }
     function badgeContesto(id) { const x = contesto(id); return '<span class="badge ' + x.classe + '">' + esc(x.nome) + '</span>'; }
 
+    /* Gruppi DINAMICI di destinatari: si risolvono al momento dell'invio, quindi
+       chi viene aggiunto dopo (nuovi utenti/ruoli) entra da solo negli invii
+       successivi programmati. */
+    const GRUPPI_MAIL = [
+        { id: 'qualita', nome: 'Responsabili qualità' },
+        { id: 'procuratori', nome: 'Procuratori (resp. incarico)' },
+        { id: 'team', nome: 'Team di revisione' },
+        { id: 'utenti', nome: 'Utenti abilitati' }
+    ];
+    function nomeGruppo(id) { const g = GRUPPI_MAIL.find(x => x.id === id); return g ? g.nome : id; }
+    // risolve i gruppi in indirizzi email usando i dati ATTUALI (persone locali + utenti passati)
+    function risolviGruppiMail(gruppi, utentiAbilitati) {
+        const set = new Set();
+        const g = new Set(gruppi || []);
+        if (g.has('utenti')) (utentiAbilitati || []).forEach(u => { if (u.email && u.attivo !== false) set.add(String(u.email).toLowerCase()); });
+        const persone = Persone.tutte().filter(p => p.attivo && p.email);
+        if (g.has('qualita')) persone.filter(p => p.qualita).forEach(p => set.add(p.email.toLowerCase()));
+        if (g.has('procuratori')) persone.filter(p => p.respIncarico).forEach(p => set.add(p.email.toLowerCase()));
+        if (g.has('team')) persone.filter(p => p.team).forEach(p => set.add(p.email.toLowerCase()));
+        return set;
+    }
+
     /* Sposta un timestamp al periodo successivo (uguale al cron, lato app). */
     function prossimaDataMs(ts, freq) {
         const d = new Date(ts);
@@ -2876,7 +2898,7 @@
             programmate.map(c => `<tr>
                 <td data-label="Contesto">${badgeContesto(c.contesto)}</td>
                 <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
-                <td class="num" data-label="Destinatari">${(c.destinatari || []).length}</td>
+                <td data-label="Destinatari">${(c.destinatari || []).length}${(c.gruppi && c.gruppi.length) ? ' <span class="hint">+ ' + esc(c.gruppi.map(nomeGruppo).join(', ')) + '</span>' : ''}</td>
                 <td data-label="Quando">${esc(descriviProgrammazione(c.programmazione))}</td>
                 <td data-label="Prossimo invio">${c.programmazione ? fmtDataOra(c.programmazione.prossimoInvio) : ''}</td>
                 <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
@@ -2891,7 +2913,7 @@
             bozze.map(c => `<tr>
                 <td data-label="Contesto">${badgeContesto(c.contesto)}</td>
                 <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
-                <td class="num" data-label="Destinatari">${(c.destinatari || []).length}</td>
+                <td data-label="Destinatari">${(c.destinatari || []).length}${(c.gruppi && c.gruppi.length) ? ' <span class="hint">+ ' + esc(c.gruppi.map(nomeGruppo).join(', ')) + '</span>' : ''}</td>
                 <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
                 <td data-label="Creata il">${c.creato ? fmtDataOra(c.creato.il) : ''}</td>
                 ${azioni(c)}
@@ -2964,7 +2986,11 @@
     function modaleComunicazione(id) {
         const c = id ? Comunicazioni.trova(id) : null;
         const inviata = c && c.stato === 'inviata';
-        const dest = new Set((c && c.destinatari) || []);
+        // destinatari SCELTI singolarmente (persone/clienti/manuali); i vecchi record
+        // avevano solo "destinatari": lo usiamo come base individuale
+        const dest = new Set((c && c.destinatariManuali) || (c && c.destinatari) || []);
+        const gruppiIniziali = new Set((c && c.gruppi) || []);
+        let utentiAbilitati = []; // caricati dal cloud per risolvere il gruppo "Utenti abilitati"
         const reEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
         const prog = (c && c.programmazione) || null;
         const perDatetimeLocal = ts => {
@@ -3010,8 +3036,12 @@
                     <button type="button" class="tab-btn" data-pane="pane-altri">Altri indirizzi</button>
                 </div>
                 <div class="tab-pane" id="pane-persone">
+                    <div class="gruppi-dinamici">
+                        <div class="gruppi-titolo">Gruppi (dinamici): chi verrà aggiunto in futuro entra da solo negli invii successivi in programma</div>
+                        <div class="gruppi-chip">${GRUPPI_MAIL.map(g => `<label class="chip-gruppo"><input type="checkbox" class="c-gruppo" value="${g.id}" ${gruppiIniziali.has(g.id) ? 'checked' : ''}> ${esc(g.nome)}</label>`).join('')}</div>
+                    </div>
                     <div class="filtri-dest">
-                        <input id="cp-cerca" type="search" placeholder="Filtra per cognome, nome, email...">
+                        <input id="cp-cerca" type="search" placeholder="Oppure scegli singole persone: filtra per cognome, nome, email...">
                         <select id="cp-ruolo"><option value="">Tutti i ruoli</option><option value="qualita">Responsabile qualita</option><option value="respIncarico">Responsabile incarico (procuratori)</option><option value="team">Team di revisione</option></select>
                     </div>
                     <div class="lista-destinatari" id="cp-lista">
@@ -3093,16 +3123,32 @@
             const el = $(idf); if (el) el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', filtraClienti);
         });
 
-        const raccogli = () => {
+        const gruppiSel = () => Array.from(document.querySelectorAll('.c-gruppo:checked')).map(i => i.value);
+        // destinatari scelti SINGOLARMENTE (persone/clienti spuntati + indirizzi a mano): statici
+        const manuali = () => {
             const daP = Array.from($('cp-lista').querySelectorAll('input:checked')).map(i => i.value.trim().toLowerCase());
             const daC = Array.from($('cc-lista').querySelectorAll('input:checked')).map(i => i.value.trim().toLowerCase());
             const liberi = $('c-altri').value.split(/[\n,;]+/).map(s => s.trim().toLowerCase()).filter(e => reEmail.test(e));
             return Array.from(new Set(daP.concat(daC, liberi)));
         };
-        const aggiornaConta = () => { $('c-conta').textContent = '(' + raccogli().length + ' destinatari)'; };
+        // destinatari EFFETTIVI adesso = gruppi risolti sui dati attuali + scelte singole
+        const tuttiDestinatari = () => {
+            const set = risolviGruppiMail(gruppiSel(), utentiAbilitati);
+            manuali().forEach(e => set.add(e));
+            return Array.from(set);
+        };
+        const aggiornaConta = () => {
+            const g = gruppiSel();
+            $('c-conta').textContent = '(' + tuttiDestinatari().length + ' destinatari' + (g.length ? ' - include i gruppi: ' + g.map(nomeGruppo).join(', ') : '') + ')';
+        };
         $('cp-lista').addEventListener('change', aggiornaConta);
         $('cc-lista').addEventListener('change', aggiornaConta);
         $('c-altri').addEventListener('input', aggiornaConta);
+        document.querySelectorAll('.c-gruppo').forEach(cb => cb.addEventListener('change', aggiornaConta));
+        // carica gli utenti abilitati (per risolvere il gruppo "Utenti abilitati")
+        if (Cloud.attivo && typeof Cloud.listaUtenti === 'function') {
+            Cloud.listaUtenti().then(u => { utentiAbilitati = u || []; aggiornaConta(); }).catch(() => { });
+        }
         aggiornaConta();
 
         const componiRecord = () => ({
@@ -3110,7 +3156,9 @@
             contesto: $('c-contesto').value,
             oggetto: $('c-oggetto').value.trim(),
             testo: $('c-testo').value.trim(),
-            destinatari: raccogli(),
+            gruppi: gruppiSel(),                  // gruppi dinamici (risolti all'invio)
+            destinatariManuali: manuali(),        // scelte singole statiche
+            destinatari: tuttiDestinatari(),      // snapshot risolto ora (per invio immediato e conteggio)
             stato: (c && c.stato) || 'bozza',
             creato: (c && c.creato) || { da: Auth.utenteCorrente.email, il: Date.now() },
             // storico degli invii effettuati (migra i vecchi record che avevano solo "inviata")
@@ -3156,9 +3204,11 @@
             const rec = componiRecord();
             if (!rec.oggetto) { mostraErr('Inserisci l\'oggetto.'); return; }
             if (!rec.testo) { mostraErr('Scrivi il testo del messaggio.'); return; }
-            if (!rec.destinatari.length) { mostraErr('Seleziona almeno un destinatario.'); return; }
+            const haGruppi = rec.gruppi && rec.gruppi.length;
             const lp = leggiProg();
             if (lp.errore) { mostraErr(lp.errore); return; }
+            // per una programmata basta aver scelto un gruppo (anche se ora e vuoto): si popolera all'invio
+            if (!rec.destinatari.length && !(lp.prog && haGruppi)) { mostraErr('Seleziona almeno un destinatario o un gruppo.'); return; }
 
             if (lp.prog) {
                 // PROGRAMMA: non invia ora, sara' il server a inviare alla data prevista

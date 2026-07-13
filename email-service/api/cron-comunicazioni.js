@@ -55,8 +55,24 @@ function prossimaData(ts, freq) {
     return d.getTime();
 }
 
-async function inviaUna(trans, com) {
-    const destinatari = Array.from(new Set((com.destinatari || []).map(e => String(e || '').trim().toLowerCase()).filter(e => reEmail.test(e))));
+// Risolve i destinatari di una comunicazione ADESSO: espande i gruppi dinamici
+// sui dati attuali (persone + utenti) e unisce i destinatari scelti singolarmente.
+// Cosi chi e stato aggiunto dopo entra automaticamente negli invii programmati.
+function risolviDestinatariCron(com, persone, utenti) {
+    const set = new Set();
+    const g = new Set(com.gruppi || []);
+    if (g.has('utenti')) (utenti || []).forEach(u => { if (u.email && u.attivo !== false) set.add(String(u.email).toLowerCase()); });
+    (persone || []).forEach(p => {
+        if (!p || !p.attivo || !p.email) return;
+        if ((g.has('qualita') && p.qualita) || (g.has('procuratori') && p.respIncarico) || (g.has('team') && p.team)) set.add(String(p.email).toLowerCase());
+    });
+    const manuali = com.destinatariManuali || (g.size ? [] : (com.destinatari || []));
+    manuali.forEach(e => { const x = String(e || '').trim().toLowerCase(); if (reEmail.test(x)) set.add(x); });
+    return Array.from(set).filter(e => reEmail.test(e));
+}
+
+async function inviaUna(trans, com, destinatari) {
+    destinatari = Array.from(new Set((destinatari || []).map(e => String(e || '').trim().toLowerCase()).filter(e => reEmail.test(e))));
     if (!destinatari.length) throw new Error('nessun destinatario valido');
     const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
     const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.');
@@ -88,12 +104,24 @@ module.exports = async (req, res) => {
         const dovute = lista.filter(c => c && c.stato === 'programmata' && c.programmazione && c.programmazione.attiva && c.programmazione.prossimoInvio && c.programmazione.prossimoInvio <= ora);
         if (!dovute.length) { res.status(200).json({ ok: true, inviate: 0 }); return; }
 
+        // dati attuali per risolvere i gruppi dinamici
+        let persone = [];
+        try {
+            const ps = await admin.firestore().collection('archivio').doc('persone').get();
+            if (ps.exists && typeof ps.data().json === 'string') persone = JSON.parse(ps.data().json) || [];
+        } catch (_) { persone = []; }
+        let utenti = [];
+        try {
+            const us = await admin.firestore().collection('utenti').get();
+            us.forEach(d => utenti.push(Object.assign({ email: d.id }, d.data())));
+        } catch (_) { utenti = []; }
+
         const trans = trasporto();
         const aggiornamenti = {}; // id -> patch
         let inviate = 0;
         for (const com of dovute) {
             try {
-                const n = await inviaUna(trans, com);
+                const n = await inviaUna(trans, com, risolviDestinatariCron(com, persone, utenti));
                 inviate++;
                 const p = com.programmazione;
                 let prossimo = p.prossimoInvio;
