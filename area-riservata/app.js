@@ -2754,39 +2754,99 @@
         return toccati;
     }
 
+    /* Descrizione leggibile di QUANDO parte una comunicazione programmata. */
+    function descriviProgrammazione(prog) {
+        if (!prog || !prog.prossimoInvio) return '';
+        const d = new Date(prog.prossimoInvio);
+        const giorni = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+        const z = n => String(n).padStart(2, '0');
+        const ora = z(d.getHours()) + ':' + z(d.getMinutes());
+        const gg = d.getDate();
+        switch (prog.frequenza) {
+            case 'settimanale': return 'Ogni settimana, di ' + giorni[d.getDay()] + ' alle ' + ora;
+            case 'mensile': return 'Ogni mese, il giorno ' + gg + ' alle ' + ora;
+            case 'trimestrale': return 'Ogni 3 mesi, il giorno ' + gg + ' alle ' + ora;
+            case 'annuale': return 'Ogni anno, il ' + z(gg) + '/' + z(d.getMonth() + 1) + ' alle ' + ora;
+            default: return 'Una volta, il ' + fmtDataOra(prog.prossimoInvio);
+        }
+    }
+
     /* =========================================================
-       VISTA: COMUNICAZIONI (mail preparate e inviate)
+       VISTA: COMUNICAZIONI (programmate, bozze, storico invii)
     ========================================================= */
     function vistaComunicazioni() {
         const lista = Comunicazioni.tutte();
-        const puoInviare = Cloud.attivo; // l'invio reale richiede il cloud
+        const puoInviare = Cloud.attivo;
+        const programmate = lista.filter(c => c.stato === 'programmata');
+        const bozze = lista.filter(c => c.stato === 'bozza');
+        // storico: ogni invio effettuato (immediato o programmato), piu recente prima
+        const invii = [];
+        lista.forEach(c => {
+            const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da }] : []);
+            storia.forEach(s => invii.push({ oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '' }));
+        });
+        invii.sort((a, b) => (b.il || 0) - (a.il || 0));
+
+        const azioni = c => `<td data-label="" style="white-space:nowrap;">
+            <button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button>
+            <button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></td>`;
+
+        const sezProgrammate = programmate.length ? `<div class="card" id="sez-programmate">
+            <h2>Comunicazioni programmate (${programmate.length})</h2>
+            <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <th>Oggetto</th><th class="num">Destinatari</th><th>Quando</th><th>Prossimo invio</th><th>Creata da</th><th></th>
+            </tr></thead><tbody>` +
+            programmate.map(c => `<tr>
+                <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
+                <td class="num" data-label="Destinatari">${(c.destinatari || []).length}</td>
+                <td data-label="Quando">${esc(descriviProgrammazione(c.programmazione))}</td>
+                <td data-label="Prossimo invio">${c.programmazione ? fmtDataOra(c.programmazione.prossimoInvio) : ''}</td>
+                <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
+                ${azioni(c)}
+            </tr>`).join('') + `</tbody></table></div></div>` : '';
+
+        const sezBozze = bozze.length ? `<div class="card" id="sez-bozze">
+            <h2>Bozze (${bozze.length})</h2>
+            <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <th>Oggetto</th><th class="num">Destinatari</th><th>Creata da</th><th>Creata il</th><th></th>
+            </tr></thead><tbody>` +
+            bozze.map(c => `<tr>
+                <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
+                <td class="num" data-label="Destinatari">${(c.destinatari || []).length}</td>
+                <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
+                <td data-label="Creata il">${c.creato ? fmtDataOra(c.creato.il) : ''}</td>
+                ${azioni(c)}
+            </tr>`).join('') + `</tbody></table></div></div>` : '';
+
+        const sezInvii = invii.length ? `<div class="card" id="sez-invii">
+            <h2>Invii effettuati (${invii.length})</h2>
+            <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <th>Oggetto</th><th>Inviata il</th><th class="num">Destinatari</th><th>Tipo</th><th>Da</th>
+            </tr></thead><tbody>` +
+            invii.map(s => `<tr>
+                <td class="cliente-cella" data-label="Oggetto">${esc(s.oggetto)}</td>
+                <td data-label="Inviata il">${fmtDataOra(s.il)}</td>
+                <td class="num" data-label="Destinatari">${s.n || ''}</td>
+                <td data-label="Tipo">${s.da === 'programmato' ? '<span class="badge legale">programmato</span>' : '<span class="badge neutro">manuale</span>'}</td>
+                <td data-label="Da">${esc(s.da)}</td>
+            </tr>`).join('') + `</tbody></table></div></div>` : '';
+
         $vista().innerHTML = `
             <header>
                 <div>
                     <h1>Comunicazioni</h1>
-                    <p class="descrizione">Prepara le mail da inviare ai destinatari (anche pescandoli dall'anagrafica). Le bozze sono condivise con gli altri utenti; l'invio parte dal server di posta dello studio.</p>
+                    <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), inviale subito o programmale. Le bozze sono condivise; l'invio parte dal server di posta dello studio.</p>
                 </div>
                 <div class="header-azioni"><button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button></div>
             </header>
-            ${lista.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Oggetto</th><th class="num">Destinatari</th><th>Stato</th><th>Creata da</th><th>Data</th><th></th>
-            </tr></thead><tbody>` +
-            lista.map(c => `<tr>
-                <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
-                <td class="num" data-label="Destinatari">${(c.destinatari || []).length}</td>
-                <td data-label="Stato">${c.stato === 'inviata' ? '<span class="badge verde">inviata</span>' : (c.stato === 'programmata' ? '<span class="badge legale">programmata</span>' : '<span class="badge ambra">bozza</span>')}</td>
-                <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
-                <td data-label="Data">${c.stato === 'programmata' && c.programmazione ? 'prossimo: ' + fmtDataOra(c.programmazione.prossimoInvio) + (c.programmazione.frequenza && c.programmazione.frequenza !== 'unica' ? ' (' + esc(c.programmazione.frequenza) + ')' : '') : (c.inviata ? fmtDataOra(c.inviata.il) : (c.creato ? fmtDataOra(c.creato.il) : ''))}</td>
-                <td data-label="" style="white-space:nowrap;">
-                    <button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">${c.stato === 'inviata' ? 'Vedi / Rinvia' : 'Apri'}</button>
-                    <button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>
-                </td>
-            </tr>`).join('') +
-            `</tbody></table></div>`
-            : '<div class="card tabella-vuota">Nessuna comunicazione. Premi "Nuova comunicazione" per prepararne una.</div>'}
+            ${sezProgrammate}${sezBozze}${sezInvii}
+            ${(programmate.length || bozze.length || invii.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione. Premi "Nuova comunicazione" per prepararne una.</div>'}
             ${puoInviare ? '' : '<p class="descrizione" style="margin-top:10px;">L\'invio dal server e disponibile solo con l\'accesso protetto attivo; qui puoi comunque preparare le bozze.</p>'}`;
 
-        if (lista.length) attrezzaTabella($vista(), { nomeFile: 'comunicazioni' });
+        [['#sez-programmate', 'comunicazioni-programmate'], ['#sez-bozze', 'comunicazioni-bozze'], ['#sez-invii', 'invii-effettuati']].forEach(([sel, nome]) => {
+            const t = $vista().querySelector(sel + ' table.dati');
+            if (t) attrezzaTabella(t, { nomeFile: nome });
+        });
         document.getElementById('btn-nuova-com').addEventListener('click', () => modaleComunicazione(null));
         $vista().querySelectorAll('.c-apri').forEach(b => b.addEventListener('click', () => modaleComunicazione(b.dataset.id)));
         $vista().querySelectorAll('.c-elimina').forEach(b => b.addEventListener('click', () => {
@@ -2886,6 +2946,7 @@
                         </select></div>
                         <div class="campo"><label>Data e ora del (primo) invio</label><input type="datetime-local" id="c-quando" value="${prog ? perDatetimeLocal(prog.prossimoInvio) : ''}"></div>
                     </div>
+                    <p class="hint" id="c-prog-riepilogo" style="font-weight:600;color:var(--blu-700);"></p>
                     <p class="hint">Gli invii programmati partono automaticamente dal server (con verifica giornaliera). La comunicazione resta modificabile fino all'invio.</p>
                 </div>
             </div>
@@ -2948,7 +3009,9 @@
             testo: $('c-testo').value.trim(),
             destinatari: raccogli(),
             stato: (c && c.stato) || 'bozza',
-            creato: (c && c.creato) || { da: Auth.utenteCorrente.email, il: Date.now() }
+            creato: (c && c.creato) || { da: Auth.utenteCorrente.email, il: Date.now() },
+            // storico degli invii effettuati (migra i vecchi record che avevano solo "inviata")
+            invii: (c && c.invii) || (c && c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da }] : [])
         });
         const mostraErr = m => { const e = $('c-errore'); e.textContent = m; e.classList.remove('hidden'); };
 
@@ -2956,8 +3019,14 @@
         const chkProg = $('c-prog');
         if (prog && prog.frequenza) $('c-freq').value = prog.frequenza;
         const relabel = () => { $('c-invia').textContent = chkProg.checked ? 'Programma' : 'Invia'; };
-        chkProg.addEventListener('change', () => { $('c-prog-box').classList.toggle('nascosto', !chkProg.checked); relabel(); });
-        relabel();
+        const aggiornaRiepilogo = () => {
+            const q = $('c-quando').value, t = q ? new Date(q).getTime() : NaN;
+            $('c-prog-riepilogo').textContent = (chkProg.checked && q && !isNaN(t)) ? descriviProgrammazione({ frequenza: $('c-freq').value, prossimoInvio: t }) : '';
+        };
+        chkProg.addEventListener('change', () => { $('c-prog-box').classList.toggle('nascosto', !chkProg.checked); relabel(); aggiornaRiepilogo(); });
+        $('c-freq').addEventListener('change', aggiornaRiepilogo);
+        $('c-quando').addEventListener('input', aggiornaRiepilogo);
+        relabel(); aggiornaRiepilogo();
         const leggiProg = () => {
             if (!chkProg.checked) return { prog: null };
             const q = $('c-quando').value;
@@ -3008,8 +3077,10 @@
             Comunicazioni.salvaUna(rec); // salva prima: non si perde nulla se l'invio fallisce
             const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, rec.destinatari);
             if (!esito.ok) { mostraErr('Invio non riuscito: ' + esito.msg); return; }
+            const ora = Date.now();
             rec.stato = 'inviata';
-            rec.inviata = { da: Auth.utenteCorrente.email, il: Date.now(), n: esito.inviati };
+            rec.inviata = { da: Auth.utenteCorrente.email, il: ora, n: esito.inviati };
+            rec.invii = (rec.invii || []).concat([{ il: ora, n: esito.inviati, da: Auth.utenteCorrente.email }]);
             Comunicazioni.salvaUna(rec);
             Audit.registra(Auth.utenteCorrente, 'Comunicazione inviata', 'comunicazione', rec.id, rec.oggetto,
                 [{ campo: 'Destinatari', prima: '', dopo: String(esito.inviati) }]);

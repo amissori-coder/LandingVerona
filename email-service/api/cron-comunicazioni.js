@@ -99,12 +99,13 @@ module.exports = async (req, res) => {
                 let prossimo = p.prossimoInvio;
                 // avanza fino a superare "ora" (recupera eventuali periodi saltati con un solo invio)
                 let next = prossimaData(prossimo, p.frequenza);
+                const storia = (com.invii || []).concat([{ il: ora, n, da: 'programmato' }]);
                 if (next == null) {
                     // frequenza unica: completata
-                    aggiornamenti[com.id] = { stato: 'inviata', programmazione: Object.assign({}, p, { attiva: false }), inviata: { da: 'programmato', il: ora, n } };
+                    aggiornamenti[com.id] = { stato: 'inviata', programmazione: Object.assign({}, p, { attiva: false }), inviata: { da: 'programmato', il: ora, n }, invii: storia };
                 } else {
                     while (next <= ora) next = prossimaData(next, p.frequenza);
-                    aggiornamenti[com.id] = { programmazione: Object.assign({}, p, { prossimoInvio: next, ultimoInvio: ora }), ultimoInvioN: n };
+                    aggiornamenti[com.id] = { programmazione: Object.assign({}, p, { prossimoInvio: next, ultimoInvio: ora }), invii: storia };
                 }
             } catch (e) {
                 console.error('Comunicazione programmata non inviata (' + (com.id || '?') + '):', e && e.message);
