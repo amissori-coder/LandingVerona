@@ -2765,6 +2765,17 @@
     function contesto(id) { return CONTESTI.find(x => x.id === id) || CONTESTI.find(x => x.id === 'generale'); }
     function badgeContesto(id) { const x = contesto(id); return '<span class="badge ' + x.classe + '">' + esc(x.nome) + '</span>'; }
 
+    /* Firma della mail con logo Revilaw: usata nell'anteprima; la STESSA firma e
+       replicata nel servizio di invio (email-service/api/invia-comunicazione.js
+       e cron-comunicazioni.js) cosi il destinatario vede esattamente questo. */
+    const FIRMA_MAIL_HTML = '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:26px;border-top:1px solid #E2E8F0;padding-top:16px;"><tr>'
+        + '<td style="padding-right:14px;vertical-align:middle;"><img src="https://nextgenerationbusiness.it/zls_zes/img/logo-revilaw.png" alt="Revilaw" height="42" style="height:42px;width:auto;display:block;"></td>'
+        + '<td style="vertical-align:middle;font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:13px;line-height:1.5;">'
+        + '<div style="font-size:16px;font-weight:bold;color:#0A2844;">Revilaw <span style="color:#8bb8d4;">S.p.A.</span></div>'
+        + '<div style="color:#475569;">Revisione legale &middot; Next Generation Business</div>'
+        + '<a href="https://nextgenerationbusiness.it" style="color:#164068;text-decoration:none;">nextgenerationbusiness.it</a>'
+        + '</td></tr></table>';
+
     /* Gruppi DINAMICI di destinatari: si risolvono al momento dell'invio, quindi
        chi viene aggiunto dopo (nuovi utenti/ruoli) entra da solo negli invii
        successivi programmati. */
@@ -3104,7 +3115,8 @@
         const aggiornaAnteprima = () => {
             $('ap-oggetto').textContent = $('c-oggetto').value.trim() || '(nessun oggetto)';
             const t = $('c-testo').value.trim();
-            $('ap-corpo').innerHTML = t ? esc(t).replace(/\n/g, '<br>') : '<span class="hint">(qui comparira il testo del messaggio)</span>';
+            const corpo = t ? esc(t).replace(/\n/g, '<br>') : '<span class="hint">(qui comparira il testo del messaggio)</span>';
+            $('ap-corpo').innerHTML = corpo + FIRMA_MAIL_HTML;
         };
         $('c-oggetto').addEventListener('input', aggiornaAnteprima);
         $('c-testo').addEventListener('input', aggiornaAnteprima);

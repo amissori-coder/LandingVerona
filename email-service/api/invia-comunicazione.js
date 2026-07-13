@@ -75,6 +75,15 @@ function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// Firma con logo Revilaw, in fondo a ogni mail (uguale all'anteprima nell'app)
+const FIRMA = '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:26px;border-top:1px solid #E2E8F0;padding-top:16px;"><tr>'
+    + '<td style="padding-right:14px;vertical-align:middle;"><img src="https://nextgenerationbusiness.it/zls_zes/img/logo-revilaw.png" alt="Revilaw" height="42" style="height:42px;width:auto;display:block;"></td>'
+    + '<td style="vertical-align:middle;font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:13px;line-height:1.5;">'
+    + '<div style="font-size:16px;font-weight:bold;color:#0A2844;">Revilaw <span style="color:#8bb8d4;">S.p.A.</span></div>'
+    + '<div style="color:#475569;">Revisione legale &middot; Next Generation Business</div>'
+    + '<a href="https://nextgenerationbusiness.it" style="color:#164068;text-decoration:none;">nextgenerationbusiness.it</a>'
+    + '</td></tr></table>';
+
 module.exports = async (req, res) => {
     const origin = process.env.ALLOWED_ORIGIN || '*';
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -118,8 +127,8 @@ module.exports = async (req, res) => {
         // Piu destinatari => in copia nascosta (BCC), per non esporre gli indirizzi.
         const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
         const fromName = String(body.mittenteNome || process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
-        const htmlBody = '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;">'
-            + esc(testo).replace(/\n/g, '<br>') + '</div>';
+        const htmlBody = '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">'
+            + esc(testo).replace(/\n/g, '<br>') + FIRMA + '</div>';
         const messaggio = {
             from: '"' + fromName + '" <' + fromEmail + '>',
             replyTo: mittente,
