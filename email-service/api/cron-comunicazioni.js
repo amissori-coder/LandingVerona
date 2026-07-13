@@ -114,6 +114,32 @@ async function inviaUna(trans, com, destinatari) {
     return destinatari.length;
 }
 
+// Applica una patch a UNA sola comunicazione, fondendo per CAMPO sul record piu
+// fresco letto in transazione: non sovrascrive modifiche concorrenti (invii/fine/
+// frequenza) fatte da un altro utente mentre il cron era in esecuzione.
+async function applicaPatch(rif, id, patch) {
+    await admin.firestore().runTransaction(async (tx) => {
+        const s = await tx.get(rif);
+        let arr = [];
+        if (s.exists && typeof s.data().json === 'string') { try { arr = JSON.parse(s.data().json) || []; } catch (_) { arr = []; } }
+        arr = arr.map(c => {
+            if (!c || c.id !== id) return c;
+            const m = Object.assign({}, c);
+            if (patch.stato) m.stato = patch.stato;
+            if (patch.inviata) m.inviata = patch.inviata;
+            if (patch.prog) m.programmazione = Object.assign({}, c.programmazione || {}, patch.prog);
+            if (patch.voce) {
+                const chiave = v => (v && v.il || 0) + '|' + (v && v.da || '') + '|' + (v && v.n || '');
+                const visti = new Set(), uniti = [];
+                (c.invii || []).concat([patch.voce]).forEach(v => { const k = chiave(v); if (!visti.has(k)) { visti.add(k); uniti.push(v); } });
+                m.invii = uniti;
+            }
+            return m;
+        });
+        tx.set(rif, { json: JSON.stringify(arr), aggiornato: admin.firestore.FieldValue.serverTimestamp(), da: 'cron' });
+    });
+}
+
 module.exports = async (req, res) => {
     // sicurezza: solo Vercel Cron (header con CRON_SECRET)
     const segreto = process.env.CRON_SECRET;
@@ -145,47 +171,35 @@ module.exports = async (req, res) => {
         } catch (_) { utenti = []; }
 
         const trans = trasporto();
-        const aggiornamenti = {}; // id -> patch
         let inviate = 0;
         for (const com of dovute) {
             try {
                 const p = com.programmazione;
                 // programmazione scaduta (oltre la data di fine): disattiva senza inviare
                 if (p.fine && p.prossimoInvio > p.fine) {
-                    aggiornamenti[com.id] = { programmazione: Object.assign({}, p, { attiva: false }) };
+                    await applicaPatch(rif, com.id, { prog: { attiva: false } });
                     continue;
                 }
                 const n = await inviaUna(trans, com, risolviDestinatariCron(com, persone, utenti));
                 inviate++;
+                const voce = { il: ora, n, da: 'programmato' };
                 // avanza fino a superare "ora" (recupera eventuali periodi saltati con un solo invio)
                 let next = prossimaData(p.prossimoInvio, p.frequenza);
-                const storia = (com.invii || []).concat([{ il: ora, n, da: 'programmato' }]);
+                let patch;
                 if (next == null) {
                     // frequenza unica: completata
-                    aggiornamenti[com.id] = { stato: 'inviata', programmazione: Object.assign({}, p, { attiva: false }), inviata: { da: 'programmato', il: ora, n }, invii: storia };
+                    patch = { stato: 'inviata', prog: { attiva: false }, inviata: { da: 'programmato', il: ora, n }, voce };
                 } else {
                     while (next <= ora) next = prossimaData(next, p.frequenza);
-                    if (p.fine && next > p.fine) {
-                        // ultima occorrenza inviata: la serie e conclusa
-                        aggiornamenti[com.id] = { programmazione: Object.assign({}, p, { attiva: false, prossimoInvio: next }), invii: storia };
-                    } else {
-                        aggiornamenti[com.id] = { programmazione: Object.assign({}, p, { prossimoInvio: next, ultimoInvio: ora }), invii: storia };
-                    }
+                    if (p.fine && next > p.fine) patch = { prog: { attiva: false, prossimoInvio: next }, voce }; // ultima occorrenza: serie conclusa
+                    else patch = { prog: { prossimoInvio: next, ultimoInvio: ora }, voce };
                 }
+                // Persistenza incrementale: registra subito l'avanzamento, cosi un
+                // timeout/crash successivo non re-invia le comunicazioni gia spedite.
+                await applicaPatch(rif, com.id, patch);
             } catch (e) {
                 console.error('Comunicazione programmata non inviata (' + (com.id || '?') + '):', e && e.message);
             }
-        }
-
-        // scrittura a fusione: rileggo e applico le patch per id, senza sovrascrivere modifiche altrui
-        if (Object.keys(aggiornamenti).length) {
-            await admin.firestore().runTransaction(async (tx) => {
-                const s = await tx.get(rif);
-                let arr = [];
-                if (s.exists && typeof s.data().json === 'string') { try { arr = JSON.parse(s.data().json) || []; } catch (_) { arr = []; } }
-                arr = arr.map(c => (c && aggiornamenti[c.id]) ? Object.assign({}, c, aggiornamenti[c.id]) : c);
-                tx.set(rif, { json: JSON.stringify(arr), aggiornato: admin.firestore.FieldValue.serverTimestamp(), da: 'cron' });
-            });
         }
         res.status(200).json({ ok: true, inviate });
     } catch (e) {

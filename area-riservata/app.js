@@ -232,7 +232,25 @@
         salvaUna(c) {
             const lista = this.tutte();
             const i = lista.findIndex(x => x.id === c.id);
-            if (i >= 0) lista[i] = c; else lista.unshift(c);
+            if (i >= 0) {
+                // Riconcilia con la versione piu fresca gia in archivio: se il server
+                // (invio programmato) ha avanzato la schedulazione o registrato un invio
+                // mentre la modale era aperta, non riportarlo indietro col valore del form.
+                const cur = lista[i];
+                const chiave = v => (v && v.il || 0) + '|' + (v && v.da || '') + '|' + (v && v.n || '');
+                const visti = new Set(), uniti = [];
+                [].concat(cur.invii || [], c.invii || []).forEach(v => { const k = chiave(v); if (!visti.has(k)) { visti.add(k); uniti.push(v); } });
+                c.invii = uniti;
+                if (c.programmazione && cur.programmazione && (cur.programmazione.prossimoInvio || 0) > (c.programmazione.prossimoInvio || 0)) {
+                    c.programmazione = Object.assign({}, c.programmazione, {
+                        prossimoInvio: cur.programmazione.prossimoInvio,
+                        ultimoInvio: cur.programmazione.ultimoInvio,
+                        attiva: cur.programmazione.attiva
+                    });
+                }
+                if (cur.stato === 'inviata') { c.stato = 'inviata'; if (cur.inviata) c.inviata = cur.inviata; }
+                lista[i] = c;
+            } else lista.unshift(c);
             this.salva(lista);
         },
         elimina(id) { this.salva(this.tutte().filter(c => c.id !== id)); }
@@ -2872,9 +2890,11 @@
         lista.forEach(c => {
             const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il }] : []);
             storia.forEach(s => aggiungi(s.il, c, 'inviato'));
-            if (c.stato === 'programmata' && c.programmazione && c.programmazione.prossimoInvio) {
+            if (c.stato === 'programmata' && c.programmazione && c.programmazione.attiva !== false && c.programmazione.prossimoInvio) {
+                const fineProg = c.programmazione.fine || null;
                 let t = c.programmazione.prossimoInvio, guard = 0;
                 while (t <= fineMs && guard < 400) {
+                    if (fineProg && t > fineProg) break;   // non proiettare invii oltre la data di fine
                     aggiungi(t, c, 'programmato');
                     const nx = prossimaDataMs(t, c.programmazione.frequenza);
                     if (nx == null) break;
@@ -2911,7 +2931,8 @@
     function vistaComunicazioni() {
         const lista = Comunicazioni.tutte();
         const puoInviare = Cloud.attivo;
-        const programmate = lista.filter(c => c.stato === 'programmata');
+        // serie ancora attive: esclude quelle concluse dal server (attiva:false) che restano in stato "programmata"
+        const programmate = lista.filter(c => c.stato === 'programmata' && (!c.programmazione || c.programmazione.attiva !== false));
         const bozze = lista.filter(c => c.stato === 'bozza');
         // storico: ogni invio effettuato (immediato o programmato), piu recente prima
         const invii = [];
@@ -3096,7 +3117,7 @@
                     </div>
                     <div class="sel-azioni"><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="1">Seleziona tutti (filtrati)</button><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="0">Deseleziona</button><span class="hint" id="cp-conta"></span></div>
                     <div class="lista-destinatari" id="cp-lista">
-                        ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.team ? 'team' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(p.email) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
+                        ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.team ? 'team' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(String(p.email).toLowerCase()) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
                     </div>
                 </div>
                 <div class="tab-pane nascosto" id="pane-clienti">
