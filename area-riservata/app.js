@@ -145,6 +145,7 @@
         audit: 'rvArea.audit',
         fatture: 'rvArea.fattureStato',
         allerte: 'rvArea.allerte',
+        comunicazioni: 'rvArea.comunicazioni',
         impostazioni: 'rvArea.impostazioni'
     };
 
@@ -217,6 +218,24 @@
             const a = lista.find(x => x.id === id);
             if (a) { a.letta = true; this.salva(lista); }
         }
+    };
+
+    /* =========================================================
+       COMUNICAZIONI (mail preparate: bozze condivise e inviate)
+       Record: { id, oggetto, testo, destinatari:[email], stato:'bozza'|'inviata',
+                 creato:{da,il}, inviata?:{da,il,n} }
+    ========================================================= */
+    const Comunicazioni = {
+        tutte() { return Store.leggi(CHIAVI.comunicazioni, []); },
+        salva(l) { Store.scrivi(CHIAVI.comunicazioni, l); },
+        trova(id) { return this.tutte().find(c => c.id === id) || null; },
+        salvaUna(c) {
+            const lista = this.tutte();
+            const i = lista.findIndex(x => x.id === c.id);
+            if (i >= 0) lista[i] = c; else lista.unshift(c);
+            this.salva(lista);
+        },
+        elimina(id) { this.salva(this.tutte().filter(c => c.id !== id)); }
     };
 
     /* =========================================================
@@ -597,6 +616,7 @@
                 this.DOC_SYNC[CHIAVI.audit] = 'audit';
                 this.DOC_SYNC[CHIAVI.fatture] = 'fattureStato';
                 this.DOC_SYNC[CHIAVI.allerte] = 'allerte';
+                this.DOC_SYNC[CHIAVI.comunicazioni] = 'comunicazioni';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
                 // o messa in background (evita perdite silenziose su Firestore)
@@ -670,6 +690,30 @@
                 return { ok: true, viaEmail: true };
             } catch (e) {
                 return { ok: false, msg: 'Servizio email non raggiungibile.' };
+            }
+        },
+
+        // Invia una comunicazione libera: passa l'ID token dell'utente loggato,
+        // che il server verifica (solo utenti abilitati possono inviare).
+        async inviaComunicazione(oggetto, testo, destinatari) {
+            let url = window.RV_COMUNICAZIONI_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'invia-comunicazione$1');
+            if (!url) return { ok: false, msg: 'Servizio di invio non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            const mittenteNome = Auth.utenteCorrente ? Auth.utenteCorrente.nome : '';
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, oggetto, testo, destinatari, mittenteNome })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Invio non riuscito (' + r.status + ').') };
+                return { ok: true, inviati: data.inviati };
+            } catch (e) {
+                return { ok: false, msg: 'Servizio di invio non raggiungibile.' };
             }
         },
 
@@ -1395,6 +1439,7 @@
         { id: 'fatturazione', nome: 'Fatturazione', icona: 'M9 14l2 2 4-4M5 3h14a1 1 0 011 1v16l-3-2-2 2-3-2-2 2-3-2-3 2V4a1 1 0 011-1z' },
         { id: 'report', nome: 'Report compensi', icona: 'M4 20V10m6 10V4m6 16v-7m4 7H2' },
         { id: 'persone', nome: 'Persone', icona: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+        { id: 'comunicazioni', nome: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
         { id: 'dati', nome: 'Dati e backup', icona: 'M4 7c0-1.1 3.6-2 8-2s8 .9 8 2-3.6 2-8 2-8-.9-8-2zm0 0v10c0 1.1 3.6 2 8 2s8-.9 8-2V7', soloProprietario: true }
@@ -1415,6 +1460,7 @@
             fatturazione: vistaFatturazione,
             report: vistaReport,
             persone: vistaPersone,
+            comunicazioni: vistaComunicazioni,
             registro: vistaRegistro,
             utenti: vistaUtenti,
             dati: vistaDati,
@@ -2709,6 +2755,143 @@
     }
 
     /* =========================================================
+       VISTA: COMUNICAZIONI (mail preparate e inviate)
+    ========================================================= */
+    function vistaComunicazioni() {
+        const lista = Comunicazioni.tutte();
+        const puoInviare = Cloud.attivo; // l'invio reale richiede il cloud
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Comunicazioni</h1>
+                    <p class="descrizione">Prepara le mail da inviare ai destinatari (anche pescandoli dall'anagrafica). Le bozze sono condivise con gli altri utenti; l'invio parte dal server di posta dello studio.</p>
+                </div>
+                <div class="header-azioni"><button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button></div>
+            </header>
+            ${lista.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <th>Oggetto</th><th class="num">Destinatari</th><th>Stato</th><th>Creata da</th><th>Data</th><th></th>
+            </tr></thead><tbody>` +
+            lista.map(c => `<tr>
+                <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
+                <td class="num" data-label="Destinatari">${(c.destinatari || []).length}</td>
+                <td data-label="Stato">${c.stato === 'inviata' ? '<span class="badge verde">inviata</span>' : '<span class="badge ambra">bozza</span>'}</td>
+                <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
+                <td data-label="Data">${c.inviata ? fmtDataOra(c.inviata.il) : (c.creato ? fmtDataOra(c.creato.il) : '')}</td>
+                <td data-label="" style="white-space:nowrap;">
+                    <button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">${c.stato === 'inviata' ? 'Vedi / Rinvia' : 'Apri'}</button>
+                    <button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>
+                </td>
+            </tr>`).join('') +
+            `</tbody></table></div>`
+            : '<div class="card tabella-vuota">Nessuna comunicazione. Premi "Nuova comunicazione" per prepararne una.</div>'}
+            ${puoInviare ? '' : '<p class="descrizione" style="margin-top:10px;">L\'invio dal server e disponibile solo con l\'accesso protetto attivo; qui puoi comunque preparare le bozze.</p>'}`;
+
+        if (lista.length) attrezzaTabella($vista(), { nomeFile: 'comunicazioni' });
+        document.getElementById('btn-nuova-com').addEventListener('click', () => modaleComunicazione(null));
+        $vista().querySelectorAll('.c-apri').forEach(b => b.addEventListener('click', () => modaleComunicazione(b.dataset.id)));
+        $vista().querySelectorAll('.c-elimina').forEach(b => b.addEventListener('click', () => {
+            const c = Comunicazioni.trova(b.dataset.id);
+            apriModale(`<h2>Eliminare la comunicazione?</h2>
+                <p>"${esc((c && c.oggetto) || '')}" verra rimossa per tutti.</p>
+                <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-danger" id="m-conferma">Elimina</button></div>`);
+            document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+            document.getElementById('m-conferma').addEventListener('click', () => {
+                Comunicazioni.elimina(b.dataset.id);
+                Audit.registra(Auth.utenteCorrente, 'Comunicazione eliminata', 'comunicazione', b.dataset.id, (c && c.oggetto) || null, null);
+                chiudiModale(); toast('Comunicazione eliminata.', 'verde'); vistaComunicazioni();
+            });
+        }));
+    }
+
+    function modaleComunicazione(id) {
+        const c = id ? Comunicazioni.trova(id) : null;
+        const inviata = c && c.stato === 'inviata';
+        const dest = new Set((c && c.destinatari) || []);
+        // persone con email, per la selezione dall'anagrafica
+        const conMail = Persone.tutte().filter(p => p.email && p.attivo)
+            .sort((a, b) => (a.nome + a.nomeProprio).localeCompare(b.nome + b.nomeProprio));
+        const emailPersone = new Set(conMail.map(p => p.email.toLowerCase()));
+        // indirizzi liberi = destinatari che non appartengono a una persona in elenco
+        const altri = Array.from(dest).filter(e => !emailPersone.has(String(e).toLowerCase()));
+
+        apriModale(`<h2>${inviata ? 'Comunicazione inviata' : (c ? 'Modifica comunicazione' : 'Nuova comunicazione')}</h2>
+            ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
+            <div class="campo"><label>Oggetto</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}"></div>
+            <div class="campo"><label>Messaggio</label><textarea id="c-testo" rows="8" placeholder="Scrivi qui il testo della mail...">${esc((c && c.testo) || '')}</textarea></div>
+            <div class="campo">
+                <label>Destinatari dall'anagrafica <span class="hint" id="c-conta"></span></label>
+                <input id="c-cerca" type="search" placeholder="Filtra per cognome, nome o email..." style="margin-bottom:6px;">
+                <div class="lista-destinatari" id="c-lista">
+                    ${conMail.length ? conMail.map(p => `<label class="riga-dest"><input type="checkbox" value="${esc(p.email)}" ${dest.has(p.email) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
+                </div>
+            </div>
+            <div class="campo"><label>Altri indirizzi (uno per riga o separati da virgola)</label><textarea id="c-altri" rows="2" placeholder="mario.rossi@esempio.it, ...">${esc(altri.join(', '))}</textarea></div>
+            <div class="msg-errore hidden" id="c-errore"></div>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="c-annulla">Annulla</button>
+                <button class="btn btn-secondary" id="c-bozza">Salva bozza</button>
+                <button class="btn btn-primary" id="c-invia">Invia</button>
+            </div>`, { classe: 'larga' });
+
+        const $ = x => document.getElementById(x);
+        // filtro live della lista anagrafica
+        $('c-cerca').addEventListener('input', () => {
+            const t = $('c-cerca').value.trim().toLowerCase();
+            $('c-lista').querySelectorAll('.riga-dest').forEach(r => { r.style.display = (!t || r.textContent.toLowerCase().includes(t)) ? '' : 'none'; });
+        });
+        const raccogli = () => {
+            const daLista = Array.from($('c-lista').querySelectorAll('input:checked')).map(i => i.value.trim().toLowerCase());
+            const liberi = $('c-altri').value.split(/[\n,;]+/).map(s => s.trim().toLowerCase()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+            return Array.from(new Set(daLista.concat(liberi)));
+        };
+        const aggiornaConta = () => { $('c-conta').textContent = '(' + raccogli().length + ' destinatari)'; };
+        $('c-lista').addEventListener('change', aggiornaConta);
+        $('c-altri').addEventListener('input', aggiornaConta);
+        aggiornaConta();
+
+        const componiRecord = () => ({
+            id: (c && c.id) || uid(),
+            oggetto: $('c-oggetto').value.trim(),
+            testo: $('c-testo').value.trim(),
+            destinatari: raccogli(),
+            stato: (c && c.stato) || 'bozza',
+            creato: (c && c.creato) || { da: Auth.utenteCorrente.email, il: Date.now() }
+        });
+        const mostraErr = m => { const e = $('c-errore'); e.textContent = m; e.classList.remove('hidden'); };
+
+        $('c-annulla').addEventListener('click', chiudiModale);
+        $('c-bozza').addEventListener('click', () => {
+            const rec = componiRecord();
+            if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErr('La bozza e vuota.'); return; }
+            rec.stato = inviata ? 'inviata' : 'bozza';
+            Comunicazioni.salvaUna(rec);
+            Audit.registra(Auth.utenteCorrente, 'Comunicazione salvata (bozza)', 'comunicazione', rec.id, rec.oggetto || null, null);
+            chiudiModale(); toast('Bozza salvata.', 'verde'); vistaComunicazioni();
+        });
+
+        const btnInvia = $('c-invia');
+        btnInvia.addEventListener('click', () => conAttesa(btnInvia, async () => {
+            const rec = componiRecord();
+            if (!rec.oggetto) { mostraErr('Inserisci l\'oggetto.'); return; }
+            if (!rec.testo) { mostraErr('Scrivi il testo del messaggio.'); return; }
+            if (!rec.destinatari.length) { mostraErr('Seleziona almeno un destinatario.'); return; }
+            if (!Cloud.attivo) { mostraErr('L\'invio richiede l\'accesso protetto attivo. Puoi comunque salvare la bozza.'); return; }
+            // salva prima come bozza (non si perde nulla se l'invio fallisce)
+            Comunicazioni.salvaUna(rec);
+            const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, rec.destinatari);
+            if (!esito.ok) { mostraErr('Invio non riuscito: ' + esito.msg); return; }
+            rec.stato = 'inviata';
+            rec.inviata = { da: Auth.utenteCorrente.email, il: Date.now(), n: esito.inviati };
+            Comunicazioni.salvaUna(rec);
+            Audit.registra(Auth.utenteCorrente, 'Comunicazione inviata', 'comunicazione', rec.id, rec.oggetto,
+                [{ campo: 'Destinatari', prima: '', dopo: String(esito.inviati) }]);
+            chiudiModale();
+            toast('Comunicazione inviata a ' + esito.inviati + ' destinatari.', 'verde');
+            vistaComunicazioni();
+        }, { testo: 'Invio…' }));
+    }
+
+    /* =========================================================
        VISTA: REGISTRO MODIFICHE
     ========================================================= */
     function vistaRegistro() {
@@ -2730,6 +2913,7 @@
                     <option value="incarico">Incarichi</option>
                     <option value="fattura">Fatturazione</option>
                     <option value="persona">Persone</option>
+                    <option value="comunicazione">Comunicazioni</option>
                     <option value="utente">Utenti e accessi</option>
                     <option value="sistema">Sistema</option>
                 </select></div>

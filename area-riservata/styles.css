@@ -152,6 +152,13 @@ a { color: var(--blu-700); }
 /* Conteggio risultati accanto alla casella di ricerca delle tabelle */
 .filtro-conteggio { align-self: center; font-size: 0.8rem; color: var(--grigio-600); white-space: nowrap; }
 
+/* Selezione destinatari nelle Comunicazioni */
+.lista-destinatari { max-height: 220px; overflow-y: auto; border: 1px solid var(--grigio-200); border-radius: 8px; background: #fff; padding: 4px; }
+.riga-dest { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 0.88rem; cursor: pointer; }
+.riga-dest:hover { background: var(--grigio-100); }
+.riga-dest input { width: auto; margin: 0; flex: 0 0 auto; }
+.riga-dest-mail { color: var(--grigio-600); font-size: 0.82rem; }
+
 /* ---------- Shell applicazione ---------- */
 .app-shell { display: flex; min-height: 100vh; }
 

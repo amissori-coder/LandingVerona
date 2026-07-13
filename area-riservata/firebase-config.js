@@ -33,3 +33,8 @@ window.RV_FIREBASE_CONFIG = {
    posta dello studio (mittente Revilaw, link sul dominio nextgenerationbusiness.it).
    Con null, l'app usa l'invio standard di sistema. */
 window.RV_EMAIL_SERVICE_URL = "https://revilaw-email.vercel.app/api/invia-email";
+
+/* Invio delle "Comunicazioni" (mail composte nell'area riservata) tramite lo
+   stesso servizio. Se lasciato null viene dedotto dall'URL qui sopra
+   (.../invia-email -> .../invia-comunicazione). */
+window.RV_COMUNICAZIONI_URL = "https://revilaw-email.vercel.app/api/invia-comunicazione";
