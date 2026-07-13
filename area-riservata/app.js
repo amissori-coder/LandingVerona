@@ -232,6 +232,68 @@
             .filter(Boolean);
     }
 
+    /* =========================================================
+       FUSIONE A 3 VIE (sincronizzazione concorrente)
+       ---------------------------------------------------------
+       Ogni elenco condiviso e salvato come un unico documento: senza
+       accortezze, il salvataggio di un utente sovrascriverebbe l'intera
+       lista cancellando le modifiche fatte nel frattempo da un altro.
+       Qui si calcolano le MIE differenze (base -> mio locale) e si
+       applicano SOPRA lo stato remoto attuale, per record: per id negli
+       array (incarichi, persone, allerte), per chiave negli oggetti
+       (stati fatture), in append-only per l'audit. Cosi modifiche a
+       record diversi non si perdono; sullo stesso record vince l'ultimo.
+       Le funzioni sono pure e collaudate a parte.
+    ========================================================= */
+    function _formaDati(chiave) {
+        if (chiave === CHIAVI.fatture) return 'oggetto';
+        if (chiave === CHIAVI.audit) return 'audit';
+        return 'array';
+    }
+    function _parseDati(str, forma) {
+        try { const v = JSON.parse(str); return v == null ? (forma === 'oggetto' ? {} : []) : v; }
+        catch (e) { return forma === 'oggetto' ? {} : []; }
+    }
+    function _deltaDati(baseStr, nuovoStr, forma) {
+        const base = _parseDati(baseStr, forma), nuovo = _parseDati(nuovoStr, forma);
+        if (forma === 'oggetto') {
+            const upserts = {}, deletes = [];
+            Object.keys(nuovo).forEach(k => { if (JSON.stringify(nuovo[k]) !== JSON.stringify(base[k])) upserts[k] = nuovo[k]; });
+            Object.keys(base).forEach(k => { if (!(k in nuovo)) deletes.push(k); });
+            return { upserts, deletes };
+        }
+        const baseById = {}; base.forEach(r => { if (r && r.id != null) baseById[r.id] = r; });
+        const nuovoById = {}; nuovo.forEach(r => { if (r && r.id != null) nuovoById[r.id] = r; });
+        const upserts = [], deletes = [];
+        nuovo.forEach(r => { if (r && r.id != null && JSON.stringify(r) !== JSON.stringify(baseById[r.id])) upserts.push(r); });
+        if (forma !== 'audit') Object.keys(baseById).forEach(id => { if (!(id in nuovoById)) deletes.push(id); });
+        return { upserts, deletes };
+    }
+    function _applicaDelta(targetStr, delta, forma) {
+        const target = _parseDati(targetStr, forma);
+        if (forma === 'oggetto') {
+            const out = Object.assign({}, target);
+            Object.keys(delta.upserts).forEach(k => { out[k] = delta.upserts[k]; });
+            delta.deletes.forEach(k => { delete out[k]; });
+            return JSON.stringify(out);
+        }
+        const byId = {}, ordine = [];
+        target.forEach(r => { if (r && r.id != null) { if (!(r.id in byId)) ordine.push(r.id); byId[r.id] = r; } });
+        delta.upserts.forEach(r => { if (r && r.id != null) { if (!(r.id in byId)) ordine.push(r.id); byId[r.id] = r; } });
+        delta.deletes.forEach(id => { delete byId[id]; });
+        let out = ordine.filter(id => byId[id] !== undefined).map(id => byId[id]);
+        if (forma === 'audit') { out.sort((a, b) => (b.ts || 0) - (a.ts || 0)); if (out.length > 2000) out = out.slice(0, 2000); }
+        return JSON.stringify(out);
+    }
+    // fonde il mio valore locale con lo stato remoto attuale, partendo dalla base
+    // (l'ultimo remoto che avevo visto). Ritorna la stringa JSON fusa.
+    function _fondiDati(chiave, baseStr, localStr, remoteStr) {
+        if (baseStr == null || remoteStr == null) return localStr;
+        if (baseStr === remoteStr) return localStr;   // nessuna modifica altrui
+        if (localStr === baseStr) return remoteStr;   // io non ho cambiato nulla
+        return _applicaDelta(remoteStr, _deltaDati(baseStr, localStr, _formaDati(chiave)), _formaDati(chiave));
+    }
+
     const Persone = {
         tutte() { return Store.leggi(CHIAVI.persone, []); },
         salva(l) { Store.scrivi(CHIAVI.persone, l); },
@@ -657,16 +719,17 @@
             this.fermaPresenza();
             this.sottoscrizioni.forEach(s => { try { s(); } catch (e) { } });
             this.sottoscrizioni = [];
-            // invia subito le scritture ancora in coda prima di chiudere
+            // invia subito le scritture ancora in coda (transazione) PRIMA di uscire
             if (this._timerFlush) { clearTimeout(this._timerFlush); this._timerFlush = null; }
-            this._flush();
-            this.pronto = false;
-            this._sync = null;
-            // attende le scritture in corso (es. la voce "Uscita" del registro)
             const eseguiSignOut = () => { try { this.fb.authMod.signOut(this.auth); } catch (e) { } };
-            try {
-                this.fb.fsMod.waitForPendingWrites(this.db).then(eseguiSignOut, eseguiSignOut);
-            } catch (e) { eseguiSignOut(); }
+            const chiudi = () => {
+                this.pronto = false;
+                this._sync = null;
+                // attende le scritture in corso (es. la voce "Uscita" del registro)
+                try { this.fb.fsMod.waitForPendingWrites(this.db).then(eseguiSignOut, eseguiSignOut); }
+                catch (e) { eseguiSignOut(); }
+            };
+            Promise.resolve(this._flush()).then(chiudi, chiudi);
         },
 
         /* --- dati condivisi: un documento Firestore per archivio --- */
@@ -686,6 +749,7 @@
                 const snap = await getDoc(rif);
                 if (snap.exists() && typeof snap.data().json === 'string') {
                     localStorage.setItem(chiave, snap.data().json);
+                    this._baseRemoto[chiave] = snap.data().json;
                 } else {
                     // primo avvio del progetto: i dati locali fanno da base,
                     // ma gli incarichi dimostrativi non vengono caricati
@@ -696,7 +760,7 @@
                             locale = reali.length ? JSON.stringify(reali) : null;
                         } catch (e) { locale = null; }
                     }
-                    if (locale) await setDoc(rif, { json: locale, aggiornato: serverTimestamp(), da: 'bootstrap' });
+                    if (locale) { await setDoc(rif, { json: locale, aggiornato: serverTimestamp(), da: 'bootstrap' }); this._baseRemoto[chiave] = locale; }
                 }
             }
             this.pronto = true;
@@ -704,9 +768,19 @@
                 const rif = doc(this.db, 'archivio', this.DOC_SYNC[chiave]);
                 const stacca = onSnapshot(rif, snap => {
                     if (!snap.exists()) return;
-                    const json = snap.data().json;
-                    if (typeof json === 'string' && json !== localStorage.getItem(chiave)) {
-                        localStorage.setItem(chiave, json);
+                    const remoto = snap.data().json;
+                    if (typeof remoto !== 'string') return;
+                    // Se ho modifiche locali non ancora inviate, le riporto SOPRA il
+                    // nuovo remoto (fusione) invece di perderle sovrascrivendo tutto.
+                    let nuovoLocale = remoto;
+                    if (this._pendenti[chiave] != null) {
+                        const forma = _formaDati(chiave);
+                        nuovoLocale = _applicaDelta(remoto, _deltaDati(this._baseRemoto[chiave], this._pendenti[chiave], forma), forma);
+                        this._pendenti[chiave] = nuovoLocale;
+                    }
+                    this._baseRemoto[chiave] = remoto;
+                    if (nuovoLocale !== localStorage.getItem(chiave)) {
+                        localStorage.setItem(chiave, nuovoLocale);
                         // niente ricarica dentro il wizard: si perderebbero i dati digitati
                         if (Auth.utenteCorrente && vistaCorrente !== 'wizard') naviga(vistaCorrente, parametriVista);
                     }
@@ -719,6 +793,7 @@
         // (es. una modifica di massa) vengono unite in un'unica scrittura del
         // valore finale, cosi non si esaurisce la coda di scritture di Firestore
         _pendenti: {},
+        _baseRemoto: {},   // ultimo valore remoto visto per chiave (base della fusione)
         _timerFlush: null,
         _erroreMostrato: false,
         sincronizza(chiave, valore) {
@@ -727,26 +802,46 @@
             if (this._timerFlush) return;
             this._timerFlush = setTimeout(() => this._flush(), 400);
         },
-        _flush() {
+        // Scrive le modifiche in coda con una TRANSAZIONE che fonde per-record il
+        // mio valore locale con lo stato remoto attuale: due utenti che salvano
+        // record diversi non si sovrascrivono piu (niente perdita di dati).
+        async _flush() {
             this._timerFlush = null;
             const pendenti = this._pendenti;
             this._pendenti = {};
             if (!this.pronto) return;
-            const { doc, setDoc, serverTimestamp } = this.fb.fsMod;
+            const { doc, runTransaction, serverTimestamp } = this.fb.fsMod;
             const email = Auth.utenteCorrente ? Auth.utenteCorrente.email : 'sconosciuto';
-            Object.keys(pendenti).forEach(chiave => {
-                setDoc(doc(this.db, 'archivio', this.DOC_SYNC[chiave]), {
-                    json: pendenti[chiave], aggiornato: serverTimestamp(), da: email
-                }).catch(e => {
+            for (const chiave of Object.keys(pendenti)) {
+                const rif = doc(this.db, 'archivio', this.DOC_SYNC[chiave]);
+                const localStr = pendenti[chiave];
+                const baseStr = this._baseRemoto[chiave];
+                try {
+                    const fuso = await runTransaction(this.db, async (tx) => {
+                        const snap = await tx.get(rif);
+                        const remoteStr = (snap.exists() && typeof snap.data().json === 'string') ? snap.data().json : null;
+                        const merged = (remoteStr == null) ? localStr : _fondiDati(chiave, baseStr, localStr, remoteStr);
+                        tx.set(rif, { json: merged, aggiornato: serverTimestamp(), da: email });
+                        return merged;
+                    });
+                    this._baseRemoto[chiave] = fuso;
+                    if (fuso !== localStorage.getItem(chiave)) {
+                        localStorage.setItem(chiave, fuso);
+                        if (Auth.utenteCorrente && vistaCorrente !== 'wizard') naviga(vistaCorrente, parametriVista);
+                    }
+                } catch (e) {
                     console.error('Sincronizzazione non riuscita (' + chiave + '):', e);
+                    // rimetti in coda per un nuovo tentativo: la modifica non va persa
+                    if (this._pendenti[chiave] == null) this._pendenti[chiave] = localStr;
+                    if (!this._timerFlush && this.pronto) this._timerFlush = setTimeout(() => this._flush(), 2500);
                     if (!this._erroreMostrato) {
                         this._erroreMostrato = true;
-                        toast('Attenzione: salvataggio non condiviso, la modifica e rimasta solo su questo browser' +
+                        toast('Attenzione: salvataggio non ancora condiviso, nuovo tentativo in corso' +
                             (e && e.code === 'permission-denied' ? ' (utenza non piu abilitata?)' : '') + '.', 'rosso');
                         setTimeout(() => { this._erroreMostrato = false; }, 5000);
                     }
-                });
-            });
+                }
+            }
         },
 
         /* --- Presenza: mostra sempre gli utenti connessi ---
