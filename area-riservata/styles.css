@@ -225,8 +225,10 @@ a { color: var(--blu-700); }
     .kpi-griglia { grid-template-columns: 1fr 1fr; gap: 10px; }
     .kpi { padding: 12px 14px; }
     .kpi .valore { font-size: 1.25rem; }
-    .filtri { flex-direction: column; align-items: stretch; }
-    .filtri .campo, .filtri .campo.ricerca { min-width: 0; width: 100%; }
+    .filtri, .barra-tabella { flex-direction: column; align-items: stretch; }
+    .filtri .campo, .filtri .campo.ricerca, .barra-tabella .campo { min-width: 0; width: 100%; }
+    .barra-tabella-azioni { margin-left: 0; width: 100%; }
+    .barra-tabella-azioni .btn { flex: 1 1 auto; justify-content: center; }
     .wizard-passi { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
     .wizard-passo { flex: 0 0 auto; }
     .griglia-2, .griglia-3 { grid-template-columns: 1fr; }
@@ -282,24 +284,44 @@ a { color: var(--blu-700); }
 .kpi.ambra { border-left-color: var(--oro); }
 .kpi.rosso { border-left-color: var(--rosso); }
 
-/* ---------- Filtri ---------- */
-.filtri { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end; }
-.filtri .campo { margin-bottom: 0; min-width: 150px; flex: 0 1 auto; }
+/* ---------- Filtri / barra strumenti tabella (corporate) ---------- */
+.filtri, .barra-tabella {
+    display: flex; gap: 10px 14px; flex-wrap: wrap; align-items: flex-end;
+    margin-bottom: 14px; padding: 12px 14px;
+    background: var(--grigio-100); border: 1px solid var(--grigio-200); border-radius: 10px;
+}
+.filtri .campo, .barra-tabella .campo { margin-bottom: 0; min-width: 140px; flex: 0 1 auto; }
 .filtri .campo.ricerca { flex: 1 1 220px; }
-.filtri .campo label { font-size: 0.75rem; }
-.filtri .campo input, .filtri .campo select { padding: 8px 10px; font-size: 0.88rem; }
+.filtri .campo label, .barra-tabella .campo label {
+    font-size: 0.68rem; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--grigio-600); font-weight: 600; margin-bottom: 4px;
+}
+.filtri .campo input, .filtri .campo select,
+.barra-tabella .campo input, .barra-tabella .campo select {
+    padding: 7px 10px; font-size: 0.85rem; background: #fff;
+}
+.barra-tabella-azioni { margin-left: auto; align-self: flex-end; display: flex; align-items: center; gap: 12px; }
+.barra-tabella-azioni .btn { white-space: nowrap; }
 
 /* ---------- Tabelle ---------- */
-.tabella-wrap { overflow-x: auto; background: #fff; border-radius: var(--raggio); box-shadow: var(--ombra); }
-table.dati { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.tabella-wrap { overflow-x: auto; background: #fff; border-radius: var(--raggio); box-shadow: var(--ombra); border: 1px solid var(--grigio-200); }
+table.dati { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 table.dati th {
-    background: var(--blu-900); color: #fff; text-align: left; padding: 10px 12px;
-    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+    background: var(--blu-900); color: #fff; text-align: left; padding: 11px 14px;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
     position: sticky; top: 0; cursor: pointer; user-select: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
+table.dati th:last-child { border-right: none; }
 table.dati th.num, table.dati td.num { text-align: right; }
-table.dati td { padding: 9px 12px; border-bottom: 1px solid var(--grigio-100); vertical-align: top; }
+table.dati td {
+    padding: 10px 14px; vertical-align: top;
+    border-bottom: 1px solid var(--grigio-200); border-right: 1px solid var(--grigio-100);
+}
+table.dati td:last-child { border-right: none; }
+table.dati tbody tr:nth-child(even) { background: #F8FAFC; }          /* righe alternate */
 table.dati tbody tr:hover { background: var(--blu-050); }
+table.dati tbody tr:last-child td { border-bottom: none; }
 table.dati tbody tr.cliccabile { cursor: pointer; }
 table.dati .cliente-cella { font-weight: 600; color: var(--blu-900); }
 table.dati tfoot td { font-weight: 700; background: var(--blu-100); border-top: 2px solid var(--blu-500); }

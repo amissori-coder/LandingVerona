@@ -1257,36 +1257,107 @@
         }
     }
 
-    /* Aggiunge una casella di ricerca sopra la prima tabella "dati" contenuta in
-       scopeEl e filtra le righe per testo su TUTTE le colonne. Riusa lo stile
-       .filtri/.campo gia presente; nessuna dipendenza dalla vista specifica. */
-    function abilitaRicercaTabella(scopeEl, placeholder) {
-        if (!scopeEl) return;
-        const tabella = scopeEl.querySelector('table.dati');
-        if (!tabella || !tabella.tBodies[0]) return;
+    /* Testo pulito di una cella (per filtri ed export). */
+    function _testoCella(cella) {
+        return cella ? cella.textContent.trim().replace(/\s+/g, ' ') : '';
+    }
+
+    /* Esporta in CSV le righe VISIBILI (rispetta i filtri) di una tabella "dati",
+       saltando le colonne d'azione (intestazione vuota). Formato come l'export
+       incarichi: BOM, virgolette, separatore ";", guardia anti-formula Excel. */
+    function esportaTabellaCsv(tabella, nomeFile) {
+        if (!tabella || !tabella.tHead || !tabella.tBodies[0]) return;
+        const ths = Array.from(tabella.tHead.rows[0].cells);
+        const colonne = [];
+        ths.forEach((th, i) => { if (th.textContent.trim() !== '') colonne.push(i); });
+        const righe = [colonne.map(i => ths[i].textContent.trim())];
+        Array.from(tabella.tBodies[0].rows).forEach(tr => {
+            if (tr.style.display === 'none') return;
+            righe.push(colonne.map(i => _testoCella(tr.cells[i])));
+        });
+        const csv = righe.map(r => r.map(v => {
+            let s = String(v).replace(/"/g, '""');
+            if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // niente formule in Excel
+            return '"' + s + '"';
+        }).join(';')).join('\r\n');
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (nomeFile || 'tabella') + '_' + oggiISO() + '.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        toast('CSV esportato (' + (righe.length - 1) + ' righe).', 'verde');
+        Audit.registra(Auth.utenteCorrente, 'Esportazione CSV', 'sistema', null, null, nomeFile || null);
+    }
+
+    /* Attrezza una tabella "dati" con una barra strumenti professionale: un filtro
+       PER COLONNA (tendina per le colonne categoriali, casella di testo per le
+       altre) e un pulsante "Esporta CSV". Generico, guidato dai dati della tabella.
+       opts: { nomeFile, filtri = true }. */
+    function attrezzaTabella(elOrScope, opts) {
+        opts = opts || {};
+        const tabella = (elOrScope && elOrScope.tagName === 'TABLE') ? elOrScope : (elOrScope && elOrScope.querySelector('table.dati'));
+        if (!tabella || !tabella.tHead || !tabella.tBodies[0]) return;
         const ancora = tabella.closest('.tabella-wrap') || tabella;
-        // evita doppioni se la funzione venisse richiamata sulla stessa tabella
-        if (ancora.previousElementSibling && ancora.previousElementSibling.classList.contains('filtri')) return;
+        if (ancora.previousElementSibling && ancora.previousElementSibling.classList.contains('barra-tabella')) return;
+        const ths = Array.from(tabella.tHead.rows[0].cells);
+        const corpo = tabella.tBodies[0];
         const barra = document.createElement('div');
-        barra.className = 'filtri';
-        barra.innerHTML = '<div class="campo ricerca"><label>Cerca</label>'
-            + '<input type="search" placeholder="' + esc(placeholder || 'Cerca in tabella...') + '"></div>'
-            + '<div class="filtro-conteggio" aria-live="polite"></div>';
+        barra.className = 'barra-tabella';
+
+        const controlli = [];
+        if (opts.filtri !== false) {
+            ths.forEach((th, i) => {
+                const nome = th.textContent.trim();
+                if (!nome) return; // colonna d'azione
+                const valori = new Set();
+                Array.from(corpo.rows).forEach(tr => { const v = _testoCella(tr.cells[i]); if (v) valori.add(v); });
+                if (valori.size === 0) return; // colonna vuota
+                const distinti = Array.from(valori);
+                const maxLen = distinti.reduce((m, v) => Math.max(m, v.length), 0);
+                const categoriale = distinti.length >= 2 && distinti.length <= 12 && maxLen <= 24;
+                const campo = document.createElement('div');
+                campo.className = 'campo';
+                if (categoriale) {
+                    distinti.sort((a, b) => a.localeCompare(b, 'it', { numeric: true }));
+                    campo.innerHTML = '<label>' + esc(nome) + '</label><select><option value="">Tutti</option>'
+                        + distinti.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join('') + '</select>';
+                    controlli.push({ i: i, tipo: 'select', el: campo.querySelector('select') });
+                } else {
+                    campo.innerHTML = '<label>' + esc(nome) + '</label><input type="search" placeholder="Filtra ' + esc(nome.toLowerCase()) + '...">';
+                    controlli.push({ i: i, tipo: 'text', el: campo.querySelector('input') });
+                }
+                barra.appendChild(campo);
+            });
+        }
+
+        const azioni = document.createElement('div');
+        azioni.className = 'barra-tabella-azioni';
+        azioni.innerHTML = '<span class="filtro-conteggio" aria-live="polite"></span>'
+            + '<button type="button" class="btn btn-sm btn-secondary" data-esporta>'
+            + '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Esporta CSV</button>';
+        barra.appendChild(azioni);
+        const conteggio = azioni.querySelector('.filtro-conteggio');
         ancora.parentElement.insertBefore(barra, ancora);
-        const input = barra.querySelector('input');
-        const conteggio = barra.querySelector('.filtro-conteggio');
+
         const applica = () => {
-            const t = input.value.trim().toLowerCase();
-            const righe = Array.from(tabella.tBodies[0].rows);
+            const righe = Array.from(corpo.rows);
             let visibili = 0;
             righe.forEach(tr => {
-                const ok = !t || tr.textContent.toLowerCase().includes(t);
+                let ok = true;
+                for (const c of controlli) {
+                    const testo = _testoCella(tr.cells[c.i]);
+                    if (c.tipo === 'select') { if (c.el.value && testo !== c.el.value) { ok = false; break; } }
+                    else { const q = c.el.value.trim().toLowerCase(); if (q && !testo.toLowerCase().includes(q)) { ok = false; break; } }
+                }
                 tr.style.display = ok ? '' : 'none';
                 if (ok) visibili++;
             });
-            conteggio.textContent = t ? (visibili + ' di ' + righe.length) : '';
+            const filtrando = controlli.some(c => (c.el.value || '').trim());
+            conteggio.textContent = filtrando ? (visibili + ' di ' + righe.length) : '';
         };
-        input.addEventListener('input', applica);
+        controlli.forEach(c => c.el.addEventListener(c.tipo === 'select' ? 'change' : 'input', applica));
+        azioni.querySelector('[data-esporta]').addEventListener('click', () => esportaTabellaCsv(tabella, opts.nomeFile));
         return applica;
     }
 
@@ -2364,7 +2435,7 @@
             `</tbody><tfoot><tr><td colspan="4">Totale</td><td class="num">${eurFmt2.format(totale)}</td><td colspan="${Auth.puoModificare() ? 2 : 1}"></td></tr></tfoot></table></div>
             </div>`;
 
-        abilitaRicercaTabella(corpo, 'Cerca per cliente, periodicita, mese o stato...');
+        attrezzaTabella(corpo, { nomeFile: 'fatturazione' });
         corpo.querySelectorAll('.stato-rata').forEach(sel =>
             sel.addEventListener('change', () => {
                 Fatture.cambiaStato(sel.dataset.chiave, sel.value, Auth.utenteCorrente, sel.dataset.cliente);
@@ -2451,6 +2522,12 @@
         document.getElementById('btn-stampa-report').addEventListener('click', () => window.print());
         $vista().querySelectorAll('[data-apri]').forEach(r =>
             r.addEventListener('click', () => naviga('dettaglio', { id: r.dataset.apri })));
+        // ogni tabella del report ha il suo pulsante di export CSV (sono aggregati: niente filtri)
+        $vista().querySelectorAll('.card table.dati').forEach(tab => {
+            const h2 = tab.closest('.card') && tab.closest('.card').querySelector('h2');
+            const nome = h2 ? h2.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) : 'report';
+            attrezzaTabella(tab, { filtri: false, nomeFile: 'report-' + nome });
+        });
         disegnaGraficoTrend('grafico-report');
     }
 
@@ -2502,7 +2579,7 @@
             `</tbody></table></div>
             <p class="descrizione" style="margin-top:10px;">Le persone disattivate non compaiono piu nelle tendine ma restano negli incarichi gia registrati.</p>`;
 
-        abilitaRicercaTabella($vista(), 'Cerca per cognome, nome, email o regione...');
+        attrezzaTabella($vista(), { nomeFile: 'persone' });
         const btnNuova = document.getElementById('btn-nuova-persona');
         if (btnNuova) btnNuova.addEventListener('click', () => modalePersona(null));
         $vista().querySelectorAll('.p-modifica').forEach(b =>
@@ -2654,6 +2731,8 @@
                     <option value="utente">Utenti e accessi</option>
                     <option value="sistema">Sistema</option>
                 </select></div>
+                <div class="barra-tabella-azioni"><button type="button" class="btn btn-sm btn-secondary" id="r-esporta">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Esporta CSV</button></div>
             </div>
             <div id="registro-corpo"></div>`;
 
@@ -2680,6 +2759,8 @@
                 : '<div class="card tabella-vuota">Nessuna voce nel registro.</div>';
         };
         ['r-testo', 'r-utente', 'r-entita'].forEach(id => document.getElementById(id).addEventListener('input', disegna));
+        document.getElementById('r-esporta').addEventListener('click', () =>
+            esportaTabellaCsv(document.querySelector('#registro-corpo table.dati'), 'registro-modifiche'));
         disegna();
     }
 
@@ -2716,7 +2797,7 @@
             </tr>`).join('') +
             `</tbody></table></div>`;
 
-        abilitaRicercaTabella($vista(), 'Cerca per nome, email o ruolo...');
+        attrezzaTabella($vista(), { nomeFile: 'utenti' });
         document.getElementById('btn-nuovo-utente').addEventListener('click', () => {
             apriModale(`<h2>Abilita nuovo utente</h2>
                 <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
@@ -2849,7 +2930,7 @@
             </tr>`).join('') +
             `</tbody></table></div>`;
 
-        abilitaRicercaTabella($vista(), 'Cerca per nome, email o ruolo...');
+        attrezzaTabella($vista(), { nomeFile: 'utenti' });
         document.querySelectorAll('.u-reimposta').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             // primaPassword crea l'account se non e mai stato attivato, poi invia l'email
             const esito = await Cloud.primaPassword(b.dataset.email);
