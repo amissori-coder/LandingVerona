@@ -166,6 +166,12 @@ a { color: var(--blu-700); }
 .chip-gruppo input { width: auto; margin: 0; }
 .sel-azioni { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .sel-azioni .hint { margin-left: auto; }
+/* Anteprima di come cambia l'oggetto (periodo) a ogni invio */
+.anteprima-periodi:not(:empty) { background: var(--grigio-100); border: 1px solid var(--grigio-200); border-radius: 8px; padding: 10px 12px; margin-top: 4px; }
+.ap-per-tit { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grigio-600); font-weight: 600; margin-bottom: 6px; }
+.ap-per-riga { font-size: 0.85rem; color: var(--blu-900); padding: 2px 0; display: flex; gap: 10px; align-items: baseline; }
+.ap-per-data { color: var(--grigio-600); font-size: 0.78rem; flex: 0 0 auto; min-width: 78px; }
+.ap-per-nota { font-size: 0.78rem; color: var(--grigio-600); margin-top: 4px; }
 /* Anteprima della mail nel compositore */
 .mail-anteprima { border: 1px solid var(--grigio-200); border-radius: 8px; background: #fff; overflow: hidden; }
 .mail-intest { background: var(--grigio-100); padding: 10px 14px; font-size: 0.82rem; color: var(--grigio-600); border-bottom: 1px solid var(--grigio-200); }

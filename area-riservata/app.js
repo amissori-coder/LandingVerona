@@ -3137,10 +3137,11 @@
                             </select></div>
                             <div class="campo nascosto" id="c-fine-data-box"><label>Fino al</label><input type="date" id="c-fine-data" value="${prog && prog.fine ? perDateLocal(prog.fine) : ''}"></div>
                         </div>
-                        <label class="hint" style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:6px;"><input type="checkbox" id="c-periodo" style="width:auto;" ${(!prog || prog.periodoNelOggetto !== false) ? 'checked' : ''}> Aggiungi il periodo all'oggetto (es. "primo trimestre 2026")</label>
+                        <label style="display:flex;gap:8px;align-items:center;cursor:pointer;"><input type="checkbox" id="c-periodo" style="width:auto;" ${(!prog || prog.periodoNelOggetto !== false) ? 'checked' : ''}> Aggiungi il periodo all'oggetto</label>
+                        <p class="hint" style="margin:4px 0 0 26px;">Il periodo si ricava dalla data di ogni invio e dalla frequenza: trimestrale → gen-mar = "primo trimestre", apr-giu = "secondo", lug-set = "terzo", ott-dic = "quarto"; mensile → nome del mese; annuale → l'anno. Cambia a ogni invio.</p>
                     </div>
                     <p class="hint" id="c-prog-riepilogo" style="font-weight:600;color:var(--blu-700);"></p>
-                    <p class="hint" id="c-oggetto-riepilogo" style="color:var(--grigio-600);"></p>
+                    <div id="c-oggetto-riepilogo" class="anteprima-periodi"></div>
                     <p class="hint">Gli invii programmati partono automaticamente dal server (con verifica giornaliera). La comunicazione resta modificabile fino all'invio.</p>
                 </div>
             </div>
@@ -3281,8 +3282,24 @@
             const attivo = chkProg.checked && q && !isNaN(t);
             const lp = attivo ? leggiProg() : null;
             $('c-prog-riepilogo').textContent = (lp && lp.prog) ? descriviProgrammazione(lp.prog) : '';
-            const per = (attivo && ricorrente && $('c-periodo').checked) ? etichettaPeriodo(freq, t) : '';
-            $('c-oggetto-riepilogo').textContent = per ? ('Oggetto del primo invio: "' + (($('c-oggetto').value.trim() || '(oggetto)') + ' - ' + per) + '"') : '';
+            // anteprima di come cambia l'oggetto a ogni invio (max 4 occorrenze)
+            const box = $('c-oggetto-riepilogo');
+            if (attivo && ricorrente && $('c-periodo').checked) {
+                const ogg = $('c-oggetto').value.trim() || '(oggetto)';
+                const fineTs = (lp && lp.prog) ? lp.prog.fine : null;
+                const db = ms => { const d = new Date(ms), z = n => String(n).padStart(2, '0'); return z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear(); };
+                const righe = [];
+                let tt = t, guard = 0;
+                while (righe.length < 4 && guard < 60) {
+                    if (fineTs && tt > fineTs) break;
+                    righe.push('<div class="ap-per-riga"><span class="ap-per-data">' + db(tt) + '</span><strong>' + esc(ogg + ' - ' + etichettaPeriodo(freq, tt)) + '</strong></div>');
+                    const nx = prossimaDataMs(tt, freq);
+                    if (nx == null) break;
+                    tt = nx; guard++;
+                }
+                box.innerHTML = '<div class="ap-per-tit">Oggetto generato a ogni invio:</div>' + righe.join('')
+                    + (fineTs ? '<div class="ap-per-nota">poi termina (fino al ' + db(fineTs) + ')</div>' : (righe.length >= 4 ? '<div class="ap-per-nota">…e cosi via</div>' : ''));
+            } else { box.innerHTML = ''; }
         };
         chkProg.addEventListener('change', () => { $('c-prog-box').classList.toggle('nascosto', !chkProg.checked); relabel(); aggiornaRiepilogo(); });
         ['c-freq', 'c-quando', 'c-fine-tipo', 'c-fine-data', 'c-periodo', 'c-oggetto'].forEach(idw => {
