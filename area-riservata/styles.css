@@ -133,15 +133,18 @@ a { color: var(--blu-700); }
 .mostra-password:focus-visible { outline: 2px solid var(--blu-500); outline-offset: 2px; border-radius: 6px; }
 .mostra-password svg { width: 18px; height: 18px; display: block; pointer-events: none; }
 
-/* Spinner di caricamento sul pulsante durante l'accesso */
-.btn.caricamento { position: relative; color: transparent !important; pointer-events: none; opacity: 1; }
-.btn.caricamento::after {
-    content: ''; position: absolute; width: 18px; height: 18px;
-    top: 50%; left: 50%; margin: -9px 0 0 -9px;
+/* Caricamento sul pulsante durante l'accesso: spinner + testo "Accesso in corso..." */
+.btn.caricamento { pointer-events: none; opacity: 1; }
+.btn-spinner {
+    display: inline-block; width: 15px; height: 15px; flex: 0 0 auto;
     border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff;
     border-radius: 50%; animation: rv-spin .6s linear infinite;
 }
 @keyframes rv-spin { to { transform: rotate(360deg); } }
+
+/* Campi disabilitati durante il caricamento: chiaro che il form sta elaborando */
+.campo input:disabled { background: var(--grigio-100, #f1f5f9); color: var(--grigio-600); cursor: not-allowed; }
+.mostra-password:disabled { cursor: not-allowed; opacity: .5; }
 
 /* ---------- Shell applicazione ---------- */
 .app-shell { display: flex; min-height: 100vh; }

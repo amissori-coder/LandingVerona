@@ -3435,13 +3435,35 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             const btnAccedi = e.currentTarget.querySelector('button[type="submit"]');
             // evita il doppio invio mentre l'accesso e in corso
             if (btnAccedi.classList.contains('caricamento')) return;
-            const email = document.getElementById('login-email').value.trim();
-            const password = document.getElementById('login-password').value;
+            const emailInput = document.getElementById('login-email');
+            const pwdInput = document.getElementById('login-password');
+            const toggleBtn = document.getElementById('toggle-password');
             const err = document.getElementById('login-errore');
+            const email = emailInput.value.trim();
+            const password = pwdInput.value;
             err.classList.add('hidden');
-            // avvia il caricamento: spinner sul pulsante finche l'accesso non risponde
+
+            // Caricamento chiaro: il pulsante mostra "Accesso in corso..." con
+            // spinner e i campi si bloccano, cosi si capisce che sta elaborando.
+            // L'attesa copre autenticazione E scaricamento dati (Auth.accedi le
+            // fa entrambe): la fine e segnalata in modo netto dalla comparsa del
+            // cruscotto (o dal messaggio d'errore se qualcosa non va).
+            const testoOriginale = btnAccedi.textContent;
+            const ripristina = () => {
+                btnAccedi.classList.remove('caricamento');
+                btnAccedi.textContent = testoOriginale;
+                btnAccedi.disabled = false;
+                emailInput.disabled = false;
+                pwdInput.disabled = false;
+                if (toggleBtn) toggleBtn.disabled = false;
+            };
             btnAccedi.classList.add('caricamento');
+            btnAccedi.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>Accesso in corso…</span>';
             btnAccedi.disabled = true;
+            emailInput.disabled = true;
+            pwdInput.disabled = true;
+            if (toggleBtn) toggleBtn.disabled = true;
+
             try {
                 const esito = await Auth.accedi(email, password);
                 if (!esito.ok) {
@@ -3459,9 +3481,13 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                     return;
                 }
                 mostraApp();
+            } catch (ex) {
+                err.textContent = 'Accesso non riuscito. Riprova.';
+                err.classList.remove('hidden');
             } finally {
-                btnAccedi.classList.remove('caricamento');
-                btnAccedi.disabled = false;
+                // ripristina sempre lo stato del pulsante/campi (in caso di
+                // successo il cruscotto ha gia nascosto la schermata: invisibile)
+                ripristina();
             }
         });
 
