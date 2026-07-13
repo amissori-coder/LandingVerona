@@ -955,11 +955,25 @@ ul {
 .event-collab {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 16px;
+    row-gap: 12px;
     margin-bottom: 20px;
     padding: 14px 0;
     border-top: 1px dashed rgba(22, 64, 104, 0.14);
     border-bottom: 1px dashed rgba(22, 64, 104, 0.14);
+}
+
+/* Più marchi affiancati (es. Partner + Media partner): ogni coppia
+   etichetta+logo resta unita e va a capo come blocco sui formati stretti. */
+.event-collab--multi {
+    column-gap: 24px;
+}
+
+.event-collab-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
 }
 
 .event-collab-label {
