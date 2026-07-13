@@ -246,10 +246,41 @@
             const n = String(nome || '').trim().toLowerCase();
             return this.tutte().find(p => p.nome.toLowerCase() === n) || null;
         },
-        // nome completo (nome + cognome) se registrato, altrimenti il cognome
+        // nome completo "Nome Cognome" se il nome proprio e registrato; altrimenti
+        // (dati non ancora migrati) il vecchio nomeCompleto; altrimenti il solo cognome
         nomeCompleto(cognome) {
             const p = this.trovaPerNome(cognome);
-            return (p && p.nomeCompleto) ? p.nomeCompleto : (cognome || '');
+            if (!p) return cognome || '';
+            if (p.nomeProprio) {
+                // evita "Rossi Mario Rossi" se il nome proprio contenesse gia il cognome
+                return p.nomeProprio.toLowerCase().endsWith(String(p.nome || '').toLowerCase())
+                    ? p.nomeProprio : (p.nomeProprio + ' ' + p.nome).trim();
+            }
+            if (p.nomeCompleto) return p.nomeCompleto;
+            return cognome || '';
+        },
+        // migrazione una tantum: dai vecchi record con "nomeCompleto" ai nuovi
+        // campi (cognome = nome; nomeProprio = nomeCompleto senza il cognome finale).
+        // Idempotente: dopo la prima esecuzione non trova piu nulla da migrare.
+        migraNomi() {
+            const lista = this.tutte();
+            let cambiato = false;
+            lista.forEach(p => {
+                if (p.nomeProprio === undefined) {
+                    let np = '';
+                    if (p.nomeCompleto) {
+                        const nc = String(p.nomeCompleto).trim();
+                        const cog = String(p.nome || '').trim();
+                        np = (cog && nc.toLowerCase().endsWith(cog.toLowerCase()))
+                            ? nc.slice(0, nc.length - cog.length).trim()
+                            : nc;
+                    }
+                    p.nomeProprio = np;
+                    cambiato = true;
+                }
+                if ('nomeCompleto' in p) { delete p.nomeCompleto; cambiato = true; }
+            });
+            if (cambiato) this.salva(lista);
         },
         /* usato dall'import: aggiunge i nominativi mancanti con i ruoli
            rilevati e riporta i campi degli incarichi alla grafia canonica
@@ -2272,11 +2303,11 @@
                 </div>
             </header>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Cognome</th><th>Nome completo</th><th>Email</th><th>Regione</th><th>Qualita</th><th>Resp. incarico</th><th>Team</th><th class="num">Inc. (resp.)</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th>Qualita</th><th>Resp. incarico</th><th>Team</th><th class="num">Inc. (resp.)</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             persone.map(p => `<tr>
                 <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
-                <td data-label="Nome completo">${p.nomeCompleto ? esc(p.nomeCompleto) : '<span style="color:var(--grigio-400)">—</span>'}</td>
+                <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : '<span style="color:var(--grigio-400)">—</span>'}</td>
                 <td data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : '<span style="color:var(--grigio-400)">—</span>'}</td>
                 <td data-label="Regione">${esc(p.regione || '')}</td>
                 <td data-label="Qualita">${spunta(p.qualita)}</td>
@@ -2314,8 +2345,8 @@
         const p = id ? lista.find(x => x.id === id) : null;
         apriModale(`<h2>${p ? 'Modifica persona' : 'Aggiungi persona'}</h2>
             <div class="griglia-2">
-                <div class="campo"><label>Cognome (o cognome e nome)</label><input id="m-p-nome" value="${p ? esc(p.nome) : ''}"></div>
-                <div class="campo"><label>Nome completo (nome e cognome)</label><input id="m-p-completo" value="${p && p.nomeCompleto ? esc(p.nomeCompleto) : ''}" placeholder="es. Mario Rossi"><div class="hint">Usato nelle lettere (Dott. Nome Cognome).</div></div>
+                <div class="campo"><label>Nome</label><input id="m-p-nomepr" value="${p && p.nomeProprio ? esc(p.nomeProprio) : ''}" placeholder="es. Mario"><div class="hint">Usato nelle lettere: "Dott. Nome Cognome".</div></div>
+                <div class="campo"><label>Cognome</label><input id="m-p-nome" value="${p ? esc(p.nome) : ''}" placeholder="es. Rossi"><div class="hint">Collega la persona agli incarichi.</div></div>
                 <div class="campo"><label>Email</label><input id="m-p-email" type="email" value="${p && p.email ? esc(p.email) : ''}"></div>
                 <div class="campo"><label>Telefono</label><input id="m-p-telefono" value="${p && p.telefono ? esc(p.telefono) : ''}"></div>
                 <div class="campo"><label>Regione</label><input id="m-p-regione" value="${p && p.regione ? esc(p.regione) : ''}"></div>
@@ -2335,16 +2366,17 @@
                 <button class="btn btn-primary" id="m-salva">Salva</button>
             </div>`, { classe: 'larga' });
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
-        document.getElementById('m-salva').addEventListener('click', () => {
+        const btnSalvaP = document.getElementById('m-salva');
+        btnSalvaP.addEventListener('click', () => conAttesa(btnSalvaP, () => {
             const nome = document.getElementById('m-p-nome').value.trim();
             const err = document.getElementById('m-p-errore');
-            if (nome.length < 2) { err.textContent = 'Inserisci un nome valido.'; err.classList.remove('hidden'); return; }
+            if (nome.length < 2) { err.textContent = 'Inserisci un cognome valido.'; err.classList.remove('hidden'); return; }
             // virgole e punti e virgola sono i separatori degli elenchi team
-            if (/[,;]/.test(nome)) { err.textContent = 'Il nome non puo contenere virgole o punti e virgola.'; err.classList.remove('hidden'); return; }
+            if (/[,;]/.test(nome)) { err.textContent = 'Il cognome non puo contenere virgole o punti e virgola.'; err.classList.remove('hidden'); return; }
             const omonimo = Persone.trovaPerNome(nome);
-            if (omonimo && (!p || omonimo.id !== p.id)) { err.textContent = 'Esiste gia una persona con questo nome.'; err.classList.remove('hidden'); return; }
+            if (omonimo && (!p || omonimo.id !== p.id)) { err.textContent = 'Esiste gia una persona con questo cognome.'; err.classList.remove('hidden'); return; }
             const contatti = {
-                nomeCompleto: document.getElementById('m-p-completo').value.trim(),
+                nomeProprio: document.getElementById('m-p-nomepr').value.trim(),
                 email: document.getElementById('m-p-email').value.trim(),
                 telefono: document.getElementById('m-p-telefono').value.trim(),
                 regione: document.getElementById('m-p-regione').value.trim(),
@@ -2358,7 +2390,7 @@
                 team: document.getElementById('m-p-team').checked
             };
             const CAMPI_PERSONA = [
-                { chiave: 'nome', nome: 'Cognome' }, { chiave: 'nomeCompleto', nome: 'Nome completo' },
+                { chiave: 'nome', nome: 'Cognome' }, { chiave: 'nomeProprio', nome: 'Nome' },
                 { chiave: 'email', nome: 'Email' }, { chiave: 'telefono', nome: 'Telefono' },
                 { chiave: 'regione', nome: 'Regione' }, { chiave: 'provincia', nome: 'Provincia' },
                 { chiave: 'localita', nome: 'Localita' }, { chiave: 'indirizzo', nome: 'Indirizzo' },
@@ -2384,7 +2416,7 @@
             }
             chiudiModale();
             vistaPersone();
-        });
+        }));
     }
 
     /* Rinomina una persona in tutti i campi degli incarichi che la citano,
@@ -3444,6 +3476,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
 
     function mostraApp() {
         segnaAttivita();
+        Persone.migraNomi(); // porta i vecchi record "nomeCompleto" ai campi nome/cognome
         document.getElementById('schermata-login').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         collegaHamburger();
@@ -3611,20 +3644,24 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
     /* Gancio diagnostico: generazione PDF senza scaricare il file */
     window.rvDebug = {
         pdfIncarico: (id, opzioni) => generaPdfIncarico(Incarichi.trova(id), opzioni || { restituisciBytes: true }),
-        // enrichPersone({ "Cognome": "Nome Cognome", ... }): imposta il nome completo,
-        // creando la persona se il cognome non e in anagrafica
+        // enrichPersone({ "Cognome": "Nome Cognome", ... }): imposta il nome proprio
+        // (ricavato togliendo il cognome finale), creando la persona se manca
         enrichPersone: (mappa) => {
             const lista = Persone.tutte();
             const indice = {};
             lista.forEach(p => { indice[p.nome.toLowerCase()] = p; });
             let aggiornate = 0, create = 0;
+            const nomeProprioDa = (completo, cognome) => {
+                const nc = String(completo || '').trim(), cog = String(cognome || '').trim();
+                return (cog && nc.toLowerCase().endsWith(cog.toLowerCase())) ? nc.slice(0, nc.length - cog.length).trim() : nc;
+            };
             Object.keys(mappa).forEach(cognome => {
-                const completo = mappa[cognome];
+                const np = nomeProprioDa(mappa[cognome], cognome);
                 const chiave = cognome.toLowerCase();
                 if (indice[chiave]) {
-                    if (indice[chiave].nomeCompleto !== completo) { indice[chiave].nomeCompleto = completo; aggiornate++; }
+                    if (indice[chiave].nomeProprio !== np) { indice[chiave].nomeProprio = np; aggiornate++; }
                 } else {
-                    const nuova = { id: uid(), nome: cognome, nomeCompleto: completo, qualita: false, respIncarico: false, team: true, attivo: true };
+                    const nuova = { id: uid(), nome: cognome, nomeProprio: np, qualita: false, respIncarico: false, team: true, attivo: true };
                     lista.push(nuova); indice[chiave] = nuova; create++;
                 }
             });
@@ -3642,9 +3679,14 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             const perCognome = {};
             lista.forEach(p => { perCognome[p.nome.toLowerCase()] = p; });
             let aggiornate = 0, create = 0;
+            const nomeProprioDa = (completo, cognome) => {
+                const nc = String(completo || '').trim(), cog = String(cognome || '').trim();
+                if (!nc) return '';
+                return (cog && nc.toLowerCase().endsWith(cog.toLowerCase())) ? nc.slice(0, nc.length - cog.length).trim() : nc;
+            };
             const applica = (p, a) => {
                 const contatti = {
-                    nomeCompleto: a.nomeCompleto || p.nomeCompleto || '',
+                    nomeProprio: a.nomeProprio || nomeProprioDa(a.nomeCompleto, a.cognome || p.nome) || p.nomeProprio || '',
                     email: a.email || p.email || '',
                     telefono: a.cellulare || a.telefono || p.telefono || '',
                     regione: a.regione || p.regione || '',
