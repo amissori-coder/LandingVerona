@@ -133,12 +133,15 @@ a { color: var(--blu-700); }
 .mostra-password:focus-visible { outline: 2px solid var(--blu-500); outline-offset: 2px; border-radius: 6px; }
 .mostra-password svg { width: 18px; height: 18px; display: block; pointer-events: none; }
 
-/* Caricamento sul pulsante durante l'accesso: spinner + testo "Accesso in corso..." */
+/* Caricamento sul pulsante: spinner + testo (login "Accesso in corso...",
+   e ovunque via l'helper conAttesa). Lo spinner usa currentColor cosi e
+   visibile su qualunque tipo di pulsante (blu, bianco, rosso...). */
 .btn.caricamento { pointer-events: none; opacity: 1; }
 .btn-spinner {
     display: inline-block; width: 15px; height: 15px; flex: 0 0 auto;
-    border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff;
+    border: 2px solid currentColor; border-top-color: transparent;
     border-radius: 50%; animation: rv-spin .6s linear infinite;
+    vertical-align: -2px;
 }
 @keyframes rv-spin { to { transform: rotate(360deg); } }
 

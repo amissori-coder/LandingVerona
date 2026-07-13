@@ -1066,6 +1066,34 @@
         setTimeout(() => el.remove(), 4200);
     }
 
+    /* Esegue un'azione mostrando SEMPRE il caricamento sul pulsante: spinner +
+       testo, pulsante disabilitato, con guardia anti doppio-click. Ripristina
+       tutto (anche in caso di errore) al termine. Un tempo minimo garantisce
+       che lo spinner sia percepibile anche per le operazioni istantanee, cosi
+       si capisce sempre quando l'app sta elaborando. */
+    async function conAttesa(btn, fn, opts) {
+        if (!btn) return typeof fn === 'function' ? fn() : undefined;
+        if (btn.dataset.attesa === '1') return; // gia in corso: ignora il click
+        const htmlOrig = btn.innerHTML;
+        const testo = (opts && opts.testo) || btn.textContent || '';
+        const minMs = opts && typeof opts.min === 'number' ? opts.min : 300;
+        btn.dataset.attesa = '1';
+        btn.classList.add('caricamento');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-spinner" aria-hidden="true"></span><span>' + esc(testo) + '</span>';
+        const avvio = performance.now();
+        try {
+            return await fn();
+        } finally {
+            const resta = minMs - (performance.now() - avvio);
+            if (resta > 0) await new Promise(r => setTimeout(r, resta));
+            delete btn.dataset.attesa;
+            btn.classList.remove('caricamento');
+            btn.disabled = false;
+            btn.innerHTML = htmlOrig;
+        }
+    }
+
     function apriModale(html, opts) {
         const cont = document.getElementById('modale-contenitore');
         cont.innerHTML = '<div class="modale-sfondo"><div class="modale ' + ((opts && opts.classe) || '') + '">' + html + '</div></div>';
@@ -2507,7 +2535,7 @@
             });
         });
 
-        $vista().querySelectorAll('.u-reimposta').forEach(b => b.addEventListener('click', async () => {
+        $vista().querySelectorAll('.u-reimposta').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             const email = b.dataset.email;
             const utenti2 = Auth.utenti();
             const u = utenti2.find(x => x.email === email);
@@ -2517,7 +2545,7 @@
             Auth.salvaUtenti(utenti2);
             Audit.registra(Auth.utenteCorrente, 'Password reimpostata dall\'amministratore', 'utente', email, null, null);
             mostraPasswordTemporanea(u.email, temp, 'Comunica questa password temporanea all\'utente. Al primo accesso dovra sceglierne una nuova.');
-        }));
+        }, { testo: 'Reimposto…' })));
         $vista().querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => {
             const email = b.dataset.email;
             const utenti2 = Auth.utenti();
@@ -2559,7 +2587,8 @@
                     <button class="btn btn-primary" id="m-salva">Abilita e invia email</button>
                 </div>`);
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
-            document.getElementById('m-salva').addEventListener('click', async () => {
+            const btnSalvaU = document.getElementById('m-salva');
+            btnSalvaU.addEventListener('click', () => conAttesa(btnSalvaU, async () => {
                 const nome = document.getElementById('m-nome').value.trim();
                 const email = document.getElementById('m-email').value.trim().toLowerCase();
                 const ruolo = document.getElementById('m-ruolo').value;
@@ -2574,7 +2603,7 @@
                 } catch (e) {
                     toast('Operazione non riuscita: ' + (e && e.message ? e.message : e), 'rosso');
                 }
-            });
+            }, { testo: 'Abilito…' }));
         });
 
         let utenti = [];
@@ -2607,13 +2636,13 @@
             </tr>`).join('') +
             `</tbody></table></div>`;
 
-        document.querySelectorAll('.u-reimposta').forEach(b => b.addEventListener('click', async () => {
+        document.querySelectorAll('.u-reimposta').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             // primaPassword crea l'account se non e mai stato attivato, poi invia l'email
             const esito = await Cloud.primaPassword(b.dataset.email);
             Audit.registra(Auth.utenteCorrente, 'Email reimpostazione password inviata', 'utente', b.dataset.email, null, null);
             toast(esito.ok ? 'Email inviata a ' + b.dataset.email + ' (potrebbe finire nello spam).' : esito.msg, esito.ok ? 'verde' : 'rosso');
-        }));
-        document.querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', async () => {
+        }, { testo: 'Invio…' })));
+        document.querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             const attivo = b.dataset.attivo !== '1';
             try {
                 await Cloud.salvaUtente(b.dataset.email, { attivo });
@@ -2623,7 +2652,7 @@
             } catch (e) {
                 toast('Operazione non riuscita: ' + Cloud.msgErrore(e), 'rosso');
             }
-        }));
+        })));
     }
 
     /* =========================================================
@@ -2863,23 +2892,18 @@
         if (!boxDopo) return; // vista cambiata durante il caricamento
         boxDopo.classList.remove('tabella-vuota');
         boxDopo.innerHTML = righe.join('');
-        boxDopo.querySelectorAll('[data-carica]').forEach(b => b.addEventListener('click', async () => {
+        boxDopo.querySelectorAll('[data-carica]').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             const tipo = b.dataset.carica;
-            const etichetta = b.textContent; // "Carica modello" o "Sostituisci modello"
             const file = document.getElementById('m-file-' + tipo).files[0];
             if (!file) { toast('Seleziona il PDF del modello.', 'rosso'); return; }
-            b.disabled = true;
-            b.textContent = 'Caricamento in corso...';
             try {
                 await Modelli.carica(tipo, file);
                 toast('Modello "' + Modelli.TIPI[tipo] + '" caricato.', 'verde');
                 disegnaStatoModelli();
             } catch (e) {
                 toast('Caricamento non riuscito: ' + (e.message || e), 'rosso');
-                b.disabled = false;
-                b.textContent = etichetta;
             }
-        }));
+        }, { testo: 'Caricamento…' })));
     }
 
     /* =========================================================
@@ -2941,10 +2965,9 @@
                 <button class="btn btn-primary" id="m-conferma">Genera PDF</button>
             </div>`);
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
-        document.getElementById('m-conferma').addEventListener('click', async () => {
+        const btnGen = document.getElementById('m-conferma');
+        btnGen.addEventListener('click', () => conAttesa(btnGen, async () => {
             const congela = !giaCongelato && document.getElementById('m-congela') && document.getElementById('m-congela').checked;
-            const btn = document.getElementById('m-conferma');
-            btn.disabled = true; btn.textContent = 'Generazione...';
             try {
                 await generaPdfIncarico(inc);
                 if (congela) {
@@ -2956,10 +2979,9 @@
                 chiudiModale();
                 naviga('dettaglio', { id: inc.id });
             } catch (e) {
-                btn.disabled = false; btn.textContent = 'Genera PDF';
                 toast(e.message || 'Generazione non riuscita.', 'rosso');
             }
-        });
+        }, { testo: 'Generazione…' }));
     }
 
     /* ---------- PDF ufficiale: compila i campi modulo del modello ----------
@@ -3377,7 +3399,8 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         const emailLogin = document.getElementById('login-email').value.trim();
         if (emailLogin) document.getElementById('m-email').value = emailLogin;
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
-        document.getElementById('m-conferma').addEventListener('click', async () => {
+        const btnProc = document.getElementById('m-conferma');
+        btnProc.addEventListener('click', () => conAttesa(btnProc, async () => {
             const email = document.getElementById('m-email').value.trim();
             if (!email) return;
             const esito = await callback(email);
@@ -3386,7 +3409,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                 err.textContent = esito.msg;
                 err.classList.remove('hidden');
             }
-        });
+        }, { testo: 'Invio…' }));
     }
 
     function chiediCambioPassword(email, obbligatorio, dopo) {
@@ -3401,7 +3424,8 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             </div>`, { bloccante: obbligatorio });
         const annulla = document.getElementById('m-annulla');
         if (annulla) annulla.addEventListener('click', chiudiModale);
-        document.getElementById('m-conferma').addEventListener('click', async () => {
+        const btnCambio = document.getElementById('m-conferma');
+        btnCambio.addEventListener('click', () => conAttesa(btnCambio, async () => {
             const p1 = document.getElementById('m-p1').value, p2 = document.getElementById('m-p2').value;
             const err = document.getElementById('m-errore');
             if (p1 !== p2) { err.textContent = 'Le due password non coincidono.'; err.classList.remove('hidden'); return; }
@@ -3410,7 +3434,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             chiudiModale();
             toast('Password aggiornata.', 'verde');
             if (dopo) dopo();
-        });
+        }, { testo: 'Salvataggio…' }));
     }
 
     function mostraLogin() {
