@@ -172,6 +172,33 @@ a { color: var(--blu-700); }
 .ap-per-riga { font-size: 0.85rem; color: var(--blu-900); padding: 2px 0; display: flex; gap: 10px; align-items: baseline; }
 .ap-per-data { color: var(--grigio-600); font-size: 0.78rem; flex: 0 0 auto; min-width: 78px; }
 .ap-per-nota { font-size: 0.78rem; color: var(--grigio-600); margin-top: 4px; }
+/* Schede delle comunicazioni programmate + sequenza dei prossimi invii */
+.comm-lista { display: flex; flex-direction: column; gap: 14px; }
+.comm-card { border: 1px solid var(--grigio-200); border-radius: 12px; background: #fff; box-shadow: var(--ombra); padding: 14px 16px; }
+.comm-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.comm-titolo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.comm-nome { font-weight: 700; color: var(--blu-900); font-size: 1rem; }
+.comm-ogg { color: var(--grigio-600); font-size: 0.85rem; }
+.comm-azioni { display: flex; gap: 8px; flex: 0 0 auto; }
+.comm-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 12px; font-size: 0.82rem; color: var(--grigio-600); }
+.comm-meta .comm-quando { color: var(--blu-700); font-weight: 600; }
+.prossimi-invii { background: var(--grigio-100); border: 1px solid var(--grigio-200); border-radius: 8px; padding: 10px 12px; }
+.pi-tit { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grigio-600); font-weight: 600; margin-bottom: 8px; }
+.pi-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pi-riga { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 0.85rem; color: var(--blu-900); padding: 3px 0; }
+.pi-riga + .pi-riga { border-top: 1px solid var(--grigio-200); }
+.pi-data { color: var(--grigio-700, #334155); font-size: 0.8rem; flex: 0 0 auto; min-width: 116px; font-variant-numeric: tabular-nums; }
+.pi-periodo { flex: 0 0 auto; background: var(--blu-50, #EAF2F9); color: var(--blu-700); border: 1px solid var(--blu-100, #CFE0EE); border-radius: 999px; padding: 1px 9px; font-size: 0.74rem; font-weight: 600; }
+.pi-ogg { flex: 1 1 200px; color: var(--blu-900); }
+.pi-badge { flex: 0 0 auto; background: #FDECEC; color: #B42318; border: 1px solid #F6C9C4; border-radius: 999px; padding: 1px 9px; font-size: 0.72rem; font-weight: 600; }
+.pi-ritardo .pi-data { color: #B42318; font-weight: 600; }
+.pi-nota { font-size: 0.78rem; color: var(--grigio-600); margin-top: 8px; }
+@media (max-width: 640px) {
+    .comm-head { flex-direction: column; }
+    .comm-azioni { width: 100%; }
+    .comm-azioni .btn { flex: 1 1 0; justify-content: center; }
+    .pi-data { min-width: 0; }
+}
 /* Anteprima della mail nel compositore */
 .mail-anteprima { border: 1px solid var(--grigio-200); border-radius: 8px; background: #fff; overflow: hidden; }
 .mail-intest { background: var(--grigio-100); padding: 10px 14px; font-size: 0.82rem; color: var(--grigio-600); border-bottom: 1px solid var(--grigio-200); }

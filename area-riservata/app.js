@@ -2868,6 +2868,60 @@
         return base + fine;
     }
 
+    /* Prossimi invii REALI di una comunicazione programmata, fedeli al cron:
+       parte da prossimoInvio; se e in ritardo il cron recupera i periodi saltati
+       con UN solo invio (la prima occorrenza puo essere nel passato, poi si salta
+       alla prima data futura). Rispetta la data di fine. Ritorna [{ts, ritardo}]. */
+    function prossimiInvii(prog, n, adesso) {
+        if (!prog || !prog.prossimoInvio) return [];
+        const freq = prog.frequenza;
+        const out = [];
+        let ts = prog.prossimoInvio, guard = 0;
+        while (out.length < n && guard++ < 300) {
+            if (prog.fine && ts > prog.fine) break;
+            out.push({ ts: ts, ritardo: ts <= adesso });
+            let nx = prossimaDataMs(ts, freq);
+            if (nx == null) break;                       // frequenza unica: un solo invio
+            if (ts <= adesso) { let g2 = 0; while (nx <= adesso && g2++ < 3000) nx = prossimaDataMs(nx, freq); }
+            ts = nx;
+        }
+        return out;
+    }
+
+    /* Blocco "Prossimi invii" con data, etichetta di periodo e oggetto che verra
+       spedito davvero (con il periodo nell'oggetto se la comunicazione lo prevede). */
+    function anteprimaProssimiInvii(c) {
+        const prog = c.programmazione;
+        if (!prog || !prog.prossimoInvio) return '';
+        const unica = !prog.frequenza || prog.frequenza === 'unica';
+        const oggetto = (c.oggetto || c.nome || '(senza oggetto)');
+        const conPeriodo = prog.periodoNelOggetto && !unica;
+        const gg = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
+        const z = n => String(n).padStart(2, '0');
+        const dlong = ms => { const d = new Date(ms); return gg[d.getDay()] + ' ' + z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear(); };
+        const dshort = ms => { const d = new Date(ms); return z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear(); };
+        const MOSTRA = 4;
+        const occ = prossimiInvii(prog, MOSTRA + 1, Date.now());
+        if (!occ.length) return '';
+        const righe = occ.slice(0, MOSTRA).map(o => {
+            const per = unica ? '' : etichettaPeriodo(prog.frequenza, o.ts);
+            const ogg = (conPeriodo && per) ? (oggetto + ' - ' + per) : oggetto;
+            return '<li class="pi-riga' + (o.ritardo ? ' pi-ritardo' : '') + '">'
+                + '<span class="pi-data">' + dlong(o.ts) + '</span>'
+                + (per ? '<span class="pi-periodo">' + esc(per) + '</span>' : '')
+                + '<span class="pi-ogg">' + esc(ogg) + '</span>'
+                + (o.ritardo ? '<span class="pi-badge">in ritardo: parte al prossimo giro</span>' : '')
+                + '</li>';
+        }).join('');
+        let nota = '';
+        if (!unica) {
+            if (occ.length > MOSTRA) nota = '<div class="pi-nota">&hellip;e cosi via</div>';
+            else if (prog.fine) nota = '<div class="pi-nota">poi la serie termina (fino al ' + dshort(prog.fine) + ')</div>';
+        }
+        const tit = unica ? 'Invio previsto' : (conPeriodo ? 'Prossimi invii (l&rsquo;oggetto include il periodo)' : 'Prossimi invii');
+        return '<div class="prossimi-invii"><div class="pi-tit">' + tit + '</div><ol class="pi-lista">' + righe + '</ol>' + nota + '</div>';
+    }
+
     /* Stato della vista Comunicazioni: 'elenco' o 'calendario', e il mese mostrato. */
     let comuniVista = 'elenco';
     let comuniMese = null;
@@ -2948,18 +3002,20 @@
 
         const sezProgrammate = programmate.length ? `<div class="card" id="sez-programmate">
             <h2>Comunicazioni programmate (${programmate.length})</h2>
-            <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Contesto</th><th>Nome</th><th class="num">Destinatari</th><th>Quando</th><th>Prossimo invio</th><th>Creata da</th><th></th>
-            </tr></thead><tbody>` +
-            programmate.map(c => `<tr>
-                <td data-label="Contesto">${badgeContesto(c.contesto)}</td>
-                <td class="cliente-cella" data-label="Nome">${esc(c.nome || c.oggetto || '(senza nome)')}${c.nome && c.oggetto ? '<div class="hint">' + esc(c.oggetto) + '</div>' : ''}</td>
-                <td data-label="Destinatari">${(c.destinatari || []).length}${(c.gruppi && c.gruppi.length) ? ' <span class="hint">+ ' + esc(c.gruppi.map(nomeGruppo).join(', ')) + '</span>' : ''}</td>
-                <td data-label="Quando">${esc(descriviProgrammazione(c.programmazione))}</td>
-                <td data-label="Prossimo invio">${c.programmazione ? fmtDataOra(c.programmazione.prossimoInvio) : ''}</td>
-                <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
-                ${azioni(c)}
-            </tr>`).join('') + `</tbody></table></div></div>` : '';
+            <p class="hint" style="margin:-6px 0 16px;">Per ogni comunicazione ricorrente vedi i prossimi invii reali, con il periodo che ciascuna mail rappresenta.</p>
+            <div class="comm-lista">` +
+            programmate.map(c => `<div class="comm-card">
+                <div class="comm-head">
+                    <div class="comm-titolo">${badgeContesto(c.contesto)} <span class="comm-nome">${esc(c.nome || c.oggetto || '(senza nome)')}</span>${c.nome && c.oggetto ? '<span class="comm-ogg">' + esc(c.oggetto) + '</span>' : ''}</div>
+                    <div class="comm-azioni"><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></div>
+                </div>
+                <div class="comm-meta">
+                    <span class="comm-quando">${esc(descriviProgrammazione(c.programmazione))}</span>
+                    <span class="comm-dest">${(c.destinatari || []).length} destinatari${(c.gruppi && c.gruppi.length) ? ' + ' + esc(c.gruppi.map(nomeGruppo).join(', ')) : ''}</span>
+                    <span class="comm-autore">creata da ${esc((c.creato && c.creato.da) || '')}</span>
+                </div>
+                ${anteprimaProssimiInvii(c)}
+            </div>`).join('') + `</div></div>` : '';
 
         const sezBozze = bozze.length ? `<div class="card" id="sez-bozze">
             <h2>Bozze (${bozze.length})</h2>
