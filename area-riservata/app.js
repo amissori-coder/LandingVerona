@@ -2754,6 +2754,28 @@
         return toccati;
     }
 
+    /* Contesti delle comunicazioni (categorie), con colore riusato dai badge. */
+    const CONTESTI = [
+        { id: 'evento', nome: 'Evento', classe: 'legale' },
+        { id: 'scadenza', nome: 'Scadenza', classe: 'rosso' },
+        { id: 'adempimento', nome: 'Adempimento di revisione', classe: 'verde' },
+        { id: 'generale', nome: 'Comunicazione generale', classe: 'neutro' },
+        { id: 'altro', nome: 'Altro', classe: 'volontaria' }
+    ];
+    function contesto(id) { return CONTESTI.find(x => x.id === id) || CONTESTI.find(x => x.id === 'generale'); }
+    function badgeContesto(id) { const x = contesto(id); return '<span class="badge ' + x.classe + '">' + esc(x.nome) + '</span>'; }
+
+    /* Sposta un timestamp al periodo successivo (uguale al cron, lato app). */
+    function prossimaDataMs(ts, freq) {
+        const d = new Date(ts);
+        if (freq === 'settimanale') d.setDate(d.getDate() + 7);
+        else if (freq === 'mensile') d.setMonth(d.getMonth() + 1);
+        else if (freq === 'trimestrale') d.setMonth(d.getMonth() + 3);
+        else if (freq === 'annuale') d.setFullYear(d.getFullYear() + 1);
+        else return null;
+        return d.getTime();
+    }
+
     /* Descrizione leggibile di QUANDO parte una comunicazione programmata. */
     function descriviProgrammazione(prog) {
         if (!prog || !prog.prossimoInvio) return '';
@@ -2771,6 +2793,61 @@
         }
     }
 
+    /* Stato della vista Comunicazioni: 'elenco' o 'calendario', e il mese mostrato. */
+    let comuniVista = 'elenco';
+    let comuniMese = null;
+
+    /* Calendario classico mensile delle comunicazioni: mostra gli invii passati
+       (dallo storico) e le occorrenze future programmate, colorati per contesto. */
+    function renderCalendarioComunicazioni() {
+        if (!comuniMese) comuniMese = new Date();
+        const lista = Comunicazioni.tutte();
+        const anno = comuniMese.getFullYear(), mese = comuniMese.getMonth();
+        const inizioMs = new Date(anno, mese, 1).getTime();
+        const fineMs = new Date(anno, mese + 1, 0, 23, 59, 59).getTime();
+        const perGiorno = {};
+        const chiave = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+        const aggiungi = (ts, c, tipo) => {
+            if (!ts || ts < inizioMs || ts > fineMs) return;
+            const k = chiave(ts);
+            (perGiorno[k] = perGiorno[k] || []).push({ comId: c.id, oggetto: c.oggetto || '(senza oggetto)', contesto: c.contesto, tipo, ts });
+        };
+        lista.forEach(c => {
+            const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il }] : []);
+            storia.forEach(s => aggiungi(s.il, c, 'inviato'));
+            if (c.stato === 'programmata' && c.programmazione && c.programmazione.prossimoInvio) {
+                let t = c.programmazione.prossimoInvio, guard = 0;
+                while (t <= fineMs && guard < 400) {
+                    aggiungi(t, c, 'programmato');
+                    const nx = prossimaDataMs(t, c.programmazione.frequenza);
+                    if (nx == null) break;
+                    t = nx; guard++;
+                }
+            }
+        });
+        const mesiIt = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+        const giorniIt = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+        const primoGiornoSett = (new Date(anno, mese, 1).getDay() + 6) % 7; // 0 = lunedi
+        const numGiorni = new Date(anno, mese + 1, 0).getDate();
+        const oggiK = chiave(Date.now());
+        let celle = '';
+        for (let i = 0; i < primoGiornoSett; i++) celle += '<div class="cal-cella cal-vuota"></div>';
+        for (let g = 1; g <= numGiorni; g++) {
+            const k = anno + '-' + String(mese + 1).padStart(2, '0') + '-' + String(g).padStart(2, '0');
+            const ev = (perGiorno[k] || []).sort((a, b) => a.ts - b.ts);
+            const chips = ev.map(e => `<button class="cal-chip badge ${contesto(e.contesto).classe}" data-id="${esc(e.comId)}" title="${esc(e.oggetto)}${e.tipo === 'programmato' ? ' (programmato)' : ''}">${e.tipo === 'programmato' ? '&#9202; ' : ''}${esc(e.oggetto)}</button>`).join('');
+            celle += `<div class="cal-cella${k === oggiK ? ' cal-oggi' : ''}"><div class="cal-num">${g}</div>${chips}</div>`;
+        }
+        return `<div class="cal-barra">
+                <button class="btn btn-sm btn-secondary" id="cal-prec" aria-label="Mese precedente">&#9664;</button>
+                <div class="cal-titolo">${mesiIt[mese]} ${anno}</div>
+                <button class="btn btn-sm btn-secondary" id="cal-succ" aria-label="Mese successivo">&#9654;</button>
+                <button class="btn btn-sm btn-ghost" id="cal-oggi-btn">Oggi</button>
+            </div>
+            <div class="cal-legenda">${CONTESTI.map(x => `<span class="badge ${x.classe}">${esc(x.nome)}</span>`).join('')}</div>
+            <div class="cal-griglia">${giorniIt.map(d => `<div class="cal-intest">${d}</div>`).join('')}${celle}</div>`;
+    }
+
     /* =========================================================
        VISTA: COMUNICAZIONI (programmate, bozze, storico invii)
     ========================================================= */
@@ -2783,7 +2860,7 @@
         const invii = [];
         lista.forEach(c => {
             const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da }] : []);
-            storia.forEach(s => invii.push({ oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '' }));
+            storia.forEach(s => invii.push({ contesto: c.contesto, oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '' }));
         });
         invii.sort((a, b) => (b.il || 0) - (a.il || 0));
 
@@ -2794,9 +2871,10 @@
         const sezProgrammate = programmate.length ? `<div class="card" id="sez-programmate">
             <h2>Comunicazioni programmate (${programmate.length})</h2>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Oggetto</th><th class="num">Destinatari</th><th>Quando</th><th>Prossimo invio</th><th>Creata da</th><th></th>
+                <th>Contesto</th><th>Oggetto</th><th class="num">Destinatari</th><th>Quando</th><th>Prossimo invio</th><th>Creata da</th><th></th>
             </tr></thead><tbody>` +
             programmate.map(c => `<tr>
+                <td data-label="Contesto">${badgeContesto(c.contesto)}</td>
                 <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
                 <td class="num" data-label="Destinatari">${(c.destinatari || []).length}</td>
                 <td data-label="Quando">${esc(descriviProgrammazione(c.programmazione))}</td>
@@ -2808,9 +2886,10 @@
         const sezBozze = bozze.length ? `<div class="card" id="sez-bozze">
             <h2>Bozze (${bozze.length})</h2>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Oggetto</th><th class="num">Destinatari</th><th>Creata da</th><th>Creata il</th><th></th>
+                <th>Contesto</th><th>Oggetto</th><th class="num">Destinatari</th><th>Creata da</th><th>Creata il</th><th></th>
             </tr></thead><tbody>` +
             bozze.map(c => `<tr>
+                <td data-label="Contesto">${badgeContesto(c.contesto)}</td>
                 <td class="cliente-cella" data-label="Oggetto">${esc(c.oggetto || '(senza oggetto)')}</td>
                 <td class="num" data-label="Destinatari">${(c.destinatari || []).length}</td>
                 <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
@@ -2821,9 +2900,10 @@
         const sezInvii = invii.length ? `<div class="card" id="sez-invii">
             <h2>Invii effettuati (${invii.length})</h2>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Oggetto</th><th>Inviata il</th><th class="num">Destinatari</th><th>Tipo</th><th>Da</th>
+                <th>Contesto</th><th>Oggetto</th><th>Inviata il</th><th class="num">Destinatari</th><th>Tipo</th><th>Da</th>
             </tr></thead><tbody>` +
             invii.map(s => `<tr>
+                <td data-label="Contesto">${badgeContesto(s.contesto)}</td>
                 <td class="cliente-cella" data-label="Oggetto">${esc(s.oggetto)}</td>
                 <td data-label="Inviata il">${fmtDataOra(s.il)}</td>
                 <td class="num" data-label="Destinatari">${s.n || ''}</td>
@@ -2831,23 +2911,41 @@
                 <td data-label="Da">${esc(s.da)}</td>
             </tr>`).join('') + `</tbody></table></div></div>` : '';
 
+        const elenco = `${sezProgrammate}${sezBozze}${sezInvii}
+            ${(programmate.length || bozze.length || invii.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione. Premi "Nuova comunicazione" per prepararne una.</div>'}`;
+
+        const toggle = `<div class="toggle-vista">
+            <button class="btn btn-sm ${comuniVista === 'elenco' ? 'btn-primary' : 'btn-secondary'}" data-vista="elenco">Elenco</button>
+            <button class="btn btn-sm ${comuniVista === 'calendario' ? 'btn-primary' : 'btn-secondary'}" data-vista="calendario">Calendario</button>
+        </div>`;
+
         $vista().innerHTML = `
             <header>
                 <div>
                     <h1>Comunicazioni</h1>
-                    <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), inviale subito o programmale. Le bozze sono condivise; l'invio parte dal server di posta dello studio.</p>
+                    <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), scegli il contesto, inviale subito o programmale. Vedi tutto in elenco o nel calendario.</p>
                 </div>
-                <div class="header-azioni"><button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button></div>
+                <div class="header-azioni">${toggle}<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button></div>
             </header>
-            ${sezProgrammate}${sezBozze}${sezInvii}
-            ${(programmate.length || bozze.length || invii.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione. Premi "Nuova comunicazione" per prepararne una.</div>'}
+            ${comuniVista === 'calendario' ? renderCalendarioComunicazioni() : elenco}
             ${puoInviare ? '' : '<p class="descrizione" style="margin-top:10px;">L\'invio dal server e disponibile solo con l\'accesso protetto attivo; qui puoi comunque preparare le bozze.</p>'}`;
+
+        $vista().querySelectorAll('[data-vista]').forEach(b => b.addEventListener('click', () => { comuniVista = b.dataset.vista; vistaComunicazioni(); }));
+        document.getElementById('btn-nuova-com').addEventListener('click', () => modaleComunicazione(null));
+
+        if (comuniVista === 'calendario') {
+            const pm = document.getElementById('cal-prec'), sm = document.getElementById('cal-succ'), ob = document.getElementById('cal-oggi-btn');
+            if (pm) pm.addEventListener('click', () => { comuniMese = new Date(comuniMese.getFullYear(), comuniMese.getMonth() - 1, 1); vistaComunicazioni(); });
+            if (sm) sm.addEventListener('click', () => { comuniMese = new Date(comuniMese.getFullYear(), comuniMese.getMonth() + 1, 1); vistaComunicazioni(); });
+            if (ob) ob.addEventListener('click', () => { comuniMese = new Date(); vistaComunicazioni(); });
+            $vista().querySelectorAll('.cal-chip').forEach(b => b.addEventListener('click', () => modaleComunicazione(b.dataset.id)));
+            return;
+        }
 
         [['#sez-programmate', 'comunicazioni-programmate'], ['#sez-bozze', 'comunicazioni-bozze'], ['#sez-invii', 'invii-effettuati']].forEach(([sel, nome]) => {
             const t = $vista().querySelector(sel + ' table.dati');
             if (t) attrezzaTabella(t, { nomeFile: nome });
         });
-        document.getElementById('btn-nuova-com').addEventListener('click', () => modaleComunicazione(null));
         $vista().querySelectorAll('.c-apri').forEach(b => b.addEventListener('click', () => modaleComunicazione(b.dataset.id)));
         $vista().querySelectorAll('.c-elimina').forEach(b => b.addEventListener('click', () => {
             const c = Comunicazioni.trova(b.dataset.id);
@@ -2899,7 +2997,10 @@
 
         apriModale(`<h2>${inviata ? 'Comunicazione inviata' : (c ? 'Modifica comunicazione' : 'Nuova comunicazione')}</h2>
             ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
-            <div class="campo"><label>Oggetto</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}"></div>
+            <div class="griglia-2">
+                <div class="campo"><label>Contesto</label><select id="c-contesto">${CONTESTI.map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select></div>
+                <div class="campo"><label>Oggetto</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}" placeholder="Oggetto della mail"></div>
+            </div>
             <div class="campo"><label>Messaggio</label><textarea id="c-testo" rows="8" placeholder="Scrivi qui il testo della mail...">${esc((c && c.testo) || '')}</textarea></div>
             <div class="campo">
                 <label>Destinatari <span class="hint" id="c-conta"></span></label>
@@ -2958,6 +3059,7 @@
             </div>`, { classe: 'larga' });
 
         const $ = x => document.getElementById(x);
+        $('c-contesto').value = (c && c.contesto) || 'generale';
         // schede destinatari
         document.querySelectorAll('.tab-dest .tab-btn').forEach(b => b.addEventListener('click', () => {
             document.querySelectorAll('.tab-dest .tab-btn').forEach(x => x.classList.toggle('attivo', x === b));
@@ -3005,6 +3107,7 @@
 
         const componiRecord = () => ({
             id: (c && c.id) || uid(),
+            contesto: $('c-contesto').value,
             oggetto: $('c-oggetto').value.trim(),
             testo: $('c-testo').value.trim(),
             destinatari: raccogli(),

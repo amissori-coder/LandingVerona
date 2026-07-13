@@ -166,6 +166,22 @@ a { color: var(--blu-700); }
 .filtri-dest input, .filtri-dest select { padding: 6px 8px; font-size: 0.82rem; border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff; flex: 1 1 120px; min-width: 0; }
 .tab-pane.nascosto { display: none; }
 
+/* Toggle vista elenco/calendario + calendario comunicazioni */
+.toggle-vista { display: inline-flex; gap: 4px; }
+.cal-barra { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.cal-titolo { font-weight: 700; font-size: 1.05rem; color: var(--blu-900); min-width: 170px; text-align: center; text-transform: capitalize; }
+.cal-legenda { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.cal-griglia { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-intest { text-align: center; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grigio-600); padding: 6px 0; }
+.cal-cella { min-height: 92px; background: #fff; border: 1px solid var(--grigio-200); border-radius: 8px; padding: 5px; display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+.cal-cella.cal-vuota { background: transparent; border: none; }
+.cal-cella.cal-oggi { border-color: var(--blu-500); box-shadow: inset 0 0 0 1px var(--blu-500); }
+.cal-num { font-size: 0.78rem; font-weight: 600; color: var(--grigio-600); }
+.cal-cella.cal-oggi .cal-num { color: var(--blu-700); }
+.cal-chip { display: block; width: 100%; text-align: left; border: none; cursor: pointer; font-size: 0.72rem; padding: 3px 6px; border-radius: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-chip:hover { filter: brightness(0.95); }
+@media (max-width: 720px) { .cal-cella { min-height: 60px; padding: 3px; } .cal-chip { font-size: 0.66rem; padding: 2px 4px; } .cal-titolo { min-width: 120px; font-size: 0.95rem; } }
+
 /* ---------- Shell applicazione ---------- */
 .app-shell { display: flex; min-height: 100vh; }
 
