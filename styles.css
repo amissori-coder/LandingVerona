@@ -982,7 +982,7 @@ ul {
    riempimento del logo Sole 24 Ore. Altezza contenuta perché la colonna
    della card è stretta (~207px) e il marchio ADVANT è molto largo. */
 .event-collab--multi .event-collab-logo {
-    height: 24px;
+    height: 34px;
     max-width: 100%;
 }
 
