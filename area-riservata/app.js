@@ -1376,21 +1376,14 @@
                 Array.from(corpo.rows).forEach(tr => { const v = _testoCella(tr.cells[i]); if (v) valori.add(v); });
                 if (valori.size === 0) return; // colonna vuota
                 const distinti = Array.from(valori);
-                const maxLen = distinti.reduce((m, v) => Math.max(m, v.length), 0);
-                // categoriale (tendina) se pochi valori distinti e corti: cattura
-                // Regione (~20), Ruolo, Stato, Si/No; Cognome/Nome/Email restano testo.
-                const categoriale = distinti.length >= 2 && distinti.length <= 25 && maxLen <= 24;
+                if (distinti.length < 2) return; // un solo valore distinto: filtro inutile
+                // Tutti i filtri sono menu a discesa con le opzioni della colonna.
+                distinti.sort((a, b) => a.localeCompare(b, 'it', { numeric: true }));
                 const campo = document.createElement('div');
                 campo.className = 'campo';
-                if (categoriale) {
-                    distinti.sort((a, b) => a.localeCompare(b, 'it', { numeric: true }));
-                    campo.innerHTML = '<label>' + esc(nome) + '</label><select><option value="">Tutti</option>'
-                        + distinti.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join('') + '</select>';
-                    controlli.push({ i: i, tipo: 'select', el: campo.querySelector('select') });
-                } else {
-                    campo.innerHTML = '<label>' + esc(nome) + '</label><input type="search" placeholder="Filtra ' + esc(nome.toLowerCase()) + '...">';
-                    controlli.push({ i: i, tipo: 'text', el: campo.querySelector('input') });
-                }
+                campo.innerHTML = '<label>' + esc(nome) + '</label><select><option value="">Tutti</option>'
+                    + distinti.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join('') + '</select>';
+                controlli.push({ i: i, tipo: 'select', el: campo.querySelector('select') });
                 barra.appendChild(campo);
             });
         }
@@ -2515,6 +2508,7 @@
     /* =========================================================
        VISTA: REPORT COMPENSI
     ========================================================= */
+    let filtriReport = { anno: null };
     function vistaReport() {
         const incarichi = Incarichi.tutti();
         const anni = Incarichi.anniConCompensi();
@@ -2523,24 +2517,28 @@
 
         const perTipo = {};
         Object.keys(TIPI).forEach(t => { perTipo[t] = anni.map(a => incarichi.filter(i => i.tipo === t).reduce((s, i) => s + Incarichi.compensoAnno(i, a), 0)); });
-        const qualitaTutte = valoriPresenti('qualita', Persone.attive('qualita'));
-        const perQualita = {};
-        qualitaTutte.forEach(q => { perQualita[q] = anni.map(a => incarichi.filter(i => i.qualita === q).reduce((s, i) => s + Incarichi.compensoAnno(i, a), 0)); });
 
-        const annoRif = anni.includes(annoCorrente()) ? annoCorrente() : anni[anni.length - 1];
-        const top = incarichi
+        // anno di riferimento della schermata (selettore): default = anno corrente se presente, altrimenti l'ultimo
+        const annoDefault = anni.includes(annoCorrente()) ? annoCorrente() : anni[anni.length - 1];
+        const annoRif = (filtriReport.anno && anni.includes(filtriReport.anno)) ? filtriReport.anno : annoDefault;
+        const elencoClienti = incarichi
             .map(i => ({ cliente: i.cliente, id: i.id, importo: Incarichi.compensoAnno(i, annoRif) }))
             .filter(x => x.importo > 0)
-            .sort((a, b) => b.importo - a.importo)
-            .slice(0, 10);
+            .sort((a, b) => b.importo - a.importo);
+        const totaleAnno = elencoClienti.reduce((s, x) => s + x.importo, 0);
 
         $vista().innerHTML = `
             <header>
                 <div>
                     <h1>Report compensi</h1>
-                    <p class="descrizione">Totale dei compensi per ogni anno con andamento, dettaglio per tipo di incarico e per responsabile della qualita.</p>
+                    <p class="descrizione">Totale dei compensi per ogni anno con andamento e dettaglio per tipo di incarico. Scegli l'anno di riferimento per l'elenco clienti.</p>
                 </div>
-                <div class="header-azioni"><button class="btn btn-secondary" id="btn-stampa-report">Stampa report</button></div>
+                <div class="header-azioni">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--grigio-600);white-space:nowrap;">Anno di riferimento
+                        <select id="f-anno-report" style="width:auto;">${anni.map(a => '<option value="' + a + '"' + (a === annoRif ? ' selected' : '') + '>' + a + '</option>').join('')}</select>
+                    </label>
+                    <button class="btn btn-secondary" id="btn-stampa-report">Stampa report</button>
+                </div>
             </header>
             <div class="card">
                 <h2>Andamento compensi per anno</h2>
@@ -2572,19 +2570,15 @@
             `</tbody></table></div>
             </div>
             <div class="card">
-                <h2>Compensi per responsabile della qualita</h2>
-                <div class="tabella-wrap"><table class="dati"><thead><tr><th>Qualita</th>${anni.map(a => '<th class="num">' + a + '</th>').join('')}</tr></thead><tbody>` +
-            qualitaTutte.filter(q => perQualita[q].some(v => v > 0)).map(q =>
-                `<tr><td><strong>${esc(q)}</strong></td>${perQualita[q].map(v => '<td class="num">' + (v ? eurFmt.format(v) : '') + '</td>').join('')}</tr>`).join('') +
-            `</tbody></table></div>
-            </div>
-            <div class="card">
-                <h2>Primi 10 incarichi per compenso ${annoRif}</h2>
+                <h2>Compensi per cliente ${annoRif}</h2>
+                <p class="hint" style="margin:-6px 0 12px;">${elencoClienti.length} clienti con compenso nel ${annoRif} · totale ${eurFmt.format(totaleAnno)}</p>
                 <div class="tabella-wrap"><table class="dati"><thead><tr><th>Cliente</th><th class="num">Compenso ${annoRif}</th></tr></thead><tbody>` +
-            top.map(t => `<tr class="cliccabile" data-apri="${t.id}"><td class="cliente-cella">${esc(t.cliente)}</td><td class="num">${eurFmt.format(t.importo)}</td></tr>`).join('') +
+            elencoClienti.map(t => `<tr class="cliccabile" data-apri="${t.id}"><td class="cliente-cella">${esc(t.cliente)}</td><td class="num">${eurFmt.format(t.importo)}</td></tr>`).join('') +
             `</tbody></table></div>
             </div>`;
 
+        const selAnno = document.getElementById('f-anno-report');
+        if (selAnno) selAnno.addEventListener('change', () => { filtriReport.anno = Number(selAnno.value); vistaReport(); });
         document.getElementById('btn-stampa-report').addEventListener('click', () => window.print());
         $vista().querySelectorAll('[data-apri]').forEach(r =>
             r.addEventListener('click', () => naviga('dettaglio', { id: r.dataset.apri })));
@@ -2594,7 +2588,7 @@
             const nome = h2 ? h2.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) : 'report';
             attrezzaTabella(tab, { filtri: false, nomeFile: 'report-' + nome });
         });
-        disegnaGraficoTrend('grafico-report');
+        disegnaGraficoTrend('grafico-report', annoRif);
     }
 
     /* =========================================================
@@ -2625,7 +2619,7 @@
                 </div>
             </header>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th>Qualita</th><th>Resp. incarico</th><th>Team</th><th class="num">Inc. (resp.)</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th>Qualita</th><th>Resp. incarico</th><th>Team</th><th>Equity partner</th><th>Founding partner</th><th class="num">Inc. (resp.)</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             persone.map(p => `<tr>
                 <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
@@ -2635,6 +2629,8 @@
                 <td data-label="Qualita">${spunta(p.qualita)}</td>
                 <td data-label="Resp. incarico">${spunta(p.respIncarico)}</td>
                 <td data-label="Team">${spunta(p.team)}</td>
+                <td data-label="Equity partner">${spunta(p.equityPartner)}</td>
+                <td data-label="Founding partner">${spunta(p.foundingPartner)}</td>
                 <td class="num" data-label="Inc. (resp.)">${(conteggi[p.nome] || {}).resp || ''}</td>
                 <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
                 ${Auth.puoModificare() ? `<td data-label="" style="white-space:nowrap;">
@@ -2681,6 +2677,8 @@
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-qualita" ${p && p.qualita ? 'checked' : ''} style="width:auto;">Responsabile qualita</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-resp" ${p && p.respIncarico ? 'checked' : ''} style="width:auto;">Responsabile incarico</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-team" ${!p || p.team ? 'checked' : ''} style="width:auto;">Team di revisione / referente</label>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equity" ${p && p.equityPartner ? 'checked' : ''} style="width:auto;">Equity partner</label>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-founding" ${p && p.foundingPartner ? 'checked' : ''} style="width:auto;">Founding partner</label>
             </div>
             ${p ? '<p class="descrizione">Se cambi il cognome, viene aggiornato anche negli incarichi che lo citano.</p>' : ''}
             <div class="msg-errore hidden" id="m-p-errore"></div>
@@ -2710,7 +2708,9 @@
             const ruoli = {
                 qualita: document.getElementById('m-p-qualita').checked,
                 respIncarico: document.getElementById('m-p-resp').checked,
-                team: document.getElementById('m-p-team').checked
+                team: document.getElementById('m-p-team').checked,
+                equityPartner: document.getElementById('m-p-equity').checked,
+                foundingPartner: document.getElementById('m-p-founding').checked
             };
             const CAMPI_PERSONA = [
                 { chiave: 'nome', nome: 'Cognome' }, { chiave: 'nomeProprio', nome: 'Nome' },
@@ -2718,7 +2718,8 @@
                 { chiave: 'regione', nome: 'Regione' }, { chiave: 'provincia', nome: 'Provincia' },
                 { chiave: 'localita', nome: 'Localita' }, { chiave: 'indirizzo', nome: 'Indirizzo' },
                 { chiave: 'qualita', nome: 'Ruolo qualita' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
-                { chiave: 'team', nome: 'Ruolo team' }
+                { chiave: 'team', nome: 'Ruolo team' },
+                { chiave: 'equityPartner', nome: 'Equity partner' }, { chiave: 'foundingPartner', nome: 'Founding partner' }
             ];
             if (p) {
                 const prima = { ...p };
@@ -4333,7 +4334,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         });
     }
 
-    function disegnaGraficoTrend(id) {
+    function disegnaGraficoTrend(id, annoRif) {
         const c = preparaCanvas(id, 280);
         if (!c) return;
         const { ctx, w, h } = c;
@@ -4362,7 +4363,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
 
         const passo = areaW / anni.length;
         const barW = Math.min(56, passo * 0.55);
-        const annoOra = annoCorrente();
+        const annoOra = annoRif || annoCorrente();
         const punti = [];
         anni.forEach((a, i) => {
             const v = valori[i];
