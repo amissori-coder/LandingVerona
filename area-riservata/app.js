@@ -24,6 +24,18 @@
         if (tipo === 'legale') return 'trimestrale';
         return 'annuale';
     }
+    // descrizione leggibile della modalita di fatturazione (con finestra o data specifica)
+    const MESI_BREVI_FATT = ['', 'gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+    function descriviFatturazione(inc) {
+        const per = inc.fatturazione || 'annuale';
+        const et = p => (p && p.mese) ? (MESI_BREVI_FATT[p.mese] + ' ' + p.anno) : '';
+        if (per === 'specifica') return inc.fattData ? ('data specifica: ' + fmtData(inc.fattData)) : 'data specifica (da impostare)';
+        const nome = per === 'mensile' ? 'Mensile' : (per === 'trimestrale' ? 'Trimestrale' : 'Annuale');
+        const fin = [];
+        if (inc.fattInizio) fin.push('da ' + et(inc.fattInizio));
+        if (inc.fattFine) fin.push('a ' + et(inc.fattFine));
+        return nome + (fin.length ? ' (' + fin.join(', ') + ')' : '');
+    }
 
     function esc(s) {
         return String(s == null ? '' : s)
@@ -465,7 +477,10 @@
         { chiave: 'email1', nome: 'Email 1' },
         { chiave: 'email2', nome: 'Email 2' },
         { chiave: 'compensi', nome: 'Compensi' },
-        { chiave: 'fatturazione', nome: 'Periodicita fatturazione' },
+        { chiave: 'fatturazione', nome: 'Modalita fatturazione' },
+        { chiave: 'fattInizio', nome: 'Inizio fatturazione' },
+        { chiave: 'fattFine', nome: 'Fine fatturazione' },
+        { chiave: 'fattData', nome: 'Data fattura' },
         { chiave: 'stato', nome: 'Stato' },
         { chiave: 'statoNote', nome: 'Note stato' },
         { chiave: 'calcoloCongelato', nome: 'Calcolo congelato' }
@@ -1239,25 +1254,52 @@
             const compenso = Incarichi.compensoAnno(inc, anno);
             if (!compenso) return [];
             const periodicita = inc.fatturazione || 'annuale';
-            const n = periodicita === 'mensile' ? 12 : (periodicita === 'trimestrale' ? 4 : 1);
+            const stati = this.stati();
+
+            // modalita "data specifica": una sola scadenza, nell'esercizio che coincide con la data
+            if (periodicita === 'specifica') {
+                if (!inc.fattData) return [];
+                const d = new Date(inc.fattData);
+                if (isNaN(d.getTime()) || d.getFullYear() !== anno) return [];
+                const mese = d.getMonth() + 1;
+                const chiave = inc.id + '|' + anno + '|specifica|' + inc.fattData;
+                return [{
+                    chiave, incarico: inc, anno, numero: 1, totale: 1, mese,
+                    scadenza: anno + '-' + String(mese).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
+                    importo: compenso, stato: stati[chiave] || 'da emettere'
+                }];
+            }
+
+            const nBase = periodicita === 'mensile' ? 12 : (periodicita === 'trimestrale' ? 4 : 1);
+            const mesi = [];
+            for (let i = 1; i <= nBase; i++) mesi.push(nBase === 12 ? i : (nBase === 4 ? i * 3 : 12));
+            // finestra inizio/fine (se impostata): tiene solo le scadenze (anno,mese) dentro [inizio, fine]
+            const dentro = m => {
+                if (inc.fattInizio && (anno < inc.fattInizio.anno || (anno === inc.fattInizio.anno && m < inc.fattInizio.mese))) return false;
+                if (inc.fattFine && (anno > inc.fattFine.anno || (anno === inc.fattFine.anno && m > inc.fattFine.mese))) return false;
+                return true;
+            };
+            const mesiAttivi = mesi.filter(dentro);
+            if (!mesiAttivi.length) return [];
+            const n = mesiAttivi.length;
             const importoRata = Math.round((compenso / n) * 100) / 100;
+            // senza finestra la chiave resta identica a prima (stati esistenti preservati);
+            // con finestra si aggiunge una firma cosi gli stati non si riattaccano a rate diverse
+            const finestra = (inc.fattInizio || inc.fattFine)
+                ? '|w' + (inc.fattInizio ? inc.fattInizio.anno + '-' + inc.fattInizio.mese : '') + '-' + (inc.fattFine ? inc.fattFine.anno + '-' + inc.fattFine.mese : '')
+                : '';
             const out = [];
-            for (let i = 1; i <= n; i++) {
-                let mese;
-                if (n === 12) mese = i;
-                else if (n === 4) mese = i * 3;
-                else mese = 12;
+            mesiAttivi.forEach((mese, k) => {
+                const i = k + 1;
                 let importo = importoRata;
                 if (i === n) importo = Math.round((compenso - importoRata * (n - 1)) * 100) / 100;
-                // la periodicita fa parte della chiave: cambiandola, gli stati
-                // delle vecchie rate non si riattaccano a rate di importo diverso
-                const chiave = inc.id + '|' + anno + '|' + periodicita + '|' + i;
+                const chiave = inc.id + '|' + anno + '|' + periodicita + '|' + i + finestra;
                 out.push({
                     chiave, incarico: inc, anno, numero: i, totale: n, mese,
-                    scadenza: anno + '-' + String(mese).padStart(2, '0') + '-' + (n === 1 ? '31' : '28'),
-                    importo, stato: this.stati()[chiave] || 'da emettere'
+                    scadenza: anno + '-' + String(mese).padStart(2, '0') + '-' + (nBase === 1 ? '31' : '28'),
+                    importo, stato: stati[chiave] || 'da emettere'
                 });
-            }
+            });
             return out;
         },
 
@@ -1858,7 +1900,7 @@
                     </div>
                     <div class="card">
                         <h2>Compensi annui e fatturazione</h2>
-                        <p class="descrizione" style="margin-bottom:12px;">Periodicita di fatturazione: <strong>${esc(inc.fatturazione || 'annuale')}</strong></p>
+                        <p class="descrizione" style="margin-bottom:12px;">Fatturazione: <strong>${esc(descriviFatturazione(inc))}</strong></p>
                         ${anni.length ? `<div class="tabella-wrap"><table class="dati"><thead><tr><th>Esercizio</th><th class="num">Compenso annuo</th><th class="num">Rate</th><th class="num">Importo rata</th></tr></thead><tbody>` +
                             anni.map(a => {
                                 const rate = Fatture.rate(inc, a);
@@ -1963,7 +2005,7 @@
             dati: esistente ? JSON.parse(JSON.stringify(esistente)) : {
                 cliente: '', tipo: 'legale', codiceFiscale: '', area: 'Nord', regione: 'Lombardia', localita: '',
                 email1: '', email2: '', qualita: '', respIncarico: '', referente: '', team: '',
-                fatturazione: fatturazionePredefinita('legale'), compensi: {}, stato: 'attivo'
+                fatturazione: fatturazionePredefinita('legale'), fattInizio: null, fattFine: null, fattData: null, compensi: {}, stato: 'attivo'
             },
             // su un incarico esistente la fatturazione salvata e una scelta
             // deliberata: il cambio di tipo non deve sovrascriverla
@@ -2137,27 +2179,53 @@
             }));
         } else if (w.passo === 5) {
             const mappa = compensiRisultanti();
-            const compenso = mappa[anniEsercizi()[0]] || 0;
+            const anno0 = anniEsercizi()[0];
+            const compenso = mappa[anno0] || 0;
+            const pInizio = d.fattInizio ? (d.fattInizio.anno + '-' + String(d.fattInizio.mese).padStart(2, '0')) : '';
+            const pFine = d.fattFine ? (d.fattFine.anno + '-' + String(d.fattFine.mese).padStart(2, '0')) : '';
             corpo.innerHTML = `
                 <h2>Fatturazione</h2>
-                <div class="campo"><label>Periodicita di fatturazione *</label>
+                <div class="campo"><label>Modalita di fatturazione *</label>
                     <select id="w-fatturazione">
-                        <option value="annuale" ${d.fatturazione === 'annuale' ? 'selected' : ''}>Annuale (rata unica)</option>
-                        <option value="trimestrale" ${d.fatturazione === 'trimestrale' ? 'selected' : ''}>Trimestrale (4 rate)</option>
-                        <option value="mensile" ${d.fatturazione === 'mensile' ? 'selected' : ''}>Mensile (12 rate)</option>
+                        <option value="annuale" ${d.fatturazione === 'annuale' ? 'selected' : ''}>Annuale (una rata l'anno)</option>
+                        <option value="trimestrale" ${d.fatturazione === 'trimestrale' ? 'selected' : ''}>Trimestrale (quattro rate l'anno)</option>
+                        <option value="mensile" ${d.fatturazione === 'mensile' ? 'selected' : ''}>Mensile (dodici rate l'anno)</option>
+                        <option value="specifica" ${d.fatturazione === 'specifica' ? 'selected' : ''}>Ad una data specifica</option>
                     </select>
                     <div class="hint">Predefinita per ${esc(nomeTipo(d.tipo))}: ${esc(fatturazionePredefinita(d.tipo))}.</div>
                 </div>
+                <div class="griglia-2" id="w-finestra">
+                    <div class="campo"><label>Inizio fatturazione</label><input type="month" id="w-fatt-inizio" value="${pInizio}"><div class="hint">Da quale periodo parte. Vuoto = da subito.</div></div>
+                    <div class="campo"><label>Fine fatturazione</label><input type="month" id="w-fatt-fine" value="${pFine}"><div class="hint">Quando termina. Vuoto = senza fine.</div></div>
+                </div>
+                <div class="campo" id="w-data-specifica"><label>Data della fattura</label><input type="date" id="w-fatt-data" value="${d.fattData || ''}"><div class="hint">La scadenza cade in questa data, nell'esercizio corrispondente.</div></div>
                 <div class="calc-riquadro" id="w-anteprima-rate"></div>`;
+            const sincronizzaCampi = () => {
+                const per = document.getElementById('w-fatturazione').value;
+                document.getElementById('w-finestra').style.display = per === 'specifica' ? 'none' : '';
+                document.getElementById('w-data-specifica').style.display = per === 'specifica' ? '' : 'none';
+            };
             const anteprima = () => {
                 const per = document.getElementById('w-fatturazione').value;
-                const n = per === 'mensile' ? 12 : (per === 'trimestrale' ? 4 : 1);
-                document.getElementById('w-anteprima-rate').innerHTML =
-                    `<div class="calc-riga"><span>Compenso primo esercizio</span><span class="val">${eurFmt.format(compenso)}</span></div>
-                     <div class="calc-riga"><span>Numero rate per esercizio</span><span class="val">${n}</span></div>
-                     <div class="calc-riga totale"><span>Importo rata (primo esercizio)</span><span class="val">${eurFmt2.format(compenso / n)}</span></div>`;
+                const pi = document.getElementById('w-fatt-inizio').value;
+                const pf = document.getElementById('w-fatt-fine').value;
+                const temp = {
+                    id: 'anteprima', fatturazione: per, compensi: mappa,
+                    fattData: per === 'specifica' ? (document.getElementById('w-fatt-data').value || null) : null,
+                    fattInizio: (per !== 'specifica' && pi) ? { anno: Number(pi.slice(0, 4)), mese: Number(pi.slice(5, 7)) } : null,
+                    fattFine: (per !== 'specifica' && pf) ? { anno: Number(pf.slice(0, 4)), mese: Number(pf.slice(5, 7)) } : null
+                };
+                const rate = Fatture.rate(temp, anno0);
+                const box = document.getElementById('w-anteprima-rate');
+                if (!rate.length) { box.innerHTML = `<div class="calc-riga"><span>Scadenze nel ${anno0}</span><span class="val">nessuna</span></div><div class="hint" style="margin-top:6px;">Con queste impostazioni il primo esercizio (${anno0}) non genera scadenze: verifica la finestra o la data.</div>`; return; }
+                box.innerHTML =
+                    `<div class="calc-riga"><span>Compenso primo esercizio (${anno0})</span><span class="val">${eurFmt.format(compenso)}</span></div>
+                     <div class="calc-riga"><span>Scadenze nel ${anno0}</span><span class="val">${rate.length}</span></div>
+                     <div class="calc-riga totale"><span>Importo scadenza</span><span class="val">${eurFmt2.format(rate[0].importo)}</span></div>`;
             };
-            document.getElementById('w-fatturazione').addEventListener('change', () => { w.fatturazioneToccata = true; anteprima(); });
+            document.getElementById('w-fatturazione').addEventListener('change', () => { w.fatturazioneToccata = true; sincronizzaCampi(); anteprima(); });
+            ['w-fatt-inizio', 'w-fatt-fine', 'w-fatt-data'].forEach(idw => { const el = document.getElementById(idw); if (el) el.addEventListener('change', anteprima); });
+            sincronizzaCampi();
             anteprima();
         } else if (w.passo === 6) {
             const anni = anniEsercizi();
@@ -2182,7 +2250,7 @@
                 </div>
                 <div class="riepilogo-blocco"><h4>Compenso e fatturazione</h4>
                     ${anni.map(a => rigaRiepilogo('Esercizio ' + a, eurFmt.format(mappa[a] || 0))).join('')}
-                    ${rigaRiepilogo('Fatturazione', d.fatturazione)}
+                    ${rigaRiepilogo('Fatturazione', descriviFatturazione(d))}
                     ${w.modalita === 'modifica' && !w.compensoModificato ? '<p class="hint" style="font-size:0.78rem; color:var(--grigio-600); margin-top:6px;">Il passo 3 non e stato modificato: i compensi esistenti restano invariati.</p>' : ''}
                 </div>
                 <p class="descrizione">Salvando, la modifica viene registrata nel registro con il tuo nome (${esc(Auth.utenteCorrente.nome)}).</p>`;
@@ -2377,6 +2445,16 @@
             }
         } else if (w.passo === 5) {
             d.fatturazione = document.getElementById('w-fatturazione').value;
+            if (d.fatturazione === 'specifica') {
+                d.fattData = document.getElementById('w-fatt-data').value || null;
+                d.fattInizio = null; d.fattFine = null;
+            } else {
+                d.fattData = null;
+                const pi = document.getElementById('w-fatt-inizio').value;
+                const pf = document.getElementById('w-fatt-fine').value;
+                d.fattInizio = pi ? { anno: Number(pi.slice(0, 4)), mese: Number(pi.slice(5, 7)) } : null;
+                d.fattFine = pf ? { anno: Number(pf.slice(0, 4)), mese: Number(pf.slice(5, 7)) } : null;
+            }
         }
         return true;
     }
@@ -4188,6 +4266,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
 
     function testoFatturazioneLettera(inc) {
         const per = inc.fatturazione || 'annuale';
+        if (per === 'specifica') return inc.fattData ? ('La fatturazione dei corrispettivi avverra alla data del ' + fmtData(inc.fattData)) : 'La fatturazione dei corrispettivi avverra alla data concordata';
         if (per === 'mensile') return 'La fatturazione dei corrispettivi avverra in dodici rate mensili di pari importo';
         if (per === 'trimestrale') return 'La fatturazione dei corrispettivi avverra in quattro rate trimestrali di pari importo';
         return 'La fatturazione dei corrispettivi avverra in un\'unica soluzione annuale, per l\'importo complessivo sopra indicato';
