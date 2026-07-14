@@ -3041,6 +3041,7 @@
     /* Stato della vista Comunicazioni: 'elenco' o 'calendario', e il mese mostrato. */
     let comuniVista = 'elenco';
     let comuniMese = null;
+    let comuniTab = 'programmate'; // 'programmate' (programmate + bozze) | 'invii' (invii effettuati)
 
     /* Calendario classico mensile delle comunicazioni: mostra gli invii passati
        (dallo storico) e le occorrenze future programmate, colorati per contesto. */
@@ -3116,13 +3117,23 @@
             <button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button>
             <button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></td>`;
 
+        const contestiPresenti = Array.from(new Set(programmate.map(c => c.contesto).filter(Boolean)));
+        const freqPresenti = Array.from(new Set(programmate.map(c => (c.programmazione && c.programmazione.frequenza) || '').filter(Boolean)));
+        const barraFiltriProg = programmate.length > 1 ? `<div class="filtri" id="filtri-prog">
+            <div class="campo ricerca"><label>Ricerca</label><input id="fp-cerca" type="search" placeholder="Nome o oggetto..."></div>
+            <div class="campo"><label>Contesto</label><select id="fp-contesto"><option value="">Tutti</option>${contestiPresenti.map(x => '<option value="' + esc(x) + '">' + esc(contesto(x).nome) + '</option>').join('')}</select></div>
+            <div class="campo"><label>Frequenza</label><select id="fp-freq"><option value="">Tutte</option>${freqPresenti.map(f => '<option value="' + esc(f) + '">' + esc(f) + '</option>').join('')}</select></div>
+            <span class="filtro-conteggio" id="fp-conta"></span>
+        </div>` : '';
         const sezProgrammate = programmate.length ? `<div class="card" id="sez-programmate">
             <h2>Comunicazioni programmate (${programmate.length})</h2>
-            <p class="hint" style="margin:-6px 0 14px;">Una riga per comunicazione. Apri con la freccetta per vedere i prossimi invii con il periodo.</p>
+            ${barraFiltriProg}
             <div class="comm-lista">` +
             programmate.map(c => {
                 const grp = (c.gruppi && c.gruppi.length) ? ' + ' + esc(c.gruppi.map(nomeGruppo).join(', ')) : '';
-                return `<details class="comm-item">
+                const freq = (c.programmazione && c.programmazione.frequenza) || '';
+                const cerca = ((c.nome || '') + ' ' + (c.oggetto || '')).toLowerCase();
+                return `<details class="comm-item" data-contesto="${esc(c.contesto || '')}" data-freq="${esc(freq)}" data-cerca="${esc(cerca)}">
                     <summary class="comm-sommario">
                         ${badgeContesto(c.contesto)}
                         <span class="comm-nome">${esc(c.nome || c.oggetto || '(senza nome)')}</span>
@@ -3162,29 +3173,38 @@
                 <td data-label="Da">${esc(s.da)}</td>
             </tr>`).join('') + `</tbody></table></div></div>` : '';
 
-        const elenco = `${sezProgrammate}${sezBozze}${sezInvii}
-            ${(programmate.length || bozze.length || invii.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione. Premi "Nuova comunicazione" per prepararne una.</div>'}`;
+        const elencoProg = `${sezProgrammate}${sezBozze}
+            ${(programmate.length || bozze.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione programmata o bozza. Premi "Nuova comunicazione" per prepararne una.</div>'}`;
+        const vistaInvii = invii.length ? sezInvii : '<div class="card tabella-vuota">Nessun invio effettuato finora.</div>';
 
         const toggle = `<div class="toggle-vista">
             <button class="btn btn-sm ${comuniVista === 'elenco' ? 'btn-primary' : 'btn-secondary'}" data-vista="elenco">Elenco</button>
             <button class="btn btn-sm ${comuniVista === 'calendario' ? 'btn-primary' : 'btn-secondary'}" data-vista="calendario">Calendario</button>
         </div>`;
+        const tabs = `<div class="tab-dest" style="margin-bottom:16px;">
+            <button class="tab-btn ${comuniTab === 'programmate' ? 'attivo' : ''}" data-tab="programmate">Programmate e bozze</button>
+            <button class="tab-btn ${comuniTab === 'invii' ? 'attivo' : ''}" data-tab="invii">Invii effettuati (${invii.length})</button>
+        </div>`;
+        const inProgrammate = comuniTab !== 'invii';
+        const corpo = !inProgrammate ? vistaInvii : (comuniVista === 'calendario' ? renderCalendarioComunicazioni() : elencoProg);
 
         $vista().innerHTML = `
             <header>
                 <div>
                     <h1>Comunicazioni</h1>
-                    <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), scegli il contesto, inviale subito o programmale. Vedi tutto in elenco o nel calendario.</p>
+                    <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), scegli il contesto, inviale subito o programmale.</p>
                 </div>
-                <div class="header-azioni">${toggle}<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button></div>
+                <div class="header-azioni">${inProgrammate ? toggle : ''}<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button></div>
             </header>
-            ${comuniVista === 'calendario' ? renderCalendarioComunicazioni() : elenco}
+            ${tabs}
+            ${corpo}
             ${puoInviare ? '' : '<p class="descrizione" style="margin-top:10px;">L\'invio dal server e disponibile solo con l\'accesso protetto attivo; qui puoi comunque preparare le bozze.</p>'}`;
 
+        $vista().querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { comuniTab = b.dataset.tab; vistaComunicazioni(); }));
         $vista().querySelectorAll('[data-vista]').forEach(b => b.addEventListener('click', () => { comuniVista = b.dataset.vista; vistaComunicazioni(); }));
         document.getElementById('btn-nuova-com').addEventListener('click', () => modaleComunicazione(null));
 
-        if (comuniVista === 'calendario') {
+        if (inProgrammate && comuniVista === 'calendario') {
             const pm = document.getElementById('cal-prec'), sm = document.getElementById('cal-succ'), ob = document.getElementById('cal-oggi-btn');
             if (pm) pm.addEventListener('click', () => { comuniMese = new Date(comuniMese.getFullYear(), comuniMese.getMonth() - 1, 1); vistaComunicazioni(); });
             if (sm) sm.addEventListener('click', () => { comuniMese = new Date(comuniMese.getFullYear(), comuniMese.getMonth() + 1, 1); vistaComunicazioni(); });
@@ -3193,7 +3213,23 @@
             return;
         }
 
-        [['#sez-programmate', 'comunicazioni-programmate'], ['#sez-bozze', 'comunicazioni-bozze'], ['#sez-invii', 'invii-effettuati']].forEach(([sel, nome]) => {
+        // filtri delle comunicazioni programmate (righe .comm-item, mostra/nascondi)
+        const filtraProg = () => {
+            const ce = document.getElementById('fp-cerca'), coe = document.getElementById('fp-contesto'), fre = document.getElementById('fp-freq');
+            const q = ce ? ce.value.toLowerCase() : '', ct = coe ? coe.value : '', fq = fre ? fre.value : '';
+            let visti = 0, tot = 0;
+            $vista().querySelectorAll('#sez-programmate .comm-item').forEach(it => {
+                tot++;
+                const ok = (!q || (it.dataset.cerca || '').includes(q)) && (!ct || it.dataset.contesto === ct) && (!fq || it.dataset.freq === fq);
+                it.style.display = ok ? '' : 'none';
+                if (ok) visti++;
+            });
+            const cnt = document.getElementById('fp-conta');
+            if (cnt) cnt.textContent = (visti < tot) ? (visti + ' di ' + tot) : '';
+        };
+        ['fp-cerca', 'fp-contesto', 'fp-freq'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', filtraProg); });
+
+        [['#sez-bozze', 'comunicazioni-bozze'], ['#sez-invii', 'invii-effettuati']].forEach(([sel, nome]) => {
             const t = $vista().querySelector(sel + ' table.dati');
             if (t) attrezzaTabella(t, { nomeFile: nome });
         });
