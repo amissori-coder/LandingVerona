@@ -284,6 +284,56 @@
             .filter(Boolean);
     }
 
+    /* ---- Variabili di personalizzazione delle comunicazioni ----
+       Nel testo/oggetto si possono usare {nome} {cognome} {nome_completo}
+       {email} {incarichi}; vengono sostituite per ogni destinatario. */
+    const VARIABILI_MAIL = [
+        { chiave: 'nome', desc: 'Nome della persona (o ragione sociale del cliente)' },
+        { chiave: 'cognome', desc: 'Cognome della persona' },
+        { chiave: 'nome_completo', desc: 'Nome e cognome (o ragione sociale)' },
+        { chiave: 'email', desc: 'Indirizzo email del destinatario' },
+        { chiave: 'incarichi', desc: 'Clienti degli incarichi della persona (aggiornato ad ogni invio)' }
+    ];
+    const RE_VARIABILI = /\{(nome_completo|nome|cognome|email|incarichi)\}/;
+    function haVariabili(s) { return RE_VARIABILI.test(String(s || '')); }
+    function applicaVariabili(s, d) {
+        d = d || {};
+        const nc = (d.nome && d.cognome) ? (d.nome + ' ' + d.cognome) : (d.nome || d.cognome || '');
+        return String(s == null ? '' : s)
+            .replace(/\{nome_completo\}/g, nc)
+            .replace(/\{nome\}/g, d.nome || '')
+            .replace(/\{cognome\}/g, d.cognome || '')
+            .replace(/\{email\}/g, d.email || '')
+            .replace(/\{incarichi\}/g, d.incarichi || '');
+    }
+    // clienti degli incarichi in cui la persona (per cognome) compare in QUALSIASI ruolo
+    function incarichiDiCognome(cognome, incarichi) {
+        const cg = String(cognome || '').trim().toLowerCase();
+        if (!cg) return [];
+        const out = [];
+        (incarichi || []).forEach(inc => {
+            const tok = [];
+            [inc.team, inc.respIncarico, inc.qualita, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
+            if (tok.indexOf(cg) >= 0 && inc.cliente) out.push(inc.cliente);
+        });
+        return Array.from(new Set(out));
+    }
+    // per una lista di email, costruisce i dati di personalizzazione di ciascun destinatario
+    function datiDestinatari(emails) {
+        const persone = (typeof Persone !== 'undefined') ? Persone.tutte() : [];
+        const incarichi = (typeof Incarichi !== 'undefined') ? Incarichi.tutti() : [];
+        const perEmail = {}, cliEmail = {};
+        persone.forEach(p => { if (p.email) perEmail[String(p.email).toLowerCase()] = p; });
+        incarichi.forEach(i => { [i.email1, i.email2].forEach(e => { if (e) { const k = String(e).toLowerCase(); if (!cliEmail[k]) cliEmail[k] = i.cliente; } }); });
+        return (emails || []).map(email => {
+            const k = String(email || '').toLowerCase();
+            const p = perEmail[k];
+            if (p) { const cognome = p.nome || ''; return { email: k, nome: p.nomeProprio || cognome, cognome: cognome, incarichi: incarichiDiCognome(cognome, incarichi).join(', ') }; }
+            if (cliEmail[k]) return { email: k, nome: cliEmail[k], cognome: '', incarichi: '' };
+            return { email: k, nome: '', cognome: '', incarichi: '' };
+        });
+    }
+
     /* =========================================================
        FUSIONE A 3 VIE (sincronizzazione concorrente)
        ---------------------------------------------------------
@@ -3299,7 +3349,10 @@
                 <div class="campo"><label>Nome della comunicazione</label><input id="c-nome" value="${esc((c && c.nome) || '')}" placeholder="es. Promemoria scadenze trimestrali"><div class="hint">Etichetta interna per riconoscerla in elenco e nel calendario.</div></div>
             </div>
             <div class="campo"><label>Oggetto della mail</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}" placeholder="Oggetto che vedra il destinatario"></div>
-            <div class="campo"><label>Messaggio</label><textarea id="c-testo" rows="8" placeholder="Scrivi qui il testo della mail...">${esc((c && c.testo) || '')}</textarea></div>
+            <div class="campo"><label>Messaggio</label><textarea id="c-testo" rows="8" placeholder="Scrivi qui il testo della mail...">${esc((c && c.testo) || '')}</textarea>
+                <div class="var-chips"><span class="hint" style="margin-right:4px;">Variabili (clic per inserire):</span>${VARIABILI_MAIL.map(v => '<button type="button" class="chip-var" data-var="' + v.chiave + '" title="' + esc(v.desc) + '">{' + v.chiave + '}</button>').join('')}</div>
+                <div class="hint">Sostituite per ogni destinatario. Se il testo usa variabili, ognuno riceve una mail personalizzata (altrimenti un unico invio in copia nascosta).</div>
+            </div>
             <div class="campo"><label>Anteprima della mail</label>
                 <div class="mail-anteprima">
                     <div class="mail-intest">
@@ -3308,6 +3361,7 @@
                     </div>
                     <div class="mail-corpo" id="ap-corpo"></div>
                 </div>
+                <div class="hint" id="ap-nota" style="margin-top:6px;"></div>
             </div>
             <div class="campo">
                 <label>Destinatari <span class="hint" id="c-conta"></span></label>
@@ -3385,16 +3439,34 @@
 
         const $ = x => document.getElementById(x);
         $('c-contesto').value = (c && c.contesto) || 'generale';
-        // anteprima live della mail (come la vedra il destinatario)
+        // anteprima live della mail (con sostituzione delle variabili su dati di esempio)
+        const CAMPIONE_VAR = { email: 'mario.rossi@esempio.it', nome: 'Mario', cognome: 'Rossi', incarichi: 'Alpha S.r.l., Beta S.p.A.' };
         const aggiornaAnteprima = () => {
-            $('ap-oggetto').textContent = $('c-oggetto').value.trim() || '(nessun oggetto)';
-            const t = $('c-testo').value.trim();
-            const corpo = t ? esc(t).replace(/\n/g, '<br>') : '<span class="hint">(qui comparira il testo del messaggio)</span>';
+            const usaVar = haVariabili($('c-oggetto').value) || haVariabili($('c-testo').value);
+            const ogg = usaVar ? applicaVariabili($('c-oggetto').value, CAMPIONE_VAR) : $('c-oggetto').value;
+            $('ap-oggetto').textContent = ogg.trim() || '(nessun oggetto)';
+            const t = usaVar ? applicaVariabili($('c-testo').value, CAMPIONE_VAR) : $('c-testo').value;
+            const corpo = t.trim() ? esc(t.trim()).replace(/\n/g, '<br>') : '<span class="hint">(qui comparira il testo del messaggio)</span>';
             $('ap-corpo').innerHTML = corpo + FIRMA_MAIL_HTML;
+            const nota = $('ap-nota');
+            if (nota) nota.textContent = usaVar ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : '';
         };
         $('c-oggetto').addEventListener('input', aggiornaAnteprima);
         $('c-testo').addEventListener('input', aggiornaAnteprima);
         aggiornaAnteprima();
+        // inserimento variabili al cursore del campo attivo (oggetto o testo)
+        let ultimoCampoVar = 'c-testo';
+        ['c-oggetto', 'c-testo'].forEach(idc => { const el = $(idc); if (el) el.addEventListener('focus', () => { ultimoCampoVar = idc; }); });
+        document.querySelectorAll('.chip-var').forEach(b => b.addEventListener('click', () => {
+            const el = $(ultimoCampoVar) || $('c-testo');
+            const token = '{' + b.dataset.var + '}';
+            const s = (el.selectionStart != null) ? el.selectionStart : el.value.length;
+            const e = (el.selectionEnd != null) ? el.selectionEnd : el.value.length;
+            el.value = el.value.slice(0, s) + token + el.value.slice(e);
+            el.focus();
+            const pos = s + token.length; try { el.setSelectionRange(pos, pos); } catch (_) { }
+            aggiornaAnteprima();
+        }));
         // schede destinatari
         document.querySelectorAll('.tab-dest .tab-btn').forEach(b => b.addEventListener('click', () => {
             document.querySelectorAll('.tab-dest .tab-btn').forEach(x => x.classList.toggle('attivo', x === b));
@@ -3580,7 +3652,7 @@
             if (!Cloud.attivo) { mostraErr('L\'invio richiede l\'accesso protetto attivo. Puoi comunque salvare la bozza.'); return; }
             rec.programmazione = null;
             Comunicazioni.salvaUna(rec); // salva prima: non si perde nulla se l'invio fallisce
-            const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, rec.destinatari);
+            const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, datiDestinatari(rec.destinatari));
             if (!esito.ok) { mostraErr('Invio non riuscito: ' + esito.msg); return; }
             const ora = Date.now();
             rec.stato = 'inviata';

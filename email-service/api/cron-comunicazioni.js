@@ -44,6 +44,30 @@ function trasporto() {
 const reEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+// --- Variabili di personalizzazione (uguali al client) ---
+const RE_VARIABILI = /\{(nome_completo|nome|cognome|email|incarichi)\}/;
+function haVariabili(s) { return RE_VARIABILI.test(String(s || '')); }
+function applicaVariabili(s, d) {
+    d = d || {};
+    const nc = (d.nome && d.cognome) ? (d.nome + ' ' + d.cognome) : (d.nome || d.cognome || '');
+    return String(s == null ? '' : s)
+        .replace(/\{nome_completo\}/g, nc).replace(/\{nome\}/g, d.nome || '').replace(/\{cognome\}/g, d.cognome || '')
+        .replace(/\{email\}/g, d.email || '').replace(/\{incarichi\}/g, d.incarichi || '');
+}
+function dividiNomi(testo) { return String(testo || '').split(/[,;]|\s+-\s*|\s*-\s+/).map(t => t.trim()).filter(Boolean); }
+// clienti degli incarichi in cui la persona (per cognome) compare in QUALSIASI ruolo
+function incarichiDiCognome(cognome, incarichi) {
+    const cg = String(cognome || '').trim().toLowerCase();
+    if (!cg) return [];
+    const out = [];
+    (incarichi || []).forEach(inc => {
+        const tok = [];
+        [inc.team, inc.respIncarico, inc.qualita, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
+        if (tok.indexOf(cg) >= 0 && inc.cliente) out.push(inc.cliente);
+    });
+    return Array.from(new Set(out));
+}
+
 // Firma con logo Revilaw (uguale a invia-comunicazione e all'anteprima)
 const FIRMA = '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:26px;border-top:1px solid #E2E8F0;padding-top:16px;"><tr>'
     + '<td style="padding-right:14px;vertical-align:middle;"><img src="https://nextgenerationbusiness.it/zls_zes/img/logo-revilaw.png" alt="Revilaw" height="42" style="height:42px;width:auto;display:block;"></td>'
@@ -79,39 +103,74 @@ function prossimaData(ts, freq) {
 // Risolve i destinatari di una comunicazione ADESSO: espande i gruppi dinamici
 // sui dati attuali (persone + utenti) e unisce i destinatari scelti singolarmente.
 // Cosi chi e stato aggiunto dopo entra automaticamente negli invii programmati.
-function risolviDestinatariCron(com, persone, utenti) {
-    const set = new Set();
+function risolviDestinatariCron(com, persone, utenti, incarichi) {
     const g = new Set(com.gruppi || []);
-    if (g.has('utenti')) (utenti || []).forEach(u => { if (u.email && u.attivo !== false) set.add(String(u.email).toLowerCase()); });
+    const byEmail = {};
+    const add = (email, nome, cognome, inc) => {
+        const k = String(email || '').trim().toLowerCase();
+        if (!reEmail.test(k) || byEmail[k]) return;
+        byEmail[k] = { email: k, nome: nome || '', cognome: cognome || '', incarichi: inc || '' };
+    };
+    if (g.has('utenti')) (utenti || []).forEach(u => { if (u.email && u.attivo !== false) add(u.email, u.nome || '', '', ''); });
     (persone || []).forEach(p => {
         if (!p || !p.attivo || !p.email) return;
-        if ((g.has('qualita') && p.qualita) || (g.has('procuratori') && p.respIncarico) || (g.has('team') && p.team)) set.add(String(p.email).toLowerCase());
+        if ((g.has('qualita') && p.qualita) || (g.has('procuratori') && p.respIncarico) || (g.has('team') && p.team)) {
+            const cognome = p.nome || '';
+            add(p.email, p.nomeProprio || cognome, cognome, incarichiDiCognome(cognome, incarichi).join(', '));
+        }
     });
     const manuali = com.destinatariManuali || (g.size ? [] : (com.destinatari || []));
-    manuali.forEach(e => { const x = String(e || '').trim().toLowerCase(); if (reEmail.test(x)) set.add(x); });
-    return Array.from(set).filter(e => reEmail.test(e));
+    manuali.forEach(e => {
+        const k = String(e || '').trim().toLowerCase();
+        if (!reEmail.test(k) || byEmail[k]) return;
+        const pers = (persone || []).find(p => p.email && String(p.email).toLowerCase() === k);
+        if (pers) { const cognome = pers.nome || ''; add(k, pers.nomeProprio || cognome, cognome, incarichiDiCognome(cognome, incarichi).join(', ')); return; }
+        const inc = (incarichi || []).find(i => [i.email1, i.email2].some(x => x && String(x).toLowerCase() === k));
+        add(k, inc ? (inc.cliente || '') : '', '', '');
+    });
+    return Object.keys(byEmail).map(k => byEmail[k]);
 }
 
 async function inviaUna(trans, com, destinatari) {
-    destinatari = Array.from(new Set((destinatari || []).map(e => String(e || '').trim().toLowerCase()).filter(e => reEmail.test(e))));
-    if (!destinatari.length) throw new Error('nessun destinatario valido');
+    const seen = {}, dd = [];
+    (destinatari || []).forEach(d => {
+        const k = String((d && d.email) || '').trim().toLowerCase();
+        if (!reEmail.test(k) || seen[k]) return;
+        seen[k] = 1; dd.push(Object.assign({}, d, { email: k }));
+    });
+    if (!dd.length) throw new Error('nessun destinatario valido');
     const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
     const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.');
+    const from = '"' + fromName + '" <' + fromEmail + '>';
     const replyTo = (com.creato && com.creato.da) || fromEmail;
-    const html = '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">'
-        + esc(com.testo || '').replace(/\n/g, '<br>') + FIRMA + '</div>';
-    // oggetto con il riferimento del periodo (es. "... - primo trimestre 2026")
+    // oggetto base con il riferimento del periodo (es. "... - primo trimestre 2026")
     const p = com.programmazione || {};
-    let oggetto = com.oggetto || '(senza oggetto)';
+    let oggBase = com.oggetto || '(senza oggetto)';
     if (p.periodoNelOggetto && p.frequenza && p.frequenza !== 'unica') {
         const per = etichettaPeriodo(p.frequenza, p.prossimoInvio);
-        if (per) oggetto = oggetto + ' - ' + per;
+        if (per) oggBase = oggBase + ' - ' + per;
     }
-    const msg = { from: '"' + fromName + '" <' + fromEmail + '>', replyTo, subject: oggetto, text: com.testo || '', html };
-    if (destinatari.length === 1) msg.to = destinatari[0];
-    else { msg.to = replyTo; msg.bcc = destinatari; }
+    const testoBase = com.testo || '';
+    const htmlDi = (txt) => '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">' + esc(txt).replace(/\n/g, '<br>') + FIRMA + '</div>';
+
+    // testo/oggetto con variabili -> una mail personalizzata per destinatario; altrimenti BCC
+    if (haVariabili(oggBase) || haVariabili(testoBase)) {
+        let inviati = 0;
+        for (const d of dd) {
+            const ogg = applicaVariabili(oggBase, d).trim() || '(senza oggetto)';
+            const txt = applicaVariabili(testoBase, d);
+            try { await trans.sendMail({ from: from, replyTo: replyTo, to: d.email, subject: ogg, text: txt, html: htmlDi(txt) }); inviati++; }
+            catch (e) { console.error('Invio programmato personalizzato a', d.email, 'non riuscito:', e && e.message); }
+        }
+        if (!inviati) throw new Error('nessuna mail inviata');
+        return inviati;
+    }
+    const emails = dd.map(d => d.email);
+    const msg = { from: from, replyTo: replyTo, subject: oggBase, text: testoBase, html: htmlDi(testoBase) };
+    if (emails.length === 1) msg.to = emails[0];
+    else { msg.to = replyTo; msg.bcc = emails; }
     await trans.sendMail(msg);
-    return destinatari.length;
+    return emails.length;
 }
 
 // Applica una patch a UNA sola comunicazione, fondendo per CAMPO sul record piu
@@ -169,6 +228,12 @@ module.exports = async (req, res) => {
             const us = await admin.firestore().collection('utenti').get();
             us.forEach(d => utenti.push(Object.assign({ email: d.id }, d.data())));
         } catch (_) { utenti = []; }
+        // incarichi: servono per la variabile {incarichi} (clienti associati a una persona)
+        let incarichi = [];
+        try {
+            const is = await admin.firestore().collection('archivio').doc('incarichi').get();
+            if (is.exists && typeof is.data().json === 'string') incarichi = JSON.parse(is.data().json) || [];
+        } catch (_) { incarichi = []; }
 
         const trans = trasporto();
         let inviate = 0;
@@ -189,7 +254,7 @@ module.exports = async (req, res) => {
                     if (p.fine && next > p.fine) return { attiva: false, prossimoInvio: next };     // ultima occorrenza
                     return { prossimoInvio: next, ultimoInvio: ora };
                 };
-                const destinatari = risolviDestinatariCron(com, persone, utenti);
+                const destinatari = risolviDestinatariCron(com, persone, utenti, incarichi);
                 if (!destinatari.length) {
                     // nessun destinatario risolto (gruppo vuoto e nessun indirizzo manuale):
                     // non inviare, ma avanza comunque per non ritentare ogni giorno all'infinito.
