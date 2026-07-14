@@ -1916,6 +1916,21 @@
                             <div class="calc-riga"><span>Tariffa oraria</span><span class="val">${eurFmt.format(inc.calc.tariffa || 0)}</span></div>
                         </div>` : ''}
                     </div>
+                    ${(inc.storico && inc.storico.length) ? `<div class="card" id="periodi-precedenti">
+                        <h2>Periodi precedenti (${inc.storico.length})</h2>
+                        <p class="descrizione" style="margin-bottom:12px;">Ogni rinnovo archivia qui il periodo concluso, con la sua lettera di incarico ricreabile.</p>
+                        <div class="tabella-wrap"><table class="dati"><thead><tr><th>Periodo</th><th>Scadenza</th><th class="num">Compenso 1&deg; esercizio</th><th>Rinnovato il</th>${(inc.tipo === 'legale' || inc.tipo === 'volontaria') ? '<th></th>' : ''}</tr></thead><tbody>` +
+                            inc.storico.map((s, i) => {
+                                const durataS = s.tipo === 'legale' ? 3 : 1;
+                                const primoS = s.esercizioPeriodo ? Number(s.esercizioPeriodo) : null;
+                                const periodoS = primoS ? (durataS > 1 ? primoS + '-' + (primoS + durataS - 1) : String(primoS)) : 'n.d.';
+                                const compS = primoS ? (Number((s.compensi || {})[primoS]) || 0) : 0;
+                                const scadS = s.rinnovo || s.dataFine;
+                                const azS = (inc.tipo === 'legale' || inc.tipo === 'volontaria') ? '<td><button class="btn btn-sm btn-secondary p-lettera-storica" data-periodo="' + i + '">Vedi lettera</button></td>' : '';
+                                return '<tr><td><strong>' + periodoS + '</strong>' + (s.calcoloCongelato ? ' <span class="badge ambra">' + ICO_LUCCHETTO + 'congelato</span>' : '') + '</td><td>' + (scadS ? fmtData(scadS) : '') + '</td><td class="num">' + eurFmt.format(compS) + '</td><td>' + (s.chiuso ? fmtDataOra(s.chiuso.il) : '') + '</td>' + azS + '</tr>';
+                            }).join('') +
+                        `</tbody></table></div>
+                    </div>` : ''}
                 </div>
                 <div>
                     <div class="card">
@@ -1935,6 +1950,8 @@
             </div>`;
 
         document.getElementById('btn-indietro').addEventListener('click', () => naviga('incarichi'));
+        $vista().querySelectorAll('.p-lettera-storica').forEach(b =>
+            b.addEventListener('click', () => naviga('lettera', { id: inc.id, periodo: Number(b.dataset.periodo) })));
         if (Auth.puoModificare()) {
             document.getElementById('btn-modifica').addEventListener('click', () => naviga('wizard', { modalita: 'modifica', id: inc.id }));
             document.getElementById('btn-rinnova').addEventListener('click', () => naviga('wizard', { modalita: 'rinnovo', id: inc.id }));
@@ -2483,8 +2500,25 @@
         const haLettera = d.tipo === 'legale' || d.tipo === 'volontaria';
         if (w.modalita === 'rinnovo') {
             d.rinnovo = d.dataFine;
+            // archivia il periodo PRECEDENTE (dati + lettera ricreabile) prima di sovrascrivere
+            const prec = Incarichi.trova(w.idEsistente);
+            if (prec) {
+                const snap = {
+                    chiuso: { il: Date.now(), da: (Auth.utenteCorrente.nome || Auth.utenteCorrente.email || '') },
+                    esercizioPeriodo: prec.esercizioPeriodo || null,
+                    tipo: prec.tipo,
+                    dataInizio: prec.dataInizio || null,
+                    rinnovo: prec.rinnovo || null,
+                    dataFine: prec.dataFine || null,
+                    compensi: Object.assign({}, prec.compensi || {}),
+                    calc: prec.calc ? Object.assign({}, prec.calc) : null,
+                    qualita: prec.qualita, respIncarico: prec.respIncarico, referente: prec.referente, team: prec.team,
+                    calcoloCongelato: !!prec.calcoloCongelato, congelamento: prec.congelamento || null
+                };
+                d.storico = (prec.storico || []).concat([snap]);
+            }
             const agg = Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Rinnovo incarico');
-            toast(haLettera ? 'Incarico rinnovato. Ora puoi stampare la lettera di incarico.' : 'Incarico rinnovato.', 'verde');
+            toast(haLettera ? 'Incarico rinnovato. Il periodo precedente e archiviato in "Periodi precedenti"; ora puoi stampare la nuova lettera.' : 'Incarico rinnovato. Il periodo precedente e archiviato.', 'verde');
             naviga(haLettera ? 'lettera' : 'dettaglio', { id: agg.id });
         } else if (w.modalita === 'modifica') {
             Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Modifica incarico');
@@ -4022,35 +4056,55 @@
     /* =========================================================
        VISTA: LETTERA DI INCARICO
     ========================================================= */
+    // Scarica il PDF di un mandato (usato per le lettere dei periodi precedenti: solo download, nessun congelamento)
+    async function scaricaPdfMandato(inc) {
+        try {
+            const bytes = await generaPdfIncarico(inc, { restituisciBytes: true });
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'mandato-' + String(inc.cliente || 'incarico').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.pdf';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 8000);
+        } catch (e) { toast('Impossibile generare il PDF: ' + (e && e.message || 'errore'), 'rosso'); }
+    }
+
     function vistaLettera() {
         const inc = Incarichi.trova(parametriVista && parametriVista.id);
         if (!inc) { naviga('incarichi'); return; }
-        if (inc.tipo !== 'legale' && inc.tipo !== 'volontaria') {
+        // se e richiesto un periodo storico, si costruisce un incarico "virtuale" con lo snapshot
+        const idxPeriodo = (parametriVista && parametriVista.periodo != null) ? Number(parametriVista.periodo) : null;
+        const snap = (idxPeriodo != null && inc.storico && inc.storico[idxPeriodo]) ? inc.storico[idxPeriodo] : null;
+        const incL = snap ? Object.assign({}, inc, snap) : inc;
+        if (incL.tipo !== 'legale' && incL.tipo !== 'volontaria') {
             toast('Il modello di lettera e disponibile solo per revisione legale e revisione volontaria.', 'rosso');
             naviga('dettaglio', { id: inc.id });
             return;
         }
-        const html = inc.tipo === 'volontaria' ? letteraVolontaria(inc) : letteraLegale(inc);
+        const durataL = incL.tipo === 'legale' ? 3 : 1;
+        const periodoLabel = (snap && snap.esercizioPeriodo) ? (durataL > 1 ? snap.esercizioPeriodo + '-' + (snap.esercizioPeriodo + durataL - 1) : String(snap.esercizioPeriodo)) : '';
+        const html = incL.tipo === 'volontaria' ? letteraVolontaria(incL) : letteraLegale(incL);
         $vista().innerHTML = `
             <div class="barra-stampa no-stampa">
                 <button class="btn btn-ghost" id="btn-lettera-indietro">&larr; Torna al dettaglio</button>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <span class="badge ${classeTipo(inc.tipo)}" style="align-self:center;">${esc(nomeTipo(inc.tipo))}</span>
-                    ${inc.calcoloCongelato ? '<span class="badge ambra" style="align-self:center;">' + ICO_LUCCHETTO + 'Calcolo congelato</span>' : ''}
-                    <button class="btn btn-primary" id="btn-pdf-ufficiale">Scarica / stampa mandato</button>
+                    ${snap ? '<span class="badge neutro" style="align-self:center;">Periodo precedente' + (periodoLabel ? ' ' + periodoLabel : '') + '</span>' : ''}
+                    <span class="badge ${classeTipo(incL.tipo)}" style="align-self:center;">${esc(nomeTipo(incL.tipo))}</span>
+                    ${incL.calcoloCongelato ? '<span class="badge ambra" style="align-self:center;">' + ICO_LUCCHETTO + 'Calcolo congelato</span>' : ''}
+                    <button class="btn btn-primary" id="btn-pdf-ufficiale">${snap ? 'Scarica PDF' : 'Scarica / stampa mandato'}</button>
                 </div>
             </div>
             <div id="lettera-corpo">
                 <p class="descrizione" style="max-width:860px; margin:0 auto 14px; text-align:center;">Caricamento anteprima del mandato ufficiale...</p>
             </div>`;
         document.getElementById('btn-lettera-indietro').addEventListener('click', () => naviga('dettaglio', { id: inc.id }));
-        document.getElementById('btn-pdf-ufficiale').addEventListener('click', () => modaleStampaMandato(inc));
+        document.getElementById('btn-pdf-ufficiale').addEventListener('click', () => snap ? scaricaPdfMandato(incL) : modaleStampaMandato(inc));
 
         // anteprima = PDF ufficiale renderizzato inline; fallback all'anteprima HTML
         (async () => {
             const corpo = document.getElementById('lettera-corpo');
             try {
-                const bytes = await generaPdfIncarico(inc, { restituisciBytes: true });
+                const bytes = await generaPdfIncarico(incL, { restituisciBytes: true });
                 if (!document.getElementById('lettera-corpo')) return;
                 const blob = new Blob([bytes], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
