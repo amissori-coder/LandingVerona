@@ -3674,6 +3674,38 @@
     const ENTITA_CLASSE = { incarico: 'legale', fattura: 'ambra', persona: 'volontaria', comunicazione: 'collegio', utente: 'neutro', sistema: 'neutro' };
     function badgeEntita(ent) { return '<span class="badge ' + (ENTITA_CLASSE[ent] || 'neutro') + '">' + esc(ENTITA_LABEL[ent] || ent || 'altro') + '</span>'; }
 
+    // Dettaglio completo di una voce del registro: riferimento risolto, modifiche
+    // integrali (senza troncamento) e apertura dell'incarico collegato.
+    function modaleDettaglioAudit(v) {
+        if (!v) return;
+        const ent = v.entita;
+        let incId = null;
+        if (ent === 'incarico' && v.rif) incId = v.rif;
+        else if (ent === 'fattura' && v.rif) incId = String(v.rif).split('|')[0]; // chiave rata: incId|anno|...
+        const inc = incId ? Incarichi.trova(incId) : null;
+        let rifHtml = esc(v.cliente || (ent === 'utente' ? (v.rif || '') : '') || '(nessuno)');
+        if (inc) rifHtml = esc(inc.cliente) + ' <span class="hint">(' + esc(nomeTipo(inc.tipo)) + ')</span>';
+        const dettHtml = (Array.isArray(v.dettagli) && v.dettagli.length)
+            ? '<div class="tabella-wrap"><table class="dati"><thead><tr><th>Campo</th><th>Prima</th><th>Dopo</th></tr></thead><tbody>'
+                + v.dettagli.map(d => '<tr><td><strong>' + esc(d.campo) + '</strong></td><td class="reg-da">' + esc(d.prima) + '</td><td class="reg-a">' + esc(d.dopo) + '</td></tr>').join('')
+                + '</tbody></table></div>'
+            : (v.dettagli ? '<p>' + esc(v.dettagli) + '</p>' : '<p class="hint">Nessuna modifica di campo registrata per questa voce.</p>');
+        apriModale(`<h2>Dettaglio del registro</h2>
+            <div class="riepilogo-blocco">
+                ${rigaRiepilogo('Data e ora', fmtDataOra(v.ts))}
+                <div class="riepilogo-riga"><span class="etichetta">Ambito</span><span class="valore">${badgeEntita(ent)}</span></div>
+                ${rigaRiepilogo('Azione', v.azione)}
+                ${rigaRiepilogo('Autore', v.utente)}
+                <div class="riepilogo-riga"><span class="etichetta">Riferimento</span><span class="valore">${rifHtml}</span></div>
+            </div>
+            <h4 style="margin:14px 0 8px; color:var(--blu-500); text-transform:uppercase; letter-spacing:0.05em; font-size:0.82rem;">Modifiche</h4>
+            ${dettHtml}
+            <div class="modale-azioni">${inc ? '<button class="btn btn-secondary" id="md-apri-inc">Apri incarico</button>' : ''}<button class="btn btn-primary" id="md-chiudi">Chiudi</button></div>`, { classe: 'larga' });
+        document.getElementById('md-chiudi').addEventListener('click', chiudiModale);
+        const ap = document.getElementById('md-apri-inc');
+        if (ap) ap.addEventListener('click', () => { chiudiModale(); naviga('dettaglio', { id: incId }); });
+    }
+
     function vistaRegistro() {
         const log = Store.leggi(CHIAVI.audit, []);
         const utenti = Array.from(new Set(log.map(v => v.utente))).sort();
@@ -3722,10 +3754,11 @@
             lista = lista.slice(0, 300);
             document.getElementById('registro-corpo').innerHTML = lista.length ?
                 (totale > 300 ? '<p class="hint" style="margin-bottom:8px;">Mostrate le 300 voci piu recenti su ' + totale + '. Restringi con i filtri per vedere le altre.</p>' : '') +
-                `<div class="tabella-wrap"><table class="dati"><thead><tr>
+                `<p class="hint" style="margin-bottom:8px;">Clic su una riga per il dettaglio completo (riferimento, modifiche integrali, apertura dell'incarico).</p>
+                <div class="tabella-wrap"><table class="dati"><thead><tr>
                     <th>Data e ora</th><th>Ambito</th><th>Autore</th><th>Azione</th><th>Riferimento</th><th>Dettagli</th>
                 </tr></thead><tbody>` +
-                lista.map(v => `<tr>
+                lista.map((v, i) => `<tr class="cliccabile" data-idx="${i}">
                     <td style="white-space:nowrap;">${fmtDataOra(v.ts)}</td>
                     <td>${badgeEntita(v.entita)}</td>
                     <td>${esc(v.utente)}</td>
@@ -3734,6 +3767,8 @@
                     <td>${Array.isArray(v.dettagli) ? '<ul class="reg-diff">' + v.dettagli.map(d => '<li><span class="reg-campo">' + esc(d.campo) + '</span> <span class="reg-da">' + esc(troncaTesto(d.prima, 44)) + '</span> <span class="reg-fr">&rarr;</span> <span class="reg-a">' + esc(troncaTesto(d.dopo, 44)) + '</span></li>').join('') + '</ul>' : esc(v.dettagli || '')}</td>
                 </tr>`).join('') + '</tbody></table></div>'
                 : '<div class="card tabella-vuota">Nessuna voce nel registro con questi filtri.</div>';
+            document.querySelectorAll('#registro-corpo tr[data-idx]').forEach(tr =>
+                tr.addEventListener('click', () => modaleDettaglioAudit(lista[Number(tr.dataset.idx)])));
         };
         ['r-testo', 'r-utente', 'r-entita', 'r-dal', 'r-al'].forEach(id => document.getElementById(id).addEventListener('input', disegna));
         document.getElementById('r-esporta').addEventListener('click', () =>
