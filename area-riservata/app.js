@@ -19,6 +19,9 @@
 
     // titolare dello studio: unico a vedere "Dati e backup" e a ricevere le allerte
     const PROPRIETARIO = 'a.missori@emvas.tax';
+    // icone lineari (stroke = currentColor, si adattano al colore del contesto)
+    const ICO_LUCCHETTO = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+    const ICO_ALLERTA = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:7px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
     // fatturazione predefinita in base al tipo di incarico
     function fatturazionePredefinita(tipo) {
         if (tipo === 'legale') return 'trimestrale';
@@ -1579,7 +1582,7 @@
                 </div>
             </header>
             ${allerte.length ? `<div class="card" style="border-left:4px solid var(--rosso);">
-                <h2>⚠ Allerte (${allerte.length})</h2>
+                <h2>${ICO_ALLERTA}Allerte (${allerte.length})</h2>
                 ${allerte.slice(0, 20).map(a => `<div class="storia-voce" style="border-left-color:var(--rosso);">
                     <div class="quando">${fmtDataOra(a.ts)}</div>
                     <div><span class="chi">${esc(a.da || '')}</span> ha sbloccato il calcolo di <strong>${esc(a.cliente || '')}</strong></div>
@@ -1852,7 +1855,7 @@
                     <p class="descrizione">
                         <span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span>
                         <span class="badge ${s.classe}">${esc(s.testo)}</span>
-                        ${inc.calcoloCongelato ? '<span class="badge ambra">🔒 Calcolo congelato</span>' : ''}
+                        ${inc.calcoloCongelato ? '<span class="badge ambra">' + ICO_LUCCHETTO + 'Calcolo congelato</span>' : ''}
                     </p>
                 </div>
                 <div class="header-azioni">
@@ -1866,7 +1869,7 @@
                 </div>
             </header>
             ${inc.calcoloCongelato ? `<div class="card" style="border-left:4px solid var(--oro);">
-                <p class="descrizione" style="margin:0;">🔒 Il calcolo del compenso e congelato${inc.congelamento && inc.congelamento.il ? ' dal ' + fmtDataOra(inc.congelamento.il) : ''}. Per modificarlo, usa "Sblocca calcolo": verra inviato un messaggio di allerta al titolare.</p>
+                <p class="descrizione" style="margin:0;">${ICO_LUCCHETTO}Il calcolo del compenso e congelato${inc.congelamento && inc.congelamento.il ? ' dal ' + fmtDataOra(inc.congelamento.il) : ''}. Per modificarlo, usa "Sblocca calcolo": verra inviato un messaggio di allerta al titolare.</p>
             </div>` : ''}
             <div class="dettaglio-griglia">
                 <div>
@@ -2266,7 +2269,7 @@
             corpo.innerHTML = `
                 <h2>Calcolo del compenso</h2>
                 <div class="calc-riquadro" style="border-color:var(--ambra); background:var(--ambra-bg);">
-                    <strong>🔒 Calcolo congelato</strong>
+                    <strong>${ICO_LUCCHETTO}Calcolo congelato</strong>
                     <p class="descrizione" style="margin:8px 0;">Il calcolo di questo incarico e stato congelato${cong.il ? ' il ' + fmtDataOra(cong.il) : ''}${cong.da ? ' da ' + esc(cong.da) : ''}. Il compenso concordato non puo essere modificato.</p>
                     <div class="calc-riga totale"><span>Compenso concordato (primo esercizio)</span><span class="val">${compenso ? eurFmt.format(compenso) : '—'}</span></div>
                 </div>
@@ -4033,7 +4036,7 @@
                 <button class="btn btn-ghost" id="btn-lettera-indietro">&larr; Torna al dettaglio</button>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <span class="badge ${classeTipo(inc.tipo)}" style="align-self:center;">${esc(nomeTipo(inc.tipo))}</span>
-                    ${inc.calcoloCongelato ? '<span class="badge ambra" style="align-self:center;">🔒 Calcolo congelato</span>' : ''}
+                    ${inc.calcoloCongelato ? '<span class="badge ambra" style="align-self:center;">' + ICO_LUCCHETTO + 'Calcolo congelato</span>' : ''}
                     <button class="btn btn-primary" id="btn-pdf-ufficiale">Scarica / stampa mandato</button>
                 </div>
             </div>
@@ -4398,9 +4401,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             const x = margine.sx + passo * i + (passo - barW) / 2;
             const alt = (h - margine.su - margine.giu) * (v / max);
             ctx.fillStyle = '#164068';
-            ctx.beginPath();
-            ctx.roundRect(x, h - margine.giu - alt, barW, alt, 4);
-            ctx.fill();
+            ctx.fillRect(x, h - margine.giu - alt, barW, alt);
             ctx.fillStyle = '#475569';
             ctx.font = '10px Inter';
             ctx.textAlign = 'center';
@@ -4449,9 +4450,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             const x = margine.sx + passo * i + (passo - barW) / 2;
             const alt = areaH * (v / max);
             ctx.fillStyle = a > annoOra ? '#9DB8D2' : (a === annoOra ? '#C9A227' : '#164068');
-            ctx.beginPath();
-            ctx.roundRect(x, margine.su + areaH - alt, barW, alt, 5);
-            ctx.fill();
+            ctx.fillRect(x, margine.su + areaH - alt, barW, alt);
             ctx.fillStyle = '#475569';
             ctx.font = '11px Inter';
             ctx.textAlign = 'center';
@@ -4461,22 +4460,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                 ctx.font = 'bold 10px Inter';
                 ctx.fillText(eurFmt.format(v).replace(/ ?€/, '').trim() + ' €', x + barW / 2, margine.su + areaH - alt - 6);
             }
-            punti.push({ x: x + barW / 2, y: margine.su + areaH - alt });
         });
-
-        // linea di tendenza
-        ctx.strokeStyle = '#B3261E';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        punti.forEach((p, i) => { if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
-        ctx.stroke();
-        punti.forEach(p => {
-            ctx.fillStyle = '#B3261E';
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-            ctx.fill();
-        });
-        ctx.lineWidth = 1;
     }
 
     /* =========================================================
