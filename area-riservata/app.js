@@ -3118,20 +3118,21 @@
 
         const sezProgrammate = programmate.length ? `<div class="card" id="sez-programmate">
             <h2>Comunicazioni programmate (${programmate.length})</h2>
-            <p class="hint" style="margin:-6px 0 16px;">Per ogni comunicazione ricorrente vedi i prossimi invii reali, con il periodo che ciascuna mail rappresenta.</p>
+            <p class="hint" style="margin:-6px 0 14px;">Una riga per comunicazione. Apri con la freccetta per vedere i prossimi invii con il periodo.</p>
             <div class="comm-lista">` +
-            programmate.map(c => `<div class="comm-card">
-                <div class="comm-head">
-                    <div class="comm-titolo">${badgeContesto(c.contesto)} <span class="comm-nome">${esc(c.nome || c.oggetto || '(senza nome)')}</span>${c.nome && c.oggetto ? '<span class="comm-ogg">' + esc(c.oggetto) + '</span>' : ''}</div>
-                    <div class="comm-azioni"><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></div>
-                </div>
-                <div class="comm-meta">
-                    <span class="comm-quando">${esc(descriviProgrammazione(c.programmazione))}</span>
-                    <span class="comm-dest">${(c.destinatari || []).length} destinatari${(c.gruppi && c.gruppi.length) ? ' + ' + esc(c.gruppi.map(nomeGruppo).join(', ')) : ''}</span>
-                    <span class="comm-autore">creata da ${esc((c.creato && c.creato.da) || '')}</span>
-                </div>
-                ${anteprimaProssimiInvii(c)}
-            </div>`).join('') + `</div></div>` : '';
+            programmate.map(c => {
+                const grp = (c.gruppi && c.gruppi.length) ? ' + ' + esc(c.gruppi.map(nomeGruppo).join(', ')) : '';
+                return `<details class="comm-item">
+                    <summary class="comm-sommario">
+                        ${badgeContesto(c.contesto)}
+                        <span class="comm-nome">${esc(c.nome || c.oggetto || '(senza nome)')}</span>
+                        <span class="comm-quando-inline">${esc(descriviProgrammazione(c.programmazione))}</span>
+                        <span class="comm-dest-inline">${(c.destinatari || []).length} dest.${grp}</span>
+                        <span class="comm-azioni-inline"><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></span>
+                    </summary>
+                    <div class="comm-dettaglio">${(c.nome && c.oggetto) ? '<div class="comm-ogg-riga">Oggetto: ' + esc(c.oggetto) + '</div>' : ''}${anteprimaProssimiInvii(c)}</div>
+                </details>`;
+            }).join('') + `</div></div>` : '';
 
         const sezBozze = bozze.length ? `<div class="card" id="sez-bozze">
             <h2>Bozze (${bozze.length})</h2>
@@ -3196,8 +3197,9 @@
             const t = $vista().querySelector(sel + ' table.dati');
             if (t) attrezzaTabella(t, { nomeFile: nome });
         });
-        $vista().querySelectorAll('.c-apri').forEach(b => b.addEventListener('click', () => modaleComunicazione(b.dataset.id)));
-        $vista().querySelectorAll('.c-elimina').forEach(b => b.addEventListener('click', () => {
+        $vista().querySelectorAll('.c-apri').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); modaleComunicazione(b.dataset.id); }));
+        $vista().querySelectorAll('.c-elimina').forEach(b => b.addEventListener('click', (e) => {
+            e.stopPropagation(); e.preventDefault();
             const c = Comunicazioni.trova(b.dataset.id);
             apriModale(`<h2>Eliminare la comunicazione?</h2>
                 <p>"${esc((c && c.oggetto) || '')}" verra rimossa per tutti.</p>
@@ -3560,6 +3562,10 @@
     /* =========================================================
        VISTA: REGISTRO MODIFICHE
     ========================================================= */
+    const ENTITA_LABEL = { incarico: 'Incarico', fattura: 'Fatturazione', persona: 'Persona', comunicazione: 'Comunicazione', utente: 'Utente/accesso', sistema: 'Sistema' };
+    const ENTITA_CLASSE = { incarico: 'legale', fattura: 'ambra', persona: 'volontaria', comunicazione: 'collegio', utente: 'neutro', sistema: 'neutro' };
+    function badgeEntita(ent) { return '<span class="badge ' + (ENTITA_CLASSE[ent] || 'neutro') + '">' + esc(ENTITA_LABEL[ent] || ent || 'altro') + '</span>'; }
+
     function vistaRegistro() {
         const log = Store.leggi(CHIAVI.audit, []);
         const utenti = Array.from(new Set(log.map(v => v.utente))).sort();
@@ -3583,6 +3589,8 @@
                     <option value="utente">Utenti e accessi</option>
                     <option value="sistema">Sistema</option>
                 </select></div>
+                <div class="campo"><label>Dal</label><input type="date" id="r-dal"></div>
+                <div class="campo"><label>Al</label><input type="date" id="r-al"></div>
                 <div class="barra-tabella-azioni"><button type="button" class="btn btn-sm btn-secondary" id="r-esporta">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Esporta CSV</button></div>
             </div>
@@ -3592,25 +3600,34 @@
             const t = document.getElementById('r-testo').value.toLowerCase();
             const u = document.getElementById('r-utente').value;
             const e = document.getElementById('r-entita').value;
+            const dalV = document.getElementById('r-dal').value, alV = document.getElementById('r-al').value;
+            const dal = dalV ? new Date(dalV + 'T00:00:00').getTime() : null;
+            const al = alV ? new Date(alV + 'T23:59:59').getTime() : null;
+            const testoVoce = v => ((v.cliente || '') + ' ' + (v.azione || '') + ' ' + (v.utente || '') + ' ' + (Array.isArray(v.dettagli) ? v.dettagli.map(d => d.campo + ' ' + d.prima + ' ' + d.dopo).join(' ') : (v.dettagli || ''))).toLowerCase();
             let lista = log;
-            if (t) lista = lista.filter(v => (v.cliente || '').toLowerCase().includes(t) || (v.azione || '').toLowerCase().includes(t));
+            if (t) lista = lista.filter(v => testoVoce(v).includes(t));
             if (u) lista = lista.filter(v => v.utente === u);
             if (e) lista = lista.filter(v => v.entita === e);
+            if (dal != null) lista = lista.filter(v => (v.ts || 0) >= dal);
+            if (al != null) lista = lista.filter(v => (v.ts || 0) <= al);
+            const totale = lista.length;
             lista = lista.slice(0, 300);
             document.getElementById('registro-corpo').innerHTML = lista.length ?
+                (totale > 300 ? '<p class="hint" style="margin-bottom:8px;">Mostrate le 300 voci piu recenti su ' + totale + '. Restringi con i filtri per vedere le altre.</p>' : '') +
                 `<div class="tabella-wrap"><table class="dati"><thead><tr>
-                    <th>Data e ora</th><th>Autore</th><th>Azione</th><th>Riferimento</th><th>Dettagli</th>
+                    <th>Data e ora</th><th>Ambito</th><th>Autore</th><th>Azione</th><th>Riferimento</th><th>Dettagli</th>
                 </tr></thead><tbody>` +
                 lista.map(v => `<tr>
                     <td style="white-space:nowrap;">${fmtDataOra(v.ts)}</td>
+                    <td>${badgeEntita(v.entita)}</td>
                     <td>${esc(v.utente)}</td>
                     <td><strong>${esc(v.azione)}</strong></td>
                     <td>${esc(v.cliente || (v.entita === 'utente' ? v.rif : '') || '')}</td>
-                    <td>${Array.isArray(v.dettagli) ? v.dettagli.map(d => esc(d.campo) + ': ' + esc(troncaTesto(d.prima, 30)) + ' → ' + esc(troncaTesto(d.dopo, 30))).join('<br>') : esc(v.dettagli || '')}</td>
+                    <td>${Array.isArray(v.dettagli) ? '<ul class="reg-diff">' + v.dettagli.map(d => '<li><span class="reg-campo">' + esc(d.campo) + '</span> <span class="reg-da">' + esc(troncaTesto(d.prima, 44)) + '</span> <span class="reg-fr">&rarr;</span> <span class="reg-a">' + esc(troncaTesto(d.dopo, 44)) + '</span></li>').join('') + '</ul>' : esc(v.dettagli || '')}</td>
                 </tr>`).join('') + '</tbody></table></div>'
-                : '<div class="card tabella-vuota">Nessuna voce nel registro.</div>';
+                : '<div class="card tabella-vuota">Nessuna voce nel registro con questi filtri.</div>';
         };
-        ['r-testo', 'r-utente', 'r-entita'].forEach(id => document.getElementById(id).addEventListener('input', disegna));
+        ['r-testo', 'r-utente', 'r-entita', 'r-dal', 'r-al'].forEach(id => document.getElementById(id).addEventListener('input', disegna));
         document.getElementById('r-esporta').addEventListener('click', () =>
             esportaTabellaCsv(document.querySelector('#registro-corpo table.dati'), 'registro-modifiche'));
         disegna();
