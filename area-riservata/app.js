@@ -306,14 +306,15 @@
             .replace(/\{email\}/g, d.email || '')
             .replace(/\{incarichi\}/g, d.incarichi || '');
     }
-    // clienti degli incarichi in cui la persona (per cognome) compare in QUALSIASI ruolo
+    // clienti degli incarichi in cui la persona (per cognome) compare come team,
+    // responsabile incarico o referente (NON come responsabile della qualita)
     function incarichiDiCognome(cognome, incarichi) {
         const cg = String(cognome || '').trim().toLowerCase();
         if (!cg) return [];
         const out = [];
         (incarichi || []).forEach(inc => {
             const tok = [];
-            [inc.team, inc.respIncarico, inc.qualita, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
+            [inc.team, inc.respIncarico, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
             if (tok.indexOf(cg) >= 0 && inc.cliente) out.push(inc.cliente);
         });
         return Array.from(new Set(out));
