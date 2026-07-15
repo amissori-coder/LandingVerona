@@ -1954,7 +1954,7 @@
                         <td data-label="Team">${esc(i.team || '')}</td>
                         <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) : ''}</td>
                         <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                        ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button></td>` : ''}
+                        ${puoRinnovare ? `<td data-label="" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button></td>` : ''}
                     </tr>`;
                 }).join('') +
                 `</tbody><tfoot><tr><td colspan="8">Totale (${attivi.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
@@ -1971,6 +1971,12 @@
             b.addEventListener('click', e => {
                 e.stopPropagation();
                 naviga('wizard', { modalita: 'rinnovo', id: b.dataset.rinnova });
+            }));
+        cont.querySelectorAll('[data-termina]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.termina);
+                if (inc) modaleTerminaIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
             }));
         cont.querySelectorAll('[data-riattiva]').forEach(b =>
             b.addEventListener('click', e => {
@@ -2162,10 +2168,11 @@
         });
     }
 
-    // termina l'incarico: conferma e spostamento nella sezione "Incarichi terminati"
-    function modaleTerminaIncarico(inc) {
+    // termina l'incarico: conferma e spostamento nella scheda "Terminati".
+    // onDone opzionale: eseguito dopo la conferma (dall'elenco ridisegna la tabella; dal dettaglio si ricarica la scheda)
+    function modaleTerminaIncarico(inc, onDone) {
         apriModale(`<h2>Terminare l'incarico?</h2>
-            <p>L'incarico <strong>${esc(inc.cliente)}</strong> verra spostato tra gli <strong>incarichi terminati</strong> e non comparira piu nell'elenco principale. Potrai riattivarlo in qualsiasi momento. L'operazione resta nel registro modifiche.</p>
+            <p>L'incarico <strong>${esc(inc.cliente)}</strong> verra spostato nella scheda <strong>Terminati</strong> e non comparira piu tra gli attivi. Potrai riattivarlo in qualsiasi momento. L'operazione resta nel registro modifiche.</p>
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="m-annulla">Annulla</button>
                 <button class="btn btn-primary" id="m-conferma">Termina incarico</button>
@@ -2174,8 +2181,8 @@
         document.getElementById('m-conferma').addEventListener('click', () => {
             Incarichi.termina(inc.id, Auth.utenteCorrente);
             chiudiModale();
-            toast('Incarico terminato e spostato nella sezione dedicata.', 'verde');
-            naviga('dettaglio', { id: inc.id });
+            toast('Incarico terminato e spostato nella scheda "Terminati".', 'verde');
+            if (onDone) onDone(); else naviga('dettaglio', { id: inc.id });
         });
     }
 
