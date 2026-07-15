@@ -169,14 +169,22 @@ a { color: var(--blu-700); }
 .var-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
 .chip-var { font-family: 'Consolas', monospace; font-size: 0.78rem; padding: 2px 8px; border-radius: var(--raggio-sm); border: 1px solid var(--blu-100); background: var(--blu-050); color: var(--blu-700); cursor: pointer; }
 .chip-var:hover { background: var(--blu-100); }
+/* Riquadro di spiegazione della variabile {periodo} (piu grande e leggibile) */
+.spiega-periodo { background: var(--blu-050); border: 1px solid var(--blu-100); border-left: 3px solid var(--blu-500); border-radius: var(--raggio); padding: 12px 14px; margin-top: 10px; font-size: 0.92rem; line-height: 1.55; color: var(--blu-900); }
+.spiega-periodo .sp-tit { font-weight: 700; font-size: 1.02rem; color: var(--blu-700); margin-bottom: 6px; }
+.spiega-periodo p { margin: 0 0 8px; }
+.spiega-periodo p:last-child { margin-bottom: 0; }
+.spiega-periodo ul { margin: 0 0 8px 20px; }
+.spiega-periodo li { margin-bottom: 3px; }
+.spiega-periodo code { font-family: 'Consolas', monospace; background: #fff; border: 1px solid var(--blu-100); border-radius: 3px; padding: 0 4px; color: var(--blu-700); font-size: 0.9rem; }
 .sel-azioni { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
 .sel-azioni .hint { margin-left: auto; }
 /* Anteprima di come cambia l'oggetto (periodo) a ogni invio */
 .anteprima-periodi:not(:empty) { background: var(--grigio-100); border: 1px solid var(--grigio-200); border-radius: 8px; padding: 10px 12px; margin-top: 4px; }
-.ap-per-tit { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grigio-600); font-weight: 600; margin-bottom: 6px; }
-.ap-per-riga { font-size: 0.85rem; color: var(--blu-900); padding: 2px 0; display: flex; gap: 10px; align-items: baseline; }
-.ap-per-data { color: var(--grigio-600); font-size: 0.78rem; flex: 0 0 auto; min-width: 78px; }
-.ap-per-nota { font-size: 0.78rem; color: var(--grigio-600); margin-top: 4px; }
+.ap-per-tit { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--blu-700); font-weight: 700; margin-bottom: 7px; }
+.ap-per-riga { font-size: 0.95rem; color: var(--blu-900); padding: 3px 0; display: flex; gap: 10px; align-items: baseline; }
+.ap-per-data { color: var(--grigio-600); font-size: 0.85rem; flex: 0 0 auto; min-width: 92px; font-variant-numeric: tabular-nums; }
+.ap-per-nota { font-size: 0.82rem; color: var(--grigio-600); margin-top: 5px; }
 /* Schede delle comunicazioni programmate + sequenza dei prossimi invii */
 .comm-lista { display: flex; flex-direction: column; gap: 6px; }
 .comm-item { border: 1px solid var(--grigio-200); border-radius: var(--raggio); background: #fff; }

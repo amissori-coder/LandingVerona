@@ -3356,7 +3356,17 @@
             <div class="campo"><label>Oggetto della mail</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}" placeholder="Oggetto che vedra il destinatario"></div>
             <div class="campo"><label>Messaggio</label><textarea id="c-testo" rows="8" placeholder="Scrivi qui il testo della mail...">${esc((c && c.testo) || '')}</textarea>
                 <div class="var-chips"><span class="hint" style="margin-right:4px;">Variabili (clic per inserire):</span>${VARIABILI_MAIL.map(v => '<button type="button" class="chip-var" data-var="' + v.chiave + '" title="' + esc(v.desc) + '">{' + v.chiave + '}</button>').join('')}</div>
-                <div class="hint">Le variabili vengono sostituite ad ogni invio. <strong>{nome} {cognome} {email} {incarichi}</strong> cambiano per ogni destinatario (se le usi, ognuno riceve una mail personalizzata; altrimenti un unico invio in copia nascosta). <strong>{periodo}</strong> vale solo per gli invii programmati ricorrenti: diventa il periodo di riferimento in base alla frequenza e alla data (es. trimestrale &rarr; "primo trimestre 2026"), e cambia ad ogni invio.</div>
+                <div class="hint"><strong>{nome} {cognome} {email} {incarichi}</strong> cambiano per ogni destinatario: se le usi, ognuno riceve una mail personalizzata; altrimenti un unico invio in copia nascosta.</div>
+                <div class="spiega-periodo">
+                    <div class="sp-tit">Come funziona {periodo}</div>
+                    <p>Negli <strong>invii programmati ricorrenti</strong> scrivi <code>{periodo}</code> nell'oggetto o nel testo: ad <strong>ogni invio</strong> viene sostituito in automatico con il periodo di riferimento, calcolato dalla frequenza scelta e dalla data di quell'invio.</p>
+                    <ul>
+                        <li><strong>Trimestrale</strong> &rarr; &ldquo;primo trimestre 2026&rdquo;, &ldquo;secondo trimestre 2026&rdquo;, terzo, quarto&hellip;</li>
+                        <li><strong>Mensile</strong> &rarr; &ldquo;gennaio 2026&rdquo;, &ldquo;febbraio 2026&rdquo;&hellip;</li>
+                        <li><strong>Annuale</strong> &rarr; &ldquo;2026&rdquo;, &ldquo;2027&rdquo;&hellip;</li>
+                    </ul>
+                    <p>Cosi una sola comunicazione ricorrente genera da sola l'oggetto e il testo giusti per ogni periodo. Nell'invio immediato <code>{periodo}</code> resta vuoto, perche non c'e una frequenza.</p>
+                </div>
             </div>
             <div class="campo"><label>Anteprima della mail</label>
                 <div class="mail-anteprima">
