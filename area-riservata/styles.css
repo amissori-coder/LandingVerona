@@ -248,11 +248,11 @@ a { color: var(--blu-700); }
 @media (max-width: 720px) { .cal-cella { min-height: 60px; padding: 3px; } .cal-chip { font-size: 0.66rem; padding: 2px 4px; } .cal-titolo { min-width: 120px; font-size: 0.95rem; } }
 
 /* ---------- Shell applicazione ---------- */
-.app-shell { display: flex; min-height: 100vh; }
+.app-shell { min-height: 100vh; }
 
 .sidebar {
     width: 240px; flex-shrink: 0; background: var(--blu-900); color: #fff;
-    display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+    display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 20;
 }
 .sidebar .brand { padding: 20px 18px 14px; border-bottom: 1px solid rgba(255,255,255,0.12); position: relative; }
 .sidebar .brand .titolo-area { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-top: 8px; font-weight: 600; }
@@ -281,7 +281,7 @@ a { color: var(--blu-700); }
 .presenza-utente { display: flex; align-items: center; gap: 7px; color: rgba(255,255,255,0.9); }
 .presenza-utente .pallino { width: 8px; height: 8px; border-radius: 50%; background: var(--verde); flex-shrink: 0; }
 
-.contenuto { flex: 1; padding: 28px 32px 60px; max-width: 1500px; min-width: 0; }
+.contenuto { margin-left: 240px; padding: 28px 32px 60px; max-width: 1500px; min-width: 0; }
 .contenuto > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
 .contenuto > header h1 { font-size: 1.45rem; }
 .contenuto > header .descrizione { color: var(--grigio-600); font-size: 0.9rem; margin-top: 4px; max-width: 640px; }
@@ -289,10 +289,10 @@ a { color: var(--blu-700); }
 
 @media (max-width: 900px) {
     .app-shell { flex-direction: column; }
-    .sidebar { width: 100%; height: auto; position: sticky; top: 0; z-index: 30; }
+    .sidebar { width: 100%; height: auto; position: sticky; top: 0; left: auto; z-index: 30; }
     .sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; }
     .nav-voce { width: auto; }
-    .contenuto { padding: 20px 16px 60px; }
+    .contenuto { margin-left: 0; padding: 20px 16px 60px; }
 
     /* menu a comparsa: nav e utente nascosti finche non si tocca l'hamburger */
     .nav-hamburger { display: flex; }
@@ -457,7 +457,7 @@ table.dati tfoot td { font-weight: 700; background: var(--blu-100); border-top: 
 .mw-btn { width: 38px; height: 28px; border: none; background: transparent; color: #fff; font-size: 0.9rem; line-height: 1; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; }
 .mw-btn:hover { background: rgba(255, 255, 255, 0.18); }
 .mw-close:hover { background: var(--rosso); }
-.modale-corpo { padding: 20px 24px 24px; overflow-y: auto; flex: 1 1 auto; }
+.modale-corpo { padding: 20px 24px 24px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
 .modale-finestra .modale-azioni { position: sticky; bottom: 0; background: #fff; margin: 16px -24px -24px; padding: 12px 24px; border-top: 1px solid var(--grigio-200); }
 .modale.modale-finestra.massimizzata { width: 100%; height: 100%; }
 /* Ridotta a barra (minimizzata): finestra collassata in basso a sinistra, app usabile dietro */
