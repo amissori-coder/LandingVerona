@@ -3496,6 +3496,30 @@
         // anteprima della mail: si apre in una NUOVA FINESTRA del browser
         const CAMPIONE_VAR = { email: 'mario.rossi@esempio.it', nome: 'Mario', cognome: 'Rossi', incarichi: 'Alpha S.r.l., Beta S.p.A.' };
         const editor = $('c-testo');
+        // separatore paragrafo coerente (Blink/Gecko), placeholder robusto (non dipende da :empty), selezione salvata (iOS)
+        try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (_) { }
+        const aggiornaPh = () => editor.classList.toggle('rte-vuoto', !editor.textContent.trim());
+        let selSalvata = null;
+        const salvaSel = () => { const s = window.getSelection(); if (s && s.rangeCount && editor.contains(s.anchorNode)) selSalvata = s.getRangeAt(0).cloneRange(); };
+        const ripristinaSel = () => { if (selSalvata) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(selSalvata); } };
+        editor.addEventListener('keyup', salvaSel);
+        editor.addEventListener('mouseup', salvaSel);
+        editor.addEventListener('input', () => { aggiornaPh(); salvaSel(); });
+        aggiornaPh();
+        const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        // anteprima in una nuova finestra (o overlay in pagina se i popup sono bloccati, es. browser in-app iOS)
+        const mostraAnteprimaInPagina = (doc) => {
+            const ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;top:0;right:0;bottom:0;left:0;background:rgba(10,40,68,0.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;';
+            ov.innerHTML = '<div style="background:#fff;border-radius:8px;overflow:hidden;width:760px;max-width:100%;height:80vh;display:flex;flex-direction:column;box-shadow:var(--ombra-lg);">'
+                + '<div style="background:#0A2844;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:0.95rem;"><span>Anteprima mail</span><button type="button" class="ov-x" style="background:transparent;border:none;color:#fff;font-size:16px;cursor:pointer;line-height:1;">&#10005;</button></div>'
+                + '<iframe title="Anteprima mail" style="flex:1 1 auto;border:none;width:100%;"></iframe></div>';
+            document.body.appendChild(ov);
+            ov.querySelector('iframe').srcdoc = doc;
+            const chiudi = () => ov.remove();
+            ov.querySelector('.ov-x').addEventListener('click', chiudi);
+            ov.addEventListener('click', e => { if (e.target === ov) chiudi(); });
+        };
         const apriAnteprima = () => {
             const oggRaw = $('c-oggetto').value, testoRaw = editor.innerHTML;
             const usaPersonal = haVariabili(oggRaw) || haVariabili(testoRaw);
@@ -3509,42 +3533,57 @@
             const oggFinale = esc(applicaVariabili(sostituisciPeriodo(oggRaw, periodoAnt), CAMPIONE_VAR).trim() || '(nessun oggetto)');
             const corpoHtml = editor.textContent.trim() ? applicaVariabiliHtml(sostituisciPeriodo(testoRaw, esc(periodoAnt)), CAMPIONE_VAR) : '<span style="color:#94A3B8;">(nessun testo)</span>';
             const nota = usaPersonal ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : (usaPeriodo ? 'Anteprima con un periodo di esempio; {periodo} cambia a ogni invio programmato.' : '');
-            const doc = '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anteprima mail</title>'
-                + '<style>body{margin:0;background:#F1F5F9;font-family:Inter,system-ui,sans-serif;color:#1E293B;padding:24px;}.wrap{max-width:680px;margin:0 auto;}.nota{font-size:13px;color:#164068;background:#E8EFF6;border:1px solid #CFE0EE;border-radius:6px;padding:8px 12px;margin-bottom:14px;}.card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;}.intest{background:#F1F5F9;border-bottom:1px solid #E2E8F0;padding:12px 16px;font-size:13px;color:#475569;}.intest strong{color:#0A2844;}.corpo{padding:18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;}</style></head><body><div class="wrap">'
+            const doc = '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anteprima mail</title><base target="_blank">'
+                + '<style>body{margin:0;background:#F1F5F9;font-family:Inter,system-ui,sans-serif;color:#1E293B;padding:24px;}.wrap{max-width:680px;margin:0 auto;}.nota{font-size:13px;color:#164068;background:#E8EFF6;border:1px solid #CFE0EE;border-radius:6px;padding:8px 12px;margin-bottom:14px;}.card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;}.intest{background:#F1F5F9;border-bottom:1px solid #E2E8F0;padding:12px 16px;font-size:13px;color:#475569;}.intest strong{color:#0A2844;}.corpo{padding:18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;}.corpo p,.corpo div{margin:0 0 8px;}.corpo ul,.corpo ol{margin:0 0 8px 22px;}</style></head><body><div class="wrap">'
                 + (nota ? '<div class="nota">' + esc(nota) + '</div>' : '')
                 + '<div class="card"><div class="intest"><div><strong>Da:</strong> Revilaw S.p.A. &lt;noreply@nextgenerationbusiness.it&gt;</div><div><strong>Oggetto:</strong> ' + oggFinale + '</div></div>'
                 + '<div class="corpo">' + corpoHtml + FIRMA_MAIL_HTML + '</div></div></div></body></html>';
-            const w = window.open('', 'rv-anteprima-mail', 'width=760,height=820,scrollbars=yes,resizable=yes');
-            if (!w) { toast('Il browser ha bloccato la finestra di anteprima: consenti i popup per questo sito.', 'rosso'); return; }
-            w.document.open(); w.document.write(doc); w.document.close(); w.focus();
+            let w = null;
+            try { w = window.open('', 'rv-anteprima-mail', 'width=760,height=820,scrollbars=yes,resizable=yes'); } catch (_) { w = null; }
+            if (!w) { mostraAnteprimaInPagina(doc); return; }  // popup bloccato (browser in-app iOS, PWA...): overlay in pagina
+            try { w.document.open(); w.document.write(doc); w.document.close(); w.focus(); }
+            catch (_) { try { w.close(); } catch (e) { } mostraAnteprimaInPagina(doc); }  // finestra navigata altrove/cross-origin
         };
         const btnAnt = $('c-anteprima-btn');
         if (btnAnt) btnAnt.addEventListener('click', apriAnteprima);
-        // barra di formattazione: i pulsanti non rubano il focus (mousedown preventDefault)
+        // barra di formattazione: i pulsanti non rubano il focus (mousedown preventDefault) + selezione ripristinata (iOS)
         document.querySelectorAll('.rte-btn').forEach(b => {
-            b.addEventListener('mousedown', e => e.preventDefault());
+            b.addEventListener('mousedown', e => { e.preventDefault(); salvaSel(); });
             b.addEventListener('click', () => {
-                editor.focus();
+                editor.focus(); ripristinaSel();
                 const cmd = b.dataset.cmd;
-                if (cmd === 'createLink') { const url = prompt('Indirizzo del collegamento (https://...)'); if (url) document.execCommand('createLink', false, url); }
-                else document.execCommand(cmd, false, null);
+                if (cmd === 'createLink') {
+                    const url = prompt('Indirizzo del collegamento (https://...)'); if (!url) return;
+                    const sel = window.getSelection();
+                    if (sel && sel.isCollapsed) document.execCommand('insertHTML', false, '<a href="' + escHtml(url) + '">' + escHtml(url) + '</a>');
+                    else document.execCommand('createLink', false, url);
+                } else if (cmd === 'removeFormat') {
+                    document.execCommand('removeFormat', false, null);
+                    document.execCommand('unlink', false, null);
+                    try { if (document.queryCommandState('insertUnorderedList')) document.execCommand('insertUnorderedList', false, null); if (document.queryCommandState('insertOrderedList')) document.execCommand('insertOrderedList', false, null); } catch (_) { }
+                } else document.execCommand(cmd, false, null);
+                aggiornaPh(); salvaSel();
             });
         });
-        // incolla come testo semplice (evita HTML sporco da Word/pagine web)
+        // incolla come testo semplice (evita HTML sporco da Word/pagine web), con fallback se execCommand fallisce
         editor.addEventListener('paste', e => {
             e.preventDefault();
             const t = ((e.clipboardData || window.clipboardData).getData('text/plain') || '');
-            document.execCommand('insertText', false, t);
+            if (!document.execCommand('insertText', false, t)) {
+                const s = window.getSelection();
+                if (s && s.rangeCount) { const r = s.getRangeAt(0); r.deleteContents(); const n = document.createTextNode(t); r.insertNode(n); r.setStartAfter(n); r.collapse(true); s.removeAllRanges(); s.addRange(r); }
+            }
+            aggiornaPh();
         });
         // inserimento variabili al cursore del campo attivo (oggetto = input, messaggio = editor)
         let ultimoCampoVar = 'c-testo';
         $('c-oggetto').addEventListener('focus', () => { ultimoCampoVar = 'c-oggetto'; });
         editor.addEventListener('focus', () => { ultimoCampoVar = 'c-testo'; });
         document.querySelectorAll('.chip-var').forEach(b => {
-            b.addEventListener('mousedown', e => e.preventDefault());
+            b.addEventListener('mousedown', e => { e.preventDefault(); salvaSel(); });
             b.addEventListener('click', () => {
                 const token = '{' + b.dataset.var + '}';
-                if (ultimoCampoVar === 'c-testo') { editor.focus(); document.execCommand('insertText', false, token); }
+                if (ultimoCampoVar === 'c-testo') { editor.focus(); ripristinaSel(); document.execCommand('insertText', false, token); aggiornaPh(); salvaSel(); }
                 else { const el = $('c-oggetto'), s = el.selectionStart != null ? el.selectionStart : el.value.length, e2 = el.selectionEnd != null ? el.selectionEnd : el.value.length; el.value = el.value.slice(0, s) + token + el.value.slice(e2); el.focus(); try { el.setSelectionRange(s + token.length, s + token.length); } catch (_) { } }
             });
         });
