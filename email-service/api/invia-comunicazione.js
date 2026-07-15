@@ -85,6 +85,21 @@ function applicaVariabili(s, d) {
         .replace(/\{nome_completo\}/g, nc).replace(/\{nome\}/g, d.nome || '').replace(/\{cognome\}/g, d.cognome || '')
         .replace(/\{email\}/g, d.email || '').replace(/\{incarichi\}/g, d.incarichi || '');
 }
+// come sopra, ma per contenuto HTML: i valori sostituiti vengono escaped
+function applicaVariabiliHtml(s, d) {
+    d = d || {};
+    return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: esc(d.incarichi || '') });
+}
+// converte l'HTML del messaggio in testo semplice (per la parte text/plain della mail)
+function htmlToText(h) {
+    return String(h || '')
+        .replace(/<\s*br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
+        .replace(/<li[^>]*>/gi, '- ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+        .replace(/\n{3,}/g, '\n\n').trim();
+}
 
 // Firma con logo Revilaw, in fondo a ogni mail (uguale all'anteprima nell'app)
 const FIRMA = '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:26px;border-top:1px solid #E2E8F0;padding-top:16px;"><tr>'
@@ -147,9 +162,13 @@ module.exports = async (req, res) => {
         const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
         const fromName = String(body.mittenteNome || process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
         const from = '"' + fromName + '" <' + fromEmail + '>';
-        const htmlDi = (txt) => '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">'
-            + esc(txt).replace(/\n/g, '<br>') + FIRMA + '</div>';
         const trans = trasporto();
+        // il messaggio puo essere HTML (editor formattato) o testo semplice (vecchi client)
+        const isHtml = String(body.formato || '') === 'html';
+        const wrap = inner => '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">' + inner + FIRMA + '</div>';
+        const corpoHtml = txt => isHtml ? wrap(txt) : wrap(esc(txt).replace(/\n/g, '<br>'));
+        const corpoText = txt => isHtml ? htmlToText(txt) : txt;
+        const sostBody = (s, d) => isHtml ? applicaVariabiliHtml(s, d) : applicaVariabili(s, d);
         // invio immediato: {periodo} dipende dalla frequenza (che qui non c'e) -> viene rimosso
         const oggBase = oggetto.replace(/\{periodo\}/g, '').trim() || '(senza oggetto)';
         const testoBase = testo.replace(/\{periodo\}/g, '');
@@ -160,9 +179,9 @@ module.exports = async (req, res) => {
             let inviati = 0;
             for (const d of destinatari) {
                 const ogg = applicaVariabili(oggBase, d).trim() || '(senza oggetto)';
-                const txt = applicaVariabili(testoBase, d);
+                const txt = sostBody(testoBase, d);
                 try {
-                    await trans.sendMail({ from: from, replyTo: mittente, to: d.email, subject: ogg, text: txt, html: htmlDi(txt) });
+                    await trans.sendMail({ from: from, replyTo: mittente, to: d.email, subject: ogg, text: corpoText(txt), html: corpoHtml(txt) });
                     inviati++;
                 } catch (e) { console.error('Invio personalizzato a', d.email, 'non riuscito:', e && e.message); }
             }
@@ -172,7 +191,7 @@ module.exports = async (req, res) => {
         }
 
         const emails = destinatari.map(d => d.email);
-        const messaggio = { from: from, replyTo: mittente, subject: oggBase, text: testoBase, html: htmlDi(testoBase) };
+        const messaggio = { from: from, replyTo: mittente, subject: oggBase, text: corpoText(testoBase), html: corpoHtml(testoBase) };
         if (emails.length === 1) messaggio.to = emails[0];
         else { messaggio.to = mittente; messaggio.bcc = emails; }
         await trans.sendMail(messaggio);

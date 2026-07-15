@@ -54,6 +54,19 @@ function applicaVariabili(s, d) {
         .replace(/\{nome_completo\}/g, nc).replace(/\{nome\}/g, d.nome || '').replace(/\{cognome\}/g, d.cognome || '')
         .replace(/\{email\}/g, d.email || '').replace(/\{incarichi\}/g, d.incarichi || '');
 }
+function applicaVariabiliHtml(s, d) {
+    d = d || {};
+    return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: esc(d.incarichi || '') });
+}
+function htmlToText(h) {
+    return String(h || '')
+        .replace(/<\s*br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
+        .replace(/<li[^>]*>/gi, '- ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+        .replace(/\n{3,}/g, '\n\n').trim();
+}
 function dividiNomi(testo) { return String(testo || '').split(/[,;]|\s+-\s*|\s*-\s+/).map(t => t.trim()).filter(Boolean); }
 // clienti degli incarichi in cui la persona (per cognome) compare come team,
 // responsabile incarico o referente (NON come responsabile della qualita)
@@ -149,24 +162,28 @@ async function inviaUna(trans, com, destinatari) {
     const periodo = (p.frequenza && p.frequenza !== 'unica') ? etichettaPeriodo(p.frequenza, p.prossimoInvio) : '';
     let oggBase = com.oggetto || '(senza oggetto)';
     if (p.periodoNelOggetto && periodo) oggBase = oggBase + ' - ' + periodo; // retrocompatibilita vecchi record (casella "periodo nell'oggetto")
-    oggBase = oggBase.replace(/\{periodo\}/g, periodo);
-    let testoBase = (com.testo || '').replace(/\{periodo\}/g, periodo);
-    const htmlDi = (txt) => '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">' + esc(txt).replace(/\n/g, '<br>') + FIRMA + '</div>';
+    const isHtml = String(com.formato || '') === 'html';
+    oggBase = oggBase.replace(/\{periodo\}/g, periodo); // oggetto sempre testo semplice
+    let testoBase = (com.testo || '').replace(/\{periodo\}/g, isHtml ? esc(periodo) : periodo);
+    const wrap = inner => '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">' + inner + FIRMA + '</div>';
+    const corpoHtml = txt => isHtml ? wrap(txt) : wrap(esc(txt).replace(/\n/g, '<br>'));
+    const corpoText = txt => isHtml ? htmlToText(txt) : txt;
+    const sostBody = (s, d) => isHtml ? applicaVariabiliHtml(s, d) : applicaVariabili(s, d);
 
     // testo/oggetto con variabili -> una mail personalizzata per destinatario; altrimenti BCC
     if (haVariabili(oggBase) || haVariabili(testoBase)) {
         let inviati = 0;
         for (const d of dd) {
             const ogg = applicaVariabili(oggBase, d).trim() || '(senza oggetto)';
-            const txt = applicaVariabili(testoBase, d);
-            try { await trans.sendMail({ from: from, replyTo: replyTo, to: d.email, subject: ogg, text: txt, html: htmlDi(txt) }); inviati++; }
+            const txt = sostBody(testoBase, d);
+            try { await trans.sendMail({ from: from, replyTo: replyTo, to: d.email, subject: ogg, text: corpoText(txt), html: corpoHtml(txt) }); inviati++; }
             catch (e) { console.error('Invio programmato personalizzato a', d.email, 'non riuscito:', e && e.message); }
         }
         if (!inviati) throw new Error('nessuna mail inviata');
         return inviati;
     }
     const emails = dd.map(d => d.email);
-    const msg = { from: from, replyTo: replyTo, subject: oggBase, text: testoBase, html: htmlDi(testoBase) };
+    const msg = { from: from, replyTo: replyTo, subject: oggBase, text: corpoText(testoBase), html: corpoHtml(testoBase) };
     if (emails.length === 1) msg.to = emails[0];
     else { msg.to = replyTo; msg.bcc = emails; }
     await trans.sendMail(msg);

@@ -310,6 +310,11 @@
             .replace(/\{email\}/g, d.email || '')
             .replace(/\{incarichi\}/g, d.incarichi || '');
     }
+    // come applicaVariabili ma per contenuto HTML: i valori sostituiti vengono escaped
+    function applicaVariabiliHtml(s, d) {
+        d = d || {};
+        return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: esc(d.incarichi || '') });
+    }
     // clienti degli incarichi in cui la persona (per cognome) compare come team,
     // responsabile incarico o referente (NON come responsabile della qualita)
     function incarichiDiCognome(cognome, incarichi) {
@@ -786,7 +791,7 @@
 
         // Invia una comunicazione libera: passa l'ID token dell'utente loggato,
         // che il server verifica (solo utenti abilitati possono inviare).
-        async inviaComunicazione(oggetto, testo, destinatari) {
+        async inviaComunicazione(oggetto, testo, destinatari, formato) {
             let url = window.RV_COMUNICAZIONI_URL;
             if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'invia-comunicazione$1');
             if (!url) return { ok: false, msg: 'Servizio di invio non configurato.' };
@@ -798,7 +803,7 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken, oggetto, testo, destinatari, mittenteNome })
+                    body: JSON.stringify({ idToken, oggetto, testo, destinatari, mittenteNome, formato })
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Invio non riuscito (' + r.status + ').') };
@@ -3373,6 +3378,8 @@
         const opzCli = campo => Array.from(new Set(contattiCliente.map(c => c[campo]).filter(Boolean))).sort();
         const tipiCli = opzCli('tipo'), areeCli = opzCli('area'), regioniCli = opzCli('regione'), statiCli = opzCli('stato');
         const selFiltro = (id, etichetta, valori) => valori.length ? `<select id="${id}"><option value="">${etichetta}</option>${valori.map(v => `<option>${esc(v)}</option>`).join('')}</select>` : '';
+        // contenuto iniziale dell'editor: i nuovi record salvano HTML; i vecchi (testo semplice) si convertono
+        const testoInizialeHtml = c ? (c.formato === 'html' ? (c.testo || '') : esc(c.testo || '').replace(/\n/g, '<br>')) : '';
 
         apriModale(`
             ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
@@ -3381,7 +3388,23 @@
                 <div class="campo"><label>Nome della comunicazione</label><input id="c-nome" value="${esc((c && c.nome) || '')}" placeholder="es. Promemoria scadenze trimestrali"><div class="hint">Etichetta interna per riconoscerla in elenco e nel calendario.</div></div>
             </div>
             <div class="campo"><label>Oggetto della mail</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}" placeholder="Oggetto che vedra il destinatario"></div>
-            <div class="campo"><label>Messaggio</label><textarea id="c-testo" rows="8" placeholder="Scrivi qui il testo della mail...">${esc((c && c.testo) || '')}</textarea>
+            <div class="campo">
+                <div class="rte-intest">
+                    <label style="margin:0;">Messaggio</label>
+                    <button type="button" class="btn btn-sm btn-secondary" id="c-anteprima-btn">Mostra anteprima</button>
+                </div>
+                <div class="rte-barra">
+                    <button type="button" class="rte-btn" data-cmd="bold" title="Grassetto"><strong>G</strong></button>
+                    <button type="button" class="rte-btn" data-cmd="italic" title="Corsivo"><em>C</em></button>
+                    <button type="button" class="rte-btn" data-cmd="underline" title="Sottolineato"><span style="text-decoration:underline;">S</span></button>
+                    <span class="rte-sep"></span>
+                    <button type="button" class="rte-btn" data-cmd="insertUnorderedList" title="Elenco puntato">&bull; Elenco</button>
+                    <button type="button" class="rte-btn" data-cmd="insertOrderedList" title="Elenco numerato">1. Elenco</button>
+                    <span class="rte-sep"></span>
+                    <button type="button" class="rte-btn" data-cmd="createLink" title="Inserisci collegamento">Link</button>
+                    <button type="button" class="rte-btn" data-cmd="removeFormat" title="Rimuovi formattazione">Pulisci</button>
+                </div>
+                <div id="c-testo" class="rte-editor" contenteditable="true" data-ph="Scrivi qui il testo della mail. Usa la barra sopra per grassetto, corsivo, elenchi...">${testoInizialeHtml}</div>
                 <div class="var-chips"><span class="hint" style="margin-right:4px;">Variabili (clic per inserire):</span>${VARIABILI_MAIL.map(v => '<button type="button" class="chip-var" data-var="' + v.chiave + '" title="' + esc(v.desc) + '">{' + v.chiave + '}</button>').join('')}</div>
                 <div class="hint"><strong>{nome} {cognome} {email} {incarichi}</strong> cambiano per ogni destinatario: se le usi, ognuno riceve una mail personalizzata; altrimenti un unico invio in copia nascosta.</div>
                 <div class="spiega-periodo">
@@ -3395,7 +3418,8 @@
                     <p>Cosi una sola comunicazione ricorrente genera da sola l'oggetto e il testo giusti per ogni periodo. Nell'invio immediato <code>{periodo}</code> resta vuoto, perche non c'e una frequenza.</p>
                 </div>
             </div>
-            <div class="campo"><label>Anteprima della mail</label>
+            <div class="campo nascosto" id="c-anteprima-pane">
+                <label>Anteprima della mail</label>
                 <div class="mail-anteprima">
                     <div class="mail-intest">
                         <div><strong>Da:</strong> Revilaw S.p.A. &lt;noreply@nextgenerationbusiness.it&gt;</div>
@@ -3482,8 +3506,10 @@
         $('c-contesto').value = (c && c.contesto) || 'generale';
         // anteprima live della mail (con sostituzione delle variabili su dati di esempio)
         const CAMPIONE_VAR = { email: 'mario.rossi@esempio.it', nome: 'Mario', cognome: 'Rossi', incarichi: 'Alpha S.r.l., Beta S.p.A.' };
+        const anteprimaVisibile = () => { const p = $('c-anteprima-pane'); return p && !p.classList.contains('nascosto'); };
         const aggiornaAnteprima = () => {
-            const oggRaw = $('c-oggetto').value, testoRaw = $('c-testo').value;
+            if (!anteprimaVisibile()) return;
+            const oggRaw = $('c-oggetto').value, testoRaw = $('c-testo').innerHTML;
             const usaPersonal = haVariabili(oggRaw) || haVariabili(testoRaw);
             const usaPeriodo = /\{periodo\}/.test(oggRaw + '\n' + testoRaw);
             let periodoAnt = '';
@@ -3492,30 +3518,55 @@
                 const q = $('c-quando') ? $('c-quando').value : '', ts = q ? new Date(q).getTime() : NaN, fq = $('c-freq') ? $('c-freq').value : 'unica';
                 periodoAnt = (progOn && fq !== 'unica' && !isNaN(ts)) ? etichettaPeriodo(fq, ts) : 'primo trimestre 2026';
             }
-            const sost = s => applicaVariabili(sostituisciPeriodo(s, periodoAnt), CAMPIONE_VAR);
-            $('ap-oggetto').textContent = sost(oggRaw).trim() || '(nessun oggetto)';
-            const t = sost(testoRaw);
-            const corpo = t.trim() ? esc(t.trim()).replace(/\n/g, '<br>') : '<span class="hint">(qui comparira il testo del messaggio)</span>';
-            $('ap-corpo').innerHTML = corpo + FIRMA_MAIL_HTML;
+            // oggetto = testo semplice; corpo = HTML (variabili con valori escaped)
+            const oggFinale = applicaVariabili(sostituisciPeriodo(oggRaw, periodoAnt), CAMPIONE_VAR);
+            $('ap-oggetto').textContent = oggFinale.trim() || '(nessun oggetto)';
+            const corpoHtml = applicaVariabiliHtml(sostituisciPeriodo(testoRaw, esc(periodoAnt)), CAMPIONE_VAR);
+            $('ap-corpo').innerHTML = ($('c-testo').textContent.trim() ? corpoHtml : '<span class="hint">(qui comparira il testo del messaggio)</span>') + FIRMA_MAIL_HTML;
             const nota = $('ap-nota');
             if (nota) nota.textContent = usaPersonal ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : (usaPeriodo ? 'Anteprima con un periodo di esempio; {periodo} cambia a ogni invio programmato.' : '');
         };
+        const editor = $('c-testo');
+        // pulsante mostra/nascondi anteprima
+        const btnAnt = $('c-anteprima-btn');
+        if (btnAnt) btnAnt.addEventListener('click', () => {
+            const p = $('c-anteprima-pane'), mostra = p.classList.contains('nascosto');
+            p.classList.toggle('nascosto', !mostra);
+            btnAnt.textContent = mostra ? 'Nascondi anteprima' : 'Mostra anteprima';
+            if (mostra) { aggiornaAnteprima(); p.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        });
+        // barra di formattazione: i pulsanti non rubano il focus (mousedown preventDefault)
+        document.querySelectorAll('.rte-btn').forEach(b => {
+            b.addEventListener('mousedown', e => e.preventDefault());
+            b.addEventListener('click', () => {
+                editor.focus();
+                const cmd = b.dataset.cmd;
+                if (cmd === 'createLink') { const url = prompt('Indirizzo del collegamento (https://...)'); if (url) document.execCommand('createLink', false, url); }
+                else document.execCommand(cmd, false, null);
+                aggiornaAnteprima();
+            });
+        });
+        // incolla come testo semplice (evita HTML sporco da Word/pagine web)
+        editor.addEventListener('paste', e => {
+            e.preventDefault();
+            const t = ((e.clipboardData || window.clipboardData).getData('text/plain') || '');
+            document.execCommand('insertText', false, t);
+        });
+        editor.addEventListener('input', aggiornaAnteprima);
         $('c-oggetto').addEventListener('input', aggiornaAnteprima);
-        $('c-testo').addEventListener('input', aggiornaAnteprima);
-        aggiornaAnteprima();
-        // inserimento variabili al cursore del campo attivo (oggetto o testo)
+        // inserimento variabili al cursore del campo attivo (oggetto = input, messaggio = editor)
         let ultimoCampoVar = 'c-testo';
-        ['c-oggetto', 'c-testo'].forEach(idc => { const el = $(idc); if (el) el.addEventListener('focus', () => { ultimoCampoVar = idc; }); });
-        document.querySelectorAll('.chip-var').forEach(b => b.addEventListener('click', () => {
-            const el = $(ultimoCampoVar) || $('c-testo');
-            const token = '{' + b.dataset.var + '}';
-            const s = (el.selectionStart != null) ? el.selectionStart : el.value.length;
-            const e = (el.selectionEnd != null) ? el.selectionEnd : el.value.length;
-            el.value = el.value.slice(0, s) + token + el.value.slice(e);
-            el.focus();
-            const pos = s + token.length; try { el.setSelectionRange(pos, pos); } catch (_) { }
-            aggiornaAnteprima();
-        }));
+        $('c-oggetto').addEventListener('focus', () => { ultimoCampoVar = 'c-oggetto'; });
+        editor.addEventListener('focus', () => { ultimoCampoVar = 'c-testo'; });
+        document.querySelectorAll('.chip-var').forEach(b => {
+            b.addEventListener('mousedown', e => e.preventDefault());
+            b.addEventListener('click', () => {
+                const token = '{' + b.dataset.var + '}';
+                if (ultimoCampoVar === 'c-testo') { editor.focus(); document.execCommand('insertText', false, token); }
+                else { const el = $('c-oggetto'), s = el.selectionStart != null ? el.selectionStart : el.value.length, e2 = el.selectionEnd != null ? el.selectionEnd : el.value.length; el.value = el.value.slice(0, s) + token + el.value.slice(e2); el.focus(); try { el.setSelectionRange(s + token.length, s + token.length); } catch (_) { } }
+                aggiornaAnteprima();
+            });
+        });
         // schede destinatari
         document.querySelectorAll('.tab-dest .tab-btn').forEach(b => b.addEventListener('click', () => {
             document.querySelectorAll('.tab-dest .tab-btn').forEach(x => x.classList.toggle('attivo', x === b));
@@ -3595,7 +3646,8 @@
             contesto: $('c-contesto').value,
             nome: $('c-nome').value.trim(),
             oggetto: $('c-oggetto').value.trim(),
-            testo: $('c-testo').value.trim(),
+            testo: $('c-testo').textContent.trim() ? $('c-testo').innerHTML.trim() : '',
+            formato: 'html',                      // il messaggio e ora HTML (editor formattato)
             gruppi: gruppiSel(),                  // gruppi dinamici (risolti all'invio)
             destinatariManuali: manuali(),        // scelte singole statiche
             destinatari: tuttiDestinatari(),      // snapshot risolto ora (per invio immediato e conteggio)
@@ -3636,7 +3688,7 @@
             $('c-prog-riepilogo').textContent = (lp && lp.prog) ? descriviProgrammazione(lp.prog) : '';
             // anteprima di cosa diventa {periodo} a ogni invio (max 4 occorrenze)
             const box = $('c-oggetto-riepilogo');
-            const usaPeriodo = /\{periodo\}/.test($('c-oggetto').value + '\n' + $('c-testo').value);
+            const usaPeriodo = /\{periodo\}/.test($('c-oggetto').value + '\n' + $('c-testo').innerHTML);
             if (attivo && ricorrente && usaPeriodo) {
                 const fineTs = (lp && lp.prog) ? lp.prog.fine : null;
                 const db = ms => { const d = new Date(ms), z = n => String(n).padStart(2, '0'); return z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear(); };
@@ -3701,7 +3753,7 @@
             if (!Cloud.attivo) { mostraErr('L\'invio richiede l\'accesso protetto attivo. Puoi comunque salvare la bozza.'); return; }
             rec.programmazione = null;
             Comunicazioni.salvaUna(rec); // salva prima: non si perde nulla se l'invio fallisce
-            const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, datiDestinatari(rec.destinatari));
+            const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, datiDestinatari(rec.destinatari), rec.formato);
             if (!esito.ok) { mostraErr('Invio non riuscito: ' + esito.msg); return; }
             const ora = Date.now();
             rec.stato = 'inviata';
