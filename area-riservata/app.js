@@ -1548,6 +1548,11 @@
         });
         if (finestra) {
             const modale = cont.querySelector('.modale');
+            // il piede con i pulsanti esce dall'area scorrevole e diventa un footer fisso della finestra:
+            // resta sempre visibile e non copre piu il contenuto finale (es. la sezione del periodo)
+            const corpo = modale.querySelector('.modale-corpo');
+            const azioni = corpo && corpo.lastElementChild;
+            if (azioni && azioni.classList && azioni.classList.contains('modale-azioni')) modale.appendChild(azioni);
             const setRidotta = r => { modale.classList.toggle('ridotta', r); sfondo.classList.toggle('sfondo-ridotto', r); };
             cont.querySelector('.mw-close').addEventListener('click', chiudiModale);
             cont.querySelector('.mw-min').addEventListener('click', () => setRidotta(!modale.classList.contains('ridotta')));
@@ -3233,7 +3238,8 @@
             }).join('') + `</div></div>` : '';
 
         const sezBozze = bozze.length ? `<div class="card" id="sez-bozze">
-            <h2>Bozze (${bozze.length})</h2>
+            <h2>Comunicazioni in preparazione (${bozze.length})</h2>
+            <p class="hint" style="margin:-6px 0 12px;">Salvate ma non ancora inviate ne programmate. Premi <strong>Apri</strong> per completarle e poi inviarle o programmarle.</p>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
                 <th>Contesto</th><th>Nome</th><th class="num">Destinatari</th><th>Creata da</th><th>Creata il</th><th></th>
             </tr></thead><tbody>` +
@@ -3261,7 +3267,7 @@
             </tr>`).join('') + `</tbody></table></div></div>` : '';
 
         const elencoProg = `${sezProgrammate}${sezBozze}
-            ${(programmate.length || bozze.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione programmata o bozza. Premi "Nuova comunicazione" per prepararne una.</div>'}`;
+            ${(programmate.length || bozze.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione programmata o in preparazione. Premi "Nuova comunicazione" per prepararne una.</div>'}`;
         const vistaInvii = invii.length ? sezInvii : '<div class="card tabella-vuota">Nessun invio effettuato finora.</div>';
 
         const toggle = `<div class="toggle-vista">
@@ -3269,7 +3275,7 @@
             <button class="btn btn-sm ${comuniVista === 'calendario' ? 'btn-primary' : 'btn-secondary'}" data-vista="calendario">Calendario</button>
         </div>`;
         const tabs = `<div class="tab-dest" style="margin-bottom:16px;">
-            <button class="tab-btn ${comuniTab === 'programmate' ? 'attivo' : ''}" data-tab="programmate">Programmate e bozze</button>
+            <button class="tab-btn ${comuniTab === 'programmate' ? 'attivo' : ''}" data-tab="programmate">Programmate e in preparazione</button>
             <button class="tab-btn ${comuniTab === 'invii' ? 'attivo' : ''}" data-tab="invii">Invii effettuati (${invii.length})</button>
         </div>`;
         const inProgrammate = comuniTab !== 'invii';
@@ -3285,7 +3291,7 @@
             </header>
             ${tabs}
             ${corpo}
-            ${puoInviare ? '' : '<p class="descrizione" style="margin-top:10px;">L\'invio dal server e disponibile solo con l\'accesso protetto attivo; qui puoi comunque preparare le bozze.</p>'}`;
+            ${puoInviare ? '' : '<p class="descrizione" style="margin-top:10px;">L\'invio dal server e disponibile solo con l\'accesso protetto attivo; qui puoi comunque preparare le comunicazioni e salvarle in preparazione.</p>'}`;
 
         $vista().querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { comuniTab = b.dataset.tab; vistaComunicazioni(); }));
         $vista().querySelectorAll('[data-vista]').forEach(b => b.addEventListener('click', () => { comuniVista = b.dataset.vista; vistaComunicazioni(); }));
@@ -3316,7 +3322,7 @@
         };
         ['fp-cerca', 'fp-contesto', 'fp-freq'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', filtraProg); });
 
-        [['#sez-bozze', 'comunicazioni-bozze'], ['#sez-invii', 'invii-effettuati']].forEach(([sel, nome]) => {
+        [['#sez-bozze', 'comunicazioni-in-preparazione'], ['#sez-invii', 'invii-effettuati']].forEach(([sel, nome]) => {
             const t = $vista().querySelector(sel + ' table.dati');
             if (t) attrezzaTabella(t, { nomeFile: nome });
         });
@@ -3487,7 +3493,7 @@
             <div class="msg-errore hidden" id="c-errore"></div>
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="c-annulla">Annulla</button>
-                <button class="btn btn-secondary" id="c-bozza">Salva bozza</button>
+                <button class="btn btn-secondary" id="c-bozza">Salva in preparazione</button>
                 <button class="btn btn-primary" id="c-invia">Invia</button>
             </div>`, { classe: 'larga', finestra: true, titolo: inviata ? 'Comunicazione inviata' : (c ? 'Modifica comunicazione' : 'Nuova comunicazione') });
 
@@ -3676,7 +3682,7 @@
             // storico degli invii effettuati (migra i vecchi record che avevano solo "inviata")
             invii: (c && c.invii) || (c && c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da }] : [])
         });
-        const mostraErr = m => { const e = $('c-errore'); e.textContent = m; e.classList.remove('hidden'); };
+        const mostraErr = m => { const e = $('c-errore'); e.textContent = m; e.classList.remove('hidden'); try { e.scrollIntoView({ block: 'nearest' }); } catch (_) { try { e.scrollIntoView(); } catch (e2) { } } };
 
         // programmazione: mostra/nascondi opzioni e adatta l'etichetta del pulsante
         const chkProg = $('c-prog');
@@ -3734,14 +3740,14 @@
         $('c-annulla').addEventListener('click', chiudiModale);
         $('c-bozza').addEventListener('click', () => {
             const rec = componiRecord();
-            if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErr('La bozza e vuota.'); return; }
+            if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErr('Non c\'e nulla da salvare: aggiungi almeno l\'oggetto, il testo o un destinatario.'); return; }
             const lp = leggiProg();
             if (lp.errore) { mostraErr(lp.errore); return; }
-            rec.programmazione = lp.prog;                // la pianificazione resta salvata
-            rec.stato = inviata ? 'inviata' : 'bozza';   // bozza = non parte finche non premi Programma/Invia
+            rec.programmazione = lp.prog;                // la pianificazione (se impostata) resta salvata con la comunicazione
+            rec.stato = inviata ? 'inviata' : 'bozza';   // "bozza" = in preparazione: salvata ma non parte finche non premi Programma/Invia
             Comunicazioni.salvaUna(rec);
-            Audit.registra(Auth.utenteCorrente, 'Comunicazione salvata (bozza)', 'comunicazione', rec.id, rec.oggetto || null, null);
-            chiudiModale(); toast('Bozza salvata.', 'verde'); vistaComunicazioni();
+            Audit.registra(Auth.utenteCorrente, 'Comunicazione salvata in preparazione', 'comunicazione', rec.id, rec.oggetto || null, null);
+            chiudiModale(); toast('Salvata tra le comunicazioni in preparazione.', 'verde'); vistaComunicazioni();
         });
 
         const btnInvia = $('c-invia');
@@ -3770,7 +3776,7 @@
             }
 
             // INVIO IMMEDIATO
-            if (!Cloud.attivo) { mostraErr('L\'invio richiede l\'accesso protetto attivo. Puoi comunque salvare la bozza.'); return; }
+            if (!Cloud.attivo) { mostraErr('L\'invio richiede l\'accesso protetto attivo. Puoi comunque salvarla in preparazione.'); return; }
             rec.programmazione = null;
             Comunicazioni.salvaUna(rec); // salva prima: non si perde nulla se l'invio fallisce
             const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, datiDestinatari(rec.destinatari), rec.formato);

@@ -469,8 +469,10 @@ table.dati tfoot td { font-weight: 700; background: var(--blu-100); border-top: 
 .mw-btn { width: 38px; height: 28px; border: none; background: transparent; color: #fff; font-size: 0.9rem; line-height: 1; cursor: pointer; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; }
 .mw-btn:hover { background: rgba(255, 255, 255, 0.18); }
 .mw-close:hover { background: var(--rosso); }
-.modale-corpo { padding: 20px 24px 24px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
-.modale-finestra .modale-azioni { position: sticky; bottom: 0; background: #fff; margin: 16px -24px -24px; padding: 12px 24px; border-top: 1px solid var(--grigio-200); }
+.modale-corpo { padding: 20px 24px 28px; overflow-y: auto; overflow-x: hidden; flex: 1 1 auto; min-height: 0; -webkit-overflow-scrolling: touch; }
+/* piede azioni: footer fisso della finestra (spostato fuori da .modale-corpo via JS), sempre visibile */
+.modale-finestra > .modale-azioni { flex: 0 0 auto; margin: 0; background: #fff; padding: 12px 24px; border-top: 1px solid var(--grigio-200); box-shadow: 0 -3px 10px rgba(10, 40, 68, 0.05); }
+.modale.modale-finestra.ridotta > .modale-azioni { display: none; }
 .modale.modale-finestra.massimizzata { width: 100%; height: 100%; }
 /* Ridotta a barra (minimizzata): finestra collassata in basso a sinistra, app usabile dietro */
 .modale-sfondo.sfondo-ridotto { background: transparent; pointer-events: none; align-items: flex-end; justify-content: flex-start; padding: 0 0 12px 12px; }
