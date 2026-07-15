@@ -146,6 +146,14 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- AI Governance: autodiagnostico di maturità e classificatore AI Act -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/ai_governance/</loc>
+        <lastmod>2026-07-15</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
     <!-- Il Rating Bancario: simulatore MCC e cruscotto di bancabilità -->
     <url>
         <loc>https://nextgenerationbusiness.it/rating_bancario/</loc>

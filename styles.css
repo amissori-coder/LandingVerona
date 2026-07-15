@@ -4261,7 +4261,7 @@ ul {
 
 /* ============================================================
    LEFT COLUMN: ecosystem orbit (Revisione Legale core + servizi)
-   Added: brand text on top, orbit (sun + 5 planets) below.
+   Added: brand text on top, orbit (sun + 6 planets) below.
    ============================================================ */
 .split-brand {
     flex-direction: column;
@@ -4324,6 +4324,7 @@ ul {
 .orbit-arm-3 { animation: orbitRevolve 27s linear infinite; }
 .orbit-arm-4 { animation: orbitRevolve 42s linear infinite reverse; }
 .orbit-arm-5 { animation: orbitRevolve 33s linear infinite; }
+.orbit-arm-6 { animation: orbitRevolve 39s linear infinite reverse; }
 @keyframes orbitRevolve { to { transform: rotate(360deg); } }
 
 .planet {
@@ -4352,13 +4353,17 @@ ul {
 .orbit-arm-3 .planet-face { animation: orbitCounter 27s linear infinite; }
 .orbit-arm-4 .planet-face { animation: orbitCounter 42s linear infinite reverse; }
 .orbit-arm-5 .planet-face { animation: orbitCounter 33s linear infinite; }
+.orbit-arm-6 .planet-face { animation: orbitCounter 39s linear infinite reverse; }
 @keyframes orbitCounter { to { transform: rotate(-360deg); } }
 .planet-face.shape-circle   { border-radius: 50%; }
 .planet-face.shape-soft     { border-radius: 24%; }
 .planet-face.shape-squircle { border-radius: 38%; }
 .planet-face.shape-egg      { border-radius: 56% 56% 46% 46% / 64% 64% 40% 40%; }
 .planet-face.shape-hex      { border: none; box-shadow: none; clip-path: polygon(50% 1%, 94% 25%, 94% 75%, 50% 99%, 6% 75%, 6% 25%); }
-.planet--hex { filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4)); }
+/* Ottagono: richiama un chip di silicio, per l'AI Governance */
+.planet-face.shape-chip     { border: none; box-shadow: none; clip-path: polygon(30% 2%, 70% 2%, 98% 30%, 98% 70%, 70% 98%, 30% 98%, 2% 70%, 2% 30%); }
+.planet--hex,
+.planet--chip { filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.4)); }
 .planet-label {
     font-family: var(--font-display);
     font-size: 8.7px;

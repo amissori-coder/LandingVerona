@@ -244,6 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // fall back to a Title Case conversion of the slug itself,
         // so any new data-category value still renders cleanly.
         const CATEGORY_LABELS = {
+            'ai-governance':        'AI Governance',
             'agevolazioni-fiscali': 'Incentivi',
             'compliance':           'Compliance',
             'diritto-societario':   'Societario',
