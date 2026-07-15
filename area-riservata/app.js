@@ -292,8 +292,12 @@
         { chiave: 'cognome', desc: 'Cognome della persona' },
         { chiave: 'nome_completo', desc: 'Nome e cognome (o ragione sociale)' },
         { chiave: 'email', desc: 'Indirizzo email del destinatario' },
-        { chiave: 'incarichi', desc: 'Clienti degli incarichi della persona (aggiornato ad ogni invio)' }
+        { chiave: 'incarichi', desc: 'Clienti degli incarichi della persona (aggiornato ad ogni invio)' },
+        { chiave: 'periodo', desc: 'Periodo di riferimento (es. "primo trimestre 2026"): solo per invii programmati ricorrenti, dipende dalla frequenza e dalla data di ogni invio' }
     ];
+    // {periodo} e una variabile "di invio" (uguale per tutti i destinatari), calcolata
+    // dalla frequenza + data; sostituita a parte, non da applicaVariabili.
+    function sostituisciPeriodo(s, periodo) { return String(s == null ? '' : s).replace(/\{periodo\}/g, periodo || ''); }
     const RE_VARIABILI = /\{(nome_completo|nome|cognome|email|incarichi)\}/;
     function haVariabili(s) { return RE_VARIABILI.test(String(s || '')); }
     function applicaVariabili(s, d) {
@@ -3352,7 +3356,7 @@
             <div class="campo"><label>Oggetto della mail</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}" placeholder="Oggetto che vedra il destinatario"></div>
             <div class="campo"><label>Messaggio</label><textarea id="c-testo" rows="8" placeholder="Scrivi qui il testo della mail...">${esc((c && c.testo) || '')}</textarea>
                 <div class="var-chips"><span class="hint" style="margin-right:4px;">Variabili (clic per inserire):</span>${VARIABILI_MAIL.map(v => '<button type="button" class="chip-var" data-var="' + v.chiave + '" title="' + esc(v.desc) + '">{' + v.chiave + '}</button>').join('')}</div>
-                <div class="hint">Sostituite per ogni destinatario. Se il testo usa variabili, ognuno riceve una mail personalizzata (altrimenti un unico invio in copia nascosta).</div>
+                <div class="hint">Le variabili vengono sostituite ad ogni invio. <strong>{nome} {cognome} {email} {incarichi}</strong> cambiano per ogni destinatario (se le usi, ognuno riceve una mail personalizzata; altrimenti un unico invio in copia nascosta). <strong>{periodo}</strong> vale solo per gli invii programmati ricorrenti: diventa il periodo di riferimento in base alla frequenza e alla data (es. trimestrale &rarr; "primo trimestre 2026"), e cambia ad ogni invio.</div>
             </div>
             <div class="campo"><label>Anteprima della mail</label>
                 <div class="mail-anteprima">
@@ -3423,8 +3427,7 @@
                             </select></div>
                             <div class="campo nascosto" id="c-fine-data-box"><label>Fino al</label><input type="date" id="c-fine-data" value="${prog && prog.fine ? perDateLocal(prog.fine) : ''}"></div>
                         </div>
-                        <label style="display:flex;gap:8px;align-items:center;cursor:pointer;"><input type="checkbox" id="c-periodo" style="width:auto;" ${(!prog || prog.periodoNelOggetto !== false) ? 'checked' : ''}> Aggiungi il periodo all'oggetto</label>
-                        <p class="hint" style="margin:4px 0 0 26px;">Il periodo si ricava dalla data di ogni invio e dalla frequenza: trimestrale → gen-mar = "primo trimestre", apr-giu = "secondo", lug-set = "terzo", ott-dic = "quarto"; mensile → nome del mese; annuale → l'anno. Cambia a ogni invio.</p>
+                        <p class="hint" style="margin:2px 0 0;">Per mettere il periodo nell'oggetto o nel testo, usa la variabile <strong>{periodo}</strong> (i chip sopra il messaggio).</p>
                     </div>
                     <p class="hint" id="c-prog-riepilogo" style="font-weight:600;color:var(--blu-700);"></p>
                     <div id="c-oggetto-riepilogo" class="anteprima-periodi"></div>
@@ -3443,14 +3446,22 @@
         // anteprima live della mail (con sostituzione delle variabili su dati di esempio)
         const CAMPIONE_VAR = { email: 'mario.rossi@esempio.it', nome: 'Mario', cognome: 'Rossi', incarichi: 'Alpha S.r.l., Beta S.p.A.' };
         const aggiornaAnteprima = () => {
-            const usaVar = haVariabili($('c-oggetto').value) || haVariabili($('c-testo').value);
-            const ogg = usaVar ? applicaVariabili($('c-oggetto').value, CAMPIONE_VAR) : $('c-oggetto').value;
-            $('ap-oggetto').textContent = ogg.trim() || '(nessun oggetto)';
-            const t = usaVar ? applicaVariabili($('c-testo').value, CAMPIONE_VAR) : $('c-testo').value;
+            const oggRaw = $('c-oggetto').value, testoRaw = $('c-testo').value;
+            const usaPersonal = haVariabili(oggRaw) || haVariabili(testoRaw);
+            const usaPeriodo = /\{periodo\}/.test(oggRaw + '\n' + testoRaw);
+            let periodoAnt = '';
+            if (usaPeriodo) {
+                const progOn = $('c-prog') && $('c-prog').checked;
+                const q = $('c-quando') ? $('c-quando').value : '', ts = q ? new Date(q).getTime() : NaN, fq = $('c-freq') ? $('c-freq').value : 'unica';
+                periodoAnt = (progOn && fq !== 'unica' && !isNaN(ts)) ? etichettaPeriodo(fq, ts) : 'primo trimestre 2026';
+            }
+            const sost = s => applicaVariabili(sostituisciPeriodo(s, periodoAnt), CAMPIONE_VAR);
+            $('ap-oggetto').textContent = sost(oggRaw).trim() || '(nessun oggetto)';
+            const t = sost(testoRaw);
             const corpo = t.trim() ? esc(t.trim()).replace(/\n/g, '<br>') : '<span class="hint">(qui comparira il testo del messaggio)</span>';
             $('ap-corpo').innerHTML = corpo + FIRMA_MAIL_HTML;
             const nota = $('ap-nota');
-            if (nota) nota.textContent = usaVar ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : '';
+            if (nota) nota.textContent = usaPersonal ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : (usaPeriodo ? 'Anteprima con un periodo di esempio; {periodo} cambia a ogni invio programmato.' : '');
         };
         $('c-oggetto').addEventListener('input', aggiornaAnteprima);
         $('c-testo').addEventListener('input', aggiornaAnteprima);
@@ -3576,7 +3587,7 @@
                 fine = new Date(fd + 'T23:59:59').getTime();
                 if (fine < t) return { errore: 'La data di fine e precedente al primo invio.' };
             }
-            return { prog: { attiva: true, frequenza: freq, prossimoInvio: t, fine: fine, periodoNelOggetto: ricorrente ? $('c-periodo').checked : false } };
+            return { prog: { attiva: true, frequenza: freq, prossimoInvio: t, fine: fine, periodoNelOggetto: false } };
         };
         const aggiornaRiepilogo = () => {
             const freq = $('c-freq').value, ricorrente = freq !== 'unica';
@@ -3586,27 +3597,27 @@
             const attivo = chkProg.checked && q && !isNaN(t);
             const lp = attivo ? leggiProg() : null;
             $('c-prog-riepilogo').textContent = (lp && lp.prog) ? descriviProgrammazione(lp.prog) : '';
-            // anteprima di come cambia l'oggetto a ogni invio (max 4 occorrenze)
+            // anteprima di cosa diventa {periodo} a ogni invio (max 4 occorrenze)
             const box = $('c-oggetto-riepilogo');
-            if (attivo && ricorrente && $('c-periodo').checked) {
-                const ogg = $('c-oggetto').value.trim() || '(oggetto)';
+            const usaPeriodo = /\{periodo\}/.test($('c-oggetto').value + '\n' + $('c-testo').value);
+            if (attivo && ricorrente && usaPeriodo) {
                 const fineTs = (lp && lp.prog) ? lp.prog.fine : null;
                 const db = ms => { const d = new Date(ms), z = n => String(n).padStart(2, '0'); return z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear(); };
                 const righe = [];
                 let tt = t, guard = 0;
                 while (righe.length < 4 && guard < 60) {
                     if (fineTs && tt > fineTs) break;
-                    righe.push('<div class="ap-per-riga"><span class="ap-per-data">' + db(tt) + '</span><strong>' + esc(ogg + ' - ' + etichettaPeriodo(freq, tt)) + '</strong></div>');
+                    righe.push('<div class="ap-per-riga"><span class="ap-per-data">' + db(tt) + '</span><strong>' + esc(etichettaPeriodo(freq, tt)) + '</strong></div>');
                     const nx = prossimaDataMs(tt, freq);
                     if (nx == null) break;
                     tt = nx; guard++;
                 }
-                box.innerHTML = '<div class="ap-per-tit">Oggetto generato a ogni invio:</div>' + righe.join('')
+                box.innerHTML = '<div class="ap-per-tit">Il {periodo} diventa, a ogni invio:</div>' + righe.join('')
                     + (fineTs ? '<div class="ap-per-nota">poi termina (fino al ' + db(fineTs) + ')</div>' : (righe.length >= 4 ? '<div class="ap-per-nota">…e cosi via</div>' : ''));
             } else { box.innerHTML = ''; }
         };
         chkProg.addEventListener('change', () => { $('c-prog-box').classList.toggle('nascosto', !chkProg.checked); relabel(); aggiornaRiepilogo(); });
-        ['c-freq', 'c-quando', 'c-fine-tipo', 'c-fine-data', 'c-periodo', 'c-oggetto'].forEach(idw => {
+        ['c-freq', 'c-quando', 'c-fine-tipo', 'c-fine-data', 'c-oggetto', 'c-testo'].forEach(idw => {
             const el = $(idw); if (el) el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', aggiornaRiepilogo);
         });
         relabel(); aggiornaRiepilogo();

@@ -144,14 +144,13 @@ async function inviaUna(trans, com, destinatari) {
     const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.');
     const from = '"' + fromName + '" <' + fromEmail + '>';
     const replyTo = (com.creato && com.creato.da) || fromEmail;
-    // oggetto base con il riferimento del periodo (es. "... - primo trimestre 2026")
+    // periodo di riferimento di QUESTO invio (dalla frequenza + data): sostituisce {periodo}
     const p = com.programmazione || {};
+    const periodo = (p.frequenza && p.frequenza !== 'unica') ? etichettaPeriodo(p.frequenza, p.prossimoInvio) : '';
     let oggBase = com.oggetto || '(senza oggetto)';
-    if (p.periodoNelOggetto && p.frequenza && p.frequenza !== 'unica') {
-        const per = etichettaPeriodo(p.frequenza, p.prossimoInvio);
-        if (per) oggBase = oggBase + ' - ' + per;
-    }
-    const testoBase = com.testo || '';
+    if (p.periodoNelOggetto && periodo) oggBase = oggBase + ' - ' + periodo; // retrocompatibilita vecchi record (casella "periodo nell'oggetto")
+    oggBase = oggBase.replace(/\{periodo\}/g, periodo);
+    let testoBase = (com.testo || '').replace(/\{periodo\}/g, periodo);
     const htmlDi = (txt) => '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">' + esc(txt).replace(/\n/g, '<br>') + FIRMA + '</div>';
 
     // testo/oggetto con variabili -> una mail personalizzata per destinatario; altrimenti BCC

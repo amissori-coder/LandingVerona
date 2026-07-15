@@ -150,14 +150,17 @@ module.exports = async (req, res) => {
         const htmlDi = (txt) => '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">'
             + esc(txt).replace(/\n/g, '<br>') + FIRMA + '</div>';
         const trans = trasporto();
+        // invio immediato: {periodo} dipende dalla frequenza (che qui non c'e) -> viene rimosso
+        const oggBase = oggetto.replace(/\{periodo\}/g, '').trim() || '(senza oggetto)';
+        const testoBase = testo.replace(/\{periodo\}/g, '');
 
         // se il testo/oggetto usa variabili: una mail PERSONALIZZATA per ogni destinatario;
         // altrimenti un unico invio (BCC se piu destinatari), piu efficiente.
-        if (haVariabili(oggetto) || haVariabili(testo)) {
+        if (haVariabili(oggBase) || haVariabili(testoBase)) {
             let inviati = 0;
             for (const d of destinatari) {
-                const ogg = applicaVariabili(oggetto, d).trim() || '(senza oggetto)';
-                const txt = applicaVariabili(testo, d);
+                const ogg = applicaVariabili(oggBase, d).trim() || '(senza oggetto)';
+                const txt = applicaVariabili(testoBase, d);
                 try {
                     await trans.sendMail({ from: from, replyTo: mittente, to: d.email, subject: ogg, text: txt, html: htmlDi(txt) });
                     inviati++;
@@ -169,7 +172,7 @@ module.exports = async (req, res) => {
         }
 
         const emails = destinatari.map(d => d.email);
-        const messaggio = { from: from, replyTo: mittente, subject: oggetto, text: testo, html: htmlDi(testo) };
+        const messaggio = { from: from, replyTo: mittente, subject: oggBase, text: testoBase, html: htmlDi(testoBase) };
         if (emails.length === 1) messaggio.to = emails[0];
         else { messaggio.to = mittente; messaggio.bcc = emails; }
         await trans.sendMail(messaggio);
