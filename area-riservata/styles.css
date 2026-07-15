@@ -551,6 +551,35 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .grafico-wrap canvas { width: 100%; display: block; }
 .legenda { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.8rem; color: var(--grigio-600); }
 .legenda .voce { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---- Grafico SVG interattivo (cruscotto) ---- */
+.g-svg-wrap { position: relative; width: 100%; }
+.g-svg-wrap svg { width: 100%; height: auto; display: block; overflow: visible; }
+.g-bar { cursor: pointer; transition: opacity 0.12s ease; }
+.g-bar:hover { opacity: 0.82; }
+.g-tip { position: absolute; z-index: 5; pointer-events: none; background: var(--blu-900); color: #fff; font-size: 0.78rem; line-height: 1.45; padding: 7px 10px; border-radius: 6px; box-shadow: var(--ombra-lg); white-space: nowrap; max-width: 220px; }
+.g-legenda { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; font-size: 0.8rem; color: var(--grigio-600); }
+.g-legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.g-legenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+/* ---- Ripartizione per coordinatore territoriale (cruscotto) ---- */
+.coord-lista { display: flex; flex-direction: column; gap: 6px; }
+.coord-item { border: 1px solid var(--grigio-200); border-radius: 8px; overflow: hidden; }
+.coord-item[open] { border-color: var(--blu-300, #9DB8D2); }
+.coord-sommario { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(140px, 1.4fr) minmax(90px, 2fr) auto auto auto; align-items: center; gap: 12px; padding: 10px 14px; }
+.coord-sommario::-webkit-details-marker { display: none; }
+.coord-sommario:hover { background: var(--blu-050); }
+.coord-nome { font-weight: 600; color: var(--blu-900); }
+.coord-barra { position: relative; height: 10px; background: var(--grigio-100); border-radius: 6px; overflow: hidden; }
+.coord-barra-fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--blu-500), var(--blu-900)); border-radius: 6px; }
+.coord-tot { font-family: 'Montserrat', sans-serif; font-weight: 700; color: var(--blu-900); text-align: right; white-space: nowrap; }
+.coord-n { font-size: 0.8rem; color: var(--grigio-600); white-space: nowrap; }
+.coord-badges { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.coord-dettaglio { padding: 4px 14px 14px; border-top: 1px solid var(--grigio-100); }
+@media (max-width: 720px) {
+    .coord-sommario { grid-template-columns: 1fr auto; }
+    .coord-barra { display: none; }
+}
 .legenda .quadrato { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 
 /* ---------- Toast ---------- */

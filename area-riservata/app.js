@@ -540,6 +540,7 @@
         { chiave: 'qualita', nome: 'Responsabile qualita' },
         { chiave: 'respIncarico', nome: 'Responsabile incarico' },
         { chiave: 'referente', nome: 'Referente' },
+        { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
         { chiave: 'team', nome: 'Team di revisione' },
         { chiave: 'email1', nome: 'Email 1' },
         { chiave: 'email2', nome: 'Email 2' },
@@ -1707,6 +1708,52 @@
         const volontarie = attivi.filter(i => i.tipo === 'volontaria').length;
         // allerte di sblocco calcolo: visibili solo al titolare
         const allerte = Auth.eProprietario() ? Allerte.attive() : [];
+        const puoRinnovare = Auth.puoModificare();
+        // fatturato dell'anno a rischio (incarichi in scadenza / scaduti)
+        const scadenzaTot = inScadenza.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
+        const scadutoTot = scaduti.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
+        // raggruppamento per coordinatore territoriale (solo incarichi attivi)
+        const perCoord = {};
+        attivi.forEach(i => {
+            const key = (i.coordinatore && i.coordinatore.trim()) || '';
+            const g = perCoord[key] || (perCoord[key] = { nome: key, incarichi: [], tot: 0, scadN: 0, scadTot: 0, scaduN: 0, scaduTot: 0 });
+            const comp = Incarichi.compensoAnno(i, anno);
+            g.incarichi.push(i); g.tot += comp;
+            const s = Incarichi.statoScadenza(i);
+            if (s.classe === 'ambra') { g.scadN++; g.scadTot += comp; }
+            else if (s.classe === 'rosso') { g.scaduN++; g.scaduTot += comp; }
+        });
+        const coordList = Object.values(perCoord).sort((a, b) => b.tot - a.tot);
+        const maxCoord = Math.max(1, ...coordList.map(g => g.tot));
+        const rigaCoordIncarico = i => {
+            const s = Incarichi.statoScadenza(i);
+            return `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                <td data-label="Scadenza">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
+                <td class="num" data-label="Compenso ${anno}">${Incarichi.compensoAnno(i, anno) ? eurFmt.format(Incarichi.compensoAnno(i, anno)) : ''}</td>
+                <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
+                ${puoRinnovare ? `<td data-label="" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button></td>` : ''}
+            </tr>`;
+        };
+        const coordItem = g => {
+            const pct = Math.round(g.tot / maxCoord * 100);
+            const incs = g.incarichi.slice().sort((a, b) => (b.rinnovo || b.dataFine || '') < (a.rinnovo || a.dataFine || '') ? 1 : -1);
+            return `<details class="coord-item">
+                <summary class="coord-sommario">
+                    <span class="coord-nome">${g.nome ? esc(g.nome) : '<em>Senza coordinatore</em>'}</span>
+                    <span class="coord-barra"><span class="coord-barra-fill" style="width:${pct}%"></span></span>
+                    <span class="coord-tot">${eurFmt.format(g.tot)}</span>
+                    <span class="coord-n">${g.incarichi.length} inc.</span>
+                    <span class="coord-badges">${g.scadN ? `<span class="badge ambra" title="In scadenza">${g.scadN} &middot; ${eurFmt.format(g.scadTot)}</span>` : ''}${g.scaduN ? `<span class="badge rosso" title="Scaduti">${g.scaduN} &middot; ${eurFmt.format(g.scaduTot)}</span>` : ''}</span>
+                </summary>
+                <div class="coord-dettaglio">
+                    <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                        <th>Cliente</th><th>Tipo</th><th>Scadenza</th><th class="num">Compenso ${anno}</th><th>Stato</th>${puoRinnovare ? '<th></th>' : ''}
+                    </tr></thead><tbody>${incs.map(rigaCoordIncarico).join('')}</tbody></table></div>
+                </div>
+            </details>`;
+        };
 
         $vista().innerHTML = `
             <header>
@@ -1730,12 +1777,18 @@
             <div class="kpi-griglia">
                 <div class="kpi"><div class="etichetta">Incarichi attivi</div><div class="valore">${attivi.length}</div><div class="nota">${volontarie} volontari, ${attivi.length - volontarie} altri</div></div>
                 <div class="kpi verde"><div class="etichetta">Compensi ${anno}</div><div class="valore">${eurFmt.format(totAnno)}</div><div class="nota">${delta == null ? 'nessun confronto disponibile' : (delta >= 0 ? '+' : '') + delta.toFixed(1) + '% rispetto al ' + (anno - 1)}</div></div>
-                <div class="kpi ambra"><div class="etichetta">In scadenza (6 mesi)</div><div class="valore">${inScadenza.length}</div><div class="nota">da rinnovare o chiudere</div></div>
-                <div class="kpi rosso"><div class="etichetta">Scaduti</div><div class="valore">${scaduti.length}</div><div class="nota">verifica rinnovo o cessazione</div></div>
+                <div class="kpi ambra"><div class="etichetta">In scadenza (6 mesi)</div><div class="valore">${inScadenza.length}</div><div class="nota">${eurFmt.format(scadenzaTot)} di fatturato</div></div>
+                <div class="kpi rosso"><div class="etichetta">Scaduti</div><div class="valore">${scaduti.length}</div><div class="nota">${eurFmt.format(scadutoTot)} di fatturato</div></div>
             </div>
             <div class="card">
                 <h2>Andamento compensi per anno</h2>
-                <div class="grafico-wrap"><canvas id="grafico-trend" height="260"></canvas></div>
+                <p class="hint" style="margin:-6px 0 10px;">Passa sopra le barre per il dettaglio. Nell'anno in corso il fatturato <span style="color:#C9A227;font-weight:600;">in scadenza</span> e <span style="color:#C0392B;font-weight:600;">scaduto</span> e evidenziato nella barra.</p>
+                <div id="grafico-compensi"></div>
+            </div>
+            <div class="card">
+                <h2>Incarichi e fatturato per coordinatore territoriale</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Clicca su un coordinatore per vedere i suoi incarichi. Le pastiglie mostrano quanti (e quanto fatturato) sono in scadenza o scaduti.</p>
+                ${coordList.length ? '<div class="coord-lista">' + coordList.map(coordItem).join('') + '</div>' : '<p class="tabella-vuota">Nessun incarico attivo.</p>'}
             </div>
             <div class="card">
                 <h2>Incarichi in scadenza o scaduti</h2>
@@ -1752,7 +1805,13 @@
                 e.stopPropagation();
                 naviga('wizard', { modalita: 'rinnovo', id: b.dataset.rinnova });
             }));
-        disegnaGraficoTrend('grafico-trend');
+        $vista().querySelectorAll('[data-termina]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.termina);
+                if (inc) modaleTerminaIncarico(inc, () => vistaDashboard());
+            }));
+        disegnaGraficoCompensiSvg('grafico-compensi', anno);
     }
 
     function tabellaScadenze(lista) {
@@ -1769,7 +1828,7 @@
                 <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                 <td data-label="Qualita">${esc(i.qualita || '')}</td>
                 <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button></td>` : ''}
+                ${puoRinnovare ? `<td data-label="" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button></td>` : ''}
             </tr>`;
         }).join('') + '</tbody></table></div>';
     }
@@ -1996,12 +2055,12 @@
 
     function esportaCsvIncarichi() {
         const anni = Incarichi.anniConCompensi();
-        const righe = [['Cliente', 'Tipo', 'Codice fiscale', 'Data inizio', 'Data fine', 'Rinnovo', 'Area', 'Regione', 'Localita', 'Qualita', 'Resp. incarico', 'Referente', 'Team', 'Fatturazione', 'Stato'].concat(anni.map(String))];
+        const righe = [['Cliente', 'Tipo', 'Codice fiscale', 'Data inizio', 'Data fine', 'Rinnovo', 'Area', 'Regione', 'Localita', 'Qualita', 'Resp. incarico', 'Referente', 'Coordinatore territoriale', 'Team', 'Fatturazione', 'Stato'].concat(anni.map(String))];
         incarichiFiltrati(annoRiferimento()).forEach(i => {
             righe.push([
                 i.cliente, nomeTipo(i.tipo), i.codiceFiscale || '', i.dataInizio || i.dataInizioNote || '', i.dataFine || '',
                 i.rinnovo || '', i.area || '', i.regione || '', i.localita || '', i.qualita || '', i.respIncarico || '',
-                i.referente || '', i.team || '', i.fatturazione || '', i.stato || ''
+                i.referente || '', i.coordinatore || '', i.team || '', i.fatturazione || '', i.stato || ''
             ].concat(anni.map(a => Incarichi.compensoAnno(i, a) || '')));
         });
         const csv = righe.map(r => r.map(v => {
@@ -2079,6 +2138,7 @@
                             ${rigaRiepilogo('Responsabile incarico', inc.respIncarico)}
                             ${rigaRiepilogo('Responsabile qualita', inc.qualita)}
                             ${rigaRiepilogo('Referente', inc.referente)}
+                            ${rigaRiepilogo('Coordinatore territoriale', inc.coordinatore)}
                             ${rigaRiepilogo('Team di revisione', inc.team)}
                             ${rigaRiepilogo('Area', inc.area)}
                         </div>
@@ -2232,7 +2292,7 @@
             modalita, idEsistente: esistente ? esistente.id : null, passo: 1,
             dati: esistente ? JSON.parse(JSON.stringify(esistente)) : {
                 cliente: '', tipo: 'legale', codiceFiscale: '', area: 'Nord', regione: 'Lombardia', localita: '',
-                email1: '', email2: '', qualita: '', respIncarico: '', referente: '', team: '',
+                email1: '', email2: '', qualita: '', respIncarico: '', referente: '', team: '', coordinatore: '',
                 fatturazione: fatturazionePredefinita('legale'), fattInizio: null, fattFine: null, fattData: null, compensi: {}, stato: 'attivo'
             },
             // su un incarico esistente la fatturazione salvata e una scelta
@@ -2394,6 +2454,10 @@
                     </div>
                     <div class="campo"><label>Referente</label>
                         <select id="w-referente"><option value="">Seleziona</option>${opzioni(Persone.attive('team'), d.referente)}</select>
+                    </div>
+                    <div class="campo"><label>Coordinatore territoriale</label>
+                        <select id="w-coordinatore"><option value="">Seleziona</option>${opzioni(Persone.attive('coordinatore'), d.coordinatore)}</select>
+                        <div class="hint">Le persone con qualifica "Coordinatore territoriale".</div>
                     </div>
                 </div>
                 <div class="campo"><label>Team di revisione (seleziona uno o piu componenti)</label>
@@ -2654,6 +2718,7 @@
             d.respIncarico = document.getElementById('w-resp').value;
             d.qualita = document.getElementById('w-qualita').value;
             d.referente = document.getElementById('w-referente').value;
+            d.coordinatore = document.getElementById('w-coordinatore').value;
             d.team = Array.from(document.querySelectorAll('.w-team-check:checked')).map(c => c.value).join(', ');
             if (valida) {
                 if (!d.respIncarico || !d.qualita) { toast('Indica responsabile incarico e responsabile qualita.', 'rosso'); return false; }
@@ -2720,7 +2785,7 @@
                     dataFine: prec.dataFine || null,
                     compensi: Object.assign({}, prec.compensi || {}),
                     calc: prec.calc ? Object.assign({}, prec.calc) : null,
-                    qualita: prec.qualita, respIncarico: prec.respIncarico, referente: prec.referente, team: prec.team,
+                    qualita: prec.qualita, respIncarico: prec.respIncarico, referente: prec.referente, team: prec.team, coordinatore: prec.coordinatore,
                     calcoloCongelato: !!prec.calcoloCongelato, congelamento: prec.congelamento || null
                 };
                 d.storico = (prec.storico || []).concat([snap]);
@@ -2943,7 +3008,7 @@
                 </div>
             </header>
             <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi come responsabile">Inc.</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi come responsabile">Inc.</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             persone.map(p => `<tr>
                 <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
@@ -2953,6 +3018,7 @@
                 <td class="col-mark" data-label="Qualita">${spunta(p.qualita)}</td>
                 <td class="col-mark" data-label="Resp. incarico">${spunta(p.respIncarico)}</td>
                 <td class="col-mark" data-label="Team">${spunta(p.team)}</td>
+                <td class="col-mark" data-label="Coordinatore territoriale">${spunta(p.coordinatore)}</td>
                 <td class="col-mark" data-label="Equity partner">${spunta(p.equityPartner)}</td>
                 <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
                 <td class="num" data-label="Inc. (resp.)">${(conteggi[p.nome] || {}).resp || ''}</td>
@@ -3001,6 +3067,7 @@
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-qualita" ${p && p.qualita ? 'checked' : ''} style="width:auto;">Responsabile qualita</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-resp" ${p && p.respIncarico ? 'checked' : ''} style="width:auto;">Responsabile incarico</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-team" ${!p || p.team ? 'checked' : ''} style="width:auto;">Team di revisione / referente</label>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-coordinatore" ${p && p.coordinatore ? 'checked' : ''} style="width:auto;">Coordinatore territoriale</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equity" ${p && p.equityPartner ? 'checked' : ''} style="width:auto;">Equity partner</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-founding" ${p && p.foundingPartner ? 'checked' : ''} style="width:auto;">Founding partner</label>
             </div>
@@ -3033,6 +3100,7 @@
                 qualita: document.getElementById('m-p-qualita').checked,
                 respIncarico: document.getElementById('m-p-resp').checked,
                 team: document.getElementById('m-p-team').checked,
+                coordinatore: document.getElementById('m-p-coordinatore').checked,
                 equityPartner: document.getElementById('m-p-equity').checked,
                 foundingPartner: document.getElementById('m-p-founding').checked
             };
@@ -3042,7 +3110,7 @@
                 { chiave: 'regione', nome: 'Regione' }, { chiave: 'provincia', nome: 'Provincia' },
                 { chiave: 'localita', nome: 'Localita' }, { chiave: 'indirizzo', nome: 'Indirizzo' },
                 { chiave: 'qualita', nome: 'Ruolo qualita' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
-                { chiave: 'team', nome: 'Ruolo team' },
+                { chiave: 'team', nome: 'Ruolo team' }, { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
                 { chiave: 'equityPartner', nome: 'Equity partner' }, { chiave: 'foundingPartner', nome: 'Founding partner' }
             ];
             if (p) {
@@ -3076,7 +3144,7 @@
         lista.forEach(i => {
             const prima = JSON.parse(JSON.stringify(i));
             let cambiato = false;
-            ['qualita', 'respIncarico'].forEach(campo => {
+            ['qualita', 'respIncarico', 'coordinatore'].forEach(campo => {
                 if ((i[campo] || '').trim() === vecchio) { i[campo] = nuovo; cambiato = true; }
             });
             ['referente', 'team'].forEach(campo => {
@@ -3126,6 +3194,7 @@
         { id: 'qualita', nome: 'Responsabili qualità' },
         { id: 'procuratori', nome: 'Procuratori (resp. incarico)' },
         { id: 'team', nome: 'Team di revisione' },
+        { id: 'coordinatori', nome: 'Coordinatori territoriali' },
         { id: 'utenti', nome: 'Utenti abilitati' }
     ];
     function nomeGruppo(id) { const g = GRUPPI_MAIL.find(x => x.id === id); return g ? g.nome : id; }
@@ -3138,6 +3207,7 @@
         if (g.has('qualita')) persone.filter(p => p.qualita).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('procuratori')) persone.filter(p => p.respIncarico).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('team')) persone.filter(p => p.team).forEach(p => set.add(p.email.toLowerCase()));
+        if (g.has('coordinatori')) persone.filter(p => p.coordinatore).forEach(p => set.add(p.email.toLowerCase()));
         return set;
     }
 
@@ -3655,11 +3725,11 @@
                     </div>
                     <div class="filtri-dest">
                         <input id="cp-cerca" type="search" placeholder="Oppure scegli singole persone: filtra per cognome, nome, email...">
-                        <select id="cp-ruolo"><option value="">Tutti i ruoli</option><option value="qualita">Responsabile qualita</option><option value="respIncarico">Responsabile incarico (procuratori)</option><option value="team">Team di revisione</option></select>
+                        <select id="cp-ruolo"><option value="">Tutti i ruoli</option><option value="qualita">Responsabile qualita</option><option value="respIncarico">Responsabile incarico (procuratori)</option><option value="team">Team di revisione</option><option value="coordinatore">Coordinatore territoriale</option></select>
                     </div>
                     <div class="sel-azioni"><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="1">Seleziona tutti (filtrati)</button><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="0">Deseleziona</button><span class="hint" id="cp-conta"></span></div>
                     <div class="lista-destinatari" id="cp-lista">
-                        ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.team ? 'team' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(String(p.email).toLowerCase()) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
+                        ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.team ? 'team ' : '') + (p.coordinatore ? 'coordinatore' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(String(p.email).toLowerCase()) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
                     </div>
                 </div>
                 <div class="tab-pane nascosto" id="pane-clienti">
@@ -4978,6 +5048,77 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                 ctx.font = 'bold 9px Inter';
                 ctx.fillText(Math.round(v / 1000) + 'k', x + barW / 2, h - margine.giu - alt - 4);
             }
+        });
+    }
+
+    // Grafico SVG interattivo dei compensi per anno (cruscotto): tooltip al passaggio,
+    // barra dell'anno in corso segmentata per evidenziare il fatturato in scadenza / scaduto.
+    function disegnaGraficoCompensiSvg(containerId, annoCorr) {
+        const cont = document.getElementById(containerId);
+        if (!cont) return;
+        const incarichi = Incarichi.tutti();
+        const anni = Incarichi.anniConCompensi();
+        if (!anni.length) { cont.innerHTML = '<p class="tabella-vuota">Nessun compenso registrato.</p>'; return; }
+        const valori = anni.map(a => incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, a), 0));
+        const max = Math.max(...valori, 1);
+        const attivi = incarichi.filter(i => i.stato !== 'cessato');
+        let scadTot = 0, scaduTot = 0;
+        attivi.forEach(i => { const s = Incarichi.statoScadenza(i); const c = Incarichi.compensoAnno(i, annoCorr); if (s.classe === 'ambra') scadTot += c; else if (s.classe === 'rosso') scaduTot += c; });
+
+        const W = 760, H = 300, mL = 58, mR = 18, mT = 18, mB = 42;
+        const areaW = W - mL - mR, areaH = H - mT - mB, y0 = mT;
+        const passo = areaW / anni.length, barW = Math.min(66, passo * 0.6);
+        const yOf = v => y0 + areaH * (1 - Math.max(0, v) / max);
+        const fmtK = v => v >= 1000 ? Math.round(v / 1000) + 'k' : String(Math.round(v));
+        const esr = s => String(s);
+
+        let grid = '';
+        for (let g = 0; g <= 4; g++) {
+            const y = y0 + areaH * (1 - g / 4);
+            grid += `<line x1="${mL}" y1="${y}" x2="${W - mR}" y2="${y}" stroke="#E2E8F0"/>`
+                + `<text x="${mL - 8}" y="${y + 3}" text-anchor="end" font-size="10" fill="#94A3B8">${fmtK(max * g / 4)}</text>`;
+        }
+        let barre = '';
+        anni.forEach((a, i) => {
+            const v = valori[i];
+            const x = mL + passo * i + (passo - barW) / 2;
+            const isCorr = a === annoCorr;
+            const tip = `data-anno="${esr(a)}" data-tot="${esr(v)}" data-scad="${esr(isCorr ? scadTot : 0)}" data-scadu="${esr(isCorr ? scaduTot : 0)}"`;
+            if (isCorr && (scadTot + scaduTot) > 0) {
+                const segs = [{ v: Math.max(0, v - scadTot - scaduTot), c: '#164068' }, { v: scadTot, c: '#C9A227' }, { v: scaduTot, c: '#C0392B' }];
+                let acc = 0;
+                segs.forEach(sg => {
+                    if (sg.v <= 0) return;
+                    const yTop = yOf(acc + sg.v), yBot = yOf(acc);
+                    barre += `<rect class="g-bar" x="${x}" y="${yTop}" width="${barW}" height="${Math.max(0, yBot - yTop)}" fill="${sg.c}" rx="2" ${tip}><title>${esr(a)}: ${eurFmt.format(v)}</title></rect>`;
+                    acc += sg.v;
+                });
+            } else {
+                const y = yOf(v);
+                barre += `<rect class="g-bar" x="${x}" y="${y}" width="${barW}" height="${Math.max(0, y0 + areaH - y)}" fill="${a > annoCorr ? '#9DB8D2' : '#164068'}" rx="2" ${tip}><title>${esr(a)}: ${eurFmt.format(v)}</title></rect>`;
+            }
+            barre += `<text x="${x + barW / 2}" y="${H - 16}" text-anchor="middle" font-size="11" fill="${isCorr ? '#0A2844' : '#475569'}" font-weight="${isCorr ? '700' : '400'}">${esr(a)}</text>`;
+            if (v > 0) barre += `<text x="${x + barW / 2}" y="${yOf(v) - 5}" text-anchor="middle" font-size="9" font-weight="700" fill="#0A2844">${fmtK(v)}</text>`;
+        });
+        const legenda = (scadTot + scaduTot) > 0 ? `<div class="g-legenda">
+            <span><i style="background:#164068"></i>Regolare</span>
+            <span><i style="background:#C9A227"></i>In scadenza ${eurFmt.format(scadTot)}</span>
+            <span><i style="background:#C0392B"></i>Scaduto ${eurFmt.format(scaduTot)}</span>
+        </div>` : '';
+        cont.innerHTML = `<div class="g-svg-wrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Andamento compensi per anno">${grid}${barre}</svg><div class="g-tip" id="g-tip" hidden></div></div>${legenda}`;
+
+        const tip = cont.querySelector('#g-tip'), wrap = cont.querySelector('.g-svg-wrap');
+        cont.querySelectorAll('.g-bar').forEach(bar => {
+            bar.addEventListener('mousemove', e => {
+                const d = bar.dataset, sc = +d.scad, sd = +d.scadu;
+                tip.innerHTML = `<strong>${esc(d.anno)}</strong><br>Compensi: ${eurFmt.format(+d.tot)}`
+                    + (sc + sd > 0 ? `<br><span style="color:#C9A227">In scadenza: ${eurFmt.format(sc)}</span><br><span style="color:#C0392B">Scaduto: ${eurFmt.format(sd)}</span>` : '');
+                const r = wrap.getBoundingClientRect();
+                tip.style.left = Math.min(r.width - 150, e.clientX - r.left + 12) + 'px';
+                tip.style.top = (e.clientY - r.top + 12) + 'px';
+                tip.hidden = false;
+            });
+            bar.addEventListener('mouseleave', () => { tip.hidden = true; });
         });
     }
 
