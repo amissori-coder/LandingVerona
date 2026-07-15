@@ -1502,10 +1502,20 @@
         if (ancora.previousElementSibling && ancora.previousElementSibling.classList.contains('barra-tabella')) return;
         const ths = Array.from(tabella.tHead.rows[0].cells);
         const corpo = tabella.tBodies[0];
+        // la ricerca globale guarda solo le colonne con intestazione (esclude la colonna azioni: Apri/Duplica/Elimina)
+        const idxCerca = ths.map((th, i) => (th.textContent.trim() ? i : -1)).filter(i => i >= 0);
         const barra = document.createElement('div');
         barra.className = 'barra-tabella';
 
         const controlli = [];
+        let ricercaEl = null;
+        if (opts.ricerca) {
+            const campo = document.createElement('div');
+            campo.className = 'campo ricerca';
+            campo.innerHTML = '<label>Ricerca</label><input type="search" placeholder="Cerca in tutte le colonne...">';
+            ricercaEl = campo.querySelector('input');
+            barra.appendChild(campo);
+        }
         if (opts.filtri !== false) {
             ths.forEach((th, i) => {
                 const nome = th.textContent.trim();
@@ -1537,21 +1547,24 @@
 
         const applica = () => {
             const righe = Array.from(corpo.rows);
+            const q = ricercaEl ? ricercaEl.value.trim().toLowerCase() : '';
             let visibili = 0;
             righe.forEach(tr => {
                 let ok = true;
-                for (const c of controlli) {
+                if (q && !idxCerca.map(i => _testoCella(tr.cells[i])).join(' ').toLowerCase().includes(q)) ok = false;
+                if (ok) for (const c of controlli) {
                     const testo = _testoCella(tr.cells[c.i]);
                     if (c.tipo === 'select') { if (c.el.value && testo !== c.el.value) { ok = false; break; } }
-                    else { const q = c.el.value.trim().toLowerCase(); if (q && !testo.toLowerCase().includes(q)) { ok = false; break; } }
+                    else { const qc = c.el.value.trim().toLowerCase(); if (qc && !testo.toLowerCase().includes(qc)) { ok = false; break; } }
                 }
                 tr.style.display = ok ? '' : 'none';
                 if (ok) visibili++;
             });
-            const filtrando = controlli.some(c => (c.el.value || '').trim());
+            const filtrando = !!q || controlli.some(c => (c.el.value || '').trim());
             conteggio.textContent = filtrando ? (visibili + ' di ' + righe.length) : '';
         };
         controlli.forEach(c => c.el.addEventListener(c.tipo === 'select' ? 'change' : 'input', applica));
+        if (ricercaEl) ricercaEl.addEventListener('input', applica);
         azioni.querySelector('[data-esporta]').addEventListener('click', () => esportaTabellaCsv(tabella, opts.nomeFile));
         return applica;
     }
@@ -1765,6 +1778,7 @@
        VISTA: ELENCO INCARICHI
     ========================================================= */
     const filtriIncarichi = { testo: '', tipo: '', area: '', qualita: '', resp: '', stato: '', ordina: 'cliente', verso: 1 };
+    let incarichiTab = 'attivi'; // scheda incarichi: 'attivi' | 'terminati'
 
     function annoRiferimento() {
         const anni = Incarichi.anniConCompensi();
@@ -1817,7 +1831,6 @@
                     <option value="attivo" ${filtriIncarichi.stato === 'attivo' ? 'selected' : ''}>Attivi</option>
                     <option value="scadenza" ${filtriIncarichi.stato === 'scadenza' ? 'selected' : ''}>In scadenza</option>
                     <option value="scaduto" ${filtriIncarichi.stato === 'scaduto' ? 'selected' : ''}>Scaduti</option>
-                    <option value="cessato" ${filtriIncarichi.stato === 'cessato' ? 'selected' : ''}>Terminati</option>
                 </select></div>
             </div>
             <div id="contenitore-tabella"></div>`;
@@ -1838,8 +1851,9 @@
         disegnaTabellaIncarichi(annoRif);
     }
 
-    function incarichiFiltrati(annoRif) {
+    function incarichiFiltrati(annoRif, statoOverride) {
         const f = filtriIncarichi;
+        const stato = statoOverride !== undefined ? statoOverride : f.stato;
         if (!annoRif) annoRif = annoRiferimento();
         let lista = Incarichi.tutti();
         if (f.testo) {
@@ -1856,14 +1870,14 @@
         if (f.area) lista = lista.filter(i => i.area === f.area);
         if (f.qualita) lista = lista.filter(i => i.qualita === f.qualita);
         if (f.resp) lista = lista.filter(i => i.respIncarico === f.resp);
-        if (f.stato) {
+        if (stato) {
             lista = lista.filter(i => {
                 const s = Incarichi.statoScadenza(i);
                 // "neutro" su un incarico non cessato significa "senza scadenza": e attivo
-                if (f.stato === 'attivo') return i.stato !== 'cessato' && (s.classe === 'verde' || s.classe === 'neutro');
-                if (f.stato === 'scadenza') return s.classe === 'ambra';
-                if (f.stato === 'scaduto') return s.classe === 'rosso';
-                if (f.stato === 'cessato') return i.stato === 'cessato';
+                if (stato === 'attivo') return i.stato !== 'cessato' && (s.classe === 'verde' || s.classe === 'neutro');
+                if (stato === 'scadenza') return s.classe === 'ambra';
+                if (stato === 'scaduto') return s.classe === 'rosso';
+                if (stato === 'cessato') return i.stato === 'cessato';
                 return true;
             });
         }
@@ -1879,69 +1893,78 @@
     }
 
     function disegnaTabellaIncarichi(annoRif) {
-        const lista = incarichiFiltrati(annoRif);
-        const attivi = lista.filter(i => i.stato !== 'cessato');
-        const terminati = lista.filter(i => i.stato === 'cessato');
         const cont = document.getElementById('contenitore-tabella');
-        if (!attivi.length && !terminati.length) {
-            cont.innerHTML = '<div class="card tabella-vuota">Nessun incarico corrisponde ai filtri.</div>';
-            return;
-        }
-        const totale = attivi.reduce((s, i) => s + Incarichi.compensoAnno(i, annoRif), 0);
-        const colonne = [
-            { chiave: 'cliente', nome: 'Cliente' },
-            { chiave: 'tipo', nome: 'Tipo' },
-            { chiave: 'dataInizio', nome: 'Inizio' },
-            { chiave: 'dataFine', nome: 'Fine' },
-            { chiave: 'area', nome: 'Area' },
-            { chiave: 'qualita', nome: 'Qualita' },
-            { chiave: 'respIncarico', nome: 'Resp. incarico' },
-            { chiave: 'team', nome: 'Team' },
-            { chiave: 'compenso', nome: 'Compenso ' + annoRif, num: true },
-            { chiave: 'scadenza', nome: 'Stato' }
-        ];
         const puoRinnovare = Auth.puoModificare();
-        const tabellaAttivi = attivi.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>` +
-            colonne.map(c => `<th class="${c.num ? 'num' : ''}" data-ordina="${c.chiave}">${c.nome}${filtriIncarichi.ordina === c.chiave ? (filtriIncarichi.verso > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') +
-            (puoRinnovare ? '<th></th>' : '') +
-            `</tr></thead><tbody>` +
-            attivi.map(i => {
-                const s = Incarichi.statoScadenza(i);
-                return `<tr class="cliccabile" data-apri="${esc(i.id)}">
+        // attivi: rispetta il filtro di stato (attivo/scadenza/scaduto). terminati: ignora il filtro di stato
+        // (che riguarda solo gli attivi) cosi restano sempre visibili nella loro scheda.
+        const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato');
+        const terminati = incarichiFiltrati(annoRif, 'cessato');
+
+        // ogni gruppo (attivi / terminati) ha la sua scheda invece di stare in sequenza
+        const tabBar = `<div class="tab-dest" style="margin-bottom:16px;">
+            <button class="tab-btn ${incarichiTab === 'attivi' ? 'attivo' : ''}" data-inctab="attivi">Attivi (${attivi.length})</button>
+            <button class="tab-btn ${incarichiTab === 'terminati' ? 'attivo' : ''}" data-inctab="terminati">Terminati (${terminati.length})</button>
+        </div>`;
+
+        let corpo;
+        if (incarichiTab === 'terminati') {
+            corpo = terminati.length ? `<div class="card" id="sez-terminati">
+                <p class="descrizione" style="margin:0 0 12px;">Incarichi conclusi, tenuti fuori dall'elenco principale. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
+                <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                    <th>Cliente</th><th>Tipo</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${puoRinnovare ? '<th></th>' : ''}
+                </tr></thead><tbody>` +
+                terminati.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
                     <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
                     <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
-                    <td data-label="Inizio">${i.dataInizio ? esc(fmtData(i.dataInizio)) : esc(i.dataInizioNote || '')}</td>
                     <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
-                    <td data-label="Area">${esc(i.area || '')}</td>
-                    <td data-label="Qualita">${esc(i.qualita || '')}</td>
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
-                    <td data-label="Team">${esc(i.team || '')}</td>
-                    <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) : ''}</td>
-                    <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                    ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button></td>` : ''}
-                </tr>`;
-            }).join('') +
-            `</tbody><tfoot><tr><td colspan="8">Totale (${attivi.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
-            : '<div class="card tabella-vuota">Nessun incarico attivo corrisponde ai filtri.</div>';
+                    <td data-label="Terminato il">${i.terminato ? esc(fmtDataOra(i.terminato.il)) : ''}</td>
+                    ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button></td>` : ''}
+                </tr>`).join('') +
+                `</tbody></table></div></div>`
+                : '<div class="card tabella-vuota">Nessun incarico terminato.</div>';
+        } else {
+            const totale = attivi.reduce((s, i) => s + Incarichi.compensoAnno(i, annoRif), 0);
+            const colonne = [
+                { chiave: 'cliente', nome: 'Cliente' },
+                { chiave: 'tipo', nome: 'Tipo' },
+                { chiave: 'dataInizio', nome: 'Inizio' },
+                { chiave: 'dataFine', nome: 'Fine' },
+                { chiave: 'area', nome: 'Area' },
+                { chiave: 'qualita', nome: 'Qualita' },
+                { chiave: 'respIncarico', nome: 'Resp. incarico' },
+                { chiave: 'team', nome: 'Team' },
+                { chiave: 'compenso', nome: 'Compenso ' + annoRif, num: true },
+                { chiave: 'scadenza', nome: 'Stato' }
+            ];
+            corpo = attivi.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>` +
+                colonne.map(c => `<th class="${c.num ? 'num' : ''}" data-ordina="${c.chiave}">${c.nome}${filtriIncarichi.ordina === c.chiave ? (filtriIncarichi.verso > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') +
+                (puoRinnovare ? '<th></th>' : '') +
+                `</tr></thead><tbody>` +
+                attivi.map(i => {
+                    const s = Incarichi.statoScadenza(i);
+                    return `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                        <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                        <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                        <td data-label="Inizio">${i.dataInizio ? esc(fmtData(i.dataInizio)) : esc(i.dataInizioNote || '')}</td>
+                        <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
+                        <td data-label="Area">${esc(i.area || '')}</td>
+                        <td data-label="Qualita">${esc(i.qualita || '')}</td>
+                        <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
+                        <td data-label="Team">${esc(i.team || '')}</td>
+                        <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) : ''}</td>
+                        <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
+                        ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button></td>` : ''}
+                    </tr>`;
+                }).join('') +
+                `</tbody><tfoot><tr><td colspan="8">Totale (${attivi.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
+                : '<div class="card tabella-vuota">Nessun incarico attivo corrisponde ai filtri.</div>';
+        }
 
-        const sezTerminati = terminati.length ? `<div class="card" id="sez-terminati" style="margin-top:18px;">
-            <h2>Incarichi terminati (${terminati.length})</h2>
-            <p class="descrizione" style="margin:0 0 12px;">Incarichi conclusi, tenuti fuori dall'elenco principale. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
-            <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Cliente</th><th>Tipo</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${puoRinnovare ? '<th></th>' : ''}
-            </tr></thead><tbody>` +
-            terminati.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
-                <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
-                <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
-                <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
-                <td data-label="Terminato il">${i.terminato ? esc(fmtDataOra(i.terminato.il)) : ''}</td>
-                ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button></td>` : ''}
-            </tr>`).join('') +
-            `</tbody></table></div></div>` : '';
+        cont.innerHTML = tabBar + corpo;
 
-        cont.innerHTML = tabellaAttivi + sezTerminati;
-
+        cont.querySelectorAll('[data-inctab]').forEach(b =>
+            b.addEventListener('click', () => { incarichiTab = b.dataset.inctab; disegnaTabellaIncarichi(annoRif); }));
         cont.querySelectorAll('[data-apri]').forEach(r =>
             r.addEventListener('click', () => naviga('dettaglio', { id: r.dataset.apri })));
         cont.querySelectorAll('[data-rinnova]').forEach(b =>
@@ -3220,7 +3243,7 @@
     /* Stato della vista Comunicazioni: 'elenco' o 'calendario', e il mese mostrato. */
     let comuniVista = 'elenco';
     let comuniMese = null;
-    let comuniTab = 'programmate'; // 'programmate' (programmate + bozze) | 'invii' (invii effettuati)
+    let comuniTab = 'programmate'; // scheda attiva: 'programmate' | 'sospese' | 'bozze' (in preparazione) | 'invii' (effettuati)
 
     /* Calendario classico mensile delle comunicazioni: mostra gli invii passati
        (dallo storico) e le occorrenze future programmate, colorati per contesto. */
@@ -3298,52 +3321,54 @@
             <button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button>
             <button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></td>`;
 
-        const contestiPresenti = Array.from(new Set(programmate.map(c => c.contesto).filter(Boolean)));
-        const freqPresenti = Array.from(new Set(programmate.map(c => (c.programmazione && c.programmazione.frequenza) || '').filter(Boolean)));
-        const barraFiltriProg = programmate.length > 1 ? `<div class="filtri" id="filtri-prog">
-            <div class="campo ricerca"><label>Ricerca</label><input id="fp-cerca" type="search" placeholder="Nome o oggetto..."></div>
-            <div class="campo"><label>Contesto</label><select id="fp-contesto"><option value="">Tutti</option>${contestiPresenti.map(x => '<option value="' + esc(x) + '">' + esc(contesto(x).nome) + '</option>').join('')}</select></div>
-            <div class="campo"><label>Frequenza</label><select id="fp-freq"><option value="">Tutte</option>${freqPresenti.map(f => '<option value="' + esc(f) + '">' + esc(f) + '</option>').join('')}</select></div>
-            <span class="filtro-conteggio" id="fp-conta"></span>
-        </div>` : '';
+        // barra filtri riutilizzabile per le liste "a schede" (programmate, sospese)
+        const barraFiltriComm = (pfx, items) => {
+            if (items.length < 2) return '';
+            const cs = Array.from(new Set(items.map(c => c.contesto).filter(Boolean)));
+            const fs = Array.from(new Set(items.map(c => (c.programmazione && c.programmazione.frequenza) || '').filter(Boolean)));
+            return `<div class="filtri" id="${pfx}-filtri">
+                <div class="campo ricerca"><label>Ricerca</label><input id="${pfx}-cerca" type="search" placeholder="Nome o oggetto..."></div>
+                <div class="campo"><label>Contesto</label><select id="${pfx}-contesto"><option value="">Tutti</option>${cs.map(x => '<option value="' + esc(x) + '">' + esc(contesto(x).nome) + '</option>').join('')}</select></div>
+                ${fs.length ? `<div class="campo"><label>Frequenza</label><select id="${pfx}-freq"><option value="">Tutte</option>${fs.map(f => '<option value="' + esc(f) + '">' + esc(f) + '</option>').join('')}</select></div>` : ''}
+                <span class="filtro-conteggio" id="${pfx}-conta"></span>
+            </div>`;
+        };
+        // riga (details) di una comunicazione a schede; sosp=true per le sospese
+        const rigaComm = (c, sosp) => {
+            const grp = (c.gruppi && c.gruppi.length) ? ' + ' + esc(c.gruppi.map(nomeGruppo).join(', ')) : '';
+            const freq = (c.programmazione && c.programmazione.frequenza) || '';
+            const cerca = ((c.nome || '') + ' ' + (c.oggetto || '')).toLowerCase();
+            const quando = sosp ? ('Sospesa &middot; ' + esc(descriviProgrammazione(c.programmazione))) : esc(descriviProgrammazione(c.programmazione));
+            const azioniInline = sosp
+                ? `<button class="btn btn-sm btn-primary c-riattiva" data-id="${esc(c.id)}">Riattiva</button><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>`
+                : `<button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-secondary c-sospendi" data-id="${esc(c.id)}">Sospendi</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>`;
+            const dettaglio = sosp
+                ? '<p class="hint" style="margin:0;">Gli invii sono fermi. Con "Riattiva" ripartono dalla prossima occorrenza futura; con "Duplica" ne crei una copia modificabile.</p>'
+                : anteprimaProssimiInvii(c);
+            return `<details class="comm-item${sosp ? ' comm-sospesa' : ''}" data-contesto="${esc(c.contesto || '')}" data-freq="${esc(freq)}" data-cerca="${esc(cerca)}">
+                <summary class="comm-sommario">
+                    ${badgeContesto(c.contesto)}
+                    <span class="comm-nome">${esc(c.nome || c.oggetto || '(senza nome)')}</span>
+                    <span class="comm-quando-inline">${quando}</span>
+                    <span class="comm-dest-inline">${(c.destinatari || []).length} dest.${grp}</span>
+                    <span class="comm-azioni-inline">${azioniInline}</span>
+                </summary>
+                <div class="comm-dettaglio">${(c.nome && c.oggetto) ? '<div class="comm-ogg-riga">Oggetto: ' + esc(c.oggetto) + '</div>' : ''}${dettaglio}</div>
+            </details>`;
+        };
         const sezProgrammate = programmate.length ? `<div class="card" id="sez-programmate">
             <h2>Comunicazioni programmate (${programmate.length})</h2>
             <p class="hint" style="margin:-6px 0 12px;">Clicca su una riga (o sul <strong>&#9654;</strong> a inizio riga) per <strong>espanderla</strong> e vedere i prossimi invii con il periodo; ri-clicca per chiuderla.</p>
-            ${barraFiltriProg}
-            <div class="comm-lista">` +
-            programmate.map(c => {
-                const grp = (c.gruppi && c.gruppi.length) ? ' + ' + esc(c.gruppi.map(nomeGruppo).join(', ')) : '';
-                const freq = (c.programmazione && c.programmazione.frequenza) || '';
-                const cerca = ((c.nome || '') + ' ' + (c.oggetto || '')).toLowerCase();
-                return `<details class="comm-item" data-contesto="${esc(c.contesto || '')}" data-freq="${esc(freq)}" data-cerca="${esc(cerca)}">
-                    <summary class="comm-sommario">
-                        ${badgeContesto(c.contesto)}
-                        <span class="comm-nome">${esc(c.nome || c.oggetto || '(senza nome)')}</span>
-                        <span class="comm-quando-inline">${esc(descriviProgrammazione(c.programmazione))}</span>
-                        <span class="comm-dest-inline">${(c.destinatari || []).length} dest.${grp}</span>
-                        <span class="comm-azioni-inline"><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-secondary c-sospendi" data-id="${esc(c.id)}">Sospendi</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></span>
-                    </summary>
-                    <div class="comm-dettaglio">${(c.nome && c.oggetto) ? '<div class="comm-ogg-riga">Oggetto: ' + esc(c.oggetto) + '</div>' : ''}${anteprimaProssimiInvii(c)}</div>
-                </details>`;
-            }).join('') + `</div></div>` : '';
+            ${barraFiltriComm('fp', programmate)}
+            <div class="comm-lista">${programmate.map(c => rigaComm(c, false)).join('')}</div></div>`
+            : '<div class="card tabella-vuota">Nessuna comunicazione programmata. Premi "Nuova comunicazione" per crearne una.</div>';
 
         const sezSospese = sospese.length ? `<div class="card" id="sez-sospese">
             <h2>Comunicazioni sospese (${sospese.length})</h2>
             <p class="hint" style="margin:-6px 0 12px;">Invii fermati: non partira nessuna mail finche non premi <strong>Riattiva</strong>. Riparte dalla prossima data utile.</p>
-            <div class="comm-lista">` +
-            sospese.map(c => {
-                const grp = (c.gruppi && c.gruppi.length) ? ' + ' + esc(c.gruppi.map(nomeGruppo).join(', ')) : '';
-                return `<details class="comm-item comm-sospesa" data-contesto="${esc(c.contesto || '')}">
-                    <summary class="comm-sommario">
-                        ${badgeContesto(c.contesto)}
-                        <span class="comm-nome">${esc(c.nome || c.oggetto || '(senza nome)')}</span>
-                        <span class="comm-quando-inline">Sospesa &middot; ${esc(descriviProgrammazione(c.programmazione))}</span>
-                        <span class="comm-dest-inline">${(c.destinatari || []).length} dest.${grp}</span>
-                        <span class="comm-azioni-inline"><button class="btn btn-sm btn-primary c-riattiva" data-id="${esc(c.id)}">Riattiva</button><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></span>
-                    </summary>
-                    <div class="comm-dettaglio">${(c.nome && c.oggetto) ? '<div class="comm-ogg-riga">Oggetto: ' + esc(c.oggetto) + '</div>' : ''}<p class="hint" style="margin:0;">Gli invii sono fermi. Con "Riattiva" ripartono dalla prossima occorrenza futura; con "Duplica" ne crei una copia modificabile.</p></div>
-                </details>`;
-            }).join('') + `</div></div>` : '';
+            ${barraFiltriComm('fs', sospese)}
+            <div class="comm-lista">${sospese.map(c => rigaComm(c, true)).join('')}</div></div>`
+            : '<div class="card tabella-vuota">Nessuna comunicazione sospesa.</div>';
 
         const sezBozze = bozze.length ? `<div class="card" id="sez-bozze">
             <h2>Comunicazioni in preparazione (${bozze.length})</h2>
@@ -3358,7 +3383,8 @@
                 <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
                 <td data-label="Creata il">${c.creato ? fmtDataOra(c.creato.il) : ''}</td>
                 ${azioni(c)}
-            </tr>`).join('') + `</tbody></table></div></div>` : '';
+            </tr>`).join('') + `</tbody></table></div></div>`
+            : '<div class="card tabella-vuota">Nessuna comunicazione in preparazione. Premi "Nuova comunicazione" per prepararne una.</div>';
 
         const sezInvii = invii.length ? `<div class="card" id="sez-invii">
             <h2>Invii effettuati (${invii.length})</h2>
@@ -3372,22 +3398,28 @@
                 <td class="num" data-label="Destinatari">${s.n || ''}</td>
                 <td data-label="Tipo">${s.da === 'programmato' ? '<span class="badge legale">programmato</span>' : '<span class="badge neutro">manuale</span>'}</td>
                 <td data-label="Da">${esc(s.da)}</td>
-            </tr>`).join('') + `</tbody></table></div></div>` : '';
+            </tr>`).join('') + `</tbody></table></div></div>`
+            : '<div class="card tabella-vuota">Nessun invio effettuato finora.</div>';
 
-        const elencoProg = `${sezProgrammate}${sezSospese}${sezBozze}
-            ${(programmate.length || sospese.length || bozze.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione programmata, sospesa o in preparazione. Premi "Nuova comunicazione" per prepararne una.</div>'}`;
-        const vistaInvii = invii.length ? sezInvii : '<div class="card tabella-vuota">Nessun invio effettuato finora.</div>';
+        // ogni gruppo di comunicazioni ha la sua scheda (finestra) invece di stare tutto in sequenza
+        const schede = [
+            { k: 'programmate', nome: 'Programmate', n: programmate.length },
+            { k: 'sospese', nome: 'Sospese', n: sospese.length },
+            { k: 'bozze', nome: 'In preparazione', n: bozze.length },
+            { k: 'invii', nome: 'Invii effettuati', n: invii.length }
+        ];
+        if (!schede.some(s => s.k === comuniTab)) comuniTab = 'programmate';
+        const tabs = `<div class="tab-dest" style="margin-bottom:16px;">${schede.map(s => `<button class="tab-btn ${comuniTab === s.k ? 'attivo' : ''}" data-tab="${s.k}">${s.nome} (${s.n})</button>`).join('')}</div>`;
 
         const toggle = `<div class="toggle-vista">
             <button class="btn btn-sm ${comuniVista === 'elenco' ? 'btn-primary' : 'btn-secondary'}" data-vista="elenco">Elenco</button>
             <button class="btn btn-sm ${comuniVista === 'calendario' ? 'btn-primary' : 'btn-secondary'}" data-vista="calendario">Calendario</button>
         </div>`;
-        const tabs = `<div class="tab-dest" style="margin-bottom:16px;">
-            <button class="tab-btn ${comuniTab === 'programmate' ? 'attivo' : ''}" data-tab="programmate">Programmate e in preparazione</button>
-            <button class="tab-btn ${comuniTab === 'invii' ? 'attivo' : ''}" data-tab="invii">Invii effettuati (${invii.length})</button>
-        </div>`;
-        const inProgrammate = comuniTab !== 'invii';
-        const corpo = !inProgrammate ? vistaInvii : (comuniVista === 'calendario' ? renderCalendarioComunicazioni() : elencoProg);
+        const mostraToggle = comuniTab === 'programmate';
+        const corpo = comuniTab === 'programmate' ? (comuniVista === 'calendario' ? renderCalendarioComunicazioni() : sezProgrammate)
+            : comuniTab === 'sospese' ? sezSospese
+                : comuniTab === 'bozze' ? sezBozze
+                    : sezInvii;
 
         $vista().innerHTML = `
             <header>
@@ -3395,7 +3427,7 @@
                     <h1>Comunicazioni</h1>
                     <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), scegli il contesto, inviale subito o programmale.</p>
                 </div>
-                <div class="header-azioni">${inProgrammate ? toggle : ''}<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button></div>
+                <div class="header-azioni">${mostraToggle ? toggle : ''}<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button></div>
             </header>
             ${tabs}
             ${corpo}
@@ -3405,7 +3437,7 @@
         $vista().querySelectorAll('[data-vista]').forEach(b => b.addEventListener('click', () => { comuniVista = b.dataset.vista; vistaComunicazioni(); }));
         document.getElementById('btn-nuova-com').addEventListener('click', () => modaleComunicazione(null));
 
-        if (inProgrammate && comuniVista === 'calendario') {
+        if (comuniTab === 'programmate' && comuniVista === 'calendario') {
             const pm = document.getElementById('cal-prec'), sm = document.getElementById('cal-succ'), ob = document.getElementById('cal-oggi-btn');
             if (pm) pm.addEventListener('click', () => { comuniMese = new Date(comuniMese.getFullYear(), comuniMese.getMonth() - 1, 1); vistaComunicazioni(); });
             if (sm) sm.addEventListener('click', () => { comuniMese = new Date(comuniMese.getFullYear(), comuniMese.getMonth() + 1, 1); vistaComunicazioni(); });
@@ -3414,25 +3446,31 @@
             return;
         }
 
-        // filtri delle comunicazioni programmate (righe .comm-item, mostra/nascondi)
-        const filtraProg = () => {
-            const ce = document.getElementById('fp-cerca'), coe = document.getElementById('fp-contesto'), fre = document.getElementById('fp-freq');
-            const q = ce ? ce.value.toLowerCase() : '', ct = coe ? coe.value : '', fq = fre ? fre.value : '';
-            let visti = 0, tot = 0;
-            $vista().querySelectorAll('#sez-programmate .comm-item').forEach(it => {
-                tot++;
-                const ok = (!q || (it.dataset.cerca || '').includes(q)) && (!ct || it.dataset.contesto === ct) && (!fq || it.dataset.freq === fq);
-                it.style.display = ok ? '' : 'none';
-                if (ok) visti++;
-            });
-            const cnt = document.getElementById('fp-conta');
-            if (cnt) cnt.textContent = (visti < tot) ? (visti + ' di ' + tot) : '';
+        // filtri delle liste a schede (programmate, sospese): ricerca + contesto + frequenza sui .comm-item
+        const legaFiltriComm = (pfx, sezSel) => {
+            const run = () => {
+                const ce = document.getElementById(pfx + '-cerca'), coe = document.getElementById(pfx + '-contesto'), fre = document.getElementById(pfx + '-freq');
+                const q = ce ? ce.value.toLowerCase() : '', ct = coe ? coe.value : '', fq = fre ? fre.value : '';
+                let visti = 0, tot = 0;
+                $vista().querySelectorAll(sezSel + ' .comm-item').forEach(it => {
+                    tot++;
+                    const ok = (!q || (it.dataset.cerca || '').includes(q)) && (!ct || it.dataset.contesto === ct) && (!fq || (it.dataset.freq || '') === fq);
+                    it.style.display = ok ? '' : 'none';
+                    if (ok) visti++;
+                });
+                const cnt = document.getElementById(pfx + '-conta');
+                if (cnt) cnt.textContent = (visti < tot) ? (visti + ' di ' + tot) : '';
+            };
+            const s = document.getElementById(pfx + '-cerca'); if (s) s.addEventListener('input', run);
+            [pfx + '-contesto', pfx + '-freq'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', run); });
         };
-        ['fp-cerca', 'fp-contesto', 'fp-freq'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', filtraProg); });
+        legaFiltriComm('fp', '#sez-programmate');
+        legaFiltriComm('fs', '#sez-sospese');
 
+        // tabelle (in preparazione, invii): filtri per colonna + ricerca testuale + esporta CSV
         [['#sez-bozze', 'comunicazioni-in-preparazione'], ['#sez-invii', 'invii-effettuati']].forEach(([sel, nome]) => {
             const t = $vista().querySelector(sel + ' table.dati');
-            if (t) attrezzaTabella(t, { nomeFile: nome });
+            if (t) attrezzaTabella(t, { nomeFile: nome, ricerca: true });
         });
         $vista().querySelectorAll('.c-apri').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); modaleComunicazione(b.dataset.id); }));
         $vista().querySelectorAll('.c-sospendi').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); sospendiComunicazione(b.dataset.id); }));
