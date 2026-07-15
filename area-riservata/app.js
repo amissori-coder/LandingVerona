@@ -3391,7 +3391,7 @@
             <div class="campo">
                 <div class="rte-intest">
                     <label style="margin:0;">Messaggio</label>
-                    <button type="button" class="btn btn-sm btn-secondary" id="c-anteprima-btn">Mostra anteprima</button>
+                    <button type="button" class="btn btn-sm btn-secondary" id="c-anteprima-btn">Anteprima (nuova finestra)</button>
                 </div>
                 <div class="rte-barra">
                     <button type="button" class="rte-btn" data-cmd="bold" title="Grassetto"><strong>G</strong></button>
@@ -3417,17 +3417,6 @@
                     </ul>
                     <p>Cosi una sola comunicazione ricorrente genera da sola l'oggetto e il testo giusti per ogni periodo. Nell'invio immediato <code>{periodo}</code> resta vuoto, perche non c'e una frequenza.</p>
                 </div>
-            </div>
-            <div class="campo nascosto" id="c-anteprima-pane">
-                <label>Anteprima della mail</label>
-                <div class="mail-anteprima">
-                    <div class="mail-intest">
-                        <div><strong>Da:</strong> Revilaw S.p.A. &lt;noreply@nextgenerationbusiness.it&gt;</div>
-                        <div><strong>Oggetto:</strong> <span id="ap-oggetto"></span></div>
-                    </div>
-                    <div class="mail-corpo" id="ap-corpo"></div>
-                </div>
-                <div class="hint" id="ap-nota" style="margin-top:6px;"></div>
             </div>
             <div class="campo">
                 <label>Destinatari <span class="hint" id="c-conta"></span></label>
@@ -3504,12 +3493,11 @@
 
         const $ = x => document.getElementById(x);
         $('c-contesto').value = (c && c.contesto) || 'generale';
-        // anteprima live della mail (con sostituzione delle variabili su dati di esempio)
+        // anteprima della mail: si apre in una NUOVA FINESTRA del browser
         const CAMPIONE_VAR = { email: 'mario.rossi@esempio.it', nome: 'Mario', cognome: 'Rossi', incarichi: 'Alpha S.r.l., Beta S.p.A.' };
-        const anteprimaVisibile = () => { const p = $('c-anteprima-pane'); return p && !p.classList.contains('nascosto'); };
-        const aggiornaAnteprima = () => {
-            if (!anteprimaVisibile()) return;
-            const oggRaw = $('c-oggetto').value, testoRaw = $('c-testo').innerHTML;
+        const editor = $('c-testo');
+        const apriAnteprima = () => {
+            const oggRaw = $('c-oggetto').value, testoRaw = editor.innerHTML;
             const usaPersonal = haVariabili(oggRaw) || haVariabili(testoRaw);
             const usaPeriodo = /\{periodo\}/.test(oggRaw + '\n' + testoRaw);
             let periodoAnt = '';
@@ -3518,23 +3506,20 @@
                 const q = $('c-quando') ? $('c-quando').value : '', ts = q ? new Date(q).getTime() : NaN, fq = $('c-freq') ? $('c-freq').value : 'unica';
                 periodoAnt = (progOn && fq !== 'unica' && !isNaN(ts)) ? etichettaPeriodo(fq, ts) : 'primo trimestre 2026';
             }
-            // oggetto = testo semplice; corpo = HTML (variabili con valori escaped)
-            const oggFinale = applicaVariabili(sostituisciPeriodo(oggRaw, periodoAnt), CAMPIONE_VAR);
-            $('ap-oggetto').textContent = oggFinale.trim() || '(nessun oggetto)';
-            const corpoHtml = applicaVariabiliHtml(sostituisciPeriodo(testoRaw, esc(periodoAnt)), CAMPIONE_VAR);
-            $('ap-corpo').innerHTML = ($('c-testo').textContent.trim() ? corpoHtml : '<span class="hint">(qui comparira il testo del messaggio)</span>') + FIRMA_MAIL_HTML;
-            const nota = $('ap-nota');
-            if (nota) nota.textContent = usaPersonal ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : (usaPeriodo ? 'Anteprima con un periodo di esempio; {periodo} cambia a ogni invio programmato.' : '');
+            const oggFinale = esc(applicaVariabili(sostituisciPeriodo(oggRaw, periodoAnt), CAMPIONE_VAR).trim() || '(nessun oggetto)');
+            const corpoHtml = editor.textContent.trim() ? applicaVariabiliHtml(sostituisciPeriodo(testoRaw, esc(periodoAnt)), CAMPIONE_VAR) : '<span style="color:#94A3B8;">(nessun testo)</span>';
+            const nota = usaPersonal ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : (usaPeriodo ? 'Anteprima con un periodo di esempio; {periodo} cambia a ogni invio programmato.' : '');
+            const doc = '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anteprima mail</title>'
+                + '<style>body{margin:0;background:#F1F5F9;font-family:Inter,system-ui,sans-serif;color:#1E293B;padding:24px;}.wrap{max-width:680px;margin:0 auto;}.nota{font-size:13px;color:#164068;background:#E8EFF6;border:1px solid #CFE0EE;border-radius:6px;padding:8px 12px;margin-bottom:14px;}.card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;}.intest{background:#F1F5F9;border-bottom:1px solid #E2E8F0;padding:12px 16px;font-size:13px;color:#475569;}.intest strong{color:#0A2844;}.corpo{padding:18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;}</style></head><body><div class="wrap">'
+                + (nota ? '<div class="nota">' + esc(nota) + '</div>' : '')
+                + '<div class="card"><div class="intest"><div><strong>Da:</strong> Revilaw S.p.A. &lt;noreply@nextgenerationbusiness.it&gt;</div><div><strong>Oggetto:</strong> ' + oggFinale + '</div></div>'
+                + '<div class="corpo">' + corpoHtml + FIRMA_MAIL_HTML + '</div></div></div></body></html>';
+            const w = window.open('', 'rv-anteprima-mail', 'width=760,height=820,scrollbars=yes,resizable=yes');
+            if (!w) { toast('Il browser ha bloccato la finestra di anteprima: consenti i popup per questo sito.', 'rosso'); return; }
+            w.document.open(); w.document.write(doc); w.document.close(); w.focus();
         };
-        const editor = $('c-testo');
-        // pulsante mostra/nascondi anteprima
         const btnAnt = $('c-anteprima-btn');
-        if (btnAnt) btnAnt.addEventListener('click', () => {
-            const p = $('c-anteprima-pane'), mostra = p.classList.contains('nascosto');
-            p.classList.toggle('nascosto', !mostra);
-            btnAnt.textContent = mostra ? 'Nascondi anteprima' : 'Mostra anteprima';
-            if (mostra) { aggiornaAnteprima(); p.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-        });
+        if (btnAnt) btnAnt.addEventListener('click', apriAnteprima);
         // barra di formattazione: i pulsanti non rubano il focus (mousedown preventDefault)
         document.querySelectorAll('.rte-btn').forEach(b => {
             b.addEventListener('mousedown', e => e.preventDefault());
@@ -3543,7 +3528,6 @@
                 const cmd = b.dataset.cmd;
                 if (cmd === 'createLink') { const url = prompt('Indirizzo del collegamento (https://...)'); if (url) document.execCommand('createLink', false, url); }
                 else document.execCommand(cmd, false, null);
-                aggiornaAnteprima();
             });
         });
         // incolla come testo semplice (evita HTML sporco da Word/pagine web)
@@ -3552,8 +3536,6 @@
             const t = ((e.clipboardData || window.clipboardData).getData('text/plain') || '');
             document.execCommand('insertText', false, t);
         });
-        editor.addEventListener('input', aggiornaAnteprima);
-        $('c-oggetto').addEventListener('input', aggiornaAnteprima);
         // inserimento variabili al cursore del campo attivo (oggetto = input, messaggio = editor)
         let ultimoCampoVar = 'c-testo';
         $('c-oggetto').addEventListener('focus', () => { ultimoCampoVar = 'c-oggetto'; });
@@ -3564,7 +3546,6 @@
                 const token = '{' + b.dataset.var + '}';
                 if (ultimoCampoVar === 'c-testo') { editor.focus(); document.execCommand('insertText', false, token); }
                 else { const el = $('c-oggetto'), s = el.selectionStart != null ? el.selectionStart : el.value.length, e2 = el.selectionEnd != null ? el.selectionEnd : el.value.length; el.value = el.value.slice(0, s) + token + el.value.slice(e2); el.focus(); try { el.setSelectionRange(s + token.length, s + token.length); } catch (_) { } }
-                aggiornaAnteprima();
             });
         });
         // schede destinatari
