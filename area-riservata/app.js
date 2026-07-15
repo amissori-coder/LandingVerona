@@ -256,7 +256,11 @@
                 const visti = new Set(), uniti = [];
                 [].concat(cur.invii || [], c.invii || []).forEach(v => { const k = chiave(v); if (!visti.has(k)) { visti.add(k); uniti.push(v); } });
                 c.invii = uniti;
-                if (c.programmazione && cur.programmazione && (cur.programmazione.prossimoInvio || 0) > (c.programmazione.prossimoInvio || 0)) {
+                // riconcilia solo se la versione in archivio e' ATTIVA (solo allora il server puo averla fatta
+                // avanzare): se e' sospesa o disattivata non va mai riportata indietro sul valore del form,
+                // altrimenti riprogrammandola a una data anticipata sparirebbe da tutte le sezioni.
+                if (c.programmazione && cur.programmazione && cur.programmazione.attiva !== false && !cur.sospesa
+                    && (cur.programmazione.prossimoInvio || 0) > (c.programmazione.prossimoInvio || 0)) {
                     c.programmazione = Object.assign({}, c.programmazione, {
                         prossimoInvio: cur.programmazione.prossimoInvio,
                         ultimoInvio: cur.programmazione.ultimoInvio,
@@ -1254,9 +1258,38 @@
             return inc;
         },
 
+        // termina l'incarico: passa allo stato "cessato" (mostrato come "terminato") e finisce nella sezione dedicata
+        termina(id, utente) {
+            const lista = this.tutti();
+            const idx = lista.findIndex(i => i.id === id);
+            if (idx < 0) return null;
+            const inc = lista[idx];
+            const prima = inc.stato || 'attivo';
+            inc.stato = 'cessato';
+            inc.terminato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            this.salva(lista);
+            Audit.registra(utente, 'Incarico terminato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: prima, dopo: 'terminato' }]);
+            return inc;
+        },
+
+        // riattiva un incarico terminato: torna attivo e rientra nell'elenco principale
+        riattiva(id, utente) {
+            const lista = this.tutti();
+            const idx = lista.findIndex(i => i.id === id);
+            if (idx < 0) return null;
+            const inc = lista[idx];
+            inc.stato = 'attivo';
+            inc.terminato = null;
+            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            this.salva(lista);
+            Audit.registra(utente, 'Incarico riattivato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: 'terminato', dopo: 'attivo' }]);
+            return inc;
+        },
+
         statoScadenza(inc) {
             const fine = inc.rinnovo || inc.dataFine;
-            if (inc.stato === 'cessato') return { classe: 'neutro', testo: 'Cessato' };
+            if (inc.stato === 'cessato') return { classe: 'neutro', testo: 'Terminato' };
             if (!fine) return { classe: 'neutro', testo: 'Senza scadenza' };
             // valori non in formato data (note testuali) non sono confrontabili
             if (!/^\d{4}-\d{2}-\d{2}$/.test(fine)) return { classe: 'neutro', testo: String(fine) };
@@ -1784,7 +1817,7 @@
                     <option value="attivo" ${filtriIncarichi.stato === 'attivo' ? 'selected' : ''}>Attivi</option>
                     <option value="scadenza" ${filtriIncarichi.stato === 'scadenza' ? 'selected' : ''}>In scadenza</option>
                     <option value="scaduto" ${filtriIncarichi.stato === 'scaduto' ? 'selected' : ''}>Scaduti</option>
-                    <option value="cessato" ${filtriIncarichi.stato === 'cessato' ? 'selected' : ''}>Cessati</option>
+                    <option value="cessato" ${filtriIncarichi.stato === 'cessato' ? 'selected' : ''}>Terminati</option>
                 </select></div>
             </div>
             <div id="contenitore-tabella"></div>`;
@@ -1847,12 +1880,14 @@
 
     function disegnaTabellaIncarichi(annoRif) {
         const lista = incarichiFiltrati(annoRif);
+        const attivi = lista.filter(i => i.stato !== 'cessato');
+        const terminati = lista.filter(i => i.stato === 'cessato');
         const cont = document.getElementById('contenitore-tabella');
-        if (!lista.length) {
+        if (!attivi.length && !terminati.length) {
             cont.innerHTML = '<div class="card tabella-vuota">Nessun incarico corrisponde ai filtri.</div>';
             return;
         }
-        const totale = lista.reduce((s, i) => s + Incarichi.compensoAnno(i, annoRif), 0);
+        const totale = attivi.reduce((s, i) => s + Incarichi.compensoAnno(i, annoRif), 0);
         const colonne = [
             { chiave: 'cliente', nome: 'Cliente' },
             { chiave: 'tipo', nome: 'Tipo' },
@@ -1866,11 +1901,11 @@
             { chiave: 'scadenza', nome: 'Stato' }
         ];
         const puoRinnovare = Auth.puoModificare();
-        cont.innerHTML = `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>` +
+        const tabellaAttivi = attivi.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>` +
             colonne.map(c => `<th class="${c.num ? 'num' : ''}" data-ordina="${c.chiave}">${c.nome}${filtriIncarichi.ordina === c.chiave ? (filtriIncarichi.verso > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') +
             (puoRinnovare ? '<th></th>' : '') +
             `</tr></thead><tbody>` +
-            lista.map(i => {
+            attivi.map(i => {
                 const s = Incarichi.statoScadenza(i);
                 return `<tr class="cliccabile" data-apri="${esc(i.id)}">
                     <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
@@ -1886,7 +1921,26 @@
                     ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button></td>` : ''}
                 </tr>`;
             }).join('') +
-            `</tbody><tfoot><tr><td colspan="8">Totale (${lista.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`;
+            `</tbody><tfoot><tr><td colspan="8">Totale (${attivi.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
+            : '<div class="card tabella-vuota">Nessun incarico attivo corrisponde ai filtri.</div>';
+
+        const sezTerminati = terminati.length ? `<div class="card" id="sez-terminati" style="margin-top:18px;">
+            <h2>Incarichi terminati (${terminati.length})</h2>
+            <p class="descrizione" style="margin:0 0 12px;">Incarichi conclusi, tenuti fuori dall'elenco principale. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
+            <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <th>Cliente</th><th>Tipo</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${puoRinnovare ? '<th></th>' : ''}
+            </tr></thead><tbody>` +
+            terminati.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
+                <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
+                <td data-label="Terminato il">${i.terminato ? esc(fmtDataOra(i.terminato.il)) : ''}</td>
+                ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button></td>` : ''}
+            </tr>`).join('') +
+            `</tbody></table></div></div>` : '';
+
+        cont.innerHTML = tabellaAttivi + sezTerminati;
 
         cont.querySelectorAll('[data-apri]').forEach(r =>
             r.addEventListener('click', () => naviga('dettaglio', { id: r.dataset.apri })));
@@ -1894,6 +1948,13 @@
             b.addEventListener('click', e => {
                 e.stopPropagation();
                 naviga('wizard', { modalita: 'rinnovo', id: b.dataset.rinnova });
+            }));
+        cont.querySelectorAll('[data-riattiva]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                Incarichi.riattiva(b.dataset.riattiva, Auth.utenteCorrente);
+                toast('Incarico riattivato: torna tra gli incarichi attivi.', 'verde');
+                disegnaTabellaIncarichi(annoRif);
             }));
         cont.querySelectorAll('th[data-ordina]').forEach(th =>
             th.addEventListener('click', () => {
@@ -1954,6 +2015,7 @@
                     ${Auth.puoModificare() ? `
                         <button class="btn btn-secondary" id="btn-modifica">Modifica</button>
                         <button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
+                        ${inc.stato === 'cessato' ? '<button class="btn btn-secondary" id="btn-riattiva-inc">Riattiva incarico</button>' : '<button class="btn btn-secondary" id="btn-termina-inc">Termina incarico</button>'}
                         ${inc.calcoloCongelato ? '<button class="btn btn-secondary" id="btn-sblocca">Sblocca calcolo</button>' : ''}
                         ${inc.tipo === 'legale' || inc.tipo === 'volontaria' ? '<button class="btn btn-primary" id="btn-lettera">Lettera di incarico</button>' : ''}
                     ` : ''}
@@ -1981,7 +2043,7 @@
                             ${rigaRiepilogo('Data inizio', inc.dataInizio ? fmtData(inc.dataInizio) : inc.dataInizioNote)}
                             ${rigaRiepilogo('Data fine', fmtData(inc.dataFine) || inc.dataFineNote)}
                             ${rigaRiepilogo('Rinnovo', inc.rinnovo ? fmtData(inc.rinnovo) : inc.rinnovoNote)}
-                            ${rigaRiepilogo('Stato', inc.stato + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
+                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'attivo' ? 'Attivo' : inc.stato)) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
                         </div>
                         <div class="riepilogo-blocco">
                             <h4>Team</h4>
@@ -2050,6 +2112,14 @@
             if (btnLettera) btnLettera.addEventListener('click', () => naviga('lettera', { id: inc.id }));
             const btnSblocca = document.getElementById('btn-sblocca');
             if (btnSblocca) btnSblocca.addEventListener('click', () => modaleSblocco(inc));
+            const btnTermina = document.getElementById('btn-termina-inc');
+            if (btnTermina) btnTermina.addEventListener('click', () => modaleTerminaIncarico(inc));
+            const btnRiattivaInc = document.getElementById('btn-riattiva-inc');
+            if (btnRiattivaInc) btnRiattivaInc.addEventListener('click', () => {
+                Incarichi.riattiva(inc.id, Auth.utenteCorrente);
+                toast('Incarico riattivato: torna tra gli incarichi attivi.', 'verde');
+                naviga('dettaglio', { id: inc.id });
+            });
         }
         const btnElimina = document.getElementById('btn-elimina');
         if (btnElimina) btnElimina.addEventListener('click', () => {
@@ -2066,6 +2136,23 @@
                 toast('Incarico eliminato.', 'verde');
                 naviga('incarichi');
             });
+        });
+    }
+
+    // termina l'incarico: conferma e spostamento nella sezione "Incarichi terminati"
+    function modaleTerminaIncarico(inc) {
+        apriModale(`<h2>Terminare l'incarico?</h2>
+            <p>L'incarico <strong>${esc(inc.cliente)}</strong> verra spostato tra gli <strong>incarichi terminati</strong> e non comparira piu nell'elenco principale. Potrai riattivarlo in qualsiasi momento. L'operazione resta nel registro modifiche.</p>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-primary" id="m-conferma">Termina incarico</button>
+            </div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            Incarichi.termina(inc.id, Auth.utenteCorrente);
+            chiudiModale();
+            toast('Incarico terminato e spostato nella sezione dedicata.', 'verde');
+            naviga('dettaglio', { id: inc.id });
         });
     }
 
@@ -2812,7 +2899,8 @@
                 conteggi[n][k]++;
             });
         });
-        const spunta = v => v ? '<span class="badge verde">si</span>' : '<span class="badge neutro">no</span>';
+        // si/no compatti: testo leggibile (utile per filtri di colonna ed esportazione CSV) ma senza il riquadro del badge, cosi la tabella entra in orizzontale
+        const spunta = v => v ? '<span class="mark-si">si</span>' : '<span class="mark-no">no</span>';
 
         $vista().innerHTML = `
             <header>
@@ -2824,19 +2912,19 @@
                     ${Auth.puoModificare() ? '<button class="btn btn-primary" id="btn-nuova-persona">+ Aggiungi persona</button>' : ''}
                 </div>
             </header>
-            <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th>Qualita</th><th>Resp. incarico</th><th>Team</th><th>Equity partner</th><th>Founding partner</th><th class="num">Inc. (resp.)</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
+            <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi come responsabile">Inc.</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             persone.map(p => `<tr>
                 <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
                 <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : '<span style="color:var(--grigio-400)">—</span>'}</td>
-                <td data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : '<span style="color:var(--grigio-400)">—</span>'}</td>
+                <td class="col-email" data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : '<span style="color:var(--grigio-400)">—</span>'}</td>
                 <td data-label="Regione">${esc(p.regione || '')}</td>
-                <td data-label="Qualita">${spunta(p.qualita)}</td>
-                <td data-label="Resp. incarico">${spunta(p.respIncarico)}</td>
-                <td data-label="Team">${spunta(p.team)}</td>
-                <td data-label="Equity partner">${spunta(p.equityPartner)}</td>
-                <td data-label="Founding partner">${spunta(p.foundingPartner)}</td>
+                <td class="col-mark" data-label="Qualita">${spunta(p.qualita)}</td>
+                <td class="col-mark" data-label="Resp. incarico">${spunta(p.respIncarico)}</td>
+                <td class="col-mark" data-label="Team">${spunta(p.team)}</td>
+                <td class="col-mark" data-label="Equity partner">${spunta(p.equityPartner)}</td>
+                <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
                 <td class="num" data-label="Inc. (resp.)">${(conteggi[p.nome] || {}).resp || ''}</td>
                 <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
                 ${Auth.puoModificare() ? `<td data-label="" style="white-space:nowrap;">
@@ -3193,8 +3281,9 @@
     function vistaComunicazioni() {
         const lista = Comunicazioni.tutte();
         const puoInviare = Cloud.attivo;
-        // serie ancora attive: esclude quelle concluse dal server (attiva:false) che restano in stato "programmata"
-        const programmate = lista.filter(c => c.stato === 'programmata' && (!c.programmazione || c.programmazione.attiva !== false));
+        // serie ancora attive: esclude le sospese manualmente e quelle concluse dal server (attiva:false)
+        const programmate = lista.filter(c => c.stato === 'programmata' && !c.sospesa && (!c.programmazione || c.programmazione.attiva !== false));
+        const sospese = lista.filter(c => c.stato === 'programmata' && c.sospesa);
         const bozze = lista.filter(c => c.stato === 'bozza');
         // storico: ogni invio effettuato (immediato o programmato), piu recente prima
         const invii = [];
@@ -3206,6 +3295,7 @@
 
         const azioni = c => `<td data-label="" style="white-space:nowrap;">
             <button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button>
+            <button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button>
             <button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></td>`;
 
         const contestiPresenti = Array.from(new Set(programmate.map(c => c.contesto).filter(Boolean)));
@@ -3231,9 +3321,27 @@
                         <span class="comm-nome">${esc(c.nome || c.oggetto || '(senza nome)')}</span>
                         <span class="comm-quando-inline">${esc(descriviProgrammazione(c.programmazione))}</span>
                         <span class="comm-dest-inline">${(c.destinatari || []).length} dest.${grp}</span>
-                        <span class="comm-azioni-inline"><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></span>
+                        <span class="comm-azioni-inline"><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-secondary c-sospendi" data-id="${esc(c.id)}">Sospendi</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></span>
                     </summary>
                     <div class="comm-dettaglio">${(c.nome && c.oggetto) ? '<div class="comm-ogg-riga">Oggetto: ' + esc(c.oggetto) + '</div>' : ''}${anteprimaProssimiInvii(c)}</div>
+                </details>`;
+            }).join('') + `</div></div>` : '';
+
+        const sezSospese = sospese.length ? `<div class="card" id="sez-sospese">
+            <h2>Comunicazioni sospese (${sospese.length})</h2>
+            <p class="hint" style="margin:-6px 0 12px;">Invii fermati: non partira nessuna mail finche non premi <strong>Riattiva</strong>. Riparte dalla prossima data utile.</p>
+            <div class="comm-lista">` +
+            sospese.map(c => {
+                const grp = (c.gruppi && c.gruppi.length) ? ' + ' + esc(c.gruppi.map(nomeGruppo).join(', ')) : '';
+                return `<details class="comm-item comm-sospesa" data-contesto="${esc(c.contesto || '')}">
+                    <summary class="comm-sommario">
+                        ${badgeContesto(c.contesto)}
+                        <span class="comm-nome">${esc(c.nome || c.oggetto || '(senza nome)')}</span>
+                        <span class="comm-quando-inline">Sospesa &middot; ${esc(descriviProgrammazione(c.programmazione))}</span>
+                        <span class="comm-dest-inline">${(c.destinatari || []).length} dest.${grp}</span>
+                        <span class="comm-azioni-inline"><button class="btn btn-sm btn-primary c-riattiva" data-id="${esc(c.id)}">Riattiva</button><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></span>
+                    </summary>
+                    <div class="comm-dettaglio">${(c.nome && c.oggetto) ? '<div class="comm-ogg-riga">Oggetto: ' + esc(c.oggetto) + '</div>' : ''}<p class="hint" style="margin:0;">Gli invii sono fermi. Con "Riattiva" ripartono dalla prossima occorrenza futura; con "Duplica" ne crei una copia modificabile.</p></div>
                 </details>`;
             }).join('') + `</div></div>` : '';
 
@@ -3266,8 +3374,8 @@
                 <td data-label="Da">${esc(s.da)}</td>
             </tr>`).join('') + `</tbody></table></div></div>` : '';
 
-        const elencoProg = `${sezProgrammate}${sezBozze}
-            ${(programmate.length || bozze.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione programmata o in preparazione. Premi "Nuova comunicazione" per prepararne una.</div>'}`;
+        const elencoProg = `${sezProgrammate}${sezSospese}${sezBozze}
+            ${(programmate.length || sospese.length || bozze.length) ? '' : '<div class="card tabella-vuota">Nessuna comunicazione programmata, sospesa o in preparazione. Premi "Nuova comunicazione" per prepararne una.</div>'}`;
         const vistaInvii = invii.length ? sezInvii : '<div class="card tabella-vuota">Nessun invio effettuato finora.</div>';
 
         const toggle = `<div class="toggle-vista">
@@ -3327,6 +3435,9 @@
             if (t) attrezzaTabella(t, { nomeFile: nome });
         });
         $vista().querySelectorAll('.c-apri').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); modaleComunicazione(b.dataset.id); }));
+        $vista().querySelectorAll('.c-sospendi').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); sospendiComunicazione(b.dataset.id); }));
+        $vista().querySelectorAll('.c-riattiva').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); riattivaComunicazione(b.dataset.id); }));
+        $vista().querySelectorAll('.c-duplica').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); duplicaComunicazione(b.dataset.id); }));
         $vista().querySelectorAll('.c-elimina').forEach(b => b.addEventListener('click', (e) => {
             e.stopPropagation(); e.preventDefault();
             const c = Comunicazioni.trova(b.dataset.id);
@@ -3340,6 +3451,67 @@
                 chiudiModale(); toast('Comunicazione eliminata.', 'verde'); vistaComunicazioni();
             });
         }));
+    }
+
+    /* Sospende una comunicazione programmata: ferma il cron (attiva:false) e la sposta
+       tra le sospese, senza perdere la programmazione (si puo riattivare). */
+    function sospendiComunicazione(id) {
+        const c = Comunicazioni.trova(id);
+        if (!c || c.stato !== 'programmata') return;
+        c.sospesa = true;
+        c.programmazione = Object.assign({}, c.programmazione, { attiva: false });
+        Comunicazioni.salvaUna(c);
+        Audit.registra(Auth.utenteCorrente, 'Comunicazione sospesa', 'comunicazione', c.id, c.oggetto || null, null);
+        toast('Comunicazione sospesa: non partiranno altri invii.', 'verde');
+        vistaComunicazioni();
+    }
+
+    /* Riattiva una comunicazione sospesa: riparte dalla prossima occorrenza futura,
+       cosi non genera una raffica di invii arretrati. */
+    function riattivaComunicazione(id) {
+        const c = Comunicazioni.trova(id);
+        if (!c || c.stato !== 'programmata') return;
+        const p = c.programmazione || {};
+        const ora = Date.now();
+        let next = p.prossimoInvio || 0;
+        const ricorrente = p.frequenza && p.frequenza !== 'unica';
+        if (ricorrente && next) {
+            let guard = 0;
+            while (next <= ora && guard < 600) { const n = prossimaDataMs(next, p.frequenza); if (n == null) break; next = n; guard++; }
+            if (p.fine && next > p.fine) { toast('La serie e gia oltre la data di fine: non ci sono altri invii da programmare.', 'ambra'); return; }
+        } else if (next && next <= ora) {
+            toast('La data dell\'invio e gia passata: apri la comunicazione e imposta una nuova data prima di riattivarla.', 'ambra'); return;
+        }
+        c.sospesa = false;
+        c.programmazione = Object.assign({}, p, { attiva: true, prossimoInvio: next });
+        Comunicazioni.salvaUna(c);
+        Audit.registra(Auth.utenteCorrente, 'Comunicazione riattivata', 'comunicazione', c.id, c.oggetto || null,
+            [{ campo: 'Prossimo invio', prima: '', dopo: fmtDataOra(next) }]);
+        toast('Comunicazione riattivata. Prossimo invio: ' + fmtDataOra(next) + '.', 'verde');
+        vistaComunicazioni();
+    }
+
+    /* Duplica una comunicazione: crea una copia modificabile tra quelle "in preparazione"
+       (nessun invio parte da sola) e apre subito il compositore. */
+    function duplicaComunicazione(id) {
+        const orig = Comunicazioni.trova(id);
+        if (!orig) return;
+        const copia = JSON.parse(JSON.stringify(orig));
+        copia.id = uid();
+        copia.nome = ((orig.nome && orig.nome.trim()) ? orig.nome.trim() : (orig.oggetto || 'Comunicazione')) + ' (copia)';
+        copia.stato = 'bozza';
+        copia.sospesa = false;
+        copia.invii = [];
+        delete copia.inviata;
+        // la copia non deve poter partire da sola: niente stato attivo e nessuna data d'invio ereditata (si reimposta a mano)
+        if (copia.programmazione) copia.programmazione = Object.assign({}, copia.programmazione, { attiva: false, ultimoInvio: null, prossimoInvio: null });
+        copia.creato = { da: Auth.utenteCorrente.email, il: Date.now() };
+        Comunicazioni.salvaUna(copia);
+        Audit.registra(Auth.utenteCorrente, 'Comunicazione duplicata', 'comunicazione', copia.id, copia.oggetto || null,
+            [{ campo: 'Copiata da', prima: '', dopo: orig.oggetto || orig.nome || orig.id }]);
+        toast('Copia creata tra le comunicazioni in preparazione. Aprila e modificala.', 'verde');
+        vistaComunicazioni();
+        modaleComunicazione(copia.id);
     }
 
     function modaleComunicazione(id) {
@@ -3741,9 +3913,16 @@
         $('c-bozza').addEventListener('click', () => {
             const rec = componiRecord();
             if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErr('Non c\'e nulla da salvare: aggiungi almeno l\'oggetto, il testo o un destinatario.'); return; }
-            const lp = leggiProg();
-            if (lp.errore) { mostraErr(lp.errore); return; }
-            rec.programmazione = lp.prog;                // la pianificazione (se impostata) resta salvata con la comunicazione
+            // In preparazione: la programmazione si salva SEMPRE come non attiva e puo essere incompleta
+            // (la data si puo mettere dopo). Non parte finche non premi Programma, che valida tutto.
+            let progBozza = null;
+            if (chkProg.checked) {
+                const qB = $('c-quando').value, tB = qB ? new Date(qB).getTime() : NaN;
+                let fineB = null;
+                if ($('c-freq').value !== 'unica' && $('c-fine-tipo').value === 'data' && $('c-fine-data').value) fineB = new Date($('c-fine-data').value + 'T23:59:59').getTime();
+                progBozza = { attiva: false, frequenza: $('c-freq').value, prossimoInvio: isNaN(tB) ? null : tB, fine: fineB };
+            }
+            rec.programmazione = progBozza;
             rec.stato = inviata ? 'inviata' : 'bozza';   // "bozza" = in preparazione: salvata ma non parte finche non premi Programma/Invia
             Comunicazioni.salvaUna(rec);
             Audit.registra(Auth.utenteCorrente, 'Comunicazione salvata in preparazione', 'comunicazione', rec.id, rec.oggetto || null, null);
@@ -3763,6 +3942,8 @@
 
             if (lp.prog) {
                 // PROGRAMMA: non invia ora, sara' il server a inviare alla data prevista
+                // la data del primo invio deve essere nel futuro, altrimenti il server la spedirebbe subito a tutti
+                if ((lp.prog.prossimoInvio || 0) < Date.now() - 60 * 1000) { mostraErr('La data e l\'ora del primo invio devono essere nel futuro.'); return; }
                 if (!Cloud.attivo) { mostraErr('La programmazione richiede l\'accesso protetto attivo.'); return; }
                 rec.programmazione = lp.prog;
                 rec.stato = 'programmata';

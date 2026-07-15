@@ -433,6 +433,15 @@ table.dati .cliente-cella { font-weight: 600; color: var(--blu-900); }
 table.dati tfoot td { font-weight: 700; background: var(--blu-100); border-top: 2px solid var(--blu-500); }
 .tabella-vuota { padding: 40px; text-align: center; color: var(--grigio-600); }
 
+/* Tabella compatta: molte colonne su una riga senza scorrimento orizzontale (es. Persone) */
+table.dati.compatta { font-size: 0.8rem; }
+table.dati.compatta th { padding: 6px 7px; font-size: 0.6rem; letter-spacing: 0.02em; white-space: normal; }
+table.dati.compatta td { padding: 5px 7px; }
+table.dati.compatta td.col-email { word-break: break-word; }
+table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: center; }
+.mark-si { color: #15803D; font-weight: 700; }
+.mark-no { color: var(--grigio-400); }
+
 /* ---------- Badge ---------- */
 .badge {
     display: inline-block; padding: 2px 8px; border-radius: var(--raggio-sm);
