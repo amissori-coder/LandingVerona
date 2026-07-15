@@ -580,6 +580,24 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     .coord-sommario { grid-template-columns: 1fr auto; }
     .coord-barra { display: none; }
 }
+
+/* ---- Fatturazione: gruppi di fatturazione (drill-down) e campo rimborsi ---- */
+.fatt-gruppi { display: flex; flex-direction: column; gap: 8px; }
+.fatt-gruppo { border: 1px solid var(--grigio-200); border-radius: 8px; overflow: hidden; }
+.fatt-gruppo[open] { border-color: var(--blu-300, #9DB8D2); }
+.fatt-gruppo-sommario { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 11px 14px; }
+.fatt-gruppo-sommario::-webkit-details-marker { display: none; }
+.fatt-gruppo-sommario:hover { background: var(--blu-050); }
+.fatt-gruppo-nome { font-weight: 700; color: var(--blu-900); min-width: 120px; }
+.fatt-gruppo-meta { font-size: 0.82rem; color: var(--grigio-600); }
+.fatt-gruppo-imp { font-family: 'Montserrat', sans-serif; font-weight: 700; color: var(--blu-900); margin-left: auto; }
+.fatt-gruppo-corpo { padding: 2px 12px 12px; border-top: 1px solid var(--grigio-100); }
+.link-incarico { color: var(--blu-700); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.link-incarico:hover { color: var(--blu-900); }
+.rimb-campo { display: inline-flex; align-items: center; gap: 6px; }
+.rimb-campo input { width: 90px; padding: 4px 6px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; }
+.rimb-campo input:disabled { background: var(--grigio-100); color: var(--grigio-600); }
+.rimb-lock svg { margin-right: 3px; }
 .legenda .quadrato { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 
 /* ---------- Toast ---------- */
