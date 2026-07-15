@@ -1519,11 +1519,37 @@
     }
 
     function apriModale(html, opts) {
+        opts = opts || {};
         const cont = document.getElementById('modale-contenitore');
-        cont.innerHTML = '<div class="modale-sfondo"><div class="modale ' + ((opts && opts.classe) || '') + '">' + html + '</div></div>';
-        cont.querySelector('.modale-sfondo').addEventListener('click', e => {
-            if (e.target.classList.contains('modale-sfondo') && !(opts && opts.bloccante)) chiudiModale();
+        const finestra = !!opts.finestra;
+        let inner;
+        if (finestra) {
+            const barra = '<div class="modale-barra">'
+                + '<span class="modale-titolo">' + esc(opts.titolo || '') + '</span>'
+                + '<span class="modale-controlli">'
+                + '<button type="button" class="mw-btn mw-min" title="Riduci a barra" aria-label="Riduci">&#8211;</button>'
+                + '<button type="button" class="mw-btn mw-max" title="A schermo intero" aria-label="A schermo intero">&#9633;</button>'
+                + '<button type="button" class="mw-btn mw-close" title="Chiudi" aria-label="Chiudi">&#10005;</button>'
+                + '</span></div>';
+            inner = '<div class="modale ' + (opts.classe || '') + ' modale-finestra">' + barra + '<div class="modale-corpo">' + html + '</div></div>';
+        } else {
+            inner = '<div class="modale ' + (opts.classe || '') + '">' + html + '</div>';
+        }
+        cont.innerHTML = '<div class="modale-sfondo' + (finestra ? ' modale-sfondo-finestra' : '') + '">' + inner + '</div>';
+        const sfondo = cont.querySelector('.modale-sfondo');
+        sfondo.addEventListener('click', e => {
+            // le finestre non si chiudono cliccando fuori (comportamento da finestra)
+            if (e.target.classList.contains('modale-sfondo') && !opts.bloccante && !finestra) chiudiModale();
         });
+        if (finestra) {
+            const modale = cont.querySelector('.modale');
+            const setRidotta = r => { modale.classList.toggle('ridotta', r); sfondo.classList.toggle('sfondo-ridotto', r); };
+            cont.querySelector('.mw-close').addEventListener('click', chiudiModale);
+            cont.querySelector('.mw-min').addEventListener('click', () => setRidotta(!modale.classList.contains('ridotta')));
+            cont.querySelector('.mw-max').addEventListener('click', () => { setRidotta(false); modale.classList.toggle('massimizzata'); });
+            cont.querySelector('.modale-barra').addEventListener('dblclick', e => { if (!e.target.closest('.mw-btn')) { setRidotta(false); modale.classList.toggle('massimizzata'); } });
+            cont.querySelector('.modale-titolo').addEventListener('click', () => { if (modale.classList.contains('ridotta')) setRidotta(false); });
+        }
         return cont;
     }
     function chiudiModale() { document.getElementById('modale-contenitore').innerHTML = ''; }
@@ -3182,6 +3208,7 @@
         </div>` : '';
         const sezProgrammate = programmate.length ? `<div class="card" id="sez-programmate">
             <h2>Comunicazioni programmate (${programmate.length})</h2>
+            <p class="hint" style="margin:-6px 0 12px;">Clicca su una riga (o sul <strong>&#9654;</strong> a inizio riga) per <strong>espanderla</strong> e vedere i prossimi invii con il periodo; ri-clicca per chiuderla.</p>
             ${barraFiltriProg}
             <div class="comm-lista">` +
             programmate.map(c => {
@@ -3347,7 +3374,7 @@
         const tipiCli = opzCli('tipo'), areeCli = opzCli('area'), regioniCli = opzCli('regione'), statiCli = opzCli('stato');
         const selFiltro = (id, etichetta, valori) => valori.length ? `<select id="${id}"><option value="">${etichetta}</option>${valori.map(v => `<option>${esc(v)}</option>`).join('')}</select>` : '';
 
-        apriModale(`<h2>${inviata ? 'Comunicazione inviata' : (c ? 'Modifica comunicazione' : 'Nuova comunicazione')}</h2>
+        apriModale(`
             ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
             <div class="griglia-2">
                 <div class="campo"><label>Contesto</label><select id="c-contesto">${CONTESTI.map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select></div>
@@ -3449,7 +3476,7 @@
                 <button class="btn btn-ghost" id="c-annulla">Annulla</button>
                 <button class="btn btn-secondary" id="c-bozza">Salva bozza</button>
                 <button class="btn btn-primary" id="c-invia">Invia</button>
-            </div>`, { classe: 'larga' });
+            </div>`, { classe: 'larga', finestra: true, titolo: inviata ? 'Comunicazione inviata' : (c ? 'Modifica comunicazione' : 'Nuova comunicazione') });
 
         const $ = x => document.getElementById(x);
         $('c-contesto').value = (c && c.contesto) || 'generale';
