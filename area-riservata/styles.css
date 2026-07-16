@@ -598,6 +598,9 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .fatt-gruppo-corpo { padding: 2px 12px 12px; border-top: 1px solid var(--grigio-100); }
 .link-incarico { color: var(--blu-700); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .link-incarico:hover { color: var(--blu-900); }
+/* eco in euro sotto un campo importo: conferma subito quanto e stato capito */
+.imp-eco { margin-top: 3px; font-size: 0.82rem; font-weight: 700; color: var(--blu-700); min-height: 1.05em; }
+.imp-eco:empty { min-height: 0; }
 .rimb-campo { display: inline-flex; align-items: center; gap: 4px; }
 .rimb-campo input { width: 82px; padding: 4px 6px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; text-align: right; }
 .rimb-campo input:disabled { background: var(--grigio-100); color: var(--grigio-600); }

@@ -2753,8 +2753,8 @@
             <h2>Calcolo del compenso</h2>
             <p class="descrizione" style="margin-bottom:14px;">Metodo della pagina sulla revisione legale: media dimensionale, ore base CNDCEC, correttivi di settore e rischio, tariffa oraria.</p>
             <div class="griglia-2">
-                <div class="campo"><label>Totale attivo patrimoniale</label><input id="c-attivo" inputmode="numeric" value="${c.attivo ? numFmt.format(c.attivo) : ''}" placeholder="es. 5.000.000"></div>
-                <div class="campo"><label>Ricavi delle vendite</label><input id="c-ricavi" inputmode="numeric" value="${c.ricavi ? numFmt.format(c.ricavi) : ''}" placeholder="es. 8.000.000"></div>
+                <div class="campo"><label>Totale attivo patrimoniale</label><input id="c-attivo" inputmode="numeric" value="${c.attivo ? numFmt.format(c.attivo) : ''}" placeholder="es. 5.000.000"><div class="imp-eco" id="c-attivo-eco"></div></div>
+                <div class="campo"><label>Ricavi delle vendite</label><input id="c-ricavi" inputmode="numeric" value="${c.ricavi ? numFmt.format(c.ricavi) : ''}" placeholder="es. 8.000.000"><div class="imp-eco" id="c-ricavi-eco"></div></div>
                 <div class="campo"><label>Settore di attivita</label><select id="c-settore">${SETTORI.map(s => `<option value="${s.val}" ${c.moltSettore === s.val ? 'selected' : ''}>${s.nome}</option>`).join('')}</select></div>
                 <div class="campo"><label>Rischio incarico</label><select id="c-rischio">${RISCHI.map(s => `<option value="${s.val}" ${c.moltRischio === s.val ? 'selected' : ''}>${s.nome}</option>`).join('')}</select></div>
                 <div class="campo"><label>Aumento manuale ore base</label><input id="c-oreplus" type="number" min="0" value="${c.orePlus || 0}"></div>
@@ -2770,7 +2770,7 @@
                 <div class="campo"><label>Primo anno / subentro (solo anno 1)</label><input id="c-primoanno" type="number" min="0" value="${c.hPrimoAnno || 0}"></div>
             </div>
             <div class="griglia-2">
-                <div class="campo"><label>Tariffa oraria media</label><input id="c-tariffa" type="number" min="0" value="${c.tariffa || 85}"><div class="hint">Tariffa media ponderata del team (partner, manager, senior, junior).</div></div>
+                <div class="campo"><label>Tariffa oraria media</label><input id="c-tariffa" type="number" min="0" value="${c.tariffa || 85}"><div class="imp-eco" id="c-tariffa-eco"></div><div class="hint">Tariffa media ponderata del team (partner, manager, senior, junior).</div></div>
                 <div class="campo"><label>Note sul rischio</label><input id="c-note" value="${esc(c.rischioNote || '')}" placeholder="es. governance, contenziosi, sistemi IT"></div>
             </div>
             <div class="calc-riquadro" id="c-risultato"></div>
@@ -2779,10 +2779,25 @@
                     <input type="checkbox" id="c-manuale" ${w.compensoManuale ? 'checked' : ''} style="width:auto;"> Imposta il compenso annuo manualmente
                 </label>
                 <input id="c-compenso-manuale" inputmode="numeric" class="${w.compensoManuale ? '' : 'hidden'}" value="${w.compensoManualeValore ? numFmt.format(w.compensoManualeValore) : ''}" placeholder="es. 8.500" style="margin-top:8px;">
+                <div class="imp-eco ${w.compensoManuale ? '' : 'hidden'}" id="c-compenso-manuale-eco"></div>
             </div>`;
 
+        /* Eco in euro sotto i campi importo. Mostra il valore che il calcolo sta USANDO, non
+           quello che e' stato battuto: chi scrive 5000000 vede subito 5.000.000 euro senza
+           contare gli zeri, e se sbaglia a digitare se ne accorge qui. */
+        const ecoImporto = (id, valore, suffisso) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = valore > 0 ? eurFmt.format(valore) + (suffisso || '') : '';
+        };
+        const aggiornaEco = () => {
+            ecoImporto('c-attivo-eco', w.calc.attivo);
+            ecoImporto('c-ricavi-eco', w.calc.ricavi);
+            ecoImporto('c-tariffa-eco', w.calc.tariffa, ' all\'ora');
+            ecoImporto('c-compenso-manuale-eco', w.compensoManualeValore, ' all\'anno');
+        };
         const ricalcola = () => {
             leggiCampiCalcolo();
+            aggiornaEco();
             const r = calcolaCompenso(w.calc);
             const box = document.getElementById('c-extra50-box');
             box.classList.toggle('hidden', !r.oltre50M);
@@ -2807,8 +2822,14 @@
             wizard.compensoManuale = e.target.checked;
             wizard.compensoModificato = true;
             document.getElementById('c-compenso-manuale').classList.toggle('hidden', !e.target.checked);
+            document.getElementById('c-compenso-manuale-eco').classList.toggle('hidden', !e.target.checked);
         });
-        document.getElementById('c-compenso-manuale').addEventListener('input', () => { wizard.compensoModificato = true; });
+        // il compenso manuale non passa da ricalcola: qui l'eco va aggiornato a parte
+        document.getElementById('c-compenso-manuale').addEventListener('input', () => {
+            wizard.compensoModificato = true;
+            leggiCampiCalcolo();
+            aggiornaEco();
+        });
         ricalcola();
     }
 
