@@ -296,13 +296,13 @@
 
     /* ---- Variabili di personalizzazione delle comunicazioni ----
        Nel testo/oggetto si possono usare {nome} {cognome} {nome_completo}
-       {email} {incarichi}; vengono sostituite per ogni destinatario. */
+       {incarichi}; vengono sostituite per ogni destinatario. {incarichi} nel
+       testo HTML diventa una tabella (cliente, resp. qualita, resp. incarico). */
     const VARIABILI_MAIL = [
         { chiave: 'nome', desc: 'Nome della persona (o ragione sociale del cliente)' },
         { chiave: 'cognome', desc: 'Cognome della persona' },
         { chiave: 'nome_completo', desc: 'Nome e cognome (o ragione sociale)' },
-        { chiave: 'email', desc: 'Indirizzo email del destinatario' },
-        { chiave: 'incarichi', desc: 'Clienti degli incarichi della persona (aggiornato ad ogni invio)' },
+        { chiave: 'incarichi', desc: 'Tabella degli incarichi della persona: cliente, resp. qualita e resp. incarico (aggiornata a ogni invio). Nel testo del messaggio diventa una tabella; nell\'oggetto resta l\'elenco dei clienti.' },
         { chiave: 'periodo', desc: 'Periodo di riferimento (es. "primo trimestre 2026"): solo per invii programmati ricorrenti, dipende dalla frequenza e dalla data di ogni invio' }
     ];
     // {periodo} e una variabile "di invio" (uguale per tutti i destinatari), calcolata
@@ -313,17 +313,20 @@
     function applicaVariabili(s, d) {
         d = d || {};
         const nc = (d.nome && d.cognome) ? (d.nome + ' ' + d.cognome) : (d.nome || d.cognome || '');
+        // funzioni di sostituzione: il valore e' inserito LETTERALE (evita che un "$" nel testo
+        // venga interpretato come riferimento speciale di String.replace)
         return String(s == null ? '' : s)
-            .replace(/\{nome_completo\}/g, nc)
-            .replace(/\{nome\}/g, d.nome || '')
-            .replace(/\{cognome\}/g, d.cognome || '')
-            .replace(/\{email\}/g, d.email || '')
-            .replace(/\{incarichi\}/g, d.incarichi || '');
+            .replace(/\{nome_completo\}/g, () => nc)
+            .replace(/\{nome\}/g, () => d.nome || '')
+            .replace(/\{cognome\}/g, () => d.cognome || '')
+            .replace(/\{email\}/g, () => d.email || '')
+            .replace(/\{incarichi\}/g, () => d.incarichi || '');
     }
-    // come applicaVariabili ma per contenuto HTML: i valori sostituiti vengono escaped
+    // come applicaVariabili ma per contenuto HTML: i valori vengono escaped, tranne {incarichi}
+    // che e' gia' una TABELLA HTML pronta (incarichiHtml) e va inserita RAW.
     function applicaVariabiliHtml(s, d) {
         d = d || {};
-        return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: esc(d.incarichi || '') });
+        return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: (d.incarichiHtml != null ? d.incarichiHtml : esc(d.incarichi || '')) });
     }
     // clienti degli incarichi in cui la persona (per cognome) compare come team,
     // responsabile incarico o referente (NON come responsabile della qualita)
@@ -338,6 +341,28 @@
         });
         return Array.from(new Set(out));
     }
+    // gli incarichi come oggetti {cliente, qualita, respIncarico} per costruire la tabella {incarichi}
+    function incarichiObjDiCognome(cognome, incarichi) {
+        const cg = String(cognome || '').trim().toLowerCase();
+        if (!cg) return [];
+        const out = [], visti = {};
+        (incarichi || []).forEach(inc => {
+            const tok = [];
+            [inc.team, inc.respIncarico, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
+            if (tok.indexOf(cg) >= 0 && inc.cliente && !visti[inc.cliente]) { visti[inc.cliente] = 1; out.push({ cliente: inc.cliente, qualita: inc.qualita || '', respIncarico: inc.respIncarico || '' }); }
+        });
+        return out;
+    }
+    // tabella HTML (email-safe) degli incarichi della persona: cliente, resp. qualita, resp. incarico
+    function tabellaIncarichiHtml(objs) {
+        if (!objs || !objs.length) return ''; // niente incarichi: {incarichi} sparisce (coerente su tutti i canali)
+        const th = 'border:1px solid #CBD5E1;padding:6px 9px;text-align:left;background:#F1F5F9;';
+        const td = 'border:1px solid #CBD5E1;padding:6px 9px;';
+        return '<table style="border-collapse:collapse;margin:10px 0;font-size:13px;"><tr>'
+            + '<th style="' + th + '">Incarico</th><th style="' + th + '">Resp. qualita</th><th style="' + th + '">Resp. incarico</th></tr>'
+            + objs.map(o => '<tr><td style="' + td + '">' + esc(o.cliente) + '</td><td style="' + td + '">' + esc(o.qualita || '-') + '</td><td style="' + td + '">' + esc(o.respIncarico || '-') + '</td></tr>').join('')
+            + '</table>';
+    }
     // per una lista di email, costruisce i dati di personalizzazione di ciascun destinatario
     function datiDestinatari(emails) {
         const persone = (typeof Persone !== 'undefined') ? Persone.tutte() : [];
@@ -348,9 +373,9 @@
         return (emails || []).map(email => {
             const k = String(email || '').toLowerCase();
             const p = perEmail[k];
-            if (p) { const cognome = p.nome || ''; return { email: k, nome: p.nomeProprio || cognome, cognome: cognome, incarichi: incarichiDiCognome(cognome, incarichi).join(', ') }; }
-            if (cliEmail[k]) return { email: k, nome: cliEmail[k], cognome: '', incarichi: '' };
-            return { email: k, nome: '', cognome: '', incarichi: '' };
+            if (p) { const cognome = p.nome || ''; const objs = incarichiObjDiCognome(cognome, incarichi); return { email: k, nome: p.nomeProprio || cognome, cognome: cognome, incarichi: objs.map(o => o.cliente).join(', '), incarichiHtml: tabellaIncarichiHtml(objs) }; }
+            if (cliEmail[k]) return { email: k, nome: cliEmail[k], cognome: '', incarichi: '', incarichiHtml: '' };
+            return { email: k, nome: '', cognome: '', incarichi: '', incarichiHtml: '' };
         });
     }
 
@@ -3932,7 +3957,7 @@
                 </div>
                 <div id="c-testo" class="rte-editor" contenteditable="true" data-ph="Scrivi qui il testo della mail. Usa la barra sopra per grassetto, corsivo, elenchi...">${testoInizialeHtml}</div>
                 <div class="var-chips"><span class="hint" style="margin-right:4px;">Variabili (clic per inserire):</span>${VARIABILI_MAIL.map(v => '<button type="button" class="chip-var" data-var="' + v.chiave + '" title="' + esc(v.desc) + '">{' + v.chiave + '}</button>').join('')}</div>
-                <div class="hint"><strong>{nome} {cognome} {email} {incarichi}</strong> cambiano per ogni destinatario: se le usi, ognuno riceve una mail personalizzata; altrimenti un unico invio in copia nascosta.</div>
+                <div class="hint"><strong>{nome} {cognome} {incarichi}</strong> cambiano per ogni destinatario: se le usi, ognuno riceve una mail personalizzata; altrimenti un unico invio in copia nascosta. <strong>{incarichi}</strong> nel testo diventa una tabella (cliente, resp. qualita, resp. incarico).</div>
                 <div class="spiega-periodo">
                     <div class="sp-tit">Come funziona {periodo}</div>
                     <p>Negli <strong>invii programmati ricorrenti</strong> scrivi <code>{periodo}</code> nell'oggetto o nel testo: ad <strong>ogni invio</strong> viene sostituito in automatico con il periodo di riferimento, calcolato dalla frequenza scelta e dalla data di quell'invio.</p>
@@ -4020,7 +4045,7 @@
         const $ = x => document.getElementById(x);
         $('c-contesto').value = (c && c.contesto) || 'generale';
         // anteprima della mail: si apre in una NUOVA FINESTRA del browser
-        const CAMPIONE_VAR = { email: 'mario.rossi@esempio.it', nome: 'Mario', cognome: 'Rossi', incarichi: 'Alpha S.r.l., Beta S.p.A.' };
+        const CAMPIONE_VAR = { email: 'mario.rossi@esempio.it', nome: 'Mario', cognome: 'Rossi', incarichi: 'Alpha S.r.l., Beta S.p.A.', incarichiHtml: tabellaIncarichiHtml([{ cliente: 'Alpha S.r.l.', qualita: 'Bianchi', respIncarico: 'Verdi' }, { cliente: 'Beta S.p.A.', qualita: 'Neri', respIncarico: 'Gialli' }]) };
         const editor = $('c-testo');
         // separatore paragrafo coerente (Blink/Gecko), placeholder robusto (non dipende da :empty), selezione salvata (iOS)
         try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch (_) { }

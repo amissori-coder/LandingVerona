@@ -81,19 +81,22 @@ function haVariabili(s) { return RE_VARIABILI.test(String(s || '')); }
 function applicaVariabili(s, d) {
     d = d || {};
     const nc = (d.nome && d.cognome) ? (d.nome + ' ' + d.cognome) : (d.nome || d.cognome || '');
+    // funzioni di sostituzione: valore inserito LETTERALE (un "$" nel testo non e' un riferimento speciale)
     return String(s == null ? '' : s)
-        .replace(/\{nome_completo\}/g, nc).replace(/\{nome\}/g, d.nome || '').replace(/\{cognome\}/g, d.cognome || '')
-        .replace(/\{email\}/g, d.email || '').replace(/\{incarichi\}/g, d.incarichi || '');
+        .replace(/\{nome_completo\}/g, () => nc).replace(/\{nome\}/g, () => d.nome || '').replace(/\{cognome\}/g, () => d.cognome || '')
+        .replace(/\{email\}/g, () => d.email || '').replace(/\{incarichi\}/g, () => d.incarichi || '');
 }
 // come sopra, ma per contenuto HTML: i valori sostituiti vengono escaped
 function applicaVariabiliHtml(s, d) {
     d = d || {};
-    return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: esc(d.incarichi || '') });
+    // {incarichi} e' una TABELLA HTML gia' pronta (incarichiHtml): va inserita RAW, non escaped
+    return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: (d.incarichiHtml != null ? d.incarichiHtml : esc(d.incarichi || '')) });
 }
 // converte l'HTML del messaggio in testo semplice (per la parte text/plain della mail)
 function htmlToText(h) {
     return String(h || '')
         .replace(/<\s*br\s*\/?>/gi, '\n')
+        .replace(/<\/(td|th)>/gi, '\t')
         .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
         .replace(/<li[^>]*>/gi, '- ')
         .replace(/<[^>]+>/g, '')
@@ -147,7 +150,7 @@ module.exports = async (req, res) => {
             const o = (d && typeof d === 'object') ? d : { email: d };
             const email = String(o.email || '').trim().toLowerCase();
             if (!EMAIL_RE.test(email) || perEmail[email]) return;
-            perEmail[email] = { email: email, nome: String(o.nome || ''), cognome: String(o.cognome || ''), incarichi: String(o.incarichi || '') };
+            perEmail[email] = { email: email, nome: String(o.nome || ''), cognome: String(o.cognome || ''), incarichi: String(o.incarichi || ''), incarichiHtml: String(o.incarichiHtml || '') };
         });
         const destinatari = Object.keys(perEmail).map(k => perEmail[k]);
         if (!destinatari.length) { res.status(400).json({ ok: false, msg: 'Nessun destinatario valido.' }); return; }

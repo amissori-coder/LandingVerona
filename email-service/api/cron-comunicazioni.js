@@ -50,17 +50,20 @@ function haVariabili(s) { return RE_VARIABILI.test(String(s || '')); }
 function applicaVariabili(s, d) {
     d = d || {};
     const nc = (d.nome && d.cognome) ? (d.nome + ' ' + d.cognome) : (d.nome || d.cognome || '');
+    // funzioni di sostituzione: valore inserito LETTERALE (un "$" nel testo non e' un riferimento speciale)
     return String(s == null ? '' : s)
-        .replace(/\{nome_completo\}/g, nc).replace(/\{nome\}/g, d.nome || '').replace(/\{cognome\}/g, d.cognome || '')
-        .replace(/\{email\}/g, d.email || '').replace(/\{incarichi\}/g, d.incarichi || '');
+        .replace(/\{nome_completo\}/g, () => nc).replace(/\{nome\}/g, () => d.nome || '').replace(/\{cognome\}/g, () => d.cognome || '')
+        .replace(/\{email\}/g, () => d.email || '').replace(/\{incarichi\}/g, () => d.incarichi || '');
 }
 function applicaVariabiliHtml(s, d) {
     d = d || {};
-    return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: esc(d.incarichi || '') });
+    // {incarichi} e' una TABELLA HTML gia' pronta (incarichiHtml): va inserita RAW, non escaped
+    return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: (d.incarichiHtml != null ? d.incarichiHtml : esc(d.incarichi || '')) });
 }
 function htmlToText(h) {
     return String(h || '')
         .replace(/<\s*br\s*\/?>/gi, '\n')
+        .replace(/<\/(td|th)>/gi, '\t')
         .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
         .replace(/<li[^>]*>/gi, '- ')
         .replace(/<[^>]+>/g, '')
@@ -80,6 +83,28 @@ function incarichiDiCognome(cognome, incarichi) {
         if (tok.indexOf(cg) >= 0 && inc.cliente) out.push(inc.cliente);
     });
     return Array.from(new Set(out));
+}
+// come sopra, ma restituisce gli oggetti {cliente, qualita, respIncarico} per costruire la tabella
+function incarichiObjDiCognome(cognome, incarichi) {
+    const cg = String(cognome || '').trim().toLowerCase();
+    if (!cg) return [];
+    const out = [], visti = {};
+    (incarichi || []).forEach(inc => {
+        const tok = [];
+        [inc.team, inc.respIncarico, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
+        if (tok.indexOf(cg) >= 0 && inc.cliente && !visti[inc.cliente]) { visti[inc.cliente] = 1; out.push({ cliente: inc.cliente, qualita: inc.qualita || '', respIncarico: inc.respIncarico || '' }); }
+    });
+    return out;
+}
+// tabella HTML (email-safe, stili inline) degli incarichi di una persona
+function tabellaIncarichiHtml(objs) {
+    if (!objs || !objs.length) return ''; // niente incarichi: {incarichi} sparisce (coerente con l'invio immediato)
+    const th = 'border:1px solid #CBD5E1;padding:6px 9px;text-align:left;background:#F1F5F9;';
+    const td = 'border:1px solid #CBD5E1;padding:6px 9px;';
+    return '<table style="border-collapse:collapse;margin:10px 0;font-size:13px;"><tr>'
+        + '<th style="' + th + '">Incarico</th><th style="' + th + '">Resp. qualita</th><th style="' + th + '">Resp. incarico</th></tr>'
+        + objs.map(o => '<tr><td style="' + td + '">' + esc(o.cliente) + '</td><td style="' + td + '">' + esc(o.qualita || '-') + '</td><td style="' + td + '">' + esc(o.respIncarico || '-') + '</td></tr>').join('')
+        + '</table>';
 }
 
 // Firma con logo Revilaw (uguale a invia-comunicazione e all'anteprima)
@@ -123,7 +148,8 @@ function risolviDestinatariCron(com, persone, utenti, incarichi) {
     const add = (email, nome, cognome, inc) => {
         const k = String(email || '').trim().toLowerCase();
         if (!reEmail.test(k) || byEmail[k]) return;
-        byEmail[k] = { email: k, nome: nome || '', cognome: cognome || '', incarichi: inc || '' };
+        const objs = cognome ? incarichiObjDiCognome(cognome, incarichi) : [];
+        byEmail[k] = { email: k, nome: nome || '', cognome: cognome || '', incarichi: inc || '', incarichiHtml: tabellaIncarichiHtml(objs) };
     };
     if (g.has('utenti')) (utenti || []).forEach(u => { if (u.email && u.attivo !== false) add(u.email, u.nome || '', '', ''); });
     (persone || []).forEach(p => {
