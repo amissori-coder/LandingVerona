@@ -63,6 +63,11 @@
         return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear() +
             ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     }
+    /* Solo la data (senza ora) a partire da un timestamp. */
+    function fmtGiorno(ts) {
+        const d = new Date(ts);
+        return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+    }
     function parseImporto(str) {
         if (typeof str === 'number') return str;
         if (!str) return 0;
@@ -3459,18 +3464,18 @@
     /* Descrizione leggibile di QUANDO parte una comunicazione programmata. */
     function descriviProgrammazione(prog) {
         if (!prog || !prog.prossimoInvio) return '';
+        // l'invio avviene una volta al giorno la mattina: conta il giorno, non l'ora
         const d = new Date(prog.prossimoInvio);
         const giorni = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
         const z = n => String(n).padStart(2, '0');
-        const ora = z(d.getHours()) + ':' + z(d.getMinutes());
         const gg = d.getDate();
-        if (prog.frequenza === 'unica' || !prog.frequenza) return 'Una volta, il ' + fmtDataOra(prog.prossimoInvio);
+        if (prog.frequenza === 'unica' || !prog.frequenza) return 'Una volta, il ' + fmtGiorno(prog.prossimoInvio) + ' (la mattina)';
         let base;
         switch (prog.frequenza) {
-            case 'settimanale': base = 'Ogni settimana, di ' + giorni[d.getDay()] + ' alle ' + ora; break;
-            case 'mensile': base = 'Ogni mese, il giorno ' + gg + ' alle ' + ora; break;
-            case 'trimestrale': base = 'Ogni 3 mesi, il giorno ' + gg + ' alle ' + ora; break;
-            case 'annuale': base = 'Ogni anno, il ' + z(gg) + '/' + z(d.getMonth() + 1) + ' alle ' + ora; break;
+            case 'settimanale': base = 'Ogni settimana, di ' + giorni[d.getDay()] + ' (la mattina)'; break;
+            case 'mensile': base = 'Ogni mese, il giorno ' + gg + ' (la mattina)'; break;
+            case 'trimestrale': base = 'Ogni 3 mesi, il giorno ' + gg + ' (la mattina)'; break;
+            case 'annuale': base = 'Ogni anno, il ' + z(gg) + '/' + z(d.getMonth() + 1) + ' (la mattina)'; break;
             default: base = 'Periodicamente';
         }
         const fine = prog.fine ? (() => { const f = new Date(prog.fine); return ', fino al ' + z(f.getDate()) + '/' + z(f.getMonth() + 1) + '/' + f.getFullYear(); })() : ', senza fine';
@@ -3853,16 +3858,13 @@
         let utentiAbilitati = []; // caricati dal cloud per risolvere il gruppo "Utenti abilitati"
         const reEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
         const prog = (c && c.programmazione) || null;
-        const perDatetimeLocal = ts => {
-            if (!ts) return '';
-            const d = new Date(ts), z = n => String(n).padStart(2, '0');
-            return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes());
-        };
         const perDateLocal = ts => {
             if (!ts) return '';
             const d = new Date(ts), z = n => String(n).padStart(2, '0');
             return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
         };
+        // il campo "quando" e' ora solo una DATA: la converto in timestamp all'inizio di quel giorno (ora locale)
+        const tsDaData = q => { if (!q) return NaN; const t = new Date(q + 'T00:00:00').getTime(); return isNaN(t) ? NaN : t; };
         // AREA 1 - Persone Revilaw con email, con i ruoli per il filtro
         const conMail = Persone.tutte().filter(p => p.email && p.attivo)
             .sort((a, b) => (a.nome + (a.nomeProprio || '')).localeCompare(b.nome + (b.nomeProprio || '')));
@@ -3974,7 +3976,7 @@
                             <option value="trimestrale">Ogni trimestre</option>
                             <option value="annuale">Ogni anno</option>
                         </select></div>
-                        <div class="campo"><label>Data e ora del (primo) invio</label><input type="datetime-local" id="c-quando" value="${prog ? perDatetimeLocal(prog.prossimoInvio) : ''}"></div>
+                        <div class="campo"><label>Giorno del (primo) invio</label><input type="date" id="c-quando" value="${prog ? perDateLocal(prog.prossimoInvio) : ''}"><div class="hint">Parte quella mattina (verso le 8:00). Conta il giorno, non l'ora.</div></div>
                     </div>
                     <div id="c-ricorrenti" class="${prog && prog.frequenza && prog.frequenza !== 'unica' ? '' : 'nascosto'}">
                         <div class="griglia-2">
@@ -3988,7 +3990,7 @@
                     </div>
                     <p class="hint" id="c-prog-riepilogo" style="font-weight:600;color:var(--blu-700);"></p>
                     <div id="c-oggetto-riepilogo" class="anteprima-periodi"></div>
-                    <p class="hint">Gli invii programmati partono automaticamente dal server (con verifica giornaliera). La comunicazione resta modificabile fino all'invio.</p>
+                    <p class="hint">Gli invii programmati partono dal server <strong>una volta al giorno, la mattina presto</strong> (verso le 8:00): quindi conta il <strong>giorno</strong> scelto, non l'ora esatta. Se scegli oggi e l'invio del mattino e gia avvenuto, parte domani mattina. La comunicazione resta modificabile fino all'invio.</p>
                 </div>
             </div>
             <div class="msg-errore hidden" id="c-errore"></div>
@@ -4034,7 +4036,7 @@
             let periodoAnt = '';
             if (usaPeriodo) {
                 const progOn = $('c-prog') && $('c-prog').checked;
-                const q = $('c-quando') ? $('c-quando').value : '', ts = q ? new Date(q).getTime() : NaN, fq = $('c-freq') ? $('c-freq').value : 'unica';
+                const q = $('c-quando') ? $('c-quando').value : '', ts = tsDaData(q), fq = $('c-freq') ? $('c-freq').value : 'unica';
                 periodoAnt = (progOn && fq !== 'unica' && !isNaN(ts)) ? etichettaPeriodo(fq, ts) : 'primo trimestre 2026';
             }
             const oggFinale = esc(applicaVariabili(sostituisciPeriodo(oggRaw, periodoAnt), CAMPIONE_VAR).trim() || '(nessun oggetto)');
@@ -4193,8 +4195,10 @@
         const leggiProg = () => {
             if (!chkProg.checked) return { prog: null };
             const q = $('c-quando').value;
-            const t = q ? new Date(q).getTime() : NaN;
-            if (!q || isNaN(t)) return { errore: 'Imposta la data e ora del (primo) invio.' };
+            const t = tsDaData(q);
+            if (!q || isNaN(t)) return { errore: 'Imposta il giorno del (primo) invio.' };
+            const oggi0 = new Date(); oggi0.setHours(0, 0, 0, 0);
+            if (t < oggi0.getTime()) return { errore: 'Il giorno scelto e gia passato: scegli oggi o una data futura.' };
             const freq = $('c-freq').value, ricorrente = freq !== 'unica';
             let fine = null;
             if (ricorrente && $('c-fine-tipo').value === 'data') {
@@ -4209,7 +4213,7 @@
             const freq = $('c-freq').value, ricorrente = freq !== 'unica';
             $('c-ricorrenti').classList.toggle('nascosto', !ricorrente);
             $('c-fine-data-box').classList.toggle('nascosto', $('c-fine-tipo').value !== 'data');
-            const q = $('c-quando').value, t = q ? new Date(q).getTime() : NaN;
+            const q = $('c-quando').value, t = tsDaData(q);
             const attivo = chkProg.checked && q && !isNaN(t);
             const lp = attivo ? leggiProg() : null;
             $('c-prog-riepilogo').textContent = (lp && lp.prog) ? descriviProgrammazione(lp.prog) : '';
@@ -4246,7 +4250,7 @@
             // (la data si puo mettere dopo). Non parte finche non premi Programma, che valida tutto.
             let progBozza = null;
             if (chkProg.checked) {
-                const qB = $('c-quando').value, tB = qB ? new Date(qB).getTime() : NaN;
+                const tB = tsDaData($('c-quando').value);
                 let fineB = null;
                 if ($('c-freq').value !== 'unica' && $('c-fine-tipo').value === 'data' && $('c-fine-data').value) fineB = new Date($('c-fine-data').value + 'T23:59:59').getTime();
                 progBozza = { attiva: false, frequenza: $('c-freq').value, prossimoInvio: isNaN(tB) ? null : tB, fine: fineB };
@@ -4270,17 +4274,16 @@
             if (!rec.destinatari.length && !(lp.prog && haGruppi)) { mostraErr('Seleziona almeno un destinatario o un gruppo.'); return; }
 
             if (lp.prog) {
-                // PROGRAMMA: non invia ora, sara' il server a inviare alla data prevista
-                // la data del primo invio deve essere nel futuro, altrimenti il server la spedirebbe subito a tutti
-                if ((lp.prog.prossimoInvio || 0) < Date.now() - 60 * 1000) { mostraErr('La data e l\'ora del primo invio devono essere nel futuro.'); return; }
+                // PROGRAMMA: non invia ora, sara' il server a inviare (una volta al giorno, la mattina).
+                // La validazione del giorno (oggi o futuro) e' gia in leggiProg.
                 if (!Cloud.attivo) { mostraErr('La programmazione richiede l\'accesso protetto attivo.'); return; }
                 rec.programmazione = lp.prog;
                 rec.stato = 'programmata';
                 Comunicazioni.salvaUna(rec);
                 Audit.registra(Auth.utenteCorrente, 'Comunicazione programmata', 'comunicazione', rec.id, rec.oggetto,
-                    [{ campo: 'Primo invio', prima: '', dopo: fmtDataOra(lp.prog.prossimoInvio) }, { campo: 'Frequenza', prima: '', dopo: lp.prog.frequenza }]);
+                    [{ campo: 'Primo invio', prima: '', dopo: fmtGiorno(lp.prog.prossimoInvio) }, { campo: 'Frequenza', prima: '', dopo: lp.prog.frequenza }]);
                 chiudiModale();
-                toast('Comunicazione programmata per il ' + fmtDataOra(lp.prog.prossimoInvio) + '.', 'verde');
+                toast('Comunicazione programmata dal ' + fmtGiorno(lp.prog.prossimoInvio) + ' (parte la mattina).', 'verde');
                 vistaComunicazioni();
                 return;
             }
