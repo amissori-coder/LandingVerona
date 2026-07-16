@@ -1667,6 +1667,66 @@
     }
     function chiudiModale() { document.getElementById('modale-contenitore').innerHTML = ''; }
 
+    /* Rende un livello inattivo mentre sopra c'e' una finestra: lo sfondo copre i clic, ma NON la
+       tastiera, quindi senza questo con Tab/Invio si arriverebbe ancora ai pulsanti della finestra
+       sotto (compreso "Invia"). "inert" fa tutto; sui browser che non ce l'hanno si tolgono a mano
+       gli elementi dal giro del Tab. */
+    const FOCUSABILI = 'a[href], button, input, select, textarea, [tabindex], [contenteditable="true"]';
+    function rendiInerte(el, inerte) {
+        if (!el || !el.querySelectorAll) return;
+        if ('inert' in HTMLElement.prototype) { el.inert = inerte; return; }
+        Array.from(el.querySelectorAll(FOCUSABILI)).forEach(f => {
+            if (inerte) {
+                if (!f.hasAttribute('data-ti-prec')) f.setAttribute('data-ti-prec', f.getAttribute('tabindex') || '');
+                f.setAttribute('tabindex', '-1');
+            } else if (f.hasAttribute('data-ti-prec')) {
+                const p = f.getAttribute('data-ti-prec');
+                if (p) f.setAttribute('tabindex', p); else f.removeAttribute('tabindex');
+                f.removeAttribute('data-ti-prec');
+            }
+        });
+    }
+
+    /* Apre una vera finestra SOPRA quella corrente (es. Destinatari, Programma l'invio):
+       la finestra sotto resta aperta ma diventa inattiva, questa si chiude con "Fatto" o con la X.
+       Il contenuto si mette dentro .corpo (di solito spostandoci un pezzo di DOM gia' pronto,
+       cosi' mantiene valori e listener). allaChiusura() serve a riprenderselo indietro. */
+    function apriSottoFinestra(opts) {
+        opts = opts || {};
+        const cont = document.getElementById('modale-contenitore');
+        const sotto = Array.from(cont.children);          // i livelli gia' aperti: da congelare
+        const attivoPrima = document.activeElement;       // a chi ridare il focus alla chiusura
+        const sfondo = document.createElement('div');
+        sfondo.className = 'modale-sfondo modale-sfondo-finestra modale-sfondo-sopra';
+        sfondo.innerHTML = '<div class="modale ' + (opts.classe || '') + ' modale-finestra" tabindex="-1" role="dialog" aria-modal="true">'
+            + '<div class="modale-barra"><span class="modale-titolo">' + esc(opts.titolo || '') + '</span>'
+            + '<span class="modale-controlli">'
+            + '<button type="button" class="mw-btn mw-max" title="A schermo intero" aria-label="A schermo intero">&#9633;</button>'
+            + '<button type="button" class="mw-btn mw-close" title="Chiudi" aria-label="Chiudi">&#10005;</button>'
+            + '</span></div>'
+            + '<div class="modale-corpo"></div>'
+            + '<div class="modale-azioni"><button type="button" class="btn btn-primary" data-sf-ok="1">' + esc(opts.ok || 'Fatto') + '</button></div>'
+            + '</div>';
+        cont.appendChild(sfondo);
+        sotto.forEach(el => rendiInerte(el, true));
+        const modale = sfondo.querySelector('.modale');
+        let chiusa = false;
+        const chiudi = () => {
+            if (chiusa) return; chiusa = true;
+            if (typeof opts.allaChiusura === 'function') opts.allaChiusura();
+            sfondo.remove();
+            sotto.forEach(el => rendiInerte(el, false));
+            try { if (attivoPrima && attivoPrima.focus && attivoPrima.isConnected) attivoPrima.focus(); } catch (_) { }
+        };
+        sfondo.querySelector('.mw-close').addEventListener('click', chiudi);
+        sfondo.querySelector('[data-sf-ok]').addEventListener('click', chiudi);
+        sfondo.querySelector('.mw-max').addEventListener('click', () => modale.classList.toggle('massimizzata'));
+        sfondo.querySelector('.modale-barra').addEventListener('dblclick', e => { if (!e.target.closest('.mw-btn')) modale.classList.toggle('massimizzata'); });
+        sfondo.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); chiudi(); } });
+        try { modale.focus(); } catch (_) { }   // il focus entra nella finestra nuova
+        return { sfondo: sfondo, corpo: sfondo.querySelector('.modale-corpo'), chiudi: chiudi };
+    }
+
     /* Mostra nella sidebar gli utenti attualmente connessi (heartbeat recente). */
     function aggiornaPresenza(connessi) {
         const box = document.getElementById('presenza-box');
@@ -3934,7 +3994,13 @@
 
         apriModale(`
             ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
-            <div id="c-vista-main">
+            <div class="comp-scelta" id="c-card-dest">
+                <div class="comp-scelta-testa">
+                    <div class="comp-scelta-tit">Destinatari</div>
+                    <button type="button" class="btn btn-sm btn-secondary" id="c-btn-dest">Scegli i destinatari</button>
+                </div>
+                <div class="comp-scelta-riep" id="c-riep-dest"></div>
+            </div>
             <div class="griglia-2">
                 <div class="campo"><label>Contesto</label><select id="c-contesto">${CONTESTI.map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select></div>
                 <div class="campo"><label>Nome della comunicazione</label><input id="c-nome" value="${esc((c && c.nome) || '')}" placeholder="es. Promemoria scadenze trimestrali"><div class="hint">Etichetta interna per riconoscerla in elenco e nel calendario.</div></div>
@@ -3970,14 +4036,16 @@
                     <p>Cosi una sola comunicazione ricorrente genera da sola l'oggetto e il testo giusti per ogni periodo. Nell'invio immediato <code>{periodo}</code> resta vuoto, perche non c'e una frequenza.</p>
                 </div>
             </div>
-            <div class="comp-scelte">
-                <button type="button" class="comp-scelta" id="c-btn-dest"><span class="comp-scelta-tit">Destinatari</span><span class="comp-scelta-sub" id="c-btn-dest-sub">nessuno selezionato</span><span class="comp-scelta-freccia">&rsaquo;</span></button>
-                <button type="button" class="comp-scelta" id="c-btn-prog"><span class="comp-scelta-tit">Programma l'invio</span><span class="comp-scelta-sub" id="c-btn-prog-sub">Invio subito</span><span class="comp-scelta-freccia">&rsaquo;</span></button>
+            <div class="comp-scelta" id="c-card-prog">
+                <div class="comp-scelta-testa">
+                    <div class="comp-scelta-tit">Quando parte</div>
+                    <button type="button" class="btn btn-sm btn-secondary" id="c-btn-prog">Programma l'invio</button>
+                </div>
+                <div class="comp-scelta-riep" id="c-riep-prog"></div>
             </div>
             <div class="comp-esito" id="c-esito-invio"></div>
-            </div><!-- /c-vista-main -->
-            <div id="c-vista-dest" class="nascosto comp-finestra">
-            <div class="comp-finestra-testa"><button type="button" class="btn btn-sm btn-secondary" data-comp-torna="1">&larr; Torna al messaggio</button><h3>Destinatari</h3></div>
+            <div id="c-riposo" class="nascosto">
+            <div id="c-vista-dest">
             <div class="campo">
                 <label>Destinatari <span class="hint" id="c-conta"></span></label>
                 <div class="tab-dest">
@@ -4017,8 +4085,7 @@
                 </div>
             </div>
             </div><!-- /c-vista-dest -->
-            <div id="c-vista-prog" class="nascosto comp-finestra">
-            <div class="comp-finestra-testa"><button type="button" class="btn btn-sm btn-secondary" data-comp-torna="1">&larr; Torna al messaggio</button><h3>Programma l'invio</h3></div>
+            <div id="c-vista-prog">
             <div class="campo">
                 <label style="display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer;"><input type="checkbox" id="c-prog" style="width:auto;" ${prog ? 'checked' : ''}> Programma l'invio (una volta o periodico)</label>
                 <div id="c-prog-box" class="${prog ? '' : 'nascosto'}" style="margin-top:8px;">
@@ -4048,6 +4115,7 @@
                 </div>
             </div>
             </div><!-- /c-vista-prog -->
+            </div><!-- /c-riposo -->
             <div class="msg-errore hidden" id="c-errore"></div>
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="c-annulla">Annulla</button>
@@ -4294,38 +4362,88 @@
             } else { box.innerHTML = ''; }
             aggiornaScelte();
         };
-        // finestre del compositore (messaggio / destinatari / programma) + indicatore invio subito vs programmato
-        const mostraVista = v => {
-            ['c-vista-main', 'c-vista-dest', 'c-vista-prog'].forEach(id => { const el = $(id); if (el) el.classList.toggle('nascosto', id !== v); });
-            const corpo = document.querySelector('#modale-contenitore .modale-corpo'); if (corpo) corpo.scrollTop = 0;
+        // Destinatari e Programmazione stanno in due VERE finestre sopra questa: il loro pezzo di DOM
+        // vive parcheggiato (nascosto) in #c-riposo e viene spostato dentro la finestra quando la apri,
+        // cosi' mantiene valori e listener. Alla chiusura torna al suo posto e si aggiorna il riepilogo.
+        const apriFinestraScelta = (idNodo, titolo) => {
+            const nodo = $(idNodo), riposo = $('c-riposo');
+            if (!nodo || !riposo) return;
+            // se non e' parcheggiato, una finestra lo sta gia' mostrando: non aprirne una seconda
+            // (col tasto Invio sul pulsante gia' a fuoco si arriverebbe qui una seconda volta)
+            if (nodo.parentElement !== riposo) return;
+            const sf = apriSottoFinestra({
+                titolo: titolo, classe: 'larga', ok: 'Fatto',
+                allaChiusura: () => {
+                    // riprendilo solo se e' ancora qui dentro: mai strapparlo a un'altra finestra
+                    if (nodo.parentElement === sf.corpo) riposo.appendChild(nodo);
+                    aggiornaScelte();
+                }
+            });
+            sf.corpo.appendChild(nodo);
         };
-        // errore che porta l'utente sulla finestra giusta: il campo da correggere e su una vista che potrebbe essere nascosta
-        const mostraErrIn = (vista, m) => { mostraVista(vista); mostraErr(m); };
+        // errore: lo mostra nella finestra principale e mette in evidenza la card da sistemare
+        const mostraErrSu = (idCard, m) => {
+            ['c-card-dest', 'c-card-prog'].forEach(x => { const el = $(x); if (el) el.classList.remove('comp-scelta-errore'); });
+            if (idCard) { const el = $(idCard); if (el) el.classList.add('comp-scelta-errore'); }
+            mostraErr(m);
+        };
+        // appena l'utente sistema qualcosa l'errore va via: altrimenti resta una card rossa
+        // accanto a un riepilogo che dice il contrario
+        const nascondiErr = () => {
+            ['c-card-dest', 'c-card-prog'].forEach(x => { const el = $(x); if (el) el.classList.remove('comp-scelta-errore'); });
+            const e = $('c-errore'); if (e) { e.textContent = ''; e.classList.add('hidden'); }
+        };
+        // riepilogo dei destinatari: gruppi + quanti per scheda + totale
+        const riepDestHtml = () => {
+            const g = gruppiSel(), nP = spuntati('cp-lista'), nC = spuntati('cc-lista');
+            // "Altri" conta solo gli indirizzi non gia' spuntati tra persone/clienti, altrimenti
+            // le righe sommerebbero piu' del totale (che invece e' deduplicato)
+            const gia = new Set(Array.from($('cp-lista').querySelectorAll('input:checked')).map(i => i.value.trim().toLowerCase())
+                .concat(Array.from($('cc-lista').querySelectorAll('input:checked')).map(i => i.value.trim().toLowerCase())));
+            const nA = $('c-altri').value.split(/[\n,;]+/).map(s => s.trim().toLowerCase())
+                .filter(e => reEmail.test(e) && !gia.has(e)).length;
+            const tot = tuttiDestinatari().length;
+            const r = [];
+            if (g.length) r.push('<div class="riep-r"><span class="riep-et">Gruppi</span><span>' + esc(g.map(nomeGruppo).join(', ')) + '</span></div>');
+            if (nP) r.push('<div class="riep-r"><span class="riep-et">Persone Revilaw</span><span>' + nP + '</span></div>');
+            if (nC) r.push('<div class="riep-r"><span class="riep-et">Clienti</span><span>' + nC + '</span></div>');
+            if (nA) r.push('<div class="riep-r"><span class="riep-et">Altri indirizzi</span><span>' + nA + '</span></div>');
+            if (!r.length) return '<div class="riep-vuoto">Nessun destinatario scelto</div>';
+            r.push('<div class="riep-tot">' + tot + (tot === 1 ? ' destinatario in tutto' : ' destinatari in tutto')
+                + (g.length ? ' &middot; i gruppi si aggiornano a ogni invio' : '') + '</div>');
+            return r.join('');
+        };
+        // riepilogo di quando parte
+        const riepProgHtml = () => {
+            if (!chkProg.checked) return '<div class="riep-r"><strong>Invio subito</strong></div><div class="riep-tot">Parte appena premi "Invia subito".</div>';
+            const lp = leggiProg();
+            if (!lp || !lp.prog) return '<div class="riep-vuoto">Programmazione da completare</div>';
+            return '<div class="riep-r"><strong>' + esc(descriviProgrammazione(lp.prog)) + '</strong></div>'
+                + '<div class="riep-tot">Parte la mattina del giorno scelto (verso le 8:00).</div>';
+        };
         aggiornaScelte = () => {
+            nascondiErr();
             const nDest = tuttiDestinatari().length, nGruppi = gruppiSel().length;
             const dstr = nDest + (nDest === 1 ? ' destinatario' : ' destinatari');
             const gstr = nGruppi + (nGruppi === 1 ? ' gruppo' : ' gruppi') + ' (destinatari presi a ogni invio)';
-            const subDest = $('c-btn-dest-sub'); if (subDest) subDest.textContent = nDest ? dstr : (nGruppi ? 'nessuno ora, presi dai gruppi' : 'nessuno selezionato');
-            const subProg = $('c-btn-prog-sub'), esito = $('c-esito-invio');
+            const rd = $('c-riep-dest'); if (rd) rd.innerHTML = riepDestHtml();
+            const rp = $('c-riep-prog'); if (rp) rp.innerHTML = riepProgHtml();
+            const bd = $('c-btn-dest'); if (bd) bd.textContent = (nDest || nGruppi) ? 'Modifica i destinatari' : 'Scegli i destinatari';
+            const bp = $('c-btn-prog'); if (bp) bp.textContent = chkProg.checked ? 'Modifica la programmazione' : 'Programma l\'invio';
+            const esito = $('c-esito-invio');
+            if (!esito) return;
             if (chkProg.checked) {
                 const lp = leggiProg();
                 const descr = (lp && lp.prog) ? descriviProgrammazione(lp.prog) : 'da completare';
-                if (subProg) subProg.textContent = descr;
-                if (esito) {
-                    if (nDest === 0 && nGruppi === 0) { esito.className = 'comp-esito vuoto'; esito.innerHTML = 'Invio <strong>PROGRAMMATO</strong> (' + esc(descr) + '), ma <strong>nessun destinatario</strong>: apri "Destinatari" e scegli persone o un gruppo.'; }
-                    else { esito.className = 'comp-esito prog'; esito.innerHTML = 'Invio <strong>PROGRAMMATO</strong>: ' + esc(descr) + ' &middot; ' + (nDest ? dstr : gstr) + '.'; }
-                }
+                if (nDest === 0 && nGruppi === 0) { esito.className = 'comp-esito vuoto'; esito.innerHTML = 'Invio <strong>PROGRAMMATO</strong> (' + esc(descr) + '), ma <strong>nessun destinatario</strong>: apri "Destinatari" e scegli persone o un gruppo.'; }
+                else { esito.className = 'comp-esito prog'; esito.innerHTML = 'Invio <strong>PROGRAMMATO</strong>: ' + esc(descr) + ' &middot; ' + (nDest ? dstr : gstr) + '.'; }
             } else {
-                if (subProg) subProg.textContent = 'Invio subito';
-                if (esito) {
-                    if (nDest === 0) { esito.className = 'comp-esito vuoto'; esito.innerHTML = '<strong>Nessun destinatario</strong> selezionato: apri "Destinatari" e scegline almeno uno prima di inviare.'; }
-                    else { esito.className = 'comp-esito subito'; esito.innerHTML = 'Invio <strong>SUBITO</strong> a ' + dstr + ', appena premi "Invia subito".'; }
-                }
+                if (nDest === 0) { esito.className = 'comp-esito vuoto'; esito.innerHTML = '<strong>Nessun destinatario</strong> selezionato: apri "Destinatari" e scegline almeno uno prima di inviare.'; }
+                else { esito.className = 'comp-esito subito'; esito.innerHTML = 'Invio <strong>SUBITO</strong> a ' + dstr + ', appena premi "Invia subito".'; }
             }
         };
-        if ($('c-btn-dest')) $('c-btn-dest').addEventListener('click', () => mostraVista('c-vista-dest'));
-        if ($('c-btn-prog')) $('c-btn-prog').addEventListener('click', () => mostraVista('c-vista-prog'));
-        document.querySelectorAll('#modale-contenitore [data-comp-torna]').forEach(b => b.addEventListener('click', () => { aggiornaScelte(); mostraVista('c-vista-main'); }));
+        if ($('c-btn-dest')) $('c-btn-dest').addEventListener('click', () => apriFinestraScelta('c-vista-dest', 'Destinatari'));
+        if ($('c-btn-prog')) $('c-btn-prog').addEventListener('click', () => apriFinestraScelta('c-vista-prog', 'Programma l\'invio'));
         chkProg.addEventListener('change', () => { $('c-prog-box').classList.toggle('nascosto', !chkProg.checked); relabel(); aggiornaRiepilogo(); });
         ['c-freq', 'c-quando', 'c-fine-tipo', 'c-fine-data', 'c-oggetto', 'c-testo'].forEach(idw => {
             const el = $(idw); if (el) el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', aggiornaRiepilogo);
@@ -4335,7 +4453,7 @@
         $('c-annulla').addEventListener('click', chiudiModale);
         $('c-bozza').addEventListener('click', () => {
             const rec = componiRecord();
-            if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErrIn('c-vista-main', 'Non c\'e nulla da salvare: aggiungi almeno l\'oggetto, il testo o un destinatario.'); return; }
+            if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErrSu(null, 'Non c\'e nulla da salvare: aggiungi almeno l\'oggetto, il testo o un destinatario.'); return; }
             // In preparazione: la programmazione si salva SEMPRE come non attiva e puo essere incompleta
             // (la data si puo mettere dopo). Non parte finche non premi Programma, che valida tutto.
             let progBozza = null;
@@ -4353,15 +4471,19 @@
         });
 
         const btnInvia = $('c-invia');
+        // conAttesa rimette sul pulsante l'etichetta fotografata al clic: se nel frattempo e'
+        // cambiata la programmazione, quella e' vecchia. Qui la si rimette giusta (solo se e'
+        // ancora questo pulsante: se la finestra si e' chiusa o riaperta, non toccare nulla).
+        const rilabella = () => { if ($('c-invia') === btnInvia) relabel(); };
         btnInvia.addEventListener('click', () => conAttesa(btnInvia, async () => {
             const rec = componiRecord();
-            if (!rec.oggetto) { mostraErrIn('c-vista-main', 'Inserisci l\'oggetto.'); return; }
-            if (!rec.testo) { mostraErrIn('c-vista-main', 'Scrivi il testo del messaggio.'); return; }
+            if (!rec.oggetto) { mostraErrSu(null, 'Inserisci l\'oggetto.'); return; }
+            if (!rec.testo) { mostraErrSu(null, 'Scrivi il testo del messaggio.'); return; }
             const haGruppi = rec.gruppi && rec.gruppi.length;
             const lp = leggiProg();
-            if (lp.errore) { mostraErrIn('c-vista-prog', lp.errore); return; }
+            if (lp.errore) { mostraErrSu('c-card-prog', lp.errore); return; }
             // per una programmata basta aver scelto un gruppo (anche se ora e vuoto): si popolera all'invio
-            if (!rec.destinatari.length && !(lp.prog && haGruppi)) { mostraErrIn('c-vista-dest', 'Seleziona almeno un destinatario o un gruppo.'); return; }
+            if (!rec.destinatari.length && !(lp.prog && haGruppi)) { mostraErrSu('c-card-dest', 'Seleziona almeno un destinatario o un gruppo.'); return; }
 
             if (lp.prog) {
                 // PROGRAMMA: non invia ora, sara' il server a inviare (una volta al giorno, la mattina).
@@ -4399,7 +4521,7 @@
                 ? ('Inviata a ' + esito.inviati + ' destinatari, ' + falliti.length + ' falliti (vedi "Invii effettuati").')
                 : ('Comunicazione inviata a ' + esito.inviati + ' destinatari.'), falliti.length ? 'ambra' : 'verde');
             vistaComunicazioni();
-        }, { testo: 'Attendere…' }));
+        }, { testo: 'Attendere…' }).then(rilabella, rilabella));
     }
 
     /* =========================================================
