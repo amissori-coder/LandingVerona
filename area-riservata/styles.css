@@ -634,6 +634,22 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .riep-vuoto { color: var(--grigio-400); font-style: italic; }
 /* sotto-finestra: una vera finestra sopra quella corrente (sfondo base = 100, toast = 200) */
 .modale-sfondo-sopra { z-index: 150; }
+
+/* Report: compenso rispetto alle ore stimate */
+.ore-sintesi { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
+.ore-box { flex: 1 1 150px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: 8px; padding: 9px 12px; display: flex; flex-direction: column; gap: 1px; }
+.ore-box-att { background: #FEF2F2; border-color: #F3C7C4; }
+.ore-n { font-family: 'Montserrat', 'Inter', sans-serif; font-weight: 800; font-size: 1.15rem; color: var(--blu-900); }
+.ore-box-att .ore-n { color: var(--rosso); }
+.ore-et { font-size: 0.75rem; color: var(--grigio-500); }
+.ore-avviso { margin-top: 12px; background: #FEF6E7; border: 1px solid #F5D89A; color: #8A5A00; border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; line-height: 1.5; }
+.g-punto { cursor: pointer; transition: r 0.1s ease; }
+.g-punto:hover { fill-opacity: 1; r: 7; }
+/* legenda del grafico ore/compenso: nome suo, per non toccare la .g-legenda del cruscotto */
+.g-legenda-oc { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 0.78rem; color: var(--grigio-600); }
+.g-legenda-oc span { display: inline-flex; align-items: center; gap: 5px; }
+.g-legenda-oc i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.g-legenda-oc i.g-linea { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--blu-900); }
 .comp-esito { border-radius: 8px; padding: 10px 14px; font-size: 0.9rem; margin-bottom: 4px; }
 .comp-esito.subito { background: #E9F6EF; border: 1px solid #B7E0C8; color: #15603A; }
 .comp-esito.prog { background: #FEF6E7; border: 1px solid #F5D89A; color: #8A5A00; }

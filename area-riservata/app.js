@@ -1217,6 +1217,34 @@
         };
     }
 
+    /* Ore CONCORDATE: vengono dal calcolo del compenso fatto nel wizard, dove chi segue
+       l'incarico ha scelto settore e rischio e ha visto il risultato prima di salvarlo.
+       Sono queste, e solo queste, che finiscono nella proposta di incarico e nel PDF.
+       La revisione volontaria vale un esercizio solo (ore anno 1), la legale va a regime. */
+    function oreDaCalcolo(inc) {
+        const c = inc && inc.calc;
+        if (!c) return 0;
+        const primo = c.oreAnno1 || 0;
+        return inc.tipo === 'volontaria' ? primo : (c.oreAnni23 || primo || 0);
+    }
+
+    /* Ore STIMATE per l'analisi (report): il calcolo del wizard se c'e', altrimenti la stima
+       ricavata dai bilanci caricati (inc.stima). La stima resta fuori dalle lettere: un numero
+       calcolato in blocco con i correttivi predefiniti non puo' finire in un documento
+       contrattuale al posto del trattino da compilare.
+       Con l'anno si distingue il primo esercizio (ore piu' alte) dal regime: senza, il primo
+       anno sembrerebbe pagato meglio di quanto e'. Torna 0 = ore non stimabili. */
+    function oreStimatePerAnno(inc, anno) {
+        if (!inc) return 0;
+        const c = inc.calc, haCalc = c && (c.oreAnni23 || c.oreAnno1);
+        const f = haCalc ? c : (inc.stima || null);
+        if (!f) return 0;
+        const a1 = f.oreAnno1 || 0, regime = f.oreAnni23 || a1 || 0;
+        if (inc.tipo === 'volontaria') return a1;
+        const primo = inc.dataInizio ? Number(String(inc.dataInizio).slice(0, 4)) : null;
+        return (anno && primo && anno === primo) ? (a1 || regime) : regime;
+    }
+
     /* =========================================================
        INCARICHI
     ========================================================= */
@@ -3218,6 +3246,31 @@
             .sort((a, b) => b.importo - a.importo);
         const totaleAnno = elencoClienti.reduce((s, x) => s + x.importo, 0);
 
+        /* Compenso rispetto alle ore stimate. Le ore arrivano dal calcolo CNDCEC (attivo+ricavi):
+           dove non e' compilato non sono stimabili, e l'incarico non puo' entrare nel grafico:
+           va detto, non nascosto. */
+        const oreTutti = incarichi.map(i => ({
+            id: i.id, cliente: i.cliente, tipo: i.tipo,
+            ore: oreStimatePerAnno(i, annoRif), compenso: Incarichi.compensoAnno(i, annoRif)
+        }));
+        const oreDati = oreTutti.filter(x => x.ore > 0 && x.compenso > 0)
+            .map(x => Object.assign(x, { eurH: x.compenso / x.ore }));
+        const senzaOre = oreTutti.filter(x => x.compenso > 0 && !(x.ore > 0)).length;
+        /* Tariffa di riferimento = mediana dello studio. Con pochi incarichi la mediana e' se
+           stessa: un incarico verrebbe confrontato con il proprio compenso e risulterebbe sempre
+           "in linea". Sotto la soglia si mostrano i punti senza dare giudizi. */
+        const MIN_CONFRONTO = 5;
+        const ordEurH = oreDati.map(x => x.eurH).sort((a, b) => a - b);
+        const confrontabile = ordEurH.length >= MIN_CONFRONTO;
+        const tariffaRif = confrontabile
+            ? (ordEurH.length % 2 ? ordEurH[(ordEurH.length - 1) / 2]
+                : (ordEurH[ordEurH.length / 2 - 1] + ordEurH[ordEurH.length / 2]) / 2)
+            : 0;
+        const peggiori = oreDati.slice().sort((a, b) => a.eurH - b.eurH);
+        // meta' degli incarichi sta sotto la mediana per definizione: non e' una notizia.
+        // Il segnale vero e' chi sta molto sotto, quindi si contano quelli sotto il 70%.
+        const moltoSotto = confrontabile ? oreDati.filter(x => x.eurH < tariffaRif * 0.7).length : 0;
+
         $vista().innerHTML = `
             <header>
                 <div>
@@ -3235,6 +3288,39 @@
                 <h2>Primi clienti per compenso ${annoRif}</h2>
                 <p class="hint" style="margin:-6px 0 10px;">Passa sopra una barra per il dettaglio; clicca per aprire l'incarico.</p>
                 <div id="grafico-clienti"></div>
+            </div>
+            <div class="card">
+                <h2>Compenso rispetto alle ore stimate ${annoRif}</h2>
+                <p class="hint" style="margin:-6px 0 10px;">Ogni punto e un incarico: a destra chi costa piu ore, in alto chi rende di piu. Chi sta <strong>sotto la retta</strong> e pagato poco per le ore che assorbe. Passa sopra un punto per il dettaglio; clicca per aprire l'incarico.</p>
+                ${oreDati.length ? `<div class="ore-sintesi">
+                    <div class="ore-box"><span class="ore-n">${oreDati.length}</span><span class="ore-et">incarichi con ore stimate</span></div>
+                    ${confrontabile ? `<div class="ore-box"><span class="ore-n">${eurFmt.format(Math.round(tariffaRif))}</span><span class="ore-et">tariffa mediana per ora</span></div>
+                    <div class="ore-box ${moltoSotto ? 'ore-box-att' : ''}"><span class="ore-n">${moltoSotto}</span><span class="ore-et">sotto il 70% della mediana</span></div>` : ''}
+                </div>` : ''}
+                ${oreDati.length && !confrontabile ? `<div class="ore-avviso">
+                    Solo ${oreDati.length} ${oreDati.length === 1 ? 'incarico ha' : 'incarichi hanno'} le ore stimate: troppo pochi per dire cosa e alto e cosa e basso.
+                    I punti sono mostrati senza giudizio; servono almeno ${MIN_CONFRONTO} incarichi perche il confronto con la mediana abbia senso.
+                </div>` : ''}
+                <div id="grafico-ore-compenso"></div>
+                ${senzaOre ? `<div class="ore-avviso">
+                    <strong>${senzaOre} incarichi con compenso nel ${annoRif} non hanno le ore stimate</strong> e restano fuori dal grafico.
+                    Le ore si ricavano dal metodo CNDCEC a partire da <strong>totale attivo</strong> e <strong>ricavi</strong>: compilali nel calcolo del compenso dentro l'incarico${Auth.eProprietario() ? `,
+                    oppure caricali per tutti in una volta da <em>Dati e backup &rarr; Importa incarichi &rarr; Aggiorna la stima delle ore dai bilanci</em>` : ''}.
+                </div>` : ''}
+                ${peggiori.length ? `<h3 style="margin:16px 0 6px;font-size:0.95rem;">Compenso piu basso per ora</h3>
+                <div class="tabella-wrap"><table class="dati"><thead><tr>
+                    <th>Cliente</th><th class="num">Ore stimate</th><th class="num">Compenso ${annoRif}</th><th class="num">Per ora</th>${confrontabile ? '<th class="num">Rispetto alla mediana</th>' : ''}
+                </tr></thead><tbody>` +
+                peggiori.map(p => {
+                    const scarto = confrontabile ? (p.eurH - tariffaRif) / tariffaRif * 100 : 0;
+                    return `<tr class="cliccabile" data-apri="${esc(p.id)}">
+                        <td class="cliente-cella">${esc(p.cliente)}</td>
+                        <td class="num">${numFmt.format(p.ore)} h</td>
+                        <td class="num">${eurFmt.format(p.compenso)}</td>
+                        <td class="num"><strong>${eurFmt.format(Math.round(p.eurH))}</strong></td>
+                        ${confrontabile ? `<td class="num"><span class="badge ${scarto < -30 ? 'rosso' : (scarto < 0 ? 'ambra' : 'verde')}">${scarto >= 0 ? '+' : ''}${scarto.toFixed(0)}%</span></td>` : ''}
+                    </tr>`;
+                }).join('') + `</tbody></table></div>` : ''}
             </div>
             <div class="card">
                 <h2>Totali per anno</h2>
@@ -3281,6 +3367,7 @@
             attrezzaTabella(tab, { filtri: false, ricerca: true, nomeFile: 'report-' + nome });
         });
         disegnaGraficoClientiSvg('grafico-clienti', elencoClienti, annoRif);
+        disegnaGraficoOreCompensoSvg('grafico-ore-compenso', oreDati, tariffaRif, annoRif);
     }
 
     /* =========================================================
@@ -4842,7 +4929,8 @@
                 <div class="campo"><input type="file" id="d-file" accept=".json,application/json"></div>
                 <div class="campo">
                 ${Auth.eAdmin() ? `<label style="display:flex; gap:8px; align-items:center; font-weight:600;"><input type="radio" name="d-modo" value="sostituisci" style="width:auto;">Sostituisci l'elenco attuale (solo amministratore)</label>` : ''}
-                <label style="display:flex; gap:8px; align-items:center; font-weight:600;"><input type="radio" name="d-modo" value="aggiungi" checked style="width:auto;">Aggiungi all'elenco attuale</label></div>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:600;"><input type="radio" name="d-modo" value="aggiungi" checked style="width:auto;">Aggiungi all'elenco attuale</label>
+                <label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="radio" name="d-modo" value="aggiorna" style="width:auto; margin-top:3px;"><span>Aggiorna la stima delle ore dai bilanci<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Non crea e non elimina nulla: cerca ogni riga per codice fiscale (o per nome cliente) e salva <strong>attivo</strong> e <strong>ricavi</strong>, da cui si ricavano le ore stimate per il report. Serve solo all'analisi: <strong>non tocca il calcolo del compenso concordato, ne le proposte di incarico o i PDF</strong>, che continuano a riportare solo le ore decise nel wizard.</span></span></label></div>
                 <button class="btn btn-primary" id="d-importa">Importa</button>
             </div>
             <div class="card">
@@ -4904,6 +4992,68 @@
                     const modoSel = document.querySelector('input[name="d-modo"]:checked');
                     const modo = modoSel ? modoSel.value : 'aggiungi';
                     if (modo === 'sostituisci' && !Auth.eAdmin()) { toast('Solo l\'amministratore puo sostituire l\'elenco.', 'rosso'); return; }
+
+                    /* AGGIORNA: compila attivo e ricavi sugli incarichi che ci sono gia', senza
+                       toccare id, compensi o altro. Serve per le ore stimate (metodo CNDCEC), che
+                       si ricalcolano da attivo+ricavi. Un import normale rigenererebbe gli id
+                       creando dei doppioni, quindi qui si cerca la corrispondenza e si modifica. */
+                    if (modo === 'aggiorna') {
+                        const lista = Incarichi.tutti();
+                        const norm = s => String(s == null ? '' : s).trim().toLowerCase().replace(/\s+/g, ' ');
+                        const normCf = s => String(s == null ? '' : s).trim().toUpperCase().replace(/\s+/g, '');
+                        // un cliente puo' avere piu' incarichi (es. rinnovo): attivo e ricavi sono
+                        // del cliente, quindi la riga aggiorna TUTTI i suoi incarichi, non solo il primo
+                        const perCf = new Map(), perNome = new Map();
+                        const agg = (mappa, k, i) => { if (!k) return; const a = mappa.get(k); if (a) a.push(i); else mappa.set(k, [i]); };
+                        lista.forEach(i => { agg(perCf, normCf(i.codiceFiscale), i); agg(perNome, norm(i.cliente), i); });
+                        let aggiornati = 0, righeUsate = 0, nonTrovati = 0, senzaDati = 0;
+                        const nomiNonTrovati = [];
+                        righe.forEach(r => {
+                            if (!r || typeof r !== 'object') { nonTrovati++; return; }
+                            const attivo = parseImporto(r.attivo != null ? r.attivo : (r.calc && r.calc.attivo));
+                            const ricavi = parseImporto(r.ricavi != null ? r.ricavi : (r.calc && r.calc.ricavi));
+                            if (!(attivo > 0) && !(ricavi > 0)) { senzaDati++; return; }
+                            const cf = normCf(r.codiceFiscale);
+                            const trovati = (cf && perCf.get(cf)) || (r.cliente && perNome.get(norm(r.cliente))) || null;
+                            if (!trovati || !trovati.length) { nonTrovati++; if (nomiNonTrovati.length < 5 && r.cliente) nomiNonTrovati.push(String(r.cliente)); return; }
+                            let usata = false;
+                            trovati.forEach(inc => {
+                                // la stima va in inc.stima, MAI in inc.calc: il calcolo e' quello
+                                // concordato nel wizard e finisce nella proposta di incarico.
+                                // Se i correttivi sono gia' stati scelti li si riusa, altrimenti i predefiniti.
+                                const src = inc.calc || {};
+                                const base = {
+                                    attivo: attivo > 0 ? attivo : (src.attivo || 0),
+                                    ricavi: ricavi > 0 ? ricavi : (src.ricavi || 0),
+                                    moltSettore: src.moltSettore || 1.0, moltRischio: src.moltRischio || 1.2,
+                                    orePlus: src.orePlus || 0, extra50: src.extra50 || 0,
+                                    hConsolidato: src.hConsolidato || 0, hIfrs: src.hIfrs || 0, hIt: src.hIt || 0,
+                                    hAltro: src.hAltro || 0, hVolontaria: src.hVolontaria || 0, hPrimoAnno: src.hPrimoAnno || 0
+                                };
+                                const res = calcolaCompenso(base);
+                                inc.stima = Object.assign(base, {
+                                    media: res.media, oreAnno1: res.oreAnno1, oreAnni23: res.oreAnni23,
+                                    origine: 'bilanci importati', il: Date.now()
+                                });
+                                inc.modificato = { da: Auth.utenteCorrente.nome + ' (stima ore da bilanci)', il: Date.now() };
+                                aggiornati++; usata = true;
+                            });
+                            if (usata) righeUsate++;
+                        });
+                        if (!aggiornati) {
+                            toast('Nessun incarico aggiornato: ' + (senzaDati ? 'nel file non ci sono attivo/ricavi validi.' : 'nessuna corrispondenza con gli incarichi presenti.'), 'rosso');
+                            return;
+                        }
+                        Incarichi.salva(lista);
+                        const note = [];
+                        if (nonTrovati) note.push(nonTrovati + ' righe senza corrispondenza' + (nomiNonTrovati.length ? ' (es. ' + nomiNonTrovati.join(', ') + ')' : ''));
+                        if (senzaDati) note.push(senzaDati + ' righe senza attivo/ricavi');
+                        Audit.registra(Auth.utenteCorrente, 'Stima ore aggiornata dai bilanci', 'sistema', null, null,
+                            'Stima aggiornata su ' + aggiornati + ' incarichi da ' + righeUsate + ' righe (solo report: calcolo concordato e lettere non toccati)' + (note.length ? '. ' + note.join('; ') : ''));
+                        toast('Aggiornati ' + aggiornati + ' incarichi.' + (note.length ? ' ' + note.join('; ') + '.' : ''), note.length ? undefined : 'verde');
+                        naviga('report');
+                        return;
+                    }
                     const attuali = modo === 'aggiungi' ? Incarichi.tutti() : [];
                     let scartate = 0, tipiNormalizzati = 0, compensiScartati = 0, dateInNote = 0;
                     // accetta date ISO o gg/mm/aaaa; il resto diventa nota testuale
@@ -5282,8 +5432,9 @@
         const compensoRegime = Incarichi.compensoAnno(inc, ultimo) || Incarichi.compensoAnno(inc, primo);
         const compensoPrimo = Incarichi.compensoAnno(inc, primo) || compensoRegime;
         const orePrimo = inc.calc ? (inc.calc.oreAnno1 || 0) : 0;
-        // per la volontaria (un solo esercizio) valgono le ore dell'anno 1
-        const oreRegime = inc.tipo === 'volontaria' ? orePrimo : (inc.calc ? (inc.calc.oreAnni23 || inc.calc.oreAnno1 || 0) : 0);
+        // per la volontaria (un solo esercizio) valgono le ore dell'anno 1.
+        // SOLO dal calcolo concordato: la stima del report non entra nei documenti.
+        const oreRegime = oreDaCalcolo(inc);
         const tariffa = inc.calc ? (inc.calc.tariffa || null) : null;
         const fine = inc.rinnovo || inc.dataFine || null;
         return { anni, primo, ultimo, compenso: compensoRegime, compensoPrimo, ore: oreRegime, orePrimo, tariffa, fine };
@@ -5587,6 +5738,106 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             });
             bar.addEventListener('mouseleave', () => { tip.hidden = true; });
             bar.addEventListener('click', () => naviga('dettaglio', { id: bar.dataset.apri }));
+        });
+    }
+
+    /* Dispersione ore stimate / compenso: ogni punto e' un incarico, quindi si vedono tutti
+       insieme. La retta e' la tariffa oraria di riferimento (mediana dello studio): i punti
+       SOTTO la retta sono quelli pagati poco per le ore che costano, e sono in rosso.
+       Tooltip al passaggio, clic per aprire l'incarico. */
+    function disegnaGraficoOreCompensoSvg(containerId, punti, tariffaRif, anno) {
+        const cont = document.getElementById(containerId);
+        if (!cont) return;
+        if (!punti.length) {
+            cont.innerHTML = '<p class="tabella-vuota">Nessun incarico con ore stimate e compenso nel ' + anno + '.</p>';
+            return;
+        }
+        const W = 760, H = 330, mS = 66, mD = 16, mSu = 14, mGiu = 40;
+        const areaW = W - mS - mD, areaH = H - mSu - mGiu;
+        // senza una tariffa di riferimento attendibile si mostrano i punti senza colorarli
+        const conRif = tariffaRif > 0;
+        const maxOre = Math.max(...punti.map(p => p.ore), 1);
+        const maxComp = Math.max(...punti.map(p => p.compenso), conRif ? tariffaRif * maxOre : 0, 1);
+        const px = o => mS + (o / maxOre) * areaW;
+        const py = c => mSu + areaH - (c / maxComp) * areaH;
+        const colore = p => !conRif ? '#164068'
+            : (p.eurH < tariffaRif * 0.7 ? '#B3261E' : (p.eurH < tariffaRif ? '#B45309' : '#15803D'));
+
+        // griglia + assi
+        let g = '';
+        for (let i = 0; i <= 4; i++) {
+            const v = maxComp * i / 4, yy = py(v);
+            g += `<line x1="${mS}" y1="${yy}" x2="${W - mD}" y2="${yy}" stroke="#E2E8F0" stroke-width="1"/>`
+                + `<text x="${mS - 8}" y="${yy + 3}" text-anchor="end" font-size="9" fill="#64748B">${eurFmt.format(Math.round(v))}</text>`;
+        }
+        for (let i = 0; i <= 4; i++) {
+            const v = maxOre * i / 4, xx = px(v);
+            g += `<text x="${xx}" y="${H - mGiu + 15}" text-anchor="middle" font-size="9" fill="#64748B">${Math.round(v)} h</text>`;
+        }
+        g += `<text x="${mS + areaW / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#475569">Ore stimate (metodo CNDCEC)</text>`;
+
+        // retta della tariffa di riferimento: fin dove ci sta dentro il riquadro
+        const retta = conRif ? (() => {
+            const oreMax = Math.min(maxOre, maxComp / tariffaRif);
+            return `<line x1="${px(0)}" y1="${py(0)}" x2="${px(oreMax)}" y2="${py(tariffaRif * oreMax)}"
+                stroke="#164068" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+        })() : '';
+
+        /* Le ore CNDCEC vengono da nove scaglioni, quindi molti incarichi cadono sulla stessa
+           ascissa: senza scostare i doppioni resterebbero uno sotto l'altro e solo quello in
+           cima sarebbe leggibile e cliccabile. Si apre a ventaglio chi coincide. */
+        const occupati = new Map();
+        const posiziona = p => {
+            const bx = px(p.ore), by = py(p.compenso);
+            const k = Math.round(bx / 9) + ':' + Math.round(by / 9);
+            const n = occupati.get(k) || 0;
+            occupati.set(k, n + 1);
+            p._x = n ? bx + Math.ceil(n / 2) * 7 * (n % 2 ? 1 : -1) : bx;
+            p._y = by;
+        };
+        // prima i piu' pagati, cosi' i rossi finiscono disegnati sopra e restano visibili
+        const ordinati = punti.slice().sort((a, b) => b.eurH - a.eurH);
+        ordinati.forEach(posiziona);
+        let cerchi = '';
+        ordinati.forEach(p => {
+            cerchi += `<circle class="g-punto" cx="${p._x}" cy="${p._y}" r="5" fill="${colore(p)}"
+                fill-opacity="0.75" stroke="#fff" stroke-width="1"
+                data-cliente="${esc(p.cliente)}" data-ore="${p.ore}" data-imp="${p.compenso}"
+                data-eurh="${Math.round(p.eurH)}" data-apri="${esc(p.id)}"
+                ><title>${esc(p.cliente)}: ${eurFmt.format(p.compenso)} per ${numFmt.format(p.ore)} h = ${eurFmt.format(Math.round(p.eurH))}/h</title></circle>`;
+        });
+        /* Una sola etichetta, sul piu' basso: con i punti incolonnati piu' etichette si
+           coprirebbero fra loro. L'elenco completo, ordinato, sta nella tabella qui sotto. */
+        let etich = '';
+        const peggio = punti.slice().sort((a, b) => a.eurH - b.eurH)[0];
+        if (peggio && conRif && peggio.eurH < tariffaRif) {
+            const nome = peggio.cliente.length > 22 ? peggio.cliente.slice(0, 21) + '…' : peggio.cliente;
+            const a = peggio._x > W - 150 ? 'end' : 'start';
+            etich = `<text x="${peggio._x + (a === 'end' ? -9 : 9)}" y="${peggio._y + 3}" text-anchor="${a}" font-size="9" font-weight="700" fill="#B3261E">${esc(nome)}</text>`;
+        }
+
+        cont.innerHTML = `<div class="g-svg-wrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img"
+            aria-label="Compenso rispetto alle ore stimate: ogni punto e un incarico, la retta e la tariffa di riferimento">${g}${retta}${cerchi}${etich}</svg>
+            <div class="g-tip" id="g-tip-oc" hidden></div></div>
+            ${conRif ? `<div class="g-legenda-oc">
+                <span><i style="background:#B3261E"></i>Sotto il 70% della tariffa</span>
+                <span><i style="background:#B45309"></i>Sotto la tariffa</span>
+                <span><i style="background:#15803D"></i>In linea o sopra</span>
+                <span><i class="g-linea"></i>Tariffa di riferimento: ${eurFmt.format(Math.round(tariffaRif))}/h (mediana)</span>
+            </div>` : ''}`;
+        const tip = cont.querySelector('#g-tip-oc'), wrap = cont.querySelector('.g-svg-wrap');
+        cont.querySelectorAll('.g-punto').forEach(pt => {
+            pt.addEventListener('mousemove', e => {
+                tip.innerHTML = '<strong>' + esc(pt.dataset.cliente) + '</strong><br>'
+                    + eurFmt.format(+pt.dataset.imp) + ' per ' + numFmt.format(+pt.dataset.ore) + ' h<br>'
+                    + '<strong>' + eurFmt.format(+pt.dataset.eurh) + '/h</strong>';
+                const r = wrap.getBoundingClientRect();
+                tip.style.left = Math.min(r.width - 170, e.clientX - r.left + 12) + 'px';
+                tip.style.top = (e.clientY - r.top + 12) + 'px';
+                tip.hidden = false;
+            });
+            pt.addEventListener('mouseleave', () => { tip.hidden = true; });
+            pt.addEventListener('click', () => naviga('dettaglio', { id: pt.dataset.apri }));
         });
     }
 
