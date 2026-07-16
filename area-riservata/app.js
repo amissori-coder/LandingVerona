@@ -1816,7 +1816,7 @@
                 <p class="hint" style="margin:-6px 0 12px;">Clicca su un coordinatore per vedere i suoi incarichi. Le pastiglie mostrano quanti (e quanto fatturato) sono in scadenza o scaduti.</p>
                 ${coordList.length ? '<div class="coord-lista">' + coordList.map(coordItem).join('') + '</div>' : '<p class="tabella-vuota">Nessun incarico attivo.</p>'}
             </div>
-            <div class="card">
+            <div class="card" id="sez-scadenze-dash">
                 <h2>Incarichi in scadenza o scaduti</h2>
                 ${tabellaScadenze(scaduti.concat(inScadenza))}
             </div>`;
@@ -1837,6 +1837,8 @@
                 const inc = Incarichi.trova(b.dataset.termina);
                 if (inc) modaleTerminaIncarico(inc, () => vistaDashboard());
             }));
+        const tScad = $vista().querySelector('#sez-scadenze-dash table.dati');
+        if (tScad) attrezzaTabella(tScad, { ricerca: true, nomeFile: 'incarichi-in-scadenza' });
         disegnaGraficoCompensiSvg('grafico-compensi', anno);
     }
 
@@ -2842,6 +2844,7 @@
     ========================================================= */
     let annoFatturazione = null;
     let fattTab = ''; // scheda periodicita: 'mensile' | 'trimestrale' | 'annuale' | 'specifica'
+    let fattSub = null; // sotto-scheda: mese (1-12) per mensile, trimestre (1-4) per trimestrale; null altrimenti
     let fattAperti = null; // gruppi di fatturazione aperti (Set di nomi); null = predefinito (solo "Senza gruppo")
 
     function vistaFatturazione() {
@@ -2865,6 +2868,7 @@
             <div id="fatturazione-corpo"></div>`;
         document.getElementById('f-anno').addEventListener('change', e => {
             annoFatturazione = Number(e.target.value);
+            fattSub = null;
             fattAperti = null;
             disegnaFatturazione();
         });
@@ -2882,10 +2886,25 @@
         }
         const puoMod = Auth.puoModificare();
         const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+        const mesiFull = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
         const perc5 = imp => Math.round(imp * 5) / 100;
+        // importi in euro con decimali (formato italiano): parse robusto e formattazione per il campo
+        const parseEuro = s => {
+            s = String(s == null ? '' : s).replace(/[^\d.,-]/g, '').trim();
+            if (!s) return 0;
+            if (s.indexOf(',') >= 0) {
+                s = s.replace(/\./g, '').replace(',', '.');            // virgola = decimali, punto = migliaia
+            } else if (s.indexOf('.') >= 0) {
+                const parti = s.split('.');
+                // piu punti (1.234.567) o ultimo gruppo di 3 cifre (1.234) = separatore di migliaia; altrimenti punto decimale (50.5, 50.00)
+                if (parti.length > 2 || parti[parti.length - 1].length === 3) s = parti.join('');
+            }
+            return Math.round((Number(s) || 0) * 100) / 100;
+        };
+        const fmtEuroInput = n => n ? Number(n).toFixed(2).replace('.', ',') : '';
 
         // KPI e grafico: quadro dell'intero anno (tutte le periodicita)
-        const totale = rateAll.reduce((s, r) => s + r.importo, 0);
+        const totaleAnno = rateAll.reduce((s, r) => s + r.importo, 0);
         const emesse = rateAll.filter(r => r.stato !== 'da emettere');
         const incassate = rateAll.filter(r => r.stato === 'incassata');
         const perMese = {};
@@ -2897,7 +2916,21 @@
         const etichettaPer = { mensile: 'Mensile', trimestrale: 'Trimestrale', annuale: 'Annuale', specifica: 'Data specifica' };
         const presenti = ordine.filter(p => rateAll.some(r => perDi(r) === p));
         if (!presenti.includes(fattTab)) fattTab = presenti[0];
-        const rateTab = rateAll.filter(r => perDi(r) === fattTab);
+        let rateTab = rateAll.filter(r => perDi(r) === fattTab);
+
+        // sotto-schede: il mensile si divide in tante finestre quanti sono i mesi, il trimestrale nei trimestri
+        let subTabs = '';
+        if (fattTab === 'mensile' || fattTab === 'trimestrale') {
+            const perMensile = fattTab === 'mensile';
+            const subKey = perMensile ? (r => r.mese) : (r => Math.ceil(r.mese / 3));
+            const subLabel = perMensile ? (k => mesiFull[k - 1]) : (k => ['Primo', 'Secondo', 'Terzo', 'Quarto'][k - 1] + ' trimestre');
+            const subPresenti = Array.from(new Set(rateTab.map(subKey))).sort((a, b) => a - b);
+            if (!subPresenti.includes(fattSub)) fattSub = subPresenti[0];
+            subTabs = `<div class="tab-dest tab-sub">${subPresenti.map(k => `<button class="tab-btn ${fattSub === k ? 'attivo' : ''}" data-fattsub="${k}">${subLabel(k)} (${rateTab.filter(r => subKey(r) === k).length})</button>`).join('')}</div>`;
+            rateTab = rateTab.filter(r => subKey(r) === fattSub);
+        } else {
+            fattSub = null;
+        }
 
         // raggruppa per gruppo di fatturazione (vuoto = "Senza gruppo")
         const perGruppo = {};
@@ -2909,6 +2942,7 @@
 
         const rigaRata = r => {
             const rb = Fatture.rimborso(r.chiave);
+            const base = r.importo + perc5(r.importo); // importo + 5% (parte fissa del totale)
             return `<tr>
                 <td class="cliente-cella" data-label="Cliente"><span class="link-incarico" data-apri="${esc(r.incarico.id)}">${esc(r.incarico.cliente)}</span></td>
                 <td data-label="Rata">${r.numero} di ${r.totale}</td>
@@ -2916,9 +2950,10 @@
                 <td class="num" data-label="Importo">${eurFmt2.format(r.importo)}</td>
                 <td class="num" data-label="5%">${eurFmt2.format(perc5(r.importo))}</td>
                 <td data-label="Rimborsi spese"><span class="rimb-campo">
-                    <input type="number" step="0.01" min="0" class="rimb-input" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" value="${rb.importo || ''}" ${rb.congelato ? 'disabled' : ''} placeholder="0,00">
+                    <input type="text" inputmode="decimal" class="rimb-input" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" data-imp="${rb.importo || 0}" value="${fmtEuroInput(rb.importo)}" ${rb.congelato ? 'disabled' : ''} placeholder="0,00"><span class="rimb-eur">&euro;</span>
                     ${puoMod ? `<button type="button" class="btn btn-sm btn-ghost rimb-lock" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" data-cong="${rb.congelato ? '1' : '0'}" title="${rb.congelato ? 'Campo congelato: clicca per sbloccare' : 'Congela il campo'}">${rb.congelato ? ICO_LUCCHETTO + 'Sblocca' : 'Congela'}</button>` : ''}
                 </span></td>
+                <td class="num fatt-tot-riga" data-base="${base}" data-label="Totale">${eurFmt2.format(base + rb.importo)}</td>
                 <td data-label="Stato">${puoMod ? `<select class="stato-rata" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" style="padding:4px 8px; border-radius:6px; border:1px solid var(--grigio-200); font-size:0.8rem;">
                     <option value="da emettere" ${r.stato === 'da emettere' ? 'selected' : ''}>da emettere</option>
                     <option value="emessa" ${r.stato === 'emessa' ? 'selected' : ''}>emessa</option>
@@ -2928,7 +2963,9 @@
         };
         const sezGruppo = g => {
             const tImp = g.rate.reduce((s, r) => s + r.importo, 0);
+            const t5 = g.rate.reduce((s, r) => s + perc5(r.importo), 0); // somma dei 5% di riga (riconcilia col Totale)
             const tRimb = g.rate.reduce((s, r) => s + Fatture.rimborso(r.chiave).importo, 0);
+            const tTot = tImp + t5 + tRimb;
             const nClienti = new Set(g.rate.map(r => r.incarico.id)).size;
             const nEmesse = g.rate.filter(r => r.stato !== 'da emettere').length;
             const aperto = fattAperti ? fattAperti.has(g.nome) : !g.nome;
@@ -2936,14 +2973,14 @@
                 <summary class="fatt-gruppo-sommario">
                     <span class="fatt-gruppo-nome">${g.nome ? esc(g.nome) : '<em>Senza gruppo</em>'}</span>
                     <span class="fatt-gruppo-meta">${nClienti} client${nClienti === 1 ? 'e' : 'i'} &middot; ${g.rate.length} rate</span>
-                    <span class="fatt-gruppo-imp">${eurFmt2.format(tImp)}</span>
+                    <span class="fatt-gruppo-imp">${eurFmt2.format(tTot)}</span>
                     <span class="badge ${nEmesse === g.rate.length ? 'verde' : 'neutro'}">${nEmesse}/${g.rate.length} emesse</span>
                 </summary>
                 <div class="fatt-gruppo-corpo">
                     <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                        <th>Cliente</th><th>Rata</th><th>Mese</th><th class="num">Importo</th><th class="num" title="5% dell'importo">5%</th><th>Rimborsi spese</th><th>Stato</th>
+                        <th>Cliente</th><th>Rata</th><th>Mese</th><th class="num">Importo</th><th class="num" title="5% dell'importo">5%</th><th>Rimborsi spese</th><th class="num" title="Importo + 5% + rimborsi">Totale</th><th>Stato</th>
                     </tr></thead><tbody>${g.rate.map(rigaRata).join('')}</tbody>
-                    <tfoot><tr><td colspan="3">Totale gruppo</td><td class="num">${eurFmt2.format(tImp)}</td><td class="num">${eurFmt2.format(perc5(tImp))}</td><td class="num fatt-tot-rimb">${eurFmt2.format(tRimb)}</td><td></td></tr></tfoot></table></div>
+                    <tfoot><tr><td colspan="3">Totale gruppo</td><td class="num">${eurFmt2.format(tImp)}</td><td class="num">${eurFmt2.format(t5)}</td><td class="num fatt-tot-rimb">${eurFmt2.format(tRimb)}</td><td class="num fatt-tot-tot">${eurFmt2.format(tTot)}</td><td></td></tr></tfoot></table></div>
                 </div>
             </details>`;
         };
@@ -2951,7 +2988,7 @@
 
         corpo.innerHTML = `
             <div class="kpi-griglia">
-                <div class="kpi"><div class="etichetta">Da fatturare ${anno}</div><div class="valore">${eurFmt.format(totale)}</div><div class="nota">${rateAll.length} rate totali</div></div>
+                <div class="kpi"><div class="etichetta">Da fatturare ${anno}</div><div class="valore">${eurFmt.format(totaleAnno)}</div><div class="nota">${rateAll.length} rate totali</div></div>
                 <div class="kpi verde"><div class="etichetta">Rate emesse</div><div class="valore">${emesse.length} / ${rateAll.length}</div><div class="nota">${eurFmt.format(emesse.reduce((s, r) => s + r.importo, 0))}</div></div>
                 <div class="kpi ambra"><div class="etichetta">Rate incassate</div><div class="valore">${incassate.length}</div><div class="nota">${eurFmt.format(incassate.reduce((s, r) => s + r.importo, 0))}</div></div>
             </div>
@@ -2961,12 +2998,14 @@
             </div>
             <div class="card">
                 <h2>Dettaglio rate ${anno}</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Rate divise per periodicita (schede). In ogni scheda gli incarichi sono raggruppati per gruppo di fatturazione: clicca un gruppo per vedere i singoli clienti; clicca il nome del cliente per aprire l'incarico. La colonna 5% e calcolata sull'importo; i rimborsi spese si possono congelare/sbloccare per campo.</p>
+                <p class="hint" style="margin:-6px 0 12px;">Rate divise per periodicita (schede); il mensile e il trimestrale si dividono a loro volta in una finestra per ogni mese/trimestre. In ogni finestra gli incarichi sono raggruppati per gruppo di fatturazione: clicca un gruppo per vedere i singoli clienti; clicca il nome del cliente per aprire l'incarico. Colonna 5% sull'importo, Totale = importo + 5% + rimborsi; i rimborsi spese (in euro) si possono congelare/sbloccare per campo.</p>
                 ${tabs}
-                ${gruppi.length ? '<div class="fatt-gruppi">' + gruppi.map(sezGruppo).join('') + '</div>' : '<p class="tabella-vuota">Nessuna rata per questa periodicita.</p>'}
+                ${subTabs}
+                ${gruppi.length ? '<div class="fatt-gruppi">' + gruppi.map(sezGruppo).join('') + '</div>' : '<p class="tabella-vuota">Nessuna rata per questa finestra.</p>'}
             </div>`;
 
-        corpo.querySelectorAll('[data-fatttab]').forEach(b => b.addEventListener('click', () => { fattTab = b.dataset.fatttab; fattAperti = null; disegnaFatturazione(); }));
+        corpo.querySelectorAll('[data-fatttab]').forEach(b => b.addEventListener('click', () => { fattTab = b.dataset.fatttab; fattSub = null; fattAperti = null; disegnaFatturazione(); }));
+        corpo.querySelectorAll('[data-fattsub]').forEach(b => b.addEventListener('click', () => { fattSub = Number(b.dataset.fattsub); fattAperti = null; disegnaFatturazione(); }));
         corpo.querySelectorAll('.fatt-gruppo').forEach(d => d.addEventListener('toggle', () => {
             fattAperti = new Set(Array.from(corpo.querySelectorAll('.fatt-gruppo')).filter(x => x.open).map(x => x.dataset.gruppo));
         }));
@@ -2979,16 +3018,25 @@
             }));
         corpo.querySelectorAll('.rimb-input').forEach(inp =>
             inp.addEventListener('change', () => {
-                if (Fatture.salvaRimborso(inp.dataset.chiave, inp.value, Auth.utenteCorrente, inp.dataset.cliente)) {
+                const val = parseEuro(inp.value);
+                if (Fatture.salvaRimborso(inp.dataset.chiave, val, Auth.utenteCorrente, inp.dataset.cliente)) {
                     toast('Rimborso spese salvato.', 'verde');
-                    // aggiorna il totale del gruppo SENZA ridisegnare (un redraw stacchererebbe il pulsante
-                    // Congela prima del mouseup, "ingoiando" il click se si scrive e si congela in un colpo solo)
+                    inp.value = fmtEuroInput(val);
+                    inp.dataset.imp = val;
+                    // aggiorna i totali (riga e gruppo) SENZA ridisegnare: un redraw stacchererebbe il
+                    // pulsante Congela prima del mouseup, "ingoiando" il click se si scrive e si congela di seguito
+                    const tr = inp.closest('tr');
+                    const cellRiga = tr && tr.querySelector('.fatt-tot-riga');
+                    if (cellRiga) cellRiga.textContent = eurFmt2.format((Number(cellRiga.dataset.base) || 0) + val);
                     const gr = inp.closest('.fatt-gruppo');
-                    const cell = gr && gr.querySelector('.fatt-tot-rimb');
-                    if (cell) {
-                        let tot = 0;
-                        gr.querySelectorAll('.rimb-input').forEach(x => { tot += Number(x.value) || 0; });
-                        cell.textContent = eurFmt2.format(tot);
+                    if (gr) {
+                        let tRimb = 0, tTot = 0;
+                        gr.querySelectorAll('.rimb-input').forEach(x => { tRimb += Number(x.dataset.imp) || 0; });
+                        gr.querySelectorAll('.fatt-tot-riga').forEach(c => { tTot += Number(c.dataset.base) || 0; });
+                        tTot += tRimb;
+                        const cr = gr.querySelector('.fatt-tot-rimb'); if (cr) cr.textContent = eurFmt2.format(tRimb);
+                        const ct = gr.querySelector('.fatt-tot-tot'); if (ct) ct.textContent = eurFmt2.format(tTot);
+                        const ch = gr.querySelector('.fatt-gruppo-imp'); if (ch) ch.textContent = eurFmt2.format(tTot); // totale in intestazione del gruppo
                     }
                 }
             }));
@@ -3006,11 +3054,12 @@
         const anno = annoFatturazione;
         const rate = Fatture.tutteAnno(anno);
         const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-        const righe = [['Cliente', 'Gruppo di fatturazione', 'Periodicita', 'Rata', 'Mese', 'Importo', '5%', 'Rimborsi spese', 'Stato']];
+        const righe = [['Cliente', 'Gruppo di fatturazione', 'Periodicita', 'Rata', 'Mese', 'Importo', '5%', 'Rimborsi spese', 'Totale', 'Stato']];
         rate.forEach(r => {
             const rb = Fatture.rimborso(r.chiave);
+            const cinque = Math.round(r.importo * 5) / 100;
             righe.push([r.incarico.cliente, r.incarico.gruppoFatturazione || '', r.incarico.fatturazione || 'annuale',
-                r.numero + ' di ' + r.totale, mesi[r.mese - 1], r.importo, Math.round(r.importo * 5) / 100, rb.importo || 0, r.stato]);
+                r.numero + ' di ' + r.totale, mesi[r.mese - 1], r.importo, cinque, rb.importo || 0, r.importo + cinque + (rb.importo || 0), r.stato]);
         });
         const csv = righe.map(r => r.map(v => {
             let s = String(v).replace(/"/g, '""');
@@ -3062,8 +3111,9 @@
                 </div>
             </header>
             <div class="card">
-                <h2>Andamento compensi per anno</h2>
-                <div class="grafico-wrap"><canvas id="grafico-report" height="280"></canvas></div>
+                <h2>Primi clienti per compenso ${annoRif}</h2>
+                <p class="hint" style="margin:-6px 0 10px;">Passa sopra una barra per il dettaglio; clicca per aprire l'incarico.</p>
+                <div id="grafico-clienti"></div>
             </div>
             <div class="card">
                 <h2>Totali per anno</h2>
@@ -3103,13 +3153,13 @@
         document.getElementById('btn-stampa-report').addEventListener('click', () => window.print());
         $vista().querySelectorAll('[data-apri]').forEach(r =>
             r.addEventListener('click', () => naviga('dettaglio', { id: r.dataset.apri })));
-        // ogni tabella del report ha il suo pulsante di export CSV (sono aggregati: niente filtri)
+        // ogni tabella del report ha ricerca testuale + export CSV
         $vista().querySelectorAll('.card table.dati').forEach(tab => {
             const h2 = tab.closest('.card') && tab.closest('.card').querySelector('h2');
             const nome = h2 ? h2.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 40) : 'report';
-            attrezzaTabella(tab, { filtri: false, nomeFile: 'report-' + nome });
+            attrezzaTabella(tab, { filtri: false, ricerca: true, nomeFile: 'report-' + nome });
         });
-        disegnaGraficoTrend('grafico-report', annoRif);
+        disegnaGraficoClientiSvg('grafico-clienti', elencoClienti, annoRif);
     }
 
     /* =========================================================
@@ -5252,6 +5302,40 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                 tip.hidden = false;
             });
             bar.addEventListener('mouseleave', () => { tip.hidden = true; });
+        });
+    }
+
+    // Grafico SVG a barre orizzontali dei primi clienti per compenso (report): tooltip + clic per aprire l'incarico.
+    function disegnaGraficoClientiSvg(containerId, clienti, anno) {
+        const cont = document.getElementById(containerId);
+        if (!cont) return;
+        const top = (clienti || []).slice(0, 12);
+        if (!top.length) { cont.innerHTML = '<p class="tabella-vuota">Nessun compenso nel ' + anno + '.</p>'; return; }
+        const max = Math.max(...top.map(c => c.importo), 1);
+        const W = 760, rowH = 26, padT = 6, padB = 6, labelW = 180, valW = 110, mR = 12;
+        const H = padT + padB + top.length * rowH;
+        const barX = labelW, barMax = W - labelW - valW - mR;
+        let body = '';
+        top.forEach((c, i) => {
+            const y = padT + i * rowH;
+            const bw = Math.max(2, barMax * (c.importo / max));
+            const nome = c.cliente.length > 26 ? c.cliente.slice(0, 25) + '…' : c.cliente;
+            body += `<text x="${labelW - 8}" y="${y + rowH / 2 + 4}" text-anchor="end" font-size="11" fill="#334155">${esc(nome)}</text>`
+                + `<rect class="g-bar" x="${barX}" y="${y + 4}" width="${bw}" height="${rowH - 10}" rx="3" fill="#164068" data-cliente="${esc(c.cliente)}" data-imp="${c.importo}" data-apri="${esc(c.id)}"><title>${esc(c.cliente)}: ${eurFmt.format(c.importo)}</title></rect>`
+                + `<text x="${barX + bw + 6}" y="${y + rowH / 2 + 4}" font-size="10" font-weight="700" fill="#0A2844">${eurFmt.format(c.importo)}</text>`;
+        });
+        cont.innerHTML = `<div class="g-svg-wrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Primi clienti per compenso">${body}</svg><div class="g-tip" id="g-tip-cli" hidden></div></div>`;
+        const tip = cont.querySelector('#g-tip-cli'), wrap = cont.querySelector('.g-svg-wrap');
+        cont.querySelectorAll('.g-bar').forEach(bar => {
+            bar.addEventListener('mousemove', e => {
+                tip.innerHTML = '<strong>' + esc(bar.dataset.cliente) + '</strong><br>' + eurFmt.format(+bar.dataset.imp);
+                const r = wrap.getBoundingClientRect();
+                tip.style.left = Math.min(r.width - 150, e.clientX - r.left + 12) + 'px';
+                tip.style.top = (e.clientY - r.top + 12) + 'px';
+                tip.hidden = false;
+            });
+            bar.addEventListener('mouseleave', () => { tip.hidden = true; });
+            bar.addEventListener('click', () => naviga('dettaglio', { id: bar.dataset.apri }));
         });
     }
 

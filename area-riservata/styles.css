@@ -594,10 +594,14 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .fatt-gruppo-corpo { padding: 2px 12px 12px; border-top: 1px solid var(--grigio-100); }
 .link-incarico { color: var(--blu-700); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .link-incarico:hover { color: var(--blu-900); }
-.rimb-campo { display: inline-flex; align-items: center; gap: 6px; }
-.rimb-campo input { width: 90px; padding: 4px 6px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; }
+.rimb-campo { display: inline-flex; align-items: center; gap: 4px; }
+.rimb-campo input { width: 82px; padding: 4px 6px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; text-align: right; }
 .rimb-campo input:disabled { background: var(--grigio-100); color: var(--grigio-600); }
+.rimb-eur { color: var(--grigio-600); font-size: 0.82rem; margin-right: 2px; }
 .rimb-lock svg { margin-right: 3px; }
+/* sotto-schede (mese/trimestre): un po' piu piccole e a capo */
+.tab-sub { flex-wrap: wrap; margin: -4px 0 14px; }
+.tab-sub .tab-btn { font-size: 0.82rem; padding: 5px 10px; }
 .legenda .quadrato { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 
 /* ---------- Toast ---------- */
