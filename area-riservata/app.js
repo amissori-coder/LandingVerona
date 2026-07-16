@@ -3231,12 +3231,6 @@
     function vistaReport() {
         const incarichi = Incarichi.tutti();
         const anni = Incarichi.anniConCompensi();
-        const totali = anni.map(a => incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, a), 0));
-        const conteggi = anni.map(a => incarichi.filter(i => Incarichi.compensoAnno(i, a) > 0).length);
-
-        const perTipo = {};
-        Object.keys(TIPI).forEach(t => { perTipo[t] = anni.map(a => incarichi.filter(i => i.tipo === t).reduce((s, i) => s + Incarichi.compensoAnno(i, a), 0)); });
-
         // anno di riferimento della schermata (selettore): default = anno corrente se presente, altrimenti l'ultimo
         const annoDefault = anni.includes(annoCorrente()) ? annoCorrente() : anni[anni.length - 1];
         const annoRif = (filtriReport.anno && anni.includes(filtriReport.anno)) ? filtriReport.anno : annoDefault;
@@ -3275,7 +3269,7 @@
             <header>
                 <div>
                     <h1>Report compensi</h1>
-                    <p class="descrizione">Totale dei compensi per ogni anno con andamento e dettaglio per tipo di incarico. Scegli l'anno di riferimento per l'elenco clienti.</p>
+                    <p class="descrizione">Compensi per cliente e rapporto tra compenso e ore stimate. Scegli l'anno di riferimento.</p>
                 </div>
                 <div class="header-azioni">
                     <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--grigio-600);white-space:nowrap;">Anno di riferimento
@@ -3321,31 +3315,6 @@
                         ${confrontabile ? `<td class="num"><span class="badge ${scarto < -30 ? 'rosso' : (scarto < 0 ? 'ambra' : 'verde')}">${scarto >= 0 ? '+' : ''}${scarto.toFixed(0)}%</span></td>` : ''}
                     </tr>`;
                 }).join('') + `</tbody></table></div>` : ''}
-            </div>
-            <div class="card">
-                <h2>Totali per anno</h2>
-                <div class="tabella-wrap"><table class="dati"><thead><tr>
-                    <th>Anno</th><th class="num">Incarichi con compenso</th><th class="num">Totale compensi</th><th class="num">Variazione</th><th class="num">Media per incarico</th>
-                </tr></thead><tbody>` +
-            anni.map((a, i) => {
-                const prec = i > 0 ? totali[i - 1] : null;
-                const delta = prec ? ((totali[i] - prec) / prec * 100) : null;
-                return `<tr>
-                        <td><strong>${a}</strong></td>
-                        <td class="num">${conteggi[i]}</td>
-                        <td class="num">${eurFmt.format(totali[i])}</td>
-                        <td class="num">${delta == null ? '' : '<span class="badge ' + (delta >= 0 ? 'verde' : 'rosso') + '">' + (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%</span>'}</td>
-                        <td class="num">${conteggi[i] ? eurFmt.format(totali[i] / conteggi[i]) : ''}</td>
-                    </tr>`;
-            }).join('') +
-            `</tbody></table></div>
-            </div>
-            <div class="card">
-                <h2>Compensi per tipo di incarico</h2>
-                <div class="tabella-wrap"><table class="dati"><thead><tr><th>Tipo</th>${anni.map(a => '<th class="num">' + a + '</th>').join('')}</tr></thead><tbody>` +
-            Object.keys(TIPI).filter(t => perTipo[t].some(v => v > 0)).map(t =>
-                `<tr><td><span class="badge ${t}">${esc(TIPI[t].split(' (')[0])}</span></td>${perTipo[t].map(v => '<td class="num">' + (v ? eurFmt.format(v) : '') + '</td>').join('')}</tr>`).join('') +
-            `</tbody></table></div>
             </div>
             <div class="card">
                 <h2>Compensi per cliente ${annoRif}</h2>
