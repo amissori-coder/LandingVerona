@@ -602,6 +602,20 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 /* sotto-schede (mese/trimestre): un po' piu piccole e a capo */
 .tab-sub { flex-wrap: wrap; margin: -4px 0 14px; }
 .tab-sub .tab-btn { font-size: 0.82rem; padding: 5px 10px; }
+
+/* ---- Selettore del team di revisione (wizard incarico): ricerca + chip + elenco ordinato ---- */
+.team-picker { border: 1px solid var(--grigio-200); border-radius: 8px; overflow: hidden; }
+.team-picker-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border-bottom: 1px solid var(--grigio-100); background: #F8FAFC; }
+.team-picker-barra input[type="search"] { flex: 1 1 200px; min-width: 150px; padding: 6px 10px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.85rem; }
+.team-picker-barra .hint { margin-left: auto; white-space: nowrap; }
+.team-picker-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; border-bottom: 1px solid var(--grigio-100); min-height: 18px; }
+.team-chip { display: inline-flex; align-items: center; gap: 2px; background: var(--blu-050); color: var(--blu-900); border: 1px solid #D7E3F0; border-radius: 999px; padding: 3px 4px 3px 11px; font-size: 0.82rem; font-weight: 600; }
+.team-chip-x { border: none; background: transparent; color: var(--blu-700); cursor: pointer; font-size: 1.05rem; line-height: 1; padding: 0 4px; }
+.team-chip-x:hover { color: var(--rosso); }
+.team-picker-lista { max-height: 240px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px; padding: 8px; }
+.team-opz { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 0.88rem; font-weight: 400; cursor: pointer; }
+.team-opz:hover { background: var(--blu-050); }
+.team-opz input { width: auto; margin: 0; }
 .legenda .quadrato { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 
 /* ---------- Toast ---------- */

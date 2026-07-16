@@ -2468,11 +2468,11 @@
                 const extra = corrente && !lista.includes(corrente) ? `<option selected>${esc(corrente)}</option>` : '';
                 return extra + lista.map(r => `<option ${corrente === r ? 'selected' : ''}>${esc(r)}</option>`).join('');
             };
-            const teamCompleto = Array.from(new Set(Persone.attive('team').concat(teamSel))).sort();
+            const teamCompleto = Array.from(new Set(Persone.attive('team').concat(teamSel))).sort((a, b) => a.localeCompare(b, 'it'));
             corpo.innerHTML = `
                 <h2>Team di revisione</h2>
-                <p class="descrizione" style="margin-bottom:12px;">I nominativi si gestiscono dalla vista Persone.</p>
-                <div class="griglia-3">
+                <p class="descrizione" style="margin-bottom:12px;">Assegna i ruoli e scegli i componenti del team. I nominativi si gestiscono dalla vista Persone.</p>
+                <div class="griglia-2">
                     <div class="campo"><label>Responsabile incarico *</label>
                         <select id="w-resp"><option value="">Seleziona</option>${opzioni(Persone.attive('respIncarico'), d.respIncarico)}</select>
                     </div>
@@ -2488,15 +2488,46 @@
                         <div class="hint">Le persone con qualifica "Coordinatore territoriale".</div>
                     </div>
                 </div>
-                <div class="campo"><label>Team di revisione (seleziona uno o piu componenti)</label>
-                    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:4px; max-height:220px; overflow-y:auto; border:1px solid var(--grigio-200); border-radius:8px; padding:10px;">
-                        ${teamCompleto.map(t => `<label style="font-weight:400; font-size:0.85rem; display:flex; gap:6px; align-items:center;"><input type="checkbox" class="w-team-check" value="${esc(t)}" ${teamSel.includes(t) ? 'checked' : ''}>${esc(t)}</label>`).join('')}
+                <div class="campo"><label>Team di revisione (componenti)</label>
+                    <div class="team-picker">
+                        <div class="team-picker-barra">
+                            <input id="w-team-cerca" type="search" placeholder="Cerca un nominativo...">
+                            <button type="button" class="btn btn-sm btn-ghost" data-team-sel="1">Seleziona tutti</button>
+                            <button type="button" class="btn btn-sm btn-ghost" data-team-sel="0">Deseleziona</button>
+                            <span class="hint" id="w-team-conteggio"></span>
+                        </div>
+                        <div class="team-picker-chips" id="w-team-chips"></div>
+                        <div class="team-picker-lista" id="w-team-lista">
+                            ${teamCompleto.length ? teamCompleto.map(t => `<label class="team-opz" data-nome="${esc(t)}"><input type="checkbox" class="w-team-check" value="${esc(t)}" ${teamSel.includes(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('') : '<div class="hint" style="padding:6px;">Nessun nominativo con ruolo team: aggiungili dalla vista Persone.</div>'}
+                        </div>
                     </div>
-                    <div class="hint">Componenti selezionati: <span id="w-team-conteggio">${teamSel.length}</span></div>
                 </div>`;
-            corpo.querySelectorAll('.w-team-check').forEach(c => c.addEventListener('change', () => {
-                document.getElementById('w-team-conteggio').textContent = corpo.querySelectorAll('.w-team-check:checked').length;
+            const teamLista = document.getElementById('w-team-lista');
+            const teamChips = document.getElementById('w-team-chips');
+            const teamConta = document.getElementById('w-team-conteggio');
+            const aggiornaTeam = () => {
+                const sel = Array.from(teamLista.querySelectorAll('.w-team-check:checked')).map(c => c.value);
+                teamConta.textContent = sel.length + ' selezionat' + (sel.length === 1 ? 'o' : 'i') + ' su ' + teamCompleto.length;
+                teamChips.innerHTML = sel.length
+                    ? sel.map(n => `<span class="team-chip">${esc(n)}<button type="button" class="team-chip-x" title="Rimuovi" data-nome="${esc(n)}">&times;</button></span>`).join('')
+                    : '<span class="hint">Nessun componente selezionato.</span>';
+                teamChips.querySelectorAll('.team-chip-x').forEach(b => b.addEventListener('click', () => {
+                    teamLista.querySelectorAll('.w-team-check').forEach(cb => { if (cb.value === b.dataset.nome) cb.checked = false; });
+                    aggiornaTeam();
+                }));
+            };
+            teamLista.querySelectorAll('.w-team-check').forEach(c => c.addEventListener('change', aggiornaTeam));
+            const teamCerca = document.getElementById('w-team-cerca');
+            teamCerca.addEventListener('input', () => {
+                const q = teamCerca.value.trim().toLowerCase();
+                teamLista.querySelectorAll('.team-opz').forEach(row => { row.style.display = (!q || (row.dataset.nome || '').toLowerCase().includes(q)) ? '' : 'none'; });
+            });
+            corpo.querySelectorAll('[data-team-sel]').forEach(b => b.addEventListener('click', () => {
+                const on = b.dataset.teamSel === '1';
+                teamLista.querySelectorAll('.team-opz').forEach(row => { if (row.style.display !== 'none') { const cb = row.querySelector('.w-team-check'); if (cb) cb.checked = on; } });
+                aggiornaTeam();
             }));
+            aggiornaTeam();
         } else if (w.passo === 5) {
             const mappa = compensiRisultanti();
             const anno0 = anniEsercizi()[0];
