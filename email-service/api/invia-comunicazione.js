@@ -176,26 +176,42 @@ module.exports = async (req, res) => {
         // se il testo/oggetto usa variabili: una mail PERSONALIZZATA per ogni destinatario;
         // altrimenti un unico invio (BCC se piu destinatari), piu efficiente.
         if (haVariabili(oggBase) || haVariabili(testoBase)) {
-            let inviati = 0;
+            let inviati = 0; const falliti = [];
             for (const d of destinatari) {
                 const ogg = applicaVariabili(oggBase, d).trim() || '(senza oggetto)';
                 const txt = sostBody(testoBase, d);
                 try {
                     await trans.sendMail({ from: from, replyTo: mittente, to: d.email, subject: ogg, text: corpoText(txt), html: corpoHtml(txt) });
                     inviati++;
-                } catch (e) { console.error('Invio personalizzato a', d.email, 'non riuscito:', e && e.message); }
+                } catch (e) {
+                    const motivo = String((e && e.message) || 'errore sconosciuto').slice(0, 200);
+                    console.error('Invio personalizzato a', d.email, 'non riuscito:', motivo);
+                    falliti.push({ email: d.email, motivo: motivo });
+                }
             }
-            if (!inviati) { res.status(502).json({ ok: false, msg: 'Nessuna mail inviata (errore del server di posta).' }); return; }
-            res.status(200).json({ ok: true, inviati: inviati });
+            if (!inviati) { res.status(502).json({ ok: false, msg: 'Nessuna mail inviata (errore del server di posta).', falliti: falliti.slice(0, 100) }); return; }
+            res.status(200).json({ ok: true, inviati: inviati, falliti: falliti.slice(0, 100) });
             return;
         }
 
         const emails = destinatari.map(d => d.email);
+        const setEmails = new Set(emails.map(e => e.toLowerCase()));
         const messaggio = { from: from, replyTo: mittente, subject: oggBase, text: corpoText(testoBase), html: corpoHtml(testoBase) };
         if (emails.length === 1) messaggio.to = emails[0];
         else { messaggio.to = mittente; messaggio.bcc = emails; }
-        await trans.sendMail(messaggio);
-        res.status(200).json({ ok: true, inviati: emails.length });
+        // cattura i destinatari rifiutati dal server di posta (es. superamento limiti Aruba, indirizzi non validi)
+        let falliti = [];
+        try {
+            const info = await trans.sendMail(messaggio);
+            const motivo = String((info && info.response) || 'rifiutato dal server di posta').slice(0, 200);
+            falliti = ((info && info.rejected) || []).map(em => String(em).toLowerCase()).filter(em => setEmails.has(em)).map(em => ({ email: em, motivo: motivo }));
+        } catch (e) {
+            const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
+            falliti = emails.map(em => ({ email: em, motivo: motivo }));
+        }
+        const inviatiN = emails.length - falliti.length;
+        if (!inviatiN) { res.status(502).json({ ok: false, msg: 'Nessuna mail inviata (errore del server di posta).', falliti: falliti.slice(0, 100) }); return; }
+        res.status(200).json({ ok: true, inviati: inviatiN, falliti: falliti.slice(0, 100) });
     } catch (e) {
         console.error('Invio comunicazione non riuscito:', e);
         res.status(500).json({ ok: false, msg: 'Invio non riuscito. Riprova.' });

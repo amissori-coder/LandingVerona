@@ -818,8 +818,8 @@
                     body: JSON.stringify({ idToken, oggetto, testo, destinatari, mittenteNome, formato })
                 });
                 const data = await r.json().catch(() => ({}));
-                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Invio non riuscito (' + r.status + ').') };
-                return { ok: true, inviati: data.inviati };
+                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Invio non riuscito (' + r.status + ').'), falliti: (data && data.falliti) || [] };
+                return { ok: true, inviati: data.inviati, falliti: (data && data.falliti) || [] };
             } catch (e) {
                 return { ok: false, msg: 'Servizio di invio non raggiungibile.' };
             }
@@ -3607,8 +3607,8 @@
         // storico: ogni invio effettuato (immediato o programmato), piu recente prima
         const invii = [];
         lista.forEach(c => {
-            const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da }] : []);
-            storia.forEach(s => invii.push({ contesto: c.contesto, nome: c.nome, oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '' }));
+            const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da, falliti: c.inviata.falliti, dettaglioFalliti: c.inviata.dettaglioFalliti }] : []);
+            storia.forEach(s => invii.push({ contesto: c.contesto, nome: c.nome, oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '', falliti: s.falliti || 0, dettaglioFalliti: s.dettaglioFalliti || [] }));
         });
         invii.sort((a, b) => (b.il || 0) - (a.il || 0));
 
@@ -3685,13 +3685,14 @@
         const sezInvii = invii.length ? `<div class="card" id="sez-invii">
             <h2>Invii effettuati (${invii.length})</h2>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Contesto</th><th>Nome</th><th>Inviata il</th><th class="num">Destinatari</th><th>Tipo</th><th>Da</th>
+                <th>Contesto</th><th>Nome</th><th>Inviata il</th><th class="num">Inviati</th><th>Esito</th><th>Tipo</th><th>Da</th>
             </tr></thead><tbody>` +
-            invii.map(s => `<tr>
+            invii.map((s, idx) => `<tr>
                 <td data-label="Contesto">${badgeContesto(s.contesto)}</td>
                 <td class="cliente-cella" data-label="Nome">${esc(s.nome || s.oggetto)}${s.nome && s.oggetto ? '<div class="hint">' + esc(s.oggetto) + '</div>' : ''}</td>
                 <td data-label="Inviata il">${fmtDataOra(s.il)}</td>
-                <td class="num" data-label="Destinatari">${s.n || ''}</td>
+                <td class="num" data-label="Inviati">${s.n || 0}</td>
+                <td data-label="Esito">${s.falliti ? '<button type="button" class="btn btn-sm btn-danger inv-falliti" data-idx="' + idx + '">' + s.falliti + ' fallit' + (s.falliti === 1 ? 'o' : 'i') + '</button>' : '<span class="badge verde">tutti ok</span>'}</td>
                 <td data-label="Tipo">${s.da === 'programmato' ? '<span class="badge legale">programmato</span>' : '<span class="badge neutro">manuale</span>'}</td>
                 <td data-label="Da">${esc(s.da)}</td>
             </tr>`).join('') + `</tbody></table></div></div>`
@@ -3768,6 +3769,22 @@
             const t = $vista().querySelector(sel + ' table.dati');
             if (t) attrezzaTabella(t, { nomeFile: nome, ricerca: true });
         });
+        // dettaglio dei destinatari falliti di un invio
+        $vista().querySelectorAll('.inv-falliti').forEach(b => b.addEventListener('click', () => {
+            const s = invii[Number(b.dataset.idx)];
+            if (!s) return;
+            const dett = s.dettaglioFalliti || [];
+            const righe = dett.length
+                ? '<div class="tabella-wrap"><table class="dati"><thead><tr><th>Destinatario</th><th>Motivo</th></tr></thead><tbody>'
+                    + dett.map(x => '<tr><td>' + esc(x.email || '') + '</td><td>' + esc(x.motivo || 'errore') + '</td></tr>').join('')
+                    + '</tbody></table></div>'
+                : '<p class="descrizione">Il numero di falliti e registrato, ma il dettaglio dei destinatari non e disponibile per questo invio.</p>';
+            apriModale('<h2>Destinatari falliti (' + s.falliti + ')</h2>'
+                + '<p class="descrizione" style="margin-bottom:10px;">' + esc(s.nome || s.oggetto || '') + ' &middot; ' + fmtDataOra(s.il) + ' &middot; inviati ' + (s.n || 0) + '</p>'
+                + righe
+                + '<div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>', { classe: 'larga' });
+            document.getElementById('m-ok').addEventListener('click', chiudiModale);
+        }));
         $vista().querySelectorAll('.c-apri').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); modaleComunicazione(b.dataset.id); }));
         $vista().querySelectorAll('.c-sospendi').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); sospendiComunicazione(b.dataset.id); }));
         $vista().querySelectorAll('.c-riattiva').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); riattivaComunicazione(b.dataset.id); }));
@@ -4293,16 +4310,21 @@
             rec.programmazione = null;
             Comunicazioni.salvaUna(rec); // salva prima: non si perde nulla se l'invio fallisce
             const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, datiDestinatari(rec.destinatari), rec.formato);
-            if (!esito.ok) { mostraErr('Invio non riuscito: ' + esito.msg); return; }
+            const falliti = (esito && esito.falliti) || [];
+            if (!esito.ok) { mostraErr('Invio non riuscito: ' + esito.msg + (falliti.length ? ' (' + falliti.length + ' destinatari rifiutati)' : '')); return; }
             const ora = Date.now();
             rec.stato = 'inviata';
-            rec.inviata = { da: Auth.utenteCorrente.email, il: ora, n: esito.inviati };
-            rec.invii = (rec.invii || []).concat([{ il: ora, n: esito.inviati, da: Auth.utenteCorrente.email }]);
+            const voceInv = { il: ora, n: esito.inviati, da: Auth.utenteCorrente.email };
+            if (falliti.length) { voceInv.falliti = falliti.length; voceInv.dettaglioFalliti = falliti.slice(0, 100); }
+            rec.inviata = Object.assign({}, voceInv, { da: Auth.utenteCorrente.email });
+            rec.invii = (rec.invii || []).concat([voceInv]);
             Comunicazioni.salvaUna(rec);
             Audit.registra(Auth.utenteCorrente, 'Comunicazione inviata', 'comunicazione', rec.id, rec.oggetto,
-                [{ campo: 'Destinatari', prima: '', dopo: String(esito.inviati) }]);
+                [{ campo: 'Destinatari', prima: '', dopo: String(esito.inviati) }].concat(falliti.length ? [{ campo: 'Falliti', prima: '', dopo: String(falliti.length) }] : []));
             chiudiModale();
-            toast('Comunicazione inviata a ' + esito.inviati + ' destinatari.', 'verde');
+            toast(falliti.length
+                ? ('Inviata a ' + esito.inviati + ' destinatari, ' + falliti.length + ' falliti (vedi "Invii effettuati").')
+                : ('Comunicazione inviata a ' + esito.inviati + ' destinatari.'), falliti.length ? 'ambra' : 'verde');
             vistaComunicazioni();
         }, { testo: 'Attendere…' }));
     }

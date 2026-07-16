@@ -172,22 +172,37 @@ async function inviaUna(trans, com, destinatari) {
 
     // testo/oggetto con variabili -> una mail personalizzata per destinatario; altrimenti BCC
     if (haVariabili(oggBase) || haVariabili(testoBase)) {
-        let inviati = 0;
+        let inviati = 0; const falliti = [];
         for (const d of dd) {
             const ogg = applicaVariabili(oggBase, d).trim() || '(senza oggetto)';
             const txt = sostBody(testoBase, d);
             try { await trans.sendMail({ from: from, replyTo: replyTo, to: d.email, subject: ogg, text: corpoText(txt), html: corpoHtml(txt) }); inviati++; }
-            catch (e) { console.error('Invio programmato personalizzato a', d.email, 'non riuscito:', e && e.message); }
+            catch (e) {
+                const motivo = String((e && e.message) || 'errore sconosciuto').slice(0, 200);
+                console.error('Invio programmato personalizzato a', d.email, 'non riuscito:', motivo);
+                falliti.push({ email: d.email, motivo: motivo });
+            }
         }
         if (!inviati) throw new Error('nessuna mail inviata');
-        return inviati;
+        return { inviati: inviati, falliti: falliti };
     }
     const emails = dd.map(d => d.email);
+    const setEmails = new Set(emails);
     const msg = { from: from, replyTo: replyTo, subject: oggBase, text: corpoText(testoBase), html: corpoHtml(testoBase) };
     if (emails.length === 1) msg.to = emails[0];
     else { msg.to = replyTo; msg.bcc = emails; }
-    await trans.sendMail(msg);
-    return emails.length;
+    let falliti = [];
+    try {
+        const info = await trans.sendMail(msg);
+        const motivo = String((info && info.response) || 'rifiutato dal server di posta').slice(0, 200);
+        falliti = ((info && info.rejected) || []).map(em => String(em).toLowerCase()).filter(em => setEmails.has(em)).map(em => ({ email: em, motivo: motivo }));
+    } catch (e) {
+        const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
+        falliti = emails.map(em => ({ email: em, motivo: motivo }));
+    }
+    const inviati = emails.length - falliti.length;
+    if (!inviati) throw new Error('nessuna mail inviata');
+    return { inviati: inviati, falliti: falliti };
 }
 
 // Applica una patch a UNA sola comunicazione, fondendo per CAMPO sul record piu
@@ -278,11 +293,15 @@ module.exports = async (req, res) => {
                     await applicaPatch(rif, com.id, { prog: avanza() });
                     continue;
                 }
-                const n = await inviaUna(trans, com, destinatari);
+                const esito = await inviaUna(trans, com, destinatari);
+                const n = esito.inviati;
                 inviate++;
-                const voce = { il: ora, n, da: 'programmato' };
+                const voce = { il: ora, n: n, da: 'programmato' };
+                if (esito.falliti && esito.falliti.length) { voce.falliti = esito.falliti.length; voce.dettaglioFalliti = esito.falliti.slice(0, 100); }
+                const inviata = { da: 'programmato', il: ora, n: n };
+                if (esito.falliti && esito.falliti.length) { inviata.falliti = esito.falliti.length; inviata.dettaglioFalliti = esito.falliti.slice(0, 100); }
                 const patch = (next == null)
-                    ? { stato: 'inviata', prog: { attiva: false }, inviata: { da: 'programmato', il: ora, n }, voce } // unica: completata
+                    ? { stato: 'inviata', prog: { attiva: false }, inviata: inviata, voce } // unica: completata
                     : { prog: avanza(), voce };
                 // Persistenza incrementale: registra subito l'avanzamento, cosi un
                 // timeout/crash successivo non re-invia le comunicazioni gia spedite.
