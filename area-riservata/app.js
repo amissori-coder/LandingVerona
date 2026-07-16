@@ -3934,6 +3934,7 @@
 
         apriModale(`
             ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
+            <div id="c-vista-main">
             <div class="griglia-2">
                 <div class="campo"><label>Contesto</label><select id="c-contesto">${CONTESTI.map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select></div>
                 <div class="campo"><label>Nome della comunicazione</label><input id="c-nome" value="${esc((c && c.nome) || '')}" placeholder="es. Promemoria scadenze trimestrali"><div class="hint">Etichetta interna per riconoscerla in elenco e nel calendario.</div></div>
@@ -3956,7 +3957,7 @@
                     <button type="button" class="rte-btn" data-cmd="removeFormat" title="Rimuovi formattazione">Pulisci</button>
                 </div>
                 <div id="c-testo" class="rte-editor" contenteditable="true" data-ph="Scrivi qui il testo della mail. Usa la barra sopra per grassetto, corsivo, elenchi...">${testoInizialeHtml}</div>
-                <div class="var-chips"><span class="hint" style="margin-right:4px;">Variabili (clic per inserire):</span>${VARIABILI_MAIL.map(v => '<button type="button" class="chip-var" data-var="' + v.chiave + '" title="' + esc(v.desc) + '">{' + v.chiave + '}</button>').join('')}</div>
+                <div class="var-chips"><span class="hint" style="margin-right:4px;">Variabili (clic per inserire):</span>${VARIABILI_MAIL.map(v => '<button type="button" class="chip-var' + (v.chiave === 'periodo' ? ' chip-var-periodo' : '') + '" data-var="' + v.chiave + '" title="' + esc(v.desc) + '">{' + v.chiave + '}</button>').join('')}</div>
                 <div class="hint"><strong>{nome} {cognome} {incarichi}</strong> cambiano per ogni destinatario: se le usi, ognuno riceve una mail personalizzata; altrimenti un unico invio in copia nascosta. <strong>{incarichi}</strong> nel testo diventa una tabella (cliente, resp. qualita, resp. incarico).</div>
                 <div class="spiega-periodo">
                     <div class="sp-tit">Come funziona {periodo}</div>
@@ -3969,6 +3970,14 @@
                     <p>Cosi una sola comunicazione ricorrente genera da sola l'oggetto e il testo giusti per ogni periodo. Nell'invio immediato <code>{periodo}</code> resta vuoto, perche non c'e una frequenza.</p>
                 </div>
             </div>
+            <div class="comp-scelte">
+                <button type="button" class="comp-scelta" id="c-btn-dest"><span class="comp-scelta-tit">Destinatari</span><span class="comp-scelta-sub" id="c-btn-dest-sub">nessuno selezionato</span><span class="comp-scelta-freccia">&rsaquo;</span></button>
+                <button type="button" class="comp-scelta" id="c-btn-prog"><span class="comp-scelta-tit">Programma l'invio</span><span class="comp-scelta-sub" id="c-btn-prog-sub">Invio subito</span><span class="comp-scelta-freccia">&rsaquo;</span></button>
+            </div>
+            <div class="comp-esito" id="c-esito-invio"></div>
+            </div><!-- /c-vista-main -->
+            <div id="c-vista-dest" class="nascosto comp-finestra">
+            <div class="comp-finestra-testa"><button type="button" class="btn btn-sm btn-secondary" data-comp-torna="1">&larr; Torna al messaggio</button><h3>Destinatari</h3></div>
             <div class="campo">
                 <label>Destinatari <span class="hint" id="c-conta"></span></label>
                 <div class="tab-dest">
@@ -4007,6 +4016,9 @@
                     <textarea id="c-altri" rows="3" placeholder="Un indirizzo per riga o separati da virgola: mario.rossi@esempio.it, ...">${esc(altri.join(', '))}</textarea>
                 </div>
             </div>
+            </div><!-- /c-vista-dest -->
+            <div id="c-vista-prog" class="nascosto comp-finestra">
+            <div class="comp-finestra-testa"><button type="button" class="btn btn-sm btn-secondary" data-comp-torna="1">&larr; Torna al messaggio</button><h3>Programma l'invio</h3></div>
             <div class="campo">
                 <label style="display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer;"><input type="checkbox" id="c-prog" style="width:auto;" ${prog ? 'checked' : ''}> Programma l'invio (una volta o periodico)</label>
                 <div id="c-prog-box" class="${prog ? '' : 'nascosto'}" style="margin-top:8px;">
@@ -4035,6 +4047,7 @@
                     <p class="hint">Gli invii programmati partono dal server <strong>una volta al giorno, la mattina presto</strong> (verso le 8:00): quindi conta il <strong>giorno</strong> scelto, non l'ora esatta. Se scegli oggi e l'invio del mattino e gia avvenuto, parte domani mattina. La comunicazione resta modificabile fino all'invio.</p>
                 </div>
             </div>
+            </div><!-- /c-vista-prog -->
             <div class="msg-errore hidden" id="c-errore"></div>
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="c-annulla">Annulla</button>
@@ -4135,7 +4148,7 @@
             b.addEventListener('click', () => {
                 const token = '{' + b.dataset.var + '}';
                 if (ultimoCampoVar === 'c-testo') { editor.focus(); ripristinaSel(); document.execCommand('insertText', false, token); aggiornaPh(); salvaSel(); }
-                else { const el = $('c-oggetto'), s = el.selectionStart != null ? el.selectionStart : el.value.length, e2 = el.selectionEnd != null ? el.selectionEnd : el.value.length; el.value = el.value.slice(0, s) + token + el.value.slice(e2); el.focus(); try { el.setSelectionRange(s + token.length, s + token.length); } catch (_) { } }
+                else { const el = $('c-oggetto'), s = el.selectionStart != null ? el.selectionStart : el.value.length, e2 = el.selectionEnd != null ? el.selectionEnd : el.value.length; el.value = el.value.slice(0, s) + token + el.value.slice(e2); el.focus(); try { el.setSelectionRange(s + token.length, s + token.length); } catch (_) { } el.dispatchEvent(new Event('input', { bubbles: true })); }
             });
         });
         // schede destinatari
@@ -4186,11 +4199,13 @@
             return Array.from(set);
         };
         const spuntati = idLista => Array.from($(idLista).querySelectorAll('input:checked')).length;
+        let aggiornaScelte = () => {}; // definita piu sotto (dopo chkProg/leggiProg); qui solo un segnaposto
         const aggiornaConta = () => {
             const g = gruppiSel();
             $('c-conta').textContent = '(' + tuttiDestinatari().length + ' destinatari' + (g.length ? ' - include i gruppi: ' + g.map(nomeGruppo).join(', ') : '') + ')';
             $('cp-conta').textContent = spuntati('cp-lista') + ' selezionati';
             $('cc-conta').textContent = spuntati('cc-lista') + ' selezionati';
+            aggiornaScelte();
         };
         $('cp-lista').addEventListener('change', aggiornaConta);
         $('cc-lista').addEventListener('change', aggiornaConta);
@@ -4233,7 +4248,7 @@
         const chkProg = $('c-prog');
         if (prog && prog.frequenza) $('c-freq').value = prog.frequenza;
         if (prog && prog.fine) $('c-fine-tipo').value = 'data';
-        const relabel = () => { $('c-invia').textContent = chkProg.checked ? 'Programma' : 'Invia'; };
+        const relabel = () => { $('c-invia').textContent = chkProg.checked ? 'Programma l\'invio' : 'Invia subito'; };
         const leggiProg = () => {
             if (!chkProg.checked) return { prog: null };
             const q = $('c-quando').value;
@@ -4277,7 +4292,40 @@
                 box.innerHTML = '<div class="ap-per-tit">Il {periodo} diventa, a ogni invio:</div>' + righe.join('')
                     + (fineTs ? '<div class="ap-per-nota">poi termina (fino al ' + db(fineTs) + ')</div>' : (righe.length >= 4 ? '<div class="ap-per-nota">…e cosi via</div>' : ''));
             } else { box.innerHTML = ''; }
+            aggiornaScelte();
         };
+        // finestre del compositore (messaggio / destinatari / programma) + indicatore invio subito vs programmato
+        const mostraVista = v => {
+            ['c-vista-main', 'c-vista-dest', 'c-vista-prog'].forEach(id => { const el = $(id); if (el) el.classList.toggle('nascosto', id !== v); });
+            const corpo = document.querySelector('#modale-contenitore .modale-corpo'); if (corpo) corpo.scrollTop = 0;
+        };
+        // errore che porta l'utente sulla finestra giusta: il campo da correggere e su una vista che potrebbe essere nascosta
+        const mostraErrIn = (vista, m) => { mostraVista(vista); mostraErr(m); };
+        aggiornaScelte = () => {
+            const nDest = tuttiDestinatari().length, nGruppi = gruppiSel().length;
+            const dstr = nDest + (nDest === 1 ? ' destinatario' : ' destinatari');
+            const gstr = nGruppi + (nGruppi === 1 ? ' gruppo' : ' gruppi') + ' (destinatari presi a ogni invio)';
+            const subDest = $('c-btn-dest-sub'); if (subDest) subDest.textContent = nDest ? dstr : (nGruppi ? 'nessuno ora, presi dai gruppi' : 'nessuno selezionato');
+            const subProg = $('c-btn-prog-sub'), esito = $('c-esito-invio');
+            if (chkProg.checked) {
+                const lp = leggiProg();
+                const descr = (lp && lp.prog) ? descriviProgrammazione(lp.prog) : 'da completare';
+                if (subProg) subProg.textContent = descr;
+                if (esito) {
+                    if (nDest === 0 && nGruppi === 0) { esito.className = 'comp-esito vuoto'; esito.innerHTML = 'Invio <strong>PROGRAMMATO</strong> (' + esc(descr) + '), ma <strong>nessun destinatario</strong>: apri "Destinatari" e scegli persone o un gruppo.'; }
+                    else { esito.className = 'comp-esito prog'; esito.innerHTML = 'Invio <strong>PROGRAMMATO</strong>: ' + esc(descr) + ' &middot; ' + (nDest ? dstr : gstr) + '.'; }
+                }
+            } else {
+                if (subProg) subProg.textContent = 'Invio subito';
+                if (esito) {
+                    if (nDest === 0) { esito.className = 'comp-esito vuoto'; esito.innerHTML = '<strong>Nessun destinatario</strong> selezionato: apri "Destinatari" e scegline almeno uno prima di inviare.'; }
+                    else { esito.className = 'comp-esito subito'; esito.innerHTML = 'Invio <strong>SUBITO</strong> a ' + dstr + ', appena premi "Invia subito".'; }
+                }
+            }
+        };
+        if ($('c-btn-dest')) $('c-btn-dest').addEventListener('click', () => mostraVista('c-vista-dest'));
+        if ($('c-btn-prog')) $('c-btn-prog').addEventListener('click', () => mostraVista('c-vista-prog'));
+        document.querySelectorAll('#modale-contenitore [data-comp-torna]').forEach(b => b.addEventListener('click', () => { aggiornaScelte(); mostraVista('c-vista-main'); }));
         chkProg.addEventListener('change', () => { $('c-prog-box').classList.toggle('nascosto', !chkProg.checked); relabel(); aggiornaRiepilogo(); });
         ['c-freq', 'c-quando', 'c-fine-tipo', 'c-fine-data', 'c-oggetto', 'c-testo'].forEach(idw => {
             const el = $(idw); if (el) el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', aggiornaRiepilogo);
@@ -4287,7 +4335,7 @@
         $('c-annulla').addEventListener('click', chiudiModale);
         $('c-bozza').addEventListener('click', () => {
             const rec = componiRecord();
-            if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErr('Non c\'e nulla da salvare: aggiungi almeno l\'oggetto, il testo o un destinatario.'); return; }
+            if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErrIn('c-vista-main', 'Non c\'e nulla da salvare: aggiungi almeno l\'oggetto, il testo o un destinatario.'); return; }
             // In preparazione: la programmazione si salva SEMPRE come non attiva e puo essere incompleta
             // (la data si puo mettere dopo). Non parte finche non premi Programma, che valida tutto.
             let progBozza = null;
@@ -4307,13 +4355,13 @@
         const btnInvia = $('c-invia');
         btnInvia.addEventListener('click', () => conAttesa(btnInvia, async () => {
             const rec = componiRecord();
-            if (!rec.oggetto) { mostraErr('Inserisci l\'oggetto.'); return; }
-            if (!rec.testo) { mostraErr('Scrivi il testo del messaggio.'); return; }
+            if (!rec.oggetto) { mostraErrIn('c-vista-main', 'Inserisci l\'oggetto.'); return; }
+            if (!rec.testo) { mostraErrIn('c-vista-main', 'Scrivi il testo del messaggio.'); return; }
             const haGruppi = rec.gruppi && rec.gruppi.length;
             const lp = leggiProg();
-            if (lp.errore) { mostraErr(lp.errore); return; }
+            if (lp.errore) { mostraErrIn('c-vista-prog', lp.errore); return; }
             // per una programmata basta aver scelto un gruppo (anche se ora e vuoto): si popolera all'invio
-            if (!rec.destinatari.length && !(lp.prog && haGruppi)) { mostraErr('Seleziona almeno un destinatario o un gruppo.'); return; }
+            if (!rec.destinatari.length && !(lp.prog && haGruppi)) { mostraErrIn('c-vista-dest', 'Seleziona almeno un destinatario o un gruppo.'); return; }
 
             if (lp.prog) {
                 // PROGRAMMA: non invia ora, sara' il server a inviare (una volta al giorno, la mattina).
