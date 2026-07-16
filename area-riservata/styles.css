@@ -707,11 +707,48 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     justify-content: space-between; align-items: center; flex-wrap: wrap;
 }
 
+/* intestazione che compare SOLO sulla carta: a schermo il titolo e gia nell'header,
+   ma quello in stampa e nascosto perche contiene il selettore e il pulsante */
+.intest-stampa { display: none; }
+
 @media print {
     body { background: #fff; }
     .sidebar, .barra-stampa, .toast-area, .contenuto > header, .no-stampa { display: none !important; }
+    /* ricerca, filtri e "Esporta CSV" su carta non servono a niente */
+    .barra-tabella, .modale-sfondo, .g-tip { display: none !important; }
     .contenuto { padding: 0; max-width: none; }
     .lettera-anteprima { box-shadow: none; border-radius: 0; padding: 0; max-width: none; }
     .app-shell { display: block; }
-    @page { margin: 2cm 1.8cm; }
+
+    .intest-stampa { display: block; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--blu-900); }
+    .is-marchio { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grigio-600); }
+    .is-tit { font-family: 'Montserrat', 'Inter', sans-serif; font-size: 1.4rem; font-weight: 800; color: var(--blu-900); margin: 3px 0 4px; }
+    .is-meta { font-size: 0.8rem; color: var(--grigio-600); }
+
+    /* nei badge e nei grafici il colore E l'informazione, quindi va stampato. Solo qui:
+       una regola globale cambierebbe anche l'anteprima della proposta di incarico. */
+    .badge, .kpi, .ore-box, .ore-avviso, .comp-esito, .g-svg-wrap, .g-svg-wrap *,
+    .g-legenda i, .g-legenda-oc i, table.dati thead th {
+        -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+
+    .card { box-shadow: none; border: 1px solid var(--grigio-200); border-left: 0; border-right: 0; border-radius: 0; padding: 12px 0; margin-bottom: 10px; }
+    .card h2, .card h3 { break-after: avoid; page-break-after: avoid; }
+    .kpi-griglia { grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; break-inside: avoid; page-break-inside: avoid; }
+    .kpi { box-shadow: none; }
+    .kpi .valore { font-size: 1.15rem; }
+
+    /* le tabelle lunghe devono poter spezzarsi, ma non a meta di una riga,
+       e l'intestazione va ripetuta su ogni pagina */
+    .tabella-wrap { overflow: visible; box-shadow: none; border-radius: 0; }
+    table.dati thead { display: table-header-group; }
+    table.dati tr { break-inside: avoid; page-break-inside: avoid; }
+    table.dati th, table.dati td { padding: 4px 6px; font-size: 0.72rem; }
+    .cliccabile { cursor: default; }
+
+    .g-svg-wrap { break-inside: avoid; page-break-inside: avoid; }
+    .g-svg-wrap svg { max-width: 100%; height: auto; }
+    .ore-sintesi, .ore-avviso, .g-legenda, .g-legenda-oc { break-inside: avoid; page-break-inside: avoid; }
+
+    @page { margin: 1.6cm 1.4cm; }
 }

@@ -3260,6 +3260,9 @@
             .filter(x => x.importo > 0)
             .sort((a, b) => b.importo - a.importo);
         const totaleAnno = elencoClienti.reduce((s, x) => s + x.importo, 0);
+        // confronto con l'anno prima: si mostra solo se quell'anno esiste e non era a zero
+        const totalePrec = incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, annoRif - 1), 0);
+        const variazione = totalePrec > 0 ? (totaleAnno - totalePrec) / totalePrec * 100 : null;
 
         /* Compenso rispetto alle ore stimate. Le ore arrivano dal calcolo CNDCEC (attivo+ricavi):
            dove non e' compilato non sono stimabili, e l'incarico non puo' entrare nel grafico:
@@ -3299,6 +3302,28 @@
                     <button class="btn btn-secondary" id="btn-stampa-report">Stampa report</button>
                 </div>
             </header>
+            <div class="intest-stampa">
+                <div class="is-marchio">Revilaw S.p.A.</div>
+                <div class="is-tit">Report compensi ${annoRif}</div>
+                <div class="is-meta">${elencoClienti.length} clienti con compenso &middot; totale ${eurFmt.format(totaleAnno)} &middot; stampato il ${fmtData(oggiISO())}</div>
+            </div>
+            <div class="kpi-griglia">
+                <div class="kpi">
+                    <div class="etichetta">Totale compensi ${annoRif}</div>
+                    <div class="valore">${eurFmt.format(totaleAnno)}</div>
+                    <div class="nota">${elencoClienti.length} ${elencoClienti.length === 1 ? 'cliente' : 'clienti'} con compenso</div>
+                </div>
+                <div class="kpi">
+                    <div class="etichetta">Media per cliente</div>
+                    <div class="valore">${elencoClienti.length ? eurFmt.format(totaleAnno / elencoClienti.length) : '-'}</div>
+                    <div class="nota">${elencoClienti.length ? 'il piu alto e ' + eurFmt.format(elencoClienti[0].importo) : ''}</div>
+                </div>
+                ${variazione == null ? '' : `<div class="kpi ${variazione >= 0 ? 'verde' : 'rosso'}">
+                    <div class="etichetta">Rispetto al ${annoRif - 1}</div>
+                    <div class="valore">${variazione >= 0 ? '+' : ''}${variazione.toFixed(1)}%</div>
+                    <div class="nota">${eurFmt.format(totalePrec)} nel ${annoRif - 1}</div>
+                </div>`}
+            </div>
             <div class="card">
                 <h2>Primi clienti per compenso ${annoRif}</h2>
                 <p class="hint" style="margin:-6px 0 10px;">Passa sopra una barra per il dettaglio; clicca per aprire l'incarico.</p>
