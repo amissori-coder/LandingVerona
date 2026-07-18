@@ -1486,22 +1486,42 @@
             return inc;
         },
 
-        // riattiva un incarico terminato: torna attivo e rientra nell'elenco principale
+        /* Dimissioni dall'incarico: il revisore si dimette a una certa data. L'incarico esce
+           dall'elenco degli attivi e finisce nella scheda "Dismessi" (riattivabile). */
+        dimetti(id, dataDimissioni, utente) {
+            const lista = this.tutti();
+            const idx = lista.findIndex(i => i.id === id);
+            if (idx < 0) return null;
+            const inc = lista[idx];
+            const prima = inc.stato || 'attivo';
+            inc.stato = 'dimesso';
+            inc.dimissioni = { data: dataDimissioni || null, da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            this.salva(lista);
+            Audit.registra(utente, 'Dimissioni dall\'incarico', 'incarico', id, inc.cliente,
+                [{ campo: 'Stato', prima: prima, dopo: 'dimesso' }].concat(dataDimissioni ? [{ campo: 'Data dimissioni', prima: '', dopo: fmtData(dataDimissioni) }] : []));
+            return inc;
+        },
+
+        // riattiva un incarico terminato o dimesso: torna attivo e rientra nell'elenco principale
         riattiva(id, utente) {
             const lista = this.tutti();
             const idx = lista.findIndex(i => i.id === id);
             if (idx < 0) return null;
             const inc = lista[idx];
+            const prima = inc.stato === 'dimesso' ? 'dimesso' : 'terminato';
             inc.stato = 'attivo';
             inc.terminato = null;
+            inc.dimissioni = null;
             inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
             this.salva(lista);
-            Audit.registra(utente, 'Incarico riattivato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: 'terminato', dopo: 'attivo' }]);
+            Audit.registra(utente, 'Incarico riattivato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: prima, dopo: 'attivo' }]);
             return inc;
         },
 
         statoScadenza(inc) {
             const fine = inc.rinnovo || inc.dataFine;
+            if (inc.stato === 'dimesso') return { classe: 'neutro', testo: 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' ' + fmtData(inc.dimissioni.data) : '') };
             if (inc.stato === 'cessato') return { classe: 'neutro', testo: 'Terminato' };
             if (!fine) return { classe: 'neutro', testo: 'Senza scadenza' };
             // valori non in formato data (note testuali) non sono confrontabili
@@ -1950,6 +1970,7 @@
         { id: 'fatturazione', nome: 'Fatturazione', icona: 'M9 14l2 2 4-4M5 3h14a1 1 0 011 1v16l-3-2-2 2-3-2-2 2-3-2-3 2V4a1 1 0 011-1z' },
         { id: 'report', nome: 'Report compensi', icona: 'M4 20V10m6 10V4m6 16v-7m4 7H2' },
         { id: 'persone', nome: 'Persone', icona: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+        { id: 'coordinatori', nome: 'Coordinatori', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
         { id: 'comunicazioni', nome: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
@@ -1960,9 +1981,10 @@
     let vistaCorrente = 'dashboard';
     let parametriVista = null;
 
-    // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi"
-    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi' };
-    function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(x.id)); return v ? v.id : null; }
+    // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
+    // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
+    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone' };
+    function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
     function naviga(id, parametri) {
         const viste = {
@@ -1973,6 +1995,7 @@
             fatturazione: vistaFatturazione,
             report: vistaReport,
             persone: vistaPersone,
+            coordinatori: vistaCoordinatori,
             comunicazioni: vistaComunicazioni,
             registro: vistaRegistro,
             utenti: vistaUtenti,
@@ -2027,7 +2050,7 @@
         const nav = document.getElementById('nav-principale');
         aggiornaEtichettaUtente();
         nav.innerHTML = VOCI_NAV
-            .filter(v => Auth.puoVedere(v.id))
+            .filter(v => Auth.puoVedere(SEZIONE_DI_VISTA[v.id] || v.id))
             .map(v => '<button class="nav-voce' + (vistaCorrente === v.id ? ' attiva' : '') + '" data-vista="' + v.id + '">' +
                 '<svg class="icona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + v.icona + '"/></svg>' +
                 esc(v.nome) + '</button>').join('');
@@ -2059,7 +2082,7 @@
     function vistaDashboard() {
         const incarichi = Incarichi.visibili();
         const anno = annoCorrente();
-        const attivi = incarichi.filter(i => i.stato !== 'cessato');
+        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
         const totAnno = incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
         const totPrec = incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, anno - 1), 0);
         const delta = totPrec ? ((totAnno - totPrec) / totPrec * 100) : null;
@@ -2296,10 +2319,11 @@
         const controllaStato = (i, st) => {
             const s = Incarichi.statoScadenza(i);
             // "neutro" su un incarico non cessato significa "senza scadenza": e attivo
-            if (st === 'attivo') return i.stato !== 'cessato' && (s.classe === 'verde' || s.classe === 'neutro');
+            if (st === 'attivo') return i.stato !== 'cessato' && i.stato !== 'dimesso' && (s.classe === 'verde' || s.classe === 'neutro');
             if (st === 'scadenza') return s.classe === 'ambra';
             if (st === 'scaduto') return s.classe === 'rosso';
             if (st === 'cessato') return i.stato === 'cessato';
+            if (st === 'dimesso') return i.stato === 'dimesso';
             return true;
         };
         if (statoOverride !== undefined) {
@@ -2325,17 +2349,36 @@
         const puoRinnovare = Auth.puoScrivere('incarichi');
         // attivi: rispetta il filtro di stato (attivo/scadenza/scaduto). terminati: ignora il filtro di stato
         // (che riguarda solo gli attivi) cosi restano sempre visibili nella loro scheda.
-        const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato');
+        const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
         const terminati = incarichiFiltrati(annoRif, 'cessato');
+        const dismessi = incarichiFiltrati(annoRif, 'dimesso');
 
-        // ogni gruppo (attivi / terminati) ha la sua scheda invece di stare in sequenza
+        // ogni gruppo (attivi / terminati / dismessi) ha la sua scheda invece di stare in sequenza
         const tabBar = `<div class="tab-dest" style="margin-bottom:16px;">
             <button class="tab-btn ${incarichiTab === 'attivi' ? 'attivo' : ''}" data-inctab="attivi">Attivi (${attivi.length})</button>
             <button class="tab-btn ${incarichiTab === 'terminati' ? 'attivo' : ''}" data-inctab="terminati">Terminati (${terminati.length})</button>
+            <button class="tab-btn ${incarichiTab === 'dismessi' ? 'attivo' : ''}" data-inctab="dismessi">Dismessi (${dismessi.length})</button>
         </div>`;
 
         let corpo;
-        if (incarichiTab === 'terminati') {
+        if (incarichiTab === 'dismessi') {
+            corpo = dismessi.length ? `<div class="card" id="sez-dismessi">
+                <p class="descrizione" style="margin:0 0 12px;">Incarichi da cui il revisore si e dimesso, con la data delle dimissioni. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
+                <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                    <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Resp. incarico</th><th>Data dimissioni</th><th>Registrate il</th>${puoRinnovare ? '<th></th>' : ''}
+                </tr></thead><tbody>` +
+                dismessi.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                    <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                    <td data-label="Regione">${esc(i.regione || '')}</td>
+                    <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
+                    <td data-label="Data dimissioni">${i.dimissioni && i.dimissioni.data ? esc(fmtData(i.dimissioni.data)) : ''}</td>
+                    <td data-label="Registrate il">${i.dimissioni ? esc(fmtDataOra(i.dimissioni.il)) : ''}</td>
+                    ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button></td>` : ''}
+                </tr>`).join('') +
+                `</tbody></table></div></div>`
+                : '<div class="card tabella-vuota">Nessun incarico dismesso.</div>';
+        } else if (incarichiTab === 'terminati') {
             corpo = terminati.length ? `<div class="card" id="sez-terminati">
                 <p class="descrizione" style="margin:0 0 12px;">Incarichi conclusi, tenuti fuori dall'elenco principale. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
                 <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
@@ -2385,7 +2428,7 @@
                         <td data-label="Team">${esc(i.team || '')}</td>
                         <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) : ''}</td>
                         <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                        ${puoRinnovare ? `<td data-label="" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button></td>` : ''}
+                        ${puoRinnovare ? `<td data-label="" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button> <button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button></td>` : ''}
                     </tr>`;
                 }).join('') +
                 `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
@@ -2408,6 +2451,12 @@
                 e.stopPropagation();
                 const inc = Incarichi.trova(b.dataset.termina);
                 if (inc) modaleTerminaIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
+            }));
+        cont.querySelectorAll('[data-dimetti]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.dimetti);
+                if (inc) modaleDimissioniIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
             }));
         cont.querySelectorAll('[data-riattiva]').forEach(b =>
             b.addEventListener('click', e => {
@@ -2477,7 +2526,7 @@
                     ${Auth.puoScrivere('incarichi') ? `
                         <button class="btn btn-secondary" id="btn-modifica">Modifica</button>
                         <button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
-                        ${inc.stato === 'cessato' ? '<button class="btn btn-secondary" id="btn-riattiva-inc">Riattiva incarico</button>' : '<button class="btn btn-secondary" id="btn-termina-inc">Termina incarico</button>'}
+                        ${inc.stato === 'cessato' || inc.stato === 'dimesso' ? '<button class="btn btn-secondary" id="btn-riattiva-inc">Riattiva incarico</button>' : '<button class="btn btn-secondary" id="btn-termina-inc">Termina incarico</button><button class="btn btn-secondary" id="btn-dimetti-inc">Dimissioni</button>'}
                         ${inc.calcoloCongelato ? '<button class="btn btn-secondary" id="btn-sblocca">Sblocca calcolo</button>' : ''}
                         ${inc.tipo === 'legale' || inc.tipo === 'volontaria' ? '<button class="btn btn-primary" id="btn-lettera">Lettera di incarico</button>' : ''}
                     ` : ''}
@@ -2504,7 +2553,7 @@
                             ${rigaRiepilogo('Data inizio', inc.dataInizio ? fmtData(inc.dataInizio) : inc.dataInizioNote)}
                             ${rigaRiepilogo('Data fine', fmtData(inc.dataFine) || inc.dataFineNote)}
                             ${rigaRiepilogo('Rinnovo', inc.rinnovo ? fmtData(inc.rinnovo) : inc.rinnovoNote)}
-                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'attivo' ? 'Attivo' : inc.stato)) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
+                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'dimesso' ? 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' il ' + fmtData(inc.dimissioni.data) : '') : (inc.stato === 'attivo' ? 'Attivo' : inc.stato))) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
                         </div>
                         <div class="riepilogo-blocco">
                             <h4>Team</h4>
@@ -2575,6 +2624,8 @@
             if (btnSblocca) btnSblocca.addEventListener('click', () => modaleSblocco(inc));
             const btnTermina = document.getElementById('btn-termina-inc');
             if (btnTermina) btnTermina.addEventListener('click', () => modaleTerminaIncarico(inc));
+            const btnDimetti = document.getElementById('btn-dimetti-inc');
+            if (btnDimetti) btnDimetti.addEventListener('click', () => modaleDimissioniIncarico(inc));
             const btnRiattivaInc = document.getElementById('btn-riattiva-inc');
             if (btnRiattivaInc) btnRiattivaInc.addEventListener('click', () => {
                 Incarichi.riattiva(inc.id, Auth.utenteCorrente);
@@ -2614,6 +2665,29 @@
             Incarichi.termina(inc.id, Auth.utenteCorrente);
             chiudiModale();
             toast('Incarico terminato e spostato nella scheda "Terminati".', 'verde');
+            if (onDone) onDone(); else naviga('dettaglio', { id: inc.id });
+        });
+    }
+
+    /* Dimissioni dall'incarico: chiede la DATA delle dimissioni (di default oggi) e sposta
+       l'incarico nella scheda "Dismessi". Riattivabile come i terminati. */
+    function modaleDimissioniIncarico(inc, onDone) {
+        apriModale(`<h2>Dimissioni dall'incarico?</h2>
+            <p>L'incarico <strong>${esc(inc.cliente)}</strong> verra spostato nella scheda <strong>Dismessi</strong> con la data delle dimissioni, e non comparira piu tra gli attivi. Potrai riattivarlo in qualsiasi momento. L'operazione resta nel registro modifiche.</p>
+            <div class="campo"><label>Data delle dimissioni</label><input type="date" id="m-dim-data" value="${oggiISO()}"></div>
+            <div class="msg-errore hidden" id="m-dim-err"></div>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-primary" id="m-conferma">Registra le dimissioni</button>
+            </div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            const data = document.getElementById('m-dim-data').value;
+            const err = document.getElementById('m-dim-err');
+            if (!data) { err.textContent = 'Indica la data delle dimissioni.'; err.classList.remove('hidden'); return; }
+            Incarichi.dimetti(inc.id, data, Auth.utenteCorrente);
+            chiudiModale();
+            toast('Dimissioni registrate al ' + fmtData(data) + ': incarico nella scheda "Dismessi".', 'verde');
             if (onDone) onDone(); else naviga('dettaglio', { id: inc.id });
         });
     }
@@ -3214,6 +3288,11 @@
                 };
                 d.storico = (prec.storico || []).concat([snap]);
             }
+            // un rinnovo riporta l'incarico ATTIVO: chi rinnova un incarico terminato o
+            // dimesso (es. revisore ri-nominato) non deve doverlo riattivare a parte
+            d.stato = 'attivo';
+            d.terminato = null;
+            d.dimissioni = null;
             const agg = Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Rinnovo incarico');
             toast(haLettera ? 'Incarico rinnovato. Il periodo precedente e archiviato in "Periodi precedenti"; ora puoi stampare la nuova lettera.' : 'Incarico rinnovato. Il periodo precedente e archiviato.', 'verde');
             naviga(haLettera ? 'lettera' : 'dettaglio', { id: agg.id });
@@ -3627,7 +3706,8 @@
         });
         // prima gli attivi, poi i terminati; dentro ogni gruppo per cliente
         out.sort((a, b) => {
-            const ca = a.inc.stato === 'cessato' ? 1 : 0, cb = b.inc.stato === 'cessato' ? 1 : 0;
+            const chiusi = s => (s === 'cessato' || s === 'dimesso') ? 1 : 0;
+            const ca = chiusi(a.inc.stato), cb = chiusi(b.inc.stato);
             return ca - cb || String(a.inc.cliente || '').localeCompare(String(b.inc.cliente || ''), 'it');
         });
         return out;
@@ -3681,7 +3761,7 @@
                 </div>
             </header>
             <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${Auth.puoScrivere('persone') ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${Auth.puoScrivere('persone') ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             persone.map(p => {
                 const nInc = incarichiDellaPersona(p.nome).length;
@@ -3694,6 +3774,7 @@
                 <td class="col-mark" data-label="Resp. incarico">${spunta(p.respIncarico)}</td>
                 <td class="col-mark" data-label="Team">${spunta(p.team)}</td>
                 <td class="col-mark" data-label="Coordinatore territoriale">${spunta(p.coordinatore)}</td>
+                <td class="col-mark" data-label="Vice coordinatore">${spunta(p.viceCoordinatore)}</td>
                 <td class="col-mark" data-label="Equity partner">${spunta(p.equityPartner)}</td>
                 <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
                 <td class="num" data-label="Incarichi">${nInc ? `<button class="btn btn-sm btn-ghost p-inc" data-id="${esc(p.id)}" title="Vedi gli incarichi di ${esc(p.nome)}">${nInc}</button>` : ''}</td>
@@ -3729,22 +3810,71 @@
             }));
     }
 
-    // regioni note: quelle dell'anagrafica piu' quelle gia' presenti sugli incarichi
-    function regioniNote() {
-        const set = new Set((typeof RV_ROSTER !== 'undefined' && RV_ROSTER.regioni ? RV_ROSTER.regioni : []).filter(Boolean));
-        Incarichi.tutti().forEach(i => { if (i.regione) set.add(i.regione); });
-        return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), 'it'));
+    /* =========================================================
+       VISTA: COORDINATORI (coordinatori territoriali e vice, dall'anagrafica).
+       Stessi permessi della sezione Persone.
+    ========================================================= */
+    function vistaCoordinatori() {
+        const persone = Persone.tutte().filter(p => p.coordinatore || p.viceCoordinatore)
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        const puoScr = Auth.puoScrivere('persone');
+        const anno = annoCorrente();
+        // incarichi ATTIVI visibili, indicizzati per regione (minuscola)
+        const attivi = Incarichi.visibili().filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
+        const regioniDi = p => {
+            const viste = new Set(), out = [];
+            [p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : []).filter(Boolean).forEach(r => {
+                const k = String(r).trim().toLowerCase();
+                if (k && !viste.has(k)) { viste.add(k); out.push(String(r).trim()); }
+            });
+            return out;
+        };
+        const righe = persone.map(p => {
+            const regioni = regioniDi(p);
+            const chiavi = new Set(regioni.map(r => r.toLowerCase()));
+            const suoi = attivi.filter(i => chiavi.has(String(i.regione || '').trim().toLowerCase()));
+            const tot = suoi.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
+            return { p, regioni, n: suoi.length, tot };
+        });
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Coordinatori territoriali</h1>
+                    <p class="descrizione">Coordinatori e vice dall'anagrafica, con le regioni coperte e gli incarichi attivi di quelle regioni. Le regioni si impostano nella scheda della persona (sezione Persone).</p>
+                </div>
+            </header>
+            ${righe.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <th>Cognome</th><th>Nome</th><th>Ruolo</th><th>Regioni</th><th>Email</th><th class="num" title="Incarichi attivi nelle regioni coperte">Incarichi</th><th class="num">Compensi ${anno}</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
+            </tr></thead><tbody>` +
+            righe.map(r => `<tr>
+                <td class="cliente-cella" data-label="Cognome">${esc(r.p.nome)}</td>
+                <td data-label="Nome">${r.p.nomeProprio ? esc(r.p.nomeProprio) : ''}</td>
+                <td data-label="Ruolo">${r.p.coordinatore ? '<span class="badge verde">Coordinatore</span>' : ''} ${r.p.viceCoordinatore ? '<span class="badge ambra">Vice</span>' : ''}</td>
+                <td data-label="Regioni">${r.regioni.length ? esc(r.regioni.join(', ')) : '<span class="badge rosso">nessuna regione</span>'}</td>
+                <td class="col-email" data-label="Email">${r.p.email ? '<a href="mailto:' + esc(r.p.email) + '">' + esc(r.p.email) + '</a>' : ''}</td>
+                <td class="num" data-label="Incarichi">${r.n || ''}</td>
+                <td class="num" data-label="Compensi ${anno}">${r.tot ? eurFmt.format(r.tot) : ''}</td>
+                <td data-label="Stato">${r.p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
+                ${puoScr ? `<td data-label=""><button class="btn btn-sm btn-secondary co-modifica" data-id="${esc(r.p.id)}">Modifica scheda</button></td>` : ''}
+            </tr>`).join('') +
+            `</tbody></table></div>
+            <p class="descrizione" style="margin-top:10px;">Gli incarichi contati sono quelli attivi con la regione tra quelle coperte. Una regione coperta da piu persone conta gli stessi incarichi per ciascuna.</p>`
+            : '<div class="card tabella-vuota">Nessun coordinatore o vice in anagrafica: spunta "Coordinatore territoriale" o "Vice coordinatore territoriale" nella scheda della persona (sezione Persone).</div>'}`;
+        attrezzaTabella($vista(), { nomeFile: 'coordinatori', ricerca: true });
+        $vista().querySelectorAll('.co-modifica').forEach(b =>
+            b.addEventListener('click', () => modalePersona(b.dataset.id)));
     }
 
     function modalePersona(id) {
         const lista = Persone.tutte();
         const p = id ? lista.find(x => x.id === id) : null;
-        // altre regioni coordinate: si mostrano solo se la spunta "Coordinatore territoriale" e' attiva.
-        // Le caselle includono ANCHE le regioni gia' salvate sulla scheda che non stanno in
-        // anagrafica: altrimenti un risalvataggio le perderebbe in silenzio.
+        // altre regioni coordinate: si mostrano se la persona e' coordinatore o vice.
+        // L'elenco e' lo STESSO degli incarichi (tutte le regioni italiane), piu' le regioni
+        // gia' salvate sulla scheda che eventualmente non vi compaiono: altrimenti un
+        // risalvataggio le perderebbe in silenzio.
         const salvate = (p && Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : []).filter(Boolean);
         const regioniExtra = salvate.map(x => String(x).toLowerCase());
-        const tutteLeRegioni = regioniNote().slice();
+        const tutteLeRegioni = (typeof RV_ROSTER !== 'undefined' && RV_ROSTER.regioni ? RV_ROSTER.regioni : []).slice();
         salvate.forEach(rg => { if (!tutteLeRegioni.some(x => String(x).toLowerCase() === String(rg).toLowerCase())) tutteLeRegioni.push(rg); });
         const chipsRegioni = tutteLeRegioni.map(rg =>
             `<label class="chip-check"><input type="checkbox" class="m-p-regcoord" value="${esc(rg)}" ${regioniExtra.includes(String(rg).toLowerCase()) ? 'checked' : ''} style="width:auto;"> ${esc(rg)}</label>`).join('');
@@ -3768,10 +3898,11 @@
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-resp" ${p && p.respIncarico ? 'checked' : ''} style="width:auto;">Responsabile incarico</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-team" ${!p || p.team ? 'checked' : ''} style="width:auto;">Team di revisione / referente</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-coordinatore" ${p && p.coordinatore ? 'checked' : ''} style="width:auto;">Coordinatore territoriale</label>
-                <div id="m-p-coord-box" class="${p && p.coordinatore ? '' : 'nascosto'}" style="margin:2px 0 6px 26px;">
-                    <div class="hint" style="margin:0 0 6px;">Se questa persona accede con il ruolo "Coordinatore territoriale" (o vice), vede in sola visualizzazione gli incarichi della <strong>Regione</strong> indicata qui sopra piu quelli delle regioni scelte qui sotto. Senza alcuna regione non vede alcun incarico.</div>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-vice" ${p && p.viceCoordinatore ? 'checked' : ''} style="width:auto;">Vice coordinatore territoriale</label>
+                <div id="m-p-coord-box" class="${p && (p.coordinatore || p.viceCoordinatore) ? '' : 'nascosto'}" style="margin:2px 0 6px 26px;">
+                    <div class="hint" style="margin:0 0 6px;">Se questa persona accede con il ruolo "Coordinatore territoriale" o "Vice coordinatore territoriale", vede in sola visualizzazione gli incarichi della <strong>Regione</strong> indicata qui sopra piu quelli delle regioni scelte qui sotto. Senza alcuna regione non vede alcun incarico.</div>
                     <div class="hint" style="margin:0 0 4px;"><strong>Altre regioni coordinate</strong> (oltre alla Regione della scheda):</div>
-                    <div class="regcoord-grid">${chipsRegioni || '<span class="hint">Nessuna regione in anagrafica o negli incarichi.</span>'}</div>
+                    <div class="regcoord-grid">${chipsRegioni || '<span class="hint">Nessuna regione disponibile.</span>'}</div>
                 </div>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equity" ${p && p.equityPartner ? 'checked' : ''} style="width:auto;">Equity partner</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-founding" ${p && p.foundingPartner ? 'checked' : ''} style="width:auto;">Founding partner</label>
@@ -3783,9 +3914,11 @@
                 <button class="btn btn-primary" id="m-salva">Salva</button>
             </div>`, { classe: 'larga' });
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
-        // le "altre regioni coordinate" compaiono solo con la spunta Coordinatore territoriale
-        document.getElementById('m-p-coordinatore').addEventListener('change', e =>
-            document.getElementById('m-p-coord-box').classList.toggle('nascosto', !e.target.checked));
+        // le "altre regioni coordinate" compaiono con la spunta Coordinatore o Vice
+        const aggiornaCoordBox = () => document.getElementById('m-p-coord-box').classList.toggle('nascosto',
+            !document.getElementById('m-p-coordinatore').checked && !document.getElementById('m-p-vice').checked);
+        document.getElementById('m-p-coordinatore').addEventListener('change', aggiornaCoordBox);
+        document.getElementById('m-p-vice').addEventListener('change', aggiornaCoordBox);
         const btnSalvaP = document.getElementById('m-salva');
         btnSalvaP.addEventListener('click', () => conAttesa(btnSalvaP, () => {
             const nome = document.getElementById('m-p-nome').value.trim();
@@ -3811,13 +3944,15 @@
                 indirizzo: document.getElementById('m-p-indirizzo').value.trim()
             };
             const coordFlag = document.getElementById('m-p-coordinatore').checked;
+            const viceFlag = document.getElementById('m-p-vice').checked;
             const ruoli = {
                 qualita: document.getElementById('m-p-qualita').checked,
                 respIncarico: document.getElementById('m-p-resp').checked,
                 team: document.getElementById('m-p-team').checked,
                 coordinatore: coordFlag,
-                // senza la spunta coordinatore le altre regioni non hanno senso: si azzerano
-                regioniCoordinate: coordFlag ? Array.from(document.querySelectorAll('.m-p-regcoord:checked')).map(c => c.value) : [],
+                viceCoordinatore: viceFlag,
+                // senza alcuna spunta di coordinamento le altre regioni non hanno senso: si azzerano
+                regioniCoordinate: (coordFlag || viceFlag) ? Array.from(document.querySelectorAll('.m-p-regcoord:checked')).map(c => c.value) : [],
                 equityPartner: document.getElementById('m-p-equity').checked,
                 foundingPartner: document.getElementById('m-p-founding').checked
             };
@@ -3828,6 +3963,7 @@
                 { chiave: 'localita', nome: 'Localita' }, { chiave: 'indirizzo', nome: 'Indirizzo' },
                 { chiave: 'qualita', nome: 'Ruolo qualita' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
                 { chiave: 'team', nome: 'Ruolo team' }, { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
+                { chiave: 'viceCoordinatore', nome: 'Vice coordinatore territoriale' },
                 { chiave: 'regioniCoordinate', nome: 'Altre regioni coordinate' },
                 { chiave: 'equityPartner', nome: 'Equity partner' }, { chiave: 'foundingPartner', nome: 'Founding partner' }
             ];
@@ -3849,7 +3985,8 @@
                 toast('Persona aggiunta: ' + nome, 'verde');
             }
             chiudiModale();
-            vistaPersone();
+            // ridisegna la vista da cui si e' aperta la scheda (Persone o Coordinatori)
+            naviga(vistaCorrente === 'coordinatori' ? 'coordinatori' : 'persone');
         }));
     }
 
@@ -3915,6 +4052,7 @@
         { id: 'procuratori', nome: 'Procuratori (resp. incarico)' },
         { id: 'team', nome: 'Team di revisione' },
         { id: 'coordinatori', nome: 'Coordinatori territoriali' },
+        { id: 'vicecoordinatori', nome: 'Vice coordinatori territoriali' },
         { id: 'utenti', nome: 'Utenti abilitati' }
     ];
     function nomeGruppo(id) { const g = GRUPPI_MAIL.find(x => x.id === id); return g ? g.nome : id; }
@@ -3928,6 +4066,7 @@
         if (g.has('procuratori')) persone.filter(p => p.respIncarico).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('team')) persone.filter(p => p.team).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('coordinatori')) persone.filter(p => p.coordinatore).forEach(p => set.add(p.email.toLowerCase()));
+        if (g.has('vicecoordinatori')) persone.filter(p => p.viceCoordinatore).forEach(p => set.add(p.email.toLowerCase()));
         return set;
     }
 
@@ -4494,11 +4633,11 @@
                     </div>
                     <div class="filtri-dest">
                         <input id="cp-cerca" type="search" placeholder="Oppure scegli singole persone: filtra per cognome, nome, email...">
-                        <input type="search" id="cp-ruolo" list="cp-ruolo-dl" placeholder="Tutti i ruoli"><datalist id="cp-ruolo-dl"><option value="Responsabile qualita"></option><option value="Responsabile incarico (procuratori)"></option><option value="Team di revisione"></option><option value="Coordinatore territoriale"></option></datalist>
+                        <input type="search" id="cp-ruolo" list="cp-ruolo-dl" placeholder="Tutti i ruoli"><datalist id="cp-ruolo-dl"><option value="Responsabile qualita"></option><option value="Responsabile incarico (procuratori)"></option><option value="Team di revisione"></option><option value="Coordinatore territoriale"></option><option value="Vice coordinatore territoriale"></option></datalist>
                     </div>
                     <div class="sel-azioni"><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="1">Seleziona tutti (filtrati)</button><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="0">Deseleziona</button><span class="hint" id="cp-conta"></span></div>
                     <div class="lista-destinatari" id="cp-lista">
-                        ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.team ? 'team ' : '') + (p.coordinatore ? 'coordinatore' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(String(p.email).toLowerCase()) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
+                        ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.team ? 'team ' : '') + (p.coordinatore ? 'coordinatore ' : '') + (p.viceCoordinatore ? 'vice' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(String(p.email).toLowerCase()) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
                     </div>
                 </div>
                 <div class="tab-pane nascosto" id="pane-clienti">
@@ -4662,8 +4801,11 @@
             const t = ($('cp-cerca').value || '').trim().toLowerCase();
             const r = ($('cp-ruolo').value || '').trim();
             // il ruolo si digita per nome: si risalgono le chiavi dei ruoli il cui nome contiene il testo
-            const MAPPA_RUOLI = [['qualita', 'Responsabile qualita'], ['respIncarico', 'Responsabile incarico (procuratori)'], ['team', 'Team di revisione'], ['coordinatore', 'Coordinatore territoriale']];
-            const chiaviOk = r ? MAPPA_RUOLI.filter(([, n]) => filtroCorrisponde(n, r)).map(([k]) => k) : null;
+            const MAPPA_RUOLI = [['qualita', 'Responsabile qualita'], ['respIncarico', 'Responsabile incarico (procuratori)'], ['team', 'Team di revisione'], ['coordinatore', 'Coordinatore territoriale'], ['vice', 'Vice coordinatore territoriale']];
+            // il nome scelto per intero dal suggerimento vale ESATTO: "Coordinatore territoriale"
+            // non deve prendere anche il vice (il cui nome lo contiene). Il testo parziale filtra per "contiene".
+            const esatte = r ? MAPPA_RUOLI.filter(([, n]) => n.toLowerCase() === r.toLowerCase()) : [];
+            const chiaviOk = r ? (esatte.length ? esatte : MAPPA_RUOLI.filter(([, n]) => filtroCorrisponde(n, r))).map(([k]) => k) : null;
             $('cp-lista').querySelectorAll('.riga-dest').forEach(row => {
                 const okT = !t || row.textContent.toLowerCase().includes(t);
                 const tokens = (row.dataset.ruoli || '').split(' ');
@@ -6166,7 +6308,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         if (!anni.length) { cont.innerHTML = '<p class="tabella-vuota">Nessun compenso registrato.</p>'; return; }
         const valori = anni.map(a => incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, a), 0));
         const max = Math.max(...valori, 1);
-        const attivi = incarichi.filter(i => i.stato !== 'cessato');
+        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
         let scadTot = 0, scaduTot = 0;
         attivi.forEach(i => { const s = Incarichi.statoScadenza(i); const c = Incarichi.compensoAnno(i, annoCorr); if (s.classe === 'ambra') scadTot += c; else if (s.classe === 'rosso') scaduTot += c; });
 
