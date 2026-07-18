@@ -122,10 +122,11 @@ primo documento va creato a mano dalla console:
 
 L'amministratore crea ruoli su misura (sezione "Ruoli e permessi") e per ogni
 ruolo sceglie, sezione per sezione, se e nascosta, in sola lettura o in
-scrittura. Il ruolo di sistema "Coordinatore territoriale" e sempre in sola
-visualizzazione e vede solo gli incarichi della regione scritta nella sua
-scheda in Persone (agganciata all'utente tramite email). Cosa succede a
-livello di sicurezza:
+scrittura. I ruoli di sistema "Coordinatore territoriale" e "Vice coordinatore
+territoriale" sono sempre in sola visualizzazione e vedono solo gli incarichi
+delle regioni della loro scheda in Persone (agganciata all'utente tramite
+email): la Regione della scheda piu le eventuali altre regioni coordinate
+spuntate li. Cosa succede a livello di sicurezza:
 
 - **Blindato dal server (regole Firestore):**
   - il campo `ruolo` di ogni utente sta nella collezione `utenti`, che solo

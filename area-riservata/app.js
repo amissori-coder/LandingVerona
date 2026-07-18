@@ -187,13 +187,15 @@
     const sezioniTutte = liv => { const o = {}; SEZIONI_RUOLO.forEach(s => { o[s.id] = liv; }); return o; };
     /* Ruoli predefiniti: coincidono con i ruoli storici (admin/qualita/procuratore) cosi' gli
        utenti gia' presenti continuano a funzionare esattamente come prima (accesso pieno).
-       "Coordinatore territoriale" e' un ruolo di sistema: SEMPRE in sola visualizzazione,
-       limitato agli incarichi della regione scritta nella sua scheda in Persone. */
+       "Coordinatore territoriale" e il suo vice sono ruoli di sistema: SEMPRE in sola
+       visualizzazione, limitati agli incarichi delle regioni della loro scheda in Persone
+       (la Regione della scheda piu' le eventuali altre regioni coordinate). */
     const RUOLI_DEFAULT = [
         { id: 'admin', nome: 'Amministratore', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'qualita', nome: 'Responsabile qualita', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'procuratore', nome: 'Procuratore', builtin: true, sezioni: sezioniTutte('scrittura') },
-        { id: 'coordinatore', nome: 'Coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
+        { id: 'coordinatore', nome: 'Coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
+        { id: 'vicecoordinatore', nome: 'Vice coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
     ];
 
     const Store = {
@@ -256,15 +258,16 @@
         tutti() {
             const l = Store.leggi(CHIAVI.ruoli, null);
             const lista = Array.isArray(l) && l.length ? l.slice() : RUOLI_DEFAULT.map(r => ({ ...r, sezioni: { ...r.sezioni } }));
-            // il Coordinatore territoriale e' un ruolo di sistema: c'e' sempre, anche negli
-            // elenchi salvati prima che esistesse, e l'id e' riservato. Se un vecchio ruolo
-            // personalizzato occupava per caso l'id "coordinatore" (possibile con le versioni
+            // i ruoli di sistema (coordinatore e vice) ci sono sempre, anche negli elenchi
+            // salvati prima che esistessero, e i loro id sono riservati. Se un vecchio ruolo
+            // personalizzato occupava per caso uno di quegli id (possibile con le versioni
             // precedenti), viene riportato al profilo di sistema: e' comunque quello che il
             // programma applica a chi ha quel ruolo, meglio che l'elenco dica la verita'.
-            const c = RUOLI_DEFAULT.find(r => r.id === 'coordinatore');
-            const idx = lista.findIndex(r => r.id === 'coordinatore');
-            if (idx < 0) lista.push({ ...c, sezioni: { ...c.sezioni } });
-            else if (!lista[idx].sistema) lista[idx] = { ...c, sezioni: { ...c.sezioni } };
+            RUOLI_DEFAULT.filter(d => d.sistema).forEach(d => {
+                const idx = lista.findIndex(r => r.id === d.id);
+                if (idx < 0) lista.push({ ...d, sezioni: { ...d.sezioni } });
+                else if (!lista[idx].sistema) lista[idx] = { ...d, sezioni: { ...d.sezioni } };
+            });
             return lista;
         },
         salva(lista) { Store.scrivi(CHIAVI.ruoli, lista); },
@@ -611,11 +614,17 @@
         },
         confronta(prima, dopo, campi) {
             const diff = [];
+            // gli elenchi si mostrano leggibili ("Veneto, Lazio") e un elenco vuoto vale
+            // come campo assente: cosi' aggiungere un campo-elenco nuovo non genera una
+            // voce fantasma ("vuoto -> []") al primo risalvataggio dei record esistenti
+            const testo = v => {
+                if (v == null) return '';
+                if (Array.isArray(v)) return v.length ? v.join(', ') : '';
+                return typeof v === 'object' ? JSON.stringify(v) : String(v);
+            };
             campi.forEach(c => {
-                const a = prima ? prima[c.chiave] : undefined;
-                const b = dopo ? dopo[c.chiave] : undefined;
-                const sa = a == null ? '' : (typeof a === 'object' ? JSON.stringify(a) : String(a));
-                const sb = b == null ? '' : (typeof b === 'object' ? JSON.stringify(b) : String(b));
+                const sa = testo(prima ? prima[c.chiave] : undefined);
+                const sb = testo(dopo ? dopo[c.chiave] : undefined);
                 if (sa !== sb) diff.push({ campo: c.nome, prima: sa || 'vuoto', dopo: sb || 'vuoto' });
             });
             return diff;
@@ -781,6 +790,7 @@
             if (!u) return null;
             if (this.eProprietario() || u.ruolo === 'admin') return { id: 'admin', nome: 'Amministratore', admin: true, builtin: true, sezioni: sezioniTutte('scrittura') };
             if (u.ruolo === 'coordinatore') return { id: 'coordinatore', nome: 'Coordinatore territoriale', coordinatore: true, builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
+            if (u.ruolo === 'vicecoordinatore') return { id: 'vicecoordinatore', nome: 'Vice coordinatore territoriale', coordinatore: true, builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
             const r = Ruoli.trova(u.ruolo);
             if (r) return Ruoli.normalizza(r);
             return { id: u.ruolo || '', nome: u.ruolo || 'Senza ruolo', sconosciuto: true, sezioni: sezioniTutte('no') };
@@ -795,7 +805,8 @@
             const em = String(u.email).toLowerCase();
             const match = Persone.tutte().filter(p => p.email && String(p.email).toLowerCase() === em);
             if (!match.length) return null;
-            const punti = p => (p.attivo ? 2 : 0) + (p.regione && String(p.regione).trim() ? 1 : 0);
+            const haRegioni = p => !!((p.regione && String(p.regione).trim()) || (Array.isArray(p.regioniCoordinate) && p.regioniCoordinate.filter(Boolean).length));
+            const punti = p => (p.attivo ? 2 : 0) + (haRegioni(p) ? 1 : 0);
             return match.sort((a, b) => punti(b) - punti(a))[0];
         },
         // livello sulla singola sezione di contenuto: 'no' | 'lettura' | 'scrittura'
@@ -817,15 +828,18 @@
             if (sez === 'dati') return this.eProprietario();
             return this.accessoSezione(sez) === 'scrittura';
         },
-        /* null = tutte le regioni. Solo il Coordinatore territoriale e' limitato: alla regione
-           scritta nella SUA scheda in Persone (agganciata per email). Scheda mancante o senza
-           regione = nessun incarico visibile (fail-closed): si sistema compilando la scheda. */
+        /* null = tutte le regioni. Solo coordinatore e vice sono limitati: alla Regione della
+           LORO scheda in Persone (agganciata per email) piu' le eventuali altre regioni
+           coordinate indicate sulla scheda. Scheda mancante o senza alcuna regione = nessun
+           incarico visibile (fail-closed): si sistema compilando la scheda. */
         regioniConsentite() {
             const r = this.ruoloCorrente();
             if (!r || !r.coordinatore) return null;
             const p = this.personaCorrente();
-            const reg = p && p.regione ? String(p.regione).trim() : '';
-            return reg ? [reg.toLowerCase()] : [];
+            if (!p) return [];
+            const regioni = [p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : [])
+                .map(x => String(x || '').trim().toLowerCase()).filter(Boolean);
+            return Array.from(new Set(regioni));
         },
         vedeIncarico(inc) {
             const reg = this.regioniConsentite();
@@ -1982,7 +1996,13 @@
         const rc = Auth.ruoloCorrente();
         if (rc && rc.coordinatore) {
             const p = Auth.personaCorrente();
-            etich += ' · ' + (p && p.regione ? p.regione : 'regione non impostata');
+            // stessa lista di regioniConsentite, ma con le grafie originali e senza doppioni
+            const viste = new Set(), regioni = [];
+            (p ? [p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : []) : []).filter(Boolean).forEach(r => {
+                const k = String(r).trim().toLowerCase();
+                if (k && !viste.has(k)) { viste.add(k); regioni.push(String(r).trim()); }
+            });
+            etich += ' · ' + (regioni.length ? regioni.join(', ') : 'regione non impostata');
         }
         el.textContent = etich;
     }
@@ -3695,9 +3715,25 @@
             }));
     }
 
+    // regioni note: quelle dell'anagrafica piu' quelle gia' presenti sugli incarichi
+    function regioniNote() {
+        const set = new Set((typeof RV_ROSTER !== 'undefined' && RV_ROSTER.regioni ? RV_ROSTER.regioni : []).filter(Boolean));
+        Incarichi.tutti().forEach(i => { if (i.regione) set.add(i.regione); });
+        return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), 'it'));
+    }
+
     function modalePersona(id) {
         const lista = Persone.tutte();
         const p = id ? lista.find(x => x.id === id) : null;
+        // altre regioni coordinate: si mostrano solo se la spunta "Coordinatore territoriale" e' attiva.
+        // Le caselle includono ANCHE le regioni gia' salvate sulla scheda che non stanno in
+        // anagrafica: altrimenti un risalvataggio le perderebbe in silenzio.
+        const salvate = (p && Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : []).filter(Boolean);
+        const regioniExtra = salvate.map(x => String(x).toLowerCase());
+        const tutteLeRegioni = regioniNote().slice();
+        salvate.forEach(rg => { if (!tutteLeRegioni.some(x => String(x).toLowerCase() === String(rg).toLowerCase())) tutteLeRegioni.push(rg); });
+        const chipsRegioni = tutteLeRegioni.map(rg =>
+            `<label class="chip-check"><input type="checkbox" class="m-p-regcoord" value="${esc(rg)}" ${regioniExtra.includes(String(rg).toLowerCase()) ? 'checked' : ''} style="width:auto;"> ${esc(rg)}</label>`).join('');
         apriModale(`<h2>${p ? 'Modifica persona' : 'Aggiungi persona'}</h2>
             <div class="griglia-2">
                 <div class="campo"><label>Nome</label><input id="m-p-nomepr" value="${p && p.nomeProprio ? esc(p.nomeProprio) : ''}" placeholder="es. Mario"><div class="hint">Usato nelle lettere: "Dott. Nome Cognome".</div></div>
@@ -3714,7 +3750,11 @@
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-resp" ${p && p.respIncarico ? 'checked' : ''} style="width:auto;">Responsabile incarico</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-team" ${!p || p.team ? 'checked' : ''} style="width:auto;">Team di revisione / referente</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-coordinatore" ${p && p.coordinatore ? 'checked' : ''} style="width:auto;">Coordinatore territoriale</label>
-                <div class="hint" style="margin:2px 0 0 26px;">Se questa persona accede con il ruolo "Coordinatore territoriale", vede (in sola visualizzazione) solo gli incarichi della <strong>Regione</strong> indicata qui sopra. Senza regione non vede alcun incarico.</div>
+                <div id="m-p-coord-box" class="${p && p.coordinatore ? '' : 'nascosto'}" style="margin:2px 0 6px 26px;">
+                    <div class="hint" style="margin:0 0 6px;">Se questa persona accede con il ruolo "Coordinatore territoriale" (o vice), vede in sola visualizzazione gli incarichi della <strong>Regione</strong> indicata qui sopra piu quelli delle regioni scelte qui sotto. Senza alcuna regione non vede alcun incarico.</div>
+                    <div class="hint" style="margin:0 0 4px;"><strong>Altre regioni coordinate</strong> (oltre alla Regione della scheda):</div>
+                    <div class="regcoord-grid">${chipsRegioni || '<span class="hint">Nessuna regione in anagrafica o negli incarichi.</span>'}</div>
+                </div>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equity" ${p && p.equityPartner ? 'checked' : ''} style="width:auto;">Equity partner</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-founding" ${p && p.foundingPartner ? 'checked' : ''} style="width:auto;">Founding partner</label>
             </div>
@@ -3725,6 +3765,9 @@
                 <button class="btn btn-primary" id="m-salva">Salva</button>
             </div>`, { classe: 'larga' });
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        // le "altre regioni coordinate" compaiono solo con la spunta Coordinatore territoriale
+        document.getElementById('m-p-coordinatore').addEventListener('change', e =>
+            document.getElementById('m-p-coord-box').classList.toggle('nascosto', !e.target.checked));
         const btnSalvaP = document.getElementById('m-salva');
         btnSalvaP.addEventListener('click', () => conAttesa(btnSalvaP, () => {
             const nome = document.getElementById('m-p-nome').value.trim();
@@ -3749,11 +3792,14 @@
                 localita: document.getElementById('m-p-localita').value.trim(),
                 indirizzo: document.getElementById('m-p-indirizzo').value.trim()
             };
+            const coordFlag = document.getElementById('m-p-coordinatore').checked;
             const ruoli = {
                 qualita: document.getElementById('m-p-qualita').checked,
                 respIncarico: document.getElementById('m-p-resp').checked,
                 team: document.getElementById('m-p-team').checked,
-                coordinatore: document.getElementById('m-p-coordinatore').checked,
+                coordinatore: coordFlag,
+                // senza la spunta coordinatore le altre regioni non hanno senso: si azzerano
+                regioniCoordinate: coordFlag ? Array.from(document.querySelectorAll('.m-p-regcoord:checked')).map(c => c.value) : [],
                 equityPartner: document.getElementById('m-p-equity').checked,
                 foundingPartner: document.getElementById('m-p-founding').checked
             };
@@ -3764,6 +3810,7 @@
                 { chiave: 'localita', nome: 'Localita' }, { chiave: 'indirizzo', nome: 'Indirizzo' },
                 { chiave: 'qualita', nome: 'Ruolo qualita' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
                 { chiave: 'team', nome: 'Ruolo team' }, { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
+                { chiave: 'regioniCoordinate', nome: 'Altre regioni coordinate' },
                 { chiave: 'equityPartner', nome: 'Equity partner' }, { chiave: 'foundingPartner', nome: 'Founding partner' }
             ];
             if (p) {
@@ -5046,7 +5093,7 @@
                     </div>
                 </div>
                 <div class="ruolo-sez">${riepSez(r)}</div>
-                ${r.id === 'coordinatore' ? '<div class="ruolo-reg">Sempre in sola visualizzazione, solo gli incarichi della <strong>sua regione</strong>: quella scritta nella sua scheda in Persone (dove si spunta "Coordinatore territoriale").</div>' : ''}
+                ${r.sistema ? '<div class="ruolo-reg">Sempre in sola visualizzazione, solo gli incarichi delle <strong>sue regioni</strong>: la Regione della sua scheda in Persone piu le eventuali altre regioni coordinate indicate li.</div>' : ''}
             </div>`).join('') +
             `</div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
@@ -5084,7 +5131,7 @@
             ${bloccato ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
             ${bloccato ? (esistente.id === 'admin'
                 ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non e modificabile.</p>'
-                : '<p class="descrizione">Il Coordinatore territoriale e un ruolo di sistema, non modificabile: vede tutte le sezioni in <strong>sola visualizzazione</strong> e SOLO gli incarichi della sua regione. La regione e quella scritta nella sua scheda in <strong>Persone</strong> (la scheda con la spunta "Coordinatore territoriale", agganciata all\'utente tramite l\'email). Senza regione nella scheda, non vede alcun incarico.</p>') : `
+                : '<p class="descrizione">' + esc(esistente.nome) + ' e un ruolo di sistema, non modificabile: vede tutte le sezioni in <strong>sola visualizzazione</strong> e SOLO gli incarichi delle sue regioni. Le regioni sono quelle della sua scheda in <strong>Persone</strong> (agganciata all\'utente tramite email): la <strong>Regione</strong> della scheda piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>') : `
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa puo toccare</h3>
             <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
                 <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
