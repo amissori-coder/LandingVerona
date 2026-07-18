@@ -167,8 +167,31 @@
         rimborsi: 'rvArea.rimborsiSpese',
         allerte: 'rvArea.allerte',
         comunicazioni: 'rvArea.comunicazioni',
+        ruoli: 'rvArea.ruoli',
         impostazioni: 'rvArea.impostazioni'
     };
+
+    /* Sezioni su cui un ruolo puo' avere: 'no' (nascosta), 'lettura' (vede ma non tocca),
+       'scrittura' (piena). "Utenti", "Ruoli" e "Dati e backup" non sono qui: restano
+       riservate ad amministratore e titolare, non delegabili a un ruolo su misura. */
+    const SEZIONI_RUOLO = [
+        { id: 'dashboard', nome: 'Cruscotto' },
+        { id: 'incarichi', nome: 'Incarichi' },
+        { id: 'fatturazione', nome: 'Fatturazione' },
+        { id: 'report', nome: 'Report compensi' },
+        { id: 'persone', nome: 'Persone' },
+        { id: 'comunicazioni', nome: 'Comunicazioni' },
+        { id: 'registro', nome: 'Registro modifiche' }
+    ];
+    const LIVELLI_SEZIONE = { no: 'Nascosta', lettura: 'Sola lettura', scrittura: 'Scrittura' };
+    const sezioniTutte = liv => { const o = {}; SEZIONI_RUOLO.forEach(s => { o[s.id] = liv; }); return o; };
+    /* Ruoli predefiniti: coincidono con i ruoli storici (admin/qualita/procuratore) cosi' gli
+       utenti gia' presenti continuano a funzionare esattamente come prima (accesso pieno). */
+    const RUOLI_DEFAULT = [
+        { id: 'admin', nome: 'Amministratore', builtin: true, regioni: [], sezioni: sezioniTutte('scrittura') },
+        { id: 'qualita', nome: 'Responsabile qualita', builtin: true, regioni: [], sezioni: sezioniTutte('scrittura') },
+        { id: 'procuratore', nome: 'Procuratore', builtin: true, regioni: [], sezioni: sezioniTutte('scrittura') }
+    ];
 
     const Store = {
         leggi(chiave, def) {
@@ -202,6 +225,7 @@
                     'Caricati ' + incarichi.length + ' incarichi dimostrativi');
             }
             Store.seedPersone();
+            Ruoli.seed();
         },
         /* l'anagrafica del team serve anche in modalita cloud */
         seedPersone() {
@@ -217,6 +241,33 @@
                 }));
                 Store.scrivi(CHIAVI.persone, persone);
             }
+        }
+    };
+
+    /* =========================================================
+       RUOLI (permessi per sezione + filtro regione).
+       L'amministratore li crea e li modifica; ogni utente ha un ruolo
+       (il campo utente.ruolo) che punta qui per id.
+    ========================================================= */
+    const Ruoli = {
+        tutti() {
+            const l = Store.leggi(CHIAVI.ruoli, null);
+            return Array.isArray(l) && l.length ? l : RUOLI_DEFAULT.map(r => ({ ...r, sezioni: { ...r.sezioni } }));
+        },
+        salva(lista) { Store.scrivi(CHIAVI.ruoli, lista); },
+        trova(id) { return this.tutti().find(r => r.id === id) || null; },
+        // il seed resta SOLO locale: i ruoli su Firestore li scrive l'amministratore (le regole
+        // permettono la scrittura di archivio/ruoli al solo admin). In cloud arrivano dal server.
+        seed() {
+            if (!localStorage.getItem(CHIAVI.ruoli)) {
+                try { localStorage.setItem(CHIAVI.ruoli, JSON.stringify(RUOLI_DEFAULT.map(r => ({ ...r, sezioni: { ...r.sezioni } })))); } catch (e) { }
+            }
+        },
+        // normalizza un ruolo letto da fuori: garantisce le chiavi sezione e un array regioni
+        normalizza(r) {
+            const sez = {};
+            SEZIONI_RUOLO.forEach(s => { const v = r && r.sezioni && r.sezioni[s.id]; sez[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no'; });
+            return { id: r.id, nome: r.nome || r.id, builtin: !!r.builtin, regioni: Array.isArray(r.regioni) ? r.regioni.filter(Boolean) : [], sezioni: sez };
         }
     };
 
@@ -703,12 +754,52 @@
         },
 
         eAdmin() { return this.utenteCorrente && this.utenteCorrente.ruolo === 'admin'; },
-        puoModificare() {
-            return this.utenteCorrente && ['admin', 'qualita', 'procuratore'].includes(this.utenteCorrente.ruolo);
-        },
         // "Dati e backup" e riservato al titolare dello studio
         eProprietario() {
             return this.utenteCorrente && this.utenteCorrente.email && this.utenteCorrente.email.toLowerCase() === PROPRIETARIO;
+        },
+
+        /* Il ruolo dell'utente collegato, gia' normalizzato. Il titolare e l'admin hanno sempre
+           accesso pieno (non si possono chiudere fuori da soli). Un ruolo sconosciuto (es. cancellato)
+           non vede nulla: fail-closed, l'admin lo puo' riassegnare. */
+        ruoloCorrente() {
+            const u = this.utenteCorrente;
+            if (!u) return null;
+            if (this.eProprietario() || u.ruolo === 'admin') return { id: 'admin', nome: 'Amministratore', admin: true, builtin: true, regioni: [], sezioni: sezioniTutte('scrittura') };
+            const r = Ruoli.trova(u.ruolo);
+            if (r) return Ruoli.normalizza(r);
+            return { id: u.ruolo || '', nome: u.ruolo || 'Senza ruolo', sconosciuto: true, regioni: [], sezioni: sezioniTutte('no') };
+        },
+        // livello sulla singola sezione di contenuto: 'no' | 'lettura' | 'scrittura'
+        accessoSezione(sez) {
+            const r = this.ruoloCorrente();
+            if (!r) return 'no';
+            if (r.admin) return 'scrittura';
+            return (r.sezioni && r.sezioni[sez]) || 'no';
+        },
+        // sezioni "di sistema": non passano dai ruoli, restano di admin/titolare.
+        // Il titolare ha sempre i poteri dell'admin (non deve potersi chiudere fuori).
+        puoVedere(sez) {
+            if (sez === 'utenti' || sez === 'ruoli') return this.eAdmin() || this.eProprietario();
+            if (sez === 'dati') return this.eProprietario();
+            return this.accessoSezione(sez) !== 'no';
+        },
+        puoScrivere(sez) {
+            if (sez === 'utenti' || sez === 'ruoli') return this.eAdmin() || this.eProprietario();
+            if (sez === 'dati') return this.eProprietario();
+            return this.accessoSezione(sez) === 'scrittura';
+        },
+        // null = tutte le regioni; altrimenti l'elenco (minuscolo) a cui il ruolo e' limitato
+        regioniConsentite() {
+            const r = this.ruoloCorrente();
+            if (!r || r.admin) return null;
+            const arr = Array.isArray(r.regioni) ? r.regioni.filter(Boolean) : [];
+            return arr.length ? arr.map(x => String(x).toLowerCase()) : null;
+        },
+        vedeIncarico(inc) {
+            const reg = this.regioniConsentite();
+            if (!reg) return true;
+            return reg.includes(String((inc && inc.regione) || '').toLowerCase());
         }
     };
 
@@ -750,6 +841,7 @@
                 this.DOC_SYNC[CHIAVI.fatture] = 'fattureStato';
                 this.DOC_SYNC[CHIAVI.allerte] = 'allerte';
                 this.DOC_SYNC[CHIAVI.comunicazioni] = 'comunicazioni';
+                this.DOC_SYNC[CHIAVI.ruoli] = 'ruoli';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
                 // o messa in background (evita perdite silenziose su Firestore)
@@ -937,7 +1029,16 @@
                             locale = reali.length ? JSON.stringify(reali) : null;
                         } catch (e) { locale = null; }
                     }
-                    if (locale) { await setDoc(rif, { json: locale, aggiornato: serverTimestamp(), da: 'bootstrap' }); this._baseRemoto[chiave] = locale; }
+                    if (locale) {
+                        // archivio/ruoli e scrivibile solo dall'amministratore (regole Firestore):
+                        // un non-admin NON deve tentare questo bootstrap, altrimenti il permission-denied
+                        // farebbe fallire tutta la sincronizzazione e lo bloccherebbe al login.
+                        const sonoAdmin = Auth.utenteCorrente && (Auth.utenteCorrente.ruolo === 'admin' || Auth.eProprietario());
+                        if (!(chiave === CHIAVI.ruoli && !sonoAdmin)) {
+                            try { await setDoc(rif, { json: locale, aggiornato: serverTimestamp(), da: 'bootstrap' }); this._baseRemoto[chiave] = locale; }
+                            catch (e) { /* scrittura non consentita: si prosegue, i dati arrivano via onSnapshot */ }
+                        }
+                    }
                 }
             }
             this.pronto = true;
@@ -1250,6 +1351,14 @@
     ========================================================= */
     const Incarichi = {
         tutti() { return Store.leggi(CHIAVI.incarichi, []); },
+        // gli incarichi che l'utente collegato PUO' vedere (filtro per regione del ruolo).
+        // Usare questo nelle viste; tutti() resta per storage, import, backup e integrita' dati.
+        visibili() {
+            const reg = Auth.regioniConsentite();
+            const tutti = this.tutti();
+            if (!reg) return tutti;
+            return tutti.filter(i => reg.includes(String(i.regione || '').toLowerCase()));
+        },
         salva(lista) { Store.scrivi(CHIAVI.incarichi, lista); },
         trova(id) { return this.tutti().find(i => i.id === id) || null; },
 
@@ -1462,7 +1571,7 @@
 
         tutteAnno(anno) {
             const out = [];
-            Incarichi.tutti().forEach(inc => { out.push(...this.rate(inc, anno)); });
+            Incarichi.visibili().forEach(inc => { out.push(...this.rate(inc, anno)); });
             return out.sort((a, b) => a.mese - b.mese || a.incarico.cliente.localeCompare(b.incarico.cliente));
         },
 
@@ -1780,16 +1889,18 @@
         { id: 'comunicazioni', nome: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
+        { id: 'ruoli', nome: 'Ruoli e permessi', icona: 'M12 15a3 3 0 100-6 3 3 0 000 6zM12 1v2m0 18v2m11-11h-2M3 12H1m17.66 6.66l-1.42-1.42M6.76 6.76 5.34 5.34m12.32 0-1.42 1.42M6.76 17.24l-1.42 1.42', soloAdmin: true },
         { id: 'dati', nome: 'Dati e backup', icona: 'M4 7c0-1.1 3.6-2 8-2s8 .9 8 2-3.6 2-8 2-8-.9-8-2zm0 0v10c0 1.1 3.6 2 8 2s8-.9 8-2V7', soloProprietario: true }
     ];
 
     let vistaCorrente = 'dashboard';
     let parametriVista = null;
 
+    // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi"
+    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi' };
+    function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(x.id)); return v ? v.id : null; }
+
     function naviga(id, parametri) {
-        vistaCorrente = id;
-        parametriVista = parametri || null;
-        disegnaNav();
         const viste = {
             dashboard: vistaDashboard,
             incarichi: vistaIncarichi,
@@ -1801,17 +1912,35 @@
             comunicazioni: vistaComunicazioni,
             registro: vistaRegistro,
             utenti: vistaUtenti,
+            ruoli: vistaRuoli,
             dati: vistaDati,
             lettera: vistaLettera
         };
+        // guardia permessi: la sezione richiesta deve essere consentita dal ruolo
+        const sez = SEZIONE_DI_VISTA[id] || id;
+        if (!Auth.puoVedere(sez)) {
+            const alt = primaVistaVisibile();
+            if (!alt) { vistaCorrente = id; parametriVista = null; disegnaNav(); vistaSenzaAccesso(); return; }
+            id = alt; parametri = null;
+        }
+        // creare un incarico e' scrittura: chi ha gli incarichi in sola lettura non entra nel wizard
+        if (id === 'wizard' && !Auth.puoScrivere('incarichi')) { id = 'incarichi'; parametri = null; }
+        vistaCorrente = id;
+        parametriVista = parametri || null;
+        disegnaNav();
         (viste[id] || vistaDashboard)();
         window.scrollTo(0, 0);
+    }
+
+    function vistaSenzaAccesso() {
+        $vista().innerHTML = '<header><div><h1>Nessuna sezione disponibile</h1>'
+            + '<p class="descrizione">Il tuo ruolo non ha accesso ad alcuna sezione. Chiedi all\'amministratore di assegnarti i permessi.</p></div></header>';
     }
 
     function disegnaNav() {
         const nav = document.getElementById('nav-principale');
         nav.innerHTML = VOCI_NAV
-            .filter(v => (!v.soloAdmin || Auth.eAdmin()) && (!v.soloProprietario || Auth.eProprietario()))
+            .filter(v => Auth.puoVedere(v.id))
             .map(v => '<button class="nav-voce' + (vistaCorrente === v.id ? ' attiva' : '') + '" data-vista="' + v.id + '">' +
                 '<svg class="icona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + v.icona + '"/></svg>' +
                 esc(v.nome) + '</button>').join('');
@@ -1841,7 +1970,7 @@
        VISTA: CRUSCOTTO
     ========================================================= */
     function vistaDashboard() {
-        const incarichi = Incarichi.tutti();
+        const incarichi = Incarichi.visibili();
         const anno = annoCorrente();
         const attivi = incarichi.filter(i => i.stato !== 'cessato');
         const totAnno = incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
@@ -1852,7 +1981,7 @@
         const volontarie = attivi.filter(i => i.tipo === 'volontaria').length;
         // allerte di sblocco calcolo: visibili solo al titolare
         const allerte = Auth.eProprietario() ? Allerte.attive() : [];
-        const puoRinnovare = Auth.puoModificare();
+        const puoRinnovare = Auth.puoScrivere('incarichi');
         // fatturato dell'anno a rischio (incarichi in scadenza / scaduti)
         const scadenzaTot = inScadenza.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
         const scadutoTot = scaduti.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
@@ -1906,7 +2035,7 @@
                     <p class="descrizione">Quadro generale degli incarichi di revisione e dei compensi.</p>
                 </div>
                 <div class="header-azioni">
-                    <button class="btn btn-primary" id="btn-nuovo-incarico">+ Nuovo incarico</button>
+                    ${Auth.puoScrivere('incarichi') ? '<button class="btn btn-primary" id="btn-nuovo-incarico">+ Nuovo incarico</button>' : ''}
                 </div>
             </header>
             ${allerte.length ? `<div class="card" style="border-left:4px solid var(--rosso);">
@@ -1939,7 +2068,7 @@
                 ${tabellaScadenze(scaduti.concat(inScadenza))}
             </div>`;
 
-        document.getElementById('btn-nuovo-incarico').addEventListener('click', () => naviga('wizard', { modalita: 'nuovo' }));
+        { const bni = document.getElementById('btn-nuovo-incarico'); if (bni) bni.addEventListener('click', () => naviga('wizard', { modalita: 'nuovo' })); }
         $vista().querySelectorAll('.a-letta').forEach(b =>
             b.addEventListener('click', () => { Allerte.segnaLetta(b.dataset.id); vistaDashboard(); }));
         $vista().querySelectorAll('[data-apri]').forEach(r =>
@@ -1962,7 +2091,7 @@
 
     function tabellaScadenze(lista) {
         if (!lista.length) return '<p class="tabella-vuota">Nessun incarico in scadenza nei prossimi sei mesi.</p>';
-        const puoRinnovare = Auth.puoModificare();
+        const puoRinnovare = Auth.puoScrivere('incarichi');
         return `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
             <th>Cliente</th><th>Tipo</th><th>Scadenza</th><th>Resp. incarico</th><th>Qualita</th><th>Stato</th>${puoRinnovare ? '<th></th>' : ''}
         </tr></thead><tbody>` + lista.map(i => {
@@ -1992,7 +2121,7 @@
 
     /* Unione tra roster e valori presenti negli incarichi (anche importati) */
     function valoriPresenti(campo, base) {
-        const presenti = Incarichi.tutti().map(i => i[campo]).filter(Boolean);
+        const presenti = Incarichi.visibili().map(i => i[campo]).filter(Boolean);
         return Array.from(new Set((base || []).concat(presenti))).sort();
     }
 
@@ -2010,7 +2139,7 @@
                 </div>
                 <div class="header-azioni">
                     <button class="btn btn-secondary" id="btn-esporta-csv">Esporta CSV</button>
-                    <button class="btn btn-primary" id="btn-nuovo-incarico">+ Nuovo incarico</button>
+                    ${Auth.puoScrivere('incarichi') ? '<button class="btn btn-primary" id="btn-nuovo-incarico">+ Nuovo incarico</button>' : ''}
                 </div>
             </header>
             <div class="filtri">
@@ -2051,7 +2180,7 @@
         };
         ['f-testo', 'f-tipo', 'f-area', 'f-qualita', 'f-resp', 'f-stato'].forEach(id =>
             document.getElementById(id).addEventListener('input', aggiorna));
-        document.getElementById('btn-nuovo-incarico').addEventListener('click', () => naviga('wizard', { modalita: 'nuovo' }));
+        { const bni = document.getElementById('btn-nuovo-incarico'); if (bni) bni.addEventListener('click', () => naviga('wizard', { modalita: 'nuovo' })); }
         document.getElementById('btn-esporta-csv').addEventListener('click', esportaCsvIncarichi);
         disegnaTabellaIncarichi(annoRif);
     }
@@ -2060,7 +2189,7 @@
         const f = filtriIncarichi;
         const stato = statoOverride !== undefined ? statoOverride : f.stato;
         if (!annoRif) annoRif = annoRiferimento();
-        let lista = Incarichi.tutti();
+        let lista = Incarichi.visibili();
         if (f.testo) {
             const t = f.testo.toLowerCase();
             lista = lista.filter(i =>
@@ -2099,7 +2228,7 @@
 
     function disegnaTabellaIncarichi(annoRif) {
         const cont = document.getElementById('contenitore-tabella');
-        const puoRinnovare = Auth.puoModificare();
+        const puoRinnovare = Auth.puoScrivere('incarichi');
         // attivi: rispetta il filtro di stato (attivo/scadenza/scaduto). terminati: ignora il filtro di stato
         // (che riguarda solo gli attivi) cosi restano sempre visibili nella loro scheda.
         const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato');
@@ -2230,6 +2359,8 @@
     function vistaDettaglio() {
         const inc = Incarichi.trova(parametriVista && parametriVista.id);
         if (!inc) { naviga('incarichi'); return; }
+        // filtro regione: non si apre un incarico fuori dalle regioni consentite al ruolo
+        if (!Auth.vedeIncarico(inc)) { naviga('incarichi'); return; }
         const s = Incarichi.statoScadenza(inc);
         const anni = Object.keys(inc.compensi || {}).map(Number).sort();
         const storia = Store.leggi(CHIAVI.audit, []).filter(v => v.rif === inc.id);
@@ -2246,7 +2377,7 @@
                 </div>
                 <div class="header-azioni">
                     <button class="btn btn-ghost" id="btn-indietro">&larr; Elenco</button>
-                    ${Auth.puoModificare() ? `
+                    ${Auth.puoScrivere('incarichi') ? `
                         <button class="btn btn-secondary" id="btn-modifica">Modifica</button>
                         <button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
                         ${inc.stato === 'cessato' ? '<button class="btn btn-secondary" id="btn-riattiva-inc">Riattiva incarico</button>' : '<button class="btn btn-secondary" id="btn-termina-inc">Termina incarico</button>'}
@@ -2340,7 +2471,7 @@
         document.getElementById('btn-indietro').addEventListener('click', () => naviga('incarichi'));
         $vista().querySelectorAll('.p-lettera-storica').forEach(b =>
             b.addEventListener('click', () => naviga('lettera', { id: inc.id, periodo: Number(b.dataset.periodo) })));
-        if (Auth.puoModificare()) {
+        if (Auth.puoScrivere('incarichi')) {
             document.getElementById('btn-modifica').addEventListener('click', () => naviga('wizard', { modalita: 'modifica', id: inc.id }));
             document.getElementById('btn-rinnova').addEventListener('click', () => naviga('wizard', { modalita: 'rinnovo', id: inc.id }));
             const btnLettera = document.getElementById('btn-lettera');
@@ -3054,7 +3185,7 @@
             corpo.innerHTML = '<div class="card tabella-vuota">Nessun compenso registrato per l\'esercizio ' + anno + '.</div>';
             return;
         }
-        const puoMod = Auth.puoModificare();
+        const puoMod = Auth.puoScrivere('fatturazione');
         const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
         const mesiFull = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
         const perc5 = imp => Math.round(imp * 5) / 100;
@@ -3250,7 +3381,7 @@
     ========================================================= */
     let filtriReport = { anno: null };
     function vistaReport() {
-        const incarichi = Incarichi.tutti();
+        const incarichi = Incarichi.visibili();
         const anni = Incarichi.anniConCompensi();
         // anno di riferimento della schermata (selettore): default = anno corrente se presente, altrimenti l'ultimo
         const annoDefault = anni.includes(annoCorrente()) ? annoCorrente() : anni[anni.length - 1];
@@ -3410,11 +3541,11 @@
                     <p class="descrizione">Anagrafica completa: nominativi, contatti (email, telefono, regione) e ruoli. Chi puo essere responsabile della qualita, responsabile dell'incarico o componente del team. Le tendine del wizard leggono da questo elenco.</p>
                 </div>
                 <div class="header-azioni">
-                    ${Auth.puoModificare() ? '<button class="btn btn-primary" id="btn-nuova-persona">+ Aggiungi persona</button>' : ''}
+                    ${Auth.puoScrivere('persone') ? '<button class="btn btn-primary" id="btn-nuova-persona">+ Aggiungi persona</button>' : ''}
                 </div>
             </header>
             <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi come responsabile">Inc.</th><th>Stato</th>${Auth.puoModificare() ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi come responsabile">Inc.</th><th>Stato</th>${Auth.puoScrivere('persone') ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             persone.map(p => `<tr>
                 <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
@@ -3429,7 +3560,7 @@
                 <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
                 <td class="num" data-label="Inc. (resp.)">${(conteggi[p.nome] || {}).resp || ''}</td>
                 <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
-                ${Auth.puoModificare() ? `<td data-label="" style="white-space:nowrap;">
+                ${Auth.puoScrivere('persone') ? `<td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary p-modifica" data-id="${esc(p.id)}">Modifica</button>
                     <button class="btn btn-sm ${p.attivo ? 'btn-danger' : 'btn-secondary'} p-attiva" data-id="${esc(p.id)}">${p.attivo ? 'Disattiva' : 'Riattiva'}</button>
                 </td>` : ''}
@@ -3787,6 +3918,8 @@
     function vistaComunicazioni() {
         const lista = Comunicazioni.tutte();
         const puoInviare = Cloud.attivo;
+        const puoScr = Auth.puoScrivere('comunicazioni');   // sola lettura: si apre e si legge, ma non si tocca
+        const seScr = html => puoScr ? html : '';
         // serie ancora attive: esclude le sospese manualmente e quelle concluse dal server (attiva:false)
         const programmate = lista.filter(c => c.stato === 'programmata' && !c.sospesa && (!c.programmazione || c.programmazione.attiva !== false));
         const sospese = lista.filter(c => c.stato === 'programmata' && c.sospesa);
@@ -3801,8 +3934,8 @@
 
         const azioni = c => `<td data-label="" style="white-space:nowrap;">
             <button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button>
-            <button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button>
-            <button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button></td>`;
+            ${seScr(`<button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button>
+            <button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>`)}</td>`;
 
         // barra filtri riutilizzabile per le liste "a schede" (programmate, sospese)
         const barraFiltriComm = (pfx, items) => {
@@ -3823,8 +3956,8 @@
             const cerca = ((c.nome || '') + ' ' + (c.oggetto || '')).toLowerCase();
             const quando = sosp ? ('Sospesa &middot; ' + esc(descriviProgrammazione(c.programmazione))) : esc(descriviProgrammazione(c.programmazione));
             const azioniInline = sosp
-                ? `<button class="btn btn-sm btn-primary c-riattiva" data-id="${esc(c.id)}">Riattiva</button><button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>`
-                : `<button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button><button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-secondary c-sospendi" data-id="${esc(c.id)}">Sospendi</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>`;
+                ? `${seScr(`<button class="btn btn-sm btn-primary c-riattiva" data-id="${esc(c.id)}">Riattiva</button>`)}<button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button>${seScr(`<button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>`)}`
+                : `<button class="btn btn-sm btn-secondary c-apri" data-id="${esc(c.id)}">Apri</button>${seScr(`<button class="btn btn-sm btn-secondary c-duplica" data-id="${esc(c.id)}">Duplica</button><button class="btn btn-sm btn-secondary c-sospendi" data-id="${esc(c.id)}">Sospendi</button><button class="btn btn-sm btn-danger c-elimina" data-id="${esc(c.id)}">Elimina</button>`)}`;
             const dettaglio = sosp
                 ? '<p class="hint" style="margin:0;">Gli invii sono fermi. Con "Riattiva" ripartono dalla prossima occorrenza futura; con "Duplica" ne crei una copia modificabile.</p>'
                 : anteprimaProssimiInvii(c);
@@ -3911,7 +4044,7 @@
                     <h1>Comunicazioni</h1>
                     <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), scegli il contesto, inviale subito o programmale.</p>
                 </div>
-                <div class="header-azioni">${mostraToggle ? toggle : ''}<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button></div>
+                <div class="header-azioni">${mostraToggle ? toggle : ''}${seScr('<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button>')}</div>
             </header>
             ${tabs}
             ${corpo}
@@ -3919,7 +4052,7 @@
 
         $vista().querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { comuniTab = b.dataset.tab; vistaComunicazioni(); }));
         $vista().querySelectorAll('[data-vista]').forEach(b => b.addEventListener('click', () => { comuniVista = b.dataset.vista; vistaComunicazioni(); }));
-        document.getElementById('btn-nuova-com').addEventListener('click', () => modaleComunicazione(null));
+        { const bn = document.getElementById('btn-nuova-com'); if (bn) bn.addEventListener('click', () => modaleComunicazione(null)); }
 
         if (comuniTab === 'programmate' && comuniVista === 'calendario') {
             const pm = document.getElementById('cal-prec'), sm = document.getElementById('cal-succ'), ob = document.getElementById('cal-oggi-btn');
@@ -3978,6 +4111,7 @@
         $vista().querySelectorAll('.c-duplica').forEach(b => b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); duplicaComunicazione(b.dataset.id); }));
         $vista().querySelectorAll('.c-elimina').forEach(b => b.addEventListener('click', (e) => {
             e.stopPropagation(); e.preventDefault();
+            if (!Auth.puoScrivere('comunicazioni')) return;
             const c = Comunicazioni.trova(b.dataset.id);
             apriModale(`<h2>Eliminare la comunicazione?</h2>
                 <p>"${esc((c && c.oggetto) || '')}" verra rimossa per tutti.</p>
@@ -3994,6 +4128,7 @@
     /* Sospende una comunicazione programmata: ferma il cron (attiva:false) e la sposta
        tra le sospese, senza perdere la programmazione (si puo riattivare). */
     function sospendiComunicazione(id) {
+        if (!Auth.puoScrivere('comunicazioni')) return;
         const c = Comunicazioni.trova(id);
         if (!c || c.stato !== 'programmata') return;
         c.sospesa = true;
@@ -4007,6 +4142,7 @@
     /* Riattiva una comunicazione sospesa: riparte dalla prossima occorrenza futura,
        cosi non genera una raffica di invii arretrati. */
     function riattivaComunicazione(id) {
+        if (!Auth.puoScrivere('comunicazioni')) return;
         const c = Comunicazioni.trova(id);
         if (!c || c.stato !== 'programmata') return;
         const p = c.programmazione || {};
@@ -4032,6 +4168,7 @@
     /* Duplica una comunicazione: crea una copia modificabile tra quelle "in preparazione"
        (nessun invio parte da sola) e apre subito il compositore. */
     function duplicaComunicazione(id) {
+        if (!Auth.puoScrivere('comunicazioni')) return;
         const orig = Comunicazioni.trova(id);
         if (!orig) return;
         const copia = JSON.parse(JSON.stringify(orig));
@@ -4053,6 +4190,7 @@
     }
 
     function modaleComunicazione(id) {
+        const puoScr = Auth.puoScrivere('comunicazioni');   // in sola lettura si apre solo per vedere
         const c = id ? Comunicazioni.trova(id) : null;
         const inviata = c && c.stato === 'inviata';
         // destinatari SCELTI singolarmente (persone/clienti/manuali); i vecchi record
@@ -4076,7 +4214,7 @@
         // AREA 2 - Clienti: contatti (email1/email2) dagli incarichi, dedup per email
         const contattiCliente = [];
         const vistiCli = new Set();
-        Incarichi.tutti().forEach(i => {
+        Incarichi.visibili().forEach(i => {
             [i.email1, i.email2].forEach(em => {
                 const e = String(em || '').trim().toLowerCase();
                 if (!reEmail.test(e) || vistiCli.has(e)) return;
@@ -4085,9 +4223,13 @@
             });
         });
         contattiCliente.sort((a, b) => a.cliente.localeCompare(b.cliente));
-        const emailClienti = new Set(contattiCliente.map(c => c.email));
-        // indirizzi liberi = destinatari che non sono ne persone ne clienti in elenco
-        const altri = Array.from(dest).filter(e => { const x = String(e).toLowerCase(); return !emailPersone.has(x) && !emailClienti.has(x); });
+        // per classificare i destinatari gia' salvati serve conoscere TUTTE le email cliente,
+        // non solo quelle visibili: altrimenti l'email di un cliente fuori regione, non
+        // riconosciuta come "cliente", finirebbe in chiaro nel campo "Altri indirizzi".
+        const emailTuttiClienti = new Set();
+        Incarichi.tutti().forEach(i => [i.email1, i.email2].forEach(em => { const e = String(em || '').trim().toLowerCase(); if (reEmail.test(e)) emailTuttiClienti.add(e); }));
+        // indirizzi liberi = destinatari che non sono ne persone ne clienti (di qualunque regione)
+        const altri = Array.from(dest).filter(e => { const x = String(e).toLowerCase(); return !emailPersone.has(x) && !emailTuttiClienti.has(x); });
         const opzCli = campo => Array.from(new Set(contattiCliente.map(c => c[campo]).filter(Boolean))).sort();
         const tipiCli = opzCli('tipo'), areeCli = opzCli('area'), regioniCli = opzCli('regione'), statiCli = opzCli('stato');
         const selFiltro = (id, etichetta, valori) => valori.length ? `<select id="${id}"><option value="">${etichetta}</option>${valori.map(v => `<option>${esc(v)}</option>`).join('')}</select>` : '';
@@ -4220,9 +4362,8 @@
             </div><!-- /c-riposo -->
             <div class="msg-errore hidden" id="c-errore"></div>
             <div class="modale-azioni">
-                <button class="btn btn-ghost" id="c-annulla">Annulla</button>
-                <button class="btn btn-secondary" id="c-bozza">Salva in preparazione</button>
-                <button class="btn btn-primary" id="c-invia">Invia</button>
+                <button class="btn btn-ghost" id="c-annulla">${puoScr ? 'Annulla' : 'Chiudi'}</button>
+                ${puoScr ? '<button class="btn btn-secondary" id="c-bozza">Salva in preparazione</button><button class="btn btn-primary" id="c-invia">Invia</button>' : '<span class="hint" style="align-self:center;">Sola lettura: non puoi modificare o inviare questa comunicazione.</span>'}
             </div>`, { classe: 'larga', finestra: true, titolo: inviata ? 'Comunicazione inviata' : (c ? 'Modifica comunicazione' : 'Nuova comunicazione') });
 
         const $ = x => document.getElementById(x);
@@ -4418,7 +4559,7 @@
         const chkProg = $('c-prog');
         if (prog && prog.frequenza) $('c-freq').value = prog.frequenza;
         if (prog && prog.fine) $('c-fine-tipo').value = 'data';
-        const relabel = () => { $('c-invia').textContent = chkProg.checked ? 'Programma l\'invio' : 'Invia subito'; };
+        const relabel = () => { const b = $('c-invia'); if (b) b.textContent = chkProg.checked ? 'Programma l\'invio' : 'Invia subito'; };
         const leggiProg = () => {
             if (!chkProg.checked) return { prog: null };
             const q = $('c-quando').value;
@@ -4553,7 +4694,7 @@
         relabel(); aggiornaRiepilogo();
 
         $('c-annulla').addEventListener('click', chiudiModale);
-        $('c-bozza').addEventListener('click', () => {
+        if ($('c-bozza')) $('c-bozza').addEventListener('click', () => {
             const rec = componiRecord();
             if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErrSu(null, 'Non c\'e nulla da salvare: aggiungi almeno l\'oggetto, il testo o un destinatario.'); return; }
             // In preparazione: la programmazione si salva SEMPRE come non attiva e puo essere incompleta
@@ -4577,7 +4718,7 @@
         // cambiata la programmazione, quella e' vecchia. Qui la si rimette giusta (solo se e'
         // ancora questo pulsante: se la finestra si e' chiusa o riaperta, non toccare nulla).
         const rilabella = () => { if ($('c-invia') === btnInvia) relabel(); };
-        btnInvia.addEventListener('click', () => conAttesa(btnInvia, async () => {
+        if (btnInvia) btnInvia.addEventListener('click', () => conAttesa(btnInvia, async () => {
             const rec = componiRecord();
             if (!rec.oggetto) { mostraErrSu(null, 'Inserisci l\'oggetto.'); return; }
             if (!rec.testo) { mostraErrSu(null, 'Scrivi il testo del messaggio.'); return; }
@@ -4667,7 +4808,16 @@
 
     function vistaRegistro() {
         const log = Store.leggi(CHIAVI.audit, []);
-        const utenti = Array.from(new Set(log.map(v => v.utente))).sort();
+        // filtro regione: un ruolo limitato non deve vedere nel registro le voci che nominano
+        // un cliente fuori dalla sua regione (nome cliente, codice fiscale, compensi, ecc.).
+        // Le voci senza cliente (accessi, sistema, persone, comunicazioni) restano visibili.
+        const regCons = Auth.regioniConsentite();
+        let base = log;
+        if (regCons) {
+            const visCli = new Set(Incarichi.visibili().map(i => String(i.cliente || '').toLowerCase()));
+            base = log.filter(v => { const cli = String(v.cliente || '').toLowerCase(); return !cli || visCli.has(cli); });
+        }
+        const utenti = Array.from(new Set(base.map(v => v.utente))).sort();
 
         $vista().innerHTML = `
             <header>
@@ -4703,7 +4853,7 @@
             const dal = dalV ? new Date(dalV + 'T00:00:00').getTime() : null;
             const al = alV ? new Date(alV + 'T23:59:59').getTime() : null;
             const testoVoce = v => ((v.cliente || '') + ' ' + (v.azione || '') + ' ' + (v.utente || '') + ' ' + (Array.isArray(v.dettagli) ? v.dettagli.map(d => d.campo + ' ' + d.prima + ' ' + d.dopo).join(' ') : (v.dettagli || ''))).toLowerCase();
-            let lista = log;
+            let lista = base;
             if (t) lista = lista.filter(v => testoVoce(v).includes(t));
             if (u) lista = lista.filter(v => v.utente === u);
             if (e) lista = lista.filter(v => v.entita === e);
@@ -4736,13 +4886,141 @@
     }
 
     /* =========================================================
+       VISTA: RUOLI E PERMESSI (solo amministratore)
+    ========================================================= */
+    // etichetta di un ruolo per id (compresi i ruoli personalizzati)
+    function nomeRuolo(id) {
+        if (id === 'admin') return 'Amministratore';
+        const r = Ruoli.trova(id);
+        return r ? r.nome : (id || 'Senza ruolo');
+    }
+    // <option> per assegnare un ruolo a un utente (sel = ruolo attualmente scelto)
+    function opzioniRuolo(sel) {
+        return Ruoli.tutti().map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
+    }
+    // regioni note: quelle in anagrafica piu quelle gia presenti sugli incarichi
+    function regioniNote() {
+        const set = new Set((typeof RV_ROSTER !== 'undefined' && RV_ROSTER.regioni ? RV_ROSTER.regioni : []).filter(Boolean));
+        Incarichi.tutti().forEach(i => { if (i.regione) set.add(i.regione); });
+        return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), 'it'));
+    }
+    // quanti utenti (in locale) hanno un dato ruolo: per avvisare prima di cancellarlo
+    function utentiConRuolo(id) {
+        try { return Auth.utenti().filter(u => u.ruolo === id).length; } catch (e) { return 0; }
+    }
+
+    function vistaRuoli() {
+        if (!Auth.eAdmin() && !Auth.eProprietario()) { naviga('dashboard'); return; }
+        const ruoli = Ruoli.tutti().map(Ruoli.normalizza);
+        const riepSez = r => SEZIONI_RUOLO.map(s => {
+            const liv = r.sezioni[s.id] || 'no';
+            const cls = liv === 'scrittura' ? 'verde' : (liv === 'lettura' ? 'ambra' : 'neutro');
+            return '<span class="badge ' + cls + '">' + esc(s.nome) + ': ' + LIVELLI_SEZIONE[liv] + '</span>';
+        }).join(' ');
+        const riepReg = r => (r.regioni && r.regioni.length) ? esc(r.regioni.join(', ')) : 'Tutte le regioni';
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Ruoli e permessi</h1>
+                    <p class="descrizione">Per ogni ruolo scegli cosa vede e cosa puo modificare in ciascuna sezione, e a quali regioni e limitato. Il ruolo si assegna agli utenti dalla sezione "Utenti".</p>
+                </div>
+                <div class="header-azioni"><button class="btn btn-primary" id="btn-nuovo-ruolo">+ Nuovo ruolo</button></div>
+            </header>
+            <div class="avviso-ruoli">Questi permessi tengono ognuno nella sua parte e prevengono gli errori, ma valgono dentro il programma: non sono una cassaforte. I dati piu delicati restano protetti dalle regole del server.</div>
+            <div class="ruoli-griglia">` +
+            ruoli.map(r => `<div class="ruolo-card">
+                <div class="ruolo-testa">
+                    <h2>${esc(r.nome)}${r.builtin ? ' <span class="badge neutro">predefinito</span>' : ''}</h2>
+                    <div class="ruolo-azioni">
+                        <button class="btn btn-sm btn-secondary r-mod" data-id="${esc(r.id)}">Modifica</button>
+                        ${r.id === 'admin' ? '' : '<button class="btn btn-sm btn-danger r-del" data-id="' + esc(r.id) + '">Elimina</button>'}
+                    </div>
+                </div>
+                <div class="ruolo-sez">${riepSez(r)}</div>
+                <div class="ruolo-reg"><strong>Regioni:</strong> ${riepReg(r)}</div>
+            </div>`).join('') +
+            `</div>`;
+        document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
+        $vista().querySelectorAll('.r-mod').forEach(b => b.addEventListener('click', () => modaleRuolo(b.dataset.id)));
+        $vista().querySelectorAll('.r-del').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
+            const r = Ruoli.trova(b.dataset.id); if (!r || r.id === 'admin') return;
+            // conteggio utenti col ruolo: in cloud gli utenti stanno su Firestore, non in locale
+            let n = 0, contato = true;
+            if (Cloud.attivo) {
+                try { const u = await Cloud.listaUtenti(); n = (u || []).filter(x => x.ruolo === r.id).length; }
+                catch (e) { contato = false; }
+            } else { n = utentiConRuolo(r.id); }
+            const avviso = !contato ? 'Non e stato possibile contare gli utenti con questo ruolo: verifica a mano che nessuno lo usi prima di eliminarlo.'
+                : (n ? '<strong>' + n + (n === 1 ? ' utente ha' : ' utenti hanno') + '</strong> questo ruolo: riassegnalo prima, altrimenti resteranno senza accesso finche l\'amministratore non interviene.'
+                    : 'Nessun utente risulta avere questo ruolo.');
+            apriModale(`<h2>Eliminare il ruolo "${esc(r.nome)}"?</h2>
+                <p>${avviso}</p>
+                <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-danger" id="m-conferma">Elimina</button></div>`);
+            document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+            document.getElementById('m-conferma').addEventListener('click', () => {
+                Ruoli.salva(Ruoli.tutti().filter(x => x.id !== r.id));
+                Audit.registra(Auth.utenteCorrente, 'Ruolo eliminato', 'sistema', null, null, [{ campo: 'Ruolo', prima: r.nome, dopo: 'eliminato' }]);
+                chiudiModale(); toast('Ruolo eliminato.', 'verde'); vistaRuoli();
+            });
+        })));
+    }
+
+    function modaleRuolo(id) {
+        const esistente = id ? Ruoli.normalizza(Ruoli.trova(id) || { id: id }) : null;
+        const bloccato = !!(esistente && esistente.id === 'admin');   // l'amministratore ha sempre tutto
+        const r = esistente || { id: '', nome: '', builtin: false, regioni: [], sezioni: sezioniTutte('no') };
+        const regs = regioniNote();
+        apriModale(`<h2>${esistente ? 'Modifica ruolo' : 'Nuovo ruolo'}</h2>
+            <div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" ${bloccato ? 'disabled' : ''} placeholder="es. Referente Nord"></div>
+            ${bloccato ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni e a tutte le regioni: non e modificabile.</p>' : `
+            <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa puo toccare</h3>
+            <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
+                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>
+            <h3 style="margin:16px 0 6px;font-size:0.95rem;">Per quali regioni</h3>
+            <p class="hint" style="margin:-4px 0 8px;">Nessuna selezione = vede <strong>tutte</strong> le regioni. Con una o piu regioni scelte, vede solo gli incarichi di quelle. Gli incarichi senza regione restano visibili solo ai ruoli senza limite.</p>
+            <div class="ruolo-reggrid">${regs.length ? regs.map(rg => `<label class="chip-check"><input type="checkbox" class="r-reg" value="${esc(rg)}" ${r.regioni.map(x => String(x).toLowerCase()).includes(String(rg).toLowerCase()) ? 'checked' : ''}> ${esc(rg)}</label>`).join('') : '<span class="hint">Nessuna regione presente in anagrafica o negli incarichi.</span>'}</div>`}
+            <div class="msg-errore hidden" id="r-errore"></div>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-primary" id="m-salva">Salva</button>
+            </div>`, { classe: 'larga' });
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-salva').addEventListener('click', () => {
+            if (bloccato) { chiudiModale(); return; }
+            const err = document.getElementById('r-errore');
+            const mostra = m => { err.textContent = m; err.classList.remove('hidden'); };
+            const nome = document.getElementById('r-nome').value.trim();
+            if (!nome) { mostra('Dai un nome al ruolo.'); return; }
+            const lista = Ruoli.tutti();
+            let nid = r.id;
+            if (!nid) {
+                const base = nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'ruolo';
+                nid = base; let k = 2; while (nid === 'admin' || lista.some(x => x.id === nid)) { nid = base + '-' + k; k++; }
+            }
+            if (lista.some(x => x.id !== nid && String(x.nome).trim().toLowerCase() === nome.toLowerCase())) { mostra('Esiste gia un ruolo con questo nome.'); return; }
+            const sezioni = {};
+            SEZIONI_RUOLO.forEach(s => { const sel = document.querySelector('[data-sez="' + s.id + '"]'); const v = sel ? sel.value : 'no'; sezioni[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no'; });
+            // regioni spuntate + quelle gia' salvate che non compaiono tra le caselle (es. regione
+            // introdotta via import, non piu' in anagrafica): non vanno perse su una modifica
+            const renderizzate = new Set(regs.map(x => String(x).toLowerCase()));
+            const preservate = (r.regioni || []).filter(x => !renderizzate.has(String(x).toLowerCase()));
+            const regioni = Array.from(document.querySelectorAll('.r-reg:checked')).map(c => c.value).concat(preservate);
+            const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), regioni: regioni, sezioni: sezioni };
+            const idx = lista.findIndex(x => x.id === nid);
+            if (idx >= 0) lista[idx] = nuovo; else lista.push(nuovo);
+            Ruoli.salva(lista);
+            Audit.registra(Auth.utenteCorrente, esistente ? 'Ruolo modificato' : 'Ruolo creato', 'sistema', null, null, [{ campo: 'Ruolo', prima: esistente ? esistente.nome : 'vuoto', dopo: nome }]);
+            chiudiModale(); toast('Ruolo salvato.', 'verde'); vistaRuoli();
+        });
+    }
+
+    /* =========================================================
        VISTA: UTENTI (solo amministratore)
     ========================================================= */
     function vistaUtenti() {
-        if (!Auth.eAdmin()) { naviga('dashboard'); return; }
+        if (!Auth.eAdmin() && !Auth.eProprietario()) { naviga('dashboard'); return; }
         if (Cloud.attivo) { vistaUtentiCloud(); return; }
         const utenti = Auth.utenti();
-        const RUOLI = { admin: 'Amministratore', qualita: 'Responsabile qualita', procuratore: 'Procuratore' };
 
         $vista().innerHTML = `
             <header>
@@ -4758,7 +5036,7 @@
             utenti.map(u => `<tr>
                 <td class="cliente-cella">${esc(u.nome)}</td>
                 <td>${esc(u.email)}</td>
-                <td>${esc(RUOLI[u.ruolo] || u.ruolo)}</td>
+                <td>${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
                 <td>${u.attivo ? (u.hash ? '<span class="badge verde">attivo</span>' : '<span class="badge ambra">in attesa di prima password</span>') : '<span class="badge rosso">disabilitato</span>'}${u.mustChange && u.hash ? ' <span class="badge neutro">cambio password richiesto</span>' : ''}</td>
                 <td>${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
                 <td style="white-space:nowrap;">
@@ -4773,11 +5051,7 @@
             apriModale(`<h2>Abilita nuovo utente</h2>
                 <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
                 <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
-                <div class="campo"><label>Ruolo</label><select id="m-ruolo">
-                    <option value="qualita">Responsabile qualita</option>
-                    <option value="procuratore">Procuratore</option>
-                    <option value="admin">Amministratore</option>
-                </select></div>
+                <div class="campo"><label>Ruolo</label><select id="m-ruolo">${opzioniRuolo(null)}</select></div>
                 <p class="descrizione">L'utente ricevera l'accesso richiedendo la prima password dalla pagina di ingresso.</p>
                 <div class="modale-azioni">
                     <button class="btn btn-ghost" id="m-annulla">Annulla</button>
@@ -4821,11 +5095,19 @@
             toast(u.attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
             vistaUtenti();
         }));
+        $vista().querySelectorAll('.u-ruolo').forEach(sel => sel.addEventListener('change', () => {
+            const email = sel.dataset.email, nuovo = sel.value;
+            const utenti2 = Auth.utenti();
+            const u = utenti2.find(x => x.email === email); if (!u) return;
+            const prima = u.ruolo; u.ruolo = nuovo;
+            Auth.salvaUtenti(utenti2);
+            Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, [{ campo: 'Ruolo', prima: nomeRuolo(prima), dopo: nomeRuolo(nuovo) }]);
+            toast('Ruolo aggiornato per ' + email + '.', 'verde');
+        }));
     }
 
     /* Utenti abilitati in modalita cloud (collezione Firestore "utenti") */
     async function vistaUtentiCloud() {
-        const RUOLI = { admin: 'Amministratore', qualita: 'Responsabile qualita', procuratore: 'Procuratore' };
         $vista().innerHTML = `
             <header>
                 <div>
@@ -4842,9 +5124,7 @@
                 <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
                 <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
                 <div class="campo"><label>Ruolo</label><select id="m-ruolo">
-                    <option value="qualita">Responsabile qualita</option>
-                    <option value="procuratore">Procuratore</option>
-                    <option value="admin">Amministratore</option>
+                    ${opzioniRuolo(null)}
                 </select></div>
                 <p class="descrizione">L'utente ricevera una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password. Ricordagli di controllare anche la posta indesiderata / spam.</p>
                 <div class="modale-azioni">
@@ -4891,7 +5171,7 @@
             utenti.map(u => `<tr>
                 <td class="cliente-cella">${esc(u.nome || '')}</td>
                 <td>${esc(u.email)}</td>
-                <td>${esc(RUOLI[u.ruolo] || u.ruolo || '')}</td>
+                <td>${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
                 <td>${u.attivo === false ? '<span class="badge rosso">disabilitato</span>' : '<span class="badge verde">attivo</span>'}</td>
                 <td>${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
                 <td style="white-space:nowrap;">
@@ -4919,6 +5199,22 @@
                 toast('Operazione non riuscita: ' + Cloud.msgErrore(e), 'rosso');
             }
         })));
+        document.querySelectorAll('.u-ruolo').forEach(sel => {
+            let prec = sel.value;
+            sel.addEventListener('change', async () => {
+                const email = sel.dataset.email, nuovo = sel.value;
+                sel.disabled = true;
+                try {
+                    await Cloud.salvaUtente(email, { ruolo: nuovo });
+                    Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, [{ campo: 'Ruolo', prima: nomeRuolo(prec), dopo: nomeRuolo(nuovo) }]);
+                    prec = nuovo;
+                    toast('Ruolo aggiornato per ' + email + '.', 'verde');
+                } catch (e) {
+                    sel.value = prec;
+                    toast('Cambio ruolo non riuscito: ' + Cloud.msgErrore(e), 'rosso');
+                } finally { sel.disabled = false; }
+            });
+        });
     }
 
     /* =========================================================
@@ -5254,6 +5550,7 @@
     function vistaLettera() {
         const inc = Incarichi.trova(parametriVista && parametriVista.id);
         if (!inc) { naviga('incarichi'); return; }
+        if (!Auth.vedeIncarico(inc)) { naviga('incarichi'); return; }
         // se e richiesto un periodo storico, si costruisce un incarico "virtuale" con lo snapshot
         const idxPeriodo = (parametriVista && parametriVista.periodo != null) ? Number(parametriVista.periodo) : null;
         const snap = (idxPeriodo != null && inc.storico && inc.storico[idxPeriodo]) ? inc.storico[idxPeriodo] : null;
@@ -5656,7 +5953,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
     function disegnaGraficoCompensiSvg(containerId, annoCorr) {
         const cont = document.getElementById(containerId);
         if (!cont) return;
-        const incarichi = Incarichi.tutti();
+        const incarichi = Incarichi.visibili();
         const anni = Incarichi.anniConCompensi();
         if (!anni.length) { cont.innerHTML = '<p class="tabella-vuota">Nessun compenso registrato.</p>'; return; }
         const valori = anni.map(a => incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, a), 0));
@@ -5860,7 +6157,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         const c = preparaCanvas(id, 280);
         if (!c) return;
         const { ctx, w, h } = c;
-        const incarichi = Incarichi.tutti();
+        const incarichi = Incarichi.visibili();
         const anni = Incarichi.anniConCompensi();
         const valori = anni.map(a => incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, a), 0));
         const max = Math.max(...valori, 1);
@@ -5986,8 +6283,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         document.getElementById('app').classList.remove('hidden');
         collegaHamburger();
         document.getElementById('utente-nome').textContent = Auth.utenteCorrente.nome;
-        const RUOLI = { admin: 'Amministratore', qualita: 'Responsabile qualita', procuratore: 'Procuratore' };
-        document.getElementById('utente-ruolo').textContent = RUOLI[Auth.utenteCorrente.ruolo] || Auth.utenteCorrente.ruolo;
+        document.getElementById('utente-ruolo').textContent = nomeRuolo(Auth.utenteCorrente.ruolo);
         if (typeof Cloud !== 'undefined' && Cloud.attivo) Cloud.avviaPresenza();
         naviga('dashboard');
     }

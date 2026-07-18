@@ -71,9 +71,18 @@ sufficiente per questo utilizzo.
                && request.auth.token.email == email
                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAccesso']));
        }
-       // dati condivisi dell'area riservata
+       // dati condivisi dell'area riservata: li leggono e scrivono gli utenti
+       // abilitati, TRANNE la definizione dei ruoli (vedi sotto)
        match /archivio/{documento} {
-         allow read, write: if abilitato();
+         allow read: if abilitato();
+         allow write: if abilitato() && documento != 'ruoli';
+       }
+       // definizione dei ruoli e dei permessi: la leggono tutti gli abilitati
+       // (serve a sapere cosa puo' vedere ciascuno) ma la scrive SOLO l'admin.
+       // Senza questa regola un utente potrebbe riscriversi i permessi da solo.
+       match /archivio/ruoli {
+         allow read: if abilitato();
+         allow write: if admin();
        }
        // modelli PDF delle lettere di incarico: li leggono gli abilitati,
        // li carica solo l'amministratore
@@ -108,6 +117,31 @@ primo documento va creato a mano dalla console:
 4. Al primo accesso i dati presenti nel browser (per esempio l'elenco
    importato dall'Excel) vengono caricati su Firestore e da quel momento
    sono condivisi e sincronizzati in tempo reale tra gli utenti.
+
+## Ruoli e permessi: cosa e blindato dal server e cosa no
+
+L'amministratore crea ruoli su misura (sezione "Ruoli e permessi") e per ogni
+ruolo sceglie, sezione per sezione, se e nascosta, in sola lettura o in
+scrittura, e a quali regioni e limitato. Cosa succede a livello di sicurezza:
+
+- **Blindato dal server (regole Firestore):**
+  - il campo `ruolo` di ogni utente sta nella collezione `utenti`, che solo
+    l'admin puo' scrivere: un utente non puo' cambiarsi il ruolo da solo;
+  - la **definizione** dei ruoli (`archivio/ruoli`) e scrivibile solo
+    dall'admin (regola qui sopra): un utente non puo' allargarsi i permessi
+    riscrivendo il proprio ruolo.
+- **Solo lato browser (NON blindato dal server):** la sola lettura per
+  sezione e il filtro per regione. Tengono ognuno nella sua parte e prevengono
+  gli errori, ma un utente abilitato che conosca gli strumenti per
+  sviluppatori del browser potrebbe aggirarli, perche' ogni collezione e
+  salvata come un unico blocco JSON che le regole non sanno leggere al loro
+  interno. Per blindare davvero anche questi due aspetti servirebbe cambiare
+  come sono salvati i dati (un documento per incarico invece di un unico
+  blocco), un intervento a se' stante.
+
+In sintesi: nessuno puo' auto-promuoversi (quello e' blindato); il "chi vede
+cosa" per sezione e regione e una divisione organizzativa affidabile per un
+gruppo di lavoro interno, non una barriera contro un uso volutamente ostile.
 
 ## Note
 

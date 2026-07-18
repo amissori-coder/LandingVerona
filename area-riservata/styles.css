@@ -598,6 +598,20 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .fatt-gruppo-corpo { padding: 2px 12px 12px; border-top: 1px solid var(--grigio-100); }
 .link-incarico { color: var(--blu-700); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .link-incarico:hover { color: var(--blu-900); }
+/* Ruoli e permessi */
+.avviso-ruoli { background: #FEF6E7; border: 1px solid #F5D89A; color: #8A5A00; border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; line-height: 1.5; margin-bottom: 16px; }
+.ruoli-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.ruolo-card { background: #fff; border: 1px solid var(--grigio-200); border-radius: var(--raggio); box-shadow: var(--ombra); padding: 14px 16px; }
+.ruolo-testa { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.ruolo-testa h2 { font-size: 1.05rem; margin: 0; }
+.ruolo-azioni { display: flex; gap: 6px; flex: 0 0 auto; }
+.ruolo-sez { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.ruolo-reg { font-size: 0.85rem; color: var(--grigio-600); }
+.ruolo-sezgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.ruolo-reggrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-check { display: inline-flex; align-items: center; gap: 6px; background: var(--grigio-100); border: 1px solid var(--grigio-200); border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; cursor: pointer; }
+.chip-check input { width: auto; margin: 0; }
+
 /* eco in euro sotto un campo importo: conferma subito quanto e stato capito */
 .imp-eco { margin-top: 3px; font-size: 0.82rem; font-weight: 700; color: var(--blu-700); min-height: 1.05em; }
 .imp-eco:empty { min-height: 0; }
