@@ -2245,11 +2245,12 @@
             corpo = terminati.length ? `<div class="card" id="sez-terminati">
                 <p class="descrizione" style="margin:0 0 12px;">Incarichi conclusi, tenuti fuori dall'elenco principale. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
                 <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                    <th>Cliente</th><th>Tipo</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${puoRinnovare ? '<th></th>' : ''}
+                    <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${puoRinnovare ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 terminati.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
                     <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
                     <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                    <td data-label="Regione">${esc(i.regione || '')}</td>
                     <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                     <td data-label="Terminato il">${i.terminato ? esc(fmtDataOra(i.terminato.il)) : ''}</td>
@@ -2265,6 +2266,7 @@
                 { chiave: 'dataInizio', nome: 'Inizio' },
                 { chiave: 'dataFine', nome: 'Fine' },
                 { chiave: 'area', nome: 'Area' },
+                { chiave: 'regione', nome: 'Regione' },
                 { chiave: 'qualita', nome: 'Qualita' },
                 { chiave: 'respIncarico', nome: 'Resp. incarico' },
                 { chiave: 'team', nome: 'Team' },
@@ -2283,6 +2285,7 @@
                         <td data-label="Inizio">${i.dataInizio ? esc(fmtData(i.dataInizio)) : esc(i.dataInizioNote || '')}</td>
                         <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
                         <td data-label="Area">${esc(i.area || '')}</td>
+                        <td data-label="Regione">${esc(i.regione || '')}</td>
                         <td data-label="Qualita">${esc(i.qualita || '')}</td>
                         <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                         <td data-label="Team">${esc(i.team || '')}</td>
@@ -2291,7 +2294,7 @@
                         ${puoRinnovare ? `<td data-label="" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button></td>` : ''}
                     </tr>`;
                 }).join('') +
-                `</tbody><tfoot><tr><td colspan="8">Totale (${attivi.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
+                `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
                 : '<div class="card tabella-vuota">Nessun incarico attivo corrisponde ai filtri.</div>';
         }
 
@@ -3519,18 +3522,66 @@
     /* =========================================================
        VISTA: PERSONE (anagrafica del team)
     ========================================================= */
+    /* Incarichi in cui una persona compare, con il ruolo che vi ricopre.
+       Il collegamento e' per cognome (negli incarichi i nomi sono testo), come nel resto
+       dell'area: due omonimi risultano sugli stessi incarichi. Di default guarda solo
+       gli incarichi visibili all'utente collegato (filtro regione del ruolo). */
+    function incarichiDellaPersona(cognome, lista) {
+        const cg = String(cognome || '').trim().toLowerCase();
+        if (!cg) return [];
+        const ha = campo => campo && dividiNomi(String(campo)).some(t => t.trim().toLowerCase() === cg);
+        const out = [];
+        (lista || Incarichi.visibili()).forEach(inc => {
+            const ruoli = [];
+            if (ha(inc.qualita)) ruoli.push('Resp. qualita');
+            if (ha(inc.respIncarico)) ruoli.push('Resp. incarico');
+            if (ha(inc.referente)) ruoli.push('Referente');
+            if (ha(inc.coordinatore)) ruoli.push('Coordinatore');
+            if (ha(inc.team)) ruoli.push('Team');
+            if (ruoli.length) out.push({ inc: inc, ruoli: ruoli });
+        });
+        // prima gli attivi, poi i terminati; dentro ogni gruppo per cliente
+        out.sort((a, b) => {
+            const ca = a.inc.stato === 'cessato' ? 1 : 0, cb = b.inc.stato === 'cessato' ? 1 : 0;
+            return ca - cb || String(a.inc.cliente || '').localeCompare(String(b.inc.cliente || ''), 'it');
+        });
+        return out;
+    }
+
+    function modaleIncarichiPersona(persona) {
+        const voci = incarichiDellaPersona(persona.nome);
+        const nomeVis = (persona.nomeProprio ? persona.nomeProprio + ' ' : '') + persona.nome;
+        // per un ruolo limitato a certe regioni: dice QUANTI incarichi restano fuori, senza nominarli
+        const fuori = Auth.regioniConsentite() ? incarichiDellaPersona(persona.nome, Incarichi.tutti()).length - voci.length : 0;
+        const righe = voci.map(v => {
+            const i = v.inc;
+            const stato = i.stato === 'cessato'
+                ? '<span class="badge neutro">terminato</span>'
+                : (() => { const s = Incarichi.statoScadenza(i); return '<span class="badge ' + s.classe + '">' + esc(s.testo) + '</span>'; })();
+            return `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                <td>${esc(i.cliente || '')}</td>
+                <td>${badgeTipo(i.tipo)}</td>
+                <td>${esc(i.regione || '')}</td>
+                <td>${v.ruoli.map(r => '<span class="badge neutro">' + esc(r) + '</span>').join(' ')}</td>
+                <td>${esc(fmtData(i.rinnovo || i.dataFine))}</td>
+                <td>${stato}</td>
+            </tr>`;
+        }).join('');
+        apriModale(`<h2>Incarichi di ${esc(nomeVis)}</h2>
+            ${voci.length ? `<p class="hint" style="margin:-4px 0 10px;">${voci.length} ${voci.length === 1 ? 'incarico' : 'incarichi'} &middot; clicca una riga per aprire l'incarico.</p>
+            <div class="tabella-wrap"><table class="dati"><thead><tr>
+                <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Ruolo</th><th>Fine</th><th>Stato</th>
+            </tr></thead><tbody>${righe}</tbody></table></div>`
+            : '<p class="descrizione">Nessun incarico associato a questa persona.</p>'}
+            ${fuori > 0 ? `<p class="hint" style="margin-top:10px;">${fuori === 1 ? 'Un altro incarico e' : 'Altri ' + fuori + ' incarichi sono'} fuori dalle regioni del tuo ruolo e non ${fuori === 1 ? 'viene mostrato' : 'vengono mostrati'}.</p>` : ''}
+            <div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>`, { classe: 'larga' });
+        document.getElementById('m-ok').addEventListener('click', chiudiModale);
+        document.querySelectorAll('#modale-contenitore [data-apri]').forEach(r =>
+            r.addEventListener('click', () => { chiudiModale(); naviga('dettaglio', { id: r.dataset.apri }); }));
+    }
+
     function vistaPersone() {
         const persone = Persone.tutte().slice().sort((a, b) => a.nome.localeCompare(b.nome));
-        const incarichi = Incarichi.tutti();
-        const conteggi = {};
-        incarichi.forEach(i => {
-            [['respIncarico', 'resp'], ['qualita', 'qual']].forEach(([campo, k]) => {
-                const n = (i[campo] || '').trim();
-                if (!n) return;
-                conteggi[n] = conteggi[n] || { resp: 0, qual: 0 };
-                conteggi[n][k]++;
-            });
-        });
         // si/no compatti: testo leggibile (utile per filtri di colonna ed esportazione CSV) ma senza il riquadro del badge, cosi la tabella entra in orizzontale
         const spunta = v => v ? '<span class="mark-si">si</span>' : '<span class="mark-no">no</span>';
 
@@ -3545,9 +3596,11 @@
                 </div>
             </header>
             <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi come responsabile">Inc.</th><th>Stato</th>${Auth.puoScrivere('persone') ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${Auth.puoScrivere('persone') ? '<th></th>' : ''}
             </tr></thead><tbody>` +
-            persone.map(p => `<tr>
+            persone.map(p => {
+                const nInc = incarichiDellaPersona(p.nome).length;
+                return `<tr>
                 <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
                 <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : '<span style="color:var(--grigio-400)">—</span>'}</td>
                 <td class="col-email" data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : '<span style="color:var(--grigio-400)">—</span>'}</td>
@@ -3558,19 +3611,24 @@
                 <td class="col-mark" data-label="Coordinatore territoriale">${spunta(p.coordinatore)}</td>
                 <td class="col-mark" data-label="Equity partner">${spunta(p.equityPartner)}</td>
                 <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
-                <td class="num" data-label="Inc. (resp.)">${(conteggi[p.nome] || {}).resp || ''}</td>
+                <td class="num" data-label="Incarichi">${nInc ? `<button class="btn btn-sm btn-ghost p-inc" data-id="${esc(p.id)}" title="Vedi gli incarichi di ${esc(p.nome)}">${nInc}</button>` : ''}</td>
                 <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
                 ${Auth.puoScrivere('persone') ? `<td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary p-modifica" data-id="${esc(p.id)}">Modifica</button>
                     <button class="btn btn-sm ${p.attivo ? 'btn-danger' : 'btn-secondary'} p-attiva" data-id="${esc(p.id)}">${p.attivo ? 'Disattiva' : 'Riattiva'}</button>
                 </td>` : ''}
-            </tr>`).join('') +
+            </tr>`; }).join('') +
             `</tbody></table></div>
             <p class="descrizione" style="margin-top:10px;">Le persone disattivate non compaiono piu nelle tendine ma restano negli incarichi gia registrati.</p>`;
 
         attrezzaTabella($vista(), { nomeFile: 'persone' });
         const btnNuova = document.getElementById('btn-nuova-persona');
         if (btnNuova) btnNuova.addEventListener('click', () => modalePersona(null));
+        $vista().querySelectorAll('.p-inc').forEach(b =>
+            b.addEventListener('click', () => {
+                const p = Persone.tutte().find(x => x.id === b.dataset.id);
+                if (p) modaleIncarichiPersona(p);
+            }));
         $vista().querySelectorAll('.p-modifica').forEach(b =>
             b.addEventListener('click', () => modalePersona(b.dataset.id)));
         $vista().querySelectorAll('.p-attiva').forEach(b =>
