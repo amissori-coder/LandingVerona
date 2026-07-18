@@ -637,14 +637,12 @@
         { chiave: 'codiceFiscale', nome: 'Codice fiscale' },
         { chiave: 'area', nome: 'Area' },
         { chiave: 'regione', nome: 'Regione' },
-        { chiave: 'localita', nome: 'Localita' },
         { chiave: 'dataInizio', nome: 'Data inizio' },
         { chiave: 'dataFine', nome: 'Data fine' },
         { chiave: 'rinnovo', nome: 'Rinnovo' },
         { chiave: 'qualita', nome: 'Responsabile qualita' },
         { chiave: 'respIncarico', nome: 'Responsabile incarico' },
         { chiave: 'referente', nome: 'Referente' },
-        { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
         { chiave: 'team', nome: 'Team di revisione' },
         { chiave: 'email1', nome: 'Email 1' },
         { chiave: 'email2', nome: 'Email 2' },
@@ -1736,6 +1734,22 @@
        PER COLONNA (tendina per le colonne categoriali, casella di testo per le
        altre) e un pulsante "Esporta CSV". Generico, guidato dai dati della tabella.
        opts: { nomeFile, filtri = true }. */
+    /* Filtro "combinato" riusabile: campo di testo con suggerimenti (datalist).
+       Si digita liberamente O si sceglie dall'elenco; vuoto = tutti.
+       Chi lo usa confronta con "contiene" (minuscole), cosi' il suggerimento
+       scelto per intero coincide e il testo parziale filtra comunque. */
+    function comboFiltro(id, etichetta, valori, valore) {
+        const dl = id + '-dl';
+        return '<div class="campo"><label>' + esc(etichetta) + '</label>'
+            + '<input type="search" id="' + id + '" list="' + dl + '" placeholder="Tutti" value="' + esc(valore || '') + '">'
+            + '<datalist id="' + dl + '">' + (valori || []).map(v => '<option value="' + esc(v) + '"></option>').join('') + '</datalist></div>';
+    }
+    // confronto standard dei filtri combinati
+    const filtroCorrisponde = (testoCella, digitato) => {
+        const q = String(digitato || '').trim().toLowerCase();
+        return !q || String(testoCella || '').toLowerCase().includes(q);
+    };
+
     function attrezzaTabella(elOrScope, opts) {
         opts = opts || {};
         const tabella = (elOrScope && elOrScope.tagName === 'TABLE') ? elOrScope : (elOrScope && elOrScope.querySelector('table.dati'));
@@ -1767,13 +1781,15 @@
                 if (valori.size === 0) return; // colonna vuota
                 const distinti = Array.from(valori);
                 if (distinti.length < 2) return; // un solo valore distinto: filtro inutile
-                // Tutti i filtri sono menu a discesa con le opzioni della colonna.
+                // Filtro "combinato": si puo' digitare liberamente E scegliere un suggerimento
+                // dall'elenco (datalist). Vuoto = tutti; il confronto e' "contiene".
                 distinti.sort((a, b) => a.localeCompare(b, 'it', { numeric: true }));
+                const dlId = 'dl-' + uid();
                 const campo = document.createElement('div');
                 campo.className = 'campo';
-                campo.innerHTML = '<label>' + esc(nome) + '</label><select><option value="">Tutti</option>'
-                    + distinti.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join('') + '</select>';
-                controlli.push({ i: i, tipo: 'select', el: campo.querySelector('select') });
+                campo.innerHTML = '<label>' + esc(nome) + '</label><input type="search" list="' + dlId + '" placeholder="Tutti">'
+                    + '<datalist id="' + dlId + '">' + distinti.map(v => '<option value="' + esc(v) + '"></option>').join('') + '</datalist>';
+                controlli.push({ i: i, tipo: 'testo', el: campo.querySelector('input') });
                 barra.appendChild(campo);
             });
         }
@@ -2056,16 +2072,30 @@
         // fatturato dell'anno a rischio (incarichi in scadenza / scaduti)
         const scadenzaTot = inScadenza.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
         const scadutoTot = scaduti.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
-        // raggruppamento per coordinatore territoriale (solo incarichi attivi)
+        /* Raggruppamento per coordinatore territoriale (solo incarichi attivi).
+           Il coordinatore non e' piu' un campo dell'incarico: si ricava dalle SCHEDE in
+           Persone (spunta "Coordinatore territoriale"), abbinando le regioni della scheda
+           (Regione + altre regioni coordinate) alla regione dell'incarico. Un incarico la
+           cui regione non e' coperta da nessun coordinatore finisce in "Senza coordinatore". */
+        const coordinatori = Persone.tutte().filter(p => p.coordinatore && p.attivo).map(p => ({
+            nome: (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome,
+            regioni: new Set([p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : [])
+                .map(x => String(x || '').trim().toLowerCase()).filter(Boolean))
+        }));
         const perCoord = {};
-        attivi.forEach(i => {
-            const key = (i.coordinatore && i.coordinatore.trim()) || '';
-            const g = perCoord[key] || (perCoord[key] = { nome: key, incarichi: [], tot: 0, scadN: 0, scadTot: 0, scaduN: 0, scaduTot: 0 });
-            const comp = Incarichi.compensoAnno(i, anno);
+        const aggiungi = (key, nome, i, comp, s) => {
+            const g = perCoord[key] || (perCoord[key] = { nome: nome, incarichi: [], tot: 0, scadN: 0, scadTot: 0, scaduN: 0, scaduTot: 0 });
             g.incarichi.push(i); g.tot += comp;
-            const s = Incarichi.statoScadenza(i);
             if (s.classe === 'ambra') { g.scadN++; g.scadTot += comp; }
             else if (s.classe === 'rosso') { g.scaduN++; g.scaduTot += comp; }
+        };
+        attivi.forEach(i => {
+            const reg = String(i.regione || '').trim().toLowerCase();
+            const comp = Incarichi.compensoAnno(i, anno);
+            const s = Incarichi.statoScadenza(i);
+            const suoi = reg ? coordinatori.filter(c => c.regioni.has(reg)) : [];
+            if (suoi.length) suoi.forEach(c => aggiungi(c.nome, c.nome, i, comp, s));
+            else aggiungi('', '', i, comp, s);
         });
         const coordList = Object.values(perCoord).sort((a, b) => b.tot - a.tot);
         const maxCoord = Math.max(1, ...coordList.map(g => g.tot));
@@ -2131,7 +2161,7 @@
             </div>
             <div class="card">
                 <h2>Incarichi e fatturato per coordinatore territoriale</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Clicca su un coordinatore per vedere i suoi incarichi. Le pastiglie mostrano quanti (e quanto fatturato) sono in scadenza o scaduti.</p>
+                <p class="hint" style="margin:-6px 0 12px;">Ogni coordinatore vede gli incarichi delle sue regioni (dalla scheda in Persone). Clicca su un coordinatore per l'elenco; le pastiglie mostrano quanti (e quanto fatturato) sono in scadenza o scaduti.</p>
                 ${coordList.length ? '<div class="coord-lista">' + coordList.map(coordItem).join('') + '</div>' : '<p class="tabella-vuota">Nessun incarico attivo.</p>'}
             </div>
             <div class="card" id="sez-scadenze-dash">
@@ -2182,7 +2212,7 @@
     /* =========================================================
        VISTA: ELENCO INCARICHI
     ========================================================= */
-    const filtriIncarichi = { testo: '', tipo: '', area: '', qualita: '', resp: '', stato: '', ordina: 'cliente', verso: 1 };
+    const filtriIncarichi = { testo: '', tipo: '', area: '', regione: '', qualita: '', resp: '', stato: '', ordina: 'cliente', verso: 1 };
     let incarichiTab = 'attivi'; // scheda incarichi: 'attivi' | 'terminati'
 
     function annoRiferimento() {
@@ -2214,29 +2244,13 @@
                 </div>
             </header>
             <div class="filtri">
-                <div class="campo ricerca"><label>Ricerca</label><input type="text" id="f-testo" placeholder="Cliente, codice fiscale, localita..." value="${esc(filtriIncarichi.testo)}"></div>
-                <div class="campo"><label>Tipo</label><select id="f-tipo">
-                    <option value="">Tutti</option>
-                    ${Object.keys(TIPI).map(t => `<option value="${t}" ${filtriIncarichi.tipo === t ? 'selected' : ''}>${esc(TIPI[t])}</option>`).join('')}
-                </select></div>
-                <div class="campo"><label>Area</label><select id="f-area">
-                    <option value="">Tutte</option>
-                    ${listaAree.map(a => `<option ${filtriIncarichi.area === a ? 'selected' : ''}>${esc(a)}</option>`).join('')}
-                </select></div>
-                <div class="campo"><label>Qualita</label><select id="f-qualita">
-                    <option value="">Tutti</option>
-                    ${listaQualita.map(q => `<option ${filtriIncarichi.qualita === q ? 'selected' : ''}>${esc(q)}</option>`).join('')}
-                </select></div>
-                <div class="campo"><label>Resp. incarico</label><select id="f-resp">
-                    <option value="">Tutti</option>
-                    ${listaResp.map(q => `<option ${filtriIncarichi.resp === q ? 'selected' : ''}>${esc(q)}</option>`).join('')}
-                </select></div>
-                <div class="campo"><label>Stato</label><select id="f-stato">
-                    <option value="">Tutti</option>
-                    <option value="attivo" ${filtriIncarichi.stato === 'attivo' ? 'selected' : ''}>Attivi</option>
-                    <option value="scadenza" ${filtriIncarichi.stato === 'scadenza' ? 'selected' : ''}>In scadenza</option>
-                    <option value="scaduto" ${filtriIncarichi.stato === 'scaduto' ? 'selected' : ''}>Scaduti</option>
-                </select></div>
+                <div class="campo ricerca"><label>Ricerca</label><input type="text" id="f-testo" placeholder="Cliente, codice fiscale, regione..." value="${esc(filtriIncarichi.testo)}"></div>
+                ${comboFiltro('f-tipo', 'Tipo', Object.keys(TIPI).map(t => TIPI[t]), filtriIncarichi.tipo)}
+                ${comboFiltro('f-area', 'Area', listaAree, filtriIncarichi.area)}
+                ${comboFiltro('f-regione', 'Regione', valoriPresenti('regione', RV_ROSTER.regioni), filtriIncarichi.regione)}
+                ${comboFiltro('f-qualita', 'Qualita', listaQualita, filtriIncarichi.qualita)}
+                ${comboFiltro('f-resp', 'Resp. incarico', listaResp, filtriIncarichi.resp)}
+                ${comboFiltro('f-stato', 'Stato', ['Attivi', 'In scadenza', 'Scaduti'], filtriIncarichi.stato)}
             </div>
             <div id="contenitore-tabella"></div>`;
 
@@ -2244,12 +2258,13 @@
             filtriIncarichi.testo = document.getElementById('f-testo').value;
             filtriIncarichi.tipo = document.getElementById('f-tipo').value;
             filtriIncarichi.area = document.getElementById('f-area').value;
+            filtriIncarichi.regione = document.getElementById('f-regione').value;
             filtriIncarichi.qualita = document.getElementById('f-qualita').value;
             filtriIncarichi.resp = document.getElementById('f-resp').value;
             filtriIncarichi.stato = document.getElementById('f-stato').value;
             disegnaTabellaIncarichi(annoRif);
         };
-        ['f-testo', 'f-tipo', 'f-area', 'f-qualita', 'f-resp', 'f-stato'].forEach(id =>
+        ['f-testo', 'f-tipo', 'f-area', 'f-regione', 'f-qualita', 'f-resp', 'f-stato'].forEach(id =>
             document.getElementById(id).addEventListener('input', aggiorna));
         { const bni = document.getElementById('btn-nuovo-incarico'); if (bni) bni.addEventListener('click', () => naviga('wizard', { modalita: 'nuovo' })); }
         document.getElementById('btn-esporta-csv').addEventListener('click', esportaCsvIncarichi);
@@ -2266,25 +2281,33 @@
             lista = lista.filter(i =>
                 (i.cliente || '').toLowerCase().includes(t) ||
                 (i.codiceFiscale || '').toLowerCase().includes(t) ||
-                (i.localita || '').toLowerCase().includes(t) ||
                 (i.regione || '').toLowerCase().includes(t) ||
                 (i.referente || '').toLowerCase().includes(t) ||
                 (i.team || '').toLowerCase().includes(t));
         }
-        if (f.tipo) lista = lista.filter(i => i.tipo === f.tipo);
-        if (f.area) lista = lista.filter(i => i.area === f.area);
-        if (f.qualita) lista = lista.filter(i => i.qualita === f.qualita);
-        if (f.resp) lista = lista.filter(i => i.respIncarico === f.resp);
-        if (stato) {
-            lista = lista.filter(i => {
-                const s = Incarichi.statoScadenza(i);
-                // "neutro" su un incarico non cessato significa "senza scadenza": e attivo
-                if (stato === 'attivo') return i.stato !== 'cessato' && (s.classe === 'verde' || s.classe === 'neutro');
-                if (stato === 'scadenza') return s.classe === 'ambra';
-                if (stato === 'scaduto') return s.classe === 'rosso';
-                if (stato === 'cessato') return i.stato === 'cessato';
-                return true;
-            });
+        // i filtri sono "combinati": testo digitato o suggerimento scelto, confronto "contiene"
+        if (f.tipo) lista = lista.filter(i => filtroCorrisponde(TIPI[i.tipo] || i.tipo, f.tipo));
+        if (f.area) lista = lista.filter(i => filtroCorrisponde(i.area, f.area));
+        if (f.regione) lista = lista.filter(i => filtroCorrisponde(i.regione, f.regione));
+        if (f.qualita) lista = lista.filter(i => filtroCorrisponde(i.qualita, f.qualita));
+        if (f.resp) lista = lista.filter(i => filtroCorrisponde(i.respIncarico, f.resp));
+        // stato: dall'esterno arriva la chiave (es. 'cessato'); dal filtro arriva il testo
+        // digitato, che puo' corrispondere a piu' voci (es. "sca" = In scadenza + Scaduti)
+        const controllaStato = (i, st) => {
+            const s = Incarichi.statoScadenza(i);
+            // "neutro" su un incarico non cessato significa "senza scadenza": e attivo
+            if (st === 'attivo') return i.stato !== 'cessato' && (s.classe === 'verde' || s.classe === 'neutro');
+            if (st === 'scadenza') return s.classe === 'ambra';
+            if (st === 'scaduto') return s.classe === 'rosso';
+            if (st === 'cessato') return i.stato === 'cessato';
+            return true;
+        };
+        if (statoOverride !== undefined) {
+            if (statoOverride) lista = lista.filter(i => controllaStato(i, statoOverride));
+        } else if (stato && String(stato).trim()) {
+            const chiavi = [['attivo', 'Attivi'], ['scadenza', 'In scadenza'], ['scaduto', 'Scaduti']]
+                .filter(([, etich]) => filtroCorrisponde(etich, stato)).map(([k]) => k);
+            lista = lista.filter(i => chiavi.some(k => controllaStato(i, k)));
         }
         const chiave = f.ordina, verso = f.verso;
         lista.sort((a, b) => {
@@ -2404,12 +2427,12 @@
 
     function esportaCsvIncarichi() {
         const anni = Incarichi.anniConCompensi();
-        const righe = [['Cliente', 'Tipo', 'Codice fiscale', 'Data inizio', 'Data fine', 'Rinnovo', 'Area', 'Regione', 'Localita', 'Qualita', 'Resp. incarico', 'Referente', 'Coordinatore territoriale', 'Team', 'Fatturazione', 'Stato'].concat(anni.map(String))];
+        const righe = [['Cliente', 'Tipo', 'Codice fiscale', 'Data inizio', 'Data fine', 'Rinnovo', 'Area', 'Regione', 'Qualita', 'Resp. incarico', 'Referente', 'Team', 'Fatturazione', 'Stato'].concat(anni.map(String))];
         incarichiFiltrati(annoRiferimento()).forEach(i => {
             righe.push([
                 i.cliente, nomeTipo(i.tipo), i.codiceFiscale || '', i.dataInizio || i.dataInizioNote || '', i.dataFine || '',
-                i.rinnovo || '', i.area || '', i.regione || '', i.localita || '', i.qualita || '', i.respIncarico || '',
-                i.referente || '', i.coordinatore || '', i.team || '', i.fatturazione || '', i.stato || ''
+                i.rinnovo || '', i.area || '', i.regione || '', i.qualita || '', i.respIncarico || '',
+                i.referente || '', i.team || '', i.fatturazione || '', i.stato || ''
             ].concat(anni.map(a => Incarichi.compensoAnno(i, a) || '')));
         });
         const csv = righe.map(r => r.map(v => {
@@ -2472,7 +2495,6 @@
                             ${rigaRiepilogo('Ragione sociale', inc.cliente)}
                             ${rigaRiepilogo('Codice fiscale', inc.codiceFiscale)}
                             ${rigaRiepilogo('Regione', inc.regione)}
-                            ${rigaRiepilogo('Localita', inc.localita)}
                             ${rigaRiepilogo('Email', [inc.email1, inc.email2].filter(Boolean).join(', '))}
                         </div>
                         <div class="riepilogo-blocco">
@@ -2489,7 +2511,6 @@
                             ${rigaRiepilogo('Responsabile incarico', inc.respIncarico)}
                             ${rigaRiepilogo('Responsabile qualita', inc.qualita)}
                             ${rigaRiepilogo('Referente', inc.referente)}
-                            ${rigaRiepilogo('Coordinatore territoriale', inc.coordinatore)}
                             ${rigaRiepilogo('Team di revisione', inc.team)}
                             ${rigaRiepilogo('Area', inc.area)}
                         </div>
@@ -2642,8 +2663,8 @@
         wizard = {
             modalita, idEsistente: esistente ? esistente.id : null, passo: 1,
             dati: esistente ? JSON.parse(JSON.stringify(esistente)) : {
-                cliente: '', tipo: 'legale', codiceFiscale: '', area: 'Nord', regione: 'Lombardia', localita: '',
-                email1: '', email2: '', qualita: '', respIncarico: '', referente: '', team: '', coordinatore: '',
+                cliente: '', tipo: 'legale', codiceFiscale: '', area: 'Nord', regione: 'Lombardia',
+                email1: '', email2: '', qualita: '', respIncarico: '', referente: '', team: '',
                 fatturazione: fatturazionePredefinita('legale'), gruppoFatturazione: '', fattInizio: null, fattFine: null, fattData: null, compensi: {}, stato: 'attivo'
             },
             // su un incarico esistente la fatturazione salvata e una scelta
@@ -2735,7 +2756,6 @@
                     <div class="campo"><label>Ragione sociale *</label><input id="w-cliente" value="${esc(d.cliente)}"></div>
                     <div class="campo"><label>Codice fiscale / P. IVA</label><input id="w-cf" value="${esc(d.codiceFiscale || '')}"></div>
                     <div class="campo"><label>Regione</label><select id="w-regione">${d.regione && !RV_ROSTER.regioni.includes(d.regione) ? `<option selected>${esc(d.regione)}</option>` : ''}${RV_ROSTER.regioni.map(r => `<option ${d.regione === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
-                    <div class="campo"><label>Localita</label><input id="w-localita" value="${esc(d.localita || '')}"></div>
                     <div class="campo"><label>Email di riferimento</label><input id="w-email1" type="email" value="${esc(d.email1 || '')}"></div>
                     <div class="campo"><label>Seconda email</label><input id="w-email2" type="email" value="${esc(d.email2 || '')}"></div>
                     <div class="campo"><label>Area</label><select id="w-area">${d.area && !RV_ROSTER.aree.includes(d.area) ? `<option selected>${esc(d.area)}</option>` : ''}${RV_ROSTER.aree.map(a => `<option ${d.area === a ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
@@ -2805,10 +2825,6 @@
                     </div>
                     <div class="campo"><label>Referente</label>
                         <select id="w-referente"><option value="">Seleziona</option>${opzioni(Persone.attive('team'), d.referente)}</select>
-                    </div>
-                    <div class="campo"><label>Coordinatore territoriale</label>
-                        <select id="w-coordinatore"><option value="">Seleziona</option>${opzioni(Persone.attive('coordinatore'), d.coordinatore)}</select>
-                        <div class="hint">Le persone con qualifica "Coordinatore territoriale".</div>
                     </div>
                 </div>
                 <div class="campo"><label>Team di revisione (componenti)</label>
@@ -2915,7 +2931,7 @@
                 <div class="riepilogo-blocco"><h4>Cliente</h4>
                     ${rigaRiepilogo('Ragione sociale', d.cliente)}
                     ${rigaRiepilogo('Codice fiscale', d.codiceFiscale)}
-                    ${rigaRiepilogo('Sede', [d.localita, d.regione].filter(Boolean).join(', '))}
+                    ${rigaRiepilogo('Regione', d.regione)}
                 </div>
                 <div class="riepilogo-blocco"><h4>Incarico</h4>
                     ${rigaRiepilogo('Tipo', TIPI[d.tipo])}
@@ -3103,7 +3119,6 @@
             d.cliente = document.getElementById('w-cliente').value.trim();
             d.codiceFiscale = document.getElementById('w-cf').value.trim();
             d.regione = document.getElementById('w-regione').value;
-            d.localita = document.getElementById('w-localita').value.trim().toUpperCase();
             d.email1 = document.getElementById('w-email1').value.trim();
             d.email2 = document.getElementById('w-email2').value.trim();
             d.area = document.getElementById('w-area').value;
@@ -3127,7 +3142,6 @@
             d.respIncarico = document.getElementById('w-resp').value;
             d.qualita = document.getElementById('w-qualita').value;
             d.referente = document.getElementById('w-referente').value;
-            d.coordinatore = document.getElementById('w-coordinatore').value;
             d.team = Array.from(document.querySelectorAll('.w-team-check:checked')).map(c => c.value).join(', ');
             if (valida) {
                 if (!d.respIncarico || !d.qualita) { toast('Indica responsabile incarico e responsabile qualita.', 'rosso'); return false; }
@@ -3195,7 +3209,7 @@
                     dataFine: prec.dataFine || null,
                     compensi: Object.assign({}, prec.compensi || {}),
                     calc: prec.calc ? Object.assign({}, prec.calc) : null,
-                    qualita: prec.qualita, respIncarico: prec.respIncarico, referente: prec.referente, team: prec.team, coordinatore: prec.coordinatore,
+                    qualita: prec.qualita, respIncarico: prec.respIncarico, referente: prec.referente, team: prec.team,
                     calcoloCongelato: !!prec.calcoloCongelato, congelamento: prec.congelamento || null
                 };
                 d.storico = (prec.storico || []).concat([snap]);
@@ -3355,7 +3369,7 @@
                     <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
                         <th>Cliente</th><th>Rata</th><th>Mese</th><th class="num">Importo</th><th class="num" title="5% dell'importo">5%</th><th>Rimborsi spese</th><th class="num" title="Importo + 5% + rimborsi">Totale</th><th>Stato</th>
                     </tr></thead><tbody>${g.rate.map(rigaRata).join('')}</tbody>
-                    <tfoot><tr><td colspan="3">Totale gruppo</td><td class="num">${eurFmt2.format(tImp)}</td><td class="num">${eurFmt2.format(t5)}</td><td class="num fatt-tot-rimb">${eurFmt2.format(tRimb)}</td><td class="num fatt-tot-tot">${eurFmt2.format(tTot)}</td><td></td></tr></tfoot></table></div>
+                    <tfoot><tr><td colspan="3">Totale gruppo</td><td class="num" data-label="Importi">${eurFmt2.format(tImp)}</td><td class="num" data-label="5%">${eurFmt2.format(t5)}</td><td class="num fatt-tot-rimb" data-label="Rimborsi">${eurFmt2.format(tRimb)}</td><td class="num fatt-tot-tot" data-label="Totale">${eurFmt2.format(tTot)}</td><td></td></tr></tfoot></table></div>
                 </div>
             </details>`;
         };
@@ -3740,7 +3754,11 @@
                 <div class="campo"><label>Cognome</label><input id="m-p-nome" value="${p ? esc(p.nome) : ''}" placeholder="es. Rossi"><div class="hint">Collega la persona agli incarichi.</div></div>
                 <div class="campo"><label>Email</label><input id="m-p-email" type="email" value="${p && p.email ? esc(p.email) : ''}"></div>
                 <div class="campo"><label>Telefono</label><input id="m-p-telefono" value="${p && p.telefono ? esc(p.telefono) : ''}"></div>
-                <div class="campo"><label>Regione</label><input id="m-p-regione" value="${p && p.regione ? esc(p.regione) : ''}"></div>
+                <div class="campo"><label>Regione</label><select id="m-p-regione">
+                    <option value="">Nessuna</option>
+                    ${p && p.regione && !RV_ROSTER.regioni.includes(p.regione) ? `<option selected>${esc(p.regione)}</option>` : ''}
+                    ${RV_ROSTER.regioni.map(r => `<option ${p && p.regione === r ? 'selected' : ''}>${r}</option>`).join('')}
+                </select></div>
                 <div class="campo"><label>Provincia</label><input id="m-p-provincia" value="${p && p.provincia ? esc(p.provincia) : ''}"></div>
                 <div class="campo"><label>Localita</label><input id="m-p-localita" value="${p && p.localita ? esc(p.localita) : ''}"></div>
                 <div class="campo"><label>Indirizzo</label><input id="m-p-indirizzo" value="${p && p.indirizzo ? esc(p.indirizzo) : ''}"></div>
@@ -3844,7 +3862,9 @@
         lista.forEach(i => {
             const prima = JSON.parse(JSON.stringify(i));
             let cambiato = false;
-            ['qualita', 'respIncarico', 'coordinatore'].forEach(campo => {
+            // coordinatore non e' piu' un campo dell'incarico: non si rinomina (eviterebbe
+            // anche voci di registro senza dettagli, visto che non e' piu' tracciato)
+            ['qualita', 'respIncarico'].forEach(campo => {
                 if ((i[campo] || '').trim() === vecchio) { i[campo] = nuovo; cambiato = true; }
             });
             ['referente', 'team'].forEach(campo => {
@@ -4107,8 +4127,8 @@
             const fs = Array.from(new Set(items.map(c => (c.programmazione && c.programmazione.frequenza) || '').filter(Boolean)));
             return `<div class="filtri" id="${pfx}-filtri">
                 <div class="campo ricerca"><label>Ricerca</label><input id="${pfx}-cerca" type="search" placeholder="Nome o oggetto..."></div>
-                <div class="campo"><label>Contesto</label><select id="${pfx}-contesto"><option value="">Tutti</option>${cs.map(x => '<option value="' + esc(x) + '">' + esc(contesto(x).nome) + '</option>').join('')}</select></div>
-                ${fs.length ? `<div class="campo"><label>Frequenza</label><select id="${pfx}-freq"><option value="">Tutte</option>${fs.map(f => '<option value="' + esc(f) + '">' + esc(f) + '</option>').join('')}</select></div>` : ''}
+                ${comboFiltro(pfx + '-contesto', 'Contesto', cs.map(x => contesto(x).nome))}
+                ${fs.length ? comboFiltro(pfx + '-freq', 'Frequenza', fs) : ''}
                 <span class="filtro-conteggio" id="${pfx}-conta"></span>
             </div>`;
         };
@@ -4234,7 +4254,11 @@
                 let visti = 0, tot = 0;
                 $vista().querySelectorAll(sezSel + ' .comm-item').forEach(it => {
                     tot++;
-                    const ok = (!q || (it.dataset.cerca || '').includes(q)) && (!ct || it.dataset.contesto === ct) && (!fq || (it.dataset.freq || '') === fq);
+                    // contesto e frequenza sono filtri combinati: confronto "contiene" sul nome
+                    const nomeCtx = it.dataset.contesto ? contesto(it.dataset.contesto).nome : '';
+                    const ok = (!q || (it.dataset.cerca || '').includes(q))
+                        && filtroCorrisponde(nomeCtx, ct)
+                        && filtroCorrisponde(it.dataset.freq || '', fq);
                     it.style.display = ok ? '' : 'none';
                     if (ok) visti++;
                 });
@@ -4242,7 +4266,7 @@
                 if (cnt) cnt.textContent = (visti < tot) ? (visti + ' di ' + tot) : '';
             };
             const s = document.getElementById(pfx + '-cerca'); if (s) s.addEventListener('input', run);
-            [pfx + '-contesto', pfx + '-freq'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', run); });
+            [pfx + '-contesto', pfx + '-freq'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', run); });
         };
         legaFiltriComm('fp', '#sez-programmate');
         legaFiltriComm('fs', '#sez-sospese');
@@ -4395,7 +4419,10 @@
         const altri = Array.from(dest).filter(e => { const x = String(e).toLowerCase(); return !emailPersone.has(x) && !emailTuttiClienti.has(x); });
         const opzCli = campo => Array.from(new Set(contattiCliente.map(c => c[campo]).filter(Boolean))).sort();
         const tipiCli = opzCli('tipo'), areeCli = opzCli('area'), regioniCli = opzCli('regione'), statiCli = opzCli('stato');
-        const selFiltro = (id, etichetta, valori) => valori.length ? `<select id="${id}"><option value="">${etichetta}</option>${valori.map(v => `<option>${esc(v)}</option>`).join('')}</select>` : '';
+        // filtro combinato compatto (senza label esterna: sta nella barra dei filtri destinatari)
+        const selFiltro = (id, etichetta, valori) => valori.length
+            ? `<input type="search" id="${id}" list="${id}-dl" placeholder="${esc(etichetta)}"><datalist id="${id}-dl">${valori.map(v => `<option value="${esc(v)}"></option>`).join('')}</datalist>`
+            : '';
         // contenuto iniziale dell'editor: i nuovi record salvano HTML; i vecchi (testo semplice) si convertono
         const testoInizialeHtml = c ? (c.formato === 'html' ? (c.testo || '') : esc(c.testo || '').replace(/\n/g, '<br>')) : '';
 
@@ -4467,7 +4494,7 @@
                     </div>
                     <div class="filtri-dest">
                         <input id="cp-cerca" type="search" placeholder="Oppure scegli singole persone: filtra per cognome, nome, email...">
-                        <select id="cp-ruolo"><option value="">Tutti i ruoli</option><option value="qualita">Responsabile qualita</option><option value="respIncarico">Responsabile incarico (procuratori)</option><option value="team">Team di revisione</option><option value="coordinatore">Coordinatore territoriale</option></select>
+                        <input type="search" id="cp-ruolo" list="cp-ruolo-dl" placeholder="Tutti i ruoli"><datalist id="cp-ruolo-dl"><option value="Responsabile qualita"></option><option value="Responsabile incarico (procuratori)"></option><option value="Team di revisione"></option><option value="Coordinatore territoriale"></option></datalist>
                     </div>
                     <div class="sel-azioni"><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="1">Seleziona tutti (filtrati)</button><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="0">Deseleziona</button><span class="hint" id="cp-conta"></span></div>
                     <div class="lista-destinatari" id="cp-lista">
@@ -4633,29 +4660,33 @@
         // filtro Persone (ricerca + ruolo)
         const filtraPersone = () => {
             const t = ($('cp-cerca').value || '').trim().toLowerCase();
-            const r = $('cp-ruolo').value;
+            const r = ($('cp-ruolo').value || '').trim();
+            // il ruolo si digita per nome: si risalgono le chiavi dei ruoli il cui nome contiene il testo
+            const MAPPA_RUOLI = [['qualita', 'Responsabile qualita'], ['respIncarico', 'Responsabile incarico (procuratori)'], ['team', 'Team di revisione'], ['coordinatore', 'Coordinatore territoriale']];
+            const chiaviOk = r ? MAPPA_RUOLI.filter(([, n]) => filtroCorrisponde(n, r)).map(([k]) => k) : null;
             $('cp-lista').querySelectorAll('.riga-dest').forEach(row => {
                 const okT = !t || row.textContent.toLowerCase().includes(t);
-                const okR = !r || (row.dataset.ruoli || '').split(' ').includes(r);
+                const tokens = (row.dataset.ruoli || '').split(' ');
+                const okR = !chiaviOk || chiaviOk.some(k => tokens.includes(k));
                 row.style.display = (okT && okR) ? '' : 'none';
             });
         };
         $('cp-cerca').addEventListener('input', filtraPersone);
-        $('cp-ruolo').addEventListener('change', filtraPersone);
-        // filtro Clienti (ricerca + tipo/area/regione/stato)
+        $('cp-ruolo').addEventListener('input', filtraPersone);
+        // filtro Clienti (ricerca + tipo/area/regione/stato): filtri combinati, confronto "contiene"
         const filtraClienti = () => {
             const t = ($('cc-cerca').value || '').trim().toLowerCase();
             const val = idf => { const el = $(idf); return el ? el.value : ''; };
             const ft = val('cc-tipo'), fa = val('cc-area'), fr = val('cc-regione'), fs = val('cc-stato');
             $('cc-lista').querySelectorAll('.riga-dest').forEach(row => {
                 const ok = (!t || row.textContent.toLowerCase().includes(t))
-                    && (!ft || row.dataset.tipo === ft) && (!fa || row.dataset.area === fa)
-                    && (!fr || row.dataset.regione === fr) && (!fs || row.dataset.stato === fs);
+                    && filtroCorrisponde(row.dataset.tipo, ft) && filtroCorrisponde(row.dataset.area, fa)
+                    && filtroCorrisponde(row.dataset.regione, fr) && filtroCorrisponde(row.dataset.stato, fs);
                 row.style.display = ok ? '' : 'none';
             });
         };
         ['cc-cerca', 'cc-tipo', 'cc-area', 'cc-regione', 'cc-stato'].forEach(idf => {
-            const el = $(idf); if (el) el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', filtraClienti);
+            const el = $(idf); if (el) el.addEventListener('input', filtraClienti);
         });
 
         const gruppiSel = () => Array.from(document.querySelectorAll('.c-gruppo:checked')).map(i => i.value);
@@ -5031,12 +5062,12 @@
                     <th>Data e ora</th><th>Ambito</th><th>Autore</th><th>Azione</th><th>Riferimento</th><th>Dettagli</th>
                 </tr></thead><tbody>` +
                 lista.map((v, i) => `<tr class="cliccabile" data-idx="${i}">
-                    <td style="white-space:nowrap;">${fmtDataOra(v.ts)}</td>
-                    <td>${badgeEntita(v.entita)}</td>
-                    <td>${esc(v.utente)}</td>
-                    <td><strong>${esc(v.azione)}</strong></td>
-                    <td>${esc(v.cliente || (v.entita === 'utente' ? v.rif : '') || '')}</td>
-                    <td>${Array.isArray(v.dettagli) ? '<ul class="reg-diff">' + v.dettagli.map(d => '<li><span class="reg-campo">' + esc(d.campo) + '</span> <span class="reg-da">' + esc(troncaTesto(d.prima, 44)) + '</span> <span class="reg-fr">&rarr;</span> <span class="reg-a">' + esc(troncaTesto(d.dopo, 44)) + '</span></li>').join('') + '</ul>' : esc(v.dettagli || '')}</td>
+                    <td data-label="Data e ora">${fmtDataOra(v.ts)}</td>
+                    <td data-label="Ambito">${badgeEntita(v.entita)}</td>
+                    <td data-label="Autore">${esc(v.utente)}</td>
+                    <td data-label="Azione"><strong>${esc(v.azione)}</strong></td>
+                    <td data-label="Riferimento">${esc(v.cliente || (v.entita === 'utente' ? v.rif : '') || '')}</td>
+                    <td data-label="Dettagli">${Array.isArray(v.dettagli) ? '<ul class="reg-diff">' + v.dettagli.map(d => '<li><span class="reg-campo">' + esc(d.campo) + '</span> <span class="reg-da">' + esc(troncaTesto(d.prima, 44)) + '</span> <span class="reg-fr">&rarr;</span> <span class="reg-a">' + esc(troncaTesto(d.dopo, 44)) + '</span></li>').join('') + '</ul>' : esc(v.dettagli || '')}</td>
                 </tr>`).join('') + '</tbody></table></div>'
                 : '<div class="card tabella-vuota">Nessuna voce nel registro con questi filtri.</div>';
             document.querySelectorAll('#registro-corpo tr[data-idx]').forEach(tr =>
@@ -5060,6 +5091,28 @@
     // <option> per assegnare un ruolo a un utente (sel = ruolo attualmente scelto)
     function opzioniRuolo(sel) {
         return Ruoli.tutti().map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
+    }
+    /* Selettore "dall'anagrafica" nel modale di creazione utente: si sceglie una persona
+       gia' in Persone (con email) e nome + email si compilano da soli, restando modificabili. */
+    function selettorePersonaUtente() {
+        const conEmail = Persone.tutte().filter(p => p.attivo && p.email)
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        if (!conEmail.length) return '';
+        return '<div class="campo"><label>Scegli dall\'anagrafica (facoltativo)</label>'
+            + '<select id="m-da-persona"><option value="">- compila a mano -</option>'
+            + conEmail.map(p => '<option value="' + esc(p.id) + '">' + esc(p.nome + (p.nomeProprio ? ' ' + p.nomeProprio : '') + ' - ' + p.email) + '</option>').join('')
+            + '</select><div class="hint">Scegliendo una persona, nome ed email si compilano da soli.</div></div>';
+    }
+    function collegaSelettorePersona() {
+        const sel = document.getElementById('m-da-persona');
+        if (!sel) return;
+        sel.addEventListener('change', () => {
+            const p = Persone.tutte().find(x => x.id === sel.value);
+            if (!p) return;
+            const n = document.getElementById('m-nome'), e = document.getElementById('m-email');
+            if (n) n.value = (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome;
+            if (e) e.value = p.email || '';
+        });
     }
     // quanti utenti (in locale) hanno un dato ruolo: per avvisare prima di cancellarlo
     function utentiConRuolo(id) {
@@ -5185,12 +5238,12 @@
                 <th>Nome</th><th>Email</th><th>Ruolo</th><th>Stato</th><th>Ultimo accesso</th><th></th>
             </tr></thead><tbody>` +
             utenti.map(u => `<tr>
-                <td class="cliente-cella">${esc(u.nome)}</td>
-                <td>${esc(u.email)}</td>
-                <td>${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
-                <td>${u.attivo ? (u.hash ? '<span class="badge verde">attivo</span>' : '<span class="badge ambra">in attesa di prima password</span>') : '<span class="badge rosso">disabilitato</span>'}${u.mustChange && u.hash ? ' <span class="badge neutro">cambio password richiesto</span>' : ''}</td>
-                <td>${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
-                <td style="white-space:nowrap;">
+                <td class="cliente-cella" data-label="Nome">${esc(u.nome)}</td>
+                <td data-label="Email">${esc(u.email)}</td>
+                <td data-label="Ruolo">${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
+                <td data-label="Stato">${u.attivo ? (u.hash ? '<span class="badge verde">attivo</span>' : '<span class="badge ambra">in attesa di prima password</span>') : '<span class="badge rosso">disabilitato</span>'}${u.mustChange && u.hash ? ' <span class="badge neutro">cambio password richiesto</span>' : ''}</td>
+                <td data-label="Ultimo accesso">${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
+                <td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary u-reimposta" data-email="${esc(u.email)}">Reimposta password</button>
                     ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm ${u.attivo ? 'btn-danger' : 'btn-secondary'} u-attiva" data-email="${esc(u.email)}">${u.attivo ? 'Disabilita' : 'Riabilita'}</button>` : ''}
                 </td>
@@ -5200,6 +5253,7 @@
         attrezzaTabella($vista(), { nomeFile: 'utenti' });
         document.getElementById('btn-nuovo-utente').addEventListener('click', () => {
             apriModale(`<h2>Abilita nuovo utente</h2>
+                ${selettorePersonaUtente()}
                 <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
                 <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
                 <div class="campo"><label>Ruolo</label><select id="m-ruolo">${opzioniRuolo(null)}</select></div>
@@ -5209,6 +5263,7 @@
                     <button class="btn btn-primary" id="m-salva">Abilita</button>
                 </div>`);
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+            collegaSelettorePersona();
             document.getElementById('m-salva').addEventListener('click', () => {
                 const nome = document.getElementById('m-nome').value.trim();
                 const email = document.getElementById('m-email').value.trim().toLowerCase();
@@ -5272,6 +5327,7 @@
 
         document.getElementById('btn-nuovo-utente').addEventListener('click', () => {
             apriModale(`<h2>Abilita nuovo utente</h2>
+                ${selettorePersonaUtente()}
                 <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
                 <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
                 <div class="campo"><label>Ruolo</label><select id="m-ruolo">
@@ -5283,6 +5339,7 @@
                     <button class="btn btn-primary" id="m-salva">Abilita e invia email</button>
                 </div>`);
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+            collegaSelettorePersona();
             const btnSalvaU = document.getElementById('m-salva');
             btnSalvaU.addEventListener('click', () => conAttesa(btnSalvaU, async () => {
                 const nome = document.getElementById('m-nome').value.trim();
@@ -5320,12 +5377,12 @@
                 <th>Nome</th><th>Email</th><th>Ruolo</th><th>Stato</th><th>Ultimo accesso</th><th></th>
             </tr></thead><tbody>` +
             utenti.map(u => `<tr>
-                <td class="cliente-cella">${esc(u.nome || '')}</td>
-                <td>${esc(u.email)}</td>
-                <td>${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
-                <td>${u.attivo === false ? '<span class="badge rosso">disabilitato</span>' : '<span class="badge verde">attivo</span>'}</td>
-                <td>${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
-                <td style="white-space:nowrap;">
+                <td class="cliente-cella" data-label="Nome">${esc(u.nome || '')}</td>
+                <td data-label="Email">${esc(u.email)}</td>
+                <td data-label="Ruolo">${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
+                <td data-label="Stato">${u.attivo === false ? '<span class="badge rosso">disabilitato</span>' : '<span class="badge verde">attivo</span>'}</td>
+                <td data-label="Ultimo accesso">${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
+                <td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary u-reimposta" data-email="${esc(u.email)}">Invia email reimposta password</button>
                     ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm ${u.attivo === false ? 'btn-secondary' : 'btn-danger'} u-attiva" data-email="${esc(u.email)}" data-attivo="${u.attivo === false ? '0' : '1'}">${u.attivo === false ? 'Riabilita' : 'Disabilita'}</button>` : ''}
                 </td>
@@ -5918,7 +5975,7 @@
             </div>
             <div class="destinatario">Spettabile
 <strong>${esc(inc.cliente)}</strong>
-${esc(inc.localita || '')}${inc.regione ? ' (' + esc(inc.regione) + ')' : ''}
+${inc.localita ? esc(inc.localita) + (inc.regione ? ' (' + esc(inc.regione) + ')' : '') : esc(inc.regione || '')}
 C.f.: ${esc(inc.codiceFiscale || '____________')}
 ${inc.email1 ? 'Pec: ' + esc(inc.email1) : 'Pec: ____________'}
 

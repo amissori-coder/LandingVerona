@@ -346,35 +346,46 @@ a { color: var(--blu-700); }
     .barra-stampa .btn { width: 100%; justify-content: center; }
     .modale { padding: 20px 16px; }
     .lettera-anteprima { padding: 24px 18px; }
+}
 
-    /* ogni riga della tabella diventa una scheda impilata e leggibile */
-    table.dati.a-schede,
-    table.dati.a-schede thead,
-    table.dati.a-schede tbody,
-    table.dati.a-schede tr,
-    table.dati.a-schede td { display: block; width: 100%; }
-    table.dati.a-schede thead { display: none; }
-    table.dati.a-schede tfoot { display: block; }
-    table.dati.a-schede tfoot tr { display: flex; justify-content: space-between; padding: 12px 14px; }
-    table.dati.a-schede tfoot td { display: inline; padding: 0; border: none; }
-    .tabella-wrap:has(table.a-schede) { overflow-x: visible; background: transparent; box-shadow: none; }
-    table.dati.a-schede tbody tr {
+/* Sotto i 1000px le tabelle larghe non possono comprimersi oltre senza scorrere in
+   orizzontale o spezzare i contenuti: ogni riga di OGNI tabella diventa una scheda
+   impilata e leggibile. Le celle senza data-label mostrano solo il valore. */
+@media (max-width: 1000px) {
+    table.dati,
+    table.dati thead,
+    table.dati tbody,
+    table.dati tr,
+    table.dati td { display: block; width: 100%; }
+    table.dati thead { display: none; }
+    table.dati tfoot { display: block; }
+    table.dati tfoot tr { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; padding: 12px 14px; }
+    table.dati tfoot td { display: inline; padding: 0; border: none; white-space: normal !important; }
+    /* i totali del piede portano la loro etichetta, altrimenti sarebbero numeri anonimi */
+    table.dati tfoot td[data-label]::before {
+        content: attr(data-label) ': '; font-weight: 600; color: var(--grigio-600);
+        font-size: 0.75rem; text-transform: uppercase;
+    }
+    .tabella-wrap { overflow-x: visible; background: transparent; box-shadow: none; border: none; }
+    table.dati tbody tr {
         background: #fff; border: 1px solid var(--grigio-200); border-radius: var(--raggio);
         box-shadow: var(--ombra); padding: 6px 4px; margin-bottom: 12px;
     }
-    table.dati.a-schede tbody td {
+    table.dati tbody tr:nth-child(even) { background: #fff; }
+    table.dati tbody td {
         display: flex; justify-content: space-between; align-items: center; gap: 12px;
         padding: 8px 14px; border: none; border-bottom: 1px solid var(--grigio-100); text-align: right;
+        white-space: normal !important;
     }
-    table.dati.a-schede tbody td:last-child { border-bottom: none; }
-    table.dati.a-schede tbody td::before {
+    table.dati tbody td:last-child { border-bottom: none; }
+    table.dati tbody td::before {
         content: attr(data-label); font-weight: 600; color: var(--grigio-600);
         font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; text-align: left; flex: 0 0 auto;
     }
-    table.dati.a-schede tbody td.cliente-cella { font-size: 1rem; }
-    table.dati.a-schede tbody td[data-label=""]::before { content: none; }
-    table.dati.a-schede tbody td[data-label=""] { justify-content: stretch; }
-    table.dati.a-schede tbody td[data-label=""] .btn { width: 100%; justify-content: center; }
+    table.dati tbody td.cliente-cella { font-size: 1rem; }
+    table.dati tbody td:not([data-label])::before, table.dati tbody td[data-label=""]::before { content: none; }
+    table.dati tbody td[data-label=""] { justify-content: stretch; }
+    table.dati tbody td[data-label=""] .btn { width: 100%; justify-content: center; }
 }
 
 /* ---------- Card e KPI ---------- */
@@ -414,20 +425,37 @@ a { color: var(--blu-700); }
 .barra-tabella-azioni .btn { white-space: nowrap; }
 
 /* ---------- Tabelle ---------- */
+/* Le tabelle stanno SEMPRE dentro il riquadro, senza scorrimento orizzontale:
+   intestazioni e celle vanno a capo, e i contenuti lunghi si spezzano. overflow-x
+   resta come rete di sicurezza ma con i ritorni a capo non entra mai in gioco. */
 .tabella-wrap { overflow-x: auto; background: #fff; border-radius: var(--raggio); box-shadow: var(--ombra); border: 1px solid var(--grigio-200); }
 table.dati { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 table.dati th {
-    background: var(--blu-900); color: #fff; text-align: left; padding: 8px 12px;
-    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap;
+    background: var(--blu-900); color: #fff; text-align: left; padding: 7px 7px;
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; white-space: normal;
     position: sticky; top: 0; cursor: pointer; -webkit-user-select: none; user-select: none;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 table.dati th:last-child { border-right: none; }
 table.dati th.num, table.dati td.num { text-align: right; }
 table.dati td {
-    padding: 7px 12px; vertical-align: top;
+    padding: 6px 7px; vertical-align: top;
     border-bottom: 1px solid var(--grigio-200); border-right: 1px solid var(--grigio-100);
+    /* il !important serve a vincere sui vecchi nowrap scritti in linea nelle celle azione.
+       break-word (NON anywhere): si va a capo tra le parole, mai a meta' di una data o di
+       un cognome. Se lo spazio non basta comunque, sotto i 1000px la tabella diventa schede. */
+    white-space: normal !important;
+    overflow-wrap: break-word;
 }
+/* i pulsanti nelle celle vanno a capo tra loro, mai spezzati a meta' parola */
+table.dati td .btn { white-space: nowrap; overflow-wrap: normal; margin-bottom: 2px; }
+/* date, importi e riferimenti temporali restano interi: spezzarli li renderebbe illeggibili */
+table.dati td.num,
+table.dati td[data-label="Inizio"], table.dati td[data-label="Fine"],
+table.dati td[data-label="Scadenza"], table.dati td[data-label="Terminato il"],
+table.dati td[data-label="Inviata il"], table.dati td[data-label="Data e ora"],
+table.dati td[data-label="Ultimo accesso"] { white-space: nowrap !important; }
+table.dati .badge { white-space: nowrap; }
 table.dati td:last-child { border-right: none; }
 table.dati tbody tr:nth-child(even) { background: #F8FAFC; }          /* righe alternate */
 table.dati tbody tr:hover { background: var(--blu-050); }
@@ -616,8 +644,8 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 /* eco in euro sotto un campo importo: conferma subito quanto e stato capito */
 .imp-eco { margin-top: 3px; font-size: 0.82rem; font-weight: 700; color: var(--blu-700); min-height: 1.05em; }
 .imp-eco:empty { min-height: 0; }
-.rimb-campo { display: inline-flex; align-items: center; gap: 4px; }
-.rimb-campo input { width: 82px; padding: 4px 6px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; text-align: right; }
+.rimb-campo { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.rimb-campo input { width: 70px; padding: 4px 6px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; text-align: right; }
 .rimb-campo input:disabled { background: var(--grigio-100); color: var(--grigio-600); }
 .rimb-eur { color: var(--grigio-600); font-size: 0.82rem; margin-right: 2px; }
 .rimb-lock svg { margin-right: 3px; }
