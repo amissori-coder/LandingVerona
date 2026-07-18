@@ -608,9 +608,6 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .ruolo-sez { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
 .ruolo-reg { font-size: 0.85rem; color: var(--grigio-600); }
 .ruolo-sezgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-.ruolo-reggrid { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip-check { display: inline-flex; align-items: center; gap: 6px; background: var(--grigio-100); border: 1px solid var(--grigio-200); border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; cursor: pointer; }
-.chip-check input { width: auto; margin: 0; }
 
 /* eco in euro sotto un campo importo: conferma subito quanto e stato capito */
 .imp-eco { margin-top: 3px; font-size: 0.82rem; font-weight: 700; color: var(--blu-700); min-height: 1.05em; }

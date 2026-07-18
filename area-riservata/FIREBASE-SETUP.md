@@ -122,7 +122,10 @@ primo documento va creato a mano dalla console:
 
 L'amministratore crea ruoli su misura (sezione "Ruoli e permessi") e per ogni
 ruolo sceglie, sezione per sezione, se e nascosta, in sola lettura o in
-scrittura, e a quali regioni e limitato. Cosa succede a livello di sicurezza:
+scrittura. Il ruolo di sistema "Coordinatore territoriale" e sempre in sola
+visualizzazione e vede solo gli incarichi della regione scritta nella sua
+scheda in Persone (agganciata all'utente tramite email). Cosa succede a
+livello di sicurezza:
 
 - **Blindato dal server (regole Firestore):**
   - il campo `ruolo` di ogni utente sta nella collezione `utenti`, che solo
@@ -131,7 +134,7 @@ scrittura, e a quali regioni e limitato. Cosa succede a livello di sicurezza:
     dall'admin (regola qui sopra): un utente non puo' allargarsi i permessi
     riscrivendo il proprio ruolo.
 - **Solo lato browser (NON blindato dal server):** la sola lettura per
-  sezione e il filtro per regione. Tengono ognuno nella sua parte e prevengono
+  sezione e il filtro per regione del coordinatore territoriale. Tengono ognuno nella sua parte e prevengono
   gli errori, ma un utente abilitato che conosca gli strumenti per
   sviluppatori del browser potrebbe aggirarli, perche' ogni collezione e
   salvata come un unico blocco JSON che le regole non sanno leggere al loro

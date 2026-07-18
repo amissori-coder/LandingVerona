@@ -186,11 +186,14 @@
     const LIVELLI_SEZIONE = { no: 'Nascosta', lettura: 'Sola lettura', scrittura: 'Scrittura' };
     const sezioniTutte = liv => { const o = {}; SEZIONI_RUOLO.forEach(s => { o[s.id] = liv; }); return o; };
     /* Ruoli predefiniti: coincidono con i ruoli storici (admin/qualita/procuratore) cosi' gli
-       utenti gia' presenti continuano a funzionare esattamente come prima (accesso pieno). */
+       utenti gia' presenti continuano a funzionare esattamente come prima (accesso pieno).
+       "Coordinatore territoriale" e' un ruolo di sistema: SEMPRE in sola visualizzazione,
+       limitato agli incarichi della regione scritta nella sua scheda in Persone. */
     const RUOLI_DEFAULT = [
-        { id: 'admin', nome: 'Amministratore', builtin: true, regioni: [], sezioni: sezioniTutte('scrittura') },
-        { id: 'qualita', nome: 'Responsabile qualita', builtin: true, regioni: [], sezioni: sezioniTutte('scrittura') },
-        { id: 'procuratore', nome: 'Procuratore', builtin: true, regioni: [], sezioni: sezioniTutte('scrittura') }
+        { id: 'admin', nome: 'Amministratore', builtin: true, sezioni: sezioniTutte('scrittura') },
+        { id: 'qualita', nome: 'Responsabile qualita', builtin: true, sezioni: sezioniTutte('scrittura') },
+        { id: 'procuratore', nome: 'Procuratore', builtin: true, sezioni: sezioniTutte('scrittura') },
+        { id: 'coordinatore', nome: 'Coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
     ];
 
     const Store = {
@@ -252,7 +255,17 @@
     const Ruoli = {
         tutti() {
             const l = Store.leggi(CHIAVI.ruoli, null);
-            return Array.isArray(l) && l.length ? l : RUOLI_DEFAULT.map(r => ({ ...r, sezioni: { ...r.sezioni } }));
+            const lista = Array.isArray(l) && l.length ? l.slice() : RUOLI_DEFAULT.map(r => ({ ...r, sezioni: { ...r.sezioni } }));
+            // il Coordinatore territoriale e' un ruolo di sistema: c'e' sempre, anche negli
+            // elenchi salvati prima che esistesse, e l'id e' riservato. Se un vecchio ruolo
+            // personalizzato occupava per caso l'id "coordinatore" (possibile con le versioni
+            // precedenti), viene riportato al profilo di sistema: e' comunque quello che il
+            // programma applica a chi ha quel ruolo, meglio che l'elenco dica la verita'.
+            const c = RUOLI_DEFAULT.find(r => r.id === 'coordinatore');
+            const idx = lista.findIndex(r => r.id === 'coordinatore');
+            if (idx < 0) lista.push({ ...c, sezioni: { ...c.sezioni } });
+            else if (!lista[idx].sistema) lista[idx] = { ...c, sezioni: { ...c.sezioni } };
+            return lista;
         },
         salva(lista) { Store.scrivi(CHIAVI.ruoli, lista); },
         trova(id) { return this.tutti().find(r => r.id === id) || null; },
@@ -263,11 +276,11 @@
                 try { localStorage.setItem(CHIAVI.ruoli, JSON.stringify(RUOLI_DEFAULT.map(r => ({ ...r, sezioni: { ...r.sezioni } })))); } catch (e) { }
             }
         },
-        // normalizza un ruolo letto da fuori: garantisce le chiavi sezione e un array regioni
+        // normalizza un ruolo letto da fuori: garantisce le chiavi sezione
         normalizza(r) {
             const sez = {};
             SEZIONI_RUOLO.forEach(s => { const v = r && r.sezioni && r.sezioni[s.id]; sez[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no'; });
-            return { id: r.id, nome: r.nome || r.id, builtin: !!r.builtin, regioni: Array.isArray(r.regioni) ? r.regioni.filter(Boolean) : [], sezioni: sez };
+            return { id: r.id, nome: r.nome || r.id, builtin: !!r.builtin, sistema: !!r.sistema, sezioni: sez };
         }
     };
 
@@ -760,15 +773,30 @@
         },
 
         /* Il ruolo dell'utente collegato, gia' normalizzato. Il titolare e l'admin hanno sempre
-           accesso pieno (non si possono chiudere fuori da soli). Un ruolo sconosciuto (es. cancellato)
-           non vede nulla: fail-closed, l'admin lo puo' riassegnare. */
+           accesso pieno (non si possono chiudere fuori da soli). Il Coordinatore territoriale
+           ha un profilo IMPOSTO dal codice, non dai dati salvati: sempre e solo visualizzazione.
+           Un ruolo sconosciuto (es. cancellato) non vede nulla: fail-closed. */
         ruoloCorrente() {
             const u = this.utenteCorrente;
             if (!u) return null;
-            if (this.eProprietario() || u.ruolo === 'admin') return { id: 'admin', nome: 'Amministratore', admin: true, builtin: true, regioni: [], sezioni: sezioniTutte('scrittura') };
+            if (this.eProprietario() || u.ruolo === 'admin') return { id: 'admin', nome: 'Amministratore', admin: true, builtin: true, sezioni: sezioniTutte('scrittura') };
+            if (u.ruolo === 'coordinatore') return { id: 'coordinatore', nome: 'Coordinatore territoriale', coordinatore: true, builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
             const r = Ruoli.trova(u.ruolo);
             if (r) return Ruoli.normalizza(r);
-            return { id: u.ruolo || '', nome: u.ruolo || 'Senza ruolo', sconosciuto: true, regioni: [], sezioni: sezioniTutte('no') };
+            return { id: u.ruolo || '', nome: u.ruolo || 'Senza ruolo', sconosciuto: true, sezioni: sezioniTutte('no') };
+        },
+        /* La scheda in Persone dell'utente collegato (agganciata per email): per il
+           Coordinatore territoriale e' li' che sta scritta la sua regione.
+           Se per errore due schede hanno la stessa email, vince la piu' completa
+           (attiva e con la regione compilata), non la prima in elenco. */
+        personaCorrente() {
+            const u = this.utenteCorrente;
+            if (!u || !u.email) return null;
+            const em = String(u.email).toLowerCase();
+            const match = Persone.tutte().filter(p => p.email && String(p.email).toLowerCase() === em);
+            if (!match.length) return null;
+            const punti = p => (p.attivo ? 2 : 0) + (p.regione && String(p.regione).trim() ? 1 : 0);
+            return match.sort((a, b) => punti(b) - punti(a))[0];
         },
         // livello sulla singola sezione di contenuto: 'no' | 'lettura' | 'scrittura'
         accessoSezione(sez) {
@@ -789,12 +817,15 @@
             if (sez === 'dati') return this.eProprietario();
             return this.accessoSezione(sez) === 'scrittura';
         },
-        // null = tutte le regioni; altrimenti l'elenco (minuscolo) a cui il ruolo e' limitato
+        /* null = tutte le regioni. Solo il Coordinatore territoriale e' limitato: alla regione
+           scritta nella SUA scheda in Persone (agganciata per email). Scheda mancante o senza
+           regione = nessun incarico visibile (fail-closed): si sistema compilando la scheda. */
         regioniConsentite() {
             const r = this.ruoloCorrente();
-            if (!r || r.admin) return null;
-            const arr = Array.isArray(r.regioni) ? r.regioni.filter(Boolean) : [];
-            return arr.length ? arr.map(x => String(x).toLowerCase()) : null;
+            if (!r || !r.coordinatore) return null;
+            const p = this.personaCorrente();
+            const reg = p && p.regione ? String(p.regione).trim() : '';
+            return reg ? [reg.toLowerCase()] : [];
         },
         vedeIncarico(inc) {
             const reg = this.regioniConsentite();
@@ -1576,6 +1607,7 @@
         },
 
         cambiaStato(chiave, nuovo, utente, cliente) {
+            if (!Auth.puoScrivere('fatturazione')) return;      // sola lettura: nessuna scrittura
             const s = this.stati();
             const prima = s[chiave] || 'da emettere';
             s[chiave] = nuovo;
@@ -1588,6 +1620,7 @@
         rimborsi() { return Store.leggi(CHIAVI.rimborsi, {}); },
         rimborso(chiave) { const r = this.rimborsi()[chiave]; return { importo: (r && Number(r.importo)) || 0, congelato: !!(r && r.congelato) }; },
         salvaRimborso(chiave, importo, utente, cliente) {
+            if (!Auth.puoScrivere('fatturazione')) return false; // sola lettura: nessuna scrittura
             const m = this.rimborsi();
             const cur = m[chiave] || { importo: 0, congelato: false };
             if (cur.congelato) return false;                    // campo congelato: non modificabile
@@ -1600,6 +1633,7 @@
             return true;
         },
         congelaRimborso(chiave, congelato, utente, cliente) {
+            if (!Auth.puoScrivere('fatturazione')) return;      // sola lettura: nessuna scrittura
             const m = this.rimborsi();
             const cur = m[chiave] || { importo: 0, congelato: false };
             cur.congelato = !!congelato;
@@ -1937,8 +1971,25 @@
             + '<p class="descrizione">Il tuo ruolo non ha accesso ad alcuna sezione. Chiedi all\'amministratore di assegnarti i permessi.</p></div></header>';
     }
 
+    /* Nome del ruolo nella barra laterale; per il coordinatore anche la regione, cosi' si
+       capisce subito cosa si sta vedendo (e perche' tutto e' vuoto se la scheda in Persone
+       non ha la regione). Richiamata a ogni cambio vista: resta aggiornata anche quando
+       l'anagrafica cambia mentre si e' collegati. */
+    function aggiornaEtichettaUtente() {
+        const el = document.getElementById('utente-ruolo');
+        if (!el || !Auth.utenteCorrente) return;
+        let etich = nomeRuolo(Auth.utenteCorrente.ruolo);
+        const rc = Auth.ruoloCorrente();
+        if (rc && rc.coordinatore) {
+            const p = Auth.personaCorrente();
+            etich += ' · ' + (p && p.regione ? p.regione : 'regione non impostata');
+        }
+        el.textContent = etich;
+    }
+
     function disegnaNav() {
         const nav = document.getElementById('nav-principale');
+        aggiornaEtichettaUtente();
         nav.innerHTML = VOCI_NAV
             .filter(v => Auth.puoVedere(v.id))
             .map(v => '<button class="nav-voce' + (vistaCorrente === v.id ? ' attiva' : '') + '" data-vista="' + v.id + '">' +
@@ -3254,7 +3305,7 @@
                 <td class="num" data-label="Importo">${eurFmt2.format(r.importo)}</td>
                 <td class="num" data-label="5%">${eurFmt2.format(perc5(r.importo))}</td>
                 <td data-label="Rimborsi spese"><span class="rimb-campo">
-                    <input type="text" inputmode="decimal" class="rimb-input" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" data-imp="${rb.importo || 0}" value="${fmtEuroInput(rb.importo)}" ${rb.congelato ? 'disabled' : ''} placeholder="0,00"><span class="rimb-eur">&euro;</span>
+                    <input type="text" inputmode="decimal" class="rimb-input" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" data-imp="${rb.importo || 0}" value="${fmtEuroInput(rb.importo)}" ${rb.congelato || !puoMod ? 'disabled' : ''} placeholder="0,00"><span class="rimb-eur">&euro;</span>
                     ${puoMod ? `<button type="button" class="btn btn-sm btn-ghost rimb-lock" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" data-cong="${rb.congelato ? '1' : '0'}" title="${rb.congelato ? 'Campo congelato: clicca per sbloccare' : 'Congela il campo'}">${rb.congelato ? ICO_LUCCHETTO + 'Sblocca' : 'Congela'}</button>` : ''}
                 </span></td>
                 <td class="num fatt-tot-riga" data-base="${base}" data-label="Totale">${eurFmt2.format(base + rb.importo)}</td>
@@ -3663,6 +3714,7 @@
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-resp" ${p && p.respIncarico ? 'checked' : ''} style="width:auto;">Responsabile incarico</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-team" ${!p || p.team ? 'checked' : ''} style="width:auto;">Team di revisione / referente</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-coordinatore" ${p && p.coordinatore ? 'checked' : ''} style="width:auto;">Coordinatore territoriale</label>
+                <div class="hint" style="margin:2px 0 0 26px;">Se questa persona accede con il ruolo "Coordinatore territoriale", vede (in sola visualizzazione) solo gli incarichi della <strong>Regione</strong> indicata qui sopra. Senza regione non vede alcun incarico.</div>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equity" ${p && p.equityPartner ? 'checked' : ''} style="width:auto;">Equity partner</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-founding" ${p && p.foundingPartner ? 'checked' : ''} style="width:auto;">Founding partner</label>
             </div>
@@ -3682,6 +3734,12 @@
             if (/[,;]/.test(nome)) { err.textContent = 'Il cognome non puo contenere virgole o punti e virgola.'; err.classList.remove('hidden'); return; }
             const omonimo = Persone.trovaPerNome(nome);
             if (omonimo && (!p || omonimo.id !== p.id)) { err.textContent = 'Esiste gia una persona con questo cognome.'; err.classList.remove('hidden'); return; }
+            // email unica: e' l'aggancio tra utente e scheda (regione del coordinatore territoriale)
+            const emailNuova = document.getElementById('m-p-email').value.trim().toLowerCase();
+            if (emailNuova) {
+                const stessa = Persone.tutte().find(x => x.email && String(x.email).toLowerCase() === emailNuova && (!p || x.id !== p.id));
+                if (stessa) { err.textContent = 'Questa email e gia sulla scheda di ' + stessa.nome + ': ogni scheda deve avere un\'email diversa.'; err.classList.remove('hidden'); return; }
+            }
             const contatti = {
                 nomeProprio: document.getElementById('m-p-nomepr').value.trim(),
                 email: document.getElementById('m-p-email').value.trim(),
@@ -4956,12 +5014,6 @@
     function opzioniRuolo(sel) {
         return Ruoli.tutti().map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
     }
-    // regioni note: quelle in anagrafica piu quelle gia presenti sugli incarichi
-    function regioniNote() {
-        const set = new Set((typeof RV_ROSTER !== 'undefined' && RV_ROSTER.regioni ? RV_ROSTER.regioni : []).filter(Boolean));
-        Incarichi.tutti().forEach(i => { if (i.regione) set.add(i.regione); });
-        return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), 'it'));
-    }
     // quanti utenti (in locale) hanno un dato ruolo: per avvisare prima di cancellarlo
     function utentiConRuolo(id) {
         try { return Auth.utenti().filter(u => u.ruolo === id).length; } catch (e) { return 0; }
@@ -4975,12 +5027,11 @@
             const cls = liv === 'scrittura' ? 'verde' : (liv === 'lettura' ? 'ambra' : 'neutro');
             return '<span class="badge ' + cls + '">' + esc(s.nome) + ': ' + LIVELLI_SEZIONE[liv] + '</span>';
         }).join(' ');
-        const riepReg = r => (r.regioni && r.regioni.length) ? esc(r.regioni.join(', ')) : 'Tutte le regioni';
         $vista().innerHTML = `
             <header>
                 <div>
                     <h1>Ruoli e permessi</h1>
-                    <p class="descrizione">Per ogni ruolo scegli cosa vede e cosa puo modificare in ciascuna sezione, e a quali regioni e limitato. Il ruolo si assegna agli utenti dalla sezione "Utenti".</p>
+                    <p class="descrizione">Per ogni ruolo scegli cosa vede e cosa puo modificare in ciascuna sezione. Il ruolo si assegna agli utenti dalla sezione "Utenti".</p>
                 </div>
                 <div class="header-azioni"><button class="btn btn-primary" id="btn-nuovo-ruolo">+ Nuovo ruolo</button></div>
             </header>
@@ -4988,20 +5039,20 @@
             <div class="ruoli-griglia">` +
             ruoli.map(r => `<div class="ruolo-card">
                 <div class="ruolo-testa">
-                    <h2>${esc(r.nome)}${r.builtin ? ' <span class="badge neutro">predefinito</span>' : ''}</h2>
+                    <h2>${esc(r.nome)}${r.sistema ? ' <span class="badge ambra">di sistema</span>' : (r.builtin ? ' <span class="badge neutro">predefinito</span>' : '')}</h2>
                     <div class="ruolo-azioni">
-                        <button class="btn btn-sm btn-secondary r-mod" data-id="${esc(r.id)}">Modifica</button>
-                        ${r.id === 'admin' ? '' : '<button class="btn btn-sm btn-danger r-del" data-id="' + esc(r.id) + '">Elimina</button>'}
+                        <button class="btn btn-sm btn-secondary r-mod" data-id="${esc(r.id)}">${r.id === 'admin' || r.sistema ? 'Dettagli' : 'Modifica'}</button>
+                        ${r.id === 'admin' || r.sistema ? '' : '<button class="btn btn-sm btn-danger r-del" data-id="' + esc(r.id) + '">Elimina</button>'}
                     </div>
                 </div>
                 <div class="ruolo-sez">${riepSez(r)}</div>
-                <div class="ruolo-reg"><strong>Regioni:</strong> ${riepReg(r)}</div>
+                ${r.id === 'coordinatore' ? '<div class="ruolo-reg">Sempre in sola visualizzazione, solo gli incarichi della <strong>sua regione</strong>: quella scritta nella sua scheda in Persone (dove si spunta "Coordinatore territoriale").</div>' : ''}
             </div>`).join('') +
             `</div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
         $vista().querySelectorAll('.r-mod').forEach(b => b.addEventListener('click', () => modaleRuolo(b.dataset.id)));
         $vista().querySelectorAll('.r-del').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
-            const r = Ruoli.trova(b.dataset.id); if (!r || r.id === 'admin') return;
+            const r = Ruoli.trova(b.dataset.id); if (!r || r.id === 'admin' || r.sistema) return;
             // conteggio utenti col ruolo: in cloud gli utenti stanno su Firestore, non in locale
             let n = 0, contato = true;
             if (Cloud.attivo) {
@@ -5025,25 +5076,25 @@
 
     function modaleRuolo(id) {
         const esistente = id ? Ruoli.normalizza(Ruoli.trova(id) || { id: id }) : null;
-        const bloccato = !!(esistente && esistente.id === 'admin');   // l'amministratore ha sempre tutto
-        const r = esistente || { id: '', nome: '', builtin: false, regioni: [], sezioni: sezioniTutte('no') };
-        const regs = regioniNote();
-        apriModale(`<h2>${esistente ? 'Modifica ruolo' : 'Nuovo ruolo'}</h2>
-            <div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" ${bloccato ? 'disabled' : ''} placeholder="es. Referente Nord"></div>
-            ${bloccato ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni e a tutte le regioni: non e modificabile.</p>' : `
+        // non modificabili: l'amministratore (ha sempre tutto) e il Coordinatore territoriale
+        // (profilo di sistema: sola visualizzazione, regione dalla scheda in Persone)
+        const bloccato = !!(esistente && (esistente.id === 'admin' || esistente.sistema));
+        const r = esistente || { id: '', nome: '', builtin: false, sezioni: sezioniTutte('no') };
+        apriModale(`<h2>${esistente ? (bloccato ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
+            ${bloccato ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
+            ${bloccato ? (esistente.id === 'admin'
+                ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non e modificabile.</p>'
+                : '<p class="descrizione">Il Coordinatore territoriale e un ruolo di sistema, non modificabile: vede tutte le sezioni in <strong>sola visualizzazione</strong> e SOLO gli incarichi della sua regione. La regione e quella scritta nella sua scheda in <strong>Persone</strong> (la scheda con la spunta "Coordinatore territoriale", agganciata all\'utente tramite l\'email). Senza regione nella scheda, non vede alcun incarico.</p>') : `
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa puo toccare</h3>
             <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
-                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>
-            <h3 style="margin:16px 0 6px;font-size:0.95rem;">Per quali regioni</h3>
-            <p class="hint" style="margin:-4px 0 8px;">Nessuna selezione = vede <strong>tutte</strong> le regioni. Con una o piu regioni scelte, vede solo gli incarichi di quelle. Gli incarichi senza regione restano visibili solo ai ruoli senza limite.</p>
-            <div class="ruolo-reggrid">${regs.length ? regs.map(rg => `<label class="chip-check"><input type="checkbox" class="r-reg" value="${esc(rg)}" ${r.regioni.map(x => String(x).toLowerCase()).includes(String(rg).toLowerCase()) ? 'checked' : ''}> ${esc(rg)}</label>`).join('') : '<span class="hint">Nessuna regione presente in anagrafica o negli incarichi.</span>'}</div>`}
+                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
             <div class="msg-errore hidden" id="r-errore"></div>
             <div class="modale-azioni">
-                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
-                <button class="btn btn-primary" id="m-salva">Salva</button>
+                ${bloccato ? '<button class="btn btn-primary" id="m-annulla">Chiudi</button>'
+                    : '<button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-salva">Salva</button>'}
             </div>`, { classe: 'larga' });
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
-        document.getElementById('m-salva').addEventListener('click', () => {
+        if (document.getElementById('m-salva')) document.getElementById('m-salva').addEventListener('click', () => {
             if (bloccato) { chiudiModale(); return; }
             const err = document.getElementById('r-errore');
             const mostra = m => { err.textContent = m; err.classList.remove('hidden'); };
@@ -5058,12 +5109,7 @@
             if (lista.some(x => x.id !== nid && String(x.nome).trim().toLowerCase() === nome.toLowerCase())) { mostra('Esiste gia un ruolo con questo nome.'); return; }
             const sezioni = {};
             SEZIONI_RUOLO.forEach(s => { const sel = document.querySelector('[data-sez="' + s.id + '"]'); const v = sel ? sel.value : 'no'; sezioni[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no'; });
-            // regioni spuntate + quelle gia' salvate che non compaiono tra le caselle (es. regione
-            // introdotta via import, non piu' in anagrafica): non vanno perse su una modifica
-            const renderizzate = new Set(regs.map(x => String(x).toLowerCase()));
-            const preservate = (r.regioni || []).filter(x => !renderizzate.has(String(x).toLowerCase()));
-            const regioni = Array.from(document.querySelectorAll('.r-reg:checked')).map(c => c.value).concat(preservate);
-            const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), regioni: regioni, sezioni: sezioni };
+            const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), sezioni: sezioni };
             const idx = lista.findIndex(x => x.id === nid);
             if (idx >= 0) lista[idx] = nuovo; else lista.push(nuovo);
             Ruoli.salva(lista);
@@ -6341,7 +6387,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         document.getElementById('app').classList.remove('hidden');
         collegaHamburger();
         document.getElementById('utente-nome').textContent = Auth.utenteCorrente.nome;
-        document.getElementById('utente-ruolo').textContent = nomeRuolo(Auth.utenteCorrente.ruolo);
+        aggiornaEtichettaUtente();
         if (typeof Cloud !== 'undefined' && Cloud.attivo) Cloud.avviaPresenza();
         naviga('dashboard');
     }
