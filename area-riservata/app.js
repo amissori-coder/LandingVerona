@@ -1092,7 +1092,7 @@
            Invia l'admin loggato (il suo ID token autentica il servizio). I limiti
            anti-spam del servizio possono far fallire qualche invio su elenchi grandi:
            i falliti vengono riportati per un nuovo tentativo. */
-        async invitaSondaggio(comp, vis, utenti, ruoli) {
+        async invitaSondaggio(comp, vis, utenti, ruoli, scadenzaTxt) {
             if (!this.attivo) return { ok: false, msg: 'Accesso cloud non attivo.' };
             const esistenti = new Set((utenti || []).map(u => String(u.email).toLowerCase()));
             let creati = 0, inviati = 0; const falliti = [];
@@ -1113,9 +1113,17 @@
                 const r = await this.inviaComunicazione('Questionario Revilaw: gruppi di specialisti', testo, dest, 'testo');
                 if (r && r.ok) inviati += (r.inviati || dest.length); else dest.forEach(d => falliti.push(d.email));
             };
+            const scad = scadenzaTxt ? ('\n\nScadenza per la compilazione: ' + scadenzaTxt + '.') : '';
+            const testoComp = 'Gentile collega,\n\n'
+                + 'Revilaw sta ampliando la propria attivita con un percorso di consulenza integrata: adeguati assetti, ESG e sostenibilita, compliance e Tax Control Framework, finanza agevolata, crisi d\'impresa e risanamento. Per questo nascono i "gruppi di specialisti", uno per ciascuna area.\n\n'
+                + 'Ti chiediamo di indicare le DUE aree nelle quali vorresti entrare a far parte del gruppo e, per ciascuna, il tuo livello di competenza. Bastano un paio di minuti.\n\n'
+                + 'Come partecipare:\n1. Accedi all\'area riservata: ' + link + '\n2. Apri la sezione "Sondaggi"\n3. Scegli le due aree e invia la risposta' + scad + '\n\nGrazie,\nRevilaw S.p.A.';
+            const testoVis = 'Gentile collega,\n\n'
+                + 'Sei stato abilitato a consultare i risultati del questionario sui "gruppi di specialisti" di Revilaw: le aree scelte dai colleghi e le competenze dichiarate.\n\n'
+                + 'Come consultarli:\n1. Accedi all\'area riservata: ' + link + '\n2. Apri la sezione "Sondaggi", scheda "Riepilogo risultati"\n\nGrazie,\nRevilaw S.p.A.';
             try {
-                await inviaA(comp, 'Sei invitato a compilare il questionario sui gruppi di specialisti. Accedi all\'area riservata e apri la sezione Sondaggi: ' + link);
-                await inviaA(vis, 'Sei stato abilitato a consultare i risultati del questionario sui gruppi di specialisti. Accedi all\'area riservata, sezione Sondaggi: ' + link);
+                await inviaA(comp, testoComp);
+                await inviaA(vis, testoVis);
             } catch (e) { /* eventuali falliti gia' registrati */ }
             return { ok: true, creati, inviati, falliti };
         },
@@ -4662,8 +4670,8 @@
         scadenzaDefault: SCADENZA_DEFAULT,
         argomenti: [
             { id: 'adeguati_assetti', nome: 'Adeguati Assetti Organizzativi', coord: 'Stefano Pizzutelli', desc: 'Assetti organizzativi, amministrativi e contabili adeguati ai sensi dell\'art. 2086 c.c.' },
-            { id: 'esg', nome: 'ESG e Sostenibilita', coord: 'Antonella Candelieri', desc: 'Rendicontazione di sostenibilita, criteri ESG e finanza sostenibile per le imprese.' },
-            { id: 'compliance', nome: 'Compliance, TCF e Modello 231', coord: 'Melo Martella', desc: 'Tax Control Framework, adempimento collaborativo e responsabilita amministrativa degli enti (D.Lgs. 231).' },
+            { id: 'esg', nome: 'ESG e Sostenibilita', coord: 'Antonella Candelieri', desc: 'Rendicontazione di sostenibilita, criteri ESG e finanza sostenibile per le imprese.', flag: 'Sono gia revisore della sostenibilita' },
+            { id: 'compliance', nome: 'Compliance, TCF e Modello 231', coord: 'Melo Martella', desc: 'Tax Control Framework, adempimento collaborativo e responsabilita amministrativa degli enti (D.Lgs. 231).', flag: 'Sono iscritto all\'albo TCF dell\'Agenzia delle Entrate' },
             { id: 'finanza_agevolata', nome: 'Finanza Agevolata', coord: 'Andrea Missori', desc: 'Bandi, incentivi e strumenti agevolativi per gli investimenti e la crescita d\'impresa.' },
             { id: 'crisi_impresa', nome: 'Crisi d\'Impresa e Risanamento', coord: 'Vincenzo Napolitano', desc: 'Allerta precoce, composizione negoziata e percorsi di risanamento dell\'impresa.' }
         ]
@@ -4682,6 +4690,10 @@
     };
     function nomeArgomento(id) { const a = SOND_DEF.argomenti.find(x => x.id === id); return a ? a.nome : id; }
     function coordArgomento(id) { const a = SOND_DEF.argomenti.find(x => x.id === id); return a ? (a.coord || '') : ''; }
+    function flagArgomento(id) { const a = SOND_DEF.argomenti.find(x => x.id === id); return a ? (a.flag || '') : ''; }
+    // colori stabili per area (grafico a torta + legenda), assegnati nell'ordine di SOND_DEF
+    const SOND_COLORI = ['#164068', '#2A5A85', '#C9A227', '#1E7F4F', '#B1213B'];
+    const coloreArea = {}; SOND_DEF.argomenti.forEach((a, i) => { coloreArea[a.id] = SOND_COLORI[i % SOND_COLORI.length]; });
 
     /* Configurazione del sondaggio: scadenza + invitati (email singole) + gruppi
        dinamici. La imposta l'amministratore dall'app; e' un archivio condiviso. */
@@ -4766,7 +4778,7 @@
         const risposte = Sondaggi.risposte();
         const ids = SOND_DEF.argomenti.map(a => a.id);
         const stat = {};
-        ids.forEach(id => { stat[id] = { id, nome: nomeArgomento(id), coord: coordArgomento(id), scelte: 0, comp: { Nessuna: 0, Base: 0, Buona: 0, Elevata: 0 }, candidati: [] }; });
+        ids.forEach(id => { stat[id] = { id, nome: nomeArgomento(id), coord: coordArgomento(id), flagLabel: flagArgomento(id), flagN: 0, scelte: 0, comp: { Nessuna: 0, Base: 0, Buona: 0, Elevata: 0 }, candidati: [] }; });
         let valide = 0;
         risposte.forEach(r => {
             if (soloSet && !soloSet.has(String(r.id).toLowerCase())) return; // conta solo gli invitati correnti
@@ -4777,7 +4789,8 @@
                 const s = stat[id]; s.scelte += 1;
                 const c = (r.comp && r.comp[id]) || {}; const liv = c.liv || 'Nessuna';
                 if (s.comp[liv] != null) s.comp[liv]++;
-                s.candidati.push({ email: r.email, nome: r.nome || r.email, ruolo: r.ruolo || '', liv: liv, esp: c.esp || '' });
+                if (c.flag) s.flagN += 1;
+                s.candidati.push({ email: r.email, nome: r.nome || r.email, ruolo: r.ruolo || '', liv: liv, esp: c.esp || '', flag: !!c.flag });
             });
         });
         const maxScelte = Math.max(1, ...ids.map(id => stat[id].scelte));
@@ -4805,32 +4818,39 @@
         const comp = {};
         SOND_DEF.argomenti.forEach(a => {
             const c = esistente && esistente.comp && esistente.comp[a.id];
-            comp[a.id] = { liv: (c && c.liv) || '', esp: (c && c.esp) || '' };
+            comp[a.id] = { liv: (c && c.liv) || '', esp: (c && c.esp) || '', flag: !!(c && c.flag) };
         });
         const bozzaNote = { v: (esistente && esistente.note) || '' };
 
         function cardHtml(a) {
             const scelta = scelte.has(a.id); const c = comp[a.id];
             const mostraEsp = scelta && c.liv && c.liv !== 'Nessuna';
-            const opt = '<option value="" disabled' + (c.liv === '' ? ' selected' : '') + '>Scegli competenza...</option>'
+            const opt = '<option value="" disabled' + (c.liv === '' ? ' selected' : '') + '>Scegli il livello...</option>'
                 + LIVELLI_COMP.map(l => '<option value="' + l + '"' + (c.liv === l ? ' selected' : '') + '>' + l + '</option>').join('');
+            const flagHtml = a.flag
+                ? '<label class="s-flag"><input type="checkbox" class="s-flag-chk"' + (c.flag ? ' checked' : '') + '> ' + esc(a.flag) + '</label>'
+                : '';
             return '<div class="s-scelta' + (scelta ? ' attiva' : '') + '" data-id="' + esc(a.id) + '">'
                 + '<label class="s-scelta-head"><input type="checkbox" class="s-check"' + (scelta ? ' checked' : '') + '>'
-                + '<span class="s-scelta-txt"><span class="s-scelta-nome">' + esc(a.nome) + ' <span class="s-coord">coord. ' + esc(a.coord) + '</span></span>'
+                + '<span class="s-scelta-txt"><span class="s-scelta-nome">' + esc(a.nome) + '</span>'
+                + '<span class="s-scelta-coord">Candidato coordinatore: ' + esc(a.coord) + '</span>'
                 + '<span class="s-scelta-desc">' + esc(a.desc) + '</span></span></label>'
                 + '<div class="s-scelta-comp"' + (scelta ? '' : ' hidden') + '>'
                 + '<div class="s-comp-row"><label class="s-comp-lab">Il tuo livello di competenza <span class="s-req">obbligatorio</span></label>'
                 + '<select class="s-liv">' + opt + '</select></div>'
                 + '<div class="s-esp-wrap"' + (mostraEsp ? '' : ' hidden') + '><label class="s-comp-lab">Competenze ed esperienze <span class="s-req">da compilare</span></label>'
-                + '<textarea class="s-esp" rows="2" maxlength="300" placeholder="Es. incarichi seguiti, corsi e certificazioni, anni di esperienza in questa area">' + esc(c.esp) + '</textarea></div>'
+                + '<textarea class="s-esp" rows="3" maxlength="400" placeholder="Es. incarichi seguiti, corsi e certificazioni, anni di esperienza in questa area">' + esc(c.esp) + '</textarea></div>'
+                + flagHtml
                 + '</div></div>';
         }
         function leggiDom() {
             document.querySelectorAll('#s-scelte .s-scelta').forEach(card => {
                 const id = card.dataset.id; if (!comp[id]) return;
                 const sel = card.querySelector('select.s-liv'); const inp = card.querySelector('textarea.s-esp');
+                const flg = card.querySelector('.s-flag-chk');
                 if (sel) comp[id].liv = sel.value;
                 if (inp) comp[id].esp = inp.value.trim();
+                comp[id].flag = !!(flg && flg.checked);
             });
             const note = document.getElementById('s-note'); if (note) bozzaNote.v = note.value;
         }
@@ -4845,13 +4865,14 @@
         }
 
         apriModale('<h2>' + (eNuovo ? 'Compila il questionario' : 'Modifica la tua risposta') + '</h2>'
-            + '<div class="s-guida"><p>Scegli <b>DUE aree</b> (<span id="s-conta">' + scelte.size + ' di ' + MAX_SCELTE + '</span>) nelle quali vorresti far parte del gruppo di specialisti. Per ciascuna area scelta indica il tuo <b>livello di competenza</b>; se non e "Nessuna", descrivi brevemente le esperienze.</p></div>'
+            + '<div class="s-guida"><p><b>Come funziona.</b> Seleziona le <b>due aree</b> nelle quali vorresti entrare a far parte del gruppo di specialisti, spuntando la casella accanto al nome. Per ciascuna area scelta indica il tuo <b>livello di competenza</b> (obbligatorio) e, se non e "Nessuna", descrivi in poche righe le tue esperienze.</p>'
+            + '<p class="s-guida-cnt">Aree selezionate: <b><span id="s-conta">' + scelte.size + ' di ' + MAX_SCELTE + '</span></b></p></div>'
             + '<div id="s-scelte" class="s-scelte">' + SOND_DEF.argomenti.map(cardHtml).join('') + '</div>'
-            + '<div class="campo" style="margin-top:14px;"><label for="s-note">Nota per la direzione (facoltativa)</label>'
+            + '<div class="campo" style="margin-top:16px;"><label for="s-note">Nota per la direzione (facoltativa)</label>'
             + '<textarea id="s-note" rows="2" maxlength="600" placeholder="Disponibilita, specializzazioni, proposte">' + esc(bozzaNote.v) + '</textarea></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="s-annulla">Annulla</button>'
             + '<button class="btn btn-primary" id="s-salva">' + (eNuovo ? 'Invia la risposta' : 'Aggiorna la risposta') + '</button></div>',
-            { classe: 'larga' });
+            { classe: 'larga s-modale-compila' });
 
         document.querySelectorAll('#s-scelte .s-check').forEach(chk => chk.addEventListener('change', () => {
             const card = chk.closest('.s-scelta'); const id = card.dataset.id;
@@ -4892,7 +4913,7 @@
                 return;
             }
             const compFin = {};
-            scelte.forEach(id => { const c = comp[id]; compFin[id] = { liv: c.liv, esp: c.liv === 'Nessuna' ? '' : (c.esp || '') }; });
+            scelte.forEach(id => { const c = comp[id]; compFin[id] = { liv: c.liv, esp: c.liv === 'Nessuna' ? '' : (c.esp || ''), flag: flagArgomento(id) ? !!c.flag : false }; });
             const rec = {
                 id: String(u.email).toLowerCase(), email: String(u.email).toLowerCase(),
                 nome: u.nome || u.email, ruolo: u.ruolo || '',
@@ -4923,12 +4944,14 @@
     // countdown dal vivo verso la scadenza: si auto-spegne quando si cambia vista
     function avviaCountdown(cfg) {
         if (_sondTimer) { clearInterval(_sondTimer); _sondTimer = null; }
+        const box = (v, lab) => '<div class="s-cd-box"><b>' + String(v).padStart(2, '0') + '</b><i>' + lab + '</i></div>';
         const tick = () => {
             const e = document.getElementById('s-countdown');
             if (!e) { if (_sondTimer) { clearInterval(_sondTimer); _sondTimer = null; } return; }
             let ms = scadenzaMs(cfg) - Date.now();
+            const totale = ms;
             if (ms <= 0) {
-                e.textContent = 'tempo scaduto';
+                e.innerHTML = '<div class="s-cd-scaduto">Tempo scaduto</div>';
                 if (_sondTimer) { clearInterval(_sondTimer); _sondTimer = null; }
                 if (vistaCorrente === 'sondaggi') vistaSondaggi();
                 return;
@@ -4937,7 +4960,9 @@
             const hh = Math.floor(ms / 3600000); ms -= hh * 3600000;
             const mm = Math.floor(ms / 60000); ms -= mm * 60000;
             const ss = Math.floor(ms / 1000);
-            e.textContent = (gg ? gg + 'g ' : '') + String(hh).padStart(2, '0') + 'h ' + String(mm).padStart(2, '0') + 'm ' + String(ss).padStart(2, '0') + 's';
+            e.innerHTML = box(gg, gg === 1 ? 'giorno' : 'giorni') + box(hh, 'ore') + box(mm, 'minuti') + box(ss, 'secondi');
+            const t = document.getElementById('s-timer');
+            if (t) t.classList.toggle('urgente', totale < 3 * 86400000); // ultimi 3 giorni
         };
         tick();
         _sondTimer = setInterval(tick, 1000);
@@ -4968,13 +4993,17 @@
         if (sondTab === 'questionario' && !mostraQuest) sondTab = 'risultati';
         if (sondTab === 'risultati' && !mostraRis) sondTab = 'questionario';
 
-        const timer = aperto
-            ? '<div class="s-timer aperto"><div class="s-timer-main"><span class="s-timer-lab">Tempo rimanente per compilare</span>'
-                + '<span class="s-timer-val" id="s-countdown">...</span></div>'
-                + '<div class="s-timer-scad">Chiusura il ' + esc(scadTxt) + ' alle 23:59</div></div>'
-            : '<div class="s-timer chiuso"><div class="s-timer-main"><span class="s-timer-lab">Compilazione chiusa</span>'
-                + '<span class="s-timer-val">Le risposte non sono piu modificabili</span></div>'
-                + '<div class="s-timer-scad">Chiusa il ' + esc(scadTxt) + '</div></div>';
+        // il countdown "tempo per compilare" ha senso solo per chi compila: i
+        // visualizzatori (solo risultati) non lo vedono.
+        const timer = !aperto
+            ? '<div class="s-timer chiuso"><div class="s-timer-top"><span class="s-timer-lab">Compilazione chiusa</span>'
+                + '<span class="s-timer-scad">chiusa il ' + esc(scadTxt) + '</span></div>'
+                + '<div class="s-timer-val">Le risposte non sono piu modificabili</div></div>'
+            : (mostraQuest
+                ? '<div class="s-timer aperto" id="s-timer"><div class="s-timer-top"><span class="s-timer-lab">Tempo rimanente per compilare</span>'
+                    + '<span class="s-timer-scad">chiusura il ' + esc(scadTxt) + ' alle 23:59</span></div>'
+                    + '<div class="s-countdown" id="s-countdown"></div></div>'
+                : '');
 
         let tabBtns = '';
         if (mostraQuest) tabBtns += '<button class="tab-btn ' + (sondTab === 'questionario' ? 'attivo' : '') + '" data-sondtab="questionario">Il questionario</button>';
@@ -5073,33 +5102,38 @@
             + '<div><div class="s-riep-lbl">' + (nInv ? 'invitati hanno risposto (' + perc + '%)' : (valide === 1 ? 'risposta raccolta' : 'risposte raccolte')) + '</div>'
             + '<div class="hint">Ogni persona sceglie <b>due aree</b>. Il numero accanto a ciascuna area dice <b>quante persone l\'hanno scelta</b>; le <b>competenze</b> quante si dichiarano competenti (Base, Buona o Elevata) in quell\'area.</div></div></div>';
 
-        // 2) aree ordinate per numero di scelte
+        // 2) grafico a torta della distribuzione delle scelte
+        const torta = tortaSondaggioSvg(classifica);
+
+        // 3) aree ordinate per numero di scelte (con eventuale conteggio del requisito)
         const barre = classifica.map((s, i) => {
             const compTot = s.comp.Base + s.comp.Buona + s.comp.Elevata;
             const w = Math.max(4, Math.round(s.scelte / maxScelte * 100));
+            const flagInfo = (s.flagLabel && s.flagN) ? '<span class="s-bar-flag">' + s.flagN + ' &times; ' + esc(etichettaFlagBreve(s.id)) + '</span>' : '';
             return '<div class="s-bar-row">'
-                + '<div class="s-bar-rank">' + (i + 1) + '</div>'
+                + '<div class="s-bar-rank" style="background:' + (coloreArea[s.id] || 'var(--blu-700)') + '">' + (i + 1) + '</div>'
                 + '<div class="s-bar-body">'
                 + '<div class="s-bar-top"><span class="s-bar-nome">' + esc(s.nome) + '</span><span class="s-bar-pts">' + s.scelte + (s.scelte === 1 ? ' scelta' : ' scelte') + '</span></div>'
-                + '<div class="s-bar-track"><div class="s-bar-fill" style="width:' + w + '%"></div></div>'
+                + '<div class="s-bar-track"><div class="s-bar-fill" style="width:' + w + '%;background:' + (coloreArea[s.id] || '') + '"></div></div>'
                 + '<div class="s-bar-meta"><span>Coord.: ' + esc(s.coord || '-') + '</span>'
-                + '<span class="s-bar-comp">competenti ' + compTot + ': ' + competenzeBadge(s.comp) + '</span></div>'
+                + '<span class="s-bar-comp">competenti ' + compTot + ': ' + competenzeBadge(s.comp) + '</span>' + flagInfo + '</div>'
                 + '</div></div>';
         }).join('');
         const classificaBox = '<h2 class="s-sez-tit">Aree piu scelte</h2><div class="s-bars">' + barre + '</div>';
 
-        // 3) chi ha scelto ciascun gruppo (nominativo: solo admin/titolare)
-        const squadre = !admin ? '' : '<h2 class="s-sez-tit">Chi ha scelto ciascun gruppo</h2>'
-            + '<p class="hint" style="margin:-6px 0 12px;">Per ogni area, le persone che l\'hanno scelta ordinate per competenza dichiarata. Utile per comporre i gruppi attorno al candidato coordinatore.</p>'
+        // 4) chi ha scelto ciascun gruppo (nominativo: visibile a chi puo' vedere i risultati)
+        const squadre = '<h2 class="s-sez-tit">Chi ha scelto ciascun gruppo</h2>'
+            + '<p class="hint" style="margin:-6px 0 12px;">Per ogni area, le persone che l\'hanno scelta con il livello di competenza dichiarato. Utile per comporre i gruppi attorno al candidato coordinatore.</p>'
             + '<div class="s-team-grid">' + classifica.map(s => {
-                const lis = s.candidati.length ? s.candidati.slice(0, 20).map(c => '<li><span class="s-team-nome">' + esc(c.nome) + '</span> ' + livBadge(c.liv) + '</li>').join('')
+                const lis = s.candidati.length ? s.candidati.map(c => '<li><span class="s-team-nome">' + esc(c.nome) + '</span> ' + livBadge(c.liv)
+                    + (c.flag ? ' <span class="s-team-flag">' + esc(etichettaFlagBreve(s.id)) + '</span>' : '') + '</li>').join('')
                     : '<li class="hint">Nessuno ha scelto quest\'area.</li>';
-                return '<div class="s-team-area"><div class="s-team-head">' + esc(s.nome)
+                return '<div class="s-team-area"><div class="s-team-head"><span class="s-team-pallino" style="background:' + (coloreArea[s.id] || '') + '"></span>' + esc(s.nome)
                     + '<span class="s-team-coord">Coord.: ' + esc(s.coord || '-') + '</span></div>'
                     + '<ul class="s-team-list">' + lis + '</ul></div>';
             }).join('') + '</div>';
 
-        // 4) admin: chi manca + risposte individuali
+        // 5) admin: chi manca + tabella completa con eliminazione
         let dettaglio = '';
         if (admin) {
             const mancano = invitati.filter(iv => !rispSet.has(iv.email));
@@ -5107,8 +5141,8 @@
                 + (mancano.length ? '<div class="s-manca-lista">' + esc(mancano.map(m => m.nome).join(', ')) + '</div>' : '<div class="hint" style="margin-top:4px;">Tutti gli invitati hanno risposto.</div>') + '</div>' : '';
             const rr = risposte.filter(r => Array.isArray(r.scelte) && r.scelte.length).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
             const drighe = rr.map(r => {
-                const cell = r.scelte.filter(id => coordArgomento(id) || nomeArgomento(id))
-                    .map(id => { const c = (r.comp && r.comp[id]) || {}; return nomeArgomento(id) + ' (' + (c.liv || 'Nessuna') + ')'; }).join(' · ');
+                const cell = r.scelte.filter(id => nomeArgomento(id))
+                    .map(id => { const c = (r.comp && r.comp[id]) || {}; return nomeArgomento(id) + ' (' + (c.liv || 'Nessuna') + (c.flag ? ', ' + etichettaFlagBreve(id) : '') + ')'; }).join(' · ');
                 return '<tr>'
                     + '<td class="cliente-cella" data-label="Persona">' + esc(r.nome || r.email) + '</td>'
                     + '<td data-label="Ruolo">' + esc(nomeRuolo(r.ruolo)) + '</td>'
@@ -5117,13 +5151,45 @@
                     + '<td data-label=""><button class="btn btn-sm btn-secondary s-elimina" data-id="' + esc(r.id) + '" data-nome="' + esc(r.nome || r.email) + '">Elimina</button></td>'
                     + '</tr>';
             }).join('');
-            dettaglio = '<h2 class="s-sez-tit">Risposte individuali</h2>' + mancaBox
+            dettaglio = '<h2 class="s-sez-tit">Tabella completa (amministratore)</h2>' + mancaBox
                 + '<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>'
                 + '<th>Persona</th><th>Ruolo</th><th>Aree scelte (competenza)</th><th>Aggiornata</th><th></th>'
                 + '</tr></thead><tbody>' + drighe + '</tbody></table></div>'
-                + '<p class="hint" style="margin-top:8px;">Il dettaglio nominativo e visibile solo ad amministratore e titolare.</p>';
+                + '<p class="hint" style="margin-top:8px;">La tabella con eliminazione e visibile solo ad amministratore e titolare.</p>';
         }
-        return partec + classificaBox + squadre + dettaglio;
+        return partec + torta + classificaBox + squadre + dettaglio;
+    }
+
+    function etichettaFlagBreve(id) {
+        if (id === 'esg') return 'Revisore sostenibilita';
+        if (id === 'compliance') return 'Albo TCF';
+        return 'Requisito';
+    }
+    // grafico a torta (SVG puro) della distribuzione delle scelte per area + legenda
+    function tortaSondaggioSvg(classifica) {
+        const dati = classifica.filter(s => s.scelte > 0);
+        const tot = dati.reduce((a, s) => a + s.scelte, 0);
+        if (!tot) return '';
+        const cx = 90, cy = 90, r = 78;
+        let ang = -Math.PI / 2, paths = '';
+        if (dati.length === 1) {
+            paths = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + (coloreArea[dati[0].id] || '#164068') + '"/>';
+        } else {
+            dati.forEach(s => {
+                const frac = s.scelte / tot;
+                const a2 = ang + frac * 2 * Math.PI;
+                const x1 = (cx + r * Math.cos(ang)).toFixed(2), y1 = (cy + r * Math.sin(ang)).toFixed(2);
+                const x2 = (cx + r * Math.cos(a2)).toFixed(2), y2 = (cy + r * Math.sin(a2)).toFixed(2);
+                const large = frac > 0.5 ? 1 : 0;
+                paths += '<path d="M' + cx + ',' + cy + ' L' + x1 + ',' + y1 + ' A' + r + ',' + r + ' 0 ' + large + ' 1 ' + x2 + ',' + y2 + ' Z" fill="' + (coloreArea[s.id] || '#888') + '"></path>';
+                ang = a2;
+            });
+        }
+        const legenda = dati.map(s => '<li><span class="s-torta-sw" style="background:' + (coloreArea[s.id] || '') + '"></span>'
+            + '<span class="s-torta-nome">' + esc(s.nome) + '</span><span class="s-torta-val">' + s.scelte + ' (' + Math.round(s.scelte / tot * 100) + '%)</span></li>').join('');
+        return '<h2 class="s-sez-tit">Distribuzione delle scelte</h2>'
+            + '<div class="card s-torta-card"><svg class="s-torta" viewBox="0 0 180 180" role="img" aria-label="Grafico a torta delle scelte">' + paths + '</svg>'
+            + '<ul class="s-torta-legenda">' + legenda + '</ul></div>';
     }
 
     function livBadge(liv) {
@@ -5223,7 +5289,7 @@
         document.getElementById('ii-si').addEventListener('click', () => {
             const btn = document.getElementById('ii-si'); if (!btn) return;
             btn.disabled = true; btn.textContent = 'Invio in corso...';
-            Cloud.invitaSondaggio(comp, vis, utenti, RUOLI_SOND).then(res => {
+            Cloud.invitaSondaggio(comp, vis, utenti, RUOLI_SOND, fmtData(cfg.scadenza)).then(res => {
                 chiudiModale();
                 if (res && res.ok) {
                     let m = 'Inviti inviati: ' + res.inviati;
