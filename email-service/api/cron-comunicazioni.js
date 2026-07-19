@@ -153,7 +153,7 @@ function risolviDestinatariCron(com, persone, utenti, incarichi) {
     };
     if (g.has('utenti')) (utenti || []).forEach(u => { if (u.email && u.attivo !== false) add(u.email, u.nome || '', '', ''); });
     (persone || []).forEach(p => {
-        if (!p || !p.attivo || !p.email) return;
+        if (!p || !p.attivo || p.eliminato || !p.email) return;
         if ((g.has('qualita') && p.qualita) || (g.has('procuratori') && p.respIncarico) || (g.has('team') && p.team) || (g.has('coordinatori') && p.coordinatore) || (g.has('vicecoordinatori') && p.viceCoordinatore)) {
             const cognome = p.nome || '';
             add(p.email, p.nomeProprio || cognome, cognome, incarichiDiCognome(cognome, incarichi).join(', '));

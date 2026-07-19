@@ -178,6 +178,7 @@
         rimborsi: 'rvArea.rimborsiSpese',
         allerte: 'rvArea.allerte',
         comunicazioni: 'rvArea.comunicazioni',
+        sondaggi: 'rvArea.sondaggi',
         ruoli: 'rvArea.ruoli',
         impostazioni: 'rvArea.impostazioni'
     };
@@ -192,6 +193,7 @@
         { id: 'report', nome: 'Report compensi' },
         { id: 'persone', nome: 'Persone' },
         { id: 'comunicazioni', nome: 'Comunicazioni' },
+        { id: 'sondaggi', nome: 'Sondaggi' },
         { id: 'registro', nome: 'Registro modifiche' }
     ];
     const LIVELLI_SEZIONE = { no: 'Nascosta', lettura: 'Sola lettura', scrittura: 'Scrittura' };
@@ -522,10 +524,10 @@
     const Persone = {
         tutte() { return Store.leggi(CHIAVI.persone, []); },
         salva(l) { Store.scrivi(CHIAVI.persone, l); },
-        /* nomi attivi per un ruolo: 'qualita' | 'respIncarico' | 'team' */
+        /* nomi attivi per un ruolo: 'qualita' | 'respIncarico' | 'team' (esclusi eliminati) */
         attive(ruolo) {
             return this.tutte()
-                .filter(p => p.attivo && (!ruolo || p[ruolo]))
+                .filter(p => p.attivo && !p.eliminato && (!ruolo || p[ruolo]))
                 .map(p => p.nome)
                 .sort((a, b) => a.localeCompare(b));
         },
@@ -812,7 +814,7 @@
             const u = this.utenteCorrente;
             if (!u || !u.email) return null;
             const em = String(u.email).toLowerCase();
-            const match = Persone.tutte().filter(p => p.email && String(p.email).toLowerCase() === em);
+            const match = Persone.tutte().filter(p => p.email && !p.eliminato && String(p.email).toLowerCase() === em);
             if (!match.length) return null;
             const haRegioni = p => !!((p.regione && String(p.regione).trim()) || (Array.isArray(p.regioniCoordinate) && p.regioniCoordinate.filter(Boolean).length));
             const punti = p => (p.attivo ? 2 : 0) + (haRegioni(p) ? 1 : 0);
@@ -896,6 +898,7 @@
                 this.DOC_SYNC[CHIAVI.fatture] = 'fattureStato';
                 this.DOC_SYNC[CHIAVI.allerte] = 'allerte';
                 this.DOC_SYNC[CHIAVI.comunicazioni] = 'comunicazioni';
+                this.DOC_SYNC[CHIAVI.sondaggi] = 'sondaggi';
                 this.DOC_SYNC[CHIAVI.ruoli] = 'ruoli';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
@@ -1985,6 +1988,7 @@
         { id: 'coordinatori', nome: 'Coordinatori e vice', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
         { id: 'responsabili', nome: 'Responsabili', icona: 'M9 12l2 2 4-4M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z' },
         { id: 'comunicazioni', nome: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
+        { id: 'sondaggi', nome: 'Sondaggi', icona: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 13l2 2 4-4' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
         { id: 'ruoli', nome: 'Ruoli e permessi', icona: 'M12 15a3 3 0 100-6 3 3 0 000 6zM12 1v2m0 18v2m11-11h-2M3 12H1m17.66 6.66l-1.42-1.42M6.76 6.76 5.34 5.34m12.32 0-1.42 1.42M6.76 17.24l-1.42 1.42', soloAdmin: true },
@@ -2011,6 +2015,7 @@
             coordinatori: vistaCoordinatori,
             responsabili: vistaResponsabili,
             comunicazioni: vistaComunicazioni,
+            sondaggi: vistaSondaggi,
             registro: vistaRegistro,
             utenti: vistaUtenti,
             ruoli: vistaRuoli,
@@ -2114,7 +2119,7 @@
            Persone (spunta "Coordinatore territoriale"), abbinando le regioni della scheda
            (Regione + altre regioni coordinate) alla regione dell'incarico. Un incarico la
            cui regione non e' coperta da nessun coordinatore finisce in "Senza coordinatore". */
-        const coordinatori = Persone.tutte().filter(p => p.coordinatore && p.attivo).map(p => ({
+        const coordinatori = Persone.tutte().filter(p => p.coordinatore && p.attivo && !p.eliminato).map(p => ({
             nome: (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome,
             regioni: new Set([p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : [])
                 .map(chiaveRegione).filter(Boolean))
@@ -3759,25 +3764,35 @@
             r.addEventListener('click', () => { chiudiModale(); naviga('dettaglio', { id: r.dataset.apri }); }));
     }
 
+    let personeTab = 'attive'; // 'attive' | 'disattivate' | 'eliminate'
+
     function vistaPersone() {
-        const persone = Persone.tutte().slice().sort((a, b) => a.nome.localeCompare(b.nome));
+        const puoScr = Auth.puoScrivere('persone');
         // si/no compatti: testo leggibile (utile per filtri di colonna ed esportazione CSV) ma senza il riquadro del badge, cosi la tabella entra in orizzontale
         const spunta = v => v ? '<span class="mark-si">si</span>' : '<span class="mark-no">no</span>';
+        const tutte = Persone.tutte().slice().sort((a, b) => a.nome.localeCompare(b.nome));
+        const attive = tutte.filter(p => p.attivo && !p.eliminato);
+        const disattivate = tutte.filter(p => !p.attivo && !p.eliminato);
+        const eliminate = tutte.filter(p => p.eliminato);
+        const lista = personeTab === 'disattivate' ? disattivate : personeTab === 'eliminate' ? eliminate : attive;
 
-        $vista().innerHTML = `
-            <header>
-                <div>
-                    <h1>Persone</h1>
-                    <p class="descrizione">Anagrafica completa: nominativi, contatti (email, telefono, regione) e ruoli. Chi puo essere responsabile della qualita, responsabile dell'incarico o componente del team. Le tendine del wizard leggono da questo elenco.</p>
-                </div>
-                <div class="header-azioni">
-                    ${Auth.puoScrivere('persone') ? '<button class="btn btn-primary" id="btn-nuova-persona">+ Aggiungi persona</button>' : ''}
-                </div>
-            </header>
-            <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${Auth.puoScrivere('persone') ? '<th></th>' : ''}
+        const azioni = p => {
+            if (!puoScr) return '';
+            if (p.eliminato) return `<td data-label="" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary p-ripristina" data-id="${esc(p.id)}">Ripristina</button></td>`;
+            return `<td data-label="" style="white-space:nowrap;">
+                <button class="btn btn-sm btn-secondary p-modifica" data-id="${esc(p.id)}">Modifica</button>
+                <button class="btn btn-sm btn-secondary p-attiva" data-id="${esc(p.id)}">${p.attivo ? 'Disattiva' : 'Riattiva'}</button>
+                <button class="btn btn-sm btn-danger p-elimina" data-id="${esc(p.id)}">Elimina</button>
+            </td>`;
+        };
+        const badgeStato = p => p.eliminato
+            ? '<span class="badge neutro">eliminata' + (p.eliminato.il ? ' il ' + fmtGiorno(p.eliminato.il) : '') + '</span>'
+            : (p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge ambra">disattivata</span>');
+
+        const corpo = lista.length ? `<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
             </tr></thead><tbody>` +
-            persone.map(p => {
+            lista.map(p => {
                 const nInc = incarichiDellaPersona(p.nome).length;
                 return `<tr>
                 <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
@@ -3792,16 +3807,34 @@
                 <td class="col-mark" data-label="Equity partner">${spunta(p.equityPartner)}</td>
                 <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
                 <td class="num" data-label="Incarichi">${nInc ? `<button class="btn btn-sm btn-ghost p-inc" data-id="${esc(p.id)}" title="Vedi gli incarichi di ${esc(p.nome)}">${nInc}</button>` : ''}</td>
-                <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
-                ${Auth.puoScrivere('persone') ? `<td data-label="" style="white-space:nowrap;">
-                    <button class="btn btn-sm btn-secondary p-modifica" data-id="${esc(p.id)}">Modifica</button>
-                    <button class="btn btn-sm ${p.attivo ? 'btn-danger' : 'btn-secondary'} p-attiva" data-id="${esc(p.id)}">${p.attivo ? 'Disattiva' : 'Riattiva'}</button>
-                </td>` : ''}
+                <td data-label="Stato">${badgeStato(p)}</td>
+                ${azioni(p)}
             </tr>`; }).join('') +
-            `</tbody></table></div>
-            <p class="descrizione" style="margin-top:10px;">Le persone disattivate non compaiono piu nelle tendine ma restano negli incarichi gia registrati.</p>`;
+            `</tbody></table></div>`
+            : `<div class="card tabella-vuota">${personeTab === 'disattivate' ? 'Nessuna persona disattivata.' : personeTab === 'eliminate' ? 'Nessuna persona eliminata.' : 'Nessuna persona attiva.'}</div>`;
 
-        attrezzaTabella($vista(), { nomeFile: 'persone' });
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Persone</h1>
+                    <p class="descrizione">Anagrafica completa: nominativi, contatti (email, telefono, regione) e ruoli. Chi puo essere responsabile della qualita, responsabile dell'incarico o componente del team. Le tendine del wizard leggono da questo elenco.</p>
+                </div>
+                <div class="header-azioni">
+                    ${puoScr ? '<button class="btn btn-primary" id="btn-nuova-persona">+ Aggiungi persona</button>' : ''}
+                </div>
+            </header>
+            <div class="tab-dest" style="margin-bottom:16px;">
+                <button class="tab-btn ${personeTab === 'attive' ? 'attivo' : ''}" data-ptab="attive">Attive (${attive.length})</button>
+                <button class="tab-btn ${personeTab === 'disattivate' ? 'attivo' : ''}" data-ptab="disattivate">Disattivate (${disattivate.length})</button>
+                <button class="tab-btn ${personeTab === 'eliminate' ? 'attivo' : ''}" data-ptab="eliminate">Eliminate (${eliminate.length})</button>
+            </div>
+            ${corpo}
+            <p class="descrizione" style="margin-top:10px;">Le persone disattivate o eliminate non compaiono piu nelle tendine ne nelle sezioni Coordinatori e Responsabili, ma restano negli incarichi gia registrati. L'eliminazione e reversibile: le persone eliminate si ripristinano dalla scheda "Eliminate".</p>`;
+
+        const tab = $vista().querySelector('table.dati');
+        if (tab) attrezzaTabella(tab, { nomeFile: 'persone-' + personeTab });
+        $vista().querySelectorAll('[data-ptab]').forEach(b =>
+            b.addEventListener('click', () => { personeTab = b.dataset.ptab; vistaPersone(); }));
         const btnNuova = document.getElementById('btn-nuova-persona');
         if (btnNuova) btnNuova.addEventListener('click', () => modalePersona(null));
         $vista().querySelectorAll('.p-inc').forEach(b =>
@@ -3813,13 +3846,41 @@
             b.addEventListener('click', () => modalePersona(b.dataset.id)));
         $vista().querySelectorAll('.p-attiva').forEach(b =>
             b.addEventListener('click', () => {
-                const lista = Persone.tutte();
-                const p = lista.find(x => x.id === b.dataset.id);
+                const l = Persone.tutte();
+                const p = l.find(x => x.id === b.dataset.id);
                 if (!p) return;
                 p.attivo = !p.attivo;
-                Persone.salva(lista);
+                Persone.salva(l);
                 Audit.registra(Auth.utenteCorrente, p.attivo ? 'Persona riattivata' : 'Persona disattivata', 'persona', p.id, p.nome, null);
                 toast((p.attivo ? 'Riattivata: ' : 'Disattivata: ') + p.nome, 'verde');
+                vistaPersone();
+            }));
+        $vista().querySelectorAll('.p-elimina').forEach(b =>
+            b.addEventListener('click', () => {
+                const p = Persone.tutte().find(x => x.id === b.dataset.id);
+                if (!p) return;
+                apriModale(`<h2>Eliminare la persona?</h2>
+                    <p><strong>${esc((p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome)}</strong> verra spostata nella scheda <strong>Eliminate</strong>: non comparira piu nelle tendine ne nelle sezioni Coordinatori e Responsabili. Resta negli incarichi gia registrati e si puo ripristinare in qualsiasi momento. L'operazione e nel registro.</p>
+                    <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-danger" id="m-conferma">Elimina</button></div>`);
+                document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+                document.getElementById('m-conferma').addEventListener('click', () => {
+                    const l = Persone.tutte();
+                    const x = l.find(y => y.id === p.id); if (!x) return;
+                    x.eliminato = { da: Auth.utenteCorrente.nome + ' <' + Auth.utenteCorrente.email + '>', il: Date.now() };
+                    Persone.salva(l);
+                    Audit.registra(Auth.utenteCorrente, 'Persona eliminata', 'persona', x.id, x.nome, null);
+                    chiudiModale(); toast('Persona eliminata: e nella scheda "Eliminate".', 'verde'); vistaPersone();
+                });
+            }));
+        $vista().querySelectorAll('.p-ripristina').forEach(b =>
+            b.addEventListener('click', () => {
+                const l = Persone.tutte();
+                const p = l.find(x => x.id === b.dataset.id);
+                if (!p) return;
+                p.eliminato = null;
+                Persone.salva(l);
+                Audit.registra(Auth.utenteCorrente, 'Persona ripristinata', 'persona', p.id, p.nome, null);
+                toast('Persona ripristinata: ' + p.nome + (p.attivo ? '' : ' (resta disattivata).'), 'verde');
                 vistaPersone();
             }));
     }
@@ -3843,8 +3904,8 @@
     function vistaCoordinatori() {
         const puoScr = Auth.puoScrivere('persone');
         const attivi = Incarichi.visibili().filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
-        const coordinatori = Persone.tutte().filter(p => p.coordinatore).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
-        const vice = Persone.tutte().filter(p => p.viceCoordinatore).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        const coordinatori = Persone.tutte().filter(p => p.coordinatore && !p.eliminato).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        const vice = Persone.tutte().filter(p => p.viceCoordinatore && !p.eliminato).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
 
         // tabella persone (usata per Coordinatori e per Vice)
         const tabellaPersone = (lista, ruolo) => {
@@ -3978,10 +4039,10 @@
         const puoScr = Auth.puoScrivere('persone');
         const campo = respTab === 'incarico' ? 'respIncarico' : 'qualita';
         const etichetta = respTab === 'incarico' ? 'Responsabile incarico' : 'Responsabile qualita';
-        const lista = Persone.tutte().filter(p => respTab === 'incarico' ? p.respIncarico : p.qualita)
+        const lista = Persone.tutte().filter(p => !p.eliminato && (respTab === 'incarico' ? p.respIncarico : p.qualita))
             .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
-        const qualitaN = Persone.tutte().filter(p => p.qualita).length;
-        const incaricoN = Persone.tutte().filter(p => p.respIncarico).length;
+        const qualitaN = Persone.tutte().filter(p => p.qualita && !p.eliminato).length;
+        const incaricoN = Persone.tutte().filter(p => p.respIncarico && !p.eliminato).length;
 
         const corpo = lista.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
             <th>Cognome</th><th>Nome</th><th>Email</th><th class="num" title="Incarichi in cui e ${esc(etichetta.toLowerCase())}">Incarichi</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
@@ -4222,7 +4283,7 @@
         const set = new Set();
         const g = new Set(gruppi || []);
         if (g.has('utenti')) (utentiAbilitati || []).forEach(u => { if (u.email && u.attivo !== false) set.add(String(u.email).toLowerCase()); });
-        const persone = Persone.tutte().filter(p => p.attivo && p.email);
+        const persone = Persone.tutte().filter(p => p.attivo && !p.eliminato && p.email);
         if (g.has('qualita')) persone.filter(p => p.qualita).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('procuratori')) persone.filter(p => p.respIncarico).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('team')) persone.filter(p => p.team).forEach(p => set.add(p.email.toLowerCase()));
@@ -4393,6 +4454,258 @@
             </div>
             <div class="cal-legenda">${CONTESTI.map(x => `<span class="badge ${x.classe}">${esc(x.nome)}</span>`).join('')}</div>
             <div class="cal-griglia">${giorniIt.map(d => `<div class="cal-intest">${d}</div>`).join('')}${celle}</div>`;
+    }
+
+    /* =========================================================
+       SONDAGGI (candidatura ai gruppi di specialisti Revilaw)
+       ---------------------------------------------------------
+       Un questionario interno: ogni utente abilitato ordina le aree
+       di consulenza per preferenza e indica competenze ed esperienze.
+       Le risposte sono un archivio condiviso (una per utente, chiave =
+       email), con una scheda di riepilogo dei risultati aggregati.
+    ========================================================= */
+    const LIVELLI_COMP = ['Base', 'Buona', 'Elevata'];
+    const SOND_DEF = {
+        id: 'gruppi-specialisti',
+        titolo: 'Gruppi di specialisti',
+        descrizione: 'Accanto alla revisione legale Revilaw sviluppa una consulenza integrata per rafforzare gli assetti e il merito creditizio delle imprese. Da settembre nascono i gruppi di specialisti: indica in ordine le aree su cui vorresti contribuire e, dove vuoi, le tue competenze ed esperienze.',
+        argomenti: [
+            { id: 'adeguati_assetti', nome: 'Adeguati assetti', desc: 'Assetti organizzativi, amministrativi e contabili adeguati ai sensi dell\'art. 2086 c.c.' },
+            { id: 'esg', nome: 'ESG e sostenibilita', desc: 'Rendicontazione di sostenibilita, criteri ESG e finanza sostenibile per le imprese.' },
+            { id: 'finanza_agevolata', nome: 'Finanza agevolata', desc: 'Bandi, incentivi e strumenti agevolativi per gli investimenti e la crescita d\'impresa.' },
+            { id: 'rating_legalita', nome: 'Rating di legalita', desc: 'Requisiti, punteggio e vantaggi reputazionali e creditizi del rating di legalita.' },
+            { id: 'modello_231', nome: 'Modello 231', desc: 'Responsabilita amministrativa degli enti e sistema di prevenzione dei reati.' },
+            { id: 'tcf', nome: 'Tax Control Framework', desc: 'Presidio del rischio fiscale e adempimento collaborativo con l\'amministrazione.' },
+            { id: 'crisi_impresa', nome: 'Crisi d\'impresa', desc: 'Allerta precoce, composizione negoziata e percorsi di risanamento dell\'impresa.' },
+            { id: 'wealth_management', nome: 'Wealth management', desc: 'Protezione e pianificazione del patrimonio dell\'imprenditore e della famiglia.' }
+        ]
+    };
+    const Sondaggi = {
+        risposte() { const l = Store.leggi(CHIAVI.sondaggi, []); return Array.isArray(l) ? l : []; },
+        salvaTutte(l) { Store.scrivi(CHIAVI.sondaggi, l); },
+        rispostaDi(email) { const e = String(email || '').toLowerCase(); return this.risposte().find(r => r && r.id === e) || null; },
+        salvaRisposta(rec) {
+            const l = this.risposte();
+            const i = l.findIndex(r => r && r.id === rec.id);
+            if (i >= 0) l[i] = rec; else l.push(rec);
+            this.salvaTutte(l);
+        },
+        elimina(id) { this.salvaTutte(this.risposte().filter(r => r && r.id !== id)); }
+    };
+    function nomeArgomento(id) { const a = SOND_DEF.argomenti.find(x => x.id === id); return a ? a.nome : id; }
+
+    // riepilogo: punteggio (metodo Borda), media posizione, prime scelte, competenze
+    function aggregaSondaggio() {
+        const risposte = Sondaggi.risposte();
+        const ids = SOND_DEF.argomenti.map(a => a.id);
+        const N = ids.length;
+        const stat = {};
+        ids.forEach(id => { stat[id] = { id, nome: nomeArgomento(id), punti: 0, sommaPos: 0, conteggi: 0, primi: 0, comp: { Base: 0, Buona: 0, Elevata: 0 } }; });
+        risposte.forEach(r => {
+            const ord = Array.isArray(r.ordine) ? r.ordine.filter(id => stat[id]) : [];
+            ord.forEach((id, i) => {
+                const s = stat[id]; const pos = i + 1;
+                s.punti += (N - pos + 1);
+                s.sommaPos += pos; s.conteggi += 1;
+                if (pos === 1) s.primi += 1;
+            });
+            if (r.comp) ids.forEach(id => { const c = r.comp[id]; if (c && c.liv && stat[id].comp[c.liv] != null) stat[id].comp[c.liv]++; });
+        });
+        const classifica = ids.map(id => stat[id]).sort((a, b) =>
+            b.punti - a.punti || (a.sommaPos / (a.conteggi || 1)) - (b.sommaPos / (b.conteggi || 1)));
+        return { risposte, classifica, N };
+    }
+
+    /* Modale di compilazione: ordinamento con le frecce, competenze facoltative.
+       La bozza vive in memoria e i campi vengono riletti prima di ogni riordino,
+       cosi spostare una riga non perde cio' che e' gia' stato scritto. */
+    function modaleSondaggio() {
+        const u = Auth.utenteCorrente; if (!u) return;
+        const esistente = Sondaggi.rispostaDi(u.email);
+        const idsDefault = SOND_DEF.argomenti.map(a => a.id);
+        const argById = {}; SOND_DEF.argomenti.forEach(a => { argById[a.id] = a; });
+
+        const bozza = { ordine: [], comp: {}, note: (esistente && esistente.note) || '' };
+        const base = (esistente && Array.isArray(esistente.ordine)) ? esistente.ordine.filter(id => argById[id]) : [];
+        idsDefault.forEach(id => { if (base.indexOf(id) < 0) base.push(id); });
+        bozza.ordine = base;
+        idsDefault.forEach(id => {
+            const c = esistente && esistente.comp && esistente.comp[id];
+            bozza.comp[id] = { liv: (c && c.liv) || '', esp: (c && c.esp) || '' };
+        });
+
+        function leggiDom() {
+            const cont = document.getElementById('s-lista'); if (!cont) return;
+            cont.querySelectorAll('.s-riga').forEach(r => {
+                const id = r.dataset.id; if (!bozza.comp[id]) return;
+                const sel = r.querySelector('select.s-liv'); const inp = r.querySelector('input.s-esp');
+                bozza.comp[id].liv = sel ? sel.value : '';
+                bozza.comp[id].esp = inp ? inp.value.trim() : '';
+            });
+            const note = document.getElementById('s-note'); if (note) bozza.note = note.value;
+        }
+        function rigaHtml(id, i) {
+            const a = argById[id]; const c = bozza.comp[id] || { liv: '', esp: '' };
+            const opt = ['<option value="">Competenza (facoltativa)</option>']
+                .concat(LIVELLI_COMP.map(l => '<option value="' + l + '"' + (c.liv === l ? ' selected' : '') + '>' + l + '</option>')).join('');
+            return '<div class="s-riga" data-id="' + esc(id) + '">'
+                + '<div class="s-pos">' + (i + 1) + '</div>'
+                + '<div class="s-main"><div class="s-nome">' + esc(a.nome) + '</div>'
+                + '<div class="s-desc">' + esc(a.desc) + '</div>'
+                + '<div class="s-comp"><select class="s-liv">' + opt + '</select>'
+                + '<input type="text" class="s-esp" maxlength="240" placeholder="Esperienze sull\'argomento (facoltative)" value="' + esc(c.esp) + '"></div></div>'
+                + '<div class="s-move">'
+                + '<button type="button" class="btn btn-sm btn-secondary s-up" data-id="' + esc(id) + '" aria-label="Sposta su"' + (i === 0 ? ' disabled' : '') + '>&#9650;</button>'
+                + '<button type="button" class="btn btn-sm btn-secondary s-down" data-id="' + esc(id) + '" aria-label="Sposta giu"' + (i === bozza.ordine.length - 1 ? ' disabled' : '') + '>&#9660;</button>'
+                + '</div></div>';
+        }
+        function renderLista() {
+            const cont = document.getElementById('s-lista');
+            cont.innerHTML = bozza.ordine.map((id, i) => rigaHtml(id, i)).join('');
+            cont.querySelectorAll('.s-up').forEach(b => b.addEventListener('click', () => muovi(b.dataset.id, -1)));
+            cont.querySelectorAll('.s-down').forEach(b => b.addEventListener('click', () => muovi(b.dataset.id, 1)));
+        }
+        function muovi(id, dir) {
+            leggiDom();
+            const i = bozza.ordine.indexOf(id); const j = i + dir;
+            if (i < 0 || j < 0 || j >= bozza.ordine.length) return;
+            const t = bozza.ordine[i]; bozza.ordine[i] = bozza.ordine[j]; bozza.ordine[j] = t;
+            renderLista();
+        }
+
+        apriModale('<h2>' + (esistente ? 'Modifica la tua risposta' : 'Compila il questionario') + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Ordina le otto aree dalla piu preferita (in alto) alla meno preferita (in basso) con le frecce. Per ciascuna puoi indicare, se vuoi, il livello di competenza e una nota sulle esperienze.</p>'
+            + '<div id="s-lista" class="s-lista"></div>'
+            + '<div class="campo" style="margin-top:14px;"><label for="s-note">Nota per la direzione (facoltativa)</label>'
+            + '<textarea id="s-note" rows="2" maxlength="600" placeholder="Disponibilita, specializzazioni, proposte">' + esc(bozza.note) + '</textarea></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="s-annulla">Annulla</button>'
+            + '<button class="btn btn-primary" id="s-salva">' + (esistente ? 'Aggiorna la risposta' : 'Invia la risposta') + '</button></div>',
+            { classe: 'larga' });
+
+        renderLista();
+        document.getElementById('s-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('s-salva').addEventListener('click', () => {
+            leggiDom();
+            const comp = {};
+            bozza.ordine.forEach(id => { const c = bozza.comp[id]; if (c && (c.liv || c.esp)) comp[id] = { liv: c.liv || '', esp: c.esp || '' }; });
+            const rec = {
+                id: String(u.email).toLowerCase(), email: String(u.email).toLowerCase(),
+                nome: u.nome || u.email, ruolo: u.ruolo || '',
+                ordine: bozza.ordine.slice(), comp: comp, note: bozza.note || '', ts: Date.now()
+            };
+            Sondaggi.salvaRisposta(rec);
+            try { Audit.registra(u, esistente ? 'Sondaggio aggiornato' : 'Sondaggio compilato', 'sondaggio', SOND_DEF.id, null, SOND_DEF.titolo); } catch (e) { }
+            chiudiModale();
+            toast('Risposta salvata. Grazie!', 'verde');
+            vistaSondaggi();
+        });
+    }
+
+    function confermaEliminaRisposta(id, nome) {
+        apriModale('<h2>Elimina la risposta</h2><p>Vuoi eliminare la risposta di <strong>' + esc(nome || id) + '</strong>? L\'operazione non e reversibile.</p>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="e-no">Annulla</button><button class="btn btn-danger" id="e-si">Elimina</button></div>');
+        document.getElementById('e-no').addEventListener('click', chiudiModale);
+        document.getElementById('e-si').addEventListener('click', () => {
+            Sondaggi.elimina(id);
+            try { Audit.registra(Auth.utenteCorrente, 'Risposta sondaggio eliminata', 'sondaggio', id, null, SOND_DEF.titolo); } catch (e) { }
+            chiudiModale(); toast('Risposta eliminata.', 'verde'); vistaSondaggi();
+        });
+    }
+
+    let sondTab = 'questionario'; // 'questionario' | 'risultati'
+
+    function vistaSondaggi() {
+        const u = Auth.utenteCorrente;
+        const mia = u ? Sondaggi.rispostaDi(u.email) : null;
+        const nRisposte = Sondaggi.risposte().length;
+
+        const tabBar = '<div class="tab-dest" style="margin-bottom:16px;">'
+            + '<button class="tab-btn ' + (sondTab === 'questionario' ? 'attivo' : '') + '" data-sondtab="questionario">Il questionario</button>'
+            + '<button class="tab-btn ' + (sondTab === 'risultati' ? 'attivo' : '') + '" data-sondtab="risultati">Riepilogo risultati (' + nRisposte + ')</button>'
+            + '</div>';
+
+        let corpo;
+        if (sondTab === 'risultati') {
+            corpo = corpoRisultati();
+        } else {
+            const statoCard = mia
+                ? '<div class="card s-stato"><div><span class="badge verde">Hai risposto</span> '
+                    + '<span class="hint">Aggiornata il ' + esc(fmtDataOra(mia.ts)) + '</span>'
+                    + '<div class="s-top3">La tua classifica: ' + esc(mia.ordine.map((id, i) => (i + 1) + '. ' + nomeArgomento(id)).join('   ')) + '</div></div>'
+                    + '<button class="btn btn-primary" id="s-compila">Modifica la tua risposta</button></div>'
+                : '<div class="card s-stato"><div><strong>Non hai ancora compilato il questionario.</strong>'
+                    + '<div class="hint" style="margin-top:4px;">Bastano un paio di minuti: ordina le aree e, se vuoi, aggiungi le tue competenze.</div></div>'
+                    + '<button class="btn btn-primary" id="s-compila">Compila il questionario</button></div>';
+            const argomenti = '<div class="s-argomenti">' + SOND_DEF.argomenti.map((a, i) =>
+                '<div class="s-arg"><span class="s-arg-num">' + String(i + 1).padStart(2, '0') + '</span>'
+                + '<div><div class="s-arg-nome">' + esc(a.nome) + '</div><div class="s-arg-desc">' + esc(a.desc) + '</div></div></div>').join('') + '</div>';
+            corpo = statoCard + '<h2 class="s-sez-tit">Le otto aree del sondaggio</h2>' + argomenti;
+        }
+
+        $vista().innerHTML = '<header><div><h1>Sondaggi</h1>'
+            + '<p class="descrizione">' + esc(SOND_DEF.descrizione) + '</p></div></header>'
+            + tabBar + corpo;
+
+        $vista().querySelectorAll('[data-sondtab]').forEach(b =>
+            b.addEventListener('click', () => { sondTab = b.dataset.sondtab; vistaSondaggi(); }));
+        const bc = document.getElementById('s-compila');
+        if (bc) bc.addEventListener('click', modaleSondaggio);
+        const tab = $vista().querySelector('table.dati');
+        if (tab) attrezzaTabella(tab, { nomeFile: 'sondaggio-risultati', ricerca: true });
+        $vista().querySelectorAll('.s-elimina').forEach(b =>
+            b.addEventListener('click', () => confermaEliminaRisposta(b.dataset.id, b.dataset.nome)));
+    }
+
+    function corpoRisultati() {
+        const { risposte, classifica, N } = aggregaSondaggio();
+        if (!risposte.length) {
+            return '<div class="card tabella-vuota">Ancora nessuna risposta. Il riepilogo compare qui appena il questionario viene compilato.</div>';
+        }
+        const media = s => s.conteggi ? (s.sommaPos / s.conteggi).toFixed(1) : '-';
+        const righe = classifica.map((s, i) => '<tr>'
+            + '<td class="num" data-label="Pos.">' + (i + 1) + '</td>'
+            + '<td class="cliente-cella" data-label="Area">' + esc(s.nome) + '</td>'
+            + '<td class="num" data-label="Punteggio">' + s.punti + '</td>'
+            + '<td class="num" data-label="Media posizione">' + media(s) + '</td>'
+            + '<td class="num" data-label="Prime scelte">' + (s.primi || '') + '</td>'
+            + '<td data-label="Competenze">' + competenzeBadge(s.comp) + '</td>'
+            + '</tr>').join('');
+        const tabella = '<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>'
+            + '<th class="num">Pos.</th><th>Area</th><th class="num" title="Punteggio complessivo: 8 punti alla prima scelta, 1 all\'ultima">Punteggio</th>'
+            + '<th class="num" title="Posizione media assegnata">Media pos.</th><th class="num">Prime scelte</th><th>Competenze dichiarate</th>'
+            + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
+
+        const intro = '<div class="s-riep-head"><div class="s-riep-num">' + risposte.length + '</div>'
+            + '<div class="hint">' + (risposte.length === 1 ? 'risposta raccolta' : 'risposte raccolte') + '. Le aree sono ordinate per punteggio (metodo a punti: 8 alla prima scelta, 1 all\'ultima).</div></div>';
+
+        let dettaglio = '';
+        if (Auth.eAdmin() || Auth.eProprietario()) {
+            const rr = risposte.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+            const drighe = rr.map(r => {
+                const top3 = (Array.isArray(r.ordine) ? r.ordine.slice(0, 3) : []).map((id, i) => (i + 1) + '. ' + nomeArgomento(id)).join(' · ');
+                return '<tr>'
+                    + '<td class="cliente-cella" data-label="Persona">' + esc(r.nome || r.email) + '</td>'
+                    + '<td data-label="Ruolo">' + esc(nomeRuolo(r.ruolo)) + '</td>'
+                    + '<td data-label="Prime scelte">' + esc(top3) + '</td>'
+                    + '<td data-label="Aggiornata">' + esc(fmtDataOra(r.ts)) + '</td>'
+                    + '<td data-label=""><button class="btn btn-sm btn-secondary s-elimina" data-id="' + esc(r.id) + '" data-nome="' + esc(r.nome || r.email) + '">Elimina</button></td>'
+                    + '</tr>';
+            }).join('');
+            dettaglio = '<h2 class="s-sez-tit">Risposte individuali</h2>'
+                + '<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>'
+                + '<th>Persona</th><th>Ruolo</th><th>Prime scelte</th><th>Aggiornata</th><th></th>'
+                + '</tr></thead><tbody>' + drighe + '</tbody></table></div>'
+                + '<p class="hint" style="margin-top:8px;">Il dettaglio nominativo e visibile solo ad amministratore e titolare.</p>';
+        }
+        return intro + tabella + dettaglio;
+    }
+
+    function competenzeBadge(comp) {
+        const parti = [];
+        if (comp.Elevata) parti.push('<span class="badge verde">Elevata ' + comp.Elevata + '</span>');
+        if (comp.Buona) parti.push('<span class="badge ambra">Buona ' + comp.Buona + '</span>');
+        if (comp.Base) parti.push('<span class="badge">Base ' + comp.Base + '</span>');
+        return parti.length ? parti.join(' ') : '<span style="color:var(--grigio-400)">nessuna</span>';
     }
 
     /* =========================================================
@@ -4695,7 +5008,7 @@
         // il campo "quando" e' ora solo una DATA: la converto in timestamp all'inizio di quel giorno (ora locale)
         const tsDaData = q => { if (!q) return NaN; const t = new Date(q + 'T00:00:00').getTime(); return isNaN(t) ? NaN : t; };
         // AREA 1 - Persone Revilaw con email, con i ruoli per il filtro
-        const conMail = Persone.tutte().filter(p => p.email && p.attivo)
+        const conMail = Persone.tutte().filter(p => p.email && p.attivo && !p.eliminato)
             .sort((a, b) => (a.nome + (a.nomeProprio || '')).localeCompare(b.nome + (b.nomeProprio || '')));
         const emailPersone = new Set(conMail.map(p => p.email.toLowerCase()));
         // AREA 2 - Clienti: contatti (email1/email2) dagli incarichi, dedup per email
@@ -5398,7 +5711,7 @@
     /* Selettore "dall'anagrafica" nel modale di creazione utente: si sceglie una persona
        gia' in Persone (con email) e nome + email si compilano da soli, restando modificabili. */
     function selettorePersonaUtente() {
-        const conEmail = Persone.tutte().filter(p => p.attivo && p.email)
+        const conEmail = Persone.tutte().filter(p => p.attivo && !p.eliminato && p.email)
             .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
         if (!conEmail.length) return '';
         return '<div class="campo"><label>Scegli dall\'anagrafica (facoltativo)</label>'
