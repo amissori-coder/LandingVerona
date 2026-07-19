@@ -795,3 +795,43 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 
     @page { margin: 1.6cm 1.4cm; }
 }
+
+/* =========================================================
+   SONDAGGI (candidatura gruppi di specialisti)
+========================================================= */
+.s-stato { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.s-stato .btn { flex: 0 0 auto; }
+.s-top3 { margin-top: 8px; font-size: 0.9rem; color: var(--grigio-600); }
+
+.s-sez-tit { font-size: 1.02rem; font-weight: 700; color: var(--blu-900); margin: 8px 0 12px; }
+
+.s-argomenti { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.s-arg { display: flex; gap: 12px; align-items: flex-start; background: var(--bianco); border: 1px solid var(--grigio-200); border-left: 3px solid var(--blu-700); border-radius: var(--raggio); padding: 12px 14px; }
+.s-arg-num { font-weight: 800; color: var(--blu-500); font-size: 0.9rem; line-height: 1.3; }
+.s-arg-nome { font-weight: 700; color: var(--blu-900); font-size: 0.92rem; }
+.s-arg-desc { font-size: 0.82rem; color: var(--grigio-600); line-height: 1.45; margin-top: 2px; }
+
+/* riepilogo */
+.s-riep-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.s-riep-num { font-size: 2rem; font-weight: 800; color: var(--blu-700); line-height: 1; }
+
+/* modale di compilazione */
+.s-lista { display: flex; flex-direction: column; gap: 10px; max-height: 56vh; overflow-y: auto; padding-right: 2px; }
+.s-riga { display: flex; align-items: stretch; gap: 12px; background: var(--blu-050); border: 1px solid var(--grigio-200); border-radius: var(--raggio); padding: 10px 12px; }
+.s-pos { flex: 0 0 30px; width: 30px; height: 30px; border-radius: var(--raggio-sm); background: var(--blu-700); color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.s-main { flex: 1 1 auto; min-width: 0; }
+.s-nome { font-weight: 700; color: var(--blu-900); font-size: 0.92rem; }
+.s-desc { font-size: 0.8rem; color: var(--grigio-600); line-height: 1.4; margin: 2px 0 8px; }
+.s-comp { display: flex; gap: 8px; flex-wrap: wrap; }
+.s-comp select { flex: 0 0 auto; }
+.s-comp input.s-esp { flex: 1 1 220px; min-width: 0; }
+.s-comp select, .s-comp input.s-esp { padding: 7px 9px; border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff; font-size: 0.85rem; }
+.s-comp select:focus, .s-comp input.s-esp:focus { outline: none; border-color: var(--blu-500); box-shadow: 0 0 0 3px var(--blu-100); }
+.s-move { display: flex; flex-direction: column; gap: 6px; justify-content: center; flex: 0 0 auto; }
+.s-move .btn { padding: 4px 8px; line-height: 1; }
+
+@media (max-width: 720px) {
+    .s-argomenti { grid-template-columns: 1fr; }
+    .s-stato { flex-direction: column; align-items: stretch; }
+}
+
