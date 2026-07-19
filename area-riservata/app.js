@@ -4734,7 +4734,7 @@
     ========================================================= */
     const SCADENZA_DEFAULT = '2026-07-31';
     const MAX_SCELTE = 2;
-    const LIVELLI_COMP = ['Nessuna', 'Base', 'Buona', 'Elevata'];
+    const LIVELLI_COMP = ['Base', 'Buona', 'Elevata']; // "Nessuna" rimosso: nelle aree scelte serve un livello reale
     const PUNTI_COMP = { Nessuna: 0, Base: 1, Buona: 2, Elevata: 3 };
     const SOND_DEF = {
         id: 'gruppi-specialisti',
@@ -4897,8 +4897,7 @@
 
         function cardHtml(a) {
             const scelta = scelte.has(a.id); const c = comp[a.id];
-            const mostraEsp = scelta && c.liv && c.liv !== 'Nessuna';
-            const opt = '<option value="" disabled' + (c.liv === '' ? ' selected' : '') + '>Scegli il livello...</option>'
+            const opt = '<option value="" disabled' + (c.liv === '' || !LIVELLI_COMP.includes(c.liv) ? ' selected' : '') + '>Scegli il livello...</option>'
                 + LIVELLI_COMP.map(l => '<option value="' + l + '"' + (c.liv === l ? ' selected' : '') + '>' + l + '</option>').join('');
             const flagHtml = a.flag
                 ? '<label class="s-flag"><input type="checkbox" class="s-flag-chk"' + (c.flag ? ' checked' : '') + '> ' + esc(a.flag) + '</label>'
@@ -4909,10 +4908,11 @@
                 + '<span class="s-scelta-coord">Candidato coordinatore: ' + esc(a.coord) + '</span>'
                 + '<span class="s-scelta-desc">' + esc(a.desc) + '</span></span></label>'
                 + '<div class="s-scelta-comp"' + (scelta ? '' : ' hidden') + '>'
-                + '<div class="s-comp-row"><label class="s-comp-lab">Il tuo livello di competenza <span class="s-req">obbligatorio</span></label>'
+                + '<div class="s-comp-row"><label class="s-comp-lab">Livello di competenza <span class="s-req">obbligatorio</span></label>'
                 + '<select class="s-liv">' + opt + '</select></div>'
-                + '<div class="s-esp-wrap"' + (mostraEsp ? '' : ' hidden') + '><label class="s-comp-lab">Competenze ed esperienze <span class="s-req">da compilare</span></label>'
-                + '<textarea class="s-esp" rows="3" maxlength="400" placeholder="Es. incarichi seguiti, corsi e certificazioni, anni di esperienza in questa area">' + esc(c.esp) + '</textarea></div>'
+                + '<div class="s-esp-wrap"><label class="s-comp-lab">Note sulle esperienze <span class="s-req">obbligatorio</span></label>'
+                + '<p class="s-esp-esempio"><b>Esempio:</b> "Ho seguito 8 incarichi di adeguati assetti negli ultimi 3 anni; corso CNDCEC 2024; collaboro su questi temi dal 2019."</p>'
+                + '<textarea class="s-esp" rows="4" maxlength="500" placeholder="Descrivi le tue esperienze in quest\'area: incarichi seguiti, corsi e certificazioni, anni di esperienza, casi concreti">' + esc(c.esp) + '</textarea></div>'
                 + flagHtml
                 + '</div></div>';
         }
@@ -4938,7 +4938,7 @@
         }
 
         apriModale('<h2>' + (eNuovo ? 'Compila il questionario' : 'Modifica la tua risposta') + '</h2>'
-            + '<div class="s-guida"><p><b>Come funziona.</b> Seleziona le <b>due aree</b> nelle quali vorresti entrare a far parte del gruppo di specialisti, spuntando la casella accanto al nome. Per ciascuna area scelta indica il tuo <b>livello di competenza</b> (obbligatorio) e, se non e "Nessuna", descrivi in poche righe le tue esperienze.</p>'
+            + '<div class="s-guida"><p><b>Come funziona.</b> Seleziona le <b>due aree</b> nelle quali vorresti entrare a far parte del gruppo di specialisti, spuntando la casella accanto al nome. Per ciascuna area scelta compila <b>entrambi i campi obbligatori</b>: il <b>livello di competenza</b> e le <b>note sulle esperienze</b> (descrivi cosa hai fatto in quell\'area, come nell\'esempio).</p>'
             + '<p class="s-guida-cnt">Aree selezionate: <b><span id="s-conta">' + scelte.size + ' di ' + MAX_SCELTE + '</span></b></p></div>'
             + '<div id="s-scelte" class="s-scelte">' + SOND_DEF.argomenti.map(cardHtml).join('') + '</div>'
             + '<div class="campo" style="margin-top:16px;"><label for="s-note">Nota per la direzione (facoltativa)</label>'
@@ -4960,8 +4960,6 @@
         }));
         document.querySelectorAll('#s-scelte select.s-liv').forEach(sel => sel.addEventListener('change', () => {
             const card = sel.closest('.s-scelta'); comp[card.dataset.id].liv = sel.value;
-            const wrap = card.querySelector('.s-esp-wrap');
-            if (wrap) wrap.hidden = !(sel.value && sel.value !== 'Nessuna');
             card.classList.remove('s-scelta-err');
         }));
         aggiornaVincolo();
@@ -4975,18 +4973,17 @@
             let errId = null;
             for (const id of scelte) {
                 const c = comp[id];
-                if (!c.liv) { errId = id; break; }
-                if (c.liv !== 'Nessuna' && !c.esp) { errId = id; break; }
+                if (!c.liv || !LIVELLI_COMP.includes(c.liv) || !c.esp) { errId = id; break; }
             }
             document.querySelectorAll('.s-scelta-err').forEach(el => el.classList.remove('s-scelta-err'));
             if (errId) {
                 const card = document.querySelector('.s-scelta[data-id="' + errId + '"]');
                 if (card) { card.classList.add('s-scelta-err'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-                toast('Per ogni area scelta indica la competenza; se non e "Nessuna", scrivi le esperienze.', 'rosso');
+                toast('Per ogni area scelta indica il livello di competenza E scrivi le note sulle esperienze.', 'rosso');
                 return;
             }
             const compFin = {};
-            scelte.forEach(id => { const c = comp[id]; compFin[id] = { liv: c.liv, esp: c.liv === 'Nessuna' ? '' : (c.esp || ''), flag: flagArgomento(id) ? !!c.flag : false }; });
+            scelte.forEach(id => { const c = comp[id]; compFin[id] = { liv: c.liv, esp: c.esp || '', flag: flagArgomento(id) ? !!c.flag : false }; });
             const rec = {
                 id: String(u.email).toLowerCase(), email: String(u.email).toLowerCase(),
                 nome: u.nome || u.email, ruolo: u.ruolo || '',
@@ -5178,33 +5175,27 @@
         // 2) grafico a torta della distribuzione delle scelte
         const torta = tortaSondaggioSvg(classifica);
 
-        // 3) aree ordinate per numero di scelte (con eventuale conteggio del requisito)
-        const barre = classifica.map((s, i) => {
+        // 3) aree ordinate per numero di scelte, integrate con CHI le ha scelte
+        const areeCards = classifica.map((s, i) => {
             const compTot = s.comp.Base + s.comp.Buona + s.comp.Elevata;
             const w = Math.max(4, Math.round(s.scelte / maxScelte * 100));
+            const col = coloreArea[s.id] || 'var(--blu-700)';
             const flagInfo = (s.flagLabel && s.flagN) ? '<span class="s-bar-flag">' + s.flagN + ' &times; ' + esc(etichettaFlagBreve(s.id)) + '</span>' : '';
-            return '<div class="s-bar-row">'
-                + '<div class="s-bar-rank" style="background:' + (coloreArea[s.id] || 'var(--blu-700)') + '">' + (i + 1) + '</div>'
-                + '<div class="s-bar-body">'
-                + '<div class="s-bar-top"><span class="s-bar-nome">' + esc(s.nome) + '</span><span class="s-bar-pts">' + s.scelte + (s.scelte === 1 ? ' scelta' : ' scelte') + '</span></div>'
-                + '<div class="s-bar-track"><div class="s-bar-fill" style="width:' + w + '%;background:' + (coloreArea[s.id] || '') + '"></div></div>'
-                + '<div class="s-bar-meta"><span>Coord.: ' + esc(s.coord || '-') + '</span>'
-                + '<span class="s-bar-comp">competenti ' + compTot + ': ' + competenzeBadge(s.comp) + '</span>' + flagInfo + '</div>'
-                + '</div></div>';
+            const lis = s.candidati.length ? s.candidati.map(c => '<li><span class="s-team-nome">' + esc(c.nome) + '</span> ' + livBadge(c.liv)
+                + (c.flag ? ' <span class="s-team-flag">' + esc(etichettaFlagBreve(s.id)) + '</span>' : '') + '</li>').join('')
+                : '<li class="hint">Nessuno ha ancora scelto quest\'area.</li>';
+            return '<div class="s-area-card">'
+                + '<div class="s-area-head"><span class="s-bar-rank" style="background:' + col + '">' + (i + 1) + '</span>'
+                + '<div class="s-area-info"><div class="s-area-nome">' + esc(s.nome) + ' <span class="s-area-pts">' + s.scelte + (s.scelte === 1 ? ' scelta' : ' scelte') + '</span></div>'
+                + '<div class="s-area-coord">Candidato coordinatore: <b>' + esc(s.coord || '-') + '</b></div></div></div>'
+                + '<div class="s-bar-track"><div class="s-bar-fill" style="width:' + w + '%;background:' + col + '"></div></div>'
+                + '<div class="s-bar-meta"><span class="s-bar-comp">competenti ' + compTot + ': ' + competenzeBadge(s.comp) + '</span>' + flagInfo + '</div>'
+                + '<div class="s-area-chi"><span class="s-area-chi-lab">Chi l\'ha scelta</span><ul class="s-team-list">' + lis + '</ul></div>'
+                + '</div>';
         }).join('');
-        const classificaBox = '<h2 class="s-sez-tit">Aree piu scelte</h2><div class="s-bars">' + barre + '</div>';
-
-        // 4) chi ha scelto ciascun gruppo (nominativo: visibile a chi puo' vedere i risultati)
-        const squadre = '<h2 class="s-sez-tit">Chi ha scelto ciascun gruppo</h2>'
-            + '<p class="hint" style="margin:-6px 0 12px;">Per ogni area, le persone che l\'hanno scelta con il livello di competenza dichiarato. Utile per comporre i gruppi attorno al candidato coordinatore.</p>'
-            + '<div class="s-team-grid">' + classifica.map(s => {
-                const lis = s.candidati.length ? s.candidati.map(c => '<li><span class="s-team-nome">' + esc(c.nome) + '</span> ' + livBadge(c.liv)
-                    + (c.flag ? ' <span class="s-team-flag">' + esc(etichettaFlagBreve(s.id)) + '</span>' : '') + '</li>').join('')
-                    : '<li class="hint">Nessuno ha scelto quest\'area.</li>';
-                return '<div class="s-team-area"><div class="s-team-head"><span class="s-team-pallino" style="background:' + (coloreArea[s.id] || '') + '"></span>' + esc(s.nome)
-                    + '<span class="s-team-coord">Coord.: ' + esc(s.coord || '-') + '</span></div>'
-                    + '<ul class="s-team-list">' + lis + '</ul></div>';
-            }).join('') + '</div>';
+        const classificaBox = '<h2 class="s-sez-tit">Aree piu scelte e chi le ha scelte</h2>'
+            + '<p class="hint" style="margin:-6px 0 12px;">Le aree ordinate per numero di scelte, con le persone che le hanno indicate e il loro livello di competenza. Utile per comporre i gruppi attorno al candidato coordinatore.</p>'
+            + '<div class="s-aree">' + areeCards + '</div>';
 
         // 5) admin: chi manca + tabella completa con eliminazione
         let dettaglio = '';
@@ -5230,7 +5221,7 @@
                 + '</tr></thead><tbody>' + drighe + '</tbody></table></div>'
                 + '<p class="hint" style="margin-top:8px;">La tabella con eliminazione e visibile solo ad amministratore e titolare.</p>';
         }
-        return partec + torta + classificaBox + squadre + dettaglio;
+        return partec + torta + classificaBox + dettaglio;
     }
 
     function etichettaFlagBreve(id) {
@@ -5244,9 +5235,10 @@
         const tot = dati.reduce((a, s) => a + s.scelte, 0);
         if (!tot) return '';
         const cx = 90, cy = 90, r = 78;
-        let ang = -Math.PI / 2, paths = '';
+        let ang = -Math.PI / 2, paths = '', etich = '';
         if (dati.length === 1) {
             paths = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + (coloreArea[dati[0].id] || '#164068') + '"/>';
+            etich = '<text x="' + cx + '" y="' + (cy + 5) + '" text-anchor="middle" class="s-torta-lab">100%</text>';
         } else {
             dati.forEach(s => {
                 const frac = s.scelte / tot;
@@ -5255,13 +5247,18 @@
                 const x2 = (cx + r * Math.cos(a2)).toFixed(2), y2 = (cy + r * Math.sin(a2)).toFixed(2);
                 const large = frac > 0.5 ? 1 : 0;
                 paths += '<path d="M' + cx + ',' + cy + ' L' + x1 + ',' + y1 + ' A' + r + ',' + r + ' 0 ' + large + ' 1 ' + x2 + ',' + y2 + ' Z" fill="' + (coloreArea[s.id] || '#888') + '"></path>';
+                if (frac >= 0.07) {
+                    const mid = ang + frac * Math.PI;
+                    const lx = (cx + 0.62 * r * Math.cos(mid)).toFixed(2), ly = (cy + 0.62 * r * Math.sin(mid) + 4).toFixed(2);
+                    etich += '<text x="' + lx + '" y="' + ly + '" text-anchor="middle" class="s-torta-lab">' + Math.round(frac * 100) + '%</text>';
+                }
                 ang = a2;
             });
         }
         const legenda = dati.map(s => '<li><span class="s-torta-sw" style="background:' + (coloreArea[s.id] || '') + '"></span>'
             + '<span class="s-torta-nome">' + esc(s.nome) + '</span><span class="s-torta-val">' + s.scelte + ' (' + Math.round(s.scelte / tot * 100) + '%)</span></li>').join('');
         return '<h2 class="s-sez-tit">Distribuzione delle scelte</h2>'
-            + '<div class="card s-torta-card"><svg class="s-torta" viewBox="0 0 180 180" role="img" aria-label="Grafico a torta delle scelte">' + paths + '</svg>'
+            + '<div class="card s-torta-card"><svg class="s-torta" viewBox="0 0 180 180" role="img" aria-label="Grafico a torta delle scelte">' + paths + etich + '</svg>'
             + '<ul class="s-torta-legenda">' + legenda + '</ul></div>';
     }
 
