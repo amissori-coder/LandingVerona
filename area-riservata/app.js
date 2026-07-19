@@ -179,6 +179,7 @@
         allerte: 'rvArea.allerte',
         comunicazioni: 'rvArea.comunicazioni',
         sondaggi: 'rvArea.sondaggi',
+        sondaggiConfig: 'rvArea.sondaggiConfig',
         ruoli: 'rvArea.ruoli',
         impostazioni: 'rvArea.impostazioni'
     };
@@ -912,6 +913,7 @@
                 this.DOC_SYNC[CHIAVI.allerte] = 'allerte';
                 this.DOC_SYNC[CHIAVI.comunicazioni] = 'comunicazioni';
                 this.DOC_SYNC[CHIAVI.sondaggi] = 'sondaggi';
+                this.DOC_SYNC[CHIAVI.sondaggiConfig] = 'sondaggiConfig';
                 this.DOC_SYNC[CHIAVI.ruoli] = 'ruoli';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
@@ -4481,20 +4483,23 @@
        Le risposte sono un archivio condiviso (una per utente, chiave =
        email), con una scheda di riepilogo dei risultati aggregati.
     ========================================================= */
-    const LIVELLI_COMP = ['Base', 'Buona', 'Elevata'];
+    const SCADENZA_DEFAULT = '2026-07-31';
+    const LIVELLI_COMP = ['Nessuna', 'Base', 'Buona', 'Elevata'];
+    const PUNTI_COMP = { Nessuna: 0, Base: 1, Buona: 2, Elevata: 3 };
     const SOND_DEF = {
         id: 'gruppi-specialisti',
         titolo: 'Gruppi di specialisti',
-        descrizione: 'Accanto alla revisione legale Revilaw sviluppa una consulenza integrata per rafforzare gli assetti e il merito creditizio delle imprese. Da settembre nascono i gruppi di specialisti: indica in ordine le aree su cui vorresti contribuire e, dove vuoi, le tue competenze ed esperienze.',
+        descrizione: 'Accanto alla revisione legale Revilaw sviluppa una consulenza integrata per rafforzare gli assetti e il merito creditizio delle imprese. Da settembre nascono i gruppi di specialisti: metti le aree in ordine di interesse (la 1a in alto) e indica per ciascuna il tuo livello di competenza.',
+        scadenzaDefault: SCADENZA_DEFAULT,
         argomenti: [
-            { id: 'adeguati_assetti', nome: 'Adeguati assetti', desc: 'Assetti organizzativi, amministrativi e contabili adeguati ai sensi dell\'art. 2086 c.c.' },
-            { id: 'esg', nome: 'ESG e sostenibilita', desc: 'Rendicontazione di sostenibilita, criteri ESG e finanza sostenibile per le imprese.' },
-            { id: 'finanza_agevolata', nome: 'Finanza agevolata', desc: 'Bandi, incentivi e strumenti agevolativi per gli investimenti e la crescita d\'impresa.' },
-            { id: 'rating_legalita', nome: 'Rating di legalita', desc: 'Requisiti, punteggio e vantaggi reputazionali e creditizi del rating di legalita.' },
-            { id: 'modello_231', nome: 'Modello 231', desc: 'Responsabilita amministrativa degli enti e sistema di prevenzione dei reati.' },
-            { id: 'tcf', nome: 'Tax Control Framework', desc: 'Presidio del rischio fiscale e adempimento collaborativo con l\'amministrazione.' },
-            { id: 'crisi_impresa', nome: 'Crisi d\'impresa', desc: 'Allerta precoce, composizione negoziata e percorsi di risanamento dell\'impresa.' },
-            { id: 'wealth_management', nome: 'Wealth management', desc: 'Protezione e pianificazione del patrimonio dell\'imprenditore e della famiglia.' }
+            { id: 'adeguati_assetti', nome: 'Adeguati assetti', coord: 'Stefano Pizzutelli', desc: 'Assetti organizzativi, amministrativi e contabili adeguati ai sensi dell\'art. 2086 c.c.' },
+            { id: 'esg', nome: 'ESG e sostenibilita', coord: 'Antonella Candelieri', desc: 'Rendicontazione di sostenibilita, criteri ESG e finanza sostenibile per le imprese.' },
+            { id: 'finanza_agevolata', nome: 'Finanza agevolata', coord: 'Andrea Missori', desc: 'Bandi, incentivi e strumenti agevolativi per gli investimenti e la crescita d\'impresa.' },
+            { id: 'rating_legalita', nome: 'Rating di legalita', coord: 'Stefano Pizzutelli', desc: 'Requisiti, punteggio e vantaggi reputazionali e creditizi del rating di legalita.' },
+            { id: 'modello_231', nome: 'Modello 231', coord: 'Melo Martella', desc: 'Responsabilita amministrativa degli enti e sistema di prevenzione dei reati.' },
+            { id: 'tcf', nome: 'Tax Control Framework', coord: 'Melo Martella', desc: 'Presidio del rischio fiscale e adempimento collaborativo con l\'amministrazione.' },
+            { id: 'crisi_impresa', nome: 'Crisi d\'impresa', coord: 'Vincenzo Antonio Napolitano', desc: 'Allerta precoce, composizione negoziata e percorsi di risanamento dell\'impresa.' },
+            { id: 'wealth_management', nome: 'Wealth management', coord: 'Patrick Novembre', desc: 'Protezione e pianificazione del patrimonio dell\'imprenditore e della famiglia.' }
         ]
     };
     const Sondaggi = {
@@ -4510,34 +4515,109 @@
         elimina(id) { this.salvaTutte(this.risposte().filter(r => r && r.id !== id)); }
     };
     function nomeArgomento(id) { const a = SOND_DEF.argomenti.find(x => x.id === id); return a ? a.nome : id; }
+    function coordArgomento(id) { const a = SOND_DEF.argomenti.find(x => x.id === id); return a ? (a.coord || '') : ''; }
 
-    // riepilogo: punteggio (metodo Borda), media posizione, prime scelte, competenze
+    /* Configurazione del sondaggio: scadenza + invitati (email singole) + gruppi
+       dinamici. La imposta l'amministratore dall'app; e' un archivio condiviso. */
+    const SondConfig = {
+        leggi() {
+            const c = Store.leggi(CHIAVI.sondaggiConfig, null) || {};
+            return {
+                scadenza: c.scadenza || SOND_DEF.scadenzaDefault,
+                invitati: Array.isArray(c.invitati) ? c.invitati.map(e => String(e).toLowerCase()) : [],
+                gruppi: Array.isArray(c.gruppi) ? c.gruppi.slice() : []
+            };
+        },
+        salva(cfg) {
+            Store.scrivi(CHIAVI.sondaggiConfig, {
+                scadenza: cfg.scadenza || SOND_DEF.scadenzaDefault,
+                invitati: (cfg.invitati || []).map(e => String(e).toLowerCase()),
+                gruppi: (cfg.gruppi || []).slice()
+            });
+        }
+    };
+    function scadenzaMs(cfg) {
+        const s = (cfg && cfg.scadenza) || SOND_DEF.scadenzaDefault;
+        const p = String(s).split('-');
+        if (p.length !== 3) return 0;
+        return new Date(+p[0], +p[1] - 1, +p[2], 23, 59, 59, 999).getTime();
+    }
+    function sondaggioAperto(cfg) { return Date.now() <= scadenzaMs(cfg); }
+
+    // elenco utenti abilitati: in cloud e async (cache), in demo e sincrono
+    let _sondUtenti = null;
+    let _sondUtentiInFlight = false;
+    function utentiSond(cb) {
+        if (_sondUtenti) { cb(_sondUtenti); return; }
+        if (typeof Cloud !== 'undefined' && Cloud.attivo && typeof Cloud.listaUtenti === 'function') {
+            if (_sondUtentiInFlight) return; // richiesta gia in corso: niente doppioni ne loop di render
+            _sondUtentiInFlight = true;
+            Cloud.listaUtenti()
+                .then(u => { _sondUtenti = u || []; _sondUtentiInFlight = false; cb(_sondUtenti); })
+                .catch(() => { _sondUtenti = []; _sondUtentiInFlight = false; cb(_sondUtenti); }); // fallito: cache vuota, niente loop
+        } else { _sondUtenti = Auth.utenti(); cb(_sondUtenti); }
+    }
+    // insieme delle email invitate = gruppi risolti sui dati attuali + singole
+    function emailInvitate(cfg, utenti) {
+        const set = risolviGruppiMail(cfg.gruppi, utenti || []);
+        (cfg.invitati || []).forEach(e => set.add(String(e).toLowerCase()));
+        return set;
+    }
+    // elenco {email, nome} degli invitati, per conteggi e "chi non ha risposto"
+    function elencoInvitati(cfg, utenti) {
+        const set = emailInvitate(cfg, utenti);
+        const nomeDi = {};
+        (utenti || []).forEach(u => { if (u.email) nomeDi[String(u.email).toLowerCase()] = u.nome || u.email; });
+        Persone.tutte().forEach(p => {
+            if (p.email) { const k = p.email.toLowerCase(); if (!nomeDi[k]) nomeDi[k] = (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome; }
+        });
+        return Array.from(set).map(e => ({ email: e, nome: nomeDi[e] || e })).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+    }
+
+    /* Riepilogo aggregato. Punteggio a punti (Borda): la 1a scelta vale N punti,
+       la 2a N-1, fino a 1 punto per l'ultima. Per ogni area calcola anche la
+       distribuzione delle posizioni, il mix di competenze (Nessuna compresa) e
+       l'elenco dei candidati (chi la vorrebbe, con competenza e posizione). */
     function aggregaSondaggio() {
         const risposte = Sondaggi.risposte();
         const ids = SOND_DEF.argomenti.map(a => a.id);
         const N = ids.length;
         const stat = {};
-        ids.forEach(id => { stat[id] = { id, nome: nomeArgomento(id), punti: 0, sommaPos: 0, conteggi: 0, primi: 0, comp: { Base: 0, Buona: 0, Elevata: 0 } }; });
+        ids.forEach(id => { stat[id] = { id, nome: nomeArgomento(id), coord: coordArgomento(id), punti: 0, sommaPos: 0, conteggi: 0, primi: 0, dist: {}, comp: { Nessuna: 0, Base: 0, Buona: 0, Elevata: 0 }, candidati: [] }; });
         risposte.forEach(r => {
             const ord = Array.isArray(r.ordine) ? r.ordine.filter(id => stat[id]) : [];
             ord.forEach((id, i) => {
                 const s = stat[id]; const pos = i + 1;
                 s.punti += (N - pos + 1);
                 s.sommaPos += pos; s.conteggi += 1;
+                s.dist[pos] = (s.dist[pos] || 0) + 1;
                 if (pos === 1) s.primi += 1;
             });
-            if (r.comp) ids.forEach(id => { const c = r.comp[id]; if (c && c.liv && stat[id].comp[c.liv] != null) stat[id].comp[c.liv]++; });
+            const compR = r.comp || {};
+            ids.forEach(id => {
+                const c = compR[id]; const liv = (c && c.liv) || 'Nessuna';
+                if (stat[id].comp[liv] != null) stat[id].comp[liv]++;
+                const idx = ord.indexOf(id);
+                stat[id].candidati.push({ email: r.email, nome: r.nome || r.email, ruolo: r.ruolo || '', pos: idx >= 0 ? idx + 1 : null, liv: liv, esp: (c && c.esp) || '' });
+            });
         });
+        const maxPunti = Math.max(1, ...ids.map(id => stat[id].punti));
+        ids.forEach(id => stat[id].candidati.sort((a, b) =>
+            (PUNTI_COMP[b.liv] - PUNTI_COMP[a.liv]) || ((a.pos || 99) - (b.pos || 99)) || a.nome.localeCompare(b.nome, 'it')));
         const classifica = ids.map(id => stat[id]).sort((a, b) =>
             b.punti - a.punti || (a.sommaPos / (a.conteggi || 1)) - (b.sommaPos / (b.conteggi || 1)));
-        return { risposte, classifica, N };
+        return { risposte, classifica, N, maxPunti };
     }
 
-    /* Modale di compilazione: ordinamento con le frecce, competenze facoltative.
+    /* Modale di compilazione. La preferenza si esprime ordinando le aree con le
+       frecce (in alto la 1a scelta). La competenza e' obbligatoria per ogni area
+       (Nessuna compresa); se e' diversa da Nessuna vanno indicate le esperienze.
        La bozza vive in memoria e i campi vengono riletti prima di ogni riordino,
        cosi spostare una riga non perde cio' che e' gia' stato scritto. */
-    function modaleSondaggio() {
+    function modaleSondaggio(cfg) {
+        cfg = cfg || SondConfig.leggi();
         const u = Auth.utenteCorrente; if (!u) return;
+        if (!sondaggioAperto(cfg)) { toast('La compilazione e chiusa.', 'rosso'); return; }
         const esistente = Sondaggi.rispostaDi(u.email);
         const idsDefault = SOND_DEF.argomenti.map(a => a.id);
         const argById = {}; SOND_DEF.argomenti.forEach(a => { argById[a.id] = a; });
@@ -4551,36 +4631,49 @@
             bozza.comp[id] = { liv: (c && c.liv) || '', esp: (c && c.esp) || '' };
         });
 
+        function etichettaPos(i, n) { return i === 0 ? '1a scelta' : (i === n - 1 ? 'ultima' : (i + 1) + 'a'); }
         function leggiDom() {
             const cont = document.getElementById('s-lista'); if (!cont) return;
             cont.querySelectorAll('.s-riga').forEach(r => {
                 const id = r.dataset.id; if (!bozza.comp[id]) return;
-                const sel = r.querySelector('select.s-liv'); const inp = r.querySelector('input.s-esp');
-                bozza.comp[id].liv = sel ? sel.value : '';
-                bozza.comp[id].esp = inp ? inp.value.trim() : '';
+                const sel = r.querySelector('select.s-liv'); const inp = r.querySelector('textarea.s-esp');
+                if (sel) bozza.comp[id].liv = sel.value;
+                if (inp) bozza.comp[id].esp = inp.value.trim();
             });
             const note = document.getElementById('s-note'); if (note) bozza.note = note.value;
         }
         function rigaHtml(id, i) {
             const a = argById[id]; const c = bozza.comp[id] || { liv: '', esp: '' };
-            const opt = ['<option value="">Competenza (facoltativa)</option>']
-                .concat(LIVELLI_COMP.map(l => '<option value="' + l + '"' + (c.liv === l ? ' selected' : '') + '>' + l + '</option>')).join('');
-            return '<div class="s-riga" data-id="' + esc(id) + '">'
-                + '<div class="s-pos">' + (i + 1) + '</div>'
-                + '<div class="s-main"><div class="s-nome">' + esc(a.nome) + '</div>'
-                + '<div class="s-desc">' + esc(a.desc) + '</div>'
-                + '<div class="s-comp"><select class="s-liv">' + opt + '</select>'
-                + '<input type="text" class="s-esp" maxlength="240" placeholder="Esperienze sull\'argomento (facoltative)" value="' + esc(c.esp) + '"></div></div>'
+            const mostraEsp = c.liv && c.liv !== 'Nessuna';
+            const opt = '<option value="" disabled' + (c.liv === '' ? ' selected' : '') + '>Scegli competenza...</option>'
+                + LIVELLI_COMP.map(l => '<option value="' + l + '"' + (c.liv === l ? ' selected' : '') + '>' + l + '</option>').join('');
+            return '<li class="s-riga" data-id="' + esc(id) + '">'
                 + '<div class="s-move">'
-                + '<button type="button" class="btn btn-sm btn-secondary s-up" data-id="' + esc(id) + '" aria-label="Sposta su"' + (i === 0 ? ' disabled' : '') + '>&#9650;</button>'
-                + '<button type="button" class="btn btn-sm btn-secondary s-down" data-id="' + esc(id) + '" aria-label="Sposta giu"' + (i === bozza.ordine.length - 1 ? ' disabled' : '') + '>&#9660;</button>'
-                + '</div></div>';
+                + '<button type="button" class="s-up" data-id="' + esc(id) + '" aria-label="Sposta su"' + (i === 0 ? ' disabled' : '') + '>&#9650;</button>'
+                + '<span class="s-pos"><b>' + (i + 1) + '</b><i>' + etichettaPos(i, bozza.ordine.length) + '</i></span>'
+                + '<button type="button" class="s-down" data-id="' + esc(id) + '" aria-label="Sposta giu"' + (i === bozza.ordine.length - 1 ? ' disabled' : '') + '>&#9660;</button>'
+                + '</div>'
+                + '<div class="s-main">'
+                + '<div class="s-nome">' + esc(a.nome) + ' <span class="s-coord">coord. ' + esc(a.coord) + '</span></div>'
+                + '<div class="s-desc">' + esc(a.desc) + '</div>'
+                + '<div class="s-comp-row"><label class="s-comp-lab">Il tuo livello di competenza <span class="s-req">obbligatorio</span></label>'
+                + '<select class="s-liv">' + opt + '</select></div>'
+                + '<div class="s-esp-wrap"' + (mostraEsp ? '' : ' hidden') + '><label class="s-comp-lab">Competenze ed esperienze <span class="s-req">da compilare</span></label>'
+                + '<textarea class="s-esp" rows="2" maxlength="300" placeholder="Es. incarichi seguiti, corsi e certificazioni, anni di esperienza in questa area">' + esc(c.esp) + '</textarea></div>'
+                + '</div></li>';
         }
         function renderLista() {
             const cont = document.getElementById('s-lista');
             cont.innerHTML = bozza.ordine.map((id, i) => rigaHtml(id, i)).join('');
             cont.querySelectorAll('.s-up').forEach(b => b.addEventListener('click', () => muovi(b.dataset.id, -1)));
             cont.querySelectorAll('.s-down').forEach(b => b.addEventListener('click', () => muovi(b.dataset.id, 1)));
+            cont.querySelectorAll('select.s-liv').forEach(sel => sel.addEventListener('change', () => {
+                const riga = sel.closest('.s-riga'); const id = riga.dataset.id;
+                bozza.comp[id].liv = sel.value;
+                const wrap = riga.querySelector('.s-esp-wrap');
+                if (wrap) wrap.hidden = !(sel.value && sel.value !== 'Nessuna');
+                riga.classList.remove('s-riga-err');
+            }));
         }
         function muovi(id, dir) {
             leggiDom();
@@ -4591,8 +4684,13 @@
         }
 
         apriModale('<h2>' + (esistente ? 'Modifica la tua risposta' : 'Compila il questionario') + '</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;">Ordina le otto aree dalla piu preferita (in alto) alla meno preferita (in basso) con le frecce. Per ciascuna puoi indicare, se vuoi, il livello di competenza e una nota sulle esperienze.</p>'
-            + '<div id="s-lista" class="s-lista"></div>'
+            + '<div class="s-guida">'
+            + '<p><b>1.</b> Metti le 8 aree in <b>ordine di interesse</b> a farne parte: con le frecce <b>&#9650; &#9660;</b> porta in <b>alto la tua 1a scelta</b> e in basso l\'ultima.</p>'
+            + '<p><b>2.</b> Per ogni area scegli il <b>livello di competenza</b> (obbligatorio). Se e diverso da "Nessuna", descrivi brevemente le esperienze.</p>'
+            + '</div>'
+            + '<div class="s-rank-cap s-rank-cap-top">&#9650; In alto la 1a scelta, la piu interessante</div>'
+            + '<ol id="s-lista" class="s-lista"></ol>'
+            + '<div class="s-rank-cap s-rank-cap-bot">&#9660; In basso l\'ultima scelta, la meno interessante</div>'
             + '<div class="campo" style="margin-top:14px;"><label for="s-note">Nota per la direzione (facoltativa)</label>'
             + '<textarea id="s-note" rows="2" maxlength="600" placeholder="Disponibilita, specializzazioni, proposte">' + esc(bozza.note) + '</textarea></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="s-annulla">Annulla</button>'
@@ -4603,8 +4701,22 @@
         document.getElementById('s-annulla').addEventListener('click', chiudiModale);
         document.getElementById('s-salva').addEventListener('click', () => {
             leggiDom();
+            if (!sondaggioAperto(cfg)) { toast('La compilazione si e chiusa nel frattempo.', 'rosso'); return; }
+            let errId = null;
+            for (let k = 0; k < bozza.ordine.length; k++) {
+                const c = bozza.comp[bozza.ordine[k]];
+                if (!c.liv) { errId = bozza.ordine[k]; break; }
+                if (c.liv !== 'Nessuna' && !c.esp) { errId = bozza.ordine[k]; break; }
+            }
+            document.querySelectorAll('.s-riga-err').forEach(r => r.classList.remove('s-riga-err'));
+            if (errId) {
+                const riga = document.querySelector('.s-riga[data-id="' + errId + '"]');
+                if (riga) { riga.classList.add('s-riga-err'); riga.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                toast('Per ogni area indica la competenza; se non e "Nessuna", scrivi le esperienze.', 'rosso');
+                return;
+            }
             const comp = {};
-            bozza.ordine.forEach(id => { const c = bozza.comp[id]; if (c && (c.liv || c.esp)) comp[id] = { liv: c.liv || '', esp: c.esp || '' }; });
+            bozza.ordine.forEach(id => { const c = bozza.comp[id]; comp[id] = { liv: c.liv, esp: c.liv === 'Nessuna' ? '' : (c.esp || '') }; });
             const rec = {
                 id: String(u.email).toLowerCase(), email: String(u.email).toLowerCase(),
                 nome: u.nome || u.email, ruolo: u.ruolo || '',
@@ -4630,11 +4742,50 @@
     }
 
     let sondTab = 'questionario'; // 'questionario' | 'risultati'
+    let _sondTimer = null;
+
+    // countdown dal vivo verso la scadenza: si auto-spegne quando si cambia vista
+    function avviaCountdown(cfg) {
+        if (_sondTimer) { clearInterval(_sondTimer); _sondTimer = null; }
+        const tick = () => {
+            const e = document.getElementById('s-countdown');
+            if (!e) { if (_sondTimer) { clearInterval(_sondTimer); _sondTimer = null; } return; }
+            let ms = scadenzaMs(cfg) - Date.now();
+            if (ms <= 0) {
+                e.textContent = 'tempo scaduto';
+                if (_sondTimer) { clearInterval(_sondTimer); _sondTimer = null; }
+                if (vistaCorrente === 'sondaggi') vistaSondaggi();
+                return;
+            }
+            const gg = Math.floor(ms / 86400000); ms -= gg * 86400000;
+            const hh = Math.floor(ms / 3600000); ms -= hh * 3600000;
+            const mm = Math.floor(ms / 60000); ms -= mm * 60000;
+            const ss = Math.floor(ms / 1000);
+            e.textContent = (gg ? gg + 'g ' : '') + String(hh).padStart(2, '0') + 'h ' + String(mm).padStart(2, '0') + 'm ' + String(ss).padStart(2, '0') + 's';
+        };
+        tick();
+        _sondTimer = setInterval(tick, 1000);
+    }
 
     function vistaSondaggi() {
+        const cfg = SondConfig.leggi();
+        if (_sondUtenti === null) { utentiSond(() => { if (vistaCorrente === 'sondaggi') vistaSondaggi(); }); }
+        const utenti = _sondUtenti || [];
         const u = Auth.utenteCorrente;
+        const aperto = sondaggioAperto(cfg);
+        const admin = Auth.eAdmin() || Auth.eProprietario();
+        const invitato = !!(u && emailInvitate(cfg, utenti).has(String(u.email).toLowerCase()));
         const mia = u ? Sondaggi.rispostaDi(u.email) : null;
         const nRisposte = Sondaggi.risposte().length;
+        const scadTxt = fmtData(cfg.scadenza);
+
+        const timer = aperto
+            ? '<div class="s-timer aperto"><div class="s-timer-main"><span class="s-timer-lab">Tempo rimanente per compilare</span>'
+                + '<span class="s-timer-val" id="s-countdown">...</span></div>'
+                + '<div class="s-timer-scad">Chiusura il ' + esc(scadTxt) + ' alle 23:59</div></div>'
+            : '<div class="s-timer chiuso"><div class="s-timer-main"><span class="s-timer-lab">Compilazione chiusa</span>'
+                + '<span class="s-timer-val">Le risposte non sono piu modificabili</span></div>'
+                + '<div class="s-timer-scad">Chiusa il ' + esc(scadTxt) + '</div></div>';
 
         const tabBar = '<div class="tab-dest" style="margin-bottom:16px;">'
             + '<button class="tab-btn ' + (sondTab === 'questionario' ? 'attivo' : '') + '" data-sondtab="questionario">Il questionario</button>'
@@ -4643,78 +4794,146 @@
 
         let corpo;
         if (sondTab === 'risultati') {
-            corpo = corpoRisultati();
+            corpo = corpoRisultati(cfg, utenti);
         } else {
-            const statoCard = mia
-                ? '<div class="card s-stato"><div><span class="badge verde">Hai risposto</span> '
+            let gestione = '';
+            if (admin) {
+                const inv = elencoInvitati(cfg, utenti);
+                gestione = '<div class="card s-admin"><div class="s-admin-txt"><strong>Gestione sondaggio</strong>'
+                    + '<div class="hint">Invitati a rispondere: <b>' + inv.length + '</b>'
+                    + (cfg.gruppi.length ? ' (gruppi: ' + esc(cfg.gruppi.map(nomeGruppo).join(', ')) + ')' : '')
+                    + ' &middot; scadenza ' + esc(scadTxt) + '</div></div>'
+                    + '<button class="btn btn-secondary" id="s-gestisci">Gestisci inviti e scadenza</button></div>';
+            }
+            let statoCard = '';
+            if (!invitato && !admin) {
+                statoCard = '<div class="card s-stato"><div><strong>Non risulti tra gli invitati a questo sondaggio.</strong>'
+                    + '<div class="hint" style="margin-top:4px;">Se pensi si tratti di un errore, contatta l\'amministratore.</div></div></div>';
+            } else if (invitato && !aperto) {
+                statoCard = '<div class="card s-stato"><div><strong>La compilazione e chiusa.</strong>'
+                    + (mia ? '<div class="s-top3" style="margin-top:6px;">La tua classifica finale: ' + esc(mia.ordine.map((id, i) => (i + 1) + '. ' + nomeArgomento(id)).join('   ')) + '</div>'
+                        : '<div class="hint" style="margin-top:4px;">Non hai inviato una risposta.</div>') + '</div></div>';
+            } else if (invitato && mia) {
+                statoCard = '<div class="card s-stato"><div><span class="badge verde">Hai risposto</span> '
                     + '<span class="hint">Aggiornata il ' + esc(fmtDataOra(mia.ts)) + '</span>'
                     + '<div class="s-top3">La tua classifica: ' + esc(mia.ordine.map((id, i) => (i + 1) + '. ' + nomeArgomento(id)).join('   ')) + '</div></div>'
-                    + '<button class="btn btn-primary" id="s-compila">Modifica la tua risposta</button></div>'
-                : '<div class="card s-stato"><div><strong>Non hai ancora compilato il questionario.</strong>'
-                    + '<div class="hint" style="margin-top:4px;">Bastano un paio di minuti: ordina le aree e, se vuoi, aggiungi le tue competenze.</div></div>'
+                    + '<button class="btn btn-primary" id="s-compila">Modifica la tua risposta</button></div>';
+            } else if (invitato) {
+                statoCard = '<div class="card s-stato"><div><strong>Sei invitato a compilare il questionario.</strong>'
+                    + '<div class="hint" style="margin-top:4px;">Bastano due minuti: ordina le 8 aree per interesse e indica il tuo livello di competenza.</div></div>'
                     + '<button class="btn btn-primary" id="s-compila">Compila il questionario</button></div>';
+            }
             const argomenti = '<div class="s-argomenti">' + SOND_DEF.argomenti.map((a, i) =>
                 '<div class="s-arg"><span class="s-arg-num">' + String(i + 1).padStart(2, '0') + '</span>'
-                + '<div><div class="s-arg-nome">' + esc(a.nome) + '</div><div class="s-arg-desc">' + esc(a.desc) + '</div></div></div>').join('') + '</div>';
-            corpo = statoCard + '<h2 class="s-sez-tit">Le otto aree del sondaggio</h2>' + argomenti;
+                + '<div><div class="s-arg-nome">' + esc(a.nome) + '</div>'
+                + '<div class="s-arg-coord">Candidato coordinatore: <b>' + esc(a.coord) + '</b></div>'
+                + '<div class="s-arg-desc">' + esc(a.desc) + '</div></div></div>').join('') + '</div>';
+            corpo = gestione + statoCard + '<h2 class="s-sez-tit">Le otto aree e i candidati coordinatori</h2>' + argomenti;
         }
 
         $vista().innerHTML = '<header><div><h1>Sondaggi</h1>'
             + '<p class="descrizione">' + esc(SOND_DEF.descrizione) + '</p></div></header>'
-            + tabBar + corpo;
+            + timer + tabBar + corpo;
 
         $vista().querySelectorAll('[data-sondtab]').forEach(b =>
             b.addEventListener('click', () => { sondTab = b.dataset.sondtab; vistaSondaggi(); }));
         const bc = document.getElementById('s-compila');
-        if (bc) bc.addEventListener('click', modaleSondaggio);
+        if (bc) bc.addEventListener('click', () => modaleSondaggio(cfg));
+        const bg = document.getElementById('s-gestisci');
+        if (bg) bg.addEventListener('click', () => {
+            // assicura la lista utenti caricata prima di aprire, cosi non si apre "vuota"
+            if (_sondUtenti) modaleInvitati(cfg, _sondUtenti);
+            else utentiSond(u => modaleInvitati(cfg, u));
+        });
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { nomeFile: 'sondaggio-risultati', ricerca: true });
         $vista().querySelectorAll('.s-elimina').forEach(b =>
             b.addEventListener('click', () => confermaEliminaRisposta(b.dataset.id, b.dataset.nome)));
+        if (aperto) avviaCountdown(cfg); else if (_sondTimer) { clearInterval(_sondTimer); _sondTimer = null; }
     }
 
-    function corpoRisultati() {
-        const { risposte, classifica, N } = aggregaSondaggio();
-        if (!risposte.length) {
-            return '<div class="card tabella-vuota">Ancora nessuna risposta. Il riepilogo compare qui appena il questionario viene compilato.</div>';
+    function corpoRisultati(cfg, utenti) {
+        const { risposte, classifica, N, maxPunti } = aggregaSondaggio();
+        const invitati = elencoInvitati(cfg, utenti);
+        const nInv = invitati.length, nRisp = risposte.length;
+        const rispSet = new Set(risposte.map(r => r.id));
+        const nRispInvitati = invitati.filter(iv => rispSet.has(iv.email)).length;
+        const perc = nInv ? Math.round(nRispInvitati / nInv * 100) : 0;
+        const admin = Auth.eAdmin() || Auth.eProprietario();
+        if (!nRisp) {
+            return '<div class="card tabella-vuota">Ancora nessuna risposta.' + (nInv ? ' Invitati: ' + nInv + '.' : '') + ' Il riepilogo comparira qui appena arrivano le prime risposte.</div>';
         }
-        const media = s => s.conteggi ? (s.sommaPos / s.conteggi).toFixed(1) : '-';
-        const righe = classifica.map((s, i) => '<tr>'
-            + '<td class="num" data-label="Pos.">' + (i + 1) + '</td>'
-            + '<td class="cliente-cella" data-label="Area">' + esc(s.nome) + '</td>'
-            + '<td class="num" data-label="Punteggio">' + s.punti + '</td>'
-            + '<td class="num" data-label="Media posizione">' + media(s) + '</td>'
-            + '<td class="num" data-label="Prime scelte">' + (s.primi || '') + '</td>'
-            + '<td data-label="Competenze">' + competenzeBadge(s.comp) + '</td>'
-            + '</tr>').join('');
-        const tabella = '<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>'
-            + '<th class="num">Pos.</th><th>Area</th><th class="num" title="Punteggio complessivo: 8 punti alla prima scelta, 1 all\'ultima">Punteggio</th>'
-            + '<th class="num" title="Posizione media assegnata">Media pos.</th><th class="num">Prime scelte</th><th>Competenze dichiarate</th>'
-            + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
 
-        const intro = '<div class="s-riep-head"><div class="s-riep-num">' + risposte.length + '</div>'
-            + '<div class="hint">' + (risposte.length === 1 ? 'risposta raccolta' : 'risposte raccolte') + '. Le aree sono ordinate per punteggio (metodo a punti: 8 alla prima scelta, 1 all\'ultima).</div></div>';
+        // 1) partecipazione + come si legge
+        const partec = '<div class="card s-riep-head">'
+            + '<div class="s-riep-num">' + (nInv ? nRispInvitati : nRisp) + (nInv ? '<span class="s-riep-den"> / ' + nInv + '</span>' : '') + '</div>'
+            + '<div><div class="s-riep-lbl">' + (nInv ? 'invitati hanno risposto (' + perc + '%)' : ((nRisp === 1 ? 'risposta' : 'risposte') + ' raccolte')) + '</div>'
+            + '<div class="hint">Come si legge: ognuno mette le 8 aree in ordine. La 1a scelta vale 8 punti, la 2a 7, fino a 1 punto per l\'8a. Il <b>punteggio</b> somma questi valori su tutte le risposte: piu e alto, piu l\'area e richiesta. Le <b>competenze</b> dicono quante persone si dichiarano competenti in quell\'area.</div></div></div>';
 
+        // 2) classifica visiva a barre
+        const barre = classifica.map((s, i) => {
+            const media = s.conteggi ? (s.sommaPos / s.conteggi).toFixed(1) : '-';
+            const w = Math.max(4, Math.round(s.punti / maxPunti * 100));
+            const compTot = s.comp.Base + s.comp.Buona + s.comp.Elevata;
+            return '<div class="s-bar-row">'
+                + '<div class="s-bar-rank">' + (i + 1) + '</div>'
+                + '<div class="s-bar-body">'
+                + '<div class="s-bar-top"><span class="s-bar-nome">' + esc(s.nome) + '</span><span class="s-bar-pts">' + s.punti + ' punti</span></div>'
+                + '<div class="s-bar-track"><div class="s-bar-fill" style="width:' + w + '%"></div></div>'
+                + '<div class="s-bar-meta"><span>Coord.: ' + esc(s.coord || '-') + '</span>'
+                + '<span>' + s.primi + ' &times; 1a scelta</span><span>posizione media ' + media + '</span>'
+                + '<span class="s-bar-comp">competenti ' + compTot + ': ' + competenzeBadge(s.comp) + '</span></div>'
+                + '</div></div>';
+        }).join('');
+        const classificaBox = '<h2 class="s-sez-tit">Classifica delle aree per interesse</h2><div class="s-bars">' + barre + '</div>';
+
+        // 3) chi puo far parte di ciascun gruppo (nominativo: solo admin/titolare)
+        const squadre = !admin ? '' : '<h2 class="s-sez-tit">Chi puo far parte di ciascun gruppo</h2>'
+            + '<p class="hint" style="margin:-6px 0 12px;">Per ogni area, le persone interessate ordinate per competenza dichiarata e per la posizione che le hanno dato. Utile per comporre i gruppi attorno al candidato coordinatore.</p>'
+            + '<div class="s-team-grid">' + classifica.map(s => {
+                const cand = s.candidati.filter(c => PUNTI_COMP[c.liv] > 0 || (c.pos && c.pos <= 3));
+                const lis = cand.length ? cand.slice(0, 12).map(c => '<li><span class="s-team-nome">' + esc(c.nome) + '</span> ' + livBadge(c.liv)
+                    + (c.pos ? '<span class="s-team-pos">' + c.pos + 'a scelta</span>' : '') + '</li>').join('')
+                    : '<li class="hint">Nessun interessato con competenza o tra le prime tre scelte.</li>';
+                return '<div class="s-team-area"><div class="s-team-head">' + esc(s.nome)
+                    + '<span class="s-team-coord">Coord.: ' + esc(s.coord || '-') + '</span></div>'
+                    + '<ul class="s-team-list">' + lis + '</ul></div>';
+            }).join('') + '</div>';
+
+        // 4) admin: chi manca + risposte individuali
         let dettaglio = '';
-        if (Auth.eAdmin() || Auth.eProprietario()) {
+        if (admin) {
+            const mancano = invitati.filter(iv => !rispSet.has(iv.email));
+            const mancaBox = nInv ? '<div class="card s-manca"><strong>Non hanno ancora risposto: ' + mancano.length + ' su ' + nInv + '</strong>'
+                + (mancano.length ? '<div class="s-manca-lista">' + esc(mancano.map(m => m.nome).join(', ')) + '</div>' : '<div class="hint" style="margin-top:4px;">Tutti gli invitati hanno risposto.</div>') + '</div>' : '';
             const rr = risposte.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
             const drighe = rr.map(r => {
-                const top3 = (Array.isArray(r.ordine) ? r.ordine.slice(0, 3) : []).map((id, i) => (i + 1) + '. ' + nomeArgomento(id)).join(' · ');
+                const ord = Array.isArray(r.ordine) ? r.ordine : [];
+                const classcell = ord.map((id, i) => (i + 1) + '. ' + nomeArgomento(id)).join(' · ');
+                const nComp = ord.filter(id => r.comp && r.comp[id] && r.comp[id].liv && r.comp[id].liv !== 'Nessuna').length;
                 return '<tr>'
                     + '<td class="cliente-cella" data-label="Persona">' + esc(r.nome || r.email) + '</td>'
                     + '<td data-label="Ruolo">' + esc(nomeRuolo(r.ruolo)) + '</td>'
-                    + '<td data-label="Prime scelte">' + esc(top3) + '</td>'
+                    + '<td data-label="Classifica indicata">' + esc(classcell) + '</td>'
+                    + '<td class="num" data-label="Aree con competenza">' + (nComp || '') + '</td>'
                     + '<td data-label="Aggiornata">' + esc(fmtDataOra(r.ts)) + '</td>'
                     + '<td data-label=""><button class="btn btn-sm btn-secondary s-elimina" data-id="' + esc(r.id) + '" data-nome="' + esc(r.nome || r.email) + '">Elimina</button></td>'
                     + '</tr>';
             }).join('');
-            dettaglio = '<h2 class="s-sez-tit">Risposte individuali</h2>'
+            dettaglio = '<h2 class="s-sez-tit">Risposte individuali</h2>' + mancaBox
                 + '<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>'
-                + '<th>Persona</th><th>Ruolo</th><th>Prime scelte</th><th>Aggiornata</th><th></th>'
+                + '<th>Persona</th><th>Ruolo</th><th>Classifica indicata</th><th class="num">Aree con competenza</th><th>Aggiornata</th><th></th>'
                 + '</tr></thead><tbody>' + drighe + '</tbody></table></div>'
                 + '<p class="hint" style="margin-top:8px;">Il dettaglio nominativo e visibile solo ad amministratore e titolare.</p>';
         }
-        return intro + tabella + dettaglio;
+        return partec + classificaBox + squadre + dettaglio;
+    }
+
+    function livBadge(liv) {
+        if (liv === 'Elevata') return '<span class="badge verde">Elevata</span>';
+        if (liv === 'Buona') return '<span class="badge ambra">Buona</span>';
+        if (liv === 'Base') return '<span class="badge">Base</span>';
+        return '<span class="badge grigio">Nessuna</span>';
     }
 
     function competenzeBadge(comp) {
@@ -4722,7 +4941,46 @@
         if (comp.Elevata) parti.push('<span class="badge verde">Elevata ' + comp.Elevata + '</span>');
         if (comp.Buona) parti.push('<span class="badge ambra">Buona ' + comp.Buona + '</span>');
         if (comp.Base) parti.push('<span class="badge">Base ' + comp.Base + '</span>');
-        return parti.length ? parti.join(' ') : '<span style="color:var(--grigio-400)">nessuna</span>';
+        if (comp.Nessuna) parti.push('<span class="badge grigio">Nessuna ' + comp.Nessuna + '</span>');
+        return parti.length ? parti.join(' ') : '<span style="color:var(--grigio-400)">-</span>';
+    }
+
+    /* Modale amministratore: chi e invitato (gruppi + singole persone) e scadenza. */
+    function modaleInvitati(cfg, utenti) {
+        utenti = utenti || [];
+        const gruppiSel = new Set(cfg.gruppi);
+        const invSel = new Set(cfg.invitati);
+        const gruppiHtml = GRUPPI_MAIL.map(g => '<label class="chip-gruppo"><input type="checkbox" class="mi-gruppo" value="' + g.id + '"' + (gruppiSel.has(g.id) ? ' checked' : '') + '> ' + esc(g.nome) + '</label>').join('');
+        const utentiHtml = utenti.length
+            ? utenti.map(x => { const e = String(x.email).toLowerCase(); return '<label class="mi-utente"><input type="checkbox" class="mi-inv" value="' + esc(e) + '"' + (invSel.has(e) ? ' checked' : '') + '> <span class="mi-nome">' + esc(x.nome || e) + '</span> <span class="hint">' + esc(e) + '</span></label>'; }).join('')
+            : '<p class="hint">Nessun utente disponibile.</p>';
+        apriModale('<h2>Inviti e scadenza del sondaggio</h2>'
+            + '<div class="campo"><label for="mi-scad">Scadenza (ultimo giorno utile, fino alle 23:59)</label>'
+            + '<input type="date" id="mi-scad" value="' + esc(cfg.scadenza) + '"></div>'
+            + '<div class="campo"><label>Invita per gruppo</label><div class="gruppi-chip">' + gruppiHtml + '</div></div>'
+            + '<div class="campo"><label>Invita singole persone (solo utenti che possono accedere)</label>'
+            + '<input type="text" id="mi-cerca" class="mi-cerca" placeholder="Cerca per nome o email"><div class="mi-utenti">' + utentiHtml + '</div></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="mi-annulla">Annulla</button>'
+            + '<button class="btn btn-primary" id="mi-salva">Salva</button></div>', { classe: 'larga' });
+        const cerca = document.getElementById('mi-cerca');
+        if (cerca) cerca.addEventListener('input', () => {
+            const q = cerca.value.trim().toLowerCase();
+            document.querySelectorAll('.mi-utente').forEach(l => { l.style.display = (!q || l.textContent.toLowerCase().indexOf(q) >= 0) ? '' : 'none'; });
+        });
+        document.getElementById('mi-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('mi-salva').addEventListener('click', () => {
+            const scad = document.getElementById('mi-scad').value || SOND_DEF.scadenzaDefault;
+            const gruppi = Array.from(document.querySelectorAll('.mi-gruppo:checked')).map(c => c.value);
+            // se la lista utenti non e' stata mostrata (0 caselle), NON azzerare gli invitati
+            // singoli gia' salvati: si conservano quelli in configurazione.
+            const listaMostrata = document.querySelectorAll('.mi-inv').length > 0;
+            const invitati = listaMostrata
+                ? Array.from(document.querySelectorAll('.mi-inv:checked')).map(c => c.value)
+                : (cfg.invitati || []).slice();
+            SondConfig.salva({ scadenza: scad, invitati: invitati, gruppi: gruppi });
+            try { Audit.registra(Auth.utenteCorrente, 'Sondaggio: inviti aggiornati', 'sondaggio', SOND_DEF.id, null, 'invitati ' + invitati.length + ', gruppi ' + gruppi.length + ', scadenza ' + scad); } catch (e) { }
+            chiudiModale(); toast('Impostazioni salvate.', 'verde'); vistaSondaggi();
+        });
     }
 
     /* =========================================================
