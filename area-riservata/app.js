@@ -52,6 +52,17 @@
         const d = new Date();
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
+    /* Chiave di confronto di una regione: uguale per grafie diverse della STESSA regione
+       (maiuscole, accenti, apostrofi dritti/curvi, trattino vs spazio). Cosi'
+       "Trentino-Alto Adige", "Trentino Alto Adige" e "TRENTINO ALTO ADIGE" coincidono,
+       e "Valle d'Aosta" con apostrofo dritto o curvo coincide. Usata per il filtro
+       regione dei coordinatori e per raggruppare le regioni. */
+    function chiaveRegione(r) {
+        return String(r == null ? '' : r).trim().toLowerCase()
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')    // via gli accenti
+            .replace(/['’`]/g, '')                // via gli apostrofi (dritto e curvo)
+            .replace(/[\s-]+/g, ' ');                            // trattini e spazi multipli -> spazio
+    }
     function fmtData(iso) {
         if (!iso) return '';
         const [a, m, g] = iso.split('-');
@@ -835,14 +846,15 @@
             if (!r || !r.coordinatore) return null;
             const p = this.personaCorrente();
             if (!p) return [];
+            // chiave normalizzata: grafie diverse della stessa regione (accenti, trattini) coincidono
             const regioni = [p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : [])
-                .map(x => String(x || '').trim().toLowerCase()).filter(Boolean);
+                .map(chiaveRegione).filter(Boolean);
             return Array.from(new Set(regioni));
         },
         vedeIncarico(inc) {
             const reg = this.regioniConsentite();
             if (!reg) return true;
-            return reg.includes(String((inc && inc.regione) || '').toLowerCase());
+            return reg.includes(chiaveRegione((inc && inc.regione) || ''));
         }
     };
 
@@ -1400,7 +1412,7 @@
             const reg = Auth.regioniConsentite();
             const tutti = this.tutti();
             if (!reg) return tutti;
-            return tutti.filter(i => reg.includes(String(i.regione || '').toLowerCase()));
+            return tutti.filter(i => reg.includes(chiaveRegione(i.regione || '')));
         },
         salva(lista) { Store.scrivi(CHIAVI.incarichi, lista); },
         trova(id) { return this.tutti().find(i => i.id === id) || null; },
@@ -1970,7 +1982,7 @@
         { id: 'fatturazione', nome: 'Fatturazione', icona: 'M9 14l2 2 4-4M5 3h14a1 1 0 011 1v16l-3-2-2 2-3-2-2 2-3-2-3 2V4a1 1 0 011-1z' },
         { id: 'report', nome: 'Report compensi', icona: 'M4 20V10m6 10V4m6 16v-7m4 7H2' },
         { id: 'persone', nome: 'Persone', icona: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-        { id: 'coordinatori', nome: 'Coordinatori', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
+        { id: 'coordinatori', nome: 'Coordinatori e vice', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
         { id: 'comunicazioni', nome: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
@@ -2103,7 +2115,7 @@
         const coordinatori = Persone.tutte().filter(p => p.coordinatore && p.attivo).map(p => ({
             nome: (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome,
             regioni: new Set([p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : [])
-                .map(x => String(x || '').trim().toLowerCase()).filter(Boolean))
+                .map(chiaveRegione).filter(Boolean))
         }));
         const perCoord = {};
         const aggiungi = (key, nome, i, comp, s) => {
@@ -2113,7 +2125,7 @@
             else if (s.classe === 'rosso') { g.scaduN++; g.scaduTot += comp; }
         };
         attivi.forEach(i => {
-            const reg = String(i.regione || '').trim().toLowerCase();
+            const reg = chiaveRegione(i.regione || '');
             const comp = Incarichi.compensoAnno(i, anno);
             const s = Incarichi.statoScadenza(i);
             const suoi = reg ? coordinatori.filter(c => c.regioni.has(reg)) : [];
@@ -3811,56 +3823,108 @@
     }
 
     /* =========================================================
-       VISTA: COORDINATORI (coordinatori territoriali e vice, dall'anagrafica).
-       Stessi permessi della sezione Persone.
+       VISTA: COORDINATORI E VICE (dall'anagrafica), in 3 schede:
+       Coordinatori, Vice coordinatori, Per regione. Permessi come Persone.
     ========================================================= */
+    let coordTab = 'coordinatori'; // 'coordinatori' | 'vice' | 'regione'
+
+    // le regioni coperte da una persona (Regione della scheda + altre regioni coordinate), dedup
+    function regioniCoperte(p) {
+        const viste = new Set(), out = [];
+        [p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : []).filter(Boolean).forEach(r => {
+            const k = chiaveRegione(r);
+            if (k && !viste.has(k)) { viste.add(k); out.push(String(r).trim()); }
+        });
+        return out;
+    }
+
     function vistaCoordinatori() {
-        const persone = Persone.tutte().filter(p => p.coordinatore || p.viceCoordinatore)
-            .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
         const puoScr = Auth.puoScrivere('persone');
         const anno = annoCorrente();
-        // incarichi ATTIVI visibili, indicizzati per regione (minuscola)
         const attivi = Incarichi.visibili().filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
-        const regioniDi = p => {
-            const viste = new Set(), out = [];
-            [p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : []).filter(Boolean).forEach(r => {
-                const k = String(r).trim().toLowerCase();
-                if (k && !viste.has(k)) { viste.add(k); out.push(String(r).trim()); }
-            });
-            return out;
+        const coordinatori = Persone.tutte().filter(p => p.coordinatore).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        const vice = Persone.tutte().filter(p => p.viceCoordinatore).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+
+        // tabella persone (usata per Coordinatori e per Vice)
+        const tabellaPersone = (lista, ruolo) => {
+            if (!lista.length) return `<div class="card tabella-vuota">Nessun ${ruolo === 'vice' ? 'vice coordinatore' : 'coordinatore'} in anagrafica: spunta la relativa casella nella scheda della persona (sezione Persone).</div>`;
+            const righe = lista.map(p => {
+                const regioni = regioniCoperte(p);
+                const chiavi = new Set(regioni.map(chiaveRegione));
+                const suoi = attivi.filter(i => chiavi.has(chiaveRegione(i.regione || '')));
+                const tot = suoi.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
+                return `<tr>
+                    <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
+                    <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : ''}</td>
+                    <td data-label="Regioni">${regioni.length ? esc(regioni.join(', ')) : '<span class="badge rosso">nessuna regione</span>'}</td>
+                    <td class="col-email" data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : ''}</td>
+                    <td class="num" data-label="Incarichi">${suoi.length || ''}</td>
+                    <td class="num" data-label="Compensi ${anno}">${tot ? eurFmt.format(tot) : ''}</td>
+                    <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
+                    ${puoScr ? `<td data-label=""><button class="btn btn-sm btn-secondary co-modifica" data-id="${esc(p.id)}">Modifica scheda</button></td>` : ''}
+                </tr>`;
+            }).join('');
+            return `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <th>Cognome</th><th>Nome</th><th>Regioni</th><th>Email</th><th class="num" title="Incarichi attivi nelle regioni coperte">Incarichi</th><th class="num">Compensi ${anno}</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
+            </tr></thead><tbody>${righe}</tbody></table></div>`;
         };
-        const righe = persone.map(p => {
-            const regioni = regioniDi(p);
-            const chiavi = new Set(regioni.map(r => r.toLowerCase()));
-            const suoi = attivi.filter(i => chiavi.has(String(i.regione || '').trim().toLowerCase()));
-            const tot = suoi.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
-            return { p, regioni, n: suoi.length, tot };
-        });
+
+        // tabella per regione: per ogni regione, chi la coordina (coord + vice) e gli incarichi attivi
+        const tabellaRegioni = () => {
+            const nomiPerChiave = {};   // chiave normalizzata -> grafia da mostrare
+            RV_ROSTER.regioni.forEach(r => { nomiPerChiave[chiaveRegione(r)] = r; });
+            const dati = {};
+            const assicura = r => {
+                const k = chiaveRegione(r); if (!k) return null;
+                if (!nomiPerChiave[k]) nomiPerChiave[k] = String(r).trim();
+                return dati[k] || (dati[k] = { coord: [], vice: [], n: 0, tot: 0 });
+            };
+            coordinatori.forEach(p => regioniCoperte(p).forEach(r => { const d = assicura(r); if (d) d.coord.push(p.nomeProprio ? p.nomeProprio + ' ' + p.nome : p.nome); }));
+            vice.forEach(p => regioniCoperte(p).forEach(r => { const d = assicura(r); if (d) d.vice.push(p.nomeProprio ? p.nomeProprio + ' ' + p.nome : p.nome); }));
+            attivi.forEach(i => { const d = assicura(i.regione); if (d) { d.n++; d.tot += Incarichi.compensoAnno(i, anno); } });
+            // mostra le regioni con qualcosa (persone o incarichi), in ordine alfabetico
+            const chiavi = Object.keys(dati).filter(k => dati[k].coord.length || dati[k].vice.length || dati[k].n)
+                .sort((a, b) => nomiPerChiave[a].localeCompare(nomiPerChiave[b], 'it'));
+            if (!chiavi.length) return '<div class="card tabella-vuota">Nessuna regione con coordinatori o incarichi attivi.</div>';
+            const righe = chiavi.map(k => {
+                const d = dati[k];
+                const scoperta = d.n > 0 && !d.coord.length && !d.vice.length;
+                return `<tr>
+                    <td class="cliente-cella" data-label="Regione">${esc(nomiPerChiave[k])}${scoperta ? ' <span class="badge rosso">scoperta</span>' : ''}</td>
+                    <td data-label="Coordinatori">${d.coord.length ? esc(d.coord.join(', ')) : '<span style="color:var(--grigio-400)">—</span>'}</td>
+                    <td data-label="Vice">${d.vice.length ? esc(d.vice.join(', ')) : '<span style="color:var(--grigio-400)">—</span>'}</td>
+                    <td class="num" data-label="Incarichi attivi">${d.n || ''}</td>
+                    <td class="num" data-label="Compensi ${anno}">${d.tot ? eurFmt.format(d.tot) : ''}</td>
+                </tr>`;
+            }).join('');
+            return `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <th>Regione</th><th>Coordinatori</th><th>Vice</th><th class="num">Incarichi attivi</th><th class="num">Compensi ${anno}</th>
+            </tr></thead><tbody>${righe}</tbody></table></div>`;
+        };
+
+        const tabBar = `<div class="tab-dest" style="margin-bottom:16px;">
+            <button class="tab-btn ${coordTab === 'coordinatori' ? 'attivo' : ''}" data-coordtab="coordinatori">Coordinatori (${coordinatori.length})</button>
+            <button class="tab-btn ${coordTab === 'vice' ? 'attivo' : ''}" data-coordtab="vice">Vice coordinatori (${vice.length})</button>
+            <button class="tab-btn ${coordTab === 'regione' ? 'attivo' : ''}" data-coordtab="regione">Per regione</button>
+        </div>`;
+        const corpo = coordTab === 'vice' ? tabellaPersone(vice, 'vice')
+            : coordTab === 'regione' ? tabellaRegioni()
+                : tabellaPersone(coordinatori, 'coordinatore');
+
         $vista().innerHTML = `
             <header>
                 <div>
-                    <h1>Coordinatori territoriali</h1>
-                    <p class="descrizione">Coordinatori e vice dall'anagrafica, con le regioni coperte e gli incarichi attivi di quelle regioni. Le regioni si impostano nella scheda della persona (sezione Persone).</p>
+                    <h1>Coordinatori e vice</h1>
+                    <p class="descrizione">Coordinatori territoriali e vice dall'anagrafica, con le regioni coperte e gli incarichi attivi di quelle regioni. Le regioni si impostano nella scheda della persona (sezione Persone).</p>
                 </div>
             </header>
-            ${righe.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Ruolo</th><th>Regioni</th><th>Email</th><th class="num" title="Incarichi attivi nelle regioni coperte">Incarichi</th><th class="num">Compensi ${anno}</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
-            </tr></thead><tbody>` +
-            righe.map(r => `<tr>
-                <td class="cliente-cella" data-label="Cognome">${esc(r.p.nome)}</td>
-                <td data-label="Nome">${r.p.nomeProprio ? esc(r.p.nomeProprio) : ''}</td>
-                <td data-label="Ruolo">${r.p.coordinatore ? '<span class="badge verde">Coordinatore</span>' : ''} ${r.p.viceCoordinatore ? '<span class="badge ambra">Vice</span>' : ''}</td>
-                <td data-label="Regioni">${r.regioni.length ? esc(r.regioni.join(', ')) : '<span class="badge rosso">nessuna regione</span>'}</td>
-                <td class="col-email" data-label="Email">${r.p.email ? '<a href="mailto:' + esc(r.p.email) + '">' + esc(r.p.email) + '</a>' : ''}</td>
-                <td class="num" data-label="Incarichi">${r.n || ''}</td>
-                <td class="num" data-label="Compensi ${anno}">${r.tot ? eurFmt.format(r.tot) : ''}</td>
-                <td data-label="Stato">${r.p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
-                ${puoScr ? `<td data-label=""><button class="btn btn-sm btn-secondary co-modifica" data-id="${esc(r.p.id)}">Modifica scheda</button></td>` : ''}
-            </tr>`).join('') +
-            `</tbody></table></div>
-            <p class="descrizione" style="margin-top:10px;">Gli incarichi contati sono quelli attivi con la regione tra quelle coperte. Una regione coperta da piu persone conta gli stessi incarichi per ciascuna.</p>`
-            : '<div class="card tabella-vuota">Nessun coordinatore o vice in anagrafica: spunta "Coordinatore territoriale" o "Vice coordinatore territoriale" nella scheda della persona (sezione Persone).</div>'}`;
-        attrezzaTabella($vista(), { nomeFile: 'coordinatori', ricerca: true });
+            ${tabBar}${corpo}
+            <p class="descrizione" style="margin-top:10px;">Gli incarichi contati sono quelli attivi con la regione tra quelle coperte. Una regione coperta da piu persone conta gli stessi incarichi per ciascuna.</p>`;
+
+        $vista().querySelectorAll('[data-coordtab]').forEach(b =>
+            b.addEventListener('click', () => { coordTab = b.dataset.coordtab; vistaCoordinatori(); }));
+        const tab = $vista().querySelector('table.dati');
+        if (tab) attrezzaTabella(tab, { nomeFile: 'coordinatori-' + coordTab, ricerca: true });
         $vista().querySelectorAll('.co-modifica').forEach(b =>
             b.addEventListener('click', () => modalePersona(b.dataset.id)));
     }
