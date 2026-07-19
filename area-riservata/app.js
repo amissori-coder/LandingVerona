@@ -5236,8 +5236,8 @@
             const cnt = document.getElementById('s-conta'); if (cnt) cnt.textContent = scelte.size + ' di ' + MAX_SCELTE;
         }
 
-        apriModale('<div class="s-guida"><p><b>Come funziona.</b> Seleziona le <b>due aree</b> nelle quali vorresti entrare a far parte del gruppo di specialisti, spuntando la casella accanto al nome. Per ciascuna area scelta compila <b>entrambi i campi obbligatori</b>: il <b>livello di competenza</b> e le <b>note sulle esperienze</b> (descrivi cosa hai fatto in quell\'area, come nell\'esempio).</p>'
-            + '<p class="s-guida-cnt">Aree selezionate: <b><span id="s-conta">' + scelte.size + ' di ' + MAX_SCELTE + '</span></b></p></div>'
+        apriModale('<div class="s-guida"><p><b>Come funziona.</b> Spunta le <b>due aree</b> che ti interessano. Per ciascuna compila <b>entrambi i campi obbligatori</b>: il <b>livello di competenza</b> e le <b>note sulle esperienze</b>.'
+            + ' <span class="s-guida-cnt">Aree selezionate: <b><span id="s-conta">' + scelte.size + ' di ' + MAX_SCELTE + '</span></b></span></p></div>'
             + '<div id="s-scelte" class="s-scelte">' + SOND_DEF.argomenti.map(cardHtml).join('') + '</div>'
             + '<div class="campo" style="margin-top:16px;"><label for="s-note">Nota per la direzione (facoltativa)</label>'
             + '<textarea id="s-note" rows="2" maxlength="600" placeholder="Disponibilita, specializzazioni, proposte">' + esc(bozzaNote.v) + '</textarea></div>'

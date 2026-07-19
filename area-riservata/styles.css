@@ -884,7 +884,7 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .s-nome { font-weight: 700; color: var(--blu-900); font-size: 0.94rem; }
 .s-coord { font-weight: 500; font-size: 0.76rem; color: var(--grigio-600); }
 .s-desc { font-size: 0.8rem; color: var(--grigio-600); line-height: 1.4; margin: 2px 0 8px; }
-.s-comp-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.s-comp-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
 .s-comp-lab { font-size: 0.78rem; font-weight: 600; color: var(--grigio-900); margin: 0; }
 .s-req { font-weight: 600; color: var(--rosso); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.3px; }
 .s-liv { padding: 7px 9px; border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff; font-size: 0.85rem; min-width: 170px; }
@@ -894,18 +894,20 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .s-liv:focus, .s-esp:focus { outline: none; border-color: var(--blu-500); box-shadow: 0 0 0 3px var(--blu-100); }
 
 /* modale: scelta delle due aree (card con casella) */
-.s-scelte { display: flex; flex-direction: column; gap: 10px; max-height: 56vh; overflow-y: auto; padding: 2px; }
+/* niente scroll interno: la finestra del questionario scorre gia' col suo corpo,
+   una seconda barra sulla lista delle scelte (che compariva spuntando un'area) e' un doppione */
+.s-scelte { display: flex; flex-direction: column; gap: 9px; }
 .s-scelta { border: 1px solid var(--grigio-200); border-radius: var(--raggio); background: var(--bianco); transition: border-color .15s ease, background .15s ease; }
 .s-scelta.attiva { border-color: var(--blu-500); background: var(--blu-050); box-shadow: inset 3px 0 0 var(--blu-700); }
 .s-scelta.disabilitata { opacity: 0.55; }
 .s-scelta.s-scelta-err { border-color: var(--rosso); box-shadow: 0 0 0 2px var(--rosso-bg); }
-.s-scelta-head { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; cursor: pointer; }
+.s-scelta-head { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; cursor: pointer; }
 .s-scelta.disabilitata .s-scelta-head { cursor: not-allowed; }
 .s-check { width: 18px; height: 18px; margin-top: 2px; flex: 0 0 auto; accent-color: var(--blu-700); cursor: pointer; }
 .s-scelta-txt { min-width: 0; }
 .s-scelta-nome { font-weight: 700; color: var(--blu-900); font-size: 0.94rem; display: block; }
 .s-scelta-desc { font-size: 0.8rem; color: var(--grigio-600); line-height: 1.4; display: block; margin-top: 2px; }
-.s-scelta-comp { padding: 0 14px 12px 42px; }
+.s-scelta-comp { padding: 0 14px 11px 42px; }
 
 /* azioni gestione admin (Gestisci inviti / Invia inviti) */
 .s-admin-azioni { display: flex; gap: 8px; flex-wrap: wrap; flex: 0 0 auto; }
@@ -943,7 +945,7 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 /* compilazione: coordinatore + requisito/flag per area */
 .s-scelta-coord { display: block; font-size: 0.76rem; color: var(--blu-700); margin-top: 1px; }
 /* flag/requisito ESG e TCF: messo in evidenza (cornice ambra, badge e sottotesto) */
-.s-flag { display: flex; align-items: flex-start; gap: 11px; margin-top: 14px; padding: 12px 14px; background: var(--ambra-bg); border: 2px solid var(--ambra); border-radius: 8px; font-size: 0.9rem; color: var(--grigio-900); cursor: pointer; box-shadow: 0 1px 5px rgba(154, 103, 0, 0.14); transition: box-shadow 0.15s, background 0.15s; }
+.s-flag { display: flex; align-items: flex-start; gap: 11px; margin-top: 10px; padding: 10px 13px; background: var(--ambra-bg); border: 2px solid var(--ambra); border-radius: 8px; font-size: 0.9rem; color: var(--grigio-900); cursor: pointer; box-shadow: 0 1px 5px rgba(154, 103, 0, 0.14); transition: box-shadow 0.15s, background 0.15s; }
 .s-flag:hover { box-shadow: 0 2px 9px rgba(154, 103, 0, 0.22); }
 .s-flag input { margin-top: 2px; flex: 0 0 auto; width: 20px; height: 20px; accent-color: var(--ambra); cursor: pointer; }
 .s-flag-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -987,7 +989,7 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .s-modale-compila .s-guida,
 .s-modale-compila #s-scelte,
 .s-modale-compila .modale-corpo > .campo { max-width: 980px; margin-left: auto; margin-right: auto; }
-.s-guida-cnt { margin: 8px 0 0; font-size: 0.9rem; }
+.s-guida-cnt { display: inline-block; margin-left: 6px; padding: 1px 9px; border-radius: 20px; background: var(--blu-100); font-size: 0.8rem; font-weight: 600; color: var(--blu-900); white-space: nowrap; }
 
 @media (max-width: 720px) {
     .s-argomenti, .s-team-grid, .s-aree { grid-template-columns: 1fr; }
