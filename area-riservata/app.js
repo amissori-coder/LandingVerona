@@ -2736,6 +2736,7 @@
                             ${rigaRiepilogo('Responsabile qualita', inc.qualita)}
                             ${rigaRiepilogo('Referente', inc.referente)}
                             ${rigaRiepilogo('Team di revisione', inc.team)}
+                            ${(inc.teamStorico && inc.teamStorico.length) ? `<div class="riepilogo-riga"><span class="etichetta">Team precedente</span><span class="valore">${inc.teamStorico.map(s => esc(s.nome) + (s.al ? ' <span class="hint">(fino al ' + fmtData(s.al) + ')</span>' : '')).join(', ')}</span></div>` : ''}
                             ${rigaRiepilogo('Area', inc.area)}
                         </div>
                     </div>
@@ -3060,13 +3061,34 @@
         } else if (w.passo === 3) {
             disegnaPassoCalcolo(corpo);
         } else if (w.passo === 4) {
-            const teamSel = dividiNomi(d.team);
-            // i valori importati fuori roster restano selezionabili
+            const risolviTeam = risolutorePersone();
+            const tutteP = Persone.tutte();
+            // etichetta CORRENTE di un valore salvato: aggiorna es. "Cambrea Dario" -> "Cambrea"
+            // dopo che il nome e stato separato dal cognome. Disattivati/eliminati/orfani restano.
+            const etichCorrente = valore => { const p = risolviTeam(valore); return (p && p.attivo && !p.eliminato) ? etichettaPersona(p, tutteP) : valore; };
             const opzioni = (lista, corrente) => {
-                const extra = corrente && !lista.includes(corrente) ? `<option selected>${esc(corrente)}</option>` : '';
-                return extra + lista.map(r => `<option ${corrente === r ? 'selected' : ''}>${esc(r)}</option>`).join('');
+                const cur = etichCorrente(corrente);
+                const extra = cur && !lista.includes(cur) ? `<option selected>${esc(cur)}</option>` : '';
+                return extra + lista.map(r => `<option ${cur === r ? 'selected' : ''}>${esc(r)}</option>`).join('');
             };
-            const teamCompleto = Array.from(new Set(Persone.attiveEtichette().concat(teamSel))).sort((a, b) => a.localeCompare(b, 'it'));
+            // team salvato: distinguo chi e ancora attivo (selezionabile, con l'etichetta corrente)
+            // da chi e "precedente" (disattivato, eliminato o non piu in anagrafica): questi restano
+            // congelati e spuntati, ma non si possono aggiungere di nuovo.
+            const idNelTeam = new Set(), precedenti = [], vistiPrec = new Set();
+            dividiNomi(d.team).forEach(voce => {
+                const p = risolviTeam(voce);
+                if (p && p.attivo && !p.eliminato) { idNelTeam.add(p.id); return; }
+                // dedup delle precedenti per persona (o etichetta, se orfana): due token della
+                // stessa persona (es. importati) non devono comparire due volte
+                const k = p ? p.id : '_' + String(voce).trim().toLowerCase();
+                if (vistiPrec.has(k)) return;
+                vistiPrec.add(k);
+                precedenti.push({ valore: voce, etichetta: p ? etichettaPersona(p, tutteP) : voce, motivo: p ? (p.eliminato ? 'eliminata' : 'disattivata') : 'non piu in anagrafica' });
+            });
+            const selezionabili = tutteP.filter(p => p.attivo && !p.eliminato)
+                .map(p => ({ etichetta: etichettaPersona(p, tutteP), sel: idNelTeam.has(p.id) }))
+                .sort((a, b) => a.etichetta.localeCompare(b.etichetta, 'it'));
+            const nTeam = selezionabili.length + precedenti.length;
             corpo.innerHTML = `
                 <h2>Team di revisione</h2>
                 <p class="descrizione" style="margin-bottom:12px;">Assegna i ruoli e scegli i componenti del team. I nominativi si gestiscono dalla vista Persone.</p>
@@ -3092,7 +3114,10 @@
                         </div>
                         <div class="team-picker-chips" id="w-team-chips"></div>
                         <div class="team-picker-lista" id="w-team-lista">
-                            ${teamCompleto.length ? teamCompleto.map(t => `<label class="team-opz" data-nome="${esc(t)}"><input type="checkbox" class="w-team-check" value="${esc(t)}" ${teamSel.includes(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('') : '<div class="hint" style="padding:6px;">Nessun nominativo in anagrafica: aggiungili dalla vista Persone.</div>'}
+                            ${nTeam ? (
+                                precedenti.map(pr => `<label class="team-opz" data-nome="${esc(pr.etichetta)}" style="background:var(--ambra-bg);border-radius:6px;"><input type="checkbox" class="w-team-check" value="${esc(pr.valore)}" data-etich="${esc(pr.etichetta)}" checked><span>${esc(pr.etichetta)} <span class="badge ambra">precedente: ${esc(pr.motivo)}</span></span></label>`).join('')
+                                + selezionabili.map(s => `<label class="team-opz" data-nome="${esc(s.etichetta)}"><input type="checkbox" class="w-team-check" value="${esc(s.etichetta)}" ${s.sel ? 'checked' : ''}><span>${esc(s.etichetta)}</span></label>`).join('')
+                            ) : '<div class="hint" style="padding:6px;">Nessun nominativo in anagrafica: aggiungili dalla vista Persone.</div>'}
                         </div>
                     </div>
                 </div>`;
@@ -3100,10 +3125,10 @@
             const teamChips = document.getElementById('w-team-chips');
             const teamConta = document.getElementById('w-team-conteggio');
             const aggiornaTeam = () => {
-                const sel = Array.from(teamLista.querySelectorAll('.w-team-check:checked')).map(c => c.value);
-                teamConta.textContent = sel.length + ' selezionat' + (sel.length === 1 ? 'o' : 'i') + ' su ' + teamCompleto.length;
+                const sel = Array.from(teamLista.querySelectorAll('.w-team-check:checked')).map(c => ({ v: c.value, e: c.dataset.etich || c.value }));
+                teamConta.textContent = sel.length + ' selezionat' + (sel.length === 1 ? 'o' : 'i') + ' su ' + nTeam;
                 teamChips.innerHTML = sel.length
-                    ? sel.map(n => `<span class="team-chip">${esc(n)}<button type="button" class="team-chip-x" title="Rimuovi" data-nome="${esc(n)}">&times;</button></span>`).join('')
+                    ? sel.map(o => `<span class="team-chip">${esc(o.e)}<button type="button" class="team-chip-x" title="Rimuovi" data-nome="${esc(o.v)}">&times;</button></span>`).join('')
                     : '<span class="hint">Nessun componente selezionato.</span>';
                 teamChips.querySelectorAll('.team-chip-x').forEach(b => b.addEventListener('click', () => {
                     teamLista.querySelectorAll('.w-team-check').forEach(cb => { if (cb.value === b.dataset.nome) cb.checked = false; });
@@ -3431,6 +3456,47 @@
         return true;
     }
 
+    // persone presenti nel team salvato dell'incarico ma non piu nel team scelto ora
+    // (confronto per persona, cosi un semplice cambio di etichetta non conta come uscita)
+    function personeRimosseDalTeam(idEsistente, teamNuovo) {
+        const orig = idEsistente ? Incarichi.trova(idEsistente) : null;
+        if (!orig) return [];
+        const risolvi = risolutorePersone();
+        const chiave = v => { const p = risolvi(v); return p ? p.id : '_' + String(v).trim().toLowerCase(); };
+        const nuovi = new Set(dividiNomi(teamNuovo).map(chiave));
+        const out = [], visti = new Set();
+        dividiNomi(orig.team).forEach(v => {
+            const k = chiave(v);
+            if (nuovi.has(k) || visti.has(k)) return;
+            visti.add(k);
+            const p = risolvi(v);
+            out.push({ etichetta: p ? etichettaPersona(p) : v });
+        });
+        return out;
+    }
+    // riepilogo delle persone tolte dal team: chiede fino a quando hanno coperto il ruolo,
+    // poi prosegue col salvataggio. Le date finiscono nello storico del team dell'incarico.
+    function modaleUscitaTeam(rimossi, onConferma) {
+        const oggi = oggiISO();
+        const righe = rimossi.map((r, i) => `<div class="campo" style="display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;">
+            <span><strong>${esc(r.etichetta)}</strong></span>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:500;">fino al <input type="date" class="u-team-data" data-i="${i}" max="${oggi}" style="max-width:180px;"></label>
+        </div>`).join('');
+        apriModale(`<h2>Persone tolte dal team</h2>
+            <p class="descrizione">Hai tolto ${rimossi.length === 1 ? 'questa persona' : 'queste persone'} dal team di revisione. Indica fino a quando ${rimossi.length === 1 ? 'ha' : 'hanno'} coperto il ruolo (facoltativo): ne resta traccia nello storico dell'incarico.</p>
+            ${righe}
+            <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-conferma">Conferma e salva</button></div>`, { classe: 'larga', bloccante: true });
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            const utente = Auth.utenteCorrente;
+            const entries = rimossi.map((r, i) => {
+                const inp = document.querySelector('.u-team-data[data-i="' + i + '"]');
+                return { nome: r.etichetta, al: (inp && inp.value) || null, da: utente ? (utente.nome + ' <' + utente.email + '>') : '', il: Date.now() };
+            });
+            chiudiModale();
+            onConferma(entries);
+        });
+    }
     function concludiWizard() {
         const w = wizard, d = w.dati;
         // il filtro per regione vale anche in scrittura: un ruolo limitato (coordinatore/vice)
@@ -3441,6 +3507,13 @@
             toast('Puoi creare o modificare incarichi solo nelle tue regioni.', 'rosso');
             return;
         }
+        // se qualcuno e uscito dal team, prima si registra la data di fine ruolo, poi si salva
+        const rimossi = (w.modalita === 'modifica' || w.modalita === 'rinnovo') ? personeRimosseDalTeam(w.idEsistente, d.team) : [];
+        if (rimossi.length) { modaleUscitaTeam(rimossi, entries => { d.teamStorico = (d.teamStorico || []).concat(entries); finalizzaWizard(); }); return; }
+        finalizzaWizard();
+    }
+    function finalizzaWizard() {
+        const w = wizard, d = w.dati;
         const anni = anniEsercizi();
         const mappa = compensiRisultanti();
         if (w.modalita === 'rinnovo') {
