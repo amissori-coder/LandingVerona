@@ -211,6 +211,13 @@
         { id: 'coordinatore', nome: 'Coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
         { id: 'vicecoordinatore', nome: 'Vice coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
     ];
+    /* Ruoli "solo sondaggio": accesso isolato alla sola sezione Sondaggi, per gli invitati
+       che NON fanno parte dello staff. compila = puo' compilare il questionario; risultati =
+       vede solo il riepilogo. L'isolamento vero (niente accesso agli altri dati) e' garantito
+       dalle regole Firestore (vedi FIREBASE-SETUP.md); qui l'app evita di richiedere gli
+       archivi non consentiti e mostra solo la sezione Sondaggi. */
+    const RUOLI_SOND = { compila: 'sondaggio_compila', risultati: 'sondaggio_risultati' };
+    function eRuoloSoloSondaggio(ruolo) { return ruolo === RUOLI_SOND.compila || ruolo === RUOLI_SOND.risultati; }
 
     const Store = {
         leggi(chiave, def) {
@@ -840,6 +847,12 @@
             const u = this.utenteCorrente;
             if (!u) return null;
             if (this.eProprietario() || u.ruolo === 'admin') return { id: 'admin', nome: 'Amministratore', admin: true, builtin: true, sezioni: sezioniTutte('scrittura') };
+            // ruoli "solo sondaggio": vedono unicamente la sezione Sondaggi (compilazione o risultati)
+            if (eRuoloSoloSondaggio(u.ruolo)) {
+                const compila = u.ruolo === RUOLI_SOND.compila;
+                const sez = sezioniTutte('no'); sez.sondaggi = compila ? 'scrittura' : 'lettura';
+                return { id: u.ruolo, nome: compila ? 'Sondaggio (compilazione)' : 'Sondaggio (solo risultati)', builtin: true, sistema: true, soloSondaggio: true, sondaggioRuolo: compila ? 'compila' : 'risultati', sezioni: sez };
+            }
             // Coordinatore e Vice: i permessi per sezione sono MODIFICABILI dall'amministratore
             // (sezione Ruoli), ma il filtro per regione resta sempre attivo (flag coordinatore).
             // Si legge il profilo salvato; se manca del tutto, sola visualizzazione ovunque.
@@ -979,7 +992,7 @@
             try {
                 const dati = await this.docUtente(utenteFb.email);
                 if (!dati || dati.attivo === false) { await signOut(this.auth); return null; }
-                await this.avviaSync();
+                await this.avviaSync(dati.ruolo);
                 return { email: utenteFb.email.toLowerCase(), nome: dati.nome || utenteFb.email, ruolo: dati.ruolo || 'procuratore' };
             } catch (e) { return null; }
         },
@@ -998,7 +1011,7 @@
                 return { ok: false, msg: 'Utenza non abilitata: chiedi all\'amministratore di aggiungerti all\'elenco utenti.' };
             }
             try {
-                await this.avviaSync();
+                await this.avviaSync(dati.ruolo);
             } catch (e) {
                 try { await signOut(this.auth); } catch (e2) { }
                 return { ok: false, msg: 'Accesso verificato ma dati non raggiungibili (' + this.msgErrore(e) + '). Riprova tra poco.' };
@@ -1073,6 +1086,40 @@
             }
         },
 
+        /* Invita al sondaggio via email. Per gli ESTERNI (non ancora utenti) crea un
+           accesso limitato "solo sondaggio" (documento utenti + account + email per
+           impostare la password); agli utenti gia' esistenti manda un'email di invito.
+           Invia l'admin loggato (il suo ID token autentica il servizio). I limiti
+           anti-spam del servizio possono far fallire qualche invio su elenchi grandi:
+           i falliti vengono riportati per un nuovo tentativo. */
+        async invitaSondaggio(comp, vis, utenti, ruoli) {
+            if (!this.attivo) return { ok: false, msg: 'Accesso cloud non attivo.' };
+            const esistenti = new Set((utenti || []).map(u => String(u.email).toLowerCase()));
+            let creati = 0, inviati = 0; const falliti = [];
+            const nuovi = [];
+            (comp || []).forEach(e => { if (!esistenti.has(e)) nuovi.push({ email: e, ruolo: ruoli.compila }); });
+            (vis || []).forEach(e => { if (!esistenti.has(e)) nuovi.push({ email: e, ruolo: ruoli.risultati }); });
+            for (const n of nuovi) {
+                try {
+                    await this.salvaUtente(n.email, { nome: n.email, ruolo: n.ruolo, attivo: true, creato: Date.now(), creatoDa: 'invito sondaggio' });
+                    const r = await this.primaPassword(n.email);
+                    if (r && r.ok) { creati++; inviati++; } else falliti.push(n.email);
+                } catch (e) { falliti.push(n.email); }
+            }
+            const link = (window.APP_BASE_URL || 'https://nextgenerationbusiness.it') + '/area-riservata/';
+            const inviaA = async (lista, testo) => {
+                const dest = (lista || []).filter(e => esistenti.has(e)).map(e => ({ email: e }));
+                if (!dest.length) return;
+                const r = await this.inviaComunicazione('Questionario Revilaw: gruppi di specialisti', testo, dest, 'testo');
+                if (r && r.ok) inviati += (r.inviati || dest.length); else dest.forEach(d => falliti.push(d.email));
+            };
+            try {
+                await inviaA(comp, 'Sei invitato a compilare il questionario sui gruppi di specialisti. Accedi all\'area riservata e apri la sezione Sondaggi: ' + link);
+                await inviaA(vis, 'Sei stato abilitato a consultare i risultati del questionario sui gruppi di specialisti. Accedi all\'area riservata, sezione Sondaggi: ' + link);
+            } catch (e) { /* eventuali falliti gia' registrati */ }
+            return { ok: true, creati, inviati, falliti };
+        },
+
         async recuperaPassword(email) {
             try {
                 const viaServizio = await this.inviaTramiteServizio(email, 'recupero');
@@ -1110,17 +1157,23 @@
 
         /* --- dati condivisi: un documento Firestore per archivio --- */
         _sync: null,
-        avviaSync() {
+        avviaSync(ruolo) {
             // memoizzata: chiamate concorrenti condividono la stessa promessa
             if (!this._sync) {
-                this._sync = this._eseguiSync().catch(e => { this._sync = null; throw e; });
+                this._sync = this._eseguiSync(ruolo).catch(e => { this._sync = null; throw e; });
             }
             return this._sync;
         },
-        async _eseguiSync() {
+        async _eseguiSync(ruolo) {
             if (this.pronto) return;
             const { doc, getDoc, setDoc, onSnapshot, serverTimestamp } = this.fb.fsMod;
-            for (const chiave of Object.keys(this.DOC_SYNC)) {
+            // gli utenti "solo sondaggio" possono leggere SOLO i documenti del sondaggio:
+            // le regole Firestore negano gli altri archivi, quindi non vanno nemmeno richiesti
+            // (altrimenti il permission-denied farebbe fallire tutta la sincronizzazione).
+            const chiaviSync = eRuoloSoloSondaggio(ruolo)
+                ? [CHIAVI.sondaggi, CHIAVI.sondaggiConfig].filter(k => this.DOC_SYNC[k])
+                : Object.keys(this.DOC_SYNC);
+            for (const chiave of chiaviSync) {
                 const rif = doc(this.db, 'archivio', this.DOC_SYNC[chiave]);
                 const snap = await getDoc(rif);
                 if (snap.exists() && typeof snap.data().json === 'string') {
@@ -1149,7 +1202,7 @@
                 }
             }
             this.pronto = true;
-            Object.keys(this.DOC_SYNC).forEach(chiave => {
+            chiaviSync.forEach(chiave => {
                 const rif = doc(this.db, 'archivio', this.DOC_SYNC[chiave]);
                 const stacca = onSnapshot(rif, snap => {
                     if (!snap.exists()) return;
@@ -1183,6 +1236,11 @@
         _erroreMostrato: false,
         sincronizza(chiave, valore) {
             if (!this.attivo || !this.pronto || !this.DOC_SYNC || !this.DOC_SYNC[chiave]) return;
+            // gli utenti "solo sondaggio" possono scrivere UNICAMENTE le risposte del
+            // sondaggio (e solo il ruolo "compila"): evita scritture negate dalle regole
+            // (es. archivio/audit) che genererebbero errori e tentativi a vuoto in loop.
+            const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
+            if (rc && rc.soloSondaggio && !(rc.sondaggioRuolo === 'compila' && chiave === CHIAVI.sondaggi)) return;
             this._pendenti[chiave] = JSON.stringify(valore);
             if (this._timerFlush) return;
             this._timerFlush = setTimeout(() => this._flush(), 400);
@@ -1238,6 +1296,9 @@
         _presenzaTimer: null,
         avviaPresenza() {
             if (!this.attivo || !this.pronto || this._presenzaAvviata) return;
+            // gli utenti "solo sondaggio" (esterni) non vedono la presenza dello staff
+            const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
+            if (rc && rc.soloSondaggio) return;
             const email = Auth.utenteCorrente ? Auth.utenteCorrente.email : null;
             if (!email) return;
             this._presenzaAvviata = true;
@@ -4627,17 +4688,23 @@
     const SondConfig = {
         leggi() {
             const c = Store.leggi(CHIAVI.sondaggiConfig, null) || {};
+            const arr = v => Array.isArray(v) ? v.map(e => String(e).toLowerCase()) : [];
             return {
                 scadenza: c.scadenza || SOND_DEF.scadenzaDefault,
-                invitati: Array.isArray(c.invitati) ? c.invitati.map(e => String(e).toLowerCase()) : [],
-                gruppi: Array.isArray(c.gruppi) ? c.gruppi.slice() : []
+                invitati: arr(c.invitati),                 // compilatori (email singole)
+                gruppi: Array.isArray(c.gruppi) ? c.gruppi.slice() : [],
+                visualizzatori: arr(c.visualizzatori),     // solo risultati (email singole)
+                gruppiVis: Array.isArray(c.gruppiVis) ? c.gruppiVis.slice() : []
             };
         },
         salva(cfg) {
+            const arr = v => (v || []).map(e => String(e).toLowerCase());
             Store.scrivi(CHIAVI.sondaggiConfig, {
                 scadenza: cfg.scadenza || SOND_DEF.scadenzaDefault,
-                invitati: (cfg.invitati || []).map(e => String(e).toLowerCase()),
-                gruppi: (cfg.gruppi || []).slice()
+                invitati: arr(cfg.invitati),
+                gruppi: (cfg.gruppi || []).slice(),
+                visualizzatori: arr(cfg.visualizzatori),
+                gruppiVis: (cfg.gruppiVis || []).slice()
             });
         }
     };
@@ -4662,11 +4729,23 @@
                 .catch(() => { _sondUtenti = []; _sondUtentiInFlight = false; cb(_sondUtenti); }); // fallito: cache vuota, niente loop
         } else { _sondUtenti = Auth.utenti(); cb(_sondUtenti); }
     }
-    // insieme delle email invitate = gruppi risolti sui dati attuali + singole
+    // insieme delle email dei COMPILATORI = gruppi risolti sui dati attuali + singole
     function emailInvitate(cfg, utenti) {
         const set = risolviGruppiMail(cfg.gruppi, utenti || []);
         (cfg.invitati || []).forEach(e => set.add(String(e).toLowerCase()));
         return set;
+    }
+    // insieme delle email dei VISUALIZZATORI (solo risultati)
+    function emailVisualizzatori(cfg, utenti) {
+        const set = risolviGruppiMail(cfg.gruppiVis, utenti || []);
+        (cfg.visualizzatori || []).forEach(e => set.add(String(e).toLowerCase()));
+        return set;
+    }
+    // e' un visualizzatore "puro" (solo risultati) chi e' nella lista visualizzatori
+    // ma NON tra i compilatori (i compilatori vedono comunque il questionario)
+    function eVisualizzatore(cfg, utenti, email) {
+        const e = String(email || '').toLowerCase();
+        return emailVisualizzatori(cfg, utenti).has(e) && !emailInvitate(cfg, utenti).has(e);
     }
     // elenco {email, nome} degli invitati, per conteggi e "chi non ha risposto"
     function elencoInvitati(cfg, utenti) {
@@ -4866,15 +4945,28 @@
 
     function vistaSondaggi() {
         const cfg = SondConfig.leggi();
-        if (_sondUtenti === null) { utentiSond(() => { if (vistaCorrente === 'sondaggi') vistaSondaggi(); }); }
+        const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
+        // gli utenti "solo sondaggio" non caricano l'elenco utenti (le regole lo negano):
+        // il loro accesso e' deciso dal ruolo, non dalle liste degli invitati.
+        if (_sondUtenti === null && !(rc && rc.soloSondaggio)) { utentiSond(() => { if (vistaCorrente === 'sondaggi') vistaSondaggi(); }); }
         const utenti = _sondUtenti || [];
         const u = Auth.utenteCorrente;
+        const email = u ? String(u.email).toLowerCase() : '';
         const aperto = sondaggioAperto(cfg);
         const admin = Auth.eAdmin() || Auth.eProprietario();
-        const invitato = !!(u && emailInvitate(cfg, utenti).has(String(u.email).toLowerCase()));
+        const modoCompila = !!(rc && rc.soloSondaggio && rc.sondaggioRuolo === 'compila');
+        const modoRisultati = !!(rc && rc.soloSondaggio && rc.sondaggioRuolo === 'risultati');
+        const invitato = modoCompila || (!!u && emailInvitate(cfg, utenti).has(email));
         const mia = u ? Sondaggi.rispostaDi(u.email) : null;
         const nRisposte = Sondaggi.risposte().filter(r => Array.isArray(r.scelte) && r.scelte.length).length;
         const scadTxt = fmtData(cfg.scadenza);
+
+        // schede visibili: compilatore esterno solo "questionario", visualizzatore esterno
+        // solo "risultati", staff entrambe. Riporta la scheda attiva su una consentita.
+        const mostraQuest = !modoRisultati;
+        const mostraRis = !modoCompila;
+        if (sondTab === 'questionario' && !mostraQuest) sondTab = 'risultati';
+        if (sondTab === 'risultati' && !mostraRis) sondTab = 'questionario';
 
         const timer = aperto
             ? '<div class="s-timer aperto"><div class="s-timer-main"><span class="s-timer-lab">Tempo rimanente per compilare</span>'
@@ -4884,10 +4976,10 @@
                 + '<span class="s-timer-val">Le risposte non sono piu modificabili</span></div>'
                 + '<div class="s-timer-scad">Chiusa il ' + esc(scadTxt) + '</div></div>';
 
-        const tabBar = '<div class="tab-dest" style="margin-bottom:16px;">'
-            + '<button class="tab-btn ' + (sondTab === 'questionario' ? 'attivo' : '') + '" data-sondtab="questionario">Il questionario</button>'
-            + '<button class="tab-btn ' + (sondTab === 'risultati' ? 'attivo' : '') + '" data-sondtab="risultati">Riepilogo risultati (' + nRisposte + ')</button>'
-            + '</div>';
+        let tabBtns = '';
+        if (mostraQuest) tabBtns += '<button class="tab-btn ' + (sondTab === 'questionario' ? 'attivo' : '') + '" data-sondtab="questionario">Il questionario</button>';
+        if (mostraRis) tabBtns += '<button class="tab-btn ' + (sondTab === 'risultati' ? 'attivo' : '') + '" data-sondtab="risultati">Riepilogo risultati (' + nRisposte + ')</button>';
+        const tabBar = (mostraQuest && mostraRis) ? '<div class="tab-dest" style="margin-bottom:16px;">' + tabBtns + '</div>' : '';
 
         let corpo;
         if (sondTab === 'risultati') {
@@ -4896,17 +4988,17 @@
             let gestione = '';
             if (admin) {
                 const inv = elencoInvitati(cfg, utenti);
+                const nVis = emailVisualizzatori(cfg, utenti).size;
                 gestione = '<div class="card s-admin"><div class="s-admin-txt"><strong>Gestione sondaggio</strong>'
-                    + '<div class="hint">Invitati a rispondere: <b>' + inv.length + '</b>'
-                    + (cfg.gruppi.length ? ' (gruppi: ' + esc(cfg.gruppi.map(nomeGruppo).join(', ')) + ')' : '')
-                    + ' &middot; scadenza ' + esc(scadTxt) + '</div></div>'
-                    + '<button class="btn btn-secondary" id="s-gestisci">Gestisci inviti e scadenza</button></div>';
+                    + '<div class="hint">Compilatori: <b>' + inv.length + '</b> &middot; Visualizzatori (solo risultati): <b>' + nVis + '</b> &middot; scadenza ' + esc(scadTxt) + '</div></div>'
+                    + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="s-gestisci">Gestisci inviti e scadenza</button>'
+                    + '<button class="btn btn-primary" id="s-invita">Invia inviti via email</button></div></div>';
             }
             let statoCard = '';
             const scelteTxt = (mia && Array.isArray(mia.scelte)) ? mia.scelte.map(id => nomeArgomento(id)).join(', ') : '';
             const haRisposto = !!scelteTxt;
             if (!invitato && !admin) {
-                statoCard = '<div class="card s-stato"><div><strong>Non risulti tra gli invitati a questo sondaggio.</strong>'
+                statoCard = '<div class="card s-stato"><div><strong>Non risulti tra gli invitati a compilare questo sondaggio.</strong>'
                     + '<div class="hint" style="margin-top:4px;">Se pensi si tratti di un errore, contatta l\'amministratore.</div></div></div>';
             } else if (invitato && !aperto) {
                 statoCard = '<div class="card s-stato"><div><strong>La compilazione e chiusa.</strong>'
@@ -4940,21 +5032,30 @@
         if (bc) bc.addEventListener('click', () => modaleSondaggio(cfg));
         const bg = document.getElementById('s-gestisci');
         if (bg) bg.addEventListener('click', () => {
-            // assicura la lista utenti caricata prima di aprire, cosi non si apre "vuota"
             if (_sondUtenti) modaleInvitati(cfg, _sondUtenti);
             else utentiSond(u => modaleInvitati(cfg, u));
+        });
+        const bi = document.getElementById('s-invita');
+        if (bi) bi.addEventListener('click', () => {
+            if (_sondUtenti) confermaInviaInviti(cfg, _sondUtenti);
+            else utentiSond(u => confermaInviaInviti(cfg, u));
         });
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { nomeFile: 'sondaggio-risultati', ricerca: true });
         $vista().querySelectorAll('.s-elimina').forEach(b =>
             b.addEventListener('click', () => confermaEliminaRisposta(b.dataset.id, b.dataset.nome)));
-        if (aperto) avviaCountdown(cfg); else if (_sondTimer) { clearInterval(_sondTimer); _sondTimer = null; }
+        if (aperto && mostraQuest) avviaCountdown(cfg); else if (_sondTimer) { clearInterval(_sondTimer); _sondTimer = null; }
     }
 
     function corpoRisultati(cfg, utenti) {
-        const invitati = elencoInvitati(cfg, utenti);
+        // un visualizzatore esterno ("solo sondaggio") non ha accesso all'elenco utenti,
+        // quindi non puo' calcolare l'insieme degli invitati: vede l'aggregato di TUTTE
+        // le risposte, senza le statistiche di partecipazione.
+        const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
+        const soloVista = !!(rc && rc.soloSondaggio);
+        const invitati = soloVista ? [] : elencoInvitati(cfg, utenti);
         const nInv = invitati.length;
-        const invSet = emailInvitate(cfg, utenti);
+        const invSet = soloVista ? null : emailInvitate(cfg, utenti);
         // aggregato coerente con la partecipazione: se ci sono invitati, conta solo loro
         const { risposte, classifica, maxScelte, valide } = aggregaSondaggio(nInv ? invSet : null);
         // "ha risposto" = ha una risposta nel nuovo formato (due scelte)
@@ -4969,7 +5070,7 @@
         // 1) partecipazione + come si legge
         const partec = '<div class="card s-riep-head">'
             + '<div class="s-riep-num">' + (nInv ? nRispInvitati : valide) + (nInv ? '<span class="s-riep-den"> / ' + nInv + '</span>' : '') + '</div>'
-            + '<div><div class="s-riep-lbl">' + (nInv ? 'invitati hanno risposto (' + perc + '%)' : ((valide === 1 ? 'risposta' : 'risposte') + ' raccolte')) + '</div>'
+            + '<div><div class="s-riep-lbl">' + (nInv ? 'invitati hanno risposto (' + perc + '%)' : (valide === 1 ? 'risposta raccolta' : 'risposte raccolte')) + '</div>'
             + '<div class="hint">Ogni persona sceglie <b>due aree</b>. Il numero accanto a ciascuna area dice <b>quante persone l\'hanno scelta</b>; le <b>competenze</b> quante si dichiarano competenti (Base, Buona o Elevata) in quell\'area.</div></div></div>';
 
         // 2) aree ordinate per numero di scelte
@@ -5044,18 +5145,31 @@
     /* Modale amministratore: chi e invitato (gruppi + singole persone) e scadenza. */
     function modaleInvitati(cfg, utenti) {
         utenti = utenti || [];
-        const gruppiSel = new Set(cfg.gruppi);
-        const invSel = new Set(cfg.invitati);
-        const gruppiHtml = GRUPPI_MAIL.map(g => '<label class="chip-gruppo"><input type="checkbox" class="mi-gruppo" value="' + g.id + '"' + (gruppiSel.has(g.id) ? ' checked' : '') + '> ' + esc(g.nome) + '</label>').join('');
+        const gC = new Set(cfg.gruppi), gV = new Set(cfg.gruppiVis);
+        const iC = new Set(cfg.invitati), iV = new Set(cfg.visualizzatori);
+        const utentiSet = new Set(utenti.map(x => String(x.email).toLowerCase()));
+        const extC = (cfg.invitati || []).filter(e => !utentiSet.has(e));       // email esterne (non utenti)
+        const extV = (cfg.visualizzatori || []).filter(e => !utentiSet.has(e));
+        const grpChip = (cls, sel) => GRUPPI_MAIL.map(g => '<label class="chip-gruppo"><input type="checkbox" class="' + cls + '" value="' + g.id + '"' + (sel.has(g.id) ? ' checked' : '') + '> ' + esc(g.nome) + '</label>').join('');
         const utentiHtml = utenti.length
-            ? utenti.map(x => { const e = String(x.email).toLowerCase(); return '<label class="mi-utente"><input type="checkbox" class="mi-inv" value="' + esc(e) + '"' + (invSel.has(e) ? ' checked' : '') + '> <span class="mi-nome">' + esc(x.nome || e) + '</span> <span class="hint">' + esc(e) + '</span></label>'; }).join('')
+            ? utenti.map(x => { const e = String(x.email).toLowerCase();
+                return '<div class="mi-utente" data-email="' + esc(e) + '">'
+                    + '<label class="mi-flag"><input type="checkbox" class="mi-c" value="' + esc(e) + '"' + (iC.has(e) ? ' checked' : '') + '> compila</label>'
+                    + '<label class="mi-flag"><input type="checkbox" class="mi-v" value="' + esc(e) + '"' + (iV.has(e) ? ' checked' : '') + '> risultati</label>'
+                    + '<span class="mi-nome">' + esc(x.nome || e) + '</span> <span class="hint">' + esc(e) + '</span></div>'; }).join('')
             : '<p class="hint">Nessun utente disponibile.</p>';
         apriModale('<h2>Inviti e scadenza del sondaggio</h2>'
             + '<div class="campo"><label for="mi-scad">Scadenza (ultimo giorno utile, fino alle 23:59)</label>'
             + '<input type="date" id="mi-scad" value="' + esc(cfg.scadenza) + '"></div>'
-            + '<div class="campo"><label>Invita per gruppo</label><div class="gruppi-chip">' + gruppiHtml + '</div></div>'
-            + '<div class="campo"><label>Invita singole persone (solo utenti che possono accedere)</label>'
+            + '<div class="campo"><label>Invita per gruppo</label>'
+            + '<div class="mi-grp-row"><span class="mi-grp-lab">Compilano</span><div class="gruppi-chip">' + grpChip('mi-grp-c', gC) + '</div></div>'
+            + '<div class="mi-grp-row"><span class="mi-grp-lab">Solo risultati</span><div class="gruppi-chip">' + grpChip('mi-grp-v', gV) + '</div></div></div>'
+            + '<div class="campo"><label>Singole persone (utenti dello studio): spunta "compila" oppure "risultati"</label>'
             + '<input type="text" id="mi-cerca" class="mi-cerca" placeholder="Cerca per nome o email"><div class="mi-utenti">' + utentiHtml + '</div></div>'
+            + '<div class="campo"><label for="mi-extra-c">Persone esterne (non utenti) da invitare a COMPILARE, una email per riga</label>'
+            + '<textarea id="mi-extra-c" rows="2" placeholder="mario.rossi@example.it">' + esc(extC.join('\n')) + '</textarea></div>'
+            + '<div class="campo"><label for="mi-extra-v">Persone esterne da invitare SOLO ai RISULTATI, una email per riga</label>'
+            + '<textarea id="mi-extra-v" rows="2" placeholder="anna.bianchi@example.it">' + esc(extV.join('\n')) + '</textarea></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="mi-annulla">Annulla</button>'
             + '<button class="btn btn-primary" id="mi-salva">Salva</button></div>', { classe: 'larga' });
         const cerca = document.getElementById('mi-cerca');
@@ -5063,19 +5177,63 @@
             const q = cerca.value.trim().toLowerCase();
             document.querySelectorAll('.mi-utente').forEach(l => { l.style.display = (!q || l.textContent.toLowerCase().indexOf(q) >= 0) ? '' : 'none'; });
         });
+        // "compila" e "solo risultati" si escludono a vicenda per la stessa persona
+        document.querySelectorAll('.mi-c').forEach(c => c.addEventListener('change', () => { if (c.checked) { const v = c.closest('.mi-utente').querySelector('.mi-v'); if (v) v.checked = false; } }));
+        document.querySelectorAll('.mi-v').forEach(v => v.addEventListener('change', () => { if (v.checked) { const c = v.closest('.mi-utente').querySelector('.mi-c'); if (c) c.checked = false; } }));
         document.getElementById('mi-annulla').addEventListener('click', chiudiModale);
         document.getElementById('mi-salva').addEventListener('click', () => {
             const scad = document.getElementById('mi-scad').value || SOND_DEF.scadenzaDefault;
-            const gruppi = Array.from(document.querySelectorAll('.mi-gruppo:checked')).map(c => c.value);
-            // se la lista utenti non e' stata mostrata (0 caselle), NON azzerare gli invitati
-            // singoli gia' salvati: si conservano quelli in configurazione.
-            const listaMostrata = document.querySelectorAll('.mi-inv').length > 0;
-            const invitati = listaMostrata
-                ? Array.from(document.querySelectorAll('.mi-inv:checked')).map(c => c.value)
-                : (cfg.invitati || []).slice();
-            SondConfig.salva({ scadenza: scad, invitati: invitati, gruppi: gruppi });
-            try { Audit.registra(Auth.utenteCorrente, 'Sondaggio: inviti aggiornati', 'sondaggio', SOND_DEF.id, null, 'invitati ' + invitati.length + ', gruppi ' + gruppi.length + ', scadenza ' + scad); } catch (e) { }
+            const gruppi = Array.from(document.querySelectorAll('.mi-grp-c:checked')).map(c => c.value);
+            const gruppiVis = Array.from(document.querySelectorAll('.mi-grp-v:checked')).map(c => c.value);
+            const parseEmails = s => Array.from(new Set((s || '').split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(x => x.indexOf('@') > 0)));
+            // se la lista utenti non e' stata mostrata (0 caselle) NON azzero le persone gia' salvate
+            const listaMostrata = document.querySelectorAll('.mi-c').length > 0;
+            let invitati, visualizzatori;
+            if (listaMostrata) {
+                const cC = Array.from(document.querySelectorAll('.mi-c:checked')).map(c => c.value);
+                const cV = Array.from(document.querySelectorAll('.mi-v:checked')).map(c => c.value);
+                invitati = Array.from(new Set(cC.concat(parseEmails(document.getElementById('mi-extra-c').value))));
+                visualizzatori = Array.from(new Set(cV.concat(parseEmails(document.getElementById('mi-extra-v').value))));
+            } else {
+                invitati = (cfg.invitati || []).slice();
+                visualizzatori = (cfg.visualizzatori || []).slice();
+            }
+            SondConfig.salva({ scadenza: scad, invitati: invitati, gruppi: gruppi, visualizzatori: visualizzatori, gruppiVis: gruppiVis });
+            try { Audit.registra(Auth.utenteCorrente, 'Sondaggio: inviti aggiornati', 'sondaggio', SOND_DEF.id, null, 'compilatori ' + invitati.length + ', visualizzatori ' + visualizzatori.length + ', scadenza ' + scad); } catch (e) { }
             chiudiModale(); toast('Impostazioni salvate.', 'verde'); vistaSondaggi();
+        });
+    }
+
+    /* Conferma e invio degli inviti via email (solo admin, solo in cloud). */
+    function confermaInviaInviti(cfg, utenti) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        if (typeof Cloud === 'undefined' || !Cloud.attivo) { toast('L\'invio email richiede l\'accesso cloud (non disponibile in modalita dimostrativa).', 'rosso'); return; }
+        utenti = utenti || [];
+        const comp = Array.from(emailInvitate(cfg, utenti));
+        const vis = Array.from(emailVisualizzatori(cfg, utenti)).filter(e => comp.indexOf(e) < 0);
+        if (!comp.length && !vis.length) { toast('Nessun invitato: aggiungi persone da "Gestisci inviti e scadenza".', 'rosso'); return; }
+        const esistenti = new Set(utenti.map(x => String(x.email).toLowerCase()));
+        const nNuovi = comp.concat(vis).filter(e => !esistenti.has(e)).length;
+        apriModale('<h2>Invia inviti via email</h2>'
+            + '<p>Invito via email a <b>' + (comp.length + vis.length) + '</b> persone: <b>' + comp.length + '</b> a compilare, <b>' + vis.length + '</b> solo ai risultati.</p>'
+            + (nNuovi ? '<p class="hint"><b>' + nNuovi + '</b> non sono ancora utenti: verra creato un accesso limitato (solo sondaggio) e riceveranno l\'email per impostare la password.</p>' : '')
+            + '<p class="hint">Per i limiti anti-spam del servizio l\'invio puo richiedere qualche minuto. Non chiudere la finestra fino al termine.</p>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ii-no">Annulla</button><button class="btn btn-primary" id="ii-si">Invia inviti</button></div>');
+        document.getElementById('ii-no').addEventListener('click', chiudiModale);
+        document.getElementById('ii-si').addEventListener('click', () => {
+            const btn = document.getElementById('ii-si'); if (!btn) return;
+            btn.disabled = true; btn.textContent = 'Invio in corso...';
+            Cloud.invitaSondaggio(comp, vis, utenti, RUOLI_SOND).then(res => {
+                chiudiModale();
+                if (res && res.ok) {
+                    let m = 'Inviti inviati: ' + res.inviati;
+                    if (res.creati) m += ' · nuovi accessi: ' + res.creati;
+                    if (res.falliti && res.falliti.length) m += ' · non riusciti: ' + res.falliti.length;
+                    toast(m, (res.falliti && res.falliti.length) ? 'ambra' : 'verde');
+                } else toast('Invio non riuscito: ' + ((res && res.msg) || ''), 'rosso');
+                _sondUtenti = null; // l'invio puo' aver creato nuovi account
+                if (vistaCorrente === 'sondaggi') vistaSondaggi();
+            }).catch(() => { chiudiModale(); toast('Errore durante l\'invio degli inviti.', 'rosso'); });
         });
     }
 

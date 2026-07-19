@@ -51,48 +51,83 @@ sufficiente per questo utilizzo.
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
+       function ruoloUtente() {
+         return get(/databases/$(database)/documents/utenti/$(request.auth.token.email)).data.ruolo;
+       }
        function abilitato() {
          return request.auth != null
            && exists(/databases/$(database)/documents/utenti/$(request.auth.token.email))
            && get(/databases/$(database)/documents/utenti/$(request.auth.token.email)).data.attivo == true;
        }
        function admin() {
-         return abilitato()
-           && get(/databases/$(database)/documents/utenti/$(request.auth.token.email)).data.ruolo == 'admin';
+         return abilitato() && ruoloUtente() == 'admin';
        }
-       // elenco degli utenti abilitati: lo leggono gli abilitati, lo
-       // modifica solo l'admin; ogni utente puo aggiornare soltanto il
-       // proprio campo "ultimoAccesso"
+       // utente "solo sondaggio" (invitato esterno): accede SOLO ai dati del sondaggio
+       function soloSondaggio() {
+         return abilitato() && (ruoloUtente() == 'sondaggio_compila' || ruoloUtente() == 'sondaggio_risultati');
+       }
+       // "staff pieno" = abilitato che NON e' un utente solo-sondaggio
+       function staff() {
+         return abilitato() && !soloSondaggio();
+       }
+       // elenco degli utenti abilitati: lo legge lo STAFF (ogni utente puo
+       // comunque leggere la PROPRIA scheda, serve al login); lo modifica solo
+       // l'admin; ogni utente puo aggiornare soltanto il proprio "ultimoAccesso".
+       // Cosi gli invitati esterni "solo sondaggio" non vedono l'elenco dello staff.
        match /utenti/{email} {
-         allow read: if abilitato();
+         allow read: if staff() || (abilitato() && request.auth.token.email == email);
          allow create, delete: if admin();
          allow update: if admin()
            || (abilitato()
                && request.auth.token.email == email
                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimoAccesso']));
        }
-       // dati condivisi dell'area riservata: li leggono e scrivono gli utenti
-       // abilitati, TRANNE la definizione dei ruoli (vedi sotto)
+       // dati generali dell'area riservata (incarichi, persone, fatture, ...):
+       // SOLO lo staff pieno. Gli utenti "solo sondaggio" NON possono leggerli
+       // ne scriverli. La definizione dei ruoli ha una regola dedicata sotto.
        match /archivio/{documento} {
-         allow read: if abilitato();
-         allow write: if abilitato() && documento != 'ruoli';
+         allow read: if staff();
+         allow write: if staff() && documento != 'ruoli';
        }
-       // definizione dei ruoli e dei permessi: la leggono tutti gli abilitati
-       // (serve a sapere cosa puo' vedere ciascuno) ma la scrive SOLO l'admin.
-       // Senza questa regola un utente potrebbe riscriversi i permessi da solo.
+       // definizione dei ruoli e dei permessi: la legge lo STAFF (serve a sapere
+       // cosa puo' vedere ciascuno) ma la scrive SOLO l'admin. Gli utenti "solo
+       // sondaggio" non ne hanno bisogno e non devono vederla.
        match /archivio/ruoli {
-         allow read: if abilitato();
+         allow read: if staff();
          allow write: if admin();
+       }
+       // risposte del sondaggio: le leggono tutti gli abilitati (staff +
+       // compilatori + visualizzatori); le scrivono lo staff e i compilatori
+       // (NON i "solo risultati").
+       match /archivio/sondaggi {
+         allow read: if abilitato();
+         allow write: if staff() || (abilitato() && ruoloUtente() == 'sondaggio_compila');
+       }
+       // configurazione del sondaggio (scadenza, invitati): la leggono tutti gli
+       // abilitati, la scrive solo lo staff (l'admin la modifica dall'app).
+       match /archivio/sondaggiConfig {
+         allow read: if abilitato();
+         allow write: if staff();
        }
        // modelli PDF delle lettere di incarico: li leggono gli abilitati,
        // li carica solo l'amministratore
        match /modelli/{documento} {
-         allow read: if abilitato();
+         allow read: if staff();
          allow write: if admin();
        }
      }
    }
    ```
+
+   > **Ruoli "solo sondaggio" (invitati esterni).** I ruoli `sondaggio_compila`
+   > (compila il questionario) e `sondaggio_risultati` (vede solo il riepilogo)
+   > danno accesso **esclusivamente** ai due documenti del sondaggio: con le regole
+   > qui sopra, questi utenti non possono leggere ne' scrivere incarichi, persone,
+   > fatture o altri dati, nemmeno via API. Sono creati in automatico dal pulsante
+   > **"Invia inviti via email"** della sezione Sondaggi quando un invitato non e'
+   > gia' un utente dello studio. **Finche' non pubblichi queste regole aggiornate,
+   > NON invitare persone esterne**: senza di esse un qualsiasi utente abilitato
+   > puo' leggere tutti i dati.
 
 ## 5. Abilita il primo amministratore (te stesso)
 
