@@ -909,11 +909,16 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 /* modale inviti admin */
 .mi-grp-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
 .mi-grp-lab { font-size: 0.76rem; font-weight: 700; color: var(--grigio-600); min-width: 90px; text-transform: uppercase; letter-spacing: 0.3px; }
-.mi-utenti { max-height: 240px; overflow-y: auto; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 6px; margin-top: 6px; }
-.mi-utente { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 4px; flex-wrap: wrap; }
+.mi-utenti { max-height: 300px; overflow-y: auto; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 6px; margin-top: 6px; }
+.mi-utente { display: flex; align-items: center; gap: 8px 12px; padding: 6px 8px; border-radius: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--grigio-100); }
+.mi-utente:last-child { border-bottom: none; }
 .mi-utente:hover { background: var(--blu-050); }
-.mi-flag { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--grigio-600); cursor: pointer; white-space: nowrap; }
-.mi-utente .mi-nome { font-weight: 600; color: var(--grigio-900); font-size: 0.88rem; }
+.mi-flag { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; color: var(--grigio-600); cursor: pointer; white-space: nowrap; flex: 0 0 auto; }
+/* i checkbox NON devono ereditare width:100% da .campo input */
+.mi-flag input[type="checkbox"], .mi-c, .mi-v { width: auto; min-width: 0; flex: 0 0 auto; margin: 0; accent-color: var(--blu-700); }
+.mi-utente .mi-nome { font-weight: 600; color: var(--grigio-900); font-size: 0.88rem; flex: 0 1 auto; }
+.mi-utente .mi-mail { font-size: 0.78rem; color: var(--grigio-500); flex: 1 1 140px; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi-badge { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--ambra); background: var(--ambra-050, rgba(214,158,46,0.12)); border: 1px solid var(--ambra); border-radius: 20px; padding: 2px 8px; flex: 0 0 auto; }
 .mi-cerca { width: 100%; padding: 8px 10px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.88rem; }
 
 /* countdown migliorato: box giorni/ore/minuti/secondi + stato "urgente" */

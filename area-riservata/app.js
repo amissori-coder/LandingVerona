@@ -1096,12 +1096,14 @@
             if (!this.attivo) return { ok: false, msg: 'Accesso cloud non attivo.' };
             const esistenti = new Set((utenti || []).map(u => String(u.email).toLowerCase()));
             let creati = 0, inviati = 0; const falliti = [];
+            const nomeDi = {};
+            try { Persone.tutte().forEach(p => { if (p.email) nomeDi[String(p.email).toLowerCase()] = (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome; }); } catch (e) { }
             const nuovi = [];
             (comp || []).forEach(e => { if (!esistenti.has(e)) nuovi.push({ email: e, ruolo: ruoli.compila }); });
             (vis || []).forEach(e => { if (!esistenti.has(e)) nuovi.push({ email: e, ruolo: ruoli.risultati }); });
             for (const n of nuovi) {
                 try {
-                    await this.salvaUtente(n.email, { nome: n.email, ruolo: n.ruolo, attivo: true, creato: Date.now(), creatoDa: 'invito sondaggio' });
+                    await this.salvaUtente(n.email, { nome: nomeDi[n.email] || n.email, ruolo: n.ruolo, attivo: true, creato: Date.now(), creatoDa: 'invito sondaggio' });
                     const r = await this.primaPassword(n.email);
                     if (r && r.ok) { creati++; inviati++; } else falliti.push(n.email);
                 } catch (e) { falliti.push(n.email); }
@@ -4814,32 +4816,52 @@
                 .catch(() => { _sondUtenti = []; _sondUtentiInFlight = false; cb(_sondUtenti); }); // fallito: cache vuota, niente loop
         } else { _sondUtenti = Auth.utenti(); cb(_sondUtenti); }
     }
-    // insieme delle email dei COMPILATORI = gruppi risolti sui dati attuali + singole
-    function emailInvitate(cfg, utenti) {
-        const set = risolviGruppiMail(cfg.gruppi, utenti || []);
+    // gruppi del sondaggio, allineati alla sezione Persone (niente "Team di revisione";
+    // "Tutte le persone" = tutta l'anagrafica con email). Gli invitati si scelgono dalle
+    // Persone: chi non e' anche un utente con ruolo avra' accesso "solo sondaggio".
+    const GRUPPI_SOND = [
+        { id: 'qualita', nome: 'Responsabili qualita' },
+        { id: 'procuratori', nome: 'Procuratori (resp. incarico)' },
+        { id: 'coordinatori', nome: 'Coordinatori territoriali' },
+        { id: 'vicecoordinatori', nome: 'Vice coordinatori territoriali' },
+        { id: 'tutti', nome: 'Tutte le persone' }
+    ];
+    function nomeGruppoSond(id) { const g = GRUPPI_SOND.find(x => x.id === id); return g ? g.nome : id; }
+    // risolve i gruppi del sondaggio in email leggendo la sezione Persone (anagrafica).
+    // Vecchi id 'team'/'utenti' -> tutte le persone (retrocompatibilita').
+    function risolviGruppiSond(gruppi) {
+        const set = new Set(); const g = new Set(gruppi || []);
+        const tutte = g.has('tutti') || g.has('utenti') || g.has('team');
+        Persone.tutte().filter(p => p.attivo && !p.eliminato && p.email).forEach(p => {
+            if (tutte
+                || (g.has('qualita') && p.qualita)
+                || (g.has('procuratori') && p.respIncarico)
+                || (g.has('coordinatori') && p.coordinatore)
+                || (g.has('vicecoordinatori') && p.viceCoordinatore)) set.add(String(p.email).toLowerCase());
+        });
+        return set;
+    }
+    // insieme delle email dei COMPILATORI = gruppi (da Persone) + singole persone
+    function emailInvitate(cfg) {
+        const set = risolviGruppiSond(cfg.gruppi);
         (cfg.invitati || []).forEach(e => set.add(String(e).toLowerCase()));
         return set;
     }
     // insieme delle email dei VISUALIZZATORI (solo risultati)
-    function emailVisualizzatori(cfg, utenti) {
-        const set = risolviGruppiMail(cfg.gruppiVis, utenti || []);
+    function emailVisualizzatori(cfg) {
+        const set = risolviGruppiSond(cfg.gruppiVis);
         (cfg.visualizzatori || []).forEach(e => set.add(String(e).toLowerCase()));
         return set;
     }
-    // e' un visualizzatore "puro" (solo risultati) chi e' nella lista visualizzatori
-    // ma NON tra i compilatori (i compilatori vedono comunque il questionario)
-    function eVisualizzatore(cfg, utenti, email) {
+    function eVisualizzatore(cfg, email) {
         const e = String(email || '').toLowerCase();
-        return emailVisualizzatori(cfg, utenti).has(e) && !emailInvitate(cfg, utenti).has(e);
+        return emailVisualizzatori(cfg).has(e) && !emailInvitate(cfg).has(e);
     }
-    // elenco {email, nome} degli invitati, per conteggi e "chi non ha risposto"
-    function elencoInvitati(cfg, utenti) {
-        const set = emailInvitate(cfg, utenti);
+    // elenco {email, nome} degli invitati (nomi dalla sezione Persone)
+    function elencoInvitati(cfg) {
+        const set = emailInvitate(cfg);
         const nomeDi = {};
-        (utenti || []).forEach(u => { if (u.email) nomeDi[String(u.email).toLowerCase()] = u.nome || u.email; });
-        Persone.tutte().forEach(p => {
-            if (p.email) { const k = p.email.toLowerCase(); if (!nomeDi[k]) nomeDi[k] = (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome; }
-        });
+        Persone.tutte().forEach(p => { if (p.email) { const k = String(p.email).toLowerCase(); if (!nomeDi[k]) nomeDi[k] = (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome; } });
         return Array.from(set).map(e => ({ email: e, nome: nomeDi[e] || e })).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
     }
 
@@ -5278,34 +5300,38 @@
         return parti.length ? parti.join(' ') : '<span style="color:var(--grigio-400)">-</span>';
     }
 
-    /* Modale amministratore: chi e invitato (gruppi + singole persone) e scadenza. */
+    /* Modale amministratore: chi e invitato e scadenza. Gli invitati (compilatori e
+       visualizzatori) si scelgono dalla sezione PERSONE (per gruppo o singolarmente):
+       chi non e' anche un utente con ruolo (confronto per email) ricevera' un accesso
+       "solo sondaggio". */
     function modaleInvitati(cfg, utenti) {
         utenti = utenti || [];
+        const utentiSet = new Set(utenti.map(x => String(x.email).toLowerCase())); // per il badge "solo sondaggio"
         const gC = new Set(cfg.gruppi), gV = new Set(cfg.gruppiVis);
         const iC = new Set(cfg.invitati), iV = new Set(cfg.visualizzatori);
-        const utentiSet = new Set(utenti.map(x => String(x.email).toLowerCase()));
-        const extC = (cfg.invitati || []).filter(e => !utentiSet.has(e));       // email esterne (non utenti)
-        const extV = (cfg.visualizzatori || []).filter(e => !utentiSet.has(e));
-        const grpChip = (cls, sel) => GRUPPI_MAIL.map(g => '<label class="chip-gruppo"><input type="checkbox" class="' + cls + '" value="' + g.id + '"' + (sel.has(g.id) ? ' checked' : '') + '> ' + esc(g.nome) + '</label>').join('');
-        const utentiHtml = utenti.length
-            ? utenti.map(x => { const e = String(x.email).toLowerCase();
+        const persone = Persone.tutte().filter(p => p.email && !p.eliminato)
+            .map(p => ({ email: String(p.email).toLowerCase(), nome: (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome }))
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        const grpChip = (cls, sel) => GRUPPI_SOND.map(g => '<label class="chip-gruppo"><input type="checkbox" class="' + cls + '" value="' + g.id + '"' + (sel.has(g.id) ? ' checked' : '') + '> ' + esc(g.nome) + '</label>').join('');
+        const personeHtml = persone.length
+            ? persone.map(p => {
+                const e = p.email; const soloSond = !utentiSet.has(e);
                 return '<div class="mi-utente" data-email="' + esc(e) + '">'
                     + '<label class="mi-flag"><input type="checkbox" class="mi-c" value="' + esc(e) + '"' + (iC.has(e) ? ' checked' : '') + '> compila</label>'
                     + '<label class="mi-flag"><input type="checkbox" class="mi-v" value="' + esc(e) + '"' + (iV.has(e) ? ' checked' : '') + '> risultati</label>'
-                    + '<span class="mi-nome">' + esc(x.nome || e) + '</span> <span class="hint">' + esc(e) + '</span></div>'; }).join('')
-            : '<p class="hint">Nessun utente disponibile.</p>';
+                    + '<span class="mi-nome">' + esc(p.nome) + '</span><span class="mi-mail">' + esc(e) + '</span>'
+                    + (soloSond ? '<span class="mi-badge">solo sondaggio</span>' : '') + '</div>';
+            }).join('')
+            : '<p class="hint">Nessuna persona con email nell\'anagrafica (sezione Persone).</p>';
         apriModale('<h2>Inviti e scadenza del sondaggio</h2>'
             + '<div class="campo"><label for="mi-scad">Scadenza (ultimo giorno utile, fino alle 23:59)</label>'
             + '<input type="date" id="mi-scad" value="' + esc(cfg.scadenza) + '"></div>'
             + '<div class="campo"><label>Invita per gruppo</label>'
             + '<div class="mi-grp-row"><span class="mi-grp-lab">Compilano</span><div class="gruppi-chip">' + grpChip('mi-grp-c', gC) + '</div></div>'
             + '<div class="mi-grp-row"><span class="mi-grp-lab">Solo risultati</span><div class="gruppi-chip">' + grpChip('mi-grp-v', gV) + '</div></div></div>'
-            + '<div class="campo"><label>Singole persone (utenti dello studio): spunta "compila" oppure "risultati"</label>'
-            + '<input type="text" id="mi-cerca" class="mi-cerca" placeholder="Cerca per nome o email"><div class="mi-utenti">' + utentiHtml + '</div></div>'
-            + '<div class="campo"><label for="mi-extra-c">Persone esterne (non utenti) da invitare a COMPILARE, una email per riga</label>'
-            + '<textarea id="mi-extra-c" rows="2" placeholder="mario.rossi@example.it">' + esc(extC.join('\n')) + '</textarea></div>'
-            + '<div class="campo"><label for="mi-extra-v">Persone esterne da invitare SOLO ai RISULTATI, una email per riga</label>'
-            + '<textarea id="mi-extra-v" rows="2" placeholder="anna.bianchi@example.it">' + esc(extV.join('\n')) + '</textarea></div>'
+            + '<div class="campo"><label>Singole persone (dalla sezione Persone): spunta "compila" oppure "risultati"</label>'
+            + '<input type="text" id="mi-cerca" class="mi-cerca" placeholder="Cerca per nome o email"><div class="mi-utenti">' + personeHtml + '</div>'
+            + '<p class="hint" style="margin-top:6px;">Chi non e un utente con ruolo (badge "solo sondaggio") ricevera un accesso limitato: vede solo il questionario o solo i risultati. Il collegamento persone-utenti avviene tramite l\'email.</p></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="mi-annulla">Annulla</button>'
             + '<button class="btn btn-primary" id="mi-salva">Salva</button></div>', { classe: 'larga' });
         const cerca = document.getElementById('mi-cerca');
@@ -5321,15 +5347,11 @@
             const scad = document.getElementById('mi-scad').value || SOND_DEF.scadenzaDefault;
             const gruppi = Array.from(document.querySelectorAll('.mi-grp-c:checked')).map(c => c.value);
             const gruppiVis = Array.from(document.querySelectorAll('.mi-grp-v:checked')).map(c => c.value);
-            const parseEmails = s => Array.from(new Set((s || '').split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(x => x.indexOf('@') > 0)));
-            // se la lista utenti non e' stata mostrata (0 caselle) NON azzero le persone gia' salvate
             const listaMostrata = document.querySelectorAll('.mi-c').length > 0;
             let invitati, visualizzatori;
             if (listaMostrata) {
-                const cC = Array.from(document.querySelectorAll('.mi-c:checked')).map(c => c.value);
-                const cV = Array.from(document.querySelectorAll('.mi-v:checked')).map(c => c.value);
-                invitati = Array.from(new Set(cC.concat(parseEmails(document.getElementById('mi-extra-c').value))));
-                visualizzatori = Array.from(new Set(cV.concat(parseEmails(document.getElementById('mi-extra-v').value))));
+                invitati = Array.from(document.querySelectorAll('.mi-c:checked')).map(c => c.value);
+                visualizzatori = Array.from(document.querySelectorAll('.mi-v:checked')).map(c => c.value);
             } else {
                 invitati = (cfg.invitati || []).slice();
                 visualizzatori = (cfg.visualizzatori || []).slice();
