@@ -278,8 +278,13 @@
             // programma applica a chi ha quel ruolo, meglio che l'elenco dica la verita'.
             RUOLI_DEFAULT.filter(d => d.sistema).forEach(d => {
                 const idx = lista.findIndex(r => r.id === d.id);
-                if (idx < 0) lista.push({ ...d, sezioni: { ...d.sezioni } });
-                else if (!lista[idx].sistema) lista[idx] = { ...d, sezioni: { ...d.sezioni } };
+                if (idx < 0) { lista.push({ ...d, sezioni: { ...d.sezioni } }); return; }
+                if (!lista[idx].sistema) { lista[idx] = { ...d, sezioni: { ...d.sezioni } }; return; }
+                // ruolo di sistema personalizzato dall'admin: mantiene le sue scelte, ma le sezioni
+                // aggiunte dopo il salvataggio del ruolo restano visibili in sola lettura di default
+                const sez = { ...(lista[idx].sezioni || {}) };
+                SEZIONI_RUOLO.forEach(s => { if (sez[s.id] !== 'no' && sez[s.id] !== 'lettura' && sez[s.id] !== 'scrittura') sez[s.id] = 'lettura'; });
+                lista[idx] = { ...lista[idx], sezioni: sez, sistema: true };
             });
             return lista;
         },
@@ -800,8 +805,16 @@
             const u = this.utenteCorrente;
             if (!u) return null;
             if (this.eProprietario() || u.ruolo === 'admin') return { id: 'admin', nome: 'Amministratore', admin: true, builtin: true, sezioni: sezioniTutte('scrittura') };
-            if (u.ruolo === 'coordinatore') return { id: 'coordinatore', nome: 'Coordinatore territoriale', coordinatore: true, builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
-            if (u.ruolo === 'vicecoordinatore') return { id: 'vicecoordinatore', nome: 'Vice coordinatore territoriale', coordinatore: true, builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
+            // Coordinatore e Vice: i permessi per sezione sono MODIFICABILI dall'amministratore
+            // (sezione Ruoli), ma il filtro per regione resta sempre attivo (flag coordinatore).
+            // Si legge il profilo salvato; se manca del tutto, sola visualizzazione ovunque.
+            if (u.ruolo === 'coordinatore' || u.ruolo === 'vicecoordinatore') {
+                const salvato = Ruoli.trova(u.ruolo);
+                const norm = salvato ? Ruoli.normalizza(salvato)
+                    : { id: u.ruolo, nome: u.ruolo === 'coordinatore' ? 'Coordinatore territoriale' : 'Vice coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
+                norm.coordinatore = true;
+                return norm;
+            }
             const r = Ruoli.trova(u.ruolo);
             if (r) return Ruoli.normalizza(r);
             return { id: u.ruolo || '', nome: u.ruolo || 'Senza ruolo', sconosciuto: true, sezioni: sezioniTutte('no') };
@@ -2848,7 +2861,13 @@
                 <div class="griglia-2">
                     <div class="campo"><label>Ragione sociale *</label><input id="w-cliente" value="${esc(d.cliente)}"></div>
                     <div class="campo"><label>Codice fiscale / P. IVA</label><input id="w-cf" value="${esc(d.codiceFiscale || '')}"></div>
-                    <div class="campo"><label>Regione</label><select id="w-regione">${d.regione && !RV_ROSTER.regioni.includes(d.regione) ? `<option selected>${esc(d.regione)}</option>` : ''}${RV_ROSTER.regioni.map(r => `<option ${d.regione === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Regione</label><select id="w-regione">${(() => {
+                        // un ruolo con filtro regione (coordinatore/vice) sceglie solo tra le SUE regioni
+                        const cons = Auth.regioniConsentite();
+                        if (cons) return RV_ROSTER.regioni.filter(r => cons.includes(chiaveRegione(r))).map(r => `<option ${chiaveRegione(d.regione) === chiaveRegione(r) ? 'selected' : ''}>${r}</option>`).join('');
+                        const extra = d.regione && !RV_ROSTER.regioni.includes(d.regione) ? `<option selected>${esc(d.regione)}</option>` : '';
+                        return extra + RV_ROSTER.regioni.map(r => `<option ${d.regione === r ? 'selected' : ''}>${r}</option>`).join('');
+                    })()}</select></div>
                     <div class="campo"><label>Email di riferimento</label><input id="w-email1" type="email" value="${esc(d.email1 || '')}"></div>
                     <div class="campo"><label>Seconda email</label><input id="w-email2" type="email" value="${esc(d.email2 || '')}"></div>
                     <div class="campo"><label>Area</label><select id="w-area">${d.area && !RV_ROSTER.aree.includes(d.area) ? `<option selected>${esc(d.area)}</option>` : ''}${RV_ROSTER.aree.map(a => `<option ${d.area === a ? 'selected' : ''}>${a}</option>`).join('')}</select></div>
@@ -3271,6 +3290,14 @@
 
     function concludiWizard() {
         const w = wizard, d = w.dati;
+        // il filtro per regione vale anche in scrittura: un ruolo limitato (coordinatore/vice)
+        // non puo creare o spostare un incarico fuori dalle sue regioni, altrimenti lo
+        // perderebbe subito di vista. Barriera lato programma (come il resto del filtro regione).
+        const consentite = Auth.regioniConsentite();
+        if (consentite && !consentite.includes(chiaveRegione(d.regione || ''))) {
+            toast('Puoi creare o modificare incarichi solo nelle tue regioni.', 'rosso');
+            return;
+        }
         const anni = anniEsercizi();
         const mappa = compensiRisultanti();
         if (w.modalita === 'rinnovo') {
@@ -5747,12 +5774,12 @@
                 <div class="ruolo-testa">
                     <h2>${esc(r.nome)}${r.sistema ? ' <span class="badge ambra">di sistema</span>' : (r.builtin ? ' <span class="badge neutro">predefinito</span>' : '')}</h2>
                     <div class="ruolo-azioni">
-                        <button class="btn btn-sm btn-secondary r-mod" data-id="${esc(r.id)}">${r.id === 'admin' || r.sistema ? 'Dettagli' : 'Modifica'}</button>
+                        <button class="btn btn-sm btn-secondary r-mod" data-id="${esc(r.id)}">${r.id === 'admin' ? 'Dettagli' : 'Modifica'}</button>
                         ${r.id === 'admin' || r.sistema ? '' : '<button class="btn btn-sm btn-danger r-del" data-id="' + esc(r.id) + '">Elimina</button>'}
                     </div>
                 </div>
                 <div class="ruolo-sez">${riepSez(r)}</div>
-                ${r.sistema ? '<div class="ruolo-reg">Sempre in sola visualizzazione, solo gli incarichi delle <strong>sue regioni</strong>: la Regione della sua scheda in Persone piu le eventuali altre regioni coordinate indicate li.</div>' : ''}
+                ${r.sistema ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Persone piu le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
             </div>`).join('') +
             `</div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
@@ -5782,29 +5809,31 @@
 
     function modaleRuolo(id) {
         const esistente = id ? Ruoli.normalizza(Ruoli.trova(id) || { id: id }) : null;
-        // non modificabili: l'amministratore (ha sempre tutto) e il Coordinatore territoriale
-        // (profilo di sistema: sola visualizzazione, regione dalla scheda in Persone)
-        const bloccato = !!(esistente && (esistente.id === 'admin' || esistente.sistema));
+        // Del tutto immodificabile e' solo l'amministratore. I ruoli di sistema (Coordinatore e
+        // Vice) hanno nome e filtro per regione fissi, ma l'admin ne sceglie i permessi per
+        // sezione, anche la scrittura, esattamente come per un ruolo su misura.
+        const soloAdmin = !!(esistente && esistente.id === 'admin');
+        const diSistema = !!(esistente && esistente.sistema);
         const r = esistente || { id: '', nome: '', builtin: false, sezioni: sezioniTutte('no') };
-        apriModale(`<h2>${esistente ? (bloccato ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
-            ${bloccato ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
-            ${bloccato ? (esistente.id === 'admin'
-                ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non e modificabile.</p>'
-                : '<p class="descrizione">' + esc(esistente.nome) + ' e un ruolo di sistema, non modificabile: vede tutte le sezioni in <strong>sola visualizzazione</strong> e SOLO gli incarichi delle sue regioni. Le regioni sono quelle della sua scheda in <strong>Persone</strong> (agganciata all\'utente tramite email): la <strong>Regione</strong> della scheda piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>') : `
+        apriModale(`<h2>${esistente ? (soloAdmin ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
+            ${(soloAdmin || diSistema) ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
+            ${soloAdmin ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non e modificabile.</p>' : `
+            ${diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa puo modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioe la <strong>Regione</strong> della sua scheda in <strong>Persone</strong> (agganciata all\'utente tramite email) piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa puo toccare</h3>
             <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
                 <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
             <div class="msg-errore hidden" id="r-errore"></div>
             <div class="modale-azioni">
-                ${bloccato ? '<button class="btn btn-primary" id="m-annulla">Chiudi</button>'
+                ${soloAdmin ? '<button class="btn btn-primary" id="m-annulla">Chiudi</button>'
                     : '<button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-salva">Salva</button>'}
             </div>`, { classe: 'larga' });
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
         if (document.getElementById('m-salva')) document.getElementById('m-salva').addEventListener('click', () => {
-            if (bloccato) { chiudiModale(); return; }
+            if (soloAdmin) { chiudiModale(); return; }
             const err = document.getElementById('r-errore');
             const mostra = m => { err.textContent = m; err.classList.remove('hidden'); };
-            const nome = document.getElementById('r-nome').value.trim();
+            // i ruoli di sistema hanno nome fisso: non c'e il campo nome nella modale
+            const nome = diSistema ? r.nome : document.getElementById('r-nome').value.trim();
             if (!nome) { mostra('Dai un nome al ruolo.'); return; }
             const lista = Ruoli.tutti();
             let nid = r.id;
@@ -5812,10 +5841,10 @@
                 const base = nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'ruolo';
                 nid = base; let k = 2; while (nid === 'admin' || lista.some(x => x.id === nid)) { nid = base + '-' + k; k++; }
             }
-            if (lista.some(x => x.id !== nid && String(x.nome).trim().toLowerCase() === nome.toLowerCase())) { mostra('Esiste gia un ruolo con questo nome.'); return; }
+            if (!diSistema && lista.some(x => x.id !== nid && String(x.nome).trim().toLowerCase() === nome.toLowerCase())) { mostra('Esiste gia un ruolo con questo nome.'); return; }
             const sezioni = {};
             SEZIONI_RUOLO.forEach(s => { const sel = document.querySelector('[data-sez="' + s.id + '"]'); const v = sel ? sel.value : 'no'; sezioni[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no'; });
-            const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), sezioni: sezioni };
+            const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), sistema: !!(esistente && esistente.sistema), sezioni: sezioni };
             const idx = lista.findIndex(x => x.id === nid);
             if (idx >= 0) lista[idx] = nuovo; else lista.push(nuovo);
             Ruoli.salva(lista);
