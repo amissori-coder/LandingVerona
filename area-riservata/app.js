@@ -2924,10 +2924,14 @@
         const s = Incarichi.statoScadenza(inc);
         const anni = Object.keys(inc.compensi || {}).map(Number).sort();
         const storia = Store.leggi(CHIAVI.audit, []).filter(v => v.rif === inc.id);
+        // "torna indietro": la sezione da cui si e entrati (es. Persone), altrimenti Incarichi
+        const tornaEt = (origineNav && !SOTTOVISTE.includes(origineNav.vista))
+            ? ((VOCI_NAV.find(x => x.id === origineNav.vista) || {}).nome || 'indietro') : 'Incarichi';
 
         $vista().innerHTML = `
             <header>
                 <div>
+                    <a id="btn-torna-origine" style="display:inline-block;cursor:pointer;font-size:0.85rem;color:var(--blu-500);margin-bottom:4px;">&#8592; Torna a ${esc(tornaEt)}</a>
                     <h1>${esc(inc.cliente)}</h1>
                     <p class="descrizione">
                         <span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span>
@@ -3030,6 +3034,7 @@
         document.getElementById('btn-indietro').addEventListener('click', () => naviga('incarichi'));
         $vista().querySelectorAll('.p-lettera-storica').forEach(b =>
             b.addEventListener('click', () => naviga('lettera', { id: inc.id, periodo: Number(b.dataset.periodo) })));
+        { const bt = document.getElementById('btn-torna-origine'); if (bt) bt.addEventListener('click', () => tornaOrigine()); }
         if (Auth.puoScrivere('incarichi')) {
             document.getElementById('btn-modifica').addEventListener('click', () => naviga('wizard', { modalita: 'modifica', id: inc.id }));
             document.getElementById('btn-rinnova').addEventListener('click', () => naviga('wizard', { modalita: 'rinnovo', id: inc.id }));
