@@ -1352,6 +1352,7 @@
         _msgNonLetti: 0,
         _primoSmista: false,
         _presenzaRef() { const { doc } = this.fb.fsMod; return doc(this.db, 'archivio', 'presenza'); },
+        _msgRef(email) { const { doc } = this.fb.fsMod; return doc(this.db, 'messaggi', String(email).toLowerCase()); },
         avviaPresenza() {
             if (!this.attivo || !this.pronto || this._presenzaAvviata) return;
             // gli utenti "solo sondaggio" (esterni) non vedono la presenza dello staff
@@ -1390,15 +1391,26 @@
                 const dati = (snap && snap.data && snap.data()) || {};
                 const stati = dati.stati || {};
                 const ora = Date.now();
-                const mia = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
                 const connessi = Object.keys(stati).map(k => Object.assign({ email: k }, stati[k]))
                     .filter(s => s && s.ts && (ora - s.ts) < 90000)
                     .sort((a, b) => String(a.nome || a.email).localeCompare(String(b.nome || b.email), 'it'));
                 Cloud._presenzaUltima = connessi;
-                Cloud._smistaMessaggi(dati.messaggi || [], mia);
                 aggiornaPresenza(connessi);
             }, () => { });
             this.sottoscrizioni.push(stacca);
+            // messaggi privati: ognuno legge SOLO il proprio documento messaggi/<email> (le regole
+            // Firestore lo consentono al solo destinatario), cosi le conversazioni non sono visibili a tutti.
+            const emailKey = email.toLowerCase();
+            const staccaMsg = onSnapshot(this._msgRef(emailKey), snap => {
+                const lista = (((snap && snap.data && snap.data()) || {}).lista) || [];
+                Cloud._smistaMessaggi(lista, emailKey);
+                if (lista.length > 60) Cloud._potaMessaggi(emailKey);
+            }, () => { });
+            this.sottoscrizioni.push(staccaMsg);
+            // pulizia una tantum: i messaggi storici stavano nel doc presenza condiviso (leggibile
+            // da tutto lo staff). Ora sono privati per destinatario: rimuovo il vecchio campo cosi
+            // non resta piu una copia leggibile da tutti. Idempotente (best-effort).
+            try { const { setDoc, deleteField } = this.fb.fsMod; setDoc(this._presenzaRef(), { messaggi: deleteField() }, { merge: true }).catch(() => { }); } catch (e) { }
         },
         // pubblica il proprio slot di presenza; debounce per accorpare naviga+focus+battito
         pubblicaPresenza() {
@@ -1457,25 +1469,30 @@
         async inviaMessaggio(aEmail, testo) {
             const u = Auth.utenteCorrente; if (!u || !u.email) return false;
             const t = String(testo || '').trim().slice(0, 500);
-            if (!t) return false;
+            const dest = String(aEmail || '').toLowerCase();
+            if (!t || !dest) return false;
             try {
+                // recapito nel documento privato del destinatario (che solo lui puo leggere)
                 const { setDoc, arrayUnion } = this.fb.fsMod;
-                const msg = { id: 'm_' + uid(), da: u.email.toLowerCase(), daNome: u.nome || u.email, a: String(aEmail || '').toLowerCase(), testo: t, ts: Date.now() };
-                await setDoc(this._presenzaRef(), { messaggi: arrayUnion(msg) }, { merge: true });
-                this._potaMessaggi();
+                const msg = { id: 'm_' + uid(), da: u.email.toLowerCase(), daNome: u.nome || u.email, a: dest, testo: t, ts: Date.now() };
+                await setDoc(this._msgRef(dest), { lista: arrayUnion(msg) }, { merge: true });
                 return true;
             } catch (e) { return false; }
         },
-        // potatura opportunistica: se i messaggi superano ~60, tiene gli ultimi 40 (transazione con retry)
-        async _potaMessaggi() {
+        // potatura opportunistica della PROPRIA casella (il mittente non puo leggere quella altrui):
+        // se i messaggi superano ~60, tiene gli ultimi 40 (transazione con retry)
+        async _potaMessaggi(email) {
+            const e = String(email || (Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+            if (!e) return;
             try {
                 const { runTransaction } = this.fb.fsMod;
+                const ref = this._msgRef(e);
                 await runTransaction(this.db, async tx => {
-                    const s = await tx.get(this._presenzaRef());
-                    const arr = (s.exists() && s.data() && s.data().messaggi) || [];
-                    if (arr.length > 60) tx.update(this._presenzaRef(), { messaggi: arr.slice(-40) });
+                    const s = await tx.get(ref);
+                    const arr = (s.exists() && s.data() && s.data().lista) || [];
+                    if (arr.length > 60) tx.update(ref, { lista: arr.slice(-40) });
                 });
-            } catch (e) { }
+            } catch (e2) { }
         },
 
         /* --- gestione utenti abilitati (Firestore, solo admin) --- */

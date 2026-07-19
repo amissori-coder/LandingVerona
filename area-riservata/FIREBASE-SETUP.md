@@ -115,6 +115,14 @@ sufficiente per questo utilizzo.
          allow read: if staff();
          allow write: if admin();
        }
+       // messaggi privati tra utenti: OGNUNO legge SOLO il proprio documento
+       // (messaggi/<propria email>); qualunque utente staff puo scrivere per
+       // recapitare. Cosi le conversazioni NON sono visibili a tutti, ma solo al
+       // destinatario (nemmeno via strumenti per sviluppatori o API).
+       match /messaggi/{email} {
+         allow read: if staff() && request.auth.token.email == email;
+         allow write: if staff();
+       }
      }
    }
    ```
