@@ -525,14 +525,15 @@
     }
 
     /* Etichetta con cui una persona viene citata negli incarichi e mostrata nelle tendine:
-       il solo cognome quando e' unico tra le persone, "Cognome Nome" quando due persone
-       condividono il cognome, cosi restano distinguibili in tabelle, conteggi e lettere. */
+       di norma il solo cognome. Il nome si aggiunge ("Cognome Nome") solo quando un'ALTRA
+       persona ATTIVA condivide lo stesso cognome, cosi due omonimi attivi restano distinguibili
+       nelle scelte, nei conteggi e nelle lettere. */
     function etichettaPersona(p, lista) {
         const cog = String(p && p.nome || '').trim();
         if (!cog) return '';
         const np = String(p.nomeProprio || '').trim();
         if (!np) return cog;
-        const condiviso = (lista || Persone.tutte()).some(x => x && x.id !== p.id && !x.eliminato
+        const condiviso = (lista || Persone.tutte()).some(x => x && x.id !== p.id && x.attivo && !x.eliminato
             && String(x.nome || '').trim().toLowerCase() === cog.toLowerCase());
         return condiviso ? (cog + ' ' + np) : cog;
     }
@@ -546,7 +547,9 @@
     function risolutorePersone(lista) {
         lista = lista || Persone.tutte();
         const perEt = new Map(), perPieno = new Map(), perCog = new Map();
-        lista.filter(p => !p.eliminato).concat(lista.filter(p => p.eliminato)).forEach(p => {
+        // ordine di priorita: prima le attive (possiedono il cognome nudo), poi le disattivate,
+        // infine le eliminate; cosi un cognome nudo si risolve alla persona attiva.
+        lista.filter(p => p.attivo && !p.eliminato).concat(lista.filter(p => !p.attivo && !p.eliminato)).concat(lista.filter(p => p.eliminato)).forEach(p => {
             const et = etichettaPersona(p, lista).toLowerCase();
             if (et && !perEt.has(et)) perEt.set(et, p);
             const np = String(p.nomeProprio || '').trim();
@@ -3225,6 +3228,7 @@
                     ${rigaRiepilogo('Responsabile qualita', d.qualita)}
                     ${rigaRiepilogo('Referente', d.referente)}
                     ${rigaRiepilogo('Team', d.team)}
+                    ${(d.teamStorico && d.teamStorico.length) ? `<div class="riepilogo-riga"><span class="etichetta">Team precedente</span><span class="valore">${d.teamStorico.map(s => esc(s.nome) + (s.al ? ' <span class="hint">(fino al ' + fmtData(s.al) + ')</span>' : '')).join(', ')}</span></div>` : ''}
                 </div>
                 <div class="riepilogo-blocco"><h4>Compenso e fatturazione</h4>
                     ${anni.map(a => rigaRiepilogo('Esercizio ' + a, eurFmt.format(mappa[a] || 0))).join('')}

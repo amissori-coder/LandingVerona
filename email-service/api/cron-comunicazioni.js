@@ -78,7 +78,7 @@ function etichettaPersona(p, lista) {
     if (!cog) return '';
     const np = String(p.nomeProprio || '').trim();
     if (!np) return cog;
-    const condiviso = (lista || []).some(x => x && x.id !== p.id && !x.eliminato
+    const condiviso = (lista || []).some(x => x && x.id !== p.id && x.attivo && !x.eliminato
         && String(x.nome || '').trim().toLowerCase() === cog.toLowerCase());
     return condiviso ? (cog + ' ' + np) : cog;
 }
@@ -87,7 +87,8 @@ function etichettaPersona(p, lista) {
 function risolutorePersone(lista) {
     lista = lista || [];
     const perEt = new Map(), perPieno = new Map(), perCog = new Map();
-    lista.filter(p => !p.eliminato).concat(lista.filter(p => p.eliminato)).forEach(p => {
+    // prima le attive (possiedono il cognome nudo), poi le disattivate, infine le eliminate
+    lista.filter(p => p.attivo && !p.eliminato).concat(lista.filter(p => !p.attivo && !p.eliminato)).concat(lista.filter(p => p.eliminato)).forEach(p => {
         const et = etichettaPersona(p, lista).toLowerCase();
         if (et && !perEt.has(et)) perEt.set(et, p);
         const np = String(p.nomeProprio || '').trim();
