@@ -2904,7 +2904,7 @@
                 const extra = corrente && !lista.includes(corrente) ? `<option selected>${esc(corrente)}</option>` : '';
                 return extra + lista.map(r => `<option ${corrente === r ? 'selected' : ''}>${esc(r)}</option>`).join('');
             };
-            const teamCompleto = Array.from(new Set(Persone.attive('team').concat(teamSel))).sort((a, b) => a.localeCompare(b, 'it'));
+            const teamCompleto = Array.from(new Set(Persone.attive().concat(teamSel))).sort((a, b) => a.localeCompare(b, 'it'));
             corpo.innerHTML = `
                 <h2>Team di revisione</h2>
                 <p class="descrizione" style="margin-bottom:12px;">Assegna i ruoli e scegli i componenti del team. I nominativi si gestiscono dalla vista Persone.</p>
@@ -2917,7 +2917,7 @@
                         <div class="msg-errore hidden" id="w-qualita-errore"></div>
                     </div>
                     <div class="campo"><label>Referente</label>
-                        <select id="w-referente"><option value="">Seleziona</option>${opzioni(Persone.attive('team'), d.referente)}</select>
+                        <select id="w-referente"><option value="">Seleziona</option>${opzioni(Persone.attive(), d.referente)}</select>
                     </div>
                 </div>
                 <div class="campo"><label>Team di revisione (componenti)</label>
@@ -2930,7 +2930,7 @@
                         </div>
                         <div class="team-picker-chips" id="w-team-chips"></div>
                         <div class="team-picker-lista" id="w-team-lista">
-                            ${teamCompleto.length ? teamCompleto.map(t => `<label class="team-opz" data-nome="${esc(t)}"><input type="checkbox" class="w-team-check" value="${esc(t)}" ${teamSel.includes(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('') : '<div class="hint" style="padding:6px;">Nessun nominativo con ruolo team: aggiungili dalla vista Persone.</div>'}
+                            ${teamCompleto.length ? teamCompleto.map(t => `<label class="team-opz" data-nome="${esc(t)}"><input type="checkbox" class="w-team-check" value="${esc(t)}" ${teamSel.includes(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('') : '<div class="hint" style="padding:6px;">Nessun nominativo in anagrafica: aggiungili dalla vista Persone.</div>'}
                         </div>
                     </div>
                 </div>`;
@@ -3790,7 +3790,7 @@
             : (p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge ambra">disattivata</span>');
 
         const corpo = lista.length ? `<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Team di revisione">Team</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="col-mark" title="Equity partner">Equity</th><th class="col-mark" title="Founding partner">Founding</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             lista.map(p => {
                 const nInc = incarichiDellaPersona(p.nome).length;
@@ -3801,11 +3801,8 @@
                 <td data-label="Regione">${esc(p.regione || '')}</td>
                 <td class="col-mark" data-label="Qualita">${spunta(p.qualita)}</td>
                 <td class="col-mark" data-label="Resp. incarico">${spunta(p.respIncarico)}</td>
-                <td class="col-mark" data-label="Team">${spunta(p.team)}</td>
                 <td class="col-mark" data-label="Coordinatore territoriale">${spunta(p.coordinatore)}</td>
                 <td class="col-mark" data-label="Vice coordinatore">${spunta(p.viceCoordinatore)}</td>
-                <td class="col-mark" data-label="Equity partner">${spunta(p.equityPartner)}</td>
-                <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
                 <td class="num" data-label="Incarichi">${nInc ? `<button class="btn btn-sm btn-ghost p-inc" data-id="${esc(p.id)}" title="Vedi gli incarichi di ${esc(p.nome)}">${nInc}</button>` : ''}</td>
                 <td data-label="Stato">${badgeStato(p)}</td>
                 ${azioni(p)}
@@ -3817,7 +3814,7 @@
             <header>
                 <div>
                     <h1>Persone</h1>
-                    <p class="descrizione">Anagrafica completa: nominativi, contatti (email, telefono, regione) e ruoli. Chi puo essere responsabile della qualita, responsabile dell'incarico o componente del team. Le tendine del wizard leggono da questo elenco.</p>
+                    <p class="descrizione">Anagrafica completa: nominativi, contatti (email, telefono, regione) e ruoli. Chi puo essere responsabile della qualita o responsabile dell'incarico. Le tendine del wizard leggono da questo elenco.</p>
                 </div>
                 <div class="header-azioni">
                     ${puoScr ? '<button class="btn btn-primary" id="btn-nuova-persona">+ Aggiungi persona</button>' : ''}
@@ -4118,7 +4115,6 @@
             <div class="campo"><label>Ruoli</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-qualita" ${p && p.qualita ? 'checked' : ''} style="width:auto;">Responsabile qualita</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-resp" ${p && p.respIncarico ? 'checked' : ''} style="width:auto;">Responsabile incarico</label>
-                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-team" ${!p || p.team ? 'checked' : ''} style="width:auto;">Team di revisione / referente</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-coordinatore" ${p && p.coordinatore ? 'checked' : ''} style="width:auto;">Coordinatore territoriale</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-vice" ${p && p.viceCoordinatore ? 'checked' : ''} style="width:auto;">Vice coordinatore territoriale</label>
                 <div id="m-p-coord-box" class="${p && (p.coordinatore || p.viceCoordinatore) ? '' : 'nascosto'}" style="margin:2px 0 6px 26px;">
@@ -4126,8 +4122,6 @@
                     <div class="hint" style="margin:0 0 4px;"><strong>Altre regioni coordinate</strong> (oltre alla Regione della scheda):</div>
                     <div class="regcoord-grid">${chipsRegioni || '<span class="hint">Nessuna regione disponibile.</span>'}</div>
                 </div>
-                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equity" ${p && p.equityPartner ? 'checked' : ''} style="width:auto;">Equity partner</label>
-                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-founding" ${p && p.foundingPartner ? 'checked' : ''} style="width:auto;">Founding partner</label>
             </div>
             ${p ? '<p class="descrizione">Se cambi il cognome, viene aggiornato anche negli incarichi che lo citano.</p>' : ''}
             <div class="msg-errore hidden" id="m-p-errore"></div>
@@ -4170,13 +4164,10 @@
             const ruoli = {
                 qualita: document.getElementById('m-p-qualita').checked,
                 respIncarico: document.getElementById('m-p-resp').checked,
-                team: document.getElementById('m-p-team').checked,
                 coordinatore: coordFlag,
                 viceCoordinatore: viceFlag,
                 // senza alcuna spunta di coordinamento le altre regioni non hanno senso: si azzerano
-                regioniCoordinate: (coordFlag || viceFlag) ? Array.from(document.querySelectorAll('.m-p-regcoord:checked')).map(c => c.value) : [],
-                equityPartner: document.getElementById('m-p-equity').checked,
-                foundingPartner: document.getElementById('m-p-founding').checked
+                regioniCoordinate: (coordFlag || viceFlag) ? Array.from(document.querySelectorAll('.m-p-regcoord:checked')).map(c => c.value) : []
             };
             const CAMPI_PERSONA = [
                 { chiave: 'nome', nome: 'Cognome' }, { chiave: 'nomeProprio', nome: 'Nome' },
@@ -4184,10 +4175,9 @@
                 { chiave: 'regione', nome: 'Regione' }, { chiave: 'provincia', nome: 'Provincia' },
                 { chiave: 'localita', nome: 'Localita' }, { chiave: 'indirizzo', nome: 'Indirizzo' },
                 { chiave: 'qualita', nome: 'Ruolo qualita' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
-                { chiave: 'team', nome: 'Ruolo team' }, { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
+                { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
                 { chiave: 'viceCoordinatore', nome: 'Vice coordinatore territoriale' },
-                { chiave: 'regioniCoordinate', nome: 'Altre regioni coordinate' },
-                { chiave: 'equityPartner', nome: 'Equity partner' }, { chiave: 'foundingPartner', nome: 'Founding partner' }
+                { chiave: 'regioniCoordinate', nome: 'Altre regioni coordinate' }
             ];
             if (p) {
                 const prima = { ...p };
@@ -4286,7 +4276,7 @@
         const persone = Persone.tutte().filter(p => p.attivo && !p.eliminato && p.email);
         if (g.has('qualita')) persone.filter(p => p.qualita).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('procuratori')) persone.filter(p => p.respIncarico).forEach(p => set.add(p.email.toLowerCase()));
-        if (g.has('team')) persone.filter(p => p.team).forEach(p => set.add(p.email.toLowerCase()));
+        if (g.has('team')) persone.forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('coordinatori')) persone.filter(p => p.coordinatore).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('vicecoordinatori')) persone.filter(p => p.viceCoordinatore).forEach(p => set.add(p.email.toLowerCase()));
         return set;
@@ -5107,11 +5097,11 @@
                     </div>
                     <div class="filtri-dest">
                         <input id="cp-cerca" type="search" placeholder="Oppure scegli singole persone: filtra per cognome, nome, email...">
-                        <input type="search" id="cp-ruolo" list="cp-ruolo-dl" placeholder="Tutti i ruoli"><datalist id="cp-ruolo-dl"><option value="Responsabile qualita"></option><option value="Responsabile incarico (procuratori)"></option><option value="Team di revisione"></option><option value="Coordinatore territoriale"></option><option value="Vice coordinatore territoriale"></option></datalist>
+                        <input type="search" id="cp-ruolo" list="cp-ruolo-dl" placeholder="Tutti i ruoli"><datalist id="cp-ruolo-dl"><option value="Responsabile qualita"></option><option value="Responsabile incarico (procuratori)"></option><option value="Coordinatore territoriale"></option><option value="Vice coordinatore territoriale"></option></datalist>
                     </div>
                     <div class="sel-azioni"><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="1">Seleziona tutti (filtrati)</button><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="0">Deseleziona</button><span class="hint" id="cp-conta"></span></div>
                     <div class="lista-destinatari" id="cp-lista">
-                        ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.team ? 'team ' : '') + (p.coordinatore ? 'coordinatore ' : '') + (p.viceCoordinatore ? 'vice' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(String(p.email).toLowerCase()) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
+                        ${conMail.length ? conMail.map(p => `<label class="riga-dest" data-ruoli="${(p.qualita ? 'qualita ' : '') + (p.respIncarico ? 'respIncarico ' : '') + (p.coordinatore ? 'coordinatore ' : '') + (p.viceCoordinatore ? 'vice' : '')}"><input type="checkbox" value="${esc(p.email)}" ${dest.has(String(p.email).toLowerCase()) ? 'checked' : ''}><span>${esc(p.nome)}${p.nomeProprio ? ' ' + esc(p.nomeProprio) : ''} <span class="riga-dest-mail">${esc(p.email)}</span></span></label>`).join('') : '<div class="hint" style="padding:8px;">Nessuna persona con email in anagrafica.</div>'}
                     </div>
                 </div>
                 <div class="tab-pane nascosto" id="pane-clienti">
@@ -5275,7 +5265,7 @@
             const t = ($('cp-cerca').value || '').trim().toLowerCase();
             const r = ($('cp-ruolo').value || '').trim();
             // il ruolo si digita per nome: si risalgono le chiavi dei ruoli il cui nome contiene il testo
-            const MAPPA_RUOLI = [['qualita', 'Responsabile qualita'], ['respIncarico', 'Responsabile incarico (procuratori)'], ['team', 'Team di revisione'], ['coordinatore', 'Coordinatore territoriale'], ['vice', 'Vice coordinatore territoriale']];
+            const MAPPA_RUOLI = [['qualita', 'Responsabile qualita'], ['respIncarico', 'Responsabile incarico (procuratori)'], ['coordinatore', 'Coordinatore territoriale'], ['vice', 'Vice coordinatore territoriale']];
             // il nome scelto per intero dal suggerimento vale ESATTO: "Coordinatore territoriale"
             // non deve prendere anche il vice (il cui nome lo contiene). Il testo parziale filtra per "contiene".
             const esatte = r ? MAPPA_RUOLI.filter(([, n]) => n.toLowerCase() === r.toLowerCase()) : [];
