@@ -1351,6 +1351,14 @@
             const { doc, setDoc } = this.fb.fsMod;
             await setDoc(doc(this.db, 'utenti', email.toLowerCase()), dati, { merge: true });
         },
+        /* Eliminazione definitiva dell'utente: rimuove il documento dalla collezione
+           "utenti". Da quel momento l'indirizzo non supera piu abilitato() e perde ogni
+           accesso. L'account Firebase Authentication (se mai attivato) non e toccabile
+           dal client: eventuali residui si rimuovono da Authentication > Users. */
+        async eliminaUtente(email) {
+            const { doc, deleteDoc } = this.fb.fsMod;
+            await deleteDoc(doc(this.db, 'utenti', email.toLowerCase()));
+        },
 
         msgErrore(e) {
             const codice = (e && e.code) || '';
@@ -6541,6 +6549,38 @@
     /* =========================================================
        VISTA: UTENTI (solo amministratore)
     ========================================================= */
+    /* Elimina definitivamente un utente (locale o cloud). A differenza di
+       "Disabilita" (reversibile), qui l'utente sparisce dall'elenco e perde
+       ogni accesso: per riammetterlo va riabilitato da capo. */
+    function confermaEliminaUtente(email, nome) {
+        if (Auth.utenteCorrente && String(email).toLowerCase() === String(Auth.utenteCorrente.email).toLowerCase()) {
+            toast('Non puoi eliminare il tuo stesso utente.', 'rosso'); return;
+        }
+        apriModale('<h2>Elimina definitivamente l\'utente</h2>'
+            + '<p>Vuoi eliminare <strong>' + esc(nome || email) + '</strong> (' + esc(email) + ')?</p>'
+            + '<p class="descrizione">L\'utente sparisce dall\'elenco e perde subito l\'accesso all\'area riservata. '
+            + 'L\'operazione non e reversibile: per riammetterlo dovrai abilitarlo di nuovo con "Abilita utente".</p>'
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="ue-no">Annulla</button>'
+            + '<button class="btn btn-danger" id="ue-si">Elimina definitivamente</button></div>');
+        document.getElementById('ue-no').addEventListener('click', chiudiModale);
+        const btnSi = document.getElementById('ue-si');
+        btnSi.addEventListener('click', () => conAttesa(btnSi, async () => {
+            try {
+                if (Cloud.attivo) {
+                    await Cloud.eliminaUtente(email);
+                } else {
+                    Auth.salvaUtenti(Auth.utenti().filter(u => u.email.toLowerCase() !== String(email).toLowerCase()));
+                }
+                Audit.registra(Auth.utenteCorrente, 'Utente eliminato definitivamente', 'utente', String(email).toLowerCase(), null, null);
+                chiudiModale();
+                toast('Utente eliminato definitivamente.', 'verde');
+                vistaUtenti();
+            } catch (e) {
+                toast('Eliminazione non riuscita: ' + (Cloud.attivo ? Cloud.msgErrore(e) : (e && e.message ? e.message : e)), 'rosso');
+            }
+        }, { testo: 'Elimino…' }));
+    }
+
     function vistaUtenti() {
         if (!Auth.eAdmin() && !Auth.eProprietario()) { naviga('dashboard'); return; }
         if (Cloud.attivo) { vistaUtentiCloud(); return; }
@@ -6566,6 +6606,7 @@
                 <td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary u-reimposta" data-email="${esc(u.email)}">Reimposta password</button>
                     ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm ${u.attivo ? 'btn-danger' : 'btn-secondary'} u-attiva" data-email="${esc(u.email)}">${u.attivo ? 'Disabilita' : 'Riabilita'}</button>` : ''}
+                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
                 </td>
             </tr>`).join('') +
             `</tbody></table></div>`;
@@ -6621,6 +6662,7 @@
             toast(u.attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
             vistaUtenti();
         }));
+        $vista().querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome)));
         $vista().querySelectorAll('.u-ruolo').forEach(sel => sel.addEventListener('change', () => {
             const email = sel.dataset.email, nuovo = sel.value;
             const utenti2 = Auth.utenti();
@@ -6705,6 +6747,7 @@
                 <td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary u-reimposta" data-email="${esc(u.email)}">Invia email reimposta password</button>
                     ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm ${u.attivo === false ? 'btn-secondary' : 'btn-danger'} u-attiva" data-email="${esc(u.email)}" data-attivo="${u.attivo === false ? '0' : '1'}">${u.attivo === false ? 'Riabilita' : 'Disabilita'}</button>` : ''}
+                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
                 </td>
             </tr>`).join('') +
             `</tbody></table></div>`;
@@ -6727,6 +6770,7 @@
                 toast('Operazione non riuscita: ' + Cloud.msgErrore(e), 'rosso');
             }
         })));
+        document.querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome)));
         document.querySelectorAll('.u-ruolo').forEach(sel => {
             let prec = sel.value;
             sel.addEventListener('change', async () => {
