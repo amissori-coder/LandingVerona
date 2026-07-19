@@ -217,6 +217,12 @@
        dalle regole Firestore (vedi FIREBASE-SETUP.md); qui l'app evita di richiedere gli
        archivi non consentiti e mostra solo la sezione Sondaggi. */
     const RUOLI_SOND = { compila: 'sondaggio_compila', risultati: 'sondaggio_risultati' };
+    // etichette leggibili dei due ruoli "solo sondaggio": compaiono nella tendina ruoli
+    // (sezione Utenti), cosi l'admin puo poi cambiare ruolo e abilitare le altre aree.
+    const NOMI_RUOLO_SOND = {
+        [RUOLI_SOND.compila]: 'Sondaggio (questionario)',
+        [RUOLI_SOND.risultati]: 'Sondaggio (sola visualizzazione)'
+    };
     function eRuoloSoloSondaggio(ruolo) { return ruolo === RUOLI_SOND.compila || ruolo === RUOLI_SOND.risultati; }
 
     const Store = {
@@ -854,7 +860,7 @@
             if (eRuoloSoloSondaggio(u.ruolo)) {
                 const compila = u.ruolo === RUOLI_SOND.compila;
                 const sez = sezioniTutte('no'); sez.sondaggi = compila ? 'scrittura' : 'lettura';
-                return { id: u.ruolo, nome: compila ? 'Sondaggio (compilazione)' : 'Sondaggio (solo risultati)', builtin: true, sistema: true, soloSondaggio: true, sondaggioRuolo: compila ? 'compila' : 'risultati', sezioni: sez };
+                return { id: u.ruolo, nome: NOMI_RUOLO_SOND[u.ruolo] || 'Sondaggio', builtin: true, sistema: true, soloSondaggio: true, sondaggioRuolo: compila ? 'compila' : 'risultati', sezioni: sez };
             }
             // Coordinatore e Vice: i permessi per sezione sono MODIFICABILI dall'amministratore
             // (sezione Ruoli), ma il filtro per regione resta sempre attivo (flag coordinatore).
@@ -1095,40 +1101,68 @@
            Invia l'admin loggato (il suo ID token autentica il servizio). I limiti
            anti-spam del servizio possono far fallire qualche invio su elenchi grandi:
            i falliti vengono riportati per un nuovo tentativo. */
+        /* Testo dell'email di invito al sondaggio. tipo: 'compila' | 'risultati';
+           nuovo=true per chi deve ancora impostare la password (arriva in una email a parte). */
+        _testoInvitoSondaggio(tipo, nuovo, scadenzaTxt) {
+            const link = (window.APP_BASE_URL || 'https://nextgenerationbusiness.it') + '/area-riservata/';
+            const scad = scadenzaTxt ? ('\n\nC\'e tempo fino al ' + scadenzaTxt + ' (entro le 23:59).') : '';
+            const accesso = nuovo
+                ? '1. Imposta la password dal link che ricevi in una nostra seconda email (oggetto "Imposta la tua password"): controlla anche la posta indesiderata / spam.\n2. Accedi all\'area riservata: ' + link
+                : '1. Accedi all\'area riservata con le tue credenziali: ' + link;
+            const passo3 = nuovo ? '3' : '2';
+            const intro = 'Gentile collega,\n\n'
+                + 'Accanto alla revisione legale, Revilaw sta sviluppando un percorso di consulenza integrata su cinque aree: adeguati assetti organizzativi, ESG e sostenibilita, compliance con Tax Control Framework e Modello 231, finanza agevolata, crisi d\'impresa e risanamento. Per ciascuna nasce un "gruppo di specialisti".\n\n';
+            if (tipo === 'compila') {
+                return intro
+                    + 'Sei stato invitato a partecipare: ti chiediamo di compilare un breve questionario indicando le DUE aree nelle quali vorresti entrare a far parte del gruppo e, per ciascuna, il tuo livello di competenza. Bastano un paio di minuti.\n\n'
+                    + 'Come partecipare:\n' + accesso + '\n' + passo3 + '. Apri la sezione "Sondaggi" e invia la tua risposta.' + scad
+                    + '\n\nGrazie per il tuo contributo,\nRevilaw S.p.A.';
+            }
+            return intro
+                + 'Sei stato abilitato alla sola VISUALIZZAZIONE dei risultati del questionario: potrai vedere le aree scelte dai colleghi e le competenze dichiarate. Non devi compilare nulla.\n\n'
+                + 'Come consultarli:\n' + accesso + '\n' + passo3 + '. Apri la sezione "Sondaggi", scheda "Riepilogo risultati".'
+                + '\n\nA presto,\nRevilaw S.p.A.';
+        },
         async invitaSondaggio(comp, vis, utenti, ruoli, scadenzaTxt) {
             if (!this.attivo) return { ok: false, msg: 'Accesso cloud non attivo.' };
-            const esistenti = new Set((utenti || []).map(u => String(u.email).toLowerCase()));
+            const accessoDi = {}; (utenti || []).forEach(u => { accessoDi[String(u.email).toLowerCase()] = u.ultimoAccesso || 0; });
+            const esistenti = new Set(Object.keys(accessoDi));
             let creati = 0, inviati = 0; const falliti = [];
             const nomeDi = {};
             try { Persone.tutte().forEach(p => { if (p.email) nomeDi[String(p.email).toLowerCase()] = (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome; }); } catch (e) { }
-            const nuovi = [];
-            (comp || []).forEach(e => { if (!esistenti.has(e)) nuovi.push({ email: e, ruolo: ruoli.compila }); });
-            (vis || []).forEach(e => { if (!esistenti.has(e)) nuovi.push({ email: e, ruolo: ruoli.risultati }); });
-            for (const n of nuovi) {
+            const ruoloDi = e => (comp || []).indexOf(e) >= 0 ? ruoli.compila : ruoli.risultati;
+            const giaEntrato = e => esistenti.has(e) && !!accessoDi[e];
+            // Link per la password: lo ricevono i nuovi (account da creare) e i gia utenti che
+            // non sono mai entrati (glielo ri-inviamo, cosi possono finalmente accedere). Chi ha
+            // gia fatto almeno un accesso non riceve il link: usa le sue credenziali.
+            const tuttiInvitati = Array.from(new Set((comp || []).concat(vis || [])));
+            const pwOk = new Set(); // a chi e stato (ri)inviato con successo il link password
+            for (const e of tuttiInvitati) {
+                const nuovo = !esistenti.has(e);
+                if (!nuovo && !(esistenti.has(e) && !accessoDi[e])) continue; // gia utente e gia entrato
                 try {
-                    await this.salvaUtente(n.email, { nome: nomeDi[n.email] || n.email, ruolo: n.ruolo, attivo: true, creato: Date.now(), creatoDa: 'invito sondaggio' });
-                    const r = await this.primaPassword(n.email);
-                    if (r && r.ok) { creati++; inviati++; } else falliti.push(n.email);
-                } catch (e) { falliti.push(n.email); }
+                    if (nuovo) await this.salvaUtente(e, { nome: nomeDi[e] || e, ruolo: ruoloDi(e), attivo: true, creato: Date.now(), creatoDa: 'invito sondaggio' });
+                    const r = await this.primaPassword(e);
+                    if (r && r.ok) { if (nuovo) creati++; pwOk.add(e); } else falliti.push(e);
+                } catch (ex) { falliti.push(e); }
             }
-            const link = (window.APP_BASE_URL || 'https://nextgenerationbusiness.it') + '/area-riservata/';
-            const inviaA = async (lista, testo) => {
-                const dest = (lista || []).filter(e => esistenti.has(e)).map(e => ({ email: e }));
-                if (!dest.length) return;
-                const r = await this.inviaComunicazione('Questionario Revilaw: gruppi di specialisti', testo, dest, 'testo');
-                if (r && r.ok) inviati += (r.inviati || dest.length); else dest.forEach(d => falliti.push(d.email));
+            // Email esplicativa dell'invito, a TUTTI i destinatari: spiega che sei stato invitato
+            // a compilare, oppure che vedi solo i risultati. A chi riceve il link password diciamo
+            // di impostarla prima dall'altra email; a chi e gia utente diciamo di usare le credenziali.
+            const oggetto = tipo => tipo === 'compila'
+                ? 'Questionario Revilaw: gruppi di specialisti'
+                : 'Risultati del questionario Revilaw: gruppi di specialisti';
+            const inviaA = async (lista, tipo) => {
+                for (const conPassword of [true, false]) {
+                    const dest = (lista || []).filter(e => conPassword ? pwOk.has(e) : giaEntrato(e)).map(e => ({ email: e }));
+                    if (!dest.length) continue;
+                    const r = await this.inviaComunicazione(oggetto(tipo), this._testoInvitoSondaggio(tipo, conPassword, scadenzaTxt), dest, 'testo');
+                    if (r && r.ok) inviati += (r.inviati || dest.length); else dest.forEach(d => falliti.push(d.email));
+                }
             };
-            const scad = scadenzaTxt ? ('\n\nScadenza per la compilazione: ' + scadenzaTxt + '.') : '';
-            const testoComp = 'Gentile collega,\n\n'
-                + 'Revilaw sta ampliando la propria attivita con un percorso di consulenza integrata: adeguati assetti, ESG e sostenibilita, compliance e Tax Control Framework, finanza agevolata, crisi d\'impresa e risanamento. Per questo nascono i "gruppi di specialisti", uno per ciascuna area.\n\n'
-                + 'Ti chiediamo di indicare le DUE aree nelle quali vorresti entrare a far parte del gruppo e, per ciascuna, il tuo livello di competenza. Bastano un paio di minuti.\n\n'
-                + 'Come partecipare:\n1. Accedi all\'area riservata: ' + link + '\n2. Apri la sezione "Sondaggi"\n3. Scegli le due aree e invia la risposta' + scad + '\n\nGrazie,\nRevilaw S.p.A.';
-            const testoVis = 'Gentile collega,\n\n'
-                + 'Sei stato abilitato a consultare i risultati del questionario sui "gruppi di specialisti" di Revilaw: le aree scelte dai colleghi e le competenze dichiarate.\n\n'
-                + 'Come consultarli:\n1. Accedi all\'area riservata: ' + link + '\n2. Apri la sezione "Sondaggi", scheda "Riepilogo risultati"\n\nGrazie,\nRevilaw S.p.A.';
             try {
-                await inviaA(comp, testoComp);
-                await inviaA(vis, testoVis);
+                await inviaA(comp, 'compila');
+                await inviaA(vis, 'risultati');
             } catch (e) { /* eventuali falliti gia' registrati */ }
             return { ok: true, creati, inviati, falliti };
         },
@@ -2289,13 +2323,16 @@
     let _timerRefresh = null;
     let statoModifica = null;        // {tipo,id,etichetta} di cio che sto modificando ora (per la presenza)
     let _modalePersonaAperta = false; // per azzerare statoModifica alla chiusura della scheda persona
+    // sottopagine di un incarico: entrarci da una sezione (es. Persone) fa ricordare dove tornare
+    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera'];
+    let origineNav = null;           // {vista, parametri, scrollY} della sezione da cui si e entrati nel flusso
 
     // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
     // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
     const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone' };
     function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
-    function naviga(id, parametri) {
+    function naviga(id, parametri, ripristinaScroll) {
         statoModifica = null;   // cambiando vista non sto piu modificando (il wizard lo re-imposta)
         const viste = {
             dashboard: vistaDashboard,
@@ -2324,12 +2361,26 @@
         }
         // creare un incarico e' scrittura: chi ha gli incarichi in sola lettura non entra nel wizard
         if (id === 'wizard' && !Auth.puoScrivere('incarichi')) { id = 'incarichi'; parametri = null; }
+        // ricorda l'origine quando si entra in dettaglio/wizard/lettera da una sezione reale;
+        // uscendo verso una sezione reale il ricordo si azzera
+        const entraSotto = SOTTOVISTE.includes(id), eroSotto = SOTTOVISTE.includes(vistaCorrente);
+        if (entraSotto && !eroSotto) origineNav = { vista: vistaCorrente, parametri: parametriVista, scrollY: window.scrollY };
+        else if (!entraSotto) origineNav = null;
         vistaCorrente = id;
         parametriVista = parametri || null;
         disegnaNav();
         (viste[id] || vistaDashboard)();
-        window.scrollTo(0, 0);
+        window.scrollTo(0, ripristinaScroll || 0);
         if (typeof Cloud !== 'undefined' && Cloud.pubblicaPresenza) Cloud.pubblicaPresenza();
+    }
+    /* Torna alla sezione da cui si e entrati nel flusso di un incarico, ripristinando lo
+       scorrimento (la scheda della sezione, es. il tab di Persone, e gia persistente). */
+    function tornaOrigine(fallback) {
+        if (origineNav && !SOTTOVISTE.includes(origineNav.vista)) {
+            const o = origineNav; origineNav = null;
+            naviga(o.vista, o.parametri, o.scrollY);
+        } else if (typeof fallback === 'function') fallback();
+        else naviga('incarichi');
     }
 
     /* true se l'utente sta editando qualcosa (finestra aperta o campo a fuoco): in quel caso
@@ -3187,7 +3238,7 @@
             </div>`;
 
         document.getElementById('btn-annulla-wizard').addEventListener('click', () =>
-            w.idEsistente ? naviga('dettaglio', { id: w.idEsistente }) : naviga('incarichi'));
+            tornaOrigine(() => w.idEsistente ? naviga('dettaglio', { id: w.idEsistente }) : naviga('incarichi')));
         document.getElementById('btn-passo-prec').addEventListener('click', () => { salvaPassoCorrente(); w.passo--; disegnaWizard(); });
         document.getElementById('btn-passo-succ').addEventListener('click', () => {
             if (!salvaPassoCorrente(true)) return;
@@ -3773,7 +3824,8 @@
         } else if (w.modalita === 'modifica') {
             Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Modifica incarico');
             toast('Incarico aggiornato.', 'verde');
-            naviga('dettaglio', { id: w.idEsistente });
+            // a fine modifica torna alla sezione da cui si era partiti (es. Persone), altrimenti al dettaglio
+            tornaOrigine(() => naviga('dettaglio', { id: w.idEsistente }));
         } else {
             const nuovo = Incarichi.crea(d, Auth.utenteCorrente);
             toast(haLettera ? 'Incarico creato. Ora puoi stampare la lettera di incarico.' : 'Incarico creato.', 'verde');
@@ -5330,8 +5382,10 @@
                 const inv = elencoInvitati(cfg, utenti);
                 const nVis = emailVisualizzatori(cfg, utenti).size;
                 gestione = '<div class="card s-admin"><div class="s-admin-txt"><strong>Gestione sondaggio</strong>'
-                    + '<div class="hint">Compilatori: <b>' + inv.length + '</b> &middot; Visualizzatori (solo risultati): <b>' + nVis + '</b> &middot; scadenza ' + esc(scadTxt) + '</div></div>'
-                    + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="s-gestisci">Gestisci inviti e scadenza</button>'
+                    + '<div class="s-scad-riga"><label for="s-scad">Chiusura del questionario</label>'
+                    + '<input type="date" id="s-scad" value="' + esc(cfg.scadenza) + '"><span class="hint">entro le 23:59</span></div>'
+                    + '<div class="hint">Compilatori: <b>' + inv.length + '</b> &middot; Visualizzatori (solo risultati): <b>' + nVis + '</b></div></div>'
+                    + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="s-gestisci">Gestisci inviti</button>'
                     + '<button class="btn btn-primary" id="s-invita">Invia inviti via email</button></div></div>';
             }
             let statoCard = '';
@@ -5370,6 +5424,14 @@
             b.addEventListener('click', () => { sondTab = b.dataset.sondtab; vistaSondaggi(); }));
         const bc = document.getElementById('s-compila');
         if (bc) bc.addEventListener('click', () => modaleSondaggio(cfg));
+        const bScad = document.getElementById('s-scad');
+        if (bScad) bScad.addEventListener('change', () => {
+            if (!bScad.value) { vistaSondaggi(); return; } // svuotato per errore: ignora e ripristina
+            SondConfig.salva({ ...SondConfig.leggi(), scadenza: bScad.value });
+            try { Audit.registra(Auth.utenteCorrente, 'Sondaggio: data di chiusura aggiornata', 'sondaggio', SOND_DEF.id, null, 'chiusura ' + bScad.value); } catch (e) { }
+            toast('Data di chiusura del questionario aggiornata.', 'verde');
+            vistaSondaggi();
+        });
         const bg = document.getElementById('s-gestisci');
         if (bg) bg.addEventListener('click', () => {
             if (_sondUtenti) modaleInvitati(cfg, _sondUtenti);
@@ -5542,9 +5604,8 @@
                     + (soloSond ? '<span class="mi-badge">solo sondaggio</span>' : '') + '</div>';
             }).join('')
             : '<p class="hint">Nessuna persona con email nell\'anagrafica (sezione Persone).</p>';
-        apriModale('<h2>Inviti e scadenza del sondaggio</h2>'
-            + '<div class="campo"><label for="mi-scad">Scadenza (ultimo giorno utile, fino alle 23:59)</label>'
-            + '<input type="date" id="mi-scad" value="' + esc(cfg.scadenza) + '"></div>'
+        apriModale('<h2>Inviti del sondaggio</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Chiusura del questionario: <b>' + esc(fmtData(cfg.scadenza)) + '</b> (entro le 23:59). La data si imposta direttamente nella scheda del sondaggio.</p>'
             + '<div class="campo"><label>Invita per gruppo</label>'
             + '<div class="mi-grp-row"><span class="mi-grp-lab">Compilano</span><div class="gruppi-chip">' + grpChip('mi-grp-c', gC) + '</div></div>'
             + '<div class="mi-grp-row"><span class="mi-grp-lab">Solo risultati</span><div class="gruppi-chip">' + grpChip('mi-grp-v', gV) + '</div></div></div>'
@@ -5563,7 +5624,8 @@
         document.querySelectorAll('.mi-v').forEach(v => v.addEventListener('change', () => { if (v.checked) { const c = v.closest('.mi-utente').querySelector('.mi-c'); if (c) c.checked = false; } }));
         document.getElementById('mi-annulla').addEventListener('click', chiudiModale);
         document.getElementById('mi-salva').addEventListener('click', () => {
-            const scad = document.getElementById('mi-scad').value || SOND_DEF.scadenzaDefault;
+            // la scadenza non si tocca qui: si riprende quella impostata nella scheda del sondaggio
+            const scad = (SondConfig.leggi() || {}).scadenza || cfg.scadenza || SOND_DEF.scadenzaDefault;
             const gruppi = Array.from(document.querySelectorAll('.mi-grp-c:checked')).map(c => c.value);
             const gruppiVis = Array.from(document.querySelectorAll('.mi-grp-v:checked')).map(c => c.value);
             const listaMostrata = document.querySelectorAll('.mi-c').length > 0;
@@ -5588,19 +5650,39 @@
         utenti = utenti || [];
         const comp = Array.from(emailInvitate(cfg, utenti));
         const vis = Array.from(emailVisualizzatori(cfg, utenti)).filter(e => comp.indexOf(e) < 0);
-        if (!comp.length && !vis.length) { toast('Nessun invitato: aggiungi persone da "Gestisci inviti e scadenza".', 'rosso'); return; }
-        const esistenti = new Set(utenti.map(x => String(x.email).toLowerCase()));
-        const nNuovi = comp.concat(vis).filter(e => !esistenti.has(e)).length;
+        if (!comp.length && !vis.length) { toast('Nessun invitato: aggiungi persone da "Gestisci inviti".', 'rosso'); return; }
+        // stato di ogni invitato: nuovo (non ancora utente), gia utente ma mai entrato, gia entrato
+        const accessoDi = {}; utenti.forEach(u => { accessoDi[String(u.email).toLowerCase()] = u.ultimoAccesso || 0; });
+        const esistenti = new Set(Object.keys(accessoDi));
+        const eNuovo = e => !esistenti.has(e);
+        const AMBITI = {
+            tutti: () => true,
+            nuovi_senza: e => eNuovo(e) || !accessoDi[e],
+            solo_nuovi: e => eNuovo(e)
+        };
+        const tuttiInv = comp.concat(vis);
+        const conta = pred => tuttiInv.filter(pred).length;
+        const nTot = tuttiInv.length, nNuovi = conta(eNuovo), nNuoviSenza = conta(AMBITI.nuovi_senza);
+        const opz = (val, testo, n) => '<label class="ii-ambito"><input type="radio" name="ii-ambito" value="' + val + '"' + (val === 'nuovi_senza' ? ' checked' : '') + '><span>' + testo + ' <b>(' + n + ')</b></span></label>';
         apriModale('<h2>Invia inviti via email</h2>'
-            + '<p>Invito via email a <b>' + (comp.length + vis.length) + '</b> persone: <b>' + comp.length + '</b> a compilare, <b>' + vis.length + '</b> solo ai risultati.</p>'
-            + (nNuovi ? '<p class="hint"><b>' + nNuovi + '</b> non sono ancora utenti: verra creato un accesso limitato (solo sondaggio) e riceveranno l\'email per impostare la password.</p>' : '')
+            + '<p>Invitati: <b>' + comp.length + '</b> a compilare, <b>' + vis.length + '</b> solo ai risultati.</p>'
+            + '<div class="campo"><label>A chi inviare</label>'
+            + opz('tutti', 'A tutti gli invitati', nTot)
+            + opz('nuovi_senza', 'Solo ai nuovi e a chi non ha ancora fatto il primo accesso', nNuoviSenza)
+            + opz('solo_nuovi', 'Solo ai nuovi aggiunti', nNuovi)
+            + '</div>'
+            + (nNuovi ? '<p class="hint"><b>' + nNuovi + '</b> non sono ancora utenti: verra creato un accesso limitato (ruolo "solo sondaggio") e riceveranno l\'email per impostare la password.</p>' : '')
             + '<p class="hint">Per i limiti anti-spam del servizio l\'invio puo richiedere qualche minuto. Non chiudere la finestra fino al termine.</p>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ii-no">Annulla</button><button class="btn btn-primary" id="ii-si">Invia inviti</button></div>');
         document.getElementById('ii-no').addEventListener('click', chiudiModale);
         document.getElementById('ii-si').addEventListener('click', () => {
+            const scelto = (document.querySelector('input[name="ii-ambito"]:checked') || {}).value || 'nuovi_senza';
+            const pred = AMBITI[scelto] || AMBITI.nuovi_senza;
+            const compSel = comp.filter(pred), visSel = vis.filter(pred);
+            if (!compSel.length && !visSel.length) { toast('Con questa scelta non ci sono destinatari da avvisare.', 'ambra'); return; }
             const btn = document.getElementById('ii-si'); if (!btn) return;
             btn.disabled = true; btn.textContent = 'Invio in corso...';
-            Cloud.invitaSondaggio(comp, vis, utenti, RUOLI_SOND, fmtData(cfg.scadenza)).then(res => {
+            Cloud.invitaSondaggio(compSel, visSel, utenti, RUOLI_SOND, fmtData(cfg.scadenza)).then(res => {
                 chiudiModale();
                 if (res && res.ok) {
                     let m = 'Inviti inviati: ' + res.inviati;
@@ -6607,12 +6689,19 @@
     // etichetta di un ruolo per id (compresi i ruoli personalizzati)
     function nomeRuolo(id) {
         if (id === 'admin') return 'Amministratore';
+        if (Object.prototype.hasOwnProperty.call(NOMI_RUOLO_SOND, id)) return NOMI_RUOLO_SOND[id];
         const r = Ruoli.trova(id);
         return r ? r.nome : (id || 'Senza ruolo');
     }
-    // <option> per assegnare un ruolo a un utente (sel = ruolo attualmente scelto)
+    // <option> per assegnare un ruolo a un utente (sel = ruolo attualmente scelto). In coda,
+    // i due ruoli "solo sondaggio": cosi l'admin puo passare un invitato del sondaggio a un
+    // ruolo pieno (per abilitare le altre aree) e viceversa.
     function opzioniRuolo(sel) {
-        return Ruoli.tutti().map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
+        const base = Ruoli.tutti().map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
+        const sond = '<optgroup label="Solo sondaggio">'
+            + Object.keys(NOMI_RUOLO_SOND).map(id => '<option value="' + esc(id) + '"' + (id === sel ? ' selected' : '') + '>' + esc(NOMI_RUOLO_SOND[id]) + '</option>').join('')
+            + '</optgroup>';
+        return base + sond;
     }
     /* Selettore "dall'anagrafica" nel modale di creazione utente: si sceglie una persona
        gia' in Persone (con email) e nome + email si compilano da soli, restando modificabili. */
