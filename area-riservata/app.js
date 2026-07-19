@@ -1983,6 +1983,7 @@
         { id: 'report', nome: 'Report compensi', icona: 'M4 20V10m6 10V4m6 16v-7m4 7H2' },
         { id: 'persone', nome: 'Persone', icona: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
         { id: 'coordinatori', nome: 'Coordinatori e vice', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
+        { id: 'responsabili', nome: 'Responsabili', icona: 'M9 12l2 2 4-4M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z' },
         { id: 'comunicazioni', nome: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
@@ -1995,7 +1996,7 @@
 
     // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
     // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
-    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone' };
+    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone' };
     function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
     function naviga(id, parametri) {
@@ -2008,6 +2009,7 @@
             report: vistaReport,
             persone: vistaPersone,
             coordinatori: vistaCoordinatori,
+            responsabili: vistaResponsabili,
             comunicazioni: vistaComunicazioni,
             registro: vistaRegistro,
             utenti: vistaUtenti,
@@ -3840,7 +3842,6 @@
 
     function vistaCoordinatori() {
         const puoScr = Auth.puoScrivere('persone');
-        const anno = annoCorrente();
         const attivi = Incarichi.visibili().filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
         const coordinatori = Persone.tutte().filter(p => p.coordinatore).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
         const vice = Persone.tutte().filter(p => p.viceCoordinatore).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
@@ -3852,20 +3853,18 @@
                 const regioni = regioniCoperte(p);
                 const chiavi = new Set(regioni.map(chiaveRegione));
                 const suoi = attivi.filter(i => chiavi.has(chiaveRegione(i.regione || '')));
-                const tot = suoi.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
                 return `<tr>
                     <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
                     <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : ''}</td>
                     <td data-label="Regioni">${regioni.length ? esc(regioni.join(', ')) : '<span class="badge rosso">nessuna regione</span>'}</td>
                     <td class="col-email" data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : ''}</td>
                     <td class="num" data-label="Incarichi">${suoi.length || ''}</td>
-                    <td class="num" data-label="Compensi ${anno}">${tot ? eurFmt.format(tot) : ''}</td>
                     <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
                     ${puoScr ? `<td data-label=""><button class="btn btn-sm btn-secondary co-modifica" data-id="${esc(p.id)}">Modifica scheda</button></td>` : ''}
                 </tr>`;
             }).join('');
             return `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Regioni</th><th>Email</th><th class="num" title="Incarichi attivi nelle regioni coperte">Incarichi</th><th class="num">Compensi ${anno}</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Regioni</th><th>Email</th><th class="num" title="Incarichi attivi nelle regioni coperte">Incarichi</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
             </tr></thead><tbody>${righe}</tbody></table></div>`;
         };
 
@@ -3877,11 +3876,11 @@
             const assicura = r => {
                 const k = chiaveRegione(r); if (!k) return null;
                 if (!nomiPerChiave[k]) nomiPerChiave[k] = String(r).trim();
-                return dati[k] || (dati[k] = { coord: [], vice: [], n: 0, tot: 0 });
+                return dati[k] || (dati[k] = { coord: [], vice: [], n: 0 });
             };
             coordinatori.forEach(p => regioniCoperte(p).forEach(r => { const d = assicura(r); if (d) d.coord.push(p.nomeProprio ? p.nomeProprio + ' ' + p.nome : p.nome); }));
             vice.forEach(p => regioniCoperte(p).forEach(r => { const d = assicura(r); if (d) d.vice.push(p.nomeProprio ? p.nomeProprio + ' ' + p.nome : p.nome); }));
-            attivi.forEach(i => { const d = assicura(i.regione); if (d) { d.n++; d.tot += Incarichi.compensoAnno(i, anno); } });
+            attivi.forEach(i => { const d = assicura(i.regione); if (d) d.n++; });
             // mostra le regioni con qualcosa (persone o incarichi), in ordine alfabetico
             const chiavi = Object.keys(dati).filter(k => dati[k].coord.length || dati[k].vice.length || dati[k].n)
                 .sort((a, b) => nomiPerChiave[a].localeCompare(nomiPerChiave[b], 'it'));
@@ -3894,11 +3893,10 @@
                     <td data-label="Coordinatori">${d.coord.length ? esc(d.coord.join(', ')) : '<span style="color:var(--grigio-400)">—</span>'}</td>
                     <td data-label="Vice">${d.vice.length ? esc(d.vice.join(', ')) : '<span style="color:var(--grigio-400)">—</span>'}</td>
                     <td class="num" data-label="Incarichi attivi">${d.n || ''}</td>
-                    <td class="num" data-label="Compensi ${anno}">${d.tot ? eurFmt.format(d.tot) : ''}</td>
                 </tr>`;
             }).join('');
             return `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Regione</th><th>Coordinatori</th><th>Vice</th><th class="num">Incarichi attivi</th><th class="num">Compensi ${anno}</th>
+                <th>Regione</th><th>Coordinatori</th><th>Vice</th><th class="num">Incarichi attivi</th>
             </tr></thead><tbody>${righe}</tbody></table></div>`;
         };
 
@@ -3926,6 +3924,105 @@
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { nomeFile: 'coordinatori-' + coordTab, ricerca: true });
         $vista().querySelectorAll('.co-modifica').forEach(b =>
+            b.addEventListener('click', () => modalePersona(b.dataset.id)));
+    }
+
+    /* =========================================================
+       VISTA: RESPONSABILI (qualita e incarico), con gli incarichi associati.
+       Un incarico "associa" una persona quando il campo qualita/respIncarico
+       dell'incarico coincide col suo cognome. Permessi come Persone.
+    ========================================================= */
+    let respTab = 'qualita'; // 'qualita' | 'incarico'
+
+    // incarichi (visibili) in cui la persona e' responsabile del ruolo indicato (campo).
+    // Attivi prima, poi terminati/dimessi; il confronto e' per cognome, minuscole.
+    function incarichiConResponsabile(cognome, campo, lista) {
+        const cg = String(cognome || '').trim().toLowerCase();
+        if (!cg) return [];
+        const out = (lista || Incarichi.visibili()).filter(i => String(i[campo] || '').trim().toLowerCase() === cg);
+        out.sort((a, b) => {
+            const chiuso = s => (s === 'cessato' || s === 'dimesso') ? 1 : 0;
+            return chiuso(a.stato) - chiuso(b.stato) || String(a.cliente || '').localeCompare(String(b.cliente || ''), 'it');
+        });
+        return out;
+    }
+
+    function modaleIncarichiResponsabile(persona, campo, etichetta) {
+        const voci = incarichiConResponsabile(persona.nome, campo);
+        const nomeVis = (persona.nomeProprio ? persona.nomeProprio + ' ' : '') + persona.nome;
+        const fuori = Auth.regioniConsentite() ? incarichiConResponsabile(persona.nome, campo, Incarichi.tutti()).length - voci.length : 0;
+        const righe = voci.map(i => {
+            const s = Incarichi.statoScadenza(i);
+            return `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                <td>${esc(i.cliente || '')}</td>
+                <td>${badgeTipo(i.tipo)}</td>
+                <td>${esc(i.regione || '')}</td>
+                <td>${esc(fmtData(i.rinnovo || i.dataFine))}</td>
+                <td><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
+            </tr>`;
+        }).join('');
+        apriModale(`<h2>${esc(etichetta)}: ${esc(nomeVis)}</h2>
+            ${voci.length ? `<p class="hint" style="margin:-4px 0 10px;">${voci.length} ${voci.length === 1 ? 'incarico' : 'incarichi'} &middot; clicca una riga per aprire l'incarico.</p>
+            <div class="tabella-wrap"><table class="dati"><thead><tr>
+                <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Fine</th><th>Stato</th>
+            </tr></thead><tbody>${righe}</tbody></table></div>`
+            : '<p class="descrizione">Nessun incarico associato con questo ruolo.</p>'}
+            ${fuori > 0 ? `<p class="hint" style="margin-top:10px;">${fuori === 1 ? 'Un altro incarico e' : 'Altri ' + fuori + ' incarichi sono'} fuori dalle regioni del tuo ruolo e non ${fuori === 1 ? 'viene mostrato' : 'vengono mostrati'}.</p>` : ''}
+            <div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>`, { classe: 'larga' });
+        document.getElementById('m-ok').addEventListener('click', chiudiModale);
+        document.querySelectorAll('#modale-contenitore [data-apri]').forEach(r =>
+            r.addEventListener('click', () => { chiudiModale(); naviga('dettaglio', { id: r.dataset.apri }); }));
+    }
+
+    function vistaResponsabili() {
+        const puoScr = Auth.puoScrivere('persone');
+        const campo = respTab === 'incarico' ? 'respIncarico' : 'qualita';
+        const etichetta = respTab === 'incarico' ? 'Responsabile incarico' : 'Responsabile qualita';
+        const lista = Persone.tutte().filter(p => respTab === 'incarico' ? p.respIncarico : p.qualita)
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        const qualitaN = Persone.tutte().filter(p => p.qualita).length;
+        const incaricoN = Persone.tutte().filter(p => p.respIncarico).length;
+
+        const corpo = lista.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+            <th>Cognome</th><th>Nome</th><th>Email</th><th class="num" title="Incarichi in cui e ${esc(etichetta.toLowerCase())}">Incarichi</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
+        </tr></thead><tbody>` +
+            lista.map(p => {
+                const n = incarichiConResponsabile(p.nome, campo).length;
+                return `<tr>
+                    <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
+                    <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : ''}</td>
+                    <td class="col-email" data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : ''}</td>
+                    <td class="num" data-label="Incarichi">${n ? `<button class="btn btn-sm btn-ghost re-inc" data-id="${esc(p.id)}">${n}</button>` : ''}</td>
+                    <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
+                    ${puoScr ? `<td data-label=""><button class="btn btn-sm btn-secondary re-modifica" data-id="${esc(p.id)}">Modifica scheda</button></td>` : ''}
+                </tr>`;
+            }).join('') +
+            `</tbody></table></div>`
+            : `<div class="card tabella-vuota">Nessun ${respTab === 'incarico' ? 'responsabile incarico' : 'responsabile qualita'} in anagrafica: spunta la relativa casella nella scheda della persona (sezione Persone).</div>`;
+
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Responsabili</h1>
+                    <p class="descrizione">Responsabili della qualita e responsabili dell'incarico dall'anagrafica, con gli incarichi in cui ricoprono quel ruolo. Clicca il numero per vedere quali. I ruoli si assegnano nella scheda della persona (sezione Persone).</p>
+                </div>
+            </header>
+            <div class="tab-dest" style="margin-bottom:16px;">
+                <button class="tab-btn ${respTab === 'qualita' ? 'attivo' : ''}" data-resptab="qualita">Responsabili qualita (${qualitaN})</button>
+                <button class="tab-btn ${respTab === 'incarico' ? 'attivo' : ''}" data-resptab="incarico">Responsabili incarico (${incaricoN})</button>
+            </div>
+            ${corpo}`;
+
+        $vista().querySelectorAll('[data-resptab]').forEach(b =>
+            b.addEventListener('click', () => { respTab = b.dataset.resptab; vistaResponsabili(); }));
+        const tab = $vista().querySelector('table.dati');
+        if (tab) attrezzaTabella(tab, { nomeFile: 'responsabili-' + respTab, ricerca: true });
+        $vista().querySelectorAll('.re-inc').forEach(b =>
+            b.addEventListener('click', () => {
+                const p = Persone.tutte().find(x => x.id === b.dataset.id);
+                if (p) modaleIncarichiResponsabile(p, campo, etichetta);
+            }));
+        $vista().querySelectorAll('.re-modifica').forEach(b =>
             b.addEventListener('click', () => modalePersona(b.dataset.id)));
     }
 
@@ -4049,8 +4146,8 @@
                 toast('Persona aggiunta: ' + nome, 'verde');
             }
             chiudiModale();
-            // ridisegna la vista da cui si e' aperta la scheda (Persone o Coordinatori)
-            naviga(vistaCorrente === 'coordinatori' ? 'coordinatori' : 'persone');
+            // ridisegna la vista da cui si e' aperta la scheda (Persone, Coordinatori o Responsabili)
+            naviga(['coordinatori', 'responsabili'].includes(vistaCorrente) ? vistaCorrente : 'persone');
         }));
     }
 
