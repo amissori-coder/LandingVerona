@@ -1307,6 +1307,17 @@
            battito negli ultimi ~2 minuti. Nessuna modifica alle regole Firestore. */
         _presenzaAvviata: false,
         _presenzaTimer: null,
+        _presenzaPubTimer: null,
+        _presenzaTick: 0,
+        _visibHandler: null,
+        _pageHideHandler: null,
+        _pageShowHandler: null,
+        _presenzaUltima: [],
+        _msgMostrati: null,
+        _inbox: [],
+        _msgNonLetti: 0,
+        _primoSmista: false,
+        _presenzaRef() { const { doc } = this.fb.fsMod; return doc(this.db, 'archivio', 'presenza'); },
         avviaPresenza() {
             if (!this.attivo || !this.pronto || this._presenzaAvviata) return;
             // gli utenti "solo sondaggio" (esterni) non vedono la presenza dello staff
@@ -1314,29 +1325,123 @@
             if (rc && rc.soloSondaggio) return;
             const email = Auth.utenteCorrente ? Auth.utenteCorrente.email : null;
             if (!email) return;
+            // stato messaggi per QUESTO utente: su browser condiviso l'utente successivo non deve
+            // vedere i messaggi del precedente. Dedup per id (persistito per utente), non per timestamp.
+            this._inbox = []; this._msgNonLetti = 0;
+            this._msgMostrati = new Set(this._caricaSeen(email));
+            this._primoSmista = true;
             this._presenzaAvviata = true;
-            const { collection, onSnapshot } = this.fb.fsMod;
-            const battito = () => { this.salvaUtente(email, { ultimoAccesso: Date.now() }).catch(() => { }); };
-            battito(); // subito, poi ogni 45s
-            this._presenzaTimer = setInterval(battito, 45000);
-            const stacca = onSnapshot(collection(this.db, 'utenti'), snap => {
+            const { onSnapshot } = this.fb.fsMod;
+            // heartbeat 30s (solo a scheda visibile); ~ogni 5 min rinfresca anche
+            // "ultimoAccesso" (visto come Ultimo accesso nella vista Utenti). La reattivita
+            // vera arriva dagli eventi (naviga, apertura/chiusura editor, ritorno visibile).
+            const battito = () => {
+                if (typeof document !== 'undefined' && document.hidden) return;
+                this._presenzaTick++;
+                if (this._presenzaTick % 10 === 0) this.salvaUtente(email, { ultimoAccesso: Date.now() }).catch(() => { });
+                this.pubblicaPresenza();
+            };
+            this.pubblicaPresenza();
+            this.salvaUtente(email, { ultimoAccesso: Date.now() }).catch(() => { });
+            this._presenzaTimer = setInterval(battito, 30000);
+            this._visibHandler = () => { if (!document.hidden) this.pubblicaPresenza(); };
+            document.addEventListener('visibilitychange', this._visibHandler);
+            // pagehide: scompari subito dagli altri (lapide) ma NON smontare, cosi al ritorno da
+            // bfcache la presenza riprende; pageshow ri-pubblica il proprio slot.
+            this._pageHideHandler = () => { this._scriviLapide(); };
+            window.addEventListener('pagehide', this._pageHideHandler);
+            this._pageShowHandler = () => { if (this._presenzaAvviata) this.pubblicaPresenza(); };
+            window.addEventListener('pageshow', this._pageShowHandler);
+            const stacca = onSnapshot(this._presenzaRef(), snap => {
+                const dati = (snap && snap.data && snap.data()) || {};
+                const stati = dati.stati || {};
                 const ora = Date.now();
-                const connessi = [];
-                snap.forEach(d => {
-                    const u = d.data() || {};
-                    if (u.attivo !== false && u.ultimoAccesso && (ora - u.ultimoAccesso) < 120000) {
-                        connessi.push({ email: d.id, nome: u.nome || d.id });
-                    }
-                });
-                connessi.sort((a, b) => a.nome.localeCompare(b.nome));
+                const mia = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+                const connessi = Object.keys(stati).map(k => Object.assign({ email: k }, stati[k]))
+                    .filter(s => s && s.ts && (ora - s.ts) < 90000)
+                    .sort((a, b) => String(a.nome || a.email).localeCompare(String(b.nome || b.email), 'it'));
+                Cloud._presenzaUltima = connessi;
+                Cloud._smistaMessaggi(dati.messaggi || [], mia);
                 aggiornaPresenza(connessi);
             }, () => { });
             this.sottoscrizioni.push(stacca);
         },
+        // pubblica il proprio slot di presenza; debounce per accorpare naviga+focus+battito
+        pubblicaPresenza() {
+            if (!this._presenzaAvviata || !this.attivo || !this.pronto) return;
+            if (this._presenzaPubTimer) return;
+            this._presenzaPubTimer = setTimeout(() => {
+                this._presenzaPubTimer = null;
+                const u = Auth.utenteCorrente; if (!u || !u.email) return;
+                try {
+                    const { setDoc } = this.fb.fsMod;
+                    const slot = { nome: u.nome || u.email, ts: Date.now(), vista: presenzaVistaCorrente(), modifica: statoModifica || null };
+                    setDoc(this._presenzaRef(), { stati: { [u.email.toLowerCase()]: slot } }, { merge: true }).catch(() => { });
+                } catch (e) { }
+            }, 250);
+        },
         fermaPresenza() {
             this._presenzaAvviata = false;
             if (this._presenzaTimer) { clearInterval(this._presenzaTimer); this._presenzaTimer = null; }
+            if (this._presenzaPubTimer) { clearTimeout(this._presenzaPubTimer); this._presenzaPubTimer = null; }
+            if (this._visibHandler) { try { document.removeEventListener('visibilitychange', this._visibHandler); } catch (e) { } this._visibHandler = null; }
+            if (this._pageHideHandler) { try { window.removeEventListener('pagehide', this._pageHideHandler); } catch (e) { } this._pageHideHandler = null; }
+            if (this._pageShowHandler) { try { window.removeEventListener('pageshow', this._pageShowHandler); } catch (e) { } this._pageShowHandler = null; }
+            this._presenzaUltima = [];
+            // svuota i messaggi in memoria: l'utente successivo su questo browser non deve vederli
+            this._inbox = []; this._msgNonLetti = 0; this._msgMostrati = null;
+            this._scriviLapide();
             aggiornaPresenza([]);
+        },
+        // lapide: ts=0 mi fa sparire subito dagli altri, senza cancellare la chiave
+        _scriviLapide() {
+            const u = Auth.utenteCorrente;
+            if (!u || !u.email || !this.attivo || !this.pronto) return;
+            try { const { setDoc } = this.fb.fsMod; setDoc(this._presenzaRef(), { stati: { [u.email.toLowerCase()]: { nome: u.nome || u.email, ts: 0, vista: null, modifica: null } } }, { merge: true }).catch(() => { }); } catch (e) { }
+        },
+        // notifica: toast per i messaggi nuovi a me destinati. Dedup per ID (persistito per
+        // utente), non per timestamp: cosi non si perdono messaggi con clock sfasati o su browser
+        // condiviso, e l'utente successivo non eredita lo stato del precedente.
+        _smistaMessaggi(messaggi, mia) {
+            if (!mia) return;
+            if (!this._msgMostrati) this._msgMostrati = new Set(this._caricaSeen(mia));
+            let cambiato = false;
+            (messaggi || []).forEach(m => {
+                if (!m || !m.id || String(m.a || '').toLowerCase() !== mia) return;
+                if (this._msgMostrati.has(m.id)) return;
+                this._msgMostrati.add(m.id); cambiato = true;
+                if (this._primoSmista) return;   // primo giro dopo il login: segna il pregresso senza toast
+                this._inbox.unshift(m); this._inbox = this._inbox.slice(0, 20);
+                this._msgNonLetti++;
+                toast((m.daNome || m.da || '') + ': ' + (m.testo || ''), 'verde');
+            });
+            this._primoSmista = false;
+            if (cambiato) this._salvaSeen(mia);
+        },
+        _caricaSeen(email) { try { const a = JSON.parse(localStorage.getItem('rvArea.msgSeen.' + String(email).toLowerCase()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } },
+        _salvaSeen(email) { try { localStorage.setItem('rvArea.msgSeen.' + String(email).toLowerCase(), JSON.stringify(Array.from(this._msgMostrati).slice(-80))); } catch (e) { } },
+        async inviaMessaggio(aEmail, testo) {
+            const u = Auth.utenteCorrente; if (!u || !u.email) return false;
+            const t = String(testo || '').trim().slice(0, 500);
+            if (!t) return false;
+            try {
+                const { setDoc, arrayUnion } = this.fb.fsMod;
+                const msg = { id: 'm_' + uid(), da: u.email.toLowerCase(), daNome: u.nome || u.email, a: String(aEmail || '').toLowerCase(), testo: t, ts: Date.now() };
+                await setDoc(this._presenzaRef(), { messaggi: arrayUnion(msg) }, { merge: true });
+                this._potaMessaggi();
+                return true;
+            } catch (e) { return false; }
+        },
+        // potatura opportunistica: se i messaggi superano ~60, tiene gli ultimi 40 (transazione con retry)
+        async _potaMessaggi() {
+            try {
+                const { runTransaction } = this.fb.fsMod;
+                await runTransaction(this.db, async tx => {
+                    const s = await tx.get(this._presenzaRef());
+                    const arr = (s.exists() && s.data() && s.data().messaggi) || [];
+                    if (arr.length > 60) tx.update(this._presenzaRef(), { messaggi: arr.slice(-40) });
+                });
+            } catch (e) { }
         },
 
         /* --- gestione utenti abilitati (Firestore, solo admin) --- */
@@ -2043,6 +2148,8 @@
     }
     function chiudiModale() {
         document.getElementById('modale-contenitore').innerHTML = '';
+        // chiudendo la scheda persona non la sto piu modificando: aggiorna la presenza
+        if (_modalePersonaAperta) { _modalePersonaAperta = false; statoModifica = null; if (typeof Cloud !== 'undefined' && Cloud.pubblicaPresenza) Cloud.pubblicaPresenza(); }
         // se un aggiornamento remoto era stato rimandato mentre la finestra era aperta, applicalo ora
         if (refreshSospeso && !staModificando()) {
             refreshSospeso = false;
@@ -2111,17 +2218,50 @@
         return { sfondo: sfondo, corpo: sfondo.querySelector('.modale-corpo'), chiudi: chiudi };
     }
 
-    /* Mostra nella sidebar gli utenti attualmente connessi (heartbeat recente). */
+    /* Mostra nella sidebar gli utenti attualmente connessi (in tempo reale): chi sta modificando
+       cosa, un pulsante per scrivergli e la casella dei messaggi ricevuti. */
     function aggiornaPresenza(connessi) {
         const box = document.getElementById('presenza-box');
         if (!box) return;
         if (!connessi || !connessi.length) { box.innerHTML = ''; return; }
-        const mio = Auth.utenteCorrente ? Auth.utenteCorrente.email : '';
+        const mio = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        const nonLetti = (typeof Cloud !== 'undefined' && Cloud._msgNonLetti) || 0;
         const voci = connessi.map(c => {
-            const etichetta = c.nome + (c.email === mio ? ' (tu)' : '');
-            return '<span class="presenza-utente"><span class="pallino"></span>' + esc(etichetta) + '</span>';
+            const io = String(c.email).toLowerCase() === mio;
+            const mod = (c.modifica && c.modifica.etichetta) ? ' <span class="badge ambra" title="Sta modificando ora">modifica: ' + esc(troncaTesto(String(c.modifica.etichetta), 20)) + '</span>' : '';
+            const scrivi = io ? '' : ' <button class="btn btn-sm btn-ghost pres-msg" data-email="' + esc(c.email) + '" data-nome="' + esc(c.nome || c.email) + '" title="Scrivi a ' + esc(c.nome || c.email) + '">&#9993;</button>';
+            return '<span class="presenza-utente"><span class="pallino"></span>' + esc((c.nome || c.email) + (io ? ' (tu)' : '')) + mod + scrivi + '</span>';
         }).join('');
-        box.innerHTML = '<div class="presenza-titolo">Connessi ora · ' + connessi.length + '</div>' + voci;
+        box.innerHTML = '<div class="presenza-titolo">Connessi ora &middot; ' + connessi.length
+            + ' <button class="btn btn-sm btn-ghost pres-inbox" title="Messaggi ricevuti">Messaggi' + (nonLetti ? ' (' + nonLetti + ')' : '') + '</button></div>' + voci;
+        box.querySelectorAll('.pres-msg').forEach(b => b.addEventListener('click', () => modaleInviaMessaggio(b.dataset.email, b.dataset.nome)));
+        const bi = box.querySelector('.pres-inbox'); if (bi) bi.addEventListener('click', modaleCasellaMessaggi);
+    }
+    function modaleInviaMessaggio(email, nome) {
+        apriModale('<h2>Scrivi a ' + esc(nome) + '</h2>'
+            + '<div class="campo"><textarea id="msg-testo" rows="3" maxlength="500" placeholder="Messaggio..."></textarea></div>'
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-invia">Invia</button></div>');
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        const bt = document.getElementById('m-invia');
+        bt.addEventListener('click', async () => {
+            const t = document.getElementById('msg-testo').value.trim();
+            if (!t) { toast('Scrivi un messaggio.', 'rosso'); return; }
+            bt.disabled = true;
+            const ok = (typeof Cloud !== 'undefined' && Cloud.inviaMessaggio) ? await Cloud.inviaMessaggio(email, t) : false;
+            chiudiModale();
+            toast(ok ? ('Messaggio inviato a ' + nome) : 'Invio non riuscito.', ok ? 'verde' : 'rosso');
+        });
+        setTimeout(() => { const ta = document.getElementById('msg-testo'); if (ta) ta.focus(); }, 30);
+    }
+    function modaleCasellaMessaggi() {
+        if (typeof Cloud !== 'undefined') Cloud._msgNonLetti = 0;
+        const inbox = (typeof Cloud !== 'undefined' && Cloud._inbox) || [];
+        const righe = inbox.length
+            ? inbox.map(m => '<div class="riepilogo-riga"><span class="etichetta">' + esc(m.daNome || m.da || '') + '</span><span class="valore">' + esc(m.testo || '') + ' <span class="hint">' + fmtDataOra(m.ts) + '</span></span></div>').join('')
+            : '<p class="descrizione">Nessun messaggio ricevuto in questa sessione.</p>';
+        apriModale('<h2>Messaggi ricevuti</h2>' + righe + '<div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>', { classe: 'larga' });
+        document.getElementById('m-ok').addEventListener('click', chiudiModale);
+        aggiornaPresenza((typeof Cloud !== 'undefined' && Cloud._presenzaUltima) || []);
     }
 
     /* =========================================================
@@ -2147,6 +2287,8 @@
     let parametriVista = null;
     let refreshSospeso = false;   // ridisegno da sincronizzazione rimandato perche l'utente sta editando
     let _timerRefresh = null;
+    let statoModifica = null;        // {tipo,id,etichetta} di cio che sto modificando ora (per la presenza)
+    let _modalePersonaAperta = false; // per azzerare statoModifica alla chiusura della scheda persona
 
     // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
     // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
@@ -2154,6 +2296,7 @@
     function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
     function naviga(id, parametri) {
+        statoModifica = null;   // cambiando vista non sto piu modificando (il wizard lo re-imposta)
         const viste = {
             dashboard: vistaDashboard,
             incarichi: vistaIncarichi,
@@ -2186,6 +2329,7 @@
         disegnaNav();
         (viste[id] || vistaDashboard)();
         window.scrollTo(0, 0);
+        if (typeof Cloud !== 'undefined' && Cloud.pubblicaPresenza) Cloud.pubblicaPresenza();
     }
 
     /* true se l'utente sta editando qualcosa (finestra aperta o campo a fuoco): in quel caso
@@ -2214,6 +2358,28 @@
         }
         refreshSospeso = false;
         naviga(vistaCorrente, parametriVista);
+    }
+
+    /* Descrittore della vista corrente per la presenza (cosa sto guardando). */
+    function presenzaVistaCorrente() {
+        if (vistaCorrente === 'dettaglio' && parametriVista && parametriVista.id) {
+            const inc = (typeof Incarichi !== 'undefined') ? Incarichi.trova(parametriVista.id) : null;
+            return { tipo: 'incarico', id: parametriVista.id, etichetta: inc ? (inc.cliente || '') : '' };
+        }
+        const v = VOCI_NAV.find(x => x.id === vistaCorrente);
+        return { tipo: 'sezione', id: vistaCorrente, etichetta: v ? v.nome : vistaCorrente };
+    }
+    /* Nome di chi (diverso da me) sta gia modificando questo tipo+id, tra i connessi recenti; else null. */
+    function chiModificaGia(tipo, id) {
+        const mio = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        const lista = (typeof Cloud !== 'undefined' && Cloud._presenzaUltima) || [];
+        const c = lista.find(x => String(x.email).toLowerCase() !== mio && x.modifica && x.modifica.tipo === tipo && String(x.modifica.id) === String(id));
+        return c ? (c.nome || c.email) : null;
+    }
+    /* Avvisa (senza bloccare) se un altro connesso sta gia modificando questo record. */
+    function avvisaSeAltriModificano(tipo, id) {
+        const chi = chiModificaGia(tipo, id);
+        if (chi) toast('Attenzione: ' + chi + ' sta modificando ' + (tipo === 'incarico' ? 'questo incarico' : 'questa persona') + ' in questo momento.', 'rosso');
     }
 
     function vistaSenzaAccesso() {
@@ -2658,9 +2824,8 @@
         cont.querySelectorAll('[data-riattiva]').forEach(b =>
             b.addEventListener('click', e => {
                 e.stopPropagation();
-                Incarichi.riattiva(b.dataset.riattiva, Auth.utenteCorrente);
-                toast('Incarico riattivato: torna tra gli incarichi attivi.', 'verde');
-                disegnaTabellaIncarichi(annoRif);
+                const inc = Incarichi.trova(b.dataset.riattiva);
+                if (inc) modaleRiattivaIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
             }));
         cont.querySelectorAll('th[data-ordina]').forEach(th =>
             th.addEventListener('click', () => {
@@ -2704,6 +2869,7 @@
         if (!inc) { naviga('incarichi'); return; }
         // filtro regione: non si apre un incarico fuori dalle regioni consentite al ruolo
         if (!Auth.vedeIncarico(inc)) { naviga('incarichi'); return; }
+        avvisaSeAltriModificano('incarico', inc.id);
         const s = Incarichi.statoScadenza(inc);
         const anni = Object.keys(inc.compensi || {}).map(Number).sort();
         const storia = Store.leggi(CHIAVI.audit, []).filter(v => v.rif === inc.id);
@@ -2825,11 +2991,7 @@
             const btnDimetti = document.getElementById('btn-dimetti-inc');
             if (btnDimetti) btnDimetti.addEventListener('click', () => modaleDimissioniIncarico(inc));
             const btnRiattivaInc = document.getElementById('btn-riattiva-inc');
-            if (btnRiattivaInc) btnRiattivaInc.addEventListener('click', () => {
-                Incarichi.riattiva(inc.id, Auth.utenteCorrente);
-                toast('Incarico riattivato: torna tra gli incarichi attivi.', 'verde');
-                naviga('dettaglio', { id: inc.id });
-            });
+            if (btnRiattivaInc) btnRiattivaInc.addEventListener('click', () => modaleRiattivaIncarico(inc, () => naviga('dettaglio', { id: inc.id })));
         }
         const btnElimina = document.getElementById('btn-elimina');
         if (btnElimina) btnElimina.addEventListener('click', () => {
@@ -2851,6 +3013,18 @@
 
     // termina l'incarico: conferma e spostamento nella scheda "Terminati".
     // onDone opzionale: eseguito dopo la conferma (dall'elenco ridisegna la tabella; dal dettaglio si ricarica la scheda)
+    function modaleRiattivaIncarico(inc, onDone) {
+        apriModale(`<h2>Riattivare l'incarico?</h2>
+            <p>L'incarico <strong>${esc(inc.cliente)}</strong> tornera tra gli <strong>attivi</strong>. L'operazione resta nel registro modifiche.</p>
+            <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-conferma">Riattiva</button></div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            Incarichi.riattiva(inc.id, Auth.utenteCorrente);
+            chiudiModale();
+            toast('Incarico riattivato: torna tra gli incarichi attivi.', 'verde');
+            if (typeof onDone === 'function') onDone();
+        });
+    }
     function modaleTerminaIncarico(inc, onDone) {
         apriModale(`<h2>Terminare l'incarico?</h2>
             <p>L'incarico <strong>${esc(inc.cliente)}</strong> verra spostato nella scheda <strong>Terminati</strong> e non comparira piu tra gli attivi. Potrai riattivarlo in qualsiasi momento. L'operazione resta nel registro modifiche.</p>
@@ -2930,6 +3104,11 @@
         const modalita = (parametriVista && parametriVista.modalita) || 'nuovo';
         const esistente = parametriVista && parametriVista.id ? Incarichi.trova(parametriVista.id) : null;
         if ((modalita === 'modifica' || modalita === 'rinnovo') && !esistente) { naviga('incarichi'); return; }
+        // segnala agli altri connessi che sto modificando questo incarico (naviga lo pubblica in coda)
+        if (esistente && (modalita === 'modifica' || modalita === 'rinnovo')) {
+            statoModifica = { tipo: 'incarico', id: esistente.id, etichetta: esistente.cliente || '' };
+            avvisaSeAltriModificano('incarico', esistente.id);
+        }
 
         const annoBase = annoCorrente();
         wizard = {
@@ -3530,10 +3709,20 @@
             toast('Puoi creare o modificare incarichi solo nelle tue regioni.', 'rosso');
             return;
         }
-        // se qualcuno e uscito dal team, prima si registra la data di fine ruolo, poi si salva
-        const rimossi = (w.modalita === 'modifica' || w.modalita === 'rinnovo') ? personeRimosseDalTeam(w.idEsistente, d.team) : [];
-        if (rimossi.length) { modaleUscitaTeam(rimossi, entries => { d.teamStorico = (d.teamStorico || []).concat(entries); finalizzaWizard(); }); return; }
-        finalizzaWizard();
+        // conferma esplicita prima di salvare (modifiche / rinnovi / nuovo incarico)
+        const testoConf = w.modalita === 'rinnovo' ? 'Confermi il <strong>rinnovo</strong> di questo incarico?'
+            : w.modalita === 'modifica' ? 'Confermi le <strong>modifiche</strong> a questo incarico?'
+                : 'Salvare il <strong>nuovo incarico</strong>?';
+        apriModale(`<h2>Conferma</h2><p>${testoConf}</p>
+            <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-conferma">Conferma</button></div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            chiudiModale();
+            // se qualcuno e uscito dal team, prima si registra la data di fine ruolo, poi si salva
+            const rimossi = (w.modalita === 'modifica' || w.modalita === 'rinnovo') ? personeRimosseDalTeam(w.idEsistente, d.team) : [];
+            if (rimossi.length) { modaleUscitaTeam(rimossi, entries => { d.teamStorico = (d.teamStorico || []).concat(entries); finalizzaWizard(); }); return; }
+            finalizzaWizard();
+        });
     }
     function finalizzaWizard() {
         const w = wizard, d = w.dati;
@@ -4367,6 +4556,13 @@
     function modalePersona(id) {
         const lista = Persone.tutte();
         const p = id ? lista.find(x => x.id === id) : null;
+        // presenza: sto modificando questa persona (avviso se un altro la sta gia modificando)
+        if (p) {
+            _modalePersonaAperta = true;
+            statoModifica = { tipo: 'persona', id: p.id, etichetta: (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome };
+            avvisaSeAltriModificano('persona', p.id);
+            if (typeof Cloud !== 'undefined' && Cloud.pubblicaPresenza) Cloud.pubblicaPresenza();
+        }
         // altre regioni coordinate: si mostrano se la persona e' coordinatore o vice.
         // L'elenco e' lo STESSO degli incarichi (tutte le regioni italiane), piu' le regioni
         // gia' salvate sulla scheda che eventualmente non vi compaiono: altrimenti un
