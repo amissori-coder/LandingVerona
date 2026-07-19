@@ -414,28 +414,17 @@
         d = d || {};
         return applicaVariabili(s, { nome: esc(d.nome || ''), cognome: esc(d.cognome || ''), email: esc(d.email || ''), incarichi: (d.incarichiHtml != null ? d.incarichiHtml : esc(d.incarichi || '')) });
     }
-    // clienti degli incarichi in cui la persona (per cognome) compare come team,
-    // responsabile incarico o referente (NON come responsabile della qualita)
-    function incarichiDiCognome(cognome, incarichi) {
-        const cg = String(cognome || '').trim().toLowerCase();
-        if (!cg) return [];
-        const out = [];
-        (incarichi || []).forEach(inc => {
-            const tok = [];
-            [inc.team, inc.respIncarico, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
-            if (tok.indexOf(cg) >= 0 && inc.cliente) out.push(inc.cliente);
-        });
-        return Array.from(new Set(out));
-    }
-    // gli incarichi come oggetti {cliente, qualita, respIncarico} per costruire la tabella {incarichi}
-    function incarichiObjDiCognome(cognome, incarichi) {
-        const cg = String(cognome || '').trim().toLowerCase();
-        if (!cg) return [];
+    // gli incarichi (come oggetti {cliente, qualita, respIncarico}) in cui la PERSONA compare
+    // come team, responsabile incarico o referente (NON come responsabile della qualita).
+    // Risolve i nomi per etichetta, cosi due omonimi (stesso cognome) restano distinti.
+    function incarichiObjDiPersona(persona, incarichi, risolvi) {
+        if (!persona || typeof persona !== 'object') return [];
+        const r = risolvi || risolutorePersone();
         const out = [], visti = {};
         (incarichi || []).forEach(inc => {
-            const tok = [];
-            [inc.team, inc.respIncarico, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
-            if (tok.indexOf(cg) >= 0 && inc.cliente && !visti[inc.cliente]) { visti[inc.cliente] = 1; out.push({ cliente: inc.cliente, qualita: inc.qualita || '', respIncarico: inc.respIncarico || '' }); }
+            const cita = [inc.team, inc.respIncarico, inc.referente].some(f =>
+                f && dividiNomi(String(f)).some(t => { const x = r(t.trim()); return !!x && x.id === persona.id; }));
+            if (cita && inc.cliente && !visti[inc.cliente]) { visti[inc.cliente] = 1; out.push({ cliente: inc.cliente, qualita: inc.qualita || '', respIncarico: inc.respIncarico || '' }); }
         });
         return out;
     }
@@ -453,13 +442,14 @@
     function datiDestinatari(emails) {
         const persone = (typeof Persone !== 'undefined') ? Persone.tutte() : [];
         const incarichi = (typeof Incarichi !== 'undefined') ? Incarichi.tutti() : [];
+        const risolvi = risolutorePersone(persone);
         const perEmail = {}, cliEmail = {};
         persone.forEach(p => { if (p.email) perEmail[String(p.email).toLowerCase()] = p; });
         incarichi.forEach(i => { [i.email1, i.email2].forEach(e => { if (e) { const k = String(e).toLowerCase(); if (!cliEmail[k]) cliEmail[k] = i.cliente; } }); });
         return (emails || []).map(email => {
             const k = String(email || '').toLowerCase();
             const p = perEmail[k];
-            if (p) { const cognome = p.nome || ''; const objs = incarichiObjDiCognome(cognome, incarichi); return { email: k, nome: p.nomeProprio || cognome, cognome: cognome, incarichi: objs.map(o => o.cliente).join(', '), incarichiHtml: tabellaIncarichiHtml(objs) }; }
+            if (p) { const cognome = p.nome || ''; const objs = incarichiObjDiPersona(p, incarichi, risolvi); return { email: k, nome: p.nomeProprio || cognome, cognome: cognome, incarichi: objs.map(o => o.cliente).join(', '), incarichiHtml: tabellaIncarichiHtml(objs) }; }
             if (cliEmail[k]) return { email: k, nome: cliEmail[k], cognome: '', incarichi: '', incarichiHtml: '' };
             return { email: k, nome: '', cognome: '', incarichi: '', incarichiHtml: '' };
         });
@@ -527,6 +517,42 @@
         return _applicaDelta(remoteStr, _deltaDati(baseStr, localStr, _formaDati(chiave)), _formaDati(chiave));
     }
 
+    /* Etichetta con cui una persona viene citata negli incarichi e mostrata nelle tendine:
+       il solo cognome quando e' unico tra le persone, "Cognome Nome" quando due persone
+       condividono il cognome, cosi restano distinguibili in tabelle, conteggi e lettere. */
+    function etichettaPersona(p, lista) {
+        const cog = String(p && p.nome || '').trim();
+        if (!cog) return '';
+        const np = String(p.nomeProprio || '').trim();
+        if (!np) return cog;
+        const condiviso = (lista || Persone.tutte()).some(x => x && x.id !== p.id && !x.eliminato
+            && String(x.nome || '').trim().toLowerCase() === cog.toLowerCase());
+        return condiviso ? (cog + ' ' + np) : cog;
+    }
+    /* Persona a cui si riferisce un'etichetta salvata in un incarico. Riconosce sia la forma
+       corrente (etichettaPersona) sia "Cognome Nome" esplicito; per i dati storici (solo
+       cognome) risale alla persona piu vecchia con quel cognome (ordine di inserimento). */
+    /* Costruisce un risolutore etichetta->persona con lookup O(1). Le persone NON eliminate
+       vengono inserite per prime, cosi con la stessa etichetta vincono loro (un'eliminata
+       omonima non "adombra" quella attiva). Va costruito una volta per render e passato ai
+       conteggi, per non pagare il costo quadratico su liste grandi. */
+    function risolutorePersone(lista) {
+        lista = lista || Persone.tutte();
+        const perEt = new Map(), perPieno = new Map(), perCog = new Map();
+        lista.filter(p => !p.eliminato).concat(lista.filter(p => p.eliminato)).forEach(p => {
+            const et = etichettaPersona(p, lista).toLowerCase();
+            if (et && !perEt.has(et)) perEt.set(et, p);
+            const np = String(p.nomeProprio || '').trim();
+            if (np) { const f = (String(p.nome || '').trim() + ' ' + np).toLowerCase(); if (!perPieno.has(f)) perPieno.set(f, p); }
+            const cg = String(p.nome || '').trim().toLowerCase();
+            if (cg && !perCog.has(cg)) perCog.set(cg, p);
+        });
+        return str => { const s = String(str || '').trim().toLowerCase(); return s ? (perEt.get(s) || perPieno.get(s) || perCog.get(s) || null) : null; };
+    }
+    function personaDaEtichetta(str, lista) {
+        return risolutorePersone(lista)(str);
+    }
+
     const Persone = {
         tutte() { return Store.leggi(CHIAVI.persone, []); },
         salva(l) { Store.scrivi(CHIAVI.persone, l); },
@@ -537,22 +563,30 @@
                 .map(p => p.nome)
                 .sort((a, b) => a.localeCompare(b));
         },
+        /* come attive(), ma restituisce l'etichetta (cognome, o "Cognome Nome" per gli
+           omonimi): e' il valore che le tendine mostrano e salvano negli incarichi. */
+        attiveEtichette(ruolo) {
+            const lista = this.tutte();
+            return lista.filter(p => p.attivo && !p.eliminato && (!ruolo || p[ruolo]))
+                .map(p => etichettaPersona(p, lista))
+                .sort((a, b) => a.localeCompare(b));
+        },
         trovaPerNome(nome) {
             const n = String(nome || '').trim().toLowerCase();
             return this.tutte().find(p => p.nome.toLowerCase() === n) || null;
         },
         // nome completo "Nome Cognome" se il nome proprio e registrato; altrimenti
         // (dati non ancora migrati) il vecchio nomeCompleto; altrimenti il solo cognome
-        nomeCompleto(cognome) {
-            const p = this.trovaPerNome(cognome);
-            if (!p) return cognome || '';
+        nomeCompleto(etichetta) {
+            const p = personaDaEtichetta(etichetta);
+            if (!p) return etichetta || '';
             if (p.nomeProprio) {
                 // evita "Rossi Mario Rossi" se il nome proprio contenesse gia il cognome
                 return p.nomeProprio.toLowerCase().endsWith(String(p.nome || '').toLowerCase())
                     ? p.nomeProprio : (p.nomeProprio + ' ' + p.nome).trim();
             }
             if (p.nomeCompleto) return p.nomeCompleto;
-            return cognome || '';
+            return etichetta || '';
         },
         // migrazione una tantum: dai vecchi record con "nomeCompleto" ai nuovi
         // campi (cognome = nome; nomeProprio = nomeCompleto senza il cognome finale).
@@ -2324,8 +2358,8 @@
     function vistaIncarichi() {
         const annoRif = annoRiferimento();
         const listaAree = valoriPresenti('area', RV_ROSTER.aree);
-        const listaQualita = valoriPresenti('qualita', Persone.attive('qualita'));
-        const listaResp = valoriPresenti('respIncarico', Persone.attive('respIncarico'));
+        const listaQualita = valoriPresenti('qualita', Persone.attiveEtichette('qualita'));
+        const listaResp = valoriPresenti('respIncarico', Persone.attiveEtichette('respIncarico'));
 
         $vista().innerHTML = `
             <header>
@@ -2963,20 +2997,20 @@
                 const extra = corrente && !lista.includes(corrente) ? `<option selected>${esc(corrente)}</option>` : '';
                 return extra + lista.map(r => `<option ${corrente === r ? 'selected' : ''}>${esc(r)}</option>`).join('');
             };
-            const teamCompleto = Array.from(new Set(Persone.attive().concat(teamSel))).sort((a, b) => a.localeCompare(b, 'it'));
+            const teamCompleto = Array.from(new Set(Persone.attiveEtichette().concat(teamSel))).sort((a, b) => a.localeCompare(b, 'it'));
             corpo.innerHTML = `
                 <h2>Team di revisione</h2>
                 <p class="descrizione" style="margin-bottom:12px;">Assegna i ruoli e scegli i componenti del team. I nominativi si gestiscono dalla vista Persone.</p>
                 <div class="griglia-2">
                     <div class="campo"><label>Responsabile incarico *</label>
-                        <select id="w-resp"><option value="">Seleziona</option>${opzioni(Persone.attive('respIncarico'), d.respIncarico)}</select>
+                        <select id="w-resp"><option value="">Seleziona</option>${opzioni(Persone.attiveEtichette('respIncarico'), d.respIncarico)}</select>
                     </div>
                     <div class="campo"><label>Responsabile qualita *</label>
-                        <select id="w-qualita"><option value="">Seleziona</option>${opzioni(Persone.attive('qualita'), d.qualita)}</select>
+                        <select id="w-qualita"><option value="">Seleziona</option>${opzioni(Persone.attiveEtichette('qualita'), d.qualita)}</select>
                         <div class="msg-errore hidden" id="w-qualita-errore"></div>
                     </div>
                     <div class="campo"><label>Referente</label>
-                        <select id="w-referente"><option value="">Seleziona</option>${opzioni(Persone.attive(), d.referente)}</select>
+                        <select id="w-referente"><option value="">Seleziona</option>${opzioni(Persone.attiveEtichette(), d.referente)}</select>
                     </div>
                 </div>
                 <div class="campo"><label>Team di revisione (componenti)</label>
@@ -3776,10 +3810,16 @@
        Il collegamento e' per cognome (negli incarichi i nomi sono testo), come nel resto
        dell'area: due omonimi risultano sugli stessi incarichi. Di default guarda solo
        gli incarichi visibili all'utente collegato (filtro regione del ruolo). */
-    function incarichiDellaPersona(cognome, lista) {
-        const cg = String(cognome || '').trim().toLowerCase();
-        if (!cg) return [];
-        const ha = campo => campo && dividiNomi(String(campo)).some(t => t.trim().toLowerCase() === cg);
+    function incarichiDellaPersona(persona, lista, risolvi) {
+        const risolviP = risolvi || risolutorePersone();
+        // accetta la scheda persona (preferito) o, per retrocompatibilita, un cognome
+        const p = (persona && typeof persona === 'object') ? persona : (risolviP(persona) || Persone.trovaPerNome(persona));
+        if (!p) return [];
+        // un campo "cita" la persona se uno dei suoi nomi, risolto, e' proprio questa scheda
+        const ha = campo => campo && dividiNomi(String(campo)).some(t => {
+            const x = risolviP(t.trim());
+            return !!x && x.id === p.id;
+        });
         const out = [];
         (lista || Incarichi.visibili()).forEach(inc => {
             const ruoli = [];
@@ -3800,10 +3840,10 @@
     }
 
     function modaleIncarichiPersona(persona) {
-        const voci = incarichiDellaPersona(persona.nome);
+        const voci = incarichiDellaPersona(persona);
         const nomeVis = (persona.nomeProprio ? persona.nomeProprio + ' ' : '') + persona.nome;
         // per un ruolo limitato a certe regioni: dice QUANTI incarichi restano fuori, senza nominarli
-        const fuori = Auth.regioniConsentite() ? incarichiDellaPersona(persona.nome, Incarichi.tutti()).length - voci.length : 0;
+        const fuori = Auth.regioniConsentite() ? incarichiDellaPersona(persona, Incarichi.tutti()).length - voci.length : 0;
         const righe = voci.map(v => {
             const i = v.inc;
             const stato = i.stato === 'cessato'
@@ -3856,11 +3896,13 @@
             ? '<span class="badge neutro">eliminata' + (p.eliminato.il ? ' il ' + fmtGiorno(p.eliminato.il) : '') + '</span>'
             : (p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge ambra">disattivata</span>');
 
+        const risolviInc = risolutorePersone();
+        const incVisibili = Incarichi.visibili();
         const corpo = lista.length ? `<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
                 <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             lista.map(p => {
-                const nInc = incarichiDellaPersona(p.nome).length;
+                const nInc = incarichiDellaPersona(p, incVisibili, risolviInc).length;
                 return `<tr>
                 <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
                 <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : '<span style="color:var(--grigio-400)">—</span>'}</td>
@@ -4061,10 +4103,14 @@
 
     // incarichi (visibili) in cui la persona e' responsabile del ruolo indicato (campo).
     // Attivi prima, poi terminati/dimessi; il confronto e' per cognome, minuscole.
-    function incarichiConResponsabile(cognome, campo, lista) {
-        const cg = String(cognome || '').trim().toLowerCase();
-        if (!cg) return [];
-        const out = (lista || Incarichi.visibili()).filter(i => String(i[campo] || '').trim().toLowerCase() === cg);
+    function incarichiConResponsabile(persona, campo, lista, risolvi) {
+        const risolviP = risolvi || risolutorePersone();
+        const p = (persona && typeof persona === 'object') ? persona : (risolviP(persona) || Persone.trovaPerNome(persona));
+        if (!p) return [];
+        const out = (lista || Incarichi.visibili()).filter(i => {
+            const x = risolviP(String(i[campo] || '').trim());
+            return !!x && x.id === p.id;
+        });
         out.sort((a, b) => {
             const chiuso = s => (s === 'cessato' || s === 'dimesso') ? 1 : 0;
             return chiuso(a.stato) - chiuso(b.stato) || String(a.cliente || '').localeCompare(String(b.cliente || ''), 'it');
@@ -4073,9 +4119,9 @@
     }
 
     function modaleIncarichiResponsabile(persona, campo, etichetta) {
-        const voci = incarichiConResponsabile(persona.nome, campo);
+        const voci = incarichiConResponsabile(persona, campo);
         const nomeVis = (persona.nomeProprio ? persona.nomeProprio + ' ' : '') + persona.nome;
-        const fuori = Auth.regioniConsentite() ? incarichiConResponsabile(persona.nome, campo, Incarichi.tutti()).length - voci.length : 0;
+        const fuori = Auth.regioniConsentite() ? incarichiConResponsabile(persona, campo, Incarichi.tutti()).length - voci.length : 0;
         const righe = voci.map(i => {
             const s = Incarichi.statoScadenza(i);
             return `<tr class="cliccabile" data-apri="${esc(i.id)}">
@@ -4108,11 +4154,13 @@
         const qualitaN = Persone.tutte().filter(p => p.qualita && !p.eliminato).length;
         const incaricoN = Persone.tutte().filter(p => p.respIncarico && !p.eliminato).length;
 
+        const risolviInc = risolutorePersone();
+        const incVisibili = Incarichi.visibili();
         const corpo = lista.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
             <th>Cognome</th><th>Nome</th><th>Email</th><th class="num" title="Incarichi in cui e ${esc(etichetta.toLowerCase())}">Incarichi</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
         </tr></thead><tbody>` +
             lista.map(p => {
-                const n = incarichiConResponsabile(p.nome, campo).length;
+                const n = incarichiConResponsabile(p, campo, incVisibili, risolviInc).length;
                 return `<tr>
                     <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
                     <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : ''}</td>
@@ -4210,7 +4258,7 @@
             // virgole e punti e virgola sono i separatori degli elenchi team
             if (/[,;]/.test(nome)) { err.textContent = 'Il cognome non puo contenere virgole o punti e virgola.'; err.classList.remove('hidden'); return; }
             // omonimia: si blocca solo se coincidono SIA cognome SIA nome (due "Rossi" con nomi
-            // diversi convivono). Confronto su cognome + nome, senza distinzione di maiuscole.
+            // diversi convivono; negli incarichi e nelle lettere sono distinti per nome+cognome).
             const nomePr = document.getElementById('m-p-nomepr').value.trim();
             const omonimo = Persone.tutte().find(x => String(x.nome).trim().toLowerCase() === nome.toLowerCase()
                 && String(x.nomeProprio || '').trim().toLowerCase() === nomePr.toLowerCase()
@@ -4257,7 +4305,7 @@
                 Object.assign(p, { nome, ...contatti, ...ruoli });
                 Persone.salva(lista);
                 let rinominati = 0;
-                if (vecchioNome !== nome) rinominati = rinominaPersonaNegliIncarichi(vecchioNome, nome);
+                if (vecchioNome !== nome) rinominati = rinominaPersonaNegliIncarichi(p, vecchioNome);
                 Audit.registra(Auth.utenteCorrente, 'Persona modificata', 'persona', p.id, nome,
                     Audit.confronta(prima, p, CAMPI_PERSONA)
                         .concat(rinominati ? [{ campo: 'Incarichi aggiornati', prima: vecchioNome, dopo: nome + ' (' + rinominati + ')' }] : []));
@@ -4276,22 +4324,38 @@
 
     /* Rinomina una persona in tutti i campi degli incarichi che la citano,
        con timbro di modifica e voce di registro per ogni incarico toccato */
-    function rinominaPersonaNegliIncarichi(vecchio, nuovo) {
+    function rinominaPersonaNegliIncarichi(persona, vecchioCognome) {
         const lista = Incarichi.tutti();
+        const tutte = Persone.tutte();   // persona ha gia il nuovo cognome
         const utente = Auth.utenteCorrente;
+        const np = String(persona.nomeProprio || '').trim();
+        const nuovaEtich = etichettaPersona(persona, tutte);
+        // etichetta con cui questa persona era citata PRIMA del cambio cognome.
+        const altriVecchio = tutte.filter(x => x.id !== persona.id && !x.eliminato
+            && String(x.nome || '').trim().toLowerCase() === String(vecchioCognome || '').trim().toLowerCase());
+        const vecchie = [];
+        if (np && altriVecchio.length) {
+            // il vecchio cognome era condiviso: la sua etichetta era la forma piena "Cognome Nome"
+            vecchie.push((vecchioCognome + ' ' + np).trim().toLowerCase());
+        } else {
+            // la sua etichetta era il cognome nudo: migrabile solo se nessun altro omonimo attivo
+            // usa a sua volta il cognome nudo (cioe ha il nome proprio vuoto), altrimenti ambiguo
+            const altroNudo = altriVecchio.some(x => !String(x.nomeProprio || '').trim());
+            if (!altroNudo) vecchie.push(String(vecchioCognome || '').trim().toLowerCase());
+        }
+        const eVecchia = t => vecchie.includes(String(t || '').trim().toLowerCase());
         let toccati = 0;
         lista.forEach(i => {
             const prima = JSON.parse(JSON.stringify(i));
             let cambiato = false;
-            // coordinatore non e' piu' un campo dell'incarico: non si rinomina (eviterebbe
-            // anche voci di registro senza dettagli, visto che non e' piu' tracciato)
+            // coordinatore non e' piu' un campo dell'incarico: non si rinomina
             ['qualita', 'respIncarico'].forEach(campo => {
-                if ((i[campo] || '').trim() === vecchio) { i[campo] = nuovo; cambiato = true; }
+                if (eVecchia(i[campo])) { i[campo] = nuovaEtich; cambiato = true; }
             });
             ['referente', 'team'].forEach(campo => {
                 const parti = dividiNomi(i[campo]);
-                if (parti.includes(vecchio)) {
-                    i[campo] = parti.map(t => t === vecchio ? nuovo : t).join(', ');
+                if (parti.some(eVecchia)) {
+                    i[campo] = parti.map(t => eVecchia(t) ? nuovaEtich : t).join(', ');
                     cambiato = true;
                 }
             });

@@ -71,28 +71,42 @@ function htmlToText(h) {
         .replace(/\n{3,}/g, '\n\n').trim();
 }
 function dividiNomi(testo) { return String(testo || '').split(/[,;]|\s+-\s*|\s*-\s+/).map(t => t.trim()).filter(Boolean); }
-// clienti degli incarichi in cui la persona (per cognome) compare come team,
-// responsabile incarico o referente (NON come responsabile della qualita)
-function incarichiDiCognome(cognome, incarichi) {
-    const cg = String(cognome || '').trim().toLowerCase();
-    if (!cg) return [];
-    const out = [];
-    (incarichi || []).forEach(inc => {
-        const tok = [];
-        [inc.team, inc.respIncarico, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
-        if (tok.indexOf(cg) >= 0 && inc.cliente) out.push(inc.cliente);
-    });
-    return Array.from(new Set(out));
+// Etichetta con cui una persona e' citata negli incarichi: solo cognome se unico, "Cognome
+// Nome" se il cognome e' condiviso (allineato all'area riservata, per distinguere gli omonimi).
+function etichettaPersona(p, lista) {
+    const cog = String(p && p.nome || '').trim();
+    if (!cog) return '';
+    const np = String(p.nomeProprio || '').trim();
+    if (!np) return cog;
+    const condiviso = (lista || []).some(x => x && x.id !== p.id && !x.eliminato
+        && String(x.nome || '').trim().toLowerCase() === cog.toLowerCase());
+    return condiviso ? (cog + ' ' + np) : cog;
 }
-// come sopra, ma restituisce gli oggetti {cliente, qualita, respIncarico} per costruire la tabella
-function incarichiObjDiCognome(cognome, incarichi) {
-    const cg = String(cognome || '').trim().toLowerCase();
-    if (!cg) return [];
+// risolutore etichetta->persona O(1); le persone non eliminate vengono inserite per prime,
+// cosi un'eliminata omonima non "adombra" quella attiva
+function risolutorePersone(lista) {
+    lista = lista || [];
+    const perEt = new Map(), perPieno = new Map(), perCog = new Map();
+    lista.filter(p => !p.eliminato).concat(lista.filter(p => p.eliminato)).forEach(p => {
+        const et = etichettaPersona(p, lista).toLowerCase();
+        if (et && !perEt.has(et)) perEt.set(et, p);
+        const np = String(p.nomeProprio || '').trim();
+        if (np) { const f = (String(p.nome || '').trim() + ' ' + np).toLowerCase(); if (!perPieno.has(f)) perPieno.set(f, p); }
+        const cg = String(p.nome || '').trim().toLowerCase();
+        if (cg && !perCog.has(cg)) perCog.set(cg, p);
+    });
+    return str => { const s = String(str || '').trim().toLowerCase(); return s ? (perEt.get(s) || perPieno.get(s) || perCog.get(s) || null) : null; };
+}
+// gli incarichi {cliente, qualita, respIncarico} in cui la PERSONA compare come team,
+// responsabile incarico o referente (NON come responsabile della qualita), risolti per etichetta
+function incarichiObjDiPersona(persona, incarichi, risolvi) {
+    if (!persona) return [];
+    const r = risolvi || risolutorePersone();
     const out = [], visti = {};
     (incarichi || []).forEach(inc => {
-        const tok = [];
-        [inc.team, inc.respIncarico, inc.referente].forEach(f => { if (f) dividiNomi(String(f)).forEach(t => tok.push(t.trim().toLowerCase())); });
-        if (tok.indexOf(cg) >= 0 && inc.cliente && !visti[inc.cliente]) { visti[inc.cliente] = 1; out.push({ cliente: inc.cliente, qualita: inc.qualita || '', respIncarico: inc.respIncarico || '' }); }
+        const cita = [inc.team, inc.respIncarico, inc.referente].some(f =>
+            f && dividiNomi(String(f)).some(t => { const x = r(t.trim()); return !!x && x.id === persona.id; }));
+        if (cita && inc.cliente && !visti[inc.cliente]) { visti[inc.cliente] = 1; out.push({ cliente: inc.cliente, qualita: inc.qualita || '', respIncarico: inc.respIncarico || '' }); }
     });
     return out;
 }
@@ -144,19 +158,21 @@ function prossimaData(ts, freq) {
 // Cosi chi e stato aggiunto dopo entra automaticamente negli invii programmati.
 function risolviDestinatariCron(com, persone, utenti, incarichi) {
     const g = new Set(com.gruppi || []);
+    const risolvi = risolutorePersone(persone || []);
     const byEmail = {};
-    const add = (email, nome, cognome, inc) => {
+    // persona = scheda del destinatario (per i suoi incarichi), oppure null
+    const add = (email, nome, cognome, persona) => {
         const k = String(email || '').trim().toLowerCase();
         if (!reEmail.test(k) || byEmail[k]) return;
-        const objs = cognome ? incarichiObjDiCognome(cognome, incarichi) : [];
-        byEmail[k] = { email: k, nome: nome || '', cognome: cognome || '', incarichi: inc || '', incarichiHtml: tabellaIncarichiHtml(objs) };
+        const objs = persona ? incarichiObjDiPersona(persona, incarichi, risolvi) : [];
+        byEmail[k] = { email: k, nome: nome || '', cognome: cognome || '', incarichi: objs.map(o => o.cliente).join(', '), incarichiHtml: tabellaIncarichiHtml(objs) };
     };
-    if (g.has('utenti')) (utenti || []).forEach(u => { if (u.email && u.attivo !== false) add(u.email, u.nome || '', '', ''); });
+    if (g.has('utenti')) (utenti || []).forEach(u => { if (u.email && u.attivo !== false) add(u.email, u.nome || '', '', null); });
     (persone || []).forEach(p => {
         if (!p || !p.attivo || p.eliminato || !p.email) return;
         if ((g.has('qualita') && p.qualita) || (g.has('procuratori') && p.respIncarico) || g.has('team') || (g.has('coordinatori') && p.coordinatore) || (g.has('vicecoordinatori') && p.viceCoordinatore)) {
             const cognome = p.nome || '';
-            add(p.email, p.nomeProprio || cognome, cognome, incarichiDiCognome(cognome, incarichi).join(', '));
+            add(p.email, p.nomeProprio || cognome, cognome, p);
         }
     });
     const manuali = com.destinatariManuali || (g.size ? [] : (com.destinatari || []));
@@ -164,9 +180,9 @@ function risolviDestinatariCron(com, persone, utenti, incarichi) {
         const k = String(e || '').trim().toLowerCase();
         if (!reEmail.test(k) || byEmail[k]) return;
         const pers = (persone || []).find(p => p.email && String(p.email).toLowerCase() === k);
-        if (pers) { const cognome = pers.nome || ''; add(k, pers.nomeProprio || cognome, cognome, incarichiDiCognome(cognome, incarichi).join(', ')); return; }
+        if (pers) { const cognome = pers.nome || ''; add(k, pers.nomeProprio || cognome, cognome, pers); return; }
         const inc = (incarichi || []).find(i => [i.email1, i.email2].some(x => x && String(x).toLowerCase() === k));
-        add(k, inc ? (inc.cliente || '') : '', '', '');
+        add(k, inc ? (inc.cliente || '') : '', '', null);
     });
     return Object.keys(byEmail).map(k => byEmail[k]);
 }
