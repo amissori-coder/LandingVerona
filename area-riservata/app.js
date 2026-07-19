@@ -1133,7 +1133,7 @@
                     if (nuovoLocale !== localStorage.getItem(chiave)) {
                         localStorage.setItem(chiave, nuovoLocale);
                         // niente ricarica dentro il wizard: si perderebbero i dati digitati
-                        if (Auth.utenteCorrente && vistaCorrente !== 'wizard') naviga(vistaCorrente, parametriVista);
+                        ridisegnaDaSync();
                     }
                 }, () => { });
                 this.sottoscrizioni.push(stacca);
@@ -1178,7 +1178,7 @@
                     this._baseRemoto[chiave] = fuso;
                     if (fuso !== localStorage.getItem(chiave)) {
                         localStorage.setItem(chiave, fuso);
-                        if (Auth.utenteCorrente && vistaCorrente !== 'wizard') naviga(vistaCorrente, parametriVista);
+                        ridisegnaDaSync();
                     }
                 } catch (e) {
                     console.error('Sincronizzazione non riuscita (' + chiave + '):', e);
@@ -1916,7 +1916,15 @@
         }
         return cont;
     }
-    function chiudiModale() { document.getElementById('modale-contenitore').innerHTML = ''; }
+    function chiudiModale() {
+        document.getElementById('modale-contenitore').innerHTML = '';
+        // se un aggiornamento remoto era stato rimandato mentre la finestra era aperta, applicalo ora
+        if (refreshSospeso && !staModificando()) {
+            refreshSospeso = false;
+            if (_timerRefresh) { clearInterval(_timerRefresh); _timerRefresh = null; }
+            if (Auth.utenteCorrente && vistaCorrente !== 'wizard') naviga(vistaCorrente, parametriVista);
+        }
+    }
 
     /* Rende un livello inattivo mentre sopra c'e' una finestra: lo sfondo copre i clic, ma NON la
        tastiera, quindi senza questo con Tab/Invio si arriverebbe ancora ai pulsanti della finestra
@@ -2012,6 +2020,8 @@
 
     let vistaCorrente = 'dashboard';
     let parametriVista = null;
+    let refreshSospeso = false;   // ridisegno da sincronizzazione rimandato perche l'utente sta editando
+    let _timerRefresh = null;
 
     // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
     // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
@@ -2051,6 +2061,34 @@
         disegnaNav();
         (viste[id] || vistaDashboard)();
         window.scrollTo(0, 0);
+    }
+
+    /* true se l'utente sta editando qualcosa (finestra aperta o campo a fuoco): in quel caso
+       un ridisegno da sincronizzazione remota lo butterebbe fuori dalla schermata. */
+    function staModificando() {
+        const cont = document.getElementById('modale-contenitore');
+        if (cont && cont.innerHTML.trim() !== '') return true;
+        const el = document.activeElement;
+        if (!el || el === document.body) return false;
+        const tag = (el.tagName || '').toLowerCase();
+        return tag === 'input' || tag === 'select' || tag === 'textarea' || el.isContentEditable === true;
+    }
+    /* Ridisegna la vista corrente per riflettere dati arrivati dalla sincronizzazione, ma solo
+       se l'utente non sta editando: altrimenti rimanda finche non ha finito (niente "salto"
+       della schermata mentre si compila un campo o una finestra). */
+    function ridisegnaDaSync() {
+        if (!Auth.utenteCorrente || vistaCorrente === 'wizard') return;
+        if (staModificando()) {
+            refreshSospeso = true;
+            if (!_timerRefresh) _timerRefresh = setInterval(() => {
+                if (staModificando()) return;
+                clearInterval(_timerRefresh); _timerRefresh = null;
+                if (refreshSospeso) { refreshSospeso = false; if (Auth.utenteCorrente && vistaCorrente !== 'wizard') naviga(vistaCorrente, parametriVista); }
+            }, 900);
+            return;
+        }
+        refreshSospeso = false;
+        naviga(vistaCorrente, parametriVista);
     }
 
     function vistaSenzaAccesso() {
@@ -4171,8 +4209,13 @@
             if (nome.length < 2) { err.textContent = 'Inserisci un cognome valido.'; err.classList.remove('hidden'); return; }
             // virgole e punti e virgola sono i separatori degli elenchi team
             if (/[,;]/.test(nome)) { err.textContent = 'Il cognome non puo contenere virgole o punti e virgola.'; err.classList.remove('hidden'); return; }
-            const omonimo = Persone.trovaPerNome(nome);
-            if (omonimo && (!p || omonimo.id !== p.id)) { err.textContent = 'Esiste gia una persona con questo cognome.'; err.classList.remove('hidden'); return; }
+            // omonimia: si blocca solo se coincidono SIA cognome SIA nome (due "Rossi" con nomi
+            // diversi convivono). Confronto su cognome + nome, senza distinzione di maiuscole.
+            const nomePr = document.getElementById('m-p-nomepr').value.trim();
+            const omonimo = Persone.tutte().find(x => String(x.nome).trim().toLowerCase() === nome.toLowerCase()
+                && String(x.nomeProprio || '').trim().toLowerCase() === nomePr.toLowerCase()
+                && (!p || x.id !== p.id));
+            if (omonimo) { err.textContent = 'Esiste gia una persona con questo nome e cognome.'; err.classList.remove('hidden'); return; }
             // email unica: e' l'aggancio tra utente e scheda (regione del coordinatore territoriale)
             const emailNuova = document.getElementById('m-p-email').value.trim().toLowerCase();
             if (emailNuova) {
@@ -4484,22 +4527,20 @@
        email), con una scheda di riepilogo dei risultati aggregati.
     ========================================================= */
     const SCADENZA_DEFAULT = '2026-07-31';
+    const MAX_SCELTE = 2;
     const LIVELLI_COMP = ['Nessuna', 'Base', 'Buona', 'Elevata'];
     const PUNTI_COMP = { Nessuna: 0, Base: 1, Buona: 2, Elevata: 3 };
     const SOND_DEF = {
         id: 'gruppi-specialisti',
         titolo: 'Gruppi di specialisti',
-        descrizione: 'Accanto alla revisione legale Revilaw sviluppa una consulenza integrata per rafforzare gli assetti e il merito creditizio delle imprese. Da settembre nascono i gruppi di specialisti: metti le aree in ordine di interesse (la 1a in alto) e indica per ciascuna il tuo livello di competenza.',
+        descrizione: 'Accanto alla revisione legale Revilaw sviluppa una consulenza integrata per rafforzare gli assetti e il merito creditizio delle imprese. Da settembre nascono i gruppi di specialisti: scegli le DUE aree nelle quali vorresti entrare a far parte del gruppo e indica per ciascuna il tuo livello di competenza.',
         scadenzaDefault: SCADENZA_DEFAULT,
         argomenti: [
-            { id: 'adeguati_assetti', nome: 'Adeguati assetti', coord: 'Stefano Pizzutelli', desc: 'Assetti organizzativi, amministrativi e contabili adeguati ai sensi dell\'art. 2086 c.c.' },
-            { id: 'esg', nome: 'ESG e sostenibilita', coord: 'Antonella Candelieri', desc: 'Rendicontazione di sostenibilita, criteri ESG e finanza sostenibile per le imprese.' },
-            { id: 'finanza_agevolata', nome: 'Finanza agevolata', coord: 'Andrea Missori', desc: 'Bandi, incentivi e strumenti agevolativi per gli investimenti e la crescita d\'impresa.' },
-            { id: 'rating_legalita', nome: 'Rating di legalita', coord: 'Stefano Pizzutelli', desc: 'Requisiti, punteggio e vantaggi reputazionali e creditizi del rating di legalita.' },
-            { id: 'modello_231', nome: 'Modello 231', coord: 'Melo Martella', desc: 'Responsabilita amministrativa degli enti e sistema di prevenzione dei reati.' },
-            { id: 'tcf', nome: 'Tax Control Framework', coord: 'Melo Martella', desc: 'Presidio del rischio fiscale e adempimento collaborativo con l\'amministrazione.' },
-            { id: 'crisi_impresa', nome: 'Crisi d\'impresa', coord: 'Vincenzo Antonio Napolitano', desc: 'Allerta precoce, composizione negoziata e percorsi di risanamento dell\'impresa.' },
-            { id: 'wealth_management', nome: 'Wealth management', coord: 'Patrick Novembre', desc: 'Protezione e pianificazione del patrimonio dell\'imprenditore e della famiglia.' }
+            { id: 'adeguati_assetti', nome: 'Adeguati Assetti Organizzativi', coord: 'Stefano Pizzutelli', desc: 'Assetti organizzativi, amministrativi e contabili adeguati ai sensi dell\'art. 2086 c.c.' },
+            { id: 'esg', nome: 'ESG e Sostenibilita', coord: 'Antonella Candelieri', desc: 'Rendicontazione di sostenibilita, criteri ESG e finanza sostenibile per le imprese.' },
+            { id: 'compliance', nome: 'Compliance, TCF e Modello 231', coord: 'Melo Martella', desc: 'Tax Control Framework, adempimento collaborativo e responsabilita amministrativa degli enti (D.Lgs. 231).' },
+            { id: 'finanza_agevolata', nome: 'Finanza Agevolata', coord: 'Andrea Missori', desc: 'Bandi, incentivi e strumenti agevolativi per gli investimenti e la crescita d\'impresa.' },
+            { id: 'crisi_impresa', nome: 'Crisi d\'Impresa e Risanamento', coord: 'Vincenzo Napolitano', desc: 'Allerta precoce, composizione negoziata e percorsi di risanamento dell\'impresa.' }
         ]
     };
     const Sondaggi = {
@@ -4574,156 +4615,148 @@
         return Array.from(set).map(e => ({ email: e, nome: nomeDi[e] || e })).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
     }
 
-    /* Riepilogo aggregato. Punteggio a punti (Borda): la 1a scelta vale N punti,
-       la 2a N-1, fino a 1 punto per l'ultima. Per ogni area calcola anche la
-       distribuzione delle posizioni, il mix di competenze (Nessuna compresa) e
-       l'elenco dei candidati (chi la vorrebbe, con competenza e posizione). */
-    function aggregaSondaggio() {
+    /* Riepilogo aggregato. Ogni persona sceglie DUE aree (senza ordine). Per ogni
+       area: quante persone l'hanno scelta, il mix di competenze (Nessuna compresa)
+       e l'elenco dei candidati (chi l'ha scelta, con competenza ed esperienze).
+       Contano solo le risposte nel formato nuovo (campo "scelte"). */
+    function aggregaSondaggio(soloSet) {
         const risposte = Sondaggi.risposte();
         const ids = SOND_DEF.argomenti.map(a => a.id);
-        const N = ids.length;
         const stat = {};
-        ids.forEach(id => { stat[id] = { id, nome: nomeArgomento(id), coord: coordArgomento(id), punti: 0, sommaPos: 0, conteggi: 0, primi: 0, dist: {}, comp: { Nessuna: 0, Base: 0, Buona: 0, Elevata: 0 }, candidati: [] }; });
+        ids.forEach(id => { stat[id] = { id, nome: nomeArgomento(id), coord: coordArgomento(id), scelte: 0, comp: { Nessuna: 0, Base: 0, Buona: 0, Elevata: 0 }, candidati: [] }; });
+        let valide = 0;
         risposte.forEach(r => {
-            const ord = Array.isArray(r.ordine) ? r.ordine.filter(id => stat[id]) : [];
-            ord.forEach((id, i) => {
-                const s = stat[id]; const pos = i + 1;
-                s.punti += (N - pos + 1);
-                s.sommaPos += pos; s.conteggi += 1;
-                s.dist[pos] = (s.dist[pos] || 0) + 1;
-                if (pos === 1) s.primi += 1;
-            });
-            const compR = r.comp || {};
-            ids.forEach(id => {
-                const c = compR[id]; const liv = (c && c.liv) || 'Nessuna';
-                if (stat[id].comp[liv] != null) stat[id].comp[liv]++;
-                const idx = ord.indexOf(id);
-                stat[id].candidati.push({ email: r.email, nome: r.nome || r.email, ruolo: r.ruolo || '', pos: idx >= 0 ? idx + 1 : null, liv: liv, esp: (c && c.esp) || '' });
+            if (soloSet && !soloSet.has(String(r.id).toLowerCase())) return; // conta solo gli invitati correnti
+            const sc = Array.isArray(r.scelte) ? r.scelte.filter(id => stat[id]) : [];
+            if (!sc.length) return; // formato precedente o vuoto: non conta nel riepilogo
+            valide++;
+            sc.forEach(id => {
+                const s = stat[id]; s.scelte += 1;
+                const c = (r.comp && r.comp[id]) || {}; const liv = c.liv || 'Nessuna';
+                if (s.comp[liv] != null) s.comp[liv]++;
+                s.candidati.push({ email: r.email, nome: r.nome || r.email, ruolo: r.ruolo || '', liv: liv, esp: c.esp || '' });
             });
         });
-        const maxPunti = Math.max(1, ...ids.map(id => stat[id].punti));
+        const maxScelte = Math.max(1, ...ids.map(id => stat[id].scelte));
         ids.forEach(id => stat[id].candidati.sort((a, b) =>
-            (PUNTI_COMP[b.liv] - PUNTI_COMP[a.liv]) || ((a.pos || 99) - (b.pos || 99)) || a.nome.localeCompare(b.nome, 'it')));
+            (PUNTI_COMP[b.liv] - PUNTI_COMP[a.liv]) || a.nome.localeCompare(b.nome, 'it')));
         const classifica = ids.map(id => stat[id]).sort((a, b) =>
-            b.punti - a.punti || (a.sommaPos / (a.conteggi || 1)) - (b.sommaPos / (b.conteggi || 1)));
-        return { risposte, classifica, N, maxPunti };
+            b.scelte - a.scelte || a.nome.localeCompare(b.nome, 'it'));
+        return { risposte, classifica, maxScelte, valide };
     }
 
-    /* Modale di compilazione. La preferenza si esprime ordinando le aree con le
-       frecce (in alto la 1a scelta). La competenza e' obbligatoria per ogni area
-       (Nessuna compresa); se e' diversa da Nessuna vanno indicate le esperienze.
-       La bozza vive in memoria e i campi vengono riletti prima di ogni riordino,
-       cosi spostare una riga non perde cio' che e' gia' stato scritto. */
+    /* Modale di compilazione. Si scelgono DUE aree (senza ordine) fra le cinque:
+       spuntando una casella se ne aggiunge una (max 2, le altre si disabilitano).
+       Per ogni area scelta la competenza e' obbligatoria (Nessuna compresa) e, se
+       diversa da Nessuna, vanno indicate le esperienze. I campi vengono riletti dal
+       DOM al salvataggio, quindi nulla di cio' che si scrive va perso. */
     function modaleSondaggio(cfg) {
         cfg = cfg || SondConfig.leggi();
         const u = Auth.utenteCorrente; if (!u) return;
         if (!sondaggioAperto(cfg)) { toast('La compilazione e chiusa.', 'rosso'); return; }
         const esistente = Sondaggi.rispostaDi(u.email);
-        const idsDefault = SOND_DEF.argomenti.map(a => a.id);
         const argById = {}; SOND_DEF.argomenti.forEach(a => { argById[a.id] = a; });
+        const eNuovo = !(esistente && Array.isArray(esistente.scelte) && esistente.scelte.length);
 
-        const bozza = { ordine: [], comp: {}, note: (esistente && esistente.note) || '' };
-        const base = (esistente && Array.isArray(esistente.ordine)) ? esistente.ordine.filter(id => argById[id]) : [];
-        idsDefault.forEach(id => { if (base.indexOf(id) < 0) base.push(id); });
-        bozza.ordine = base;
-        idsDefault.forEach(id => {
-            const c = esistente && esistente.comp && esistente.comp[id];
-            bozza.comp[id] = { liv: (c && c.liv) || '', esp: (c && c.esp) || '' };
+        const scelte = new Set((esistente && Array.isArray(esistente.scelte) ? esistente.scelte : []).filter(id => argById[id]).slice(0, MAX_SCELTE));
+        const comp = {};
+        SOND_DEF.argomenti.forEach(a => {
+            const c = esistente && esistente.comp && esistente.comp[a.id];
+            comp[a.id] = { liv: (c && c.liv) || '', esp: (c && c.esp) || '' };
         });
+        const bozzaNote = { v: (esistente && esistente.note) || '' };
 
-        function etichettaPos(i, n) { return i === 0 ? '1a scelta' : (i === n - 1 ? 'ultima' : (i + 1) + 'a'); }
-        function leggiDom() {
-            const cont = document.getElementById('s-lista'); if (!cont) return;
-            cont.querySelectorAll('.s-riga').forEach(r => {
-                const id = r.dataset.id; if (!bozza.comp[id]) return;
-                const sel = r.querySelector('select.s-liv'); const inp = r.querySelector('textarea.s-esp');
-                if (sel) bozza.comp[id].liv = sel.value;
-                if (inp) bozza.comp[id].esp = inp.value.trim();
-            });
-            const note = document.getElementById('s-note'); if (note) bozza.note = note.value;
-        }
-        function rigaHtml(id, i) {
-            const a = argById[id]; const c = bozza.comp[id] || { liv: '', esp: '' };
-            const mostraEsp = c.liv && c.liv !== 'Nessuna';
+        function cardHtml(a) {
+            const scelta = scelte.has(a.id); const c = comp[a.id];
+            const mostraEsp = scelta && c.liv && c.liv !== 'Nessuna';
             const opt = '<option value="" disabled' + (c.liv === '' ? ' selected' : '') + '>Scegli competenza...</option>'
                 + LIVELLI_COMP.map(l => '<option value="' + l + '"' + (c.liv === l ? ' selected' : '') + '>' + l + '</option>').join('');
-            return '<li class="s-riga" data-id="' + esc(id) + '">'
-                + '<div class="s-move">'
-                + '<button type="button" class="s-up" data-id="' + esc(id) + '" aria-label="Sposta su"' + (i === 0 ? ' disabled' : '') + '>&#9650;</button>'
-                + '<span class="s-pos"><b>' + (i + 1) + '</b><i>' + etichettaPos(i, bozza.ordine.length) + '</i></span>'
-                + '<button type="button" class="s-down" data-id="' + esc(id) + '" aria-label="Sposta giu"' + (i === bozza.ordine.length - 1 ? ' disabled' : '') + '>&#9660;</button>'
-                + '</div>'
-                + '<div class="s-main">'
-                + '<div class="s-nome">' + esc(a.nome) + ' <span class="s-coord">coord. ' + esc(a.coord) + '</span></div>'
-                + '<div class="s-desc">' + esc(a.desc) + '</div>'
+            return '<div class="s-scelta' + (scelta ? ' attiva' : '') + '" data-id="' + esc(a.id) + '">'
+                + '<label class="s-scelta-head"><input type="checkbox" class="s-check"' + (scelta ? ' checked' : '') + '>'
+                + '<span class="s-scelta-txt"><span class="s-scelta-nome">' + esc(a.nome) + ' <span class="s-coord">coord. ' + esc(a.coord) + '</span></span>'
+                + '<span class="s-scelta-desc">' + esc(a.desc) + '</span></span></label>'
+                + '<div class="s-scelta-comp"' + (scelta ? '' : ' hidden') + '>'
                 + '<div class="s-comp-row"><label class="s-comp-lab">Il tuo livello di competenza <span class="s-req">obbligatorio</span></label>'
                 + '<select class="s-liv">' + opt + '</select></div>'
                 + '<div class="s-esp-wrap"' + (mostraEsp ? '' : ' hidden') + '><label class="s-comp-lab">Competenze ed esperienze <span class="s-req">da compilare</span></label>'
                 + '<textarea class="s-esp" rows="2" maxlength="300" placeholder="Es. incarichi seguiti, corsi e certificazioni, anni di esperienza in questa area">' + esc(c.esp) + '</textarea></div>'
-                + '</div></li>';
+                + '</div></div>';
         }
-        function renderLista() {
-            const cont = document.getElementById('s-lista');
-            cont.innerHTML = bozza.ordine.map((id, i) => rigaHtml(id, i)).join('');
-            cont.querySelectorAll('.s-up').forEach(b => b.addEventListener('click', () => muovi(b.dataset.id, -1)));
-            cont.querySelectorAll('.s-down').forEach(b => b.addEventListener('click', () => muovi(b.dataset.id, 1)));
-            cont.querySelectorAll('select.s-liv').forEach(sel => sel.addEventListener('change', () => {
-                const riga = sel.closest('.s-riga'); const id = riga.dataset.id;
-                bozza.comp[id].liv = sel.value;
-                const wrap = riga.querySelector('.s-esp-wrap');
-                if (wrap) wrap.hidden = !(sel.value && sel.value !== 'Nessuna');
-                riga.classList.remove('s-riga-err');
-            }));
+        function leggiDom() {
+            document.querySelectorAll('#s-scelte .s-scelta').forEach(card => {
+                const id = card.dataset.id; if (!comp[id]) return;
+                const sel = card.querySelector('select.s-liv'); const inp = card.querySelector('textarea.s-esp');
+                if (sel) comp[id].liv = sel.value;
+                if (inp) comp[id].esp = inp.value.trim();
+            });
+            const note = document.getElementById('s-note'); if (note) bozzaNote.v = note.value;
         }
-        function muovi(id, dir) {
-            leggiDom();
-            const i = bozza.ordine.indexOf(id); const j = i + dir;
-            if (i < 0 || j < 0 || j >= bozza.ordine.length) return;
-            const t = bozza.ordine[i]; bozza.ordine[i] = bozza.ordine[j]; bozza.ordine[j] = t;
-            renderLista();
+        function aggiornaVincolo() {
+            const raggiunto = scelte.size >= MAX_SCELTE;
+            document.querySelectorAll('#s-scelte .s-scelta').forEach(card => {
+                const chk = card.querySelector('.s-check');
+                chk.disabled = raggiunto && !scelte.has(card.dataset.id);
+                card.classList.toggle('disabilitata', chk.disabled);
+            });
+            const cnt = document.getElementById('s-conta'); if (cnt) cnt.textContent = scelte.size + ' di ' + MAX_SCELTE;
         }
 
-        apriModale('<h2>' + (esistente ? 'Modifica la tua risposta' : 'Compila il questionario') + '</h2>'
-            + '<div class="s-guida">'
-            + '<p><b>1.</b> Metti le 8 aree in <b>ordine di interesse</b> a farne parte: con le frecce <b>&#9650; &#9660;</b> porta in <b>alto la tua 1a scelta</b> e in basso l\'ultima.</p>'
-            + '<p><b>2.</b> Per ogni area scegli il <b>livello di competenza</b> (obbligatorio). Se e diverso da "Nessuna", descrivi brevemente le esperienze.</p>'
-            + '</div>'
-            + '<div class="s-rank-cap s-rank-cap-top">&#9650; In alto la 1a scelta, la piu interessante</div>'
-            + '<ol id="s-lista" class="s-lista"></ol>'
-            + '<div class="s-rank-cap s-rank-cap-bot">&#9660; In basso l\'ultima scelta, la meno interessante</div>'
+        apriModale('<h2>' + (eNuovo ? 'Compila il questionario' : 'Modifica la tua risposta') + '</h2>'
+            + '<div class="s-guida"><p>Scegli <b>DUE aree</b> (<span id="s-conta">' + scelte.size + ' di ' + MAX_SCELTE + '</span>) nelle quali vorresti far parte del gruppo di specialisti. Per ciascuna area scelta indica il tuo <b>livello di competenza</b>; se non e "Nessuna", descrivi brevemente le esperienze.</p></div>'
+            + '<div id="s-scelte" class="s-scelte">' + SOND_DEF.argomenti.map(cardHtml).join('') + '</div>'
             + '<div class="campo" style="margin-top:14px;"><label for="s-note">Nota per la direzione (facoltativa)</label>'
-            + '<textarea id="s-note" rows="2" maxlength="600" placeholder="Disponibilita, specializzazioni, proposte">' + esc(bozza.note) + '</textarea></div>'
+            + '<textarea id="s-note" rows="2" maxlength="600" placeholder="Disponibilita, specializzazioni, proposte">' + esc(bozzaNote.v) + '</textarea></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="s-annulla">Annulla</button>'
-            + '<button class="btn btn-primary" id="s-salva">' + (esistente ? 'Aggiorna la risposta' : 'Invia la risposta') + '</button></div>',
+            + '<button class="btn btn-primary" id="s-salva">' + (eNuovo ? 'Invia la risposta' : 'Aggiorna la risposta') + '</button></div>',
             { classe: 'larga' });
 
-        renderLista();
+        document.querySelectorAll('#s-scelte .s-check').forEach(chk => chk.addEventListener('change', () => {
+            const card = chk.closest('.s-scelta'); const id = card.dataset.id;
+            if (chk.checked) {
+                if (scelte.size >= MAX_SCELTE) { chk.checked = false; return; }
+                scelte.add(id);
+            } else { scelte.delete(id); }
+            card.classList.toggle('attiva', chk.checked);
+            const compBox = card.querySelector('.s-scelta-comp'); if (compBox) compBox.hidden = !chk.checked;
+            card.classList.remove('s-scelta-err');
+            aggiornaVincolo();
+        }));
+        document.querySelectorAll('#s-scelte select.s-liv').forEach(sel => sel.addEventListener('change', () => {
+            const card = sel.closest('.s-scelta'); comp[card.dataset.id].liv = sel.value;
+            const wrap = card.querySelector('.s-esp-wrap');
+            if (wrap) wrap.hidden = !(sel.value && sel.value !== 'Nessuna');
+            card.classList.remove('s-scelta-err');
+        }));
+        aggiornaVincolo();
+
         document.getElementById('s-annulla').addEventListener('click', chiudiModale);
         document.getElementById('s-salva').addEventListener('click', () => {
             leggiDom();
             if (!sondaggioAperto(cfg)) { toast('La compilazione si e chiusa nel frattempo.', 'rosso'); return; }
+            if (!emailInvitate(SondConfig.leggi(), _sondUtenti || []).has(String(u.email).toLowerCase())) { toast('Non risulti piu tra gli invitati a questo sondaggio.', 'rosso'); return; }
+            if (scelte.size !== MAX_SCELTE) { toast('Scegli esattamente due aree.', 'rosso'); return; }
             let errId = null;
-            for (let k = 0; k < bozza.ordine.length; k++) {
-                const c = bozza.comp[bozza.ordine[k]];
-                if (!c.liv) { errId = bozza.ordine[k]; break; }
-                if (c.liv !== 'Nessuna' && !c.esp) { errId = bozza.ordine[k]; break; }
+            for (const id of scelte) {
+                const c = comp[id];
+                if (!c.liv) { errId = id; break; }
+                if (c.liv !== 'Nessuna' && !c.esp) { errId = id; break; }
             }
-            document.querySelectorAll('.s-riga-err').forEach(r => r.classList.remove('s-riga-err'));
+            document.querySelectorAll('.s-scelta-err').forEach(el => el.classList.remove('s-scelta-err'));
             if (errId) {
-                const riga = document.querySelector('.s-riga[data-id="' + errId + '"]');
-                if (riga) { riga.classList.add('s-riga-err'); riga.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-                toast('Per ogni area indica la competenza; se non e "Nessuna", scrivi le esperienze.', 'rosso');
+                const card = document.querySelector('.s-scelta[data-id="' + errId + '"]');
+                if (card) { card.classList.add('s-scelta-err'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+                toast('Per ogni area scelta indica la competenza; se non e "Nessuna", scrivi le esperienze.', 'rosso');
                 return;
             }
-            const comp = {};
-            bozza.ordine.forEach(id => { const c = bozza.comp[id]; comp[id] = { liv: c.liv, esp: c.liv === 'Nessuna' ? '' : (c.esp || '') }; });
+            const compFin = {};
+            scelte.forEach(id => { const c = comp[id]; compFin[id] = { liv: c.liv, esp: c.liv === 'Nessuna' ? '' : (c.esp || '') }; });
             const rec = {
                 id: String(u.email).toLowerCase(), email: String(u.email).toLowerCase(),
                 nome: u.nome || u.email, ruolo: u.ruolo || '',
-                ordine: bozza.ordine.slice(), comp: comp, note: bozza.note || '', ts: Date.now()
+                scelte: Array.from(scelte), comp: compFin, note: bozzaNote.v || '', ts: Date.now()
             };
             Sondaggi.salvaRisposta(rec);
-            try { Audit.registra(u, esistente ? 'Sondaggio aggiornato' : 'Sondaggio compilato', 'sondaggio', SOND_DEF.id, null, SOND_DEF.titolo); } catch (e) { }
+            try { Audit.registra(u, eNuovo ? 'Sondaggio compilato' : 'Sondaggio aggiornato', 'sondaggio', SOND_DEF.id, null, SOND_DEF.titolo); } catch (e) { }
             chiudiModale();
             toast('Risposta salvata. Grazie!', 'verde');
             vistaSondaggi();
@@ -4776,7 +4809,7 @@
         const admin = Auth.eAdmin() || Auth.eProprietario();
         const invitato = !!(u && emailInvitate(cfg, utenti).has(String(u.email).toLowerCase()));
         const mia = u ? Sondaggi.rispostaDi(u.email) : null;
-        const nRisposte = Sondaggi.risposte().length;
+        const nRisposte = Sondaggi.risposte().filter(r => Array.isArray(r.scelte) && r.scelte.length).length;
         const scadTxt = fmtData(cfg.scadenza);
 
         const timer = aperto
@@ -4806,21 +4839,23 @@
                     + '<button class="btn btn-secondary" id="s-gestisci">Gestisci inviti e scadenza</button></div>';
             }
             let statoCard = '';
+            const scelteTxt = (mia && Array.isArray(mia.scelte)) ? mia.scelte.map(id => nomeArgomento(id)).join(', ') : '';
+            const haRisposto = !!scelteTxt;
             if (!invitato && !admin) {
                 statoCard = '<div class="card s-stato"><div><strong>Non risulti tra gli invitati a questo sondaggio.</strong>'
                     + '<div class="hint" style="margin-top:4px;">Se pensi si tratti di un errore, contatta l\'amministratore.</div></div></div>';
             } else if (invitato && !aperto) {
                 statoCard = '<div class="card s-stato"><div><strong>La compilazione e chiusa.</strong>'
-                    + (mia ? '<div class="s-top3" style="margin-top:6px;">La tua classifica finale: ' + esc(mia.ordine.map((id, i) => (i + 1) + '. ' + nomeArgomento(id)).join('   ')) + '</div>'
+                    + (haRisposto ? '<div class="s-top3" style="margin-top:6px;">Le tue due aree: ' + esc(scelteTxt) + '</div>'
                         : '<div class="hint" style="margin-top:4px;">Non hai inviato una risposta.</div>') + '</div></div>';
-            } else if (invitato && mia) {
+            } else if (invitato && haRisposto) {
                 statoCard = '<div class="card s-stato"><div><span class="badge verde">Hai risposto</span> '
                     + '<span class="hint">Aggiornata il ' + esc(fmtDataOra(mia.ts)) + '</span>'
-                    + '<div class="s-top3">La tua classifica: ' + esc(mia.ordine.map((id, i) => (i + 1) + '. ' + nomeArgomento(id)).join('   ')) + '</div></div>'
+                    + '<div class="s-top3">Le tue due aree: ' + esc(scelteTxt) + '</div></div>'
                     + '<button class="btn btn-primary" id="s-compila">Modifica la tua risposta</button></div>';
             } else if (invitato) {
                 statoCard = '<div class="card s-stato"><div><strong>Sei invitato a compilare il questionario.</strong>'
-                    + '<div class="hint" style="margin-top:4px;">Bastano due minuti: ordina le 8 aree per interesse e indica il tuo livello di competenza.</div></div>'
+                    + '<div class="hint" style="margin-top:4px;">Basta un minuto: scegli le 2 aree che ti interessano e indica il tuo livello di competenza.</div></div>'
                     + '<button class="btn btn-primary" id="s-compila">Compila il questionario</button></div>';
             }
             const argomenti = '<div class="s-argomenti">' + SOND_DEF.argomenti.map((a, i) =>
@@ -4828,7 +4863,7 @@
                 + '<div><div class="s-arg-nome">' + esc(a.nome) + '</div>'
                 + '<div class="s-arg-coord">Candidato coordinatore: <b>' + esc(a.coord) + '</b></div>'
                 + '<div class="s-arg-desc">' + esc(a.desc) + '</div></div></div>').join('') + '</div>';
-            corpo = gestione + statoCard + '<h2 class="s-sez-tit">Le otto aree e i candidati coordinatori</h2>' + argomenti;
+            corpo = gestione + statoCard + '<h2 class="s-sez-tit">Le cinque aree e i candidati coordinatori</h2>' + argomenti;
         }
 
         $vista().innerHTML = '<header><div><h1>Sondaggi</h1>'
@@ -4853,48 +4888,47 @@
     }
 
     function corpoRisultati(cfg, utenti) {
-        const { risposte, classifica, N, maxPunti } = aggregaSondaggio();
         const invitati = elencoInvitati(cfg, utenti);
-        const nInv = invitati.length, nRisp = risposte.length;
-        const rispSet = new Set(risposte.map(r => r.id));
+        const nInv = invitati.length;
+        const invSet = emailInvitate(cfg, utenti);
+        // aggregato coerente con la partecipazione: se ci sono invitati, conta solo loro
+        const { risposte, classifica, maxScelte, valide } = aggregaSondaggio(nInv ? invSet : null);
+        // "ha risposto" = ha una risposta nel nuovo formato (due scelte)
+        const rispSet = new Set(risposte.filter(r => Array.isArray(r.scelte) && r.scelte.length).map(r => r.id));
         const nRispInvitati = invitati.filter(iv => rispSet.has(iv.email)).length;
-        const perc = nInv ? Math.round(nRispInvitati / nInv * 100) : 0;
+        const perc = nInv ? (nRispInvitati === nInv ? 100 : Math.min(99, Math.round(nRispInvitati / nInv * 100))) : 0;
         const admin = Auth.eAdmin() || Auth.eProprietario();
-        if (!nRisp) {
+        if (!valide) {
             return '<div class="card tabella-vuota">Ancora nessuna risposta.' + (nInv ? ' Invitati: ' + nInv + '.' : '') + ' Il riepilogo comparira qui appena arrivano le prime risposte.</div>';
         }
 
         // 1) partecipazione + come si legge
         const partec = '<div class="card s-riep-head">'
-            + '<div class="s-riep-num">' + (nInv ? nRispInvitati : nRisp) + (nInv ? '<span class="s-riep-den"> / ' + nInv + '</span>' : '') + '</div>'
-            + '<div><div class="s-riep-lbl">' + (nInv ? 'invitati hanno risposto (' + perc + '%)' : ((nRisp === 1 ? 'risposta' : 'risposte') + ' raccolte')) + '</div>'
-            + '<div class="hint">Come si legge: ognuno mette le 8 aree in ordine. La 1a scelta vale 8 punti, la 2a 7, fino a 1 punto per l\'8a. Il <b>punteggio</b> somma questi valori su tutte le risposte: piu e alto, piu l\'area e richiesta. Le <b>competenze</b> dicono quante persone si dichiarano competenti in quell\'area.</div></div></div>';
+            + '<div class="s-riep-num">' + (nInv ? nRispInvitati : valide) + (nInv ? '<span class="s-riep-den"> / ' + nInv + '</span>' : '') + '</div>'
+            + '<div><div class="s-riep-lbl">' + (nInv ? 'invitati hanno risposto (' + perc + '%)' : ((valide === 1 ? 'risposta' : 'risposte') + ' raccolte')) + '</div>'
+            + '<div class="hint">Ogni persona sceglie <b>due aree</b>. Il numero accanto a ciascuna area dice <b>quante persone l\'hanno scelta</b>; le <b>competenze</b> quante si dichiarano competenti (Base, Buona o Elevata) in quell\'area.</div></div></div>';
 
-        // 2) classifica visiva a barre
+        // 2) aree ordinate per numero di scelte
         const barre = classifica.map((s, i) => {
-            const media = s.conteggi ? (s.sommaPos / s.conteggi).toFixed(1) : '-';
-            const w = Math.max(4, Math.round(s.punti / maxPunti * 100));
             const compTot = s.comp.Base + s.comp.Buona + s.comp.Elevata;
+            const w = Math.max(4, Math.round(s.scelte / maxScelte * 100));
             return '<div class="s-bar-row">'
                 + '<div class="s-bar-rank">' + (i + 1) + '</div>'
                 + '<div class="s-bar-body">'
-                + '<div class="s-bar-top"><span class="s-bar-nome">' + esc(s.nome) + '</span><span class="s-bar-pts">' + s.punti + ' punti</span></div>'
+                + '<div class="s-bar-top"><span class="s-bar-nome">' + esc(s.nome) + '</span><span class="s-bar-pts">' + s.scelte + (s.scelte === 1 ? ' scelta' : ' scelte') + '</span></div>'
                 + '<div class="s-bar-track"><div class="s-bar-fill" style="width:' + w + '%"></div></div>'
                 + '<div class="s-bar-meta"><span>Coord.: ' + esc(s.coord || '-') + '</span>'
-                + '<span>' + s.primi + ' &times; 1a scelta</span><span>posizione media ' + media + '</span>'
                 + '<span class="s-bar-comp">competenti ' + compTot + ': ' + competenzeBadge(s.comp) + '</span></div>'
                 + '</div></div>';
         }).join('');
-        const classificaBox = '<h2 class="s-sez-tit">Classifica delle aree per interesse</h2><div class="s-bars">' + barre + '</div>';
+        const classificaBox = '<h2 class="s-sez-tit">Aree piu scelte</h2><div class="s-bars">' + barre + '</div>';
 
-        // 3) chi puo far parte di ciascun gruppo (nominativo: solo admin/titolare)
-        const squadre = !admin ? '' : '<h2 class="s-sez-tit">Chi puo far parte di ciascun gruppo</h2>'
-            + '<p class="hint" style="margin:-6px 0 12px;">Per ogni area, le persone interessate ordinate per competenza dichiarata e per la posizione che le hanno dato. Utile per comporre i gruppi attorno al candidato coordinatore.</p>'
+        // 3) chi ha scelto ciascun gruppo (nominativo: solo admin/titolare)
+        const squadre = !admin ? '' : '<h2 class="s-sez-tit">Chi ha scelto ciascun gruppo</h2>'
+            + '<p class="hint" style="margin:-6px 0 12px;">Per ogni area, le persone che l\'hanno scelta ordinate per competenza dichiarata. Utile per comporre i gruppi attorno al candidato coordinatore.</p>'
             + '<div class="s-team-grid">' + classifica.map(s => {
-                const cand = s.candidati.filter(c => PUNTI_COMP[c.liv] > 0 || (c.pos && c.pos <= 3));
-                const lis = cand.length ? cand.slice(0, 12).map(c => '<li><span class="s-team-nome">' + esc(c.nome) + '</span> ' + livBadge(c.liv)
-                    + (c.pos ? '<span class="s-team-pos">' + c.pos + 'a scelta</span>' : '') + '</li>').join('')
-                    : '<li class="hint">Nessun interessato con competenza o tra le prime tre scelte.</li>';
+                const lis = s.candidati.length ? s.candidati.slice(0, 20).map(c => '<li><span class="s-team-nome">' + esc(c.nome) + '</span> ' + livBadge(c.liv) + '</li>').join('')
+                    : '<li class="hint">Nessuno ha scelto quest\'area.</li>';
                 return '<div class="s-team-area"><div class="s-team-head">' + esc(s.nome)
                     + '<span class="s-team-coord">Coord.: ' + esc(s.coord || '-') + '</span></div>'
                     + '<ul class="s-team-list">' + lis + '</ul></div>';
@@ -4906,23 +4940,21 @@
             const mancano = invitati.filter(iv => !rispSet.has(iv.email));
             const mancaBox = nInv ? '<div class="card s-manca"><strong>Non hanno ancora risposto: ' + mancano.length + ' su ' + nInv + '</strong>'
                 + (mancano.length ? '<div class="s-manca-lista">' + esc(mancano.map(m => m.nome).join(', ')) + '</div>' : '<div class="hint" style="margin-top:4px;">Tutti gli invitati hanno risposto.</div>') + '</div>' : '';
-            const rr = risposte.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+            const rr = risposte.filter(r => Array.isArray(r.scelte) && r.scelte.length).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
             const drighe = rr.map(r => {
-                const ord = Array.isArray(r.ordine) ? r.ordine : [];
-                const classcell = ord.map((id, i) => (i + 1) + '. ' + nomeArgomento(id)).join(' · ');
-                const nComp = ord.filter(id => r.comp && r.comp[id] && r.comp[id].liv && r.comp[id].liv !== 'Nessuna').length;
+                const cell = r.scelte.filter(id => coordArgomento(id) || nomeArgomento(id))
+                    .map(id => { const c = (r.comp && r.comp[id]) || {}; return nomeArgomento(id) + ' (' + (c.liv || 'Nessuna') + ')'; }).join(' · ');
                 return '<tr>'
                     + '<td class="cliente-cella" data-label="Persona">' + esc(r.nome || r.email) + '</td>'
                     + '<td data-label="Ruolo">' + esc(nomeRuolo(r.ruolo)) + '</td>'
-                    + '<td data-label="Classifica indicata">' + esc(classcell) + '</td>'
-                    + '<td class="num" data-label="Aree con competenza">' + (nComp || '') + '</td>'
+                    + '<td data-label="Aree scelte (competenza)">' + esc(cell) + '</td>'
                     + '<td data-label="Aggiornata">' + esc(fmtDataOra(r.ts)) + '</td>'
                     + '<td data-label=""><button class="btn btn-sm btn-secondary s-elimina" data-id="' + esc(r.id) + '" data-nome="' + esc(r.nome || r.email) + '">Elimina</button></td>'
                     + '</tr>';
             }).join('');
             dettaglio = '<h2 class="s-sez-tit">Risposte individuali</h2>' + mancaBox
                 + '<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>'
-                + '<th>Persona</th><th>Ruolo</th><th>Classifica indicata</th><th class="num">Aree con competenza</th><th>Aggiornata</th><th></th>'
+                + '<th>Persona</th><th>Ruolo</th><th>Aree scelte (competenza)</th><th>Aggiornata</th><th></th>'
                 + '</tr></thead><tbody>' + drighe + '</tbody></table></div>'
                 + '<p class="hint" style="margin-top:8px;">Il dettaglio nominativo e visibile solo ad amministratore e titolare.</p>';
         }
