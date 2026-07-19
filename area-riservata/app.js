@@ -2015,11 +2015,20 @@
             const corpo = modale.querySelector('.modale-corpo');
             const azioni = corpo && corpo.lastElementChild;
             if (azioni && azioni.classList && azioni.classList.contains('modale-azioni')) modale.appendChild(azioni);
+            const btnMax = cont.querySelector('.mw-max');
+            // pulsante centrale: alterna "a schermo intero" e "rimpicciolisci" (icona e titolo seguono lo stato)
+            const setMax = m => {
+                modale.classList.toggle('massimizzata', m);
+                btnMax.innerHTML = m ? '&#10697;' : '&#9633;';
+                const t = m ? 'Rimpicciolisci' : 'A schermo intero';
+                btnMax.title = t; btnMax.setAttribute('aria-label', t);
+            };
             const setRidotta = r => { modale.classList.toggle('ridotta', r); sfondo.classList.toggle('sfondo-ridotto', r); };
+            if (opts.massimizzata) setMax(true);
             cont.querySelector('.mw-close').addEventListener('click', chiudiModale);
             cont.querySelector('.mw-min').addEventListener('click', () => setRidotta(!modale.classList.contains('ridotta')));
-            cont.querySelector('.mw-max').addEventListener('click', () => { setRidotta(false); modale.classList.toggle('massimizzata'); });
-            cont.querySelector('.modale-barra').addEventListener('dblclick', e => { if (!e.target.closest('.mw-btn')) { setRidotta(false); modale.classList.toggle('massimizzata'); } });
+            btnMax.addEventListener('click', () => { setRidotta(false); setMax(!modale.classList.contains('massimizzata')); });
+            cont.querySelector('.modale-barra').addEventListener('dblclick', e => { if (!e.target.closest('.mw-btn')) { setRidotta(false); setMax(!modale.classList.contains('massimizzata')); } });
             cont.querySelector('.modale-titolo').addEventListener('click', () => { if (modale.classList.contains('ridotta')) setRidotta(false); });
         }
         return cont;
@@ -4926,7 +4935,10 @@
             const opt = '<option value="" disabled' + (c.liv === '' || !LIVELLI_COMP.includes(c.liv) ? ' selected' : '') + '>Scegli il livello...</option>'
                 + LIVELLI_COMP.map(l => '<option value="' + l + '"' + (c.liv === l ? ' selected' : '') + '>' + l + '</option>').join('');
             const flagHtml = a.flag
-                ? '<label class="s-flag"><input type="checkbox" class="s-flag-chk"' + (c.flag ? ' checked' : '') + '> ' + esc(a.flag) + '</label>'
+                ? '<label class="s-flag"><input type="checkbox" class="s-flag-chk"' + (c.flag ? ' checked' : '') + '>'
+                + '<span class="s-flag-txt"><span class="s-flag-badge">' + esc(etichettaFlagBreve(a.id)) + '</span>'
+                + '<span class="s-flag-tit">' + esc(a.flag) + '</span>'
+                + '<span class="s-flag-sub">Spunta la casella solo se ti riguarda: e una qualifica molto rilevante per questa area.</span></span></label>'
                 : '';
             return '<div class="s-scelta' + (scelta ? ' attiva' : '') + '" data-id="' + esc(a.id) + '">'
                 + '<label class="s-scelta-head"><input type="checkbox" class="s-check"' + (scelta ? ' checked' : '') + '>'
@@ -4963,15 +4975,14 @@
             const cnt = document.getElementById('s-conta'); if (cnt) cnt.textContent = scelte.size + ' di ' + MAX_SCELTE;
         }
 
-        apriModale('<h2>' + (eNuovo ? 'Compila il questionario' : 'Modifica la tua risposta') + '</h2>'
-            + '<div class="s-guida"><p><b>Come funziona.</b> Seleziona le <b>due aree</b> nelle quali vorresti entrare a far parte del gruppo di specialisti, spuntando la casella accanto al nome. Per ciascuna area scelta compila <b>entrambi i campi obbligatori</b>: il <b>livello di competenza</b> e le <b>note sulle esperienze</b> (descrivi cosa hai fatto in quell\'area, come nell\'esempio).</p>'
+        apriModale('<div class="s-guida"><p><b>Come funziona.</b> Seleziona le <b>due aree</b> nelle quali vorresti entrare a far parte del gruppo di specialisti, spuntando la casella accanto al nome. Per ciascuna area scelta compila <b>entrambi i campi obbligatori</b>: il <b>livello di competenza</b> e le <b>note sulle esperienze</b> (descrivi cosa hai fatto in quell\'area, come nell\'esempio).</p>'
             + '<p class="s-guida-cnt">Aree selezionate: <b><span id="s-conta">' + scelte.size + ' di ' + MAX_SCELTE + '</span></b></p></div>'
             + '<div id="s-scelte" class="s-scelte">' + SOND_DEF.argomenti.map(cardHtml).join('') + '</div>'
             + '<div class="campo" style="margin-top:16px;"><label for="s-note">Nota per la direzione (facoltativa)</label>'
             + '<textarea id="s-note" rows="2" maxlength="600" placeholder="Disponibilita, specializzazioni, proposte">' + esc(bozzaNote.v) + '</textarea></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="s-annulla">Annulla</button>'
             + '<button class="btn btn-primary" id="s-salva">' + (eNuovo ? 'Invia la risposta' : 'Aggiorna la risposta') + '</button></div>',
-            { classe: 'larga s-modale-compila' });
+            { classe: 's-modale-compila', finestra: true, massimizzata: true, titolo: (eNuovo ? 'Compila il questionario' : 'Modifica la tua risposta') });
 
         document.querySelectorAll('#s-scelte .s-check').forEach(chk => chk.addEventListener('change', () => {
             const card = chk.closest('.s-scelta'); const id = card.dataset.id;
