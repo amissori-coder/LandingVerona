@@ -5620,8 +5620,17 @@
             const w = Math.max(4, Math.round(s.scelte / maxScelte * 100));
             const col = coloreArea[s.id] || 'var(--blu-700)';
             const flagInfo = (s.flagLabel && s.flagN) ? '<span class="s-bar-flag">' + s.flagN + ' &times; ' + esc(etichettaFlagBreve(s.id)) + '</span>' : '';
-            const lis = s.candidati.length ? s.candidati.map(c => '<li><span class="s-team-nome">' + esc(c.nome) + '</span> ' + livBadge(c.liv)
-                + (c.flag ? ' <span class="s-team-flag">' + esc(etichettaFlagBreve(s.id)) + '</span>' : '') + '</li>').join('')
+            const lis = s.candidati.length ? s.candidati.map(c => {
+                const testa = '<span class="s-team-nome">' + esc(c.nome) + '</span> ' + livBadge(c.liv)
+                    + (c.flag ? ' <span class="s-team-flag">' + esc(etichettaFlagBreve(s.id)) + '</span>' : '');
+                // Le note sulle esperienze (che possono citare incarichi/casi concreti) si aprono
+                // "a scomparsa" ma SOLO per chi e interno (admin/staff): un visualizzatore esterno
+                // "solo sondaggio" vede nome, competenza e requisito, non il testo delle note.
+                return (c.esp && !soloVista)
+                    ? '<li><details class="s-team-nota"><summary>' + testa + '<span class="s-note-tag">note</span></summary>'
+                        + '<div class="s-team-esp">' + esc(c.esp) + '</div></details></li>'
+                    : '<li>' + testa + '</li>';
+            }).join('')
                 : '<li class="hint">Nessuno ha ancora scelto quest\'area.</li>';
             return '<div class="s-area-card">'
                 + '<div class="s-area-head"><span class="s-bar-rank" style="background:' + col + '">' + (i + 1) + '</span>'
@@ -5791,9 +5800,15 @@
         if (!(Auth.eAdmin() || Auth.eProprietario())) return;
         if (typeof Cloud === 'undefined' || !Cloud.attivo) { toast('L\'invio email richiede l\'accesso cloud (non disponibile in modalita dimostrativa).', 'rosso'); return; }
         utenti = utenti || [];
+        const ruoloDiUtente = {}; utenti.forEach(u => { ruoloDiUtente[String(u.email).toLowerCase()] = u.ruolo; });
+        // la mail "sola visualizzazione" va SOLO a chi e (o diventera) utente sondaggio-sola-visualizzazione:
+        // NON allo staff (utenti con un ruolo pieno), che i risultati li vede gia dalla propria area.
+        const eStaffPieno = e => { const r = ruoloDiUtente[e]; return !!r && r !== RUOLI_SOND.risultati && r !== RUOLI_SOND.compila; };
         const comp = Array.from(emailInvitate(cfg, utenti));
-        const vis = Array.from(emailVisualizzatori(cfg, utenti)).filter(e => comp.indexOf(e) < 0);
-        if (!comp.length && !vis.length) { toast('Nessun invitato: aggiungi persone da "Gestisci inviti".', 'rosso'); return; }
+        const visTutti = Array.from(emailVisualizzatori(cfg, utenti)).filter(e => comp.indexOf(e) < 0);
+        const vis = visTutti.filter(e => !eStaffPieno(e));
+        const nVisStaff = visTutti.length - vis.length;
+        if (!comp.length && !vis.length) { toast('Nessun invitato da avvisare: aggiungi persone da "Gestisci inviti" (lo staff vede gia i risultati e non riceve l\'email).', 'rosso'); return; }
         // stato di ogni invitato: nuovo (non ancora utente), gia utente ma mai entrato, gia entrato
         const accessoDi = {}; utenti.forEach(u => { accessoDi[String(u.email).toLowerCase()] = u.ultimoAccesso || 0; });
         const esistenti = new Set(Object.keys(accessoDi));
@@ -5814,6 +5829,7 @@
             + opz('nuovi_senza', 'Solo ai nuovi e a chi non ha ancora fatto il primo accesso', nNuoviSenza)
             + opz('solo_nuovi', 'Solo ai nuovi aggiunti', nNuovi)
             + '</div>'
+            + (nVisStaff ? '<p class="hint"><b>' + nVisStaff + '</b> tra i visualizzatori sono utenti dello staff: vedono gia i risultati dalla loro area, quindi NON ricevono l\'email "sola visualizzazione".</p>' : '')
             + (nNuovi ? '<p class="hint"><b>' + nNuovi + '</b> non sono ancora utenti: verra creato un accesso limitato (ruolo "solo sondaggio") e riceveranno l\'email per impostare la password.</p>' : '')
             + '<p class="hint">Il servizio email accetta un invio ogni ~20 secondi: se avvisi sia i compilatori sia i visualizzatori, tra i due gruppi il sistema attende in automatico. Non chiudere la finestra fino al termine.</p>'
             + '<div class="ii-stato" id="ii-stato"></div>'

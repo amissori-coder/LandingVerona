@@ -869,6 +869,17 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .s-team-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .s-team-list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.86rem; }
 .s-team-nome { font-weight: 600; color: var(--grigio-900); }
+/* note sulle esperienze a scomparsa (nel riepilogo, "Chi l'ha scelta") */
+.s-team-nota { flex: 1 1 100%; min-width: 0; }
+.s-team-nota > summary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; list-style: none; }
+.s-team-nota > summary::-webkit-details-marker { display: none; }
+.s-team-nota > summary::marker { content: ""; }
+.s-note-tag { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--blu-700); background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: 20px; padding: 1px 8px; white-space: nowrap; }
+.s-note-tag::after { content: " \25BE"; }
+.s-team-nota[open] .s-note-tag { background: var(--blu-700); color: #fff; border-color: var(--blu-700); }
+.s-team-nota[open] .s-note-tag::after { content: " \25B4"; }
+.s-team-nota:not([open]) .s-team-esp { display: none; }
+.s-team-esp { margin: 6px 0 2px; padding: 8px 11px; background: var(--grigio-100); border-left: 3px solid var(--blu-500); border-radius: 4px; font-size: 0.82rem; color: var(--grigio-600); line-height: 1.5; white-space: pre-wrap; }
 .s-team-pos { font-size: 0.74rem; color: var(--grigio-600); background: var(--grigio-100); border-radius: 4px; padding: 1px 6px; }
 
 .s-manca { margin-bottom: 14px; }
