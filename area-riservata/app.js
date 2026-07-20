@@ -1116,7 +1116,7 @@
             // testo semplice della mail (dove il servizio rimuove i tag <a> tenendo solo il testo)
             const btn = '<p style="text-align:center;margin:22px 0 8px;"><a href="' + link + '" style="background:#164068;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;display:inline-block;">Vai all\'area riservata</a></p>'
                 + '<p style="font-size:12px;color:#64748B;margin:0 0 14px;text-align:center;">oppure apri: <span style="word-break:break-all;">' + esc(link) + '</span></p>';
-            const intro = p('Accanto alla revisione legale, Revilaw sta sviluppando un percorso di consulenza integrata su cinque aree: <b>adeguati assetti organizzativi</b>, <b>ESG e sostenibilita</b>, <b>compliance</b> con Tax Control Framework e Modello 231, <b>finanza agevolata</b>, <b>crisi d\'impresa e risanamento</b>. Per ciascuna nasce un "gruppo di specialisti".');
+            const intro = p('Accanto alla revisione legale, Revilaw sta sviluppando un percorso di consulenza integrata su sei aree: <b>adeguati assetti organizzativi</b>, <b>ESG e sostenibilita</b>, <b>compliance</b> con Tax Control Framework e Modello 231, <b>finanza agevolata</b>, <b>crisi d\'impresa e risanamento</b>, <b>wealth management</b>. Per ciascuna nasce un "gruppo di specialisti".');
             const accesso = '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#F1F5F9;border-radius:8px;margin:0 0 14px;"><tr><td style="padding:12px 16px;font-size:13px;color:#334155;line-height:1.55;">'
                 + '<b>Come accedere:</b> usa le tue credenziali dell\'area riservata. Se e il tuo primo accesso, imposta prima la password dal link che trovi nella nostra email <b>"Imposta la tua password"</b> (controlla anche la posta indesiderata / spam).'
                 + '</td></tr></table>';
@@ -5119,7 +5119,8 @@
             { id: 'esg', nome: 'ESG e Sostenibilita', coord: 'Antonella Candelieri', desc: 'Rendicontazione di sostenibilita, criteri ESG e finanza sostenibile per le imprese.', flag: 'Sono gia revisore della sostenibilita' },
             { id: 'compliance', nome: 'Compliance, TCF e Modello 231', coord: 'Melo Martella', desc: 'Tax Control Framework, adempimento collaborativo e responsabilita amministrativa degli enti (D.Lgs. 231).', flag: 'Sono iscritto all\'albo TCF dell\'Agenzia delle Entrate' },
             { id: 'finanza_agevolata', nome: 'Finanza Agevolata', coord: 'Andrea Missori', desc: 'Bandi, incentivi e strumenti agevolativi per gli investimenti e la crescita d\'impresa.' },
-            { id: 'crisi_impresa', nome: 'Crisi d\'Impresa e Risanamento', coord: 'Vincenzo Napolitano', desc: 'Allerta precoce, composizione negoziata e percorsi di risanamento dell\'impresa.' }
+            { id: 'crisi_impresa', nome: 'Crisi d\'Impresa e Risanamento', coord: 'Vincenzo Napolitano', desc: 'Allerta precoce, composizione negoziata e percorsi di risanamento dell\'impresa.' },
+            { id: 'wealth', nome: 'Wealth Management', coord: 'Patrick Novembre', desc: 'Pianificazione e protezione del patrimonio, passaggio generazionale e gestione degli investimenti per imprenditori e famiglie.' }
         ]
     };
     const Sondaggi = {
@@ -5138,7 +5139,7 @@
     function coordArgomento(id) { const a = SOND_DEF.argomenti.find(x => x.id === id); return a ? (a.coord || '') : ''; }
     function flagArgomento(id) { const a = SOND_DEF.argomenti.find(x => x.id === id); return a ? (a.flag || '') : ''; }
     // colori stabili per area (grafico a torta + legenda), assegnati nell'ordine di SOND_DEF
-    const SOND_COLORI = ['#164068', '#2A5A85', '#C9A227', '#1E7F4F', '#B1213B'];
+    const SOND_COLORI = ['#164068', '#2A5A85', '#C9A227', '#1E7F4F', '#B1213B', '#7A4B9E'];
     const coloreArea = {}; SOND_DEF.argomenti.forEach((a, i) => { coloreArea[a.id] = SOND_COLORI[i % SOND_COLORI.length]; });
 
     /* Configurazione del sondaggio: scadenza + invitati (email singole) + gruppi
@@ -5272,7 +5273,7 @@
         return { risposte, classifica, maxScelte, valide };
     }
 
-    /* Modale di compilazione. Si scelgono DUE aree (senza ordine) fra le cinque:
+    /* Modale di compilazione. Si scelgono DUE aree (senza ordine) fra quelle disponibili:
        spuntando una casella se ne aggiunge una (max 2, le altre si disabilitano).
        Per ogni area scelta la competenza e' obbligatoria (Nessuna compresa) e, se
        diversa da Nessuna, vanno indicate le esperienze. I campi vengono riletti dal
@@ -5549,7 +5550,7 @@
                 + '<div><div class="s-arg-nome">' + esc(a.nome) + '</div>'
                 + '<div class="s-arg-coord">Candidato coordinatore: <b>' + esc(a.coord) + '</b></div>'
                 + '<div class="s-arg-desc">' + esc(a.desc) + '</div></div></div>').join('') + '</div>';
-            corpo = gestione + statoCard + '<h2 class="s-sez-tit">Le cinque aree e i candidati coordinatori</h2>' + argomenti;
+            corpo = gestione + statoCard + '<h2 class="s-sez-tit">Le aree e i candidati coordinatori</h2>' + argomenti;
         }
 
         $vista().innerHTML = '<header><div><h1>Sondaggi</h1>'
