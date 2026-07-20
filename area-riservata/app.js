@@ -3504,15 +3504,20 @@
                     fattInizio: (per !== 'specifica' && pi) ? { anno: Number(pi.slice(0, 4)), mese: Number(pi.slice(5, 7)) } : null,
                     fattFine: (per !== 'specifica' && pf) ? { anno: Number(pf.slice(0, 4)), mese: Number(pf.slice(5, 7)) } : null
                 };
-                const eco = periodiFatturazione(temp, anniEsercizi());
+                const anniEs = anniEsercizi();
                 const ecoI = document.getElementById('w-fatt-inizio-eco');
                 const ecoF = document.getElementById('w-fatt-fine-eco');
                 if (ecoI && ecoF) {
-                    if (per === 'specifica' || !eco) { ecoI.textContent = ''; ecoF.textContent = ''; }
-                    else if (eco.vuoto) { ecoI.textContent = 'Nessuna scadenza con questa finestra.'; ecoF.textContent = ''; }
+                    if (per === 'specifica' || !anniEs.length) { ecoI.textContent = ''; ecoF.textContent = ''; }
+                    else if (finestraSenzaScadenze(temp, anniEs)) { ecoI.textContent = 'Nessuna scadenza con questa finestra.'; ecoF.textContent = ''; }
                     else {
-                        ecoI.textContent = 'Inizia con ' + etichettaPeriodoFatt(eco.prima, per) + (temp.fattInizio ? '' : ' (senza data di inizio)');
-                        ecoF.textContent = 'Termina con ' + etichettaPeriodoFatt(eco.ultima, per) + (temp.fattFine ? '' : ' (senza data di fine)');
+                        // Comando il periodo indicato tal quale (nessuno slittamento per scadenze o esercizi
+                        // a compenso 0); campo vuoto = dal primo / all'ultimo esercizio.
+                        const ord = anniEs.slice().sort((a, b) => a - b);
+                        const inizioP = temp.fattInizio || { anno: ord[0], mese: 1 };
+                        const fineP = temp.fattFine || { anno: ord[ord.length - 1], mese: 12 };
+                        ecoI.textContent = 'Inizia con ' + etichettaPeriodoFatt(inizioP, per) + (temp.fattInizio ? '' : ' (senza data di inizio)');
+                        ecoF.textContent = 'Termina con ' + etichettaPeriodoFatt(fineP, per) + (temp.fattFine ? '' : ' (senza data di fine)');
                     }
                 }
                 const rate = Fatture.rate(temp, anno0);
@@ -4926,19 +4931,13 @@
         return "l'esercizio " + p.anno;
     }
 
-    /* Prima e ultima scadenza effettiva di un incarico sull'arco dei suoi esercizi,
-       gia filtrate dalla finestra inizio/fine: riusa Fatture.rate cosi l'anteprima
-       coincide esattamente con le scadenze generate. Ritorna null per la modalita
-       "specifica" (che non ha finestra), {vuoto:true} se la finestra non lascia
-       alcuna scadenza, altrimenti {prima, ultima} con {anno, mese}. */
-    function periodiFatturazione(temp, anni) {
-        if (!temp || temp.fatturazione === 'specifica' || !anni || !anni.length) return null;
-        const tutte = [];
-        anni.slice().sort((a, b) => a - b).forEach(anno => {
-            Fatture.rate(temp, anno).forEach(r => tutte.push({ anno, mese: r.mese }));
-        });
-        if (!tutte.length) return { vuoto: true };
-        return { prima: tutte[0], ultima: tutte[tutte.length - 1] };
+    /* La finestra inizio/fine e cosi stretta da non lasciare alcuna scadenza
+       sull'arco degli esercizi? Riusa Fatture.rate (che applica finestra e compensi),
+       serve solo ad avvisare quando la fatturazione non produrrebbe nulla; NON sposta
+       il periodo mostrato, che resta quello indicato dall'utente. */
+    function finestraSenzaScadenze(temp, anni) {
+        if (!temp || temp.fatturazione === 'specifica' || !anni || !anni.length) return false;
+        return !anni.some(anno => Fatture.rate(temp, anno).length > 0);
     }
 
     /* Riferimento del periodo in base alla frequenza e alla data (per l'oggetto):
