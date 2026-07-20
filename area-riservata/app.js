@@ -5743,7 +5743,8 @@
             + '<div class="campo"><label>Invita per gruppo</label>'
             + '<div class="mi-grp-row"><span class="mi-grp-lab">Compilano</span><div class="gruppi-chip">' + grpChip('mi-grp-c', gC) + '</div></div>'
             + '<div class="mi-grp-row"><span class="mi-grp-lab">Solo risultati</span><div class="gruppi-chip">' + grpChip('mi-grp-v', gV) + '</div></div></div>'
-            + '<div class="campo"><label>Singole persone (dalla sezione Persone): spunta "compila" oppure "risultati"</label>'
+            + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Singole persone (dalla sezione Persone): spunta "compila" oppure "risultati"</label>'
+            + '<button type="button" class="btn btn-sm btn-ghost" id="mi-deseleziona">Deseleziona tutti</button></div>'
             + '<input type="text" id="mi-cerca" class="mi-cerca" placeholder="Cerca per nome o email"><div class="mi-utenti">' + personeHtml + '</div>'
             + '<p class="hint" style="margin-top:6px;">Chi non e un utente con ruolo (badge "solo sondaggio") ricevera un accesso limitato: vede solo il questionario o solo i risultati. Il collegamento persone-utenti avviene tramite l\'email.</p></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="mi-annulla">Annulla</button>'
@@ -5752,6 +5753,12 @@
         if (cerca) cerca.addEventListener('input', () => {
             const q = cerca.value.trim().toLowerCase();
             document.querySelectorAll('.mi-utente').forEach(l => { l.style.display = (!q || l.textContent.toLowerCase().indexOf(q) >= 0) ? '' : 'none'; });
+        });
+        // azzera TUTTI i destinatari: singole persone (compila/risultati) e gruppi
+        const btnDes = document.getElementById('mi-deseleziona');
+        if (btnDes) btnDes.addEventListener('click', () => {
+            document.querySelectorAll('.mi-c, .mi-v, .mi-grp-c, .mi-grp-v').forEach(c => { c.checked = false; });
+            toast('Nessun destinatario selezionato. Premi Salva per confermare.', 'ambra');
         });
         // "compila" e "solo risultati" si escludono a vicenda per la stessa persona
         document.querySelectorAll('.mi-c').forEach(c => c.addEventListener('change', () => { if (c.checked) { const v = c.closest('.mi-utente').querySelector('.mi-v'); if (v) v.checked = false; } }));

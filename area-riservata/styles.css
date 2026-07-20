@@ -936,6 +936,8 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .mi-utente .mi-mail { font-size: 0.78rem; color: var(--grigio-500); flex: 1 1 140px; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mi-badge { font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--ambra); background: var(--ambra-050, rgba(214,158,46,0.12)); border: 1px solid var(--ambra); border-radius: 20px; padding: 2px 8px; flex: 0 0 auto; }
 .mi-cerca { width: 100%; padding: 8px 10px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.88rem; }
+.mi-lista-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 5px; }
+.mi-lista-top .btn { flex: 0 0 auto; }
 /* scelta destinatari nell'invio inviti sondaggio (a tutti / nuovi+senza accesso / solo nuovi) */
 .ii-ambito { display: flex; align-items: flex-start; gap: 9px; padding: 9px 11px; border: 1px solid var(--grigio-200); border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 0.9rem; color: var(--grigio-900); }
 .ii-ambito:hover { background: var(--blu-050); }
