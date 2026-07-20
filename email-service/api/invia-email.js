@@ -156,8 +156,15 @@ module.exports = async (req, res) => {
         // La transazione rende il limite robusto anche a richieste concorrenti.
         const consentito = await consumaGettone(email);
         if (!consentito) {
-            // non riveliamo il blocco: stessa risposta "ok" del gate
-            res.status(200).json({ ok: true });
+            // Limite anti-abuso per questo indirizzo. Per l'attivazione (che nell'app parte solo
+            // da azioni dell'amministratore) segnaliamo "saltato" cosi l'app sa che NON e stata
+            // inviata; per il recupero (link pubblico "password dimenticata") restiamo silenziosi
+            // come il gate, per non rivelare nulla su chi e abilitato.
+            if (tipo === 'attivazione') {
+                res.status(200).json({ ok: true, saltato: true, msg: 'Per questo indirizzo la password e gia stata inviata da poco: attendi qualche minuto e riprova.' });
+            } else {
+                res.status(200).json({ ok: true });
+            }
             return;
         }
 
@@ -183,7 +190,13 @@ module.exports = async (req, res) => {
 
         res.status(200).json({ ok: true });
     } catch (e) {
-        console.error('Invio email non riuscito:', e);
-        res.status(500).json({ ok: false, msg: 'Invio non riuscito' });
+        const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
+        console.error('Invio email non riuscito:', motivo);
+        // Il motivo REALE (es. errore SMTP di Brevo/Aruba) lo diamo solo all'attivazione, che
+        // nell'app parte da azioni dell'amministratore: serve alla diagnosi. Il recupero e' un
+        // link PUBBLICO e resta UNIFORME anche in caso di errore, per non rivelare dettagli interni
+        // ne l'esistenza dell'indirizzo (altrimenti "errore" contro "ok" sarebbe un oracolo di iscrizione).
+        if (tipo === 'attivazione') res.status(502).json({ ok: false, msg: motivo });
+        else res.status(200).json({ ok: true });
     }
 };

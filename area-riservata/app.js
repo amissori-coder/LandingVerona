@@ -1040,8 +1040,10 @@
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, tipo })
                 });
-                if (!r.ok) return { ok: false, msg: 'Servizio email non disponibile (' + r.status + ').' };
-                return { ok: true, viaEmail: true };
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || (data && data.ok === false)) return { ok: false, msg: (data && data.msg) || ('Servizio email non disponibile (' + r.status + ').') };
+                // saltato = il servizio ha risposto ok ma NON ha inviato (limite anti-abuso per l'indirizzo)
+                return { ok: true, viaEmail: true, saltato: !!(data && data.saltato), msg: (data && data.msg) || null };
             } catch (e) {
                 return { ok: false, msg: 'Servizio email non raggiungibile.' };
             }
@@ -7148,7 +7150,8 @@
                     Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, [{ campo: 'Ruolo', prima: 'vuoto', dopo: ruolo }]);
                     const invio = await Cloud.primaPassword(email);
                     chiudiModale();
-                    toast(invio.ok ? 'Utente abilitato: email di impostazione password inviata. Avvisa il collega di controllare anche lo spam.' : 'Utente abilitato, ma invio email non riuscito: ' + invio.msg, invio.ok ? 'verde' : 'rosso');
+                    if (invio.ok && invio.saltato) toast('Utente abilitato. Email password NON inviata ora: ' + (invio.msg || 'limite raggiunto per questo indirizzo, riprova tra qualche minuto.'), 'ambra');
+                    else toast(invio.ok ? 'Utente abilitato: email di impostazione password inviata. Avvisa il collega di controllare anche lo spam.' : 'Utente abilitato, ma invio email non riuscito: ' + invio.msg, invio.ok ? 'verde' : 'rosso');
                     vistaUtentiCloud();
                 } catch (e) {
                     toast('Operazione non riuscita: ' + (e && e.message ? e.message : e), 'rosso');
@@ -7192,7 +7195,8 @@
             // primaPassword crea l'account se non e mai stato attivato, poi invia l'email
             const esito = await Cloud.primaPassword(b.dataset.email);
             Audit.registra(Auth.utenteCorrente, 'Email reimpostazione password inviata', 'utente', b.dataset.email, null, null);
-            toast(esito.ok ? 'Email inviata a ' + b.dataset.email + ' (potrebbe finire nello spam).' : esito.msg, esito.ok ? 'verde' : 'rosso');
+            if (esito.ok && esito.saltato) toast('NON inviata: ' + (esito.msg || 'limite raggiunto per questo indirizzo, riprova tra qualche minuto.'), 'ambra');
+            else toast(esito.ok ? 'Email inviata a ' + b.dataset.email + ' (potrebbe finire nello spam).' : esito.msg, esito.ok ? 'verde' : 'rosso');
         }, { testo: 'Invio…' })));
         document.querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             const attivo = b.dataset.attivo !== '1';
