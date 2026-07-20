@@ -1188,9 +1188,12 @@
                     fal.forEach(f => falliti.push(f.email));
                     esitoTipo[j.tipo] = { destinatari: j.dest.length, inviati: nInv, falliti: fal };
                 } else {
-                    const motivo = (r && r.msg) || 'invio non riuscito';
+                    // il servizio, quando tutto fallisce, restituisce anche il motivo REALE per
+                    // ogni indirizzo (es. l'errore SMTP di Aruba): mostriamo quello, non il generico
+                    const msgGen = (r && r.msg) || 'invio non riuscito';
+                    const falMap = {}; ((r && r.falliti) || []).forEach(f => { if (f && f.email) falMap[String(f.email).toLowerCase()] = f.motivo || msgGen; });
                     j.dest.forEach(e => falliti.push(e));
-                    esitoTipo[j.tipo] = { destinatari: j.dest.length, inviati: 0, falliti: j.dest.map(e => ({ email: e, motivo: motivo })) };
+                    esitoTipo[j.tipo] = { destinatari: j.dest.length, inviati: 0, falliti: j.dest.map(e => ({ email: e, motivo: falMap[e] || msgGen })) };
                 }
             }
             const dettaglio = {
