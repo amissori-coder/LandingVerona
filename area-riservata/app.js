@@ -1103,68 +1103,107 @@
            i falliti vengono riportati per un nuovo tentativo. */
         /* Testo dell'email di invito al sondaggio. tipo: 'compila' | 'risultati';
            nuovo=true per chi deve ancora impostare la password (arriva in una email a parte). */
-        _testoInvitoSondaggio(tipo, nuovo, scadenzaTxt) {
+        /* Corpo HTML dell'email di invito al sondaggio (formato 'html': il servizio lo
+           incornicia con l'intestazione e la firma Revilaw). Un testo unico per nuovi e
+           gia utenti: la nota di accesso copre entrambi i casi. */
+        _testoInvitoSondaggio(tipo, scadenzaTxt) {
             const link = (window.APP_BASE_URL || 'https://nextgenerationbusiness.it') + '/area-riservata/';
-            const scad = scadenzaTxt ? ('\n\nC\'e tempo fino al ' + scadenzaTxt + ' (entro le 23:59).') : '';
-            const accesso = nuovo
-                ? '1. Imposta la password dal link che ricevi in una nostra seconda email (oggetto "Imposta la tua password"): controlla anche la posta indesiderata / spam.\n2. Accedi all\'area riservata: ' + link
-                : '1. Accedi all\'area riservata con le tue credenziali: ' + link;
-            const passo3 = nuovo ? '3' : '2';
-            const intro = 'Gentile collega,\n\n'
-                + 'Accanto alla revisione legale, Revilaw sta sviluppando un percorso di consulenza integrata su cinque aree: adeguati assetti organizzativi, ESG e sostenibilita, compliance con Tax Control Framework e Modello 231, finanza agevolata, crisi d\'impresa e risanamento. Per ciascuna nasce un "gruppo di specialisti".\n\n';
+            const p = t => '<p style="margin:0 0 14px;">' + t + '</p>';
+            const h = t => '<h2 style="color:#0A2844;font-size:18px;margin:0 0 12px;">' + t + '</h2>';
+            // pulsante + indirizzo in chiaro: cosi il link resta visibile anche nella versione
+            // testo semplice della mail (dove il servizio rimuove i tag <a> tenendo solo il testo)
+            const btn = '<p style="text-align:center;margin:22px 0 8px;"><a href="' + link + '" style="background:#164068;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;display:inline-block;">Vai all\'area riservata</a></p>'
+                + '<p style="font-size:12px;color:#64748B;margin:0 0 14px;text-align:center;">oppure apri: <span style="word-break:break-all;">' + esc(link) + '</span></p>';
+            const intro = p('Accanto alla revisione legale, Revilaw sta sviluppando un percorso di consulenza integrata su cinque aree: <b>adeguati assetti organizzativi</b>, <b>ESG e sostenibilita</b>, <b>compliance</b> con Tax Control Framework e Modello 231, <b>finanza agevolata</b>, <b>crisi d\'impresa e risanamento</b>. Per ciascuna nasce un "gruppo di specialisti".');
+            const accesso = '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#F1F5F9;border-radius:8px;margin:0 0 14px;"><tr><td style="padding:12px 16px;font-size:13px;color:#334155;line-height:1.55;">'
+                + '<b>Come accedere:</b> usa le tue credenziali dell\'area riservata. Se e il tuo primo accesso, imposta prima la password dal link che trovi nella nostra email <b>"Imposta la tua password"</b> (controlla anche la posta indesiderata / spam).'
+                + '</td></tr></table>';
             if (tipo === 'compila') {
-                return intro
-                    + 'Sei stato invitato a partecipare: ti chiediamo di compilare un breve questionario indicando le DUE aree nelle quali vorresti entrare a far parte del gruppo e, per ciascuna, il tuo livello di competenza. Bastano un paio di minuti.\n\n'
-                    + 'Come partecipare:\n' + accesso + '\n' + passo3 + '. Apri la sezione "Sondaggi" e invia la tua risposta.' + scad
-                    + '\n\nGrazie per il tuo contributo,\nRevilaw S.p.A.';
+                const scad = scadenzaTxt ? p('<b>C\'e tempo fino al ' + esc(scadenzaTxt) + '</b> (entro le 23:59).') : '';
+                return h('Sei invitato a compilare il questionario')
+                    + p('Gentile collega,')
+                    + intro
+                    + p('Ti chiediamo di indicare le <b>due aree</b> nelle quali vorresti entrare a far parte del gruppo e, per ciascuna, il tuo <b>livello di competenza</b>. Bastano un paio di minuti.')
+                    + btn + accesso
+                    + p('Poi apri la sezione <b>"Sondaggi"</b> e invia la tua risposta.')
+                    + scad;
             }
-            return intro
-                + 'Sei stato abilitato alla sola VISUALIZZAZIONE dei risultati del questionario: potrai vedere le aree scelte dai colleghi e le competenze dichiarate. Non devi compilare nulla.\n\n'
-                + 'Come consultarli:\n' + accesso + '\n' + passo3 + '. Apri la sezione "Sondaggi", scheda "Riepilogo risultati".'
-                + '\n\nA presto,\nRevilaw S.p.A.';
+            return h('Puoi consultare i risultati del questionario')
+                + p('Gentile collega,')
+                + intro
+                + p('Sei stato abilitato alla <b>sola visualizzazione</b> dei risultati: potrai vedere le aree scelte dai colleghi e le competenze dichiarate. Non devi compilare nulla.')
+                + btn + accesso
+                + p('Poi apri la sezione <b>"Sondaggi"</b>, scheda <b>"Riepilogo risultati"</b>.');
         },
-        async invitaSondaggio(comp, vis, utenti, ruoli, scadenzaTxt) {
+        async invitaSondaggio(comp, vis, utenti, ruoli, scadenzaTxt, onProgress) {
             if (!this.attivo) return { ok: false, msg: 'Accesso cloud non attivo.' };
+            comp = comp || []; vis = vis || [];
             const accessoDi = {}; (utenti || []).forEach(u => { accessoDi[String(u.email).toLowerCase()] = u.ultimoAccesso || 0; });
             const esistenti = new Set(Object.keys(accessoDi));
             let creati = 0, inviati = 0; const falliti = [];
             const nomeDi = {};
             try { Persone.tutte().forEach(p => { if (p.email) nomeDi[String(p.email).toLowerCase()] = (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome; }); } catch (e) { }
-            const ruoloDi = e => (comp || []).indexOf(e) >= 0 ? ruoli.compila : ruoli.risultati;
-            const giaEntrato = e => esistenti.has(e) && !!accessoDi[e];
+            const ruoloDi = e => comp.indexOf(e) >= 0 ? ruoli.compila : ruoli.risultati;
             // Link per la password: lo ricevono i nuovi (account da creare) e i gia utenti che
-            // non sono mai entrati (glielo ri-inviamo, cosi possono finalmente accedere). Chi ha
-            // gia fatto almeno un accesso non riceve il link: usa le sue credenziali.
-            const tuttiInvitati = Array.from(new Set((comp || []).concat(vis || [])));
-            const pwOk = new Set(); // a chi e stato (ri)inviato con successo il link password
+            // non sono mai entrati (glielo ri-inviamo, cosi possono finalmente accedere).
+            const tuttiInvitati = Array.from(new Set(comp.concat(vis)));
+            const pwFalliti = [];
             for (const e of tuttiInvitati) {
                 const nuovo = !esistenti.has(e);
-                if (!nuovo && !(esistenti.has(e) && !accessoDi[e])) continue; // gia utente e gia entrato
+                if (!nuovo && !!accessoDi[e]) continue; // gia utente e gia entrato: usa le sue credenziali
                 try {
                     if (nuovo) await this.salvaUtente(e, { nome: nomeDi[e] || e, ruolo: ruoloDi(e), attivo: true, creato: Date.now(), creatoDa: 'invito sondaggio' });
                     const r = await this.primaPassword(e);
-                    if (r && r.ok) { if (nuovo) creati++; pwOk.add(e); } else falliti.push(e);
-                } catch (ex) { falliti.push(e); }
+                    if (r && r.ok) { if (nuovo) creati++; } else { falliti.push(e); pwFalliti.push({ email: e, motivo: (r && r.msg) || 'invio password non riuscito' }); }
+                } catch (ex) { falliti.push(e); pwFalliti.push({ email: e, motivo: (ex && ex.message) || 'errore' }); }
             }
-            // Email esplicativa dell'invito, a TUTTI i destinatari: spiega che sei stato invitato
-            // a compilare, oppure che vedi solo i risultati. A chi riceve il link password diciamo
-            // di impostarla prima dall'altra email; a chi e gia utente diciamo di usare le credenziali.
+            // Email esplicativa dell'invito: UN solo invio per gruppo (compilatori / visualizzatori),
+            // con un testo unico per nuovi e gia utenti. Il servizio email accetta un invio ogni
+            // ~20s per mittente: quindi tra un gruppo e l'altro attendiamo, per non farci rifiutare
+            // il secondo con "troppi invii ravvicinati".
+            const PAUSA_MS = 21000;
+            const pausa = ms => new Promise(r => setTimeout(r, ms));
             const oggetto = tipo => tipo === 'compila'
                 ? 'Questionario Revilaw: gruppi di specialisti'
                 : 'Risultati del questionario Revilaw: gruppi di specialisti';
-            const inviaA = async (lista, tipo) => {
-                for (const conPassword of [true, false]) {
-                    const dest = (lista || []).filter(e => conPassword ? pwOk.has(e) : giaEntrato(e)).map(e => ({ email: e }));
-                    if (!dest.length) continue;
-                    const r = await this.inviaComunicazione(oggetto(tipo), this._testoInvitoSondaggio(tipo, conPassword, scadenzaTxt), dest, 'testo');
-                    if (r && r.ok) inviati += (r.inviati || dest.length); else dest.forEach(d => falliti.push(d.email));
+            const jobs = [];
+            if (comp.length) jobs.push({ tipo: 'compila', dest: comp });
+            if (vis.length) jobs.push({ tipo: 'risultati', dest: vis });
+            const esitoTipo = {};
+            for (let i = 0; i < jobs.length; i++) {
+                const j = jobs[i];
+                if (i > 0) {
+                    if (onProgress) { try { onProgress({ fase: 'attesa', secondi: Math.round(PAUSA_MS / 1000) }); } catch (e) { } }
+                    await pausa(PAUSA_MS);
                 }
+                if (onProgress) { try { onProgress({ fase: 'invio', tipo: j.tipo, n: i + 1, tot: jobs.length }); } catch (e) { } }
+                const destObj = j.dest.map(e => ({ email: e }));
+                let r;
+                try { r = await this.inviaComunicazione(oggetto(j.tipo), this._testoInvitoSondaggio(j.tipo, scadenzaTxt), destObj, 'html'); }
+                catch (e) { r = { ok: false, msg: 'Servizio di invio non raggiungibile.' }; }
+                if (r && r.ok) {
+                    const fal = (r.falliti || []).map(f => (f && f.email) ? f : { email: f, motivo: 'rifiutato dal server di posta' });
+                    const nInv = (typeof r.inviati === 'number') ? r.inviati : (destObj.length - fal.length);
+                    inviati += nInv;
+                    fal.forEach(f => falliti.push(f.email));
+                    esitoTipo[j.tipo] = { destinatari: j.dest.length, inviati: nInv, falliti: fal };
+                } else {
+                    const motivo = (r && r.msg) || 'invio non riuscito';
+                    j.dest.forEach(e => falliti.push(e));
+                    esitoTipo[j.tipo] = { destinatari: j.dest.length, inviati: 0, falliti: j.dest.map(e => ({ email: e, motivo: motivo })) };
+                }
+            }
+            const dettaglio = {
+                ts: Date.now(),
+                scadenza: scadenzaTxt || '',
+                password: { inviati: creati, falliti: pwFalliti.slice(0, 50) },
+                compila: esitoTipo.compila || { destinatari: comp.length, inviati: 0, falliti: [] },
+                risultati: esitoTipo.risultati || { destinatari: vis.length, inviati: 0, falliti: [] }
             };
-            try {
-                await inviaA(comp, 'compila');
-                await inviaA(vis, 'risultati');
-            } catch (e) { /* eventuali falliti gia' registrati */ }
-            return { ok: true, creati, inviati, falliti };
+            // un indirizzo puo fallire sia sull'email password sia su quella di invito: conta le
+            // persone distinte, non i tentativi (il conteggio "non riusciti" mostrato all'utente)
+            const fallitiDistinti = Array.from(new Set(falliti));
+            return { ok: true, creati, inviati, falliti: fallitiDistinti, dettaglio };
         },
 
         async recuperaPassword(email) {
@@ -5109,19 +5148,24 @@
                 invitati: arr(c.invitati),                 // compilatori (email singole)
                 gruppi: Array.isArray(c.gruppi) ? c.gruppi.slice() : [],
                 visualizzatori: arr(c.visualizzatori),     // solo risultati (email singole)
-                gruppiVis: Array.isArray(c.gruppiVis) ? c.gruppiVis.slice() : []
+                gruppiVis: Array.isArray(c.gruppiVis) ? c.gruppiVis.slice() : [],
+                ultimoInvio: c.ultimoInvio || null         // riepilogo dell'ultimo invio email
             };
         },
         salva(cfg) {
             const arr = v => (v || []).map(e => String(e).toLowerCase());
+            const cur = Store.leggi(CHIAVI.sondaggiConfig, null) || {};
             Store.scrivi(CHIAVI.sondaggiConfig, {
                 scadenza: cfg.scadenza || SOND_DEF.scadenzaDefault,
                 invitati: arr(cfg.invitati),
                 gruppi: (cfg.gruppi || []).slice(),
                 visualizzatori: arr(cfg.visualizzatori),
-                gruppiVis: (cfg.gruppiVis || []).slice()
+                gruppiVis: (cfg.gruppiVis || []).slice(),
+                // il riepilogo ultimo invio si conserva se non viene esplicitamente cambiato
+                ultimoInvio: (cfg.ultimoInvio !== undefined ? cfg.ultimoInvio : (cur.ultimoInvio || null))
             });
-        }
+        },
+        salvaUltimoInvio(dettaglio) { this.salva({ ...this.leggi(), ultimoInvio: dettaglio || null }); }
     };
     function scadenzaMs(cfg) {
         const s = (cfg && cfg.scadenza) || SOND_DEF.scadenzaDefault;
@@ -5390,6 +5434,34 @@
         _sondTimer = setInterval(tick, 1000);
     }
 
+    /* Riepilogo dell'ultimo invio email (per tipologia): compilatori, visualizzatori,
+       nuovi accessi/password, con i motivi degli eventuali fallimenti. Mostrato
+       all'amministratore nella scheda del sondaggio. */
+    function riepilogoInvioHtml(d) {
+        if (!d) return '';
+        const riga = (lab, o) => {
+            if (!o || !o.destinatari) return '';
+            const fal = (o.falliti || []).length;
+            return '<div class="s-inv-riga"><span class="s-inv-lab">' + esc(lab) + '</span>'
+                + '<span class="s-inv-val"><b>' + (o.inviati || 0) + '</b> inviate su ' + o.destinatari
+                + (fal ? ' &middot; <span class="s-inv-ko">' + fal + ' non riuscite</span>' : '') + '</span></div>';
+        };
+        const pw = d.password || {};
+        const pwFal = (pw.falliti || []).length;
+        const tuttiFal = [].concat((d.compila && d.compila.falliti) || [], (d.risultati && d.risultati.falliti) || [], pw.falliti || []);
+        const perMotivo = {};
+        tuttiFal.forEach(f => { const m = (f && f.motivo) || 'errore'; perMotivo[m] = (perMotivo[m] || 0) + 1; });
+        const motivi = Object.keys(perMotivo).map(m => '<li><b>' + perMotivo[m] + '</b> &times; ' + esc(m) + '</li>').join('');
+        return '<div class="card s-inv-riep"><div class="s-inv-head"><strong>Riepilogo ultimo invio</strong>'
+            + '<span class="hint">' + esc(fmtDataOra(d.ts)) + '</span></div>'
+            + riga('Compilatori', d.compila)
+            + riga('Visualizzatori (solo risultati)', d.risultati)
+            + ((pw.inviati || pwFal) ? '<div class="s-inv-riga"><span class="s-inv-lab">Nuovi accessi (email per la password)</span>'
+                + '<span class="s-inv-val"><b>' + (pw.inviati || 0) + '</b> creati' + (pwFal ? ' &middot; <span class="s-inv-ko">' + pwFal + ' non riusciti</span>' : '') + '</span></div>' : '')
+            + (motivi ? '<div class="s-inv-motivi"><span class="s-inv-lab">Perche alcuni non sono riusciti</span><ul>' + motivi + '</ul></div>' : '')
+            + '</div>';
+    }
+
     function vistaSondaggi() {
         const cfg = SondConfig.leggi();
         const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
@@ -5446,6 +5518,7 @@
                     + '<div class="hint">Compilatori: <b>' + inv.length + '</b> &middot; Visualizzatori (solo risultati): <b>' + nVis + '</b></div></div>'
                     + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="s-gestisci">Gestisci inviti</button>'
                     + '<button class="btn btn-primary" id="s-invita">Invia inviti via email</button></div></div>';
+                gestione += riepilogoInvioHtml(cfg.ultimoInvio);
             }
             let statoCard = '';
             const scelteTxt = (mia && Array.isArray(mia.scelte)) ? mia.scelte.map(id => nomeArgomento(id)).join(', ') : '';
@@ -5731,7 +5804,8 @@
             + opz('solo_nuovi', 'Solo ai nuovi aggiunti', nNuovi)
             + '</div>'
             + (nNuovi ? '<p class="hint"><b>' + nNuovi + '</b> non sono ancora utenti: verra creato un accesso limitato (ruolo "solo sondaggio") e riceveranno l\'email per impostare la password.</p>' : '')
-            + '<p class="hint">Per i limiti anti-spam del servizio l\'invio puo richiedere qualche minuto. Non chiudere la finestra fino al termine.</p>'
+            + '<p class="hint">Il servizio email accetta un invio ogni ~20 secondi: se avvisi sia i compilatori sia i visualizzatori, tra i due gruppi il sistema attende in automatico. Non chiudere la finestra fino al termine.</p>'
+            + '<div class="ii-stato" id="ii-stato"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ii-no">Annulla</button><button class="btn btn-primary" id="ii-si">Invia inviti</button></div>');
         document.getElementById('ii-no').addEventListener('click', chiudiModale);
         document.getElementById('ii-si').addEventListener('click', () => {
@@ -5740,13 +5814,21 @@
             const compSel = comp.filter(pred), visSel = vis.filter(pred);
             if (!compSel.length && !visSel.length) { toast('Con questa scelta non ci sono destinatari da avvisare.', 'ambra'); return; }
             const btn = document.getElementById('ii-si'); if (!btn) return;
+            const noBtn = document.getElementById('ii-no'); if (noBtn) noBtn.disabled = true;
             btn.disabled = true; btn.textContent = 'Invio in corso...';
-            Cloud.invitaSondaggio(compSel, visSel, utenti, RUOLI_SOND, fmtData(cfg.scadenza)).then(res => {
+            const stato = document.getElementById('ii-stato');
+            const onProgress = ev => {
+                if (!stato) return;
+                if (ev.fase === 'invio') stato.textContent = 'Invio email ' + (ev.tipo === 'compila' ? 'ai compilatori' : 'ai visualizzatori') + (ev.tot > 1 ? ' (' + ev.n + ' di ' + ev.tot + ')' : '') + '...';
+                else if (ev.fase === 'attesa') stato.textContent = 'Attendo ~' + ev.secondi + 's per il limite del server, poi invio il secondo gruppo...';
+            };
+            Cloud.invitaSondaggio(compSel, visSel, utenti, RUOLI_SOND, fmtData(cfg.scadenza), onProgress).then(res => {
+                if (res && res.ok && res.dettaglio) { try { SondConfig.salvaUltimoInvio(res.dettaglio); } catch (e) { } }
                 chiudiModale();
                 if (res && res.ok) {
                     let m = 'Inviti inviati: ' + res.inviati;
                     if (res.creati) m += ' · nuovi accessi: ' + res.creati;
-                    if (res.falliti && res.falliti.length) m += ' · non riusciti: ' + res.falliti.length;
+                    if (res.falliti && res.falliti.length) m += ' · non riusciti: ' + res.falliti.length + ' (vedi il riepilogo qui sotto)';
                     toast(m, (res.falliti && res.falliti.length) ? 'ambra' : 'verde');
                 } else toast('Invio non riuscito: ' + ((res && res.msg) || ''), 'rosso');
                 _sondUtenti = null; // l'invio puo' aver creato nuovi account

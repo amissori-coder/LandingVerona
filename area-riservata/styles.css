@@ -818,6 +818,16 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .s-scad-riga { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 7px 0 5px; }
 .s-scad-riga label { margin: 0; font-weight: 600; font-size: 0.85rem; color: var(--grigio-600); }
 .s-scad-riga input[type="date"] { width: auto; padding: 6px 9px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.88rem; color: var(--grigio-900); }
+/* stato di avanzamento nell'invio inviti + riepilogo ultimo invio */
+.ii-stato { font-size: 0.86rem; color: var(--blu-700); margin: 8px 0 2px; min-height: 1.1em; }
+.s-inv-riep { margin-bottom: 16px; }
+.s-inv-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.s-inv-riga { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--grigio-100); font-size: 0.9rem; }
+.s-inv-lab { color: var(--grigio-600); }
+.s-inv-val { color: var(--grigio-900); }
+.s-inv-ko { color: var(--rosso); font-weight: 600; }
+.s-inv-motivi { margin-top: 8px; border-top: 1px solid var(--grigio-100); padding-top: 8px; }
+.s-inv-motivi ul { margin: 5px 0 0; padding-left: 18px; font-size: 0.85rem; color: var(--grigio-600); }
 
 .s-stato { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
 .s-stato .btn { flex: 0 0 auto; }
@@ -960,14 +970,14 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .s-team-pallino { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; margin-right: 2px; }
 
 /* grafico a torta della distribuzione delle scelte */
-.s-torta-card { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
-.s-torta { width: 160px; height: 160px; flex: 0 0 auto; }
-.s-torta-legenda { list-style: none; margin: 0; padding: 0; flex: 1 1 220px; min-width: 200px; display: flex; flex-direction: column; gap: 6px; }
-.s-torta-legenda li { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; }
-.s-torta-sw { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 auto; }
+.s-torta-card { display: flex; align-items: center; gap: 30px; flex-wrap: wrap; justify-content: center; }
+.s-torta { width: 250px; height: 250px; flex: 0 0 auto; }
+.s-torta-legenda { list-style: none; margin: 0; padding: 0; flex: 1 1 240px; min-width: 220px; display: flex; flex-direction: column; gap: 9px; }
+.s-torta-legenda li { display: flex; align-items: center; gap: 9px; font-size: 0.92rem; }
+.s-torta-sw { width: 16px; height: 16px; border-radius: 3px; flex: 0 0 auto; }
 .s-torta-nome { flex: 1 1 auto; color: var(--grigio-900); }
 .s-torta-val { font-weight: 700; color: var(--blu-900); white-space: nowrap; }
-.s-torta-lab { fill: #fff; font-size: 11px; font-weight: 800; paint-order: stroke; stroke: rgba(0,0,0,0.25); stroke-width: 2px; }
+.s-torta-lab { fill: #fff; font-size: 12px; font-weight: 800; paint-order: stroke; stroke: rgba(0,0,0,0.28); stroke-width: 2.5px; }
 
 /* riepilogo: area (barra + chi l'ha scelta), integrate in un'unica card */
 .s-aree { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -998,7 +1008,7 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     .s-admin-azioni .btn { width: 100%; }
     .s-cd-box { flex: 1 1 0; min-width: 0; }
     .s-torta-card { justify-content: center; }
-    .s-torta { width: 150px; height: 150px; }
+    .s-torta { width: 210px; height: 210px; }
     .s-scelta-comp { padding: 0 12px 12px 12px; }
     .mi-utente { flex-wrap: wrap; }
     .s-modale-compila .modale-corpo { padding: 16px 16px 22px; }
