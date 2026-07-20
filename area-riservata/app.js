@@ -3445,8 +3445,8 @@
                     <div class="hint">Raggruppa piu incarichi in un'unica fatturazione. Lascia vuoto se l'incarico si fattura da solo.</div>
                 </div>
                 <div class="griglia-2" id="w-finestra">
-                    <div class="campo"><label>Inizio fatturazione</label><input type="month" id="w-fatt-inizio" value="${pInizio}"><div class="hint">Da quale periodo parte. Vuoto = da subito.</div></div>
-                    <div class="campo"><label>Fine fatturazione</label><input type="month" id="w-fatt-fine" value="${pFine}"><div class="hint">Quando termina. Vuoto = senza fine.</div></div>
+                    <div class="campo"><label>Inizio fatturazione</label><input type="month" id="w-fatt-inizio" value="${pInizio}"><div class="hint">Da quale periodo parte. Vuoto = da subito.</div><div class="hint" id="w-fatt-inizio-eco" style="color:var(--blu-700);font-weight:600;margin-top:2px;"></div></div>
+                    <div class="campo"><label>Fine fatturazione</label><input type="month" id="w-fatt-fine" value="${pFine}"><div class="hint">Quando termina. Vuoto = senza fine.</div><div class="hint" id="w-fatt-fine-eco" style="color:var(--blu-700);font-weight:600;margin-top:2px;"></div></div>
                 </div>
                 <div class="campo" id="w-data-specifica"><label>Data della fattura</label><input type="date" id="w-fatt-data" value="${d.fattData || ''}"><div class="hint">La scadenza cade in questa data, nell'esercizio corrispondente.</div></div>
                 <div class="calc-riquadro" id="w-anteprima-rate"></div>`;
@@ -3465,6 +3465,17 @@
                     fattInizio: (per !== 'specifica' && pi) ? { anno: Number(pi.slice(0, 4)), mese: Number(pi.slice(5, 7)) } : null,
                     fattFine: (per !== 'specifica' && pf) ? { anno: Number(pf.slice(0, 4)), mese: Number(pf.slice(5, 7)) } : null
                 };
+                const eco = periodiFatturazione(temp, anniEsercizi());
+                const ecoI = document.getElementById('w-fatt-inizio-eco');
+                const ecoF = document.getElementById('w-fatt-fine-eco');
+                if (ecoI && ecoF) {
+                    if (per === 'specifica' || !eco) { ecoI.textContent = ''; ecoF.textContent = ''; }
+                    else if (eco.vuoto) { ecoI.textContent = 'Nessuna scadenza con questa finestra.'; ecoF.textContent = ''; }
+                    else {
+                        ecoI.textContent = 'Inizia con ' + etichettaPeriodoFatt(eco.prima, per) + (temp.fattInizio ? '' : ' (senza data di inizio)');
+                        ecoF.textContent = 'Termina con ' + etichettaPeriodoFatt(eco.ultima, per) + (temp.fattFine ? '' : ' (senza data di fine)');
+                    }
+                }
                 const rate = Fatture.rate(temp, anno0);
                 const box = document.getElementById('w-anteprima-rate');
                 if (!rate.length) { box.innerHTML = `<div class="calc-riga"><span>Scadenze nel ${anno0}</span><span class="val">nessuna</span></div><div class="hint" style="margin-top:6px;">Con queste impostazioni il primo esercizio (${anno0}) non genera scadenze: verifica la finestra o la data.</div>`; return; }
@@ -4865,6 +4876,32 @@
     }
 
     const MESI_IT = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+
+    /* Etichetta del periodo di una scadenza {anno, mese} in base alla modalita:
+       mensile -> "gennaio 2026", trimestrale -> "il 1° trimestre 2026",
+       annuale -> "l'esercizio 2026". */
+    function etichettaPeriodoFatt(p, modalita) {
+        if (!p || !p.anno || !p.mese) return '';
+        if (modalita === 'mensile') return MESI_IT[p.mese - 1] + ' ' + p.anno;
+        if (modalita === 'trimestrale') return 'il ' + Math.ceil(p.mese / 3) + '° trimestre ' + p.anno;
+        return "l'esercizio " + p.anno;
+    }
+
+    /* Prima e ultima scadenza effettiva di un incarico sull'arco dei suoi esercizi,
+       gia filtrate dalla finestra inizio/fine: riusa Fatture.rate cosi l'anteprima
+       coincide esattamente con le scadenze generate. Ritorna null per la modalita
+       "specifica" (che non ha finestra), {vuoto:true} se la finestra non lascia
+       alcuna scadenza, altrimenti {prima, ultima} con {anno, mese}. */
+    function periodiFatturazione(temp, anni) {
+        if (!temp || temp.fatturazione === 'specifica' || !anni || !anni.length) return null;
+        const tutte = [];
+        anni.slice().sort((a, b) => a - b).forEach(anno => {
+            Fatture.rate(temp, anno).forEach(r => tutte.push({ anno, mese: r.mese }));
+        });
+        if (!tutte.length) return { vuoto: true };
+        return { prima: tutte[0], ultima: tutte[tutte.length - 1] };
+    }
+
     /* Riferimento del periodo in base alla frequenza e alla data (per l'oggetto):
        trimestrale -> "primo trimestre 2026", mensile -> "gennaio 2026",
        annuale -> "2026", settimanale -> "settimana del 15/01/2026". */
