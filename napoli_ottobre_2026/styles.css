@@ -1240,6 +1240,12 @@ ul {
     white-space: nowrap;
 }
 
+/* Variante per gli interventi ancora da confermare */
+.timeline-dur--tbc {
+    color: var(--accent);
+    background: rgba(177, 33, 59, 0.08);
+}
+
 /* Pause e momenti conviviali: trattamento più leggero */
 .timeline-item--break .timeline-content {
     background: transparent;
