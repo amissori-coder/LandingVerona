@@ -6048,8 +6048,14 @@
        non vengono salvate in locale. Conferme/presenze e note sono
        dati nostri e si salvano nell'archivio condiviso.
     ========================================================= */
+    /* Un evento per riquadro: "filtro" e' la parola cercata nella colonna Pagina
+       delle iscrizioni, "nota" spiega un elenco vuoto quando il modulo non c'e' ancora. */
     const EVENTI_DEF = [
-        { id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', filtro: 'napoli' }
+        { id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', filtro: 'napoli' },
+        {
+            id: 'milano-2027-02-27', titolo: 'Milano', quando: '27 febbraio 2027', filtro: 'milano',
+            nota: 'Il modulo di iscrizione non e ancora pubblicato: le iscrizioni compariranno qui da sole appena sara attivo.'
+        }
     ];
     const EventiConfig = {
         leggi() {
@@ -6106,7 +6112,22 @@
     let _evFirma = '';           // impronta dell'elenco: serve a ridisegnare solo se e cambiato
     let _evAggiornato = 0;       // ora dell'ultima lettura riuscita
     let _evTimer = null;
+    let _evSel = EVENTI_DEF[0].id;   // evento aperto in questo momento
     const EV_INTERVALLO = 45000; // ricontrollo automatico: le iscrizioni non arrivano a raffica
+
+    function eventoCorrente() {
+        return EVENTI_DEF.find(e => e.id === _evSel) || EVENTI_DEF[0];
+    }
+    /* Passaggio a un altro evento: si azzera tutto cio' che riguardava il precedente
+       (elenco, messaggi, orario e aggiornamento automatico), altrimenti si vedrebbero
+       per un istante le iscrizioni dell'evento sbagliato. */
+    function apriEvento(id) {
+        if (_evSel === id) return;
+        _evSel = id;
+        fermaAutoEventi();
+        _evIscrizioni = null; _evFirma = ''; _evMsg = ''; _evAggiornato = 0;
+        if (vistaCorrente === 'eventi') vistaEventi();
+    }
 
     function firmaIscr(l) { return (l || []).map(r => r.id).join('|'); }
 
@@ -6239,7 +6260,7 @@
     function vistaEventi() {
         if (!puoVedereEventi()) { naviga('dashboard'); return; }
         const admin = Auth.eAdmin() || Auth.eProprietario();
-        const ev = EVENTI_DEF[0];
+        const ev = eventoCorrente();
         const cfg = EventiConfig.leggi();
         // primo ingresso: carica da solo; poi si aggiorna in automatico a intervalli
         if (_evIscrizioni === null && !_evInFlight && Cloud.attivo) {
@@ -6259,21 +6280,33 @@
             + '<button class="btn btn-secondary" id="ev-importa">Importa iscrizioni</button></div></div>'
             : '';
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
+        const vuoto = ev.nota
+            ? '<div class="card tabella-vuota">Nessuna iscrizione per ' + esc(ev.titolo) + '.<br><span class="hint">' + esc(ev.nota) + '</span></div>'
+            : '<div class="card tabella-vuota">Nessuna iscrizione per questo evento.</div>';
         const corpo = _evIscrizioni === null
             ? '<div class="card tabella-vuota">' + (_evInFlight ? 'Carico le iscrizioni...' : 'Premi "Aggiorna adesso" per caricare le iscrizioni.') + '</div>'
-            : (!_evIscrizioni.length ? '<div class="card tabella-vuota">Nessuna iscrizione per questo evento.</div>' : tabellaIscrizioni(ev, _evIscrizioni));
+            : (!_evIscrizioni.length ? vuoto : tabellaIscrizioni(ev, _evIscrizioni));
+
+        // un riquadro per evento: si apre uno alla volta, cosi gli elenchi non si mescolano
+        const schede = '<div class="ev-schede">' + EVENTI_DEF.map(x =>
+            '<button type="button" class="ev-scheda' + (x.id === ev.id ? ' attiva' : '') + '" data-ev="' + esc(x.id) + '">'
+            + '<span class="ev-scheda-nome">' + esc(x.titolo) + '</span>'
+            + '<span class="ev-scheda-data">' + esc(x.quando) + '</span></button>').join('') + '</div>';
 
         $vista().innerHTML = '<header><div><h1>Eventi</h1>'
             + '<p class="descrizione">Le iscrizioni raccolte dai form del sito. Sezione riservata agli utenti abilitati.</p></div>'
             + '<div class="header-azioni"><span class="ev-live">' + (_evInFlight ? 'aggiornamento...' : (_evAggiornato ? 'aggiornato alle ' + esc(new Date(_evAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) : 'in attesa')) + '</span>'
             + '<button class="btn btn-secondary" id="ev-aggiorna"' + (_evInFlight ? ' disabled' : '') + '>'
             + (_evInFlight ? 'Aggiorno...' : 'Aggiorna adesso') + '</button></div></header>'
+            + schede
             + '<div class="card ev-testa"><div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
             + '<div class="hint">' + esc(ev.quando) + '</div></div>'
             + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscritti</span></div>'
             + '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div></div>'
             + gestione + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
+        $vista().querySelectorAll('.ev-scheda').forEach(b =>
+            b.addEventListener('click', () => apriEvento(b.dataset.ev)));
         const bAgg = document.getElementById('ev-aggiorna');
         if (bAgg) bAgg.addEventListener('click', () => {
             _evMsg = ''; _evIscrizioni = _evIscrizioni || null;
