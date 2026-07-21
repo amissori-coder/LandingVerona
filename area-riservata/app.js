@@ -5964,15 +5964,36 @@
         // cosi due persone che segnano iscritti diversi non si sovrascrivono a vicenda
         _chiave(evento, idIscritto) { return evento + '~' + idIscritto; },
         di(evento, idIscritto) { const k = this._chiave(evento, idIscritto); return this.tutte().find(p => p && p.id === k) || null; },
+        // Ogni modifica porta con se' la firma di chi l'ha fatta e quando: la sezione e'
+        // condivisa fra piu' persone e serve sapere chi ha segnato cosa.
         imposta(evento, idIscritto, patch) {
             const k = this._chiave(evento, idIscritto);
+            const u = Auth.utenteCorrente;
+            const firma = {
+                da: u ? String(u.email).toLowerCase() : '',
+                daNome: u ? (u.nome || u.email || '') : '',
+                quando: Date.now()
+            };
             const l = this.tutte();
             const i = l.findIndex(p => p && p.id === k);
-            if (i >= 0) l[i] = { ...l[i], ...patch };
-            else l.push({ id: k, evento: evento, idIscritto: idIscritto, ...patch });
+            if (i >= 0) l[i] = { ...l[i], ...patch, ...firma };
+            else l.push({ id: k, evento: evento, idIscritto: idIscritto, ...patch, ...firma });
             Store.scrivi(CHIAVI.eventiPresenze, l);
         }
     };
+    /* "Mario Rossi, 21/07 alle 18:40" oppure stringa vuota se non risulta nessuna modifica. */
+    function firmaPresenza(p) {
+        if (!p || (!p.daNome && !p.da && !p.quando)) return '';
+        const chi = p.daNome || p.da || 'utente sconosciuto';
+        if (!p.quando) return chi;
+        const d = new Date(p.quando);
+        const oggi = new Date();
+        const stessoGiorno = d.toDateString() === oggi.toDateString();
+        const quando = stessoGiorno
+            ? 'oggi alle ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+            : fmtDataOra(p.quando);
+        return chi + ', ' + quando;
+    }
     function puoVedereEventi() {
         if (Auth.eAdmin() || Auth.eProprietario()) return true;
         const u = Auth.utenteCorrente; if (!u) return false;
@@ -6100,10 +6121,11 @@
                 + opz('', '-') + opz('confermato', 'Confermato') + opz('presente', 'Presente') + opz('assente', 'Assente')
                 + '</select></td>'
                 + '<td data-label="Nota"><input type="text" class="ev-nota" data-id="' + esc(r.id) + '" value="' + esc(p.nota || '') + '" placeholder="nota"></td>'
+                + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || '-') + '</span></td>'
                 + '</tr>';
         }).join('');
         return '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
-            + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Stato</th><th>Nota</th>'
+            + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Stato</th><th>Nota</th><th>Aggiornato da</th>'
             + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
     }
 
@@ -6165,6 +6187,10 @@
         }));
         $vista().querySelectorAll('.ev-nota').forEach(n => n.addEventListener('change', () => {
             EventiPresenze.imposta(ev.id, n.dataset.id, { nota: n.value.trim() });
+            // aggiorna la firma nella stessa riga senza ridisegnare tutta la tabella
+            const riga = n.closest('tr');
+            const f = riga ? riga.querySelector('.ev-firma') : null;
+            if (f) f.textContent = firmaPresenza(EventiPresenze.di(ev.id, n.dataset.id)) || '-';
         }));
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
