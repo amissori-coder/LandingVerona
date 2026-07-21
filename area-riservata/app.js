@@ -1083,6 +1083,22 @@
             }
         },
 
+        /* Legge un documento dell'archivio DIRETTAMENTE dal server, senza passare dalla
+           copia locale: serve alla diagnostica, per capire se un salvataggio e davvero
+           arrivato a Firestore oppure e rimasto solo nel browser di chi l'ha fatto. */
+        async leggiArchivioRemoto(nomeDoc) {
+            if (!this.attivo || !this.db) return { ok: false, msg: 'accesso cloud non attivo' };
+            try {
+                const { doc, getDoc } = this.fb.fsMod;
+                const snap = await getDoc(doc(this.db, 'archivio', nomeDoc));
+                if (!snap.exists()) return { ok: true, esiste: false };
+                const d = snap.data() || {};
+                return { ok: true, esiste: true, json: d.json, da: d.da || '', aggiornato: d.aggiornato || null };
+            } catch (e) {
+                return { ok: false, msg: (e && e.code) || (e && e.message) || 'errore di lettura' };
+            }
+        },
+
         /* Iscrizioni a un evento, lette dal foglio Google tramite il servizio (che
            verifica chi chiama e filtra le righe dell'evento). Nessun dato personale
            finisce nel repository: arriva a video e resta su Firestore. */
@@ -5951,6 +5967,41 @@
 
     function firmaIscr(l) { return (l || []).map(r => r.id).join('|'); }
 
+    let _evDiag = null;  // confronto fra l'elenco abilitati locale e quello sul server
+    function caricaDiagnosticaEventi(poi) {
+        const locale = localStorage.getItem(CHIAVI.eventiConfig);
+        Cloud.leggiArchivioRemoto('eventiConfig').then(r => { _evDiag = { locale: locale, remoto: r }; if (poi) poi(); })
+            .catch(() => { _evDiag = { locale: locale, remoto: { ok: false, msg: 'errore' } }; if (poi) poi(); });
+    }
+    function elencoAbilitatiDa(str) {
+        try { const o = JSON.parse(str || '{}'); return Array.isArray(o.abilitati) ? o.abilitati : []; } catch (e) { return []; }
+    }
+    /* Riquadro solo per l'amministratore: dice se l'elenco degli abilitati e davvero
+       arrivato al server. Se il documento remoto non esiste o non contiene la persona,
+       il problema e nel salvataggio; se invece c'e, il problema e in ricezione. */
+    function diagnosticaEventiHtml() {
+        if (!_evDiag) {
+            return '<div class="card s-admin"><div class="s-admin-txt"><strong>Diagnostica accessi</strong>'
+                + '<div class="hint">Controlla se l\'elenco degli abilitati e arrivato al server. Lo vedi solo tu.</div></div>'
+                + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="ev-diag-btn">Verifica sul server</button></div></div>';
+        }
+        const loc = elencoAbilitatiDa(_evDiag.locale);
+        const r = _evDiag.remoto || {};
+        let remoto;
+        if (!r.ok) remoto = '<span class="ev-ko">lettura non riuscita: ' + esc(r.msg || '') + '</span>';
+        else if (!r.esiste) remoto = '<span class="ev-ko">il documento sul server NON esiste: il salvataggio non e mai arrivato</span>';
+        else {
+            const rem = elencoAbilitatiDa(r.json);
+            remoto = '<b>' + rem.length + '</b>' + (rem.length ? ' &middot; ' + esc(rem.join(', ')) : ' (elenco vuoto)')
+                + (r.da ? ' <span class="hint">- ultimo salvataggio da ' + esc(r.da) + '</span>' : '');
+        }
+        return '<div class="card"><strong>Diagnostica accessi</strong>'
+            + '<div class="ev-diag-riga"><span>In questo browser</span><span><b>' + loc.length + '</b>'
+            + (loc.length ? ' &middot; ' + esc(loc.join(', ')) : ' (elenco vuoto)') + '</span></div>'
+            + '<div class="ev-diag-riga"><span>Sul server</span><span>' + remoto + '</span></div>'
+            + '<div style="margin-top:10px;"><button class="btn btn-sm btn-secondary" id="ev-diag-btn">Ricontrolla</button></div></div>';
+    }
+
     /* poi(cambiato): "cambiato" dice se l'elenco e diverso da quello gia a video,
        cosi l'aggiornamento automatico non ridisegna (e non fa perdere il punto in
        cui stai scrivendo) quando non e successo nulla. */
@@ -6047,7 +6098,7 @@
             + '<div class="hint">' + esc(ev.quando) + '</div></div>'
             + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscritti</span></div>'
             + '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div></div>'
-            + gestione + avviso + corpo;
+            + gestione + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
         const bAgg = document.getElementById('ev-aggiorna');
         if (bAgg) bAgg.addEventListener('click', () => {
@@ -6057,6 +6108,11 @@
         });
         const bAcc = document.getElementById('ev-accessi');
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
+        const bDiag = document.getElementById('ev-diag-btn');
+        if (bDiag) bDiag.addEventListener('click', () => {
+            bDiag.disabled = true; bDiag.textContent = 'Controllo...';
+            caricaDiagnosticaEventi(() => { if (vistaCorrente === 'eventi') vistaEventi(); });
+        });
         // presenze e note: si salvano subito (archivio condiviso)
         $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
             EventiPresenze.imposta(ev.id, s.dataset.id, { stato: s.value });
