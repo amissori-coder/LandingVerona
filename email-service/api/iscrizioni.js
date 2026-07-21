@@ -65,6 +65,17 @@ function chiave(s) {
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '');  // via gli accenti combinanti
 }
 
+// "gg/mm/aaaa hh:mm:ss" -> numero ordinabile (0 se la data manca o non si legge)
+function quando(txt) {
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ ,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(String(txt || '').trim());
+    if (!m) return 0;
+    return Date.UTC(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+}
+// dalla piu' recente alla piu' vecchia, come ci si aspetta da un elenco iscritti
+function ordina(lista) {
+    return lista.slice().sort((a, b) => quando(b.data) - quando(a.data));
+}
+
 module.exports = async (req, res) => {
     const origin = process.env.ALLOWED_ORIGIN || '*';
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -106,9 +117,39 @@ module.exports = async (req, res) => {
             return;
         }
 
-        // 4) lettura del foglio
+        // 4) filtro dell'evento (serve a entrambe le fonti)
+        const filtro = chiave(body.evento || 'napoli');
+
+        // 5) prima fonte: Firestore, dove arrivano le iscrizioni nuove dal form.
+        //    Non dipende ne' dall'API Sheets ne' dalla condivisione del foglio.
+        const daFirestore = [];
+        try {
+            const snap = await admin.firestore().collection('iscrizioni').get();
+            snap.forEach(d => {
+                const v = d.data() || {};
+                const pag = String(v.pagina || '');
+                if (filtro && chiave(pag).indexOf(filtro) < 0) return;
+                const em = String(v.email || '');
+                daFirestore.push({
+                    id: (em.toLowerCase() || (chiave(v.nome) + '.' + chiave(v.cognome))) + '|' + String(v.data || ''),
+                    data: String(v.data || ''), pagina: pag,
+                    nome: String(v.nome || ''), cognome: String(v.cognome || ''), email: em,
+                    azienda: String(v.azienda || ''), ruolo: String(v.ruolo || ''),
+                    telefono: String(v.telefono || ''), messaggio: String(v.messaggio || '')
+                });
+            });
+        } catch (e) {
+            console.error('Lettura iscrizioni da Firestore non riuscita:', String((e && e.message) || e).slice(0, 200));
+        }
+
+        // 6) seconda fonte: il foglio Google, per le iscrizioni raccolte prima del
+        //    passaggio a Firestore. Se non e' configurato o non risponde si prosegue
+        //    con le sole iscrizioni di Firestore, invece di non mostrare niente.
         const sheetId = process.env.EVENTI_SHEET_ID || '';
-        if (!sheetId) { res.status(500).json({ ok: false, msg: 'EVENTI_SHEET_ID non configurato sul servizio.' }); return; }
+        if (!sheetId) {
+            res.status(200).json({ ok: true, iscrizioni: ordina(daFirestore), aggiornato: Date.now(), fonti: ['firestore'] });
+            return;
+        }
         const range = process.env.EVENTI_SHEET_RANGE || 'A:K';
         const token = await tokenSheets(cred);
         const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(sheetId)
@@ -117,17 +158,26 @@ module.exports = async (req, res) => {
         if (!r.ok) {
             const dett = await r.text().catch(() => '');
             console.error('Lettura foglio non riuscita:', r.status, dett.slice(0, 300));
+            // il foglio e' ormai la fonte SECONDARIA: se non risponde si mostrano
+            // comunque le iscrizioni gia' presenti su Firestore, segnalando il problema
             const msg = r.status === 403
                 ? 'Il foglio non e condiviso con l\'account di servizio, oppure l\'API Google Sheets non e abilitata.'
                 : (r.status === 404 ? 'Foglio non trovato: controlla EVENTI_SHEET_ID.' : 'Lettura del foglio non riuscita (' + r.status + ').');
-            res.status(502).json({ ok: false, msg: msg });
+            if (daFirestore.length) {
+                res.status(200).json({ ok: true, iscrizioni: ordina(daFirestore), aggiornato: Date.now(), fonti: ['firestore'], avviso: msg });
+            } else {
+                res.status(502).json({ ok: false, msg: msg });
+            }
             return;
         }
         const dati = await r.json();
         const righe = Array.isArray(dati.values) ? dati.values : [];
-        if (!righe.length) { res.status(200).json({ ok: true, iscrizioni: [], aggiornato: Date.now() }); return; }
+        if (!righe.length) {
+            res.status(200).json({ ok: true, iscrizioni: ordina(daFirestore), aggiornato: Date.now(), fonti: ['firestore'] });
+            return;
+        }
 
-        // 5) mappa le colonne per NOME (non per posizione): il foglio puo cambiare ordine
+        // 7) mappa le colonne per NOME (non per posizione): il foglio puo cambiare ordine
         const intest = righe[0].map(chiave);
         const col = n => intest.indexOf(n);
         const iData = col('data'), iPagina = col('pagina'), iNome = col('nome'), iCognome = col('cognome');
@@ -135,8 +185,6 @@ module.exports = async (req, res) => {
         const iTel = col('telefono'), iMsg = col('messaggio');
         const cella = (riga, i) => (i >= 0 && riga[i] != null) ? String(riga[i]).trim() : '';
 
-        // 6) filtro per evento: di default "napoli" (confronto senza accenti/maiuscole)
-        const filtro = chiave(body.evento || 'napoli');
         const iscrizioni = [];
         for (let i = 1; i < righe.length; i++) {
             const riga = righe[i];
@@ -161,7 +209,14 @@ module.exports = async (req, res) => {
             });
         }
 
-        res.status(200).json({ ok: true, iscrizioni: iscrizioni, aggiornato: Date.now() });
+        // 8) unione delle due fonti: a parita' di identificativo vince Firestore,
+        //    che e' la fonte aggiornata. Cosi le iscrizioni raccolte prima del
+        //    passaggio restano visibili e non ci sono doppioni.
+        const perId = {};
+        iscrizioni.forEach(x => { perId[x.id] = x; });
+        daFirestore.forEach(x => { perId[x.id] = x; });
+        const unite = ordina(Object.keys(perId).map(k => perId[k]));
+        res.status(200).json({ ok: true, iscrizioni: unite, aggiornato: Date.now(), fonti: ['firestore', 'foglio'] });
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 200);
         console.error('Iscrizioni: lettura non riuscita:', motivo);

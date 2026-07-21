@@ -133,15 +133,36 @@ non all'ora esatta impostata — perfetto per invii settimanali/mensili/
 trimestrali/annuali. Il `vercel.json` alza il timeout della funzione cron a
 `maxDuration: 60` (tetto Hobby) per gestire più invii nello stesso mattino.
 
+## Nuova iscrizione dal sito (`/api/iscrizione-nuova`)
+
+Endpoint **pubblico**: lo chiama il form dell'evento sul sito, in parallelo al
+solito invio al foglio Google. Scrive la scheda nella collezione Firestore
+`iscrizioni` usando l'account di servizio (Admin SDK), quindi le regole di
+sicurezza non entrano in gioco e nessuno puo scrivere sul database dal browser.
+
+Protezioni: accetta solo POST, solo i campi noti e con lunghezza massima, esige
+`pagina` (l'evento) e almeno un recapito, valida l'indirizzo email, limita gli
+invii dallo stesso IP (8 ogni 10 minuti) e non restituisce mai dati.
+L'identificativo del documento deriva da email e data, quindi un doppio invio
+aggiorna la stessa scheda invece di creare un duplicato.
+
+Nessuna configurazione aggiuntiva: usa `FIREBASE_SERVICE_ACCOUNT`, gia presente.
+Per collegare un altro form basta aggiungere nella pagina un secondo `fetch` a
+questo indirizzo con lo stesso payload (vedi `napoli_ottobre_2026/script.js`).
+
 ## Iscrizioni agli eventi (`/api/iscrizioni`)
 
-Legge il foglio Google dei form del sito e restituisce **solo** le iscrizioni
-dell'evento richiesto (di default "napoli"). I dati sono personali, quindi
+Restituisce **solo** le iscrizioni dell'evento richiesto (di default "napoli"),
+unendo **due fonti**: la collezione Firestore `iscrizioni` (dove arrivano quelle
+nuove) e il foglio Google (dove ci sono quelle raccolte prima). A parita di
+identificativo vince Firestore. Se il foglio non risponde, o non e configurato,
+si mostrano comunque le iscrizioni presenti su Firestore. I dati sono personali, quindi
 l'endpoint non e pubblico: verifica l'ID token Firebase di chi chiama, controlla
 che sia un utente abilitato e attivo, e che sia amministratore **oppure**
 presente nell'elenco `abilitati` di `archivio/eventiConfig`.
 
-Configurazione (una tantum):
+Configurazione del foglio (una tantum, ora **facoltativa**: serve solo a vedere
+anche le iscrizioni raccolte prima del passaggio a Firestore):
 
 1. **Condividi il foglio** con l'account di servizio gia usato da Firebase.
    L'indirizzo e il campo `client_email` dentro `FIREBASE_SERVICE_ACCOUNT`
