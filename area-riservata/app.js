@@ -497,6 +497,18 @@
     function _eArchivioConfig(chiave) {
         return chiave === CHIAVI.sondaggiConfig || chiave === CHIAVI.eventiConfig;
     }
+    /* Nome leggibile di un archivio, per i messaggi all'utente (che non deve
+       ritrovarsi davanti sigle come "fattureStato"). */
+    const NOMI_ARCHIVIO = {
+        incarichi: 'incarichi', persone: 'anagrafica persone', audit: 'registro attivita',
+        fattureStato: 'stato fatture', allerte: 'allerte', comunicazioni: 'comunicazioni',
+        sondaggi: 'risposte del questionario', sondaggiConfig: 'impostazioni del questionario',
+        eventiConfig: 'accessi agli eventi', eventiPresenze: 'presenze agli eventi',
+        ruoli: 'definizione dei ruoli'
+    };
+    function nomeArchivio(doc) {
+        return Object.prototype.hasOwnProperty.call(NOMI_ARCHIVIO, doc) ? NOMI_ARCHIVIO[doc] : doc;
+    }
     function _parseDati(str, forma) {
         try { const v = JSON.parse(str); return v == null ? (forma === 'oggetto' ? {} : []) : v; }
         catch (e) { return forma === 'oggetto' ? {} : []; }
@@ -1337,7 +1349,8 @@
                 try {
                     snap = await getDoc(rif);
                 } catch (e) {
-                    this.archiviNonLetti.push(this.DOC_SYNC[chiave] + ': ' + ((e && e.code) || (e && e.message) || 'errore'));
+                    const codice = (e && e.code) || (e && e.message) || 'errore';
+                    this.archiviNonLetti.push({ doc: this.DOC_SYNC[chiave], codice: codice, testo: this.DOC_SYNC[chiave] + ': ' + codice });
                     continue;
                 }
                 if (snap.exists() && typeof snap.data().json === 'string') {
@@ -1394,10 +1407,16 @@
                 this.sottoscrizioni.push(stacca);
             });
             // Se il server ha negato qualche archivio l'utente deve saperlo: prima restava
-            // muto e sembrava semplicemente che una sezione "non ci fosse".
+            // muto e sembrava semplicemente che una sezione "non ci fosse". Il messaggio
+            // DICE QUALI archivi, altrimenti non si riesce a capire cosa correggere.
             if (this.archiviNonLetti.length) {
-                console.warn('Archivi non leggibili:', this.archiviNonLetti.join(' | '));
-                setTimeout(() => toast('Alcuni dati condivisi non sono stati caricati (permessi del server). Segnalalo all\'amministratore.', 'rosso'), 1500);
+                console.warn('Archivi non leggibili:', this.archiviNonLetti.map(a => a.testo).join(' | '));
+                const nomi = this.archiviNonLetti.map(a => nomeArchivio(a.doc)).join(', ');
+                const soloPermessi = this.archiviNonLetti.every(a => a.codice === 'permission-denied');
+                const msg = soloPermessi
+                    ? 'Il server non consente a questa utenza di leggere: ' + nomi + '. Riferiscilo all\'amministratore (regole di sicurezza da aggiornare).'
+                    : 'Non sono stati caricati: ' + nomi + '. Se il problema resta, riferiscilo all\'amministratore.';
+                setTimeout(() => toast(msg, 'rosso'), 1500);
             }
         },
 
@@ -6090,7 +6109,7 @@
             + '<div class="ev-diag-riga"><span>Sul server</span><span>' + remoto + '</span></div>'
             + perPersona
             + (Cloud.archiviNonLetti && Cloud.archiviNonLetti.length
-                ? '<div class="ev-diag-riga"><span>Archivi negati</span><span class="ev-ko">' + esc(Cloud.archiviNonLetti.join(' | ')) + '</span></div>'
+                ? '<div class="ev-diag-riga"><span>Archivi negati</span><span class="ev-ko">' + esc(Cloud.archiviNonLetti.map(a => a.testo).join(' | ')) + '</span></div>'
                 : '')
             + '<div style="margin-top:10px;"><button class="btn btn-sm btn-secondary" id="ev-diag-btn">Ricontrolla</button></div></div>';
     }
