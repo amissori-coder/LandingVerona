@@ -157,8 +157,11 @@ collezione `presenze`, non piu in un archivio condiviso: cosi li vede e li puo
 cambiare **chiunque sia abilitato alla sezione Eventi**, qualunque sia il ruolo,
 perche la decisione la prende il servizio e non le regole di Firestore.
 
-Stessa autorizzazione della lettura iscrizioni: amministratore, contrassegno
+Autorizzazione identica a quella di `/api/iscrizioni`: amministratore, contrassegno
 `eventi` sulla scheda utente, oppure presenza nell'elenco di `archivio/eventiConfig`.
+Le due condizioni vanno tenute allineate: se divergono si ottengono utenti che
+possono scrivere ma non leggere, o viceversa. C'e anche un limite di 60 modifiche
+al minuto per utente.
 
 - `azione: "imposta"` con `stato` e/o `nota`: aggiorna una sola scheda (merge) e
   registra chi ha fatto la modifica e quando. Risponde con lo stato **completo**

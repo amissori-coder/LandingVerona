@@ -6175,6 +6175,7 @@
         // la si dichiara superata (_evReq) e si libera subito il posto, altrimenti la
         // sua risposta finirebbe sotto l'evento nuovo e il nuovo non si caricherebbe.
         _evReq++; _evInFlight = false;
+        _evSelezionate = new Set();   // la selezione appartiene all'evento che si lascia
         // se quell'evento era gia' stato letto, si rimette subito a video quanto si
         // sapeva, e l'aggiornamento dal server arriva dopo senza schermate vuote
         const c = _evCache[id];
@@ -6195,6 +6196,8 @@
     }
     // elenco gia' letto per ciascun evento: resta in memoria, mai su disco
     let _evCache = {};
+    // iscrizioni spuntate per la cancellazione in blocco (solo amministratore)
+    let _evSelezionate = new Set();
 
     let _evDiag = null;  // confronto fra l'elenco abilitati locale e quello sul server
     function caricaDiagnosticaEventi(poi) {
@@ -6332,6 +6335,8 @@
                 ? '<td data-label="Nota"><input type="text" class="ev-nota" data-id="' + esc(r.id) + '" value="' + esc(p.nota || '') + '" placeholder="nota"></td>'
                 : '<td data-label="Nota">' + esc(p.nota || '-') + '</td>';
             return '<tr>'
+                + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
+                    + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
                 + '<td data-label="Data">' + esc(r.data) + '</td>'
                 + '<td class="cliente-cella" data-label="Nome">' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
                 + '<td data-label="Azienda">' + esc(r.azienda) + '</td>'
@@ -6341,12 +6346,22 @@
                 + cellaStato + cellaNota
                 + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || '-') + '</span></td>'
                 + (adminEv
-                    ? '<td data-label=""><button class="btn btn-sm btn-secondary ev-canc" data-id="'
+                    ? '<td data-label="" class="ev-azioni"><button class="btn btn-sm btn-secondary ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
+                    + '<button class="btn btn-sm btn-secondary ev-canc" data-id="'
                     + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">Cancella</button></td>'
                     : '')
                 + '</tr>';
         }).join('');
-        return '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
+        // barra della selezione multipla: compare solo quando c'e' qualcosa di spuntato
+        const nSel = lista.filter(r => _evSelezionate.has(r.id)).length;
+        const barra = adminEv
+            ? '<div class="ev-barra' + (nSel ? '' : ' vuota') + '">'
+            + '<span><b>' + nSel + '</b> iscrizioni selezionate</span>'
+            + '<button class="btn btn-sm btn-secondary" id="ev-sel-nessuna">Deseleziona</button>'
+            + '<button class="btn btn-sm btn-danger" id="ev-canc-multi">Cancella le selezionate</button></div>'
+            : '';
+        return barra + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
+            + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
             + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Stato</th><th>Nota</th><th>Aggiornato da</th>'
             + (adminEv ? '<th></th>' : '')
             + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
@@ -6451,8 +6466,47 @@
             aggiornaFirma(n, id);
         }));
         $vista().querySelectorAll('.ev-canc').forEach(b => b.addEventListener('click', () => {
-            confermaCancellaIscrizione(ev, b.dataset.id, b.dataset.nome);
+            confermaCancellaIscrizione(ev, [b.dataset.id], b.dataset.nome);
         }));
+        $vista().querySelectorAll('.ev-mod').forEach(b => b.addEventListener('click', () => {
+            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+            if (r) modaleModificaIscrizione(ev, r);
+        }));
+        // selezione multipla: la barra si aggiorna senza ridisegnare tutta la tabella
+        const aggiornaBarra = () => {
+            const barra = $vista().querySelector('.ev-barra');
+            if (!barra) return;
+            const n = $vista().querySelectorAll('.ev-sel:checked').length;
+            barra.classList.toggle('vuota', n === 0);
+            const b = barra.querySelector('span b'); if (b) b.textContent = n;
+        };
+        $vista().querySelectorAll('.ev-sel').forEach(c => c.addEventListener('change', () => {
+            if (c.checked) _evSelezionate.add(c.value); else _evSelezionate.delete(c.value);
+            aggiornaBarra();
+        }));
+        const tutte = document.getElementById('ev-sel-tutte');
+        if (tutte) tutte.addEventListener('change', () => {
+            $vista().querySelectorAll('.ev-sel').forEach(c => {
+                // solo le righe visibili: il filtro di ricerca nasconde le altre
+                if (c.closest('tr').style.display === 'none') return;
+                c.checked = tutte.checked;
+                if (c.checked) _evSelezionate.add(c.value); else _evSelezionate.delete(c.value);
+            });
+            aggiornaBarra();
+        });
+        const bNess = document.getElementById('ev-sel-nessuna');
+        if (bNess) bNess.addEventListener('click', () => {
+            _evSelezionate = new Set();
+            $vista().querySelectorAll('.ev-sel').forEach(c => { c.checked = false; });
+            if (tutte) tutte.checked = false;
+            aggiornaBarra();
+        });
+        const bMulti = document.getElementById('ev-canc-multi');
+        if (bMulti) bMulti.addEventListener('click', () => {
+            const ids = Array.from($vista().querySelectorAll('.ev-sel:checked')).map(c => c.value);
+            if (!ids.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
+            confermaCancellaIscrizione(ev, ids, null);
+        });
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
     }
@@ -6460,30 +6514,85 @@
     /* Cancellazione di un'iscrizione: solo l'amministratore, e con conferma esplicita
        perche' toglie una persona dall'elenco per tutti. Resta traccia sul server, cosi'
        non ricompare se la sua riga esiste ancora sul foglio. */
-    function confermaCancellaIscrizione(ev, idIscritto, nome) {
+    function confermaCancellaIscrizione(ev, ids, nome) {
         if (!(Auth.eAdmin() || Auth.eProprietario())) return;
-        apriModale('<h2>Cancellare l\'iscrizione?</h2>'
-            + '<p>Stai per togliere <strong>' + esc(nome || idIscritto) + '</strong> dall\'elenco di '
-            + esc(ev.titolo) + '. Sparira per tutti, insieme allo stato e alla nota collegati.</p>'
-            + '<p class="hint">Non ricomparira nemmeno se la sua riga e ancora sul foglio.</p>'
+        const elenco = (ids || []).filter(Boolean);
+        if (!elenco.length) return;
+        const uno = elenco.length === 1;
+        apriModale('<h2>' + (uno ? 'Cancellare l\'iscrizione?' : 'Cancellare ' + elenco.length + ' iscrizioni?') + '</h2>'
+            + '<p>Stai per togliere ' + (uno
+                ? '<strong>' + esc(nome || elenco[0]) + '</strong>'
+                : '<strong>' + elenco.length + ' persone</strong>')
+            + ' dall\'elenco di ' + esc(ev.titolo) + '. '
+            + (uno ? 'Sparira' : 'Spariranno') + ' per tutti, insieme allo stato e alla nota collegati.</p>'
+            + '<p class="hint">Non ricompariranno nemmeno se le loro righe sono ancora sul foglio.</p>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ci-no">Annulla</button>'
             + '<button class="btn btn-danger" id="ci-si">Cancella</button></div>');
         document.getElementById('ci-no').addEventListener('click', chiudiModale);
         document.getElementById('ci-si').addEventListener('click', () => {
             const b = document.getElementById('ci-si');
             b.disabled = true; b.textContent = 'Cancello...';
-            Cloud.operaPresenza({ azione: 'cancella', evento: ev.id, idIscritto: idIscritto }).then(r => {
+            Cloud.operaPresenza({ azione: 'cancella', evento: ev.id, idIscritti: elenco }).then(r => {
                 chiudiModale();
                 if (!r.ok) { toast(r.msg || 'Cancellazione non riuscita.', 'rosso'); return; }
-                try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizione cancellata', 'sistema', ev.id, null, nome || idIscritto); } catch (e) { }
-                toast('Iscrizione cancellata.', 'verde');
-                _evIscrizioni = (_evIscrizioni || []).filter(x => x.id !== idIscritto);
-                delete _evPresenze[idIscritto];
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizioni cancellate', 'sistema', ev.id, null, (nome || '') + ' (' + elenco.length + ')'); } catch (e) { }
+                toast(uno ? 'Iscrizione cancellata.' : elenco.length + ' iscrizioni cancellate.', 'verde');
+                _evIscrizioni = (_evIscrizioni || []).filter(x => elenco.indexOf(x.id) < 0);
+                elenco.forEach(id => { delete _evPresenze[id]; _evSelezionate.delete(id); });
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
                 _evCache[ev.id] = { iscrizioni: _evIscrizioni, presenze: _evPresenze, firma: _evFirma, aggiornato: _evAggiornato };
                 // niente rilettura immediata: la riga deve restare sparita a video,
                 // il prossimo giro automatico confermera' dal server
                 _evUltimoTentativo[ev.id] = Date.now();
+                if (vistaCorrente === 'eventi') vistaEventi();
+            });
+        });
+    }
+
+    /* Correzione dei dati di una singola iscrizione (solo amministratore). Se cambiano
+       indirizzo email o data, cambia anche l'identificativo: al trasloco della scheda,
+       e dello stato e nota gia' registrati, pensa il servizio. */
+    function modaleModificaIscrizione(ev, r) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        const campo = (id, et, val, tipo) => '<div class="campo"><label for="' + id + '">' + et + '</label>'
+            + '<input type="' + (tipo || 'text') + '" id="' + id + '" value="' + esc(val || '') + '"></div>';
+        apriModale('<h2>Modifica iscrizione</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Correggi i dati raccolti dal modulo. '
+            + 'Cambiando email o data la scheda viene spostata, e stato e nota la seguono.</p>'
+            + '<div class="griglia-2">'
+            + campo('mi-nome', 'Nome', r.nome) + campo('mi-cognome', 'Cognome', r.cognome)
+            + campo('mi-email', 'Email', r.email, 'email') + campo('mi-tel', 'Telefono', r.telefono)
+            + campo('mi-azienda', 'Azienda', r.azienda) + campo('mi-ruolo', 'Ruolo', r.ruolo)
+            + campo('mi-data', 'Data iscrizione', r.data)
+            + '</div>'
+            + '<div class="campo"><label for="mi-msg">Messaggio</label>'
+            + '<textarea id="mi-msg" rows="2">' + esc(r.messaggio || '') + '</textarea></div>'
+            + '<div id="mi-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="mi-no">Annulla</button>'
+            + '<button class="btn btn-primary" id="mi-si">Salva</button></div>', { classe: 'larga' });
+        document.getElementById('mi-no').addEventListener('click', chiudiModale);
+        document.getElementById('mi-si').addEventListener('click', () => {
+            const v = id => (document.getElementById(id) || {}).value || '';
+            const campi = {
+                nome: v('mi-nome').trim(), cognome: v('mi-cognome').trim(),
+                email: v('mi-email').trim().toLowerCase(), telefono: v('mi-tel').trim(),
+                azienda: v('mi-azienda').trim(), ruolo: v('mi-ruolo').trim(),
+                data: v('mi-data').trim(), messaggio: v('mi-msg').trim()
+            };
+            const b = document.getElementById('mi-si');
+            b.disabled = true; b.textContent = 'Salvo...';
+            Cloud.operaPresenza({ azione: 'modifica', evento: ev.id, idIscritto: r.id, pagina: r.pagina, campi: campi }).then(res => {
+                if (!res.ok) {
+                    b.disabled = false; b.textContent = 'Salva';
+                    const e = document.getElementById('mi-esito');
+                    if (e) e.innerHTML = '<span class="ev-ko">' + esc(res.msg || 'Modifica non riuscita.') + '</span>';
+                    return;
+                }
+                chiudiModale(); toast('Iscrizione aggiornata.', 'verde');
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizione modificata', 'sistema', ev.id, null, r.id); } catch (e) { }
+                // si rilegge dal server: cosi' l'identificativo nuovo e l'ordine sono quelli veri
+                _evUltimoTentativo[ev.id] = 0;
+                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
                 if (vistaCorrente === 'eventi') vistaEventi();
             });
         });

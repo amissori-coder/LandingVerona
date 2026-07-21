@@ -122,7 +122,11 @@ module.exports = async (req, res) => {
                 abilitati = Array.isArray(cfg.abilitati) ? cfg.abilitati.map(x => String(x).toLowerCase()) : [];
             }
         } catch (_) { abilitati = []; }
-        if (ruolo !== 'admin' && abilitati.indexOf(email) < 0) {
+        // Il contrassegno "eventi" sulla scheda utente vale QUANTO l'elenco condiviso:
+        // e' l'unica strada che funziona per i ruoli "solo sondaggio", ed e' la stessa
+        // regola applicata da /api/presenze. Se le due regole divergono si finisce con
+        // utenti che possono scrivere ma non leggere.
+        if (ruolo !== 'admin' && uDoc.data().eventi !== true && abilitati.indexOf(email) < 0) {
             res.status(403).json({ ok: false, msg: 'Non sei abilitato alla sezione Eventi.' });
             return;
         }
