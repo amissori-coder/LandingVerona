@@ -318,7 +318,10 @@ a { color: var(--blu-700); }
     /* col menu aperto le voci + il riquadro utente superavano l'altezza dello schermo
        e "Esci" restava tagliato: la barra si limita allo schermo e scorre dentro di se */
     .sidebar.menu-aperto { border-bottom: 1px solid rgba(255,255,255,0.12); max-height: 100vh; max-height: 100dvh; overflow-y: auto; }
-    .sidebar.menu-aperto nav { display: flex; flex-direction: column; flex-wrap: nowrap; padding: 6px 12px 12px; }
+    /* flex:0 0 auto + overflow visibile: senza, la nav (flex:1 e overflow-y:auto)
+       assorbiva tutta la compressione e si riduceva a poche voci, mentre a scorrere
+       doveva essere la barra. Cosi la nav resta intera e scorre la barra. */
+    .sidebar.menu-aperto nav { display: flex; flex-direction: column; flex-wrap: nowrap; padding: 6px 12px 12px; flex: 0 0 auto; overflow-y: visible; }
     .sidebar.menu-aperto .nav-voce { width: 100%; font-size: 0.98rem; padding: 12px 14px; }
     .sidebar.menu-aperto .utente-box { display: block; }
     .sidebar.menu-aperto .presenza-box { display: flex; }
@@ -1034,7 +1037,9 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     table.dati thead { display: none; }
     table.dati tfoot { display: block; }
     table.dati tfoot tr { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; padding: 12px 14px; }
-    table.dati tfoot td { display: inline; padding: 0; border: none; white-space: normal !important; }
+    /* width:auto annulla il width:100% della regola qui sopra: senza, ogni totale
+       diventava un elemento flex largo quanto la riga e andava a capo da solo */
+    table.dati tfoot td { display: inline; width: auto; padding: 0; border: none; white-space: normal !important; }
     /* i totali del piede portano la loro etichetta, altrimenti sarebbero numeri anonimi */
     table.dati tfoot td[data-label]::before {
         content: attr(data-label) ': '; font-weight: 600; color: var(--grigio-600);
@@ -1057,10 +1062,15 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
         white-space: normal !important; overflow-wrap: break-word;
         font-size: 0.9rem; line-height: 1.35;
     }
+    /* Le colonne di date e importi sulla vista desktop hanno white-space:nowrap con
+       selettori piu specifici (table.dati td[data-label="Inizio"] ecc.): dentro una
+       colonna di scheda larga ~150px il testo non andrebbe a capo e sfonderebbe la
+       pagina. [data-label] alza la specificita quel tanto che basta per batterli. */
+    table.dati tbody td[data-label] { white-space: normal !important; }
     table.dati tbody td::before {
         content: attr(data-label); display: block;
         font-weight: 600; color: var(--grigio-600);
-        font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.04em;
+        font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em;
         line-height: 1.25; margin-bottom: 1px;
     }
     /* le spunte sono valori brevissimi: etichetta e valore sulla stessa riga,
@@ -1077,11 +1087,15 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     table.dati.compatta tbody td.col-mark { text-align: left; }
     table.dati.compatta tbody td { padding: 4px 0; }
     table.dati.compatta tbody td.cliente-cella { padding: 0 0 7px; }
-    /* cella senza valore: sparisce anche l'etichetta, invece di lasciare una riga muta */
-    table.dati tbody td:empty { display: none; }
+    /* Cella senza valore: sparisce anche l'etichetta, invece di lasciare una riga muta.
+       Solo se ha un data-label: nelle tabelle che non lo usano i valori si riconoscono
+       dalla POSIZIONE, e nasconderne uno sposterebbe tutti gli altri. */
+    table.dati tbody td[data-label]:empty { display: none; }
     /* il nome (Cliente / Cognome / Nome) e' il titolo della scheda: a tutta larghezza,
-       piu grande, senza etichetta sopra */
+       piu grande, senza etichetta sopra. order:-1 lo porta in cima anche quando nel
+       markup non e' la prima cella (in Eventi la prima e' la casella di selezione). */
     table.dati tbody td.cliente-cella {
+        order: -1;
         grid-column: 1 / -1; font-size: 1.02rem; font-weight: 700; color: var(--blu-900);
         padding: 0 0 7px; margin-bottom: 5px; border-bottom: 1px solid var(--grigio-100);
     }
@@ -1101,6 +1115,8 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     table.dati tbody td select,
     table.dati tbody td input,
     table.dati tbody td textarea { max-width: 100%; }
+    /* casella di selezione grande abbastanza da centrarla col dito (era 13x13) */
+    table.dati tbody td input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; }
 }
 
 /* =========================================================
@@ -1140,9 +1156,13 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     .barra-tabella-azioni { grid-column: 1 / -1; margin-left: 0; width: 100%; }
     .barra-tabella-azioni .btn { flex: 1 1 auto; justify-content: center; }
 
-    /* wizard: i passi scorrono in orizzontale invece di ammucchiarsi su piu righe */
-    .wizard-passi { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; margin-bottom: 16px; }
-    .wizard-passo { flex: 0 0 auto; }
+    /* Wizard: i passi VANNO A CAPO. Facendoli scorrere in orizzontale il passo attivo
+       finiva fuori schermo dal terzo in poi, e a ogni "Avanti" la vista si ridisegna
+       riportando lo scorrimento a zero: si perdeva il segno di dove si e arrivati.
+       A capo occupano due righe ma sono sempre tutti visibili. */
+    .wizard-passi { flex-wrap: wrap; gap: 5px; margin-bottom: 16px; }
+    .wizard-passo { flex: 0 1 auto; padding: 6px 10px; font-size: 0.75rem; }
+    .wizard-passo .n { width: 19px; height: 19px; font-size: 0.7rem; }
 
     .griglia-2, .griglia-3 { grid-template-columns: 1fr; }
 
@@ -1156,6 +1176,13 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     .barra-stampa { flex-direction: column; align-items: stretch; }
     .barra-stampa .btn { width: 100%; justify-content: center; }
     .lettera-anteprima { padding: 22px 16px; }
+
+    /* Campi a 16px: sotto questa misura iOS Safari INGRANDISCE la pagina appena si
+       tocca un campo, e non la rimpicciolisce piu. Con 16px la pagina resta ferma. */
+    .campo input, .campo select, .campo textarea,
+    .filtri .campo input, .filtri .campo select,
+    .barra-tabella .campo input, .barra-tabella .campo select,
+    table.dati tbody td select, table.dati tbody td input { font-size: 16px; }
 
     /* avvisi a comparsa: a tutta larghezza, non una strisciolina nell'angolo */
     .toast-area { left: 12px; right: 12px; bottom: 12px; }
