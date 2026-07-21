@@ -1138,7 +1138,7 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken, evento, idEvento, tutti: !!tutti })
+                    body: JSON.stringify({ idToken, evento, idEvento, tutti: !!tutti, filtri: tutti ? FILTRI_EVENTI : [] })
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Lettura non riuscita (' + r.status + ').') };
@@ -6073,17 +6073,29 @@
     ========================================================= */
     /* Un evento per riquadro: "filtro" e' la parola cercata nella colonna Pagina
        delle iscrizioni, "nota" spiega un elenco vuoto quando il modulo non c'e' ancora. */
+    // in ordine di data; il riepilogo resta in coda
     const EVENTI_DEF = [
-        { id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', filtro: 'napoli', pagina: 'Napoli 2 Ottobre 2026' },
+        { id: 'verona-2026-03-27', titolo: 'Verona', quando: '27 marzo 2026', giorno: '2026-03-27', filtro: 'verona', pagina: 'Verona 27 Marzo 2026' },
+        { id: 'roma-2026-04-29', titolo: 'Roma', quando: '29 aprile 2026', giorno: '2026-04-29', filtro: 'roma', pagina: 'Roma 29 Aprile 2026' },
+        { id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', giorno: '2026-10-02', filtro: 'napoli', pagina: 'Napoli 2 Ottobre 2026' },
         {
-            id: 'milano-2027-02-27', titolo: 'Milano', quando: '27 febbraio 2027', filtro: 'milano', pagina: 'Milano 27 Febbraio 2027',
+            id: 'milano-2027-02-27', titolo: 'Milano', quando: '27 febbraio 2027', giorno: '2027-02-27', filtro: 'milano', pagina: 'Milano 27 Febbraio 2027',
             nota: 'Il modulo di iscrizione non e ancora pubblicato: le iscrizioni compariranno qui da sole appena sara attivo.'
         },
-        { id: 'verona-2026-03-27', titolo: 'Verona', quando: '27 marzo 2026', filtro: 'verona', pagina: 'Verona 27 Marzo 2026' },
-        { id: 'roma-2026-04-29', titolo: 'Roma', quando: '29 aprile 2026', filtro: 'roma', pagina: 'Roma 29 Aprile 2026' },
         // riepilogo: tutte le iscrizioni insieme, senza presenze (non servono qui)
-        { id: 'tutti', titolo: 'Tutte', quando: 'ogni evento', filtro: '', tutti: true }
+        { id: 'tutti', titolo: 'Tutte', quando: 'ogni evento', giorno: '', filtro: '', tutti: true }
     ];
+    // filtri dei soli eventi veri: servono al riepilogo per NON pescare le iscrizioni
+    // degli altri moduli del sito, che finiscono nello stesso archivio
+    const FILTRI_EVENTI = EVENTI_DEF.filter(e => !e.tutti && e.filtro).map(e => e.filtro);
+    /* All'ingresso si apre il primo evento non ancora passato: e' quello su cui si
+       lavora. Se sono tutti passati si apre l'ultimo. */
+    function eventoIniziale() {
+        const oggi = new Date().toISOString().slice(0, 10);
+        const veri = EVENTI_DEF.filter(e => !e.tutti);
+        const prossimo = veri.find(e => e.giorno >= oggi);
+        return (prossimo || veri[veri.length - 1] || EVENTI_DEF[0]).id;
+    }
     const EventiConfig = {
         leggi() {
             const c = Store.leggi(CHIAVI.eventiConfig, null) || {};
@@ -6161,7 +6173,7 @@
     let _evFirma = '';           // impronta dell'elenco: serve a ridisegnare solo se e cambiato
     let _evAggiornato = 0;       // ora dell'ultima lettura riuscita
     let _evTimer = null;
-    let _evSel = EVENTI_DEF[0].id;   // evento aperto in questo momento
+    let _evSel = eventoIniziale();   // evento aperto in questo momento
     let _evReq = 0;                  // numero della lettura in corso: le vecchie si scartano
     const EV_INTERVALLO = 45000; // ricontrollo automatico: le iscrizioni non arrivano a raffica
 
@@ -6282,7 +6294,7 @@
         const mia = ++_evReq;
         const idEv = ev.id;
         const superata = () => (mia !== _evReq || idEv !== _evSel);
-        Cloud.iscrizioniEvento(ev.filtro, ev.tutti ? '' : ev.id, !!ev.tutti).then(r => {
+        Cloud.iscrizioniEvento(ev.filtro, ev.id, !!ev.tutti).then(r => {
             if (superata()) return;
             _evInFlight = false;
             let cambiato = false;
@@ -6377,7 +6389,8 @@
                 + (adminEv
                     ? '<td data-label="" class="ev-azioni"><button class="btn btn-sm btn-secondary ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
                     + '<button class="btn btn-sm btn-secondary ev-canc" data-id="'
-                    + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">Cancella</button></td>'
+                    + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
+                    + (ev.tutti ? 'Togli' : 'Cancella') + '</button></td>'
                     : '')
                 + '</tr>';
         }).join('');
@@ -6387,7 +6400,8 @@
             ? '<div class="ev-barra' + (nSel ? '' : ' vuota') + '">'
             + '<span><b>' + nSel + '</b> iscrizioni selezionate</span>'
             + '<button class="btn btn-sm btn-secondary" id="ev-sel-nessuna">Deseleziona</button>'
-            + '<button class="btn btn-sm btn-danger" id="ev-canc-multi">Cancella le selezionate</button></div>'
+            + '<button class="btn btn-sm btn-danger" id="ev-canc-multi">'
+            + (ev.tutti ? 'Togli le selezionate da questo elenco' : 'Cancella le selezionate') + '</button></div>'
             : '';
         return barra + sceltaColonneHtml(ev, lista) + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
             + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
@@ -6557,24 +6571,30 @@
         const elenco = (ids || []).filter(Boolean);
         if (!elenco.length) return;
         const uno = elenco.length === 1;
-        apriModale('<h2>' + (uno ? 'Cancellare l\'iscrizione?' : 'Cancellare ' + elenco.length + ' iscrizioni?') + '</h2>'
-            + '<p>Stai per togliere ' + (uno
-                ? '<strong>' + esc(nome || elenco[0]) + '</strong>'
-                : '<strong>' + elenco.length + ' persone</strong>')
-            + ' dall\'elenco di ' + esc(ev.titolo) + '. '
+        const chi = uno ? '<strong>' + esc(nome || elenco[0]) + '</strong>' : '<strong>' + elenco.length + ' persone</strong>';
+        // Dal riepilogo si toglie SOLO dal riepilogo: la scheda resta nel suo evento.
+        const testa = ev.tutti
+            ? '<h2>' + (uno ? 'Togliere dal riepilogo?' : 'Togliere ' + elenco.length + ' righe dal riepilogo?') + '</h2>'
+            + '<p>' + chi + ' non ' + (uno ? 'comparira' : 'compariranno') + ' piu in questo elenco riepilogativo.</p>'
+            + '<p class="hint">L\'iscrizione resta nel suo evento, con stato e nota: qui si nasconde soltanto.</p>'
+            : '<h2>' + (uno ? 'Cancellare l\'iscrizione?' : 'Cancellare ' + elenco.length + ' iscrizioni?') + '</h2>'
+            + '<p>Stai per togliere ' + chi + ' dall\'elenco di ' + esc(ev.titolo) + '. '
             + (uno ? 'Sparira' : 'Spariranno') + ' per tutti, insieme allo stato e alla nota collegati.</p>'
-            + '<p class="hint">Non ricompariranno nemmeno se le loro righe sono ancora sul foglio.</p>'
+            + '<p class="hint">Non ricompariranno nemmeno se le loro righe sono ancora sul foglio.</p>';
+        apriModale(testa
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ci-no">Annulla</button>'
-            + '<button class="btn btn-danger" id="ci-si">Cancella</button></div>');
+            + '<button class="btn btn-danger" id="ci-si">' + (ev.tutti ? 'Togli' : 'Cancella') + '</button></div>');
         document.getElementById('ci-no').addEventListener('click', chiudiModale);
         document.getElementById('ci-si').addEventListener('click', () => {
             const b = document.getElementById('ci-si');
-            b.disabled = true; b.textContent = 'Cancello...';
+            b.disabled = true; b.textContent = ev.tutti ? 'Tolgo...' : 'Cancello...';
             Cloud.operaPresenza({ azione: 'cancella', evento: ev.id, idIscritti: elenco }).then(r => {
                 chiudiModale();
                 if (!r.ok) { toast(r.msg || 'Cancellazione non riuscita.', 'rosso'); return; }
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizioni cancellate', 'sistema', ev.id, null, (nome || '') + ' (' + elenco.length + ')'); } catch (e) { }
-                toast(uno ? 'Iscrizione cancellata.' : elenco.length + ' iscrizioni cancellate.', 'verde');
+                toast(ev.tutti
+                    ? (uno ? 'Tolta dal riepilogo.' : elenco.length + ' righe tolte dal riepilogo.')
+                    : (uno ? 'Iscrizione cancellata.' : elenco.length + ' iscrizioni cancellate.'), 'verde');
                 _evIscrizioni = (_evIscrizioni || []).filter(x => elenco.indexOf(x.id) < 0);
                 elenco.forEach(id => { delete _evPresenze[id]; _evSelezionate.delete(id); });
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);

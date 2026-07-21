@@ -135,7 +135,19 @@ module.exports = async (req, res) => {
         //    serve alla schermata che raccoglie le iscrizioni di tutti gli eventi.
         const tutti = body.tutti === true;
         const filtro = tutti ? '' : chiave(body.evento || 'napoli');
+        // Nel riepilogo NON si prende tutto il database: sullo stesso archivio scrivono
+        // anche gli altri moduli del sito. Si tengono solo le iscrizioni degli eventi
+        // che l'area riservata conosce, indicati da chi chiama.
+        const filtriTutti = Array.isArray(body.filtri)
+            ? body.filtri.map(chiave).filter(Boolean)
+            : [];
         const idEvento = String(body.idEvento || '');
+        const tieni = (pagina) => {
+            const p = chiave(pagina);
+            if (!tutti) return !filtro || p.indexOf(filtro) >= 0;
+            if (!filtriTutti.length) return true;
+            return filtriTutti.some(f => p.indexOf(f) >= 0);
+        };
 
         // 4b) stati, note e cancellazioni stanno sul server: si leggono qui, cosi'
         //     l'area riservata riceve tutto con una sola richiesta e mostra l'elenco
@@ -173,7 +185,7 @@ module.exports = async (req, res) => {
             snap.forEach(d => {
                 const v = d.data() || {};
                 const pag = String(v.pagina || '');
-                if (filtro && chiave(pag).indexOf(filtro) < 0) return;
+                if (!tieni(pag)) return;
                 const em = String(v.email || '');
                 daFirestore.push({
                     id: (em.toLowerCase() || (chiave(v.nome) + '.' + chiave(v.cognome))) + '|' + String(v.data || ''),
@@ -236,7 +248,7 @@ module.exports = async (req, res) => {
             const riga = righe[i];
             if (!riga || !riga.length) continue;
             const pagina = cella(riga, iPagina);
-            if (filtro && chiave(pagina).indexOf(filtro) < 0) continue;
+            if (!tieni(pagina)) continue;
             const em = cella(riga, iEmail);
             const nome = cella(riga, iNome), cognome = cella(riga, iCognome);
             if (!em && !nome && !cognome) continue;

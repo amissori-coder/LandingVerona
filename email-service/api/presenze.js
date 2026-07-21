@@ -155,6 +155,13 @@ module.exports = async (req, res) => {
                 if (nel >= 400) { await batch.commit(); batch = db.batch(); nel = 0; }
             }
             if (nel) await batch.commit();
+            // Dal RIEPILOGO ("tutti") si toglie solo dall'elenco riepilogativo: la
+            // scheda e la sua presenza restano intatte nel singolo evento. La traccia
+            // scritta sopra vale infatti solo per l'elenco "tutti".
+            if (evento === 'tutti') {
+                res.status(200).json({ ok: true, cancellate: daCancellare.length, soloRiepilogo: true });
+                return;
+            }
             // La scheda vera e propria: il nome del documento si ricava dallo stesso
             // identificativo usato dal form ("email|data"), quindi si cancella SOLO
             // quella persona per quell'evento, non tutte le sue iscrizioni.
