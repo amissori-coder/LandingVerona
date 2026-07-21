@@ -315,7 +315,9 @@ a { color: var(--blu-700); }
     .sidebar .brand { padding: 14px 16px; border-bottom: none; display: flex; align-items: center; }
     .sidebar .brand .titolo-area { display: none; }
     .sidebar nav, .sidebar .utente-box, .sidebar .presenza-box { display: none; }
-    .sidebar.menu-aperto { border-bottom: 1px solid rgba(255,255,255,0.12); }
+    /* col menu aperto le voci + il riquadro utente superavano l'altezza dello schermo
+       e "Esci" restava tagliato: la barra si limita allo schermo e scorre dentro di se */
+    .sidebar.menu-aperto { border-bottom: 1px solid rgba(255,255,255,0.12); max-height: 100vh; max-height: 100dvh; overflow-y: auto; }
     .sidebar.menu-aperto nav { display: flex; flex-direction: column; flex-wrap: nowrap; padding: 6px 12px 12px; }
     .sidebar.menu-aperto .nav-voce { width: 100%; font-size: 0.98rem; padding: 12px 14px; }
     .sidebar.menu-aperto .utente-box { display: block; }
@@ -325,68 +327,10 @@ a { color: var(--blu-700); }
     .sidebar.menu-aperto .nav-hamburger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 }
 
-/* ---------- Smartphone: schede al posto delle tabelle larghe ---------- */
-@media (max-width: 620px) {
-    html { font-size: 15px; }
-    .card { padding: 16px; }
-    .contenuto > header { flex-direction: column; align-items: stretch; }
-    .header-azioni { width: 100%; }
-    .header-azioni .btn { flex: 1 1 auto; justify-content: center; }
-    .kpi-griglia { grid-template-columns: 1fr 1fr; gap: 10px; }
-    .kpi { padding: 12px 14px; }
-    .kpi .valore { font-size: 1.25rem; }
-    .filtri, .barra-tabella { flex-direction: column; align-items: stretch; }
-    .filtri .campo, .filtri .campo.ricerca, .barra-tabella .campo { min-width: 0; width: 100%; }
-    .barra-tabella-azioni { margin-left: 0; width: 100%; }
-    .barra-tabella-azioni .btn { flex: 1 1 auto; justify-content: center; }
-    .wizard-passi { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
-    .wizard-passo { flex: 0 0 auto; }
-    .griglia-2, .griglia-3 { grid-template-columns: 1fr; }
-    .barra-stampa { flex-direction: column; align-items: stretch; }
-    .barra-stampa .btn { width: 100%; justify-content: center; }
-    .modale { padding: 20px 16px; }
-    .lettera-anteprima { padding: 24px 18px; }
-}
-
-/* Sotto i 1000px le tabelle larghe non possono comprimersi oltre senza scorrere in
-   orizzontale o spezzare i contenuti: ogni riga di OGNI tabella diventa una scheda
-   impilata e leggibile. Le celle senza data-label mostrano solo il valore. */
-@media (max-width: 1000px) {
-    table.dati,
-    table.dati thead,
-    table.dati tbody,
-    table.dati tr,
-    table.dati td { display: block; width: 100%; }
-    table.dati thead { display: none; }
-    table.dati tfoot { display: block; }
-    table.dati tfoot tr { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; padding: 12px 14px; }
-    table.dati tfoot td { display: inline; padding: 0; border: none; white-space: normal !important; }
-    /* i totali del piede portano la loro etichetta, altrimenti sarebbero numeri anonimi */
-    table.dati tfoot td[data-label]::before {
-        content: attr(data-label) ': '; font-weight: 600; color: var(--grigio-600);
-        font-size: 0.75rem; text-transform: uppercase;
-    }
-    .tabella-wrap { overflow-x: visible; background: transparent; box-shadow: none; border: none; }
-    table.dati tbody tr {
-        background: #fff; border: 1px solid var(--grigio-200); border-radius: var(--raggio);
-        box-shadow: var(--ombra); padding: 6px 4px; margin-bottom: 12px;
-    }
-    table.dati tbody tr:nth-child(even) { background: #fff; }
-    table.dati tbody td {
-        display: flex; justify-content: space-between; align-items: center; gap: 12px;
-        padding: 8px 14px; border: none; border-bottom: 1px solid var(--grigio-100); text-align: right;
-        white-space: normal !important;
-    }
-    table.dati tbody td:last-child { border-bottom: none; }
-    table.dati tbody td::before {
-        content: attr(data-label); font-weight: 600; color: var(--grigio-600);
-        font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; text-align: left; flex: 0 0 auto;
-    }
-    table.dati tbody td.cliente-cella { font-size: 1rem; }
-    table.dati tbody td:not([data-label])::before, table.dati tbody td[data-label=""]::before { content: none; }
-    table.dati tbody td[data-label=""] { justify-content: stretch; }
-    table.dati tbody td[data-label=""] .btn { width: 100%; justify-content: center; }
-}
+/* Nota: le regole per smartphone (max-width: 620px) stanno in fondo al foglio, non
+   qui. Una media query NON aumenta la specificita: scritte prima delle definizioni
+   di base (.card, .kpi, .filtri, .modale...) venivano annullate dalle regole desktop
+   che seguono, e sul telefono non si applicavano affatto. */
 
 /* ---------- Card e KPI ---------- */
 .card { background: #fff; border-radius: var(--raggio); box-shadow: var(--ombra); border: 1px solid var(--grigio-200); padding: 20px; margin-bottom: 18px; }
@@ -1073,5 +1017,144 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     .s-scelta-comp { padding: 0 12px 12px 12px; }
     .mi-utente { flex-wrap: wrap; }
     .s-modale-compila .modale-corpo { padding: 16px 16px 22px; }
+}
+
+/* Sotto i 1000px le tabelle larghe non possono comprimersi oltre senza scorrere in
+   orizzontale o spezzare i contenuti: ogni riga di OGNI tabella diventa una scheda
+   impilata e leggibile. Le celle senza data-label mostrano solo il valore. */
+@media (max-width: 1000px) {
+    table.dati,
+    table.dati thead,
+    table.dati tbody,
+    table.dati tr,
+    table.dati td { display: block; width: 100%; }
+    table.dati thead { display: none; }
+    table.dati tfoot { display: block; }
+    table.dati tfoot tr { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; padding: 12px 14px; }
+    table.dati tfoot td { display: inline; padding: 0; border: none; white-space: normal !important; }
+    /* i totali del piede portano la loro etichetta, altrimenti sarebbero numeri anonimi */
+    table.dati tfoot td[data-label]::before {
+        content: attr(data-label) ': '; font-weight: 600; color: var(--grigio-600);
+        font-size: 0.75rem; text-transform: uppercase;
+    }
+    .tabella-wrap { overflow-x: visible; background: transparent; box-shadow: none; border: none; }
+    /* La scheda NON e' un elenco di 12 righe piene (era altissima e tutta uguale):
+       il nome fa da titolo, gli altri campi vanno in una griglia che si adatta alla
+       larghezza, con l'etichetta piccola SOPRA il valore. Cosi il valore lungo va a
+       capo nella sua colonna invece di sfilacciare la riga. */
+    table.dati tbody tr {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+        gap: 0 14px; align-items: start;
+        background: #fff; border: 1px solid var(--grigio-200); border-radius: var(--raggio);
+        box-shadow: var(--ombra); padding: 12px 14px; margin-bottom: 10px;
+    }
+    table.dati tbody tr:nth-child(even) { background: #fff; }
+    table.dati tbody td {
+        display: block; min-width: 0; padding: 4px 0; border: none; text-align: left;
+        white-space: normal !important; overflow-wrap: break-word;
+        font-size: 0.9rem; line-height: 1.35;
+    }
+    table.dati tbody td::before {
+        content: attr(data-label); display: block;
+        font-weight: 600; color: var(--grigio-600);
+        font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.04em;
+        line-height: 1.25; margin-bottom: 1px;
+    }
+    /* le spunte sono valori brevissimi: etichetta e valore sulla stessa riga,
+       altrimenti una casella "si/no" costava due righe come un indirizzo email */
+    table.dati tbody td.col-mark { display: flex; align-items: baseline; gap: 6px; }
+    table.dati tbody td.col-mark::before { margin-bottom: 0; }
+    /* gli importi restano in evidenza, con le cifre allineate */
+    table.dati tbody td.num { font-weight: 700; font-variant-numeric: tabular-nums; }
+    /* Queste battono le regole "per colonna" della vista desktop, che sono piu
+       specifiche (table.dati td.num, table.dati.compatta td, ...): dentro una scheda
+       l'allineamento a destra e i padding da tabella non hanno senso. */
+    table.dati tbody td.num,
+    table.dati.compatta tbody td.num,
+    table.dati.compatta tbody td.col-mark { text-align: left; }
+    table.dati.compatta tbody td { padding: 4px 0; }
+    table.dati.compatta tbody td.cliente-cella { padding: 0 0 7px; }
+    /* cella senza valore: sparisce anche l'etichetta, invece di lasciare una riga muta */
+    table.dati tbody td:empty { display: none; }
+    /* il nome (Cliente / Cognome / Nome) e' il titolo della scheda: a tutta larghezza,
+       piu grande, senza etichetta sopra */
+    table.dati tbody td.cliente-cella {
+        grid-column: 1 / -1; font-size: 1.02rem; font-weight: 700; color: var(--blu-900);
+        padding: 0 0 7px; margin-bottom: 5px; border-bottom: 1px solid var(--grigio-100);
+    }
+    table.dati tbody td.cliente-cella::before { display: none; }
+    table.dati tbody td:not([data-label])::before, table.dati tbody td[data-label=""]::before { content: none; display: none; }
+    /* celle senza etichetta (pulsanti, caselle di selezione): tutta la larghezza */
+    table.dati tbody td[data-label=""] {
+        grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    }
+    /* i pulsanti chiudono la scheda e si dividono la riga invece di impilarsi */
+    table.dati tbody td[data-label=""]:last-child {
+        padding-top: 10px; margin-top: 5px; border-top: 1px solid var(--grigio-100);
+    }
+    table.dati tbody td[data-label=""] .btn { flex: 1 1 auto; justify-content: center; margin-bottom: 0; }
+    /* tendine e caselle dentro una scheda non devono sfondare la colonna
+       (es. il ruolo in Utenti, largo quanto l'opzione piu lunga) */
+    table.dati tbody td select,
+    table.dati tbody td input,
+    table.dati tbody td textarea { max-width: 100%; }
+}
+
+/* =========================================================
+   SMARTPHONE (max-width: 620px)
+   Questo blocco sta in FONDO al foglio di proposito: una media query non aumenta
+   la specificita, quindi per vincere sulle regole di base (.card, .kpi, .filtri,
+   .modale, .lettera-anteprima...) deve venire dopo di esse. Scritto piu in alto,
+   come era prima, sul telefono non si applicava e restavano le misure da desktop.
+========================================================= */
+@media (max-width: 620px) {
+    html { font-size: 15px; }
+
+    /* intestazione di sezione: titolo sopra, pulsanti che si dividono la riga */
+    .contenuto { padding: 16px 14px 48px; }
+    .contenuto > header { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px; }
+    .contenuto > header h1 { font-size: 1.25rem; }
+    .contenuto > header .descrizione { font-size: 0.85rem; }
+    .header-azioni { width: 100%; }
+    .header-azioni .btn { flex: 1 1 auto; justify-content: center; }
+
+    /* riquadri e indicatori: due per riga, non uno gigante per schermata */
+    .card { padding: 14px; margin-bottom: 14px; }
+    .card h2 { font-size: 1rem; }
+    .kpi-griglia { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .kpi { padding: 11px 12px; }
+    .kpi .etichetta { font-size: 0.66rem; letter-spacing: 0.04em; }
+    .kpi .valore { font-size: 1.2rem; }
+    .kpi .nota { font-size: 0.72rem; }
+
+    /* filtri su DUE colonne: impilati uno per riga occupavano una schermata intera
+       prima ancora di far vedere un dato. La ricerca resta a tutta larghezza. */
+    .filtri, .barra-tabella { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; align-items: end; padding: 10px 12px; }
+    .filtri .campo, .barra-tabella .campo { min-width: 0; width: auto; margin-bottom: 0; }
+    .filtri .campo.ricerca, .barra-tabella .campo.ricerca { grid-column: 1 / -1; }
+    .filtro-conteggio { grid-column: 1 / -1; }
+    .barra-tabella-azioni { grid-column: 1 / -1; margin-left: 0; width: 100%; }
+    .barra-tabella-azioni .btn { flex: 1 1 auto; justify-content: center; }
+
+    /* wizard: i passi scorrono in orizzontale invece di ammucchiarsi su piu righe */
+    .wizard-passi { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; margin-bottom: 16px; }
+    .wizard-passo { flex: 0 0 auto; }
+
+    .griglia-2, .griglia-3 { grid-template-columns: 1fr; }
+
+    /* finestre: piu strette ai bordi e pulsanti che si dividono la riga */
+    .modale { padding: 18px 15px; }
+    .modale h2 { font-size: 1.05rem; }
+    .modale-azioni { flex-wrap: wrap; }
+    .modale-azioni .btn { flex: 1 1 auto; justify-content: center; }
+
+    /* stampa della lettera: margini da foglio A4 su un telefono erano sproporzionati */
+    .barra-stampa { flex-direction: column; align-items: stretch; }
+    .barra-stampa .btn { width: 100%; justify-content: center; }
+    .lettera-anteprima { padding: 22px 16px; }
+
+    /* avvisi a comparsa: a tutta larghezza, non una strisciolina nell'angolo */
+    .toast-area { left: 12px; right: 12px; bottom: 12px; }
+    .toast { max-width: none; }
 }
 
