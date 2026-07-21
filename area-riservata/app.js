@@ -489,8 +489,13 @@
         // Configurazioni: UN oggetto con chiavi, non un elenco di record. Senza questa
         // riga la fusione le trattava come elenco e andava in errore, cosi la modifica
         // restava solo in locale e non arrivava mai agli altri utenti.
-        if (chiave === CHIAVI.sondaggiConfig || chiave === CHIAVI.eventiConfig) return 'oggetto';
+        if (_eArchivioConfig(chiave)) return 'oggetto';
         return 'array';
+    }
+    /* Archivi di CONFIGURAZIONE (impostazioni, non elenchi di record). Vanno trattati a
+       parte: si fondono per chiave e non si ripubblicano mai da una copia locale. */
+    function _eArchivioConfig(chiave) {
+        return chiave === CHIAVI.sondaggiConfig || chiave === CHIAVI.eventiConfig;
     }
     function _parseDati(str, forma) {
         try { const v = JSON.parse(str); return v == null ? (forma === 'oggetto' ? {} : []) : v; }
@@ -1011,7 +1016,7 @@
             try {
                 const dati = await this.docUtente(utenteFb.email);
                 if (!dati || dati.attivo === false) { await signOut(this.auth); return null; }
-                await this.avviaSync(dati.ruolo);
+                await this.avviaSync(dati.ruolo, utenteFb.email);
                 return { email: utenteFb.email.toLowerCase(), nome: dati.nome || utenteFb.email, ruolo: dati.ruolo || 'procuratore' };
             } catch (e) { return null; }
         },
@@ -1030,7 +1035,7 @@
                 return { ok: false, msg: 'Utenza non abilitata: chiedi all\'amministratore di aggiungerti all\'elenco utenti.' };
             }
             try {
-                await this.avviaSync(dati.ruolo);
+                await this.avviaSync(dati.ruolo, email);
             } catch (e) {
                 try { await signOut(this.auth); } catch (e2) { }
                 return { ok: false, msg: 'Accesso verificato ma dati non raggiungibili (' + this.msgErrore(e) + '). Riprova tra poco.' };
@@ -1299,14 +1304,16 @@
         /* --- dati condivisi: un documento Firestore per archivio --- */
         _sync: null,
         archiviNonLetti: [],   // archivi che il server ha rifiutato: utile per capire i "non vedo la sezione"
-        avviaSync(ruolo) {
+        // ruolo ed email arrivano da fuori perche' qui Auth.utenteCorrente NON e' ancora
+        // valorizzato: viene impostato solo DOPO che questa promessa si e' risolta.
+        avviaSync(ruolo, email) {
             // memoizzata: chiamate concorrenti condividono la stessa promessa
             if (!this._sync) {
-                this._sync = this._eseguiSync(ruolo).catch(e => { this._sync = null; throw e; });
+                this._sync = this._eseguiSync(ruolo, email).catch(e => { this._sync = null; throw e; });
             }
             return this._sync;
         },
-        async _eseguiSync(ruolo) {
+        async _eseguiSync(ruolo, email) {
             if (this.pronto) return;
             this.archiviNonLetti = [];
             const { doc, getDoc, setDoc, onSnapshot, serverTimestamp } = this.fb.fsMod;
@@ -1336,7 +1343,11 @@
                 if (snap.exists() && typeof snap.data().json === 'string') {
                     localStorage.setItem(chiave, snap.data().json);
                     this._baseRemoto[chiave] = snap.data().json;
-                } else {
+                } else if (!_eArchivioConfig(chiave)) {
+                    // Le CONFIGURAZIONI (accessi Eventi, impostazioni sondaggio) non si
+                    // ripubblicano mai da una copia locale: se il documento sul server manca,
+                    // una copia vecchia rimasta in un browser riporterebbe indietro un elenco
+                    // gia' aggiornato altrove. Vengono create dal salvataggio vero e proprio.
                     // primo avvio del progetto: i dati locali fanno da base,
                     // ma gli incarichi dimostrativi non vengono caricati
                     let locale = localStorage.getItem(chiave);
@@ -1350,7 +1361,7 @@
                         // archivio/ruoli e scrivibile solo dall'amministratore (regole Firestore):
                         // un non-admin NON deve tentare questo bootstrap, altrimenti il permission-denied
                         // farebbe fallire tutta la sincronizzazione e lo bloccherebbe al login.
-                        const sonoAdmin = Auth.utenteCorrente && (Auth.utenteCorrente.ruolo === 'admin' || Auth.eProprietario());
+                        const sonoAdmin = ruolo === 'admin' || String(email || '').toLowerCase() === PROPRIETARIO;
                         if (!(chiave === CHIAVI.ruoli && !sonoAdmin)) {
                             try { await setDoc(rif, { json: locale, aggiornato: serverTimestamp(), da: 'bootstrap' }); this._baseRemoto[chiave] = locale; }
                             catch (e) { /* scrittura non consentita: si prosegue, i dati arrivano via onSnapshot */ }
@@ -1413,9 +1424,18 @@
         // record diversi non si sovrascrivono piu (niente perdita di dati).
         async _flush() {
             this._timerFlush = null;
+            // La coda si svuota SOLO se si puo' davvero scrivere. Prima veniva svuotata
+            // comunque e poi ci si fermava: le modifiche in attesa sparivano per sempre,
+            // senza errore e senza un nuovo tentativo. Si riprova finche' la sessione e'
+            // aperta; a utente uscito si smette, altrimenti si ritenterebbe all'infinito.
+            if (!this.pronto) {
+                const restano = Object.keys(this._pendenti).length > 0;
+                const sessioneAperta = this.attivo && this.auth && this.auth.currentUser;
+                if (restano && sessioneAperta) this._timerFlush = setTimeout(() => this._flush(), 2500);
+                return;
+            }
             const pendenti = this._pendenti;
             this._pendenti = {};
-            if (!this.pronto) return;
             const { doc, runTransaction, serverTimestamp } = this.fb.fsMod;
             const email = Auth.utenteCorrente ? Auth.utenteCorrente.email : 'sconosciuto';
             for (const chiave of Object.keys(pendenti)) {
