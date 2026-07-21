@@ -497,6 +497,14 @@
     function _eArchivioConfig(chiave) {
         return chiave === CHIAVI.sondaggiConfig || chiave === CHIAVI.eventiConfig;
     }
+    /* Archivi che NON vanno mai ricreati sul server partendo dalla copia di un browser:
+       il bootstrap usa una scrittura piena, senza fusione per record, quindi la copia di
+       chi entra per ultimo diventerebbe l'intero contenuto condiviso. Vale per le
+       configurazioni e per le presenze agli eventi, che ognuno modifica per conto suo.
+       Questi archivi nascono dal salvataggio vero e proprio, che invece fonde. */
+    function _senzaBootstrap(chiave) {
+        return _eArchivioConfig(chiave) || chiave === CHIAVI.eventiPresenze;
+    }
     /* Nome leggibile di un archivio, per i messaggi all'utente (che non deve
        ritrovarsi davanti sigle come "fattureStato"). */
     const NOMI_ARCHIVIO = {
@@ -1358,11 +1366,11 @@
                 if (snap.exists() && typeof snap.data().json === 'string') {
                     localStorage.setItem(chiave, snap.data().json);
                     this._baseRemoto[chiave] = snap.data().json;
-                } else if (!_eArchivioConfig(chiave)) {
-                    // Le CONFIGURAZIONI (accessi Eventi, impostazioni sondaggio) non si
-                    // ripubblicano mai da una copia locale: se il documento sul server manca,
-                    // una copia vecchia rimasta in un browser riporterebbe indietro un elenco
-                    // gia' aggiornato altrove. Vengono create dal salvataggio vero e proprio.
+                } else if (!_senzaBootstrap(chiave)) {
+                    // Configurazioni e presenze non si ripubblicano mai da una copia locale:
+                    // se il documento sul server manca, una copia vecchia rimasta in un
+                    // browser riporterebbe indietro dati gia' aggiornati altrove (il
+                    // bootstrap scrive tutto, non fonde). Li crea il salvataggio vero.
                     // primo avvio del progetto: i dati locali fanno da base,
                     // ma gli incarichi dimostrativi non vengono caricati
                     let locale = localStorage.getItem(chiave);
@@ -1428,7 +1436,7 @@
         _pendenti: {},
         _baseRemoto: {},   // ultimo valore remoto visto per chiave (base della fusione)
         _timerFlush: null,
-        _erroreMostrato: false,
+        _erroreMostrato: {},   // ultimo avviso mostrato, per archivio
         sincronizza(chiave, valore) {
             if (!this.attivo || !this.pronto || !this.DOC_SYNC || !this.DOC_SYNC[chiave]) return;
             // gli utenti "solo sondaggio" possono scrivere UNICAMENTE le risposte del
@@ -1486,21 +1494,26 @@
                     // server restava un messaggio generico e non si capiva cosa correggere
                     this.archiviNonScritti[nomeDoc] = codice;
                     this._tentativi[chiave] = (this._tentativi[chiave] || 0) + 1;
+                    // "Rinuncia" vuol dire SOLO smettere di riprovare da soli a raffica: il
+                    // valore resta SEMPRE in coda, altrimenti una rete ballerina (cinque
+                    // tentativi a vuoto) farebbe sparire la modifica al rientro successivo.
+                    // Con una scrittura andata a buon fine la coda riparte da sola.
+                    if (this._pendenti[chiave] == null) this._pendenti[chiave] = localStr;
                     const rinuncia = codice === 'permission-denied' || this._tentativi[chiave] >= 5;
-                    if (!rinuncia) {
-                        // rimetti in coda per un nuovo tentativo: la modifica non va persa
-                        if (this._pendenti[chiave] == null) this._pendenti[chiave] = localStr;
-                        if (!this._timerFlush && this.pronto) this._timerFlush = setTimeout(() => this._flush(), 2500);
+                    if (!rinuncia && !this._timerFlush && this.pronto) {
+                        this._timerFlush = setTimeout(() => this._flush(), 2500);
                     }
-                    if (!this._erroreMostrato) {
-                        this._erroreMostrato = true;
-                        const coda = ' La modifica resta solo su questo computer: riferiscilo all\'amministratore.';
+                    // avviso per ARCHIVIO, non uno solo per tutti: due archivi salvati
+                    // insieme (presenze e registro attivita) si zittivano a vicenda
+                    if (!this._erroreMostrato[nomeDoc]) {
+                        this._erroreMostrato[nomeDoc] = true;
+                        const coda = ' La modifica resta su questo computer e verra reinviata al prossimo salvataggio.';
                         toast(!rinuncia
                             ? 'Salvataggio di "' + nomeArchivio(nomeDoc) + '" non ancora condiviso, nuovo tentativo in corso.'
                             : (codice === 'permission-denied'
-                                ? 'Il server ha RIFIUTATO il salvataggio di "' + nomeArchivio(nomeDoc) + '" (permessi).' + coda
+                                ? 'Il server ha RIFIUTATO il salvataggio di "' + nomeArchivio(nomeDoc) + '" (permessi). Riferiscilo all\'amministratore.' + coda
                                 : 'Salvataggio di "' + nomeArchivio(nomeDoc) + '" non riuscito dopo piu tentativi (' + codice + ').' + coda), 'rosso');
-                        setTimeout(() => { this._erroreMostrato = false; }, 5000);
+                        setTimeout(() => { this._erroreMostrato[nomeDoc] = false; }, 5000);
                     }
                 }
             }
