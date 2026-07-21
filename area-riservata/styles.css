@@ -1021,8 +1021,11 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 
 /* Sotto i 1000px le tabelle larghe non possono comprimersi oltre senza scorrere in
    orizzontale o spezzare i contenuti: ogni riga di OGNI tabella diventa una scheda
-   impilata e leggibile. Le celle senza data-label mostrano solo il valore. */
-@media (max-width: 1000px) {
+   impilata e leggibile. Le celle senza data-label mostrano solo il valore.
+   "screen and": un foglio A4 e largo circa 794px, quindi senza questo vincolo la
+   regola varrebbe anche in stampa e, stando dopo @media print, gli toglierebbe
+   l'intestazione ripetuta della tabella. Su carta serve la tabella vera. */
+@media screen and (max-width: 1000px) {
     table.dati,
     table.dati thead,
     table.dati tbody,
@@ -1106,8 +1109,9 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
    la specificita, quindi per vincere sulle regole di base (.card, .kpi, .filtri,
    .modale, .lettera-anteprima...) deve venire dopo di esse. Scritto piu in alto,
    come era prima, sul telefono non si applicava e restavano le misure da desktop.
+   Vale solo per lo schermo: in stampa i margini del foglio li decide @media print.
 ========================================================= */
-@media (max-width: 620px) {
+@media screen and (max-width: 620px) {
     html { font-size: 15px; }
 
     /* intestazione di sezione: titolo sopra, pulsanti che si dividono la riga */
