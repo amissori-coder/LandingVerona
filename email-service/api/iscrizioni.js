@@ -1,0 +1,170 @@
+/* ============================================================
+   Iscrizioni agli eventi (Area riservata Revilaw)
+   ------------------------------------------------------------
+   Legge il foglio Google dei form del sito e restituisce SOLO le
+   iscrizioni dell'evento richiesto (es. Napoli 2 Ottobre 2026).
+
+   Sicurezza: i dati sono personali (nome, email, telefono), quindi
+   l'endpoint NON e' pubblico. Chi chiama deve:
+     1. essere autenticato (ID token Firebase verificato qui);
+     2. essere un utente abilitato e attivo (collezione "utenti");
+     3. essere amministratore OPPURE essere nell'elenco degli abilitati
+        alla sezione Eventi (archivio/eventiConfig).
+
+   Il foglio si legge con l'account di servizio gia' configurato per
+   Firebase (FIREBASE_SERVICE_ACCOUNT): basta condividere il foglio in
+   sola lettura con la sua email e abilitare l'API Google Sheets.
+   Nessuna credenziale nuova nel codice: tutto da variabili d'ambiente.
+   ============================================================ */
+
+const admin = require('firebase-admin');
+const { JWT } = require('google-auth-library');
+
+function leggiServiceAccount() {
+    const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
+    if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT mancante');
+    let testo = raw;
+    if (testo[0] !== '{') {
+        try {
+            const dec = Buffer.from(testo, 'base64').toString('utf8').trim();
+            if (dec[0] === '{') testo = dec;
+        } catch (_) { /* lo segnala JSON.parse */ }
+    }
+    let cred;
+    try { cred = JSON.parse(testo); }
+    catch (_) { throw new Error('FIREBASE_SERVICE_ACCOUNT non valido'); }
+    if (cred.private_key && cred.private_key.includes('\\n')) {
+        cred.private_key = cred.private_key.replace(/\\n/g, '\n');
+    }
+    return cred;
+}
+
+let appPronta = false;
+function initAdmin(cred) {
+    if (appPronta) return;
+    admin.initializeApp({ credential: admin.credential.cert(cred) });
+    appPronta = true;
+}
+
+// token di sola lettura per l'API Google Sheets, firmato con l'account di servizio
+async function tokenSheets(cred) {
+    const client = new JWT({
+        email: cred.client_email,
+        key: cred.private_key,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
+    });
+    const t = await client.getAccessToken();
+    const token = t && typeof t === 'object' ? t.token : t;
+    if (!token) throw new Error('Token Google non ottenuto');
+    return token;
+}
+
+// normalizza un'intestazione ("Cognome " -> "cognome") per mappare le colonne per NOME
+function chiave(s) {
+    return String(s == null ? '' : s).trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');  // via gli accenti combinanti
+}
+
+module.exports = async (req, res) => {
+    const origin = process.env.ALLOWED_ORIGIN || '*';
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+    if (req.method !== 'POST') { res.status(405).json({ ok: false, msg: 'Metodo non consentito' }); return; }
+
+    try {
+        const cred = leggiServiceAccount();
+        initAdmin(cred);
+        const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+
+        // 1) autenticazione
+        const idToken = String(body.idToken || '');
+        if (!idToken) { res.status(401).json({ ok: false, msg: 'Autenticazione mancante' }); return; }
+        let decoded;
+        try { decoded = await admin.auth().verifyIdToken(idToken); }
+        catch (e) { res.status(401).json({ ok: false, msg: 'Sessione non valida: rientra e riprova.' }); return; }
+        const email = String(decoded.email || '').toLowerCase();
+        if (!email) { res.status(401).json({ ok: false, msg: 'Utente non valido' }); return; }
+
+        // 2) utente abilitato e attivo
+        const uDoc = await admin.firestore().collection('utenti').doc(email).get();
+        if (!uDoc.exists || uDoc.data().attivo === false) { res.status(403).json({ ok: false, msg: 'Utenza non abilitata.' }); return; }
+        const ruolo = String(uDoc.data().ruolo || '');
+
+        // 3) autorizzazione alla sezione Eventi: admin oppure nell'elenco abilitati
+        let abilitati = [];
+        try {
+            const cfgDoc = await admin.firestore().collection('archivio').doc('eventiConfig').get();
+            if (cfgDoc.exists) {
+                const cfg = JSON.parse(cfgDoc.data().json || '{}');
+                abilitati = Array.isArray(cfg.abilitati) ? cfg.abilitati.map(x => String(x).toLowerCase()) : [];
+            }
+        } catch (_) { abilitati = []; }
+        if (ruolo !== 'admin' && abilitati.indexOf(email) < 0) {
+            res.status(403).json({ ok: false, msg: 'Non sei abilitato alla sezione Eventi.' });
+            return;
+        }
+
+        // 4) lettura del foglio
+        const sheetId = process.env.EVENTI_SHEET_ID || '';
+        if (!sheetId) { res.status(500).json({ ok: false, msg: 'EVENTI_SHEET_ID non configurato sul servizio.' }); return; }
+        const range = process.env.EVENTI_SHEET_RANGE || 'A:K';
+        const token = await tokenSheets(cred);
+        const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(sheetId)
+            + '/values/' + encodeURIComponent(range) + '?majorDimension=ROWS';
+        const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+        if (!r.ok) {
+            const dett = await r.text().catch(() => '');
+            console.error('Lettura foglio non riuscita:', r.status, dett.slice(0, 300));
+            const msg = r.status === 403
+                ? 'Il foglio non e condiviso con l\'account di servizio, oppure l\'API Google Sheets non e abilitata.'
+                : (r.status === 404 ? 'Foglio non trovato: controlla EVENTI_SHEET_ID.' : 'Lettura del foglio non riuscita (' + r.status + ').');
+            res.status(502).json({ ok: false, msg: msg });
+            return;
+        }
+        const dati = await r.json();
+        const righe = Array.isArray(dati.values) ? dati.values : [];
+        if (!righe.length) { res.status(200).json({ ok: true, iscrizioni: [], aggiornato: Date.now() }); return; }
+
+        // 5) mappa le colonne per NOME (non per posizione): il foglio puo cambiare ordine
+        const intest = righe[0].map(chiave);
+        const col = n => intest.indexOf(n);
+        const iData = col('data'), iPagina = col('pagina'), iNome = col('nome'), iCognome = col('cognome');
+        const iEmail = col('email'), iAzienda = col('azienda'), iRuolo = col('ruolo');
+        const iTel = col('telefono'), iMsg = col('messaggio');
+        const cella = (riga, i) => (i >= 0 && riga[i] != null) ? String(riga[i]).trim() : '';
+
+        // 6) filtro per evento: di default "napoli" (confronto senza accenti/maiuscole)
+        const filtro = chiave(body.evento || 'napoli');
+        const iscrizioni = [];
+        for (let i = 1; i < righe.length; i++) {
+            const riga = righe[i];
+            if (!riga || !riga.length) continue;
+            const pagina = cella(riga, iPagina);
+            if (filtro && chiave(pagina).indexOf(filtro) < 0) continue;
+            const em = cella(riga, iEmail);
+            const nome = cella(riga, iNome), cognome = cella(riga, iCognome);
+            if (!em && !nome && !cognome) continue;
+            iscrizioni.push({
+                // id stabile: serve all'app per agganciare presenze e note
+                id: (em.toLowerCase() || (chiave(nome) + '.' + chiave(cognome))) + '|' + cella(riga, iData),
+                data: cella(riga, iData),
+                pagina: pagina,
+                nome: nome,
+                cognome: cognome,
+                email: em,
+                azienda: cella(riga, iAzienda),
+                ruolo: cella(riga, iRuolo),
+                telefono: cella(riga, iTel),
+                messaggio: cella(riga, iMsg)
+            });
+        }
+
+        res.status(200).json({ ok: true, iscrizioni: iscrizioni, aggiornato: Date.now() });
+    } catch (e) {
+        const motivo = String((e && e.message) || 'errore').slice(0, 200);
+        console.error('Iscrizioni: lettura non riuscita:', motivo);
+        res.status(500).json({ ok: false, msg: motivo });
+    }
+};

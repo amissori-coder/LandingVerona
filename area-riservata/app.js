@@ -180,6 +180,8 @@
         comunicazioni: 'rvArea.comunicazioni',
         sondaggi: 'rvArea.sondaggi',
         sondaggiConfig: 'rvArea.sondaggiConfig',
+        eventiConfig: 'rvArea.eventiConfig',       // chi e abilitato alla sezione Eventi
+        eventiPresenze: 'rvArea.eventiPresenze',   // conferme/presenze e note (dati nostri)
         ruoli: 'rvArea.ruoli',
         impostazioni: 'rvArea.impostazioni'
     };
@@ -902,6 +904,8 @@
         puoVedere(sez) {
             if (sez === 'utenti' || sez === 'ruoli') return this.eAdmin() || this.eProprietario();
             if (sez === 'dati') return this.eProprietario();
+            // "Eventi" non passa dai ruoli: la vede l'admin e i soli utenti scelti a mano
+            if (sez === 'eventi') return puoVedereEventi();
             return this.accessoSezione(sez) !== 'no';
         },
         puoScrivere(sez) {
@@ -970,6 +974,8 @@
                 this.DOC_SYNC[CHIAVI.comunicazioni] = 'comunicazioni';
                 this.DOC_SYNC[CHIAVI.sondaggi] = 'sondaggi';
                 this.DOC_SYNC[CHIAVI.sondaggiConfig] = 'sondaggiConfig';
+                this.DOC_SYNC[CHIAVI.eventiConfig] = 'eventiConfig';
+                this.DOC_SYNC[CHIAVI.eventiPresenze] = 'eventiPresenze';
                 this.DOC_SYNC[CHIAVI.ruoli] = 'ruoli';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
@@ -1070,6 +1076,30 @@
                 return { ok: true, inviati: data.inviati, falliti: (data && data.falliti) || [] };
             } catch (e) {
                 return { ok: false, msg: 'Servizio di invio non raggiungibile.' };
+            }
+        },
+
+        /* Iscrizioni a un evento, lette dal foglio Google tramite il servizio (che
+           verifica chi chiama e filtra le righe dell'evento). Nessun dato personale
+           finisce nel repository: arriva a video e resta su Firestore. */
+        async iscrizioniEvento(evento) {
+            let url = window.RV_ISCRIZIONI_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'iscrizioni$1');
+            if (!url) return { ok: false, msg: 'Servizio iscrizioni non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, evento })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Lettura non riuscita (' + r.status + ').') };
+                return { ok: true, iscrizioni: data.iscrizioni || [], aggiornato: data.aggiornato || Date.now() };
+            } catch (e) {
+                return { ok: false, msg: 'Servizio iscrizioni non raggiungibile.' };
             }
         },
 
@@ -2372,6 +2402,7 @@
         { id: 'responsabili', nome: 'Responsabili', icona: 'M9 12l2 2 4-4M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z' },
         { id: 'comunicazioni', nome: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
         { id: 'sondaggi', nome: 'Sondaggi', icona: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 13l2 2 4-4' },
+        { id: 'eventi', nome: 'Eventi', icona: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
         { id: 'ruoli', nome: 'Ruoli e permessi', icona: 'M12 15a3 3 0 100-6 3 3 0 000 6zM12 1v2m0 18v2m11-11h-2M3 12H1m17.66 6.66l-1.42-1.42M6.76 6.76 5.34 5.34m12.32 0-1.42 1.42M6.76 17.24l-1.42 1.42', soloAdmin: true },
@@ -2407,6 +2438,7 @@
             responsabili: vistaResponsabili,
             comunicazioni: vistaComunicazioni,
             sondaggi: vistaSondaggi,
+            eventi: vistaEventi,
             registro: vistaRegistro,
             utenti: vistaUtenti,
             ruoli: vistaRuoli,
@@ -5862,6 +5894,170 @@
                 _sondUtenti = null; // l'invio puo' aver creato nuovi account
                 if (vistaCorrente === 'sondaggi') vistaSondaggi();
             }).catch(() => { chiudiModale(); toast('Errore durante l\'invio degli inviti.', 'rosso'); });
+        });
+    }
+
+    /* =========================================================
+       VISTA: EVENTI (iscrizioni raccolte dai form del sito)
+       ---------------------------------------------------------
+       Sezione riservata: la vedono l'amministratore e i soli utenti
+       che lui abilita. Le iscrizioni arrivano dal foglio Google
+       tramite il servizio (che filtra l'evento): restano a video e
+       non vengono salvate in locale. Conferme/presenze e note sono
+       dati nostri e si salvano nell'archivio condiviso.
+    ========================================================= */
+    const EVENTI_DEF = [
+        { id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', filtro: 'napoli' }
+    ];
+    const EventiConfig = {
+        leggi() {
+            const c = Store.leggi(CHIAVI.eventiConfig, null) || {};
+            return { abilitati: Array.isArray(c.abilitati) ? c.abilitati.map(e => String(e).toLowerCase()) : [] };
+        },
+        salva(cfg) { Store.scrivi(CHIAVI.eventiConfig, { abilitati: (cfg.abilitati || []).map(e => String(e).toLowerCase()) }); }
+    };
+    const EventiPresenze = {
+        tutte() { const l = Store.leggi(CHIAVI.eventiPresenze, []); return Array.isArray(l) ? l : []; },
+        di(evento, id) { return this.tutte().find(p => p && p.evento === evento && p.id === id) || null; },
+        imposta(evento, id, patch) {
+            const l = this.tutte();
+            const i = l.findIndex(p => p && p.evento === evento && p.id === id);
+            if (i >= 0) l[i] = { ...l[i], ...patch };
+            else l.push({ evento: evento, id: id, ...patch });
+            Store.scrivi(CHIAVI.eventiPresenze, l);
+        }
+    };
+    function puoVedereEventi() {
+        if (Auth.eAdmin() || Auth.eProprietario()) return true;
+        const u = Auth.utenteCorrente; if (!u) return false;
+        return EventiConfig.leggi().abilitati.indexOf(String(u.email).toLowerCase()) >= 0;
+    }
+
+    let _evIscrizioni = null;    // solo in memoria: i dati personali non si salvano nel browser
+    let _evMsg = '';
+    let _evInFlight = false;
+
+    function caricaIscrizioni(ev, poi) {
+        if (_evInFlight) return;
+        if (typeof Cloud === 'undefined' || !Cloud.attivo) { _evMsg = 'Le iscrizioni richiedono l\'accesso cloud (non disponibili in modalita dimostrativa).'; if (poi) poi(); return; }
+        _evInFlight = true;
+        Cloud.iscrizioniEvento(ev.filtro).then(r => {
+            _evInFlight = false;
+            if (r && r.ok) { _evIscrizioni = r.iscrizioni; _evMsg = ''; }
+            else { _evIscrizioni = _evIscrizioni || []; _evMsg = (r && r.msg) || 'Lettura non riuscita.'; }
+            if (poi) poi();
+        }).catch(() => { _evInFlight = false; _evMsg = 'Lettura non riuscita.'; if (poi) poi(); });
+    }
+
+    function tabellaIscrizioni(ev, lista) {
+        const righe = lista.map(r => {
+            const p = EventiPresenze.di(ev.id, r.id) || {};
+            const opz = (v, t) => '<option value="' + v + '"' + (p.stato === v ? ' selected' : '') + '>' + t + '</option>';
+            return '<tr>'
+                + '<td data-label="Data">' + esc(r.data) + '</td>'
+                + '<td class="cliente-cella" data-label="Nome">' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
+                + '<td data-label="Azienda">' + esc(r.azienda) + '</td>'
+                + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
+                + '<td data-label="Email">' + esc(r.email) + '</td>'
+                + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
+                + '<td data-label="Stato"><select class="ev-stato" data-id="' + esc(r.id) + '">'
+                + opz('', '-') + opz('confermato', 'Confermato') + opz('presente', 'Presente') + opz('assente', 'Assente')
+                + '</select></td>'
+                + '<td data-label="Nota"><input type="text" class="ev-nota" data-id="' + esc(r.id) + '" value="' + esc(p.nota || '') + '" placeholder="nota"></td>'
+                + '</tr>';
+        }).join('');
+        return '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
+            + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Stato</th><th>Nota</th>'
+            + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
+    }
+
+    function vistaEventi() {
+        if (!puoVedereEventi()) { naviga('dashboard'); return; }
+        const admin = Auth.eAdmin() || Auth.eProprietario();
+        const ev = EVENTI_DEF[0];
+        const cfg = EventiConfig.leggi();
+        // primo ingresso: carica da solo (poi si aggiorna col pulsante)
+        if (_evIscrizioni === null && !_evInFlight && Cloud.attivo) {
+            caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
+        }
+        const nIsc = _evIscrizioni ? _evIscrizioni.length : null;
+        const conf = _evIscrizioni ? _evIscrizioni.filter(r => { const p = EventiPresenze.di(ev.id, r.id); return p && (p.stato === 'confermato' || p.stato === 'presente'); }).length : 0;
+
+        const gestione = admin
+            ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
+            + '<div class="hint">Oltre all\'amministratore, vedono gli Eventi <b>' + cfg.abilitati.length + '</b> utenti abilitati.</div></div>'
+            + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button></div></div>'
+            : '';
+        const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
+        const corpo = _evIscrizioni === null
+            ? '<div class="card tabella-vuota">' + (_evInFlight ? 'Carico le iscrizioni...' : 'Premi "Aggiorna dal foglio" per caricare le iscrizioni.') + '</div>'
+            : (!_evIscrizioni.length ? '<div class="card tabella-vuota">Nessuna iscrizione per questo evento.</div>' : tabellaIscrizioni(ev, _evIscrizioni));
+
+        $vista().innerHTML = '<header><div><h1>Eventi</h1>'
+            + '<p class="descrizione">Le iscrizioni raccolte dai form del sito. Sezione riservata agli utenti abilitati.</p></div>'
+            + '<div class="header-azioni"><button class="btn btn-primary" id="ev-aggiorna"' + (_evInFlight ? ' disabled' : '') + '>'
+            + (_evInFlight ? 'Aggiorno...' : 'Aggiorna dal foglio') + '</button></div></header>'
+            + '<div class="card ev-testa"><div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
+            + '<div class="hint">' + esc(ev.quando) + '</div></div>'
+            + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscritti</span></div>'
+            + '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div></div>'
+            + gestione + avviso + corpo;
+
+        const bAgg = document.getElementById('ev-aggiorna');
+        if (bAgg) bAgg.addEventListener('click', () => {
+            _evMsg = ''; _evIscrizioni = _evIscrizioni || null;
+            caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
+            vistaEventi();
+        });
+        const bAcc = document.getElementById('ev-accessi');
+        if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
+        // presenze e note: si salvano subito (archivio condiviso)
+        $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
+            EventiPresenze.imposta(ev.id, s.dataset.id, { stato: s.value });
+            try { Audit.registra(Auth.utenteCorrente, 'Evento: stato iscritto aggiornato', 'sistema', ev.id, null, s.dataset.id + ' -> ' + (s.value || '-')); } catch (e) { }
+            vistaEventi();
+        }));
+        $vista().querySelectorAll('.ev-nota').forEach(n => n.addEventListener('change', () => {
+            EventiPresenze.imposta(ev.id, n.dataset.id, { nota: n.value.trim() });
+        }));
+        const tab = $vista().querySelector('table.dati');
+        if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
+    }
+
+    /* Chi puo aprire la sezione Eventi: elenco di utenti scelti dall'amministratore. */
+    function modaleEventiAbilitati(utenti) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        utenti = utenti || [];
+        const sel = new Set(EventiConfig.leggi().abilitati);
+        const me = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : '';
+        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me);
+        const righe = lista.length ? lista.map(u => {
+            const e = String(u.email).toLowerCase();
+            return '<div class="mi-utente" data-email="' + esc(e) + '">'
+                + '<label class="mi-flag"><input type="checkbox" class="ev-ab" value="' + esc(e) + '"' + (sel.has(e) ? ' checked' : '') + '> abilitato</label>'
+                + '<span class="mi-nome">' + esc(u.nome || e) + '</span><span class="mi-mail">' + esc(e) + '</span></div>';
+        }).join('') : '<p class="hint">Nessun altro utente disponibile.</p>';
+        apriModale('<h2>Chi puo vedere la sezione Eventi</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">L\'amministratore la vede sempre. Spunta gli utenti che devono poterla aprire: gli altri non vedranno nemmeno la voce di menu.</p>'
+            + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Utenti</label>'
+            + '<button type="button" class="btn btn-sm btn-ghost" id="ev-nessuno">Deseleziona tutti</button></div>'
+            + '<input type="text" id="ev-cerca" class="mi-cerca" placeholder="Cerca per nome o email">'
+            + '<div class="mi-utenti">' + righe + '</div></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ev-no">Annulla</button>'
+            + '<button class="btn btn-primary" id="ev-si">Salva</button></div>', { classe: 'larga' });
+        const cerca = document.getElementById('ev-cerca');
+        if (cerca) cerca.addEventListener('input', () => {
+            const q = cerca.value.trim().toLowerCase();
+            document.querySelectorAll('.mi-utente').forEach(l => { l.style.display = (!q || l.textContent.toLowerCase().indexOf(q) >= 0) ? '' : 'none'; });
+        });
+        const bNes = document.getElementById('ev-nessuno');
+        if (bNes) bNes.addEventListener('click', () => { document.querySelectorAll('.ev-ab').forEach(c => { c.checked = false; }); });
+        document.getElementById('ev-no').addEventListener('click', chiudiModale);
+        document.getElementById('ev-si').addEventListener('click', () => {
+            const abilitati = Array.from(document.querySelectorAll('.ev-ab:checked')).map(c => c.value);
+            EventiConfig.salva({ abilitati: abilitati });
+            try { Audit.registra(Auth.utenteCorrente, 'Eventi: accessi aggiornati', 'sistema', 'eventiConfig', null, 'abilitati ' + abilitati.length); } catch (e) { }
+            chiudiModale(); toast('Accessi aggiornati.', 'verde'); vistaEventi();
         });
     }
 

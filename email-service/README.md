@@ -132,3 +132,29 @@ programmata parte quindi al primo mattino utile **a partire dalla** data scelta,
 non all'ora esatta impostata — perfetto per invii settimanali/mensili/
 trimestrali/annuali. Il `vercel.json` alza il timeout della funzione cron a
 `maxDuration: 60` (tetto Hobby) per gestire più invii nello stesso mattino.
+
+## Iscrizioni agli eventi (`/api/iscrizioni`)
+
+Legge il foglio Google dei form del sito e restituisce **solo** le iscrizioni
+dell'evento richiesto (di default "napoli"). I dati sono personali, quindi
+l'endpoint non e pubblico: verifica l'ID token Firebase di chi chiama, controlla
+che sia un utente abilitato e attivo, e che sia amministratore **oppure**
+presente nell'elenco `abilitati` di `archivio/eventiConfig`.
+
+Configurazione (una tantum):
+
+1. **Condividi il foglio** con l'account di servizio gia usato da Firebase.
+   L'indirizzo e il campo `client_email` dentro `FIREBASE_SERVICE_ACCOUNT`
+   (finisce con `@...iam.gserviceaccount.com`): dallo Sheet, *Condividi* ->
+   incolla quell'indirizzo -> permesso **Visualizzatore**.
+2. **Abilita l'API Google Sheets** nel progetto Google Cloud del service account
+   (console Google Cloud > API e servizi > Libreria > "Google Sheets API" > Abilita).
+3. Aggiungi su Vercel la variabile d'ambiente:
+   - `EVENTI_SHEET_ID` = l'ID del foglio (la parte fra `/d/` e `/edit` nell'URL)
+   - facoltativa: `EVENTI_SHEET_RANGE` (default `A:K`)
+4. **Redeploy** del servizio.
+
+Le colonne vengono lette **per nome** dall'intestazione (`Data, Pagina, Nome,
+Cognome, Email, Azienda, Ruolo, Telefono, Messaggio, ...`), quindi l'ordine puo
+cambiare senza rompere nulla. Il filtro dell'evento confronta la colonna
+`Pagina` (senza accenti/maiuscole).

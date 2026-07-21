@@ -5,6 +5,7 @@
   "description": "Servizio email dell'Area riservata Revilaw (link + invio via Aruba SMTP)",
   "dependencies": {
     "firebase-admin": "^12.7.0",
+    "google-auth-library": "^9.14.1",
     "nodemailer": "^6.9.14"
   }
 }
