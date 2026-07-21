@@ -1616,7 +1616,10 @@
             const { collection, getDocs } = this.fb.fsMod;
             const snap = await getDocs(collection(this.db, 'utenti'));
             const out = [];
-            snap.forEach(d => out.push({ email: d.id, ...d.data() }));
+            // l'identita' vera e' l'ID del documento (l'indirizzo con cui si entra): va messo
+            // DOPO i campi, altrimenti un eventuale campo "email" dentro il documento lo
+            // sostituirebbe e si finirebbe per abilitare un indirizzo diverso da quello reale
+            snap.forEach(d => out.push({ ...d.data(), email: d.id }));
             return out.sort((a, b) => a.email.localeCompare(b.email));
         },
         async salvaUtente(email, dati) {
@@ -5257,16 +5260,22 @@
     // elenco utenti abilitati: in cloud e async (cache), in demo e sincrono
     let _sondUtenti = null;
     let _sondUtentiInFlight = false;
+    let _sondUtentiKo = false;   // l'ultima lettura e' fallita: l'elenco a video NON e' attendibile
     function utentiSond(cb) {
         if (_sondUtenti) { cb(_sondUtenti); return; }
         if (typeof Cloud !== 'undefined' && Cloud.attivo && typeof Cloud.listaUtenti === 'function') {
             if (_sondUtentiInFlight) return; // richiesta gia in corso: niente doppioni ne loop di render
             _sondUtentiInFlight = true;
             Cloud.listaUtenti()
-                .then(u => { _sondUtenti = u || []; _sondUtentiInFlight = false; cb(_sondUtenti); })
-                .catch(() => { _sondUtenti = []; _sondUtentiInFlight = false; cb(_sondUtenti); }); // fallito: cache vuota, niente loop
-        } else { _sondUtenti = Auth.utenti(); cb(_sondUtenti); }
+                .then(u => { _sondUtenti = u || []; _sondUtentiKo = false; _sondUtentiInFlight = false; cb(_sondUtenti); })
+                // Fallita: si memorizza comunque una cache vuota per non entrare in un ciclo di
+                // richieste, ma si ALZA una bandierina. Chi salva elenchi basandosi su questa
+                // lista deve sapere che e' incompleta, altrimenti finirebbe per cancellare dati.
+                .catch(() => { _sondUtenti = []; _sondUtentiKo = true; _sondUtentiInFlight = false; cb(_sondUtenti); });
+        } else { _sondUtenti = Auth.utenti(); _sondUtentiKo = false; cb(_sondUtenti); }
     }
+    // nuovo tentativo esplicito dopo un errore (pulsante "Riprova")
+    function ricaricaUtentiSond(cb) { _sondUtenti = null; _sondUtentiKo = false; utentiSond(cb); }
     // gruppi del sondaggio, allineati alla sezione Persone (niente "Team di revisione";
     // "Tutte le persone" = tutta l'anagrafica con email). Gli invitati si scelgono dalle
     // Persone: chi non e' anche un utente con ruolo avra' accesso "solo sondaggio".
@@ -6045,7 +6054,9 @@
         const perPersona = loc.map(e => {
             const u = utenti.find(x => String(x.email).toLowerCase() === e);
             let esito;
-            if (!utenti.length) esito = '<span class="hint">elenco utenze non ancora caricato</span>';
+            if (!utenti.length) esito = _sondUtentiKo
+                ? '<span class="ev-ko">elenco utenze non caricato: non e possibile controllare</span>'
+                : '<span class="hint">elenco utenze non ancora caricato</span>';
             else if (!u) esito = '<span class="ev-ko">nessuna utenza con questa email</span>';
             else if (u.attivo === false) esito = '<span class="ev-ko">utenza disattivata</span>';
             else if (eRuoloSoloSondaggio(u.ruolo)) esito = '<span class="ev-ko">ruolo "' + esc(nomeRuolo(u.ruolo)) + '": non puo leggere gli archivi generali, va cambiato il ruolo</span>';
@@ -6218,14 +6229,27 @@
                 + '<span class="mi-nome">' + esc(u.nome || e) + '</span><span class="mi-mail">' + esc(e) + '</span>'
                 + (nota ? '<span class="ev-avviso">' + esc(nota) + '</span>' : '') + '</div>';
         }).join('') : '<p class="hint">Nessun altro utente disponibile.</p>';
+        // Se l'elenco utenze non e' arrivato, salvare sarebbe distruttivo (si salverebbe una
+        // lista basata su cio' che si vede, cioe' niente): meglio dirlo e bloccare il salvataggio.
+        const koLista = _sondUtentiKo || !lista.length;
+        const avvisoKo = koLista
+            ? '<div class="ev-blocco">Elenco utenze non disponibile in questo momento, quindi il salvataggio e disattivato: '
+            + 'salvare adesso cancellerebbe le abilitazioni gia impostate. <button type="button" class="btn btn-sm btn-secondary" id="ev-riprova">Riprova</button></div>'
+            : '';
         apriModale('<h2>Chi puo vedere la sezione Eventi</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">L\'amministratore la vede sempre. Spunta gli utenti che devono poterla aprire: gli altri non vedranno nemmeno la voce di menu.</p>'
+            + avvisoKo
             + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Utenti</label>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="ev-nessuno">Deseleziona tutti</button></div>'
             + '<input type="text" id="ev-cerca" class="mi-cerca" placeholder="Cerca per nome o email">'
             + '<div class="mi-utenti">' + righe + '</div></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ev-no">Annulla</button>'
-            + '<button class="btn btn-primary" id="ev-si">Salva</button></div>', { classe: 'larga' });
+            + '<button class="btn btn-primary" id="ev-si"' + (koLista ? ' disabled' : '') + '>Salva</button></div>', { classe: 'larga' });
+        const bRip = document.getElementById('ev-riprova');
+        if (bRip) bRip.addEventListener('click', () => {
+            bRip.disabled = true; bRip.textContent = 'Attendi...';
+            ricaricaUtentiSond(u => { chiudiModale(); modaleEventiAbilitati(u); });
+        });
         const cerca = document.getElementById('ev-cerca');
         if (cerca) cerca.addEventListener('input', () => {
             const q = cerca.value.trim().toLowerCase();
@@ -6235,7 +6259,15 @@
         if (bNes) bNes.addEventListener('click', () => { document.querySelectorAll('.ev-ab').forEach(c => { c.checked = false; }); });
         document.getElementById('ev-no').addEventListener('click', chiudiModale);
         document.getElementById('ev-si').addEventListener('click', () => {
-            const abilitati = Array.from(document.querySelectorAll('.ev-ab:checked')).map(c => c.value);
+            const caselle = Array.from(document.querySelectorAll('.ev-ab'));
+            if (!caselle.length) { toast('Elenco utenze non disponibile: riprova fra un momento.', 'rosso'); return; }
+            // Si PARTE dall'elenco gia salvato e si applicano solo le caselle effettivamente
+            // mostrate. Prima la lista veniva ricostruita da zero dal video: un indirizzo non
+            // disegnato (elenco parziale, non caricato, o utenza aggiunta dopo l'apertura della
+            // finestra) spariva in silenzio, e con lui l'accesso di quella persona.
+            const finale = new Set(EventiConfig.leggi().abilitati);
+            caselle.forEach(c => { if (c.checked) finale.add(c.value); else finale.delete(c.value); });
+            const abilitati = Array.from(finale);
             EventiConfig.salva({ abilitati: abilitati });
             try { Audit.registra(Auth.utenteCorrente, 'Eventi: accessi aggiornati', 'sistema', 'eventiConfig', null, 'abilitati ' + abilitati.length); } catch (e) { }
             chiudiModale(); toast('Accessi aggiornati.', 'verde'); vistaEventi();
