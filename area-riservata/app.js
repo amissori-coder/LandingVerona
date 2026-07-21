@@ -486,6 +486,10 @@
     function _formaDati(chiave) {
         if (chiave === CHIAVI.fatture) return 'oggetto';
         if (chiave === CHIAVI.audit) return 'audit';
+        // Configurazioni: UN oggetto con chiavi, non un elenco di record. Senza questa
+        // riga la fusione le trattava come elenco e andava in errore, cosi la modifica
+        // restava solo in locale e non arrivava mai agli altri utenti.
+        if (chiave === CHIAVI.sondaggiConfig || chiave === CHIAVI.eventiConfig) return 'oggetto';
         return 'array';
     }
     function _parseDati(str, forma) {
@@ -5918,12 +5922,16 @@
     };
     const EventiPresenze = {
         tutte() { const l = Store.leggi(CHIAVI.eventiPresenze, []); return Array.isArray(l) ? l : []; },
-        di(evento, id) { return this.tutte().find(p => p && p.evento === evento && p.id === id) || null; },
-        imposta(evento, id, patch) {
+        // id UNIVOCO per record (evento + iscritto): la fusione fra utenti lavora per id,
+        // cosi due persone che segnano iscritti diversi non si sovrascrivono a vicenda
+        _chiave(evento, idIscritto) { return evento + '~' + idIscritto; },
+        di(evento, idIscritto) { const k = this._chiave(evento, idIscritto); return this.tutte().find(p => p && p.id === k) || null; },
+        imposta(evento, idIscritto, patch) {
+            const k = this._chiave(evento, idIscritto);
             const l = this.tutte();
-            const i = l.findIndex(p => p && p.evento === evento && p.id === id);
+            const i = l.findIndex(p => p && p.id === k);
             if (i >= 0) l[i] = { ...l[i], ...patch };
-            else l.push({ evento: evento, id: id, ...patch });
+            else l.push({ id: k, evento: evento, idIscritto: idIscritto, ...patch });
             Store.scrivi(CHIAVI.eventiPresenze, l);
         }
     };
