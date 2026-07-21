@@ -76,6 +76,16 @@ function ordina(lista) {
     return lista.slice().sort((a, b) => quando(b.data) - quando(a.data));
 }
 
+/* Unica uscita per le risposte positive: toglie le iscrizioni cancellate
+   dall'amministratore (anche se tornassero dal foglio) e allega stati e note,
+   cosi' l'area riservata riceve tutto in una volta sola. */
+function rispondi(res, lista, fonti, presenze, cancellate, avviso) {
+    const vive = ordina(lista.filter(x => !cancellate[x.id]));
+    const out = { ok: true, iscrizioni: vive, presenze: presenze || {}, aggiornato: Date.now(), fonti: fonti };
+    if (avviso) out.avviso = avviso;
+    res.status(200).json(out);
+}
+
 module.exports = async (req, res) => {
     const origin = process.env.ALLOWED_ORIGIN || '*';
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -119,6 +129,35 @@ module.exports = async (req, res) => {
 
         // 4) filtro dell'evento (serve a entrambe le fonti)
         const filtro = chiave(body.evento || 'napoli');
+        const idEvento = String(body.idEvento || '');
+
+        // 4b) stati, note e cancellazioni stanno sul server: si leggono qui, cosi'
+        //     l'area riservata riceve tutto con una sola richiesta e mostra l'elenco
+        //     gia' completo, senza secondi giri e senza copie nel browser.
+        const presenze = {};
+        const cancellate = {};
+        if (idEvento) {
+            try {
+                const sp = await admin.firestore().collection('presenze').where('evento', '==', idEvento).get();
+                sp.forEach(d => {
+                    const v = d.data() || {};
+                    if (!v.idIscritto) return;
+                    presenze[v.idIscritto] = {
+                        stato: String(v.stato || ''), nota: String(v.nota || ''),
+                        da: String(v.da || ''), daNome: String(v.daNome || ''),
+                        quando: typeof v.quando === 'number' ? v.quando : 0
+                    };
+                });
+            } catch (e) {
+                console.error('Lettura presenze non riuscita:', String((e && e.message) || e).slice(0, 200));
+            }
+            try {
+                const sc = await admin.firestore().collection('iscrizioniCancellate').where('evento', '==', idEvento).get();
+                sc.forEach(d => { const v = d.data() || {}; if (v.idIscritto) cancellate[v.idIscritto] = true; });
+            } catch (e) {
+                console.error('Lettura cancellate non riuscita:', String((e && e.message) || e).slice(0, 200));
+            }
+        }
 
         // 5) prima fonte: Firestore, dove arrivano le iscrizioni nuove dal form.
         //    Non dipende ne' dall'API Sheets ne' dalla condivisione del foglio.
@@ -147,7 +186,7 @@ module.exports = async (req, res) => {
         //    con le sole iscrizioni di Firestore, invece di non mostrare niente.
         const sheetId = process.env.EVENTI_SHEET_ID || '';
         if (!sheetId) {
-            res.status(200).json({ ok: true, iscrizioni: ordina(daFirestore), aggiornato: Date.now(), fonti: ['firestore'] });
+            rispondi(res, daFirestore, ['firestore'], presenze, cancellate);
             return;
         }
         const range = process.env.EVENTI_SHEET_RANGE || 'A:K';
@@ -164,7 +203,7 @@ module.exports = async (req, res) => {
                 ? 'Il foglio non e condiviso con l\'account di servizio, oppure l\'API Google Sheets non e abilitata.'
                 : (r.status === 404 ? 'Foglio non trovato: controlla EVENTI_SHEET_ID.' : 'Lettura del foglio non riuscita (' + r.status + ').');
             if (daFirestore.length) {
-                res.status(200).json({ ok: true, iscrizioni: ordina(daFirestore), aggiornato: Date.now(), fonti: ['firestore'], avviso: msg });
+                rispondi(res, daFirestore, ['firestore'], presenze, cancellate, msg);
             } else {
                 res.status(502).json({ ok: false, msg: msg });
             }
@@ -173,7 +212,7 @@ module.exports = async (req, res) => {
         const dati = await r.json();
         const righe = Array.isArray(dati.values) ? dati.values : [];
         if (!righe.length) {
-            res.status(200).json({ ok: true, iscrizioni: ordina(daFirestore), aggiornato: Date.now(), fonti: ['firestore'] });
+            rispondi(res, daFirestore, ['firestore'], presenze, cancellate);
             return;
         }
 
@@ -215,8 +254,7 @@ module.exports = async (req, res) => {
         const perId = {};
         iscrizioni.forEach(x => { perId[x.id] = x; });
         daFirestore.forEach(x => { perId[x.id] = x; });
-        const unite = ordina(Object.keys(perId).map(k => perId[k]));
-        res.status(200).json({ ok: true, iscrizioni: unite, aggiornato: Date.now(), fonti: ['firestore', 'foglio'] });
+        rispondi(res, Object.keys(perId).map(k => perId[k]), ['firestore', 'foglio'], presenze, cancellate);
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 200);
         console.error('Iscrizioni: lettura non riuscita:', motivo);

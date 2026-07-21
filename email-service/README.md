@@ -150,6 +150,26 @@ Nessuna configurazione aggiuntiva: usa `FIREBASE_SERVICE_ACCOUNT`, gia presente.
 Per collegare un altro form basta aggiungere nella pagina un secondo `fetch` a
 questo indirizzo con lo stesso payload (vedi `napoli_ottobre_2026/script.js`).
 
+## Presenze, note e cancellazioni (`/api/presenze`)
+
+Stato ("confermato / presente / assente") e nota di ogni iscritto stanno nella
+collezione `presenze`, non piu in un archivio condiviso: cosi li vede e li puo
+cambiare **chiunque sia abilitato alla sezione Eventi**, qualunque sia il ruolo,
+perche la decisione la prende il servizio e non le regole di Firestore.
+
+Stessa autorizzazione della lettura iscrizioni: amministratore, contrassegno
+`eventi` sulla scheda utente, oppure presenza nell'elenco di `archivio/eventiConfig`.
+
+- `azione: "imposta"` con `stato` e/o `nota`: aggiorna una sola scheda (merge) e
+  registra chi ha fatto la modifica e quando. Risponde con lo stato **completo**
+  dopo la modifica, cosi salvare la sola nota non azzera lo stato.
+- `azione: "cancella"`: **solo amministratore**. Cancella l'iscrizione e la sua
+  presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
+  ricompare se la sua riga esiste ancora sul foglio.
+
+`/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
+riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
+
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
 Riservato all'**amministratore** (ID token verificato, ruolo `admin`). Porta

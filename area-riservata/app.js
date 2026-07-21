@@ -1127,7 +1127,7 @@
         /* Iscrizioni a un evento, lette dal foglio Google tramite il servizio (che
            verifica chi chiama e filtra le righe dell'evento). Nessun dato personale
            finisce nel repository: arriva a video e resta su Firestore. */
-        async iscrizioniEvento(evento) {
+        async iscrizioniEvento(evento, idEvento) {
             let url = window.RV_ISCRIZIONI_URL;
             if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'iscrizioni$1');
             if (!url) return { ok: false, msg: 'Servizio iscrizioni non configurato.' };
@@ -1138,13 +1138,36 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken, evento })
+                    body: JSON.stringify({ idToken, evento, idEvento })
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Lettura non riuscita (' + r.status + ').') };
-                return { ok: true, iscrizioni: data.iscrizioni || [], aggiornato: data.aggiornato || Date.now() };
+                return { ok: true, iscrizioni: data.iscrizioni || [], presenze: data.presenze || {}, aggiornato: data.aggiornato || Date.now() };
             } catch (e) {
                 return { ok: false, msg: 'Servizio iscrizioni non raggiungibile.' };
+            }
+        },
+
+        /* Stato, nota e cancellazione di un iscritto: decide il servizio, non le
+           regole di Firestore, cosi' funziona per tutti gli abilitati alla sezione. */
+        async operaPresenza(corpo) {
+            let url = window.RV_PRESENZE_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'presenze$1');
+            if (!url) return { ok: false, msg: 'Servizio non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, ...corpo })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
+                return { ok: true, presenza: data.presenza || null };
+            } catch (e) {
+                return { ok: false, msg: 'Servizio non raggiungibile.' };
             }
         },
 
@@ -6064,27 +6087,38 @@
         },
         salva(cfg) { Store.scrivi(CHIAVI.eventiConfig, { abilitati: (cfg.abilitati || []).map(e => String(e).toLowerCase()) }); }
     };
+    /* Stati e note vivono SUL SERVER, non nel browser: arrivano insieme all'elenco
+       iscritti e si salvano subito con una chiamata al servizio. Cosi' li vedono e
+       li possono cambiare tutti gli invitati alla sezione, qualunque sia il ruolo,
+       e non restano copie di dati personali in locale. */
+    let _evPresenze = {};        // solo in memoria, per l'evento aperto
     const EventiPresenze = {
-        tutte() { const l = Store.leggi(CHIAVI.eventiPresenze, []); return Array.isArray(l) ? l : []; },
-        // id UNIVOCO per record (evento + iscritto): la fusione fra utenti lavora per id,
-        // cosi due persone che segnano iscritti diversi non si sovrascrivono a vicenda
-        _chiave(evento, idIscritto) { return evento + '~' + idIscritto; },
-        di(evento, idIscritto) { const k = this._chiave(evento, idIscritto); return this.tutte().find(p => p && p.id === k) || null; },
-        // Ogni modifica porta con se' la firma di chi l'ha fatta e quando: la sezione e'
-        // condivisa fra piu' persone e serve sapere chi ha segnato cosa.
-        imposta(evento, idIscritto, patch) {
-            const k = this._chiave(evento, idIscritto);
+        di(evento, idIscritto) { return _evPresenze[idIscritto] || null; },
+        // aggiornamento immediato a video, poi conferma dal server
+        imposta(evento, idIscritto, patch, poi) {
             const u = Auth.utenteCorrente;
-            const firma = {
+            const prima = _evPresenze[idIscritto] ? { ..._evPresenze[idIscritto] } : null;
+            _evPresenze[idIscritto] = {
+                ...(prima || {}), ...patch,
                 da: u ? String(u.email).toLowerCase() : '',
                 daNome: u ? (u.nome || u.email || '') : '',
                 quando: Date.now()
             };
-            const l = this.tutte();
-            const i = l.findIndex(p => p && p.id === k);
-            if (i >= 0) l[i] = { ...l[i], ...patch, ...firma };
-            else l.push({ id: k, evento: evento, idIscritto: idIscritto, ...patch, ...firma });
-            Store.scrivi(CHIAVI.eventiPresenze, l);
+            if (typeof Cloud === 'undefined' || !Cloud.attivo) { if (poi) poi({ ok: true }); return; }
+            Cloud.operaPresenza({ azione: 'imposta', evento: evento, idIscritto: idIscritto, ...patch }).then(r => {
+                if (!r.ok) {
+                    // il server ha rifiutato: si rimette com'era, senza far credere di aver salvato
+                    if (prima) _evPresenze[idIscritto] = prima; else delete _evPresenze[idIscritto];
+                    toast('Modifica non salvata: ' + (r.msg || 'errore.'), 'rosso');
+                } else if (r.presenza) {
+                    // si copiano solo i campi realmente presenti: una risposta parziale
+                    // non deve cancellare lo stato quando si e' salvata la sola nota
+                    const agg = { ..._evPresenze[idIscritto] };
+                    Object.keys(r.presenza).forEach(k => { if (r.presenza[k] !== undefined) agg[k] = r.presenza[k]; });
+                    _evPresenze[idIscritto] = agg;
+                }
+                if (poi) poi(r);
+            });
         }
     };
     /* "Mario Rossi, 21/07 alle 18:40" oppure stringa vuota se non risulta nessuna modifica. */
@@ -6112,13 +6146,10 @@
         if (u.eventi === true) return true;
         return EventiConfig.leggi().abilitati.indexOf(String(u.email).toLowerCase()) >= 0;
     }
-    /* I ruoli "solo sondaggio" possono CONSULTARE gli iscritti, ma non segnare
-       presenze e note: quelle stanno in un archivio condiviso che il server riserva
-       allo staff. Meglio mostrarle in sola lettura che far finta di salvarle. */
-    function puoSegnarePresenze() {
-        const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
-        return !(rc && rc.soloSondaggio);
-    }
+    /* Chi vede la sezione puo' anche segnare presenze e scrivere note, qualunque sia
+       il suo ruolo: la scrittura passa dal servizio, che applica la stessa regola
+       d'accesso della lettura, quindi non dipende piu' dalle regole di Firestore. */
+    function puoSegnarePresenze() { return puoVedereEventi(); }
 
     let _evIscrizioni = null;    // solo in memoria: i dati personali non si salvano nel browser
     let _evMsg = '';
@@ -6144,11 +6175,26 @@
         // la si dichiara superata (_evReq) e si libera subito il posto, altrimenti la
         // sua risposta finirebbe sotto l'evento nuovo e il nuovo non si caricherebbe.
         _evReq++; _evInFlight = false;
-        _evIscrizioni = null; _evFirma = ''; _evMsg = ''; _evAggiornato = 0;
+        // se quell'evento era gia' stato letto, si rimette subito a video quanto si
+        // sapeva, e l'aggiornamento dal server arriva dopo senza schermate vuote
+        const c = _evCache[id];
+        _evIscrizioni = c ? c.iscrizioni : null;
+        _evPresenze = c ? c.presenze : {};
+        _evFirma = c ? c.firma : '';
+        _evAggiornato = c ? c.aggiornato : 0;
+        _evMsg = '';
         if (vistaCorrente === 'eventi') vistaEventi();
     }
 
     function firmaIscr(l) { return (l || []).map(r => r.id).join('|'); }
+    // anche stati e note entrano nell'impronta: se un collega segna una presenza,
+    // l'aggiornamento automatico se ne accorge e ridisegna
+    function firmaPres(p) {
+        const o = p || {};
+        return Object.keys(o).sort().map(k => k + ':' + (o[k].stato || '') + ':' + (o[k].nota || '')).join('|');
+    }
+    // elenco gia' letto per ciascun evento: resta in memoria, mai su disco
+    let _evCache = {};
 
     let _evDiag = null;  // confronto fra l'elenco abilitati locale e quello sul server
     function caricaDiagnosticaEventi(poi) {
@@ -6214,10 +6260,14 @@
     /* poi(cambiato): "cambiato" dice se l'elenco e diverso da quello gia a video,
        cosi l'aggiornamento automatico non ridisegna (e non fa perdere il punto in
        cui stai scrivendo) quando non e successo nulla. */
+    // ultimo tentativo PER EVENTO: il freno serve a non ripartire a raffica quando una
+    // lettura fallisce, non a far aspettare un evento che non e' ancora stato aperto
+    let _evUltimoTentativo = {};
     function caricaIscrizioni(ev, poi) {
         if (_evInFlight) return;
         if (typeof Cloud === 'undefined' || !Cloud.attivo) { _evMsg = 'Le iscrizioni richiedono l\'accesso cloud (non disponibili in modalita dimostrativa).'; if (poi) poi(false); return; }
         _evInFlight = true;
+        _evUltimoTentativo[ev.id] = Date.now();
         // Ogni lettura porta il proprio numero e l'evento per cui e' partita: se nel
         // frattempo si e' cambiato riquadro, la risposta viene scartata invece di
         // finire sotto l'evento sbagliato (dati di una citta' mostrati sotto un'altra,
@@ -6225,14 +6275,17 @@
         const mia = ++_evReq;
         const idEv = ev.id;
         const superata = () => (mia !== _evReq || idEv !== _evSel);
-        Cloud.iscrizioniEvento(ev.filtro).then(r => {
+        Cloud.iscrizioniEvento(ev.filtro, ev.id).then(r => {
             if (superata()) return;
             _evInFlight = false;
             let cambiato = false;
             if (r && r.ok) {
-                const nuova = firmaIscr(r.iscrizioni);
+                const nuova = firmaIscr(r.iscrizioni) + '#' + firmaPres(r.presenze);
                 cambiato = (nuova !== _evFirma);
-                _evIscrizioni = r.iscrizioni; _evFirma = nuova; _evMsg = ''; _evAggiornato = Date.now();
+                _evIscrizioni = r.iscrizioni; _evPresenze = r.presenze || {};
+                _evFirma = nuova; _evMsg = ''; _evAggiornato = Date.now();
+                // si tiene in memoria per evento: rientrando, l'elenco e' subito a video
+                _evCache[ev.id] = { iscrizioni: _evIscrizioni, presenze: _evPresenze, firma: nuova, aggiornato: _evAggiornato };
             } else {
                 const msg = (r && r.msg) || 'Lettura non riuscita.';
                 cambiato = (msg !== _evMsg);
@@ -6265,6 +6318,7 @@
     const NOMI_STATO = { '': '-', confermato: 'Confermato', presente: 'Presente', assente: 'Assente' };
     function tabellaIscrizioni(ev, lista) {
         const segna = puoSegnarePresenze();
+        const adminEv = Auth.eAdmin() || Auth.eProprietario();
         const righe = lista.map(r => {
             const p = EventiPresenze.di(ev.id, r.id) || {};
             const opz = (v, t) => '<option value="' + v + '"' + (p.stato === v ? ' selected' : '') + '>' + t + '</option>';
@@ -6286,10 +6340,15 @@
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
                 + cellaStato + cellaNota
                 + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || '-') + '</span></td>'
+                + (adminEv
+                    ? '<td data-label=""><button class="btn btn-sm btn-secondary ev-canc" data-id="'
+                    + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">Cancella</button></td>'
+                    : '')
                 + '</tr>';
         }).join('');
         return '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
             + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Stato</th><th>Nota</th><th>Aggiornato da</th>'
+            + (adminEv ? '<th></th>' : '')
             + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
     }
 
@@ -6298,9 +6357,12 @@
         const admin = Auth.eAdmin() || Auth.eProprietario();
         const ev = eventoCorrente();
         const cfg = EventiConfig.leggi();
-        // primo ingresso: carica da solo; poi si aggiorna in automatico a intervalli
-        if (_evIscrizioni === null && !_evInFlight && Cloud.attivo) {
-            caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
+        // Entrando si legge SEMPRE dal server, ma cio' che si sa gia' resta a video:
+        // niente schermata vuota e niente pulsante da premere. Il ritardo minimo fra
+        // due tentativi evita raffiche di richieste quando la lettura non riesce.
+        if (Cloud.attivo && !_evInFlight
+            && (!_evCache[ev.id] || Date.now() - (_evUltimoTentativo[ev.id] || 0) > 15000)) {
+            caricaIscrizioni(ev, cambiato => { if (cambiato && vistaCorrente === 'eventi') vistaEventi(); });
         }
         if (Cloud.attivo) avviaAutoEventi(ev); else fermaAutoEventi();
         // all'amministratore serve l'elenco utenze per dire, persona per persona, se
@@ -6358,21 +6420,73 @@
             bDiag.disabled = true; bDiag.textContent = 'Controllo...';
             caricaDiagnosticaEventi(() => { if (vistaCorrente === 'eventi') vistaEventi(); });
         });
-        // presenze e note: si salvano subito (archivio condiviso)
+        // presenze e note: vanno sul server, e la firma nella riga si aggiorna da sola
+        const aggiornaFirma = (elemento, id) => {
+            const riga = elemento.closest('tr');
+            const f = riga ? riga.querySelector('.ev-firma') : null;
+            if (f) f.textContent = firmaPresenza(EventiPresenze.di(ev.id, id)) || '-';
+        };
         $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
-            EventiPresenze.imposta(ev.id, s.dataset.id, { stato: s.value });
-            try { Audit.registra(Auth.utenteCorrente, 'Evento: stato iscritto aggiornato', 'sistema', ev.id, null, s.dataset.id + ' -> ' + (s.value || '-')); } catch (e) { }
-            vistaEventi();
+            const id = s.dataset.id;
+            EventiPresenze.imposta(ev.id, id, { stato: s.value }, () => {
+                if (vistaCorrente !== 'eventi') return;
+                // se il server ha rifiutato, la tendina deve tornare al valore vero
+                const p = EventiPresenze.di(ev.id, id) || {};
+                if (s.value !== (p.stato || '')) s.value = p.stato || '';
+                aggiornaFirma(s, id);
+                _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+            });
+            aggiornaFirma(s, id);
+            try { Audit.registra(Auth.utenteCorrente, 'Evento: stato iscritto aggiornato', 'sistema', ev.id, null, id + ' -> ' + (s.value || '-')); } catch (e) { }
         }));
         $vista().querySelectorAll('.ev-nota').forEach(n => n.addEventListener('change', () => {
-            EventiPresenze.imposta(ev.id, n.dataset.id, { nota: n.value.trim() });
-            // aggiorna la firma nella stessa riga senza ridisegnare tutta la tabella
-            const riga = n.closest('tr');
-            const f = riga ? riga.querySelector('.ev-firma') : null;
-            if (f) f.textContent = firmaPresenza(EventiPresenze.di(ev.id, n.dataset.id)) || '-';
+            const id = n.dataset.id;
+            EventiPresenze.imposta(ev.id, id, { nota: n.value.trim() }, () => {
+                if (vistaCorrente !== 'eventi') return;
+                const p = EventiPresenze.di(ev.id, id) || {};
+                if (document.activeElement !== n && n.value !== (p.nota || '')) n.value = p.nota || '';
+                aggiornaFirma(n, id);
+                _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+            });
+            aggiornaFirma(n, id);
+        }));
+        $vista().querySelectorAll('.ev-canc').forEach(b => b.addEventListener('click', () => {
+            confermaCancellaIscrizione(ev, b.dataset.id, b.dataset.nome);
         }));
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
+    }
+
+    /* Cancellazione di un'iscrizione: solo l'amministratore, e con conferma esplicita
+       perche' toglie una persona dall'elenco per tutti. Resta traccia sul server, cosi'
+       non ricompare se la sua riga esiste ancora sul foglio. */
+    function confermaCancellaIscrizione(ev, idIscritto, nome) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        apriModale('<h2>Cancellare l\'iscrizione?</h2>'
+            + '<p>Stai per togliere <strong>' + esc(nome || idIscritto) + '</strong> dall\'elenco di '
+            + esc(ev.titolo) + '. Sparira per tutti, insieme allo stato e alla nota collegati.</p>'
+            + '<p class="hint">Non ricomparira nemmeno se la sua riga e ancora sul foglio.</p>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ci-no">Annulla</button>'
+            + '<button class="btn btn-danger" id="ci-si">Cancella</button></div>');
+        document.getElementById('ci-no').addEventListener('click', chiudiModale);
+        document.getElementById('ci-si').addEventListener('click', () => {
+            const b = document.getElementById('ci-si');
+            b.disabled = true; b.textContent = 'Cancello...';
+            Cloud.operaPresenza({ azione: 'cancella', evento: ev.id, idIscritto: idIscritto }).then(r => {
+                chiudiModale();
+                if (!r.ok) { toast(r.msg || 'Cancellazione non riuscita.', 'rosso'); return; }
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizione cancellata', 'sistema', ev.id, null, nome || idIscritto); } catch (e) { }
+                toast('Iscrizione cancellata.', 'verde');
+                _evIscrizioni = (_evIscrizioni || []).filter(x => x.id !== idIscritto);
+                delete _evPresenze[idIscritto];
+                _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+                _evCache[ev.id] = { iscrizioni: _evIscrizioni, presenze: _evPresenze, firma: _evFirma, aggiornato: _evAggiornato };
+                // niente rilettura immediata: la riga deve restare sparita a video,
+                // il prossimo giro automatico confermera' dal server
+                _evUltimoTentativo[ev.id] = Date.now();
+                if (vistaCorrente === 'eventi') vistaEventi();
+            });
+        });
     }
 
     /* Porta dentro il database le iscrizioni raccolte finora sul foglio. Si fa una
