@@ -961,6 +961,12 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .ev-diag-riga { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 7px 0; border-top: 1px solid var(--grigio-100); font-size: 0.88rem; }
 .ev-diag-riga > span:first-child { color: var(--grigio-600); }
 .ev-ko { color: var(--rosso); font-weight: 600; }
+/* scelta delle colonne aggiuntive (gli elenchi hanno colonne diverse fra loro) */
+.ev-colonne { margin-bottom: 10px; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 8px 12px; font-size: 0.88rem; }
+.ev-colonne summary { cursor: pointer; color: var(--blu-700); font-weight: 600; }
+.ev-colonne-elenco { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 9px; }
+.ev-colonne-elenco label { display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--grigio-900); }
+.ev-colonne-elenco input { width: auto; margin: 0; }
 /* barra della selezione multipla sopra l'elenco iscritti */
 .ev-barra { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--blu-700); border-radius: 6px; background: var(--blu-050); font-size: 0.88rem; }
 .ev-barra.vuota { display: none; }

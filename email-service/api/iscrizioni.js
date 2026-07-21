@@ -131,8 +131,10 @@ module.exports = async (req, res) => {
             return;
         }
 
-        // 4) filtro dell'evento (serve a entrambe le fonti)
-        const filtro = chiave(body.evento || 'napoli');
+        // 4) filtro dell'evento (serve a entrambe le fonti). Con "tutti" non si filtra:
+        //    serve alla schermata che raccoglie le iscrizioni di tutti gli eventi.
+        const tutti = body.tutti === true;
+        const filtro = tutti ? '' : chiave(body.evento || 'napoli');
         const idEvento = String(body.idEvento || '');
 
         // 4b) stati, note e cancellazioni stanno sul server: si leggono qui, cosi'
@@ -178,7 +180,8 @@ module.exports = async (req, res) => {
                     data: String(v.data || ''), pagina: pag,
                     nome: String(v.nome || ''), cognome: String(v.cognome || ''), email: em,
                     azienda: String(v.azienda || ''), ruolo: String(v.ruolo || ''),
-                    telefono: String(v.telefono || ''), messaggio: String(v.messaggio || '')
+                    telefono: String(v.telefono || ''), messaggio: String(v.messaggio || ''),
+                    extra: (v.extra && typeof v.extra === 'object') ? v.extra : {}
                 });
             });
         } catch (e) {

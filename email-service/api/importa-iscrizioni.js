@@ -152,14 +152,35 @@ module.exports = async (req, res) => {
         }
         if (righe.length < 2) { res.status(200).json({ ok: true, lette: 0, importate: 0, fonte: fonte, msg: 'Nessuna riga da importare.' }); return; }
 
-        // 3) colonne per NOME, come nella lettura normale
+        // 3) colonne per NOME. Alcuni elenchi hanno intestazioni diverse (es. "Ruolo in
+        //    Azienda", "Citta", "Partita_IVA"): quelle riconosciute si mappano sui campi
+        //    standard, tutte le ALTRE si conservano lo stesso, come colonne aggiuntive.
         const intest = righe[0].map(chiave);
-        const col = n => intest.indexOf(n);
+        const ALIAS = {
+            data: 'data', pagina: 'pagina', evento: 'pagina',
+            nome: 'nome', cognome: 'cognome', email: 'email', 'e-mail': 'email', mail: 'email',
+            azienda: 'azienda', societa: 'azienda', ragione_sociale: 'azienda',
+            ruolo: 'ruolo', 'ruolo in azienda': 'ruolo', qualifica: 'ruolo',
+            telefono: 'telefono', cellulare: 'telefono', tel: 'telefono',
+            messaggio: 'messaggio', note: 'messaggio'
+        };
+        const campoDi = {};   // indice colonna -> campo standard
+        intest.forEach((h, i) => { if (ALIAS[h]) campoDi[i] = ALIAS[h]; });
+        const col = n => { for (const i in campoDi) { if (campoDi[i] === n) return +i; } return -1; };
         const iData = col('data'), iPagina = col('pagina'), iNome = col('nome'), iCognome = col('cognome');
         const iEmail = col('email'), iAzienda = col('azienda'), iRuolo = col('ruolo');
         const iTel = col('telefono'), iMsg = col('messaggio');
-        if (iPagina < 0 && iEmail < 0) {
-            res.status(400).json({ ok: false, msg: 'Intestazioni non riconosciute: servono almeno le colonne Pagina ed Email.' });
+        // l'evento puo' arrivare dalla colonna Pagina oppure essere indicato da chi importa
+        const paginaFissa = testo(body.pagina, 200);
+        // elenchi senza colonna Data: si usa quella indicata, cosi' ogni riga ha comunque
+        // un identificativo stabile e due omonimi non finiscono sulla stessa scheda
+        const dataFissa = testo(body.dataPredefinita, 40);
+        if (iPagina < 0 && !paginaFissa) {
+            res.status(400).json({ ok: false, msg: 'Manca la colonna Pagina e non e stato indicato l\'evento.' });
+            return;
+        }
+        if (iNome < 0 && iEmail < 0) {
+            res.status(400).json({ ok: false, msg: 'Intestazioni non riconosciute: serve almeno una colonna Nome o Email.' });
             return;
         }
         const cella = (riga, i) => (i >= 0 && riga[i] != null) ? testo(riga[i], 2000) : '';
@@ -172,16 +193,33 @@ module.exports = async (req, res) => {
             const riga = righe[i];
             if (!riga || !riga.length) continue;
             const em = cella(riga, iEmail).toLowerCase();
-            const nome = cella(riga, iNome), cognome = cella(riga, iCognome);
-            const pagina = cella(riga, iPagina);
+            let nome = cella(riga, iNome), cognome = cella(riga, iCognome);
+            // elenchi con una sola colonna "Nome" che contiene nome e cognome insieme:
+            // si divide sull'ultimo spazio, cosi' le colonne combaciano con le altre fonti
+            if (nome && iCognome < 0 && nome.indexOf(' ') > 0) {
+                const p = nome.split(/\s+/);
+                cognome = p.pop();
+                nome = p.join(' ');
+            }
+            const pagina = cella(riga, iPagina) || paginaFissa;
             if (!em && !nome && !cognome) { saltate++; continue; }
-            const data = cella(riga, iData);
+            const data = cella(riga, iData) || dataFissa;
+            // tutte le colonne non riconosciute restano, con la loro intestazione:
+            // l'area riservata puo' mostrarle su richiesta senza perdere nulla
+            const extra = {};
+            for (let c = 0; c < riga.length; c++) {
+                if (campoDi[c]) continue;
+                const et = String(righe[0][c] == null ? '' : righe[0][c]).trim();
+                const val = cella(riga, c);
+                if (!et || !val) continue;
+                extra[et.slice(0, 60)] = val.slice(0, 300);
+            }
             const rif = db.collection('iscrizioni').doc(idDocumento(em, data, nome, cognome));
             batch.set(rif, {
                 data: data, pagina: pagina, nome: testo(nome, 120), cognome: testo(cognome, 120),
                 email: em, azienda: cella(riga, iAzienda), ruolo: cella(riga, iRuolo),
                 telefono: cella(riga, iTel), messaggio: cella(riga, iMsg),
-                importato: true
+                extra: extra, importato: true
             }, { merge: true });
             nelBatch++; importate++;
             if (nelBatch >= 400) { await batch.commit(); batch = db.batch(); nelBatch = 0; }

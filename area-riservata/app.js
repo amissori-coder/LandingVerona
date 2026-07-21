@@ -1127,7 +1127,7 @@
         /* Iscrizioni a un evento, lette dal foglio Google tramite il servizio (che
            verifica chi chiama e filtra le righe dell'evento). Nessun dato personale
            finisce nel repository: arriva a video e resta su Firestore. */
-        async iscrizioniEvento(evento, idEvento) {
+        async iscrizioniEvento(evento, idEvento, tutti) {
             let url = window.RV_ISCRIZIONI_URL;
             if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'iscrizioni$1');
             if (!url) return { ok: false, msg: 'Servizio iscrizioni non configurato.' };
@@ -1138,7 +1138,7 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken, evento, idEvento })
+                    body: JSON.stringify({ idToken, evento, idEvento, tutti: !!tutti })
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Lettura non riuscita (' + r.status + ').') };
@@ -1172,7 +1172,7 @@
         },
 
         /* Importazione una tantum: csv vuoto = leggi direttamente dal foglio. */
-        async importaIscrizioni(csv) {
+        async importaIscrizioni(csv, pagina, dataPredefinita) {
             let url = window.RV_IMPORTA_ISCRIZIONI_URL;
             if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'importa-iscrizioni$1');
             if (!url) return { ok: false, msg: 'Servizio non configurato.' };
@@ -1183,7 +1183,7 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken, csv: csv || '' })
+                    body: JSON.stringify({ idToken, csv: csv || '', pagina: pagina || '', dataPredefinita: dataPredefinita || '' })
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Importazione non riuscita (' + r.status + ').') };
@@ -6074,11 +6074,15 @@
     /* Un evento per riquadro: "filtro" e' la parola cercata nella colonna Pagina
        delle iscrizioni, "nota" spiega un elenco vuoto quando il modulo non c'e' ancora. */
     const EVENTI_DEF = [
-        { id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', filtro: 'napoli' },
+        { id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', filtro: 'napoli', pagina: 'Napoli 2 Ottobre 2026' },
         {
-            id: 'milano-2027-02-27', titolo: 'Milano', quando: '27 febbraio 2027', filtro: 'milano',
+            id: 'milano-2027-02-27', titolo: 'Milano', quando: '27 febbraio 2027', filtro: 'milano', pagina: 'Milano 27 Febbraio 2027',
             nota: 'Il modulo di iscrizione non e ancora pubblicato: le iscrizioni compariranno qui da sole appena sara attivo.'
-        }
+        },
+        { id: 'verona-2026-03-27', titolo: 'Verona', quando: '27 marzo 2026', filtro: 'verona', pagina: 'Verona 27 Marzo 2026' },
+        { id: 'roma-2026-04-29', titolo: 'Roma', quando: '29 aprile 2026', filtro: 'roma', pagina: 'Roma 29 Aprile 2026' },
+        // riepilogo: tutte le iscrizioni insieme, senza presenze (non servono qui)
+        { id: 'tutti', titolo: 'Tutte', quando: 'ogni evento', filtro: '', tutti: true }
     ];
     const EventiConfig = {
         leggi() {
@@ -6278,7 +6282,7 @@
         const mia = ++_evReq;
         const idEv = ev.id;
         const superata = () => (mia !== _evReq || idEv !== _evSel);
-        Cloud.iscrizioniEvento(ev.filtro, ev.id).then(r => {
+        Cloud.iscrizioniEvento(ev.filtro, ev.tutti ? '' : ev.id, !!ev.tutti).then(r => {
             if (superata()) return;
             _evInFlight = false;
             let cambiato = false;
@@ -6319,9 +6323,32 @@
     }
 
     const NOMI_STATO = { '': '-', confermato: 'Confermato', presente: 'Presente', assente: 'Assente' };
+    // colonne aggiuntive scelte dall'utente, per evento: gli elenchi hanno colonne
+    // diverse fra loro (citta, partita IVA, fatturato...) e si mostrano su richiesta
+    let _evColonne = {};
+    function colonneExtraDisponibili(lista) {
+        const viste = [];
+        (lista || []).forEach(r => {
+            const e = r.extra || {};
+            Object.keys(e).forEach(k => { if (viste.indexOf(k) < 0) viste.push(k); });
+        });
+        return viste.sort((a, b) => a.localeCompare(b));
+    }
+    function sceltaColonneHtml(ev, lista) {
+        const disp = colonneExtraDisponibili(lista);
+        if (!disp.length) return '';
+        const scelte = _evColonne[ev.id] || [];
+        return '<details class="ev-colonne"><summary>Colonne aggiuntive ('
+            + scelte.length + ' di ' + disp.length + ')</summary><div class="ev-colonne-elenco">'
+            + disp.map(c => '<label><input type="checkbox" class="ev-col" value="' + esc(c) + '"'
+                + (scelte.indexOf(c) >= 0 ? ' checked' : '') + '> ' + esc(c) + '</label>').join('')
+            + '</div></details>';
+    }
+
     function tabellaIscrizioni(ev, lista) {
-        const segna = puoSegnarePresenze();
+        const segna = puoSegnarePresenze() && !ev.tutti;   // nel riepilogo le presenze non servono
         const adminEv = Auth.eAdmin() || Auth.eProprietario();
+        const extra = (_evColonne[ev.id] || []).filter(c => true);
         const righe = lista.map(r => {
             const p = EventiPresenze.di(ev.id, r.id) || {};
             const opz = (v, t) => '<option value="' + v + '"' + (p.stato === v ? ' selected' : '') + '>' + t + '</option>';
@@ -6343,8 +6370,10 @@
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 + '<td data-label="Email">' + esc(r.email) + '</td>'
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
-                + cellaStato + cellaNota
-                + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || '-') + '</span></td>'
+                + (ev.tutti ? '<td data-label="Evento">' + esc(r.pagina || '-') + '</td>' : '')
+                + extra.map(c => '<td data-label="' + esc(c) + '">' + esc((r.extra && r.extra[c]) || '-') + '</td>').join('')
+                + (ev.tutti ? '' : cellaStato + cellaNota
+                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || '-') + '</span></td>')
                 + (adminEv
                     ? '<td data-label="" class="ev-azioni"><button class="btn btn-sm btn-secondary ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
                     + '<button class="btn btn-sm btn-secondary ev-canc" data-id="'
@@ -6360,9 +6389,12 @@
             + '<button class="btn btn-sm btn-secondary" id="ev-sel-nessuna">Deseleziona</button>'
             + '<button class="btn btn-sm btn-danger" id="ev-canc-multi">Cancella le selezionate</button></div>'
             : '';
-        return barra + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
+        return barra + sceltaColonneHtml(ev, lista) + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
             + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
-            + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Stato</th><th>Nota</th><th>Aggiornato da</th>'
+            + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th>'
+            + (ev.tutti ? '<th>Evento</th>' : '')
+            + extra.map(c => '<th>' + esc(c) + '</th>').join('')
+            + (ev.tutti ? '' : '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
             + (adminEv ? '<th></th>' : '')
             + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
     }
@@ -6415,7 +6447,7 @@
             + '<div class="card ev-testa"><div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
             + '<div class="hint">' + esc(ev.quando) + '</div></div>'
             + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscritti</span></div>'
-            + '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div></div>'
+            + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
             + gestione + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
@@ -6471,6 +6503,12 @@
         $vista().querySelectorAll('.ev-mod').forEach(b => b.addEventListener('click', () => {
             const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
             if (r) modaleModificaIscrizione(ev, r);
+        }));
+        // colonne aggiuntive: si spuntano e la tabella si ridisegna con quelle in piu'
+        $vista().querySelectorAll('.ev-col').forEach(c => c.addEventListener('change', () => {
+            const scelte = Array.from($vista().querySelectorAll('.ev-col:checked')).map(x => x.value);
+            _evColonne[ev.id] = scelte;
+            if (vistaCorrente === 'eventi') vistaEventi();
         }));
         // selezione multipla: la barra si aggiorna senza ridisegnare tutta la tabella
         const aggiornaBarra = () => {
@@ -6610,7 +6648,13 @@
             + '<div class="hint">Funziona se il foglio e condiviso con il servizio.</div>'
             + '<button class="btn btn-primary" id="imp-foglio">Leggi dal foglio</button></div>'
             + '<div class="ev-imp-passo"><strong>2. Oppure da un file</strong>'
-            + '<div class="hint">Dal foglio: File, Scarica, Valori separati da virgole (.csv). Poi scegli qui il file scaricato.</div>'
+            + '<div class="hint">Un file .csv con l\'elenco. Le colonne Nome, Cognome, Email, Azienda, Ruolo, Telefono '
+            + 'vengono riconosciute anche se scritte in modo diverso; tutte le altre restano e si possono mostrare dalla tabella.</div>'
+            + '<div class="campo"><label for="imp-evento">A quale evento appartiene</label><select id="imp-evento">'
+            + '<option value="">Come indicato nella colonna Pagina</option>'
+            + EVENTI_DEF.filter(x => !x.tutti).map(x => '<option value="' + esc(x.id) + '"'
+                + (x.id === ev.id ? ' selected' : '') + '>' + esc(x.titolo + ' - ' + x.quando) + '</option>').join('')
+            + '</select></div>'
             + '<input type="file" id="imp-file" accept=".csv,text/csv,text/plain"></div>'
             + '<div id="imp-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="imp-chiudi">Chiudi</button></div>', { classe: 'larga' });
@@ -6621,7 +6665,10 @@
             const testoPrec = bottone ? bottone.textContent : '';
             if (bottone) { bottone.disabled = true; bottone.textContent = 'Importo...'; }
             mostra('Importazione in corso, puo richiedere qualche secondo.');
-            Cloud.importaIscrizioni(csv).then(r => {
+            // l'evento scelto viene impresso su ogni riga, per gli elenchi che non
+            // hanno la colonna Pagina (i file esportati dai gestionali, di solito)
+            const scelto = EVENTI_DEF.find(x => x.id === ((document.getElementById('imp-evento') || {}).value || ''));
+            Cloud.importaIscrizioni(csv, scelto ? scelto.pagina : '', scelto ? scelto.quando : '').then(r => {
                 if (bottone) { bottone.disabled = false; bottone.textContent = testoPrec; }
                 if (!r.ok) { mostra(r.msg || 'Importazione non riuscita.', true); return; }
                 mostra('Importate ' + r.importate + ' iscrizioni su ' + r.lette + ' righe lette'
