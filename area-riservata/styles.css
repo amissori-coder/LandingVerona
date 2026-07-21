@@ -982,6 +982,8 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .ev-firma { color: var(--grigio-600); font-size: 0.82rem; line-height: 1.3; }
 /* avviso accanto a un utente che non potrebbe comunque aprire la sezione */
 .ev-avviso { flex: 1 0 100%; color: var(--rosso); font-size: 0.8rem; line-height: 1.35; margin-top: 2px; }
+/* precisazione, non problema: si puo abilitare lo stesso */
+.ev-info { flex: 1 0 100%; color: var(--grigio-600); font-size: 0.8rem; line-height: 1.35; margin-top: 2px; }
 /* scelta destinatari nell'invio inviti sondaggio (a tutti / nuovi+senza accesso / solo nuovi) */
 .ii-ambito { display: flex; align-items: flex-start; gap: 9px; padding: 9px 11px; border: 1px solid var(--grigio-200); border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 0.9rem; color: var(--grigio-900); }
 .ii-ambito:hover { background: var(--blu-050); }

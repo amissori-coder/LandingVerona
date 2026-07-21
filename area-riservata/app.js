@@ -1037,7 +1037,7 @@
                 const dati = await this.docUtente(utenteFb.email);
                 if (!dati || dati.attivo === false) { await signOut(this.auth); return null; }
                 await this.avviaSync(dati.ruolo, utenteFb.email);
-                return { email: utenteFb.email.toLowerCase(), nome: dati.nome || utenteFb.email, ruolo: dati.ruolo || 'procuratore' };
+                return { email: utenteFb.email.toLowerCase(), nome: dati.nome || utenteFb.email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true };
             } catch (e) { return null; }
         },
 
@@ -1060,7 +1060,7 @@
                 try { await signOut(this.auth); } catch (e2) { }
                 return { ok: false, msg: 'Accesso verificato ma dati non raggiungibili (' + this.msgErrore(e) + '). Riprova tra poco.' };
             }
-            Auth.utenteCorrente = { email: email.toLowerCase(), nome: dati.nome || email, ruolo: dati.ruolo || 'procuratore' };
+            Auth.utenteCorrente = { email: email.toLowerCase(), nome: dati.nome || email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true };
             this.salvaUtente(email, { ultimoAccesso: Date.now() }).catch(() => {});
             Audit.registra(Auth.utenteCorrente, 'Accesso effettuato', 'utente', email.toLowerCase(), null, null);
             return { ok: true, mustChange: false };
@@ -6100,10 +6100,24 @@
             : fmtDataOra(p.quando);
         return chi + ', ' + quando;
     }
+    /* Chi vede la sezione Eventi. Il permesso sta in DUE posti, apposta:
+       - un contrassegno sulla scheda dell'utente ("eventi"), che ognuno puo' leggere
+         da solo al momento dell'accesso: e' l'unico che funziona anche per i ruoli
+         "solo sondaggio", ai quali il server nega gli archivi generali;
+       - l'elenco condiviso, che resta perche' lo usa il servizio per decidere a chi
+         consegnare le iscrizioni, e per non togliere l'accesso a chi ce l'ha gia'. */
     function puoVedereEventi() {
         if (Auth.eAdmin() || Auth.eProprietario()) return true;
         const u = Auth.utenteCorrente; if (!u) return false;
+        if (u.eventi === true) return true;
         return EventiConfig.leggi().abilitati.indexOf(String(u.email).toLowerCase()) >= 0;
+    }
+    /* I ruoli "solo sondaggio" possono CONSULTARE gli iscritti, ma non segnare
+       presenze e note: quelle stanno in un archivio condiviso che il server riserva
+       allo staff. Meglio mostrarle in sola lettura che far finta di salvarle. */
+    function puoSegnarePresenze() {
+        const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
+        return !(rc && rc.soloSondaggio);
     }
 
     let _evIscrizioni = null;    // solo in memoria: i dati personali non si salvano nel browser
@@ -6113,6 +6127,7 @@
     let _evAggiornato = 0;       // ora dell'ultima lettura riuscita
     let _evTimer = null;
     let _evSel = EVENTI_DEF[0].id;   // evento aperto in questo momento
+    let _evReq = 0;                  // numero della lettura in corso: le vecchie si scartano
     const EV_INTERVALLO = 45000; // ricontrollo automatico: le iscrizioni non arrivano a raffica
 
     function eventoCorrente() {
@@ -6125,6 +6140,10 @@
         if (_evSel === id) return;
         _evSel = id;
         fermaAutoEventi();
+        // La lettura eventualmente in corso riguarda l'evento che si sta lasciando:
+        // la si dichiara superata (_evReq) e si libera subito il posto, altrimenti la
+        // sua risposta finirebbe sotto l'evento nuovo e il nuovo non si caricherebbe.
+        _evReq++; _evInFlight = false;
         _evIscrizioni = null; _evFirma = ''; _evMsg = ''; _evAggiornato = 0;
         if (vistaCorrente === 'eventi') vistaEventi();
     }
@@ -6199,7 +6218,15 @@
         if (_evInFlight) return;
         if (typeof Cloud === 'undefined' || !Cloud.attivo) { _evMsg = 'Le iscrizioni richiedono l\'accesso cloud (non disponibili in modalita dimostrativa).'; if (poi) poi(false); return; }
         _evInFlight = true;
+        // Ogni lettura porta il proprio numero e l'evento per cui e' partita: se nel
+        // frattempo si e' cambiato riquadro, la risposta viene scartata invece di
+        // finire sotto l'evento sbagliato (dati di una citta' mostrati sotto un'altra,
+        // e presenze salvate con la chiave dell'evento che non c'entra).
+        const mia = ++_evReq;
+        const idEv = ev.id;
+        const superata = () => (mia !== _evReq || idEv !== _evSel);
         Cloud.iscrizioniEvento(ev.filtro).then(r => {
+            if (superata()) return;
             _evInFlight = false;
             let cambiato = false;
             if (r && r.ok) {
@@ -6213,6 +6240,7 @@
             }
             if (poi) poi(cambiato);
         }).catch(() => {
+            if (superata()) return;
             _evInFlight = false;
             const cambiato = (_evMsg !== 'Lettura non riuscita.');
             _evMsg = 'Lettura non riuscita.';
@@ -6234,10 +6262,21 @@
         }, EV_INTERVALLO);
     }
 
+    const NOMI_STATO = { '': '-', confermato: 'Confermato', presente: 'Presente', assente: 'Assente' };
     function tabellaIscrizioni(ev, lista) {
+        const segna = puoSegnarePresenze();
         const righe = lista.map(r => {
             const p = EventiPresenze.di(ev.id, r.id) || {};
             const opz = (v, t) => '<option value="' + v + '"' + (p.stato === v ? ' selected' : '') + '>' + t + '</option>';
+            // in sola lettura si mostra il valore, senza comandi che non salverebbero
+            const cellaStato = segna
+                ? '<td data-label="Stato"><select class="ev-stato" data-id="' + esc(r.id) + '">'
+                + opz('', '-') + opz('confermato', 'Confermato') + opz('presente', 'Presente') + opz('assente', 'Assente')
+                + '</select></td>'
+                : '<td data-label="Stato">' + esc(NOMI_STATO[p.stato || ''] || '-') + '</td>';
+            const cellaNota = segna
+                ? '<td data-label="Nota"><input type="text" class="ev-nota" data-id="' + esc(r.id) + '" value="' + esc(p.nota || '') + '" placeholder="nota"></td>'
+                : '<td data-label="Nota">' + esc(p.nota || '-') + '</td>';
             return '<tr>'
                 + '<td data-label="Data">' + esc(r.data) + '</td>'
                 + '<td class="cliente-cella" data-label="Nome">' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
@@ -6245,10 +6284,7 @@
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 + '<td data-label="Email">' + esc(r.email) + '</td>'
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
-                + '<td data-label="Stato"><select class="ev-stato" data-id="' + esc(r.id) + '">'
-                + opz('', '-') + opz('confermato', 'Confermato') + opz('presente', 'Presente') + opz('assente', 'Assente')
-                + '</select></td>'
-                + '<td data-label="Nota"><input type="text" class="ev-nota" data-id="' + esc(r.id) + '" value="' + esc(p.nota || '') + '" placeholder="nota"></td>'
+                + cellaStato + cellaNota
                 + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || '-') + '</span></td>'
                 + '</tr>';
         }).join('');
@@ -6390,20 +6426,21 @@
         const sel = new Set(EventiConfig.leggi().abilitati);
         const me = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : '';
         const lista = utenti.filter(u => String(u.email).toLowerCase() !== me);
-        // Chi ha un ruolo "solo sondaggio" non puo' leggere gli archivi generali (regole del
-        // server): spuntarlo non basta, va prima cambiato il ruolo. Lo si segnala qui, invece
-        // di lasciare l'amministratore convinto di averlo abilitato.
+        // Un ruolo "solo sondaggio" ora puo' essere abilitato: vede la sezione e consulta
+        // gli iscritti. Non puo' pero' segnare presenze e note, perche' quelle stanno in un
+        // archivio che il server riserva allo staff. Si dice, senza impedire la spunta.
         const righe = lista.length ? lista.map(u => {
             const e = String(u.email).toLowerCase();
             const soloSond = eRuoloSoloSondaggio(u.ruolo);
             const spento = u.attivo === false;
-            let nota = '';
-            if (soloSond) nota = 'ruolo "solo sondaggio": non potra aprire gli Eventi finche non gli assegni un ruolo dello staff (sezione Utenti)';
-            else if (spento) nota = 'utenza disattivata: non puo accedere';
+            let nota = '', tipoNota = 'ev-avviso';
+            if (spento) nota = 'utenza disattivata: non puo accedere';
+            else if (soloSond) { nota = 'ruolo "solo sondaggio": potra consultare gli iscritti, ma non segnare presenze e note'; tipoNota = 'ev-info'; }
             return '<div class="mi-utente" data-email="' + esc(e) + '">'
-                + '<label class="mi-flag"><input type="checkbox" class="ev-ab" value="' + esc(e) + '"' + (sel.has(e) ? ' checked' : '') + '> abilitato</label>'
+                + '<label class="mi-flag"><input type="checkbox" class="ev-ab" value="' + esc(e) + '"'
+                + ((sel.has(e) || u.eventi === true) ? ' checked' : '') + '> abilitato</label>'
                 + '<span class="mi-nome">' + esc(u.nome || e) + '</span><span class="mi-mail">' + esc(e) + '</span>'
-                + (nota ? '<span class="ev-avviso">' + esc(nota) + '</span>' : '') + '</div>';
+                + (nota ? '<span class="' + tipoNota + '">' + esc(nota) + '</span>' : '') + '</div>';
         }).join('') : '<p class="hint">Nessun altro utente disponibile.</p>';
         // Se l'elenco utenze non e' arrivato, salvare sarebbe distruttivo (si salverebbe una
         // lista basata su cio' che si vede, cioe' niente): meglio dirlo e bloccare il salvataggio.
@@ -6445,6 +6482,15 @@
             caselle.forEach(c => { if (c.checked) finale.add(c.value); else finale.delete(c.value); });
             const abilitati = Array.from(finale);
             EventiConfig.salva({ abilitati: abilitati });
+            // Il permesso viene scritto anche sulla SCHEDA di ciascuna persona: e' l'unico
+            // che arriva pure ai ruoli "solo sondaggio", perche' ognuno puo' leggere la
+            // propria scheda mentre gli archivi generali il server glieli nega.
+            if (Cloud.attivo && typeof Cloud.salvaUtente === 'function') {
+                caselle.forEach(c => {
+                    Cloud.salvaUtente(c.value, { eventi: !!c.checked })
+                        .catch(() => toast('Permesso non registrato per ' + c.value + ': riprova.', 'rosso'));
+                });
+            }
             try { Audit.registra(Auth.utenteCorrente, 'Eventi: accessi aggiornati', 'sistema', 'eventiConfig', null, 'abilitati ' + abilitati.length); } catch (e) { }
             chiudiModale(); toast('Accessi aggiornati.', 'verde'); vistaEventi();
         });
