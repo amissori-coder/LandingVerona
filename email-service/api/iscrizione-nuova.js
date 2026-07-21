@@ -87,6 +87,15 @@ function idDocumento(email, data, nome, cognome) {
     return base.replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300) || 'senza-identificativo';
 }
 
+
+/* Segna che i dati sono cambiati, cosi la lettura sa che deve rileggere. */
+async function segnaCambiamento(db) {
+    try {
+        await db.collection('meta').doc('iscrizioni')
+            .set({ rev: admin.firestore.FieldValue.increment(1), quando: Date.now() }, { merge: true });
+    } catch (e) { /* non e grave: la lettura ha comunque una scadenza a tempo */ }
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -130,6 +139,7 @@ module.exports = async (req, res) => {
         await admin.firestore().collection('iscrizioni')
             .doc(idDocumento(email, data, nome, cognome))
             .set(scheda, { merge: true });
+        await segnaCambiamento(admin.firestore());
 
         res.status(200).json({ ok: true });
     } catch (e) {

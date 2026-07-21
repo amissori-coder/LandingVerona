@@ -66,6 +66,18 @@ function idIscrizione(idIscritto) {
 }
 const STATI = ['', 'confermato', 'presente', 'assente'];
 
+/* Segna che i dati sono cambiati: la lettura confronta questo numero e rilegge
+   l'archivio SOLO quando serve davvero. Se fallisce non e' grave: la lettura ha
+   comunque una scadenza a tempo. */
+async function segnaCambiamento(db) {
+    try {
+        await db.collection('meta').doc('iscrizioni')
+            .set({ rev: admin.firestore.FieldValue.increment(1), quando: Date.now() }, { merge: true });
+    } catch (e) {
+        console.error('Revisione non aggiornata:', String((e && e.message) || e).slice(0, 120));
+    }
+}
+
 /* Freno agli invii per utente: serve a contenere i danni se qualcuno usasse il
    proprio accesso per gonfiare il database con scritture ripetute. Il lavoro
    normale (segnare una tavolata di presenze) resta ampiamente sotto il limite. */
@@ -159,6 +171,7 @@ module.exports = async (req, res) => {
             // scheda e la sua presenza restano intatte nel singolo evento. La traccia
             // scritta sopra vale infatti solo per l'elenco "tutti".
             if (evento === 'tutti') {
+                await segnaCambiamento(db);
                 res.status(200).json({ ok: true, cancellate: daCancellare.length, soloRiepilogo: true });
                 return;
             }
@@ -173,6 +186,7 @@ module.exports = async (req, res) => {
                 if (nel >= 400) { await batch.commit(); batch = db.batch(); nel = 0; }
             }
             if (nel) await batch.commit();
+            await segnaCambiamento(db);
             res.status(200).json({ ok: true, cancellate: daCancellare.length });
             return;
         }
@@ -220,6 +234,7 @@ module.exports = async (req, res) => {
                 b.delete(db.collection('presenze').doc(idDoc(evento, idIscritto)));
                 await b.commit();
             }
+            await segnaCambiamento(db);
             res.status(200).json({ ok: true, id: idNuovo, iscrizione: { id: idNuovo, ...nuovo, modificato: undefined } });
             return;
         }
@@ -242,6 +257,7 @@ module.exports = async (req, res) => {
         await db.collection('presenze').doc(idDoc(evento, idIscritto)).set(patch, { merge: true });
         // si risponde con cio' che risulta ORA sul server, non con la sola modifica:
         // altrimenti chi ha salvato la sola nota si vedrebbe azzerare lo stato
+        await segnaCambiamento(db);
         const dopo = await db.collection('presenze').doc(idDoc(evento, idIscritto)).get();
         const v = (dopo.exists && dopo.data()) || patch;
         res.status(200).json({

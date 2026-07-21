@@ -1127,7 +1127,7 @@
         /* Iscrizioni a un evento, lette dal foglio Google tramite il servizio (che
            verifica chi chiama e filtra le righe dell'evento). Nessun dato personale
            finisce nel repository: arriva a video e resta su Firestore. */
-        async iscrizioniEvento(evento, idEvento, tutti) {
+        async iscrizioniEvento(evento, idEvento, tutti, forza) {
             let url = window.RV_ISCRIZIONI_URL;
             if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'iscrizioni$1');
             if (!url) return { ok: false, msg: 'Servizio iscrizioni non configurato.' };
@@ -1138,7 +1138,7 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken, evento, idEvento, tutti: !!tutti, filtri: tutti ? FILTRI_EVENTI : [] })
+                    body: JSON.stringify({ idToken, evento, idEvento, tutti: !!tutti, filtri: tutti ? FILTRI_EVENTI : [], forza: !!forza })
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Lettura non riuscita (' + r.status + ').') };
@@ -6175,7 +6175,12 @@
     let _evTimer = null;
     let _evSel = eventoIniziale();   // evento aperto in questo momento
     let _evReq = 0;                  // numero della lettura in corso: le vecchie si scartano
-    const EV_INTERVALLO = 45000; // ricontrollo automatico: le iscrizioni non arrivano a raffica
+    /* Ricontrollo automatico. Era ogni 45 secondi: con qualche centinaio di iscritti
+       e la sezione aperta a lungo si arrivava a decine di migliaia di letture al
+       giorno sul database, fino a esaurire la quota e lasciare tutti senza dati.
+       Ogni quattro minuti e' piu' che sufficiente: le iscrizioni non arrivano a
+       raffica, e chi ha fretta ha il pulsante "Aggiorna adesso". */
+    const EV_INTERVALLO = 240000;
 
     function eventoCorrente() {
         return EVENTI_DEF.find(e => e.id === _evSel) || EVENTI_DEF[0];
@@ -6282,7 +6287,7 @@
     // ultimo tentativo PER EVENTO: il freno serve a non ripartire a raffica quando una
     // lettura fallisce, non a far aspettare un evento che non e' ancora stato aperto
     let _evUltimoTentativo = {};
-    function caricaIscrizioni(ev, poi) {
+    function caricaIscrizioni(ev, poi, forza) {
         if (_evInFlight) return;
         if (typeof Cloud === 'undefined' || !Cloud.attivo) { _evMsg = 'Le iscrizioni richiedono l\'accesso cloud (non disponibili in modalita dimostrativa).'; if (poi) poi(false); return; }
         _evInFlight = true;
@@ -6294,7 +6299,7 @@
         const mia = ++_evReq;
         const idEv = ev.id;
         const superata = () => (mia !== _evReq || idEv !== _evSel);
-        Cloud.iscrizioniEvento(ev.filtro, ev.id, !!ev.tutti).then(r => {
+        Cloud.iscrizioniEvento(ev.filtro, ev.id, !!ev.tutti, !!forza).then(r => {
             if (superata()) return;
             _evInFlight = false;
             let cambiato = false;
@@ -6328,6 +6333,9 @@
         _evTimer = setInterval(() => {
             if (vistaCorrente !== 'eventi') { fermaAutoEventi(); return; }
             if (_evInFlight) return;
+            // scheda in secondo piano: nessuno sta guardando, inutile interrogare il
+            // server (e consumare letture) finche' non si torna sulla pagina
+            if (document.visibilityState === 'hidden') return;
             const a = document.activeElement;
             if (a && a.classList && (a.classList.contains('ev-nota') || a.classList.contains('ev-stato'))) return;
             caricaIscrizioni(ev, cambiato => { if (cambiato && vistaCorrente === 'eventi') vistaEventi(); });
@@ -6484,7 +6492,9 @@
         const bAgg = document.getElementById('ev-aggiorna');
         if (bAgg) bAgg.addEventListener('click', () => {
             _evMsg = ''; _evIscrizioni = _evIscrizioni || null;
-            caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
+            // richiesta esplicita: si salta la memoria del servizio e si rilegge davvero
+            _evUltimoTentativo[ev.id] = 0;
+            caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); }, true);
             vistaEventi();
         });
         const bAcc = document.getElementById('ev-accessi');

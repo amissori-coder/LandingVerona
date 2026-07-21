@@ -86,6 +86,61 @@ function rispondi(res, lista, fonti, presenze, cancellate, avviso) {
     res.status(200).json(out);
 }
 
+/* --- memoria di breve durata delle iscrizioni ---
+   Ogni richiesta rileggeva TUTTO l'archivio: con qualche centinaio di iscritti e
+   un aggiornamento automatico frequente si bruciava la quota giornaliera di
+   letture di Firebase, e la sezione smetteva di funzionare per tutti.
+   Qui l'elenco letto resta in memoria per qualche decina di secondi ed e'
+   condiviso da tutte le richieste che arrivano nel frattempo. Il pulsante
+   "Aggiorna adesso" puo' forzare una lettura fresca. */
+const CACHE_MS = 45 * 1000;
+let _cache = { quando: 0, righe: null, rev: -1 };
+/* Numero di revisione dei dati: lo alza di uno chiunque scriva (nuova iscrizione,
+   importazione, stato, nota, cancellazione). Leggerlo costa UN documento: se non e'
+   cambiato non serve rileggere l'intero archivio, che di documenti ne ha centinaia.
+   E' la differenza fra qualche centinaio di letture al giorno e decine di migliaia. */
+async function revisione(db) {
+    try {
+        const d = await db.collection('meta').doc('iscrizioni').get();
+        return (d.exists && typeof d.data().rev === 'number') ? d.data().rev : 0;
+    } catch (_) { return -1; }   // in caso di dubbio si rilegge
+}
+async function leggiTutteLeIscrizioni(db, forza, rev) {
+    if (!forza && _cache.righe) {
+        // se il numero di revisione si legge, decide LUI: uguale = niente e' cambiato,
+        // diverso = si rilegge subito. La scadenza a tempo vale solo quando non si
+        // riesce a leggere la revisione, per non restare fermi su dati vecchi.
+        if (rev >= 0) {
+            if (rev === _cache.rev) return { righe: _cache.righe, daMemoria: true };
+        } else if ((Date.now() - _cache.quando) < CACHE_MS) {
+            return { righe: _cache.righe, daMemoria: true };
+        }
+    }
+    const snap = await db.collection('iscrizioni').get();
+    const righe = [];
+    snap.forEach(d => righe.push(d.data() || {}));
+    _cache = { quando: Date.now(), righe: righe, rev: rev };
+    return { righe: righe, daMemoria: false };
+}
+// stesso trattamento per stati/note e cancellazioni, per evento
+const _cacheEv = {};
+async function leggiPerEvento(db, collezione, idEvento, forza, rev) {
+    const k = collezione + '~' + idEvento;
+    const c = _cacheEv[k];
+    if (!forza && c) {
+        if (rev >= 0) {
+            if (c.rev === rev) return c.righe;
+        } else if ((Date.now() - c.quando) < CACHE_MS) {
+            return c.righe;
+        }
+    }
+    const snap = await db.collection(collezione).where('evento', '==', idEvento).get();
+    const righe = [];
+    snap.forEach(d => righe.push(d.data() || {}));
+    _cacheEv[k] = { quando: Date.now(), righe: righe, rev: rev };
+    return righe;
+}
+
 module.exports = async (req, res) => {
     const origin = process.env.ALLOWED_ORIGIN || '*';
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -152,13 +207,13 @@ module.exports = async (req, res) => {
         // 4b) stati, note e cancellazioni stanno sul server: si leggono qui, cosi'
         //     l'area riservata riceve tutto con una sola richiesta e mostra l'elenco
         //     gia' completo, senza secondi giri e senza copie nel browser.
+        const revDati = await revisione(admin.firestore());
         const presenze = {};
         const cancellate = {};
         if (idEvento) {
             try {
-                const sp = await admin.firestore().collection('presenze').where('evento', '==', idEvento).get();
-                sp.forEach(d => {
-                    const v = d.data() || {};
+                const sp = await leggiPerEvento(admin.firestore(), 'presenze', idEvento, body.forza === true, revDati);
+                sp.forEach(v => {
                     if (!v.idIscritto) return;
                     presenze[v.idIscritto] = {
                         stato: String(v.stato || ''), nota: String(v.nota || ''),
@@ -170,8 +225,8 @@ module.exports = async (req, res) => {
                 console.error('Lettura presenze non riuscita:', String((e && e.message) || e).slice(0, 200));
             }
             try {
-                const sc = await admin.firestore().collection('iscrizioniCancellate').where('evento', '==', idEvento).get();
-                sc.forEach(d => { const v = d.data() || {}; if (v.idIscritto) cancellate[v.idIscritto] = true; });
+                const sc = await leggiPerEvento(admin.firestore(), 'iscrizioniCancellate', idEvento, body.forza === true, revDati);
+                sc.forEach(v => { if (v.idIscritto) cancellate[v.idIscritto] = true; });
             } catch (e) {
                 console.error('Lettura cancellate non riuscita:', String((e && e.message) || e).slice(0, 200));
             }
@@ -180,10 +235,11 @@ module.exports = async (req, res) => {
         // 5) prima fonte: Firestore, dove arrivano le iscrizioni nuove dal form.
         //    Non dipende ne' dall'API Sheets ne' dalla condivisione del foglio.
         const daFirestore = [];
+        let daMemoria = false;
         try {
-            const snap = await admin.firestore().collection('iscrizioni').get();
-            snap.forEach(d => {
-                const v = d.data() || {};
+            const lette = await leggiTutteLeIscrizioni(admin.firestore(), body.forza === true, revDati);
+            daMemoria = lette.daMemoria;
+            lette.righe.forEach(v => {
                 const pag = String(v.pagina || '');
                 if (!tieni(pag)) return;
                 const em = String(v.email || '');

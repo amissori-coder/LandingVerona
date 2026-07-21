@@ -98,6 +98,15 @@ function leggiCsv(testoCsv) {
     return righe;
 }
 
+
+/* Segna che i dati sono cambiati, cosi la lettura sa che deve rileggere. */
+async function segnaCambiamento(db) {
+    try {
+        await db.collection('meta').doc('iscrizioni')
+            .set({ rev: admin.firestore.FieldValue.increment(1), quando: Date.now() }, { merge: true });
+    } catch (e) { /* non e grave: la lettura ha comunque una scadenza a tempo */ }
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -225,6 +234,7 @@ module.exports = async (req, res) => {
             if (nelBatch >= 400) { await batch.commit(); batch = db.batch(); nelBatch = 0; }
         }
         if (nelBatch) await batch.commit();
+        await segnaCambiamento(db);
 
         res.status(200).json({ ok: true, lette: righe.length - 1, importate: importate, saltate: saltate, fonte: fonte });
     } catch (e) {
