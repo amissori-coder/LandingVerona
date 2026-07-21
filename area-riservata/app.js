@@ -1313,10 +1313,12 @@
             // gli utenti "solo sondaggio" possono leggere SOLO i documenti del sondaggio:
             // le regole Firestore negano gli altri archivi, quindi non vanno nemmeno richiesti
             // (altrimenti il permission-denied farebbe fallire tutta la sincronizzazione).
-            // (eventiConfig serve anche a loro: senza, un utente "solo sondaggio" abilitato
-            // agli Eventi non vedrebbe mai la sezione. Se il server lo nega si prosegue.)
+            // NB: qui NON si aggiunge eventiConfig. Le regole (FIREBASE-SETUP.md) concedono
+            // archivio/{documento} al solo staff pieno: un "solo sondaggio" verrebbe respinto
+            // e si vedrebbe l'avviso dei permessi a ogni accesso. Per abilitarlo agli Eventi
+            // va prima cambiato il suo ruolo (la finestra "Gestisci accessi" lo segnala).
             const chiaviSync = eRuoloSoloSondaggio(ruolo)
-                ? [CHIAVI.sondaggi, CHIAVI.sondaggiConfig, CHIAVI.eventiConfig, CHIAVI.eventiPresenze].filter(k => this.DOC_SYNC[k])
+                ? [CHIAVI.sondaggi, CHIAVI.sondaggiConfig].filter(k => this.DOC_SYNC[k])
                 : Object.keys(this.DOC_SYNC);
             for (const chiave of chiaviSync) {
                 const rif = doc(this.db, 'archivio', this.DOC_SYNC[chiave]);
@@ -6015,10 +6017,26 @@
             remoto = '<b>' + rem.length + '</b>' + (rem.length ? ' &middot; ' + esc(rem.join(', ')) : ' (elenco vuoto)')
                 + (r.da ? ' <span class="hint">- ultimo salvataggio da ' + esc(r.da) + '</span>' : '');
         }
+        // Esito per singola persona: e' qui che si vede se l'utenza esiste davvero, se e'
+        // attiva e se il suo ruolo le consente di leggere gli archivi generali.
+        const elencoServer = (r.ok && r.esiste) ? elencoAbilitatiDa(r.json) : null;
+        const utenti = _sondUtenti || [];
+        const perPersona = loc.map(e => {
+            const u = utenti.find(x => String(x.email).toLowerCase() === e);
+            let esito;
+            if (!utenti.length) esito = '<span class="hint">elenco utenze non ancora caricato</span>';
+            else if (!u) esito = '<span class="ev-ko">nessuna utenza con questa email</span>';
+            else if (u.attivo === false) esito = '<span class="ev-ko">utenza disattivata</span>';
+            else if (eRuoloSoloSondaggio(u.ruolo)) esito = '<span class="ev-ko">ruolo "' + esc(nomeRuolo(u.ruolo)) + '": non puo leggere gli archivi generali, va cambiato il ruolo</span>';
+            else if (elencoServer && elencoServer.indexOf(e) < 0) esito = '<span class="ev-ko">abilitato solo in questo browser, non sul server</span>';
+            else esito = 'puo vedere gli Eventi (' + esc(nomeRuolo(u.ruolo)) + ')';
+            return '<div class="ev-diag-riga"><span>' + esc(e) + '</span><span>' + esito + '</span></div>';
+        }).join('');
         return '<div class="card"><strong>Diagnostica accessi</strong>'
             + '<div class="ev-diag-riga"><span>In questo browser</span><span><b>' + loc.length + '</b>'
             + (loc.length ? ' &middot; ' + esc(loc.join(', ')) : ' (elenco vuoto)') + '</span></div>'
             + '<div class="ev-diag-riga"><span>Sul server</span><span>' + remoto + '</span></div>'
+            + perPersona
             + (Cloud.archiviNonLetti && Cloud.archiviNonLetti.length
                 ? '<div class="ev-diag-riga"><span>Archivi negati</span><span class="ev-ko">' + esc(Cloud.archiviNonLetti.join(' | ')) + '</span></div>'
                 : '')
@@ -6099,6 +6117,9 @@
             caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
         }
         if (Cloud.attivo) avviaAutoEventi(ev); else fermaAutoEventi();
+        // all'amministratore serve l'elenco utenze per dire, persona per persona, se
+        // l'abilitazione puo' davvero funzionare (ruolo, utenza attiva)
+        if (admin && _sondUtenti === null) utentiSond(() => { if (vistaCorrente === 'eventi') vistaEventi(); });
         const nIsc = _evIscrizioni ? _evIscrizioni.length : null;
         const conf = _evIscrizioni ? _evIscrizioni.filter(r => { const p = EventiPresenze.di(ev.id, r.id); return p && (p.stato === 'confermato' || p.stato === 'presente'); }).length : 0;
 
@@ -6156,11 +6177,20 @@
         const sel = new Set(EventiConfig.leggi().abilitati);
         const me = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : '';
         const lista = utenti.filter(u => String(u.email).toLowerCase() !== me);
+        // Chi ha un ruolo "solo sondaggio" non puo' leggere gli archivi generali (regole del
+        // server): spuntarlo non basta, va prima cambiato il ruolo. Lo si segnala qui, invece
+        // di lasciare l'amministratore convinto di averlo abilitato.
         const righe = lista.length ? lista.map(u => {
             const e = String(u.email).toLowerCase();
+            const soloSond = eRuoloSoloSondaggio(u.ruolo);
+            const spento = u.attivo === false;
+            let nota = '';
+            if (soloSond) nota = 'ruolo "solo sondaggio": non potra aprire gli Eventi finche non gli assegni un ruolo dello staff (sezione Utenti)';
+            else if (spento) nota = 'utenza disattivata: non puo accedere';
             return '<div class="mi-utente" data-email="' + esc(e) + '">'
                 + '<label class="mi-flag"><input type="checkbox" class="ev-ab" value="' + esc(e) + '"' + (sel.has(e) ? ' checked' : '') + '> abilitato</label>'
-                + '<span class="mi-nome">' + esc(u.nome || e) + '</span><span class="mi-mail">' + esc(e) + '</span></div>';
+                + '<span class="mi-nome">' + esc(u.nome || e) + '</span><span class="mi-mail">' + esc(e) + '</span>'
+                + (nota ? '<span class="ev-avviso">' + esc(nota) + '</span>' : '') + '</div>';
         }).join('') : '<p class="hint">Nessun altro utente disponibile.</p>';
         apriModale('<h2>Chi puo vedere la sezione Eventi</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">L\'amministratore la vede sempre. Spunta gli utenti che devono poterla aprire: gli altri non vedranno nemmeno la voce di menu.</p>'
