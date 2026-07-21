@@ -1315,7 +1315,9 @@
 
         /* --- dati condivisi: un documento Firestore per archivio --- */
         _sync: null,
-        archiviNonLetti: [],   // archivi che il server ha rifiutato: utile per capire i "non vedo la sezione"
+        archiviNonLetti: [],   // archivi che il server ha rifiutato in LETTURA
+        archiviNonScritti: {}, // archivi che il server ha rifiutato in SCRITTURA, con il motivo
+        _tentativi: {},        // tentativi di scrittura falliti per archivio
         // ruolo ed email arrivano da fuori perche' qui Auth.utenteCorrente NON e' ancora
         // valorizzato: viene impostato solo DOPO che questa promessa si e' risolta.
         avviaSync(ruolo, email) {
@@ -1470,19 +1472,34 @@
                         return merged;
                     });
                     this._baseRemoto[chiave] = fuso;
+                    delete this.archiviNonScritti[this.DOC_SYNC[chiave]];
+                    this._tentativi[chiave] = 0;
                     if (fuso !== localStorage.getItem(chiave)) {
                         localStorage.setItem(chiave, fuso);
                         ridisegnaDaSync();
                     }
                 } catch (e) {
-                    console.error('Sincronizzazione non riuscita (' + chiave + '):', e);
-                    // rimetti in coda per un nuovo tentativo: la modifica non va persa
-                    if (this._pendenti[chiave] == null) this._pendenti[chiave] = localStr;
-                    if (!this._timerFlush && this.pronto) this._timerFlush = setTimeout(() => this._flush(), 2500);
+                    const nomeDoc = this.DOC_SYNC[chiave];
+                    const codice = (e && e.code) || (e && e.message) || 'errore';
+                    console.error('Sincronizzazione non riuscita (' + nomeDoc + '):', e);
+                    // si tiene traccia dell'archivio e del MOTIVO: senza, un rifiuto del
+                    // server restava un messaggio generico e non si capiva cosa correggere
+                    this.archiviNonScritti[nomeDoc] = codice;
+                    this._tentativi[chiave] = (this._tentativi[chiave] || 0) + 1;
+                    const rinuncia = codice === 'permission-denied' || this._tentativi[chiave] >= 5;
+                    if (!rinuncia) {
+                        // rimetti in coda per un nuovo tentativo: la modifica non va persa
+                        if (this._pendenti[chiave] == null) this._pendenti[chiave] = localStr;
+                        if (!this._timerFlush && this.pronto) this._timerFlush = setTimeout(() => this._flush(), 2500);
+                    }
                     if (!this._erroreMostrato) {
                         this._erroreMostrato = true;
-                        toast('Attenzione: salvataggio non ancora condiviso, nuovo tentativo in corso' +
-                            (e && e.code === 'permission-denied' ? ' (utenza non piu abilitata?)' : '') + '.', 'rosso');
+                        const coda = ' La modifica resta solo su questo computer: riferiscilo all\'amministratore.';
+                        toast(!rinuncia
+                            ? 'Salvataggio di "' + nomeArchivio(nomeDoc) + '" non ancora condiviso, nuovo tentativo in corso.'
+                            : (codice === 'permission-denied'
+                                ? 'Il server ha RIFIUTATO il salvataggio di "' + nomeArchivio(nomeDoc) + '" (permessi).' + coda
+                                : 'Salvataggio di "' + nomeArchivio(nomeDoc) + '" non riuscito dopo piu tentativi (' + codice + ').' + coda), 'rosso');
                         setTimeout(() => { this._erroreMostrato = false; }, 5000);
                     }
                 }
@@ -6109,7 +6126,12 @@
             + '<div class="ev-diag-riga"><span>Sul server</span><span>' + remoto + '</span></div>'
             + perPersona
             + (Cloud.archiviNonLetti && Cloud.archiviNonLetti.length
-                ? '<div class="ev-diag-riga"><span>Archivi negati</span><span class="ev-ko">' + esc(Cloud.archiviNonLetti.map(a => a.testo).join(' | ')) + '</span></div>'
+                ? '<div class="ev-diag-riga"><span>Lettura negata</span><span class="ev-ko">' + esc(Cloud.archiviNonLetti.map(a => a.testo).join(' | ')) + '</span></div>'
+                : '')
+            + (Object.keys(Cloud.archiviNonScritti || {}).length
+                ? '<div class="ev-diag-riga"><span>Salvataggio rifiutato</span><span class="ev-ko">'
+                + esc(Object.keys(Cloud.archiviNonScritti).map(d => d + ': ' + Cloud.archiviNonScritti[d]).join(' | '))
+                + '</span></div>'
                 : '')
             + '<div style="margin-top:10px;"><button class="btn btn-sm btn-secondary" id="ev-diag-btn">Ricontrolla</button></div></div>';
     }
