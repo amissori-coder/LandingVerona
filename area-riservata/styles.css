@@ -961,6 +961,8 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .ev-diag-riga { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 7px 0; border-top: 1px solid var(--grigio-100); font-size: 0.88rem; }
 .ev-diag-riga > span:first-child { color: var(--grigio-600); }
 .ev-ko { color: var(--rosso); font-weight: 600; }
+/* etichetta dell'evento di provenienza, nel riepilogo di tutte le iscrizioni */
+.ev-tag { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--blu-050); border: 1px solid var(--grigio-200); color: var(--blu-700); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
 /* scelta delle colonne aggiuntive (gli elenchi hanno colonne diverse fra loro) */
 .ev-colonne { margin-bottom: 10px; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 8px 12px; font-size: 0.88rem; }
 .ev-colonne summary { cursor: pointer; color: var(--blu-700); font-weight: 600; }

@@ -6346,9 +6346,24 @@
         });
         return viste.sort((a, b) => a.localeCompare(b));
     }
+    /* Da quale evento arriva la persona. Nel foglio la colonna "Pagina" contiene il
+       titolo completo del modulo ("Napoli 2 Ottobre 2026 - Manifestazione di
+       interesse"): qui basta il nome dell'evento. */
+    function nomeEventoDa(pagina) {
+        const p = String(pagina || '').toLowerCase();
+        const e = EVENTI_DEF.find(x => !x.tutti && x.filtro && p.indexOf(x.filtro) >= 0);
+        return e ? e.titolo + ' ' + e.quando : (pagina || '-');
+    }
     function sceltaColonneHtml(ev, lista) {
         const disp = colonneExtraDisponibili(lista);
-        if (!disp.length) return '';
+        // il pannello si mostra SEMPRE: se non c'e' niente da aggiungere lo dice, invece
+        // di sparire e lasciare il dubbio che la funzione non esista
+        if (!disp.length) {
+            return '<details class="ev-colonne"><summary>Colonne aggiuntive (nessuna disponibile)</summary>'
+                + '<div class="hint" style="margin-top:8px;">Questo elenco non ha colonne oltre a quelle standard. '
+                + 'Compaiono qui quando il file importato ne contiene altre (citta, partita IVA, fatturato...): '
+                + 'se le attendevi, reimporta il file dopo l\'ultimo aggiornamento del servizio.</div></details>';
+        }
         const scelte = _evColonne[ev.id] || [];
         return '<details class="ev-colonne"><summary>Colonne aggiuntive ('
             + scelte.length + ' di ' + disp.length + ')</summary><div class="ev-colonne-elenco">'
@@ -6382,7 +6397,7 @@
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 + '<td data-label="Email">' + esc(r.email) + '</td>'
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
-                + (ev.tutti ? '<td data-label="Evento">' + esc(r.pagina || '-') + '</td>' : '')
+                + (ev.tutti ? '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>' : '')
                 + extra.map(c => '<td data-label="' + esc(c) + '">' + esc((r.extra && r.extra[c]) || '-') + '</td>').join('')
                 + (ev.tutti ? '' : cellaStato + cellaNota
                     + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || '-') + '</span></td>')
