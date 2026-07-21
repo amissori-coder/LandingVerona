@@ -1298,6 +1298,7 @@
 
         /* --- dati condivisi: un documento Firestore per archivio --- */
         _sync: null,
+        archiviNonLetti: [],   // archivi che il server ha rifiutato: utile per capire i "non vedo la sezione"
         avviaSync(ruolo) {
             // memoizzata: chiamate concorrenti condividono la stessa promessa
             if (!this._sync) {
@@ -1307,16 +1308,29 @@
         },
         async _eseguiSync(ruolo) {
             if (this.pronto) return;
+            this.archiviNonLetti = [];
             const { doc, getDoc, setDoc, onSnapshot, serverTimestamp } = this.fb.fsMod;
             // gli utenti "solo sondaggio" possono leggere SOLO i documenti del sondaggio:
             // le regole Firestore negano gli altri archivi, quindi non vanno nemmeno richiesti
             // (altrimenti il permission-denied farebbe fallire tutta la sincronizzazione).
+            // (eventiConfig serve anche a loro: senza, un utente "solo sondaggio" abilitato
+            // agli Eventi non vedrebbe mai la sezione. Se il server lo nega si prosegue.)
             const chiaviSync = eRuoloSoloSondaggio(ruolo)
-                ? [CHIAVI.sondaggi, CHIAVI.sondaggiConfig].filter(k => this.DOC_SYNC[k])
+                ? [CHIAVI.sondaggi, CHIAVI.sondaggiConfig, CHIAVI.eventiConfig, CHIAVI.eventiPresenze].filter(k => this.DOC_SYNC[k])
                 : Object.keys(this.DOC_SYNC);
             for (const chiave of chiaviSync) {
                 const rif = doc(this.db, 'archivio', this.DOC_SYNC[chiave]);
-                const snap = await getDoc(rif);
+                // Un singolo archivio non leggibile (regole Firestore non aggiornate dopo
+                // l'aggiunta di un nuovo archivio) NON deve far fallire tutta la
+                // sincronizzazione: prima bastava un permission-denied per lasciare
+                // l'utente con i soli dati vecchi gia' presenti nel browser.
+                let snap;
+                try {
+                    snap = await getDoc(rif);
+                } catch (e) {
+                    this.archiviNonLetti.push(this.DOC_SYNC[chiave] + ': ' + ((e && e.code) || (e && e.message) || 'errore'));
+                    continue;
+                }
                 if (snap.exists() && typeof snap.data().json === 'string') {
                     localStorage.setItem(chiave, snap.data().json);
                     this._baseRemoto[chiave] = snap.data().json;
@@ -1366,6 +1380,12 @@
                 }, () => { });
                 this.sottoscrizioni.push(stacca);
             });
+            // Se il server ha negato qualche archivio l'utente deve saperlo: prima restava
+            // muto e sembrava semplicemente che una sezione "non ci fosse".
+            if (this.archiviNonLetti.length) {
+                console.warn('Archivi non leggibili:', this.archiviNonLetti.join(' | '));
+                setTimeout(() => toast('Alcuni dati condivisi non sono stati caricati (permessi del server). Segnalalo all\'amministratore.', 'rosso'), 1500);
+            }
         },
 
         // sincronizzazione coalescente: scritture ripetute sulla stessa chiave
@@ -5999,6 +6019,9 @@
             + '<div class="ev-diag-riga"><span>In questo browser</span><span><b>' + loc.length + '</b>'
             + (loc.length ? ' &middot; ' + esc(loc.join(', ')) : ' (elenco vuoto)') + '</span></div>'
             + '<div class="ev-diag-riga"><span>Sul server</span><span>' + remoto + '</span></div>'
+            + (Cloud.archiviNonLetti && Cloud.archiviNonLetti.length
+                ? '<div class="ev-diag-riga"><span>Archivi negati</span><span class="ev-ko">' + esc(Cloud.archiviNonLetti.join(' | ')) + '</span></div>'
+                : '')
             + '<div style="margin-top:10px;"><button class="btn btn-sm btn-secondary" id="ev-diag-btn">Ricontrolla</button></div></div>';
     }
 
