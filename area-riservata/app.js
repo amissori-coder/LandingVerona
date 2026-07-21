@@ -6256,11 +6256,11 @@
             ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
             + '<div class="hint">Oltre all\'amministratore, vedono gli Eventi <b>' + cfg.abilitati.length + '</b> utenti abilitati.</div></div>'
             + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
-            + '<button class="btn btn-secondary" id="ev-importa">Importa dal foglio</button></div></div>'
+            + '<button class="btn btn-secondary" id="ev-importa">Importa iscrizioni</button></div></div>'
             : '';
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
         const corpo = _evIscrizioni === null
-            ? '<div class="card tabella-vuota">' + (_evInFlight ? 'Carico le iscrizioni...' : 'Premi "Aggiorna dal foglio" per caricare le iscrizioni.') + '</div>'
+            ? '<div class="card tabella-vuota">' + (_evInFlight ? 'Carico le iscrizioni...' : 'Premi "Aggiorna adesso" per caricare le iscrizioni.') + '</div>'
             : (!_evIscrizioni.length ? '<div class="card tabella-vuota">Nessuna iscrizione per questo evento.</div>' : tabellaIscrizioni(ev, _evIscrizioni));
 
         $vista().innerHTML = '<header><div><h1>Eventi</h1>'
