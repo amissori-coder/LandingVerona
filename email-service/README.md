@@ -150,6 +150,24 @@ Nessuna configurazione aggiuntiva: usa `FIREBASE_SERVICE_ACCOUNT`, gia presente.
 Per collegare un altro form basta aggiungere nella pagina un secondo `fetch` a
 questo indirizzo con lo stesso payload (vedi `napoli_ottobre_2026/script.js`).
 
+## Importazione una tantum (`/api/importa-iscrizioni`)
+
+Riservato all'**amministratore** (ID token verificato, ruolo `admin`). Porta
+dentro la collezione `iscrizioni` le iscrizioni raccolte finora, in due modi:
+
+- senza `csv` nel corpo: legge il foglio con l'API Google (serve il foglio
+  condiviso con l'account di servizio);
+- con `csv`: usa il testo inviato, cioe il file scaricato dal foglio
+  (*File > Scarica > Valori separati da virgole*). Non richiede nulla.
+
+Si usa dall'area riservata: **Eventi > Importa dal foglio**. L'identificativo dei
+documenti e lo stesso del form, quindi reimportare non crea doppioni e non tocca
+stati e note gia collegati. Scrive a blocchi di 400 per rispettare i limiti di
+Firestore.
+
+Fatta l'importazione, il foglio non serve piu: si puo togliere `EVENTI_SHEET_ID`
+dalle variabili su Vercel e la lettura restera sulle sole iscrizioni Firestore.
+
 ## Iscrizioni agli eventi (`/api/iscrizioni`)
 
 Restituisce **solo** le iscrizioni dell'evento richiesto (di default "napoli"),

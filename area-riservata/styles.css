@@ -961,6 +961,12 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .ev-diag-riga { display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 7px 0; border-top: 1px solid var(--grigio-100); font-size: 0.88rem; }
 .ev-diag-riga > span:first-child { color: var(--grigio-600); }
 .ev-ko { color: var(--rosso); font-weight: 600; }
+/* importazione delle iscrizioni gia raccolte: due strade, una sotto l'altra */
+.ev-imp-passo { padding: 12px 14px; border: 1px solid var(--grigio-200); border-radius: 6px; margin-bottom: 10px; }
+.ev-imp-passo .hint { margin: 3px 0 9px; }
+.ev-imp-passo input[type="file"] { font-size: 0.85rem; }
+.ev-imp-esito { min-height: 20px; margin: 4px 0 2px; font-size: 0.88rem; }
+.ev-ok { color: var(--verde, #1E7F4F); font-weight: 600; }
 /* avviso che blocca il salvataggio degli accessi quando l'elenco utenze non e' attendibile */
 .ev-blocco { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--rosso); border-radius: 6px; background: #FDF3F2; color: var(--rosso); font-size: 0.88rem; line-height: 1.4; }
 /* chi ha aggiornato stato o nota di un iscritto, e quando */

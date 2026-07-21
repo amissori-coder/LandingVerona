@@ -1148,6 +1148,28 @@
             }
         },
 
+        /* Importazione una tantum: csv vuoto = leggi direttamente dal foglio. */
+        async importaIscrizioni(csv) {
+            let url = window.RV_IMPORTA_ISCRIZIONI_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'importa-iscrizioni$1');
+            if (!url) return { ok: false, msg: 'Servizio non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, csv: csv || '' })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Importazione non riuscita (' + r.status + ').') };
+                return { ok: true, lette: data.lette || 0, importate: data.importate || 0, saltate: data.saltate || 0, fonte: data.fonte || '' };
+            } catch (e) {
+                return { ok: false, msg: 'Servizio non raggiungibile.' };
+            }
+        },
+
         /* prima password: crea l'account se manca (su una app secondaria,
            senza toccare la sessione corrente) e invia l'email con il
            collegamento per impostare la password */
@@ -6233,7 +6255,8 @@
         const gestione = admin
             ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
             + '<div class="hint">Oltre all\'amministratore, vedono gli Eventi <b>' + cfg.abilitati.length + '</b> utenti abilitati.</div></div>'
-            + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button></div></div>'
+            + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
+            + '<button class="btn btn-secondary" id="ev-importa">Importa dal foglio</button></div></div>'
             : '';
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
         const corpo = _evIscrizioni === null
@@ -6259,6 +6282,8 @@
         });
         const bAcc = document.getElementById('ev-accessi');
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
+        const bImp = document.getElementById('ev-importa');
+        if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
         const bDiag = document.getElementById('ev-diag-btn');
         if (bDiag) bDiag.addEventListener('click', () => {
             bDiag.disabled = true; bDiag.textContent = 'Controllo...';
@@ -6279,6 +6304,50 @@
         }));
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
+    }
+
+    /* Porta dentro il database le iscrizioni raccolte finora sul foglio. Si fa una
+       volta sola: da li in avanti il form scrive direttamente nel database. Due
+       strade, perche' la lettura diretta del foglio puo' non essere disponibile. */
+    function modaleImportaIscrizioni(ev) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        apriModale('<h2>Importa le iscrizioni gia raccolte</h2>'
+            + '<p class="hint" style="margin:-4px 0 14px;">Serve una volta sola. Le iscrizioni nuove arrivano gia da sole. '
+            + 'Reimportare non crea doppioni e non tocca gli stati e le note che hai gia messo.</p>'
+            + '<div class="ev-imp-passo"><strong>1. Direttamente dal foglio</strong>'
+            + '<div class="hint">Funziona se il foglio e condiviso con il servizio.</div>'
+            + '<button class="btn btn-primary" id="imp-foglio">Leggi dal foglio</button></div>'
+            + '<div class="ev-imp-passo"><strong>2. Oppure da un file</strong>'
+            + '<div class="hint">Dal foglio: File, Scarica, Valori separati da virgole (.csv). Poi scegli qui il file scaricato.</div>'
+            + '<input type="file" id="imp-file" accept=".csv,text/csv,text/plain"></div>'
+            + '<div id="imp-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="imp-chiudi">Chiudi</button></div>', { classe: 'larga' });
+
+        const esito = document.getElementById('imp-esito');
+        const mostra = (testo, ko) => { esito.innerHTML = '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>'; };
+        const esegui = (csv, bottone) => {
+            const testoPrec = bottone ? bottone.textContent : '';
+            if (bottone) { bottone.disabled = true; bottone.textContent = 'Importo...'; }
+            mostra('Importazione in corso, puo richiedere qualche secondo.');
+            Cloud.importaIscrizioni(csv).then(r => {
+                if (bottone) { bottone.disabled = false; bottone.textContent = testoPrec; }
+                if (!r.ok) { mostra(r.msg || 'Importazione non riuscita.', true); return; }
+                mostra('Importate ' + r.importate + ' iscrizioni su ' + r.lette + ' righe lette'
+                    + (r.saltate ? ' (' + r.saltate + ' righe vuote saltate)' : '') + '.');
+                _evIscrizioni = null; _evFirma = '';
+                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
+            });
+        };
+        document.getElementById('imp-foglio').addEventListener('click', e => esegui('', e.currentTarget));
+        document.getElementById('imp-file').addEventListener('change', e => {
+            const f = e.target.files && e.target.files[0];
+            if (!f) return;
+            const lettore = new FileReader();
+            lettore.onload = () => esegui(String(lettore.result || ''), null);
+            lettore.onerror = () => mostra('Non riesco a leggere il file.', true);
+            lettore.readAsText(f, 'utf-8');
+        });
+        document.getElementById('imp-chiudi').addEventListener('click', chiudiModale);
     }
 
     /* Chi puo aprire la sezione Eventi: elenco di utenti scelti dall'amministratore. */
