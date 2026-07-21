@@ -1246,6 +1246,27 @@ ul {
     background: rgba(177, 33, 59, 0.08);
 }
 
+/* Intervento in evidenza (Invitalia · Bagnoli e America's Cup 2027) */
+.timeline-item--highlight .timeline-content {
+    border-color: rgba(177, 33, 59, 0.28);
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(180deg, rgba(177, 33, 59, 0.05), rgba(177, 33, 59, 0.015));
+    box-shadow: var(--shadow-md);
+}
+
+.timeline-item--highlight .timeline-content h3 {
+    color: var(--accent-dark);
+}
+
+.timeline-item--highlight .timeline-dot {
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(177, 33, 59, 0.18);
+}
+
+.timeline-item--highlight .timeline-time {
+    color: var(--accent);
+}
+
 /* Pause e momenti conviviali: trattamento più leggero */
 .timeline-item--break .timeline-content {
     background: transparent;
