@@ -5936,17 +5936,53 @@
     let _evIscrizioni = null;    // solo in memoria: i dati personali non si salvano nel browser
     let _evMsg = '';
     let _evInFlight = false;
+    let _evFirma = '';           // impronta dell'elenco: serve a ridisegnare solo se e cambiato
+    let _evAggiornato = 0;       // ora dell'ultima lettura riuscita
+    let _evTimer = null;
+    const EV_INTERVALLO = 45000; // ricontrollo automatico: le iscrizioni non arrivano a raffica
 
+    function firmaIscr(l) { return (l || []).map(r => r.id).join('|'); }
+
+    /* poi(cambiato): "cambiato" dice se l'elenco e diverso da quello gia a video,
+       cosi l'aggiornamento automatico non ridisegna (e non fa perdere il punto in
+       cui stai scrivendo) quando non e successo nulla. */
     function caricaIscrizioni(ev, poi) {
         if (_evInFlight) return;
-        if (typeof Cloud === 'undefined' || !Cloud.attivo) { _evMsg = 'Le iscrizioni richiedono l\'accesso cloud (non disponibili in modalita dimostrativa).'; if (poi) poi(); return; }
+        if (typeof Cloud === 'undefined' || !Cloud.attivo) { _evMsg = 'Le iscrizioni richiedono l\'accesso cloud (non disponibili in modalita dimostrativa).'; if (poi) poi(false); return; }
         _evInFlight = true;
         Cloud.iscrizioniEvento(ev.filtro).then(r => {
             _evInFlight = false;
-            if (r && r.ok) { _evIscrizioni = r.iscrizioni; _evMsg = ''; }
-            else { _evIscrizioni = _evIscrizioni || []; _evMsg = (r && r.msg) || 'Lettura non riuscita.'; }
-            if (poi) poi();
-        }).catch(() => { _evInFlight = false; _evMsg = 'Lettura non riuscita.'; if (poi) poi(); });
+            let cambiato = false;
+            if (r && r.ok) {
+                const nuova = firmaIscr(r.iscrizioni);
+                cambiato = (nuova !== _evFirma);
+                _evIscrizioni = r.iscrizioni; _evFirma = nuova; _evMsg = ''; _evAggiornato = Date.now();
+            } else {
+                const msg = (r && r.msg) || 'Lettura non riuscita.';
+                cambiato = (msg !== _evMsg);
+                _evIscrizioni = _evIscrizioni || []; _evMsg = msg;
+            }
+            if (poi) poi(cambiato);
+        }).catch(() => {
+            _evInFlight = false;
+            const cambiato = (_evMsg !== 'Lettura non riuscita.');
+            _evMsg = 'Lettura non riuscita.';
+            if (poi) poi(cambiato);
+        });
+    }
+
+    function fermaAutoEventi() { if (_evTimer) { clearInterval(_evTimer); _evTimer = null; } }
+    /* Aggiornamento automatico mentre la sezione e aperta: si spegne da solo quando
+       si cambia vista e salta il giro se stai scrivendo una nota o cambiando uno stato. */
+    function avviaAutoEventi(ev) {
+        if (_evTimer) return;
+        _evTimer = setInterval(() => {
+            if (vistaCorrente !== 'eventi') { fermaAutoEventi(); return; }
+            if (_evInFlight) return;
+            const a = document.activeElement;
+            if (a && a.classList && (a.classList.contains('ev-nota') || a.classList.contains('ev-stato'))) return;
+            caricaIscrizioni(ev, cambiato => { if (cambiato && vistaCorrente === 'eventi') vistaEventi(); });
+        }, EV_INTERVALLO);
     }
 
     function tabellaIscrizioni(ev, lista) {
@@ -5976,10 +6012,11 @@
         const admin = Auth.eAdmin() || Auth.eProprietario();
         const ev = EVENTI_DEF[0];
         const cfg = EventiConfig.leggi();
-        // primo ingresso: carica da solo (poi si aggiorna col pulsante)
+        // primo ingresso: carica da solo; poi si aggiorna in automatico a intervalli
         if (_evIscrizioni === null && !_evInFlight && Cloud.attivo) {
             caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
         }
+        if (Cloud.attivo) avviaAutoEventi(ev); else fermaAutoEventi();
         const nIsc = _evIscrizioni ? _evIscrizioni.length : null;
         const conf = _evIscrizioni ? _evIscrizioni.filter(r => { const p = EventiPresenze.di(ev.id, r.id); return p && (p.stato === 'confermato' || p.stato === 'presente'); }).length : 0;
 
@@ -5995,8 +6032,9 @@
 
         $vista().innerHTML = '<header><div><h1>Eventi</h1>'
             + '<p class="descrizione">Le iscrizioni raccolte dai form del sito. Sezione riservata agli utenti abilitati.</p></div>'
-            + '<div class="header-azioni"><button class="btn btn-primary" id="ev-aggiorna"' + (_evInFlight ? ' disabled' : '') + '>'
-            + (_evInFlight ? 'Aggiorno...' : 'Aggiorna dal foglio') + '</button></div></header>'
+            + '<div class="header-azioni"><span class="ev-live">' + (_evInFlight ? 'aggiornamento...' : (_evAggiornato ? 'aggiornato alle ' + esc(new Date(_evAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) : 'in attesa')) + '</span>'
+            + '<button class="btn btn-secondary" id="ev-aggiorna"' + (_evInFlight ? ' disabled' : '') + '>'
+            + (_evInFlight ? 'Aggiorno...' : 'Aggiorna adesso') + '</button></div></header>'
             + '<div class="card ev-testa"><div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
             + '<div class="hint">' + esc(ev.quando) + '</div></div>'
             + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscritti</span></div>'
