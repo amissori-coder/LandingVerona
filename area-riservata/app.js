@@ -6426,7 +6426,12 @@
             + '<button class="btn btn-sm btn-danger" id="ev-canc-multi">'
             + (ev.tutti ? 'Togli le selezionate da questo elenco' : 'Cancella le selezionate') + '</button></div>'
             : '';
-        return barra + sceltaColonneHtml(ev, lista) + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
+        return barra + sceltaColonneHtml(ev, lista)
+            // su schermo piccolo l'intestazione della tabella e nascosta (le righe
+            // diventano schede), quindi la casella "tutte" che sta li dentro sparirebbe:
+            // questa la ripropone sopra l'elenco. A video largo resta nascosta.
+            + (adminEv ? '<label class="ev-sel-mobile"><input type="checkbox" id="ev-sel-tutte-m"> Seleziona tutte le iscrizioni in elenco</label>' : '')
+            + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
             + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
             + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th>'
             + (ev.tutti ? '<th>Evento</th>' : '')
@@ -6561,21 +6566,31 @@
             if (c.checked) _evSelezionate.add(c.value); else _evSelezionate.delete(c.value);
             aggiornaBarra();
         }));
+        // la casella "tutte" sta in due punti: nell'intestazione della tabella (a video
+        // largo) e sopra l'elenco (su telefono, dove l'intestazione e nascosta). Le due
+        // restano sempre allineate fra loro.
         const tutte = document.getElementById('ev-sel-tutte');
-        if (tutte) tutte.addEventListener('change', () => {
+        const tutteMob = document.getElementById('ev-sel-tutte-m');
+        const segnaTutte = on => {
             $vista().querySelectorAll('.ev-sel').forEach(c => {
                 // solo le righe visibili: il filtro di ricerca nasconde le altre
                 if (c.closest('tr').style.display === 'none') return;
-                c.checked = tutte.checked;
-                if (c.checked) _evSelezionate.add(c.value); else _evSelezionate.delete(c.value);
+                c.checked = on;
+                if (on) _evSelezionate.add(c.value); else _evSelezionate.delete(c.value);
             });
+            if (tutte) tutte.checked = on;
+            if (tutteMob) tutteMob.checked = on;
             aggiornaBarra();
+        };
+        [tutte, tutteMob].forEach(el => {
+            if (el) el.addEventListener('change', () => segnaTutte(el.checked));
         });
         const bNess = document.getElementById('ev-sel-nessuna');
         if (bNess) bNess.addEventListener('click', () => {
             _evSelezionate = new Set();
             $vista().querySelectorAll('.ev-sel').forEach(c => { c.checked = false; });
             if (tutte) tutte.checked = false;
+            if (tutteMob) tutteMob.checked = false;
             aggiornaBarra();
         });
         const bMulti = document.getElementById('ev-canc-multi');

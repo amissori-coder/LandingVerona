@@ -919,6 +919,10 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 /* barra della selezione multipla sopra l'elenco iscritti */
 .ev-barra { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--blu-700); border-radius: 6px; background: var(--blu-050); font-size: 0.88rem; }
 .ev-barra.vuota { display: none; }
+/* "Seleziona tutte" sopra l'elenco: serve solo quando l'intestazione della tabella
+   e nascosta (schermo piccolo), dove la casella dentro il <th> non si vedrebbe.
+   Accesa nel blocco a schede in fondo al foglio. */
+.ev-sel-mobile { display: none; }
 .ev-azioni { white-space: nowrap; }
 .ev-azioni .btn + .btn { margin-left: 6px; }
 /* scelta dell'evento: un riquadro per evento, si apre uno alla volta */
@@ -1117,6 +1121,15 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
     table.dati tbody td textarea { max-width: 100%; }
     /* casella di selezione grande abbastanza da centrarla col dito (era 13x13) */
     table.dati tbody td input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 auto; }
+    /* qui l'intestazione della tabella e nascosta, quindi la casella "tutte" che sta
+       nel <th> sparirebbe: compare quella sopra l'elenco */
+    .ev-sel-mobile {
+        display: flex; align-items: center; gap: 10px; cursor: pointer;
+        padding: 9px 12px; margin-bottom: 10px;
+        border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff;
+        font-size: 0.88rem; color: var(--grigio-900);
+    }
+    .ev-sel-mobile input { width: 20px; height: 20px; flex: 0 0 auto; margin: 0; accent-color: var(--blu-700); }
 }
 
 /* =========================================================
