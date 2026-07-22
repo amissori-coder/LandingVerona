@@ -4368,10 +4368,32 @@
             finalizzaWizard();
         });
     }
+    /* Gli esercizi FUORI dal periodo che si sta modificando/rinnovando vengono fissati
+       come piano con la loro periodicita ORIGINALE: senza questo, cambiare la
+       periodicita (in modifica o al rinnovo) riscriverebbe le rate degli anni passati,
+       gia magari fatturati. Usa i dati salvati (prec), non quelli nuovi. */
+    function congelaAnniFuoriPeriodo(d, prec, anniCorrenti) {
+        if (!prec) return;
+        const anniPrec = Array.from(new Set(Object.keys(prec.compensi || {}).map(Number)))
+            .filter(a => a && !anniCorrenti.includes(a));
+        if (!anniPrec.length) return;
+        d.piano = Object.assign({}, d.piano || {});
+        const senzaPiano = anniPrec.filter(a => !Array.isArray(d.piano[a]) && !Array.isArray((prec.piano || {})[a]));
+        const generato = senzaPiano.length ? pianoProposto(prec, senzaPiano) : {};
+        anniPrec.forEach(a => {
+            if (Array.isArray(d.piano[a])) return;                        // gia fissato in questa sessione
+            if (Array.isArray((prec.piano || {})[a])) d.piano[a] = prec.piano[a].map(r => Object.assign({}, r));
+            else if (generato[a] && generato[a].length) d.piano[a] = generato[a];
+        });
+    }
+
     function finalizzaWizard() {
         const w = wizard, d = w.dati;
         const anni = anniEsercizi();
         const mappa = compensiRisultanti();
+        // l'incarico com'era salvato: serve a congelare gli anni fuori periodo con la
+        // loro periodicita di prima (in modifica e in rinnovo)
+        const prec = w.idEsistente ? Incarichi.trova(w.idEsistente) : null;
         if (w.modalita === 'rinnovo') {
             anni.forEach(a => { d.compensi[a] = mappa[a]; });
         } else {
@@ -4381,6 +4403,7 @@
             anni.forEach(a => { nuovi[a] = mappa[a]; });
             d.compensi = nuovi;
         }
+        congelaAnniFuoriPeriodo(d, prec, anni);
         // il piano di fatturazione comanda: il compenso dell'esercizio e la somma delle
         // sue scadenze, cosi togliere o correggere un periodo si vede subito ovunque
         anni.forEach(a => {
@@ -4397,22 +4420,11 @@
         const haLettera = d.tipo === 'legale' || d.tipo === 'volontaria';
         if (w.modalita === 'rinnovo') {
             d.rinnovo = d.dataFine;
-            // archivia il periodo PRECEDENTE (dati + lettera ricreabile) prima di sovrascrivere
-            const prec = Incarichi.trova(w.idEsistente);
+            // archivia il periodo PRECEDENTE (dati + lettera ricreabile) prima di sovrascrivere.
+            // gli anni chiusi sono gia stati fissati come piano da congelaAnniFuoriPeriodo
             if (prec) {
-                /* Gli esercizi che si chiudono vengono fissati come piano, con le scadenze
-                   che avevano: senza questo passaggio un rinnovo che cambia periodicita
-                   riscriverebbe anche le rate degli anni passati. */
-                const anniPrec = Array.from(new Set(Object.keys(prec.compensi || {}).map(Number)))
-                    .filter(a => a && !anni.includes(a));
-                const senzaPiano = anniPrec.filter(a => !Array.isArray((prec.piano || {})[a]));
-                if (senzaPiano.length) {
-                    const generato = pianoProposto(prec, senzaPiano);
-                    d.piano = Object.assign({}, d.piano || {});
-                    senzaPiano.forEach(a => { if (generato[a] && generato[a].length) d.piano[a] = generato[a]; });
-                }
                 const pianoPrec = {};
-                anniPrec.forEach(a => { if (Array.isArray((d.piano || {})[a])) pianoPrec[a] = d.piano[a]; });
+                Object.keys(d.piano || {}).forEach(a => { if (!anni.includes(Number(a))) pianoPrec[a] = d.piano[a]; });
                 const snap = {
                     chiuso: { il: Date.now(), da: (Auth.utenteCorrente.nome || Auth.utenteCorrente.email || '') },
                     esercizioPeriodo: prec.esercizioPeriodo || null,
