@@ -293,12 +293,27 @@ td.td-azioni .btn { margin: 0 2px 2px 0; }
 .sidebar .utente-box .ruolo { color: rgba(255,255,255,0.6); font-size: 0.75rem; text-transform: capitalize; }
 .sidebar .utente-box button { margin-top: 10px; }
 
-/* Box "utenti connessi ora" */
-.sidebar .presenza-box { padding: 10px 18px; border-top: 1px solid rgba(255,255,255,0.10); font-size: 0.78rem; display: flex; flex-direction: column; gap: 5px; }
+/* Box "utenti connessi ora": un pannello integrato in fondo alla sidebar */
+.sidebar .presenza-box { padding: 12px; border-top: 1px solid rgba(255,255,255,0.10); }
 .sidebar .presenza-box:empty { display: none; }
-.presenza-titolo { color: rgba(255,255,255,0.55); font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
-.presenza-utente { display: flex; align-items: center; gap: 7px; color: rgba(255,255,255,0.9); }
-.presenza-utente .pallino { width: 8px; height: 8px; border-radius: 50%; background: var(--verde); flex-shrink: 0; }
+.presenza-pannello { background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 10px 11px; display: flex; flex-direction: column; gap: 8px; }
+.presenza-titolo { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: rgba(255,255,255,0.55); font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+/* pulsante "Messaggi" leggibile sul blu scuro (btn-ghost qui sarebbe blu su blu) */
+.pres-inbox { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-family: inherit; font-size: 0.68rem; font-weight: 600; letter-spacing: 0; text-transform: none; cursor: pointer; transition: all .15s ease; }
+.pres-inbox:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.pres-badge { background: var(--oro, #C9A227); color: #1a1a1a; border-radius: 999px; min-width: 16px; padding: 0 4px; font-size: 0.66rem; font-weight: 800; text-align: center; }
+.presenza-utente { display: flex; align-items: flex-start; gap: 8px; color: rgba(255,255,255,0.92); font-size: 0.8rem; }
+.presenza-utente .pallino { width: 8px; height: 8px; border-radius: 50%; background: var(--verde); flex-shrink: 0; margin-top: 5px; box-shadow: 0 0 0 3px rgba(46,160,67,0.18); }
+.pres-corpo { flex: 1; min-width: 0; }
+.pres-nome-riga { display: flex; align-items: center; gap: 6px; }
+.pres-nome { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pres-msg { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; padding: 3px; border: none; border-radius: 6px; background: transparent; color: rgba(255,255,255,0.6); cursor: pointer; transition: all .15s ease; }
+.pres-msg:hover { background: rgba(255,255,255,0.14); color: #fff; }
+/* riga "sta modificando": pill oro leggibile, integrata sotto il nome */
+.pres-mod { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; max-width: 100%; padding: 2px 9px 2px 7px; border-radius: 999px; background: rgba(201,162,39,0.20); color: #F0CE7A; font-size: 0.72rem; font-weight: 600; }
+.pres-mod svg { flex-shrink: 0; }
+.pres-mod .et { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.presenza-utente.sta-modificando .pallino { background: var(--oro, #C9A227); box-shadow: 0 0 0 3px rgba(201,162,39,0.22); }
 
 .contenuto { margin-left: 240px; padding: 28px 32px 60px; max-width: 1500px; min-width: 0; }
 .contenuto > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }

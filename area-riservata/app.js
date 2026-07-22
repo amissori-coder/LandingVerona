@@ -2595,14 +2595,21 @@
         if (!connessi || !connessi.length) { box.innerHTML = ''; return; }
         const mio = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
         const nonLetti = (typeof Cloud !== 'undefined' && Cloud._msgNonLetti) || 0;
+        const icoMatita = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+        const icoBusta = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="m3 6 9 6 9-6"/></svg>';
         const voci = connessi.map(c => {
             const io = String(c.email).toLowerCase() === mio;
-            const mod = (c.modifica && c.modifica.etichetta) ? ' <span class="badge ambra" title="Sta modificando ora">modifica: ' + esc(troncaTesto(String(c.modifica.etichetta), 20)) + '</span>' : '';
-            const scrivi = io ? '' : ' <button class="btn btn-sm btn-ghost pres-msg" data-email="' + esc(c.email) + '" data-nome="' + esc(c.nome || c.email) + '" title="Scrivi a ' + esc(c.nome || c.email) + '">&#9993;</button>';
-            return '<span class="presenza-utente"><span class="pallino"></span>' + esc((c.nome || c.email) + (io ? ' (tu)' : '')) + mod + scrivi + '</span>';
+            const mod = (c.modifica && c.modifica.etichetta)
+                ? '<span class="pres-mod" title="Sta modificando in questo momento">' + icoMatita + '<span class="et">' + esc(troncaTesto(String(c.modifica.etichetta), 22)) + '</span></span>'
+                : '';
+            const scrivi = io ? '' : '<button class="btn btn-sm btn-ghost pres-msg" data-email="' + esc(c.email) + '" data-nome="' + esc(c.nome || c.email) + '" title="Scrivi a ' + esc(c.nome || c.email) + '" aria-label="Scrivi a ' + esc(c.nome || c.email) + '">' + icoBusta + '</button>';
+            return '<div class="presenza-utente' + (mod ? ' sta-modificando' : '') + '"><span class="pallino"></span>'
+                + '<span class="pres-corpo"><span class="pres-nome-riga"><span class="pres-nome">' + esc((c.nome || c.email) + (io ? ' (tu)' : '')) + '</span>' + scrivi + '</span>' + mod + '</span></div>';
         }).join('');
-        box.innerHTML = '<div class="presenza-titolo">Connessi ora &middot; ' + connessi.length
-            + ' <button class="btn btn-sm btn-ghost pres-inbox" title="Messaggi ricevuti">Messaggi' + (nonLetti ? ' (' + nonLetti + ')' : '') + '</button></div>' + voci;
+        box.innerHTML = '<div class="presenza-pannello">'
+            + '<div class="presenza-titolo"><span>Connessi ora &middot; ' + connessi.length + '</span>'
+            + '<button class="pres-inbox" title="Messaggi ricevuti" aria-label="Messaggi ricevuti">' + icoBusta + '<span>Messaggi</span>' + (nonLetti ? '<span class="pres-badge">' + nonLetti + '</span>' : '') + '</button></div>'
+            + voci + '</div>';
         box.querySelectorAll('.pres-msg').forEach(b => b.addEventListener('click', () => modaleInviaMessaggio(b.dataset.email, b.dataset.nome)));
         const bi = box.querySelector('.pres-inbox'); if (bi) bi.addEventListener('click', modaleCasellaMessaggi);
     }
