@@ -40,6 +40,43 @@
         return nome + (fin.length ? ' (' + fin.join(', ') + ')' : '');
     }
 
+    /* Spese generali forfettarie (tecnologia, banche dati, software, segreteria):
+       percentuale sugli onorari di ogni scadenza. Gli incarichi salvati prima che la
+       scelta esistesse non hanno i campi e restano al 5%, come e sempre stato. */
+    const SPESE_PERC_DEFAULT = 5;
+    function spesePerc(inc) {
+        if (!inc) return SPESE_PERC_DEFAULT;
+        if (inc.speseGenerali === false) return 0;
+        const p = Number(inc.speseGeneraliPerc);
+        return isFinite(p) && p >= 0 ? p : SPESE_PERC_DEFAULT;
+    }
+    // spese generali su un importo, arrotondate al centesimo
+    function speseSu(importo, inc) {
+        return Math.round((Number(importo) || 0) * spesePerc(inc)) / 100;
+    }
+    // percentuale scritta all'italiana (5, 7,5) per etichette e lettera
+    function percTesto(p) {
+        return String(Math.round(p * 100) / 100).replace('.', ',');
+    }
+
+    /* Importi in euro con decimali (formato italiano): lettura robusta di quanto
+       viene battuto a mano e formattazione per rimetterlo nel campo. */
+    function parseEuro(s) {
+        s = String(s == null ? '' : s).replace(/[^\d.,-]/g, '').trim();
+        if (!s) return 0;
+        if (s.indexOf(',') >= 0) {
+            s = s.replace(/\./g, '').replace(',', '.');            // virgola = decimali, punto = migliaia
+        } else if (s.indexOf('.') >= 0) {
+            const parti = s.split('.');
+            // piu punti (1.234.567) o ultimo gruppo di 3 cifre (1.234) = separatore di migliaia; altrimenti punto decimale (50.5, 50.00)
+            if (parti.length > 2 || parti[parti.length - 1].length === 3) s = parti.join('');
+        }
+        return Math.round((Number(s) || 0) * 100) / 100;
+    }
+    function fmtEuroInput(n) {
+        return n ? Number(n).toFixed(2).replace('.', ',') : '';
+    }
+
     function esc(s) {
         return String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -752,6 +789,8 @@
         { chiave: 'fattInizio', nome: 'Inizio fatturazione' },
         { chiave: 'fattFine', nome: 'Fine fatturazione' },
         { chiave: 'fattData', nome: 'Data fattura' },
+        { chiave: 'speseGenerali', nome: 'Spese generali' },
+        { chiave: 'speseGeneraliPerc', nome: 'Percentuale spese generali' },
         { chiave: 'stato', nome: 'Stato' },
         { chiave: 'statoNote', nome: 'Note stato' },
         { chiave: 'calcoloCongelato', nome: 'Calcolo congelato' }
@@ -2113,12 +2152,30 @@
         stati() { return Store.leggi(CHIAVI.fatture, {}); },
         salvaStati(s) { Store.scrivi(CHIAVI.fatture, s); },
 
-        /* Genera il piano rate di un incarico per un anno */
+        /* Genera il piano rate di un incarico per un anno.
+           Se l'incarico ha un PIANO CONCORDATO per quell'esercizio (righe scadenza +
+           importo decise nel wizard) comanda quello; altrimenti le rate si ricavano
+           dalla periodicita, come e sempre stato per gli incarichi importati. */
         rate(inc, anno) {
+            const stati = this.stati();
+            const righe = inc.piano && inc.piano[anno];
+            if (Array.isArray(righe)) {
+                return righe.map((r, i) => {
+                    const scad = /^\d{4}-\d{2}-\d{2}$/.test(r.scadenza || '') ? r.scadenza : (anno + '-12-31');
+                    // la riga nata da una rata automatica conserva la sua chiave: stato ed
+                    // eventuale rimborso restano attaccati alla scadenza giusta
+                    const chiave = r.chiave || (inc.id + '|' + anno + '|p|' + (r.id || (i + 1)));
+                    return {
+                        chiave, incarico: inc, anno, numero: i + 1, totale: righe.length,
+                        mese: Number(scad.slice(5, 7)) || 12, scadenza: scad,
+                        importo: Math.round((Number(r.importo) || 0) * 100) / 100,
+                        stato: stati[chiave] || 'da emettere'
+                    };
+                });
+            }
             const compenso = Incarichi.compensoAnno(inc, anno);
             if (!compenso) return [];
             const periodicita = inc.fatturazione || 'annuale';
-            const stati = this.stati();
 
             // modalita "data specifica": una sola scadenza, nell'esercizio che coincide con la data
             if (periodicita === 'specifica') {
@@ -2209,6 +2266,34 @@
             Audit.registra(utente, congelato ? 'Rimborso spese congelato' : 'Rimborso spese sbloccato', 'fattura', chiave, cliente, null);
         }
     };
+
+    /* Piano di fatturazione PROPOSTO per gli esercizi indicati: le stesse scadenze che
+       genererebbe la periodicita scelta, ma come righe modificabili una per una.
+       "base" e un incarico (o l'anteprima del wizard) SENZA piano, altrimenti si
+       ricopierebbe il piano invece di riproporlo. */
+    function pianoProposto(base, anni) {
+        const piano = {};
+        (anni || []).forEach(anno => {
+            piano[anno] = Fatture.rate(base, anno).map((r, i) => ({
+                id: 'r' + (i + 1), scadenza: r.scadenza, importo: r.importo,
+                // incarico gia salvato: la riga eredita la chiave della rata automatica
+                chiave: base.id && base.id !== 'anteprima' ? r.chiave : null
+            }));
+        });
+        return piano;
+    }
+    // totale degli onorari di un esercizio del piano
+    function totalePiano(righe) {
+        if (!Array.isArray(righe)) return 0;
+        return Math.round(righe.reduce((s, r) => s + (Number(r.importo) || 0), 0) * 100) / 100;
+    }
+    // etichetta breve del periodo di una riga, in base alla periodicita
+    function etichettaRigaPiano(scadenza, periodicita, numero) {
+        const m = Number(String(scadenza || '').slice(5, 7)) || 0;
+        if (periodicita === 'mensile' && m) return MESI_IT[m - 1].charAt(0).toUpperCase() + MESI_IT[m - 1].slice(1);
+        if (periodicita === 'trimestrale' && m) return Math.ceil(m / 3) + '° trimestre';
+        return 'Rata ' + numero;
+    }
 
     /* =========================================================
        INTERFACCIA - infrastruttura
@@ -3237,12 +3322,27 @@
                     </div>
                     <div class="card">
                         <h2>Compensi annui e fatturazione</h2>
-                        <p class="descrizione" style="margin-bottom:12px;">Fatturazione: <strong>${esc(descriviFatturazione(inc))}</strong>${inc.gruppoFatturazione ? ' &middot; Gruppo: <strong>' + esc(inc.gruppoFatturazione) + '</strong>' : ''}</p>
-                        ${anni.length ? `<div class="tabella-wrap"><table class="dati"><thead><tr><th>Esercizio</th><th class="num">Compenso annuo</th><th class="num">Rate</th><th class="num">Importo rata</th></tr></thead><tbody>` +
+                        <p class="descrizione" style="margin-bottom:12px;">Fatturazione: <strong>${esc(descriviFatturazione(inc))}</strong>${inc.gruppoFatturazione ? ' &middot; Gruppo: <strong>' + esc(inc.gruppoFatturazione) + '</strong>' : ''} &middot; Spese generali: <strong>${spesePerc(inc) ? percTesto(spesePerc(inc)) + '% sugli onorari' : 'non addebitate'}</strong></p>
+                        ${anni.length ? `<div class="tabella-wrap"><table class="dati"><thead><tr><th>Esercizio</th><th class="num">Compenso annuo</th><th class="num">Scadenze</th><th class="num">Importo scadenza</th></tr></thead><tbody>` +
                             anni.map(a => {
                                 const rate = Fatture.rate(inc, a);
-                                return `<tr><td>${a}</td><td class="num">${eurFmt.format(Incarichi.compensoAnno(inc, a))}</td><td class="num">${rate.length}</td><td class="num">${rate.length ? eurFmt2.format(rate[0].importo) : ''}</td></tr>`;
+                                // con un piano concordato le scadenze possono avere importi diversi fra loro
+                                const uguali = rate.length && rate.every(r => Math.abs(r.importo - rate[0].importo) < 0.01);
+                                return `<tr><td>${a}</td><td class="num">${eurFmt.format(Incarichi.compensoAnno(inc, a))}</td><td class="num">${rate.length}</td><td class="num">${rate.length ? (uguali ? eurFmt2.format(rate[0].importo) : 'variabili') : ''}</td></tr>`;
                             }).join('') + '</tbody></table></div>' : '<p class="tabella-vuota">Nessun compenso registrato.</p>'}
+                        ${anni.length ? `<details class="piano-prec" style="margin-top:12px;">
+                            <summary><strong>Piano delle scadenze</strong> &middot; ${anni.reduce((s, a) => s + Fatture.rate(inc, a).length, 0)} in totale</summary>
+                            <div class="tabella-wrap"><table class="dati"><thead><tr><th>Esercizio</th><th>Periodo</th><th>Scadenza</th><th class="num">Importo</th>${spesePerc(inc) ? '<th class="num">Spese ' + percTesto(spesePerc(inc)) + '%</th>' : ''}<th>Stato</th></tr></thead><tbody>` +
+                            anni.map(a => Fatture.rate(inc, a).map((r, i) =>
+                                `<tr><td data-label="Esercizio">${i === 0 ? a : ''}</td>
+                                    <td data-label="Periodo">${esc(etichettaRigaPiano(r.scadenza, inc.fatturazione || 'annuale', r.numero))}</td>
+                                    <td data-label="Scadenza">${esc(fmtData(r.scadenza))}</td>
+                                    <td class="num" data-label="Importo">${eurFmt2.format(r.importo)}</td>
+                                    ${spesePerc(inc) ? '<td class="num" data-label="Spese">' + eurFmt2.format(speseSu(r.importo, inc)) + '</td>' : ''}
+                                    <td data-label="Stato"><span class="badge ${r.stato === 'incassata' ? 'verde' : (r.stato === 'emessa' ? 'ambra' : 'neutro')}">${esc(r.stato)}</span></td></tr>`).join('')).join('') +
+                            `</tbody></table></div>
+                            <p class="hint" style="margin-top:8px;">Scadenze e importi si modificano dal wizard (Modifica &rarr; passo Fatturazione). I rimborsi delle spese vive si aggiungono dalla sezione Fatturazione.</p>
+                        </details>` : ''}
                         ${inc.calc ? `<div class="calc-riquadro">
                             <strong>Ultimo calcolo del compenso</strong>
                             <div class="calc-riga"><span>Media dimensionale</span><span class="val">${eurFmt.format(inc.calc.media || 0)}</span></div>
@@ -3424,8 +3524,12 @@
             dati: esistente ? JSON.parse(JSON.stringify(esistente)) : {
                 cliente: '', tipo: 'legale', codiceFiscale: '', area: 'Nord', regione: 'Lombardia',
                 email1: '', email2: '', qualita: '', respIncarico: '', referente: '', team: '',
-                fatturazione: fatturazionePredefinita('legale'), gruppoFatturazione: '', fattInizio: null, fattFine: null, fattData: null, compensi: {}, stato: 'attivo'
+                fatturazione: fatturazionePredefinita('legale'), gruppoFatturazione: '', fattInizio: null, fattFine: null, fattData: null, compensi: {}, stato: 'attivo',
+                speseGenerali: true, speseGeneraliPerc: SPESE_PERC_DEFAULT, piano: {}
             },
+            // piano di fatturazione in lavorazione (solo gli esercizi del periodo corrente):
+            // si genera entrando nel passo 5 e si segna "toccato" appena lo si modifica a mano
+            piano: null, pianoToccato: false, firmaPiano: '',
             // su un incarico esistente la fatturazione salvata e una scelta
             // deliberata: il cambio di tipo non deve sovrascriverla
             fatturazioneToccata: modalita !== 'nuovo',
@@ -3657,9 +3761,6 @@
             }));
             aggiornaTeam();
         } else if (w.passo === 5) {
-            const mappa = compensiRisultanti();
-            const anno0 = anniEsercizi()[0];
-            const compenso = mappa[anno0] || 0;
             const pInizio = d.fattInizio ? (d.fattInizio.anno + '-' + String(d.fattInizio.mese).padStart(2, '0')) : '';
             const pFine = d.fattFine ? (d.fattFine.anno + '-' + String(d.fattFine.mese).padStart(2, '0')) : '';
             const gruppiFatt = Array.from(new Set(Incarichi.tutti().map(i => i.gruppoFatturazione).filter(Boolean))).sort();
@@ -3684,50 +3785,43 @@
                     <div class="campo"><label>Fine fatturazione</label><input type="month" id="w-fatt-fine" value="${pFine}"><div class="hint">Quando termina. Vuoto = senza fine.</div><div class="hint" id="w-fatt-fine-eco" style="color:var(--blu-700);font-weight:600;margin-top:2px;"></div></div>
                 </div>
                 <div class="campo" id="w-data-specifica"><label>Data della fattura</label><input type="date" id="w-fatt-data" value="${d.fattData || ''}"><div class="hint">La scadenza cade in questa data, nell'esercizio corrispondente.</div></div>
-                <div class="calc-riquadro" id="w-anteprima-rate"></div>`;
+                <div class="campo">
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:600;">
+                        <input type="checkbox" id="w-spese" ${d.speseGenerali === false ? '' : 'checked'} style="width:auto;"> Aggiungi le spese generali forfettarie
+                    </label>
+                    <div class="campo" id="w-spese-box" style="max-width:220px; margin:8px 0 0;">
+                        <label>Percentuale sugli onorari</label>
+                        <input type="text" inputmode="decimal" id="w-spese-perc" value="${percTesto(isFinite(Number(d.speseGeneraliPerc)) && d.speseGeneraliPerc != null ? Number(d.speseGeneraliPerc) : SPESE_PERC_DEFAULT)}" placeholder="5">
+                    </div>
+                    <div class="hint">Tecnologia, banche dati, software, segreteria e comunicazione: standard 5% degli onorari. La percentuale scelta vale sulle scadenze e nella clausola della lettera di incarico.</div>
+                </div>
+                <div id="w-piano"></div>
+                <p class="hint" style="margin-top:12px;">I <strong>rimborsi delle spese vive</strong> (viaggi, vitto, alloggio) non si indicano qui: si aggiungono scadenza per scadenza nella sezione <strong>Fatturazione</strong>, dove il campo si puo anche congelare.</p>`;
             const sincronizzaCampi = () => {
                 const per = document.getElementById('w-fatturazione').value;
                 document.getElementById('w-finestra').style.display = per === 'specifica' ? 'none' : '';
                 document.getElementById('w-data-specifica').style.display = per === 'specifica' ? '' : 'none';
+                document.getElementById('w-spese-box').style.display = document.getElementById('w-spese').checked ? '' : 'none';
             };
-            const anteprima = () => {
-                const per = document.getElementById('w-fatturazione').value;
-                const pi = document.getElementById('w-fatt-inizio').value;
-                const pf = document.getElementById('w-fatt-fine').value;
-                const temp = {
-                    id: 'anteprima', fatturazione: per, compensi: mappa,
-                    fattData: per === 'specifica' ? (document.getElementById('w-fatt-data').value || null) : null,
-                    fattInizio: (per !== 'specifica' && pi) ? { anno: Number(pi.slice(0, 4)), mese: Number(pi.slice(5, 7)) } : null,
-                    fattFine: (per !== 'specifica' && pf) ? { anno: Number(pf.slice(0, 4)), mese: Number(pf.slice(5, 7)) } : null
-                };
-                const anniEs = anniEsercizi();
-                const ecoI = document.getElementById('w-fatt-inizio-eco');
-                const ecoF = document.getElementById('w-fatt-fine-eco');
-                if (ecoI && ecoF) {
-                    if (per === 'specifica' || !anniEs.length) { ecoI.textContent = ''; ecoF.textContent = ''; }
-                    else if (finestraSenzaScadenze(temp, anniEs)) { ecoI.textContent = 'Nessuna scadenza con questa finestra.'; ecoF.textContent = ''; }
-                    else {
-                        // Comando il periodo indicato tal quale (nessuno slittamento per scadenze o esercizi
-                        // a compenso 0); campo vuoto = dal primo / all'ultimo esercizio.
-                        const ord = anniEs.slice().sort((a, b) => a - b);
-                        const inizioP = temp.fattInizio || { anno: ord[0], mese: 1 };
-                        const fineP = temp.fattFine || { anno: ord[ord.length - 1], mese: 12 };
-                        ecoI.textContent = 'Inizia con ' + etichettaPeriodoFatt(inizioP, per) + (temp.fattInizio ? '' : ' (senza data di inizio)');
-                        ecoF.textContent = 'Termina con ' + etichettaPeriodoFatt(fineP, per) + (temp.fattFine ? '' : ' (senza data di fine)');
-                    }
-                }
-                const rate = Fatture.rate(temp, anno0);
-                const box = document.getElementById('w-anteprima-rate');
-                if (!rate.length) { box.innerHTML = `<div class="calc-riga"><span>Scadenze nel ${anno0}</span><span class="val">nessuna</span></div><div class="hint" style="margin-top:6px;">Con queste impostazioni il primo esercizio (${anno0}) non genera scadenze: verifica la finestra o la data.</div>`; return; }
-                box.innerHTML =
-                    `<div class="calc-riga"><span>Compenso primo esercizio (${anno0})</span><span class="val">${eurFmt.format(compenso)}</span></div>
-                     <div class="calc-riga"><span>Scadenze nel ${anno0}</span><span class="val">${rate.length}</span></div>
-                     <div class="calc-riga totale"><span>Importo scadenza</span><span class="val">${eurFmt2.format(rate[0].importo)}</span></div>`;
+            // ogni ritocco alle condizioni rifa il piano: le righe nascono da periodicita,
+            // finestra e compenso, quindi non possono restare quelle di prima
+            const rifaiPiano = () => {
+                leggiCampiFatturazione();
+                const avvisa = w.pianoToccato;
+                w.piano = null;
+                preparaPianoWizard();
+                if (avvisa) toast('Piano rifatto sulle nuove condizioni: gli importi corretti a mano sono stati sostituiti.', 'ambra');
+                ecoFinestra();
+                disegnaPianoWizard();
             };
-            document.getElementById('w-fatturazione').addEventListener('change', () => { w.fatturazioneToccata = true; sincronizzaCampi(); anteprima(); });
-            ['w-fatt-inizio', 'w-fatt-fine', 'w-fatt-data'].forEach(idw => { const el = document.getElementById(idw); if (el) el.addEventListener('change', anteprima); });
+            document.getElementById('w-fatturazione').addEventListener('change', () => { w.fatturazioneToccata = true; sincronizzaCampi(); rifaiPiano(); });
+            ['w-fatt-inizio', 'w-fatt-fine', 'w-fatt-data'].forEach(idw => { const el = document.getElementById(idw); if (el) el.addEventListener('change', rifaiPiano); });
+            document.getElementById('w-spese').addEventListener('change', () => { sincronizzaCampi(); leggiCampiFatturazione(); disegnaPianoWizard(); });
+            document.getElementById('w-spese-perc').addEventListener('input', () => { leggiCampiFatturazione(); disegnaPianoWizard(); });
             sincronizzaCampi();
-            anteprima();
+            preparaPianoWizard();
+            ecoFinestra();
+            disegnaPianoWizard();
         } else if (w.passo === 6) {
             const anni = anniEsercizi();
             const mappa = compensiRisultanti();
@@ -3751,12 +3845,236 @@
                     ${(d.teamStorico && d.teamStorico.length) ? `<div class="riepilogo-riga"><span class="etichetta">Team precedente</span><span class="valore">${d.teamStorico.map(s => esc(s.nome) + (s.al ? ' <span class="hint">(fino al ' + fmtData(s.al) + ')</span>' : '')).join(', ')}</span></div>` : ''}
                 </div>
                 <div class="riepilogo-blocco"><h4>Compenso e fatturazione</h4>
-                    ${anni.map(a => rigaRiepilogo('Esercizio ' + a, eurFmt.format(mappa[a] || 0))).join('')}
+                    ${anni.map(a => {
+                const righe = (w.piano || {})[a];
+                const tot = Array.isArray(righe) ? totalePiano(righe) : (mappa[a] || 0);
+                const n = Array.isArray(righe) ? righe.length : null;
+                return rigaRiepilogo('Esercizio ' + a, eurFmt.format(tot) + (n != null ? ' in ' + n + (n === 1 ? ' scadenza' : ' scadenze') : ''));
+            }).join('')}
                     ${rigaRiepilogo('Fatturazione', descriviFatturazione(d))}
+                    ${rigaRiepilogo('Spese generali', spesePerc(d) ? percTesto(spesePerc(d)) + '% sugli onorari' : 'non addebitate')}
                     ${w.modalita === 'modifica' && !w.compensoModificato ? '<p class="hint" style="font-size:0.78rem; color:var(--grigio-600); margin-top:6px;">Il passo 3 non e stato modificato: i compensi esistenti restano invariati.</p>' : ''}
                 </div>
                 <p class="descrizione">Salvando, la modifica viene registrata nel registro con il tuo nome (${esc(Auth.utenteCorrente.nome)}).</p>`;
         }
+    }
+
+    /* ---------------------------------------------------------------
+       Passo 5: piano di fatturazione modificabile riga per riga
+    --------------------------------------------------------------- */
+
+    /* Riporta i campi del passo Fatturazione dentro w.dati. Il piano non si legge da
+       qui: vive in w.piano e ha i suoi eventi (cosi non si perde quel che si sta
+       scrivendo in un importo mentre si aggiorna il resto). */
+    function leggiCampiFatturazione() {
+        const d = wizard.dati;
+        const sel = document.getElementById('w-fatturazione');
+        if (!sel) return;
+        d.fatturazione = sel.value;
+        d.gruppoFatturazione = document.getElementById('w-gruppo-fatt').value.trim();
+        if (d.fatturazione === 'specifica') {
+            d.fattData = document.getElementById('w-fatt-data').value || null;
+            d.fattInizio = null; d.fattFine = null;
+        } else {
+            d.fattData = null;
+            const pi = document.getElementById('w-fatt-inizio').value;
+            const pf = document.getElementById('w-fatt-fine').value;
+            d.fattInizio = pi ? { anno: Number(pi.slice(0, 4)), mese: Number(pi.slice(5, 7)) } : null;
+            d.fattFine = pf ? { anno: Number(pf.slice(0, 4)), mese: Number(pf.slice(5, 7)) } : null;
+        }
+        d.speseGenerali = document.getElementById('w-spese').checked;
+        // percentuale battuta a mano: si accetta sia 7.5 sia 7,5, e non si va oltre il 100%
+        d.speseGeneraliPerc = Math.min(100, Math.max(0, parseEuro(document.getElementById('w-spese-perc').value)));
+    }
+
+    // eco sotto i campi finestra: con quale periodo parte e con quale finisce
+    function ecoFinestra() {
+        const d = wizard.dati, per = d.fatturazione || 'annuale';
+        const ecoI = document.getElementById('w-fatt-inizio-eco');
+        const ecoF = document.getElementById('w-fatt-fine-eco');
+        if (!ecoI || !ecoF) return;
+        const anni = anniEsercizi();
+        if (per === 'specifica' || !anni.length) { ecoI.textContent = ''; ecoF.textContent = ''; return; }
+        // Comando il periodo indicato tal quale (nessuno slittamento per scadenze o esercizi
+        // a compenso 0); campo vuoto = dal primo / all'ultimo esercizio.
+        const ord = anni.slice().sort((a, b) => a - b);
+        const inizioP = d.fattInizio || { anno: ord[0], mese: 1 };
+        const fineP = d.fattFine || { anno: ord[ord.length - 1], mese: 12 };
+        ecoI.textContent = 'Inizia con ' + etichettaPeriodoFatt(inizioP, per) + (d.fattInizio ? '' : ' (senza data di inizio)');
+        ecoF.textContent = 'Termina con ' + etichettaPeriodoFatt(fineP, per) + (d.fattFine ? '' : ' (senza data di fine)');
+    }
+
+    /* Condizioni da cui nasce il piano: se cambiano (periodicita, finestra, esercizi,
+       compenso del passo 3) le righe di prima non valgono piu e vanno rifatte. */
+    function firmaPiano() {
+        const d = wizard.dati, anni = anniEsercizi(), mappa = compensiRisultanti();
+        return [d.fatturazione || '', d.fattData || '',
+            d.fattInizio ? d.fattInizio.anno + '/' + d.fattInizio.mese : '',
+            d.fattFine ? d.fattFine.anno + '/' + d.fattFine.mese : '',
+            anni.join(','), anni.map(a => mappa[a] || 0).join(',')].join('|');
+    }
+
+    /* Righe del periodo corrente: quelle gia concordate sull'incarico se sono ancora
+       coerenti col compenso, altrimenti la proposta che nasce dalla periodicita.
+       Gli esercizi fuori dal periodo (es. quelli del rinnovo precedente) non si toccano. */
+    function pianoDelPeriodo(riproponi) {
+        const w = wizard, d = w.dati, anni = anniEsercizi(), mappa = compensiRisultanti();
+        const base = {
+            id: w.idEsistente || 'anteprima', fatturazione: d.fatturazione, compensi: mappa,
+            fattData: d.fattData || null, fattInizio: d.fattInizio || null, fattFine: d.fattFine || null
+        };
+        const proposto = pianoProposto(base, anni);
+        const out = {};
+        anni.forEach(a => {
+            const salvate = (d.piano && Array.isArray(d.piano[a])) ? d.piano[a] : null;
+            // il piano salvato vale sempre quanto il compenso salvato: se non torna piu,
+            // vuol dire che il compenso e stato rifatto al passo 3 e il piano lo segue
+            const coerente = salvate && (mappa[a] == null || Math.abs(totalePiano(salvate) - mappa[a]) < 0.01);
+            out[a] = (!riproponi && coerente) ? salvate.map(r => Object.assign({}, r)) : (proposto[a] || []);
+        });
+        return out;
+    }
+
+    // genera il piano solo quando serve davvero (primo ingresso o condizioni cambiate)
+    function preparaPianoWizard() {
+        const w = wizard, firma = firmaPiano();
+        if (w.piano && w.firmaPiano === firma) return;
+        const primaVolta = !w.piano && !w.firmaPiano;
+        w.piano = pianoDelPeriodo(!primaVolta);
+        w.pianoToccato = false;
+        w.firmaPiano = firma;
+    }
+
+    // periodo aggiunto a mano: cade dopo l'ultimo, con il passo della periodicita
+    function nuovaRigaPiano(anno, righe, periodicita) {
+        const passo = periodicita === 'mensile' ? 1 : (periodicita === 'trimestrale' ? 3 : 12);
+        const ultimo = righe.length ? Number(String(righe[righe.length - 1].scadenza || '').slice(5, 7)) || 0 : 0;
+        const mese = Math.min(12, Math.max(1, ultimo ? ultimo + passo : 12));
+        const giorno = mese === 2 ? 28 : ([4, 6, 9, 11].includes(mese) ? 30 : 31);
+        return {
+            id: 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+            scadenza: anno + '-' + String(mese).padStart(2, '0') + '-' + giorno, importo: 0, chiave: null
+        };
+    }
+
+    /* Rinnovo: piano del periodo che si sta chiudendo, in sola lettura. Si legge
+       dall'incarico salvato, cosi vale sia per i piani concordati sia per le rate
+       automatiche degli incarichi piu vecchi. */
+    function pianoPrecedenteRinnovo(anniCorrenti) {
+        const prec = wizard.idEsistente ? Incarichi.trova(wizard.idEsistente) : null;
+        if (!prec) return [];
+        let anni = Array.from(new Set(
+            Object.keys(prec.compensi || {}).concat(Object.keys(prec.piano || {})).map(Number)
+        )).filter(a => a && !anniCorrenti.includes(a)).sort((a, b) => a - b);
+        // solo il periodo che si sta chiudendo: i trienni ancora prima restano
+        // consultabili in "Periodi precedenti" sul dettaglio dell'incarico
+        const primo = Number(prec.esercizioPeriodo) || null;
+        if (primo) {
+            const durata = prec.tipo === 'legale' ? 3 : 1;
+            anni = anni.filter(a => a >= primo && a < primo + durata);
+        }
+        return anni.map(anno => ({ anno, rate: Fatture.rate(prec, anno), incarico: prec }));
+    }
+
+    function disegnaPianoWizard() {
+        const w = wizard, d = w.dati, cont = document.getElementById('w-piano');
+        if (!cont) return;
+        const anni = anniEsercizi();
+        const per = d.fatturazione || 'annuale';
+        const perc = spesePerc(d);
+        const spese = imp => Math.round((Number(imp) || 0) * perc) / 100;
+        const testaAnno = anno => {
+            const righe = w.piano[anno] || [];
+            const tot = totalePiano(righe);
+            const totSpese = Math.round(righe.reduce((s, r) => s + spese(r.importo), 0) * 100) / 100;
+            return righe.length + (righe.length === 1 ? ' periodo' : ' periodi') + ' &middot; ' + eurFmt2.format(tot)
+                + (perc ? ' + ' + eurFmt2.format(totSpese) + ' di spese generali' : '');
+        };
+        const bloccoAnno = anno => {
+            const righe = w.piano[anno] || [];
+            return `<div class="piano-anno">
+                <div class="piano-testa"><strong>Esercizio ${anno}</strong><span class="piano-tot" data-anno="${anno}">${testaAnno(anno)}</span></div>
+                ${righe.length ? `<div class="tabella-wrap"><table class="dati piano-tab"><thead><tr>
+                    <th>Periodo</th><th>Scadenza</th><th class="num">Importo</th>${perc ? '<th class="num">Spese ' + percTesto(perc) + '%</th><th class="num">Totale</th>' : ''}<th></th>
+                </tr></thead><tbody>
+                ${righe.map((r, i) => {
+                const imp = Number(r.importo) || 0;
+                return `<tr data-anno="${anno}" data-i="${i}">
+                        <td data-label="Periodo">${esc(etichettaRigaPiano(r.scadenza, per, i + 1))}</td>
+                        <td data-label="Scadenza"><input type="date" class="piano-data" data-anno="${anno}" data-i="${i}" value="${esc(r.scadenza || '')}"></td>
+                        <td class="num" data-label="Importo"><span class="piano-imp"><input type="text" inputmode="decimal" class="piano-importo" data-anno="${anno}" data-i="${i}" value="${fmtEuroInput(imp)}" placeholder="0,00"><span class="rimb-eur">&euro;</span></span></td>
+                        ${perc ? '<td class="num piano-sp" data-label="Spese">' + eurFmt2.format(spese(imp)) + '</td><td class="num piano-tt" data-label="Totale">' + eurFmt2.format(imp + spese(imp)) + '</td>' : ''}
+                        <td data-label=""><button type="button" class="btn btn-sm btn-ghost piano-elimina" data-anno="${anno}" data-i="${i}">Elimina</button></td>
+                    </tr>`;
+            }).join('')}
+                </tbody></table></div>`
+                    : `<p class="tabella-vuota">Nessun periodo: l'esercizio ${anno} non verra fatturato e il suo compenso resta a zero.</p>`}
+                <button type="button" class="btn btn-sm btn-secondary piano-aggiungi" data-anno="${anno}">+ Aggiungi periodo</button>
+            </div>`;
+        };
+        const prec = w.modalita === 'rinnovo' ? pianoPrecedenteRinnovo(anni) : [];
+        const bloccoPrec = !prec.length ? '' : `<details class="piano-prec" open>
+            <summary><strong>Periodo precedente</strong> &middot; ${prec.map(p => p.anno).join(', ')} &middot; ${eurFmt.format(prec.reduce((s, p) => s + p.rate.reduce((t, r) => t + r.importo, 0), 0))}</summary>
+            <div class="tabella-wrap"><table class="dati"><thead><tr><th>Esercizio</th><th>Periodo</th><th>Scadenza</th><th class="num">Importo</th><th>Stato</th></tr></thead><tbody>
+            ${prec.map(p => (p.rate.length ? p.rate : [null]).map((r, i) => r
+                ? `<tr><td data-label="Esercizio">${i === 0 ? p.anno : ''}</td><td data-label="Periodo">${esc(etichettaRigaPiano(r.scadenza, p.incarico.fatturazione || 'annuale', r.numero))}</td><td data-label="Scadenza">${esc(fmtData(r.scadenza))}</td><td class="num" data-label="Importo">${eurFmt2.format(r.importo)}</td><td data-label="Stato"><span class="badge ${r.stato === 'incassata' ? 'verde' : (r.stato === 'emessa' ? 'ambra' : 'neutro')}">${esc(r.stato)}</span></td></tr>`
+                : `<tr><td data-label="Esercizio">${p.anno}</td><td colspan="4" class="tabella-vuota">Nessuna scadenza registrata.</td></tr>`).join('')).join('')}
+            </tbody></table></div>
+            <p class="hint" style="margin-top:8px;">Sola lettura: resta com'e, con i suoi stati di fatturazione, e finisce in "Periodi precedenti" sul dettaglio dell'incarico.</p>
+        </details>`;
+
+        cont.innerHTML = `<h3 style="margin-top:20px;">Periodi di fatturazione e importi</h3>
+            <p class="descrizione" style="margin-bottom:12px;">Ogni riga e una scadenza: puoi cambiarne la data e l'importo, eliminarla o aggiungerne una. <strong>Il compenso dell'esercizio e la somma delle sue righe</strong>, quindi quello che scrivi qui e quello che finisce in fatturazione, nei report e nella lettera.</p>
+            ${bloccoPrec}
+            ${anni.map(bloccoAnno).join('')}`;
+
+        const aggiornaTotali = anno => {
+            const righe = w.piano[anno] || [];
+            cont.querySelectorAll('tr[data-anno="' + anno + '"]').forEach(tr => {
+                const imp = Number((righe[Number(tr.dataset.i)] || {}).importo) || 0;
+                const sp = tr.querySelector('.piano-sp'), tt = tr.querySelector('.piano-tt');
+                if (sp) sp.textContent = eurFmt2.format(spese(imp));
+                if (tt) tt.textContent = eurFmt2.format(imp + spese(imp));
+            });
+            const testa = cont.querySelector('.piano-tot[data-anno="' + anno + '"]');
+            if (testa) testa.innerHTML = testaAnno(anno);
+        };
+        cont.querySelectorAll('.piano-importo').forEach(inp => {
+            const applica = () => {
+                const anno = inp.dataset.anno, riga = (w.piano[anno] || [])[Number(inp.dataset.i)];
+                if (!riga) return;
+                riga.importo = parseEuro(inp.value);
+                w.pianoToccato = true;
+                aggiornaTotali(anno);
+            };
+            // aggiornamento a ogni battuta (senza ridisegnare, cosi non si perde il campo)
+            inp.addEventListener('input', applica);
+            inp.addEventListener('change', () => { applica(); inp.value = fmtEuroInput(parseEuro(inp.value)); });
+        });
+        cont.querySelectorAll('.piano-data').forEach(inp =>
+            inp.addEventListener('change', () => {
+                const riga = (w.piano[inp.dataset.anno] || [])[Number(inp.dataset.i)];
+                if (!riga) return;
+                riga.scadenza = inp.value || riga.scadenza;
+                w.pianoToccato = true;
+                disegnaPianoWizard();   // cambia anche l'etichetta del periodo
+            }));
+        cont.querySelectorAll('.piano-elimina').forEach(b =>
+            b.addEventListener('click', () => {
+                const righe = w.piano[b.dataset.anno];
+                if (!righe) return;
+                righe.splice(Number(b.dataset.i), 1);
+                w.pianoToccato = true;
+                disegnaPianoWizard();
+            }));
+        cont.querySelectorAll('.piano-aggiungi').forEach(b =>
+            b.addEventListener('click', () => {
+                const anno = b.dataset.anno;
+                const righe = w.piano[anno] || (w.piano[anno] = []);
+                righe.push(nuovaRigaPiano(Number(anno), righe, per));
+                w.pianoToccato = true;
+                disegnaPianoWizard();
+            }));
     }
 
     function disegnaPassoCalcolo(corpo) {
@@ -3966,17 +4284,19 @@
                 }
             }
         } else if (w.passo === 5) {
-            d.fatturazione = document.getElementById('w-fatturazione').value;
-            d.gruppoFatturazione = document.getElementById('w-gruppo-fatt').value.trim();
-            if (d.fatturazione === 'specifica') {
-                d.fattData = document.getElementById('w-fatt-data').value || null;
-                d.fattInizio = null; d.fattFine = null;
-            } else {
-                d.fattData = null;
-                const pi = document.getElementById('w-fatt-inizio').value;
-                const pf = document.getElementById('w-fatt-fine').value;
-                d.fattInizio = pi ? { anno: Number(pi.slice(0, 4)), mese: Number(pi.slice(5, 7)) } : null;
-                d.fattFine = pf ? { anno: Number(pf.slice(0, 4)), mese: Number(pf.slice(5, 7)) } : null;
+            leggiCampiFatturazione();
+            // il piano del periodo corrente entra nell'incarico; gli altri esercizi
+            // (es. quelli dei rinnovi precedenti) restano come sono
+            if (w.piano) {
+                d.piano = Object.assign({}, d.piano || {});
+                Object.keys(w.piano).forEach(a => { d.piano[a] = w.piano[a].map(r => Object.assign({}, r)); });
+            }
+            if (valida) {
+                const anni = anniEsercizi();
+                const totale = anni.reduce((s, a) => s + totalePiano((w.piano || {})[a]), 0);
+                if (totale <= 0) { toast('Il piano di fatturazione e vuoto: aggiungi almeno un periodo con un importo.', 'rosso'); return false; }
+                const aZero = anni.filter(a => totalePiano((w.piano || {})[a]) <= 0);
+                if (aZero.length) toast('Esercizi senza periodi: ' + aZero.join(', ') + '. Il loro compenso sara zero.', 'ambra');
             }
         }
         return true;
@@ -4061,8 +4381,16 @@
             anni.forEach(a => { nuovi[a] = mappa[a]; });
             d.compensi = nuovi;
         }
+        // il piano di fatturazione comanda: il compenso dell'esercizio e la somma delle
+        // sue scadenze, cosi togliere o correggere un periodo si vede subito ovunque
+        anni.forEach(a => {
+            const righe = d.piano && d.piano[a];
+            if (!Array.isArray(righe)) return;
+            const tot = totalePiano(righe);
+            if (tot > 0) d.compensi[a] = tot; else delete d.compensi[a];
+        });
         const r = calcolaCompenso(w.calc);
-        d.calc = { ...w.calc, media: r.media, oreAnno1: r.oreAnno1, oreAnni23: r.oreAnni23, compensoAnno1: mappa[anni[0]] };
+        d.calc = { ...w.calc, media: r.media, oreAnno1: r.oreAnno1, oreAnni23: r.oreAnni23, compensoAnno1: d.compensi[anni[0]] || mappa[anni[0]] };
         // il periodo corrente dell'incarico, usato dalla lettera
         d.esercizioPeriodo = anni[0];
 
@@ -4072,6 +4400,19 @@
             // archivia il periodo PRECEDENTE (dati + lettera ricreabile) prima di sovrascrivere
             const prec = Incarichi.trova(w.idEsistente);
             if (prec) {
+                /* Gli esercizi che si chiudono vengono fissati come piano, con le scadenze
+                   che avevano: senza questo passaggio un rinnovo che cambia periodicita
+                   riscriverebbe anche le rate degli anni passati. */
+                const anniPrec = Array.from(new Set(Object.keys(prec.compensi || {}).map(Number)))
+                    .filter(a => a && !anni.includes(a));
+                const senzaPiano = anniPrec.filter(a => !Array.isArray((prec.piano || {})[a]));
+                if (senzaPiano.length) {
+                    const generato = pianoProposto(prec, senzaPiano);
+                    d.piano = Object.assign({}, d.piano || {});
+                    senzaPiano.forEach(a => { if (generato[a] && generato[a].length) d.piano[a] = generato[a]; });
+                }
+                const pianoPrec = {};
+                anniPrec.forEach(a => { if (Array.isArray((d.piano || {})[a])) pianoPrec[a] = d.piano[a]; });
                 const snap = {
                     chiuso: { il: Date.now(), da: (Auth.utenteCorrente.nome || Auth.utenteCorrente.email || '') },
                     esercizioPeriodo: prec.esercizioPeriodo || null,
@@ -4080,6 +4421,8 @@
                     rinnovo: prec.rinnovo || null,
                     dataFine: prec.dataFine || null,
                     compensi: Object.assign({}, prec.compensi || {}),
+                    piano: JSON.parse(JSON.stringify(pianoPrec)),
+                    speseGenerali: prec.speseGenerali !== false, speseGeneraliPerc: spesePerc(prec),
                     calc: prec.calc ? Object.assign({}, prec.calc) : null,
                     qualita: prec.qualita, respIncarico: prec.respIncarico, referente: prec.referente, team: prec.team,
                     calcoloCongelato: !!prec.calcoloCongelato, congelamento: prec.congelamento || null
@@ -4154,21 +4497,8 @@
         const puoMod = Auth.puoScrivere('fatturazione');
         const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
         const mesiFull = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
-        const perc5 = imp => Math.round(imp * 5) / 100;
-        // importi in euro con decimali (formato italiano): parse robusto e formattazione per il campo
-        const parseEuro = s => {
-            s = String(s == null ? '' : s).replace(/[^\d.,-]/g, '').trim();
-            if (!s) return 0;
-            if (s.indexOf(',') >= 0) {
-                s = s.replace(/\./g, '').replace(',', '.');            // virgola = decimali, punto = migliaia
-            } else if (s.indexOf('.') >= 0) {
-                const parti = s.split('.');
-                // piu punti (1.234.567) o ultimo gruppo di 3 cifre (1.234) = separatore di migliaia; altrimenti punto decimale (50.5, 50.00)
-                if (parti.length > 2 || parti[parti.length - 1].length === 3) s = parti.join('');
-            }
-            return Math.round((Number(s) || 0) * 100) / 100;
-        };
-        const fmtEuroInput = n => n ? Number(n).toFixed(2).replace('.', ',') : '';
+        // spese generali della rata: percentuale scelta sull'incarico (5% se non indicata)
+        const speseRata = r => speseSu(r.importo, r.incarico);
 
         // KPI e grafico: quadro dell'intero anno (tutte le periodicita)
         const totaleAnno = rateAll.reduce((s, r) => s + r.importo, 0);
@@ -4209,13 +4539,13 @@
 
         const rigaRata = r => {
             const rb = Fatture.rimborso(r.chiave);
-            const base = r.importo + perc5(r.importo); // importo + 5% (parte fissa del totale)
+            const base = r.importo + speseRata(r); // importo + spese generali (parte fissa del totale)
             return `<tr>
                 <td class="cliente-cella" data-label="Cliente"><span class="link-incarico" data-apri="${esc(r.incarico.id)}">${esc(r.incarico.cliente)}</span></td>
                 <td data-label="Rata">${r.numero} di ${r.totale}</td>
                 <td data-label="Mese">${mesi[r.mese - 1]}</td>
                 <td class="num" data-label="Importo">${eurFmt2.format(r.importo)}</td>
-                <td class="num" data-label="5%">${eurFmt2.format(perc5(r.importo))}</td>
+                <td class="num" data-label="Spese generali" title="${spesePerc(r.incarico) ? percTesto(spesePerc(r.incarico)) + '% degli onorari' : 'non addebitate su questo incarico'}">${eurFmt2.format(speseRata(r))}</td>
                 <td data-label="Rimborsi spese"><span class="rimb-campo">
                     <input type="text" inputmode="decimal" class="rimb-input" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" data-imp="${rb.importo || 0}" value="${fmtEuroInput(rb.importo)}" ${rb.congelato || !puoMod ? 'disabled' : ''} placeholder="0,00"><span class="rimb-eur">&euro;</span>
                     ${puoMod ? `<button type="button" class="btn btn-sm btn-ghost rimb-lock" data-chiave="${esc(r.chiave)}" data-cliente="${esc(r.incarico.cliente)}" data-cong="${rb.congelato ? '1' : '0'}" title="${rb.congelato ? 'Campo congelato: clicca per sbloccare' : 'Congela il campo'}">${rb.congelato ? ICO_LUCCHETTO + 'Sblocca' : 'Congela'}</button>` : ''}
@@ -4230,7 +4560,7 @@
         };
         const sezGruppo = g => {
             const tImp = g.rate.reduce((s, r) => s + r.importo, 0);
-            const t5 = g.rate.reduce((s, r) => s + perc5(r.importo), 0); // somma dei 5% di riga (riconcilia col Totale)
+            const t5 = g.rate.reduce((s, r) => s + speseRata(r), 0); // somma delle spese di riga (riconcilia col Totale)
             const tRimb = g.rate.reduce((s, r) => s + Fatture.rimborso(r.chiave).importo, 0);
             const tTot = tImp + t5 + tRimb;
             const nClienti = new Set(g.rate.map(r => r.incarico.id)).size;
@@ -4245,9 +4575,9 @@
                 </summary>
                 <div class="fatt-gruppo-corpo">
                     <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                        <th>Cliente</th><th>Rata</th><th>Mese</th><th class="num">Importo</th><th class="num" title="5% dell'importo">5%</th><th>Rimborsi spese</th><th class="num" title="Importo + 5% + rimborsi">Totale</th><th>Stato</th>
+                        <th>Cliente</th><th>Rata</th><th>Mese</th><th class="num">Importo</th><th class="num" title="Spese generali forfettarie, con la percentuale indicata sull'incarico">Spese gen.</th><th>Rimborsi spese</th><th class="num" title="Importo + spese generali + rimborsi">Totale</th><th>Stato</th>
                     </tr></thead><tbody>${g.rate.map(rigaRata).join('')}</tbody>
-                    <tfoot><tr><td colspan="3">Totale gruppo</td><td class="num" data-label="Importi">${eurFmt2.format(tImp)}</td><td class="num" data-label="5%">${eurFmt2.format(t5)}</td><td class="num fatt-tot-rimb" data-label="Rimborsi">${eurFmt2.format(tRimb)}</td><td class="num fatt-tot-tot" data-label="Totale">${eurFmt2.format(tTot)}</td><td></td></tr></tfoot></table></div>
+                    <tfoot><tr><td colspan="3">Totale gruppo</td><td class="num" data-label="Importi">${eurFmt2.format(tImp)}</td><td class="num" data-label="Spese gen.">${eurFmt2.format(t5)}</td><td class="num fatt-tot-rimb" data-label="Rimborsi">${eurFmt2.format(tRimb)}</td><td class="num fatt-tot-tot" data-label="Totale">${eurFmt2.format(tTot)}</td><td></td></tr></tfoot></table></div>
                 </div>
             </details>`;
         };
@@ -4265,7 +4595,7 @@
             </div>
             <div class="card">
                 <h2>Dettaglio rate ${anno}</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Rate divise per periodicita (schede); il mensile e il trimestrale si dividono a loro volta in una finestra per ogni mese/trimestre. In ogni finestra gli incarichi sono raggruppati per gruppo di fatturazione: clicca un gruppo per vedere i singoli clienti; clicca il nome del cliente per aprire l'incarico. Colonna 5% sull'importo, Totale = importo + 5% + rimborsi; i rimborsi spese (in euro) si possono congelare/sbloccare per campo.</p>
+                <p class="hint" style="margin:-6px 0 12px;">Rate divise per periodicita (schede); il mensile e il trimestrale si dividono a loro volta in una finestra per ogni mese/trimestre. In ogni finestra gli incarichi sono raggruppati per gruppo di fatturazione: clicca un gruppo per vedere i singoli clienti; clicca il nome del cliente per aprire l'incarico. Le scadenze e gli importi arrivano dal piano concordato sull'incarico (passo Fatturazione del wizard). Colonna Spese gen. con la percentuale scelta sull'incarico, Totale = importo + spese generali + rimborsi; i rimborsi delle spese vive (in euro) si inseriscono qui e si possono congelare/sbloccare per campo.</p>
                 ${tabs}
                 ${subTabs}
                 ${gruppi.length ? '<div class="fatt-gruppi">' + gruppi.map(sezGruppo).join('') + '</div>' : '<p class="tabella-vuota">Nessuna rata per questa finestra.</p>'}
@@ -4321,12 +4651,13 @@
         const anno = annoFatturazione;
         const rate = Fatture.tutteAnno(anno);
         const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-        const righe = [['Cliente', 'Gruppo di fatturazione', 'Periodicita', 'Rata', 'Mese', 'Importo', '5%', 'Rimborsi spese', 'Totale', 'Stato']];
+        const righe = [['Cliente', 'Gruppo di fatturazione', 'Periodicita', 'Rata', 'Mese', 'Scadenza', 'Importo', 'Spese generali', '% spese', 'Rimborsi spese', 'Totale', 'Stato']];
         rate.forEach(r => {
             const rb = Fatture.rimborso(r.chiave);
-            const cinque = Math.round(r.importo * 5) / 100;
+            const spese = speseSu(r.importo, r.incarico);
             righe.push([r.incarico.cliente, r.incarico.gruppoFatturazione || '', r.incarico.fatturazione || 'annuale',
-                r.numero + ' di ' + r.totale, mesi[r.mese - 1], r.importo, cinque, rb.importo || 0, r.importo + cinque + (rb.importo || 0), r.stato]);
+                r.numero + ' di ' + r.totale, mesi[r.mese - 1], fmtData(r.scadenza), r.importo, spese, percTesto(spesePerc(r.incarico)),
+                rb.importo || 0, r.importo + spese + (rb.importo || 0), r.stato]);
         });
         const csv = righe.map(r => r.map(v => {
             let s = String(v).replace(/"/g, '""');
@@ -8793,9 +9124,28 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
     function testoFatturazioneLettera(inc) {
         const per = inc.fatturazione || 'annuale';
         if (per === 'specifica') return inc.fattData ? ('La fatturazione dei corrispettivi avverra alla data del ' + fmtData(inc.fattData)) : 'La fatturazione dei corrispettivi avverra alla data concordata';
+        // con un piano concordato comandano le scadenze decise nel wizard: se non sono
+        // di pari importo (o non sono il numero standard) la frase lo dice
+        const rate = Fatture.rate(inc, datiLettera(inc).primo);
+        const standard = per === 'mensile' ? 12 : (per === 'trimestrale' ? 4 : 1);
+        const uguali = rate.length && rate.every(r => Math.abs(r.importo - rate[0].importo) < 0.01);
+        if (rate.length && (!uguali || rate.length !== standard)) {
+            const nome = per === 'mensile' ? 'mensili' : (per === 'trimestrale' ? 'trimestrali' : 'annuali');
+            return 'La fatturazione dei corrispettivi avverra in ' + rate.length + ' rate ' + nome
+                + (uguali ? ' di pari importo' : ' secondo il piano di scadenze concordato');
+        }
         if (per === 'mensile') return 'La fatturazione dei corrispettivi avverra in dodici rate mensili di pari importo';
         if (per === 'trimestrale') return 'La fatturazione dei corrispettivi avverra in quattro rate trimestrali di pari importo';
         return 'La fatturazione dei corrispettivi avverra in un\'unica soluzione annuale, per l\'importo complessivo sopra indicato';
+    }
+
+    /* Clausola delle spese: le vive sempre a piu, le generali solo se l'incarico le
+       prevede e con la percentuale scelta (5% se non e stata toccata). */
+    function testoSpeseLettera(inc, soloRevisione) {
+        const perc = spesePerc(inc);
+        return 'I corrispettivi sopra indicati ' + (soloRevisione ? 'riguardano esclusivamente le prestazioni professionali per la revisione legale e non comprendono' : 'non comprendono')
+            + ' le spese sostenute per lo svolgimento del lavoro (viaggi, vitto e alloggio), che verranno addebitate alla Societa nella stessa misura in cui sono sostenute.'
+            + (perc ? ' Saranno inoltre addebitate le spese accessorie relative a tecnologia, banche dati, software e servizi di segreteria e comunicazione, nella misura forfettaria del ' + percTesto(perc) + '% degli onorari fatturati, oltre IVA.' : '');
     }
 
     function firmeLettera(inc) {
@@ -8857,7 +9207,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             ${tabellaCompensiLettera(inc, d, true)}
             <p>Le ore e i corrispettivi sopra indicati si riferiscono ad ognuno degli esercizi di riferimento della presente proposta.${d.compensoPrimo && d.compensoPrimo !== d.compenso ? ' Per il primo esercizio (' + d.primo + '), in considerazione delle attivita non ricorrenti di primo anno, le ore stimate sono ' + (d.orePrimo ? numFmt.format(d.orePrimo) : '____') + ' e il corrispettivo e pari a ' + eurFmt.format(d.compensoPrimo) + '.' : ''}${d.tariffa ? ' La stima si basa su una tariffa oraria media di ' + eurFmt.format(d.tariffa) + ', determinata con il metodo degli scaglioni dimensionali CNDCEC.' : ''} I tempi di lavoro sono stati stimati presupponendo che potremo contare sulla collaborazione del personale della Societa per la messa a disposizione di dati, documenti ed elaborazioni.</p>
             <h2>5. Altre spese e modalita di fatturazione</h2>
-            <p>I corrispettivi sopra indicati riguardano esclusivamente le prestazioni professionali per la revisione legale e non comprendono le spese sostenute per lo svolgimento del lavoro (viaggi, vitto e alloggio), che verranno addebitate alla Societa nella stessa misura in cui sono sostenute. Saranno inoltre addebitate le spese accessorie relative a tecnologia, banche dati, software e servizi di segreteria e comunicazione, nella misura forfettaria del 5% degli onorari fatturati, oltre IVA.</p>
+            <p>${esc(testoSpeseLettera(inc, true))}</p>
             <p>${testoFatturazioneLettera(inc)}, oltre spese ed IVA. Il pagamento dovra essere effettuato a 30 giorni data fattura tramite ricevuta bancaria a scadenza.</p>
             <h2>6. Condizioni generali</h2>
             <p>Formano parte integrante della presente proposta le condizioni generali dell'incarico (indipendenza e incompatibilita, riservatezza, comunicazioni con la governance, utilizzo del lavoro di esperti, conservazione delle carte di lavoro, limitazioni di responsabilita, interruzione anticipata ex art. 13 D.Lgs. 39/2010 e D.M. 261/2012) riportate nel documento completo, unitamente agli allegati.</p>
@@ -8885,7 +9235,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             ${tabellaCompensiLettera(inc, d, false)}
             <p>Le ore e i corrispettivi sopra indicati si riferiscono all'esercizio di riferimento della presente proposta. I tempi di lavoro sono stati stimati presupponendo che potremo contare sulla collaborazione del personale della Societa.</p>
             <h2>5. Altre spese e modalita di fatturazione</h2>
-            <p>I corrispettivi sopra indicati non comprendono le spese sostenute per lo svolgimento del lavoro (viaggi, vitto e alloggio), che verranno addebitate alla Societa nella stessa misura in cui sono sostenute. Saranno inoltre addebitate le spese accessorie relative a tecnologia, banche dati, software e servizi di segreteria e comunicazione, nella misura forfettaria del 5% degli onorari fatturati, oltre IVA.</p>
+            <p>${esc(testoSpeseLettera(inc, false))}</p>
             <p>${testoFatturazioneLettera(inc)}, oltre spese ed IVA. Il pagamento dovra essere effettuato a 30 giorni data fattura tramite ricevuta bancaria a scadenza.</p>
             <h2>6. Condizioni generali</h2>
             <p>Formano parte integrante della presente proposta le condizioni generali dell'incarico (riservatezza, limiti di utilizzo della relazione, conservazione delle carte di lavoro, limitazioni di responsabilita, interruzione anticipata) riportate nel documento completo, unitamente agli allegati.</p>
