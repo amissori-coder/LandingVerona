@@ -51,9 +51,9 @@ a { color: var(--blu-700); }
 
 /* ---------- Pulsanti ---------- */
 .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 9px 16px; border-radius: 5px; border: 1px solid transparent;
-    font-weight: 600; font-size: 0.92rem; transition: all .15s ease;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border-radius: 5px; border: 1px solid transparent;
+    font-weight: 600; font-size: 0.86rem; transition: all .15s ease;
     text-decoration: none;
 }
 .btn-primary { background: var(--blu-700); color: #fff; }
@@ -64,7 +64,10 @@ a { color: var(--blu-700); }
 .btn-ghost:hover { background: var(--blu-100); }
 .btn-danger { background: var(--rosso); color: #fff; }
 .btn-danger:hover { background: #8F1E17; }
-.btn-sm { padding: 6px 12px; font-size: 0.85rem; }
+.btn-sm { padding: 4px 10px; font-size: 0.79rem; gap: 5px; }
+/* colonna d'azione nelle tabelle: piu bottoni piccoli, a capo se serve, senza sfondare */
+td.td-azioni { white-space: normal; }
+td.td-azioni .btn { margin: 0 2px 2px 0; }
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
 .btn-block { width: 100%; justify-content: center; }
 
@@ -481,12 +484,16 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 }
 
 /* ---------- Wizard ---------- */
-.wizard-passi { display: flex; gap: 6px; margin-bottom: 22px; flex-wrap: wrap; }
+.wizard-passi { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
 .wizard-passo {
     display: flex; align-items: center; gap: 8px; padding: 8px 14px;
     border-radius: var(--raggio); background: var(--grigio-100); color: var(--grigio-600);
     font-size: 0.8rem; font-weight: 600;
+    border: 1px solid transparent; font-family: inherit; cursor: pointer; transition: all .15s ease;
 }
+.wizard-passo:hover { border-color: var(--blu-300, #9cc0e6); color: var(--blu-900); }
+/* barra Indietro/Avanti sopra la scheda: resta ferma mentre il contenuto cambia altezza */
+.wizard-nav { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 .wizard-passo .n {
     width: 22px; height: 22px; border-radius: 50%; background: var(--grigio-200);
     display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;
@@ -603,6 +610,9 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .piano-testa .piano-tot { font-size: 0.82rem; color: var(--grigio-600); }
 .piano-tab td { vertical-align: middle; }
 .piano-tab input[type="date"] { padding: 4px 6px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; width: auto; }
+.pdata { display: inline-flex; gap: 4px; }
+.pdata select { padding: 4px 5px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; font-family: inherit; background: #fff; }
+.pdata-g { width: 50px; } .pdata-a { width: 68px; }
 .piano-imp { display: inline-flex; align-items: center; gap: 4px; }
 .piano-imp input { width: 92px; padding: 4px 6px; border: 1px solid var(--grigio-200); border-radius: 6px; font-size: 0.82rem; text-align: right; }
 .piano-anno .tabella-vuota { margin: 6px 0 10px; }

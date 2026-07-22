@@ -3179,7 +3179,7 @@
                         <td data-label="Team">${esc(i.team || '')}</td>
                         <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) : ''}</td>
                         <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                        ${puoRinnovare ? `<td data-label="" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button> <button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button></td>` : ''}
+                        ${puoRinnovare ? `<td data-label="" class="td-azioni"><button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button> <button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button></td>` : ''}
                     </tr>`;
                 }).join('') +
                 `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
@@ -3192,6 +3192,11 @@
             b.addEventListener('click', () => { incarichiTab = b.dataset.inctab; disegnaTabellaIncarichi(annoRif); }));
         cont.querySelectorAll('[data-apri]').forEach(r =>
             r.addEventListener('click', () => naviga('dettaglio', { id: r.dataset.apri })));
+        cont.querySelectorAll('[data-modifica]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                naviga('wizard', { modalita: 'modifica', id: b.dataset.modifica });
+            }));
         cont.querySelectorAll('[data-rinnova]').forEach(b =>
             b.addEventListener('click', e => {
                 e.stopPropagation();
@@ -3590,13 +3595,13 @@
                 <div class="header-azioni"><button class="btn btn-ghost" id="btn-annulla-wizard">Annulla</button></div>
             </header>
             <div class="wizard-passi">
-                ${PASSI_WIZARD.map((p, i) => `<div class="wizard-passo ${w.passo === i + 1 ? 'attivo' : (w.passo > i + 1 ? 'fatto' : '')}"><span class="n">${i + 1}</span>${p}</div>`).join('')}
+                ${PASSI_WIZARD.map((p, i) => `<button type="button" class="wizard-passo ${w.passo === i + 1 ? 'attivo' : (w.passo > i + 1 ? 'fatto' : '')}" data-passo="${i + 1}"><span class="n">${i + 1}</span>${p}</button>`).join('')}
             </div>
-            <div class="card" id="wizard-corpo"></div>
-            <div style="display:flex; justify-content:space-between;">
+            <div class="wizard-nav">
                 <button class="btn btn-secondary" id="btn-passo-prec" ${w.passo === 1 ? 'disabled' : ''}>&larr; Indietro</button>
                 <button class="btn btn-primary" id="btn-passo-succ">${w.passo === 6 ? 'Salva incarico' : 'Avanti →'}</button>
-            </div>`;
+            </div>
+            <div class="card" id="wizard-corpo"></div>`;
 
         document.getElementById('btn-annulla-wizard').addEventListener('click', () =>
             tornaOrigine(() => w.idEsistente ? naviga('dettaglio', { id: w.idEsistente }) : naviga('incarichi')));
@@ -3607,6 +3612,16 @@
             w.passo++;
             disegnaWizard();
         });
+        // i passi in cima sono cliccabili: si salta a quello scelto conservando quanto
+        // gia inserito (senza bloccare); la validazione completa scatta al salvataggio finale
+        $vista().querySelectorAll('.wizard-passo[data-passo]').forEach(el =>
+            el.addEventListener('click', () => {
+                const target = Number(el.dataset.passo);
+                if (target === w.passo) return;
+                salvaPassoCorrente(false);
+                w.passo = target;
+                disegnaWizard();
+            }));
         disegnaPassoWizard();
     }
 
@@ -3976,6 +3991,25 @@
         return anni.map(anno => ({ anno, rate: Fatture.rate(prec, anno), incarico: prec }));
     }
 
+    /* Selettore di data a tre tendine (giorno / mese / anno) per una scadenza del
+       piano: il calendario nativo nasconde l'anno dietro le frecce dei mesi, qui invece
+       si sceglie direttamente. L'anno propone il triennio attorno all'esercizio. */
+    function cellaDataPiano(anno, idx, scadenza) {
+        const d = /^\d{4}-\d{2}-\d{2}$/.test(scadenza || '') ? scadenza : (anno + '-12-31');
+        const gg = Number(d.slice(8, 10)), mm = Number(d.slice(5, 7)), aa = Number(d.slice(0, 4));
+        const anniOpt = [];
+        for (let y = anno - 1; y <= anno + 2; y++) anniOpt.push(y);
+        if (!anniOpt.includes(aa)) { anniOpt.push(aa); anniOpt.sort((a, b) => a - b); }
+        const optG = Array.from({ length: 31 }, (_, k) => `<option value="${k + 1}" ${k + 1 === gg ? 'selected' : ''}>${k + 1}</option>`).join('');
+        const optM = MESI_IT.map((nm, k) => `<option value="${k + 1}" ${k + 1 === mm ? 'selected' : ''}>${nm.charAt(0).toUpperCase() + nm.slice(1)}</option>`).join('');
+        const optA = anniOpt.map(y => `<option value="${y}" ${y === aa ? 'selected' : ''}>${y}</option>`).join('');
+        return `<span class="pdata" data-anno="${anno}" data-i="${idx}">
+            <select class="pdata-g" aria-label="Giorno">${optG}</select>
+            <select class="pdata-m" aria-label="Mese">${optM}</select>
+            <select class="pdata-a" aria-label="Anno">${optA}</select>
+        </span>`;
+    }
+
     function disegnaPianoWizard() {
         const w = wizard, d = w.dati, cont = document.getElementById('w-piano');
         if (!cont) return;
@@ -4001,7 +4035,7 @@
                 const imp = Number(r.importo) || 0;
                 return `<tr data-anno="${anno}" data-i="${i}">
                         <td data-label="Periodo">${esc(etichettaRigaPiano(r.scadenza, per, i + 1))}</td>
-                        <td data-label="Scadenza"><input type="date" class="piano-data" data-anno="${anno}" data-i="${i}" value="${esc(r.scadenza || '')}"></td>
+                        <td data-label="Scadenza">${cellaDataPiano(anno, i, r.scadenza)}</td>
                         <td class="num" data-label="Importo"><span class="piano-imp"><input type="text" inputmode="decimal" class="piano-importo" data-anno="${anno}" data-i="${i}" value="${fmtEuroInput(imp)}" placeholder="0,00"><span class="rimb-eur">&euro;</span></span></td>
                         ${perc ? '<td class="num piano-sp" data-label="Spese">' + eurFmt2.format(spese(imp)) + '</td><td class="num piano-tt" data-label="Totale">' + eurFmt2.format(imp + spese(imp)) + '</td>' : ''}
                         <td data-label=""><button type="button" class="btn btn-sm btn-ghost piano-elimina" data-anno="${anno}" data-i="${i}">Elimina</button></td>
@@ -4051,14 +4085,21 @@
             inp.addEventListener('input', applica);
             inp.addEventListener('change', () => { applica(); inp.value = fmtEuroInput(parseEuro(inp.value)); });
         });
-        cont.querySelectorAll('.piano-data').forEach(inp =>
-            inp.addEventListener('change', () => {
-                const riga = (w.piano[inp.dataset.anno] || [])[Number(inp.dataset.i)];
+        cont.querySelectorAll('.pdata').forEach(sp => {
+            const applica = () => {
+                const riga = (w.piano[sp.dataset.anno] || [])[Number(sp.dataset.i)];
                 if (!riga) return;
-                riga.scadenza = inp.value || riga.scadenza;
+                const gg = Number(sp.querySelector('.pdata-g').value);
+                const mm = Number(sp.querySelector('.pdata-m').value);
+                const aa = Number(sp.querySelector('.pdata-a').value);
+                const ultimo = new Date(aa, mm, 0).getDate();   // giorni del mese scelto
+                const giorno = Math.min(gg, ultimo);            // 31 feb -> 28/29
+                riga.scadenza = aa + '-' + String(mm).padStart(2, '0') + '-' + String(giorno).padStart(2, '0');
                 w.pianoToccato = true;
-                disegnaPianoWizard();   // cambia anche l'etichetta del periodo
-            }));
+                disegnaPianoWizard();   // aggiorna etichetta periodo ed eventuale giorno corretto
+            };
+            sp.querySelectorAll('select').forEach(s => s.addEventListener('change', applica));
+        });
         cont.querySelectorAll('.piano-elimina').forEach(b =>
             b.addEventListener('click', () => {
                 const righe = w.piano[b.dataset.anno];
@@ -4343,8 +4384,32 @@
             onConferma(entries);
         });
     }
+    /* Controllo completo prima del salvataggio: coi passi cliccabili si puo arrivare
+       al Riepilogo saltando un passaggio obbligatorio, quindi si ricontrolla tutto sul
+       modello e, se manca qualcosa, si rimanda al passo giusto. */
+    function validaTutto() {
+        const w = wizard, d = w.dati;
+        if (!d.cliente) return { passo: 1, msg: 'Inserisci la ragione sociale.' };
+        if (!w.esercizio) return { passo: 2, msg: 'Indica il primo esercizio.' };
+        // compenso: dal piano se e stato generato (passo 5), altrimenti dal calcolo (passo 3)
+        const anni = anniEsercizi();
+        const totalePianoAnni = anni.reduce((s, a) => s + totalePiano((w.piano || {})[a]), 0);
+        const compOk = (w.piano && totalePianoAnni > 0) || (!w.piano && Object.values(compensiRisultanti()).some(v => v > 0));
+        if (!compOk) return { passo: w.piano ? 5 : 3, msg: 'Il compenso deve essere maggiore di zero: compila il calcolo o il piano di fatturazione.' };
+        if (!d.respIncarico || !d.qualita) return { passo: 4, msg: 'Indica responsabile incarico e responsabile qualita.' };
+        if (w.modalita !== 'modifica' && d.respIncarico === d.qualita) return { passo: 4, msg: 'Il responsabile della qualita deve essere diverso dal responsabile dell\'incarico.' };
+        return null;
+    }
+
     function concludiWizard() {
         const w = wizard, d = w.dati;
+        // coi passi liberi, ricontrolla che non manchi nulla e rimanda al passo giusto
+        const mancante = validaTutto();
+        if (mancante) {
+            toast(mancante.msg, 'rosso');
+            if (w.passo !== mancante.passo) { salvaPassoCorrente(false); w.passo = mancante.passo; disegnaWizard(); }
+            return;
+        }
         // il filtro per regione vale anche in scrittura: un ruolo limitato (coordinatore/vice)
         // non puo creare o spostare un incarico fuori dalle sue regioni, altrimenti lo
         // perderebbe subito di vista. Barriera lato programma (come il resto del filtro regione).
@@ -8567,6 +8632,11 @@
                 <button class="btn btn-secondary" id="d-fatturazione-default">Applica a tutti gli incarichi esistenti</button>
             </div>
             <div class="card">
+                <h2>Genera il piano di fatturazione su tutti gli incarichi</h2>
+                <p class="descrizione" style="margin-bottom:12px;">Trasforma le scadenze calcolate degli incarichi gia presenti in un <strong>piano modificabile</strong> (scadenze e importi che potrai correggere dal wizard, una per una). Gli importi <strong>non cambiano</strong>: ogni scadenza resta com'e ora. Dopo, cambiare la periodicita di un incarico non ridistribuira piu gli esercizi gia fatturati.</p>
+                <button class="btn btn-secondary" id="d-materializza-piani">Genera il piano su tutti gli incarichi</button>
+            </div>
+            <div class="card">
                 <h2>Importa incarichi</h2>
                 <p class="descrizione" style="margin-bottom:12px;">Formati accettati: elenco incarichi "revilaw-incarichi-v1" (ad esempio <code>incarichi_import.json</code> generato dall'elenco Excel) oppure un backup completo "revilaw-backup-v1". I dati importati NON vengono pubblicati sul sito: restano in questo browser.</p>
                 <div class="campo"><input type="file" id="d-file" accept=".json,application/json"></div>
@@ -8823,6 +8893,35 @@
                 });
                 chiudiModale();
                 toast('Fatturazione aggiornata su ' + daCambiare.length + ' incarichi.', 'verde');
+                naviga('dati');
+            });
+        });
+
+        document.getElementById('d-materializza-piani').addEventListener('click', () => {
+            const lista = Incarichi.tutti();
+            // incarichi con almeno un esercizio (compenso) ancora senza piano esplicito
+            const daFare = lista.filter(i => Object.keys(i.compensi || {}).map(Number)
+                .some(a => a && !Array.isArray((i.piano || {})[a])));
+            if (!daFare.length) { toast('Tutti gli incarichi hanno gia il piano di fatturazione.', 'verde'); return; }
+            apriModale(`<h2>Generare il piano di fatturazione?</h2>
+                <p>Per <strong>${daFare.length}</strong> incarichi le scadenze calcolate diventano un piano modificabile. <strong>Gli importi non cambiano</strong>: cambia solo che potrai poi correggere ogni scadenza dal wizard.</p>
+                <p>L'operazione viene registrata nel registro modifiche.</p>
+                <div class="modale-azioni">
+                    <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                    <button class="btn btn-primary" id="m-conferma">Genera</button>
+                </div>`);
+            document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+            document.getElementById('m-conferma').addEventListener('click', () => {
+                daFare.forEach(i => {
+                    const anni = Object.keys(i.compensi || {}).map(Number).filter(Boolean);
+                    const senza = anni.filter(a => !Array.isArray((i.piano || {})[a]));
+                    const generato = pianoProposto(i, senza);
+                    const piano = Object.assign({}, i.piano || {});
+                    senza.forEach(a => { if (generato[a] && generato[a].length) piano[a] = generato[a]; });
+                    Incarichi.aggiorna(i.id, { piano }, Auth.utenteCorrente, 'Piano di fatturazione generato');
+                });
+                chiudiModale();
+                toast('Piano di fatturazione generato su ' + daFare.length + ' incarichi.', 'verde');
                 naviga('dati');
             });
         });
