@@ -22,6 +22,8 @@
     // icone lineari (stroke = currentColor, si adattano al colore del contesto)
     const ICO_LUCCHETTO = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
     const ICO_ALLERTA = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:7px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    // icona "proposta" (documento con spunta): stato in attesa di conferma
+    const ICO_PROPOSTA = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:7px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>';
     // fatturazione predefinita in base al tipo di incarico
     function fatturazionePredefinita(tipo) {
         if (tipo === 'legale') return 'trimestrale';
@@ -75,6 +77,32 @@
     }
     function fmtEuroInput(n) {
         return n ? Number(n).toFixed(2).replace('.', ',') : '';
+    }
+
+    /* Stato "proposta": un incarico appena creato o rinnovato NON entra in fatturazione e
+       compensi finche' non viene confermato. Per un rinnovo resta escluso SOLO il nuovo
+       periodo (gli esercizi gia' confermati continuano a contare). */
+    function inProposta(inc) {
+        return !!inc && inc.stato === 'proposta';
+    }
+    // anni del periodo proposto (quello in attesa di conferma): esercizioPeriodo + durata del tipo
+    function anniPeriodoProposto(inc) {
+        const primo = Number(inc && inc.esercizioPeriodo);
+        if (!primo) return null;                                  // periodo non indicato: si escludono tutti gli anni
+        const durata = inc.tipo === 'legale' ? 3 : 1;
+        const anni = [];
+        for (let a = primo; a < primo + durata; a++) anni.push(a);
+        return anni;
+    }
+    // true se, per via della proposta, l'anno NON deve contare nei totali
+    function propostaEscludeAnno(inc, anno) {
+        if (!inProposta(inc)) return false;
+        const anni = anniPeriodoProposto(inc);
+        return anni ? anni.includes(Number(anno)) : true;         // senza periodo: escludi tutto
+    }
+    // compenso che entra nei TOTALI (cruscotto, report, fatturazione): 0 se in proposta per quell'anno
+    function compensoContabile(inc, anno) {
+        return propostaEscludeAnno(inc, anno) ? 0 : Incarichi.compensoAnno(inc, anno);
     }
 
     function esc(s) {
@@ -2077,6 +2105,21 @@
             return inc;
         },
 
+        // conferma una proposta: l'incarico diventa attivo e da questo momento entra
+        // nei totali di compensi e fatturazione
+        conferma(id, utente) {
+            const lista = this.tutti();
+            const idx = lista.findIndex(i => i.id === id);
+            if (idx < 0) return null;
+            const inc = lista[idx];
+            inc.stato = 'attivo';
+            inc.confermato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            this.salva(lista);
+            Audit.registra(utente, 'Incarico confermato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: 'proposta', dopo: 'attivo' }]);
+            return inc;
+        },
+
         // riattiva un incarico terminato o dimesso: torna attivo e rientra nell'elenco principale
         riattiva(id, utente) {
             const lista = this.tutti();
@@ -2095,6 +2138,7 @@
 
         statoScadenza(inc) {
             const fine = inc.rinnovo || inc.dataFine;
+            if (inc.stato === 'proposta') return { classe: 'proposta', testo: 'Proposta' };
             if (inc.stato === 'dimesso') return { classe: 'neutro', testo: 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' ' + fmtData(inc.dimissioni.data) : '') };
             if (inc.stato === 'cessato') return { classe: 'neutro', testo: 'Terminato' };
             if (!fine) return { classe: 'neutro', testo: 'Senza scadenza' };
@@ -2226,7 +2270,9 @@
 
         tutteAnno(anno) {
             const out = [];
-            Incarichi.visibili().forEach(inc => { out.push(...this.rate(inc, anno)); });
+            // gli incarichi in proposta non entrano nel piano di fatturazione finche' non
+            // sono confermati (per un rinnovo resta escluso solo il nuovo periodo)
+            Incarichi.visibili().forEach(inc => { if (!propostaEscludeAnno(inc, anno)) out.push(...this.rate(inc, anno)); });
             return out.sort((a, b) => a.mese - b.mese || a.incarico.cliente.localeCompare(b.incarico.cliente));
         },
 
@@ -2840,13 +2886,18 @@
     function vistaDashboard() {
         const incarichi = Incarichi.visibili();
         const anno = annoCorrente();
-        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
-        const totAnno = incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
-        const totPrec = incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, anno - 1), 0);
+        // le proposte stanno fuori dagli attivi: sono in attesa di conferma e non contano nei totali
+        const proposte = incarichi.filter(i => i.stato === 'proposta');
+        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta');
+        // compensoContabile azzera gli anni in proposta: totali e confronto restano su cio' che e' confermato
+        const totAnno = incarichi.reduce((s, i) => s + compensoContabile(i, anno), 0);
+        const totPrec = incarichi.reduce((s, i) => s + compensoContabile(i, anno - 1), 0);
         const delta = totPrec ? ((totAnno - totPrec) / totPrec * 100) : null;
         const inScadenza = attivi.filter(i => Incarichi.statoScadenza(i).classe === 'ambra');
         const scaduti = attivi.filter(i => Incarichi.statoScadenza(i).classe === 'rosso');
         const volontarie = attivi.filter(i => i.tipo === 'volontaria').length;
+        // valore delle proposte in attesa (per l'anno in corso), per la card di riepilogo
+        const propostoTot = proposte.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
         // allerte di sblocco calcolo: visibili solo al titolare
         const allerte = Auth.eProprietario() ? Allerte.attive() : [];
         const puoRinnovare = Auth.puoScrivere('incarichi');
@@ -2934,7 +2985,26 @@
                 <div class="kpi verde"><div class="etichetta">Compensi ${anno}</div><div class="valore">${eurFmt.format(totAnno)}</div><div class="nota">${delta == null ? 'nessun confronto disponibile' : (delta >= 0 ? '+' : '') + delta.toFixed(1) + '% rispetto al ' + (anno - 1)}</div></div>
                 <div class="kpi ambra"><div class="etichetta">In scadenza (6 mesi)</div><div class="valore">${inScadenza.length}</div><div class="nota">${eurFmt.format(scadenzaTot)} di fatturato</div></div>
                 <div class="kpi rosso"><div class="etichetta">Scaduti</div><div class="valore">${scaduti.length}</div><div class="nota">${eurFmt.format(scadutoTot)} di fatturato</div></div>
+                ${proposte.length ? `<div class="kpi proposta"><div class="etichetta">Proposte da confermare</div><div class="valore">${proposte.length}</div><div class="nota">${eurFmt.format(propostoTot)} non ancora conteggiati</div></div>` : ''}
             </div>
+            ${proposte.length ? `<div class="card card-proposte">
+                <h2>${ICO_PROPOSTA}Proposte in attesa di conferma (${proposte.length})</h2>
+                <p class="descrizione" style="margin-bottom:12px;">Questi incarichi sono nuovi o rinnovati e restano in <strong>proposta</strong>: <strong>non entrano in fatturazione e nei compensi</strong> finche' non li confermi. Apri l'incarico e premi <strong>Conferma</strong>; ti verra' chiesto se la fatturazione del periodo va bene o va modificata.</p>
+                <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                    <th>Cliente</th><th>Tipo</th><th>Periodo</th><th class="num">Compenso proposto</th>${puoRinnovare ? '<th></th>' : ''}
+                </tr></thead><tbody>${proposte.map(i => {
+                const anniP = anniPeriodoProposto(i);
+                const periodo = anniP && anniP.length ? (anniP.length > 1 ? anniP[0] + '-' + anniP[anniP.length - 1] : String(anniP[0])) : '';
+                const compP = anniP && anniP.length ? anniP.reduce((s, a) => s + Incarichi.compensoAnno(i, a), 0) : 0;
+                return `<tr class="cliccabile riga-proposta" data-apri="${esc(i.id)}">
+                        <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                        <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                        <td data-label="Periodo">${esc(periodo)}</td>
+                        <td class="num" data-label="Compenso proposto">${compP ? eurFmt.format(compP) : ''}</td>
+                        ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button></td>` : ''}
+                    </tr>`;
+            }).join('')}</tbody></table></div>
+            </div>` : ''}
             <div class="card">
                 <h2>Andamento compensi per anno</h2>
                 <p class="hint" style="margin:-6px 0 10px;">Passa sopra le barre per il dettaglio. Nell'anno in corso il fatturato <span style="color:#C9A227;font-weight:600;">in scadenza</span> e <span style="color:#C0392B;font-weight:600;">scaduto</span> e evidenziato nella barra.</p>
@@ -2965,6 +3035,12 @@
                 e.stopPropagation();
                 const inc = Incarichi.trova(b.dataset.termina);
                 if (inc) modaleTerminaIncarico(inc, () => vistaDashboard());
+            }));
+        $vista().querySelectorAll('[data-conferma]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.conferma);
+                if (inc) modaleConfermaIncarico(inc, () => vistaDashboard());
             }));
         const tScad = $vista().querySelector('#sez-scadenze-dash table.dati');
         if (tScad) attrezzaTabella(tScad, { ricerca: true, nomeFile: 'incarichi-in-scadenza' });
@@ -3154,7 +3230,9 @@
                 `</tbody></table></div></div>`
                 : '<div class="card tabella-vuota">Nessun incarico terminato.</div>';
         } else {
-            const totale = attivi.reduce((s, i) => s + Incarichi.compensoAnno(i, annoRif), 0);
+            // le proposte compaiono qui evidenziate, ma il loro compenso non entra nel totale
+            const totale = attivi.reduce((s, i) => s + compensoContabile(i, annoRif), 0);
+            const nProposte = attivi.filter(inProposta).length;
             const colonne = [
                 { chiave: 'cliente', nome: 'Cliente' },
                 { chiave: 'tipo', nome: 'Tipo' },
@@ -3168,13 +3246,14 @@
                 { chiave: 'compenso', nome: 'Compenso ' + annoRif, num: true },
                 { chiave: 'scadenza', nome: 'Stato' }
             ];
-            corpo = attivi.length ? `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>` +
+            corpo = attivi.length ? (nProposte ? `<div class="avviso-proposta">${ICO_PROPOSTA}<span><strong>${nProposte} ${nProposte === 1 ? 'incarico e' : 'incarichi sono'} in proposta</strong> (righe evidenziate): compensi e scadenze non entrano nel totale finche' non ${nProposte === 1 ? 'lo confermi' : 'li confermi'} con il pulsante <strong>Conferma</strong>.</span></div>` : '') + `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>` +
                 colonne.map(c => `<th class="${c.num ? 'num' : ''}" data-ordina="${c.chiave}">${c.nome}${filtriIncarichi.ordina === c.chiave ? (filtriIncarichi.verso > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') +
                 (puoRinnovare ? '<th></th>' : '') +
                 `</tr></thead><tbody>` +
                 attivi.map(i => {
                     const s = Incarichi.statoScadenza(i);
-                    return `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                    const prop = inProposta(i);
+                    return `<tr class="cliccabile${prop ? ' riga-proposta' : ''}" data-apri="${esc(i.id)}">
                         <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
                         <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                         <td data-label="Inizio">${i.dataInizio ? esc(fmtData(i.dataInizio)) : esc(i.dataInizioNote || '')}</td>
@@ -3184,12 +3263,14 @@
                         <td data-label="Qualita">${esc(i.qualita || '')}</td>
                         <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                         <td data-label="Team">${esc(i.team || '')}</td>
-                        <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) : ''}</td>
+                        <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) + (prop ? ' <span class="hint">(proposto)</span>' : '') : ''}</td>
                         <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                        ${puoRinnovare ? `<td data-label="" class="td-azioni"><button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button> <button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button></td>` : ''}
+                        ${puoRinnovare ? `<td data-label="" class="td-azioni">${prop
+                        ? `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button>`
+                        : `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button> <button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button>`}</td>` : ''}
                     </tr>`;
                 }).join('') +
-                `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi)</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
+                `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi${nProposte ? ', ' + nProposte + (nProposte === 1 ? ' in proposta escluso' : ' in proposta esclusi') + ' dal totale' : ''})</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
                 : '<div class="card tabella-vuota">Nessun incarico attivo corrisponde ai filtri.</div>';
         }
 
@@ -3220,6 +3301,12 @@
                 e.stopPropagation();
                 const inc = Incarichi.trova(b.dataset.dimetti);
                 if (inc) modaleDimissioniIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
+            }));
+        cont.querySelectorAll('[data-conferma]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.conferma);
+                if (inc) modaleConfermaIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
             }));
         cont.querySelectorAll('[data-riattiva]').forEach(b =>
             b.addEventListener('click', e => {
@@ -3292,13 +3379,19 @@
                     <button class="btn btn-ghost" id="btn-indietro">&larr; Elenco</button>
                     ${Auth.puoScrivere('incarichi') ? `
                         <button class="btn btn-secondary" id="btn-modifica">Modifica</button>
-                        <button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
-                        ${inc.stato === 'cessato' || inc.stato === 'dimesso' ? '<button class="btn btn-secondary" id="btn-riattiva-inc">Riattiva incarico</button>' : '<button class="btn btn-secondary" id="btn-termina-inc">Termina incarico</button><button class="btn btn-secondary" id="btn-dimetti-inc">Dimissioni</button>'}
+                        ${inc.stato === 'proposta'
+                    ? '<button class="btn btn-primary" id="btn-conferma-inc">Conferma incarico</button>'
+                    : `<button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
+                        ${inc.stato === 'cessato' || inc.stato === 'dimesso' ? '<button class="btn btn-secondary" id="btn-riattiva-inc">Riattiva incarico</button>' : '<button class="btn btn-secondary" id="btn-termina-inc">Termina incarico</button><button class="btn btn-secondary" id="btn-dimetti-inc">Dimissioni</button>'}`}
                         ${inc.calcoloCongelato ? '<button class="btn btn-secondary" id="btn-sblocca">Sblocca calcolo</button>' : ''}
-                        ${inc.tipo === 'legale' || inc.tipo === 'volontaria' ? '<button class="btn btn-primary" id="btn-lettera">Lettera di incarico</button>' : ''}
+                        ${inc.tipo === 'legale' || inc.tipo === 'volontaria' ? '<button class="btn ' + (inc.stato === 'proposta' ? 'btn-secondary' : 'btn-primary') + '" id="btn-lettera">Lettera di incarico</button>' : ''}
                     ` : ''}
                 </div>
             </header>
+            ${inc.stato === 'proposta' ? `<div class="card banner-proposta">
+                <p class="descrizione" style="margin:0 0 10px;">${ICO_PROPOSTA}<strong>Incarico in stato di proposta.</strong> Il periodo corrente <strong>non entra ancora in fatturazione e nei compensi</strong>: comincia a contare solo quando lo confermi. Puoi stampare la lettera di incarico gia' ora (resta una proposta finche' non confermi).</p>
+                ${Auth.puoScrivere('incarichi') ? '<button class="btn btn-sm btn-primary" id="btn-conferma-banner">Conferma incarico</button>' : ''}
+            </div>` : ''}
             ${inc.calcoloCongelato ? `<div class="card" style="border-left:4px solid var(--oro);">
                 <p class="descrizione" style="margin:0;">${ICO_LUCCHETTO}Il calcolo del compenso e congelato${inc.congelamento && inc.congelamento.il ? ' dal ' + fmtDataOra(inc.congelamento.il) : ''}. Per modificarlo, usa "Sblocca calcolo": verra inviato un messaggio di allerta al titolare.</p>
             </div>` : ''}
@@ -3320,7 +3413,7 @@
                             ${rigaRiepilogo('Data inizio', inc.dataInizio ? fmtData(inc.dataInizio) : inc.dataInizioNote)}
                             ${rigaRiepilogo('Data fine', fmtData(inc.dataFine) || inc.dataFineNote)}
                             ${rigaRiepilogo('Rinnovo', inc.rinnovo ? fmtData(inc.rinnovo) : inc.rinnovoNote)}
-                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'dimesso' ? 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' il ' + fmtData(inc.dimissioni.data) : '') : (inc.stato === 'attivo' ? 'Attivo' : inc.stato))) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
+                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'dimesso' ? 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' il ' + fmtData(inc.dimissioni.data) : '') : (inc.stato === 'proposta' ? 'Proposta (da confermare)' : (inc.stato === 'attivo' ? 'Attivo' + (inc.confermato && inc.confermato.il ? ' - confermato il ' + fmtDataOra(inc.confermato.il) : '') : inc.stato)))) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
                         </div>
                         <div class="riepilogo-blocco">
                             <h4>Team</h4>
@@ -3401,7 +3494,7 @@
         { const bt = document.getElementById('btn-torna-origine'); if (bt) bt.addEventListener('click', () => tornaOrigine()); }
         if (Auth.puoScrivere('incarichi')) {
             document.getElementById('btn-modifica').addEventListener('click', () => naviga('wizard', { modalita: 'modifica', id: inc.id }));
-            document.getElementById('btn-rinnova').addEventListener('click', () => naviga('wizard', { modalita: 'rinnovo', id: inc.id }));
+            { const bR = document.getElementById('btn-rinnova'); if (bR) bR.addEventListener('click', () => naviga('wizard', { modalita: 'rinnovo', id: inc.id })); }
             const btnLettera = document.getElementById('btn-lettera');
             if (btnLettera) btnLettera.addEventListener('click', () => naviga('lettera', { id: inc.id }));
             const btnSblocca = document.getElementById('btn-sblocca');
@@ -3412,6 +3505,9 @@
             if (btnDimetti) btnDimetti.addEventListener('click', () => modaleDimissioniIncarico(inc));
             const btnRiattivaInc = document.getElementById('btn-riattiva-inc');
             if (btnRiattivaInc) btnRiattivaInc.addEventListener('click', () => modaleRiattivaIncarico(inc, () => naviga('dettaglio', { id: inc.id })));
+            const confermaInc = () => modaleConfermaIncarico(inc, () => naviga('dettaglio', { id: inc.id }));
+            const btnConf = document.getElementById('btn-conferma-inc'); if (btnConf) btnConf.addEventListener('click', confermaInc);
+            const btnConfB = document.getElementById('btn-conferma-banner'); if (btnConfB) btnConfB.addEventListener('click', confermaInc);
         }
         const btnElimina = document.getElementById('btn-elimina');
         if (btnElimina) btnElimina.addEventListener('click', () => {
@@ -3443,6 +3539,40 @@
             chiudiModale();
             toast('Incarico riattivato: torna tra gli incarichi attivi.', 'verde');
             if (typeof onDone === 'function') onDone();
+        });
+    }
+    /* Conferma di una proposta: prima di renderla attiva si chiede se la fatturazione
+       del periodo va bene o va modificata (apre il wizard al passo Fatturazione). */
+    function modaleConfermaIncarico(inc, onDone) {
+        const anniP = anniPeriodoProposto(inc) || Object.keys(inc.compensi || {}).map(Number).filter(Boolean);
+        const rate = anniP.reduce((n, a) => n + Fatture.rate(inc, a).length, 0);
+        const compP = anniP.reduce((s, a) => s + Incarichi.compensoAnno(inc, a), 0);
+        const periodo = anniP.length ? (anniP.length > 1 ? anniP[0] + '-' + anniP[anniP.length - 1] : String(anniP[0])) : '';
+        apriModale(`<h2>Conferma dell'incarico</h2>
+            <p>Stai per confermare <strong>${esc(inc.cliente)}</strong>. Da questo momento il periodo <strong>${esc(periodo)}</strong> entra in <strong>fatturazione e compensi</strong>.</p>
+            <div class="riepilogo-blocco" style="margin-top:6px;">
+                <h4>Fatturazione del periodo</h4>
+                ${rigaRiepilogo('Modalita', descriviFatturazione(inc))}
+                ${rigaRiepilogo('Spese generali', spesePerc(inc) ? percTesto(spesePerc(inc)) + '% sugli onorari' : 'non addebitate')}
+                ${rigaRiepilogo('Compenso del periodo', eurFmt.format(compP) + (rate ? ' in ' + rate + (rate === 1 ? ' scadenza' : ' scadenze') : ''))}
+            </div>
+            <p class="descrizione">La fatturazione secondo il periodo e' corretta, oppure va modificata?</p>
+            <div class="modale-azioni" style="flex-wrap:wrap;">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-secondary" id="m-modifica">Modifica la fatturazione</button>
+                <button class="btn btn-primary" id="m-conferma">Confermo, la fatturazione va bene</button>
+            </div>`, { classe: 'larga' });
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-modifica').addEventListener('click', () => {
+            chiudiModale();
+            toast('Modifica il piano di fatturazione, salva e poi premi di nuovo "Conferma".', 'ambra');
+            naviga('wizard', { modalita: 'modifica', id: inc.id, passo: 5 });
+        });
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            Incarichi.conferma(inc.id, Auth.utenteCorrente);
+            chiudiModale();
+            toast('Incarico confermato: ora entra in fatturazione e nei compensi.', 'verde');
+            if (typeof onDone === 'function') onDone(); else naviga('dettaglio', { id: inc.id });
         });
     }
     function modaleTerminaIncarico(inc, onDone) {
@@ -3585,6 +3715,9 @@
                 wizard.compensoManualeValore = compEsistente;
             }
         }
+        // apertura diretta a un passo (es. "Modifica la fatturazione" dalla conferma)
+        const pIn = Number(parametriVista && parametriVista.passo);
+        if (pIn >= 1 && pIn <= 6) wizard.passo = pIn;
         disegnaWizard();
     }
 
@@ -4513,13 +4646,14 @@
                 };
                 d.storico = (prec.storico || []).concat([snap]);
             }
-            // un rinnovo riporta l'incarico ATTIVO: chi rinnova un incarico terminato o
-            // dimesso (es. revisore ri-nominato) non deve doverlo riattivare a parte
-            d.stato = 'attivo';
+            // il rinnovo nasce come PROPOSTA: il nuovo periodo non entra in fatturazione/compensi
+            // finche' non viene confermato (il periodo precedente, gia' confermato, continua a contare)
+            d.stato = 'proposta';
+            d.confermato = null;
             d.terminato = null;
             d.dimissioni = null;
-            const agg = Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Rinnovo incarico');
-            toast(haLettera ? 'Incarico rinnovato. Il periodo precedente e archiviato in "Periodi precedenti"; ora puoi stampare la nuova lettera.' : 'Incarico rinnovato. Il periodo precedente e archiviato.', 'verde');
+            const agg = Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Rinnovo incarico (proposta)');
+            toast(haLettera ? 'Rinnovo salvato come PROPOSTA. Stampa la nuova lettera; il nuovo periodo entra in fatturazione solo quando confermi l\'incarico.' : 'Rinnovo salvato come PROPOSTA: confermalo per farlo entrare in fatturazione e compensi.', 'ambra');
             naviga(haLettera ? 'lettera' : 'dettaglio', { id: agg.id });
         } else if (w.modalita === 'modifica') {
             Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Modifica incarico');
@@ -4527,8 +4661,11 @@
             // a fine modifica torna alla sezione da cui si era partiti (es. Persone), altrimenti al dettaglio
             tornaOrigine(() => naviga('dettaglio', { id: w.idEsistente }));
         } else {
+            // un nuovo incarico nasce come PROPOSTA: va confermato per entrare in fatturazione/compensi
+            d.stato = 'proposta';
+            d.confermato = null;
             const nuovo = Incarichi.crea(d, Auth.utenteCorrente);
-            toast(haLettera ? 'Incarico creato. Ora puoi stampare la lettera di incarico.' : 'Incarico creato.', 'verde');
+            toast(haLettera ? 'Incarico creato come PROPOSTA. Stampa la lettera; entra in fatturazione solo quando lo confermi.' : 'Incarico creato come PROPOSTA: confermalo per farlo entrare in fatturazione e compensi.', 'ambra');
             naviga(haLettera ? 'lettera' : 'dettaglio', { id: nuovo.id });
         }
     }
@@ -4550,7 +4687,7 @@
             <header>
                 <div>
                     <h1>Riepilogo fatturazioni</h1>
-                    <p class="descrizione">Piano delle rate per esercizio in base alla periodicita di ogni incarico (annuale, trimestrale o mensile).</p>
+                    <p class="descrizione">Piano delle rate per esercizio in base alla periodicita di ogni incarico (annuale, trimestrale o mensile). Gli incarichi in <strong>proposta</strong> non compaiono qui finche' non sono confermati.</p>
                 </div>
                 <div class="header-azioni">
                     <div class="campo" style="margin:0;"><label>Esercizio</label>
@@ -4767,13 +4904,14 @@
         // anno di riferimento della schermata (selettore): default = anno corrente se presente, altrimenti l'ultimo
         const annoDefault = anni.includes(annoCorrente()) ? annoCorrente() : anni[anni.length - 1];
         const annoRif = (filtriReport.anno && anni.includes(filtriReport.anno)) ? filtriReport.anno : annoDefault;
+        // compensoContabile esclude le proposte (per il loro periodo non ancora confermato)
         const elencoClienti = incarichi
-            .map(i => ({ cliente: i.cliente, id: i.id, importo: Incarichi.compensoAnno(i, annoRif) }))
+            .map(i => ({ cliente: i.cliente, id: i.id, importo: compensoContabile(i, annoRif) }))
             .filter(x => x.importo > 0)
             .sort((a, b) => b.importo - a.importo);
         const totaleAnno = elencoClienti.reduce((s, x) => s + x.importo, 0);
         // confronto con l'anno prima: si mostra solo se quell'anno esiste e non era a zero
-        const totalePrec = incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, annoRif - 1), 0);
+        const totalePrec = incarichi.reduce((s, i) => s + compensoContabile(i, annoRif - 1), 0);
         const variazione = totalePrec > 0 ? (totaleAnno - totalePrec) / totalePrec * 100 : null;
 
         /* Compenso rispetto alle ore stimate. Le ore arrivano dal calcolo CNDCEC (attivo+ricavi):
@@ -4781,7 +4919,7 @@
            va detto, non nascosto. */
         const oreTutti = incarichi.map(i => ({
             id: i.id, cliente: i.cliente, tipo: i.tipo,
-            ore: oreStimatePerAnno(i, annoRif), compenso: Incarichi.compensoAnno(i, annoRif)
+            ore: oreStimatePerAnno(i, annoRif), compenso: compensoContabile(i, annoRif)
         }));
         const oreDati = oreTutti.filter(x => x.ore > 0 && x.compenso > 0)
             .map(x => Object.assign(x, { eurH: x.compenso / x.ore }));
@@ -9008,14 +9146,20 @@
                     ${snap ? '<span class="badge neutro" style="align-self:center;">Periodo precedente' + (periodoLabel ? ' ' + periodoLabel : '') + '</span>' : ''}
                     <span class="badge ${classeTipo(incL.tipo)}" style="align-self:center;">${esc(nomeTipo(incL.tipo))}</span>
                     ${incL.calcoloCongelato ? '<span class="badge ambra" style="align-self:center;">' + ICO_LUCCHETTO + 'Calcolo congelato</span>' : ''}
+                    ${(!snap && inc.stato === 'proposta') ? '<span class="badge proposta" style="align-self:center;">' + ICO_PROPOSTA + 'Proposta</span>' : ''}
                     <button class="btn btn-primary" id="btn-pdf-ufficiale">${snap ? 'Scarica PDF' : 'Scarica / stampa mandato'}</button>
                 </div>
             </div>
+            ${(!snap && inc.stato === 'proposta' && Auth.puoScrivere('incarichi')) ? `<div class="card banner-proposta no-stampa" style="max-width:860px;margin:0 auto 14px;">
+                <p class="descrizione" style="margin:0 0 10px;">${ICO_PROPOSTA}Questa e' la lettera di una <strong>proposta</strong>: puoi stamparla e inviarla al cliente. L'incarico entra in fatturazione e nei compensi solo dopo la <strong>conferma</strong>.</p>
+                <button class="btn btn-sm btn-primary" id="btn-conferma-lettera">Conferma incarico</button>
+            </div>` : ''}
             <div id="lettera-corpo">
                 <p class="descrizione" style="max-width:860px; margin:0 auto 14px; text-align:center;">Caricamento anteprima del mandato ufficiale...</p>
             </div>`;
         document.getElementById('btn-lettera-indietro').addEventListener('click', () => naviga('dettaglio', { id: inc.id }));
         document.getElementById('btn-pdf-ufficiale').addEventListener('click', () => snap ? scaricaPdfMandato(incL) : modaleStampaMandato(inc));
+        { const bcl = document.getElementById('btn-conferma-lettera'); if (bcl) bcl.addEventListener('click', () => modaleConfermaIncarico(inc, () => naviga('dettaglio', { id: inc.id }))); }
 
         // anteprima = PDF ufficiale renderizzato inline; fallback all'anteprima HTML
         (async () => {
@@ -9413,9 +9557,10 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         const incarichi = Incarichi.visibili();
         const anni = Incarichi.anniConCompensi();
         if (!anni.length) { cont.innerHTML = '<p class="tabella-vuota">Nessun compenso registrato.</p>'; return; }
-        const valori = anni.map(a => incarichi.reduce((s, i) => s + Incarichi.compensoAnno(i, a), 0));
+        // le proposte non entrano nell'andamento finche' non sono confermate
+        const valori = anni.map(a => incarichi.reduce((s, i) => s + compensoContabile(i, a), 0));
         const max = Math.max(...valori, 1);
-        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
+        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta');
         let scadTot = 0, scaduTot = 0;
         attivi.forEach(i => { const s = Incarichi.statoScadenza(i); const c = Incarichi.compensoAnno(i, annoCorr); if (s.classe === 'ambra') scadTot += c; else if (s.classe === 'rosso') scaduTot += c; });
 

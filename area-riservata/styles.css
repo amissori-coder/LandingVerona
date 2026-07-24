@@ -369,6 +369,21 @@ td.td-azioni .btn { margin: 0 2px 2px 0; }
 .kpi.verde { border-left-color: var(--verde); }
 .kpi.ambra { border-left-color: var(--oro); }
 .kpi.rosso { border-left-color: var(--rosso); }
+.kpi.proposta { border-left-color: #6B4CC2; background: #FAF8FE; }
+.kpi.proposta .valore { color: #4A3494; }
+
+/* ---------- Stato "proposta" (nuovi incarichi / rinnovi da confermare) ---------- */
+.card-proposte { border-left: 4px solid #6B4CC2; }
+.card-proposte h2 { color: #4A3494; }
+.banner-proposta { border-left: 4px solid #6B4CC2; background: #FAF8FE; }
+.banner-proposta h2 { color: #4A3494; }
+/* riga proposta evidenziata nell'elenco */
+tr.riga-proposta { background: #FAF8FE; }
+tr.riga-proposta:hover { background: #F3EEFB; }
+tr.riga-proposta td:first-child { box-shadow: inset 3px 0 0 #6B4CC2; }
+/* avviso in cima all'elenco quando ci sono proposte */
+.avviso-proposta { display: flex; align-items: flex-start; gap: 8px; background: #FAF8FE; border: 1px solid #E1D6F7; border-left: 4px solid #6B4CC2; border-radius: var(--raggio); padding: 10px 14px; margin-bottom: 14px; font-size: 0.86rem; color: #4A3494; line-height: 1.5; }
+.avviso-proposta svg { flex-shrink: 0; margin-top: 1px; }
 
 /* ---------- Filtri / barra strumenti tabella (corporate) ---------- */
 .filtri, .barra-tabella {
@@ -452,6 +467,8 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .badge.ambra { background: var(--ambra-bg); color: var(--ambra); }
 .badge.rosso { background: var(--rosso-bg); color: var(--rosso); }
 .badge.neutro { background: var(--grigio-100); color: var(--grigio-600); }
+.badge.proposta { background: #ECE6FA; color: #5A3EA8; }
+.badge.proposta svg { vertical-align: -2px; margin-right: 3px; }
 
 /* ---------- Modale ---------- */
 .modale-sfondo {
