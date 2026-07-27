@@ -2,7 +2,7 @@
  * Popup promozionale - Fondo Contrasto Deindustrializzazione 2026
  * Componente condiviso, autonomo (HTML + stile + logica iniettati da JS).
  * - Compare su tutte le pagine del sito, una volta per sessione.
- * - Mostra la data: attivo fino al 30 ottobre 2026, poi si nasconde da solo.
+ * - Mostra la data: attivo fino al 28 novembre 2026, poi si nasconde da solo.
  * - Si auto-disattiva sulla pagina del fondo stesso (/fcd_2026/).
  * - Accessibile: role="dialog", focus trap, ESC, click sullo sfondo.
  * Percorsi root-relative: il sito e servito dalla radice del dominio.
@@ -12,8 +12,9 @@
 
   // --- Configurazione ---------------------------------------------------
   var FUND_URL = "/fcd_2026/";
-  // Mostra il popup FINO AL 30 ottobre 2026 incluso: si nasconde dal 31/10/2026.
-  var HIDE_FROM = new Date(2026, 9, 31, 0, 0, 0); // mese 9 = ottobre
+  // Mostra il popup FINO AL 28 novembre 2026 incluso: si nasconde dal 29/11/2026
+  // (chiusura dello sportello posticipata insieme all'apertura).
+  var HIDE_FROM = new Date(2026, 10, 29, 0, 0, 0); // mese 10 = novembre
   var SHOW_DELAY_MS = 900;
   var SS_SEEN = "fcdPromoSeen";     // gia mostrato in questa sessione
   var LS_HIDDEN = "fcdPromoHidden"; // "non mostrare piu"
@@ -121,9 +122,10 @@
     + 'copertura fino al <b>100% delle spese ammissibili</b>, per le imprese manifatturiere '
     + '(ATECO sezione C) nei territori dei Consorzi industriali del Lazio e di Piceno Consind.</p>'
     + '<div class="fcdp-date">' + iconCal
-    + '<span>Approfondimento e simulatori online disponibili <b>fino al 30 ottobre 2026</b>.</span></div>'
-    + '<p class="fcdp-note">Termini di presentazione delle domande in via di definizione. '
-    + 'Aiuto in regime de minimis (Reg. UE 2023/2831).</p>'
+    + '<span>Apertura dello sportello <b>posticipata al 28 settembre 2026</b>, '
+    + 'domande fino al <b>28 novembre 2026</b> (ore 12:00).</span></div>'
+    + '<p class="fcdp-note">Registrazione alla piattaforma Invitalia dal 31 luglio 2026, in ordine '
+    + 'cronologico fino a esaurimento delle risorse. Aiuto in regime de minimis (Reg. UE 2023/2831).</p>'
     + '<div class="fcdp-actions">'
     + '<a class="fcdp-cta" href="' + FUND_URL + '">Scopri il fondo e simula il contributo' + iconArrow + '</a>'
     + '<button type="button" class="fcdp-ghost" data-fcdp-close>Chiudi</button>'

@@ -823,8 +823,10 @@
         if (STATO_OVERRIDE) return STATO_OVERRIDE;
         var now = new Date();
         var reg = new Date('2026-07-31T12:00:00');
-        var apri = new Date('2026-08-31T12:00:00');
-        var chiudi = new Date('2026-10-30T12:00:00');
+        // Apertura dello sportello posticipata dal 31 agosto al 28 settembre 2026,
+        // con chiusura spostata di conseguenza al 28 novembre 2026.
+        var apri = new Date('2026-09-28T12:00:00');
+        var chiudi = new Date('2026-11-28T12:00:00');
         if (now < reg) return 'apertura';
         if (now < apri) return 'registrazione';
         if (now < chiudi) return 'aperto';
@@ -834,9 +836,9 @@
         var el = $('#statoBanner');
         if (!el) return;
         var map = {
-            apertura: { cls: 'stato-apertura', pill: 'In apertura', txt: 'Registrazione alla piattaforma Invitalia dal <strong>31 luglio 2026</strong>, sportello domande dal <strong>31 agosto</strong> al <strong>30 ottobre 2026</strong>.' },
-            registrazione: { cls: 'stato-registrazione', pill: 'Registrazione aperta', txt: 'Registrazione attiva sulla piattaforma Invitalia: lo sportello per le domande apre il <strong>31 agosto 2026 ore 12:00</strong>.' },
-            aperto: { cls: 'stato-aperto', pill: 'Sportello aperto', txt: 'Domande aperte fino alle <strong>ore 12:00 del 30 ottobre 2026</strong>, in ordine cronologico fino a esaurimento delle risorse.' },
+            apertura: { cls: 'stato-apertura', pill: 'In apertura', txt: 'Apertura posticipata: registrazione alla piattaforma Invitalia dal <strong>31 luglio 2026</strong>, sportello domande dal <strong>28 settembre</strong> al <strong>28 novembre 2026</strong>.' },
+            registrazione: { cls: 'stato-registrazione', pill: 'Registrazione aperta', txt: 'Registrazione attiva sulla piattaforma Invitalia: lo sportello per le domande apre il <strong>28 settembre 2026 ore 12:00</strong>, data posticipata rispetto al 31 agosto.' },
+            aperto: { cls: 'stato-aperto', pill: 'Sportello aperto', txt: 'Domande aperte fino alle <strong>ore 12:00 del 28 novembre 2026</strong>, in ordine cronologico fino a esaurimento delle risorse.' },
             chiuso: { cls: 'stato-chiuso', pill: 'Sportello chiuso', txt: 'Lo sportello per la presentazione delle domande è chiuso. Verifica eventuali aggiornamenti sulle fonti ufficiali.' }
         };
         var m = map[statoMisura()] || map.apertura;
