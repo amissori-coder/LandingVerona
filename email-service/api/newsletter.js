@@ -60,7 +60,7 @@ async function leggiFoglio(forza) {
     const col = n => intest.indexOf(n);
     const iData = col('data'), iPagina = col('pagina'), iNome = col('nome'), iCognome = col('cognome');
     const iEmail = col('email'), iAzienda = col('azienda'), iRuolo = col('ruolo'), iTel = col('telefono');
-    const iMkt = col('marketing');
+    const iMkt = col('marketing'), iMsg = col('messaggio');
     const cella = (riga, i) => (i >= 0 && riga[i] != null) ? String(riga[i]).trim() : '';
     /* Consenso alle comunicazioni promozionali. Se la colonna non c'e' nel foglio
        si risponde null = "non risultante": l'area riservata NON mette quelle righe
@@ -82,7 +82,8 @@ async function leggiFoglio(forza) {
             id: 'foglio|' + email + '|' + cella(riga, iData),
             email: email, nome: cella(riga, iNome), cognome: cella(riga, iCognome),
             azienda: cella(riga, iAzienda), ruolo: cella(riga, iRuolo), telefono: cella(riga, iTel),
-            pagina: cella(riga, iPagina), data: cella(riga, iData), marketing: consenso(riga)
+            pagina: cella(riga, iPagina), data: cella(riga, iData), marketing: consenso(riga),
+            messaggio: cella(riga, iMsg)
         });
     }
     _cacheFoglio = { quando: Date.now(), righe: righe };
@@ -191,6 +192,7 @@ async function leggiIscrizioni(db, forza, rev) {
             telefono: String(v.telefono || ''),
             pagina: String(v.pagina || ''),
             data: String(v.data || ''),
+            messaggio: String(v.messaggio || '').slice(0, 600),
             marketing: consensoScheda(v)
         });
     });
@@ -257,13 +259,24 @@ module.exports = async (req, res) => {
             leggiIscrizioni(db, body.forza === true, revI),
             N.disiscritti(db)
         ]);
-        // il foglio e' la fonte storica: un indirizzo gia' su Firestore vince (e' piu' aggiornato)
+        /* Il foglio e' la fonte storica: un indirizzo gia' su Firestore vince (e' piu'
+           aggiornato). Si tiene il conto di quanti ne arrivano da ciascuna fonte:
+           quando in elenco "mancano" dei contatti, la prima cosa da sapere e' se il
+           foglio sia stato letto davvero o no. Senza questo numero si tira a indovinare. */
         let avviso = '';
         let daFoglio = [];
-        try { daFoglio = await leggiFoglio(body.forza === true); }
-        catch (e) {
-            avviso = 'Le iscrizioni raccolte prima del passaggio al nuovo archivio non sono leggibili in questo momento.';
-            console.error('Newsletter: foglio non letto:', String((e && e.message) || e).slice(0, 200));
+        const fonti = { firestore: righe.length, foglio: 0, foglioConfigurato: !!process.env.EVENTI_SHEET_ID, foglioLetto: false };
+        try {
+            daFoglio = await leggiFoglio(body.forza === true);
+            fonti.foglio = daFoglio.length;
+            fonti.foglioLetto = true;
+            if (!fonti.foglioConfigurato) {
+                avviso = 'Il foglio storico non e collegato (manca EVENTI_SHEET_ID): in elenco ci sono solo le iscrizioni arrivate dopo il passaggio al nuovo archivio.';
+            }
+        } catch (e) {
+            const motivo = String((e && e.message) || e).slice(0, 200);
+            avviso = 'Il foglio con le iscrizioni storiche non e leggibile (' + motivo + '): in elenco mancano quelle raccolte prima del passaggio al nuovo archivio.';
+            console.error('Newsletter: foglio non letto:', motivo);
         }
         const perEmail = {};
         daFoglio.forEach(x => { if (!perEmail[x.email]) perEmail[x.email] = x; });
@@ -280,8 +293,9 @@ module.exports = async (req, res) => {
         const ponte = await allineaBloccati(db, fuori, body.forza === true);
         if (ponte.avviso && !avviso) avviso = ponte.avviso;
 
+        fonti.unici = iscritti.length;
         const risposta = {
-            ok: true, iscritti: iscritti, disiscritti: ponte.uniti, aggiornato: Date.now(),
+            ok: true, iscritti: iscritti, disiscritti: ponte.uniti, aggiornato: Date.now(), fonti: fonti,
             // l'area riservata regola su questi il numero di destinatari per volta
             invio: {
                 trasporto: N.brevoAttivo() ? 'brevo' : 'smtp',
