@@ -184,8 +184,14 @@ module.exports = async (req, res) => {
         // ultimo controllo sulle disiscrizioni: vale quello del server, non l'elenco a video
         const fuori = prova ? {} : await N.disiscritti(N.admin.firestore());
 
-        const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-        const fromName = String(body.mittenteNome || process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+        /* Mittente della NEWSLETTER, distinto da quello delle email di servizio.
+           Password e comunicazioni continuano a partire da noreply@ via Aruba:
+           se un giorno una lista crea problemi di reputazione, non si porta
+           dietro anche le email con cui si fa entrare la gente nell'area
+           riservata. Se la variabile dedicata non c'e', si torna a quella
+           generale e non cambia niente rispetto a prima. */
+        const fromEmail = process.env.NEWSLETTER_FROM_EMAIL || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+        const fromName = String(body.mittenteNome || process.env.NEWSLETTER_FROM_NAME || process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
         // forma a oggetto: la citazione la fa nodemailer. Componendo la stringa a mano,
         // un nome con virgolette dentro potrebbe aggiungere un secondo indirizzo al From.
         const from = { name: fromName, address: fromEmail };

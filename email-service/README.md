@@ -270,18 +270,25 @@ i rapporti a `rua@dmarc.brevo.com`. **Non serve toccare l'SPF**: Brevo firma con
 le proprie chiavi DKIM e usa un proprio percorso di ritorno; le guide che
 consigliano di aggiungere un `include:` di Brevo non riguardano questo caso.
 
-Per accendere Brevo basta **una variabile d'ambiente**:
+Per accendere Brevo bastano **due variabili d'ambiente**:
 
 | Nome | Valore |
 |---|---|
 | `BREVO_API_KEY` | la chiave creata dal pannello Brevo (Impostazioni → chiavi API) |
+| `NEWSLETTER_FROM_EMAIL` | `revilaw@nextgenerationbusiness.it` (mittente della sola newsletter, da verificare in Brevo) |
+| `NEWSLETTER_FROM_NAME` | facoltativa; senza di essa vale `SMTP_FROM_NAME` (Revilaw S.p.A.) |
 
-Se la variabile non c'e', l'invio torna da solo sulla casella SMTP di prima:
-si puo' accendere e spegnere senza toccare il codice. Conviene anche cambiare
-`SMTP_FROM_EMAIL` in un mittente dedicato (per esempio
-`newsletter@nextgenerationbusiness.it`, da verificare in Brevo), lasciando
-`noreply@` alle email di servizio: cosi' i problemi di una lista non toccano la
-posta con cui si mandano le password.
+Senza `BREVO_API_KEY` l'invio torna da solo sulla casella SMTP di prima: si puo'
+accendere e spegnere senza toccare il codice.
+
+**Non toccare `SMTP_FROM_EMAIL`.** Quella e' condivisa con le email di
+reimpostazione password (`invia-email.js`) e con le Comunicazioni
+(`invia-comunicazione.js` e il cron), che partono da `noreply@` via Aruba:
+cambiandola cambierebbero mittente anche loro, e Aruba potrebbe rifiutare
+l'invio perche' si autentica come `noreply@`. La newsletter ha una variabile
+sua apposta, cosi' i due canali restano separati: se un giorno una lista crea
+problemi di reputazione, non si porta dietro anche le email con cui si fa
+entrare la gente nell'area riservata.
 
 > **Il piano gratuito non basta**: 300 email al giorno, cioe' meno di Aruba, e
 > con la dicitura "Sent with Brevo" in fondo ai messaggi. Serve almeno lo
