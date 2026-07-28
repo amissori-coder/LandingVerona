@@ -56,7 +56,9 @@
     };
     const FONT = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
     const LARGHEZZA = 600;
-    const LOGO = 'https://nextgenerationbusiness.it/zls_zes/img/logo-revilaw.png';
+    /* Marchio per esteso (simbolo + scritta), su fondo bianco incorporato: e' l'unico
+       dei tre che porta anche il nome, ed e' il motivo per cui la testata e' bianca. */
+    const LOGO = 'https://nextgenerationbusiness.it/assets/logo-revilaw.png';
     const SITO = 'https://nextgenerationbusiness.it';
     // la stessa informativa collegata in fondo al sito (iubenda)
     const PRIVACY = 'https://www.iubenda.com/privacy-policy/40996386';
@@ -69,7 +71,9 @@
         indirizzo: 'Via XX Settembre 9 - 37129 Verona',
         cf: 'C.F. 04641610235'
     };
-    const MOTIVO_PREDEFINITO = 'Ricevi questa email perche hai chiesto di essere aggiornato'
+    /* Questo testo lo legge il destinatario, non e' un commento nel codice: gli
+       accenti ci vanno. Il file e' UTF-8 e la mail dichiara lo stesso charset. */
+    const MOTIVO_PREDEFINITO = 'Ricevi questa email perché hai chiesto di essere aggiornato'
         + ' sulle iniziative di Next Generation Business.';
 
     /* --- tipi di blocco riconosciuti dal compositore --- */
@@ -141,14 +145,19 @@
     /* Stili in linea sui tag del testo: senza questi, i client che tolgono il
        foglio di stile mostrerebbero il messaggio con i margini di default. */
     function stilizza(html) {
-        const pStile = 'margin:0 0 14px 0;font-family:' + FONT + ';font-size:15px;line-height:1.65;color:' + C.testo + ';';
+        /* Il testo di lettura e' GIUSTIFICATO: su una colonna da 520px da' il
+           blocco compatto di una circolare. La classe "par" serve alla media
+           query, che sotto i 620px lo riporta a sinistra: senza sillabazione,
+           su uno schermo stretto il giustificato aprirebbe buchi bianchi fra le
+           parole proprio dove serve leggere meglio. */
+        const pStile = 'margin:0 0 16px 0;font-family:' + FONT + ';font-size:16px;line-height:27px;color:' + C.testo + ';text-align:justify;';
         return String(html || '')
-            .replace(/<p>/g, '<p style="' + pStile + '">')
-            .replace(/<h3>/g, '<h3 style="margin:22px 0 8px 0;font-family:' + FONT + ';font-size:18px;line-height:1.35;color:' + C.scuro + ';">')
-            .replace(/<h4>/g, '<h4 style="margin:18px 0 6px 0;font-family:' + FONT + ';font-size:16px;line-height:1.35;color:' + C.scuro + ';">')
-            .replace(/<ul>/g, '<ul style="margin:0 0 14px 0;padding-left:22px;">')
-            .replace(/<ol>/g, '<ol style="margin:0 0 14px 0;padding-left:22px;">')
-            .replace(/<li>/g, '<li style="margin:0 0 7px 0;font-family:' + FONT + ';font-size:15px;line-height:1.6;color:' + C.testo + ';">')
+            .replace(/<p>/g, '<p class="par" style="' + pStile + '">')
+            .replace(/<h3>/g, '<h3 style="margin:26px 0 10px 0;font-family:' + FONT + ';font-size:18px;line-height:25px;color:' + C.scuro + ';">')
+            .replace(/<h4>/g, '<h4 style="margin:20px 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:23px;color:' + C.scuro + ';">')
+            .replace(/<ul>/g, '<ul style="margin:0 0 16px 0;padding-left:22px;">')
+            .replace(/<ol>/g, '<ol style="margin:0 0 16px 0;padding-left:22px;">')
+            .replace(/<li>/g, '<li style="margin:0 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:26px;color:' + C.testo + ';">')
             .replace(/<a href=/g, '<a style="color:' + C.blu + ';text-decoration:underline;" href=');
     }
     /* --- testo scritto a mano -> HTML ---
@@ -207,12 +216,68 @@
 
     /* =========================================================
        PEZZI DELLA MAIL
+       ---------------------------------------------------------
+       Impaginazione da bollettino professionale, non da campagna:
+       testata scura col solo marchio, filo d'oro, e da li' in giu' e' la
+       tipografia a fare il lavoro. Tre livelli e non uno di piu':
+
+         titolo della newsletter   30px / 38px   blu scuro
+         titolo di sezione         20px / 28px   blu scuro
+         testo                     16px / 27px   grigio scuro
+
+       Fra un livello e l'altro c'e' un salto vero: si legge la gerarchia
+       prima ancora delle parole. Le scatole colorate sono sostituite da
+       filetti da 1px, e l'oro compare poche volte - filo sotto la testata,
+       trattino sopra ogni sezione, quadratini dell'elenco, costola
+       dell'avviso - cosi resta un segnale e non diventa carta da parati.
     ========================================================= */
-    function apriTabella(stile) {
-        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;' + (stile || '') + '">';
+    const SCALA = {
+        titolo: 'font-size:30px;line-height:38px;',
+        sezione: 'font-size:20px;line-height:28px;',
+        sommario: 'font-size:18px;line-height:29px;',
+        corpo: 'font-size:16px;line-height:27px;',
+        etichetta: 'font-size:12px;line-height:17px;letter-spacing:1.6px;text-transform:uppercase;',
+        occhiello: 'font-size:12px;line-height:17px;letter-spacing:2px;text-transform:uppercase;',
+        piede: 'font-size:12px;line-height:20px;'
+    };
+    const LATO = 40;                 // margine laterale: lascia 520px di colonna di testo
+    // "mso-line-height-rule:exactly" serve a Outlook: senza, ignora l'interlinea
+    const FONTE = 'font-family:' + FONT + ';mso-line-height-rule:exactly;';
+
+    /* Riga vuota di altezza fissa: in una mail lo spazio si fa cosi', non con
+       i margini (Outlook li ignora quasi tutti). */
+    function spazio(h) {
+        return '<tr><td height="' + h + '" style="font-size:0;line-height:0;height:' + h + 'px;">&nbsp;</td></tr>';
     }
+    function filetto(colore, alto) {
+        return '<tr><td bgcolor="' + (colore || C.bordo) + '" height="' + (alto || 1) + '" style="background-color:' + (colore || C.bordo)
+            + ';font-size:0;line-height:0;height:' + (alto || 1) + 'px;">&nbsp;</td></tr>';
+    }
+    /* Cella del corpo, con i margini laterali. La classe "px" la usa la media
+       query per stringere i margini sui telefoni. */
     function cella(contenuto, padding) {
-        return '<tr><td style="padding:' + (padding || '0 32px') + ';font-family:' + FONT + ';">' + contenuto + '</td></tr>';
+        return '<tr><td class="px" style="padding:' + (padding || ('0 ' + LATO + 'px')) + ';' + FONTE + '">' + contenuto + '</td></tr>';
+    }
+    function tabellaInterna(righe) {
+        return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">' + righe + '</table>';
+    }
+    /* Trattino d'oro sopra il titolo di sezione: e' l'elemento che si ripete e
+       che fa riconoscere l'inizio di un blocco senza doverlo leggere. */
+    function segnoSezione() {
+        return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="34" style="border-collapse:collapse;">'
+            + '<tr><td bgcolor="' + C.oro + '" width="34" height="2" style="background-color:' + C.oro
+            + ';width:34px;height:2px;font-size:0;line-height:0;">&nbsp;</td></tr></table>';
+    }
+    function titoloSezione(testo) {
+        return tabellaInterna(
+            '<tr><td>' + segnoSezione() + '</td></tr>'
+            + spazio(14)
+            + '<tr><td style="' + FONTE + SCALA.sezione + 'color:' + C.scuro + ';font-weight:bold;">' + testoHtml(testo) + '</td></tr>'
+            + spazio(12)
+        );
+    }
+    function etichetta(testo) {
+        return '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.blu + ';font-weight:bold;">' + testoHtml(testo) + '</div>';
     }
 
     /* Pulsante che funziona anche su Outlook: la parte VML disegna un
@@ -221,18 +286,19 @@
         opz = opz || {};
         const u = urlSicuro(url);
         if (!u || !String(testo || '').trim()) return '';
-        const sfondo = opz.colore || C.blu;
-        const larghezza = Math.max(160, Math.min(420, 24 + String(testo).length * 10));
+        const sfondo = opz.colore || C.scuro;
+        const larghezza = Math.max(180, Math.min(420, 40 + String(testo).length * 9));
         return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
-            + '<tr><td align="center" bgcolor="' + sfondo + '" style="border-radius:4px;">'
+            + '<tr><td align="center" bgcolor="' + sfondo + '" style="background-color:' + sfondo + ';">'
             + '<!--[if mso]>'
             + '<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="' + esc(u) + '" '
-            + 'style="height:44px;v-text-anchor:middle;width:' + larghezza + 'px;" arcsize="9%" stroke="f" fillcolor="' + sfondo + '">'
-            + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:15px;font-weight:bold;">' + esc(testo) + '</center>'
+            + 'style="height:46px;v-text-anchor:middle;width:' + larghezza + 'px;" arcsize="0%" stroke="f" fillcolor="' + sfondo + '">'
+            + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;">' + esc(testo) + '</center>'
             + '</v:roundrect>'
             + '<![endif]-->'
             + '<!--[if !mso]><!-- -->'
-            + '<a href="' + esc(u) + '" style="display:inline-block;padding:13px 28px;font-family:' + FONT + ';font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;background-color:' + sfondo + ';mso-hide:all;">' + esc(testo) + '</a>'
+            + '<a href="' + esc(u) + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + sfondo + ';mso-hide:all;">' + esc(testo) + '</a>'
             + '<!--<![endif]-->'
             + '</td></tr></table>';
     }
@@ -248,45 +314,57 @@
         if (!b || !b.tipo) return '';
         const tipo = String(b.tipo);
         if (tipo === 'separatore') {
-            return cella('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>'
-                + '<td height="1" style="height:1px;line-height:1px;font-size:0;background-color:' + C.bordo + ';">&nbsp;</td></tr></table>', '10px 32px 22px');
+            return cella(tabellaInterna(filetto(C.bordo, 1)), '18px ' + LATO + 'px 4px');
         }
         if (tipo === 'immagine') {
             const src = assoluto(b.src, base);
             if (!src) return '';
-            const img = '<img src="' + esc(src) + '" width="' + (LARGHEZZA - 64) + '" alt="' + esc(b.alt || '') + '" '
-                + 'style="display:block;width:100%;max-width:' + (LARGHEZZA - 64) + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;border-radius:4px;">';
+            const img = '<img src="' + esc(src) + '" width="' + (LARGHEZZA - LATO * 2) + '" alt="' + esc(b.alt || '') + '" '
+                + 'style="display:block;width:100%;max-width:' + (LARGHEZZA - LATO * 2) + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;' + FONTE + SCALA.corpo + 'color:' + C.tenue + ';">';
             const link = urlSicuro(b.link);
-            return cella(link ? '<a href="' + esc(link) + '" style="text-decoration:none;">' + img + '</a>' : img, '4px 32px 22px');
+            return cella(link ? '<a href="' + esc(link) + '" style="text-decoration:none;">' + img + '</a>' : img, '28px ' + LATO + 'px 4px');
         }
         if (tipo === 'bottone') {
             const p = pulsante(b.testo, b.url);
-            return p ? cella('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td align="' + (b.allineamento === 'sinistra' ? 'left' : 'center') + '">' + p + '</td></tr></table>', '6px 32px 26px') : '';
+            return p ? cella(tabellaInterna('<tr><td align="' + (b.allineamento === 'centro' ? 'center' : 'left') + '">' + p + '</td></tr>'), '28px ' + LATO + 'px 4px') : '';
         }
         if (tipo === 'elenco') {
             const voci = (Array.isArray(b.voci) ? b.voci : String(b.voci || '').split('\n'))
                 .map(v => String(v || '').trim()).filter(Boolean);
             if (!voci.length && !b.titolo) return '';
-            const tit = b.titolo ? '<h3 style="margin:0 0 10px 0;font-family:' + FONT + ';font-size:18px;line-height:1.35;color:' + C.scuro + ';">' + testoHtml(b.titolo) + '</h3>' : '';
-            // niente <ul>: su Outlook i punti si spostano. Una riga di tabella per voce,
-            // col trattino in una colonna sua: identico ovunque.
-            const righe = voci.map(v => '<tr>'
-                + '<td valign="top" width="16" style="padding:0 8px 8px 0;font-family:' + FONT + ';font-size:15px;line-height:1.6;color:' + C.azzurro + ';">&bull;</td>'
-                + '<td valign="top" style="padding:0 0 8px 0;font-family:' + FONT + ';font-size:15px;line-height:1.6;color:' + C.testo + ';">' + testoHtml(v) + '</td>'
-                + '</tr>').join('');
-            return cella(tit + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">' + righe + '</table>', '4px 32px 18px');
+            /* L'elenco e' trattato come una tabellina di dati: filetto sopra,
+               etichetta piccola, quadratini d'oro. Nessuno sfondo colorato: e'
+               quello che lo fa sembrare un documento e non un riquadro pubblicitario. */
+            const righe = voci.map(v => '<tr><td style="padding:0 0 11px 0;">'
+                + tabellaInterna('<tr>'
+                    + '<td valign="top" width="20" style="width:20px;padding:9px 0 0 0;">'
+                    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="7" style="border-collapse:collapse;"><tr>'
+                    + '<td bgcolor="' + C.oro + '" width="7" height="7" style="background-color:' + C.oro + ';width:7px;height:7px;font-size:0;line-height:0;">&nbsp;</td>'
+                    + '</tr></table></td>'
+                    + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';">' + testoHtml(v) + '</td>'
+                    + '</tr>')
+                + '</td></tr>').join('');
+            return cella(tabellaInterna(
+                filetto(C.bordo, 1)
+                + (b.titolo ? '<tr><td style="padding:20px 0 14px 0;">' + etichetta(b.titolo) + '</td></tr>' : spazio(20))
+                + righe
+            ), '30px ' + LATO + 'px 4px');
         }
         if (tipo === 'evidenza') {
-            const tit = b.titolo ? '<div style="font-family:' + FONT + ';font-size:16px;font-weight:bold;color:' + C.scuro + ';margin:0 0 8px 0;">' + testoHtml(b.titolo) + '</div>' : '';
-            const corpo = contenuto(b);
-            return cella('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:' + C.chiaro + ';border-left:3px solid ' + C.azzurro + ';">'
-                + '<tr><td style="padding:16px 18px;">' + tit + corpo + '</td></tr></table>', '4px 32px 22px');
+            /* L'avviso e' l'unico blocco marcato del corpo: costola d'oro e
+               campitura tenue. Marcarne di piu' toglierebbe forza a questo. */
+            const dentro = (b.titolo ? '<tr><td style="padding:0 0 8px 0;">' + etichetta(b.titolo) + '</td></tr>' : '')
+                + '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';">' + contenuto(b) + '</td></tr>';
+            return cella(
+                '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:' + C.chiaro + ';"><tr>'
+                + '<td width="4" bgcolor="' + C.oro + '" style="width:4px;background-color:' + C.oro + ';font-size:0;line-height:0;">&nbsp;</td>'
+                + '<td style="padding:18px 20px;">' + tabellaInterna(dentro) + '</td>'
+                + '</tr></table>', '30px ' + LATO + 'px 4px');
         }
         // testo (predefinito)
-        const tit = b.titolo ? '<h3 style="margin:0 0 10px 0;font-family:' + FONT + ';font-size:19px;line-height:1.35;color:' + C.scuro + ';">' + testoHtml(b.titolo) + '</h3>' : '';
         const corpo = contenuto(b);
-        if (!tit && !corpo) return '';
-        return cella(tit + corpo, '4px 32px 10px');
+        if (!b.titolo && !corpo) return '';
+        return cella((b.titolo ? titoloSezione(b.titolo) : '') + corpo, '32px ' + LATO + 'px 4px');
     }
 
     /* Lo stesso blocco in solo testo. */
@@ -314,62 +392,88 @@
         const blocchi = (Array.isArray(nl.blocchi) ? nl.blocchi : []).map(b => blocco(b, base)).join('');
         const anno = opz.anno || new Date().getFullYear();
 
-        /* testa: logo su fondo scuro. Il logo del sito e' chiaro, quindi va su
-           fondo scuro (su bianco sarebbe invisibile). */
-        const testa = '<tr><td align="center" bgcolor="' + C.scuro + '" style="padding:26px 32px;background-color:' + C.scuro + ';">'
+        /* Testata BIANCA con il marchio per esteso e un filo d'oro sotto: una
+           carta intestata, non una fascia colorata.
+           Il fondo bianco non e' una scelta estetica ma tecnica: dei tre file
+           del marchio, l'unico che porta anche la scritta "Revilaw" ha il fondo
+           bianco incorporato (nessuna trasparenza), quindi su fondo scuro
+           comparirebbe come un rettangolo bianco. Gli altri due sono il solo
+           simbolo: uno blu, illeggibile sullo scuro, e uno bianco, illeggibile
+           sul chiaro. Su bianco il marchio completo si legge e si riconosce.
+           Se le immagini sono bloccate resta il testo alternativo, vestito per
+           essere leggibile lo stesso. */
+        const testa = '<tr><td bgcolor="' + C.bianco + '" class="px" style="background-color:' + C.bianco + ';padding:28px ' + LATO + 'px 24px;">'
             + '<a href="' + esc(SITO) + '" style="text-decoration:none;">'
-            + '<img src="' + esc(LOGO) + '" width="150" alt="Revilaw" style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;">'
-            + '</a></td></tr>';
+            + '<img src="' + esc(LOGO) + '" width="170" alt="Revilaw - Revisione legale" '
+            + 'style="display:block;width:170px;max-width:170px;height:auto;border:0;outline:none;text-decoration:none;'
+            + 'font-family:' + FONT + ';font-size:19px;line-height:25px;font-weight:bold;color:' + C.scuro + ';">'
+            + '</a></td></tr>'
+            + filetto(C.oro, 3);
 
-        /* apertura: occhiello, titolo, sommario, immagine di apertura */
+        /* Apertura: occhiello minuscolo, titolo grande, sommario in corpo
+           maggiore. E' qui che si decide se la mail viene letta. */
         const occhiello = nl.occhiello
-            ? '<div style="font-family:' + FONT + ';font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:' + C.azzurro + ';font-weight:bold;margin:0 0 10px 0;">' + testoHtml(nl.occhiello) + '</div>'
+            ? '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.blu + ';font-weight:bold;">' + testoHtml(nl.occhiello) + '</td></tr>' + spazio(14)
             : '';
         const titolo = nl.titolo
-            ? '<h1 style="margin:0 0 12px 0;font-family:' + FONT + ';font-size:26px;line-height:1.25;color:' + C.scuro + ';font-weight:bold;">' + testoHtml(nl.titolo) + '</h1>'
+            ? '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.scuro + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(nl.titolo) + '</td></tr>'
             : '';
         const sommario = nl.sommario
-            ? '<p style="margin:0;font-family:' + FONT + ';font-size:16px;line-height:1.6;color:' + C.tenue + ';">' + testoHtml(nl.sommario) + '</p>'
+            ? (titolo ? spazio(18) : '') + '<tr><td class="lead" style="' + FONTE + SCALA.sommario + 'color:' + C.tenue + ';">' + testoHtml(nl.sommario) + '</td></tr>'
             : '';
-        const apertura = (occhiello || titolo || sommario) ? cella(occhiello + titolo + sommario, '30px 32px 18px') : '';
-        const copertina = nl.immagine
-            ? blocco({ tipo: 'immagine', src: nl.immagine, alt: nl.titolo || '', link: (nl.fonte && nl.fonte.url) || '' }, base)
+        const apertura = (occhiello || titolo || sommario)
+            ? cella(tabellaInterna(occhiello + titolo + sommario), '42px ' + LATO + 'px 0')
+            : '';
+
+        // l'immagine di apertura va a tutta larghezza, senza margini: e' la foto di apertura
+        const copertina = nl.immagine && assoluto(nl.immagine, base)
+            ? '<tr><td style="font-size:0;line-height:0;padding-top:34px;">'
+            + '<img src="' + esc(assoluto(nl.immagine, base)) + '" width="' + LARGHEZZA + '" alt="' + esc(nl.titolo || '') + '" '
+            + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
+            + '</td></tr>'
             : '';
 
         const ctaFinale = (nl.cta && nl.cta.url && nl.cta.testo)
-            ? blocco({ tipo: 'bottone', testo: nl.cta.testo, url: nl.cta.url }, base)
+            ? cella(tabellaInterna(filetto(C.bordo, 1) + spazio(28)
+                + '<tr><td align="left">' + pulsante(nl.cta.testo, nl.cta.url, { colore: C.blu }) + '</td></tr>'), '34px ' + LATO + 'px 0')
             : '';
 
-        /* piede: mittente, motivo dell'invio, disiscrizione (obbligatoria).
-           I testi sono in chiaro (niente entita' HTML): servono uguali anche alla
-           versione in solo testo, dove un "&middot;" resterebbe scritto cosi'. */
+        /* Piede: mittente, motivo dell'invio, disiscrizione (obbligatoria).
+           Sta su fondo tenue e staccato dal corpo, come il colophon di un
+           documento. I testi sono in chiaro: servono uguali alla versione in
+           solo testo, dove un'entita' HTML resterebbe scritta cosi'. */
         const motivo = nl.motivo || MOTIVO_PREDEFINITO;
-        const piede = '<tr><td style="padding:24px 32px 30px;background-color:' + C.sfondo + ';border-top:1px solid ' + C.bordo + ';">'
-            + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td style="font-family:' + FONT + ';font-size:12px;line-height:1.6;color:' + C.tenue + ';">'
-            + '<div style="font-weight:bold;color:' + C.scuro + ';font-size:13px;">' + esc(MITTENTE.nome) + '</div>'
-            + '<div>' + esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf) + '</div>'
-            + '<div style="margin-top:10px;">' + esc(motivo) + '</div>'
-            + '<div style="margin-top:12px;">'
-            + '<a href="' + SEGNAPOSTO_DISISCRIVI + '" style="color:' + C.tenue + ';text-decoration:underline;">Annulla l\'iscrizione</a>'
-            + ' &nbsp;&middot;&nbsp; <a href="' + esc(PRIVACY) + '" style="color:' + C.tenue + ';text-decoration:underline;">Informativa privacy</a>'
-            + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="color:' + C.tenue + ';text-decoration:underline;">nextgenerationbusiness.it</a>'
-            + '</div>'
-            + '<div style="margin-top:10px;color:#94A3B8;">&copy; ' + anno + ' ' + esc(MITTENTE.nome) + '</div>'
-            + '</td></tr></table></td></tr>';
+        const linkPiede = c => 'color:' + C.tenue + ';text-decoration:underline;';
+        const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" style="background-color:' + C.sfondo + ';padding:28px ' + LATO + 'px 32px;border-top:1px solid ' + C.bordo + ';">'
+            + tabellaInterna(
+                '<tr><td style="' + FONTE + SCALA.piede + 'color:' + C.scuro + ';font-weight:bold;">' + esc(MITTENTE.nome) + '</td></tr>'
+                + '<tr><td style="' + FONTE + SCALA.piede + 'color:' + C.tenue + ';">' + esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf) + '</td></tr>'
+                + spazio(12)
+                + '<tr><td style="' + FONTE + SCALA.piede + 'color:' + C.tenue + ';">' + esc(motivo) + '</td></tr>'
+                + spazio(12)
+                + '<tr><td style="' + FONTE + SCALA.piede + 'color:' + C.tenue + ';">'
+                + '<a href="' + SEGNAPOSTO_DISISCRIVI + '" style="' + linkPiede() + '">Annulla l\'iscrizione</a>'
+                + ' &nbsp;&middot;&nbsp; <a href="' + esc(PRIVACY) + '" style="' + linkPiede() + '">Informativa privacy</a>'
+                + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede() + '">nextgenerationbusiness.it</a>'
+                + '</td></tr>'
+                + spazio(10)
+                + '<tr><td style="' + FONTE + SCALA.piede + 'color:#94A3B8;">&copy; ' + anno + ' ' + esc(MITTENTE.nome) + '</td></tr>'
+            )
+            + '</td></tr>';
 
-        /* testo di anteprima: lo mostra il client accanto all'oggetto. I caratteri
+        /* Testo di anteprima: lo mostra il client accanto all'oggetto. I caratteri
            invisibili in coda impediscono che ci finisca dentro l'inizio del corpo. */
         const preheader = '<div style="display:none;font-size:1px;color:' + C.sfondo + ';line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">'
             + esc(nl.preheader || nl.sommario || '') + '&#8199;&#65279;&#847; '.repeat(30) + '</div>';
 
-        const corpoInterno = testa + apertura + copertina + blocchi + ctaFinale + piede;
+        const corpoInterno = testa + apertura + copertina + blocchi + ctaFinale + spazio(36) + piede;
 
         const html = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n'
-            + '<html xmlns="http://www.w3.org/1999/xhtml" lang="it" xml:lang="it">\n<head>\n'
+            + '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" lang="it" xml:lang="it">\n<head>\n'
             + '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />\n'
             + '<meta name="viewport" content="width=device-width, initial-scale=1" />\n'
             + '<meta http-equiv="X-UA-Compatible" content="IE=edge" />\n'
-            + '<meta name="x-apple-disable-message-reformatting" />\n'
+            + '<meta name="x-apple-disable-message-reformatting" content="" />\n'
             + '<meta name="format-detection" content="telephone=no,address=no,email=no,date=no" />\n'
             + '<meta name="color-scheme" content="light" />\n'
             + '<meta name="supported-color-schemes" content="light" />\n'
@@ -377,24 +481,31 @@
             + '<!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->\n'
             + '<style type="text/css">\n'
             + 'body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}\n'
-            + 'table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;}\n'
+            + 'table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}\n'
             + 'img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}\n'
             + 'body{margin:0!important;padding:0!important;width:100%!important;}\n'
             + 'a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;}\n'
-            + '.corpo-mail{width:' + LARGHEZZA + 'px;}\n'
+            + '.ExternalClass{width:100%;}\n'
+            + '.ExternalClass,.ExternalClass p,.ExternalClass td,.ExternalClass div{line-height:100%;}\n'
             + '@media only screen and (max-width:620px){\n'
-            + '  .corpo-mail{width:100%!important;}\n'
-            + '  .corpo-mail td{padding-left:20px!important;padding-right:20px!important;}\n'
-            + '  h1{font-size:22px!important;line-height:1.3!important;}\n'
+            + '  .wrap{width:100%!important;max-width:100%!important;}\n'
+            + '  .px{padding-left:24px!important;padding-right:24px!important;}\n'
+            + '  .h1{font-size:24px!important;line-height:31px!important;}\n'
+            + '  .lead{font-size:16px!important;line-height:26px!important;}\n'
+            + '  .btnlink{display:block!important;text-align:center!important;}\n'
+            /* Il giustificato vive bene sui 520px della colonna desktop; su un
+               telefono, senza sillabazione, aprirebbe buchi bianchi fra le parole
+               proprio dove serve leggere meglio. Sotto i 620px si torna a sinistra. */
+            + '  .par{text-align:left!important;}\n'
             + '}\n'
             + '</style>\n</head>\n'
             + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
             + preheader
-            + apiTabellaEsterna()
-            + '<tr><td align="center" style="padding:22px 10px;">'
-            + '<!--[if mso]><table role="presentation" align="center" width="' + LARGHEZZA + '" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->'
-            + '<table role="presentation" class="corpo-mail" align="center" width="' + LARGHEZZA + '" cellpadding="0" cellspacing="0" border="0" '
-            + 'style="border-collapse:collapse;width:' + LARGHEZZA + 'px;max-width:' + LARGHEZZA + 'px;background-color:' + C.bianco + ';border:1px solid ' + C.bordo + ';">'
+            + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
+            + '<tr><td align="center" style="padding:24px 12px;">'
+            + '<!--[if mso]><table role="presentation" align="center" width="' + LARGHEZZA + '" cellpadding="0" cellspacing="0" border="0"><tr><td width="' + LARGHEZZA + '"><![endif]-->'
+            + '<table role="presentation" class="wrap" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;width:100%;max-width:' + LARGHEZZA + 'px;margin:0 auto;background-color:' + C.bianco + ';">'
             + corpoInterno
             + '</table>'
             + '<!--[if mso]></td></tr></table><![endif]-->'
@@ -416,9 +527,7 @@
 
         return { html: html, testo: testo };
     }
-    function apiTabellaEsterna() {
-        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:' + C.sfondo + ';">';
-    }
+
 
     /* =========================================================
        DALLA PAGINA DEL SITO ALLA NEWSLETTER

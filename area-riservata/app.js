@@ -7503,10 +7503,43 @@
     const NewsletterConfig = {
         leggi() {
             const c = Store.leggi(CHIAVI.newsletterConfig, null) || {};
-            return { abilitati: Array.isArray(c.abilitati) ? c.abilitati.map(e => String(e).toLowerCase()) : [] };
+            const cs = c.consensoStorico && c.consensoStorico.il ? c.consensoStorico : null;
+            return {
+                abilitati: Array.isArray(c.abilitati) ? c.abilitati.map(e => String(e).toLowerCase()) : [],
+                consensoStorico: cs ? { il: cs.il, da: String(cs.da || ''), nota: String(cs.nota || '') } : null
+            };
         },
-        salva(cfg) { Store.scrivi(CHIAVI.newsletterConfig, { abilitati: (cfg.abilitati || []).map(e => String(e).toLowerCase()) }); }
+        salva(cfg) {
+            const c = this.leggi();
+            Store.scrivi(CHIAVI.newsletterConfig, {
+                abilitati: (cfg.abilitati || c.abilitati || []).map(e => String(e).toLowerCase()),
+                consensoStorico: cfg.consensoStorico !== undefined ? cfg.consensoStorico : c.consensoStorico
+            });
+        }
     };
+
+    /* --- consenso attribuito ai contatti gia presenti ---
+       I moduli del sito registrano se la persona ha spuntato la casella delle
+       comunicazioni. Per i contatti raccolti prima, o per chi l'ha lasciata
+       vuota, l'amministratore puo' decidere di attribuire comunque il consenso:
+       succede quando quel consenso esiste altrove (un modulo cartaceo, un
+       rapporto professionale in corso, un elenco importato).
+       E' una decisione che va lasciata scritta, non fatta di nascosto: si
+       registra CHI l'ha presa e QUANDO, e vale solo per le iscrizioni gia'
+       esistenti a quel momento. Da li' in avanti comanda di nuovo la casella:
+       chi si iscrive domani e non la spunta resta fuori. */
+    function dataIscrizioneMs(testo) {
+        const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ ,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(String(testo || '').trim());
+        if (!m) return 0;   // data assente o illeggibile: e' una riga vecchia
+        const t = Date.UTC(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+        return isNaN(t) ? 0 : t;
+    }
+    function consensoAttribuito(iscritto, cfg) {
+        const cs = cfg && cfg.consensoStorico;
+        if (!cs || !cs.il) return false;
+        // le righe senza data leggibile sono le piu' vecchie: rientrano
+        return dataIscrizioneMs(iscritto && iscritto.data) <= cs.il;
+    }
     /* Chi vede la sezione: come per gli Eventi, l'amministratore piu' gli utenti
        scelti a mano. Non passa dai ruoli perche' da qui partono email a nome
        dello studio: e' un permesso che si da' uno per uno. */
@@ -7669,16 +7702,22 @@
         // gli eventi ci sono sempre, anche a zero iscritti: si vede subito che esistono
         EVENTI_DEF.filter(e => !e.tutti).forEach(e => prepara('evento:' + e.id, e.titolo + ', ' + e.quando));
 
+        const cfgNL = NewsletterConfig.leggi();
         ((_nlDati && _nlDati.iscritti) || []).forEach(r => {
             const ev = eventoDiPagina(r.pagina);
             const provenienza = ev ? (ev.titolo + ', ' + ev.quando) : (r.pagina || 'Senza indicazione di pagina');
+            let stato = r.marketing === true ? 'si' : (r.marketing === false ? 'no' : 'ignoto');
+            // consenso attribuito a mano ai contatti gia presenti: vale come un si,
+            // ma resta distinguibile in elenco perche' l'origine e' diversa
+            if (stato !== 'si' && consensoAttribuito(r, cfgNL)) stato = 'attribuito';
             const persona = {
                 email: String(r.email || '').toLowerCase(), nome: r.nome || '', cognome: r.cognome || '',
                 azienda: r.azienda || '', origine: provenienza, data: r.data || '',
-                consenso: r.marketing === true ? 'si' : (r.marketing === false ? 'no' : 'ignoto')
+                consenso: stato
             };
             if (persona.consenso === 'no') { rifiutati.push(persona); return; }
             if (persona.consenso === 'ignoto') { agg('consenso-ignoto', 'Consenso non risultante (elenchi importati)', persona); return; }
+            // 'si' e 'attribuito' vanno entrambi nel gruppo della provenienza
             agg(ev ? 'evento:' + ev.id : 'sito:' + (r.pagina || 'senza indicazione'), provenienza, persona);
         });
         Persone.tutte().filter(p => p.email && p.attivo !== false && !p.eliminato).forEach(p => {
@@ -7797,11 +7836,25 @@
             + '<button type="button" class="tab-btn' + (nlTab === 'disiscritti' ? ' attivo' : '') + '" data-tab="disiscritti">Disiscritti (' + nDisiscritti + ')</button>'
             + '</div>';
 
-        const nAbilitati = NewsletterConfig.leggi().abilitati.length;
+        const cfgNL = NewsletterConfig.leggi();
+        const nAbilitati = cfgNL.abilitati.length;
+        const cs = cfgNL.consensoStorico;
         const gestione = admin
             ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
             + '<div class="hint">Oltre all\'amministratore, ' + (nAbilitati === 1 ? 'vede la Newsletter <b>1</b> altro utente' : 'vedono la Newsletter <b>' + nAbilitati + '</b> utenti abilitati') + '.</div></div>'
             + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="nl-accessi">Gestisci accessi</button></div></div>'
+            /* La decisione sul consenso resta scritta: chi l'ha presa e quando. E' il
+               genere di cosa che fra un anno nessuno ricorda, e che serve poterla mostrare. */
+            + '<div class="card s-admin"><div class="s-admin-txt"><strong>Consenso dei contatti gia presenti</strong>'
+            + (cs
+                ? '<div class="hint">Attribuito il <b>' + esc(fmtDataOra(cs.il)) + '</b> da <b>' + esc(cs.da || '') + '</b>'
+                + ' a tutti i contatti raccolti fino a quel momento. Chi si iscrive dopo segue di nuovo la casella del modulo.</div>'
+                : '<div class="hint">I contatti che non hanno spuntato la casella delle comunicazioni restano fuori dagli invii. Se quel consenso lo hai raccolto altrove, puoi attribuirlo ai contatti gia presenti.</div>')
+            + '</div><div class="s-admin-azioni">'
+            + (cs
+                ? '<button class="btn btn-ghost" id="nl-consenso-revoca">Revoca l\'attribuzione</button>'
+                : '<button class="btn btn-secondary" id="nl-consenso">Attribuisci il consenso</button>')
+            + '</div></div>'
             : '';
         const avviso = _nlMsg ? '<div class="card tabella-vuota">' + esc(_nlMsg) + '</div>' : '';
         const senzaCloud = !Cloud.attivo
@@ -7826,6 +7879,10 @@
         });
         const bAcc = document.getElementById('nl-accessi');
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleNewsletterAbilitati(u)));
+        const bCons = document.getElementById('nl-consenso');
+        if (bCons) bCons.addEventListener('click', () => modaleConsensoStorico(g));
+        const bRev = document.getElementById('nl-consenso-revoca');
+        if (bRev) bRev.addEventListener('click', () => modaleConsensoStorico(g, true));
         collegaCorpoNewsletter();
     }
 
@@ -7941,7 +7998,8 @@
         // se una persona puo' essere destinataria: sta in colonna, filtrabile
         const badgeConsenso = c => c === 'no'
             ? '<span class="badge rosso">Niente promozionali</span>'
-            : (c === 'ignoto' ? '<span class="badge ambra">Non risultante</span>' : '<span class="badge verde">Si</span>');
+            : (c === 'ignoto' ? '<span class="badge ambra">Non risultante</span>'
+                : (c === 'attribuito' ? '<span class="badge">Attribuito</span>' : '<span class="badge verde">Si</span>'));
         const corpo = elenco.map(p => '<tr>'
             + '<td>' + esc(p.cognome || '-') + '</td>'
             + '<td>' + esc(p.nome || '') + '</td>'
@@ -7956,7 +8014,8 @@
             + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="nl-contatto">Aggiungi contatto</button>'
             + '<button class="btn btn-secondary" id="nl-importa">Importa un elenco</button></div></div>'
             + '<p class="hint" style="margin:0 0 10px;">La colonna <strong>Consenso</strong> dice chi ha spuntato, sul modulo del sito, la casella per ricevere comunicazioni su eventi e iniziative. '
-            + 'Chi ha risposto di no non compare fra i destinatari e non e selezionabile. Chi risulta &laquo;non risultante&raquo; arriva da elenchi importati e sta in un gruppo a parte.</p>'
+            + 'Chi ha risposto di no non compare fra i destinatari e non e selezionabile. Chi risulta &laquo;non risultante&raquo; arriva da elenchi importati e sta in un gruppo a parte. '
+            + '&laquo;Attribuito&raquo; vuol dire che il consenso l\'ha deciso l\'amministratore per i contatti gia presenti.</p>'
             + '<div class="card tabella-wrap" id="nl-tab-iscritti"><table class="dati"><thead><tr>'
             + '<th>Cognome</th><th>Nome</th><th>Email</th><th>Azienda</th><th>Provenienza</th><th>Consenso</th><th>Stato</th>'
             + '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
@@ -8120,6 +8179,54 @@
             try { Audit.registra(Auth.utenteCorrente, 'Contatti newsletter importati', 'sistema', 'newsletterContatti', null, aggiunti + ' aggiunti, ' + saltati + ' saltati'); } catch (e) { }
             chiudiModale();
             toast(aggiunti + ' contatti aggiunti' + (saltati ? ' (' + saltati + ' saltati)' : '') + '.', 'verde');
+            vistaNewsletter();
+        });
+    }
+
+    /* Attribuzione (o revoca) del consenso ai contatti gia' presenti.
+       Il testo dice per esteso cosa succede, compreso il fatto scomodo: fra
+       quei contatti c'e' chi la casella l'ha vista e lasciata vuota. Chi
+       decide deve poterlo sapere prima, non scoprirlo dopo. */
+    function modaleConsensoStorico(g, revoca) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        const cfg = NewsletterConfig.leggi();
+        const nNo = (g && g.senzaConsenso ? g.senzaConsenso.length : 0);
+        const nIgnoti = (g && g.ignoti ? g.ignoti.reduce((s, x) => s + x.n, 0) : 0);
+        const ora = Date.now();
+        const corpo = revoca
+            ? '<h2>Revocare l\'attribuzione del consenso?</h2>'
+            + '<p class="descrizione">I contatti che non avevano spuntato la casella tornano fuori dagli invii, '
+            + 'come prima dell\'attribuzione del ' + esc(fmtDataOra(cfg.consensoStorico ? cfg.consensoStorico.il : ora)) + '. '
+            + 'Nessun dato viene cancellato: cambia solo chi si puo scegliere come destinatario.</p>'
+            : '<h2>Attribuire il consenso ai contatti gia presenti?</h2>'
+            + '<p class="descrizione">Da adesso risulteranno destinatari validi <b>tutti i contatti raccolti fino a questo momento</b>, '
+            + 'anche quelli che oggi restano fuori: <b>' + nNo + '</b> che hanno lasciato vuota la casella delle comunicazioni '
+            + 'e <b>' + nIgnoti + '</b> per cui il consenso non risulta.</p>'
+            + '<div class="ev-blocco" style="margin-bottom:12px;">Fra questi ci sono persone che la casella l\'hanno <b>vista e non spuntata</b>. '
+            + 'Attribuire loro il consenso ha senso solo se quel consenso ce l\'hai in altra forma (un modulo firmato, un rapporto professionale in corso, '
+            + 'un elenco raccolto di persona). Se non e cosi, il rischio non e formale: sono le persone che segnalano la mail come indesiderata, '
+            + 'ed e proprio quello che fa sospendere un account di invio.</div>'
+            + '<p class="hint">Vale solo per i contatti <b>gia presenti</b>. Chi si iscrivera da domani torna a seguire la casella del modulo. '
+            + 'La decisione resta scritta con il tuo nome e la data, e si puo revocare in qualsiasi momento.</p>';
+        apriModale(corpo
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="cs-no">Annulla</button>'
+            + '<button class="btn ' + (revoca ? 'btn-secondary' : 'btn-primary') + '" id="cs-si">'
+            + (revoca ? 'Revoca' : 'Attribuisci il consenso') + '</button></div>', { classe: 'larga' });
+        document.getElementById('cs-no').addEventListener('click', chiudiModale);
+        document.getElementById('cs-si').addEventListener('click', () => {
+            const u = Auth.utenteCorrente ? Auth.utenteCorrente.email : '';
+            if (revoca) {
+                NewsletterConfig.salva({ consensoStorico: null });
+                try { Audit.registra(Auth.utenteCorrente, 'Newsletter: consenso storico revocato', 'sistema', 'newsletterConfig', null, null); } catch (e) { }
+                chiudiModale(); toast('Attribuzione revocata.', 'verde');
+            } else {
+                NewsletterConfig.salva({ consensoStorico: { il: ora, da: u, nota: nNo + ' senza spunta, ' + nIgnoti + ' non risultanti' } });
+                try {
+                    Audit.registra(Auth.utenteCorrente, 'Newsletter: consenso attribuito ai contatti presenti', 'sistema', 'newsletterConfig', null,
+                        'fino al ' + fmtDataOra(ora) + ' - ' + nNo + ' senza spunta, ' + nIgnoti + ' non risultanti');
+                } catch (e) { }
+                chiudiModale(); toast('Consenso attribuito ai contatti gia presenti.', 'verde');
+            }
             vistaNewsletter();
         });
     }
