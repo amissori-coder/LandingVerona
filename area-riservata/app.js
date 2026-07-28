@@ -7074,6 +7074,14 @@
         // l'abilitazione puo' davvero funzionare (ruolo, utenza attiva)
         if (admin && _sondUtenti === null) utentiSond(() => { if (vistaCorrente === 'eventi') vistaEventi(); });
         const nIsc = _evIscrizioni ? _evIscrizioni.length : null;
+        /* Qui si contano ISCRIZIONI, cioe' righe: chi si iscrive a due convegni,
+           o due volte allo stesso, vale due. La Newsletter conta invece indirizzi
+           diversi, e vale uno. Sono due numeri giusti che non si possono sommare
+           fra loro, e finche' questo diceva solo "iscritti" sembrava che uno dei
+           due fosse sbagliato. */
+        const nIndir = _evIscrizioni
+            ? new Set(_evIscrizioni.map(r => String(r.email || '').toLowerCase()).filter(Boolean)).size
+            : null;
         const conf = _evIscrizioni ? _evIscrizioni.filter(r => { const p = EventiPresenze.di(ev.id, r.id); return p && (p.stato === 'confermato' || p.stato === 'presente'); }).length : 0;
 
         const gestione = admin
@@ -7104,7 +7112,8 @@
             + schede
             + '<div class="card ev-testa"><div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
             + '<div class="hint">' + esc(ev.quando) + '</div></div>'
-            + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscritti</span></div>'
+            + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
+            + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
             + gestione + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
@@ -7520,7 +7529,16 @@
             const cs = c.consensoStorico && c.consensoStorico.il ? c.consensoStorico : null;
             return {
                 abilitati: Array.isArray(c.abilitati) ? c.abilitati.map(e => String(e).toLowerCase()) : [],
-                consensoStorico: cs ? { il: cs.il, da: String(cs.da || ''), nota: String(cs.nota || '') } : null
+                /* comprendeNo: l'attribuzione copre ANCHE chi la casella delle
+                   comunicazioni non l'ha spuntata. E' una decisione a parte da
+                   quella sui consensi che non risultano, e va conservata a parte:
+                   altrimenti fra un anno non si saprebbe piu' se il consenso e'
+                   stato attribuito solo a chi non aveva risposto, o anche a chi
+                   aveva risposto di no. */
+                consensoStorico: cs ? {
+                    il: cs.il, da: String(cs.da || ''), nota: String(cs.nota || ''),
+                    comprendeNo: cs.comprendeNo === true
+                } : null
             };
         },
         salva(cfg) {
@@ -7719,16 +7737,19 @@
         EVENTI_DEF.filter(e => !e.tutti).forEach(e => prepara('evento:' + e.id, e.titolo + ', ' + e.quando));
 
         const cfgNL = NewsletterConfig.leggi();
+        /* L'attribuzione del consenso ai contatti gia presenti copre sempre i
+           consensi che NON RISULTANO. Copre anche chi la casella l'ha vista e non
+           l'ha spuntata soltanto se chi ha attribuito lo ha scelto espressamente
+           nella finestra: e' una decisione piu' impegnativa e non deve poter
+           accadere per sbaglio. */
+        const copreNo = !!(cfgNL.consensoStorico && cfgNL.consensoStorico.comprendeNo);
         ((_nlDati && _nlDati.iscritti) || []).forEach(r => {
             const ev = eventoDiPagina(r.pagina);
             const provenienza = ev ? (ev.titolo + ', ' + ev.quando) : (r.pagina || 'Senza indicazione di pagina');
             let stato = r.marketing === true ? 'si' : (r.marketing === false ? 'no' : 'ignoto');
             // consenso attribuito a mano ai contatti gia presenti: vale come un si,
-            // ma resta distinguibile in elenco perche' l'origine e' diversa.
-            // SOLO su 'ignoto': l'attribuzione copre il consenso che NON RISULTA,
-            // non quello negato. Chi ha spuntato "No" ha risposto, e una risposta
-            // non si ribalta a tavolino: resta fuori qualunque sia la data.
-            if (stato === 'ignoto' && consensoAttribuito(r, cfgNL)) stato = 'attribuito';
+            // ma resta distinguibile in elenco perche' l'origine e' diversa
+            if ((stato === 'ignoto' || (stato === 'no' && copreNo)) && consensoAttribuito(r, cfgNL)) stato = 'attribuito';
             const persona = {
                 email: String(r.email || '').toLowerCase(), nome: r.nome || '', cognome: r.cognome || '',
                 azienda: r.azienda || '', origine: provenienza, data: r.data || '',
@@ -7762,15 +7783,30 @@
                 visti.add(e); return true;
             });
         });
-        const gr = id => ({ id: id, nome: nomi[id], n: mappa[id].length, membri: mappa[id] });
-        const tutti = ordine.map(gr);
         // fra i rifiutati un indirizzo compare una volta sola (piu' moduli, stessa persona)
         const vistiRif = new Set();
         const senzaConsenso = rifiutati.filter(p => {
             if (!p.email || vistiRif.has(p.email)) return false;
             vistiRif.add(p.email); return true;
         });
+        /* Un "no" detto su un modulo del sito vale per la PERSONA, non per quel
+           modulo. Senza questo passaggio il rifiuto rientrava dalla porta di
+           servizio: gli aderenti dell'anagrafica e i contatti inseriti a mano
+           entrano con il consenso scritto a mano qui nel codice, quindi se erano
+           la stessa persona bastava scegliere quel gruppo per spedirle la mail
+           lo stesso, e in elenco compariva pure con il segno "Si".
+           A ribaltare un rifiuto e' solo l'attribuzione del consenso presa
+           espressamente, che pero' quella persona la toglie da qui a monte. */
+        let rifiutatiRientrati = 0;
+        ordine.forEach(id => {
+            const prima = mappa[id].length;
+            mappa[id] = mappa[id].filter(p => !vistiRif.has(p.email));
+            rifiutatiRientrati += prima - mappa[id].length;
+        });
+        const gr = id => ({ id: id, nome: nomi[id], n: mappa[id].length, membri: mappa[id] });
+        const tutti = ordine.map(gr);
         return {
+            rifiutatiRientrati: rifiutatiRientrati,
             eventi: tutti.filter(g => g.id.indexOf('evento:') === 0),
             sito: tutti.filter(g => g.id.indexOf('sito:') === 0).sort((a, b) => b.n - a.n),
             altri: tutti.filter(g => g.id === 'aderenti' || g.id === 'manuali'),
@@ -7778,6 +7814,79 @@
             senzaConsenso: senzaConsenso,
             tutti: tutti
         };
+    }
+
+    /* --- i conti della sezione ---
+       Il problema non era che mancassero dei numeri: erano affiancati numeri che
+       NON si sommano fra loro, senza dirlo. La sezione Eventi conta iscrizioni
+       (righe: la stessa persona vale due volte se si e' iscritta a due convegni),
+       qui si contano indirizzi (la stessa persona vale uno, sempre). E fra le
+       provenienze c'e' sovrapposizione: un aderente che si e' iscritto a un
+       evento sta in due elenchi e in un indirizzo solo.
+       Qui ogni voce e' un indirizzo distinto e ogni scarto e' scritto, cosi il
+       conto si chiude in due passaggi invece di doverlo spiegare a voce. */
+    function contiNewsletter(g, disiscritti) {
+        const distinti = elenco => {
+            const s = new Set();
+            elenco.forEach(x => x.membri.forEach(p => { if (p.email) s.add(p.email); }));
+            return s;
+        };
+        const nGruppo = id => ((g.tutti.find(x => x.id === id) || {}).n || 0);
+        const eventi = distinti(g.eventi).size;
+        const sito = distinti(g.sito).size;
+        const ignoti = distinti(g.ignoti).size;
+        const aderenti = nGruppo('aderenti');
+        const manuali = nGruppo('manuali');
+        const unici = distinti(g.tutti);
+        const disc = disiscritti || {};
+        const disiscrittiQui = Array.from(unici).filter(e => disc[e]).length;
+        const provenienze = eventi + sito + ignoti + aderenti + manuali;
+        return {
+            eventi: eventi, sito: sito, ignoti: ignoti, aderenti: aderenti, manuali: manuali,
+            provenienze: provenienze,
+            unici: unici.size,
+            /* Quanti indirizzi stanno in piu' di una provenienza. Non e' una stima:
+               le righe del sito arrivano gia' unificate per indirizzo dal servizio,
+               quindi un indirizzo sta in UNO solo fra eventi, sito e non risultanti.
+               Tutto l'eccesso e' percio' sovrapposizione con aderenti e contatti a
+               mano, ed e' esattamente la riga che mancava per far tornare i conti. */
+            sovrapposti: provenienze - unici.size,
+            senzaConsenso: g.senzaConsenso.length,
+            rifiutatiRientrati: g.rifiutatiRientrati || 0,
+            disiscrittiQui: disiscrittiQui,
+            // la collezione dei disiscritti contiene anche indirizzi mai stati in
+            // rubrica (arrivano dalla blocklist di Brevo): per questo il totale
+            // non coincide con quelli che tolgono qualcosa a questo elenco
+            disiscrittiTotale: Object.keys(disc).length,
+            raggiungibili: unici.size - disiscrittiQui
+        };
+    }
+
+    function riquadroContiNewsletter(c) {
+        const n = v => '<span class="nl-conto-val">' + v + '</span>';
+        const riga = (cls, etichetta, valore, nota) => '<div class="nl-conto ' + cls + '">'
+            + '<span class="nl-conto-eti">' + etichetta + (nota ? '<i>' + nota + '</i>' : '') + '</span>' + n(valore) + '</div>';
+        return '<div class="card nl-conti"><strong>Dai moduli ai destinatari</strong>'
+            + '<div class="hint" style="margin:2px 0 12px;">Ogni voce e un numero di <b>indirizzi diversi</b>, non di iscrizioni. '
+            + 'Le righe in grassetto chiudono il conto: quella sopra meno gli scarti fa esattamente quella sotto.</div>'
+            + '<div class="nl-conti-griglia">'
+            + riga('', 'Da eventi', c.eventi, 'chi si e iscritto a un convegno')
+            + riga('', 'Da altre sezioni del sito', c.sito, 'newsletter, moduli di contatto, simulatori')
+            + riga('', 'Aderenti', c.aderenti, 'anagrafica Persone, con email')
+            + riga('', 'Inseriti a mano', c.manuali, 'raccolti di persona')
+            + riga('', 'Consenso non risultante', c.ignoti, 'elenchi importati senza la casella')
+            + riga('tot', 'Somma delle provenienze', c.provenienze, '')
+            + riga('meno', 'gia contati in un\'altra provenienza', '&minus;' + c.sovrapposti, 'per lo piu aderenti gia iscritti dal sito')
+            + riga('tot', 'Indirizzi diversi in tutto', c.unici, '')
+            + riga('meno', 'disiscritti presenti in questo elenco', '&minus;' + c.disiscrittiQui, '')
+            + riga('tot verde', 'Raggiungibili ora', c.raggiungibili, '')
+            + '</div>'
+            + '<div class="nl-conti-fuori"><b>Fuori da questo conto:</b> '
+            + '<b>' + c.senzaConsenso + '</b> hanno lasciato vuota la casella delle comunicazioni'
+            + (c.rifiutatiRientrati ? ' (di cui <b>' + c.rifiutatiRientrati + '</b> sarebbero rientrati come aderenti o contatti a mano: il no vince)' : '')
+            + '. I disiscritti in tutto sono <b>' + c.disiscrittiTotale + '</b>: gli altri non sono mai stati in questa rubrica, '
+            + 'arrivano dal pulsante di disiscrizione che Brevo mette nelle mail.</div>'
+            + '</div>';
     }
 
     /* Da "gruppi scelti + esclusioni" all'elenco vero di chi ricevera' la mail:
@@ -7845,28 +7954,33 @@
 
         const g = gruppiNewsletter();
         const disiscritti = (_nlDati && _nlDati.disiscritti) || {};
-        const tuttiUnici = new Set();
-        g.tutti.forEach(x => x.membri.forEach(p => tuttiUnici.add(p.email)));
-        const nDisiscritti = Object.keys(disiscritti).length;
-        const nRaggiungibili = Array.from(tuttiUnici).filter(e => !disiscritti[e]).length;
-        const nIgnoti = g.ignoti.reduce((s, x) => s + x.n, 0);
+        const conti = contiNewsletter(g, disiscritti);
+        /* L'etichetta della scheda deve dire quante righe apre, non una qualsiasi
+           altra cosa: la tabella degli iscritti mostra anche chi ha lasciato vuota
+           la casella, che non sta nei gruppi. Prima il pulsante prometteva meno
+           righe di quante ne mostrava. */
+        const nInElenco = conti.unici + conti.senzaConsenso;
+        const nDisiscritti = conti.disiscrittiTotale;
+        const nRaggiungibili = conti.raggiungibili;
 
         const box = (classe, etichetta, valore, nota) => '<div class="kpi' + (classe ? ' ' + classe : '') + '">'
             + '<div class="etichetta">' + etichetta + '</div><div class="valore">' + valore + '</div>'
             + '<div class="nota">' + nota + '</div></div>';
+        /* Tre soli riquadri, e nessuno dei tre e' la somma di altri due. I totali
+           per provenienza stanno nel riquadro dei conti, l'unico posto dove si
+           sommano davvero. Prima "Senza consenso" comprendeva anche i consensi
+           non risultanti, che pero' sono dentro "Raggiungibili": la stessa
+           persona era contata in un riquadro verde e in uno ambra. */
         const kpi = '<div class="kpi-griglia">'
-            + box('verde', 'Raggiungibili', nRaggiungibili, 'indirizzi unici, disiscritti esclusi')
-            + box('', 'Iscritti agli eventi', g.eventi.reduce((s, x) => s + x.n, 0), 'con consenso alle promozionali')
-            + box('', 'Dalle sezioni del sito', g.sito.reduce((s, x) => s + x.n, 0), 'con consenso alle promozionali')
-            + box('', 'Aderenti', ((g.altri.find(x => x.id === 'aderenti') || {}).n || 0), 'anagrafica Persone con email')
-            + box('', 'Inseriti a mano', ((g.altri.find(x => x.id === 'manuali') || {}).n || 0), 'raccolti di persona')
-            + box('ambra', 'Senza consenso', g.senzaConsenso.length + (nIgnoti ? ' + ' + nIgnoti : ''), nIgnoti ? 'hanno detto no + non risultanti' : 'esclusi dagli invii')
+            + box('verde', 'Raggiungibili ora', nRaggiungibili, 'indirizzi diversi, disiscritti esclusi')
+            + box('ambra', 'Senza consenso', conti.senzaConsenso, 'casella comunicazioni lasciata vuota')
             + box('rosso', 'Disiscritti', nDisiscritti, 'saltati in automatico a ogni invio')
-            + '</div>';
+            + '</div>'
+            + riquadroContiNewsletter(conti);
 
         const schede = '<div class="tab-dest nl-schede" style="margin-bottom:16px;">'
             + '<button type="button" class="tab-btn' + (nlTab === 'newsletter' ? ' attivo' : '') + '" data-tab="newsletter">Le newsletter (' + Newsletter.tutte().length + ')</button>'
-            + '<button type="button" class="tab-btn' + (nlTab === 'iscritti' ? ' attivo' : '') + '" data-tab="iscritti">Iscritti (' + tuttiUnici.size + ')</button>'
+            + '<button type="button" class="tab-btn' + (nlTab === 'iscritti' ? ' attivo' : '') + '" data-tab="iscritti">Iscritti (' + nInElenco + ')</button>'
             + '<button type="button" class="tab-btn' + (nlTab === 'disiscritti' ? ' attivo' : '') + '" data-tab="disiscritti">Disiscritti (' + nDisiscritti + ')</button>'
             + '</div>';
 
@@ -7882,7 +7996,11 @@
             + '<div class="card s-admin"><div class="s-admin-txt"><strong>Consenso dei contatti gia presenti</strong>'
             + (cs
                 ? '<div class="hint">Attribuito il <b>' + esc(fmtDataOra(cs.il)) + '</b> da <b>' + esc(cs.da || '') + '</b>'
-                + ' a tutti i contatti raccolti fino a quel momento. Chi si iscrive dopo segue di nuovo la casella del modulo.</div>'
+                + ' ai contatti raccolti fino a quel momento, '
+                + (cs.comprendeNo
+                    ? '<b>compresi</b> quelli che avevano lasciato vuota la casella delle comunicazioni'
+                    : 'ma <b>non</b> a quelli che avevano lasciato vuota la casella delle comunicazioni')
+                + '. Chi si iscrive dopo segue di nuovo la casella del suo modulo.</div>'
                 : '<div class="hint">I contatti che non hanno spuntato la casella delle comunicazioni restano fuori dagli invii. Se quel consenso lo hai raccolto altrove, puoi attribuirlo ai contatti gia presenti.</div>')
             + '</div><div class="s-admin-azioni">'
             + (cs
@@ -7896,14 +8014,14 @@
            letto, e senza questo numero si tira a indovinare. */
         const f = _nlFonti;
         const provenienza = f
-            ? '<div class="card nl-fonti"><strong>Da dove arrivano questi contatti</strong>'
+            ? '<div class="card nl-fonti"><strong>Righe raccolte e indirizzi</strong>'
+            + '<div class="hint" style="margin:2px 0 8px;">Nella sezione Eventi si contano le <b>iscrizioni</b>; qui si contano gli '
+            + '<b>indirizzi</b>. Chi si e iscritto a due convegni li vale due, qui vale uno: la differenza fra i due numeri e tutta qui.</div>'
             + '<div class="nl-fonti-righe">'
-            + '<span><b>' + (f.firestore || 0) + '</b> dai moduli del sito (archivio nuovo)</span>'
-            + '<span><b>' + (f.foglio || 0) + '</b> dal foglio Google storico'
+            + '<span><b>' + (f.firestore || 0) + '</b> righe nell\'archivio nuovo</span>'
+            + '<span><b>' + (f.foglio || 0) + '</b> righe dal foglio Google storico'
             + (f.foglioConfigurato ? '' : ' &mdash; <b>non collegato</b>') + '</span>'
-            + '<span><b>' + (f.unici || 0) + '</b> indirizzi diversi in tutto</span>'
-            + '<span><b>' + Persone.tutte().filter(p => p.email && p.attivo !== false && !p.eliminato).length + '</b> aderenti dall\'anagrafica</span>'
-            + '<span><b>' + ContattiNL.tutti().length + '</b> inseriti a mano</span>'
+            + '<span><b>' + (f.unici || 0) + '</b> indirizzi diversi dai moduli del sito</span>'
             + '</div></div>'
             : '';
         const senzaCloud = !Cloud.attivo
@@ -8247,16 +8365,23 @@
             + '<p class="descrizione">I contatti che non avevano spuntato la casella tornano fuori dagli invii, '
             + 'come prima dell\'attribuzione del ' + esc(fmtDataOra(cfg.consensoStorico ? cfg.consensoStorico.il : ora)) + '. '
             + 'Nessun dato viene cancellato: cambia solo chi si puo scegliere come destinatario.</p>'
+            /* Due decisioni diverse, tenute separate. Chi non ha risposto e chi ha
+               risposto di no non sono la stessa cosa, e mescolarli in una frase
+               sola fa prendere la seconda senza accorgersene. */
             : '<h2>Attribuire il consenso ai contatti gia presenti?</h2>'
-            + '<p class="descrizione">Da adesso risulteranno destinatari validi <b>tutti i contatti raccolti fino a questo momento</b>, '
-            + 'anche quelli che oggi restano fuori: <b>' + nNo + '</b> che hanno lasciato vuota la casella delle comunicazioni '
-            + 'e <b>' + nIgnoti + '</b> per cui il consenso non risulta.</p>'
-            + '<div class="ev-blocco" style="margin-bottom:12px;">Fra questi ci sono persone che la casella l\'hanno <b>vista e non spuntata</b>. '
-            + 'Attribuire loro il consenso ha senso solo se quel consenso ce l\'hai in altra forma (un modulo firmato, un rapporto professionale in corso, '
-            + 'un elenco raccolto di persona). Se non e cosi, il rischio non e formale: sono le persone che segnalano la mail come indesiderata, '
-            + 'ed e proprio quello che fa sospendere un account di invio.</div>'
-            + '<p class="hint">Vale solo per i contatti <b>gia presenti</b>. Chi si iscrivera da domani torna a seguire la casella del modulo. '
-            + 'La decisione resta scritta con il tuo nome e la data, e si puo revocare in qualsiasi momento.</p>';
+            + '<p class="descrizione">Vale solo per i contatti <b>raccolti fino a questo momento</b>: chi si iscrivera '
+            + 'da domani torna a seguire la casella del suo modulo. La decisione resta scritta con il tuo nome e la '
+            + 'data, e si puo revocare in qualsiasi momento.</p>'
+            + '<div class="nl-sez"><div class="nl-sez-tit">1. Consenso che non risulta &mdash; <b>' + nIgnoti + '</b> contatti</div>'
+            + '<div class="hint">Schede in cui la casella delle comunicazioni non e registrata: elenchi importati, moduli '
+            + 'piu vecchi della casella. Non hanno detto no, non hanno detto niente. Rientrano sempre.</div></div>'
+            + '<div class="nl-sez"><div class="nl-sez-tit">2. Casella vista e lasciata vuota &mdash; <b>' + nNo + '</b> contatti</div>'
+            + '<label class="mi-flag" style="margin-bottom:10px;"><input type="checkbox" id="cs-no-anche"'
+            + (nNo ? ' checked' : ' disabled') + '> Comprendi anche questi</label>'
+            + '<div class="ev-blocco">Queste persone la casella l\'hanno <b>vista e lasciata vuota</b>. Attribuire loro il '
+            + 'consenso ha senso solo se quel consenso ce l\'hai in altra forma: un modulo firmato, un rapporto professionale '
+            + 'in corso, un elenco raccolto di persona. Se non e cosi il rischio non e formale: sono le persone che segnalano '
+            + 'la mail come indesiderata, ed e proprio quello che fa sospendere un account di invio.</div></div>';
         apriModale(corpo
             + '<div class="modale-azioni"><button class="btn btn-ghost" id="cs-no">Annulla</button>'
             + '<button class="btn ' + (revoca ? 'btn-secondary' : 'btn-primary') + '" id="cs-si">'
@@ -8269,10 +8394,15 @@
                 try { Audit.registra(Auth.utenteCorrente, 'Newsletter: consenso storico revocato', 'sistema', 'newsletterConfig', null, null); } catch (e) { }
                 chiudiModale(); toast('Attribuzione revocata.', 'verde');
             } else {
-                NewsletterConfig.salva({ consensoStorico: { il: ora, da: u, nota: nNo + ' senza spunta, ' + nIgnoti + ' non risultanti' } });
+                /* Se la scelta piu' impegnativa e' stata presa, deve risultare per
+                   iscritto e distinta dall'altra: e' quella che andra' spiegata,
+                   se un giorno qualcuno chiede conto di una mail ricevuta. */
+                const anche = !!(document.getElementById('cs-no-anche') || {}).checked;
+                const nota = nIgnoti + ' non risultanti, ' + nNo + ' senza spunta ' + (anche ? 'COMPRESI' : 'esclusi');
+                NewsletterConfig.salva({ consensoStorico: { il: ora, da: u, comprendeNo: anche, nota: nota } });
                 try {
                     Audit.registra(Auth.utenteCorrente, 'Newsletter: consenso attribuito ai contatti presenti', 'sistema', 'newsletterConfig', null,
-                        'fino al ' + fmtDataOra(ora) + ' - ' + nNo + ' senza spunta, ' + nIgnoti + ' non risultanti');
+                        'fino al ' + fmtDataOra(ora) + ' - ' + nota);
                 } catch (e) { }
                 chiudiModale(); toast('Consenso attribuito ai contatti gia presenti.', 'verde');
             }

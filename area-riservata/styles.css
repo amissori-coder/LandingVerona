@@ -713,6 +713,23 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .nl-fonti { margin-bottom: 14px; }
 .nl-fonti-righe { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 8px; font-size: 0.85rem; color: var(--grigio-600); }
 .nl-fonti-righe b { color: var(--blu-900); font-variant-numeric: tabular-nums; }
+/* I conti della sezione: UNA colonna, dove ogni riga e' uno scarto e le righe in
+   grassetto chiudono il conto. Affiancare i totali come riquadri separati e'
+   proprio cio' che faceva sembrare sbagliato un totale corretto: numeri che non
+   si sommano, messi uno accanto all'altro come se si sommassero. */
+.nl-conti { margin-bottom: 14px; }
+.nl-conti-griglia { margin-top: 10px; max-width: 580px; }
+.nl-conto { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 5px 0; font-size: 0.88rem; }
+.nl-conto-eti { color: var(--grigio-900); }
+.nl-conto-eti i { display: block; font-style: normal; font-size: 0.78rem; color: var(--grigio-600); margin-top: 1px; }
+.nl-conto-val { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--blu-900); white-space: nowrap; }
+.nl-conto.meno .nl-conto-eti, .nl-conto.meno .nl-conto-val { color: var(--grigio-600); font-weight: 500; }
+.nl-conto.tot { border-top: 1px solid var(--grigio-200); margin-top: 5px; padding-top: 9px; }
+.nl-conto.tot .nl-conto-eti { font-weight: 700; color: var(--blu-900); }
+.nl-conto.tot .nl-conto-val { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.05rem; }
+.nl-conto.verde .nl-conto-val { color: var(--verde); }
+.nl-conti-fuori { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--grigio-200); font-size: 0.82rem; color: var(--grigio-600); line-height: 1.55; }
+.nl-conti-fuori b { color: var(--blu-900); }
 .nl-sez { border: 1px solid var(--grigio-200); border-radius: var(--raggio); padding: 16px 18px; margin-bottom: 16px; background: #fff; }
 .nl-sez-tit {
     font-weight: 700; color: var(--blu-900); font-size: 0.95rem; margin-bottom: 12px;
