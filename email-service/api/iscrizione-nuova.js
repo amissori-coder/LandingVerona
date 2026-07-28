@@ -81,6 +81,38 @@ function testo(v, max) {
 function emailValida(e) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 }
+/* Consenso: TRE valori, non due. true = spuntato, false = ha detto no,
+   null = il modulo non lo manda affatto.
+   La differenza conta piu' di quanto sembri. Registrare false quando il campo
+   non arriva vuol dire mettere agli atti un rifiuto che nessuno ha espresso, e
+   il rifiuto e' definitivo: chi risulta rifiutato non entra in nessun invio,
+   non si puo' spuntare a mano e non lo recupera nemmeno l'attribuzione del
+   consenso, che per scelta vale solo per i consensi NON RISULTANTI. Un modulo
+   collegato senza la casella marketing marchierebbe cosi ogni nuovo iscritto.
+   Si accettano anche le forme testuali, accento compreso: i moduli scrivono
+   "Si" con l'accento, e un consenso non deve dipendere da come e' scritto. */
+const VERO_CONSENSO = /^(si|s|true|vero|1|x|yes|on)$/i;
+function consenso(v) {
+    if (v === true || v === false) return v;
+    if (v == null) return null;
+    const s = String(v).trim().normalize('NFD').replace(/\p{M}/gu, '');
+    return s ? VERO_CONSENSO.test(s) : null;
+}
+/* Data di iscrizione in formato italiano, fuso di Roma (il server sta su UTC).
+   Se il modulo non la manda ce la mette il server, perche' una scheda senza
+   data fa due danni: l'identificativo del documento diventa lo stesso per ogni
+   invio della stessa persona, e l'area riservata legge la data assente come
+   "riga vecchissima", quindi l'attribuzione del consenso ai contatti gia'
+   presenti coprirebbe anche un'iscrizione arrivata oggi. */
+function adesso() {
+    const f = new Intl.DateTimeFormat('it-IT', {
+        timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    });
+    const p = {};
+    f.formatToParts(new Date()).forEach(x => { p[x.type] = x.value; });
+    return p.day + '/' + p.month + '/' + p.year + ' ' + p.hour + ':' + p.minute + ':' + p.second;
+}
 // data italiana "gg/mm/aaaa hh:mm:ss": nell'ID le barre non sono ammesse
 function idDocumento(email, data, nome, cognome) {
     const base = (email || (testo(nome, 60) + '.' + testo(cognome, 60)).toLowerCase()) + '|' + data;
@@ -120,7 +152,7 @@ module.exports = async (req, res) => {
         const cred = leggiServiceAccount();
         initAdmin(cred);
 
-        const data = testo(body.data, 40);
+        const data = testo(body.data, 40) || adesso();
         const scheda = {
             data: data,
             pagina: pagina,
@@ -131,8 +163,8 @@ module.exports = async (req, res) => {
             ruolo: testo(body.ruolo, 200),
             telefono: testo(body.telefono, 60),
             messaggio: testo(body.messaggio, 2000),
-            privacy: body.privacy === true,
-            marketing: body.marketing === true,
+            privacy: consenso(body.privacy),
+            marketing: consenso(body.marketing),
             ricevuto: admin.firestore.FieldValue.serverTimestamp()
         };
 
