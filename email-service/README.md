@@ -277,6 +277,13 @@ Per accendere Brevo bastano **due variabili d'ambiente**:
 | `BREVO_API_KEY` | la chiave creata dal pannello Brevo (Impostazioni → chiavi API) |
 | `NEWSLETTER_FROM_EMAIL` | `revilaw@nextgenerationbusiness.it` (mittente della sola newsletter, da verificare in Brevo) |
 | `NEWSLETTER_FROM_NAME` | facoltativa; senza di essa vale `SMTP_FROM_NAME` (Revilaw S.p.A.) |
+| `NEWSLETTER_REPLY_TO` | facoltativa; senza di essa le risposte vanno al mittente qui sopra |
+
+Le **risposte** alla newsletter arrivano alla casella del mittente, non a quella
+personale di chi ha premuto Invia: chi risponde si aspetta di scrivere
+all'indirizzo che vede scritto. Quella casella va quindi presidiata da qualcuno.
+Con `NEWSLETTER_REPLY_TO` si puo' dirottarle altrove (per esempio a
+`info@`), senza cambiare il mittente.
 
 Senza `BREVO_API_KEY` l'invio torna da solo sulla casella SMTP di prima: si puo'
 accendere e spegnere senza toccare il codice.

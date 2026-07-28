@@ -195,9 +195,12 @@ module.exports = async (req, res) => {
         // forma a oggetto: la citazione la fa nodemailer. Componendo la stringa a mano,
         // un nome con virgolette dentro potrebbe aggiungere un secondo indirizzo al From.
         const from = { name: fromName, address: fromEmail };
-        // l'indirizzo di risposta e' sempre quello di chi ha davvero premuto invio:
-        // non si accetta dal corpo della richiesta
-        const rispostaA = aut.email;
+        /* Le risposte vanno alla casella dello studio, la stessa che il
+           destinatario vede come mittente: chi risponde a una newsletter si
+           aspetta di scrivere a quell'indirizzo, non alla casella personale di
+           chi quel giorno ha premuto Invia. Non si accetta dal corpo della
+           richiesta: e' l'indirizzo del mittente o quello di chi ha inviato. */
+        const rispostaA = process.env.NEWSLETTER_REPLY_TO || fromEmail || aut.email;
 
         /* ---------- strada 1: Brevo ----------
            Tutto il lotto in UNA richiesta: una "versione" per destinatario, con
