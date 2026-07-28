@@ -1295,10 +1295,16 @@
                     body: JSON.stringify({ idToken, ...corpo })
                 });
                 const data = await r.json().catch(() => ({}));
-                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
+                /* Anche quando va male si riporta indietro quello che il servizio ha
+                   detto (per esempio "rimasti": gli indirizzi che NON sono partiti).
+                   Sapere che un lotto non e' partito affatto e' diverso dal non
+                   sapere niente: nel primo caso quelle persone vanno rimesse in coda,
+                   nel secondo vanno saltate per non rischiare il doppione. */
+                if (!r.ok || !data.ok) return { ...data, ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
                 return { ok: true, ...data };
             } catch (e) {
-                return { ok: false, msg: 'Servizio newsletter non raggiungibile.' };
+                // il servizio non ha risposto affatto: non si sa cosa sia successo
+                return { ok: false, senzaRisposta: true, msg: 'Servizio newsletter non raggiungibile.' };
             }
         },
         /* Elenco completo: iscritti dai moduli del sito + chi si e' disiscritto. */
@@ -7570,7 +7576,17 @@
     let _nlAggiornato = 0;
     let _nlUltimoTentativo = 0;
     let _nlAttese = [];              // chi sta gia' aspettando la richiesta in corso
+    let _nlInvio = null;             // {trasporto, maxLotto} dichiarati dal servizio
     let nlTab = 'newsletter';        // scheda aperta nella sezione
+
+    /* Quanti destinatari per volta. Lo decide il servizio: con Brevo un lotto
+       intero parte in una sola richiesta, con la casella di posta invece si
+       spedisce una mail per volta e il numero deve restare basso. */
+    function lottoNewsletter() {
+        const n = _nlInvio && Number(_nlInvio.maxLotto);
+        return (n && n > 0 && n <= 500) ? n : 20;
+    }
+    function trasportoNewsletter() { return (_nlInvio && _nlInvio.trasporto) || 'smtp'; }
 
     function caricaDestinatariNewsletter(poi, forza) {
         if (!Cloud.attivo) { if (poi) poi(false); return; }
@@ -7592,6 +7608,8 @@
             if (!r.ok) { _nlMsg = r.msg || 'Lettura non riuscita.'; finito(true); return; }
             _nlMsg = r.avviso || '';   // es. foglio storico non leggibile: si prosegue lo stesso
             _nlDati = { iscritti: r.iscritti || [], disiscritti: r.disiscritti || {} };
+            // il servizio dice come spedisce e quanti destinatari accetta per volta
+            _nlInvio = r.invio || null;
             _nlAggiornato = r.aggiornato || Date.now();
             finito(true);
         }).catch(() => { _nlMsg = 'Servizio newsletter non raggiungibile.'; finito(true); });
@@ -7833,18 +7851,27 @@
         falliti.forEach(f => { const m = (f && f.motivo) || 'errore'; perMotivo[m] = (perMotivo[m] || 0) + 1; });
         const motivi = Object.keys(perMotivo)
             .map(m => '<li><b>' + perMotivo[m] + '</b> &times; ' + esc(m) + '</li>').join('');
-        const tot = (invio.n || 0) + (invio.falliti || 0);
+        // il totale previsto, non la somma di cio' che e' andato: su un invio
+        // interrotto la somma direbbe "N su N" e sembrerebbe tutto a posto
+        const tot = invio.previsti || ((invio.n || 0) + (invio.falliti || 0));
         return '<div class="card s-inv-riep"><div class="s-inv-head"><strong>Riepilogo ultimo invio</strong>'
             + '<span class="hint">' + esc(fmtDataOra(invio.il)) + '</span></div>'
             + '<div class="s-inv-riga"><span class="s-inv-lab">' + esc(ultima.nome || ultima.oggetto || 'Newsletter') + '</span>'
             + '<span class="s-inv-val"><b>' + (invio.n || 0) + '</b> inviate' + (tot ? ' su ' + tot : '')
             + (invio.falliti ? ' &middot; <span class="s-inv-ko">' + invio.falliti + ' non riuscite</span>' : '')
-            + (invio.saltati ? ' &middot; ' + invio.saltati + ' saltate' : '') + '</span></div>'
+            + (invio.saltati ? ' &middot; ' + invio.saltati + ' saltate' : '')
+            + (invio.nonServiti ? ' &middot; <span class="s-inv-ko">' + invio.nonServiti + ' non ancora servite</span>' : '')
+            + (invio.incerti ? ' &middot; ' + invio.incerti + ' con esito incerto' : '') + '</span></div>'
             + (invio.interrotto
                 ? '<div class="s-inv-riga"><span class="s-inv-lab">Interrotto</span><span class="s-inv-val s-inv-ko">'
                 + esc(invio.interrotto) + ' &mdash; riapri la newsletter e premi Invia per riprendere</span></div>' : '')
             + (motivi ? '<div class="s-inv-motivi"><span class="s-inv-lab">Perche alcune non sono riuscite</span><ul>' + motivi + '</ul></div>' : '')
             + (falliti.length ? '<div class="s-inv-motivi"><span class="s-inv-lab">Indirizzi</span><p class="hint">' + esc(falliti.map(f => f.email).join(', ')) + '</p></div>' : '')
+            /* Con Brevo il numero dice quante mail sono state ACCETTATE: rimbalzi e
+               blocchi si sanno dopo, e li racconta il pannello di Brevo. Dirlo evita
+               di leggere "39 inviate" come "39 consegnate". */
+            + (invio.trasporto === 'brevo'
+                ? '<p class="hint" style="margin:8px 0 0;">Consegnate a Brevo per la spedizione. Recapiti mancati, rimbalzi e disiscrizioni si vedono nel pannello Brevo: quelle di chi si toglie dall\'elenco rientrano qui da sole al prossimo aggiornamento.</p>' : '')
             + '</div>';
     }
 
@@ -8177,8 +8204,6 @@
     /* =========================================================
        COMPOSITORE
     ========================================================= */
-    /* Quanti destinatari per volta: lo stesso numero che accetta il servizio. */
-    const LOTTO_NEWSLETTER = 20;
     const NOMI_TIPO_BLOCCO = { testo: 'Testo', evidenza: 'Riquadro in evidenza', immagine: 'Immagine', bottone: 'Pulsante', elenco: 'Elenco puntato', separatore: 'Linea di separazione' };
 
     function modaleNewsletter(id) {
@@ -8435,7 +8460,7 @@
                 : '';
             $('nl-conteggio').innerHTML = '<strong>' + r.destinatari.length + '</strong> destinatar' + (r.destinatari.length === 1 ? 'io' : 'i')
                 + (fuori ? ' <span class="hint">(' + fuori + (fuori === 1 ? ' saltato perche disiscritto' : ' saltati perche disiscritti') + ')</span>' : '')
-                + (r.destinatari.length ? ' <span class="hint">&middot; l\'invio parte a gruppi di 20, con una pausa fra uno e l\'altro</span>' : '')
+                + (r.destinatari.length ? ' <span class="hint">&middot; l\'invio parte a gruppi di ' + lottoNewsletter() + ', con una pausa fra uno e l\'altro</span>' : '')
                 + elenco;
             $('nl-conteggio').querySelectorAll('.nl-inc').forEach(c => c.addEventListener('change', () => {
                 // si annota l'IMPRONTA, non l'indirizzo: il record finisce nell'archivio
@@ -8580,7 +8605,9 @@
             const gia = r.saltati.filter(x => x.motivo === 'gia servito').length;
             if (!r.destinatari.length) {
                 mostraEsitoNL(ripresa
-                    ? 'Non resta nessuno da servire: l\'invio precedente era arrivato a tutti.'
+                    ? ('Non resta nessuno da servire.' + (ultimo && ultimo.incerti
+                        ? ' Attenzione: ' + ultimo.incerti + ' destinatari sono rimasti con esito incerto e vengono saltati. Se devi raggiungerli, duplica la newsletter e mandala solo a loro.'
+                        : ' L\'invio precedente era arrivato a tutti.'))
                     : 'Nessun destinatario: scegli almeno un gruppo nella sezione 4.', false);
                 return;
             }
@@ -8589,7 +8616,7 @@
                     : 'Partira a ' + r.destinatari.length + ' destinatari')
                 + (fuori ? ', ' + fuori + (fuori === 1 ? ' saltato perche disiscritto' : ' saltati perche disiscritti') : '')
                 + '. Ognuno ricevera una mail sua, con il collegamento per disiscriversi. Non si puo annullare.'
-                + (r.destinatari.length > LOTTO_NEWSLETTER ? ' Tieni questa finestra aperta e in primo piano fino alla fine: passando ad altre schede il browser rallenta l\'invio.' : ''),
+                + (r.destinatari.length > lottoNewsletter() ? ' Tieni questa finestra aperta e in primo piano fino alla fine: passando ad altre schede il browser rallenta l\'invio.' : ''),
                 ripresa ? 'Riprendi l\'invio' : 'Invia adesso',
                 (btn, avanz, btnNo) => avviaInvioNewsletter(rec, r.destinatari, btn, avanz, btnNo, ripresa));
         });
@@ -8617,13 +8644,16 @@
             if (btnAnnulla) btnAnnulla.disabled = true;
 
             const mail = RV_NEWSLETTER.costruisci(rec);
-            const LOTTO = LOTTO_NEWSLETTER;
+            const LOTTO = lottoNewsletter();
             const coda = destinatari.slice();
             const totale = coda.length;
             const serviti = ripresa ? (((rec.invii || [])[0] || {}).serviti || []).slice() : [];
             let inviati = 0, incerti = 0;
             const saltati = [], falliti = [];
             let interrotto = '';
+            // come ha spedito DAVVERO il servizio: se la sezione non aveva ancora letto
+            // l'informazione, quella dichiarata a video poteva essere sbagliata
+            let trasportoUsato = trasportoNewsletter();
             const mostra = (t) => { if (avanzamento) avanzamento.textContent = t; };
 
             try {
@@ -8641,14 +8671,36 @@
                             r = await Cloud.inviaLottoNewsletter(corpo);
                         }
                         if (!r.ok) {
-                            /* Non si sa cosa sia successo a questo gruppo: la richiesta non
-                               ha risposto. Si annotano come serviti (esito incerto) e li si
-                               salta alla ripresa: una copia in meno e' meglio di una in piu'. */
-                            lotto.forEach(d => serviti.push(improntaEmail(d.email)));
-                            incerti = lotto.length;
                             interrotto = r.msg || 'invio interrotto';
+                            // di quello che il servizio ha comunque riferito si tiene conto
+                            (r.saltati || []).forEach(x => saltati.push(x));
+                            (r.falliti || []).forEach(x => falliti.push(x));
+                            /* Due casi molto diversi.
+                               Se il servizio HA RISPOSTO (anche solo per dire di no), allora
+                               si sa che quel gruppo non e' partito: torna in coda e alla
+                               ripresa si riprova. Vale per il limite di frequenza, la sessione
+                               scaduta, i crediti finiti, il rifiuto di Brevo.
+                               Se invece non ha risposto per niente, non si sa cosa sia
+                               successo di la': si annotano come serviti e alla ripresa si
+                               saltano, perche' una copia in meno e' meglio di una in piu'. */
+                            if (r.senzaRisposta) {
+                                const noti = new Set([].concat(r.saltati || [], r.falliti || []).map(x => String((x && x.email) || x).toLowerCase()));
+                                lotto.forEach(d => serviti.push(improntaEmail(d.email)));
+                                incerti = lotto.filter(d => !noti.has(d.email)).length;
+                            } else {
+                                const nonPartiti = Array.isArray(r.rimasti) && r.rimasti.length
+                                    ? new Set(r.rimasti.map(x => String((x && x.email) || x).toLowerCase()))
+                                    : null;
+                                // senza indicazioni esplicite si assume il caso prudente per chi
+                                // riceve: il servizio ha risposto, quindi non ha spedito
+                                const daRimettere = nonPartiti ? lotto.filter(d => nonPartiti.has(d.email)) : lotto;
+                                const serviti0 = lotto.filter(d => daRimettere.indexOf(d) < 0);
+                                coda.unshift(...daRimettere);
+                                serviti0.forEach(d => serviti.push(improntaEmail(d.email)));
+                            }
                             break;
                         }
+                        if (r.trasporto) trasportoUsato = r.trasporto;
                         inviati += r.inviati || 0;
                         (r.saltati || []).forEach(x => saltati.push(x));
                         (r.falliti || []).forEach(x => falliti.push(x));
@@ -8679,6 +8731,10 @@
                     n: inviati, saltati: saltati.length, falliti: falliti.length,
                     dettaglioFalliti: falliti.slice(0, 100),
                     interrotto: interrotto || '', incerti: incerti,
+                    // quanti erano previsti e quanti sono rimasti fuori: senza questi due
+                    // numeri il riepilogo di un invio interrotto direbbe "N inviate su N"
+                    previsti: totale, nonServiti: coda.length,
+                    trasporto: trasportoUsato,
                     serviti: serviti          // impronte, non indirizzi
                 }].concat(rec.invii || []);
                 Newsletter.salvaUna(JSON.parse(JSON.stringify(rec)));

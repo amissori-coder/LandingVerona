@@ -85,6 +85,76 @@ function linkUnClic(email, campagna) {
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+/* =========================================================
+   BREVO
+   ---------------------------------------------------------
+   La newsletter esce da Brevo, non dalla casella dello studio: quella
+   regge poche centinaia di email al giorno. Le email di servizio
+   (password, comunicazioni) restano invece su Aruba, dove sono.
+
+   Il dominio e' gia' autenticato per Brevo (chiavi DKIM brevo1/brevo2
+   pubblicate), quindi non servono modifiche ai DNS.
+
+   Basta la variabile BREVO_API_KEY: se manca, l'invio torna da solo
+   sulla casella SMTP di prima. Cosi' si puo' accendere e spegnere senza
+   toccare il codice.
+========================================================= */
+const BREVO_API = 'https://api.brevo.com/v3';
+function brevoAttivo() { return !!String(process.env.BREVO_API_KEY || '').trim(); }
+
+async function chiamataBrevo(percorso, opz) {
+    opz = opz || {};
+    const chiave = String(process.env.BREVO_API_KEY || '').trim();
+    if (!chiave) throw new Error('BREVO_API_KEY mancante');
+    const intestazioni = { 'api-key': chiave, 'accept': 'application/json' };
+    if (opz.corpo) intestazioni['content-type'] = 'application/json';
+    // in prova non parte niente: Brevo risponde ok e non spedisce (X-Sib-Sandbox)
+    if (opz.sandbox) intestazioni['X-Sib-Sandbox'] = 'drop';
+    /* Tempo massimo di attesa. Senza, una risposta lenta di Brevo blocca la
+       funzione fino al suo limite: nella lettura dell'elenco (che di Brevo puo'
+       fare a meno) significherebbe una sezione che non si apre. */
+    const attesa = Number(process.env.BREVO_TIMEOUT_MS) || (opz.metodo === 'POST' ? 25000 : 6000);
+    const r = await fetch(BREVO_API + percorso, {
+        method: opz.metodo || 'GET',
+        headers: intestazioni,
+        body: opz.corpo ? JSON.stringify(opz.corpo) : undefined,
+        signal: (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(attesa) : undefined
+    });
+    const testo = await r.text();
+    let dati = null;
+    try { dati = testo ? JSON.parse(testo) : null; } catch (_) { dati = null; }
+    return { stato: r.status, ok: r.ok, dati: dati, testo: testo.slice(0, 500) };
+}
+
+/* Chi Brevo non contatta piu': disiscritti dal SUO pulsante, rimbalzi duri,
+   segnalazioni di spam. E' un elenco separato dal nostro, e va letto: il
+   pulsante "Annulla iscrizione" che i programmi di posta mostrano accanto al
+   mittente lo mette Brevo e non si puo' sostituire con il nostro, quindi chi
+   lo usa finisce li' e non nella nostra collezione. Senza questa lettura la
+   sezione continuerebbe a contarlo fra i raggiungibili. */
+async function bloccatiBrevo() {
+    const out = {};
+    if (!brevoAttivo()) return out;
+    let offset = 0;
+    const limite = 100;
+    // tetto di sicurezza: l'endpoint consente 300 chiamate l'ora, non si esagera
+    for (let giro = 0; giro < 20; giro++) {
+        const r = await chiamataBrevo('/smtp/blockedContacts?limit=' + limite + '&offset=' + offset);
+        if (!r.ok) {
+            if (r.stato === 404) break;   // nessun bloccato: Brevo risponde 404
+            throw new Error('blocklist Brevo non leggibile (' + r.stato + ')');
+        }
+        const righe = (r.dati && r.dati.contacts) || [];
+        righe.forEach(c => {
+            const em = String((c && c.email) || '').toLowerCase();
+            if (em) out[em] = { motivo: String((c && c.reason && c.reason.code) || (c && c.reason) || 'bloccato'), quando: c && c.blockedAt ? Date.parse(c.blockedAt) || 0 : 0 };
+        });
+        if (righe.length < limite) break;
+        offset += limite;
+    }
+    return out;
+}
+
 /* --- chi puo' usare la sezione Newsletter ---
    Amministratore, oppure contrassegno "newsletter" sulla scheda utente.
    NON si guarda l'elenco condiviso `archivio/newsletterConfig`, che pure
@@ -135,5 +205,6 @@ module.exports = {
     leggiServiceAccount, initAdmin, admin,
     firma, firmaValida, linkDisiscrizione, linkUnClic,
     PAGINA_DISISCRIZIONE, BASE,
-    EMAIL_RE, autorizza, disiscritti, testo
+    EMAIL_RE, autorizza, disiscritti, testo,
+    brevoAttivo, chiamataBrevo, bloccatiBrevo
 };

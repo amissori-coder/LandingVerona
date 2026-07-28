@@ -89,6 +89,54 @@ async function leggiFoglio(forza) {
     return righe;
 }
 
+/* --- ponte con le disiscrizioni di Brevo ---
+   Il pulsante "Annulla iscrizione" che i programmi di posta mostrano accanto al
+   mittente lo mette Brevo, e non si puo' sostituire con il nostro: chi lo usa
+   finisce nella blocklist di Brevo e non nella nostra collezione. Se non lo si
+   leggesse, la sezione continuerebbe a contare quella persona fra i
+   raggiungibili mentre Brevo la scarta in silenzio.
+   Qui la blocklist si legge (con memoria di 5 minuti: l'endpoint consente 300
+   chiamate l'ora) e i nomi nuovi si copiano nella nostra collezione, cosi' da
+   quel momento valgono per tutti, anche per l'invio. */
+let _cacheBloccati = { quando: 0, righe: null };
+const BLOCCATI_MS = 5 * 60 * 1000;
+async function bloccatiConMemoria(forza) {
+    if (!forza && _cacheBloccati.righe && (Date.now() - _cacheBloccati.quando) < BLOCCATI_MS) return _cacheBloccati.righe;
+    const righe = await N.bloccatiBrevo();
+    _cacheBloccati = { quando: Date.now(), righe: righe };
+    return righe;
+}
+async function allineaBloccati(db, nostri, forza) {
+    if (!N.brevoAttivo()) return { uniti: nostri, nuovi: 0 };
+    let daBrevo = {};
+    try { daBrevo = await bloccatiConMemoria(forza); }
+    catch (e) {
+        console.error('Newsletter: blocklist Brevo non letta:', String((e && e.message) || e).slice(0, 200));
+        return { uniti: nostri, nuovi: 0, avviso: 'Le disiscrizioni registrate su Brevo non sono leggibili in questo momento.' };
+    }
+    const uniti = { ...nostri };
+    const daScrivere = [];
+    Object.keys(daBrevo).forEach(em => {
+        if (nostri[em]) return;
+        const v = daBrevo[em];
+        uniti[em] = { quando: v.quando || Date.now(), origine: 'Brevo (' + v.motivo + ')' };
+        daScrivere.push(em);
+    });
+    // si scrive solo cio' che manca davvero, e in un colpo solo: duecento scritture
+    // in fila dentro la richiesta di lettura la farebbero scadere
+    const daFare = daScrivere.slice(0, 200);
+    if (daFare.length) {
+        try {
+            const blocco = db.batch();
+            daFare.forEach(em => blocco.set(db.collection('newsletterDisiscritti').doc(em), { email: em, ...uniti[em] }));
+            await blocco.commit();
+        } catch (e) {
+            console.error('Newsletter: disiscritti Brevo non salvati:', String((e && e.message) || e).slice(0, 200));
+        }
+    }
+    return { uniti: uniti, nuovi: daFare.length };
+}
+
 /* --- memoria di breve durata ---
    Come per le iscrizioni agli eventi: rileggere centinaia di documenti a
    ogni apertura della sezione brucia la quota giornaliera di letture.
@@ -173,8 +221,32 @@ module.exports = async (req, res) => {
             const email = String(body.email || '').trim().toLowerCase();
             if (!N.EMAIL_RE.test(email)) { res.status(400).json({ ok: false, msg: 'Indirizzo non valido.' }); return; }
             const ref = db.collection('newsletterDisiscritti').doc(email);
-            if (azione === 'riattiva') await ref.delete();
-            else await ref.set({ email: email, quando: Date.now(), origine: 'a mano (' + aut.email + ')' }, { merge: true });
+            if (azione === 'riattiva') {
+                /* Non basta cancellare il nostro documento: se la persona si era
+                   disiscritta con il pulsante del programma di posta, e' nella
+                   blocklist di Brevo, e da li' (a) Brevo continuerebbe a scartarla,
+                   (b) il ponte la rimetterebbe fra i disiscritti al primo
+                   aggiornamento. Quindi prima si sblocca su Brevo; se non riesce,
+                   non si cancella niente e lo si dice, invece di far credere di
+                   aver risolto. */
+                if (N.brevoAttivo()) {
+                    let r;
+                    try { r = await N.chiamataBrevo('/smtp/blockedContacts/' + encodeURIComponent(email), { metodo: 'DELETE' }); }
+                    catch (e) { r = { ok: false, stato: 0, testo: String((e && e.message) || e) }; }
+                    // 404 = non era bloccato su Brevo (si era disiscritto dal nostro collegamento): va bene
+                    if (!r.ok && r.stato !== 404) {
+                        res.status(502).json({
+                            ok: false,
+                            msg: 'Su Brevo l\'indirizzo risulta ancora bloccato e non si e potuto sbloccare: resta fuori dagli invii. Riprova fra poco.'
+                        });
+                        return;
+                    }
+                    _cacheBloccati = { quando: 0, righe: null };   // la memoria non deve rimetterlo dentro
+                }
+                await ref.delete();
+            } else {
+                await ref.set({ email: email, quando: Date.now(), origine: 'a mano (' + aut.email + ')' }, { merge: true });
+            }
             res.status(200).json({ ok: true, stato: azione === 'riattiva' ? 'iscritto' : 'disiscritto' });
             return;
         }
@@ -204,7 +276,18 @@ module.exports = async (req, res) => {
         });
         const iscritti = Object.keys(perEmail).map(k => perEmail[k]);
 
-        const risposta = { ok: true, iscritti: iscritti, disiscritti: fuori, aggiornato: Date.now() };
+        // le disiscrizioni fatte dal pulsante di Brevo entrano nel nostro elenco
+        const ponte = await allineaBloccati(db, fuori, body.forza === true);
+        if (ponte.avviso && !avviso) avviso = ponte.avviso;
+
+        const risposta = {
+            ok: true, iscritti: iscritti, disiscritti: ponte.uniti, aggiornato: Date.now(),
+            // l'area riservata regola su questi il numero di destinatari per volta
+            invio: {
+                trasporto: N.brevoAttivo() ? 'brevo' : 'smtp',
+                maxLotto: N.brevoAttivo() ? 200 : 20
+            }
+        };
         if (avviso) risposta.avviso = avviso;
         res.status(200).json(risposta);
     } catch (e) {

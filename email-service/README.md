@@ -256,6 +256,64 @@ aggiungercisi e concedersi da solo la rubrica e l'invio. La scheda in `utenti`
 la scrive invece solo l'amministratore. Quando si salvano gli accessi, l'area
 riservata scrive entrambi: per chi usa l'interfaccia non cambia niente.
 
+### Chi spedisce la newsletter: Brevo
+
+La casella Aruba dello studio regge poche centinaia di email al giorno: va bene
+per le password e le comunicazioni, non per una newsletter. La newsletter esce
+quindi da **Brevo**, mentre tutto il resto resta su Aruba **senza modifiche**.
+
+Il dominio `nextgenerationbusiness.it` risulta **gia autenticato per Brevo**:
+verificando i DNS pubblici il 28/07/2026 c'erano il codice di verifica
+(`brevo-code:...`), entrambe le chiavi DKIM (`brevo1._domainkey` e
+`brevo2._domainkey` che puntano a `dkim.brevo.com`) e il record DMARC che manda
+i rapporti a `rua@dmarc.brevo.com`. **Non serve toccare l'SPF**: Brevo firma con
+le proprie chiavi DKIM e usa un proprio percorso di ritorno; le guide che
+consigliano di aggiungere un `include:` di Brevo non riguardano questo caso.
+
+Per accendere Brevo basta **una variabile d'ambiente**:
+
+| Nome | Valore |
+|---|---|
+| `BREVO_API_KEY` | la chiave creata dal pannello Brevo (Impostazioni → chiavi API) |
+
+Se la variabile non c'e', l'invio torna da solo sulla casella SMTP di prima:
+si puo' accendere e spegnere senza toccare il codice. Conviene anche cambiare
+`SMTP_FROM_EMAIL` in un mittente dedicato (per esempio
+`newsletter@nextgenerationbusiness.it`, da verificare in Brevo), lasciando
+`noreply@` alle email di servizio: cosi' i problemi di una lista non toccano la
+posta con cui si mandano le password.
+
+> **Il piano gratuito non basta**: 300 email al giorno, cioe' meno di Aruba, e
+> con la dicitura "Sent with Brevo" in fondo ai messaggi. Serve almeno lo
+> Starter (nessun limite giornaliero, scaglioni da 5.000 invii al mese).
+
+**Cosa cambia rispetto alla casella SMTP.** Con Brevo tutto il lotto parte in
+**una sola richiesta** (una "versione" per destinatario, con dentro il suo
+collegamento di disiscrizione), quindi i lotti passano da 20 a **200** e l'invio
+diventa molto piu' rapido. In piu' la richiesta porta una **chiave di non
+ripetizione**: se lo stesso lotto viene rimandato entro mezz'ora (per esempio
+dopo un errore di rete), Brevo non lo esegue una seconda volta.
+
+**Due cose da sapere, che non si possono aggirare:**
+
+1. **L'header "Annulla iscrizione" lo mette Brevo.** La documentazione dice che
+   Brevo inserisce da se' il `list-unsubscribe` e non accetta header standard
+   nostri. Quindi il pulsante che Gmail e Apple Mail mostrano accanto al
+   mittente porta alla disiscrizione di Brevo, non alla nostra pagina. Il
+   collegamento **dentro** la mail resta il nostro, firmato. Per non avere due
+   elenchi che si contraddicono, `/api/newsletter` legge la blocklist di Brevo
+   (`GET /v3/smtp/blockedContacts`) e riporta i nomi nuovi nella nostra
+   collezione `newsletterDisiscritti`: da quel momento valgono per tutti,
+   compreso l'invio.
+2. **Brevo risponde per l'intera richiesta, non per singolo destinatario.** O il
+   lotto e' accettato o e' rifiutato: non esiste l'elenco di chi non e' passato.
+   Rimbalzi, blocchi e reclami si vedono dopo, nel pannello di Brevo. Per questo
+   la sezione, quando spedisce con Brevo, scrive "consegnate a Brevo per la
+   spedizione" invece di far credere che siano tutte arrivate.
+
+Per una prova a vuoto (Brevo risponde ok senza spedire niente) si puo' passare
+`sandbox: true` nel corpo della richiesta.
+
 ### `POST /api/invia-newsletter` — invio a lotti
 
 L'area riservata manda l'HTML gia pronto (lo costruisce
@@ -274,9 +332,11 @@ Chi risulta disiscritto viene **saltato qui**, sul server: e' il controllo che
 vale, anche se l'elenco a video fosse vecchio di qualche minuto. Una newsletter
 senza `{{DISISCRIVITI}}` viene **rifiutata**.
 
-Massimo **20 destinatari per chiamata**: l'area riservata spezza l'elenco e
-chiama piu' volte mostrando l'avanzamento, con una pausa fra un lotto e l'altro
-(il servizio impone almeno 2 secondi, e non piu' di 80 lotti l'ora per utente).
+Massimo **200 destinatari per chiamata con Brevo**, **20** con la casella SMTP:
+il numero lo dichiara `/api/newsletter` e l'area riservata si regola da sola.
+L'elenco viene spezzato e le chiamate si susseguono mostrando l'avanzamento, con
+una pausa fra un lotto e l'altro (il servizio impone almeno 2 secondi, e non
+piu' di 80 lotti l'ora per utente).
 In `vercel.json` la funzione ha `maxDuration: 60`, e il ciclo si ferma da solo
 dopo **45 secondi**: gli indirizzi non ancora trattati tornano indietro in
 `rimasti` e l'area riservata li rimette in coda. Cosi' non capita mai che la
