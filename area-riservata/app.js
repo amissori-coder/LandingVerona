@@ -7490,6 +7490,20 @@
         { percorso: '/interviste_verona_2026/', nome: 'Le interviste di Verona in video' }
     ];
     const SITO_PUBBLICO = 'https://nextgenerationbusiness.it';
+
+    /* Fregi di apertura: disegni a tratto, leggeri, sul bianco della testata.
+       Si sceglie a ogni invio, e si puo' anche non metterne nessuno: la mail
+       regge benissimo anche solo con la tipografia. Sono PNG a tavolozza da
+       1200x400 (si vedono a 600x200), fra i 9 e i 28 KB: un banner fotografico
+       ne pesava dieci volte tanto. */
+    const FREGI_NEWSLETTER = [
+        { id: '', nome: 'Nessuna immagine', desc: 'Solo tipografia, la piu leggera', file: '' },
+        { id: 'linee-quota', nome: 'Linee di quota', desc: 'Isoipse come una carta topografica', file: '/assets/newsletter/linee-quota.png' },
+        { id: 'architettura', nome: 'Architettura', desc: 'Loggia civile appena accennata', file: '/assets/newsletter/architettura.png' },
+        { id: 'griglia', nome: 'Griglia e punti', desc: 'Carta millimetrata, quasi una filigrana', file: '/assets/newsletter/griglia.png' },
+        { id: 'pennino', nome: 'Tratto di penna', desc: 'Un unico gesto calligrafico', file: '/assets/newsletter/pennino.png' }
+    ];
+    function urlFregio(f) { return f ? indirizzoPagina(f) : ''; }
     /* Dal sito pubblicato la pagina e' sulla stessa origine (quindi si legge senza
        problemi); da un'anteprima locale si prova comunque l'indirizzo pubblico e,
        se il browser lo blocca, si spiega perche'. */
@@ -8390,9 +8404,11 @@
             + '    <div class="campo"><label>Oggetto della mail</label><input id="nl-oggetto" value="' + esc(bozza.oggetto || '') + '" placeholder="Quello che legge il destinatario"></div>'
             + '  </div>'
             + '  <div class="campo"><label>Testo di anteprima</label><input id="nl-preheader" value="' + esc(bozza.preheader || '') + '" placeholder="La riga che si vede accanto all\'oggetto nella casella di posta"></div>'
-            + '  <div class="griglia-2">'
-            + '    <div class="campo"><label>Occhiello</label><input id="nl-occhiello" value="' + esc(bozza.occhiello || '') + '" placeholder="es. Finanza agevolata"></div>'
-            + '    <div class="campo"><label>Immagine di apertura</label><input id="nl-immagine" value="' + esc(bozza.immagine || '') + '" placeholder="https://..."></div>'
+            + '  <div class="campo"><label>Occhiello</label><input id="nl-occhiello" value="' + esc(bozza.occhiello || '') + '" placeholder="es. Finanza agevolata"></div>'
+            + '  <div class="campo"><label>Immagine di apertura</label>'
+            + '    <div class="nl-fregi" id="nl-fregi"></div>'
+            + '    <input id="nl-immagine" value="' + esc(bozza.immagine || '') + '" placeholder="Oppure incolla l\'indirizzo di un\'altra immagine">'
+            + '    <div class="hint">Disegni a tratto, leggeri, pensati per la testata bianca. Puoi cambiarli a ogni invio.</div>'
             + '  </div>'
             + '  <div class="campo"><label>Titolo</label><input id="nl-titolo" value="' + esc(bozza.titolo || '') + '"></div>'
             + '  <div class="campo"><label>Sommario</label><textarea id="nl-sommario" rows="2">' + esc(bozza.sommario || '') + '</textarea></div>'
@@ -8655,6 +8671,27 @@
             aggiornaConteggio();
         }
 
+        /* --- scelta del fregio di apertura --- */
+        function disegnaFregi() {
+            const attuale = String($('nl-immagine').value || '');
+            $('nl-fregi').innerHTML = FREGI_NEWSLETTER.map(f => {
+                const url = urlFregio(f.file);
+                const scelto = f.file ? (attuale === url) : !attuale;
+                return '<button type="button" class="nl-fregio' + (scelto ? ' scelto' : '') + '" data-fregio="' + esc(url) + '" title="' + esc(f.desc) + '">'
+                    + (f.file
+                        ? '<img src="' + esc(url) + '" alt="' + esc(f.nome) + '" loading="lazy">'
+                        : '<span class="nl-fregio-vuoto">nessuna</span>')
+                    + '<span class="nl-fregio-nome">' + esc(f.nome) + '</span></button>';
+            }).join('');
+            $('nl-fregi').querySelectorAll('[data-fregio]').forEach(b => b.addEventListener('click', () => {
+                $('nl-immagine').value = b.dataset.fregio;
+                bozza.immagine = b.dataset.fregio;
+                salvataDaChiudere = true;
+                disegnaFregi();
+            }));
+        }
+        $('nl-immagine').addEventListener('input', () => { bozza.immagine = $('nl-immagine').value.trim(); disegnaFregi(); });
+
         /* --- generazione dalla pagina --- */
         $('nl-pagina').addEventListener('change', () => {
             const v = $('nl-pagina').value;
@@ -8682,7 +8719,8 @@
                     bozza.titolo = d.titolo || bozza.titolo;
                     bozza.occhiello = d.occhiello || bozza.occhiello;
                     bozza.sommario = d.sommario || bozza.sommario;
-                    bozza.immagine = d.immagine || bozza.immagine;
+                    // l'immagine NON arriva piu dalla pagina: quella era la banner
+                    // standard che il committente ha bocciato. Si sceglie fra i fregi.
                     bozza.oggetto = bozza.oggetto || d.oggetto || d.titolo || '';
                     bozza.preheader = bozza.preheader || d.preheader || d.sommario || '';
                     bozza.nome = bozza.nome || d.titolo || '';
@@ -8693,6 +8731,7 @@
                     }));
                     if (d.cta && d.cta.url) bozza.cta = { testo: d.cta.testo || 'Leggi tutto sul sito', url: d.cta.url };
                     riempiCampi();
+                    disegnaFregi();
                     disegnaBlocchi();
                     esito.className = 'nl-esito ok';
                     esito.textContent = 'Bozza pronta: ' + bozza.blocchi.length + ' blocchi dalla pagina. Controlla i testi e togli quello che non serve.';
@@ -8938,6 +8977,7 @@
 
         disegnaBlocchi();
         disegnaGruppi();
+        disegnaFregi();
         // se i destinatari non sono ancora arrivati dal servizio (finestra aperta
         // subito dopo l'ingresso nella sezione), il pannello si riempie da solo
         if (Cloud.attivo && !_nlDati) {
