@@ -1749,6 +1749,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             var GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyq8cvS_WNMFTMDi2jFhft-xnqnKjYDvIz5On9pfM66y5dGUzcXYZraAF03CCW-rJ-sQw/exec';
 
+            // Seconda strada, indipendente dalla prima: gli stessi dati vanno anche
+            // sul database dell'area riservata, cosi' l'iscrizione si vede subito
+            // nella sezione Newsletter senza dipendere dal foglio. Se questa fallisce
+            // non cambia nulla per chi si iscrive: il foglio resta la conferma
+            // dell'invio, ed e' il foglio a comandare il messaggio a schermo.
+            // (text/plain evita la richiesta di verifica preliminare del browser;
+            //  il contenuto e' comunque JSON e il servizio lo legge come tale.)
+            fetch('https://revilaw-email.vercel.app/api/iscrizione-nuova', {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body: JSON.stringify(jsonData)
+            }).catch(() => { /* il foglio resta la strada principale */ });
+
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST',
                 mode: 'no-cors',

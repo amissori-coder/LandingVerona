@@ -214,6 +214,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 marketing: !!(form.querySelector('#marketing') && form.querySelector('#marketing').checked)
             };
 
+            // Seconda strada, indipendente dalla prima: gli stessi dati vanno anche
+            // sul database dell'area riservata, cosi' l'iscrizione si vede subito
+            // nella sezione Newsletter senza dipendere dal foglio. Se questa fallisce
+            // non cambia nulla per chi si iscrive: il foglio resta la conferma
+            // dell'invio, ed e' il foglio a comandare il messaggio a schermo.
+            // (text/plain evita la richiesta di verifica preliminare del browser;
+            //  il contenuto e' comunque JSON e il servizio lo legge come tale.)
+            fetch('https://revilaw-email.vercel.app/api/iscrizione-nuova', {
+                method:  'POST',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body:    JSON.stringify(payload)
+            }).catch(() => { /* il foglio resta la strada principale */ });
+
             fetch(NGB_SHEET_URL, {
                 method:  'POST',
                 mode:    'no-cors',
