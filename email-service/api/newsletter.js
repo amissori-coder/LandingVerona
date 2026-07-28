@@ -46,7 +46,11 @@ async function leggiFoglio(forza) {
     if (!sheetId) return [];
     if (!forza && _cacheFoglio.righe && (Date.now() - _cacheFoglio.quando) < FOGLIO_MS) return _cacheFoglio.righe;
     const cred = N.leggiServiceAccount();
-    const range = process.env.EVENTI_SHEET_RANGE || 'A:K';
+    /* A:Z, non A:K. Le colonne si mappano per nome, quindi leggerne di piu' non
+       costa nulla (le celle vuote non tornano indietro), mentre leggerne di meno
+       costa il consenso: "Marketing" e' l'ULTIMA colonna del foglio, e bastava
+       inserirne una prima perche' finisse fuori intervallo e sparisse in silenzio. */
+    const range = process.env.EVENTI_SHEET_RANGE || 'A:Z';
     const token = await tokenSheets(cred);
     const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(sheetId)
         + '/values/' + encodeURIComponent(range) + '?majorDimension=ROWS';
@@ -70,7 +74,7 @@ async function leggiFoglio(forza) {
         if (iMkt < 0) return null;
         const v = cella(riga, iMkt);
         if (!v) return false;
-        return VERO.test(v);
+        return vero(v);
     };
     const righe = [];
     for (let i = 1; i < griglia.length; i++) {
@@ -156,6 +160,15 @@ async function revisioneIscrizioni(db) {
    true/false quando il modulo l'ha registrato; null quando non risulta
    (schede importate da elenchi vecchi, dove la colonna poteva non esserci). */
 const VERO = /^(si|s|true|vero|1|x|yes)$/i;
+/* I moduli del sito scrivono "Si" con l'accento, e per un confronto letterale
+   "Si" con l'accento non e' "si": senza togliere l'accento PRIMA del confronto
+   ogni riga del foglio risulterebbe con il consenso NEGATO. Che e' il caso
+   peggiore: il consenso negato non si recupera nemmeno con l'attribuzione,
+   che per scelta vale solo per i consensi non risultanti. Si normalizza come
+   le intestazioni: via gli accenti e gli spazi ai lati. */
+function vero(v) {
+    return VERO.test(String(v == null ? '' : v).trim().normalize('NFD').replace(/\p{M}/gu, ''));
+}
 function consensoScheda(v) {
     if (v.marketing === true) return true;
     if (v.marketing === false) return false;
@@ -165,7 +178,7 @@ function consensoScheda(v) {
     for (let i = 0; i < chiavi.length; i++) {
         if (/market|consens|newsletter/i.test(chiavi[i])) {
             const s = String(ex[chiavi[i]] == null ? '' : ex[chiavi[i]]).trim();
-            return s ? VERO.test(s) : false;
+            return s ? vero(s) : false;
         }
     }
     return null;

@@ -143,7 +143,7 @@ module.exports = async (req, res) => {
         } else {
             const sheetId = process.env.EVENTI_SHEET_ID || '';
             if (!sheetId) { res.status(400).json({ ok: false, msg: 'Nessun file inviato e foglio non configurato (EVENTI_SHEET_ID).' }); return; }
-            const range = process.env.EVENTI_SHEET_RANGE || 'A:K';
+            const range = process.env.EVENTI_SHEET_RANGE || 'A:Z';
             const token = await tokenSheets(cred);
             const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(sheetId)
                 + '/values/' + encodeURIComponent(range) + '?majorDimension=ROWS';

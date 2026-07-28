@@ -7724,8 +7724,11 @@
             const provenienza = ev ? (ev.titolo + ', ' + ev.quando) : (r.pagina || 'Senza indicazione di pagina');
             let stato = r.marketing === true ? 'si' : (r.marketing === false ? 'no' : 'ignoto');
             // consenso attribuito a mano ai contatti gia presenti: vale come un si,
-            // ma resta distinguibile in elenco perche' l'origine e' diversa
-            if (stato !== 'si' && consensoAttribuito(r, cfgNL)) stato = 'attribuito';
+            // ma resta distinguibile in elenco perche' l'origine e' diversa.
+            // SOLO su 'ignoto': l'attribuzione copre il consenso che NON RISULTA,
+            // non quello negato. Chi ha spuntato "No" ha risposto, e una risposta
+            // non si ribalta a tavolino: resta fuori qualunque sia la data.
+            if (stato === 'ignoto' && consensoAttribuito(r, cfgNL)) stato = 'attribuito';
             const persona = {
                 email: String(r.email || '').toLowerCase(), nome: r.nome || '', cognome: r.cognome || '',
                 azienda: r.azienda || '', origine: provenienza, data: r.data || '',

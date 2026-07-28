@@ -264,7 +264,7 @@ module.exports = async (req, res) => {
             rispondi(res, daFirestore, ['firestore'], presenze, cancellate);
             return;
         }
-        const range = process.env.EVENTI_SHEET_RANGE || 'A:K';
+        const range = process.env.EVENTI_SHEET_RANGE || 'A:Z';
         const token = await tokenSheets(cred);
         const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(sheetId)
             + '/values/' + encodeURIComponent(range) + '?majorDimension=ROWS';

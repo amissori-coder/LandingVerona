@@ -227,7 +227,7 @@ anche le iscrizioni raccolte prima del passaggio a Firestore):
    (console Google Cloud > API e servizi > Libreria > "Google Sheets API" > Abilita).
 3. Aggiungi su Vercel la variabile d'ambiente:
    - `EVENTI_SHEET_ID` = l'ID del foglio (la parte fra `/d/` e `/edit` nell'URL)
-   - facoltativa: `EVENTI_SHEET_RANGE` (default `A:K`)
+   - facoltativa: `EVENTI_SHEET_RANGE` (default `A:Z`)
 4. **Redeploy** del servizio.
 
 Le colonne vengono lette **per nome** dall'intestazione (`Data, Pagina, Nome,
