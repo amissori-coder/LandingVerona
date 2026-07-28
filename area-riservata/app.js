@@ -1320,6 +1320,11 @@
         async inviaLottoNewsletter(corpo) {
             return this._chiamaNewsletter('invia-newsletter', corpo);
         },
+        /* Come sono andati uno o piu' invii: si mandano solo le etichette di giro
+           e la data di partenza, il servizio risponde con soli numeri. */
+        async andamentoNewsletter(blocchi, forza) {
+            return this._chiamaNewsletter('andamento-newsletter', { blocchi: blocchi, forza: !!forza });
+        },
 
         /* prima password: crea l'account se manca (su una app secondaria,
            senza toccare la sessione corrente) e invia l'email con il
@@ -7650,6 +7655,14 @@
     let _nlInvio = null;             // {trasporto, maxLotto} dichiarati dal servizio
     let _nlFonti = null;             // quanti contatti da Firestore e quanti dal foglio storico
     let nlTab = 'newsletter';        // scheda aperta nella sezione
+    /* Esiti degli invii letti da Brevo, per etichetta di giro. Restano solo qui,
+       in memoria: nell'archivio condiviso non entrano, perche' quello e' un unico
+       documento fuso per record con l'ultimo che scrive che vince, e due browser
+       con letture di freschezza diversa si sovrascriverebbero a vicenda. */
+    let _nlAnd = {};                 // chiave del giro -> blocco di numeri
+    let _nlAndInFlight = false;
+    let _nlAndMsg = '';
+    let _nlAndAggiornato = 0;
 
     /* Quanti destinatari per volta. Lo decide il servizio: con Brevo un lotto
        intero parte in una sola richiesta, con la casella di posta invece si
@@ -8547,6 +8560,9 @@
 
         apriModale(''
             + intestazioneInvio(bozza)
+            // com'e' andato l'invio: si riempie da solo, e su una newsletter mai
+            // spedita resta vuoto, quindi la finestra e' identica a prima
+            + '<div id="nl-andamento"></div>'
             + '<div class="nl-sez">'
             + '  <div class="nl-sez-tit">1. A chi la mandi</div>'
             + '  <div id="nl-gruppi"></div>'
@@ -9029,7 +9045,13 @@
             const coda = destinatari.slice();
             const totale = coda.length;
             const serviti = ripresa ? (((rec.invii || [])[0] || {}).serviti || []).slice() : [];
-            let inviati = 0, incerti = 0;
+            /* Etichetta di QUESTO giro: uguale per tutti i lotti, diversa da ogni
+               altro invio della stessa newsletter. E' la chiave con cui si chiedono
+               poi gli esiti a Brevo. L'etichetta di campagna non basterebbe: la
+               condividono i due invii di una ripresa e anche le prove. */
+            const tagInvio = 'inv-' + uid();
+            const iniziato = Date.now();
+            let inviati = 0, incerti = 0, giaAccettati = 0;
             const saltati = [], falliti = [];
             let interrotto = '';
             // come ha spedito DAVVERO il servizio: se la sezione non aveva ancora letto
@@ -9042,7 +9064,7 @@
                     while (coda.length) {
                         const lotto = coda.splice(0, LOTTO);
                         mostra('Inviate ' + inviati + ' mail su ' + totale + ', ne restano ' + (coda.length + lotto.length) + '...');
-                        const corpo = { oggetto: rec.oggetto, html: mail.html, testo: mail.testo, destinatari: lotto, campagna: rec.id };
+                        const corpo = { oggetto: rec.oggetto, html: mail.html, testo: mail.testo, destinatari: lotto, campagna: rec.id, invio: tagInvio };
                         let r = await Cloud.inviaLottoNewsletter(corpo);
                         // il servizio impone una pausa fra un gruppo e l'altro: se si arriva
                         // troppo presto si aspetta e si riprova una volta sola
@@ -9082,6 +9104,13 @@
                             break;
                         }
                         if (r.trasporto) trasportoUsato = r.trasporto;
+                        /* Lotto che Brevo aveva gia' accettato poco prima (protezione
+                           anti doppio invio). Le mail sono partite davvero, ma sotto
+                           le etichette della richiesta ORIGINALE: sotto quella di
+                           questo giro Brevo non registrera' nulla per loro. Va
+                           annotato, altrimenti la sezione degli esiti mostrerebbe
+                           "200 partite, 0 consegnate" e sembrerebbe un disastro. */
+                        if (r.giaAccettato) giaAccettati += (r.inviati || 0);
                         inviati += r.inviati || 0;
                         (r.saltati || []).forEach(x => saltati.push(x));
                         (r.falliti || []).forEach(x => falliti.push(x));
@@ -9116,6 +9145,11 @@
                     // numeri il riepilogo di un invio interrotto direbbe "N inviate su N"
                     previsti: totale, nonServiti: coda.length,
                     trasporto: trasportoUsato,
+                    /* per chiedere a Brevo com'e' andato QUESTO invio. "iniziato" e'
+                       diverso da "il": su molti destinatari, con la pausa fra i lotti,
+                       fra la partenza e la fine puo' passare un'ora, e la finestra da
+                       chiedere a Brevo va calcolata dalla partenza. */
+                    tagInvio: tagInvio, iniziato: iniziato, giaAccettati: giaAccettati,
                     serviti: serviti          // impronte, non indirizzi
                 }].concat(rec.invii || []);
                 Newsletter.salvaUna(JSON.parse(JSON.stringify(rec)));
@@ -9126,6 +9160,11 @@
                 salvataDaChiudere = false;
             }
             chiudiConfermaInLinea();
+            /* La finestra non viene ricostruita dopo un invio: senza questo, la
+               sezione degli esiti resterebbe ferma a prima e non mostrerebbe
+               nemmeno l'invio appena fatto. */
+            disegnaAndamentoInvii(rec);
+            caricaAndamentoInvii(rec, true);
             let msg = 'Inviate ' + inviati + ' mail su ' + totale;
             if (saltati.length) msg += ' - ' + saltati.length + ' saltate';
             if (falliti.length) msg += ' - ' + falliti.length + ' non riuscite';
@@ -9144,6 +9183,10 @@
         disegnaBlocchi();
         disegnaGruppi();
         disegnaFregi();
+        // esiti degli invii gia' fatti: prima si disegna con quello che si sa
+        // gia' (cosi' la finestra non "salta" dopo), poi si chiede al servizio
+        disegnaAndamentoInvii(bozza);
+        caricaAndamentoInvii(bozza);
         // se i destinatari non sono ancora arrivati dal servizio (finestra aperta
         // subito dopo l'ingresso nella sezione), il pannello si riempie da solo
         if (Cloud.attivo && !_nlDati) {
@@ -9233,6 +9276,195 @@
     }
     function fermaSorveglianzaIscritti() {
         if (_nlSorveglia) { clearInterval(_nlSorveglia); _nlSorveglia = null; }
+    }
+
+    /* =========================================================
+       ANDAMENTO DEGLI INVII (consegnate, aperte, cliccate)
+       ---------------------------------------------------------
+       I numeri arrivano da Brevo, che li tiene per 90 giorni. Tre regole che
+       governano tutto quello che segue:
+
+       1. Non si scrive mai "hanno letto". Le aperture si contano con
+          un'immagine invisibile: i filtri antispam e le protezioni di Apple la
+          scaricano da soli senza che nessuno abbia letto niente (aperture
+          gonfiate), e chi ha le immagini bloccate legge senza risultare
+          (aperture sottostimate). Per questo il numero messo davanti e' il
+          CLIC: un filtro antispam non clicca.
+       2. Consegnate, aperte e cliccate NON sono tre fette dello stesso insieme:
+          chi ha cliccato ha anche ricevuto, e quasi sempre aperto. Nella torta
+          ogni mail compare UNA volta sola, nel punto piu' avanzato che ha
+          raggiunto, cosi' la somma delle fette fa esattamente il totale.
+       3. Quando un numero non si sa, si dice. Mai uno zero al posto di un
+          "non lo so", e mai una percentuale su un totale ignoto.
+    ========================================================= */
+    const COL_ESITI = {
+        clic: '#1E7F4F',        // --verde
+        aperte: '#2A5A85',      // --blu-500
+        consegnate: '#9DB8D2',
+        nonConsegnate: '#B3261E', // --rosso
+        attesa: '#E2E8F0'       // --grigio-200
+    };
+    /* Ripartizione in fette che non si sovrappongono. I limiti con min e max non
+       sono prudenza generica: i clic POSSONO superare le aperture, perche' chi ha
+       le immagini bloccate clicca senza che l'apertura venga mai registrata.
+       Senza i limiti una fetta diventerebbe negativa e la torta si accartoccia. */
+    function fetteEsiti(n) {
+        const consegnate = Math.max(0, n.consegnate || 0);
+        const clic = Math.min(Math.max(0, n.clicUnici || 0), consegnate);
+        const aperte = Math.max(0, Math.min(Math.max(0, n.apertureUniche || 0), consegnate) - clic);
+        const mute = Math.max(0, consegnate - clic - aperte);
+        const nonConsegnate = (n.rimbalziDuri || 0) + (n.rimbalziMorbidi || 0) + (n.bloccate || 0) + (n.nonValide || 0);
+        const attesa = Math.max(0, (n.richieste || 0) - consegnate - nonConsegnate);
+        return [
+            { id: 'clic', nome: 'Hanno cliccato', v: clic, c: COL_ESITI.clic },
+            { id: 'aperte', nome: 'Aperte, senza clic', v: aperte, c: COL_ESITI.aperte },
+            { id: 'mute', nome: 'Consegnate, nessun segnale', v: mute, c: COL_ESITI.consegnate },
+            { id: 'ko', nome: 'Non consegnate', v: nonConsegnate, c: COL_ESITI.nonConsegnate },
+            { id: 'attesa', nome: 'Ancora senza esito', v: attesa, c: COL_ESITI.attesa }
+        ].filter(f => f.v > 0);
+    }
+    /* Torta in SVG puro. La geometria e' quella gia' collaudata del sondaggio:
+       partenza in alto, arco grande oltre meta' giro, e il caso della fetta unica
+       risolto con un cerchio, perche' un arco di 360 gradi degenera e sparisce. */
+    function tortaEsitiSvg(fette) {
+        const tot = fette.reduce((a, f) => a + f.v, 0);
+        if (!tot) return '';
+        const cx = 90, cy = 90, r = 78;
+        let ang = -Math.PI / 2, paths = '', etich = '';
+        if (fette.length === 1) {
+            paths = '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + fette[0].c + '"/>';
+            etich = '<text x="' + cx + '" y="' + (cy + 5) + '" text-anchor="middle" class="nl-torta-lab">100%</text>';
+        } else {
+            fette.forEach(f => {
+                const frac = f.v / tot;
+                const a2 = ang + frac * 2 * Math.PI;
+                const x1 = (cx + r * Math.cos(ang)).toFixed(2), y1 = (cy + r * Math.sin(ang)).toFixed(2);
+                const x2 = (cx + r * Math.cos(a2)).toFixed(2), y2 = (cy + r * Math.sin(a2)).toFixed(2);
+                const large = frac > 0.5 ? 1 : 0;
+                paths += '<path d="M' + cx + ',' + cy + ' L' + x1 + ',' + y1 + ' A' + r + ',' + r + ' 0 ' + large + ' 1 ' + x2 + ',' + y2 + ' Z" fill="' + f.c + '"></path>';
+                if (frac >= 0.07) {
+                    const mid = ang + frac * Math.PI;
+                    const lx = (cx + 0.62 * r * Math.cos(mid)).toFixed(2), ly = (cy + 0.62 * r * Math.sin(mid) + 4).toFixed(2);
+                    etich += '<text x="' + lx + '" y="' + ly + '" text-anchor="middle" class="nl-torta-lab">' + Math.round(frac * 100) + '%</text>';
+                }
+                ang = a2;
+            });
+        }
+        const legenda = fette.map(f => '<li><span class="nl-torta-sw" style="background:' + f.c + '"></span>'
+            + '<span class="nl-torta-nome">' + esc(f.nome) + '</span>'
+            + '<span class="nl-torta-val">' + f.v + ' (' + Math.round(f.v / tot * 100) + '%)</span></li>').join('');
+        return '<div class="nl-torta"><div class="g-svg-wrap">'
+            + '<svg viewBox="0 0 180 180" role="img" aria-label="Ripartizione delle mail di questo invio">' + paths + etich + '</svg>'
+            + '</div><ul class="nl-torta-legenda">' + legenda + '</ul></div>';
+    }
+
+    /* Una scheda per invio. Se di quell'invio non si sa niente, si spiega perche'
+       invece di mostrare una fila di zeri. */
+    function schedaAndamento(inv, blocco) {
+        const testa = '<div class="nl-and-testa"><b>' + esc(fmtDataOra(inv.il)) + '</b>'
+            + (inv.da ? ' <span class="hint">di ' + esc(inv.da) + '</span>' : '')
+            + (inv.interrotto ? ' <span class="badge ambra">interrotto</span>' : '') + '</div>';
+        // i NOSTRI numeri: certi, indipendenti da Brevo
+        const nostri = '<div class="nl-and-nostri">'
+            + '<span><b>' + (inv.n || 0) + '</b> partite</span>'
+            + (inv.saltati ? '<span><b>' + inv.saltati + '</b> saltate</span>' : '')
+            + (inv.falliti ? '<span><b>' + inv.falliti + '</b> non riuscite</span>' : '')
+            + (inv.nonServiti ? '<span><b>' + inv.nonServiti + '</b> non ancora servite</span>' : '')
+            + (inv.incerti ? '<span><b>' + inv.incerti + '</b> a esito incerto</span>' : '')
+            + '</div>';
+
+        if (inv.trasporto && inv.trasporto !== 'brevo') {
+            return '<div class="nl-and-riga">' + testa + nostri
+                + '<div class="nl-and-nota">Questo invio e partito dalla casella di posta, non da Brevo: degli esiti si sa solo quante mail sono state accettate.</div></div>';
+        }
+        if (!blocco || blocco.stato !== 'ok') {
+            const msg = (blocco && blocco.msg) || 'Esiti non ancora disponibili.';
+            const attesa = !blocco || blocco.stato === 'attesa';
+            return '<div class="nl-and-riga">' + testa + nostri
+                + '<div class="nl-and-nota">' + esc(msg)
+                + (attesa ? ' I primi esiti compaiono di solito entro pochi minuti: premi Aggiorna piu tardi.' : '')
+                + (inv.giaAccettati ? ' <b>' + inv.giaAccettati + '</b> di queste mail erano un rinvio dello stesso lotto: Brevo le aveva gia accettate e le ha registrate sotto l\'invio precedente.' : '')
+                + '</div></div>';
+        }
+
+        const n = blocco.n;
+        const nonConsegnate = (n.rimbalziDuri || 0) + (n.rimbalziMorbidi || 0) + (n.bloccate || 0) + (n.nonValide || 0);
+        const senzaEsito = Math.max(0, (n.richieste || 0) - (n.consegnate || 0) - nonConsegnate);
+        const numeri = '<div class="nl-and-numeri">'
+            + '<div class="nl-and-n"><span class="e">Consegnate</span><span class="v">' + n.consegnate + '</span>'
+            + '<span class="q">su ' + n.richieste + ' accettate da Brevo</span></div>'
+            + '<div class="nl-and-n"><span class="e">Hanno cliccato</span><span class="v">' + n.clicUnici + '</span>'
+            + '<span class="q">' + (n.consegnate ? Math.round(n.clicUnici / n.consegnate * 100) + '% delle consegnate' : '') + '</span></div>'
+            + '<div class="nl-and-n"><span class="e">Aperture registrate</span><span class="v">' + n.apertureUniche + '</span>'
+            + '<span class="q">' + (n.consegnate ? Math.round(n.apertureUniche / n.consegnate * 100) + '% delle consegnate' : '') + '</span></div>'
+            + (nonConsegnate ? '<div class="nl-and-n ko"><span class="e">Non consegnate</span><span class="v">' + nonConsegnate + '</span>'
+                + '<span class="q">' + [(n.rimbalziDuri ? n.rimbalziDuri + ' indirizzi inesistenti' : ''), (n.rimbalziMorbidi ? n.rimbalziMorbidi + ' casella piena o irraggiungibile' : ''), (n.bloccate ? n.bloccate + ' bloccate' : ''), (n.nonValide ? n.nonValide + ' non valide' : '')].filter(Boolean).join(', ') + '</span></div>' : '')
+            + (n.disiscritti ? '<div class="nl-and-n"><span class="e">Disiscritti</span><span class="v">' + n.disiscritti + '</span><span class="q">rilevati da Brevo dopo questo invio</span></div>' : '')
+            + (n.spam ? '<div class="nl-and-n ko"><span class="e">Segnalate come spam</span><span class="v">' + n.spam + '</span><span class="q">e il numero che fa sospendere un mittente</span></div>' : '')
+            + (senzaEsito ? '<div class="nl-and-n"><span class="e">Ancora senza esito</span><span class="v">' + senzaEsito + '</span><span class="q">consegna in corso</span></div>' : '')
+            + '</div>';
+
+        // avvertenze scritte solo quando servono davvero
+        const note = [];
+        if (n.clicUnici > n.apertureUniche) note.push('Alcuni hanno cliccato senza che l\'apertura risultasse: succede con le immagini bloccate, e non e un errore.');
+        if (inv.n && n.richieste && Math.abs(inv.n - n.richieste) > 1) {
+            note.push('Noi contiamo ' + inv.n + ' mail partite, Brevo ne registra ' + n.richieste + ' su questo invio'
+                + (inv.giaAccettati ? ': ' + inv.giaAccettati + ' erano un rinvio dello stesso lotto, gia accettato e registrato sotto l\'invio precedente.' : '.'));
+        }
+        if (blocco.per === 'campagna') note.push('Sono i dati dell\'intera campagna: comprendono tutti gli invii di questa newsletter e le prove. Questo invio e precedente all\'etichetta per singolo giro.');
+        note.push('Aperture e clic si sovrappongono: chi ha cliccato ha anche ricevuto, e quasi sempre aperto. Nella torta ogni mail compare una volta sola, nel punto piu avanzato che ha raggiunto.');
+
+        return '<div class="nl-and-riga">' + testa + nostri + numeri
+            + tortaEsitiSvg(fetteEsiti(n))
+            + '<div class="nl-and-nota">' + note.map(esc).join('<br>') + '</div></div>';
+    }
+
+    function disegnaAndamentoInvii(rec) {
+        const cont = document.getElementById('nl-andamento');
+        if (!cont) return;
+        const invii = (rec && rec.invii) || [];
+        if (!invii.length) { cont.innerHTML = ''; return; }
+        const schede = invii.slice(0, 8).map(inv => {
+            const chiave = inv.tagInvio || rec.id;
+            return schedaAndamento(inv, _nlAnd[chiave] || null);
+        }).join('');
+        cont.innerHTML = '<div class="nl-sez nl-and">'
+            + '<div class="nl-sez-tit">Com\'e andato l\'invio'
+            + '<span class="nl-and-azioni"><span class="ev-live">'
+            + (_nlAndInFlight ? 'aggiornamento...' : (_nlAndAggiornato ? 'letto alle ' + esc(new Date(_nlAndAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) : 'non ancora letto'))
+            + '</span><button type="button" class="btn btn-secondary" id="nl-and-agg"' + (_nlAndInFlight ? ' disabled' : '') + '>Aggiorna</button></span></div>'
+            + (_nlAndMsg ? '<div class="nl-and-nota ko">' + esc(_nlAndMsg) + '</div>' : '')
+            + schede + '</div>';
+        const b = document.getElementById('nl-and-agg');
+        if (b) b.addEventListener('click', () => caricaAndamentoInvii(rec, true));
+    }
+
+    function caricaAndamentoInvii(rec, forza) {
+        if (!Cloud.attivo || _nlAndInFlight) return;
+        const invii = ((rec && rec.invii) || []).slice(0, 8);
+        if (!invii.length) return;
+        const blocchi = invii.map(inv => ({
+            // gli invii vecchi non hanno l'etichetta di giro: si ripiega sulla campagna,
+            // dichiarandolo, invece di non mostrare niente
+            chiave: inv.tagInvio || rec.id,
+            per: inv.tagInvio ? 'invio' : 'campagna',
+            dal: inv.iniziato || inv.il || 0
+        })).filter(b => b.chiave);
+        if (!blocchi.length) return;
+        _nlAndInFlight = true; _nlAndMsg = '';
+        disegnaAndamentoInvii(rec);
+        Cloud.andamentoNewsletter(blocchi, forza).then(r => {
+            _nlAndInFlight = false;
+            if (!r.ok) { _nlAndMsg = r.msg || 'Esiti non leggibili in questo momento.'; disegnaAndamentoInvii(rec); return; }
+            (r.blocchi || []).forEach(b => { if (b && b.chiave) _nlAnd[b.chiave] = b; });
+            _nlAndAggiornato = r.aggiornato || Date.now();
+            _nlAndMsg = r.avviso || '';
+            disegnaAndamentoInvii(rec);
+        }).catch(() => {
+            _nlAndInFlight = false;
+            _nlAndMsg = 'Servizio non raggiungibile: i numeri sono quelli dell\'ultima lettura riuscita.';
+            disegnaAndamentoInvii(rec);
+        });
     }
 
     /* Riga in cima al compositore che racconta com'e' andato l'ultimo invio.

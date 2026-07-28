@@ -731,6 +731,33 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .nl-conto.verde .nl-conto-val { color: var(--verde); }
 .nl-conti-fuori { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--grigio-200); font-size: 0.82rem; color: var(--grigio-600); line-height: 1.55; }
 .nl-conti-fuori b { color: var(--blu-900); }
+/* Come e' andato l'invio: una scheda per giro, con i nostri numeri, quelli di
+   Brevo, la torta e le avvertenze. Sta dentro la finestra del compositore,
+   quindi riusa il vocabolario dei riquadri invece di inventarne uno nuovo. */
+.nl-and .nl-sez-tit { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.nl-and-azioni { display: flex; align-items: center; gap: 10px; font-weight: 400; }
+.nl-and-riga { border-top: 1px solid var(--grigio-200); padding-top: 13px; margin-top: 13px; }
+.nl-and-riga:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+.nl-and-testa { font-size: 0.9rem; color: var(--blu-900); margin-bottom: 6px; }
+.nl-and-nostri { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.84rem; color: var(--grigio-600); margin-bottom: 10px; }
+.nl-and-nostri b { color: var(--blu-900); font-variant-numeric: tabular-nums; }
+.nl-and-numeri { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.nl-and-n { border-left: 3px solid var(--blu-500); padding: 7px 11px; background: var(--blu-050); border-radius: 4px; }
+.nl-and-n.ko { border-left-color: var(--rosso); background: #FDF3F2; }
+.nl-and-n .e { display: block; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--grigio-600); }
+.nl-and-n .v { display: block; font-family: 'Montserrat', sans-serif; font-size: 1.25rem; font-weight: 800; color: var(--blu-900); line-height: 1.25; }
+.nl-and-n .q { display: block; font-size: 0.75rem; color: var(--grigio-600); }
+.nl-and-nota { font-size: 0.8rem; color: var(--grigio-600); line-height: 1.55; }
+.nl-and-nota.ko { color: var(--rosso); }
+.nl-torta { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin-bottom: 11px; }
+.nl-torta .g-svg-wrap { flex: 0 0 170px; max-width: 170px; }
+.nl-torta svg { width: 100%; height: auto; display: block; }
+.nl-torta-lab { font-size: 11px; font-weight: 700; fill: #fff; }
+.nl-torta-legenda { list-style: none; margin: 0; padding: 0; flex: 1 1 230px; min-width: 0; }
+.nl-torta-legenda li { display: flex; align-items: baseline; gap: 9px; font-size: 0.84rem; padding: 3px 0; }
+.nl-torta-sw { width: 11px; height: 11px; border-radius: 2px; flex: none; }
+.nl-torta-nome { flex: 1; color: var(--grigio-900); }
+.nl-torta-val { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--blu-900); white-space: nowrap; }
 .nl-sez { border: 1px solid var(--grigio-200); border-radius: var(--raggio); padding: 16px 18px; margin-bottom: 16px; background: #fff; }
 .nl-sez-tit {
     font-weight: 700; color: var(--blu-900); font-size: 0.95rem; margin-bottom: 12px;

@@ -239,7 +239,7 @@ cambiare senza rompere nulla. Il filtro dell'evento confronta la colonna
 
 ## Newsletter
 
-Tre funzioni servono la sezione **Newsletter** dell'area riservata. Le parti in
+Quattro funzioni servono la sezione **Newsletter** dell'area riservata. Le parti in
 comune (firma dei collegamenti, permessi, lettura dei disiscritti) stanno in
 `lib/newsletter.js`: non e una funzione, e solo codice condiviso.
 
@@ -388,6 +388,45 @@ saltando chi ha gia ricevuto.
 > **Limite del piano Brevo.** Il monte invii mensile e' condiviso fra newsletter,
 > comunicazioni ed email di servizio. Sul piano gratuito ci sono anche 300 invii
 > al giorno, non cumulabili: per una newsletter serve almeno lo Starter.
+
+### `POST /api/andamento-newsletter` — come e andato un invio
+
+Restituisce, per una o piu **etichette di giro**, quante mail Brevo ha accettato,
+consegnate, aperte e cliccate. L'area riservata la mostra dentro la finestra
+della singola newsletter, con un grafico a torta.
+
+L'etichetta di giro (`invio` nel corpo di `/api/invia-newsletter`) la genera
+l'area riservata, e' uguale per tutti i lotti dello stesso invio ed e diversa fra
+un invio e l'altro. Serve perche l'etichetta di **campagna** non basta: la
+condividono i due invii di una ripresa dopo un'interruzione, e ci finiscono
+dentro anche le prove, che sono mail vere.
+
+Corpo: `{ idToken, blocchi: [{ chiave, per, dal }], forza }`, massimo 8 blocchi.
+Risposta: un blocco per etichetta, ciascuno con uno `stato` dichiarato
+(`ok`, `attesa`, `fuori-finestra`, `non-disponibile`, `errore`) e i numeri
+**solo** nello stato `ok`.
+
+Tre scelte da non disfare per sbaglio:
+
+- si interroga l'**aggregato** (`/smtp/statistics/aggregatedReport`) e non
+  l'elenco degli eventi. L'elenco degli eventi restituisce una riga per evento
+  **con dentro l'indirizzo del destinatario**: sarebbe l'elenco di chi apre le
+  nostre mail, e questo servizio non deve nemmeno maneggiarlo. La risposta di
+  questo endpoint contiene solo numeri, stati e date;
+- **cache obbligatoria**, non un'ottimizzazione: gli endpoint `/v3/smtp/...` di
+  Brevo hanno una quota di **300 chiamate all'ora**, condivisa con la lettura
+  della blocklist che la sezione fa gia per conto suo. Qui: memoria dell'istanza
+  piu collezione Firestore `newsletterEsiti` (su Vercel le istanze sono piu
+  d'una), scadenza 10 minuti, massimo 3 letture vere per richiesta, 60 secondi di
+  silenzio su un'etichetta dopo un errore;
+- **zero richieste non e zero consegnate**: significa che Brevo non ha ancora
+  niente su quell'etichetta, ed esce come `attesa`. Se Brevo non risponde si
+  serve l'ultima lettura riuscita dichiarando che e vecchia.
+
+Brevo guarda indietro **90 giorni**: oltre quelli il blocco esce
+`fuori-finestra`. Le aperture si contano con un'immagine invisibile, quindi non
+vanno mai presentate come "persone che hanno letto": i filtri antispam le
+gonfiano e le immagini bloccate le nascondono. Il numero affidabile e il **clic**.
 
 ### `POST|GET /api/disiscrizione` — endpoint pubblico
 
