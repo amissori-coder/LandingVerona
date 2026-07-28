@@ -4,6 +4,7 @@
   ],
   "functions": {
     "api/cron-comunicazioni.js": { "maxDuration": 60 },
-    "api/invia-newsletter.js": { "maxDuration": 60 }
+    "api/invia-newsletter.js": { "maxDuration": 60 },
+    "api/andamento-newsletter.js": { "maxDuration": 30 }
   }
 }

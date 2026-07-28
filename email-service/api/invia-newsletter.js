@@ -152,6 +152,14 @@ module.exports = async (req, res) => {
             return;
         }
         const campagna = String(body.campagna || '').slice(0, 60);
+        /* Etichetta del singolo GIRO di invio, generata dall'area riservata e uguale
+           per tutti i lotti dello stesso giro. Serve per chiedere poi a Brevo come
+           e' andato QUEL invio: l'etichetta di campagna non basta, perche' due
+           invii della stessa newsletter (o una ripresa dopo un'interruzione) la
+           condividono, e ci finiscono dentro anche le prove.
+           Ripulita perche' finisce in una richiesta a Brevo: solo lettere, cifre,
+           trattino e trattino basso. */
+        const invio = String(body.invio || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60);
 
         /* prova: si manda solo a chi sta usando la sezione, con il suo collegamento
            vero (cosi' si puo' verificare anche la disiscrizione, e poi riattivarsi). */
@@ -238,7 +246,9 @@ module.exports = async (req, res) => {
                 subject: perBrevoSemplice(oggetto) || '(senza oggetto)',
                 htmlContent: perBrevo(html),
                 messageVersions: versioni,
-                tags: campagna ? ['newsletter', campagna] : ['newsletter'],
+                // le etichette valgono per tutta la richiesta, non per singola versione:
+                // vanno bene cosi', perche' identificano la campagna e il giro, non la persona
+                tags: ['newsletter'].concat(campagna ? [campagna] : []).concat(invio ? [invio] : []),
                 // se la stessa identica richiesta viene rimandata entro mezz'ora, Brevo non la esegue due volte
                 headers: {
                     idempotencyKey: chiaveNonRipetere(campagna, destinatari,
