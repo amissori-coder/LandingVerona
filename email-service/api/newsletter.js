@@ -291,6 +291,26 @@ module.exports = async (req, res) => {
             avviso = 'Il foglio con le iscrizioni storiche non e leggibile (' + motivo + '): in elenco mancano quelle raccolte prima del passaggio al nuovo archivio.';
             console.error('Newsletter: foglio non letto:', motivo);
         }
+        /* Quante ISCRIZIONI (righe) per pagina, PRIMA di unificare per indirizzo.
+           La sezione Eventi conta righe, questa conta indirizzi: sono due numeri
+           giusti che non si sommano, e senza il primo l'area riservata non puo'
+           far vedere dove va la differenza, che e' l'unica cosa che la spiega.
+           La chiave e' la stessa usata da /api/iscrizioni (indirizzo + data),
+           cosi la stessa iscrizione presente in tutte e due le fonti non viene
+           contata due volte; Firestore per primo, come li' e' Firestore a vincere. */
+        const vistaRiga = new Set();
+        const righePerPagina = {};
+        const contaRiga = x => {
+            const k = String(x.email || '') + '|' + String(x.data || '');
+            if (vistaRiga.has(k)) return;
+            vistaRiga.add(k);
+            const p = String(x.pagina || '');
+            righePerPagina[p] = (righePerPagina[p] || 0) + 1;
+        };
+        righe.forEach(contaRiga);
+        daFoglio.forEach(contaRiga);
+        fonti.righePerPagina = righePerPagina;
+
         const perEmail = {};
         daFoglio.forEach(x => { if (!perEmail[x.email]) perEmail[x.email] = x; });
         righe.forEach(x => {

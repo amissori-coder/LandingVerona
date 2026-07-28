@@ -726,6 +726,7 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .nl-conto.meno .nl-conto-eti, .nl-conto.meno .nl-conto-val { color: var(--grigio-600); font-weight: 500; }
 .nl-conto.tot { border-top: 1px solid var(--grigio-200); margin-top: 5px; padding-top: 9px; }
 .nl-conto.tot .nl-conto-eti { font-weight: 700; color: var(--blu-900); }
+.nl-conto.tot .nl-conto-eti i { font-weight: 400; color: var(--grigio-600); }
 .nl-conto.tot .nl-conto-val { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.05rem; }
 .nl-conto.verde .nl-conto-val { color: var(--verde); }
 .nl-conti-fuori { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--grigio-200); font-size: 0.82rem; color: var(--grigio-600); line-height: 1.55; }

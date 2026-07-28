@@ -7825,40 +7825,65 @@
        evento sta in due elenchi e in un indirizzo solo.
        Qui ogni voce e' un indirizzo distinto e ogni scarto e' scritto, cosi il
        conto si chiude in due passaggi invece di doverlo spiegare a voce. */
-    function contiNewsletter(g, disiscritti) {
-        const distinti = elenco => {
-            const s = new Set();
-            elenco.forEach(x => x.membri.forEach(p => { if (p.email) s.add(p.email); }));
-            return s;
-        };
-        const nGruppo = id => ((g.tutti.find(x => x.id === id) || {}).n || 0);
-        const eventi = distinti(g.eventi).size;
-        const sito = distinti(g.sito).size;
-        const ignoti = distinti(g.ignoti).size;
-        const aderenti = nGruppo('aderenti');
-        const manuali = nGruppo('manuali');
-        const unici = distinti(g.tutti);
+    function contiNewsletter(g, disiscritti, iscritti, fonti) {
+        const em = v => String(v || '').toLowerCase();
+        /* Si conta per PROVENIENZA, non per consenso. Prima chi non aveva dato il
+           consenso veniva tolto da "Da eventi" e spostato in una riga a parte:
+           cosi "Da eventi" non era piu' confrontabile con il numero della sezione
+           Eventi, che invece li conta tutti, e sembrava che mancasse gente.
+           Qui ogni indirizzo sta nella sua provenienza, e chi non puo' ricevere si
+           toglie DOPO, con una riga sua e ben visibile. */
+        const daEventi = new Set(), daSito = new Set();
+        (Array.isArray(iscritti) ? iscritti : []).forEach(r => {
+            const e = em(r.email); if (!e) return;
+            (eventoDiPagina(r.pagina) ? daEventi : daSito).add(e);
+        });
+        const aderenti = new Set();
+        Persone.tutte().filter(p => p.email && p.attivo !== false && !p.eliminato)
+            .forEach(p => aderenti.add(em(p.email)));
+        const manuali = new Set();
+        ContattiNL.tutti().forEach(c => { if (c && c.email) manuali.add(em(c.email)); });
+
+        const tutte = new Set();
+        [daEventi, daSito, aderenti, manuali].forEach(s => s.forEach(e => tutte.add(e)));
+        const provenienze = daEventi.size + daSito.size + aderenti.size + manuali.size;
+
+        const rifiutati = new Set((g.senzaConsenso || []).map(p => em(p.email)));
         const disc = disiscritti || {};
-        const disiscrittiQui = Array.from(unici).filter(e => disc[e]).length;
-        const provenienze = eventi + sito + ignoti + aderenti + manuali;
+        const elenco = Array.from(tutte);
+        const senzaConsenso = elenco.filter(e => rifiutati.has(e)).length;
+        const disiscrittiQui = elenco.filter(e => !rifiutati.has(e) && disc[e]).length;
+
+        /* Le ISCRIZIONI (righe) sulle pagine degli eventi: e' il numero che si
+           legge nella sezione Eventi. Serve in cima al conto perche' e' il numero
+           da cui parte la domanda "dove sono finiti gli altri". */
+        const rpp = (fonti && fonti.righePerPagina) || null;
+        let righeEventi = null;
+        if (rpp) {
+            righeEventi = 0;
+            Object.keys(rpp).forEach(p => { if (eventoDiPagina(p)) righeEventi += rpp[p]; });
+        }
         return {
-            eventi: eventi, sito: sito, ignoti: ignoti, aderenti: aderenti, manuali: manuali,
+            righeEventi: righeEventi,
+            eventi: daEventi.size, sito: daSito.size,
+            aderenti: aderenti.size, manuali: manuali.size,
+            ignoti: (g.ignoti || []).reduce((s, x) => s + x.n, 0),
             provenienze: provenienze,
-            unici: unici.size,
-            /* Quanti indirizzi stanno in piu' di una provenienza. Non e' una stima:
-               le righe del sito arrivano gia' unificate per indirizzo dal servizio,
-               quindi un indirizzo sta in UNO solo fra eventi, sito e non risultanti.
-               Tutto l'eccesso e' percio' sovrapposizione con aderenti e contatti a
-               mano, ed e' esattamente la riga che mancava per far tornare i conti. */
-            sovrapposti: provenienze - unici.size,
-            senzaConsenso: g.senzaConsenso.length,
+            unici: tutte.size,
+            /* Quanti indirizzi stanno in piu' di una provenienza: le righe del sito
+               arrivano gia' unificate per indirizzo dal servizio, quindi un
+               indirizzo sta in UNO solo fra eventi e altre sezioni. Tutto l'eccesso
+               e' sovrapposizione con aderenti e contatti a mano, ed e' esattamente
+               la riga che mancava per far tornare i conti. */
+            sovrapposti: provenienze - tutte.size,
+            senzaConsenso: senzaConsenso,
             rifiutatiRientrati: g.rifiutatiRientrati || 0,
             disiscrittiQui: disiscrittiQui,
             // la collezione dei disiscritti contiene anche indirizzi mai stati in
             // rubrica (arrivano dalla blocklist di Brevo): per questo il totale
             // non coincide con quelli che tolgono qualcosa a questo elenco
             disiscrittiTotale: Object.keys(disc).length,
-            raggiungibili: unici.size - disiscrittiQui
+            raggiungibili: tutte.size - senzaConsenso - disiscrittiQui
         };
     }
 
@@ -7866,25 +7891,36 @@
         const n = v => '<span class="nl-conto-val">' + v + '</span>';
         const riga = (cls, etichetta, valore, nota) => '<div class="nl-conto ' + cls + '">'
             + '<span class="nl-conto-eti">' + etichetta + (nota ? '<i>' + nota + '</i>' : '') + '</span>' + n(valore) + '</div>';
+        /* Il conto parte dal numero che si legge nella sezione Eventi, perche' e'
+           da li' che nasce la domanda "e gli altri dove sono finiti". */
+        const testa = c.righeEventi === null ? '' : (
+            riga('', 'Iscrizioni sulle pagine degli eventi', c.righeEventi, 'lo stesso numero della sezione Eventi')
+            + riga('meno', 'stessa persona iscritta piu di una volta', '&minus;' + (c.righeEventi - c.eventi), '')
+        );
         return '<div class="card nl-conti"><strong>Dai moduli ai destinatari</strong>'
-            + '<div class="hint" style="margin:2px 0 12px;">Ogni voce e un numero di <b>indirizzi diversi</b>, non di iscrizioni. '
-            + 'Le righe in grassetto chiudono il conto: quella sopra meno gli scarti fa esattamente quella sotto.</div>'
+            + '<div class="hint" style="margin:2px 0 12px;">La sezione Eventi conta <b>iscrizioni</b>, questa conta <b>indirizzi</b>. '
+            + 'Qui sotto ogni scarto e scritto: le righe in grassetto chiudono il conto, quella sopra meno gli scarti fa esattamente quella sotto.</div>'
             + '<div class="nl-conti-griglia">'
-            + riga('', 'Da eventi', c.eventi, 'chi si e iscritto a un convegno')
-            + riga('', 'Da altre sezioni del sito', c.sito, 'newsletter, moduli di contatto, simulatori')
-            + riga('', 'Aderenti', c.aderenti, 'anagrafica Persone, con email')
-            + riga('', 'Inseriti a mano', c.manuali, 'raccolti di persona')
-            + riga('', 'Consenso non risultante', c.ignoti, 'elenchi importati senza la casella')
+            + testa
+            + riga('tot', 'Da eventi', c.eventi, 'indirizzi diversi, tutti, anche senza consenso')
+            + riga('', '+ Da altre sezioni del sito', c.sito, 'pagine fuori dagli eventi: newsletter, moduli di contatto, simulatori')
+            + riga('', '+ Aderenti', c.aderenti, 'anagrafica Persone, con email')
+            + riga('', '+ Inseriti a mano', c.manuali, 'raccolti di persona')
             + riga('tot', 'Somma delle provenienze', c.provenienze, '')
             + riga('meno', 'gia contati in un\'altra provenienza', '&minus;' + c.sovrapposti, 'per lo piu aderenti gia iscritti dal sito')
             + riga('tot', 'Indirizzi diversi in tutto', c.unici, '')
+            + riga('meno', 'senza consenso alle comunicazioni', '&minus;' + c.senzaConsenso, '')
             + riga('meno', 'disiscritti presenti in questo elenco', '&minus;' + c.disiscrittiQui, '')
             + riga('tot verde', 'Raggiungibili ora', c.raggiungibili, '')
             + '</div>'
-            + '<div class="nl-conti-fuori"><b>Fuori da questo conto:</b> '
-            + '<b>' + c.senzaConsenso + '</b> hanno lasciato vuota la casella delle comunicazioni'
-            + (c.rifiutatiRientrati ? ' (di cui <b>' + c.rifiutatiRientrati + '</b> sarebbero rientrati come aderenti o contatti a mano: il no vince)' : '')
-            + '. I disiscritti in tutto sono <b>' + c.disiscrittiTotale + '</b>: gli altri non sono mai stati in questa rubrica, '
+            + '<div class="nl-conti-fuori">'
+            + (c.senzaConsenso
+                ? '<b>' + c.senzaConsenso + '</b> contatti hanno lasciato vuota la casella delle comunicazioni'
+                + (c.rifiutatiRientrati ? ', e <b>' + c.rifiutatiRientrati + '</b> di questi sarebbero rientrati come aderenti o contatti a mano (il no vince)' : '')
+                + '. Per farli rientrare serve <b>Attribuisci il consenso</b>, qui sotto. '
+                : 'Tutti i contatti presenti hanno il consenso. ')
+            + (c.ignoti ? 'Di questi, <b>' + c.ignoti + '</b> hanno un consenso che non risulta ma sono comunque selezionabili. ' : '')
+            + 'I disiscritti in tutto sono <b>' + c.disiscrittiTotale + '</b>: gli altri non sono mai stati in questa rubrica, '
             + 'arrivano dal pulsante di disiscrizione che Brevo mette nelle mail.</div>'
             + '</div>';
     }
@@ -7954,7 +7990,7 @@
 
         const g = gruppiNewsletter();
         const disiscritti = (_nlDati && _nlDati.disiscritti) || {};
-        const conti = contiNewsletter(g, disiscritti);
+        const conti = contiNewsletter(g, disiscritti, (_nlDati && _nlDati.iscritti) || [], _nlFonti);
         /* L'etichetta della scheda deve dire quante righe apre, non una qualsiasi
            altra cosa: la tabella degli iscritti mostra anche chi ha lasciato vuota
            la casella, che non sta nei gruppi. Prima il pulsante prometteva meno
@@ -8009,21 +8045,12 @@
             + '</div></div>'
             : '';
         const avviso = _nlMsg ? '<div class="card tabella-vuota">' + esc(_nlMsg) + '</div>' : '';
-        /* Da dove arrivano i contatti. Serve quando in elenco "mancano" delle
-           persone: la prima domanda e' sempre se il foglio storico sia stato
-           letto, e senza questo numero si tira a indovinare. */
-        const f = _nlFonti;
-        const provenienza = f
-            ? '<div class="card nl-fonti"><strong>Righe raccolte e indirizzi</strong>'
-            + '<div class="hint" style="margin:2px 0 8px;">Nella sezione Eventi si contano le <b>iscrizioni</b>; qui si contano gli '
-            + '<b>indirizzi</b>. Chi si e iscritto a due convegni li vale due, qui vale uno: la differenza fra i due numeri e tutta qui.</div>'
-            + '<div class="nl-fonti-righe">'
-            + '<span><b>' + (f.firestore || 0) + '</b> righe nell\'archivio nuovo</span>'
-            + '<span><b>' + (f.foglio || 0) + '</b> righe dal foglio Google storico'
-            + (f.foglioConfigurato ? '' : ' &mdash; <b>non collegato</b>') + '</span>'
-            + '<span><b>' + (f.unici || 0) + '</b> indirizzi diversi dai moduli del sito</span>'
-            + '</div></div>'
-            : '';
+        /* Il riquadro sul foglio Google storico non c'e' piu': tutti i moduli del
+           sito scrivono ormai direttamente nell'archivio, il foglio non e' piu'
+           una fonte da sorvegliare e la riga "non collegato" faceva solo sembrare
+           rotto qualcosa che rotto non e'. Il conto delle righe, che era l'unica
+           informazione utile di quel riquadro, sta ora nel riquadro dei conti. */
+        const provenienza = '';
         const senzaCloud = !Cloud.attivo
             ? '<div class="card tabella-vuota">In modalita dimostrativa gli iscritti del sito non sono disponibili e non si possono spedire email.</div>'
             : '';
