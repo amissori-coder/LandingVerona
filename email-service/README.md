@@ -1,7 +1,7 @@
 # Servizio email dell'Area riservata
 
 Questa piccola funzione invia le email di impostazione/reimpostazione password
-dell'area riservata **dal server di posta dello studio (Aruba)**, con:
+dell'area riservata **da un server di posta autenticato sul dominio dello studio** (oggi Brevo), con:
 
 - mittente `noreply@nextgenerationbusiness.it` (firma Revilaw S.p.A.);
 - testo in italiano, firmato;
@@ -39,14 +39,28 @@ Serve per generare i link di reimpostazione password.
 | Nome | Valore |
 |---|---|
 | `FIREBASE_SERVICE_ACCOUNT` | la chiave del passo 2, **in base64** (vedi nota qui sotto) |
-| `SMTP_HOST` | `smtps.aruba.it` |
-| `SMTP_PORT` | `465` |
-| `SMTP_USER` | `noreply@nextgenerationbusiness.it` |
-| `SMTP_PASS` | la **password** della casella `noreply@nextgenerationbusiness.it` |
+| `SMTP_HOST` | `smtp-relay.brevo.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USER` | il **login SMTP di Brevo** (del tipo `xxxxxxx@smtp-brevo.com`) |
+| `SMTP_PASS` | la **chiave SMTP di Brevo** (non la password con cui si accede al sito) |
 | `SMTP_FROM_NAME` | `Revilaw S.p.A.` |
 | `SMTP_FROM_EMAIL` | `noreply@nextgenerationbusiness.it` |
 | `APP_BASE_URL` | `https://nextgenerationbusiness.it` |
 | `ALLOWED_ORIGIN` | `https://nextgenerationbusiness.it` |
+
+> **Il server di posta e' Brevo, non piu' Aruba (dal 21/07/2026).** Aruba aveva
+> bloccato gli invii con un `525 5.7.13` (protezione anti-abuso della casella:
+> non e' fatta per mandare decine di email in sequenza). Da allora TUTTO esce da
+> Brevo: attivazioni e reimpostazioni password, Comunicazioni, inviti ai
+> questionari e newsletter. La casella Aruba continua a **ricevere** la posta
+> normalmente, e il mittente che i destinatari vedono resta
+> `noreply@nextgenerationbusiness.it`: il login `...@smtp-brevo.com` serve solo
+> ad autenticarsi.
+>
+> Conseguenza da tenere a mente: **un solo account Brevo regge tutte le email
+> dello studio**. Il monte invii del piano e' condiviso, e una sospensione
+> dell'account fermerebbe anche le email con cui le persone entrano nell'area
+> riservata.
 
 > **Nota sulla chiave (`FIREBASE_SERVICE_ACCOUNT`).** Il file JSON è su più righe e
 > Vercel non lo fa incollare bene nel campo valore. Conviene incollarlo **in base64**
@@ -83,7 +97,7 @@ servizio per tutte le email di accesso, con mittente e link Revilaw.
 - La funzione verifica che l'email sia un **utente abilitato** (collezione `utenti` su Firestore).
 - Genera con Firebase Admin il link di reimpostazione, ne estrae il codice e
   costruisce un link su `nextgenerationbusiness.it/area-riservata/reimposta.html`.
-- Invia l'email via Aruba SMTP (DKIM del dominio → niente spam).
+- Invia l'email via il relay SMTP configurato (Brevo, con DKIM del dominio → niente spam).
 - La pagina `reimposta.html` fa impostare la nuova password all'utente.
 
 Se `RV_EMAIL_SERVICE_URL` non è configurato, l'app continua a usare l'invio
@@ -98,7 +112,7 @@ Oltre a `invia-email`, il progetto include due funzioni per la sezione
 
 - `POST /api/invia-comunicazione` — invia una mail composta dall'utente.
   Verifica l'**ID token Firebase** del mittente (solo utenti abilitati possono
-  inviare: niente relay aperto), poi invia via Aruba SMTP (più destinatari → BCC).
+  inviare: niente relay aperto), poi invia via il relay SMTP configurato (più destinatari → BCC).
   Usa le stesse variabili d'ambiente già configurate. L'app la richiama tramite
   `window.RV_COMUNICAZIONI_URL` (in `firebase-config.js`).
 - `GET /api/cron-comunicazioni` — invii **programmati/periodici**. Vercel la
@@ -258,9 +272,10 @@ riservata scrive entrambi: per chi usa l'interfaccia non cambia niente.
 
 ### Chi spedisce la newsletter: Brevo
 
-La casella Aruba dello studio regge poche centinaia di email al giorno: va bene
-per le password e le comunicazioni, non per una newsletter. La newsletter esce
-quindi da **Brevo**, mentre tutto il resto resta su Aruba **senza modifiche**.
+Tutte le email dello studio escono gia' da Brevo tramite il relay SMTP (vedi
+sopra). La newsletter usa invece l'**API** di Brevo, che e' la strada giusta per
+gli invii di massa: un solo colpo per l'intero lotto invece di una connessione
+SMTP per ogni destinatario.
 
 Il dominio `nextgenerationbusiness.it` risulta **gia autenticato per Brevo**:
 verificando i DNS pubblici il 28/07/2026 c'erano il codice di verifica
@@ -285,21 +300,29 @@ all'indirizzo che vede scritto. Quella casella va quindi presidiata da qualcuno.
 Con `NEWSLETTER_REPLY_TO` si puo' dirottarle altrove (per esempio a
 `info@`), senza cambiare il mittente.
 
-Senza `BREVO_API_KEY` l'invio torna da solo sulla casella SMTP di prima: si puo'
-accendere e spegnere senza toccare il codice.
+Senza `BREVO_API_KEY` l'invio della newsletter torna sul relay SMTP, che e'
+comunque Brevo: cambia solo il modo (una connessione per destinatario invece di
+una richiesta per l'intero lotto). Si puo' accendere e spegnere senza toccare il
+codice.
 
 **Non toccare `SMTP_FROM_EMAIL`.** Quella e' condivisa con le email di
 reimpostazione password (`invia-email.js`) e con le Comunicazioni
-(`invia-comunicazione.js` e il cron), che partono da `noreply@` via Aruba:
-cambiandola cambierebbero mittente anche loro, e Aruba potrebbe rifiutare
-l'invio perche' si autentica come `noreply@`. La newsletter ha una variabile
-sua apposta, cosi' i due canali restano separati: se un giorno una lista crea
-problemi di reputazione, non si porta dietro anche le email con cui si fa
-entrare la gente nell'area riservata.
+(`invia-comunicazione.js` e il cron), che partono da `noreply@`: cambiandola
+cambierebbero mittente anche loro. La newsletter ha una variabile sua apposta,
+cosi' i due mittenti restano distinti agli occhi di chi riceve e la reputazione
+di una lista non si mescola con quella delle email di servizio.
 
-> **Il piano gratuito non basta**: 300 email al giorno, cioe' meno di Aruba, e
-> con la dicitura "Sent with Brevo" in fondo ai messaggi. Serve almeno lo
-> Starter (nessun limite giornaliero, scaglioni da 5.000 invii al mese).
+> **Attenzione: la separazione e' solo nel mittente, non nell'infrastruttura.**
+> Entrambi i canali passano dallo stesso account Brevo, quindi condividono il
+> monte invii del piano e la sorte dell'account. Una sospensione per le metriche
+> di una lista fermerebbe anche le email di attivazione password. E' il motivo
+> per cui vale la pena tenere le liste pulite (consenso verificato, rimbalzi
+> bassi) e valutare un ripiego SMTP per le sole email di servizio.
+
+> **Il piano gratuito non basta**: 300 email al giorno condivise fra newsletter,
+> comunicazioni ed email di servizio, e con la dicitura "Sent with Brevo" in
+> fondo ai messaggi. Serve almeno lo Starter (nessun limite giornaliero,
+> scaglioni da 5.000 invii al mese).
 
 **Cosa cambia rispetto alla casella SMTP.** Con Brevo tutto il lotto parte in
 **una sola richiesta** (una "versione" per destinatario, con dentro il suo
@@ -362,9 +385,9 @@ riservata registra **le impronte** degli indirizzi gia serviti - non gli
 indirizzi - e alla riapertura propone di **riprendere da dove si era fermato**,
 saltando chi ha gia ricevuto.
 
-> **Limite di Aruba.** La casella dello studio non e' fatta per invii di massa:
-> qualche centinaio di email al giorno e' il tetto ragionevole. Per liste piu'
-> grandi serve un servizio di invio dedicato.
+> **Limite del piano Brevo.** Il monte invii mensile e' condiviso fra newsletter,
+> comunicazioni ed email di servizio. Sul piano gratuito ci sono anche 300 invii
+> al giorno, non cumulabili: per una newsletter serve almeno lo Starter.
 
 ### `POST|GET /api/disiscrizione` — endpoint pubblico
 
