@@ -283,9 +283,12 @@ module.exports = async (req, res) => {
             daFoglio = await leggiFoglio(body.forza === true);
             fonti.foglio = daFoglio.length;
             fonti.foglioLetto = true;
-            if (!fonti.foglioConfigurato) {
-                avviso = 'Il foglio storico non e collegato (manca EVENTI_SHEET_ID): in elenco ci sono solo le iscrizioni arrivate dopo il passaggio al nuovo archivio.';
-            }
+            /* Nessun avviso se il foglio non e' collegato: NON e' piu' un guasto.
+               Tutti i moduli del sito scrivono ormai direttamente qui, e il foglio
+               serve solo a chi volesse rileggere lo storico piu' vecchio. Dirlo a
+               ogni apertura faceva sembrare rotto qualcosa che rotto non e'.
+               Resta invece l'avviso del catch qui sotto: se il foglio E' collegato
+               ma non risponde, quello e' un guasto vero e va detto. */
         } catch (e) {
             const motivo = String((e && e.message) || e).slice(0, 200);
             avviso = 'Il foglio con le iscrizioni storiche non e leggibile (' + motivo + '): in elenco mancano quelle raccolte prima del passaggio al nuovo archivio.';

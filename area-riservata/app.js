@@ -7563,7 +7563,13 @@
     function dataIscrizioneMs(testo) {
         const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ ,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(String(testo || '').trim());
         if (!m) return 0;   // data assente o illeggibile: e' una riga vecchia
-        const t = Date.UTC(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+        /* Ora locale, non UTC. I moduli e il servizio scrivono l'ora di Roma; letta
+           come se fosse UTC risultava due ore avanti (d'estate), quindi
+           un'iscrizione sembrava piu' recente di quanto fosse: l'avviso dei nuovi
+           iscritti la riproponeva anche dopo aver premuto "Ho visto", e
+           l'attribuzione del consenso rischiava di non coprire le ultime due ore. */
+        const d = new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+        const t = d.getTime();
         return isNaN(t) ? 0 : t;
     }
     function consensoAttribuito(iscritto, cfg) {
@@ -9204,6 +9210,29 @@
         document.getElementById('ni-dopo').addEventListener('click', chiudiModale);
         document.getElementById('ni-ok').addEventListener('click', () => { segna(); chiudiModale(); });
         document.getElementById('ni-vai').addEventListener('click', () => { segna(); chiudiModale(); naviga('newsletter'); });
+    }
+
+    /* Darlo solo entrando non basta: una richiesta di informazioni letta tre
+       settimane dopo e' una richiesta persa, e non e' detto che si esca e si
+       rientri in giornata. Quindi si guarda anche mentre si lavora, con calma: un
+       giro ogni tre minuti, appoggiato alla stessa lettura che usa gia' la
+       sezione, quindi senza traffico in piu' degno di nota.
+       Se c'e' gia' una finestra aperta si lascia perdere e si riprova al giro
+       dopo: un avviso che scavalca quello che si sta facendo da' piu' fastidio
+       del ritardo con cui arriva. */
+    let _nlSorveglia = null;
+    const NL_SORVEGLIA_MS = 3 * 60 * 1000;
+    function avviaSorveglianzaIscritti() {
+        fermaSorveglianzaIscritti();
+        if (!Cloud.attivo || !puoVedereNewsletter()) return;
+        _nlSorveglia = setInterval(() => {
+            if (!Auth.utenteCorrente) { fermaSorveglianzaIscritti(); return; }
+            if (document.querySelector('#modale-contenitore .modale')) return;
+            avvisaNuoviIscritti();
+        }, NL_SORVEGLIA_MS);
+    }
+    function fermaSorveglianzaIscritti() {
+        if (_nlSorveglia) { clearInterval(_nlSorveglia); _nlSorveglia = null; }
     }
 
     /* Riga in cima al compositore che racconta com'e' andato l'ultimo invio.
@@ -11797,6 +11826,8 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         naviga('dashboard');
         // chi sono i nuovi iscritti dal sito: si mostrano appena si entra
         avvisaNuoviIscritti();
+        // ...e si continua a guardare anche dopo, non solo in questo istante
+        avviaSorveglianzaIscritti();
     }
 
     function collegaLogin() {
