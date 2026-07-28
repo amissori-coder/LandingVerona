@@ -7814,7 +7814,38 @@
     function corpoNewsletter(g, disiscritti) {
         if (nlTab === 'iscritti') return corpoIscrittiNewsletter(g, disiscritti);
         if (nlTab === 'disiscritti') return corpoDisiscrittiNewsletter(disiscritti);
-        return corpoElencoNewsletter();
+        return riepilogoInvioNewsletterHtml() + corpoElencoNewsletter();
+    }
+
+    /* Riepilogo dell'ultimo invio, come per gli inviti del questionario: quante
+       sono partite, quante no e soprattutto PERCHE'. Il motivo raggruppato e'
+       l'unica cosa che dice davvero cosa fare (casella piena, indirizzo che non
+       esiste, limite del server di posta raggiunto). */
+    function riepilogoInvioNewsletterHtml() {
+        let ultima = null, invio = null;
+        Newsletter.tutte().forEach(n => {
+            const u = (n.invii || [])[0];
+            if (u && (!invio || (u.il || 0) > (invio.il || 0))) { ultima = n; invio = u; }
+        });
+        if (!invio) return '';
+        const falliti = invio.dettaglioFalliti || [];
+        const perMotivo = {};
+        falliti.forEach(f => { const m = (f && f.motivo) || 'errore'; perMotivo[m] = (perMotivo[m] || 0) + 1; });
+        const motivi = Object.keys(perMotivo)
+            .map(m => '<li><b>' + perMotivo[m] + '</b> &times; ' + esc(m) + '</li>').join('');
+        const tot = (invio.n || 0) + (invio.falliti || 0);
+        return '<div class="card s-inv-riep"><div class="s-inv-head"><strong>Riepilogo ultimo invio</strong>'
+            + '<span class="hint">' + esc(fmtDataOra(invio.il)) + '</span></div>'
+            + '<div class="s-inv-riga"><span class="s-inv-lab">' + esc(ultima.nome || ultima.oggetto || 'Newsletter') + '</span>'
+            + '<span class="s-inv-val"><b>' + (invio.n || 0) + '</b> inviate' + (tot ? ' su ' + tot : '')
+            + (invio.falliti ? ' &middot; <span class="s-inv-ko">' + invio.falliti + ' non riuscite</span>' : '')
+            + (invio.saltati ? ' &middot; ' + invio.saltati + ' saltate' : '') + '</span></div>'
+            + (invio.interrotto
+                ? '<div class="s-inv-riga"><span class="s-inv-lab">Interrotto</span><span class="s-inv-val s-inv-ko">'
+                + esc(invio.interrotto) + ' &mdash; riapri la newsletter e premi Invia per riprendere</span></div>' : '')
+            + (motivi ? '<div class="s-inv-motivi"><span class="s-inv-lab">Perche alcune non sono riuscite</span><ul>' + motivi + '</ul></div>' : '')
+            + (falliti.length ? '<div class="s-inv-motivi"><span class="s-inv-lab">Indirizzi</span><p class="hint">' + esc(falliti.map(f => f.email).join(', ')) + '</p></div>' : '')
+            + '</div>';
     }
 
     function corpoElencoNewsletter() {
@@ -8627,7 +8658,12 @@
                         const nonTrattati = new Set(rimasti);
                         lotto.forEach(d => { if (!nonTrattati.has(d.email)) serviti.push(improntaEmail(d.email)); });
                         if (rimasti.length) coda.unshift(...lotto.filter(d => nonTrattati.has(d.email)));
-                        if (coda.length) await new Promise(s => setTimeout(s, 2500));
+                        if (coda.length) {
+                            // si dice PERCHE' si sta fermi, come negli inviti del questionario:
+                            // una barra che non si muove senza spiegazioni fa ripremere il pulsante
+                            mostra('Inviate ' + inviati + ' mail su ' + totale + '. Attendo ~3s per il limite del servizio, poi riprendo con le altre ' + coda.length + '...');
+                            await new Promise(s => setTimeout(s, 2500));
+                        }
                     }
                 }, { testo: 'Invio in corso...' });
             } finally {
