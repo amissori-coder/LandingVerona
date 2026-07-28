@@ -38,3 +38,8 @@ window.RV_EMAIL_SERVICE_URL = "https://revilaw-email.vercel.app/api/invia-email"
    stesso servizio. Se lasciato null viene dedotto dall'URL qui sopra
    (.../invia-email -> .../invia-comunicazione). */
 window.RV_COMUNICAZIONI_URL = "https://revilaw-email.vercel.app/api/invia-comunicazione";
+
+/* Sezione "Newsletter": elenco dei destinatari raccolti dal sito e invio.
+   Anche questi, se lasciati null, si deducono dall'indirizzo del servizio email. */
+window.RV_NEWSLETTER_URL = "https://revilaw-email.vercel.app/api/newsletter";
+window.RV_INVIA_NEWSLETTER_URL = "https://revilaw-email.vercel.app/api/invia-newsletter";

@@ -220,3 +220,116 @@ Le colonne vengono lette **per nome** dall'intestazione (`Data, Pagina, Nome,
 Cognome, Email, Azienda, Ruolo, Telefono, Messaggio, ...`), quindi l'ordine puo
 cambiare senza rompere nulla. Il filtro dell'evento confronta la colonna
 `Pagina` (senza accenti/maiuscole).
+
+---
+
+## Newsletter
+
+Tre funzioni servono la sezione **Newsletter** dell'area riservata. Le parti in
+comune (firma dei collegamenti, permessi, lettura dei disiscritti) stanno in
+`lib/newsletter.js`: non e una funzione, e solo codice condiviso.
+
+### `POST /api/newsletter` — destinatari e disiscritti
+
+Restituisce in una sola richiesta:
+
+- `iscritti`: **tutte** le iscrizioni raccolte dai moduli del sito, con la pagina
+  di provenienza (l'area riservata le divide da sola fra eventi e altre sezioni).
+  Unisce le due fonti come `/api/iscrizioni`: collezione Firestore `iscrizioni`
+  (che vince) e foglio Google (lo storico);
+- `disiscritti`: gli indirizzi che hanno chiesto di non ricevere piu' nulla.
+
+Accetta anche `azione: "disiscrivi" | "riattiva"` con un `email`, per registrare
+a mano una richiesta arrivata per telefono.
+
+Ogni iscritto porta con se' il **consenso** alle comunicazioni promozionali
+(`marketing`), letto dalla scheda su Firestore o dalla colonna omonima del
+foglio: `true` = l'ha spuntato, `false` = no, `null` = non risulta (elenchi
+importati). L'area riservata mette fra i destinatari **solo chi ha `true`**.
+
+**Chi puo' chiamarla:** utente autenticato e attivo che sia amministratore
+**oppure** abbia il contrassegno `newsletter` sulla propria scheda in `utenti`.
+Non si guarda l'elenco `archivio/newsletterConfig`, che pure esiste e pilota il
+menu dell'area riservata: quel documento, per le regole di Firestore, e'
+scrivibile da qualunque utente dello staff, quindi chiunque potrebbe
+aggiungercisi e concedersi da solo la rubrica e l'invio. La scheda in `utenti`
+la scrive invece solo l'amministratore. Quando si salvano gli accessi, l'area
+riservata scrive entrambi: per chi usa l'interfaccia non cambia niente.
+
+### `POST /api/invia-newsletter` — invio a lotti
+
+L'area riservata manda l'HTML gia pronto (lo costruisce
+`area-riservata/newsletter-format.js`) con dentro il segnaposto
+`{{DISISCRIVITI}}`. La funzione, **per ogni destinatario**:
+
+- sostituisce il segnaposto con il suo collegamento personale firmato;
+- sostituisce le variabili `{nome} {cognome} {nome_completo} {azienda} {email}`;
+- invia **una mail sola a quella persona** (niente BCC: il collegamento di
+  disiscrizione e' personale e nessuno deve vedere gli indirizzi degli altri);
+- aggiunge gli header `List-Unsubscribe` e `List-Unsubscribe-Post`, cioe' il
+  pulsante "Annulla iscrizione" che Gmail e Apple Mail mostrano accanto al
+  mittente.
+
+Chi risulta disiscritto viene **saltato qui**, sul server: e' il controllo che
+vale, anche se l'elenco a video fosse vecchio di qualche minuto. Una newsletter
+senza `{{DISISCRIVITI}}` viene **rifiutata**.
+
+Massimo **20 destinatari per chiamata**: l'area riservata spezza l'elenco e
+chiama piu' volte mostrando l'avanzamento, con una pausa fra un lotto e l'altro
+(il servizio impone almeno 2 secondi, e non piu' di 80 lotti l'ora per utente).
+In `vercel.json` la funzione ha `maxDuration: 60`, e il ciclo si ferma da solo
+dopo **45 secondi**: gli indirizzi non ancora trattati tornano indietro in
+`rimasti` e l'area riservata li rimette in coda. Cosi' non capita mai che la
+funzione venga troncata lasciando chi invia senza sapere quante mail sono
+partite davvero.
+
+Se l'invio si interrompe (rete, sessione scaduta, server di posta), l'area
+riservata registra **le impronte** degli indirizzi gia serviti - non gli
+indirizzi - e alla riapertura propone di **riprendere da dove si era fermato**,
+saltando chi ha gia ricevuto.
+
+> **Limite di Aruba.** La casella dello studio non e' fatta per invii di massa:
+> qualche centinaio di email al giorno e' il tetto ragionevole. Per liste piu'
+> grandi serve un servizio di invio dedicato.
+
+### `POST|GET /api/disiscrizione` — endpoint pubblico
+
+Registra la disiscrizione. Il collegamento in fondo a ogni newsletter e'
+personale e **firmato**: `?e=<email>&t=<firma>`, dove la firma e' un HMAC
+dell'indirizzo. Senza quella firma nessuno puo' disiscrivere gli altri, e nessuno
+puo' provare indirizzi a caso per scoprire chi e' iscritto (a firma sbagliata la
+risposta e' sempre la stessa).
+
+- **POST** dalla pagina pubblica `newsletter/disiscriviti.html`, che chiede
+  conferma con un pulsante;
+- **POST** `List-Unsubscribe=One-Click` dal client di posta (RFC 8058);
+- **GET**: non disiscrive nessuno, rimanda alla pagina di conferma. Serve perche'
+  i controlli antivirus dei client aprono i collegamenti da soli.
+
+Gli indirizzi finiscono nella collezione `newsletterDisiscritti`, scritta solo
+con l'account di servizio: dal browser non ci arriva nessuno.
+
+L'endpoint **legge prima di scrivere** e, se lo stato e' gia quello richiesto,
+non scrive nulla. Serve a proteggere la quota: il collegamento non scade e ce
+l'ha ogni destinatario, quindi senza quel controllo bastava riaprirlo a
+ripetizione per consumare le scritture giornaliere del database e bloccare
+l'intera area riservata.
+
+### Variabile facoltativa: `NEWSLETTER_SECRET`
+
+| Nome | Valore |
+|---|---|
+| `NEWSLETTER_SECRET` | una stringa segreta a piacere (lunga e casuale) |
+
+**Non e' obbligatoria.** Se manca, il segreto della firma si ricava dalla chiave
+privata dentro `FIREBASE_SERVICE_ACCOUNT`, che e' gia segreta e gia configurata:
+la disiscrizione funziona subito, senza toccare niente.
+
+> Attenzione: cambiare `NEWSLETTER_SECRET` (o rigenerare la chiave di servizio, se
+> il segreto non e' impostato) **invalida i collegamenti gia spediti**. Chi ci
+> clicca vede un messaggio con l'indirizzo a cui scrivere, quindi non si perde la
+> richiesta, ma va gestita a mano dalla sezione Newsletter.
+
+Se il progetto Vercel non si chiama `revilaw-email`, imposta anche
+`NEWSLETTER_API_BASE` con l'indirizzo del servizio (serve a costruire il
+collegamento "un clic" negli header della mail).

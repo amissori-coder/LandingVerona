@@ -247,6 +247,9 @@
         sondaggiConfig: 'rvArea.sondaggiConfig',
         eventiConfig: 'rvArea.eventiConfig',       // chi e abilitato alla sezione Eventi
         eventiPresenze: 'rvArea.eventiPresenze',   // conferme/presenze e note (dati nostri)
+        newsletter: 'rvArea.newsletter',           // le newsletter preparate (bozze e inviate)
+        newsletterContatti: 'rvArea.newsletterContatti', // iscritti raccolti a mano (di persona)
+        newsletterConfig: 'rvArea.newsletterConfig',     // chi e abilitato alla sezione Newsletter
         ruoli: 'rvArea.ruoli',
         impostazioni: 'rvArea.impostazioni'
     };
@@ -560,7 +563,8 @@
     /* Archivi di CONFIGURAZIONE (impostazioni, non elenchi di record). Vanno trattati a
        parte: si fondono per chiave e non si ripubblicano mai da una copia locale. */
     function _eArchivioConfig(chiave) {
-        return chiave === CHIAVI.sondaggiConfig || chiave === CHIAVI.eventiConfig;
+        return chiave === CHIAVI.sondaggiConfig || chiave === CHIAVI.eventiConfig
+            || chiave === CHIAVI.newsletterConfig;
     }
     /* Archivi che NON vanno mai ricreati sul server partendo dalla copia di un browser:
        il bootstrap usa una scrittura piena, senza fusione per record, quindi la copia di
@@ -577,6 +581,8 @@
         fattureStato: 'stato fatture', allerte: 'allerte', comunicazioni: 'comunicazioni',
         sondaggi: 'risposte del questionario', sondaggiConfig: 'impostazioni del questionario',
         eventiConfig: 'accessi agli eventi', eventiPresenze: 'presenze agli eventi',
+        newsletter: 'newsletter', newsletterContatti: 'contatti della newsletter',
+        newsletterConfig: 'accessi alla newsletter',
         ruoli: 'definizione dei ruoli'
     };
     function nomeArchivio(doc) {
@@ -1002,11 +1008,16 @@
             if (sez === 'dati') return this.eProprietario();
             // "Eventi" non passa dai ruoli: la vede l'admin e i soli utenti scelti a mano
             if (sez === 'eventi') return puoVedereEventi();
+            // stessa regola per la Newsletter: si spediscono email a nome dello studio
+            if (sez === 'newsletter') return puoVedereNewsletter();
             return this.accessoSezione(sez) !== 'no';
         },
         puoScrivere(sez) {
             if (sez === 'utenti' || sez === 'ruoli') return this.eAdmin() || this.eProprietario();
             if (sez === 'dati') return this.eProprietario();
+            // Eventi e Newsletter non passano dai ruoli: chi e' abilitato puo' anche operare
+            if (sez === 'eventi') return puoVedereEventi();
+            if (sez === 'newsletter') return puoVedereNewsletter();
             return this.accessoSezione(sez) === 'scrittura';
         },
         /* null = tutte le regioni. Solo coordinatore e vice sono limitati: alla Regione della
@@ -1072,6 +1083,9 @@
                 this.DOC_SYNC[CHIAVI.sondaggiConfig] = 'sondaggiConfig';
                 this.DOC_SYNC[CHIAVI.eventiConfig] = 'eventiConfig';
                 this.DOC_SYNC[CHIAVI.eventiPresenze] = 'eventiPresenze';
+                this.DOC_SYNC[CHIAVI.newsletter] = 'newsletter';
+                this.DOC_SYNC[CHIAVI.newsletterContatti] = 'newsletterContatti';
+                this.DOC_SYNC[CHIAVI.newsletterConfig] = 'newsletterConfig';
                 this.DOC_SYNC[CHIAVI.ruoli] = 'ruoli';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
@@ -1104,7 +1118,7 @@
                 const dati = await this.docUtente(utenteFb.email);
                 if (!dati || dati.attivo === false) { await signOut(this.auth); return null; }
                 await this.avviaSync(dati.ruolo, utenteFb.email);
-                return { email: utenteFb.email.toLowerCase(), nome: dati.nome || utenteFb.email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true };
+                return { email: utenteFb.email.toLowerCase(), nome: dati.nome || utenteFb.email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true, newsletter: dati.newsletter === true };
             } catch (e) { return null; }
         },
 
@@ -1127,7 +1141,7 @@
                 try { await signOut(this.auth); } catch (e2) { }
                 return { ok: false, msg: 'Accesso verificato ma dati non raggiungibili (' + this.msgErrore(e) + '). Riprova tra poco.' };
             }
-            Auth.utenteCorrente = { email: email.toLowerCase(), nome: dati.nome || email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true };
+            Auth.utenteCorrente = { email: email.toLowerCase(), nome: dati.nome || email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true, newsletter: dati.newsletter === true };
             this.salvaUtente(email, { ultimoAccesso: Date.now() }).catch(() => {});
             Audit.registra(Auth.utenteCorrente, 'Accesso effettuato', 'utente', email.toLowerCase(), null, null);
             return { ok: true, mustChange: false };
@@ -1258,6 +1272,47 @@
             } catch (e) {
                 return { ok: false, msg: 'Servizio non raggiungibile.' };
             }
+        },
+
+        /* --- NEWSLETTER ---
+           Un unico servizio per l'elenco dei destinatari raccolti dal sito
+           (tutte le pagine, non solo gli eventi) e per le disiscrizioni. */
+        _urlNewsletter(nome) {
+            let url = window['RV_' + nome.toUpperCase().replace(/-/g, '_') + '_URL'];
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, nome + '$1');
+            return url || '';
+        },
+        async _chiamaNewsletter(nome, corpo) {
+            const url = this._urlNewsletter(nome);
+            if (!url) return { ok: false, msg: 'Servizio newsletter non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, ...corpo })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
+                return { ok: true, ...data };
+            } catch (e) {
+                return { ok: false, msg: 'Servizio newsletter non raggiungibile.' };
+            }
+        },
+        /* Elenco completo: iscritti dai moduli del sito + chi si e' disiscritto. */
+        async elencoNewsletter(forza) {
+            return this._chiamaNewsletter('newsletter', { azione: 'elenco', forza: !!forza });
+        },
+        /* Disiscrizione (o riattivazione) registrata a mano dalla sezione. */
+        async disiscriviNewsletter(email, riattiva) {
+            return this._chiamaNewsletter('newsletter', { azione: riattiva ? 'riattiva' : 'disiscrivi', email: email });
+        },
+        /* Invio di un lotto: l'HTML arriva gia' pronto, il servizio ci mette
+           dentro il collegamento personale di disiscrizione. */
+        async inviaLottoNewsletter(corpo) {
+            return this._chiamaNewsletter('invia-newsletter', corpo);
         },
 
         /* prima password: crea l'account se manca (su una app secondaria,
@@ -2700,6 +2755,7 @@
         { id: 'comunicazioni', nome: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
         { id: 'sondaggi', nome: 'Sondaggi', icona: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 13l2 2 4-4' },
         { id: 'eventi', nome: 'Eventi', icona: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z' },
+        { id: 'newsletter', nome: 'Newsletter', icona: 'M4 6h12a2 2 0 012 2v11H6a2 2 0 01-2-2zm14 3h2a2 2 0 012 2v6a2 2 0 01-2 2h-2M7 9h6M7 13h6' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
         { id: 'ruoli', nome: 'Ruoli e permessi', icona: 'M12 15a3 3 0 100-6 3 3 0 000 6zM12 1v2m0 18v2m11-11h-2M3 12H1m17.66 6.66l-1.42-1.42M6.76 6.76 5.34 5.34m12.32 0-1.42 1.42M6.76 17.24l-1.42 1.42', soloAdmin: true },
@@ -2736,6 +2792,7 @@
             comunicazioni: vistaComunicazioni,
             sondaggi: vistaSondaggi,
             eventi: vistaEventi,
+            newsletter: vistaNewsletter,
             registro: vistaRegistro,
             utenti: vistaUtenti,
             ruoli: vistaRuoli,
@@ -7378,6 +7435,1327 @@
             chiudiModale(); toast('Accessi aggiornati.', 'verde'); vistaEventi();
         });
     }
+
+    /* =========================================================
+       VISTA: NEWSLETTER
+       ---------------------------------------------------------
+       Prepara e spedisce le newsletter dello studio. Tre cose la
+       distinguono dalle Comunicazioni:
+         1. il FORMATO e' fisso (newsletter-format.js): impaginazione a
+            tabelle, stili in linea, larghezza 600px, pulsanti a prova di
+            Outlook. Cosi' la mail si legge uguale in tutti i programmi
+            di posta, dal telefono a Outlook aziendale;
+         2. la bozza si GENERA da una pagina del sito: si sceglie la
+            pagina, l'app ne legge titolo, sommario, immagine e sezioni,
+            e si corregge solo quello che serve;
+         3. ogni destinatario riceve una mail sua, con il collegamento
+            personale per DISISCRIVERSI (obbligatorio per legge, e ci
+            evita di finire nella posta indesiderata).
+       I destinatari non vengono congelati: i gruppi si risolvono al
+       momento dell'invio, quindi chi si iscrive nel frattempo entra da
+       solo, e chi si e' disiscritto resta fuori comunque.
+    ========================================================= */
+
+    /* Le pagine da cui si puo' partire. L'elenco e' qui e non "scoperto"
+       automaticamente: cosi' si propongono solo le pagine buone per una
+       newsletter, con il nome giusto. Si puo' comunque incollare un
+       indirizzo qualsiasi del sito. */
+    const PAGINE_SITO = [
+        { percorso: '/', nome: 'Home - Next Generation Business' },
+        { percorso: '/fcd_2026/', nome: 'Fondo Contrasto Deindustrializzazione 2026' },
+        { percorso: '/bando_tipo_2026/', nome: 'Bando-tipo Mimit 2026: aiuti di Stato' },
+        { percorso: '/lazio_bandi_2026/', nome: 'Bandi Lazio 2026: Piccolo Credito e Fondo Futuro' },
+        { percorso: '/zls_zes/', nome: 'Credito d\'imposta ZES e ZLS 2026' },
+        { percorso: '/iper_ammortamento/', nome: 'Iper ammortamento 2026-2028 e Transizione 5.0' },
+        { percorso: '/adeguati_assetti/', nome: 'Adeguati assetti organizzativi (art. 2086 c.c.)' },
+        { percorso: '/assetti_early_warning/', nome: 'Assetti adeguati ed early warning' },
+        { percorso: '/cassazione_7134_2026/', nome: 'Adeguati assetti e credito: Cassazione 7134/2026' },
+        { percorso: '/crisi_impresa/', nome: 'Crisi d\'impresa: prevenzione e assetti' },
+        { percorso: '/modello_231/', nome: 'Modello 231: responsabilita degli enti' },
+        { percorso: '/adempimento_collaborativo/', nome: 'Adempimento collaborativo e Tax Control Framework' },
+        { percorso: '/rating_legalita/', nome: 'Rating di legalita: punteggio AGCM' },
+        { percorso: '/rating_bancario/', nome: 'Rating bancario: simulatore MCC' },
+        { percorso: '/sostenibilita_esg/', nome: 'Sostenibilita d\'impresa ed ESG' },
+        { percorso: '/ai_governance/', nome: 'AI governance in azienda' },
+        { percorso: '/protezione_patrimonio/', nome: 'Protezione del patrimonio: holding e trust' },
+        { percorso: '/napoli_ottobre_2026/', nome: 'Convegno Napoli, 2 ottobre 2026' },
+        { percorso: '/verona_marzo_2026/', nome: 'Convegno Verona, 27 marzo 2026' },
+        { percorso: '/roma_aprile_2026/', nome: 'Convegno Roma, 29 aprile 2026' },
+        { percorso: '/interviste_verona_2026/', nome: 'Le interviste di Verona in video' }
+    ];
+    const SITO_PUBBLICO = 'https://nextgenerationbusiness.it';
+    /* Dal sito pubblicato la pagina e' sulla stessa origine (quindi si legge senza
+       problemi); da un'anteprima locale si prova comunque l'indirizzo pubblico e,
+       se il browser lo blocca, si spiega perche'. */
+    function indirizzoPagina(percorso) {
+        const p = String(percorso || '/');
+        if (/^https?:/i.test(p)) return p;
+        const q = p.charAt(0) === '/' ? p : '/' + p;
+        return (/nextgenerationbusiness\.it$/i.test(location.hostname) ? location.origin : SITO_PUBBLICO) + q;
+    }
+
+    const NewsletterConfig = {
+        leggi() {
+            const c = Store.leggi(CHIAVI.newsletterConfig, null) || {};
+            return { abilitati: Array.isArray(c.abilitati) ? c.abilitati.map(e => String(e).toLowerCase()) : [] };
+        },
+        salva(cfg) { Store.scrivi(CHIAVI.newsletterConfig, { abilitati: (cfg.abilitati || []).map(e => String(e).toLowerCase()) }); }
+    };
+    /* Chi vede la sezione: come per gli Eventi, l'amministratore piu' gli utenti
+       scelti a mano. Non passa dai ruoli perche' da qui partono email a nome
+       dello studio: e' un permesso che si da' uno per uno. */
+    function puoVedereNewsletter() {
+        const u = Auth.utenteCorrente; if (!u) return false;
+        /* I ruoli "solo sondaggio" restano fuori: il server nega loro gli archivi
+           generali, quindi le newsletter preparate e i contatti resterebbero solo
+           nel loro browser senza mai arrivare agli altri. Meglio non farli entrare
+           che farli lavorare a vuoto. */
+        if (eRuoloSoloSondaggio(u.ruolo)) return false;
+        if (Auth.eAdmin() || Auth.eProprietario()) return true;
+        if (u.newsletter === true) return true;
+        return NewsletterConfig.leggi().abilitati.indexOf(String(u.email).toLowerCase()) >= 0;
+    }
+
+    /* Le newsletter preparate: archivio condiviso, come le comunicazioni. */
+    const Newsletter = {
+        tutte() { return Store.leggi(CHIAVI.newsletter, []); },
+        salva(l) { Store.scrivi(CHIAVI.newsletter, l); },
+        trova(id) { return this.tutte().find(n => n.id === id) || null; },
+        salvaUna(n) {
+            const lista = this.tutte();
+            const i = lista.findIndex(x => x.id === n.id);
+            if (i >= 0) {
+                // se qualcun altro ha spedito mentre la finestra era aperta, il suo
+                // invio non deve sparire per colpa del salvataggio del modulo
+                const cur = lista[i];
+                const k = v => (v && v.il || 0) + '|' + (v && v.da || '');
+                const visti = new Set(), uniti = [];
+                [].concat(cur.invii || [], n.invii || []).forEach(v => { const c = k(v); if (!visti.has(c)) { visti.add(c); uniti.push(v); } });
+                n.invii = uniti.sort((a, b) => (b.il || 0) - (a.il || 0));
+                /* Lo stato non torna mai indietro a "in preparazione": se in archivio
+                   risulta gia' partita, quel fatto resta. L'ultimo invio pero' comanda:
+                   un tentativo interrotto deve poter marcarla come interrotta, altrimenti
+                   resterebbe scritto "Inviata" su una newsletter arrivata a meta'. */
+                if (cur.stato && cur.stato !== 'bozza' && (!n.stato || n.stato === 'bozza')) n.stato = cur.stato;
+                lista[i] = n;
+            } else lista.unshift(n);
+            this.salva(lista);
+        },
+        elimina(id) { this.salva(this.tutte().filter(n => n.id !== id)); }
+    };
+
+    /* Gli iscritti raccolti di persona (a un convegno, in studio): stanno
+       nell'archivio condiviso, cosi' li vedono tutti gli abilitati. */
+    const ContattiNL = {
+        tutti() { return Store.leggi(CHIAVI.newsletterContatti, []); },
+        salva(l) { Store.scrivi(CHIAVI.newsletterContatti, l); },
+        trova(id) { return this.tutti().find(c => c.id === id) || null; },
+        salvaUno(c) {
+            const lista = this.tutti();
+            const i = lista.findIndex(x => x.id === c.id);
+            if (i >= 0) lista[i] = c; else lista.unshift(c);
+            this.salva(lista);
+        },
+        elimina(id) { this.salva(this.tutti().filter(c => c.id !== id)); }
+    };
+
+    /* --- destinatari raccolti dal sito ---
+       L'elenco arriva dal servizio e resta SOLO in memoria: non viene mai
+       scritto nel browser ne' nell'archivio condiviso. Nell'archivio finiscono
+       soltanto i contatti inseriti a mano (che sono roba nostra) e, delle
+       newsletter, le impronte degli indirizzi gia' serviti - mai gli indirizzi. */
+    let _nlDati = null;              // {iscritti:[], disiscritti:{}}
+    let _nlMsg = '';
+    let _nlInFlight = false;
+    let _nlAggiornato = 0;
+    let _nlUltimoTentativo = 0;
+    let _nlAttese = [];              // chi sta gia' aspettando la richiesta in corso
+    let nlTab = 'newsletter';        // scheda aperta nella sezione
+
+    function caricaDestinatariNewsletter(poi, forza) {
+        if (!Cloud.attivo) { if (poi) poi(false); return; }
+        // richiesta gia' in volo: ci si mette in coda invece di rispondere "niente da fare".
+        // Senza questo, chi apre il compositore mentre l'elenco sta arrivando si ritrova
+        // i gruppi vuoti e nessuno che glieli riempia quando i dati arrivano.
+        if (_nlInFlight) { if (poi) _nlAttese.push(poi); return; }
+        _nlInFlight = true; _nlUltimoTentativo = Date.now();
+        const finito = (cambiato) => {
+            _nlInFlight = false;
+            // la pausa fra un tentativo e l'altro si conta dalla FINE: se il servizio
+            // risponde subito con un errore, la sezione non deve riprovare a raffica
+            _nlUltimoTentativo = Date.now();
+            const attese = _nlAttese; _nlAttese = [];
+            if (poi) { try { poi(cambiato); } catch (e) { } }
+            attese.forEach(f => { try { f(cambiato); } catch (e) { } });
+        };
+        Cloud.elencoNewsletter(forza).then(r => {
+            if (!r.ok) { _nlMsg = r.msg || 'Lettura non riuscita.'; finito(true); return; }
+            _nlMsg = r.avviso || '';   // es. foglio storico non leggibile: si prosegue lo stesso
+            _nlDati = { iscritti: r.iscritti || [], disiscritti: r.disiscritti || {} };
+            _nlAggiornato = r.aggiornato || Date.now();
+            finito(true);
+        }).catch(() => { _nlMsg = 'Servizio newsletter non raggiungibile.'; finito(true); });
+    }
+
+    /* Impronta breve e non reversibile di un indirizzo. Serve a ricordare chi e'
+       gia' stato servito (o chi e' stato tolto a mano) senza scrivere l'indirizzo
+       nell'archivio condiviso, che tutto lo staff puo' leggere. */
+    function improntaEmail(email) {
+        const s = String(email == null ? '' : email).trim().toLowerCase();
+        let a = 0x811c9dc5, b = 0x9e3779b9;
+        for (let i = 0; i < s.length; i++) {
+            const c = s.charCodeAt(i);
+            a = ((a ^ c) >>> 0) * 0x01000193 >>> 0;
+            b = (((b + c * (i + 1)) >>> 0) ^ ((b << 5) >>> 0)) >>> 0;
+        }
+        return a.toString(36) + '-' + b.toString(36);
+    }
+    /* Vecchi record possono contenere l'indirizzo in chiaro: si accettano entrambi. */
+    function inElencoImpronte(elenco, email) {
+        if (!elenco || !elenco.length) return false;
+        const e = String(email || '').toLowerCase();
+        return elenco.indexOf(improntaEmail(e)) >= 0 || elenco.indexOf(e) >= 0;
+    }
+
+    function normalizzaTesto(s) {
+        return String(s == null ? '' : s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+    /* A quale evento appartiene un'iscrizione, guardando la pagina di provenienza.
+       Se non e' un evento, l'iscrizione viene da un'altra sezione del sito. */
+    function eventoDiPagina(pagina) {
+        const p = normalizzaTesto(pagina);
+        return EVENTI_DEF.find(e => !e.tutti && e.filtro && p.indexOf(e.filtro) >= 0) || null;
+    }
+
+    /* Tutti i destinatari possibili, divisi per provenienza. Si ricalcola ogni
+       volta dai dati piu' freschi: non si congela niente.
+
+       CONSENSO. I moduli del sito hanno due caselle distinte: una per il
+       trattamento dei dati (obbligatoria) e una, facoltativa, per ricevere
+       comunicazioni su eventi e iniziative. Solo la seconda autorizza la
+       newsletter. Quindi:
+         - chi l'ha spuntata entra nel gruppo della sua provenienza;
+         - chi NON l'ha spuntata non entra in nessun gruppo: si vede
+           nell'elenco iscritti con l'etichetta "niente promozionali",
+           e non c'e' modo di sceglierlo per sbaglio;
+         - chi arriva da elenchi importati dove la casella non risulta finisce
+           in un gruppo a parte, dichiarato: la decisione resta a chi sa come
+           quei contatti sono stati raccolti.
+       Aderenti e contatti presi di persona non passano dai moduli del sito:
+       la loro base sta altrove ed e' chi li inserisce a rispondere. */
+    function gruppiNewsletter() {
+        const mappa = {}, nomi = {}, ordine = [];
+        const rifiutati = [];   // hanno detto no: si mostrano soltanto, non sono un gruppo
+        const prepara = (id, nome) => { if (!mappa[id]) { mappa[id] = []; nomi[id] = nome; ordine.push(id); } };
+        const agg = (id, nome, p) => { prepara(id, nome); mappa[id].push(p); };
+        // gli eventi ci sono sempre, anche a zero iscritti: si vede subito che esistono
+        EVENTI_DEF.filter(e => !e.tutti).forEach(e => prepara('evento:' + e.id, e.titolo + ', ' + e.quando));
+
+        ((_nlDati && _nlDati.iscritti) || []).forEach(r => {
+            const ev = eventoDiPagina(r.pagina);
+            const provenienza = ev ? (ev.titolo + ', ' + ev.quando) : (r.pagina || 'Senza indicazione di pagina');
+            const persona = {
+                email: String(r.email || '').toLowerCase(), nome: r.nome || '', cognome: r.cognome || '',
+                azienda: r.azienda || '', origine: provenienza, data: r.data || '',
+                consenso: r.marketing === true ? 'si' : (r.marketing === false ? 'no' : 'ignoto')
+            };
+            if (persona.consenso === 'no') { rifiutati.push(persona); return; }
+            if (persona.consenso === 'ignoto') { agg('consenso-ignoto', 'Consenso non risultante (elenchi importati)', persona); return; }
+            agg(ev ? 'evento:' + ev.id : 'sito:' + (r.pagina || 'senza indicazione'), provenienza, persona);
+        });
+        Persone.tutte().filter(p => p.email && p.attivo !== false && !p.eliminato).forEach(p => {
+            agg('aderenti', 'Aderenti (anagrafica Persone)', {
+                email: String(p.email).toLowerCase(), nome: p.nomeProprio || '', cognome: p.nome || '',
+                azienda: '', origine: 'Aderenti', data: '', consenso: 'si'
+            });
+        });
+        ContattiNL.tutti().forEach(c => {
+            if (!c || !c.email) return;
+            agg('manuali', 'Contatti inseriti a mano', {
+                email: String(c.email).toLowerCase(), nome: c.nome || '', cognome: c.cognome || '',
+                azienda: c.azienda || '', origine: 'Inserito a mano', data: c.aggiunto ? fmtGiorno(c.aggiunto.il) : '',
+                consenso: 'si'
+            });
+        });
+        // dentro ogni gruppo un indirizzo compare una volta sola
+        ordine.forEach(id => {
+            const visti = new Set();
+            mappa[id] = mappa[id].filter(p => {
+                const e = String(p.email || '').toLowerCase();
+                if (!e || visti.has(e)) return false;
+                visti.add(e); return true;
+            });
+        });
+        const gr = id => ({ id: id, nome: nomi[id], n: mappa[id].length, membri: mappa[id] });
+        const tutti = ordine.map(gr);
+        // fra i rifiutati un indirizzo compare una volta sola (piu' moduli, stessa persona)
+        const vistiRif = new Set();
+        const senzaConsenso = rifiutati.filter(p => {
+            if (!p.email || vistiRif.has(p.email)) return false;
+            vistiRif.add(p.email); return true;
+        });
+        return {
+            eventi: tutti.filter(g => g.id.indexOf('evento:') === 0),
+            sito: tutti.filter(g => g.id.indexOf('sito:') === 0).sort((a, b) => b.n - a.n),
+            altri: tutti.filter(g => g.id === 'aderenti' || g.id === 'manuali'),
+            ignoti: tutti.filter(g => g.id === 'consenso-ignoto'),
+            senzaConsenso: senzaConsenso,
+            tutti: tutti
+        };
+    }
+
+    /* Da "gruppi scelti + esclusioni" all'elenco vero di chi ricevera' la mail:
+       senza doppioni fra gruppi e senza chi si e' disiscritto. */
+    function destinatariNewsletter(nl, opz) {
+        const g = gruppiNewsletter();
+        const perId = {};
+        g.tutti.forEach(x => { perId[x.id] = x; });
+        const scelti = Array.isArray(nl && nl.gruppi) ? nl.gruppi : [];
+        const esclusi = (nl && nl.esclusi) || [];
+        // chi e' gia' stato servito da un invio interrotto: si salta, per non
+        // mandare la stessa newsletter due volte alla stessa persona
+        const serviti = (opz && opz.saltaServiti && nl && nl.invii && nl.invii[0] && nl.invii[0].serviti) || [];
+        const fuori = (_nlDati && _nlDati.disiscritti) || {};
+        const visti = new Set(), out = [], saltati = [], candidati = [];
+        scelti.forEach(id => {
+            const gruppo = perId[id]; if (!gruppo) return;
+            gruppo.membri.forEach(p => {
+                const e = String(p.email || '').toLowerCase();
+                if (!e || visti.has(e)) return;
+                visti.add(e);
+                // chi si e' disiscritto sparisce del tutto: non e' una scelta di chi scrive
+                if (fuori[e]) { saltati.push({ email: e, motivo: 'disiscritto' }); return; }
+                if (serviti.length && inElencoImpronte(serviti, e)) { saltati.push({ email: e, motivo: 'gia servito' }); return; }
+                const escluso = inElencoImpronte(esclusi, e);
+                candidati.push({ ...p, escluso: escluso });
+                if (escluso) { saltati.push({ email: e, motivo: 'escluso a mano' }); return; }
+                out.push(p);
+            });
+        });
+        // "candidati" comprende anche gli esclusi a mano: servono per rimetterli
+        return { destinatari: out, saltati: saltati, candidati: candidati };
+    }
+
+    /* =========================================================
+       SEZIONE
+    ========================================================= */
+    function vistaNewsletter() {
+        if (!puoVedereNewsletter()) { naviga('dashboard'); return; }
+        const admin = Auth.eAdmin() || Auth.eProprietario();
+        /* Entrando si legge dal servizio, ma quello che si sa gia' resta a video.
+           La pausa fra due tentativi vale SEMPRE, anche quando non si e' ancora
+           letto niente: senza, un servizio che risponde subito con un errore
+           farebbe ripartire il disegno e la richiesta all'infinito, diverse
+           volte al secondo, finche' la sezione resta aperta. */
+        if (Cloud.attivo && !_nlInFlight && Date.now() - _nlUltimoTentativo > 15000) {
+            caricaDestinatariNewsletter(cambiato => { if (cambiato && vistaCorrente === 'newsletter') vistaNewsletter(); });
+        }
+        if (admin && _sondUtenti === null) utentiSond(() => { if (vistaCorrente === 'newsletter') vistaNewsletter(); });
+
+        const g = gruppiNewsletter();
+        const disiscritti = (_nlDati && _nlDati.disiscritti) || {};
+        const tuttiUnici = new Set();
+        g.tutti.forEach(x => x.membri.forEach(p => tuttiUnici.add(p.email)));
+        const nDisiscritti = Object.keys(disiscritti).length;
+        const nRaggiungibili = Array.from(tuttiUnici).filter(e => !disiscritti[e]).length;
+        const nIgnoti = g.ignoti.reduce((s, x) => s + x.n, 0);
+
+        const box = (classe, etichetta, valore, nota) => '<div class="kpi' + (classe ? ' ' + classe : '') + '">'
+            + '<div class="etichetta">' + etichetta + '</div><div class="valore">' + valore + '</div>'
+            + '<div class="nota">' + nota + '</div></div>';
+        const kpi = '<div class="kpi-griglia">'
+            + box('verde', 'Raggiungibili', nRaggiungibili, 'indirizzi unici, disiscritti esclusi')
+            + box('', 'Iscritti agli eventi', g.eventi.reduce((s, x) => s + x.n, 0), 'con consenso alle promozionali')
+            + box('', 'Dalle sezioni del sito', g.sito.reduce((s, x) => s + x.n, 0), 'con consenso alle promozionali')
+            + box('', 'Aderenti', ((g.altri.find(x => x.id === 'aderenti') || {}).n || 0), 'anagrafica Persone con email')
+            + box('', 'Inseriti a mano', ((g.altri.find(x => x.id === 'manuali') || {}).n || 0), 'raccolti di persona')
+            + box('ambra', 'Senza consenso', g.senzaConsenso.length + (nIgnoti ? ' + ' + nIgnoti : ''), nIgnoti ? 'hanno detto no + non risultanti' : 'esclusi dagli invii')
+            + box('rosso', 'Disiscritti', nDisiscritti, 'saltati in automatico a ogni invio')
+            + '</div>';
+
+        const schede = '<div class="tab-dest nl-schede" style="margin-bottom:16px;">'
+            + '<button type="button" class="tab-btn' + (nlTab === 'newsletter' ? ' attivo' : '') + '" data-tab="newsletter">Le newsletter (' + Newsletter.tutte().length + ')</button>'
+            + '<button type="button" class="tab-btn' + (nlTab === 'iscritti' ? ' attivo' : '') + '" data-tab="iscritti">Iscritti (' + tuttiUnici.size + ')</button>'
+            + '<button type="button" class="tab-btn' + (nlTab === 'disiscritti' ? ' attivo' : '') + '" data-tab="disiscritti">Disiscritti (' + nDisiscritti + ')</button>'
+            + '</div>';
+
+        const nAbilitati = NewsletterConfig.leggi().abilitati.length;
+        const gestione = admin
+            ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
+            + '<div class="hint">Oltre all\'amministratore, ' + (nAbilitati === 1 ? 'vede la Newsletter <b>1</b> altro utente' : 'vedono la Newsletter <b>' + nAbilitati + '</b> utenti abilitati') + '.</div></div>'
+            + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="nl-accessi">Gestisci accessi</button></div></div>'
+            : '';
+        const avviso = _nlMsg ? '<div class="card tabella-vuota">' + esc(_nlMsg) + '</div>' : '';
+        const senzaCloud = !Cloud.attivo
+            ? '<div class="card tabella-vuota">In modalita dimostrativa gli iscritti del sito non sono disponibili e non si possono spedire email.</div>'
+            : '';
+
+        $vista().innerHTML = '<header><div><h1>Newsletter</h1>'
+            + '<p class="descrizione">Prepara la newsletter partendo da una pagina del sito e spediscila a iscritti, aderenti e contatti raccolti a mano.</p></div>'
+            + '<div class="header-azioni"><span class="ev-live">' + (_nlInFlight ? 'aggiornamento...' : (_nlAggiornato ? 'aggiornato alle ' + esc(new Date(_nlAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) : 'in attesa')) + '</span>'
+            + '<button class="btn btn-secondary" id="nl-aggiorna"' + (_nlInFlight ? ' disabled' : '') + '>' + (_nlInFlight ? 'Aggiorno...' : 'Aggiorna adesso') + '</button>'
+            + '<button class="btn btn-primary" id="nl-nuova">Nuova newsletter</button></div></header>'
+            + kpi + schede + senzaCloud + avviso + gestione
+            + '<div id="nl-corpo">' + corpoNewsletter(g, disiscritti) + '</div>';
+
+        $vista().querySelectorAll('.nl-schede [data-tab]').forEach(b =>
+            b.addEventListener('click', () => { nlTab = b.dataset.tab; vistaNewsletter(); }));
+        document.getElementById('nl-nuova').addEventListener('click', () => modaleNewsletter(null));
+        document.getElementById('nl-aggiorna').addEventListener('click', () => {
+            _nlMsg = ''; _nlUltimoTentativo = 0;
+            caricaDestinatariNewsletter(() => { if (vistaCorrente === 'newsletter') vistaNewsletter(); }, true);
+            vistaNewsletter();
+        });
+        const bAcc = document.getElementById('nl-accessi');
+        if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleNewsletterAbilitati(u)));
+        collegaCorpoNewsletter();
+    }
+
+    function corpoNewsletter(g, disiscritti) {
+        if (nlTab === 'iscritti') return corpoIscrittiNewsletter(g, disiscritti);
+        if (nlTab === 'disiscritti') return corpoDisiscrittiNewsletter(disiscritti);
+        return corpoElencoNewsletter();
+    }
+
+    function corpoElencoNewsletter() {
+        const lista = Newsletter.tutte();
+        if (!lista.length) {
+            return '<div class="card tabella-vuota">Nessuna newsletter preparata.<br>'
+                + '<span class="hint">Premi "Nuova newsletter": scegli una pagina del sito e la bozza si scrive quasi da sola.</span></div>';
+        }
+        const righe = lista.map(n => {
+            const ultimo = (n.invii || [])[0];
+            const stato = n.stato === 'interrotta'
+                ? '<span class="badge ambra">Invio interrotto</span>'
+                : (n.stato === 'inviata'
+                    ? '<span class="badge verde">Inviata</span>'
+                    : '<span class="badge">In preparazione</span>');
+            return '<tr data-id="' + esc(n.id) + '">'
+                + '<td><strong>' + esc(n.nome || n.oggetto || 'Senza nome') + '</strong>'
+                + (n.oggetto && n.nome ? '<div class="hint">' + esc(n.oggetto) + '</div>' : '') + '</td>'
+                + '<td>' + stato + '</td>'
+                + '<td>' + esc(etichettaGruppi(n)) + '</td>'
+                + '<td>' + (ultimo ? esc(fmtDataOra(ultimo.il)) + '<div class="hint">' + (ultimo.n || 0) + ' destinatari &middot; ' + esc(ultimo.da || '') + '</div>' : '-') + '</td>'
+                + '<td class="td-azioni">'
+                + '<button class="btn btn-sm btn-secondary" data-apri="' + esc(n.id) + '">Apri</button> '
+                + '<button class="btn btn-sm btn-ghost" data-duplica="' + esc(n.id) + '">Duplica</button> '
+                + '<button class="btn btn-sm btn-ghost" data-elimina="' + esc(n.id) + '">Elimina</button>'
+                + '</td></tr>';
+        }).join('');
+        return '<div class="card tabella-wrap"><table class="dati"><thead><tr>'
+            + '<th>Newsletter</th><th>Stato</th><th>Destinatari</th><th>Ultimo invio</th><th></th>'
+            + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
+    }
+
+    /* "Napoli, Aderenti (+2)" oppure "nessun gruppo scelto" */
+    function etichettaGruppi(n) {
+        const scelti = (n && n.gruppi) || [];
+        if (!scelti.length) return 'nessun gruppo scelto';
+        const g = gruppiNewsletter();
+        const perId = {}; g.tutti.forEach(x => { perId[x.id] = x; });
+        const nomi = scelti.map(id => (perId[id] || {}).nome || id);
+        return nomi.slice(0, 2).join(', ') + (nomi.length > 2 ? ' (+' + (nomi.length - 2) + ')' : '');
+    }
+
+    function corpoIscrittiNewsletter(g, disiscritti) {
+        const righe = [];
+        g.tutti.forEach(gruppo => {
+            gruppo.membri.forEach(p => {
+                righe.push({ ...p, gruppo: gruppo.nome, fuori: !!disiscritti[p.email] });
+            });
+        });
+        // anche chi ha rifiutato le promozionali si vede qui: non e' un destinatario,
+        // ma sapere che c'e' (e da dove arriva) serve
+        g.senzaConsenso.forEach(p => righe.push({ ...p, gruppo: p.origine, fuori: !!disiscritti[p.email] }));
+        // un indirizzo puo' stare in piu' gruppi: si tiene una riga sola, con le provenienze unite
+        const perEmail = {};
+        righe.forEach(r => {
+            if (!perEmail[r.email]) perEmail[r.email] = { ...r, provenienze: [r.gruppo] };
+            else if (perEmail[r.email].provenienze.indexOf(r.gruppo) < 0) perEmail[r.email].provenienze.push(r.gruppo);
+        });
+        const elenco = Object.keys(perEmail).map(k => perEmail[k])
+            .sort((a, b) => (a.cognome + a.nome).localeCompare(b.cognome + b.nome));
+        if (!elenco.length) {
+            return '<div class="card tabella-vuota">Nessun iscritto disponibile.'
+                + (Cloud.attivo ? '<br><span class="hint">Se il servizio non risponde, riprova con "Aggiorna adesso".</span>' : '') + '</div>';
+        }
+        // il consenso alle comunicazioni promozionali e' l'informazione che decide
+        // se una persona puo' essere destinataria: sta in colonna, filtrabile
+        const badgeConsenso = c => c === 'no'
+            ? '<span class="badge rosso">Niente promozionali</span>'
+            : (c === 'ignoto' ? '<span class="badge ambra">Non risultante</span>' : '<span class="badge verde">Si</span>');
+        const corpo = elenco.map(p => '<tr>'
+            + '<td>' + esc(p.cognome || '-') + '</td>'
+            + '<td>' + esc(p.nome || '') + '</td>'
+            + '<td>' + esc(p.email) + '</td>'
+            + '<td>' + esc(p.azienda || '') + '</td>'
+            + '<td>' + esc(p.provenienze.join(' + ')) + '</td>'
+            + '<td>' + badgeConsenso(p.consenso) + '</td>'
+            + '<td>' + (p.fuori ? '<span class="badge rosso">Disiscritto</span>' : '<span class="badge verde">Iscritto</span>') + '</td>'
+            + '</tr>').join('');
+        return '<div class="card nl-barra-contatti">'
+            + '<div><strong>Iscritti presi di persona</strong><div class="hint">Aggiungi qui chi ti lascia il biglietto da visita a un convegno o in studio.</div></div>'
+            + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="nl-contatto">Aggiungi contatto</button>'
+            + '<button class="btn btn-secondary" id="nl-importa">Importa un elenco</button></div></div>'
+            + '<p class="hint" style="margin:0 0 10px;">La colonna <strong>Consenso</strong> dice chi ha spuntato, sul modulo del sito, la casella per ricevere comunicazioni su eventi e iniziative. '
+            + 'Chi ha risposto di no non compare fra i destinatari e non e selezionabile. Chi risulta &laquo;non risultante&raquo; arriva da elenchi importati e sta in un gruppo a parte.</p>'
+            + '<div class="card tabella-wrap" id="nl-tab-iscritti"><table class="dati"><thead><tr>'
+            + '<th>Cognome</th><th>Nome</th><th>Email</th><th>Azienda</th><th>Provenienza</th><th>Consenso</th><th>Stato</th>'
+            + '</tr></thead><tbody>' + corpo + '</tbody></table></div>';
+    }
+
+    function corpoDisiscrittiNewsletter(disiscritti) {
+        const elenco = Object.keys(disiscritti).map(e => ({ email: e, ...disiscritti[e] }))
+            .sort((a, b) => (b.quando || 0) - (a.quando || 0));
+        if (!elenco.length) {
+            return '<div class="card tabella-vuota">Nessuno si e disiscritto.<br>'
+                + '<span class="hint">Chi usa il collegamento in fondo alla newsletter compare qui e viene escluso da tutti gli invii successivi.</span></div>';
+        }
+        const righe = elenco.map(d => '<tr>'
+            + '<td>' + esc(d.email) + '</td>'
+            + '<td>' + (d.quando ? esc(fmtDataOra(d.quando)) : '-') + '</td>'
+            + '<td>' + esc(d.origine || '') + '</td>'
+            + '<td class="td-azioni"><button class="btn btn-sm btn-ghost" data-riattiva="' + esc(d.email) + '">Rimetti fra gli iscritti</button></td>'
+            + '</tr>').join('');
+        return '<div class="card tabella-wrap" id="nl-tab-disiscritti">'
+            + '<p class="hint" style="margin:0 0 10px;">Questi indirizzi vengono saltati in automatico a ogni invio. Rimettili fra gli iscritti solo se te lo chiedono espressamente.</p>'
+            + '<table class="dati"><thead><tr><th>Indirizzo</th><th>Quando</th><th>Come</th><th></th></tr></thead>'
+            + '<tbody>' + righe + '</tbody></table></div>';
+    }
+
+    function collegaCorpoNewsletter() {
+        const scope = document.getElementById('nl-corpo');
+        if (!scope) return;
+        scope.querySelectorAll('[data-apri]').forEach(b => b.addEventListener('click', () => modaleNewsletter(b.dataset.apri)));
+        scope.querySelectorAll('[data-duplica]').forEach(b => b.addEventListener('click', () => duplicaNewsletter(b.dataset.duplica)));
+        scope.querySelectorAll('[data-elimina]').forEach(b => b.addEventListener('click', () => {
+            const n = Newsletter.trova(b.dataset.elimina); if (!n) return;
+            confermaNewsletter('Eliminare "' + (n.nome || n.oggetto || 'questa newsletter') + '"?',
+                'L\'operazione non si puo annullare. Gli invii gia partiti non vengono toccati.', () => {
+                    Newsletter.elimina(n.id);
+                    try { Audit.registra(Auth.utenteCorrente, 'Newsletter eliminata', 'sistema', n.id, null, n.nome || n.oggetto || ''); } catch (e) { }
+                    chiudiModale(); toast('Newsletter eliminata.', 'verde'); vistaNewsletter();
+                });
+        }));
+        const bC = document.getElementById('nl-contatto');
+        if (bC) bC.addEventListener('click', () => modaleContattoNL(null));
+        const bI = document.getElementById('nl-importa');
+        if (bI) bI.addEventListener('click', () => modaleImportaContattiNL());
+        scope.querySelectorAll('[data-riattiva]').forEach(b => b.addEventListener('click', () => {
+            const email = b.dataset.riattiva;
+            conAttesa(b, async () => {
+                const r = await Cloud.disiscriviNewsletter(email, true);
+                if (!r.ok) { toast('Non riuscito: ' + (r.msg || ''), 'rosso'); return; }
+                if (_nlDati && _nlDati.disiscritti) delete _nlDati.disiscritti[email];
+                try { Audit.registra(Auth.utenteCorrente, 'Newsletter: iscritto riattivato', 'sistema', email, null, null); } catch (e) { }
+                toast(email + ' torna fra gli iscritti.', 'verde');
+                vistaNewsletter();
+            }, { testo: 'Attendi...' });
+        }));
+        const tab = document.getElementById('nl-tab-iscritti');
+        if (tab) attrezzaTabella(tab, { nomeFile: 'iscritti-newsletter' });
+    }
+
+    /* Conferma con due pulsanti, usata per eliminazioni e invii. */
+    function confermaNewsletter(titolo, testo, onSi, etichettaSi) {
+        apriModale('<h2>' + esc(titolo) + '</h2><p class="descrizione">' + esc(testo) + '</p>'
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="nlc-no">Annulla</button>'
+            + '<button class="btn btn-primary" id="nlc-si">' + esc(etichettaSi || 'Conferma') + '</button></div>');
+        document.getElementById('nlc-no').addEventListener('click', chiudiModale);
+        document.getElementById('nlc-si').addEventListener('click', () => onSi(document.getElementById('nlc-si')));
+    }
+
+    function duplicaNewsletter(id) {
+        const n = Newsletter.trova(id); if (!n) return;
+        const copia = JSON.parse(JSON.stringify(n));
+        copia.id = uid();
+        copia.nome = (n.nome || n.oggetto || 'Newsletter') + ' (copia)';
+        copia.stato = 'bozza';
+        copia.invii = [];
+        copia.creato = { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+        Newsletter.salvaUna(copia);
+        vistaNewsletter();
+        modaleNewsletter(copia.id);
+    }
+
+    /* =========================================================
+       CONTATTI PRESI A MANO
+    ========================================================= */
+    function modaleContattoNL(id) {
+        const c = id ? ContattiNL.trova(id) : null;
+        apriModale('<h2>' + (c ? 'Modifica contatto' : 'Nuovo contatto') + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 14px;">Serve solo l\'indirizzo email. Nome e cognome rendono la newsletter personalizzabile.</p>'
+            + '<div class="griglia-2">'
+            + '<div class="campo"><label>Nome</label><input id="ct-nome" value="' + esc((c && c.nome) || '') + '"></div>'
+            + '<div class="campo"><label>Cognome</label><input id="ct-cognome" value="' + esc((c && c.cognome) || '') + '"></div>'
+            + '</div>'
+            + '<div class="campo"><label>Email</label><input id="ct-email" type="email" value="' + esc((c && c.email) || '') + '" placeholder="nome@azienda.it"></div>'
+            + '<div class="griglia-2">'
+            + '<div class="campo"><label>Azienda</label><input id="ct-azienda" value="' + esc((c && c.azienda) || '') + '"></div>'
+            + '<div class="campo"><label>Ruolo</label><input id="ct-ruolo" value="' + esc((c && c.ruolo) || '') + '"></div>'
+            + '</div>'
+            + '<div class="campo"><label>Note</label><input id="ct-note" value="' + esc((c && c.note) || '') + '" placeholder="es. conosciuto al convegno di Verona"></div>'
+            + '<div class="msg-errore hidden" id="ct-errore"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="ct-annulla">Annulla</button>'
+            + (c ? '<button class="btn btn-ghost" id="ct-elimina">Elimina</button>' : '')
+            + '<button class="btn btn-primary" id="ct-salva">Salva</button></div>', { classe: 'larga' });
+        const $ = x => document.getElementById(x);
+        $('ct-annulla').addEventListener('click', chiudiModale);
+        const bEl = $('ct-elimina');
+        if (bEl) bEl.addEventListener('click', () => {
+            ContattiNL.elimina(c.id);
+            chiudiModale(); toast('Contatto eliminato.', 'verde'); vistaNewsletter();
+        });
+        $('ct-salva').addEventListener('click', () => {
+            const email = $('ct-email').value.trim().toLowerCase();
+            const err = $('ct-errore');
+            if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+                err.textContent = 'Indirizzo email non valido.'; err.classList.remove('hidden'); return;
+            }
+            const gia = ContattiNL.tutti().find(x => x.email === email && (!c || x.id !== c.id));
+            if (gia) { err.textContent = 'Questo indirizzo e gia in elenco.'; err.classList.remove('hidden'); return; }
+            const rec = {
+                id: (c && c.id) || uid(), email: email,
+                nome: $('ct-nome').value.trim(), cognome: $('ct-cognome').value.trim(),
+                azienda: $('ct-azienda').value.trim(), ruolo: $('ct-ruolo').value.trim(),
+                note: $('ct-note').value.trim(),
+                aggiunto: (c && c.aggiunto) || { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() }
+            };
+            ContattiNL.salvaUno(rec);
+            try { Audit.registra(Auth.utenteCorrente, c ? 'Contatto newsletter modificato' : 'Contatto newsletter aggiunto', 'sistema', email, null, null); } catch (e) { }
+            chiudiModale(); toast('Contatto salvato.', 'verde'); vistaNewsletter();
+        });
+    }
+
+    /* Incollare un elenco: una persona per riga, "email; nome; cognome; azienda"
+       (bastano anche solo gli indirizzi). */
+    function modaleImportaContattiNL() {
+        apriModale('<h2>Importa un elenco di contatti</h2>'
+            + '<p class="descrizione">Incolla una persona per riga. Bastano gli indirizzi; se hai anche i nomi, separali con il punto e virgola:</p>'
+            + '<p class="hint" style="margin:-6px 0 12px;"><code>mario.rossi@azienda.it; Mario; Rossi; Azienda S.r.l.</code></p>'
+            + '<div class="campo"><textarea id="imn-testo" rows="10" placeholder="mario.rossi@azienda.it; Mario; Rossi; Alfa S.r.l.&#10;laura.bianchi@studio.it"></textarea></div>'
+            + '<div class="msg-errore hidden" id="imn-errore"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="imn-annulla">Annulla</button>'
+            + '<button class="btn btn-primary" id="imn-ok">Importa</button></div>', { classe: 'larga' });
+        document.getElementById('imn-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('imn-ok').addEventListener('click', () => {
+            const testo = document.getElementById('imn-testo').value || '';
+            const err = document.getElementById('imn-errore');
+            const esistenti = ContattiNL.tutti();
+            const gia = new Set(esistenti.map(c => c.email));
+            let aggiunti = 0, saltati = 0;
+            testo.split('\n').forEach(riga => {
+                const parti = riga.split(/[;,\t]/).map(s => s.trim());
+                const email = (parti[0] || '').toLowerCase();
+                if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { if (riga.trim()) saltati++; return; }
+                if (gia.has(email)) { saltati++; return; }
+                gia.add(email);
+                esistenti.unshift({
+                    id: uid(), email: email, nome: parti[1] || '', cognome: parti[2] || '', azienda: parti[3] || '',
+                    ruolo: '', note: 'importato',
+                    aggiunto: { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() }
+                });
+                aggiunti++;
+            });
+            if (!aggiunti) { err.textContent = 'Nessun indirizzo valido e nuovo in questo elenco.'; err.classList.remove('hidden'); return; }
+            ContattiNL.salva(esistenti);
+            try { Audit.registra(Auth.utenteCorrente, 'Contatti newsletter importati', 'sistema', 'newsletterContatti', null, aggiunti + ' aggiunti, ' + saltati + ' saltati'); } catch (e) { }
+            chiudiModale();
+            toast(aggiunti + ' contatti aggiunti' + (saltati ? ' (' + saltati + ' saltati)' : '') + '.', 'verde');
+            vistaNewsletter();
+        });
+    }
+
+    /* Chi puo aprire la sezione Newsletter. */
+    function modaleNewsletterAbilitati(utenti) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        utenti = utenti || [];
+        const sel = new Set(NewsletterConfig.leggi().abilitati);
+        const me = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : '';
+        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me);
+        const righe = lista.length ? lista.map(u => {
+            const e = String(u.email).toLowerCase();
+            const spento = u.attivo === false;
+            /* Un ruolo "solo sondaggio" non puo' lavorare qui: il server gli nega gli
+               archivi generali, quindi le newsletter che preparasse resterebbero solo
+               nel suo browser. Si dice e si blocca la casella, invece di lasciarlo
+               abilitare e scoprirlo dopo. */
+            const soloSond = eRuoloSoloSondaggio(u.ruolo);
+            return '<div class="mi-utente" data-email="' + esc(e) + '">'
+                + '<label class="mi-flag"><input type="checkbox" class="nl-ab" value="' + esc(e) + '"'
+                + ' data-prima="' + (u.newsletter === true ? '1' : '0') + '"'
+                + ((!soloSond && (sel.has(e) || u.newsletter === true)) ? ' checked' : '')
+                + (soloSond ? ' disabled' : '') + '> abilitato</label>'
+                + '<span class="mi-nome">' + esc(u.nome || e) + '</span><span class="mi-mail">' + esc(e) + '</span>'
+                + (spento ? '<span class="ev-avviso">utenza disattivata: non puo accedere</span>' : '')
+                + (soloSond ? '<span class="ev-avviso">ruolo "solo sondaggio": cambia prima il ruolo, altrimenti il suo lavoro non arriverebbe agli altri</span>' : '')
+                + '</div>';
+        }).join('') : '<p class="hint">Nessun altro utente disponibile.</p>';
+        const koLista = _sondUtentiKo || !lista.length;
+        const avvisoKo = koLista
+            ? '<div class="ev-blocco">Elenco utenze non disponibile in questo momento, quindi il salvataggio e disattivato: '
+            + 'salvare adesso cancellerebbe le abilitazioni gia impostate. <button type="button" class="btn btn-sm btn-secondary" id="nla-riprova">Riprova</button></div>'
+            : '';
+        apriModale('<h2>Chi puo vedere la sezione Newsletter</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Da qui partono email a nome dello studio: abilita solo chi deve poterle scrivere e spedire.</p>'
+            + avvisoKo
+            + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Utenti</label>'
+            + '<button type="button" class="btn btn-sm btn-ghost" id="nla-nessuno">Deseleziona tutti</button></div>'
+            + '<input type="text" id="nla-cerca" class="mi-cerca" placeholder="Cerca per nome o email">'
+            + '<div class="mi-utenti">' + righe + '</div></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="nla-no">Annulla</button>'
+            + '<button class="btn btn-primary" id="nla-si"' + (koLista ? ' disabled' : '') + '>Salva</button></div>', { classe: 'larga' });
+        const bRip = document.getElementById('nla-riprova');
+        if (bRip) bRip.addEventListener('click', () => {
+            bRip.disabled = true; bRip.textContent = 'Attendi...';
+            ricaricaUtentiSond(u => { chiudiModale(); modaleNewsletterAbilitati(u); });
+        });
+        const cerca = document.getElementById('nla-cerca');
+        if (cerca) cerca.addEventListener('input', () => {
+            const q = cerca.value.trim().toLowerCase();
+            document.querySelectorAll('.mi-utente').forEach(l => { l.style.display = (!q || l.textContent.toLowerCase().indexOf(q) >= 0) ? '' : 'none'; });
+        });
+        const bNes = document.getElementById('nla-nessuno');
+        if (bNes) bNes.addEventListener('click', () => { document.querySelectorAll('.nl-ab').forEach(c => { c.checked = false; }); });
+        document.getElementById('nla-no').addEventListener('click', chiudiModale);
+        document.getElementById('nla-si').addEventListener('click', () => {
+            const caselle = Array.from(document.querySelectorAll('.nl-ab'));
+            if (!caselle.length) { toast('Elenco utenze non disponibile: riprova fra un momento.', 'rosso'); return; }
+            // si parte dall'elenco salvato e si applicano solo le caselle mostrate:
+            // un utente non disegnato non deve perdere l'accesso in silenzio
+            const finale = new Set(NewsletterConfig.leggi().abilitati);
+            caselle.forEach(c => { if (c.checked) finale.add(c.value); else finale.delete(c.value); });
+            const abilitati = Array.from(finale);
+            NewsletterConfig.salva({ abilitati: abilitati });
+            /* Il contrassegno finisce anche sulla SCHEDA dell'utente: e' quello che
+               il servizio guarda per decidere, perche' l'elenco condiviso lo
+               potrebbe riscrivere qualunque utente. Si scrive solo dove e'
+               davvero cambiato: una scrittura per utente ad ogni salvataggio
+               brucerebbe quota per niente. */
+            if (Cloud.attivo && typeof Cloud.salvaUtente === 'function') {
+                caselle.filter(c => (c.dataset.prima === '1') !== !!c.checked).forEach(c => {
+                    Cloud.salvaUtente(c.value, { newsletter: !!c.checked })
+                        .catch(() => toast('Permesso non registrato per ' + c.value + ': riprova.', 'rosso'));
+                });
+            }
+            try { Audit.registra(Auth.utenteCorrente, 'Newsletter: accessi aggiornati', 'sistema', 'newsletterConfig', null, 'abilitati ' + abilitati.length); } catch (e) { }
+            chiudiModale(); toast('Accessi aggiornati.', 'verde'); vistaNewsletter();
+        });
+    }
+
+    /* =========================================================
+       COMPOSITORE
+    ========================================================= */
+    /* Quanti destinatari per volta: lo stesso numero che accetta il servizio. */
+    const LOTTO_NEWSLETTER = 20;
+    const NOMI_TIPO_BLOCCO = { testo: 'Testo', evidenza: 'Riquadro in evidenza', immagine: 'Immagine', bottone: 'Pulsante', elenco: 'Elenco puntato', separatore: 'Linea di separazione' };
+
+    function modaleNewsletter(id) {
+        const n = id ? Newsletter.trova(id) : null;
+        const nuova = !n;
+        // copia di lavoro: si tocca l'archivio solo al salvataggio
+        const bozza = n ? JSON.parse(JSON.stringify(n)) : {
+            id: uid(), nome: '', oggetto: '', preheader: '',
+            occhiello: '', titolo: '', sommario: '', immagine: '',
+            blocchi: [], cta: { testo: '', url: '' }, fonte: { url: '', titolo: '' },
+            gruppi: [], esclusi: [], stato: 'bozza',
+            creato: { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() },
+            invii: []
+        };
+        if (!Array.isArray(bozza.blocchi)) bozza.blocchi = [];
+        if (!Array.isArray(bozza.gruppi)) bozza.gruppi = [];
+        if (!Array.isArray(bozza.esclusi)) bozza.esclusi = [];
+        if (!bozza.cta) bozza.cta = { testo: '', url: '' };
+
+        const opzPagine = PAGINE_SITO.map(p => '<option value="' + esc(p.percorso) + '">' + esc(p.nome) + '</option>').join('');
+
+        apriModale(''
+            + intestazioneInvio(bozza)
+            + '<div class="nl-sez">'
+            + '  <div class="nl-sez-tit">1. Da quale pagina del sito</div>'
+            + '  <div class="nl-origine">'
+            + '    <select id="nl-pagina"><option value="">Scegli una pagina...</option>' + opzPagine + '<option value="__altro">Altro indirizzo del sito...</option></select>'
+            + '    <input id="nl-url" class="nascosto" placeholder="https://nextgenerationbusiness.it/...">'
+            + '    <button type="button" class="btn btn-secondary" id="nl-genera">Genera la bozza</button>'
+            + '  </div>'
+            + '  <div class="hint">L\'app legge la pagina e prepara titolo, sommario, immagine e le sezioni principali. Poi correggi quello che vuoi: la pagina non viene toccata.</div>'
+            + '  <div class="nl-esito" id="nl-esito-gen"></div>'
+            + '</div>'
+            + '<div class="nl-sez">'
+            + '  <div class="nl-sez-tit">2. Intestazione</div>'
+            + '  <div class="griglia-2">'
+            + '    <div class="campo"><label>Nome interno</label><input id="nl-nome" value="' + esc(bozza.nome || '') + '" placeholder="es. Newsletter di settembre"><div class="hint">Serve solo a te per ritrovarla in elenco.</div></div>'
+            + '    <div class="campo"><label>Oggetto della mail</label><input id="nl-oggetto" value="' + esc(bozza.oggetto || '') + '" placeholder="Quello che legge il destinatario"></div>'
+            + '  </div>'
+            + '  <div class="campo"><label>Testo di anteprima</label><input id="nl-preheader" value="' + esc(bozza.preheader || '') + '" placeholder="La riga che si vede accanto all\'oggetto nella casella di posta"></div>'
+            + '  <div class="griglia-2">'
+            + '    <div class="campo"><label>Occhiello</label><input id="nl-occhiello" value="' + esc(bozza.occhiello || '') + '" placeholder="es. Finanza agevolata"></div>'
+            + '    <div class="campo"><label>Immagine di apertura</label><input id="nl-immagine" value="' + esc(bozza.immagine || '') + '" placeholder="https://..."></div>'
+            + '  </div>'
+            + '  <div class="campo"><label>Titolo</label><input id="nl-titolo" value="' + esc(bozza.titolo || '') + '"></div>'
+            + '  <div class="campo"><label>Sommario</label><textarea id="nl-sommario" rows="2">' + esc(bozza.sommario || '') + '</textarea></div>'
+            + '</div>'
+            + '<div class="nl-sez">'
+            + '  <div class="nl-sez-tit">3. Contenuto</div>'
+            + '  <div class="hint nl-regole">Nei testi: una <strong>riga vuota</strong> comincia un paragrafo nuovo, <code>**testo**</code> lo mette in grassetto, <code>[testo](indirizzo)</code> crea un collegamento. Puoi usare <code>{nome}</code> e <code>{cognome}</code>: diventano il nome di chi riceve.</div>'
+            + '  <div id="nl-blocchi"></div>'
+            + '  <div class="nl-aggiungi">'
+            + '    <select id="nl-tipo">' + Object.keys(NOMI_TIPO_BLOCCO).map(t => '<option value="' + t + '">' + esc(NOMI_TIPO_BLOCCO[t]) + '</option>').join('') + '</select>'
+            + '    <button type="button" class="btn btn-secondary" id="nl-add">Aggiungi blocco</button>'
+            + '  </div>'
+            + '  <div class="griglia-2" style="margin-top:14px;">'
+            + '    <div class="campo"><label>Pulsante finale: testo</label><input id="nl-cta-testo" value="' + esc((bozza.cta && bozza.cta.testo) || '') + '" placeholder="es. Leggi l\'approfondimento"></div>'
+            + '    <div class="campo"><label>Pulsante finale: indirizzo</label><input id="nl-cta-url" value="' + esc((bozza.cta && bozza.cta.url) || '') + '" placeholder="https://..."></div>'
+            + '  </div>'
+            + '</div>'
+            + '<div class="nl-sez">'
+            + '  <div class="nl-sez-tit">4. Destinatari</div>'
+            + '  <div id="nl-gruppi"></div>'
+            + '  <div class="nl-conteggio" id="nl-conteggio"></div>'
+            + '</div>'
+            + '<div class="nl-esito" id="nl-esito-invio"></div>'
+            + '<div class="nl-conferma nascosto" id="nl-conferma"></div>'
+            + '<div class="modale-azioni">'
+            + '  <button class="btn btn-ghost" id="nl-chiudi">Chiudi</button>'
+            + '  <button class="btn btn-secondary" id="nl-anteprima">Anteprima</button>'
+            + '  <button class="btn btn-secondary" id="nl-prova">Invia una prova a me</button>'
+            + '  <button class="btn btn-secondary" id="nl-salva">Salva</button>'
+            + '  <button class="btn btn-primary" id="nl-invia">Invia la newsletter</button>'
+            + '</div>', { classe: 'larga nl-modale', finestra: true, titolo: nuova ? 'Nuova newsletter' : (bozza.nome || bozza.oggetto || 'Newsletter') });
+
+        const $ = x => document.getElementById(x);
+        /* Modifiche non ancora salvate: chiudendo si avvisa, invece di perderle. */
+        let salvataDaChiudere = false;
+        /* Invio in corso: la guardia sta QUI e non sul pulsante, perche' il pulsante
+           di conferma viene ridisegnato e quello nuovo non saprebbe niente del vecchio. */
+        let invioInCorso = false;
+        const finestra = document.querySelector('.modale-finestra');
+        if (finestra) finestra.addEventListener('input', () => { salvataDaChiudere = true; });
+
+        /* Conferme DENTRO il compositore, non in una finestra sopra: aprire un
+           secondo modale sostituirebbe questo e si perderebbe tutto il lavoro. */
+        function confermaInLinea(titolo, testo, etichetta, onSi) {
+            const box = $('nl-conferma');
+            box.className = 'nl-conferma';
+            box.innerHTML = '<div class="nl-conferma-tit">' + esc(titolo) + '</div><p>' + esc(testo) + '</p>'
+                + '<div class="nl-conferma-azioni"><button type="button" class="btn btn-ghost" id="nlk-no">Annulla</button>'
+                + '<button type="button" class="btn btn-primary" id="nlk-si">' + esc(etichetta) + '</button></div>'
+                + '<div class="hint" id="nlk-avanz"></div>';
+            box.scrollIntoView({ block: 'nearest' });
+            $('nlk-no').addEventListener('click', chiudiConfermaInLinea);
+            $('nlk-si').addEventListener('click', () => onSi($('nlk-si'), $('nlk-avanz'), $('nlk-no')));
+        }
+        function chiudiConfermaInLinea() {
+            const box = $('nl-conferma');
+            if (!box) return;
+            box.className = 'nl-conferma nascosto';
+            box.innerHTML = '';
+        }
+
+        /* --- blocchi --- */
+        function disegnaBlocchi() {
+            const cont = $('nl-blocchi');
+            if (!bozza.blocchi.length) {
+                cont.innerHTML = '<div class="nl-vuoto">Nessun blocco. Genera la bozza da una pagina del sito, oppure aggiungi il primo blocco qui sotto.</div>';
+                return;
+            }
+            cont.innerHTML = bozza.blocchi.map((b, i) => htmlBlocco(b, i, bozza.blocchi.length)).join('');
+            cont.querySelectorAll('[data-su]').forEach(b => b.addEventListener('click', () => { spostaBlocco(+b.dataset.su, -1); }));
+            cont.querySelectorAll('[data-giu]').forEach(b => b.addEventListener('click', () => { spostaBlocco(+b.dataset.giu, 1); }));
+            cont.querySelectorAll('[data-elimina]').forEach(b => b.addEventListener('click', () => {
+                leggiBlocchi(); bozza.blocchi.splice(+b.dataset.elimina, 1); salvataDaChiudere = true; disegnaBlocchi();
+            }));
+        }
+        function htmlBlocco(b, i, tot) {
+            const testa = '<div class="nl-b-testa"><span class="nl-b-tipo">' + esc(NOMI_TIPO_BLOCCO[b.tipo] || b.tipo) + '</span>'
+                + '<span class="nl-b-azioni">'
+                + '<button type="button" class="btn btn-sm btn-ghost" data-su="' + i + '"' + (i === 0 ? ' disabled' : '') + ' title="Sposta su">&#8593;</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost" data-giu="' + i + '"' + (i === tot - 1 ? ' disabled' : '') + ' title="Sposta giu">&#8595;</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost" data-elimina="' + i + '" title="Elimina il blocco">&#10005;</button>'
+                + '</span></div>';
+            let campi = '';
+            if (b.tipo === 'separatore') {
+                campi = '<div class="hint">Una linea sottile che separa due parti della newsletter.</div>';
+            } else if (b.tipo === 'immagine') {
+                campi = '<div class="campo"><label>Indirizzo dell\'immagine</label><input data-campo="src" value="' + esc(b.src || '') + '" placeholder="https://nextgenerationbusiness.it/assets/..."></div>'
+                    + '<div class="griglia-2">'
+                    + '<div class="campo"><label>Testo alternativo</label><input data-campo="alt" value="' + esc(b.alt || '') + '" placeholder="Cosa si vede nell\'immagine"></div>'
+                    + '<div class="campo"><label>Collegamento (facoltativo)</label><input data-campo="link" value="' + esc(b.link || '') + '" placeholder="https://..."></div>'
+                    + '</div>';
+            } else if (b.tipo === 'bottone') {
+                campi = '<div class="griglia-2">'
+                    + '<div class="campo"><label>Testo del pulsante</label><input data-campo="testo" value="' + esc(b.testo || '') + '" placeholder="es. Scopri di piu"></div>'
+                    + '<div class="campo"><label>Indirizzo</label><input data-campo="url" value="' + esc(b.url || '') + '" placeholder="https://..."></div>'
+                    + '</div>';
+            } else if (b.tipo === 'elenco') {
+                const voci = Array.isArray(b.voci) ? b.voci.join('\n') : String(b.voci || '');
+                campi = '<div class="campo"><label>Titolo (facoltativo)</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
+                    + '<div class="campo"><label>Punti, uno per riga</label><textarea data-campo="voci" rows="4">' + esc(voci) + '</textarea></div>';
+            } else {
+                campi = '<div class="campo"><label>Titolo (facoltativo)</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
+                    + '<div class="campo"><label>Testo</label><textarea data-campo="testo" rows="5">' + esc(testoDelBlocco(b)) + '</textarea></div>';
+            }
+            return '<div class="nl-blocco" data-tipo="' + esc(b.tipo) + '">' + testa + campi + '</div>';
+        }
+        // le bozze generate da una pagina arrivano in HTML: si mostrano nella forma
+        // semplice, cosi' quello che si vede e' quello che si modifica
+        function testoDelBlocco(b) {
+            if (b.testo != null && b.testo !== '') return b.testo;
+            if (b.html) return window.RV_NEWSLETTER ? RV_NEWSLETTER.sformatta(b.html) : b.html;
+            return '';
+        }
+        /* Prima di ogni modifica alla struttura si rilegge quello che c'e' scritto:
+           altrimenti ridisegnando si perderebbe il testo appena digitato. */
+        function leggiBlocchi() {
+            const cont = $('nl-blocchi');
+            const el = cont.querySelectorAll('.nl-blocco');
+            if (!el.length) return;
+            const out = [];
+            el.forEach(d => {
+                const tipo = d.dataset.tipo;
+                const v = c => { const x = d.querySelector('[data-campo="' + c + '"]'); return x ? x.value : ''; };
+                if (tipo === 'separatore') { out.push({ tipo: tipo }); return; }
+                if (tipo === 'immagine') { out.push({ tipo: tipo, src: v('src').trim(), alt: v('alt').trim(), link: v('link').trim() }); return; }
+                if (tipo === 'bottone') { out.push({ tipo: tipo, testo: v('testo').trim(), url: v('url').trim() }); return; }
+                if (tipo === 'elenco') { out.push({ tipo: tipo, titolo: v('titolo').trim(), voci: v('voci').split('\n').map(s => s.trim()).filter(Boolean) }); return; }
+                out.push({ tipo: tipo, titolo: v('titolo').trim(), testo: v('testo') });
+            });
+            bozza.blocchi = out;
+        }
+        function spostaBlocco(i, d) {
+            leggiBlocchi();
+            salvataDaChiudere = true;
+            const j = i + d;
+            if (j < 0 || j >= bozza.blocchi.length) return;
+            const t = bozza.blocchi[i]; bozza.blocchi[i] = bozza.blocchi[j]; bozza.blocchi[j] = t;
+            disegnaBlocchi();
+        }
+        $('nl-add').addEventListener('click', () => {
+            leggiBlocchi();
+            const tipo = $('nl-tipo').value;
+            const vuoto = { tipo: tipo };
+            if (tipo === 'elenco') vuoto.voci = [];
+            bozza.blocchi.push(vuoto);
+            salvataDaChiudere = true;
+            disegnaBlocchi();
+            const ultimo = $('nl-blocchi').lastElementChild;
+            if (ultimo) {
+                ultimo.scrollIntoView({ block: 'nearest' });
+                const primo = ultimo.querySelector('input, textarea');
+                if (primo) primo.focus();
+            }
+        });
+
+        /* --- destinatari --- */
+        function disegnaGruppi() {
+            const g = gruppiNewsletter();
+            const scelti = new Set(bozza.gruppi);
+            const blocco = (titolo, elenco, nota) => {
+                if (!elenco.length) return '';
+                return '<div class="nl-gruppo-blocco"><div class="nl-gruppo-tit">' + esc(titolo)
+                    + ' <button type="button" class="btn btn-sm btn-ghost" data-tuttigr="' + esc(elenco.map(x => x.id).join('|')) + '">Seleziona tutti</button></div>'
+                    + (nota ? '<div class="hint">' + esc(nota) + '</div>' : '')
+                    + '<div class="nl-gruppi-lista">' + elenco.map(x =>
+                        '<label class="nl-gruppo' + (x.n ? '' : ' vuoto') + '"><input type="checkbox" class="nl-gr" value="' + esc(x.id) + '"'
+                        + (scelti.has(x.id) ? ' checked' : '') + (x.n ? '' : ' disabled') + '>'
+                        + '<span class="nl-gruppo-nome">' + esc(x.nome) + '</span>'
+                        + '<span class="nl-gruppo-n">' + x.n + '</span></label>').join('')
+                    + '</div></div>';
+            };
+            $('nl-gruppi').innerHTML =
+                blocco('Iscritti agli eventi', g.eventi, 'Chi si e iscritto dai moduli delle pagine degli eventi e ha acconsentito alle comunicazioni.')
+                + blocco('Iscritti dalle sezioni del sito', g.sito, 'Newsletter del sito e moduli di contatto delle altre pagine, con il consenso spuntato.')
+                + blocco('Altri elenchi', g.altri, 'Aderenti dall\'anagrafica e contatti che hai inserito a mano.')
+                + blocco('Da valutare', g.ignoti, 'Arrivano da elenchi importati in cui la casella del consenso non risulta: scegli tu, sapendo come li hai raccolti.')
+                + (g.senzaConsenso.length ? '<div class="hint nl-nota-consenso"><strong>' + g.senzaConsenso.length + '</strong> person' + (g.senzaConsenso.length === 1 ? 'a ha' : 'e hanno') + ' risposto NO alla casella delle comunicazioni promozionali: non compaiono qui e non si possono selezionare.</div>' : '')
+                + (g.tutti.every(x => !x.n) ? '<div class="hint">Nessun destinatario disponibile: prova ad aggiornare la sezione.</div>' : '');
+            $('nl-gruppi').querySelectorAll('.nl-gr').forEach(c => c.addEventListener('change', () => {
+                const s = new Set(bozza.gruppi);
+                if (c.checked) s.add(c.value); else s.delete(c.value);
+                bozza.gruppi = Array.from(s);
+                salvataDaChiudere = true;
+                aggiornaConteggio();
+            }));
+            $('nl-gruppi').querySelectorAll('[data-tuttigr]').forEach(b => b.addEventListener('click', () => {
+                const ids = b.dataset.tuttigr.split('|');
+                const s = new Set(bozza.gruppi);
+                const tuttiDentro = ids.every(i => s.has(i));
+                ids.forEach(i => { if (tuttiDentro) s.delete(i); else s.add(i); });
+                bozza.gruppi = Array.from(s);
+                salvataDaChiudere = true;
+                disegnaGruppi();
+            }));
+            aggiornaConteggio();
+        }
+        function aggiornaConteggio() {
+            const r = destinatariNewsletter(bozza);
+            const fuori = r.saltati.filter(x => x.motivo === 'disiscritto').length;
+            const nEsclusi = r.candidati.filter(c => c.escluso).length;
+            // elenco apribile: si vede chi ricevera' e si puo' togliere qualcuno
+            const elenco = r.candidati.length
+                ? '<details class="nl-elenco-dest"><summary>Vedi l\'elenco e togli qualcuno'
+                + (nEsclusi ? ' (' + nEsclusi + ' tolt' + (nEsclusi === 1 ? 'o' : 'i') + ')' : '') + '</summary>'
+                + '<div class="nl-dest-lista">' + r.candidati.map(c =>
+                    '<label class="nl-dest-riga' + (c.escluso ? ' escluso' : '') + '">'
+                    + '<input type="checkbox" class="nl-inc" value="' + esc(c.email) + '"' + (c.escluso ? '' : ' checked') + '>'
+                    + '<span>' + esc(((c.nome || '') + ' ' + (c.cognome || '')).trim() || '(senza nome)')
+                    + ' <span class="riga-dest-mail">' + esc(c.email) + '</span></span></label>').join('')
+                + '</div></details>'
+                : '';
+            $('nl-conteggio').innerHTML = '<strong>' + r.destinatari.length + '</strong> destinatar' + (r.destinatari.length === 1 ? 'io' : 'i')
+                + (fuori ? ' <span class="hint">(' + fuori + (fuori === 1 ? ' saltato perche disiscritto' : ' saltati perche disiscritti') + ')</span>' : '')
+                + (r.destinatari.length ? ' <span class="hint">&middot; l\'invio parte a gruppi di 20, con una pausa fra uno e l\'altro</span>' : '')
+                + elenco;
+            $('nl-conteggio').querySelectorAll('.nl-inc').forEach(c => c.addEventListener('change', () => {
+                // si annota l'IMPRONTA, non l'indirizzo: il record finisce nell'archivio
+                // condiviso, e li' gli indirizzi dei destinatari non ci devono stare
+                const s = new Set((bozza.esclusi || []).map(e => String(e).toLowerCase()));
+                const imp = improntaEmail(c.value);
+                if (c.checked) { s.delete(imp); s.delete(String(c.value).toLowerCase()); } else s.add(imp);
+                bozza.esclusi = Array.from(s);
+                salvataDaChiudere = true;
+                // si ridisegna tenendo aperto l'elenco, altrimenti si richiuderebbe a ogni spunta
+                const aperto = $('nl-conteggio').querySelector('details');
+                const eraAperto = aperto && aperto.open;
+                aggiornaConteggio();
+                const nuovo = $('nl-conteggio').querySelector('details');
+                if (nuovo && eraAperto) nuovo.open = true;
+            }));
+        }
+
+        /* --- generazione dalla pagina --- */
+        $('nl-pagina').addEventListener('change', () => {
+            const v = $('nl-pagina').value;
+            $('nl-url').classList.toggle('nascosto', v !== '__altro');
+            if (v === '__altro') $('nl-url').focus();
+        });
+        if (bozza.fonte && bozza.fonte.url) {
+            const trovata = PAGINE_SITO.find(p => indirizzoPagina(p.percorso) === bozza.fonte.url);
+            if (trovata) $('nl-pagina').value = trovata.percorso;
+            else { $('nl-pagina').value = '__altro'; $('nl-url').classList.remove('nascosto'); $('nl-url').value = bozza.fonte.url; }
+        }
+        $('nl-genera').addEventListener('click', () => {
+            const scelta = $('nl-pagina').value;
+            const url = scelta === '__altro' ? String($('nl-url').value || '').trim() : (scelta ? indirizzoPagina(scelta) : '');
+            const esito = $('nl-esito-gen');
+            if (!url) { esito.className = 'nl-esito ko'; esito.textContent = 'Scegli prima una pagina.'; return; }
+            const pieno = bozza.blocchi.length || bozza.titolo;
+            const procedi = () => {
+                esito.className = 'nl-esito';
+                conAttesa($('nl-genera'), async () => {
+                    const r = await leggiPaginaSito(url);
+                    if (!r.ok) { esito.className = 'nl-esito ko'; esito.textContent = r.msg; return; }
+                    const d = r.dati;
+                    bozza.fonte = { url: url, titolo: d.titolo || '' };
+                    bozza.titolo = d.titolo || bozza.titolo;
+                    bozza.occhiello = d.occhiello || bozza.occhiello;
+                    bozza.sommario = d.sommario || bozza.sommario;
+                    bozza.immagine = d.immagine || bozza.immagine;
+                    bozza.oggetto = bozza.oggetto || d.oggetto || d.titolo || '';
+                    bozza.preheader = bozza.preheader || d.preheader || d.sommario || '';
+                    bozza.nome = bozza.nome || d.titolo || '';
+                    // i blocchi arrivano in HTML: si convertono subito nella forma semplice
+                    bozza.blocchi = (d.blocchi || []).map(b => ({
+                        tipo: 'testo', titolo: b.titolo || '',
+                        testo: window.RV_NEWSLETTER ? RV_NEWSLETTER.sformatta(b.html || '') : ''
+                    }));
+                    if (d.cta && d.cta.url) bozza.cta = { testo: d.cta.testo || 'Leggi tutto sul sito', url: d.cta.url };
+                    riempiCampi();
+                    disegnaBlocchi();
+                    esito.className = 'nl-esito ok';
+                    esito.textContent = 'Bozza pronta: ' + bozza.blocchi.length + ' blocchi dalla pagina. Controlla i testi e togli quello che non serve.';
+                }, { testo: 'Leggo la pagina...' });
+            };
+            if (pieno) {
+                confermaInLinea('Rigenerare la bozza?',
+                    'Titolo, sommario e blocchi verranno sostituiti con quelli della pagina scelta. I destinatari restano come sono.',
+                    'Rigenera', () => { chiudiConfermaInLinea(); procedi(); });
+            } else procedi();
+        });
+
+        function riempiCampi() {
+            $('nl-nome').value = bozza.nome || '';
+            $('nl-oggetto').value = bozza.oggetto || '';
+            $('nl-preheader').value = bozza.preheader || '';
+            $('nl-occhiello').value = bozza.occhiello || '';
+            $('nl-immagine').value = bozza.immagine || '';
+            $('nl-titolo').value = bozza.titolo || '';
+            $('nl-sommario').value = bozza.sommario || '';
+            $('nl-cta-testo').value = (bozza.cta && bozza.cta.testo) || '';
+            $('nl-cta-url').value = (bozza.cta && bozza.cta.url) || '';
+        }
+        /* Tutto quello che c'e' a video, dentro il record. */
+        function componiRecord() {
+            leggiBlocchi();
+            bozza.nome = $('nl-nome').value.trim();
+            bozza.oggetto = $('nl-oggetto').value.trim();
+            bozza.preheader = $('nl-preheader').value.trim();
+            bozza.occhiello = $('nl-occhiello').value.trim();
+            bozza.immagine = $('nl-immagine').value.trim();
+            bozza.titolo = $('nl-titolo').value.trim();
+            bozza.sommario = $('nl-sommario').value.trim();
+            bozza.cta = { testo: $('nl-cta-testo').value.trim(), url: $('nl-cta-url').value.trim() };
+            bozza.modificato = { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+            return bozza;
+        }
+
+        /* --- anteprima, prova, invio --- */
+        $('nl-anteprima').addEventListener('click', () => {
+            componiRecord();
+            const mail = RV_NEWSLETTER.costruisci(bozza);
+            const campione = { nome: 'Mario', cognome: 'Rossi', email: 'mario.rossi@esempio.it' };
+            const html = mail.html
+                .split('{{DISISCRIVITI}}').join('#')
+                .replace(/\{nome\}/g, campione.nome).replace(/\{cognome\}/g, campione.cognome)
+                .replace(/\{nome_completo\}/g, campione.nome + ' ' + campione.cognome)
+                .replace(/\{email\}/g, campione.email);
+            apriAnteprimaNewsletter(html, bozza.oggetto);
+        });
+
+        $('nl-prova').addEventListener('click', () => {
+            const rec = componiRecord();
+            const problema = controllaNewsletter(rec, true);
+            if (problema) { mostraEsitoNL(problema, false); return; }
+            conAttesa($('nl-prova'), async () => {
+                const mail = RV_NEWSLETTER.costruisci(rec);
+                const r = await Cloud.inviaLottoNewsletter({
+                    oggetto: '[PROVA] ' + rec.oggetto, html: mail.html, testo: mail.testo,
+                    prova: true, campagna: rec.id
+                });
+                if (!r.ok) { mostraEsitoNL('Prova non riuscita: ' + (r.msg || ''), false); return; }
+                mostraEsitoNL('Prova inviata al tuo indirizzo. Controlla come si vede prima di spedirla a tutti.', true);
+            }, { testo: 'Invio...' });
+        });
+
+        $('nl-salva').addEventListener('click', () => {
+            const rec = componiRecord();
+            if (!rec.nome && !rec.oggetto) { mostraEsitoNL('Dai almeno un nome o un oggetto alla newsletter.', false); return; }
+            Newsletter.salvaUna(JSON.parse(JSON.stringify(rec)));
+            try { Audit.registra(Auth.utenteCorrente, id ? 'Newsletter modificata' : 'Newsletter creata', 'sistema', rec.id, null, rec.nome || rec.oggetto || ''); } catch (e) { }
+            toast('Newsletter salvata.', 'verde');
+            salvataDaChiudere = false;
+        });
+
+        $('nl-invia').addEventListener('click', () => {
+            if (invioInCorso) { mostraEsitoNL('C\'e gia un invio in corso: attendi che finisca.', false); return; }
+            const rec = componiRecord();
+            const problema = controllaNewsletter(rec, false);
+            if (problema) { mostraEsitoNL(problema, false); return; }
+            // se l'ultimo invio si era interrotto, si riparte da chi non era stato servito
+            const ultimo = (rec.invii || [])[0];
+            const ripresa = !!(ultimo && ultimo.interrotto && (ultimo.serviti || []).length);
+            const r = destinatariNewsletter(rec, { saltaServiti: ripresa });
+            const fuori = r.saltati.filter(x => x.motivo === 'disiscritto').length;
+            const gia = r.saltati.filter(x => x.motivo === 'gia servito').length;
+            if (!r.destinatari.length) {
+                mostraEsitoNL(ripresa
+                    ? 'Non resta nessuno da servire: l\'invio precedente era arrivato a tutti.'
+                    : 'Nessun destinatario: scegli almeno un gruppo nella sezione 4.', false);
+                return;
+            }
+            confermaInLinea(ripresa ? 'Riprendere l\'invio interrotto?' : 'Inviare la newsletter?',
+                (ripresa ? 'Riparte dai ' + r.destinatari.length + ' non ancora serviti (' + gia + ' gia serviti vengono saltati)'
+                    : 'Partira a ' + r.destinatari.length + ' destinatari')
+                + (fuori ? ', ' + fuori + (fuori === 1 ? ' saltato perche disiscritto' : ' saltati perche disiscritti') : '')
+                + '. Ognuno ricevera una mail sua, con il collegamento per disiscriversi. Non si puo annullare.'
+                + (r.destinatari.length > LOTTO_NEWSLETTER ? ' Tieni questa finestra aperta e in primo piano fino alla fine: passando ad altre schede il browser rallenta l\'invio.' : ''),
+                ripresa ? 'Riprendi l\'invio' : 'Invia adesso',
+                (btn, avanz, btnNo) => avviaInvioNewsletter(rec, r.destinatari, btn, avanz, btnNo, ripresa));
+        });
+
+        function mostraEsitoNL(testo, ok) {
+            const e = $('nl-esito-invio');
+            if (!e) { toast(testo, ok ? 'verde' : 'rosso'); return; }
+            e.className = 'nl-esito ' + (ok ? 'ok' : 'ko');
+            e.textContent = testo;
+            e.scrollIntoView({ block: 'nearest' });
+        }
+
+        /* Invio vero: a lotti, con l'avanzamento a video.
+           Due cose contano piu' di tutto qui dentro:
+           - non partire due volte (una newsletter doppia si nota, e chi la riceve
+             la segnala come posta indesiderata);
+           - se ci si ferma a meta', sapere ESATTAMENTE chi e' gia' stato servito,
+             per poter riprendere senza mandare doppioni. Gli indirizzi serviti si
+             annotano come impronte, non in chiaro. */
+        async function avviaInvioNewsletter(rec, destinatari, btnConferma, avanzamento, btnAnnulla, ripresa) {
+            if (invioInCorso) return;
+            invioInCorso = true;
+            const daBloccare = ['nl-invia', 'nl-prova', 'nl-salva', 'nl-chiudi'].map($).filter(Boolean);
+            daBloccare.forEach(b => { b.disabled = true; });
+            if (btnAnnulla) btnAnnulla.disabled = true;
+
+            const mail = RV_NEWSLETTER.costruisci(rec);
+            const LOTTO = LOTTO_NEWSLETTER;
+            const coda = destinatari.slice();
+            const totale = coda.length;
+            const serviti = ripresa ? (((rec.invii || [])[0] || {}).serviti || []).slice() : [];
+            let inviati = 0, incerti = 0;
+            const saltati = [], falliti = [];
+            let interrotto = '';
+            const mostra = (t) => { if (avanzamento) avanzamento.textContent = t; };
+
+            try {
+                await conAttesa(btnConferma, async () => {
+                    while (coda.length) {
+                        const lotto = coda.splice(0, LOTTO);
+                        mostra('Inviate ' + inviati + ' mail su ' + totale + ', ne restano ' + (coda.length + lotto.length) + '...');
+                        const corpo = { oggetto: rec.oggetto, html: mail.html, testo: mail.testo, destinatari: lotto, campagna: rec.id };
+                        let r = await Cloud.inviaLottoNewsletter(corpo);
+                        // il servizio impone una pausa fra un gruppo e l'altro: se si arriva
+                        // troppo presto si aspetta e si riprova una volta sola
+                        if (!r.ok && /attend|429|ravvicinat/i.test(r.msg || '')) {
+                            mostra('Attendo qualche secondo per il limite del servizio...');
+                            await new Promise(s => setTimeout(s, 5000));
+                            r = await Cloud.inviaLottoNewsletter(corpo);
+                        }
+                        if (!r.ok) {
+                            /* Non si sa cosa sia successo a questo gruppo: la richiesta non
+                               ha risposto. Si annotano come serviti (esito incerto) e li si
+                               salta alla ripresa: una copia in meno e' meglio di una in piu'. */
+                            lotto.forEach(d => serviti.push(improntaEmail(d.email)));
+                            incerti = lotto.length;
+                            interrotto = r.msg || 'invio interrotto';
+                            break;
+                        }
+                        inviati += r.inviati || 0;
+                        (r.saltati || []).forEach(x => saltati.push(x));
+                        (r.falliti || []).forEach(x => falliti.push(x));
+                        // il servizio restituisce chi non ha fatto in tempo a trattare:
+                        // torna in testa alla coda invece di andare perso
+                        const rimasti = (r.rimasti || []).map(x => String((x && x.email) || x).toLowerCase());
+                        const nonTrattati = new Set(rimasti);
+                        lotto.forEach(d => { if (!nonTrattati.has(d.email)) serviti.push(improntaEmail(d.email)); });
+                        if (rimasti.length) coda.unshift(...lotto.filter(d => nonTrattati.has(d.email)));
+                        if (coda.length) await new Promise(s => setTimeout(s, 2500));
+                    }
+                }, { testo: 'Invio in corso...' });
+            } finally {
+                invioInCorso = false;
+                daBloccare.forEach(b => { b.disabled = false; });
+            }
+
+            // si registra sempre quello che e' partito davvero, anche se ci si e' fermati
+            if (inviati || interrotto) {
+                rec.stato = interrotto ? 'interrotta' : 'inviata';
+                rec.invii = [{
+                    il: Date.now(), da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '',
+                    n: inviati, saltati: saltati.length, falliti: falliti.length,
+                    dettaglioFalliti: falliti.slice(0, 100),
+                    interrotto: interrotto || '', incerti: incerti,
+                    serviti: serviti          // impronte, non indirizzi
+                }].concat(rec.invii || []);
+                Newsletter.salvaUna(JSON.parse(JSON.stringify(rec)));
+                try {
+                    Audit.registra(Auth.utenteCorrente, interrotto ? 'Newsletter: invio interrotto' : 'Newsletter inviata', 'sistema', rec.id, null,
+                        inviati + ' destinatari' + (falliti.length ? ', ' + falliti.length + ' non riusciti' : '') + (interrotto ? ' - ' + interrotto : ''));
+                } catch (e) { }
+                salvataDaChiudere = false;
+            }
+            chiudiConfermaInLinea();
+            let msg = 'Inviate ' + inviati + ' mail su ' + totale;
+            if (saltati.length) msg += ' - ' + saltati.length + ' saltate';
+            if (falliti.length) msg += ' - ' + falliti.length + ' non riuscite';
+            if (interrotto) msg += ' - INTERROTTO (' + interrotto + '): riapri la newsletter e premi Invia per riprendere da dove si era fermato'
+                + (incerti ? ' (' + incerti + ' con esito incerto verranno saltati)' : '');
+            mostraEsitoNL(msg, !interrotto && !falliti.length);
+            toast(interrotto ? 'Invio interrotto dopo ' + inviati + ' mail.' : 'Newsletter inviata a ' + inviati + ' destinatari.', interrotto ? 'ambra' : 'verde');
+        }
+
+        const esci = () => { chiudiModale(); if (vistaCorrente === 'newsletter') vistaNewsletter(); };
+        $('nl-chiudi').addEventListener('click', () => {
+            if (!salvataDaChiudere) { esci(); return; }
+            confermaInLinea('Chiudere senza salvare?', 'Le modifiche fatte da quando hai aperto la finestra andranno perse.', 'Chiudi comunque', esci);
+        });
+
+        disegnaBlocchi();
+        disegnaGruppi();
+        // se i destinatari non sono ancora arrivati dal servizio (finestra aperta
+        // subito dopo l'ingresso nella sezione), il pannello si riempie da solo
+        if (Cloud.attivo && !_nlDati) {
+            caricaDestinatariNewsletter(() => { if (document.getElementById('nl-gruppi')) disegnaGruppi(); });
+        }
+    }
+
+    /* Riga in cima al compositore che racconta com'e' andato l'ultimo invio.
+       Quando si e' interrotto lo dice chiaramente, perche' la differenza fra
+       "inviata" e "inviata a meta'" cambia cosa si deve fare dopo. */
+    function intestazioneInvio(n) {
+        const u = (n.invii || [])[0];
+        if (!u) return '';
+        if (u.interrotto) {
+            return '<div class="nl-esito ko">Invio <strong>interrotto</strong> il ' + esc(fmtDataOra(u.il))
+                + ': ' + (u.n || 0) + ' mail partite, poi si e fermato (' + esc(u.interrotto) + ').<br>'
+                + 'Premendo <strong>Invia la newsletter</strong> si riprende da chi non e ancora stato servito.'
+                + (u.incerti ? ' ' + u.incerti + ' con esito incerto verranno saltati.' : '') + '</div>';
+        }
+        return '<p class="descrizione">Gia inviata il ' + esc(fmtDataOra(u.il)) + ' a ' + (u.n || 0)
+            + ' destinatari' + (u.falliti ? ', ' + u.falliti + ' non riusciti' : '')
+            + '. Puoi modificarla e reinviarla: chi si e disiscritto resta comunque fuori.</p>'
+            + (u.falliti && (u.dettaglioFalliti || []).length
+                ? '<p class="hint">Non riuscite: ' + esc(u.dettaglioFalliti.map(f => f.email).join(', ')) + '</p>' : '');
+    }
+
+    /* Anteprima della mail: in una finestra a parte, cosi' si vede alla dimensione
+       vera. Se il browser blocca le finestre a comparsa (succede spesso sui
+       telefoni e nei browser dentro le app) si apre uno strato sopra la pagina:
+       NON si usa apriModale, che sostituirebbe il compositore aperto. */
+    function apriAnteprimaNewsletter(html, oggetto) {
+        const intestazione = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>Anteprima newsletter</title></head>'
+            + '<body style="margin:0;background:#F1F5F9;">'
+            + '<div style="font:13px Arial;background:#0A2844;color:#fff;padding:10px 16px;">Anteprima &middot; Oggetto: <strong>'
+            + esc(oggetto || '(senza oggetto)') + '</strong></div>';
+        const f = window.open('', '_blank', 'width=760,height=900,scrollbars=yes');
+        if (f) {
+            f.document.open();
+            f.document.write(intestazione + '<iframe style="border:0;width:100%;height:calc(100vh - 40px);" srcdoc="' + esc(html) + '"></iframe></body></html>');
+            f.document.close();
+            return;
+        }
+        const vecchio = document.getElementById('nl-anteprima-strato');
+        if (vecchio) vecchio.remove();
+        const strato = document.createElement('div');
+        strato.id = 'nl-anteprima-strato';
+        strato.className = 'nl-anteprima-strato';
+        strato.innerHTML = '<div class="nl-anteprima-barra"><span>Anteprima &middot; ' + esc(oggetto || '(senza oggetto)') + '</span>'
+            + '<button type="button" class="btn btn-sm btn-secondary" id="nl-ant-chiudi">Chiudi</button></div>'
+            + '<iframe title="Anteprima della newsletter" srcdoc="' + esc(html) + '"></iframe>';
+        document.body.appendChild(strato);
+        document.getElementById('nl-ant-chiudi').addEventListener('click', () => strato.remove());
+    }
+
+    /* Requisiti minimi prima di spedire. */
+    function controllaNewsletter(rec, prova) {
+        if (!rec.oggetto) return 'Manca l\'oggetto della mail.';
+        if (!rec.titolo && !rec.blocchi.length) return 'La newsletter e vuota: aggiungi almeno un titolo o un blocco.';
+        if (!Cloud.attivo) return 'In modalita dimostrativa non si possono spedire email.';
+        if (prova) return '';
+        const r = destinatariNewsletter(rec);
+        if (!r.destinatari.length) return 'Nessun destinatario: scegli almeno un gruppo nella sezione 4.';
+        return '';
+    }
+
+    /* Legge una pagina del sito e ne ricava la bozza. */
+    async function leggiPaginaSito(url) {
+        if (!window.RV_NEWSLETTER || !RV_NEWSLETTER.estraiDaPagina) {
+            return { ok: false, msg: 'Il formato newsletter non e caricato: ricarica la pagina.' };
+        }
+        let testo;
+        try {
+            const r = await fetch(url, { credentials: 'omit' });
+            if (!r.ok) return { ok: false, msg: 'La pagina non risponde (' + r.status + '): controlla l\'indirizzo.' };
+            testo = await r.text();
+        } catch (e) {
+            return { ok: false, msg: 'Non riesco a leggere la pagina. Dal sito pubblicato funziona; da un\'anteprima locale il browser blocca la lettura.' };
+        }
+        try {
+            const doc = new DOMParser().parseFromString(testo, 'text/html');
+            return { ok: true, dati: RV_NEWSLETTER.estraiDaPagina(doc, url) };
+        } catch (e) {
+            return { ok: false, msg: 'La pagina non si e potuta interpretare.' };
+        }
+    }
+
 
     /* =========================================================
        VISTA: COMUNICAZIONI (programmate, bozze, storico invii)

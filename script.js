@@ -43,7 +43,21 @@ function buildNgbPayload(pagina, overrides) {
     }, overrides || {});
 }
 
+// Seconda strada, indipendente dalla prima: gli stessi dati vanno anche sul
+// database dell'area riservata, cosi' gli iscritti si vedono subito nella
+// sezione Newsletter senza dipendere dal foglio. Se questa fallisce non cambia
+// nulla per chi si iscrive: il foglio resta la conferma dell'invio.
+// (text/plain evita la richiesta di verifica preliminare del browser; il
+//  contenuto e' comunque JSON e il servizio lo legge come tale.)
+const NGB_FIREBASE_URL = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+
 function ngbSubmit(payload) {
+    fetch(NGB_FIREBASE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify(payload)
+    }).catch(() => { /* il foglio resta la strada principale */ });
+
     return fetch(NGB_SHEET_URL, {
         method: 'POST',
         mode: 'no-cors',

@@ -708,6 +708,72 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 @media (max-width: 640px) { .comp-scelta-testa { flex-direction: column; align-items: stretch; gap: 8px; } }
 .legenda .quadrato { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 
+/* ---- Newsletter: sezione e compositore ---- */
+.nl-barra-contatti { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.nl-sez { border: 1px solid var(--grigio-200); border-radius: var(--raggio); padding: 16px 18px; margin-bottom: 16px; background: #fff; }
+.nl-sez-tit {
+    font-weight: 700; color: var(--blu-900); font-size: 0.95rem; margin-bottom: 12px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--grigio-200);
+}
+.nl-origine { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+/* min-width:0 e' necessario: senza, una tendina con voci lunghe non si stringe
+   sotto la larghezza del testo e sborda dalla finestra sui telefoni */
+.nl-origine select, .nl-aggiungi select { min-width: 0; max-width: 100%; }
+.nl-origine select { flex: 1 1 280px; }
+.nl-origine input { flex: 1 1 260px; min-width: 0; }
+.nl-regole { background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: var(--raggio-sm); padding: 8px 12px; margin-bottom: 12px; }
+.nl-regole code { background: #fff; border: 1px solid var(--grigio-200); border-radius: 3px; padding: 0 4px; }
+.nl-vuoto { color: var(--grigio-600); font-size: 0.88rem; padding: 14px; border: 1px dashed var(--grigio-200); border-radius: var(--raggio-sm); text-align: center; }
+.nl-blocco { border: 1px solid var(--grigio-200); border-left: 3px solid var(--blu-500); border-radius: var(--raggio-sm); padding: 12px 14px; margin-bottom: 10px; background: var(--blu-050); }
+.nl-b-testa { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.nl-b-tipo { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--blu-700); }
+.nl-b-azioni { display: flex; gap: 2px; }
+.nl-blocco .campo { margin-bottom: 8px; }
+.nl-blocco .campo:last-child { margin-bottom: 0; }
+.nl-aggiungi { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.nl-aggiungi select { flex: 0 1 240px; }
+.nl-gruppo-blocco { margin-bottom: 14px; }
+.nl-gruppo-tit { font-weight: 600; color: var(--blu-900); font-size: 0.88rem; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.nl-gruppi-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; margin-top: 6px; }
+.nl-gruppo {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px; cursor: pointer;
+    border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; font-size: 0.85rem;
+}
+.nl-gruppo:hover { border-color: var(--blu-500); }
+.nl-gruppo input { width: auto; margin: 0; }
+.nl-gruppo-nome { flex: 1; }
+.nl-gruppo-n { font-weight: 700; color: var(--blu-700); font-variant-numeric: tabular-nums; }
+.nl-gruppo.vuoto { opacity: 0.55; cursor: default; }
+.nl-gruppo.vuoto:hover { border-color: var(--grigio-200); }
+.nl-conteggio { margin-top: 10px; padding: 10px 12px; background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: var(--raggio-sm); font-size: 0.9rem; }
+.nl-elenco-dest { margin-top: 8px; }
+.nl-elenco-dest > summary { cursor: pointer; font-size: 0.82rem; color: var(--blu-700); font-weight: 600; }
+.nl-dest-lista { max-height: 220px; overflow-y: auto; margin-top: 8px; background: #fff; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
+.nl-dest-riga { display: flex; align-items: center; gap: 8px; padding: 5px 10px; font-size: 0.83rem; cursor: pointer; border-bottom: 1px solid var(--grigio-100); }
+.nl-dest-riga:last-child { border-bottom: none; }
+.nl-dest-riga input { width: auto; margin: 0; }
+.nl-dest-riga.escluso { color: var(--grigio-400); text-decoration: line-through; }
+.nl-esito { font-size: 0.88rem; margin: 8px 0 0; }
+.nl-esito:empty { display: none; }
+.nl-esito.ok { background: var(--verde-bg); color: var(--verde); border: 1px solid rgba(30, 127, 79, .25); border-radius: var(--raggio-sm); padding: 10px 12px; }
+.nl-esito.ko { background: var(--rosso-bg); color: var(--rosso); border: 1px solid rgba(179, 38, 30, .25); border-radius: var(--raggio-sm); padding: 10px 12px; }
+/* anteprima quando il browser blocca le finestre a comparsa: uno strato sopra tutto */
+.nl-anteprima-strato { position: fixed; inset: 0; z-index: 300; background: var(--grigio-100); display: flex; flex-direction: column; }
+.nl-anteprima-barra {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--blu-900); color: #fff; padding: 10px 14px; font-size: 0.85rem;
+}
+.nl-anteprima-strato iframe { flex: 1; width: 100%; border: 0; background: var(--grigio-100); }
+.nl-conferma { border: 1px solid var(--oro); background: #FFFCF2; border-radius: var(--raggio); padding: 14px 16px; margin-top: 12px; }
+.nl-conferma-tit { font-weight: 700; color: var(--blu-900); margin-bottom: 4px; }
+.nl-conferma p { margin: 0 0 10px; font-size: 0.88rem; color: var(--grigio-600); }
+.nl-conferma-azioni { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 640px) {
+    .nl-origine select, .nl-origine input, .nl-aggiungi select { flex-basis: 100%; }
+    .nl-gruppi-lista { grid-template-columns: 1fr; }
+    .nl-barra-contatti { flex-direction: column; align-items: stretch; }
+}
+
 /* ---------- Toast ---------- */
 .toast-area { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
 .toast {

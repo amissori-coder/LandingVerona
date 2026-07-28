@@ -137,6 +137,29 @@ sufficiente per questo utilizzo.
    > NON invitare persone esterne**: senza di esse un qualsiasi utente abilitato
    > puo' leggere tutti i dati.
 
+   > **Newsletter: nessuna regola da aggiungere.** Le newsletter preparate, i
+   > contatti raccolti a mano e l'elenco di chi puo' vedere la sezione stanno in
+   > `archivio/newsletter`, `archivio/newsletterContatti` e
+   > `archivio/newsletterConfig`: sono gia' coperti dalla regola generale
+   > `archivio/{documento}` (solo staff). Gli indirizzi di chi si e' disiscritto
+   > stanno invece in una collezione a parte, `newsletterDisiscritti`, che **non
+   > compare in nessuna regola**: e' voluto. Ci scrive solo il servizio con
+   > l'account di servizio (che le regole non le applica), e dal browser non ci
+   > arriva nessuno — nemmeno per leggere chi si e' disiscritto. L'area riservata
+   > la consulta passando dal servizio (`/api/newsletter`).
+   >
+   > **Perche' il permesso della Newsletter sta sulla scheda utente.** La regola
+   > `archivio/{documento}` lascia scrivere a *tutto* lo staff, quindi
+   > `archivio/newsletterConfig` (l'elenco di chi vede la sezione) lo potrebbe
+   > riscrivere chiunque, anche dagli strumenti per sviluppatori. Per questo il
+   > servizio **non** lo guarda: decide in base a `ruolo == 'admin'` oppure al
+   > campo `newsletter` sulla scheda in `utenti/<email>`, che solo
+   > l'amministratore puo' scrivere. L'elenco condiviso resta, ma vale solo per
+   > far comparire la voce di menu. Lo stesso ragionamento varrebbe per
+   > `archivio/eventiConfig`, che `/api/iscrizioni` invece consulta: se un giorno
+   > si vuole chiudere anche quello, la strada e' una regola dedicata
+   > `match /archivio/eventiConfig { allow read: if staff(); allow write: if admin(); }`.
+
 ## 5. Abilita il primo amministratore (te stesso)
 
 Le regole permettono solo all'admin di scrivere in `utenti`, quindi il

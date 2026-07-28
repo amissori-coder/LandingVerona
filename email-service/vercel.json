@@ -3,6 +3,7 @@
     { "path": "/api/cron-comunicazioni", "schedule": "0 6 * * *" }
   ],
   "functions": {
-    "api/cron-comunicazioni.js": { "maxDuration": 60 }
+    "api/cron-comunicazioni.js": { "maxDuration": 60 },
+    "api/invia-newsletter.js": { "maxDuration": 60 }
   }
 }
