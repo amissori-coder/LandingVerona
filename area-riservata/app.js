@@ -9365,7 +9365,22 @@
         const cont = document.getElementById('nl-andamento');
         if (!cont) return;
         const invii = (rec && rec.invii) || [];
-        if (!invii.length) { cont.innerHTML = ''; return; }
+        /* Niente invii: si DICE, non si sparisce. Una sezione che non compare e'
+           indistinguibile da una sezione rotta, e chi guarda conclude la seconda.
+           Qui si spiega anche perche' la prova non conta: e' la cosa che si fa
+           per prima, e non lasciando traccia sembra che non abbia funzionato. */
+        if (!invii.length) {
+            const conBrevo = trasportoNewsletter() === 'brevo';
+            cont.innerHTML = '<div class="nl-sez nl-and">'
+                + '<div class="nl-sez-tit">Com\'e andato l\'invio</div>'
+                + '<div class="nl-and-nota">Questa newsletter non e ancora stata spedita: qui compariranno consegne, aperture e clic, '
+                + 'con il grafico, a partire dal primo invio vero.<br>'
+                + 'La <b>prova a te stesso</b> non compare: e una mail sola e non fa statistica.'
+                + (conBrevo ? '' : '<br><b>Attenzione:</b> il servizio dice che spedirebbe dalla casella di posta, non da Brevo. '
+                    + 'In quel caso degli esiti si sa solo quante mail sono state accettate: consegne, aperture e clic li rileva Brevo.')
+                + '</div></div>';
+            return;
+        }
         const schede = invii.slice(0, 8).map(inv => {
             const chiave = inv.tagInvio || rec.id;
             return schedaAndamento(inv, _nlAnd[chiave] || null);
