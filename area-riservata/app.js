@@ -263,7 +263,7 @@
         { id: 'fatturazione', nome: 'Fatturazione' },
         { id: 'report', nome: 'Report compensi' },
         { id: 'persone', nome: 'Persone' },
-        { id: 'comunicazioni', nome: 'Comunicazioni' },
+        { id: 'comunicazioni', nome: 'Comunicazione teams di revisione' },
         { id: 'sondaggi', nome: 'Sondaggi' },
         { id: 'registro', nome: 'Registro modifiche' }
     ];
@@ -2774,10 +2774,16 @@
         { id: 'persone', nome: 'Persone', icona: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
         { id: 'coordinatori', nome: 'Coordinatori e vice', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
         { id: 'responsabili', nome: 'Responsabili', icona: 'M9 12l2 2 4-4M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z' },
-        { id: 'comunicazioni', nome: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
+        /* MACROAREA DELLE COMUNICAZIONI. Le tre sezioni che mandano messaggi fuori
+           stavano sparse nell'elenco, con i Sondaggi in mezzo: una accanto
+           all'altra, sotto un'intestazione, si capisce a colpo d'occhio che sono
+           tre canali diversi della stessa cosa, e non tre funzioni scollegate.
+           I nomi dicono a CHI si scrive, che e' la domanda vera: ai team di
+           revisione, ai contatti commerciali, agli iscritti degli eventi. */
+        { id: 'comunicazioni', nome: 'Comunicazione teams di revisione', gruppo: 'Comunicazioni', icona: 'M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z' },
+        { id: 'newsletter', nome: 'Newsletter commerciali', gruppo: 'Comunicazioni', icona: 'M4 6h12a2 2 0 012 2v11H6a2 2 0 01-2-2zm14 3h2a2 2 0 012 2v6a2 2 0 01-2 2h-2M7 9h6M7 13h6' },
+        { id: 'eventi', nome: 'Iscrizioni Eventi NGB', gruppo: 'Comunicazioni', icona: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z' },
         { id: 'sondaggi', nome: 'Sondaggi', icona: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 13l2 2 4-4' },
-        { id: 'eventi', nome: 'Eventi', icona: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z' },
-        { id: 'newsletter', nome: 'Newsletter', icona: 'M4 6h12a2 2 0 012 2v11H6a2 2 0 01-2-2zm14 3h2a2 2 0 012 2v6a2 2 0 01-2 2h-2M7 9h6M7 13h6' },
         { id: 'registro', nome: 'Registro modifiche', icona: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
         { id: 'utenti', nome: 'Utenti', icona: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z', soloAdmin: true },
         { id: 'ruoli', nome: 'Ruoli e permessi', icona: 'M12 15a3 3 0 100-6 3 3 0 000 6zM12 1v2m0 18v2m11-11h-2M3 12H1m17.66 6.66l-1.42-1.42M6.76 6.76 5.34 5.34m12.32 0-1.42 1.42M6.76 17.24l-1.42 1.42', soloAdmin: true },
@@ -2932,11 +2938,25 @@
     function disegnaNav() {
         const nav = document.getElementById('nav-principale');
         aggiornaEtichettaUtente();
+        /* Le voci con lo stesso "gruppo" si disegnano sotto un'intestazione. Il
+           titolo compare solo la PRIMA volta che quel gruppo appare, e solo se
+           l'utente vede almeno una delle sue voci: a chi ha i permessi per una
+           sezione sola non deve comparire un'intestazione con sotto una riga. */
+        let gruppoCorrente = '';
         nav.innerHTML = VOCI_NAV
             .filter(v => Auth.puoVedere(SEZIONE_DI_VISTA[v.id] || v.id))
-            .map(v => '<button class="nav-voce' + (vistaCorrente === v.id ? ' attiva' : '') + '" data-vista="' + v.id + '">' +
-                '<svg class="icona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + v.icona + '"/></svg>' +
-                esc(v.nome) + '</button>').join('');
+            .map(v => {
+                let testa = '';
+                const g = v.gruppo || '';
+                if (g !== gruppoCorrente) {
+                    gruppoCorrente = g;
+                    if (g) testa = '<div class="nav-gruppo">' + esc(g) + '</div>';
+                }
+                return testa
+                    + '<button class="nav-voce' + (g ? ' in-gruppo' : '') + (vistaCorrente === v.id ? ' attiva' : '') + '" data-vista="' + v.id + '">'
+                    + '<svg class="icona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + v.icona + '"/></svg>'
+                    + esc(v.nome) + '</button>';
+            }).join('');
         nav.querySelectorAll('.nav-voce').forEach(b =>
             b.addEventListener('click', () => { naviga(b.dataset.vista); chiudiMenuMobile(); }));
     }
@@ -7120,7 +7140,7 @@
             + '<span class="ev-scheda-nome">' + esc(x.titolo) + '</span>'
             + '<span class="ev-scheda-data">' + esc(x.quando) + '</span></button>').join('') + '</div>';
 
-        $vista().innerHTML = '<header><div><h1>Eventi</h1>'
+        $vista().innerHTML = '<header><div><h1>Iscrizioni Eventi NGB</h1>'
             + '<p class="descrizione">Le iscrizioni raccolte dai form del sito. Sezione riservata agli utenti abilitati.</p></div>'
             + '<div class="header-azioni"><span class="ev-live">' + (_evInFlight ? 'aggiornamento...' : (_evAggiornato ? 'aggiornato alle ' + esc(new Date(_evAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) : 'in attesa')) + '</span>'
             + '<button class="btn btn-secondary" id="ev-aggiorna"' + (_evInFlight ? ' disabled' : '') + '>'
@@ -8112,7 +8132,7 @@
             ? '<div class="card tabella-vuota">In modalita dimostrativa gli iscritti del sito non sono disponibili e non si possono spedire email.</div>'
             : '';
 
-        $vista().innerHTML = '<header><div><h1>Newsletter</h1>'
+        $vista().innerHTML = '<header><div><h1>Newsletter commerciali</h1>'
             + '<p class="descrizione">Prepara la newsletter partendo da una pagina del sito e spediscila a iscritti, aderenti e contatti raccolti a mano.</p></div>'
             + '<div class="header-azioni"><span class="ev-live">' + (_nlInFlight ? 'aggiornamento...' : (_nlAggiornato ? 'aggiornato alle ' + esc(new Date(_nlAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) : 'in attesa')) + '</span>'
             + '<button class="btn btn-secondary" id="nl-aggiorna"' + (_nlInFlight ? ' disabled' : '') + '>' + (_nlInFlight ? 'Aggiorno...' : 'Aggiorna adesso') + '</button>'
@@ -9801,7 +9821,7 @@
         $vista().innerHTML = `
             <header>
                 <div>
-                    <h1>Comunicazioni</h1>
+                    <h1>Comunicazione teams di revisione</h1>
                     <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), scegli il contesto, inviale subito o programmale.</p>
                 </div>
                 <div class="header-azioni">${mostraToggle ? toggle : ''}${seScr('<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button>')}</div>

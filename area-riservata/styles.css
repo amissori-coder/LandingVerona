@@ -288,6 +288,16 @@ td.td-azioni .btn { margin: 0 2px 2px 0; }
 .nav-voce:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .nav-voce.attiva { background: var(--blu-500); color: #fff; font-weight: 600; }
 .nav-voce .icona { width: 18px; height: 18px; flex-shrink: 0; }
+/* Macroarea: le sezioni che mandano messaggi fuori stanno insieme, sotto un
+   titolino, staccate da quelle di gestione. Il filetto a sinistra le tiene
+   legate anche quando l'occhio scorre in fretta. */
+.nav-gruppo {
+    margin: 16px 0 6px; padding: 0 12px;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+}
+.nav-voce.in-gruppo { margin-left: 10px; width: calc(100% - 10px); border-left: 2px solid rgba(255, 255, 255, 0.14); border-radius: 0 8px 8px 0; }
+.nav-voce.in-gruppo.attiva { border-left-color: rgba(255, 255, 255, 0.6); }
 .sidebar .utente-box { padding: 14px 18px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 0.82rem; }
 .sidebar .utente-box .nome { font-weight: 700; }
 .sidebar .utente-box .ruolo { color: rgba(255,255,255,0.6); font-size: 0.75rem; text-transform: capitalize; }
