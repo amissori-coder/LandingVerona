@@ -42,23 +42,34 @@
     'use strict';
 
     /* --- costanti grafiche: gli stessi colori del sito Revilaw --- */
+    /* Tavolozza: quella del SITO, che e' una sola scala di blu e non ha un secondo
+       colore. L'oro che c'era prima non veniva dal marchio, veniva dallo stile
+       interno dell'area riservata, dove serve a segnalare gli avvisi: su una
+       comunicazione dello studio stonava e non era riconducibile a niente.
+       Un solo colore, molti toni: e' quello che fa sembrare la cosa di qualcuno. */
     const C = {
-        scuro: '#0A2844',
-        blu: '#164068',
+        scuro: '#0A2844',       // navy-dark del sito
+        blu: '#164068',         // navy
+        accento: '#2A5A85',     // navy-light: filetti e segni
+        chiaroBlu: '#5B89B8',   // navy-glow: segni su fondo scuro
+        suScuro: '#C8DAEA',     // testo tenue sopra il blu
         azzurro: '#8bb8d4',
         testo: '#1E293B',
         tenue: '#475569',
         bordo: '#E2E8F0',
         sfondo: '#F1F5F9',
         chiaro: '#F4F8FB',
-        bianco: '#FFFFFF',
-        oro: '#C9A227'
+        bianco: '#FFFFFF'
     };
     const FONT = "Arial, 'Helvetica Neue', Helvetica, sans-serif";
     const LARGHEZZA = 600;
     /* Marchio per esteso (simbolo + scritta), su fondo bianco incorporato: e' l'unico
        dei tre che porta anche il nome, ed e' il motivo per cui la testata e' bianca. */
     const LOGO = 'https://nextgenerationbusiness.it/assets/logo-revilaw.png';
+    /* Marchio in bianco su trasparenza, ricavato da quello con la scritta: serve
+       perche' la testata ora e' blu. Senza, l'unico file con il nome esteso
+       porterebbe con se' il suo fondo bianco e comparirebbe come un rettangolo. */
+    const LOGO_BIANCO = 'https://nextgenerationbusiness.it/assets/logo-revilaw-bianco.png';
     const SITO = 'https://nextgenerationbusiness.it';
     // la stessa informativa collegata in fondo al sito (iubenda)
     const PRIVACY = 'https://www.iubenda.com/privacy-policy/40996386';
@@ -76,8 +87,19 @@
     const MOTIVO_PREDEFINITO = 'Ricevi questa email perché hai chiesto di essere aggiornato'
         + ' sulle iniziative di Next Generation Business.';
 
+    /* I tre momenti in cui si articola una comunicazione che si fa capire.
+       L'ordine non e' un vezzo: chi comincia dalla norma invece che dal motivo
+       scrive qualcosa che il destinatario non finisce di leggere, perche' non
+       ha ancora capito se lo riguarda. */
+    const FASI = {
+        perche: { n: '01', etichetta: 'Perché', aiuto: 'Perché questa cosa riguarda chi legge. Il problema, il rischio, l\'occasione. Niente riferimenti normativi qui.' },
+        come: { n: '02', etichetta: 'Come', aiuto: 'Come funziona: il meccanismo, le condizioni, i passaggi. Qui ci stanno i riferimenti.' },
+        cosa: { n: '03', etichetta: 'Che cosa', aiuto: 'Che cosa fare adesso, e che cosa facciamo noi. Concreto e con una scadenza, se c\'e.' }
+    };
+
     /* --- tipi di blocco riconosciuti dal compositore --- */
     const TIPI_BLOCCO = [
+        { id: 'passo', nome: 'Passo (perché / come / che cosa)', desc: 'Uno dei tre momenti della comunicazione' },
         { id: 'testo', nome: 'Testo', desc: 'Titolo e paragrafo' },
         { id: 'evidenza', nome: 'Riquadro in evidenza', desc: 'Box azzurro per una notizia o una scadenza' },
         { id: 'immagine', nome: 'Immagine', desc: 'Immagine a tutta larghezza, con collegamento' },
@@ -308,7 +330,7 @@
        che fa riconoscere l'inizio di un blocco senza doverlo leggere. */
     function segnoSezione() {
         return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="34" style="border-collapse:collapse;">'
-            + '<tr><td bgcolor="' + C.oro + '" width="34" height="2" style="background-color:' + C.oro
+            + '<tr><td bgcolor="' + C.accento + '" width="34" height="2" style="background-color:' + C.accento
             + ';width:34px;height:2px;font-size:0;line-height:0;">&nbsp;</td></tr></table>';
     }
     function titoloSezione(testo) {
@@ -387,7 +409,7 @@
                 + tabellaInterna('<tr>'
                     + '<td valign="top" width="20" style="width:20px;padding:9px 0 0 0;">'
                     + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="7" style="border-collapse:collapse;"><tr>'
-                    + '<td bgcolor="' + C.oro + '" width="7" height="7" style="background-color:' + C.oro + ';width:7px;height:7px;font-size:0;line-height:0;">&nbsp;</td>'
+                    + '<td bgcolor="' + C.accento + '" width="7" height="7" style="background-color:' + C.accento + ';width:7px;height:7px;font-size:0;line-height:0;">&nbsp;</td>'
                     + '</tr></table></td>'
                     + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';">' + testoHtml(v) + '</td>'
                     + '</tr>')
@@ -405,9 +427,32 @@
                 + '<tr><td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';">' + contenuto(b) + '</td></tr>';
             return cella(
                 '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:' + C.chiaro + ';"><tr>'
-                + '<td width="4" bgcolor="' + C.oro + '" style="width:4px;background-color:' + C.oro + ';font-size:0;line-height:0;">&nbsp;</td>'
+                + '<td width="4" bgcolor="' + C.accento + '" style="width:4px;background-color:' + C.accento + ';font-size:0;line-height:0;">&nbsp;</td>'
                 + '<td style="padding:18px 20px;">' + tabellaInterna(dentro) + '</td>'
                 + '</tr></table>', '30px ' + LATO + 'px 4px');
+        }
+        if (tipo === 'passo') {
+            /* I tre momenti di una comunicazione che si fa capire: prima PERCHE'
+               la cosa riguarda chi legge, poi COME funziona, infine CHE COSA
+               fare. Saltare il primo e il modo piu' rapido di scrivere una
+               circolare che nessuno finisce: si comincia dalla norma invece che
+               dal motivo, e chi legge non arriva mai a capire se lo riguarda.
+               Il numero grande e tenue non e' un ornamento: fa vedere a colpo
+               d'occhio che i momenti sono tre e a quale si e' arrivati. */
+            const f = FASI[String(b.fase || 'perche')] || FASI.perche;
+            return cella(tabellaInterna(
+                filetto(C.bordo, 1)
+                + spazio(20)
+                + '<tr><td>' + tabellaInterna('<tr>'
+                    + '<td valign="top" width="56" style="width:56px;' + FONTE
+                    + 'font-size:30px;line-height:32px;font-weight:bold;color:' + C.bordo + ';">' + f.n + '</td>'
+                    + '<td valign="top" style="' + FONTE + '">'
+                    + '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:7px;">' + esc(f.etichetta) + '</div>'
+                    + (b.titolo ? '<div style="' + FONTE + SCALA.sezione + 'color:' + C.scuro + ';font-weight:bold;padding-bottom:10px;">' + testoHtml(b.titolo) + '</div>' : '')
+                    + contenuto(b)
+                    + '</td></tr>')
+                + '</td></tr>'
+            ), '30px ' + LATO + 'px 4px');
         }
         if (tipo === 'duo') {
             /* Due schede affiancate. Serve a spezzare il ritmo di una colonna
@@ -417,7 +462,7 @@
             const scheda = (tit, txt) => {
                 if (!String(tit || '').trim() && !String(txt || '').trim()) return '';
                 return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:' + C.chiaro + ';">'
-                    + '<tr><td bgcolor="' + C.oro + '" height="3" style="background-color:' + C.oro + ';height:3px;font-size:0;line-height:0;">&nbsp;</td></tr>'
+                    + '<tr><td bgcolor="' + C.accento + '" height="3" style="background-color:' + C.accento + ';height:3px;font-size:0;line-height:0;">&nbsp;</td></tr>'
                     + '<tr><td style="padding:15px 17px 17px;' + FONTE + '">'
                     + (tit ? '<div style="' + FONTE + 'font-size:17px;line-height:24px;color:' + C.scuro + ';font-weight:bold;padding-bottom:7px;">' + testoHtml(tit) + '</div>' : '')
                     + '<div style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.testo + ';">' + testoHtml(txt) + '</div>'
@@ -455,9 +500,11 @@
             return cella(
                 '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="' + C.scuro + '" style="border-collapse:collapse;background-color:' + C.scuro + ';">'
                 + '<tr><td align="center" style="padding:26px 22px 24px;text-align:center;' + FONTE + '">'
-                + '<div style="' + FONTE + 'font-size:44px;line-height:50px;color:' + C.oro + ';font-weight:bold;letter-spacing:-1px;">' + testoHtml(cifra) + '</div>'
-                + (b.etichetta ? '<div style="' + FONTE + SCALA.etichetta + 'color:#9DB8D2;font-weight:bold;padding-top:6px;">' + testoHtml(b.etichetta) + '</div>' : '')
-                + (b.testo ? '<div style="' + FONTE + 'font-size:15px;line-height:24px;color:#D7E3EF;padding-top:12px;">' + testoHtml(b.testo) + '</div>' : '')
+                // sul blu la cifra va in bianco: l'accento e' un blu piu' chiaro,
+                // ma su fondo blu scuro resterebbe troppo poco leggibile
+                + '<div style="' + FONTE + 'font-size:44px;line-height:50px;color:' + C.bianco + ';font-weight:bold;letter-spacing:-1px;">' + testoHtml(cifra) + '</div>'
+                + (b.etichetta ? '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.chiaroBlu + ';font-weight:bold;padding-top:6px;">' + testoHtml(b.etichetta) + '</div>' : '')
+                + (b.testo ? '<div style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.suScuro + ';padding-top:12px;">' + testoHtml(b.testo) + '</div>' : '')
                 + '</td></tr></table>', '30px ' + LATO + 'px 4px');
         }
         // testo (predefinito)
@@ -484,6 +531,11 @@
         if (t === 'spalla') {
             return (b.titolo ? b.titolo + '\n' : '') + testoDaHtml(b.html ? ripulisci(b.html) : formatta(b.testo));
         }
+        if (t === 'passo') {
+            const f = FASI[String(b.fase || 'perche')] || FASI.perche;
+            return f.etichetta.toUpperCase() + (b.titolo ? ' - ' + b.titolo : '') + '\n'
+                + testoDaHtml(b.html ? ripulisci(b.html) : formatta(b.testo));
+        }
         if (t === 'elenco') {
             const voci = (Array.isArray(b.voci) ? b.voci : String(b.voci || '').split('\n')).map(v => String(v || '').trim()).filter(Boolean);
             return (b.titolo ? b.titolo + '\n' : '') + voci.map(v => '- ' + v).join('\n');
@@ -502,46 +554,48 @@
         const blocchi = (Array.isArray(nl.blocchi) ? nl.blocchi : []).map(b => blocco(b, base)).join('');
         const anno = opz.anno || new Date().getFullYear();
 
-        /* Testata BIANCA con il marchio per esteso e un filo d'oro sotto: una
-           carta intestata, non una fascia colorata.
-           Il fondo bianco non e' una scelta estetica ma tecnica: dei tre file
-           del marchio, l'unico che porta anche la scritta "Revilaw" ha il fondo
-           bianco incorporato (nessuna trasparenza), quindi su fondo scuro
-           comparirebbe come un rettangolo bianco. Gli altri due sono il solo
-           simbolo: uno blu, illeggibile sullo scuro, e uno bianco, illeggibile
-           sul chiaro. Su bianco il marchio completo si legge e si riconosce.
-           Se le immagini sono bloccate resta il testo alternativo, vestito per
-           essere leggibile lo stesso. */
-        const testa = '<tr><td bgcolor="' + C.bianco + '" class="px" style="background-color:' + C.bianco + ';padding:28px ' + LATO + 'px 24px;">'
-            + '<a href="' + esc(SITO) + '" style="text-decoration:none;">'
-            + '<img src="' + esc(LOGO) + '" width="170" alt="Revilaw - Revisione legale" '
-            + 'style="display:block;width:170px;max-width:170px;height:auto;border:0;outline:none;text-decoration:none;'
-            + 'font-family:' + FONT + ';font-size:19px;line-height:25px;font-weight:bold;color:' + C.scuro + ';">'
-            + '</a></td></tr>'
-            + filetto(C.oro, 3);
-
-        /* Apertura: occhiello minuscolo, titolo grande, sommario in corpo
-           maggiore. E' qui che si decide se la mail viene letta. */
+        /* TESTATA E APERTURA SONO UN BLOCCO SOLO, sul blu del marchio.
+           Prima erano tre pezzi separati: testata bianca, apertura bianca,
+           immagine sotto. Si vedevano le giunture, e l'immagine sembrava
+           incollata sopra la mail invece di farne parte. Ora il marchio,
+           l'occhiello, il titolo e il sommario stanno dentro lo stesso campo
+           blu, e la fascia che segue e' dello stesso blu senza spazio in mezzo:
+           dove finisce la scrittura e comincia l'immagine non si vede.
+           Il marchio e' quello in bianco su trasparenza: quello con il fondo
+           bianco incorporato, qui, comparirebbe come un rettangolo. */
         const occhiello = nl.occhiello
-            ? '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.blu + ';font-weight:bold;">' + testoHtml(nl.occhiello) + '</td></tr>' + spazio(14)
+            ? '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">' + testoHtml(nl.occhiello) + '</td></tr>' + spazio(12)
             : '';
         const titolo = nl.titolo
-            ? '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.scuro + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(nl.titolo) + '</td></tr>'
+            ? '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(nl.titolo) + '</td></tr>'
             : '';
         const sommario = nl.sommario
-            ? (titolo ? spazio(18) : '') + '<tr><td class="lead" style="' + FONTE + SCALA.sommario + 'color:' + C.tenue + ';">' + testoHtml(nl.sommario) + '</td></tr>'
+            ? (titolo ? spazio(16) : '') + '<tr><td class="lead" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';">' + testoHtml(nl.sommario) + '</td></tr>'
             : '';
-        const apertura = (occhiello || titolo || sommario)
-            ? cella(tabellaInterna(occhiello + titolo + sommario), '42px ' + LATO + 'px 0')
-            : '';
+        const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
+            + tabellaInterna(
+                '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
+                + '</a></td></tr>'
+                + ((occhiello || titolo || sommario) ? spazio(24) : '')
+                + occhiello + titolo + sommario
+            )
+            + '</td></tr>';
+        const apertura = '';
 
-        // l'immagine di apertura va a tutta larghezza, senza margini: e' la foto di apertura
+        /* La fascia CONTINUA la testata: stesso fondo blu, nessuno spazio in
+           mezzo, e nessun secondo marchio dentro (il marchio sta gia' sopra).
+           Senza immagine si chiude comunque con lo stesso filo che le fasce
+           hanno in fondo, cosi' lo stacco verso il corpo bianco e' identico
+           nei due casi. */
         const copertina = nl.immagine && assoluto(nl.immagine, base)
-            ? '<tr><td style="font-size:0;line-height:0;padding-top:34px;">'
-            + '<img src="' + esc(assoluto(nl.immagine, base)) + '" width="' + LARGHEZZA + '" alt="' + esc(nl.titolo || '') + '" '
+            ? '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
+            + '<img src="' + esc(assoluto(nl.immagine, base)) + '" width="' + LARGHEZZA + '" alt="" '
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
             + '</td></tr>'
-            : '';
+            : filetto(C.accento, 4);
 
         /* Il pulsante finale sta al centro: e' l'unica cosa che si chiede al
            lettore, e al centro si vede da sola senza cercarla. Il centraggio si
@@ -738,7 +792,7 @@
     }
 
     return {
-        COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO,
+        COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI,
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB,
         costruisci: costruisci, estraiDaPagina: estraiDaPagina,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,

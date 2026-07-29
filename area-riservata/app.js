@@ -7513,12 +7513,16 @@
     /* Immagini di apertura. Portano tutte il marchio: un disegno astratto non dice
        da chi arriva la mail, e in una casella piena e' la prima cosa che serve.
        Sono composte a partire dai file veri del marchio, non ridisegnate a mano. */
+    /* Fasce di apertura. Non sono immagini messe sopra la mail: sono la parte
+       bassa della testata, sullo STESSO blu, senza stacco e senza un secondo
+       marchio dentro (il marchio sta gia sopra). Prima erano riquadri a se, e si
+       vedeva che erano incollati. */
     const FREGI_NEWSLETTER = [
-        { id: '', nome: 'Nessuna immagine', desc: 'Solo tipografia, la piu leggera', file: '' },
-        { id: 'marchio-navy', nome: 'Marchio su blu', desc: 'Marchio in bianco su campo blu: la piu riconoscibile', file: '/assets/newsletter/marchio-navy.png' },
-        { id: 'monogramma', nome: 'Monogramma', desc: 'Il simbolo ingrandito e tagliato dal bordo, marchio a sinistra', file: '/assets/newsletter/monogramma.png' },
-        { id: 'sigillo', nome: 'Sigillo', desc: 'Simbolo dentro un cerchio d\'oro: tono da atto formale', file: '/assets/newsletter/sigillo.png' },
-        { id: 'fascia', nome: 'Fascia obliqua', desc: 'Banda blu in diagonale con filo d\'oro', file: '/assets/newsletter/fascia.png' }
+        { id: '', nome: 'Nessuna fascia', desc: 'La testata blu finisce e comincia il testo', file: '' },
+        { id: 'filigrana', nome: 'Filigrana', desc: 'Il simbolo in trasparenza, appena percettibile', file: '/assets/newsletter/fascia-filigrana.png' },
+        { id: 'orizzonte', nome: 'Orizzonte', desc: 'Righe orizzontali di spessore crescente', file: '/assets/newsletter/fascia-orizzonte.png' },
+        { id: 'trama', nome: 'Trama', desc: 'Reticolo diagonale finissimo', file: '/assets/newsletter/fascia-trama.png' },
+        { id: 'piena', nome: 'Piena', desc: 'Solo blu, la piu sobria', file: '/assets/newsletter/fascia-piena.png' }
     ];
     function urlFregio(f) { return f ? indirizzoPagina(f) : ''; }
     /* Dal sito pubblicato la pagina e' sulla stessa origine (quindi si legge senza
@@ -8540,6 +8544,9 @@
        COMPOSITORE
     ========================================================= */
     const NOMI_TIPO_BLOCCO = {
+        // i tre momenti della comunicazione stanno per primi perche sono
+        // l'ossatura: gli altri blocchi arricchiscono, questi reggono
+        passo: 'Passo (perche / come / che cosa)',
         testo: 'Testo', evidenza: 'Riquadro in evidenza', immagine: 'Immagine', bottone: 'Pulsante',
         elenco: 'Elenco puntato',
         // blocchi che spezzano la colonna unica: e' quello che fa sembrare la mail
@@ -8555,7 +8562,16 @@
         const bozza = n ? JSON.parse(JSON.stringify(n)) : {
             id: uid(), nome: '', oggetto: '', preheader: '',
             occhiello: '', titolo: '', sommario: '', immagine: '',
-            blocchi: [], cta: { testo: '', url: '' }, fonte: { url: '', titolo: '' },
+            /* Una newsletter nuova nasce gia con l'ossatura: perche, come, che
+               cosa. Non e un vincolo (i blocchi si tolgono), e un promemoria:
+               partire dalla norma invece che dal motivo e il modo piu rapido di
+               scrivere qualcosa che nessuno finisce di leggere. */
+            blocchi: [
+                { tipo: 'passo', fase: 'perche', titolo: '', testo: '' },
+                { tipo: 'passo', fase: 'come', titolo: '', testo: '' },
+                { tipo: 'passo', fase: 'cosa', titolo: '', testo: '' }
+            ],
+            cta: { testo: '', url: '' }, fonte: { url: '', titolo: '' },
             gruppi: [], esclusi: [], singoli: [], stato: 'bozza',
             creato: { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() },
             invii: []
@@ -8696,6 +8712,16 @@
                 const voci = Array.isArray(b.voci) ? b.voci.join('\n') : String(b.voci || '');
                 campi = '<div class="campo"><label>Titolo (facoltativo)</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
                     + '<div class="campo"><label>Punti, uno per riga</label><textarea data-campo="voci" rows="4">' + esc(voci) + '</textarea></div>';
+            } else if (b.tipo === 'passo') {
+                const FASI = (window.RV_NEWSLETTER && RV_NEWSLETTER.FASI) || {};
+                const fase = FASI[b.fase] ? b.fase : 'perche';
+                campi = '<div class="campo"><label>Quale momento</label><select data-campo="fase">'
+                    + ['perche', 'come', 'cosa'].map(k => '<option value="' + k + '"' + (k === fase ? ' selected' : '') + '>'
+                        + esc((FASI[k] && FASI[k].n ? FASI[k].n + '. ' : '') + (FASI[k] ? FASI[k].etichetta : k)) + '</option>').join('')
+                    + '</select></div>'
+                    + '<div class="hint">' + esc((FASI[fase] && FASI[fase].aiuto) || '') + '</div>'
+                    + '<div class="campo"><label>Titolo</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
+                    + '<div class="campo"><label>Testo</label><textarea data-campo="testo" rows="5">' + esc(testoDelBlocco(b)) + '</textarea></div>';
             } else if (b.tipo === 'duo') {
                 campi = '<div class="hint">Due schede una accanto all\'altra. Sul telefono si impilano da sole. Testi brevi: due o tre righe ciascuno.</div>'
                     + '<div class="griglia-2">'
@@ -8754,6 +8780,7 @@
                 if (tipo === 'immagine') { out.push({ tipo: tipo, src: v('src').trim(), alt: v('alt').trim(), link: v('link').trim() }); return; }
                 if (tipo === 'bottone') { out.push({ tipo: tipo, testo: v('testo').trim(), url: v('url').trim() }); return; }
                 if (tipo === 'elenco') { out.push({ tipo: tipo, titolo: v('titolo').trim(), voci: v('voci').split('\n').map(s => s.trim()).filter(Boolean) }); return; }
+                if (tipo === 'passo') { out.push({ tipo: tipo, fase: v('fase') || 'perche', titolo: v('titolo').trim(), testo: v('testo') }); return; }
                 if (tipo === 'duo') { out.push({ tipo: tipo, titolo: v('titolo').trim(), testo: v('testo'), titolo2: v('titolo2').trim(), testo2: v('testo2') }); return; }
                 if (tipo === 'spalla') { out.push({ tipo: tipo, src: v('src').trim(), alt: v('alt').trim(), link: v('link').trim(), lato: v('lato') || 'sinistra', titolo: v('titolo').trim(), testo: v('testo') }); return; }
                 if (tipo === 'numero') { out.push({ tipo: tipo, numero: v('numero').trim(), etichetta: v('etichetta').trim(), testo: v('testo').trim() }); return; }
