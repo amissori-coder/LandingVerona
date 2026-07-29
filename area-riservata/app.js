@@ -1325,6 +1325,17 @@
         async andamentoNewsletter(blocchi, forza) {
             return this._chiamaNewsletter('andamento-newsletter', { blocchi: blocchi, forza: !!forza });
         },
+        /* Invio programmato: si mette in coda il contenuto GIA' COSTRUITO e
+           l'elenco dei destinatari. Da quel momento il browser non serve piu'. */
+        async programmaNewsletter(corpo) {
+            return this._chiamaNewsletter('programma-newsletter', Object.assign({ azione: 'programma' }, corpo));
+        },
+        async annullaProgrammazione(campagna) {
+            return this._chiamaNewsletter('programma-newsletter', { azione: 'annulla', campagna: campagna });
+        },
+        async statoProgrammate(campagne) {
+            return this._chiamaNewsletter('programma-newsletter', { azione: 'stato', campagne: campagne });
+        },
 
         /* prima password: crea l'account se manca (su una app secondaria,
            senza toccare la sessione corrente) e invia l'email con il
@@ -8569,6 +8580,7 @@
             + intestazioneInvio(bozza)
             // com'e' andato l'invio: si riempie da solo, e su una newsletter mai
             // spedita resta vuoto, quindi la finestra e' identica a prima
+            + '<div id="nl-programmata"></div>'
             + '<div id="nl-andamento"></div>'
             + '<div class="nl-sez">'
             + '  <div class="nl-sez-tit">1. A chi la mandi</div>'
@@ -8613,6 +8625,7 @@
             + '  <button class="btn btn-secondary" id="nl-anteprima">Anteprima</button>'
             + '  <button class="btn btn-secondary" id="nl-prova">Invia una prova a me</button>'
             + '  <button class="btn btn-secondary" id="nl-salva">Salva</button>'
+            + '  <button class="btn btn-secondary" id="nl-programma">Programma l\'invio</button>'
             + '  <button class="btn btn-primary" id="nl-invia">Invia la newsletter</button>'
             + '</div>', { classe: 'larga nl-modale', finestra: true, titolo: nuova ? 'Nuova newsletter' : (bozza.nome || bozza.oggetto || 'Newsletter') });
 
@@ -8627,10 +8640,15 @@
 
         /* Conferme DENTRO il compositore, non in una finestra sopra: aprire un
            secondo modale sostituirebbe questo e si perderebbe tutto il lavoro. */
-        function confermaInLinea(titolo, testo, etichetta, onSi) {
+        /* "extra" e' HTML gia' pronto, per i casi in cui la conferma deve chiedere
+           qualcosa (una data) e non solo dire si o no. Il TESTO resta protetto:
+           l'unica cosa che passa senza protezione e' quella che scriviamo noi qui
+           dentro, non quello che arriva da un record. */
+        function confermaInLinea(titolo, testo, etichetta, onSi, extra) {
             const box = $('nl-conferma');
             box.className = 'nl-conferma';
             box.innerHTML = '<div class="nl-conferma-tit">' + esc(titolo) + '</div><p>' + esc(testo) + '</p>'
+                + (extra || '')
                 + '<div class="nl-conferma-azioni"><button type="button" class="btn btn-ghost" id="nlk-no">Annulla</button>'
                 + '<button type="button" class="btn btn-primary" id="nlk-si">' + esc(etichetta) + '</button></div>'
                 + '<div class="hint" id="nlk-avanz"></div>';
@@ -8961,6 +8979,125 @@
                 (btn, avanz, btnNo) => avviaInvioNewsletter(rec, r.destinatari, btn, avanz, btnNo, ripresa));
         });
 
+        /* --- invio programmato ---
+           Si manda al servizio il contenuto GIA' COSTRUITO e l'elenco dei
+           destinatari risolto adesso. Da quel momento il browser non serve piu':
+           puo' anche restare chiuso. */
+        let _progStato = null;      // cosa dice il servizio di questa newsletter
+
+        function frasePartenza(giorno, passo) {
+            const d = new Date(giorno + 'T12:00:00');
+            const quando = isNaN(d.getTime()) ? giorno
+                : d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+            return passo === '15min'
+                ? 'Parte ' + quando + ', entro un quarto d\'ora dall\'orario scelto.'
+                : 'Parte nella prima mattina di ' + quando + '. Conta il giorno, non l\'ora.';
+        }
+
+        $('nl-programma').addEventListener('click', () => {
+            if (invioInCorso) { mostraEsitoNL('C\'e gia un invio in corso: attendi che finisca.', false); return; }
+            if (_progStato && ['programmata', 'in-corso'].indexOf(_progStato.stato) >= 0) {
+                mostraEsitoNL('Questa newsletter e gia programmata. Annulla la programmazione prima di rifarla.', false);
+                return;
+            }
+            const rec = componiRecord();
+            const problema = controllaNewsletter(rec, false);
+            if (problema) { mostraEsitoNL(problema, false); return; }
+            const r = destinatariNewsletter(rec, {});
+            if (!r.destinatari.length) { mostraEsitoNL('Nessun destinatario: scegli almeno un gruppo nella sezione 1.', false); return; }
+            const fuori = r.saltati.filter(x => x.motivo === 'disiscritto').length;
+
+            const domani = new Date(Date.now() + 24 * 3600 * 1000);
+            const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            const campo = '<div class="campo" style="max-width:230px;margin:2px 0 10px;">'
+                + '<label for="nlk-data">Giorno dell\'invio</label>'
+                + '<input type="date" id="nlk-data" value="' + iso(domani) + '" min="' + iso(domani) + '"></div>'
+                + '<div class="hint" id="nlk-quando" style="margin:-4px 0 8px;"></div>';
+
+            confermaInLinea('Programmare l\'invio?',
+                'Partira a ' + r.destinatari.length + ' destinatari'
+                + (fuori ? ', ' + fuori + (fuori === 1 ? ' saltato perche disiscritto' : ' saltati perche disiscritti') : '')
+                + '. Parte a QUESTI destinatari, non a chi si iscrive nel frattempo; chi si disiscrive prima della partenza viene comunque tolto. '
+                + 'Parte anche questo TESTO: se la modifichi dopo, la modifica non entra nell\'invio programmato.',
+                'Metti in coda',
+                (btn, avanz) => {
+                    const g = ($('nlk-data') || {}).value || '';
+                    if (!g) { avanz.textContent = 'Scegli un giorno.'; return; }
+                    // mezzogiorno: cosi' il fuso non sposta il giorno scelto
+                    const quando = new Date(g + 'T12:00:00').getTime();
+                    if (!quando || quando < Date.now()) { avanz.textContent = 'Scegli un giorno futuro.'; return; }
+                    const mail = RV_NEWSLETTER.costruisci(rec);
+                    conAttesa(btn, async () => {
+                        const res = await Cloud.programmaNewsletter({
+                            campagna: rec.id, invio: 'inv-' + uid(),
+                            quando: quando, quandoTesto: g,
+                            oggetto: rec.oggetto, html: mail.html, testo: mail.testo,
+                            destinatari: r.destinatari
+                        });
+                        if (!res.ok) { avanz.textContent = res.msg || 'Programmazione non riuscita.'; return; }
+                        chiudiConfermaInLinea();
+                        rec.stato = 'programmata';
+                        rec.programmazione = { quando: quando, quandoTesto: g, previsti: res.previsti, da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+                        Newsletter.salvaUna(JSON.parse(JSON.stringify(rec)));
+                        try { Audit.registra(Auth.utenteCorrente, 'Newsletter programmata', 'sistema', rec.id, null, g + ' - ' + res.previsti + ' destinatari'); } catch (e) { }
+                        mostraEsitoNL('In coda: ' + res.previsti + ' destinatari. ' + frasePartenza(g, res.passo), true);
+                        caricaStatoProgrammazione(rec);
+                    }, { testo: 'Metto in coda...' });
+                }, campo);
+
+            // la frase di verita' si aggiorna mentre si cambia il giorno
+            const agg = () => {
+                const q = $('nlk-quando'), d = $('nlk-data');
+                if (q && d) q.textContent = frasePartenza(d.value, (_progStato && _progStato.passo) || 'giornaliero');
+            };
+            const d = $('nlk-data');
+            if (d) { d.addEventListener('change', agg); agg(); }
+        });
+
+        function caricaStatoProgrammazione(rec) {
+            if (!Cloud.attivo || !rec || !rec.id) return;
+            Cloud.statoProgrammate([rec.id]).then(res => {
+                if (!res.ok) return;
+                const p = (res.programmate || {})[rec.id] || null;
+                _progStato = p ? Object.assign({ passo: res.passo }, p) : { passo: res.passo };
+                disegnaProgrammazione(rec);
+            }).catch(() => { });
+        }
+
+        function disegnaProgrammazione(rec) {
+            const box = $('nl-programmata');
+            if (!box) return;
+            const p = _progStato;
+            if (!p || ['programmata', 'in-corso'].indexOf(p.stato) < 0) { box.innerHTML = ''; return; }
+            const inCorso = p.stato === 'in-corso';
+            box.innerHTML = '<div class="card s-admin nl-prog"><div class="s-admin-txt">'
+                + '<strong>' + (inCorso ? 'Invio in corso' : 'Invio programmato') + '</strong>'
+                + '<div class="hint">' + esc(frasePartenza(p.quandoTesto || '', p.passo))
+                + ' A <b>' + (p.previsti || 0) + '</b> destinatari.'
+                + (p.creato && p.creato.da ? ' Programmata da ' + esc(p.creato.da) + '.' : '')
+                + '<br>Se modifichi il testo adesso, la modifica NON entra in questo invio: annulla e riprogramma.'
+                + (p.ultimoErrore ? '<br><b>Ultimo tentativo non riuscito:</b> ' + esc(p.ultimoErrore) : '')
+                + '</div></div>'
+                + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="nl-prog-annulla">Annulla la programmazione</button></div></div>';
+            const b = $('nl-prog-annulla');
+            if (b) b.addEventListener('click', () => {
+                confermaInLinea(inCorso ? 'Fermare l\'invio in corso?' : 'Annullare la programmazione?',
+                    inCorso
+                        ? 'I gruppi non ancora partiti non partiranno. Le mail gia uscite non si possono richiamare.'
+                        : 'Non partira niente. La newsletter torna in bozza e la puoi riprogrammare quando vuoi.',
+                    inCorso ? 'Ferma quello che resta' : 'Annulla l\'invio',
+                    (btn2, avanz2) => conAttesa(btn2, async () => {
+                        const res = await Cloud.annullaProgrammazione(rec.id);
+                        if (!res.ok) { avanz2.textContent = res.msg || 'Non riuscito.'; return; }
+                        chiudiConfermaInLinea();
+                        if (!res.inCorso) { rec.stato = 'bozza'; rec.programmazione = null; Newsletter.salvaUna(JSON.parse(JSON.stringify(rec))); }
+                        try { Audit.registra(Auth.utenteCorrente, 'Newsletter: programmazione annullata', 'sistema', rec.id, null, ''); } catch (e) { }
+                        mostraEsitoNL(res.msg, true);
+                        caricaStatoProgrammazione(rec);
+                    }, { testo: 'Annullo...' }));
+            });
+        }
+
         function mostraEsitoNL(testo, ok) {
             const e = $('nl-esito-invio');
             if (!e) { toast(testo, ok ? 'verde' : 'rosso'); return; }
@@ -9129,6 +9266,8 @@
         // gia' (cosi' la finestra non "salta" dopo), poi si chiede al servizio
         disegnaAndamentoInvii(bozza);
         caricaAndamentoInvii(bozza);
+        // stato dell'eventuale invio programmato: lo sa solo il servizio
+        caricaStatoProgrammazione(bozza);
         // se i destinatari non sono ancora arrivati dal servizio (finestra aperta
         // subito dopo l'ingresso nella sezione), il pannello si riempie da solo
         if (Cloud.attivo && !_nlDati) {
