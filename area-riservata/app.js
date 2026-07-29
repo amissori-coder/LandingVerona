@@ -8846,9 +8846,18 @@
             const cont = $('nl-elenco-dest');
             if (!cont) return;
             const q = filtroDest.trim().toLowerCase();
-            const visibili = q
-                ? r.candidati.filter(c => (c.email + ' ' + (c.nome || '') + ' ' + (c.cognome || '') + ' ' + (c.azienda || '') + ' ' + (c.origine || '')).toLowerCase().indexOf(q) >= 0)
-                : r.candidati;
+            /* L'elenco mostra i contatti DEI GRUPPI SCELTI, non tutta la rubrica.
+               Prima li mostrava tutti con la spunta a indicare chi riceveva: era
+               fedele ma illeggibile, perche' su mille contatti si perdevano i
+               trenta che interessano. Chi serve fuori dai gruppi si trova con la
+               ricerca, che invece cerca in TUTTA la rubrica: cosi' la vista
+               normale resta pulita e nessuno diventa irraggiungibile. */
+            const nelGiro = c => c.daGruppo || c.scelto;
+            const corrisponde = c => (c.email + ' ' + (c.nome || '') + ' ' + (c.cognome || '') + ' '
+                + (c.azienda || '') + ' ' + (c.origine || '')).toLowerCase().indexOf(q) >= 0;
+            const daiGruppi = r.candidati.filter(nelGiro);
+            const visibili = q ? r.candidati.filter(corrisponde) : daiGruppi;
+            const fuoriGiro = q ? visibili.filter(c => !nelGiro(c)).length : 0;
             const riga = c => '<label class="nl-dest-riga' + (c.scelto ? '' : ' escluso') + '">'
                 + '<input type="checkbox" class="nl-inc" value="' + esc(c.email) + '"' + (c.scelto ? ' checked' : '') + '>'
                 + '<span class="nl-dest-nome">' + esc(((c.nome || '') + ' ' + (c.cognome || '')).trim() || '(senza nome)')
@@ -8858,8 +8867,22 @@
                 + '<input type="search" id="nl-cerca-dest" placeholder="Cerca per nome, indirizzo, azienda o provenienza..." value="' + esc(filtroDest) + '">'
                 + '<button type="button" class="btn btn-sm btn-ghost" data-tuttidest="1">Spunta i visibili</button>'
                 + '<button type="button" class="btn btn-sm btn-ghost" data-tuttidest="0">Togli i visibili</button>'
-                + '<span class="hint">' + visibili.length + (q ? ' di ' + r.candidati.length : '') + '</span></div>'
-                + '<div class="nl-dest-lista">' + (visibili.length ? visibili.map(riga).join('') : '<div class="hint" style="padding:10px;">Nessuno corrisponde alla ricerca.</div>') + '</div>';
+                + '<span class="hint">' + visibili.length + (q ? ' di ' + r.candidati.length + ' in rubrica' : ' dai gruppi scelti') + '</span></div>'
+                + '<div class="nl-dest-lista">' + (visibili.length
+                    ? visibili.map(riga).join('')
+                    : '<div class="hint" style="padding:10px;">' + (q
+                        ? 'Nessuno corrisponde alla ricerca.'
+                        : 'Nessun gruppo scelto: spunta un gruppo qui sopra, oppure cerca una persona per aggiungerla da sola.') + '</div>') + '</div>'
+                /* Si dice quando la ricerca sta mostrando anche gente FUORI dai
+                   gruppi: senza, spuntarne una sembrerebbe un errore del programma
+                   invece che una scelta. */
+                + (fuoriGiro
+                    ? '<div class="hint" style="margin-top:6px;">Di questi, <b>' + fuoriGiro + '</b> non ' + (fuoriGiro === 1 ? 'appartiene' : 'appartengono')
+                    + ' ai gruppi scelti: spuntandol' + (fuoriGiro === 1 ? 'o' : 'i') + ' si aggiung' + (fuoriGiro === 1 ? 'e' : 'ono') + ' solo a questo invio.</div>'
+                    : '')
+                + (!q && daiGruppi.length
+                    ? '<div class="hint" style="margin-top:6px;">Sono i contatti dei gruppi che hai scelto. Per aggiungere qualcun altro, cercalo qui sopra: la ricerca guarda in tutta la rubrica.</div>'
+                    : '');
 
             const cerca = document.getElementById('nl-cerca-dest');
             if (cerca) {
