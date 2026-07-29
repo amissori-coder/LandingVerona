@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=4">
+    <link rel="stylesheet" href="styles.css?v=5">
 
     <!-- Structured Data (JSON-LD): BusinessEvent -->
     <script type="application/ld+json">
@@ -81,11 +81,17 @@
             "name": "Revilaw S.p.A.",
             "url": "https://www.revilaw.it"
         },
-        "sponsor": {
-            "@type": "Organization",
-            "name": "ADVANT Nctm",
-            "url": "https://www.advant-nctm.com"
-        },
+        "sponsor": [
+            {
+                "@type": "Organization",
+                "name": "ADVANT Nctm",
+                "url": "https://www.advant-nctm.com"
+            },
+            {
+                "@type": "Organization",
+                "name": "A.P.R.I. - Associazione Professionisti Risanamento Imprese"
+            }
+        ],
         "offers": {
             "@type": "Offer",
             "price": "0",
@@ -786,6 +792,9 @@
                         <a href="https://www.advant-nctm.com" target="_blank" rel="noopener" class="partner-brand" aria-label="ADVANT Nctm">
                             <img src="../assets/logo-advant-nctm.png" alt="ADVANT Nctm" class="partner-brand-img partner-brand-img-advant" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'partner-fallback',innerHTML:'<strong style=&quot;color:#B1213B&quot;>ADVANT</strong> <span style=&quot;color:#6E6E6E&quot;>Nctm</span>'}));">
                         </a>
+                        <div class="partner-brand" aria-label="A.P.R.I. &middot; Associazione Professionisti Risanamento Imprese">
+                            <img src="../assets/logo-apri.png" alt="A.P.R.I. - Associazione Professionisti Risanamento Imprese" class="partner-brand-img partner-brand-img-apri" onerror="this.onerror=null;this.replaceWith(Object.assign(document.createElement('span'),{className:'partner-fallback',textContent:'A.P.R.I.'}));">
+                        </div>
                     </div>
                 </div>
 
