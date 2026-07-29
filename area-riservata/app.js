@@ -7513,18 +7513,9 @@
     /* Immagini di apertura. Portano tutte il marchio: un disegno astratto non dice
        da chi arriva la mail, e in una casella piena e' la prima cosa che serve.
        Sono composte a partire dai file veri del marchio, non ridisegnate a mano. */
-    /* Fasce di apertura. Non sono immagini messe sopra la mail: sono la parte
-       bassa della testata, sullo STESSO blu, senza stacco e senza un secondo
-       marchio dentro (il marchio sta gia sopra). Prima erano riquadri a se, e si
-       vedeva che erano incollati. */
-    const FREGI_NEWSLETTER = [
-        { id: '', nome: 'Nessuna fascia', desc: 'La testata blu finisce e comincia il testo', file: '' },
-        { id: 'filigrana', nome: 'Filigrana', desc: 'Il simbolo in trasparenza, appena percettibile', file: '/assets/newsletter/fascia-filigrana.png' },
-        { id: 'orizzonte', nome: 'Orizzonte', desc: 'Righe orizzontali di spessore crescente', file: '/assets/newsletter/fascia-orizzonte.png' },
-        { id: 'trama', nome: 'Trama', desc: 'Reticolo diagonale finissimo', file: '/assets/newsletter/fascia-trama.png' },
-        { id: 'piena', nome: 'Piena', desc: 'Solo blu, la piu sobria', file: '/assets/newsletter/fascia-piena.png' }
-    ];
-    function urlFregio(f) { return f ? indirizzoPagina(f) : ''; }
+    /* L'elenco delle fasce non c'e' piu': la fascia della testata fa parte del
+       formato (newsletter-format.js) e non si sceglie a ogni invio. Una
+       comunicazione ricorrente si riconosce perche' e' sempre uguale. */
     /* Dal sito pubblicato la pagina e' sulla stessa origine (quindi si legge senza
        problemi); da un'anteprima locale si prova comunque l'indirizzo pubblico e,
        se il browser lo blocca, si spiega perche'. */
@@ -8543,17 +8534,10 @@
     /* =========================================================
        COMPOSITORE
     ========================================================= */
-    const NOMI_TIPO_BLOCCO = {
-        // i tre momenti della comunicazione stanno per primi perche sono
-        // l'ossatura: gli altri blocchi arricchiscono, questi reggono
-        passo: 'Passo (perche / come / che cosa)',
-        testo: 'Testo', evidenza: 'Riquadro in evidenza', immagine: 'Immagine', bottone: 'Pulsante',
-        elenco: 'Elenco puntato',
-        // blocchi che spezzano la colonna unica: e' quello che fa sembrare la mail
-        // una pagina invece di un documento infilato in una mail
-        duo: 'Due schede affiancate', spalla: 'Immagine di fianco al testo', numero: 'Numero in grande',
-        separatore: 'Linea di separazione'
-    };
+    /* I tipi di blocco non servono piu' al compositore: la mail ha una struttura
+       fissa (perche', come, che cosa) e non si compone a pezzi. Il formato sa
+       ancora leggere le bozze salvate con l'elenco di blocchi, cosi' quelle
+       vecchie non diventano illeggibili. */
 
     function modaleNewsletter(id) {
         const n = id ? Newsletter.trova(id) : null;
@@ -8561,22 +8545,19 @@
         // copia di lavoro: si tocca l'archivio solo al salvataggio
         const bozza = n ? JSON.parse(JSON.stringify(n)) : {
             id: uid(), nome: '', oggetto: '', preheader: '',
-            occhiello: '', titolo: '', sommario: '', immagine: '',
-            /* Una newsletter nuova nasce gia con l'ossatura: perche, come, che
-               cosa. Non e un vincolo (i blocchi si tolgono), e un promemoria:
-               partire dalla norma invece che dal motivo e il modo piu rapido di
-               scrivere qualcosa che nessuno finisce di leggere. */
-            blocchi: [
-                { tipo: 'passo', fase: 'perche', titolo: '', testo: '' },
-                { tipo: 'passo', fase: 'come', titolo: '', testo: '' },
-                { tipo: 'passo', fase: 'cosa', titolo: '', testo: '' }
-            ],
+            occhiello: '', titolo: '', sommario: '',
+            /* La mail e' sempre questa: perche', come, che cosa. Non sono blocchi
+               da aggiungere, sono la sua struttura. */
+            perche: { titolo: '', testo: '' },
+            come: { titolo: '', testo: '' },
+            cosa: { titolo: '', testo: '' },
             cta: { testo: '', url: '' }, fonte: { url: '', titolo: '' },
             gruppi: [], esclusi: [], singoli: [], stato: 'bozza',
             creato: { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() },
             invii: []
         };
-        if (!Array.isArray(bozza.blocchi)) bozza.blocchi = [];
+        // bozze salvate con il formato vecchio: le tre sezioni possono mancare
+        ['perche', 'come', 'cosa'].forEach(k => { if (!bozza[k] || typeof bozza[k] !== 'object') bozza[k] = { titolo: '', testo: '' }; });
         if (!Array.isArray(bozza.gruppi)) bozza.gruppi = [];
         if (!Array.isArray(bozza.esclusi)) bozza.esclusi = [];
         if (!Array.isArray(bozza.singoli)) bozza.singoli = [];
@@ -8613,22 +8594,13 @@
             + '  </div>'
             + '  <div class="campo"><label>Testo di anteprima</label><input id="nl-preheader" value="' + esc(bozza.preheader || '') + '" placeholder="La riga che si vede accanto all\'oggetto nella casella di posta"></div>'
             + '  <div class="campo"><label>Occhiello</label><input id="nl-occhiello" value="' + esc(bozza.occhiello || '') + '" placeholder="es. Finanza agevolata"></div>'
-            + '  <div class="campo"><label>Immagine di apertura</label>'
-            + '    <div class="nl-fregi" id="nl-fregi"></div>'
-            + '    <input id="nl-immagine" value="' + esc(bozza.immagine || '') + '" placeholder="Oppure incolla l\'indirizzo di un\'altra immagine">'
-            + '    <div class="hint">Disegni a tratto, leggeri, pensati per la testata bianca. Puoi cambiarli a ogni invio.</div>'
-            + '  </div>'
             + '  <div class="campo"><label>Titolo</label><input id="nl-titolo" value="' + esc(bozza.titolo || '') + '"></div>'
             + '  <div class="campo"><label>Sommario</label><textarea id="nl-sommario" rows="2">' + esc(bozza.sommario || '') + '</textarea></div>'
             + '</div>'
             + '<div class="nl-sez">'
             + '  <div class="nl-sez-tit">4. Contenuto</div>'
-            + '  <div class="hint nl-regole">Nei testi: una <strong>riga vuota</strong> comincia un paragrafo nuovo, <code>**testo**</code> lo mette in grassetto, <code>[testo](indirizzo)</code> crea un collegamento. Puoi usare <code>{nome}</code> e <code>{cognome}</code>: diventano il nome di chi riceve.</div>'
-            + '  <div id="nl-blocchi"></div>'
-            + '  <div class="nl-aggiungi">'
-            + '    <select id="nl-tipo">' + Object.keys(NOMI_TIPO_BLOCCO).map(t => '<option value="' + t + '">' + esc(NOMI_TIPO_BLOCCO[t]) + '</option>').join('') + '</select>'
-            + '    <button type="button" class="btn btn-secondary" id="nl-add">Aggiungi blocco</button>'
-            + '  </div>'
+            + '  <div class="hint nl-regole">Nei testi: una <strong>riga vuota</strong> comincia un paragrafo nuovo, <code>**testo**</code> lo mette in grassetto, <code>[testo](indirizzo)</code> crea un collegamento, e le righe che cominciano con <code>-</code> diventano un elenco puntato. Puoi usare <code>{nome}</code> e <code>{cognome}</code>: diventano il nome di chi riceve.</div>'
+            + '  <div id="nl-fasi"></div>'
             + '  <div class="griglia-2" style="margin-top:14px;">'
             + '    <div class="campo"><label>Pulsante finale: testo</label><input id="nl-cta-testo" value="' + esc((bozza.cta && bozza.cta.testo) || '') + '" placeholder="es. Leggi l\'approfondimento"></div>'
             + '    <div class="campo"><label>Pulsante finale: indirizzo</label><input id="nl-cta-url" value="' + esc((bozza.cta && bozza.cta.url) || '') + '" placeholder="https://..."></div>'
@@ -8673,144 +8645,54 @@
             box.innerHTML = '';
         }
 
-        /* --- blocchi --- */
-        function disegnaBlocchi() {
-            const cont = $('nl-blocchi');
-            if (!bozza.blocchi.length) {
-                cont.innerHTML = '<div class="nl-vuoto">Nessun blocco. Genera la bozza da una pagina del sito, oppure aggiungi il primo blocco qui sotto.</div>';
-                return;
-            }
-            cont.innerHTML = bozza.blocchi.map((b, i) => htmlBlocco(b, i, bozza.blocchi.length)).join('');
-            cont.querySelectorAll('[data-su]').forEach(b => b.addEventListener('click', () => { spostaBlocco(+b.dataset.su, -1); }));
-            cont.querySelectorAll('[data-giu]').forEach(b => b.addEventListener('click', () => { spostaBlocco(+b.dataset.giu, 1); }));
-            cont.querySelectorAll('[data-elimina]').forEach(b => b.addEventListener('click', () => {
-                leggiBlocchi(); bozza.blocchi.splice(+b.dataset.elimina, 1); salvataDaChiudere = true; disegnaBlocchi();
-            }));
+        /* --- i tre momenti della mail ---
+           La struttura e' fissa: perche', come, che cosa. Non si aggiungono ne'
+           si spostano blocchi, e non si aggiungono immagini. E' una scelta, non
+           una mancanza: una comunicazione dello studio si riconosce perche' e'
+           sempre uguale, e chi scrive deve pensare al testo, non a come
+           impaginarlo. L'impaginazione la fa newsletter-format.js. */
+        function fasiDisponibili() {
+            const F = (window.RV_NEWSLETTER && RV_NEWSLETTER.FASI) || {};
+            const ord = (window.RV_NEWSLETTER && RV_NEWSLETTER.ORDINE_FASI) || ['perche', 'come', 'cosa'];
+            return ord.map(k => ({ chiave: k, n: (F[k] || {}).n || '', etichetta: (F[k] || {}).etichetta || k, aiuto: (F[k] || {}).aiuto || '' }));
         }
-        function htmlBlocco(b, i, tot) {
-            const testa = '<div class="nl-b-testa"><span class="nl-b-tipo">' + esc(NOMI_TIPO_BLOCCO[b.tipo] || b.tipo) + '</span>'
-                + '<span class="nl-b-azioni">'
-                + '<button type="button" class="btn btn-sm btn-ghost" data-su="' + i + '"' + (i === 0 ? ' disabled' : '') + ' title="Sposta su">&#8593;</button>'
-                + '<button type="button" class="btn btn-sm btn-ghost" data-giu="' + i + '"' + (i === tot - 1 ? ' disabled' : '') + ' title="Sposta giu">&#8595;</button>'
-                + '<button type="button" class="btn btn-sm btn-ghost" data-elimina="' + i + '" title="Elimina il blocco">&#10005;</button>'
-                + '</span></div>';
-            let campi = '';
-            if (b.tipo === 'separatore') {
-                campi = '<div class="hint">Una linea sottile che separa due parti della newsletter.</div>';
-            } else if (b.tipo === 'immagine') {
-                campi = '<div class="campo"><label>Indirizzo dell\'immagine</label><input data-campo="src" value="' + esc(b.src || '') + '" placeholder="https://nextgenerationbusiness.it/assets/..."></div>'
-                    + '<div class="griglia-2">'
-                    + '<div class="campo"><label>Testo alternativo</label><input data-campo="alt" value="' + esc(b.alt || '') + '" placeholder="Cosa si vede nell\'immagine"></div>'
-                    + '<div class="campo"><label>Collegamento (facoltativo)</label><input data-campo="link" value="' + esc(b.link || '') + '" placeholder="https://..."></div>'
-                    + '</div>';
-            } else if (b.tipo === 'bottone') {
-                campi = '<div class="griglia-2">'
-                    + '<div class="campo"><label>Testo del pulsante</label><input data-campo="testo" value="' + esc(b.testo || '') + '" placeholder="es. Scopri di piu"></div>'
-                    + '<div class="campo"><label>Indirizzo</label><input data-campo="url" value="' + esc(b.url || '') + '" placeholder="https://..."></div>'
-                    + '</div>';
-            } else if (b.tipo === 'elenco') {
-                const voci = Array.isArray(b.voci) ? b.voci.join('\n') : String(b.voci || '');
-                campi = '<div class="campo"><label>Titolo (facoltativo)</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
-                    + '<div class="campo"><label>Punti, uno per riga</label><textarea data-campo="voci" rows="4">' + esc(voci) + '</textarea></div>';
-            } else if (b.tipo === 'passo') {
-                const FASI = (window.RV_NEWSLETTER && RV_NEWSLETTER.FASI) || {};
-                const fase = FASI[b.fase] ? b.fase : 'perche';
-                campi = '<div class="campo"><label>Quale momento</label><select data-campo="fase">'
-                    + ['perche', 'come', 'cosa'].map(k => '<option value="' + k + '"' + (k === fase ? ' selected' : '') + '>'
-                        + esc((FASI[k] && FASI[k].n ? FASI[k].n + '. ' : '') + (FASI[k] ? FASI[k].etichetta : k)) + '</option>').join('')
-                    + '</select></div>'
-                    + '<div class="hint">' + esc((FASI[fase] && FASI[fase].aiuto) || '') + '</div>'
-                    + '<div class="campo"><label>Titolo</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
-                    + '<div class="campo"><label>Testo</label><textarea data-campo="testo" rows="5">' + esc(testoDelBlocco(b)) + '</textarea></div>';
-            } else if (b.tipo === 'duo') {
-                campi = '<div class="hint">Due schede una accanto all\'altra. Sul telefono si impilano da sole. Testi brevi: due o tre righe ciascuno.</div>'
-                    + '<div class="griglia-2">'
-                    + '<div class="campo"><label>Scheda 1: titolo</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
-                    + '<div class="campo"><label>Scheda 2: titolo</label><input data-campo="titolo2" value="' + esc(b.titolo2 || '') + '"></div>'
-                    + '</div><div class="griglia-2">'
-                    + '<div class="campo"><label>Scheda 1: testo</label><textarea data-campo="testo" rows="3">' + esc(b.testo || '') + '</textarea></div>'
-                    + '<div class="campo"><label>Scheda 2: testo</label><textarea data-campo="testo2" rows="3">' + esc(b.testo2 || '') + '</textarea></div>'
-                    + '</div>';
-            } else if (b.tipo === 'spalla') {
-                campi = '<div class="hint">Immagine a lato e testo accanto. Alternando il lato fra un blocco e l\'altro la mail prende ritmo. '
-                    + 'Qui l\'immagine e larga circa 210px: vanno bene le foto e i disegni quadrati o verticali, mentre le immagini di apertura col marchio (che sono lunghe e basse) qui diventano illeggibili.</div>'
-                    + '<div class="griglia-2">'
-                    + '<div class="campo"><label>Indirizzo dell\'immagine</label><input data-campo="src" value="' + esc(b.src || '') + '" placeholder="https://nextgenerationbusiness.it/assets/..."></div>'
-                    + '<div class="campo"><label>Da che lato sta l\'immagine</label><select data-campo="lato">'
-                    + '<option value="sinistra"' + (b.lato === 'destra' ? '' : ' selected') + '>A sinistra</option>'
-                    + '<option value="destra"' + (b.lato === 'destra' ? ' selected' : '') + '>A destra</option>'
-                    + '</select></div>'
-                    + '</div><div class="griglia-2">'
-                    + '<div class="campo"><label>Testo alternativo</label><input data-campo="alt" value="' + esc(b.alt || '') + '" placeholder="Cosa si vede nell\'immagine"></div>'
-                    + '<div class="campo"><label>Collegamento (facoltativo)</label><input data-campo="link" value="' + esc(b.link || '') + '" placeholder="https://..."></div>'
-                    + '</div>'
-                    + '<div class="campo"><label>Titolo (facoltativo)</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
-                    + '<div class="campo"><label>Testo</label><textarea data-campo="testo" rows="4">' + esc(testoDelBlocco(b)) + '</textarea></div>';
-            } else if (b.tipo === 'numero') {
-                campi = '<div class="hint">Una cifra sola, grande, su fondo scuro: ferma l\'occhio di chi scorre. Se ne metti piu\' di uno per newsletter smette di funzionare.</div>'
-                    + '<div class="griglia-2">'
-                    + '<div class="campo"><label>La cifra</label><input data-campo="numero" value="' + esc(b.numero || '') + '" placeholder="es. 60% oppure 41.000 EUR"></div>'
-                    + '<div class="campo"><label>Etichetta sotto</label><input data-campo="etichetta" value="' + esc(b.etichetta || '') + '" placeholder="es. di credito d\'imposta"></div>'
-                    + '</div>'
-                    + '<div class="campo"><label>Testo (facoltativo)</label><textarea data-campo="testo" rows="2">' + esc(b.testo || '') + '</textarea></div>';
-            } else {
-                campi = '<div class="campo"><label>Titolo (facoltativo)</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
-                    + '<div class="campo"><label>Testo</label><textarea data-campo="testo" rows="5">' + esc(testoDelBlocco(b)) + '</textarea></div>';
-            }
-            return '<div class="nl-blocco" data-tipo="' + esc(b.tipo) + '">' + testa + campi + '</div>';
-        }
-        // le bozze generate da una pagina arrivano in HTML: si mostrano nella forma
-        // semplice, cosi' quello che si vede e' quello che si modifica
-        function testoDelBlocco(b) {
-            if (b.testo != null && b.testo !== '') return b.testo;
-            if (b.html) return window.RV_NEWSLETTER ? RV_NEWSLETTER.sformatta(b.html) : b.html;
+        function testoFase(d) {
+            if (!d) return '';
+            if (d.testo != null && d.testo !== '') return d.testo;
+            if (d.html) return window.RV_NEWSLETTER ? RV_NEWSLETTER.sformatta(d.html) : d.html;
             return '';
         }
-        /* Prima di ogni modifica alla struttura si rilegge quello che c'e' scritto:
-           altrimenti ridisegnando si perderebbe il testo appena digitato. */
-        function leggiBlocchi() {
-            const cont = $('nl-blocchi');
-            const el = cont.querySelectorAll('.nl-blocco');
-            if (!el.length) return;
-            const out = [];
-            el.forEach(d => {
-                const tipo = d.dataset.tipo;
+        function disegnaFasi() {
+            const cont = $('nl-fasi');
+            if (!cont) return;
+            cont.innerHTML = fasiDisponibili().map(f => {
+                const d = bozza[f.chiave] || {};
+                return '<div class="nl-fase" data-fase="' + esc(f.chiave) + '">'
+                    + '<div class="nl-fase-testa"><span class="nl-fase-n">' + esc(f.n) + '</span>'
+                    + '<span class="nl-fase-et">' + esc(f.etichetta) + '</span></div>'
+                    + '<div class="hint">' + esc(f.aiuto) + '</div>'
+                    + '<div class="campo"><label>Titolo della sezione</label>'
+                    + '<input data-campo="titolo" value="' + esc(d.titolo || '') + '"></div>'
+                    + '<div class="campo"><label>Testo</label>'
+                    + '<textarea data-campo="testo" rows="5">' + esc(testoFase(d)) + '</textarea></div>'
+                    + '</div>';
+            }).join('');
+            cont.querySelectorAll('input, textarea').forEach(e =>
+                e.addEventListener('input', () => { salvataDaChiudere = true; }));
+        }
+        /* Prima di ogni ridisegno si rilegge quello che c'e' scritto: altrimenti
+           si perderebbe il testo appena digitato. */
+        function leggiFasi() {
+            const cont = $('nl-fasi');
+            if (!cont) return;
+            cont.querySelectorAll('.nl-fase').forEach(d => {
+                const k = d.dataset.fase;
                 const v = c => { const x = d.querySelector('[data-campo="' + c + '"]'); return x ? x.value : ''; };
-                if (tipo === 'separatore') { out.push({ tipo: tipo }); return; }
-                if (tipo === 'immagine') { out.push({ tipo: tipo, src: v('src').trim(), alt: v('alt').trim(), link: v('link').trim() }); return; }
-                if (tipo === 'bottone') { out.push({ tipo: tipo, testo: v('testo').trim(), url: v('url').trim() }); return; }
-                if (tipo === 'elenco') { out.push({ tipo: tipo, titolo: v('titolo').trim(), voci: v('voci').split('\n').map(s => s.trim()).filter(Boolean) }); return; }
-                if (tipo === 'passo') { out.push({ tipo: tipo, fase: v('fase') || 'perche', titolo: v('titolo').trim(), testo: v('testo') }); return; }
-                if (tipo === 'duo') { out.push({ tipo: tipo, titolo: v('titolo').trim(), testo: v('testo'), titolo2: v('titolo2').trim(), testo2: v('testo2') }); return; }
-                if (tipo === 'spalla') { out.push({ tipo: tipo, src: v('src').trim(), alt: v('alt').trim(), link: v('link').trim(), lato: v('lato') || 'sinistra', titolo: v('titolo').trim(), testo: v('testo') }); return; }
-                if (tipo === 'numero') { out.push({ tipo: tipo, numero: v('numero').trim(), etichetta: v('etichetta').trim(), testo: v('testo').trim() }); return; }
-                out.push({ tipo: tipo, titolo: v('titolo').trim(), testo: v('testo') });
+                // si scrive "testo" e si azzera "html": da qui in avanti comanda
+                // quello che si legge nella casella, non l'HTML da cui era nato
+                bozza[k] = { titolo: v('titolo').trim(), testo: v('testo'), html: '' };
             });
-            bozza.blocchi = out;
         }
-        function spostaBlocco(i, d) {
-            leggiBlocchi();
-            salvataDaChiudere = true;
-            const j = i + d;
-            if (j < 0 || j >= bozza.blocchi.length) return;
-            const t = bozza.blocchi[i]; bozza.blocchi[i] = bozza.blocchi[j]; bozza.blocchi[j] = t;
-            disegnaBlocchi();
-        }
-        $('nl-add').addEventListener('click', () => {
-            leggiBlocchi();
-            const tipo = $('nl-tipo').value;
-            const vuoto = { tipo: tipo };
-            if (tipo === 'elenco') vuoto.voci = [];
-            bozza.blocchi.push(vuoto);
-            salvataDaChiudere = true;
-            disegnaBlocchi();
-            const ultimo = $('nl-blocchi').lastElementChild;
-            if (ultimo) {
-                ultimo.scrollIntoView({ block: 'nearest' });
-                const primo = ultimo.querySelector('input, textarea');
-                if (primo) primo.focus();
-            }
-        });
 
         /* --- destinatari --- */
         function disegnaGruppi() {
@@ -8924,26 +8806,10 @@
             aggiornaConteggio();
         }
 
-        /* --- scelta del fregio di apertura --- */
-        function disegnaFregi() {
-            const attuale = String($('nl-immagine').value || '');
-            $('nl-fregi').innerHTML = FREGI_NEWSLETTER.map(f => {
-                const url = urlFregio(f.file);
-                const scelto = f.file ? (attuale === url) : !attuale;
-                return '<button type="button" class="nl-fregio' + (scelto ? ' scelto' : '') + '" data-fregio="' + esc(url) + '" title="' + esc(f.desc) + '">'
-                    + (f.file
-                        ? '<img src="' + esc(url) + '" alt="' + esc(f.nome) + '" loading="lazy">'
-                        : '<span class="nl-fregio-vuoto">nessuna</span>')
-                    + '<span class="nl-fregio-nome">' + esc(f.nome) + '</span></button>';
-            }).join('');
-            $('nl-fregi').querySelectorAll('[data-fregio]').forEach(b => b.addEventListener('click', () => {
-                $('nl-immagine').value = b.dataset.fregio;
-                bozza.immagine = b.dataset.fregio;
-                salvataDaChiudere = true;
-                disegnaFregi();
-            }));
-        }
-        $('nl-immagine').addEventListener('input', () => { bozza.immagine = $('nl-immagine').value.trim(); disegnaFregi(); });
+        /* La scelta dell'immagine di apertura non c'e' piu': la fascia della
+           testata fa parte del formato ed e' sempre la stessa. Sceglierla ogni
+           volta non aggiungeva niente e toglieva l'unica cosa che conta in una
+           comunicazione ricorrente, cioe' essere riconoscibile. */
 
         /* --- generazione dalla pagina --- */
         $('nl-pagina').addEventListener('change', () => {
@@ -8961,7 +8827,7 @@
             const url = scelta === '__altro' ? String($('nl-url').value || '').trim() : (scelta ? indirizzoPagina(scelta) : '');
             const esito = $('nl-esito-gen');
             if (!url) { esito.className = 'nl-esito ko'; esito.textContent = 'Scegli prima una pagina.'; return; }
-            const pieno = bozza.blocchi.length || bozza.titolo;
+            const pieno = bozza.titolo || ['perche', 'come', 'cosa'].some(k => bozza[k] && (bozza[k].titolo || bozza[k].testo));
             const procedi = () => {
                 esito.className = 'nl-esito';
                 conAttesa($('nl-genera'), async () => {
@@ -8977,17 +8843,25 @@
                     bozza.oggetto = bozza.oggetto || d.oggetto || d.titolo || '';
                     bozza.preheader = bozza.preheader || d.preheader || d.sommario || '';
                     bozza.nome = bozza.nome || d.titolo || '';
-                    // i blocchi arrivano in HTML: si convertono subito nella forma semplice
-                    bozza.blocchi = (d.blocchi || []).map(b => ({
-                        tipo: 'testo', titolo: b.titolo || '',
-                        testo: window.RV_NEWSLETTER ? RV_NEWSLETTER.sformatta(b.html || '') : ''
-                    }));
+                    /* Le sezioni arrivano in HTML: si convertono subito nella forma
+                       semplice, quella che si vede e si modifica nella casella. */
+                    let riempite = 0;
+                    ['perche', 'come', 'cosa'].forEach(k => {
+                        const s = d[k] || {};
+                        const testo = window.RV_NEWSLETTER ? RV_NEWSLETTER.sformatta(s.html || '') : '';
+                        bozza[k] = { titolo: s.titolo || '', testo: testo, html: '' };
+                        if (s.titolo || testo) riempite++;
+                    });
                     if (d.cta && d.cta.url) bozza.cta = { testo: d.cta.testo || 'Leggi tutto sul sito', url: d.cta.url };
                     riempiCampi();
-                    disegnaFregi();
-                    disegnaBlocchi();
+                    disegnaFasi();
                     esito.className = 'nl-esito ok';
-                    esito.textContent = 'Bozza pronta: ' + bozza.blocchi.length + ' blocchi dalla pagina. Controlla i testi e togli quello che non serve.';
+                    /* Si dice chiaramente che e' una prima stesura: una pagina del
+                       sito non e' scritta in quest'ordine, e il "perche'" e' proprio
+                       la parte che una pagina istituzionale di solito non ha. */
+                    esito.textContent = riempite
+                        ? 'Bozza pronta: ' + riempite + ' sezioni su 3 riempite dalla pagina. Rileggile: il "perche" quasi sempre va riscritto, perche una pagina del sito parte dalla norma e non dal motivo.'
+                        : 'Dalla pagina non sono venute fuori sezioni utilizzabili: scrivi i tre testi a mano.';
                 }, { testo: 'Leggo la pagina...' });
             };
             if (pieno) {
@@ -9002,7 +8876,6 @@
             $('nl-oggetto').value = bozza.oggetto || '';
             $('nl-preheader').value = bozza.preheader || '';
             $('nl-occhiello').value = bozza.occhiello || '';
-            $('nl-immagine').value = bozza.immagine || '';
             $('nl-titolo').value = bozza.titolo || '';
             $('nl-sommario').value = bozza.sommario || '';
             $('nl-cta-testo').value = (bozza.cta && bozza.cta.testo) || '';
@@ -9010,12 +8883,11 @@
         }
         /* Tutto quello che c'e' a video, dentro il record. */
         function componiRecord() {
-            leggiBlocchi();
+            leggiFasi();
             bozza.nome = $('nl-nome').value.trim();
             bozza.oggetto = $('nl-oggetto').value.trim();
             bozza.preheader = $('nl-preheader').value.trim();
             bozza.occhiello = $('nl-occhiello').value.trim();
-            bozza.immagine = $('nl-immagine').value.trim();
             bozza.titolo = $('nl-titolo').value.trim();
             bozza.sommario = $('nl-sommario').value.trim();
             bozza.cta = { testo: $('nl-cta-testo').value.trim(), url: $('nl-cta-url').value.trim() };
@@ -9251,9 +9123,8 @@
             confermaInLinea('Chiudere senza salvare?', 'Le modifiche fatte da quando hai aperto la finestra andranno perse.', 'Chiudi comunque', esci);
         });
 
-        disegnaBlocchi();
+        disegnaFasi();
         disegnaGruppi();
-        disegnaFregi();
         // esiti degli invii gia' fatti: prima si disegna con quello che si sa
         // gia' (cosi' la finestra non "salta" dopo), poi si chiede al servizio
         disegnaAndamentoInvii(bozza);

@@ -717,6 +717,13 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
    grassetto chiudono il conto. Affiancare i totali come riquadri separati e'
    proprio cio' che faceva sembrare sbagliato un totale corretto: numeri che non
    si sommano, messi uno accanto all'altro come se si sommassero. */
+/* I tre momenti della mail nel compositore. Non sono blocchi da aggiungere:
+   sono sempre tre e sempre in quest'ordine, e si vede. */
+.nl-fase { border-left: 3px solid var(--blu-500); padding: 12px 0 4px 16px; margin-bottom: 18px; }
+.nl-fase-testa { display: flex; align-items: baseline; gap: 10px; margin-bottom: 3px; }
+.nl-fase-n { font-family: 'Montserrat', sans-serif; font-size: 1.1rem; font-weight: 800; color: var(--grigio-400); }
+.nl-fase-et { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--blu-700); }
+.nl-fase .hint { margin: 0 0 10px; }
 .nl-conti { margin-bottom: 14px; }
 .nl-conti-griglia { margin-top: 10px; max-width: 580px; }
 .nl-conto { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 5px 0; font-size: 0.88rem; }

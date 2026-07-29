@@ -97,9 +97,19 @@
         cosa: { n: '03', etichetta: 'Che cosa', aiuto: 'Che cosa fare adesso, e che cosa facciamo noi. Concreto e con una scadenza, se c\'e.' }
     };
 
-    /* --- tipi di blocco riconosciuti dal compositore --- */
+    /* La newsletter ha una struttura FISSA: perche', come, che cosa. Non e' una
+       scelta di stile ed e' il motivo per cui qui non si compongono blocchi:
+       l'impaginazione la decide questo file, chi scrive porta i tre testi.
+       Non si aggiungono immagini. L'unica che c'e' e' la fascia della testata,
+       che fa parte del formato e non e' una scelta da fare ogni volta: una mail
+       dello studio si riconosce perche' e' sempre uguale, non perche' ogni volta
+       si sceglie qualcosa di diverso. */
+    const ORDINE_FASI = ['perche', 'come', 'cosa'];
+    const FASCIA = 'https://nextgenerationbusiness.it/assets/newsletter/fascia-filigrana.png';
+
+    /* --- tipi di blocco: restano solo per le bozze vecchie, gia' salvate come
+       elenco di blocchi. Il compositore non li offre piu'. --- */
     const TIPI_BLOCCO = [
-        { id: 'passo', nome: 'Passo (perché / come / che cosa)', desc: 'Uno dei tre momenti della comunicazione' },
         { id: 'testo', nome: 'Testo', desc: 'Titolo e paragrafo' },
         { id: 'evidenza', nome: 'Riquadro in evidenza', desc: 'Box azzurro per una notizia o una scadenza' },
         { id: 'immagine', nome: 'Immagine', desc: 'Immagine a tutta larghezza, con collegamento' },
@@ -202,7 +212,25 @@
     function formatta(txt) {
         const grezzo = String(txt == null ? '' : txt).replace(/\r\n?/g, '\n').trim();
         if (!grezzo) return '';
+        /* Le righe che cominciano con un trattino diventano un elenco puntato.
+           Serve a poter fare un elenco senza doverlo scegliere da un menu: la
+           struttura della mail e' fissa, e chi scrive deve poter dare ritmo al
+           testo con quello che ha gia' sotto le dita. */
+        const arricchisci = s => s.replace(/\*\*([^*]{1,300})\*\*/g, '<strong>$1</strong>');
         return grezzo.split(/\n{2,}/).map(par => {
+            const righe = par.trim().split('\n');
+            const tuttePunti = righe.length > 0 && righe.every(r => /^\s*[-–•]\s+\S/.test(r));
+            if (tuttePunti) {
+                const voci = righe.map(r => {
+                    let v = esc(r.replace(/^\s*[-–•]\s+/, ''));
+                    v = v.replace(/\[([^\]]{1,120})\]\(([^)\s]{1,400})\)/g, (t, testo, url) => {
+                        const u = urlSicuro(String(url).replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"'));
+                        return u ? '<a href="' + esc(u) + '">' + testo + '</a>' : testo;
+                    });
+                    return '<li>' + arricchisci(v) + '</li>';
+                }).join('');
+                return '<ul>' + voci + '</ul>';
+            }
             let s = esc(par.trim()).replace(/\n/g, '<br>');
             s = s.replace(/\[([^\]]{1,120})\]\(([^)\s]{1,400})\)/g, (t, testo, url) => {
                 // l'indirizzo e' gia' passato da esc() poche righe sopra, insieme al
@@ -374,6 +402,39 @@
         return b && b.html ? stilizza(ripulisci(b.html), opz) : stilizza(formatta(b && b.testo), opz);
     }
 
+    /* Uno dei tre momenti della mail: PERCHE' la cosa riguarda chi legge, COME
+       funziona, CHE COSA fare. Saltare il primo e' il modo piu' rapido di
+       scrivere una circolare che nessuno finisce: si comincia dalla norma invece
+       che dal motivo, e chi legge non arriva mai a capire se lo riguarda.
+       Il numero grande e tenue non e' un ornamento: fa vedere a colpo d'occhio
+       che i momenti sono tre e a quale si e' arrivati. */
+    function sezioneFase(chiave, dati) {
+        const f = FASI[chiave] || FASI.perche;
+        const d = dati || {};
+        const haTesto = String(d.testo || '').trim() || d.html;
+        if (!String(d.titolo || '').trim() && !haTesto) return '';
+        return cella(tabellaInterna(
+            filetto(C.bordo, 1)
+            + spazio(20)
+            + '<tr><td>' + tabellaInterna('<tr>'
+                + '<td valign="top" width="56" style="width:56px;' + FONTE
+                + 'font-size:30px;line-height:32px;font-weight:bold;color:' + C.bordo + ';">' + f.n + '</td>'
+                + '<td valign="top" style="' + FONTE + '">'
+                + '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:7px;">' + esc(f.etichetta) + '</div>'
+                + (d.titolo ? '<div style="' + FONTE + SCALA.sezione + 'color:' + C.scuro + ';font-weight:bold;padding-bottom:10px;">' + testoHtml(d.titolo) + '</div>' : '')
+                + contenuto(d)
+                + '</td></tr>')
+            + '</td></tr>'
+        ), '30px ' + LATO + 'px 4px');
+    }
+    function sezioneFaseTesto(chiave, dati) {
+        const f = FASI[chiave] || FASI.perche;
+        const d = dati || {};
+        const corpo = testoDaHtml(d.html ? ripulisci(d.html) : formatta(d.testo));
+        if (!String(d.titolo || '').trim() && !corpo.trim()) return '';
+        return f.etichetta.toUpperCase() + (d.titolo ? ' - ' + d.titolo : '') + '\n' + corpo;
+    }
+
     /* Un blocco del corpo -> le righe di tabella corrispondenti. */
     function blocco(b, base) {
         if (!b || !b.tipo) return '';
@@ -431,29 +492,7 @@
                 + '<td style="padding:18px 20px;">' + tabellaInterna(dentro) + '</td>'
                 + '</tr></table>', '30px ' + LATO + 'px 4px');
         }
-        if (tipo === 'passo') {
-            /* I tre momenti di una comunicazione che si fa capire: prima PERCHE'
-               la cosa riguarda chi legge, poi COME funziona, infine CHE COSA
-               fare. Saltare il primo e il modo piu' rapido di scrivere una
-               circolare che nessuno finisce: si comincia dalla norma invece che
-               dal motivo, e chi legge non arriva mai a capire se lo riguarda.
-               Il numero grande e tenue non e' un ornamento: fa vedere a colpo
-               d'occhio che i momenti sono tre e a quale si e' arrivati. */
-            const f = FASI[String(b.fase || 'perche')] || FASI.perche;
-            return cella(tabellaInterna(
-                filetto(C.bordo, 1)
-                + spazio(20)
-                + '<tr><td>' + tabellaInterna('<tr>'
-                    + '<td valign="top" width="56" style="width:56px;' + FONTE
-                    + 'font-size:30px;line-height:32px;font-weight:bold;color:' + C.bordo + ';">' + f.n + '</td>'
-                    + '<td valign="top" style="' + FONTE + '">'
-                    + '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:7px;">' + esc(f.etichetta) + '</div>'
-                    + (b.titolo ? '<div style="' + FONTE + SCALA.sezione + 'color:' + C.scuro + ';font-weight:bold;padding-bottom:10px;">' + testoHtml(b.titolo) + '</div>' : '')
-                    + contenuto(b)
-                    + '</td></tr>')
-                + '</td></tr>'
-            ), '30px ' + LATO + 'px 4px');
-        }
+        if (tipo === 'passo') return sezioneFase(String(b.fase || 'perche'), b);
         if (tipo === 'duo') {
             /* Due schede affiancate. Serve a spezzare il ritmo di una colonna
                unica: due notizie brevi, o due facce della stessa cosa, si leggono
@@ -551,7 +590,12 @@
     function costruisci(nl, opz) {
         nl = nl || {}; opz = opz || {};
         const base = (nl.fonte && nl.fonte.url) || SITO;
-        const blocchi = (Array.isArray(nl.blocchi) ? nl.blocchi : []).map(b => blocco(b, base)).join('');
+        /* Il corpo sono i tre momenti, sempre in quest'ordine. L'elenco di
+           blocchi resta letto solo per le bozze salvate con il formato di prima:
+           il compositore non ne produce piu'. */
+        const sezioni = ORDINE_FASI.map(k => sezioneFase(k, nl[k])).join('');
+        const blocchi = sezioni
+            || (Array.isArray(nl.blocchi) ? nl.blocchi : []).map(b => blocco(b, base)).join('');
         const anno = opz.anno || new Date().getFullYear();
 
         /* TESTATA E APERTURA SONO UN BLOCCO SOLO, sul blu del marchio.
@@ -590,12 +634,10 @@
            Senza immagine si chiude comunque con lo stesso filo che le fasce
            hanno in fondo, cosi' lo stacco verso il corpo bianco e' identico
            nei due casi. */
-        const copertina = nl.immagine && assoluto(nl.immagine, base)
-            ? '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
-            + '<img src="' + esc(assoluto(nl.immagine, base)) + '" width="' + LARGHEZZA + '" alt="" '
+        const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
             + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
-            + '</td></tr>'
-            : filetto(C.accento, 4);
+            + '</td></tr>';
 
         /* Il pulsante finale sta al centro: e' l'unica cosa che si chiede al
            lettore, e al centro si vede da sola senza cercarla. Il centraggio si
@@ -696,7 +738,9 @@
         if (nl.occhiello) parti.push(String(nl.occhiello).toUpperCase());
         if (nl.titolo) parti.push(nl.titolo);
         if (nl.sommario) parti.push(nl.sommario);
-        (Array.isArray(nl.blocchi) ? nl.blocchi : []).forEach(b => { const t = bloccoTesto(b); if (t && t.trim()) parti.push(t.trim()); });
+        const sezioniTesto = ORDINE_FASI.map(k => sezioneFaseTesto(k, nl[k])).filter(t => t && t.trim());
+        if (sezioniTesto.length) sezioniTesto.forEach(t => parti.push(t.trim()));
+        else (Array.isArray(nl.blocchi) ? nl.blocchi : []).forEach(b => { const t = bloccoTesto(b); if (t && t.trim()) parti.push(t.trim()); });
         if (nl.cta && nl.cta.url) parti.push((nl.cta.testo ? nl.cta.testo + ': ' : '') + urlSicuro(nl.cta.url));
         parti.push('--');
         parti.push(MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf);
@@ -779,20 +823,39 @@
             });
         }
 
+        /* Le sezioni della pagina si distribuiscono sui tre momenti: la prima
+           dice perche' la cosa esiste, quelle di mezzo come funziona, l'ultima
+           che cosa fare. E' una prima stesura da correggere, non un risultato:
+           una pagina web non e' scritta in quest'ordine, e chi rivede la bozza
+           dovra' quasi sempre riscrivere il "perche'", che e' la parte che una
+           pagina istituzionale di solito non ha. */
+        const unisci = (elenco) => ({
+            titolo: elenco.length === 1 ? elenco[0].titolo : '',
+            html: elenco.map(b => (elenco.length > 1 && b.titolo ? '<p><strong>' + esc(b.titolo) + '</strong></p>' : '') + b.html).join('')
+        });
+        const vuota = { titolo: '', testo: '' };
+        let perche = vuota, come = vuota, cosa = vuota;
+        if (blocchi.length === 1) { come = unisci(blocchi); }
+        else if (blocchi.length === 2) { perche = unisci([blocchi[0]]); come = unisci([blocchi[1]]); }
+        else if (blocchi.length >= 3) {
+            perche = unisci([blocchi[0]]);
+            come = unisci(blocchi.slice(1, blocchi.length - 1));
+            cosa = unisci([blocchi[blocchi.length - 1]]);
+        }
+
         return {
             titolo: titolo,
             occhiello: testoDi(badge),
             sommario: testoDi(sub) || ogDesc,
-            immagine: ogImg ? assoluto(ogImg, url) : '',
             oggetto: titolo || pulisciTesto((ogTitolo || '').split('|')[0]),
             preheader: ogDesc,
-            blocchi: blocchi,
+            perche: perche, come: come, cosa: cosa,
             cta: { testo: 'Leggi l\'approfondimento', url: String(url || '') }
         };
     }
 
     return {
-        COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI,
+        COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB,
         costruisci: costruisci, estraiDaPagina: estraiDaPagina,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
