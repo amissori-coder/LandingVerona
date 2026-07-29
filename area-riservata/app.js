@@ -8863,10 +8863,19 @@
                 + '<span class="nl-dest-nome">' + esc(((c.nome || '') + ' ' + (c.cognome || '')).trim() || '(senza nome)')
                 + ' <span class="riga-dest-mail">' + esc(c.email) + '</span></span>'
                 + '<span class="nl-dest-orig">' + esc(c.origine || '') + '</span></label>';
+            /* Quanti, fra quelli mostrati, sono spenti perche' TOLTI A MANO (e non
+               perche' fuori dai gruppi). E' la domanda "perche' alcuni non me li
+               seleziona": la risposta e' che qualcuno li aveva tolti, magari con
+               un clic su "Togli" che prima agiva su tutta la rubrica invece che
+               sul gruppo. Senza un modo per rimetterli, quella scelta restava
+               scritta nel record per sempre. */
+            const toltiQui = visibili.filter(c => c.daGruppo && !c.scelto).length;
+            const toltiTotale = (bozza.esclusi || []).length;
             cont.innerHTML = '<div class="nl-dest-barra">'
                 + '<input type="search" id="nl-cerca-dest" placeholder="Cerca per nome, indirizzo, azienda o provenienza..." value="' + esc(filtroDest) + '">'
-                + '<button type="button" class="btn btn-sm btn-ghost" data-tuttidest="1">Spunta i visibili</button>'
-                + '<button type="button" class="btn btn-sm btn-ghost" data-tuttidest="0">Togli i visibili</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost" data-tuttidest="1">Spunta i mostrati</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost" data-tuttidest="0">Togli i mostrati</button>'
+                + (toltiTotale ? '<button type="button" class="btn btn-sm btn-ghost" id="nl-ripristina">Rimetti i tolti a mano (' + toltiTotale + ')</button>' : '')
                 + '<span class="hint">' + visibili.length + (q ? ' di ' + r.candidati.length + ' in rubrica' : ' dai gruppi scelti') + '</span></div>'
                 + '<div class="nl-dest-lista">' + (visibili.length
                     ? visibili.map(riga).join('')
@@ -8879,6 +8888,12 @@
                 + (fuoriGiro
                     ? '<div class="hint" style="margin-top:6px;">Di questi, <b>' + fuoriGiro + '</b> non ' + (fuoriGiro === 1 ? 'appartiene' : 'appartengono')
                     + ' ai gruppi scelti: spuntandol' + (fuoriGiro === 1 ? 'o' : 'i') + ' si aggiung' + (fuoriGiro === 1 ? 'e' : 'ono') + ' solo a questo invio.</div>'
+                    : '')
+                /* Il caso "perche' alcuni del gruppo non me li seleziona": si dice
+                   subito, con il numero, invece di lasciarlo dedurre. */
+                + (toltiQui
+                    ? '<div class="hint nl-tolti">' + toltiQui + (toltiQui === 1 ? ' di questi e spento perche era stato TOLTO A MANO' : ' di questi sono spenti perche erano stati TOLTI A MANO')
+                    + ', non perche fuori dal gruppo. Rimettil' + (toltiQui === 1 ? 'o' : 'i') + ' con la spunta, o tutti insieme dal pulsante qui sopra.</div>'
                     : '')
                 + (!q && daiGruppi.length
                     ? '<div class="hint" style="margin-top:6px;">Sono i contatti dei gruppi che hai scelto. Per aggiungere qualcun altro, cercalo qui sopra: la ricerca guarda in tutta la rubrica.</div>'
@@ -8894,6 +8909,15 @@
                 });
             }
             cont.querySelectorAll('.nl-inc').forEach(c => c.addEventListener('change', () => segnaDestinatario(c.value, c.checked)));
+            /* Rimette tutti quelli tolti a mano. Non tocca i gruppi: chi torna
+               "non tolto" riceve solo se un gruppo scelto lo comprende. */
+            const rip = document.getElementById('nl-ripristina');
+            if (rip) rip.addEventListener('click', () => {
+                bozza.esclusi = [];
+                salvataDaChiudere = true;
+                aggiornaConteggio();
+                mostraEsitoNL('Esclusioni azzerate: ora ricevono tutti quelli dei gruppi scelti.', true);
+            });
             cont.querySelectorAll('[data-tuttidest]').forEach(b => b.addEventListener('click', () => {
                 const acceso = b.dataset.tuttidest === '1';
                 visibili.forEach(c => segnaDestinatario(c.email, acceso, true));

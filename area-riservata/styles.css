@@ -737,6 +737,9 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 /* Spiegazione dell'elenco vuoto: sta sotto il conteggio ed e' l'unica cosa da
    leggere quando il numero e zero, quindi non deve sembrare una nota a margine. */
 .nl-vuoto-perche { margin-top: 6px; color: var(--rosso); }
+/* "perche alcuni del gruppo sono spenti": e' la risposta a una domanda precisa,
+   non una nota di contorno, quindi si vede. */
+.nl-tolti { margin-top: 6px; color: var(--blu-700); font-weight: 600; }
 .nl-conti { margin-bottom: 14px; }
 .nl-conti-griglia { margin-top: 10px; max-width: 580px; }
 .nl-conto { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 5px 0; font-size: 0.88rem; }
