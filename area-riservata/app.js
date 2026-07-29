@@ -7794,6 +7794,29 @@
                 azienda: '', origine: 'Aderenti', data: '', consenso: 'si'
             });
         });
+        /* CLIENTI: le mail indicate dentro gli incarichi. La base per scrivergli
+           non e' la casella spuntata su un modulo, e' il rapporto professionale in
+           corso, quindi entrano come gli aderenti e i contatti presi di persona.
+           Restano fuori le PROPOSTE non ancora confermate: quello non e' ancora un
+           cliente, e scrivergli come tale sarebbe scorretto due volte.
+           Si usa visibili() e non tutti(): chi ha un ruolo di regione vede i suoi
+           clienti, come in ogni altra vista della sezione. */
+        if (typeof Incarichi !== 'undefined') {
+            const vistiCli = new Set();
+            Incarichi.visibili()
+                .filter(i => i && !i.eliminato && i.stato !== 'proposta')
+                .forEach(i => {
+                    [i.email1, i.email2].forEach(e => {
+                        const em = String(e || '').trim().toLowerCase();
+                        if (!em || vistiCli.has(em)) return;
+                        vistiCli.add(em);
+                        agg('clienti', 'Clienti (dagli incarichi)', {
+                            email: em, nome: '', cognome: '', azienda: i.cliente || '',
+                            origine: 'Cliente: ' + (i.cliente || 'incarico'), data: '', consenso: 'si'
+                        });
+                    });
+                });
+        }
         ContattiNL.tutti().forEach(c => {
             if (!c || !c.email) return;
             agg('manuali', 'Contatti inseriti a mano', {
@@ -7837,7 +7860,7 @@
             rifiutatiRientrati: rifiutatiRientrati,
             eventi: tutti.filter(g => g.id.indexOf('evento:') === 0),
             sito: tutti.filter(g => g.id.indexOf('sito:') === 0).sort((a, b) => b.n - a.n),
-            altri: tutti.filter(g => g.id === 'aderenti' || g.id === 'manuali'),
+            altri: tutti.filter(g => g.id === 'aderenti' || g.id === 'clienti' || g.id === 'manuali'),
             ignoti: tutti.filter(g => g.id === 'consenso-ignoto'),
             senzaConsenso: senzaConsenso,
             tutti: tutti
@@ -7869,12 +7892,17 @@
         const aderenti = new Set();
         Persone.tutte().filter(p => p.email && p.attivo !== false && !p.eliminato)
             .forEach(p => aderenti.add(em(p.email)));
+        const clienti = new Set();
+        if (typeof Incarichi !== 'undefined') {
+            Incarichi.visibili().filter(i => i && !i.eliminato && i.stato !== 'proposta')
+                .forEach(i => [i.email1, i.email2].forEach(e => { const k = em(e); if (k) clienti.add(k); }));
+        }
         const manuali = new Set();
         ContattiNL.tutti().forEach(c => { if (c && c.email) manuali.add(em(c.email)); });
 
         const tutte = new Set();
-        [daEventi, daSito, aderenti, manuali].forEach(s => s.forEach(e => tutte.add(e)));
-        const provenienze = daEventi.size + daSito.size + aderenti.size + manuali.size;
+        [daEventi, daSito, aderenti, clienti, manuali].forEach(s => s.forEach(e => tutte.add(e)));
+        const provenienze = daEventi.size + daSito.size + aderenti.size + clienti.size + manuali.size;
 
         const rifiutati = new Set((g.senzaConsenso || []).map(p => em(p.email)));
         const disc = disiscritti || {};
@@ -7894,7 +7922,7 @@
         return {
             righeEventi: righeEventi,
             eventi: daEventi.size, sito: daSito.size,
-            aderenti: aderenti.size, manuali: manuali.size,
+            aderenti: aderenti.size, clienti: clienti.size, manuali: manuali.size,
             ignoti: (g.ignoti || []).reduce((s, x) => s + x.n, 0),
             provenienze: provenienze,
             unici: tutte.size,
@@ -7933,6 +7961,7 @@
             + riga('tot', 'Da eventi', c.eventi, 'indirizzi diversi, tutti, anche senza consenso')
             + riga('', '+ Da altre sezioni del sito', c.sito, 'pagine fuori dagli eventi: newsletter, moduli di contatto, simulatori')
             + riga('', '+ Aderenti', c.aderenti, 'anagrafica Persone, con email')
+            + riga('', '+ Clienti', c.clienti, 'le mail indicate negli incarichi, proposte escluse')
             + riga('', '+ Inseriti a mano', c.manuali, 'raccolti di persona')
             + riga('tot', 'Somma delle provenienze', c.provenienze, '')
             + riga('meno', 'gia contati in un\'altra provenienza', '&minus;' + c.sovrapposti, 'per lo piu aderenti gia iscritti dal sito')

@@ -863,7 +863,11 @@
             ? '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(nl.titolo) + '</td></tr>'
             : '';
         const sommario = nl.sommario
-            ? (titolo ? spazio(16) : '') + '<tr><td class="lead" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';">' + testoHtml(nl.sommario) + '</td></tr>'
+            /* Giustificato anche qui: e' l'unico testo di lettura della testata, e
+               lasciarlo a bandiera mentre tutto il resto della mail e' giustificato
+               si vede. Porta anche la classe "par", quella che sotto i 620px
+               riporta a sinistra: due classi, due lavori diversi. */
+            ? (titolo ? spazio(16) : '') + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(nl.sommario) + '</td></tr>'
             : '';
         const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
