@@ -197,11 +197,18 @@
         const cTesto = scuro ? C.suScuro : C.testo;
         const cTitoli = scuro ? C.bianco : C.scuro;
         const cLink = scuro ? C.bianco : C.blu;
+        /* GIUSTIFICATO OVUNQUE. Vale in tutti e tre i momenti, perche' tutti e tre
+           hanno una colonna da 520px: e' la misura su cui il giustificato da' il
+           blocco compatto di una circolare invece di una frangia a destra.
+           Non vale nelle schede affiancate (250px) e nelle voci di elenco, che
+           non passano di qui: la' i buchi bianchi fra le parole si aprirebbero
+           davvero, e sotto i 620px ci pensa la classe "par" a riportare tutto a
+           sinistra su ogni schermo stretto. */
         const pStile = 'margin:0 0 ' + (scuro ? 14 : (stretto ? 12 : 16)) + 'px 0;font-family:' + FONT
             + ';font-size:' + (stretto ? 15 : 16) + 'px;line-height:' + (scuro ? 26 : (stretto ? 24 : 27)) + 'px;color:' + cTesto + ';'
-            + ((stretto || scuro) ? '' : 'text-align:justify;');
+            + 'text-align:justify;';
         return String(html || '')
-            .replace(/<p>/g, '<p' + ((stretto || scuro) ? '' : ' class="par"') + ' style="' + pStile + '">')
+            .replace(/<p>/g, '<p class="par" style="' + pStile + '">')
             .replace(/<h3>/g, '<h3 style="margin:26px 0 10px 0;font-family:' + FONT + ';font-size:18px;line-height:25px;color:' + cTitoli + ';">')
             .replace(/<h4>/g, '<h4 style="margin:20px 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:23px;color:' + cTitoli + ';">')
             .replace(/<ul>/g, '<ul style="margin:0 0 16px 0;padding-left:22px;">')
@@ -502,7 +509,7 @@
             && L0 >= SOGLIE.ATT_MIN && L0 <= SOGLIE.ATT_MAX;
         const apreConElenco = primo && primo.tipo === 'ul';
         const corpo = attacco
-            ? '<div class="att" style="' + FONTE + 'font-size:20px;line-height:31px;color:' + C.scuro + ';margin:0 0 18px 0;">'
+            ? '<div class="att par" style="' + FONTE + 'font-size:20px;line-height:31px;color:' + C.scuro + ';margin:0 0 18px 0;text-align:justify;">'
               + stilizzaInline(primo.html.replace(/^<p>/i, '').replace(/<\/p>$/i, ''), C.blu, C.scuro) + '</div>'
               + stilizza(bl.slice(1).map(b => b.html).join(''))
             : stilizza(bl.map(b => b.html).join(''));
