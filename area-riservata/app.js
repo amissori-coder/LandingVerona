@@ -7510,12 +7510,15 @@
        regge benissimo anche solo con la tipografia. Sono PNG a tavolozza da
        1200x400 (si vedono a 600x200), fra i 9 e i 28 KB: un banner fotografico
        ne pesava dieci volte tanto. */
+    /* Immagini di apertura. Portano tutte il marchio: un disegno astratto non dice
+       da chi arriva la mail, e in una casella piena e' la prima cosa che serve.
+       Sono composte a partire dai file veri del marchio, non ridisegnate a mano. */
     const FREGI_NEWSLETTER = [
         { id: '', nome: 'Nessuna immagine', desc: 'Solo tipografia, la piu leggera', file: '' },
-        { id: 'linee-quota', nome: 'Linee di quota', desc: 'Isoipse come una carta topografica', file: '/assets/newsletter/linee-quota.png' },
-        { id: 'architettura', nome: 'Architettura', desc: 'Loggia civile appena accennata', file: '/assets/newsletter/architettura.png' },
-        { id: 'griglia', nome: 'Griglia e punti', desc: 'Carta millimetrata, quasi una filigrana', file: '/assets/newsletter/griglia.png' },
-        { id: 'pennino', nome: 'Tratto di penna', desc: 'Un unico gesto calligrafico', file: '/assets/newsletter/pennino.png' }
+        { id: 'marchio-navy', nome: 'Marchio su blu', desc: 'Marchio in bianco su campo blu: la piu riconoscibile', file: '/assets/newsletter/marchio-navy.png' },
+        { id: 'monogramma', nome: 'Monogramma', desc: 'Il simbolo ingrandito e tagliato dal bordo, marchio a sinistra', file: '/assets/newsletter/monogramma.png' },
+        { id: 'sigillo', nome: 'Sigillo', desc: 'Simbolo dentro un cerchio d\'oro: tono da atto formale', file: '/assets/newsletter/sigillo.png' },
+        { id: 'fascia', nome: 'Fascia obliqua', desc: 'Banda blu in diagonale con filo d\'oro', file: '/assets/newsletter/fascia.png' }
     ];
     function urlFregio(f) { return f ? indirizzoPagina(f) : ''; }
     /* Dal sito pubblicato la pagina e' sulla stessa origine (quindi si legge senza
@@ -8536,7 +8539,14 @@
     /* =========================================================
        COMPOSITORE
     ========================================================= */
-    const NOMI_TIPO_BLOCCO = { testo: 'Testo', evidenza: 'Riquadro in evidenza', immagine: 'Immagine', bottone: 'Pulsante', elenco: 'Elenco puntato', separatore: 'Linea di separazione' };
+    const NOMI_TIPO_BLOCCO = {
+        testo: 'Testo', evidenza: 'Riquadro in evidenza', immagine: 'Immagine', bottone: 'Pulsante',
+        elenco: 'Elenco puntato',
+        // blocchi che spezzano la colonna unica: e' quello che fa sembrare la mail
+        // una pagina invece di un documento infilato in una mail
+        duo: 'Due schede affiancate', spalla: 'Immagine di fianco al testo', numero: 'Numero in grande',
+        separatore: 'Linea di separazione'
+    };
 
     function modaleNewsletter(id) {
         const n = id ? Newsletter.trova(id) : null;
@@ -8686,6 +8696,37 @@
                 const voci = Array.isArray(b.voci) ? b.voci.join('\n') : String(b.voci || '');
                 campi = '<div class="campo"><label>Titolo (facoltativo)</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
                     + '<div class="campo"><label>Punti, uno per riga</label><textarea data-campo="voci" rows="4">' + esc(voci) + '</textarea></div>';
+            } else if (b.tipo === 'duo') {
+                campi = '<div class="hint">Due schede una accanto all\'altra. Sul telefono si impilano da sole. Testi brevi: due o tre righe ciascuno.</div>'
+                    + '<div class="griglia-2">'
+                    + '<div class="campo"><label>Scheda 1: titolo</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
+                    + '<div class="campo"><label>Scheda 2: titolo</label><input data-campo="titolo2" value="' + esc(b.titolo2 || '') + '"></div>'
+                    + '</div><div class="griglia-2">'
+                    + '<div class="campo"><label>Scheda 1: testo</label><textarea data-campo="testo" rows="3">' + esc(b.testo || '') + '</textarea></div>'
+                    + '<div class="campo"><label>Scheda 2: testo</label><textarea data-campo="testo2" rows="3">' + esc(b.testo2 || '') + '</textarea></div>'
+                    + '</div>';
+            } else if (b.tipo === 'spalla') {
+                campi = '<div class="hint">Immagine a lato e testo accanto. Alternando il lato fra un blocco e l\'altro la mail prende ritmo. '
+                    + 'Qui l\'immagine e larga circa 210px: vanno bene le foto e i disegni quadrati o verticali, mentre le immagini di apertura col marchio (che sono lunghe e basse) qui diventano illeggibili.</div>'
+                    + '<div class="griglia-2">'
+                    + '<div class="campo"><label>Indirizzo dell\'immagine</label><input data-campo="src" value="' + esc(b.src || '') + '" placeholder="https://nextgenerationbusiness.it/assets/..."></div>'
+                    + '<div class="campo"><label>Da che lato sta l\'immagine</label><select data-campo="lato">'
+                    + '<option value="sinistra"' + (b.lato === 'destra' ? '' : ' selected') + '>A sinistra</option>'
+                    + '<option value="destra"' + (b.lato === 'destra' ? ' selected' : '') + '>A destra</option>'
+                    + '</select></div>'
+                    + '</div><div class="griglia-2">'
+                    + '<div class="campo"><label>Testo alternativo</label><input data-campo="alt" value="' + esc(b.alt || '') + '" placeholder="Cosa si vede nell\'immagine"></div>'
+                    + '<div class="campo"><label>Collegamento (facoltativo)</label><input data-campo="link" value="' + esc(b.link || '') + '" placeholder="https://..."></div>'
+                    + '</div>'
+                    + '<div class="campo"><label>Titolo (facoltativo)</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
+                    + '<div class="campo"><label>Testo</label><textarea data-campo="testo" rows="4">' + esc(testoDelBlocco(b)) + '</textarea></div>';
+            } else if (b.tipo === 'numero') {
+                campi = '<div class="hint">Una cifra sola, grande, su fondo scuro: ferma l\'occhio di chi scorre. Se ne metti piu\' di uno per newsletter smette di funzionare.</div>'
+                    + '<div class="griglia-2">'
+                    + '<div class="campo"><label>La cifra</label><input data-campo="numero" value="' + esc(b.numero || '') + '" placeholder="es. 60% oppure 41.000 EUR"></div>'
+                    + '<div class="campo"><label>Etichetta sotto</label><input data-campo="etichetta" value="' + esc(b.etichetta || '') + '" placeholder="es. di credito d\'imposta"></div>'
+                    + '</div>'
+                    + '<div class="campo"><label>Testo (facoltativo)</label><textarea data-campo="testo" rows="2">' + esc(b.testo || '') + '</textarea></div>';
             } else {
                 campi = '<div class="campo"><label>Titolo (facoltativo)</label><input data-campo="titolo" value="' + esc(b.titolo || '') + '"></div>'
                     + '<div class="campo"><label>Testo</label><textarea data-campo="testo" rows="5">' + esc(testoDelBlocco(b)) + '</textarea></div>';
@@ -8713,6 +8754,9 @@
                 if (tipo === 'immagine') { out.push({ tipo: tipo, src: v('src').trim(), alt: v('alt').trim(), link: v('link').trim() }); return; }
                 if (tipo === 'bottone') { out.push({ tipo: tipo, testo: v('testo').trim(), url: v('url').trim() }); return; }
                 if (tipo === 'elenco') { out.push({ tipo: tipo, titolo: v('titolo').trim(), voci: v('voci').split('\n').map(s => s.trim()).filter(Boolean) }); return; }
+                if (tipo === 'duo') { out.push({ tipo: tipo, titolo: v('titolo').trim(), testo: v('testo'), titolo2: v('titolo2').trim(), testo2: v('testo2') }); return; }
+                if (tipo === 'spalla') { out.push({ tipo: tipo, src: v('src').trim(), alt: v('alt').trim(), link: v('link').trim(), lato: v('lato') || 'sinistra', titolo: v('titolo').trim(), testo: v('testo') }); return; }
+                if (tipo === 'numero') { out.push({ tipo: tipo, numero: v('numero').trim(), etichetta: v('etichetta').trim(), testo: v('testo').trim() }); return; }
                 out.push({ tipo: tipo, titolo: v('titolo').trim(), testo: v('testo') });
             });
             bozza.blocchi = out;

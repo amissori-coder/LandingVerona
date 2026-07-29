@@ -83,6 +83,9 @@
         { id: 'immagine', nome: 'Immagine', desc: 'Immagine a tutta larghezza, con collegamento' },
         { id: 'bottone', nome: 'Pulsante', desc: 'Invito all\'azione (leggi, iscriviti, scarica)' },
         { id: 'elenco', nome: 'Elenco puntato', desc: 'Punti brevi, uno per riga' },
+        { id: 'duo', nome: 'Due schede affiancate', desc: 'Due notizie brevi una accanto all\'altra' },
+        { id: 'spalla', nome: 'Immagine di fianco al testo', desc: 'Immagine a lato, testo accanto: da ritmo alla pagina' },
+        { id: 'numero', nome: 'Numero in grande', desc: 'Una cifra sola su fondo scuro: ferma l\'occhio' },
         { id: 'separatore', nome: 'Linea di separazione', desc: 'Divide due parti della newsletter' }
     ];
 
@@ -144,15 +147,20 @@
     }
     /* Stili in linea sui tag del testo: senza questi, i client che tolgono il
        foglio di stile mostrerebbero il messaggio con i margini di default. */
-    function stilizza(html) {
+    function stilizza(html, opz) {
         /* Il testo di lettura e' GIUSTIFICATO: su una colonna da 520px da' il
            blocco compatto di una circolare. La classe "par" serve alla media
            query, che sotto i 620px lo riporta a sinistra: senza sillabazione,
            su uno schermo stretto il giustificato aprirebbe buchi bianchi fra le
-           parole proprio dove serve leggere meglio. */
-        const pStile = 'margin:0 0 16px 0;font-family:' + FONT + ';font-size:16px;line-height:27px;color:' + C.testo + ';text-align:justify;';
+           parole proprio dove serve leggere meglio.
+           Nelle colonne strette (blocchi affiancati) il giustificato si toglie
+           per lo stesso motivo, ma sempre: 250px non bastano mai. */
+        const stretto = opz && opz.stretto;
+        const pStile = 'margin:0 0 ' + (stretto ? 12 : 16) + 'px 0;font-family:' + FONT
+            + ';font-size:' + (stretto ? 15 : 16) + 'px;line-height:' + (stretto ? 24 : 27) + 'px;color:' + C.testo + ';'
+            + (stretto ? '' : 'text-align:justify;');
         return String(html || '')
-            .replace(/<p>/g, '<p class="par" style="' + pStile + '">')
+            .replace(/<p>/g, '<p' + (stretto ? '' : ' class="par"') + ' style="' + pStile + '">')
             .replace(/<h3>/g, '<h3 style="margin:26px 0 10px 0;font-family:' + FONT + ';font-size:18px;line-height:25px;color:' + C.scuro + ';">')
             .replace(/<h4>/g, '<h4 style="margin:20px 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:23px;color:' + C.scuro + ';">')
             .replace(/<ul>/g, '<ul style="margin:0 0 16px 0;padding-left:22px;">')
@@ -261,6 +269,41 @@
     function tabellaInterna(righe) {
         return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">' + righe + '</table>';
     }
+    /* --- due elementi affiancati, che reggono anche Outlook ---
+       In una mail non esistono le colonne CSS: float, flex e grid non arrivano
+       da nessuna parte. La tecnica che funziona davvero e' doppia.
+       Per Outlook si scrive una TABELLA vera dentro un commento condizionale:
+       lui la vede, tutti gli altri la ignorano perche' per loro e' un commento.
+       Per tutti gli altri si scrivono dei riquadri affiancati con
+       display:inline-block, che sotto i 620px diventano larghi quanto lo schermo
+       e quindi si impilano da soli, senza bisogno di sapere quanti sono.
+       Il font-size:0 sul contenitore toglie lo spazio bianco che l'HTML mette
+       fra due elementi in linea scritti su righe diverse: senza, la seconda
+       colonna scivola sotto anche quando ci starebbe. */
+    function colonne(pezzi, pesi, gap) {
+        pezzi = pezzi.filter(p => p != null && p !== '');
+        if (!pezzi.length) return '';
+        if (pezzi.length === 1) return pezzi[0];
+        gap = gap == null ? 20 : gap;
+        const utile = LARGHEZZA - LATO * 2;
+        const tot = (pesi || pezzi.map(() => 1)).reduce((a, b) => a + b, 0);
+        const disponibile = utile - gap * (pezzi.length - 1);
+        const larghezze = (pesi || pezzi.map(() => 1)).map(p => Math.floor(disponibile * p / tot));
+        const vuoto = '<div class="gap" style="display:inline-block;width:' + gap + 'px;font-size:0;line-height:0;">&nbsp;</div>';
+        let mso = '<!--[if mso]><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="' + utile + '" style="width:' + utile + 'px;"><tr><![endif]-->';
+        let html = '';
+        pezzi.forEach((p, i) => {
+            if (i) {
+                html += '<!--[if mso]></td><td width="' + gap + '" style="width:' + gap + 'px;">&nbsp;</td><![endif]-->' + vuoto;
+            }
+            html += '<!--[if mso]><td width="' + larghezze[i] + '" valign="top" style="width:' + larghezze[i] + 'px;"><![endif]-->'
+                + '<div class="col" style="display:inline-block;width:100%;max-width:' + larghezze[i] + 'px;vertical-align:top;font-size:0;line-height:0;">'
+                + tabellaInterna('<tr><td valign="top" style="' + FONTE + '">' + p + '</td></tr>')
+                + '</div>';
+        });
+        return '<div style="font-size:0;line-height:0;">' + mso + html + '<!--[if mso]></td></tr></table><![endif]--></div>';
+    }
+
     /* Trattino d'oro sopra il titolo di sezione: e' l'elemento che si ripete e
        che fa riconoscere l'inizio di un blocco senza doverlo leggere. */
     function segnoSezione() {
@@ -305,8 +348,8 @@
 
     /* Corpo di un blocco: "html" se arriva gia' formattato (bozza generata da una
        pagina del sito), altrimenti il testo scritto a mano con le tre regole. */
-    function contenuto(b) {
-        return b && b.html ? stilizza(ripulisci(b.html)) : stilizza(formatta(b && b.testo));
+    function contenuto(b, opz) {
+        return b && b.html ? stilizza(ripulisci(b.html), opz) : stilizza(formatta(b && b.testo), opz);
     }
 
     /* Un blocco del corpo -> le righe di tabella corrispondenti. */
@@ -326,7 +369,12 @@
         }
         if (tipo === 'bottone') {
             const p = pulsante(b.testo, b.url);
-            return p ? cella(tabellaInterna('<tr><td align="' + (b.allineamento === 'centro' ? 'center' : 'left') + '">' + p + '</td></tr>'), '28px ' + LATO + 'px 4px') : '';
+            // al centro salvo richiesta contraria: un invito all'azione allineato
+            // a sinistra si perde nella colonna di testo invece di staccarsene
+            const dove = b.allineamento === 'sinistra' ? 'left' : 'center';
+            return p ? cella(tabellaInterna('<tr><td align="' + dove + '" style="text-align:' + dove + ';">'
+                + (dove === 'center' ? '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td align="center">' + p + '</td></tr></table>' : p)
+                + '</td></tr>'), '28px ' + LATO + 'px 4px') : '';
         }
         if (tipo === 'elenco') {
             const voci = (Array.isArray(b.voci) ? b.voci : String(b.voci || '').split('\n'))
@@ -361,6 +409,57 @@
                 + '<td style="padding:18px 20px;">' + tabellaInterna(dentro) + '</td>'
                 + '</tr></table>', '30px ' + LATO + 'px 4px');
         }
+        if (tipo === 'duo') {
+            /* Due schede affiancate. Serve a spezzare il ritmo di una colonna
+               unica: due notizie brevi, o due facce della stessa cosa, si leggono
+               a colpo d'occhio invece di diventare due paragrafi uno sotto
+               l'altro. Sotto i 620px si impilano da sole. */
+            const scheda = (tit, txt) => {
+                if (!String(tit || '').trim() && !String(txt || '').trim()) return '';
+                return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;background-color:' + C.chiaro + ';">'
+                    + '<tr><td bgcolor="' + C.oro + '" height="3" style="background-color:' + C.oro + ';height:3px;font-size:0;line-height:0;">&nbsp;</td></tr>'
+                    + '<tr><td style="padding:15px 17px 17px;' + FONTE + '">'
+                    + (tit ? '<div style="' + FONTE + 'font-size:17px;line-height:24px;color:' + C.scuro + ';font-weight:bold;padding-bottom:7px;">' + testoHtml(tit) + '</div>' : '')
+                    + '<div style="' + FONTE + 'font-size:15px;line-height:24px;color:' + C.testo + ';">' + testoHtml(txt) + '</div>'
+                    + '</td></tr></table>';
+            };
+            const uno = scheda(b.titolo, b.testo), due = scheda(b.titolo2, b.testo2);
+            if (!uno && !due) return '';
+            return cella(colonne([uno, due].filter(Boolean)), '30px ' + LATO + 'px 4px');
+        }
+        if (tipo === 'spalla') {
+            /* Immagine di fianco al testo, non sopra. E' il blocco che da' il
+               ritmo: alternandone il lato, la mail smette di essere una colonna
+               e diventa una pagina. */
+            const src = assoluto(b.src, base);
+            const testoDentro = (b.titolo
+                ? '<div style="' + FONTE + 'font-size:18px;line-height:25px;color:' + C.scuro + ';font-weight:bold;padding-bottom:8px;">' + testoHtml(b.titolo) + '</div>'
+                : '') + contenuto(b, { stretto: true });
+            if (!src) return cella(testoDentro, '30px ' + LATO + 'px 4px');
+            const img = '<img src="' + esc(src) + '" width="210" alt="' + esc(b.alt || '') + '" '
+                + 'style="display:block;width:100%;max-width:210px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;'
+                + FONTE + 'font-size:13px;line-height:18px;color:' + C.tenue + ';">';
+            const conLink = urlSicuro(b.link) ? '<a href="' + esc(urlSicuro(b.link)) + '" style="text-decoration:none;">' + img + '</a>' : img;
+            const aDestra = b.lato === 'destra';
+            return cella(colonne(
+                aDestra ? [testoDentro, conLink] : [conLink, testoDentro],
+                aDestra ? [3, 2] : [2, 3]
+            ), '30px ' + LATO + 'px 4px');
+        }
+        if (tipo === 'numero') {
+            /* Il numero grande. E' l'elemento che ferma l'occhio mentre si scorre:
+               una cifra sola, grande, su fondo scuro. Se ce n'e' piu' d'uno per
+               newsletter smette di funzionare, e va detto a chi scrive. */
+            const cifra = String(b.numero || '').trim();
+            if (!cifra) return '';
+            return cella(
+                '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="' + C.scuro + '" style="border-collapse:collapse;background-color:' + C.scuro + ';">'
+                + '<tr><td align="center" style="padding:26px 22px 24px;text-align:center;' + FONTE + '">'
+                + '<div style="' + FONTE + 'font-size:44px;line-height:50px;color:' + C.oro + ';font-weight:bold;letter-spacing:-1px;">' + testoHtml(cifra) + '</div>'
+                + (b.etichetta ? '<div style="' + FONTE + SCALA.etichetta + 'color:#9DB8D2;font-weight:bold;padding-top:6px;">' + testoHtml(b.etichetta) + '</div>' : '')
+                + (b.testo ? '<div style="' + FONTE + 'font-size:15px;line-height:24px;color:#D7E3EF;padding-top:12px;">' + testoHtml(b.testo) + '</div>' : '')
+                + '</td></tr></table>', '30px ' + LATO + 'px 4px');
+        }
         // testo (predefinito)
         const corpo = contenuto(b);
         if (!b.titolo && !corpo) return '';
@@ -374,6 +473,17 @@
         if (t === 'separatore') return '--------------------------------------';
         if (t === 'immagine') return '';
         if (t === 'bottone') return (b.testo ? String(b.testo).toUpperCase() + ': ' : '') + urlSicuro(b.url);
+        if (t === 'duo') {
+            // affiancate a video, una sotto l'altra nel testo semplice: il senso
+            // resta, e l'ordine di lettura pure
+            return [b.titolo, b.testo, b.titolo2, b.testo2].map(x => String(x || '').trim()).filter(Boolean).join('\n');
+        }
+        if (t === 'numero') {
+            return [b.numero, b.etichetta, b.testo].map(x => String(x || '').trim()).filter(Boolean).join(' - ');
+        }
+        if (t === 'spalla') {
+            return (b.titolo ? b.titolo + '\n' : '') + testoDaHtml(b.html ? ripulisci(b.html) : formatta(b.testo));
+        }
         if (t === 'elenco') {
             const voci = (Array.isArray(b.voci) ? b.voci : String(b.voci || '').split('\n')).map(v => String(v || '').trim()).filter(Boolean);
             return (b.titolo ? b.titolo + '\n' : '') + voci.map(v => '- ' + v).join('\n');
@@ -433,9 +543,16 @@
             + '</td></tr>'
             : '';
 
+        /* Il pulsante finale sta al centro: e' l'unica cosa che si chiede al
+           lettore, e al centro si vede da sola senza cercarla. Il centraggio si
+           fa con align sul TD, non con margin:auto, che meta' dei programmi di
+           posta ignora. */
         const ctaFinale = (nl.cta && nl.cta.url && nl.cta.testo)
             ? cella(tabellaInterna(filetto(C.bordo, 1) + spazio(28)
-                + '<tr><td align="left">' + pulsante(nl.cta.testo, nl.cta.url, { colore: C.blu }) + '</td></tr>'), '34px ' + LATO + 'px 0')
+                + '<tr><td align="center" style="text-align:center;">'
+                + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td align="center">'
+                + pulsante(nl.cta.testo, nl.cta.url, { colore: C.blu })
+                + '</td></tr></table></td></tr>'), '34px ' + LATO + 'px 0')
             : '';
 
         /* Piede: mittente, motivo dell'invio, disiscrizione (obbligatoria).
@@ -443,21 +560,24 @@
            documento. I testi sono in chiaro: servono uguali alla versione in
            solo testo, dove un'entita' HTML resterebbe scritta cosi'. */
         const motivo = nl.motivo || MOTIVO_PREDEFINITO;
-        const linkPiede = c => 'color:' + C.tenue + ';text-decoration:underline;';
-        const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" style="background-color:' + C.sfondo + ';padding:28px ' + LATO + 'px 32px;border-top:1px solid ' + C.bordo + ';">'
+        const linkPiede = () => 'color:' + C.tenue + ';text-decoration:underline;';
+        /* Piede CENTRATO e stretto: quattro righe e basta. Prima era allineato a
+           sinistra e occupava sei righe, e a fine lettura sembrava un secondo
+           corpo del testo invece della firma. Il centraggio va messo sia con
+           l'attributo align sia con text-align: i programmi di posta piu' vecchi
+           guardano l'uno, quelli nuovi l'altro. */
+        const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
+        const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
             + tabellaInterna(
-                '<tr><td style="' + FONTE + SCALA.piede + 'color:' + C.scuro + ';font-weight:bold;">' + esc(MITTENTE.nome) + '</td></tr>'
-                + '<tr><td style="' + FONTE + SCALA.piede + 'color:' + C.tenue + ';">' + esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf) + '</td></tr>'
-                + spazio(12)
-                + '<tr><td style="' + FONTE + SCALA.piede + 'color:' + C.tenue + ';">' + esc(motivo) + '</td></tr>'
-                + spazio(12)
-                + '<tr><td style="' + FONTE + SCALA.piede + 'color:' + C.tenue + ';">'
-                + '<a href="' + SEGNAPOSTO_DISISCRIVI + '" style="' + linkPiede() + '">Annulla l\'iscrizione</a>'
-                + ' &nbsp;&middot;&nbsp; <a href="' + esc(PRIVACY) + '" style="' + linkPiede() + '">Informativa privacy</a>'
-                + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede() + '">nextgenerationbusiness.it</a>'
-                + '</td></tr>'
+                rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
+                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
                 + spazio(10)
-                + '<tr><td style="' + FONTE + SCALA.piede + 'color:#94A3B8;">&copy; ' + anno + ' ' + esc(MITTENTE.nome) + '</td></tr>'
+                + rigaPiede('color:' + C.tenue + ';',
+                    '<a href="' + SEGNAPOSTO_DISISCRIVI + '" style="' + linkPiede() + '">Annulla l\'iscrizione</a>'
+                    + ' &nbsp;&middot;&nbsp; <a href="' + esc(PRIVACY) + '" style="' + linkPiede() + '">Informativa privacy</a>'
+                    + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede() + '">nextgenerationbusiness.it</a>')
+                + spazio(8)
+                + rigaPiede('color:#94A3B8;', esc(motivo) + ' &nbsp;&middot;&nbsp; &copy; ' + anno)
             )
             + '</td></tr>';
 
@@ -497,6 +617,12 @@
                telefono, senza sillabazione, aprirebbe buchi bianchi fra le parole
                proprio dove serve leggere meglio. Sotto i 620px si torna a sinistra. */
             + '  .par{text-align:left!important;}\n'
+            /* Blocchi affiancati: sotto i 620px ciascuno prende tutta la larghezza
+               e si impilano da soli, senza dover sapere quanti sono. Lo spazio fra
+               le colonne sparisce e diventa uno spazio sotto ciascuna, altrimenti
+               impilandosi si toccherebbero. */
+            + '  .col{max-width:100%!important;width:100%!important;padding-bottom:16px!important;}\n'
+            + '  .gap{display:none!important;width:0!important;}\n'
             + '}\n'
             + '</style>\n</head>\n'
             + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
