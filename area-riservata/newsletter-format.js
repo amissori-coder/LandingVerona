@@ -188,17 +188,37 @@
            Nelle colonne strette (blocchi affiancati) il giustificato si toglie
            per lo stesso motivo, ma sempre: 250px non bastano mai. */
         const stretto = opz && opz.stretto;
-        const pStile = 'margin:0 0 ' + (stretto ? 12 : 16) + 'px 0;font-family:' + FONT
-            + ';font-size:' + (stretto ? 15 : 16) + 'px;line-height:' + (stretto ? 24 : 27) + 'px;color:' + C.testo + ';'
-            + (stretto ? '' : 'text-align:justify;');
+        /* Sul fondo blu OGNI colore va dichiarato, nessuno ereditato: la modalita'
+           scura di Gmail e Outlook.com ribalta il testo che non ha un colore
+           proprio, e il grassetto senza regola erediterebbe il tenue e sparirebbe.
+           Il giustificato qui non si usa: su fondo scuro i canali bianchi fra le
+           parole si vedono il doppio. */
+        const scuro = opz && opz.scuro;
+        const cTesto = scuro ? C.suScuro : C.testo;
+        const cTitoli = scuro ? C.bianco : C.scuro;
+        const cLink = scuro ? C.bianco : C.blu;
+        const pStile = 'margin:0 0 ' + (scuro ? 14 : (stretto ? 12 : 16)) + 'px 0;font-family:' + FONT
+            + ';font-size:' + (stretto ? 15 : 16) + 'px;line-height:' + (scuro ? 26 : (stretto ? 24 : 27)) + 'px;color:' + cTesto + ';'
+            + ((stretto || scuro) ? '' : 'text-align:justify;');
         return String(html || '')
-            .replace(/<p>/g, '<p' + (stretto ? '' : ' class="par"') + ' style="' + pStile + '">')
-            .replace(/<h3>/g, '<h3 style="margin:26px 0 10px 0;font-family:' + FONT + ';font-size:18px;line-height:25px;color:' + C.scuro + ';">')
-            .replace(/<h4>/g, '<h4 style="margin:20px 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:23px;color:' + C.scuro + ';">')
+            .replace(/<p>/g, '<p' + ((stretto || scuro) ? '' : ' class="par"') + ' style="' + pStile + '">')
+            .replace(/<h3>/g, '<h3 style="margin:26px 0 10px 0;font-family:' + FONT + ';font-size:18px;line-height:25px;color:' + cTitoli + ';">')
+            .replace(/<h4>/g, '<h4 style="margin:20px 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:23px;color:' + cTitoli + ';">')
             .replace(/<ul>/g, '<ul style="margin:0 0 16px 0;padding-left:22px;">')
             .replace(/<ol>/g, '<ol style="margin:0 0 16px 0;padding-left:22px;">')
-            .replace(/<li>/g, '<li style="margin:0 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:26px;color:' + C.testo + ';">')
-            .replace(/<a href=/g, '<a style="color:' + C.blu + ';text-decoration:underline;" href=');
+            .replace(/<li>/g, '<li style="margin:0 0 8px 0;font-family:' + FONT + ';font-size:16px;line-height:26px;color:' + cTesto + ';">')
+            .replace(/<strong>/g, '<strong style="color:' + cTitoli + ';">')
+            .replace(/<b>/g, '<b style="color:' + cTitoli + ';">')
+            .replace(/<a href=/g, '<a style="color:' + cLink + ';text-decoration:underline;" href=');
+    }
+    /* Per i testi che NON passano da stilizza (schede, voci, azioni): senza
+       questo i collegamenti restano del blu di default del browser, che e'
+       fuori tavolozza e stona su qualunque fondo. */
+    function stilizzaInline(html, cLink, cForte) {
+        return String(html || '')
+            .replace(/<a href=/g, '<a style="color:' + (cLink || C.blu) + ';text-decoration:underline;" href=')
+            .replace(/<strong>/g, '<strong style="color:' + (cForte || C.scuro) + ';">')
+            .replace(/<b>/g, '<b style="color:' + (cForte || C.scuro) + ';">');
     }
     /* --- testo scritto a mano -> HTML ---
        Nel compositore i blocchi si scrivono in una casella normale, senza
@@ -348,7 +368,11 @@
             }
             html += '<!--[if mso]><td width="' + larghezze[i] + '" valign="top" style="width:' + larghezze[i] + 'px;"><![endif]-->'
                 + '<div class="col" style="display:inline-block;width:100%;max-width:' + larghezze[i] + 'px;vertical-align:top;font-size:0;line-height:0;">'
-                + tabellaInterna('<tr><td valign="top" style="' + FONTE + '">' + p + '</td></tr>')
+                /* il font-size:0 del contenitore serve a togliere lo spazio fra i
+                   riquadri in linea, ma la cella dentro lo EREDITA: senza
+                   rimetterlo qui, qualunque testo privo di misura propria
+                   diventa invisibile. Non e' teoria: e' successo. */
+                + tabellaInterna('<tr><td valign="top" style="' + FONTE + 'font-size:15px;line-height:24px;">' + p + '</td></tr>')
                 + '</div>';
         });
         return '<div style="font-size:0;line-height:0;">' + mso + html + '<!--[if mso]></td></tr></table><![endif]--></div>';
@@ -408,24 +432,227 @@
        che dal motivo, e chi legge non arriva mai a capire se lo riguarda.
        Il numero grande e tenue non e' un ornamento: fa vedere a colpo d'occhio
        che i momenti sono tre e a quale si e' arrivati. */
-    function sezioneFase(chiave, dati) {
-        const f = FASI[chiave] || FASI.perche;
-        const d = dati || {};
-        const haTesto = String(d.testo || '').trim() || d.html;
-        if (!String(d.titolo || '').trim() && !haTesto) return '';
+    /* Le soglie stanno tutte qui: sono le uniche cose da toccare per cambiare il
+       comportamento, e averle sparse nel codice le renderebbe impossibili da
+       ritrovare. Contano CARATTERI di testo vero, non di HTML. */
+    const SOGLIE = { ATT_MIN: 18, ATT_MAX: 400, SCHEDA_MAX: 120, SCHEDE_MAX_V: 8, AZIONE_MAX: 140, LASTRA: 700, LASTRA_UNICO: 900 };
+
+    /* --- normalizzazione ---
+       Il testo di una sezione puo' arrivare in due forme: scritto a mano
+       (d.testo) oppure generato da una pagina del sito (d.html). Tutte le regole
+       che seguono contano caratteri e cercano elenchi: se girassero solo su
+       d.testo si spegnerebbero in silenzio sulle bozze generate, che e' il caso
+       in cui servono di piu'. Quindi prima si porta tutto alla stessa forma. */
+    function blocchiSezione(d) {
+        d = d || {};
+        let pezzi = [];
+        if (d.html) {
+            const ripulito = ripulisci(d.html);
+            const re = /<(p|ul|ol|h3|h4)\b[^>]*>[\s\S]*?<\/\1>/gi;
+            let m, ultimo = 0, fuori = '';
+            while ((m = re.exec(ripulito)) !== null) {
+                fuori += ripulito.slice(ultimo, m.index);
+                pezzi.push(m[0]);
+                ultimo = m.index + m[0].length;
+            }
+            fuori += ripulito.slice(ultimo);
+            if (fuori.replace(/<[^>]*>/g, '').trim()) pezzi.push('<p>' + fuori + '</p>');
+        } else {
+            // formatta spezza sullo stesso confine e unisce senza separatore:
+            // passare i pezzi uno per uno da' esattamente lo stesso risultato
+            pezzi = String(d.testo || '').replace(/\r\n?/g, '\n').trim()
+                .split(/\n{2,}/).map(p => formatta(p)).filter(Boolean);
+        }
+        return pezzi.map(h => ({ tipo: /^<(ul|ol)\b/i.test(h) ? 'ul' : 'p', html: h }));
+    }
+    function lung(html) { return testoDaHtml(String(html || '')).replace(/\s+/g, ' ').trim().length; }
+    function vociDi(html) {
+        const out = [];
+        const re = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+        let m;
+        while ((m = re.exec(String(html || ''))) !== null) out.push(m[1]);
+        return out;
+    }
+    /* L'etichetta si emette GIA' maiuscola invece di usare text-transform, che il
+       motore di Word non conosce: su Outlook resterebbe minuscola. */
+    const ETI = 'font-size:12px;line-height:17px;letter-spacing:1.6px;';
+    function etichettaFase(f, colore) {
+        return '<div style="' + FONTE + ETI + 'color:' + colore + ';font-weight:bold;">' + esc(f.etichetta.toUpperCase()) + '</div>';
+    }
+    function haContenuto(d) {
+        d = d || {};
+        return !!(String(d.titolo || '').trim() || String(d.testo || '').trim() || d.html);
+    }
+
+    /* --- 01 PERCHE': la colonna di lettura ---
+       L'unica sezione a misura piena, senza campo di colore e senza colonne.
+       Deve sembrare SCRITTA, non impaginata: e' il momento in cui chi legge
+       decide se la cosa lo riguarda, e un riquadro colorato qui allontana. */
+    function sezionePerche(d) {
+        d = d || {};
+        if (!haContenuto(d)) return '';
+        const f = FASI.perche;
+        const bl = blocchiSezione(d);
+        const primo = bl[0];
+        const L0 = primo ? lung(primo.html) : 0;
+        /* Le bozze generate da una pagina incollano il titolo della sezione come
+           primo paragrafo tutto in grassetto: quello non e' un attacco. */
+        const soloForte = primo && /^<p>\s*<strong>[\s\S]*<\/strong>\s*<\/p>$/i.test(primo.html.trim());
+        const attacco = primo && primo.tipo === 'p' && !soloForte
+            && L0 >= SOGLIE.ATT_MIN && L0 <= SOGLIE.ATT_MAX;
+        const apreConElenco = primo && primo.tipo === 'ul';
+        const corpo = attacco
+            ? '<div class="att" style="' + FONTE + 'font-size:20px;line-height:31px;color:' + C.scuro + ';margin:0 0 18px 0;">'
+              + stilizzaInline(primo.html.replace(/^<p>/i, '').replace(/<\/p>$/i, ''), C.blu, C.scuro) + '</div>'
+              + stilizza(bl.slice(1).map(b => b.html).join(''))
+            : stilizza(bl.map(b => b.html).join(''));
         return cella(tabellaInterna(
-            filetto(C.bordo, 1)
-            + spazio(20)
-            + '<tr><td>' + tabellaInterna('<tr>'
-                + '<td valign="top" width="56" style="width:56px;' + FONTE
-                + 'font-size:30px;line-height:32px;font-weight:bold;color:' + C.bordo + ';">' + f.n + '</td>'
-                + '<td valign="top" style="' + FONTE + '">'
-                + '<div style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:7px;">' + esc(f.etichetta) + '</div>'
-                + (d.titolo ? '<div style="' + FONTE + SCALA.sezione + 'color:' + C.scuro + ';font-weight:bold;padding-bottom:10px;">' + testoHtml(d.titolo) + '</div>' : '')
-                + contenuto(d)
-                + '</td></tr>')
-            + '</td></tr>'
-        ), '30px ' + LATO + 'px 4px');
+            '<tr><td class="n1" style="' + FONTE + 'font-size:46px;line-height:40px;font-weight:bold;letter-spacing:-1px;color:' + C.bordo + ';">' + f.n + '</td></tr>'
+            + spazio(10)
+            + '<tr><td>' + etichettaFase(f, C.accento) + '</td></tr>'
+            + spazio(8)
+            + (d.titolo
+                ? '<tr><td class="t1" style="' + FONTE + 'font-size:' + (apreConElenco ? 26 : 24) + 'px;line-height:' + (apreConElenco ? 34 : 32) + 'px;font-weight:bold;color:' + C.scuro + ';">' + testoHtml(d.titolo) + '</td></tr>' + spazio(14)
+                : '')
+            + '<tr><td>' + corpo + '</td></tr>'
+        ), '36px ' + LATO + 'px 0');
+    }
+
+    /* --- 02 COME: il pannello e le schede ---
+       Campo tenue a tutta larghezza, corpo piccolo, numero piccolo e solido. Se
+       chi scrive ha messo un elenco, le voci diventano schede affiancate: e'
+       l'unica leva, e ce l'ha gia' sotto le dita (il trattino). Non e' una
+       scelta di impaginazione, e' una scelta di scrittura. */
+    function schedaCome(n, voce) {
+        return '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="' + C.bianco + '" style="border-collapse:collapse;background-color:' + C.bianco + ';border:1px solid ' + C.bordo + ';">'
+            + '<tr><td bgcolor="' + C.accento + '" height="3" style="background-color:' + C.accento + ';height:3px;font-size:0;line-height:0;">&nbsp;</td></tr>'
+            + '<tr><td style="padding:14px 16px 16px;' + FONTE + '">'
+            + '<div style="' + FONTE + ETI + 'color:' + C.accento + ';font-weight:bold;padding-bottom:6px;">' + (n < 10 ? '0' + n : String(n)) + '</div>'
+            + '<div style="' + FONTE + 'font-size:15px;line-height:23px;color:' + C.testo + ';">' + stilizzaInline(voce, C.blu, C.scuro) + '</div>'
+            + '</td></tr></table>';
+    }
+    function righeElencate(voci, colSegno, colTesto, conFiletto) {
+        return voci.map((v, i) => '<tr><td style="padding:' + (i ? '12px' : '0') + ' 0 12px 0;'
+            + (conFiletto && i ? 'border-top:1px solid ' + C.bordo + ';' : '') + '">'
+            + tabellaInterna('<tr>'
+                + '<td valign="top" width="26" style="width:26px;' + FONTE + ETI + 'color:' + colSegno + ';font-weight:bold;padding-top:3px;">' + (i + 1 < 10 ? '0' + (i + 1) : String(i + 1)) + '</td>'
+                + '<td valign="top" style="' + FONTE + 'font-size:15px;line-height:23px;color:' + colTesto + ';">' + stilizzaInline(v, C.blu, C.scuro) + '</td>'
+                + '</tr>')
+            + '</td></tr>').join('');
+    }
+    function sezioneCome(d) {
+        d = d || {};
+        if (!haContenuto(d)) return '';
+        const f = FASI.come;
+        const bl = blocchiSezione(d);
+        let usateSchede = false;
+        const pezzi = bl.map(b => {
+            if (b.tipo !== 'ul') return stilizza(b.html, { stretto: true });
+            const voci = vociDi(b.html);
+            // le schede sono l'elemento forte della sezione: compaiono una volta sola
+            const puo = !usateSchede && voci.length >= 2 && voci.length <= SOGLIE.SCHEDE_MAX_V
+                && voci.every(v => lung(v) <= SOGLIE.SCHEDA_MAX);
+            if (voci.length === 1) return stilizza('<p>' + voci[0] + '</p>', { stretto: true });
+            if (!puo) return tabellaInterna(righeElencate(voci, C.accento, C.testo, true));
+            usateSchede = true;
+            /* Una chiamata a "colonne" PER RIGA, non una sola per tutta la griglia:
+               con una sola, su Outlook le colonne diventano due celle affiancate e
+               l'ordine di lettura per righe salterebbe da 1 a meta' elenco. */
+            const righe = [];
+            for (let i = 0; i < voci.length; i += 2) {
+                const coppia = [schedaCome(i + 1, voci[i])];
+                if (voci[i + 1] != null) coppia.push(schedaCome(i + 2, voci[i + 1]));
+                righe.push('<tr><td style="padding:' + (i ? '16px' : '6px') + ' 0 0 0;">' + colonne(coppia, null, 20) + '</td></tr>');
+            }
+            return tabellaInterna(righe.join('') + spazio(18));
+        }).join('');
+        return '<tr><td class="px" bgcolor="' + C.chiaro + '" style="background-color:' + C.chiaro + ';padding:30px ' + LATO + 'px 32px;' + FONTE + '">'
+            + tabellaInterna(
+                '<tr><td>' + tabellaInterna('<tr>'
+                    + '<td valign="top" width="50" style="width:50px;">'
+                    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="34" style="border-collapse:collapse;"><tr>'
+                    + '<td bgcolor="' + C.accento + '" align="center" width="34" height="34" style="background-color:' + C.accento + ';width:34px;height:34px;' + FONTE
+                    + 'font-size:15px;line-height:34px;font-weight:bold;color:' + C.bianco + ';text-align:center;">' + f.n + '</td>'
+                    + '</tr></table></td>'
+                    + '<td valign="top" style="padding-top:2px;' + FONTE + '">'
+                    + '<div style="padding-bottom:6px;">' + etichettaFase(f, C.accento) + '</div>'
+                    + (d.titolo ? '<div style="' + FONTE + 'font-size:20px;line-height:28px;font-weight:bold;color:' + C.scuro + ';">' + testoHtml(d.titolo) + '</div>' : '')
+                    + '</td></tr>')
+                + '</td></tr>'
+                + spazio(16)
+                + '<tr><td>' + pezzi + '</td></tr>'
+            )
+            + '</td></tr>';
+    }
+
+    /* --- 03 CHE COSA: la lastra ---
+       L'unica sezione in negativo, e la chiusura del giro aperto dalla testata
+       blu. Il numero grande in blu appena piu' chiaro del fondo si legge come un
+       rilievo, non come una scritta: nessuna informazione dipende da lui, ed e'
+       voluto. Se il testo e' troppo lungo tracima su bianco, perche' un muro di
+       testo in negativo non lo legge nessuno. */
+    function sezioneCosa(d) {
+        d = d || {};
+        if (!haContenuto(d)) return { lastra: '', coda: '' };
+        const f = FASI.cosa;
+        const bl = blocchiSezione(d);
+        const L0 = bl.length ? lung(bl[0].html) : 0;
+        let dentro = [], fuori = [];
+        if (L0 > SOGLIE.LASTRA_UNICO) {
+            fuori = bl;                       // sulla lastra restano solo testatina e titolo
+        } else {
+            let somma = 0;
+            for (let i = 0; i < bl.length; i++) {
+                const l = lung(bl[i].html);
+                // il primo entra sempre; poi ci si ferma al primo che non ci sta,
+                // senza saltarlo: l'ordine di lettura non si tocca mai
+                if (i === 0 || somma + l <= SOGLIE.LASTRA) { dentro.push(bl[i]); somma += l; }
+                else { fuori = bl.slice(i); break; }
+            }
+        }
+        let usateAzioni = false;
+        const corpo = dentro.map(b => {
+            if (b.tipo !== 'ul') return stilizza(b.html, { scuro: true });
+            const voci = vociDi(b.html);
+            if (voci.length === 2 && !usateAzioni && voci.every(v => lung(v) <= SOGLIE.AZIONE_MAX)) {
+                usateAzioni = true;
+                const col = v => '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">'
+                    + '<tr><td bgcolor="' + C.chiaroBlu + '" height="2" style="background-color:' + C.chiaroBlu + ';height:2px;font-size:0;line-height:0;">&nbsp;</td></tr>'
+                    + '<tr><td style="padding-top:12px;' + FONTE + 'font-size:16px;line-height:25px;color:' + C.bianco + ';">' + stilizzaInline(v, C.bianco, C.bianco) + '</td></tr></table>';
+                return colonne([col(voci[0]), col(voci[1])], null, 20);
+            }
+            return tabellaInterna(voci.map((v, i) => '<tr><td style="padding:0 0 11px 0;">'
+                + tabellaInterna('<tr>'
+                    + '<td valign="top" width="20" style="width:20px;padding:9px 0 0 0;">'
+                    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="7" style="border-collapse:collapse;"><tr>'
+                    + '<td bgcolor="' + C.chiaroBlu + '" width="7" height="7" style="background-color:' + C.chiaroBlu + ';width:7px;height:7px;font-size:0;line-height:0;">&nbsp;</td>'
+                    + '</tr></table></td>'
+                    + '<td valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.suScuro + ';">' + stilizzaInline(v, C.bianco, C.bianco) + '</td>'
+                    + '</tr>')
+                + '</td></tr>').join(''));
+        }).join('');
+        const lastra = '<tr><td class="px" bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';padding:34px ' + LATO + 'px 36px;' + FONTE + '">'
+            + tabellaInterna(
+                '<tr><td>' + tabellaInterna('<tr>'
+                    + '<td valign="top" width="86" class="n3" style="width:86px;' + FONTE
+                    + 'font-size:64px;line-height:56px;font-weight:bold;letter-spacing:-2px;color:' + C.accento + ';">' + f.n + '</td>'
+                    + '<td valign="top" style="padding-top:6px;' + FONTE + '">'
+                    + '<div style="padding-bottom:8px;">' + etichettaFase(f, C.suScuro) + '</div>'
+                    + (d.titolo ? '<div style="' + FONTE + 'font-size:22px;line-height:30px;font-weight:bold;color:' + C.bianco + ';">' + testoHtml(d.titolo) + '</div>' : '')
+                    + '</td></tr>')
+                + '</td></tr>'
+                + (corpo ? spazio(16) + '<tr><td>' + corpo + '</td></tr>' : '')
+            )
+            + '</td></tr>';
+        const coda = fuori.length ? cella(stilizza(fuori.map(b => b.html).join('')), '26px ' + LATO + 'px 0') : '';
+        return { lastra: lastra, coda: coda };
+    }
+
+    // resta per le bozze salvate con il formato a blocchi
+    function sezioneFase(chiave, dati) {
+        if (chiave === 'come') return sezioneCome(dati);
+        if (chiave === 'cosa') { const r = sezioneCosa(dati); return r.lastra + r.coda; }
+        return sezionePerche(dati);
     }
     function sezioneFaseTesto(chiave, dati) {
         const f = FASI[chiave] || FASI.perche;
@@ -593,9 +820,24 @@
         /* Il corpo sono i tre momenti, sempre in quest'ordine. L'elenco di
            blocchi resta letto solo per le bozze salvate con il formato di prima:
            il compositore non ne produce piu'. */
-        const sezioni = ORDINE_FASI.map(k => sezioneFase(k, nl[k])).join('');
+        const sPerche = sezionePerche(nl.perche);
+        const sCome = sezioneCome(nl.come);
+        const sCosa = sezioneCosa(nl.cosa);
+        const conSezioni = !!(sPerche || sCome || sCosa.lastra);
+        /* Lo stacco superiore appartiene alla sezione che segue, e c'e' solo se
+           qualcosa la precede: cosi' una sezione vuota non lascia il suo buco. */
+        const sezioni = conSezioni
+            ? sPerche
+            + (sCome ? (sPerche ? spazio(34) : '') + sCome : '')
+            + (sCosa.lastra ? ((sPerche || sCome) ? spazio(28) : '') + sCosa.lastra : '')
+            + sCosa.coda
+            : '';
         const blocchi = sezioni
             || (Array.isArray(nl.blocchi) ? nl.blocchi : []).map(b => blocco(b, base)).join('');
+        /* Il filetto sopra il pulsante serve a staccarlo dal testo. Se pero' la
+           mail chiude con la lastra blu, il bordo della lastra stacca gia': un
+           filetto in piu' sarebbe una riga per niente. */
+        const chiudeInBlu = conSezioni && !!sCosa.lastra && !sCosa.coda;
         const anno = opz.anno || new Date().getFullYear();
 
         /* TESTATA E APERTURA SONO UN BLOCCO SOLO, sul blu del marchio.
@@ -644,7 +886,7 @@
            fa con align sul TD, non con margin:auto, che meta' dei programmi di
            posta ignora. */
         const ctaFinale = (nl.cta && nl.cta.url && nl.cta.testo)
-            ? cella(tabellaInterna(filetto(C.bordo, 1) + spazio(28)
+            ? cella(tabellaInterna((chiudeInBlu ? spazio(4) : filetto(C.bordo, 1)) + spazio(28)
                 + '<tr><td align="center" style="text-align:center;">'
                 + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td align="center">'
                 + pulsante(nl.cta.testo, nl.cta.url, { colore: C.blu })
@@ -719,6 +961,13 @@
                impilandosi si toccherebbero. */
             + '  .col{max-width:100%!important;width:100%!important;padding-bottom:16px!important;}\n'
             + '  .gap{display:none!important;width:0!important;}\n'
+            /* I tre momenti hanno corpi diversi anche sul telefono, altrimenti la
+               differenza fra loro sparisce proprio dove lo spazio e' poco.
+               ".lead" NON si tocca: e' del sommario nella testata. */
+            + '  .att{font-size:18px!important;line-height:28px!important;}\n'
+            + '  .t1{font-size:21px!important;line-height:29px!important;}\n'
+            + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
+            + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
             + '}\n'
             + '</style>\n</head>\n'
             + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
