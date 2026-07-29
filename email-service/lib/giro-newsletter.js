@@ -174,12 +174,15 @@ async function lavora(db, id, dati, scadenza, giro) {
     return { finita: false, conti: conti, interrotto: interrotto };
 }
 
-module.exports = async (req, res) => {
-    // sicurezza: solo il lavoro programmato di Vercel (intestazione con CRON_SECRET)
-    const segreto = process.env.CRON_SECRET;
-    const auth = req.headers['authorization'] || '';
-    if (!segreto || auth !== 'Bearer ' + segreto) { res.status(401).json({ ok: false, msg: 'Non autorizzato' }); return; }
-
+/* Un giro completo: guarda cosa e' dovuto e lo spedisce finche' ha tempo.
+   NON e' un endpoint. Sta in una libreria e non in api/ per un motivo molto
+   concreto: il piano Hobby di Vercel consente al massimo 12 funzioni serverless,
+   e con questa se ne aggiungeva una tredicesima. Il deploy falliva, e finche'
+   falliva NESSUNA modifica al servizio arrivava in produzione. I file di lib/
+   non contano come funzioni.
+   La chiama api/programma-newsletter.js quando riceve il segreto del lavoro
+   programmato: e' lo stesso codice, raggiunto da un indirizzo diverso. */
+async function eseguiGiro() {
     const partito = Date.now();
     const giro = 'run-' + partito.toString(36);
     try {
@@ -216,11 +219,13 @@ module.exports = async (req, res) => {
             fine: Date.now(), giro: giro, esito: 'ok',
             durataMs: Date.now() - partito, trattate: fatte.length, dettaglio: fatte.slice(0, 10)
         });
-        res.status(200).json({ ok: true, trattate: fatte.length, dettaglio: fatte });
+        return { ok: true, trattate: fatte.length, dettaglio: fatte };
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 300);
-        console.error('Cron newsletter non riuscito:', motivo);
+        console.error('Giro newsletter non riuscito:', motivo);
         try { await P.battito(N.admin.firestore(), { fine: Date.now(), giro: giro, esito: 'errore', errore: motivo }); } catch (_) { }
-        res.status(500).json({ ok: false, msg: motivo });
+        return { ok: false, stato: 500, msg: motivo };
     }
-};
+}
+
+module.exports = { eseguiGiro };

@@ -27,6 +27,7 @@
 const N = require('../lib/newsletter');
 const M = require('../lib/invio-newsletter');
 const P = require('../lib/programmate');
+const G = require('../lib/giro-newsletter');
 
 const GIORNO_MS = 24 * 60 * 60 * 1000;
 const ORIZZONTE_GIORNI = 60;     // oltre, la fotografia del contenuto invecchia troppo
@@ -37,6 +38,27 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+
+    /* IL GIRO AUTOMATICO ENTRA DA QUI, prima di tutto il resto.
+       Non ha una funzione sua perche' il piano Hobby di Vercel ne consente 12 in
+       tutto, e la tredicesima faceva fallire il deploy: finche' falliva, nessuna
+       modifica al servizio arrivava in produzione. Quindi il lavoro programmato
+       bussa a questo indirizzo con il segreto invece che a uno suo.
+       Si riconosce dal segreto, non dal metodo: Vercel chiama i lavori
+       programmati in GET, l'area riservata in POST. */
+    const segreto = process.env.CRON_SECRET;
+    const auth = req.headers['authorization'] || '';
+    if (segreto && auth === 'Bearer ' + segreto) {
+        try {
+            const r = await G.eseguiGiro();
+            res.status(r.ok ? 200 : (r.stato || 500)).json(r);
+        } catch (e) {
+            console.error('Giro newsletter non riuscito:', e);
+            res.status(500).json({ ok: false, msg: 'Giro non riuscito.' });
+        }
+        return;
+    }
+
     if (req.method !== 'POST') { res.status(405).json({ ok: false, msg: 'Metodo non consentito' }); return; }
 
     try {

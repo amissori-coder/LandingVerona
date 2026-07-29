@@ -1,12 +1,12 @@
 {
   "crons": [
-    { "path": "/api/cron-comunicazioni", "schedule": "0 6 * * *" }
+    { "path": "/api/cron-comunicazioni", "schedule": "0 6 * * *" },
+    { "path": "/api/programma-newsletter", "schedule": "0 5 * * *" }
   ],
   "functions": {
     "api/cron-comunicazioni.js": { "maxDuration": 60 },
     "api/invia-newsletter.js": { "maxDuration": 60 },
     "api/andamento-newsletter.js": { "maxDuration": 30 },
-    "api/programma-newsletter.js": { "maxDuration": 60 },
-    "api/cron-newsletter.js": { "maxDuration": 60 }
+    "api/programma-newsletter.js": { "maxDuration": 60 }
   }
 }
