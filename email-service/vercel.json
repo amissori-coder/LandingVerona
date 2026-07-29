@@ -8,6 +8,6 @@
     "api/invia-newsletter.js": { "maxDuration": 60 },
     "api/andamento-newsletter.js": { "maxDuration": 30 },
     "api/programma-newsletter.js": { "maxDuration": 60 },
-    "api/cron-newsletter.js": { "maxDuration": 300 }
+    "api/cron-newsletter.js": { "maxDuration": 60 }
   }
 }

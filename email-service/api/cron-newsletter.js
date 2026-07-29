@@ -34,7 +34,11 @@ const N = require('../lib/newsletter');
 const M = require('../lib/invio-newsletter');
 const P = require('../lib/programmate');
 
-const BUDGET_MS = 260 * 1000;         // la funzione ha 300s: si esce con margine
+/* Deve stare DENTRO il maxDuration dichiarato in vercel.json (60s), con margine
+   per scrivere i conti prima di essere interrotti. Se un giorno si alza il tetto
+   della funzione, questo va alzato insieme: sono due numeri che devono muoversi
+   insieme, e il secondo senza il primo fa perdere l'ultimo lotto. */
+const BUDGET_MS = 45 * 1000;
 const PAUSA_LOTTI_MS = 2500;          // gentilezza verso Brevo, come fa il browser
 const LUCCHETTO_MS = 6 * 60 * 1000;   // piu' della durata massima della funzione
 const INCERTO_DOPO_MS = 10 * 60 * 1000;
