@@ -8809,13 +8809,34 @@
             aggiornaConteggio();
         }
         let filtroDest = '';
+        /* Perche' l'elenco e' vuoto. Dire "non hai selezionato niente" a chi ha
+           appena spuntato un gruppo e' falso e manda a sbattere: fra la spunta e
+           l'elenco finale ci sono quattro filtri, e chi guarda non li vede. */
+        function perchePochi(r) {
+            const cont = m => r.saltati.filter(x => x.motivo === m).length;
+            const dis = cont('disiscritto'), gia = cont('gia servito'), mano = cont('tolto a mano');
+            const g = gruppiNewsletter();
+            const rif = (g.senzaConsenso || []).length;
+            const scelti = (bozza.gruppi || []).length;
+            if (!scelti && !(bozza.singoli || []).length) return 'Nessun gruppo selezionato: spunta almeno un gruppo qui sopra.';
+            const motivi = [];
+            if (dis) motivi.push(dis + (dis === 1 ? ' si e disiscritto' : ' si sono disiscritti'));
+            if (mano) motivi.push(mano + (mano === 1 ? ' tolto a mano' : ' tolti a mano') + ' nell\'elenco qui sotto');
+            if (gia) motivi.push(gia + ' gia servit' + (gia === 1 ? 'o' : 'i') + ' da un invio interrotto');
+            if (rif) motivi.push(rif + ' fuori perche non ha dato il consenso alle comunicazioni');
+            return motivi.length
+                ? 'Hai selezionato dei gruppi, ma non resta nessuno: ' + motivi.join(', ') + '.'
+                : 'Hai selezionato dei gruppi, ma risultano senza contatti. Prova ad aggiornare la sezione.';
+        }
         function aggiornaConteggio() {
             const r = destinatariNewsletter(bozza);
             const fuori = r.saltati.filter(x => x.motivo === 'disiscritto').length;
             $('nl-conteggio').innerHTML = '<strong>' + r.destinatari.length + '</strong> destinatar' + (r.destinatari.length === 1 ? 'io' : 'i')
                 + ' su ' + r.candidati.length + ' in rubrica'
                 + (fuori ? ' <span class="hint">(' + fuori + (fuori === 1 ? ' saltato perche disiscritto' : ' saltati perche disiscritti') + ')</span>' : '')
-                + (r.destinatari.length ? ' <span class="hint">&middot; l\'invio parte a gruppi di ' + lottoNewsletter() + '</span>' : '');
+                + (r.destinatari.length
+                    ? ' <span class="hint">&middot; l\'invio parte a gruppi di ' + lottoNewsletter() + '</span>'
+                    : '<div class="hint nl-vuoto-perche">' + esc(perchePochi(r)) + '</div>');
             disegnaElencoDest(r);
         }
         /* Elenco completo con una spunta per persona. La spunta vuol dire
@@ -9015,7 +9036,7 @@
                     ? ('Non resta nessuno da servire.' + (ultimo && ultimo.incerti
                         ? ' Attenzione: ' + ultimo.incerti + ' destinatari sono rimasti con esito incerto e vengono saltati. Se devi raggiungerli, duplica la newsletter e mandala solo a loro.'
                         : ' L\'invio precedente era arrivato a tutti.'))
-                    : 'Nessun destinatario: scegli almeno un gruppo nella sezione 4.', false);
+                    : perchePochi(r), false);
                 return;
             }
             confermaInLinea(ripresa ? 'Riprendere l\'invio interrotto?' : 'Inviare la newsletter?',
@@ -9053,7 +9074,7 @@
             const problema = controllaNewsletter(rec, false);
             if (problema) { mostraEsitoNL(problema, false); return; }
             const r = destinatariNewsletter(rec, {});
-            if (!r.destinatari.length) { mostraEsitoNL('Nessun destinatario: scegli almeno un gruppo nella sezione 1.', false); return; }
+            if (!r.destinatari.length) { mostraEsitoNL(perchePochi(r), false); return; }
             const fuori = r.saltati.filter(x => x.motivo === 'disiscritto').length;
 
             const domani = new Date(Date.now() + 24 * 3600 * 1000);

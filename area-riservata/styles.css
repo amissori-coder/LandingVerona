@@ -734,6 +734,9 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .nl-fase-n { font-family: 'Montserrat', sans-serif; font-size: 1.1rem; font-weight: 800; color: var(--grigio-400); }
 .nl-fase-et { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--blu-700); }
 .nl-fase .hint { margin: 0 0 10px; }
+/* Spiegazione dell'elenco vuoto: sta sotto il conteggio ed e' l'unica cosa da
+   leggere quando il numero e zero, quindi non deve sembrare una nota a margine. */
+.nl-vuoto-perche { margin-top: 6px; color: var(--rosso); }
 .nl-conti { margin-bottom: 14px; }
 .nl-conti-griglia { margin-top: 10px; max-width: 580px; }
 .nl-conto { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 5px 0; font-size: 0.88rem; }
