@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#164068">
+
+<!-- ============================================================
+     AGENDA PERSONALE - Next Generation Business, Napoli 2 ottobre 2026
+     ------------------------------------------------------------
+     Pagina che l'ospite apre dal QR sul badge. Mostra i suoi
+     appuntamenti B2B, il tavolo e l'orario. Niente accesso e
+     niente password: il codice nell'indirizzo E' la chiave.
+
+     PERCHE' LA CARTELLA SI CHIAMA "n26" E NON "napoli_ottobre_2026"
+     L'indirizzo finisce dentro un QR stampato a 3 cm sul badge.
+     Meno caratteri significa meno moduli, quindi un codice piu'
+     rado che la fotocamera legge al primo colpo:
+         https://nextgenerationbusiness.it/n26/#7fk3q9wzmb
+     sono 49 caratteri. Con il nome lungo della cartella sarebbero
+     stati 70 e il QR avrebbe due versioni in piu' di densita'.
+
+     PERCHE' NON SERVONO FUNZIONI NUOVE SUL SERVIZIO
+     Il servizio email e' fermo a dodici funzioni, che e' il tetto
+     del piano: la successiva blocca la pubblicazione. Questa
+     pagina legge Firestore direttamente dal browser con l'SDK
+     web, esattamente come fa l'area riservata, quindi non
+     aggiunge nulla al conteggio.
+
+     COSA VEDE CHI HA IL CODICE
+     La collezione "agendaNapoli" contiene solo cio' che serve in
+     sala: nome, azienda, ruolo, tavolo e orari. NIENTE email e
+     NIENTE telefono. Se un codice gira, si vede quello che e'
+     comunque scritto sul badge della persona.
+     Le regole di Firestore devono permettere la lettura di UN
+     documento per codice e vietare l'elenco (get si, list no),
+     altrimenti chiunque scaricherebbe la lista completa degli
+     ospiti. Le regole da incollare sono in badge-napoli/README.md.
+     ============================================================ -->
+
+<title>La tua agenda | Next Generation Business Napoli</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<link rel="apple-touch-icon" href="../assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+    --blu: #164068;
+    --blu-chiaro: #2c6ca8;
+    --blu-tenue: #eaf0f7;
+    --inchiostro: #16202e;
+    --inchiostro-tenue: #5b6878;
+    --riga: #dce3ea;
+    --fondo: #f4f6f9;
+    --bianco: #ffffff;
+    --avviso: #8d5c14;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: var(--fondo);
+    color: var(--inchiostro);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-text-size-adjust: 100%;
+    padding-bottom: 3rem;
+}
+
+h1, h2, h3, .etichetta, .ora, .tavolo-num {
+    font-family: 'Montserrat', system-ui, sans-serif;
+}
+
+.foglio {
+    max-width: 34rem;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* ---------- testata ---------- */
+
+.testata {
+    background: var(--blu);
+    color: #fff;
+    padding: 1.5rem 1rem 1.75rem;
+    margin-bottom: 1rem;
+}
+
+.testata .foglio { padding: 0 1rem; }
+
+.evento {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.72;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.saluto {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-top: 0.5rem;
+}
+
+.qualifica {
+    font-size: 0.9375rem;
+    opacity: 0.82;
+    margin-top: 0.25rem;
+}
+
+/* ---------- blocchi ---------- */
+
+.blocco {
+    background: var(--bianco);
+    border: 1px solid var(--riga);
+    padding: 1.1rem 1.15rem;
+    margin-bottom: 1rem;
+}
+
+.etichetta {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--inchiostro-tenue);
+    display: block;
+    margin-bottom: 0.65rem;
+}
+
+/* ---------- tavolo base ---------- */
+
+.tavolo-base {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--blu-tenue);
+    border: 1px solid #c9d8e8;
+    padding: 1rem 1.15rem;
+    margin-bottom: 1rem;
+}
+
+.tavolo-num {
+    font-size: 2.25rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--blu);
+    font-variant-numeric: tabular-nums;
+}
+
+.tavolo-testo {
+    font-size: 0.9375rem;
+    color: var(--inchiostro);
+}
+
+.tavolo-testo strong { font-weight: 600; }
+
+/* ---------- incontri ---------- */
+
+.incontri { list-style: none; }
+
+.incontro {
+    display: grid;
+    grid-template-columns: 3.5rem 1fr;
+    gap: 0 0.9rem;
+    padding: 0.95rem 0;
+    border-top: 1px solid var(--riga);
+}
+
+.incontro:first-child { border-top: 0; padding-top: 0.15rem; }
+
+.ora {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--blu-chiaro);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.al-tavolo {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--inchiostro-tenue);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 0.15rem;
+}
+
+.chi {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    font-family: 'Montserrat', sans-serif;
+    letter-spacing: -0.01em;
+}
+
+.dove-lavora {
+    font-size: 0.9375rem;
+    color: var(--inchiostro-tenue);
+}
+
+.tema {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--blu);
+    background: var(--blu-tenue);
+    padding: 0.2rem 0.5rem;
+    margin-top: 0.4rem;
+}
+
+/* ---------- informazioni ---------- */
+
+.info { list-style: none; display: flex; flex-direction: column; gap: 0.55rem; }
+
+.info li {
+    font-size: 0.9375rem;
+    display: grid;
+    grid-template-columns: 5.25rem 1fr;
+    gap: 0.75rem;
+}
+
+.info span:first-child {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--inchiostro-tenue);
+    padding-top: 0.28rem;
+    font-family: 'Montserrat', sans-serif;
+}
+
+/* ---------- codice ---------- */
+
+.codice-mio {
+    text-align: center;
+    font-size: 0.8125rem;
+    color: var(--inchiostro-tenue);
+    padding: 0.9rem 0 0;
+}
+
+.codice-mio b {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 1rem;
+    letter-spacing: 0.14em;
+    color: var(--inchiostro);
+    text-transform: uppercase;
+}
+
+/* ---------- stati ---------- */
+
+.stato {
+    background: var(--bianco);
+    border: 1px solid var(--riga);
+    padding: 1.5rem 1.25rem;
+    text-align: center;
+}
+
+.stato h2 {
+    font-size: 1.1875rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin-bottom: 0.5rem;
+}
+
+.stato p { font-size: 0.9375rem; color: var(--inchiostro-tenue); }
+.stato p + p { margin-top: 0.6rem; }
+
+.stato--avviso { border-top: 3px solid var(--avviso); }
+
+.vecchio {
+    background: #fdf6e9;
+    border: 1px solid #e6d3ab;
+    color: var(--avviso);
+    font-size: 0.8125rem;
+    padding: 0.6rem 0.85rem;
+    margin-bottom: 1rem;
+}
+
+/* ---------- modulo codice a mano ---------- */
+
+.modulo-codice { margin-top: 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+
+.modulo-codice input {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 1.125rem;
+    letter-spacing: 0.16em;
+    text-align: center;
+    text-transform: uppercase;
+    padding: 0.7rem;
+    border: 1.5px solid var(--riga);
+    background: var(--bianco);
+    color: var(--inchiostro);
+    width: 100%;
+}
+
+.modulo-codice input:focus { outline: 2px solid var(--blu-chiaro); outline-offset: 1px; border-color: var(--blu-chiaro); }
+
+.modulo-codice button {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    padding: 0.75rem;
+    border: 0;
+    background: var(--blu);
+    color: #fff;
+    cursor: pointer;
+}
+
+.modulo-codice button:hover { background: #0f3153; }
+.modulo-codice button:focus-visible { outline: 2px solid var(--blu-chiaro); outline-offset: 2px; }
+
+.nascosto { display: none !important; }
+
+@media (max-width: 22rem) {
+    .incontro { grid-template-columns: 1fr; gap: 0.15rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="testata">
+    <div class="foglio">
+        <span class="evento">Next Generation Business &middot; Napoli, 2 ottobre</span>
+        <h1 class="saluto" id="saluto">La tua agenda</h1>
+        <p class="qualifica" id="qualifica"></p>
+    </div>
+</div>
+
+<div class="foglio">
+
+    <!-- caricamento / errori / codice mancante -->
+    <div id="stato" class="stato">
+        <h2 id="statoTitolo">Un attimo</h2>
+        <p id="statoTesto">Stiamo cercando i tuoi appuntamenti.</p>
+        <form class="modulo-codice nascosto" id="moduloCodice" autocomplete="off">
+            <input type="text" id="campoCodice" inputmode="latin" spellcheck="false"
+                   maxlength="14" placeholder="il tuo codice" aria-label="Il tuo codice">
+            <button type="submit">Apri l'agenda</button>
+        </form>
+    </div>
+
+    <!-- agenda -->
+    <div id="agenda" class="nascosto">
+
+        <div id="avvisoVecchio" class="vecchio nascosto">
+            Rete assente: stiamo mostrando l'ultima versione salvata sul telefono.
+        </div>
+
+        <div id="tavoloBase" class="tavolo-base nascosto">
+            <span class="tavolo-num" id="tavoloNum">1</span>
+            <span class="tavolo-testo" id="tavoloTesto"></span>
+        </div>
+
+        <div class="blocco">
+            <span class="etichetta">I tuoi incontri</span>
+            <ul class="incontri" id="listaIncontri"></ul>
+            <p id="senzaIncontri" class="nascosto" style="font-size:0.9375rem;color:var(--inchiostro-tenue)">
+                Non hai ancora appuntamenti assegnati. Passa al desk Revilaw all'ingresso della sala:
+                ti indichiamo il tavolo giusto in base a quello che ti serve.
+            </p>
+        </div>
+
+        <div class="blocco">
+            <span class="etichetta">Come funziona</span>
+            <ul class="info">
+                <li><span>16.30</span><span>Iniziano gli incontri. Ogni turno dura <strong>15 minuti</strong>: al segnale acustico si cambia tavolo.</span></li>
+                <li><span>Tavoli</span><span>Ogni tavolo ha un referente Revilaw che ti presenta e prende nota.</span></li>
+                <li><span>Sede</span><span>Hotel Eurostars Excelsior, Via Partenope 48, Napoli.</span></li>
+                <li><span>Aiuto</span><span>Il desk Revilaw all'ingresso della sala risolve tutto, cambi di orario compresi.</span></li>
+            </ul>
+        </div>
+
+        <p class="codice-mio">Il tuo codice: <b id="codiceMio"></b></p>
+    </div>
+
+</div>
+
+<script type="module">
+/* ============================================================
+   Il codice arriva dal frammento dopo il cancelletto: non viene
+   mandato al server, quindi resta fuori dai log di GitHub Pages.
+   Accettiamo anche ?c=... perche' qualche client di posta riscrive
+   i link e puo' perdere il frammento.
+   ============================================================ */
+
+const ALFABETO = /^[a-hj-km-np-z2-9]+$/;   // niente 0 1 i l o: si confondono a stampa
+
+function codiceDaIndirizzo() {
+    const grezzo = (location.hash || '').replace(/^#\/?/, '')
+        || new URLSearchParams(location.search).get('c') || '';
+    return ripulisci(grezzo);
+}
+
+function ripulisci(v) {
+    // sul badge il codice e' stampato a gruppi ("7fk3-q9wz-mb"): i trattini non contano
+    return String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function codiceValido(c) {
+    return c.length >= 8 && c.length <= 14 && ALFABETO.test(c);
+}
+
+/* ---------- schermate ---------- */
+
+const el = (id) => document.getElementById(id);
+
+function mostraStato(titolo, testo, opzioni) {
+    const o = opzioni || {};
+    el('agenda').classList.add('nascosto');
+    el('stato').classList.remove('nascosto');
+    el('stato').classList.toggle('stato--avviso', !!o.avviso);
+    el('statoTitolo').textContent = titolo;
+    el('statoTesto').textContent = testo;
+    el('moduloCodice').classList.toggle('nascosto', !o.chiediCodice);
+    if (o.chiediCodice) el('campoCodice').focus();
+}
+
+/* ---------- memoria locale ----------
+   In sala la rete dell'hotel puo' non tenere 150 telefoni. L'agenda
+   letta una volta resta sul telefono, cosi si apre anche senza rete. */
+
+const chiave = (c) => 'n26.agenda.' + c;
+
+function salva(c, dati) {
+    try { localStorage.setItem(chiave(c), JSON.stringify({ quando: Date.now(), dati: dati })); }
+    catch (e) { /* memoria piena o navigazione privata: pazienza */ }
+}
+
+function recupera(c) {
+    try {
+        const g = JSON.parse(localStorage.getItem(chiave(c)) || 'null');
+        return g && g.dati ? g.dati : null;
+    } catch (e) { return null; }
+}
+
+/* ---------- disegno ---------- */
+
+function testo(v) { return String(v == null ? '' : v).trim(); }
+
+function disegna(dati, codice, daMemoria) {
+    const nome = testo(dati.nome);
+    el('saluto').textContent = nome ? 'Ciao ' + nome.split(/\s+/)[0] : 'La tua agenda';
+
+    /* Sempre textContent e mai innerHTML: azienda e ruolo arrivano da quello
+       che l'ospite ha scritto nel modulo di iscrizione, quindi sono testo di
+       provenienza esterna. Scriverli come HTML vorrebbe dire far eseguire a
+       un ospite quello che un altro ha digitato nel form. */
+    el('qualifica').textContent = [testo(dati.ruolo), testo(dati.azienda)].filter(Boolean).join(' · ');
+
+    const tavolo = testo(dati.tavolo);
+    if (tavolo) {
+        el('tavoloNum').textContent = tavolo;
+        el('tavoloTesto').innerHTML = 'Il tuo <strong>tavolo di partenza</strong>. Cercalo appena entri in sala: ti aspettiamo lì alle 16.30.';
+        el('tavoloBase').classList.remove('nascosto');
+    } else {
+        el('tavoloBase').classList.add('nascosto');
+    }
+
+    const incontri = Array.isArray(dati.incontri) ? dati.incontri : [];
+    const lista = el('listaIncontri');
+    lista.innerHTML = '';
+
+    incontri.forEach((inc) => {
+        const li = document.createElement('li');
+        li.className = 'incontro';
+
+        const sx = document.createElement('div');
+        const ora = document.createElement('div');
+        ora.className = 'ora';
+        ora.textContent = testo(inc.ora);
+        sx.appendChild(ora);
+        if (testo(inc.tavolo)) {
+            const t = document.createElement('div');
+            t.className = 'al-tavolo';
+            t.textContent = 'Tav. ' + testo(inc.tavolo);
+            sx.appendChild(t);
+        }
+
+        const dx = document.createElement('div');
+        const chi = document.createElement('div');
+        chi.className = 'chi';
+        chi.textContent = testo(inc.chi) || testo(inc.azienda);
+        dx.appendChild(chi);
+
+        const riga2 = [testo(inc.ruolo), testo(inc.azienda)].filter(Boolean).join(' · ');
+        if (riga2) {
+            const d = document.createElement('div');
+            d.className = 'dove-lavora';
+            d.textContent = riga2;
+            dx.appendChild(d);
+        }
+        if (testo(inc.tema)) {
+            const tema = document.createElement('div');
+            const s = document.createElement('span');
+            s.className = 'tema';
+            s.textContent = testo(inc.tema);
+            tema.appendChild(s);
+            dx.appendChild(tema);
+        }
+
+        li.appendChild(sx);
+        li.appendChild(dx);
+        lista.appendChild(li);
+    });
+
+    el('senzaIncontri').classList.toggle('nascosto', incontri.length > 0);
+    el('avvisoVecchio').classList.toggle('nascosto', !daMemoria);
+
+    // il codice in chiaro serve al desk per ritrovare la persona
+    el('codiceMio').textContent = codice.replace(/(.{4})(?=.)/g, '$1-');
+
+    el('stato').classList.add('nascosto');
+    el('agenda').classList.remove('nascosto');
+}
+
+/* ---------- lettura da Firestore ----------
+   Stessa configurazione pubblica dell'area riservata: la chiave web di
+   Firebase e' pubblica per progetto, la protezione sta nelle regole. */
+
+const CONFIG = {
+    apiKey: "AIzaSyDTQHCBDrxsBvbcEW2MrRDVgPKqA9KHQR0",
+    authDomain: "revilaw-incarichi.firebaseapp.com",
+    projectId: "revilaw-incarichi",
+    storageBucket: "revilaw-incarichi.firebasestorage.app",
+    messagingSenderId: "631931481265",
+    appId: "1:631931481265:web:8e2d7321b924798aca8690"
+};
+
+const V = '11.6.1';   // stessa versione usata dall'area riservata
+
+/* La lettura non deve poter durare in eterno. Con la rete di un hotel
+   che regge male 150 telefoni, l'SDK riprova da solo con attese
+   crescenti e la promessa resta appesa: l'ospite guarderebbe "Un
+   attimo" a tempo indeterminato. Meglio arrendersi e dirlo. */
+const SCADENZA_MS = 8000;
+
+function conScadenza(promessa) {
+    return Promise.race([
+        promessa,
+        new Promise((_, rifiuta) => setTimeout(() => rifiuta(new Error('lettura scaduta')), SCADENZA_MS))
+    ]);
+}
+
+async function leggi(codice) {
+    const [appMod, fsMod] = await Promise.all([
+        import('https://www.gstatic.com/firebasejs/' + V + '/firebase-app.js'),
+        import('https://www.gstatic.com/firebasejs/' + V + '/firebase-firestore.js')
+    ]);
+    const app = appMod.initializeApp(CONFIG);
+    const db = fsMod.getFirestore(app);
+    const scheda = await fsMod.getDoc(fsMod.doc(db, 'agendaNapoli', codice));
+    return scheda.exists() ? scheda.data() : null;
+}
+
+/* ---------- avvio ---------- */
+
+async function apri(codice) {
+    if (!codiceValido(codice)) {
+        mostraStato(
+            'Codice non riconosciuto',
+            'Controlla il codice stampato sotto il QR del badge e riprova, oppure passa al desk Revilaw.',
+            { chiediCodice: true, avviso: true }
+        );
+        return;
+    }
+
+    // se ce l'abbiamo gia' sul telefono lo mostriamo subito, poi proviamo ad aggiornare
+    const salvata = recupera(codice);
+    if (salvata) disegna(salvata, codice, true);
+    else mostraStato('Un attimo', 'Stiamo cercando i tuoi appuntamenti.');
+
+    try {
+        const dati = await conScadenza(leggi(codice));
+        if (dati) {
+            salva(codice, dati);
+            disegna(dati, codice, false);
+            // il codice resta nell'indirizzo, cosi la pagina si puo' salvare tra i preferiti
+            if (!location.hash) history.replaceState(null, '', '#' + codice);
+        } else if (!salvata) {
+            mostraStato(
+                'Non troviamo questo codice',
+                "Può succedere se il badge è stato consegnato prima che l'agenda fosse pronta. Il desk Revilaw all'ingresso della sala lo sistema in un minuto.",
+                { chiediCodice: true, avviso: true }
+            );
+        }
+    } catch (e) {
+        if (!salvata) {
+            mostraStato(
+                'Connessione assente',
+                "Non riusciamo a leggere l'agenda. Riprova tra qualche secondo: se la rete della sala è lenta, al desk Revilaw abbiamo la lista stampata.",
+                { avviso: true }
+            );
+        }
+    }
+}
+
+el('moduloCodice').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const c = ripulisci(el('campoCodice').value);
+    if (!c) return;
+    location.hash = '#' + c;
+    apri(c);
+});
+
+// se l'ospite riapre il link con un codice diverso (badge scambiato, desk che corregge)
+window.addEventListener('hashchange', () => apri(codiceDaIndirizzo()));
+
+const iniziale = codiceDaIndirizzo();
+if (iniziale) {
+    apri(iniziale);
+} else {
+    mostraStato(
+        'Inquadra il QR del tuo badge',
+        'Se sei arrivato qui a mano, scrivi il codice stampato sotto il QR.',
+        { chiediCodice: true }
+    );
+}
+</script>
+
+</body>
+</html>

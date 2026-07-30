@@ -1,1 +1,9 @@
 .claude/
+
+# Strumenti locali per i badge di Napoli.
+# I dati veri degli iscritti (nomi, aziende, email) e i codici personali
+# non entrano nel repo: restano sul computer di chi prepara i badge.
+badge-napoli/node_modules/
+badge-napoli/out/
+badge-napoli/partecipanti.json
+badge-napoli/iscritti.csv

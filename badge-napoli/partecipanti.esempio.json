@@ -1,0 +1,91 @@
+{
+  "_come_si_usa": [
+    "Copia questo file in partecipanti.json e mettici i dati veri.",
+    "partecipanti.json e' escluso dal repo: i dati degli iscritti non si pubblicano.",
+    "Si puo' anche partire da un CSV esportato dal foglio Google: node prepara.js iscritti.csv",
+    "In quel caso le colonne riconosciute sono nome, cognome, email, azienda, ruolo, profilo, tavolo",
+    "e gli incontri si aggiungono dopo passando al JSON.",
+    "",
+    "profilo: impresa | studio | banca | ente   (decide il colore della fascia sul badge)",
+    "tavolo: il tavolo di partenza, quello che l'ospite vede in grande sul telefono",
+    "incontri: si possono lasciare vuoti adesso e riempire a fine settembre.",
+    "I badge si stampano comunque: chi non ha appuntamenti legge l'invito a passare al desk."
+  ],
+
+  "partecipanti": [
+    {
+      "nome": "Mario",
+      "cognome": "Rossi",
+      "email": "m.rossi@esempio.it",
+      "azienda": "Meccanica Partenope Srl",
+      "ruolo": "Amministratore delegato",
+      "profilo": "impresa",
+      "tavolo": "2",
+      "incontri": [
+        {
+          "ora": "16.30",
+          "tavolo": "2",
+          "chi": "Anna Bianchi",
+          "azienda": "Banca del Mezzogiorno",
+          "ruolo": "Responsabile imprese",
+          "tema": "Merito creditizio"
+        },
+        {
+          "ora": "16.45",
+          "tavolo": "4",
+          "chi": "Luca Esposito",
+          "azienda": "Revilaw",
+          "ruolo": "Partner",
+          "tema": "Adeguati assetti"
+        },
+        {
+          "ora": "17.00",
+          "tavolo": "1",
+          "chi": "Giulia Marino",
+          "azienda": "Invitalia",
+          "ruolo": "Sviluppo territorio",
+          "tema": "Bagnoli e indotto"
+        }
+      ]
+    },
+    {
+      "nome": "Anna",
+      "cognome": "Bianchi",
+      "email": "a.bianchi@esempio.it",
+      "azienda": "Banca del Mezzogiorno",
+      "ruolo": "Responsabile imprese",
+      "profilo": "banca",
+      "tavolo": "2",
+      "incontri": [
+        {
+          "ora": "16.30",
+          "tavolo": "2",
+          "chi": "Mario Rossi",
+          "azienda": "Meccanica Partenope Srl",
+          "ruolo": "Amministratore delegato",
+          "tema": "Merito creditizio"
+        }
+      ]
+    },
+    {
+      "nome": "Chiara",
+      "cognome": "De Luca",
+      "email": "c.deluca@esempio.it",
+      "azienda": "Studio De Luca e Associati",
+      "ruolo": "Dottore commercialista",
+      "profilo": "studio",
+      "tavolo": "3",
+      "incontri": []
+    },
+    {
+      "nome": "Giulia",
+      "cognome": "Marino",
+      "email": "g.marino@esempio.it",
+      "azienda": "Invitalia",
+      "ruolo": "Sviluppo territorio",
+      "profilo": "ente",
+      "tavolo": "1",
+      "incontri": []
+    }
+  ]
+}

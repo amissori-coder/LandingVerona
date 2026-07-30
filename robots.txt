@@ -16,4 +16,8 @@ Disallow: /revisione-test/
 Disallow: /tools/
 Disallow: /area-riservata/
 
+# Agende personali degli ospiti dell'evento di Napoli: ogni indirizzo vale
+# per una persona sola e non deve finire nei risultati di ricerca.
+Disallow: /n26/
+
 Sitemap: https://nextgenerationbusiness.it/sitemap.xml

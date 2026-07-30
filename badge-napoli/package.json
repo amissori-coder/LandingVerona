@@ -1,0 +1,15 @@
+{
+  "name": "badge-napoli",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Codici personali, badge stampabili con QR e pubblicazione delle agende per l'evento di Napoli del 2 ottobre 2026. Gira solo in locale: non viene pubblicato da nessuna parte.",
+  "scripts": {
+    "prepara": "node prepara.js",
+    "pubblica": "node pubblica.js",
+    "prova": "node pubblica.js --secco"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "qrcode": "^1.5.4"
+  }
+}
