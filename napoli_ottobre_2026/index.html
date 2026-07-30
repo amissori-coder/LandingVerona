@@ -723,6 +723,109 @@
                         <input type="text" id="ruolo" name="ruolo" required placeholder="La tua qualifica" autocomplete="organization-title">
                         <span class="form-error" id="ruoloError"></span>
                     </div>
+                    <!-- Campi per il business matching del pomeriggio.
+                         Servono a incrociare gli ospiti PRIMA dell'evento: con
+                         il solo nome e ruolo non si abbina nessuno, e due ore di
+                         incontri senza abbinamenti diventano networking casuale.
+                         Tutti a scelta guidata, cosi' l'iscrizione non si
+                         allunga e i dati arrivano confrontabili. -->
+                    <div class="form-group">
+                        <label for="profilo">Ti presenti come *</label>
+                        <select id="profilo" name="profilo" required>
+                            <option value="">Scegli...</option>
+                            <option value="impresa">Impresa</option>
+                            <option value="studio">Studio professionale</option>
+                            <option value="banca">Banca, investitore o intermediario</option>
+                            <option value="ente">Ente, associazione o pubblica amministrazione</option>
+                        </select>
+                        <span class="form-error" id="profiloError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="settore">Settore *</label>
+                        <select id="settore" name="settore" required>
+                            <option value="">Scegli...</option>
+                            <option value="industria">Industria e manifattura</option>
+                            <option value="edilizia">Edilizia e impiantistica</option>
+                            <option value="commercio">Commercio e distribuzione</option>
+                            <option value="servizi">Servizi e professioni</option>
+                            <option value="turismo">Turismo e ristorazione</option>
+                            <option value="trasporti">Trasporti e logistica</option>
+                            <option value="agroalimentare">Agroalimentare</option>
+                            <option value="ict">ICT e innovazione</option>
+                            <option value="sanita">Sanit&agrave; e servizi alla persona</option>
+                            <option value="altro">Altro</option>
+                        </select>
+                        <span class="form-error" id="settoreError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="dimensione">Fatturato annuo *</label>
+                        <select id="dimensione" name="dimensione" required>
+                            <option value="">Scegli...</option>
+                            <option value="fino-2">Fino a 2 milioni</option>
+                            <option value="2-10">Da 2 a 10 milioni</option>
+                            <option value="10-50">Da 10 a 50 milioni</option>
+                            <option value="oltre-50">Oltre 50 milioni</option>
+                            <option value="non-applicabile">Non applicabile</option>
+                            <option value="riservato">Preferisco non indicarlo</option>
+                        </select>
+                        <span class="form-error" id="dimensioneError"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="incontro">Incontri B2B del pomeriggio *</label>
+                        <select id="incontro" name="incontro" required>
+                            <option value="">Scegli...</option>
+                            <option value="si">S&igrave;, vorrei incontri riservati di 15 minuti</option>
+                            <option value="forse">Mi interessa, decider&ograve; pi&ugrave; avanti</option>
+                            <option value="no">No, partecipo solo al convegno</option>
+                        </select>
+                        <span class="form-error" id="incontroError"></span>
+                    </div>
+                    <div class="form-group full-width">
+                        <label id="interessiLabel">Di cosa hai bisogno <span class="field-optional">(scegli quello che ti serve, anche pi&ugrave; di uno)</span></label>
+                        <div class="interessi-griglia" role="group" aria-labelledby="interessiLabel">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="interessi" value="Adeguati assetti">
+                                <span class="checkmark"></span>
+                                <span>Adeguati assetti</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="interessi" value="Governance e controllo di gestione">
+                                <span class="checkmark"></span>
+                                <span>Governance e controllo di gestione</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="interessi" value="Modello 231 e Tax Control Framework">
+                                <span class="checkmark"></span>
+                                <span>Modello 231 e Tax Control Framework</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="interessi" value="Rating di Legalita">
+                                <span class="checkmark"></span>
+                                <span>Rating di Legalit&agrave;</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="interessi" value="ESG e sostenibilita">
+                                <span class="checkmark"></span>
+                                <span>ESG e sostenibilit&agrave;</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="interessi" value="Finanza agevolata">
+                                <span class="checkmark"></span>
+                                <span>Finanza agevolata</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="interessi" value="Merito creditizio">
+                                <span class="checkmark"></span>
+                                <span>Merito creditizio e rapporto con le banche</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="interessi" value="Bagnoli e America's Cup 2027">
+                                <span class="checkmark"></span>
+                                <span>Bagnoli e America's Cup 2027</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <div class="form-group full-width">
                         <label class="checkbox-label">
                             <input type="checkbox" id="privacy" name="privacy" required>

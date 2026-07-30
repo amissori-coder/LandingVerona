@@ -168,6 +168,18 @@ module.exports = async (req, res) => {
             ricevuto: admin.firestore.FieldValue.serverTimestamp()
         };
 
+        /* Campi per il business matching, oggi mandati solo dal modulo di
+           Napoli. Vengono aggiunti SOLO se arrivano davvero: tutti gli altri
+           moduli del dominio postano qui lo stesso oggetto senza questi campi,
+           e riempire ogni iscrizione di ogni altro evento con cinque stringhe
+           vuote sarebbe rumore che poi qualcuno deve interpretare. Chi legge
+           trova il campo quando c'e' e non lo trova quando non c'e'. */
+        const CAMPI_MATCHING = { profilo: 40, settore: 40, dimensione: 40, incontro: 20, interessi: 400 };
+        for (const campo of Object.keys(CAMPI_MATCHING)) {
+            const valore = testo(body[campo], CAMPI_MATCHING[campo]);
+            if (valore) scheda[campo] = valore;
+        }
+
         await admin.firestore().collection('iscrizioni')
             .doc(idDocumento(email, data, nome, cognome))
             .set(scheda, { merge: true });

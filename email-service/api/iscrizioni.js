@@ -76,6 +76,66 @@ function ordina(lista) {
     return lista.slice().sort((a, b) => quando(b.data) - quando(a.data));
 }
 
+/* CAMPI DEL BUSINESS MATCHING (per ora solo il modulo di Napoli)
+   ------------------------------------------------------------
+   Profilo, settore, fascia di fatturato, disponibilita' agli incontri B2B e
+   aree di interesse. NON diventano colonne fisse della tabella: entrano in
+   "extra", che l'area riservata mostra gia' da se' sotto "Colonne aggiuntive",
+   con le caselle per scegliere quali vedere. Due vantaggi: chi apre Verona o
+   Roma non si ritrova cinque colonne vuote, e non serve toccare l'app.
+
+   Il modulo manda valori brevi ("fino-2", "si"): qui diventano leggibili,
+   perche' questa tabella la legge la persona che decide gli abbinamenti.
+   Le etichette restano senza accenti, come tutto il file. */
+const CAMPI_MATCHING = {
+    profilo: {
+        etichetta: 'Profilo',
+        valori: {
+            impresa: 'Impresa', studio: 'Studio professionale',
+            banca: 'Banca o investitore', ente: 'Ente o associazione'
+        }
+    },
+    settore: {
+        etichetta: 'Settore',
+        valori: {
+            industria: 'Industria e manifattura', edilizia: 'Edilizia e impiantistica',
+            commercio: 'Commercio e distribuzione', servizi: 'Servizi e professioni',
+            turismo: 'Turismo e ristorazione', trasporti: 'Trasporti e logistica',
+            agroalimentare: 'Agroalimentare', ict: 'ICT e innovazione',
+            sanita: 'Servizi alla persona', altro: 'Altro'
+        }
+    },
+    dimensione: {
+        etichetta: 'Fatturato',
+        valori: {
+            'fino-2': 'Fino a 2 mln', '2-10': 'Da 2 a 10 mln', '10-50': 'Da 10 a 50 mln',
+            'oltre-50': 'Oltre 50 mln', 'non-applicabile': 'Non applicabile',
+            riservato: 'Non indicato'
+        }
+    },
+    incontro: {
+        // detto per esteso: in una colonna "Si / No" non si capisce di cosa
+        etichetta: 'Incontro B2B',
+        valori: { si: 'Vuole incontri', forse: 'Da confermare', no: 'Solo convegno' }
+    },
+    interessi: { etichetta: 'Interessi', valori: {} }
+};
+
+function extraMatching(v) {
+    const fuori = {};
+    Object.keys(CAMPI_MATCHING).forEach(campo => {
+        const grezzo = String(v[campo] == null ? '' : v[campo]).trim();
+        if (!grezzo) return;   // campo assente: nessuna colonna, nessuna cella vuota
+        const def = CAMPI_MATCHING[campo];
+        /* Valore che non conosciamo: si mostra com'e' invece di sparire. Se domani
+           il modulo aggiunge una voce e qui nessuno la traduce, in tabella si vede
+           il codice grezzo: brutto ma visibile, che e' meglio di una cella vuota
+           che fa credere che la persona non abbia risposto. */
+        fuori[def.etichetta] = def.valori[grezzo] || grezzo;
+    });
+    return fuori;
+}
+
 /* Unica uscita per le risposte positive: toglie le iscrizioni cancellate
    dall'amministratore (anche se tornassero dal foglio) e allega stati e note,
    cosi' l'area riservata riceve tutto in una volta sola. */
@@ -249,7 +309,14 @@ module.exports = async (req, res) => {
                     nome: String(v.nome || ''), cognome: String(v.cognome || ''), email: em,
                     azienda: String(v.azienda || ''), ruolo: String(v.ruolo || ''),
                     telefono: String(v.telefono || ''), messaggio: String(v.messaggio || ''),
-                    extra: (v.extra && typeof v.extra === 'object') ? v.extra : {}
+                    /* Colonne aggiuntive: quelle dell'elenco importato piu' i campi
+                       del business matching. Si costruisce una copia nuova, cosi'
+                       l'oggetto letto dal database resta com'e'. */
+                    extra: Object.assign(
+                        {},
+                        (v.extra && typeof v.extra === 'object') ? v.extra : {},
+                        extraMatching(v)
+                    )
                 });
             });
         } catch (e) {

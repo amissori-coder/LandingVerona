@@ -211,6 +211,16 @@ document.addEventListener('DOMContentLoaded', () => {
                       + ' ' + _pad(_n.getHours()) + ':' + _pad(_n.getMinutes()) + ':' + _pad(_n.getSeconds());
 
             if (typeof window.gtag === 'function') window.gtag('event', 'invio_form', { pagina: document.title });
+
+            // Aree di interesse: piu' caselle, un solo campo di testo separato da
+            // virgole. Non un elenco: cosi' il valore si legge identico sul foglio
+            // Google, su Firestore e nell'area riservata, senza che nessuno dei tre
+            // debba sapere che dietro c'erano delle caselle.
+            const interessi = Array.prototype.slice
+                .call(form.querySelectorAll('input[name="interessi"]:checked'))
+                .map(function (c) { return c.value; })
+                .join(', ');
+
             const payload = {
                 data:      _ts,
                 pagina:    'Napoli 2 Ottobre 2026 - Manifestazione di interesse',
@@ -221,6 +231,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 ruolo:     (form.querySelector('#ruolo')   || {}).value || '',
                 telefono:  (form.querySelector('#telefono')|| {}).value || '',
                 messaggio: '',
+                // campi per il business matching: solo questa pagina li manda
+                profilo:     (form.querySelector('#profilo')    || {}).value || '',
+                settore:     (form.querySelector('#settore')    || {}).value || '',
+                dimensione:  (form.querySelector('#dimensione') || {}).value || '',
+                incontro:    (form.querySelector('#incontro')   || {}).value || '',
+                interessi:   interessi,
                 privacy:   !!(form.querySelector('#privacy')   && form.querySelector('#privacy').checked),
                 marketing: !!(form.querySelector('#marketing') && form.querySelector('#marketing').checked)
             };

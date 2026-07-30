@@ -1560,6 +1560,17 @@ ul {
     transform: rotate(45deg) translate(-1px, -1px);
 }
 
+/* Aree di interesse: due colonne, come il resto del modulo.
+   Le otto voci hanno lunghezze diverse e alcune vanno a capo, quindi la
+   casella resta ancorata in alto (ci pensa .checkbox-label con
+   align-items: flex-start) e il testo scorre senza spostarla. */
+.interessi-griglia {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 11px 18px;
+    margin-top: 2px;
+}
+
 .form-submit {
     grid-column: 1 / -1;
     text-align: center;
@@ -2398,6 +2409,11 @@ ul {
     .accreditation-form {
         grid-template-columns: 1fr;
         gap: 16px;
+    }
+
+    .interessi-griglia {
+        grid-template-columns: 1fr;
+        gap: 12px;
     }
 
     .form-row {
