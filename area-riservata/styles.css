@@ -819,18 +819,67 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .nl-conteggio { margin-top: 10px; padding: 10px 12px; background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: var(--raggio-sm); font-size: 0.9rem; }
 /* avviso dei nuovi iscritti all'ingresso */
 .ni-elenco { max-height: 55vh; overflow-y: auto; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
-.ni-riga { padding: 12px 14px; border-bottom: 1px solid var(--grigio-100); }
+/* riga compatta: il dettaglio si apre con un clic sull'intestazione */
+.ni-riga { padding: 10px 14px; border-bottom: 1px solid var(--grigio-100); }
 .ni-riga:last-child { border-bottom: none; }
-.ni-testa { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.ni-nome { font-weight: 700; color: var(--blu-900); }
-.ni-quando { font-size: 0.76rem; color: var(--grigio-400); white-space: nowrap; }
-.ni-dati { font-size: 0.83rem; color: var(--grigio-600); margin-top: 2px; }
-.ni-dove { font-size: 0.76rem; color: var(--blu-700); margin-top: 3px; }
+/* va a capo invece di schiacciarsi: su telefono nome, azienda e data non
+   stanno su una riga sola, e senza questo la data usciva dal riquadro */
+.ni-testa { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 10px; }
+summary.ni-testa { cursor: pointer; list-style: none; }
+summary.ni-testa::-webkit-details-marker { display: none; }
+/* triangolino disegnato coi bordi: nessuna dipendenza dai caratteri disponibili */
+summary.ni-testa::before {
+    content: ''; flex: 0 0 auto; align-self: center;
+    width: 0; height: 0; border-left: 5px solid var(--grigio-400);
+    border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+    transition: transform 0.15s ease;
+}
+.ni-riga[open] > summary.ni-testa::before { transform: rotate(90deg); }
+.ni-nome { font-weight: 700; color: var(--blu-900); min-width: 0; }
+/* si accorcia coi puntini, ma non sotto una soglia leggibile: sotto quella
+   passa alla riga successiva invece di ridursi a un filo */
+.ni-azienda {
+    flex: 0 1 auto; min-width: 7em; font-size: 0.8rem; color: var(--grigio-600);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ni-bollo {
+    flex: 0 0 auto; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+    padding: 2px 7px; border-radius: 999px; background: var(--blu-050);
+    color: var(--blu-700); border: 1px solid var(--blu-100);
+}
+.ni-quando { font-size: 0.76rem; color: var(--grigio-400); white-space: nowrap; margin-left: auto; }
+.ni-dati { font-size: 0.83rem; color: var(--grigio-600); margin-top: 4px; padding-left: 15px; }
+.ni-dove { font-size: 0.76rem; color: var(--blu-700); margin-top: 3px; padding-left: 15px; }
 .ni-messaggio {
-    margin-top: 8px; padding: 8px 12px; background: var(--blu-050);
+    margin: 8px 0 2px 15px; padding: 8px 12px; background: var(--blu-050);
     border-left: 3px solid var(--oro); border-radius: var(--raggio-sm);
     font-size: 0.86rem; line-height: 1.55; color: var(--grigio-900); white-space: pre-wrap;
 }
+/* un gruppo per evento: il titolo resta visibile mentre si scorre */
+.ni-gruppo + .ni-gruppo { border-top: 1px solid var(--grigio-200); }
+.ni-gruppo-testa {
+    position: sticky; top: 0; z-index: 1;
+    display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+    background: var(--grigio-100); border-bottom: 1px solid var(--grigio-200);
+}
+.ni-gruppo-nome { font-weight: 700; font-size: 0.82rem; color: var(--blu-900); }
+.ni-gruppo-n {
+    font-weight: 700; font-size: 0.75rem; color: var(--blu-700);
+    font-variant-numeric: tabular-nums; padding: 1px 7px;
+    background: var(--blu-050); border: 1px solid var(--blu-100); border-radius: 999px;
+}
+.ni-gruppo-testa .ni-apri { margin-left: auto; }
+.ni-sommario {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 0 0 8px; font-size: 0.84rem; color: var(--grigio-600);
+}
+.ni-sommario b { color: var(--blu-900); font-variant-numeric: tabular-nums; }
+.ni-tutte {
+    margin-left: auto; padding: 0; border: none; background: none;
+    font: inherit; font-size: 0.8rem; color: var(--blu-700);
+    text-decoration: underline; cursor: pointer;
+}
+.ni-tutte:hover { color: var(--blu-900); }
 
 /* scelta del fregio di apertura */
 .nl-fregi { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 8px; }

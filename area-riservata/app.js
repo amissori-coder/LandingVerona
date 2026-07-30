@@ -7754,10 +7754,26 @@
         return String(s == null ? '' : s).trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     }
     /* A quale evento appartiene un'iscrizione, guardando la pagina di provenienza.
-       Se non e' un evento, l'iscrizione viene da un'altra sezione del sito. */
+       Se non e' un evento, l'iscrizione viene da un'altra sezione del sito.
+
+       Vince il filtro PIU' LUNGO fra quelli che corrispondono, non il primo.
+       Finche' gli eventi sono in citta' diverse e' lo stesso; serve il giorno
+       in cui si torna in una citta' gia' vista (un secondo convegno a Verona):
+       allora il filtro del nuovo evento sara' piu' preciso ("verona 12 marzo
+       2027") e deve prevalere su quello generico ("verona"), altrimenti tutte
+       le iscrizioni del nuovo finirebbero sotto il vecchio. */
     function eventoDiPagina(pagina) {
         const p = normalizzaTesto(pagina);
-        return EVENTI_DEF.find(e => !e.tutti && e.filtro && p.indexOf(e.filtro) >= 0) || null;
+        let scelto = null, lungo = 0;
+        EVENTI_DEF.forEach(e => {
+            if (e.tutti || !e.filtro) return;
+            // il filtro si normalizza come la pagina: chi lo scrive non deve
+            // ricordarsi di usare le minuscole e di togliere gli accenti
+            const f = normalizzaTesto(e.filtro);
+            if (!f || p.indexOf(f) < 0) return;
+            if (f.length > lungo) { scelto = e; lungo = f.length; }
+        });
+        return scelto;
     }
 
     /* Tutti i destinatari possibili, divisi per provenienza. Si ricalcola ogni
@@ -9400,57 +9416,214 @@
        dopo tre settimane e' una richiesta persa. Quindi entrando nell'area
        riservata si vede subito chi e' arrivato da quando ci si e' guardato
        l'ultima volta, con quello che ha scritto.
-       Il segnalibro e' PER PERSONA e sta nel browser: ognuno vede i "suoi"
-       nuovi, e non si toglie il segnale agli altri aprendo l'avviso.
+
+       CHI LO VEDE. Chiunque sia abilitato a "Iscrizioni Eventi NGB": sono
+       le persone che quelle iscrizioni le devono lavorare, ed e' inutile
+       che l'avviso lo veda solo chi ha in piu' la Newsletter. Chi ha anche
+       la Newsletter continua a vedere, oltre agli eventi, i moduli del
+       sito che a un evento non appartengono (richieste di informazioni,
+       contatti, candidature): quelli non passano dalla sezione Eventi.
+
+       QUALI EVENTI. Tutti quelli dichiarati in EVENTI_DEF - oggi Verona,
+       Roma, Napoli e Milano. L'elenco NON e' ripetuto qui: aggiungendone
+       uno la', compare da solo anche nell'avviso, con il suo gruppo.
+
+       IL SEGNALIBRO E' DI CIASCUNO e sta nel suo browser: chi apre
+       l'avviso e preme "Ho visto" non lo toglie ai colleghi, che al loro
+       accesso vedranno comunque gli stessi nuovi iscritti.
     ========================================================= */
     function chiaveVistiNL() {
         const u = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : 'anonimo';
         return 'rvArea.nlVisti.' + u;
     }
-    function avvisaNuoviIscritti() {
-        if (!Cloud.attivo || !puoVedereNewsletter()) return;
-        let ultimo = 0;
-        try { ultimo = Number(localStorage.getItem(chiaveVistiNL())) || 0; } catch (e) { ultimo = 0; }
+    /* Chi apre l'avviso per la prima volta non ha un segnalibro. Rovesciargli
+       addosso l'intero archivio sarebbe inutile, ma mostrargli il nulla gli
+       farebbe credere che l'avviso non funzioni: si parte dall'ultima
+       settimana, che e' quanto serve per capire a cosa serve. */
+    const AVV_PRIMA_FINESTRA_MS = 7 * 24 * 60 * 60 * 1000;
+    /* Da due iscrizioni in su l'elenco si mostra compatto, una riga per
+       persona, e si apre quella che interessa. ECCEZIONE: le righe con un
+       messaggio restano aperte comunque, perche' il messaggio e' il motivo
+       per cui questo avviso esiste e nascosto dietro un clic non si legge. */
+    const AVV_COMPATTO_DA = 2;
+
+    /* Iscrizioni agli eventi per l'avviso. Sono le stesse che la sezione
+       mostra sotto "Tutte" (il servizio filtra sugli eventi dichiarati e
+       toglie le cancellate), ma con una memoria propria: quella della
+       sezione appartiene alla schermata aperta e non si puo' toccare da
+       qui senza mostrare l'evento sbagliato sotto il riquadro sbagliato. */
+    const AVV_MEMORIA_MS = 60 * 1000;
+    let _avvEv = { quando: 0, righe: null };
+    let _avvInFlight = false;
+    function iscrizioniEventiPerAvviso(poi) {
+        if (!puoVedereEventi()) { poi([]); return; }
+        if (_avvEv.righe && Date.now() - _avvEv.quando < AVV_MEMORIA_MS) { poi(_avvEv.righe); return; }
+        if (_avvInFlight) { poi(_avvEv.righe || []); return; }
+        _avvInFlight = true;
+        Cloud.iscrizioniEvento('', 'tutti', true, false).then(r => {
+            _avvInFlight = false;
+            if (r && r.ok) _avvEv = { quando: Date.now(), righe: r.iscrizioni || [] };
+            poi(_avvEv.righe || []);
+        }).catch(() => { _avvInFlight = false; poi(_avvEv.righe || []); });
+    }
+    /* Stessa persona, stessa iscrizione: le due fonti hanno identificativi
+       diversi (il foglio, Firestore), quindi si confronta cio' che descrive
+       l'iscrizione e non come e' stata archiviata. */
+    function chiaveIscrizione(r) {
+        const em = String(r.email || '').trim().toLowerCase();
+        if (em) return em + '|' + String(r.data || '');
+        /* Senza indirizzo si ripiega sul nome. Nome e cognome si ripuliscono
+           UNO PER UNO: "Mario " e "Mario" sono la stessa persona, e ripulendo
+           solo la stringa gia' unita lo spazio in mezzo resterebbe. */
+        const nc = normalizzaTesto(r.nome) + '.' + normalizzaTesto(r.cognome);
+        // ne' indirizzo ne' nome: si tiene distinta, non accorpata alle altre
+        return (nc === '.' ? 'id:' + String(r.id || '') : nc) + '|' + String(r.data || '');
+    }
+    /* Piu' elenchi in uno solo, senza doppioni. A parita' di iscrizione
+       vince la PRIMA lista: si passano gli eventi prima del resto del sito,
+       perche' la loro scheda arriva dalla sezione Eventi ed e' quella che
+       porta anche le colonne aggiuntive dei moduli. */
+    function unisciIscrizioni(liste) {
+        const visti = {}, fuori = [];
+        (liste || []).forEach(l => (l || []).forEach(r => {
+            const k = chiaveIscrizione(r);
+            if (visti[k]) return;
+            visti[k] = true;
+            fuori.push(r);
+        }));
+        return fuori;
+    }
+    /* Le iscrizioni da mostrare, secondo cio' che la persona puo' vedere. */
+    function raccogliNuoviIscritti(vedeEventi, vedeSito, poi) {
+        if (!vedeSito) { iscrizioniEventiPerAvviso(ev => poi(unisciIscrizioni([ev]))); return; }
         caricaDestinatariNewsletter(() => {
-            const tutti = (_nlDati && _nlDati.iscritti) || [];
-            if (!tutti.length) return;
-            /* Alla PRIMA apertura non si rovescia addosso l'intero archivio: si
-               prende il momento come punto di partenza e si avvisa da li' in poi. */
-            if (!ultimo) { try { localStorage.setItem(chiaveVistiNL(), String(Date.now())); } catch (e) { } return; }
-            const nuovi = tutti.filter(r => dataIscrizioneMs(r.data) > ultimo)
-                .sort((a, b) => dataIscrizioneMs(b.data) - dataIscrizioneMs(a.data));
-            if (!nuovi.length) return;
-            // se c'e' gia' una finestra aperta (cambio password, avvisi) si aspetta il prossimo ingresso
-            if (document.querySelector('#modale-contenitore .modale')) return;
-            modaleNuoviIscritti(nuovi);
+            const sito = (_nlDati && _nlDati.iscritti) || [];
+            if (!vedeEventi) { poi(unisciIscrizioni([sito])); return; }
+            iscrizioniEventiPerAvviso(ev => poi(unisciIscrizioni([ev, sito])));
         });
     }
-    function modaleNuoviIscritti(nuovi) {
-        const conMessaggio = nuovi.filter(n => String(n.messaggio || '').trim());
-        const riga = n => '<div class="ni-riga">'
-            + '<div class="ni-testa"><span class="ni-nome">' + esc(((n.nome || '') + ' ' + (n.cognome || '')).trim() || n.email) + '</span>'
-            + '<span class="ni-quando">' + esc(n.data || '') + '</span></div>'
-            + '<div class="ni-dati">' + esc(n.email)
-            + (n.azienda ? ' &middot; ' + esc(n.azienda) : '')
-            + (n.telefono ? ' &middot; ' + esc(n.telefono) : '') + '</div>'
-            + '<div class="ni-dove">' + esc(n.pagina || 'pagina non indicata') + '</div>'
-            + (String(n.messaggio || '').trim() ? '<div class="ni-messaggio">' + esc(n.messaggio) + '</div>' : '')
-            + '</div>';
+    function avvisaNuoviIscritti() {
+        if (!Cloud.attivo) return;
+        const vedeEventi = puoVedereEventi();
+        const vedeSito = puoVedereNewsletter();
+        if (!vedeEventi && !vedeSito) return;
+        let ultimo = 0;
+        try { ultimo = Number(localStorage.getItem(chiaveVistiNL())) || 0; } catch (e) { ultimo = 0; }
+        const primaVolta = !ultimo;
+        const daQuando = ultimo || (Date.now() - AVV_PRIMA_FINESTRA_MS);
+        raccogliNuoviIscritti(vedeEventi, vedeSito, tutti => {
+            // niente in mano (lettura non riuscita, archivio vuoto): il
+            // segnalibro non si tocca, altrimenti si perderebbe un giorno
+            if (!tutti.length) return;
+            const nuovi = tutti.filter(r => dataIscrizioneMs(r.data) > daQuando)
+                .sort((a, b) => dataIscrizioneMs(b.data) - dataIscrizioneMs(a.data));
+            if (!nuovi.length) {
+                // prima volta e niente di recente: si mette il segnalibro a
+                // oggi, cosi' da domani l'avviso lavora normalmente
+                if (primaVolta) { try { localStorage.setItem(chiaveVistiNL(), String(Date.now())); } catch (e) { } }
+                return;
+            }
+            // se c'e' gia' una finestra aperta (cambio password, avvisi) si aspetta il prossimo ingresso
+            if (document.querySelector('#modale-contenitore .modale')) return;
+            modaleNuoviIscritti(nuovi, primaVolta);
+        });
+    }
+    /* Le iscrizioni raccolte in gruppi, uno per evento, nell'ordine in cui
+       gli eventi sono dichiarati (che e' quello delle date). Cio' che non
+       appartiene a un evento finisce in coda, in un gruppo suo. */
+    function gruppiAvvisoIscritti(elenco) {
+        const gruppi = [], perId = {};
+        elenco.forEach(r => {
+            const e = eventoDiPagina(r.pagina);
+            const id = e ? e.id : '~altri';
+            let g = perId[id];
+            if (!g) {
+                g = perId[id] = {
+                    id: id, idEvento: e ? e.id : '',
+                    breve: e ? e.titolo : 'Altri moduli',
+                    titolo: e ? (e.titolo + ', ' + e.quando) : 'Altri moduli del sito',
+                    righe: []
+                };
+                gruppi.push(g);
+            }
+            g.righe.push(r);
+        });
+        const posto = id => { const i = EVENTI_DEF.findIndex(e => e.id === id); return i < 0 ? 999 : i; };
+        return gruppi.sort((a, b) => posto(a.idEvento) - posto(b.idEvento));
+    }
+    function modaleNuoviIscritti(nuovi, primaVolta) {
+        const vedeEventi = puoVedereEventi();
+        const mostrati = nuovi.slice(0, 50);
+        const conMessaggio = mostrati.filter(n => String(n.messaggio || '').trim());
+        const compatto = mostrati.length >= AVV_COMPATTO_DA;
+        const gruppi = gruppiAvvisoIscritti(mostrati);
+
+        const riga = n => {
+            const msg = String(n.messaggio || '').trim();
+            const nome = ((n.nome || '') + ' ' + (n.cognome || '')).trim() || n.email || 'senza nome';
+            const aperta = !compatto || !!msg;
+            return '<details class="ni-riga"' + (aperta ? ' open' : '') + '>'
+                + '<summary class="ni-testa">'
+                + '<span class="ni-nome">' + esc(nome) + '</span>'
+                + (n.azienda ? '<span class="ni-azienda">' + esc(n.azienda) + '</span>' : '')
+                + (msg ? '<span class="ni-bollo">messaggio</span>' : '')
+                + '<span class="ni-quando">' + esc(n.data || '') + '</span>'
+                + '</summary>'
+                + '<div class="ni-dati">' + esc(n.email || 'senza indirizzo')
+                + (n.ruolo ? ' &middot; ' + esc(n.ruolo) : '')
+                + (n.telefono ? ' &middot; ' + esc(n.telefono) : '') + '</div>'
+                + '<div class="ni-dove">' + esc(n.pagina || 'pagina non indicata') + '</div>'
+                + (msg ? '<div class="ni-messaggio">' + esc(msg) + '</div>' : '')
+                + '</details>';
+        };
+        const gruppo = g => '<div class="ni-gruppo"><div class="ni-gruppo-testa">'
+            + '<span class="ni-gruppo-nome">' + esc(g.titolo) + '</span>'
+            + '<span class="ni-gruppo-n">' + g.righe.length + '</span>'
+            + (g.idEvento && vedeEventi
+                ? '<button type="button" class="btn btn-sm btn-secondary ni-apri" data-ev="' + esc(g.idEvento) + '">Apri</button>'
+                : '')
+            + '</div>' + g.righe.map(riga).join('') + '</div>';
+
+        const riassunto = gruppi.length > 1
+            ? '<div class="ni-sommario">' + gruppi.map(g => esc(g.breve) + ' <b>' + g.righe.length + '</b>').join(' &middot; ')
+            + (compatto ? '<button type="button" class="ni-tutte" id="ni-espandi">Apri tutte</button>' : '')
+            + '</div>'
+            : (compatto ? '<div class="ni-sommario"><span></span><button type="button" class="ni-tutte" id="ni-espandi">Apri tutte</button></div>' : '');
+
         apriModale('<h2>' + nuovi.length + (nuovi.length === 1 ? ' nuova iscrizione dal sito' : ' nuove iscrizioni dal sito') + '</h2>'
-            + '<p class="hint" style="margin:-4px 0 14px;">Da quando hai guardato l\'ultima volta.'
+            + '<p class="hint" style="margin:-4px 0 12px;">'
+            + (primaVolta ? 'Le ultime della settimana: e la prima volta che apri questo avviso.' : 'Da quando hai guardato l\'ultima volta.')
             + (conMessaggio.length ? ' <strong>' + conMessaggio.length + '</strong> ' + (conMessaggio.length === 1 ? 'ha lasciato un messaggio' : 'hanno lasciato un messaggio') + '.' : '')
             + '</p>'
-            + '<div class="ni-elenco">' + nuovi.slice(0, 50).map(riga).join('') + '</div>'
+            + riassunto
+            + '<div class="ni-elenco">' + gruppi.map(gruppo).join('') + '</div>'
             + (nuovi.length > 50 ? '<p class="hint">Mostrate le 50 piu recenti.</p>' : '')
             + '<div class="modale-azioni">'
             + '<button class="btn btn-ghost" id="ni-dopo">Ricordamelo al prossimo accesso</button>'
-            + '<button class="btn btn-secondary" id="ni-vai">Apri la Newsletter</button>'
+            + '<button class="btn btn-secondary" id="ni-vai">' + (vedeEventi ? 'Apri le iscrizioni' : 'Apri la Newsletter') + '</button>'
             + '<button class="btn btn-primary" id="ni-ok">Ho visto</button>'
             + '</div>', { classe: 'larga' });
+
         const segna = () => { try { localStorage.setItem(chiaveVistiNL(), String(Date.now())); } catch (e) { } };
         document.getElementById('ni-dopo').addEventListener('click', chiudiModale);
         document.getElementById('ni-ok').addEventListener('click', () => { segna(); chiudiModale(); });
-        document.getElementById('ni-vai').addEventListener('click', () => { segna(); chiudiModale(); naviga('newsletter'); });
+        document.getElementById('ni-vai').addEventListener('click', () => {
+            segna(); chiudiModale(); naviga(vedeEventi ? 'eventi' : 'newsletter');
+        });
+        const bEsp = document.getElementById('ni-espandi');
+        if (bEsp) bEsp.addEventListener('click', () => {
+            const righe = Array.prototype.slice.call(document.querySelectorAll('#modale-contenitore .ni-riga'));
+            const apri = righe.some(d => !d.open);   // se ne resta anche una chiusa, si apre tutto
+            righe.forEach(d => { d.open = apri; });
+            bEsp.textContent = apri ? 'Chiudi tutte' : 'Apri tutte';
+        });
+        // "Apri" di un gruppo: porta alla sezione gia' sull'evento giusto
+        document.querySelectorAll('#modale-contenitore .ni-apri').forEach(b => b.addEventListener('click', () => {
+            const id = b.dataset.ev;
+            segna(); chiudiModale();
+            if (id && _evSel !== id) apriEvento(id);
+            naviga('eventi');
+        }));
     }
 
     /* Darlo solo entrando non basta: una richiesta di informazioni letta tre
@@ -9465,7 +9638,7 @@
     const NL_SORVEGLIA_MS = 3 * 60 * 1000;
     function avviaSorveglianzaIscritti() {
         fermaSorveglianzaIscritti();
-        if (!Cloud.attivo || !puoVedereNewsletter()) return;
+        if (!Cloud.attivo || (!puoVedereEventi() && !puoVedereNewsletter())) return;
         _nlSorveglia = setInterval(() => {
             if (!Auth.utenteCorrente) { fermaSorveglianzaIscritti(); return; }
             if (document.querySelector('#modale-contenitore .modale')) return;
