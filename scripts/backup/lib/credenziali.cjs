@@ -9,7 +9,7 @@
                              se manca si riusa quella di Firebase)
    ============================================================ */
 
-const { GoogleAuth } = require('google-auth-library');
+const { GoogleAuth, OAuth2Client } = require('google-auth-library');
 
 /* Accetta sia il JSON in chiaro sia lo stesso JSON codificato in base64
    (comodo da incollare nei segreti senza preoccuparsi degli a capo). */
@@ -43,6 +43,35 @@ async function token(cred, ambiti) {
     return valore;
 }
 
+/* Un token che agisce PER CONTO DI UNA PERSONA, non del service account.
+   Serve per scrivere dentro "Il mio Drive": un service account non ha spazio
+   proprio, quindi li' i caricamenti fallirebbero per quota esaurita. Con questo
+   i file risultano di chi ha dato il consenso e occupano il suo spazio. */
+async function tokenPersona(clientId, clientSecret, refreshToken) {
+    const client = new OAuth2Client(clientId, clientSecret);
+    client.setCredentials({ refresh_token: refreshToken });
+    const t = await client.getAccessToken();
+    const valore = typeof t === 'string' ? t : (t && t.token);
+    if (!valore) throw new Error('token utente non ottenuto: il consenso e\' stato revocato o e\' scaduto');
+    return valore;
+}
+
+/* Sceglie da sola come autenticarsi verso Drive:
+     - se ci sono le tre variabili GDRIVE_CLIENT_ID / _SECRET / _REFRESH_TOKEN
+       agisce per conto della persona (unica strada per "Il mio Drive");
+     - altrimenti usa il service account (va bene per i Drive condivisi).
+   Restituisce { valore, modo } cosi' il report dice quale strada ha preso. */
+async function tokenDrive(credRipiego, ambiti) {
+    const id = (process.env.GDRIVE_CLIENT_ID || '').trim();
+    const segreto = (process.env.GDRIVE_CLIENT_SECRET || '').trim();
+    const aggiornamento = (process.env.GDRIVE_REFRESH_TOKEN || '').trim();
+    if (id && segreto && aggiornamento) {
+        return { valore: await tokenPersona(id, segreto, aggiornamento), modo: 'per conto dell\'utente' };
+    }
+    const cred = leggiServiceAccount('GDRIVE_SERVICE_ACCOUNT', false) || credRipiego;
+    return { valore: await token(cred, ambiti), modo: 'service account ' + cred.client_email };
+}
+
 /* GET su un'API Google che risponde in JSON. Restituisce null sui 403/404
    (servizio non abilitato o risorsa assente): sono casi previsti, non errori. */
 async function leggiJson(tok, url) {
@@ -52,4 +81,4 @@ async function leggiJson(tok, url) {
     return r.json();
 }
 
-module.exports = { leggiServiceAccount, token, leggiJson };
+module.exports = { leggiServiceAccount, token, tokenDrive, leggiJson };

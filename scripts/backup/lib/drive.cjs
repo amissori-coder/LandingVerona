@@ -1,10 +1,15 @@
 /* ============================================================
    Caricamento su Google Drive (cartella Backup-NGB)
    ------------------------------------------------------------
-   La cartella di destinazione sta su un Drive condiviso, quindi tutte le
-   chiamate passano supportsAllDrives: senza, l'API fa finta che la cartella
-   non esista. Il service account deve essere membro del Drive condiviso con
-   permesso di scrittura (Editor).
+   Backup-NGB sta dentro "Il mio Drive" di a.missori. Questo decide CHI puo'
+   scriverci: un service account non ha spazio proprio, quindi li' fallisce per
+   quota qualunque permesso gli si dia. Serve un token che agisca per conto
+   della persona (vedi tokenDrive in credenziali.cjs), oppure va spostata la
+   cartella su un Drive condiviso.
+
+   Le chiamate passano comunque supportsAllDrives, cosi' il giorno in cui la
+   cartella si sposta su un Drive condiviso continua a funzionare senza
+   toccare niente.
 
    I file oltre i 5 MB salgono con l'upload ripartibile, a blocchi, cosi' un
    video da centinaia di MB non viene tenuto tutto in memoria.
@@ -18,6 +23,31 @@ const SOGLIA_RIPARTIBILE = 5 * 1024 * 1024;
 const COMUNI = 'supportsAllDrives=true&includeItemsFromAllDrives=true';
 
 function scappaApici(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+/* Gli errori di Drive che capitano davvero, tradotti in cosa fare.
+   Il primo e' quasi obbligatorio da spiegare: un service account non ha spazio
+   proprio, quindi dentro "Il mio Drive" non riesce a scrivere qualunque
+   permesso gli si dia. Il messaggio grezzo di Google non lo lascia capire. */
+function spiega(testo) {
+    if (/storageQuotaExceeded/i.test(testo)) {
+        return 'la cartella e\' dentro "Il mio Drive" e sta scrivendo un service account, ' +
+            'che non ha spazio proprio. Servono le tre variabili GDRIVE_CLIENT_ID / _SECRET / ' +
+            '_REFRESH_TOKEN per scrivere per conto dell\'utente, oppure va spostata la cartella ' +
+            'su un Drive condiviso. Vedi scripts/backup/README.md';
+    }
+    if (/File not found|notFound/i.test(testo)) {
+        return 'cartella non trovata: controlla GDRIVE_FOLDER_ID e che chi scrive abbia accesso alla cartella';
+    }
+    if (/insufficientFilePermissions|forbidden/i.test(testo)) {
+        return 'permessi insufficienti: la cartella va condivisa in scrittura con chi esegue il backup';
+    }
+    return testo.slice(0, 300);
+}
+
+async function errore(prefisso, risposta) {
+    const testo = await risposta.text();
+    return new Error(prefisso + ' HTTP ' + risposta.status + ': ' + spiega(testo));
+}
 
 async function conRiprova(operazione, tentativi = 4) {
     let ultimo;
@@ -40,7 +70,7 @@ async function elenca(tok, idCartella) {
             '&fields=nextPageToken,files(id,name,size,mimeType)&pageSize=1000' +
             (pagina ? '&pageToken=' + encodeURIComponent(pagina) : '');
         const r = await conRiprova(() => fetch(url, { headers: { Authorization: 'Bearer ' + tok } }));
-        if (!r.ok) throw new Error('Drive elenco HTTP ' + r.status + ': ' + (await r.text()).slice(0, 300));
+        if (!r.ok) throw await errore('Drive elenco', r);
         const dati = await r.json();
         trovati.push(...(dati.files || []));
         pagina = dati.nextPageToken || '';
@@ -56,7 +86,7 @@ async function trovaOCreaCartella(tok, nome, idPadre) {
     );
     const url = 'https://www.googleapis.com/drive/v3/files?q=' + q + '&' + COMUNI + '&fields=files(id,name)';
     const r = await conRiprova(() => fetch(url, { headers: { Authorization: 'Bearer ' + tok } }));
-    if (!r.ok) throw new Error('Drive ricerca cartella HTTP ' + r.status + ': ' + (await r.text()).slice(0, 300));
+    if (!r.ok) throw await errore('Drive ricerca cartella', r);
     const dati = await r.json();
     if (dati.files && dati.files.length) return dati.files[0].id;
 
@@ -65,7 +95,7 @@ async function trovaOCreaCartella(tok, nome, idPadre) {
         headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: nome, mimeType: 'application/vnd.google-apps.folder', parents: [idPadre] })
     }));
-    if (!creazione.ok) throw new Error('Drive creazione cartella HTTP ' + creazione.status + ': ' + (await creazione.text()).slice(0, 300));
+    if (!creazione.ok) throw await errore('Drive creazione cartella', creazione);
     return (await creazione.json()).id;
 }
 
@@ -86,7 +116,7 @@ async function caricaPiccolo(tok, percorso, nome, idCartella) {
             body: Buffer.concat([testa, contenuto, coda])
         }
     ));
-    if (!r.ok) throw new Error('Drive upload HTTP ' + r.status + ': ' + (await r.text()).slice(0, 300));
+    if (!r.ok) throw await errore('Drive upload', r);
     return (await r.json()).id;
 }
 
@@ -105,7 +135,7 @@ async function caricaGrande(tok, percorso, nome, idCartella) {
             body: JSON.stringify({ name: nome, parents: [idCartella] })
         }
     ));
-    if (!avvio.ok) throw new Error('Drive avvio upload HTTP ' + avvio.status + ': ' + (await avvio.text()).slice(0, 300));
+    if (!avvio.ok) throw await errore('Drive avvio upload', avvio);
     const sessione = avvio.headers.get('location');
     if (!sessione) throw new Error('Drive: sessione di upload non restituita per ' + nome);
 
@@ -115,7 +145,7 @@ async function caricaGrande(tok, percorso, nome, idCartella) {
         body: fs.createReadStream(percorso),
         duplex: 'half'
     });
-    if (!invio.ok) throw new Error('Drive upload HTTP ' + invio.status + ': ' + (await invio.text()).slice(0, 300));
+    if (!invio.ok) throw await errore('Drive upload', invio);
     return (await invio.json()).id;
 }
 

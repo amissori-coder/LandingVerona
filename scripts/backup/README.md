@@ -44,19 +44,47 @@ regole o parametri di cifratura risultassero vuoti nel report, aggiungi i ruoli
 
 ### 2. Copia su Google Drive (facoltativo ma consigliato)
 
-Senza questi, il backup funziona lo stesso ma le copie restano allegate
+Senza questa parte il backup funziona lo stesso: le copie restano allegate
 all'esecuzione (artifact, 90 giorni) invece di finire in `Backup-NGB`.
 
-- `GDRIVE_FOLDER_ID` — l'id della cartella Backup-NGB:
-  `1mDoyhjZUX_3OogUu9LX-cJA7a9IhV0c-`
-- `GDRIVE_SERVICE_ACCOUNT` — una chiave con accesso a Drive. Se non la imposti,
-  si riusa quella di Firebase.
+In ogni caso serve il segreto:
 
-In entrambi i casi la cartella `Backup-NGB` va **condivisa** con l'indirizzo
-`client_email` del service account, con permesso di *Gestore dei contenuti*.
-La cartella sta su un Drive condiviso: è la sistemazione giusta, perché un
-service account non ha spazio proprio e su "Il mio Drive" gli upload
-fallirebbero per quota.
+- `GDRIVE_FOLDER_ID` = `1mDoyhjZUX_3OogUu9LX-cJA7a9IhV0c-`
+
+Poi c'è una scelta da fare, e non è una formalità. **`Backup-NGB` sta dentro
+"Il mio Drive" di a.missori@emvas.tax, non in un Drive condiviso.** Un service
+account non possiede spazio su Drive: dentro "Il mio Drive" i suoi caricamenti
+falliscono con `storageQuotaExceeded` qualunque permesso gli si dia. Quindi:
+
+**Strada A — spostare la cartella su un Drive condiviso** *(consigliata)*
+
+Crea (o usa) un Drive condiviso, sposta dentro `Backup-NGB`, aggiungi
+l'indirizzo `client_email` del service account come *Gestore dei contenuti*.
+Poi basta `GDRIVE_SERVICE_ACCOUNT` (o si riusa la chiave di Firebase). I file
+appartengono al Drive condiviso e usano il suo spazio; non c'è niente che
+scade. L'id della cartella non cambia spostandola, quindi `GDRIVE_FOLDER_ID`
+resta valido.
+
+**Strada B — scrivere per conto dell'utente** *(se il Drive condiviso non c'è)*
+
+Si lascia la cartella dov'è e il backup scrive come se fossi tu. Servono tre
+segreti, ottenuti una volta sola da Google Cloud Console → *API e servizi* →
+*Credenziali* → *ID client OAuth* (tipo: applicazione desktop), poi uno scambio
+del codice di consenso con l'ambito `https://www.googleapis.com/auth/drive`:
+
+- `GDRIVE_CLIENT_ID`
+- `GDRIVE_CLIENT_SECRET`
+- `GDRIVE_REFRESH_TOKEN`
+
+I file risultano tuoi e occupano il tuo spazio. Da tenere presente: il token di
+aggiornamento si invalida se cambi password, se revochi l'accesso all'app, o se
+l'app resta in stato *Test* sulla schermata di consenso (in quel caso scade
+dopo 7 giorni — va portata in *Produzione*).
+
+Il codice sceglie da solo: se trova le tre variabili della strada B le usa,
+altrimenti va di service account. Il report scrive quale strada ha preso, e se
+il caricamento fallisce per quota lo dice in chiaro invece di lasciare
+l'errore grezzo di Google.
 
 ## Provarlo subito
 
