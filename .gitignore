@@ -7,3 +7,9 @@ badge-napoli/node_modules/
 badge-napoli/out/
 badge-napoli/partecipanti.json
 badge-napoli/iscritti.csv
+
+# Backup notturno: dipendenze e copie prodotte dalle esecuzioni locali.
+# Le copie vere stanno su Google Drive e fra gli allegati delle esecuzioni.
+scripts/backup/node_modules/
+scripts/backup/package-lock.json
+backup-uscita/
