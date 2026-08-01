@@ -23,7 +23,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const admin = require('firebase-admin');
 
-const { leggiServiceAccount, token } = require('./lib/credenziali.cjs');
+const { leggiServiceAccount, token, tokenDrive } = require('./lib/credenziali.cjs');
 const firestore = require('./lib/firestore.cjs');
 const configurazione = require('./lib/configurazione.cjs');
 const verifiche = require('./lib/verifiche.cjs');
@@ -258,12 +258,13 @@ async function principale() {
     /* ---------- copia su Google Drive ---------- */
     log('--- 6) Copia su Google Drive ---');
     const idCartella = (process.env.GDRIVE_FOLDER_ID || '').trim();
-    const credDrive = leggiServiceAccount('GDRIVE_SERVICE_ACCOUNT', false) || cred;
     if (!idCartella) {
         log('  saltata: GDRIVE_FOLDER_ID non impostato (il backup resta come artifact di questa esecuzione)');
     } else {
         await passo('copia su Drive', async () => {
-            const tokDrive = await token(credDrive, drive.AMBITI);
+            const scelta = await tokenDrive(cred, drive.AMBITI);
+            const tokDrive = scelta.valore;
+            log('  accesso a Drive: ' + scelta.modo);
             const idBackup = await drive.trovaOCreaCartella(tokDrive, etichetta, idCartella);
             let quanti = 0;
             for (const nome of fs.readdirSync(uscita)) {
