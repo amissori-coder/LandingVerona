@@ -1,0 +1,97 @@
+name: Backup notturno
+
+# Sostituisce l'attivita' pianificata di Windows delle 03:00, ferma da quando
+# il PC si e' rotto. Girando qui non dipende piu' da nessun computer.
+#
+# Segreti richiesti (Settings > Secrets and variables > Actions):
+#   FIREBASE_SERVICE_ACCOUNT  obbligatorio - chiave del service account Firebase
+#   GDRIVE_SERVICE_ACCOUNT    facoltativo  - chiave per scrivere su Drive
+#                                            (se manca si riusa quella Firebase)
+#   GDRIVE_FOLDER_ID          facoltativo  - id della cartella Backup-NGB
+#
+# Senza i due facoltativi il backup funziona lo stesso: le copie restano
+# allegate all'esecuzione (artifact) invece di finire su Drive.
+#
+# ATTENZIONE: le esecuzioni pianificate partono SOLO dal ramo predefinito del
+# repository. Finche' questo file sta su un altro ramo, il backup va lanciato
+# a mano da Actions > Backup notturno > Run workflow.
+
+on:
+  schedule:
+    # 01:00 UTC = 03:00 in Italia con l'ora legale, 02:00 con l'ora solare.
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      includi_bundle:
+        description: "Includere la storia git completa (pesante, di norma solo la domenica)"
+        type: boolean
+        default: false
+      salta_video:
+        description: "Saltare i video allegati alle release"
+        type: boolean
+        default: false
+
+concurrency:
+  group: backup-notturno
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Scarica il repository con tutta la storia
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepara Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Installa le dipendenze del backup
+        run: npm install --prefix scripts/backup --no-audit --no-fund
+
+      - name: Esegui il backup
+        id: backup
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GDRIVE_SERVICE_ACCOUNT: ${{ secrets.GDRIVE_SERVICE_ACCOUNT }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARTELLA_BACKUP: ${{ github.workspace }}/backup-uscita
+          INCLUDI_BUNDLE: ${{ inputs.includi_bundle && 'si' || '' }}
+          SALTA_VIDEO: ${{ inputs.salta_video && 'si' || '' }}
+        run: node scripts/backup/esegui-backup.cjs
+
+      - name: Conserva la copia come allegato dell'esecuzione
+        # Anche quando il backup segnala problemi: serve proprio a capire cosa
+        # e' andato storto. La storia git completa resta fuori: GitHub ce l'ha
+        # gia', copiarla dentro GitHub non aggiunge nessuna sicurezza.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ steps.backup.outputs.etichetta || github.run_id }}
+          path: |
+            backup-uscita/**
+            !backup-uscita/**/repo-full.bundle
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Riepilogo
+        if: always()
+        run: |
+          echo "### Backup notturno" >> "$GITHUB_STEP_SUMMARY"
+          FILE=$(find backup-uscita -name report.txt | head -1)
+          if [ -n "$FILE" ]; then
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat "$FILE" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Nessun report prodotto: il backup si e' interrotto prima." >> "$GITHUB_STEP_SUMMARY"
+          fi

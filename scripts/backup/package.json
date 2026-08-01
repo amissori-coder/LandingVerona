@@ -1,0 +1,10 @@
+{
+  "name": "ngb-backup",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backup notturno di nextgenerationbusiness.it e dell'Area riservata (codice, dati Firestore, accessi, configurazione)",
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "google-auth-library": "^9.14.1"
+  }
+}
