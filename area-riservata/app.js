@@ -262,7 +262,7 @@
         { id: 'incarichi', nome: 'Incarichi' },
         { id: 'fatturazione', nome: 'Fatturazione' },
         { id: 'report', nome: 'Report compensi' },
-        { id: 'persone', nome: 'Persone' },
+        { id: 'persone', nome: 'Aderenti Revilaw' },
         { id: 'comunicazioni', nome: 'Comunicazione teams di revisione' },
         { id: 'sondaggi', nome: 'Sondaggi' },
         { id: 'registro', nome: 'Registro modifiche' }
@@ -272,7 +272,7 @@
     /* Ruoli predefiniti: coincidono con i ruoli storici (admin/qualita/procuratore) cosi' gli
        utenti gia' presenti continuano a funzionare esattamente come prima (accesso pieno).
        "Coordinatore territoriale" e il suo vice sono ruoli di sistema: SEMPRE in sola
-       visualizzazione, limitati agli incarichi delle regioni della loro scheda in Persone
+       visualizzazione, limitati agli incarichi delle regioni della loro scheda in Aderenti Revilaw
        (la Regione della scheda piu' le eventuali altre regioni coordinate). */
     const RUOLI_DEFAULT = [
         { id: 'admin', nome: 'Amministratore', builtin: true, sezioni: sezioniTutte('scrittura') },
@@ -980,7 +980,7 @@
             if (r) return Ruoli.normalizza(r);
             return { id: u.ruolo || '', nome: u.ruolo || 'Senza ruolo', sconosciuto: true, sezioni: sezioniTutte('no') };
         },
-        /* La scheda in Persone dell'utente collegato (agganciata per email): per il
+        /* La scheda in Aderenti Revilaw dell'utente collegato (agganciata per email): per il
            Coordinatore territoriale e' li' che sta scritta la sua regione.
            Se per errore due schede hanno la stessa email, vince la piu' completa
            (attiva e con la regione compilata), non la prima in elenco. */
@@ -1021,7 +1021,7 @@
             return this.accessoSezione(sez) === 'scrittura';
         },
         /* null = tutte le regioni. Solo coordinatore e vice sono limitati: alla Regione della
-           LORO scheda in Persone (agganciata per email) piu' le eventuali altre regioni
+           LORO scheda in Aderenti Revilaw (agganciata per email) piu' le eventuali altre regioni
            coordinate indicate sulla scheda. Scheda mancante o senza alcuna regione = nessun
            incarico visibile (fail-closed): si sistema compilando la scheda. */
         regioniConsentite() {
@@ -2769,11 +2769,18 @@
     const VOCI_NAV = [
         { id: 'dashboard', nome: 'Cruscotto', icona: 'M3 13h8V3H3zm10 8h8V11h-8zM3 21h8v-6H3zm10-18v6h8V3z' },
         { id: 'incarichi', nome: 'Incarichi', icona: 'M4 6h16M4 12h16M4 18h10' },
-        { id: 'fatturazione', nome: 'Fatturazione', icona: 'M9 14l2 2 4-4M5 3h14a1 1 0 011 1v16l-3-2-2 2-3-2-2 2-3-2-3 2V4a1 1 0 011-1z' },
-        { id: 'report', nome: 'Report compensi', icona: 'M4 20V10m6 10V4m6 16v-7m4 7H2' },
-        { id: 'persone', nome: 'Persone', icona: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-        { id: 'coordinatori', nome: 'Coordinatori e vice', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
-        { id: 'responsabili', nome: 'Responsabili', icona: 'M9 12l2 2 4-4M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z' },
+        /* MACROAREA DEI COMPENSI. Fatturazione e Report compensi guardano gli
+           stessi importi da due lati: quando si incassano e quanto valgono. Sotto
+           un'intestazione sola si capisce che sono due letture della stessa cosa. */
+        { id: 'fatturazione', nome: 'Fatturazione', gruppo: 'Compensi', icona: 'M9 14l2 2 4-4M5 3h14a1 1 0 011 1v16l-3-2-2 2-3-2-2 2-3-2-3 2V4a1 1 0 011-1z' },
+        { id: 'report', nome: 'Report compensi', gruppo: 'Compensi', icona: 'M4 20V10m6 10V4m6 16v-7m4 7H2' },
+        /* MACROAREA DEGLI ADERENTI. L'anagrafica e le due viste che ne derivano
+           (chi coordina un territorio, chi e' responsabile di qualita o incarico)
+           sono la stessa scheda letta in tre modi: stanno insieme, cosi' si vede
+           subito che i dati di Coordinatori e Responsabili si cambiano da qui. */
+        { id: 'persone', nome: 'Aderenti Revilaw', gruppo: 'Gestione aderenti', icona: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+        { id: 'coordinatori', nome: 'Coordinatori e vice', gruppo: 'Gestione aderenti', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
+        { id: 'responsabili', nome: 'Responsabili', gruppo: 'Gestione aderenti', icona: 'M9 12l2 2 4-4M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z' },
         /* MACROAREA DELLE COMUNICAZIONI. Le tre sezioni che mandano messaggi fuori
            stavano sparse nell'elenco, con i Sondaggi in mezzo: una accanto
            all'altra, sotto un'intestazione, si capisce a colpo d'occhio che sono
@@ -2796,7 +2803,7 @@
     let _timerRefresh = null;
     let statoModifica = null;        // {tipo,id,etichetta} di cio che sto modificando ora (per la presenza)
     let _modalePersonaAperta = false; // per azzerare statoModifica alla chiusura della scheda persona
-    // sottopagine di un incarico: entrarci da una sezione (es. Persone) fa ricordare dove tornare
+    // sottopagine di un incarico: entrarci da una sezione (es. Aderenti Revilaw) fa ricordare dove tornare
     const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera'];
     let origineNav = null;           // {vista, parametri, scrollY} della sezione da cui si e entrati nel flusso
 
@@ -2849,7 +2856,7 @@
         if (typeof Cloud !== 'undefined' && Cloud.pubblicaPresenza) Cloud.pubblicaPresenza();
     }
     /* Torna alla sezione da cui si e entrati nel flusso di un incarico, ripristinando lo
-       scorrimento (la scheda della sezione, es. il tab di Persone, e gia persistente). */
+       scorrimento (la scheda della sezione, es. il tab di Aderenti Revilaw, e gia persistente). */
     function tornaOrigine(fallback) {
         if (origineNav && !SOTTOVISTE.includes(origineNav.vista)) {
             const o = origineNav; origineNav = null;
@@ -2914,7 +2921,7 @@
     }
 
     /* Nome del ruolo nella barra laterale; per il coordinatore anche la regione, cosi' si
-       capisce subito cosa si sta vedendo (e perche' tutto e' vuoto se la scheda in Persone
+       capisce subito cosa si sta vedendo (e perche' tutto e' vuoto se la scheda in Aderenti Revilaw
        non ha la regione). Richiamata a ogni cambio vista: resta aggiornata anche quando
        l'anagrafica cambia mentre si e' collegati. */
     function aggiornaEtichettaUtente() {
@@ -3003,62 +3010,6 @@
         // fatturato dell'anno a rischio (incarichi in scadenza / scaduti)
         const scadenzaTot = inScadenza.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
         const scadutoTot = scaduti.reduce((s, i) => s + Incarichi.compensoAnno(i, anno), 0);
-        /* Raggruppamento per coordinatore territoriale (solo incarichi attivi).
-           Il coordinatore non e' piu' un campo dell'incarico: si ricava dalle SCHEDE in
-           Persone (spunta "Coordinatore territoriale"), abbinando le regioni della scheda
-           (Regione + altre regioni coordinate) alla regione dell'incarico. Un incarico la
-           cui regione non e' coperta da nessun coordinatore finisce in "Senza coordinatore". */
-        const coordinatori = Persone.tutte().filter(p => p.coordinatore && p.attivo && !p.eliminato).map(p => ({
-            nome: (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome,
-            regioni: new Set([p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : [])
-                .map(chiaveRegione).filter(Boolean))
-        }));
-        const perCoord = {};
-        const aggiungi = (key, nome, i, comp, s) => {
-            const g = perCoord[key] || (perCoord[key] = { nome: nome, incarichi: [], tot: 0, scadN: 0, scadTot: 0, scaduN: 0, scaduTot: 0 });
-            g.incarichi.push(i); g.tot += comp;
-            if (s.classe === 'ambra') { g.scadN++; g.scadTot += comp; }
-            else if (s.classe === 'rosso') { g.scaduN++; g.scaduTot += comp; }
-        };
-        attivi.forEach(i => {
-            const reg = chiaveRegione(i.regione || '');
-            const comp = Incarichi.compensoAnno(i, anno);
-            const s = Incarichi.statoScadenza(i);
-            const suoi = reg ? coordinatori.filter(c => c.regioni.has(reg)) : [];
-            if (suoi.length) suoi.forEach(c => aggiungi(c.nome, c.nome, i, comp, s));
-            else aggiungi('', '', i, comp, s);
-        });
-        const coordList = Object.values(perCoord).sort((a, b) => b.tot - a.tot);
-        const maxCoord = Math.max(1, ...coordList.map(g => g.tot));
-        const rigaCoordIncarico = i => {
-            const s = Incarichi.statoScadenza(i);
-            return `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
-                <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
-                <td data-label="Scadenza">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
-                <td class="num" data-label="Compenso ${anno}">${Incarichi.compensoAnno(i, anno) ? eurFmt.format(Incarichi.compensoAnno(i, anno)) : ''}</td>
-                <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                ${puoRinnovare ? `<td data-label="" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button></td>` : ''}
-            </tr>`;
-        };
-        const coordItem = g => {
-            const pct = Math.round(g.tot / maxCoord * 100);
-            const incs = g.incarichi.slice().sort((a, b) => (b.rinnovo || b.dataFine || '') < (a.rinnovo || a.dataFine || '') ? 1 : -1);
-            return `<details class="coord-item">
-                <summary class="coord-sommario">
-                    <span class="coord-nome">${g.nome ? esc(g.nome) : '<em>Senza coordinatore</em>'}</span>
-                    <span class="coord-barra"><span class="coord-barra-fill" style="width:${pct}%"></span></span>
-                    <span class="coord-tot">${eurFmt.format(g.tot)}</span>
-                    <span class="coord-n">${g.incarichi.length} inc.</span>
-                    <span class="coord-badges">${g.scadN ? `<span class="badge ambra" title="In scadenza">${g.scadN} &middot; ${eurFmt.format(g.scadTot)}</span>` : ''}${g.scaduN ? `<span class="badge rosso" title="Scaduti">${g.scaduN} &middot; ${eurFmt.format(g.scaduTot)}</span>` : ''}</span>
-                </summary>
-                <div class="coord-dettaglio">
-                    <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                        <th>Cliente</th><th>Tipo</th><th>Scadenza</th><th class="num">Compenso ${anno}</th><th>Stato</th>${puoRinnovare ? '<th></th>' : ''}
-                    </tr></thead><tbody>${incs.map(rigaCoordIncarico).join('')}</tbody></table></div>
-                </div>
-            </details>`;
-        };
 
         $vista().innerHTML = `
             <header>
@@ -3108,11 +3059,6 @@
                 <h2>Andamento compensi per anno</h2>
                 <p class="hint" style="margin:-6px 0 10px;">Passa sopra le barre per il dettaglio. Nell'anno in corso il fatturato <span style="color:#C9A227;font-weight:600;">in scadenza</span> e <span style="color:#C0392B;font-weight:600;">scaduto</span> e evidenziato nella barra.</p>
                 <div id="grafico-compensi"></div>
-            </div>
-            <div class="card">
-                <h2>Incarichi e fatturato per coordinatore territoriale</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Ogni coordinatore vede gli incarichi delle sue regioni (dalla scheda in Persone). Clicca su un coordinatore per l'elenco; le pastiglie mostrano quanti (e quanto fatturato) sono in scadenza o scaduti.</p>
-                ${coordList.length ? '<div class="coord-lista">' + coordList.map(coordItem).join('') + '</div>' : '<p class="tabella-vuota">Nessun incarico attivo.</p>'}
             </div>
             <div class="card" id="sez-scadenze-dash">
                 <h2>Incarichi in scadenza o scaduti</h2>
@@ -3459,7 +3405,7 @@
         const s = Incarichi.statoScadenza(inc);
         const anni = Object.keys(inc.compensi || {}).map(Number).sort();
         const storia = Store.leggi(CHIAVI.audit, []).filter(v => v.rif === inc.id);
-        // "torna indietro": la sezione da cui si e entrati (es. Persone), altrimenti Incarichi
+        // "torna indietro": la sezione da cui si e entrati (es. Aderenti Revilaw), altrimenti Incarichi
         const tornaEt = (origineNav && !SOTTOVISTE.includes(origineNav.vista))
             ? ((VOCI_NAV.find(x => x.id === origineNav.vista) || {}).nome || 'indietro') : 'Incarichi';
 
@@ -3958,7 +3904,7 @@
             const nTeam = selezionabili.length + precedenti.length;
             corpo.innerHTML = `
                 <h2>Team di revisione</h2>
-                <p class="descrizione" style="margin-bottom:12px;">Assegna i ruoli e scegli i componenti del team. I nominativi si gestiscono dalla vista Persone.</p>
+                <p class="descrizione" style="margin-bottom:12px;">Assegna i ruoli e scegli i componenti del team. I nominativi si gestiscono dalla vista Aderenti Revilaw.</p>
                 <div class="griglia-2">
                     <div class="campo"><label>Responsabile incarico *</label>
                         <select id="w-resp"><option value="">Seleziona</option>${opzioni(Persone.attiveEtichette('respIncarico'), d.respIncarico)}</select>
@@ -3984,7 +3930,7 @@
                             ${nTeam ? (
                                 precedenti.map(pr => `<label class="team-opz" data-nome="${esc(pr.etichetta)}" style="background:var(--ambra-bg);border-radius:6px;"><input type="checkbox" class="w-team-check" value="${esc(pr.valore)}" data-etich="${esc(pr.etichetta)}" checked><span>${esc(pr.etichetta)} <span class="badge ambra">precedente: ${esc(pr.motivo)}</span></span></label>`).join('')
                                 + selezionabili.map(s => `<label class="team-opz" data-nome="${esc(s.etichetta)}"><input type="checkbox" class="w-team-check" value="${esc(s.etichetta)}" ${s.sel ? 'checked' : ''}><span>${esc(s.etichetta)}</span></label>`).join('')
-                            ) : '<div class="hint" style="padding:6px;">Nessun nominativo in anagrafica: aggiungili dalla vista Persone.</div>'}
+                            ) : '<div class="hint" style="padding:6px;">Nessun nominativo in anagrafica: aggiungili dalla vista Aderenti Revilaw.</div>'}
                         </div>
                     </div>
                 </div>`;
@@ -4757,7 +4703,7 @@
         } else if (w.modalita === 'modifica') {
             Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Modifica incarico');
             toast('Incarico aggiornato.', 'verde');
-            // a fine modifica torna alla sezione da cui si era partiti (es. Persone), altrimenti al dettaglio
+            // a fine modifica torna alla sezione da cui si era partiti (es. Aderenti Revilaw), altrimenti al dettaglio
             tornaOrigine(() => naviga('dettaglio', { id: w.idEsistente }));
         } else {
             // un nuovo incarico nasce come PROPOSTA: va confermato per entrare in fatturazione/compensi
@@ -5135,7 +5081,7 @@
     }
 
     /* =========================================================
-       VISTA: PERSONE (anagrafica del team)
+       VISTA: ADERENTI REVILAW (anagrafica del team)
     ========================================================= */
     /* Incarichi in cui una persona compare, con il ruolo che vi ricopre.
        Il collegamento e' per cognome (negli incarichi i nomi sono testo), come nel resto
@@ -5253,7 +5199,7 @@
         $vista().innerHTML = `
             <header>
                 <div>
-                    <h1>Persone</h1>
+                    <h1>Aderenti Revilaw</h1>
                     <p class="descrizione">Anagrafica completa: nominativi, contatti (email, telefono, regione) e ruoli. Chi puo essere responsabile della qualita o responsabile dell'incarico. Le tendine del wizard leggono da questo elenco.</p>
                 </div>
                 <div class="header-azioni">
@@ -5324,7 +5270,7 @@
 
     /* =========================================================
        VISTA: COORDINATORI E VICE (dall'anagrafica), in 3 schede:
-       Coordinatori, Vice coordinatori, Per regione. Permessi come Persone.
+       Coordinatori, Vice coordinatori, Per regione. Permessi come Aderenti Revilaw.
     ========================================================= */
     let coordTab = 'coordinatori'; // 'coordinatori' | 'vice' | 'regione'
 
@@ -5346,7 +5292,7 @@
 
         // tabella persone (usata per Coordinatori e per Vice)
         const tabellaPersone = (lista, ruolo) => {
-            if (!lista.length) return `<div class="card tabella-vuota">Nessun ${ruolo === 'vice' ? 'vice coordinatore' : 'coordinatore'} in anagrafica: spunta la relativa casella nella scheda della persona (sezione Persone).</div>`;
+            if (!lista.length) return `<div class="card tabella-vuota">Nessun ${ruolo === 'vice' ? 'vice coordinatore' : 'coordinatore'} in anagrafica: spunta la relativa casella nella scheda della persona (sezione Aderenti Revilaw).</div>`;
             const righe = lista.map(p => {
                 const regioni = regioniCoperte(p);
                 const chiavi = new Set(regioni.map(chiaveRegione));
@@ -5411,7 +5357,7 @@
             <header>
                 <div>
                     <h1>Coordinatori e vice</h1>
-                    <p class="descrizione">Coordinatori territoriali e vice dall'anagrafica, con le regioni coperte e gli incarichi attivi di quelle regioni. Le regioni si impostano nella scheda della persona (sezione Persone).</p>
+                    <p class="descrizione">Coordinatori territoriali e vice dall'anagrafica, con le regioni coperte e gli incarichi attivi di quelle regioni. Le regioni si impostano nella scheda della persona (sezione Aderenti Revilaw).</p>
                 </div>
             </header>
             ${tabBar}${corpo}
@@ -5428,7 +5374,7 @@
     /* =========================================================
        VISTA: RESPONSABILI (qualita e incarico), con gli incarichi associati.
        Un incarico "associa" una persona quando il campo qualita/respIncarico
-       dell'incarico coincide col suo cognome. Permessi come Persone.
+       dell'incarico coincide col suo cognome. Permessi come Aderenti Revilaw.
     ========================================================= */
     let respTab = 'qualita'; // 'qualita' | 'incarico'
 
@@ -5502,13 +5448,13 @@
                 </tr>`;
             }).join('') +
             `</tbody></table></div>`
-            : `<div class="card tabella-vuota">Nessun ${respTab === 'incarico' ? 'responsabile incarico' : 'responsabile qualita'} in anagrafica: spunta la relativa casella nella scheda della persona (sezione Persone).</div>`;
+            : `<div class="card tabella-vuota">Nessun ${respTab === 'incarico' ? 'responsabile incarico' : 'responsabile qualita'} in anagrafica: spunta la relativa casella nella scheda della persona (sezione Aderenti Revilaw).</div>`;
 
         $vista().innerHTML = `
             <header>
                 <div>
                     <h1>Responsabili</h1>
-                    <p class="descrizione">Responsabili della qualita e responsabili dell'incarico dall'anagrafica, con gli incarichi in cui ricoprono quel ruolo. Clicca il numero per vedere quali. I ruoli si assegnano nella scheda della persona (sezione Persone).</p>
+                    <p class="descrizione">Responsabili della qualita e responsabili dell'incarico dall'anagrafica, con gli incarichi in cui ricoprono quel ruolo. Clicca il numero per vedere quali. I ruoli si assegnano nella scheda della persona (sezione Aderenti Revilaw).</p>
                 </div>
             </header>
             <div class="tab-dest" style="margin-bottom:16px;">
@@ -5655,7 +5601,7 @@
                 toast('Persona aggiunta: ' + nome, 'verde');
             }
             chiudiModale();
-            // ridisegna la vista da cui si e' aperta la scheda (Persone, Coordinatori o Responsabili)
+            // ridisegna la vista da cui si e' aperta la scheda (Aderenti Revilaw, Coordinatori o Responsabili)
             naviga(['coordinatori', 'responsabili'].includes(vistaCorrente) ? vistaCorrente : 'persone');
         }));
     }
@@ -6042,9 +5988,9 @@
     }
     // nuovo tentativo esplicito dopo un errore (pulsante "Riprova")
     function ricaricaUtentiSond(cb) { _sondUtenti = null; _sondUtentiKo = false; utentiSond(cb); }
-    // gruppi del sondaggio, allineati alla sezione Persone (niente "Team di revisione";
+    // gruppi del sondaggio, allineati alla sezione Aderenti Revilaw (niente "Team di revisione";
     // "Tutte le persone" = tutta l'anagrafica con email). Gli invitati si scelgono dalle
-    // Persone: chi non e' anche un utente con ruolo avra' accesso "solo sondaggio".
+    // schede degli aderenti: chi non e' anche un utente con ruolo avra' accesso "solo sondaggio".
     const GRUPPI_SOND = [
         { id: 'qualita', nome: 'Responsabili qualita' },
         { id: 'procuratori', nome: 'Procuratori (resp. incarico)' },
@@ -6053,7 +5999,7 @@
         { id: 'tutti', nome: 'Tutte le persone' }
     ];
     function nomeGruppoSond(id) { const g = GRUPPI_SOND.find(x => x.id === id); return g ? g.nome : id; }
-    // risolve i gruppi del sondaggio in email leggendo la sezione Persone (anagrafica).
+    // risolve i gruppi del sondaggio in email leggendo la sezione Aderenti Revilaw (anagrafica).
     // Vecchi id 'team'/'utenti' -> tutte le persone (retrocompatibilita').
     function risolviGruppiSond(gruppi) {
         const set = new Set(); const g = new Set(gruppi || []);
@@ -6067,7 +6013,7 @@
         });
         return set;
     }
-    // insieme delle email dei COMPILATORI = gruppi (da Persone) + singole persone
+    // insieme delle email dei COMPILATORI = gruppi (dagli aderenti) + singole persone
     function emailInvitate(cfg) {
         const set = risolviGruppiSond(cfg.gruppi);
         (cfg.invitati || []).forEach(e => set.add(String(e).toLowerCase()));
@@ -6083,7 +6029,7 @@
         const e = String(email || '').toLowerCase();
         return emailVisualizzatori(cfg).has(e) && !emailInvitate(cfg).has(e);
     }
-    // elenco {email, nome} degli invitati (nomi dalla sezione Persone)
+    // elenco {email, nome} degli invitati (nomi dalla sezione Aderenti Revilaw)
     function elencoInvitati(cfg) {
         const set = emailInvitate(cfg);
         const nomeDi = {};
@@ -6598,13 +6544,13 @@
                     + '<span class="mi-nome">' + esc(p.nome) + '</span><span class="mi-mail">' + esc(e) + '</span>'
                     + (soloSond ? '<span class="mi-badge">solo sondaggio</span>' : '') + '</div>';
             }).join('')
-            : '<p class="hint">Nessuna persona con email nell\'anagrafica (sezione Persone).</p>';
+            : '<p class="hint">Nessuna persona con email nell\'anagrafica (sezione Aderenti Revilaw).</p>';
         apriModale('<h2>Inviti del sondaggio</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">Chiusura del questionario: <b>' + esc(fmtData(cfg.scadenza)) + '</b> (entro le 23:59). La data si imposta direttamente nella scheda del sondaggio.</p>'
             + '<div class="campo"><label>Invita per gruppo</label>'
             + '<div class="mi-grp-row"><span class="mi-grp-lab">Compilano</span><div class="gruppi-chip">' + grpChip('mi-grp-c', gC) + '</div></div>'
             + '<div class="mi-grp-row"><span class="mi-grp-lab">Solo risultati</span><div class="gruppi-chip">' + grpChip('mi-grp-v', gV) + '</div></div></div>'
-            + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Singole persone (dalla sezione Persone): spunta "compila" oppure "risultati"</label>'
+            + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Singole persone (dalla sezione Aderenti Revilaw): spunta "compila" oppure "risultati"</label>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="mi-deseleziona">Deseleziona tutti</button></div>'
             + '<input type="text" id="mi-cerca" class="mi-cerca" placeholder="Cerca per nome o email"><div class="mi-utenti">' + personeHtml + '</div>'
             + '<p class="hint" style="margin-top:6px;">Chi non e un utente con ruolo (badge "solo sondaggio") ricevera un accesso limitato: vede solo il questionario o solo i risultati. Il collegamento persone-utenti avviene tramite l\'email.</p></div>'
@@ -7825,7 +7771,7 @@
             agg(ev ? 'evento:' + ev.id : 'sito:' + (r.pagina || 'senza indicazione'), provenienza, persona);
         });
         Persone.tutte().filter(p => p.email && p.attivo !== false && !p.eliminato).forEach(p => {
-            agg('aderenti', 'Aderenti (anagrafica Persone)', {
+            agg('aderenti', 'Aderenti (anagrafica Aderenti Revilaw)', {
                 email: String(p.email).toLowerCase(), nome: p.nomeProprio || '', cognome: p.nome || '',
                 azienda: '', origine: 'Aderenti', data: '', consenso: 'si'
             });
@@ -7996,7 +7942,7 @@
             + testa
             + riga('tot', 'Da eventi', c.eventi, 'indirizzi diversi, tutti, anche senza consenso')
             + riga('', '+ Da altre sezioni del sito', c.sito, 'pagine fuori dagli eventi: newsletter, moduli di contatto, simulatori')
-            + riga('', '+ Aderenti', c.aderenti, 'anagrafica Persone, con email')
+            + riga('', '+ Aderenti', c.aderenti, 'anagrafica Aderenti Revilaw, con email')
             + riga('', '+ Clienti', c.clienti, 'le mail indicate negli incarichi, proposte escluse')
             + riga('', '+ Inseriti a mano', c.manuali, 'raccolti di persona')
             + riga('tot', 'Somma delle provenienze', c.provenienze, '')
@@ -8801,7 +8747,7 @@
                 + blocco('Chi ha lasciato i dati sul sito', g.sito,
                     'Ha compilato la casella newsletter in fondo alla home, o un modulo di contatto di una pagina tematica. Il nome del gruppo e la pagina da cui e arrivato.')
                 + blocco('Elenchi nostri', g.altri,
-                    'Gli aderenti presi dall\'anagrafica Persone e i contatti che hai inserito a mano dalla scheda Iscritti.')
+                    'Gli aderenti presi dall\'anagrafica Aderenti Revilaw e i contatti che hai inserito a mano dalla scheda Iscritti.')
                 + blocco('Da valutare', g.ignoti,
                     'Arrivano da elenchi importati in cui la casella del consenso non risulta: scegli tu, sapendo come li hai raccolti.')
                 + (g.senzaConsenso.length ? '<div class="hint nl-nota-consenso"><strong>' + g.senzaConsenso.length + '</strong> person' + (g.senzaConsenso.length === 1 ? 'a ha' : 'e hanno') + ' risposto NO alla casella delle comunicazioni promozionali: non compaiono qui e non si possono selezionare.</div>' : '')
@@ -10232,7 +10178,7 @@
         };
         // il campo "quando" e' ora solo una DATA: la converto in timestamp all'inizio di quel giorno (ora locale)
         const tsDaData = q => { if (!q) return NaN; const t = new Date(q + 'T00:00:00').getTime(); return isNaN(t) ? NaN : t; };
-        // AREA 1 - Persone Revilaw con email, con i ruoli per il filtro
+        // AREA 1 - Aderenti Revilaw con email, con i ruoli per il filtro
         const conMail = Persone.tutte().filter(p => p.email && p.attivo && !p.eliminato)
             .sort((a, b) => (a.nome + (a.nomeProprio || '')).localeCompare(b.nome + (b.nomeProprio || '')));
         const emailPersone = new Set(conMail.map(p => p.email.toLowerCase()));
@@ -10321,7 +10267,7 @@
             <div class="campo">
                 <label>Destinatari <span class="hint" id="c-conta"></span></label>
                 <div class="tab-dest">
-                    <button type="button" class="tab-btn attivo" data-pane="pane-persone">Persone Revilaw</button>
+                    <button type="button" class="tab-btn attivo" data-pane="pane-persone">Aderenti Revilaw</button>
                     <button type="button" class="tab-btn" data-pane="pane-clienti">Clienti</button>
                     <button type="button" class="tab-btn" data-pane="pane-altri">Altri indirizzi</button>
                 </div>
@@ -10495,7 +10441,7 @@
             document.querySelectorAll('.tab-dest .tab-btn').forEach(x => x.classList.toggle('attivo', x === b));
             ['pane-persone', 'pane-clienti', 'pane-altri'].forEach(p => $(p).classList.toggle('nascosto', p !== b.dataset.pane));
         }));
-        // filtro Persone (ricerca + ruolo)
+        // filtro Aderenti Revilaw (ricerca + ruolo)
         const filtraPersone = () => {
             const t = ($('cp-cerca').value || '').trim().toLowerCase();
             const r = ($('cp-ruolo').value || '').trim();
@@ -10683,7 +10629,7 @@
             const tot = tuttiDestinatari().length;
             const r = [];
             if (g.length) r.push('<div class="riep-r"><span class="riep-et">Gruppi</span><span>' + esc(g.map(nomeGruppo).join(', ')) + '</span></div>');
-            if (nP) r.push('<div class="riep-r"><span class="riep-et">Persone Revilaw</span><span>' + nP + '</span></div>');
+            if (nP) r.push('<div class="riep-r"><span class="riep-et">Aderenti Revilaw</span><span>' + nP + '</span></div>');
             if (nC) r.push('<div class="riep-r"><span class="riep-et">Clienti</span><span>' + nC + '</span></div>');
             if (nA) r.push('<div class="riep-r"><span class="riep-et">Altri indirizzi</span><span>' + nA + '</span></div>');
             if (!r.length) return '<div class="riep-vuoto">Nessun destinatario scelto</div>';
@@ -10868,7 +10814,7 @@
                     <option value="">Tutti</option>
                     <option value="incarico">Incarichi</option>
                     <option value="fattura">Fatturazione</option>
-                    <option value="persona">Persone</option>
+                    <option value="persona">Aderenti Revilaw</option>
                     <option value="comunicazione">Comunicazioni</option>
                     <option value="utente">Utenti e accessi</option>
                     <option value="sistema">Sistema</option>
@@ -10941,7 +10887,7 @@
         return base + sond;
     }
     /* Selettore "dall'anagrafica" nel modale di creazione utente: si sceglie una persona
-       gia' in Persone (con email) e nome + email si compilano da soli, restando modificabili. */
+       gia' in Aderenti Revilaw (con email) e nome + email si compilano da soli, restando modificabili. */
     function selettorePersonaUtente() {
         const conEmail = Persone.tutte().filter(p => p.attivo && !p.eliminato && p.email)
             .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
@@ -10994,7 +10940,7 @@
                     </div>
                 </div>
                 <div class="ruolo-sez">${riepSez(r)}</div>
-                ${r.sistema ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Persone piu le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
+                ${r.sistema ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw piu le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
             </div>`).join('') +
             `</div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
@@ -11033,7 +10979,7 @@
         apriModale(`<h2>${esistente ? (soloAdmin ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
             ${(soloAdmin || diSistema) ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
             ${soloAdmin ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non e modificabile.</p>' : `
-            ${diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa puo modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioe la <strong>Regione</strong> della sua scheda in <strong>Persone</strong> (agganciata all\'utente tramite email) piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
+            ${diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa puo modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioe la <strong>Regione</strong> della sua scheda in <strong>Aderenti Revilaw</strong> (agganciata all\'utente tramite email) piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa puo toccare</h3>
             <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
                 <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
