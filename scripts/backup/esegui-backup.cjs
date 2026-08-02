@@ -8,9 +8,12 @@
 
    Variabili d'ambiente:
      FIREBASE_SERVICE_ACCOUNT  (obbligatoria) chiave del progetto Firebase
-     GDRIVE_SERVICE_ACCOUNT    (facoltativa)  chiave per scrivere su Drive;
-                                              se manca si prova con quella Firebase
      GDRIVE_FOLDER_ID          (facoltativa)  id della cartella Backup-NGB
+     GDRIVE_CLIENT_ID          \
+     GDRIVE_CLIENT_SECRET       > accesso per conto dell'utente: l'unico che
+     GDRIVE_REFRESH_TOKEN      /  funziona dentro "Il mio Drive"
+     GDRIVE_SERVICE_ACCOUNT    (facoltativa)  alternativa per i Drive condivisi;
+                                              se manca si prova con quella Firebase
      GITHUB_TOKEN              per elencare gli allegati delle release
      GITHUB_REPOSITORY         utente/repo
      CARTELLA_BACKUP           dove scrivere (predefinito: ./backup-uscita)
@@ -23,7 +26,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const admin = require('firebase-admin');
 
-const { leggiServiceAccount, token, tokenDrive } = require('./lib/credenziali.cjs');
+const { leggiServiceAccount, token, modoDrive, tokenDrive } = require('./lib/credenziali.cjs');
 const firestore = require('./lib/firestore.cjs');
 const configurazione = require('./lib/configurazione.cjs');
 const verifiche = require('./lib/verifiche.cjs');
@@ -270,9 +273,12 @@ async function principale() {
         log('  saltata: GDRIVE_FOLDER_ID non impostato (il backup resta come artifact di questa esecuzione)');
     } else {
         await passo('copia su Drive', async () => {
-            const scelta = await tokenDrive(cred, drive.AMBITI);
-            const tokDrive = scelta.valore;
-            log('  accesso a Drive: ' + scelta.modo);
+            // Si annuncia PRIMA di autenticarsi: se le credenziali non vanno,
+            // il report dice comunque quale strada stava tentando e con quale
+            // client, che e' meta' della diagnosi.
+            const scelta = modoDrive(cred);
+            log('  accesso a Drive: ' + scelta.descrizione);
+            const tokDrive = await tokenDrive(scelta, drive.AMBITI);
             const idBackup = await drive.trovaOCreaCartella(tokDrive, etichetta, idCartella);
             let quanti = 0;
             for (const nome of fs.readdirSync(uscita)) {

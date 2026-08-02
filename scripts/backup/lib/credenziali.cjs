@@ -56,20 +56,29 @@ async function tokenPersona(clientId, clientSecret, refreshToken) {
     return valore;
 }
 
-/* Sceglie da sola come autenticarsi verso Drive:
-     - se ci sono le tre variabili GDRIVE_CLIENT_ID / _SECRET / _REFRESH_TOKEN
+/* Quale strada verra' presa verso Drive, SENZA chiamare la rete.
+     - con le tre variabili GDRIVE_CLIENT_ID / _SECRET / _REFRESH_TOKEN si
        agisce per conto della persona (unica strada per "Il mio Drive");
-     - altrimenti usa il service account (va bene per i Drive condivisi).
-   Restituisce { valore, modo } cosi' il report dice quale strada ha preso. */
-async function tokenDrive(credRipiego, ambiti) {
+     - altrimenti si usa il service account (va bene per i Drive condivisi).
+   Si sceglie e si annuncia prima di autenticarsi: se le credenziali sono
+   sbagliate, il report dice comunque quale strada stava tentando. Senza questo
+   un "invalid_client" non lascia capire di quale client si stia parlando. */
+function modoDrive(credRipiego) {
     const id = (process.env.GDRIVE_CLIENT_ID || '').trim();
     const segreto = (process.env.GDRIVE_CLIENT_SECRET || '').trim();
     const aggiornamento = (process.env.GDRIVE_REFRESH_TOKEN || '').trim();
     if (id && segreto && aggiornamento) {
-        return { valore: await tokenPersona(id, segreto, aggiornamento), modo: 'per conto dell\'utente' };
+        return { tipo: 'utente', id, segreto, aggiornamento, descrizione: "per conto dell'utente, client " + id };
     }
     const cred = leggiServiceAccount('GDRIVE_SERVICE_ACCOUNT', false) || credRipiego;
-    return { valore: await token(cred, ambiti), modo: 'service account ' + cred.client_email };
+    return { tipo: 'servizio', cred, descrizione: 'service account ' + cred.client_email };
+}
+
+/* Il token vero e proprio, per la strada gia' scelta da modoDrive. */
+async function tokenDrive(scelta, ambiti) {
+    return scelta.tipo === 'utente'
+        ? tokenPersona(scelta.id, scelta.segreto, scelta.aggiornamento)
+        : token(scelta.cred, ambiti);
 }
 
 /* GET su un'API Google che risponde in JSON. Restituisce null sui 403/404
@@ -81,4 +90,4 @@ async function leggiJson(tok, url) {
     return r.json();
 }
 
-module.exports = { leggiServiceAccount, token, tokenDrive, leggiJson };
+module.exports = { leggiServiceAccount, token, modoDrive, tokenDrive, leggiJson };
