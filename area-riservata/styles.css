@@ -288,9 +288,10 @@ td.td-azioni .btn { margin: 0 2px 2px 0; }
 .nav-voce:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .nav-voce.attiva { background: var(--blu-500); color: #fff; font-weight: 600; }
 .nav-voce .icona { width: 18px; height: 18px; flex-shrink: 0; }
-/* Macroarea: le sezioni che mandano messaggi fuori stanno insieme, sotto un
-   titolino, staccate da quelle di gestione. Il filetto a sinistra le tiene
-   legate anche quando l'occhio scorre in fretta. */
+/* Macroaree: le sezioni che parlano della stessa cosa (i compensi, gli
+   aderenti, i messaggi che escono) stanno insieme sotto un titolino, staccate
+   dalle altre. Il filetto a sinistra le tiene legate anche quando l'occhio
+   scorre in fretta. */
 .nav-gruppo {
     margin: 16px 0 6px; padding: 0 12px;
     font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
@@ -589,25 +590,6 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .g-legenda { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; font-size: 0.8rem; color: var(--grigio-600); }
 .g-legenda span { display: inline-flex; align-items: center; gap: 6px; }
 .g-legenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-
-/* ---- Ripartizione per coordinatore territoriale (cruscotto) ---- */
-.coord-lista { display: flex; flex-direction: column; gap: 6px; }
-.coord-item { border: 1px solid var(--grigio-200); border-radius: 8px; overflow: hidden; }
-.coord-item[open] { border-color: var(--blu-300, #9DB8D2); }
-.coord-sommario { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(140px, 1.4fr) minmax(90px, 2fr) auto auto auto; align-items: center; gap: 12px; padding: 10px 14px; }
-.coord-sommario::-webkit-details-marker { display: none; }
-.coord-sommario:hover { background: var(--blu-050); }
-.coord-nome { font-weight: 600; color: var(--blu-900); }
-.coord-barra { position: relative; height: 10px; background: var(--grigio-100); border-radius: 6px; overflow: hidden; }
-.coord-barra-fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--blu-500), var(--blu-900)); border-radius: 6px; }
-.coord-tot { font-family: 'Montserrat', sans-serif; font-weight: 700; color: var(--blu-900); text-align: right; white-space: nowrap; }
-.coord-n { font-size: 0.8rem; color: var(--grigio-600); white-space: nowrap; }
-.coord-badges { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-.coord-dettaglio { padding: 4px 14px 14px; border-top: 1px solid var(--grigio-100); }
-@media (max-width: 720px) {
-    .coord-sommario { grid-template-columns: 1fr auto; }
-    .coord-barra { display: none; }
-}
 
 /* ---- Fatturazione: gruppi di fatturazione (drill-down) e campo rimborsi ---- */
 .fatt-gruppi { display: flex; flex-direction: column; gap: 8px; }

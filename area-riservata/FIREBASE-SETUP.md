@@ -192,11 +192,11 @@ scrittura. Anche i ruoli di sistema "Coordinatore territoriale" e "Vice
 coordinatore territoriale" hanno i permessi per sezione modificabili
 dall'amministratore (compresa la scrittura): cio che resta fisso in questi due
 ruoli e' il filtro per regione, cioe' vedono solo gli incarichi delle regioni
-della loro scheda in Persone (agganciata all'utente tramite email): la Regione
+della loro scheda in Aderenti Revilaw (agganciata all'utente tramite email): la Regione
 della scheda piu le eventuali altre regioni coordinate spuntate li. Nota: il
 filtro per regione limita gli incarichi (e cio che ne deriva, come la
 fatturazione); dare la scrittura a un coordinatore su sezioni non legate alla
-regione (per esempio Persone o Comunicazioni) non e' ristretto alla sua regione.
+regione (per esempio Aderenti Revilaw o Comunicazioni) non e' ristretto alla sua regione.
 Cosa succede a livello di sicurezza:
 
 - **Blindato dal server (regole Firestore):**
