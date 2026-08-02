@@ -27,6 +27,15 @@ on:
     # un'ora di distanza. Spostandosi lontano dal minuto zero si finisce in una
     # coda molto piu' corta.
     - cron: '17 1 * * *'
+  # Quando cambia il backup stesso, si esegue subito: una modifica al codice del
+  # backup va verificata quando la si fa, non la notte dopo. Serve anche a non
+  # dipendere dalla coda delle pianificazioni per sapere se funziona.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backup-notturno.yml'
+      - 'scripts/backup/**'
+
   workflow_dispatch:
     inputs:
       includi_bundle:
