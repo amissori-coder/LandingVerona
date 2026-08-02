@@ -260,9 +260,9 @@
     const SEZIONI_RUOLO = [
         { id: 'dashboard', nome: 'Cruscotto' },
         { id: 'incarichi', nome: 'Incarichi' },
+        { id: 'persone', nome: 'Aderenti Revilaw' },
         { id: 'fatturazione', nome: 'Fatturazione' },
         { id: 'report', nome: 'Report compensi' },
-        { id: 'persone', nome: 'Aderenti Revilaw' },
         { id: 'comunicazioni', nome: 'Comunicazione teams di revisione' },
         { id: 'sondaggi', nome: 'Sondaggi' },
         { id: 'registro', nome: 'Registro modifiche' }
@@ -2769,18 +2769,20 @@
     const VOCI_NAV = [
         { id: 'dashboard', nome: 'Cruscotto', icona: 'M3 13h8V3H3zm10 8h8V11h-8zM3 21h8v-6H3zm10-18v6h8V3z' },
         { id: 'incarichi', nome: 'Incarichi', icona: 'M4 6h16M4 12h16M4 18h10' },
+        /* MACROAREA DEGLI ADERENTI. L'anagrafica e le due viste che ne derivano
+           (chi coordina un territorio, chi e' responsabile di qualita o incarico)
+           sono la stessa scheda letta in tre modi: stanno insieme, cosi' si vede
+           subito che i dati di Coordinatori e Responsabili si cambiano da qui.
+           Vengono prima dei Compensi: sono le persone a fare gli incarichi, e i
+           compensi si leggono dopo, quando c'e' da fatturarli. */
+        { id: 'persone', nome: 'Aderenti Revilaw', gruppo: 'Gestione aderenti', icona: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+        { id: 'coordinatori', nome: 'Coordinatori e vice', gruppo: 'Gestione aderenti', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
+        { id: 'responsabili', nome: 'Responsabili', gruppo: 'Gestione aderenti', icona: 'M9 12l2 2 4-4M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z' },
         /* MACROAREA DEI COMPENSI. Fatturazione e Report compensi guardano gli
            stessi importi da due lati: quando si incassano e quanto valgono. Sotto
            un'intestazione sola si capisce che sono due letture della stessa cosa. */
         { id: 'fatturazione', nome: 'Fatturazione', gruppo: 'Compensi', icona: 'M9 14l2 2 4-4M5 3h14a1 1 0 011 1v16l-3-2-2 2-3-2-2 2-3-2-3 2V4a1 1 0 011-1z' },
         { id: 'report', nome: 'Report compensi', gruppo: 'Compensi', icona: 'M4 20V10m6 10V4m6 16v-7m4 7H2' },
-        /* MACROAREA DEGLI ADERENTI. L'anagrafica e le due viste che ne derivano
-           (chi coordina un territorio, chi e' responsabile di qualita o incarico)
-           sono la stessa scheda letta in tre modi: stanno insieme, cosi' si vede
-           subito che i dati di Coordinatori e Responsabili si cambiano da qui. */
-        { id: 'persone', nome: 'Aderenti Revilaw', gruppo: 'Gestione aderenti', icona: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-        { id: 'coordinatori', nome: 'Coordinatori e vice', gruppo: 'Gestione aderenti', icona: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z' },
-        { id: 'responsabili', nome: 'Responsabili', gruppo: 'Gestione aderenti', icona: 'M9 12l2 2 4-4M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z' },
         /* MACROAREA DELLE COMUNICAZIONI. Le tre sezioni che mandano messaggi fuori
            stavano sparse nell'elenco, con i Sondaggi in mezzo: una accanto
            all'altra, sotto un'intestazione, si capisce a colpo d'occhio che sono
