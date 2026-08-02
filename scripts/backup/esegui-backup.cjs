@@ -100,15 +100,23 @@ async function principale() {
 
     // La storia completa pesa centinaia di MB: si salva una volta a settimana
     // (domenica), come faceva il backup di prima.
+    //
+    // Ma solo se c'e' Drive a conservarla. L'allegato dell'esecuzione la esclude
+    // di proposito - GitHub la storia ce l'ha gia', ricopiarla dentro GitHub non
+    // aggiunge nessuna sicurezza - quindi senza Drive si passerebbe mezzo minuto
+    // a produrre mezzo giga per poi buttarlo via.
+    const conDrive = !!(process.env.GDRIVE_FOLDER_ID || '').trim();
     const domenica = adesso.getDay() === 0;
-    const vuoleBundle = domenica || String(process.env.INCLUDI_BUNDLE || '').toLowerCase() === 'si';
+    const forzato = String(process.env.INCLUDI_BUNDLE || '').toLowerCase() === 'si';
     let bundle = null;
-    if (vuoleBundle) {
+    if ((conDrive && domenica) || forzato) {
         bundle = path.join(uscita, 'repo-full.bundle');
         await passo('storia git completa', async () => {
             comando('git', ['bundle', 'create', bundle, '--all']);
             log('  storia git completa: ' + mb(fs.statSync(bundle).size));
         });
+    } else if (!conDrive) {
+        log('  storia git completa: saltata (senza Drive verrebbe scartata comunque)');
     } else {
         log('  storia git completa: saltata (si salva la domenica)');
     }
