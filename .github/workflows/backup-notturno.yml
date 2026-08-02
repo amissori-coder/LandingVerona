@@ -18,8 +18,15 @@ name: Backup notturno
 
 on:
   schedule:
-    # 01:00 UTC = 03:00 in Italia con l'ora legale, 02:00 con l'ora solare.
-    - cron: '0 1 * * *'
+    # 01:17 UTC = 03:17 in Italia con l'ora legale, 02:17 con l'ora solare.
+    #
+    # Il minuto dispari non e' un vezzo. GitHub non garantisce l'orario delle
+    # esecuzioni pianificate: le accoda e le fa partire quando ha capacita'.
+    # Gli slot all'ora esatta sono i piu' affollati, perche' ci scrivono tutti:
+    # con '0 1 * * *' la primissima esecuzione non e' mai partita, nemmeno a
+    # un'ora di distanza. Spostandosi lontano dal minuto zero si finisce in una
+    # coda molto piu' corta.
+    - cron: '17 1 * * *'
   workflow_dispatch:
     inputs:
       includi_bundle:

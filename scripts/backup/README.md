@@ -5,8 +5,14 @@ che si è fermata quando il PC si è rotto (ultimo salvataggio riuscito:
 30/07/2026). Girando su GitHub Actions non dipende più da nessun computer.
 
 Workflow: [`.github/workflows/backup-notturno.yml`](../../.github/workflows/backup-notturno.yml)
-Orario: **01:00 UTC**, cioè le 03:00 in Italia con l'ora legale e le 02:00 con
+Orario: **01:17 UTC**, cioè le 03:17 in Italia con l'ora legale e le 02:17 con
 l'ora solare (GitHub accetta solo orari UTC).
+
+Il minuto dispari è voluto: GitHub non garantisce l'orario delle esecuzioni
+pianificate, le accoda e le fa partire quando ha capacità. Gli slot all'ora
+esatta sono i più affollati e la primissima esecuzione con `0 1 * * *` non è
+mai partita. Se anche `:17` dovesse risultare inaffidabile, l'esecuzione
+manuale resta sempre disponibile e non dipende dalla coda.
 
 ## Cosa salva
 
