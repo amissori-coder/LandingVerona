@@ -71,26 +71,46 @@ appartengono al Drive condiviso e usano il suo spazio; non c'è niente che
 scade. L'id della cartella non cambia spostandola, quindi `GDRIVE_FOLDER_ID`
 resta valido.
 
-**Strada B — scrivere per conto dell'utente** *(se il Drive condiviso non c'è)*
+**Strada B — scrivere per conto dell'utente** *(quella in uso)*
 
-Si lascia la cartella dov'è e il backup scrive come se fossi tu. Servono tre
-segreti, ottenuti una volta sola da Google Cloud Console → *API e servizi* →
-*Credenziali* → *ID client OAuth* (tipo: applicazione desktop), poi uno scambio
-del codice di consenso con l'ambito `https://www.googleapis.com/auth/drive`:
+La cartella resta dov'è e il backup scrive come se fosse l'utente. Servono
+`GDRIVE_CLIENT_ID`, `GDRIVE_CLIENT_SECRET` e `GDRIVE_REFRESH_TOKEN`, ottenuti
+una volta sola. Procedura effettivamente seguita, tutta dal browser:
 
-- `GDRIVE_CLIENT_ID`
-- `GDRIVE_CLIENT_SECRET`
-- `GDRIVE_REFRESH_TOKEN`
+1. Abilitare l'API Drive:
+   `console.cloud.google.com/apis/library/drive.googleapis.com?project=revilaw-incarichi`
+2. Schermata di consenso (`console.cloud.google.com/auth/overview`) → *Inizia* →
+   nome app, email di assistenza, e alla voce **Pubblico** scegliere **Interno**.
+3. *Client* → **Crea client OAuth** → tipo **Applicazione web**, con URI di
+   reindirizzamento autorizzato `https://developers.google.com/oauthplayground`.
+4. Su `developers.google.com/oauthplayground`: ingranaggio ⚙ → *Use your own
+   OAuth credentials* → incollare ID e secret. Nel campo *Input your own scopes*
+   mettere `https://www.googleapis.com/auth/drive` → *Authorize APIs* →
+   consenso → *Exchange authorization code for tokens* → copiare il
+   **Refresh token** (comincia con `1//`).
 
-I file risultano tuoi e occupano il tuo spazio. Da tenere presente: il token di
-aggiornamento si invalida se cambi password, se revochi l'accesso all'app, o se
-l'app resta in stato *Test* sulla schermata di consenso (in quel caso scade
-dopo 7 giorni — va portata in *Produzione*).
+**"Interno" non è un dettaglio.** Con *Esterno* l'app resta in stato *Test* e il
+refresh token scade dopo 7 giorni: il backup si fermerebbe da solo dopo una
+settimana. Portarla in *Produzione* non è una scorciatoia, perché l'ambito Drive
+è "restricted" e richiederebbe una verifica di sicurezza di Google. Con
+*Interno* — possibile perché l'account è Workspace — niente verifica e niente
+scadenza.
+
+Il token si invalida comunque se si cambia password o si revoca l'accesso
+all'app dalle autorizzazioni dell'account Google.
+
+**Copiare ID client e secret con il pulsante di copia della console**, mai
+ricopiandoli a mano o da uno screenshot: sono lunghi e contengono caratteri che
+si confondono (`l` con `1`, `O` con `0`). Un carattere sbagliato produce
+`invalid_client`, che non dice quale dei due valori sia storto.
+
+---
 
 Il codice sceglie da solo: se trova le tre variabili della strada B le usa,
-altrimenti va di service account. Il report scrive quale strada ha preso, e se
-il caricamento fallisce per quota lo dice in chiaro invece di lasciare
-l'errore grezzo di Google.
+altrimenti va di service account. Il report annuncia quale strada prende e con
+quale client **prima** di autenticarsi, così un errore di credenziali arriva
+già con il contesto. Se il caricamento fallisce per quota, lo dice in chiaro
+invece di lasciare l'errore grezzo di Google.
 
 ## Provarlo subito
 
