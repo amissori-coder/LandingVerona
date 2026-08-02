@@ -268,6 +268,10 @@ async function principale() {
 
     /* ---------- copia su Google Drive ---------- */
     log('--- 6) Copia su Google Drive ---');
+    // Tenuti fuori dal passo: servono ancora dopo, per mandare su Drive anche
+    // il report, che a questo punto non esiste ancora.
+    let tokDrive = null;
+    let idBackup = null;
     const idCartella = (process.env.GDRIVE_FOLDER_ID || '').trim();
     if (!idCartella) {
         log('  saltata: GDRIVE_FOLDER_ID non impostato (il backup resta come artifact di questa esecuzione)');
@@ -278,8 +282,8 @@ async function principale() {
             // client, che e' meta' della diagnosi.
             const scelta = modoDrive(cred);
             log('  accesso a Drive: ' + scelta.descrizione);
-            const tokDrive = await tokenDrive(scelta, drive.AMBITI);
-            const idBackup = await drive.trovaOCreaCartella(tokDrive, etichetta, idCartella);
+            tokDrive = await tokenDrive(scelta, drive.AMBITI);
+            idBackup = await drive.trovaOCreaCartella(tokDrive, etichetta, idCartella);
             let quanti = 0;
             for (const nome of fs.readdirSync(uscita)) {
                 await drive.caricaFile(tokDrive, path.join(uscita, nome), idBackup, nome);
@@ -312,7 +316,19 @@ async function principale() {
     for (const a of avvisi) log('  avviso: ' + a);
     log('Cartella backup: ' + uscita);
 
-    fs.writeFileSync(path.join(uscita, 'report.txt'), righe.join('\n') + '\n');
+    // Il report si scrive per ultimo, perche' deve contenere anche l'esito della
+    // copia su Drive. Ma allora su Drive non c'era ancora: va mandato adesso,
+    // altrimenti la cartella conservata resta senza la prova di com'e' andata,
+    // che e' il file che serve di piu' quando si va a ripescarla.
+    const percorsoReport = path.join(uscita, 'report.txt');
+    fs.writeFileSync(percorsoReport, righe.join('\n') + '\n');
+    if (tokDrive && idBackup) {
+        try {
+            await drive.caricaFile(tokDrive, percorsoReport, idBackup, 'report.txt');
+        } catch (e) {
+            console.error('report.txt non copiato su Drive: ' + (e && e.message ? e.message : e));
+        }
+    }
 
     if (process.env.GITHUB_OUTPUT) {
         fs.appendFileSync(process.env.GITHUB_OUTPUT, 'cartella=' + uscita + '\netichetta=' + etichetta + '\n');
