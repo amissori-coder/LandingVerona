@@ -3,13 +3,22 @@ name: Backup notturno
 # Sostituisce l'attivita' pianificata di Windows delle 03:00, ferma da quando
 # il PC si e' rotto. Girando qui non dipende piu' da nessun computer.
 #
-# Segreti richiesti (Settings > Secrets and variables > Actions):
-#   FIREBASE_SERVICE_ACCOUNT  obbligatorio - chiave del service account Firebase
-#   GDRIVE_SERVICE_ACCOUNT    facoltativo  - chiave per scrivere su Drive
-#                                            (se manca si riusa quella Firebase)
-#   GDRIVE_FOLDER_ID          facoltativo  - id della cartella Backup-NGB
+# Segreti (Settings > Secrets and variables > Actions):
 #
-# Senza i due facoltativi il backup funziona lo stesso: le copie restano
+#   FIREBASE_SERVICE_ACCOUNT  obbligatorio - chiave del service account Firebase
+#
+#   Per la copia su Drive, tutti facoltativi:
+#   GDRIVE_FOLDER_ID          id della cartella Backup-NGB
+#   GDRIVE_CLIENT_ID          \
+#   GDRIVE_CLIENT_SECRET       > accesso per conto dell'utente: l'unico che
+#   GDRIVE_REFRESH_TOKEN      /  funziona dentro "Il mio Drive"
+#   GDRIVE_SERVICE_ACCOUNT    alternativa, solo per i Drive condivisi
+#
+# OGNI variabile usata dallo script va anche elencata nel blocco env del passo
+# "Esegui il backup": i segreti del repository da soli non arrivano al processo.
+# Dimenticarne una non da' errore, fa solo prendere una strada diversa.
+#
+# Senza i segreti di Drive il backup funziona lo stesso: le copie restano
 # allegate all'esecuzione (artifact) invece di finire su Drive.
 #
 # ATTENZIONE: le esecuzioni pianificate partono SOLO dal ramo predefinito del
@@ -77,8 +86,14 @@ jobs:
         id: backup
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          GDRIVE_SERVICE_ACCOUNT: ${{ secrets.GDRIVE_SERVICE_ACCOUNT }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          # Accesso per conto dell'utente: serve per scrivere dentro "Il mio
+          # Drive", dove un service account non ha spazio proprio.
+          GDRIVE_CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          # Alternativa, se un domani la cartella passa su un Drive condiviso.
+          GDRIVE_SERVICE_ACCOUNT: ${{ secrets.GDRIVE_SERVICE_ACCOUNT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CARTELLA_BACKUP: ${{ github.workspace }}/backup-uscita
           INCLUDI_BUNDLE: ${{ inputs.includi_bundle && 'si' || '' }}
