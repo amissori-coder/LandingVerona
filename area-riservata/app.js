@@ -7518,12 +7518,15 @@
        solo, e chi si e' disiscritto resta fuori comunque.
     ========================================================= */
 
-    /* Le pagine da cui si puo' partire. L'elenco e' qui e non "scoperto"
-       automaticamente: cosi' si propongono solo le pagine buone per una
-       newsletter, con il nome giusto. Si puo' comunque incollare un
+    /* Le pagine da cui si puo' partire, in ordine e con il nome giusto per
+       una newsletter. Questo elenco decide come si chiamano e in che ordine
+       compaiono; quello che non e' scritto qui non sparisce piu' dal menu,
+       perche' ci pensa pagineFuoriElenco() a rileggere la sitemap e ad
+       aggiungere in coda le pagine mancanti. Si puo' comunque incollare un
        indirizzo qualsiasi del sito. */
     const PAGINE_SITO = [
         { percorso: '/', nome: 'Home - Next Generation Business' },
+        { percorso: '/revisione-demo/', nome: 'Revisione legale: metodo, fasi e benefici' },
         { percorso: '/fcd_2026/', nome: 'Fondo Contrasto Deindustrializzazione 2026' },
         { percorso: '/bando_tipo_2026/', nome: 'Bando-tipo Mimit 2026: aiuti di Stato' },
         { percorso: '/lazio_bandi_2026/', nome: 'Bandi Lazio 2026: Piccolo Credito e Fondo Futuro' },
@@ -7538,6 +7541,7 @@
         { percorso: '/rating_legalita/', nome: 'Rating di legalita: punteggio AGCM' },
         { percorso: '/rating_bancario/', nome: 'Rating bancario: simulatore MCC' },
         { percorso: '/sostenibilita_esg/', nome: 'Sostenibilita d\'impresa ed ESG' },
+        { percorso: '/ai_act_2026/', nome: 'AI Act: gli obblighi dal 2 agosto 2026' },
         { percorso: '/ai_governance/', nome: 'AI governance in azienda' },
         { percorso: '/protezione_patrimonio/', nome: 'Protezione del patrimonio: holding e trust' },
         { percorso: '/napoli_ottobre_2026/', nome: 'Convegno Napoli, 2 ottobre 2026' },
@@ -7566,6 +7570,49 @@
         if (/^https?:/i.test(p)) return p;
         const q = p.charAt(0) === '/' ? p : '/' + p;
         return (/nextgenerationbusiness\.it$/i.test(location.hostname) ? location.origin : SITO_PUBBLICO) + q;
+    }
+
+    /* Il nome di ripiego per una pagina che nessuno ha ancora battezzato in
+       PAGINE_SITO: si ricava dall'indirizzo, che e' sempre meglio di niente.
+       "/ai_act_2026/" diventa "Ai act 2026". Appena qualcuno scrive il nome
+       buono nell'elenco qui sopra, questo sparisce. */
+    function nomeDaPercorso(percorso) {
+        const parti = String(percorso).replace(/^\/+|\/+$/g, '').split('/');
+        const ultima = (parti[parti.length - 1] || '').replace(/\.html?$/i, '');
+        if (!ultima) return percorso;
+        const testo = ultima.replace(/[_-]+/g, ' ').trim();
+        return testo.charAt(0).toUpperCase() + testo.slice(1);
+    }
+
+    /* Le pagine che stanno sul sito ma non in PAGINE_SITO. Si leggono dalla
+       sitemap, che e' l'unico elenco del sito sempre aggiornato: una pagina
+       nuova compare nel menu il giorno stesso che va online, senza dover
+       ricordarsi di toccare questo file.
+
+       Restano fuori le pagine interne a una gia' elencata (le schede dentro
+       /zls_zes/, per dire): l'elenco propone la pagina madre, e le sue parti
+       farebbero solo rumore. Se la sitemap non si legge, per esempio da
+       un'anteprima locale, non succede niente: il menu resta quello curato. */
+    async function pagineFuoriElenco() {
+        try {
+            const risposta = await fetch(indirizzoPagina('/sitemap.xml'), { cache: 'no-cache' });
+            if (!risposta.ok) return [];
+            const xml = new DOMParser().parseFromString(await risposta.text(), 'application/xml');
+            if (xml.querySelector('parsererror')) return [];
+
+            const gia = PAGINE_SITO.map(p => p.percorso);
+            const fuori = [];
+            Array.from(xml.getElementsByTagName('loc')).forEach(loc => {
+                let percorso;
+                try { percorso = new URL(String(loc.textContent).trim()).pathname; } catch (e) { return; }
+                if (gia.some(n => percorso === n || (n !== '/' && percorso.indexOf(n) === 0))) return;
+                if (fuori.some(f => f.percorso === percorso)) return;
+                fuori.push({ percorso: percorso, nome: nomeDaPercorso(percorso) });
+            });
+            return fuori;
+        } catch (e) {
+            return [];
+        }
     }
 
     const NewsletterConfig = {
@@ -8974,16 +9021,52 @@
            comunicazione ricorrente, cioe' essere riconoscibile. */
 
         /* --- generazione dalla pagina --- */
+        let paginaScelta = false;
         $('nl-pagina').addEventListener('change', () => {
+            paginaScelta = true;
             const v = $('nl-pagina').value;
             $('nl-url').classList.toggle('nascosto', v !== '__altro');
             if (v === '__altro') $('nl-url').focus();
         });
-        if (bozza.fonte && bozza.fonte.url) {
-            const trovata = PAGINE_SITO.find(p => indirizzoPagina(p.percorso) === bozza.fonte.url);
-            if (trovata) $('nl-pagina').value = trovata.percorso;
-            else { $('nl-pagina').value = '__altro'; $('nl-url').classList.remove('nascosto'); $('nl-url').value = bozza.fonte.url; }
+
+        /* Riporta la tendina sulla pagina da cui e' nata la bozza. Guarda le
+           voci che ci sono davvero nel menu e non solo quelle scritte a mano,
+           cosi' funziona anche dopo che la sitemap ha aggiunto le sue; se la
+           pagina non e' in elenco si ripiega su "Altro indirizzo". */
+        function riallineaPagina() {
+            if (!bozza.fonte || !bozza.fonte.url) return;
+            const voci = Array.from($('nl-pagina').options)
+                .map(o => o.value).filter(v => v && v !== '__altro');
+            const trovata = voci.find(v => indirizzoPagina(v) === bozza.fonte.url);
+            if (trovata) {
+                $('nl-pagina').value = trovata;
+                $('nl-url').classList.add('nascosto');
+            } else {
+                $('nl-pagina').value = '__altro';
+                $('nl-url').classList.remove('nascosto');
+                $('nl-url').value = bozza.fonte.url;
+            }
         }
+        riallineaPagina();
+
+        /* Le pagine non ancora battezzate in PAGINE_SITO arrivano un attimo
+           dopo, in fondo alla tendina: la sitemap si legge in rete e non ha
+           senso far aspettare la finestra per questo. Se nel frattempo la
+           pagina l'hai gia' scelta tu, la scelta resta la tua. */
+        pagineFuoriElenco().then(fuori => {
+            const menu = $('nl-pagina');
+            if (!fuori.length || !menu) return;
+            const gruppo = document.createElement('optgroup');
+            gruppo.label = 'Altre pagine del sito';
+            fuori.forEach(p => {
+                const voce = document.createElement('option');
+                voce.value = p.percorso;
+                voce.textContent = p.nome;
+                gruppo.appendChild(voce);
+            });
+            menu.insertBefore(gruppo, menu.querySelector('option[value="__altro"]'));
+            if (!paginaScelta) riallineaPagina();
+        });
         $('nl-genera').addEventListener('click', () => {
             const scelta = $('nl-pagina').value;
             const url = scelta === '__altro' ? String($('nl-url').value || '').trim() : (scelta ? indirizzoPagina(scelta) : '');
