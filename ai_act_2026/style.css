@@ -1,5 +1,5 @@
 /* ============================================
-   AI Act — obblighi dal 2 agosto 2026
+   AI Act: obblighi dal 2 agosto 2026
    Stili specifici della pagina: si appoggia a
    zls_zes/style.css e assets/content-page.css e
    aggiunge la tabella delle situazioni, i box dei
@@ -215,7 +215,7 @@
 }
 
 /* ============================================
-   3. PIANO D'AZIONE — fasi
+   3. PIANO D'AZIONE: le fasi
    ============================================ */
 .fase-label {
     display: flex;
@@ -850,7 +850,7 @@
 }
 
 /* ============================================
-   9. STAMPA — si stampano solo le check list, in
+   9. STAMPA: si stampano solo le check list, in
    bianco e nero, su una pagina pulita: è il modulo
    da compilare e archiviare.
    ============================================ */

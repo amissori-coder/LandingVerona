@@ -1,12 +1,12 @@
 /* ============================================
-   AI Act — script di pagina
+   AI Act: script di pagina
 
    Due funzioni, entrambe pensate per l'uso reale
    della pagina:
    1. i testi pronti all'uso si copiano con un clic;
-   2. le check list dell'allegato si compilano nel
-      browser, si conservano sul dispositivo e si
-      stampano (o si salvano in PDF) già barrate.
+   2. le check list si compilano nel browser, si
+      conservano sul dispositivo e si stampano
+      (o si salvano in PDF) già barrate.
 
    Nessun dato lascia il browser: tutto resta in
    localStorage, sul dispositivo di chi compila.
@@ -50,11 +50,11 @@
             const source = document.querySelector(btn.dataset.copy);
             if (!source) return;
 
-            // Le virgolette tipografiche del testo di esempio non servono
-            // a chi incolla: si copia il contenuto, non la citazione.
+            // Si copia il contenuto, non la citazione: via gli spazi
+            // in eccesso e le eventuali virgolette di apertura e chiusura.
             const text = source.textContent
                 .replace(/\s+/g, ' ')
-                .replace(/^[\s"“”«]+|[\s"“”»]+$/g, '')
+                .replace(/^[\s"']+|[\s"']+$/g, '')
                 .trim();
 
             copyToClipboard(text).then(() => {
