@@ -951,6 +951,11 @@
         eProprietario() {
             return this.utenteCorrente && this.utenteCorrente.email && this.utenteCorrente.email.toLowerCase() === PROPRIETARIO;
         },
+        /* L'eliminazione DEFINITIVA di un incarico non si annulla e porta via anche il suo
+           piano di fatturazione: resta ad amministratore e titolare. Gli altri ruoli, se
+           hanno la scrittura sugli incarichi, li chiudono con "Termina" o "Dimissioni"
+           (reversibili, tutto lo storico resta). */
+        puoEliminareIncarichi() { return this.eAdmin() || this.eProprietario(); },
 
         /* Il ruolo dell'utente collegato, gia' normalizzato. Il titolare e l'admin hanno sempre
            accesso pieno (non si possono chiudere fuori da soli). Il Coordinatore territoriale
@@ -2111,12 +2116,37 @@
             return dopo;
         },
 
+        /* Eliminazione definitiva. Toglie l'incarico e con lui i dati che vivono attaccati
+           al suo id e che altrimenti resterebbero orfani in archivio: stati delle rate,
+           rimborsi spese (entrambi con chiave "<id incarico>|...") e allerte aperte.
+           Il registro modifiche NON si tocca: dell'incarico eliminato deve restare traccia. */
         elimina(id, utente) {
             const lista = this.tutti();
             const inc = lista.find(i => i.id === id);
-            if (!inc) return;
+            if (!inc) return null;
             this.salva(lista.filter(i => i.id !== id));
-            Audit.registra(utente, 'Eliminazione incarico', 'incarico', id, inc.cliente, null);
+            const prefisso = id + '|';
+            const ripulisci = chiave => {
+                const mappa = Store.leggi(chiave, {}) || {};
+                const tolte = Object.keys(mappa).filter(k => k.indexOf(prefisso) === 0);
+                if (!tolte.length) return 0;
+                tolte.forEach(k => { delete mappa[k]; });
+                Store.scrivi(chiave, mappa);
+                return tolte.length;
+            };
+            const rate = ripulisci(CHIAVI.fatture);
+            const rimborsi = ripulisci(CHIAVI.rimborsi);
+            const allerte = Allerte.tutte();
+            const allerteTolte = allerte.filter(a => a.incaricoId === id).length;
+            if (allerteTolte) Allerte.salva(allerte.filter(a => a.incaricoId !== id));
+            const coda = [
+                rate ? rate + (rate === 1 ? ' stato rata' : ' stati rata') : '',
+                rimborsi ? rimborsi + (rimborsi === 1 ? ' rimborso spese' : ' rimborsi spese') : '',
+                allerteTolte ? allerteTolte + (allerteTolte === 1 ? ' allerta' : ' allerte') : ''
+            ].filter(Boolean).join(', ');
+            Audit.registra(utente, 'Eliminazione incarico', 'incarico', id, inc.cliente,
+                'Incarico rimosso definitivamente' + (coda ? ' insieme a: ' + coda : ''));
+            return inc;
         },
 
         // congela il calcolo del compenso: i valori concordati non cambiano piu
@@ -3228,6 +3258,11 @@
     function disegnaTabellaIncarichi(annoRif) {
         const cont = document.getElementById('contenitore-tabella');
         const puoRinnovare = Auth.puoScrivere('incarichi');
+        // l'eliminazione definitiva e' di admin/titolare: puo' esserci la colonna azioni
+        // anche per chi non ha la scrittura, con il solo pulsante Elimina
+        const puoEliminare = Auth.puoEliminareIncarichi();
+        const colAzioni = puoRinnovare || puoEliminare;
+        const btnElimina = i => puoEliminare ? ` <button class="btn btn-sm btn-danger" data-elimina="${esc(i.id)}">Elimina</button>` : '';
         // attivi: rispetta il filtro di stato (attivo/scadenza/scaduto). terminati: ignora il filtro di stato
         // (che riguarda solo gli attivi) cosi restano sempre visibili nella loro scheda.
         const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
@@ -3246,7 +3281,7 @@
             corpo = dismessi.length ? `<div class="card" id="sez-dismessi">
                 <p class="descrizione" style="margin:0 0 12px;">Incarichi da cui il revisore si e dimesso, con la data delle dimissioni. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
                 <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                    <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Resp. incarico</th><th>Data dimissioni</th><th>Registrate il</th>${puoRinnovare ? '<th></th>' : ''}
+                    <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Resp. incarico</th><th>Data dimissioni</th><th>Registrate il</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 dismessi.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
                     <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
@@ -3255,7 +3290,7 @@
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                     <td data-label="Data dimissioni">${i.dimissioni && i.dimissioni.data ? esc(fmtData(i.dimissioni.data)) : ''}</td>
                     <td data-label="Registrate il">${i.dimissioni ? esc(fmtDataOra(i.dimissioni.il)) : ''}</td>
-                    ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button></td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni">${puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : ''}${btnElimina(i)}</td>` : ''}
                 </tr>`).join('') +
                 `</tbody></table></div></div>`
                 : '<div class="card tabella-vuota">Nessun incarico dismesso.</div>';
@@ -3263,7 +3298,7 @@
             corpo = terminati.length ? `<div class="card" id="sez-terminati">
                 <p class="descrizione" style="margin:0 0 12px;">Incarichi conclusi, tenuti fuori dall'elenco principale. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
                 <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                    <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${puoRinnovare ? '<th></th>' : ''}
+                    <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 terminati.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
                     <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
@@ -3272,7 +3307,7 @@
                     <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                     <td data-label="Terminato il">${i.terminato ? esc(fmtDataOra(i.terminato.il)) : ''}</td>
-                    ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button></td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni">${puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : ''}${btnElimina(i)}</td>` : ''}
                 </tr>`).join('') +
                 `</tbody></table></div></div>`
                 : '<div class="card tabella-vuota">Nessun incarico terminato.</div>';
@@ -3295,7 +3330,7 @@
             ];
             corpo = attivi.length ? (nProposte ? `<div class="avviso-proposta">${ICO_PROPOSTA}<span><strong>${nProposte} ${nProposte === 1 ? 'incarico e' : 'incarichi sono'} in proposta</strong> (righe evidenziate): compensi e scadenze non entrano nel totale finche' non ${nProposte === 1 ? 'lo confermi' : 'li confermi'} con il pulsante <strong>Conferma</strong>.</span></div>` : '') + `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>` +
                 colonne.map(c => `<th class="${c.num ? 'num' : ''}" data-ordina="${c.chiave}">${c.nome}${filtriIncarichi.ordina === c.chiave ? (filtriIncarichi.verso > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') +
-                (puoRinnovare ? '<th></th>' : '') +
+                (colAzioni ? '<th></th>' : '') +
                 `</tr></thead><tbody>` +
                 attivi.map(i => {
                     const s = Incarichi.statoScadenza(i);
@@ -3312,12 +3347,12 @@
                         <td data-label="Team">${esc(i.team || '')}</td>
                         <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) + (prop ? ' <span class="hint">(proposto)</span>' : '') : ''}</td>
                         <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                        ${puoRinnovare ? `<td data-label="" class="td-azioni">${prop
+                        ${colAzioni ? `<td data-label="" class="td-azioni">${!puoRinnovare ? '' : (prop
                         ? `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button>`
-                        : `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button> <button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button>`}</td>` : ''}
+                        : `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button> <button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button>`)}${btnElimina(i)}</td>` : ''}
                     </tr>`;
                 }).join('') +
-                `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi${nProposte ? ', ' + nProposte + (nProposte === 1 ? ' in proposta escluso' : ' in proposta esclusi') + ' dal totale' : ''})</td><td class="num">${eurFmt.format(totale)}</td><td></td>${puoRinnovare ? '<td></td>' : ''}</tr></tfoot></table></div>`
+                `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi${nProposte ? ', ' + nProposte + (nProposte === 1 ? ' in proposta escluso' : ' in proposta esclusi') + ' dal totale' : ''})</td><td class="num">${eurFmt.format(totale)}</td><td></td>${colAzioni ? '<td></td>' : ''}</tr></tfoot></table></div>`
                 : '<div class="card tabella-vuota">Nessun incarico attivo corrisponde ai filtri.</div>';
         }
 
@@ -3360,6 +3395,12 @@
                 e.stopPropagation();
                 const inc = Incarichi.trova(b.dataset.riattiva);
                 if (inc) modaleRiattivaIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
+            }));
+        cont.querySelectorAll('[data-elimina]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.elimina);
+                if (inc) modaleEliminaIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
             }));
         cont.querySelectorAll('th[data-ordina]').forEach(th =>
             th.addEventListener('click', () => {
@@ -3528,8 +3569,9 @@
                         </div>`).join('') : '<p class="tabella-vuota">Nessuna modifica registrata.</p>'}
                         ${inc.creato ? `<div class="storia-voce"><div class="quando">${fmtDataOra(inc.creato.il)}</div><div>Creato da <span class="chi">${esc(inc.creato.da)}</span></div></div>` : ''}
                     </div>
-                    ${Auth.eAdmin() ? `<div class="card">
+                    ${Auth.puoEliminareIncarichi() ? `<div class="card">
                         <h2>Zona amministratore</h2>
+                        <p class="descrizione" style="margin-bottom:12px;">L'eliminazione e definitiva e porta via anche compensi e scadenze. Per chiudere l'incarico conservando tutto usa <strong>Termina</strong> o <strong>Dimissioni</strong>.</p>
                         <button class="btn btn-danger btn-sm" id="btn-elimina">Elimina incarico</button>
                     </div>` : ''}
                 </div>
@@ -3556,22 +3598,9 @@
             const btnConf = document.getElementById('btn-conferma-inc'); if (btnConf) btnConf.addEventListener('click', confermaInc);
             const btnConfB = document.getElementById('btn-conferma-banner'); if (btnConfB) btnConfB.addEventListener('click', confermaInc);
         }
+        // eliminato l'incarico la scheda aperta non esiste piu: si torna all'elenco
         const btnElimina = document.getElementById('btn-elimina');
-        if (btnElimina) btnElimina.addEventListener('click', () => {
-            apriModale(`<h2>Eliminare l'incarico?</h2>
-                <p>Stai per eliminare l'incarico <strong>${esc(inc.cliente)}</strong>. L'operazione viene tracciata nel registro modifiche.</p>
-                <div class="modale-azioni">
-                    <button class="btn btn-ghost" id="m-annulla">Annulla</button>
-                    <button class="btn btn-danger" id="m-conferma">Elimina</button>
-                </div>`);
-            document.getElementById('m-annulla').addEventListener('click', chiudiModale);
-            document.getElementById('m-conferma').addEventListener('click', () => {
-                Incarichi.elimina(inc.id, Auth.utenteCorrente);
-                chiudiModale();
-                toast('Incarico eliminato.', 'verde');
-                naviga('incarichi');
-            });
-        });
+        if (btnElimina) btnElimina.addEventListener('click', () => modaleEliminaIncarico(inc));
     }
 
     // termina l'incarico: conferma e spostamento nella scheda "Terminati".
@@ -3658,6 +3687,40 @@
             chiudiModale();
             toast('Dimissioni registrate al ' + fmtData(data) + ': incarico nella scheda "Dismessi".', 'verde');
             if (onDone) onDone(); else naviga('dettaglio', { id: inc.id });
+        });
+    }
+
+    /* Eliminazione definitiva dell'incarico. E' l'unica operazione degli incarichi che NON
+       si annulla: la finestra dice cosa sparisce (compensi, scadenze, rimborsi, periodi
+       precedenti) e ricorda che "Termina" e "Dimissioni" chiudono l'incarico senza
+       perdere niente. onDone opzionale: dall'elenco ridisegna la tabella, dal dettaglio
+       si torna all'elenco (la scheda aperta non esiste piu). */
+    function modaleEliminaIncarico(inc, onDone) {
+        if (!Auth.puoEliminareIncarichi()) return;
+        const anni = Object.keys(inc.compensi || {}).map(Number).filter(Boolean).sort();
+        const nRate = anni.reduce((s, a) => s + Fatture.rate(inc, a).length, 0);
+        const totale = anni.reduce((s, a) => s + Incarichi.compensoAnno(inc, a), 0);
+        const nStorico = (inc.storico && inc.storico.length) || 0;
+        apriModale(`<h2>Eliminare l'incarico?</h2>
+            <p>Stai per eliminare <strong>${esc(inc.cliente)}</strong>. <strong>L'operazione non si annulla.</strong></p>
+            ${anni.length ? `<div class="riepilogo-blocco" style="margin-top:6px;">
+                ${rigaRiepilogo('Esercizi', anni.length > 1 ? anni[0] + '-' + anni[anni.length - 1] : String(anni[0]))}
+                ${rigaRiepilogo('Compensi registrati', eurFmt.format(totale))}
+                ${rigaRiepilogo('Scadenze in fatturazione', String(nRate))}
+                ${nStorico ? rigaRiepilogo('Periodi precedenti', String(nStorico)) : ''}
+            </div>` : ''}
+            <p class="hint">Spariscono con l'incarico i compensi, il piano delle scadenze con i loro stati e i rimborsi spese${nStorico ? ', insieme ai periodi precedenti e alle loro lettere' : ''}. Nel registro modifiche resta traccia dell'eliminazione.</p>
+            <p class="hint" style="margin-top:10px;">Per chiudere l'incarico <strong>senza perdere nulla</strong> usa invece <strong>Termina</strong> o <strong>Dimissioni</strong>: finisce nella scheda dedicata e lo riattivi quando vuoi.</p>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-danger" id="m-conferma">Elimina definitivamente</button>
+            </div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            Incarichi.elimina(inc.id, Auth.utenteCorrente);
+            chiudiModale();
+            toast('Incarico eliminato.', 'verde');
+            if (onDone) onDone(); else naviga('incarichi');
         });
     }
 
