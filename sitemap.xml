@@ -149,7 +149,7 @@
     <!-- AI Governance: autodiagnostico di maturità e classificatore AI Act -->
     <url>
         <loc>https://nextgenerationbusiness.it/ai_governance/</loc>
-        <lastmod>2026-07-15</lastmod>
+        <lastmod>2026-08-04</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.8</priority>
     </url>
@@ -186,9 +186,9 @@
         <priority>0.9</priority>
     </url>
 
-    <!-- Circolare AI Act: gli obblighi di trasparenza dal 2 agosto 2026, con check list compilabili -->
+    <!-- AI Act: gli obblighi di trasparenza dal 2 agosto 2026, con check list compilabili -->
     <url>
-        <loc>https://nextgenerationbusiness.it/circolare_ai_act_2026/</loc>
+        <loc>https://nextgenerationbusiness.it/ai_act_2026/</loc>
         <lastmod>2026-08-04</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.9</priority>

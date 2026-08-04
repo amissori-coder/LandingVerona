@@ -1475,7 +1475,7 @@
 
 .aig-timeline {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 0;
     margin-top: 44px;
     border-top: 2px solid var(--aig-hairline);
@@ -1488,6 +1488,15 @@
 }
 
 .aig-tappa:last-child { border-right: none; }
+
+/* Le tappe stanno su due righe: l'ultima colonna non porta il filetto
+   e la seconda riga ricostruisce la propria guida orizzontale. */
+.aig-tappa:nth-child(3n) { border-right: none; }
+.aig-tappa:nth-child(n+4) {
+    margin-top: 26px;
+    padding-top: 22px;
+    border-top: 1px solid var(--aig-hairline);
+}
 
 .aig-tappa::before {
     content: '';
@@ -2059,7 +2068,8 @@
     .aig-fasi { grid-template-columns: repeat(2, 1fr); }
     .aig-step { grid-template-columns: repeat(2, 1fr); gap: 26px 0; }
     .aig-timeline { grid-template-columns: repeat(2, 1fr); }
-    .aig-tappa:nth-child(2) { border-right: none; }
+    .aig-tappa:nth-child(3n) { border-right: 1px solid var(--aig-hairline); }
+    .aig-tappa:nth-child(2n) { border-right: none; }
     .aig-tappa:nth-child(n+3) { margin-top: 22px; border-top: 1px solid var(--aig-hairline); padding-top: 22px; }
 }
 

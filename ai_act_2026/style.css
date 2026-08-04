@@ -1,5 +1,5 @@
 /* ============================================
-   Circolare AI Act — obblighi dal 2 agosto 2026
+   AI Act — obblighi dal 2 agosto 2026
    Stili specifici della pagina: si appoggia a
    zls_zes/style.css e assets/content-page.css e
    aggiunge la tabella delle situazioni, i box dei
@@ -341,7 +341,7 @@
 .scad-item p strong { color: var(--text-primary); }
 
 /* ============================================
-   5. CHECK LIST COMPILABILI (l'allegato)
+   5. CHECK LIST COMPILABILI
    ============================================ */
 .cl-toolbar {
     display: flex;
@@ -850,9 +850,9 @@
 }
 
 /* ============================================
-   9. STAMPA — dell'allegato si stampano solo le
-   check list, in bianco e nero, su una pagina
-   pulita: è il modulo da compilare e archiviare.
+   9. STAMPA — si stampano solo le check list, in
+   bianco e nero, su una pagina pulita: è il modulo
+   da compilare e archiviare.
    ============================================ */
 @media print {
     .navbar,

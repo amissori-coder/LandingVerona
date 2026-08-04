@@ -1,8 +1,8 @@
 /* ============================================
-   Circolare AI Act — script di pagina
+   AI Act — script di pagina
 
    Due funzioni, entrambe pensate per l'uso reale
-   della circolare:
+   della pagina:
    1. i testi pronti all'uso si copiano con un clic;
    2. le check list dell'allegato si compilano nel
       browser, si conservano sul dispositivo e si
@@ -184,7 +184,7 @@
     if (printBtn) {
         printBtn.addEventListener('click', () => {
             if (typeof window.gtag === 'function') {
-                window.gtag('event', 'stampa_checklist', { pagina: 'Circolare AI Act 2 agosto 2026' });
+                window.gtag('event', 'stampa_checklist', { pagina: 'AI Act 2 agosto 2026' });
             }
             window.print();
         });

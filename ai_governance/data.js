@@ -925,7 +925,7 @@ window.AIG_DATA = {
      "Apporre la marcatura CE e redigere una dichiarazione di conformità unica del prodotto.",
      "Attivare il monitoraggio successivo all'immissione e segnalare gli incidenti gravi alle autorità competenti."
     ],
-    "nota": "Per questa categoria l'applicazione dei requisiti decorre dal 2 agosto 2027, termine più lungo che allinea l'AI Act ai cicli di certificazione dei prodotti."
+    "nota": "Per questa categoria l'applicazione dei requisiti decorre dal 2 agosto 2028, termine differito dal Regolamento (UE) 2026/1744 e allineato ai cicli di certificazione dei prodotti."
    },
    {
     "id": "alto_allegato3",
@@ -940,7 +940,7 @@ window.AIG_DATA = {
      "Completare la valutazione di conformità e registrare il sistema nella banca dati europea.",
      "Svolgere la FRIA (art. 27) se utilizzatori: organismi di diritto pubblico, soggetti privati che erogano servizi pubblici, oppure utilizzatori di sistemi di merito creditizio o di tariffazione nelle assicurazioni vita e salute; sono esclusi i sistemi dell'allegato III, punto 2."
     ],
-    "nota": "L'utilizzatore che appone il proprio marchio, modifica la finalità prevista o interviene in modo sostanziale sul sistema assume gli obblighi propri del fornitore."
+    "nota": "L'utilizzatore che appone il proprio marchio, modifica la finalità prevista o interviene in modo sostanziale sul sistema assume gli obblighi propri del fornitore. Per questa categoria l'applicazione dei requisiti decorre dal 2 dicembre 2027, termine differito dal Regolamento (UE) 2026/1744: il rinvio sposta le date, non il contenuto degli obblighi."
    },
    {
     "id": "trasparenza",
