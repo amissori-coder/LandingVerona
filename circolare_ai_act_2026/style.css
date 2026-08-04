@@ -1,0 +1,963 @@
+/* ============================================
+   Circolare AI Act — obblighi dal 2 agosto 2026
+   Stili specifici della pagina: si appoggia a
+   zls_zes/style.css e assets/content-page.css e
+   aggiunge la tabella delle situazioni, i box dei
+   testi pronti all'uso, lo scadenzario, le check
+   list compilabili e le card di collegamento.
+   ============================================ */
+
+/* ============================================
+   1. TABELLA "TI RIGUARDA?"
+   Tre colonne su desktop; sotto i 900px ogni riga
+   diventa un blocco con le etichette di colonna
+   ricavate dall'attributo data-label.
+   ============================================ */
+.mappa-wrap {
+    max-width: 1140px;
+    margin: 48px auto 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+}
+
+.mappa {
+    width: 100%;
+    min-width: 860px;
+    border-collapse: collapse;
+    background: #ffffff;
+    font-size: 0.93rem;
+}
+
+.mappa thead th {
+    background: #0f1e2e;
+    color: #ffffff;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    padding: 16px 22px;
+    white-space: nowrap;
+}
+
+.mappa thead th:first-child { width: 27%; }
+.mappa thead th:nth-child(2) { width: 36%; }
+
+.mappa tbody td {
+    padding: 22px;
+    vertical-align: top;
+    border-top: 1px solid rgba(22, 64, 104, 0.10);
+    color: var(--text-secondary);
+    line-height: 1.72;
+}
+
+.mappa tbody tr:nth-child(even) { background: #f8fafc; }
+.mappa tbody tr:hover { background: #f0f4f8; }
+
+.mappa .cella-situazione {
+    font-weight: 700;
+    color: #0A2844;
+}
+
+.mappa td strong { color: var(--text-primary); }
+
+/* Etichetta dello stato dell'obbligo dentro la colonna centrale */
+.obbligo-stato {
+    display: block;
+    width: fit-content;
+    margin-bottom: 10px;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+}
+.obbligo-stato.is-vigore {
+    background: #e6f4ee;
+    border: 1px solid #a9d8c4;
+    color: #14684c;
+}
+.obbligo-stato.is-rinviato {
+    background: #fdf3e3;
+    border: 1px solid #e8cfa0;
+    color: #8a5b12;
+}
+
+@media (max-width: 900px) {
+    .mappa-wrap {
+        overflow-x: visible;
+        border: 0;
+        box-shadow: none;
+        border-radius: 0;
+    }
+    .mappa { min-width: 0; background: transparent; }
+    .mappa thead { display: none; }
+    .mappa tbody, .mappa tr, .mappa td { display: block; width: 100%; }
+    .mappa tbody tr {
+        background: #ffffff !important;
+        border: 1px solid rgba(22, 64, 104, 0.14);
+        border-radius: 14px;
+        padding: 6px 0 10px;
+        margin-bottom: 18px;
+        box-shadow: 0 2px 10px rgba(10, 40, 68, 0.05);
+    }
+    .mappa tbody td {
+        border-top: 0;
+        padding: 12px 22px;
+    }
+    .mappa tbody td + td { border-top: 1px solid rgba(22, 64, 104, 0.08); }
+    .mappa tbody td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 1.4px;
+        text-transform: uppercase;
+        color: #2A5A85;
+    }
+}
+
+/* ============================================
+   2. TESTI PRONTI ALL'USO
+   ============================================ */
+.testi-grid {
+    display: grid;
+    gap: 22px;
+    max-width: 900px;
+    margin: 48px auto 0;
+}
+
+.testo-card {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+}
+
+.testo-head {
+    padding: 18px 24px;
+    background: #f0f4f8;
+    border-bottom: 1px solid rgba(22, 64, 104, 0.12);
+}
+
+.testo-head h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin: 0;
+    line-height: 1.35;
+}
+
+.testo-head p {
+    font-size: 0.82rem;
+    color: #5A6270;
+    margin: 4px 0 0;
+    line-height: 1.5;
+}
+
+.testo-copy {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 16px;
+    border: 1px solid #c8d8e8;
+    border-radius: 100px;
+    background: #ffffff;
+    color: #164068;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.testo-copy svg { width: 15px; height: 15px; }
+.testo-copy:hover {
+    background: #164068;
+    border-color: #164068;
+    color: #ffffff;
+}
+.testo-copy.is-done {
+    background: #e6f4ee;
+    border-color: #a9d8c4;
+    color: #14684c;
+}
+
+.testo-body {
+    padding: 24px;
+}
+
+.testo-body blockquote {
+    margin: 0;
+    padding: 0 0 0 18px;
+    border-left: 3px solid #c8d8e8;
+    color: #22364a;
+    font-size: 0.97rem;
+    line-height: 1.85;
+}
+
+.testo-quote-foot { margin-top: 13px; padding-left: 18px; }
+
+.testo-alt {
+    display: block;
+    margin: 26px 0 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #2A5A85;
+}
+
+/* ============================================
+   3. PIANO D'AZIONE — fasi
+   ============================================ */
+.fase-label {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: 1140px;
+    margin: 52px auto 0;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #2A5A85;
+}
+.fase-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(22, 64, 104, 0.16);
+}
+.fase-label .fase-prio {
+    padding: 3px 10px;
+    border-radius: 100px;
+    background: #fdecec;
+    border: 1px solid #eebcbc;
+    color: #9e2b2b;
+    font-size: 0.64rem;
+    letter-spacing: 1.1px;
+}
+
+.components-grid.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.components-grid.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.components-grid.grid-tight { margin-top: 24px; }
+
+/* ============================================
+   4. SCADENZARIO
+   ============================================ */
+.scadenzario {
+    position: relative;
+    max-width: 880px;
+    margin: 48px auto 0;
+    padding-left: 34px;
+}
+.scadenzario::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    background: linear-gradient(180deg, #164068 0%, #164068 38%, rgba(22, 64, 104, 0.18) 38%, rgba(22, 64, 104, 0.18) 100%);
+}
+
+.scad-item {
+    position: relative;
+    padding: 0 0 30px 8px;
+}
+.scad-item:last-child { padding-bottom: 0; }
+
+.scad-item::before {
+    content: '';
+    position: absolute;
+    left: -32px;
+    top: 5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 3px solid rgba(22, 64, 104, 0.28);
+}
+.scad-item.is-done::before,
+.scad-item.is-now::before {
+    background: #164068;
+    border-color: #164068;
+}
+.scad-item.is-now::after {
+    content: '';
+    position: absolute;
+    left: -38px;
+    top: -1px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid rgba(22, 64, 104, 0.22);
+}
+
+.scad-data {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0A2844;
+    letter-spacing: -0.3px;
+    margin-bottom: 8px;
+}
+
+.scad-pill {
+    padding: 3px 11px;
+    border-radius: 100px;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+.scad-pill.is-vigore {
+    background: #e6f4ee;
+    border: 1px solid #a9d8c4;
+    color: #14684c;
+}
+.scad-pill.is-futuro {
+    background: #f0f4f8;
+    border: 1px solid #c8d8e8;
+    color: #2A5A85;
+}
+
+.scad-item p {
+    color: var(--text-secondary);
+    font-size: 0.97rem;
+    line-height: 1.78;
+    margin: 0;
+}
+.scad-item p strong { color: var(--text-primary); }
+
+/* ============================================
+   5. CHECK LIST COMPILABILI (l'allegato)
+   ============================================ */
+.cl-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    max-width: 1000px;
+    margin: 44px auto 0;
+    padding: 22px 26px;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+}
+
+.cl-azienda {
+    flex: 1 1 250px;
+    min-width: 200px;
+}
+.cl-azienda label {
+    display: block;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #2A5A85;
+    margin-bottom: 6px;
+}
+.cl-azienda input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid #c8d8e8;
+    border-radius: 9px;
+    background: #f8fafc;
+    font-family: inherit;
+    font-size: 0.92rem;
+    color: #0A2844;
+}
+.cl-azienda input:focus {
+    outline: none;
+    border-color: #164068;
+    background: #ffffff;
+}
+
+.cl-meter-wrap { flex: 1 1 240px; min-width: 200px; }
+
+.cl-meter {
+    height: 8px;
+    border-radius: 100px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+.cl-meter-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 100px;
+    background: linear-gradient(90deg, #1a3a5c, #2A5A85);
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cl-meter-label {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #5A6270;
+}
+
+.cl-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.cl-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-radius: 100px;
+    border: 1px solid #c8d8e8;
+    background: #ffffff;
+    color: #164068;
+    font-family: inherit;
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+.cl-btn svg { width: 16px; height: 16px; }
+.cl-btn:hover {
+    background: #164068;
+    border-color: #164068;
+    color: #ffffff;
+}
+.cl-btn.cl-btn-ghost { color: #8a5b12; border-color: #e8cfa0; }
+.cl-btn.cl-btn-ghost:hover { background: #8a5b12; border-color: #8a5b12; color: #ffffff; }
+
+.cl-hint {
+    max-width: 1000px;
+    margin: 16px auto 0;
+    font-size: 0.85rem;
+    color: #5A6270;
+    line-height: 1.7;
+}
+
+.cl-grid {
+    display: grid;
+    gap: 24px;
+    max-width: 1000px;
+    margin: 32px auto 0;
+}
+
+.cl-card {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+    break-inside: avoid;
+}
+
+.cl-head {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 20px 26px;
+    background: #f0f4f8;
+    border-bottom: 1px solid rgba(22, 64, 104, 0.12);
+}
+
+.cl-letter {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background: #164068;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.cl-head-body { flex: 1; min-width: 0; }
+.cl-head-body h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin: 0;
+    line-height: 1.3;
+}
+.cl-head-body p {
+    font-size: 0.83rem;
+    color: #5A6270;
+    margin: 3px 0 0;
+    line-height: 1.5;
+}
+
+.cl-count {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 100px;
+    background: #ffffff;
+    border: 1px solid #c8d8e8;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #2A5A85;
+    white-space: nowrap;
+}
+.cl-count.is-complete {
+    background: #e6f4ee;
+    border-color: #a9d8c4;
+    color: #14684c;
+}
+
+.cl-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.cl-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    padding: 16px 26px;
+    flex-wrap: wrap;
+}
+.cl-item + .cl-item { border-top: 1px solid rgba(22, 64, 104, 0.08); }
+.cl-item.is-checked { background: #f6faf8; }
+
+.cl-check {
+    flex: 1 1 380px;
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    cursor: pointer;
+    min-width: 0;
+}
+.cl-check input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.cl-box {
+    flex-shrink: 0;
+    width: 21px;
+    height: 21px;
+    margin-top: 1px;
+    border-radius: 6px;
+    border: 2px solid #b9cbdd;
+    background: #ffffff;
+    position: relative;
+    transition: all 0.2s ease;
+}
+.cl-box::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid #ffffff;
+    border-width: 0 2.4px 2.4px 0;
+    transform: rotate(45deg) scale(0);
+    transition: transform 0.18s ease;
+}
+.cl-check input:checked + .cl-box {
+    background: #14684c;
+    border-color: #14684c;
+}
+.cl-check input:checked + .cl-box::after { transform: rotate(45deg) scale(1); }
+.cl-check input:focus-visible + .cl-box {
+    box-shadow: 0 0 0 3px rgba(22, 64, 104, 0.22);
+}
+.cl-check:hover .cl-box { border-color: #164068; }
+
+.cl-text {
+    font-size: 0.94rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+}
+.cl-check input:checked ~ .cl-text { color: #0A2844; }
+.cl-text strong { color: var(--text-primary); }
+
+.cl-opt {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: #fdf3e3;
+    border: 1px solid #e8cfa0;
+    color: #8a5b12;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    vertical-align: 2px;
+    white-space: nowrap;
+}
+
+.cl-note {
+    flex: 0 1 210px;
+    min-width: 150px;
+    padding: 8px 12px;
+    border: 1px solid #dbe4ee;
+    border-radius: 9px;
+    background: #f8fafc;
+    font-family: inherit;
+    font-size: 0.84rem;
+    color: #0A2844;
+}
+.cl-note::placeholder { color: #a3b0bf; }
+.cl-note:focus {
+    outline: none;
+    border-color: #164068;
+    background: #ffffff;
+}
+
+.cl-saved {
+    max-width: 1000px;
+    margin: 22px auto 0;
+    font-size: 0.82rem;
+    color: #5A6270;
+    text-align: center;
+}
+
+/* Intestazione visibile solo in stampa */
+.cl-print-head { display: none; }
+
+/* ============================================
+   6. CARD DI COLLEGAMENTO AGLI APPROFONDIMENTI
+   ============================================ */
+.links-sublabel {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: 1140px;
+    margin: 56px auto 0;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #2A5A85;
+}
+.links-sublabel::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(22, 64, 104, 0.16);
+}
+
+.links-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 1140px;
+    margin: 24px auto 0;
+}
+.links-grid-featured {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 26px;
+}
+
+.link-card-hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: linear-gradient(135deg, #0f1e2e 0%, #1a3a5c 100%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 16px;
+    padding: 34px 34px 28px;
+    text-decoration: none;
+    overflow: hidden;
+    box-shadow: 0 16px 38px rgba(10, 40, 68, 0.18);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.link-card-hero::after {
+    content: '';
+    position: absolute;
+    top: -60px;
+    right: -60px;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    pointer-events: none;
+}
+.link-card-hero:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 26px 54px rgba(10, 40, 68, 0.30);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+.link-card-hero .link-card-tag { color: #9DC0E0; }
+.link-card-hero h3 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0;
+    line-height: 1.3;
+    letter-spacing: -0.4px;
+}
+.link-card-hero p {
+    font-size: 0.94rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.82);
+    margin: 0;
+}
+.link-card-hero .link-card-go { color: #ffffff; }
+
+.link-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-radius: 14px;
+    padding: 26px 24px 22px;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.link-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(22, 64, 104, 0.32);
+    box-shadow: 0 16px 36px rgba(10, 40, 68, 0.12);
+}
+.link-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background: #f0f4f8;
+    border: 1px solid #c8d8e8;
+    color: #164068;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+    transition: all 0.3s ease;
+}
+.link-card-icon svg { width: 20px; height: 20px; }
+.link-card:hover .link-card-icon {
+    background: #164068;
+    border-color: #164068;
+    color: #ffffff;
+}
+.link-card h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin: 0;
+    line-height: 1.35;
+}
+.link-card p {
+    font-size: 0.87rem;
+    line-height: 1.62;
+    color: #5A6270;
+    margin: 0;
+}
+.link-card-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: #2A5A85;
+}
+.link-card-go {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 10px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #164068;
+}
+.link-card-go svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
+}
+.link-card:hover .link-card-go svg,
+.link-card-hero:hover .link-card-go svg { transform: translateX(5px); }
+
+/* ============================================
+   7. RIFERIMENTI NORMATIVI
+   ============================================ */
+.rif-list {
+    list-style: none;
+    max-width: 880px;
+    margin: 36px auto 0;
+    padding: 0;
+}
+.rif-list li {
+    position: relative;
+    padding: 14px 0 14px 22px;
+    border-bottom: 1px solid rgba(22, 64, 104, 0.10);
+    font-size: 0.94rem;
+    line-height: 1.72;
+    color: var(--text-secondary);
+}
+.rif-list li:last-child { border-bottom: 0; }
+.rif-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 25px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #2A5A85;
+}
+.rif-list strong { color: var(--text-primary); }
+
+/* ============================================
+   8. RESPONSIVE
+   ============================================ */
+@media (max-width: 1024px) {
+    .links-grid { grid-template-columns: repeat(2, 1fr); }
+    .components-grid.grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 860px) {
+    .components-grid.grid-3,
+    .components-grid.grid-2 { grid-template-columns: 1fr; max-width: 520px; }
+}
+
+@media (max-width: 700px) {
+    .links-grid,
+    .links-grid-featured { grid-template-columns: 1fr; max-width: 520px; }
+    .links-sublabel,
+    .fase-label { max-width: 520px; }
+    .link-card-hero { padding: 28px 26px 24px; }
+    .link-card-hero h3 { font-size: 1.15rem; }
+
+    .testo-head { flex-direction: column; align-items: flex-start; }
+    .cl-item { gap: 12px; }
+    .cl-check { flex: 1 1 100%; }
+    .cl-note { flex: 1 1 100%; margin-left: 34px; }
+    .cl-head { gap: 14px; padding: 18px 20px; }
+    .cl-item { padding: 15px 20px; }
+    .scadenzario { padding-left: 28px; }
+}
+
+/* ============================================
+   9. STAMPA — dell'allegato si stampano solo le
+   check list, in bianco e nero, su una pagina
+   pulita: è il modulo da compilare e archiviare.
+   ============================================ */
+@media print {
+    .navbar,
+    .hero,
+    .section:not(#checklist),
+    .footer,
+    .cl-actions,
+    .cl-meter-wrap,
+    .cl-hint,
+    .cl-saved,
+    .event-banner,
+    .fcd-popup { display: none !important; }
+
+    #checklist {
+        padding: 0 !important;
+        background: #ffffff !important;
+    }
+    #checklist .section-header { display: none; }
+
+    .cl-print-head {
+        display: block;
+        margin-bottom: 18px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #000000;
+    }
+    .cl-print-head h2 {
+        font-size: 15pt;
+        margin: 0 0 4px;
+        color: #000000;
+    }
+    .cl-print-head p {
+        font-size: 9pt;
+        margin: 0;
+        color: #333333;
+    }
+
+    .cl-toolbar {
+        display: block;
+        margin: 0 0 18px;
+        padding: 0;
+        border: 0;
+        box-shadow: none;
+    }
+    .cl-azienda label { color: #000000; }
+    .cl-azienda input {
+        border: 0;
+        border-bottom: 1px solid #000000;
+        border-radius: 0;
+        background: transparent;
+        font-size: 11pt;
+        font-weight: 700;
+        padding: 2px 0;
+    }
+
+    .cl-grid { gap: 14px; margin: 0; max-width: none; }
+
+    .cl-card {
+        border: 1px solid #999999;
+        border-radius: 6px;
+        box-shadow: none;
+        page-break-inside: avoid;
+    }
+    .cl-head {
+        background: #eeeeee !important;
+        padding: 10px 14px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .cl-letter {
+        width: 26px;
+        height: 26px;
+        border-radius: 5px;
+        background: #000000 !important;
+        font-size: 11pt;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .cl-head-body h3 { font-size: 11pt; }
+    .cl-head-body p { font-size: 8.5pt; }
+    .cl-count { font-size: 8.5pt; padding: 3px 9px; }
+
+    .cl-item {
+        padding: 8px 14px;
+        page-break-inside: avoid;
+        background: transparent !important;
+    }
+    .cl-text { font-size: 9.5pt; line-height: 1.45; color: #000000; }
+    .cl-opt { border: 1px solid #999999; background: transparent; color: #333333; }
+    .cl-box {
+        border: 1.5px solid #000000;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .cl-check input:checked + .cl-box {
+        background: #000000 !important;
+        border-color: #000000;
+    }
+    .cl-note {
+        border: 0;
+        border-bottom: 1px solid #999999;
+        border-radius: 0;
+        background: transparent;
+        font-size: 9pt;
+        flex-basis: 190px;
+    }
+
+    a[href]::after { content: none !important; }
+}
