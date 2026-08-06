@@ -12558,9 +12558,15 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         }, { testo: 'Salvataggio…' }));
     }
 
-    function mostraLogin() {
+    /* daUscita: si arriva qui chiudendo una sessione aperta (uscita volontaria o scadenza
+       per inattivita) e non dall'avvio della pagina. Solo in quel caso i campi si
+       svuotano: all'avvio vanno lasciati com'e', perche' potrebbero essere stati
+       compilati dal gestore password del browser. */
+    function mostraLogin(daUscita) {
         document.getElementById('app').classList.add('hidden');
         document.getElementById('schermata-login').classList.remove('hidden');
+        if (daUscita) svuotaCampiLogin();
+        precompilaLogin();
     }
 
     function mostraApp() {
@@ -12578,6 +12584,50 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         avvisaNuoviIscritti();
         // ...e si continua a guardare anche dopo, non solo in questo istante
         avviaSorveglianzaIscritti();
+    }
+
+    /* "Ricorda il mio indirizzo": si memorizza SOLO l'email, e solo su questo computer.
+       La password non viene mai scritta dall'app da nessuna parte: a custodirla e' il
+       gestore password del browser (cassaforte del sistema operativo, cifrata), che ora
+       puo' farlo perche' il modulo di accesso non ha piu' autocomplete="off".
+       Cosi' chi rientra trova l'indirizzo gia' scritto e il cursore sulla password, che
+       il browser riempie da solo se l'utente ha accettato di salvarla. */
+    const CHIAVE_EMAIL_RICORDATA = 'rvArea.emailRicordata';
+
+    function emailRicordata() {
+        try { return localStorage.getItem(CHIAVE_EMAIL_RICORDATA) || ''; } catch (e) { return ''; }
+    }
+    function ricordaEmail(email, ricorda) {
+        try {
+            if (ricorda && email) localStorage.setItem(CHIAVE_EMAIL_RICORDATA, email);
+            else localStorage.removeItem(CHIAVE_EMAIL_RICORDATA);
+        } catch (e) { }
+    }
+    /* Riempie la schermata di accesso con l'indirizzo ricordato. NON svuota mai i campi:
+       all'avvio della pagina il gestore password del browser puo' averli gia' compilati,
+       e cancellarli qui vanificherebbe il riempimento automatico. */
+    function precompilaLogin() {
+        const campoEmail = document.getElementById('login-email');
+        const campoRicorda = document.getElementById('login-ricorda');
+        const campoPwd = document.getElementById('login-password');
+        if (!campoEmail || !campoRicorda) return;
+        const salvata = emailRicordata();
+        campoRicorda.checked = !!salvata;
+        if (!salvata) return;
+        campoEmail.value = salvata;
+        // se il browser ha gia' riempito la password non gli si ruba il fuoco;
+        // altrimenti si parte dal solo campo che resta da digitare
+        if (campoPwd && !campoPwd.value) campoPwd.focus();
+    }
+    /* Si esce da una sessione aperta (uscita volontaria o scadenza per inattivita):
+       la password sparisce sempre dal campo, l'indirizzo solo se non era da ricordare.
+       Su un computer condiviso, chi ha detto "non ricordare" non deve lasciare a schermo
+       nemmeno il proprio indirizzo. */
+    function svuotaCampiLogin() {
+        const campoEmail = document.getElementById('login-email');
+        const campoPwd = document.getElementById('login-password');
+        if (campoPwd) campoPwd.value = '';
+        if (campoEmail && !emailRicordata()) campoEmail.value = '';
     }
 
     function collegaLogin() {
@@ -12622,6 +12672,9 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                     err.classList.remove('hidden');
                     return;
                 }
+                // si ricorda solo un indirizzo che ha funzionato davvero: cosi' un refuso
+                // non resta appiccicato alla schermata di accesso
+                ricordaEmail(email, document.getElementById('login-ricorda').checked);
                 if (esito.mustChange) {
                     chiediCambioPassword(email, true, () => {
                         const u = Auth.trova(email);
@@ -12705,9 +12758,8 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
 
         document.getElementById('btn-logout').addEventListener('click', () => {
             Auth.esci();
-            document.getElementById('login-password').value = '';
             if (btnPwd && btnPwd._reset) btnPwd._reset();
-            mostraLogin();
+            mostraLogin(true);
         });
     }
 
@@ -12730,7 +12782,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
     setInterval(() => {
         if (Auth.utenteCorrente && sessioneScaduta()) {
             Auth.esci();
-            mostraLogin();
+            mostraLogin(true);
             toast('Sessione chiusa per inattivita.');
         }
     }, 60000);

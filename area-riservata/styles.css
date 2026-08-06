@@ -116,6 +116,10 @@ td.td-azioni .btn { margin: 0 2px 2px 0; }
 .marchio.chiaro img { height: 30px; }
 .login-card h1 { font-size: 1.3rem; text-align: center; margin-bottom: 4px; }
 .login-card .sottotitolo { text-align: center; color: var(--grigio-600); font-size: 0.9rem; margin-bottom: 24px; }
+/* "Ricorda il mio indirizzo": ricorda SOLO l'email, mai la password
+   (quella la custodisce il gestore password del browser) */
+.login-ricorda { display: flex; align-items: center; gap: 8px; margin-top: 14px; cursor: pointer; font-size: 0.85rem; color: var(--grigio-600); }
+.login-ricorda input { width: auto; margin: 0; flex: none; }
 .login-azioni { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
 .login-links { display: flex; justify-content: space-between; margin-top: 14px; font-size: 0.85rem; }
 .login-links a { cursor: pointer; }
