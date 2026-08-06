@@ -273,7 +273,8 @@
        utenti gia' presenti continuano a funzionare esattamente come prima (accesso pieno).
        "Coordinatore territoriale" e il suo vice sono ruoli di sistema: SEMPRE in sola
        visualizzazione, limitati agli incarichi delle regioni della loro scheda in Aderenti Revilaw
-       (la Regione della scheda piu' le eventuali altre regioni coordinate). */
+       (le regioni coordinate spuntate sulla scheda; la Regione della scheda e' la sede
+       e da sola non assegna alcun territorio). */
     const RUOLI_DEFAULT = [
         { id: 'admin', nome: 'Amministratore', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'qualita', nome: 'Responsabile qualita', builtin: true, sezioni: sezioniTutte('scrittura') },
@@ -729,6 +730,36 @@
             });
             if (cambiato) this.salva(lista);
         },
+        /* Migrazione una tantum delle regioni coordinate.
+           Prima la regola era implicita: "Regione della scheda + regioni spuntate". Ma il
+           campo Regione e' un dato di RESIDENZA (nel modulo sta dentro l'indirizzo), e cosi'
+           chi era coordinatore si ritrovava assegnato il territorio in cui abita senza che
+           nessuno l'avesse scelto - comparendo tra i coordinatori di quella regione e
+           vedendone gli incarichi. Ora contano solo le regioni spuntate.
+           Per non togliere accessi di colpo, a ogni coordinatore/vice la Regione della
+           scheda viene scritta TRA le regioni spuntate: il risultato di oggi non cambia,
+           ma da qui in poi e' visibile sulla scheda e si puo' togliere.
+           Il contrassegno per persona serve proprio a questo: senza, una regione tolta a
+           mano verrebbe rimessa al caricamento successivo. */
+        migraRegioniCoordinate() {
+            const lista = this.tutte();
+            let cambiato = false;
+            lista.forEach(p => {
+                if (p.regCoordMigrata) return;
+                // si contrassegnano TUTTI, non solo i coordinatori di adesso: chi lo diventa
+                // dopo la migrazione non deve ereditare la regione di residenza
+                p.regCoordMigrata = true;
+                cambiato = true;
+                if (!p.coordinatore && !p.viceCoordinatore) return;
+                const residenza = String(p.regione || '').trim();
+                const gia = Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate.filter(Boolean) : [];
+                p.regioniCoordinate = gia;
+                if (!residenza) return;
+                if (gia.some(x => chiaveRegione(x) === chiaveRegione(residenza))) return;
+                gia.push(residenza);
+            });
+            if (cambiato) this.salva(lista);
+        },
         /* usato dall'import: aggiunge i nominativi mancanti con i ruoli
            rilevati e riporta i campi degli incarichi alla grafia canonica
            dell'anagrafica (evita doppioni tipo "MISSORI" / "Missori") */
@@ -767,6 +798,24 @@
             return aggiunte;
         }
     };
+
+    /* Le regioni che una persona COORDINA: soltanto quelle scelte sulla sua scheda,
+       senza doppioni e con la grafia originale.
+       La "Regione" della scheda NON entra qui: e' un dato di residenza (nel modulo sta
+       insieme a provincia, localita e indirizzo) e non dice nulla sul territorio coperto.
+       Chi coordina la regione in cui abita ce l'ha tra le regioni spuntate, dove la
+       migrazione l'ha scritta esplicitamente (vedi Persone.migraRegioniCoordinate).
+       Regola unica: la usano il filtro dei permessi, l'etichetta nella barra laterale
+       e la sezione Coordinatori e vice. */
+    function regioniCoperte(p) {
+        if (!p || !Array.isArray(p.regioniCoordinate)) return [];
+        const viste = new Set(), out = [];
+        p.regioniCoordinate.filter(Boolean).forEach(r => {
+            const k = chiaveRegione(r);
+            if (k && !viste.has(k)) { viste.add(k); out.push(String(r).trim()); }
+        });
+        return out;
+    }
 
     /* =========================================================
        REGISTRO MODIFICHE (audit trail)
@@ -986,17 +1035,16 @@
             return { id: u.ruolo || '', nome: u.ruolo || 'Senza ruolo', sconosciuto: true, sezioni: sezioniTutte('no') };
         },
         /* La scheda in Aderenti Revilaw dell'utente collegato (agganciata per email): per il
-           Coordinatore territoriale e' li' che sta scritta la sua regione.
+           Coordinatore territoriale e' li' che stanno scritte le sue regioni.
            Se per errore due schede hanno la stessa email, vince la piu' completa
-           (attiva e con la regione compilata), non la prima in elenco. */
+           (attiva e con le regioni coordinate compilate), non la prima in elenco. */
         personaCorrente() {
             const u = this.utenteCorrente;
             if (!u || !u.email) return null;
             const em = String(u.email).toLowerCase();
             const match = Persone.tutte().filter(p => p.email && !p.eliminato && String(p.email).toLowerCase() === em);
             if (!match.length) return null;
-            const haRegioni = p => !!((p.regione && String(p.regione).trim()) || (Array.isArray(p.regioniCoordinate) && p.regioniCoordinate.filter(Boolean).length));
-            const punti = p => (p.attivo ? 2 : 0) + (haRegioni(p) ? 1 : 0);
+            const punti = p => (p.attivo ? 2 : 0) + (regioniCoperte(p).length ? 1 : 0);
             return match.sort((a, b) => punti(b) - punti(a))[0];
         },
         // livello sulla singola sezione di contenuto: 'no' | 'lettura' | 'scrittura'
@@ -1025,19 +1073,19 @@
             if (sez === 'newsletter') return puoVedereNewsletter();
             return this.accessoSezione(sez) === 'scrittura';
         },
-        /* null = tutte le regioni. Solo coordinatore e vice sono limitati: alla Regione della
-           LORO scheda in Aderenti Revilaw (agganciata per email) piu' le eventuali altre regioni
-           coordinate indicate sulla scheda. Scheda mancante o senza alcuna regione = nessun
-           incarico visibile (fail-closed): si sistema compilando la scheda. */
+        /* null = tutte le regioni. Solo coordinatore e vice sono limitati: alle regioni
+           coordinate indicate sulla LORO scheda in Aderenti Revilaw (agganciata per email).
+           La Regione della scheda NON conta piu' da sola: e' la residenza, e valeva come
+           territorio senza che nessuno l'avesse scelta. Scheda mancante o senza alcuna
+           regione coordinata = nessun incarico visibile (fail-closed): si sistema
+           spuntando le regioni sulla scheda. */
         regioniConsentite() {
             const r = this.ruoloCorrente();
             if (!r || !r.coordinatore) return null;
             const p = this.personaCorrente();
             if (!p) return [];
             // chiave normalizzata: grafie diverse della stessa regione (accenti, trattini) coincidono
-            const regioni = [p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : [])
-                .map(chiaveRegione).filter(Boolean);
-            return Array.from(new Set(regioni));
+            return Array.from(new Set(regioniCoperte(p).map(chiaveRegione).filter(Boolean)));
         },
         vedeIncarico(inc) {
             const reg = this.regioniConsentite();
@@ -2962,14 +3010,9 @@
         let etich = nomeRuolo(Auth.utenteCorrente.ruolo);
         const rc = Auth.ruoloCorrente();
         if (rc && rc.coordinatore) {
-            const p = Auth.personaCorrente();
-            // stessa lista di regioniConsentite, ma con le grafie originali e senza doppioni
-            const viste = new Set(), regioni = [];
-            (p ? [p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : []) : []).filter(Boolean).forEach(r => {
-                const k = String(r).trim().toLowerCase();
-                if (k && !viste.has(k)) { viste.add(k); regioni.push(String(r).trim()); }
-            });
-            etich += ' · ' + (regioni.length ? regioni.join(', ') : 'regione non impostata');
+            // stesse regioni di regioniConsentite, ma con le grafie originali
+            const regioni = regioniCoperte(Auth.personaCorrente());
+            etich += ' · ' + (regioni.length ? regioni.join(', ') : 'nessuna regione coordinata');
         }
         el.textContent = etich;
     }
@@ -5339,15 +5382,7 @@
     ========================================================= */
     let coordTab = 'coordinatori'; // 'coordinatori' | 'vice' | 'regione'
 
-    // le regioni coperte da una persona (Regione della scheda + altre regioni coordinate), dedup
-    function regioniCoperte(p) {
-        const viste = new Set(), out = [];
-        [p.regione].concat(Array.isArray(p.regioniCoordinate) ? p.regioniCoordinate : []).filter(Boolean).forEach(r => {
-            const k = chiaveRegione(r);
-            if (k && !viste.has(k)) { viste.add(k); out.push(String(r).trim()); }
-        });
-        return out;
-    }
+    // le regioni coperte sono quelle scelte sulla scheda: regioniCoperte() sta con Persone
 
     function vistaCoordinatori() {
         const puoScr = Auth.puoScrivere('persone');
@@ -5365,7 +5400,7 @@
                 return `<tr>
                     <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
                     <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : ''}</td>
-                    <td data-label="Regioni">${regioni.length ? esc(regioni.join(', ')) : '<span class="badge rosso">nessuna regione</span>'}</td>
+                    <td data-label="Regioni">${regioni.length ? esc(regioni.join(', ')) : '<span class="badge rosso">nessuna regione coordinata</span>'}</td>
                     <td class="col-email" data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : ''}</td>
                     <td class="num" data-label="Incarichi">${suoi.length || ''}</td>
                     <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
@@ -5422,7 +5457,7 @@
             <header>
                 <div>
                     <h1>Coordinatori e vice</h1>
-                    <p class="descrizione">Coordinatori territoriali e vice dall'anagrafica, con le regioni coperte e gli incarichi attivi di quelle regioni. Le regioni si impostano nella scheda della persona (sezione Aderenti Revilaw).</p>
+                    <p class="descrizione">Coordinatori territoriali e vice dall'anagrafica, con le regioni coordinate e gli incarichi attivi di quelle regioni. Le regioni si spuntano nella scheda della persona, tra i ruoli (sezione Aderenti Revilaw): la Regione della scheda e la sede e non assegna da sola alcun territorio.</p>
                 </div>
             </header>
             ${tabBar}${corpo}
@@ -5551,7 +5586,9 @@
             avvisaSeAltriModificano('persona', p.id);
             if (typeof Cloud !== 'undefined' && Cloud.pubblicaPresenza) Cloud.pubblicaPresenza();
         }
-        // altre regioni coordinate: si mostrano se la persona e' coordinatore o vice.
+        // regioni coordinate: si mostrano se la persona e' coordinatore o vice, e sono
+        // l'elenco COMPLETO del territorio che copre (la Regione della scheda e' residenza
+        // e non ne fa parte da sola: se la coordina, e' spuntata anche qui).
         // L'elenco e' lo STESSO degli incarichi (tutte le regioni italiane), piu' le regioni
         // gia' salvate sulla scheda che eventualmente non vi compaiono: altrimenti un
         // risalvataggio le perderebbe in silenzio.
@@ -5571,7 +5608,7 @@
                     <option value="">Nessuna</option>
                     ${p && p.regione && !RV_ROSTER.regioni.includes(p.regione) ? `<option selected>${esc(p.regione)}</option>` : ''}
                     ${RV_ROSTER.regioni.map(r => `<option ${p && p.regione === r ? 'selected' : ''}>${r}</option>`).join('')}
-                </select></div>
+                </select><div class="hint">Dove la persona ha sede. Non assegna alcun territorio: le regioni coordinate si scelgono tra i ruoli, qui sotto.</div></div>
                 <div class="campo"><label>Provincia</label><input id="m-p-provincia" value="${p && p.provincia ? esc(p.provincia) : ''}"></div>
                 <div class="campo"><label>Localita</label><input id="m-p-localita" value="${p && p.localita ? esc(p.localita) : ''}"></div>
                 <div class="campo"><label>Indirizzo</label><input id="m-p-indirizzo" value="${p && p.indirizzo ? esc(p.indirizzo) : ''}"></div>
@@ -5582,8 +5619,8 @@
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-coordinatore" ${p && p.coordinatore ? 'checked' : ''} style="width:auto;">Coordinatore territoriale</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-vice" ${p && p.viceCoordinatore ? 'checked' : ''} style="width:auto;">Vice coordinatore territoriale</label>
                 <div id="m-p-coord-box" class="${p && (p.coordinatore || p.viceCoordinatore) ? '' : 'nascosto'}" style="margin:2px 0 6px 26px;">
-                    <div class="hint" style="margin:0 0 6px;">Se questa persona accede con il ruolo "Coordinatore territoriale" o "Vice coordinatore territoriale", vede in sola visualizzazione gli incarichi della <strong>Regione</strong> indicata qui sopra piu quelli delle regioni scelte qui sotto. Senza alcuna regione non vede alcun incarico.</div>
-                    <div class="hint" style="margin:0 0 4px;"><strong>Altre regioni coordinate</strong> (oltre alla Regione della scheda):</div>
+                    <div class="hint" style="margin:0 0 6px;">Se questa persona accede con il ruolo "Coordinatore territoriale" o "Vice coordinatore territoriale", vede in sola visualizzazione gli incarichi delle regioni spuntate qui sotto. Senza alcuna spunta non vede alcun incarico.</div>
+                    <div class="hint" style="margin:0 0 4px;"><strong>Regioni coordinate</strong> (l'elenco completo: la Regione qui sopra e' la sede, spuntala anche qui se la coordina):</div>
                     <div class="regcoord-grid">${chipsRegioni || '<span class="hint">Nessuna regione disponibile.</span>'}</div>
                 </div>
             </div>
@@ -5646,7 +5683,7 @@
                 { chiave: 'qualita', nome: 'Ruolo qualita' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
                 { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
                 { chiave: 'viceCoordinatore', nome: 'Vice coordinatore territoriale' },
-                { chiave: 'regioniCoordinate', nome: 'Altre regioni coordinate' }
+                { chiave: 'regioniCoordinate', nome: 'Regioni coordinate' }
             ];
             if (p) {
                 const prima = { ...p };
@@ -12529,6 +12566,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
     function mostraApp() {
         segnaAttivita();
         Persone.migraNomi(); // porta i vecchi record "nomeCompleto" ai campi nome/cognome
+        Persone.migraRegioniCoordinate(); // rende esplicite le regioni coordinate di coordinatori e vice
         document.getElementById('schermata-login').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         collegaHamburger();
