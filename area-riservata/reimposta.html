@@ -23,7 +23,13 @@
             <h1>Imposta la tua password</h1>
             <p class="sottotitolo" id="sottotitolo">Verifica del collegamento in corso...</p>
 
-            <form id="form-reset" class="hidden" autocomplete="off">
+            <!-- senza autocomplete="off" il gestore password del browser puo' proporre
+                 di AGGIORNARE la password salvata: altrimenti resterebbe quella vecchia -->
+            <form id="form-reset" class="hidden">
+                <div class="campo">
+                    <label for="reset-email">Indirizzo email</label>
+                    <input type="email" id="reset-email" autocomplete="username" readonly>
+                </div>
                 <div class="campo">
                     <label for="p1">Nuova password</label>
                     <input type="password" id="p1" required autocomplete="new-password">
@@ -84,7 +90,10 @@
                 sottotitolo.textContent = 'Il collegamento è scaduto o è già stato usato. Richiedi una nuova email dalla pagina di accesso.';
                 return;
             }
-            sottotitolo.innerHTML = 'Stai impostando la password per <strong>' + email.replace(/[<>&]/g, '') + '</strong>.';
+            sottotitolo.textContent = 'Scegli la password per il tuo accesso.';
+            // l'indirizzo sta in un campo vero e non solo nel testo: serve al gestore
+            // password del browser per capire quale credenziale sta aggiornando
+            document.getElementById('reset-email').value = email;
             form.classList.remove('hidden');
 
             form.addEventListener('submit', async e => {
