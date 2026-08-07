@@ -1,74 +1,82 @@
 # Mandato — Relazione ex art. 2501-bis, comma 5, c.c. (fusione inversa SPV SIEM / SIEM)
 
 Proposta di incarico per la relazione del revisore legale da allegare al progetto di
-fusione per incorporazione di SPV SIEM S.r.l. in SIEM S.r.l. (MLBO ex art. 2501-bis c.c.),
-con la stessa impostazione del fascicolo di incarico di revisione legale Revilaw:
-frontespizio, lettera di incarico e allegati finali per privacy e adeguata verifica.
+fusione per incorporazione di SPV SIEM S.r.l. in SIEM S.r.l. (MLBO ex art. 2501-bis c.c.).
+Il fascicolo è costruito **sul modello ufficiale Revilaw** (`Incarico_att_v2026`): grafica,
+prime pagine e pagine finali sono quelle del modello; è sostituito solo il contenuto
+dell'incarico.
 
-## Struttura del documento (13 pagine)
+## Struttura del fascicolo (23 pagine)
 
-1. **Frontespizio** (pag. 1) — come il modello ufficiale del mandato di revisione.
-2. **Lettera di incarico** (pagg. 2-7) — stessa impostazione della proposta di
-   revisione legale: destinatari, oggetto, premessa, sezioni 1-8, tabella
-   corrispettivi, firma, doppia accettazione ex artt. 1341-1342 c.c.
-3. **Allegato A** (pagg. 8-9) — informativa privacy ex artt. 13-14 GDPR con modulo
-   consensi e presa visione di entrambe le Società.
-4. **Allegato B** (pagg. 10-11) — scheda di identificazione e adeguata verifica della
-   clientela ex artt. 17 ss. D.Lgs. 231/2007 per **SIEM S.r.l.** (dati anagrafici
-   precompilati da bilancio; esecutore, titolari effettivi e PEP da compilare), con
-   riquadro "riservato allo Studio" per la valutazione del rischio ex art. 17, co. 3.
-5. **Allegato C** (pagg. 12-13) — stessa scheda per **SPV SIEM S.r.l.**
+| Pagine | Contenuto | Origine |
+| --- | --- | --- |
+| 1–2 | Presentazione Revilaw ("Oltre la Verifica, Verso il Valore") | modello, invariate |
+| 3 | Frontespizio con logo — titolo sostituito: "Proposta di Incarico Professionale — Relazione ex art. 2501-bis, comma 5, c.c." | modello, solo titolo nuovo |
+| 4–14 | Lettera di incarico 2501-bis nella grafica del modello (marchio in alto, footer centrato, sezioni numerate sottolineate, tabella corrispettivi con griglia) | contenuto nuovo |
+| 15–18 | Scheda di identificazione del cliente / adeguata verifica D.Lgs. 231/2007 + obblighi del cliente | modello, invariate |
+| 19–21 | Informativa privacy | modello, invariate |
+| 22–23 | Moduli finali | modello, invariate |
+
+## Struttura della lettera (sezioni)
+
+- Destinatari (SIEM precompilata; SPV con campi), oggetto, premessa sull'operazione,
+  "Oggetto dell'incarico" con esclusioni.
+- **Sezioni 1–7** (contenuto specifico, testo già revisionato): natura dell'incarico
+  (ISAE 3400, conclusioni in forma negativa), modalità di svolgimento, responsabilità
+  degli organi amministrativi, personale/tempi/corrispettivi e fatturazione (50%
+  all'accettazione, 50% alla consegna), coordinamento con l'esperto ex art.
+  2501-sexies, documenti finali (deposito ex artt. 2501-ter co. 3 e 2501-septies),
+  indipendenza.
+- **Sezioni 8–13 e 15–19** (condizioni generali del modello, riprese alla lettera):
+  riservatezza dei dati, carte di lavoro, comunicazioni elettroniche, accesso alla
+  rete, normativa antiriciclaggio, salute e sicurezza, utilizzo di sistemi di IA,
+  modello 231/2001, foro competente, modifiche, allegati.
+- **Sezione 14** (specifica): interruzione dell'incarico e limitazione di
+  responsabilità (tre volte il corrispettivo, manleva).
+- Chiusura con doppia accettazione ex artt. 1341–1342 c.c. ("paragrafi dal n.8 al
+  n.18" come nel modello) firmata da **entrambe** le Società.
 
 ## File
 
-- `Mandato_2501bis_SIEM_SPV.pdf` — PDF ufficiale con **102 campi modulo compilabili**
-  (88 campi testo + 14 caselle di spunta; stesso meccanismo dei modelli caricati
-  nell'area riservata: i dati del cliente restano editabili nel PDF).
-- `Mandato_2501bis_SIEM_SPV.docx` — master modificabile in Word; i campi sono
-  evidenziati in grigio, le caselle di spunta sono caratteri ☐ da sostituire.
+- `Mandato_2501bis_SIEM_SPV.pdf` — fascicolo ufficiale, **141 campi compilabili**
+  invisibili come nel modello (il testo digitato appare sopra le linee).
+- `Mandato_2501bis_SIEM_SPV.docx` — master Word del solo corpo lettera (campi
+  evidenziati in grigio); le pagine di presentazione e gli allegati del modello
+  restano nel PDF.
 
 ## Campi lasciati da compilare (o precompilati da rivedere)
 
 | Campo | Stato |
 | --- | --- |
-| Pec SIEM, sede/C.f./Pec SPV | vuoti (dati cliente) |
-| Data lettera | precompilata 07/08/2026 |
+| Pec SIEM; sede/C.f./Pec SPV | vuoti (dati cliente) |
+| Luogo e data lettera | luogo precompilato "Verona", data vuota |
 | Data consegna relazione | vuota (ancorarla al deposito del progetto ex art. 2501-ter, co. 3) |
 | Responsabile incarico, riesame qualità, team | vuoti |
-| Ore e corrispettivi (a/b/c/totale) | precompilati: 24/36/20 ore — € 3.000/4.500/2.500, tot. 80 h / € 10.000 |
-| Tariffa oraria media | precompilata € 125 |
+| Tabella: ore/importi a-b-c | precompilati 24/36/20 h — € 3.000/4.500/2.500 |
+| Tabella: riga extra descrizione libera | vuota (come il modello) |
+| Totale | 80 h — € 10.000; tariffa media € 125/h |
 | Società di fatturazione | precompilata SIEM S.R.L. |
-| Date di accettazione, firma Revilaw | vuoti |
-| All. A: pec/e-mail privacy, consensi facoltativi, firme presa visione | vuoti |
-| All. B/C: esecutore, titolari effettivi, PEP, origine mezzi, firme | vuoti (anagrafica SIEM precompilata) |
-| All. B/C: riquadro rischio riservato allo Studio | vuoto (compilazione interna) |
+| Date accettazione, firma Revilaw, Allegati N° | vuoti |
+| Scheda antiriciclaggio e privacy (pagg. 15–23) | campi del modello, invariati |
 
 ## Impostazione del compenso (razionale)
 
-- Metodo coerente con la prassi dello studio: **ore × tariffa oraria media**.
-- Stima 80 ore totali; tariffa media € 125/h (superiore alla media revisione di € 85/h
-  perché l'incarico è quasi solo partner/manager): **compenso fisso € 10.000** + spese
-  vive + forfait 5% + IVA.
-- Benchmark: 1,2–1,5 volte il corrispettivo annuo di revisione di SIEM (€ 8.000),
-  giustificato da responsabilità (relazione pubblicata nel Registro Imprese, terzi
-  creditori vi fanno affidamento) e competenze specialistiche (ISAE 3400, analisi di
-  sostenibilità del debito).
-- La lettera prevede: extra a consuntivo per versioni successive del piano; 50%
-  all'accettazione e 50% alla consegna; **nessun compenso condizionato all'esito**
-  (indipendenza ex art. 10 D.Lgs. 39/2010); indicazione in nota integrativa tra gli
-  "altri servizi di verifica" ex art. 2427, co. 1, n. 16-bis, c.c.
+- Ore × tariffa: 80 h × € 125/h = **€ 10.000** + spese vive + forfait 5% + IVA.
+- Benchmark: 1,25 volte il corrispettivo annuo di revisione di SIEM (€ 8.000 da nota
+  integrativa 2025); range di mercato coerente € 8.000–16.000.
+- Nessun compenso condizionato all'esito (indipendenza ex art. 10 D.Lgs. 39/2010);
+  extra a consuntivo per versioni successive del piano; indicazione in nota
+  integrativa ex art. 2427, co. 1, n. 16-bis, c.c.
 
-## Punti di attenzione emersi dalla revisione della bozza
+## Punti di attenzione (dalla revisione della bozza)
 
-1. Il mandato triennale di revisione su SIEM è **in scadenza** (nota integrativa 2025):
-   la legittimazione ex comma 5 presuppone che Revilaw sia revisore in carica alla data
-   della relazione — la lettera lo esplicita e richiama l'eventuale rinnovo ex art. 13
-   D.Lgs. 39/2010.
-2. Dalla situazione contabile SPV, VECTON S.p.A. risulta **già controllante** della SPV
-   (debito iscritto tra i "debiti verso imprese controllanti"): il "subentro" descritto
-   è il passaggio al controllo diretto su SIEM per effetto della fusione.
-3. La **scissione immobiliare verso Kalisa Srl** (progetto approvato il 16/02/2026)
-   modifica il perimetro del patrimonio che garantisce il debito: richiamata in
-   premessa e nell'esame del piano.
-4. Conclusioni sulle ipotesi del piano in **forma negativa** (ISAE 3400); esclusa ogni
-   sovrapposizione con la relazione degli esperti ex artt. 2501-sexies / 2501-bis, co. 4.
+1. Mandato triennale di revisione su SIEM **in scadenza**: la legittimazione ex comma 5
+   presuppone che Revilaw sia revisore in carica alla data della relazione — la lettera
+   lo esplicita (premessa) e richiama l'eventuale rinnovo ex art. 13 D.Lgs. 39/2010.
+2. VECTON S.p.A. risulta **già controllante** della SPV (debito verso controllanti nella
+   situazione contabile): il "subentro" descritto è il passaggio al controllo diretto.
+3. La **scissione immobiliare verso Kalisa Srl** (approvata il 16/02/2026) modifica il
+   perimetro del patrimonio a garanzia del debito: richiamata in premessa e nell'esame
+   del piano.
+4. Conclusioni in **forma negativa** (ISAE 3400); esclusa ogni sovrapposizione con la
+   relazione degli esperti ex artt. 2501-sexies / 2501-bis, co. 4.
