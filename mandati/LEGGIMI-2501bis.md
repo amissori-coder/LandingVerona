@@ -2,15 +2,30 @@
 
 Proposta di incarico per la relazione del revisore legale da allegare al progetto di
 fusione per incorporazione di SPV SIEM S.r.l. in SIEM S.r.l. (MLBO ex art. 2501-bis c.c.),
-con la stessa impostazione della lettera di incarico di revisione legale Revilaw.
+con la stessa impostazione del fascicolo di incarico di revisione legale Revilaw:
+frontespizio, lettera di incarico e allegati finali per privacy e adeguata verifica.
+
+## Struttura del documento (13 pagine)
+
+1. **Frontespizio** (pag. 1) — come il modello ufficiale del mandato di revisione.
+2. **Lettera di incarico** (pagg. 2-7) — stessa impostazione della proposta di
+   revisione legale: destinatari, oggetto, premessa, sezioni 1-8, tabella
+   corrispettivi, firma, doppia accettazione ex artt. 1341-1342 c.c.
+3. **Allegato A** (pagg. 8-9) — informativa privacy ex artt. 13-14 GDPR con modulo
+   consensi e presa visione di entrambe le Società.
+4. **Allegato B** (pagg. 10-11) — scheda di identificazione e adeguata verifica della
+   clientela ex artt. 17 ss. D.Lgs. 231/2007 per **SIEM S.r.l.** (dati anagrafici
+   precompilati da bilancio; esecutore, titolari effettivi e PEP da compilare), con
+   riquadro "riservato allo Studio" per la valutazione del rischio ex art. 17, co. 3.
+5. **Allegato C** (pagg. 12-13) — stessa scheda per **SPV SIEM S.r.l.**
 
 ## File
 
-- `Mandato_2501bis_SIEM_SPV.pdf` — PDF ufficiale con **25 campi modulo compilabili**
-  (stesso meccanismo dei modelli caricati nell'area riservata: i dati del cliente
-  restano editabili nel PDF).
+- `Mandato_2501bis_SIEM_SPV.pdf` — PDF ufficiale con **102 campi modulo compilabili**
+  (88 campi testo + 14 caselle di spunta; stesso meccanismo dei modelli caricati
+  nell'area riservata: i dati del cliente restano editabili nel PDF).
 - `Mandato_2501bis_SIEM_SPV.docx` — master modificabile in Word; i campi sono
-  evidenziati in grigio.
+  evidenziati in grigio, le caselle di spunta sono caratteri ☐ da sostituire.
 
 ## Campi lasciati da compilare (o precompilati da rivedere)
 
@@ -23,7 +38,10 @@ con la stessa impostazione della lettera di incarico di revisione legale Revilaw
 | Ore e corrispettivi (a/b/c/totale) | precompilati: 24/36/20 ore — € 3.000/4.500/2.500, tot. 80 h / € 10.000 |
 | Tariffa oraria media | precompilata € 125 |
 | Società di fatturazione | precompilata SIEM S.R.L. |
-| Date di accettazione, firma Revilaw, n. allegati | vuoti |
+| Date di accettazione, firma Revilaw | vuoti |
+| All. A: pec/e-mail privacy, consensi facoltativi, firme presa visione | vuoti |
+| All. B/C: esecutore, titolari effettivi, PEP, origine mezzi, firme | vuoti (anagrafica SIEM precompilata) |
+| All. B/C: riquadro rischio riservato allo Studio | vuoto (compilazione interna) |
 
 ## Impostazione del compenso (razionale)
 
