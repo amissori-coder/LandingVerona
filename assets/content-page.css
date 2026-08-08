@@ -51,6 +51,105 @@
     color: #0f2f4f;
 }
 
+/* ---------- Rimando a un'altra pagina del sito ----------
+   Una voce in navbar sembra un'ancora interna e un link dentro un
+   paragrafo si perde nel testo: quando il rimando porta davvero su
+   un'altra pagina serve un blocco che si legga come tale. Tutta la
+   card e' cliccabile, non solo la scritta a destra. */
+.rimando {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 24px;
+    max-width: 940px;
+    margin: 48px auto 0;
+    padding: 26px 30px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-left: 4px solid #164068;
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: inherit;
+    transition: var(--transition);
+}
+
+.rimando:hover {
+    transform: translateY(-2px);
+    background: #e6edf5;
+    box-shadow: var(--shadow);
+}
+
+.rimando-icona {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 13px;
+    background: #ffffff;
+    border: 1px solid var(--accent-border);
+    color: #164068;
+}
+
+.rimando-icona svg {
+    width: 25px;
+    height: 25px;
+}
+
+.rimando-testo {
+    display: block;
+    min-width: 0;
+}
+
+.rimando-occhiello {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 7px;
+}
+
+.rimando-titolo {
+    display: block;
+    font-size: 1.14rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.35;
+    margin-bottom: 7px;
+}
+
+.rimando-desc {
+    display: block;
+    font-size: 0.9rem;
+    line-height: 1.68;
+    color: var(--text-secondary);
+}
+
+.rimando-vai {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 22px;
+    border-radius: 100px;
+    background: #164068;
+    color: #ffffff;
+    font-size: 0.84rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: var(--transition);
+}
+
+.rimando:hover .rimando-vai {
+    background: #0f2f4f;
+}
+
+.rimando-vai svg {
+    width: 15px;
+    height: 15px;
+}
+
 /* ---------- 3-column feature grid: levels / pillars ---------- */
 .levels-grid,
 .pillars-grid {
@@ -369,6 +468,24 @@
 @media (max-width: 1024px) {
     .components-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 780px) {
+    /* Il pulsante passa sotto al testo: in riga lascerebbe alla
+       descrizione una colonna troppo stretta per essere letta. */
+    .rimando {
+        grid-template-columns: auto 1fr;
+        /* Con il testo su piu' righe l'icona centrata finirebbe a
+           mezza altezza, staccata dal titolo a cui si riferisce. */
+        align-items: start;
+        gap: 18px 20px;
+        padding: 24px 22px;
+    }
+
+    .rimando-vai {
+        grid-column: 1 / -1;
+        justify-content: center;
     }
 }
 
