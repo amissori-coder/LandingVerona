@@ -43,12 +43,29 @@
     color: #164068;
     font-weight: 600;
     text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-decoration-color: rgba(22, 64, 104, 0.32);
     text-underline-offset: 3px;
+    border-radius: 3px;
+    padding: 0 2px;
+    margin: 0 -2px;
+    transition: var(--transition);
 }
 
+/* Al passaggio il collegamento si accende: sottolineatura piena e una
+   velatura di fondo, cosi' si vede quale delle parole vicine e' quella
+   cliccabile. */
 .content-page .detail-block p a:hover,
 .content-page .highlight-box p a:hover {
     color: #0f2f4f;
+    text-decoration-color: #164068;
+    background: rgba(22, 64, 104, 0.09);
+}
+
+.content-page .detail-block p a:focus-visible,
+.content-page .highlight-box p a:focus-visible {
+    outline: 2px solid #164068;
+    outline-offset: 2px;
 }
 
 /* ---------- Rimando a un'altra pagina del sito ----------
@@ -74,9 +91,15 @@
 }
 
 .rimando:hover {
-    transform: translateY(-2px);
-    background: #e6edf5;
-    box-shadow: var(--shadow);
+    transform: translateY(-3px);
+    background: #e4ecf5;
+    border-color: #164068;
+    box-shadow: 0 10px 28px rgba(15, 47, 79, 0.16);
+}
+
+.rimando:focus-visible {
+    outline: 3px solid #164068;
+    outline-offset: 3px;
 }
 
 .rimando-icona {
@@ -89,6 +112,15 @@
     background: #ffffff;
     border: 1px solid var(--accent-border);
     color: #164068;
+    transition: var(--transition);
+}
+
+/* L'icona si inverte: e' il segnale che tutta la card e' un
+   collegamento, non solo il pulsante a destra. */
+.rimando:hover .rimando-icona {
+    background: #164068;
+    border-color: #164068;
+    color: #ffffff;
 }
 
 .rimando-icona svg {
@@ -143,11 +175,74 @@
 
 .rimando:hover .rimando-vai {
     background: #0f2f4f;
+    box-shadow: 0 4px 12px rgba(15, 47, 79, 0.3);
 }
 
 .rimando-vai svg {
     width: 15px;
     height: 15px;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* La freccia parte: e' il movimento che dice "si va da un'altra parte",
+   e distingue questa card dai riquadri che restano fermi. */
+.rimando:hover .rimando-vai svg {
+    transform: translateX(4px);
+}
+
+/* Chi ha chiesto meno animazioni al sistema operativo tiene i colori,
+   che sono il segnale utile, e perde gli spostamenti. */
+@media (prefers-reduced-motion: reduce) {
+    .rimando,
+    .rimando-vai svg {
+        transition: none;
+    }
+
+    .rimando:hover {
+        transform: none;
+    }
+
+    .rimando:hover .rimando-vai svg {
+        transform: none;
+    }
+}
+
+/* ---------- Voce di menu che porta a un'altra pagina ----------
+   In navbar le voci sono quasi tutte ancore di sezione: senza un segno
+   che le distingua, un collegamento a un'altra pagina sembra portare a
+   un paragrafo piu' in basso. La freccina lo dichiara e parte al
+   passaggio.
+
+   Il segno e' un <svg> nel markup e non un ::after, perche' quel
+   pseudo-elemento e' gia' impegnato in zls_zes/style.css per la
+   sottolineatura all'hover: ridefinirlo qui ne ereditava posizione
+   assoluta e larghezza, e al passaggio disegnava una barra di traverso
+   sulla voce. */
+.content-page .nav-altrapagina {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.content-page .nav-altrapagina svg {
+    flex: none;
+    width: 13px;
+    height: 13px;
+    opacity: 0.7;
+    transition: var(--transition);
+}
+
+.content-page .nav-altrapagina:hover svg {
+    opacity: 1;
+    transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .content-page .nav-altrapagina svg,
+    .content-page .nav-altrapagina:hover svg {
+        transition: none;
+        transform: none;
+    }
 }
 
 /* ---------- 3-column feature grid: levels / pillars ---------- */
