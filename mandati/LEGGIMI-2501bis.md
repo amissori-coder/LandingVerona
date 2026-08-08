@@ -27,14 +27,14 @@ dell'incarico.
   all'accettazione, 50% alla consegna), coordinamento con l'esperto ex art.
   2501-sexies, documenti finali (deposito ex artt. 2501-ter co. 3 e 2501-septies),
   indipendenza.
-- **Sezioni 8–13 e 15–19** (condizioni generali del modello, riprese alla lettera):
+- **Sezioni 8–13 e 15–18** (condizioni generali del modello, riprese alla lettera):
   riservatezza dei dati, carte di lavoro, comunicazioni elettroniche, accesso alla
   rete, normativa antiriciclaggio, salute e sicurezza, utilizzo di sistemi di IA,
-  modello 231/2001, foro competente, modifiche, allegati.
+  foro competente, modifiche, allegati.
 - **Sezione 14** (specifica): interruzione dell'incarico e limitazione di
   responsabilità (tre volte il corrispettivo, manleva).
 - Chiusura con doppia accettazione ex artt. 1341–1342 c.c. ("paragrafi dal n.8 al
-  n.18" come nel modello) firmata da **entrambe** le Società.
+  n.17") con un unico blocco firme per **entrambe** le Società, come nel modello.
 
 ## File
 
