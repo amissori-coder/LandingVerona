@@ -33,8 +33,9 @@ dell'incarico.
   foro competente, modifiche, allegati.
 - **Sezione 14** (specifica): interruzione dell'incarico e limitazione di
   responsabilità (tre volte il corrispettivo, manleva).
-- Chiusura con doppia accettazione ex artt. 1341–1342 c.c. ("paragrafi dal n.8 al
-  n.17") con un unico blocco firme per **entrambe** le Società, come nel modello.
+- Chiusura con doppia accettazione ex artt. 1341–1342 c.c.: approvazione specifica
+  delle sole clausole onerose, enumerate con oggetto (nn. 3, 4, 6, 14 e 16), con un
+  unico blocco firme per **entrambe** le Società.
 
 ## File
 
@@ -52,16 +53,17 @@ dell'incarico.
 | Luogo e data lettera | luogo precompilato "Verona", data vuota |
 | Data consegna relazione | vuota (ancorarla al deposito del progetto ex art. 2501-ter, co. 3) |
 | Responsabile incarico, riesame qualità, team | vuoti |
-| Tabella: ore/importi a-b-c | precompilati 24/36/20 h — € 3.000/4.500/2.500 |
+| Tabella: ore/importi a-b-c | precompilati 24/36/20 h — € 4.500/6.750/3.750 (listino € 15.000) |
 | Tabella: riga extra descrizione libera | vuota (come il modello) |
-| Totale | 80 h — € 10.000; tariffa media € 125/h |
+| Totale | sconto € 5.000 → 80 h — € 10.000 netti; tariffa € 187,50/h, effettiva € 125/h |
 | Società di fatturazione | precompilata SIEM S.R.L. |
 | Date accettazione, firma Revilaw, Allegati N° | vuoti |
 | Scheda antiriciclaggio e privacy (pagg. 15–23) | campi del modello, invariati |
 
 ## Impostazione del compenso (razionale)
 
-- Ore × tariffa: 80 h × € 125/h = **€ 10.000** + spese vive + forfait 5% + IVA.
+- Listino: 80 h × € 187,50/h = € 15.000; sconto di € 5.000 per il contestuale incarico di
+  revisione → **€ 10.000 netti** (tariffa effettiva € 125/h) + spese vive + forfait 5% + IVA.
 - Benchmark: 1,25 volte il corrispettivo annuo di revisione di SIEM (€ 8.000 da nota
   integrativa 2025); range di mercato coerente € 8.000–16.000.
 - Nessun compenso condizionato all'esito (indipendenza ex art. 10 D.Lgs. 39/2010);
