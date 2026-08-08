@@ -5,10 +5,10 @@
    Stili specifici della pagina: si appoggia a
    zls_zes/style.css e assets/content-page.css e
    aggiunge la card di download della circolare,
-   i tre cerchi d'oro, lo scambio trasparenza-
-   certezza, la matrice della premialita', le due
-   mappe dei rischi e la linea del tempo delle
-   scadenze.
+   la sequenza perche'-come-cosa, lo scambio
+   trasparenza-certezza, la matrice della
+   premialita', le due mappe dei rischi e la linea
+   del tempo delle scadenze.
    ============================================ */
 
 /* Etichetta leggibile solo dagli screen reader:
@@ -191,68 +191,28 @@
 }
 
 /* ============================================
-   2. I TRE CERCHI D'ORO
-   Il diagramma a sinistra e i tre blocchi a destra
-   nell'ordine perche' - come - cosa. La numerazione
-   qui e' informativa e non decorativa: l'ordine
-   di lettura e' il contenuto stesso del modello,
-   per questo la lista e' un <ol>.
+   2. LA SEQUENZA PERCHE' - COME - COSA
+   Tre passi incolonnati: a sinistra l'ordinale e
+   l'etichetta, a destra il testo. La numerazione
+   non e' decorativa, l'ordine di lettura e' il
+   contenuto della sezione: per questo la lista e'
+   un <ol> e i numeri restano visibili.
    ============================================ */
-.cerchi {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    align-items: start;
-    gap: 52px;
-    max-width: 1060px;
-    margin: 48px auto 0;
-}
-
-.cerchi-figura {
-    position: sticky;
-    top: 110px;
-    margin: 0;
-    text-align: center;
-}
-
-.cerchi-figura svg {
-    display: block;
-    width: 100%;
-    max-width: 300px;
-    margin: 0 auto;
-    height: auto;
-}
-
-.cerchi-etichetta {
-    fill: #164068;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 1.6px;
-    text-anchor: middle;
-}
-
-.cerchi-etichetta-centro {
-    fill: #ffffff;
-}
-
-.cerchi-figura figcaption {
-    margin-top: 16px;
-    font-size: 0.8rem;
-    line-height: 1.6;
-    color: var(--text-muted);
-}
-
-.cerchi-lista {
+.ordine {
     list-style: none;
     display: flex;
     flex-direction: column;
     gap: 20px;
-    margin: 0;
+    max-width: 1000px;
+    margin: 48px auto 0;
     padding: 0;
 }
 
-.cerchio {
-    padding: 28px 30px;
+.ordine-passo {
+    display: grid;
+    grid-template-columns: 168px 1fr;
+    gap: 34px;
+    padding: 30px 34px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-left: 4px solid #c8d8e8;
@@ -260,33 +220,49 @@
     box-shadow: var(--shadow-sm);
 }
 
-/* Il bordo di ciascun blocco riprende il colore
-   dell'anello corrispondente nel diagramma. */
-.cerchio-perche { border-left-color: #164068; }
-.cerchio-come   { border-left-color: #a9c0d5; }
-.cerchio-cosa   { border-left-color: #c8d8e8; }
+/* L'intensita' del bordo e del numero scende dal
+   primo passo al terzo: e' il peso decrescente
+   delle tre domande, non un semplice degrade'. */
+.ordine-passo-uno { border-left-color: #164068; }
+.ordine-passo-due { border-left-color: #6d8fae; }
+.ordine-passo-tre { border-left-color: #c8d8e8; }
 
-.cerchio-indice {
-    display: inline-block;
-    padding: 4px 13px;
-    border-radius: 100px;
-    background: var(--accent-bg);
-    border: 1px solid var(--accent-border);
-    font-size: 0.68rem;
+.ordine-testa {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-top: 2px;
+}
+
+.ordine-num {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: #c8d8e8;
+    margin-bottom: 10px;
+}
+
+.ordine-passo-uno .ordine-num { color: #164068; }
+.ordine-passo-due .ordine-num { color: #6d8fae; }
+
+.ordine-voce {
+    font-size: 1.16rem;
     font-weight: 700;
-    letter-spacing: 1.4px;
+    color: var(--text-primary);
+    letter-spacing: 0.2px;
+}
+
+.ordine-gloss {
+    margin-top: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 1.3px;
     text-transform: uppercase;
-    color: #164068;
-    margin-bottom: 13px;
+    color: var(--text-muted);
 }
 
-.cerchio-perche .cerchio-indice {
-    background: #164068;
-    border-color: #164068;
-    color: #ffffff;
-}
-
-.cerchio h3 {
+.ordine-corpo h3 {
     font-size: 1.16rem;
     font-weight: 700;
     color: var(--text-primary);
@@ -294,7 +270,7 @@
     margin-bottom: 11px;
 }
 
-.cerchio p {
+.ordine-corpo p {
     font-size: 0.94rem;
     line-height: 1.8;
     color: var(--text-secondary);
@@ -304,7 +280,7 @@
     -webkit-hyphens: auto;
 }
 
-.cerchio p strong {
+.ordine-corpo p strong {
     color: var(--text-primary);
 }
 
@@ -704,21 +680,28 @@
         justify-content: center;
     }
 
-    /* Il diagramma passa sopra ai tre blocchi e smette
-       di seguire lo scorrimento: incollato in cima
-       ruberebbe meta' schermo su un telefono. */
-    .cerchi {
+    /* Ordinale ed etichetta passano sopra al testo:
+       una colonna di 168px lascerebbe al paragrafo
+       una larghezza illeggibile. */
+    .ordine-passo {
         grid-template-columns: 1fr;
-        gap: 34px;
-        max-width: 620px;
+        gap: 16px;
+        padding: 26px 24px;
     }
 
-    .cerchi-figura {
-        position: static;
+    .ordine-testa {
+        flex-direction: row;
+        align-items: baseline;
+        gap: 12px;
     }
 
-    .cerchi-figura svg {
-        max-width: 240px;
+    .ordine-num {
+        font-size: 1.7rem;
+        margin-bottom: 0;
+    }
+
+    .ordine-gloss {
+        margin-top: 0;
     }
 
     .scambio {
