@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Carosello LinkedIn &middot; Circolare 6/E del 2026 | Revilaw</title>
+<style>
+/* Inter in locale, non dal CDN: il PDF si genera
+   con un browser headless che puo' non avere rete,
+   e con il font mancante l'impaginazione delle
+   slide cambierebbe. Il file e' il variabile
+   latino, un solo peso da caricare per tutti. */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: block;
+    src: url('font/inter-latin-var.woff2') format('woff2');
+}
+
+/* ============================================
+   Carosello LinkedIn
+   Circolare n. 6/E del 6 agosto 2026
+
+   Tredici slide in formato 1080x1350 (4:5), il
+   rapporto che LinkedIn mostra piu' alto nel
+   feed. Il file si guarda in pagina come
+   anteprima e si stampa in PDF con Chromium:
+   la regola @page fissa la pagina esattamente
+   sulla misura della slide, cosi' ogni slide
+   diventa una pagina del documento.
+
+   I colori sono quelli del sito (zls_zes):
+   navy #1a3a5c, fondo scuro #0f1e2e, azzurro
+   di accento #8bb8d4 sulle slide scure.
+   ============================================ */
+
+:root {
+    --navy: #1a3a5c;
+    --navy-light: #24506e;
+    --navy-deep: #0f1e2e;
+    --accent-soft: #8bb8d4;
+    --ink: #0f172a;
+    --ink-soft: #475569;
+    --ink-muted: #94a3b8;
+    --line: #e2e8f0;
+    --tint: #f0f4f8;
+    --page: #ffffff;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Liberation Sans', sans-serif;
+    background: #64748b;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================
+   1. LA SLIDE
+   Misura fissa: in anteprima le slide scorrono
+   una sotto l'altra staccate dal fondo grigio,
+   in stampa diventano pagine affiancate ai
+   bordi del PDF.
+   ============================================ */
+.slide {
+    position: relative;
+    width: 1080px;
+    height: 1350px;
+    margin: 40px auto;
+    padding: 88px 88px 96px;
+    background: var(--page);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.slide-dark {
+    background: linear-gradient(150deg, #0f1e2e 0%, #1a3a5c 100%);
+    color: #ffffff;
+}
+
+/* Filo di colore in testa alla slide: tiene
+   insieme la sequenza quando le slide scorrono
+   una dopo l'altra nel feed. */
+.slide::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 10px;
+    background: var(--navy);
+}
+
+.slide-dark::before { background: var(--accent-soft); }
+
+/* ============================================
+   2. TESTATA E PIEDE
+   ============================================ */
+.s-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 44px;
+}
+
+.s-kicker {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+    color: var(--navy);
+}
+
+.slide-dark .s-kicker { color: var(--accent-soft); }
+
+.s-mark {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    color: var(--ink-muted);
+}
+
+.slide-dark .s-mark { color: rgba(255, 255, 255, 0.55); }
+
+.s-foot {
+    position: absolute;
+    left: 88px;
+    right: 88px;
+    bottom: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-top: 26px;
+    border-top: 1px solid var(--line);
+    font-size: 19px;
+    color: var(--ink-muted);
+}
+
+.slide-dark .s-foot {
+    border-top-color: rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.s-foot strong { color: var(--navy); font-weight: 700; }
+.slide-dark .s-foot strong { color: #ffffff; }
+
+.s-num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+
+/* ============================================
+   3. TITOLI E TESTO CORRENTE
+   ============================================ */
+.s-title {
+    font-size: 78px;
+    font-weight: 800;
+    line-height: 1.04;
+    letter-spacing: -2.4px;
+    margin-bottom: 34px;
+}
+
+.s-title-sm {
+    font-size: 56px;
+    letter-spacing: -1.6px;
+    margin-bottom: 22px;
+}
+
+.s-title em {
+    font-style: normal;
+    color: var(--navy);
+}
+
+.slide-dark .s-title em { color: var(--accent-soft); }
+
+.s-lead {
+    font-size: 32px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 900px;
+}
+
+.slide-dark .s-lead { color: rgba(255, 255, 255, 0.85); }
+
+.s-lead strong { color: var(--ink); font-weight: 700; }
+.slide-dark .s-lead strong { color: #ffffff; }
+
+.s-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.s-body-top { justify-content: flex-start; }
+
+/* ============================================
+   4. COPERTINA
+   ============================================ */
+.cover-badge {
+    display: inline-block;
+    align-self: flex-start;
+    padding: 16px 28px;
+    border: 1px solid rgba(139, 184, 212, 0.5);
+    border-radius: 999px;
+    background: rgba(139, 184, 212, 0.12);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    color: var(--accent-soft);
+    margin-bottom: 54px;
+}
+
+.cover-title {
+    font-size: 106px;
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -3.8px;
+    margin-bottom: 40px;
+}
+
+.cover-title span { display: block; color: var(--accent-soft); }
+
+.cover-sub {
+    font-size: 34px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.86);
+    max-width: 860px;
+}
+
+.cover-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+    margin-top: 66px;
+    padding-top: 46px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.cover-stat-n {
+    display: block;
+    font-size: 58px;
+    font-weight: 800;
+    letter-spacing: -1.6px;
+    color: var(--accent-soft);
+    margin-bottom: 12px;
+}
+
+.cover-stat-l {
+    display: block;
+    font-size: 21px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.swipe {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--accent-soft);
+}
+
+.swipe svg { width: 30px; height: 30px; }
+
+/* ============================================
+   5. ELENCHI DEGLI EFFETTI PREMIALI
+   Numero grande a sinistra, titolo e riga di
+   spiegazione a destra: la lettura funziona
+   anche a colpo d'occhio nel feed.
+   ============================================ */
+.voci { display: flex; flex-direction: column; gap: 20px; }
+
+.voce {
+    display: grid;
+    grid-template-columns: 78px 1fr;
+    gap: 24px;
+    align-items: start;
+    padding: 24px 28px;
+    background: var(--tint);
+    border-left: 5px solid var(--navy);
+    border-radius: 0 14px 14px 0;
+}
+
+.voce-n {
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--navy);
+    letter-spacing: -1.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.voce h3 {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.7px;
+    margin-bottom: 10px;
+}
+
+.voce p {
+    font-size: 24px;
+    line-height: 1.38;
+    color: var(--ink-soft);
+}
+
+.voce p strong { color: var(--navy); font-weight: 700; }
+
+.voce-rif {
+    display: block;
+    margin-top: 8px;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+}
+
+/* ============================================
+   6. LE DUE COLONNE (dare / avere, le due mappe)
+   ============================================ */
+.duo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+}
+
+.duo-card {
+    padding: 32px 30px;
+    background: var(--tint);
+    border-radius: 16px;
+    border-top: 5px solid var(--navy);
+}
+
+.duo-card-alt {
+    background: var(--navy);
+    border-top-color: var(--accent-soft);
+    color: #ffffff;
+}
+
+/* L'etichetta sta su una riga sola in entrambe le
+   card: se andasse a capo da un lato solo, i due
+   titoli sotto partirebbero ad altezze diverse. */
+.duo-label {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--navy);
+    margin-bottom: 16px;
+}
+
+.duo-card-alt .duo-label { color: var(--accent-soft); }
+
+.duo-card h3 {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1.1;
+    margin-bottom: 20px;
+}
+
+.duo-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+
+.duo-list li {
+    position: relative;
+    padding-left: 30px;
+    font-size: 23px;
+    line-height: 1.38;
+    color: var(--ink-soft);
+}
+
+.duo-card-alt .duo-list li { color: rgba(255, 255, 255, 0.88); }
+
+.duo-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 11px;
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    background: var(--navy);
+}
+
+.duo-card-alt .duo-list li::before { background: var(--accent-soft); }
+
+.duo-list li strong { color: var(--ink); font-weight: 700; }
+.duo-card-alt .duo-list li strong { color: #ffffff; }
+
+/* ============================================
+   7. LA MATRICE DELLA PREMIALITA'
+   ============================================ */
+.matrice {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+}
+
+.matrice th, .matrice td {
+    padding: 22px 20px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+}
+
+.matrice tr:last-child th, .matrice tr:last-child td { border-bottom: none; }
+.matrice th:last-child, .matrice td:last-child { border-right: none; }
+
+.matrice thead th {
+    background: var(--navy);
+    color: #ffffff;
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.3px;
+    border-right-color: rgba(255, 255, 255, 0.18);
+    border-bottom: none;
+}
+
+.matrice tbody th {
+    background: var(--tint);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--ink);
+    width: 250px;
+}
+
+.esito {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 10px;
+}
+
+.esito-si { color: #15803d; }
+.esito-mid { color: #b45309; }
+.esito-no { color: #b91c1c; }
+
+.matrice td p {
+    font-size: 20px;
+    line-height: 1.38;
+    color: var(--ink-soft);
+}
+
+/* ============================================
+   8. BLOCCO DI CHIUSA / NOTA
+   ============================================ */
+.nota {
+    margin-top: 32px;
+    padding: 26px 32px;
+    background: var(--tint);
+    border-left: 5px solid var(--navy);
+    border-radius: 0 14px 14px 0;
+    font-size: 24px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+}
+
+.nota strong { color: var(--navy); font-weight: 700; }
+
+.slide-dark .nota {
+    background: rgba(255, 255, 255, 0.08);
+    border-left-color: var(--accent-soft);
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.slide-dark .nota strong { color: #ffffff; }
+
+/* ============================================
+   9. GRIGLIE A DUE E TRE COLONNE
+   Chi puo' accedere, le scadenze, quello che
+   l'impresa ha gia' in casa.
+   ============================================ */
+.griglia {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+}
+
+.tessera {
+    padding: 28px 28px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+.tessera-tag {
+    display: inline-block;
+    padding: 8px 18px;
+    border-radius: 999px;
+    background: var(--navy);
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+}
+
+.tessera-tag-soft { background: var(--tint); color: var(--navy); }
+
+.tessera h3 {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.6px;
+    margin-bottom: 12px;
+}
+
+.tessera p {
+    font-size: 22px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+}
+
+.tessera p strong { color: var(--navy); font-weight: 700; }
+
+/* ============================================
+   10. LE CONDIZIONI
+   ============================================ */
+.condizioni { display: flex; flex-direction: column; gap: 20px; }
+
+.condizione {
+    display: grid;
+    grid-template-columns: 66px 1fr;
+    gap: 22px;
+    align-items: baseline;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+}
+
+.condizione:last-child { border-bottom: none; padding-bottom: 0; }
+
+.condizione-n {
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--navy);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.5px;
+}
+
+.condizione h3 {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+}
+
+.condizione p {
+    font-size: 23px;
+    line-height: 1.38;
+    color: var(--ink-soft);
+}
+
+.condizione p strong { color: var(--navy); font-weight: 700; }
+
+/* ============================================
+   11. SLIDE DI CHIUSURA
+   ============================================ */
+.cta-list { list-style: none; display: flex; flex-direction: column; gap: 22px; margin-top: 8px; }
+
+.cta-list li {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 24px;
+    align-items: baseline;
+    font-size: 27px;
+    line-height: 1.38;
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.cta-list b {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--accent-soft);
+    font-variant-numeric: tabular-nums;
+}
+
+.cta-box {
+    margin-top: 40px;
+    padding: 34px 36px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 18px;
+}
+
+.cta-box h3 {
+    font-size: 38px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 18px;
+}
+
+.cta-box p {
+    font-size: 26px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.cta-box p a { color: var(--accent-soft); text-decoration: none; font-weight: 600; }
+
+/* ============================================
+   12. STAMPA
+   Una slide per pagina, senza margini di
+   pagina: il PDF esce in 1080x1350 esatti.
+   ============================================ */
+@page {
+    size: 1080px 1350px;
+    margin: 0;
+}
+
+@media print {
+    body { background: #ffffff; }
+    .slide {
+        margin: 0;
+        page-break-after: always;
+        break-after: page;
+    }
+    .slide:last-child { page-break-after: auto; break-after: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== 1. COPERTINA ========== -->
+<section class="slide slide-dark">
+    <div class="s-head">
+        <span class="s-kicker">Agenzia delle Entrate</span>
+        <span class="s-mark">Revilaw S.p.A.</span>
+    </div>
+    <div class="s-body">
+        <span class="cover-badge">Circolare n. 6/E del 6 agosto 2026</span>
+        <h1 class="cover-title">Quanto vale<span>gestire il<br>rischio fiscale</span></h1>
+        <p class="cover-sub">
+            Otto effetti premiali, e le condizioni precise a cui si applicano.
+            Quello che la circolare chiarisce a chi ha un Tax Control Framework,
+            e a chi sta valutando se costruirlo.
+        </p>
+        <div class="cover-stats">
+            <div>
+                <span class="cover-stat-n">100%</span>
+                <span class="cover-stat-l">Sanzioni disapplicate sui rischi comunicati prima</span>
+            </div>
+            <div>
+                <span class="cover-stat-n">&minus;3 anni</span>
+                <span class="cover-stat-l">Termini di accertamento con certificazione e visto pesante</span>
+            </div>
+            <div>
+                <span class="cover-stat-n">50%</span>
+                <span class="cover-stat-l">Sanzioni ridotte sui rischi correttamente mappati</span>
+            </div>
+        </div>
+    </div>
+    <div class="s-foot">
+        <span class="swipe">
+            Scorri
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </span>
+        <span class="s-num">01 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 2. PERCHE' ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">Il punto di partenza</span>
+        <span class="s-mark">02</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title">La sanzione è la conseguenza <em>più visibile</em>, non la ragione principale</h2>
+        <p class="s-lead">
+            La circolare apre da qui: i modelli di buona <em>governance</em> fiscale servono
+            all'impresa soprattutto per ripararsi da <strong>danni reputazionali</strong> capaci
+            di ledere la sua immagine o di disincentivare investitori e clienti.
+        </p>
+        <div class="nota">
+            Dal 2019 la <strong>compliance fiscale rientra fra i fattori dell'informativa di
+            sostenibilità</strong> nei servizi finanziari. Questo la porta al tavolo di banche,
+            fondi e committenti lungo tutta la filiera, molto prima che al tavolo di una verifica.
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">02 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 3. IL PRINCIPIO ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">Il principio</span>
+        <span class="s-mark">03</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">Trasparenza in cambio di <em>certezza</em></h2>
+        <p class="s-lead" style="margin-bottom: 44px;">
+            L'intero impianto sta in una formula: l'impresa offre piena disclosure dei propri
+            fatti aziendali, l'Amministrazione garantisce risposte preventive e rapide.
+        </p>
+        <div class="duo">
+            <article class="duo-card">
+                <span class="duo-label">Quello che l'impresa mette</span>
+                <h3>Trasparenza</h3>
+                <ul class="duo-list">
+                    <li>Un sistema di rilevazione, misurazione, gestione e controllo del rischio fiscale</li>
+                    <li>Interlocuzione costante e preventiva, non sollecitata dal controllo</li>
+                    <li>Comunicazione tempestiva ed esauriente dei rischi</li>
+                    <li>Un comportamento <strong>esattamente corrispondente</strong> a quello rappresentato</li>
+                </ul>
+            </article>
+            <article class="duo-card duo-card-alt">
+                <span class="duo-label">Quello che l'impresa ottiene</span>
+                <h3>Certezza</h3>
+                <ul class="duo-list">
+                    <li>Protezione sanzionatoria <strong>amministrativa e penale</strong> sui rischi comunicati</li>
+                    <li>Anticipazione del controllo: la contestazione si risolve prima, non in giudizio</li>
+                    <li>Termini di accertamento più brevi e rimborsi senza garanzie</li>
+                    <li>Un'interfaccia unica e specializzata dentro l'Agenzia</li>
+                </ul>
+            </article>
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">03 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 4. EFFETTI PREMIALI 1-4 ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">Art. 6, D.Lgs. 128/2015</span>
+        <span class="s-mark">04</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">Gli otto <em>effetti premiali</em></h2>
+        <p class="s-lead" style="margin-bottom: 40px; font-size: 28px;">I primi quattro, quelli che pesano di più sul calcolo di convenienza.</p>
+        <div class="voci">
+            <div class="voce">
+                <span class="voce-n">01</span>
+                <div>
+                    <h3>Sanzioni amministrative azzerate</h3>
+                    <p><strong>Disapplicazione integrale</strong> per i rischi comunicati in modo tempestivo ed esauriente prima della dichiarazione, con interpello abbreviato o comunicazione di rischio.</p>
+                    <span class="voce-rif">Art. 6, comma 3</span>
+                </div>
+            </div>
+            <div class="voce">
+                <span class="voce-n">02</span>
+                <div>
+                    <h3>Rilevanza penale esclusa</h3>
+                    <p>Sulle condotte comunicate preventivamente il fatto <strong>non costituisce reato di dichiarazione infedele</strong> e non è notizia di reato: nessun obbligo di inoltro alla Procura.</p>
+                    <span class="voce-rif">Art. 6, comma 4</span>
+                </div>
+            </div>
+            <div class="voce">
+                <span class="voce-n">03</span>
+                <div>
+                    <h3>Sanzioni ridotte alla metà</h3>
+                    <p>Per le condotte riconducibili a rischi mappati: <strong>sanzione dimezzata e mai superiore al minimo edittale</strong>, con riscossione sospesa fino alla definitività.</p>
+                    <span class="voce-rif">Art. 6, comma 3-bis</span>
+                </div>
+            </div>
+            <div class="voce">
+                <span class="voce-n">04</span>
+                <div>
+                    <h3>Accertamento più corto</h3>
+                    <p><strong>Due anni in meno</strong> di termini di decadenza con il TCF certificato da professionisti indipendenti, <strong>tre</strong> con la certificazione tributaria.</p>
+                    <span class="voce-rif">Art. 6, commi 6-bis e 6-ter</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">04 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 5. EFFETTI PREMIALI 5-8 ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">Art. 6, D.Lgs. 128/2015</span>
+        <span class="s-mark">05</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">Gli altri <em>quattro</em></h2>
+        <p class="s-lead" style="margin-bottom: 40px; font-size: 28px;">Meno noti, ma spesso decisivi in fase di ingresso nel regime.</p>
+        <div class="voci">
+            <div class="voce">
+                <span class="voce-n">05</span>
+                <div>
+                    <h3>Il passato si può sanare</h3>
+                    <p>Stessa protezione, amministrativa e penale, sui rischi di <strong>annualità precedenti all'ingresso</strong>, se comunicati entro centoventi giorni dall'ammissione e prima di qualunque verifica.</p>
+                    <span class="voce-rif">Art. 6, comma 3-ter</span>
+                </div>
+            </div>
+            <div class="voce">
+                <span class="voce-n">06</span>
+                <div>
+                    <h3>Rimborsi senza garanzie</h3>
+                    <p>Esonero dalla prestazione delle garanzie, oggi <strong>esteso ai rimborsi dei crediti del gruppo IVA</strong> quando almeno un partecipante aderisce al regime.</p>
+                </div>
+            </div>
+            <div class="voce">
+                <span class="voce-n">07</span>
+                <div>
+                    <h3>Ravvedimento guidato</h3>
+                    <p>In contraddittorio con l'ufficio si può chiedere <strong>ogni forma di premialità prevista da norme primarie</strong>: transfer pricing, ibridi, patent box, comunicazioni di rischio precedenti.</p>
+                    <span class="voce-rif">D.M. 126/2024</span>
+                </div>
+            </div>
+            <div class="voce">
+                <span class="voce-n">08</span>
+                <div>
+                    <h3>Favor rei sul pregresso</h3>
+                    <p>Le nuove misure premiali si applicano <strong>anche a interpelli e comunicazioni presentati prima della riforma</strong>, salvi i provvedimenti sanzionatori già definitivi.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">05 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 6. LA MATRICE ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">La regola in una tabella</span>
+        <span class="s-mark">06</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">Quando scatta <em>quale protezione</em></h2>
+        <p class="s-lead" style="margin-bottom: 40px; font-size: 28px;">
+            Sulle righe la significatività del rischio, sulle colonne il momento in cui viene rendicontato.
+        </p>
+        <table class="matrice">
+            <thead>
+                <tr>
+                    <th>Tipologia di rischio</th>
+                    <th>Rendicontazione ex ante</th>
+                    <th>Rendicontazione ex post</th>
+                    <th>Omessa rendicontazione</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th>Rischio significativo</th>
+                    <td>
+                        <span class="esito esito-si">Penalty protection</span>
+                        <p>Sanzioni amministrative e penali disapplicate</p>
+                    </td>
+                    <td>
+                        <span class="esito esito-no">Sanzioni piene</span>
+                        <p>Nessuna mitigazione: l'interlocuzione era dovuta</p>
+                    </td>
+                    <td>
+                        <span class="esito esito-no">Sanzioni piene</span>
+                        <p>E causa di esclusione dal regime</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Rischio non significativo</th>
+                    <td>
+                        <span class="esito esito-si">Penalty protection</span>
+                        <p>Vale anche sotto la soglia di materialità</p>
+                    </td>
+                    <td>
+                        <span class="esito esito-mid">Sanzioni ridotte</span>
+                        <p>Metà del minimo, se la disclosure è spontanea</p>
+                    </td>
+                    <td>
+                        <span class="esito esito-no">Sanzioni piene</span>
+                        <p>Nessuna esclusione dal regime</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="nota">
+            <strong>La prima colonna è quella da raggiungere.</strong> Comunicare prima della scadenza
+            porta alla protezione piena, quale che sia la dimensione del rischio. Ed è il chiarimento
+            più rilevante: la premialità si fonda sull'interlocuzione preventiva, non sul superamento
+            delle soglie concordate.
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">06 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 7. LE DUE MAPPE ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">Dove si costruisce la protezione</span>
+        <span class="s-mark">07</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">Due mappe, <em>due protezioni</em></h2>
+        <p class="s-lead" style="margin-bottom: 44px; font-size: 28px;">
+            Rischi di adempimento e rischi interpretativi accedono alla premialità con regole diverse.
+        </p>
+        <div class="duo">
+            <article class="duo-card">
+                <span class="duo-label">Rischi di adempimento</span>
+                <h3>La RCM</h3>
+                <ul class="duo-list">
+                    <li>Processi, rischio inerente, controlli di primo livello, rischio residuo, controlli di secondo livello</li>
+                    <li>Sblocca la <strong>riduzione alla metà</strong> delle sanzioni</li>
+                    <li>Serve che la mappa sia comunicata all'ufficio <strong>prima</strong> dell'errore</li>
+                    <li>Il livello del rischio non incide: spetta anche ai rischi qualificati come alti</li>
+                </ul>
+            </article>
+            <article class="duo-card duo-card-alt">
+                <span class="duo-label">Rischi interpretativi</span>
+                <h3>La mappa dedicata</h3>
+                <ul class="duo-list">
+                    <li>Vive nel servizio web dell'area riservata, che al download genera un protocollo con data certa</li>
+                    <li>Sblocca la <strong>disapplicazione piena</strong>, se caricata prima della scadenza</li>
+                    <li>Se il rischio è significativo l'interlocuzione preventiva è dovuta</li>
+                    <li>Sotto soglia è una scelta: farla dà protezione piena</li>
+                </ul>
+            </article>
+        </div>
+        <div class="nota">
+            Oggetto della premialità è <strong>il corretto funzionamento del processo</strong>, non
+            l'esattezza della conclusione raggiunta: la protezione resta anche se l'ufficio assume
+            in seguito una posizione diversa da quella del contribuente.
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">07 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 8. LE CONDIZIONI ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">Le condizioni</span>
+        <span class="s-mark">08</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">I benefici <em>non sono automatici</em></h2>
+        <p class="s-lead" style="margin-bottom: 40px; font-size: 28px;">
+            Sei presupposti, ed è su questi che si decidono i casi concreti.
+        </p>
+        <div class="condizioni">
+            <div class="condizione">
+                <span class="condizione-n">01</span>
+                <div>
+                    <h3>Quarantacinque giorni, ma solo per l'interpello</h3>
+                    <p>La <strong>comunicazione di rischio non è soggetta a questo termine</strong>: basta che sia preventiva rispetto al termine ordinario.</p>
+                </div>
+            </div>
+            <div class="condizione">
+                <span class="condizione-n">02</span>
+                <div>
+                    <h3>Il termine ordinario, non quello prorogato</h3>
+                    <p>Non sono preventive le comunicazioni fatte dopo la scadenza ordinaria e prima di dichiarazioni integrative, tardive o sostitutive.</p>
+                </div>
+            </div>
+            <div class="condizione">
+                <span class="condizione-n">03</span>
+                <div>
+                    <h3>Per l'IVA conta la dichiarazione annuale</h3>
+                    <p>Anche con liquidazioni e versamenti anticipati, <strong>rileva sempre il termine della dichiarazione</strong>. Un dubbio di metà anno è ancora in tempo.</p>
+                </div>
+            </div>
+            <div class="condizione">
+                <span class="condizione-n">04</span>
+                <div>
+                    <h3>Contenuto esauriente, non generico</h3>
+                    <p>Caso concreto, rischi ravvisati, norma interpretata, soluzione proposta, comportamento che si intende adottare.</p>
+                </div>
+            </div>
+            <div class="condizione">
+                <span class="condizione-n">05</span>
+                <div>
+                    <h3>Comportamento esattamente corrispondente</h3>
+                    <p>Coerenza fra il caso prospettato e il comportamento tenuto. Resta il principio <em>agree to disagree</em>.</p>
+                </div>
+            </div>
+            <div class="condizione">
+                <span class="condizione-n">06</span>
+                <div>
+                    <h3>Niente uso strumentale</h3>
+                    <p>Istanze sistematiche con soluzioni fuori linea, al solo scopo di coprirsi dalle sanzioni, sono <strong>valutate negativamente</strong>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">08 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 9. I LIMITI ========== -->
+<section class="slide slide-dark">
+    <div class="s-head">
+        <span class="s-kicker">Il confine</span>
+        <span class="s-mark">09</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title">Dove la premialità <em>non arriva</em></h2>
+        <p class="s-lead">
+            Nessuno di questi benefici opera davanti a violazioni caratterizzate da
+            <strong>condotte simulatorie o fraudolente</strong>, tali da pregiudicare
+            l'affidamento reciproco. Sul fronte penale, la protezione non copre
+            l'indicazione in dichiarazione di <strong>elementi passivi inesistenti</strong>.
+        </p>
+        <div class="nota">
+            <strong>Restano invece coperti</strong> i costi esistenti sul piano fattuale ancorché
+            non deducibili, e le contestazioni meramente interpretative su variazioni in diminuzione
+            previste dalla legge, come patent box o participation exemption, purché la fattispecie
+            sia stata fedelmente rappresentata.
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">09 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 10. CHI PUO' ACCEDERE ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">Chi può accedere</span>
+        <span class="s-mark">10</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">Non solo i <em>grandi contribuenti</em></h2>
+        <p class="s-lead" style="margin-bottom: 40px; font-size: 28px;">
+            La soglia scende, e le vie d'accesso si moltiplicano.
+        </p>
+        <div class="griglia">
+            <article class="tessera">
+                <span class="tessera-tag">2026</span>
+                <h3>Soglia a 500 milioni</h3>
+                <p>Volume d'affari o ricavi di almeno <strong>500 milioni</strong>, dopo i 750 in vigore dal 2024. Conta il valore più elevato del triennio precedente.</p>
+            </article>
+            <article class="tessera">
+                <span class="tessera-tag">2028</span>
+                <h3>Soglia a 100 milioni</h3>
+                <p>La soglia target della legge delega. A quel punto il regime sarà un'opportunità per <strong>una platea considerevole</strong> di contribuenti.</p>
+            </article>
+            <article class="tessera">
+                <span class="tessera-tag tessera-tag-soft">Gruppi</span>
+                <h3>Accesso per trascinamento</h3>
+                <p>Le società prive dei requisiti entrano se il gruppo (art. 2359 c.c.) ha almeno un soggetto che li possiede e adotta un <strong>TCF integrato e certificato</strong>.</p>
+            </article>
+            <article class="tessera">
+                <span class="tessera-tag tessera-tag-soft">7-bis</span>
+                <h3>Il regime opzionale</h3>
+                <p>Chi non ha i requisiti dimensionali può <strong>adottare volontariamente il sistema</strong> e comunicarlo: ne discende la protezione sulle sanzioni amministrative e penali.</p>
+            </article>
+        </div>
+        <div class="nota">
+            <strong>Per le PMI strutturate</strong> il regime opzionale, attuato dal decreto del 9 luglio 2025
+            e dal provvedimento del 3 febbraio 2026, è un primo passo praticabile: protezione sanzionatoria
+            senza gli oneri pieni dell'adempimento collaborativo.
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">10 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 11. LE SCADENZE ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">Il calendario</span>
+        <span class="s-mark">11</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">Le scadenze della <em>certificazione</em></h2>
+        <p class="s-lead" style="margin-bottom: 40px; font-size: 28px;">
+            La certificazione condiziona la riduzione dei termini di accertamento. E la prima data è vicina.
+        </p>
+        <div class="griglia">
+            <article class="tessera">
+                <span class="tessera-tag">30 settembre 2026</span>
+                <h3>Prima certificazione di disegno</h3>
+                <p>Per chi ha presentato istanza di adesione nei periodi d'imposta <strong>2024 e 2025</strong>. Valuta l'impostazione del sistema, non ancora l'efficacia operativa.</p>
+            </article>
+            <article class="tessera">
+                <span class="tessera-tag">31 dicembre 2026</span>
+                <h3>Attestazione di efficacia operativa</h3>
+                <p>Per i soggetti già ammessi o istanti al 18 gennaio 2024. Ha per oggetto l'attività di controllo svolta <strong>nel 2024 e nel 2025</strong>.</p>
+            </article>
+            <article class="tessera">
+                <span class="tessera-tag tessera-tag-soft">31 dicembre 2029</span>
+                <h3>Primo aggiornamento</h3>
+                <p>Con i riscontri di efficacia operativa per ogni periodo d'imposta dall'istanza al 2028. Per i già ammessi, le annualità 2026-2027-2028.</p>
+            </article>
+            <article class="tessera">
+                <span class="tessera-tag tessera-tag-soft">Al bisogno</span>
+                <h3>Modifiche sostanziali</h3>
+                <p>Serve una nuova certificazione quando operazioni straordinarie ampliano il perimetro del TCF. L'evento va comunicato <strong>in via preventiva</strong>.</p>
+            </article>
+        </div>
+        <div class="nota">
+            <strong>Come si certifica.</strong> Le Linee Guida non impongono uno standard, ma la circolare
+            indica gli <strong>ISAE della serie 3000, in particolare l'ISAE 3402</strong>: test di disegno
+            e di efficacia operativa sull'intero arco triennale.
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">11 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 12. NON SI RIPARTE DA ZERO ========== -->
+<section class="slide">
+    <div class="s-head">
+        <span class="s-kicker">Non si riparte da zero</span>
+        <span class="s-mark">12</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">Quello che avete già <em>vale</em></h2>
+        <p class="s-lead" style="margin-bottom: 40px; font-size: 28px;">
+            Una parte significativa della circolare riconosce valore ai presidi già in casa.
+        </p>
+        <div class="griglia">
+            <article class="tessera">
+                <span class="tessera-tag">231</span>
+                <h3>Modello 231 integrato</h3>
+                <p>L'impegno a prevenire il coinvolgimento in frodi fiscali di terzi <strong>si considera assolto con un Modello 231 integrato con il TCF</strong>: presidi antifrode nella mappa, reati tributari identificati, flussi informativi con l'OdV.</p>
+            </article>
+            <article class="tessera">
+                <span class="tessera-tag">262 / SOX</span>
+                <h3>Controlli contabili già testati</h3>
+                <p>Chi ha un sistema di controllo sull'informativa contabile <strong>ha già soddisfatto l'obbligo di mappare i rischi da principi contabili</strong>. La relazione del Dirigente Preposto è prova sufficiente.</p>
+            </article>
+            <article class="tessera">
+                <span class="tessera-tag tessera-tag-soft">Gruppo</span>
+                <h3>La matrice della capogruppo</h3>
+                <p>Le controllate che chiedono l'adesione <strong>possono continuare a usare la RCM già validata</strong> dall'Agenzia, con i soli adattamenti legati all'attività svolta.</p>
+            </article>
+            <article class="tessera">
+                <span class="tessera-tag tessera-tag-soft">TRO</span>
+                <h3>Il Tax Risk Officer non duplica</h3>
+                <p>Con un sistema 262 o SOX in casa, <strong>recepisce le risultanze dei test già svolti</strong>. Senza, relazione unica oppure modello a doppia relazione.</p>
+            </article>
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Circolare 6/E</strong> &middot; 6 agosto 2026</span>
+        <span class="s-num">12 / 13</span>
+    </div>
+</section>
+
+<!-- ========== 13. CHIUSURA ========== -->
+<section class="slide slide-dark">
+    <div class="s-head">
+        <span class="s-kicker">Cosa fare ora</span>
+        <span class="s-mark">Revilaw S.p.A.</span>
+    </div>
+    <div class="s-body">
+        <h2 class="s-title s-title-sm">Dal testo della circolare <em>al vostro sistema</em></h2>
+        <ul class="cta-list">
+            <li><b>01</b><span>Verifica della posizione: dimensione, gruppo, gruppo IVA, regime opzionale</span></li>
+            <li><b>02</b><span>Mappa dei rischi e dei controlli, integrando i presidi 262 o SOX già esistenti</span></li>
+            <li><b>03</b><span>Policy sul rischio interpretativo, soglie di materialità e schede di rischio</span></li>
+            <li><b>04</b><span>Comunicazioni di rischio e interpelli abbreviati, nel rispetto dei termini</span></li>
+            <li><b>05</b><span>Certificazione e attestazione di efficacia operativa</span></li>
+            <li><b>06</b><span>Monitoraggio nel continuo: test di disegno, test di efficacia, relazione agli organi</span></li>
+        </ul>
+        <div class="cta-box">
+            <h3>Il testo integrale, e una prima valutazione</h3>
+            <p>
+                Le 88 pagine della circolare sono scaricabili dalla pagina dedicata, insieme alla guida
+                completa agli effetti premiali.<br>
+                <a href="https://nextgenerationbusiness.it/tcf_benefici_fiscali/">nextgenerationbusiness.it/tcf_benefici_fiscali</a><br>
+                info@nextgenerationbusiness.it &middot; (+39) 045 8010734
+            </p>
+        </div>
+    </div>
+    <div class="s-foot">
+        <span><strong>Revilaw S.p.A.</strong> &middot; Società di Revisione Legale &middot; Verona</span>
+        <span class="s-num">13 / 13</span>
+    </div>
+</section>
+
+</body>
+</html>
