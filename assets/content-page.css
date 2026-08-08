@@ -32,6 +32,25 @@
     line-height: 1.85;
 }
 
+/* ---------- Rimandi nel corpo del testo ----------
+   La regola generale di zls_zes/style.css azzera colore e
+   sottolineatura di ogni <a>: va bene per bottoni e card, non per i
+   collegamenti dentro un paragrafo, che altrimenti sono
+   indistinguibili dal testo. Qui vengono riportati alla forma
+   riconoscibile, limitatamente ai paragrafi. */
+.content-page .detail-block p a,
+.content-page .highlight-box p a {
+    color: #164068;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.content-page .detail-block p a:hover,
+.content-page .highlight-box p a:hover {
+    color: #0f2f4f;
+}
+
 /* ---------- 3-column feature grid: levels / pillars ---------- */
 .levels-grid,
 .pillars-grid {
