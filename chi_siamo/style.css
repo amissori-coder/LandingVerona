@@ -1,0 +1,353 @@
+/* ============================================
+   Chi siamo: la struttura di Revilaw
+   Organigramma della Società e della rete
+
+   Stili specifici della pagina: si appoggia a
+   zls_zes/style.css e assets/content-page.css e
+   aggiunge la card del vertice societario, la
+   griglia dei founding partners e le tre colonne
+   della struttura di area con i capoarea.
+   ============================================ */
+
+/* ============================================
+   1. CARD DEL VERTICE SOCIETARIO
+   L'Amministratore Unico apre l'organigramma:
+   la card scura richiama l'hero e distingue il
+   vertice dal resto della struttura, che sta su
+   card chiare.
+   ============================================ */
+.au-card {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 56px 56px 52px;
+    background: linear-gradient(135deg, #0f1e2e 0%, #1a3a5c 100%);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.au-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #8bb8d4;
+}
+
+.au-eyebrow {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2.2px;
+    text-transform: uppercase;
+    color: #8bb8d4;
+    margin-bottom: 14px;
+}
+
+.au-nome {
+    font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+}
+
+.au-meta {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: rgba(139, 184, 212, 0.85);
+    margin-bottom: 30px;
+    padding-bottom: 26px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.au-bio {
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.au-bio p {
+    font-size: 1rem;
+    line-height: 1.85;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.au-bio p + p {
+    margin-top: 18px;
+}
+
+.au-bio strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.au-bio a {
+    color: #8bb8d4;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.au-bio a:hover {
+    color: #ffffff;
+}
+
+/* Rimando al profilo LinkedIn: sta nella card scura
+   del vertice, quindi ha bisogno di una variante
+   chiara oltre a quella delle card bianche. */
+.profilo-linkedin {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 26px;
+    padding: 9px 18px;
+    border-radius: 100px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    border: 1px solid rgba(139, 184, 212, 0.45);
+    color: #8bb8d4;
+    transition: var(--transition);
+}
+
+.profilo-linkedin svg {
+    width: 14px;
+    height: 14px;
+}
+
+.au-card .profilo-linkedin:hover {
+    background: rgba(139, 184, 212, 0.12);
+    color: #ffffff;
+    border-color: rgba(139, 184, 212, 0.8);
+}
+
+.partner-card .profilo-linkedin {
+    margin-top: 18px;
+    align-self: flex-start;
+    border-color: rgba(22, 64, 104, 0.25);
+    color: #164068;
+}
+
+.partner-card .profilo-linkedin:hover {
+    background: var(--accent-bg);
+    border-color: #164068;
+}
+
+/* Quando la card ha sia il profilo LinkedIn sia la
+   qualifica di controllo qualita', il badge chiude
+   comunque la card. */
+.profilo-linkedin + .quality-badge {
+    margin-top: 18px;
+}
+
+/* Collegamento tra vertice e resto della struttura:
+   una linea verticale che suggerisce l'organigramma
+   senza disegnarlo per intero. */
+.org-connettore {
+    width: 1px;
+    height: 56px;
+    margin: 0 auto;
+    background: linear-gradient(to bottom, #1a3a5c, rgba(26, 58, 92, 0.15));
+}
+
+/* ============================================
+   2. FOUNDING PARTNERS
+   Due card affiancate, stessa gerarchia visiva:
+   i soci fondatori stanno sullo stesso piano.
+   ============================================ */
+.founders-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+    max-width: 940px;
+    margin: 48px auto 0;
+}
+
+.partner-card {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-radius: 14px;
+    padding: 34px 32px 30px;
+    box-shadow: 0 2px 10px rgba(10, 40, 68, 0.04);
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.partner-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #164068;
+}
+
+.partner-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 42px rgba(10, 40, 68, 0.1);
+    border-color: rgba(22, 64, 104, 0.3);
+}
+
+.partner-nome {
+    font-size: 1.22rem;
+    font-weight: 700;
+    color: #164068;
+    line-height: 1.3;
+    margin-bottom: 6px;
+}
+
+.partner-meta {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    color: #5A6270;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(22, 64, 104, 0.1);
+}
+
+.partner-bio {
+    font-size: 0.94rem;
+    line-height: 1.78;
+    color: var(--text-secondary);
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.partner-bio + .partner-bio {
+    margin-top: 12px;
+}
+
+.partner-bio a {
+    color: #164068;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.partner-bio a:hover {
+    color: #0f2f4f;
+}
+
+/* Etichetta di ruolo nel controllo qualita' della
+   rete: chiude la card dei capoarea, separata dal
+   testo perche' e' una qualifica, non parte della bio. */
+.quality-badge {
+    margin-top: auto;
+    padding-top: 18px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #164068;
+    border-top: 1px solid rgba(22, 64, 104, 0.12);
+}
+
+.partner-bio + .quality-badge {
+    margin-top: 20px;
+}
+
+/* ============================================
+   3. STRUTTURA DI AREA
+   Tre colonne territoriali: il banner scuro in
+   testa fa da intestazione di colonna, le card
+   dei capoarea si impilano sotto.
+   ============================================ */
+.aree-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+    max-width: 1100px;
+    margin: 48px auto 0;
+    align-items: start;
+}
+
+.area-col {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.area-banner {
+    background: linear-gradient(135deg, #164068, #1a3a5c);
+    border-radius: 10px;
+    padding: 13px 18px;
+    text-align: center;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+    color: #ffffff;
+}
+
+.area-col .partner-card {
+    padding: 28px 26px 26px;
+}
+
+.area-col .partner-nome {
+    font-size: 1.12rem;
+}
+
+.area-col .partner-bio {
+    font-size: 0.9rem;
+    line-height: 1.72;
+}
+
+/* ============================================
+   4. RESPONSIVE
+   ============================================ */
+@media (max-width: 1024px) {
+    /* Tre colonne strette renderebbero le bio
+       illeggibili: le aree passano una sotto
+       l'altra ben prima del breakpoint comune. */
+    .aree-grid {
+        grid-template-columns: 1fr;
+        max-width: 560px;
+    }
+}
+
+@media (max-width: 860px) {
+    .founders-grid {
+        grid-template-columns: 1fr;
+        max-width: 560px;
+    }
+
+    .au-card {
+        padding: 40px 28px 38px;
+    }
+
+    .au-bio p {
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 560px) {
+    .partner-card {
+        padding: 28px 22px 26px;
+    }
+
+    .au-card {
+        padding: 34px 22px 32px;
+        border-radius: var(--radius);
+    }
+
+    .org-connettore {
+        height: 40px;
+    }
+}
