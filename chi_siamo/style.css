@@ -194,8 +194,10 @@
     font-size: 1rem;
     line-height: 1.85;
     color: rgba(255, 255, 255, 0.82);
-    hyphenate-limit-chars: 6 3 3;
-    word-spacing: -0.04em;
+    hyphenate-limit-chars: 5 2 3;
+    -webkit-hyphenate-limit-before: 2;
+    -webkit-hyphenate-limit-after: 3;
+    word-spacing: -0.05em;
     overflow-wrap: break-word;
 }
 
@@ -392,10 +394,12 @@
     -webkit-hyphens: auto;
     /* Il giustificato su colonne strette apre buchi
        tra le parole: la sillabazione con soglie corte
-       e una spaziatura di base leggermente ridotta
-       tengono le righe piene. */
-    hyphenate-limit-chars: 6 3 3;
-    word-spacing: -0.04em;
+       e una spaziatura di base ridotta tengono le
+       righe piene. */
+    hyphenate-limit-chars: 5 2 3;
+    -webkit-hyphenate-limit-before: 2;
+    -webkit-hyphenate-limit-after: 3;
+    word-spacing: -0.06em;
     overflow-wrap: break-word;
 }
 
