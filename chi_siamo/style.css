@@ -1,0 +1,734 @@
+/* ============================================
+   Chi siamo: la struttura di Revilaw
+   Organigramma della Società e della rete
+
+   Stili specifici della pagina: si appoggia a
+   zls_zes/style.css e assets/content-page.css e
+   disegna l'organigramma vero e proprio: i tre
+   livelli (vertice, soci fondatori, capoarea)
+   collegati da linee come in un organigramma
+   aziendale. Le card dei partner sono compatte:
+   nome e qualifica sempre visibili, biografia
+   aperta dal pulsante.
+   ============================================ */
+
+/* ============================================
+   1. ALBERO DELL'ORGANIGRAMMA
+   Le etichette di livello e le linee di
+   collegamento danno la lettura gerarchica:
+   ogni livello discende da quello sopra.
+   ============================================ */
+.org-tree {
+    margin-top: 8px;
+}
+
+.org-etichetta {
+    display: block;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2.2px;
+    text-transform: uppercase;
+    color: #5A6270;
+    margin-bottom: 16px;
+}
+
+.org-desc {
+    max-width: 680px;
+    margin: 0 auto 10px;
+    text-align: center;
+    font-size: 0.95rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+}
+
+/* Linea verticale tra un livello e il successivo. */
+.org-connettore {
+    width: 1px;
+    height: 52px;
+    margin: 26px auto;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+/* Ramo: la barra orizzontale con le discese verso
+   i nodi, il disegno classico dell'organigramma.
+   La barra parte dal centro del primo nodo e
+   arriva al centro dell'ultimo. */
+.org-ramo {
+    position: relative;
+    display: grid;
+    gap: 24px;
+    padding-top: 34px;
+    margin-top: 20px;
+}
+
+.org-ramo::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    height: 1px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+/* Discesa centrale dalla parte testuale del livello
+   alla barra del ramo. */
+.org-ramo::after {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    width: 1px;
+    height: 20px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.org-ramo-2 {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 940px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.org-ramo-2::before {
+    left: 25%;
+    right: 25%;
+}
+
+.org-ramo-3 {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.org-ramo-3::before {
+    left: 16.667%;
+    right: 16.667%;
+}
+
+/* Nodo: ogni colonna del ramo, con la discesa
+   dalla barra orizzontale. */
+.org-nodo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.org-nodo::before {
+    content: '';
+    position: absolute;
+    top: -34px;
+    left: 50%;
+    width: 1px;
+    height: 34px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+/* ============================================
+   2. CARD DEL VERTICE SOCIETARIO
+   L'Amministratore Unico apre l'organigramma:
+   la card scura richiama l'hero e distingue il
+   vertice dal resto della struttura, che sta su
+   card chiare.
+   ============================================ */
+.au-card {
+    max-width: 940px;
+    margin: 0 auto;
+    padding: 56px 56px 52px;
+    background: linear-gradient(135deg, #0f1e2e 0%, #1a3a5c 100%);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.au-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #8bb8d4;
+}
+
+.au-eyebrow {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2.2px;
+    text-transform: uppercase;
+    color: #8bb8d4;
+    margin-bottom: 14px;
+}
+
+.au-nome {
+    font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.5px;
+    margin-bottom: 10px;
+}
+
+.au-meta {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: rgba(139, 184, 212, 0.85);
+    margin-bottom: 30px;
+    padding-bottom: 26px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.au-bio {
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.au-bio p {
+    font-size: 1rem;
+    line-height: 1.85;
+    color: rgba(255, 255, 255, 0.82);
+    hyphenate-limit-chars: 5 2 3;
+    -webkit-hyphenate-limit-before: 2;
+    -webkit-hyphenate-limit-after: 3;
+    word-spacing: -0.05em;
+    overflow-wrap: break-word;
+}
+
+.au-bio p + p {
+    margin-top: 18px;
+}
+
+.au-bio strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Rimando al profilo LinkedIn: sta nella card scura
+   del vertice, quindi ha bisogno di una variante
+   chiara oltre a quella delle card bianche. */
+.profilo-linkedin {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 26px;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    border: 1px solid rgba(139, 184, 212, 0.45);
+    color: #8bb8d4;
+    transition: var(--transition);
+}
+
+.profilo-linkedin svg {
+    width: 14px;
+    height: 14px;
+}
+
+.au-card .profilo-linkedin:hover {
+    background: rgba(139, 184, 212, 0.12);
+    color: #ffffff;
+    border-color: rgba(139, 184, 212, 0.8);
+}
+
+.partner-card .profilo-linkedin {
+    margin-top: 18px;
+    align-self: flex-start;
+    border-color: rgba(22, 64, 104, 0.25);
+    color: #164068;
+}
+
+.partner-card .profilo-linkedin:hover {
+    background: var(--accent-bg);
+    border-color: #164068;
+}
+
+/* ============================================
+   3. CARD DEI PARTNER
+   Compatte e uniformi: in testa nome, qualifica
+   e pulsante; la biografia si apre sotto. Cosi'
+   ogni livello dell'organigramma resta allineato
+   a prescindere dalla lunghezza delle bio.
+   ============================================ */
+.partner-card {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 12px;
+    padding: 24px 24px 22px;
+    box-shadow: 0 2px 10px rgba(10, 40, 68, 0.04);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.partner-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #164068;
+}
+
+.partner-card:hover {
+    box-shadow: 0 10px 28px rgba(10, 40, 68, 0.09);
+    border-color: rgba(22, 64, 104, 0.3);
+}
+
+.partner-testa {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.partner-identita {
+    min-width: 0;
+}
+
+.partner-nome {
+    font-size: 1.12rem;
+    font-weight: 700;
+    color: #164068;
+    line-height: 1.3;
+    margin-bottom: 5px;
+}
+
+.partner-meta {
+    font-size: 0.66rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #5A6270;
+    margin: 0;
+}
+
+/* Pulsante che apre e chiude la biografia: un
+   quadrato con il piu' che ruota a croce quando
+   la card e' aperta. */
+.partner-toggle {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.25);
+    border-radius: 8px;
+    color: #164068;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.partner-toggle svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
+}
+
+.partner-toggle:hover {
+    background: #164068;
+    border-color: #164068;
+    color: #ffffff;
+}
+
+.partner-toggle:focus-visible {
+    outline: 2px solid #164068;
+    outline-offset: 2px;
+}
+
+.partner-card.aperta .partner-toggle svg {
+    transform: rotate(45deg);
+}
+
+/* Biografia a scomparsa: la riga di griglia passa
+   da 0fr a 1fr, cosi' l'apertura e' animata senza
+   altezze fisse. */
+.partner-dettaglio {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.partner-dettaglio-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.partner-card.aperta .partner-dettaglio {
+    grid-template-rows: 1fr;
+}
+
+.partner-dettaglio .partner-bio {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(22, 64, 104, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .partner-dettaglio,
+    .partner-toggle svg {
+        transition: none;
+    }
+}
+
+.partner-bio {
+    font-size: 0.92rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    /* Il giustificato su colonne strette apre buchi
+       tra le parole: la sillabazione con soglie corte
+       e una spaziatura di base ridotta tengono le
+       righe piene. */
+    hyphenate-limit-chars: 5 2 3;
+    -webkit-hyphenate-limit-before: 2;
+    -webkit-hyphenate-limit-after: 3;
+    word-spacing: -0.06em;
+    overflow-wrap: break-word;
+}
+
+/* Etichetta di ruolo nel controllo qualita' della
+   rete: chiude la card, separata dalla biografia
+   perche' e' una qualifica, non parte della bio. */
+.quality-badge {
+    margin-top: 18px;
+    padding-top: 16px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #164068;
+    border-top: 1px solid rgba(22, 64, 104, 0.12);
+}
+
+/* ============================================
+   4. COLONNE DI AREA
+   Il banner scuro intesta la colonna; le card dei
+   capoarea discendono dal banner con la stessa
+   linea dell'albero.
+   ============================================ */
+.area-banner {
+    background: linear-gradient(135deg, #164068, #1a3a5c);
+    border-radius: 10px;
+    padding: 13px 18px;
+    text-align: center;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+    color: #ffffff;
+}
+
+.area-col > * + * {
+    position: relative;
+    margin-top: 22px;
+}
+
+.area-col > * + *::before {
+    content: '';
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    width: 1px;
+    height: 22px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+/* Nelle colonne di area la card non si stira per
+   pareggiare l'altezza delle colonne vicine: una
+   colonna con una sola card resterebbe mezza vuota. */
+.area-col .partner-card {
+    flex: 0 0 auto;
+}
+
+.area-col .partner-nome {
+    font-size: 1.04rem;
+}
+
+.area-col .partner-bio {
+    font-size: 0.88rem;
+    line-height: 1.7;
+}
+
+/* ============================================
+   5. FUNZIONIGRAMMA
+   La ripartizione funzionale della Società su
+   quattro pilastri: le due filiere (capitale e
+   governance) scendono al centro, i presidi di
+   controllo chiudono i lati. Stesse linee di
+   collegamento dell'organigramma.
+   ============================================ */
+.funz-tree {
+    max-width: 1100px;
+    margin: 48px auto 0;
+}
+
+.funz-radice {
+    width: fit-content;
+    margin: 0 auto;
+    padding: 14px 36px;
+    background: linear-gradient(135deg, #0f1e2e, #1a3a5c);
+    color: #ffffff;
+    border-radius: 10px;
+    font-size: 1.02rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+.funz-ramo {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding-top: 30px;
+    margin-top: 26px;
+}
+
+/* Barra orizzontale dal primo all'ultimo pilastro
+   e discesa dalla radice. */
+.funz-ramo::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 12.5%;
+    right: 12.5%;
+    height: 1px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.funz-ramo::after {
+    content: '';
+    position: absolute;
+    top: -26px;
+    left: 50%;
+    width: 1px;
+    height: 26px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.funz-colonna {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.funz-colonna::before {
+    content: '';
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    width: 1px;
+    height: 30px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.funz-banner {
+    background: linear-gradient(135deg, #164068, #1a3a5c);
+    border-radius: 10px;
+    padding: 12px 10px;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: #ffffff;
+}
+
+.funz-colonna > * + * {
+    position: relative;
+    margin-top: 18px;
+}
+
+.funz-colonna > * + *::before {
+    content: '';
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    width: 1px;
+    height: 18px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.funz-nodo {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.18);
+    border-radius: 10px;
+    padding: 12px 12px;
+    text-align: center;
+}
+
+.funz-nodo span {
+    display: block;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #5A6270;
+    margin-bottom: 3px;
+}
+
+.funz-nodo strong {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #164068;
+    letter-spacing: 0.2px;
+    line-height: 1.35;
+}
+
+/* I comitati sono organi collegiali, non livelli
+   della filiera: il tratteggio li distingue. */
+.funz-comitato {
+    background: var(--bg-tertiary);
+    border-style: dashed;
+}
+
+/* Il controllo qualita' e' il presidio che lega
+   l'intera pagina: pieno, come il vertice. */
+.funz-qualita {
+    background: linear-gradient(135deg, #164068, #1a3a5c);
+    border-color: #164068;
+}
+
+.funz-qualita strong {
+    color: #ffffff;
+}
+
+.funz-nota {
+    max-width: 680px;
+    margin: 30px auto 0;
+    text-align: center;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+}
+
+/* ============================================
+   6. RESPONSIVE
+   Le tre aree restano affiancate il piu' a lungo
+   possibile: sotto i 1100px si stringono spazi e
+   padding, e solo su telefono si impilano. Quando
+   le colonne si impilano, la barra orizzontale non
+   ha piu' senso: resta la sola discesa verticale.
+   ============================================ */
+@media (max-width: 1100px) {
+    .org-ramo-3 {
+        gap: 16px;
+    }
+
+    .area-col > * + * {
+        margin-top: 18px;
+    }
+
+    .area-col > * + *::before {
+        top: -18px;
+        height: 18px;
+    }
+
+    .area-col .partner-card {
+        padding: 20px 18px 18px;
+    }
+
+    .area-col .partner-nome {
+        font-size: 0.98rem;
+    }
+
+    .area-col .partner-bio {
+        font-size: 0.85rem;
+        line-height: 1.65;
+    }
+
+    .area-banner {
+        letter-spacing: 1.6px;
+        font-size: 0.7rem;
+        padding: 11px 12px;
+    }
+}
+
+@media (max-width: 760px) {
+    .org-ramo-3 {
+        grid-template-columns: 1fr;
+        max-width: 560px;
+        padding-top: 0;
+    }
+
+    .org-ramo-3::before,
+    .org-ramo-3::after,
+    .org-ramo-3 > .org-nodo::before {
+        display: none;
+    }
+}
+
+@media (max-width: 860px) {
+    .org-ramo-2 {
+        grid-template-columns: 1fr;
+        max-width: 560px;
+        padding-top: 0;
+    }
+
+    .org-ramo-2::before,
+    .org-ramo-2::after,
+    .org-ramo-2 > .org-nodo::before {
+        display: none;
+    }
+
+    .org-connettore {
+        height: 40px;
+        margin: 20px auto;
+    }
+
+    .au-card {
+        padding: 40px 28px 38px;
+    }
+
+    .au-bio p {
+        font-size: 0.95rem;
+    }
+}
+
+/* Funzionigramma: sotto i 900px i quattro pilastri
+   si impilano; restano le sole discese verticali. */
+@media (max-width: 900px) {
+    .funz-ramo {
+        grid-template-columns: 1fr;
+        max-width: 480px;
+        margin-left: auto;
+        margin-right: auto;
+        padding-top: 0;
+        gap: 18px;
+    }
+
+    .funz-ramo::before,
+    .funz-ramo::after,
+    .funz-colonna::before {
+        display: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .partner-card {
+        padding: 22px 18px 20px;
+    }
+
+    .au-card {
+        padding: 34px 22px 32px;
+        border-radius: var(--radius);
+    }
+}
