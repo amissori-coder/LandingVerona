@@ -68,6 +68,20 @@
                 "mainEntityOfPage": "https://nextgenerationbusiness.it/rating_bancario/"
             },
             {
+                "@type": "VideoObject",
+                "name": "Il rating bancario spiegato in un video",
+                "description": "Video introduttivo alla pagina: cos'è il rating bancario, cosa calcola il simulatore MCC e come procedere al calcolo con i dati di bilancio e la Centrale dei Rischi.",
+                "thumbnailUrl": "https://drive.google.com/thumbnail?id=19CX9TFdT50VUsufme9GoZwZk9xBX-kHk&sz=w1200",
+                "uploadDate": "2026-08-09",
+                "embedUrl": "https://drive.google.com/file/d/19CX9TFdT50VUsufme9GoZwZk9xBX-kHk/preview",
+                "contentUrl": "https://drive.google.com/file/d/19CX9TFdT50VUsufme9GoZwZk9xBX-kHk/view",
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "Next Generation Business",
+                    "logo": { "@type": "ImageObject", "url": "https://nextgenerationbusiness.it/assets/logo-revilaw.png" }
+                }
+            },
+            {
                 "@type": "WebApplication",
                 "name": "Simulatore di rating bancario",
                 "url": "https://nextgenerationbusiness.it/rating_bancario/#simulatore",
@@ -841,6 +855,95 @@
         #printReport .c-arancio { color: #a5561a; font-weight: 700; }
         #printReport .c-rosso { color: #b3352c; font-weight: 700; }
         #printReport .c-neutro { color: #475569; font-weight: 700; }
+
+        /* ============ Sezione video introduttivo ============ */
+        .video-section { overflow: hidden; }
+        .video-frame {
+            max-width: 940px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #0f1e2e, #1a3a5c);
+            border-radius: var(--radius-lg);
+            padding: 14px;
+            box-shadow: var(--shadow-xl);
+        }
+        .video-embed {
+            position: relative;
+            padding-top: 56.25%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0f1e2e;
+        }
+        .video-embed iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        .video-points {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            max-width: 940px;
+            margin: 44px auto 0;
+        }
+        .video-point {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+        }
+        .video-point-num {
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: var(--accent-bg);
+            border: 1px solid var(--accent-border);
+            color: var(--accent);
+            font-weight: 800;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .video-point h3 {
+            font-size: 1rem;
+            margin: 4px 0 6px;
+            color: var(--text-primary);
+        }
+        .video-point p {
+            margin: 0;
+            font-size: 0.88rem;
+            color: var(--text-secondary);
+            line-height: 1.65;
+        }
+        .video-cta {
+            text-align: center;
+            margin-top: 38px;
+        }
+        @media (max-width: 900px) {
+            .video-points { grid-template-columns: 1fr; }
+            .video-frame { padding: 10px; }
+        }
+
+        /* Comparsa allo scroll: lo stato nascosto vale solo quando il JS
+           attiva .js-reveal, così senza script la sezione resta visibile. */
+        .video-reveal {
+            transition: opacity 0.7s ease, transform 0.7s ease;
+            transition-delay: var(--rd, 0s);
+        }
+        .js-reveal .video-reveal {
+            opacity: 0;
+            transform: translateY(36px);
+        }
+        .js-reveal .video-reveal.is-visible {
+            opacity: 1;
+            transform: none;
+        }
     </style>
 </head>
 <body class="content-page theme-rating">
@@ -906,6 +1009,55 @@
                     <span class="stat-number">0 dati inviati</span>
                     <span class="stat-label">Il calcolo resta nel browser: nessun numero lascia il tuo computer</span>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- VIDEO INTRODUTTIVO -->
+    <section class="section section-alt video-section" id="video">
+        <div class="container">
+            <div class="section-header video-reveal">
+                <span class="section-tag">Prima di iniziare</span>
+                <h2>Il rating spiegato <span class="text-accent">in un video</span></h2>
+                <p class="section-desc">
+                    Due minuti per orientarsi: il video racconta di cosa parla questa pagina, cosa misura
+                    il rating bancario e come procedere, passo dopo passo, al calcolo con il simulatore.
+                </p>
+            </div>
+            <div class="video-frame video-reveal" style="--rd: 0.12s">
+                <div class="video-embed">
+                    <iframe src="https://drive.google.com/file/d/19CX9TFdT50VUsufme9GoZwZk9xBX-kHk/preview"
+                            title="Video introduttivo: il rating bancario e il simulatore"
+                            loading="lazy"
+                            allow="autoplay; fullscreen"
+                            allowfullscreen></iframe>
+                </div>
+            </div>
+            <div class="video-points">
+                <div class="video-point video-reveal" style="--rd: 0.1s">
+                    <span class="video-point-num">1</span>
+                    <div>
+                        <h3>Di cosa parla la pagina</h3>
+                        <p>Cos'è il rating bancario, perché decide prezzo e accesso al credito e cosa misura il modello del Fondo di Garanzia (MCC) che il simulatore replica.</p>
+                    </div>
+                </div>
+                <div class="video-point video-reveal" style="--rd: 0.2s">
+                    <span class="video-point-num">2</span>
+                    <div>
+                        <h3>Cosa serve per il calcolo</h3>
+                        <p>L'ultimo bilancio depositato (anche in XBRL) e, per il modulo andamentale, il PDF della Centrale dei Rischi: tutti i dati restano nel tuo browser.</p>
+                    </div>
+                </div>
+                <div class="video-point video-reveal" style="--rd: 0.3s">
+                    <span class="video-point-num">3</span>
+                    <div>
+                        <h3>Come procedere</h3>
+                        <p>Dopo il video scorri fino al simulatore, inserisci o carica i dati e leggi classe di merito, indicatori di bancabilità e leve di miglioramento.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="video-cta video-reveal" style="--rd: 0.35s">
+                <a href="#simulatore" class="btn btn-primary">Inizia il calcolo</a>
             </div>
         </div>
     </section>
@@ -1726,6 +1878,24 @@
     <script src="../zls_zes/script.js"></script>
     <script src="../assets/event-banner.js" defer></script>
     <script src="/assets/fcd-popup.js" defer></script>
+
+    <script>
+    (function () {
+        var section = document.getElementById('video');
+        if (!section || !('IntersectionObserver' in window)) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        section.classList.add('js-reveal');
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+        section.querySelectorAll('.video-reveal').forEach(function (el) { observer.observe(el); });
+    })();
+    </script>
 
     <script>
     (function () {
