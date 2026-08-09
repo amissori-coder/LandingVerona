@@ -22,6 +22,13 @@
     margin-top: 8px;
 }
 
+/* Arrivando da un'ancora della navbar, il livello non
+   deve fermarsi attaccato alla barra fissa con il logo:
+   il margine di scroll aggiunge aria sotto la navbar. */
+.org-livello {
+    scroll-margin-top: 34px;
+}
+
 .org-etichetta {
     display: block;
     text-align: center;
