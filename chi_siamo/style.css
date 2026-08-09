@@ -194,6 +194,9 @@
     font-size: 1rem;
     line-height: 1.85;
     color: rgba(255, 255, 255, 0.82);
+    hyphenate-limit-chars: 6 3 3;
+    word-spacing: -0.04em;
+    overflow-wrap: break-word;
 }
 
 .au-bio p + p {
@@ -387,6 +390,13 @@
     text-justify: inter-word;
     hyphens: auto;
     -webkit-hyphens: auto;
+    /* Il giustificato su colonne strette apre buchi
+       tra le parole: la sillabazione con soglie corte
+       e una spaziatura di base leggermente ridotta
+       tengono le righe piene. */
+    hyphenate-limit-chars: 6 3 3;
+    word-spacing: -0.04em;
+    overflow-wrap: break-word;
 }
 
 /* Etichetta di ruolo nel controllo qualita' della
