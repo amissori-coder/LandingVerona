@@ -29,6 +29,24 @@
     scroll-margin-top: 34px;
 }
 
+/* La navbar di questa pagina ha una voce in piu' delle
+   altre: senza uno spazio minimo garantito, sulle
+   larghezze intermedie il menu esteso arriva a toccare
+   il logo. Nella stessa fascia le voci si compattano. */
+.theme-chisiamo .nav-container {
+    gap: 28px;
+}
+
+@media (min-width: 1200px) and (max-width: 1460px) {
+    .theme-chisiamo .nav-links {
+        gap: clamp(8px, 1vw, 18px);
+    }
+
+    .theme-chisiamo .nav-links a {
+        font-size: 0.84rem;
+    }
+}
+
 .org-etichetta {
     display: block;
     text-align: center;
