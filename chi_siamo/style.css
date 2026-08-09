@@ -4,13 +4,126 @@
 
    Stili specifici della pagina: si appoggia a
    zls_zes/style.css e assets/content-page.css e
-   aggiunge la card del vertice societario, la
-   griglia dei founding partners e le tre colonne
-   della struttura di area con i capoarea.
+   disegna l'organigramma vero e proprio: i tre
+   livelli (vertice, soci fondatori, capoarea)
+   collegati da linee come in un organigramma
+   aziendale.
    ============================================ */
 
 /* ============================================
-   1. CARD DEL VERTICE SOCIETARIO
+   1. ALBERO DELL'ORGANIGRAMMA
+   Le etichette di livello e le linee di
+   collegamento danno la lettura gerarchica:
+   ogni livello discende da quello sopra.
+   ============================================ */
+.org-tree {
+    margin-top: 8px;
+}
+
+.org-etichetta {
+    display: block;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2.2px;
+    text-transform: uppercase;
+    color: #5A6270;
+    margin-bottom: 16px;
+}
+
+.org-desc {
+    max-width: 680px;
+    margin: 0 auto 10px;
+    text-align: center;
+    font-size: 0.95rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+}
+
+/* Linea verticale tra un livello e il successivo. */
+.org-connettore {
+    width: 1px;
+    height: 52px;
+    margin: 26px auto;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+/* Ramo: la barra orizzontale con le discese verso
+   i nodi, il disegno classico dell'organigramma.
+   La barra parte dal centro del primo nodo e
+   arriva al centro dell'ultimo. */
+.org-ramo {
+    position: relative;
+    display: grid;
+    gap: 28px;
+    padding-top: 34px;
+    margin-top: 20px;
+}
+
+.org-ramo::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    height: 1px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+/* Discesa centrale dalla parte testuale del livello
+   alla barra del ramo. */
+.org-ramo::after {
+    content: '';
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    width: 1px;
+    height: 20px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.org-ramo-2 {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 940px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.org-ramo-2::before {
+    left: 25%;
+    right: 25%;
+}
+
+.org-ramo-3 {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.org-ramo-3::before {
+    left: 16.667%;
+    right: 16.667%;
+}
+
+/* Nodo: ogni colonna del ramo, con la discesa
+   dalla barra orizzontale. */
+.org-nodo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.org-nodo::before {
+    content: '';
+    position: absolute;
+    top: -34px;
+    left: 50%;
+    width: 1px;
+    height: 34px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+/* ============================================
+   2. CARD DEL VERTICE SOCIETARIO
    L'Amministratore Unico apre l'organigramma:
    la card scura richiama l'hero e distingue il
    vertice dal resto della struttura, che sta su
@@ -90,17 +203,6 @@
     font-weight: 600;
 }
 
-.au-bio a {
-    color: #8bb8d4;
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-}
-
-.au-bio a:hover {
-    color: #ffffff;
-}
-
 /* Rimando al profilo LinkedIn: sta nella card scura
    del vertice, quindi ha bisogno di una variante
    chiara oltre a quella delle card bianche. */
@@ -142,36 +244,12 @@
     border-color: #164068;
 }
 
-/* Quando la card ha sia il profilo LinkedIn sia la
-   qualifica di controllo qualita', il badge chiude
-   comunque la card. */
-.profilo-linkedin + .quality-badge {
-    margin-top: 18px;
-}
-
-/* Collegamento tra vertice e resto della struttura:
-   una linea verticale che suggerisce l'organigramma
-   senza disegnarlo per intero. */
-.org-connettore {
-    width: 1px;
-    height: 56px;
-    margin: 0 auto;
-    background: linear-gradient(to bottom, #1a3a5c, rgba(26, 58, 92, 0.15));
-}
-
 /* ============================================
-   2. FOUNDING PARTNERS
-   Due card affiancate, stessa gerarchia visiva:
-   i soci fondatori stanno sullo stesso piano.
+   3. CARD DEI PARTNER
+   Soci fondatori e capoarea condividono la
+   stessa card chiara: cambia solo il livello a
+   cui sono agganciati nell'albero.
    ============================================ */
-.founders-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 28px;
-    max-width: 940px;
-    margin: 48px auto 0;
-}
-
 .partner-card {
     background: #ffffff;
     border: 1px solid rgba(22, 64, 104, 0.12);
@@ -183,6 +261,7 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    flex: 1;
 }
 
 .partner-card::before {
@@ -230,21 +309,6 @@
     -webkit-hyphens: auto;
 }
 
-.partner-bio + .partner-bio {
-    margin-top: 12px;
-}
-
-.partner-bio a {
-    color: #164068;
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-}
-
-.partner-bio a:hover {
-    color: #0f2f4f;
-}
-
 /* Etichetta di ruolo nel controllo qualita' della
    rete: chiude la card dei capoarea, separata dal
    testo perche' e' una qualifica, non parte della bio. */
@@ -263,27 +327,16 @@
     margin-top: 20px;
 }
 
+.profilo-linkedin + .quality-badge {
+    margin-top: 18px;
+}
+
 /* ============================================
-   3. STRUTTURA DI AREA
-   Tre colonne territoriali: il banner scuro in
-   testa fa da intestazione di colonna, le card
-   dei capoarea si impilano sotto.
+   4. COLONNE DI AREA
+   Il banner scuro intesta la colonna; le card dei
+   capoarea discendono dal banner con la stessa
+   linea dell'albero.
    ============================================ */
-.aree-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 28px;
-    max-width: 1100px;
-    margin: 48px auto 0;
-    align-items: start;
-}
-
-.area-col {
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-}
-
 .area-banner {
     background: linear-gradient(135deg, #164068, #1a3a5c);
     border-radius: 10px;
@@ -296,8 +349,27 @@
     color: #ffffff;
 }
 
+.area-col > * + * {
+    position: relative;
+    margin-top: 24px;
+}
+
+.area-col > * + *::before {
+    content: '';
+    position: absolute;
+    top: -24px;
+    left: 50%;
+    width: 1px;
+    height: 24px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
 .area-col .partner-card {
     padding: 28px 26px 26px;
+    /* Nelle colonne di area la card non si stira per
+       pareggiare l'altezza delle colonne vicine: una
+       colonna con una sola card resterebbe mezza vuota. */
+    flex: 0 0 auto;
 }
 
 .area-col .partner-nome {
@@ -310,22 +382,41 @@
 }
 
 /* ============================================
-   4. RESPONSIVE
+   5. RESPONSIVE
+   Quando le colonne si impilano, la barra
+   orizzontale non ha piu' senso: resta la sola
+   discesa verticale tra un nodo e l'altro.
    ============================================ */
 @media (max-width: 1024px) {
-    /* Tre colonne strette renderebbero le bio
-       illeggibili: le aree passano una sotto
-       l'altra ben prima del breakpoint comune. */
-    .aree-grid {
+    .org-ramo-3 {
         grid-template-columns: 1fr;
         max-width: 560px;
+        padding-top: 0;
+    }
+
+    .org-ramo-3::before,
+    .org-ramo-3::after,
+    .org-ramo-3 > .org-nodo::before {
+        display: none;
     }
 }
 
 @media (max-width: 860px) {
-    .founders-grid {
+    .org-ramo-2 {
         grid-template-columns: 1fr;
         max-width: 560px;
+        padding-top: 0;
+    }
+
+    .org-ramo-2::before,
+    .org-ramo-2::after,
+    .org-ramo-2 > .org-nodo::before {
+        display: none;
+    }
+
+    .org-connettore {
+        height: 40px;
+        margin: 20px auto;
     }
 
     .au-card {
@@ -345,9 +436,5 @@
     .au-card {
         padding: 34px 22px 32px;
         border-radius: var(--radius);
-    }
-
-    .org-connettore {
-        height: 40px;
     }
 }
