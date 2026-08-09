@@ -926,27 +926,6 @@
             text-align: center;
             margin-top: 38px;
         }
-        .video-unmute {
-            position: absolute;
-            top: 14px;
-            right: 14px;
-            z-index: 2;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font: inherit;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #ffffff;
-            background: rgba(10, 20, 32, 0.72);
-            border: 1px solid rgba(255, 255, 255, 0.35);
-            border-radius: 999px;
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }
-        .video-unmute:hover { background: rgba(10, 20, 32, 0.92); }
-        .video-unmute svg { width: 16px; height: 16px; }
         @media (max-width: 900px) {
             .video-points { grid-template-columns: 1fr; }
             .video-frame { padding: 10px; }
@@ -1055,10 +1034,6 @@
                         Il tuo browser non supporta la riproduzione video:
                         <a href="rating-bancario-video.mp4">scarica il video</a>.
                     </video>
-                    <button class="video-unmute" type="button" hidden>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-                        Attiva l'audio
-                    </button>
                 </div>
             </div>
             <div class="video-points">
@@ -1928,9 +1903,8 @@
 
         // Avvio automatico quando il video occupa buona parte dello schermo,
         // pausa quando si scorre oltre. I browser consentono l'autoplay solo
-        // senza audio: il pulsante sovrapposto lo riattiva con un tocco.
+        // senza audio: il volume si riattiva dai controlli del player.
         var video = section.querySelector('video');
-        var unmute = section.querySelector('.video-unmute');
         if (!video || reduceMotion) return;
 
         var userPaused = false;
@@ -1941,15 +1915,6 @@
             userPaused = true;
         });
         video.addEventListener('play', function () { userPaused = false; });
-        video.addEventListener('volumechange', function () {
-            if (!video.muted && unmute) unmute.hidden = true;
-        });
-        if (unmute) {
-            unmute.addEventListener('click', function () {
-                video.muted = false;
-                unmute.hidden = true;
-            });
-        }
 
         var playObserver = new IntersectionObserver(function (entries) {
             entries.forEach(function (entry) {
@@ -1957,7 +1922,6 @@
                     if (!userPaused && !video.ended && video.paused) {
                         var attempt = video.play();
                         if (attempt && attempt.catch) attempt.catch(function () {});
-                        if (unmute && video.muted) unmute.hidden = false;
                     }
                 } else if (!video.paused) {
                     autoPausing = true;
