@@ -7,7 +7,9 @@
    disegna l'organigramma vero e proprio: i tre
    livelli (vertice, soci fondatori, capoarea)
    collegati da linee come in un organigramma
-   aziendale.
+   aziendale. Le card dei partner sono compatte:
+   nome e qualifica sempre visibili, biografia
+   aperta dal pulsante.
    ============================================ */
 
 /* ============================================
@@ -55,7 +57,7 @@
 .org-ramo {
     position: relative;
     display: grid;
-    gap: 28px;
+    gap: 24px;
     padding-top: 34px;
     margin-top: 20px;
 }
@@ -212,7 +214,7 @@
     gap: 7px;
     margin-top: 26px;
     padding: 9px 18px;
-    border-radius: 100px;
+    border-radius: 8px;
     font-size: 0.78rem;
     font-weight: 600;
     letter-spacing: 0.4px;
@@ -246,22 +248,22 @@
 
 /* ============================================
    3. CARD DEI PARTNER
-   Soci fondatori e capoarea condividono la
-   stessa card chiara: cambia solo il livello a
-   cui sono agganciati nell'albero.
+   Compatte e uniformi: in testa nome, qualifica
+   e pulsante; la biografia si apre sotto. Cosi'
+   ogni livello dell'organigramma resta allineato
+   a prescindere dalla lunghezza delle bio.
    ============================================ */
 .partner-card {
     background: #ffffff;
-    border: 1px solid rgba(22, 64, 104, 0.12);
-    border-radius: 14px;
-    padding: 34px 32px 30px;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 12px;
+    padding: 24px 24px 22px;
     box-shadow: 0 2px 10px rgba(10, 40, 68, 0.04);
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    flex: 1;
 }
 
 .partner-card::before {
@@ -275,33 +277,111 @@
 }
 
 .partner-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 18px 42px rgba(10, 40, 68, 0.1);
+    box-shadow: 0 10px 28px rgba(10, 40, 68, 0.09);
     border-color: rgba(22, 64, 104, 0.3);
 }
 
+.partner-testa {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.partner-identita {
+    min-width: 0;
+}
+
 .partner-nome {
-    font-size: 1.22rem;
+    font-size: 1.12rem;
     font-weight: 700;
     color: #164068;
     line-height: 1.3;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
 }
 
 .partner-meta {
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1.6px;
+    letter-spacing: 1.5px;
     color: #5A6270;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid rgba(22, 64, 104, 0.1);
+    margin: 0;
+}
+
+/* Pulsante che apre e chiude la biografia: un
+   quadrato con il piu' che ruota a croce quando
+   la card e' aperta. */
+.partner-toggle {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.25);
+    border-radius: 8px;
+    color: #164068;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.partner-toggle svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
+}
+
+.partner-toggle:hover {
+    background: #164068;
+    border-color: #164068;
+    color: #ffffff;
+}
+
+.partner-toggle:focus-visible {
+    outline: 2px solid #164068;
+    outline-offset: 2px;
+}
+
+.partner-card.aperta .partner-toggle svg {
+    transform: rotate(45deg);
+}
+
+/* Biografia a scomparsa: la riga di griglia passa
+   da 0fr a 1fr, cosi' l'apertura e' animata senza
+   altezze fisse. */
+.partner-dettaglio {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.partner-dettaglio-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.partner-card.aperta .partner-dettaglio {
+    grid-template-rows: 1fr;
+}
+
+.partner-dettaglio .partner-bio {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(22, 64, 104, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .partner-dettaglio,
+    .partner-toggle svg {
+        transition: none;
+    }
 }
 
 .partner-bio {
-    font-size: 0.94rem;
-    line-height: 1.78;
+    font-size: 0.92rem;
+    line-height: 1.75;
     color: var(--text-secondary);
     text-align: justify;
     text-justify: inter-word;
@@ -310,25 +390,17 @@
 }
 
 /* Etichetta di ruolo nel controllo qualita' della
-   rete: chiude la card dei capoarea, separata dal
-   testo perche' e' una qualifica, non parte della bio. */
+   rete: chiude la card, separata dalla biografia
+   perche' e' una qualifica, non parte della bio. */
 .quality-badge {
-    margin-top: auto;
-    padding-top: 18px;
-    font-size: 0.68rem;
+    margin-top: 18px;
+    padding-top: 16px;
+    font-size: 0.66rem;
     font-weight: 700;
     letter-spacing: 1.4px;
     text-transform: uppercase;
     color: #164068;
     border-top: 1px solid rgba(22, 64, 104, 0.12);
-}
-
-.partner-bio + .quality-badge {
-    margin-top: 20px;
-}
-
-.profilo-linkedin + .quality-badge {
-    margin-top: 18px;
 }
 
 /* ============================================
@@ -351,45 +423,43 @@
 
 .area-col > * + * {
     position: relative;
-    margin-top: 24px;
+    margin-top: 22px;
 }
 
 .area-col > * + *::before {
     content: '';
     position: absolute;
-    top: -24px;
+    top: -22px;
     left: 50%;
     width: 1px;
-    height: 24px;
+    height: 22px;
     background: rgba(22, 64, 104, 0.3);
 }
 
+/* Nelle colonne di area la card non si stira per
+   pareggiare l'altezza delle colonne vicine: una
+   colonna con una sola card resterebbe mezza vuota. */
 .area-col .partner-card {
-    padding: 28px 26px 26px;
-    /* Nelle colonne di area la card non si stira per
-       pareggiare l'altezza delle colonne vicine: una
-       colonna con una sola card resterebbe mezza vuota. */
     flex: 0 0 auto;
 }
 
 .area-col .partner-nome {
-    font-size: 1.12rem;
+    font-size: 1.04rem;
 }
 
 .area-col .partner-bio {
-    font-size: 0.9rem;
-    line-height: 1.72;
+    font-size: 0.88rem;
+    line-height: 1.7;
 }
 
 /* ============================================
    5. RESPONSIVE
-   Quando le colonne si impilano, la barra
-   orizzontale non ha piu' senso: resta la sola
-   discesa verticale tra un nodo e l'altro.
-   ============================================ */
-/* Le tre aree restano affiancate il piu' a lungo
+   Le tre aree restano affiancate il piu' a lungo
    possibile: sotto i 1100px si stringono spazi e
-   padding, e solo su telefono si impilano. */
+   padding, e solo su telefono si impilano. Quando
+   le colonne si impilano, la barra orizzontale non
+   ha piu' senso: resta la sola discesa verticale.
+   ============================================ */
 @media (max-width: 1100px) {
     .org-ramo-3 {
         gap: 16px;
@@ -405,11 +475,11 @@
     }
 
     .area-col .partner-card {
-        padding: 22px 18px 20px;
+        padding: 20px 18px 18px;
     }
 
     .area-col .partner-nome {
-        font-size: 1.02rem;
+        font-size: 0.98rem;
     }
 
     .area-col .partner-bio {
@@ -467,7 +537,7 @@
 
 @media (max-width: 560px) {
     .partner-card {
-        padding: 28px 22px 26px;
+        padding: 22px 18px 20px;
     }
 
     .au-card {
