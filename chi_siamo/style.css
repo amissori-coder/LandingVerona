@@ -463,7 +463,161 @@
 }
 
 /* ============================================
-   5. RESPONSIVE
+   5. FUNZIONIGRAMMA
+   La ripartizione funzionale della Società su
+   quattro pilastri: le due filiere (capitale e
+   governance) scendono al centro, i presidi di
+   controllo chiudono i lati. Stesse linee di
+   collegamento dell'organigramma.
+   ============================================ */
+.funz-tree {
+    max-width: 1100px;
+    margin: 48px auto 0;
+}
+
+.funz-radice {
+    width: fit-content;
+    margin: 0 auto;
+    padding: 14px 36px;
+    background: linear-gradient(135deg, #0f1e2e, #1a3a5c);
+    color: #ffffff;
+    border-radius: 10px;
+    font-size: 1.02rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+.funz-ramo {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding-top: 30px;
+    margin-top: 26px;
+}
+
+/* Barra orizzontale dal primo all'ultimo pilastro
+   e discesa dalla radice. */
+.funz-ramo::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 12.5%;
+    right: 12.5%;
+    height: 1px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.funz-ramo::after {
+    content: '';
+    position: absolute;
+    top: -26px;
+    left: 50%;
+    width: 1px;
+    height: 26px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.funz-colonna {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.funz-colonna::before {
+    content: '';
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    width: 1px;
+    height: 30px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.funz-banner {
+    background: linear-gradient(135deg, #164068, #1a3a5c);
+    border-radius: 10px;
+    padding: 12px 10px;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: #ffffff;
+}
+
+.funz-colonna > * + * {
+    position: relative;
+    margin-top: 18px;
+}
+
+.funz-colonna > * + *::before {
+    content: '';
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    width: 1px;
+    height: 18px;
+    background: rgba(22, 64, 104, 0.3);
+}
+
+.funz-nodo {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.18);
+    border-radius: 10px;
+    padding: 12px 12px;
+    text-align: center;
+}
+
+.funz-nodo span {
+    display: block;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #5A6270;
+    margin-bottom: 3px;
+}
+
+.funz-nodo strong {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #164068;
+    letter-spacing: 0.2px;
+    line-height: 1.35;
+}
+
+/* I comitati sono organi collegiali, non livelli
+   della filiera: il tratteggio li distingue. */
+.funz-comitato {
+    background: var(--bg-tertiary);
+    border-style: dashed;
+}
+
+/* Il controllo qualita' e' il presidio che lega
+   l'intera pagina: pieno, come il vertice. */
+.funz-qualita {
+    background: linear-gradient(135deg, #164068, #1a3a5c);
+    border-color: #164068;
+}
+
+.funz-qualita strong {
+    color: #ffffff;
+}
+
+.funz-nota {
+    max-width: 680px;
+    margin: 30px auto 0;
+    text-align: center;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+}
+
+/* ============================================
+   6. RESPONSIVE
    Le tre aree restano affiancate il piu' a lungo
    possibile: sotto i 1100px si stringono spazi e
    padding, e solo su telefono si impilano. Quando
@@ -542,6 +696,25 @@
 
     .au-bio p {
         font-size: 0.95rem;
+    }
+}
+
+/* Funzionigramma: sotto i 900px i quattro pilastri
+   si impilano; restano le sole discese verticali. */
+@media (max-width: 900px) {
+    .funz-ramo {
+        grid-template-columns: 1fr;
+        max-width: 480px;
+        margin-left: auto;
+        margin-right: auto;
+        padding-top: 0;
+        gap: 18px;
+    }
+
+    .funz-ramo::before,
+    .funz-ramo::after,
+    .funz-colonna::before {
+        display: none;
     }
 }
 
