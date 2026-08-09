@@ -2339,7 +2339,7 @@ ul {
     display: flex;
     align-items: center;
     gap: 22px;
-    margin-top: 36px;
+    margin: 36px 0 12px;
     padding: 26px 30px;
     background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 65%, var(--navy-light) 130%);
     border-radius: 16px;
