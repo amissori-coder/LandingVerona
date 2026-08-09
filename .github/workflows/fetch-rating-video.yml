@@ -1,0 +1,47 @@
+# Workflow temporaneo: scarica il video del rating bancario da Google Drive
+# e lo committa nel repository. Va rimosso una volta acquisito il file.
+name: Scarica video rating bancario
+
+on:
+  push:
+    branches:
+      - claude/credit-rating-video-section-l71rr8
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-video:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scarica il video da Google Drive e committalo
+        run: |
+          set -euo pipefail
+          DEST="rating_bancario/rating-bancario-video.mp4"
+          if [ -f "$DEST" ]; then
+            echo "Video già presente, niente da fare."
+            exit 0
+          fi
+          curl -fsSL -o video.mp4 \
+            "https://drive.usercontent.google.com/download?id=19CX9TFdT50VUsufme9GoZwZk9xBX-kHk&export=download&confirm=t"
+          ls -la video.mp4
+          file video.mp4
+          file video.mp4 | grep -qiE "MP4|ISO Media"
+          SIZE=$(stat -c%s video.mp4)
+          test "$SIZE" -gt 30000000 && test "$SIZE" -lt 40000000
+          mv video.mp4 "$DEST"
+
+          # Poster (primo fotogramma utile) e info tecniche per il markup
+          ffmpeg -y -ss 1 -i "$DEST" -frames:v 1 -q:v 2 rating_bancario/rating-bancario-poster.jpg
+          ffprobe -v error -select_streams v:0 \
+            -show_entries stream=codec_name,width,height,duration \
+            -of default=noprint_wrappers=1 "$DEST" > rating_bancario/video-info.txt
+          cat rating_bancario/video-info.txt
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$DEST" rating_bancario/rating-bancario-poster.jpg rating_bancario/video-info.txt
+          git commit -m "Aggiungi file video e poster del rating bancario [skip ci]"
+          git push
