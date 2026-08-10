@@ -11486,7 +11486,7 @@
             ${Auth.eAdmin() ? `<div class="card">
                 <h2>Modelli PDF delle lettere di incarico</h2>
                 ${Cloud.attivo
-                    ? `<p class="descrizione" style="margin-bottom:12px;">Carica qui i PDF originali con i campi modulo: vengono archiviati su Firestore (visibili solo agli utenti abilitati) e usati dal pulsante "Scarica PDF ufficiale" della lettera. L'app compila i dati dell'incarico e lascia compilabili i campi riservati al cliente.</p>
+                    ? `<p class="descrizione" style="margin-bottom:12px;">Carica qui i PDF originali con i campi modulo: vengono archiviati su Firestore (visibili solo agli utenti abilitati) e usati dal pulsante "Scarica PDF ufficiale" della lettera. L'app compila i dati dell'incarico rendendoli definitivi (non modificabili) e lascia compilabili solo i campi riservati al cliente.</p>
                        <div id="modelli-stato" class="tabella-vuota">Caricamento stato modelli...</div>`
                     : '<p class="descrizione">Disponibile con l\'accesso al cloud condiviso.</p>'}
             </div>` : ''}
@@ -11869,7 +11869,7 @@
     function modaleStampaMandato(inc) {
         const giaCongelato = !!inc.calcoloCongelato;
         apriModale(`<h2>Stampa del mandato</h2>
-            <p class="descrizione" style="margin-bottom:12px;">Verra generato il PDF ufficiale di <strong>${esc(inc.cliente)}</strong> con i dati compilati e i campi del cliente lasciati editabili.</p>
+            <p class="descrizione" style="margin-bottom:12px;">Verra generato il PDF ufficiale di <strong>${esc(inc.cliente)}</strong> con i dati compilati resi definitivi (non modificabili) e i campi del cliente lasciati editabili.</p>
             ${giaCongelato
                 ? '<p class="descrizione">Il calcolo di questo incarico e gia congelato: il compenso non e modificabile finche non viene sbloccato.</p>'
                 : `<label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="checkbox" id="m-congela" checked style="width:auto; margin-top:3px;"><span>Congela il calcolo del compenso<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Il compenso e le ore concordati vengono bloccati: per modificarli in seguito occorrera sbloccarli inviando un messaggio di allerta.</span></span></label>`}
@@ -11899,9 +11899,10 @@
 
     /* ---------- PDF ufficiale: compila i campi modulo del modello ----------
        L'app scrive solo i dati dell'incarico (societa, esercizi, compensi,
-       responsabile); i campi del cliente (scheda di identificazione,
-       titolari effettivi, consensi privacy, fatturazione elettronica,
-       firme e date) restano vuoti e compilabili nel PDF. */
+       responsabile) e li rende definitivi (sola lettura); i campi del
+       cliente (scheda di identificazione, titolari effettivi, consensi
+       privacy, fatturazione elettronica, firme e date) restano vuoti e
+       compilabili nel PDF. */
     function caricaPdfLib() {
         if (window.PDFLib) return Promise.resolve(window.PDFLib);
         return new Promise((ok, ko) => {
@@ -11923,7 +11924,11 @@
         const form = pdf.getForm();
         const scrivi = (nome, valore) => {
             if (valore == null || valore === '') return;
-            try { form.getTextField(nome).setText(String(valore)); }
+            try {
+                const campo = form.getTextField(nome);
+                campo.setText(String(valore));
+                campo.enableReadOnly(); // i dati compilati dall'app sono definitivi
+            }
             catch (e) { console.warn('Campo non trovato nel modello:', nome); }
         };
         const d = datiLettera(inc);
