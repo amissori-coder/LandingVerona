@@ -207,6 +207,24 @@
     }
 }
 
+/* ---------- Respiro fra marchio e voci di menu ----------
+   .nav-container e' flex con space-between e nessun gap: finche' avanza
+   spazio le due parti stanno lontane, ma appena il menu si allarga
+   arrivano a toccarsi e "Revilaw SPA" si attacca alla prima voce.
+
+   Il menu si allarga da solo al crescere della finestra, perche' la
+   spaziatura fra le voci e' 1.6vw: piu' schermo, piu' spazio fra le
+   voci, meno spazio verso il marchio. Sulle pagine di contenuto, che
+   hanno menu lunghi, la spaziatura fra le voci cresce piu' piano e un
+   gap garantito tiene separate le due parti. */
+.content-page .nav-container {
+    gap: clamp(24px, 2vw, 40px);
+}
+
+.content-page .nav-links {
+    gap: clamp(12px, 1.05vw, 20px);
+}
+
 /* ---------- Voce di menu che porta a un'altra pagina ----------
    In navbar le voci sono quasi tutte ancore di sezione: senza un segno
    che le distingua, un collegamento a un'altra pagina sembra portare a
