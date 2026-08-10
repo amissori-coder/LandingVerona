@@ -178,6 +178,18 @@
     background: #8bb8d4;
 }
 
+/* Ritratto del vertice: quadrato arrotondato come le
+   card, con il filo azzurro della barra superiore. */
+.au-foto {
+    display: block;
+    width: 128px;
+    height: 128px;
+    margin: 0 auto 22px;
+    border-radius: 14px;
+    border: 1px solid rgba(139, 184, 212, 0.5);
+    object-fit: cover;
+}
+
 .au-eyebrow {
     display: block;
     font-size: 0.72rem;
@@ -318,7 +330,19 @@
     gap: 14px;
 }
 
+/* Ritratto nella card: stessa geometria del pulsante,
+   in scala di grigi gia' nel file. */
+.partner-foto {
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    border: 1px solid rgba(22, 64, 104, 0.15);
+    object-fit: cover;
+}
+
 .partner-identita {
+    flex: 1;
     min-width: 0;
 }
 
@@ -684,6 +708,11 @@
         letter-spacing: 1.6px;
         font-size: 0.7rem;
         padding: 11px 12px;
+    }
+
+    .area-col .partner-foto {
+        width: 52px;
+        height: 52px;
     }
 }
 
