@@ -453,7 +453,7 @@
     position: relative;
     width: 100%;
     max-width: 560px;
-    max-height: 88vh;
+    max-height: 92vh;
     overflow-y: auto;
     background: #ffffff;
     border-radius: 16px;
@@ -462,6 +462,60 @@
     box-shadow: var(--shadow-xl);
     transform: translateY(14px) scale(0.97);
     transition: transform 0.25s ease;
+}
+
+/* Da 640px in su la scheda si allarga su due colonne:
+   ritratto, LinkedIn e qualifica a sinistra, testo a
+   destra. Cosi' anche le biografie lunghe stanno in
+   finestra senza barra di scorrimento. */
+@media (min-width: 640px) {
+    .scheda {
+        max-width: 780px;
+        text-align: left;
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        grid-template-rows: auto auto auto auto 1fr;
+        grid-template-areas:
+            'foto nome'
+            'foto meta'
+            'foto bio'
+            'link bio'
+            'badge bio';
+        column-gap: 34px;
+        row-gap: 0;
+        align-content: start;
+    }
+
+    .scheda-foto {
+        grid-area: foto;
+        width: 240px;
+        height: 240px;
+        margin: 0;
+    }
+
+    .scheda-nome {
+        grid-area: nome;
+        font-size: 1.45rem;
+    }
+
+    .scheda-meta {
+        grid-area: meta;
+    }
+
+    .scheda-bio {
+        grid-area: bio;
+    }
+
+    .scheda .profilo-linkedin {
+        grid-area: link;
+        justify-self: start;
+        margin-top: 18px;
+    }
+
+    .scheda .quality-badge {
+        grid-area: badge;
+        margin-top: 18px;
+    }
 }
 
 .scheda::before {
