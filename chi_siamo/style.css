@@ -633,6 +633,39 @@
     }
 }
 
+/* Su finestre molto basse (portatili piccoli, browser
+   con zoom) la scheda si fa piu' densa, cosi' resta
+   tutta visibile senza barra di scorrimento. */
+@media (min-width: 640px) and (max-height: 640px) {
+    .scheda {
+        padding: 30px 32px 26px;
+    }
+
+    .scheda-foto {
+        width: 190px;
+        height: 190px;
+    }
+
+    .scheda {
+        grid-template-columns: 190px 1fr;
+        column-gap: 26px;
+    }
+
+    .scheda-nome {
+        font-size: 1.25rem;
+    }
+
+    .scheda-bio {
+        font-size: 0.88rem;
+        line-height: 1.65;
+    }
+
+    .scheda .profilo-linkedin,
+    .scheda .quality-badge {
+        margin-top: 12px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .scheda-overlay,
     .scheda,
