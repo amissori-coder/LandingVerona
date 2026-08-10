@@ -650,16 +650,69 @@
         </div>
     </footer>
 
+    <!-- Scheda del partner: si apre in finestra sopra la pagina -->
+    <div class="scheda-overlay" id="schedaOverlay" hidden>
+        <div class="scheda" role="dialog" aria-modal="true" aria-labelledby="schedaNome">
+            <button class="scheda-chiudi" type="button" aria-label="Chiudi la scheda">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+            </button>
+            <img class="scheda-foto" src="" alt="">
+            <h3 class="scheda-nome" id="schedaNome"></h3>
+            <p class="scheda-meta"></p>
+            <div class="scheda-bio"></div>
+            <a class="profilo-linkedin scheda-linkedin" href="#" target="_blank" rel="noopener" hidden>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 0h-14c-2.76 0-5 2.24-5 5v14c0 2.76 2.24 5 5 5h14c2.76 0 5-2.24 5-5v-14c0-2.76-2.24-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.27c-.97 0-1.75-.79-1.75-1.76s.78-1.76 1.75-1.76 1.75.79 1.75 1.76-.78 1.76-1.75 1.76zm13.5 12.27h-3v-5.6c0-1.34-.03-3.07-1.87-3.07-1.87 0-2.16 1.46-2.16 2.97v5.7h-3v-11h2.88v1.5h.04c.4-.76 1.38-1.56 2.84-1.56 3.04 0 3.6 2 3.6 4.6v6.46z"/></svg>
+                Profilo LinkedIn
+            </a>
+            <p class="quality-badge scheda-badge" hidden>Responsabile controlli di qualità</p>
+        </div>
+    </div>
+
     <script>
-        // Apertura e chiusura delle biografie dei partner
-        document.querySelectorAll('.partner-toggle').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var card = btn.closest('.partner-card');
-                var aperta = card.classList.toggle('aperta');
-                btn.setAttribute('aria-expanded', aperta ? 'true' : 'false');
-                btn.setAttribute('aria-label', (aperta ? 'Nascondi' : 'Mostra') + ' la biografia');
+        // La scheda del partner si apre in finestra: una alla volta,
+        // si chiude con la X, con un clic fuori o con Esc.
+        (function () {
+            var overlay = document.getElementById('schedaOverlay');
+            if (!overlay) return;
+            var elFoto = overlay.querySelector('.scheda-foto');
+            var elNome = overlay.querySelector('.scheda-nome');
+            var elMeta = overlay.querySelector('.scheda-meta');
+            var elBio = overlay.querySelector('.scheda-bio');
+            var elLink = overlay.querySelector('.scheda-linkedin');
+            var elBadge = overlay.querySelector('.scheda-badge');
+
+            var apri = function (card) {
+                var foto = card.querySelector('.partner-foto');
+                var link = card.querySelector('.profilo-linkedin');
+                if (foto) { elFoto.src = foto.src; elFoto.alt = foto.alt; }
+                elNome.textContent = card.querySelector('.partner-nome').textContent;
+                elMeta.innerHTML = card.querySelector('.partner-meta').innerHTML;
+                elBio.innerHTML = card.querySelector('.partner-bio').innerHTML;
+                if (link) { elLink.href = link.href; elLink.hidden = false; }
+                else { elLink.hidden = true; }
+                elBadge.hidden = !card.querySelector('.quality-badge');
+                overlay.hidden = false;
+                requestAnimationFrame(function () { overlay.classList.add('aperto'); });
+                document.body.style.overflow = 'hidden';
+            };
+
+            var chiudi = function () {
+                overlay.classList.remove('aperto');
+                document.body.style.overflow = '';
+                setTimeout(function () { overlay.hidden = true; }, 250);
+            };
+
+            document.querySelectorAll('.partner-toggle').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    apri(btn.closest('.partner-card'));
+                });
             });
-        });
+            overlay.addEventListener('click', function (e) { if (e.target === overlay) chiudi(); });
+            overlay.querySelector('.scheda-chiudi').addEventListener('click', chiudi);
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !overlay.hidden) chiudi();
+            });
+        })();
     </script>
     <script src="../zls_zes/script.js"></script>
     <script src="../assets/event-banner.js" defer></script>
