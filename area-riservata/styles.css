@@ -341,6 +341,33 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .pres-mod svg { flex-shrink: 0; }
 .pres-mod .et { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .presenza-utente.sta-modificando .pallino { background: var(--oro, #C9A227); box-shadow: 0 0 0 3px rgba(201,162,39,0.22); }
+/* elenco numeroso: vista compatta con le iniziali dei connessi; un clic apre il menu completo */
+.presenza-riassunto { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 4px 3px; border: none; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.85); font-family: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background .15s ease; }
+.presenza-riassunto:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.pres-avatars { display: flex; align-items: center; }
+.pres-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--blu-500); border: 2px solid var(--blu-900); color: #fff; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.02em; display: inline-flex; align-items: center; justify-content: center; margin-left: -7px; }
+.pres-avatar:first-child { margin-left: 0; }
+.pres-avatar-extra { background: rgba(255,255,255,0.16); }
+.pres-riass-apri { display: inline-flex; align-items: center; gap: 4px; color: rgba(255,255,255,0.65); font-size: 0.7rem; flex-shrink: 0; }
+.presenza-riassunto:hover .pres-riass-apri { color: #fff; }
+.presenza-riduci { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; padding: 3px 8px; border: none; border-radius: 999px; background: transparent; color: rgba(255,255,255,0.55); font-family: inherit; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all .15s ease; }
+.presenza-riduci:hover { background: rgba(255,255,255,0.10); color: #fff; }
+.presenza-riduci .freccia-su svg { transform: rotate(180deg); display: block; }
+
+/* Popup del messaggio in arrivo (in basso a destra, sopra i toast): risposta rapida inclusa */
+#msg-popup-area { position: fixed; right: 20px; bottom: 84px; z-index: 205; display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 24px)); }
+.msg-popup { background: #fff; border: 1px solid var(--grigio-200); border-left: 4px solid var(--verde); border-radius: 12px; box-shadow: var(--ombra-lg); padding: 12px 14px; animation: msgPopupIn .25s ease; }
+@keyframes msgPopupIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.msg-popup-testata { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.msg-popup-testata .pallino { width: 8px; height: 8px; border-radius: 50%; background: var(--verde); box-shadow: 0 0 0 3px rgba(30,127,79,0.15); flex-shrink: 0; }
+.msg-popup-testata strong { flex: 1; min-width: 0; font-size: 0.85rem; color: var(--blu-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msg-popup-ora { color: var(--grigio-600); font-size: 0.7rem; flex-shrink: 0; }
+.msg-popup-x { border: none; background: transparent; color: var(--grigio-600); cursor: pointer; font-size: 0.8rem; line-height: 1; padding: 3px 5px; border-radius: 6px; flex-shrink: 0; }
+.msg-popup-x:hover { background: var(--grigio-100); color: var(--grigio-900); }
+.msg-popup-testo { font-size: 0.86rem; line-height: 1.45; margin-bottom: 10px; overflow-wrap: break-word; }
+.msg-popup-risposta textarea { width: 100%; resize: vertical; min-height: 44px; border: 1px solid var(--grigio-200); border-radius: 8px; padding: 7px 9px; font-family: inherit; font-size: 0.84rem; }
+.msg-popup-risposta textarea:focus { outline: none; border-color: var(--blu-500); box-shadow: 0 0 0 3px var(--blu-100); }
+.msg-popup-azioni { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
 .contenuto { margin-left: 240px; padding: 28px 32px 60px; max-width: 1500px; min-width: 0; }
 .contenuto > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
@@ -1478,5 +1505,6 @@ summary.ni-testa::before {
     /* avvisi a comparsa: a tutta larghezza, non una strisciolina nell'angolo */
     .toast-area { left: 12px; right: 12px; bottom: 12px; }
     .toast { max-width: none; }
+    #msg-popup-area { left: 12px; right: 12px; bottom: 72px; width: auto; }
 }
 
