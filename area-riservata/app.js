@@ -12188,12 +12188,15 @@
 
     /* ---------- PDF ufficiale: compila i campi modulo del modello ----------
        L'app scrive i dati dell'incarico (societa, esercizi, compensi,
-       responsabile e firma REVILAW) e li APPIATTISCE: diventano contenuto
-       fisso della pagina, definitivo in qualunque lettore PDF. I campi del
-       cliente (scheda di identificazione, titolari effettivi, consensi
-       privacy, fatturazione elettronica, firme e date) restano vuoti e
-       compilabili nel PDF. Sotto "REVILAW S.p.A." viene inoltre disegnata
-       la firma grafica del responsabile, se caricata o gia salvata. */
+       responsabile, allegati sempre 3) e li APPIATTISCE: diventano contenuto
+       fisso della pagina, definitivo in qualunque lettore PDF. Sotto la
+       dicitura "REVILAW S.p.A." (che resta al suo posto) va il nome del
+       responsabile e, sotto il nome, l'immagine della firma se caricata o
+       salvata. Tutti gli altri campi fino alla pagina della firma compresa
+       vengono chiusi (appiattiti col loro contenuto). I campi delle pagine
+       successive, riservati al cliente (scheda di identificazione, titolari
+       effettivi, consensi privacy, fatturazione elettronica, firme e date),
+       restano vuoti e compilabili nel PDF. */
     function caricaPdfLib() {
         if (window.PDFLib) return Promise.resolve(window.PDFLib);
         return new Promise((ok, ko) => {
@@ -12270,8 +12273,9 @@
             scrivi('Testo10.1.1.0.1.1.0', num(compParti[1]));          // euro b)
             scrivi('Testo10.1.1.0.1.1.1.0', num(compParti[2]));        // euro c)
             scrivi('Testo10.1.1.0.1.1.1.1.1', num(compTot));           // euro TOTALE
-            /* riga extra della tabella (Testo11) e campi del cliente
-               lasciati compilabili; la firma si compila qui sotto */
+            scrivi('Testo13', '3');                        // allegati: sempre 3, non modificabile
+            /* riga extra della tabella (Testo11) lasciata alla chiusura
+               automatica qui sotto; la firma si compila nel blocco firma */
         }
 
         // Firma del responsabile a PAGINA 20 del triennale (pag. 17 della
@@ -12297,9 +12301,39 @@
             ? opzioni.firma : await Firme.leggi(inc.respIncarico);
         if (firmaImg && campoFirma) await disegnaFirma(pdf, form, campoFirma, firmaImg);
 
-        // i campi compilati dall'app diventano contenuto fisso della pagina:
-        // definitivi e non modificabili; tutti gli altri restano editabili
-        appiattisciCampi(form, compilati);
+        // Tutti gli ALTRI campi non utilizzati fino alla pagina della firma
+        // compresa (pag. 20 del triennale, pag. 17 della volontaria) vengono
+        // chiusi: appiattiti con il loro contenuto attuale, cosi le diciture
+        // del modello (es. "REVILAW S.p.A.") restano visibili ma nulla e piu
+        // modificabile. I campi delle pagine successive, riservati al cliente,
+        // restano compilabili.
+        const daChiudere = [];
+        try {
+            const pagine = pdf.getPages();
+            let indiceFirma = -1;
+            if (campoFirma && typeof form.findWidgetPage === 'function') {
+                const refFirma = form.findWidgetPage(campoFirma.acroField.getWidgets()[0]).ref;
+                indiceFirma = pagine.findIndex(p => p.ref === refFirma);
+            }
+            if (indiceFirma < 0) indiceFirma = tipo === 'volontaria' ? 16 : 19;
+            const entroFirma = new Set(pagine.slice(0, indiceFirma + 1).map(p => p.ref));
+            // il confronto va fatto per NOME: getFields() restituisce istanze
+            // diverse da quelle ottenute con getTextField()
+            const nomiCompilati = new Set(compilati.map(c => { try { return c.getName(); } catch (e) { return ''; } }));
+            form.getFields().forEach(campo => {
+                try { if (nomiCompilati.has(campo.getName())) return; } catch (e) { return; }
+                const widgets = campo.acroField.getWidgets();
+                if (!widgets.length) return;
+                const tutteEntro = widgets.every(w => {
+                    try { return entroFirma.has(form.findWidgetPage(w).ref); } catch (e) { return false; }
+                });
+                if (tutteEntro) daChiudere.push(campo);
+            });
+        } catch (e) { console.warn('Chiusura dei campi fino alla pagina della firma non riuscita:', e); }
+
+        // i campi compilati dall'app e quelli chiusi diventano contenuto fisso
+        // della pagina: definitivi e non modificabili; il resto resta editabile
+        appiattisciCampi(form, compilati.concat(daChiudere));
 
         const bytes = await pdf.save();
         if (opzioni && opzioni.restituisciBytes) return bytes;
@@ -12323,29 +12357,34 @@
             + '_' + d.primo + (d.ultimo !== d.primo ? '-' + d.ultimo : '') + '.pdf';
     }
 
-    // campo testo posizionato piu in alto nella pagina indicata (indice 0-based):
-    // nel modello triennale e il campo della firma sotto "REVILAW S.p.A." a pag. 20
+    // primo campo testo VUOTO dall'alto della pagina indicata (indice 0-based):
+    // a pag. 20 del triennale e il campo per il nome del responsabile, sotto
+    // "REVILAW S.p.A.". I campi gia valorizzati del modello (proprio come la
+    // dicitura REVILAW S.p.A.) non vanno toccati.
     function campoFirmaInPagina(PDFLib, pdf, form, indicePagina) {
         try {
             const pagina = pdf.getPages()[indicePagina];
             if (!pagina || typeof form.findWidgetPage !== 'function') return null;
-            let scelto = null, yMax = -Infinity;
+            const candidati = [];
             form.getFields().forEach(campo => {
                 if (!(campo instanceof PDFLib.PDFTextField)) return;
+                let testo = '';
+                try { testo = campo.getText() || ''; } catch (e) { }
+                if (String(testo).trim()) return; // campo gia valorizzato: non si tocca
                 campo.acroField.getWidgets().forEach(w => {
                     let p = null;
                     try { p = form.findWidgetPage(w); } catch (e) { }
                     if (!p || p.ref !== pagina.ref) return;
-                    const r = w.getRectangle();
-                    if (r.y > yMax) { yMax = r.y; scelto = campo; }
+                    candidati.push({ campo, y: w.getRectangle().y });
                 });
             });
-            return scelto;
+            candidati.sort((a, b) => b.y - a.y);
+            return candidati.length ? candidati[0].campo : null;
         } catch (e) { return null; }
     }
 
-    // disegna l'immagine della firma appoggiandola alla riga del campo con il
-    // nome del responsabile (subito sopra il nome, sotto "REVILAW S.p.A.")
+    // disegna l'immagine della firma SOTTO la riga con il nome del responsabile
+    // (che a sua volta sta sotto la scritta "REVILAW S.p.A.")
     async function disegnaFirma(pdf, form, campo, dataUrl) {
         try {
             const widget = campo.acroField.getWidgets()[0];
@@ -12357,9 +12396,10 @@
             const img = /^data:image\/png/i.test(dataUrl) ? await pdf.embedPng(dataUrl) : await pdf.embedJpg(dataUrl);
             const maxL = Math.min(r.width || 180, 180), maxA = 46;
             const sc = Math.min(maxL / img.width, maxA / img.height);
+            const altezza = img.height * sc;
             pagina.drawImage(img, {
-                x: r.x + 4, y: r.y + (r.height || 12) + 2,
-                width: img.width * sc, height: img.height * sc
+                x: r.x + 4, y: r.y - altezza - 3,
+                width: img.width * sc, height: altezza
             });
         } catch (e) { console.warn('Firma grafica non inserita nel PDF:', e); }
     }
@@ -12375,8 +12415,12 @@
             return;
         }
         try { form.updateFieldAppearances(); } catch (e) { console.warn('Aspetto dei campi non aggiornato:', e); }
+        const trattati = new Set(); // un campo va appiattito una volta sola
         campi.forEach(campo => {
             try {
+                const nome = campo.getName();
+                if (trattati.has(nome)) return;
+                trattati.add(nome);
                 campo.acroField.getWidgets().forEach(widget => {
                     const pagina = form.findWidgetPage(widget);
                     const refAspetto = form.findWidgetAppearanceRef(campo, widget);
@@ -12386,8 +12430,9 @@
                 });
                 form.removeField(campo);
             } catch (e) {
-                // in caso di imprevisto il campo resta comunque in sola lettura
-                console.warn('Campo non appiattito (resta in sola lettura):', campo.getName(), e);
+                // in caso di imprevisto il campo si blocca comunque in sola lettura
+                try { campo.enableReadOnly(); } catch (e2) { }
+                console.warn('Campo non appiattito (bloccato in sola lettura):', campo.getName(), e);
             }
         });
     }
