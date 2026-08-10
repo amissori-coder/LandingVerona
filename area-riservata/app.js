@@ -2043,6 +2043,49 @@
     };
 
     /* =========================================================
+       FIRME GRAFICHE dei responsabili di incarico: l'immagine
+       autografa inserita nel PDF della lettera sotto REVILAW.
+       Un documento per responsabile in archivio/ (scrivibile da
+       tutto lo staff), con copia nel browser come riserva.
+    ========================================================= */
+    const Firme = {
+        _cache: {},
+        _chiave(resp) {
+            return String(resp || '').trim().toLowerCase()
+                .normalize('NFD').replace(/\p{M}+/gu, '')
+                .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'senza_nome';
+        },
+        async leggi(resp) {
+            const k = this._chiave(resp);
+            if (k in this._cache) return this._cache[k];
+            let dataUrl = null;
+            if (Cloud.attivo && Cloud.pronto) {
+                try {
+                    const { doc, getDoc } = Cloud.fb.fsMod;
+                    const snap = await getDoc(doc(Cloud.db, 'archivio', 'firmaResp_' + k));
+                    if (snap.exists()) dataUrl = snap.data().dataUrl || null;
+                } catch (e) { console.warn('Firma non leggibile dal cloud:', e); }
+            }
+            if (!dataUrl) { try { dataUrl = localStorage.getItem('rvArea.firma.' + k) || null; } catch (e) { } }
+            this._cache[k] = dataUrl;
+            return dataUrl;
+        },
+        async salva(resp, dataUrl) {
+            const k = this._chiave(resp);
+            if (Cloud.attivo && Cloud.pronto) {
+                const { doc, setDoc, serverTimestamp } = Cloud.fb.fsMod;
+                await setDoc(doc(Cloud.db, 'archivio', 'firmaResp_' + k), {
+                    dataUrl, responsabile: String(resp || ''),
+                    aggiornato: serverTimestamp(), da: Auth.utenteCorrente.email
+                });
+            }
+            try { localStorage.setItem('rvArea.firma.' + k, dataUrl); } catch (e) { }
+            this._cache[k] = dataUrl;
+            Audit.registra(Auth.utenteCorrente, 'Firma grafica del responsabile aggiornata', 'sistema', k, null, String(resp || ''));
+        }
+    };
+
+    /* =========================================================
        CALCOLO COMPENSO (stessa logica del simulatore compensi)
     ========================================================= */
     const SETTORI = [
@@ -11802,7 +11845,7 @@
             const blob = new Blob([bytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = 'mandato-' + String(inc.cliente || 'incarico').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.pdf';
+            a.href = url; a.download = nomeFilePdfIncarico(inc);
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 8000);
         } catch (e) { toast('Impossibile generare il PDF: ' + (e && e.message || 'errore'), 'rosso'); }
@@ -11865,11 +11908,55 @@
         })();
     }
 
-    // dialogo di stampa/scarico del mandato con opzione di congelamento del calcolo
-    function modaleStampaMandato(inc) {
+    // legge l'immagine della firma, la riduce se serve e la restituisce come data URL
+    function leggiImmagineFirma(file) {
+        return new Promise((ok, ko) => {
+            if (!/^image\/(png|jpe?g)$/i.test(file.type || '')) { ko(new Error('Formato non valido: usa un\'immagine PNG o JPG.')); return; }
+            const lettore = new FileReader();
+            lettore.onerror = () => ko(new Error('Immagine non leggibile.'));
+            lettore.onload = () => {
+                const img = new Image();
+                img.onerror = () => ko(new Error('Immagine non valida.'));
+                img.onload = () => {
+                    const MAX = 900; // px: piu che sufficienti per una firma nitida nel PDF
+                    const sc = Math.min(1, MAX / (img.width || 1));
+                    const c = document.createElement('canvas');
+                    c.width = Math.max(1, Math.round(img.width * sc));
+                    c.height = Math.max(1, Math.round(img.height * sc));
+                    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                    let dataUrl = c.toDataURL('image/png');
+                    // un PNG fotografico puo pesare troppo per Firestore: si ripiega sul JPG
+                    if (dataUrl.length > 400000) dataUrl = c.toDataURL('image/jpeg', 0.85);
+                    if (dataUrl.length > 700000) { ko(new Error('Immagine troppo pesante anche dopo la riduzione: usa una scansione piu leggera.')); return; }
+                    ok(dataUrl);
+                };
+                img.src = lettore.result;
+            };
+            lettore.readAsDataURL(file);
+        });
+    }
+
+    // dialogo di stampa/scarico del mandato con firma grafica del responsabile
+    // e opzione di congelamento del calcolo
+    async function modaleStampaMandato(inc) {
         const giaCongelato = !!inc.calcoloCongelato;
+        const resp = inc.respIncarico || '';
+        const respNome = Persone.nomeCompleto(resp) || resp || 'responsabile';
+        let firmaSalvata = null;
+        try { firmaSalvata = await Firme.leggi(resp); } catch (e) { }
+        let firmaNuova = null;
+        const miniatura = src => `<img src="${src}" alt="Firma" style="max-height:56px; max-width:220px; border:1px solid var(--grigio-200); border-radius:6px; background:#fff; padding:4px;">`;
         apriModale(`<h2>Stampa del mandato</h2>
             <p class="descrizione" style="margin-bottom:12px;">Verra generato il PDF ufficiale di <strong>${esc(inc.cliente)}</strong> con i dati compilati resi definitivi (non modificabili) e i campi del cliente lasciati editabili.</p>
+            <div class="campo" style="margin-bottom:12px;">
+                <label style="font-weight:600;">Firma grafica di ${esc(respNome)}</label>
+                <div id="m-firma-stato" class="descrizione" style="margin:4px 0 6px;">${firmaSalvata
+                    ? 'Firma gia salvata: verra inserita sotto REVILAW S.p.A. Per sostituirla carica una nuova immagine.'
+                    : 'Nessuna firma salvata: carica l\'immagine della firma (PNG o JPG) da inserire sotto REVILAW S.p.A. Senza immagine il PDF riporta solo il nome.'}</div>
+                <div id="m-firma-anteprima" style="margin-bottom:6px;">${firmaSalvata ? miniatura(firmaSalvata) : ''}</div>
+                <input type="file" id="m-firma-file" accept="image/png,image/jpeg">
+                <label style="display:flex; gap:8px; align-items:center; font-weight:400; margin-top:6px;"><input type="checkbox" id="m-firma-salva" checked style="width:auto;">Salva questa firma: le prossime volte comparira in automatico per ${esc(respNome)}</label>
+            </div>
             ${giaCongelato
                 ? '<p class="descrizione">Il calcolo di questo incarico e gia congelato: il compenso non e modificabile finche non viene sbloccato.</p>'
                 : `<label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="checkbox" id="m-congela" checked style="width:auto; margin-top:3px;"><span>Congela il calcolo del compenso<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Il compenso e le ore concordati vengono bloccati: per modificarli in seguito occorrera sbloccarli inviando un messaggio di allerta.</span></span></label>`}
@@ -11878,11 +11965,30 @@
                 <button class="btn btn-primary" id="m-conferma">Genera PDF</button>
             </div>`);
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        const inputFirma = document.getElementById('m-firma-file');
+        inputFirma.addEventListener('change', async () => {
+            const file = inputFirma.files && inputFirma.files[0];
+            if (!file) return;
+            try {
+                firmaNuova = await leggiImmagineFirma(file);
+                document.getElementById('m-firma-anteprima').innerHTML = miniatura(firmaNuova);
+                document.getElementById('m-firma-stato').textContent = firmaSalvata
+                    ? 'Nuova firma pronta: sostituira quella salvata.'
+                    : 'Nuova firma pronta: verra inserita sotto REVILAW S.p.A.';
+            } catch (e) {
+                firmaNuova = null; inputFirma.value = '';
+                toast(e.message || 'Immagine non valida.', 'rosso');
+            }
+        });
         const btnGen = document.getElementById('m-conferma');
         btnGen.addEventListener('click', () => conAttesa(btnGen, async () => {
             const congela = !giaCongelato && document.getElementById('m-congela') && document.getElementById('m-congela').checked;
             try {
-                await generaPdfIncarico(inc);
+                if (firmaNuova && document.getElementById('m-firma-salva').checked) {
+                    try { await Firme.salva(resp, firmaNuova); }
+                    catch (e) { toast('Firma usata nel PDF ma non salvata per le prossime volte: ' + (e.message || 'errore'), 'rosso'); }
+                }
+                await generaPdfIncarico(inc, { firma: firmaNuova || firmaSalvata || null });
                 if (congela) {
                     Incarichi.congela(inc.id, Auth.utenteCorrente);
                     toast('Mandato generato. Calcolo congelato.', 'verde');
@@ -11898,11 +12004,13 @@
     }
 
     /* ---------- PDF ufficiale: compila i campi modulo del modello ----------
-       L'app scrive solo i dati dell'incarico (societa, esercizi, compensi,
-       responsabile) e li rende definitivi (sola lettura); i campi del
+       L'app scrive i dati dell'incarico (societa, esercizi, compensi,
+       responsabile e firma REVILAW) e li APPIATTISCE: diventano contenuto
+       fisso della pagina, definitivo in qualunque lettore PDF. I campi del
        cliente (scheda di identificazione, titolari effettivi, consensi
        privacy, fatturazione elettronica, firme e date) restano vuoti e
-       compilabili nel PDF. */
+       compilabili nel PDF. Sotto "REVILAW S.p.A." viene inoltre disegnata
+       la firma grafica del responsabile, se caricata o gia salvata. */
     function caricaPdfLib() {
         if (window.PDFLib) return Promise.resolve(window.PDFLib);
         return new Promise((ok, ko) => {
@@ -11922,12 +12030,14 @@
         const PDFLib = await caricaPdfLib();
         const pdf = await PDFLib.PDFDocument.load(modello.slice(0));
         const form = pdf.getForm();
+        const compilati = []; // campi scritti dall'app: verranno appiattiti
         const scrivi = (nome, valore) => {
             if (valore == null || valore === '') return;
             try {
                 const campo = form.getTextField(nome);
                 campo.setText(String(valore));
-                campo.enableReadOnly(); // i dati compilati dall'app sono definitivi
+                campo.enableReadOnly(); // riserva, nel caso l'appiattimento non riesca
+                compilati.push(campo);
             }
             catch (e) { console.warn('Campo non trovato nel modello:', nome); }
         };
@@ -11977,23 +12087,90 @@
             scrivi('Testo10.1.1.0.1.1.0', num(compParti[1]));          // euro b)
             scrivi('Testo10.1.1.0.1.1.1.0', num(compParti[2]));        // euro c)
             scrivi('Testo10.1.1.0.1.1.1.1.1', num(compTot));           // euro TOTALE
-            /* riga extra della tabella (Testo11) e campi firma/allegati
-               (Testo12, Testo13) lasciati compilabili */
+            scrivi('Testo12', respNome);                   // firma REVILAW (pag. 20)
+            /* riga extra della tabella (Testo11) e campo allegati (Testo13)
+               lasciati compilabili */
         }
+
+        // firma grafica del responsabile sotto "REVILAW S.p.A.": quella passata
+        // dalla finestra di stampa oppure, in automatico, quella gia salvata
+        const firmaImg = (opzioni && Object.prototype.hasOwnProperty.call(opzioni, 'firma'))
+            ? opzioni.firma : await Firme.leggi(inc.respIncarico);
+        if (firmaImg) await disegnaFirma(pdf, form, tipo === 'volontaria' ? 't_p17_01' : 'Testo12', firmaImg);
+
+        // i campi compilati dall'app diventano contenuto fisso della pagina:
+        // definitivi e non modificabili; tutti gli altri restano editabili
+        appiattisciCampi(form, compilati);
 
         const bytes = await pdf.save();
         if (opzioni && opzioni.restituisciBytes) return bytes;
         const blob = new Blob([bytes], { type: 'application/pdf' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        // traslittera gli accenti (Societa, non Societ) prima di filtrare
-        const base = (inc.cliente || 'societa').normalize('NFD').replace(/\p{M}+/gu, '')
-            .replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'societa';
-        a.download = 'Incarico_' + base +
-            '_' + d.primo + (d.ultimo !== d.primo ? '-' + d.ultimo : '') + '.pdf';
+        a.download = nomeFilePdfIncarico(inc);
         a.click();
         URL.revokeObjectURL(a.href);
         Audit.registra(Auth.utenteCorrente, 'Generato PDF lettera di incarico', 'incarico', inc.id, inc.cliente, null);
+    }
+
+    // nome del file scaricato: societa + tipologia di incarico + annualita
+    function nomeFilePdfIncarico(inc) {
+        const tipo = inc.tipo === 'volontaria' ? 'volontaria' : 'triennale';
+        const d = datiLettera(inc);
+        // traslittera gli accenti (Societa, non Societ) prima di filtrare
+        const base = (inc.cliente || 'societa').normalize('NFD').replace(/\p{M}+/gu, '')
+            .replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'societa';
+        return base + '_' + Modelli.TIPI[tipo].replace(/\s+/g, '_')
+            + '_' + d.primo + (d.ultimo !== d.primo ? '-' + d.ultimo : '') + '.pdf';
+    }
+
+    // disegna l'immagine della firma appoggiandola alla riga del campo con il
+    // nome del responsabile (subito sopra il nome, sotto "REVILAW S.p.A.")
+    async function disegnaFirma(pdf, form, nomeCampo, dataUrl) {
+        try {
+            const campo = form.getTextField(nomeCampo);
+            const widget = campo.acroField.getWidgets()[0];
+            const r = widget.getRectangle();
+            const pagina = (typeof form.findWidgetPage === 'function')
+                ? form.findWidgetPage(widget)
+                : pdf.getPages().find(p => p.ref === widget.P());
+            if (!pagina) throw new Error('pagina del campo firma non trovata');
+            const img = /^data:image\/png/i.test(dataUrl) ? await pdf.embedPng(dataUrl) : await pdf.embedJpg(dataUrl);
+            const maxL = Math.min(r.width || 180, 180), maxA = 46;
+            const sc = Math.min(maxL / img.width, maxA / img.height);
+            pagina.drawImage(img, {
+                x: r.x + 4, y: r.y + (r.height || 12) + 2,
+                width: img.width * sc, height: img.height * sc
+            });
+        } catch (e) { console.warn('Firma grafica non inserita nel PDF:', e); }
+    }
+
+    // trasforma i campi gia compilati in contenuto fisso della pagina, non piu
+    // campi modulo: e l'equivalente di form.flatten() di pdf-lib limitato ai
+    // soli campi indicati (flatten() azzererebbe anche i campi del cliente)
+    function appiattisciCampi(form, campi) {
+        const { pushGraphicsState, popGraphicsState, translate, drawObject } = window.PDFLib || {};
+        if (!pushGraphicsState || !popGraphicsState || !translate || !drawObject
+            || typeof form.findWidgetPage !== 'function' || typeof form.findWidgetAppearanceRef !== 'function') {
+            console.warn('Appiattimento non supportato da questa versione di pdf-lib: i campi restano in sola lettura.');
+            return;
+        }
+        try { form.updateFieldAppearances(); } catch (e) { console.warn('Aspetto dei campi non aggiornato:', e); }
+        campi.forEach(campo => {
+            try {
+                campo.acroField.getWidgets().forEach(widget => {
+                    const pagina = form.findWidgetPage(widget);
+                    const refAspetto = form.findWidgetAppearanceRef(campo, widget);
+                    const chiave = pagina.node.newXObject('CampoFisso', refAspetto);
+                    const r = widget.getRectangle();
+                    pagina.pushOperators(pushGraphicsState(), translate(r.x, r.y), drawObject(chiave), popGraphicsState());
+                });
+                form.removeField(campo);
+            } catch (e) {
+                // in caso di imprevisto il campo resta comunque in sola lettura
+                console.warn('Campo non appiattito (resta in sola lettura):', campo.getName(), e);
+            }
+        });
     }
 
     function datiLettera(inc) {
