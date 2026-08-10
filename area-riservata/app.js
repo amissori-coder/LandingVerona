@@ -4048,6 +4048,13 @@
             wizard.dati.calcoloCongelato = false;
             wizard.dati.congelamento = null;
         } else if (modalita === 'modifica') {
+            // una proposta in attesa di approvazione del cliente resta sempre
+            // modificabile: un eventuale congelamento (da una stampa precedente
+            // alla regola attuale) decade aprendo la modifica
+            if (wizard.dati.stato === 'proposta' && wizard.dati.calcoloCongelato) {
+                wizard.dati.calcoloCongelato = false;
+                wizard.dati.congelamento = null;
+            }
             // esercizio di riferimento: il periodo piu' recente coperto dai compensi
             if (anniEsistenti.length) {
                 const ultimo = anniEsistenti[anniEsistenti.length - 1];
@@ -12019,7 +12026,10 @@
         }
         const durataL = incL.tipo === 'legale' ? 3 : 1;
         const periodoLabel = (snap && snap.esercizioPeriodo) ? (durataL > 1 ? snap.esercizioPeriodo + '-' + (snap.esercizioPeriodo + durataL - 1) : String(snap.esercizioPeriodo)) : '';
-        const html = incL.tipo === 'volontaria' ? letteraVolontaria(incL) : letteraLegale(incL);
+        // periodo coperto dalla lettera, mostrato nel riquadro (nessuna anteprima del documento)
+        const dl = datiLettera(incL);
+        const periodoTesto = dl.primo ? (dl.ultimo !== dl.primo ? dl.primo + '-' + dl.ultimo : String(dl.primo)) : '';
+        const proposta = !snap && inc.stato === 'proposta';
         $vista().innerHTML = `
             <div class="barra-stampa no-stampa">
                 <button class="btn btn-ghost" id="btn-lettera-indietro">&larr; Torna al dettaglio</button>
@@ -12027,38 +12037,30 @@
                     ${snap ? '<span class="badge neutro" style="align-self:center;">Periodo precedente' + (periodoLabel ? ' ' + periodoLabel : '') + '</span>' : ''}
                     <span class="badge ${classeTipo(incL.tipo)}" style="align-self:center;">${esc(nomeTipo(incL.tipo))}</span>
                     ${incL.calcoloCongelato ? '<span class="badge ambra" style="align-self:center;">' + ICO_LUCCHETTO + 'Calcolo congelato</span>' : ''}
-                    ${(!snap && inc.stato === 'proposta') ? '<span class="badge proposta" style="align-self:center;">' + ICO_PROPOSTA + 'Proposta</span>' : ''}
-                    <button class="btn btn-primary" id="btn-pdf-ufficiale">${snap ? 'Scarica PDF' : 'Scarica / stampa mandato'}</button>
+                    ${proposta ? '<span class="badge proposta" style="align-self:center;">' + ICO_PROPOSTA + 'Proposta</span>' : ''}
                 </div>
             </div>
-            ${(!snap && inc.stato === 'proposta' && Auth.puoScrivere('incarichi')) ? `<div class="card banner-proposta no-stampa" style="max-width:860px;margin:0 auto 14px;">
-                <p class="descrizione" style="margin:0 0 10px;">${ICO_PROPOSTA}Questa e' la lettera di una <strong>proposta</strong>: puoi stamparla e inviarla al cliente. L'incarico entra in fatturazione e nei compensi solo dopo la <strong>conferma</strong>.</p>
-                <button class="btn btn-sm btn-primary" id="btn-conferma-lettera">Conferma incarico</button>
+            ${(proposta && Auth.puoScrivere('incarichi')) ? `<div class="card banner-proposta" style="max-width:760px;margin:0 auto 14px;">
+                <p class="descrizione" style="margin:0 0 10px;">${ICO_PROPOSTA}Questa e' la lettera di una <strong>proposta</strong> in attesa di approvazione del cliente: finche' non la confermi puoi <strong>modificare l'incarico, cambiare la firma e ristampare il mandato</strong> tutte le volte che serve. L'incarico entra in fatturazione e nei compensi solo dopo la <strong>conferma</strong>.</p>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-sm btn-secondary" id="btn-modifica-lettera">Modifica incarico</button>
+                    <button class="btn btn-sm btn-primary" id="btn-conferma-lettera">Conferma incarico</button>
+                </div>
             </div>` : ''}
-            <div id="lettera-corpo">
-                <p class="descrizione" style="max-width:860px; margin:0 auto 14px; text-align:center;">Caricamento anteprima del mandato ufficiale...</p>
+            <div class="card" style="max-width:760px; margin:0 auto; text-align:center; padding:36px 26px;">
+                <h2 style="margin-bottom:4px;">Mandato di ${esc(incL.cliente)}</h2>
+                <p class="descrizione" style="margin-bottom:16px;">${esc(nomeTipo(incL.tipo))}${periodoTesto ? ' &middot; esercizi ' + esc(periodoTesto) : ''}${incL.respIncarico ? ' &middot; responsabile ' + esc(Persone.nomeCompleto(incL.respIncarico)) : ''}</p>
+                <p class="descrizione" style="max-width:520px; margin:0 auto 22px;">Il PDF viene scaricato con i dati dell'incarico resi definitivi (non modificabili) e i campi riservati al cliente compilabili.${snap ? '' : ' Prima della generazione puoi caricare o cambiare la firma del responsabile.'}</p>
+                <button class="btn btn-primary" id="btn-pdf-ufficiale" style="font-size:1.08rem; padding:15px 34px; font-weight:700;">${snap ? 'Scarica il PDF del mandato' : 'Stampa il mandato (PDF)'}</button>
+                <div style="margin-top:16px;">
+                    <button class="btn btn-secondary" id="btn-lettera-fine" title="Concludi e torna all'elenco incarichi">Fine</button>
+                </div>
             </div>`;
         document.getElementById('btn-lettera-indietro').addEventListener('click', () => naviga('dettaglio', { id: inc.id }));
+        document.getElementById('btn-lettera-fine').addEventListener('click', () => naviga('incarichi'));
         document.getElementById('btn-pdf-ufficiale').addEventListener('click', () => snap ? scaricaPdfMandato(incL) : modaleStampaMandato(inc));
+        { const bml = document.getElementById('btn-modifica-lettera'); if (bml) bml.addEventListener('click', () => naviga('wizard', { modalita: 'modifica', id: inc.id })); }
         { const bcl = document.getElementById('btn-conferma-lettera'); if (bcl) bcl.addEventListener('click', () => modaleConfermaIncarico(inc, () => naviga('dettaglio', { id: inc.id }))); }
-
-        // anteprima = PDF ufficiale renderizzato inline; fallback all'anteprima HTML
-        (async () => {
-            const corpo = document.getElementById('lettera-corpo');
-            try {
-                const bytes = await generaPdfIncarico(incL, { restituisciBytes: true });
-                if (!document.getElementById('lettera-corpo')) return;
-                const blob = new Blob([bytes], { type: 'application/pdf' });
-                const url = URL.createObjectURL(blob);
-                corpo.innerHTML = `<div style="max-width:900px; margin:0 auto;">
-                    <iframe src="${url}#toolbar=1" title="Anteprima mandato" style="width:100%; height:80vh; border:1px solid var(--grigio-200); border-radius:8px; background:#fff;"></iframe>
-                </div>`;
-            } catch (e) {
-                if (!document.getElementById('lettera-corpo')) return;
-                corpo.innerHTML = `<p class="descrizione" style="max-width:860px; margin:0 auto 14px;">Anteprima del PDF ufficiale non disponibile (${esc(e.message || 'errore')}). Mostro l'anteprima sintetica.</p>
-                    <div class="lettera-anteprima"><div class="lettera">${html}</div></div>`;
-            }
-        })();
     }
 
     // legge l'immagine della firma, la riduce se serve e la restituisce come data URL
@@ -12110,9 +12112,11 @@
                 <input type="file" id="m-firma-file" accept="image/png,image/jpeg">
                 <label style="display:flex; gap:8px; align-items:center; font-weight:400; margin-top:6px;"><input type="checkbox" id="m-firma-salva" checked style="width:auto;">Salva questa firma: le prossime volte comparira in automatico per ${esc(respNome)}</label>
             </div>
-            ${giaCongelato
-                ? '<p class="descrizione">Il calcolo di questo incarico e gia congelato: il compenso non e modificabile finche non viene sbloccato.</p>'
-                : `<label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="checkbox" id="m-congela" checked style="width:auto; margin-top:3px;"><span>Congela il calcolo del compenso<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Il compenso e le ore concordati vengono bloccati: per modificarli in seguito occorrera sbloccarli inviando un messaggio di allerta.</span></span></label>`}
+            ${inc.stato === 'proposta'
+                ? '<p class="descrizione">L\'incarico e in attesa di approvazione del cliente: il calcolo NON viene congelato, cosi puoi ancora modificare l\'incarico, cambiare la firma e ristampare il mandato. Il congelamento si propone alla stampa dopo la conferma.</p>'
+                : giaCongelato
+                    ? '<p class="descrizione">Il calcolo di questo incarico e gia congelato: il compenso non e modificabile finche non viene sbloccato.</p>'
+                    : `<label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="checkbox" id="m-congela" checked style="width:auto; margin-top:3px;"><span>Congela il calcolo del compenso<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Il compenso e le ore concordati vengono bloccati: per modificarli in seguito occorrera sbloccarli inviando un messaggio di allerta.</span></span></label>`}
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="m-annulla">Annulla</button>
                 <button class="btn btn-primary" id="m-conferma">Genera PDF</button>
@@ -12135,7 +12139,9 @@
         });
         const btnGen = document.getElementById('m-conferma');
         btnGen.addEventListener('click', () => conAttesa(btnGen, async () => {
-            const congela = !giaCongelato && document.getElementById('m-congela') && document.getElementById('m-congela').checked;
+            // per una proposta il calcolo non si congela mai: deve restare modificabile
+            const congela = inc.stato !== 'proposta' && !giaCongelato
+                && document.getElementById('m-congela') && document.getElementById('m-congela').checked;
             try {
                 if (firmaNuova && document.getElementById('m-firma-salva').checked) {
                     try { await Firme.salva(resp, firmaNuova); }
@@ -12148,8 +12154,9 @@
                 } else {
                     toast('Mandato generato: controlla i download del browser.', 'verde');
                 }
+                // si resta sulla pagina del mandato: si puo' ristampare o cambiare
+                // la firma; il pulsante "Fine" conclude e torna all'elenco
                 chiudiModale();
-                naviga('dettaglio', { id: inc.id });
             } catch (e) {
                 toast(e.message || 'Generazione non riuscita.', 'rosso');
             }
