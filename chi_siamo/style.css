@@ -758,37 +758,57 @@
 
 /* ============================================
    5. FUNZIONIGRAMMA
-   La ripartizione funzionale della Società su
-   quattro pilastri: le due filiere (capitale e
-   governance) scendono al centro, i presidi di
-   controllo chiudono i lati. Stesse linee di
-   collegamento dell'organigramma.
+   La ripartizione funzionale su quattro pilastri.
+   Tre pesi visivi: le funzioni chiave (vertice e
+   controllo qualita') piene, i soci di capitale in
+   tinta, i comitati tratteggiati. Le linee sono
+   quelle dell'organigramma, piu' marcate.
    ============================================ */
 .funz-tree {
-    max-width: 1100px;
-    margin: 48px auto 0;
+    max-width: 1140px;
+    margin: 52px auto 0;
 }
 
 .funz-radice {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
     width: fit-content;
     margin: 0 auto;
-    padding: 14px 36px;
+    padding: 16px 40px;
     background: linear-gradient(135deg, #0f1e2e, #1a3a5c);
     color: #ffffff;
-    border-radius: 10px;
-    font-size: 1.02rem;
+    border-radius: 12px;
+    font-size: 1.15rem;
     font-weight: 800;
-    letter-spacing: 0.5px;
-    text-align: center;
+    letter-spacing: 0.4px;
+    box-shadow: 0 14px 34px rgba(10, 40, 68, 0.25);
+    overflow: hidden;
+}
+
+.funz-radice::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #8bb8d4;
+}
+
+.funz-radice-logo {
+    width: 26px;
+    height: auto;
 }
 
 .funz-ramo {
     position: relative;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    padding-top: 30px;
-    margin-top: 26px;
+    gap: 22px;
+    padding-top: 36px;
+    margin-top: 28px;
 }
 
 /* Barra orizzontale dal primo all'ultimo pilastro
@@ -799,18 +819,18 @@
     top: 0;
     left: 12.5%;
     right: 12.5%;
-    height: 1px;
-    background: rgba(22, 64, 104, 0.3);
+    height: 2px;
+    background: rgba(22, 64, 104, 0.32);
 }
 
 .funz-ramo::after {
     content: '';
     position: absolute;
-    top: -26px;
+    top: -28px;
     left: 50%;
-    width: 1px;
-    height: 26px;
-    background: rgba(22, 64, 104, 0.3);
+    width: 2px;
+    height: 28px;
+    background: rgba(22, 64, 104, 0.32);
 }
 
 .funz-colonna {
@@ -822,65 +842,113 @@
 .funz-colonna::before {
     content: '';
     position: absolute;
-    top: -30px;
+    top: -36px;
     left: 50%;
-    width: 1px;
-    height: 30px;
-    background: rgba(22, 64, 104, 0.3);
+    width: 2px;
+    height: 36px;
+    background: rgba(22, 64, 104, 0.32);
 }
 
 .funz-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     background: linear-gradient(135deg, #164068, #1a3a5c);
     border-radius: 10px;
-    padding: 12px 10px;
-    text-align: center;
-    font-size: 0.72rem;
+    padding: 14px 12px;
+    font-size: 0.76rem;
     font-weight: 700;
     letter-spacing: 1.8px;
     text-transform: uppercase;
     color: #ffffff;
+    box-shadow: 0 8px 20px rgba(10, 40, 68, 0.18);
+}
+
+.funz-banner svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+    opacity: 0.85;
 }
 
 .funz-colonna > * + * {
     position: relative;
-    margin-top: 18px;
+    margin-top: 20px;
 }
 
 .funz-colonna > * + *::before {
     content: '';
     position: absolute;
-    top: -18px;
+    top: -20px;
     left: 50%;
-    width: 1px;
-    height: 18px;
-    background: rgba(22, 64, 104, 0.3);
+    width: 2px;
+    height: 20px;
+    background: rgba(22, 64, 104, 0.32);
 }
 
 .funz-nodo {
+    position: relative;
     background: #ffffff;
-    border: 1px solid rgba(22, 64, 104, 0.18);
+    border: 1px solid rgba(22, 64, 104, 0.16);
     border-radius: 10px;
-    padding: 12px 12px;
+    padding: 15px 12px;
     text-align: center;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(10, 40, 68, 0.05);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-.funz-nodo span {
-    display: block;
-    font-size: 0.6rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 1.2px;
-    color: #5A6270;
-    margin-bottom: 3px;
+.funz-nodo::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: rgba(22, 64, 104, 0.22);
+}
+
+.funz-nodo:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(10, 40, 68, 0.12);
 }
 
 .funz-nodo strong {
     display: block;
-    font-size: 0.84rem;
+    font-size: 0.92rem;
     font-weight: 700;
     color: #164068;
     letter-spacing: 0.2px;
-    line-height: 1.35;
+    line-height: 1.3;
+}
+
+/* Soci di capitale: tinta di riguardo. */
+.funz-socio {
+    background: var(--accent-bg);
+    border-color: rgba(22, 64, 104, 0.3);
+}
+
+.funz-socio::before {
+    background: #164068;
+}
+
+/* Vertice e controllo qualita': pieni, come i punti
+   fermi dell'intera pagina. */
+.funz-vertice,
+.funz-qualita {
+    background: linear-gradient(135deg, #164068, #1a3a5c);
+    border-color: #164068;
+}
+
+.funz-vertice::before,
+.funz-qualita::before {
+    background: #8bb8d4;
+}
+
+.funz-vertice strong,
+.funz-qualita strong {
+    color: #ffffff;
 }
 
 /* I comitati sono organi collegiali, non livelli
@@ -888,17 +956,16 @@
 .funz-comitato {
     background: var(--bg-tertiary);
     border-style: dashed;
+    box-shadow: none;
 }
 
-/* Il controllo qualita' e' il presidio che lega
-   l'intera pagina: pieno, come il vertice. */
-.funz-qualita {
-    background: linear-gradient(135deg, #164068, #1a3a5c);
-    border-color: #164068;
+.funz-comitato::before {
+    display: none;
 }
 
-.funz-qualita strong {
-    color: #ffffff;
+.funz-comitato strong {
+    color: #5A6270;
+    font-weight: 600;
 }
 
 .funz-nota {
