@@ -5013,9 +5013,16 @@
             naviga(haLettera ? 'lettera' : 'dettaglio', { id: agg.id });
         } else if (w.modalita === 'modifica') {
             Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Modifica incarico');
-            toast('Incarico aggiornato.', 'verde');
-            // a fine modifica torna alla sezione da cui si era partiti (es. Aderenti Revilaw), altrimenti al dettaglio
-            tornaOrigine(() => naviga('dettaglio', { id: w.idEsistente }));
+            if (haLettera) {
+                // dopo la modifica si va dritti alla pagina del mandato: cosi si
+                // puo ristampare subito il PDF aggiornato (e cambiare la firma)
+                toast('Incarico aggiornato: puoi ristampare il mandato.', 'verde');
+                naviga('lettera', { id: w.idEsistente });
+            } else {
+                toast('Incarico aggiornato.', 'verde');
+                // torna alla sezione da cui si era partiti (es. Aderenti Revilaw), altrimenti al dettaglio
+                tornaOrigine(() => naviga('dettaglio', { id: w.idEsistente }));
+            }
         } else {
             // un nuovo incarico nasce come PROPOSTA: va confermato per entrare in fatturazione/compensi
             d.stato = 'proposta';
@@ -12092,23 +12099,22 @@
     }
 
     // dialogo di stampa/scarico del mandato con firma grafica del responsabile
-    // e opzione di congelamento del calcolo
-    async function modaleStampaMandato(inc) {
+    // e opzione di congelamento del calcolo. Si apre SUBITO: la firma salvata
+    // si carica in sottofondo (prima l'attesa della lettura dal cloud faceva
+    // sembrare morto il pulsante di stampa).
+    function modaleStampaMandato(inc) {
         const giaCongelato = !!inc.calcoloCongelato;
         const resp = inc.respIncarico || '';
         const respNome = Persone.nomeCompleto(resp) || resp || 'responsabile';
         let firmaSalvata = null;
-        try { firmaSalvata = await Firme.leggi(resp); } catch (e) { }
         let firmaNuova = null;
         const miniatura = src => `<img src="${src}" alt="Firma" style="max-height:56px; max-width:220px; border:1px solid var(--grigio-200); border-radius:6px; background:#fff; padding:4px;">`;
         apriModale(`<h2>Stampa del mandato</h2>
             <p class="descrizione" style="margin-bottom:12px;">Verra generato il PDF ufficiale di <strong>${esc(inc.cliente)}</strong> con i dati compilati resi definitivi (non modificabili) e i campi del cliente lasciati editabili.</p>
             <div class="campo" style="margin-bottom:12px;">
                 <label style="font-weight:600;">Firma grafica di ${esc(respNome)}</label>
-                <div id="m-firma-stato" class="descrizione" style="margin:4px 0 6px;">${firmaSalvata
-                    ? 'Firma gia salvata: verra inserita sotto REVILAW S.p.A. Per sostituirla carica una nuova immagine.'
-                    : 'Nessuna firma salvata: carica l\'immagine della firma (PNG o JPG) da inserire sotto REVILAW S.p.A. Senza immagine il PDF riporta solo il nome.'}</div>
-                <div id="m-firma-anteprima" style="margin-bottom:6px;">${firmaSalvata ? miniatura(firmaSalvata) : ''}</div>
+                <div id="m-firma-stato" class="descrizione" style="margin:4px 0 6px;">Controllo se c'e una firma gia salvata…</div>
+                <div id="m-firma-anteprima" style="margin-bottom:6px;"></div>
                 <input type="file" id="m-firma-file" accept="image/png,image/jpeg">
                 <label style="display:flex; gap:8px; align-items:center; font-weight:400; margin-top:6px;"><input type="checkbox" id="m-firma-salva" checked style="width:auto;">Salva questa firma: le prossime volte comparira in automatico per ${esc(respNome)}</label>
             </div>
@@ -12122,6 +12128,20 @@
                 <button class="btn btn-primary" id="m-conferma">Genera PDF</button>
             </div>`);
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        // lettura in sottofondo della firma salvata per il responsabile
+        Firme.leggi(resp).then(f => {
+            firmaSalvata = f || null;
+            const stato = document.getElementById('m-firma-stato');
+            const ant = document.getElementById('m-firma-anteprima');
+            if (!stato || !ant || firmaNuova) return; // finestra chiusa o nuova firma gia scelta
+            stato.textContent = firmaSalvata
+                ? 'Firma gia salvata: verra inserita sotto REVILAW S.p.A. Per sostituirla carica una nuova immagine.'
+                : 'Nessuna firma salvata: carica l\'immagine della firma (PNG o JPG) da inserire sotto REVILAW S.p.A. Senza immagine il PDF riporta solo il nome.';
+            ant.innerHTML = firmaSalvata ? miniatura(firmaSalvata) : '';
+        }).catch(() => {
+            const stato = document.getElementById('m-firma-stato');
+            if (stato && !firmaNuova) stato.textContent = 'Firma salvata non leggibile: puoi comunque caricarne una nuova.';
+        });
         const inputFirma = document.getElementById('m-firma-file');
         inputFirma.addEventListener('change', async () => {
             const file = inputFirma.files && inputFirma.files[0];
@@ -12147,7 +12167,10 @@
                     try { await Firme.salva(resp, firmaNuova); }
                     catch (e) { toast('Firma usata nel PDF ma non salvata per le prossime volte: ' + (e.message || 'errore'), 'rosso'); }
                 }
-                await generaPdfIncarico(inc, { firma: firmaNuova || firmaSalvata || null });
+                // senza firma scelta qui non si passa nulla: ci pensa la
+                // generazione a recuperare quella salvata (lettura in corso o no)
+                const firmaScelta = firmaNuova || firmaSalvata;
+                await generaPdfIncarico(inc, firmaScelta ? { firma: firmaScelta } : {});
                 if (congela) {
                     Incarichi.congela(inc.id, Auth.utenteCorrente);
                     toast('Mandato generato. Calcolo congelato.', 'verde');
@@ -12227,7 +12250,7 @@
             scrivi('t_p10_03', num(oreParti[1])); scrivi('t_p10_04', num(compParti[1]));  // b) contabilita
             /* riga c) libera: lasciata compilabile */
             scrivi('t_p10_07', num(oreTot)); scrivi('t_p10_08', num(compTot));            // TOTALE
-            scrivi('t_p17_01', respNome);          // firma REVILAW
+            /* la firma REVILAW (t_p17_01) si compila nel blocco firma qui sotto */
         } else {
             scrivi('Testo1.0.0', d.primo);                 // frontespizio: triennio da
             scrivi('Testo1.1.1', d.ultimo);                //               triennio a
@@ -12247,16 +12270,32 @@
             scrivi('Testo10.1.1.0.1.1.0', num(compParti[1]));          // euro b)
             scrivi('Testo10.1.1.0.1.1.1.0', num(compParti[2]));        // euro c)
             scrivi('Testo10.1.1.0.1.1.1.1.1', num(compTot));           // euro TOTALE
-            scrivi('Testo12', respNome);                   // firma REVILAW (pag. 20)
-            /* riga extra della tabella (Testo11) e campo allegati (Testo13)
-               lasciati compilabili */
+            /* riga extra della tabella (Testo11) e campi del cliente
+               lasciati compilabili; la firma si compila qui sotto */
         }
 
-        // firma grafica del responsabile sotto "REVILAW S.p.A.": quella passata
-        // dalla finestra di stampa oppure, in automatico, quella gia salvata
+        // Firma del responsabile a PAGINA 20 del triennale (pag. 17 della
+        // volontaria), sotto la scritta "REVILAW S.p.A.": nel campo modulo va
+        // il nome del responsabile dell'incarico, e sopra la riga del nome si
+        // disegna l'immagine della firma. Il campo del triennale si individua
+        // direttamente sulla pagina (il piu in alto), con Testo12 di riserva.
+        let campoFirma = null;
+        if (tipo === 'volontaria') {
+            try { campoFirma = form.getTextField('t_p17_01'); } catch (e) { }
+        } else {
+            campoFirma = campoFirmaInPagina(PDFLib, pdf, form, 19); // pagina 20
+            if (!campoFirma) { try { campoFirma = form.getTextField('Testo12'); } catch (e) { } }
+        }
+        if (!campoFirma) console.warn('Campo della firma REVILAW non trovato nel modello.');
+        if (campoFirma && respNome) {
+            try { campoFirma.setText(String(respNome)); campoFirma.enableReadOnly(); compilati.push(campoFirma); }
+            catch (e) { console.warn('Nome del responsabile non scritto nel campo firma:', e); }
+        }
+        // immagine della firma: quella passata dalla finestra di stampa oppure,
+        // in automatico, quella gia salvata per il responsabile
         const firmaImg = (opzioni && Object.prototype.hasOwnProperty.call(opzioni, 'firma'))
             ? opzioni.firma : await Firme.leggi(inc.respIncarico);
-        if (firmaImg) await disegnaFirma(pdf, form, tipo === 'volontaria' ? 't_p17_01' : 'Testo12', firmaImg);
+        if (firmaImg && campoFirma) await disegnaFirma(pdf, form, campoFirma, firmaImg);
 
         // i campi compilati dall'app diventano contenuto fisso della pagina:
         // definitivi e non modificabili; tutti gli altri restano editabili
@@ -12284,11 +12323,31 @@
             + '_' + d.primo + (d.ultimo !== d.primo ? '-' + d.ultimo : '') + '.pdf';
     }
 
+    // campo testo posizionato piu in alto nella pagina indicata (indice 0-based):
+    // nel modello triennale e il campo della firma sotto "REVILAW S.p.A." a pag. 20
+    function campoFirmaInPagina(PDFLib, pdf, form, indicePagina) {
+        try {
+            const pagina = pdf.getPages()[indicePagina];
+            if (!pagina || typeof form.findWidgetPage !== 'function') return null;
+            let scelto = null, yMax = -Infinity;
+            form.getFields().forEach(campo => {
+                if (!(campo instanceof PDFLib.PDFTextField)) return;
+                campo.acroField.getWidgets().forEach(w => {
+                    let p = null;
+                    try { p = form.findWidgetPage(w); } catch (e) { }
+                    if (!p || p.ref !== pagina.ref) return;
+                    const r = w.getRectangle();
+                    if (r.y > yMax) { yMax = r.y; scelto = campo; }
+                });
+            });
+            return scelto;
+        } catch (e) { return null; }
+    }
+
     // disegna l'immagine della firma appoggiandola alla riga del campo con il
     // nome del responsabile (subito sopra il nome, sotto "REVILAW S.p.A.")
-    async function disegnaFirma(pdf, form, nomeCampo, dataUrl) {
+    async function disegnaFirma(pdf, form, campo, dataUrl) {
         try {
-            const campo = form.getTextField(nomeCampo);
             const widget = campo.acroField.getWidgets()[0];
             const r = widget.getRectangle();
             const pagina = (typeof form.findWidgetPage === 'function')
