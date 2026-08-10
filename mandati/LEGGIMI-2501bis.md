@@ -25,8 +25,8 @@ dell'incarico.
   (ISAE 3400, conclusioni in forma negativa), modalità di svolgimento, responsabilità
   degli organi amministrativi, personale/tempi/corrispettivi e fatturazione (50%
   all'accettazione, 50% alla consegna), coordinamento con l'esperto ex art.
-  2501-sexies, documenti finali (deposito ex artt. 2501-ter co. 3 e 2501-septies),
-  indipendenza.
+  2501-sexies, documenti finali (consegna in tempo utile per il deposito ex artt.
+  2501-ter co. 3 e 2501-septies, senza termine espresso), indipendenza.
 - **Sezioni 8–13 e 15–18** (condizioni generali del modello, riprese alla lettera):
   riservatezza dei dati, carte di lavoro, comunicazioni elettroniche, accesso alla
   rete, normativa antiriciclaggio, salute e sicurezza, utilizzo di sistemi di IA,
@@ -51,13 +51,13 @@ dell'incarico.
 | --- | --- |
 | Pec SIEM; sede/C.f./Pec SPV | vuoti (dati cliente) |
 | Luogo e data lettera | luogo precompilato "Verona", data vuota |
-| Data consegna relazione | vuota (ancorarla al deposito del progetto ex art. 2501-ter, co. 3) |
 | Responsabile incarico | vuoto (riesame qualità e team non più indicati in lettera) |
 | Tabella: ore/importi a-b-c | precompilati 24/36/20 h — € 4.500/6.750/3.750 (listino € 15.000) |
 | Tabella: riga extra descrizione libera | vuota (come il modello) |
 | Totale | sconto € 5.000 → 80 h — € 10.000 netti; tariffa € 187,50/h, effettiva € 125/h |
 | Società di fatturazione | precompilata SIEM S.R.L. |
-| Date accettazione, firma Revilaw, Allegati N° | vuoti |
+| Date accettazione | uniche editabili nella versione definitiva |
+| Allegati N° | fisso: 2 |
 | Scheda antiriciclaggio e privacy (pagg. 15–23) | campi del modello, invariati |
 
 ## Impostazione del compenso (razionale)
@@ -82,3 +82,9 @@ dell'incarico.
    del piano.
 4. Conclusioni in **forma negativa** (ISAE 3400); esclusa ogni sovrapposizione con la
    relazione degli esperti ex artt. 2501-sexies / 2501-bis, co. 4.
+
+## Versione definitiva
+
+`build_fascicolo.py finale` genera la versione con i dati fissati come testo
+(non modificabile fino a pag. 14, editabili solo le due date di accettazione;
+le schede antiriciclaggio e privacy restano compilabili dal cliente).
