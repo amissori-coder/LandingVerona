@@ -179,13 +179,15 @@
 }
 
 /* Ritratto del vertice: quadrato arrotondato come le
-   card, con il filo azzurro della barra superiore. */
+   card, con il filo azzurro della barra superiore.
+   Resta sempre il piu' grande della pagina, anche
+   rispetto alle card aperte. */
 .au-foto {
     display: block;
-    width: 128px;
-    height: 128px;
-    margin: 0 auto 22px;
-    border-radius: 14px;
+    width: 168px;
+    height: 168px;
+    margin: 0 auto 24px;
+    border-radius: 16px;
     border: 1px solid rgba(139, 184, 212, 0.5);
     object-fit: cover;
 }
@@ -331,7 +333,8 @@
 }
 
 /* Ritratto nella card: stessa geometria del pulsante,
-   in scala di grigi gia' nel file. */
+   in scala di grigi gia' nel file. Quando la biografia
+   e' aperta il ritratto si ingrandisce insieme. */
 .partner-foto {
     flex: 0 0 auto;
     width: 64px;
@@ -339,6 +342,18 @@
     border-radius: 10px;
     border: 1px solid rgba(22, 64, 104, 0.15);
     object-fit: cover;
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.partner-card.aperta .partner-foto {
+    width: 104px;
+    height: 104px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .partner-foto {
+        transition: none;
+    }
 }
 
 .partner-identita {
@@ -713,6 +728,11 @@
     .area-col .partner-foto {
         width: 52px;
         height: 52px;
+    }
+
+    .area-col .partner-card.aperta .partner-foto {
+        width: 88px;
+        height: 88px;
     }
 }
 
