@@ -345,11 +345,6 @@
     transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.partner-card.aperta .partner-foto {
-    width: 176px;
-    height: 176px;
-    border-radius: 12px;
-}
 
 @media (prefers-reduced-motion: reduce) {
     .partner-foto {
@@ -414,36 +409,179 @@
     outline-offset: 2px;
 }
 
-.partner-card.aperta .partner-toggle svg {
-    transform: rotate(45deg);
-}
 
-/* Biografia a scomparsa: la riga di griglia passa
-   da 0fr a 1fr, cosi' l'apertura e' animata senza
-   altezze fisse. */
+/* La biografia non si apre piu' nella card: vive nella
+   scheda in finestra. Il contenuto resta nel markup come
+   sorgente dei dati. */
 .partner-dettaglio {
-    display: grid;
-    grid-template-rows: 0fr;
-    transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    display: none;
 }
 
-.partner-dettaglio-inner {
-    overflow: hidden;
-    min-height: 0;
+/* ============================================
+   SCHEDA IN FINESTRA
+   Un partner alla volta: sfondo oscurato, ritratto
+   in primo piano, biografia e collegamenti. Si
+   chiude con la X, con un clic fuori o con Esc.
+   ============================================ */
+/* Il display della classe vincerebbe sull'attributo
+   hidden: quando la scheda e' chiusa l'overlay deve
+   sparire davvero, non solo diventare trasparente. */
+.scheda-overlay[hidden] {
+    display: none;
 }
 
-.partner-card.aperta .partner-dettaglio {
-    grid-template-rows: 1fr;
+.scheda-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(10, 30, 46, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
 }
 
-.partner-dettaglio .partner-bio {
-    margin-top: 18px;
-    padding-top: 18px;
-    border-top: 1px solid rgba(22, 64, 104, 0.1);
+.scheda-overlay.aperto {
+    opacity: 1;
+}
+
+.scheda {
+    position: relative;
+    width: 100%;
+    max-width: 560px;
+    max-height: 88vh;
+    overflow-y: auto;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 44px 42px 36px;
+    text-align: center;
+    box-shadow: var(--shadow-xl);
+    transform: translateY(14px) scale(0.97);
+    transition: transform 0.25s ease;
+}
+
+.scheda::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #164068;
+}
+
+.scheda-overlay.aperto .scheda {
+    transform: none;
+}
+
+.scheda-chiudi {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.25);
+    border-radius: 8px;
+    color: #164068;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.scheda-chiudi svg {
+    width: 16px;
+    height: 16px;
+}
+
+.scheda-chiudi:hover {
+    background: #164068;
+    border-color: #164068;
+    color: #ffffff;
+}
+
+.scheda-chiudi:focus-visible {
+    outline: 2px solid #164068;
+    outline-offset: 2px;
+}
+
+.scheda-foto {
+    display: block;
+    width: 280px;
+    height: 280px;
+    margin: 0 auto 24px;
+    border-radius: 16px;
+    border: 1px solid rgba(22, 64, 104, 0.15);
+    object-fit: cover;
+}
+
+.scheda-nome {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #164068;
+    line-height: 1.25;
+    margin-bottom: 6px;
+}
+
+.scheda-meta {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    color: #5A6270;
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(22, 64, 104, 0.1);
+}
+
+.scheda-bio {
+    font-size: 0.95rem;
+    line-height: 1.78;
+    color: var(--text-secondary);
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    hyphenate-limit-chars: 5 2 3;
+    word-spacing: -0.05em;
+    overflow-wrap: break-word;
+}
+
+.scheda .profilo-linkedin {
+    margin-top: 22px;
+    border-color: rgba(22, 64, 104, 0.25);
+    color: #164068;
+}
+
+.scheda .profilo-linkedin:hover {
+    background: var(--accent-bg);
+    border-color: #164068;
+}
+
+.scheda .quality-badge {
+    margin-top: 22px;
+}
+
+@media (max-width: 560px) {
+    .scheda {
+        padding: 34px 22px 28px;
+    }
+
+    .scheda-foto {
+        width: 210px;
+        height: 210px;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .partner-dettaglio,
+    .scheda-overlay,
+    .scheda,
     .partner-toggle svg {
         transition: none;
     }
@@ -731,10 +869,6 @@
         height: 52px;
     }
 
-    .area-col .partner-card.aperta .partner-foto {
-        width: 148px;
-        height: 148px;
-    }
 }
 
 @media (max-width: 760px) {
@@ -812,10 +946,4 @@
         height: 176px;
     }
 
-    /* Su schermi piccoli il primo piano non deve
-       schiacciare nome e qualifica di fianco. */
-    .partner-card.aperta .partner-foto {
-        width: 132px;
-        height: 132px;
-    }
 }
