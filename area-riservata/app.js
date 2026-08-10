@@ -94,9 +94,11 @@
         for (let a = primo; a < primo + durata; a++) anni.push(a);
         return anni;
     }
-    // true se, per via della proposta, l'anno NON deve contare nei totali
+    // true se, per via della proposta (o della sua mancata accettazione), l'anno
+    // NON deve contare nei totali. Un incarico "non accettato" resta escluso come
+    // una proposta: per un rinnovo contano solo gli esercizi gia' confermati.
     function propostaEscludeAnno(inc, anno) {
-        if (!inProposta(inc)) return false;
+        if (!inProposta(inc) && !(inc && inc.stato === 'nonAccettato')) return false;
         const anni = anniPeriodoProposto(inc);
         return anni ? anni.includes(Number(anno)) : true;         // senza periodo: escludi tutto
     }
@@ -2043,6 +2045,49 @@
     };
 
     /* =========================================================
+       FIRME GRAFICHE dei responsabili di incarico: l'immagine
+       autografa inserita nel PDF della lettera sotto REVILAW.
+       Un documento per responsabile in archivio/ (scrivibile da
+       tutto lo staff), con copia nel browser come riserva.
+    ========================================================= */
+    const Firme = {
+        _cache: {},
+        _chiave(resp) {
+            return String(resp || '').trim().toLowerCase()
+                .normalize('NFD').replace(/\p{M}+/gu, '')
+                .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'senza_nome';
+        },
+        async leggi(resp) {
+            const k = this._chiave(resp);
+            if (k in this._cache) return this._cache[k];
+            let dataUrl = null;
+            if (Cloud.attivo && Cloud.pronto) {
+                try {
+                    const { doc, getDoc } = Cloud.fb.fsMod;
+                    const snap = await getDoc(doc(Cloud.db, 'archivio', 'firmaResp_' + k));
+                    if (snap.exists()) dataUrl = snap.data().dataUrl || null;
+                } catch (e) { console.warn('Firma non leggibile dal cloud:', e); }
+            }
+            if (!dataUrl) { try { dataUrl = localStorage.getItem('rvArea.firma.' + k) || null; } catch (e) { } }
+            this._cache[k] = dataUrl;
+            return dataUrl;
+        },
+        async salva(resp, dataUrl) {
+            const k = this._chiave(resp);
+            if (Cloud.attivo && Cloud.pronto) {
+                const { doc, setDoc, serverTimestamp } = Cloud.fb.fsMod;
+                await setDoc(doc(Cloud.db, 'archivio', 'firmaResp_' + k), {
+                    dataUrl, responsabile: String(resp || ''),
+                    aggiornato: serverTimestamp(), da: Auth.utenteCorrente.email
+                });
+            }
+            try { localStorage.setItem('rvArea.firma.' + k, dataUrl); } catch (e) { }
+            this._cache[k] = dataUrl;
+            Audit.registra(Auth.utenteCorrente, 'Firma grafica del responsabile aggiornata', 'sistema', k, null, String(resp || ''));
+        }
+    };
+
+    /* =========================================================
        CALCOLO COMPENSO (stessa logica del simulatore compensi)
     ========================================================= */
     const SETTORI = [
@@ -2275,6 +2320,40 @@
             return inc;
         },
 
+        // proposta non accettata dal cliente: esce dalle proposte in attesa di conferma
+        // e finisce nella scheda "Non accettati" della sezione Incarichi
+        nonAccetta(id, utente, nota) {
+            const lista = this.tutti();
+            const idx = lista.findIndex(i => i.id === id);
+            if (idx < 0) return null;
+            const inc = lista[idx];
+            const prima = inc.stato || 'attivo';
+            inc.stato = 'nonAccettato';
+            inc.nonAccettato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now(), nota: nota || '' };
+            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            this.salva(lista);
+            Audit.registra(utente, 'Incarico non accettato', 'incarico', id, inc.cliente,
+                [{ campo: 'Stato', prima: prima, dopo: 'non accettato' }].concat(nota ? [{ campo: 'Motivo', prima: '', dopo: nota }] : []));
+            return inc;
+        },
+
+        // riporta in proposta un incarico non accettato: cosi' lo si puo' modificare,
+        // rigenerare il PDF della lettera e ripetere la fase di conferma
+        riproponi(id, utente) {
+            const lista = this.tutti();
+            const idx = lista.findIndex(i => i.id === id);
+            if (idx < 0) return null;
+            const inc = lista[idx];
+            inc.stato = 'proposta';
+            inc.nonAccettato = null;
+            inc.confermato = null;
+            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            this.salva(lista);
+            Audit.registra(utente, 'Incarico riportato in proposta', 'incarico', id, inc.cliente,
+                [{ campo: 'Stato', prima: 'non accettato', dopo: 'proposta' }]);
+            return inc;
+        },
+
         // riattiva un incarico terminato o dimesso: torna attivo e rientra nell'elenco principale
         riattiva(id, utente) {
             const lista = this.tutti();
@@ -2294,6 +2373,7 @@
         statoScadenza(inc) {
             const fine = inc.rinnovo || inc.dataFine;
             if (inc.stato === 'proposta') return { classe: 'proposta', testo: 'Proposta' };
+            if (inc.stato === 'nonAccettato') return { classe: 'neutro', testo: 'Non accettato' };
             if (inc.stato === 'dimesso') return { classe: 'neutro', testo: 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' ' + fmtData(inc.dimissioni.data) : '') };
             if (inc.stato === 'cessato') return { classe: 'neutro', testo: 'Terminato' };
             if (!fine) return { classe: 'neutro', testo: 'Senza scadenza' };
@@ -3069,7 +3149,7 @@
         const anno = annoCorrente();
         // le proposte stanno fuori dagli attivi: sono in attesa di conferma e non contano nei totali
         const proposte = incarichi.filter(i => i.stato === 'proposta');
-        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta');
+        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta' && i.stato !== 'nonAccettato');
         // compensoContabile azzera gli anni in proposta: totali e confronto restano su cio' che e' confermato
         const totAnno = incarichi.reduce((s, i) => s + compensoContabile(i, anno), 0);
         const totPrec = incarichi.reduce((s, i) => s + compensoContabile(i, anno - 1), 0);
@@ -3114,7 +3194,7 @@
             </div>
             ${proposte.length ? `<div class="card card-proposte">
                 <h2>${ICO_PROPOSTA}Proposte in attesa di conferma (${proposte.length})</h2>
-                <p class="descrizione" style="margin-bottom:12px;">Questi incarichi sono nuovi o rinnovati e restano in <strong>proposta</strong>: <strong>non entrano in fatturazione e nei compensi</strong> finche' non li confermi. Apri l'incarico e premi <strong>Conferma</strong>; ti verra' chiesto se la fatturazione del periodo va bene o va modificata.</p>
+                <p class="descrizione" style="margin-bottom:12px;">Questi incarichi sono nuovi o rinnovati e restano in <strong>proposta</strong>: <strong>non entrano in fatturazione e nei compensi</strong> finche' non li confermi. Premi <strong>Conferma</strong> se il cliente ha accettato; <strong>Modifica</strong> per rielaborare la proposta e rigenerare il PDF della lettera; <strong>Non accettato</strong> se il cliente ha rifiutato (l'incarico finisce nella scheda "Non accettati" della sezione Incarichi).</p>
                 <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
                     <th>Cliente</th><th>Tipo</th><th>Periodo</th><th class="num">Compenso proposto</th>${puoRinnovare ? '<th></th>' : ''}
                 </tr></thead><tbody>${proposte.map(i => {
@@ -3126,7 +3206,7 @@
                         <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                         <td data-label="Periodo">${esc(periodo)}</td>
                         <td class="num" data-label="Compenso proposto">${compP ? eurFmt.format(compP) : ''}</td>
-                        ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button></td>` : ''}
+                        ${puoRinnovare ? `<td data-label="" class="td-azioni" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-secondary" data-non-accettato="${esc(i.id)}">Non accettato</button> <button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button></td>` : ''}
                     </tr>`;
             }).join('')}</tbody></table></div>
             </div>` : ''}
@@ -3145,6 +3225,17 @@
             b.addEventListener('click', () => { Allerte.segnaLetta(b.dataset.id); vistaDashboard(); }));
         $vista().querySelectorAll('[data-apri]').forEach(r =>
             r.addEventListener('click', () => naviga('dettaglio', { id: r.dataset.apri })));
+        $vista().querySelectorAll('[data-modifica]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                naviga('wizard', { modalita: 'modifica', id: b.dataset.modifica });
+            }));
+        $vista().querySelectorAll('[data-non-accettato]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.nonAccettato);
+                if (inc) modaleNonAccettatoIncarico(inc, () => vistaDashboard());
+            }));
         $vista().querySelectorAll('[data-rinnova]').forEach(b =>
             b.addEventListener('click', e => {
                 e.stopPropagation();
@@ -3190,7 +3281,7 @@
        VISTA: ELENCO INCARICHI
     ========================================================= */
     const filtriIncarichi = { testo: '', tipo: '', area: '', regione: '', qualita: '', resp: '', stato: '', ordina: 'cliente', verso: 1 };
-    let incarichiTab = 'attivi'; // scheda incarichi: 'attivi' | 'terminati'
+    let incarichiTab = 'attivi'; // scheda incarichi: 'attivi' | 'terminati' | 'dismessi' | 'nonaccettati'
 
     function annoRiferimento() {
         const anni = Incarichi.anniConCompensi();
@@ -3273,11 +3364,12 @@
         const controllaStato = (i, st) => {
             const s = Incarichi.statoScadenza(i);
             // "neutro" su un incarico non cessato significa "senza scadenza": e attivo
-            if (st === 'attivo') return i.stato !== 'cessato' && i.stato !== 'dimesso' && (s.classe === 'verde' || s.classe === 'neutro');
+            if (st === 'attivo') return i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'nonAccettato' && (s.classe === 'verde' || s.classe === 'neutro');
             if (st === 'scadenza') return s.classe === 'ambra';
             if (st === 'scaduto') return s.classe === 'rosso';
             if (st === 'cessato') return i.stato === 'cessato';
             if (st === 'dimesso') return i.stato === 'dimesso';
+            if (st === 'nonAccettato') return i.stato === 'nonAccettato';
             return true;
         };
         if (statoOverride !== undefined) {
@@ -3308,19 +3400,43 @@
         const btnElimina = i => puoEliminare ? ` <button class="btn btn-sm btn-danger" data-elimina="${esc(i.id)}">Elimina</button>` : '';
         // attivi: rispetta il filtro di stato (attivo/scadenza/scaduto). terminati: ignora il filtro di stato
         // (che riguarda solo gli attivi) cosi restano sempre visibili nella loro scheda.
-        const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
+        const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'nonAccettato');
         const terminati = incarichiFiltrati(annoRif, 'cessato');
         const dismessi = incarichiFiltrati(annoRif, 'dimesso');
+        const nonAccettati = incarichiFiltrati(annoRif, 'nonAccettato');
 
-        // ogni gruppo (attivi / terminati / dismessi) ha la sua scheda invece di stare in sequenza
+        // ogni gruppo (attivi / terminati / dismessi / non accettati) ha la sua scheda invece di stare in sequenza
         const tabBar = `<div class="tab-dest" style="margin-bottom:16px;">
             <button class="tab-btn ${incarichiTab === 'attivi' ? 'attivo' : ''}" data-inctab="attivi">Attivi (${attivi.length})</button>
             <button class="tab-btn ${incarichiTab === 'terminati' ? 'attivo' : ''}" data-inctab="terminati">Terminati (${terminati.length})</button>
             <button class="tab-btn ${incarichiTab === 'dismessi' ? 'attivo' : ''}" data-inctab="dismessi">Dismessi (${dismessi.length})</button>
+            <button class="tab-btn ${incarichiTab === 'nonaccettati' ? 'attivo' : ''}" data-inctab="nonaccettati">Non accettati (${nonAccettati.length})</button>
         </div>`;
 
         let corpo;
-        if (incarichiTab === 'dismessi') {
+        if (incarichiTab === 'nonaccettati') {
+            corpo = nonAccettati.length ? `<div class="card" id="sez-non-accettati">
+                <p class="descrizione" style="margin:0 0 12px;">Proposte di incarico che il cliente <strong>non ha accettato</strong>: non entrano in fatturazione e nei compensi. Premi <strong>Riporta in proposta</strong> per rielaborare l'incarico (modificarlo e rigenerare il PDF della lettera) e ripetere la fase di conferma.</p>
+                <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                    <th>Cliente</th><th>Tipo</th><th>Periodo proposto</th><th class="num">Compenso proposto</th><th>Non accettato il</th><th>Motivo</th>${colAzioni ? '<th></th>' : ''}
+                </tr></thead><tbody>` +
+                nonAccettati.map(i => {
+                    const anniP = anniPeriodoProposto(i);
+                    const periodo = anniP && anniP.length ? (anniP.length > 1 ? anniP[0] + '-' + anniP[anniP.length - 1] : String(anniP[0])) : '';
+                    const compP = anniP && anniP.length ? anniP.reduce((s, a) => s + Incarichi.compensoAnno(i, a), 0) : 0;
+                    return `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                    <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                    <td data-label="Periodo proposto">${esc(periodo)}</td>
+                    <td class="num" data-label="Compenso proposto">${compP ? eurFmt.format(compP) : ''}</td>
+                    <td data-label="Non accettato il">${i.nonAccettato ? esc(fmtDataOra(i.nonAccettato.il)) : ''}</td>
+                    <td data-label="Motivo">${esc((i.nonAccettato && i.nonAccettato.nota) || '')}</td>
+                    ${colAzioni ? `<td data-label="" class="td-azioni">${puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riproponi="${esc(i.id)}">Riporta in proposta</button>` : ''}${btnElimina(i)}</td>` : ''}
+                </tr>`;
+                }).join('') +
+                `</tbody></table></div></div>`
+                : '<div class="card tabella-vuota">Nessuna proposta non accettata.</div>';
+        } else if (incarichiTab === 'dismessi') {
             corpo = dismessi.length ? `<div class="card" id="sez-dismessi">
                 <p class="descrizione" style="margin:0 0 12px;">Incarichi da cui il revisore si e dimesso, con la data delle dimissioni. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
                 <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
@@ -3439,6 +3555,13 @@
                 const inc = Incarichi.trova(b.dataset.riattiva);
                 if (inc) modaleRiattivaIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
             }));
+        cont.querySelectorAll('[data-riproponi]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                Incarichi.riproponi(b.dataset.riproponi, Auth.utenteCorrente);
+                toast('Incarico riportato in proposta: lo trovi nel cruscotto tra le proposte in attesa di conferma.', 'verde');
+                disegnaTabellaIncarichi(annoRif);
+            }));
         cont.querySelectorAll('[data-elimina]').forEach(b =>
             b.addEventListener('click', e => {
                 e.stopPropagation();
@@ -3511,8 +3634,10 @@
                     ${Auth.puoScrivere('incarichi') ? `
                         <button class="btn btn-secondary" id="btn-modifica">Modifica</button>
                         ${inc.stato === 'proposta'
-                    ? '<button class="btn btn-primary" id="btn-conferma-inc">Conferma incarico</button>'
-                    : `<button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
+                    ? '<button class="btn btn-secondary" id="btn-non-accettato-inc">Non accettato</button><button class="btn btn-primary" id="btn-conferma-inc">Conferma incarico</button>'
+                    : inc.stato === 'nonAccettato'
+                        ? '<button class="btn btn-secondary" id="btn-riproponi-inc">Riporta in proposta</button>'
+                        : `<button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
                         ${inc.stato === 'cessato' || inc.stato === 'dimesso' ? '<button class="btn btn-secondary" id="btn-riattiva-inc">Riattiva incarico</button>' : '<button class="btn btn-secondary" id="btn-termina-inc">Termina incarico</button><button class="btn btn-secondary" id="btn-dimetti-inc">Dimissioni</button>'}`}
                         ${inc.calcoloCongelato ? '<button class="btn btn-secondary" id="btn-sblocca">Sblocca calcolo</button>' : ''}
                         ${inc.tipo === 'legale' || inc.tipo === 'volontaria' ? '<button class="btn ' + (inc.stato === 'proposta' ? 'btn-secondary' : 'btn-primary') + '" id="btn-lettera">Lettera di incarico</button>' : ''}
@@ -3522,6 +3647,10 @@
             ${inc.stato === 'proposta' ? `<div class="card banner-proposta">
                 <p class="descrizione" style="margin:0 0 10px;">${ICO_PROPOSTA}<strong>Incarico in stato di proposta.</strong> Il periodo corrente <strong>non entra ancora in fatturazione e nei compensi</strong>: comincia a contare solo quando lo confermi. Puoi stampare la lettera di incarico gia' ora (resta una proposta finche' non confermi).</p>
                 ${Auth.puoScrivere('incarichi') ? '<button class="btn btn-sm btn-primary" id="btn-conferma-banner">Conferma incarico</button>' : ''}
+            </div>` : ''}
+            ${inc.stato === 'nonAccettato' ? `<div class="card" style="border-left:4px solid var(--rosso);">
+                <p class="descrizione" style="margin:0 0 10px;"><strong>Proposta non accettata dal cliente</strong>${inc.nonAccettato && inc.nonAccettato.il ? ' (registrata il ' + fmtDataOra(inc.nonAccettato.il) + ')' : ''}${inc.nonAccettato && inc.nonAccettato.nota ? ': "' + esc(inc.nonAccettato.nota) + '"' : ''}. Il periodo proposto <strong>non entra in fatturazione e nei compensi</strong>. Con <strong>Riporta in proposta</strong> puoi rielaborare l'incarico, rigenerare il PDF della lettera e ripetere la fase di conferma.</p>
+                ${Auth.puoScrivere('incarichi') ? '<button class="btn btn-sm btn-secondary" id="btn-riproponi-banner">Riporta in proposta</button>' : ''}
             </div>` : ''}
             ${inc.calcoloCongelato ? `<div class="card" style="border-left:4px solid var(--oro);">
                 <p class="descrizione" style="margin:0;">${ICO_LUCCHETTO}Il calcolo del compenso e congelato${inc.congelamento && inc.congelamento.il ? ' dal ' + fmtDataOra(inc.congelamento.il) : ''}. Per modificarlo, usa "Sblocca calcolo": verra inviato un messaggio di allerta al titolare.</p>
@@ -3544,7 +3673,7 @@
                             ${rigaRiepilogo('Data inizio', inc.dataInizio ? fmtData(inc.dataInizio) : inc.dataInizioNote)}
                             ${rigaRiepilogo('Data fine', fmtData(inc.dataFine) || inc.dataFineNote)}
                             ${rigaRiepilogo('Rinnovo', inc.rinnovo ? fmtData(inc.rinnovo) : inc.rinnovoNote)}
-                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'dimesso' ? 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' il ' + fmtData(inc.dimissioni.data) : '') : (inc.stato === 'proposta' ? 'Proposta (da confermare)' : (inc.stato === 'attivo' ? 'Attivo' + (inc.confermato && inc.confermato.il ? ' - confermato il ' + fmtDataOra(inc.confermato.il) : '') : inc.stato)))) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
+                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'dimesso' ? 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' il ' + fmtData(inc.dimissioni.data) : '') : (inc.stato === 'proposta' ? 'Proposta (da confermare)' : (inc.stato === 'nonAccettato' ? 'Non accettato' + (inc.nonAccettato && inc.nonAccettato.il ? ' il ' + fmtDataOra(inc.nonAccettato.il) : '') : (inc.stato === 'attivo' ? 'Attivo' + (inc.confermato && inc.confermato.il ? ' - confermato il ' + fmtDataOra(inc.confermato.il) : '') : inc.stato))))) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
                         </div>
                         <div class="riepilogo-blocco">
                             <h4>Team</h4>
@@ -3640,6 +3769,15 @@
             const confermaInc = () => modaleConfermaIncarico(inc, () => naviga('dettaglio', { id: inc.id }));
             const btnConf = document.getElementById('btn-conferma-inc'); if (btnConf) btnConf.addEventListener('click', confermaInc);
             const btnConfB = document.getElementById('btn-conferma-banner'); if (btnConfB) btnConfB.addEventListener('click', confermaInc);
+            const btnNA = document.getElementById('btn-non-accettato-inc');
+            if (btnNA) btnNA.addEventListener('click', () => modaleNonAccettatoIncarico(inc, () => naviga('dettaglio', { id: inc.id })));
+            const riproponiInc = () => {
+                Incarichi.riproponi(inc.id, Auth.utenteCorrente);
+                toast('Incarico riportato in proposta: ora puoi modificarlo e rigenerare il PDF.', 'verde');
+                naviga('dettaglio', { id: inc.id });
+            };
+            const btnRip = document.getElementById('btn-riproponi-inc'); if (btnRip) btnRip.addEventListener('click', riproponiInc);
+            const btnRipB = document.getElementById('btn-riproponi-banner'); if (btnRipB) btnRipB.addEventListener('click', riproponiInc);
         }
         // eliminato l'incarico la scheda aperta non esiste piu: si torna all'elenco
         const btnElimina = document.getElementById('btn-elimina');
@@ -3694,6 +3832,25 @@
             if (typeof onDone === 'function') onDone(); else naviga('dettaglio', { id: inc.id });
         });
     }
+    /* Proposta non accettata dal cliente: esce dalle proposte in attesa e finisce
+       nella scheda "Non accettati" della sezione Incarichi (con motivo facoltativo). */
+    function modaleNonAccettatoIncarico(inc, onDone) {
+        apriModale(`<h2>Incarico non accettato</h2>
+            <p>La proposta di <strong>${esc(inc.cliente)}</strong> verra segnata come <strong>non accettata</strong>: esce dalle proposte in attesa di conferma e finisce nella scheda <strong>Non accettati</strong> della sezione Incarichi. Da li potrai riportarla in proposta per rielaborarla e rigenerare il PDF. L'operazione resta nel registro modifiche.</p>
+            <div class="campo" style="margin-top:8px;"><label>Motivo (facoltativo)</label><input type="text" id="m-na-motivo" placeholder="Es. compenso ritenuto troppo alto"></div>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-danger" id="m-conferma">Segna come non accettato</button>
+            </div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            Incarichi.nonAccetta(inc.id, Auth.utenteCorrente, document.getElementById('m-na-motivo').value.trim());
+            chiudiModale();
+            toast('Incarico segnato come non accettato: lo trovi in Incarichi > Non accettati.', 'verde');
+            if (typeof onDone === 'function') onDone();
+        });
+    }
+
     function modaleTerminaIncarico(inc, onDone) {
         apriModale(`<h2>Terminare l'incarico?</h2>
             <p>L'incarico <strong>${esc(inc.cliente)}</strong> verra spostato nella scheda <strong>Terminati</strong> e non comparira piu tra gli attivi. Potrai riattivarlo in qualsiasi momento. L'operazione resta nel registro modifiche.</p>
@@ -5217,7 +5374,7 @@
         });
         // prima gli attivi, poi i terminati; dentro ogni gruppo per cliente
         out.sort((a, b) => {
-            const chiusi = s => (s === 'cessato' || s === 'dimesso') ? 1 : 0;
+            const chiusi = s => (s === 'cessato' || s === 'dimesso' || s === 'nonAccettato') ? 1 : 0;
             const ca = chiusi(a.inc.stato), cb = chiusi(b.inc.stato);
             return ca - cb || String(a.inc.cliente || '').localeCompare(String(b.inc.cliente || ''), 'it');
         });
@@ -5386,7 +5543,7 @@
 
     function vistaCoordinatori() {
         const puoScr = Auth.puoScrivere('persone');
-        const attivi = Incarichi.visibili().filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
+        const attivi = Incarichi.visibili().filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'nonAccettato');
         const coordinatori = Persone.tutte().filter(p => p.coordinatore && !p.eliminato).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
         const vice = Persone.tutte().filter(p => p.viceCoordinatore && !p.eliminato).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
 
@@ -5489,7 +5646,7 @@
             return !!x && x.id === p.id;
         });
         out.sort((a, b) => {
-            const chiuso = s => (s === 'cessato' || s === 'dimesso') ? 1 : 0;
+            const chiuso = s => (s === 'cessato' || s === 'dimesso' || s === 'nonAccettato') ? 1 : 0;
             return chiuso(a.stato) - chiuso(b.stato) || String(a.cliente || '').localeCompare(String(b.cliente || ''), 'it');
         });
         return out;
@@ -11486,7 +11643,7 @@
             ${Auth.eAdmin() ? `<div class="card">
                 <h2>Modelli PDF delle lettere di incarico</h2>
                 ${Cloud.attivo
-                    ? `<p class="descrizione" style="margin-bottom:12px;">Carica qui i PDF originali con i campi modulo: vengono archiviati su Firestore (visibili solo agli utenti abilitati) e usati dal pulsante "Scarica PDF ufficiale" della lettera. L'app compila i dati dell'incarico e lascia compilabili i campi riservati al cliente.</p>
+                    ? `<p class="descrizione" style="margin-bottom:12px;">Carica qui i PDF originali con i campi modulo: vengono archiviati su Firestore (visibili solo agli utenti abilitati) e usati dal pulsante "Scarica PDF ufficiale" della lettera. L'app compila i dati dell'incarico rendendoli definitivi (non modificabili) e lascia compilabili solo i campi riservati al cliente.</p>
                        <div id="modelli-stato" class="tabella-vuota">Caricamento stato modelli...</div>`
                     : '<p class="descrizione">Disponibile con l\'accesso al cloud condiviso.</p>'}
             </div>` : ''}
@@ -11802,7 +11959,7 @@
             const blob = new Blob([bytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = 'mandato-' + String(inc.cliente || 'incarico').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.pdf';
+            a.href = url; a.download = nomeFilePdfIncarico(inc);
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 8000);
         } catch (e) { toast('Impossibile generare il PDF: ' + (e && e.message || 'errore'), 'rosso'); }
@@ -11865,11 +12022,55 @@
         })();
     }
 
-    // dialogo di stampa/scarico del mandato con opzione di congelamento del calcolo
-    function modaleStampaMandato(inc) {
+    // legge l'immagine della firma, la riduce se serve e la restituisce come data URL
+    function leggiImmagineFirma(file) {
+        return new Promise((ok, ko) => {
+            if (!/^image\/(png|jpe?g)$/i.test(file.type || '')) { ko(new Error('Formato non valido: usa un\'immagine PNG o JPG.')); return; }
+            const lettore = new FileReader();
+            lettore.onerror = () => ko(new Error('Immagine non leggibile.'));
+            lettore.onload = () => {
+                const img = new Image();
+                img.onerror = () => ko(new Error('Immagine non valida.'));
+                img.onload = () => {
+                    const MAX = 900; // px: piu che sufficienti per una firma nitida nel PDF
+                    const sc = Math.min(1, MAX / (img.width || 1));
+                    const c = document.createElement('canvas');
+                    c.width = Math.max(1, Math.round(img.width * sc));
+                    c.height = Math.max(1, Math.round(img.height * sc));
+                    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                    let dataUrl = c.toDataURL('image/png');
+                    // un PNG fotografico puo pesare troppo per Firestore: si ripiega sul JPG
+                    if (dataUrl.length > 400000) dataUrl = c.toDataURL('image/jpeg', 0.85);
+                    if (dataUrl.length > 700000) { ko(new Error('Immagine troppo pesante anche dopo la riduzione: usa una scansione piu leggera.')); return; }
+                    ok(dataUrl);
+                };
+                img.src = lettore.result;
+            };
+            lettore.readAsDataURL(file);
+        });
+    }
+
+    // dialogo di stampa/scarico del mandato con firma grafica del responsabile
+    // e opzione di congelamento del calcolo
+    async function modaleStampaMandato(inc) {
         const giaCongelato = !!inc.calcoloCongelato;
+        const resp = inc.respIncarico || '';
+        const respNome = Persone.nomeCompleto(resp) || resp || 'responsabile';
+        let firmaSalvata = null;
+        try { firmaSalvata = await Firme.leggi(resp); } catch (e) { }
+        let firmaNuova = null;
+        const miniatura = src => `<img src="${src}" alt="Firma" style="max-height:56px; max-width:220px; border:1px solid var(--grigio-200); border-radius:6px; background:#fff; padding:4px;">`;
         apriModale(`<h2>Stampa del mandato</h2>
-            <p class="descrizione" style="margin-bottom:12px;">Verra generato il PDF ufficiale di <strong>${esc(inc.cliente)}</strong> con i dati compilati e i campi del cliente lasciati editabili.</p>
+            <p class="descrizione" style="margin-bottom:12px;">Verra generato il PDF ufficiale di <strong>${esc(inc.cliente)}</strong> con i dati compilati resi definitivi (non modificabili) e i campi del cliente lasciati editabili.</p>
+            <div class="campo" style="margin-bottom:12px;">
+                <label style="font-weight:600;">Firma grafica di ${esc(respNome)}</label>
+                <div id="m-firma-stato" class="descrizione" style="margin:4px 0 6px;">${firmaSalvata
+                    ? 'Firma gia salvata: verra inserita sotto REVILAW S.p.A. Per sostituirla carica una nuova immagine.'
+                    : 'Nessuna firma salvata: carica l\'immagine della firma (PNG o JPG) da inserire sotto REVILAW S.p.A. Senza immagine il PDF riporta solo il nome.'}</div>
+                <div id="m-firma-anteprima" style="margin-bottom:6px;">${firmaSalvata ? miniatura(firmaSalvata) : ''}</div>
+                <input type="file" id="m-firma-file" accept="image/png,image/jpeg">
+                <label style="display:flex; gap:8px; align-items:center; font-weight:400; margin-top:6px;"><input type="checkbox" id="m-firma-salva" checked style="width:auto;">Salva questa firma: le prossime volte comparira in automatico per ${esc(respNome)}</label>
+            </div>
             ${giaCongelato
                 ? '<p class="descrizione">Il calcolo di questo incarico e gia congelato: il compenso non e modificabile finche non viene sbloccato.</p>'
                 : `<label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="checkbox" id="m-congela" checked style="width:auto; margin-top:3px;"><span>Congela il calcolo del compenso<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Il compenso e le ore concordati vengono bloccati: per modificarli in seguito occorrera sbloccarli inviando un messaggio di allerta.</span></span></label>`}
@@ -11878,11 +12079,30 @@
                 <button class="btn btn-primary" id="m-conferma">Genera PDF</button>
             </div>`);
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        const inputFirma = document.getElementById('m-firma-file');
+        inputFirma.addEventListener('change', async () => {
+            const file = inputFirma.files && inputFirma.files[0];
+            if (!file) return;
+            try {
+                firmaNuova = await leggiImmagineFirma(file);
+                document.getElementById('m-firma-anteprima').innerHTML = miniatura(firmaNuova);
+                document.getElementById('m-firma-stato').textContent = firmaSalvata
+                    ? 'Nuova firma pronta: sostituira quella salvata.'
+                    : 'Nuova firma pronta: verra inserita sotto REVILAW S.p.A.';
+            } catch (e) {
+                firmaNuova = null; inputFirma.value = '';
+                toast(e.message || 'Immagine non valida.', 'rosso');
+            }
+        });
         const btnGen = document.getElementById('m-conferma');
         btnGen.addEventListener('click', () => conAttesa(btnGen, async () => {
             const congela = !giaCongelato && document.getElementById('m-congela') && document.getElementById('m-congela').checked;
             try {
-                await generaPdfIncarico(inc);
+                if (firmaNuova && document.getElementById('m-firma-salva').checked) {
+                    try { await Firme.salva(resp, firmaNuova); }
+                    catch (e) { toast('Firma usata nel PDF ma non salvata per le prossime volte: ' + (e.message || 'errore'), 'rosso'); }
+                }
+                await generaPdfIncarico(inc, { firma: firmaNuova || firmaSalvata || null });
                 if (congela) {
                     Incarichi.congela(inc.id, Auth.utenteCorrente);
                     toast('Mandato generato. Calcolo congelato.', 'verde');
@@ -11898,10 +12118,13 @@
     }
 
     /* ---------- PDF ufficiale: compila i campi modulo del modello ----------
-       L'app scrive solo i dati dell'incarico (societa, esercizi, compensi,
-       responsabile); i campi del cliente (scheda di identificazione,
-       titolari effettivi, consensi privacy, fatturazione elettronica,
-       firme e date) restano vuoti e compilabili nel PDF. */
+       L'app scrive i dati dell'incarico (societa, esercizi, compensi,
+       responsabile e firma REVILAW) e li APPIATTISCE: diventano contenuto
+       fisso della pagina, definitivo in qualunque lettore PDF. I campi del
+       cliente (scheda di identificazione, titolari effettivi, consensi
+       privacy, fatturazione elettronica, firme e date) restano vuoti e
+       compilabili nel PDF. Sotto "REVILAW S.p.A." viene inoltre disegnata
+       la firma grafica del responsabile, se caricata o gia salvata. */
     function caricaPdfLib() {
         if (window.PDFLib) return Promise.resolve(window.PDFLib);
         return new Promise((ok, ko) => {
@@ -11921,9 +12144,15 @@
         const PDFLib = await caricaPdfLib();
         const pdf = await PDFLib.PDFDocument.load(modello.slice(0));
         const form = pdf.getForm();
+        const compilati = []; // campi scritti dall'app: verranno appiattiti
         const scrivi = (nome, valore) => {
             if (valore == null || valore === '') return;
-            try { form.getTextField(nome).setText(String(valore)); }
+            try {
+                const campo = form.getTextField(nome);
+                campo.setText(String(valore));
+                campo.enableReadOnly(); // riserva, nel caso l'appiattimento non riesca
+                compilati.push(campo);
+            }
             catch (e) { console.warn('Campo non trovato nel modello:', nome); }
         };
         const d = datiLettera(inc);
@@ -11972,23 +12201,90 @@
             scrivi('Testo10.1.1.0.1.1.0', num(compParti[1]));          // euro b)
             scrivi('Testo10.1.1.0.1.1.1.0', num(compParti[2]));        // euro c)
             scrivi('Testo10.1.1.0.1.1.1.1.1', num(compTot));           // euro TOTALE
-            /* riga extra della tabella (Testo11) e campi firma/allegati
-               (Testo12, Testo13) lasciati compilabili */
+            scrivi('Testo12', respNome);                   // firma REVILAW (pag. 20)
+            /* riga extra della tabella (Testo11) e campo allegati (Testo13)
+               lasciati compilabili */
         }
+
+        // firma grafica del responsabile sotto "REVILAW S.p.A.": quella passata
+        // dalla finestra di stampa oppure, in automatico, quella gia salvata
+        const firmaImg = (opzioni && Object.prototype.hasOwnProperty.call(opzioni, 'firma'))
+            ? opzioni.firma : await Firme.leggi(inc.respIncarico);
+        if (firmaImg) await disegnaFirma(pdf, form, tipo === 'volontaria' ? 't_p17_01' : 'Testo12', firmaImg);
+
+        // i campi compilati dall'app diventano contenuto fisso della pagina:
+        // definitivi e non modificabili; tutti gli altri restano editabili
+        appiattisciCampi(form, compilati);
 
         const bytes = await pdf.save();
         if (opzioni && opzioni.restituisciBytes) return bytes;
         const blob = new Blob([bytes], { type: 'application/pdf' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        // traslittera gli accenti (Societa, non Societ) prima di filtrare
-        const base = (inc.cliente || 'societa').normalize('NFD').replace(/\p{M}+/gu, '')
-            .replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'societa';
-        a.download = 'Incarico_' + base +
-            '_' + d.primo + (d.ultimo !== d.primo ? '-' + d.ultimo : '') + '.pdf';
+        a.download = nomeFilePdfIncarico(inc);
         a.click();
         URL.revokeObjectURL(a.href);
         Audit.registra(Auth.utenteCorrente, 'Generato PDF lettera di incarico', 'incarico', inc.id, inc.cliente, null);
+    }
+
+    // nome del file scaricato: societa + tipologia di incarico + annualita
+    function nomeFilePdfIncarico(inc) {
+        const tipo = inc.tipo === 'volontaria' ? 'volontaria' : 'triennale';
+        const d = datiLettera(inc);
+        // traslittera gli accenti (Societa, non Societ) prima di filtrare
+        const base = (inc.cliente || 'societa').normalize('NFD').replace(/\p{M}+/gu, '')
+            .replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_') || 'societa';
+        return base + '_' + Modelli.TIPI[tipo].replace(/\s+/g, '_')
+            + '_' + d.primo + (d.ultimo !== d.primo ? '-' + d.ultimo : '') + '.pdf';
+    }
+
+    // disegna l'immagine della firma appoggiandola alla riga del campo con il
+    // nome del responsabile (subito sopra il nome, sotto "REVILAW S.p.A.")
+    async function disegnaFirma(pdf, form, nomeCampo, dataUrl) {
+        try {
+            const campo = form.getTextField(nomeCampo);
+            const widget = campo.acroField.getWidgets()[0];
+            const r = widget.getRectangle();
+            const pagina = (typeof form.findWidgetPage === 'function')
+                ? form.findWidgetPage(widget)
+                : pdf.getPages().find(p => p.ref === widget.P());
+            if (!pagina) throw new Error('pagina del campo firma non trovata');
+            const img = /^data:image\/png/i.test(dataUrl) ? await pdf.embedPng(dataUrl) : await pdf.embedJpg(dataUrl);
+            const maxL = Math.min(r.width || 180, 180), maxA = 46;
+            const sc = Math.min(maxL / img.width, maxA / img.height);
+            pagina.drawImage(img, {
+                x: r.x + 4, y: r.y + (r.height || 12) + 2,
+                width: img.width * sc, height: img.height * sc
+            });
+        } catch (e) { console.warn('Firma grafica non inserita nel PDF:', e); }
+    }
+
+    // trasforma i campi gia compilati in contenuto fisso della pagina, non piu
+    // campi modulo: e l'equivalente di form.flatten() di pdf-lib limitato ai
+    // soli campi indicati (flatten() azzererebbe anche i campi del cliente)
+    function appiattisciCampi(form, campi) {
+        const { pushGraphicsState, popGraphicsState, translate, drawObject } = window.PDFLib || {};
+        if (!pushGraphicsState || !popGraphicsState || !translate || !drawObject
+            || typeof form.findWidgetPage !== 'function' || typeof form.findWidgetAppearanceRef !== 'function') {
+            console.warn('Appiattimento non supportato da questa versione di pdf-lib: i campi restano in sola lettura.');
+            return;
+        }
+        try { form.updateFieldAppearances(); } catch (e) { console.warn('Aspetto dei campi non aggiornato:', e); }
+        campi.forEach(campo => {
+            try {
+                campo.acroField.getWidgets().forEach(widget => {
+                    const pagina = form.findWidgetPage(widget);
+                    const refAspetto = form.findWidgetAppearanceRef(campo, widget);
+                    const chiave = pagina.node.newXObject('CampoFisso', refAspetto);
+                    const r = widget.getRectangle();
+                    pagina.pushOperators(pushGraphicsState(), translate(r.x, r.y), drawObject(chiave), popGraphicsState());
+                });
+                form.removeField(campo);
+            } catch (e) {
+                // in caso di imprevisto il campo resta comunque in sola lettura
+                console.warn('Campo non appiattito (resta in sola lettura):', campo.getName(), e);
+            }
+        });
     }
 
     function datiLettera(inc) {
@@ -12245,7 +12541,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         // le proposte non entrano nell'andamento finche' non sono confermate
         const valori = anni.map(a => incarichi.reduce((s, i) => s + compensoContabile(i, a), 0));
         const max = Math.max(...valori, 1);
-        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta');
+        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta' && i.stato !== 'nonAccettato');
         let scadTot = 0, scaduTot = 0;
         attivi.forEach(i => { const s = Incarichi.statoScadenza(i); const c = Incarichi.compensoAnno(i, annoCorr); if (s.classe === 'ambra') scadTot += c; else if (s.classe === 'rosso') scaduTot += c; });
 
