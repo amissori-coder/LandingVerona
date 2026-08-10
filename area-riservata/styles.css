@@ -68,6 +68,18 @@ a { color: var(--blu-700); }
 /* colonna d'azione nelle tabelle: piu bottoni piccoli, a capo se serve, senza sfondare */
 td.td-azioni { white-space: normal; }
 td.td-azioni .btn { margin: 0 2px 2px 0; }
+/* Menu azioni a comparsa (elenchi compatti): nella riga resta solo il pulsante
+   "tre puntini"; le azioni compaiono in un pannello sopra la tabella, posizionato
+   dal codice accanto al pulsante (position: fixed, cosi non viene tagliato
+   dallo scorrimento orizzontale della tabella) */
+td.td-menu { white-space: nowrap; text-align: right; }
+.menu-azioni-apri { font-weight: 700; font-size: 1rem; line-height: 1; padding: 3px 10px; margin: 0; }
+.menu-azioni { display: none; position: fixed; z-index: 90; background: #fff;
+    border: 1px solid var(--grigio-200); border-radius: 8px; padding: 6px;
+    min-width: 185px; flex-direction: column; gap: 4px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18); }
+.menu-azioni.aperto { display: flex; }
+.menu-azioni .btn { width: 100%; justify-content: flex-start; margin: 0; }
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
 .btn-block { width: 100%; justify-content: center; }
 

@@ -3390,6 +3390,14 @@
         return lista;
     }
 
+    // chiude tutti i menu azioni a comparsa (clic altrove, scorrimento, ridimensionamento)
+    function chiudiMenuAzioni() {
+        document.querySelectorAll('.menu-azioni.aperto').forEach(m => m.classList.remove('aperto'));
+    }
+    document.addEventListener('click', chiudiMenuAzioni);
+    window.addEventListener('scroll', chiudiMenuAzioni, true);
+    window.addEventListener('resize', chiudiMenuAzioni);
+
     function disegnaTabellaIncarichi(annoRif) {
         const cont = document.getElementById('contenitore-tabella');
         const puoRinnovare = Auth.puoScrivere('incarichi');
@@ -3398,6 +3406,11 @@
         const puoEliminare = Auth.puoEliminareIncarichi();
         const colAzioni = puoRinnovare || puoEliminare;
         const btnElimina = i => puoEliminare ? ` <button class="btn btn-sm btn-danger" data-elimina="${esc(i.id)}">Elimina</button>` : '';
+        // modalita compatta: nella riga resta solo il pulsante "tre puntini",
+        // le azioni compaiono in un menu a comparsa e la riga resta bassa
+        const menuAzioni = bottoni => (bottoni && bottoni.trim())
+            ? `<button class="btn btn-sm btn-ghost menu-azioni-apri" data-menu aria-label="Azioni" title="Azioni">&#8942;</button><div class="menu-azioni">${bottoni}</div>`
+            : '';
         // attivi: rispetta il filtro di stato (attivo/scadenza/scaduto). terminati: ignora il filtro di stato
         // (che riguarda solo gli attivi) cosi restano sempre visibili nella loro scheda.
         const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'nonAccettato');
@@ -3417,7 +3430,7 @@
         if (incarichiTab === 'nonaccettati') {
             corpo = nonAccettati.length ? `<div class="card" id="sez-non-accettati">
                 <p class="descrizione" style="margin:0 0 12px;">Proposte di incarico che il cliente <strong>non ha accettato</strong>: non entrano in fatturazione e nei compensi. Premi <strong>Riporta in proposta</strong> per rielaborare l'incarico (modificarlo e rigenerare il PDF della lettera) e ripetere la fase di conferma.</p>
-                <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
                     <th>Cliente</th><th>Tipo</th><th>Periodo proposto</th><th class="num">Compenso proposto</th><th>Non accettato il</th><th>Motivo</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 nonAccettati.map(i => {
@@ -3431,7 +3444,7 @@
                     <td class="num" data-label="Compenso proposto">${compP ? eurFmt.format(compP) : ''}</td>
                     <td data-label="Non accettato il">${i.nonAccettato ? esc(fmtDataOra(i.nonAccettato.il)) : ''}</td>
                     <td data-label="Motivo">${esc((i.nonAccettato && i.nonAccettato.nota) || '')}</td>
-                    ${colAzioni ? `<td data-label="" class="td-azioni">${puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riproponi="${esc(i.id)}">Riporta in proposta</button>` : ''}${btnElimina(i)}</td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riproponi="${esc(i.id)}">Riporta in proposta</button>` : '') + btnElimina(i))}</td>` : ''}
                 </tr>`;
                 }).join('') +
                 `</tbody></table></div></div>`
@@ -3439,7 +3452,7 @@
         } else if (incarichiTab === 'dismessi') {
             corpo = dismessi.length ? `<div class="card" id="sez-dismessi">
                 <p class="descrizione" style="margin:0 0 12px;">Incarichi da cui il revisore si e dimesso, con la data delle dimissioni. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
-                <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
                     <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Resp. incarico</th><th>Data dimissioni</th><th>Registrate il</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 dismessi.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
@@ -3449,14 +3462,14 @@
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                     <td data-label="Data dimissioni">${i.dimissioni && i.dimissioni.data ? esc(fmtData(i.dimissioni.data)) : ''}</td>
                     <td data-label="Registrate il">${i.dimissioni ? esc(fmtDataOra(i.dimissioni.il)) : ''}</td>
-                    ${colAzioni ? `<td data-label="" class="td-azioni">${puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : ''}${btnElimina(i)}</td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnElimina(i))}</td>` : ''}
                 </tr>`).join('') +
                 `</tbody></table></div></div>`
                 : '<div class="card tabella-vuota">Nessun incarico dismesso.</div>';
         } else if (incarichiTab === 'terminati') {
             corpo = terminati.length ? `<div class="card" id="sez-terminati">
                 <p class="descrizione" style="margin:0 0 12px;">Incarichi conclusi, tenuti fuori dall'elenco principale. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
-                <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
                     <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 terminati.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
@@ -3466,7 +3479,7 @@
                     <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                     <td data-label="Terminato il">${i.terminato ? esc(fmtDataOra(i.terminato.il)) : ''}</td>
-                    ${colAzioni ? `<td data-label="" class="td-azioni">${puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : ''}${btnElimina(i)}</td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnElimina(i))}</td>` : ''}
                 </tr>`).join('') +
                 `</tbody></table></div></div>`
                 : '<div class="card tabella-vuota">Nessun incarico terminato.</div>';
@@ -3487,7 +3500,7 @@
                 { chiave: 'compenso', nome: 'Compenso ' + annoRif, num: true },
                 { chiave: 'scadenza', nome: 'Stato' }
             ];
-            corpo = attivi.length ? (nProposte ? `<div class="avviso-proposta">${ICO_PROPOSTA}<span><strong>${nProposte} ${nProposte === 1 ? 'incarico e' : 'incarichi sono'} in proposta</strong> (righe evidenziate): compensi e scadenze non entrano nel totale finche' non ${nProposte === 1 ? 'lo confermi' : 'li confermi'} con il pulsante <strong>Conferma</strong>.</span></div>` : '') + `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>` +
+            corpo = attivi.length ? (nProposte ? `<div class="avviso-proposta">${ICO_PROPOSTA}<span><strong>${nProposte} ${nProposte === 1 ? 'incarico e' : 'incarichi sono'} in proposta</strong> (righe evidenziate): compensi e scadenze non entrano nel totale finche' non ${nProposte === 1 ? 'lo confermi' : 'li confermi'} con il pulsante <strong>Conferma</strong>.</span></div>` : '') + `<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>` +
                 colonne.map(c => `<th class="${c.num ? 'num' : ''}" data-ordina="${c.chiave}">${c.nome}${filtriIncarichi.ordina === c.chiave ? (filtriIncarichi.verso > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') +
                 (colAzioni ? '<th></th>' : '') +
                 `</tr></thead><tbody>` +
@@ -3506,9 +3519,9 @@
                         <td data-label="Team">${esc(i.team || '')}</td>
                         <td class="num" data-label="Compenso ${annoRif}">${Incarichi.compensoAnno(i, annoRif) ? eurFmt.format(Incarichi.compensoAnno(i, annoRif)) + (prop ? ' <span class="hint">(proposto)</span>' : '') : ''}</td>
                         <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
-                        ${colAzioni ? `<td data-label="" class="td-azioni">${!puoRinnovare ? '' : (prop
-                        ? `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button>`
-                        : `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button> <button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button> <button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button>`)}${btnElimina(i)}</td>` : ''}
+                        ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((!puoRinnovare ? '' : (prop
+                        ? `<button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button><button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button><button class="btn btn-sm btn-secondary" data-non-accettato="${esc(i.id)}">Non accettato</button>`
+                        : `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button><button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button><button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button>`)) + btnElimina(i))}</td>` : ''}
                     </tr>`;
                 }).join('') +
                 `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi${nProposte ? ', ' + nProposte + (nProposte === 1 ? ' in proposta escluso' : ' in proposta esclusi') + ' dal totale' : ''})</td><td class="num">${eurFmt.format(totale)}</td><td></td>${colAzioni ? '<td></td>' : ''}</tr></tfoot></table></div>`
@@ -3517,6 +3530,32 @@
 
         cont.innerHTML = tabBar + corpo;
 
+        // menu azioni a comparsa: si apre col pulsante "tre puntini" accanto alla riga
+        cont.querySelectorAll('[data-menu]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const menu = b.nextElementSibling;
+                const apre = menu && !menu.classList.contains('aperto');
+                chiudiMenuAzioni();
+                if (apre) {
+                    menu.classList.add('aperto');
+                    const r = b.getBoundingClientRect();
+                    menu.style.top = Math.max(8, Math.min(r.bottom + 4, window.innerHeight - menu.offsetHeight - 8)) + 'px';
+                    menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+                }
+            }));
+        cont.querySelectorAll('.menu-azioni').forEach(m => {
+            // in cattura: chiude il menu prima che parta l'azione scelta
+            m.addEventListener('click', () => chiudiMenuAzioni(), true);
+            // il clic dentro il menu non deve aprire il dettaglio della riga
+            m.addEventListener('click', e => e.stopPropagation());
+        });
+        cont.querySelectorAll('[data-non-accettato]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.nonAccettato);
+                if (inc) modaleNonAccettatoIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
+            }));
         cont.querySelectorAll('[data-inctab]').forEach(b =>
             b.addEventListener('click', () => { incarichiTab = b.dataset.inctab; disegnaTabellaIncarichi(annoRif); }));
         cont.querySelectorAll('[data-apri]').forEach(r =>
