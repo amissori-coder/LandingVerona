@@ -52,7 +52,7 @@ dell'incarico.
 | Pec SIEM; sede/C.f./Pec SPV | vuoti (dati cliente) |
 | Luogo e data lettera | luogo precompilato "Verona", data vuota |
 | Data consegna relazione | vuota (ancorarla al deposito del progetto ex art. 2501-ter, co. 3) |
-| Responsabile incarico, riesame qualità, team | vuoti |
+| Responsabile incarico | vuoto (riesame qualità e team non più indicati in lettera) |
 | Tabella: ore/importi a-b-c | precompilati 24/36/20 h — € 4.500/6.750/3.750 (listino € 15.000) |
 | Tabella: riga extra descrizione libera | vuota (come il modello) |
 | Totale | sconto € 5.000 → 80 h — € 10.000 netti; tariffa € 187,50/h, effettiva € 125/h |
