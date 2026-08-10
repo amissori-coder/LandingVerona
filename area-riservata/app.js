@@ -12368,22 +12368,32 @@
                automatica qui sotto; la firma si compila nel blocco firma */
         }
 
-        // Firma del responsabile a PAGINA 20 del triennale (pag. 17 della
-        // volontaria), sotto la scritta "REVILAW S.p.A.": nel campo modulo va
-        // il nome del responsabile dell'incarico, e sopra la riga del nome si
-        // disegna l'immagine della firma. Il campo del triennale si individua
-        // direttamente sulla pagina (il piu in alto), con Testo12 di riserva.
-        let campoFirma = null;
-        if (tipo === 'volontaria') {
-            try { campoFirma = form.getTextField('t_p17_01'); } catch (e) { }
-        } else {
-            campoFirma = campoFirmaInPagina(PDFLib, pdf, form, 19); // pagina 20
-            if (!campoFirma) { try { campoFirma = form.getTextField('Testo12'); } catch (e) { } }
+        // Firma del responsabile a PAGINA 20 del triennale e PAGINA 17 della
+        // volontaria, sotto la dicitura "REVILAW S.p.A." (che non si tocca):
+        // nel primo campo VUOTO dall'alto della pagina va il nome del
+        // responsabile dell'incarico, sotto il nome si disegna l'immagine
+        // della firma. I vecchi nomi dei campi restano come riserva.
+        const paginaFirmaIdx = tipo === 'volontaria' ? 16 : 19; // pag. 17 / pag. 20
+        let campoFirma = campoFirmaInPagina(PDFLib, pdf, form, paginaFirmaIdx);
+        if (!campoFirma) {
+            try { campoFirma = form.getTextField(tipo === 'volontaria' ? 't_p17_01' : 'Testo12'); } catch (e) { }
         }
         if (!campoFirma) console.warn('Campo della firma REVILAW non trovato nel modello.');
         if (campoFirma && respNome) {
             try { campoFirma.setText(String(respNome)); campoFirma.enableReadOnly(); compilati.push(campoFirma); }
             catch (e) { console.warn('Nome del responsabile non scritto nel campo firma:', e); }
+        }
+        // Allegati: sempre 3 anche nella volontaria. Il nome del campo non e
+        // noto: compilato il nome del responsabile, il primo campo vuoto
+        // rimasto sulla pagina della firma e quello degli allegati.
+        if (tipo === 'volontaria') {
+            const campoAllegati = campoFirmaInPagina(PDFLib, pdf, form, paginaFirmaIdx);
+            if (campoAllegati) {
+                try { campoAllegati.setText('3'); campoAllegati.enableReadOnly(); compilati.push(campoAllegati); }
+                catch (e) { console.warn('Numero degli allegati non scritto:', e); }
+            } else {
+                console.warn('Campo degli allegati non trovato a pagina 17 del modello volontario.');
+            }
         }
         // immagine della firma: quella passata dalla finestra di stampa oppure,
         // in automatico, quella gia salvata per il responsabile
