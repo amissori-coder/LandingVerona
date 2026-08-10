@@ -1816,6 +1816,7 @@
             window.addEventListener('pagehide', this._pageHideHandler);
             this._pageShowHandler = () => { if (this._presenzaAvviata) this.pubblicaPresenza(); };
             window.addEventListener('pageshow', this._pageShowHandler);
+            const emailKey = email.toLowerCase();
             const stacca = onSnapshot(this._presenzaRef(), snap => {
                 const dati = (snap && snap.data && snap.data()) || {};
                 const stati = dati.stati || {};
@@ -1825,14 +1826,26 @@
                     .sort((a, b) => String(a.nome || a.email).localeCompare(String(b.nome || b.email), 'it'));
                 Cloud._presenzaUltima = connessi;
                 aggiornaPresenza(connessi);
+                // posta di ripiego: messaggi recapitati qui quando il documento privato del
+                // destinatario non era scrivibile (regole non aggiornate). Si mostrano subito
+                // e si toglie SOLO cio che si e ricevuto (arrayRemove), cosi un messaggio
+                // arrivato nel frattempo non viene cancellato per sbaglio.
+                const inArrivo = ((dati.posta || {})[emailKey]) || [];
+                if (inArrivo.length) {
+                    Cloud._smistaMessaggi(inArrivo, emailKey, false);
+                    try {
+                        const { setDoc, arrayRemove } = Cloud.fb.fsMod;
+                        setDoc(Cloud._presenzaRef(), { posta: { [emailKey]: arrayRemove.apply(null, inArrivo) } }, { merge: true }).catch(() => { });
+                    } catch (e) { }
+                }
             }, () => { });
             this.sottoscrizioni.push(stacca);
             // messaggi privati: ognuno legge SOLO il proprio documento messaggi/<email> (le regole
             // Firestore lo consentono al solo destinatario), cosi le conversazioni non sono visibili a tutti.
-            const emailKey = email.toLowerCase();
             const staccaMsg = onSnapshot(this._msgRef(emailKey), snap => {
                 const lista = (((snap && snap.data && snap.data()) || {}).lista) || [];
-                Cloud._smistaMessaggi(lista, emailKey);
+                const primoGiro = Cloud._primoSmista; Cloud._primoSmista = false;
+                Cloud._smistaMessaggi(lista, emailKey, primoGiro);
                 if (lista.length > 60) Cloud._potaMessaggi(emailKey);
             }, () => { });
             this.sottoscrizioni.push(staccaMsg);
@@ -1863,8 +1876,9 @@
             if (this._pageHideHandler) { try { window.removeEventListener('pagehide', this._pageHideHandler); } catch (e) { } this._pageHideHandler = null; }
             if (this._pageShowHandler) { try { window.removeEventListener('pageshow', this._pageShowHandler); } catch (e) { } this._pageShowHandler = null; }
             this._presenzaUltima = [];
-            // svuota i messaggi in memoria: l'utente successivo su questo browser non deve vederli
+            // svuota i messaggi in memoria e i popup aperti: l'utente successivo su questo browser non deve vederli
             this._inbox = []; this._msgNonLetti = 0; this._msgMostrati = null;
+            try { const area = document.getElementById('msg-popup-area'); if (area) area.innerHTML = ''; } catch (e) { }
             this._scriviLapide();
             aggiornaPresenza([]);
         },
@@ -1874,24 +1888,28 @@
             if (!u || !u.email || !this.attivo || !this.pronto) return;
             try { const { setDoc } = this.fb.fsMod; setDoc(this._presenzaRef(), { stati: { [u.email.toLowerCase()]: { nome: u.nome || u.email, ts: 0, vista: null, modifica: null } } }, { merge: true }).catch(() => { }); } catch (e) { }
         },
-        // notifica: toast per i messaggi nuovi a me destinati. Dedup per ID (persistito per
-        // utente), non per timestamp: cosi non si perdono messaggi con clock sfasati o su browser
-        // condiviso, e l'utente successivo non eredita lo stato del precedente.
-        _smistaMessaggi(messaggi, mia) {
+        // notifica: popup con risposta per i messaggi nuovi a me destinati. Dedup per ID
+        // (persistito per utente), non per timestamp: cosi non si perdono messaggi con clock
+        // sfasati o su browser condiviso, e l'utente successivo non eredita lo stato del precedente.
+        // silenzioso = primo giro dopo il login: il pregresso si segna senza popup, ma i messaggi
+        // degli ultimi 10 minuti si mostrano comunque (inviati un attimo prima dell'accesso).
+        _smistaMessaggi(messaggi, mia, silenzioso) {
             if (!mia) return;
             if (!this._msgMostrati) this._msgMostrati = new Set(this._caricaSeen(mia));
-            let cambiato = false;
+            let cambiato = false, nuovi = 0;
+            const ora = Date.now();
             (messaggi || []).forEach(m => {
                 if (!m || !m.id || String(m.a || '').toLowerCase() !== mia) return;
                 if (this._msgMostrati.has(m.id)) return;
                 this._msgMostrati.add(m.id); cambiato = true;
-                if (this._primoSmista) return;   // primo giro dopo il login: segna il pregresso senza toast
+                if (silenzioso && !(m.ts && (ora - m.ts) < 600000)) return;
                 this._inbox.unshift(m); this._inbox = this._inbox.slice(0, 20);
-                this._msgNonLetti++;
-                toast((m.daNome || m.da || '') + ': ' + (m.testo || ''), 'verde');
+                this._msgNonLetti++; nuovi++;
+                mostraPopupMessaggio(m);
             });
-            this._primoSmista = false;
             if (cambiato) this._salvaSeen(mia);
+            // il contatore "Messaggi" nella sidebar si aggiorna subito, non al prossimo battito
+            if (nuovi) aggiornaPresenza(this._presenzaUltima || []);
         },
         _caricaSeen(email) { try { const a = JSON.parse(localStorage.getItem('rvArea.msgSeen.' + String(email).toLowerCase()) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; } },
         _salvaSeen(email) { try { localStorage.setItem('rvArea.msgSeen.' + String(email).toLowerCase(), JSON.stringify(Array.from(this._msgMostrati).slice(-80))); } catch (e) { } },
@@ -1900,11 +1918,21 @@
             const t = String(testo || '').trim().slice(0, 500);
             const dest = String(aEmail || '').toLowerCase();
             if (!t || !dest) return false;
+            const { setDoc, arrayUnion } = this.fb.fsMod;
+            const msg = { id: 'm_' + uid(), da: u.email.toLowerCase(), daNome: u.nome || u.email, a: dest, testo: t, ts: Date.now() };
+            // recapito nel documento privato del destinatario (che solo lui puo leggere)
             try {
-                // recapito nel documento privato del destinatario (che solo lui puo leggere)
-                const { setDoc, arrayUnion } = this.fb.fsMod;
-                const msg = { id: 'm_' + uid(), da: u.email.toLowerCase(), daNome: u.nome || u.email, a: dest, testo: t, ts: Date.now() };
                 await setDoc(this._msgRef(dest), { lista: arrayUnion(msg) }, { merge: true });
+                return true;
+            } catch (e) { }
+            // ripiego: se le regole Firestore pubblicate non hanno ancora il blocco
+            // messaggi/{email} la scrittura sopra viene rifiutata e il messaggio non
+            // partirebbe mai. Lo scomparto "posta" del documento di presenza e coperto
+            // dalla regola base archivio/* (staff), quindi funziona con qualunque
+            // installazione; il destinatario lo svuota appena riceve. Meno riservato
+            // del documento privato, ma il recapito e garantito.
+            try {
+                await setDoc(this._presenzaRef(), { posta: { [dest]: arrayUnion(msg) } }, { merge: true });
                 return true;
             } catch (e) { return false; }
         },
@@ -2869,7 +2897,10 @@
     }
 
     /* Mostra nella sidebar gli utenti attualmente connessi (in tempo reale): chi sta modificando
-       cosa, un pulsante per scrivergli e la casella dei messaggi ricevuti. */
+       cosa, un pulsante per scrivergli e la casella dei messaggi ricevuti. Da PRESENZA_COMPATTA_DA
+       utenti in su l'elenco parte richiuso (iniziali + "Vedi tutti"): un clic apre il menu completo. */
+    const PRESENZA_COMPATTA_DA = 4;
+    let presenzaEspansa = false;   // scelta dell'utente: elenco aperto anche se numeroso
     function aggiornaPresenza(connessi) {
         const box = document.getElementById('presenza-box');
         if (!box) return;
@@ -2878,21 +2909,39 @@
         const nonLetti = (typeof Cloud !== 'undefined' && Cloud._msgNonLetti) || 0;
         const icoMatita = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
         const icoBusta = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="m3 6 9 6 9-6"/></svg>';
-        const voci = connessi.map(c => {
-            const io = String(c.email).toLowerCase() === mio;
-            const mod = (c.modifica && c.modifica.etichetta)
-                ? '<span class="pres-mod" title="Sta modificando in questo momento">' + icoMatita + '<span class="et">' + esc(troncaTesto(String(c.modifica.etichetta), 22)) + '</span></span>'
+        const icoFreccia = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+        const compatta = connessi.length >= PRESENZA_COMPATTA_DA && !presenzaEspansa;
+        let corpo;
+        if (compatta) {
+            const inizialiDi = n => (String(n || '?').trim().split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('') || '?');
+            const chips = connessi.slice(0, 5).map(c => '<span class="pres-avatar" title="' + esc(c.nome || c.email) + '">' + esc(inizialiDi(c.nome || c.email)) + '</span>').join('')
+                + (connessi.length > 5 ? '<span class="pres-avatar pres-avatar-extra">+' + (connessi.length - 5) + '</span>' : '');
+            corpo = '<button type="button" class="presenza-riassunto" aria-expanded="false" title="Apri l\'elenco degli utenti connessi">'
+                + '<span class="pres-avatars">' + chips + '</span>'
+                + '<span class="pres-riass-apri">Vedi tutti' + icoFreccia + '</span></button>';
+        } else {
+            const voci = connessi.map(c => {
+                const io = String(c.email).toLowerCase() === mio;
+                const mod = (c.modifica && c.modifica.etichetta)
+                    ? '<span class="pres-mod" title="Sta modificando in questo momento">' + icoMatita + '<span class="et">' + esc(troncaTesto(String(c.modifica.etichetta), 22)) + '</span></span>'
+                    : '';
+                const scrivi = io ? '' : '<button class="btn btn-sm btn-ghost pres-msg" data-email="' + esc(c.email) + '" data-nome="' + esc(c.nome || c.email) + '" title="Scrivi a ' + esc(c.nome || c.email) + '" aria-label="Scrivi a ' + esc(c.nome || c.email) + '">' + icoBusta + '</button>';
+                return '<div class="presenza-utente' + (mod ? ' sta-modificando' : '') + '"><span class="pallino"></span>'
+                    + '<span class="pres-corpo"><span class="pres-nome-riga"><span class="pres-nome">' + esc((c.nome || c.email) + (io ? ' (tu)' : '')) + '</span>' + scrivi + '</span>' + mod + '</span></div>';
+            }).join('');
+            const riduci = connessi.length >= PRESENZA_COMPATTA_DA
+                ? '<button type="button" class="presenza-riduci" aria-expanded="true"><span class="freccia-su">' + icoFreccia + '</span><span>Riduci elenco</span></button>'
                 : '';
-            const scrivi = io ? '' : '<button class="btn btn-sm btn-ghost pres-msg" data-email="' + esc(c.email) + '" data-nome="' + esc(c.nome || c.email) + '" title="Scrivi a ' + esc(c.nome || c.email) + '" aria-label="Scrivi a ' + esc(c.nome || c.email) + '">' + icoBusta + '</button>';
-            return '<div class="presenza-utente' + (mod ? ' sta-modificando' : '') + '"><span class="pallino"></span>'
-                + '<span class="pres-corpo"><span class="pres-nome-riga"><span class="pres-nome">' + esc((c.nome || c.email) + (io ? ' (tu)' : '')) + '</span>' + scrivi + '</span>' + mod + '</span></div>';
-        }).join('');
-        box.innerHTML = '<div class="presenza-pannello">'
+            corpo = voci + riduci;
+        }
+        box.innerHTML = '<div class="presenza-pannello' + (compatta ? ' compatta' : '') + '">'
             + '<div class="presenza-titolo"><span>Connessi ora &middot; ' + connessi.length + '</span>'
             + '<button class="pres-inbox" title="Messaggi ricevuti" aria-label="Messaggi ricevuti">' + icoBusta + '<span>Messaggi</span>' + (nonLetti ? '<span class="pres-badge">' + nonLetti + '</span>' : '') + '</button></div>'
-            + voci + '</div>';
+            + corpo + '</div>';
         box.querySelectorAll('.pres-msg').forEach(b => b.addEventListener('click', () => modaleInviaMessaggio(b.dataset.email, b.dataset.nome)));
         const bi = box.querySelector('.pres-inbox'); if (bi) bi.addEventListener('click', modaleCasellaMessaggi);
+        const ba = box.querySelector('.presenza-riassunto'); if (ba) ba.addEventListener('click', () => { presenzaEspansa = true; aggiornaPresenza(connessi); });
+        const br = box.querySelector('.presenza-riduci'); if (br) br.addEventListener('click', () => { presenzaEspansa = false; aggiornaPresenza(connessi); });
     }
     function modaleInviaMessaggio(email, nome) {
         apriModale('<h2>Scrivi a ' + esc(nome) + '</h2>'
@@ -2905,8 +2954,9 @@
             if (!t) { toast('Scrivi un messaggio.', 'rosso'); return; }
             bt.disabled = true;
             const ok = (typeof Cloud !== 'undefined' && Cloud.inviaMessaggio) ? await Cloud.inviaMessaggio(email, t) : false;
-            chiudiModale();
-            toast(ok ? ('Messaggio inviato a ' + nome) : 'Invio non riuscito.', ok ? 'verde' : 'rosso');
+            if (ok) { chiudiModale(); toast('Messaggio inviato a ' + nome, 'verde'); }
+            // in caso di errore la finestra resta aperta: il testo scritto non si perde
+            else { bt.disabled = false; toast('Invio non riuscito. Controlla la connessione e riprova.', 'rosso'); }
         });
         setTimeout(() => { const ta = document.getElementById('msg-testo'); if (ta) ta.focus(); }, 30);
     }
@@ -2914,11 +2964,51 @@
         if (typeof Cloud !== 'undefined') Cloud._msgNonLetti = 0;
         const inbox = (typeof Cloud !== 'undefined' && Cloud._inbox) || [];
         const righe = inbox.length
-            ? inbox.map(m => '<div class="riepilogo-riga"><span class="etichetta">' + esc(m.daNome || m.da || '') + '</span><span class="valore">' + esc(m.testo || '') + ' <span class="hint">' + fmtDataOra(m.ts) + '</span></span></div>').join('')
+            ? inbox.map(m => '<div class="riepilogo-riga"><span class="etichetta">' + esc(m.daNome || m.da || '') + '</span><span class="valore">' + esc(m.testo || '') + ' <span class="hint">' + fmtDataOra(m.ts) + '</span> <button type="button" class="btn btn-sm btn-ghost msg-rispondi" data-email="' + esc(m.da || '') + '" data-nome="' + esc(m.daNome || m.da || '') + '">Rispondi</button></span></div>').join('')
             : '<p class="descrizione">Nessun messaggio ricevuto in questa sessione.</p>';
-        apriModale('<h2>Messaggi ricevuti</h2>' + righe + '<div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>', { classe: 'larga' });
+        const cont = apriModale('<h2>Messaggi ricevuti</h2>' + righe + '<div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>', { classe: 'larga' });
         document.getElementById('m-ok').addEventListener('click', chiudiModale);
+        cont.querySelectorAll('.msg-rispondi').forEach(b => b.addEventListener('click', () => modaleInviaMessaggio(b.dataset.email, b.dataset.nome)));
         aggiornaPresenza((typeof Cloud !== 'undefined' && Cloud._presenzaUltima) || []);
+    }
+    /* Popup del messaggio in arrivo: compare in basso a destra per OGNI utente connesso
+       destinatario, senza rubare il focus e senza toccare le modali aperte (ha un suo
+       contenitore). Da qui si risponde direttamente. */
+    function areaPopupMessaggi() {
+        let area = document.getElementById('msg-popup-area');
+        if (!area) { area = document.createElement('div'); area.id = 'msg-popup-area'; document.body.appendChild(area); }
+        return area;
+    }
+    function mostraPopupMessaggio(m) {
+        const area = areaPopupMessaggi();
+        while (area.children.length >= 3) area.firstElementChild.remove();   // al massimo 3 popup impilati
+        const mitt = m.daNome || m.da || '';
+        const card = document.createElement('div');
+        card.className = 'msg-popup';
+        card.setAttribute('role', 'alert');
+        card.innerHTML = '<div class="msg-popup-testata"><span class="pallino"></span><strong>' + esc(mitt) + '</strong>'
+            + '<span class="msg-popup-ora">' + fmtDataOra(m.ts) + '</span>'
+            + '<button type="button" class="msg-popup-x" title="Chiudi" aria-label="Chiudi">&#10005;</button></div>'
+            + '<div class="msg-popup-testo">' + esc(m.testo || '') + '</div>'
+            + '<div class="msg-popup-risposta"><textarea rows="2" maxlength="500" placeholder="Rispondi a ' + esc(mitt) + '..."></textarea>'
+            + '<div class="msg-popup-azioni"><button type="button" class="btn btn-sm btn-ghost mp-chiudi">Chiudi</button>'
+            + '<button type="button" class="btn btn-sm btn-primary mp-rispondi">Rispondi</button></div></div>';
+        area.appendChild(card);
+        const ta = card.querySelector('textarea');
+        const btn = card.querySelector('.mp-rispondi');
+        const chiudi = () => card.remove();
+        card.querySelector('.msg-popup-x').addEventListener('click', chiudi);
+        card.querySelector('.mp-chiudi').addEventListener('click', chiudi);
+        const rispondi = async () => {
+            const t = ta.value.trim();
+            if (!t) { ta.focus(); return; }
+            btn.disabled = true;
+            const ok = (typeof Cloud !== 'undefined' && Cloud.inviaMessaggio) ? await Cloud.inviaMessaggio(m.da, t) : false;
+            if (ok) { toast('Risposta inviata a ' + mitt, 'verde'); chiudi(); }
+            else { btn.disabled = false; toast('Invio non riuscito. Controlla la connessione e riprova.', 'rosso'); }
+        };
+        btn.addEventListener('click', rispondi);
+        ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); rispondi(); } });
     }
 
     /* =========================================================

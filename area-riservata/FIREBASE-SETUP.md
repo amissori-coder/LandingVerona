@@ -127,6 +127,14 @@ sufficiente per questo utilizzo.
    }
    ```
 
+   > **Messaggi tra utenti connessi.** Il blocco `match /messaggi/{email}` serve
+   > ai messaggi privati tra colleghi (popup con risposta). Se le regole
+   > pubblicate sulla console sono una versione precedente senza quel blocco,
+   > l'app se ne accorge da sola e recapita comunque i messaggi attraverso il
+   > documento di presenza condiviso (coperto dalla regola base `archivio/*`):
+   > l'invio funziona, ma i messaggi in transito sono tecnicamente leggibili da
+   > tutto lo staff via API. Pubblica le regole aggiornate per renderli privati.
+
    > **Ruoli "solo sondaggio" (invitati esterni).** I ruoli `sondaggio_compila`
    > (compila il questionario) e `sondaggio_risultati` (vede solo il riepilogo)
    > danno accesso **esclusivamente** ai due documenti del sondaggio: con le regole
