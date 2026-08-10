@@ -184,10 +184,10 @@
    rispetto alle card aperte. */
 .au-foto {
     display: block;
-    width: 168px;
-    height: 168px;
-    margin: 0 auto 24px;
-    border-radius: 16px;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 26px;
+    border-radius: 18px;
     border: 1px solid rgba(139, 184, 212, 0.5);
     object-fit: cover;
 }
@@ -346,8 +346,9 @@
 }
 
 .partner-card.aperta .partner-foto {
-    width: 104px;
-    height: 104px;
+    width: 176px;
+    height: 176px;
+    border-radius: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -731,8 +732,8 @@
     }
 
     .area-col .partner-card.aperta .partner-foto {
-        width: 88px;
-        height: 88px;
+        width: 148px;
+        height: 148px;
     }
 }
 
@@ -804,5 +805,17 @@
     .au-card {
         padding: 34px 22px 32px;
         border-radius: var(--radius);
+    }
+
+    .au-foto {
+        width: 176px;
+        height: 176px;
+    }
+
+    /* Su schermi piccoli il primo piano non deve
+       schiacciare nome e qualifica di fianco. */
+    .partner-card.aperta .partner-foto {
+        width: 132px;
+        height: 132px;
     }
 }
