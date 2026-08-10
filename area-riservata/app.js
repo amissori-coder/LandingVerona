@@ -94,9 +94,11 @@
         for (let a = primo; a < primo + durata; a++) anni.push(a);
         return anni;
     }
-    // true se, per via della proposta, l'anno NON deve contare nei totali
+    // true se, per via della proposta (o della sua mancata accettazione), l'anno
+    // NON deve contare nei totali. Un incarico "non accettato" resta escluso come
+    // una proposta: per un rinnovo contano solo gli esercizi gia' confermati.
     function propostaEscludeAnno(inc, anno) {
-        if (!inProposta(inc)) return false;
+        if (!inProposta(inc) && !(inc && inc.stato === 'nonAccettato')) return false;
         const anni = anniPeriodoProposto(inc);
         return anni ? anni.includes(Number(anno)) : true;         // senza periodo: escludi tutto
     }
@@ -2318,6 +2320,40 @@
             return inc;
         },
 
+        // proposta non accettata dal cliente: esce dalle proposte in attesa di conferma
+        // e finisce nella scheda "Non accettati" della sezione Incarichi
+        nonAccetta(id, utente, nota) {
+            const lista = this.tutti();
+            const idx = lista.findIndex(i => i.id === id);
+            if (idx < 0) return null;
+            const inc = lista[idx];
+            const prima = inc.stato || 'attivo';
+            inc.stato = 'nonAccettato';
+            inc.nonAccettato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now(), nota: nota || '' };
+            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            this.salva(lista);
+            Audit.registra(utente, 'Incarico non accettato', 'incarico', id, inc.cliente,
+                [{ campo: 'Stato', prima: prima, dopo: 'non accettato' }].concat(nota ? [{ campo: 'Motivo', prima: '', dopo: nota }] : []));
+            return inc;
+        },
+
+        // riporta in proposta un incarico non accettato: cosi' lo si puo' modificare,
+        // rigenerare il PDF della lettera e ripetere la fase di conferma
+        riproponi(id, utente) {
+            const lista = this.tutti();
+            const idx = lista.findIndex(i => i.id === id);
+            if (idx < 0) return null;
+            const inc = lista[idx];
+            inc.stato = 'proposta';
+            inc.nonAccettato = null;
+            inc.confermato = null;
+            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            this.salva(lista);
+            Audit.registra(utente, 'Incarico riportato in proposta', 'incarico', id, inc.cliente,
+                [{ campo: 'Stato', prima: 'non accettato', dopo: 'proposta' }]);
+            return inc;
+        },
+
         // riattiva un incarico terminato o dimesso: torna attivo e rientra nell'elenco principale
         riattiva(id, utente) {
             const lista = this.tutti();
@@ -2337,6 +2373,7 @@
         statoScadenza(inc) {
             const fine = inc.rinnovo || inc.dataFine;
             if (inc.stato === 'proposta') return { classe: 'proposta', testo: 'Proposta' };
+            if (inc.stato === 'nonAccettato') return { classe: 'neutro', testo: 'Non accettato' };
             if (inc.stato === 'dimesso') return { classe: 'neutro', testo: 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' ' + fmtData(inc.dimissioni.data) : '') };
             if (inc.stato === 'cessato') return { classe: 'neutro', testo: 'Terminato' };
             if (!fine) return { classe: 'neutro', testo: 'Senza scadenza' };
@@ -3112,7 +3149,7 @@
         const anno = annoCorrente();
         // le proposte stanno fuori dagli attivi: sono in attesa di conferma e non contano nei totali
         const proposte = incarichi.filter(i => i.stato === 'proposta');
-        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta');
+        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta' && i.stato !== 'nonAccettato');
         // compensoContabile azzera gli anni in proposta: totali e confronto restano su cio' che e' confermato
         const totAnno = incarichi.reduce((s, i) => s + compensoContabile(i, anno), 0);
         const totPrec = incarichi.reduce((s, i) => s + compensoContabile(i, anno - 1), 0);
@@ -3157,7 +3194,7 @@
             </div>
             ${proposte.length ? `<div class="card card-proposte">
                 <h2>${ICO_PROPOSTA}Proposte in attesa di conferma (${proposte.length})</h2>
-                <p class="descrizione" style="margin-bottom:12px;">Questi incarichi sono nuovi o rinnovati e restano in <strong>proposta</strong>: <strong>non entrano in fatturazione e nei compensi</strong> finche' non li confermi. Apri l'incarico e premi <strong>Conferma</strong>; ti verra' chiesto se la fatturazione del periodo va bene o va modificata.</p>
+                <p class="descrizione" style="margin-bottom:12px;">Questi incarichi sono nuovi o rinnovati e restano in <strong>proposta</strong>: <strong>non entrano in fatturazione e nei compensi</strong> finche' non li confermi. Premi <strong>Conferma</strong> se il cliente ha accettato; <strong>Modifica</strong> per rielaborare la proposta e rigenerare il PDF della lettera; <strong>Non accettato</strong> se il cliente ha rifiutato (l'incarico finisce nella scheda "Non accettati" della sezione Incarichi).</p>
                 <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
                     <th>Cliente</th><th>Tipo</th><th>Periodo</th><th class="num">Compenso proposto</th>${puoRinnovare ? '<th></th>' : ''}
                 </tr></thead><tbody>${proposte.map(i => {
@@ -3169,7 +3206,7 @@
                         <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                         <td data-label="Periodo">${esc(periodo)}</td>
                         <td class="num" data-label="Compenso proposto">${compP ? eurFmt.format(compP) : ''}</td>
-                        ${puoRinnovare ? `<td data-label=""><button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button></td>` : ''}
+                        ${puoRinnovare ? `<td data-label="" class="td-azioni" style="white-space:nowrap;"><button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button> <button class="btn btn-sm btn-secondary" data-non-accettato="${esc(i.id)}">Non accettato</button> <button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button></td>` : ''}
                     </tr>`;
             }).join('')}</tbody></table></div>
             </div>` : ''}
@@ -3188,6 +3225,17 @@
             b.addEventListener('click', () => { Allerte.segnaLetta(b.dataset.id); vistaDashboard(); }));
         $vista().querySelectorAll('[data-apri]').forEach(r =>
             r.addEventListener('click', () => naviga('dettaglio', { id: r.dataset.apri })));
+        $vista().querySelectorAll('[data-modifica]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                naviga('wizard', { modalita: 'modifica', id: b.dataset.modifica });
+            }));
+        $vista().querySelectorAll('[data-non-accettato]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.nonAccettato);
+                if (inc) modaleNonAccettatoIncarico(inc, () => vistaDashboard());
+            }));
         $vista().querySelectorAll('[data-rinnova]').forEach(b =>
             b.addEventListener('click', e => {
                 e.stopPropagation();
@@ -3233,7 +3281,7 @@
        VISTA: ELENCO INCARICHI
     ========================================================= */
     const filtriIncarichi = { testo: '', tipo: '', area: '', regione: '', qualita: '', resp: '', stato: '', ordina: 'cliente', verso: 1 };
-    let incarichiTab = 'attivi'; // scheda incarichi: 'attivi' | 'terminati'
+    let incarichiTab = 'attivi'; // scheda incarichi: 'attivi' | 'terminati' | 'dismessi' | 'nonaccettati'
 
     function annoRiferimento() {
         const anni = Incarichi.anniConCompensi();
@@ -3316,11 +3364,12 @@
         const controllaStato = (i, st) => {
             const s = Incarichi.statoScadenza(i);
             // "neutro" su un incarico non cessato significa "senza scadenza": e attivo
-            if (st === 'attivo') return i.stato !== 'cessato' && i.stato !== 'dimesso' && (s.classe === 'verde' || s.classe === 'neutro');
+            if (st === 'attivo') return i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'nonAccettato' && (s.classe === 'verde' || s.classe === 'neutro');
             if (st === 'scadenza') return s.classe === 'ambra';
             if (st === 'scaduto') return s.classe === 'rosso';
             if (st === 'cessato') return i.stato === 'cessato';
             if (st === 'dimesso') return i.stato === 'dimesso';
+            if (st === 'nonAccettato') return i.stato === 'nonAccettato';
             return true;
         };
         if (statoOverride !== undefined) {
@@ -3351,19 +3400,43 @@
         const btnElimina = i => puoEliminare ? ` <button class="btn btn-sm btn-danger" data-elimina="${esc(i.id)}">Elimina</button>` : '';
         // attivi: rispetta il filtro di stato (attivo/scadenza/scaduto). terminati: ignora il filtro di stato
         // (che riguarda solo gli attivi) cosi restano sempre visibili nella loro scheda.
-        const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
+        const attivi = incarichiFiltrati(annoRif).filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'nonAccettato');
         const terminati = incarichiFiltrati(annoRif, 'cessato');
         const dismessi = incarichiFiltrati(annoRif, 'dimesso');
+        const nonAccettati = incarichiFiltrati(annoRif, 'nonAccettato');
 
-        // ogni gruppo (attivi / terminati / dismessi) ha la sua scheda invece di stare in sequenza
+        // ogni gruppo (attivi / terminati / dismessi / non accettati) ha la sua scheda invece di stare in sequenza
         const tabBar = `<div class="tab-dest" style="margin-bottom:16px;">
             <button class="tab-btn ${incarichiTab === 'attivi' ? 'attivo' : ''}" data-inctab="attivi">Attivi (${attivi.length})</button>
             <button class="tab-btn ${incarichiTab === 'terminati' ? 'attivo' : ''}" data-inctab="terminati">Terminati (${terminati.length})</button>
             <button class="tab-btn ${incarichiTab === 'dismessi' ? 'attivo' : ''}" data-inctab="dismessi">Dismessi (${dismessi.length})</button>
+            <button class="tab-btn ${incarichiTab === 'nonaccettati' ? 'attivo' : ''}" data-inctab="nonaccettati">Non accettati (${nonAccettati.length})</button>
         </div>`;
 
         let corpo;
-        if (incarichiTab === 'dismessi') {
+        if (incarichiTab === 'nonaccettati') {
+            corpo = nonAccettati.length ? `<div class="card" id="sez-non-accettati">
+                <p class="descrizione" style="margin:0 0 12px;">Proposte di incarico che il cliente <strong>non ha accettato</strong>: non entrano in fatturazione e nei compensi. Premi <strong>Riporta in proposta</strong> per rielaborare l'incarico (modificarlo e rigenerare il PDF della lettera) e ripetere la fase di conferma.</p>
+                <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
+                    <th>Cliente</th><th>Tipo</th><th>Periodo proposto</th><th class="num">Compenso proposto</th><th>Non accettato il</th><th>Motivo</th>${colAzioni ? '<th></th>' : ''}
+                </tr></thead><tbody>` +
+                nonAccettati.map(i => {
+                    const anniP = anniPeriodoProposto(i);
+                    const periodo = anniP && anniP.length ? (anniP.length > 1 ? anniP[0] + '-' + anniP[anniP.length - 1] : String(anniP[0])) : '';
+                    const compP = anniP && anniP.length ? anniP.reduce((s, a) => s + Incarichi.compensoAnno(i, a), 0) : 0;
+                    return `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                    <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                    <td data-label="Periodo proposto">${esc(periodo)}</td>
+                    <td class="num" data-label="Compenso proposto">${compP ? eurFmt.format(compP) : ''}</td>
+                    <td data-label="Non accettato il">${i.nonAccettato ? esc(fmtDataOra(i.nonAccettato.il)) : ''}</td>
+                    <td data-label="Motivo">${esc((i.nonAccettato && i.nonAccettato.nota) || '')}</td>
+                    ${colAzioni ? `<td data-label="" class="td-azioni">${puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riproponi="${esc(i.id)}">Riporta in proposta</button>` : ''}${btnElimina(i)}</td>` : ''}
+                </tr>`;
+                }).join('') +
+                `</tbody></table></div></div>`
+                : '<div class="card tabella-vuota">Nessuna proposta non accettata.</div>';
+        } else if (incarichiTab === 'dismessi') {
             corpo = dismessi.length ? `<div class="card" id="sez-dismessi">
                 <p class="descrizione" style="margin:0 0 12px;">Incarichi da cui il revisore si e dimesso, con la data delle dimissioni. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
                 <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
@@ -3482,6 +3555,13 @@
                 const inc = Incarichi.trova(b.dataset.riattiva);
                 if (inc) modaleRiattivaIncarico(inc, () => disegnaTabellaIncarichi(annoRif));
             }));
+        cont.querySelectorAll('[data-riproponi]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                Incarichi.riproponi(b.dataset.riproponi, Auth.utenteCorrente);
+                toast('Incarico riportato in proposta: lo trovi nel cruscotto tra le proposte in attesa di conferma.', 'verde');
+                disegnaTabellaIncarichi(annoRif);
+            }));
         cont.querySelectorAll('[data-elimina]').forEach(b =>
             b.addEventListener('click', e => {
                 e.stopPropagation();
@@ -3554,8 +3634,10 @@
                     ${Auth.puoScrivere('incarichi') ? `
                         <button class="btn btn-secondary" id="btn-modifica">Modifica</button>
                         ${inc.stato === 'proposta'
-                    ? '<button class="btn btn-primary" id="btn-conferma-inc">Conferma incarico</button>'
-                    : `<button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
+                    ? '<button class="btn btn-secondary" id="btn-non-accettato-inc">Non accettato</button><button class="btn btn-primary" id="btn-conferma-inc">Conferma incarico</button>'
+                    : inc.stato === 'nonAccettato'
+                        ? '<button class="btn btn-secondary" id="btn-riproponi-inc">Riporta in proposta</button>'
+                        : `<button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
                         ${inc.stato === 'cessato' || inc.stato === 'dimesso' ? '<button class="btn btn-secondary" id="btn-riattiva-inc">Riattiva incarico</button>' : '<button class="btn btn-secondary" id="btn-termina-inc">Termina incarico</button><button class="btn btn-secondary" id="btn-dimetti-inc">Dimissioni</button>'}`}
                         ${inc.calcoloCongelato ? '<button class="btn btn-secondary" id="btn-sblocca">Sblocca calcolo</button>' : ''}
                         ${inc.tipo === 'legale' || inc.tipo === 'volontaria' ? '<button class="btn ' + (inc.stato === 'proposta' ? 'btn-secondary' : 'btn-primary') + '" id="btn-lettera">Lettera di incarico</button>' : ''}
@@ -3565,6 +3647,10 @@
             ${inc.stato === 'proposta' ? `<div class="card banner-proposta">
                 <p class="descrizione" style="margin:0 0 10px;">${ICO_PROPOSTA}<strong>Incarico in stato di proposta.</strong> Il periodo corrente <strong>non entra ancora in fatturazione e nei compensi</strong>: comincia a contare solo quando lo confermi. Puoi stampare la lettera di incarico gia' ora (resta una proposta finche' non confermi).</p>
                 ${Auth.puoScrivere('incarichi') ? '<button class="btn btn-sm btn-primary" id="btn-conferma-banner">Conferma incarico</button>' : ''}
+            </div>` : ''}
+            ${inc.stato === 'nonAccettato' ? `<div class="card" style="border-left:4px solid var(--rosso);">
+                <p class="descrizione" style="margin:0 0 10px;"><strong>Proposta non accettata dal cliente</strong>${inc.nonAccettato && inc.nonAccettato.il ? ' (registrata il ' + fmtDataOra(inc.nonAccettato.il) + ')' : ''}${inc.nonAccettato && inc.nonAccettato.nota ? ': "' + esc(inc.nonAccettato.nota) + '"' : ''}. Il periodo proposto <strong>non entra in fatturazione e nei compensi</strong>. Con <strong>Riporta in proposta</strong> puoi rielaborare l'incarico, rigenerare il PDF della lettera e ripetere la fase di conferma.</p>
+                ${Auth.puoScrivere('incarichi') ? '<button class="btn btn-sm btn-secondary" id="btn-riproponi-banner">Riporta in proposta</button>' : ''}
             </div>` : ''}
             ${inc.calcoloCongelato ? `<div class="card" style="border-left:4px solid var(--oro);">
                 <p class="descrizione" style="margin:0;">${ICO_LUCCHETTO}Il calcolo del compenso e congelato${inc.congelamento && inc.congelamento.il ? ' dal ' + fmtDataOra(inc.congelamento.il) : ''}. Per modificarlo, usa "Sblocca calcolo": verra inviato un messaggio di allerta al titolare.</p>
@@ -3587,7 +3673,7 @@
                             ${rigaRiepilogo('Data inizio', inc.dataInizio ? fmtData(inc.dataInizio) : inc.dataInizioNote)}
                             ${rigaRiepilogo('Data fine', fmtData(inc.dataFine) || inc.dataFineNote)}
                             ${rigaRiepilogo('Rinnovo', inc.rinnovo ? fmtData(inc.rinnovo) : inc.rinnovoNote)}
-                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'dimesso' ? 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' il ' + fmtData(inc.dimissioni.data) : '') : (inc.stato === 'proposta' ? 'Proposta (da confermare)' : (inc.stato === 'attivo' ? 'Attivo' + (inc.confermato && inc.confermato.il ? ' - confermato il ' + fmtDataOra(inc.confermato.il) : '') : inc.stato)))) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
+                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'dimesso' ? 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' il ' + fmtData(inc.dimissioni.data) : '') : (inc.stato === 'proposta' ? 'Proposta (da confermare)' : (inc.stato === 'nonAccettato' ? 'Non accettato' + (inc.nonAccettato && inc.nonAccettato.il ? ' il ' + fmtDataOra(inc.nonAccettato.il) : '') : (inc.stato === 'attivo' ? 'Attivo' + (inc.confermato && inc.confermato.il ? ' - confermato il ' + fmtDataOra(inc.confermato.il) : '') : inc.stato))))) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
                         </div>
                         <div class="riepilogo-blocco">
                             <h4>Team</h4>
@@ -3683,6 +3769,15 @@
             const confermaInc = () => modaleConfermaIncarico(inc, () => naviga('dettaglio', { id: inc.id }));
             const btnConf = document.getElementById('btn-conferma-inc'); if (btnConf) btnConf.addEventListener('click', confermaInc);
             const btnConfB = document.getElementById('btn-conferma-banner'); if (btnConfB) btnConfB.addEventListener('click', confermaInc);
+            const btnNA = document.getElementById('btn-non-accettato-inc');
+            if (btnNA) btnNA.addEventListener('click', () => modaleNonAccettatoIncarico(inc, () => naviga('dettaglio', { id: inc.id })));
+            const riproponiInc = () => {
+                Incarichi.riproponi(inc.id, Auth.utenteCorrente);
+                toast('Incarico riportato in proposta: ora puoi modificarlo e rigenerare il PDF.', 'verde');
+                naviga('dettaglio', { id: inc.id });
+            };
+            const btnRip = document.getElementById('btn-riproponi-inc'); if (btnRip) btnRip.addEventListener('click', riproponiInc);
+            const btnRipB = document.getElementById('btn-riproponi-banner'); if (btnRipB) btnRipB.addEventListener('click', riproponiInc);
         }
         // eliminato l'incarico la scheda aperta non esiste piu: si torna all'elenco
         const btnElimina = document.getElementById('btn-elimina');
@@ -3737,6 +3832,25 @@
             if (typeof onDone === 'function') onDone(); else naviga('dettaglio', { id: inc.id });
         });
     }
+    /* Proposta non accettata dal cliente: esce dalle proposte in attesa e finisce
+       nella scheda "Non accettati" della sezione Incarichi (con motivo facoltativo). */
+    function modaleNonAccettatoIncarico(inc, onDone) {
+        apriModale(`<h2>Incarico non accettato</h2>
+            <p>La proposta di <strong>${esc(inc.cliente)}</strong> verra segnata come <strong>non accettata</strong>: esce dalle proposte in attesa di conferma e finisce nella scheda <strong>Non accettati</strong> della sezione Incarichi. Da li potrai riportarla in proposta per rielaborarla e rigenerare il PDF. L'operazione resta nel registro modifiche.</p>
+            <div class="campo" style="margin-top:8px;"><label>Motivo (facoltativo)</label><input type="text" id="m-na-motivo" placeholder="Es. compenso ritenuto troppo alto"></div>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-danger" id="m-conferma">Segna come non accettato</button>
+            </div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            Incarichi.nonAccetta(inc.id, Auth.utenteCorrente, document.getElementById('m-na-motivo').value.trim());
+            chiudiModale();
+            toast('Incarico segnato come non accettato: lo trovi in Incarichi > Non accettati.', 'verde');
+            if (typeof onDone === 'function') onDone();
+        });
+    }
+
     function modaleTerminaIncarico(inc, onDone) {
         apriModale(`<h2>Terminare l'incarico?</h2>
             <p>L'incarico <strong>${esc(inc.cliente)}</strong> verra spostato nella scheda <strong>Terminati</strong> e non comparira piu tra gli attivi. Potrai riattivarlo in qualsiasi momento. L'operazione resta nel registro modifiche.</p>
@@ -5260,7 +5374,7 @@
         });
         // prima gli attivi, poi i terminati; dentro ogni gruppo per cliente
         out.sort((a, b) => {
-            const chiusi = s => (s === 'cessato' || s === 'dimesso') ? 1 : 0;
+            const chiusi = s => (s === 'cessato' || s === 'dimesso' || s === 'nonAccettato') ? 1 : 0;
             const ca = chiusi(a.inc.stato), cb = chiusi(b.inc.stato);
             return ca - cb || String(a.inc.cliente || '').localeCompare(String(b.inc.cliente || ''), 'it');
         });
@@ -5429,7 +5543,7 @@
 
     function vistaCoordinatori() {
         const puoScr = Auth.puoScrivere('persone');
-        const attivi = Incarichi.visibili().filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso');
+        const attivi = Incarichi.visibili().filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'nonAccettato');
         const coordinatori = Persone.tutte().filter(p => p.coordinatore && !p.eliminato).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
         const vice = Persone.tutte().filter(p => p.viceCoordinatore && !p.eliminato).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
 
@@ -5532,7 +5646,7 @@
             return !!x && x.id === p.id;
         });
         out.sort((a, b) => {
-            const chiuso = s => (s === 'cessato' || s === 'dimesso') ? 1 : 0;
+            const chiuso = s => (s === 'cessato' || s === 'dimesso' || s === 'nonAccettato') ? 1 : 0;
             return chiuso(a.stato) - chiuso(b.stato) || String(a.cliente || '').localeCompare(String(b.cliente || ''), 'it');
         });
         return out;
@@ -12427,7 +12541,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         // le proposte non entrano nell'andamento finche' non sono confermate
         const valori = anni.map(a => incarichi.reduce((s, i) => s + compensoContabile(i, a), 0));
         const max = Math.max(...valori, 1);
-        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta');
+        const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta' && i.stato !== 'nonAccettato');
         let scadTot = 0, scaduTot = 0;
         attivi.forEach(i => { const s = Incarichi.statoScadenza(i); const c = Incarichi.compensoAnno(i, annoCorr); if (s.classe === 'ambra') scadTot += c; else if (s.classe === 'rosso') scaduTot += c; });
 
