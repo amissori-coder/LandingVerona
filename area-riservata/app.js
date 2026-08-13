@@ -1096,6 +1096,17 @@
         }
     };
 
+    /* Le regioni a cui e' limitato il ruolo collegato, nella grafia della scheda:
+       null = il ruolo vede tutto, [] = e' limitato ma non ha alcuna regione spuntata.
+       Le viste di riepilogo la usano per dichiarare su quale perimetro sono calcolati i
+       numeri: senza, un coordinatore poteva leggere i totali del proprio territorio come
+       se fossero quelli dello studio. */
+    function regioniDelRuolo() {
+        if (!Auth.regioniConsentite()) return null;
+        const p = Auth.personaCorrente();
+        return p ? regioniCoperte(p) : [];
+    }
+
     /* =========================================================
        CLOUD (Firebase: accesso reale via email e dati condivisi)
        Attivo solo se window.RV_FIREBASE_CONFIG e' compilato.
@@ -2424,9 +2435,15 @@
             return (inc.compensi && inc.compensi[anno]) ? Number(inc.compensi[anno]) : 0;
         },
 
+        /* Gli anni servono alle viste: selettori, assi dei grafici, colonne del CSV.
+           Si guardano quindi gli incarichi VISIBILI, non tutti: a un ruolo limitato per
+           regione l'elenco completo faceva comparire anni in cui il suo territorio non ha
+           un solo compenso - barre a zero nel grafico del cruscotto, e la rivelazione che
+           altrove qualcosa c'e'. Per i ruoli senza limite visibili() e' tutti(): per loro
+           non cambia niente. */
         anniConCompensi() {
             const anni = new Set();
-            this.tutti().forEach(i => Object.keys(i.compensi || {}).forEach(a => anni.add(Number(a))));
+            this.visibili().forEach(i => Object.keys(i.compensi || {}).forEach(a => anni.add(Number(a))));
             const lista = Array.from(anni).sort();
             return lista.length ? lista : [annoCorrente()];
         }
@@ -3237,6 +3254,16 @@
     function vistaDashboard() {
         const incarichi = Incarichi.visibili();
         const anno = annoCorrente();
+        /* Perimetro dei numeri: un ruolo limitato per regione (coordinatore e vice) vede
+           qui solo il proprio territorio, e il cruscotto deve dirlo. Prima la descrizione
+           parlava di "quadro generale" a chiunque: gli stessi riquadri sembravano i totali
+           dello studio. Per gli altri ruoli non cambia nulla. */
+        const regioniRuolo = regioniDelRuolo();
+        const descrizioneAmbito = !regioniRuolo
+            ? 'Quadro generale degli incarichi di revisione e dei compensi.'
+            : regioniRuolo.length
+                ? `Incarichi di revisione e compensi delle regioni che ti sono assegnate: <strong>${esc(regioniRuolo.join(', '))}</strong>. Gli incarichi delle altre regioni non entrano in questi riepiloghi.`
+                : 'Il tuo ruolo e limitato alle regioni assegnate, ma sulla tua scheda non ne risulta spuntata nessuna: finche non le indica l\'amministratore non vedi alcun incarico.';
         // le proposte stanno fuori dagli attivi: sono in attesa di conferma e non contano nei totali
         const proposte = incarichi.filter(i => i.stato === 'proposta');
         const attivi = incarichi.filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'proposta' && i.stato !== 'nonAccettato');
@@ -3260,7 +3287,7 @@
             <header>
                 <div>
                     <h1>Cruscotto</h1>
-                    <p class="descrizione">Quadro generale degli incarichi di revisione e dei compensi.</p>
+                    <p class="descrizione">${descrizioneAmbito}</p>
                 </div>
                 <div class="header-azioni">
                     ${Auth.puoScrivere('incarichi') ? '<button class="btn btn-primary" id="btn-nuovo-incarico">+ Nuovo incarico</button>' : ''}
