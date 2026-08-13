@@ -324,6 +324,11 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .sidebar .utente-box { padding: 14px 18px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 0.82rem; }
 .sidebar .utente-box .nome { font-weight: 700; }
 .sidebar .utente-box .ruolo { color: rgba(255,255,255,0.6); font-size: 0.75rem; text-transform: capitalize; }
+/* Regioni assegnate ai coordinatori e ai vice: riga propria, sempre visibile sotto il
+   ruolo. Niente capitalize ereditato da .ruolo, che storpiava i nomi propri delle
+   regioni ("Valle d'Aosta" diventava "Valle D'aosta"). */
+.sidebar .utente-box .regioni-assegnate { display: block; margin-top: 4px; text-transform: none; color: rgba(255,255,255,0.75); line-height: 1.35; }
+.sidebar .utente-box .regioni-assegnate strong { color: #fff; font-weight: 600; }
 .sidebar .utente-box button { margin-top: 10px; }
 
 /* Box "utenti connessi ora": un pannello integrato in fondo alla sidebar */
@@ -544,6 +549,14 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
    larghezza la colonna delle azioni finirebbe fuori dalla parte visibile */
 .modale.extra-larga { max-width: 1150px; }
 .modale h2 { font-size: 1.15rem; margin-bottom: 14px; }
+/* Avviso d'ingresso di coordinatori e vice: il riquadro con le regioni assegnate e'
+   la cosa che devono leggere per prima, quindi sta in evidenza sopra le spiegazioni. */
+.riquadro-ambito { background: var(--blu-100); border-left: 4px solid var(--blu-700); border-radius: 6px; padding: 12px 14px; margin-bottom: 14px; }
+.etichetta-ambito { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--blu-700); margin-bottom: 4px; }
+.valore-ambito { font-size: 1.05rem; font-weight: 700; color: var(--blu-900); line-height: 1.35; }
+.elenco-ambito { margin: 0; padding-left: 20px; }
+.elenco-ambito li { margin-bottom: 8px; line-height: 1.5; }
+.elenco-ambito li:last-child { margin-bottom: 0; }
 .modale-azioni { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
 /* ---- Finestra stile desktop (barra titolo + riduci / schermo intero / chiudi) ---- */

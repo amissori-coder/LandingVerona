@@ -994,6 +994,8 @@
             if (this.utenteCorrente) Audit.registra(this.utenteCorrente.email, 'Uscita', 'utente', this.utenteCorrente.email, null, null);
             this.utenteCorrente = null;
             sessionStorage.removeItem('rvArea.sessione');
+            // chi rientra deve rivedere l'avviso sul proprio territorio
+            try { sessionStorage.removeItem(CHIAVE_AVVISO_AMBITO); } catch (e) { }
             if (Cloud.attivo) Cloud.esci();
         },
 
@@ -3194,14 +3196,15 @@
     function aggiornaEtichettaUtente() {
         const el = document.getElementById('utente-ruolo');
         if (!el || !Auth.utenteCorrente) return;
-        let etich = nomeRuolo(Auth.utenteCorrente.ruolo);
-        const rc = Auth.ruoloCorrente();
-        if (rc && rc.coordinatore) {
-            // stesse regioni di regioniConsentite, ma con le grafie originali
-            const regioni = regioniCoperte(Auth.personaCorrente());
-            etich += ' · ' + (regioni.length ? regioni.join(', ') : 'nessuna regione coordinata');
-        }
-        el.textContent = etich;
+        const etich = nomeRuolo(Auth.utenteCorrente.ruolo);
+        // le regioni assegnate restano sempre sott'occhio, su una riga loro e con
+        // l'etichetta che dice cosa sono: appese al ruolo dopo un punto separatore si
+        // leggevano come parte del nome del ruolo
+        const regioni = regioniDelRuolo();   // null = ruolo senza limite di territorio
+        if (!regioni) { el.textContent = etich; return; }
+        el.innerHTML = esc(etich) + '<span class="regioni-assegnate">' + (regioni.length
+            ? 'Regioni assegnate: <strong>' + esc(regioni.join(', ')) + '</strong>'
+            : '<span class="badge rosso">nessuna regione assegnata</span>') + '</span>';
     }
 
     function disegnaNav() {
@@ -13236,6 +13239,59 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         precompilaLogin();
     }
 
+    /* All'ingresso, chi ha un ruolo limitato per territorio (Coordinatore territoriale e
+       Vice) trova scritto il proprio perimetro: il ruolo, le regioni spuntate sulla sua
+       scheda in Aderenti Revilaw, il fatto che vede i soli incarichi di quelle regioni e
+       con quale livello di accesso. Si mostra una volta per sessione: a ogni accesso, non
+       a ogni ricarica della pagina. */
+    const CHIAVE_AVVISO_AMBITO = 'rvArea.avvisoAmbito';
+
+    function avvisaAmbitoRegionale() {
+        const regioni = regioniDelRuolo();
+        if (!regioni) return;                    // ruolo senza limite: non c'e' nulla da avvisare
+        try {
+            if (sessionStorage.getItem(CHIAVE_AVVISO_AMBITO)) return;
+            sessionStorage.setItem(CHIAVE_AVVISO_AMBITO, '1');
+        } catch (e) { }
+        const rc = Auth.ruoloCorrente();
+        const nomeR = (rc && rc.nome) || nomeRuolo(Auth.utenteCorrente.ruolo);
+        // "sola visualizzazione" si scrive solo se e' vero: l'amministratore puo' aver
+        // concesso la scrittura su qualche sezione (sezione Ruoli e permessi)
+        const scrivibili = SEZIONI_RUOLO.filter(s => Auth.puoScrivere(s.id)).map(s => s.nome);
+        const accesso = scrivibili.length
+            ? `Il tuo accesso e in <strong>sola visualizzazione</strong> su tutto, tranne che su ${esc(elencoIt(scrivibili))}, dove puoi anche operare - sempre e solo entro le regioni qui sopra.`
+            : 'Il tuo accesso e in <strong>sola visualizzazione</strong>: puoi consultare i dati del tuo territorio, non modificarli.';
+        apriModale(`<h2>${esc(nomeR)}</h2>
+            <p class="descrizione" style="margin:-6px 0 14px;">Il tuo accesso all'area riservata e legato al territorio che ti e stato assegnato.</p>
+            <div class="riquadro-ambito">
+                <div class="etichetta-ambito">Regioni assegnate</div>
+                ${regioni.length
+                ? `<div class="valore-ambito">${esc(regioni.join(', '))}</div>`
+                : '<div class="valore-ambito"><span class="badge rosso">nessuna regione assegnata</span></div>'}
+            </div>
+            ${regioni.length
+                ? `<ul class="elenco-ambito">
+                        <li>Vedi <strong>solo gli incarichi</strong> di queste regioni: quelli delle altre non compaiono in alcuna schermata, nemmeno nei totali del cruscotto.</li>
+                        <li>${accesso}</li>
+                   </ul>`
+                : `<ul class="elenco-ambito">
+                        <li>Finche non ti viene assegnata almeno una regione <strong>non vedi alcun incarico</strong>: non e un guasto, e la regola di sicurezza.</li>
+                        <li>Chiedi all'amministratore di spuntare le tue regioni sulla tua scheda, nella sezione Aderenti Revilaw.</li>
+                   </ul>`}
+            <p class="hint" style="margin-top:12px;">${regioni.length
+                ? 'Le regioni si spuntano sulla scheda della persona (sezione Aderenti Revilaw), sotto le caselle Coordinatore territoriale e Vice coordinatore territoriale. Le trovi sempre riportate in basso a sinistra, sotto il tuo nome.'
+                : 'Appena ti verranno assegnate, le tue regioni compariranno sempre in basso a sinistra, sotto il tuo nome.'}</p>
+            <div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Ho capito</button></div>`);
+        const btn = document.getElementById('m-ok');
+        if (btn) btn.addEventListener('click', chiudiModale);
+    }
+
+    // "a, b e c": elenco leggibile in italiano
+    function elencoIt(voci) {
+        if (voci.length <= 1) return voci[0] || '';
+        return voci.slice(0, -1).join(', ') + ' e ' + voci[voci.length - 1];
+    }
+
     function mostraApp() {
         segnaAttivita();
         Persone.migraNomi(); // porta i vecchi record "nomeCompleto" ai campi nome/cognome
@@ -13247,6 +13303,8 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         aggiornaEtichettaUtente();
         if (typeof Cloud !== 'undefined' && Cloud.attivo) Cloud.avviaPresenza();
         naviga('dashboard');
+        // a coordinatori e vice si ricorda subito qual e' il loro territorio
+        avvisaAmbitoRegionale();
         // chi sono i nuovi iscritti dal sito: si mostrano appena si entra
         avvisaNuoviIscritti();
         // ...e si continua a guardare anche dopo, non solo in questo istante
