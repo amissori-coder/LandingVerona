@@ -13278,6 +13278,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                         <li>Finche non ti viene assegnata almeno una regione <strong>non vedi alcun incarico</strong>: non e un guasto, e la regola di sicurezza.</li>
                         <li>Chiedi all'amministratore di spuntare le tue regioni sulla tua scheda, nella sezione Aderenti Revilaw.</li>
                    </ul>`}
+            <p class="nota-riferimento">Eventuali <strong>modifiche e correzioni</strong> ai dati non si eseguono da qui: vanno richieste all'<strong>equity partner</strong>.</p>
             <p class="hint" style="margin-top:12px;">${regioni.length
                 ? 'Le regioni si spuntano sulla scheda della persona (sezione Aderenti Revilaw), sotto le caselle Coordinatore territoriale e Vice coordinatore territoriale. Le trovi sempre riportate in basso a sinistra, sotto il tuo nome.'
                 : 'Appena ti verranno assegnate, le tue regioni compariranno sempre in basso a sinistra, sotto il tuo nome.'}</p>
