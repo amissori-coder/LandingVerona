@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260813e">
+    <link rel="stylesheet" href="styles.css?v=20260813f">
 </head>
 <body>
 
@@ -82,7 +82,10 @@
             <div class="utente-box">
                 <div class="nome" id="utente-nome"></div>
                 <div class="ruolo" id="utente-ruolo"></div>
-                <button class="btn btn-sm btn-secondary" id="btn-logout">Esci</button>
+                <div class="utente-azioni">
+                    <a class="btn btn-sm btn-secondary" href="manuale.html" target="_blank" rel="noopener" title="Apre il manuale dell'area riservata in una nuova scheda">Manuale</a>
+                    <button class="btn btn-sm btn-secondary" id="btn-logout">Esci</button>
+                </div>
             </div>
         </aside>
         <main class="contenuto" id="vista"></main>
@@ -95,6 +98,6 @@
     <script src="dati-demo.js"></script>
     <!-- formato della newsletter: funzioni pure, caricate prima dell'applicazione -->
     <script src="newsletter-format.js?v=20260729q"></script>
-    <script src="app.js?v=20260813e"></script>
+    <script src="app.js?v=20260813f"></script>
 </body>
 </html>

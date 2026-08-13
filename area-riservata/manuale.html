@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Manuale dell'area riservata incarichi di Revilaw S.p.A.: permessi per ruolo, procedure e schermate.">
+<link rel="icon" type="image/png" href="../assets/favicon.png">
+<title>Manuale dell'area riservata | Revilaw S.p.A.</title>
+<style>
+  :root {
+    --carta:        #FCFCFD;
+    --carta-alt:    #F2F5F8;
+    --inchiostro:   #101F2E;
+    --grigio:       #566779;
+    --grigio-tenue: #7B8899;
+    --filo:         #DBE2EA;
+    --filo-forte:   #C3CEDA;
+    --blu:          #164068;
+    --blu-vivo:     #2A5A85;
+    --blu-lavato:   #E8EFF6;
+    --pieno:        #1C6448;
+    --pieno-fondo:  #E4F0EA;
+    --lettura:      #8A6417;
+    --lettura-fondo:#F6EEDC;
+    --isolato:      #574778;
+    --isolato-fondo:#EDE9F4;
+    --ombra:        0 1px 2px rgba(16,31,46,.06), 0 8px 24px rgba(16,31,46,.07);
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --carta:        #0D1720;
+      --carta-alt:    #14212D;
+      --inchiostro:   #E3EAF1;
+      --grigio:       #9DAAB8;
+      --grigio-tenue: #7C8A99;
+      --filo:         #24333F;
+      --filo-forte:   #35485A;
+      --blu:          #8FBADF;
+      --blu-vivo:     #A9CCEA;
+      --blu-lavato:   #16283A;
+      --pieno:        #74C39D;
+      --pieno-fondo:  #13291F;
+      --lettura:      #DCB667;
+      --lettura-fondo:#2A2314;
+      --isolato:      #B3A2D8;
+      --isolato-fondo:#221D30;
+      --ombra:        0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --carta:        #0D1720;
+    --carta-alt:    #14212D;
+    --inchiostro:   #E3EAF1;
+    --grigio:       #9DAAB8;
+    --grigio-tenue: #7C8A99;
+    --filo:         #24333F;
+    --filo-forte:   #35485A;
+    --blu:          #8FBADF;
+    --blu-vivo:     #A9CCEA;
+    --blu-lavato:   #16283A;
+    --pieno:        #74C39D;
+    --pieno-fondo:  #13291F;
+    --lettura:      #DCB667;
+    --lettura-fondo:#2A2314;
+    --isolato:      #B3A2D8;
+    --isolato-fondo:#221D30;
+    --ombra:        0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--carta); color: var(--inchiostro);
+    font-family: var(--sans); font-size: 16.5px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { font-family: var(--serif); text-wrap: balance; margin: 0; font-weight: 600; letter-spacing: -.01em; }
+  p { margin: 0; }
+  a { color: var(--blu); }
+  strong { font-weight: 650; }
+
+  /* ---------- impianto ---------- */
+  .foglio { max-width: 1400px; margin: 0 auto; padding: 0 28px 96px; }
+  .impianto { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 56px; align-items: start; }
+  @media (max-width: 1000px) { .impianto { grid-template-columns: 1fr; gap: 0; } .indice { display: none; } }
+
+  /* ---------- testata ---------- */
+  .testata { border-bottom: 1px solid var(--filo); padding: 64px 0 34px; margin-bottom: 44px; }
+  .marchio {
+    font-family: var(--mono); font-size: .72rem; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--blu); display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+  }
+  .marchio::after { content: ""; flex: 1; height: 1px; background: var(--filo); }
+  .testata h1 { font-size: clamp(2.3rem, 5vw, 3.4rem); line-height: 1.08; margin-bottom: 16px; }
+  .sommario { font-size: 1.12rem; color: var(--grigio); max-width: 62ch; }
+  .schedina { display: flex; flex-wrap: wrap; gap: 10px 36px; margin-top: 28px; font-family: var(--mono); font-size: .76rem; color: var(--grigio-tenue); }
+  .schedina b { color: var(--inchiostro); font-weight: 500; }
+
+  /* ---------- indice ---------- */
+  .indice { position: sticky; top: 24px; font-size: .875rem; }
+  .indice-titolo { font-family: var(--mono); font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: var(--grigio-tenue); padding-bottom: 10px; border-bottom: 1px solid var(--filo); margin-bottom: 12px; }
+  .indice ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+  .indice a { display: block; padding: 5px 10px; border-radius: 5px; text-decoration: none; color: var(--grigio); border-left: 2px solid transparent; }
+  .indice a:hover { background: var(--carta-alt); color: var(--inchiostro); border-left-color: var(--blu); }
+  .indice .sotto a { padding-left: 22px; font-size: .82rem; color: var(--grigio-tenue); }
+
+  /* ---------- sezioni ---------- */
+  section { scroll-margin-top: 20px; }
+  section + section { margin-top: 72px; }
+  .numero { font-family: var(--mono); font-size: .72rem; letter-spacing: .16em; color: var(--blu); text-transform: uppercase; display: block; margin-bottom: 8px; }
+  h2 { font-size: 1.85rem; line-height: 1.2; padding-bottom: 14px; border-bottom: 2px solid var(--inchiostro); margin-bottom: 24px; }
+  h3 { font-size: 1.28rem; margin: 40px 0 12px; }
+  h4 { font-size: 1.02rem; margin: 26px 0 8px; font-family: var(--sans); font-weight: 650; }
+  .prosa { max-width: 68ch; display: flex; flex-direction: column; gap: 14px; }
+  .prosa + .prosa { margin-top: 14px; }
+
+  /* ---------- scheda ruolo ---------- */
+  .ruolo-testata { border: 1px solid var(--filo); border-left: 5px solid var(--tinta, var(--blu)); border-radius: 4px; padding: 22px 24px; background: var(--carta-alt); margin-bottom: 26px; }
+  .ruolo-testata h2 { border: none; padding: 0; margin: 0 0 6px; font-size: 1.6rem; }
+  .ruolo-id { font-family: var(--mono); font-size: .74rem; color: var(--grigio-tenue); }
+  .ruolo-riassunto { margin-top: 12px; color: var(--grigio); max-width: 66ch; }
+  .tinta-piena { --tinta: var(--pieno); }
+  .tinta-lettura { --tinta: var(--lettura); }
+  .tinta-isolato { --tinta: var(--isolato); }
+
+  .etichette { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+  .etichetta { font-family: var(--mono); font-size: .7rem; letter-spacing: .04em; padding: 3px 9px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
+  .et-piena { color: var(--pieno); background: var(--pieno-fondo); }
+  .et-lettura { color: var(--lettura); background: var(--lettura-fondo); }
+  .et-isolato { color: var(--isolato); background: var(--isolato-fondo); }
+  .et-neutra { color: var(--grigio); background: var(--carta-alt); }
+
+  /* ---------- tabella permessi ---------- */
+  .tabella-scorre { overflow-x: auto; border: 1px solid var(--filo); border-radius: 4px; margin: 22px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .84rem; min-width: 780px; }
+  thead th { background: var(--carta-alt); text-align: left; font-family: var(--mono); font-weight: 500; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--grigio); padding: 11px 13px; border-bottom: 1px solid var(--filo-forte); vertical-align: bottom; }
+  tbody td { padding: 10px 13px; border-bottom: 1px solid var(--filo); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody th { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--filo); font-weight: 600; white-space: nowrap; }
+  tbody tr:nth-child(even) th, tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--carta-alt) 55%, transparent); }
+  .liv { font-family: var(--mono); font-size: .74rem; white-space: nowrap; }
+  .liv-s { color: var(--pieno); font-weight: 600; }
+  .liv-l { color: var(--lettura); font-weight: 600; }
+  .liv-n { color: var(--grigio-tenue); }
+
+  /* ---------- passi ---------- */
+  .passi { list-style: none; counter-reset: passo; margin: 26px 0 0; padding: 0; display: flex; flex-direction: column; gap: 34px; }
+  .passi > li { counter-increment: passo; position: relative; padding-left: 52px; }
+  .passi > li::before {
+    content: counter(passo, decimal-leading-zero); position: absolute; left: 0; top: 1px;
+    font-family: var(--mono); font-size: .78rem; font-weight: 600; color: var(--blu);
+    width: 34px; height: 34px; display: grid; place-items: center;
+    border: 1px solid var(--filo-forte); border-radius: 50%; background: var(--carta);
+  }
+  .passi > li::after { content: ""; position: absolute; left: 17px; top: 40px; bottom: -34px; width: 1px; background: var(--filo); }
+  .passi > li:last-child::after { display: none; }
+  .passo-titolo { font-weight: 650; font-size: 1.03rem; margin-bottom: 6px; }
+  .passo-testo { color: var(--grigio); max-width: 64ch; }
+
+  /* ---------- figure ---------- */
+  figure { margin: 18px 0 0; }
+  figure img {
+    display: block; width: 100%; max-width: 1000px; height: auto; border-radius: 4px;
+    border: 1px solid var(--filo-forte); box-shadow: var(--ombra); cursor: zoom-in; background: var(--carta-alt);
+  }
+  figcaption { font-family: var(--mono); font-size: .73rem; color: var(--grigio-tenue); margin-top: 9px; max-width: 1000px; line-height: 1.5; }
+  figcaption b { color: var(--grigio); font-weight: 500; }
+
+  /* ---------- riquadri ---------- */
+  .nota { border-left: 3px solid var(--blu); background: var(--blu-lavato); padding: 14px 18px; border-radius: 0 4px 4px 0; margin: 20px 0; max-width: 70ch; }
+  .nota-titolo { font-family: var(--mono); font-size: .69rem; letter-spacing: .12em; text-transform: uppercase; color: var(--blu); margin-bottom: 5px; }
+  .nota.attenzione { border-left-color: var(--lettura); background: var(--lettura-fondo); }
+  .nota.attenzione .nota-titolo { color: var(--lettura); }
+
+  ul.punti { margin: 6px 0; padding-left: 20px; max-width: 68ch; display: flex; flex-direction: column; gap: 7px; }
+  ul.punti li::marker { color: var(--blu); }
+  dl.voci { margin: 18px 0 0; display: grid; grid-template-columns: minmax(150px, 240px) 1fr; gap: 1px 22px; max-width: 78ch; }
+  dl.voci dt { font-weight: 650; padding: 9px 0; border-top: 1px solid var(--filo); }
+  dl.voci dd { margin: 0; padding: 9px 0; color: var(--grigio); border-top: 1px solid var(--filo); }
+  @media (max-width: 620px) { dl.voci { grid-template-columns: 1fr; gap: 0; } dl.voci dd { border-top: none; padding-top: 0; } }
+
+  kbd { font-family: var(--mono); font-size: .82em; background: var(--carta-alt); border: 1px solid var(--filo-forte); border-radius: 3px; padding: 1px 6px; white-space: nowrap; }
+
+  /* ---------- ingrandimento ---------- */
+  .lente { position: fixed; inset: 0; background: rgba(8, 16, 24, .88); display: none; place-items: center; z-index: 50; padding: 24px; cursor: zoom-out; }
+  .lente.aperta { display: grid; }
+  .lente img { max-width: 100%; max-height: 100%; border-radius: 4px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .lente-chiudi { position: absolute; top: 16px; right: 20px; font-family: var(--mono); font-size: .8rem; color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3); border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--blu-vivo); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  .chiusa { border-top: 1px solid var(--filo); margin-top: 80px; padding-top: 22px; font-family: var(--mono); font-size: .73rem; color: var(--grigio-tenue); max-width: 70ch; line-height: 1.7; }
+
+  /* ---------- indice per ruolo ---------- */
+  .schede-ruolo { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; margin-top: 24px; }
+  .scheda-ruolo { border: 1px solid var(--filo); border-top: 3px solid var(--tinta, var(--blu)); border-radius: 4px; padding: 18px 20px 20px; background: var(--carta); display: flex; flex-direction: column; gap: 12px; }
+  .scheda-ruolo h4 { margin: 0; font-family: var(--serif); font-size: 1.12rem; font-weight: 600; }
+  .scheda-ruolo .ruolo-id { margin-top: -8px; }
+  .voce-elenco { font-size: .875rem; }
+  .voce-elenco dt { font-family: var(--mono); font-size: .66rem; letter-spacing: .11em; text-transform: uppercase; color: var(--tinta, var(--blu)); margin-bottom: 3px; }
+  .voce-elenco dd { margin: 0 0 11px; color: var(--grigio); line-height: 1.55; }
+  .voce-elenco dd:last-child { margin-bottom: 0; }
+  .rimandi { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--filo); font-size: .8rem; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .rimandi a { text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--blu) 35%, transparent); }
+  .rimandi a:hover { border-bottom-color: var(--blu); }
+
+  /* ---------- carta intestata: solo in stampa ---------- */
+  .carta-intestata { display: none; }
+
+  @media print {
+    :root {
+      --carta: #fff; --carta-alt: #F4F6F8; --inchiostro: #111; --grigio: #3C4A57; --grigio-tenue: #5C6B79;
+      --filo: #CBD3DB; --filo-forte: #A7B3BF; --blu: #164068; --blu-vivo: #2A5A85; --blu-lavato: #EDF2F7;
+      --pieno: #14563C; --pieno-fondo: #EAF3EE; --lettura: #6F5010; --lettura-fondo: #F8F2E2;
+      --isolato: #453764; --isolato-fondo: #F0EDF6; --ombra: none;
+    }
+    @page { size: A4; margin: 20mm 14mm 18mm; }
+    body { background: #fff; color: #111; font-family: Georgia, "Times New Roman", serif; font-size: 10.5pt; line-height: 1.55; }
+    .foglio { max-width: none; padding: 0; }
+    .impianto { display: block; }
+    .indice, .lente { display: none !important; }
+    .testata { display: none; }
+
+    /* frontespizio su carta intestata */
+    .carta-intestata { display: block; break-after: page; }
+    .ci-testa { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1E293B; padding-bottom: 14px; }
+    .ci-marchio { display: inline-flex; align-items: center; gap: 10px; font-family: "Montserrat", Arial, Helvetica, sans-serif; font-size: 17pt; font-weight: 800; letter-spacing: -.5px; }
+    .ci-marchio img { height: 40px; width: auto; }
+    .ci-marchio .lr { color: #1E293B; }
+    .ci-marchio .ls { color: #8bb8d4; }
+    .ci-dati { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; color: #444; text-align: right; line-height: 1.5; }
+    .ci-corpo { margin-top: 92mm; }
+    .ci-occhiello { font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; letter-spacing: .22em; text-transform: uppercase; color: #2A5A85; margin-bottom: 12px; }
+    .ci-corpo h1 { font-family: Georgia, serif; font-size: 30pt; line-height: 1.1; color: #111; margin: 0 0 14px; }
+    .ci-corpo p { font-size: 12pt; color: #333; max-width: 118mm; }
+    .ci-piede { margin-top: 26mm; border-top: 1px solid #CBD3DB; padding-top: 12px; font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; color: #555; display: flex; justify-content: space-between; gap: 20px; }
+
+    h1, h2, h3, h4 { font-family: Georgia, serif; break-after: avoid; }
+    h2 { font-size: 17pt; border-bottom-width: 1.5px; }
+    h3 { font-size: 13pt; margin-top: 22pt; }
+    h4 { font-family: Georgia, serif; font-size: 11.5pt; }
+    .numero, .indice-titolo, .ruolo-id, .etichetta, figcaption, .liv, thead th, .voce-elenco dt, .schedina, .chiusa, kbd { font-family: Arial, Helvetica, sans-serif; }
+    section { break-before: page; }
+    section:first-of-type { break-before: avoid; }
+    .prosa, .passo-testo, .nota, dl.voci, ul.punti { max-width: none; }
+    figure { break-inside: avoid; margin-top: 12pt; }
+    figure img { max-width: 100%; box-shadow: none; border-color: #B8C2CC; cursor: default; }
+    figcaption { font-size: 7.8pt; }
+    .passi > li { break-inside: avoid; }
+    .passi { gap: 22pt; }
+    .ruolo-testata, .nota, .scheda-ruolo, .tabella-scorre { break-inside: avoid; }
+    .schede-ruolo { grid-template-columns: 1fr 1fr; gap: 12pt; }
+    .tabella-scorre { overflow: visible; }
+    table { min-width: 0; font-size: 8pt; }
+    thead { display: table-header-group; }
+    thead th, tbody td, tbody th { padding: 5pt 6pt; }
+    a { color: #164068; text-decoration: none; }
+    .rimandi { display: none; }
+  }
+</style>
+<style>
+  .ritorno { font-family: var(--mono); font-size: .78rem; padding-top: 22px; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 26px; }
+  .ritorno a { text-decoration: none; border-bottom: 1px solid currentColor; }
+  @media print { .ritorno { display: none; } }
+</style>
+</head>
+<body>
+
+
+<div class="foglio">
+
+  <p class="ritorno"><a href="./">Torna all'area riservata</a><a href="manuale/Manuale-area-riservata-Revilaw.pdf">Scarica il manuale in PDF</a></p>
+
+  <div class="carta-intestata">
+    <div class="ci-testa">
+      <span class="ci-marchio"><img src="manuale/logo-revilaw.png" alt=""><span class="lr">Revilaw</span><span class="ls">SPA</span></span>
+      <div class="ci-dati">
+        REVILAW S.p.A. - Revisione Legale<br>
+        Via XX Settembre 9 - 37129 Verona<br>
+        C.F. 04641610235 - www.revilaw.it
+      </div>
+    </div>
+    <div class="ci-corpo">
+      <div class="ci-occhiello">Area riservata incarichi, documentazione interna</div>
+      <h1>Manuale dell'area riservata</h1>
+      <p>Guida completa alla gestione degli incarichi di revisione: che cosa vede e che cosa può fare ciascun ruolo, sezione per sezione, con le schermate di ogni passaggio.</p>
+    </div>
+    <div class="ci-piede">
+      <span>Documento a uso interno. Non diffondere all'esterno dello studio</span>
+      <span>Verona, 13 agosto 2026</span>
+    </div>
+  </div>
+
+  <header class="testata">
+    <div class="marchio">Revilaw S.p.A., area riservata incarichi</div>
+    <h1>Manuale dell'area riservata</h1>
+    <p class="sommario">Guida completa alla gestione degli incarichi di revisione: che cosa vede e che cosa può fare ciascun ruolo, sezione per sezione, con le schermate di ogni passaggio.</p>
+    <div class="schedina">
+      <span>Ruoli documentati <b>9</b></span>
+      <span>Sezioni <b>14</b></span>
+      <span>Capitoli <b>15</b></span>
+      <span>Schermate <b>40</b></span>
+      <span>Aggiornato al <b>13 agosto 2026</b></span>
+    </div>
+  </header>
+
+  <div class="impianto">
+    <nav class="indice" aria-label="Indice del manuale">
+      <div class="indice-titolo">Indice</div>
+      <ol>
+        <li><a href="#accesso">Entrare nell'area</a></li>
+        <li><a href="#schermata">Come si legge una schermata</a></li>
+        <li><a href="#mappa">La mappa delle sezioni</a></li>
+        <li><a href="#permessi">Come funzionano i permessi</a></li>
+        <li><a href="#matrice">Matrice ruoli e sezioni</a></li>
+        <li><a href="#indice-ruoli">Indice per ruolo</a></li>
+        <li><a href="#amministratore">Amministratore e Titolare</a></li>
+        <li><a href="#operativi">Qualità e Procuratore</a></li>
+        <li><a href="#coordinatori">Coordinatore e Vice</a></li>
+        <li><a href="#personalizzati">Ruoli personalizzati</a></li>
+        <li><a href="#sondaggio">Ruoli solo sondaggio</a></li>
+        <li><a href="#ciclo">Ciclo di vita di un incarico</a></li>
+        <li><a href="#procedure">Procedure passo passo</a>
+          <ol class="sotto">
+            <li><a href="#p-incarico">Creare un incarico</a></li>
+            <li><a href="#p-modifica">Aprire e modificare</a></li>
+            <li><a href="#p-persona">Anagrafica aderenti</a></li>
+            <li><a href="#p-regioni">Assegnare le regioni</a></li>
+            <li><a href="#p-territorio">Incarichi di un territorio</a></li>
+            <li><a href="#p-compensi">Compensi e fatture</a></li>
+            <li><a href="#p-comunicazioni">Comunicazioni</a></li>
+            <li><a href="#p-utenti">Utenti e ruoli</a></li>
+            <li><a href="#p-dati">Dati e backup</a></li>
+          </ol>
+        </li>
+        <li><a href="#glossario">Glossario</a></li>
+        <li><a href="#problemi">Problemi ricorrenti</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- ======================= 1 ======================= -->
+      <section id="accesso">
+        <span class="numero">Capitolo 1</span>
+        <h2>Entrare nell'area</h2>
+        <div class="prosa">
+          <p>L'area riservata si apre da <b>/area-riservata</b>. Si entra con il proprio indirizzo email e una password personale: non esistono credenziali condivise, perché è dall'indirizzo che il programma capisce chi sei e quindi che cosa puoi vedere.</p>
+          <p>Alla prima volta la password non c'è ancora: si chiede con il pulsante <b>Richiedi la prima password</b>, che la invia all'indirizzo registrato dall'amministratore. La stessa strada vale se la password si dimentica.</p>
+        </div>
+
+        <ol class="passi">
+          <li>
+            <div class="passo-titolo">Apri la schermata di accesso</div>
+            <p class="passo-testo">Inserisci l'indirizzo email con cui sei stato registrato e la password. La casella <b>Ricorda il mio indirizzo su questo computer</b> memorizza solo l'email: la password resta al gestore password del browser, l'applicazione non la scrive da nessuna parte.</p>
+            <figure><img src="manuale/01-accesso.jpg" alt="Schermata di accesso all'area riservata"><figcaption><b>Schermata di accesso.</b> Sotto il modulo c'è sempre indicato se l'ambiente è dimostrativo o con accesso protetto.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Se è la prima volta, chiedi la password</div>
+            <p class="passo-testo">Il pulsante <b>Richiedi la prima password</b> chiede l'indirizzo e invia le istruzioni per impostarla. Funziona solo per gli indirizzi già abilitati dall'amministratore: se il tuo non è stato registrato, la richiesta non produce nulla e devi rivolgerti a lui.</p>
+            <figure><img src="manuale/02-prima-password.jpg" alt="Finestra per richiedere la prima password"><figcaption><b>Prima password.</b> La stessa finestra serve anche per il recupero, dal collegamento «Password dimenticata?».</figcaption></figure>
+          </li>
+        </ol>
+
+        <h3>Regole della password</h3>
+        <dl class="voci">
+          <dt>Requisiti minimi</dt><dd>Almeno otto caratteri, con una lettera maiuscola, una minuscola e una cifra. La password si sceglie al primo accesso e si può cambiare in qualsiasi momento.</dd>
+          <dt>Tentativi falliti</dt><dd>Dopo <b>cinque tentativi sbagliati</b> l'utenza si blocca per cinque minuti e il blocco viene registrato nel Registro modifiche. Non serve chiamare nessuno: passati i cinque minuti si riprova.</dd>
+          <dt>Chi conosce la password</dt><dd>Nessuno oltre a te. L'amministratore registra l'indirizzo e assegna il ruolo, ma non imposta né vede le password: chi le dimentica le rigenera da solo dalla schermata di accesso.</dd>
+          <dt>Salvataggio nel browser</dt><dd>Il modulo di accesso è compatibile con il gestore password del browser, che può quindi proporre di salvarla e ricompilarla. L'applicazione non scrive la password da nessuna parte.</dd>
+        </dl>
+
+        <div class="nota">
+          <div class="nota-titolo">Durata della sessione</div>
+          <p>Dopo <b>30 minuti di inattività</b> la sessione si chiude da sola e occorre rientrare. Anche chiudendo la scheda del browser la sessione termina. È una misura voluta, perché l'area contiene dati di clienti e compensi.</p>
+        </div>
+
+        <div class="nota attenzione">
+          <div class="nota-titolo">Se non vedi alcuna sezione</div>
+          <p>Se dopo l'accesso compare la schermata «Nessuna sezione disponibile», l'utenza è valida ma il ruolo assegnato non consente alcuna sezione. Chiedi all'amministratore di assegnarti i permessi.</p>
+        </div>
+      </section>
+
+      <!-- ======================= schermata ======================= -->
+      <section id="schermata">
+        <span class="numero">Capitolo 2</span>
+        <h2>Come si legge una schermata</h2>
+        <div class="prosa">
+          <p>Tutte le sezioni sono costruite allo stesso modo. Imparata una, si sanno usare le altre.</p>
+        </div>
+
+        <dl class="voci">
+          <dt>Menu di sinistra</dt><dd>Le sezioni consentite al tuo ruolo, raggruppate per argomento. In fondo ci sono il tuo nome, il ruolo e, se sei coordinatore o vice, le regioni assegnate. Il pulsante Esci chiude la sessione.</dd>
+          <dt>Intestazione</dt><dd>In alto a sinistra il titolo della sezione con una riga di spiegazione; a destra i comandi principali, per esempio «+ Nuovo incarico» o «Esporta CSV». Se un comando non compare, il tuo ruolo non ha la scrittura su quella sezione.</dd>
+          <dt>Schede</dt><dd>Molte sezioni sono divise in schede: Incarichi ha Attivi, Terminati, Dismessi e Non accettati; Aderenti Revilaw ha Attive, Disattivate ed Eliminate; Coordinatori e vice ha Coordinatori, Vice coordinatori e Per regione. La scheda scelta resta quella su cui torni.</dd>
+          <dt>Barra dei filtri</dt><dd>Sopra ogni tabella: una ricerca che guarda tutte le colonne e un filtro per ciascuna colonna, in cui si può scrivere liberamente o scegliere un valore suggerito. Quando un filtro è attivo compare il conteggio delle righe visibili sul totale.</dd>
+          <dt>Esporta CSV</dt><dd>Scarica esattamente quello che vedi, filtri compresi. Il file si apre in Excel: separatore punto e virgola e testo protetto contro l'interpretazione automatica delle formule.</dd>
+          <dt>Righe cliccabili</dt><dd>Nelle tabelle principali un clic sulla riga apre il dettaglio. I numeri delle colonne di conteggio sono cliccabili a loro volta e aprono l'elenco di ciò che contano.</dd>
+          <dt>Menu Azioni</dt><dd>L'ultima colonna delle righe raccoglie i comandi in un menu che si apre dal pulsante Azioni. A menu aperto il pulsante resta acceso, così si vede da quale riga escono le voci.</dd>
+          <dt>Finestre</dt><dd>Le schede delle persone, gli elenchi di approfondimento e le conferme si aprono in una finestra sopra la pagina. Si chiudono con il pulsante in fondo, oppure cliccando fuori quando l'operazione non richiede una scelta esplicita.</dd>
+          <dt>Avvisi</dt><dd>Le operazioni riuscite e gli errori compaiono per pochi secondi in basso a destra.</dd>
+          <dt>Schermo stretto</dt><dd>Su telefono e tablet il menu si apre con il pulsante a tre righe in alto a destra e ogni riga di tabella diventa una scheda con le etichette dei campi, così non serve scorrere in orizzontale.</dd>
+        </dl>
+
+        <h3>Quando lavorate in più persone</h3>
+        <div class="prosa">
+          <p>L'area riservata è pensata per l'uso simultaneo. Due funzioni servono a evitare che due persone si sovrascrivano a vicenda.</p>
+          <p><b>Segnalazione di modifica in corso.</b> Se apri la scheda di un incarico o di una persona che un altro utente sta già modificando, compare un avviso con il suo nome. Non sei bloccato, ma sai che conviene accordarsi prima di salvare.</p>
+          <p><b>Aggiornamento rimandato.</b> Quando arrivano dati aggiornati da un altro utente mentre stai scrivendo in una finestra, la schermata non si ridisegna sotto le mani: l'aggiornamento viene applicato appena chiudi.</p>
+        </div>
+      </section>
+
+      <!-- ======================= 2 ======================= -->
+      <section id="mappa">
+        <span class="numero">Capitolo 3</span>
+        <h2>La mappa delle sezioni</h2>
+        <div class="prosa">
+          <p>Il menu di sinistra è sempre lo stesso per tutti, ma <b>mostra solo le sezioni che il tuo ruolo può vedere</b>: se una voce non compare, non è nascosta per errore, semplicemente non rientra nei tuoi permessi. Le voci sono raggruppate per argomento.</p>
+        </div>
+
+        <dl class="voci">
+          <dt>Cruscotto</dt><dd>Il quadro di sintesi: incarichi attivi, compensi dell'anno, incarichi in scadenza e scaduti, proposte da confermare, andamento dei compensi per anno.</dd>
+          <dt>Incarichi</dt><dd>L'elenco completo, diviso in Attivi, Terminati, Dismessi e Non accettati, con ricerca, filtri per colonna ed esportazione CSV. Da qui si apre il dettaglio e si creano nuovi incarichi.</dd>
+          <dt>Aderenti Revilaw</dt><dd>L'anagrafica delle persone: nominativi, contatti, sede e ruoli professionali (responsabile qualità, responsabile incarico, coordinatore, vice).</dd>
+          <dt>Coordinatori e vice</dt><dd>Una lettura dell'anagrafica per territorio: chi coordina quali regioni e quanti incarichi attivi ci sono in ciascuna.</dd>
+          <dt>Responsabili</dt><dd>La stessa anagrafica letta per responsabilità: chi è responsabile qualità e chi responsabile incarico, con gli incarichi che ricopre.</dd>
+          <dt>Fatturazione</dt><dd>Il piano delle scadenze di fatturazione per anno e periodicità (mensile, trimestrale, annuale o specifica), con lo stato di ciascuna rata.</dd>
+          <dt>Report compensi</dt><dd>I compensi letti per anno, con i confronti e le ripartizioni.</dd>
+          <dt>Comunicazione teams di revisione</dt><dd>Invio di messaggi ai team che lavorano sugli incarichi, con variabili che si compilano da sole per ogni destinatario.</dd>
+          <dt>Newsletter commerciali</dt><dd>Preparazione e invio delle newsletter ai contatti commerciali e agli iscritti raccolti dal sito.</dd>
+          <dt>Iscrizioni Eventi NGB</dt><dd>Gli iscritti agli eventi, con conferme, presenze e note.</dd>
+          <dt>Sondaggi</dt><dd>I questionari interni: compilazione e risultati.</dd>
+          <dt>Registro modifiche</dt><dd>Il registro di tutte le operazioni: chi ha fatto cosa e quando. Non si può cancellare.</dd>
+          <dt>Utenti</dt><dd>Chi può entrare e con quale ruolo. Riservata all'amministratore e al titolare.</dd>
+          <dt>Ruoli e permessi</dt><dd>La configurazione dei ruoli, sezione per sezione. Riservata all'amministratore e al titolare.</dd>
+          <dt>Dati e backup</dt><dd>Importazione, esportazione e copie di sicurezza dell'archivio. Riservata al titolare.</dd>
+        </dl>
+
+        <div class="nota">
+          <div class="nota-titolo">Tre sezioni che non hanno un permesso proprio</div>
+          <p><b>Coordinatori e vice</b> e <b>Responsabili</b> sono due modi di leggere l'anagrafica: seguono il permesso di <b>Aderenti Revilaw</b>. Allo stesso modo il <b>dettaglio di un incarico</b>, la <b>creazione guidata</b> e la <b>lettera d'incarico</b> seguono il permesso di <b>Incarichi</b>.</p>
+        </div>
+      </section>
+
+      <!-- ======================= 3 ======================= -->
+      <section id="permessi">
+        <span class="numero">Capitolo 4</span>
+        <h2>Come funzionano i permessi</h2>
+        <div class="prosa">
+          <p>Ogni utente ha <b>un ruolo</b>. Il ruolo stabilisce, per ciascuna delle otto sezioni configurabili, uno di tre livelli.</p>
+        </div>
+
+        <div class="etichette">
+          <span class="etichetta et-neutra">Nascosta: la voce non compare nel menu</span>
+          <span class="etichetta et-lettura">Sola lettura: si consulta, non si modifica</span>
+          <span class="etichetta et-piena">Scrittura: si consulta e si modifica</span>
+        </div>
+
+        <h3>Le sezioni che si configurano dal ruolo</h3>
+        <div class="prosa">
+          <p>Sono otto: Cruscotto, Incarichi, Aderenti Revilaw, Fatturazione, Report compensi, Comunicazione teams di revisione, Sondaggi, Registro modifiche. Per ognuna l'amministratore sceglie il livello.</p>
+        </div>
+
+        <h3>Le sezioni che non passano dal ruolo</h3>
+        <div class="prosa">
+          <p>Cinque sezioni hanno regole proprie, indipendenti dal ruolo, perché toccano la sicurezza o l'invio di messaggi a nome dello studio.</p>
+        </div>
+        <dl class="voci">
+          <dt>Utenti, Ruoli e permessi</dt><dd>Solo amministratore o titolare. Nessun ruolo personalizzato può concederle.</dd>
+          <dt>Dati e backup</dt><dd>Solo il titolare. Nemmeno un amministratore la vede.</dd>
+          <dt>Iscrizioni Eventi NGB</dt><dd>Amministratore, titolare o le singole persone abilitate a mano.</dd>
+          <dt>Newsletter commerciali</dt><dd>Come sopra. I ruoli «solo sondaggio» restano sempre esclusi.</dd>
+        </dl>
+
+        <h3>Due regole che valgono sopra tutto</h3>
+        <div class="prosa">
+          <p><b>Il filtro per territorio.</b> Chi accede con il ruolo Coordinatore territoriale o Vice coordinatore territoriale vede <b>soltanto</b> gli incarichi delle regioni spuntate sulla propria scheda in Aderenti Revilaw. Il filtro non si può disattivare e vale ovunque: elenco, dettaglio, cruscotto, fatturazione, esportazioni.</p>
+          <p><b>L'eliminazione definitiva.</b> Cancellare per sempre un incarico, con il suo piano di fatturazione, resta all'amministratore e al titolare. Gli altri ruoli con la scrittura chiudono un incarico con <b>Termina</b> o <b>Dimissioni</b>: operazioni reversibili che conservano tutto lo storico.</p>
+        </div>
+
+        <div class="nota attenzione">
+          <div class="nota-titolo">I permessi non sono una cassaforte</div>
+          <p>Valgono dentro il programma e servono a tenere ognuno nella sua parte, prevenendo errori. La protezione vera dei dati più delicati sta nelle regole del server, non in questa configurazione.</p>
+        </div>
+      </section>
+
+      <!-- ======================= 4 ======================= -->
+      <section id="matrice">
+        <span class="numero">Capitolo 5</span>
+        <h2>Matrice ruoli e sezioni</h2>
+        <div class="prosa">
+          <p>Il quadro di riferimento con i valori di partenza dei ruoli predefiniti. Per Responsabile qualità, Procuratore e i ruoli personalizzati l'amministratore può cambiare ogni casella; per Coordinatore e Vice può cambiare i livelli, ma <b>non</b> il filtro per territorio.</p>
+        </div>
+
+        <div class="tabella-scorre">
+          <table>
+            <thead>
+              <tr>
+                <th>Sezione</th>
+                <th>Amministratore</th>
+                <th>Titolare</th>
+                <th>Resp. qualità</th>
+                <th>Procuratore</th>
+                <th>Coordinatore e Vice</th>
+                <th>Solo sondaggio</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th>Cruscotto</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura, solo sue regioni</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Incarichi</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura, solo sue regioni</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Aderenti Revilaw</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Coordinatori e vice</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Responsabili</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Fatturazione</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura, solo sue regioni</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Report compensi</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura, solo sue regioni</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Comunicazione teams</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Sondaggi</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura</td><td class="liv liv-s">Unica sezione</td></tr>
+              <tr><th>Registro modifiche</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Newsletter commerciali</th><td class="liv liv-s">Sempre</td><td class="liv liv-s">Sempre</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Mai</td></tr>
+              <tr><th>Iscrizioni Eventi NGB</th><td class="liv liv-s">Sempre</td><td class="liv liv-s">Sempre</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Mai</td></tr>
+              <tr><th>Utenti</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Ruoli e permessi</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Dati e backup</th><td class="liv liv-n">Nascosta</td><td class="liv liv-s">Scrittura</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Elimina incarico</th><td class="liv liv-s">Sì</td><td class="liv liv-s">Sì</td><td class="liv liv-n">No</td><td class="liv liv-n">No</td><td class="liv liv-n">No</td><td class="liv liv-n">No</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="passo-testo">I livelli indicati per Responsabile qualità e Procuratore sono quelli <b>di partenza</b>: entrambi nascono con la scrittura ovunque e vanno ristretti dalla sezione Ruoli e permessi se lo studio vuole limitarli.</p>
+      </section>
+
+      <!-- ======================= 5 ======================= -->
+      <section id="indice-ruoli">
+        <span class="numero">Capitolo 6</span>
+        <h2>Indice per ruolo e permessi</h2>
+        <div class="prosa">
+          <p>Trova il tuo ruolo e leggi che cosa comporta. Ogni scheda dice quali sezioni vedi, che cosa puoi fare, che cosa non puoi fare e quali capitoli del manuale ti riguardano davvero.</p>
+        </div>
+
+        <div class="schede-ruolo">
+
+          <div class="scheda-ruolo tinta-piena">
+            <h4>Amministratore</h4>
+            <div class="ruolo-id">admin</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>Tutte le sezioni tranne Dati e backup. Tutti gli incarichi, di ogni regione.</dd>
+              <dt>Può fare</dt><dd>Creare, modificare, rinnovare, terminare ed eliminare definitivamente gli incarichi. Registrare utenti, assegnare e configurare i ruoli.</dd>
+              <dt>Non può</dt><dd>Entrare in Dati e backup: importazioni, esportazioni e copie di sicurezza restano al titolare.</dd>
+            </dl>
+            <div class="rimandi"><a href="#amministratore">Capitolo 7</a> <a href="#p-utenti">Utenti e ruoli</a> <a href="#p-incarico">Creare un incarico</a></div>
+          </div>
+
+          <div class="scheda-ruolo tinta-piena">
+            <h4>Titolare</h4>
+            <div class="ruolo-id">l'indirizzo del proprietario dello studio</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>Tutto, compresa la sezione Dati e backup.</dd>
+              <dt>Può fare</dt><dd>Tutto quanto può l'amministratore, più importazione dell'archivio reale, esportazione completa e copie di sicurezza. Riceve le allerte di sblocco calcolo sul cruscotto.</dd>
+              <dt>Non può</dt><dd>Nulla gli è precluso. Per questo il ruolo non si assegna: coincide con l'indirizzo del proprietario.</dd>
+            </dl>
+            <div class="rimandi"><a href="#amministratore">Capitolo 7</a> <a href="#p-dati">Dati e backup</a></div>
+          </div>
+
+          <div class="scheda-ruolo tinta-piena">
+            <h4>Responsabile qualità</h4>
+            <div class="ruolo-id">qualita</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>Le otto sezioni operative, tutti gli incarichi senza limiti di territorio. Newsletter ed Eventi solo se abilitato a parte.</dd>
+              <dt>Può fare</dt><dd>Creare e modificare incarichi, gestire l'anagrafica, la fatturazione e le comunicazioni ai team. Chiudere un incarico con Termina o Dimissioni.</dd>
+              <dt>Non può</dt><dd>Gestire utenti e ruoli. Eliminare definitivamente un incarico.</dd>
+            </dl>
+            <div class="rimandi"><a href="#operativi">Capitolo 8</a> <a href="#p-incarico">Creare un incarico</a> <a href="#p-persona">Anagrafica</a></div>
+          </div>
+
+          <div class="scheda-ruolo tinta-piena">
+            <h4>Procuratore</h4>
+            <div class="ruolo-id">procuratore</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>Come il Responsabile qualità: le otto sezioni operative e tutti gli incarichi.</dd>
+              <dt>Può fare</dt><dd>Le stesse operazioni del Responsabile qualità. I due ruoli si distinguono per la funzione nello studio, non per i permessi di partenza.</dd>
+              <dt>Non può</dt><dd>Gestire utenti e ruoli. Eliminare definitivamente un incarico.</dd>
+            </dl>
+            <div class="rimandi"><a href="#operativi">Capitolo 8</a> <a href="#p-modifica">Modificare un incarico</a> <a href="#p-compensi">Compensi</a></div>
+          </div>
+
+          <div class="scheda-ruolo tinta-lettura">
+            <h4>Coordinatore territoriale</h4>
+            <div class="ruolo-id">coordinatore, ruolo di sistema</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>Tutte le sezioni operative, ma <b>solo gli incarichi delle regioni assegnate</b> sulla sua scheda in Aderenti Revilaw. Il limite vale anche per cruscotto, fatturazione ed esportazioni.</dd>
+              <dt>Può fare</dt><dd>Consultare. All'ingresso una finestra ricorda regioni, limite e livello di accesso.</dd>
+              <dt>Non può</dt><dd>Modificare nulla: nessun pulsante di creazione o modifica. Le correzioni si richiedono all'equity partner.</dd>
+            </dl>
+            <div class="rimandi"><a href="#coordinatori">Capitolo 9</a> <a href="#p-territorio">Incarichi del territorio</a> <a href="#problemi">Problemi ricorrenti</a></div>
+          </div>
+
+          <div class="scheda-ruolo tinta-lettura">
+            <h4>Vice coordinatore territoriale</h4>
+            <div class="ruolo-id">vicecoordinatore, ruolo di sistema</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>Esattamente come il Coordinatore territoriale: le regioni spuntate sulla propria scheda, e nient'altro.</dd>
+              <dt>Può fare</dt><dd>Consultare il proprio territorio. Un vice può coprire regioni diverse da quelle del coordinatore: contano solo le spunte della sua scheda.</dd>
+              <dt>Non può</dt><dd>Modificare. Senza alcuna regione spuntata non vede alcun incarico: è la regola di sicurezza, non un guasto.</dd>
+            </dl>
+            <div class="rimandi"><a href="#coordinatori">Capitolo 9</a> <a href="#p-regioni">Assegnare le regioni</a></div>
+          </div>
+
+          <div class="scheda-ruolo">
+            <h4>Ruolo personalizzato</h4>
+            <div class="ruolo-id">creato dall'amministratore</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>Quello che l'amministratore ha scelto: per ciascuna delle otto sezioni configurabili, nascosta, sola lettura o scrittura.</dd>
+              <dt>Può fare</dt><dd>Quanto consentito sezione per sezione. Adatto a profili come segreteria, consulente esterno o revisore junior.</dd>
+              <dt>Non può</dt><dd>Accedere a Utenti, Ruoli e Dati. <b>E non è limitabile per territorio</b>: il filtro per regione esiste solo nei due ruoli di sistema.</dd>
+            </dl>
+            <div class="rimandi"><a href="#personalizzati">Capitolo 10</a> <a href="#p-utenti">Configurare un ruolo</a></div>
+          </div>
+
+          <div class="scheda-ruolo tinta-isolato">
+            <h4>Sondaggio (questionario)</h4>
+            <div class="ruolo-id">sondaggio_compila</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>La sola sezione Sondaggi. Nessun incarico, nessuna anagrafica, nessun compenso.</dd>
+              <dt>Può fare</dt><dd>Compilare il questionario a cui è stato invitato.</dd>
+              <dt>Non può</dt><dd>Raggiungere qualunque altra sezione, newsletter comprese. È il ruolo per chi non fa parte dello staff.</dd>
+            </dl>
+            <div class="rimandi"><a href="#sondaggio">Capitolo 11</a></div>
+          </div>
+
+          <div class="scheda-ruolo tinta-isolato">
+            <h4>Sondaggio (sola visualizzazione)</h4>
+            <div class="ruolo-id">sondaggio_risultati</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>La sola sezione Sondaggi, in lettura: il riepilogo dei risultati.</dd>
+              <dt>Può fare</dt><dd>Consultare gli esiti del questionario.</dd>
+              <dt>Non può</dt><dd>Compilare, né raggiungere altre sezioni.</dd>
+            </dl>
+            <div class="rimandi"><a href="#sondaggio">Capitolo 11</a></div>
+          </div>
+
+        </div>
+
+        <div class="nota">
+          <div class="nota-titolo">Il ruolo si assegna in un posto solo</div>
+          <p>Il ruolo di accesso vive nella sezione <b>Utenti</b> ed è agganciato all'indirizzo email. Le spunte nella scheda di Aderenti Revilaw (responsabile qualità, coordinatore, vice) descrivono la <b>funzione professionale</b> della persona e, per i coordinatori, il territorio: da sole non danno alcun permesso.</p>
+        </div>
+      </section>
+
+      <!-- ======================= 6 ======================= -->
+      <section id="amministratore">
+        <span class="numero">Capitolo 7, ruolo</span>
+        <div class="ruolo-testata tinta-piena">
+          <h2>Amministratore e Titolare</h2>
+          <div class="ruolo-id">admin, proprietario</div>
+          <p class="ruolo-riassunto">Accesso completo a tutte le sezioni e a tutti gli incarichi, senza limiti di territorio. Sono gli unici che possono creare utenti, configurare i ruoli ed eliminare definitivamente un incarico. Il <b>Titolare</b> ha in più la sezione Dati e backup, che nemmeno un amministratore vede.</p>
+          <div class="etichette">
+            <span class="etichetta et-piena">Scrittura su tutto</span>
+            <span class="etichetta et-piena">Nessun limite di territorio</span>
+            <span class="etichetta et-piena">Gestisce utenti e ruoli</span>
+            <span class="etichetta et-piena">Elimina definitivamente</span>
+          </div>
+        </div>
+
+        <figure><img src="manuale/03-admin-cruscotto.jpg" alt="Cruscotto visto dall'amministratore"><figcaption><b>Cruscotto completo.</b> I quattro riquadri in alto riassumono incarichi attivi, compensi dell'anno, incarichi in scadenza entro sei mesi e incarichi scaduti. Il grafico copre tutti gli anni con compensi registrati, l'elenco in fondo raccoglie le scadenze da trattare.</figcaption></figure>
+
+        <div class="prosa">
+          <p>Il menu dell'amministratore contiene tutte le voci. Le sezioni riservate (Utenti, Ruoli e permessi e, per il solo titolare, Dati e backup) stanno in fondo, separate dal lavoro quotidiano.</p>
+        </div>
+      </section>
+
+      <!-- ======================= 6 ======================= -->
+      <section id="operativi">
+        <span class="numero">Capitolo 8, ruolo</span>
+        <div class="ruolo-testata tinta-piena">
+          <h2>Responsabile qualità e Procuratore</h2>
+          <div class="ruolo-id">qualita, procuratore</div>
+          <p class="ruolo-riassunto">Sono i ruoli operativi: nascono con la <b>scrittura su tutte le otto sezioni configurabili</b> e vedono tutti gli incarichi, senza limiti di territorio. Non gestiscono utenti né ruoli, e non possono eliminare definitivamente un incarico: lo chiudono con Termina o Dimissioni.</p>
+          <div class="etichette">
+            <span class="etichetta et-piena">Scrittura sulle sezioni operative</span>
+            <span class="etichetta et-piena">Nessun limite di territorio</span>
+            <span class="etichetta et-neutra">Niente Utenti e Ruoli</span>
+            <span class="etichetta et-neutra">Niente eliminazione definitiva</span>
+          </div>
+        </div>
+
+        <figure><img src="manuale/37-proc-cruscotto.jpg" alt="Cruscotto visto da un procuratore"><figcaption><b>Cruscotto del Procuratore.</b> Identico a quello dell'amministratore nei numeri, perché non c'è filtro di territorio. In basso a sinistra il nome e il ruolo di chi è collegato.</figcaption></figure>
+
+        <figure><img src="manuale/38-proc-incarichi.jpg" alt="Elenco incarichi visto da un procuratore"><figcaption><b>Incarichi.</b> Il pulsante <b>+ Nuovo incarico</b> è presente perché il ruolo ha la scrittura. Manca invece l'eliminazione definitiva nel menu Azioni delle righe.</figcaption></figure>
+
+        <div class="nota">
+          <div class="nota-titolo">Da personalizzare</div>
+          <p>Questi due ruoli partono con tutto in scrittura perché ereditano il funzionamento precedente all'introduzione dei permessi. Se lo studio vuole restringerli, per esempio togliendo il Registro modifiche o mettendo la Fatturazione in sola lettura, si interviene dalla sezione <b>Ruoli e permessi</b> senza toccare gli utenti gia assegnati.</p>
+        </div>
+      </section>
+
+      <!-- ======================= 7 ======================= -->
+      <section id="coordinatori">
+        <span class="numero">Capitolo 9, ruolo</span>
+        <div class="ruolo-testata tinta-lettura">
+          <h2>Coordinatore territoriale e Vice</h2>
+          <div class="ruolo-id">coordinatore e vicecoordinatore, ruoli di sistema</div>
+          <p class="ruolo-riassunto">Consultano il lavoro del <b>proprio territorio</b>. Vedono soltanto gli incarichi delle regioni spuntate sulla loro scheda in Aderenti Revilaw, e li vedono in sola visualizzazione. Il filtro per territorio è parte del ruolo e non si può disattivare: è per questo che i due ruoli sono marcati «di sistema».</p>
+          <div class="etichette">
+            <span class="etichetta et-lettura">Sola visualizzazione</span>
+            <span class="etichetta et-lettura">Solo le regioni assegnate</span>
+            <span class="etichetta et-neutra">Filtro non disattivabile</span>
+          </div>
+        </div>
+
+        <h3>All'ingresso il perimetro è dichiarato</h3>
+        <div class="prosa">
+          <p>Al primo accesso di ogni sessione compare una finestra che ricorda ruolo, regioni assegnate, limite agli incarichi di quelle regioni e livello di accesso. Serve a non far scambiare i numeri del proprio territorio per quelli dello studio.</p>
+        </div>
+        <figure><img src="manuale/30-coord-avviso-ingresso.jpg" alt="Finestra di benvenuto per il coordinatore territoriale"><figcaption><b>Avviso d'ingresso.</b> Le regioni assegnate sono in evidenza; il riquadro in fondo ricorda che modifiche e correzioni si richiedono all'equity partner. Si chiude con «Ho capito» e non si ripete a ogni ricarica della pagina.</figcaption></figure>
+
+        <h3>Il cruscotto si ferma al territorio</h3>
+        <figure><img src="manuale/31-coord-cruscotto.jpg" alt="Cruscotto di un coordinatore, limitato alle sue regioni"><figcaption><b>Cruscotto del coordinatore.</b> La descrizione in testa elenca le regioni assegnate e avverte che le altre non entrano nei conteggi. Anche il grafico mostra soltanto gli anni in cui quel territorio ha compensi registrati.</figcaption></figure>
+
+        <figure><img src="manuale/32-coord-incarichi.jpg" alt="Elenco incarichi filtrato per regione"><figcaption><b>Incarichi.</b> L'elenco contiene solo gli incarichi delle regioni assegnate. Non c'è il pulsante «+ Nuovo incarico» e le righe non hanno il menu Azioni: l'accesso è in sola visualizzazione.</figcaption></figure>
+
+        <figure><img src="manuale/33-coord-dettaglio.jpg" alt="Dettaglio di un incarico in sola visualizzazione"><figcaption><b>Dettaglio in sola visualizzazione.</b> Tutti i dati dell'incarico sono consultabili, compresi team, scadenze e compensi, ma non ci sono i comandi di modifica.</figcaption></figure>
+
+        <figure><img src="manuale/34-coord-coordinatori.jpg" alt="Sezione Coordinatori e vice vista da un coordinatore"><figcaption><b>Coordinatori e vice.</b> Anche qui i conteggi degli incarichi sono calcolati sul territorio consentito. In basso a sinistra le regioni assegnate restano sempre riportate.</figcaption></figure>
+
+        <h3>Quando non c'è ancora nessuna regione</h3>
+        <div class="prosa">
+          <p>Se sulla scheda della persona non è spuntata alcuna regione, il ruolo <b>non vede alcun incarico</b>. Non è un guasto: è la regola di sicurezza, che in mancanza di indicazioni chiude invece di aprire.</p>
+        </div>
+        <figure><img src="manuale/35-vice-avviso-ingresso.jpg" alt="Avviso di ingresso per un vice senza regioni assegnate"><figcaption><b>Vice senza regioni.</b> L'avviso lo dice apertamente e indica cosa fare: chiedere all'amministratore di spuntare le regioni sulla propria scheda.</figcaption></figure>
+        <figure><img src="manuale/36-vice-cruscotto.jpg" alt="Cruscotto a zero per un vice senza regioni"><figcaption><b>Cruscotto a zero.</b> Tutti i riquadri sono a zero e la descrizione in testa spiega il motivo, invece di lasciare pensare a un archivio vuoto.</figcaption></figure>
+      </section>
+
+      <!-- ======================= 8 ======================= -->
+      <section id="personalizzati">
+        <span class="numero">Capitolo 10, ruolo</span>
+        <div class="ruolo-testata">
+          <h2>Ruoli personalizzati</h2>
+          <div class="ruolo-id">creati dall'amministratore</div>
+          <p class="ruolo-riassunto">L'amministratore può creare quanti ruoli servono e scegliere, per ciascuna delle otto sezioni configurabili, se è nascosta, in sola lettura o in scrittura. È lo strumento giusto per profili come «segreteria», «consulente esterno» o «revisore junior».</p>
+          <div class="etichette">
+            <span class="etichetta et-neutra">Otto sezioni configurabili</span>
+            <span class="etichetta et-neutra">Niente Utenti, Ruoli, Dati</span>
+            <span class="etichetta et-lettura">Nessun filtro per territorio</span>
+          </div>
+        </div>
+
+        <div class="nota attenzione">
+          <div class="nota-titolo">Un limite da conoscere</div>
+          <p>Il filtro per territorio è legato ai <b>due ruoli di sistema</b> Coordinatore territoriale e Vice coordinatore territoriale. Un ruolo creato a mano, anche se lo chiami «Coordinatore regionale» e gli dai gli stessi permessi, <b>non viene filtrato per regione</b>: vede tutti gli incarichi. Per limitare qualcuno al proprio territorio bisogna assegnargli uno dei due ruoli di sistema.</p>
+        </div>
+      </section>
+
+      <!-- ======================= 9 ======================= -->
+      <section id="sondaggio">
+        <span class="numero">Capitolo 11, ruolo</span>
+        <div class="ruolo-testata tinta-isolato">
+          <h2>Ruoli solo sondaggio</h2>
+          <div class="ruolo-id">sondaggio_compila, sondaggio_risultati</div>
+          <p class="ruolo-riassunto">Servono per invitare a un questionario chi <b>non fa parte dello staff</b>. Chi entra con uno di questi ruoli vede una sola voce di menu, Sondaggi, e nient'altro: né incarichi, né anagrafica, né compensi. «Questionario» può compilare, «sola visualizzazione» vede solo il riepilogo.</p>
+          <div class="etichette">
+            <span class="etichetta et-isolato">Una sola sezione</span>
+            <span class="etichetta et-isolato">Nessun accesso agli altri archivi</span>
+            <span class="etichetta et-isolato">Mai le newsletter</span>
+          </div>
+        </div>
+
+        <figure><img src="manuale/39-sond-vista.jpg" alt="Vista isolata di un invitato al sondaggio"><figcaption><b>Accesso isolato.</b> Il menu di sinistra contiene la sola voce Sondaggi. L'isolamento vero è garantito dalle regole del server: l'applicazione non chiede nemmeno gli archivi che a questo ruolo non spettano.</figcaption></figure>
+      </section>
+
+      <!-- ======================= ciclo di vita ======================= -->
+      <section id="ciclo">
+        <span class="numero">Capitolo 12</span>
+        <h2>Il ciclo di vita di un incarico</h2>
+        <div class="prosa">
+          <p>Capire in quale stato si trova un incarico spiega quasi sempre perché compare, o non compare, in una certa schermata.</p>
+        </div>
+
+        <h3>Gli stati</h3>
+        <dl class="voci">
+          <dt>Proposta</dt><dd>L'incarico è stato preparato ma il cliente non ha ancora accettato. Compare nella scheda Attivi e nel riquadro delle proposte del cruscotto, ma <b>non entra nei totali dei compensi né nel piano di fatturazione</b>. È lo stato di partenza di ogni incarico nuovo o rinnovato.</dd>
+          <dt>Attivo</dt><dd>L'incarico è in corso. Entra in tutti i conteggi. Lo stato che vedi in tabella non è la parola «attivo» ma la sua scadenza, perché è quella l'informazione utile.</dd>
+          <dt>Terminato</dt><dd>L'incarico si è concluso alla scadenza naturale. Passa alla scheda Terminati e resta consultabile con tutto il suo storico. L'operazione si annulla riattivando l'incarico.</dd>
+          <dt>Dimesso</dt><dd>Il revisore si è dimesso prima della scadenza. Passa alla scheda Dismessi e conserva la data delle dimissioni. Anche questa operazione è reversibile.</dd>
+          <dt>Non accettato</dt><dd>Il cliente ha rifiutato la proposta. Passa alla scheda Non accettati. Serve a tenere traccia delle proposte non andate a buon fine senza mescolarle agli incarichi chiusi.</dd>
+        </dl>
+
+        <h3>Lo stato di scadenza</h3>
+        <div class="prosa">
+          <p>Per gli incarichi in corso la colonna Stato mostra un'etichetta colorata calcolata sulla data di fine, o sulla data di rinnovo se c'è.</p>
+        </div>
+        <div class="etichette">
+          <span class="etichetta et-piena">Verde: attivo fino al ...</span>
+          <span class="etichetta et-lettura">Ambra: in scadenza entro sei mesi</span>
+          <span class="etichetta et-neutra">Rosso: scaduto</span>
+          <span class="etichetta et-neutra">Grigio: senza scadenza, proposta o chiuso</span>
+        </div>
+        <div class="prosa" style="margin-top:14px;">
+          <p>Il conto dei sei mesi non trabocca a fine mese: partendo dal 31 agosto il limite è il 28 febbraio, non il 3 marzo. Se la data di fine contiene una nota anziché una data vera, l'etichetta riporta la nota così com'è, senza inventare una scadenza.</p>
+        </div>
+
+        <h3>Le operazioni che cambiano stato</h3>
+        <dl class="voci">
+          <dt>Conferma</dt><dd>Dal cruscotto, trasforma una proposta in incarico attivo. Da quel momento compensi e fatturazione lo conteggiano.</dd>
+          <dt>Rinnova</dt><dd>Apre la creazione guidata con i dati già compilati per il nuovo periodo. Il rinnovo nasce come proposta: va confermato a sua volta.</dd>
+          <dt>Termina</dt><dd>Chiude l'incarico alla scadenza naturale. Reversibile.</dd>
+          <dt>Dimissioni</dt><dd>Chiude l'incarico per dimissioni, registrando la data. Reversibile.</dd>
+          <dt>Non accettato</dt><dd>Segna la proposta come rifiutata dal cliente. Reversibile.</dd>
+          <dt>Elimina</dt><dd>Cancella l'incarico e il suo piano di fatturazione. <b>Non è reversibile</b> ed è riservata ad amministratore e titolare. Per chiudere un incarico usate sempre Termina o Dimissioni.</dd>
+        </dl>
+
+        <div class="nota">
+          <div class="nota-titolo">La lettera d'incarico</div>
+          <p>Dal dettaglio di un incarico si genera la lettera su carta intestata dello studio, pronta per la stampa o per il PDF. Se modifichi la proposta, la lettera si rigenera con i dati aggiornati: conviene quindi stamparla solo quando i dati sono definitivi.</p>
+        </div>
+      </section>
+
+      <!-- ======================= 10 ======================= -->
+      <section id="procedure">
+        <span class="numero">Capitolo 13</span>
+        <h2>Procedure passo passo</h2>
+        <div class="prosa">
+          <p>Le operazioni ricorrenti, nell'ordine in cui si incontrano. Ogni procedura indica in testa chi può eseguirla.</p>
+        </div>
+
+        <!-- ---- creare incarico ---- -->
+        <h3 id="p-incarico">Creare un incarico</h3>
+        <div class="etichette"><span class="etichetta et-piena">Serve la scrittura su Incarichi</span></div>
+        <div class="prosa" style="margin-top:14px;">
+          <p>La creazione è guidata in <b>sei passi</b>. I passi in cima sono cliccabili: si può tornare indietro o saltare avanti conservando quanto già inserito, perché il controllo completo scatta solo al salvataggio finale.</p>
+        </div>
+
+        <ol class="passi">
+          <li>
+            <div class="passo-titolo">Cliente</div>
+            <p class="passo-testo">Ragione sociale (obbligatoria), codice fiscale o partita IVA, regione, località, email di riferimento e area. <b>La regione inserita qui è quella che decide quali coordinatori vedranno l'incarico</b>: vale la pena compilarla con cura.</p>
+            <figure><img src="manuale/07-admin-wizard-1-cliente.jpg" alt="Primo passo della creazione guidata: dati del cliente"><figcaption><b>Passo 1 di 6.</b> Si arriva qui dal pulsante «+ Nuovo incarico», presente nel Cruscotto e nella sezione Incarichi.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Incarico e durata</div>
+            <p class="passo-testo">Tipo di revisione (legale o volontaria), primo esercizio, data di nomina e data di approvazione dell'ultimo bilancio. Da queste date discendono le scadenze e lo stato che l'incarico mostrerà negli elenchi.</p>
+            <figure><img src="manuale/08-admin-wizard-2-durata.jpg" alt="Secondo passo: tipo di incarico e durata"><figcaption><b>Passo 2 di 6.</b> Per la revisione legale il periodo è vincolato al triennio: i campi si adeguano da soli.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Compenso</div>
+            <p class="passo-testo">L'onorario per ciascun anno dell'incarico. È la base di tutto: alimenta i totali del cruscotto, il piano di fatturazione e i report compensi.</p>
+            <figure><img src="manuale/09-admin-wizard-3-compenso.jpg" alt="Terzo passo: compensi per anno"><figcaption><b>Passo 3 di 6.</b> Gli importi si indicano anno per anno, così i confronti tra esercizi restano corretti anche quando l'incarico viene rinnovato.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Team</div>
+            <p class="passo-testo">Responsabile qualità, responsabile incarico, referente e componenti del team. Le tendine propongono le persone dell'anagrafica che hanno il ruolo corrispondente: se manca qualcuno, va prima aggiunto in Aderenti Revilaw.</p>
+            <figure><img src="manuale/10-admin-wizard-4-team.jpg" alt="Quarto passo: composizione del team"><figcaption><b>Passo 4 di 6.</b> È da questi campi che nascono le sezioni Responsabili e le comunicazioni ai team.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Fatturazione</div>
+            <p class="passo-testo">Periodicita delle fatture (mensile, trimestrale, annuale o un piano specifico) ed eventuale gruppo di fatturazione. Da qui si genera il piano delle scadenze che troverai nella sezione Fatturazione.</p>
+            <figure><img src="manuale/11-admin-wizard-5-fatturazione.jpg" alt="Quinto passo: piano di fatturazione"><figcaption><b>Passo 5 di 6.</b> Con il piano specifico si fissano manualmente le singole rate, data per data.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Riepilogo e salvataggio</div>
+            <p class="passo-testo">L'ultimo passo mostra tutto quanto inserito prima di salvare. Un incarico appena creato entra come <b>proposta</b>: non conta nei totali dei compensi né nella fatturazione finché non lo confermi dal cruscotto.</p>
+            <figure><img src="manuale/12-admin-wizard-6-riepilogo.jpg" alt="Sesto passo: riepilogo prima del salvataggio"><figcaption><b>Passo 6 di 6.</b> Dal riepilogo si può tornare a qualunque passo precedente cliccando il suo numero in cima.</figcaption></figure>
+          </li>
+        </ol>
+
+        <div class="nota">
+          <div class="nota-titolo">Il ciclo della proposta</div>
+          <p>Dal Cruscotto, nel riquadro «Proposte in attesa di conferma», si sceglie: <b>Conferma</b> se il cliente ha accettato, <b>Modifica</b> per rielaborare la proposta e rigenerare il PDF della lettera, <b>Non accettato</b> se il cliente ha rifiutato, e l'incarico passa alla scheda «Non accettati».</p>
+        </div>
+
+        <!-- ---- modificare ---- -->
+        <h3 id="p-modifica">Aprire e modificare un incarico</h3>
+        <div class="etichette"><span class="etichetta et-lettura">Consultare: basta la lettura</span><span class="etichetta et-piena">Modificare: serve la scrittura</span></div>
+
+        <ol class="passi" style="margin-top:18px;">
+          <li>
+            <div class="passo-titolo">Trova l'incarico</div>
+            <p class="passo-testo">La sezione Incarichi è divisa in quattro schede: Attivi, Terminati, Dismessi, Non accettati. Sopra la tabella ci sono la ricerca su tutte le colonne e un filtro per ciascuna colonna; il pulsante <b>Esporta CSV</b> scarica esattamente ciò che stai vedendo, filtri compresi.</p>
+            <figure><img src="manuale/04-admin-incarichi.jpg" alt="Elenco degli incarichi con filtri e schede"><figcaption><b>Elenco incarichi.</b> Un clic su una riga apre il dettaglio dell'incarico.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Usa il menu Azioni della riga</div>
+            <p class="passo-testo">L'ultima colonna contiene il pulsante <b>Azioni</b>: apre il menu con Modifica, Rinnova, Termina, Dimissioni e, per amministratore e titolare, Elimina. Chi non ha la scrittura non vede né il pulsante né il menu.</p>
+            <figure><img src="manuale/05-admin-incarichi-azioni.jpg" alt="Menu Azioni aperto su una riga"><figcaption><b>Menu Azioni.</b> A menu aperto il pulsante resta acceso in blu pieno, così si vede da quale riga escono le voci.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Oppure apri il dettaglio</div>
+            <p class="passo-testo">Il dettaglio raccoglie in una pagina anagrafica del cliente, durata, team, compensi per anno, piano di fatturazione e storico delle modifiche. Da qui si stampa anche la lettera d'incarico.</p>
+            <figure><img src="manuale/06-admin-dettaglio.jpg" alt="Dettaglio completo di un incarico"><figcaption><b>Dettaglio dell'incarico.</b> Il pulsante «Elenco» in alto riporta alla sezione da cui sei entrato, nel punto in cui eri.</figcaption></figure>
+          </li>
+        </ol>
+
+        <!-- ---- anagrafica ---- -->
+        <h3 id="p-persona">Anagrafica: aggiungere una persona e darle i ruoli</h3>
+        <div class="etichette"><span class="etichetta et-piena">Serve la scrittura su Aderenti Revilaw</span></div>
+
+        <ol class="passi" style="margin-top:18px;">
+          <li>
+            <div class="passo-titolo">Apri Aderenti Revilaw</div>
+            <p class="passo-testo">L'elenco mostra per ogni persona i contatti, i quattro ruoli professionali con una spunta, il numero di incarichi associati e lo stato. Le schede in cima separano le persone attive da quelle disattivate ed eliminate.</p>
+            <figure><img src="manuale/13-admin-aderenti.jpg" alt="Anagrafica degli aderenti"><figcaption><b>Aderenti Revilaw.</b> Il numero nella colonna «Inc.» è cliccabile e apre l'elenco degli incarichi in cui quella persona compare, con qualunque ruolo.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Compila la scheda</div>
+            <p class="passo-testo">Nome, cognome, email, telefono, sede e ruoli. <b>L'email è l'aggancio tra la scheda e l'utenza di accesso</b>: deve essere la stessa registrata nella sezione Utenti, altrimenti il programma non riesce a collegare la persona a chi si è collegato.</p>
+            <figure><img src="manuale/14-admin-scheda-persona.jpg" alt="Scheda di una persona in anagrafica"><figcaption><b>Scheda persona.</b> Il campo Regione è la <i>sede</i> della persona e non assegna alcun territorio: le regioni coordinate si scelgono tra i ruoli, più sotto.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Disattivare invece di eliminare</div>
+            <p class="passo-testo">Chi lascia lo studio si <b>disattiva</b>: sparisce dalle tendine e dalle sezioni Coordinatori e Responsabili, ma resta negli incarichi già registrati. L'eliminazione è reversibile e le persone eliminate si ripristinano dalla scheda «Eliminate».</p>
+          </li>
+        </ol>
+
+        <!-- ---- regioni ---- -->
+        <h3 id="p-regioni">Assegnare le regioni a un coordinatore</h3>
+        <div class="etichette"><span class="etichetta et-piena">Serve la scrittura su Aderenti Revilaw</span></div>
+        <div class="prosa" style="margin-top:14px;">
+          <p>È il passaggio che determina che cosa vedrà un coordinatore o un vice. Finché non si spunta almeno una regione, quella persona <b>non vedrà alcun incarico</b>.</p>
+        </div>
+
+        <ol class="passi">
+          <li>
+            <div class="passo-titolo">Spunta il ruolo, poi le regioni</div>
+            <p class="passo-testo">Nella scheda della persona, sotto <b>Ruoli</b>, spunta <b>Coordinatore territoriale</b> o <b>Vice coordinatore territoriale</b>. Compare allora il riquadro <b>Regioni coordinate</b> con tutte le regioni italiane: spunta quelle di sua competenza e salva.</p>
+            <figure><img src="manuale/40-admin-scheda-regioni.jpg" alt="Riquadro delle regioni coordinate nella scheda persona"><figcaption><b>Regioni coordinate.</b> Il riquadro compare solo dopo aver spuntato uno dei due ruoli. Qui la persona coordina Lombardia, Piemonte e Valle d'Aosta.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Assegna il ruolo di accesso</div>
+            <p class="passo-testo">Spuntare la casella in anagrafica <b>non basta</b>: descrive il ruolo professionale della persona. Perché il filtro per territorio si attivi davvero, nella sezione <b>Utenti</b> l'utenza collegata a quella stessa email deve avere il ruolo «Coordinatore territoriale» o «Vice coordinatore territoriale».</p>
+          </li>
+          <li>
+            <div class="passo-titolo">Verifica</div>
+            <p class="passo-testo">Le regioni assegnate compaiono in basso a sinistra sotto il nome dell'utente, in ogni schermata, e nella finestra che si apre al suo ingresso. Se lì compare «nessuna regione assegnata», la spunta non è stata salvata.</p>
+          </li>
+        </ol>
+
+        <!-- ---- territorio ---- -->
+        <h3 id="p-territorio">Vedere gli incarichi di un territorio</h3>
+        <div class="etichette"><span class="etichetta et-lettura">Basta la lettura su Aderenti Revilaw e Incarichi</span></div>
+
+        <ol class="passi" style="margin-top:18px;">
+          <li>
+            <div class="passo-titolo">Apri Coordinatori e vice</div>
+            <p class="passo-testo">Tre schede: <b>Coordinatori</b>, <b>Vice coordinatori</b> e <b>Per regione</b>. Nelle prime due ogni riga mostra le regioni coperte e il numero di incarichi attivi in quel territorio.</p>
+            <figure><img src="manuale/15-admin-coordinatori.jpg" alt="Sezione Coordinatori e vice"><figcaption><b>Coordinatori e vice.</b> Una regione coperta da più persone conta gli stessi incarichi per ciascuna: il totale delle righe non è il totale degli incarichi.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Clicca il numero per vedere quali sono</div>
+            <p class="passo-testo">Il numero nella colonna Incarichi apre l'elenco degli incarichi attivi di quel territorio, con cliente, tipo, regione, responsabili, scadenza e stato. Un clic sulla riga apre l'incarico; il pulsante <b>Modifica</b> lo apre direttamente in modifica, se hai la scrittura.</p>
+            <figure><img src="manuale/16-admin-coordinatori-incarichi.jpg" alt="Finestra con gli incarichi del territorio"><figcaption><b>Incarichi del territorio.</b> Chi ha l'accesso in sola visualizzazione vede l'elenco ma non il pulsante Modifica.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Controlla le regioni scoperte</div>
+            <p class="passo-testo">La scheda <b>Per regione</b> ribalta la lettura: per ogni regione, chi la coordina e quanti incarichi attivi contiene. Una regione con incarichi ma senza nessuno che la coordini è marcata <b>scoperta</b>.</p>
+            <figure><img src="manuale/17-admin-coordinatori-regione.jpg" alt="Scheda Per regione"><figcaption><b>Per regione.</b> Anche qui il numero degli incarichi attivi è cliccabile.</figcaption></figure>
+          </li>
+        </ol>
+
+        <h4>La lettura per responsabilità</h4>
+        <figure><img src="manuale/18-admin-responsabili.jpg" alt="Sezione Responsabili"><figcaption><b>Responsabili.</b> Due schede, qualità e incarico. Il numero apre gli incarichi in cui la persona ricopre quel ruolo: il criterio qui è il <i>nome sulla scheda dell'incarico</i>, non la regione.</figcaption></figure>
+
+        <!-- ---- compensi ---- -->
+        <h3 id="p-compensi">Compensi e fatture</h3>
+        <div class="etichette"><span class="etichetta et-lettura">Lettura per consultare</span><span class="etichetta et-piena">Scrittura per segnare le fatture</span></div>
+
+        <figure><img src="manuale/19-admin-fatturazione.jpg" alt="Sezione Fatturazione"><figcaption><b>Fatturazione.</b> Il piano delle scadenze dell'anno scelto, diviso per periodicità. Le rate si segnano come emesse e si raggruppano per gruppo di fatturazione.</figcaption></figure>
+
+        <figure><img src="manuale/20-admin-report.jpg" alt="Sezione Report compensi"><figcaption><b>Report compensi.</b> Gli stessi importi letti per anno, con i confronti tra esercizi. Gli incarichi in proposta non sono conteggiati finché non vengono confermati.</figcaption></figure>
+
+        <!-- ---- comunicazioni ---- -->
+        <h3 id="p-comunicazioni">Comunicazioni</h3>
+        <div class="etichette"><span class="etichetta et-piena">Teams: dal permesso del ruolo</span><span class="etichetta et-neutra">Newsletter ed Eventi: abilitazione a parte</span></div>
+
+        <figure><img src="manuale/21-admin-comunicazioni.jpg" alt="Comunicazione ai teams di revisione"><figcaption><b>Comunicazione teams di revisione.</b> Nel testo si possono usare le variabili <kbd>{nome}</kbd>, <kbd>{cognome}</kbd>, <kbd>{email}</kbd> e <kbd>{incarichi}</kbd>: quest'ultima diventa la tabella degli incarichi di ciascun destinatario, aggiornata al momento dell'invio.</figcaption></figure>
+
+        <figure><img src="manuale/22-admin-newsletter.jpg" alt="Newsletter commerciali"><figcaption><b>Newsletter commerciali.</b> Sezione fuori dai ruoli: la vedono amministratore e titolare, più le persone abilitate una per una. I ruoli solo sondaggio ne restano sempre esclusi.</figcaption></figure>
+
+        <figure><img src="manuale/23-admin-eventi.jpg" alt="Iscrizioni Eventi NGB"><figcaption><b>Iscrizioni Eventi NGB.</b> Gli iscritti raccolti dal sito, con conferme e presenze. Chi vede la sezione può anche segnare le presenze, qualunque sia il suo ruolo.</figcaption></figure>
+
+        <figure><img src="manuale/24-admin-sondaggi.jpg" alt="Sezione Sondaggi"><figcaption><b>Sondaggi.</b> Compilazione e risultati dei questionari interni. Gli inviti esterni si gestiscono con i due ruoli «solo sondaggio».</figcaption></figure>
+
+        <!-- ---- utenti ---- -->
+        <h3 id="p-utenti">Utenti, ruoli e registro</h3>
+        <div class="etichette"><span class="etichetta et-piena">Solo amministratore e titolare</span></div>
+
+        <ol class="passi" style="margin-top:18px;">
+          <li>
+            <div class="passo-titolo">Registra l'utente</div>
+            <p class="passo-testo">Nella sezione <b>Utenti</b> si aggiunge l'indirizzo email, il nome e il ruolo. L'utente riceverà la password richiedendola dalla schermata di accesso: l'amministratore non imposta né conosce le password altrui.</p>
+            <figure><img src="manuale/26-admin-utenti.jpg" alt="Sezione Utenti"><figcaption><b>Utenti.</b> Da qui si cambia il ruolo di una persona già registrata e si disattiva chi non deve più entrare.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Configura il ruolo</div>
+            <p class="passo-testo">Nella sezione <b>Ruoli e permessi</b> ogni ruolo mostra il riepilogo dei suoi livelli. Il pulsante Modifica apre la finestra con una tendina per ciascuna delle otto sezioni configurabili.</p>
+            <figure><img src="manuale/27-admin-ruoli.jpg" alt="Sezione Ruoli e permessi"><figcaption><b>Ruoli e permessi.</b> I ruoli di sistema riportano in chiaro che vedono solo gli incarichi delle proprie regioni.</figcaption></figure>
+            <figure><img src="manuale/28-admin-ruolo-permessi.jpg" alt="Finestra di modifica di un ruolo"><figcaption><b>Modifica ruolo.</b> Tre livelli per ogni sezione: Nascosta, Sola lettura, Scrittura. Il nome del ruolo è libero.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Controlla il registro</div>
+            <p class="passo-testo">Il <b>Registro modifiche</b> conserva ogni operazione con autore, data e dettaglio di ciò che è cambiato. Non è modificabile né cancellabile: è la memoria di chi ha fatto cosa.</p>
+            <figure><img src="manuale/25-admin-registro.jpg" alt="Registro modifiche"><figcaption><b>Registro modifiche.</b> Utile quando un dato non torna: mostra chi lo ha cambiato e quando.</figcaption></figure>
+          </li>
+        </ol>
+
+        <!-- ---- dati ---- -->
+        <h3 id="p-dati">Dati e backup</h3>
+        <div class="etichette"><span class="etichetta et-piena">Solo il titolare</span></div>
+        <figure><img src="manuale/29-admin-dati.jpg" alt="Sezione Dati e backup"><figcaption><b>Dati e backup.</b> Importazione dell'elenco reale degli incarichi, esportazione completa e copie di sicurezza. È la sezione più delicata: nemmeno un amministratore la vede.</figcaption></figure>
+      </section>
+
+      <!-- ======================= glossario ======================= -->
+      <section id="glossario">
+        <span class="numero">Capitolo 14</span>
+        <h2>Glossario</h2>
+        <div class="prosa">
+          <p>I termini che nell'area riservata hanno un significato preciso, non sempre coincidente con l'uso corrente.</p>
+        </div>
+        <dl class="voci">
+          <dt>Aderente</dt><dd>Una persona dell'anagrafica dello studio. Può avere uno o più ruoli professionali e può avere, oppure no, un'utenza di accesso.</dd>
+          <dt>Utente</dt><dd>Un indirizzo email abilitato a entrare. L'utenza si crea nella sezione Utenti ed è collegata alla scheda dell'aderente attraverso l'email, che deve quindi coincidere.</dd>
+          <dt>Ruolo</dt><dd>Il profilo di permessi assegnato all'utenza. Stabilisce che cosa si vede e che cosa si può modificare.</dd>
+          <dt>Ruolo professionale</dt><dd>Le spunte sulla scheda dell'aderente: responsabile qualità, responsabile incarico, coordinatore territoriale, vice coordinatore territoriale. Descrivono la funzione nello studio e alimentano le tendine degli incarichi. Non concedono permessi.</dd>
+          <dt>Ruolo di sistema</dt><dd>Coordinatore territoriale e Vice coordinatore territoriale. L'amministratore può cambiarne i livelli per sezione, ma non il filtro per territorio, che è parte del ruolo.</dd>
+          <dt>Regione dell'incarico</dt><dd>La regione scritta sulla scheda dell'incarico. È il solo dato che decide quali coordinatori lo vedono. Non va confusa con l'area (Nord, Centro, Sud) né con la località del cliente.</dd>
+          <dt>Regioni coordinate</dt><dd>Le regioni spuntate sulla scheda di un aderente sotto i ruoli. Sono il territorio di un coordinatore o di un vice. La Regione della scheda è invece la sede della persona e non assegna alcun territorio.</dd>
+          <dt>Regione scoperta</dt><dd>Una regione con incarichi attivi e nessuno che la coordini. La scheda Per regione la segnala.</dd>
+          <dt>Responsabile qualità</dt><dd>Chi risponde della qualità di un incarico. Il collegamento tra persona e incarico avviene per cognome.</dd>
+          <dt>Responsabile incarico</dt><dd>Chi conduce l'incarico. Stesso meccanismo di collegamento.</dd>
+          <dt>Proposta</dt><dd>Un incarico preparato ma non ancora accettato dal cliente. Non entra nei totali né nella fatturazione.</dd>
+          <dt>Piano di fatturazione</dt><dd>L'insieme delle rate generate dal compenso e dalla periodicità scelta. Si consulta nella sezione Fatturazione.</dd>
+          <dt>Gruppo di fatturazione</dt><dd>Un'etichetta che raccoglie più incarichi fatturati insieme, per esempio le società di uno stesso gruppo.</dd>
+          <dt>Registro modifiche</dt><dd>Il diario delle operazioni: chi, quando, che cosa. Non modificabile.</dd>
+          <dt>Titolare</dt><dd>Il proprietario dello studio, individuato dal suo indirizzo email. Ha i poteri dell'amministratore più la sezione Dati e backup.</dd>
+          <dt>Equity partner</dt><dd>Il riferimento a cui chiedere modifiche e correzioni dei dati quando il proprio accesso è in sola visualizzazione.</dd>
+        </dl>
+      </section>
+
+      <!-- ======================= 11 ======================= -->
+      <section id="problemi">
+        <span class="numero">Capitolo 15</span>
+        <h2>Problemi ricorrenti</h2>
+
+        <dl class="voci">
+          <dt>Un coordinatore non vede alcun incarico</dt>
+          <dd>Sulla sua scheda in Aderenti Revilaw non è spuntata nessuna regione, oppure l'email della scheda è diversa da quella con cui accede. Le due devono coincidere.</dd>
+
+          <dt>Un coordinatore vede tutti gli incarichi</dt>
+          <dd>Il ruolo assegnato in Utenti non è uno dei due di sistema. Un ruolo creato a mano non applica il filtro per territorio, anche se si chiama «coordinatore».</dd>
+
+          <dt>Una voce di menu non compare</dt>
+          <dd>Il ruolo ha quella sezione su «Nascosta», oppure si tratta di una sezione fuori dai ruoli: Utenti e Ruoli sono di amministratore e titolare, Dati e backup del solo titolare, Newsletter ed Eventi richiedono l'abilitazione singola.</dd>
+
+          <dt>Un incarico non compare nei totali</dt>
+          <dd>Probabilmente è ancora in <b>proposta</b>: le proposte non entrano in fatturazione né nei compensi finché non vengono confermate dal Cruscotto.</dd>
+
+          <dt>Un incarico non compare a chi coordina la sua regione</dt>
+          <dd>Controlla la regione scritta sull'incarico: è quella, e non la sede del cliente o l'area, a decidere chi lo vede. Differenze di grafia (accenti, trattini, maiuscole) non contano: il confronto le ignora.</dd>
+
+          <dt>Il pulsante di modifica non c'è</dt>
+          <dd>Il ruolo ha quella sezione in sola lettura. Per i coordinatori è la regola: consultano, non modificano. Le correzioni si richiedono all'equity partner.</dd>
+
+          <dt>Sono uscito senza volerlo</dt>
+          <dd>Dopo 30 minuti senza attività la sessione si chiude. Basta rientrare: nessun dato viene perso, tranne quanto stavi scrivendo in una finestra aperta.</dd>
+        </dl>
+      </section>
+
+      <p class="chiusa">Manuale dell'area riservata incarichi di Revilaw S.p.A. Le schermate sono state raccolte sull'ambiente dimostrativo, con dati fittizi: nomi di società, importi e nominativi non corrispondono ad alcun cliente reale. Aggiornato al 13 agosto 2026.</p>
+
+    </main>
+  </div>
+</div>
+
+<div class="lente" id="lente" role="dialog" aria-modal="true" aria-label="Schermata ingrandita">
+  <button class="lente-chiudi" type="button">Chiudi</button>
+  <img alt="" id="lente-img">
+</div>
+
+<script>
+  (function () {
+    var lente = document.getElementById('lente');
+    var img = document.getElementById('lente-img');
+    document.querySelectorAll('figure img').forEach(function (el) {
+      el.addEventListener('click', function () {
+        img.src = el.src;
+        img.alt = el.alt;
+        lente.classList.add('aperta');
+      });
+    });
+    function chiudi() { lente.classList.remove('aperta'); img.removeAttribute('src'); }
+    lente.addEventListener('click', chiudi);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') chiudi(); });
+  })();
+</script>
+
+</body>
+</html>

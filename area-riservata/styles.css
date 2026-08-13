@@ -329,7 +329,10 @@ td.td-menu { white-space: nowrap; text-align: right; }
    regioni ("Valle d'Aosta" diventava "Valle D'aosta"). */
 .sidebar .utente-box .regioni-assegnate { display: block; margin-top: 4px; text-transform: none; color: rgba(255,255,255,0.75); line-height: 1.35; }
 .sidebar .utente-box .regioni-assegnate strong { color: #fff; font-weight: 600; }
-.sidebar .utente-box button { margin-top: 10px; }
+/* manuale ed uscita affiancati sotto il nome: due comandi brevi, una riga sola */
+.sidebar .utente-box .utente-azioni { display: flex; gap: 8px; margin-top: 10px; }
+.sidebar .utente-box .utente-azioni > * { flex: 1 1 0; justify-content: center; text-align: center; }
+.sidebar .utente-box .utente-azioni a { text-decoration: none; }
 
 /* Box "utenti connessi ora": un pannello integrato in fondo alla sidebar */
 .sidebar .presenza-box { padding: 12px; border-top: 1px solid rgba(255,255,255,0.10); }
