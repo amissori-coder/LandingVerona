@@ -73,7 +73,13 @@ td.td-azioni .btn { margin: 0 2px 2px 0; }
    dal codice accanto al pulsante (position: fixed, cosi non viene tagliato
    dallo scorrimento orizzontale della tabella) */
 td.td-menu { white-space: nowrap; text-align: right; }
-.menu-azioni-apri { font-weight: 700; font-size: 1rem; line-height: 1; padding: 3px 10px; margin: 0; }
+/* Il pulsante deve leggersi come un comando: prima erano solo tre puntini tenui su
+   fondo trasparente e sembravano una decorazione della riga. Ora c'e' la parola
+   "Azioni", il bordo del pulsante e i tre puntini come indicatore del menu. */
+.menu-azioni-apri { line-height: 1; padding: 4px 9px; margin: 0; gap: 5px; white-space: nowrap; }
+.menu-azioni-punti { font-weight: 700; font-size: 1rem; line-height: 1; }
+/* a menu aperto il pulsante resta acceso, cosi si vede da dove escono le azioni */
+.menu-azioni-apri[aria-expanded="true"] { background: var(--blu-700); color: #fff; border-color: var(--blu-700); }
 .menu-azioni { display: none; position: fixed; z-index: 90; background: #fff;
     border: 1px solid var(--grigio-200); border-radius: 8px; padding: 6px;
     min-width: 185px; flex-direction: column; gap: 4px;

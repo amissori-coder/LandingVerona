@@ -3483,6 +3483,8 @@
     // chiude tutti i menu azioni a comparsa (clic altrove, scorrimento, ridimensionamento)
     function chiudiMenuAzioni() {
         document.querySelectorAll('.menu-azioni.aperto').forEach(m => m.classList.remove('aperto'));
+        // il pulsante torna "chiuso": lo dicono sia il lettore di schermo sia l'evidenziazione
+        document.querySelectorAll('.menu-azioni-apri[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
     }
     document.addEventListener('click', chiudiMenuAzioni);
     window.addEventListener('scroll', chiudiMenuAzioni, true);
@@ -3496,10 +3498,14 @@
         const puoEliminare = Auth.puoEliminareIncarichi();
         const colAzioni = puoRinnovare || puoEliminare;
         const btnElimina = i => puoEliminare ? ` <button class="btn btn-sm btn-danger" data-elimina="${esc(i.id)}">Elimina</button>` : '';
-        // modalita compatta: nella riga resta solo il pulsante "tre puntini",
-        // le azioni compaiono in un menu a comparsa e la riga resta bassa
+        // modalita compatta: nella riga resta un solo pulsante, le azioni compaiono in un
+        // menu a comparsa e la riga resta bassa. I tre puntini da soli non si leggevano
+        // come un comando: ci vuole la parola "Azioni" e il bordo del pulsante.
+        // L'intestazione della colonna resta vuota di proposito: attrezzaTabella e
+        // l'esportazione CSV saltano le colonne senza titolo, ed e' cosi che la colonna
+        // dei comandi non finisce tra i filtri e nel file esportato.
         const menuAzioni = bottoni => (bottoni && bottoni.trim())
-            ? `<button class="btn btn-sm btn-ghost menu-azioni-apri" data-menu aria-label="Azioni" title="Azioni">&#8942;</button><div class="menu-azioni">${bottoni}</div>`
+            ? `<button class="btn btn-sm btn-secondary menu-azioni-apri" data-menu aria-haspopup="true" aria-expanded="false" title="Azioni disponibili su questo incarico">Azioni<span class="menu-azioni-punti" aria-hidden="true">&#8942;</span></button><div class="menu-azioni">${bottoni}</div>`
             : '';
         // attivi: rispetta il filtro di stato (attivo/scadenza/scaduto). terminati: ignora il filtro di stato
         // (che riguarda solo gli attivi) cosi restano sempre visibili nella loro scheda.
@@ -3629,6 +3635,7 @@
                 chiudiMenuAzioni();
                 if (apre) {
                     menu.classList.add('aperto');
+                    b.setAttribute('aria-expanded', 'true');
                     const r = b.getBoundingClientRect();
                     menu.style.top = Math.max(8, Math.min(r.bottom + 4, window.innerHeight - menu.offsetHeight - 8)) + 'px';
                     menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
