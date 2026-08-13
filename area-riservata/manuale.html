@@ -158,7 +158,7 @@
   .passi > li::after { content: ""; position: absolute; left: 17px; top: 40px; bottom: -34px; width: 1px; background: var(--filo); }
   .passi > li:last-child::after { display: none; }
   .passo-titolo { font-weight: 650; font-size: 1.03rem; margin-bottom: 6px; }
-  .passo-testo { color: var(--grigio); max-width: 64ch; }
+  .passo-testo { color: var(--grigio); max-width: 66ch; display: flex; flex-direction: column; gap: 11px; }
 
   /* ---------- figure ---------- */
   figure { margin: 18px 0 0; }
@@ -246,11 +246,28 @@
     section { break-before: page; }
     section:first-of-type { break-before: avoid; }
     .prosa, .passo-testo, .nota, dl.voci, ul.punti { max-width: none; }
-    figure { break-inside: avoid; margin-top: 12pt; }
-    figure img { max-width: 100%; box-shadow: none; border-color: #B8C2CC; cursor: default; }
-    figcaption { font-size: 7.8pt; }
-    .passi > li { break-inside: avoid; }
-    .passi { gap: 22pt; }
+    p { orphans: 3; widows: 3; }
+
+    /* Le schermate sono alte: alcune, scalate alla larghezza del testo, superavano
+       l'altezza utile della pagina. Il vincolo qui e' sull'ALTEZZA, cosi' ogni figura
+       entra sempre in una pagina e non viene rimandata a quella dopo lasciando un vuoto.
+       La larghezza si adegua da sola e l'immagine resta intera. */
+    figure { break-inside: avoid; margin-top: 12pt; text-align: center; }
+    figure img {
+        max-width: 100%; max-height: 118mm; width: auto; height: auto;
+        box-shadow: none; border-color: #B8C2CC; cursor: default; margin: 0 auto;
+    }
+    figcaption { font-size: 7.8pt; text-align: left; break-before: avoid; }
+
+    /* il passo puo' spezzarsi fra il testo e la sua schermata: tenerlo intero
+       obbligava a rimandare tutto, mezza pagina bianca compresa */
+    .passi > li { break-inside: auto; }
+    .passi > li::after { display: none; }
+    .passo-titolo { break-after: avoid; }
+    .passi { gap: 20pt; }
+    dl.voci dt { break-after: avoid; }
+    dl.voci dt, dl.voci dd { break-inside: avoid; }
+    h3 + .etichette, h3 + .prosa { break-before: avoid; }
     .ruolo-testata, .nota, .scheda-ruolo, .tabella-scorre { break-inside: avoid; }
     .schede-ruolo { grid-template-columns: 1fr 1fr; gap: 12pt; }
     .tabella-scorre { overflow: visible; }
@@ -685,7 +702,7 @@
           </div>
         </div>
 
-        <figure><img src="manuale/37-proc-cruscotto.jpg" alt="Cruscotto visto da un procuratore"><figcaption><b>Cruscotto del Procuratore.</b> Identico a quello dell'amministratore nei numeri, perché non c'è filtro di territorio. In basso a sinistra il nome e il ruolo di chi è collegato.</figcaption></figure>
+        <figure><img src="manuale/37-proc-cruscotto.jpg" alt="Cruscotto visto da un procuratore"><figcaption><b>Cruscotto del Procuratore.</b> Identico a quello dell'amministratore nei numeri, perché il ruolo non ha filtro di territorio: gli incarichi contati sono tutti quelli dello studio.</figcaption></figure>
 
         <figure><img src="manuale/38-proc-incarichi.jpg" alt="Elenco incarichi visto da un procuratore"><figcaption><b>Incarichi.</b> Il pulsante <b>+ Nuovo incarico</b> è presente perché il ruolo ha la scrittura. Manca invece l'eliminazione definitiva nel menu Azioni delle righe.</figcaption></figure>
 
@@ -834,33 +851,59 @@
         <ol class="passi">
           <li>
             <div class="passo-titolo">Cliente</div>
-            <p class="passo-testo">Ragione sociale (obbligatoria), codice fiscale o partita IVA, regione, località, email di riferimento e area. <b>La regione inserita qui è quella che decide quali coordinatori vedranno l'incarico</b>: vale la pena compilarla con cura.</p>
-            <figure><img src="manuale/07-admin-wizard-1-cliente.jpg" alt="Primo passo della creazione guidata: dati del cliente"><figcaption><b>Passo 1 di 6.</b> Si arriva qui dal pulsante «+ Nuovo incarico», presente nel Cruscotto e nella sezione Incarichi.</figcaption></figure>
+            <div class="passo-testo">
+              <p>Si parte dall'anagrafica della società da revisionare. L'unico campo obbligatorio è la <b>ragione sociale</b>; gli altri si possono completare in seguito, ma conviene compilarli subito perché alimentano il resto del programma.</p>
+              <p><b>Codice fiscale o partita IVA</b> compare nella lettera d'incarico e serve a distinguere società con nomi simili. La <b>regione</b> è il campo più importante di questo passo: è l'unico dato che stabilisce quali coordinatori e vice vedranno l'incarico, quindi un errore qui rende l'incarico invisibile a chi dovrebbe seguirlo. La <b>località</b> compare nella lettera insieme alla regione. L'<b>email di riferimento</b> e la <b>seconda email</b> sono i recapiti del cliente, usati nella lettera e nelle comunicazioni. L'<b>area</b> (Nord, Centro, Sud) serve solo a raggruppare gli incarichi nei filtri e nei report: non ha alcun effetto sui permessi.</p>
+            </div>
+            <figure><img src="manuale/07-admin-wizard-1-cliente.jpg" alt="Primo passo della creazione guidata: dati del cliente"><figcaption><b>Passo 1 di 6, Cliente.</b> Si arriva qui dal pulsante «+ Nuovo incarico», presente sia nel Cruscotto sia nella sezione Incarichi. I sei passi in cima restano sempre cliccabili.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Incarico e durata</div>
-            <p class="passo-testo">Tipo di revisione (legale o volontaria), primo esercizio, data di nomina e data di approvazione dell'ultimo bilancio. Da queste date discendono le scadenze e lo stato che l'incarico mostrerà negli elenchi.</p>
-            <figure><img src="manuale/08-admin-wizard-2-durata.jpg" alt="Secondo passo: tipo di incarico e durata"><figcaption><b>Passo 2 di 6.</b> Per la revisione legale il periodo è vincolato al triennio: i campi si adeguano da soli.</figcaption></figure>
+            <div class="passo-testo">
+              <p>Qui si stabilisce che tipo di incarico è e quanto dura. Il <b>tipo</b> distingue la revisione legale dalla revisione volontaria; il <b>primo esercizio</b> è l'anno da cui parte l'incarico.</p>
+              <p>Per la <b>revisione legale</b> il periodo è vincolato al triennio: scelto il primo esercizio, il programma calcola gli esercizi coperti e adegua da solo i campi, che non vanno forzati a mano. Per la <b>revisione volontaria</b> il periodo è libero.</p>
+              <p>La <b>data inizio (nomina)</b> è la data della delibera assembleare. La <b>data fine (approvazione ultimo bilancio)</b> è quella che conta di più nell'uso quotidiano: da lei dipende l'etichetta di stato che vedrai negli elenchi e nel cruscotto, e quindi la comparsa dell'incarico tra quelli in scadenza. Se la data non è ancora nota si può lasciare una nota al posto della data: il programma la riporta così com'è, senza calcolare una scadenza inventata.</p>
+            </div>
+            <figure><img src="manuale/08-admin-wizard-2-durata.jpg" alt="Secondo passo: tipo di incarico e durata"><figcaption><b>Passo 2 di 6, Incarico e durata.</b> Sotto il primo esercizio una riga di aiuto indica quali esercizi risultano coperti dal periodo scelto.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Compenso</div>
-            <p class="passo-testo">L'onorario per ciascun anno dell'incarico. È la base di tutto: alimenta i totali del cruscotto, il piano di fatturazione e i report compensi.</p>
-            <figure><img src="manuale/09-admin-wizard-3-compenso.jpg" alt="Terzo passo: compensi per anno"><figcaption><b>Passo 3 di 6.</b> Gli importi si indicano anno per anno, così i confronti tra esercizi restano corretti anche quando l'incarico viene rinnovato.</figcaption></figure>
+            <div class="passo-testo">
+              <p>Questo passo non chiede un importo: lo <b>calcola</b>, con il metodo della pagina sulla revisione legale (media dimensionale, ore base CNDCEC, correttivi di settore e rischio, tariffa oraria).</p>
+              <p>Si inseriscono <b>totale attivo patrimoniale</b> e <b>ricavi delle vendite</b> della società: dalla loro media dimensionale nascono le ore base. Il <b>settore di attività</b> e il <b>rischio incarico</b> applicano i correttivi previsti, per esempio un venti per cento in più per un rischio moderato.</p>
+              <p>Le ore si possono poi ritoccare: l'<b>aumento manuale ore base</b> agisce sul totale, mentre le <b>ore extra per casistiche</b> coprono le situazioni che allungano il lavoro (consolidato ricorrente, principi IFRS, sistemi IT e data analytics, altre casistiche ricorrenti, revisione volontaria dell'anno precedente, primo anno o subentro; le ultime due valgono solo per il primo anno). La <b>tariffa oraria media</b> converte le ore in euro. Le <b>note sul rischio</b> restano sulla scheda dell'incarico e spiegano a chi legge come si è arrivati a quel numero.</p>
+              <p>Il risultato è una proposta di compenso, non un vincolo: l'importo effettivo di ciascun esercizio si fissa al passo 5.</p>
+            </div>
+            <figure><img src="manuale/09-admin-wizard-3-compenso.jpg" alt="Terzo passo: calcolo del compenso"><figcaption><b>Passo 3 di 6, Compenso.</b> Il calcolo è trasparente: cambiando un parametro si vede subito l'effetto sulle ore e sull'importo proposto.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Team</div>
-            <p class="passo-testo">Responsabile qualità, responsabile incarico, referente e componenti del team. Le tendine propongono le persone dell'anagrafica che hanno il ruolo corrispondente: se manca qualcuno, va prima aggiunto in Aderenti Revilaw.</p>
-            <figure><img src="manuale/10-admin-wizard-4-team.jpg" alt="Quarto passo: composizione del team"><figcaption><b>Passo 4 di 6.</b> È da questi campi che nascono le sezioni Responsabili e le comunicazioni ai team.</figcaption></figure>
+            <div class="passo-testo">
+              <p>Si indica chi lavora sull'incarico. <b>Responsabile incarico</b> e <b>responsabile qualità</b> sono obbligatori; il <b>referente</b> e i <b>componenti del team di revisione</b> sono facoltativi ma utili, perché sono loro i destinatari delle comunicazioni ai team.</p>
+              <p>Le tendine propongono soltanto le persone dell'anagrafica che hanno spuntato il ruolo professionale corrispondente e che sono attive. Se una persona non compare, il motivo è quasi sempre uno di questi: non è ancora in anagrafica, non ha la spunta del ruolo, oppure è stata disattivata. In tutti e tre i casi si passa da <b>Aderenti Revilaw</b> e si torna qui.</p>
+              <p>Per il team ci sono le caselle di tutte le persone attive, con i pulsanti <b>Seleziona tutti</b> e <b>Deseleziona</b> per i gruppi numerosi. I nomi scelti qui alimentano la sezione Responsabili e determinano chi riceve i messaggi inviati dalla sezione Comunicazione teams di revisione.</p>
+            </div>
+            <figure><img src="manuale/10-admin-wizard-4-team.jpg" alt="Quarto passo: composizione del team"><figcaption><b>Passo 4 di 6, Team.</b> Il collegamento fra persona e incarico avviene per cognome: cambiando il cognome in anagrafica, il programma aggiorna anche gli incarichi che lo citano.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Fatturazione</div>
-            <p class="passo-testo">Periodicita delle fatture (mensile, trimestrale, annuale o un piano specifico) ed eventuale gruppo di fatturazione. Da qui si genera il piano delle scadenze che troverai nella sezione Fatturazione.</p>
-            <figure><img src="manuale/11-admin-wizard-5-fatturazione.jpg" alt="Quinto passo: piano di fatturazione"><figcaption><b>Passo 5 di 6.</b> Con il piano specifico si fissano manualmente le singole rate, data per data.</figcaption></figure>
+            <div class="passo-testo">
+              <p>È il passo che determina i numeri veri dell'incarico, quindi merita attenzione. La <b>modalità di fatturazione</b> (mensile, trimestrale, annuale o specifica) genera le rate; per la revisione legale triennale la scelta predefinita è trimestrale. Il <b>gruppo di fatturazione</b> serve a fatturare insieme più incarichi, per esempio le società di uno stesso gruppo: si lascia vuoto se l'incarico si fattura da solo.</p>
+              <p><b>Inizio</b> e <b>fine fatturazione</b> restringono il periodo. Lasciandoli vuoti la fatturazione parte subito e non ha fine: sotto i due campi una riga indica in chiaro da quale trimestre si comincia e con quale si finisce, così si verifica a colpo d'occhio.</p>
+              <p>La casella <b>spese generali forfettarie</b> aggiunge una percentuale sugli onorari, standard cinque per cento, a copertura di tecnologia, banche dati, software, segreteria e comunicazione. La percentuale scelta vale sia sulle scadenze sia nella clausola della lettera d'incarico.</p>
+              <p>In fondo ci sono i <b>periodi di fatturazione</b>, un riquadro per esercizio. Ogni riga è una scadenza, con la sua data e il suo importo: si possono modificare, eliminare o aggiungere. Vale una regola sola, ed è la più importante del passo: <b>il compenso di un esercizio è la somma delle sue righe</b>. Quello che scrivi qui è quello che finisce nella sezione Fatturazione, nei report compensi e nella lettera. Un esercizio senza righe resta a zero e non viene fatturato.</p>
+              <p>I <b>rimborsi delle spese vive</b> (viaggi, vitto, alloggio) non si indicano qui: si aggiungono scadenza per scadenza nella sezione Fatturazione, dove il campo si può anche congelare per impedire modifiche successive.</p>
+            </div>
+            <figure><img src="manuale/11-admin-wizard-5-fatturazione.jpg" alt="Quinto passo: piano di fatturazione"><figcaption><b>Passo 5 di 6, Fatturazione.</b> L'intestazione di ogni esercizio riepiloga quanti periodi contiene, il totale degli onorari e il totale delle spese generali.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Riepilogo e salvataggio</div>
-            <p class="passo-testo">L'ultimo passo mostra tutto quanto inserito prima di salvare. Un incarico appena creato entra come <b>proposta</b>: non conta nei totali dei compensi né nella fatturazione finché non lo confermi dal cruscotto.</p>
-            <figure><img src="manuale/12-admin-wizard-6-riepilogo.jpg" alt="Sesto passo: riepilogo prima del salvataggio"><figcaption><b>Passo 6 di 6.</b> Dal riepilogo si può tornare a qualunque passo precedente cliccando il suo numero in cima.</figcaption></figure>
+            <div class="passo-testo">
+              <p>L'ultimo passo raccoglie tutto quanto inserito, così si controlla prima di salvare. Se qualcosa non torna, si torna al passo interessato cliccando il suo numero in cima: i dati già inseriti restano.</p>
+              <p>Al salvataggio l'incarico entra come <b>proposta</b>. Questo significa che compare negli elenchi e nel riquadro delle proposte del cruscotto, ma <b>non è ancora conteggiato</b> nei totali dei compensi né nel piano di fatturazione. Diventa un incarico a tutti gli effetti solo quando lo confermi, e la conferma si dà quando il cliente ha accettato.</p>
+              <p>Il salvataggio finisce nel Registro modifiche con il tuo nome e la data.</p>
+            </div>
+            <figure><img src="manuale/12-admin-wizard-6-riepilogo.jpg" alt="Sesto passo: riepilogo prima del salvataggio"><figcaption><b>Passo 6 di 6, Riepilogo.</b> Il controllo completo dei campi obbligatori scatta qui, al salvataggio: nei passi precedenti si può andare avanti e indietro liberamente.</figcaption></figure>
           </li>
         </ol>
 
@@ -876,17 +919,27 @@
         <ol class="passi" style="margin-top:18px;">
           <li>
             <div class="passo-titolo">Trova l'incarico</div>
-            <p class="passo-testo">La sezione Incarichi è divisa in quattro schede: Attivi, Terminati, Dismessi, Non accettati. Sopra la tabella ci sono la ricerca su tutte le colonne e un filtro per ciascuna colonna; il pulsante <b>Esporta CSV</b> scarica esattamente ciò che stai vedendo, filtri compresi.</p>
+            <div class="passo-testo">
+              <p>La sezione Incarichi è divisa in quattro schede, che separano ciò che è in corso da ciò che è chiuso: <b>Attivi</b>, <b>Terminati</b>, <b>Dismessi</b> e <b>Non accettati</b>. Se un incarico non lo trovi, con ogni probabilità sei nella scheda sbagliata.</p>
+              <p>Per restringere l'elenco ci sono due strumenti che si combinano. La <b>ricerca</b> guarda contemporaneamente tutte le colonne: basta un pezzo di ragione sociale, un codice fiscale o il nome di una regione. I <b>filtri di colonna</b> agiscono su un campo alla volta e accettano sia un testo digitato sia un valore scelto fra i suggerimenti, che sono i valori realmente presenti in quella colonna. Quando un filtro è attivo compare il conteggio delle righe visibili sul totale, utile per accorgersi di aver lasciato un filtro acceso.</p>
+              <p>Il pulsante <b>Esporta CSV</b> scarica esattamente le righe che stai vedendo, filtri compresi, con una colonna per ciascun anno con compensi.</p>
+            </div>
             <figure><img src="manuale/04-admin-incarichi.jpg" alt="Elenco degli incarichi con filtri e schede"><figcaption><b>Elenco incarichi.</b> Un clic su una riga apre il dettaglio dell'incarico.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Usa il menu Azioni della riga</div>
-            <p class="passo-testo">L'ultima colonna contiene il pulsante <b>Azioni</b>: apre il menu con Modifica, Rinnova, Termina, Dimissioni e, per amministratore e titolare, Elimina. Chi non ha la scrittura non vede né il pulsante né il menu.</p>
+            <div class="passo-testo">
+              <p>L'ultima colonna contiene il pulsante <b>Azioni</b>, che apre il menu dei comandi disponibili su quell'incarico: <b>Modifica</b> per riaprire la creazione guidata sui dati esistenti, <b>Rinnova</b> per aprire un nuovo periodo partendo da quelli attuali, <b>Termina</b> e <b>Dimissioni</b> per chiuderlo, ed <b>Elimina</b>, riservata ad amministratore e titolare.</p>
+              <p>Il menu resta ancorato alla riga da cui è uscito e si chiude da solo cliccando altrove o scorrendo la pagina. Se non vedi il pulsante Azioni, il tuo ruolo ha la sezione Incarichi in sola lettura.</p>
+            </div>
             <figure><img src="manuale/05-admin-incarichi-azioni.jpg" alt="Menu Azioni aperto su una riga"><figcaption><b>Menu Azioni.</b> A menu aperto il pulsante resta acceso in blu pieno, così si vede da quale riga escono le voci.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Oppure apri il dettaglio</div>
-            <p class="passo-testo">Il dettaglio raccoglie in una pagina anagrafica del cliente, durata, team, compensi per anno, piano di fatturazione e storico delle modifiche. Da qui si stampa anche la lettera d'incarico.</p>
+            <div class="passo-testo">
+              <p>Il dettaglio raccoglie in una pagina sola tutto ciò che riguarda l'incarico: anagrafica del cliente, tipo e durata, team, compenso di ciascun esercizio, piano di fatturazione con le singole scadenze e storico delle modifiche con autore e data.</p>
+              <p>Da qui si generano anche la <b>lettera d'incarico</b> su carta intestata e la proposta da consegnare al cliente. Il pulsante <b>Elenco</b> in alto riporta alla sezione da cui sei entrato, nel punto in cui eri: se venivi dal cruscotto torni al cruscotto, se venivi da Coordinatori e vice torni a quella scheda.</p>
+            </div>
             <figure><img src="manuale/06-admin-dettaglio.jpg" alt="Dettaglio completo di un incarico"><figcaption><b>Dettaglio dell'incarico.</b> Il pulsante «Elenco» in alto riporta alla sezione da cui sei entrato, nel punto in cui eri.</figcaption></figure>
           </li>
         </ol>
@@ -898,17 +951,28 @@
         <ol class="passi" style="margin-top:18px;">
           <li>
             <div class="passo-titolo">Apri Aderenti Revilaw</div>
-            <p class="passo-testo">L'elenco mostra per ogni persona i contatti, i quattro ruoli professionali con una spunta, il numero di incarichi associati e lo stato. Le schede in cima separano le persone attive da quelle disattivate ed eliminate.</p>
+            <div class="passo-testo">
+              <p>L'elenco mostra per ogni persona cognome e nome, i recapiti, la regione di sede, i quattro ruoli professionali con una spunta ciascuno, il numero di incarichi associati e lo stato. Le schede in cima separano le persone <b>attive</b> da quelle <b>disattivate</b> e <b>eliminate</b>.</p>
+              <p>Il numero nella colonna degli incarichi è cliccabile e apre l'elenco degli incarichi in cui quella persona compare con un ruolo qualsiasi, che sia responsabile qualità, responsabile incarico, referente o componente del team.</p>
+            </div>
             <figure><img src="manuale/13-admin-aderenti.jpg" alt="Anagrafica degli aderenti"><figcaption><b>Aderenti Revilaw.</b> Il numero nella colonna «Inc.» è cliccabile e apre l'elenco degli incarichi in cui quella persona compare, con qualunque ruolo.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Compila la scheda</div>
-            <p class="passo-testo">Nome, cognome, email, telefono, sede e ruoli. <b>L'email è l'aggancio tra la scheda e l'utenza di accesso</b>: deve essere la stessa registrata nella sezione Utenti, altrimenti il programma non riesce a collegare la persona a chi si è collegato.</p>
+            <div class="passo-testo">
+              <p>La scheda chiede nome, cognome, email, telefono, regione di sede, provincia, località e indirizzo, poi i ruoli professionali. Il <b>cognome</b> è il campo che collega la persona agli incarichi: cambiandolo, il programma aggiorna anche gli incarichi che lo citano, così non restano nomi orfani.</p>
+              <p>L'<b>email</b> merita attenzione particolare, perché è l'aggancio fra la scheda e l'utenza di accesso. Deve essere identica a quella registrata nella sezione Utenti: se differisce anche di poco, il programma non riesce a collegare la persona a chi si è collegato, e per un coordinatore questo significa non vedere alcun incarico.</p>
+              <p>La <b>regione</b> di questa scheda è la sede della persona, dove ha lo studio o l'ufficio. Non assegna alcun territorio: le regioni coordinate si spuntano più in basso, tra i ruoli, e sono un elenco a parte.</p>
+              <p>I quattro <b>ruoli professionali</b> (responsabile qualità, responsabile incarico, coordinatore territoriale, vice coordinatore territoriale) decidono in quali tendine la persona comparirà e in quali sezioni sarà elencata. Non concedono permessi di accesso: quelli si assegnano dalla sezione Utenti.</p>
+            </div>
             <figure><img src="manuale/14-admin-scheda-persona.jpg" alt="Scheda di una persona in anagrafica"><figcaption><b>Scheda persona.</b> Il campo Regione è la <i>sede</i> della persona e non assegna alcun territorio: le regioni coordinate si scelgono tra i ruoli, più sotto.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Disattivare invece di eliminare</div>
-            <p class="passo-testo">Chi lascia lo studio si <b>disattiva</b>: sparisce dalle tendine e dalle sezioni Coordinatori e Responsabili, ma resta negli incarichi già registrati. L'eliminazione è reversibile e le persone eliminate si ripristinano dalla scheda «Eliminate».</p>
+            <div class="passo-testo">
+              <p>Chi lascia lo studio non va cancellato, va <b>disattivato</b>. La persona disattivata sparisce dalle tendine e dalle sezioni Coordinatori e vice e Responsabili, ma resta negli incarichi già registrati, che continuano a mostrare correttamente chi li ha seguiti.</p>
+              <p>Anche l'<b>eliminazione</b> è reversibile: la persona passa alla scheda «Eliminate», da cui si ripristina in qualsiasi momento, e resta comunque negli incarichi storici. Ogni operazione finisce nel Registro modifiche.</p>
+            </div>
           </li>
         </ol>
 
@@ -922,16 +986,26 @@
         <ol class="passi">
           <li>
             <div class="passo-titolo">Spunta il ruolo, poi le regioni</div>
-            <p class="passo-testo">Nella scheda della persona, sotto <b>Ruoli</b>, spunta <b>Coordinatore territoriale</b> o <b>Vice coordinatore territoriale</b>. Compare allora il riquadro <b>Regioni coordinate</b> con tutte le regioni italiane: spunta quelle di sua competenza e salva.</p>
+            <div class="passo-testo">
+              <p>Apri la scheda della persona da Aderenti Revilaw e scendi fino a <b>Ruoli</b>. Spunta <b>Coordinatore territoriale</b> oppure <b>Vice coordinatore territoriale</b>, o entrambi se la persona ricopre i due incarichi in territori diversi.</p>
+              <p>Appena metti la spunta compare il riquadro <b>Regioni coordinate</b>, con l'elenco completo delle regioni italiane. Spunta quelle di sua competenza e salva. L'elenco è completo di proposito: la regione indicata più in alto nella scheda è la sede della persona e non entra da sola nel territorio, quindi se coordina anche la regione in cui ha sede va spuntata qui esplicitamente.</p>
+              <p>Senza alcuna spunta la persona non vedrà alcun incarico. È una scelta voluta: in mancanza di indicazioni il programma chiude anziché aprire.</p>
+            </div>
             <figure><img src="manuale/40-admin-scheda-regioni.jpg" alt="Riquadro delle regioni coordinate nella scheda persona"><figcaption><b>Regioni coordinate.</b> Il riquadro compare solo dopo aver spuntato uno dei due ruoli. Qui la persona coordina Lombardia, Piemonte e Valle d'Aosta.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Assegna il ruolo di accesso</div>
-            <p class="passo-testo">Spuntare la casella in anagrafica <b>non basta</b>: descrive il ruolo professionale della persona. Perché il filtro per territorio si attivi davvero, nella sezione <b>Utenti</b> l'utenza collegata a quella stessa email deve avere il ruolo «Coordinatore territoriale» o «Vice coordinatore territoriale».</p>
+            <div class="passo-testo">
+              <p>Spuntare la casella in anagrafica <b>non basta</b>, perché quella spunta descrive la funzione professionale della persona, non i suoi permessi. Perché il filtro per territorio entri davvero in funzione, nella sezione <b>Utenti</b> l'utenza collegata a quella stessa email deve avere come ruolo «Coordinatore territoriale» o «Vice coordinatore territoriale».</p>
+              <p>Sono quindi due passaggi in due posti diversi, ed è la causa più frequente di malfunzionamento segnalata: la spunta c'è, ma l'utenza ha un altro ruolo e la persona continua a vedere tutti gli incarichi.</p>
+            </div>
           </li>
           <li>
             <div class="passo-titolo">Verifica</div>
-            <p class="passo-testo">Le regioni assegnate compaiono in basso a sinistra sotto il nome dell'utente, in ogni schermata, e nella finestra che si apre al suo ingresso. Se lì compare «nessuna regione assegnata», la spunta non è stata salvata.</p>
+            <div class="passo-testo">
+              <p>Chiedi alla persona di accedere e di guardare due punti. In <b>basso a sinistra</b>, sotto il suo nome e il ruolo, deve comparire la riga «Regioni assegnate» con l'elenco corretto; quella riga resta visibile in ogni schermata. All'ingresso, inoltre, si apre una <b>finestra di riepilogo</b> che ripete ruolo, regioni, limite agli incarichi e livello di accesso.</p>
+              <p>Se in uno dei due punti compare «nessuna regione assegnata», la spunta non è stata salvata oppure l'email della scheda non coincide con quella dell'utenza.</p>
+            </div>
           </li>
         </ol>
 
@@ -942,17 +1016,28 @@
         <ol class="passi" style="margin-top:18px;">
           <li>
             <div class="passo-titolo">Apri Coordinatori e vice</div>
-            <p class="passo-testo">Tre schede: <b>Coordinatori</b>, <b>Vice coordinatori</b> e <b>Per regione</b>. Nelle prime due ogni riga mostra le regioni coperte e il numero di incarichi attivi in quel territorio.</p>
+            <div class="passo-testo">
+              <p>La sezione ha tre schede. <b>Coordinatori</b> e <b>Vice coordinatori</b> elencano le persone: per ciascuna, le regioni coperte, l'email e il numero di incarichi attivi in quel territorio. <b>Per regione</b> ribalta la lettura e parte dalle regioni.</p>
+              <p>Chi non ha spuntato alcuna regione compare comunque nell'elenco, con l'avviso «nessuna regione coordinata»: serve ad accorgersene, invece di scoprirlo quando quella persona segnala di non vedere nulla.</p>
+            </div>
             <figure><img src="manuale/15-admin-coordinatori.jpg" alt="Sezione Coordinatori e vice"><figcaption><b>Coordinatori e vice.</b> Una regione coperta da più persone conta gli stessi incarichi per ciascuna: il totale delle righe non è il totale degli incarichi.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Clicca il numero per vedere quali sono</div>
-            <p class="passo-testo">Il numero nella colonna Incarichi apre l'elenco degli incarichi attivi di quel territorio, con cliente, tipo, regione, responsabili, scadenza e stato. Un clic sulla riga apre l'incarico; il pulsante <b>Modifica</b> lo apre direttamente in modifica, se hai la scrittura.</p>
+            <div class="passo-testo">
+              <p>Il numero nella colonna Incarichi è un pulsante. Aprendolo compare l'elenco degli incarichi attivi di quel territorio con cliente, tipo, regione, responsabile qualità, responsabile incarico, scadenza e stato.</p>
+              <p>Da quell'elenco si arriva all'incarico in due modi: un clic sulla riga apre il <b>dettaglio</b>, il pulsante <b>Modifica</b> lo apre direttamente nella creazione guidata. Il pulsante Modifica compare solo a chi ha la scrittura sugli incarichi.</p>
+              <p>Il conteggio comprende gli incarichi in corso, proposte incluse, ed esclude quelli terminati, dismessi e non accettati. Se il tuo ruolo è limitato per regione, l'elenco segnala quanti incarichi restano fuori dal tuo territorio senza nominarli.</p>
+            </div>
             <figure><img src="manuale/16-admin-coordinatori-incarichi.jpg" alt="Finestra con gli incarichi del territorio"><figcaption><b>Incarichi del territorio.</b> Chi ha l'accesso in sola visualizzazione vede l'elenco ma non il pulsante Modifica.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Controlla le regioni scoperte</div>
-            <p class="passo-testo">La scheda <b>Per regione</b> ribalta la lettura: per ogni regione, chi la coordina e quanti incarichi attivi contiene. Una regione con incarichi ma senza nessuno che la coordini è marcata <b>scoperta</b>.</p>
+            <div class="passo-testo">
+              <p>La scheda <b>Per regione</b> elenca le regioni con i rispettivi coordinatori, i vice e il numero di incarichi attivi. Anche qui il numero è cliccabile e apre l'elenco degli incarichi di quella regione.</p>
+              <p>Una regione che ha incarichi attivi ma nessuno che la coordini è marcata <b>scoperta</b>: è il controllo da fare periodicamente, perché indica lavoro senza un presidio territoriale.</p>
+              <p>Attenzione a un punto di lettura: una regione coperta da più persone conta gli stessi incarichi per ciascuna, quindi la somma dei numeri delle righe non è il totale degli incarichi dello studio.</p>
+            </div>
             <figure><img src="manuale/17-admin-coordinatori-regione.jpg" alt="Scheda Per regione"><figcaption><b>Per regione.</b> Anche qui il numero degli incarichi attivi è cliccabile.</figcaption></figure>
           </li>
         </ol>
@@ -987,18 +1072,29 @@
         <ol class="passi" style="margin-top:18px;">
           <li>
             <div class="passo-titolo">Registra l'utente</div>
-            <p class="passo-testo">Nella sezione <b>Utenti</b> si aggiunge l'indirizzo email, il nome e il ruolo. L'utente riceverà la password richiedendola dalla schermata di accesso: l'amministratore non imposta né conosce le password altrui.</p>
+            <div class="passo-testo">
+              <p>Nella sezione <b>Utenti</b> si aggiunge l'indirizzo email, il nome e il ruolo. L'utente riceverà la password richiedendola da solo dalla schermata di accesso: l'amministratore non la imposta e non la conosce.</p>
+              <p>Usa lo stesso indirizzo con cui la persona è registrata in Aderenti Revilaw. È da quella coincidenza che il programma capisce quale scheda appartiene a chi si è collegato, e per coordinatori e vice ne dipende l'intero filtro per territorio.</p>
+              <p>Chi non deve più entrare si <b>disattiva</b> invece di essere cancellato: l'utenza resta nel registro delle operazioni passate ma non consente più l'accesso.</p>
+            </div>
             <figure><img src="manuale/26-admin-utenti.jpg" alt="Sezione Utenti"><figcaption><b>Utenti.</b> Da qui si cambia il ruolo di una persona già registrata e si disattiva chi non deve più entrare.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Configura il ruolo</div>
-            <p class="passo-testo">Nella sezione <b>Ruoli e permessi</b> ogni ruolo mostra il riepilogo dei suoi livelli. Il pulsante Modifica apre la finestra con una tendina per ciascuna delle otto sezioni configurabili.</p>
+            <div class="passo-testo">
+              <p>Nella sezione <b>Ruoli e permessi</b> ogni ruolo è una scheda che riepiloga i livelli assegnati sezione per sezione. Il pulsante Modifica apre la finestra con una tendina per ciascuna delle otto sezioni configurabili, con i tre valori Nascosta, Sola lettura e Scrittura.</p>
+              <p>Si possono creare ruoli nuovi con il pulsante in alto. Ricorda che Utenti, Ruoli e permessi e Dati e backup non compaiono fra le sezioni configurabili: restano ad amministratore e titolare per costruzione, e nessun ruolo personalizzato può concederle.</p>
+              <p>Modificare un ruolo ha effetto su tutti gli utenti che lo hanno assegnato, dal loro accesso successivo.</p>
+            </div>
             <figure><img src="manuale/27-admin-ruoli.jpg" alt="Sezione Ruoli e permessi"><figcaption><b>Ruoli e permessi.</b> I ruoli di sistema riportano in chiaro che vedono solo gli incarichi delle proprie regioni.</figcaption></figure>
             <figure><img src="manuale/28-admin-ruolo-permessi.jpg" alt="Finestra di modifica di un ruolo"><figcaption><b>Modifica ruolo.</b> Tre livelli per ogni sezione: Nascosta, Sola lettura, Scrittura. Il nome del ruolo è libero.</figcaption></figure>
           </li>
           <li>
             <div class="passo-titolo">Controlla il registro</div>
-            <p class="passo-testo">Il <b>Registro modifiche</b> conserva ogni operazione con autore, data e dettaglio di ciò che è cambiato. Non è modificabile né cancellabile: è la memoria di chi ha fatto cosa.</p>
+            <div class="passo-testo">
+              <p>Il <b>Registro modifiche</b> conserva ogni operazione con autore, data, entità toccata e dettaglio di ciò che è cambiato: creazioni e modifiche di incarichi, interventi sull'anagrafica, accessi, blocchi per tentativi falliti, cambi di password.</p>
+              <p>Non è modificabile né cancellabile. È lo strumento da usare quando un dato non torna: mostra chi lo ha cambiato e quando, senza bisogno di chiedere in giro.</p>
+            </div>
             <figure><img src="manuale/25-admin-registro.jpg" alt="Registro modifiche"><figcaption><b>Registro modifiche.</b> Utile quando un dato non torna: mostra chi lo ha cambiato e quando.</figcaption></figure>
           </li>
         </ol>
