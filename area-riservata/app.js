@@ -5684,9 +5684,80 @@
 
     // le regioni coperte sono quelle scelte sulla scheda: regioniCoperte() sta con Persone
 
+    /* Gli incarichi che questa sezione conta come "attivi": tutto tranne i chiusi.
+       La proposta E' inclusa - e' un incarico in corso di definizione sul territorio,
+       non uno concluso. Predicato unico, cosi' il numero in tabella e l'elenco della
+       finestra non possono divergere. */
+    const incaricoInCorso = i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'nonAccettato';
+
+    /* Incarichi attivi di un territorio (una o piu' regioni), confrontati con la chiave
+       normalizzata cosi' grafie diverse della stessa regione coincidono. Il criterio e'
+       la REGIONE dell'incarico, non il nome della persona sui suoi campi: il coordinatore
+       segue il territorio. Per gli incarichi in cui una persona e' nominata ci sono
+       Aderenti Revilaw e Responsabili. Senza lista guarda i soli incarichi visibili
+       all'utente collegato (filtro regione del ruolo). */
+    function incarichiDelTerritorio(regioni, lista) {
+        const chiavi = new Set((regioni || []).map(chiaveRegione).filter(Boolean));
+        if (!chiavi.size) return [];
+        const out = (lista || Incarichi.visibili()).filter(i => incaricoInCorso(i) && chiavi.has(chiaveRegione(i.regione || '')));
+        // per regione (utile a chi ne coordina piu' d'una), poi per cliente
+        out.sort((a, b) => String(a.regione || '').localeCompare(String(b.regione || ''), 'it')
+            || String(a.cliente || '').localeCompare(String(b.cliente || ''), 'it'));
+        return out;
+    }
+
+    /* Finestra con gli incarichi attivi di un territorio: si apre dal numero della colonna
+       "Incarichi" (regioni di un coordinatore o singola regione della scheda Per regione).
+       Ogni riga apre l'incarico; chi ha la scrittura sugli incarichi lo apre direttamente
+       in modifica con il bottone. */
+    function modaleIncarichiTerritorio(titolo, sottotitolo, regioni) {
+        const voci = incarichiDelTerritorio(regioni);
+        const puoMod = Auth.puoScrivere('incarichi');
+        // per un ruolo limitato a certe regioni: dice QUANTI incarichi restano fuori, senza nominarli
+        const fuori = Auth.regioniConsentite() ? incarichiDelTerritorio(regioni, Incarichi.tutti()).length - voci.length : 0;
+        const righe = voci.map(i => {
+            const s = Incarichi.statoScadenza(i);
+            const vuoto = '<span style="color:var(--grigio-400)">&mdash;</span>';
+            // i data-label servono su schermo stretto: la tabella diventa una scheda per riga
+            return `<tr class="cliccabile" data-apri="${esc(i.id)}">
+                <td data-label="Cliente">${esc(i.cliente || '')}</td>
+                <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
+                <td data-label="Regione">${esc(i.regione || '')}</td>
+                <td data-label="Resp. qualita">${i.qualita ? esc(i.qualita) : vuoto}</td>
+                <td data-label="Resp. incarico">${i.respIncarico ? esc(i.respIncarico) : vuoto}</td>
+                <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
+                <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
+                ${puoMod ? `<td data-label=""><button type="button" class="btn btn-sm btn-secondary m-inc-mod" data-mod="${esc(i.id)}">Modifica</button></td>` : ''}
+            </tr>`;
+        }).join('');
+        apriModale(`<h2>${esc(titolo)}</h2>
+            ${sottotitolo ? `<p class="descrizione" style="margin:-4px 0 10px;">${esc(sottotitolo)}</p>` : ''}
+            ${voci.length ? `<p class="hint" style="margin:-4px 0 10px;">${voci.length} ${voci.length === 1 ? 'incarico attivo' : 'incarichi attivi'} &middot; clicca una riga per aprire l'incarico${puoMod ? ', "Modifica" per aprirlo subito in modifica' : ''}.</p>
+            <div class="tabella-wrap"><table class="dati"><thead><tr>
+                <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Resp. qualita</th><th>Resp. incarico</th><th>Fine</th><th>Stato</th>${puoMod ? '<th></th>' : ''}
+            </tr></thead><tbody>${righe}</tbody></table></div>`
+            : '<p class="descrizione">Nessun incarico attivo in questo territorio.</p>'}
+            ${fuori > 0 ? `<p class="hint" style="margin-top:10px;">${fuori === 1 ? 'Un altro incarico e' : 'Altri ' + fuori + ' incarichi sono'} fuori dalle regioni del tuo ruolo e non ${fuori === 1 ? 'viene mostrato' : 'vengono mostrati'}.</p>` : ''}
+            <div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>`, { classe: 'extra-larga' });
+        document.getElementById('m-ok').addEventListener('click', chiudiModale);
+        // il bottone sta dentro una riga cliccabile: si ferma la propagazione, altrimenti
+        // partirebbe anche l'apertura del dettaglio
+        document.querySelectorAll('#modale-contenitore [data-mod]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                chiudiModale();
+                naviga('wizard', { modalita: 'modifica', id: b.dataset.mod });
+            }));
+        document.querySelectorAll('#modale-contenitore [data-apri]').forEach(r =>
+            r.addEventListener('click', () => { chiudiModale(); naviga('dettaglio', { id: r.dataset.apri }); }));
+    }
+
     function vistaCoordinatori() {
         const puoScr = Auth.puoScrivere('persone');
-        const attivi = Incarichi.visibili().filter(i => i.stato !== 'cessato' && i.stato !== 'dimesso' && i.stato !== 'nonAccettato');
+        // il numero degli incarichi si apre solo se il ruolo vede la sezione Incarichi:
+        // altrimenti resta il conteggio, senza i nomi dei clienti
+        const puoIncarichi = Auth.puoVedere('incarichi');
+        const attivi = Incarichi.visibili().filter(incaricoInCorso);
         const coordinatori = Persone.tutte().filter(p => p.coordinatore && !p.eliminato).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
         const vice = Persone.tutte().filter(p => p.viceCoordinatore && !p.eliminato).sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
 
@@ -5702,13 +5773,15 @@
                     <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : ''}</td>
                     <td data-label="Regioni">${regioni.length ? esc(regioni.join(', ')) : '<span class="badge rosso">nessuna regione coordinata</span>'}</td>
                     <td class="col-email" data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : ''}</td>
-                    <td class="num" data-label="Incarichi">${suoi.length || ''}</td>
+                    <td class="num" data-label="Incarichi">${suoi.length ? (puoIncarichi
+                    ? `<button type="button" class="btn btn-sm btn-ghost co-inc" data-id="${esc(p.id)}" title="Vedi gli incarichi attivi delle regioni coordinate da ${esc(p.nome)}">${suoi.length}</button>`
+                    : suoi.length) : ''}</td>
                     <td data-label="Stato">${p.attivo ? '<span class="badge verde">attiva</span>' : '<span class="badge rosso">disattivata</span>'}</td>
                     ${puoScr ? `<td data-label=""><button class="btn btn-sm btn-secondary co-modifica" data-id="${esc(p.id)}">Modifica scheda</button></td>` : ''}
                 </tr>`;
             }).join('');
             return `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Regioni</th><th>Email</th><th class="num" title="Incarichi attivi nelle regioni coperte">Incarichi</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Regioni</th><th>Email</th><th class="num" title="Incarichi attivi nelle regioni coperte${puoIncarichi ? ': clicca il numero per vedere quali' : ''}">Incarichi</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
             </tr></thead><tbody>${righe}</tbody></table></div>`;
         };
 
@@ -5736,7 +5809,9 @@
                     <td class="cliente-cella" data-label="Regione">${esc(nomiPerChiave[k])}${scoperta ? ' <span class="badge rosso">scoperta</span>' : ''}</td>
                     <td data-label="Coordinatori">${d.coord.length ? esc(d.coord.join(', ')) : '<span style="color:var(--grigio-400)">—</span>'}</td>
                     <td data-label="Vice">${d.vice.length ? esc(d.vice.join(', ')) : '<span style="color:var(--grigio-400)">—</span>'}</td>
-                    <td class="num" data-label="Incarichi attivi">${d.n || ''}</td>
+                    <td class="num" data-label="Incarichi attivi">${d.n ? (puoIncarichi
+                    ? `<button type="button" class="btn btn-sm btn-ghost co-inc-reg" data-regione="${esc(nomiPerChiave[k])}" title="Vedi gli incarichi attivi in ${esc(nomiPerChiave[k])}">${d.n}</button>`
+                    : d.n) : ''}</td>
                 </tr>`;
             }).join('');
             return `<div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
@@ -5761,12 +5836,24 @@
                 </div>
             </header>
             ${tabBar}${corpo}
-            <p class="descrizione" style="margin-top:10px;">Gli incarichi contati sono quelli attivi con la regione tra quelle coperte. Una regione coperta da piu persone conta gli stessi incarichi per ciascuna.</p>`;
+            <p class="descrizione" style="margin-top:10px;">Gli incarichi contati sono quelli attivi con la regione tra quelle coperte. Una regione coperta da piu persone conta gli stessi incarichi per ciascuna.${puoIncarichi ? ' Clicca il numero per vedere quali sono, e da li apri l\'incarico o la sua modifica.' : ''}</p>`;
 
         $vista().querySelectorAll('[data-coordtab]').forEach(b =>
             b.addEventListener('click', () => { coordTab = b.dataset.coordtab; vistaCoordinatori(); }));
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { nomeFile: 'coordinatori-' + coordTab, ricerca: true });
+        $vista().querySelectorAll('.co-inc').forEach(b =>
+            b.addEventListener('click', () => {
+                const p = Persone.tutte().find(x => x.id === b.dataset.id);
+                if (!p) return;
+                const regioni = regioniCoperte(p);
+                const nomeVis = (p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome;
+                modaleIncarichiTerritorio('Incarichi di ' + nomeVis,
+                    'Incarichi attivi delle regioni coordinate: ' + regioni.join(', '), regioni);
+            }));
+        $vista().querySelectorAll('.co-inc-reg').forEach(b =>
+            b.addEventListener('click', () => modaleIncarichiTerritorio(
+                'Incarichi attivi in ' + b.dataset.regione, '', [b.dataset.regione])));
         $vista().querySelectorAll('.co-modifica').forEach(b =>
             b.addEventListener('click', () => modalePersona(b.dataset.id)));
     }
