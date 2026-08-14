@@ -252,9 +252,14 @@
         newsletter: 'rvArea.newsletter',           // le newsletter preparate (bozze e inviate)
         newsletterContatti: 'rvArea.newsletterContatti', // iscritti raccolti a mano (di persona)
         newsletterConfig: 'rvArea.newsletterConfig',     // chi e abilitato alla sezione Newsletter
+        richieste: 'rvArea.richieste',             // richieste di correzione dati (con gli scambi di messaggi)
         ruoli: 'rvArea.ruoli',
         impostazioni: 'rvArea.impostazioni'
     };
+    /* Quali richieste di correzione ho gia' letto: e' una preferenza PERSONALE
+       (il pallino "da leggere" sul menu), non un dato condiviso. Resta in questo
+       browser e non viene mai sincronizzata. */
+    const CHIAVE_RICHIESTE_LETTE = 'rvArea.richiesteLette';
 
     /* Sezioni su cui un ruolo puo' avere: 'no' (nascosta), 'lettura' (vede ma non tocca),
        'scrittura' (piena). "Utenti", "Ruoli" e "Dati e backup" non sono qui: restano
@@ -454,6 +459,139 @@
     };
 
     /* =========================================================
+       RICHIESTE DI CORREZIONE DATI
+       ------------------------------------------------------------
+       Chi non puo' (o non deve) mettere le mani sui dati chiede la correzione
+       da qui, invece che a voce: la richiesta resta scritta, e' indirizzata a
+       un equity partner e porta con se' tutto lo scambio di messaggi che la
+       riguarda, raggruppato in un'unica scheda.
+
+       Record: { id, oggetto,
+                 ambito: 'incarico' | 'funzione',
+                 incaricoId, cliente, funzione,     // secondo l'ambito
+                 regione,                           // decide coordinatore e vice in copia
+                 richiedente: {email, nome}, destinatario: {email, nome},
+                 conoscenza: [{email, nome, ruolo}],   // coordinatore e vice al momento dell'invio
+                 stato: 'aperta' | 'presa' | 'risolta' | 'respinta',
+                 creato, aggiornato,
+                 messaggi: [{ id, ts, autore:{email,nome}, testo, tipo:'richiesta'|'messaggio'|'stato', stato }],
+                 invii: [{ il, a:[email], esito:'ok'|'errore', msg }] }
+    ========================================================= */
+    const STATI_RICHIESTA = [
+        { id: 'aperta', nome: 'Aperta', classe: 'ambra', aperta: true },
+        { id: 'presa', nome: 'Presa in carico', classe: 'legale', aperta: true },
+        { id: 'risolta', nome: 'Corretta', classe: 'verde' },
+        { id: 'respinta', nome: 'Respinta', classe: 'neutro' }
+    ];
+    function statoRichiesta(id) { return STATI_RICHIESTA.find(s => s.id === id) || STATI_RICHIESTA[0]; }
+    function badgeStatoRichiesta(id) { const s = statoRichiesta(id); return '<span class="badge ' + s.classe + '">' + esc(s.nome) + '</span>'; }
+
+    const Richieste = {
+        tutte() { return Store.leggi(CHIAVI.richieste, []); },
+        salva(l) { Store.scrivi(CHIAVI.richieste, l); },
+        trova(id) { return this.tutte().find(r => r.id === id) || null; },
+        salvaUna(r) {
+            const lista = this.tutte();
+            const i = lista.findIndex(x => x.id === r.id);
+            if (i >= 0) lista[i] = r; else lista.unshift(r);
+            this.salva(lista);
+        },
+        /* Le richieste che l'utente collegato puo' vedere:
+           - tutti gli equity partner e i founding partner (piu' admin e titolare) le vedono TUTTE;
+           - gli altri vedono quelle che hanno scritto, quelle indirizzate a loro e quelle
+             del territorio che coordinano (coordinatore e vice della regione della richiesta).
+           Il territorio si legge dalla scheda in Aderenti Revilaw, non dal ruolo di accesso:
+           chi coordina una regione resta in copia anche se entra con un altro ruolo. */
+        visibili() {
+            const tutte = this.tutte();
+            if (Auth.vedeTutteLeRichieste()) return tutte;
+            const em = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+            const regioni = regioniCoordinateDaMe();
+            return tutte.filter(r => {
+                if (String((r.richiedente && r.richiedente.email) || '').toLowerCase() === em) return true;
+                if (String((r.destinatario && r.destinatario.email) || '').toLowerCase() === em) return true;
+                if ((r.conoscenza || []).some(c => String(c.email || '').toLowerCase() === em)) return true;
+                return !!r.regione && regioni.includes(chiaveRegione(r.regione));
+            });
+        },
+        ultimoMessaggio(r) {
+            const m = (r && r.messaggi) || [];
+            return m.length ? m[m.length - 1] : null;
+        }
+    };
+
+    /* Le regioni che l'utente collegato coordina secondo la sua scheda in Aderenti Revilaw
+       (coordinatore o vice), in chiave di confronto. Elenco vuoto se non ne coordina alcuna. */
+    function regioniCoordinateDaMe() {
+        const p = Auth.personaCorrente();
+        if (!p || (!p.coordinatore && !p.viceCoordinatore)) return [];
+        return Array.from(new Set(regioniCoperte(p).map(chiaveRegione).filter(Boolean)));
+    }
+    /* Coordinatore e vice di una regione: sono loro a restare in copia sulla richiesta. */
+    function coordinatoriDiRegione(regione) {
+        const k = chiaveRegione(regione || '');
+        if (!k) return [];
+        return Persone.tutte()
+            .filter(p => p.attivo && !p.eliminato && p.email && (p.coordinatore || p.viceCoordinatore))
+            .filter(p => regioniCoperte(p).some(r => chiaveRegione(r) === k))
+            .map(p => ({
+                email: String(p.email).toLowerCase(),
+                nome: nomeCompletoPersona(p),
+                ruolo: p.coordinatore ? 'Coordinatore territoriale' : 'Vice coordinatore territoriale'
+            }));
+    }
+    /* Gli equity partner a cui si puo' indirizzare una richiesta (scheda attiva e con email:
+       senza indirizzo non potrebbero ricevere il riepilogo). */
+    function equityPartners() {
+        return Persone.tutte()
+            .filter(p => p.equityPartner && p.attivo && !p.eliminato && p.email)
+            .map(p => ({ email: String(p.email).toLowerCase(), nome: nomeCompletoPersona(p) }))
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+    }
+    function nomeCompletoPersona(p) {
+        if (!p) return '';
+        return (p.nomeProprio ? p.nomeProprio + ' ' : '') + (p.nome || '');
+    }
+
+    /* Richieste gia' lette: {email: {idRichiesta: ts dell'ultimo messaggio visto}}.
+       Sta per utente, non per browser: sullo stesso computer possono alternarsi piu'
+       persone, e quello che ha letto una non l'ha letto l'altra. */
+    function _tutteLeLetture() {
+        try {
+            const v = JSON.parse(localStorage.getItem(CHIAVE_RICHIESTE_LETTE) || '{}');
+            return (v && typeof v === 'object') ? v : {};
+        } catch (e) { return {}; }
+    }
+    function richiesteLette() {
+        const em = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        const mie = _tutteLeLetture()[em];
+        return (mie && typeof mie === 'object') ? mie : {};
+    }
+    function segnaRichiestaLetta(r) {
+        if (!r || !Auth.utenteCorrente) return;
+        const em = String(Auth.utenteCorrente.email || '').toLowerCase();
+        const ult = Richieste.ultimoMessaggio(r);
+        const tutte = _tutteLeLetture();
+        const mie = (tutte[em] && typeof tutte[em] === 'object') ? tutte[em] : {};
+        mie[r.id] = (ult && ult.ts) || r.aggiornato || Date.now();
+        tutte[em] = mie;
+        try { localStorage.setItem(CHIAVE_RICHIESTE_LETTE, JSON.stringify(tutte)); } catch (e) { }
+    }
+    /* Novita' da leggere: richieste visibili con un messaggio piu' recente dell'ultima
+       apertura, scritto da qualcun altro. E' il numero sul menu di sinistra. */
+    function richiesteDaLeggere() {
+        if (!Auth.utenteCorrente || !Auth.puoVedere('richieste')) return 0;
+        const em = String(Auth.utenteCorrente.email || '').toLowerCase();
+        const lette = richiesteLette();
+        return Richieste.visibili().filter(r => {
+            const ult = Richieste.ultimoMessaggio(r);
+            if (!ult) return false;
+            if (String((ult.autore && ult.autore.email) || '').toLowerCase() === em) return false;
+            return (ult.ts || 0) > (lette[r.id] || 0);
+        }).length;
+    }
+
+    /* =========================================================
        PERSONE (anagrafica modificabile del team)
     ========================================================= */
     /* separatore unico per gli elenchi di nominativi: virgola, punto e
@@ -586,6 +724,7 @@
         eventiConfig: 'accessi agli eventi', eventiPresenze: 'presenze agli eventi',
         newsletter: 'newsletter', newsletterContatti: 'contatti della newsletter',
         newsletterConfig: 'accessi alla newsletter',
+        richieste: 'richieste di correzione dati',
         ruoli: 'definizione dei ruoli'
     };
     function nomeArchivio(doc) {
@@ -1051,6 +1190,15 @@
             const punti = p => (p.attivo ? 2 : 0) + (regioniCoperte(p).length ? 1 : 0);
             return match.sort((a, b) => punti(b) - punti(a))[0];
         },
+        /* Equity partner e founding partner sono qualifiche dell'ANAGRAFICA (scheda in
+           Aderenti Revilaw), non ruoli di accesso: valgono comunque sia il ruolo con cui
+           si entra. Servono alle richieste di correzione: agli equity si indirizzano, e
+           insieme ai founding sono gli unici a vederle tutte. */
+        eEquityPartner() { const p = this.personaCorrente(); return !!(p && p.equityPartner); },
+        eFoundingPartner() { const p = this.personaCorrente(); return !!(p && p.foundingPartner); },
+        vedeTutteLeRichieste() {
+            return this.eAdmin() || this.eProprietario() || this.eEquityPartner() || this.eFoundingPartner();
+        },
         // livello sulla singola sezione di contenuto: 'no' | 'lettura' | 'scrittura'
         accessoSezione(sez) {
             const r = this.ruoloCorrente();
@@ -1067,6 +1215,11 @@
             if (sez === 'eventi') return puoVedereEventi();
             // stessa regola per la Newsletter: si spediscono email a nome dello studio
             if (sez === 'newsletter') return puoVedereNewsletter();
+            // Le richieste di correzione non passano dai ruoli e non si possono togliere:
+            // sono la via di servizio con cui CHIUNQUE segnala un dato sbagliato, ed e'
+            // proprio chi non ha la scrittura ad averne piu' bisogno. Restano fuori solo
+            // gli invitati "solo sondaggio", che dei dati dello studio non vedono nulla.
+            if (sez === 'richieste') return this.puoUsareRichieste();
             return this.accessoSezione(sez) !== 'no';
         },
         puoScrivere(sez) {
@@ -1075,7 +1228,12 @@
             // Eventi e Newsletter non passano dai ruoli: chi e' abilitato puo' anche operare
             if (sez === 'eventi') return puoVedereEventi();
             if (sez === 'newsletter') return puoVedereNewsletter();
+            if (sez === 'richieste') return this.puoUsareRichieste();
             return this.accessoSezione(sez) === 'scrittura';
+        },
+        puoUsareRichieste() {
+            const r = this.ruoloCorrente();
+            return !!r && !r.soloSondaggio && !r.sconosciuto;
         },
         /* null = tutte le regioni. Solo coordinatore e vice sono limitati: alle regioni
            coordinate indicate sulla LORO scheda in Aderenti Revilaw (agganciata per email).
@@ -1154,6 +1312,7 @@
                 this.DOC_SYNC[CHIAVI.newsletter] = 'newsletter';
                 this.DOC_SYNC[CHIAVI.newsletterContatti] = 'newsletterContatti';
                 this.DOC_SYNC[CHIAVI.newsletterConfig] = 'newsletterConfig';
+                this.DOC_SYNC[CHIAVI.richieste] = 'richieste';
                 this.DOC_SYNC[CHIAVI.ruoli] = 'ruoli';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
@@ -3036,6 +3195,11 @@
     const VOCI_NAV = [
         { id: 'dashboard', nome: 'Cruscotto', icona: 'M3 13h8V3H3zm10 8h8V11h-8zM3 21h8v-6H3zm10-18v6h8V3z' },
         { id: 'incarichi', nome: 'Incarichi', icona: 'M4 6h16M4 12h16M4 18h10' },
+        /* La via di servizio per far correggere un dato sbagliato: la vedono tutti,
+           perche' e' proprio chi NON puo' modificare (coordinatori, vice, ruoli in sola
+           lettura) ad avere bisogno di chiederlo. Sta qui, subito sotto gli Incarichi,
+           perche' e' li' che il dato sbagliato si incontra. */
+        { id: 'richieste', nome: 'Richieste di correzione', icona: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5' },
         /* MACROAREA DEGLI ADERENTI. L'anagrafica e le due viste che ne derivano
            (chi coordina un territorio, chi e' responsabile di qualita o incarico)
            sono la stessa scheda letta in tre modi: stanno insieme, cosi' si vede
@@ -3094,6 +3258,7 @@
             coordinatori: vistaCoordinatori,
             responsabili: vistaResponsabili,
             comunicazioni: vistaComunicazioni,
+            richieste: vistaRichieste,
             sondaggi: vistaSondaggi,
             eventi: vistaEventi,
             newsletter: vistaNewsletter,
@@ -3215,6 +3380,9 @@
            l'utente vede almeno una delle sue voci: a chi ha i permessi per una
            sezione sola non deve comparire un'intestazione con sotto una riga. */
         let gruppoCorrente = '';
+        // richieste di correzione con messaggi nuovi: il numero sta sulla voce di menu,
+        // altrimenti una risposta arrivata mentre si lavora altrove passerebbe inosservata
+        const nuoveRichieste = richiesteDaLeggere();
         nav.innerHTML = VOCI_NAV
             .filter(v => Auth.puoVedere(SEZIONE_DI_VISTA[v.id] || v.id))
             .map(v => {
@@ -3224,10 +3392,12 @@
                     gruppoCorrente = g;
                     if (g) testa = '<div class="nav-gruppo">' + esc(g) + '</div>';
                 }
+                const conta = (v.id === 'richieste' && nuoveRichieste)
+                    ? '<span class="nav-conta" title="Richieste con messaggi nuovi">' + nuoveRichieste + '</span>' : '';
                 return testa
                     + '<button class="nav-voce' + (g ? ' in-gruppo' : '') + (vistaCorrente === v.id ? ' attiva' : '') + '" data-vista="' + v.id + '">'
                     + '<svg class="icona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + v.icona + '"/></svg>'
-                    + esc(v.nome) + '</button>';
+                    + esc(v.nome) + conta + '</button>';
             }).join('');
         nav.querySelectorAll('.nav-voce').forEach(b =>
             b.addEventListener('click', () => { naviga(b.dataset.vista); chiudiMenuMobile(); }));
@@ -3797,6 +3967,7 @@
                 </div>
                 <div class="header-azioni">
                     <button class="btn btn-ghost" id="btn-indietro">&larr; Elenco</button>
+                    ${Auth.puoVedere('richieste') ? '<button class="btn btn-secondary" id="btn-chiedi-correzione" title="Chiedi a un equity partner di correggere un dato di questo incarico">Chiedi una correzione</button>' : ''}
                     ${Auth.puoScrivere('incarichi') ? `
                         <button class="btn btn-secondary" id="btn-modifica">Modifica</button>
                         ${inc.stato === 'proposta'
@@ -3919,6 +4090,8 @@
         $vista().querySelectorAll('.p-lettera-storica').forEach(b =>
             b.addEventListener('click', () => naviga('lettera', { id: inc.id, periodo: Number(b.dataset.periodo) })));
         { const bt = document.getElementById('btn-torna-origine'); if (bt) bt.addEventListener('click', () => tornaOrigine()); }
+        // il dato sbagliato si incontra qui: la richiesta parte gia' agganciata a questo incarico
+        { const bc = document.getElementById('btn-chiedi-correzione'); if (bc) bc.addEventListener('click', () => modaleNuovaRichiesta({ incaricoId: inc.id })); }
         if (Auth.puoScrivere('incarichi')) {
             document.getElementById('btn-modifica').addEventListener('click', () => naviga('wizard', { modalita: 'modifica', id: inc.id }));
             { const bR = document.getElementById('btn-rinnova'); if (bR) bR.addEventListener('click', () => naviga('wizard', { modalita: 'rinnovo', id: inc.id })); }
@@ -5621,7 +5794,7 @@
         const risolviInc = risolutorePersone();
         const incVisibili = Incarichi.visibili();
         const corpo = lista.length ? `<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="col-mark" title="Equity partner: riceve le richieste di correzione dati">Equity</th><th class="col-mark" title="Founding partner: vede tutte le richieste di correzione dati">Found.</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             lista.map(p => {
                 const nInc = incarichiDellaPersona(p, incVisibili, risolviInc).length;
@@ -5634,6 +5807,8 @@
                 <td class="col-mark" data-label="Resp. incarico">${spunta(p.respIncarico)}</td>
                 <td class="col-mark" data-label="Coordinatore territoriale">${spunta(p.coordinatore)}</td>
                 <td class="col-mark" data-label="Vice coordinatore">${spunta(p.viceCoordinatore)}</td>
+                <td class="col-mark" data-label="Equity partner">${spunta(p.equityPartner)}</td>
+                <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
                 <td class="num" data-label="Incarichi">${nInc ? `<button class="btn btn-sm btn-ghost p-inc" data-id="${esc(p.id)}" title="Vedi gli incarichi di ${esc(p.nome)}">${nInc}</button>` : ''}</td>
                 <td data-label="Stato">${badgeStato(p)}</td>
                 ${azioni(p)}
@@ -6042,6 +6217,9 @@
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-resp" ${p && p.respIncarico ? 'checked' : ''} style="width:auto;">Responsabile incarico</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-coordinatore" ${p && p.coordinatore ? 'checked' : ''} style="width:auto;">Coordinatore territoriale</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-vice" ${p && p.viceCoordinatore ? 'checked' : ''} style="width:auto;">Vice coordinatore territoriale</label>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equity" ${p && p.equityPartner ? 'checked' : ''} style="width:auto;">Equity partner</label>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-founding" ${p && p.foundingPartner ? 'checked' : ''} style="width:auto;">Founding partner</label>
+                <div class="hint" style="margin:2px 0 6px 26px;">Gli <strong>equity partner</strong> sono i destinatari selezionabili delle richieste di correzione dati: per comparire nella tendina la scheda deve essere attiva e avere l'email. Equity e <strong>founding partner</strong> vedono <strong>tutte</strong> le richieste, non solo le proprie.</div>
                 <div id="m-p-coord-box" class="${p && (p.coordinatore || p.viceCoordinatore) ? '' : 'nascosto'}" style="margin:2px 0 6px 26px;">
                     <div class="hint" style="margin:0 0 6px;">Se questa persona accede con il ruolo "Coordinatore territoriale" o "Vice coordinatore territoriale", vede in sola visualizzazione gli incarichi delle regioni spuntate qui sotto. Senza alcuna spunta non vede alcun incarico.</div>
                     <div class="hint" style="margin:0 0 4px;"><strong>Regioni coordinate</strong> (l'elenco completo: la Regione qui sopra e' la sede, spuntala anche qui se la coordina):</div>
@@ -6096,6 +6274,8 @@
                 respIncarico: document.getElementById('m-p-resp').checked,
                 coordinatore: coordFlag,
                 viceCoordinatore: viceFlag,
+                equityPartner: document.getElementById('m-p-equity').checked,
+                foundingPartner: document.getElementById('m-p-founding').checked,
                 // senza alcuna spunta di coordinamento le altre regioni non hanno senso: si azzerano
                 regioniCoordinate: (coordFlag || viceFlag) ? Array.from(document.querySelectorAll('.m-p-regcoord:checked')).map(c => c.value) : []
             };
@@ -6107,6 +6287,8 @@
                 { chiave: 'qualita', nome: 'Ruolo qualita' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
                 { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
                 { chiave: 'viceCoordinatore', nome: 'Vice coordinatore territoriale' },
+                { chiave: 'equityPartner', nome: 'Equity partner' },
+                { chiave: 'foundingPartner', nome: 'Founding partner' },
                 { chiave: 'regioniCoordinate', nome: 'Regioni coordinate' }
             ];
             if (p) {
@@ -6211,6 +6393,8 @@
         { id: 'team', nome: 'Team di revisione' },
         { id: 'coordinatori', nome: 'Coordinatori territoriali' },
         { id: 'vicecoordinatori', nome: 'Vice coordinatori territoriali' },
+        { id: 'equity', nome: 'Equity partner' },
+        { id: 'founding', nome: 'Founding partner' },
         { id: 'utenti', nome: 'Utenti abilitati' }
     ];
     function nomeGruppo(id) { const g = GRUPPI_MAIL.find(x => x.id === id); return g ? g.nome : id; }
@@ -6225,6 +6409,8 @@
         if (g.has('team')) persone.forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('coordinatori')) persone.filter(p => p.coordinatore).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('vicecoordinatori')) persone.filter(p => p.viceCoordinatore).forEach(p => set.add(p.email.toLowerCase()));
+        if (g.has('equity')) persone.filter(p => p.equityPartner).forEach(p => set.add(p.email.toLowerCase()));
+        if (g.has('founding')) persone.filter(p => p.foundingPartner).forEach(p => set.add(p.email.toLowerCase()));
         return set;
     }
 
@@ -11358,10 +11544,491 @@
     }
 
     /* =========================================================
+       VISTA: RICHIESTE DI CORREZIONE DATI
+       ------------------------------------------------------------
+       Chi vede un dato sbagliato - e non puo' o non deve correggerlo da se' -
+       lo segnala da qui. La richiesta:
+         - riguarda un incarico preciso oppure una funzionalita' generale;
+         - e' indirizzata a un equity partner, scelto da una tendina;
+         - resta scritta a chi la fa e, per il territorio, al coordinatore e al
+           vice di quella regione (li vedono in copia e la trovano in elenco);
+         - alla partenza manda un riepilogo per email a chi la scrive e a chi la
+           riceve, e lo stesso vale per ogni risposta successiva;
+         - raccoglie in un'unica scheda tutti i messaggi che la riguardano.
+       Equity partner e founding partner vedono TUTTE le richieste.
+    ========================================================= */
+    let richTab = 'aperte';        // 'aperte' | 'chiuse' | 'tutte'
+    let richSoloMie = false;       // per chi le vede tutte: restringi alle mie
+
+    /* Le funzionalita' generali segnalabili quando la richiesta non riguarda un
+       singolo incarico: sono le sezioni dell'area, piu' due voci di servizio. */
+    function funzioniRichiesta() {
+        return SEZIONI_RUOLO.map(s => s.nome)
+            .concat(['Anagrafica e contatti personali', 'Accessi e permessi', 'Altro']);
+    }
+
+    /* Chi puo' lavorare una richiesta (cambiarne lo stato): l'equity partner a cui e'
+       indirizzata, gli altri equity e founding partner, l'amministratore e il titolare.
+       Il richiedente non chiude da se' la propria richiesta: puo' solo ritirarla. */
+    function puoLavorareRichiesta(r) {
+        if (!r) return false;
+        const em = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        if (String((r.destinatario && r.destinatario.email) || '').toLowerCase() === em) return true;
+        return Auth.vedeTutteLeRichieste();
+    }
+    function sonoIlRichiedente(r) {
+        const em = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        return !!r && String((r.richiedente && r.richiedente.email) || '').toLowerCase() === em;
+    }
+    /* Riferimento in chiaro: "CLIENTE SRL" oppure il nome della funzionalita'. */
+    function riferimentoRichiesta(r) {
+        if (!r) return '';
+        return r.ambito === 'incarico' ? (r.cliente || 'incarico') : (r.funzione || 'funzionalita generale');
+    }
+    function meRichiesta() {
+        const u = Auth.utenteCorrente || {};
+        return { email: String(u.email || '').toLowerCase(), nome: u.nome || u.email || '' };
+    }
+
+    function vistaRichieste() {
+        const tutte = Richieste.visibili().slice().sort((a, b) => (b.aggiornato || 0) - (a.aggiornato || 0));
+        const vedoTutto = Auth.vedeTutteLeRichieste();
+        const em = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        const mie = r => String((r.richiedente && r.richiedente.email) || '').toLowerCase() === em
+            || String((r.destinatario && r.destinatario.email) || '').toLowerCase() === em;
+        const base = (vedoTutto && richSoloMie) ? tutte.filter(mie) : tutte;
+        const aperte = base.filter(r => statoRichiesta(r.stato).aperta);
+        const chiuse = base.filter(r => !statoRichiesta(r.stato).aperta);
+        const schede = [
+            { k: 'aperte', nome: 'Da lavorare', n: aperte.length },
+            { k: 'chiuse', nome: 'Chiuse', n: chiuse.length },
+            { k: 'tutte', nome: 'Tutte', n: base.length }
+        ];
+        if (!schede.some(s => s.k === richTab)) richTab = 'aperte';
+        const lista = richTab === 'aperte' ? aperte : richTab === 'chiuse' ? chiuse : base;
+        const lette = richiesteLette();
+
+        const riga = r => {
+            const ult = Richieste.ultimoMessaggio(r);
+            const nuovo = ult && String((ult.autore && ult.autore.email) || '').toLowerCase() !== em
+                && (ult.ts || 0) > (lette[r.id] || 0);
+            const nMsg = (r.messaggi || []).length;
+            const cerca = [r.oggetto, riferimentoRichiesta(r), r.regione, r.destinatario && r.destinatario.nome,
+                r.richiedente && r.richiedente.nome].filter(Boolean).join(' ').toLowerCase();
+            return `<details class="comm-item ric-item${nuovo ? ' ric-nuovo' : ''}" data-stato="${esc(statoRichiesta(r.stato).nome)}" data-ambito="${esc(r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita')}" data-regione="${esc(r.regione || '')}" data-cerca="${esc(cerca)}">
+                <summary class="comm-sommario">
+                    ${badgeStatoRichiesta(r.stato)}
+                    <span class="comm-nome">${esc(r.oggetto || '(senza oggetto)')}${nuovo ? '<span class="ric-pallino" title="Ci sono messaggi nuovi"></span>' : ''}</span>
+                    <span class="comm-quando-inline">${esc(riferimentoRichiesta(r))}${r.regione ? ' &middot; ' + esc(r.regione) : ''}</span>
+                    <span class="comm-dest-inline">a ${esc((r.destinatario && r.destinatario.nome) || '')} &middot; ${nMsg} messagg${nMsg === 1 ? 'io' : 'i'}</span>
+                    <span class="comm-azioni-inline"><button class="btn btn-sm btn-secondary ric-apri" data-id="${esc(r.id)}">Apri</button></span>
+                </summary>
+                <div class="comm-dettaglio">
+                    <div class="ric-meta">
+                        <span><strong>Richiesta da</strong> ${esc((r.richiedente && r.richiedente.nome) || '')} il ${fmtDataOra(r.creato)}</span>
+                        <span><strong>In conoscenza</strong> ${(r.conoscenza || []).length ? esc((r.conoscenza || []).map(c => c.nome).join(', ')) : 'nessuno (regione senza coordinatore)'}</span>
+                        ${ult ? `<span><strong>Ultimo messaggio</strong> ${esc((ult.autore && ult.autore.nome) || '')} &middot; ${fmtDataOra(ult.ts)}</span>` : ''}
+                    </div>
+                    <p class="ric-anteprima">${esc(troncaTesto(((r.messaggi || [])[0] || {}).testo || '', 260))}</p>
+                </div>
+            </details>`;
+        };
+
+        const corpo = lista.length
+            ? `<div class="card" id="sez-richieste">
+                ${base.length > 1 ? `<div class="filtri" id="ric-filtri">
+                    <div class="campo ricerca"><label>Ricerca</label><input id="ric-cerca" type="search" placeholder="Oggetto, cliente, persona..."></div>
+                    ${comboFiltro('ric-stato', 'Stato', Array.from(new Set(lista.map(r => statoRichiesta(r.stato).nome))))}
+                    ${comboFiltro('ric-ambito', 'Ambito', ['Incarico', 'Funzionalita'])}
+                    ${comboFiltro('ric-regione', 'Regione', Array.from(new Set(lista.map(r => r.regione).filter(Boolean))))}
+                    <span class="filtro-conteggio" id="ric-conta"></span>
+                </div>` : ''}
+                <div class="comm-lista">${lista.map(riga).join('')}</div>
+              </div>`
+            : `<div class="card tabella-vuota">${richTab === 'chiuse'
+                ? 'Nessuna richiesta chiusa.'
+                : 'Nessuna richiesta. Premi "+ Nuova richiesta" per segnalare un dato da correggere.'}</div>`;
+
+        const equity = equityPartners();
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Richieste di correzione dati</h1>
+                    <p class="descrizione">${vedoTutto
+                ? 'Vedi <strong>tutte</strong> le richieste dello studio: sei equity o founding partner (oppure amministratore).'
+                : 'Le richieste che hai scritto, quelle indirizzate a te e quelle del territorio che coordini.'}
+                        Ogni richiesta e indirizzata a un equity partner e raccoglie in un'unica scheda tutti i messaggi che la riguardano.</p>
+                </div>
+                <div class="header-azioni">
+                    ${vedoTutto ? `<div class="toggle-vista"><button class="btn btn-sm ${richSoloMie ? 'btn-secondary' : 'btn-primary'}" data-mie="0">Tutte</button><button class="btn btn-sm ${richSoloMie ? 'btn-primary' : 'btn-secondary'}" data-mie="1">Solo le mie</button></div>` : ''}
+                    <button class="btn btn-primary" id="btn-nuova-richiesta">+ Nuova richiesta</button>
+                </div>
+            </header>
+            <div class="tab-dest" style="margin-bottom:16px;">${schede.map(s => `<button class="tab-btn ${richTab === s.k ? 'attivo' : ''}" data-rtab="${s.k}">${s.nome} (${s.n})</button>`).join('')}</div>
+            ${equity.length ? '' : '<div class="avviso-ruoli"><strong>Nessun equity partner in anagrafica.</strong> Finche non c\'e almeno una scheda con la casella <em>Equity partner</em> spuntata, l\'email e la scheda attiva, non e possibile indirizzare una richiesta. Lo si imposta in <em>Aderenti Revilaw</em>, nella scheda della persona.</div>'}
+            ${corpo}
+            <p class="descrizione" style="margin-top:10px;">Alla partenza di una richiesta e a ogni risposta parte un riepilogo per email a chi scrive e a chi riceve. Coordinatore e vice della regione indicata restano in copia dentro l'area: la trovano in questo elenco.</p>`;
+
+        $vista().querySelectorAll('[data-rtab]').forEach(b => b.addEventListener('click', () => { richTab = b.dataset.rtab; vistaRichieste(); }));
+        $vista().querySelectorAll('[data-mie]').forEach(b => b.addEventListener('click', () => { richSoloMie = b.dataset.mie === '1'; vistaRichieste(); }));
+        { const bn = document.getElementById('btn-nuova-richiesta'); if (bn) bn.addEventListener('click', () => modaleNuovaRichiesta()); }
+        $vista().querySelectorAll('.ric-apri').forEach(b => b.addEventListener('click', e => {
+            e.stopPropagation(); e.preventDefault(); modaleRichiesta(b.dataset.id);
+        }));
+        // filtri dell'elenco (ricerca + stato + ambito + regione), come nelle Comunicazioni
+        const filtra = () => {
+            const q = (document.getElementById('ric-cerca') || {}).value || '';
+            const st = (document.getElementById('ric-stato') || {}).value || '';
+            const am = (document.getElementById('ric-ambito') || {}).value || '';
+            const rg = (document.getElementById('ric-regione') || {}).value || '';
+            let visti = 0, tot = 0;
+            $vista().querySelectorAll('.ric-item').forEach(it => {
+                tot++;
+                const ok = (!q || (it.dataset.cerca || '').includes(q.toLowerCase()))
+                    && filtroCorrisponde(it.dataset.stato || '', st)
+                    && filtroCorrisponde(it.dataset.ambito || '', am)
+                    && filtroCorrisponde(it.dataset.regione || '', rg);
+                it.style.display = ok ? '' : 'none';
+                if (ok) visti++;
+            });
+            const cnt = document.getElementById('ric-conta');
+            if (cnt) cnt.textContent = (visti < tot) ? (visti + ' di ' + tot) : '';
+        };
+        ['ric-cerca', 'ric-stato', 'ric-ambito', 'ric-regione'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.addEventListener('input', filtra);
+        });
+    }
+
+    /* ---- Nuova richiesta ----
+       preset: {incaricoId} quando si arriva dal dettaglio di un incarico. */
+    function modaleNuovaRichiesta(preset) {
+        if (!Auth.puoScrivere('richieste')) return;
+        const equity = equityPartners();
+        if (!equity.length) {
+            apriModale('<h2>Nessun equity partner in anagrafica</h2>'
+                + '<p>Le richieste di correzione vanno indirizzate a un <strong>equity partner</strong>, ma in anagrafica non ce n\'e ancora nessuno.</p>'
+                + '<p class="hint">Va spuntata la casella <strong>Equity partner</strong> sulla scheda della persona (sezione <em>Aderenti Revilaw</em>): la scheda deve essere attiva e avere l\'indirizzo email.</p>'
+                + '<div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Ho capito</button></div>');
+            document.getElementById('m-ok').addEventListener('click', chiudiModale);
+            return;
+        }
+        const incarichi = Incarichi.visibili().slice().sort((a, b) => String(a.cliente || '').localeCompare(String(b.cliente || ''), 'it'));
+        const preId = preset && preset.incaricoId ? preset.incaricoId : '';
+        const ambitoIniziale = preId ? 'incarico' : 'funzione';
+        // regione di partenza: quella che l'utente coordina (se ne coordina una) oppure la
+        // sede della sua scheda. Resta comunque modificabile.
+        const persona = Auth.personaCorrente();
+        const regioneIniziale = (persona && regioniCoperte(persona)[0]) || (persona && persona.regione) || '';
+        const tutteLeRegioni = (typeof RV_ROSTER !== 'undefined' && RV_ROSTER.regioni ? RV_ROSTER.regioni : []).slice();
+
+        apriModale(`<h2>Nuova richiesta di correzione</h2>
+            <p class="descrizione" style="margin:-6px 0 14px;">Descrivi il dato da correggere e a chi va chiesto. La richiesta resta scritta: la vedono tu, l'equity partner a cui la indirizzi, il coordinatore e il vice della regione indicata, e tutti gli equity e founding partner.</p>
+            <div class="campo"><label>Cosa riguarda</label>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="radio" name="ric-ambito" value="incarico" ${ambitoIniziale === 'incarico' ? 'checked' : ''} style="width:auto;">Un incarico specifico</label>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="radio" name="ric-ambito" value="funzione" ${ambitoIniziale === 'funzione' ? 'checked' : ''} style="width:auto;">Una funzionalita generale dell'area</label>
+            </div>
+            <div class="campo" id="ric-box-incarico">
+                <label>Incarico</label>
+                <select id="ric-incarico">
+                    <option value="">— scegli l'incarico —</option>
+                    ${incarichi.map(i => `<option value="${esc(i.id)}" ${preId === i.id ? 'selected' : ''}>${esc((i.cliente || '(senza nome)') + (i.regione ? ' - ' + i.regione : ''))}</option>`).join('')}
+                </select>
+                <div class="hint">${incarichi.length ? 'Sono elencati gli incarichi che il tuo ruolo puo vedere.' : 'Non vedi alcun incarico: scegli "Una funzionalita generale" oppure chiedi che ti venga assegnato il territorio.'}</div>
+            </div>
+            <div class="campo nascosto" id="ric-box-funzione">
+                <label>Funzionalita</label>
+                <select id="ric-funzione">${funzioniRichiesta().map(f => `<option>${esc(f)}</option>`).join('')}</select>
+            </div>
+            <div class="griglia-2">
+                <div class="campo"><label>Regione di riferimento</label>
+                    <select id="ric-regione-sel">
+                        <option value="">Nessuna (richiesta non territoriale)</option>
+                        ${tutteLeRegioni.map(r => `<option ${chiaveRegione(r) === chiaveRegione(regioneIniziale) ? 'selected' : ''}>${esc(r)}</option>`).join('')}
+                    </select>
+                    <div class="hint">Decide chi resta in copia: il coordinatore e il vice di quella regione.</div>
+                </div>
+                <div class="campo"><label>Indirizzata a (equity partner)</label>
+                    <select id="ric-destinatario">
+                        ${equity.map(e => `<option value="${esc(e.email)}">${esc(e.nome)}</option>`).join('')}
+                    </select>
+                    <div class="hint">Riceve la richiesta per email ed e chi la lavora.</div>
+                </div>
+            </div>
+            <div class="campo"><label>Oggetto</label><input id="ric-oggetto" maxlength="120" placeholder="es. Data fine incarico errata"></div>
+            <div class="campo"><label>Dato da correggere <span class="hint" style="display:inline;">(facoltativo)</span></label><input id="ric-campo" maxlength="120" placeholder="es. Data fine (approvazione ultimo bilancio)"></div>
+            <div class="campo"><label>Descrizione</label><textarea id="ric-testo" rows="5" maxlength="4000" placeholder="Cosa c'e scritto adesso, cosa dovrebbe esserci e perche."></textarea></div>
+            <div class="riquadro-ambito" id="ric-copia"></div>
+            <div class="msg-errore hidden" id="ric-errore"></div>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-primary" id="m-invia">Invia richiesta</button>
+            </div>`, { classe: 'larga' });
+
+        const selIncarico = document.getElementById('ric-incarico');
+        const selRegione = document.getElementById('ric-regione-sel');
+        const boxInc = document.getElementById('ric-box-incarico');
+        const boxFun = document.getElementById('ric-box-funzione');
+        const ambitoScelto = () => (document.querySelector('input[name="ric-ambito"]:checked') || {}).value || 'funzione';
+        // chi resta in copia si aggiorna mentre si sceglie: cosi si vede subito se la
+        // regione indicata ha davvero un coordinatore, prima di inviare
+        const aggiornaCopia = () => {
+            const cc = coordinatoriDiRegione(selRegione.value);
+            const box = document.getElementById('ric-copia');
+            box.innerHTML = '<div class="etichetta-ambito">Restano in copia</div>'
+                + (cc.length
+                    ? '<div class="valore-ambito">' + esc(cc.map(c => c.nome + ' (' + c.ruolo.toLowerCase() + ')').join(', ')) + '</div>'
+                    : (selRegione.value
+                        ? '<div class="valore-ambito"><span class="badge ambra">' + esc(selRegione.value) + ': nessun coordinatore o vice in anagrafica</span></div>'
+                        : '<div class="valore-ambito"><span class="badge neutro">nessuna regione indicata</span></div>'))
+                + '<div class="hint" style="margin-top:6px;">Vedono la richiesta nell\'area riservata. Il riepilogo per email parte a te e all\'equity partner scelto.</div>';
+        };
+        const aggiornaAmbito = () => {
+            const inc = ambitoScelto() === 'incarico';
+            boxInc.classList.toggle('nascosto', !inc);
+            boxFun.classList.toggle('nascosto', inc);
+            if (inc && selIncarico.value) {
+                const i = Incarichi.trova(selIncarico.value);
+                // la regione di un incarico e' quella dell'incarico: non la si sceglie a mano
+                if (i && i.regione) {
+                    const opz = Array.from(selRegione.options).find(o => chiaveRegione(o.value || o.text) === chiaveRegione(i.regione));
+                    if (opz) selRegione.value = opz.value || opz.text;
+                }
+            }
+            selRegione.disabled = inc && !!selIncarico.value;
+            aggiornaCopia();
+        };
+        document.querySelectorAll('input[name="ric-ambito"]').forEach(r => r.addEventListener('change', aggiornaAmbito));
+        selIncarico.addEventListener('change', aggiornaAmbito);
+        selRegione.addEventListener('change', aggiornaCopia);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        aggiornaAmbito();
+
+        const btn = document.getElementById('m-invia');
+        btn.addEventListener('click', () => conAttesa(btn, async () => {
+            const err = document.getElementById('ric-errore');
+            const mostraErrore = m => { err.textContent = m; err.classList.remove('hidden'); };
+            err.classList.add('hidden');
+            const ambito = ambitoScelto();
+            const oggetto = document.getElementById('ric-oggetto').value.trim();
+            const testo = document.getElementById('ric-testo').value.trim();
+            const campo = document.getElementById('ric-campo').value.trim();
+            const emailDest = document.getElementById('ric-destinatario').value;
+            const dest = equityPartners().find(e => e.email === emailDest);
+            const inc = ambito === 'incarico' ? Incarichi.trova(selIncarico.value) : null;
+            if (ambito === 'incarico' && !inc) { mostraErrore('Scegli l\'incarico a cui si riferisce la richiesta.'); return; }
+            if (!oggetto) { mostraErrore('Scrivi un oggetto: serve a riconoscere la richiesta nell\'elenco.'); return; }
+            if (!testo) { mostraErrore('Descrivi il dato da correggere.'); return; }
+            if (!dest) { mostraErrore('Scegli l\'equity partner a cui indirizzare la richiesta.'); return; }
+
+            const regione = (ambito === 'incarico' && inc) ? (inc.regione || '') : selRegione.value;
+            const io = meRichiesta();
+            const r = {
+                id: uid(),
+                oggetto: oggetto,
+                ambito: ambito,
+                incaricoId: inc ? inc.id : null,
+                cliente: inc ? (inc.cliente || '') : '',
+                funzione: ambito === 'funzione' ? document.getElementById('ric-funzione').value : '',
+                campo: campo,
+                regione: regione,
+                richiedente: io,
+                destinatario: { email: dest.email, nome: dest.nome },
+                conoscenza: coordinatoriDiRegione(regione),
+                stato: 'aperta',
+                creato: Date.now(),
+                aggiornato: Date.now(),
+                messaggi: [{ id: uid(), ts: Date.now(), autore: io, tipo: 'richiesta', testo: testo }],
+                invii: []
+            };
+            Richieste.salvaUna(r);
+            Audit.registra(Auth.utenteCorrente, 'Richiesta di correzione inviata', 'richiesta', r.id, riferimentoRichiesta(r),
+                [{ campo: 'Oggetto', prima: '', dopo: oggetto },
+                { campo: 'Indirizzata a', prima: '', dopo: dest.nome + ' <' + dest.email + '>' },
+                { campo: 'Regione', prima: '', dopo: regione || 'nessuna' }]);
+            segnaRichiestaLetta(r);
+            const esito = await inviaMailRichiesta(r, 'nuova', testo);
+            chiudiModale();
+            toast(esito.ok
+                ? 'Richiesta inviata a ' + dest.nome + ': riepilogo per email a te e a ' + dest.nome + '.'
+                : 'Richiesta registrata, ma il riepilogo per email non e partito: ' + esito.msg,
+                esito.ok ? 'verde' : 'ambra');
+            naviga('richieste');
+        }, { testo: 'Invio…' }));
+    }
+
+    /* ---- Scheda di una richiesta: tutti i messaggi raggruppati, in ordine di tempo ---- */
+    function modaleRichiesta(id) {
+        const r = Richieste.trova(id);
+        if (!r) { toast('Richiesta non trovata: forse e stata rimossa.', 'rosso'); return; }
+        segnaRichiestaLetta(r);
+        const io = meRichiesta();
+        const lavora = puoLavorareRichiesta(r);
+        const mio = sonoIlRichiedente(r);
+        const aperta = statoRichiesta(r.stato).aperta;
+        const ultimoInvio = (r.invii || [])[(r.invii || []).length - 1];
+
+        const messaggi = (r.messaggi || []).map(m => {
+            const suo = String((m.autore && m.autore.email) || '').toLowerCase() === io.email;
+            if (m.tipo === 'stato') {
+                return '<div class="ric-evento">' + esc((m.autore && m.autore.nome) || '') + ' &middot; '
+                    + fmtDataOra(m.ts) + ' &middot; ' + esc(m.testo || '') + '</div>';
+            }
+            return '<div class="ric-msg' + (suo ? ' mio' : '') + '">'
+                + '<div class="ric-msg-testa"><strong>' + esc((m.autore && m.autore.nome) || '') + '</strong>'
+                + '<span>' + fmtDataOra(m.ts) + '</span>'
+                + (m.tipo === 'richiesta' ? '<span class="badge neutro">richiesta iniziale</span>' : '') + '</div>'
+                + '<div class="ric-msg-testo">' + esc(m.testo || '').replace(/\n/g, '<br>') + '</div>'
+                + '</div>';
+        }).join('');
+
+        const azioniStato = lavora
+            ? '<div class="ric-azioni-stato">'
+            + (r.stato !== 'presa' && aperta ? '<button class="btn btn-sm btn-secondary" data-stato="presa">Prendi in carico</button>' : '')
+            + (aperta ? '<button class="btn btn-sm btn-primary" data-stato="risolta">Segna come corretta</button>' : '')
+            + (aperta ? '<button class="btn btn-sm btn-danger" data-stato="respinta">Respingi</button>' : '')
+            + (!aperta ? '<button class="btn btn-sm btn-secondary" data-stato="aperta">Riapri</button>' : '')
+            + '</div>'
+            : (mio && aperta ? '<div class="ric-azioni-stato"><button class="btn btn-sm btn-secondary" data-stato="respinta" data-ritiro="1">Ritira la richiesta</button></div>' : '');
+
+        apriModale(`<h2>${esc(r.oggetto || '(senza oggetto)')}</h2>
+            <div class="ric-testata">
+                ${badgeStatoRichiesta(r.stato)}
+                <span class="badge ${r.ambito === 'incarico' ? 'legale' : 'volontaria'}">${esc(r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita')}</span>
+                <span class="ric-rif">${esc(riferimentoRichiesta(r))}${r.regione ? ' &middot; ' + esc(r.regione) : ''}</span>
+            </div>
+            <div class="riepilogo-riga"><span class="etichetta">Richiesta da</span><span class="valore">${esc((r.richiedente && r.richiedente.nome) || '')} &middot; ${fmtDataOra(r.creato)}</span></div>
+            <div class="riepilogo-riga"><span class="etichetta">Indirizzata a</span><span class="valore">${esc((r.destinatario && r.destinatario.nome) || '')} <span class="hint">equity partner</span></span></div>
+            ${r.campo ? `<div class="riepilogo-riga"><span class="etichetta">Dato da correggere</span><span class="valore">${esc(r.campo)}</span></div>` : ''}
+            <div class="riepilogo-riga"><span class="etichetta">In conoscenza</span><span class="valore">${(r.conoscenza || []).length
+                ? esc((r.conoscenza || []).map(c => c.nome + ' (' + c.ruolo.toLowerCase() + ')').join(', '))
+                : '<span class="hint">nessun coordinatore o vice per questa regione</span>'}</span></div>
+            ${r.incaricoId && Incarichi.trova(r.incaricoId) ? '<div class="modale-azioni" style="justify-content:flex-start;margin:10px 0 0;"><button class="btn btn-sm btn-secondary" id="ric-vai-incarico">Apri l\'incarico</button></div>' : ''}
+            ${azioniStato}
+            <h3 style="margin:18px 0 8px;">Messaggi (${(r.messaggi || []).filter(m => m.tipo !== 'stato').length})</h3>
+            <div class="ric-thread">${messaggi}</div>
+            <div class="campo" style="margin-top:12px;"><label>Rispondi</label>
+                <textarea id="ric-risposta" rows="3" maxlength="4000" placeholder="Scrivi un messaggio su questa richiesta..."></textarea>
+                <div class="hint">Il messaggio resta qui, dentro la richiesta, e parte per email a ${esc((r.richiedente && r.richiedente.nome) || '')} e a ${esc((r.destinatario && r.destinatario.nome) || '')}.</div>
+            </div>
+            ${ultimoInvio && ultimoInvio.esito !== 'ok' ? `<div class="msg-errore">Ultimo invio email non riuscito (${esc(ultimoInvio.msg || 'errore')}). La richiesta e comunque registrata.</div>` : ''}
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-chiudi">Chiudi</button>
+                <button class="btn btn-primary" id="m-rispondi">Invia risposta</button>
+            </div>`, { classe: 'larga' });
+
+        document.getElementById('m-chiudi').addEventListener('click', () => { chiudiModale(); vistaRichieste(); });
+        { const bi = document.getElementById('ric-vai-incarico'); if (bi) bi.addEventListener('click', () => { chiudiModale(); naviga('dettaglio', { id: r.incaricoId }); }); }
+        // il thread parte dal fondo: l'ultimo messaggio e quello che interessa
+        const th = document.querySelector('.ric-thread'); if (th) th.scrollTop = th.scrollHeight;
+
+        document.querySelectorAll('.ric-azioni-stato [data-stato]').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
+            await cambiaStatoRichiesta(r.id, b.dataset.stato, b.dataset.ritiro === '1');
+        }, { testo: 'Attendere…' })));
+
+        const btn = document.getElementById('m-rispondi');
+        btn.addEventListener('click', () => conAttesa(btn, async () => {
+            const testo = document.getElementById('ric-risposta').value.trim();
+            if (!testo) { toast('Scrivi un messaggio prima di inviare.', 'rosso'); return; }
+            const fresca = Richieste.trova(r.id) || r;   // qualcun altro puo aver risposto nel frattempo
+            fresca.messaggi = (fresca.messaggi || []).concat([{ id: uid(), ts: Date.now(), autore: io, tipo: 'messaggio', testo: testo }]);
+            fresca.aggiornato = Date.now();
+            Richieste.salvaUna(fresca);
+            segnaRichiestaLetta(fresca);
+            Audit.registra(Auth.utenteCorrente, 'Risposta a richiesta di correzione', 'richiesta', fresca.id, riferimentoRichiesta(fresca),
+                [{ campo: 'Messaggio', prima: '', dopo: troncaTesto(testo, 200) }]);
+            const esito = await inviaMailRichiesta(fresca, 'messaggio', testo);
+            toast(esito.ok ? 'Risposta inviata e riepilogo spedito per email.'
+                : 'Risposta registrata, ma l\'email non e partita: ' + esito.msg, esito.ok ? 'verde' : 'ambra');
+            chiudiModale();
+            modaleRichiesta(fresca.id);
+        }, { testo: 'Invio…' }));
+    }
+
+    /* Cambio di stato: resta scritto nel thread (chi, quando, cosa) e viene spedito
+       insieme al riepilogo, cosi chi ha chiesto la correzione sa che e stata fatta. */
+    async function cambiaStatoRichiesta(id, stato, ritiro) {
+        const r = Richieste.trova(id);
+        if (!r) return;
+        const io = meRichiesta();
+        const nome = statoRichiesta(stato).nome;
+        const testo = ritiro ? 'Richiesta ritirata dal richiedente' : 'Stato aggiornato: ' + nome.toLowerCase();
+        r.stato = stato;
+        r.aggiornato = Date.now();
+        r.messaggi = (r.messaggi || []).concat([{ id: uid(), ts: Date.now(), autore: io, tipo: 'stato', testo: testo, stato: stato }]);
+        Richieste.salvaUna(r);
+        segnaRichiestaLetta(r);
+        Audit.registra(Auth.utenteCorrente, 'Stato richiesta di correzione', 'richiesta', r.id, riferimentoRichiesta(r),
+            [{ campo: 'Stato', prima: '', dopo: nome }]);
+        const esito = await inviaMailRichiesta(r, 'stato', testo);
+        toast(esito.ok ? 'Stato aggiornato: ' + nome.toLowerCase() + '. Riepilogo spedito per email.'
+            : 'Stato aggiornato: ' + nome.toLowerCase() + '. Email non partita: ' + esito.msg, esito.ok ? 'verde' : 'ambra');
+        chiudiModale();
+        modaleRichiesta(r.id);
+    }
+
+    /* ---- Il riepilogo per email ----
+       Parte a chi scrive e a chi riceve (richiedente ed equity partner), con lo stesso
+       servizio delle Comunicazioni: mittente autenticato dello studio, Reply-To di chi
+       preme il pulsante. L'esito viene registrato sulla richiesta: se la mail non parte,
+       la richiesta resta comunque scritta e lo si vede aprendola. */
+    function corpoMailRichiesta(r, tipo, testo) {
+        const riga = (et, val) => '<tr><td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;">' + esc(et)
+            + '</td><td style="padding:4px 0;color:#0A2844;"><strong>' + esc(val) + '</strong></td></tr>';
+        const intro = tipo === 'nuova'
+            ? 'E stata inviata una <strong>richiesta di correzione dati</strong>.'
+            : tipo === 'stato'
+                ? 'Aggiornamento su una <strong>richiesta di correzione dati</strong>.'
+                : 'Nuovo messaggio su una <strong>richiesta di correzione dati</strong>.';
+        const cc = (r.conoscenza || []).map(c => c.nome).join(', ');
+        return '<p>' + intro + '</p>'
+            + '<table role="presentation" cellpadding="0" cellspacing="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;margin:12px 0;">'
+            + riga('Oggetto', r.oggetto || '')
+            + riga(r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita', riferimentoRichiesta(r))
+            + (r.campo ? riga('Dato da correggere', r.campo) : '')
+            + (r.regione ? riga('Regione', r.regione) : '')
+            + riga('Richiesta da', (r.richiedente && r.richiedente.nome) || '')
+            + riga('Indirizzata a', (r.destinatario && r.destinatario.nome) || '')
+            + riga('Stato', statoRichiesta(r.stato).nome)
+            + (cc ? riga('In conoscenza', cc) : '')
+            + '</table>'
+            + '<div style="border-left:3px solid #8bb8d4;padding:2px 0 2px 12px;margin:12px 0;white-space:pre-wrap;">'
+            + esc(testo || '').replace(/\n/g, '<br>') + '</div>'
+            + '<p style="color:#475569;font-size:13px;">Si risponde dall\'area riservata, nella sezione <strong>Richieste di correzione</strong>: cosi tutti i messaggi restano raggruppati sulla stessa richiesta.</p>';
+    }
+    async function inviaMailRichiesta(r, tipo, testo) {
+        const destinatari = [];
+        [r.richiedente, r.destinatario].forEach(p => {
+            const em = String((p && p.email) || '').toLowerCase();
+            if (em && !destinatari.some(d => d.email === em)) destinatari.push({ email: em, nome: (p && p.nome) || '' });
+        });
+        const registra = (esito, msg) => {
+            const fresca = Richieste.trova(r.id);
+            if (!fresca) return;
+            fresca.invii = (fresca.invii || []).concat([{ il: Date.now(), a: destinatari.map(d => d.email), esito: esito, msg: msg || '' }]);
+            if (fresca.invii.length > 50) fresca.invii = fresca.invii.slice(-50);
+            Richieste.salvaUna(fresca);
+        };
+        if (!destinatari.length) { registra('errore', 'nessun indirizzo'); return { ok: false, msg: 'nessun indirizzo email' }; }
+        if (typeof Cloud === 'undefined' || !Cloud.attivo) {
+            registra('errore', 'servizio email non attivo');
+            return { ok: false, msg: 'il servizio email e disponibile solo con l\'accesso protetto attivo' };
+        }
+        const oggetto = (tipo === 'nuova' ? 'Richiesta di correzione dati: ' : 'Re: richiesta di correzione dati: ') + (r.oggetto || '');
+        const esito = await Cloud.inviaComunicazione(oggetto, corpoMailRichiesta(r, tipo, testo), destinatari, 'html');
+        if (!esito || !esito.ok) {
+            const msg = (esito && esito.msg) || 'invio non riuscito';
+            registra('errore', msg);
+            return { ok: false, msg: msg };
+        }
+        registra('ok', '');
+        return { ok: true };
+    }
+
+    /* =========================================================
        VISTA: REGISTRO MODIFICHE
     ========================================================= */
-    const ENTITA_LABEL = { incarico: 'Incarico', fattura: 'Fatturazione', persona: 'Persona', comunicazione: 'Comunicazione', utente: 'Utente/accesso', sistema: 'Sistema' };
-    const ENTITA_CLASSE = { incarico: 'legale', fattura: 'ambra', persona: 'volontaria', comunicazione: 'collegio', utente: 'neutro', sistema: 'neutro' };
+    const ENTITA_LABEL = { incarico: 'Incarico', fattura: 'Fatturazione', persona: 'Persona', comunicazione: 'Comunicazione', richiesta: 'Richiesta correzione', utente: 'Utente/accesso', sistema: 'Sistema' };
+    const ENTITA_CLASSE = { incarico: 'legale', fattura: 'ambra', persona: 'volontaria', comunicazione: 'collegio', richiesta: 'proposta', utente: 'neutro', sistema: 'neutro' };
     function badgeEntita(ent) { return '<span class="badge ' + (ENTITA_CLASSE[ent] || 'neutro') + '">' + esc(ENTITA_LABEL[ent] || ent || 'altro') + '</span>'; }
 
     // Dettaglio completo di una voce del registro: riferimento risolto, modifiche
@@ -13278,7 +13945,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                         <li>Finche non ti viene assegnata almeno una regione <strong>non vedi alcun incarico</strong>: non e un guasto, e la regola di sicurezza.</li>
                         <li>Chiedi all'amministratore di spuntare le tue regioni sulla tua scheda, nella sezione Aderenti Revilaw.</li>
                    </ul>`}
-            <p class="nota-riferimento">Eventuali <strong>modifiche e correzioni</strong> ai dati non si eseguono da qui: vanno richieste all'<strong>equity partner</strong>.</p>
+            <p class="nota-riferimento">Eventuali <strong>modifiche e correzioni</strong> ai dati non si eseguono da qui: si chiedono a un <strong>equity partner</strong> dalla sezione <strong>Richieste di correzione</strong>, nel menu a sinistra. La richiesta resta scritta e la vedi anche tu, insieme all'altro coordinatore o vice del tuo territorio.</p>
             <p class="hint" style="margin-top:12px;">${regioni.length
                 ? 'Le regioni si spuntano sulla scheda della persona (sezione Aderenti Revilaw), sotto le caselle Coordinatore territoriale e Vice coordinatore territoriale. Le trovi sempre riportate in basso a sinistra, sotto il tuo nome.'
                 : 'Appena ti verranno assegnate, le tue regioni compariranno sempre in basso a sinistra, sotto il tuo nome.'}</p>

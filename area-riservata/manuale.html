@@ -344,6 +344,7 @@
           <ol class="sotto">
             <li><a href="#p-incarico">Creare un incarico</a></li>
             <li><a href="#p-modifica">Aprire e modificare</a></li>
+            <li><a href="#p-correzioni">Chiedere la correzione di un dato</a></li>
             <li><a href="#p-persona">Anagrafica aderenti</a></li>
             <li><a href="#p-regioni">Assegnare le regioni</a></li>
             <li><a href="#p-territorio">Incarichi di un territorio</a></li>
@@ -441,6 +442,7 @@
         <dl class="voci">
           <dt>Cruscotto</dt><dd>Il quadro di sintesi: incarichi attivi, compensi dell'anno, incarichi in scadenza e scaduti, proposte da confermare, andamento dei compensi per anno.</dd>
           <dt>Incarichi</dt><dd>L'elenco completo, diviso in Attivi, Terminati, Dismessi e Non accettati, con ricerca, filtri per colonna ed esportazione CSV. Da qui si apre il dettaglio e si creano nuovi incarichi.</dd>
+          <dt>Richieste di correzione</dt><dd>La via di servizio per far correggere un dato sbagliato: si segnala all'equity partner, la richiesta resta scritta e raccoglie tutti i messaggi che la riguardano. La vedono tutti, perché è proprio chi non può modificare ad averne bisogno.</dd>
           <dt>Aderenti Revilaw</dt><dd>L'anagrafica delle persone: nominativi, contatti, sede e ruoli professionali (responsabile qualità, responsabile incarico, coordinatore, vice).</dd>
           <dt>Coordinatori e vice</dt><dd>Una lettura dell'anagrafica per territorio: chi coordina quali regioni e quanti incarichi attivi ci sono in ciascuna.</dd>
           <dt>Responsabili</dt><dd>La stessa anagrafica letta per responsabilità: chi è responsabile qualità e chi responsabile incarico, con gli incarichi che ricopre.</dd>
@@ -483,13 +485,14 @@
 
         <h3>Le sezioni che non passano dal ruolo</h3>
         <div class="prosa">
-          <p>Cinque sezioni hanno regole proprie, indipendenti dal ruolo, perché toccano la sicurezza o l'invio di messaggi a nome dello studio.</p>
+          <p>Sei sezioni hanno regole proprie, indipendenti dal ruolo, perché toccano la sicurezza, l'invio di messaggi a nome dello studio oppure — al contrario — devono restare aperte a tutti.</p>
         </div>
         <dl class="voci">
           <dt>Utenti, Ruoli e permessi</dt><dd>Solo amministratore o titolare. Nessun ruolo personalizzato può concederle.</dd>
           <dt>Dati e backup</dt><dd>Solo il titolare. Nemmeno un amministratore la vede.</dd>
           <dt>Iscrizioni Eventi NGB</dt><dd>Amministratore, titolare o le singole persone abilitate a mano.</dd>
           <dt>Newsletter commerciali</dt><dd>Come sopra. I ruoli «solo sondaggio» restano sempre esclusi.</dd>
+          <dt>Richieste di correzione</dt><dd>Aperta a <b>tutti</b>, e non si può togliere: è la via con cui chi non ha la scrittura fa correggere un dato. Restano fuori solo i ruoli «solo sondaggio». Chi vede quali richieste non dipende dal ruolo ma dalla scheda in Aderenti Revilaw: vedi il capitolo <a href="#p-correzioni">Chiedere la correzione di un dato</a>.</dd>
         </dl>
 
         <h3>Due regole che valgono sopra tutto</h3>
@@ -536,6 +539,7 @@
               <tr><th>Comunicazione teams</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura</td><td class="liv liv-n">Nascosta</td></tr>
               <tr><th>Sondaggi</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura</td><td class="liv liv-s">Unica sezione</td></tr>
               <tr><th>Registro modifiche</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-l">Lettura</td><td class="liv liv-n">Nascosta</td></tr>
+              <tr><th>Richieste di correzione</th><td class="liv liv-s">Tutte</td><td class="liv liv-s">Tutte</td><td class="liv liv-s">Le sue</td><td class="liv liv-s">Le sue</td><td class="liv liv-s">Le sue e del territorio</td><td class="liv liv-n">Nascosta</td></tr>
               <tr><th>Newsletter commerciali</th><td class="liv liv-s">Sempre</td><td class="liv liv-s">Sempre</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Mai</td></tr>
               <tr><th>Iscrizioni Eventi NGB</th><td class="liv liv-s">Sempre</td><td class="liv liv-s">Sempre</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Se abilitato</td><td class="liv liv-n">Mai</td></tr>
               <tr><th>Utenti</th><td class="liv liv-s">Scrittura</td><td class="liv liv-s">Scrittura</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td><td class="liv liv-n">Nascosta</td></tr>
@@ -741,6 +745,11 @@
 
         <figure><img src="manuale/34-coord-coordinatori.jpg" alt="Sezione Coordinatori e vice vista da un coordinatore"><figcaption><b>Coordinatori e vice.</b> Anche qui i conteggi degli incarichi sono calcolati sul territorio consentito. In basso a sinistra le regioni assegnate restano sempre riportate.</figcaption></figure>
 
+        <h3>Un dato sbagliato si fa correggere, non si corregge</h3>
+        <div class="prosa">
+          <p>La sola visualizzazione non lascia senza strumenti: la sezione <b>Richieste di correzione</b> è aperta anche a questi due ruoli. Si segnala il dato a un <b>equity partner</b>, la richiesta resta scritta e la vedono, oltre a chi la scrive, il coordinatore e il vice della regione a cui si riferisce. Il procedimento è descritto in <a href="#p-correzioni">Chiedere la correzione di un dato</a>.</p>
+        </div>
+
         <h3>Quando non c'è ancora nessuna regione</h3>
         <div class="prosa">
           <p>Se sulla scheda della persona non è spuntata alcuna regione, il ruolo <b>non vede alcun incarico</b>. Non è un guasto: è la regola di sicurezza, che in mancanza di indicazioni chiude invece di aprire.</p>
@@ -945,6 +954,59 @@
         </ol>
 
         <!-- ---- anagrafica ---- -->
+        <!-- ---- richieste di correzione ---- -->
+        <h3 id="p-correzioni">Chiedere la correzione di un dato</h3>
+        <div class="etichette"><span class="etichetta et-piena">Aperta a tutti, senza permessi particolari</span></div>
+        <div class="prosa" style="margin-top:14px;">
+          <p>Quando un dato è sbagliato e non lo si può (o non lo si deve) correggere da sé, non lo si chiede a voce: lo si chiede da qui. La richiesta <b>resta scritta</b>, è indirizzata a un <b>equity partner</b>, e tutti i messaggi che la riguardano restano raggruppati sulla stessa scheda, invece di disperdersi tra telefonate e email separate.</p>
+          <p>La sezione <b>Richieste di correzione</b> compare nel menu a tutti gli utenti, qualunque sia il loro ruolo: è pensata proprio per chi ha l'accesso in sola lettura, come il coordinatore e il vice. Restano esclusi soltanto i ruoli «solo sondaggio».</p>
+        </div>
+
+        <ol class="passi">
+          <li>
+            <div class="passo-titolo">Apri una nuova richiesta</div>
+            <div class="passo-testo">
+              <p>Dalla sezione <b>Richieste di correzione</b> premi <b>«+ Nuova richiesta»</b>. Se il dato sbagliato l'hai davanti mentre guardi un incarico, c'è una scorciatoia: nel dettaglio dell'incarico il pulsante <b>«Chiedi una correzione»</b> apre la stessa finestra con l'incarico già selezionato.</p>
+              <p>La prima scelta è <b>cosa riguarda</b> la richiesta: <b>un incarico specifico</b> oppure <b>una funzionalità generale</b> dell'area (il cruscotto, la fatturazione, i propri recapiti, gli accessi e così via). Scegliendo un incarico, l'elenco propone solo quelli che il tuo ruolo può vedere.</p>
+            </div>
+          </li>
+          <li>
+            <div class="passo-titolo">Indica regione e destinatario</div>
+            <div class="passo-testo">
+              <p>La <b>regione di riferimento</b> decide chi resta in copia: il <b>coordinatore</b> e il <b>vice</b> di quel territorio. Se la richiesta riguarda un incarico, la regione è quella dell'incarico e non si tocca; se riguarda una funzionalità generale la scegli tu, e puoi anche lasciarla vuota quando la segnalazione non è territoriale.</p>
+              <p>Il riquadro in fondo alla finestra dice, prima di inviare, <b>chi resterà in copia</b>: se la regione indicata non ha un coordinatore o un vice in anagrafica, lo scrive invece di lasciarlo intuire.</p>
+              <p>Il <b>destinatario</b> si sceglie da una tendina che elenca gli <b>equity partner</b>. Se la tendina è vuota, nessuna scheda in Aderenti Revilaw ha la casella <i>Equity partner</i> spuntata (con scheda attiva ed email): finché non c'è, la richiesta non si può indirizzare.</p>
+            </div>
+          </li>
+          <li>
+            <div class="passo-titolo">Scrivi cosa non torna</div>
+            <div class="passo-testo">
+              <p>L'<b>oggetto</b> è la riga con cui riconoscerai la richiesta nell'elenco. Il campo <b>Dato da correggere</b> è facoltativo e serve a dire di quale campo si parla («Data fine», «Compenso 2026», «Responsabile incarico»). Nella <b>descrizione</b> conviene scrivere tre cose: cosa c'è adesso, cosa dovrebbe esserci e da dove risulta.</p>
+              <p>Premendo <b>Invia richiesta</b> parte un <b>riepilogo per email</b> a chi scrive e all'equity partner destinatario. Se il servizio di posta non è disponibile la richiesta viene comunque registrata, e il programma lo dice apertamente invece di far credere che la mail sia partita.</p>
+            </div>
+          </li>
+          <li>
+            <div class="passo-titolo">Segui la richiesta: i messaggi restano insieme</div>
+            <div class="passo-testo">
+              <p>Aprendo una richiesta trovi l'intestazione (chi l'ha scritta, a chi è indirizzata, l'incarico o la funzionalità, la regione, chi è in copia) e sotto lo <b>scambio completo dei messaggi</b>, in ordine di tempo. Si risponde dal riquadro in fondo: la risposta resta nella scheda e viene spedita per email a chi ha scritto e a chi ha ricevuto la richiesta.</p>
+              <p>Anche i cambi di stato entrano nello scambio, con chi li ha fatti e quando: così, a distanza di mesi, la storia della correzione si legge tutta in un posto solo.</p>
+              <p>Quando su una richiesta c'è un messaggio che non hai ancora letto, accanto alla voce <b>Richieste di correzione</b> nel menu compare un numero, e la riga in elenco è segnata a lato.</p>
+            </div>
+          </li>
+          <li>
+            <div class="passo-titolo">Lavorare le richieste (equity partner)</div>
+            <div class="passo-testo">
+              <p>L'equity partner destinatario — e con lui gli altri equity, i founding partner, l'amministratore e il titolare — dispone dei pulsanti di stato: <b>Prendi in carico</b>, <b>Segna come corretta</b>, <b>Respingi</b> e, su una richiesta chiusa, <b>Riapri</b>. Chi ha scritto la richiesta non la chiude da sé: può solo <b>ritirarla</b>.</p>
+              <p>Le schede in alto dividono le richieste <b>da lavorare</b> da quelle <b>chiuse</b>; chi le vede tutte ha in più l'interruttore <b>Tutte / Solo le mie</b>. Il filtro sopra l'elenco cerca per oggetto, cliente o persona e restringe per stato, ambito e regione.</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="nota">
+          <div class="nota-titolo">Chi vede quali richieste</div>
+          <p>Chi <b>l'ha scritta</b> e l'<b>equity partner</b> a cui è indirizzata la vedono sempre. Il <b>coordinatore</b> e il <b>vice</b> della regione indicata la trovano nel loro elenco: è la traccia che resta sul territorio. Tutti gli <b>equity partner</b> e i <b>founding partner</b> vedono <b>ogni</b> richiesta dello studio, come l'amministratore e il titolare. Gli altri utenti vedono solo le proprie. Le qualifiche di equity e founding partner si spuntano sulla scheda della persona, in <b>Aderenti Revilaw</b>: valgono qualunque sia il ruolo con cui quella persona accede.</p>
+        </div>
+
         <h3 id="p-persona">Anagrafica: aggiungere una persona e darle i ruoli</h3>
         <div class="etichette"><span class="etichetta et-piena">Serve la scrittura su Aderenti Revilaw</span></div>
 
@@ -952,7 +1014,7 @@
           <li>
             <div class="passo-titolo">Apri Aderenti Revilaw</div>
             <div class="passo-testo">
-              <p>L'elenco mostra per ogni persona cognome e nome, i recapiti, la regione di sede, i quattro ruoli professionali con una spunta ciascuno, il numero di incarichi associati e lo stato. Le schede in cima separano le persone <b>attive</b> da quelle <b>disattivate</b> e <b>eliminate</b>.</p>
+              <p>L'elenco mostra per ogni persona cognome e nome, i recapiti, la regione di sede, i ruoli professionali con una spunta ciascuno, il numero di incarichi associati e lo stato. Le schede in cima separano le persone <b>attive</b> da quelle <b>disattivate</b> e <b>eliminate</b>.</p>
               <p>Il numero nella colonna degli incarichi è cliccabile e apre l'elenco degli incarichi in cui quella persona compare con un ruolo qualsiasi, che sia responsabile qualità, responsabile incarico, referente o componente del team.</p>
             </div>
             <figure><img src="manuale/13-admin-aderenti.jpg" alt="Anagrafica degli aderenti"><figcaption><b>Aderenti Revilaw.</b> Il numero nella colonna «Inc.» è cliccabile e apre l'elenco degli incarichi in cui quella persona compare, con qualunque ruolo.</figcaption></figure>
@@ -963,7 +1025,8 @@
               <p>La scheda chiede nome, cognome, email, telefono, regione di sede, provincia, località e indirizzo, poi i ruoli professionali. Il <b>cognome</b> è il campo che collega la persona agli incarichi: cambiandolo, il programma aggiorna anche gli incarichi che lo citano, così non restano nomi orfani.</p>
               <p>L'<b>email</b> merita attenzione particolare, perché è l'aggancio fra la scheda e l'utenza di accesso. Deve essere identica a quella registrata nella sezione Utenti: se differisce anche di poco, il programma non riesce a collegare la persona a chi si è collegato, e per un coordinatore questo significa non vedere alcun incarico.</p>
               <p>La <b>regione</b> di questa scheda è la sede della persona, dove ha lo studio o l'ufficio. Non assegna alcun territorio: le regioni coordinate si spuntano più in basso, tra i ruoli, e sono un elenco a parte.</p>
-              <p>I quattro <b>ruoli professionali</b> (responsabile qualità, responsabile incarico, coordinatore territoriale, vice coordinatore territoriale) decidono in quali tendine la persona comparirà e in quali sezioni sarà elencata. Non concedono permessi di accesso: quelli si assegnano dalla sezione Utenti.</p>
+              <p>I sei <b>ruoli professionali</b> (responsabile qualità, responsabile incarico, coordinatore territoriale, vice coordinatore territoriale, equity partner, founding partner) decidono in quali tendine la persona comparirà e in quali sezioni sarà elencata. Non concedono permessi di accesso: quelli si assegnano dalla sezione Utenti.</p>
+              <p>Le ultime due caselle riguardano le <b>richieste di correzione dati</b>. Un <b>equity partner</b> compare nella tendina dei destinatari, quindi è a lui che le richieste si possono indirizzare: perché ci finisca, la scheda deve essere attiva e avere l'email. Equity e <b>founding partner</b> vedono inoltre <b>tutte</b> le richieste dello studio, non solo le proprie.</p>
             </div>
             <figure><img src="manuale/14-admin-scheda-persona.jpg" alt="Scheda di una persona in anagrafica"><figcaption><b>Scheda persona.</b> Il campo Regione è la <i>sede</i> della persona e non assegna alcun territorio: le regioni coordinate si scelgono tra i ruoli, più sotto.</figcaption></figure>
           </li>
@@ -1116,7 +1179,7 @@
           <dt>Aderente</dt><dd>Una persona dell'anagrafica dello studio. Può avere uno o più ruoli professionali e può avere, oppure no, un'utenza di accesso.</dd>
           <dt>Utente</dt><dd>Un indirizzo email abilitato a entrare. L'utenza si crea nella sezione Utenti ed è collegata alla scheda dell'aderente attraverso l'email, che deve quindi coincidere.</dd>
           <dt>Ruolo</dt><dd>Il profilo di permessi assegnato all'utenza. Stabilisce che cosa si vede e che cosa si può modificare.</dd>
-          <dt>Ruolo professionale</dt><dd>Le spunte sulla scheda dell'aderente: responsabile qualità, responsabile incarico, coordinatore territoriale, vice coordinatore territoriale. Descrivono la funzione nello studio e alimentano le tendine degli incarichi. Non concedono permessi.</dd>
+          <dt>Ruolo professionale</dt><dd>Le spunte sulla scheda dell'aderente: responsabile qualità, responsabile incarico, coordinatore territoriale, vice coordinatore territoriale, equity partner, founding partner. Descrivono la funzione nello studio, alimentano le tendine degli incarichi e decidono chi riceve e chi vede le richieste di correzione. Non concedono permessi di accesso.</dd>
           <dt>Ruolo di sistema</dt><dd>Coordinatore territoriale e Vice coordinatore territoriale. L'amministratore può cambiarne i livelli per sezione, ma non il filtro per territorio, che è parte del ruolo.</dd>
           <dt>Regione dell'incarico</dt><dd>La regione scritta sulla scheda dell'incarico. È il solo dato che decide quali coordinatori lo vedono. Non va confusa con l'area (Nord, Centro, Sud) né con la località del cliente.</dd>
           <dt>Regioni coordinate</dt><dd>Le regioni spuntate sulla scheda di un aderente sotto i ruoli. Sono il territorio di un coordinatore o di un vice. La Regione della scheda è invece la sede della persona e non assegna alcun territorio.</dd>
@@ -1128,7 +1191,9 @@
           <dt>Gruppo di fatturazione</dt><dd>Un'etichetta che raccoglie più incarichi fatturati insieme, per esempio le società di uno stesso gruppo.</dd>
           <dt>Registro modifiche</dt><dd>Il diario delle operazioni: chi, quando, che cosa. Non modificabile.</dd>
           <dt>Titolare</dt><dd>Il proprietario dello studio, individuato dal suo indirizzo email. Ha i poteri dell'amministratore più la sezione Dati e backup.</dd>
-          <dt>Equity partner</dt><dd>Il riferimento a cui chiedere modifiche e correzioni dei dati quando il proprio accesso è in sola visualizzazione.</dd>
+          <dt>Equity partner</dt><dd>Il riferimento a cui si chiedono modifiche e correzioni dei dati. È una spunta sulla scheda dell'aderente: solo chi ce l'ha compare nella tendina dei destinatari delle richieste di correzione, e vede tutte le richieste dello studio.</dd>
+          <dt>Founding partner</dt><dd>Un'altra spunta sulla scheda dell'aderente: non riceve le richieste di correzione, ma le vede tutte, come gli equity partner.</dd>
+          <dt>Richiesta di correzione</dt><dd>La segnalazione scritta di un dato sbagliato, indirizzata a un equity partner. Raccoglie in un'unica scheda tutti i messaggi che la riguardano e resta visibile a chi l'ha scritta e al coordinatore e vice della regione indicata.</dd>
         </dl>
       </section>
 
@@ -1154,7 +1219,16 @@
           <dd>Controlla la regione scritta sull'incarico: è quella, e non la sede del cliente o l'area, a decidere chi lo vede. Differenze di grafia (accenti, trattini, maiuscole) non contano: il confronto le ignora.</dd>
 
           <dt>Il pulsante di modifica non c'è</dt>
-          <dd>Il ruolo ha quella sezione in sola lettura. Per i coordinatori è la regola: consultano, non modificano. Le correzioni si richiedono all'equity partner.</dd>
+          <dd>Il ruolo ha quella sezione in sola lettura. Per i coordinatori è la regola: consultano, non modificano. Le correzioni si chiedono a un equity partner dalla sezione <a href="#p-correzioni">Richieste di correzione</a>.</dd>
+
+          <dt>La tendina degli equity partner è vuota</dt>
+          <dd>Nessuna scheda in Aderenti Revilaw ha la casella <b>Equity partner</b> spuntata, oppure chi ce l'ha è disattivato o senza email. Servono tutte e tre le condizioni perché compaia tra i destinatari delle richieste.</dd>
+
+          <dt>La richiesta è partita ma la mail no</dt>
+          <dd>Il riepilogo per email esce dal servizio dello studio, disponibile solo con l'accesso protetto attivo; l'invio è anche limitato per evitare raffiche (una ventina di secondi tra un messaggio e il successivo). La richiesta in ogni caso è registrata e visibile a tutti i destinatari nell'area riservata: il programma dice sempre quando la mail non è partita.</dd>
+
+          <dt>Un coordinatore non trova una richiesta del suo territorio</dt>
+          <dd>Conta la <b>regione della richiesta</b>: per un incarico è quella dell'incarico, per una segnalazione generale è quella scelta da chi scrive (che può anche averla lasciata vuota). Le regioni coordinate si leggono dalla scheda in Aderenti Revilaw, non dal ruolo di accesso.</dd>
 
           <dt>Sono uscito senza volerlo</dt>
           <dd>Dopo 30 minuti senza attività la sessione si chiude. Basta rientrare: nessun dato viene perso, tranne quanto stavi scrivendo in una finestra aperta.</dd>

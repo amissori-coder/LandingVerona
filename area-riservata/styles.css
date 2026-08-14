@@ -241,6 +241,24 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .comm-azioni-inline { margin-left: auto; display: flex; gap: 6px; flex: 0 0 auto; }
 .comm-dettaglio { padding: 0 12px 12px 30px; }
 .comm-ogg-riga { font-size: 0.82rem; color: var(--grigio-600); margin-bottom: 8px; }
+/* ---- Richieste di correzione dati ----
+   L'elenco riusa le schede delle comunicazioni (.comm-item); qui ci sono solo
+   il segnale "messaggi nuovi", il riepilogo di riga e lo scambio di messaggi. */
+.ric-item.ric-nuovo { border-left: 3px solid var(--ambra, #B45309); }
+.ric-pallino { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ambra, #B45309); margin-left: 6px; vertical-align: middle; }
+.ric-meta { display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem; color: var(--grigio-600); margin-bottom: 8px; }
+.ric-meta strong { color: var(--blu-900); font-weight: 600; }
+.ric-anteprima { margin: 0; font-size: 0.88rem; color: var(--blu-900); background: var(--grigio-100); border-radius: 8px; padding: 8px 10px; }
+.ric-testata { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -6px 0 12px; }
+.ric-rif { font-size: 0.85rem; color: var(--grigio-600); }
+.ric-azioni-stato { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.ric-thread { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; padding: 10px; background: var(--grigio-100); border: 1px solid var(--grigio-200); border-radius: 8px; }
+.ric-msg { background: #fff; border: 1px solid var(--grigio-200); border-radius: 10px; padding: 8px 12px; max-width: 88%; }
+.ric-msg.mio { align-self: flex-end; background: var(--blu-050); border-color: var(--blu-100); }
+.ric-msg-testa { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.78rem; color: var(--grigio-600); margin-bottom: 4px; }
+.ric-msg-testa strong { color: var(--blu-900); font-size: 0.84rem; }
+.ric-msg-testo { font-size: 0.9rem; color: var(--blu-900); line-height: 1.5; word-break: break-word; }
+.ric-evento { align-self: center; font-size: 0.78rem; color: var(--grigio-600); background: #fff; border: 1px dashed var(--grigio-200); border-radius: 999px; padding: 3px 12px; }
 .prossimi-invii { background: var(--grigio-100); border: 1px solid var(--grigio-200); border-radius: 8px; padding: 10px 12px; }
 .pi-tit { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--grigio-600); font-weight: 600; margin-bottom: 8px; }
 .pi-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -310,6 +328,13 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .nav-voce:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .nav-voce.attiva { background: var(--blu-500); color: #fff; font-weight: 600; }
 .nav-voce .icona { width: 18px; height: 18px; flex-shrink: 0; }
+/* Numero delle richieste di correzione con messaggi nuovi: sta sulla voce di menu,
+   cosi una risposta arrivata mentre si lavora altrove non passa inosservata. */
+.nav-conta {
+    margin-left: auto; flex: 0 0 auto; min-width: 20px; padding: 1px 6px;
+    background: var(--ambra, #B45309); color: #fff; border-radius: 999px;
+    font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 1.5;
+}
 /* Macroaree: le sezioni che parlano della stessa cosa (i compensi, gli
    aderenti, i messaggi che escono) stanno insieme sotto un titolino, staccate
    dalle altre. Il filetto a sinistra le tiene legate anche quando l'occhio

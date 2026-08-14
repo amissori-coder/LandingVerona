@@ -201,7 +201,14 @@ module.exports = async (req, res) => {
         const setEmails = new Set(emails.map(e => e.toLowerCase()));
         const messaggio = { from: from, replyTo: mittente, subject: oggBase, text: corpoText(testoBase), html: corpoHtml(testoBase) };
         if (emails.length === 1) messaggio.to = emails[0];
-        else { messaggio.to = mittente; messaggio.bcc = emails; }
+        else {
+            // il mittente e' gia' il destinatario visibile: se compare anche tra gli
+            // indirizzi scelti (capita quando ci si mette in copia, come nei riepiloghi
+            // delle richieste di correzione) non va ripetuto in BCC, altrimenti riceve
+            // due volte la stessa mail.
+            messaggio.to = mittente;
+            messaggio.bcc = emails.filter(em => em.toLowerCase() !== mittente);
+        }
         // cattura i destinatari rifiutati dal server di posta (es. superamento limiti Aruba, indirizzi non validi)
         let falliti = [];
         try {

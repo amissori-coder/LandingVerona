@@ -156,6 +156,18 @@ sufficiente per questo utilizzo.
    > arriva nessuno — nemmeno per leggere chi si e' disiscritto. L'area riservata
    > la consulta passando dal servizio (`/api/newsletter`).
    >
+   > **Richieste di correzione dati: nessuna regola da aggiungere.** Le richieste,
+   > con tutto lo scambio di messaggi che le riguarda, stanno in
+   > `archivio/richieste`: e' gia' coperto dalla regola generale
+   > `archivio/{documento}` (solo staff). Chi vede quali richieste lo decide
+   > l'app, non le regole: chi le ha scritte, l'equity partner a cui sono
+   > indirizzate, il coordinatore e il vice della regione indicata, e tutti gli
+   > equity e founding partner (che le vedono tutte). Vale quindi lo stesso
+   > limite descritto piu' sotto per il filtro per regione: e' una divisione
+   > organizzativa lato browser, non una barriera lato server. Il riepilogo per
+   > email parte dal servizio gia' esistente (`/api/invia-comunicazione`), che
+   > verifica l'ID token di chi scrive: nessuna configurazione in piu'.
+   >
    > **Perche' il permesso della Newsletter sta sulla scheda utente.** La regola
    > `archivio/{documento}` lascia scrivere a *tutto* lo staff, quindi
    > `archivio/newsletterConfig` (l'elenco di chi vede la sezione) lo potrebbe
