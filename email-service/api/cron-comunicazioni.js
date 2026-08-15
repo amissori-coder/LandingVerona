@@ -168,8 +168,7 @@ function risolviDestinatariCron(com, persone, utenti, incarichi) {
         if (!p || !p.attivo || p.eliminato || !p.email) return;
         if ((g.has('qualita') && p.qualita) || (g.has('procuratori') && p.respIncarico) || g.has('team')
             || (g.has('coordinatori') && p.coordinatore) || (g.has('vicecoordinatori') && p.viceCoordinatore)
-            || (g.has('equity') && p.equityPartner) || (g.has('founding') && p.foundingPartner)
-            || (g.has('equityvis') && p.equityOsservatore)) {
+            || (g.has('equity') && p.equityPartner) || (g.has('founding') && p.foundingPartner)) {
             const cognome = p.nome || '';
             add(p.email, p.nomeProprio || cognome, cognome, p);
         }

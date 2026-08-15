@@ -282,13 +282,23 @@
        visualizzazione, limitati agli incarichi delle regioni della loro scheda in Aderenti Revilaw
        (le regioni coordinate spuntate sulla scheda; la Regione della scheda e' la sede
        e da sola non assegna alcun territorio). */
+    const RUOLO_MARKETING = 'marketing';
     const RUOLI_DEFAULT = [
         { id: 'admin', nome: 'Amministratore', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'qualita', nome: 'Responsabile qualita', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'procuratore', nome: 'Procuratore', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'coordinatore', nome: 'Coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
-        { id: 'vicecoordinatore', nome: 'Vice coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
+        { id: 'vicecoordinatore', nome: 'Vice coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
+        /* Marketing: guarda tutto senza toccare niente. Vede quello che vede un equity
+           partner - tutte le sezioni consentite e TUTTE le richieste di correzione - ma
+           in sola visualizzazione: nessuna scrittura, e sulle richieste nessun comando
+           (non le riceve, non le prende in carico, non risponde). Il territorio non lo
+           limita: non e' un ruolo di zona. */
+        { id: RUOLO_MARKETING, nome: 'Marketing (sola visualizzazione)', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
     ];
+    /* Il profilo di sola visualizzazione: la scrittura non gli si puo' dare, in nessuna
+       sezione, qualunque cosa sia salvata nei ruoli. */
+    function eRuoloSolaVisualizzazione(id) { return id === RUOLO_MARKETING; }
     /* Ruoli "solo sondaggio": accesso isolato alla sola sezione Sondaggi, per gli invitati
        che NON fanno parte dello staff. compila = puo' compilare il questionario; risultati =
        vede solo il riepilogo. L'isolamento vero (niente accesso agli altri dati) e' garantito
@@ -1173,6 +1183,17 @@
                 norm.coordinatore = true;
                 return norm;
             }
+            /* Marketing: i livelli per sezione li sceglie l'amministratore (puo' nascondergli
+               una sezione), ma la scrittura non gli si puo' dare: se in archivio ci fosse,
+               qui torna "sola lettura". E' il ruolo stesso a chiamarsi "sola visualizzazione". */
+            if (u.ruolo === RUOLO_MARKETING) {
+                const salvato = Ruoli.trova(RUOLO_MARKETING);
+                const norm = salvato ? Ruoli.normalizza(salvato)
+                    : { id: RUOLO_MARKETING, nome: 'Marketing (sola visualizzazione)', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
+                SEZIONI_RUOLO.forEach(sz => { if (norm.sezioni[sz.id] === 'scrittura') norm.sezioni[sz.id] = 'lettura'; });
+                norm.solaVisualizzazione = true;
+                return norm;
+            }
             const r = Ruoli.trova(u.ruolo);
             if (r) return Ruoli.normalizza(r);
             return { id: u.ruolo || '', nome: u.ruolo || 'Senza ruolo', sconosciuto: true, sezioni: sezioniTutte('no') };
@@ -1196,13 +1217,17 @@
            insieme ai founding sono gli unici a vederle tutte. */
         eEquityPartner() { const p = this.personaCorrente(); return !!(p && p.equityPartner); },
         eFoundingPartner() { const p = this.personaCorrente(); return !!(p && p.foundingPartner); },
-        /* "Equity partner (sola visualizzazione)": vede tutte le richieste come un equity
-           partner, ma si ferma li'. Non compare tra i destinatari e non lavora le richieste
-           degli altri: guarda, non tocca. */
-        eEquityOsservatore() { const p = this.personaCorrente(); return !!(p && p.equityOsservatore); },
+        /* Profilo "Marketing (sola visualizzazione)": e' un RUOLO (sezione Ruoli e permessi),
+           non una qualifica dell'anagrafica. Vede quello che vede un equity partner, comprese
+           tutte le richieste di correzione, ma si ferma li': non le riceve, non le lavora,
+           non risponde, e in nessuna sezione puo' scrivere. */
+        eMarketing() {
+            return !!this.utenteCorrente && this.utenteCorrente.ruolo === RUOLO_MARKETING
+                && !this.eAdmin() && !this.eProprietario();
+        },
         vedeTutteLeRichieste() {
             return this.eAdmin() || this.eProprietario() || this.eEquityPartner() || this.eFoundingPartner()
-                || this.eEquityOsservatore();
+                || this.eMarketing();
         },
         /* Chi puo' PRENDERE IN CARICO e chiudere le richieste altrui. L'osservatore no:
            e' l'unica differenza rispetto a chi le vede tutte. */
@@ -5809,7 +5834,7 @@
         const risolviInc = risolutorePersone();
         const incVisibili = Incarichi.visibili();
         const corpo = lista.length ? `<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="col-mark" title="Equity partner: riceve le richieste di correzione dati">Equity</th><th class="col-mark" title="Founding partner: vede tutte le richieste di correzione dati">Found.</th><th class="col-mark" title="Equity partner in sola visualizzazione: vede tutte le richieste ma non le riceve e non le lavora">Eq. vis.</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="col-mark" title="Equity partner: riceve le richieste di correzione dati">Equity</th><th class="col-mark" title="Founding partner: vede tutte le richieste di correzione dati">Found.</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             lista.map(p => {
                 const nInc = incarichiDellaPersona(p, incVisibili, risolviInc).length;
@@ -5824,7 +5849,6 @@
                 <td class="col-mark" data-label="Vice coordinatore">${spunta(p.viceCoordinatore)}</td>
                 <td class="col-mark" data-label="Equity partner">${spunta(p.equityPartner)}</td>
                 <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
-                <td class="col-mark" data-label="Equity partner (sola visualizzazione)">${spunta(p.equityOsservatore)}</td>
                 <td class="num" data-label="Incarichi">${nInc ? `<button class="btn btn-sm btn-ghost p-inc" data-id="${esc(p.id)}" title="Vedi gli incarichi di ${esc(p.nome)}">${nInc}</button>` : ''}</td>
                 <td data-label="Stato">${badgeStato(p)}</td>
                 ${azioni(p)}
@@ -6235,9 +6259,7 @@
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-vice" ${p && p.viceCoordinatore ? 'checked' : ''} style="width:auto;">Vice coordinatore territoriale</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equity" ${p && p.equityPartner ? 'checked' : ''} style="width:auto;">Equity partner</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-founding" ${p && p.foundingPartner ? 'checked' : ''} style="width:auto;">Founding partner</label>
-                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equityvis" ${p && p.equityOsservatore ? 'checked' : ''} style="width:auto;">Equity partner (sola visualizzazione)</label>
-                <div class="hint" style="margin:2px 0 6px 26px;">Gli <strong>equity partner</strong> sono i destinatari selezionabili delle richieste di correzione dati: per comparire nella tendina la scheda deve essere attiva e avere l'email. Equity e <strong>founding partner</strong> vedono <strong>tutte</strong> le richieste, non solo le proprie, e le lavorano.<br>
-                    L'<strong>equity partner (sola visualizzazione)</strong> le vede tutte allo stesso modo, ma <strong>non</strong> compare tra i destinatari, non le prende in carico e non risponde: guarda soltanto. Le due caselle equity si escludono a vicenda.</div>
+                <div class="hint" style="margin:2px 0 6px 26px;">Gli <strong>equity partner</strong> sono i destinatari selezionabili delle richieste di correzione dati: per comparire nella tendina la scheda deve essere attiva e avere l'email. Equity e <strong>founding partner</strong> vedono <strong>tutte</strong> le richieste, non solo le proprie, e le lavorano.</div>
                 <div id="m-p-coord-box" class="${p && (p.coordinatore || p.viceCoordinatore) ? '' : 'nascosto'}" style="margin:2px 0 6px 26px;">
                     <div class="hint" style="margin:0 0 6px;">Se questa persona accede con il ruolo "Coordinatore territoriale" o "Vice coordinatore territoriale", vede in sola visualizzazione gli incarichi delle regioni spuntate qui sotto. Senza alcuna spunta non vede alcun incarico.</div>
                     <div class="hint" style="margin:0 0 4px;"><strong>Regioni coordinate</strong> (l'elenco completo: la Regione qui sopra e' la sede, spuntala anche qui se la coordina):</div>
@@ -6256,13 +6278,6 @@
             !document.getElementById('m-p-coordinatore').checked && !document.getElementById('m-p-vice').checked);
         document.getElementById('m-p-coordinatore').addEventListener('change', aggiornaCoordBox);
         document.getElementById('m-p-vice').addEventListener('change', aggiornaCoordBox);
-        // equity "pieno" e equity "in sola visualizzazione" sono alternativi: spuntando
-        // l'uno si toglie l'altro, cosi' non resta una scheda che dice due cose insieme
-        {
-            const eq = document.getElementById('m-p-equity'), eqv = document.getElementById('m-p-equityvis');
-            eq.addEventListener('change', () => { if (eq.checked) eqv.checked = false; });
-            eqv.addEventListener('change', () => { if (eqv.checked) eq.checked = false; });
-        }
         const btnSalvaP = document.getElementById('m-salva');
         btnSalvaP.addEventListener('click', () => conAttesa(btnSalvaP, () => {
             const nome = document.getElementById('m-p-nome').value.trim();
@@ -6301,7 +6316,6 @@
                 viceCoordinatore: viceFlag,
                 equityPartner: document.getElementById('m-p-equity').checked,
                 foundingPartner: document.getElementById('m-p-founding').checked,
-                equityOsservatore: document.getElementById('m-p-equityvis').checked,
                 // senza alcuna spunta di coordinamento le altre regioni non hanno senso: si azzerano
                 regioniCoordinate: (coordFlag || viceFlag) ? Array.from(document.querySelectorAll('.m-p-regcoord:checked')).map(c => c.value) : []
             };
@@ -6315,7 +6329,6 @@
                 { chiave: 'viceCoordinatore', nome: 'Vice coordinatore territoriale' },
                 { chiave: 'equityPartner', nome: 'Equity partner' },
                 { chiave: 'foundingPartner', nome: 'Founding partner' },
-                { chiave: 'equityOsservatore', nome: 'Equity partner (sola visualizzazione)' },
                 { chiave: 'regioniCoordinate', nome: 'Regioni coordinate' }
             ];
             if (p) {
@@ -6548,7 +6561,6 @@
         { id: 'vicecoordinatori', nome: 'Vice coordinatori territoriali' },
         { id: 'equity', nome: 'Equity partner' },
         { id: 'founding', nome: 'Founding partner' },
-        { id: 'equityvis', nome: 'Equity partner (sola visualizzazione)' },
         { id: 'utenti', nome: 'Utenti abilitati' }
     ];
     function nomeGruppo(id) { const g = GRUPPI_MAIL.find(x => x.id === id); return g ? g.nome : id; }
@@ -6565,7 +6577,6 @@
         if (g.has('vicecoordinatori')) persone.filter(p => p.viceCoordinatore).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('equity')) persone.filter(p => p.equityPartner).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('founding')) persone.filter(p => p.foundingPartner).forEach(p => set.add(p.email.toLowerCase()));
-        if (g.has('equityvis')) persone.filter(p => p.equityOsservatore).forEach(p => set.add(p.email.toLowerCase()));
         return set;
     }
 
@@ -12709,14 +12720,17 @@
         // sezione, anche la scrittura, esattamente come per un ruolo su misura.
         const soloAdmin = !!(esistente && esistente.id === 'admin');
         const diSistema = !!(esistente && esistente.sistema);
+        // profilo di sola visualizzazione (Marketing): la scrittura non e' nemmeno in elenco
+        const soloVis = !!(esistente && eRuoloSolaVisualizzazione(esistente.id));
         const r = esistente || { id: '', nome: '', builtin: false, sezioni: sezioniTutte('no') };
         apriModale(`<h2>${esistente ? (soloAdmin ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
             ${(soloAdmin || diSistema) ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
             ${soloAdmin ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non e modificabile.</p>' : `
-            ${diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa puo modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioe la <strong>Regione</strong> della sua scheda in <strong>Aderenti Revilaw</strong> (agganciata all\'utente tramite email) piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
+            ${soloVis ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: profilo di <strong>sola visualizzazione</strong>. Qui sotto scegli quali sezioni vede; la <strong>scrittura non e disponibile</strong>, in nessuna sezione. Non e limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
+                : diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa puo modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioe la <strong>Regione</strong> della sua scheda in <strong>Aderenti Revilaw</strong> (agganciata all\'utente tramite email) piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa puo toccare</h3>
             <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
-                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
+                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).filter(liv => !(soloVis && liv === 'scrittura')).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
             <div class="msg-errore hidden" id="r-errore"></div>
             <div class="modale-azioni">
                 ${soloAdmin ? '<button class="btn btn-primary" id="m-annulla">Chiudi</button>'
@@ -12738,7 +12752,12 @@
             }
             if (!diSistema && lista.some(x => x.id !== nid && String(x.nome).trim().toLowerCase() === nome.toLowerCase())) { mostra('Esiste gia un ruolo con questo nome.'); return; }
             const sezioni = {};
-            SEZIONI_RUOLO.forEach(s => { const sel = document.querySelector('[data-sez="' + s.id + '"]'); const v = sel ? sel.value : 'no'; sezioni[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no'; });
+            SEZIONI_RUOLO.forEach(s => {
+                const sel = document.querySelector('[data-sez="' + s.id + '"]');
+                let v = sel ? sel.value : 'no';
+                if (soloVis && v === 'scrittura') v = 'lettura';   // profilo di sola visualizzazione: la scrittura non esiste
+                sezioni[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no';
+            });
             const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), sistema: !!(esistente && esistente.sistema), sezioni: sezioni };
             const idx = lista.findIndex(x => x.id === nid);
             if (idx >= 0) lista[idx] = nuovo; else lista.push(nuovo);
