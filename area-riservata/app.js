@@ -1196,8 +1196,23 @@
            insieme ai founding sono gli unici a vederle tutte. */
         eEquityPartner() { const p = this.personaCorrente(); return !!(p && p.equityPartner); },
         eFoundingPartner() { const p = this.personaCorrente(); return !!(p && p.foundingPartner); },
+        /* "Equity partner (sola visualizzazione)": vede tutte le richieste come un equity
+           partner, ma si ferma li'. Non compare tra i destinatari e non lavora le richieste
+           degli altri: guarda, non tocca. */
+        eEquityOsservatore() { const p = this.personaCorrente(); return !!(p && p.equityOsservatore); },
         vedeTutteLeRichieste() {
+            return this.eAdmin() || this.eProprietario() || this.eEquityPartner() || this.eFoundingPartner()
+                || this.eEquityOsservatore();
+        },
+        /* Chi puo' PRENDERE IN CARICO e chiudere le richieste altrui. L'osservatore no:
+           e' l'unica differenza rispetto a chi le vede tutte. */
+        puoLavorareRichieste() {
             return this.eAdmin() || this.eProprietario() || this.eEquityPartner() || this.eFoundingPartner();
+        },
+        /* Vede tutto ma non puo' fare nulla sulle richieste che non sono sue: serve a
+           dirglielo apertamente, invece di mostrargli comandi che non funzionano. */
+        soloVisualizzazioneRichieste() {
+            return this.vedeTutteLeRichieste() && !this.puoLavorareRichieste();
         },
         // livello sulla singola sezione di contenuto: 'no' | 'lettura' | 'scrittura'
         accessoSezione(sez) {
@@ -5794,7 +5809,7 @@
         const risolviInc = risolutorePersone();
         const incVisibili = Incarichi.visibili();
         const corpo = lista.length ? `<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
-                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="col-mark" title="Equity partner: riceve le richieste di correzione dati">Equity</th><th class="col-mark" title="Founding partner: vede tutte le richieste di correzione dati">Found.</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
+                <th>Cognome</th><th>Nome</th><th>Email</th><th>Regione</th><th class="col-mark" title="Responsabile qualita">Qualita</th><th class="col-mark" title="Responsabile incarico">Resp.</th><th class="col-mark" title="Coordinatore territoriale">Coord.</th><th class="col-mark" title="Vice coordinatore territoriale">Vice</th><th class="col-mark" title="Equity partner: riceve le richieste di correzione dati">Equity</th><th class="col-mark" title="Founding partner: vede tutte le richieste di correzione dati">Found.</th><th class="col-mark" title="Equity partner in sola visualizzazione: vede tutte le richieste ma non le riceve e non le lavora">Eq. vis.</th><th class="num" title="Incarichi associati, con qualunque ruolo: clicca il numero per vedere quali">Inc.</th><th>Stato</th>${puoScr ? '<th></th>' : ''}
             </tr></thead><tbody>` +
             lista.map(p => {
                 const nInc = incarichiDellaPersona(p, incVisibili, risolviInc).length;
@@ -5809,6 +5824,7 @@
                 <td class="col-mark" data-label="Vice coordinatore">${spunta(p.viceCoordinatore)}</td>
                 <td class="col-mark" data-label="Equity partner">${spunta(p.equityPartner)}</td>
                 <td class="col-mark" data-label="Founding partner">${spunta(p.foundingPartner)}</td>
+                <td class="col-mark" data-label="Equity partner (sola visualizzazione)">${spunta(p.equityOsservatore)}</td>
                 <td class="num" data-label="Incarichi">${nInc ? `<button class="btn btn-sm btn-ghost p-inc" data-id="${esc(p.id)}" title="Vedi gli incarichi di ${esc(p.nome)}">${nInc}</button>` : ''}</td>
                 <td data-label="Stato">${badgeStato(p)}</td>
                 ${azioni(p)}
@@ -6219,7 +6235,9 @@
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-vice" ${p && p.viceCoordinatore ? 'checked' : ''} style="width:auto;">Vice coordinatore territoriale</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equity" ${p && p.equityPartner ? 'checked' : ''} style="width:auto;">Equity partner</label>
                 <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-founding" ${p && p.foundingPartner ? 'checked' : ''} style="width:auto;">Founding partner</label>
-                <div class="hint" style="margin:2px 0 6px 26px;">Gli <strong>equity partner</strong> sono i destinatari selezionabili delle richieste di correzione dati: per comparire nella tendina la scheda deve essere attiva e avere l'email. Equity e <strong>founding partner</strong> vedono <strong>tutte</strong> le richieste, non solo le proprie.</div>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:500;"><input type="checkbox" id="m-p-equityvis" ${p && p.equityOsservatore ? 'checked' : ''} style="width:auto;">Equity partner (sola visualizzazione)</label>
+                <div class="hint" style="margin:2px 0 6px 26px;">Gli <strong>equity partner</strong> sono i destinatari selezionabili delle richieste di correzione dati: per comparire nella tendina la scheda deve essere attiva e avere l'email. Equity e <strong>founding partner</strong> vedono <strong>tutte</strong> le richieste, non solo le proprie, e le lavorano.<br>
+                    L'<strong>equity partner (sola visualizzazione)</strong> le vede tutte allo stesso modo, ma <strong>non</strong> compare tra i destinatari, non le prende in carico e non risponde: guarda soltanto. Le due caselle equity si escludono a vicenda.</div>
                 <div id="m-p-coord-box" class="${p && (p.coordinatore || p.viceCoordinatore) ? '' : 'nascosto'}" style="margin:2px 0 6px 26px;">
                     <div class="hint" style="margin:0 0 6px;">Se questa persona accede con il ruolo "Coordinatore territoriale" o "Vice coordinatore territoriale", vede in sola visualizzazione gli incarichi delle regioni spuntate qui sotto. Senza alcuna spunta non vede alcun incarico.</div>
                     <div class="hint" style="margin:0 0 4px;"><strong>Regioni coordinate</strong> (l'elenco completo: la Regione qui sopra e' la sede, spuntala anche qui se la coordina):</div>
@@ -6238,6 +6256,13 @@
             !document.getElementById('m-p-coordinatore').checked && !document.getElementById('m-p-vice').checked);
         document.getElementById('m-p-coordinatore').addEventListener('change', aggiornaCoordBox);
         document.getElementById('m-p-vice').addEventListener('change', aggiornaCoordBox);
+        // equity "pieno" e equity "in sola visualizzazione" sono alternativi: spuntando
+        // l'uno si toglie l'altro, cosi' non resta una scheda che dice due cose insieme
+        {
+            const eq = document.getElementById('m-p-equity'), eqv = document.getElementById('m-p-equityvis');
+            eq.addEventListener('change', () => { if (eq.checked) eqv.checked = false; });
+            eqv.addEventListener('change', () => { if (eqv.checked) eq.checked = false; });
+        }
         const btnSalvaP = document.getElementById('m-salva');
         btnSalvaP.addEventListener('click', () => conAttesa(btnSalvaP, () => {
             const nome = document.getElementById('m-p-nome').value.trim();
@@ -6276,6 +6301,7 @@
                 viceCoordinatore: viceFlag,
                 equityPartner: document.getElementById('m-p-equity').checked,
                 foundingPartner: document.getElementById('m-p-founding').checked,
+                equityOsservatore: document.getElementById('m-p-equityvis').checked,
                 // senza alcuna spunta di coordinamento le altre regioni non hanno senso: si azzerano
                 regioniCoordinate: (coordFlag || viceFlag) ? Array.from(document.querySelectorAll('.m-p-regcoord:checked')).map(c => c.value) : []
             };
@@ -6289,6 +6315,7 @@
                 { chiave: 'viceCoordinatore', nome: 'Vice coordinatore territoriale' },
                 { chiave: 'equityPartner', nome: 'Equity partner' },
                 { chiave: 'foundingPartner', nome: 'Founding partner' },
+                { chiave: 'equityOsservatore', nome: 'Equity partner (sola visualizzazione)' },
                 { chiave: 'regioniCoordinate', nome: 'Regioni coordinate' }
             ];
             if (p) {
@@ -6521,6 +6548,7 @@
         { id: 'vicecoordinatori', nome: 'Vice coordinatori territoriali' },
         { id: 'equity', nome: 'Equity partner' },
         { id: 'founding', nome: 'Founding partner' },
+        { id: 'equityvis', nome: 'Equity partner (sola visualizzazione)' },
         { id: 'utenti', nome: 'Utenti abilitati' }
     ];
     function nomeGruppo(id) { const g = GRUPPI_MAIL.find(x => x.id === id); return g ? g.nome : id; }
@@ -6537,6 +6565,7 @@
         if (g.has('vicecoordinatori')) persone.filter(p => p.viceCoordinatore).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('equity')) persone.filter(p => p.equityPartner).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('founding')) persone.filter(p => p.foundingPartner).forEach(p => set.add(p.email.toLowerCase()));
+        if (g.has('equityvis')) persone.filter(p => p.equityOsservatore).forEach(p => set.add(p.email.toLowerCase()));
         return set;
     }
 
@@ -11925,7 +11954,15 @@
         if (!r) return false;
         const em = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
         if (String((r.destinatario && r.destinatario.email) || '').toLowerCase() === em) return true;
-        return Auth.vedeTutteLeRichieste();
+        return Auth.puoLavorareRichieste();
+    }
+    /* Puo' scrivere un messaggio su questa richiesta: chi l'ha scritta, chi la riceve e
+       chi la vede per territorio (coordinatore e vice, che sul loro incarico hanno qualcosa
+       da dire). L'osservatore in sola visualizzazione no: legge e basta. */
+    function puoScrivereSuRichiesta(r) {
+        if (!r) return false;
+        if (sonoIlRichiedente(r) || puoLavorareRichiesta(r)) return true;
+        return !Auth.soloVisualizzazioneRichieste();
     }
     function sonoIlRichiedente(r) {
         const em = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
@@ -12025,9 +12062,11 @@
             <header>
                 <div>
                     <h1>Richieste di correzione dati</h1>
-                    <p class="descrizione">${vedoTutto
-                ? 'Vedi <strong>tutte</strong> le richieste di Revilaw: sei equity o founding partner (oppure amministratore).'
-                : 'Le richieste che hai scritto, quelle indirizzate a te e quelle del territorio che coordini.'}
+                    <p class="descrizione">${Auth.soloVisualizzazioneRichieste()
+                ? 'Vedi <strong>tutte</strong> le richieste di Revilaw in <strong>sola visualizzazione</strong>: non le ricevi, non rispondi e non ne cambi lo stato. Puoi comunque scriverne di tue.'
+                : vedoTutto
+                    ? 'Vedi <strong>tutte</strong> le richieste di Revilaw: sei equity o founding partner (oppure amministratore).'
+                    : 'Le richieste che hai scritto, quelle indirizzate a te e quelle del territorio che coordini.'}
                         Ogni richiesta e indirizzata a un equity partner e raccoglie in un'unica scheda tutti i messaggi che la riguardano.</p>
                 </div>
                 <div class="header-azioni">
@@ -12235,6 +12274,7 @@
         const io = meRichiesta();
         const lavora = puoLavorareRichiesta(r);
         const mio = sonoIlRichiedente(r);
+        const scrive = puoScrivereSuRichiesta(r);   // l'osservatore in sola visualizzazione non risponde
         const aperta = statoRichiesta(r.stato).aperta;
         const ultimoInvio = (r.invii || [])[(r.invii || []).length - 1];
 
@@ -12282,15 +12322,15 @@
             ${azioniStato}
             <h3 style="margin:18px 0 8px;">Messaggi (${(r.messaggi || []).filter(m => m.tipo !== 'stato').length})</h3>
             <div class="ric-thread">${messaggi}</div>
-            <div class="campo" style="margin-top:12px;"><label>Rispondi</label>
+            ${scrive ? `<div class="campo" style="margin-top:12px;"><label>Rispondi</label>
                 <textarea id="ric-risposta" rows="3" maxlength="4000" placeholder="Scrivi un messaggio su questa richiesta..."></textarea>
                 <div class="hint">Il messaggio resta qui, dentro la richiesta, e parte per email a ${esc((r.richiedente && r.richiedente.nome) || '')} e a ${esc((r.destinatario && r.destinatario.nome) || '')}.</div>
-            </div>
+            </div>` : `<div class="avviso-ruoli" style="margin-top:12px;">Il tuo accesso alle richieste di correzione e in <strong>sola visualizzazione</strong>: le vedi tutte, ma non puoi rispondere ne cambiarne lo stato. Le richieste che scrivi tu restano tue e puoi seguirle come sempre.</div>`}
             ${ultimoInvio && ultimoInvio.esito !== 'ok' ? `<div class="msg-errore">Ultimo avviso per email non partito (${esc(ultimoInvio.msg || 'errore')}). La richiesta e comunque registrata e visibile a tutti nell'area.
                 <button type="button" class="btn btn-sm btn-secondary" id="ric-reinvia" style="margin-left:8px;">Reinvia l'avviso</button></div>` : ''}
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="m-chiudi">Chiudi</button>
-                <button class="btn btn-primary" id="m-rispondi">Invia risposta</button>
+                ${scrive ? '<button class="btn btn-primary" id="m-rispondi">Invia risposta</button>' : ''}
             </div>`, { classe: 'larga' });
 
         document.getElementById('m-chiudi').addEventListener('click', () => { chiudiModale(); vistaRichieste(); });
@@ -12318,7 +12358,7 @@
         }, { testo: 'Attendere…' })));
 
         const btn = document.getElementById('m-rispondi');
-        btn.addEventListener('click', () => conAttesa(btn, async () => {
+        if (btn) btn.addEventListener('click', () => conAttesa(btn, async () => {
             const testo = document.getElementById('ric-risposta').value.trim();
             if (!testo) { toast('Scrivi un messaggio prima di inviare.', 'rosso'); return; }
             const fresca = Richieste.trova(r.id) || r;   // qualcun altro puo aver risposto nel frattempo
