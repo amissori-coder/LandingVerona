@@ -6379,7 +6379,7 @@
        ne compone da solo il riepilogo per la mail agli iscritti all'area.
 
        L'elenco NON e' la storia di tutto quello che e' cambiato: contiene solo
-       cio' che lo studio ha deciso di comunicare. Aggiungere un aggiornamento
+       cio' che Revilaw ha deciso di comunicare. Aggiungere un aggiornamento
        vuol dire aggiungere una voce IN CIMA; toglierne una vuol dire cancellarla
        da qui (gli invii gia' fatti restano comunque negli "Invii effettuati").
 
@@ -6400,7 +6400,7 @@
             dove: 'Nel menu di sinistra, alla voce "Richieste di correzione". Se il dato sbagliato e su un incarico, si puo partire anche dal pulsante "Chiedi una correzione" nella scheda dell\'incarico.',
             voci: [
                 { titolo: 'A chi si scrive', testo: 'La richiesta puo riguardare un incarico preciso oppure una funzione generale dell\'area. Il destinatario si sceglie da una tendina che elenca gli equity partner.' },
-                { titolo: 'Chi la vede', testo: 'Oltre a chi la scrive e all\'equity partner a cui e indirizzata, la richiesta compare al coordinatore e al vice della regione a cui si riferisce. Gli equity partner e i founding partner vedono tutte le richieste dello studio.' },
+                { titolo: 'Chi la vede', testo: 'Oltre a chi la scrive e all\'equity partner a cui e indirizzata, la richiesta compare al coordinatore e al vice della regione a cui si riferisce. Gli equity partner e i founding partner vedono tutte le richieste di Revilaw.' },
                 { titolo: 'Gli avvisi per email', testo: 'Una mail parte quando la richiesta viene inviata, quando qualcuno risponde e a ogni cambio di stato, compreso il momento in cui la correzione risulta eseguita. L\'oggetto dice subito cosa e successo e il pulsante nella mail apre direttamente la richiesta.' },
                 { titolo: 'I messaggi restano insieme', testo: 'Ogni richiesta e una scheda con lo scambio completo in ordine di tempo: la segnalazione iniziale, le risposte e i passaggi di stato, da aperta a presa in carico fino a corretta o respinta.' }
             ]
@@ -6408,7 +6408,7 @@
     ];
     function aggiornamentoDi(id) { return AGGIORNAMENTI_AREA.find(a => a.id === id) || null; }
     /* L'annuncio degli aggiornamenti scrive a TUTTI gli iscritti all'area a nome dello
-       studio: resta all'amministratore e al titolare, non basta la scrittura sulle
+       Revilaw: resta all'amministratore e al titolare, non basta la scrittura sulle
        comunicazioni. Chi ha quel permesso continua a mandare le comunicazioni normali. */
     function puoComunicareAggiornamenti() { return Auth.eAdmin() || Auth.eProprietario(); }
     /* Gli invii gia' effettuati per un aggiornamento (piu' recente prima): servono a
@@ -12026,7 +12026,7 @@
                 <div>
                     <h1>Richieste di correzione dati</h1>
                     <p class="descrizione">${vedoTutto
-                ? 'Vedi <strong>tutte</strong> le richieste dello studio: sei equity o founding partner (oppure amministratore).'
+                ? 'Vedi <strong>tutte</strong> le richieste di Revilaw: sei equity o founding partner (oppure amministratore).'
                 : 'Le richieste che hai scritto, quelle indirizzate a te e quelle del territorio che coordini.'}
                         Ogni richiesta e indirizzata a un equity partner e raccoglie in un'unica scheda tutti i messaggi che la riguardano.</p>
                 </div>
@@ -12363,7 +12363,7 @@
 
     /* ---- Il riepilogo per email ----
        Parte a chi scrive e a chi riceve (richiedente ed equity partner), con lo stesso
-       servizio delle Comunicazioni: mittente autenticato dello studio, Reply-To di chi
+       servizio delle Comunicazioni: mittente autenticato di Revilaw, Reply-To di chi
        preme il pulsante. L'esito viene registrato sulla richiesta: se la mail non parte,
        la richiesta resta comunque scritta e lo si vede aprendola. */
     function corpoMailRichiesta(r, tipo, testo, extra) {
@@ -12404,7 +12404,7 @@
             + (r.stato === 'risolta'
                 ? pMail('Se il dato non risulta ancora corretto, rispondi dalla stessa richiesta: si riapre e lo scambio riprende da dove era rimasto.', 'color:#475569;font-size:13px;')
                 : '')
-            + pMail('Si risponde dall\'area riservata, nella sezione <strong>Richieste di correzione</strong>: cosi tutti i messaggi restano raggruppati sulla stessa richiesta.',
+            + pMail('Si risponde dall\'area riservata Revilaw, nella sezione <strong>Richieste di correzione</strong>: cosi tutti i messaggi restano raggruppati sulla stessa richiesta.',
                 'color:#475569;font-size:13px;'));
     }
     async function inviaMailRichiesta(r, tipo, testo, extra) {

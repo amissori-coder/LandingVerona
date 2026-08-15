@@ -1,5 +1,5 @@
 /* ============================================================
-   Impaginazione delle mail dello studio
+   Impaginazione delle mail di Revilaw
    ------------------------------------------------------------
    Un solo posto per la struttura HTML di TUTTE le mail che escono
    dall'area riservata (comunicazioni ai teams, invii programmati,
@@ -30,7 +30,7 @@ const FIRMA = '<table role="presentation" class="rv-firma" cellpadding="0" cells
     + '<a href="https://nextgenerationbusiness.it" style="color:#164068;text-decoration:none;">nextgenerationbusiness.it</a>'
     + '</td></tr></table>';
 
-/* Via i trattini lunghi (– —) e le loro entita': nelle mail dello studio non ci
+/* Via i trattini lunghi (– —) e le loro entita': nelle mail di Revilaw non ci
    vanno. Arrivano quasi sempre per copia-incolla da Word o dal web, dove certi
    programmi di posta li rendono male o li spezzano a fine riga; al loro posto un
    trattino normale. Si applica a oggetto e testo di OGNI mail, quindi copre anche
