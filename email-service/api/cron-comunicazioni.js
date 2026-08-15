@@ -15,7 +15,7 @@ const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 // Impaginazione e firma delle mail: un posto solo, cosi' quello che parte da qui
 // e quello che parte dagli invii programmati e' identico (lib/mail-layout.js)
-const { avvolgi } = require('../lib/mail-layout');
+const { avvolgi, senzaTrattiniLunghi } = require('../lib/mail-layout');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -203,8 +203,8 @@ async function inviaUna(trans, com, destinatari) {
     let oggBase = com.oggetto || '(senza oggetto)';
     if (p.periodoNelOggetto && periodo) oggBase = oggBase + ' - ' + periodo; // retrocompatibilita vecchi record (casella "periodo nell'oggetto")
     const isHtml = String(com.formato || '') === 'html';
-    oggBase = oggBase.replace(/\{periodo\}/g, periodo); // oggetto sempre testo semplice
-    let testoBase = (com.testo || '').replace(/\{periodo\}/g, isHtml ? esc(periodo) : periodo);
+    oggBase = senzaTrattiniLunghi(oggBase.replace(/\{periodo\}/g, periodo)); // oggetto sempre testo semplice, senza trattini lunghi
+    let testoBase = senzaTrattiniLunghi((com.testo || '').replace(/\{periodo\}/g, isHtml ? esc(periodo) : periodo));
     const wrap = inner => avvolgi(inner);
     const corpoHtml = txt => isHtml ? wrap(txt) : wrap(esc(txt).replace(/\n/g, '<br>'));
     const corpoText = txt => isHtml ? htmlToText(txt) : txt;

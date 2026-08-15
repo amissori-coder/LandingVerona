@@ -30,6 +30,18 @@ const FIRMA = '<table role="presentation" class="rv-firma" cellpadding="0" cells
     + '<a href="https://nextgenerationbusiness.it" style="color:#164068;text-decoration:none;">nextgenerationbusiness.it</a>'
     + '</td></tr></table>';
 
+/* Via i trattini lunghi (– —) e le loro entita': nelle mail dello studio non ci
+   vanno. Arrivano quasi sempre per copia-incolla da Word o dal web, dove certi
+   programmi di posta li rendono male o li spezzano a fine riga; al loro posto un
+   trattino normale. Si applica a oggetto e testo di OGNI mail, quindi copre anche
+   quello che viene scritto a mano nell'editor. */
+function senzaTrattiniLunghi(s) {
+    return String(s == null ? '' : s)
+        .replace(/&[mn]dash;/gi, '-')
+        .replace(/&#(8211|8212|8213|8210);/g, '-')
+        .replace(/[‒–—―]/g, '-');
+}
+
 /* Avvolge il contenuto del messaggio nella pagina completa della mail.
    `inner` e' l'HTML del messaggio (editor o composto dall'applicazione). */
 function avvolgi(inner) {
@@ -73,4 +85,4 @@ function avvolgi(inner) {
         + '</body></html>';
 }
 
-module.exports = { FIRMA, avvolgi };
+module.exports = { FIRMA, avvolgi, senzaTrattiniLunghi };

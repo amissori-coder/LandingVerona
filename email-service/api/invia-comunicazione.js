@@ -15,7 +15,7 @@ const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 // Impaginazione e firma delle mail: un posto solo, cosi' quello che parte da qui
 // e quello che parte dagli invii programmati e' identico (lib/mail-layout.js)
-const { avvolgi } = require('../lib/mail-layout');
+const { avvolgi, senzaTrattiniLunghi } = require('../lib/mail-layout');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -168,8 +168,10 @@ module.exports = async (req, res) => {
         const corpoText = txt => isHtml ? htmlToText(txt) : txt;
         const sostBody = (s, d) => isHtml ? applicaVariabiliHtml(s, d) : applicaVariabili(s, d);
         // invio immediato: {periodo} dipende dalla frequenza (che qui non c'e) -> viene rimosso
-        const oggBase = oggetto.replace(/\{periodo\}/g, '').trim() || '(senza oggetto)';
-        const testoBase = testo.replace(/\{periodo\}/g, '');
+        // niente trattini lunghi nelle mail: si normalizzano qui, cosi' vale anche
+        // per il testo scritto a mano nell'editor (spesso incollato da Word)
+        const oggBase = senzaTrattiniLunghi(oggetto.replace(/\{periodo\}/g, '').trim()) || '(senza oggetto)';
+        const testoBase = senzaTrattiniLunghi(testo.replace(/\{periodo\}/g, ''));
 
         // se il testo/oggetto usa variabili: una mail PERSONALIZZATA per ogni destinatario;
         // altrimenti un unico invio (BCC se piu destinatari), piu efficiente.

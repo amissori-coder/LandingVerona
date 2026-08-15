@@ -6375,10 +6375,16 @@
     /* =========================================================
        AGGIORNAMENTI DELL'AREA RISERVATA
        ------------------------------------------------------------
-       Il registro delle novita' rilasciate: da qui si scegli quella da
-       annunciare e il programma ne compone da solo il riepilogo per la mail
-       agli iscritti all'area. Aggiungere un aggiornamento vuol dire aggiungere
-       una voce IN CIMA a questo elenco: nient'altro.
+       Il registro delle novita' da annunciare: si sceglie una voce e il programma
+       ne compone da solo il riepilogo per la mail agli iscritti all'area.
+
+       L'elenco NON e' la storia di tutto quello che e' cambiato: contiene solo
+       cio' che lo studio ha deciso di comunicare. Aggiungere un aggiornamento
+       vuol dire aggiungere una voce IN CIMA; toglierne una vuol dire cancellarla
+       da qui (gli invii gia' fatti restano comunque negli "Invii effettuati").
+
+       Nel testo delle voci niente trattini lunghi: nelle mail si usano parole,
+       due punti o un trattino normale.
 
        Voce: { id, data:'AAAA-MM-GG', titolo, sommario (una frase),
                chi (a chi interessa), dove (dove si trova nel programma),
@@ -6386,119 +6392,17 @@
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
         {
-            id: '2026-08-15-mail-leggibili',
-            data: '2026-08-15',
-            titolo: 'Le mail dell\'area: leggibili ovunque, con il pulsante per aprire la richiesta',
-            sommario: 'Le mail che escono dall\'area riservata sono impaginate per essere lette allo stesso modo da qualunque programma di posta, con il testo giustificato; quelle delle richieste di correzione portano un pulsante che apre la richiesta nell\'area.',
-            chi: 'Chiunque riceva le mail dell\'area: avvisi delle richieste di correzione, comunicazioni ai teams, annunci di aggiornamento.',
-            dove: 'Nelle mail. Il pulsante "Apri la richiesta nell\'area riservata" sta sotto il messaggio riportato.',
-            voci: [
-                { titolo: 'Un solo modo di impaginare', testo: 'Outlook, Gmail, iPhone, Thunderbird e le webmail ricevono la stessa pagina, costruita a tabelle e con gli stili scritti sugli elementi: niente caratteri o margini inventati dal programma di posta.' },
-                { titolo: 'Testo giustificato', testo: 'Il corpo del messaggio e allineato su entrambi i lati, elenchi compresi.' },
-                { titolo: 'Dalla mail alla richiesta', testo: 'Il pulsante porta esattamente a quella richiesta: fatto l\'accesso, l\'area si apre sulla scheda con tutto lo scambio di messaggi. Sotto c\'e sempre l\'indirizzo in chiaro, per chi ha i collegamenti disattivati.' }
-            ]
-        },
-        {
-            id: '2026-08-15-annuncio-aggiornamenti',
-            data: '2026-08-15',
-            titolo: 'Gli aggiornamenti dell\'area si annunciano dalle Comunicazioni',
-            sommario: 'Le novita dell\'area riservata si comunicano agli iscritti con una mail preparata dal programma: si sceglie l\'aggiornamento, si escludono i destinatari non interessati e si invia.',
-            chi: 'L\'invio e riservato all\'amministratore e al titolare; l\'annuncio arriva a tutti gli iscritti all\'area riservata.',
-            dove: 'Sezione Comunicazione teams di revisione, pulsante "Comunica un aggiornamento" (visibile ad amministratore e titolare).',
-            voci: [
-                { titolo: 'Riepilogo gia pronto', testo: 'Scelto l\'aggiornamento, il programma compone il riepilogo del contenuto: cosa cambia, dove si trova e a chi interessa. Si puo aggiungere una nota introduttiva e vedere l\'anteprima della mail.' },
-                { titolo: 'Destinatari con esclusioni', testo: 'L\'elenco parte dagli iscritti all\'area riservata, tutti spuntati: si toglie la spunta a chi non deve riceverlo. Utenze disattivate e ruoli "solo sondaggio" restano fuori.' },
-                { titolo: 'Resta lo storico', testo: 'L\'invio finisce tra gli "Invii effettuati" e la tendina segnala quali aggiornamenti sono gia stati comunicati, quando e a quante persone.' }
-            ]
-        },
-        {
             id: '2026-08-14-richieste-correzione',
             data: '2026-08-14',
             titolo: 'Richieste di correzione dati',
-            sommario: 'Un dato sbagliato non si segnala piu a voce: si chiede la correzione a un equity partner e la richiesta resta scritta, con tutti i messaggi raggruppati.',
-            chi: 'Tutti gli utenti dell\'area, in particolare coordinatori e vice, che hanno l\'accesso in sola visualizzazione.',
-            dove: 'Menu di sinistra, voce "Richieste di correzione". Dal dettaglio di un incarico c\'e anche il pulsante "Chiedi una correzione".',
+            sommario: 'Nell\'area riservata c\'e una sezione nuova per far correggere un dato sbagliato. La correzione non si chiede piu a voce: si scrive a un equity partner e della richiesta resta traccia, con tutte le risposte in un posto solo.',
+            chi: 'Tutti gli utenti dell\'area. Serve soprattutto a coordinatori e vice, che i dati li vedono ma non li possono modificare.',
+            dove: 'Nel menu di sinistra, alla voce "Richieste di correzione". Se il dato sbagliato e su un incarico, si puo partire anche dal pulsante "Chiedi una correzione" nella scheda dell\'incarico.',
             voci: [
-                { titolo: 'Si chiede a un equity partner', testo: 'La richiesta riguarda un incarico preciso o una funzionalita generale dell\'area, ed e indirizzata a un equity partner scelto da una tendina.' },
-                { titolo: 'Resta traccia sul territorio', testo: 'Oltre a chi la scrive e all\'equity partner destinatario, la vedono il coordinatore e il vice della regione indicata. Tutti gli equity e founding partner vedono ogni richiesta.' },
-                { titolo: 'Avvisi per email', testo: 'All\'invio, a ogni risposta e a ogni cambio di stato - compresa la chiusura della correzione - parte una mail a chi scrive e a chi riceve. L\'oggetto dice gia cosa e successo.' },
-                { titolo: 'Messaggi raggruppati', testo: 'Ogni richiesta e una scheda con tutto lo scambio in ordine di tempo, compresi i cambi di stato: aperta, presa in carico, corretta, respinta.' }
-            ]
-        },
-        {
-            id: '2026-08-13-manuale',
-            data: '2026-08-13',
-            titolo: 'Il manuale dell\'area riservata',
-            sommario: 'Il manuale completo e ora dentro l\'area: procedure passo passo, matrice dei permessi, glossario e problemi ricorrenti.',
-            chi: 'Tutti gli utenti dell\'area.',
-            dove: 'Pulsante "Manuale" in basso a sinistra, accanto a "Esci". Si apre in una nuova scheda e si puo stampare.',
-            voci: [
-                { titolo: 'Un capitolo per ogni ruolo', testo: 'Ogni ruolo trova la sua scheda: cosa vede, cosa puo fare, cosa non puo fare.' },
-                { titolo: 'Procedure passo passo', testo: 'Creare un incarico, modificarlo, assegnare le regioni, compensi e fatture, comunicazioni, utenti e ruoli, backup.' },
-                { titolo: 'Impaginato per la stampa', testo: 'Il manuale si stampa (o si salva in PDF) con l\'impaginazione gia sistemata.' }
-            ]
-        },
-        {
-            id: '2026-08-13-territorio',
-            data: '2026-08-13',
-            titolo: 'Coordinatori e vice: il territorio sempre in chiaro',
-            sommario: 'Chi coordina un territorio trova scritto, all\'ingresso e sotto il proprio nome, quali regioni vede e con quale livello di accesso.',
-            chi: 'Coordinatori territoriali e vice coordinatori.',
-            dove: 'Avviso all\'ingresso (una volta per sessione) e riquadro in basso a sinistra, sotto il nome.',
-            voci: [
-                { titolo: 'Avviso d\'ingresso', testo: 'Al primo accesso di ogni sessione una finestra ricorda ruolo, regioni assegnate e limite agli incarichi di quelle regioni.' },
-                { titolo: 'Numeri sul proprio perimetro', testo: 'Cruscotto e riepiloghi dichiarano che i totali sono calcolati sul territorio assegnato, non su tutto lo studio.' },
-                { titolo: 'Senza regioni non si vede nulla', testo: 'Se sulla scheda in Aderenti Revilaw non e spuntata alcuna regione non compare alcun incarico: non e un guasto, e la regola di sicurezza. L\'avviso lo dice e indica cosa chiedere.' }
-            ]
-        },
-        {
-            id: '2026-08-13-azioni-incarichi',
-            data: '2026-08-13',
-            titolo: 'Incarichi: il menu "Azioni" e le scorciatoie dei coordinatori',
-            sommario: 'L\'elenco degli incarichi e piu compatto e il menu della riga si chiama "Azioni"; dalla sezione Coordinatori e vice si arriva direttamente agli incarichi di un territorio.',
-            chi: 'Tutti gli utenti che consultano gli incarichi.',
-            dove: 'Sezione Incarichi (menu Azioni a fine riga) e sezione Coordinatori e vice (numero degli incarichi, cliccabile).',
-            voci: [
-                { titolo: 'Menu Azioni', testo: 'I comandi di riga stanno sotto una voce che si legge, invece dei tre puntini.' },
-                { titolo: 'Dal numero all\'elenco', testo: 'In Coordinatori e vice il numero degli incarichi apre l\'elenco di quel territorio, da cui si passa alla scheda della persona.' }
-            ]
-        },
-        {
-            id: '2026-08-10-messaggi',
-            data: '2026-08-10',
-            titolo: 'Messaggi tra utenti collegati',
-            sommario: 'Chi e collegato in questo momento si vede nella barra a sinistra e si puo scrivergli, con risposta diretta dal popup.',
-            chi: 'Tutti gli utenti dell\'area.',
-            dove: 'Riquadro "Connessi ora" nella barra di sinistra, con la casella "Messaggi".',
-            voci: [
-                { titolo: 'Recapito garantito', testo: 'Il messaggio arriva anche se chi lo riceve sta lavorando in un\'altra sezione.' },
-                { titolo: 'Risposta dal popup', testo: 'Si risponde direttamente dalla finestrella che compare, senza perdere quello che si stava facendo.' },
-                { titolo: 'Chi sta modificando cosa', testo: 'Accanto al nome dei connessi compare cosa stanno modificando in quel momento: si evita di lavorare sullo stesso record in due.' }
-            ]
-        },
-        {
-            id: '2026-08-10-lettera-pdf',
-            data: '2026-08-10',
-            titolo: 'Lettera d\'incarico: campi definitivi e firma al posto giusto',
-            sommario: 'Il PDF della lettera esce con i campi compilati dal programma resi definitivi e la firma del responsabile agganciata alla pagina giusta.',
-            chi: 'Chi prepara e stampa le lettere di incarico.',
-            dove: 'Dettaglio dell\'incarico, pulsante "Lettera di incarico".',
-            voci: [
-                { titolo: 'Campi non piu modificabili', testo: 'Quello che compila il programma viene appiattito nel PDF: non si altera per sbaglio dopo la stampa.' },
-                { titolo: 'Firma e allegati', testo: 'La firma del responsabile e agganciata alla pagina prevista e gli allegati restano tre, anche nella revisione volontaria.' },
-                { titolo: 'Stampa immediata', testo: 'Dopo la modifica si stampa subito, senza passare da un\'anteprima intermedia.' }
-            ]
-        },
-        {
-            id: '2026-08-07-accesso',
-            data: '2026-08-07',
-            titolo: 'Accesso piu comodo, senza rinunciare alla sicurezza',
-            sommario: 'Il gestore password del browser puo salvare le credenziali dell\'area, e l\'indirizzo email si puo far ricordare su un computer.',
-            chi: 'Tutti gli utenti dell\'area.',
-            dove: 'Schermata di accesso.',
-            voci: [
-                { titolo: 'Credenziali nel gestore del browser', testo: 'Il modulo di accesso non blocca piu il riempimento automatico: la password resta custodita dal browser, non dall\'applicazione.' },
-                { titolo: 'Indirizzo ricordato', testo: 'La casella "Ricorda il mio indirizzo su questo computer" salva la sola email, mai la password.' }
+                { titolo: 'A chi si scrive', testo: 'La richiesta puo riguardare un incarico preciso oppure una funzione generale dell\'area. Il destinatario si sceglie da una tendina che elenca gli equity partner.' },
+                { titolo: 'Chi la vede', testo: 'Oltre a chi la scrive e all\'equity partner a cui e indirizzata, la richiesta compare al coordinatore e al vice della regione a cui si riferisce. Gli equity partner e i founding partner vedono tutte le richieste dello studio.' },
+                { titolo: 'Gli avvisi per email', testo: 'Una mail parte quando la richiesta viene inviata, quando qualcuno risponde e a ogni cambio di stato, compreso il momento in cui la correzione risulta eseguita. L\'oggetto dice subito cosa e successo e il pulsante nella mail apre direttamente la richiesta.' },
+                { titolo: 'I messaggi restano insieme', testo: 'Ogni richiesta e una scheda con lo scambio completo in ordine di tempo: la segnalazione iniziale, le risposte e i passaggi di stato, da aperta a presa in carico fino a corretta o respinta.' }
             ]
         }
     ];
@@ -6524,15 +6428,17 @@
        nota = riga introduttiva facoltativa scritta da chi invia. */
     function riepilogoAggiornamentoHtml(a, nota) {
         if (!a) return '';
-        return (nota ? pMail(esc(nota).replace(/\n/g, '<br>')) : '')
+        // il testo passa comunque dal servizio, che i trattini lunghi li toglie:
+        // qui si tolgono subito, cosi' quello che si vede a video e' gia' quello che parte
+        return senzaTrattiniLunghi((nota ? pMail(esc(nota).replace(/\n/g, '<br>')) : '')
             + pMail('L\'area riservata Revilaw e stata aggiornata. Ecco cosa cambia.')
             + '<h3 style="font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:16px;line-height:1.35;margin:18px 0 4px;text-align:left;">' + esc(a.titolo) + '</h3>'
             + '<div style="color:#475569;font-size:13px;margin-bottom:10px;text-align:left;">Rilasciato il ' + esc(fmtData(a.data)) + '</div>'
             + pMail(esc(a.sommario))
-            + elencoMail((a.voci || []).map(v => '<strong>' + esc(v.titolo) + '</strong>' + (v.testo ? ' &ndash; ' + esc(v.testo) : '')))
+            + elencoMail((a.voci || []).map(v => '<strong>' + esc(v.titolo) + '.</strong>' + (v.testo ? ' ' + esc(v.testo) : '')))
             + tabellaMail([['Dove si trova', esc(a.dove || '')], ['A chi interessa', esc(a.chi || '')]])
             + pMail('Il manuale completo dell\'area e sempre disponibile dal pulsante <strong>Manuale</strong>, in basso a sinistra accanto a "Esci".',
-                'color:#475569;font-size:13px;');
+                'color:#475569;font-size:13px;'));
     }
     /* Elenco puntato di una mail: fatto a tabella, con il pallino in una colonna sua.
        I <ul> in Outlook prendono rientri propri e in qualche webmail perdono il punto;
@@ -6574,6 +6480,15 @@
        non lasciato al foglio di stile, perche' diversi programmi di posta (Gmail e
        diverse app da telefono) i fogli di stile li tolgono. */
     const P_MAIL = 'margin:0 0 10px;text-align:justify;';
+    /* Nelle mail non ci vanno trattini lunghi: al loro posto un trattino normale.
+       Lo fa anche il servizio di invio (email-service/lib/mail-layout.js) su oggetto
+       e testo di ogni mail; qui serve perche' l'anteprima mostri la stessa cosa. */
+    function senzaTrattiniLunghi(s) {
+        return String(s == null ? '' : s)
+            .replace(/&[mn]dash;/gi, '-')
+            .replace(/&#(8211|8212|8213|8210);/g, '-')
+            .replace(/[\u2012\u2013\u2014\u2015]/g, '-');
+    }
     function pMail(html, stileExtra) { return '<p style="' + P_MAIL + (stileExtra || '') + '">' + html + '</p>'; }
 
     /* Pulsante di una mail, fatto a TABELLA e non con un div: e' l'unico modo perche'
@@ -6630,6 +6545,8 @@
        in-app iOS, PWA) ripiega su un riquadro dentro la pagina. La usano sia le
        comunicazioni sia l'annuncio degli aggiornamenti dell'area. */
     function apriAnteprimaMail(oggetto, corpoHtml, nota) {
+        oggetto = senzaTrattiniLunghi(oggetto);
+        corpoHtml = senzaTrattiniLunghi(corpoHtml);
         const doc = '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anteprima mail</title><base target="_blank">'
             /* stessa impaginazione della mail vera (email-service/lib/mail-layout.js):
                larghezza 620, carattere Arial e testo giustificato, cosi' l'anteprima
@@ -11057,8 +10974,9 @@
                 <div class="header-azioni">${mostraToggle ? toggle : ''}${puoAggiornamenti ? '<button class="btn btn-secondary" id="btn-aggiornamento">Comunica un aggiornamento</button>' : ''}${seScr('<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button>')}</div>
             </header>
             ${maiComunicati.length ? `<div class="avviso-ruoli">
-                <strong>${maiComunicati.length === 1 ? 'Un aggiornamento dell\'area riservata non e ancora stato comunicato' : maiComunicati.length + ' aggiornamenti dell\'area riservata non sono ancora stati comunicati'}</strong>
-                &mdash; il piu recente e &laquo;${esc(maiComunicati[0].titolo)}&raquo; del ${esc(fmtData(maiComunicati[0].data))}.
+                ${maiComunicati.length === 1
+                ? `<strong>Un aggiornamento dell'area riservata non e ancora stato comunicato:</strong> &laquo;${esc(maiComunicati[0].titolo)}&raquo;, del ${esc(fmtData(maiComunicati[0].data))}.`
+                : `<strong>${maiComunicati.length} aggiornamenti dell'area riservata non sono ancora stati comunicati.</strong> Il piu recente e &laquo;${esc(maiComunicati[0].titolo)}&raquo;, del ${esc(fmtData(maiComunicati[0].data))}.`}
                 Con <strong>Comunica un aggiornamento</strong> scegli quale annunciare: il riepilogo del contenuto lo prepara il programma, tu decidi quali iscritti all'area lo ricevono.
             </div>` : ''}
             ${tabs}
@@ -11418,7 +11336,7 @@
             const oggFinale = applicaVariabili(sostituisciPeriodo(oggRaw, periodoAnt), CAMPIONE_VAR).trim() || '(nessun oggetto)';
             const corpoHtml = editor.textContent.trim() ? applicaVariabiliHtml(sostituisciPeriodo(testoRaw, esc(periodoAnt)), CAMPIONE_VAR) : '<span style="color:#94A3B8;">(nessun testo)</span>';
             const nota = usaPersonal ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : (usaPeriodo ? 'Anteprima con un periodo di esempio; {periodo} cambia a ogni invio programmato.' : '');
-            apriAnteprimaMail(oggFinale, corpoHtml, nota);
+            apriAnteprimaMail(senzaTrattiniLunghi(oggFinale), senzaTrattiniLunghi(corpoHtml), nota);
         };
         const btnAnt = $('c-anteprima-btn');
         if (btnAnt) btnAnt.addEventListener('click', apriAnteprima);
@@ -12468,7 +12386,7 @@
             + '<td width="3" bgcolor="#8bb8d4" style="width:3px;background-color:#8bb8d4;font-size:0;line-height:0;">&nbsp;</td>'
             + '<td style="padding:2px 0 2px 12px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;text-align:justify;">'
             + esc(testo || '').replace(/\n/g, '<br>') + '</td></tr></table>';
-        return pMail(intro)
+        return senzaTrattiniLunghi(pMail(intro)
             + tabellaMail([
                 ['Oggetto', forte(r.oggetto || '')],
                 [r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita', forte(riferimentoRichiesta(r))],
@@ -12487,7 +12405,7 @@
                 ? pMail('Se il dato non risulta ancora corretto, rispondi dalla stessa richiesta: si riapre e lo scambio riprende da dove era rimasto.', 'color:#475569;font-size:13px;')
                 : '')
             + pMail('Si risponde dall\'area riservata, nella sezione <strong>Richieste di correzione</strong>: cosi tutti i messaggi restano raggruppati sulla stessa richiesta.',
-                'color:#475569;font-size:13px;');
+                'color:#475569;font-size:13px;'));
     }
     async function inviaMailRichiesta(r, tipo, testo, extra) {
         const destinatari = [];
