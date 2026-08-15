@@ -6386,6 +6386,19 @@
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
         {
+            id: '2026-08-15-mail-leggibili',
+            data: '2026-08-15',
+            titolo: 'Le mail dell\'area: leggibili ovunque, con il pulsante per aprire la richiesta',
+            sommario: 'Le mail che escono dall\'area riservata sono impaginate per essere lette allo stesso modo da qualunque programma di posta, con il testo giustificato; quelle delle richieste di correzione portano un pulsante che apre la richiesta nell\'area.',
+            chi: 'Chiunque riceva le mail dell\'area: avvisi delle richieste di correzione, comunicazioni ai teams, annunci di aggiornamento.',
+            dove: 'Nelle mail. Il pulsante "Apri la richiesta nell\'area riservata" sta sotto il messaggio riportato.',
+            voci: [
+                { titolo: 'Un solo modo di impaginare', testo: 'Outlook, Gmail, iPhone, Thunderbird e le webmail ricevono la stessa pagina, costruita a tabelle e con gli stili scritti sugli elementi: niente caratteri o margini inventati dal programma di posta.' },
+                { titolo: 'Testo giustificato', testo: 'Il corpo del messaggio e allineato su entrambi i lati, elenchi compresi.' },
+                { titolo: 'Dalla mail alla richiesta', testo: 'Il pulsante porta esattamente a quella richiesta: fatto l\'accesso, l\'area si apre sulla scheda con tutto lo scambio di messaggi. Sotto c\'e sempre l\'indirizzo in chiaro, per chi ha i collegamenti disattivati.' }
+            ]
+        },
+        {
             id: '2026-08-15-annuncio-aggiornamenti',
             data: '2026-08-15',
             titolo: 'Gli aggiornamenti dell\'area si annunciano dalle Comunicazioni',
@@ -6511,33 +6524,76 @@
        nota = riga introduttiva facoltativa scritta da chi invia. */
     function riepilogoAggiornamentoHtml(a, nota) {
         if (!a) return '';
-        const voci = (a.voci || []).map(v =>
-            '<li style="margin:0 0 8px;"><strong>' + esc(v.titolo) + '</strong>' + (v.testo ? ' &ndash; ' + esc(v.testo) : '') + '</li>').join('');
-        return (nota ? '<p>' + esc(nota).replace(/\n/g, '<br>') + '</p>' : '')
-            + '<p>L\'area riservata Revilaw e stata aggiornata. Ecco cosa cambia.</p>'
-            + '<h3 style="font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:16px;margin:18px 0 4px;">' + esc(a.titolo) + '</h3>'
-            + '<div style="color:#475569;font-size:13px;margin-bottom:10px;">Rilasciato il ' + esc(fmtData(a.data)) + '</div>'
-            + '<p>' + esc(a.sommario) + '</p>'
-            + (voci ? '<ul style="margin:0 0 12px 18px;padding:0;">' + voci + '</ul>' : '')
-            + '<table role="presentation" cellpadding="0" cellspacing="0" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;margin:12px 0;">'
-            + '<tr><td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;vertical-align:top;">Dove si trova</td><td style="padding:4px 0;color:#0A2844;">' + esc(a.dove || '') + '</td></tr>'
-            + '<tr><td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;vertical-align:top;">A chi interessa</td><td style="padding:4px 0;color:#0A2844;">' + esc(a.chi || '') + '</td></tr>'
-            + '</table>'
-            + '<p style="color:#475569;font-size:13px;">Il manuale completo dell\'area e sempre disponibile dal pulsante <strong>Manuale</strong>, in basso a sinistra accanto a "Esci".</p>';
+        return (nota ? pMail(esc(nota).replace(/\n/g, '<br>')) : '')
+            + pMail('L\'area riservata Revilaw e stata aggiornata. Ecco cosa cambia.')
+            + '<h3 style="font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:16px;line-height:1.35;margin:18px 0 4px;text-align:left;">' + esc(a.titolo) + '</h3>'
+            + '<div style="color:#475569;font-size:13px;margin-bottom:10px;text-align:left;">Rilasciato il ' + esc(fmtData(a.data)) + '</div>'
+            + pMail(esc(a.sommario))
+            + elencoMail((a.voci || []).map(v => '<strong>' + esc(v.titolo) + '</strong>' + (v.testo ? ' &ndash; ' + esc(v.testo) : '')))
+            + tabellaMail([['Dove si trova', esc(a.dove || '')], ['A chi interessa', esc(a.chi || '')]])
+            + pMail('Il manuale completo dell\'area e sempre disponibile dal pulsante <strong>Manuale</strong>, in basso a sinistra accanto a "Esci".',
+                'color:#475569;font-size:13px;');
+    }
+    /* Elenco puntato di una mail: fatto a tabella, con il pallino in una colonna sua.
+       I <ul> in Outlook prendono rientri propri e in qualche webmail perdono il punto;
+       cosi' invece si vede uguale dappertutto, e il testo resta giustificato. */
+    function elencoMail(voci) {
+        if (!voci || !voci.length) return '';
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 12px;">'
+            + voci.map(v => '<tr>'
+                + '<td width="16" style="width:16px;padding:0 6px 8px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#164068;vertical-align:top;">&bull;</td>'
+                + '<td style="padding:0 0 8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;text-align:justify;">' + v + '</td>'
+                + '</tr>').join('')
+            + '</table>';
+    }
+    /* Tabellina etichetta/valore delle mail (dati della richiesta, riferimenti). */
+    function tabellaMail(righe) {
+        if (!righe || !righe.length) return '';
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;margin:12px 0;">'
+            + righe.filter(r => r && r[1]).map(r => '<tr>'
+                + '<td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;vertical-align:top;text-align:left;">' + esc(r[0]) + '</td>'
+                + '<td style="padding:4px 0;color:#0A2844;text-align:left;">' + r[1] + '</td>'
+                + '</tr>').join('')
+            + '</table>';
     }
     function contesto(id) { return CONTESTI.find(x => x.id === id) || CONTESTI.find(x => x.id === 'generale'); }
     function badgeContesto(id) { const x = contesto(id); return '<span class="badge ' + x.classe + '">' + esc(x.nome) + '</span>'; }
 
     /* Firma della mail con logo Revilaw: usata nell'anteprima; la STESSA firma e
-       replicata nel servizio di invio (email-service/api/invia-comunicazione.js
-       e cron-comunicazioni.js) cosi il destinatario vede esattamente questo. */
-    const FIRMA_MAIL_HTML = '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:26px;border-top:1px solid #E2E8F0;padding-top:16px;"><tr>'
-        + '<td style="padding-right:14px;vertical-align:middle;"><img src="https://nextgenerationbusiness.it/zls_zes/img/logo-revilaw.png" alt="Revilaw" height="42" style="height:42px;width:auto;display:block;"></td>'
-        + '<td style="vertical-align:middle;font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:13px;line-height:1.5;">'
+       replicata nel servizio di invio (email-service/lib/mail-layout.js, che
+       impagina tutte le mail) cosi il destinatario vede esattamente questo. */
+    const FIRMA_MAIL_HTML = '<table role="presentation" class="rv-firma" cellpadding="0" cellspacing="0" border="0" style="margin-top:26px;border-top:1px solid #E2E8F0;"><tr>'
+        + '<td style="padding:16px 14px 0 0;vertical-align:middle;"><img src="https://nextgenerationbusiness.it/zls_zes/img/logo-revilaw.png" alt="Revilaw" width="120" height="42" style="height:42px;width:auto;display:block;border:0;"></td>'
+        + '<td style="padding-top:16px;vertical-align:middle;font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:13px;line-height:1.5;text-align:left;">'
         + '<div style="font-size:16px;font-weight:bold;color:#0A2844;">Revilaw <span style="color:#8bb8d4;">S.p.A.</span></div>'
         + '<div style="color:#475569;">Revisione legale &middot; Next Generation Business</div>'
         + '<a href="https://nextgenerationbusiness.it" style="color:#164068;text-decoration:none;">nextgenerationbusiness.it</a>'
         + '</td></tr></table>';
+
+    /* Paragrafo di una mail: l'allineamento GIUSTIFICATO va scritto sull'elemento,
+       non lasciato al foglio di stile, perche' diversi programmi di posta (Gmail e
+       diverse app da telefono) i fogli di stile li tolgono. */
+    const P_MAIL = 'margin:0 0 10px;text-align:justify;';
+    function pMail(html, stileExtra) { return '<p style="' + P_MAIL + (stileExtra || '') + '">' + html + '</p>'; }
+
+    /* Pulsante di una mail, fatto a TABELLA e non con un div: e' l'unico modo perche'
+       lo stesso pulsante si veda anche in Outlook, che impagina con il motore di Word.
+       Sotto va sempre l'indirizzo in chiaro: c'e' chi legge la posta in solo testo e
+       chi ha i collegamenti disattivati. */
+    function bottoneMail(url, testo) {
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;"><tr>'
+            + '<td align="center" bgcolor="#164068" style="background-color:#164068;border-radius:6px;">'
+            + '<a href="' + esc(url) + '" target="_blank" rel="noopener" style="display:inline-block;padding:12px 24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">'
+            + esc(testo) + '</a></td></tr></table>'
+            + '<p style="margin:0 0 10px;text-align:left;color:#475569;font-size:12px;line-height:1.5;">Se il pulsante non si apre, copia questo indirizzo nel browser:<br>'
+            + '<span style="word-break:break-all;">' + esc(url) + '</span></p>';
+    }
+    /* Indirizzo dell'area riservata, con l'eventuale collegamento diretto a una
+       sezione o a una richiesta ("richiesta-<id>"): entrando, l'area si apre li'. */
+    function urlAreaRiservata(frammento) {
+        const base = indirizzoPagina('/area-riservata/');
+        return frammento ? (base + '#' + frammento) : base;
+    }
 
     /* Gruppi DINAMICI di destinatari: si risolvono al momento dell'invio, quindi
        chi viene aggiunto dopo (nuovi utenti/ruoli) entra da solo negli invii
@@ -6575,7 +6631,10 @@
        comunicazioni sia l'annuncio degli aggiornamenti dell'area. */
     function apriAnteprimaMail(oggetto, corpoHtml, nota) {
         const doc = '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anteprima mail</title><base target="_blank">'
-            + '<style>body{margin:0;background:#F1F5F9;font-family:Inter,system-ui,sans-serif;color:#1E293B;padding:24px;}.wrap{max-width:680px;margin:0 auto;}.nota{font-size:13px;color:#164068;background:#E8EFF6;border:1px solid #CFE0EE;border-radius:6px;padding:8px 12px;margin-bottom:14px;}.card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;}.intest{background:#F1F5F9;border-bottom:1px solid #E2E8F0;padding:12px 16px;font-size:13px;color:#475569;}.intest strong{color:#0A2844;}.corpo{padding:18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;}.corpo p,.corpo div{margin:0 0 8px;}.corpo ul,.corpo ol{margin:0 0 8px 22px;}</style></head><body><div class="wrap">'
+            /* stessa impaginazione della mail vera (email-service/lib/mail-layout.js):
+               larghezza 620, carattere Arial e testo giustificato, cosi' l'anteprima
+               non promette qualcosa di diverso da quello che arriva */
+            + '<style>body{margin:0;background:#F1F5F9;font-family:Inter,system-ui,sans-serif;color:#1E293B;padding:24px;}.wrap{max-width:620px;margin:0 auto;}.nota{font-size:13px;color:#164068;background:#E8EFF6;border:1px solid #CFE0EE;border-radius:6px;padding:8px 12px;margin-bottom:14px;}.card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;}.intest{background:#F1F5F9;border-bottom:1px solid #E2E8F0;padding:12px 16px;font-size:13px;color:#475569;}.intest strong{color:#0A2844;}.corpo{padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;text-align:justify;}.corpo p,.corpo div,.corpo li{margin:0 0 10px;text-align:justify;}.corpo h1,.corpo h2,.corpo h3,.corpo h4{text-align:left;}.rv-firma td,.rv-firma div{text-align:left;}.corpo ul,.corpo ol{margin:0 0 10px 22px;}.corpo a{color:#164068;}</style></head><body><div class="wrap">'
             + (nota ? '<div class="nota">' + esc(nota) + '</div>' : '')
             + '<div class="card"><div class="intest"><div><strong>Da:</strong> Revilaw S.p.A. &lt;noreply@nextgenerationbusiness.it&gt;</div><div><strong>Oggetto:</strong> ' + esc(oggetto || '(nessun oggetto)') + '</div></div>'
             + '<div class="corpo">' + corpoHtml + FIRMA_MAIL_HTML + '</div></div></div></body></html>';
@@ -12390,35 +12449,45 @@
        preme il pulsante. L'esito viene registrato sulla richiesta: se la mail non parte,
        la richiesta resta comunque scritta e lo si vede aprendola. */
     function corpoMailRichiesta(r, tipo, testo, extra) {
-        const riga = (et, val) => '<tr><td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;">' + esc(et)
-            + '</td><td style="padding:4px 0;color:#0A2844;"><strong>' + esc(val) + '</strong></td></tr>';
         // sul cambio di stato la prima riga dice CHI ha fatto COSA: e' l'informazione
         // per cui la mail e' partita, e non deve stare nascosta nella tabella
         const chi = (extra && extra.autore && (extra.autore.nome || extra.autore.email)) || '';
+        const evento = esc((extra && extra.evento) || statoRichiesta(r.stato).nome.toLowerCase());
         const intro = tipo === 'nuova'
             ? 'E stata inviata una <strong>richiesta di correzione dati</strong>.'
             : tipo === 'stato'
-                ? (chi ? esc(chi) + ' ha segnato la richiesta come <strong>' + esc((extra && extra.evento) || statoRichiesta(r.stato).nome.toLowerCase()) + '</strong>.'
-                    : 'La richiesta e ora <strong>' + esc((extra && extra.evento) || statoRichiesta(r.stato).nome.toLowerCase()) + '</strong>.')
+                ? (chi ? esc(chi) + ' ha segnato la richiesta come <strong>' + evento + '</strong>.'
+                    : 'La richiesta e ora <strong>' + evento + '</strong>.')
                 : 'Nuovo messaggio su una <strong>richiesta di correzione dati</strong>.';
-        const cc = (r.conoscenza || []).map(c => c.nome).join(', ');
-        return '<p>' + intro + '</p>'
-            + '<table role="presentation" cellpadding="0" cellspacing="0" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;margin:12px 0;">'
-            + riga('Oggetto', r.oggetto || '')
-            + riga(r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita', riferimentoRichiesta(r))
-            + (r.campo ? riga('Dato da correggere', r.campo) : '')
-            + (r.regione ? riga('Regione', r.regione) : '')
-            + riga('Richiesta da', (r.richiedente && r.richiedente.nome) || '')
-            + riga('Indirizzata a', (r.destinatario && r.destinatario.nome) || '')
-            + riga('Stato', statoRichiesta(r.stato).nome)
-            + (cc ? riga('In conoscenza', cc) : '')
-            + '</table>'
-            + '<div style="border-left:3px solid #8bb8d4;padding:2px 0 2px 12px;margin:12px 0;white-space:pre-wrap;">'
-            + esc(testo || '').replace(/\n/g, '<br>') + '</div>'
+        const forte = v => '<strong>' + esc(v) + '</strong>';
+        // il messaggio riportato sta in una tabella a una cella: la barretta laterale
+        // e' un bordo di cella, che i programmi di posta rispettano (un div con
+        // border-left in Outlook sparisce)
+        // sul cambio di stato non si ripete niente: la prima riga lo ha gia' detto
+        const citazione = tipo === 'stato' ? '' : '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:12px 0;"><tr>'
+            + '<td width="3" bgcolor="#8bb8d4" style="width:3px;background-color:#8bb8d4;font-size:0;line-height:0;">&nbsp;</td>'
+            + '<td style="padding:2px 0 2px 12px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;text-align:justify;">'
+            + esc(testo || '').replace(/\n/g, '<br>') + '</td></tr></table>';
+        return pMail(intro)
+            + tabellaMail([
+                ['Oggetto', forte(r.oggetto || '')],
+                [r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita', forte(riferimentoRichiesta(r))],
+                ['Dato da correggere', r.campo ? forte(r.campo) : ''],
+                ['Regione', r.regione ? forte(r.regione) : ''],
+                ['Richiesta da', forte((r.richiedente && r.richiedente.nome) || '')],
+                ['Indirizzata a', forte((r.destinatario && r.destinatario.nome) || '')],
+                ['Stato', forte(statoRichiesta(r.stato).nome)],
+                ['In conoscenza', esc((r.conoscenza || []).map(c => c.nome).join(', '))]
+            ])
+            + citazione
+            // il pulsante porta esattamente a QUESTA richiesta: entrando nell'area
+            // si apre la scheda con tutto lo scambio di messaggi
+            + bottoneMail(urlAreaRiservata('richiesta-' + r.id), 'Apri la richiesta nell\'area riservata')
             + (r.stato === 'risolta'
-                ? '<p style="color:#475569;font-size:13px;">Se il dato non risulta ancora corretto, rispondi dalla stessa richiesta: si riapre e lo scambio riprende da dove era rimasto.</p>'
+                ? pMail('Se il dato non risulta ancora corretto, rispondi dalla stessa richiesta: si riapre e lo scambio riprende da dove era rimasto.', 'color:#475569;font-size:13px;')
                 : '')
-            + '<p style="color:#475569;font-size:13px;">Si risponde dall\'area riservata, nella sezione <strong>Richieste di correzione</strong>: cosi tutti i messaggi restano raggruppati sulla stessa richiesta.</p>';
+            + pMail('Si risponde dall\'area riservata, nella sezione <strong>Richieste di correzione</strong>: cosi tutti i messaggi restano raggruppati sulla stessa richiesta.',
+                'color:#475569;font-size:13px;');
     }
     async function inviaMailRichiesta(r, tipo, testo, extra) {
         const destinatari = [];
@@ -14401,13 +14470,38 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         document.getElementById('utente-nome').textContent = Auth.utenteCorrente.nome;
         aggiornaEtichettaUtente();
         if (typeof Cloud !== 'undefined' && Cloud.attivo) Cloud.avviaPresenza();
-        naviga('dashboard');
-        // a coordinatori e vice si ricorda subito qual e' il loro territorio
-        avvisaAmbitoRegionale();
-        // chi sono i nuovi iscritti dal sito: si mostrano appena si entra
-        avvisaNuoviIscritti();
+        /* Collegamento diretto: il pulsante di una mail porta a #richiesta-<id> (o a
+           #<sezione>) e l'area si apre proprio li'. Se il collegamento non vale piu'
+           - richiesta cancellata, sezione non consentita - si entra come sempre. */
+        const dest = destinazioneDaIndirizzo();
+        const vistaOk = dest && Auth.puoVedere(SEZIONE_DI_VISTA[dest.vista] || dest.vista);
+        naviga(vistaOk ? dest.vista : 'dashboard');
+        const richiestaDaAprire = vistaOk && dest.richiestaId && Richieste.trova(dest.richiestaId) ? dest.richiestaId : null;
+        if (richiestaDaAprire) {
+            // si e' arrivati qui per leggere QUESTA richiesta: gli avvisi d'ingresso
+            // (territorio, nuovi iscritti) coprirebbero la scheda e si rivedono al prossimo accesso
+            modaleRichiesta(richiestaDaAprire);
+        } else {
+            // a coordinatori e vice si ricorda subito qual e' il loro territorio
+            avvisaAmbitoRegionale();
+            // chi sono i nuovi iscritti dal sito: si mostrano appena si entra
+            avvisaNuoviIscritti();
+        }
         // ...e si continua a guardare anche dopo, non solo in questo istante
         avviaSorveglianzaIscritti();
+    }
+
+    /* Dove portare chi entra, letto dall'indirizzo (#richieste, #richiesta-<id>, #incarichi...).
+       Serve ai pulsanti delle mail: senza, si finirebbe sempre sul cruscotto a cercare a mano
+       la richiesta di cui parla il messaggio. */
+    function destinazioneDaIndirizzo() {
+        let h = '';
+        try { h = decodeURIComponent(String(location.hash || '').replace(/^#/, '')).trim(); } catch (e) { h = ''; }
+        if (!h) return null;
+        const m = /^richiesta-(.+)$/.exec(h);
+        if (m) return { vista: 'richieste', richiestaId: m[1] };
+        const voce = VOCI_NAV.find(v => v.id === h);
+        return voce ? { vista: voce.id } : null;
     }
 
     /* "Ricorda il mio indirizzo": si memorizza SOLO l'email, e solo su questo computer.

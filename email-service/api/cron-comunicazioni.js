@@ -13,6 +13,9 @@
 
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
+// Impaginazione e firma delle mail: un posto solo, cosi' quello che parte da qui
+// e quello che parte dagli invii programmati e' identico (lib/mail-layout.js)
+const { avvolgi } = require('../lib/mail-layout');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -122,14 +125,6 @@ function tabellaIncarichiHtml(objs) {
         + '</table>';
 }
 
-// Firma con logo Revilaw (uguale a invia-comunicazione e all'anteprima)
-const FIRMA = '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:26px;border-top:1px solid #E2E8F0;padding-top:16px;"><tr>'
-    + '<td style="padding-right:14px;vertical-align:middle;"><img src="https://nextgenerationbusiness.it/zls_zes/img/logo-revilaw.png" alt="Revilaw" height="42" style="height:42px;width:auto;display:block;"></td>'
-    + '<td style="vertical-align:middle;font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:13px;line-height:1.5;">'
-    + '<div style="font-size:16px;font-weight:bold;color:#0A2844;">Revilaw <span style="color:#8bb8d4;">S.p.A.</span></div>'
-    + '<div style="color:#475569;">Revisione legale &middot; Next Generation Business</div>'
-    + '<a href="https://nextgenerationbusiness.it" style="color:#164068;text-decoration:none;">nextgenerationbusiness.it</a>'
-    + '</td></tr></table>';
 
 const MESI_IT = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 // riferimento del periodo in base alla frequenza (per l'oggetto)
@@ -210,7 +205,7 @@ async function inviaUna(trans, com, destinatari) {
     const isHtml = String(com.formato || '') === 'html';
     oggBase = oggBase.replace(/\{periodo\}/g, periodo); // oggetto sempre testo semplice
     let testoBase = (com.testo || '').replace(/\{periodo\}/g, isHtml ? esc(periodo) : periodo);
-    const wrap = inner => '<div style="font-family:Arial,Helvetica,sans-serif;color:#1E293B;font-size:14px;line-height:1.6;max-width:620px;">' + inner + FIRMA + '</div>';
+    const wrap = inner => avvolgi(inner);
     const corpoHtml = txt => isHtml ? wrap(txt) : wrap(esc(txt).replace(/\n/g, '<br>'));
     const corpoText = txt => isHtml ? htmlToText(txt) : txt;
     const sostBody = (s, d) => isHtml ? applicaVariabiliHtml(s, d) : applicaVariabili(s, d);
