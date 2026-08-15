@@ -6408,7 +6408,7 @@
             voci: [
                 { titolo: 'Si chiede a un equity partner', testo: 'La richiesta riguarda un incarico preciso o una funzionalita generale dell\'area, ed e indirizzata a un equity partner scelto da una tendina.' },
                 { titolo: 'Resta traccia sul territorio', testo: 'Oltre a chi la scrive e all\'equity partner destinatario, la vedono il coordinatore e il vice della regione indicata. Tutti gli equity e founding partner vedono ogni richiesta.' },
-                { titolo: 'Riepilogo per email', testo: 'All\'invio e a ogni risposta parte una mail di riepilogo a chi scrive e a chi riceve.' },
+                { titolo: 'Avvisi per email', testo: 'All\'invio, a ogni risposta e a ogni cambio di stato - compresa la chiusura della correzione - parte una mail a chi scrive e a chi riceve. L\'oggetto dice gia cosa e successo.' },
                 { titolo: 'Messaggi raggruppati', testo: 'Ogni richiesta e una scheda con tutto lo scambio in ordine di tempo, compresi i cambi di stato: aperta, presa in carico, corretta, respinta.' }
             ]
         },
@@ -11963,6 +11963,26 @@
         const u = Auth.utenteCorrente || {};
         return { email: String(u.email || '').toLowerCase(), nome: u.nome || u.email || '' };
     }
+    /* Come si dice il passaggio di stato in una frase: "la richiesta e' stata CORRETTA".
+       Serve all'oggetto della mail e all'avviso a video, dove "risolta" da sola non
+       direbbe cosa e' successo davvero. */
+    function etichettaEventoStato(stato, ritiro) {
+        if (ritiro) return 'ritirata dal richiedente';
+        if (stato === 'presa') return 'presa in carico';
+        if (stato === 'risolta') return 'corretta';
+        if (stato === 'respinta') return 'respinta';
+        if (stato === 'aperta') return 'riaperta';
+        return statoRichiesta(stato).nome.toLowerCase();
+    }
+    /* I nomi di chi riceve le mail di una richiesta (richiedente ed equity partner). */
+    function nomiPartecipanti(r) {
+        const nomi = [];
+        [r && r.richiedente, r && r.destinatario].forEach(p => {
+            const n = (p && (p.nome || p.email)) || '';
+            if (n && !nomi.includes(n)) nomi.push(n);
+        });
+        return elencoIt(nomi);
+    }
 
     function vistaRichieste() {
         const tutte = Richieste.visibili().slice().sort((a, b) => (b.aggiornato || 0) - (a.aggiornato || 0));
@@ -12041,7 +12061,7 @@
             <div class="tab-dest" style="margin-bottom:16px;">${schede.map(s => `<button class="tab-btn ${richTab === s.k ? 'attivo' : ''}" data-rtab="${s.k}">${s.nome} (${s.n})</button>`).join('')}</div>
             ${equity.length ? '' : '<div class="avviso-ruoli"><strong>Nessun equity partner in anagrafica.</strong> Finche non c\'e almeno una scheda con la casella <em>Equity partner</em> spuntata, l\'email e la scheda attiva, non e possibile indirizzare una richiesta. Lo si imposta in <em>Aderenti Revilaw</em>, nella scheda della persona.</div>'}
             ${corpo}
-            <p class="descrizione" style="margin-top:10px;">Alla partenza di una richiesta e a ogni risposta parte un riepilogo per email a chi scrive e a chi riceve. Coordinatore e vice della regione indicata restano in copia dentro l'area: la trovano in questo elenco.</p>`;
+            <p class="descrizione" style="margin-top:10px;">Alla partenza di una richiesta, a ogni risposta e a <strong>ogni cambio di stato</strong> (chiusura compresa) parte un avviso per email a chi ha scritto la richiesta e all'equity partner che la riceve. Coordinatore e vice della regione indicata restano in copia dentro l'area: la trovano in questo elenco.</p>`;
 
         $vista().querySelectorAll('[data-rtab]').forEach(b => b.addEventListener('click', () => { richTab = b.dataset.rtab; vistaRichieste(); }));
         $vista().querySelectorAll('[data-mie]').forEach(b => b.addEventListener('click', () => { richSoloMie = b.dataset.mie === '1'; vistaRichieste(); }));
@@ -12244,8 +12264,10 @@
         const messaggi = (r.messaggi || []).map(m => {
             const suo = String((m.autore && m.autore.email) || '').toLowerCase() === io.email;
             if (m.tipo === 'stato') {
-                return '<div class="ric-evento">' + esc((m.autore && m.autore.nome) || '') + ' &middot; '
-                    + fmtDataOra(m.ts) + ' &middot; ' + esc(m.testo || '') + '</div>';
+                // i record piu' vecchi non hanno "evento": si ripiega sul testo salvato allora
+                const detto = m.evento ? ('ha segnato la richiesta come ' + m.evento) : (m.testo || '');
+                return '<div class="ric-evento">' + esc(((m.autore && m.autore.nome) || '') + ' ' + detto) + ' &middot; '
+                    + fmtDataOra(m.ts) + '</div>';
             }
             return '<div class="ric-msg' + (suo ? ' mio' : '') + '">'
                 + '<div class="ric-msg-testa"><strong>' + esc((m.autore && m.autore.nome) || '') + '</strong>'
@@ -12261,8 +12283,11 @@
             + (aperta ? '<button class="btn btn-sm btn-primary" data-stato="risolta">Segna come corretta</button>' : '')
             + (aperta ? '<button class="btn btn-sm btn-danger" data-stato="respinta">Respingi</button>' : '')
             + (!aperta ? '<button class="btn btn-sm btn-secondary" data-stato="aperta">Riapri</button>' : '')
+            + '<div class="hint" style="flex:1 1 100%;margin:2px 0 0;">Ogni passaggio di stato, <strong>chiusura compresa</strong>, avvisa per email '
+            + esc(nomiPartecipanti(r)) + ' e resta scritto qui sotto.</div>'
             + '</div>'
-            : (mio && aperta ? '<div class="ric-azioni-stato"><button class="btn btn-sm btn-secondary" data-stato="respinta" data-ritiro="1">Ritira la richiesta</button></div>' : '');
+            : (mio && aperta ? '<div class="ric-azioni-stato"><button class="btn btn-sm btn-secondary" data-stato="respinta" data-ritiro="1">Ritira la richiesta</button>'
+                + '<div class="hint" style="flex:1 1 100%;margin:2px 0 0;">Ritirandola avvisi per email ' + esc(nomiPartecipanti(r)) + '.</div></div>' : '');
 
         apriModale(`<h2>${esc(r.oggetto || '(senza oggetto)')}</h2>
             <div class="ric-testata">
@@ -12284,7 +12309,8 @@
                 <textarea id="ric-risposta" rows="3" maxlength="4000" placeholder="Scrivi un messaggio su questa richiesta..."></textarea>
                 <div class="hint">Il messaggio resta qui, dentro la richiesta, e parte per email a ${esc((r.richiedente && r.richiedente.nome) || '')} e a ${esc((r.destinatario && r.destinatario.nome) || '')}.</div>
             </div>
-            ${ultimoInvio && ultimoInvio.esito !== 'ok' ? `<div class="msg-errore">Ultimo invio email non riuscito (${esc(ultimoInvio.msg || 'errore')}). La richiesta e comunque registrata.</div>` : ''}
+            ${ultimoInvio && ultimoInvio.esito !== 'ok' ? `<div class="msg-errore">Ultimo avviso per email non partito (${esc(ultimoInvio.msg || 'errore')}). La richiesta e comunque registrata e visibile a tutti nell'area.
+                <button type="button" class="btn btn-sm btn-secondary" id="ric-reinvia" style="margin-left:8px;">Reinvia l'avviso</button></div>` : ''}
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="m-chiudi">Chiudi</button>
                 <button class="btn btn-primary" id="m-rispondi">Invia risposta</button>
@@ -12294,6 +12320,21 @@
         { const bi = document.getElementById('ric-vai-incarico'); if (bi) bi.addEventListener('click', () => { chiudiModale(); naviga('dettaglio', { id: r.incaricoId }); }); }
         // il thread parte dal fondo: l'ultimo messaggio e quello che interessa
         const th = document.querySelector('.ric-thread'); if (th) th.scrollTop = th.scrollHeight;
+        /* Se l'ultimo avviso non e' partito (di solito il limite anti-raffica del servizio:
+           un messaggio ogni venti secondi) si puo' rimandare senza dover riscrivere nulla:
+           riparte l'ultima cosa successa, cambio di stato compreso. */
+        {
+            const br = document.getElementById('ric-reinvia');
+            if (br) br.addEventListener('click', () => conAttesa(br, async () => {
+                const ult = Richieste.ultimoMessaggio(r);
+                if (!ult) return;
+                const esito = ult.tipo === 'stato'
+                    ? await inviaMailRichiesta(r, 'stato', ult.testo, { evento: ult.evento, autore: ult.autore })
+                    : await inviaMailRichiesta(r, ult.tipo === 'richiesta' ? 'nuova' : 'messaggio', ult.testo);
+                toast(esito.ok ? 'Avviso inviato a ' + nomiPartecipanti(r) + '.' : 'Ancora non riuscito: ' + esito.msg, esito.ok ? 'verde' : 'rosso');
+                if (esito.ok) { chiudiModale(); modaleRichiesta(r.id); }
+            }, { testo: 'Invio…' }));
+        }
 
         document.querySelectorAll('.ric-azioni-stato [data-stato]').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             await cambiaStatoRichiesta(r.id, b.dataset.stato, b.dataset.ritiro === '1');
@@ -12325,17 +12366,20 @@
         if (!r) return;
         const io = meRichiesta();
         const nome = statoRichiesta(stato).nome;
+        const evento = etichettaEventoStato(stato, ritiro);
         const testo = ritiro ? 'Richiesta ritirata dal richiedente' : 'Stato aggiornato: ' + nome.toLowerCase();
         r.stato = stato;
         r.aggiornato = Date.now();
-        r.messaggi = (r.messaggi || []).concat([{ id: uid(), ts: Date.now(), autore: io, tipo: 'stato', testo: testo, stato: stato }]);
+        r.messaggi = (r.messaggi || []).concat([{ id: uid(), ts: Date.now(), autore: io, tipo: 'stato', testo: testo, stato: stato, evento: evento }]);
         Richieste.salvaUna(r);
         segnaRichiestaLetta(r);
         Audit.registra(Auth.utenteCorrente, 'Stato richiesta di correzione', 'richiesta', r.id, riferimentoRichiesta(r),
             [{ campo: 'Stato', prima: '', dopo: nome }]);
-        const esito = await inviaMailRichiesta(r, 'stato', testo);
-        toast(esito.ok ? 'Stato aggiornato: ' + nome.toLowerCase() + '. Riepilogo spedito per email.'
-            : 'Stato aggiornato: ' + nome.toLowerCase() + '. Email non partita: ' + esito.msg, esito.ok ? 'verde' : 'ambra');
+        // ogni passaggio di stato - chiusura compresa - parte per email a chi ha chiesto
+        // la correzione e a chi la lavora: e' il momento in cui hanno qualcosa da sapere
+        const esito = await inviaMailRichiesta(r, 'stato', testo, { evento: evento, autore: io });
+        toast(esito.ok ? 'Richiesta ' + evento + '. Email inviata a ' + nomiPartecipanti(r) + '.'
+            : 'Richiesta ' + evento + '. Email non partita: ' + esito.msg, esito.ok ? 'verde' : 'ambra');
         chiudiModale();
         modaleRichiesta(r.id);
     }
@@ -12345,13 +12389,17 @@
        servizio delle Comunicazioni: mittente autenticato dello studio, Reply-To di chi
        preme il pulsante. L'esito viene registrato sulla richiesta: se la mail non parte,
        la richiesta resta comunque scritta e lo si vede aprendola. */
-    function corpoMailRichiesta(r, tipo, testo) {
+    function corpoMailRichiesta(r, tipo, testo, extra) {
         const riga = (et, val) => '<tr><td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;">' + esc(et)
             + '</td><td style="padding:4px 0;color:#0A2844;"><strong>' + esc(val) + '</strong></td></tr>';
+        // sul cambio di stato la prima riga dice CHI ha fatto COSA: e' l'informazione
+        // per cui la mail e' partita, e non deve stare nascosta nella tabella
+        const chi = (extra && extra.autore && (extra.autore.nome || extra.autore.email)) || '';
         const intro = tipo === 'nuova'
             ? 'E stata inviata una <strong>richiesta di correzione dati</strong>.'
             : tipo === 'stato'
-                ? 'Aggiornamento su una <strong>richiesta di correzione dati</strong>.'
+                ? (chi ? esc(chi) + ' ha segnato la richiesta come <strong>' + esc((extra && extra.evento) || statoRichiesta(r.stato).nome.toLowerCase()) + '</strong>.'
+                    : 'La richiesta e ora <strong>' + esc((extra && extra.evento) || statoRichiesta(r.stato).nome.toLowerCase()) + '</strong>.')
                 : 'Nuovo messaggio su una <strong>richiesta di correzione dati</strong>.';
         const cc = (r.conoscenza || []).map(c => c.nome).join(', ');
         return '<p>' + intro + '</p>'
@@ -12367,9 +12415,12 @@
             + '</table>'
             + '<div style="border-left:3px solid #8bb8d4;padding:2px 0 2px 12px;margin:12px 0;white-space:pre-wrap;">'
             + esc(testo || '').replace(/\n/g, '<br>') + '</div>'
+            + (r.stato === 'risolta'
+                ? '<p style="color:#475569;font-size:13px;">Se il dato non risulta ancora corretto, rispondi dalla stessa richiesta: si riapre e lo scambio riprende da dove era rimasto.</p>'
+                : '')
             + '<p style="color:#475569;font-size:13px;">Si risponde dall\'area riservata, nella sezione <strong>Richieste di correzione</strong>: cosi tutti i messaggi restano raggruppati sulla stessa richiesta.</p>';
     }
-    async function inviaMailRichiesta(r, tipo, testo) {
+    async function inviaMailRichiesta(r, tipo, testo, extra) {
         const destinatari = [];
         [r.richiedente, r.destinatario].forEach(p => {
             const em = String((p && p.email) || '').toLowerCase();
@@ -12387,8 +12438,14 @@
             registra('errore', 'servizio email non attivo');
             return { ok: false, msg: 'il servizio email e disponibile solo con l\'accesso protetto attivo' };
         }
-        const oggetto = (tipo === 'nuova' ? 'Richiesta di correzione dati: ' : 'Re: richiesta di correzione dati: ') + (r.oggetto || '');
-        const esito = await Cloud.inviaComunicazione(oggetto, corpoMailRichiesta(r, tipo, testo), destinatari, 'html');
+        // l'oggetto dice gia' cosa e' successo: chi legge la posta capisce che la
+        // correzione e' stata fatta (o respinta) senza dover aprire il messaggio
+        const oggetto = tipo === 'nuova'
+            ? ('Richiesta di correzione dati: ' + (r.oggetto || ''))
+            : tipo === 'stato'
+                ? ('Richiesta di correzione ' + ((extra && extra.evento) || statoRichiesta(r.stato).nome.toLowerCase()) + ': ' + (r.oggetto || ''))
+                : ('Re: richiesta di correzione dati: ' + (r.oggetto || ''));
+        const esito = await Cloud.inviaComunicazione(oggetto, corpoMailRichiesta(r, tipo, testo, extra), destinatari, 'html');
         if (!esito || !esito.ok) {
             const msg = (esito && esito.msg) || 'invio non riuscito';
             registra('errore', msg);

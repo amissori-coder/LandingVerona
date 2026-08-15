@@ -171,7 +171,9 @@ function risolviDestinatariCron(com, persone, utenti, incarichi) {
     if (g.has('utenti')) (utenti || []).forEach(u => { if (u.email && u.attivo !== false) add(u.email, u.nome || '', '', null); });
     (persone || []).forEach(p => {
         if (!p || !p.attivo || p.eliminato || !p.email) return;
-        if ((g.has('qualita') && p.qualita) || (g.has('procuratori') && p.respIncarico) || g.has('team') || (g.has('coordinatori') && p.coordinatore) || (g.has('vicecoordinatori') && p.viceCoordinatore)) {
+        if ((g.has('qualita') && p.qualita) || (g.has('procuratori') && p.respIncarico) || g.has('team')
+            || (g.has('coordinatori') && p.coordinatore) || (g.has('vicecoordinatori') && p.viceCoordinatore)
+            || (g.has('equity') && p.equityPartner) || (g.has('founding') && p.foundingPartner)) {
             const cognome = p.nome || '';
             add(p.email, p.nomeProprio || cognome, cognome, p);
         }
