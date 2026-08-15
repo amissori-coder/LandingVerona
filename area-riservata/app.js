@@ -6367,9 +6367,160 @@
         { id: 'evento', nome: 'Evento', classe: 'legale' },
         { id: 'scadenza', nome: 'Scadenza', classe: 'rosso' },
         { id: 'adempimento', nome: 'Adempimento di revisione', classe: 'verde' },
+        { id: 'aggiornamento', nome: 'Aggiornamento area riservata', classe: 'collegio' },
         { id: 'generale', nome: 'Comunicazione generale', classe: 'neutro' },
         { id: 'altro', nome: 'Altro', classe: 'volontaria' }
     ];
+
+    /* =========================================================
+       AGGIORNAMENTI DELL'AREA RISERVATA
+       ------------------------------------------------------------
+       Il registro delle novita' rilasciate: da qui si scegli quella da
+       annunciare e il programma ne compone da solo il riepilogo per la mail
+       agli iscritti all'area. Aggiungere un aggiornamento vuol dire aggiungere
+       una voce IN CIMA a questo elenco: nient'altro.
+
+       Voce: { id, data:'AAAA-MM-GG', titolo, sommario (una frase),
+               chi (a chi interessa), dove (dove si trova nel programma),
+               voci: [{titolo, testo}] }
+    ========================================================= */
+    const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-15-annuncio-aggiornamenti',
+            data: '2026-08-15',
+            titolo: 'Gli aggiornamenti dell\'area si annunciano dalle Comunicazioni',
+            sommario: 'Le novita dell\'area riservata si comunicano agli iscritti con una mail preparata dal programma: si sceglie l\'aggiornamento, si escludono i destinatari non interessati e si invia.',
+            chi: 'Chi puo scrivere nella sezione Comunicazione teams di revisione.',
+            dove: 'Sezione Comunicazione teams di revisione, pulsante "Comunica un aggiornamento".',
+            voci: [
+                { titolo: 'Riepilogo gia pronto', testo: 'Scelto l\'aggiornamento, il programma compone il riepilogo del contenuto: cosa cambia, dove si trova e a chi interessa. Si puo aggiungere una nota introduttiva e vedere l\'anteprima della mail.' },
+                { titolo: 'Destinatari con esclusioni', testo: 'L\'elenco parte dagli iscritti all\'area riservata, tutti spuntati: si toglie la spunta a chi non deve riceverlo. Utenze disattivate e ruoli "solo sondaggio" restano fuori.' },
+                { titolo: 'Resta lo storico', testo: 'L\'invio finisce tra gli "Invii effettuati" e la tendina segnala quali aggiornamenti sono gia stati comunicati, quando e a quante persone.' }
+            ]
+        },
+        {
+            id: '2026-08-14-richieste-correzione',
+            data: '2026-08-14',
+            titolo: 'Richieste di correzione dati',
+            sommario: 'Un dato sbagliato non si segnala piu a voce: si chiede la correzione a un equity partner e la richiesta resta scritta, con tutti i messaggi raggruppati.',
+            chi: 'Tutti gli utenti dell\'area, in particolare coordinatori e vice, che hanno l\'accesso in sola visualizzazione.',
+            dove: 'Menu di sinistra, voce "Richieste di correzione". Dal dettaglio di un incarico c\'e anche il pulsante "Chiedi una correzione".',
+            voci: [
+                { titolo: 'Si chiede a un equity partner', testo: 'La richiesta riguarda un incarico preciso o una funzionalita generale dell\'area, ed e indirizzata a un equity partner scelto da una tendina.' },
+                { titolo: 'Resta traccia sul territorio', testo: 'Oltre a chi la scrive e all\'equity partner destinatario, la vedono il coordinatore e il vice della regione indicata. Tutti gli equity e founding partner vedono ogni richiesta.' },
+                { titolo: 'Riepilogo per email', testo: 'All\'invio e a ogni risposta parte una mail di riepilogo a chi scrive e a chi riceve.' },
+                { titolo: 'Messaggi raggruppati', testo: 'Ogni richiesta e una scheda con tutto lo scambio in ordine di tempo, compresi i cambi di stato: aperta, presa in carico, corretta, respinta.' }
+            ]
+        },
+        {
+            id: '2026-08-13-manuale',
+            data: '2026-08-13',
+            titolo: 'Il manuale dell\'area riservata',
+            sommario: 'Il manuale completo e ora dentro l\'area: procedure passo passo, matrice dei permessi, glossario e problemi ricorrenti.',
+            chi: 'Tutti gli utenti dell\'area.',
+            dove: 'Pulsante "Manuale" in basso a sinistra, accanto a "Esci". Si apre in una nuova scheda e si puo stampare.',
+            voci: [
+                { titolo: 'Un capitolo per ogni ruolo', testo: 'Ogni ruolo trova la sua scheda: cosa vede, cosa puo fare, cosa non puo fare.' },
+                { titolo: 'Procedure passo passo', testo: 'Creare un incarico, modificarlo, assegnare le regioni, compensi e fatture, comunicazioni, utenti e ruoli, backup.' },
+                { titolo: 'Impaginato per la stampa', testo: 'Il manuale si stampa (o si salva in PDF) con l\'impaginazione gia sistemata.' }
+            ]
+        },
+        {
+            id: '2026-08-13-territorio',
+            data: '2026-08-13',
+            titolo: 'Coordinatori e vice: il territorio sempre in chiaro',
+            sommario: 'Chi coordina un territorio trova scritto, all\'ingresso e sotto il proprio nome, quali regioni vede e con quale livello di accesso.',
+            chi: 'Coordinatori territoriali e vice coordinatori.',
+            dove: 'Avviso all\'ingresso (una volta per sessione) e riquadro in basso a sinistra, sotto il nome.',
+            voci: [
+                { titolo: 'Avviso d\'ingresso', testo: 'Al primo accesso di ogni sessione una finestra ricorda ruolo, regioni assegnate e limite agli incarichi di quelle regioni.' },
+                { titolo: 'Numeri sul proprio perimetro', testo: 'Cruscotto e riepiloghi dichiarano che i totali sono calcolati sul territorio assegnato, non su tutto lo studio.' },
+                { titolo: 'Senza regioni non si vede nulla', testo: 'Se sulla scheda in Aderenti Revilaw non e spuntata alcuna regione non compare alcun incarico: non e un guasto, e la regola di sicurezza. L\'avviso lo dice e indica cosa chiedere.' }
+            ]
+        },
+        {
+            id: '2026-08-13-azioni-incarichi',
+            data: '2026-08-13',
+            titolo: 'Incarichi: il menu "Azioni" e le scorciatoie dei coordinatori',
+            sommario: 'L\'elenco degli incarichi e piu compatto e il menu della riga si chiama "Azioni"; dalla sezione Coordinatori e vice si arriva direttamente agli incarichi di un territorio.',
+            chi: 'Tutti gli utenti che consultano gli incarichi.',
+            dove: 'Sezione Incarichi (menu Azioni a fine riga) e sezione Coordinatori e vice (numero degli incarichi, cliccabile).',
+            voci: [
+                { titolo: 'Menu Azioni', testo: 'I comandi di riga stanno sotto una voce che si legge, invece dei tre puntini.' },
+                { titolo: 'Dal numero all\'elenco', testo: 'In Coordinatori e vice il numero degli incarichi apre l\'elenco di quel territorio, da cui si passa alla scheda della persona.' }
+            ]
+        },
+        {
+            id: '2026-08-10-messaggi',
+            data: '2026-08-10',
+            titolo: 'Messaggi tra utenti collegati',
+            sommario: 'Chi e collegato in questo momento si vede nella barra a sinistra e si puo scrivergli, con risposta diretta dal popup.',
+            chi: 'Tutti gli utenti dell\'area.',
+            dove: 'Riquadro "Connessi ora" nella barra di sinistra, con la casella "Messaggi".',
+            voci: [
+                { titolo: 'Recapito garantito', testo: 'Il messaggio arriva anche se chi lo riceve sta lavorando in un\'altra sezione.' },
+                { titolo: 'Risposta dal popup', testo: 'Si risponde direttamente dalla finestrella che compare, senza perdere quello che si stava facendo.' },
+                { titolo: 'Chi sta modificando cosa', testo: 'Accanto al nome dei connessi compare cosa stanno modificando in quel momento: si evita di lavorare sullo stesso record in due.' }
+            ]
+        },
+        {
+            id: '2026-08-10-lettera-pdf',
+            data: '2026-08-10',
+            titolo: 'Lettera d\'incarico: campi definitivi e firma al posto giusto',
+            sommario: 'Il PDF della lettera esce con i campi compilati dal programma resi definitivi e la firma del responsabile agganciata alla pagina giusta.',
+            chi: 'Chi prepara e stampa le lettere di incarico.',
+            dove: 'Dettaglio dell\'incarico, pulsante "Lettera di incarico".',
+            voci: [
+                { titolo: 'Campi non piu modificabili', testo: 'Quello che compila il programma viene appiattito nel PDF: non si altera per sbaglio dopo la stampa.' },
+                { titolo: 'Firma e allegati', testo: 'La firma del responsabile e agganciata alla pagina prevista e gli allegati restano tre, anche nella revisione volontaria.' },
+                { titolo: 'Stampa immediata', testo: 'Dopo la modifica si stampa subito, senza passare da un\'anteprima intermedia.' }
+            ]
+        },
+        {
+            id: '2026-08-07-accesso',
+            data: '2026-08-07',
+            titolo: 'Accesso piu comodo, senza rinunciare alla sicurezza',
+            sommario: 'Il gestore password del browser puo salvare le credenziali dell\'area, e l\'indirizzo email si puo far ricordare su un computer.',
+            chi: 'Tutti gli utenti dell\'area.',
+            dove: 'Schermata di accesso.',
+            voci: [
+                { titolo: 'Credenziali nel gestore del browser', testo: 'Il modulo di accesso non blocca piu il riempimento automatico: la password resta custodita dal browser, non dall\'applicazione.' },
+                { titolo: 'Indirizzo ricordato', testo: 'La casella "Ricorda il mio indirizzo su questo computer" salva la sola email, mai la password.' }
+            ]
+        }
+    ];
+    function aggiornamentoDi(id) { return AGGIORNAMENTI_AREA.find(a => a.id === id) || null; }
+    /* Gli invii gia' effettuati per un aggiornamento (piu' recente prima): servono a
+       dire "questo l'hai gia' comunicato il ..." invece di farlo scoprire dai destinatari. */
+    function inviiAggiornamento(id) {
+        const out = [];
+        Comunicazioni.tutte().filter(c => c.aggiornamentoId === id).forEach(c => {
+            (c.invii || []).forEach(v => out.push({ il: v.il, n: v.n, da: v.da }));
+        });
+        return out.sort((a, b) => (b.il || 0) - (a.il || 0));
+    }
+    function aggiornamentiMaiComunicati() {
+        return AGGIORNAMENTI_AREA.filter(a => !inviiAggiornamento(a.id).length);
+    }
+    /* Il riepilogo del contenuto, composto dal programma: e' lo stesso testo che
+       finisce nella mail e che si vede nell'anteprima dentro la finestra.
+       nota = riga introduttiva facoltativa scritta da chi invia. */
+    function riepilogoAggiornamentoHtml(a, nota) {
+        if (!a) return '';
+        const voci = (a.voci || []).map(v =>
+            '<li style="margin:0 0 8px;"><strong>' + esc(v.titolo) + '</strong>' + (v.testo ? ' &ndash; ' + esc(v.testo) : '') + '</li>').join('');
+        return (nota ? '<p>' + esc(nota).replace(/\n/g, '<br>') + '</p>' : '')
+            + '<p>L\'area riservata Revilaw e stata aggiornata. Ecco cosa cambia.</p>'
+            + '<h3 style="font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:16px;margin:18px 0 4px;">' + esc(a.titolo) + '</h3>'
+            + '<div style="color:#475569;font-size:13px;margin-bottom:10px;">Rilasciato il ' + esc(fmtData(a.data)) + '</div>'
+            + '<p>' + esc(a.sommario) + '</p>'
+            + (voci ? '<ul style="margin:0 0 12px 18px;padding:0;">' + voci + '</ul>' : '')
+            + '<table role="presentation" cellpadding="0" cellspacing="0" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;margin:12px 0;">'
+            + '<tr><td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;vertical-align:top;">Dove si trova</td><td style="padding:4px 0;color:#0A2844;">' + esc(a.dove || '') + '</td></tr>'
+            + '<tr><td style="padding:4px 12px 4px 0;color:#475569;white-space:nowrap;vertical-align:top;">A chi interessa</td><td style="padding:4px 0;color:#0A2844;">' + esc(a.chi || '') + '</td></tr>'
+            + '</table>'
+            + '<p style="color:#475569;font-size:13px;">Il manuale completo dell\'area e sempre disponibile dal pulsante <strong>Manuale</strong>, in basso a sinistra accanto a "Esci".</p>';
+    }
     function contesto(id) { return CONTESTI.find(x => x.id === id) || CONTESTI.find(x => x.id === 'generale'); }
     function badgeContesto(id) { const x = contesto(id); return '<span class="badge ' + x.classe + '">' + esc(x.nome) + '</span>'; }
 
@@ -6412,6 +6563,35 @@
         if (g.has('equity')) persone.filter(p => p.equityPartner).forEach(p => set.add(p.email.toLowerCase()));
         if (g.has('founding')) persone.filter(p => p.foundingPartner).forEach(p => set.add(p.email.toLowerCase()));
         return set;
+    }
+
+    /* Anteprima di una mail come la vedra' chi la riceve (intestazione, corpo e firma).
+       Si apre in una nuova finestra del browser; se i popup sono bloccati (browser
+       in-app iOS, PWA) ripiega su un riquadro dentro la pagina. La usano sia le
+       comunicazioni sia l'annuncio degli aggiornamenti dell'area. */
+    function apriAnteprimaMail(oggetto, corpoHtml, nota) {
+        const doc = '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anteprima mail</title><base target="_blank">'
+            + '<style>body{margin:0;background:#F1F5F9;font-family:Inter,system-ui,sans-serif;color:#1E293B;padding:24px;}.wrap{max-width:680px;margin:0 auto;}.nota{font-size:13px;color:#164068;background:#E8EFF6;border:1px solid #CFE0EE;border-radius:6px;padding:8px 12px;margin-bottom:14px;}.card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;}.intest{background:#F1F5F9;border-bottom:1px solid #E2E8F0;padding:12px 16px;font-size:13px;color:#475569;}.intest strong{color:#0A2844;}.corpo{padding:18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;}.corpo p,.corpo div{margin:0 0 8px;}.corpo ul,.corpo ol{margin:0 0 8px 22px;}</style></head><body><div class="wrap">'
+            + (nota ? '<div class="nota">' + esc(nota) + '</div>' : '')
+            + '<div class="card"><div class="intest"><div><strong>Da:</strong> Revilaw S.p.A. &lt;noreply@nextgenerationbusiness.it&gt;</div><div><strong>Oggetto:</strong> ' + esc(oggetto || '(nessun oggetto)') + '</div></div>'
+            + '<div class="corpo">' + corpoHtml + FIRMA_MAIL_HTML + '</div></div></div></body></html>';
+        const inPagina = () => {
+            const ov = document.createElement('div');
+            ov.style.cssText = 'position:fixed;inset:0;top:0;right:0;bottom:0;left:0;background:rgba(10,40,68,0.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;';
+            ov.innerHTML = '<div style="background:#fff;border-radius:8px;overflow:hidden;width:760px;max-width:100%;height:80vh;display:flex;flex-direction:column;box-shadow:var(--ombra-lg);">'
+                + '<div style="background:#0A2844;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:0.95rem;"><span>Anteprima mail</span><button type="button" class="ov-x" style="background:transparent;border:none;color:#fff;font-size:16px;cursor:pointer;line-height:1;">&#10005;</button></div>'
+                + '<iframe title="Anteprima mail" style="flex:1 1 auto;border:none;width:100%;"></iframe></div>';
+            document.body.appendChild(ov);
+            ov.querySelector('iframe').srcdoc = doc;
+            const chiudi = () => ov.remove();
+            ov.querySelector('.ov-x').addEventListener('click', chiudi);
+            ov.addEventListener('click', e => { if (e.target === ov) chiudi(); });
+        };
+        let w = null;
+        try { w = window.open('', 'rv-anteprima-mail', 'width=760,height=820,scrollbars=yes,resizable=yes'); } catch (_) { w = null; }
+        if (!w) { inPagina(); return; }
+        try { w.document.open(); w.document.write(doc); w.document.close(); w.focus(); }
+        catch (_) { try { w.close(); } catch (e) { } inPagina(); }   // finestra navigata altrove/cross-origin
     }
 
     /* Sposta un timestamp al periodo successivo (uguale al cron, lato app). */
@@ -10795,6 +10975,8 @@
             <button class="btn btn-sm ${comuniVista === 'calendario' ? 'btn-primary' : 'btn-secondary'}" data-vista="calendario">Calendario</button>
         </div>`;
         const mostraToggle = comuniTab === 'programmate';
+        // novita' rilasciate e mai annunciate: si dicono qui, altrimenti restano tali
+        const maiComunicati = aggiornamentiMaiComunicati();
         const corpo = comuniTab === 'programmate' ? (comuniVista === 'calendario' ? renderCalendarioComunicazioni() : sezProgrammate)
             : comuniTab === 'sospese' ? sezSospese
                 : comuniTab === 'bozze' ? sezBozze
@@ -10806,8 +10988,13 @@
                     <h1>Comunicazione teams di revisione</h1>
                     <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), scegli il contesto, inviale subito o programmale.</p>
                 </div>
-                <div class="header-azioni">${mostraToggle ? toggle : ''}${seScr('<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button>')}</div>
+                <div class="header-azioni">${mostraToggle ? toggle : ''}${seScr('<button class="btn btn-secondary" id="btn-aggiornamento">Comunica un aggiornamento</button><button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button>')}</div>
             </header>
+            ${(puoScr && maiComunicati.length) ? `<div class="avviso-ruoli">
+                <strong>${maiComunicati.length === 1 ? 'Un aggiornamento dell\'area riservata non e ancora stato comunicato' : maiComunicati.length + ' aggiornamenti dell\'area riservata non sono ancora stati comunicati'}</strong>
+                &mdash; il piu recente e &laquo;${esc(maiComunicati[0].titolo)}&raquo; del ${esc(fmtData(maiComunicati[0].data))}.
+                Con <strong>Comunica un aggiornamento</strong> scegli quale annunciare: il riepilogo del contenuto lo prepara il programma, tu decidi quali iscritti all'area lo ricevono.
+            </div>` : ''}
             ${tabs}
             ${corpo}
             ${puoInviare ? '' : '<p class="descrizione" style="margin-top:10px;">L\'invio dal server e disponibile solo con l\'accesso protetto attivo; qui puoi comunque preparare le comunicazioni e salvarle in preparazione.</p>'}`;
@@ -10815,6 +11002,7 @@
         $vista().querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { comuniTab = b.dataset.tab; vistaComunicazioni(); }));
         $vista().querySelectorAll('[data-vista]').forEach(b => b.addEventListener('click', () => { comuniVista = b.dataset.vista; vistaComunicazioni(); }));
         { const bn = document.getElementById('btn-nuova-com'); if (bn) bn.addEventListener('click', () => modaleComunicazione(null)); }
+        { const ba = document.getElementById('btn-aggiornamento'); if (ba) ba.addEventListener('click', modaleAggiornamento); }
 
         if (comuniTab === 'programmate' && comuniVista === 'calendario') {
             const pm = document.getElementById('cal-prec'), sm = document.getElementById('cal-succ'), ob = document.getElementById('cal-oggi-btn');
@@ -11151,19 +11339,6 @@
         editor.addEventListener('input', () => { aggiornaPh(); salvaSel(); });
         aggiornaPh();
         const escHtml = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-        // anteprima in una nuova finestra (o overlay in pagina se i popup sono bloccati, es. browser in-app iOS)
-        const mostraAnteprimaInPagina = (doc) => {
-            const ov = document.createElement('div');
-            ov.style.cssText = 'position:fixed;inset:0;top:0;right:0;bottom:0;left:0;background:rgba(10,40,68,0.55);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;';
-            ov.innerHTML = '<div style="background:#fff;border-radius:8px;overflow:hidden;width:760px;max-width:100%;height:80vh;display:flex;flex-direction:column;box-shadow:var(--ombra-lg);">'
-                + '<div style="background:#0A2844;color:#fff;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:0.95rem;"><span>Anteprima mail</span><button type="button" class="ov-x" style="background:transparent;border:none;color:#fff;font-size:16px;cursor:pointer;line-height:1;">&#10005;</button></div>'
-                + '<iframe title="Anteprima mail" style="flex:1 1 auto;border:none;width:100%;"></iframe></div>';
-            document.body.appendChild(ov);
-            ov.querySelector('iframe').srcdoc = doc;
-            const chiudi = () => ov.remove();
-            ov.querySelector('.ov-x').addEventListener('click', chiudi);
-            ov.addEventListener('click', e => { if (e.target === ov) chiudi(); });
-        };
         const apriAnteprima = () => {
             const oggRaw = $('c-oggetto').value, testoRaw = editor.innerHTML;
             const usaPersonal = haVariabili(oggRaw) || haVariabili(testoRaw);
@@ -11174,19 +11349,10 @@
                 const q = $('c-quando') ? $('c-quando').value : '', ts = tsDaData(q), fq = $('c-freq') ? $('c-freq').value : 'unica';
                 periodoAnt = (progOn && fq !== 'unica' && !isNaN(ts)) ? etichettaPeriodo(fq, ts) : 'primo trimestre 2026';
             }
-            const oggFinale = esc(applicaVariabili(sostituisciPeriodo(oggRaw, periodoAnt), CAMPIONE_VAR).trim() || '(nessun oggetto)');
+            const oggFinale = applicaVariabili(sostituisciPeriodo(oggRaw, periodoAnt), CAMPIONE_VAR).trim() || '(nessun oggetto)';
             const corpoHtml = editor.textContent.trim() ? applicaVariabiliHtml(sostituisciPeriodo(testoRaw, esc(periodoAnt)), CAMPIONE_VAR) : '<span style="color:#94A3B8;">(nessun testo)</span>';
             const nota = usaPersonal ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : (usaPeriodo ? 'Anteprima con un periodo di esempio; {periodo} cambia a ogni invio programmato.' : '');
-            const doc = '<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Anteprima mail</title><base target="_blank">'
-                + '<style>body{margin:0;background:#F1F5F9;font-family:Inter,system-ui,sans-serif;color:#1E293B;padding:24px;}.wrap{max-width:680px;margin:0 auto;}.nota{font-size:13px;color:#164068;background:#E8EFF6;border:1px solid #CFE0EE;border-radius:6px;padding:8px 12px;margin-bottom:14px;}.card{background:#fff;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;}.intest{background:#F1F5F9;border-bottom:1px solid #E2E8F0;padding:12px 16px;font-size:13px;color:#475569;}.intest strong{color:#0A2844;}.corpo{padding:18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1E293B;}.corpo p,.corpo div{margin:0 0 8px;}.corpo ul,.corpo ol{margin:0 0 8px 22px;}</style></head><body><div class="wrap">'
-                + (nota ? '<div class="nota">' + esc(nota) + '</div>' : '')
-                + '<div class="card"><div class="intest"><div><strong>Da:</strong> Revilaw S.p.A. &lt;noreply@nextgenerationbusiness.it&gt;</div><div><strong>Oggetto:</strong> ' + oggFinale + '</div></div>'
-                + '<div class="corpo">' + corpoHtml + FIRMA_MAIL_HTML + '</div></div></div></body></html>';
-            let w = null;
-            try { w = window.open('', 'rv-anteprima-mail', 'width=760,height=820,scrollbars=yes,resizable=yes'); } catch (_) { w = null; }
-            if (!w) { mostraAnteprimaInPagina(doc); return; }  // popup bloccato (browser in-app iOS, PWA...): overlay in pagina
-            try { w.document.open(); w.document.write(doc); w.document.close(); w.focus(); }
-            catch (_) { try { w.close(); } catch (e) { } mostraAnteprimaInPagina(doc); }  // finestra navigata altrove/cross-origin
+            apriAnteprimaMail(oggFinale, corpoHtml, nota);
         };
         const btnAnt = $('c-anteprima-btn');
         if (btnAnt) btnAnt.addEventListener('click', apriAnteprima);
@@ -11541,6 +11707,207 @@
                 : ('Comunicazione inviata a ' + esito.inviati + ' destinatari.'), falliti.length ? 'ambra' : 'verde');
             vistaComunicazioni();
         }, { testo: 'Attendere…' }).then(rilabella, rilabella));
+    }
+
+    /* ---- Comunica un aggiornamento dell'area riservata ----
+       Tre passaggi, in una finestra sola: si sceglie l'aggiornamento gia' rilasciato,
+       il programma ne compone il riepilogo (contenuto della mail), si tolgono dalla
+       lista gli iscritti che non devono riceverlo, si invia. L'invio finisce tra le
+       comunicazioni, quindi resta negli "Invii effettuati" come tutti gli altri. */
+    function modaleAggiornamento() {
+        if (!Auth.puoScrivere('comunicazioni')) return;
+        const mai = aggiornamentiMaiComunicati().length;
+        apriModale(`
+            <p class="descrizione">Annuncia agli iscritti all'area riservata una novita' gia' rilasciata. Scegli l'aggiornamento: il riepilogo del contenuto lo prepara il programma, tu decidi chi lo riceve.</p>
+            <div class="campo">
+                <label>1. Aggiornamento da comunicare</label>
+                <select id="ag-sel">
+                    <option value="">&mdash; scegli l'aggiornamento &mdash;</option>
+                    ${AGGIORNAMENTI_AREA.map(a => {
+                        const inv = inviiAggiornamento(a.id);
+                        return `<option value="${esc(a.id)}">${esc(fmtData(a.data) + ' - ' + a.titolo)}${inv.length ? ' (gia comunicato)' : ''}</option>`;
+                    }).join('')}
+                </select>
+                <div class="hint">${mai ? mai + ' aggiornament' + (mai === 1 ? 'o non e ancora stato comunicato' : 'i non sono ancora stati comunicati') + '.' : 'Tutti gli aggiornamenti in elenco sono gia stati comunicati almeno una volta.'}</div>
+            </div>
+            <div id="ag-riep"><div class="riep-vuoto">2. Il riepilogo del contenuto compare qui, appena scegli un aggiornamento.</div></div>
+            <div class="griglia-2">
+                <div class="campo"><label>Oggetto della mail</label><input id="ag-oggetto" placeholder="Si compila da solo con l'aggiornamento scelto"></div>
+                <div class="campo"><label>Nota introduttiva <span class="hint" style="display:inline;">(facoltativa)</span></label><textarea id="ag-nota" rows="2" maxlength="600" placeholder="Una riga tua, prima del riepilogo. Es. Da lunedi usiamo questa sezione per..."></textarea></div>
+            </div>
+            <div class="campo">
+                <label>3. Destinatari: iscritti all'area riservata <span class="hint" id="ag-conta"></span></label>
+                <div class="filtri-dest"><input id="ag-cerca" type="search" placeholder="Filtra per nome, email o ruolo..."></div>
+                <div class="sel-azioni">
+                    <button type="button" class="btn btn-sm btn-ghost" id="ag-tutti">Seleziona tutti (filtrati)</button>
+                    <button type="button" class="btn btn-sm btn-ghost" id="ag-nessuno">Deseleziona</button>
+                    <span class="hint" id="ag-esclusi"></span>
+                </div>
+                <div class="lista-destinatari" id="ag-lista"><div class="hint" style="padding:8px;">Carico gli iscritti all'area&hellip;</div></div>
+                <div class="hint">Sono elencati gli utenti abilitati e attivi. <strong>Togli la spunta</strong> a chi non deve ricevere l'annuncio: chi resta spuntato riceve la mail.</div>
+            </div>
+            <div class="comp-esito" id="ag-esito"></div>
+            <div class="msg-errore hidden" id="ag-errore"></div>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="ag-annulla">Annulla</button>
+                <button class="btn btn-secondary" id="ag-anteprima">Anteprima</button>
+                <button class="btn btn-primary" id="ag-invia">Invia la mail</button>
+            </div>`, { classe: 'larga', finestra: true, titolo: 'Comunica un aggiornamento' });
+
+        const $ = x => document.getElementById(x);
+        let utenti = [];
+        const err = m => { const e = $('ag-errore'); if (!e) return; e.textContent = m || ''; e.classList.toggle('hidden', !m); };
+        const scelto = () => aggiornamentoDi($('ag-sel').value);
+        const nota = () => $('ag-nota').value.trim();
+        const corpoHtml = () => { const a = scelto(); return a ? riepilogoAggiornamentoHtml(a, nota()) : ''; };
+        const selezionati = () => Array.from($('ag-lista').querySelectorAll('input[type="checkbox"]:checked')).map(i => i.value);
+
+        // riepilogo del contenuto: e' esattamente cio' che ricevera' chi legge la mail
+        const disegnaRiepilogo = () => {
+            const a = scelto();
+            const box = $('ag-riep');
+            if (!a) { box.innerHTML = '<div class="riep-vuoto">2. Il riepilogo del contenuto compare qui, appena scegli un aggiornamento.</div>'; return; }
+            const inv = inviiAggiornamento(a.id);
+            box.innerHTML = '<div class="ag-riep-card">'
+                + '<div class="ag-riep-testa"><span class="ag-riep-et">Riepilogo del contenuto</span>'
+                + (inv.length
+                    ? '<span class="badge ambra">gia comunicato il ' + fmtGiorno(inv[0].il) + ' a ' + (inv[0].n || 0) + ' destinatari</span>'
+                    : '<span class="badge verde">mai comunicato</span>') + '</div>'
+                + '<div class="ag-riep-corpo">' + riepilogoAggiornamentoHtml(a, nota()) + '</div></div>';
+        };
+        const aggiornaEsito = () => {
+            const a = scelto(), n = selezionati().length;
+            const tot = utenti.length, esclusi = tot - n;
+            $('ag-conta').textContent = tot ? '(' + n + ' su ' + tot + ')' : '';
+            $('ag-esclusi').textContent = esclusi > 0 ? (esclusi + (esclusi === 1 ? ' escluso' : ' esclusi')) : 'nessuno escluso';
+            const e = $('ag-esito');
+            if (!a) { e.className = 'comp-esito vuoto'; e.innerHTML = 'Scegli prima <strong>quale aggiornamento</strong> comunicare: senza, non c\'e nulla da inviare.'; return; }
+            if (!n) { e.className = 'comp-esito vuoto'; e.innerHTML = '<strong>Nessun destinatario</strong>: hai escluso tutti gli iscritti.'; return; }
+            e.className = 'comp-esito subito';
+            e.innerHTML = 'Invio <strong>SUBITO</strong> a ' + n + (n === 1 ? ' iscritto' : ' iscritti')
+                + (esclusi > 0 ? ' (' + esclusi + (esclusi === 1 ? ' escluso' : ' esclusi') + ')' : '') + ', appena premi "Invia la mail".';
+        };
+        const disegnaLista = () => {
+            const box = $('ag-lista');
+            if (!utenti.length) { box.innerHTML = '<div class="hint" style="padding:8px;">Nessun iscritto all\'area riservata con un indirizzo valido.</div>'; aggiornaEsito(); return; }
+            box.innerHTML = utenti.map(u => `<label class="riga-dest" data-cerca="${esc(((u.nome || '') + ' ' + u.email + ' ' + (u.ruoloNome || '')).toLowerCase())}">
+                <input type="checkbox" value="${esc(u.email)}" checked>
+                <span>${esc(u.nome || u.email)} <span class="riga-dest-mail">${esc(u.email)}</span> <span class="hint">${esc(u.ruoloNome || '')}</span></span></label>`).join('');
+            box.addEventListener('change', aggiornaEsito);
+            aggiornaEsito();
+        };
+        /* Gli iscritti all'area: gli utenti abilitati e attivi. Restano fuori i ruoli
+           "solo sondaggio" (non hanno accesso alle sezioni di cui parlano gli aggiornamenti)
+           e chi non ha un indirizzo valido. Il nome, se manca sull'utenza, si prende
+           dall'anagrafica. */
+        const caricaUtenti = async () => {
+            const reEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+            let grezzi = [];
+            if (Cloud.attivo && typeof Cloud.listaUtenti === 'function') {
+                try { grezzi = await Cloud.listaUtenti() || []; }
+                catch (e) { err('Elenco degli iscritti non raggiungibile: riprova tra poco.'); grezzi = []; }
+            } else {
+                grezzi = Store.leggi(CHIAVI.utenti, []) || [];
+            }
+            const nomeDaAnagrafica = {};
+            Persone.tutte().forEach(p => { if (p.email) nomeDaAnagrafica[String(p.email).toLowerCase()] = nomeCompletoPersona(p); });
+            utenti = grezzi
+                .map(u => ({ ...u, email: String(u.email || '').toLowerCase() }))
+                .filter(u => reEmail.test(u.email) && u.attivo !== false && !eRuoloSoloSondaggio(u.ruolo))
+                .map(u => ({
+                    email: u.email,
+                    nome: u.nome || nomeDaAnagrafica[u.email] || u.email,
+                    ruoloNome: nomeRuolo(u.ruolo)
+                }))
+                .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+            disegnaLista();
+        };
+
+        $('ag-sel').addEventListener('change', () => {
+            const a = scelto();
+            // l'oggetto si compila da solo, ma resta modificabile: si riscrive solo se
+            // l'utente non l'ha ancora toccato (o l'ha svuotato)
+            const o = $('ag-oggetto');
+            if (a && (!o.value.trim() || o.dataset.auto === '1')) { o.value = 'Area riservata: ' + a.titolo; o.dataset.auto = '1'; }
+            disegnaRiepilogo(); aggiornaEsito(); err('');
+        });
+        $('ag-oggetto').addEventListener('input', () => { $('ag-oggetto').dataset.auto = '0'; });
+        $('ag-nota').addEventListener('input', disegnaRiepilogo);
+        $('ag-cerca').addEventListener('input', () => {
+            const q = $('ag-cerca').value.trim().toLowerCase();
+            $('ag-lista').querySelectorAll('.riga-dest').forEach(r => {
+                r.style.display = (!q || (r.dataset.cerca || '').includes(q)) ? '' : 'none';
+            });
+        });
+        const spuntaVisibili = on => {
+            $('ag-lista').querySelectorAll('.riga-dest').forEach(r => {
+                if (on && r.style.display === 'none') return;      // "tutti" vale sui filtrati
+                const cb = r.querySelector('input[type="checkbox"]');
+                if (cb) cb.checked = on;
+            });
+            aggiornaEsito();
+        };
+        $('ag-tutti').addEventListener('click', () => spuntaVisibili(true));
+        $('ag-nessuno').addEventListener('click', () => spuntaVisibili(false));
+        $('ag-annulla').addEventListener('click', chiudiModale);
+        $('ag-anteprima').addEventListener('click', () => {
+            const a = scelto();
+            if (!a) { err('Scegli prima l\'aggiornamento da comunicare.'); return; }
+            apriAnteprimaMail($('ag-oggetto').value.trim() || ('Area riservata: ' + a.titolo), corpoHtml(),
+                'Anteprima dell\'annuncio: e la mail che ricevera ogni iscritto selezionato.');
+        });
+
+        const btn = $('ag-invia');
+        btn.addEventListener('click', () => conAttesa(btn, async () => {
+            err('');
+            const a = scelto();
+            if (!a) { err('Scegli l\'aggiornamento da comunicare.'); return; }
+            const oggetto = $('ag-oggetto').value.trim() || ('Area riservata: ' + a.titolo);
+            const dest = selezionati();
+            if (!dest.length) { err('Non resta alcun destinatario: rimetti la spunta ad almeno un iscritto.'); return; }
+            if (!Cloud.attivo) { err('L\'invio richiede l\'accesso protetto attivo.'); return; }
+            const esclusi = utenti.map(u => u.email).filter(e => !dest.includes(e));
+            const rec = {
+                id: uid(),
+                contesto: 'aggiornamento',
+                aggiornamentoId: a.id,
+                nome: 'Aggiornamento: ' + a.titolo,
+                oggetto: oggetto,
+                testo: corpoHtml(),
+                formato: 'html',
+                gruppi: [],
+                destinatariManuali: dest,
+                destinatari: dest,
+                esclusi: esclusi,
+                stato: 'bozza',
+                programmazione: null,
+                creato: { da: Auth.utenteCorrente.email, il: Date.now() },
+                invii: []
+            };
+            Comunicazioni.salvaUna(rec);   // salva prima: se l'invio fallisce non si perde nulla
+            const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, datiDestinatari(dest), 'html');
+            const falliti = (esito && esito.falliti) || [];
+            if (!esito || !esito.ok) { err('Invio non riuscito: ' + ((esito && esito.msg) || 'errore') + (falliti.length ? ' (' + falliti.length + ' destinatari rifiutati)' : '')); return; }
+            const voce = { il: Date.now(), n: esito.inviati, da: Auth.utenteCorrente.email };
+            if (falliti.length) { voce.falliti = falliti.length; voce.dettaglioFalliti = falliti.slice(0, 100); }
+            rec.stato = 'inviata';
+            rec.inviata = Object.assign({}, voce);
+            rec.invii = [voce];
+            Comunicazioni.salvaUna(rec);
+            Audit.registra(Auth.utenteCorrente, 'Aggiornamento comunicato', 'comunicazione', rec.id, a.titolo,
+                [{ campo: 'Aggiornamento', prima: '', dopo: fmtData(a.data) + ' - ' + a.titolo },
+                { campo: 'Destinatari', prima: '', dopo: String(esito.inviati) },
+                { campo: 'Esclusi', prima: '', dopo: esclusi.length ? esclusi.join(', ') : 'nessuno' }]);
+            chiudiModale();
+            toast(falliti.length
+                ? ('Aggiornamento inviato a ' + esito.inviati + ' iscritti, ' + falliti.length + ' falliti (vedi "Invii effettuati").')
+                : ('Aggiornamento comunicato a ' + esito.inviati + (esito.inviati === 1 ? ' iscritto.' : ' iscritti.')),
+                falliti.length ? 'ambra' : 'verde');
+            vistaComunicazioni();
+        }, { testo: 'Invio…' }));
+
+        aggiornaEsito();
+        caricaUtenti();
     }
 
     /* =========================================================

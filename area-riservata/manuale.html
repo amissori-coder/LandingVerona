@@ -350,6 +350,7 @@
             <li><a href="#p-territorio">Incarichi di un territorio</a></li>
             <li><a href="#p-compensi">Compensi e fatture</a></li>
             <li><a href="#p-comunicazioni">Comunicazioni</a></li>
+            <li><a href="#p-aggiornamenti">Comunicare un aggiornamento</a></li>
             <li><a href="#p-utenti">Utenti e ruoli</a></li>
             <li><a href="#p-dati">Dati e backup</a></li>
           </ol>
@@ -448,7 +449,7 @@
           <dt>Responsabili</dt><dd>La stessa anagrafica letta per responsabilità: chi è responsabile qualità e chi responsabile incarico, con gli incarichi che ricopre.</dd>
           <dt>Fatturazione</dt><dd>Il piano delle scadenze di fatturazione per anno e periodicità (mensile, trimestrale, annuale o specifica), con lo stato di ciascuna rata.</dd>
           <dt>Report compensi</dt><dd>I compensi letti per anno, con i confronti e le ripartizioni.</dd>
-          <dt>Comunicazione teams di revisione</dt><dd>Invio di messaggi ai team che lavorano sugli incarichi, con variabili che si compilano da sole per ogni destinatario.</dd>
+          <dt>Comunicazione teams di revisione</dt><dd>Invio di messaggi ai team che lavorano sugli incarichi, con variabili che si compilano da sole per ogni destinatario. Da qui si annunciano anche agli iscritti all'area gli <a href="#p-aggiornamenti">aggiornamenti del programma</a>.</dd>
           <dt>Newsletter commerciali</dt><dd>Preparazione e invio delle newsletter ai contatti commerciali e agli iscritti raccolti dal sito.</dd>
           <dt>Iscrizioni Eventi NGB</dt><dd>Gli iscritti agli eventi, con conferme, presenze e note.</dd>
           <dt>Sondaggi</dt><dd>I questionari interni: compilazione e risultati.</dd>
@@ -1127,6 +1128,44 @@
         <figure><img src="manuale/23-admin-eventi.jpg" alt="Iscrizioni Eventi NGB"><figcaption><b>Iscrizioni Eventi NGB.</b> Gli iscritti raccolti dal sito, con conferme e presenze. Chi vede la sezione può anche segnare le presenze, qualunque sia il suo ruolo.</figcaption></figure>
 
         <figure><img src="manuale/24-admin-sondaggi.jpg" alt="Sezione Sondaggi"><figcaption><b>Sondaggi.</b> Compilazione e risultati dei questionari interni. Gli inviti esterni si gestiscono con i due ruoli «solo sondaggio».</figcaption></figure>
+
+        <!-- ---- aggiornamenti dell'area ---- -->
+        <h3 id="p-aggiornamenti">Comunicare un aggiornamento agli iscritti all'area</h3>
+        <div class="etichette"><span class="etichetta et-piena">Serve la scrittura su Comunicazione teams di revisione</span></div>
+        <div class="prosa" style="margin-top:14px;">
+          <p>Quando l'area riservata cambia, chi la usa deve saperlo. Il pulsante <b>«Comunica un aggiornamento»</b>, in testa alla sezione Comunicazioni, manda agli iscritti all'area l'annuncio di una novit&agrave; gi&agrave; rilasciata: il <b>riepilogo del contenuto lo prepara il programma</b>, tu scegli quale aggiornamento annunciare e chi deve riceverlo.</p>
+          <p>Se ci sono novit&agrave; mai annunciate, la sezione lo dice in un riquadro sopra le schede, con il titolo della pi&ugrave; recente: cos&igrave; non restano aggiornamenti di cui nessuno sa nulla.</p>
+        </div>
+
+        <ol class="passi">
+          <li>
+            <div class="passo-titolo">Scegli l'aggiornamento</div>
+            <div class="passo-testo">
+              <p>La tendina elenca gli aggiornamenti rilasciati, dal pi&ugrave; recente, e segnala quali sono <b>gi&agrave; stati comunicati</b>. Finch&eacute; non ne scegli uno non c'&egrave; nulla da inviare, e il pulsante di invio lo dice.</p>
+            </div>
+          </li>
+          <li>
+            <div class="passo-titolo">Leggi il riepilogo che il programma ha composto</div>
+            <div class="passo-testo">
+              <p>Appena scegli, compare il <b>riepilogo del contenuto</b>: il titolo dell'aggiornamento, la data di rilascio, cosa cambia punto per punto, <b>dove si trova</b> nel programma e <b>a chi interessa</b>. &Egrave; gi&agrave; il testo della mail, mostrato come lo legger&agrave; chi la riceve; sopra, un'etichetta dice se quell'aggiornamento era gi&agrave; stato comunicato, quando e a quante persone.</p>
+              <p>L'<b>oggetto</b> si compila da solo con il titolo dell'aggiornamento e resta modificabile. La <b>nota introduttiva</b> &egrave; facoltativa: una riga tua che precede il riepilogo, per esempio per dire da quando si adotta la novit&agrave;. Il pulsante <b>Anteprima</b> apre la mail come la vedr&agrave; il destinatario, firma compresa.</p>
+            </div>
+          </li>
+          <li>
+            <div class="passo-titolo">Escludi chi non deve riceverlo</div>
+            <div class="passo-testo">
+              <p>L'elenco dei destinatari &egrave; quello degli <b>iscritti all'area riservata</b>: gli utenti abilitati e attivi, gi&agrave; tutti spuntati. Restano fuori d'ufficio le utenze disattivate e i ruoli &laquo;solo sondaggio&raquo;, che delle sezioni di cui parlano gli aggiornamenti non vedono nulla.</p>
+              <p>Per escludere qualcuno <b>togli la spunta</b>. Il filtro in cima cerca per nome, indirizzo o ruolo, e i due pulsanti selezionano o deselezionano in blocco le righe filtrate. Sotto l'elenco il conteggio dice sempre quanti riceveranno la mail e quanti hai escluso.</p>
+            </div>
+          </li>
+          <li>
+            <div class="passo-titolo">Invia</div>
+            <div class="passo-testo">
+              <p><b>Invia la mail</b> spedisce subito. L'invio richiede l'accesso protetto attivo, come tutte le comunicazioni. Chi ha escluso resta scritto nella comunicazione salvata, e l'operazione finisce nel <b>Registro modifiche</b>.</p>
+              <p>L'annuncio si ritrova tra le comunicazioni, nella scheda <b>Invii effettuati</b>, con il contesto <i>Aggiornamento area riservata</i>: da l&igrave; si vede quando &egrave; partito, a quante persone e se qualche indirizzo &egrave; stato rifiutato. Se un aggiornamento va comunicato di nuovo &mdash; per esempio a chi &egrave; entrato dopo &mdash; basta rifare il giro escludendo chi l'ha gi&agrave; ricevuto.</p>
+            </div>
+          </li>
+        </ol>
 
         <!-- ---- utenti ---- -->
         <h3 id="p-utenti">Utenti, ruoli e registro</h3>
