@@ -6390,8 +6390,8 @@
             data: '2026-08-15',
             titolo: 'Gli aggiornamenti dell\'area si annunciano dalle Comunicazioni',
             sommario: 'Le novita dell\'area riservata si comunicano agli iscritti con una mail preparata dal programma: si sceglie l\'aggiornamento, si escludono i destinatari non interessati e si invia.',
-            chi: 'Chi puo scrivere nella sezione Comunicazione teams di revisione.',
-            dove: 'Sezione Comunicazione teams di revisione, pulsante "Comunica un aggiornamento".',
+            chi: 'L\'invio e riservato all\'amministratore e al titolare; l\'annuncio arriva a tutti gli iscritti all\'area riservata.',
+            dove: 'Sezione Comunicazione teams di revisione, pulsante "Comunica un aggiornamento" (visibile ad amministratore e titolare).',
             voci: [
                 { titolo: 'Riepilogo gia pronto', testo: 'Scelto l\'aggiornamento, il programma compone il riepilogo del contenuto: cosa cambia, dove si trova e a chi interessa. Si puo aggiungere una nota introduttiva e vedere l\'anteprima della mail.' },
                 { titolo: 'Destinatari con esclusioni', testo: 'L\'elenco parte dagli iscritti all\'area riservata, tutti spuntati: si toglie la spunta a chi non deve riceverlo. Utenze disattivate e ruoli "solo sondaggio" restano fuori.' },
@@ -6490,6 +6490,10 @@
         }
     ];
     function aggiornamentoDi(id) { return AGGIORNAMENTI_AREA.find(a => a.id === id) || null; }
+    /* L'annuncio degli aggiornamenti scrive a TUTTI gli iscritti all'area a nome dello
+       studio: resta all'amministratore e al titolare, non basta la scrittura sulle
+       comunicazioni. Chi ha quel permesso continua a mandare le comunicazioni normali. */
+    function puoComunicareAggiornamenti() { return Auth.eAdmin() || Auth.eProprietario(); }
     /* Gli invii gia' effettuati per un aggiornamento (piu' recente prima): servono a
        dire "questo l'hai gia' comunicato il ..." invece di farlo scoprire dai destinatari. */
     function inviiAggiornamento(id) {
@@ -10975,8 +10979,11 @@
             <button class="btn btn-sm ${comuniVista === 'calendario' ? 'btn-primary' : 'btn-secondary'}" data-vista="calendario">Calendario</button>
         </div>`;
         const mostraToggle = comuniTab === 'programmate';
-        // novita' rilasciate e mai annunciate: si dicono qui, altrimenti restano tali
-        const maiComunicati = aggiornamentiMaiComunicati();
+        // novita' rilasciate e mai annunciate: si dicono qui, altrimenti restano tali.
+        // L'annuncio e' dell'amministratore (e del titolare): agli altri non si mostra
+        // ne' il pulsante ne' l'avviso, che chiederebbe di fare una cosa che non possono.
+        const puoAggiornamenti = puoComunicareAggiornamenti();
+        const maiComunicati = puoAggiornamenti ? aggiornamentiMaiComunicati() : [];
         const corpo = comuniTab === 'programmate' ? (comuniVista === 'calendario' ? renderCalendarioComunicazioni() : sezProgrammate)
             : comuniTab === 'sospese' ? sezSospese
                 : comuniTab === 'bozze' ? sezBozze
@@ -10988,9 +10995,9 @@
                     <h1>Comunicazione teams di revisione</h1>
                     <p class="descrizione">Prepara le mail ai destinatari (persone Revilaw o clienti), scegli il contesto, inviale subito o programmale.</p>
                 </div>
-                <div class="header-azioni">${mostraToggle ? toggle : ''}${seScr('<button class="btn btn-secondary" id="btn-aggiornamento">Comunica un aggiornamento</button><button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button>')}</div>
+                <div class="header-azioni">${mostraToggle ? toggle : ''}${puoAggiornamenti ? '<button class="btn btn-secondary" id="btn-aggiornamento">Comunica un aggiornamento</button>' : ''}${seScr('<button class="btn btn-primary" id="btn-nuova-com">+ Nuova comunicazione</button>')}</div>
             </header>
-            ${(puoScr && maiComunicati.length) ? `<div class="avviso-ruoli">
+            ${maiComunicati.length ? `<div class="avviso-ruoli">
                 <strong>${maiComunicati.length === 1 ? 'Un aggiornamento dell\'area riservata non e ancora stato comunicato' : maiComunicati.length + ' aggiornamenti dell\'area riservata non sono ancora stati comunicati'}</strong>
                 &mdash; il piu recente e &laquo;${esc(maiComunicati[0].titolo)}&raquo; del ${esc(fmtData(maiComunicati[0].data))}.
                 Con <strong>Comunica un aggiornamento</strong> scegli quale annunciare: il riepilogo del contenuto lo prepara il programma, tu decidi quali iscritti all'area lo ricevono.
@@ -11715,10 +11722,10 @@
        lista gli iscritti che non devono riceverlo, si invia. L'invio finisce tra le
        comunicazioni, quindi resta negli "Invii effettuati" come tutti gli altri. */
     function modaleAggiornamento() {
-        if (!Auth.puoScrivere('comunicazioni')) return;
+        if (!puoComunicareAggiornamenti()) return;
         const mai = aggiornamentiMaiComunicati().length;
         apriModale(`
-            <p class="descrizione">Annuncia agli iscritti all'area riservata una novita' gia' rilasciata. Scegli l'aggiornamento: il riepilogo del contenuto lo prepara il programma, tu decidi chi lo riceve.</p>
+            <p class="descrizione">Annuncia agli iscritti all'area riservata una novita' gia' rilasciata. Scegli l'aggiornamento: il riepilogo del contenuto lo prepara il programma, tu decidi chi lo riceve. Questo invio e riservato all'amministratore e al titolare.</p>
             <div class="campo">
                 <label>1. Aggiornamento da comunicare</label>
                 <select id="ag-sel">
