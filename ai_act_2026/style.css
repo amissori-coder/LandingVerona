@@ -657,9 +657,12 @@
     background: rgba(22, 64, 104, 0.16);
 }
 
+/* Quattro colonne da quando ai temi collegati si e' aggiunto il
+   rischio penale: con tre riquadri il quarto sarebbe andato a capo
+   da solo, spaiato sotto agli altri. */
 .links-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 20px;
     max-width: 1140px;
     margin: 24px auto 0;

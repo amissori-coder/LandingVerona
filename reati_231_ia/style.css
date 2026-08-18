@@ -1,0 +1,938 @@
+/* ============================================
+   L'intelligenza artificiale fra i reati presupposto
+   Stili specifici della pagina: si appoggia a
+   zls_zes/style.css e assets/content-page.css e
+   aggiunge la catena delle fonti, le fasce di pena
+   del nuovo reato, il quadro sanzionatorio dell'ente,
+   il confronto fra articoli, la cronologia e la
+   tabella dei casi d'impresa.
+   ============================================ */
+
+/* ============================================
+   1. CATENA DELLE FONTI
+   Il punto meno intuitivo di questa vicenda e' che
+   una norma penale italiana nasce da un regolamento
+   europeo passando per una legge delega: detto a
+   parole resta astratto, visto come una catena di
+   anelli si capisce in un colpo d'occhio. Su schermi
+   stretti la catena si raddrizza in verticale, perche'
+   quattro anelli affiancati diventerebbero illeggibili.
+   ============================================ */
+.catena {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    max-width: 1140px;
+    margin: 48px auto 0;
+}
+
+.catena-anello {
+    position: relative;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 14px;
+    padding: 26px 24px 24px;
+    margin-right: 22px;
+    transition: all 0.3s ease;
+}
+
+.catena-anello:last-child {
+    margin-right: 0;
+}
+
+/* La freccia fra un anello e il successivo: e' disegnata
+   con i bordi di uno pseudo-elemento quadrato ruotato,
+   cosi' non serve caricare un'icona per un segno che si
+   ripete tre volte. */
+.catena-anello:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -15px;
+    width: 11px;
+    height: 11px;
+    border-top: 2px solid #2A5A85;
+    border-right: 2px solid #2A5A85;
+    transform: translateY(-50%) rotate(45deg);
+}
+
+.catena-anello:hover {
+    border-color: rgba(22, 64, 104, 0.32);
+    box-shadow: 0 14px 34px rgba(10, 40, 68, 0.1);
+    transform: translateY(-3px);
+}
+
+/* L'ultimo anello e' il punto d'arrivo: la responsabilita'
+   dell'ente. Il fondo pieno lo distingue dai passaggi
+   intermedi, che sono strumentali. */
+.catena-anello.is-arrivo {
+    background: linear-gradient(135deg, #164068 0%, #2A5A85 100%);
+    border-color: #164068;
+    color: #ffffff;
+}
+
+.catena-fonte {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: #2A5A85;
+    margin-bottom: 9px;
+}
+
+.catena-anello.is-arrivo .catena-fonte {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.catena-anello h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 10px;
+}
+
+.catena-anello.is-arrivo h3 {
+    color: #ffffff;
+}
+
+.catena-anello p {
+    font-size: 0.86rem;
+    line-height: 1.62;
+    color: #5A6270;
+    margin: 0;
+}
+
+.catena-anello.is-arrivo p {
+    color: rgba(255, 255, 255, 0.86);
+}
+
+/* ============================================
+   2. FASCE DI PENA DELL'ART. 437-BIS
+   Le quattro ipotesi non sono alternative fra loro:
+   cambiano secondo chi agisce e quale bene e' messo in
+   pericolo. La barra colorata a sinistra dice a colpo
+   d'occhio quanto pesa ciascuna, senza costringere a
+   confrontare i numeri uno per uno.
+   ============================================ */
+.pene-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    max-width: 1040px;
+    margin: 48px auto 0;
+}
+
+.pena-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 22px;
+    align-items: start;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-radius: 14px;
+    padding: 26px 28px;
+    transition: all 0.3s ease;
+}
+
+.pena-card:hover {
+    border-color: rgba(22, 64, 104, 0.3);
+    box-shadow: 0 14px 36px rgba(10, 40, 68, 0.1);
+    transform: translateY(-3px);
+}
+
+/* Il segnaposto degli anni: la misura della pena e' il
+   dato che si cerca per primo, quindi sta a sinistra da
+   solo invece che annegato nel testo. */
+.pena-misura {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 92px;
+    padding: 14px 12px;
+    border-radius: 12px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+}
+
+.pena-anni {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #164068;
+    letter-spacing: -0.5px;
+}
+
+.pena-unita {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+/* Le ipotesi piu' gravi virano al bordeaux: e' l'unico
+   punto della pagina in cui serve un secondo colore,
+   perche' qui la gradazione e' l'informazione. */
+.pena-card.is-grave .pena-misura {
+    background: #fdf2f2;
+    border-color: #f0cfcf;
+}
+
+.pena-card.is-grave .pena-anni {
+    color: #8c2f2f;
+}
+
+.pena-card.is-mite .pena-misura {
+    background: #f2f7f2;
+    border-color: #cfe0cf;
+}
+
+.pena-card.is-mite .pena-anni {
+    color: #2f6b3d;
+}
+
+.pena-testo h3 {
+    font-size: 1.04rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin: 2px 0 9px;
+    line-height: 1.3;
+}
+
+.pena-testo p {
+    font-size: 0.9rem;
+    line-height: 1.68;
+    color: #5A6270;
+    margin: 0;
+}
+
+.pena-comma {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: #2A5A85;
+    margin-bottom: 4px;
+}
+
+/* ============================================
+   3. QUADRO SANZIONATORIO DELL'ENTE
+   Le quote non dicono niente a chi non maneggia il
+   231: vanno tradotte in euro accanto al numero, non
+   in una nota a pie' di pagina che nessuno legge.
+   ============================================ */
+.quote-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 26px;
+    max-width: 940px;
+    margin: 48px auto 0;
+}
+
+.quote-card {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-top: 4px solid #164068;
+    border-radius: 14px;
+    padding: 28px 30px 26px;
+    transition: all 0.3s ease;
+}
+
+.quote-card:hover {
+    box-shadow: 0 14px 36px rgba(10, 40, 68, 0.1);
+    transform: translateY(-3px);
+}
+
+.quote-reato {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: #2A5A85;
+    margin-bottom: 10px;
+}
+
+.quote-card h3 {
+    font-size: 1.06rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 18px;
+}
+
+.quote-numero {
+    font-size: 1.9rem;
+    font-weight: 800;
+    color: #164068;
+    letter-spacing: -1px;
+    line-height: 1;
+}
+
+.quote-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-left: 6px;
+}
+
+.quote-euro {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #5A6270;
+}
+
+.quote-euro strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+/* ---------- Misure interdittive: cosa si applica e cosa no ----------
+   L'elenco dell'art. 9 e' corto ma la notizia sta in
+   quello che manca. Tenere insieme applicate ed esclusa,
+   distinte dal segno, e' l'unico modo perche' l'assenza
+   si veda. */
+.interdittive {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px 26px;
+    max-width: 940px;
+    margin: 40px auto 0;
+    list-style: none;
+    padding: 0;
+}
+
+.interdittive li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 16px 20px;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-radius: 11px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #5A6270;
+}
+
+.interdittive li strong {
+    display: block;
+    color: #0A2844;
+    font-weight: 700;
+    margin-bottom: 3px;
+}
+
+.interdittiva-segno {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent-bg);
+    color: #164068;
+    font-weight: 800;
+    font-size: 0.9rem;
+    flex: none;
+}
+
+.interdittive li.is-esclusa {
+    background: #fafbfc;
+    border-style: dashed;
+    grid-column: 1 / -1;
+}
+
+.interdittive li.is-esclusa .interdittiva-segno {
+    background: #fdf2f2;
+    color: #8c2f2f;
+}
+
+/* ============================================
+   4. CONFRONTO FRA ARTICOLI
+   La relazione illustrativa prende a parametro il
+   25-septies: il confronto e' quindi parte della norma,
+   non un abbellimento, e va mostrato affiancato.
+   Sotto i 900px ogni riga diventa un blocco e le
+   intestazioni di colonna arrivano da data-label.
+   ============================================ */
+.confronto-wrap {
+    max-width: 1080px;
+    margin: 48px auto 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+}
+
+.confronto {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+.confronto th,
+.confronto td {
+    padding: 18px 22px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 0.9rem;
+    line-height: 1.66;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.confronto thead th {
+    background: #f4f7fb;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: #164068;
+    border-bottom: 2px solid rgba(22, 64, 104, 0.16);
+}
+
+.confronto tbody th {
+    font-weight: 700;
+    color: #0A2844;
+    background: #fafbfc;
+    width: 190px;
+}
+
+.confronto td {
+    color: #5A6270;
+}
+
+.confronto td strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+.confronto tbody tr:last-child th,
+.confronto tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* La colonna del nuovo articolo e' quella per cui si
+   legge la tabella: un fondo appena piu' caldo la tiene
+   agganciata all'occhio anche scorrendo in orizzontale. */
+.confronto .col-nuovo {
+    background: #f7fafd;
+}
+
+.confronto thead .col-nuovo {
+    background: #eaf1f8;
+}
+
+/* ============================================
+   5. CRONOLOGIA
+   Le date di questa materia arrivano da tre calendari
+   diversi (europeo, legge delega, decreto) e si
+   incrociano: messe in fila su un asse unico si vede
+   quale obbligo esiste gia' e quale no.
+   ============================================ */
+.cronologia {
+    max-width: 880px;
+    margin: 48px auto 0;
+    position: relative;
+    padding-left: 34px;
+}
+
+.cronologia::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    left: 7px;
+    width: 2px;
+    background: var(--accent-border);
+}
+
+.crono-item {
+    position: relative;
+    padding: 0 0 30px 4px;
+}
+
+.crono-item:last-child {
+    padding-bottom: 0;
+}
+
+.crono-item::before {
+    content: '';
+    position: absolute;
+    left: -34px;
+    top: 6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 3px solid var(--accent-border);
+}
+
+/* Le tappe gia' passate sono piene, quelle future
+   restano vuote: e' la differenza che serve davvero,
+   piu' del colore. */
+.crono-item.is-fatto::before {
+    background: #164068;
+    border-color: #164068;
+}
+
+.crono-item.is-ora::before {
+    background: #ffffff;
+    border-color: #164068;
+    box-shadow: 0 0 0 4px rgba(22, 64, 104, 0.13);
+}
+
+.crono-data {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin-bottom: 7px;
+}
+
+.crono-pill {
+    display: inline-block;
+    padding: 3px 11px;
+    border-radius: 100px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    color: #164068;
+}
+
+.crono-pill.is-futuro {
+    background: #fafbfc;
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+.crono-item p {
+    font-size: 0.92rem;
+    line-height: 1.72;
+    color: #5A6270;
+    margin: 0;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+/* ============================================
+   6. CASI D'IMPRESA
+   Tre colonne: la situazione, perche' rientra nell'alto
+   rischio, che cosa deve reggere in giudizio. Sotto i
+   900px la tabella si scompone in blocchi.
+   ============================================ */
+.casi-wrap {
+    max-width: 1140px;
+    margin: 48px auto 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+}
+
+.casi {
+    width: 100%;
+    min-width: 860px;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+.casi th,
+.casi td {
+    padding: 18px 22px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 0.9rem;
+    line-height: 1.66;
+    color: #5A6270;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.casi thead th {
+    background: #f4f7fb;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: #164068;
+    border-bottom: 2px solid rgba(22, 64, 104, 0.16);
+}
+
+.casi tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.cella-caso {
+    font-weight: 700;
+    color: #0A2844;
+    width: 270px;
+}
+
+.casi td strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+/* ============================================
+   7. NODI INTERPRETATIVI
+   Le criticita' non sono avvertenze da nascondere in
+   fondo: sono la parte in cui un lettore competente
+   giudica la serieta' della pagina. Numerate e in
+   evidenza, con il bordo tratteggiato a dire che il
+   punto e' aperto.
+   ============================================ */
+.nodi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    max-width: 1140px;
+    margin: 48px auto 0;
+}
+
+.nodo {
+    background: #ffffff;
+    border: 1px dashed rgba(22, 64, 104, 0.28);
+    border-radius: 14px;
+    padding: 26px 26px 24px;
+    transition: all 0.3s ease;
+}
+
+.nodo:hover {
+    border-style: solid;
+    border-color: rgba(22, 64, 104, 0.4);
+    box-shadow: 0 14px 34px rgba(10, 40, 68, 0.08);
+    transform: translateY(-3px);
+}
+
+.nodo-numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    color: #164068;
+    font-size: 0.9rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.nodo h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 10px;
+}
+
+.nodo p {
+    font-size: 0.89rem;
+    line-height: 1.7;
+    color: #5A6270;
+    margin: 0;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+/* ============================================
+   8. FONTE DELL'APPROFONDIMENTO
+   La pagina nasce da un articolo firmato: dirlo in un
+   blocco riconoscibile, con il rimando alla testata,
+   e' una questione di correttezza prima che di stile.
+   ============================================ */
+.fonte-articolo {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 22px;
+    align-items: center;
+    max-width: 880px;
+    margin: 44px auto 0;
+    padding: 24px 28px;
+    background: #ffffff;
+    border: 1px solid var(--accent-border);
+    border-left: 4px solid #164068;
+    border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.fonte-marchio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 54px;
+    height: 54px;
+    border-radius: 13px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    color: #164068;
+    flex: none;
+}
+
+.fonte-marchio svg {
+    width: 26px;
+    height: 26px;
+}
+
+.fonte-testo {
+    min-width: 0;
+}
+
+.fonte-occhiello {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.fonte-testo p {
+    font-size: 0.92rem;
+    line-height: 1.68;
+    color: #5A6270;
+    margin: 0;
+}
+
+.fonte-testo strong {
+    color: #0A2844;
+}
+
+/* ============================================
+   9. RESPONSIVE
+   ============================================ */
+@media (max-width: 1024px) {
+    .catena {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 22px;
+    }
+
+    /* In griglia a due colonne la freccia laterale
+       punterebbe nel vuoto a fine riga: si toglie e
+       resta l'ordine di lettura. */
+    .catena-anello {
+        margin-right: 0;
+    }
+
+    .catena-anello:not(:last-child)::after {
+        display: none;
+    }
+
+    .nodi-grid {
+        grid-template-columns: 1fr;
+        max-width: 640px;
+    }
+}
+
+@media (max-width: 900px) {
+    /* Le due tabelle diventano elenchi di blocchi:
+       l'intestazione di colonna torna davanti al dato
+       tramite data-label, cosi' nessuna cella resta
+       senza contesto. */
+    .confronto-wrap,
+    .casi-wrap {
+        overflow-x: visible;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    .confronto,
+    .casi {
+        min-width: 0;
+        background: transparent;
+    }
+
+    /* Nascondere l'intestazione con la tecnica del ritaglio non
+       basta: le celle restano in flusso e continuano a imporre
+       alla pagina la larghezza della tabella, che su telefono si
+       traduce in scorrimento orizzontale. Va tolta dal layout. */
+    .confronto thead,
+    .casi thead {
+        display: none;
+    }
+
+    .confronto tbody,
+    .casi tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .confronto tbody tr,
+    .casi tbody tr {
+        display: block;
+        background: #ffffff;
+        border: 1px solid rgba(22, 64, 104, 0.14);
+        border-radius: 14px;
+        padding: 6px 4px;
+        margin-bottom: 18px;
+        box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+    }
+
+    .confronto tbody th,
+    .confronto td,
+    .casi td {
+        display: block;
+        width: 100%;
+        border-bottom: none;
+        padding: 12px 20px;
+        background: transparent;
+    }
+
+    /* Fra una cella e l'altra dello stesso blocco serve un filo di
+       separazione: senza, le tre risposte si leggono come un unico
+       paragrafo. */
+    .confronto tbody td + td,
+    .casi tbody td + td {
+        border-top: 1px solid rgba(22, 64, 104, 0.08);
+    }
+
+    .confronto td::before,
+    .casi td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 1.1px;
+        text-transform: uppercase;
+        color: #2A5A85;
+        margin-bottom: 5px;
+    }
+
+    .confronto tbody th {
+        font-size: 1rem;
+        padding-bottom: 4px;
+    }
+
+    .cella-caso {
+        width: auto;
+        font-size: 1rem;
+    }
+
+    .confronto .col-nuovo,
+    .confronto thead .col-nuovo {
+        background: transparent;
+    }
+}
+
+@media (max-width: 860px) {
+    .catena {
+        grid-template-columns: 1fr;
+        max-width: 520px;
+    }
+
+    .pene-grid {
+        grid-template-columns: 1fr;
+        max-width: 560px;
+    }
+
+    .quote-grid {
+        grid-template-columns: 1fr;
+        max-width: 540px;
+    }
+
+    .interdittive {
+        grid-template-columns: 1fr;
+        max-width: 560px;
+    }
+}
+
+@media (max-width: 560px) {
+    /* Il riquadro degli anni in colonna a sinistra
+       lascerebbe al testo una striscia troppo stretta:
+       passa sopra, a piena larghezza. */
+    .pena-card {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 22px 22px;
+    }
+
+    .pena-misura {
+        flex-direction: row;
+        gap: 8px;
+        min-width: 0;
+        padding: 10px 14px;
+    }
+
+    .pena-unita {
+        margin-top: 0;
+    }
+
+    .fonte-articolo {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 22px 22px;
+    }
+
+    .cronologia {
+        padding-left: 28px;
+    }
+
+    .crono-item::before {
+        left: -28px;
+        width: 14px;
+        height: 14px;
+    }
+}
+
+/* ============================================
+   10. STAMPA
+   La pagina finisce spesso allegata a una nota per il
+   consiglio o per l'organismo di vigilanza: in carta
+   servono i contenuti, non la navigazione.
+   ============================================ */
+@media print {
+    .navbar,
+    .hero-actions,
+    .section-cta,
+    .footer,
+    .rimando-vai {
+        display: none !important;
+    }
+
+    .catena-anello,
+    .pena-card,
+    .quote-card,
+    .nodo,
+    .interdittive li {
+        break-inside: avoid;
+        box-shadow: none;
+    }
+
+    .catena-anello.is-arrivo {
+        background: #ffffff;
+        color: #0A2844;
+        border: 2px solid #164068;
+    }
+
+    .catena-anello.is-arrivo h3,
+    .catena-anello.is-arrivo p,
+    .catena-anello.is-arrivo .catena-fonte {
+        color: #0A2844;
+    }
+
+    .confronto-wrap,
+    .casi-wrap {
+        overflow: visible;
+    }
+}
