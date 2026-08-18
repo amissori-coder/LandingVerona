@@ -668,70 +668,7 @@
 }
 
 /* ============================================
-   8. FONTE DELL'APPROFONDIMENTO
-   La pagina nasce da un articolo firmato: dirlo in un
-   blocco riconoscibile, con il rimando alla testata,
-   e' una questione di correttezza prima che di stile.
-   ============================================ */
-.fonte-articolo {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 22px;
-    align-items: center;
-    max-width: 880px;
-    margin: 44px auto 0;
-    padding: 24px 28px;
-    background: #ffffff;
-    border: 1px solid var(--accent-border);
-    border-left: 4px solid #164068;
-    border-radius: 0 var(--radius) var(--radius) 0;
-}
-
-.fonte-marchio {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 54px;
-    height: 54px;
-    border-radius: 13px;
-    background: var(--accent-bg);
-    border: 1px solid var(--accent-border);
-    color: #164068;
-    flex: none;
-}
-
-.fonte-marchio svg {
-    width: 26px;
-    height: 26px;
-}
-
-.fonte-testo {
-    min-width: 0;
-}
-
-.fonte-occhiello {
-    display: block;
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 1.3px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-}
-
-.fonte-testo p {
-    font-size: 0.92rem;
-    line-height: 1.68;
-    color: #5A6270;
-    margin: 0;
-}
-
-.fonte-testo strong {
-    color: #0A2844;
-}
-
-/* ============================================
-   9. ELENCO DEI RIFERIMENTI
+   8. ELENCO DEI RIFERIMENTI
    Le sigle degli standard ("ISO/IEC 42005:2025") il browser non
    sa dove spezzarle, e i due punti non sono un'occasione di
    ritorno a capo. Dentro il contenitore flex della voce una sola
@@ -764,7 +701,7 @@
 }
 
 /* ============================================
-   10. RESPONSIVE
+   9. RESPONSIVE
    ============================================ */
 @media (max-width: 1024px) {
     .catena {
@@ -923,12 +860,6 @@
         margin-top: 0;
     }
 
-    .fonte-articolo {
-        grid-template-columns: 1fr;
-        gap: 16px;
-        padding: 22px 22px;
-    }
-
     .cronologia {
         padding-left: 28px;
     }
@@ -941,7 +872,7 @@
 }
 
 /* ============================================
-   11. STAMPA
+   10. STAMPA
    La pagina finisce spesso allegata a una nota per il
    consiglio o per l'organismo di vigilanza: in carta
    servono i contenuti, non la navigazione.
