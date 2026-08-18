@@ -719,7 +719,40 @@
 }
 
 /* ============================================
-   9. RESPONSIVE
+   9. ELENCO DEI RIFERIMENTI
+   Le sigle degli standard ("ISO/IEC 42005:2025") il browser non
+   sa dove spezzarle, e i due punti non sono un'occasione di
+   ritorno a capo. Dentro il contenitore flex della voce una sola
+   di queste basta a imporre a tutta la pagina una larghezza
+   maggiore dello schermo del telefono: qui si concede la rottura
+   come ultima risorsa e si lascia che la voce si restringa.
+   ============================================ */
+.content-page .ref-list li {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* La voce dell'elenco nasce come contenitore flex, e in flexbox ogni
+   figlio diventa un elemento a se': un <strong> o un <em> in mezzo
+   alla frase si stacca in una colonna propria e la riga si spezza in
+   blocchi affiancati. Qui i riferimenti normativi sono pieni di
+   grassetti e corsivi, e il testo deve scorrere: la voce torna a
+   blocco e il pallino passa in uno pseudo-elemento posizionato. */
+.content-page .ref-list li {
+    display: block;
+    position: relative;
+    padding-left: 18px;
+}
+
+.content-page .ref-list li::before {
+    position: absolute;
+    left: 0;
+    top: 21px;
+    margin-top: 0;
+}
+
+/* ============================================
+   10. RESPONSIVE
    ============================================ */
 @media (max-width: 1024px) {
     .catena {
@@ -896,7 +929,7 @@
 }
 
 /* ============================================
-   10. STAMPA
+   11. STAMPA
    La pagina finisce spesso allegata a una nota per il
    consiglio o per l'organismo di vigilanza: in carta
    servono i contenuti, non la navigazione.
