@@ -195,6 +195,14 @@
     color: #2f6b3d;
 }
 
+/* Qui il riquadro non porta una misura di pena ma una frazione di
+   riduzione, che occupa piu' spazio di "2-6": scritta al corpo delle
+   altre allargherebbe il riquadro e la coppia di schede non sarebbe
+   piu' allineata. */
+.pena-card.is-mite .pena-anni {
+    font-size: 1.16rem;
+}
+
 .pena-testo h3 {
     font-size: 1.04rem;
     font-weight: 700;
@@ -331,6 +339,10 @@
     margin-bottom: 3px;
 }
 
+/* Nel pallino sta la lettera dell'art. 9, comma 2, non un segno di
+   spunta: e' l'unico modo perche' la voce si legga anche in bianco e
+   nero, e perche' la differenza fra applicata ed esclusa resti scritta
+   a parole invece che affidata a un simbolo. */
 .interdittiva-segno {
     display: flex;
     align-items: center;
@@ -341,7 +353,7 @@
     background: var(--accent-bg);
     color: #164068;
     font-weight: 800;
-    font-size: 0.9rem;
+    font-size: 0.86rem;
     flex: none;
 }
 
