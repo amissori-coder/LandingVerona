@@ -13,3 +13,10 @@ badge-napoli/iscritti.csv
 scripts/backup/node_modules/
 scripts/backup/package-lock.json
 backup-uscita/
+
+# Selezione aziende per il convegno di Napoli: l'anagrafica di partenza e le
+# liste prodotte contengono email e telefoni delle imprese e non entrano nel
+# repo, che è pubblico. Restano sul computer di chi prepara gli inviti.
+tools/selezione-aziende-napoli/*.xlsx
+tools/selezione-aziende-napoli/*.csv
+__pycache__/
