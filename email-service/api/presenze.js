@@ -15,11 +15,20 @@
    Azioni:
      - "imposta"  : stato e/o nota di un iscritto (tutti gli abilitati)
      - "cancella" : rimuove un'iscrizione (SOLO amministratore)
+     - "modifica" : corregge i dati di un'iscrizione (SOLO amministratore)
+     - "aggiungi" : registra un'iscrizione A MANO (SOLO amministratore),
+       per chi si e' iscritto da un portale esterno (Eventbrite): il
+       portale di provenienza resta sulla scheda e, se richiesto, parte
+       la mail di conferma in formato NGB gia' composta dall'area
+       riservata (stesso schema dell'invio newsletter: l'HTML arriva
+       pronto, qui si verifica chi chiede e si spedisce SOLO
+       all'indirizzo dell'iscritto appena registrato).
    La cancellazione lascia una traccia in "iscrizioniCancellate", cosi'
    la persona non ricompare se la sua riga esiste ancora sul foglio.
    ============================================================ */
 
 const admin = require('firebase-admin');
+const nodemailer = require('nodemailer');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -65,6 +74,40 @@ function idIscrizione(idIscritto) {
     return String(idIscritto).replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300) || 'senza-identificativo';
 }
 const STATI = ['', 'confermato', 'presente', 'assente'];
+/* Portali da cui puo' arrivare un'iscrizione inserita a mano. L'etichetta la
+   decide il servizio, non chi chiama: cosi' in tabella non compaiono diciture
+   inventate e la colonna "Portale" resta confrontabile. */
+const PORTALI = {
+    eventbrite: 'Eventbrite',
+    sito: 'Sito NGB',
+    email: 'Email o segreteria',
+    telefono: 'Telefono o di persona',
+    altro: 'Altro portale'
+};
+function emailValida(e) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+}
+/* Data di iscrizione in formato italiano, fuso di Roma: la stessa regola del
+   form pubblico (iscrizione-nuova), perche' la data entra nell'identificativo
+   della scheda e dev'essere fatta allo stesso modo. */
+function adesso() {
+    const f = new Intl.DateTimeFormat('it-IT', {
+        timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    });
+    const p = {};
+    f.formatToParts(new Date()).forEach(x => { p[x.type] = x.value; });
+    return p.day + '/' + p.month + '/' + p.year + ' ' + p.hour + ':' + p.minute + ':' + p.second;
+}
+// stesso trasporto SMTP delle altre mail dell'area riservata
+function trasporto() {
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 465,
+        secure: (Number(process.env.SMTP_PORT) || 465) === 465,
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    });
+}
 
 /* Segna che i dati sono cambiati: la lettura confronta questo numero e rilegge
    l'archivio SOLO quando serve davvero. Se fallisce non e' grave: la lettura ha
@@ -151,7 +194,87 @@ module.exports = async (req, res) => {
             : [];
         const idIscritto = testo(body.idIscritto, 300);
         if (!evento) { res.status(400).json({ ok: false, msg: 'Evento mancante.' }); return; }
-        if (!idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
+        // "aggiungi" crea la scheda, quindi e' l'unica azione senza un iscritto da indicare
+        if (azione !== 'aggiungi' && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
+
+        if (azione === 'aggiungi') {
+            if (!eAdmin) { res.status(403).json({ ok: false, msg: 'Solo l\'amministratore puo aggiungere un\'iscrizione.' }); return; }
+            const c = body.campi || {};
+            const pagina = testo(body.pagina, 200);
+            if (!pagina) { res.status(400).json({ ok: false, msg: 'Pagina dell\'evento mancante.' }); return; }
+            const portaleId = testo((body.portale || {}).id, 40).toLowerCase();
+            if (!PORTALI[portaleId]) { res.status(400).json({ ok: false, msg: 'Portale di provenienza non riconosciuto.' }); return; }
+            const scheda = {
+                data: testo(c.data, 40) || adesso(),
+                pagina: pagina,
+                nome: testo(c.nome, 120),
+                cognome: testo(c.cognome, 120),
+                email: testo(c.email, 200).toLowerCase(),
+                azienda: testo(c.azienda, 200),
+                ruolo: testo(c.ruolo, 200),
+                telefono: testo(c.telefono, 60),
+                messaggio: testo(c.messaggio, 2000),
+                /* il portale sta in DUE posti: come codice sulla scheda, e come
+                   colonna "Portale" fra le aggiuntive, che l'elenco mostra gia'
+                   da se' senza toccare la lettura */
+                portale: portaleId,
+                extra: { Portale: PORTALI[portaleId] },
+                origine: 'manuale',
+                inserito: { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() },
+                ricevuto: admin.firestore.FieldValue.serverTimestamp()
+            };
+            if (!scheda.email && !scheda.nome && !scheda.cognome) {
+                res.status(400).json({ ok: false, msg: 'Servono almeno un nome o un indirizzo email.' }); return;
+            }
+            if (scheda.email && !emailValida(scheda.email)) {
+                res.status(400).json({ ok: false, msg: 'Indirizzo email non valido.' }); return;
+            }
+            // stesso identificativo del form del sito: un doppio salvataggio della
+            // stessa persona nello stesso istante aggiorna la scheda, non la duplica
+            const idNuovo = (scheda.email || (chiaveTesto(scheda.nome) + '.' + chiaveTesto(scheda.cognome))) + '|' + scheda.data;
+            await db.collection('iscrizioni').doc(idIscrizione(idNuovo)).set(scheda, { merge: true });
+            await segnaCambiamento(db);
+
+            /* Mail di conferma: arriva GIA' COMPOSTA dall'area riservata (formato
+               NGB), come per la newsletter. Qui si decide solo il destinatario,
+               che e' SEMPRE l'iscritto appena registrato: questo endpoint non
+               deve poter spedire ad altri. Se l'invio fallisce l'iscrizione
+               resta valida: si risponde com'e' andata, senza disfare nulla. */
+            let mailEsito = null;
+            const m = body.mail && typeof body.mail === 'object' ? body.mail : null;
+            if (m) {
+                if (!scheda.email) {
+                    mailEsito = { inviata: false, msg: 'Nessun indirizzo email sulla scheda.' };
+                } else {
+                    const oggetto = testo(m.oggetto, 250) || 'Iscrizione confermata - Next Generation Business';
+                    const html = String(m.html || '').slice(0, 300000);
+                    const testoMail = String(m.testo || '').slice(0, 20000);
+                    if (!html.trim()) {
+                        mailEsito = { inviata: false, msg: 'Contenuto della mail mancante.' };
+                    } else {
+                        try {
+                            const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+                            const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+                            await trasporto().sendMail({
+                                from: '"' + fromName + '" <' + fromEmail + '>',
+                                replyTo: email,
+                                to: scheda.email,
+                                subject: oggetto.replace(/[\r\n]/g, ' '),
+                                text: testoMail || undefined,
+                                html: html
+                            });
+                            mailEsito = { inviata: true };
+                        } catch (e) {
+                            const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
+                            console.error('Conferma iscrizione a', scheda.email, 'non inviata:', motivo);
+                            mailEsito = { inviata: false, msg: motivo };
+                        }
+                    }
+                }
+            }
+            res.status(200).json({ ok: true, id: idNuovo, mail: mailEsito });
+            return;
+        }
 
         if (azione === 'cancella') {
             if (!eAdmin) { res.status(403).json({ ok: false, msg: 'Solo l\'amministratore puo cancellare un\'iscrizione.' }); return; }

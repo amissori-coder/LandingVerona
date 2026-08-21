@@ -821,6 +821,72 @@
        nl = { oggetto, preheader, occhiello, titolo, sommario,
               immagine, blocchi[], cta:{testo,url}, fonte:{url} }
     ========================================================= */
+    /* La pagina completa della mail: doctype, head con gli stili per i telefoni,
+       corpo su fondo tenue e colonna centrale bianca. E' la stessa per la
+       newsletter e per la conferma di iscrizione: la mail cambia dentro, non
+       fuori, ed e' cosi' che si riconosce da chi arriva. */
+    function involucro(oggetto, anteprima, corpoInterno) {
+        /* Testo di anteprima: lo mostra il client accanto all'oggetto. I caratteri
+           invisibili in coda impediscono che ci finisca dentro l'inizio del corpo. */
+        const preheader = '<div style="display:none;font-size:1px;color:' + C.sfondo + ';line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">'
+            + esc(anteprima || '') + '&#8199;&#65279;&#847; '.repeat(30) + '</div>';
+        return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n'
+            + '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" lang="it" xml:lang="it">\n<head>\n'
+            + '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />\n'
+            + '<meta name="viewport" content="width=device-width, initial-scale=1" />\n'
+            + '<meta http-equiv="X-UA-Compatible" content="IE=edge" />\n'
+            + '<meta name="x-apple-disable-message-reformatting" content="" />\n'
+            + '<meta name="format-detection" content="telephone=no,address=no,email=no,date=no" />\n'
+            + '<meta name="color-scheme" content="light" />\n'
+            + '<meta name="supported-color-schemes" content="light" />\n'
+            + '<title>' + esc(oggetto || '') + '</title>\n'
+            + '<!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->\n'
+            + '<style type="text/css">\n'
+            + 'body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}\n'
+            + 'table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}\n'
+            + 'img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}\n'
+            + 'body{margin:0!important;padding:0!important;width:100%!important;}\n'
+            + 'a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;}\n'
+            + '.ExternalClass{width:100%;}\n'
+            + '.ExternalClass,.ExternalClass p,.ExternalClass td,.ExternalClass div{line-height:100%;}\n'
+            + '@media only screen and (max-width:620px){\n'
+            + '  .wrap{width:100%!important;max-width:100%!important;}\n'
+            + '  .px{padding-left:24px!important;padding-right:24px!important;}\n'
+            + '  .h1{font-size:24px!important;line-height:31px!important;}\n'
+            + '  .lead{font-size:16px!important;line-height:26px!important;}\n'
+            + '  .btnlink{display:block!important;text-align:center!important;}\n'
+            /* Il giustificato vive bene sui 520px della colonna desktop; su un
+               telefono, senza sillabazione, aprirebbe buchi bianchi fra le parole
+               proprio dove serve leggere meglio. Sotto i 620px si torna a sinistra. */
+            + '  .par{text-align:left!important;}\n'
+            /* Blocchi affiancati: sotto i 620px ciascuno prende tutta la larghezza
+               e si impilano da soli, senza dover sapere quanti sono. Lo spazio fra
+               le colonne sparisce e diventa uno spazio sotto ciascuna, altrimenti
+               impilandosi si toccherebbero. */
+            + '  .col{max-width:100%!important;width:100%!important;padding-bottom:16px!important;}\n'
+            + '  .gap{display:none!important;width:0!important;}\n'
+            /* I tre momenti hanno corpi diversi anche sul telefono, altrimenti la
+               differenza fra loro sparisce proprio dove lo spazio e' poco.
+               ".lead" NON si tocca: e' del sommario nella testata. */
+            + '  .att{font-size:18px!important;line-height:28px!important;}\n'
+            + '  .t1{font-size:21px!important;line-height:29px!important;}\n'
+            + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
+            + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
+            + '}\n'
+            + '</style>\n</head>\n'
+            + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
+            + preheader
+            + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
+            + '<tr><td align="center" style="padding:24px 12px;">'
+            + '<!--[if mso]><table role="presentation" align="center" width="' + LARGHEZZA + '" cellpadding="0" cellspacing="0" border="0"><tr><td width="' + LARGHEZZA + '"><![endif]-->'
+            + '<table role="presentation" class="wrap" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;width:100%;max-width:' + LARGHEZZA + 'px;margin:0 auto;background-color:' + C.bianco + ';">'
+            + corpoInterno
+            + '</table>'
+            + '<!--[if mso]></td></tr></table><![endif]-->'
+            + '</td></tr></table>\n</body>\n</html>';
+    }
+
     function costruisci(nl, opz) {
         nl = nl || {}; opz = opz || {};
         const base = (nl.fonte && nl.fonte.url) || SITO;
@@ -930,68 +996,8 @@
             )
             + '</td></tr>';
 
-        /* Testo di anteprima: lo mostra il client accanto all'oggetto. I caratteri
-           invisibili in coda impediscono che ci finisca dentro l'inizio del corpo. */
-        const preheader = '<div style="display:none;font-size:1px;color:' + C.sfondo + ';line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">'
-            + esc(nl.preheader || nl.sommario || '') + '&#8199;&#65279;&#847; '.repeat(30) + '</div>';
-
         const corpoInterno = testa + apertura + copertina + blocchi + ctaFinale + spazio(36) + piede;
-
-        const html = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n'
-            + '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" lang="it" xml:lang="it">\n<head>\n'
-            + '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />\n'
-            + '<meta name="viewport" content="width=device-width, initial-scale=1" />\n'
-            + '<meta http-equiv="X-UA-Compatible" content="IE=edge" />\n'
-            + '<meta name="x-apple-disable-message-reformatting" content="" />\n'
-            + '<meta name="format-detection" content="telephone=no,address=no,email=no,date=no" />\n'
-            + '<meta name="color-scheme" content="light" />\n'
-            + '<meta name="supported-color-schemes" content="light" />\n'
-            + '<title>' + esc(nl.oggetto || nl.titolo || 'Newsletter') + '</title>\n'
-            + '<!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->\n'
-            + '<style type="text/css">\n'
-            + 'body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}\n'
-            + 'table,td{mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;}\n'
-            + 'img{-ms-interpolation-mode:bicubic;border:0;height:auto;line-height:100%;outline:none;text-decoration:none;}\n'
-            + 'body{margin:0!important;padding:0!important;width:100%!important;}\n'
-            + 'a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;}\n'
-            + '.ExternalClass{width:100%;}\n'
-            + '.ExternalClass,.ExternalClass p,.ExternalClass td,.ExternalClass div{line-height:100%;}\n'
-            + '@media only screen and (max-width:620px){\n'
-            + '  .wrap{width:100%!important;max-width:100%!important;}\n'
-            + '  .px{padding-left:24px!important;padding-right:24px!important;}\n'
-            + '  .h1{font-size:24px!important;line-height:31px!important;}\n'
-            + '  .lead{font-size:16px!important;line-height:26px!important;}\n'
-            + '  .btnlink{display:block!important;text-align:center!important;}\n'
-            /* Il giustificato vive bene sui 520px della colonna desktop; su un
-               telefono, senza sillabazione, aprirebbe buchi bianchi fra le parole
-               proprio dove serve leggere meglio. Sotto i 620px si torna a sinistra. */
-            + '  .par{text-align:left!important;}\n'
-            /* Blocchi affiancati: sotto i 620px ciascuno prende tutta la larghezza
-               e si impilano da soli, senza dover sapere quanti sono. Lo spazio fra
-               le colonne sparisce e diventa uno spazio sotto ciascuna, altrimenti
-               impilandosi si toccherebbero. */
-            + '  .col{max-width:100%!important;width:100%!important;padding-bottom:16px!important;}\n'
-            + '  .gap{display:none!important;width:0!important;}\n'
-            /* I tre momenti hanno corpi diversi anche sul telefono, altrimenti la
-               differenza fra loro sparisce proprio dove lo spazio e' poco.
-               ".lead" NON si tocca: e' del sommario nella testata. */
-            + '  .att{font-size:18px!important;line-height:28px!important;}\n'
-            + '  .t1{font-size:21px!important;line-height:29px!important;}\n'
-            + '  .n1{font-size:38px!important;line-height:34px!important;}\n'
-            + '  .n3{width:64px!important;font-size:48px!important;line-height:44px!important;}\n'
-            + '}\n'
-            + '</style>\n</head>\n'
-            + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
-            + preheader
-            + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:' + C.sfondo + ';">'
-            + '<tr><td align="center" style="padding:24px 12px;">'
-            + '<!--[if mso]><table role="presentation" align="center" width="' + LARGHEZZA + '" cellpadding="0" cellspacing="0" border="0"><tr><td width="' + LARGHEZZA + '"><![endif]-->'
-            + '<table role="presentation" class="wrap" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" '
-            + 'style="border-collapse:collapse;width:100%;max-width:' + LARGHEZZA + 'px;margin:0 auto;background-color:' + C.bianco + ';">'
-            + corpoInterno
-            + '</table>'
-            + '<!--[if mso]></td></tr></table><![endif]-->'
-            + '</td></tr></table>\n</body>\n</html>';
+        const html = involucro(nl.oggetto || nl.titolo || 'Newsletter', nl.preheader || nl.sommario || '', corpoInterno);
 
         /* --- versione in solo testo --- */
         const parti = [];
@@ -1010,6 +1016,131 @@
         const testo = parti.join('\n\n');
 
         return { html: html, testo: testo };
+    }
+
+    /* =========================================================
+       MAIL DI CONFERMA ISCRIZIONE A UN EVENTO
+       ---------------------------------------------------------
+       La manda l'area riservata quando un'iscrizione viene registrata
+       A MANO: chi si iscrive da un portale esterno (Eventbrite) riceve
+       la conferma di quel portale, non la nostra. Questa mail e' il
+       benvenuto di Next Generation Business, nello stesso formato
+       della newsletter: stessa testata, stessa fascia, stesso piede.
+       Due differenze volute:
+         - niente collegamento di disiscrizione: e' una conferma di
+           servizio verso chi si e' appena iscritto, non una
+           comunicazione promozionale ricorrente;
+         - il riepilogo dice DA DOVE risulta arrivata l'iscrizione
+           (il portale), cosi' chi riceve capisce perche' gli
+           scriviamo noi e non solo Eventbrite.
+       `dati`: nome, cognome, evento {titolo, quando, luogo, indirizzo,
+       url}, portale (etichetta leggibile), dataIscrizione (facolt.).
+       Restituisce { oggetto, html, testo }: l'HTML e' la mail INTERA,
+       il servizio la spedisce cosi' com'e'.
+    ========================================================= */
+    const MOTIVO_CONFERMA = 'Ricevi questa email come conferma della tua iscrizione all\'evento: non è una comunicazione promozionale.';
+    function confermaEvento(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
+        const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const oggetto = 'Iscrizione confermata - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+        const urlEvento = ev.url ? urlSicuro(ev.url) : '';
+        const anteprima = 'La tua iscrizione' + (quandoEv ? ' al convegno di ' + quandoEv : '') + ' è registrata: ecco il riepilogo.';
+
+        /* Testata: identica a quella della newsletter (marchio bianco sul blu),
+           con l'esito al posto del titolo editoriale. */
+        const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
+        const sommario = 'la tua iscrizione' + (quandoEv ? ' al convegno Next Generation Business di ' + quandoEv : '') + ' è stata registrata.';
+        const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
+            + tabellaInterna(
+                '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
+                + '</a></td></tr>'
+                + spazio(24)
+                + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
+                + spazio(12)
+                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">Iscrizione confermata</td></tr>'
+                + spazio(16)
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(saluto + ' ' + sommario) + '</td></tr>'
+            )
+            + '</td></tr>';
+        const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
+            + '</td></tr>';
+
+        /* Il riepilogo: etichetta e valore, una riga per dato. Solo le righe che
+           hanno un valore: una cella vuota fa credere che manchi qualcosa. */
+        const riga = (et, val) => val
+            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>'
+            : '';
+        const righe = riga('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business')
+            + riga('Data', ev.quando)
+            + riga('Sede', dove)
+            + riga('Iscritto', nomeCompleto)
+            + riga('Iscrizione da', dati.portale)
+            + riga('Registrata il', dati.dataIscrizione);
+        const box = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
+            + '<tr><td style="padding:16px 22px;">' + tabellaInterna(righe) + '</td></tr></table>';
+
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const corpo = cella(tabellaInterna(
+            spazio(30)
+            + par('Il tuo posto è riservato. Qui sotto trovi il riepilogo della tua iscrizione: se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.')
+            + spazio(22)
+            + '<tr><td>' + box + '</td></tr>'
+            + (urlEvento
+                ? spazio(28)
+                + '<tr><td align="center" style="text-align:center;">'
+                + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td align="center">'
+                + pulsante('Programma e dettagli dell\'evento', urlEvento, { colore: C.blu })
+                + '</td></tr></table></td></tr>'
+                : '')
+            + spazio(28)
+            + par('Ti aspettiamo' + (ev.titolo ? ' a ' + ev.titolo : '') + '.')
+        ));
+
+        /* Piede: come la newsletter, ma SENZA "Annulla l'iscrizione": qui non
+           c'e' una lista da cui uscire, c'e' una conferma di servizio. */
+        const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
+        const linkPiede = 'color:' + C.tenue + ';text-decoration:underline;';
+        const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
+            + tabellaInterna(
+                rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
+                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + spazio(10)
+                + rigaPiede('color:' + C.tenue + ';',
+                    '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
+                    + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
+                + spazio(8)
+                + rigaPiede('color:#94A3B8;', esc(MOTIVO_CONFERMA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+            )
+            + '</td></tr>';
+
+        const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piede);
+
+        /* --- versione in solo testo --- */
+        const parti = ['ISCRIZIONE CONFERMATA', saluto + ' ' + sommario];
+        const rt = (et, val) => val ? et + ': ' + val : '';
+        parti.push([
+            rt('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business'),
+            rt('Data', ev.quando), rt('Sede', dove), rt('Iscritto', nomeCompleto),
+            rt('Iscrizione da', dati.portale), rt('Registrata il', dati.dataIscrizione)
+        ].filter(Boolean).join('\n'));
+        parti.push('Se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.');
+        if (urlEvento) parti.push('Programma e dettagli dell\'evento: ' + urlEvento);
+        parti.push('--');
+        parti.push(MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf);
+        parti.push(MOTIVO_CONFERMA);
+        parti.push('Informativa privacy: ' + PRIVACY);
+
+        return { oggetto: oggetto, html: html, testo: parti.join('\n\n') };
     }
 
 
@@ -1117,7 +1248,7 @@
     return {
         COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB,
-        costruisci: costruisci, estraiDaPagina: estraiDaPagina,
+        costruisci: costruisci, confermaEvento: confermaEvento, estraiDaPagina: estraiDaPagina,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
     };
