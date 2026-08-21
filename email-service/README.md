@@ -184,10 +184,10 @@ al minuto per utente.
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
 - `azione: "aggiungi"`: **amministratore, equity partner e founding partner**.
-  Conta il **ruolo di accesso** dell'utente (`utenti/<email>.ruolo`): un ruolo il
-  cui id o nome contiene "equity" o "founding/founder" abilita da solo; in
-  mancanza vale la qualifica dell'anagrafica (`archivio/persone`: scheda attiva,
-  non eliminata, stessa email di chi chiama). Registra un'iscrizione a mano,
+  Conta **solo il ruolo di accesso** dell'utente (`utenti/<email>.ruolo`): un
+  ruolo il cui id o nome contiene "equity" o "founding/founder" abilita; la
+  spunta Equity/Founding partner in anagrafica non vale. Registra un'iscrizione
+  a mano,
   per chi si e iscritto da un portale esterno (dall'evento di Napoli in poi
   l'iscrizione passa anche da Eventbrite). Nel corpo: `pagina` (titolo del
   modulo dell'evento), `campi` (nome, cognome, email, telefono, azienda,

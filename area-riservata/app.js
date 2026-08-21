@@ -7615,12 +7615,12 @@
         { id: 'telefono', nome: 'Telefono o di persona' },
         { id: 'altro', nome: 'Altro portale' }
     ];
-    /* Chi puo' INSERIRE iscrizioni a mano. Si guarda prima il RUOLO DI ACCESSO,
-       quello assegnato nella sezione Utenti: un ruolo il cui nome (o id, che ne
-       e' lo slug) dice "equity" o "founding/founder" abilita da solo. La
-       qualifica dell'anagrafica (spunta Equity o Founding partner sulla scheda
-       in Aderenti Revilaw, agganciata per email) resta valida come seconda
-       strada, per chi entra con un ruolo qualsiasi. */
+    /* Chi puo' INSERIRE iscrizioni a mano: amministratore, titolare, e chi ha
+       un RUOLO DI ACCESSO da partner, quello assegnato nella sezione Utenti:
+       un ruolo il cui nome (o id, che ne e' lo slug) dice "equity" oppure
+       "founding/founder". Conta SOLO il ruolo: la spunta Equity o Founding
+       partner in anagrafica qui non vale, cosi' il permesso si governa da un
+       posto solo. */
     function eRuoloPartner(idRuolo) {
         if (!idRuolo) return false;
         if (/equity|found/i.test(idRuolo)) return true;
@@ -7630,8 +7630,7 @@
     function puoAggiungereIscrizioni() {
         if (Auth.eAdmin() || Auth.eProprietario()) return true;
         const u = Auth.utenteCorrente;
-        if (u && eRuoloPartner(u.ruolo)) return true;
-        return Auth.eEquityPartner() || Auth.eFoundingPartner();
+        return !!(u && eRuoloPartner(u.ruolo));
     }
     // filtri dei soli eventi veri: servono al riepilogo per NON pescare le iscrizioni
     // degli altri moduli del sito, che finiscono nello stesso archivio
@@ -8026,9 +8025,9 @@
             + '<button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
             + '<button class="btn btn-secondary" id="ev-importa">Importa iscrizioni</button></div></div>'
             /* Anche EQUITY e FOUNDING PARTNER aggiungono le iscrizioni arrivate
-               dai portali esterni: conta il ruolo di accesso (o, in mancanza, la
-               qualifica in anagrafica). A loro compare la sola card con quel
-               pulsante, il resto della gestione resta all'amministratore. */
+               dai portali esterni: conta il solo ruolo di accesso. A loro compare
+               la sola card con quel pulsante, il resto della gestione resta
+               all'amministratore. */
             : (ev.manuale && puoAggiungereIscrizioni()
                 ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Iscrizioni da altri portali</strong>'
                 + '<div class="hint">Chi si iscrive da Eventbrite non compare da solo: la scheda si aggiunge da qui, con la mail di conferma in formato NGB.</div></div>'
