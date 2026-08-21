@@ -32,11 +32,34 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const nodemailer = require('nodemailer');
 // firma del collegamento personale "completa i dati" (stesso segreto della
 // disiscrizione, contesto diverso). Da NL si usano SOLO le funzioni di firma
 // e la regex email: l'inizializzazione di firebase-admin resta quella locale,
 // per non inizializzare l'app due volte.
 const NL = require('../lib/newsletter');
+// mail NGB composte dal servizio: questo endpoint e' pubblico, quindi l'HTML
+// non puo' arrivare da fuori come per gli invii dell'area riservata
+const MNGB = require('../lib/mail-ngb');
+
+// stesso trasporto SMTP delle altre mail di servizio
+function trasporto() {
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 465,
+        secure: (Number(process.env.SMTP_PORT) || 465) === 465,
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    });
+}
+function mittenteMail() {
+    const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+    const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+    return '"' + fromName + '" <' + fromEmail + '>';
+}
+/* Le conferme automatiche partono SOLO per i moduli degli eventi: su questo
+   archivio scrivono anche gli altri moduli del sito (approfondimenti,
+   newsletter), e a quelli non va spedito nulla. */
+const RE_PAGINA_EVENTO = /verona|roma|napoli|milano/i;
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -153,16 +176,21 @@ async function segnaCambiamento(db) {
    collegamento apre SOLO quella scheda, e a firma sbagliata si
    risponde sempre allo stesso modo, senza dire se la scheda esiste.
 
-   - "completa-leggi": evento, posti e dati noti dell'intestatario,
-     per precompilare il modulo della pagina;
-   - "completa-salva": il PRIMO partecipante aggiorna la scheda
-     originale (mai l'email, che e' l'identita' della scheda); gli
-     altri diventano schede proprie con documenti dal nome fisso
-     (<idDoc>~p2, ~p3...), quindi rimandare il modulo sovrascrive
-     invece di duplicare. I posti si RIPARTISCONO senza cambiare il
-     totale: la scheda originale tiene quelli non ancora nominati e i
-     figli oltre l'ultimo invio vengono tolti. Nessun doppio conteggio
-     dei partecipanti, qualunque cosa faccia chi compila.
+   - "completa-leggi": evento, posti, dati noti dell'intestatario e
+     dei partecipanti gia' scritti, per precompilare il modulo;
+   - "completa-salva": UN ELEMENTO PER POSTO (1..N, il primo e'
+     l'intestatario). Ogni posto puo' portare i dati, essere lasciato
+     vuoto (posto riservato ma senza nome) oppure essere ANNULLATO.
+     Il primo aggiorna la scheda originale (mai l'email, che e'
+     l'identita' della scheda); gli altri diventano schede proprie con
+     documenti dal nome fisso (<idDoc>~p2, ~p3...), quindi rimandare
+     il modulo sovrascrive invece di duplicare. I posti senza nome
+     restano contati sulla scheda originale, gli annullati escono dal
+     conteggio: il totale non puo' MAI crescere da questo modulo, e
+     ogni scheda scritta porta la firma di chi ha compilato
+     ("compilato"), che l'area riservata mostra in "Aggiornato da".
+     A ogni salvataggio parte all'intestatario la mail di riepilogo
+     con lo stesso collegamento per modificare o annullare ancora.
    ============================================================ */
 const MSG_LINK = 'Collegamento non valido o scaduto. Scrivi a info@nextgenerationbusiness.it e provvediamo noi.';
 const MAX_PART = 99;
@@ -193,9 +221,16 @@ async function completaIscrizione(azione, body, res) {
     const scheda = snap.data() || {};
     // il totale dei posti dell'ordine NON cambia mai: alla prima ripartizione
     // si mette da parte, perche' "partecipanti" della scheda da li' in poi
-    // conta solo i posti non ancora nominati
+    // conta solo intestatario e posti non ancora nominati
     const nOrdine = Math.min(MAX_PART, Math.max(1,
         parseInt(scheda.partecipantiOrdine, 10) || parseInt(scheda.partecipanti, 10) || 1));
+
+    // stato attuale dei posti 2..N: serve al modulo per preriempire e al
+    // riepilogo per non perdere cio' che era gia' stato scritto
+    const figliRef = [];
+    for (let i = 2; i <= nOrdine; i++) figliRef.push(db.collection('iscrizioni').doc(idDoc + '~p' + i));
+    const figliSnap = figliRef.length ? await db.getAll(...figliRef) : [];
+    const figliAttuali = figliSnap.map(s => (s.exists ? (s.data() || {}) : null));
 
     if (azione === 'completa-leggi') {
         res.status(200).json({
@@ -207,18 +242,35 @@ async function completaIscrizione(azione, body, res) {
                 nome: String(scheda.nome || ''), cognome: String(scheda.cognome || ''),
                 email: String(scheda.email || ''),
                 azienda: String(scheda.azienda || ''), ruolo: String(scheda.ruolo || ''),
-                telefono: String(scheda.telefono || '')
-            }
+                telefono: String(scheda.telefono || ''),
+                annullato: !!scheda.annullato
+            },
+            // un elemento per posto (2..N): dati gia' scritti, segnaposto di un
+            // posto annullato, oppure null se il posto non ha ancora un nome
+            altri: figliAttuali.map(f => f ? {
+                nome: String(f.nome || ''), cognome: String(f.cognome || ''),
+                email: String(f.email || ''), azienda: String(f.azienda || ''),
+                ruolo: String(f.ruolo || ''), telefono: String(f.telefono || ''),
+                annullato: !!f.annullato
+            } : null)
         });
         return;
     }
 
-    // al massimo i posti dell'ordine: i partecipanti in piu' non entrano,
-    // perche' e' cosi' che il totale non puo' crescere da questo modulo
+    /* --- completa-salva: un elemento PER POSTO --- */
     const grezzi = Array.isArray(body.partecipanti) ? body.partecipanti.slice(0, nOrdine) : [];
-    const lista = grezzi.map(p => pulisciPartecipante(p && typeof p === 'object' ? p : {})).filter(p => !partecipanteVuoto(p));
-    if (!lista.length) { res.status(400).json({ ok: false, msg: 'Compila almeno i dati di un partecipante.' }); return; }
-    for (const p of lista) {
+    const posti = [];
+    for (let i = 0; i < nOrdine; i++) {
+        const g = grezzi[i] && typeof grezzi[i] === 'object' ? grezzi[i] : {};
+        if (g.annulla === true) { posti.push({ annulla: true }); continue; }
+        const p = pulisciPartecipante(g);
+        posti.push(partecipanteVuoto(p) ? null : p);
+    }
+    if (!posti.some(p => p)) {
+        res.status(400).json({ ok: false, msg: 'Compila i dati di almeno un partecipante, oppure segna i posti da annullare.' }); return;
+    }
+    for (const p of posti) {
+        if (!p || p.annulla) continue;
         if (p.email && !NL.EMAIL_RE.test(p.email)) {
             res.status(400).json({ ok: false, msg: 'Uno degli indirizzi email non sembra valido: ' + p.email }); return;
         }
@@ -227,52 +279,118 @@ async function completaIscrizione(azione, body, res) {
         }
     }
 
-    /* Il primo della lista e' l'intestatario: aggiorna la scheda originale.
-       L'email NON si tocca: e' l'identita' della scheda (le presenze sono
-       agganciate li') e l'indirizzo a cui e' arrivato questo collegamento. */
-    const primo = lista[0];
-    const figli = lista.slice(1);
-    // la scheda originale tiene i posti non ancora nominati: mai sotto 1
-    const restanti = Math.max(1, nOrdine - figli.length);
-    await rif.set({
-        nome: primo.nome, cognome: primo.cognome,
-        azienda: primo.azienda, ruolo: primo.ruolo, telefono: primo.telefono,
-        partecipanti: restanti,
-        partecipantiOrdine: nOrdine,
-        extra: { Partecipanti: String(restanti) },
-        completato: { quando: Date.now(), partecipanti: lista.length }
-    }, { merge: true });
+    const primo = posti[0];
+    const posto1Annullato = !!(primo && primo.annulla);
+    const senzaNomeAltri = posti.slice(1).filter(p => !p).length;
+    const figliCompilati = posti.slice(1).filter(p => p && !p.annulla).length;
+    const annullati = posti.filter(p => p && p.annulla).length;
+    // chi firma queste modifiche: l'intestatario. La firma finisce su ogni
+    // scheda scritta e l'area riservata la mostra come "Nome (dal modulo)".
+    const intestatarioNome = (primo && !primo.annulla && (primo.nome || primo.cognome))
+        ? (primo.nome + ' ' + primo.cognome).trim()
+        : ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim() || String(scheda.email || ''));
+    const compilato = { daNome: intestatarioNome, quando: Date.now() };
 
-    // ogni altro partecipante diventa una scheda propria, con un posto solo.
-    // I nomi dei documenti sono FISSI (idDoc~p2, ~p3...): rimandare il modulo
-    // sovrascrive le stesse schede invece di crearne di nuove.
+    /* La scheda originale: i dati dell'intestatario (mai l'email, che e'
+       l'identita' della scheda e l'indirizzo del collegamento) piu' i posti
+       senza nome. Con l'intestatario annullato la scheda esce dal conteggio
+       e dall'elenco; i posti senza nome, senza piu' una scheda che li porti,
+       decadono con lei (i partecipanti gia' nominati restano). */
+    const postiScheda = posto1Annullato ? 0 : 1 + senzaNomeAltri;
+    const patch = {
+        partecipanti: postiScheda,
+        partecipantiOrdine: nOrdine,
+        extra: { Partecipanti: String(postiScheda) },
+        compilato: compilato,
+        completato: { quando: Date.now(), partecipanti: figliCompilati + (posto1Annullato ? 0 : 1) }
+    };
+    if (primo && !primo.annulla) {
+        patch.nome = primo.nome; patch.cognome = primo.cognome;
+        patch.azienda = primo.azienda; patch.ruolo = primo.ruolo; patch.telefono = primo.telefono;
+    }
+    // annullare e' reversibile: ricompilando i propri dati la scheda si riattiva
+    patch.annullato = posto1Annullato
+        ? { quando: Date.now(), da: 'intestatario' }
+        : admin.firestore.FieldValue.delete();
+    await rif.set(patch, { merge: true });
+
+    // i posti 2..N per POSIZIONE: documenti dal nome fisso, cosi' rimandare il
+    // modulo sovrascrive invece di duplicare
     const etichettaPortale = (scheda.extra && scheda.extra.Portale) || scheda.portaleNome || '';
     const batch = db.batch();
-    figli.forEach((p, i) => {
-        batch.set(db.collection('iscrizioni').doc(idDoc + '~p' + (i + 2)), {
-            data: String(scheda.data || ''),
-            pagina: String(scheda.pagina || ''),
-            nome: p.nome, cognome: p.cognome, email: p.email,
-            azienda: p.azienda, ruolo: p.ruolo, telefono: p.telefono,
-            messaggio: '',
-            portale: String(scheda.portale || ''),
-            portaleNome: etichettaPortale,
-            partecipanti: 1,
-            extra: Object.assign({ Partecipanti: '1' }, etichettaPortale ? { Portale: etichettaPortale } : {}),
-            origine: 'partecipante',
-            gruppo: idDoc,
-            ricevuto: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-    });
-    // i figli oltre l'ultimo invio si tolgono: se prima erano stati indicati
-    // tre nomi e ora due, il terzo non deve restare a gonfiare l'elenco
-    for (let i = figli.length + 2; i <= nOrdine; i++) {
-        batch.delete(db.collection('iscrizioni').doc(idDoc + '~p' + i));
+    for (let i = 2; i <= nOrdine; i++) {
+        const p = posti[i - 1];
+        const refFiglio = db.collection('iscrizioni').doc(idDoc + '~p' + i);
+        if (p && p.annulla) {
+            // segnaposto NON conteggiato: riaprendo il modulo si vede che il
+            // posto e' stato annullato, e l'elenco non lo mostra
+            batch.set(refFiglio, {
+                data: String(scheda.data || ''), pagina: String(scheda.pagina || ''),
+                gruppo: idDoc, origine: 'partecipante',
+                partecipanti: 0, extra: { Partecipanti: '0' },
+                annullato: { quando: Date.now(), da: 'intestatario' },
+                compilato: compilato
+            }, { merge: true });
+        } else if (p) {
+            batch.set(refFiglio, {
+                data: String(scheda.data || ''),
+                pagina: String(scheda.pagina || ''),
+                nome: p.nome, cognome: p.cognome, email: p.email,
+                azienda: p.azienda, ruolo: p.ruolo, telefono: p.telefono,
+                messaggio: '',
+                portale: String(scheda.portale || ''),
+                portaleNome: etichettaPortale,
+                partecipanti: 1,
+                extra: Object.assign({ Partecipanti: '1' }, etichettaPortale ? { Portale: etichettaPortale } : {}),
+                origine: 'partecipante',
+                gruppo: idDoc,
+                compilato: compilato,
+                annullato: admin.firestore.FieldValue.delete(),
+                ricevuto: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } else {
+            // posto senza nome: nessuna scheda propria, resta contato sull'originale
+            batch.delete(refFiglio);
+        }
     }
     await batch.commit();
     await segnaCambiamento(db);
 
-    res.status(200).json({ ok: true, salvati: lista.length, posti: nOrdine });
+    /* Riepilogo e mail di conferma delle variazioni, con lo stesso collegamento
+       per modificare o annullare ancora. Se l'invio fallisce le modifiche
+       restano salvate: la mail e' una cortesia, non una condizione. */
+    const attivi = [];
+    if (!posto1Annullato) {
+        attivi.push(primo && !primo.annulla
+            ? { nome: primo.nome, cognome: primo.cognome, azienda: primo.azienda }
+            : { nome: String(scheda.nome || ''), cognome: String(scheda.cognome || ''), azienda: String(scheda.azienda || '') });
+    }
+    posti.slice(1).forEach(p => { if (p && !p.annulla) attivi.push({ nome: p.nome, cognome: p.cognome, azienda: p.azienda }); });
+    const postiAttivi = postiScheda + figliCompilati;
+    let mailInviata = false;
+    if (scheda.email && NL.EMAIL_RE.test(String(scheda.email))) {
+        try {
+            const m = MNGB.confermaVariazioni({
+                pagina: scheda.pagina, intestatario: intestatarioNome,
+                attivi: attivi, postiAttivi: postiAttivi,
+                senzaNome: posto1Annullato ? 0 : senzaNomeAltri, annullati: annullati
+            }, NL.linkCompleta(idDoc));
+            const messaggio = {
+                from: mittenteMail(), to: String(scheda.email),
+                subject: m.oggetto, text: m.testo, html: m.html
+            };
+            // chi aveva chiesto i dati dall'area riservata riceve copia nascosta:
+            // sa cosi' che sono arrivati, senza dover controllare l'elenco
+            const daStaff = scheda.datiRichiesti && String(scheda.datiRichiesti.da || '');
+            if (daStaff && daStaff !== String(scheda.email)) messaggio.bcc = daStaff;
+            await trasporto().sendMail(messaggio);
+            mailInviata = true;
+        } catch (e) {
+            console.error('Conferma variazioni non inviata:', String((e && e.message) || e).slice(0, 200));
+        }
+    }
+
+    res.status(200).json({ ok: true, postiAttivi: postiAttivi, annullati: annullati, mail: mailInviata });
 }
 
 module.exports = async (req, res) => {
@@ -335,10 +453,30 @@ module.exports = async (req, res) => {
             if (valore) scheda[campo] = valore;
         }
 
+        const idDoc = idDocumento(email, data, nome, cognome);
         await admin.firestore().collection('iscrizioni')
-            .doc(idDocumento(email, data, nome, cognome))
+            .doc(idDoc)
             .set(scheda, { merge: true });
         await segnaCambiamento(admin.firestore());
+
+        /* Conferma automatica a chi si iscrive dai moduli degli EVENTI, con il
+           collegamento personale per modificare o annullare l'iscrizione: la
+           stessa possibilita' che ha chi viene inserito a mano. Se l'invio
+           fallisce l'iscrizione resta valida e il visitatore non se ne
+           accorge: la registrazione e' il lavoro, la mail la cortesia. */
+        if (email && RE_PAGINA_EVENTO.test(pagina)) {
+            try {
+                const m = MNGB.confermaSito(
+                    { nome: nome, cognome: cognome, email: email, azienda: scheda.azienda, pagina: pagina, data: data },
+                    NL.linkCompleta(idDoc));
+                await trasporto().sendMail({
+                    from: mittenteMail(), to: email,
+                    subject: m.oggetto, text: m.testo, html: m.html
+                });
+            } catch (e) {
+                console.error('Conferma iscrizione dal sito non inviata:', String((e && e.message) || e).slice(0, 200));
+            }
+        }
 
         res.status(200).json({ ok: true });
     } catch (e) {

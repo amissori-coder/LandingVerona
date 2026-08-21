@@ -24,7 +24,10 @@
         .scheda { background: #fff; border: 1px solid var(--bordo); border-radius: 10px; padding: 22px; margin-top: 18px; }
         .avviso { text-align: center; color: var(--tenue); padding: 30px 10px; }
         .avviso.errore { color: var(--rosso); }
-        .blocco-titolo { font-size: 0.8rem; letter-spacing: 1.2px; text-transform: uppercase; font-weight: bold; color: var(--navy); border-bottom: 2px solid var(--navy-light); padding-bottom: 6px; margin-bottom: 14px; }
+        .blocco-titolo { font-size: 0.8rem; letter-spacing: 1.2px; text-transform: uppercase; font-weight: bold; color: var(--navy); border-bottom: 2px solid var(--navy-light); padding-bottom: 6px; margin-bottom: 10px; }
+        .annulla-riga { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--rosso); margin: 0 0 12px; cursor: pointer; }
+        .annulla-riga input { width: 18px; height: 18px; }
+        .campi-spenti { opacity: 0.45; }
         .griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
         .campo { display: flex; flex-direction: column; gap: 4px; }
         .campo label { font-size: 0.8rem; font-weight: bold; color: var(--tenue); }
@@ -105,56 +108,80 @@
                 return p || 'Next Generation Business';
             }
             function blocco(i, dati, intestatario) {
+                dati = dati || {};
                 var righe = CAMPI.map(function (c) {
                     var blocca = intestatario && c.id === 'email';
                     return '<div class="campo"><label for="p' + i + '-' + c.id + '">' + c.et
                         + (blocca ? ' (non modificabile: è l\'indirizzo di questa iscrizione)' : '') + '</label>'
-                        + '<input id="p' + i + '-' + c.id + '" type="' + (c.tipo || 'text') + '" value="' + esc((dati || {})[c.id] || '') + '"'
+                        + '<input id="p' + i + '-' + c.id + '" type="' + (c.tipo || 'text') + '" value="' + esc(dati[c.id] || '') + '"'
                         + (blocca ? ' readonly' : '') + (c.ph ? ' placeholder="' + esc(c.ph) + '"' : '') + '>'
                         + '</div>';
                 }).join('');
                 return '<div class="blocco" data-i="' + i + '" style="margin-top:' + (i > 1 ? '26px' : '0') + ';">'
                     + '<div class="blocco-titolo">Partecipante ' + i + (intestatario ? ' &middot; intestatario' : '') + '</div>'
-                    + '<div class="griglia">' + righe + '</div></div>';
+                    + '<label class="annulla-riga"><input type="checkbox" class="annulla" id="p' + i + '-annulla"' + (dati.annullato ? ' checked' : '') + '> '
+                    + (intestatario ? 'Annulla la mia partecipazione' : 'Annulla questo posto') + '</label>'
+                    + '<div class="griglia" id="p' + i + '-campi">' + righe + '</div></div>';
+            }
+            // con il posto annullato i campi si spengono: restano visibili (per
+            // ripensarci basta togliere la spunta) ma non si compilano
+            function attivaAnnulla(n) {
+                for (var i = 1; i <= n; i++) (function (i) {
+                    var c = document.getElementById('p' + i + '-annulla');
+                    var campi = document.getElementById('p' + i + '-campi');
+                    var applica = function () {
+                        campi.classList.toggle('campi-spenti', c.checked);
+                        campi.querySelectorAll('input').forEach(function (el) { el.disabled = c.checked; });
+                    };
+                    c.addEventListener('change', applica);
+                    applica();
+                })(i);
             }
             function modulo(r) {
                 var n = Math.max(1, r.partecipanti || 1);
                 document.getElementById('sotto-titolo').textContent = 'Next Generation Business - ' + nomeEvento(r.pagina);
                 var blocchi = blocco(1, r.capofila, true);
-                for (var i = 2; i <= n; i++) blocchi += blocco(i, null, false);
+                for (var i = 2; i <= n; i++) blocchi += blocco(i, (r.altri && r.altri[i - 2]) || null, false);
                 box.innerHTML =
                     '<div class="riepilogo">' + (n > 1
-                        ? 'Questa iscrizione riserva <b>' + n + ' posti</b>: indica i dati di ciascun partecipante. Se qualche nome non è ancora deciso, lascia vuoto il suo blocco: potrai tornare qui dallo stesso collegamento.'
-                        : 'Controlla e completa i tuoi dati: ci servono per il badge e per l\'accoglienza.')
+                        ? 'Questa iscrizione riserva <b>' + n + ' posti</b>: indica i dati di ciascun partecipante. Se qualche nome non è ancora deciso, lascia vuoto il suo blocco; se qualcuno non potrà esserci, spunta <b>Annulla questo posto</b>.'
+                        : 'Controlla e completa i tuoi dati: ci servono per il badge e per l\'accoglienza. Se non potrai esserci, spunta <b>Annulla la mia partecipazione</b>.')
                     + (r.completato ? '<br><b>I dati risultano già inviati:</b> puoi correggerli e rimandarli da qui.' : '') + '</div>'
                     + '<div style="margin-top:20px;">' + blocchi + '</div>'
-                    + '<p class="hint">Per ogni partecipante servono almeno nome e cognome, oppure l\'email.</p>'
+                    + '<p class="hint">Per ogni partecipante servono almeno nome e cognome, oppure l\'email. Dopo l\'invio riceverai una mail con il riepilogo aggiornato.</p>'
                     + '<div class="azioni"><button type="button" class="invia" id="invia">Invia i dati</button>'
                     + '<div class="esito" id="esito"></div></div>';
+                attivaAnnulla(n);
                 document.getElementById('invia').addEventListener('click', function () { invia(n, r.capofila.email); });
             }
             function invia(n, emailIntestatario) {
                 var esito = document.getElementById('esito');
+                // un elemento PER POSTO: dati, {annulla:true}, oppure null se il
+                // posto resta riservato ma senza nome
                 var lista = [];
+                var qualcosa = false;
                 for (var i = 1; i <= n; i++) {
+                    if (document.getElementById('p' + i + '-annulla').checked) {
+                        lista.push({ annulla: true }); qualcosa = true; continue;
+                    }
                     var p = {};
                     CAMPI.forEach(function (c) {
                         var el = document.getElementById('p' + i + '-' + c.id);
                         p[c.id] = el ? el.value.trim() : '';
                     });
                     if (i === 1) p.email = emailIntestatario;   // non si cambia da qui
-                    var compilato = p.nome || p.cognome || p.email || p.azienda || p.telefono;
-                    if (!compilato) continue;                    // blocco lasciato vuoto: posto non ancora nominato
+                    var compilato = p.nome || p.cognome || (i > 1 && p.email) || p.azienda || p.telefono;
+                    if (!compilato) { lista.push(null); continue; }
                     if (!p.nome && !p.cognome && !p.email) {
                         esito.className = 'esito ko';
                         esito.textContent = 'Partecipante ' + i + ': servono almeno nome e cognome, oppure l\'email.';
                         return;
                     }
-                    lista.push(p);
+                    lista.push(p); qualcosa = true;
                 }
-                if (!lista.length) {
+                if (!qualcosa) {
                     esito.className = 'esito ko';
-                    esito.textContent = 'Compila almeno i dati di un partecipante.';
+                    esito.textContent = 'Compila i dati di almeno un partecipante, oppure segna i posti da annullare.';
                     return;
                 }
                 var b = document.getElementById('invia');
@@ -167,10 +194,14 @@
                         esito.textContent = (r && r.msg) || 'Invio non riuscito: riprova fra un momento.';
                         return;
                     }
+                    var posti = r.postiAttivi === 1 ? '1 posto attivo' : r.postiAttivi + ' posti attivi';
                     box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
-                        + '<h2>Dati ricevuti, grazie!</h2>'
-                        + '<p>Abbiamo aggiornato l\'iscrizione' + (r.salvati > 1 ? ' con i dati di ' + r.salvati + ' partecipanti' : '') + '.'
-                        + '<br>Se devi correggere qualcosa, riapri il collegamento della mail: questa pagina resta tua.</p></div>';
+                        + '<h2>' + (r.postiAttivi > 0 ? 'Dati ricevuti, grazie!' : 'Iscrizione annullata') + '</h2>'
+                        + '<p>' + (r.postiAttivi > 0
+                            ? 'L\'iscrizione ora conta ' + posti + (r.annullati > 0 ? ' (' + r.annullati + (r.annullati === 1 ? ' posto annullato' : ' posti annullati') + ')' : '') + '.'
+                            : 'Ci dispiace non averti con noi: tutti i posti risultano annullati.')
+                        + (r.mail ? '<br>Ti abbiamo inviato una mail con il riepilogo.' : '')
+                        + '<br>Per correggere ancora, riapri il collegamento della mail: questa pagina resta tua.</p></div>';
                 }).catch(function () {
                     b.disabled = false; b.textContent = 'Invia i dati';
                     esito.className = 'esito ko';

@@ -7971,11 +7971,14 @@
                 + (ev.tutti ? '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>' : '')
                 + extra.map(c => '<td data-label="' + esc(c) + '">' + esc((r.extra && r.extra[c]) || '-') + '</td>').join('')
                 /* "Aggiornato da": l'ultima mano che ha toccato la scheda. Con una
-                   presenza o nota c'e' quella firma; per un'iscrizione inserita a
-                   mano non ancora toccata c'e' chi l'ha inserita (r.inserito ha la
-                   stessa forma di una presenza, quindi la firma si scrive uguale). */
+                   presenza o nota c'e' quella firma; poi viene chi ha COMPILATO il
+                   modulo "completa i dati" (l'intestatario, marcato "dal modulo");
+                   per ultima la firma di chi ha inserito la scheda a mano. Tutte
+                   hanno la forma di una presenza, quindi si scrivono uguali. */
                 + (ev.tutti ? '' : cellaStato + cellaNota
-                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || firmaPresenza(r.inserito) || '-') + '</span></td>')
+                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p)
+                        || (r.compilato && r.compilato.daNome ? firmaPresenza({ daNome: r.compilato.daNome + ' (dal modulo)', quando: r.compilato.quando }) : '')
+                        || firmaPresenza(r.inserito) || '-') + '</span></td>')
                 // Modifica e Cancella stanno in un menu a tre puntini: due pulsanti
                 // per riga allargavano la tabella senza dire niente di nuovo.
                 // "Chiedi dati partecipanti" compare sulle righe MANUALI con email:
@@ -8438,7 +8441,9 @@
             const chiusa = cont.style.display === 'none';
             cont.style.display = chiusa ? '' : 'none';
             document.getElementById('ni-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
-            if (chiusa) frame.srcdoc = m.html;
+            // nell'anteprima il segnaposto del collegamento personale diventa
+            // l'indirizzo della pagina (senza firma): quello vero lo mette il servizio
+            if (chiusa) frame.srcdoc = m.html.split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
         });
         document.getElementById('ni-si').addEventListener('click', () => {
             const campi = {

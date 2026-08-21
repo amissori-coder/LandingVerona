@@ -204,6 +204,9 @@ al minuto per utente.
   iscrivendo se stesso). L'identificativo della scheda e lo stesso del form del
   sito. Risposta: `{ ok, id, mail: { inviata, msg } }`; se la mail non parte
   l'iscrizione resta comunque registrata.
+- La mail di conferma dell'inserimento manuale porta anche il collegamento
+  personale firmato per **modificare o annullare** l'iscrizione (segnaposto
+  `{{COMPLETA}}` sostituito qui).
 - `azione: "richiedi-dati"`: stessi permessi di `aggiungi`. Manda
   all'intestatario di un'iscrizione manuale la mail (gia composta, formato NGB)
   con il collegamento personale FIRMATO verso `/completa_iscrizione/`: il
@@ -221,15 +224,27 @@ firma HMAC dell'identificativo del documento: stesso segreto della
 disiscrizione, contesto diverso, quindi un collegamento vale per quella sola
 scheda e nessuno puo fabbricarne per le altre. Rate limit per IP.
 
-- `azione: "leggi"`: evento, numero di posti e dati gia noti
-  dell'intestatario, per precompilare il modulo della pagina.
-- `azione: "salva"`: riceve l'elenco dei partecipanti. Il primo aggiorna la
-  scheda originale (mai l'email, che e l'identita della scheda); gli altri
-  diventano schede proprie con documenti dal nome fisso (`<id>~p2`, `~p3`...),
-  quindi rimandare il modulo sovrascrive invece di duplicare. I posti si
-  RIPARTISCONO senza cambiare il totale: la scheda originale tiene quelli non
-  ancora nominati, i figli oltre l'ultimo invio vengono tolti. Nessun doppio
-  conteggio dei partecipanti, qualunque cosa faccia chi compila.
+- `azione: "completa-leggi"`: evento, posti, dati gia noti dell'intestatario
+  e dei partecipanti gia scritti (con lo stato di eventuali posti annullati),
+  per precompilare il modulo della pagina.
+- `azione: "completa-salva"`: un elemento PER POSTO (dati, `{annulla:true}`,
+  oppure null = posto riservato senza nome). Il primo aggiorna la scheda
+  originale (mai l'email); gli altri diventano schede proprie con documenti dal
+  nome fisso (`<id>~p2`...), quindi rimandare il modulo sovrascrive invece di
+  duplicare. I posti senza nome restano contati sulla scheda originale, gli
+  ANNULLATI escono dal conteggio (l'annullamento e reversibile ricompilando):
+  il totale non puo mai crescere da questo modulo. Ogni scheda scritta porta
+  `compilato` (nome dell'intestatario e quando), che l'area riservata mostra in
+  "Aggiornato da" come "Nome (dal modulo)"; le schede con `annullato` escono
+  dall'elenco. A ogni salvataggio parte all'intestatario la mail di riepilogo
+  (composta DAL SERVIZIO, lib/mail-ngb.js) con lo stesso collegamento per
+  modificare o annullare ancora, in copia nascosta a chi aveva chiesto i dati.
+
+Le iscrizioni dai **moduli degli eventi del sito** (pagina che contiene
+verona/roma/napoli/milano) ricevono ora anche loro una conferma automatica in
+formato NGB con il collegamento personale per modificare o annullare: la
+stessa possibilita di chi viene inserito a mano. Gli altri moduli del sito
+(approfondimenti, newsletter) non ricevono nulla, come prima.
 
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.

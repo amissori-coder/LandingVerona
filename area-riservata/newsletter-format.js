@@ -1111,6 +1111,12 @@
                 : '')
             + spazio(28)
             + par('Ti aspettiamo' + (ev.titolo ? ' a ' + ev.titolo : '') + '.')
+            /* Il collegamento personale per modificare o annullare: qui resta il
+               segnaposto {{COMPLETA}}, che il servizio sostituisce con
+               l'indirizzo firmato al momento dell'invio. */
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Devi correggere qualcosa o annullare l\'iscrizione? '
+            + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Fallo dal tuo collegamento personale</a>, senza scriverci.</td></tr>'
         ));
 
         /* Piede: come la newsletter, ma SENZA "Annulla l'iscrizione": qui non
@@ -1143,6 +1149,7 @@
         ].filter(Boolean).join('\n'));
         parti.push(posto + ' Se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.');
         if (urlEvento) parti.push('Programma e dettagli dell\'evento: ' + urlEvento);
+        parti.push('Modifica o annulla l\'iscrizione: ' + SEGNAPOSTO_COMPLETA);
         parti.push('--');
         parti.push(MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf);
         parti.push(MOTIVO_CONFERMA);
@@ -1236,8 +1243,8 @@
 
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
         const spiegazione = nPart > 1
-            ? 'Al momento abbiamo i dati del solo intestatario. Dal pulsante qui sotto puoi indicare nome, cognome, email e azienda di ciascuno dei ' + nPart + ' partecipanti, e correggere i tuoi se serve: così prepariamo i badge e l\'accoglienza per tutti.'
-            : 'Dal pulsante qui sotto puoi completare o correggere i dati della tua iscrizione (azienda, ruolo, telefono): così prepariamo il badge e l\'accoglienza.';
+            ? 'Al momento abbiamo i dati del solo intestatario. Dal pulsante qui sotto puoi indicare nome, cognome, email e azienda di ciascuno dei ' + nPart + ' partecipanti, e correggere i tuoi se serve: così prepariamo i badge e l\'accoglienza per tutti. Dallo stesso modulo puoi anche annullare il posto di chi non potrà esserci.'
+            : 'Dal pulsante qui sotto puoi completare o correggere i dati della tua iscrizione (azienda, ruolo, telefono): così prepariamo il badge e l\'accoglienza. Dallo stesso modulo puoi anche annullare l\'iscrizione, se non potrai esserci.';
         const corpo = cella(tabellaInterna(
             spazio(30)
             + par(spiegazione)
