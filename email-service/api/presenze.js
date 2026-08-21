@@ -204,6 +204,9 @@ module.exports = async (req, res) => {
             if (!pagina) { res.status(400).json({ ok: false, msg: 'Pagina dell\'evento mancante.' }); return; }
             const portaleId = testo((body.portale || {}).id, 40).toLowerCase();
             if (!PORTALI[portaleId]) { res.status(400).json({ ok: false, msg: 'Portale di provenienza non riconosciuto.' }); return; }
+            // quante persone copre l'iscrizione (da Eventbrite un ordine puo' valere
+            // per piu' posti): fuori misura o mancante diventa 1, mai zero
+            const partecipanti = Math.min(99, Math.max(1, parseInt(testo(c.partecipanti, 6), 10) || 1));
             const scheda = {
                 data: testo(c.data, 40) || adesso(),
                 pagina: pagina,
@@ -214,11 +217,13 @@ module.exports = async (req, res) => {
                 ruolo: testo(c.ruolo, 200),
                 telefono: testo(c.telefono, 60),
                 messaggio: testo(c.messaggio, 2000),
-                /* il portale sta in DUE posti: come codice sulla scheda, e come
-                   colonna "Portale" fra le aggiuntive, che l'elenco mostra gia'
-                   da se' senza toccare la lettura */
+                /* portale e partecipanti stanno in DUE posti: come campi sulla
+                   scheda, e come colonne "Portale" e "Partecipanti" fra le
+                   aggiuntive, che l'elenco mostra gia' da se' senza toccare
+                   la lettura */
                 portale: portaleId,
-                extra: { Portale: PORTALI[portaleId] },
+                partecipanti: partecipanti,
+                extra: { Portale: PORTALI[portaleId], Partecipanti: String(partecipanti) },
                 origine: 'manuale',
                 inserito: { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() },
                 ricevuto: admin.firestore.FieldValue.serverTimestamp()
