@@ -198,7 +198,8 @@ al minuto per utente.
   colonna aggiuntiva "Portale") e, facoltativa, `mail` `{ oggetto, html,
   testo }`: la conferma in formato NGB gia composta dall'area riservata
   (stesso schema della newsletter), spedita SOLO all'indirizzo dell'iscritto
-  appena registrato. L'identificativo della scheda e lo stesso del form del
+  appena registrato, con copia nascosta a chi la inserisce (salvo che stia
+  iscrivendo se stesso). L'identificativo della scheda e lo stesso del form del
   sito. Risposta: `{ ok, id, mail: { inviata, msg } }`; se la mail non parte
   l'iscrizione resta comunque registrata.
 
