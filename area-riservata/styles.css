@@ -1518,6 +1518,26 @@ summary.ni-testa::before {
 .rb-firma-linea { border-top: 1px solid #333; }
 .rb-firma-nome { font-size: 0.86rem; color: var(--grigio-900); padding-top: 5px; text-align: center; }
 
+/* esito delle importazioni (XBRL, PDF Centrale Rischi) */
+.rb-status { margin-top: 10px; border-radius: var(--raggio); border: 1px solid; padding: 10px 14px; font-size: 0.82rem; line-height: 1.5; }
+.rb-status ul { margin: 6px 0 0 18px; }
+.rb-status.ok { background: var(--verde-bg); border-color: #b5dcc4; color: #185f37; }
+.rb-status.warn { background: var(--ambra-bg); border-color: #ecd28a; color: #6d5405; }
+.rb-status.err { background: var(--rosso-bg); border-color: #e6b0ac; color: var(--rosso); }
+/* campo importato ma da verificare a mano */
+.campo input.attn { border-color: #c9971c; background: #fdfaf0; }
+
+/* elenco dei punti di verifica (soggetti, gruppo) */
+.rb-punti { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rb-punti li { font-size: 0.84rem; line-height: 1.5; color: var(--grigio-900); }
+.rb-punti .badge { margin-right: 6px; }
+
+/* righe di soci e amministratori: campi in linea con il pulsante di rimozione */
+.rb-riga-soggetto { display: grid; grid-template-columns: 2fr 1.4fr 1fr auto; gap: 12px; align-items: end; padding: 6px 0; border-bottom: 1px solid var(--grigio-100); }
+.rb-riga-soggetto .campo { margin: 0; }
+.rb-riga-soggetto .btn { margin-bottom: 4px; }
+@media (max-width: 800px) { .rb-riga-soggetto { grid-template-columns: 1fr 1fr; } }
+
 /* "screen and": un foglio A4 e piu stretto di 720px CSS al netto dei margini,
    e su carta la scala deve restare su una riga e la firma su due colonne */
 @media screen and (max-width: 720px) {
