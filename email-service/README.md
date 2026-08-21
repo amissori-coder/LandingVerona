@@ -210,9 +210,13 @@ al minuto per utente.
   segnaposto `{{COMPLETA}}` viene sostituito qui, con copia nascosta a chi
   chiede. Sulla scheda resta `datiRichiesti` (da chi e quando).
 
-## Completamento dati partecipanti (`/api/completa-iscrizione`)
+## Completamento dati partecipanti (dentro `/api/iscrizione-nuova`)
 
-Endpoint **pubblico** (lo apre l'iscritto dal collegamento nella mail), con
+Azioni `completa-leggi` e `completa-salva` della funzione `iscrizione-nuova`:
+NON e una funzione a parte, perche il piano Hobby di Vercel ammette al massimo
+**12 funzioni per deploy** e una tredicesima fa fallire l'intera pubblicazione
+(il servizio resta alla versione precedente senza che nulla lo dica). Flusso
+**pubblico** (lo apre l'iscritto dal collegamento nella mail), con
 firma HMAC dell'identificativo del documento: stesso segreto della
 disiscrizione, contesto diverso, quindi un collegamento vale per quella sola
 scheda e nessuno puo fabbricarne per le altre. Rate limit per IP.
