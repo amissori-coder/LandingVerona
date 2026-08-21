@@ -7607,13 +7607,16 @@
         { id: 'tutti', titolo: 'Tutte', quando: 'ogni evento', giorno: '', filtro: '', tutti: true }
     ];
     /* Da dove puo' arrivare un'iscrizione inserita a mano. L'etichetta finisce
-       nella colonna "Portale" dell'elenco e nella mail di conferma. */
+       nella colonna "Portale" dell'elenco e nella mail di conferma. Con "Altra
+       piattaforma" il nome lo scrive chi inserisce (LinkedIn, Meetup...): per
+       le voci fisse l'etichetta resta questa, cosi' la colonna non si riempie
+       di varianti della stessa parola. */
     const PORTALI_ISCRIZIONE = [
         { id: 'eventbrite', nome: 'Eventbrite' },
         { id: 'sito', nome: 'Sito NGB' },
         { id: 'email', nome: 'Email o segreteria' },
         { id: 'telefono', nome: 'Telefono o di persona' },
-        { id: 'altro', nome: 'Altro portale' }
+        { id: 'altro', nome: 'Altra piattaforma' }
     ];
     /* Chi puo' INSERIRE iscrizioni a mano: amministratore, titolare, e chi ha
        un RUOLO DI ACCESSO da partner, quello assegnato nella sezione Utenti:
@@ -8299,6 +8302,10 @@
             + '<div class="campo"><label for="ni-part">Numero di partecipanti</label>'
             + '<input type="number" id="ni-part" value="1" min="1" max="99" step="1"></div>'
             + '</div>'
+            // il nome della piattaforma non in elenco: compare scegliendo "Altra
+            // piattaforma" e finisce in colonna e nella mail al posto dell'etichetta
+            + '<div class="campo" id="ni-portale-altro" style="display:none;"><label for="ni-portale-nome">Quale piattaforma</label>'
+            + '<input type="text" id="ni-portale-nome" maxlength="40" placeholder="es. LinkedIn, Meetup, Camera di commercio"></div>'
             + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ni-mail" checked> '
             + 'Invia subito la mail di conferma in formato NGB</label>'
             + '<div class="hint">La riceve l\'iscritto all\'indirizzo indicato sopra, con una copia nascosta a te che la inserisci. Con "Anteprima mail" la vedi prima di salvare.</div></div>'
@@ -8315,7 +8322,13 @@
             const e = document.getElementById('ni-esito');
             if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
         };
-        const portaleScelto = () => PORTALI_ISCRIZIONE.find(p => p.id === v('ni-portale')) || PORTALI_ISCRIZIONE[0];
+        const portaleScelto = () => {
+            const p = PORTALI_ISCRIZIONE.find(x => x.id === v('ni-portale')) || PORTALI_ISCRIZIONE[0];
+            if (p.id !== 'altro') return p;
+            // "Altra piattaforma": vale il nome scritto a mano, se c'e'
+            const nome = v('ni-portale-nome').slice(0, 40);
+            return { id: p.id, nome: nome || p.nome };
+        };
         // un numero fuori misura o cancellato torna a 1: nessun salvataggio a zero posti
         const nPartecipanti = () => Math.min(99, Math.max(1, parseInt(v('ni-part'), 10) || 1));
         // data di iscrizione nello stesso formato del form del sito: entra
@@ -8336,6 +8349,11 @@
         }) : null;
 
         document.getElementById('ni-no').addEventListener('click', chiudiModale);
+        // il campo "Quale piattaforma" compare solo quando serve
+        const selPortale = document.getElementById('ni-portale');
+        selPortale.addEventListener('change', () => {
+            document.getElementById('ni-portale-altro').style.display = selPortale.value === 'altro' ? '' : 'none';
+        });
         // anteprima nella finestra stessa: si aggiorna a ogni pressione, cosi'
         // rispecchia sempre i campi come sono in quel momento
         document.getElementById('ni-ant').addEventListener('click', () => {
