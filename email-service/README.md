@@ -204,6 +204,28 @@ al minuto per utente.
   iscrivendo se stesso). L'identificativo della scheda e lo stesso del form del
   sito. Risposta: `{ ok, id, mail: { inviata, msg } }`; se la mail non parte
   l'iscrizione resta comunque registrata.
+- `azione: "richiedi-dati"`: stessi permessi di `aggiungi`. Manda
+  all'intestatario di un'iscrizione manuale la mail (gia composta, formato NGB)
+  con il collegamento personale FIRMATO verso `/completa_iscrizione/`: il
+  segnaposto `{{COMPLETA}}` viene sostituito qui, con copia nascosta a chi
+  chiede. Sulla scheda resta `datiRichiesti` (da chi e quando).
+
+## Completamento dati partecipanti (`/api/completa-iscrizione`)
+
+Endpoint **pubblico** (lo apre l'iscritto dal collegamento nella mail), con
+firma HMAC dell'identificativo del documento: stesso segreto della
+disiscrizione, contesto diverso, quindi un collegamento vale per quella sola
+scheda e nessuno puo fabbricarne per le altre. Rate limit per IP.
+
+- `azione: "leggi"`: evento, numero di posti e dati gia noti
+  dell'intestatario, per precompilare il modulo della pagina.
+- `azione: "salva"`: riceve l'elenco dei partecipanti. Il primo aggiorna la
+  scheda originale (mai l'email, che e l'identita della scheda); gli altri
+  diventano schede proprie con documenti dal nome fisso (`<id>~p2`, `~p3`...),
+  quindi rimandare il modulo sovrascrive invece di duplicare. I posti si
+  RIPARTISCONO senza cambiare il totale: la scheda originale tiene quelli non
+  ancora nominati, i figli oltre l'ultimo invio vengono tolti. Nessun doppio
+  conteggio dei partecipanti, qualunque cosa faccia chi compila.
 
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
