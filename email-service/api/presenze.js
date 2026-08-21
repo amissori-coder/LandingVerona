@@ -97,6 +97,20 @@ function emailValida(e) {
 function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
+/* Tratto "preferenze gia' indicate" dell'invito B2B: il testo fra {{SE_TEMI}}
+   e {{/SE_TEMI}} resta solo se il destinatario ha gia' dei temi, con {{TEMI}}
+   al loro posto. Specchio di conTemiB2B in newsletter-format.js. */
+function conTemi(s, temi) {
+    s = String(s == null ? '' : s);
+    const i = s.indexOf('{{SE_TEMI}}');
+    if (i < 0) return s;
+    const j = s.indexOf('{{/SE_TEMI}}');
+    if (j < 0) return s;
+    const pre = s.slice(0, i);
+    const dentro = s.slice(i + '{{SE_TEMI}}'.length, j);
+    const dopo = s.slice(j + '{{/SE_TEMI}}'.length);
+    return temi ? pre + dentro.split('{{TEMI}}').join(temi) + dopo : pre + dopo;
+}
 /* Data di iscrizione in formato italiano, fuso di Roma: la stessa regola del
    form pubblico (iscrizione-nuova), perche' la data entra nell'identificativo
    della scheda e dev'essere fatta allo stesso modo. */
@@ -423,14 +437,17 @@ module.exports = async (req, res) => {
                 visti[a] = true;
                 const nomeDest = ((String(s.nome || '') + ' ' + String(s.cognome || '')).trim()) || 'ospite';
                 const link = NL.linkB2B(docId);
+                // chi ha gia' espresso preferenze se le ritrova scritte nella mail,
+                // con l'invito a confermarle o modificarle dal modulo
+                const temiAttuali = String(s.interessi || '').split(',').map(x => x.trim()).filter(Boolean).join(', ');
                 try {
                     await trans.sendMail({
                         from: '"' + fromName + '" <' + fromEmail + '>',
                         replyTo: email,
                         to: a,
                         subject: oggettoBase,
-                        text: testoBase ? testoBase.split('{{NOME}}').join(nomeDest).split('{{B2B}}').join(link) : undefined,
-                        html: htmlBase.split('{{NOME}}').join(esc(nomeDest)).split('{{B2B}}').join(link)
+                        text: testoBase ? conTemi(testoBase, temiAttuali).split('{{NOME}}').join(nomeDest).split('{{B2B}}').join(link) : undefined,
+                        html: conTemi(htmlBase, esc(temiAttuali)).split('{{NOME}}').join(esc(nomeDest)).split('{{B2B}}').join(link)
                     });
                     inviate++;
                     await rif.set({ b2bInvito: { quando: Date.now(), da: email } }, { merge: true });

@@ -256,11 +256,18 @@ riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
   `{id, doc}`; l'area riservata manda i lotti in sequenza) e la mail gia
   composta (formato NGB) con i segnaposti `{{NOME}}` e `{{B2B}}`, sostituiti
   QUI per destinatario con nome e collegamento personale firmato verso
-  `/incontri_b2b/`. Una mail per destinatario; chi ha gia ricevuto l'invito
+  `/incontri_b2b/`; il tratto fra `{{SE_TEMI}}` e `{{/SE_TEMI}}` resta solo per
+  chi ha gia espresso preferenze, con `{{TEMI}}` sostituito dall'elenco (cosi la
+  mail le riporta e invita a confermarle o modificarle). Dal menu della riga si
+  puo invitare anche UNA SOLA persona. Una mail per destinatario; chi ha gia
+  ricevuto l'invito
   (`b2bInvito` sulla scheda) viene saltato salvo `forza: true`; i doppioni di
   indirizzo partono una volta sola. `maxDuration` 60s in vercel.json.
 - **Modulo dei temi** (`/api/iscrizione-nuova`, azioni `b2b-leggi` e
-  `b2b-salva`, pubbliche con la stessa firma della scheda): l'iscritto sceglie
+  `b2b-salva`, pubbliche con la stessa firma della scheda): le preferenze gia
+  espresse tornano come caselle spuntate, comprese le etichette storiche del
+  form del sito (alias in `ALIAS_B2B`); le voci non riconducibili ai nove temi
+  non si cancellano al salvataggio. L'iscritto sceglie
   i temi (viaggiano solo gli INDICI: le etichette le decide il servizio,
   costante `TEMI_B2B`) e racconta il progetto. Le scelte finiscono sulla sua
   scheda negli stessi campi del modulo di Napoli (`interessi`, `incontro`),
