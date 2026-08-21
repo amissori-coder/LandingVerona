@@ -7615,6 +7615,24 @@
         { id: 'telefono', nome: 'Telefono o di persona' },
         { id: 'altro', nome: 'Altro portale' }
     ];
+    /* Chi puo' INSERIRE iscrizioni a mano. Si guarda prima il RUOLO DI ACCESSO,
+       quello assegnato nella sezione Utenti: un ruolo il cui nome (o id, che ne
+       e' lo slug) dice "equity" o "founding/founder" abilita da solo. La
+       qualifica dell'anagrafica (spunta Equity o Founding partner sulla scheda
+       in Aderenti Revilaw, agganciata per email) resta valida come seconda
+       strada, per chi entra con un ruolo qualsiasi. */
+    function eRuoloPartner(idRuolo) {
+        if (!idRuolo) return false;
+        if (/equity|found/i.test(idRuolo)) return true;
+        const r = Ruoli.trova(idRuolo);
+        return !!(r && /equity|found/i.test(String(r.nome || '')));
+    }
+    function puoAggiungereIscrizioni() {
+        if (Auth.eAdmin() || Auth.eProprietario()) return true;
+        const u = Auth.utenteCorrente;
+        if (u && eRuoloPartner(u.ruolo)) return true;
+        return Auth.eEquityPartner() || Auth.eFoundingPartner();
+    }
     // filtri dei soli eventi veri: servono al riepilogo per NON pescare le iscrizioni
     // degli altri moduli del sito, che finiscono nello stesso archivio
     const FILTRI_EVENTI = EVENTI_DEF.filter(e => !e.tutti && e.filtro).map(e => e.filtro);
@@ -8007,11 +8025,11 @@
             + (ev.manuale ? '<button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button>' : '')
             + '<button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
             + '<button class="btn btn-secondary" id="ev-importa">Importa iscrizioni</button></div></div>'
-            /* Anche gli EQUITY PARTNER (qualifica dell'anagrafica, qualunque sia il
-               ruolo con cui entrano) aggiungono le iscrizioni arrivate dai portali
-               esterni: a loro compare la sola card con quel pulsante, il resto
-               della gestione resta all'amministratore. */
-            : (ev.manuale && Auth.eEquityPartner()
+            /* Anche EQUITY e FOUNDING PARTNER aggiungono le iscrizioni arrivate
+               dai portali esterni: conta il ruolo di accesso (o, in mancanza, la
+               qualifica in anagrafica). A loro compare la sola card con quel
+               pulsante, il resto della gestione resta all'amministratore. */
+            : (ev.manuale && puoAggiungereIscrizioni()
                 ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Iscrizioni da altri portali</strong>'
                 + '<div class="hint">Chi si iscrive da Eventbrite non compare da solo: la scheda si aggiunge da qui, con la mail di conferma in formato NGB.</div></div>'
                 + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button></div></div>'
@@ -8250,15 +8268,16 @@
     }
 
     /* Inserimento A MANO di un'iscrizione (amministratore, titolare e tutti gli
-       equity partner), per gli eventi che raccolgono iscrizioni anche fuori dal
-       sito: chi si iscrive da Eventbrite non passa dal nostro form, quindi la
-       sua scheda si ricopia qui.
+       equity e founding partner, riconosciuti dal ruolo di accesso: vedi
+       puoAggiungereIscrizioni), per gli eventi che raccolgono iscrizioni anche
+       fuori dal sito: chi si iscrive da Eventbrite non passa dal nostro form,
+       quindi la sua scheda si ricopia qui.
        Si indica da quale portale arriva (resta visibile nell'elenco, colonna
        "Portale") e si puo' far partire subito la mail di conferma in formato
        NGB, uguale per impostazione alla newsletter: prima di salvare c'e'
        l'anteprima, cosi' si vede esattamente cio' che ricevera' la persona. */
     function modaleNuovaIscrizione(ev) {
-        if (!(Auth.eAdmin() || Auth.eProprietario() || Auth.eEquityPartner())) return;
+        if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale) return;
         const campo = (id, et, tipo, ph) => '<div class="campo"><label for="' + id + '">' + et + '</label>'
             + '<input type="' + (tipo || 'text') + '" id="' + id + '" placeholder="' + esc(ph || '') + '"></div>';
