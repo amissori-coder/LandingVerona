@@ -7913,7 +7913,10 @@
         return e ? e.titolo + ' ' + e.quando : (pagina || '-');
     }
     function sceltaColonneHtml(ev, lista) {
-        const disp = colonneExtraDisponibili(lista);
+        let disp = colonneExtraDisponibili(lista);
+        // negli eventi con inserimento manuale, Portale e Partecipanti sono gia'
+        // colonne fisse della tabella: offrirle anche qui le farebbe raddoppiare
+        if (ev.manuale) disp = disp.filter(c => c !== 'Portale' && c !== 'Partecipanti');
         // il pannello si mostra SEMPRE: se non c'e' niente da aggiungere lo dice, invece
         // di sparire e lasciare il dubbio che la funzione non esista
         if (!disp.length) {
@@ -7930,10 +7933,21 @@
             + '</div></details>';
     }
 
+    /* Partecipanti di una riga: le iscrizioni dai form valgono 1, quelle
+       manuali portano il numero indicato all'inserimento (viaggia nella
+       colonna aggiuntiva "Partecipanti"). Mai zero. */
+    function partecipantiDi(r) {
+        const n = parseInt((r && r.extra && r.extra.Partecipanti) || '', 10);
+        return n > 0 ? Math.min(99, n) : 1;
+    }
+
     function tabellaIscrizioni(ev, lista) {
         const segna = puoSegnarePresenze() && !ev.tutti;   // nel riepilogo le presenze non servono
         const adminEv = Auth.eAdmin() || Auth.eProprietario();
-        const extra = (_evColonne[ev.id] || []).filter(c => true);
+        // negli eventi con inserimento manuale, portale e partecipanti si vedono
+        // SEMPRE: sono il modo per distinguere le iscrizioni riportate a mano
+        const fisse = !!ev.manuale;
+        const extra = (_evColonne[ev.id] || []).filter(c => !(fisse && (c === 'Portale' || c === 'Partecipanti')));
         const righe = lista.map(r => {
             const p = EventiPresenze.di(ev.id, r.id) || {};
             const opz = (v, t) => '<option value="' + v + '"' + (p.stato === v ? ' selected' : '') + '>' + t + '</option>';
@@ -7955,6 +7969,8 @@
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 + '<td data-label="Email">' + esc(r.email) + '</td>'
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
+                + (fisse ? '<td data-label="Portale">' + esc((r.extra && r.extra.Portale) || '-') + '</td>'
+                    + '<td data-label="Partecipanti">' + partecipantiDi(r) + '</td>' : '')
                 + (ev.tutti ? '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>' : '')
                 + extra.map(c => '<td data-label="' + esc(c) + '">' + esc((r.extra && r.extra[c]) || '-') + '</td>').join('')
                 + (ev.tutti ? '' : cellaStato + cellaNota
@@ -7984,6 +8000,7 @@
             + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
             + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
             + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th>'
+            + (fisse ? '<th>Portale</th><th>Partecipanti</th>' : '')
             + (ev.tutti ? '<th>Evento</th>' : '')
             + extra.map(c => '<th>' + esc(c) + '</th>').join('')
             + (ev.tutti ? '' : '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
@@ -8013,6 +8030,12 @@
            diversi, e vale uno. Sono due numeri giusti che non si possono sommare
            fra loro, e finche' questo diceva solo "iscritti" sembrava che uno dei
            due fosse sbagliato. */
+        /* Il conteggio che conta davvero per la sala e' quello delle PERSONE:
+           un'iscrizione manuale puo' coprire piu' posti (ordine Eventbrite),
+           quindi il totale somma i partecipanti riga per riga (le iscrizioni
+           dai form valgono 1). Si mostra dove le iscrizioni manuali esistono:
+           eventi con "manuale" e riepilogo. */
+        const nPart = _evIscrizioni ? _evIscrizioni.reduce((t, r) => t + partecipantiDi(r), 0) : null;
         const nIndir = _evIscrizioni
             ? new Set(_evIscrizioni.map(r => String(r.email || '').toLowerCase()).filter(Boolean)).size
             : null;
@@ -8059,6 +8082,7 @@
             + '<div class="card ev-testa"><div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
             + '<div class="hint">' + esc(ev.quando) + '</div></div>'
             + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
+            + ((ev.manuale || ev.tutti) ? '<div class="ev-num">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
             + gestione + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
