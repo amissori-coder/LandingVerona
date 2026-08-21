@@ -76,15 +76,16 @@ function idIscrizione(idIscritto) {
     return String(idIscritto).replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300) || 'senza-identificativo';
 }
 const STATI = ['', 'confermato', 'presente', 'assente'];
-/* Portali da cui puo' arrivare un'iscrizione inserita a mano. L'etichetta la
-   decide il servizio, non chi chiama: cosi' in tabella non compaiono diciture
-   inventate e la colonna "Portale" resta confrontabile. */
+/* Portali da cui puo' arrivare un'iscrizione inserita a mano. Per le voci
+   fisse l'etichetta la decide il servizio, non chi chiama: cosi' la colonna
+   "Portale" resta confrontabile. Con "altro" il nome della piattaforma lo
+   scrive chi inserisce (LinkedIn, Meetup...), ripulito e accorciato qui. */
 const PORTALI = {
     eventbrite: 'Eventbrite',
     sito: 'Sito NGB',
     email: 'Email o segreteria',
     telefono: 'Telefono o di persona',
-    altro: 'Altro portale'
+    altro: 'Altra piattaforma'
 };
 function emailValida(e) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
@@ -231,6 +232,9 @@ module.exports = async (req, res) => {
             if (!pagina) { res.status(400).json({ ok: false, msg: 'Pagina dell\'evento mancante.' }); return; }
             const portaleId = testo((body.portale || {}).id, 40).toLowerCase();
             if (!PORTALI[portaleId]) { res.status(400).json({ ok: false, msg: 'Portale di provenienza non riconosciuto.' }); return; }
+            const portaleNome = portaleId === 'altro'
+                ? (testo((body.portale || {}).nome, 40) || PORTALI.altro)
+                : PORTALI[portaleId];
             // quante persone copre l'iscrizione (da Eventbrite un ordine puo' valere
             // per piu' posti): fuori misura o mancante diventa 1, mai zero
             const partecipanti = Math.min(99, Math.max(1, parseInt(testo(c.partecipanti, 6), 10) || 1));
@@ -249,8 +253,9 @@ module.exports = async (req, res) => {
                    aggiuntive, che l'elenco mostra gia' da se' senza toccare
                    la lettura */
                 portale: portaleId,
+                portaleNome: portaleNome,
                 partecipanti: partecipanti,
-                extra: { Portale: PORTALI[portaleId], Partecipanti: String(partecipanti) },
+                extra: { Portale: portaleNome, Partecipanti: String(partecipanti) },
                 origine: 'manuale',
                 inserito: { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() },
                 ricevuto: admin.firestore.FieldValue.serverTimestamp()

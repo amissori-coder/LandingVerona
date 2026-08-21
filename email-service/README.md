@@ -193,9 +193,11 @@ al minuto per utente.
   modulo dell'evento), `campi` (nome, cognome, email, telefono, azienda,
   ruolo, partecipanti, data; `partecipanti` e il numero di posti coperti
   dall'iscrizione, 1-99, e finisce anche nella colonna aggiuntiva
-  "Partecipanti"), `portale` (`{ id }` fra `eventbrite`, `sito`, `email`,
-  `telefono`, `altro`: l'etichetta la mette il servizio e finisce nella
-  colonna aggiuntiva "Portale") e, facoltativa, `mail` `{ oggetto, html,
+  "Partecipanti"), `portale` (`{ id, nome }`: id fra `eventbrite`, `sito`,
+  `email`, `telefono`, `altro`; per le voci fisse l'etichetta la mette il
+  servizio, con `altro` vale il `nome` scritto a mano - LinkedIn, Meetup... -
+  ripulito e accorciato a 40 caratteri; finisce nella colonna aggiuntiva
+  "Portale" e nella mail) e, facoltativa, `mail` `{ oggetto, html,
   testo }`: la conferma in formato NGB gia composta dall'area riservata
   (stesso schema della newsletter), spedita SOLO all'indirizzo dell'iscritto
   appena registrato, con copia nascosta a chi la inserisce (salvo che stia
