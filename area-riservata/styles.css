@@ -243,7 +243,8 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .comm-ogg-riga { font-size: 0.82rem; color: var(--grigio-600); margin-bottom: 8px; }
 /* ---- Richieste di correzione dati ----
    L'elenco riusa le schede delle comunicazioni (.comm-item); qui ci sono solo
-   il segnale "messaggi nuovi", il riepilogo di riga e lo scambio di messaggi. */
+   il segnale "in attesa di una tua risposta", il riepilogo di riga e lo
+   scambio di messaggi. */
 .ric-item.ric-nuovo { border-left: 3px solid var(--ambra, #B45309); }
 .ric-pallino { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ambra, #B45309); margin-left: 6px; vertical-align: middle; }
 .ric-meta { display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem; color: var(--grigio-600); margin-bottom: 8px; }
@@ -328,8 +329,9 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .nav-voce:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .nav-voce.attiva { background: var(--blu-500); color: #fff; font-weight: 600; }
 .nav-voce .icona { width: 18px; height: 18px; flex-shrink: 0; }
-/* Numero delle richieste di correzione con messaggi nuovi: sta sulla voce di menu,
-   cosi una risposta arrivata mentre si lavora altrove non passa inosservata. */
+/* Numero delle richieste di correzione in attesa di una risposta di chi guarda:
+   sta sulla voce di menu, cosi una risposta arrivata mentre si lavora altrove
+   non passa inosservata. */
 .nav-conta {
     margin-left: auto; flex: 0 0 auto; min-width: 20px; padding: 1px 6px;
     background: var(--ambra, #B45309); color: #fff; border-radius: 999px;

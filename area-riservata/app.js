@@ -256,11 +256,6 @@
         ruoli: 'rvArea.ruoli',
         impostazioni: 'rvArea.impostazioni'
     };
-    /* Quali richieste di correzione ho gia' letto: e' una preferenza PERSONALE
-       (il pallino "da leggere" sul menu), non un dato condiviso. Resta in questo
-       browser e non viene mai sincronizzata. */
-    const CHIAVE_RICHIESTE_LETTE = 'rvArea.richiesteLette';
-
     /* Sezioni su cui un ruolo puo' avere: 'no' (nascosta), 'lettura' (vede ma non tocca),
        'scrittura' (piena). "Utenti", "Ruoli" e "Dati e backup" non sono qui: restano
        riservate ad amministratore e titolare, non delegabili a un ruolo su misura. */
@@ -563,42 +558,33 @@
         return (p.nomeProprio ? p.nomeProprio + ' ' : '') + (p.nome || '');
     }
 
-    /* Richieste gia' lette: {email: {idRichiesta: ts dell'ultimo messaggio visto}}.
-       Sta per utente, non per browser: sullo stesso computer possono alternarsi piu'
-       persone, e quello che ha letto una non l'ha letto l'altra. */
-    function _tutteLeLetture() {
-        try {
-            const v = JSON.parse(localStorage.getItem(CHIAVE_RICHIESTE_LETTE) || '{}');
-            return (v && typeof v === 'object') ? v : {};
-        } catch (e) { return {}; }
+    /* L'ultima parola detta su una richiesta: la segnalazione iniziale o una risposta.
+       I passaggi di stato restano nel filo ma non sono conversazione: prendere in
+       carico non e' rispondere. */
+    function ultimaParolaRichiesta(r) {
+        const m = (r && r.messaggi) || [];
+        for (let i = m.length - 1; i >= 0; i--) if (m[i].tipo !== 'stato') return m[i];
+        return null;
     }
-    function richiesteLette() {
+    /* Il pallino "in attesa di risposta": la richiesta e' ancora aperta, mi riguarda in
+       prima persona (l'ho scritta io oppure e' indirizzata a me) e l'ultima parola non
+       e' la mia. Si spegne quando rispondo e si riaccende quando risponde l'altro.
+       E' calcolato dai messaggi condivisi, non da uno stato "letto/non letto" salvato
+       nel browser: cosi' dice la stessa cosa su ogni dispositivo. */
+    function richiestaAttendeRisposta(r) {
+        if (!r || !statoRichiesta(r.stato).aperta) return false;
         const em = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
-        const mie = _tutteLeLetture()[em];
-        return (mie && typeof mie === 'object') ? mie : {};
+        if (!em) return false;
+        const scrittaDaMe = String((r.richiedente && r.richiedente.email) || '').toLowerCase() === em;
+        const perMe = String((r.destinatario && r.destinatario.email) || '').toLowerCase() === em;
+        if (!scrittaDaMe && !perMe) return false;
+        const ult = ultimaParolaRichiesta(r);
+        return !!ult && String((ult.autore && ult.autore.email) || '').toLowerCase() !== em;
     }
-    function segnaRichiestaLetta(r) {
-        if (!r || !Auth.utenteCorrente) return;
-        const em = String(Auth.utenteCorrente.email || '').toLowerCase();
-        const ult = Richieste.ultimoMessaggio(r);
-        const tutte = _tutteLeLetture();
-        const mie = (tutte[em] && typeof tutte[em] === 'object') ? tutte[em] : {};
-        mie[r.id] = (ult && ult.ts) || r.aggiornato || Date.now();
-        tutte[em] = mie;
-        try { localStorage.setItem(CHIAVE_RICHIESTE_LETTE, JSON.stringify(tutte)); } catch (e) { }
-    }
-    /* Novita' da leggere: richieste visibili con un messaggio piu' recente dell'ultima
-       apertura, scritto da qualcun altro. E' il numero sul menu di sinistra. */
-    function richiesteDaLeggere() {
+    /* Quante richieste aspettano una mia risposta: e' il numero sul menu di sinistra. */
+    function richiesteDaRispondere() {
         if (!Auth.utenteCorrente || !Auth.puoVedere('richieste')) return 0;
-        const em = String(Auth.utenteCorrente.email || '').toLowerCase();
-        const lette = richiesteLette();
-        return Richieste.visibili().filter(r => {
-            const ult = Richieste.ultimoMessaggio(r);
-            if (!ult) return false;
-            if (String((ult.autore && ult.autore.email) || '').toLowerCase() === em) return false;
-            return (ult.ts || 0) > (lette[r.id] || 0);
-        }).length;
+        return Richieste.visibili().filter(richiestaAttendeRisposta).length;
     }
 
     /* =========================================================
@@ -3422,9 +3408,10 @@
            l'utente vede almeno una delle sue voci: a chi ha i permessi per una
            sezione sola non deve comparire un'intestazione con sotto una riga. */
         let gruppoCorrente = '';
-        // richieste di correzione con messaggi nuovi: il numero sta sulla voce di menu,
-        // altrimenti una risposta arrivata mentre si lavora altrove passerebbe inosservata
-        const nuoveRichieste = richiesteDaLeggere();
+        // richieste di correzione in attesa di una mia risposta: il numero sta sulla voce
+        // di menu, altrimenti una risposta arrivata mentre si lavora altrove passerebbe
+        // inosservata
+        const nuoveRichieste = richiesteDaRispondere();
         nav.innerHTML = VOCI_NAV
             .filter(v => Auth.puoVedere(SEZIONE_DI_VISTA[v.id] || v.id))
             .map(v => {
@@ -3435,7 +3422,7 @@
                     if (g) testa = '<div class="nav-gruppo">' + esc(g) + '</div>';
                 }
                 const conta = (v.id === 'richieste' && nuoveRichieste)
-                    ? '<span class="nav-conta" title="Richieste con messaggi nuovi">' + nuoveRichieste + '</span>' : '';
+                    ? '<span class="nav-conta" title="Richieste in attesa di una tua risposta">' + nuoveRichieste + '</span>' : '';
                 return testa
                     + '<button class="nav-voce' + (g ? ' in-gruppo' : '') + (vistaCorrente === v.id ? ' attiva' : '') + '" data-vista="' + v.id + '">'
                     + '<svg class="icona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + v.icona + '"/></svg>'
@@ -12286,19 +12273,17 @@
         ];
         if (!schede.some(s => s.k === richTab)) richTab = 'aperte';
         const lista = richTab === 'aperte' ? aperte : richTab === 'chiuse' ? chiuse : base;
-        const lette = richiesteLette();
 
         const riga = r => {
             const ult = Richieste.ultimoMessaggio(r);
-            const nuovo = ult && String((ult.autore && ult.autore.email) || '').toLowerCase() !== em
-                && (ult.ts || 0) > (lette[r.id] || 0);
+            const nuovo = richiestaAttendeRisposta(r);
             const nMsg = (r.messaggi || []).length;
             const cerca = [r.oggetto, riferimentoRichiesta(r), r.regione, r.destinatario && r.destinatario.nome,
                 r.richiedente && r.richiedente.nome].filter(Boolean).join(' ').toLowerCase();
             return `<details class="comm-item ric-item${nuovo ? ' ric-nuovo' : ''}" data-stato="${esc(statoRichiesta(r.stato).nome)}" data-ambito="${esc(r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita')}" data-regione="${esc(r.regione || '')}" data-cerca="${esc(cerca)}">
                 <summary class="comm-sommario">
                     ${badgeStatoRichiesta(r.stato)}
-                    <span class="comm-nome">${esc(r.oggetto || '(senza oggetto)')}${nuovo ? '<span class="ric-pallino" title="Ci sono messaggi nuovi"></span>' : ''}</span>
+                    <span class="comm-nome">${esc(r.oggetto || '(senza oggetto)')}${nuovo ? '<span class="ric-pallino" title="In attesa di una tua risposta"></span>' : ''}</span>
                     <span class="comm-quando-inline">${esc(riferimentoRichiesta(r))}${r.regione ? ' &middot; ' + esc(r.regione) : ''}</span>
                     <span class="comm-dest-inline">a ${esc((r.destinatario && r.destinatario.nome) || '')} &middot; ${nMsg} messagg${nMsg === 1 ? 'io' : 'i'}</span>
                     <span class="comm-azioni-inline"><button class="btn btn-sm btn-secondary ric-apri" data-id="${esc(r.id)}">Apri</button></span>
@@ -12527,7 +12512,6 @@
                 [{ campo: 'Oggetto', prima: '', dopo: oggetto },
                 { campo: 'Indirizzata a', prima: '', dopo: dest.nome + ' <' + dest.email + '>' },
                 { campo: 'Regione', prima: '', dopo: regione || 'nessuna' }]);
-            segnaRichiestaLetta(r);
             const esito = await inviaMailRichiesta(r, 'nuova', testo);
             chiudiModale();
             toast(esito.ok
@@ -12542,7 +12526,6 @@
     function modaleRichiesta(id) {
         const r = Richieste.trova(id);
         if (!r) { toast('Richiesta non trovata: forse e stata rimossa.', 'rosso'); return; }
-        segnaRichiestaLetta(r);
         const io = meRichiesta();
         const lavora = puoLavorareRichiesta(r);
         const mio = sonoIlRichiedente(r);
@@ -12637,7 +12620,7 @@
             fresca.messaggi = (fresca.messaggi || []).concat([{ id: uid(), ts: Date.now(), autore: io, tipo: 'messaggio', testo: testo }]);
             fresca.aggiornato = Date.now();
             Richieste.salvaUna(fresca);
-            segnaRichiestaLetta(fresca);
+            disegnaNav();   // la mia risposta spegne subito il pallino sul menu
             Audit.registra(Auth.utenteCorrente, 'Risposta a richiesta di correzione', 'richiesta', fresca.id, riferimentoRichiesta(fresca),
                 [{ campo: 'Messaggio', prima: '', dopo: troncaTesto(testo, 200) }]);
             const esito = await inviaMailRichiesta(fresca, 'messaggio', testo);
@@ -12661,7 +12644,7 @@
         r.aggiornato = Date.now();
         r.messaggi = (r.messaggi || []).concat([{ id: uid(), ts: Date.now(), autore: io, tipo: 'stato', testo: testo, stato: stato, evento: evento }]);
         Richieste.salvaUna(r);
-        segnaRichiestaLetta(r);
+        disegnaNav();   // chiudere o riaprire la richiesta puo cambiare il conteggio sul menu
         Audit.registra(Auth.utenteCorrente, 'Stato richiesta di correzione', 'richiesta', r.id, riferimentoRichiesta(r),
             [{ campo: 'Stato', prima: '', dopo: nome }]);
         // ogni passaggio di stato - chiusura compresa - parte per email a chi ha chiesto
