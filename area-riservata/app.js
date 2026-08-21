@@ -253,6 +253,7 @@
         newsletterContatti: 'rvArea.newsletterContatti', // iscritti raccolti a mano (di persona)
         newsletterConfig: 'rvArea.newsletterConfig',     // chi e abilitato alla sezione Newsletter
         richieste: 'rvArea.richieste',             // richieste di correzione dati (con gli scambi di messaggi)
+        rating: 'rvArea.rating',                   // verifiche del merito creditizio (rating bancario)
         ruoli: 'rvArea.ruoli',
         impostazioni: 'rvArea.impostazioni'
     };
@@ -265,6 +266,7 @@
         { id: 'persone', nome: 'Aderenti Revilaw' },
         { id: 'fatturazione', nome: 'Fatturazione' },
         { id: 'report', nome: 'Report compensi' },
+        { id: 'rating', nome: 'Rating bancario' },
         { id: 'comunicazioni', nome: 'Comunicazione teams di revisione' },
         { id: 'sondaggi', nome: 'Sondaggi' },
         { id: 'registro', nome: 'Registro modifiche' }
@@ -382,6 +384,17 @@
                 const sez = { ...(lista[idx].sezioni || {}) };
                 SEZIONI_RUOLO.forEach(s => { if (sez[s.id] !== 'no' && sez[s.id] !== 'lettura' && sez[s.id] !== 'scrittura') sez[s.id] = 'lettura'; });
                 lista[idx] = { ...lista[idx], sezioni: sez, sistema: true };
+            });
+            /* I ruoli storici ad accesso pieno (qualita, procuratore) ricevono in scrittura
+               anche le sezioni nate DOPO il salvataggio del ruolo: sono i profili "accesso
+               pieno", una sezione nuova non deve nascere nascosta proprio a loro. I ruoli
+               su misura invece restano chiusi (la sezione nuova la apre l'amministratore). */
+            RUOLI_DEFAULT.filter(d => d.builtin && !d.sistema).forEach(d => {
+                const idx = lista.findIndex(r => r.id === d.id);
+                if (idx < 0) return;
+                const sez = { ...(lista[idx].sezioni || {}) };
+                SEZIONI_RUOLO.forEach(s => { if (sez[s.id] !== 'no' && sez[s.id] !== 'lettura' && sez[s.id] !== 'scrittura') sez[s.id] = d.sezioni[s.id] || 'no'; });
+                lista[idx] = { ...lista[idx], sezioni: sez };
             });
             return lista;
         },
@@ -721,6 +734,7 @@
         newsletter: 'newsletter', newsletterContatti: 'contatti della newsletter',
         newsletterConfig: 'accessi alla newsletter',
         richieste: 'richieste di correzione dati',
+        rating: 'verifiche di rating bancario',
         ruoli: 'definizione dei ruoli'
     };
     function nomeArchivio(doc) {
@@ -1339,6 +1353,7 @@
                 this.DOC_SYNC[CHIAVI.newsletterContatti] = 'newsletterContatti';
                 this.DOC_SYNC[CHIAVI.newsletterConfig] = 'newsletterConfig';
                 this.DOC_SYNC[CHIAVI.richieste] = 'richieste';
+                this.DOC_SYNC[CHIAVI.rating] = 'rating';
                 this.DOC_SYNC[CHIAVI.ruoli] = 'ruoli';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
@@ -3243,6 +3258,10 @@
            un'intestazione sola si capisce che sono due letture della stessa cosa. */
         { id: 'fatturazione', nome: 'Fatturazione', gruppo: 'Compensi', icona: 'M9 14l2 2 4-4M5 3h14a1 1 0 011 1v16l-3-2-2 2-3-2-2 2-3-2-3 2V4a1 1 0 011-1z' },
         { id: 'report', nome: 'Report compensi', gruppo: 'Compensi', icona: 'M4 20V10m6 10V4m6 16v-7m4 7H2' },
+        /* MACROAREA DEL MERITO CREDITIZIO. La versione di lavoro del simulatore
+           pubblico di rating: qui le verifiche si salvano per cliente, con
+           questionario, banche e report firmato da stampare in PDF. */
+        { id: 'rating', nome: 'Rating bancario', gruppo: 'Merito creditizio', icona: 'M3 21h18M4 18h16M6 18v-8m4 8v-8m4 8v-8m4 8v-8M2 10l10-6 10 6' },
         /* MACROAREA DELLE COMUNICAZIONI. Le tre sezioni che mandano messaggi fuori
            stavano sparse nell'elenco, con i Sondaggi in mezzo: una accanto
            all'altra, sotto un'intestazione, si capisce a colpo d'occhio che sono
@@ -3266,12 +3285,12 @@
     let statoModifica = null;        // {tipo,id,etichetta} di cio che sto modificando ora (per la presenza)
     let _modalePersonaAperta = false; // per azzerare statoModifica alla chiusura della scheda persona
     // sottopagine di un incarico: entrarci da una sezione (es. Aderenti Revilaw) fa ricordare dove tornare
-    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera'];
+    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera', 'ratingScheda', 'ratingReport'];
     let origineNav = null;           // {vista, parametri, scrollY} della sezione da cui si e entrati nel flusso
 
     // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
     // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
-    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone' };
+    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating' };
     function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
     function naviga(id, parametri, ripristinaScroll) {
@@ -3295,7 +3314,10 @@
             utenti: vistaUtenti,
             ruoli: vistaRuoli,
             dati: vistaDati,
-            lettera: vistaLettera
+            lettera: vistaLettera,
+            rating: vistaRating,
+            ratingScheda: vistaRatingScheda,
+            ratingReport: vistaRatingReport
         };
         // guardia permessi: la sezione richiesta deve essere consentita dal ruolo
         const sez = SEZIONE_DI_VISTA[id] || id;
@@ -3306,6 +3328,11 @@
         }
         // creare un incarico e' scrittura: chi ha gli incarichi in sola lettura non entra nel wizard
         if (id === 'wizard' && !Auth.puoScrivere('incarichi')) { id = 'incarichi'; parametri = null; }
+        // compilare una verifica di rating e' scrittura: in sola lettura resta il report
+        if (id === 'ratingScheda' && !Auth.puoScrivere('rating')) {
+            if (parametri && parametri.id) { id = 'ratingReport'; }
+            else { id = 'rating'; parametri = null; }
+        }
         // ricorda l'origine quando si entra in dettaglio/wizard/lettera da una sezione reale;
         // uscendo verso una sezione reale il ricordo si azzera
         const entraSotto = SOTTOVISTE.includes(id), eroSotto = SOTTOVISTE.includes(vistaCorrente);
@@ -3342,13 +3369,13 @@
        se l'utente non sta editando: altrimenti rimanda finche non ha finito (niente "salto"
        della schermata mentre si compila un campo o una finestra). */
     function ridisegnaDaSync() {
-        if (!Auth.utenteCorrente || vistaCorrente === 'wizard') return;
+        if (!Auth.utenteCorrente || vistaCorrente === 'wizard' || vistaCorrente === 'ratingScheda') return;
         if (staModificando()) {
             refreshSospeso = true;
             if (!_timerRefresh) _timerRefresh = setInterval(() => {
                 if (staModificando()) return;
                 clearInterval(_timerRefresh); _timerRefresh = null;
-                if (refreshSospeso) { refreshSospeso = false; if (Auth.utenteCorrente && vistaCorrente !== 'wizard') naviga(vistaCorrente, parametriVista); }
+                if (refreshSospeso) { refreshSospeso = false; if (Auth.utenteCorrente && vistaCorrente !== 'wizard' && vistaCorrente !== 'ratingScheda') naviga(vistaCorrente, parametriVista); }
             }, 900);
             return;
         }
@@ -3361,6 +3388,10 @@
         if (vistaCorrente === 'dettaglio' && parametriVista && parametriVista.id) {
             const inc = (typeof Incarichi !== 'undefined') ? Incarichi.trova(parametriVista.id) : null;
             return { tipo: 'incarico', id: parametriVista.id, etichetta: inc ? (inc.cliente || '') : '' };
+        }
+        if ((vistaCorrente === 'ratingScheda' || vistaCorrente === 'ratingReport') && parametriVista && parametriVista.id) {
+            const ver = (typeof Rating !== 'undefined') ? Rating.trova(parametriVista.id) : null;
+            return { tipo: 'rating', id: parametriVista.id, etichetta: ver ? (ver.cliente || '') : '' };
         }
         const v = VOCI_NAV.find(x => x.id === vistaCorrente);
         return { tipo: 'sezione', id: vistaCorrente, etichetta: v ? v.nome : vistaCorrente };
@@ -5729,6 +5760,1842 @@
     }
 
     /* =========================================================
+       RATING BANCARIO (merito creditizio)
+       ------------------------------------------------------------
+       La versione di lavoro del simulatore pubblico /rating_bancario/:
+       stessa matematica (modello MCC del Fondo di Garanzia PMI, cruscotto
+       di bancabilita, indici CNDCEC, Z-Score), ma qui le verifiche si
+       SALVANO per cliente, si completano con il questionario qualitativo,
+       con la mappa delle banche dell'impresa e con le azioni migliorative
+       collegate ai servizi Revilaw. Il risultato e un report da stampare
+       in PDF con la firma grafica del professionista, come per i mandati.
+       Fonti del motore: Specifiche tecniche del Fondo di Garanzia PMI
+       (in vigore dal 15/02/2020), documento CNDCEC 20/10/2019, Altman
+       Z'/Z'', prassi bancaria (covenant tipici, linee guida EBA).
+    ========================================================= */
+
+    // ------- Mappa settori: modello MCC, riga CNDCEC, variante Z-Score -------
+    const RB_SETTORI = {
+        manif:     { mcc: 'industria',   cndcec: 1,    z: 'Z1', label: 'Industria manifatturiera, estrattiva, energia' },
+        agri:      { mcc: 'industria',   cndcec: 0,    z: 'Z2', label: 'Agricoltura, silvicoltura e pesca' },
+        acqua:     { mcc: 'industria',   cndcec: 2,    z: 'Z2', label: 'Acqua, reti fognarie, gestione rifiuti' },
+        edif:      { mcc: 'edilizia',    cndcec: 3,    z: 'Z2', label: 'Costruzione di edifici' },
+        ingcivile: { mcc: 'edilizia',    cndcec: 4,    z: 'Z2', label: 'Ingegneria civile e costruzioni specializzate' },
+        ingrosso:  { mcc: 'commercio',   cndcec: 5,    z: 'Z2', label: 'Commercio all\'ingrosso e di autoveicoli' },
+        dettaglio: { mcc: 'commercio',   cndcec: 6,    z: 'Z2', label: 'Commercio al dettaglio' },
+        ristoro:   { mcc: 'servizi',     cndcec: 6,    z: 'Z2', label: 'Bar e ristorazione' },
+        trasporti: { mcc: 'servizi',     cndcec: 7,    z: 'Z2', label: 'Trasporto, magazzinaggio, alberghi' },
+        servimp:   { mcc: 'servizi',     cndcec: 8,    z: 'Z2', label: 'Servizi alle imprese' },
+        servpers:  { mcc: 'servizi',     cndcec: 9,    z: 'Z2', label: 'Servizi alle persone' },
+        immob:     { mcc: 'immobiliare', cndcec: null, z: 'Z2', label: 'Attivita immobiliari' }
+    };
+
+    // ------- Modello MCC: trattamenti (cap/floor/.a) e coefficienti per settore (SdC) -------
+    const RB_MCC = {
+        industria: {
+            label: 'Industria',
+            treat: {
+                V1: { cap: 1.4,  floor: 0.4,   na: 1 },
+                V2: { cap: 1,    floor: -1,    na: 0.1 },
+                V3: { cap: 0.06, floor: 0.01,  na: 0.06 },
+                V4: { cap: 0.3,  floor: 0.01,  na: 0.2 },
+                V5: { cap: 11,   floor: 1.4,   na: 11 },
+                V7: { cap: 0.64, floor: 0,     na: 0.1 },
+                V6: { pre: -0.1, cap: 0.6, floor: -0.4, na: 0.2 }
+            },
+            terms: [['V1', 1.709764], ['V2', 1.006155], ['D1', -1.380648], ['D2', 0.502537],
+                    ['V3', 21.7339], ['V4', -3.257383], ['V5', -0.035931], ['V7', -1.842869],
+                    ['V6', 0.874921], ['D3', -1.318575], ['D4', 0.925375], ['D5', -0.672704],
+                    ['D6', -11.51058], ['D7', 1.934049]],
+            c: -4.584023
+        },
+        edilizia: {
+            label: 'Edilizia',
+            treat: {
+                V2:  { cap: 1,    floor: -1, na: 1 },
+                V3:  { cap: 0.03, floor: 0,  na: 0.01 },
+                V7:  { cap: 2,    floor: 0,  na: 0.03 },
+                V9:  { cap: 1,    floor: 0,  na: 1 },
+                V10: { cap: 1,    floor: 0,  na: 0.8 },
+                V11: { cap: 0.07, floor: 0,  na: 0.05 },
+                V12: { cap: 8,    floor: 0,  na: 3 },
+                V13: { pre: -0.1, cap: 1.6, floor: -0.6, na: 0.2 }
+            },
+            terms: [['V2', 0.37765], ['D1', -0.779867], ['V3', 34.64145], ['V7', -1.882866],
+                    ['V9', 1.314629], ['V10', 0.448655], ['V11', -5.638927], ['V12', -0.05176],
+                    ['V13', 0.329288], ['D8', -0.998434], ['D4', 0.48568], ['D9', -0.655727]],
+            c: -4.258458
+        },
+        commercio: {
+            label: 'Commercio',
+            treat: {
+                V14: { cap: 0.3,  floor: 0,    na: 0.2 },
+                V7:  { cap: 1.6,  floor: 0,    na: 0.04 },
+                V2:  { cap: 1,    floor: -1,   na: 1 },
+                V3:  { cap: 0.08, floor: 0,    na: 0.06 },
+                V4:  { cap: 0.1,  floor: 0.01, na: 0.02 },
+                V15: { cap: 2,    floor: 0,    na: 2 },
+                V16: { cap: 1.7,  floor: 0.5,  na: 0.9 },
+                V6:  { pre: -0.06, cap: 0.54, floor: -0.36, na: 0.24 }
+            },
+            terms: [['V14', -1.68061], ['V7', -2.86327], ['V2', 0.73753], ['D1', -1.3164],
+                    ['V3', 16.97147], ['V4', -3.97341], ['V15', -0.33307], ['V16', -0.85672],
+                    ['V6', 1.446892], ['D3', -2.98436], ['D10', 1.368938], ['D11', 0.207691],
+                    ['D6', -8.28285]],
+            c: -1.88977
+        },
+        immobiliare: {
+            label: 'Immobiliare',
+            treat: {
+                V7:  { cap: 1,    floor: 0,    na: 0.1 },
+                V3:  { cap: 0.06, floor: 0,    na: 0.01 },
+                V2:  { cap: 1,    floor: -0.8, na: 0.8 },
+                V21: { cap: 10,   floor: 0.3,  na: 1.5 }
+            },
+            terms: [['V7', -2.721187], ['V3', 14.0119], ['V2', 0.8130648], ['D1', -1.401464],
+                    ['V21', -0.1391083], ['D4', -0.5688427], ['D10', 1.765224]],
+            c: -2.569235
+        },
+        servizi: {
+            label: 'Servizi',
+            treat: {
+                V1:  { cap: 2.5,  floor: 0.2,  na: 2 },
+                V2:  { cap: 1,    floor: -1,   na: 0.4 },
+                V18: { cap: 0.04, floor: 0,    na: 0.04 },
+                V19: { cap: 20,   floor: -2,   na: 10 },
+                V4:  { cap: 0.16, floor: 0.01, na: 0.02 },
+                V6:  { pre: -0.06, cap: 0.84, floor: -0.36, na: 0.14 },
+                V10: { cap: 1,    floor: 0,    na: 0.8 }
+            },
+            terms: [['V1', 0.427293], ['V2A', 0.400514], ['V18', 29.88155], ['V19', 0.031407],
+                    ['D12', 0.542214], ['V4', -7.428313], ['V6', 0.668981], ['D3', -1.558519],
+                    ['V10', 0.82794], ['D5', -0.245774], ['D7', 5.362561]],
+            c: -4.689249
+        }
+    };
+
+    // Soglie di classe sullo score xb (Tabella 30 delle Specifiche tecniche)
+    const RB_F_SOGLIE = [-4.706674576, -4.433824062, -4.254777908, -3.888909817, -3.467784882,
+                         -3.213093996, -2.884413958, -2.619804621, -2.19819808, -1.532480597];
+
+    // Matrice di integrazione per le societa di capitali (righe = classe F del
+    // modulo economico-finanziario, colonne = classe andamentale A1-A11)
+    const RB_MATRIX_SDC = [
+        [1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 6],
+        [1, 2, 2, 2, 2, 3, 3, 4, 5, 6, 7],
+        [1, 2, 3, 3, 3, 3, 4, 5, 5, 6, 8],
+        [1, 2, 3, 4, 4, 5, 5, 6, 6, 7, 9],
+        [2, 2, 3, 4, 5, 5, 5, 6, 7, 8, 10],
+        [3, 3, 3, 4, 5, 6, 6, 6, 8, 9, 11],
+        [3, 3, 3, 4, 5, 6, 7, 7, 8, 10, 11],
+        [4, 4, 4, 5, 6, 7, 7, 8, 9, 10, 12],
+        [5, 5, 5, 5, 7, 8, 8, 9, 9, 11, 12],
+        [7, 7, 7, 7, 8, 9, 10, 10, 11, 11, 12],
+        [9, 9, 9, 9, 10, 11, 11, 12, 12, 12, 12]
+    ];
+
+    // Scala finale: classe integrata, fascia, PD empirica (Tabella 57)
+    const RB_CLASSI = {
+        1:  { fascia: 1, pd: 0.12 },  2:  { fascia: 2, pd: 0.33 },  3:  { fascia: 2, pd: 0.67 },
+        4:  { fascia: 2, pd: 1.02 },  5:  { fascia: 3, pd: 1.61 },  6:  { fascia: 3, pd: 2.87 },
+        7:  { fascia: 3, pd: 3.62 },  8:  { fascia: 4, pd: 5.18 },  9:  { fascia: 4, pd: 8.45 },
+        10: { fascia: 4, pd: 9.43 },  11: { fascia: 5, pd: 16.30 }, 12: { fascia: 5, pd: 22.98 }
+    };
+
+    const RB_V_LABELS = {
+        V1:  'Debiti a breve / Fatturato',
+        V2:  'Oneri finanziari / MOL',
+        V2A: 'Oneri finanziari / MOL (corretto)',
+        V3:  'Oneri finanziari / Totale debiti',
+        V4:  'Liquidita / Fatturato',
+        V5:  'Fatturato / Rimanenze',
+        V6:  'Variazione % del fatturato',
+        V7:  'Autonomia finanziaria',
+        V9:  'Totale debiti / Valore della produzione',
+        V10: 'Incidenza del passivo corrente',
+        V11: 'Risultato netto / Valore della produzione',
+        V12: 'Copertura immobilizzazioni con PN',
+        V13: 'Variazione % del valore della produzione',
+        V14: 'MOL / (Oneri finanziari + Totale debiti)',
+        V15: 'Liquidita primaria (quick ratio)',
+        V16: 'Turnover (Fatturato / Totale attivo)',
+        V18: 'Oneri finanziari / Valore della produzione',
+        V19: 'Totale debiti / Patrimonio netto',
+        V21: 'Valore produzione / Attivo circolante',
+        D1:  'Correttivo per MOL negativo',
+        D2:  'Indicatore di MOL negativo',
+        D3:  'Correttivo per fatturato in calo',
+        D4:  'Fatturato fino a 500.000 euro',
+        D5:  'Interazione dimensione: debiti a breve',
+        D6:  'Interazione dimensione: costo del debito',
+        D7:  'Interazione dimensione: liquidita',
+        D8:  'Correttivo per produzione in calo',
+        D9:  'Interazione dimensione: indebitamento',
+        D10: 'Interazione dimensione: autonomia',
+        D11: 'Interazione dimensione: turnover',
+        D12: 'Patrimonio netto negativo'
+    };
+
+    // ------- Indici CNDCEC: soglie ufficiali per settore (documento 20/10/2019) -------
+    const RB_CNDCEC = [
+        { label: 'Agricoltura, silvicoltura e pesca',                    of: 2.8, pn: 9.4, liq: 92.1,  cf: 0.3, trib: 5.6 },
+        { label: 'Estrattiva, manifattura, produzione di energia',      of: 3.0, pn: 7.6, liq: 93.7,  cf: 0.5, trib: 4.9 },
+        { label: 'Acqua, reti fognarie, rifiuti',                        of: 2.6, pn: 6.7, liq: 84.2,  cf: 1.9, trib: 6.5 },
+        { label: 'Costruzione di edifici',                               of: 3.8, pn: 4.9, liq: 108.0, cf: 0.4, trib: 3.8 },
+        { label: 'Ingegneria civile e costruzioni specializzate',        of: 2.8, pn: 5.3, liq: 101.1, cf: 1.4, trib: 5.3 },
+        { label: 'Commercio all\'ingrosso e di autoveicoli',             of: 2.1, pn: 6.3, liq: 101.4, cf: 0.6, trib: 2.9 },
+        { label: 'Commercio al dettaglio, bar e ristoranti',             of: 1.5, pn: 4.2, liq: 89.8,  cf: 1.0, trib: 7.8 },
+        { label: 'Trasporto, magazzinaggio, alberghi',                   of: 1.5, pn: 4.1, liq: 86.0,  cf: 1.4, trib: 10.2 },
+        { label: 'Servizi alle imprese',                                 of: 1.8, pn: 5.2, liq: 95.4,  cf: 1.7, trib: 11.9 },
+        { label: 'Servizi alle persone',                                 of: 2.7, pn: 2.3, liq: 69.8,  cf: 0.5, trib: 14.6 }
+    ];
+
+    /* I campi del bilancio della verifica: id, etichetta, gruppo di appartenenza,
+       obbligatorio si/no. Stessi nomi e stesso significato del simulatore pubblico. */
+    const RB_CAMPI_BILANCIO = [
+        { id: 'ricavi',       et: 'Ricavi delle vendite (A.1)',                gr: 'ce', req: true },
+        { id: 'ricaviPrec',   et: 'Ricavi esercizio precedente',               gr: 'ce', req: true },
+        { id: 'vdp',          et: 'Valore della produzione (A)',               gr: 'ce', req: false, hint: 'vuoto = ricavi' },
+        { id: 'vdpPrec',      et: 'Valore produzione precedente',              gr: 'ce', req: false },
+        { id: 'mol',          et: 'MOL / EBITDA',                              gr: 'ce', req: true },
+        { id: 'ebit',         et: 'Risultato operativo (A-B)',                 gr: 'ce', req: true },
+        { id: 'ammort',       et: 'Ammortamenti e svalutazioni',               gr: 'ce', req: true },
+        { id: 'oneriFin',     et: 'Oneri finanziari (C.17)',                   gr: 'ce', req: true },
+        { id: 'imposte',      et: 'Imposte dell\'esercizio',                   gr: 'ce', req: true },
+        { id: 'utile',        et: 'Utile o perdita dell\'esercizio',           gr: 'ce', req: true, neg: true },
+        { id: 'immob',        et: 'Immobilizzazioni (B)',                      gr: 'att', req: true },
+        { id: 'rimanenze',    et: 'Rimanenze (C.I)',                           gr: 'att', req: true },
+        { id: 'creditiEntro', et: 'Crediti entro 12 mesi',                     gr: 'att', req: true },
+        { id: 'creditiOltre', et: 'Crediti oltre 12 mesi',                     gr: 'att', req: false },
+        { id: 'attFin',       et: 'Attivita finanziarie (C.III)',              gr: 'att', req: false },
+        { id: 'liquidita',    et: 'Disponibilita liquide (C.IV)',              gr: 'att', req: true },
+        { id: 'rateiAttivi',  et: 'Ratei e risconti attivi (D)',               gr: 'att', req: false },
+        { id: 'creditiSoci',  et: 'Crediti verso soci (A)',                    gr: 'att', req: false },
+        { id: 'pn',           et: 'Patrimonio netto (A)',                      gr: 'pas', req: true, neg: true },
+        { id: 'riserveUtili', et: 'Riserve di utili',                          gr: 'pas', req: false, hint: 'per lo Z-Score' },
+        { id: 'fondi',        et: 'Fondi per rischi e oneri (B)',              gr: 'pas', req: false },
+        { id: 'tfr',          et: 'TFR (C)',                                   gr: 'pas', req: false },
+        { id: 'debitiEntro',  et: 'Debiti entro 12 mesi (D)',                  gr: 'pas', req: true },
+        { id: 'debitiOltre',  et: 'Debiti oltre 12 mesi (D)',                  gr: 'pas', req: true },
+        { id: 'rateiPassivi', et: 'Ratei e risconti passivi (E)',              gr: 'pas', req: false },
+        { id: 'debTribPrev',  et: 'Debiti tributari e previdenziali (D.12+13)', gr: 'pas', req: true },
+        { id: 'debFinBreve',  et: 'Debiti finanziari a breve',                 gr: 'fin', req: true, hint: 'banche entro 12 mesi' },
+        { id: 'debFinLungo',  et: 'Debiti finanziari a medio-lungo',           gr: 'fin', req: true },
+        { id: 'quotaCapitale', et: 'Quota capitale in scadenza (12 mesi)',     gr: 'fin', req: false, hint: 'serve per il DSCR' }
+    ];
+    const RB_GRUPPI_BILANCIO = { ce: 'Conto economico', att: 'Attivo', pas: 'Passivo', fin: 'Debito finanziario' };
+
+    // formattatori locali del modulo (il resto dell'app ragiona in euro interi)
+    const rbFmt2 = new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    function rbPct(n, dec) {
+        return new Intl.NumberFormat('it-IT', { minimumFractionDigits: dec, maximumFractionDigits: dec }).format(n) + '%';
+    }
+    // numero dal campo (formato italiano); vuoto = null, non 0: la differenza conta.
+    // Un valore GIA numerico (record salvato) passa cosi com'e: riparsarlo come testo
+    // scambierebbe il punto decimale per un separatore di migliaia.
+    function rbNum(s) {
+        if (s === null || s === undefined) return null;
+        if (typeof s === 'number') return isFinite(s) ? s : null;
+        let t = String(s).trim();
+        if (t === '') return null;
+        t = t.replace(/\s/g, '').replace(/€/g, '').replace(/\./g, '').replace(/,/g, '.');
+        const n = parseFloat(t);
+        return isNaN(n) ? null : n;
+    }
+    function rbFmtNum(n) { return (n === null || n === undefined) ? '' : numFmt.format(n); }
+
+    // ------- Aggregati di bilancio (schema del simulatore pubblico) -------
+    function rbBuildX(v) {
+        const x = {};
+        x.SP01 = v.creditiSoci || 0;
+        x.SP05 = v.immob || 0;
+        x.SP06 = v.rimanenze || 0;
+        x.SP07 = v.creditiEntro || 0;
+        x.SP08 = v.creditiOltre || 0;
+        x.SP09 = x.SP07 + x.SP08;
+        x.SP10 = v.attFin || 0;
+        x.SP11 = v.liquidita || 0;
+        x.SP12 = x.SP06 + x.SP09 + x.SP10 + x.SP11;
+        x.SP13 = v.rateiAttivi || 0;
+        x.SP14 = x.SP01 + x.SP05 + x.SP12 + x.SP13;
+        x.SP15 = v.pn || 0;
+        x.SP17 = v.fondi || 0;
+        x.SP18 = v.tfr || 0;
+        x.SP19 = v.debitiEntro || 0;
+        x.SP20 = v.debitiOltre || 0;
+        x.SP21 = x.SP19 + x.SP20;
+        x.SP22 = v.rateiPassivi || 0;
+        x.SP23 = x.SP15 + x.SP17 + x.SP18 + x.SP21 + x.SP22;
+        x.CE01 = v.ricavi || 0;
+        x.CE01p = v.ricaviPrec || 0;
+        x.CE06 = (v.vdp !== null && v.vdp !== undefined) ? v.vdp : x.CE01;
+        x.CE06p = (v.vdpPrec !== null && v.vdpPrec !== undefined) ? v.vdpPrec : x.CE01p;
+        x.CE19 = v.oneriFin || 0;
+        x.CE25 = v.utile || 0;
+        x.MOL = v.mol || 0;
+        x.EBIT = v.ebit || 0;
+        x.IMPOSTE = v.imposte || 0;
+        x.AMMORT = v.ammort || 0;
+        x.RISERVE = v.riserveUtili || 0;
+        x.DEBTRIB = v.debTribPrev || 0;
+        x.DEBFINB = v.debFinBreve || 0;
+        x.DEBFINL = v.debFinLungo || 0;
+        x.QUOTACAP = (v.quotaCapitale === undefined) ? null : v.quotaCapitale; // null se non indicata
+        x.PFN = x.DEBFINB + x.DEBFINL - x.SP11 - x.SP10;
+        x.ATT_BREVE = x.SP06 + x.SP07 + x.SP10 + x.SP11 + x.SP13;
+        x.PASS_BREVE = x.SP19 + x.SP22;
+        return x;
+    }
+
+    // ------- Motore MCC (identico al simulatore pubblico) -------
+    function rbComputeMcc(secKey, x, cr) {
+        const m = RB_MCC[secKey];
+        const raw = {}, isNa = {};
+        function set(k, num, den) {
+            if (den === 0) { raw[k] = null; isNa[k] = true; }
+            else { raw[k] = num / den; isNa[k] = false; }
+        }
+        set('V1', x.SP19, x.CE01);
+        set('V2', x.CE19, x.MOL);
+        set('V3', x.CE19, x.SP21);
+        set('V4', x.SP11, x.CE01);
+        set('V5', x.CE01, x.SP06);
+        set('V6', x.CE01 - x.CE01p, x.CE01p);
+        set('V7', x.SP15 - x.SP01, x.SP23 - x.SP01);
+        set('V9', x.SP21, x.CE06);
+        set('V10', x.SP19 + x.SP22, x.SP23 - x.SP01);
+        set('V11', x.CE25, x.CE06);
+        set('V12', x.SP15 - x.SP01, x.SP05 + x.SP08);
+        set('V13', x.CE06 - x.CE06p, x.CE06p);
+        set('V14', x.MOL, x.CE19 + x.SP21);
+        set('V15', x.SP11 + x.SP07 + x.SP10, x.SP19 + x.SP22);
+        set('V16', x.CE01, x.SP14 - x.SP01);
+        set('V18', x.CE19, x.CE06);
+        set('V19', x.SP21, x.SP15 - x.SP01);
+        set('V21', x.CE06, x.SP12);
+
+        // pre-trattamento, cap e floor; se denominatore nullo si usa il valore ".a"
+        const star = {};
+        for (const k in m.treat) {
+            const t = m.treat[k];
+            if (isNa[k] || raw[k] === null || !isFinite(raw[k])) star[k] = t.na;
+            else {
+                const val = raw[k] + (t.pre || 0);
+                star[k] = Math.min(t.cap, Math.max(t.floor, val));
+            }
+        }
+
+        const molNeg = x.MOL < 0;
+        const d4 = x.CE01 <= 500000 ? 1 : 0;
+        const pool = {};
+        for (const s in star) pool[s] = star[s];
+        pool.D1 = molNeg ? (star.V2 !== undefined ? star.V2 : 0) : 0;
+        pool.D2 = molNeg ? 1 : 0;
+        pool.D3 = (star.V6 !== undefined && star.V6 < 0) ? star.V6 : 0;
+        pool.D4 = d4;
+        pool.D5 = (star.V1 !== undefined ? star.V1 : 0) * d4;
+        pool.D6 = (star.V3 !== undefined ? star.V3 : 0) * d4;
+        pool.D7 = (star.V4 !== undefined ? star.V4 : 0) * d4;
+        pool.D8 = (star.V13 !== undefined && star.V13 < 0) ? star.V13 : 0;
+        pool.D9 = (star.V9 !== undefined ? star.V9 : 0) * d4;
+        pool.D10 = (star.V7 !== undefined ? star.V7 : 0) * d4;
+        pool.D11 = (star.V16 !== undefined ? star.V16 : 0) * d4;
+        pool.D12 = (x.SP15 - x.SP01) < 0 ? 1 : 0;
+        pool.V2A = (molNeg && (star.V2 !== undefined ? star.V2 : 0) < 0) ? 1 : (star.V2 !== undefined ? star.V2 : 0);
+
+        let xb = m.c;
+        const rows = [];
+        for (let i = 0; i < m.terms.length; i++) {
+            const name = m.terms[i][0], coef = m.terms[i][1];
+            const val = pool[name] !== undefined ? pool[name] : 0;
+            const contrib = val * coef;
+            xb += contrib;
+            rows.push({ name, label: RB_V_LABELS[name] || name, raw: (name in raw) ? raw[name] : null,
+                        treated: val, na: !!isNa[name], coef, contrib });
+        }
+
+        let fClass = 11;
+        for (let j = 0; j < RB_F_SOGLIE.length; j++) {
+            if (xb <= RB_F_SOGLIE[j]) { fClass = j + 1; break; }
+        }
+
+        // integrazione con il modulo andamentale: con la Centrale Rischi si usa la
+        // matrice completa del Fondo, altrimenti F11 diventa 12 e il resto e uguale
+        let aClasse = null, integrata;
+        if (cr && cr.active) {
+            aClasse = cr.classe;
+            integrata = RB_MATRIX_SDC[fClass - 1][aClasse - 1];
+        } else {
+            integrata = fClass === 11 ? 12 : fClass;
+        }
+        const sofferenze = !!(cr && cr.sofferenze);
+
+        return {
+            xb, fClass, aClasse, cr: cr && cr.active ? cr : null, sofferenze, integrata,
+            fascia: RB_CLASSI[integrata].fascia, pd: RB_CLASSI[integrata].pd,
+            ammissibile: integrata <= 10 && !sofferenze,
+            rows, costante: m.c, settoreLabel: m.label
+        };
+    }
+
+    // ------- Cruscotto di bancabilita (identico al simulatore pubblico) -------
+    function rbComputeBank(x) {
+        const cards = [];
+        let dscr = null;
+        if (x.QUOTACAP !== null && x.QUOTACAP !== undefined && (x.QUOTACAP + x.CE19) > 0) {
+            dscr = (x.MOL - x.IMPOSTE) / (x.QUOTACAP + x.CE19);
+        }
+        cards.push({
+            name: 'DSCR (12 mesi, semplificato)',
+            value: dscr === null ? 'n.d.' : rbFmt2.format(dscr),
+            level: dscr === null ? 'neutro' : (dscr < 1 ? 'rosso' : (dscr < 1.2 ? 'giallo' : 'verde')),
+            badge: dscr === null ? 'Non calcolato' : (dscr < 1 ? 'Insufficiente' : (dscr < 1.2 ? 'Al limite' : 'Adeguato')),
+            ref: dscr === null
+                ? 'Indica la quota capitale in scadenza per calcolarlo: (EBITDA meno imposte) su (quota capitale piu interessi).'
+                : 'Sotto 1 i flussi non coprono il servizio del debito; le banche chiedono di norma almeno 1,1-1,2.'
+        });
+
+        let pfnEbitda = null, pfnLvl, pfnBadge, pfnRef;
+        if (x.PFN <= 0) {
+            pfnBadge = 'Cassa netta'; pfnLvl = 'verde';
+            pfnRef = 'La liquidita supera i debiti finanziari: posizione finanziaria netta positiva.';
+        } else if (x.MOL <= 0) {
+            pfnBadge = 'Non sostenibile'; pfnLvl = 'rosso';
+            pfnRef = 'Con EBITDA nullo o negativo il debito finanziario non e ripagabile con i flussi della gestione.';
+        } else {
+            pfnEbitda = x.PFN / x.MOL;
+            pfnLvl = pfnEbitda < 3 ? 'verde' : (pfnEbitda < 4 ? 'giallo' : (pfnEbitda < 6 ? 'arancio' : 'rosso'));
+            pfnBadge = pfnEbitda < 2 ? 'Ottimo' : (pfnEbitda < 3 ? 'Buono' : (pfnEbitda < 4 ? 'Attenzione' : (pfnEbitda < 6 ? 'Critico' : 'Leva estrema')));
+            pfnRef = 'Prassi: fino a 3 buono, 3-4 sorveglianza, oltre 4 critico; oltre 6 leva eccezionale per la vigilanza europea.';
+        }
+        cards.push({ name: 'PFN / EBITDA', value: pfnEbitda === null ? (x.PFN <= 0 ? 'negativa' : 'n.s.') : rbFmt2.format(pfnEbitda) + 'x',
+                     level: pfnLvl, badge: pfnBadge, ref: pfnRef });
+
+        let pfnPn = null, lvl3 = 'neutro', b3 = '', r3 = 'Prassi: fino a 1,5 equilibrato, oltre 3 squilibrio strutturale tra debito e mezzi propri.';
+        if (x.SP15 <= 0) { b3 = 'PN non positivo'; lvl3 = 'rosso'; r3 = 'Con patrimonio netto nullo o negativo il rapporto non e significativo: priorita alla ricapitalizzazione.'; }
+        else if (x.PFN <= 0) { b3 = 'Cassa netta'; lvl3 = 'verde'; pfnPn = x.PFN / x.SP15; }
+        else {
+            pfnPn = x.PFN / x.SP15;
+            lvl3 = pfnPn <= 1.5 ? 'verde' : (pfnPn <= 3 ? 'giallo' : 'rosso');
+            b3 = pfnPn <= 1.5 ? 'Equilibrato' : (pfnPn <= 3 ? 'Attenzione' : 'Squilibrato');
+        }
+        cards.push({ name: 'PFN / Patrimonio netto', value: pfnPn === null ? 'n.s.' : rbFmt2.format(pfnPn) + 'x', level: lvl3, badge: b3, ref: r3 });
+
+        const ofRic = x.CE01 > 0 ? x.CE19 / x.CE01 * 100 : null;
+        cards.push({
+            name: 'Oneri finanziari / Ricavi',
+            value: ofRic === null ? 'n.d.' : rbPct(ofRic, 2),
+            level: ofRic === null ? 'neutro' : (ofRic <= 3 ? 'verde' : (ofRic <= 5 ? 'giallo' : 'rosso')),
+            badge: ofRic === null ? 'Non calcolabile' : (ofRic <= 3 ? 'Fisiologico' : (ofRic <= 5 ? 'Attenzione' : 'Eccessivo')),
+            ref: 'Prassi: fino al 3% fisiologico, oltre il 5% segnale di squilibrio del costo del debito.'
+        });
+
+        let cover = null, lvl5 = 'neutro', b5 = '', r5 = 'Prassi: oltre 4 solido, tra 2 e 4 da monitorare, sotto 2 fragile.';
+        if (x.CE19 <= 0) { b5 = 'Nessun onere'; lvl5 = 'verde'; r5 = 'In assenza di oneri finanziari la copertura degli interessi non e un vincolo.'; }
+        else {
+            cover = x.MOL / x.CE19;
+            lvl5 = cover > 4 ? 'verde' : (cover >= 2 ? 'giallo' : 'rosso');
+            b5 = cover > 4 ? 'Solida' : (cover >= 2 ? 'Da monitorare' : 'Fragile');
+        }
+        cards.push({ name: 'Copertura interessi (EBITDA / OF)', value: cover === null ? 'n.s.' : rbFmt2.format(cover) + 'x', level: lvl5, badge: b5, ref: r5 });
+
+        const eq = x.SP14 > 0 ? x.SP15 / x.SP14 * 100 : null;
+        cards.push({
+            name: 'Patrimonio netto / Totale attivo',
+            value: eq === null ? 'n.d.' : rbPct(eq, 1),
+            level: eq === null ? 'neutro' : (eq > 35 ? 'verde' : (eq >= 20 ? 'giallo' : 'rosso')),
+            badge: eq === null ? 'Non calcolabile' : (eq > 35 ? 'Solido' : (eq >= 20 ? 'Nella media' : 'Sottocapitalizzata')),
+            ref: 'Prassi: oltre il 35% solido, tra il 20% e il 35% nella media, sotto il 20% sottocapitalizzazione.'
+        });
+
+        return { cards, dscr };
+    }
+
+    // ------- Indici CNDCEC (identici al simulatore pubblico) -------
+    function rbComputeCndcec(x, rowIdx, dscr) {
+        const res = { rows: [], pnNeg: (x.SP15 - x.SP01) < 0, dscrAlert: dscr !== null && dscr < 1, row: null };
+        if (rowIdx === null || rowIdx === undefined) return res;
+        const s = RB_CNDCEC[rowIdx];
+        res.row = s;
+        function idx(label, num, den, soglia, dir, denZeroOn) {
+            let val = null, on = false;
+            if (den === 0) { on = denZeroOn(num); }
+            else {
+                val = num / den * 100;
+                on = dir === 'ge' ? (val >= soglia) : (val <= soglia);
+            }
+            res.rows.push({ label, val, soglia, dir, on });
+        }
+        idx('Oneri finanziari / Ricavi', x.CE19, x.CE01, s.of, 'ge', n => n > 0);
+        idx('Patrimonio netto / Debiti totali', x.SP15 - x.SP01, x.SP21 + x.SP22, s.pn, 'le', n => n <= 0);
+        idx('Attivita a breve / Passivita a breve', x.ATT_BREVE, x.PASS_BREVE, s.liq, 'le', n => n <= 0);
+        idx('Cash flow / Totale attivo', x.CE25 + x.AMMORT, x.SP14, s.cf, 'le', n => n <= 0);
+        idx('Debiti previdenziali e tributari / Attivo', x.DEBTRIB, x.SP14, s.trib, 'ge', n => n > 0);
+        res.tuttiAccesi = res.rows.every(r => r.on);
+        return res;
+    }
+
+    // ------- Z-Score (identico al simulatore pubblico) -------
+    function rbComputeZ(x, model) {
+        const debTerzi = x.SP17 + x.SP18 + x.SP21 + x.SP22;
+        const x1 = x.SP14 > 0 ? (x.ATT_BREVE - x.PASS_BREVE) / x.SP14 : 0;
+        const x2 = x.SP14 > 0 ? x.RISERVE / x.SP14 : 0;
+        const x3 = x.SP14 > 0 ? x.EBIT / x.SP14 : 0;
+        const x4 = debTerzi > 0 ? x.SP15 / debTerzi : 0;
+        const x5 = x.SP14 > 0 ? x.CE01 / x.SP14 : 0;
+        if (model === 'Z1') {
+            return { model: 'Z1', label: "Z'-Score (imprese manifatturiere non quotate)",
+                     value: 0.717 * x1 + 0.847 * x2 + 3.107 * x3 + 0.420 * x4 + 0.998 * x5,
+                     lo: 1.23, hi: 2.90 };
+        }
+        return { model: 'Z2', label: "Z''-Score (imprese non manifatturiere)",
+                 value: 6.56 * x1 + 3.26 * x2 + 6.72 * x3 + 1.05 * x4,
+                 lo: 1.10, hi: 2.60 };
+    }
+    function rbZonaZ(z) { return z.value < z.lo ? 'rischio' : (z.value <= z.hi ? 'incertezza' : 'sicurezza'); }
+
+    /* Modulo andamentale dalla Centrale dei Rischi salvata nella verifica
+       (Specifiche tecniche del Fondo, par. 4.2): ultimi 6 mesi di accordato e
+       utilizzato per cassa e rischi a scadenza; le sofferenze precludono la garanzia. */
+    function rbComputeCr(cr) {
+        if (!cr || !cr.attiva) return { active: false, sofferenze: !!(cr && cr.sofferenze) };
+        const righe = [];
+        let any = false;
+        for (let m = 0; m < 6; m++) {
+            const r = (cr.righe && cr.righe[m]) || {};
+            const at = rbNum(r.at), ut = rbNum(r.ut), as = rbNum(r.as), us = rbNum(r.us);
+            if (at !== null || ut !== null || as !== null || us !== null) any = true;
+            righe.push({ m: m + 1, at: at || 0, ut: ut || 0, as: as || 0, us: us || 0 });
+        }
+        const soff = !!cr.sofferenze;
+        if (!any) return { active: false, emptyToggle: true, sofferenze: soff };
+
+        // controllo di qualita: i rischi a scadenza non possono superare i totali per cassa
+        const badMonths = [];
+        righe.forEach(r => { if (r.as > r.at || r.us > r.ut) badMonths.push(r.m); });
+        if (badMonths.length) return { active: false, badMonths, sofferenze: soff };
+
+        let sumUtiAR = 0, sumAccAR = 0, c2 = 0, c3 = 0, c4 = 0;
+        righe.forEach(r => {
+            sumUtiAR += r.ut - r.us;
+            sumAccAR += r.at - r.as;
+            if (r.ut > r.at) c2++;              // mesi con sconfino di cassa
+            if (r.us > r.as) c3++;              // mesi con sconfino su rischi a scadenza
+            if (r.at === 0 && r.ut === 0) c4++; // mesi senza rapporti censiti
+        });
+        let c1s;
+        if (sumAccAR === 0) c1s = sumUtiAR > 0 ? 1 : 0;  // valori .a / .b delle Specifiche
+        else c1s = Math.min(1.2, Math.max(0, sumUtiAR / sumAccAR));
+        const dc1 = c4 >= 4 ? c1s : 0;
+        const dc3 = c3 > 0 ? 1 : 0;
+
+        let score = -4.984468 + 3.179026 * c1s - 1.066972 * dc1 + 0.720867 * dc3 + 0.0326226 * c2;
+        const p1 = 0.0518888, p2 = 0.0502134;
+        score += Math.log((p1 / (1 - p1)) * ((1 - p2) / p2)); // aggiustamento SdC
+
+        let classe = 11;
+        for (let j = 0; j < RB_F_SOGLIE.length; j++) {
+            if (score <= RB_F_SOGLIE[j]) { classe = j + 1; break; }
+        }
+        return { active: true, rows: righe, c1: c1s, c2, c3, c4, score, classe, sofferenze: soff };
+    }
+
+    /* ------------------------------------------------------------
+       LE BANCHE ITALIANE: rating delle agenzie e solidita.
+       Dati INDICATIVI raccolti dalle comunicazioni pubbliche delle
+       agenzie (Moody's, S&P, Fitch, Morningstar DBRS): servono a
+       inquadrare la controparte, non sostituiscono la verifica sui
+       siti ufficiali prima di un uso verso terzi.
+    ------------------------------------------------------------ */
+    const RB_BANCHE_AGG = 'agosto 2026';
+    const RB_BANCHE = [
+        { id: 'intesa',     nome: 'Intesa Sanpaolo',                          moodys: 'Baa1', sp: 'BBB+', fitch: 'BBB',  cet1: 13.9, nota: 'Primo gruppo italiano; depositi a A3 per Moody\'s dopo il rialzo dell\'Italia.' },
+        { id: 'unicredit',  nome: 'UniCredit',                                moodys: 'Baa1', sp: 'BBB+', fitch: 'BBB+', cet1: 16.2, nota: 'Depositi a A3 per Moody\'s; capitalizzazione tra le piu alte dei grandi gruppi.' },
+        { id: 'bancobpm',   nome: 'Banco BPM',                                moodys: 'Baa2', sp: 'BBB-', fitch: 'BBB',  cet1: 15.0, nota: 'Profilo di credito individuale salito a baa3 nel 2026.' },
+        { id: 'bper',       nome: 'BPER Banca',                               moodys: 'Baa2', sp: 'BBB-', fitch: 'BBB',  cet1: 15.5, nota: 'Dal 20 aprile 2026 incorpora la Banca Popolare di Sondrio; outlook positivo.' },
+        { id: 'mps',        nome: 'Banca Monte dei Paschi di Siena',          moodys: 'Ba1',  sp: 'BB+',  fitch: 'BB+',  cet1: 18.0, nota: 'Con Mediobanca dal 2025 e il terzo gruppo; profilo in miglioramento, rating ancora sotto l\'investment grade.' },
+        { id: 'mediobanca', nome: 'Mediobanca (gruppo MPS)',                  moodys: 'Baa1', sp: 'BBB',  fitch: 'BBB',  cet1: 15.2, nota: 'Dal 2025 parte del gruppo MPS.' },
+        { id: 'credem',     nome: 'Credito Emiliano (Credem)',                moodys: 'Baa1', sp: '',     fitch: 'BBB+', cet1: 15.5, nota: 'Storicamente tra i profili piu solidi del sistema.' },
+        { id: 'popso',      nome: 'Banca Popolare di Sondrio (BPER)',         moodys: '',     sp: '',     fitch: 'BBB',  dbrs: 'BBB', cet1: 15.4, nota: 'Incorporata in BPER Banca dal 20 aprile 2026: vale il profilo del gruppo BPER.' },
+        { id: 'mediolanum', nome: 'Banca Mediolanum',                         moodys: '',     sp: '',     fitch: 'BBB+', cet1: 20.0, nota: 'Modello banca-rete; patrimonializzazione elevata.' },
+        { id: 'fineco',     nome: 'FinecoBank',                               moodys: 'Baa1', sp: 'BBB',  fitch: '',     cet1: 24.0, nota: 'Banca diretta; capitale largamente sopra i requisiti.' },
+        { id: 'bgenerali',  nome: 'Banca Generali',                           moodys: '',     sp: '',     fitch: '',     cet1: 16.0, nota: 'Gruppo Assicurazioni Generali; private banking.' },
+        { id: 'iccrea',     nome: 'Gruppo BCC Iccrea',                        moodys: 'Baa3', sp: '',     fitch: 'BBB-', cet1: 22.0, nota: 'Capogruppo delle BCC aderenti: per la singola BCC vale il gruppo.' },
+        { id: 'ccb',        nome: 'Cassa Centrale Banca (gruppo)',            moodys: '',     sp: '',     fitch: 'BBB-', dbrs: 'BBB', cet1: 25.0, nota: 'CET1 tra i piu alti in Europa; capogruppo delle Casse Rurali aderenti.' },
+        { id: 'sella',      nome: 'Banca Sella',                              moodys: '',     sp: '',     fitch: 'BBB-', cet1: 13.5, nota: 'Gruppo privato; forte sui servizi digitali.' },
+        { id: 'desio',      nome: 'Banco di Desio e della Brianza',           moodys: '',     sp: '',     fitch: 'BBB-', cet1: 16.5, nota: '' },
+        { id: 'ifis',       nome: 'Banca Ifis',                               moodys: '',     sp: '',     fitch: 'BB+',  cet1: 15.0, nota: 'Specializzata in factoring e NPL; dal 2025 controlla illimity.' },
+        { id: 'illimity',   nome: 'illimity Bank (gruppo Ifis)',              moodys: '',     sp: '',     fitch: 'BB+',  cet1: 14.0, nota: 'Rating allineato alla controllante Banca Ifis.' },
+        { id: 'volksbank',  nome: 'Banca Popolare dell\'Alto Adige (Volksbank)', moodys: '', sp: '',     fitch: '',     dbrs: 'BBB (low)', cet1: 15.0, nota: '' },
+        { id: 'sparkasse',  nome: 'Cassa di Risparmio di Bolzano (Sparkasse)', moodys: '',   sp: '',     fitch: '',     dbrs: 'BBB (low)', cet1: 15.0, nota: 'Comprende CiviBank.' },
+        { id: 'bnl',        nome: 'BNL BNP Paribas',                          moodys: 'Aa3', sp: 'A+',   fitch: 'A+',   cet1: 13.0, nota: 'Vale il rating della capogruppo francese BNP Paribas.' },
+        { id: 'cai',        nome: 'Credit Agricole Italia',                   moodys: 'Aa3', sp: 'A+',   fitch: 'AA-',  cet1: 17.0, nota: 'Vale il rating della capogruppo francese Credit Agricole.' },
+        { id: 'deutsche',   nome: 'Deutsche Bank S.p.A.',                     moodys: 'A1',  sp: 'A',    fitch: 'A-',   cet1: 14.0, nota: 'Vale il rating della capogruppo tedesca.' }
+    ];
+
+    /* Conversione dei rating in "notch" su scala comune 1-21 (21 = AAA/Aaa).
+       Per la scala DBRS "(high)" e "(low)" valgono come + e -. */
+    const RB_NOTCH_SP = { 'AAA': 21, 'AA+': 20, 'AA': 19, 'AA-': 18, 'A+': 17, 'A': 16, 'A-': 15,
+                          'BBB+': 14, 'BBB': 13, 'BBB-': 12, 'BB+': 11, 'BB': 10, 'BB-': 9,
+                          'B+': 8, 'B': 7, 'B-': 6, 'CCC+': 5, 'CCC': 4, 'CCC-': 3, 'CC': 2, 'C': 2, 'D': 1 };
+    const RB_NOTCH_MOODYS = { 'Aaa': 21, 'Aa1': 20, 'Aa2': 19, 'Aa3': 18, 'A1': 17, 'A2': 16, 'A3': 15,
+                              'Baa1': 14, 'Baa2': 13, 'Baa3': 12, 'Ba1': 11, 'Ba2': 10, 'Ba3': 9,
+                              'B1': 8, 'B2': 7, 'B3': 6, 'Caa1': 5, 'Caa2': 4, 'Caa3': 3, 'Ca': 2, 'C': 1 };
+    function rbNotchDa(r) {
+        if (!r) return null;
+        const s = String(r).trim();
+        if (RB_NOTCH_MOODYS[s] !== undefined) return RB_NOTCH_MOODYS[s];
+        const dbrs = s.replace(/\s*\(high\)/i, '+').replace(/\s*\(low\)/i, '-').replace(/\s*\(mid\)/i, '');
+        if (RB_NOTCH_SP[dbrs] !== undefined) return RB_NOTCH_SP[dbrs];
+        return RB_NOTCH_SP[s] !== undefined ? RB_NOTCH_SP[s] : null;
+    }
+    /* Solidita sintetica della banca: media dei notch delle agenzie disponibili;
+       senza rating si stima (con prudenza) dalla patrimonializzazione CET1. */
+    function rbSoliditaBanca(b) {
+        if (!b) return null;
+        const notches = [b.moodys, b.sp, b.fitch, b.dbrs].map(rbNotchDa).filter(n => n !== null);
+        let media = null, stimata = false;
+        if (notches.length) media = notches.reduce((s, n) => s + n, 0) / notches.length;
+        else if (b.cet1) { media = b.cet1 >= 18 ? 13 : (b.cet1 >= 12 ? 12 : 10); stimata = true; }
+        if (media === null) return { classe: 'n.d.', nome: 'Non valutabile', media: null, stimata: false };
+        let classe, nome;
+        if (media >= 15) { classe = 'A'; nome = 'Elevata'; }
+        else if (media >= 12) { classe = 'B'; nome = 'Buona (investment grade)'; }
+        else if (media >= 9) { classe = 'C'; nome = 'Speculativa: da monitorare'; }
+        else { classe = 'D'; nome = 'Fragile'; }
+        return { classe, nome, media, stimata };
+    }
+    function rbEtichettaRating(b) {
+        const parti = [];
+        if (b.moodys) parti.push('Moody\'s ' + b.moodys);
+        if (b.sp) parti.push('S&P ' + b.sp);
+        if (b.fitch) parti.push('Fitch ' + b.fitch);
+        if (b.dbrs) parti.push('DBRS ' + b.dbrs);
+        return parti.length ? parti.join(' · ') : 'senza rating pubblico';
+    }
+    function rbTrovaBanca(id) { return RB_BANCHE.find(b => b.id === id) || null; }
+
+    /* ------------------------------------------------------------
+       IL QUESTIONARIO QUALITATIVO: la parte del rating che le banche
+       misurano oltre i numeri. Ogni risposta vale dei punti (max 10 a
+       domanda); il punteggio complessivo corregge la classe MCC di
+       uno o piu gradini, in meglio o in peggio.
+    ------------------------------------------------------------ */
+    const RB_QUESTIONARIO = [
+        {
+            id: 'gov', titolo: 'Governance e assetti organizzativi',
+            domande: [
+                { id: 'assetti', testo: 'Adeguati assetti organizzativi, amministrativi e contabili (art. 2086 c.c.)', op: [
+                    { t: 'Formalizzati e aggiornati periodicamente', p: 10 },
+                    { t: 'In corso di adozione', p: 6 },
+                    { t: 'Solo prassi informali', p: 3 },
+                    { t: 'Assenti', p: 0 }] },
+                { id: 'controllo', testo: 'Controllo di gestione e reporting', op: [
+                    { t: 'Mensile con analisi degli scostamenti', p: 10 },
+                    { t: 'Trimestrale', p: 7 },
+                    { t: 'Solo consuntivo annuale', p: 3 },
+                    { t: 'Assente', p: 0 }] },
+                { id: 'piani', testo: 'Budget e piano economico-finanziario', op: [
+                    { t: 'Budget annuale e piano a 3 anni', p: 10 },
+                    { t: 'Solo budget annuale', p: 6 },
+                    { t: 'Nessuna pianificazione formale', p: 0 }] },
+                { id: 'tesoreria', testo: 'Piano di tesoreria e DSCR prospettico', op: [
+                    { t: 'Monitorati su 12 mesi', p: 10 },
+                    { t: 'Monitoraggio parziale (fino a 6 mesi)', p: 6 },
+                    { t: 'Non monitorati', p: 0 }] },
+                { id: 'organo', testo: 'Organo di controllo e revisione', op: [
+                    { t: 'Collegio sindacale e revisore', p: 10 },
+                    { t: 'Sindaco unico o solo revisore', p: 7 },
+                    { t: 'Non obbligata ma dotata volontariamente', p: 8 },
+                    { t: 'Assente', p: 0 }] }
+            ]
+        },
+        {
+            id: 'comp', titolo: 'Compliance e presidi premianti',
+            domande: [
+                { id: 'mod231', testo: 'Modello di organizzazione e gestione 231', op: [
+                    { t: 'Adottato con Organismo di Vigilanza attivo', p: 10 },
+                    { t: 'Adottato', p: 7 },
+                    { t: 'In valutazione', p: 3 },
+                    { t: 'Assente', p: 0 }] },
+                { id: 'legalita', testo: 'Rating di legalita AGCM', op: [
+                    { t: 'Ottenuto (2-3 stelle)', p: 10 },
+                    { t: 'Ottenuto (1 stella)', p: 7 },
+                    { t: 'Richiesto o in corso', p: 4 },
+                    { t: 'Non richiesto', p: 0 }] },
+                { id: 'esg', testo: 'Percorso ESG e bilancio di sostenibilita', op: [
+                    { t: 'Report di sostenibilita pubblicato', p: 10 },
+                    { t: 'Percorso avviato', p: 6 },
+                    { t: 'Non avviato', p: 0 }] },
+                { id: 'tcf', testo: 'Tax Control Framework / adempimento collaborativo', op: [
+                    { t: 'Adottato', p: 10 },
+                    { t: 'In corso di adozione', p: 6 },
+                    { t: 'Assente', p: 0 }] },
+                { id: 'cert', testo: 'Certificazioni (ISO 9001, 14001, 45001, SA8000...)', op: [
+                    { t: 'Piu certificazioni attive', p: 10 },
+                    { t: 'Una certificazione', p: 6 },
+                    { t: 'Nessuna', p: 0 }] }
+            ]
+        },
+        {
+            id: 'band', titolo: 'Rapporti con le banche',
+            domande: [
+                { id: 'numbanche', testo: 'Numero di banche con cui l\'impresa lavora', op: [
+                    { t: 'Da 3 a 5', p: 10 },
+                    { t: 'Due', p: 7 },
+                    { t: 'Piu di 5', p: 5 },
+                    { t: 'Una sola', p: 2 }] },
+                { id: 'sconfini', testo: 'Sconfinamenti o insoluti negli ultimi 12 mesi', op: [
+                    { t: 'Mai', p: 10 },
+                    { t: 'Episodici e rientrati subito', p: 5 },
+                    { t: 'Ricorrenti', p: 0 }] },
+                { id: 'crlettura', testo: 'Lettura periodica della Centrale dei Rischi', op: [
+                    { t: 'Ogni mese', p: 10 },
+                    { t: 'Saltuaria', p: 5 },
+                    { t: 'Mai richiesta', p: 0 }] },
+                { id: 'puntualita', testo: 'Puntualita nei pagamenti a fornitori ed erario', op: [
+                    { t: 'Sempre puntuale', p: 10 },
+                    { t: 'Ritardi occasionali', p: 5 },
+                    { t: 'Piani di rientro in corso', p: 2 },
+                    { t: 'Ritardi frequenti o cartelle', p: 0 }] },
+                { id: 'proattiva', testo: 'Bilancio e piani presentati alle banche in modo proattivo', op: [
+                    { t: 'Si, con incontri periodici', p: 10 },
+                    { t: 'Solo su richiesta della banca', p: 5 },
+                    { t: 'No', p: 0 }] }
+            ]
+        },
+        {
+            id: 'strut', titolo: 'Struttura, mercato e continuita',
+            domande: [
+                { id: 'anzianita', testo: 'Anni di attivita dell\'impresa', op: [
+                    { t: 'Oltre 10', p: 10 },
+                    { t: 'Da 5 a 10', p: 7 },
+                    { t: 'Da 2 a 5', p: 4 },
+                    { t: 'Meno di 2', p: 1 }] },
+                { id: 'concentrazione', testo: 'Peso del primo cliente sul fatturato', op: [
+                    { t: 'Sotto il 10%', p: 10 },
+                    { t: 'Tra il 10% e il 30%', p: 6 },
+                    { t: 'Tra il 30% e il 50%', p: 3 },
+                    { t: 'Oltre il 50%', p: 0 }] },
+                { id: 'mercato', testo: 'Andamento del settore e portafoglio ordini', op: [
+                    { t: 'In crescita', p: 10 },
+                    { t: 'Stabile', p: 6 },
+                    { t: 'In calo', p: 2 }] },
+                { id: 'continuita', testo: 'Continuita manageriale', op: [
+                    { t: 'Team strutturato, non dipende da una persona', p: 10 },
+                    { t: 'Dipende dal titolare ma con successione pianificata', p: 6 },
+                    { t: 'Tutto dipende dal titolare', p: 2 }] },
+                { id: 'garanzie', testo: 'Garanzie attivabili (immobili liberi, fideiussioni, Confidi, Fondo MCC)', op: [
+                    { t: 'Ampie', p: 10 },
+                    { t: 'Limitate', p: 5 },
+                    { t: 'Nessuna', p: 0 }] }
+            ]
+        }
+    ];
+    function rbDomande() {
+        const out = [];
+        RB_QUESTIONARIO.forEach(s => s.domande.forEach(d => out.push(d)));
+        return out;
+    }
+    /* Punteggio del questionario: percentuale complessiva e per sezione.
+       Le domande senza risposta valgono zero e vengono contate a parte. */
+    function rbPunteggioQuestionario(risposte) {
+        risposte = risposte || {};
+        const perSezione = RB_QUESTIONARIO.map(s => {
+            let punti = 0, max = 0, date = 0;
+            s.domande.forEach(d => {
+                max += Math.max(...d.op.map(o => o.p));
+                const i = risposte[d.id];
+                if (i !== undefined && i !== null && d.op[i]) { punti += d.op[i].p; date++; }
+            });
+            return { id: s.id, titolo: s.titolo, punti, max, date, tot: s.domande.length,
+                     perc: max ? Math.round(punti / max * 100) : 0 };
+        });
+        const punti = perSezione.reduce((s, x) => s + x.punti, 0);
+        const max = perSezione.reduce((s, x) => s + x.max, 0);
+        const date = perSezione.reduce((s, x) => s + x.date, 0);
+        const tot = perSezione.reduce((s, x) => s + x.tot, 0);
+        return { perc: max ? Math.round(punti / max * 100) : 0, punti, max, date, tot, perSezione,
+                 completo: date === tot };
+    }
+    /* Correttivo qualitativo sulla classe MCC: un profilo organizzativo forte
+       vale un gradino in meglio, uno debole uno o due gradini in peggio.
+       E il modo (dichiarato nel report) con cui ci si AVVICINA al rating
+       interno delle banche, che oltre ai numeri pesa proprio questi elementi. */
+    function rbCorrettivo(perc) {
+        if (perc >= 80) return -1;
+        if (perc >= 60) return 0;
+        if (perc >= 40) return 1;
+        return 2;
+    }
+
+    /* ------------------------------------------------------------
+       ANALISI DELLE BANCHE DELL'IMPRESA: per ogni rapporto la solidita
+       dell'istituto, l'utilizzo degli affidamenti, la quota sul totale
+       e una stima di come QUELLA banca vede l'impresa (la classe di
+       partenza peggiora se il rapporto e in tensione).
+    ------------------------------------------------------------ */
+    function rbAnalisiBanche(rapporti, classeRif) {
+        rapporti = (rapporti || []).filter(r => (r.banca && r.banca !== 'altra') || (r.nome || '').trim());
+        const righe = rapporti.map(r => {
+            const banca = r.banca && r.banca !== 'altra' ? rbTrovaBanca(r.banca) : null;
+            const nome = banca ? banca.nome : (r.nome || '').trim();
+            const acc = rbNum(r.accordato) || 0;
+            const uti = rbNum(r.utilizzato) || 0;
+            const utilizzo = acc > 0 ? uti / acc * 100 : (uti > 0 ? 999 : null);
+            const tensione = !!r.sconfini || (utilizzo !== null && utilizzo > 85);
+            let vista = null;
+            if (classeRif) {
+                vista = classeRif + (r.sconfini ? 1 : 0) + (utilizzo !== null && utilizzo > 90 ? 1 : 0);
+                vista = Math.min(12, Math.max(1, vista));
+            }
+            return { nome, banca, solidita: banca ? rbSoliditaBanca(banca) : null,
+                     rating: banca ? rbEtichettaRating(banca) : 'da censire',
+                     acc, uti, utilizzo, sconfini: !!r.sconfini, garanzie: r.garanzie || '',
+                     nota: r.nota || '', tensione, vista };
+        });
+        const totAcc = righe.reduce((s, r) => s + r.acc, 0);
+        const totUti = righe.reduce((s, r) => s + r.uti, 0);
+        righe.forEach(r => { r.quota = totAcc > 0 ? r.acc / totAcc * 100 : null; });
+        const quotaMax = righe.reduce((m, r) => Math.max(m, r.quota || 0), 0);
+        return {
+            righe, totAcc, totUti,
+            utilizzoMedio: totAcc > 0 ? totUti / totAcc * 100 : null,
+            quotaMax, numero: righe.length,
+            conTensione: righe.filter(r => r.tensione).length,
+            fragili: righe.filter(r => r.solidita && (r.solidita.classe === 'C' || r.solidita.classe === 'D')).length
+        };
+    }
+
+    /* ------------------------------------------------------------
+       AZIONI MIGLIORATIVE: dalle debolezze rilevate alle leve, ognuna
+       collegata (dove esiste) al servizio Revilaw che la copre.
+    ------------------------------------------------------------ */
+    const RB_SERVIZI = {
+        assetti:   { nome: 'Adeguati assetti organizzativi', url: '/adeguati_assetti/' },
+        early:     { nome: 'Assetti ed early warning', url: '/assetti_early_warning/' },
+        crisi:     { nome: 'Crisi d\'impresa e risanamento', url: '/crisi_impresa/' },
+        mod231:    { nome: 'Modello 231', url: '/modello_231/' },
+        legalita:  { nome: 'Rating di legalita', url: '/rating_legalita/' },
+        esg:       { nome: 'Sostenibilita ESG', url: '/sostenibilita_esg/' },
+        tcf:       { nome: 'TCF e benefici fiscali', url: '/tcf_benefici_fiscali/' },
+        coop:      { nome: 'Adempimento collaborativo', url: '/adempimento_collaborativo/' },
+        rating:    { nome: 'Rating advisory', url: '/rating_bancario/' },
+        patrimonio:{ nome: 'Protezione del patrimonio', url: '/protezione_patrimonio/' }
+    };
+    function rbAzioni(es) {
+        const az = [];
+        const dai = (pr, area, titolo, testo, serv) => az.push({ pr, area, titolo, testo, serv: serv || null });
+        const x = es.x, mcc = es.mcc, bank = es.bank, cn = es.cn, quest = es.quest, ban = es.banche;
+        const trova = nome => bank.cards.find(c => c.name.indexOf(nome) === 0);
+
+        // --- bilancio e struttura finanziaria ---
+        const eq = x.SP14 > 0 ? x.SP15 / x.SP14 * 100 : null;
+        if (mcc.fascia === 5 || mcc.sofferenze || cn.pnNeg) {
+            dai('alta', 'Bilancio', 'Piano di risanamento e presidio della crisi',
+                mcc.sofferenze
+                    ? 'Con segnalazioni a sofferenza la garanzia del Fondo e preclusa: prima di ogni altra leva serve ricostruire il rapporto con le banche dentro un piano credibile.'
+                    : 'Il profilo e in area critica: servono interventi strutturali su capitale e flussi, dentro il perimetro degli adeguati assetti e degli strumenti del Codice della crisi.',
+                RB_SERVIZI.crisi);
+        }
+        if (eq !== null && eq < 20) {
+            dai(eq < 10 ? 'alta' : 'media', 'Bilancio', 'Patrimonializzazione',
+                'Il patrimonio netto pesa il ' + rbPct(eq, 1) + ' dell\'attivo (prassi: almeno 20%, solido oltre 35%). Aumento di capitale, rinuncia a finanziamenti soci, utili a riserva: ogni punto in piu migliora quasi tutti gli indicatori del modello.',
+                RB_SERVIZI.patrimonio);
+        }
+        const cPfn = trova('PFN / EBITDA');
+        if (cPfn && (cPfn.level === 'rosso' || cPfn.level === 'arancio')) {
+            dai('alta', 'Bilancio', 'Riequilibrio del debito finanziario',
+                'La leva PFN/EBITDA e in zona critica (' + cPfn.value + '). Allungare le scadenze, consolidare il breve termine e destinare la cassa in eccesso a riduzione del debito riporta il rapporto verso la soglia di sorveglianza (3-4 volte).',
+                RB_SERVIZI.rating);
+        } else if (cPfn && cPfn.level === 'giallo') {
+            dai('media', 'Bilancio', 'Sorveglianza della leva finanziaria',
+                'PFN/EBITDA a ' + cPfn.value + ': ancora sostenibile ma da tenere sotto controllo, soprattutto prima di nuovi investimenti a debito.', null);
+        }
+        if (bank.dscr !== null && bank.dscr < 1.2) {
+            dai(bank.dscr < 1 ? 'alta' : 'media', 'Bilancio', 'DSCR e piano di tesoreria',
+                'Il DSCR e ' + rbFmt2.format(bank.dscr) + (bank.dscr < 1 ? ': i flussi non coprono il servizio del debito.' : ': sotto la soglia di comfort delle banche (1,2).') + ' Un piano di tesoreria a 12 mesi con DSCR prospettico e il primo presidio che banche e Codice della crisi si aspettano.',
+                RB_SERVIZI.early);
+        }
+        const cOf = trova('Oneri finanziari / Ricavi');
+        if (cOf && cOf.level !== 'verde' && cOf.level !== 'neutro') {
+            dai('media', 'Bilancio', 'Costo del debito',
+                'Gli oneri finanziari pesano ' + cOf.value + ' dei ricavi. Rinegoziare le condizioni con il rating alla mano, mettere in concorrenza gli istituti e spostare utilizzi dal breve al medio termine riduce il peso degli interessi.',
+                RB_SERVIZI.rating);
+        }
+        if (x.CE01 > 0 && x.MOL / x.CE01 * 100 < 5) {
+            dai('media', 'Bilancio', 'Marginalita operativa',
+                'Il MOL e il ' + rbPct(x.MOL / x.CE01 * 100, 1) + ' dei ricavi: margini sottili assorbono ogni scossone. Revisione dei listini, del mix di vendita e dei costi fissi prima di chiedere nuova finanza.', null);
+        }
+        if (cn.row && cn.rows.some(r => r.on)) {
+            dai(cn.tuttiAccesi ? 'alta' : 'media', 'Bilancio', 'Indici della crisi CNDCEC',
+                (cn.tuttiAccesi ? 'TUTTI gli indici settoriali CNDCEC sono oltre soglia: e un segnale di allerta rilevante ex art. 3 del Codice della crisi.'
+                                : 'Alcuni indici settoriali CNDCEC sono oltre soglia.')
+                + ' Il monitoraggio continuo dentro gli adeguati assetti evita che diventino segnalazioni.',
+                RB_SERVIZI.early);
+        }
+        if (es.z && rbZonaZ(es.z) === 'rischio') {
+            dai('media', 'Bilancio', 'Z-Score in zona di rischio',
+                'Lo Z-Score (' + rbFmt2.format(es.z.value) + ') colloca l\'impresa nell\'area di rischio del modello di Altman: rafforza il messaggio degli altri indicatori sulla necessita di intervenire su capitale e margini.', null);
+        }
+
+        // --- banche e andamentale ---
+        if (mcc.cr && mcc.cr.c2 > 0) {
+            dai('alta', 'Banche', 'Azzerare gli sconfinamenti',
+                'La Centrale dei Rischi registra ' + mcc.cr.c2 + (mcc.cr.c2 === 1 ? ' mese' : ' mesi') + ' con sconfino di cassa negli ultimi sei: e la variabile che piu pesa sul modulo andamentale. Pianificare i picchi di tesoreria e chiedere fidi adeguati PRIMA di usarli.',
+                RB_SERVIZI.early);
+        }
+        if (ban.utilizzoMedio !== null && ban.utilizzoMedio > 80) {
+            dai('media', 'Banche', 'Allentare la tensione sugli affidamenti',
+                'L\'utilizzo medio degli affidamenti dichiarati e il ' + rbPct(ban.utilizzoMedio, 0) + ': sopra l\'80% le banche leggono tensione di liquidita. Ampliare gli accordati o smobilizzare il circolante (anticipi, factoring) riporta l\'utilizzo in zona fisiologica (60-70%).', null);
+        } else if (ban.conTensione > 0) {
+            dai('media', 'Banche', 'Rientrare dalle tensioni sui singoli rapporti',
+                ban.conTensione + (ban.conTensione === 1 ? ' rapporto bancario e in tensione' : ' rapporti bancari sono in tensione') + ' (sconfini dichiarati o utilizzo oltre l\'85%): e li che il rating andamentale della singola banca si deteriora per primo. Concordare il rientro e monitorare il rapporto ogni mese.', RB_SERVIZI.early);
+        }
+        if (ban.numero === 1) {
+            dai('media', 'Banche', 'Diversificare gli istituti',
+                'L\'impresa lavora con una sola banca: un rapporto esclusivo indebolisce il potere negoziale e concentra il rischio di revoca. Un secondo istituto, scelto tra quelli piu solidi, riequilibra la relazione.', RB_SERVIZI.rating);
+        } else if (ban.quotaMax > 60) {
+            dai('media', 'Banche', 'Ridurre la concentrazione bancaria',
+                'La prima banca pesa il ' + rbPct(ban.quotaMax, 0) + ' degli affidamenti: distribuire meglio gli utilizzi riduce la dipendenza da un solo istituto.', null);
+        }
+        if (ban.fragili > 0) {
+            dai('media', 'Banche', 'Presidiare le controparti piu deboli',
+                ban.fragili + (ban.fragili === 1 ? ' istituto ha' : ' istituti hanno') + ' un profilo di solidita speculativo o fragile: non e un\'urgenza, ma nelle scelte di nuova finanza conviene privilegiare le controparti investment grade.', null);
+        }
+        if (quest.perc < 60 || !quest.completo) {
+            const dom = q => rbDomande().find(d => d.id === q);
+            const punteggio = q => {
+                const d = dom(q); const i = (es.risposte || {})[q];
+                return d && i !== undefined && i !== null && d.op[i] ? d.op[i].p : null;
+            };
+            const basso = (q, soglia) => { const p = punteggio(q); return p !== null && p <= soglia; };
+            if (basso('crlettura', 5)) dai('media', 'Banche', 'Leggere la Centrale dei Rischi ogni mese',
+                'La CR e il biglietto da visita andamentale: va richiesta e letta ogni mese, per correggere gli errori di segnalazione e anticipare le domande della banca.', RB_SERVIZI.early);
+            if (basso('proattiva', 5)) dai('spunto', 'Banche', 'Comunicazione finanziaria proattiva',
+                'Portare in banca bilancio, piani e rating PRIMA che vengano chiesti sposta la relazione dal sospetto alla fiducia, e si paga in spread.', RB_SERVIZI.rating);
+        }
+
+        // --- governance e presidi (questionario) ---
+        const rq = es.risposte || {};
+        const pOpz = (q) => { const d = rbDomande().find(dd => dd.id === q); const i = rq[q]; return d && i !== undefined && i !== null && d.op[i] ? d.op[i].p : null; };
+        const manca = (q, soglia) => { const p = pOpz(q); return p === null || p <= soglia; };
+        if (manca('assetti', 6)) dai('alta', 'Governance', 'Formalizzare gli adeguati assetti (art. 2086 c.c.)',
+            'Sono obbligo di legge e insieme la leva che tiene sotto controllo tutti gli indicatori di questo report: assetti organizzativi, amministrativi e contabili proporzionati, con monitoraggio periodico.', RB_SERVIZI.assetti);
+        if (manca('controllo', 3) || manca('piani', 3)) dai('media', 'Governance', 'Controllo di gestione e pianificazione',
+            'Senza budget, piano e reporting periodico ogni discussione con la banca parte in salita: sono i numeri che il rating interno legge per primi.', RB_SERVIZI.assetti);
+        if (manca('mod231', 3)) dai('media', 'Governance', 'Adottare il Modello 231',
+            'Il Modello 231 con OdV attivo riduce il rischio sanzionatorio, e premiato nei bandi e nel rating di legalita e qualifica la governance agli occhi delle banche.', RB_SERVIZI.mod231);
+        if (manca('legalita', 4)) dai('spunto', 'Governance', 'Richiedere il rating di legalita',
+            'Con il rating di legalita AGCM le banche devono tenere conto del punteggio nell\'istruttoria (DM 57/2014): costa poco e vale in ogni pratica di fido.', RB_SERVIZI.legalita);
+        if (manca('esg', 0)) dai('spunto', 'Governance', 'Avviare il percorso ESG',
+            'Le banche raccolgono gia dati ESG sulle imprese affidate: un percorso di sostenibilita documentato migliora l\'accesso ai plafond dedicati e anticipa le richieste della filiera.', RB_SERVIZI.esg);
+        if (manca('tcf', 0)) dai('spunto', 'Governance', 'Valutare il Tax Control Framework',
+            'Il presidio del rischio fiscale (fino all\'adempimento collaborativo) riduce il contenzioso potenziale, che per la banca e passivo latente.', RB_SERVIZI.tcf);
+
+        const ordine = { alta: 0, media: 1, spunto: 2 };
+        az.sort((a, b) => ordine[a.pr] - ordine[b.pr]);
+        return az;
+    }
+
+    /* ------------------------------------------------------------
+       ESITO COMPLESSIVO DELLA VERIFICA: dal record salvato a tutti i
+       risultati (MCC, cruscotto, CNDCEC, Z, questionario, banche,
+       azioni). E la stessa funzione per la scheda e per il report.
+    ------------------------------------------------------------ */
+    function rbEsiti(v) {
+        const mancanti = [];
+        if (!v.settore || !RB_SETTORI[v.settore]) mancanti.push('Settore di attivita');
+        const bil = v.bilancio || {};
+        RB_CAMPI_BILANCIO.filter(c => c.req).forEach(c => {
+            if (bil[c.id] === null || bil[c.id] === undefined) mancanti.push(c.et);
+        });
+        if (mancanti.length) return { pronta: false, mancanti };
+
+        const x = rbBuildX(bil);
+        const diffQuad = Math.abs(x.SP14 - x.SP23);
+        const quadratura = { ok: diffQuad <= Math.max(100, 0.005 * Math.max(x.SP14, x.SP23)), diff: diffQuad };
+        const sec = RB_SETTORI[v.settore];
+        const cr = rbComputeCr(v.cr);
+        const mcc = rbComputeMcc(sec.mcc, x, cr);
+        const bank = rbComputeBank(x);
+        const cn = rbComputeCndcec(x, sec.cndcec, bank.dscr);
+        const z = rbComputeZ(x, sec.z);
+        const quest = rbPunteggioQuestionario(v.questionario);
+        const correttivo = rbCorrettivo(quest.perc);
+        const classeCorretta = Math.min(12, Math.max(1, mcc.integrata + correttivo));
+        const banche = rbAnalisiBanche(v.banche, classeCorretta);
+
+        // verdetto complessivo (stessa logica del simulatore pubblico)
+        const nRosso = bank.cards.filter(c => c.level === 'rosso' || c.level === 'arancio').length;
+        const zZone = rbZonaZ(z);
+        const critico = cn.pnNeg || (cn.row && cn.tuttiAccesi) || (bank.dscr !== null && bank.dscr < 1)
+            || mcc.fascia === 5 || mcc.sofferenze;
+        let verdetto;
+        if (critico) verdetto = { livello: 'rosso', chip: 'Area critica', titolo: 'Area critica: servono interventi strutturali' };
+        else if (mcc.fascia === 4 || zZone === 'rischio' || nRosso >= 2) verdetto = { livello: 'arancio', chip: 'Zona di attenzione', titolo: 'Zona di attenzione: il merito creditizio e fragile' };
+        else if (mcc.fascia === 3 || zZone === 'incertezza' || nRosso === 1) verdetto = { livello: 'giallo', chip: 'Equilibrio migliorabile', titolo: 'Equilibrio con margini di miglioramento' };
+        else verdetto = { livello: 'verde', chip: 'Profilo solido', titolo: 'Profilo solido: ora si negozia' };
+
+        const es = {
+            pronta: true, mancanti: [], x, quadratura, cr, mcc, bank, cn, z, zZone,
+            quest, risposte: v.questionario || {}, correttivo, classeCorretta,
+            fasciaCorretta: RB_CLASSI[classeCorretta].fascia, pdCorretta: RB_CLASSI[classeCorretta].pd,
+            banche, verdetto
+        };
+        es.azioni = rbAzioni(es);
+        return es;
+    }
+    /* Fotografia sintetica dell'esito da salvare sul record: cosi l'elenco
+       mostra classe e fascia senza ricalcolare ogni verifica. */
+    function rbRiepilogoEsito(es) {
+        if (!es || !es.pronta) return null;
+        return {
+            classe: es.mcc.integrata, fascia: es.mcc.fascia, pd: es.mcc.pd,
+            ammissibile: es.mcc.ammissibile, sofferenze: es.mcc.sofferenze,
+            classeCorretta: es.classeCorretta, fasciaCorretta: es.fasciaCorretta, pdCorretta: es.pdCorretta,
+            quest: es.quest.perc, questCompleto: es.quest.completo,
+            verdetto: es.verdetto.livello, verdettoTesto: es.verdetto.chip,
+            banche: es.banche.numero, azioni: es.azioni.length, calcolato: Date.now()
+        };
+    }
+
+    /* ------------------------------------------------------------
+       ARCHIVIO DELLE VERIFICHE
+    ------------------------------------------------------------ */
+    const CAMPI_RATING = [
+        { chiave: 'cliente', nome: 'Cliente' },
+        { chiave: 'settore', nome: 'Settore' },
+        { chiave: 'esercizio', nome: 'Esercizio' },
+        { chiave: 'regione', nome: 'Regione' },
+        { chiave: 'luogo', nome: 'Luogo' },
+        { chiave: 'respVerifica', nome: 'Responsabile della verifica' },
+        { chiave: 'stato', nome: 'Stato' },
+        { chiave: 'note', nome: 'Note' }
+    ];
+    const Rating = {
+        tutte() { return Store.leggi(CHIAVI.rating, []); },
+        // le verifiche che l'utente collegato puo vedere (stesso filtro territoriale degli incarichi)
+        visibili() {
+            const reg = Auth.regioniConsentite();
+            const tutte = this.tutte();
+            if (!reg) return tutte;
+            return tutte.filter(v => reg.includes(chiaveRegione(v.regione || '')));
+        },
+        salva(lista) { Store.scrivi(CHIAVI.rating, lista); },
+        trova(id) { return this.tutte().find(v => v.id === id) || null; },
+        crea(dati, utente) {
+            const lista = this.tutte();
+            const nuova = {
+                id: uid(), stato: 'bozza', ...dati,
+                creato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() },
+                modificato: null
+            };
+            lista.push(nuova);
+            this.salva(lista);
+            Audit.registra(utente, 'Nuova verifica di rating bancario', 'rating', nuova.id, nuova.cliente,
+                Audit.confronta(null, nuova, CAMPI_RATING));
+            return nuova;
+        },
+        aggiorna(id, dati, utente, azione) {
+            const lista = this.tutte();
+            const idx = lista.findIndex(v => v.id === id);
+            if (idx < 0) return null;
+            const prima = JSON.parse(JSON.stringify(lista[idx]));
+            const dopo = { ...lista[idx], ...dati, modificato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() } };
+            lista[idx] = dopo;
+            this.salva(lista);
+            const diff = Audit.confronta(prima, dopo, CAMPI_RATING);
+            Audit.registra(utente, azione || 'Modifica verifica di rating', 'rating', id, dopo.cliente, diff.length ? diff : null);
+            return dopo;
+        },
+        elimina(id, utente) {
+            const lista = this.tutte();
+            const v = lista.find(r => r.id === id);
+            if (!v) return null;
+            this.salva(lista.filter(r => r.id !== id));
+            Audit.registra(utente, 'Verifica di rating eliminata', 'rating', id, v.cliente, null);
+            return v;
+        }
+    };
+
+    // verifica nuova, vuota: la Centrale Rischi parte spenta, sei mesi vuoti
+    function rbNuovaVerifica() {
+        return {
+            id: null, stato: 'bozza',
+            cliente: '', settore: '', esercizio: '', regione: '', luogo: '',
+            incaricoId: '',
+            respVerifica: (Auth.utenteCorrente && Auth.utenteCorrente.nome) || '',
+            bilancio: {},
+            cr: { attiva: false, sofferenze: false, righe: [{}, {}, {}, {}, {}, {}] },
+            banche: [],
+            questionario: {},
+            note: '',
+            esito: null
+        };
+    }
+    const RB_FASCIA_BADGE = { 1: 'verde', 2: 'verde', 3: 'ambra', 4: 'arancio', 5: 'rosso' };
+    function rbBadgeClasse(classe, fascia) {
+        return '<span class="badge ' + (RB_FASCIA_BADGE[fascia] || 'neutro') + '">' + classe + ' / 12 &middot; fascia ' + fascia + '</span>';
+    }
+
+    /* =========================================================
+       VISTA: RATING BANCARIO (elenco delle verifiche)
+    ========================================================= */
+    function vistaRating() {
+        const verifiche = Rating.visibili().slice()
+            .sort((a, b) => ((b.modificato && b.modificato.il) || b.creato.il) - ((a.modificato && a.modificato.il) || a.creato.il));
+        const scrive = Auth.puoScrivere('rating');
+        const completate = verifiche.filter(v => v.stato === 'completata').length;
+        const critiche = verifiche.filter(v => v.esito && v.esito.fascia >= 4).length;
+        const dataDi = v => fmtData(new Date((v.modificato && v.modificato.il) || v.creato.il).toISOString().slice(0, 10));
+
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Rating bancario</h1>
+                    <p class="descrizione">Verifiche del merito creditizio: modello MCC del Fondo di Garanzia, questionario qualitativo, banche dell'impresa e azioni migliorative. Ogni verifica produce un report da firmare e stampare in PDF.</p>
+                </div>
+                <div class="header-azioni">
+                    ${scrive ? '<button class="btn btn-primary" id="btn-nuova-verifica">+ Nuova verifica</button>' : ''}
+                </div>
+            </header>
+            <div class="kpi-griglia">
+                <div class="kpi">
+                    <div class="etichetta">Verifiche</div>
+                    <div class="valore">${verifiche.length}</div>
+                    <div class="nota">${completate} ${completate === 1 ? 'completata' : 'completate'}, ${verifiche.length - completate} in bozza</div>
+                </div>
+                <div class="kpi ${critiche ? 'rosso' : 'verde'}">
+                    <div class="etichetta">Imprese in fascia 4-5</div>
+                    <div class="valore">${critiche}</div>
+                    <div class="nota">${critiche ? 'richiedono azioni prioritarie' : 'nessuna in area critica'}</div>
+                </div>
+                <div class="kpi">
+                    <div class="etichetta">Banche censite</div>
+                    <div class="valore">${RB_BANCHE.length}</div>
+                    <div class="nota">rating indicativi aggiornati a ${RB_BANCHE_AGG}</div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Verifiche del merito creditizio</h2>
+                ${verifiche.length ? `<div class="tabella-wrap"><table class="dati"><thead><tr>
+                    <th>Cliente</th><th>Esercizio</th><th>Settore</th><th>Rating MCC</th><th>Con correttivo</th><th class="num">PD</th><th>Questionario</th><th>Stato</th><th>Aggiornata</th><th></th>
+                </tr></thead><tbody>` +
+                verifiche.map(v => {
+                    const e = v.esito;
+                    const set = RB_SETTORI[v.settore];
+                    return `<tr class="cliccabile" data-apri="${esc(v.id)}">
+                        <td class="cliente-cella" data-label="Cliente">${esc(v.cliente || '(senza nome)')}</td>
+                        <td data-label="Esercizio">${esc(v.esercizio || '-')}</td>
+                        <td data-label="Settore">${set ? esc(set.label) : '-'}</td>
+                        <td data-label="Rating MCC">${e ? rbBadgeClasse(e.classe, e.fascia) : '<span class="badge grigio">da calcolare</span>'}</td>
+                        <td data-label="Con correttivo">${e ? rbBadgeClasse(e.classeCorretta, e.fasciaCorretta) : '-'}</td>
+                        <td class="num" data-label="PD">${e ? rbPct(e.pd, 2) : '-'}</td>
+                        <td data-label="Questionario">${e ? (e.quest + '%' + (e.questCompleto ? '' : ' <span class="badge grigio">parziale</span>')) : '-'}</td>
+                        <td data-label="Stato">${v.stato === 'completata' ? '<span class="badge verde">completata</span>' : '<span class="badge ambra">bozza</span>'}</td>
+                        <td data-label="Aggiornata">${dataDi(v)}</td>
+                        <td class="td-azioni"><button class="btn btn-secondary btn-sm" data-report="${esc(v.id)}" title="Apri il report da stampare">Report</button>${scrive ? `<button class="btn btn-ghost btn-sm" data-elimina="${esc(v.id)}" title="Elimina la verifica">Elimina</button>` : ''}</td>
+                    </tr>`;
+                }).join('') + `</tbody></table></div>`
+                : `<div class="tabella-vuota">Nessuna verifica ancora.${scrive ? ' Crea la prima con "+ Nuova verifica": bastano bilancio e settore, il resto si aggiunge dopo.' : ''}</div>`}
+            </div>
+            <div class="card">
+                <h2>Come funziona</h2>
+                <p class="descrizione" style="margin-bottom:0;">La verifica replica il modello di rating del <strong>Fondo di Garanzia PMI (MCC)</strong>: modulo economico-finanziario dal bilancio, modulo andamentale dalla Centrale dei Rischi, classe integrata da 1 a 12 in 5 fasce con la probabilita di inadempimento. Il <strong>questionario qualitativo</strong> corregge la classe di uno o piu gradini, come fanno i modelli interni delle banche. La sezione <strong>banche</strong> confronta gli istituti dell'impresa con i rating delle agenzie (dati indicativi, ${RB_BANCHE_AGG}) e misura utilizzo e concentrazione degli affidamenti. Dalle debolezze nascono le <strong>azioni migliorative</strong>, collegate ai servizi Revilaw (assetti, 231, rating di legalita, ESG, TCF). Il report finale si firma con la firma grafica caricata, come i mandati, e si stampa in PDF.</p>
+            </div>`;
+
+        const btnNuova = document.getElementById('btn-nuova-verifica');
+        if (btnNuova) btnNuova.addEventListener('click', () => naviga('ratingScheda', { nuova: true }));
+        $vista().querySelectorAll('[data-apri]').forEach(r => r.addEventListener('click', e => {
+            if (e.target.closest('button')) return;
+            if (scrive) naviga('ratingScheda', { id: r.dataset.apri });
+            else naviga('ratingReport', { id: r.dataset.apri });
+        }));
+        $vista().querySelectorAll('[data-report]').forEach(b => b.addEventListener('click', () => naviga('ratingReport', { id: b.dataset.report })));
+        $vista().querySelectorAll('[data-elimina]').forEach(b => b.addEventListener('click', () => {
+            const v = Rating.trova(b.dataset.elimina);
+            if (!v) return;
+            apriModale(`<h2>Eliminare la verifica?</h2>
+                <p class="descrizione">La verifica di <strong>${esc(v.cliente || '(senza nome)')}</strong> verra eliminata definitivamente. Nel registro modifiche ne resta traccia.</p>
+                <div class="modale-azioni">
+                    <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                    <button class="btn btn-danger" id="m-elimina">Elimina</button>
+                </div>`);
+            document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+            document.getElementById('m-elimina').addEventListener('click', () => {
+                Rating.elimina(v.id, Auth.utenteCorrente);
+                chiudiModale();
+                toast('Verifica eliminata.', 'verde');
+                vistaRating();
+            });
+        }));
+        $vista().querySelectorAll('.card table.dati').forEach(t => attrezzaTabella(t, { filtri: false, ricerca: true, nomeFile: 'rating-bancario' }));
+    }
+
+    /* ------------------------------------------------------------
+       PEZZI DI INTERFACCIA CONDIVISI tra scheda e report: la scala
+       delle 12 classi, le tabelle degli indicatori, le azioni.
+    ------------------------------------------------------------ */
+    const RB_LIVELLO_BADGE = { verde: 'verde', giallo: 'ambra', arancio: 'arancio', rosso: 'rosso', neutro: 'grigio' };
+    function rbBadgeLivello(level, testo) {
+        return '<span class="badge ' + (RB_LIVELLO_BADGE[level] || 'grigio') + '">' + esc(testo) + '</span>';
+    }
+    function rbHtmlScala(classeAttiva) {
+        let html = '<div class="rb-scala">';
+        for (let c = 1; c <= 12; c++) {
+            const f = RB_CLASSI[c].fascia;
+            html += '<span class="rb-seg rb-f' + f + (c === classeAttiva ? ' attiva' : '') + '">' + c + '</span>';
+        }
+        return html + '</div><div class="rb-scala-note"><span>1 = migliore</span><span>12 = peggiore</span></div>';
+    }
+    function rbHtmlKpiMcc(es) {
+        const m = es.mcc;
+        return `<div class="kpi-griglia rb-kpis">
+            <div class="kpi"><div class="etichetta">Classe integrata</div><div class="valore">${m.integrata} / 12</div>
+                <div class="nota">modulo di bilancio: classe ${m.fClass}${m.aClasse ? ' &middot; andamentale: A' + m.aClasse : ' &middot; senza Centrale Rischi'}</div></div>
+            <div class="kpi ${m.fascia <= 2 ? 'verde' : (m.fascia === 3 ? 'ambra' : 'rosso')}"><div class="etichetta">Fascia</div><div class="valore">${m.fascia} / 5</div>
+                <div class="nota">${m.fascia <= 2 ? 'profilo solido' : (m.fascia === 3 ? 'equilibrio da presidiare' : (m.fascia === 4 ? 'zona di attenzione' : 'area critica'))}</div></div>
+            <div class="kpi"><div class="etichetta">Probabilita di inadempimento</div><div class="valore">${rbPct(m.pd, 2)}</div><div class="nota">PD empirica a 12 mesi</div></div>
+            <div class="kpi ${m.ammissibile ? 'verde' : 'rosso'}"><div class="etichetta">Fondo di Garanzia</div><div class="valore">${m.ammissibile ? 'Ammissibile' : 'Non ammissibile'}</div>
+                <div class="nota">${m.sofferenze ? 'sofferenze segnalate' : 'ammissibile fino alla classe 10'}</div></div>
+        </div>`;
+    }
+    function rbHtmlCorrettivo(es) {
+        const corrTxt = es.correttivo === 0 ? 'conferma la classe senza correzioni'
+            : (es.correttivo < 0 ? 'migliora la classe di ' + (-es.correttivo) + (es.correttivo === -1 ? ' gradino' : ' gradini')
+                                 : 'peggiora la classe di ' + es.correttivo + (es.correttivo === 1 ? ' gradino' : ' gradini'));
+        return `<div class="rb-correttivo">
+            <p style="margin:0 0 10px;">Il questionario qualitativo vale <strong>${es.quest.perc}%</strong>${es.quest.completo ? '' : ' <span class="badge grigio">' + es.quest.date + ' risposte su ' + es.quest.tot + '</span>'}
+            e <strong>${corrTxt}</strong>. E il modo in cui i modelli interni delle banche integrano governance, andamentale e presidi oltre i numeri di bilancio.</p>
+            <div class="rb-corr-riga">
+                <div><div class="rb-corr-et">Rating MCC</div>${rbBadgeClasse(es.mcc.integrata, es.mcc.fascia)}</div>
+                <div class="rb-corr-freccia">&rarr;</div>
+                <div><div class="rb-corr-et">Rating ipotizzato con correttivo</div>${rbBadgeClasse(es.classeCorretta, es.fasciaCorretta)} <span class="rb-corr-pd">PD ${rbPct(es.pdCorretta, 2)}</span></div>
+            </div>
+            ${rbHtmlScala(es.classeCorretta)}
+            <div class="hint" style="margin-top:6px;">Punteggi per sezione: ${es.quest.perSezione.map(s => esc(s.titolo) + ' ' + s.perc + '%').join(' &middot; ')}</div>
+        </div>`;
+    }
+    function rbHtmlTabellaCruscotto(es) {
+        return `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indicatore</th><th class="num">Valore</th><th>Giudizio</th><th>Riferimento</th></tr></thead><tbody>
+            ${es.bank.cards.map(c => `<tr><td>${esc(c.name)}</td><td class="num"><strong>${esc(c.value)}</strong></td><td>${rbBadgeLivello(c.level, c.badge)}</td><td class="rb-rif">${esc(c.ref)}</td></tr>`).join('')}
+        </tbody></table></div>`;
+    }
+    function rbHtmlCndcec(es) {
+        const cn = es.cn;
+        const chips = `<div class="rb-chips">
+            <span class="badge ${cn.pnNeg ? 'rosso' : 'verde'}">${cn.pnNeg ? 'Patrimonio netto negativo' : 'Patrimonio netto positivo'}</span>
+            <span class="badge ${es.bank.dscr === null ? 'grigio' : (cn.dscrAlert ? 'rosso' : 'verde')}">DSCR ${es.bank.dscr === null ? 'non calcolato' : (cn.dscrAlert ? 'sotto 1' : 'almeno 1')}</span>
+        </div>`;
+        if (!cn.row) return chips + '<p class="hint">Per le attivita immobiliari il documento CNDCEC 20/10/2019 non fissa soglie settoriali: valgono i due indicatori di primo livello qui sopra.</p>';
+        const fmtVal = r => r.val === null ? 'n.c.' : rbPct(r.val, 1);
+        return chips + `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indice</th><th class="num">Impresa</th><th class="num">Soglia (${esc(cn.row.label)})</th><th>Esito</th></tr></thead><tbody>
+            ${cn.rows.map(r => `<tr><td>${esc(r.label)}</td><td class="num">${fmtVal(r)}</td><td class="num">${r.dir === 'ge' ? '&ge; ' : '&le; '}${rbPct(r.soglia, 1)}</td>
+                <td>${r.on ? '<span class="badge rosso">oltre soglia</span>' : '<span class="badge verde">nella norma</span>'}</td></tr>`).join('')}
+        </tbody></table></div>
+        <p class="hint">Gli indici di allerta scattano solo se si accendono TUTTI, dopo patrimonio netto negativo e DSCR sotto 1: qui ${cn.tuttiAccesi ? '<strong>sono tutti accesi</strong>' : 'non sono tutti accesi'}.</p>`;
+    }
+    function rbHtmlZ(es) {
+        const zona = es.zZone;
+        const badge = zona === 'rischio' ? '<span class="badge rosso">zona di rischio</span>'
+            : (zona === 'incertezza' ? '<span class="badge ambra">zona di incertezza</span>' : '<span class="badge verde">zona di sicurezza</span>');
+        return `<p style="margin:0;"><strong>${esc(es.z.label)}</strong>: valore <strong>${rbFmt2.format(es.z.value)}</strong> ${badge}
+        <span class="rb-rif" style="display:block;margin-top:4px;">Soglie: rischio sotto ${rbFmt2.format(es.z.lo)}, sicurezza oltre ${rbFmt2.format(es.z.hi)}.</span></p>`;
+    }
+    function rbHtmlTabellaBanche(es) {
+        const b = es.banche;
+        if (!b.numero) return '<p class="hint">Nessuna banca censita nella verifica: aggiungi i rapporti nella scheda per l\'analisi di solidita e concentrazione.</p>';
+        const fmtQ = q => q === null ? '-' : rbPct(q, 0);
+        const fmtU = u => u === null ? '-' : (u === 999 ? 'senza fido' : rbPct(u, 0));
+        return `<div class="tabella-wrap"><table class="dati compatta"><thead><tr>
+            <th>Istituto</th><th>Rating agenzie</th><th>Solidita</th><th class="num">Accordato</th><th class="num">Utilizzato</th><th class="num">Utilizzo</th><th class="num">Quota</th><th>Rapporto</th><th>Rating visto dalla banca</th>
+        </tr></thead><tbody>
+        ${b.righe.map(r => `<tr>
+            <td>${esc(r.nome)}</td>
+            <td class="rb-rif">${esc(r.rating)}${r.banca && r.banca.cet1 ? '<br>CET1 ~' + rbPct(r.banca.cet1, 1) : ''}</td>
+            <td>${r.solidita ? '<span class="badge ' + (r.solidita.classe === 'A' || r.solidita.classe === 'B' ? 'verde' : (r.solidita.classe === 'C' ? 'ambra' : (r.solidita.classe === 'D' ? 'rosso' : 'grigio'))) + '">' + r.solidita.classe + ' &middot; ' + esc(r.solidita.nome) + (r.solidita.stimata ? ' (stima)' : '') + '</span>' : '<span class="badge grigio">n.d.</span>'}</td>
+            <td class="num">${r.acc ? eurFmt.format(r.acc) : '-'}</td>
+            <td class="num">${r.uti ? eurFmt.format(r.uti) : '-'}</td>
+            <td class="num">${fmtU(r.utilizzo)}</td>
+            <td class="num">${fmtQ(r.quota)}</td>
+            <td>${r.tensione ? '<span class="badge rosso">in tensione</span>' : '<span class="badge verde">regolare</span>'}${r.sconfini ? '<div class="rb-rif">sconfini dichiarati</div>' : ''}</td>
+            <td>${r.vista ? rbBadgeClasse(r.vista, RB_CLASSI[r.vista].fascia) : '-'}</td>
+        </tr>`).join('')}
+        </tbody></table></div>
+        <p class="hint">Totale accordato ${b.totAcc ? eurFmt.format(b.totAcc) : '-'} &middot; utilizzato ${b.totUti ? eurFmt.format(b.totUti) : '-'}${b.utilizzoMedio !== null ? ' &middot; utilizzo medio ' + rbPct(b.utilizzoMedio, 0) : ''}${b.quotaMax ? ' &middot; prima banca ' + rbPct(b.quotaMax, 0) + ' degli affidamenti' : ''}.
+        Il "rating visto dalla banca" parte dalla classe con correttivo e peggiora se il singolo rapporto e in tensione (utilizzo oltre il 90% o sconfini). Rating delle agenzie indicativi, aggiornati a ${RB_BANCHE_AGG}.</p>`;
+    }
+    function rbHtmlAzioni(es) {
+        if (!es.azioni.length) return '<p class="hint">Nessuna azione da segnalare: profilo in equilibrio su tutti i fronti analizzati.</p>';
+        const badgePr = pr => pr === 'alta' ? '<span class="badge rosso">priorita alta</span>'
+            : (pr === 'media' ? '<span class="badge ambra">priorita media</span>' : '<span class="badge grigio">spunto</span>');
+        return '<div class="rb-azioni">' + es.azioni.map(a => `
+            <div class="rb-azione">
+                <div class="rb-azione-testa">${badgePr(a.pr)}<span class="badge neutro">${esc(a.area)}</span><strong>${esc(a.titolo)}</strong></div>
+                <p>${esc(a.testo)}</p>
+                ${a.serv ? '<div class="rb-azione-serv">Servizio Revilaw collegato: <strong>' + esc(a.serv.nome) + '</strong> <span class="rb-rif">(nextgenerationbusiness.it' + esc(a.serv.url) + ')</span></div>' : ''}
+            </div>`).join('') + '</div>';
+    }
+    function rbHtmlDettaglioMcc(es, apri) {
+        const fmtRaw = r => r.na || r.raw === null || !isFinite(r.raw) ? 'n.c.' : rbFmt2.format(r.raw);
+        return `<details class="rb-dettaglio"${apri ? ' open' : ''}><summary>Dettaglio del calcolo MCC (variabili, coefficienti, contributi)</summary>
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indicatore</th><th class="num">Valore</th><th class="num">Trattato</th><th class="num">Coefficiente</th><th class="num">Contributo</th></tr></thead><tbody>
+            ${es.mcc.rows.map(r => `<tr><td>${esc(r.label)}</td><td class="num">${fmtRaw(r)}</td><td class="num">${rbFmt2.format(r.treated)}</td><td class="num">${r.coef}</td><td class="num">${rbFmt2.format(r.contrib)}</td></tr>`).join('')}
+            <tr><td><em>Costante del modello (${esc(es.mcc.settoreLabel)})</em></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num">${rbFmt2.format(es.mcc.costante)}</td></tr>
+            <tr><td><strong>Score xb</strong></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num"><strong>${rbFmt2.format(es.mcc.xb)}</strong></td></tr>
+            </tbody></table></div></details>`;
+    }
+    function rbHtmlVerdetto(es, extra) {
+        return `<div class="rb-verdetto rb-verdetto-${es.verdetto.livello}">
+            <span class="badge ${RB_LIVELLO_BADGE[es.verdetto.livello] || 'grigio'}">${esc(es.verdetto.chip)}</span>
+            <strong>${esc(es.verdetto.titolo)}</strong>
+            ${extra || ''}
+        </div>`;
+    }
+    // paragrafo narrativo di sintesi (per la scheda e per il report)
+    function rbTestoSintesi(es) {
+        const m = es.mcc;
+        const parti = [];
+        parti.push('Il modello del Fondo di Garanzia colloca l\'impresa in classe ' + m.integrata + ' su 12 (fascia ' + m.fascia + ' di 5), con una probabilita di inadempimento a 12 mesi del ' + rbPct(m.pd, 2) + '.');
+        parti.push(m.aClasse ? 'Il modulo andamentale dalla Centrale dei Rischi vale A' + m.aClasse + (m.cr && m.cr.c2 ? ', con ' + m.cr.c2 + (m.cr.c2 === 1 ? ' mese' : ' mesi') + ' di sconfino di cassa.' : ', senza sconfinamenti di rilievo.')
+                             : 'La Centrale dei Rischi non e stata caricata: la classe usa il solo modulo di bilancio.');
+        parti.push(m.ammissibile ? 'La garanzia pubblica risulta ammissibile.' : 'La garanzia pubblica NON risulta ammissibile' + (m.sofferenze ? ' per le sofferenze segnalate.' : ' (fascia 5).'));
+        parti.push('Il questionario qualitativo vale ' + es.quest.perc + '%' + (es.correttivo === 0 ? ' e conferma la classe.' : (es.correttivo < 0 ? ' e migliora la classe ipotizzata a ' + es.classeCorretta + '.' : ' e peggiora la classe ipotizzata a ' + es.classeCorretta + '.')));
+        if (es.banche.numero) parti.push('Sono censiti ' + es.banche.numero + ' rapporti bancari' + (es.banche.conTensione ? ', di cui ' + es.banche.conTensione + ' in tensione.' : ', tutti regolari.'));
+        parti.push('Le azioni proposte sono ' + es.azioni.length + ': le prime leve sono quelle a priorita alta.');
+        return parti.join(' ');
+    }
+
+    /* =========================================================
+       VISTA: SCHEDA DELLA VERIFICA (compilazione a schede)
+    ========================================================= */
+    let schedaRB = null;
+    let tabRB = 'impresa';
+    function vistaRatingScheda() {
+        const p = parametriVista || {};
+        if (p.nuova || !schedaRB || (p.id && schedaRB.id !== p.id)) {
+            if (p.id) {
+                const v = Rating.trova(p.id);
+                if (!v) { toast('Verifica non trovata.', 'rosso'); naviga('rating'); return; }
+                schedaRB = JSON.parse(JSON.stringify(v));
+                if (!schedaRB.cr || !Array.isArray(schedaRB.cr.righe)) schedaRB.cr = { attiva: false, sofferenze: false, righe: [{}, {}, {}, {}, {}, {}] };
+                while (schedaRB.cr.righe.length < 6) schedaRB.cr.righe.push({});
+            } else {
+                schedaRB = rbNuovaVerifica();
+            }
+            tabRB = 'impresa';
+            parametriVista = { id: schedaRB.id };   // il "nuova" e consumato: i ridisegni non azzerano la scheda
+        }
+        const v = schedaRB;
+        statoModifica = { tipo: 'rating', id: v.id || 'nuova', etichetta: v.cliente || 'nuova verifica' };
+        const tabs = [
+            ['impresa', 'Impresa e bilancio'],
+            ['cr', 'Centrale Rischi'],
+            ['banche', 'Banche'],
+            ['questionario', 'Questionario'],
+            ['esiti', 'Esiti e azioni']
+        ];
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>${v.id ? 'Verifica del merito creditizio' : 'Nuova verifica del merito creditizio'}</h1>
+                    <p class="descrizione">${esc(v.cliente || 'Compila i dati dell\'impresa e del bilancio, poi Centrale Rischi, banche e questionario: gli esiti si aggiornano nell\'ultima scheda.')}
+                    ${v.stato === 'completata' ? ' <span class="badge verde">completata</span>' : ' <span class="badge ambra">bozza</span>'}</p>
+                </div>
+                <div class="header-azioni">
+                    <button class="btn btn-ghost" id="rb-btn-indietro">Torna all'elenco</button>
+                    <button class="btn btn-secondary" id="rb-btn-salva">Salva</button>
+                    <button class="btn btn-primary" id="rb-btn-report">Salva e apri il report</button>
+                </div>
+            </header>
+            <div class="tab-dest">${tabs.map(t => `<button class="tab-btn ${tabRB === t[0] ? 'attivo' : ''}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
+            <div id="rb-corpo">${rbHtmlTab(v)}</div>`;
+
+        document.getElementById('rb-btn-indietro').addEventListener('click', () => { schedaRB = null; tornaOrigine(() => naviga('rating')); });
+        document.getElementById('rb-btn-salva').addEventListener('click', () => { if (rbSalvaScheda()) vistaRatingScheda(); });
+        document.getElementById('rb-btn-report').addEventListener('click', () => {
+            const id = rbSalvaScheda();
+            if (id) { schedaRB = null; naviga('ratingReport', { id }); }
+        });
+        $vista().querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { tabRB = b.dataset.tab; vistaRatingScheda(); }));
+        rbCollegaTab(v);
+    }
+    function rbHtmlTab(v) {
+        if (tabRB === 'impresa') return rbTabImpresa(v);
+        if (tabRB === 'cr') return rbTabCr(v);
+        if (tabRB === 'banche') return rbTabBanche(v);
+        if (tabRB === 'questionario') return rbTabQuestionario(v);
+        return rbTabEsiti(v);
+    }
+    function rbSalvaScheda() {
+        if (!(schedaRB.cliente || '').trim()) {
+            toast('Indica la denominazione dell\'impresa (scheda "Impresa e bilancio").', 'rosso');
+            tabRB = 'impresa'; vistaRatingScheda(); return null;
+        }
+        const es = rbEsiti(schedaRB);
+        schedaRB.esito = rbRiepilogoEsito(es);
+        const { id, creato, modificato, ...dati } = schedaRB;
+        if (!schedaRB.id) {
+            const n = Rating.crea(dati, Auth.utenteCorrente);
+            schedaRB.id = n.id; schedaRB.creato = n.creato;
+            parametriVista = { id: n.id };
+        } else {
+            Rating.aggiorna(schedaRB.id, dati, Auth.utenteCorrente);
+        }
+        toast('Verifica salvata.', 'verde');
+        return schedaRB.id;
+    }
+
+    // --- scheda 1: impresa e bilancio ---
+    function rbTabImpresa(v) {
+        const incarichi = Incarichi.visibili().slice().sort((a, b) => String(a.cliente).localeCompare(String(b.cliente)));
+        const campoNum = c => {
+            const val = (v.bilancio || {})[c.id];
+            return `<div class="campo"><label>${esc(c.et)}${c.req ? ' *' : ''}</label>
+                <input type="text" inputmode="decimal" data-bil="${c.id}" value="${esc(rbFmtNum(val))}" placeholder="${c.req ? 'obbligatorio' : ''}">
+                ${c.hint ? '<div class="hint">' + esc(c.hint) + '</div>' : ''}</div>`;
+        };
+        const gruppo = gr => `<div class="riepilogo-blocco"><h4>${RB_GRUPPI_BILANCIO[gr]}</h4>
+            <div class="griglia-3">${RB_CAMPI_BILANCIO.filter(c => c.gr === gr).map(campoNum).join('')}</div></div>`;
+        return `
+            <div class="card">
+                <h2>Impresa</h2>
+                <div class="griglia-3">
+                    <div class="campo"><label>Denominazione *</label><input type="text" data-campo="cliente" value="${esc(v.cliente)}"></div>
+                    <div class="campo"><label>Collega a un incarico (facoltativo)</label>
+                        <select id="rb-incarico"><option value="">-</option>${incarichi.map(i => `<option value="${esc(i.id)}" ${v.incaricoId === i.id ? 'selected' : ''}>${esc(i.cliente)}</option>`).join('')}</select>
+                        <div class="hint">compila denominazione e regione dalla scheda dell'incarico</div></div>
+                    <div class="campo"><label>Settore di attivita *</label>
+                        <select data-campo="settore">${['<option value="">-</option>'].concat(Object.keys(RB_SETTORI).map(k => `<option value="${k}" ${v.settore === k ? 'selected' : ''}>${esc(RB_SETTORI[k].label)}</option>`)).join('')}</select></div>
+                    <div class="campo"><label>Esercizio del bilancio</label><input type="text" data-campo="esercizio" value="${esc(v.esercizio)}" placeholder="es. 2025"></div>
+                    <div class="campo"><label>Regione</label><input type="text" data-campo="regione" value="${esc(v.regione)}" placeholder="per il filtro territoriale"></div>
+                    <div class="campo"><label>Luogo (per il report)</label><input type="text" data-campo="luogo" value="${esc(v.luogo)}" placeholder="es. Verona"></div>
+                    <div class="campo"><label>Responsabile della verifica</label><input type="text" data-campo="respVerifica" value="${esc(v.respVerifica)}">
+                        <div class="hint">firma il report; la firma grafica si carica dal report</div></div>
+                </div>
+                <div class="campo"><label>Note interne</label><textarea data-campo="note" rows="2">${esc(v.note)}</textarea></div>
+            </div>
+            <div class="card">
+                <h2>Bilancio (schema civilistico, in euro)</h2>
+                <p class="hint" style="margin:-6px 0 10px;">Stessi campi del simulatore pubblico: importi in euro, formato italiano. I campi con * servono al calcolo. <span id="rb-quadratura">${rbHtmlQuadratura(v)}</span></p>
+                ${gruppo('ce')}${gruppo('att')}${gruppo('pas')}${gruppo('fin')}
+            </div>`;
+    }
+    function rbHtmlQuadratura(v) {
+        const b = v.bilancio || {};
+        const dato = RB_CAMPI_BILANCIO.some(c => b[c.id] !== null && b[c.id] !== undefined);
+        if (!dato) return '';
+        const x = rbBuildX(b);
+        const diff = Math.abs(x.SP14 - x.SP23);
+        const ok = diff <= Math.max(100, 0.005 * Math.max(x.SP14, x.SP23));
+        return ok ? '<span class="badge verde">attivo e passivo quadrano (' + eurFmt.format(x.SP14) + ')</span>'
+                  : '<span class="badge rosso">attivo ' + eurFmt.format(x.SP14) + ' e passivo ' + eurFmt.format(x.SP23) + ' differiscono di ' + eurFmt.format(diff) + '</span>';
+    }
+
+    // --- scheda 2: Centrale dei Rischi ---
+    function rbTabCr(v) {
+        const cr = v.cr;
+        const cella = (m, campo) => `<td><input type="text" inputmode="decimal" data-cr-m="${m}" data-cr-c="${campo}" value="${esc(rbFmtNum(rbNum((cr.righe[m] || {})[campo])))}" ${cr.attiva ? '' : 'disabled'}></td>`;
+        return `
+            <div class="card">
+                <h2>Modulo andamentale: Centrale dei Rischi</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Ultimi 6 mesi del prospetto Banca d'Italia (mese 1 = piu recente): accordato e utilizzato per cassa, e la parte "a scadenza". Senza questi dati la classe usa il solo modulo di bilancio.</p>
+                <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-bottom:10px;"><input type="checkbox" id="rb-cr-attiva" ${cr.attiva ? 'checked' : ''} style="width:auto;">Uso i dati della Centrale dei Rischi</label>
+                <div class="tabella-wrap"><table class="dati compatta rb-cr-tab"><thead><tr>
+                    <th>Mese</th><th class="num">Accordato per cassa</th><th class="num">Utilizzato per cassa</th><th class="num">di cui a scadenza: accordato</th><th class="num">di cui a scadenza: utilizzato</th>
+                </tr></thead><tbody>
+                ${[0, 1, 2, 3, 4, 5].map(m => `<tr><td>Mese ${m + 1}</td>${cella(m, 'at')}${cella(m, 'ut')}${cella(m, 'as')}${cella(m, 'us')}</tr>`).join('')}
+                </tbody></table></div>
+                <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+                    <button class="btn btn-secondary btn-sm" id="rb-cr-copia" ${cr.attiva ? '' : 'disabled'}>Ripeti il mese 1 su tutti i mesi</button>
+                    <label style="display:flex;gap:8px;align-items:center;font-weight:600;"><input type="checkbox" id="rb-cr-soff" ${cr.sofferenze ? 'checked' : ''} style="width:auto;">Sono presenti sofferenze</label>
+                </div>
+                <p class="hint" style="margin-top:10px;">Le sofferenze rendono NON ammissibile la garanzia del Fondo, qualunque sia la classe. I rischi "a scadenza" non possono superare i totali per cassa: in quel caso il mese viene scartato.</p>
+            </div>`;
+    }
+
+    // --- scheda 3: banche dell'impresa ---
+    function rbTabBanche(v) {
+        const opzioni = sel => ['<option value="">-</option>']
+            .concat(RB_BANCHE.map(b => `<option value="${b.id}" ${sel === b.id ? 'selected' : ''}>${esc(b.nome)}</option>`))
+            .concat([`<option value="altra" ${sel === 'altra' ? 'selected' : ''}>Altra banca (nome libero)</option>`]).join('');
+        const riga = (r, i) => {
+            const banca = r.banca && r.banca !== 'altra' ? rbTrovaBanca(r.banca) : null;
+            return `<div class="riepilogo-blocco rb-banca">
+                <h4>Rapporto ${i + 1}${banca ? ' &middot; ' + esc(rbEtichettaRating(banca)) : ''}</h4>
+                <div class="griglia-3">
+                    <div class="campo"><label>Istituto</label><select data-b-idx="${i}" data-b-campo="banca">${opzioni(r.banca)}</select></div>
+                    ${r.banca === 'altra' ? `<div class="campo"><label>Nome dell'istituto</label><input type="text" data-b-idx="${i}" data-b-campo="nome" value="${esc(r.nome || '')}"></div>` : ''}
+                    <div class="campo"><label>Accordato complessivo</label><input type="text" inputmode="decimal" data-b-idx="${i}" data-b-campo="accordato" value="${esc(rbFmtNum(rbNum(r.accordato)))}"></div>
+                    <div class="campo"><label>Utilizzato</label><input type="text" inputmode="decimal" data-b-idx="${i}" data-b-campo="utilizzato" value="${esc(rbFmtNum(rbNum(r.utilizzato)))}"></div>
+                    <div class="campo"><label>Garanzie rilasciate</label>
+                        <select data-b-idx="${i}" data-b-campo="garanzie">${['', 'nessuna', 'personali', 'reali', 'Confidi / Fondo MCC', 'miste'].map(g => `<option value="${g}" ${r.garanzie === g ? 'selected' : ''}>${g || '-'}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Nota sul rapporto</label><input type="text" data-b-idx="${i}" data-b-campo="nota" value="${esc(r.nota || '')}"></div>
+                </div>
+                <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+                    <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" data-b-idx="${i}" data-b-campo="sconfini" ${r.sconfini ? 'checked' : ''} style="width:auto;">Sconfini o insoluti negli ultimi 12 mesi su questo rapporto</label>
+                    <button class="btn btn-ghost btn-sm" data-b-rm="${i}">Rimuovi</button>
+                </div>
+                ${banca ? `<p class="hint" style="margin:8px 0 0;">${banca.cet1 ? 'CET1 ~' + rbPct(banca.cet1, 1) + '. ' : ''}${esc(banca.nota || '')}</p>` : ''}
+            </div>`;
+        };
+        return `
+            <div class="card">
+                <h2>Le banche dell'impresa</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Per ogni istituto: affidamenti accordati e utilizzati e lo stato del rapporto. La solidita dell'istituto viene dai rating delle agenzie (dati indicativi, aggiornati a ${RB_BANCHE_AGG}: verifica sui siti ufficiali prima dell'uso verso terzi).</p>
+                ${(v.banche || []).map(riga).join('')}
+                <button class="btn btn-secondary" id="rb-banca-add">+ Aggiungi un rapporto bancario</button>
+            </div>
+            <div class="card">
+                <h2>Il panorama degli istituti</h2>
+                <details class="rb-dettaglio"><summary>Rating e solidita delle principali banche italiane (${RB_BANCHE_AGG})</summary>
+                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Istituto</th><th>Rating agenzie</th><th class="num">CET1</th><th>Solidita</th><th>Nota</th></tr></thead><tbody>
+                ${RB_BANCHE.map(b => { const s = rbSoliditaBanca(b); return `<tr><td>${esc(b.nome)}</td><td class="rb-rif">${esc(rbEtichettaRating(b))}</td><td class="num">${b.cet1 ? rbPct(b.cet1, 1) : '-'}</td>
+                    <td><span class="badge ${s.classe === 'A' || s.classe === 'B' ? 'verde' : (s.classe === 'C' ? 'ambra' : (s.classe === 'D' ? 'rosso' : 'grigio'))}">${s.classe}</span></td><td class="rb-rif">${esc(b.nota || '')}</td></tr>`; }).join('')}
+                </tbody></table></div></details>
+            </div>`;
+    }
+
+    // --- scheda 4: questionario qualitativo ---
+    function rbTabQuestionario(v) {
+        const q = rbPunteggioQuestionario(v.questionario);
+        return `
+            <div class="card">
+                <h2>Questionario qualitativo</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Venti domande su governance, presidi, banche e struttura: cio che i modelli interni delle banche pesano oltre il bilancio. Risposte date: <strong>${q.date} su ${q.tot}</strong> &middot; punteggio attuale <strong>${q.perc}%</strong> (correttivo sulla classe: ${rbCorrettivo(q.perc) === 0 ? 'nessuno' : (rbCorrettivo(q.perc) > 0 ? '+' + rbCorrettivo(q.perc) : rbCorrettivo(q.perc))}).</p>
+                ${RB_QUESTIONARIO.map(s => `<div class="riepilogo-blocco"><h4>${esc(s.titolo)}</h4>
+                    ${s.domande.map(d => `<div class="rb-domanda">
+                        <div class="rb-domanda-testo">${esc(d.testo)}</div>
+                        <div class="rb-opzioni">${d.op.map((o, i) => `<label class="rb-opzione"><input type="radio" name="q-${d.id}" data-q="${d.id}" value="${i}" ${(v.questionario || {})[d.id] === i ? 'checked' : ''}><span>${esc(o.t)}</span><em>${o.p} pt</em></label>`).join('')}</div>
+                    </div>`).join('')}
+                </div>`).join('')}
+            </div>`;
+    }
+
+    // --- scheda 5: esiti e azioni ---
+    function rbTabEsiti(v) {
+        const es = rbEsiti(v);
+        if (!es.pronta) {
+            return `<div class="card"><h2>Esiti</h2>
+                <div class="avviso-ruoli">Per calcolare il rating mancano questi dati:
+                <ul style="margin:8px 0 0 18px;">${es.mancanti.map(m => '<li>' + esc(m) + '</li>').join('')}</ul></div>
+                <p class="hint" style="margin-top:10px;">Compila la scheda "Impresa e bilancio" e torna qui: il calcolo e immediato.</p></div>`;
+        }
+        return `
+            ${rbHtmlVerdetto(es, '')}
+            ${!es.quadratura.ok ? '<div class="avviso-ruoli">Attivo e passivo non quadrano (differenza ' + eurFmt.format(es.quadratura.diff) + '): il calcolo usa comunque i dati inseriti, ma controlla il bilancio.</div>' : ''}
+            <div class="card">
+                <h2>Rating MCC del Fondo di Garanzia</h2>
+                ${rbHtmlScala(es.mcc.integrata)}
+                ${rbHtmlKpiMcc(es)}
+                <p class="hint">${esc(rbTestoSintesi(es))}</p>
+                ${rbHtmlDettaglioMcc(es)}
+            </div>
+            <div class="card"><h2>Correttivo qualitativo e rating ipotizzato</h2>${rbHtmlCorrettivo(es)}</div>
+            <div class="card"><h2>Cruscotto di bancabilita</h2>${rbHtmlTabellaCruscotto(es)}</div>
+            <div class="card"><h2>Indici della crisi (CNDCEC) e Z-Score</h2>${rbHtmlCndcec(es)}<div style="margin-top:12px;">${rbHtmlZ(es)}</div></div>
+            <div class="card"><h2>Posizionamento bancario</h2>${rbHtmlTabellaBanche(es)}</div>
+            <div class="card"><h2>Azioni migliorative proposte</h2>${rbHtmlAzioni(es)}</div>
+            <div class="card">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                    <button class="btn btn-primary" id="rb-esiti-report">Salva e apri il report da firmare</button>
+                    ${v.stato !== 'completata' ? '<button class="btn btn-secondary" id="rb-esiti-completa">Salva e segna come completata</button>' : '<button class="btn btn-secondary" id="rb-esiti-riapri">Riporta in bozza</button>'}
+                </div>
+            </div>`;
+    }
+
+    // collega gli eventi della scheda attiva (chiamata dopo ogni ridisegno)
+    function rbCollegaTab(v) {
+        // campi di testa (testo semplice)
+        $vista().querySelectorAll('[data-campo]').forEach(el => el.addEventListener('change', () => {
+            v[el.dataset.campo] = el.value;
+            if (el.dataset.campo === 'settore') statoModifica = { tipo: 'rating', id: v.id || 'nuova', etichetta: v.cliente || 'nuova verifica' };
+        }));
+        const selInc = document.getElementById('rb-incarico');
+        if (selInc) selInc.addEventListener('change', () => {
+            v.incaricoId = selInc.value;
+            const inc = selInc.value ? Incarichi.trova(selInc.value) : null;
+            if (inc) {
+                if (!(v.cliente || '').trim()) v.cliente = inc.cliente || '';
+                if (!(v.regione || '').trim()) v.regione = inc.regione || '';
+                vistaRatingScheda();
+            }
+        });
+        // bilancio: numeri in formato italiano, riformattati alla conferma
+        $vista().querySelectorAll('[data-bil]').forEach(el => el.addEventListener('change', () => {
+            const n = rbNum(el.value);
+            v.bilancio = v.bilancio || {};
+            if (n === null) delete v.bilancio[el.dataset.bil];
+            else v.bilancio[el.dataset.bil] = n;
+            el.value = rbFmtNum(n);
+            const q = document.getElementById('rb-quadratura');
+            if (q) q.innerHTML = rbHtmlQuadratura(v);
+        }));
+        // Centrale Rischi
+        const crAtt = document.getElementById('rb-cr-attiva');
+        if (crAtt) crAtt.addEventListener('change', () => { v.cr.attiva = crAtt.checked; vistaRatingScheda(); });
+        const crSoff = document.getElementById('rb-cr-soff');
+        if (crSoff) crSoff.addEventListener('change', () => { v.cr.sofferenze = crSoff.checked; });
+        $vista().querySelectorAll('[data-cr-m]').forEach(el => el.addEventListener('change', () => {
+            const m = Number(el.dataset.crM), c = el.dataset.crC;
+            const n = rbNum(el.value);
+            v.cr.righe[m] = v.cr.righe[m] || {};
+            if (n === null) delete v.cr.righe[m][c];
+            else v.cr.righe[m][c] = n;
+            el.value = rbFmtNum(n);
+        }));
+        const crCopia = document.getElementById('rb-cr-copia');
+        if (crCopia) crCopia.addEventListener('click', () => {
+            const primo = v.cr.righe[0] || {};
+            for (let m = 1; m < 6; m++) v.cr.righe[m] = { ...primo };
+            vistaRatingScheda();
+        });
+        // banche
+        const addBanca = document.getElementById('rb-banca-add');
+        if (addBanca) addBanca.addEventListener('click', () => { v.banche.push({ banca: '', nome: '', accordato: null, utilizzato: null, sconfini: false, garanzie: '', nota: '' }); vistaRatingScheda(); });
+        $vista().querySelectorAll('[data-b-rm]').forEach(b => b.addEventListener('click', () => { v.banche.splice(Number(b.dataset.bRm), 1); vistaRatingScheda(); }));
+        $vista().querySelectorAll('[data-b-campo]').forEach(el => el.addEventListener('change', () => {
+            const r = v.banche[Number(el.dataset.bIdx)];
+            if (!r) return;
+            const campo = el.dataset.bCampo;
+            if (campo === 'sconfini') r.sconfini = el.checked;
+            else if (campo === 'accordato' || campo === 'utilizzato') { r[campo] = rbNum(el.value); el.value = rbFmtNum(r[campo]); }
+            else r[campo] = el.value;
+            if (campo === 'banca') vistaRatingScheda();
+        }));
+        // questionario
+        $vista().querySelectorAll('[data-q]').forEach(el => el.addEventListener('change', () => {
+            v.questionario = v.questionario || {};
+            v.questionario[el.dataset.q] = Number(el.value);
+        }));
+        // esiti
+        const btnRep = document.getElementById('rb-esiti-report');
+        if (btnRep) btnRep.addEventListener('click', () => { const id = rbSalvaScheda(); if (id) { schedaRB = null; naviga('ratingReport', { id }); } });
+        const btnComp = document.getElementById('rb-esiti-completa');
+        if (btnComp) btnComp.addEventListener('click', () => { v.stato = 'completata'; if (rbSalvaScheda()) vistaRatingScheda(); });
+        const btnRiapri = document.getElementById('rb-esiti-riapri');
+        if (btnRiapri) btnRiapri.addEventListener('click', () => { v.stato = 'bozza'; if (rbSalvaScheda()) vistaRatingScheda(); });
+    }
+
+    /* =========================================================
+       VISTA: REPORT DELLA VERIFICA (da firmare e stampare in PDF)
+       ------------------------------------------------------------
+       Un foglio A4 con tutti gli esiti, la nota metodologica e il
+       blocco firma. La firma grafica del responsabile si carica come
+       per i mandati (stessa conservazione, per persona) e viene
+       integrata direttamente nel documento stampato.
+    ========================================================= */
+    function vistaRatingReport() {
+        const p = parametriVista || {};
+        const v = p.id ? Rating.trova(p.id) : null;
+        if (!v) { toast('Verifica non trovata.', 'rosso'); naviga('rating'); return; }
+        const es = rbEsiti(v);
+        const scrive = Auth.puoScrivere('rating');
+        const oggi = fmtData(oggiISO());
+
+        if (!es.pronta) {
+            $vista().innerHTML = `
+                <div class="barra-stampa no-stampa">
+                    <button class="btn btn-ghost" id="rb-rep-indietro">&larr; Torna</button>
+                </div>
+                <div class="card"><h2>Report non ancora disponibile</h2>
+                    <p class="descrizione">Per generare il report di <strong>${esc(v.cliente || '(senza nome)')}</strong> mancano questi dati:</p>
+                    <ul style="margin:8px 0 0 18px;">${es.mancanti.map(m => '<li>' + esc(m) + '</li>').join('')}</ul>
+                </div>`;
+            document.getElementById('rb-rep-indietro').addEventListener('click', () => (scrive ? naviga('ratingScheda', { id: v.id }) : naviga('rating')));
+            return;
+        }
+
+        const set = RB_SETTORI[v.settore];
+        const rispostaDi = d => {
+            const i = (v.questionario || {})[d.id];
+            return (i !== undefined && i !== null && d.op[i]) ? d.op[i] : null;
+        };
+        const bil = v.bilancio || {};
+        const coppieBilancio = RB_CAMPI_BILANCIO
+            .filter(c => bil[c.id] !== null && bil[c.id] !== undefined)
+            .map(c => `<div class="rb-dato"><span>${esc(c.et)}</span><strong>${numFmt.format(bil[c.id])} &euro;</strong></div>`).join('');
+
+        $vista().innerHTML = `
+            <div class="barra-stampa no-stampa">
+                <button class="btn btn-ghost" id="rb-rep-indietro">&larr; ${scrive ? 'Torna alla verifica' : 'Torna all\'elenco'}</button>
+                ${scrive ? '<button class="btn btn-secondary" id="rb-rep-firma">Firma grafica&hellip;</button>' : ''}
+                <button class="btn btn-primary" id="rb-rep-stampa">Stampa / salva in PDF</button>
+            </div>
+            <div class="rb-foglio">
+                <div class="rb-testata">
+                    <div>
+                        <div class="rb-marchio">Revilaw S.p.A.</div>
+                        <div class="rb-titolo">Verifica del merito creditizio e rating bancario</div>
+                    </div>
+                    <div class="rb-testata-meta">
+                        <div><strong>${esc(v.cliente)}</strong></div>
+                        <div>${set ? esc(set.label) : ''}${v.esercizio ? ' &middot; esercizio ' + esc(v.esercizio) : ''}</div>
+                        <div>Report del ${oggi}${v.stato === 'completata' ? ' &middot; verifica completata' : ' &middot; bozza di lavoro'}</div>
+                    </div>
+                </div>
+
+                <div class="rb-sezione">
+                    <h3>1. Sintesi</h3>
+                    ${rbHtmlVerdetto(es, '')}
+                    ${rbHtmlKpiMcc(es)}
+                    <p class="rb-testo">${esc(rbTestoSintesi(es))}</p>
+                    ${!es.quadratura.ok ? '<p class="rb-testo"><strong>Avvertenza:</strong> attivo e passivo del bilancio inserito differiscono di ' + eurFmt.format(es.quadratura.diff) + '.</p>' : ''}
+                </div>
+
+                <div class="rb-sezione">
+                    <h3>2. Rating MCC del Fondo di Garanzia</h3>
+                    ${rbHtmlScala(es.mcc.integrata)}
+                    ${rbHtmlDettaglioMcc(es, true)}
+                </div>
+
+                <div class="rb-sezione">
+                    <h3>3. Questionario qualitativo e rating ipotizzato</h3>
+                    ${rbHtmlCorrettivo(es)}
+                    <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Domanda</th><th>Risposta</th><th class="num">Punti</th></tr></thead><tbody>
+                    ${RB_QUESTIONARIO.map(s => `<tr class="rb-riga-sezione"><td colspan="3"><strong>${esc(s.titolo)}</strong> &middot; ${es.quest.perSezione.find(x => x.id === s.id).perc}%</td></tr>`
+                        + s.domande.map(d => { const r = rispostaDi(d); return `<tr><td>${esc(d.testo)}</td><td>${r ? esc(r.t) : '<em>senza risposta</em>'}</td><td class="num">${r ? r.p : 0} / ${Math.max(...d.op.map(o => o.p))}</td></tr>`; }).join('')).join('')}
+                    </tbody></table></div>
+                </div>
+
+                <div class="rb-sezione">
+                    <h3>4. Cruscotto di bancabilita</h3>
+                    ${rbHtmlTabellaCruscotto(es)}
+                </div>
+
+                <div class="rb-sezione">
+                    <h3>5. Indici della crisi (CNDCEC) e Z-Score</h3>
+                    ${rbHtmlCndcec(es)}
+                    <div style="margin-top:10px;">${rbHtmlZ(es)}</div>
+                </div>
+
+                <div class="rb-sezione">
+                    <h3>6. Posizionamento bancario</h3>
+                    ${rbHtmlTabellaBanche(es)}
+                </div>
+
+                <div class="rb-sezione">
+                    <h3>7. Azioni migliorative proposte</h3>
+                    ${rbHtmlAzioni(es)}
+                </div>
+
+                <div class="rb-sezione">
+                    <h3>8. Dati utilizzati</h3>
+                    <div class="rb-dati-griglia">${coppieBilancio}</div>
+                    ${es.mcc.cr ? `<p class="rb-testo" style="margin-top:8px;"><strong>Centrale dei Rischi (6 mesi):</strong> utilizzo su accordato autoliquidanti e revoca ${rbFmt2.format(es.mcc.cr.c1)} &middot; mesi con sconfino di cassa ${es.mcc.cr.c2} &middot; mesi con sconfino a scadenza ${es.mcc.cr.c3} &middot; classe andamentale A${es.mcc.cr.classe}${es.mcc.sofferenze ? ' &middot; SOFFERENZE PRESENTI' : ''}.</p>`
+                        : '<p class="rb-testo" style="margin-top:8px;">Centrale dei Rischi non utilizzata: classe calcolata con il solo modulo economico-finanziario.</p>'}
+                    ${v.note ? '<p class="rb-testo"><strong>Note:</strong> ' + esc(v.note) + '</p>' : ''}
+                </div>
+
+                <div class="rb-sezione rb-nota-metodo">
+                    <h3>Nota metodologica e limiti</h3>
+                    <p class="rb-testo">Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA). Il correttivo qualitativo e una stima professionale Revilaw di come i modelli interni delle banche integrano gli elementi organizzativi e andamentali: il rating effettivo assegnato da ciascuna banca puo differire. I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali. Questo documento e uno strumento di lavoro riservato e non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009.</p>
+                </div>
+
+                <div class="rb-firma">
+                    <div class="rb-firma-col">
+                        <div class="rb-firma-et">Luogo e data</div>
+                        <div class="rb-firma-val">${esc((v.luogo || '').trim() || 'Verona')}, ${oggi}</div>
+                    </div>
+                    <div class="rb-firma-col">
+                        <div class="rb-firma-et">Il responsabile della verifica</div>
+                        <div class="rb-firma-area" id="rb-firma-area"></div>
+                        <div class="rb-firma-linea"></div>
+                        <div class="rb-firma-nome">${esc((v.respVerifica || '').trim() || 'Revilaw S.p.A.')}</div>
+                    </div>
+                </div>
+            </div>`;
+
+        document.getElementById('rb-rep-indietro').addEventListener('click', () => (scrive ? naviga('ratingScheda', { id: v.id }) : naviga('rating')));
+        document.getElementById('rb-rep-stampa').addEventListener('click', () => {
+            Audit.registra(Auth.utenteCorrente, 'Stampato report di rating bancario', 'rating', v.id, v.cliente, null);
+            window.print();
+        });
+        const btnFirma = document.getElementById('rb-rep-firma');
+        if (btnFirma) btnFirma.addEventListener('click', () => modaleFirmaRating(v));
+        rbMostraFirmaReport(v);
+    }
+    // carica in sottofondo la firma salvata del responsabile e la mette nel blocco firma
+    function rbMostraFirmaReport(v) {
+        const resp = (v.respVerifica || '').trim();
+        const area = document.getElementById('rb-firma-area');
+        if (!area) return;
+        if (!resp) { area.innerHTML = ''; return; }
+        Firme.leggi(resp).then(f => {
+            const a = document.getElementById('rb-firma-area');
+            if (a) a.innerHTML = f ? '<img src="' + f + '" alt="Firma di ' + esc(resp) + '">' : '';
+        }).catch(() => { });
+    }
+    /* Caricamento della firma grafica per il report: stessa conservazione dei
+       mandati (per responsabile, in archivio/firmaResp_...), stessa riduzione
+       dell'immagine. Cambiarla qui la cambia anche per le lettere di incarico
+       della stessa persona: e la SUA firma, non una firma del documento. */
+    function modaleFirmaRating(v) {
+        const resp = (v.respVerifica || '').trim();
+        if (!resp) { toast('Indica prima il responsabile della verifica nella scheda.', 'rosso'); return; }
+        let firmaSalvata = null;
+        let firmaNuova = null;
+        const miniatura = src => `<img src="${src}" alt="Firma" style="max-height:56px; max-width:220px; border:1px solid var(--grigio-200); border-radius:6px; background:#fff; padding:4px;">`;
+        apriModale(`<h2>Firma grafica del report</h2>
+            <p class="descrizione" style="margin-bottom:12px;">La firma di <strong>${esc(resp)}</strong> compare nel blocco firma del report, sopra il nome. E la stessa firma usata per i mandati: caricarla qui la aggiorna ovunque.</p>
+            <div class="campo" style="margin-bottom:12px;">
+                <label style="font-weight:600;">Firma di ${esc(resp)}</label>
+                <div id="m-firma-stato" class="descrizione" style="margin:4px 0 6px;">Controllo se c'e una firma gia salvata&hellip;</div>
+                <div id="m-firma-anteprima" style="margin-bottom:6px;"></div>
+                <input type="file" id="m-firma-file" accept="image/png,image/jpeg">
+                <label style="display:flex; gap:8px; align-items:center; font-weight:400; margin-top:6px;"><input type="checkbox" id="m-firma-salva" checked style="width:auto;">Salva questa firma: le prossime volte comparira in automatico per ${esc(resp)}</label>
+            </div>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-primary" id="m-conferma">Usa nel report</button>
+            </div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        Firme.leggi(resp).then(f => {
+            firmaSalvata = f || null;
+            const stato = document.getElementById('m-firma-stato');
+            const ant = document.getElementById('m-firma-anteprima');
+            if (!stato || !ant || firmaNuova) return;
+            stato.textContent = firmaSalvata
+                ? 'Firma gia salvata: e quella che compare nel report. Per sostituirla carica una nuova immagine.'
+                : 'Nessuna firma salvata: carica l\'immagine della firma (PNG o JPG). Senza immagine il report riporta solo il nome.';
+            ant.innerHTML = firmaSalvata ? miniatura(firmaSalvata) : '';
+        }).catch(() => {
+            const stato = document.getElementById('m-firma-stato');
+            if (stato && !firmaNuova) stato.textContent = 'Firma salvata non leggibile: puoi comunque caricarne una nuova.';
+        });
+        const inputFirma = document.getElementById('m-firma-file');
+        inputFirma.addEventListener('change', async () => {
+            const file = inputFirma.files && inputFirma.files[0];
+            if (!file) return;
+            try {
+                firmaNuova = await leggiImmagineFirma(file);
+                document.getElementById('m-firma-anteprima').innerHTML = miniatura(firmaNuova);
+                document.getElementById('m-firma-stato').textContent = 'Nuova firma pronta.';
+            } catch (e) {
+                firmaNuova = null; inputFirma.value = '';
+                toast(e.message || 'Immagine non valida.', 'rosso');
+            }
+        });
+        const btnOk = document.getElementById('m-conferma');
+        btnOk.addEventListener('click', () => conAttesa(btnOk, async () => {
+            try {
+                if (firmaNuova && document.getElementById('m-firma-salva').checked) {
+                    try { await Firme.salva(resp, firmaNuova); }
+                    catch (e) { toast('Firma usata nel report ma non salvata per le prossime volte: ' + (e.message || 'errore'), 'rosso'); }
+                }
+                const scelta = firmaNuova || firmaSalvata;
+                const area = document.getElementById('rb-firma-area');
+                if (area) area.innerHTML = scelta ? '<img src="' + scelta + '" alt="Firma di ' + esc(resp) + '">' : '';
+                chiudiModale();
+                toast(scelta ? 'Firma inserita nel report.' : 'Nessuna firma: il report riporta solo il nome.', 'verde');
+            } catch (e) {
+                toast(e.message || 'Operazione non riuscita.', 'rosso');
+            }
+        }, { testo: 'Salvataggio&hellip;' }));
+    }
+
+    /* =========================================================
        VISTA: ADERENTI REVILAW (anagrafica del team)
     ========================================================= */
     /* Incarichi in cui una persona compare, con il ruolo che vi ricopre.
@@ -6421,6 +8288,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-21-rating-bancario',
+            data: '2026-08-21',
+            titolo: 'Rating bancario e merito creditizio',
+            sommario: 'Nell\'area riservata c\'e la sezione "Rating bancario": la versione di lavoro del simulatore pubblico. Le verifiche si salvano per cliente e si completano con il questionario qualitativo, con le banche dell\'impresa e con le azioni migliorative; alla fine si stampa un report in PDF con la firma grafica del responsabile.',
+            chi: 'Chi prepara le verifiche del merito creditizio per i clienti. La sezione compare a chi ha il permesso "Rating bancario" nel proprio ruolo; in sola lettura si consultano gli esiti e i report.',
+            dove: 'Nel menu di sinistra, alla voce "Rating bancario" sotto l\'intestazione "Merito creditizio".',
+            voci: [
+                { titolo: 'Il modello di calcolo', testo: 'La verifica replica il modello del Fondo di Garanzia PMI: bilancio per settore, Centrale dei Rischi per l\'andamentale, classe integrata da 1 a 12 in 5 fasce con la probabilita di inadempimento. Ci sono anche il cruscotto di bancabilita, gli indici della crisi CNDCEC e lo Z-Score, come nel simulatore del sito.' },
+                { titolo: 'Il questionario qualitativo', testo: 'Venti domande su governance, presidi (231, rating di legalita, ESG, TCF), rapporti bancari e struttura. Il punteggio corregge la classe di uno o piu gradini, come fanno i modelli interni delle banche: cosi si arriva al rating ipotizzato.' },
+                { titolo: 'Le banche dell\'impresa', testo: 'Per ogni rapporto si indicano accordato, utilizzato e stato della relazione. Il programma confronta gli istituti con i rating delle agenzie, misura utilizzo e concentrazione degli affidamenti e stima come ogni banca vede l\'impresa.' },
+                { titolo: 'Azioni migliorative e report', testo: 'Dalle debolezze rilevate nascono le azioni proposte, collegate ai servizi Revilaw (assetti, 231, rating di legalita, ESG, TCF). Il report finale si firma con la firma grafica caricata, come i mandati, e si stampa o si salva in PDF.' }
+            ]
+        },
         {
             id: '2026-08-14-richieste-correzione',
             data: '2026-08-14',

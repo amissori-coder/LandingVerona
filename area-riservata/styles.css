@@ -1419,6 +1419,127 @@ summary.ni-testa::before {
     .s-modale-compila .modale-corpo { padding: 16px 16px 22px; }
 }
 
+/* =========================================================
+   RATING BANCARIO (merito creditizio)
+========================================================= */
+.badge.arancio { background: #fdeedd; color: #a5561a; border-color: #f3d4b5; }
+
+/* scala delle 12 classi (fasce 1-5, colori del simulatore pubblico) */
+.rb-scala { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; margin: 6px 0 2px; }
+.rb-seg {
+    display: flex; align-items: center; justify-content: center;
+    height: 30px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;
+    font-variant-numeric: tabular-nums; transition: transform 0.15s ease;
+}
+.rb-f1 { background: #dff1e6; color: #1e7d46; }
+.rb-f2 { background: #e8f3d9; color: #5c9b32; }
+.rb-f3 { background: #fdf5d8; color: #8a6a06; }
+.rb-f4 { background: #fdeadd; color: #a5561a; }
+.rb-f5 { background: #fbdddd; color: #b3352c; }
+.rb-seg.attiva { transform: scale(1.12); color: #fff; box-shadow: 0 4px 12px rgba(10, 40, 68, 0.25); }
+.rb-seg.attiva.rb-f1 { background: #1e7d46; }
+.rb-seg.attiva.rb-f2 { background: #5c9b32; }
+.rb-seg.attiva.rb-f3 { background: #c9971c; }
+.rb-seg.attiva.rb-f4 { background: #c46a1e; }
+.rb-seg.attiva.rb-f5 { background: #b3352c; }
+.rb-scala-note { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--grigio-400); margin-bottom: 10px; }
+
+/* verdetto complessivo */
+.rb-verdetto {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    border-radius: var(--raggio); border: 1px solid var(--grigio-200);
+    padding: 14px 16px; margin-bottom: 18px; background: #fff; box-shadow: var(--ombra);
+}
+.rb-verdetto strong { font-size: 1.02rem; color: var(--blu-900); }
+.rb-verdetto-verde { border-left: 4px solid var(--verde); }
+.rb-verdetto-giallo { border-left: 4px solid var(--ambra); }
+.rb-verdetto-arancio { border-left: 4px solid #c46a1e; }
+.rb-verdetto-rosso { border-left: 4px solid var(--rosso); }
+
+/* correttivo qualitativo */
+.rb-corr-riga { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 8px 0 12px; }
+.rb-corr-et { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--grigio-600); margin-bottom: 4px; }
+.rb-corr-freccia { font-size: 1.3rem; color: var(--grigio-400); }
+.rb-corr-pd { font-size: 0.8rem; color: var(--grigio-600); margin-left: 6px; }
+
+.rb-rif { font-size: 0.74rem; color: var(--grigio-600); line-height: 1.4; }
+.rb-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.rb-dettaglio { margin-top: 10px; }
+.rb-dettaglio summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--blu-700); padding: 4px 0; }
+
+/* azioni migliorative */
+.rb-azioni { display: flex; flex-direction: column; gap: 10px; }
+.rb-azione { border: 1px solid var(--grigio-200); border-left: 3px solid var(--blu-700); border-radius: var(--raggio); padding: 10px 14px; background: #fff; }
+.rb-azione-testa { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.rb-azione-testa strong { color: var(--blu-900); }
+.rb-azione p { margin: 0; font-size: 0.85rem; color: var(--grigio-900); line-height: 1.5; }
+.rb-azione-serv { margin-top: 6px; font-size: 0.78rem; color: var(--grigio-600); }
+
+/* questionario */
+.rb-domanda { padding: 10px 0; border-bottom: 1px solid var(--grigio-100); }
+.rb-domanda:last-child { border-bottom: none; }
+.rb-domanda-testo { font-weight: 600; font-size: 0.88rem; color: var(--blu-900); margin-bottom: 6px; }
+.rb-opzioni { display: flex; flex-direction: column; gap: 4px; }
+.rb-opzione { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; cursor: pointer; padding: 3px 6px; border-radius: 4px; }
+.rb-opzione:hover { background: var(--blu-050); }
+.rb-opzione input { width: auto; margin: 0; }
+.rb-opzione em { margin-left: auto; font-style: normal; font-size: 0.72rem; color: var(--grigio-400); white-space: nowrap; }
+
+/* tabella Centrale Rischi: campi numerici compatti */
+.rb-cr-tab input { width: 100%; min-width: 110px; text-align: right; padding: 5px 8px; font-variant-numeric: tabular-nums; }
+
+/* il foglio del report: A4 a schermo, pieno in stampa */
+.rb-foglio {
+    background: #fff; max-width: 860px; margin: 0 auto;
+    border: 1px solid var(--grigio-200); border-radius: var(--raggio);
+    box-shadow: var(--ombra-lg); padding: 34px 38px;
+}
+.rb-testata { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; flex-wrap: wrap; border-bottom: 2px solid var(--blu-900); padding-bottom: 14px; margin-bottom: 18px; }
+.rb-marchio { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grigio-600); }
+.rb-titolo { font-family: 'Montserrat', 'Inter', sans-serif; font-size: 1.35rem; font-weight: 800; color: var(--blu-900); margin-top: 3px; }
+.rb-testata-meta { text-align: right; font-size: 0.84rem; color: var(--grigio-600); line-height: 1.5; }
+.rb-testata-meta strong { color: var(--blu-900); font-size: 0.95rem; }
+.rb-sezione { margin-bottom: 22px; }
+.rb-sezione h3 { font-family: 'Montserrat', 'Inter', sans-serif; font-size: 0.98rem; color: var(--blu-900); margin-bottom: 10px; padding-bottom: 4px; border-bottom: 1px solid var(--grigio-200); }
+.rb-testo { font-size: 0.85rem; line-height: 1.55; color: var(--grigio-900); margin: 8px 0 0; text-align: justify; }
+.rb-nota-metodo .rb-testo { font-size: 0.76rem; color: var(--grigio-600); }
+.rb-dati-griglia { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px 26px; }
+.rb-dato { display: flex; justify-content: space-between; gap: 12px; font-size: 0.8rem; padding: 3px 0; border-bottom: 1px dotted var(--grigio-200); }
+.rb-dato span { color: var(--grigio-600); }
+.rb-dato strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* blocco firma: allineamenti fissi, uguali a schermo e su carta */
+.rb-firma { display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; margin-top: 44px; break-inside: avoid; page-break-inside: avoid; }
+.rb-firma-col { flex: 1; max-width: 300px; }
+.rb-firma-et { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--grigio-600); margin-bottom: 8px; }
+.rb-firma-val { font-size: 0.9rem; color: var(--grigio-900); padding-bottom: 6px; }
+.rb-firma-area { min-height: 58px; display: flex; align-items: flex-end; }
+.rb-firma-area img { max-height: 56px; max-width: 220px; display: block; margin-bottom: 2px; }
+.rb-firma-linea { border-top: 1px solid #333; }
+.rb-firma-nome { font-size: 0.86rem; color: var(--grigio-900); padding-top: 5px; text-align: center; }
+
+/* "screen and": un foglio A4 e piu stretto di 720px CSS al netto dei margini,
+   e su carta la scala deve restare su una riga e la firma su due colonne */
+@media screen and (max-width: 720px) {
+    .rb-scala { grid-template-columns: repeat(6, 1fr); }
+    .rb-foglio { padding: 18px 14px; }
+    .rb-firma { flex-direction: column; align-items: stretch; gap: 24px; }
+    .rb-dati-griglia { grid-template-columns: 1fr; }
+}
+
+@media print {
+    /* il report di rating occupa il foglio intero, senza cornici da schermo */
+    .rb-foglio { box-shadow: none; border: none; border-radius: 0; padding: 0; max-width: none; }
+    .rb-seg, .rb-seg.attiva, .rb-verdetto, .rb-azione, .rb-opzione,
+    .rb-firma-linea, .rb-testata { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .rb-seg.attiva { transform: none; box-shadow: none; }
+    .rb-sezione h3 { break-after: avoid; page-break-after: avoid; }
+    .rb-testata, .rb-verdetto, .rb-azione, .rb-corr-riga, .rb-dato, .rb-scala { break-inside: avoid; page-break-inside: avoid; }
+    .rb-dettaglio summary { list-style: none; }
+    .rb-dettaglio summary::-webkit-details-marker { display: none; }
+    .rb-foglio .kpi-griglia { grid-template-columns: repeat(4, 1fr); }
+}
+
 /* Sotto i 1000px le tabelle larghe non possono comprimersi oltre senza scorrere in
    orizzontale o spezzare i contenuti: ogni riga di OGNI tabella diventa una scheda
    impilata e leggibile. Le celle senza data-label mostrano solo il valore.
