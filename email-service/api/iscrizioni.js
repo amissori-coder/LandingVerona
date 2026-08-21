@@ -302,6 +302,9 @@ module.exports = async (req, res) => {
             lette.righe.forEach(v => {
                 const pag = String(v.pagina || '');
                 if (!tieni(pag)) return;
+                // iscrizione annullata dall'intestatario (dalla pagina "completa
+                // i dati"): fuori dall'elenco e dai conteggi
+                if (v.annullato) return;
                 const em = String(v.email || '');
                 daFirestore.push({
                     id: (em.toLowerCase() || (chiave(v.nome) + '.' + chiave(v.cognome))) + '|' + String(v.data || ''),
@@ -316,6 +319,12 @@ module.exports = async (req, res) => {
                         da: String(v.inserito.da || ''),
                         daNome: String(v.inserito.daNome || ''),
                         quando: typeof v.inserito.quando === 'number' ? v.inserito.quando : 0
+                    } : null,
+                    /* chi ha compilato il modulo "completa i dati" (l'intestatario):
+                       l'area riservata lo mostra come "Nome (dal modulo)" */
+                    compilato: (v.compilato && typeof v.compilato === 'object') ? {
+                        daNome: String(v.compilato.daNome || ''),
+                        quando: typeof v.compilato.quando === 'number' ? v.compilato.quando : 0
                     } : null,
                     /* Colonne aggiuntive: quelle dell'elenco importato piu' i campi
                        del business matching. Si costruisce una copia nuova, cosi'

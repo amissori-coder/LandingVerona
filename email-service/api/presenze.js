@@ -295,13 +295,17 @@ module.exports = async (req, res) => {
                         try {
                             const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
                             const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+                            // il segnaposto {{COMPLETA}} diventa il collegamento personale
+                            // FIRMATO della scheda appena creata: da li' l'iscritto
+                            // modifica i dati o annulla l'iscrizione
+                            const linkGestione = NL.linkCompleta(idIscrizione(idNuovo));
                             const messaggio = {
                                 from: '"' + fromName + '" <' + fromEmail + '>',
                                 replyTo: email,
                                 to: scheda.email,
                                 subject: oggetto.replace(/[\r\n]/g, ' '),
-                                text: testoMail || undefined,
-                                html: html
+                                text: (testoMail ? testoMail.split('{{COMPLETA}}').join(linkGestione) : undefined),
+                                html: html.split('{{COMPLETA}}').join(linkGestione)
                             };
                             /* copia nascosta a chi ha inserito la scheda: cosi' ha
                                agli atti la conferma partita, senza comparire
