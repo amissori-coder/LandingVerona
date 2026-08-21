@@ -1513,7 +1513,9 @@
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
-                return { ok: true, presenza: data.presenza || null };
+                // "id" e "mail" arrivano dall'inserimento manuale: la scheda creata
+                // e l'esito della mail di conferma (registrata != spedita)
+                return { ok: true, presenza: data.presenza || null, id: data.id || null, mail: data.mail || null };
             } catch (e) {
                 return { ok: false, msg: 'Servizio non raggiungibile.' };
             }
@@ -7584,16 +7586,34 @@
     /* Un evento per riquadro: "filtro" e' la parola cercata nella colonna Pagina
        delle iscrizioni, "nota" spiega un elenco vuoto quando il modulo non c'e' ancora. */
     // in ordine di data; il riepilogo resta in coda
+    /* "manuale": da Napoli in poi l'iscrizione passa anche da portali esterni
+       (Eventbrite), che non scrivono nel nostro archivio. Per questi eventi
+       l'amministratore puo' AGGIUNGERE un'iscrizione a mano, dicendo da quale
+       portale arriva, e far partire subito la mail di conferma in formato NGB.
+       "luogo", "indirizzo" e "urlPagina" finiscono in quella mail. */
     const EVENTI_DEF = [
         { id: 'verona-2026-03-27', titolo: 'Verona', quando: '27 marzo 2026', giorno: '2026-03-27', filtro: 'verona', pagina: 'Verona 27 Marzo 2026' },
         { id: 'roma-2026-04-29', titolo: 'Roma', quando: '29 aprile 2026', giorno: '2026-04-29', filtro: 'roma', pagina: 'Roma 29 Aprile 2026' },
-        { id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', giorno: '2026-10-02', filtro: 'napoli', pagina: 'Napoli 2 Ottobre 2026' },
+        {
+            id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', giorno: '2026-10-02', filtro: 'napoli', pagina: 'Napoli 2 Ottobre 2026',
+            manuale: true, luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli', urlPagina: '/napoli_ottobre_2026/'
+        },
         {
             id: 'milano-2027-02-27', titolo: 'Milano', quando: '27 febbraio 2027', giorno: '2027-02-27', filtro: 'milano', pagina: 'Milano 27 Febbraio 2027',
-            nota: 'Il modulo di iscrizione non e ancora pubblicato: le iscrizioni compariranno qui da sole appena sara attivo.'
+            manuale: true,
+            nota: 'Il modulo di iscrizione non e ancora pubblicato: le iscrizioni dal sito compariranno qui da sole appena sara attivo. Quelle arrivate da altri portali (Eventbrite) si inseriscono con "Aggiungi iscrizione".'
         },
         // riepilogo: tutte le iscrizioni insieme, senza presenze (non servono qui)
         { id: 'tutti', titolo: 'Tutte', quando: 'ogni evento', giorno: '', filtro: '', tutti: true }
+    ];
+    /* Da dove puo' arrivare un'iscrizione inserita a mano. L'etichetta finisce
+       nella colonna "Portale" dell'elenco e nella mail di conferma. */
+    const PORTALI_ISCRIZIONE = [
+        { id: 'eventbrite', nome: 'Eventbrite' },
+        { id: 'sito', nome: 'Sito NGB' },
+        { id: 'email', nome: 'Email o segreteria' },
+        { id: 'telefono', nome: 'Telefono o di persona' },
+        { id: 'altro', nome: 'Altro portale' }
     ];
     // filtri dei soli eventi veri: servono al riepilogo per NON pescare le iscrizioni
     // degli altri moduli del sito, che finiscono nello stesso archivio
@@ -7981,7 +8001,11 @@
         const gestione = admin
             ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
             + '<div class="hint">Oltre all\'amministratore, vedono gli Eventi <b>' + cfg.abilitati.length + '</b> utenti abilitati.</div></div>'
-            + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
+            + '<div class="s-admin-azioni">'
+            // dagli eventi con iscrizione anche su portali esterni (Eventbrite) si
+            // puo' aggiungere una scheda a mano, con la mail di conferma NGB
+            + (ev.manuale ? '<button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button>' : '')
+            + '<button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
             + '<button class="btn btn-secondary" id="ev-importa">Importa iscrizioni</button></div></div>'
             : '';
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
@@ -8025,6 +8049,8 @@
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
         const bImp = document.getElementById('ev-importa');
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
+        const bNuova = document.getElementById('ev-nuova');
+        if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
         const bDiag = document.getElementById('ev-diag-btn');
         if (bDiag) bDiag.addEventListener('click', () => {
             bDiag.disabled = true; bDiag.textContent = 'Controllo...';
@@ -8208,6 +8234,117 @@
                 chiudiModale(); toast('Iscrizione aggiornata.', 'verde');
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizione modificata', 'sistema', ev.id, null, r.id); } catch (e) { }
                 // si rilegge dal server: cosi' l'identificativo nuovo e l'ordine sono quelli veri
+                _evUltimoTentativo[ev.id] = 0;
+                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
+                if (vistaCorrente === 'eventi') vistaEventi();
+            });
+        });
+    }
+
+    /* Inserimento A MANO di un'iscrizione (solo amministratore), per gli eventi
+       che raccolgono iscrizioni anche fuori dal sito: chi si iscrive da
+       Eventbrite non passa dal nostro form, quindi la sua scheda si ricopia qui.
+       Si indica da quale portale arriva (resta visibile nell'elenco, colonna
+       "Portale") e si puo' far partire subito la mail di conferma in formato
+       NGB, uguale per impostazione alla newsletter: prima di salvare c'e'
+       l'anteprima, cosi' si vede esattamente cio' che ricevera' la persona. */
+    function modaleNuovaIscrizione(ev) {
+        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        if (!ev || !ev.manuale) return;
+        const campo = (id, et, tipo, ph) => '<div class="campo"><label for="' + id + '">' + et + '</label>'
+            + '<input type="' + (tipo || 'text') + '" id="' + id + '" placeholder="' + esc(ph || '') + '"></div>';
+        apriModale('<h2>Aggiungi iscrizione - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Per le iscrizioni arrivate fuori dal sito (Eventbrite, email, telefono). '
+            + 'La scheda entra nell\'elenco come tutte le altre; il portale di provenienza resta visibile nella colonna "Portale".</p>'
+            + '<div class="griglia-2">'
+            + campo('ni-nome', 'Nome') + campo('ni-cognome', 'Cognome')
+            + campo('ni-email', 'Email', 'email', 'nome@azienda.it') + campo('ni-tel', 'Telefono')
+            + campo('ni-azienda', 'Azienda') + campo('ni-ruolo', 'Ruolo')
+            + '</div>'
+            + '<div class="campo"><label for="ni-portale">Da quale portale arriva l\'iscrizione</label>'
+            + '<select id="ni-portale">'
+            + PORTALI_ISCRIZIONE.map(p => '<option value="' + p.id + '">' + esc(p.nome) + '</option>').join('')
+            + '</select></div>'
+            + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ni-mail" checked> '
+            + 'Invia subito la mail di conferma in formato NGB</label>'
+            + '<div class="hint">La riceve l\'iscritto all\'indirizzo indicato sopra. Con "Anteprima mail" la vedi prima di salvare.</div></div>'
+            + '<div id="ni-anteprima" style="display:none;margin-top:10px;">'
+            + '<iframe id="ni-frame" title="Anteprima della mail di conferma" sandbox="allow-same-origin" '
+            + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + '<div id="ni-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ni-no">Annulla</button>'
+            + '<button class="btn btn-secondary" id="ni-ant">Anteprima mail</button>'
+            + '<button class="btn btn-primary" id="ni-si">Salva</button></div>', { classe: 'larga' });
+
+        const v = id => ((document.getElementById(id) || {}).value || '').trim();
+        const esito = (testo, ko) => {
+            const e = document.getElementById('ni-esito');
+            if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+        };
+        const portaleScelto = () => PORTALI_ISCRIZIONE.find(p => p.id === v('ni-portale')) || PORTALI_ISCRIZIONE[0];
+        // data di iscrizione nello stesso formato del form del sito: entra
+        // nell'identificativo della scheda e nella mail ("Registrata il")
+        const p2 = n => String(n).padStart(2, '0');
+        const d0 = new Date();
+        const dataIscrizione = p2(d0.getDate()) + '/' + p2(d0.getMonth() + 1) + '/' + d0.getFullYear()
+            + ' ' + p2(d0.getHours()) + ':' + p2(d0.getMinutes()) + ':' + p2(d0.getSeconds());
+        const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.confermaEvento({
+            nome: v('ni-nome'), cognome: v('ni-cognome'),
+            evento: {
+                titolo: ev.titolo, quando: ev.quando, luogo: ev.luogo || '', indirizzo: ev.indirizzo || '',
+                url: ev.urlPagina ? SITO_PUBBLICO + ev.urlPagina : ''
+            },
+            portale: portaleScelto().nome,
+            dataIscrizione: dataIscrizione.slice(0, 16)
+        }) : null;
+
+        document.getElementById('ni-no').addEventListener('click', chiudiModale);
+        // anteprima nella finestra stessa: si aggiorna a ogni pressione, cosi'
+        // rispecchia sempre i campi come sono in quel momento
+        document.getElementById('ni-ant').addEventListener('click', () => {
+            const m = mailDi();
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return; }
+            const cont = document.getElementById('ni-anteprima');
+            const frame = document.getElementById('ni-frame');
+            const chiusa = cont.style.display === 'none';
+            cont.style.display = chiusa ? '' : 'none';
+            document.getElementById('ni-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
+            if (chiusa) frame.srcdoc = m.html;
+        });
+        document.getElementById('ni-si').addEventListener('click', () => {
+            const campi = {
+                nome: v('ni-nome'), cognome: v('ni-cognome'),
+                email: v('ni-email').toLowerCase(), telefono: v('ni-tel'),
+                azienda: v('ni-azienda'), ruolo: v('ni-ruolo'),
+                data: dataIscrizione
+            };
+            if (!campi.email && !campi.nome && !campi.cognome) { esito('Servono almeno nome e cognome, oppure l\'email.', true); return; }
+            if (campi.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(campi.email)) { esito('L\'indirizzo email non sembra valido.', true); return; }
+            const vuoleMail = !!(document.getElementById('ni-mail') || {}).checked;
+            if (vuoleMail && !campi.email) { esito('Per inviare la mail di conferma serve l\'email (oppure togli la spunta).', true); return; }
+            const mail = vuoleMail ? mailDi() : null;
+            if (vuoleMail && !mail) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
+            const portale = portaleScelto();
+            const b = document.getElementById('ni-si');
+            b.disabled = true; b.textContent = 'Salvo...';
+            Cloud.operaPresenza({
+                azione: 'aggiungi', evento: ev.id, pagina: ev.pagina, campi: campi,
+                portale: portale, mail: mail ? { oggetto: mail.oggetto, html: mail.html, testo: mail.testo } : null
+            }).then(r => {
+                if (!r.ok) {
+                    b.disabled = false; b.textContent = 'Salva';
+                    esito(r.msg || 'Iscrizione non salvata.', true);
+                    return;
+                }
+                chiudiModale();
+                toast('Iscrizione registrata' + (campi.nome || campi.cognome ? ' per ' + ((campi.nome + ' ' + campi.cognome).trim()) : '') + '.', 'verde');
+                // l'esito della mail si dice A PARTE: la scheda e' salvata comunque,
+                // e una conferma non partita non deve sembrare un'iscrizione persa
+                if (mail) {
+                    if (r.mail && r.mail.inviata) toast('Mail di conferma inviata a ' + campi.email + '.', 'verde');
+                    else toast('Mail di conferma NON inviata' + (r.mail && r.mail.msg ? ': ' + r.mail.msg : '.') + ' La scheda e salvata: puoi riprovare dall\'evento.', 'rosso');
+                }
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizione inserita a mano', 'sistema', ev.id, null, (campi.email || (campi.nome + ' ' + campi.cognome).trim()) + ' da ' + portale.nome + (mail ? (r.mail && r.mail.inviata ? ', mail inviata' : ', mail non inviata') : '')); } catch (e) { }
                 _evUltimoTentativo[ev.id] = 0;
                 caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
                 if (vistaCorrente === 'eventi') vistaEventi();

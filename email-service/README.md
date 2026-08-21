@@ -183,6 +183,18 @@ al minuto per utente.
 - `azione: "cancella"`: **solo amministratore**. Cancella l'iscrizione e la sua
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
+- `azione: "aggiungi"`: **solo amministratore**. Registra un'iscrizione a mano,
+  per chi si e iscritto da un portale esterno (dall'evento di Napoli in poi
+  l'iscrizione passa anche da Eventbrite). Nel corpo: `pagina` (titolo del
+  modulo dell'evento), `campi` (nome, cognome, email, telefono, azienda,
+  ruolo, data), `portale` (`{ id }` fra `eventbrite`, `sito`, `email`,
+  `telefono`, `altro`: l'etichetta la mette il servizio e finisce nella
+  colonna aggiuntiva "Portale") e, facoltativa, `mail` `{ oggetto, html,
+  testo }`: la conferma in formato NGB gia composta dall'area riservata
+  (stesso schema della newsletter), spedita SOLO all'indirizzo dell'iscritto
+  appena registrato. L'identificativo della scheda e lo stesso del form del
+  sito. Risposta: `{ ok, id, mail: { inviata, msg } }`; se la mail non parte
+  l'iscrizione resta comunque registrata.
 
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
