@@ -69,8 +69,30 @@ function firmaValida(email, token) {
     return crypto.timingSafeEqual(attesa, data);
 }
 
+/* Firma del collegamento "completa i dati dei partecipanti" (iscrizioni
+   inserite a mano): stesso segreto, contesto diverso, cosi' un token di
+   disiscrizione non apre i dati di un'iscrizione e viceversa. Si firma
+   l'IDENTIFICATIVO DEL DOCUMENTO, quindi il collegamento vale per quella
+   sola scheda. */
+function firmaCompleta(idDoc) {
+    return crypto.createHmac('sha256', segreto())
+        .update('completa-iscrizione|' + String(idDoc || ''))
+        .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '').slice(0, 32);
+}
+function firmaCompletaValida(idDoc, token) {
+    const attesa = Buffer.from(firmaCompleta(idDoc));
+    const data = Buffer.from(String(token || ''));
+    if (attesa.length !== data.length) return false;
+    return crypto.timingSafeEqual(attesa, data);
+}
+
 const BASE = String(process.env.APP_BASE_URL || 'https://nextgenerationbusiness.it').replace(/\/+$/, '');
 const PAGINA_DISISCRIZIONE = BASE + '/newsletter/disiscriviti.html';
+const PAGINA_COMPLETA = BASE + '/completa_iscrizione/';
+function linkCompleta(idDoc) {
+    return PAGINA_COMPLETA + '?d=' + encodeURIComponent(String(idDoc || ''))
+        + '&t=' + encodeURIComponent(firmaCompleta(idDoc));
+}
 /* Collegamento personale mostrato in fondo alla mail (pagina di conferma). */
 function linkDisiscrizione(email, campagna) {
     return PAGINA_DISISCRIZIONE + '?e=' + encodeURIComponent(email) + '&t=' + encodeURIComponent(firma(email))
@@ -204,7 +226,8 @@ function testo(v, max) {
 module.exports = {
     leggiServiceAccount, initAdmin, admin,
     firma, firmaValida, linkDisiscrizione, linkUnClic,
-    PAGINA_DISISCRIZIONE, BASE,
+    firmaCompleta, firmaCompletaValida, linkCompleta,
+    PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, BASE,
     EMAIL_RE, autorizza, disiscritti, testo,
     brevoAttivo, chiamataBrevo, bloccatiBrevo
 };

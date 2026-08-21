@@ -7931,6 +7931,11 @@
     function tabellaIscrizioni(ev, lista) {
         const segna = puoSegnarePresenze() && !ev.tutti;   // nel riepilogo le presenze non servono
         const adminEv = Auth.eAdmin() || Auth.eProprietario();
+        // gli equity e founding partner non modificano ne' cancellano, ma dalle
+        // righe manuali possono CHIEDERE i dati mancanti: a loro la colonna
+        // delle azioni compare con quella sola voce
+        const puoRichiedere = puoAggiungereIscrizioni();
+        const azioniEv = adminEv || puoRichiedere;
         // negli eventi con inserimento manuale, portale e partecipanti si vedono
         // SEMPRE: sono il modo per distinguere le iscrizioni riportate a mano
         const fisse = !!ev.manuale;
@@ -7972,16 +7977,26 @@
                 + (ev.tutti ? '' : cellaStato + cellaNota
                     + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || firmaPresenza(r.inserito) || '-') + '</span></td>')
                 // Modifica e Cancella stanno in un menu a tre puntini: due pulsanti
-                // per riga allargavano la tabella senza dire niente di nuovo
-                + (adminEv
-                    ? '<td data-label="" class="ev-azioni"><div class="ev-menu">'
-                    + '<button type="button" class="btn btn-sm btn-secondary ev-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Azioni">&#8942;</button>'
-                    + '<div class="ev-menu-lista hidden">'
-                    + '<button type="button" class="ev-menu-voce ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
-                    + '<button type="button" class="ev-menu-voce ev-canc" data-id="'
-                    + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
-                    + (ev.tutti ? 'Togli' : 'Cancella') + '</button>'
-                    + '</div></div></td>'
+                // per riga allargavano la tabella senza dire niente di nuovo.
+                // "Chiedi dati partecipanti" compare sulle righe MANUALI con email:
+                // manda all'intestatario il collegamento per completare i dati.
+                + (azioniEv
+                    ? '<td data-label="" class="ev-azioni">'
+                    + (voci => voci ? '<div class="ev-menu">'
+                        + '<button type="button" class="btn btn-sm btn-secondary ev-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Azioni">&#8942;</button>'
+                        + '<div class="ev-menu-lista hidden">' + voci + '</div></div>' : '')(
+                        (adminEv
+                            ? '<button type="button" class="ev-menu-voce ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
+                            : '')
+                        + (puoRichiedere && ev.manuale && r.email && r.extra && r.extra.Portale
+                            ? '<button type="button" class="ev-menu-voce ev-req" data-id="' + esc(r.id) + '">Chiedi dati partecipanti</button>'
+                            : '')
+                        + (adminEv
+                            ? '<button type="button" class="ev-menu-voce ev-canc" data-id="'
+                            + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
+                            + (ev.tutti ? 'Togli' : 'Cancella') + '</button>'
+                            : ''))
+                    + '</td>'
                     : '')
                 + '</tr>';
         }).join('');
@@ -8009,7 +8024,7 @@
             + (ev.tutti ? '<th>Evento</th>' : '')
             + extra.map(c => '<th>' + esc(c) + '</th>').join('')
             + (ev.tutti ? '' : '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
-            + (adminEv ? '<th></th>' : '')
+            + (azioniEv ? '<th></th>' : '')
             + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
     }
 
@@ -8149,6 +8164,10 @@
         $vista().querySelectorAll('.ev-mod').forEach(b => b.addEventListener('click', () => {
             const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
             if (r) modaleModificaIscrizione(ev, r);
+        }));
+        $vista().querySelectorAll('.ev-req').forEach(b => b.addEventListener('click', () => {
+            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+            if (r) modaleRichiediDati(ev, r);
         }));
         // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
         const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
@@ -8459,6 +8478,74 @@
                 _evUltimoTentativo[ev.id] = 0;
                 caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
                 if (vistaCorrente === 'eventi') vistaEventi();
+            });
+        });
+    }
+
+    /* Chiede all'intestatario di un'iscrizione manuale i dati mancanti, suoi e
+       degli altri partecipanti: parte una mail in formato NGB con un collegamento
+       personale firmato verso /completa_iscrizione/, dove compila un blocco di
+       campi per ciascun posto. Al salvataggio i posti si RIPARTISCONO (la scheda
+       originale tiene quelli non ancora nominati, gli altri diventano schede
+       proprie), quindi il totale dei partecipanti non cambia mai: niente doppi
+       conteggi, nemmeno rimandando il modulo. Possono chiederlo amministratore,
+       titolare, equity e founding partner. */
+    function modaleRichiediDati(ev, r) {
+        if (!puoAggiungereIscrizioni()) return;
+        if (!ev || !ev.manuale || !r || !r.email) return;
+        const nPart = partecipantiDi(r);
+        const nome = (r.nome + ' ' + r.cognome).trim() || r.email;
+        const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.richiestaDati({
+            nome: r.nome, cognome: r.cognome,
+            evento: { titolo: ev.titolo, quando: ev.quando, luogo: ev.luogo || '', indirizzo: ev.indirizzo || '' },
+            portale: (r.extra && r.extra.Portale) || '',
+            partecipanti: nPart
+        }) : null;
+        apriModale('<h2>Chiedi i dati dei partecipanti</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;"><b>' + esc(nome) + '</b> ricevera una mail in formato NGB con un collegamento personale: '
+            + 'da li completa i suoi dati' + (nPart > 1 ? ' e indica nome, cognome ed email di ciascuno dei <b>' + nPart + ' partecipanti</b>' : '') + '. '
+            + 'Al salvataggio l\'elenco si aggiorna da solo e il totale dei partecipanti resta lo stesso: i posti si ripartiscono, non si sommano.</p>'
+            + '<div id="rd-anteprima" style="display:none;margin-top:10px;">'
+            + '<iframe id="rd-frame" title="Anteprima della mail di richiesta dati" sandbox="allow-same-origin" '
+            + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + '<div id="rd-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="rd-no">Annulla</button>'
+            + '<button class="btn btn-secondary" id="rd-ant">Anteprima mail</button>'
+            + '<button class="btn btn-primary" id="rd-si">Invia la richiesta</button></div>', { classe: 'larga' });
+        const esito = (testo, ko) => {
+            const e = document.getElementById('rd-esito');
+            if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+        };
+        document.getElementById('rd-no').addEventListener('click', chiudiModale);
+        document.getElementById('rd-ant').addEventListener('click', () => {
+            const m = mailDi();
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return; }
+            const cont = document.getElementById('rd-anteprima');
+            const chiusa = cont.style.display === 'none';
+            cont.style.display = chiusa ? '' : 'none';
+            document.getElementById('rd-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
+            // nell'anteprima il segnaposto diventa l'indirizzo della pagina (senza
+            // firma): il collegamento vero lo genera il servizio all'invio
+            if (chiusa) document.getElementById('rd-frame').srcdoc =
+                m.html.split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
+        });
+        document.getElementById('rd-si').addEventListener('click', () => {
+            const m = mailDi();
+            if (!m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
+            const b = document.getElementById('rd-si');
+            b.disabled = true; b.textContent = 'Invio...';
+            Cloud.operaPresenza({
+                azione: 'richiedi-dati', evento: ev.id, idIscritto: r.id,
+                mail: { oggetto: m.oggetto, html: m.html, testo: m.testo }
+            }).then(res => {
+                if (!res.ok) {
+                    b.disabled = false; b.textContent = 'Invia la richiesta';
+                    esito(res.msg || 'Richiesta non inviata.', true);
+                    return;
+                }
+                chiudiModale();
+                toast('Richiesta dati inviata a ' + r.email + '.', 'verde');
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: richiesta dati partecipanti', 'sistema', ev.id, null, r.email + ' (' + nPart + ' posti)'); } catch (e) { }
             });
         });
     }

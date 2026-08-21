@@ -31,6 +31,9 @@
 
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
+// firma e indirizzo del collegamento "completa i dati" (lib condivisa con la
+// newsletter: stesso segreto della disiscrizione, contesto diverso)
+const NL = require('../lib/newsletter');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -316,6 +319,54 @@ module.exports = async (req, res) => {
                 }
             }
             res.status(200).json({ ok: true, id: idNuovo, mail: mailEsito });
+            return;
+        }
+
+        /* Chiede all'intestatario di un'iscrizione manuale i dati mancanti (suoi
+           e degli altri partecipanti). La mail arriva gia' composta dall'area
+           riservata con il segnaposto {{COMPLETA}}: qui si genera il
+           collegamento personale FIRMATO per quella sola scheda, lo si mette al
+           posto del segnaposto e si spedisce all'email della scheda, con copia
+           nascosta a chi chiede. Stessi permessi dell'inserimento manuale. */
+        if (azione === 'richiedi-dati') {
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono chiedere i dati l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
+            const rif = db.collection('iscrizioni').doc(idIscrizione(idIscritto));
+            const snap = await rif.get();
+            if (!snap.exists) { res.status(404).json({ ok: false, msg: 'Scheda non trovata: aggiorna l\'elenco e riprova.' }); return; }
+            const scheda = snap.data() || {};
+            if (!scheda.email) { res.status(400).json({ ok: false, msg: 'La scheda non ha un indirizzo email: aggiungilo con Modifica, poi riprova.' }); return; }
+            const m = body.mail && typeof body.mail === 'object' ? body.mail : {};
+            const link = NL.linkCompleta(rif.id);
+            const oggetto = (testo(m.oggetto, 250) || 'Completa la tua iscrizione - Next Generation Business').replace(/[\r\n]/g, ' ');
+            const html = String(m.html || '').slice(0, 300000).split('{{COMPLETA}}').join(link);
+            const testoMail = String(m.testo || '').slice(0, 20000).split('{{COMPLETA}}').join(link);
+            if (!html.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
+            try {
+                const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+                const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+                const messaggio = {
+                    from: '"' + fromName + '" <' + fromEmail + '>',
+                    replyTo: email,
+                    to: scheda.email,
+                    subject: oggetto,
+                    text: testoMail || undefined,
+                    html: html
+                };
+                if (email !== scheda.email) messaggio.bcc = email;
+                await trasporto().sendMail(messaggio);
+            } catch (e) {
+                const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
+                console.error('Richiesta dati a', scheda.email, 'non inviata:', motivo);
+                res.status(502).json({ ok: false, msg: 'Mail non inviata: ' + motivo });
+                return;
+            }
+            // sulla scheda resta scritto che i dati sono stati chiesti, e da chi:
+            // non cambia i conteggi e non tocca la colonna delle firme
+            await rif.set({ datiRichiesti: { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() } }, { merge: true });
+            res.status(200).json({ ok: true, mail: { inviata: true } });
             return;
         }
 

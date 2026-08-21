@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Pagina di servizio raggiunta SOLO dal collegamento personale nella mail:
+         non va indicizzata e non e' nella sitemap. -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>Completa la tua iscrizione | Next Generation Business</title>
+    <style>
+        :root {
+            --navy-dark: #0A2844; --navy: #164068; --navy-light: #2A5A85;
+            --testo: #1E293B; --tenue: #475569; --bordo: #E2E8F0;
+            --sfondo: #F1F5F9; --chiaro: #F4F8FB; --rosso: #B3261E; --verde: #1E7F4F;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; background: var(--sfondo); color: var(--testo); line-height: 1.6; }
+        .testata { background: var(--navy-dark); padding: 26px 20px; }
+        .testata-dentro { max-width: 680px; margin: 0 auto; }
+        .testata img { display: block; width: 140px; height: auto; }
+        .testata h1 { color: #fff; font-size: 1.6rem; letter-spacing: -0.3px; margin-top: 18px; }
+        .testata p { color: #C8DAEA; font-size: 1rem; margin-top: 6px; }
+        main { max-width: 680px; margin: 0 auto; padding: 24px 20px 60px; }
+        .scheda { background: #fff; border: 1px solid var(--bordo); border-radius: 10px; padding: 22px; margin-top: 18px; }
+        .avviso { text-align: center; color: var(--tenue); padding: 30px 10px; }
+        .avviso.errore { color: var(--rosso); }
+        .blocco-titolo { font-size: 0.8rem; letter-spacing: 1.2px; text-transform: uppercase; font-weight: bold; color: var(--navy); border-bottom: 2px solid var(--navy-light); padding-bottom: 6px; margin-bottom: 14px; }
+        .griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+        .campo { display: flex; flex-direction: column; gap: 4px; }
+        .campo label { font-size: 0.8rem; font-weight: bold; color: var(--tenue); }
+        .campo input { font: inherit; font-size: 16px; padding: 9px 11px; border: 1px solid var(--bordo); border-radius: 6px; width: 100%; background: #fff; color: var(--testo); }
+        .campo input:focus { outline: 2px solid var(--navy-light); outline-offset: 1px; }
+        .campo input[readonly] { background: var(--chiaro); color: var(--tenue); }
+        .hint { font-size: 0.85rem; color: var(--tenue); margin-top: 10px; }
+        .riepilogo { background: var(--chiaro); border: 1px solid var(--bordo); border-left: 3px solid var(--navy-light); border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; margin-top: 16px; }
+        .azioni { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        .invia { font: inherit; font-size: 1.05rem; font-weight: bold; letter-spacing: 0.3px; color: #fff; background: var(--navy); border: none; border-radius: 6px; padding: 14px 34px; cursor: pointer; }
+        .invia:hover { background: var(--navy-dark); }
+        .invia[disabled] { opacity: 0.6; cursor: default; }
+        .esito { min-height: 22px; font-size: 0.92rem; text-align: center; }
+        .esito.ko { color: var(--rosso); font-weight: bold; }
+        .fatto { text-align: center; padding: 26px 10px; }
+        .fatto .segno { font-size: 2.4rem; color: var(--verde); }
+        .fatto h2 { color: var(--navy-dark); margin: 8px 0 6px; }
+        .fatto p { color: var(--tenue); }
+        .piede { max-width: 680px; margin: 0 auto; padding: 0 20px 40px; text-align: center; font-size: 0.8rem; color: #94A3B8; }
+        .piede a { color: var(--tenue); }
+        @media (max-width: 560px) { .griglia { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <header class="testata">
+        <div class="testata-dentro">
+            <a href="https://nextgenerationbusiness.it"><img src="/assets/logo-revilaw-bianco.png" alt="Revilaw - Revisione legale"></a>
+            <h1>Completa la tua iscrizione</h1>
+            <p id="sotto-titolo">Next Generation Business</p>
+        </div>
+    </header>
+    <main>
+        <div class="scheda" id="contenuto">
+            <div class="avviso" id="caricamento">Un momento: recupero la tua iscrizione&hellip;</div>
+        </div>
+    </main>
+    <footer class="piede">
+        <p>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235</p>
+        <p><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a>
+            &nbsp;&middot;&nbsp; <a href="https://nextgenerationbusiness.it">nextgenerationbusiness.it</a></p>
+    </footer>
+    <script>
+        (function () {
+            'use strict';
+            /* Stesso servizio dei form del sito. Il collegamento personale (d = scheda,
+               t = firma) arriva dalla mail: senza firma valida il servizio non
+               risponde nulla, quindi la pagina da sola non mostra dati di nessuno. */
+            var API = 'https://revilaw-email.vercel.app/api/completa-iscrizione';
+            var q = new URLSearchParams(location.search);
+            var d = q.get('d') || '', t = q.get('t') || '';
+            var box = document.getElementById('contenuto');
+            var CAMPI = [
+                { id: 'nome', et: 'Nome' }, { id: 'cognome', et: 'Cognome' },
+                { id: 'email', et: 'Email', tipo: 'email' }, { id: 'azienda', et: 'Azienda' },
+                { id: 'ruolo', et: 'Ruolo', ph: 'es. titolare, CFO, consulente' }, { id: 'telefono', et: 'Telefono', tipo: 'tel' }
+            ];
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+                });
+            }
+            function errore(msg) {
+                box.innerHTML = '<div class="avviso errore">' + esc(msg) + '</div>';
+            }
+            function chiama(corpo) {
+                return fetch(API, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(Object.assign({ d: d, t: t }, corpo))
+                }).then(function (r) { return r.json().catch(function () { return {}; }); });
+            }
+            /* Il nome dell'evento si ricava dal titolo del modulo ("Napoli 2 Ottobre
+               2026 - Manifestazione di interesse"): basta la parte prima del trattino. */
+            function nomeEvento(pagina) {
+                var p = String(pagina || '').split(' - ')[0].trim();
+                return p || 'Next Generation Business';
+            }
+            function blocco(i, dati, intestatario) {
+                var righe = CAMPI.map(function (c) {
+                    var blocca = intestatario && c.id === 'email';
+                    return '<div class="campo"><label for="p' + i + '-' + c.id + '">' + c.et
+                        + (blocca ? ' (non modificabile: è l\'indirizzo di questa iscrizione)' : '') + '</label>'
+                        + '<input id="p' + i + '-' + c.id + '" type="' + (c.tipo || 'text') + '" value="' + esc((dati || {})[c.id] || '') + '"'
+                        + (blocca ? ' readonly' : '') + (c.ph ? ' placeholder="' + esc(c.ph) + '"' : '') + '>'
+                        + '</div>';
+                }).join('');
+                return '<div class="blocco" data-i="' + i + '" style="margin-top:' + (i > 1 ? '26px' : '0') + ';">'
+                    + '<div class="blocco-titolo">Partecipante ' + i + (intestatario ? ' &middot; intestatario' : '') + '</div>'
+                    + '<div class="griglia">' + righe + '</div></div>';
+            }
+            function modulo(r) {
+                var n = Math.max(1, r.partecipanti || 1);
+                document.getElementById('sotto-titolo').textContent = 'Next Generation Business - ' + nomeEvento(r.pagina);
+                var blocchi = blocco(1, r.capofila, true);
+                for (var i = 2; i <= n; i++) blocchi += blocco(i, null, false);
+                box.innerHTML =
+                    '<div class="riepilogo">' + (n > 1
+                        ? 'Questa iscrizione riserva <b>' + n + ' posti</b>: indica i dati di ciascun partecipante. Se qualche nome non è ancora deciso, lascia vuoto il suo blocco: potrai tornare qui dallo stesso collegamento.'
+                        : 'Controlla e completa i tuoi dati: ci servono per il badge e per l\'accoglienza.')
+                    + (r.completato ? '<br><b>I dati risultano già inviati:</b> puoi correggerli e rimandarli da qui.' : '') + '</div>'
+                    + '<div style="margin-top:20px;">' + blocchi + '</div>'
+                    + '<p class="hint">Per ogni partecipante servono almeno nome e cognome, oppure l\'email.</p>'
+                    + '<div class="azioni"><button type="button" class="invia" id="invia">Invia i dati</button>'
+                    + '<div class="esito" id="esito"></div></div>';
+                document.getElementById('invia').addEventListener('click', function () { invia(n, r.capofila.email); });
+            }
+            function invia(n, emailIntestatario) {
+                var esito = document.getElementById('esito');
+                var lista = [];
+                for (var i = 1; i <= n; i++) {
+                    var p = {};
+                    CAMPI.forEach(function (c) {
+                        var el = document.getElementById('p' + i + '-' + c.id);
+                        p[c.id] = el ? el.value.trim() : '';
+                    });
+                    if (i === 1) p.email = emailIntestatario;   // non si cambia da qui
+                    var compilato = p.nome || p.cognome || p.email || p.azienda || p.telefono;
+                    if (!compilato) continue;                    // blocco lasciato vuoto: posto non ancora nominato
+                    if (!p.nome && !p.cognome && !p.email) {
+                        esito.className = 'esito ko';
+                        esito.textContent = 'Partecipante ' + i + ': servono almeno nome e cognome, oppure l\'email.';
+                        return;
+                    }
+                    lista.push(p);
+                }
+                if (!lista.length) {
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Compila almeno i dati di un partecipante.';
+                    return;
+                }
+                var b = document.getElementById('invia');
+                b.disabled = true; b.textContent = 'Invio in corso…';
+                esito.className = 'esito'; esito.textContent = '';
+                chiama({ azione: 'salva', partecipanti: lista }).then(function (r) {
+                    if (!r || !r.ok) {
+                        b.disabled = false; b.textContent = 'Invia i dati';
+                        esito.className = 'esito ko';
+                        esito.textContent = (r && r.msg) || 'Invio non riuscito: riprova fra un momento.';
+                        return;
+                    }
+                    box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
+                        + '<h2>Dati ricevuti, grazie!</h2>'
+                        + '<p>Abbiamo aggiornato l\'iscrizione' + (r.salvati > 1 ? ' con i dati di ' + r.salvati + ' partecipanti' : '') + '.'
+                        + '<br>Se devi correggere qualcosa, riapri il collegamento della mail: questa pagina resta tua.</p></div>';
+                }).catch(function () {
+                    b.disabled = false; b.textContent = 'Invia i dati';
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Servizio non raggiungibile: riprova fra un momento.';
+                });
+            }
+            if (!d || !t) {
+                errore('Questa pagina si apre dal collegamento personale che trovi nella mail. Se non la trovi, scrivi a info@nextgenerationbusiness.it');
+                return;
+            }
+            chiama({ azione: 'leggi' }).then(function (r) {
+                if (!r || !r.ok) { errore((r && r.msg) || 'Collegamento non valido o scaduto. Scrivi a info@nextgenerationbusiness.it e provvediamo noi.'); return; }
+                modulo(r);
+            }).catch(function () {
+                errore('Servizio non raggiungibile in questo momento: riprova fra qualche minuto.');
+            });
+        })();
+    </script>
+</body>
+</html>

@@ -1151,6 +1151,141 @@
         return { oggetto: oggetto, html: html, testo: parti.join('\n\n') };
     }
 
+    /* =========================================================
+       MAIL "COMPLETA I DATI DEI PARTECIPANTI"
+       ---------------------------------------------------------
+       Per le iscrizioni inserite a mano che non hanno tutti i dati,
+       o che coprono piu' posti con i soli dati dell'intestatario.
+       Stesso formato NGB della conferma; il pulsante porta a una
+       pagina del sito con un modulo per ciascun partecipante.
+       Il collegamento e' PERSONALE e firmato: qui resta il segnaposto
+       {{COMPLETA}}, che il servizio sostituisce al momento dell'invio
+       (come per la disiscrizione della newsletter). L'anteprima
+       nell'area riservata lo sostituisce con l'indirizzo della pagina,
+       senza firma. `dati`: nome, cognome, evento {titolo, quando,
+       luogo, indirizzo}, portale, partecipanti.
+    ========================================================= */
+    const SEGNAPOSTO_COMPLETA = '{{COMPLETA}}';
+    const MOTIVO_RICHIESTA = 'Ricevi questa email per completare i dati della tua iscrizione all\'evento: non è una comunicazione promozionale.';
+    function richiestaDati(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
+        const nPart = Math.floor(Number(dati.partecipanti)) || 1;
+        const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const oggetto = 'Completa la tua iscrizione - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+        const anteprima = nPart > 1
+            ? 'Ci servono i dati dei ' + nPart + ' partecipanti: bastano due minuti.'
+            : 'Ci servono ancora alcuni dati della tua iscrizione: bastano due minuti.';
+
+        const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
+        const sommario = 'la tua iscrizione' + (quandoEv ? ' al convegno Next Generation Business di ' + quandoEv : '')
+            + (nPart > 1 ? ' copre ' + nPart + ' posti' : ' è registrata')
+            + ': per accoglierti al meglio ci servono ancora alcuni dati.';
+        const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
+            + tabellaInterna(
+                '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
+                + '</a></td></tr>'
+                + spazio(24)
+                + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
+                + spazio(12)
+                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">Completa la tua iscrizione</td></tr>'
+                + spazio(16)
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(saluto + ' ' + sommario) + '</td></tr>'
+            )
+            + '</td></tr>';
+        const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
+            + '</td></tr>';
+
+        const riga = (et, val) => val
+            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>'
+            : '';
+        const box = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
+            + '<tr><td style="padding:16px 22px;">' + tabellaInterna(
+                riga('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business')
+                + riga('Data', ev.quando)
+                + riga('Sede', dove)
+                + riga('Posti riservati', String(nPart))
+                + riga('Iscrizione da', dati.portale)
+            ) + '</td></tr></table>';
+
+        /* Il pulsante non passa da pulsante(): li' l'indirizzo viene ripulito, e
+           il segnaposto (che un indirizzo non e') sparirebbe. Stessa struttura
+           a prova di Outlook, con il segnaposto scritto tale e quale. */
+        const bottone = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+            + '<tr><td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
+            + '<!--[if mso]>'
+            + '<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="' + SEGNAPOSTO_COMPLETA + '" '
+            + 'style="height:46px;v-text-anchor:middle;width:260px;" arcsize="0%" stroke="f" fillcolor="' + C.blu + '">'
+            + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;">Completa i dati</center>'
+            + '</v:roundrect>'
+            + '<![endif]-->'
+            + '<!--[if !mso]><!-- -->'
+            + '<a href="' + SEGNAPOSTO_COMPLETA + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';mso-hide:all;">Completa i dati</a>'
+            + '<!--<![endif]-->'
+            + '</td></tr></table>';
+
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const spiegazione = nPart > 1
+            ? 'Al momento abbiamo i dati del solo intestatario. Dal pulsante qui sotto puoi indicare nome, cognome, email e azienda di ciascuno dei ' + nPart + ' partecipanti, e correggere i tuoi se serve: così prepariamo i badge e l\'accoglienza per tutti.'
+            : 'Dal pulsante qui sotto puoi completare o correggere i dati della tua iscrizione (azienda, ruolo, telefono): così prepariamo il badge e l\'accoglienza.';
+        const corpo = cella(tabellaInterna(
+            spazio(30)
+            + par(spiegazione)
+            + spazio(22)
+            + '<tr><td>' + box + '</td></tr>'
+            + spazio(28)
+            + '<tr><td align="center" style="text-align:center;">'
+            + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td align="center">'
+            + bottone
+            + '</td></tr></table></td></tr>'
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. Se qualcosa non torna, rispondi a questa email.</td></tr>'
+        ));
+
+        const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
+        const linkPiede = 'color:' + C.tenue + ';text-decoration:underline;';
+        const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
+            + tabellaInterna(
+                rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
+                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + spazio(10)
+                + rigaPiede('color:' + C.tenue + ';',
+                    '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
+                    + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
+                + spazio(8)
+                + rigaPiede('color:#94A3B8;', esc(MOTIVO_RICHIESTA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+            )
+            + '</td></tr>';
+
+        const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piede);
+
+        const rt = (et, val) => val ? et + ': ' + val : '';
+        const parti = ['COMPLETA LA TUA ISCRIZIONE', saluto + ' ' + sommario, spiegazione];
+        parti.push([
+            rt('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business'),
+            rt('Data', ev.quando), rt('Sede', dove),
+            rt('Posti riservati', String(nPart)), rt('Iscrizione da', dati.portale)
+        ].filter(Boolean).join('\n'));
+        parti.push('Completa i dati: ' + SEGNAPOSTO_COMPLETA);
+        parti.push('Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo.');
+        parti.push('--');
+        parti.push(MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf);
+        parti.push(MOTIVO_RICHIESTA);
+        parti.push('Informativa privacy: ' + PRIVACY);
+
+        return { oggetto: oggetto, html: html, testo: parti.join('\n\n') };
+    }
+
 
     /* =========================================================
        DALLA PAGINA DEL SITO ALLA NEWSLETTER
@@ -1255,8 +1390,8 @@
 
     return {
         COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
-        SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB,
-        costruisci: costruisci, confermaEvento: confermaEvento, estraiDaPagina: estraiDaPagina,
+        SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA,
+        costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati, estraiDaPagina: estraiDaPagina,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
     };
