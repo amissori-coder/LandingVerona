@@ -93,6 +93,10 @@ const PORTALI = {
 function emailValida(e) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 }
+// per i valori che entrano nell'HTML della mail (il nome del destinatario)
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
 /* Data di iscrizione in formato italiano, fuso di Roma: la stessa regola del
    form pubblico (iscrizione-nuova), perche' la data entra nell'identificativo
    della scheda e dev'essere fatta allo stesso modo. */
@@ -220,8 +224,9 @@ module.exports = async (req, res) => {
             : [];
         const idIscritto = testo(body.idIscritto, 300);
         if (!evento) { res.status(400).json({ ok: false, msg: 'Evento mancante.' }); return; }
-        // "aggiungi" crea la scheda, quindi e' l'unica azione senza un iscritto da indicare
-        if (azione !== 'aggiungi' && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
+        // "aggiungi" crea la scheda e "invita-b2b" porta il proprio elenco di
+        // destinatari: sono le sole azioni senza un iscritto da indicare qui
+        if (azione !== 'aggiungi' && azione !== 'invita-b2b' && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
 
         if (azione === 'aggiungi') {
             // oltre all'amministratore, TUTTI gli equity e founding partner:
@@ -337,7 +342,9 @@ module.exports = async (req, res) => {
                 res.status(403).json({ ok: false, msg: 'Possono chiedere i dati l\'amministratore, gli equity partner e i founding partner.' });
                 return;
             }
-            const rif = db.collection('iscrizioni').doc(idIscrizione(idIscritto));
+            // il nome del documento arriva con la riga quando c'e' (serve per le
+            // schede-partecipante, il cui nome non si ricava dai campi)
+            const rif = db.collection('iscrizioni').doc(testo(body.doc, 400) || idIscrizione(idIscritto));
             const snap = await rif.get();
             if (!snap.exists) { res.status(404).json({ ok: false, msg: 'Scheda non trovata: aggiorna l\'elenco e riprova.' }); return; }
             const scheda = snap.data() || {};
@@ -371,6 +378,68 @@ module.exports = async (req, res) => {
             // non cambia i conteggi e non tocca la colonna delle firme
             await rif.set({ datiRichiesti: { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() } }, { merge: true });
             res.status(200).json({ ok: true, mail: { inviata: true } });
+            return;
+        }
+
+        /* Invito massivo agli incontri B2B. La mail arriva gia' composta (formato
+           NGB) con due segnaposti: {{NOME}} (il destinatario) e {{B2B}} (il suo
+           collegamento personale FIRMATO al modulo dei temi). Qui si spedisce una
+           mail per destinatario, in sequenza, a lotti che il client manda uno
+           dopo l'altro. Chi ha gia' ricevuto l'invito viene saltato (b2bInvito
+           sulla scheda), salvo richiesta esplicita di reinvio. Stessi permessi
+           dell'inserimento manuale. */
+        if (azione === 'invita-b2b') {
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono invitare l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
+            const dest = (Array.isArray(body.destinatari) ? body.destinatari : []).slice(0, 50)
+                .map(x => (x && typeof x === 'object') ? { id: testo(x.id, 300), doc: testo(x.doc, 400) } : null)
+                .filter(x => x && (x.id || x.doc));
+            if (!dest.length) { res.status(400).json({ ok: false, msg: 'Nessun destinatario indicato.' }); return; }
+            const m = body.mail && typeof body.mail === 'object' ? body.mail : {};
+            const oggettoBase = (testo(m.oggetto, 250) || 'Incontri B2B riservati - Next Generation Business').replace(/[\r\n]/g, ' ');
+            const htmlBase = String(m.html || '').slice(0, 300000);
+            const testoBase = String(m.testo || '').slice(0, 20000);
+            if (!htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
+            const forza = body.forza === true;
+            const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+            const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+            const trans = trasporto();
+            let inviate = 0, senzaScheda = 0, senzaEmail = 0, giaInvitate = 0;
+            const falliti = [];
+            const visti = {};   // per non spedire due volte allo stesso indirizzo nel lotto
+            for (const d of dest) {
+                const docId = d.doc || idIscrizione(d.id);
+                const rif = db.collection('iscrizioni').doc(docId);
+                const snap = await rif.get();
+                if (!snap.exists) { senzaScheda++; continue; }
+                const s = snap.data() || {};
+                const a = String(s.email || '').toLowerCase();
+                if (!a || !emailValida(a)) { senzaEmail++; continue; }
+                if (visti[a]) { giaInvitate++; continue; }
+                if (s.annullato) { senzaScheda++; continue; }
+                if (s.b2bInvito && !forza) { giaInvitate++; continue; }
+                visti[a] = true;
+                const nomeDest = ((String(s.nome || '') + ' ' + String(s.cognome || '')).trim()) || 'ospite';
+                const link = NL.linkB2B(docId);
+                try {
+                    await trans.sendMail({
+                        from: '"' + fromName + '" <' + fromEmail + '>',
+                        replyTo: email,
+                        to: a,
+                        subject: oggettoBase,
+                        text: testoBase ? testoBase.split('{{NOME}}').join(nomeDest).split('{{B2B}}').join(link) : undefined,
+                        html: htmlBase.split('{{NOME}}').join(esc(nomeDest)).split('{{B2B}}').join(link)
+                    });
+                    inviate++;
+                    await rif.set({ b2bInvito: { quando: Date.now(), da: email } }, { merge: true });
+                } catch (e) {
+                    const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 150);
+                    falliti.push({ email: a, motivo: motivo });
+                }
+            }
+            res.status(200).json({ ok: true, inviate: inviate, senzaScheda: senzaScheda, senzaEmail: senzaEmail, giaInvitate: giaInvitate, falliti: falliti.slice(0, 50) });
             return;
         }
 

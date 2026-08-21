@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Pagina di servizio raggiunta SOLO dal collegamento personale nella mail
+         di invito agli incontri B2B: non va indicizzata e non e' nella sitemap. -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>I Suoi temi di interesse | Next Generation Business</title>
+    <style>
+        :root {
+            --navy-dark: #0A2844; --navy: #164068; --navy-light: #2A5A85;
+            --testo: #1E293B; --tenue: #475569; --bordo: #E2E8F0;
+            --sfondo: #F1F5F9; --chiaro: #F4F8FB; --rosso: #B3261E; --verde: #1E7F4F;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; background: var(--sfondo); color: var(--testo); line-height: 1.6; }
+        .testata { background: var(--navy-dark); padding: 26px 20px; }
+        .testata-dentro { max-width: 680px; margin: 0 auto; }
+        .testata img { display: block; width: 140px; height: auto; }
+        .testata h1 { color: #fff; font-size: 1.6rem; letter-spacing: -0.3px; margin-top: 18px; }
+        .testata p { color: #C8DAEA; font-size: 1rem; margin-top: 6px; }
+        main { max-width: 680px; margin: 0 auto; padding: 24px 20px 60px; }
+        .scheda { background: #fff; border: 1px solid var(--bordo); border-radius: 10px; padding: 22px; margin-top: 18px; }
+        .avviso { text-align: center; color: var(--tenue); padding: 30px 10px; }
+        .avviso.errore { color: var(--rosso); }
+        .riepilogo { background: var(--chiaro); border: 1px solid var(--bordo); border-left: 3px solid var(--navy-light); border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; }
+        .temi { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+        .tema { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--bordo); border-radius: 8px; padding: 11px 14px; cursor: pointer; background: #fff; }
+        .tema:hover { border-color: var(--navy-light); background: var(--chiaro); }
+        .tema input { width: 18px; height: 18px; margin-top: 3px; flex: 0 0 auto; }
+        .tema span { font-size: 0.98rem; }
+        .campo { margin-top: 18px; display: flex; flex-direction: column; gap: 4px; }
+        .campo label { font-size: 0.85rem; font-weight: bold; color: var(--tenue); }
+        .campo textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--bordo); border-radius: 6px; width: 100%; min-height: 110px; resize: vertical; color: var(--testo); }
+        .campo textarea:focus { outline: 2px solid var(--navy-light); outline-offset: 1px; }
+        .azioni { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        .invia { font: inherit; font-size: 1.05rem; font-weight: bold; letter-spacing: 0.3px; color: #fff; background: var(--navy); border: none; border-radius: 6px; padding: 14px 34px; cursor: pointer; }
+        .invia:hover { background: var(--navy-dark); }
+        .invia[disabled] { opacity: 0.6; cursor: default; }
+        .esito { min-height: 22px; font-size: 0.92rem; text-align: center; }
+        .esito.ko { color: var(--rosso); font-weight: bold; }
+        .fatto { text-align: center; padding: 26px 10px; }
+        .fatto .segno { font-size: 2.4rem; color: var(--verde); }
+        .fatto h2 { color: var(--navy-dark); margin: 8px 0 6px; }
+        .fatto p { color: var(--tenue); }
+        .piede { max-width: 680px; margin: 0 auto; padding: 0 20px 40px; text-align: center; font-size: 0.8rem; color: #94A3B8; }
+        .piede a { color: var(--tenue); }
+    </style>
+</head>
+<body>
+    <header class="testata">
+        <div class="testata-dentro">
+            <a href="https://nextgenerationbusiness.it"><img src="/assets/logo-revilaw-bianco.png" alt="Revilaw - Revisione legale"></a>
+            <h1>I Suoi temi di interesse</h1>
+            <p id="sotto-titolo">Next Generation Business</p>
+        </div>
+    </header>
+    <main>
+        <div class="scheda" id="contenuto">
+            <div class="avviso" id="caricamento">Un momento: recupero la Sua iscrizione&hellip;</div>
+        </div>
+    </main>
+    <footer class="piede">
+        <p>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235</p>
+        <p><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a>
+            &nbsp;&middot;&nbsp; <a href="https://nextgenerationbusiness.it">nextgenerationbusiness.it</a></p>
+    </footer>
+    <script>
+        (function () {
+            'use strict';
+            /* Stessa funzione dei form del sito (iscrizione-nuova), azioni b2b-*.
+               Il collegamento personale (d = scheda, t = firma) arriva dalla mail
+               di invito: senza firma valida il servizio non risponde nulla. */
+            var API = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+            var q = new URLSearchParams(location.search);
+            var d = q.get('d') || '', t = q.get('t') || '';
+            var box = document.getElementById('contenuto');
+            /* Le descrizioni dei temi, NELLO STESSO ORDINE di TEMI_B2B nel
+               servizio: al salvataggio viaggiano solo gli indici. */
+            var TEMI = [
+                'miglioramento del merito creditizio e accesso ai finanziamenti',
+                'controllo di gestione e pianificazione finanziaria',
+                'adeguati assetti organizzativi, amministrativi e contabili',
+                'sostenibilità ed ESG',
+                'Modello 231 e rating di legalità',
+                'finanza agevolata e sostegno agli investimenti',
+                'Tax Control Framework',
+                'opportunità connesse allo sviluppo di Bagnoli e all\'America\'s Cup',
+                'altre esigenze specifiche della Sua impresa'
+            ];
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+                });
+            }
+            function errore(msg) {
+                box.innerHTML = '<div class="avviso errore">' + esc(msg) + '</div>';
+            }
+            function chiama(corpo) {
+                return fetch(API, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(Object.assign({ d: d, t: t }, corpo))
+                }).then(function (r) { return r.json().catch(function () { return {}; }); });
+            }
+            function nomeEvento(pagina) {
+                var p = String(pagina || '').split(' - ')[0].trim();
+                return p || 'Next Generation Business';
+            }
+            function modulo(r) {
+                document.getElementById('sotto-titolo').textContent = 'Next Generation Business - ' + nomeEvento(r.pagina);
+                var scelti = r.scelti || [];
+                var caselle = TEMI.map(function (tema, i) {
+                    return '<label class="tema"><input type="checkbox" class="tema-c" value="' + i + '"'
+                        + (scelti.indexOf(i) >= 0 ? ' checked' : '') + '><span>' + esc(tema) + '</span></label>';
+                }).join('');
+                box.innerHTML =
+                    '<div class="riepilogo">' + (r.nome ? 'Gentile <b>' + esc(r.nome) + '</b>, s' : 'S')
+                    + 'egni uno o più temi che desidera approfondire nell\'incontro B2B riservato: '
+                    + 'sarà nostra cura ricontattarLa per confermare l\'orario e gli specialisti a Sua disposizione.</div>'
+                    + '<div class="temi">' + caselle + '</div>'
+                    + '<div class="campo"><label for="nota">Il progetto o l\'esigenza su cui vorrebbe confrontarsi (facoltativo)</label>'
+                    + '<textarea id="nota" maxlength="800" placeholder="Qualche riga basta: ci aiuta a scegliere gli interlocutori giusti.">' + esc(r.nota || '') + '</textarea></div>'
+                    + '<div class="azioni"><button type="button" class="invia" id="invia">Invia le preferenze</button>'
+                    + '<div class="esito" id="esito"></div></div>';
+                document.getElementById('invia').addEventListener('click', invia);
+            }
+            function invia() {
+                var esito = document.getElementById('esito');
+                var temi = Array.prototype.slice.call(document.querySelectorAll('.tema-c:checked'))
+                    .map(function (c) { return parseInt(c.value, 10); });
+                var nota = document.getElementById('nota').value.trim();
+                if (!temi.length && !nota) {
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Segni almeno un tema, o ci racconti in breve la Sua esigenza.';
+                    return;
+                }
+                var b = document.getElementById('invia');
+                b.disabled = true; b.textContent = 'Invio in corso…';
+                esito.className = 'esito'; esito.textContent = '';
+                chiama({ azione: 'b2b-salva', temi: temi, nota: nota }).then(function (r) {
+                    if (!r || !r.ok) {
+                        b.disabled = false; b.textContent = 'Invia le preferenze';
+                        esito.className = 'esito ko';
+                        esito.textContent = (r && r.msg) || 'Invio non riuscito: riprovi fra un momento.';
+                        return;
+                    }
+                    box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
+                        + '<h2>Grazie, abbiamo ricevuto le Sue preferenze</h2>'
+                        + '<p>La ricontatteremo per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione.'
+                        + '<br>Per cambiare idea basta riaprire il collegamento della mail: questa pagina resta Sua.</p></div>';
+                }).catch(function () {
+                    b.disabled = false; b.textContent = 'Invia le preferenze';
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Servizio non raggiungibile: riprovi fra un momento.';
+                });
+            }
+            if (!d || !t) {
+                errore('Questa pagina si apre dal collegamento personale che trova nella mail di invito. Se non la trova, scriva a info@nextgenerationbusiness.it');
+                return;
+            }
+            chiama({ azione: 'b2b-leggi' }).then(function (r) {
+                if (!r || !r.ok) { errore((r && r.msg) || 'Collegamento non valido o scaduto. Scriva a info@nextgenerationbusiness.it e provvediamo noi.'); return; }
+                modulo(r);
+            }).catch(function () {
+                errore('Servizio non raggiungibile in questo momento: riprovi fra qualche minuto.');
+            });
+        })();
+    </script>
+</body>
+</html>

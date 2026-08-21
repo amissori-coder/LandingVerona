@@ -1499,9 +1499,10 @@
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
-                // "id" e "mail" arrivano dall'inserimento manuale: la scheda creata
-                // e l'esito della mail di conferma (registrata != spedita)
-                return { ok: true, presenza: data.presenza || null, id: data.id || null, mail: data.mail || null };
+                // la risposta passa INTERA: oltre a presenza ci viaggiano l'esito
+                // della mail di conferma, l'id della scheda creata e i conteggi
+                // dell'invito B2B (inviate, giaInvitate, falliti...)
+                return { ...data, ok: true, presenza: data.presenza || null };
             } catch (e) {
                 return { ok: false, msg: 'Servizio non raggiungibile.' };
             }
@@ -7583,7 +7584,8 @@
         { id: 'roma-2026-04-29', titolo: 'Roma', quando: '29 aprile 2026', giorno: '2026-04-29', filtro: 'roma', pagina: 'Roma 29 Aprile 2026' },
         {
             id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', giorno: '2026-10-02', filtro: 'napoli', pagina: 'Napoli 2 Ottobre 2026',
-            manuale: true, luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli', urlPagina: '/napoli_ottobre_2026/'
+            manuale: true, luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli', urlPagina: '/napoli_ottobre_2026/',
+            sottotitolo: 'Costruire l\'impresa del futuro'
         },
         {
             id: 'milano-2027-02-27', titolo: 'Milano', quando: '27 febbraio 2027', giorno: '2027-02-27', filtro: 'milano', pagina: 'Milano 27 Febbraio 2027',
@@ -8069,8 +8071,10 @@
             + '<div class="hint">Oltre all\'amministratore, vedono gli Eventi <b>' + cfg.abilitati.length + '</b> utenti abilitati.</div></div>'
             + '<div class="s-admin-azioni">'
             // dagli eventi con iscrizione anche su portali esterni (Eventbrite) si
-            // puo' aggiungere una scheda a mano, con la mail di conferma NGB
-            + (ev.manuale ? '<button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button>' : '')
+            // puo' aggiungere una scheda a mano, con la mail di conferma NGB, e
+            // far partire a tutti l'invito agli incontri B2B
+            + (ev.manuale ? '<button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button>'
+                + '<button class="btn btn-secondary" id="ev-b2b">Invito incontri B2B</button>' : '')
             + '<button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
             + '<button class="btn btn-secondary" id="ev-importa">Importa iscrizioni</button></div></div>'
             /* Anche EQUITY e FOUNDING PARTNER aggiungono le iscrizioni arrivate
@@ -8080,7 +8084,8 @@
             : (ev.manuale && puoAggiungereIscrizioni()
                 ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Iscrizioni da altri portali</strong>'
                 + '<div class="hint">Chi si iscrive da Eventbrite non compare da solo: la scheda si aggiunge da qui, con la mail di conferma in formato NGB.</div></div>'
-                + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button></div></div>'
+                + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button>'
+                + '<button class="btn btn-secondary" id="ev-b2b">Invito incontri B2B</button></div></div>'
                 : '');
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
         const vuoto = ev.nota
@@ -8108,7 +8113,7 @@
             + ((ev.manuale || ev.tutti) ? '<div class="ev-num">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
-            + gestione + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
+            + gestione + riepilogoInteressiHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
             b.addEventListener('click', () => apriEvento(b.dataset.ev)));
@@ -8126,6 +8131,8 @@
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
         const bNuova = document.getElementById('ev-nuova');
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
+        const bB2b = document.getElementById('ev-b2b');
+        if (bB2b) bB2b.addEventListener('click', () => modaleInvitoB2B(ev));
         const bDiag = document.getElementById('ev-diag-btn');
         if (bDiag) bDiag.addEventListener('click', () => {
             bDiag.disabled = true; bDiag.textContent = 'Controllo...';
@@ -8487,6 +8494,125 @@
         });
     }
 
+    /* Riepilogo per ARGOMENTO degli interessi B2B: per ogni tema, quante persone
+       lo hanno indicato e chi sono. Somma tutto cio' che sta nella colonna
+       "Interessi", da qualunque strada arrivi (modulo dell'invito B2B o form di
+       iscrizione del sito): il raggruppamento e' per etichetta, quindi anche le
+       voci storiche compaiono. Un nome puo' stare sotto piu' temi. */
+    function riepilogoInteressiHtml(ev, lista) {
+        if (!ev || !ev.manuale || !lista || !lista.length) return '';
+        const gruppi = {};
+        lista.forEach(r => {
+            const grezzo = (r.extra && r.extra['Interessi']) || '';
+            String(grezzo).split(',').map(s => s.trim()).filter(Boolean).forEach(tema => {
+                (gruppi[tema] = gruppi[tema] || []).push({
+                    chi: (r.nome + ' ' + r.cognome).trim() || r.email,
+                    azienda: r.azienda || '',
+                    nota: (r.extra && r.extra['Nota B2B']) || ''
+                });
+            });
+        });
+        const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
+        if (!temi.length) return '';
+        return '<div class="card"><strong>Incontri B2B: interessati per argomento</strong>'
+            + '<div class="hint">Chi ha indicato ciascun tema, dal modulo dell\'invito B2B o dal form del sito. Una persona puo comparire sotto piu temi; la nota (se c\'e) racconta il progetto.</div>'
+            + temi.map(t => '<details class="ev-colonne" style="margin-top:8px;"><summary>' + esc(t) + ' &middot; ' + gruppi[t].length + '</summary>'
+                + '<div style="margin-top:6px;">' + gruppi[t].map(p =>
+                    '<div class="ev-diag-riga"><span>' + esc(p.chi) + (p.azienda ? ' - ' + esc(p.azienda) : '') + '</span>'
+                    + '<span class="hint">' + esc(p.nota || '') + '</span></div>').join('')
+                + '</div></details>').join('')
+            + '</div>';
+    }
+
+    /* Invito MASSIVO agli incontri B2B: una mail personale (formato NGB) a ogni
+       iscritto con email, con il SUO collegamento firmato al modulo dei temi.
+       L'invio va a lotti (il servizio spedisce una mail per destinatario), chi
+       ha gia' ricevuto l'invito viene saltato salvo spunta esplicita, e i
+       doppioni di indirizzo partono una volta sola. Le risposte tornano
+       nell'elenco e nel riepilogo per argomento qui sopra. */
+    function modaleInvitoB2B(ev) {
+        if (!puoAggiungereIscrizioni()) return;
+        if (!ev || !ev.manuale) return;
+        if (_evIscrizioni === null) { toast('Aspetta il caricamento delle iscrizioni e riprova.', 'rosso'); return; }
+        const visti = new Set();
+        const dest = [];
+        (_evIscrizioni || []).forEach(r => {
+            const e = String(r.email || '').toLowerCase();
+            if (!e || visti.has(e)) return;
+            visti.add(e);
+            dest.push({ id: r.id, doc: r.doc || '' });
+        });
+        if (!dest.length) { toast('Nessun iscritto con indirizzo email in questo elenco.', 'rosso'); return; }
+        const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.invitoB2B({
+            evento: { titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '' }
+        }) : null;
+        apriModale('<h2>Invito agli incontri B2B - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Parte una mail personale a <b>' + dest.length + '</b> indirizzi (uno per iscritto con email, doppioni esclusi): '
+            + 'ognuno riceve il proprio collegamento al modulo dei temi. Le risposte compaiono nell\'elenco (colonne Interessi, Incontro B2B e Nota B2B) '
+            + 'e nel riepilogo per argomento. Chi ha gia ricevuto l\'invito viene saltato.</p>'
+            + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ib-forza"> Manda anche a chi ha gia ricevuto l\'invito</label></div>'
+            + '<div id="ib-anteprima" style="display:none;margin-top:10px;">'
+            + '<iframe id="ib-frame" title="Anteprima della mail di invito" sandbox="allow-same-origin" '
+            + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + '<div id="ib-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ib-no">Annulla</button>'
+            + '<button class="btn btn-secondary" id="ib-ant">Anteprima mail</button>'
+            + '<button class="btn btn-primary" id="ib-si">Invia a tutti</button></div>', { classe: 'larga' });
+        const esito = (testo, ko) => {
+            const e = document.getElementById('ib-esito');
+            if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+        };
+        document.getElementById('ib-no').addEventListener('click', chiudiModale);
+        document.getElementById('ib-ant').addEventListener('click', () => {
+            const m = mailDi();
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return; }
+            const cont = document.getElementById('ib-anteprima');
+            const chiusa = cont.style.display === 'none';
+            cont.style.display = chiusa ? '' : 'none';
+            document.getElementById('ib-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
+            // nell'anteprima: un nome di esempio e l'indirizzo della pagina senza firma
+            if (chiusa) document.getElementById('ib-frame').srcdoc = m.html
+                .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join('Mario Rossi')
+                .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
+        });
+        document.getElementById('ib-si').addEventListener('click', () => {
+            const m = mailDi();
+            if (!m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
+            const forza = !!(document.getElementById('ib-forza') || {}).checked;
+            const b = document.getElementById('ib-si');
+            b.disabled = true; b.textContent = 'Invio...';
+            // a lotti da 40: il servizio spedisce una mail alla volta, e cosi'
+            // nessuna chiamata sfora il tempo massimo della funzione
+            (async () => {
+                let inviate = 0, gia = 0, saltate = 0, falliti = 0;
+                for (let i = 0; i < dest.length; i += 40) {
+                    esito('Invio in corso: ' + inviate + ' inviate su ' + dest.length + ' indirizzi...');
+                    let r;
+                    try {
+                        r = await Cloud.operaPresenza({
+                            azione: 'invita-b2b', evento: ev.id, destinatari: dest.slice(i, i + 40), forza: forza,
+                            mail: { oggetto: m.oggetto, html: m.html, testo: m.testo }
+                        });
+                    } catch (e) { r = { ok: false, msg: 'Servizio non raggiungibile.' }; }
+                    if (!r.ok) {
+                        b.disabled = false; b.textContent = 'Invia a tutti';
+                        esito((r.msg || 'Invio non riuscito.') + (inviate ? ' Inviate finora: ' + inviate + '.' : ''), true);
+                        return;
+                    }
+                    inviate += r.inviate || 0; gia += r.giaInvitate || 0;
+                    saltate += (r.senzaScheda || 0) + (r.senzaEmail || 0);
+                    falliti += (r.falliti || []).length;
+                }
+                chiudiModale();
+                toast('Invito B2B: ' + inviate + ' mail inviate'
+                    + (gia ? ', ' + gia + ' gia invitati saltati' : '')
+                    + (saltate ? ', ' + saltate + ' senza scheda o email' : '')
+                    + (falliti ? ', ' + falliti + ' non riuscite' : '') + '.', falliti ? 'rosso' : 'verde');
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: invito B2B inviato', 'sistema', ev.id, null, inviate + ' su ' + dest.length + (forza ? ' (reinvio incluso)' : '')); } catch (e) { }
+            })();
+        });
+    }
+
     /* Chiede all'intestatario di un'iscrizione manuale i dati mancanti, suoi e
        degli altri partecipanti: parte una mail in formato NGB con un collegamento
        personale firmato verso /completa_iscrizione/, dove compila un blocco di
@@ -8540,7 +8666,7 @@
             const b = document.getElementById('rd-si');
             b.disabled = true; b.textContent = 'Invio...';
             Cloud.operaPresenza({
-                azione: 'richiedi-dati', evento: ev.id, idIscritto: r.id,
+                azione: 'richiedi-dati', evento: ev.id, idIscritto: r.id, doc: r.doc || '',
                 mail: { oggetto: m.oggetto, html: m.html, testo: m.testo }
             }).then(res => {
                 if (!res.ok) {

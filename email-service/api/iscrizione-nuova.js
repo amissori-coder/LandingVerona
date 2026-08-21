@@ -203,6 +203,79 @@ function pulisciPartecipante(p) {
 }
 function partecipanteVuoto(p) { return !p.nome && !p.cognome && !p.email && !p.azienda && !p.telefono; }
 
+/* ============================================================
+   Interessi per gli incontri B2B (azioni "b2b-leggi" e "b2b-salva")
+   ------------------------------------------------------------
+   L'invito agli incontri B2B porta un collegamento personale (stessa
+   firma della scheda) verso /incontri_b2b/: l'iscritto sceglie uno o
+   piu' temi e racconta in breve il progetto. Le scelte finiscono
+   sulla SUA scheda negli stessi campi del modulo di Napoli
+   ("interessi" e "incontro"), cosi' l'area riservata le mostra nelle
+   colonne aggiuntive gia' esistenti e il riepilogo per argomento
+   somma tutto, da qualunque strada arrivi; la nota libera va nella
+   colonna "Nota B2B". Le etichette le decide il servizio: dal modulo
+   arrivano solo gli indici.
+   ============================================================ */
+const TEMI_B2B = [
+    'Merito creditizio',
+    'Governance e controllo di gestione',
+    'Adeguati assetti',
+    'ESG e sostenibilita',
+    'Modello 231 e Rating di Legalita',
+    'Finanza agevolata',
+    'Tax Control Framework',
+    "Bagnoli e America's Cup 2027",
+    'Altre esigenze'
+];
+async function interessiB2B(azione, body, res) {
+    const idDoc = String(body.d || '').slice(0, 400);
+    const token = String(body.t || '').trim();
+    if (!idDoc || !token || !NL.firmaCompletaValida(idDoc, token)) {
+        res.status(403).json({ ok: false, msg: MSG_LINK });
+        return;
+    }
+    initAdmin(leggiServiceAccount());
+    const db = admin.firestore();
+    const rif = db.collection('iscrizioni').doc(idDoc);
+    const snap = await rif.get();
+    if (!snap.exists) { res.status(403).json({ ok: false, msg: MSG_LINK }); return; }
+    const scheda = snap.data() || {};
+
+    if (azione === 'b2b-leggi') {
+        const attuali = String(scheda.interessi || '').split(',').map(s => s.trim()).filter(Boolean);
+        res.status(200).json({
+            ok: true,
+            pagina: String(scheda.pagina || ''),
+            nome: ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()),
+            temi: TEMI_B2B,
+            // indici dei temi gia' scelti (le etichette libere del vecchio modulo
+            // del sito non si perdono: restano nel campo e nel riepilogo)
+            scelti: TEMI_B2B.map((t, i) => attuali.indexOf(t) >= 0 ? i : -1).filter(i => i >= 0),
+            nota: String((scheda.extra && scheda.extra['Nota B2B']) || '')
+        });
+        return;
+    }
+
+    // b2b-salva: indici dei temi + nota libera
+    const indici = Array.isArray(body.temi) ? body.temi.map(n => parseInt(n, 10)).filter(n => n >= 0 && n < TEMI_B2B.length) : [];
+    const scelti = TEMI_B2B.filter((t, i) => indici.indexOf(i) >= 0);
+    const nota = testo(body.nota, 800);
+    if (!scelti.length && !nota) {
+        res.status(400).json({ ok: false, msg: 'Indica almeno un tema di interesse, o racconta in breve la tua esigenza.' });
+        return;
+    }
+    const chi = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()) || String(scheda.email || '');
+    await rif.set({
+        interessi: scelti.join(','),
+        incontro: 'si',
+        extra: { 'Nota B2B': nota },
+        b2bRisposta: { quando: Date.now(), temi: scelti.length },
+        compilato: { daNome: chi, quando: Date.now() }
+    }, { merge: true });
+    await segnaCambiamento(db);
+    res.status(200).json({ ok: true, temi: scelti.length });
+}
+
 async function completaIscrizione(azione, body, res) {
     const idDoc = String(body.d || '').slice(0, 400);
     const token = String(body.t || '').trim();
@@ -411,6 +484,10 @@ module.exports = async (req, res) => {
         const azione = String(body.azione || '');
         if (azione === 'completa-leggi' || azione === 'completa-salva') {
             await completaIscrizione(azione, body, res);
+            return;
+        }
+        if (azione === 'b2b-leggi' || azione === 'b2b-salva') {
+            await interessiB2B(azione, body, res);
             return;
         }
         const email = testo(body.email, 200).toLowerCase();
