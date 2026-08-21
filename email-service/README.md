@@ -183,7 +183,9 @@ al minuto per utente.
 - `azione: "cancella"`: **solo amministratore**. Cancella l'iscrizione e la sua
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
-- `azione: "aggiungi"`: **solo amministratore**. Registra un'iscrizione a mano,
+- `azione: "aggiungi"`: **amministratore e tutti gli equity partner** (qualifica
+  letta dall'anagrafica `archivio/persone`: scheda attiva, non eliminata, stessa
+  email di chi chiama). Registra un'iscrizione a mano,
   per chi si e iscritto da un portale esterno (dall'evento di Napoli in poi
   l'iscrizione passa anche da Eventbrite). Nel corpo: `pagina` (titolo del
   modulo dell'evento), `campi` (nome, cognome, email, telefono, azienda,

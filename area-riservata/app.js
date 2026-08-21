@@ -8007,7 +8007,15 @@
             + (ev.manuale ? '<button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button>' : '')
             + '<button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
             + '<button class="btn btn-secondary" id="ev-importa">Importa iscrizioni</button></div></div>'
-            : '';
+            /* Anche gli EQUITY PARTNER (qualifica dell'anagrafica, qualunque sia il
+               ruolo con cui entrano) aggiungono le iscrizioni arrivate dai portali
+               esterni: a loro compare la sola card con quel pulsante, il resto
+               della gestione resta all'amministratore. */
+            : (ev.manuale && Auth.eEquityPartner()
+                ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Iscrizioni da altri portali</strong>'
+                + '<div class="hint">Chi si iscrive da Eventbrite non compare da solo: la scheda si aggiunge da qui, con la mail di conferma in formato NGB.</div></div>'
+                + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button></div></div>'
+                : '');
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
         const vuoto = ev.nota
             ? '<div class="card tabella-vuota">Nessuna iscrizione per ' + esc(ev.titolo) + '.<br><span class="hint">' + esc(ev.nota) + '</span></div>'
@@ -8241,15 +8249,16 @@
         });
     }
 
-    /* Inserimento A MANO di un'iscrizione (solo amministratore), per gli eventi
-       che raccolgono iscrizioni anche fuori dal sito: chi si iscrive da
-       Eventbrite non passa dal nostro form, quindi la sua scheda si ricopia qui.
+    /* Inserimento A MANO di un'iscrizione (amministratore, titolare e tutti gli
+       equity partner), per gli eventi che raccolgono iscrizioni anche fuori dal
+       sito: chi si iscrive da Eventbrite non passa dal nostro form, quindi la
+       sua scheda si ricopia qui.
        Si indica da quale portale arriva (resta visibile nell'elenco, colonna
        "Portale") e si puo' far partire subito la mail di conferma in formato
        NGB, uguale per impostazione alla newsletter: prima di salvare c'e'
        l'anteprima, cosi' si vede esattamente cio' che ricevera' la persona. */
     function modaleNuovaIscrizione(ev) {
-        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        if (!(Auth.eAdmin() || Auth.eProprietario() || Auth.eEquityPartner())) return;
         if (!ev || !ev.manuale) return;
         const campo = (id, et, tipo, ph) => '<div class="campo"><label for="' + id + '">' + et + '</label>'
             + '<input type="' + (tipo || 'text') + '" id="' + id + '" placeholder="' + esc(ph || '') + '"></div>';

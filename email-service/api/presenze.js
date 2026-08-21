@@ -16,7 +16,8 @@
      - "imposta"  : stato e/o nota di un iscritto (tutti gli abilitati)
      - "cancella" : rimuove un'iscrizione (SOLO amministratore)
      - "modifica" : corregge i dati di un'iscrizione (SOLO amministratore)
-     - "aggiungi" : registra un'iscrizione A MANO (SOLO amministratore),
+     - "aggiungi" : registra un'iscrizione A MANO (amministratore o
+       equity partner, qualifica letta dall'anagrafica archivio/persone),
        per chi si e' iscritto da un portale esterno (Eventbrite): il
        portale di provenienza resta sulla scheda e, se richiesto, parte
        la mail di conferma in formato NGB gia' composta dall'area
@@ -99,6 +100,21 @@ function adesso() {
     f.formatToParts(new Date()).forEach(x => { p[x.type] = x.value; });
     return p.day + '/' + p.month + '/' + p.year + ' ' + p.hour + ':' + p.minute + ':' + p.second;
 }
+/* Equity partner: e' una QUALIFICA dell'anagrafica (spunta sulla scheda in
+   Aderenti Revilaw), non un ruolo di accesso. Si legge dall'archivio condiviso,
+   con le stesse condizioni usate dall'area riservata: scheda attiva, non
+   eliminata, con la stessa email di chi chiama. In caso di dubbio (archivio
+   illeggibile) si risponde no: il permesso largo resta all'amministratore. */
+async function eEquityPartner(db, email) {
+    try {
+        const d = await db.collection('archivio').doc('persone').get();
+        if (!d.exists || typeof d.data().json !== 'string') return false;
+        const persone = JSON.parse(d.data().json) || [];
+        return (Array.isArray(persone) ? persone : []).some(p => p && p.equityPartner && p.attivo && !p.eliminato
+            && p.email && String(p.email).toLowerCase() === email);
+    } catch (_) { return false; }
+}
+
 // stesso trasporto SMTP delle altre mail dell'area riservata
 function trasporto() {
     return nodemailer.createTransport({
@@ -198,7 +214,12 @@ module.exports = async (req, res) => {
         if (azione !== 'aggiungi' && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
 
         if (azione === 'aggiungi') {
-            if (!eAdmin) { res.status(403).json({ ok: false, msg: 'Solo l\'amministratore puo aggiungere un\'iscrizione.' }); return; }
+            // oltre all'amministratore, TUTTI gli equity partner: l'iscrizione da
+            // Eventbrite la riporta chi segue l'evento, non solo chi amministra
+            if (!eAdmin && !(await eEquityPartner(db, email))) {
+                res.status(403).json({ ok: false, msg: 'Possono aggiungere un\'iscrizione l\'amministratore e gli equity partner.' });
+                return;
+            }
             const c = body.campi || {};
             const pagina = testo(body.pagina, 200);
             if (!pagina) { res.status(400).json({ ok: false, msg: 'Pagina dell\'evento mancante.' }); return; }
