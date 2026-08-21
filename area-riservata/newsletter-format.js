@@ -1376,6 +1376,20 @@
             + par('Per organizzare un incontro davvero utile e individuare gli interlocutori più adatti, La invitiamo a indicarci uno o più temi di Suo interesse:')
             + spazio(16)
             + '<tr><td style="padding-left:6px;">' + elencoTemi + '</td></tr>'
+            /* Chi ha GIA' espresso preferenze (dal form del sito o da un invio
+               precedente) se le ritrova scritte qui: il tratto fra {{SE_TEMI}} e
+               {{/SE_TEMI}} resta solo per loro, con l'elenco al posto di {{TEMI}}.
+               La sostituzione la fa il servizio, destinatario per destinatario. */
+            + '{{SE_TEMI}}'
+            + spazio(18)
+            + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
+            + '<tr><td style="padding:14px 20px;">'
+            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Le Sue preferenze già indicate</span><br>'
+            + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">{{TEMI}}</span><br>'
+            + '<span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">Dal modulo può confermarle, aggiungerne o toglierne quando vuole.</span>'
+            + '</td></tr></table></td></tr>'
+            + '{{/SE_TEMI}}'
             + spazio(18)
             + par('Basta un minuto: dal pulsante qui sotto trova il modulo con i temi già elencati, dove può anche anticiparci brevemente il progetto o l\'esigenza aziendale su cui vorrebbe confrontarsi.')
             + spazio(26)
@@ -1406,6 +1420,7 @@
         const testo = ['UN INCONTRO RISERVATO PER LA SUA IMPRESA', sommario,
             'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti. Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.',
             'I temi proposti:\n' + TEMI_B2B.map(t => '- ' + t.descrizione).join('\n'),
+            '{{SE_TEMI}}Le Sue preferenze già indicate: {{TEMI}}. Dal modulo può confermarle, aggiungerne o toglierne quando vuole.{{/SE_TEMI}}',
             'Indichi i Suoi temi di interesse (e, se vuole, il progetto su cui confrontarsi): ' + SEGNAPOSTO_B2B,
             'Sarà nostra cura ricontattarLa per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione. Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.',
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
@@ -1413,6 +1428,21 @@
             'Informativa privacy: ' + PRIVACY].join('\n\n');
 
         return { oggetto: oggetto, html: html, testo: testo };
+    }
+    /* Applica (o toglie) il tratto "preferenze gia' indicate" dell'invito B2B:
+       il testo fra {{SE_TEMI}} e {{/SE_TEMI}} resta solo se `temi` c'e', con
+       {{TEMI}} sostituito. Il servizio lo fa per destinatario; l'anteprima
+       nell'area riservata usa la stessa funzione. */
+    function conTemiB2B(s, temi) {
+        s = String(s == null ? '' : s);
+        const i = s.indexOf('{{SE_TEMI}}');
+        if (i < 0) return s;
+        const j = s.indexOf('{{/SE_TEMI}}');
+        if (j < 0) return s;
+        const pre = s.slice(0, i);
+        const dentro = s.slice(i + '{{SE_TEMI}}'.length, j);
+        const dopo = s.slice(j + '{{/SE_TEMI}}'.length);
+        return temi ? pre + dentro.split('{{TEMI}}').join(temi) + dopo : pre + dopo;
     }
 
 
@@ -1521,7 +1551,7 @@
         COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA,
         SEGNAPOSTO_B2B: SEGNAPOSTO_B2B, SEGNAPOSTO_NOME: SEGNAPOSTO_NOME, TEMI_B2B: TEMI_B2B,
-        costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati, invitoB2B: invitoB2B, estraiDaPagina: estraiDaPagina,
+        costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati, invitoB2B: invitoB2B, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
     };

@@ -227,6 +227,34 @@ const TEMI_B2B = [
     "Bagnoli e America's Cup 2027",
     'Altre esigenze'
 ];
+/* Etichette storiche del form del sito che non coincidono alla lettera con i
+   nove temi: si riportano comunque come caselle gia' spuntate, cosi' chi ha
+   scelto dal sito si ritrova le sue preferenze e puo' modificarle. Le chiavi
+   sono in forma normalizzata (minuscole, senza accenti). */
+const ALIAS_B2B = {
+    'modello 231 e tax control framework': [4, 6],
+    'rating di legalita': [4]
+};
+function normalizzaTema(s) {
+    return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+/* Dal campo "interessi" (etichette separate da virgola) agli INDICI dei nove
+   temi, piu' le voci che non corrispondono a nessuno: quelle non si buttano
+   (possono venire da una scrittura a mano) e al salvataggio si riportano. */
+function indiciDaInteressi(grezzo) {
+    const attuali = String(grezzo || '').split(',').map(s => s.trim()).filter(Boolean);
+    const norme = TEMI_B2B.map(normalizzaTema);
+    const indici = new Set();
+    const nonMappate = [];
+    attuali.forEach(v => {
+        const n = normalizzaTema(v);
+        const i = norme.indexOf(n);
+        if (i >= 0) { indici.add(i); return; }
+        if (ALIAS_B2B[n]) { ALIAS_B2B[n].forEach(k => indici.add(k)); return; }
+        nonMappate.push(v);
+    });
+    return { indici: Array.from(indici).sort((a, b) => a - b), nonMappate: nonMappate };
+}
 async function interessiB2B(azione, body, res) {
     const idDoc = String(body.d || '').slice(0, 400);
     const token = String(body.t || '').trim();
@@ -242,21 +270,23 @@ async function interessiB2B(azione, body, res) {
     const scheda = snap.data() || {};
 
     if (azione === 'b2b-leggi') {
-        const attuali = String(scheda.interessi || '').split(',').map(s => s.trim()).filter(Boolean);
         res.status(200).json({
             ok: true,
             pagina: String(scheda.pagina || ''),
             nome: ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()),
             temi: TEMI_B2B,
-            // indici dei temi gia' scelti (le etichette libere del vecchio modulo
-            // del sito non si perdono: restano nel campo e nel riepilogo)
-            scelti: TEMI_B2B.map((t, i) => attuali.indexOf(t) >= 0 ? i : -1).filter(i => i >= 0),
+            // le preferenze gia' espresse tornano come caselle spuntate, anche
+            // quando arrivano dal form del sito con le etichette storiche
+            scelti: indiciDaInteressi(scheda.interessi).indici,
             nota: String((scheda.extra && scheda.extra['Nota B2B']) || '')
         });
         return;
     }
 
-    // b2b-salva: indici dei temi + nota libera
+    // b2b-salva: indici dei temi + nota libera. Le voci del campo che non
+    // corrispondono a nessuno dei nove temi (scritte a mano, per esempio)
+    // si riportano cosi' come sono: il modulo non le mostra e non deve
+    // nemmeno cancellarle.
     const indici = Array.isArray(body.temi) ? body.temi.map(n => parseInt(n, 10)).filter(n => n >= 0 && n < TEMI_B2B.length) : [];
     const scelti = TEMI_B2B.filter((t, i) => indici.indexOf(i) >= 0);
     const nota = testo(body.nota, 800);
@@ -266,7 +296,7 @@ async function interessiB2B(azione, body, res) {
     }
     const chi = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()) || String(scheda.email || '');
     await rif.set({
-        interessi: scelti.join(','),
+        interessi: scelti.concat(indiciDaInteressi(scheda.interessi).nonMappate).join(','),
         incontro: 'si',
         extra: { 'Nota B2B': nota },
         b2bRisposta: { quando: Date.now(), temi: scelti.length },

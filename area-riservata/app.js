@@ -7996,6 +7996,9 @@
                         + (puoRichiedere && ev.manuale && r.email && r.extra && r.extra.Portale
                             ? '<button type="button" class="ev-menu-voce ev-req" data-id="' + esc(r.id) + '">Chiedi dati partecipanti</button>'
                             : '')
+                        + (puoRichiedere && ev.manuale && r.email
+                            ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '">Invita agli incontri B2B</button>'
+                            : '')
                         + (adminEv
                             ? '<button type="button" class="ev-menu-voce ev-canc" data-id="'
                             + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
@@ -8178,6 +8181,10 @@
         $vista().querySelectorAll('.ev-req').forEach(b => b.addEventListener('click', () => {
             const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
             if (r) modaleRichiediDati(ev, r);
+        }));
+        $vista().querySelectorAll('.ev-b2bi').forEach(b => b.addEventListener('click', () => {
+            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+            if (r) modaleInvitoB2B(ev, r);
         }));
         // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
         const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
@@ -8524,19 +8531,22 @@
             + '</div>';
     }
 
-    /* Invito MASSIVO agli incontri B2B: una mail personale (formato NGB) a ogni
-       iscritto con email, con il SUO collegamento firmato al modulo dei temi.
-       L'invio va a lotti (il servizio spedisce una mail per destinatario), chi
-       ha gia' ricevuto l'invito viene saltato salvo spunta esplicita, e i
-       doppioni di indirizzo partono una volta sola. Le risposte tornano
-       nell'elenco e nel riepilogo per argomento qui sopra. */
-    function modaleInvitoB2B(ev) {
+    /* Invito agli incontri B2B: una mail personale (formato NGB) con il
+       collegamento firmato al modulo dei temi. A TUTTI dal pulsante della
+       sezione (a lotti, doppioni di indirizzo esclusi, gia' invitati saltati
+       salvo spunta) oppure a UNA SOLA persona dal menu della riga (`unica`),
+       dove il reinvio e' gia' spuntato: se la chiami per uno, di solito e'
+       apposta. Chi ha gia' espresso preferenze se le ritrova nella mail, con
+       l'invito a confermarle o modificarle. Le risposte tornano nell'elenco
+       e nel riepilogo per argomento. */
+    function modaleInvitoB2B(ev, unica) {
         if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale) return;
-        if (_evIscrizioni === null) { toast('Aspetta il caricamento delle iscrizioni e riprova.', 'rosso'); return; }
+        if (unica && !unica.email) return;
+        if (!unica && _evIscrizioni === null) { toast('Aspetta il caricamento delle iscrizioni e riprova.', 'rosso'); return; }
         const visti = new Set();
         const dest = [];
-        (_evIscrizioni || []).forEach(r => {
+        (unica ? [unica] : (_evIscrizioni || [])).forEach(r => {
             const e = String(r.email || '').toLowerCase();
             if (!e || visti.has(e)) return;
             visti.add(e);
@@ -8546,18 +8556,23 @@
         const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.invitoB2B({
             evento: { titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '' }
         }) : null;
-        apriModale('<h2>Invito agli incontri B2B - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;">Parte una mail personale a <b>' + dest.length + '</b> indirizzi (uno per iscritto con email, doppioni esclusi): '
-            + 'ognuno riceve il proprio collegamento al modulo dei temi. Le risposte compaiono nell\'elenco (colonne Interessi, Incontro B2B e Nota B2B) '
-            + 'e nel riepilogo per argomento. Chi ha gia ricevuto l\'invito viene saltato.</p>'
-            + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ib-forza"> Manda anche a chi ha gia ricevuto l\'invito</label></div>'
+        const nomeUnica = unica ? ((unica.nome + ' ' + unica.cognome).trim() || unica.email) : '';
+        const testaHint = unica
+            ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') ricevera la mail con il suo collegamento personale al modulo dei temi. '
+            + 'Le preferenze gia espresse compaiono nella mail e nel modulo, pronte da confermare o modificare.'
+            : 'Parte una mail personale a <b>' + dest.length + '</b> indirizzi (uno per iscritto con email, doppioni esclusi): '
+            + 'ognuno riceve il proprio collegamento al modulo dei temi, con le preferenze gia espresse riportate nella mail. '
+            + 'Le risposte compaiono nell\'elenco (colonne Interessi, Incontro B2B e Nota B2B) e nel riepilogo per argomento. Chi ha gia ricevuto l\'invito viene saltato.';
+        apriModale('<h2>Invito agli incontri B2B - ' + esc(unica ? nomeUnica : (ev.titolo + ', ' + ev.quando)) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">' + testaHint + '</p>'
+            + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ib-forza"' + (unica ? ' checked' : '') + '> Manda anche a chi ha gia ricevuto l\'invito</label></div>'
             + '<div id="ib-anteprima" style="display:none;margin-top:10px;">'
             + '<iframe id="ib-frame" title="Anteprima della mail di invito" sandbox="allow-same-origin" '
             + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
             + '<div id="ib-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ib-no">Annulla</button>'
             + '<button class="btn btn-secondary" id="ib-ant">Anteprima mail</button>'
-            + '<button class="btn btn-primary" id="ib-si">Invia a tutti</button></div>', { classe: 'larga' });
+            + '<button class="btn btn-primary" id="ib-si">' + (unica ? 'Invia l\'invito' : 'Invia a tutti') + '</button></div>', { classe: 'larga' });
         const esito = (testo, ko) => {
             const e = document.getElementById('ib-esito');
             if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
@@ -8570,10 +8585,16 @@
             const chiusa = cont.style.display === 'none';
             cont.style.display = chiusa ? '' : 'none';
             document.getElementById('ib-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
-            // nell'anteprima: un nome di esempio e l'indirizzo della pagina senza firma
-            if (chiusa) document.getElementById('ib-frame').srcdoc = m.html
-                .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join('Mario Rossi')
-                .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
+            // per una persona sola l'anteprima e' la SUA mail (nome e preferenze
+            // veri); per l'invio a tutti un esempio, con il riquadro delle
+            // preferenze mostrato per far vedere come appare a chi le ha
+            const temiAnt = unica
+                ? String((unica.extra && unica.extra['Interessi']) || '').split(',').map(s => s.trim()).filter(Boolean).join(', ')
+                : 'Merito creditizio, Finanza agevolata (esempio: ognuno vede le proprie)';
+            if (chiusa) document.getElementById('ib-frame').srcdoc =
+                RV_NEWSLETTER.conTemiB2B(m.html, temiAnt ? esc(temiAnt) : '')
+                    .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(unica ? nomeUnica : 'Mario Rossi'))
+                    .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
         });
         document.getElementById('ib-si').addEventListener('click', () => {
             const m = mailDi();
