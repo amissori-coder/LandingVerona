@@ -7969,7 +7969,12 @@
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 + '<td data-label="Email">' + esc(r.email) + '</td>'
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
-                + (fisse ? '<td data-label="Portale">' + esc((r.extra && r.extra.Portale) || '-') + '</td>'
+                /* Portale assente = iscrizione arrivata dai nostri form (o dal
+                   foglio storico, che raccoglieva gli stessi form): si scrive
+                   "Sito NGB", perche' e' da li' che e' passata. Il trattino
+                   resterebbe ambiguo proprio nella colonna fatta per capire
+                   da dove arriva ogni riga. */
+                + (fisse ? '<td data-label="Portale">' + esc((r.extra && r.extra.Portale) || 'Sito NGB') + '</td>'
                     + '<td data-label="Partecipanti">' + partecipantiDi(r) + '</td>' : '')
                 + (ev.tutti ? '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>' : '')
                 + extra.map(c => '<td data-label="' + esc(c) + '">' + esc((r.extra && r.extra[c]) || '-') + '</td>').join('')
