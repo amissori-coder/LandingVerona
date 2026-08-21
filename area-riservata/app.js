@@ -8136,6 +8136,8 @@
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
         const bB2b = document.getElementById('ev-b2b');
         if (bB2b) bB2b.addEventListener('click', () => modaleInvitoB2B(ev));
+        const bB2bPdf = document.getElementById('ev-b2b-pdf');
+        if (bB2bPdf) bB2bPdf.addEventListener('click', () => stampaInteressiB2B(ev));
         const bDiag = document.getElementById('ev-diag-btn');
         if (bDiag) bDiag.addEventListener('click', () => {
             bDiag.disabled = true; bDiag.textContent = 'Controllo...';
@@ -8506,29 +8508,106 @@
        "Interessi", da qualunque strada arrivi (modulo dell'invito B2B o form di
        iscrizione del sito): il raggruppamento e' per etichetta, quindi anche le
        voci storiche compaiono. Un nome puo' stare sotto piu' temi. */
-    function riepilogoInteressiHtml(ev, lista) {
-        if (!ev || !ev.manuale || !lista || !lista.length) return '';
+    /* Raggruppa gli interessi B2B per argomento: per ogni tema, l'elenco delle
+       persone con TUTTI i loro dati. Lo usano il riquadro a video e la stampa. */
+    function gruppiInteressiB2B(lista) {
         const gruppi = {};
-        lista.forEach(r => {
+        (lista || []).forEach(r => {
             const grezzo = (r.extra && r.extra['Interessi']) || '';
             String(grezzo).split(',').map(s => s.trim()).filter(Boolean).forEach(tema => {
                 (gruppi[tema] = gruppi[tema] || []).push({
                     chi: (r.nome + ' ' + r.cognome).trim() || r.email,
-                    azienda: r.azienda || '',
+                    azienda: r.azienda || '', ruolo: r.ruolo || '',
+                    email: r.email || '', telefono: r.telefono || '',
+                    portale: (r.extra && r.extra.Portale) || 'Sito NGB',
                     nota: (r.extra && r.extra['Nota B2B']) || ''
                 });
             });
         });
+        return gruppi;
+    }
+    function riepilogoInteressiHtml(ev, lista) {
+        if (!ev || !ev.manuale || !lista || !lista.length) return '';
+        const gruppi = gruppiInteressiB2B(lista);
         const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
         if (!temi.length) return '';
-        return '<div class="card"><strong>Incontri B2B: interessati per argomento</strong>'
-            + '<div class="hint">Chi ha indicato ciascun tema, dal modulo dell\'invito B2B o dal form del sito. Una persona puo comparire sotto piu temi; la nota (se c\'e) racconta il progetto.</div>'
+        return '<div class="card"><div class="s-admin" style="padding:0;border:none;box-shadow:none;background:none;">'
+            + '<div class="s-admin-txt"><strong>Incontri B2B: interessati per argomento</strong>'
+            + '<div class="hint">Chi ha indicato ciascun tema, dal modulo dell\'invito B2B o dal form del sito. Una persona puo comparire sotto piu temi; la nota (se c\'e) racconta il progetto.</div></div>'
+            + '<div class="s-admin-azioni"><button class="btn btn-sm btn-secondary" id="ev-b2b-pdf">Stampa PDF</button></div></div>'
             + temi.map(t => '<details class="ev-colonne" style="margin-top:8px;"><summary>' + esc(t) + ' &middot; ' + gruppi[t].length + '</summary>'
                 + '<div style="margin-top:6px;">' + gruppi[t].map(p =>
                     '<div class="ev-diag-riga"><span>' + esc(p.chi) + (p.azienda ? ' - ' + esc(p.azienda) : '') + '</span>'
                     + '<span class="hint">' + esc(p.nota || '') + '</span></div>').join('')
                 + '</div></details>').join('')
             + '</div>';
+    }
+
+    /* Stampa in PDF del riepilogo per argomento: un capitolo per tema con la
+       tabella completa degli interessati (tutti i dati della scheda, nota
+       compresa). Si apre la finestra di stampa del browser, da cui si salva
+       in PDF: niente librerie, e l'impaginazione la fanno le regole di
+       stampa scritte qui dentro. */
+    function stampaInteressiB2B(ev) {
+        const gruppi = gruppiInteressiB2B(_evIscrizioni);
+        const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
+        if (!temi.length) { toast('Nessun interesse ancora raccolto per questo evento.', 'rosso'); return; }
+        const persone = new Set();
+        let scelte = 0;
+        temi.forEach(t => gruppi[t].forEach(p => { persone.add(p.email || p.chi); scelte++; }));
+        const quando = new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const sezioni = temi.map(t =>
+            '<section class="tema"><h2>' + esc(t) + ' <span class="conta">' + gruppi[t].length
+            + (gruppi[t].length === 1 ? ' interessato' : ' interessati') + '</span></h2>'
+            + '<table><thead><tr><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Portale</th><th>Progetto / esigenza</th></tr></thead><tbody>'
+            + gruppi[t].map(p => '<tr>'
+                + '<td class="forte">' + esc(p.chi) + '</td>'
+                + '<td>' + esc(p.azienda || '-') + '</td>'
+                + '<td>' + esc(p.ruolo || '-') + '</td>'
+                + '<td>' + esc(p.email || '-') + '</td>'
+                + '<td>' + esc(p.telefono || '-') + '</td>'
+                + '<td>' + esc(p.portale) + '</td>'
+                + '<td class="nota">' + esc(p.nota || '-') + '</td>'
+                + '</tr>').join('')
+            + '</tbody></table></section>').join('');
+        const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
+            + '<title>Incontri B2B per argomento - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
+            + '<style>'
+            + '*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+            + 'body{font-family:Arial,\'Helvetica Neue\',Helvetica,sans-serif;color:#1E293B;margin:28px;font-size:12px;line-height:1.45;}'
+            + 'header{border-bottom:3px solid #0A2844;padding-bottom:12px;margin-bottom:6px;}'
+            + 'h1{color:#0A2844;font-size:21px;letter-spacing:-0.2px;}'
+            + '.sotto{color:#475569;margin-top:4px;font-size:12.5px;}'
+            + '.meta{color:#94A3B8;margin-top:3px;font-size:10.5px;}'
+            + '.tema{margin-top:20px;}'
+            + 'h2{color:#0A2844;font-size:14.5px;border-left:4px solid #2A5A85;padding-left:9px;margin-bottom:7px;page-break-after:avoid;break-after:avoid;}'
+            + 'h2 .conta{color:#475569;font-weight:normal;font-size:11.5px;}'
+            + 'table{width:100%;border-collapse:collapse;}'
+            + 'thead{display:table-header-group;}'
+            + 'th{background:#0A2844;color:#fff;text-align:left;padding:5px 7px;font-size:9.5px;letter-spacing:0.4px;text-transform:uppercase;}'
+            + 'td{border-bottom:1px solid #E2E8F0;padding:5px 7px;vertical-align:top;}'
+            + 'tr{page-break-inside:avoid;break-inside:avoid;}'
+            + 'tbody tr:nth-child(even) td{background:#F4F8FB;}'
+            + '.forte{font-weight:bold;color:#0A2844;white-space:nowrap;}'
+            + '.nota{color:#475569;}'
+            + 'footer{margin-top:26px;padding-top:10px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;text-align:center;}'
+            + '@page{margin:14mm 12mm;}'
+            + '</style></head><body>'
+            + '<header><h1>Incontri B2B: interessati per argomento</h1>'
+            + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.sottotitolo ? ' &middot; ' + esc(ev.sottotitolo) : '') + '</div>'
+            + '<div class="meta">' + temi.length + ' argomenti &middot; ' + persone.size + ' persone &middot; ' + scelte + ' preferenze &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
+            + sezioni
+            + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
+            + '</body></html>';
+        const finestra = window.open('', '_blank');
+        if (!finestra) { toast('Il browser ha bloccato la finestra di stampa: consenti i pop-up per questo sito.', 'rosso'); return; }
+        finestra.document.open();
+        finestra.document.write(pagina);
+        finestra.document.close();
+        // un attimo perche' la pagina si impagini, poi la finestra di stampa:
+        // da li' "Salva come PDF" fa il resto
+        finestra.focus();
+        setTimeout(() => { try { finestra.print(); } catch (e) { } }, 300);
     }
 
     /* Invito agli incontri B2B: una mail personale (formato NGB) con il
