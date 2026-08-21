@@ -286,16 +286,14 @@
         { id: 'procuratore', nome: 'Procuratore', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'coordinatore', nome: 'Coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
         { id: 'vicecoordinatore', nome: 'Vice coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
-        /* Marketing: guarda tutto senza toccare niente. Vede quello che vede un equity
-           partner - tutte le sezioni consentite e TUTTE le richieste di correzione - ma
-           in sola visualizzazione: nessuna scrittura, e sulle richieste nessun comando
-           (non le riceve, non le prende in carico, non risponde). Il territorio non lo
-           limita: non e' un ruolo di zona. */
-        { id: RUOLO_MARKETING, nome: 'Marketing (sola visualizzazione)', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
+        /* Marketing: parte in sola lettura su tutte le sezioni consentite, ma non e'
+           bloccato li': dalla sezione Ruoli e permessi l'amministratore puo' concedergli
+           la scrittura, sezione per sezione, come per gli altri ruoli di sistema.
+           Sulle richieste di correzione resta un osservatore: le vede TUTTE, come un
+           equity partner, ma non le riceve, non le prende in carico e non risponde.
+           Il territorio non lo limita: non e' un ruolo di zona. */
+        { id: RUOLO_MARKETING, nome: 'Marketing', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
     ];
-    /* Il profilo di sola visualizzazione: la scrittura non gli si puo' dare, in nessuna
-       sezione, qualunque cosa sia salvata nei ruoli. */
-    function eRuoloSolaVisualizzazione(id) { return id === RUOLO_MARKETING; }
     /* Ruoli "solo sondaggio": accesso isolato alla sola sezione Sondaggi, per gli invitati
        che NON fanno parte dello staff. compila = puo' compilare il questionario; risultati =
        vede solo il riepilogo. L'isolamento vero (niente accesso agli altri dati) e' garantito
@@ -380,10 +378,12 @@
                 if (idx < 0) { lista.push({ ...d, sezioni: { ...d.sezioni } }); return; }
                 if (!lista[idx].sistema) { lista[idx] = { ...d, sezioni: { ...d.sezioni } }; return; }
                 // ruolo di sistema personalizzato dall'admin: mantiene le sue scelte, ma le sezioni
-                // aggiunte dopo il salvataggio del ruolo restano visibili in sola lettura di default
+                // aggiunte dopo il salvataggio del ruolo restano visibili in sola lettura di default.
+                // Il NOME resta quello del programma (i ruoli di sistema non si rinominano): cosi
+                // un'etichetta vecchia rimasta in archivio si aggiorna da sola.
                 const sez = { ...(lista[idx].sezioni || {}) };
                 SEZIONI_RUOLO.forEach(s => { if (sez[s.id] !== 'no' && sez[s.id] !== 'lettura' && sez[s.id] !== 'scrittura') sez[s.id] = 'lettura'; });
-                lista[idx] = { ...lista[idx], sezioni: sez, sistema: true };
+                lista[idx] = { ...lista[idx], nome: d.nome, sezioni: sez, sistema: true };
             });
             /* I ruoli storici ad accesso pieno (qualita, procuratore) ricevono in scrittura
                anche le sezioni nate DOPO il salvataggio del ruolo: sono i profili "accesso
@@ -1183,16 +1183,13 @@
                 norm.coordinatore = true;
                 return norm;
             }
-            /* Marketing: i livelli per sezione li sceglie l'amministratore (puo' nascondergli
-               una sezione), ma la scrittura non gli si puo' dare: se in archivio ci fosse,
-               qui torna "sola lettura". E' il ruolo stesso a chiamarsi "sola visualizzazione". */
+            /* Marketing: i livelli per sezione li sceglie l'amministratore dalla sezione
+               Ruoli e permessi, scrittura compresa. Se il profilo non e' mai stato
+               salvato vale il valore di partenza: tutto in sola lettura. */
             if (u.ruolo === RUOLO_MARKETING) {
                 const salvato = Ruoli.trova(RUOLO_MARKETING);
-                const norm = salvato ? Ruoli.normalizza(salvato)
-                    : { id: RUOLO_MARKETING, nome: 'Marketing (sola visualizzazione)', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
-                SEZIONI_RUOLO.forEach(sz => { if (norm.sezioni[sz.id] === 'scrittura') norm.sezioni[sz.id] = 'lettura'; });
-                norm.solaVisualizzazione = true;
-                return norm;
+                if (salvato) return Ruoli.normalizza(salvato);
+                return { id: RUOLO_MARKETING, nome: 'Marketing', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
             }
             const r = Ruoli.trova(u.ruolo);
             if (r) return Ruoli.normalizza(r);
@@ -1217,10 +1214,11 @@
            insieme ai founding sono gli unici a vederle tutte. */
         eEquityPartner() { const p = this.personaCorrente(); return !!(p && p.equityPartner); },
         eFoundingPartner() { const p = this.personaCorrente(); return !!(p && p.foundingPartner); },
-        /* Profilo "Marketing (sola visualizzazione)": e' un RUOLO (sezione Ruoli e permessi),
-           non una qualifica dell'anagrafica. Vede quello che vede un equity partner, comprese
-           tutte le richieste di correzione, ma si ferma li': non le riceve, non le lavora,
-           non risponde, e in nessuna sezione puo' scrivere. */
+        /* Profilo "Marketing": e' un RUOLO (sezione Ruoli e permessi), non una qualifica
+           dell'anagrafica. Sulle richieste di correzione vede quello che vede un equity
+           partner - tutte - ma resta osservatore: non le riceve, non le lavora, non
+           risponde. Nelle sezioni invece valgono i livelli del suo ruolo, e
+           l'amministratore puo' dargli anche la scrittura. */
         eMarketing() {
             return !!this.utenteCorrente && this.utenteCorrente.ruolo === RUOLO_MARKETING
                 && !this.eAdmin() && !this.eProprietario();
@@ -15128,7 +15126,8 @@
                     </div>
                 </div>
                 <div class="ruolo-sez">${riepSez(r)}</div>
-                ${r.sistema ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw piu le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
+                ${r.id === 'coordinatore' || r.id === 'vicecoordinatore' ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw piu le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
+                ${r.id === RUOLO_MARKETING ? '<div class="ruolo-reg">Non e limitato al territorio: vede gli incarichi di tutte le regioni. Parte con tutto in sola lettura; la scrittura si concede sezione per sezione. Sulle richieste di correzione resta osservatore.</div>' : ''}
             </div>`).join('') +
             `</div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
@@ -15163,17 +15162,17 @@
         // sezione, anche la scrittura, esattamente come per un ruolo su misura.
         const soloAdmin = !!(esistente && esistente.id === 'admin');
         const diSistema = !!(esistente && esistente.sistema);
-        // profilo di sola visualizzazione (Marketing): la scrittura non e' nemmeno in elenco
-        const soloVis = !!(esistente && eRuoloSolaVisualizzazione(esistente.id));
+        // profilo Marketing: niente territorio e ruolo speciale sulle richieste, va spiegato a parte
+        const profiloMarketing = !!(esistente && esistente.id === RUOLO_MARKETING);
         const r = esistente || { id: '', nome: '', builtin: false, sezioni: sezioniTutte('no') };
         apriModale(`<h2>${esistente ? (soloAdmin ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
             ${(soloAdmin || diSistema) ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
             ${soloAdmin ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non e modificabile.</p>' : `
-            ${soloVis ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: profilo di <strong>sola visualizzazione</strong>. Qui sotto scegli quali sezioni vede; la <strong>scrittura non e disponibile</strong>, in nessuna sezione. Non e limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
+            ${profiloMarketing ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto quali sezioni vede e dove puo anche scrivere. Nasce con tutto in <strong>sola lettura</strong>, ma la <strong>scrittura si puo concedere</strong> sezione per sezione. Non e limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> resta osservatore: vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
                 : diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa puo modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioe la <strong>Regione</strong> della sua scheda in <strong>Aderenti Revilaw</strong> (agganciata all\'utente tramite email) piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa puo toccare</h3>
             <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
-                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).filter(liv => !(soloVis && liv === 'scrittura')).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
+                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
             <div class="msg-errore hidden" id="r-errore"></div>
             <div class="modale-azioni">
                 ${soloAdmin ? '<button class="btn btn-primary" id="m-annulla">Chiudi</button>'
@@ -15197,8 +15196,7 @@
             const sezioni = {};
             SEZIONI_RUOLO.forEach(s => {
                 const sel = document.querySelector('[data-sez="' + s.id + '"]');
-                let v = sel ? sel.value : 'no';
-                if (soloVis && v === 'scrittura') v = 'lettura';   // profilo di sola visualizzazione: la scrittura non esiste
+                const v = sel ? sel.value : 'no';
                 sezioni[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no';
             });
             const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), sistema: !!(esistente && esistente.sistema), sezioni: sezioni };
