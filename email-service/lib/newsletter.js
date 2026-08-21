@@ -93,6 +93,13 @@ function linkCompleta(idDoc) {
     return PAGINA_COMPLETA + '?d=' + encodeURIComponent(String(idDoc || ''))
         + '&t=' + encodeURIComponent(firmaCompleta(idDoc));
 }
+/* Modulo degli incontri B2B: stessa firma della scheda (stesso perimetro:
+   quella sola iscrizione), pagina diversa. */
+const PAGINA_B2B = BASE + '/incontri_b2b/';
+function linkB2B(idDoc) {
+    return PAGINA_B2B + '?d=' + encodeURIComponent(String(idDoc || ''))
+        + '&t=' + encodeURIComponent(firmaCompleta(idDoc));
+}
 /* Collegamento personale mostrato in fondo alla mail (pagina di conferma). */
 function linkDisiscrizione(email, campagna) {
     return PAGINA_DISISCRIZIONE + '?e=' + encodeURIComponent(email) + '&t=' + encodeURIComponent(firma(email))
@@ -226,8 +233,8 @@ function testo(v, max) {
 module.exports = {
     leggiServiceAccount, initAdmin, admin,
     firma, firmaValida, linkDisiscrizione, linkUnClic,
-    firmaCompleta, firmaCompletaValida, linkCompleta,
-    PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, BASE,
+    firmaCompleta, firmaCompletaValida, linkCompleta, linkB2B,
+    PAGINA_DISISCRIZIONE, PAGINA_COMPLETA, PAGINA_B2B, BASE,
     EMAIL_RE, autorizza, disiscritti, testo,
     brevoAttivo, chiamataBrevo, bloccatiBrevo
 };

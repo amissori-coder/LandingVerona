@@ -249,6 +249,25 @@ stessa possibilita di chi viene inserito a mano. Gli altri moduli del sito
 `/api/iscrizioni` restituisce ora anche `presenze` e toglie le cancellate: l'area
 riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
+## Incontri B2B
+
+- **Invito massivo** (`/api/presenze`, `azione: "invita-b2b"`; amministratore,
+  equity e founding partner): riceve `destinatari` (fino a 50 per chiamata,
+  `{id, doc}`; l'area riservata manda i lotti in sequenza) e la mail gia
+  composta (formato NGB) con i segnaposti `{{NOME}}` e `{{B2B}}`, sostituiti
+  QUI per destinatario con nome e collegamento personale firmato verso
+  `/incontri_b2b/`. Una mail per destinatario; chi ha gia ricevuto l'invito
+  (`b2bInvito` sulla scheda) viene saltato salvo `forza: true`; i doppioni di
+  indirizzo partono una volta sola. `maxDuration` 60s in vercel.json.
+- **Modulo dei temi** (`/api/iscrizione-nuova`, azioni `b2b-leggi` e
+  `b2b-salva`, pubbliche con la stessa firma della scheda): l'iscritto sceglie
+  i temi (viaggiano solo gli INDICI: le etichette le decide il servizio,
+  costante `TEMI_B2B`) e racconta il progetto. Le scelte finiscono sulla sua
+  scheda negli stessi campi del modulo di Napoli (`interessi`, `incontro`),
+  quindi nelle colonne aggiuntive "Interessi" e "Incontro B2B"; la nota nella
+  colonna "Nota B2B". L'area riservata le raccoglie anche nel riepilogo per
+  argomento, con le persone interessate per tema.
+
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
 Riservato all'**amministratore** (ID token verificato, ruolo `admin`). Porta

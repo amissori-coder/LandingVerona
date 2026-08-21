@@ -1293,6 +1293,128 @@
         return { oggetto: oggetto, html: html, testo: parti.join('\n\n') };
     }
 
+    /* =========================================================
+       MAIL DI INVITO AGLI INCONTRI B2B
+       ---------------------------------------------------------
+       L'invito che parte A TUTTI gli iscritti di un evento: spiega
+       l'occasione, elenca i temi e porta al modulo online dove ognuno
+       indica i propri interessi (le risposte tornano nell'elenco e
+       nel riepilogo per argomento dell'area riservata).
+       Due segnaposti, sostituiti dal servizio PER DESTINATARIO:
+         {{NOME}} - nome e cognome dell'iscritto;
+         {{B2B}}  - il suo collegamento personale firmato al modulo.
+       Il tono e' formale (Lei): e' un invito personale, non una
+       circolare. `dati.evento`: titolo, quando, sottotitolo.
+    ========================================================= */
+    const SEGNAPOSTO_B2B = '{{B2B}}';
+    const SEGNAPOSTO_NOME = '{{NOME}}';
+    /* I temi proposti: la DESCRIZIONE lunga va nella mail e nel modulo,
+       l'etichetta corta e' quella che finisce in tabella (le stesse voci
+       del modulo di iscrizione di Napoli, dove esistono gia'). */
+    const TEMI_B2B = [
+        { nome: 'Merito creditizio', descrizione: 'miglioramento del merito creditizio e accesso ai finanziamenti' },
+        { nome: 'Governance e controllo di gestione', descrizione: 'controllo di gestione e pianificazione finanziaria' },
+        { nome: 'Adeguati assetti', descrizione: 'adeguati assetti organizzativi, amministrativi e contabili' },
+        { nome: 'ESG e sostenibilita', descrizione: 'sostenibilità ed ESG' },
+        { nome: 'Modello 231 e Rating di Legalita', descrizione: 'Modello 231 e rating di legalità' },
+        { nome: 'Finanza agevolata', descrizione: 'finanza agevolata e sostegno agli investimenti' },
+        { nome: 'Tax Control Framework', descrizione: 'Tax Control Framework' },
+        { nome: "Bagnoli e America's Cup 2027", descrizione: 'opportunità connesse allo sviluppo di Bagnoli e all\'America\'s Cup' },
+        { nome: 'Altre esigenze', descrizione: 'altre esigenze specifiche della Sua impresa' }
+    ];
+    function invitoB2B(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
+        const oggetto = 'Il Suo incontro B2B al convegno - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+        const anteprima = 'Un incontro riservato con i nostri specialisti, sui temi che sceglie Lei.';
+
+        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', La ringraziamo per essersi iscritto al convegno "' + nomeConvegno + '"'
+            + (quandoEv ? ' di ' + quandoEv : '') + ': nel corso della giornata potrà partecipare a un incontro B2B riservato.';
+        const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
+            + tabellaInterna(
+                '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
+                + '</a></td></tr>'
+                + spazio(24)
+                + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
+                + spazio(12)
+                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">Un incontro riservato per la Sua impresa</td></tr>'
+                + spazio(16)
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(sommario) + '</td></tr>'
+            )
+            + '</td></tr>';
+        const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
+            + '</td></tr>';
+
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        // l'elenco dei temi, con il quadratino blu del formato newsletter
+        const voceTema = t => '<tr><td width="18" valign="top" style="' + FONTE + 'font-size:16px;line-height:27px;">'
+            + '<span style="display:inline-block;width:8px;height:8px;background-color:' + C.accento + ';"></span></td>'
+            + '<td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding-bottom:7px;">' + testoHtml(t.descrizione) + '</td></tr>';
+        const elencoTemi = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+            + TEMI_B2B.map(voceTema).join('') + '</table>';
+
+        const bottone = '<tr><td align="center" style="text-align:center;">'
+            + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
+            + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
+            + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Indichi i Suoi temi di interesse</a>'
+            + '</td></tr></table></td></tr>';
+
+        const corpo = cella(tabellaInterna(
+            spazio(30)
+            + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
+            + spazio(14)
+            + par('Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.')
+            + spazio(14)
+            + par('Per organizzare un incontro davvero utile e individuare gli interlocutori più adatti, La invitiamo a indicarci uno o più temi di Suo interesse:')
+            + spazio(16)
+            + '<tr><td style="padding-left:6px;">' + elencoTemi + '</td></tr>'
+            + spazio(18)
+            + par('Basta un minuto: dal pulsante qui sotto trova il modulo con i temi già elencati, dove può anche anticiparci brevemente il progetto o l\'esigenza aziendale su cui vorrebbe confrontarsi.')
+            + spazio(26)
+            + bottone
+            + spazio(26)
+            + par('Sarà nostra cura ricontattarLa per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione. Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.')
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+        ));
+
+        const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
+        const linkPiede = 'color:' + C.tenue + ';text-decoration:underline;';
+        const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
+            + tabellaInterna(
+                rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
+                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + spazio(10)
+                + rigaPiede('color:' + C.tenue + ';',
+                    '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
+                    + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
+                + spazio(8)
+                + rigaPiede('color:#94A3B8;', esc(MOTIVO_CONFERMA) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+            )
+            + '</td></tr>';
+
+        const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piede);
+
+        const testo = ['UN INCONTRO RISERVATO PER LA SUA IMPRESA', sommario,
+            'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti. Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.',
+            'I temi proposti:\n' + TEMI_B2B.map(t => '- ' + t.descrizione).join('\n'),
+            'Indichi i Suoi temi di interesse (e, se vuole, il progetto su cui confrontarsi): ' + SEGNAPOSTO_B2B,
+            'Sarà nostra cura ricontattarLa per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione. Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.',
+            'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_CONFERMA,
+            'Informativa privacy: ' + PRIVACY].join('\n\n');
+
+        return { oggetto: oggetto, html: html, testo: testo };
+    }
+
 
     /* =========================================================
        DALLA PAGINA DEL SITO ALLA NEWSLETTER
@@ -1398,7 +1520,8 @@
     return {
         COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA,
-        costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati, estraiDaPagina: estraiDaPagina,
+        SEGNAPOSTO_B2B: SEGNAPOSTO_B2B, SEGNAPOSTO_NOME: SEGNAPOSTO_NOME, TEMI_B2B: TEMI_B2B,
+        costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati, invitoB2B: invitoB2B, estraiDaPagina: estraiDaPagina,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
     };

@@ -178,7 +178,10 @@ async function leggiTutteLeIscrizioni(db, forza, rev) {
     }
     const snap = await db.collection('iscrizioni').get();
     const righe = [];
-    snap.forEach(d => righe.push(d.data() || {}));
+    // il NOME DEL DOCUMENTO viaggia con la riga: per le schede-partecipante
+    // (idDoc~p2...) non si puo' ricavare dai campi, e serve alle azioni che
+    // devono colpire il documento giusto (richiesta dati, invito B2B)
+    snap.forEach(d => righe.push(Object.assign({ _doc: d.id }, d.data() || {})));
     _cache = { quando: Date.now(), righe: righe, rev: rev };
     return { righe: righe, daMemoria: false };
 }
@@ -308,6 +311,7 @@ module.exports = async (req, res) => {
                 const em = String(v.email || '');
                 daFirestore.push({
                     id: (em.toLowerCase() || (chiave(v.nome) + '.' + chiave(v.cognome))) + '|' + String(v.data || ''),
+                    doc: String(v._doc || ''),
                     data: String(v.data || ''), pagina: pag,
                     nome: String(v.nome || ''), cognome: String(v.cognome || ''), email: em,
                     azienda: String(v.azienda || ''), ruolo: String(v.ruolo || ''),
