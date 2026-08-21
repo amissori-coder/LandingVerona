@@ -69,10 +69,13 @@
     <script>
         (function () {
             'use strict';
-            /* Stesso servizio dei form del sito. Il collegamento personale (d = scheda,
-               t = firma) arriva dalla mail: senza firma valida il servizio non
-               risponde nulla, quindi la pagina da sola non mostra dati di nessuno. */
-            var API = 'https://revilaw-email.vercel.app/api/completa-iscrizione';
+            /* Stessa funzione dei form del sito (iscrizione-nuova), con azioni
+               dedicate: il piano di Vercel ammette al massimo 12 funzioni, e una
+               in piu' farebbe fallire la pubblicazione del servizio intero.
+               Il collegamento personale (d = scheda, t = firma) arriva dalla
+               mail: senza firma valida il servizio non risponde nulla, quindi
+               la pagina da sola non mostra dati di nessuno. */
+            var API = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
             var q = new URLSearchParams(location.search);
             var d = q.get('d') || '', t = q.get('t') || '';
             var box = document.getElementById('contenuto');
@@ -157,7 +160,7 @@
                 var b = document.getElementById('invia');
                 b.disabled = true; b.textContent = 'Invio in corso…';
                 esito.className = 'esito'; esito.textContent = '';
-                chiama({ azione: 'salva', partecipanti: lista }).then(function (r) {
+                chiama({ azione: 'completa-salva', partecipanti: lista }).then(function (r) {
                     if (!r || !r.ok) {
                         b.disabled = false; b.textContent = 'Invia i dati';
                         esito.className = 'esito ko';
@@ -178,7 +181,7 @@
                 errore('Questa pagina si apre dal collegamento personale che trovi nella mail. Se non la trovi, scrivi a info@nextgenerationbusiness.it');
                 return;
             }
-            chiama({ azione: 'leggi' }).then(function (r) {
+            chiama({ azione: 'completa-leggi' }).then(function (r) {
                 if (!r || !r.ok) { errore((r && r.msg) || 'Collegamento non valido o scaduto. Scrivi a info@nextgenerationbusiness.it e provvediamo noi.'); return; }
                 modulo(r);
             }).catch(function () {

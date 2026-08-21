@@ -22,9 +22,21 @@
        creare un duplicato;
      - limita gli invii ripetuti dallo stesso indirizzo IP.
    Non restituisce mai dati: risponde solo ok/non ok.
+
+   QUI DENTRO vive anche il COMPLETAMENTO dei dati di un'iscrizione
+   manuale (azioni "completa-leggi" e "completa-salva"), perche' il
+   piano Hobby di Vercel ammette al massimo 12 funzioni per deploy e
+   una tredicesima farebbe fallire l'intera pubblicazione. E' lo
+   stesso tipo di endpoint (pubblico, con limite per IP): cambia solo
+   l'azione nel corpo. Vedi completaIscrizione() qui sotto.
    ============================================================ */
 
 const admin = require('firebase-admin');
+// firma del collegamento personale "completa i dati" (stesso segreto della
+// disiscrizione, contesto diverso). Da NL si usano SOLO le funzioni di firma
+// e la regex email: l'inizializzazione di firebase-admin resta quella locale,
+// per non inizializzare l'app due volte.
+const NL = require('../lib/newsletter');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -128,6 +140,141 @@ async function segnaCambiamento(db) {
     } catch (e) { /* non e grave: la lettura ha comunque una scadenza a tempo */ }
 }
 
+/* ============================================================
+   Completamento dei dati di un'iscrizione manuale
+   ------------------------------------------------------------
+   Un'iscrizione inserita a mano (Eventbrite, altre piattaforme) ha
+   spesso i soli dati dell'intestatario e puo' coprire piu' posti.
+   L'area riservata gli manda una mail con un collegamento personale:
+
+     /completa_iscrizione/?d=<idDoc>&t=<firma>
+
+   La firma e' un HMAC dell'identificativo del documento: il
+   collegamento apre SOLO quella scheda, e a firma sbagliata si
+   risponde sempre allo stesso modo, senza dire se la scheda esiste.
+
+   - "completa-leggi": evento, posti e dati noti dell'intestatario,
+     per precompilare il modulo della pagina;
+   - "completa-salva": il PRIMO partecipante aggiorna la scheda
+     originale (mai l'email, che e' l'identita' della scheda); gli
+     altri diventano schede proprie con documenti dal nome fisso
+     (<idDoc>~p2, ~p3...), quindi rimandare il modulo sovrascrive
+     invece di duplicare. I posti si RIPARTISCONO senza cambiare il
+     totale: la scheda originale tiene quelli non ancora nominati e i
+     figli oltre l'ultimo invio vengono tolti. Nessun doppio conteggio
+     dei partecipanti, qualunque cosa faccia chi compila.
+   ============================================================ */
+const MSG_LINK = 'Collegamento non valido o scaduto. Scrivi a info@nextgenerationbusiness.it e provvediamo noi.';
+const MAX_PART = 99;
+function pulisciPartecipante(p) {
+    return {
+        nome: testo(p.nome, 120), cognome: testo(p.cognome, 120),
+        email: testo(p.email, 200).toLowerCase(),
+        azienda: testo(p.azienda, 200), ruolo: testo(p.ruolo, 200), telefono: testo(p.telefono, 60)
+    };
+}
+function partecipanteVuoto(p) { return !p.nome && !p.cognome && !p.email && !p.azienda && !p.telefono; }
+
+async function completaIscrizione(azione, body, res) {
+    const idDoc = String(body.d || '').slice(0, 400);
+    const token = String(body.t || '').trim();
+    if (!idDoc || !token || !NL.firmaCompletaValida(idDoc, token)) {
+        res.status(403).json({ ok: false, msg: MSG_LINK });
+        return;
+    }
+
+    initAdmin(leggiServiceAccount());
+    const db = admin.firestore();
+    const rif = db.collection('iscrizioni').doc(idDoc);
+    const snap = await rif.get();
+    // scheda sparita (cancellata dall'area riservata): stessa risposta del
+    // collegamento sbagliato, per non dire niente a chi tira a indovinare
+    if (!snap.exists) { res.status(403).json({ ok: false, msg: MSG_LINK }); return; }
+    const scheda = snap.data() || {};
+    // il totale dei posti dell'ordine NON cambia mai: alla prima ripartizione
+    // si mette da parte, perche' "partecipanti" della scheda da li' in poi
+    // conta solo i posti non ancora nominati
+    const nOrdine = Math.min(MAX_PART, Math.max(1,
+        parseInt(scheda.partecipantiOrdine, 10) || parseInt(scheda.partecipanti, 10) || 1));
+
+    if (azione === 'completa-leggi') {
+        res.status(200).json({
+            ok: true,
+            pagina: String(scheda.pagina || ''),
+            partecipanti: nOrdine,
+            completato: !!scheda.completato,
+            capofila: {
+                nome: String(scheda.nome || ''), cognome: String(scheda.cognome || ''),
+                email: String(scheda.email || ''),
+                azienda: String(scheda.azienda || ''), ruolo: String(scheda.ruolo || ''),
+                telefono: String(scheda.telefono || '')
+            }
+        });
+        return;
+    }
+
+    // al massimo i posti dell'ordine: i partecipanti in piu' non entrano,
+    // perche' e' cosi' che il totale non puo' crescere da questo modulo
+    const grezzi = Array.isArray(body.partecipanti) ? body.partecipanti.slice(0, nOrdine) : [];
+    const lista = grezzi.map(p => pulisciPartecipante(p && typeof p === 'object' ? p : {})).filter(p => !partecipanteVuoto(p));
+    if (!lista.length) { res.status(400).json({ ok: false, msg: 'Compila almeno i dati di un partecipante.' }); return; }
+    for (const p of lista) {
+        if (p.email && !NL.EMAIL_RE.test(p.email)) {
+            res.status(400).json({ ok: false, msg: 'Uno degli indirizzi email non sembra valido: ' + p.email }); return;
+        }
+        if (!p.nome && !p.cognome && !p.email) {
+            res.status(400).json({ ok: false, msg: 'Per ogni partecipante servono almeno nome e cognome, oppure l\'email.' }); return;
+        }
+    }
+
+    /* Il primo della lista e' l'intestatario: aggiorna la scheda originale.
+       L'email NON si tocca: e' l'identita' della scheda (le presenze sono
+       agganciate li') e l'indirizzo a cui e' arrivato questo collegamento. */
+    const primo = lista[0];
+    const figli = lista.slice(1);
+    // la scheda originale tiene i posti non ancora nominati: mai sotto 1
+    const restanti = Math.max(1, nOrdine - figli.length);
+    await rif.set({
+        nome: primo.nome, cognome: primo.cognome,
+        azienda: primo.azienda, ruolo: primo.ruolo, telefono: primo.telefono,
+        partecipanti: restanti,
+        partecipantiOrdine: nOrdine,
+        extra: { Partecipanti: String(restanti) },
+        completato: { quando: Date.now(), partecipanti: lista.length }
+    }, { merge: true });
+
+    // ogni altro partecipante diventa una scheda propria, con un posto solo.
+    // I nomi dei documenti sono FISSI (idDoc~p2, ~p3...): rimandare il modulo
+    // sovrascrive le stesse schede invece di crearne di nuove.
+    const etichettaPortale = (scheda.extra && scheda.extra.Portale) || scheda.portaleNome || '';
+    const batch = db.batch();
+    figli.forEach((p, i) => {
+        batch.set(db.collection('iscrizioni').doc(idDoc + '~p' + (i + 2)), {
+            data: String(scheda.data || ''),
+            pagina: String(scheda.pagina || ''),
+            nome: p.nome, cognome: p.cognome, email: p.email,
+            azienda: p.azienda, ruolo: p.ruolo, telefono: p.telefono,
+            messaggio: '',
+            portale: String(scheda.portale || ''),
+            portaleNome: etichettaPortale,
+            partecipanti: 1,
+            extra: Object.assign({ Partecipanti: '1' }, etichettaPortale ? { Portale: etichettaPortale } : {}),
+            origine: 'partecipante',
+            gruppo: idDoc,
+            ricevuto: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    });
+    // i figli oltre l'ultimo invio si tolgono: se prima erano stati indicati
+    // tre nomi e ora due, il terzo non deve restare a gonfiare l'elenco
+    for (let i = figli.length + 2; i <= nOrdine; i++) {
+        batch.delete(db.collection('iscrizioni').doc(idDoc + '~p' + i));
+    }
+    await batch.commit();
+    await segnaCambiamento(db);
+
+    res.status(200).json({ ok: true, salvati: lista.length, posti: nOrdine });
+}
+
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -140,6 +287,14 @@ module.exports = async (req, res) => {
         if (troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
 
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+        // completamento dei dati (dal collegamento personale nella mail): altra
+        // azione, stessa funzione. I form del sito non mandano "azione", quindi
+        // per loro non cambia niente.
+        const azione = String(body.azione || '');
+        if (azione === 'completa-leggi' || azione === 'completa-salva') {
+            await completaIscrizione(azione, body, res);
+            return;
+        }
         const email = testo(body.email, 200).toLowerCase();
         const nome = testo(body.nome, 120);
         const cognome = testo(body.cognome, 120);
