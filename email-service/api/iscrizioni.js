@@ -309,6 +309,14 @@ module.exports = async (req, res) => {
                     nome: String(v.nome || ''), cognome: String(v.cognome || ''), email: em,
                     azienda: String(v.azienda || ''), ruolo: String(v.ruolo || ''),
                     telefono: String(v.telefono || ''), messaggio: String(v.messaggio || ''),
+                    /* chi ha inserito la scheda a mano (equity o amministratore):
+                       l'area riservata lo mostra in "Aggiornato da" finche' non
+                       ci sono presenze. Le iscrizioni dai form non ce l'hanno. */
+                    inserito: (v.inserito && typeof v.inserito === 'object') ? {
+                        da: String(v.inserito.da || ''),
+                        daNome: String(v.inserito.daNome || ''),
+                        quando: typeof v.inserito.quando === 'number' ? v.inserito.quando : 0
+                    } : null,
                     /* Colonne aggiuntive: quelle dell'elenco importato piu' i campi
                        del business matching. Si costruisce una copia nuova, cosi'
                        l'oggetto letto dal database resta com'e'. */

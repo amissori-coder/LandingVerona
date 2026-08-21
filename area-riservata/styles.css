@@ -1292,6 +1292,30 @@ summary.ni-testa::before {
 .ev-sel-mobile { display: none; }
 .ev-azioni { white-space: nowrap; }
 .ev-azioni .btn + .btn { margin-left: 6px; }
+/* Modifica e Cancella in un menu a tre puntini: due pulsanti per riga
+   allargavano la tabella. Il menu si apre sotto il pulsante e si chiude
+   cliccando fuori (ci pensa app.js). */
+.ev-menu { position: relative; display: inline-block; }
+.ev-menu-btn { min-width: 34px; font-size: 1rem; line-height: 1; }
+.ev-menu-lista {
+    position: absolute; right: 0; top: calc(100% + 4px); z-index: 40;
+    min-width: 130px; overflow: hidden;
+    background: #fff; border: 1px solid var(--grigio-200); border-radius: 8px; box-shadow: var(--ombra);
+}
+.ev-menu-voce {
+    display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    padding: 9px 14px; font-family: inherit; font-size: 0.85rem; color: var(--grigio-900);
+}
+.ev-menu-voce:hover { background: var(--blu-050); }
+.ev-menu-voce.ev-canc { color: var(--rosso); }
+/* La tabella degli iscritti deve ENTRARE in larghezza, senza barra di
+   scorrimento: corpo un filo piu' piccolo e celle che vanno a capo, email
+   comprese. L'overflow visibile evita anche che il menu delle azioni venga
+   tagliato dal bordo del riquadro. */
+.ev-wrap { overflow: visible; }
+.ev-wrap table.dati { font-size: 0.78rem; }
+.ev-wrap table.dati th { white-space: normal; }
+.ev-wrap table.dati td { white-space: normal; overflow-wrap: anywhere; padding: 5px 6px; }
 /* scelta dell'evento: un riquadro per evento, si apre uno alla volta */
 .ev-schede { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .ev-scheda { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; padding: 9px 16px; border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff; cursor: pointer; text-align: left; font-family: inherit; }

@@ -7978,13 +7978,23 @@
                     + '<td data-label="Partecipanti">' + partecipantiDi(r) + '</td>' : '')
                 + (ev.tutti ? '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>' : '')
                 + extra.map(c => '<td data-label="' + esc(c) + '">' + esc((r.extra && r.extra[c]) || '-') + '</td>').join('')
+                /* "Aggiornato da": l'ultima mano che ha toccato la scheda. Con una
+                   presenza o nota c'e' quella firma; per un'iscrizione inserita a
+                   mano non ancora toccata c'e' chi l'ha inserita (r.inserito ha la
+                   stessa forma di una presenza, quindi la firma si scrive uguale). */
                 + (ev.tutti ? '' : cellaStato + cellaNota
-                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || '-') + '</span></td>')
+                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p) || firmaPresenza(r.inserito) || '-') + '</span></td>')
+                // Modifica e Cancella stanno in un menu a tre puntini: due pulsanti
+                // per riga allargavano la tabella senza dire niente di nuovo
                 + (adminEv
-                    ? '<td data-label="" class="ev-azioni"><button class="btn btn-sm btn-secondary ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
-                    + '<button class="btn btn-sm btn-secondary ev-canc" data-id="'
+                    ? '<td data-label="" class="ev-azioni"><div class="ev-menu">'
+                    + '<button type="button" class="btn btn-sm btn-secondary ev-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Azioni">&#8942;</button>'
+                    + '<div class="ev-menu-lista hidden">'
+                    + '<button type="button" class="ev-menu-voce ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
+                    + '<button type="button" class="ev-menu-voce ev-canc" data-id="'
                     + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
-                    + (ev.tutti ? 'Togli' : 'Cancella') + '</button></td>'
+                    + (ev.tutti ? 'Togli' : 'Cancella') + '</button>'
+                    + '</div></div></td>'
                     : '')
                 + '</tr>';
         }).join('');
@@ -8002,7 +8012,10 @@
             // diventano schede), quindi la casella "tutte" che sta li dentro sparirebbe:
             // questa la ripropone sopra l'elenco. A video largo resta nascosta.
             + (adminEv ? '<label class="ev-sel-mobile"><input type="checkbox" id="ev-sel-tutte-m"> Seleziona tutte le iscrizioni in elenco</label>' : '')
-            + '<div class="tabella-wrap"><table class="dati compatta"><thead><tr>'
+            // "ev-wrap": questa tabella deve ENTRARE in larghezza, senza barra di
+            // scorrimento (le celle vanno a capo), e l'overflow visibile non taglia
+            // il menu a tendina delle azioni
+            + '<div class="tabella-wrap ev-wrap"><table class="dati compatta"><thead><tr>'
             + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
             + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th>'
             + (fisse ? '<th>Portale</th><th>Partecipanti</th>' : '')
@@ -8150,6 +8163,32 @@
             const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
             if (r) modaleModificaIscrizione(ev, r);
         }));
+        // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
+        const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
+            l.classList.add('hidden');
+            const b = l.previousElementSibling;
+            if (b) b.setAttribute('aria-expanded', 'false');
+        });
+        $vista().querySelectorAll('.ev-menu-btn').forEach(b => b.addEventListener('click', e => {
+            e.stopPropagation();
+            const lista = b.nextElementSibling;
+            const eraChiuso = lista.classList.contains('hidden');
+            chiudiMenuEv();
+            if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); }
+        }));
+        $vista().querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
+        // il clic fuori chiude tutti i menu: UN solo ascoltatore sul documento,
+        // che a ogni ridisegno ritrova da se' i menu correnti
+        if (!document.body.dataset.evMenuDoc) {
+            document.body.dataset.evMenuDoc = '1';
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.ev-menu-lista').forEach(l => {
+                    l.classList.add('hidden');
+                    const b = l.previousElementSibling;
+                    if (b) b.setAttribute('aria-expanded', 'false');
+                });
+            });
+        }
         // colonne aggiuntive: si spuntano e la tabella si ridisegna con quelle in piu'
         $vista().querySelectorAll('.ev-col').forEach(c => c.addEventListener('change', () => {
             const scelte = Array.from($vista().querySelectorAll('.ev-col:checked')).map(x => x.value);
