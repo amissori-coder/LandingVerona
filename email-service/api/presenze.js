@@ -287,14 +287,20 @@ module.exports = async (req, res) => {
                         try {
                             const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
                             const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
-                            await trasporto().sendMail({
+                            const messaggio = {
                                 from: '"' + fromName + '" <' + fromEmail + '>',
                                 replyTo: email,
                                 to: scheda.email,
                                 subject: oggetto.replace(/[\r\n]/g, ' '),
                                 text: testoMail || undefined,
                                 html: html
-                            });
+                            };
+                            /* copia nascosta a chi ha inserito la scheda: cosi' ha
+                               agli atti la conferma partita, senza comparire
+                               all'iscritto. Se sta iscrivendo se stesso la copia
+                               non serve: riceverebbe la stessa mail due volte. */
+                            if (email !== scheda.email) messaggio.bcc = email;
+                            await trasporto().sendMail(messaggio);
                             mailEsito = { inviata: true };
                         } catch (e) {
                             const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);

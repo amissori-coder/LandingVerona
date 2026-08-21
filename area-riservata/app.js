@@ -8301,7 +8301,7 @@
             + '</div>'
             + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ni-mail" checked> '
             + 'Invia subito la mail di conferma in formato NGB</label>'
-            + '<div class="hint">La riceve l\'iscritto all\'indirizzo indicato sopra. Con "Anteprima mail" la vedi prima di salvare.</div></div>'
+            + '<div class="hint">La riceve l\'iscritto all\'indirizzo indicato sopra, con una copia nascosta a te che la inserisci. Con "Anteprima mail" la vedi prima di salvare.</div></div>'
             + '<div id="ni-anteprima" style="display:none;margin-top:10px;">'
             + '<iframe id="ni-frame" title="Anteprima della mail di conferma" sandbox="allow-same-origin" '
             + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
