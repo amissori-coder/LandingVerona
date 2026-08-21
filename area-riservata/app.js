@@ -286,16 +286,14 @@
         { id: 'procuratore', nome: 'Procuratore', builtin: true, sezioni: sezioniTutte('scrittura') },
         { id: 'coordinatore', nome: 'Coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
         { id: 'vicecoordinatore', nome: 'Vice coordinatore territoriale', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') },
-        /* Marketing: guarda tutto senza toccare niente. Vede quello che vede un equity
-           partner - tutte le sezioni consentite e TUTTE le richieste di correzione - ma
-           in sola visualizzazione: nessuna scrittura, e sulle richieste nessun comando
-           (non le riceve, non le prende in carico, non risponde). Il territorio non lo
-           limita: non e' un ruolo di zona. */
-        { id: RUOLO_MARKETING, nome: 'Marketing (sola visualizzazione)', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
+        /* Marketing: parte in sola lettura su tutte le sezioni consentite, ma non e'
+           bloccato li': dalla sezione Ruoli e permessi l'amministratore puo' concedergli
+           la scrittura, sezione per sezione, come per gli altri ruoli di sistema.
+           Sulle richieste di correzione resta un osservatore: le vede TUTTE, come un
+           equity partner, ma non le riceve, non le prende in carico e non risponde.
+           Il territorio non lo limita: non e' un ruolo di zona. */
+        { id: RUOLO_MARKETING, nome: 'Marketing', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') }
     ];
-    /* Il profilo di sola visualizzazione: la scrittura non gli si puo' dare, in nessuna
-       sezione, qualunque cosa sia salvata nei ruoli. */
-    function eRuoloSolaVisualizzazione(id) { return id === RUOLO_MARKETING; }
     /* Ruoli "solo sondaggio": accesso isolato alla sola sezione Sondaggi, per gli invitati
        che NON fanno parte dello staff. compila = puo' compilare il questionario; risultati =
        vede solo il riepilogo. L'isolamento vero (niente accesso agli altri dati) e' garantito
@@ -380,10 +378,12 @@
                 if (idx < 0) { lista.push({ ...d, sezioni: { ...d.sezioni } }); return; }
                 if (!lista[idx].sistema) { lista[idx] = { ...d, sezioni: { ...d.sezioni } }; return; }
                 // ruolo di sistema personalizzato dall'admin: mantiene le sue scelte, ma le sezioni
-                // aggiunte dopo il salvataggio del ruolo restano visibili in sola lettura di default
+                // aggiunte dopo il salvataggio del ruolo restano visibili in sola lettura di default.
+                // Il NOME resta quello del programma (i ruoli di sistema non si rinominano): cosi
+                // un'etichetta vecchia rimasta in archivio si aggiorna da sola.
                 const sez = { ...(lista[idx].sezioni || {}) };
                 SEZIONI_RUOLO.forEach(s => { if (sez[s.id] !== 'no' && sez[s.id] !== 'lettura' && sez[s.id] !== 'scrittura') sez[s.id] = 'lettura'; });
-                lista[idx] = { ...lista[idx], sezioni: sez, sistema: true };
+                lista[idx] = { ...lista[idx], nome: d.nome, sezioni: sez, sistema: true };
             });
             /* I ruoli storici ad accesso pieno (qualita, procuratore) ricevono in scrittura
                anche le sezioni nate DOPO il salvataggio del ruolo: sono i profili "accesso
@@ -1183,16 +1183,13 @@
                 norm.coordinatore = true;
                 return norm;
             }
-            /* Marketing: i livelli per sezione li sceglie l'amministratore (puo' nascondergli
-               una sezione), ma la scrittura non gli si puo' dare: se in archivio ci fosse,
-               qui torna "sola lettura". E' il ruolo stesso a chiamarsi "sola visualizzazione". */
+            /* Marketing: i livelli per sezione li sceglie l'amministratore dalla sezione
+               Ruoli e permessi, scrittura compresa. Se il profilo non e' mai stato
+               salvato vale il valore di partenza: tutto in sola lettura. */
             if (u.ruolo === RUOLO_MARKETING) {
                 const salvato = Ruoli.trova(RUOLO_MARKETING);
-                const norm = salvato ? Ruoli.normalizza(salvato)
-                    : { id: RUOLO_MARKETING, nome: 'Marketing (sola visualizzazione)', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
-                SEZIONI_RUOLO.forEach(sz => { if (norm.sezioni[sz.id] === 'scrittura') norm.sezioni[sz.id] = 'lettura'; });
-                norm.solaVisualizzazione = true;
-                return norm;
+                if (salvato) return Ruoli.normalizza(salvato);
+                return { id: RUOLO_MARKETING, nome: 'Marketing', builtin: true, sistema: true, sezioni: sezioniTutte('lettura') };
             }
             const r = Ruoli.trova(u.ruolo);
             if (r) return Ruoli.normalizza(r);
@@ -1217,10 +1214,11 @@
            insieme ai founding sono gli unici a vederle tutte. */
         eEquityPartner() { const p = this.personaCorrente(); return !!(p && p.equityPartner); },
         eFoundingPartner() { const p = this.personaCorrente(); return !!(p && p.foundingPartner); },
-        /* Profilo "Marketing (sola visualizzazione)": e' un RUOLO (sezione Ruoli e permessi),
-           non una qualifica dell'anagrafica. Vede quello che vede un equity partner, comprese
-           tutte le richieste di correzione, ma si ferma li': non le riceve, non le lavora,
-           non risponde, e in nessuna sezione puo' scrivere. */
+        /* Profilo "Marketing": e' un RUOLO (sezione Ruoli e permessi), non una qualifica
+           dell'anagrafica. Sulle richieste di correzione vede quello che vede un equity
+           partner - tutte - ma resta osservatore: non le riceve, non le lavora, non
+           risponde. Nelle sezioni invece valgono i livelli del suo ruolo, e
+           l'amministratore puo' dargli anche la scrittura. */
         eMarketing() {
             return !!this.utenteCorrente && this.utenteCorrente.ruolo === RUOLO_MARKETING
                 && !this.eAdmin() && !this.eProprietario();
@@ -3285,12 +3283,12 @@
     let statoModifica = null;        // {tipo,id,etichetta} di cio che sto modificando ora (per la presenza)
     let _modalePersonaAperta = false; // per azzerare statoModifica alla chiusura della scheda persona
     // sottopagine di un incarico: entrarci da una sezione (es. Aderenti Revilaw) fa ricordare dove tornare
-    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera', 'ratingScheda', 'ratingReport'];
+    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera', 'ratingScheda', 'ratingReport', 'ratingMetodo'];
     let origineNav = null;           // {vista, parametri, scrollY} della sezione da cui si e entrati nel flusso
 
     // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
     // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
-    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating' };
+    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating', ratingMetodo: 'rating' };
     function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
     function naviga(id, parametri, ripristinaScroll) {
@@ -3317,7 +3315,8 @@
             lettera: vistaLettera,
             rating: vistaRating,
             ratingScheda: vistaRatingScheda,
-            ratingReport: vistaRatingReport
+            ratingReport: vistaRatingReport,
+            ratingMetodo: vistaRatingMetodo
         };
         // guardia permessi: la sezione richiesta deve essere consentita dal ruolo
         const sez = SEZIONE_DI_VISTA[id] || id;
@@ -6309,28 +6308,28 @@
     ------------------------------------------------------------ */
     const RB_BANCHE_AGG = 'agosto 2026';
     const RB_BANCHE = [
-        { id: 'intesa',     nome: 'Intesa Sanpaolo',                          moodys: 'Baa1', sp: 'BBB+', fitch: 'BBB',  cet1: 13.9, nota: 'Primo gruppo italiano; depositi a A3 per Moody\'s dopo il rialzo dell\'Italia.' },
-        { id: 'unicredit',  nome: 'UniCredit',                                moodys: 'Baa1', sp: 'BBB+', fitch: 'BBB+', cet1: 16.2, nota: 'Depositi a A3 per Moody\'s; capitalizzazione tra le piu alte dei grandi gruppi.' },
-        { id: 'bancobpm',   nome: 'Banco BPM',                                moodys: 'Baa2', sp: 'BBB-', fitch: 'BBB',  cet1: 15.0, nota: 'Profilo di credito individuale salito a baa3 nel 2026.' },
-        { id: 'bper',       nome: 'BPER Banca',                               moodys: 'Baa2', sp: 'BBB-', fitch: 'BBB',  cet1: 15.5, nota: 'Dal 20 aprile 2026 incorpora la Banca Popolare di Sondrio; outlook positivo.' },
-        { id: 'mps',        nome: 'Banca Monte dei Paschi di Siena',          moodys: 'Ba1',  sp: 'BB+',  fitch: 'BB+',  cet1: 18.0, nota: 'Con Mediobanca dal 2025 e il terzo gruppo; profilo in miglioramento, rating ancora sotto l\'investment grade.' },
-        { id: 'mediobanca', nome: 'Mediobanca (gruppo MPS)',                  moodys: 'Baa1', sp: 'BBB',  fitch: 'BBB',  cet1: 15.2, nota: 'Dal 2025 parte del gruppo MPS.' },
-        { id: 'credem',     nome: 'Credito Emiliano (Credem)',                moodys: 'Baa1', sp: '',     fitch: 'BBB+', cet1: 15.5, nota: 'Storicamente tra i profili piu solidi del sistema.' },
-        { id: 'popso',      nome: 'Banca Popolare di Sondrio (BPER)',         moodys: '',     sp: '',     fitch: 'BBB',  dbrs: 'BBB', cet1: 15.4, nota: 'Incorporata in BPER Banca dal 20 aprile 2026: vale il profilo del gruppo BPER.' },
-        { id: 'mediolanum', nome: 'Banca Mediolanum',                         moodys: '',     sp: '',     fitch: 'BBB+', cet1: 20.0, nota: 'Modello banca-rete; patrimonializzazione elevata.' },
-        { id: 'fineco',     nome: 'FinecoBank',                               moodys: 'Baa1', sp: 'BBB',  fitch: '',     cet1: 24.0, nota: 'Banca diretta; capitale largamente sopra i requisiti.' },
-        { id: 'bgenerali',  nome: 'Banca Generali',                           moodys: '',     sp: '',     fitch: '',     cet1: 16.0, nota: 'Gruppo Assicurazioni Generali; private banking.' },
-        { id: 'iccrea',     nome: 'Gruppo BCC Iccrea',                        moodys: 'Baa3', sp: '',     fitch: 'BBB-', cet1: 22.0, nota: 'Capogruppo delle BCC aderenti: per la singola BCC vale il gruppo.' },
-        { id: 'ccb',        nome: 'Cassa Centrale Banca (gruppo)',            moodys: '',     sp: '',     fitch: 'BBB-', dbrs: 'BBB', cet1: 25.0, nota: 'CET1 tra i piu alti in Europa; capogruppo delle Casse Rurali aderenti.' },
-        { id: 'sella',      nome: 'Banca Sella',                              moodys: '',     sp: '',     fitch: 'BBB-', cet1: 13.5, nota: 'Gruppo privato; forte sui servizi digitali.' },
-        { id: 'desio',      nome: 'Banco di Desio e della Brianza',           moodys: '',     sp: '',     fitch: 'BBB-', cet1: 16.5, nota: '' },
-        { id: 'ifis',       nome: 'Banca Ifis',                               moodys: '',     sp: '',     fitch: 'BB+',  cet1: 15.0, nota: 'Specializzata in factoring e NPL; dal 2025 controlla illimity.' },
-        { id: 'illimity',   nome: 'illimity Bank (gruppo Ifis)',              moodys: '',     sp: '',     fitch: 'BB+',  cet1: 14.0, nota: 'Rating allineato alla controllante Banca Ifis.' },
-        { id: 'volksbank',  nome: 'Banca Popolare dell\'Alto Adige (Volksbank)', moodys: '', sp: '',     fitch: '',     dbrs: 'BBB (low)', cet1: 15.0, nota: '' },
-        { id: 'sparkasse',  nome: 'Cassa di Risparmio di Bolzano (Sparkasse)', moodys: '',   sp: '',     fitch: '',     dbrs: 'BBB (low)', cet1: 15.0, nota: 'Comprende CiviBank.' },
-        { id: 'bnl',        nome: 'BNL BNP Paribas',                          moodys: 'Aa3', sp: 'A+',   fitch: 'A+',   cet1: 13.0, nota: 'Vale il rating della capogruppo francese BNP Paribas.' },
-        { id: 'cai',        nome: 'Credit Agricole Italia',                   moodys: 'Aa3', sp: 'A+',   fitch: 'AA-',  cet1: 17.0, nota: 'Vale il rating della capogruppo francese Credit Agricole.' },
-        { id: 'deutsche',   nome: 'Deutsche Bank S.p.A.',                     moodys: 'A1',  sp: 'A',    fitch: 'A-',   cet1: 14.0, nota: 'Vale il rating della capogruppo tedesca.' }
+        { id: 'intesa', politica: 'nazionale',     nome: 'Intesa Sanpaolo',                          moodys: 'Baa1', sp: 'BBB+', fitch: 'BBB',  cet1: 13.9, nota: 'Primo gruppo italiano; depositi a A3 per Moody\'s dopo il rialzo dell\'Italia.' },
+        { id: 'unicredit', politica: 'nazionale',  nome: 'UniCredit',                                moodys: 'Baa1', sp: 'BBB+', fitch: 'BBB+', cet1: 16.2, nota: 'Depositi a A3 per Moody\'s; capitalizzazione tra le piu alte dei grandi gruppi.' },
+        { id: 'bancobpm', politica: 'nazionale',   nome: 'Banco BPM',                                moodys: 'Baa2', sp: 'BBB-', fitch: 'BBB',  cet1: 15.0, nota: 'Profilo di credito individuale salito a baa3 nel 2026.' },
+        { id: 'bper', politica: 'nazionale',       nome: 'BPER Banca',                               moodys: 'Baa2', sp: 'BBB-', fitch: 'BBB',  cet1: 15.5, nota: 'Dal 20 aprile 2026 incorpora la Banca Popolare di Sondrio; outlook positivo.' },
+        { id: 'mps', politica: 'nazionale',        nome: 'Banca Monte dei Paschi di Siena',          moodys: 'Ba1',  sp: 'BB+',  fitch: 'BB+',  cet1: 18.0, nota: 'Con Mediobanca dal 2025 e il terzo gruppo; profilo in miglioramento, rating ancora sotto l\'investment grade.' },
+        { id: 'mediobanca', politica: 'nazionale', nome: 'Mediobanca (gruppo MPS)',                  moodys: 'Baa1', sp: 'BBB',  fitch: 'BBB',  cet1: 15.2, nota: 'Dal 2025 parte del gruppo MPS.' },
+        { id: 'credem', politica: 'territoriale',     nome: 'Credito Emiliano (Credem)',                moodys: 'Baa1', sp: '',     fitch: 'BBB+', cet1: 15.5, nota: 'Storicamente tra i profili piu solidi del sistema.' },
+        { id: 'popso', politica: 'territoriale',      nome: 'Banca Popolare di Sondrio (BPER)',         moodys: '',     sp: '',     fitch: 'BBB',  dbrs: 'BBB', cet1: 15.4, nota: 'Incorporata in BPER Banca dal 20 aprile 2026: vale il profilo del gruppo BPER.' },
+        { id: 'mediolanum', politica: 'specializzata', nome: 'Banca Mediolanum',                         moodys: '',     sp: '',     fitch: 'BBB+', cet1: 20.0, nota: 'Modello banca-rete; patrimonializzazione elevata.' },
+        { id: 'fineco', politica: 'specializzata',     nome: 'FinecoBank',                               moodys: 'Baa1', sp: 'BBB',  fitch: '',     cet1: 24.0, nota: 'Banca diretta; capitale largamente sopra i requisiti.' },
+        { id: 'bgenerali', politica: 'specializzata',  nome: 'Banca Generali',                           moodys: '',     sp: '',     fitch: '',     cet1: 16.0, nota: 'Gruppo Assicurazioni Generali; private banking.' },
+        { id: 'iccrea', politica: 'territoriale',     nome: 'Gruppo BCC Iccrea',                        moodys: 'Baa3', sp: '',     fitch: 'BBB-', cet1: 22.0, nota: 'Capogruppo delle BCC aderenti: per la singola BCC vale il gruppo.' },
+        { id: 'ccb', politica: 'territoriale',        nome: 'Cassa Centrale Banca (gruppo)',            moodys: '',     sp: '',     fitch: 'BBB-', dbrs: 'BBB', cet1: 25.0, nota: 'CET1 tra i piu alti in Europa; capogruppo delle Casse Rurali aderenti.' },
+        { id: 'sella', politica: 'territoriale',      nome: 'Banca Sella',                              moodys: '',     sp: '',     fitch: 'BBB-', cet1: 13.5, nota: 'Gruppo privato; forte sui servizi digitali.' },
+        { id: 'desio', politica: 'territoriale',      nome: 'Banco di Desio e della Brianza',           moodys: '',     sp: '',     fitch: 'BBB-', cet1: 16.5, nota: '' },
+        { id: 'ifis', politica: 'specializzata',       nome: 'Banca Ifis',                               moodys: '',     sp: '',     fitch: 'BB+',  cet1: 15.0, nota: 'Specializzata in factoring e NPL; dal 2025 controlla illimity.' },
+        { id: 'illimity', politica: 'specializzata',   nome: 'illimity Bank (gruppo Ifis)',              moodys: '',     sp: '',     fitch: 'BB+',  cet1: 14.0, nota: 'Rating allineato alla controllante Banca Ifis.' },
+        { id: 'volksbank', politica: 'territoriale',  nome: 'Banca Popolare dell\'Alto Adige (Volksbank)', moodys: '', sp: '',     fitch: '',     dbrs: 'BBB (low)', cet1: 15.0, nota: '' },
+        { id: 'sparkasse', politica: 'territoriale',  nome: 'Cassa di Risparmio di Bolzano (Sparkasse)', moodys: '',   sp: '',     fitch: '',     dbrs: 'BBB (low)', cet1: 15.0, nota: 'Comprende CiviBank.' },
+        { id: 'bnl', politica: 'estero',        nome: 'BNL BNP Paribas',                          moodys: 'Aa3', sp: 'A+',   fitch: 'A+',   cet1: 13.0, nota: 'Vale il rating della capogruppo francese BNP Paribas.' },
+        { id: 'cai', politica: 'estero',        nome: 'Credit Agricole Italia',                   moodys: 'Aa3', sp: 'A+',   fitch: 'AA-',  cet1: 17.0, nota: 'Vale il rating della capogruppo francese Credit Agricole.' },
+        { id: 'deutsche', politica: 'estero',   nome: 'Deutsche Bank S.p.A.',                     moodys: 'A1',  sp: 'A',    fitch: 'A-',   cet1: 14.0, nota: 'Vale il rating della capogruppo tedesca.' }
     ];
 
     /* Conversione dei rating in "notch" su scala comune 1-21 (21 = AAA/Aaa).
@@ -6535,7 +6534,7 @@
        e una stima di come QUELLA banca vede l'impresa (la classe di
        partenza peggiora se il rapporto e in tensione).
     ------------------------------------------------------------ */
-    function rbAnalisiBanche(rapporti, classeRif) {
+    function rbAnalisiBanche(rapporti, classeRif, eq) {
         rapporti = (rapporti || []).filter(r => (r.banca && r.banca !== 'altra') || (r.nome || '').trim());
         const righe = rapporti.map(r => {
             const banca = r.banca && r.banca !== 'altra' ? rbTrovaBanca(r.banca) : null;
@@ -6544,15 +6543,19 @@
             const uti = rbNum(r.utilizzato) || 0;
             const utilizzo = acc > 0 ? uti / acc * 100 : (uti > 0 ? 999 : null);
             const tensione = !!r.sconfini || (utilizzo !== null && utilizzo > 85);
-            let vista = null;
+            let stima = null;
             if (classeRif) {
-                vista = classeRif + (r.sconfini ? 1 : 0) + (utilizzo !== null && utilizzo > 90 ? 1 : 0);
-                vista = Math.min(12, Math.max(1, vista));
+                stima = rbStimaIstituto({
+                    classe: classeRif, banca, anzianita: r.anzianita || '',
+                    utilizzo, sconfini: !!r.sconfini, garanzie: r.garanzie || '',
+                    eq: (eq === undefined ? null : eq)
+                });
             }
             return { nome, banca, solidita: banca ? rbSoliditaBanca(banca) : null,
                      rating: banca ? rbEtichettaRating(banca) : 'da censire',
                      acc, uti, utilizzo, sconfini: !!r.sconfini, garanzie: r.garanzie || '',
-                     nota: r.nota || '', tensione, vista };
+                     anzianita: r.anzianita || '', nota: r.nota || '', tensione,
+                     stima, vista: stima ? stima.classe : null };
         });
         const totAcc = righe.reduce((s, r) => s + r.acc, 0);
         const totUti = righe.reduce((s, r) => s + r.uti, 0);
@@ -6693,9 +6696,1023 @@
         if (manca('tcf', 0)) dai('spunto', 'Governance', 'Valutare il Tax Control Framework',
             'Il presidio del rischio fiscale (fino all\'adempimento collaborativo) riduce il contenzioso potenziale, che per la banca e passivo latente.', RB_SERVIZI.tcf);
 
+        // --- dettagli delle voci, rettifiche, soggetti e gruppo ---
+        const det = es.dettagliInput || {};
+        const dNum = k => rbNum(det[k]) || 0;
+        if (dNum('tribScaduto') > 0) {
+            dai('alta', 'Bilancio', 'Regolarizzare i debiti fiscali scaduti',
+                eurFmt.format(dNum('tribScaduto')) + ' di debiti tributari e previdenziali scaduti senza rateizzazione: per la banca e uno dei segnali peggiori (DURC, ipoteche, segnalazioni). Rateizzare subito e documentare la regolarita nelle istruttorie.', RB_SERVIZI.tcf);
+        }
+        if (x.SP07 > 0 && dNum('creditiScaduti') > x.SP07 * 0.15) {
+            dai('media', 'Bilancio', 'Qualita del portafoglio crediti',
+                'I crediti scaduti da oltre 90 giorni sono ' + eurFmt.format(dNum('creditiScaduti')) + ', oltre il 15% dei crediti a breve: solleciti strutturati, anticipo fatture selettivo e valutazione della cessione riportano il circolante a girare.', null);
+        }
+        if (dNum('magazzinoObsoleto') > 0) {
+            dai('spunto', 'Bilancio', 'Smobilizzare il magazzino fermo',
+                'Le rimanenze obsolete dichiarate (' + eurFmt.format(dNum('magazzinoObsoleto')) + ') vengono comunque scontate dall\'analista: meglio svalutarle o smobilizzarle in bilancio, e presentare un magazzino pulito.', null);
+        }
+        if (dNum('fideiussioni') > 0) {
+            dai('media', 'Bilancio', 'Garanzie prestate: impegni fuori bilancio',
+                'Le fideiussioni prestate (' + eurFmt.format(dNum('fideiussioni')) + ') si sommano al rischio complessivo che la banca calcola sul gruppo: censirle, limitarle e farle pesare nella negoziazione degli affidamenti.', null);
+        }
+        if (dNum('finSoci') > 0 && det.finSociPostergati !== 'si') {
+            dai('media', 'Bilancio', 'Postergare i finanziamenti soci',
+                'I finanziamenti soci (' + eurFmt.format(dNum('finSoci')) + ') oggi contano come debito finanziario: con la postergazione formale (o la conversione a capitale) diventano quasi-capitale e migliorano leva e patrimonializzazione.', RB_SERVIZI.patrimonio);
+        }
+        if (es.rett.attive && es.rett.mcc.integrata - es.mcc.integrata >= 2) {
+            dai('alta', 'Bilancio', 'Il bilancio non regge la lettura prudenziale',
+                'Con le rettifiche da analista fidi la classe passa da ' + es.mcc.integrata + ' a ' + es.rett.mcc.integrata + ': le poste deboli (crediti scaduti, magazzino, rivalutazioni) vanno ripulite in bilancio prima che sia la banca a scontarle.', RB_SERVIZI.assetti);
+        }
+        if (es.soggetti.livello === 'critico') {
+            dai('alta', 'Governance', 'Posizioni pregiudizievoli degli amministratori',
+                'Gli eventi dichiarati a carico di amministratori compromettono ogni istruttoria: valutare la ricomposizione dell\'organo amministrativo o la regolarizzazione documentata delle posizioni, prima di nuove richieste di fido.', null);
+        } else if (es.soggetti.compilato && es.soggetti.punti.some(p => p.tipo === 'attenzione')) {
+            dai('media', 'Governance', 'Trasparenza della compagine e verifiche sui soggetti',
+                'Fiduciarie, soci esteri o posizioni non verificate: preparare in anticipo la documentazione sulla titolarita effettiva (UBO) e le visure su protesti e pregiudizievoli accorcia ogni istruttoria.', null);
+        }
+        if (es.gruppo.notch > 0) {
+            dai('media', 'Bilancio', 'Riequilibrare i flussi verso il gruppo',
+                'Il gruppo assorbe risorse dall\'impresa: formalizzare i rapporti infragruppo a condizioni di mercato e ridurre il drenaggio di cassa restituisce autonomia al merito creditizio della societa.', RB_SERVIZI.patrimonio);
+        }
+
         const ordine = { alta: 0, media: 1, spunto: 2 };
         az.sort((a, b) => ordine[a.pr] - ordine[b.pr]);
         return az;
+    }
+
+
+    /* ------------------------------------------------------------
+       IMPORTAZIONE BILANCIO XBRL E PDF CENTRALE RISCHI
+       Stessi lettori del simulatore pubblico /rating_bancario/
+       (tassonomia itcc-ci del Registro Imprese; prospetto Banca
+       d'Italia letto con pdf.js): tutto nel browser, qui pero i
+       dati finiscono nella verifica salvata invece che nel form.
+    ------------------------------------------------------------ */
+    function rbCaricaPdfJs() {
+        return new Promise((resolve, reject) => {
+            if (window.pdfjsLib) { resolve(); return; }
+            const s = document.createElement('script');
+            s.src = '../assets/vendor/pdfjs/pdf.min.js';
+            s.onload = () => {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = '../assets/vendor/pdfjs/pdf.worker.min.js';
+                resolve();
+            };
+            s.onerror = () => reject(new Error('Impossibile caricare il lettore PDF.'));
+            document.head.appendChild(s);
+        });
+    }
+
+    // Estrae il testo del PDF pagina per pagina, ricostruendo le righe
+    // tramite la coordinata verticale e ordinandole da sinistra a destra.
+    function rbPdfARighe(data) {
+        return window.pdfjsLib.getDocument({ data }).promise.then(doc => {
+            let chain = Promise.resolve([]);
+            const passo = pageNum => lines =>
+                doc.getPage(pageNum).then(page => page.getTextContent()).then(tc => {
+                    const rows = [];
+                    tc.items.forEach(it => {
+                        if (!it.str || !it.str.trim()) return;
+                        const y = it.transform[5];
+                        let row = null;
+                        for (let r = 0; r < rows.length; r++) {
+                            if (Math.abs(rows[r].y - y) <= 2.5) { row = rows[r]; break; }
+                        }
+                        if (!row) { row = { y, items: [] }; rows.push(row); }
+                        row.items.push({ x: it.transform[4], w: it.width || 0, s: it.str });
+                    });
+                    rows.sort((a, b) => b.y - a.y);
+                    rows.forEach(row => {
+                        row.items.sort((a, b) => a.x - b.x);
+                        // ricompone i numeri spezzati in piu frammenti (es. "45" + ".000")
+                        const items = [];
+                        row.items.forEach(it => {
+                            const prev = items[items.length - 1];
+                            const gap = prev ? it.x - (prev.x + prev.w) : 99;
+                            if (prev && gap < 6 &&
+                                ((/\d$/.test(prev.s) && /^\.\d{3}/.test(it.s)) ||
+                                 (/\.$/.test(prev.s) && /^\d{3}/.test(it.s)))) {
+                                prev.s += it.s;
+                                prev.w = (it.x + it.w) - prev.x;
+                            } else {
+                                items.push({ x: it.x, w: it.w, s: it.s });
+                            }
+                        });
+                        lines.push({
+                            items,
+                            text: items.map(i => i.s).join(' ').replace(/\s+/g, ' ').trim()
+                        });
+                    });
+                    return lines;
+                });
+            for (let pn = 1; pn <= doc.numPages; pn++) chain = chain.then(passo(pn));
+            return chain;
+        });
+    }
+
+    const RB_CR_MESI = {
+        gennaio: 1, febbraio: 2, marzo: 3, aprile: 4, maggio: 5, giugno: 6,
+        luglio: 7, agosto: 8, settembre: 9, ottobre: 10, novembre: 11, dicembre: 12
+    };
+    const RB_CR_MESI_BREVI = ['', 'gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+    const RB_CR_CATEGORIE = ['RISCHI AUTOLIQUIDANTI', 'RISCHI A SCADENZA', 'RISCHI A REVOCA', 'SOFFERENZE'];
+    const RB_CR_ESCLUSIONI = ['CREDITI SCADUTI', 'PASSATI A PERDITA', 'CEDUTI', 'POOL', 'CONTO DI TERZI'];
+    const RB_CR_SOTTOSEZIONI_ALTRE = ['crediti di firma', 'garanzie ricevute', 'derivati finanziari',
+        'sezione informativa', 'informazioni sui garanti', 'informazioni sui debitori ceduti'];
+
+    // Lettura del prospetto Centrale dei Rischi (stessa logica del simulatore pubblico)
+    function rbParseCrPdf(lines) {
+        const months = {};          // chiave aaaa*100+mm -> {at, ut, as, us}
+        const state = { month: null, sub: null, storico: false, hdr: null };
+        let sofferenze = false;
+        const intermediari = {};
+        let intestatario = null;
+        let vecchioFormato = false;
+
+        const normalizza = t => t.toLowerCase().replace(/\s+/g, ' ').trim();
+        const importo = s => {
+            const t = s.trim();
+            if (!/^\d{1,3}(\.\d{3})*$/.test(t) && !/^\d+$/.test(t)) return null;
+            return parseInt(t.replace(/\./g, ''), 10);
+        };
+
+        for (let iLine = 0; iLine < lines.length; iLine++) {
+            const line = lines[iLine];
+            const text = line.text;
+            const norm = normalizza(text);
+
+            if (!intestatario) {
+                const mInt = text.match(/Intestatario:\s*(.+)$/);
+                if (mInt) intestatario = mInt[1].trim();
+            }
+            if (norm.indexOf('prospetto sintetico') !== -1) vecchioFormato = true;
+
+            // ancora del mese: layout attuale e layout 2010-2015
+            const mData = text.match(/DATA (?:DI RIFERIMENTO|CONTABILE):\s*([a-zA-Zàèéìòù]+)\s+(\d{4})/);
+            if (mData) {
+                const mm = RB_CR_MESI[mData[1].toLowerCase()];
+                if (mm) {
+                    const key = parseInt(mData[2], 10) * 100 + mm;
+                    if (!months[key]) months[key] = { key, anno: mData[2], mese: mm, at: 0, ut: 0, as: 0, us: 0 };
+                    state.month = months[key];
+                    state.sub = null; state.storico = false; state.hdr = null;
+                }
+                continue;
+            }
+
+            const mInterm = text.match(/^Intermediario:\s*(.+)$/);
+            if (mInterm) {
+                intermediari[mInterm[1].trim()] = true;
+                state.sub = null; state.storico = false; state.hdr = null;
+                continue;
+            }
+
+            // titoli di sottosezione
+            if (norm === 'crediti per cassa') { state.sub = 'cassa'; state.storico = false; state.hdr = null; continue; }
+            if (text.trim() === 'Sofferenze') { state.sub = 'soff'; state.storico = false; state.hdr = null; continue; }
+            if (RB_CR_SOTTOSEZIONI_ALTRE.indexOf(norm) !== -1) { state.sub = 'altro'; state.storico = false; state.hdr = null; continue; }
+            if (norm === 'situazione corrente') { state.storico = false; continue; }
+            if (norm.indexOf('per questa data la situazione corrente') === 0) { state.storico = true; continue; }
+
+            // intestazione di tabella: le celle vanno a capo su piu righe fisiche
+            // (es. "Accordato" sopra e "Operativo" sotto): si uniscono gli item
+            // delle righe adiacenti e le parole distintive fissano la x delle colonne
+            if (state.sub === 'cassa' || state.sub === 'soff') {
+                const isHdrLine = line.items.some(it => it.s.trim() === 'Utilizzato');
+                if (isHdrLine) {
+                    let merged = [];
+                    for (let mL = Math.max(0, iLine - 1); mL <= Math.min(lines.length - 1, iLine + 1); mL++) {
+                        merged = merged.concat(lines[mL].items);
+                    }
+                    const hdr = {};
+                    const accXs = [];
+                    merged.forEach(it => {
+                        const s = it.s.trim();
+                        const cx = it.x + (it.w || 0) / 2;
+                        if (s === 'Accordato') accXs.push(cx);
+                        else if (s === 'Accordato Operativo' || s === 'Operativo') hdr.accOp = cx;
+                        else if (s === 'Utilizzato') hdr.uti = cx;
+                        else if (s === 'Saldo Medio' || s === 'Medio') hdr.saldo = cx;
+                        else if (s === 'Importo Garantito' || s === 'Garantito') hdr.imp = cx;
+                        else if (s === 'Ruolo Affidato' || s === 'Affidato') hdr.ruolo = cx;
+                    });
+                    // "Accordato" compare sia come colonna propria sia come prima parola
+                    // di "Accordato Operativo": tiene quella piu lontana dall'Operativo
+                    if (accXs.length) {
+                        if (hdr.accOp === undefined && accXs.length >= 2) {
+                            accXs.sort((a, b) => a - b);
+                            hdr.acc = accXs[0];
+                            hdr.accOp = accXs[1];
+                        } else {
+                            let bestAcc = null, bestDist = -1;
+                            accXs.forEach(ax => {
+                                const d = hdr.accOp === undefined ? 1 : Math.abs(ax - hdr.accOp);
+                                if (d > bestDist) { bestDist = d; bestAcc = ax; }
+                            });
+                            if (hdr.accOp === undefined || bestDist > 15) hdr.acc = bestAcc;
+                        }
+                    }
+                    if (hdr.uti !== undefined) { state.hdr = hdr; continue; }
+                }
+            }
+
+            // riga di categoria con importi
+            if ((state.sub !== 'cassa' && state.sub !== 'soff') || state.storico || !state.month) continue;
+            let cat = null;
+            for (let c = 0; c < RB_CR_CATEGORIE.length; c++) {
+                if (text.indexOf(RB_CR_CATEGORIE[c]) === 0) { cat = RB_CR_CATEGORIE[c]; break; }
+            }
+            if (!cat) continue;
+            if (RB_CR_ESCLUSIONI.some(e => text.indexOf(e) !== -1)) continue;
+
+            // estrai gli importi e assegnali alla colonna piu vicina
+            const nums = [];
+            line.items.forEach(it => {
+                const v = importo(it.s);
+                if (v !== null) nums.push({ v, cx: it.x + (it.w || 0) / 2 });
+            });
+            if (!nums.length) continue;
+
+            const vals = { acc: null, accOp: null, uti: null };
+            if (state.hdr) {
+                nums.forEach(n => {
+                    let best = null, bestD = 1e9;
+                    ['ruolo', 'acc', 'accOp', 'uti', 'saldo', 'imp'].forEach(colName => {
+                        if (state.hdr[colName] === undefined) return;
+                        const d = Math.abs(n.cx - state.hdr[colName]);
+                        if (d < bestD) { bestD = d; best = colName; }
+                    });
+                    if (best && bestD < 90 && (best === 'acc' || best === 'accOp' || best === 'uti') && vals[best] === null) {
+                        vals[best] = n.v;
+                    }
+                });
+            } else if (cat === 'SOFFERENZE' && nums.length >= 1) {
+                // fallback senza intestazione: per le sofferenze il primo importo e l'utilizzato
+                vals.uti = nums[nums.length >= 2 ? nums.length - 2 : 0].v;
+            } else if (nums.length >= 3) {
+                // fallback senza intestazione: primi tre importi = accordato, operativo, utilizzato
+                vals.acc = nums[0].v; vals.accOp = nums[1].v; vals.uti = nums[2].v;
+            }
+
+            if (cat === 'SOFFERENZE') {
+                if (vals.uti !== null && vals.uti > 0) sofferenze = true;
+                continue;
+            }
+            const accUsato = (vals.accOp !== null && vals.accOp > 0) ? vals.accOp : (vals.acc !== null ? vals.acc : (vals.accOp || 0));
+            const uti = vals.uti !== null ? vals.uti : 0;
+            state.month.at += accUsato;
+            state.month.ut += uti;
+            if (cat === 'RISCHI A SCADENZA') {
+                state.month.as += accUsato;
+                state.month.us += uti;
+            }
+        }
+
+        // sofferenze anche dagli eventi inframensili non cancellati
+        for (let li = 0; li < lines.length; li++) {
+            if (/\d{2}\/\d{2}\/\d{4}\s+SOFFERENZE\s+NO\b/.test(lines[li].text)) { sofferenze = true; break; }
+        }
+
+        const list = Object.keys(months).map(k => months[k]);
+        list.sort((a, b) => b.key - a.key);
+
+        if (!list.length) {
+            return {
+                error: vecchioFormato
+                    ? 'Il file sembra un prospetto in formato precedente al layout attuale della Banca d\'Italia: usa l\'inserimento manuale della griglia.'
+                    : 'Nel PDF non sono state trovate rilevazioni mensili della Centrale dei Rischi. Verifica di aver caricato il prospetto della Banca d\'Italia; in alternativa usa l\'inserimento manuale.',
+                sofferenze
+            };
+        }
+        return {
+            months: list.slice(0, 6),
+            totaliMesi: list.length,
+            sofferenze,
+            intestatario,
+            intermediari: Object.keys(intermediari).length
+        };
+    }
+
+    // Applica alla verifica quanto letto dal PDF; il messaggio resta in un box
+    // di stato della scheda (che si ridisegna, quindi lo stato va conservato)
+    let statoImportCr = null;   // { classe: 'ok'|'warn'|'err', html }
+    function rbApplicaCrPdf(v, res) {
+        if (res.error) {
+            statoImportCr = { classe: 'err', html: '<strong>Importazione non riuscita.</strong> ' + esc(res.error) };
+            return;
+        }
+        v.cr.righe = [{}, {}, {}, {}, {}, {}];
+        v.cr.mesi = ['', '', '', '', '', ''];
+        res.months.forEach((mo, i) => {
+            v.cr.righe[i] = { at: mo.at, ut: mo.ut, as: mo.as, us: mo.us };
+            v.cr.mesi[i] = RB_CR_MESI_BREVI[mo.mese] + ' ' + mo.anno;
+        });
+        v.cr.sofferenze = res.sofferenze;
+        v.cr.attiva = true;
+        let html = '<strong>Centrale dei Rischi importata</strong>' +
+            (res.intestatario ? ' (' + esc(res.intestatario) + ')' : '') + ': lette ' +
+            (res.months.length === 1 ? '1 rilevazione mensile' : res.months.length + ' rilevazioni mensili') +
+            (res.totaliMesi > 6 ? ' (le 6 piu recenti su ' + res.totaliMesi + ' presenti nel prospetto)' : '') +
+            ', ' + res.intermediari + (res.intermediari === 1 ? ' intermediario segnalante' : ' intermediari segnalanti') +
+            ', sofferenze: ' + (res.sofferenze ? 'presenti' : 'non presenti') +
+            '. Verifica i valori nella griglia e salva la verifica.';
+        const warn = res.months.length < 6;
+        if (warn) html += '<ul><li>Il prospetto contiene meno di 6 mensilita: il modello MCC usa gli ultimi 6 mesi, completa la griglia se disponi degli altri dati.</li></ul>';
+        statoImportCr = { classe: warn ? 'warn' : 'ok', html };
+    }
+
+    /* ---------------- Bilancio XBRL (tassonomia itcc-ci) ---------------- */
+    const RB_XBRL_CREDITI_RIGHE = ['CreditiVersoClienti', 'CreditiVersoImpreseControllate',
+        'CreditiVersoImpreseCollegate', 'CreditiVersoControllanti',
+        'CreditiVersoImpreseSottoposteControlloControllanti', 'CreditiCreditiTributari',
+        'CreditiVersoAltri'];
+    const RB_XBRL_DEBITI_RIGHE = ['DebitiObbligazioni', 'DebitiObbligazioniConvertibili',
+        'DebitiDebitiVersoSociFinanziamenti', 'DebitiDebitiVersoBanche',
+        'DebitiDebitiVersoAltriFinanziatori', 'DebitiAcconti', 'DebitiDebitiVersoFornitori',
+        'DebitiDebitiRappresentatiTitoliCredito', 'DebitiDebitiVersoImpreseControllate',
+        'DebitiDebitiVersoImpreseCollegate', 'DebitiDebitiVersoControllanti',
+        'DebitiDebitiVersoImpreseSottoposteControlloControllanti', 'DebitiDebitiTributari',
+        'DebitiDebitiVersoIstitutiPrevidenzaSicurezzaSociale', 'DebitiAltriDebiti'];
+    const RB_XBRL_DEBITI_FIN = ['DebitiObbligazioni', 'DebitiObbligazioniConvertibili',
+        'DebitiDebitiVersoSociFinanziamenti', 'DebitiDebitiVersoBanche',
+        'DebitiDebitiVersoAltriFinanziatori'];
+
+    function rbAtecoSettore(code) {
+        const m = String(code || '').match(/(\d{2})/);
+        if (!m) return null;
+        const d = parseInt(m[1], 10);
+        if (d >= 1 && d <= 3) return 'agri';
+        if ((d >= 5 && d <= 33) || d === 35) return 'manif';
+        if (d >= 36 && d <= 39) return 'acqua';
+        if (d === 41) return 'edif';
+        if (d === 42 || d === 43) return 'ingcivile';
+        if (d === 45 || d === 46) return 'ingrosso';
+        if (d === 47) return 'dettaglio';
+        if ((d >= 49 && d <= 53) || d === 55) return 'trasporti';
+        if (d === 56) return 'ristoro';
+        if ((d >= 58 && d <= 63) || (d >= 69 && d <= 75) || (d >= 77 && d <= 82)) return 'servimp';
+        if (d === 68) return 'immob';
+        if (d >= 85 && d <= 98 && d !== 84) return 'servpers';
+        return null;
+    }
+
+    function rbParseXbrl(xmlText) {
+        const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+        if (doc.getElementsByTagName('parsererror').length) {
+            return { error: 'Il file non e un XML valido.' };
+        }
+        const all = doc.getElementsByTagName('*');
+        let i, node;
+
+        // 1. context di base (senza segment/scenario): instant e duration
+        const instants = [], durations = [];
+        // un context e "dimensionale" (colonna di tabella di nota integrativa) solo se
+        // scenario/segment contengono elementi diversi dal marcatore itcc-ci:scen
+        function dimensionale(container) {
+            const els = container.getElementsByTagName('*');
+            for (let e = 0; e < els.length; e++) {
+                if (els[e].localName !== 'scen') return true;
+            }
+            return false;
+        }
+        for (i = 0; i < all.length; i++) {
+            node = all[i];
+            if (node.localName !== 'context') continue;
+            let hasDim = false, period = null, ch;
+            for (ch = node.firstElementChild; ch; ch = ch.nextElementSibling) {
+                if (ch.localName === 'scenario' && dimensionale(ch)) hasDim = true;
+                if (ch.localName === 'segment' && dimensionale(ch)) hasDim = true;
+                if (ch.localName === 'entity') {
+                    const seg = ch.getElementsByTagName('*');
+                    for (let s = 0; s < seg.length; s++) {
+                        if (seg[s].localName === 'segment' && dimensionale(seg[s])) hasDim = true;
+                    }
+                }
+                if (ch.localName === 'period') period = ch;
+            }
+            if (hasDim || !period) continue;
+            let inst = null, start = null, end = null;
+            for (ch = period.firstElementChild; ch; ch = ch.nextElementSibling) {
+                if (ch.localName === 'instant') inst = ch.textContent.trim();
+                if (ch.localName === 'startDate') start = ch.textContent.trim();
+                if (ch.localName === 'endDate') end = ch.textContent.trim();
+            }
+            if (inst) instants.push({ id: node.getAttribute('id'), date: inst });
+            else if (end) durations.push({ id: node.getAttribute('id'), start, end });
+        }
+        if (!instants.length) return { error: 'Nel file non sono presenti i periodi contabili attesi (context XBRL).' };
+
+        instants.sort((a, b) => b.date.localeCompare(a.date));
+        const curDate = instants[0].date;
+        const curI = instants.filter(c => c.date === curDate).map(c => c.id);
+        const prevDates = instants.filter(c => c.date !== curDate);
+        const prevDate = prevDates.length ? prevDates[0].date : null;
+        const prevI = prevDate ? prevDates.filter(c => c.date === prevDate).map(c => c.id) : [];
+
+        durations.sort((a, b) => b.end.localeCompare(a.end));
+        let curD = durations.filter(c => c.end === curDate).map(c => c.id);
+        if (!curD.length && durations.length) curD = [durations[0].id];
+        const prevD = prevDate ? durations.filter(c => c.end === prevDate).map(c => c.id) : [];
+
+        // 2. fatti della tassonomia itcc-ci, indicizzati per nome e context
+        const facts = {};
+        for (i = 0; i < all.length; i++) {
+            node = all[i];
+            const ns = node.namespaceURI || '';
+            if (ns.indexOf('/itcc/ci') === -1) continue;
+            const ctx = node.getAttribute('contextRef');
+            if (!ctx) continue;
+            if (!facts[node.localName]) facts[node.localName] = {};
+            if (!(ctx in facts[node.localName])) facts[node.localName][ctx] = node.textContent.trim();
+        }
+
+        // 3. tipo di schema dal riferimento alla tassonomia
+        let schema = 'sconosciuto';
+        for (i = 0; i < all.length; i++) {
+            if (all[i].localName !== 'schemaRef') continue;
+            const href = all[i].getAttributeNS('http://www.w3.org/1999/xlink', 'href') || all[i].getAttribute('xlink:href') || '';
+            if (href.indexOf('itcc-ci-abb') !== -1) schema = 'abbreviato';
+            else if (href.indexOf('itcc-ci-micr') !== -1) schema = 'micro';
+            else if (href.indexOf('itcc-ci-ese') !== -1) schema = 'ordinario';
+            break;
+        }
+
+        function pick(name, ctxIds) {
+            const byCtx = facts[name];
+            if (!byCtx) return null;
+            for (let k = 0; k < ctxIds.length; k++) {
+                if (ctxIds[k] in byCtx) {
+                    const n = parseFloat(byCtx[ctxIds[k]]);
+                    return isNaN(n) ? null : n;
+                }
+            }
+            return null;
+        }
+        function pickStr(name) {
+            const byCtx = facts[name];
+            if (!byCtx) return null;
+            for (const k in byCtx) { if (byCtx[k]) return byCtx[k]; }
+            return null;
+        }
+        function sum(names, ctxIds) {
+            let tot = 0, found = 0;
+            names.forEach(n => {
+                const v = pick(n, ctxIds);
+                if (v !== null) { tot += v; found++; }
+            });
+            return { value: tot, found };
+        }
+
+        return { schema, curI, prevI, curD, prevD, curDate, prevDate, pick, pickStr, sum };
+    }
+
+    function rbImportXbrl(xmlText) {
+        const p = rbParseXbrl(xmlText);
+        if (p.error) return p;
+
+        const w = [];    // avvertenze
+        const attn = []; // campi da verificare manualmente
+        const out = {};  // id campo -> valore numerico
+
+        const setIf = (id, v) => { if (v !== null && v !== undefined) out[id] = v; };
+
+        // ---- conto economico, esercizio corrente e precedente ----
+        setIf('ricavi', p.pick('ValoreProduzioneRicaviVenditePrestazioni', p.curD));
+        setIf('ricaviPrec', p.pick('ValoreProduzioneRicaviVenditePrestazioni', p.prevD));
+        setIf('vdp', p.pick('TotaleValoreProduzione', p.curD));
+        setIf('vdpPrec', p.pick('TotaleValoreProduzione', p.prevD));
+
+        const ammCur = p.sum(['CostiProduzioneAmmortamentiSvalutazioniTotaleAmmortamentiSvalutazioni',
+            'CostiProduzioneAccantonamentiRischi', 'CostiProduzioneAltriAccantonamenti'], p.curD);
+        if (ammCur.found) setIf('ammort', ammCur.value);
+
+        const ebit = p.pick('DifferenzaValoreCostiProduzione', p.curD);
+        setIf('ebit', ebit);
+        if (ebit !== null && ammCur.found) setIf('mol', ebit + ammCur.value);
+
+        setIf('oneriFin', p.pick('ProventiOneriFinanziariInteressiAltriOneriFinanziariTotaleInteressiAltriOneriFinanziari', p.curD));
+        setIf('imposte', p.pick('ImposteRedditoEsercizioCorrentiDifferiteAnticipateTotaleImposteRedditoEsercizioCorrentiDifferiteAnticipate', p.curD));
+        let utile = p.pick('UtilePerditaEsercizio', p.curD);
+        if (utile === null) utile = p.pick('PatrimonioNettoUtilePerditaEsercizio', p.curI);
+        setIf('utile', utile);
+
+        // ---- stato patrimoniale: attivo ----
+        setIf('creditiSoci', p.pick('TotaleCreditiVersoSociVersamentiAncoraDovuti', p.curI));
+        setIf('immob', p.pick('TotaleImmobilizzazioni', p.curI));
+        const rim = p.sum(['TotaleRimanenze', 'ImmobilizzazioniMaterialiDestinateAllaVendita'], p.curI);
+        if (rim.found) setIf('rimanenze', rim.value);
+        setIf('attFin', p.pick('TotaleAttivitaFinanziarieNonCostituisconoImmobilizzazioni', p.curI));
+        setIf('liquidita', p.pick('TotaleDisponibilitaLiquide', p.curI));
+        setIf('rateiAttivi', p.pick('AttivoRateiRisconti', p.curI));
+
+        // crediti entro/oltre: aggregati (abbreviato/micro) o somma delle righe (ordinario)
+        let credEntro = p.pick('CreditiEsigibiliEntroEsercizioSuccessivo', p.curI);
+        let credOltre = p.pick('CreditiEsigibiliOltreEsercizioSuccessivo', p.curI);
+        const impAnt = p.pick('CreditiImposteAnticipateTotaleImposteAnticipate', p.curI) || 0;
+        if (credEntro === null && credOltre === null) {
+            const e = p.sum(RB_XBRL_CREDITI_RIGHE.map(n => n + 'EsigibiliEntroEsercizioSuccessivo'), p.curI);
+            const o = p.sum(RB_XBRL_CREDITI_RIGHE.map(n => n + 'EsigibiliOltreEsercizioSuccessivo'), p.curI);
+            if (e.found || o.found) { credEntro = e.value; credOltre = o.value; }
+        }
+        const totCrediti = p.pick('TotaleCrediti', p.curI);
+        if (credEntro === null && totCrediti !== null) {
+            credEntro = totCrediti - impAnt; credOltre = 0;
+            w.push('La ripartizione dei crediti tra entro e oltre l\'esercizio non e presente nel file: il totale e stato attribuito alla quota entro l\'esercizio. Verifica il dato.');
+            attn.push('creditiEntro', 'creditiOltre');
+        }
+        if (credEntro !== null) setIf('creditiEntro', credEntro);
+        if (credOltre !== null || impAnt) setIf('creditiOltre', (credOltre || 0) + impAnt);
+
+        // ---- stato patrimoniale: passivo ----
+        setIf('pn', p.pick('TotalePatrimonioNetto', p.curI));
+        const ris = p.sum(['PatrimonioNettoRiservaLegale', 'PatrimonioNettoRiserveStatutarie',
+            'PatrimonioNettoAltreRiserveDistintamenteIndicateRiservaStraordinaria',
+            'PatrimonioNettoUtiliPerditePortatiNuovo'], p.curI);
+        if (ris.found) setIf('riserveUtili', ris.value);
+        setIf('fondi', p.pick('TotaleFondiRischiOneri', p.curI));
+        setIf('tfr', p.pick('TrattamentoFineRapportoLavoroSubordinato', p.curI));
+        setIf('rateiPassivi', p.pick('PassivoRateiRisconti', p.curI));
+
+        // debiti entro/oltre: aggregati (abbreviato/micro) o somma delle righe (ordinario)
+        let debEntro = p.pick('DebitiEsigibiliEntroEsercizioSuccessivo', p.curI);
+        let debOltre = p.pick('DebitiEsigibiliOltreEsercizioSuccessivo', p.curI);
+        if (debEntro === null && debOltre === null) {
+            const de = p.sum(RB_XBRL_DEBITI_RIGHE.map(n => n + 'EsigibiliEntroEsercizioSuccessivo'), p.curI);
+            const doo = p.sum(RB_XBRL_DEBITI_RIGHE.map(n => n + 'EsigibiliOltreEsercizioSuccessivo'), p.curI);
+            if (de.found || doo.found) { debEntro = de.value; debOltre = doo.value; }
+        }
+        const totDebiti = p.pick('TotaleDebiti', p.curI);
+        if (debEntro === null && totDebiti !== null) {
+            debEntro = totDebiti; debOltre = 0;
+            w.push('La ripartizione dei debiti tra entro e oltre l\'esercizio non e presente nel file: il totale e stato attribuito alla quota entro l\'esercizio. Verifica il dato.');
+            attn.push('debitiEntro', 'debitiOltre');
+        }
+        if (debEntro !== null) setIf('debitiEntro', debEntro);
+        if (debOltre !== null) setIf('debitiOltre', debOltre);
+
+        // debiti tributari e previdenziali (solo schema ordinario)
+        const trib = p.sum(['DebitiDebitiTributariTotaleDebitiTributari',
+            'DebitiDebitiVersoIstitutiPrevidenzaSicurezzaSocialeTotaleDebitiVersoIstitutiPrevidenzaSicurezzaSociale'], p.curI);
+        if (trib.found) { setIf('debTribPrev', trib.value); }
+        else {
+            const tribE = p.sum(['DebitiDebitiTributariEsigibiliEntroEsercizioSuccessivo',
+                'DebitiDebitiTributariEsigibiliOltreEsercizioSuccessivo',
+                'DebitiDebitiVersoIstitutiPrevidenzaSicurezzaSocialeEsigibiliEntroEsercizioSuccessivo',
+                'DebitiDebitiVersoIstitutiPrevidenzaSicurezzaSocialeEsigibiliOltreEsercizioSuccessivo'], p.curI);
+            if (tribE.found) setIf('debTribPrev', tribE.value);
+            else {
+                w.push('Il bilancio ' + p.schema + ' non espone i debiti tributari e previdenziali: inseriscili manualmente per gli indici CNDCEC.');
+                attn.push('debTribPrev');
+            }
+        }
+
+        // debiti finanziari entro/oltre (solo schema ordinario)
+        const finE = p.sum(RB_XBRL_DEBITI_FIN.map(n => n + 'EsigibiliEntroEsercizioSuccessivo'), p.curI);
+        const finO = p.sum(RB_XBRL_DEBITI_FIN.map(n => n + 'EsigibiliOltreEsercizioSuccessivo'), p.curI);
+        if (finE.found || finO.found) {
+            setIf('debFinBreve', finE.value);
+            setIf('debFinLungo', finO.value);
+        } else {
+            const finT = p.sum(['DebitiObbligazioniTotaleObbligazioni',
+                'DebitiObbligazioniConvertibiliTotaleObbligazioniConvertibili',
+                'DebitiDebitiVersoSociFinanziamentiTotaleDebitiVersoSociFinanziamenti',
+                'DebitiDebitiVersoBancheTotaleDebitiVersoBanche',
+                'DebitiDebitiVersoAltriFinanziatoriTotaleDebitiVersoAltriFinanziatori'], p.curI);
+            if (finT.found) {
+                setIf('debFinBreve', finT.value);
+                setIf('debFinLungo', 0);
+                w.push('La ripartizione del debito finanziario tra breve e medio-lungo termine non e presente nel file: l\'importo complessivo e stato indicato nella quota entro 12 mesi (ai fini della PFN conta solo la somma). Ripartiscilo se vuoi maggiore precisione.');
+            } else {
+                w.push('Il bilancio ' + p.schema + ' non espone il dettaglio dei debiti verso banche e finanziatori: inserisci manualmente il debito finanziario per PFN e DSCR.');
+            }
+            attn.push('debFinBreve', 'debFinLungo');
+        }
+
+        // dettaglio utile per la verifica: finanziamenti soci (se esposti)
+        const finSoci = p.sum(['DebitiDebitiVersoSociFinanziamentiTotaleDebitiVersoSociFinanziamenti',
+            'DebitiDebitiVersoSociFinanziamentiEsigibiliEntroEsercizioSuccessivo',
+            'DebitiDebitiVersoSociFinanziamentiEsigibiliOltreEsercizioSuccessivo'], p.curI);
+
+        // ---- anagrafica ----
+        const den = p.pickStr('DatiAnagraficiDenominazione');
+        const cf = p.pickStr('DatiAnagraficiCodiceFiscale');
+        const ateco = p.pickStr('DatiAnagraficiSettoreAttivitaPrevalenteAteco');
+        const settore = rbAtecoSettore(ateco);
+        const anno = (p.curDate || '').slice(0, 4);
+
+        const filled = Object.keys(out).length;
+        if (!filled) return { error: 'Nel file non sono state trovate voci di bilancio della tassonomia italiana itcc-ci.' };
+
+        w.push('La quota capitale dei finanziamenti in scadenza nei prossimi 12 mesi non e desumibile dal bilancio: inseriscila per calcolare il DSCR.');
+        attn.push('quotaCapitale');
+
+        return {
+            fields: out, warnings: w, attn, schema: p.schema,
+            denominazione: den, codiceFiscale: cf, settore, anno,
+            curDate: p.curDate, prevDate: p.prevDate, ateco, filled,
+            finSoci: finSoci.found ? finSoci.value : null
+        };
+    }
+
+    let statoImportXbrl = null;   // { classe, html }
+    let attnXbrl = [];            // id dei campi da verificare a mano (evidenziati)
+    function rbApplicaXbrl(v, res) {
+        attnXbrl = [];
+        if (res.error) {
+            statoImportXbrl = { classe: 'err', html: '<strong>Importazione non riuscita.</strong> ' + esc(res.error) };
+            return;
+        }
+        v.bilancio = {};
+        for (const id in res.fields) v.bilancio[id] = res.fields[id];
+        attnXbrl = res.attn.slice();
+        if (res.denominazione && !(v.cliente || '').trim()) v.cliente = res.denominazione;
+        if (res.anno) v.esercizio = res.anno;
+        if (res.settore) v.settore = res.settore;
+        // il dettaglio dei finanziamenti soci, se esposto, precompila la voce dei dettagli
+        if (res.finSoci !== null && res.finSoci > 0) {
+            v.dettagli = v.dettagli || {};
+            if (v.dettagli.finSoci === undefined || v.dettagli.finSoci === null) v.dettagli.finSoci = res.finSoci;
+        }
+        let html = '<strong>Bilancio importato correttamente</strong> (schema ' + esc(res.schema) +
+            (res.denominazione ? ', ' + esc(res.denominazione) : '') +
+            (res.curDate ? ', esercizio chiuso al ' + esc(res.curDate.split('-').reverse().join('/')) : '') +
+            '): ' + res.filled + ' voci compilate' +
+            (res.settore ? ', settore riconosciuto dal codice ATECO' : ', seleziona il settore di attivita') + '.';
+        if (res.warnings.length) {
+            html += '<ul>' + res.warnings.map(m => '<li>' + esc(m) + '</li>').join('') + '</ul>';
+        }
+        statoImportXbrl = { classe: res.warnings.length ? 'warn' : 'ok', html };
+    }
+
+    /* ------------------------------------------------------------
+       DETTAGLI DELLE VOCI DI BILANCIO E RETTIFICHE PRUDENZIALI
+       Le domande che un analista fidi fa sempre sulle voci che
+       contano: crediti scaduti, magazzino fermo, rivalutazioni,
+       debiti fiscali, finanziamenti soci, leasing, garanzie
+       prestate. Dalle risposte nasce il "bilancio rettificato in
+       ottica banca" e la classe MCC ricalcolata su quello.
+    ------------------------------------------------------------ */
+    const RB_DETTAGLI = [
+        { id: 'creditiScaduti',   et: 'Crediti verso clienti scaduti da oltre 90 giorni',        hint: 'la banca ne rettifica prudenzialmente il 50%' },
+        { id: 'magazzinoObsoleto', et: 'Rimanenze obsolete o a lento rigiro',                    hint: 'rettifica prudenziale del 50%' },
+        { id: 'rivalutazioni',    et: 'Rivalutazioni comprese nel patrimonio netto',             hint: 'la banca le sterilizza per intero' },
+        { id: 'tribScaduto',      et: 'Debiti tributari e previdenziali SCADUTI non rateizzati', hint: 'segnale grave in ogni istruttoria (DURC, ipoteche)' },
+        { id: 'tribRateizzato',   et: 'Debiti tributari in rateizzazione regolare',              hint: 'da dichiarare: la regolarita pesa a favore' },
+        { id: 'finSoci',          et: 'Finanziamenti soci compresi nei debiti finanziari',       hint: 'se postergati diventano quasi-capitale' },
+        { id: 'leasingResiduo',   et: 'Debito residuo dei leasing non iscritti (impegni)',       hint: 'entra nella PFN estesa e tra le immobilizzazioni' },
+        { id: 'fideiussioni',     et: 'Fideiussioni e garanzie prestate a terzi o al gruppo',    hint: 'impegni fuori bilancio: la banca li somma al rischio' },
+        { id: 'infragruppoCrediti', et: 'Crediti verso societa del gruppo compresi nei crediti', hint: 'rilevano per concentrazione e sostegno al gruppo' },
+        { id: 'infragruppoDebiti',  et: 'Debiti verso societa del gruppo',                       hint: '' }
+    ];
+
+    function rbRettifiche(v, sec, cr) {
+        const det = v.dettagli || {};
+        const b = v.bilancio || {};
+        const n = k => rbNum(det[k]) || 0;
+        const righe = [];
+        const bilR = { ...b };
+        const togli = (campo, imp) => { bilR[campo] = (bilR[campo] || 0) - imp; };
+        const metti = (campo, imp) => { bilR[campo] = (bilR[campo] || 0) + imp; };
+
+        const scad = Math.round(n('creditiScaduti') * 0.5);
+        if (scad > 0) {
+            togli('creditiEntro', scad); togli('pn', scad);
+            righe.push({ voce: 'Crediti scaduti oltre 90 giorni', effetto: 'rettifica del 50% (' + eurFmt.format(scad) + ') su crediti e patrimonio netto' });
+        }
+        const obso = Math.round(n('magazzinoObsoleto') * 0.5);
+        if (obso > 0) {
+            togli('rimanenze', obso); togli('pn', obso);
+            righe.push({ voce: 'Magazzino obsoleto o a lento rigiro', effetto: 'rettifica del 50% (' + eurFmt.format(obso) + ') su rimanenze e patrimonio netto' });
+        }
+        const rival = n('rivalutazioni');
+        if (rival > 0) {
+            togli('immob', rival); togli('pn', rival);
+            righe.push({ voce: 'Rivalutazioni in patrimonio netto', effetto: 'sterilizzate per intero (' + eurFmt.format(rival) + ') da immobilizzazioni e patrimonio' });
+        }
+        const soci = n('finSoci');
+        if (soci > 0 && det.finSociPostergati === 'si') {
+            // da debito finanziario a quasi-capitale: prima la quota a breve, poi il medio-lungo
+            const daBreve = Math.min(soci, bilR.debFinBreve || 0);
+            const daLungo = Math.min(soci - daBreve, bilR.debFinLungo || 0);
+            const spostato = daBreve + daLungo;
+            if (spostato > 0) {
+                togli('debFinBreve', daBreve); togli('debitiEntro', daBreve);
+                togli('debFinLungo', daLungo); togli('debitiOltre', daLungo);
+                metti('pn', spostato);
+                righe.push({ voce: 'Finanziamenti soci postergati', effetto: eurFmt.format(spostato) + ' trattati come quasi-capitale: dal debito finanziario al patrimonio' });
+            }
+        }
+        const leas = n('leasingResiduo');
+        if (leas > 0) {
+            metti('immob', leas); metti('debitiOltre', leas); metti('debFinLungo', leas);
+            righe.push({ voce: 'Leasing non iscritti', effetto: eurFmt.format(leas) + ' capitalizzati: entrano tra le immobilizzazioni e nella PFN estesa' });
+        }
+        if (!righe.length) return { attive: false, righe: [] };
+
+        const xR = rbBuildX(bilR);
+        const mccR = rbComputeMcc(sec.mcc, xR, cr);
+        return { attive: true, righe, bilancio: bilR, x: xR, mcc: mccR };
+    }
+
+    /* ------------------------------------------------------------
+       COMPAGINE SOCIALE E AMMINISTRATORI
+       Le banche istruiscono prima di tutto i SOGGETTI: chi sono i
+       soci (titolarita effettiva), chi amministra e con quale
+       storia. Fiduciarie e catene estere allungano l'istruttoria;
+       pregiudizievoli sugli amministratori la compromettono.
+    ------------------------------------------------------------ */
+    const RB_TIPI_SOCIO = { pf: 'Persona fisica', pg: 'Societa italiana', fiduciaria: 'Fiduciaria', estero: 'Soggetto estero' };
+    function rbProfiloSoggetti(v) {
+        const soci = v.soci || [];
+        const amm = v.amministratori || [];
+        const punti = [];
+        let livello = 'ok';
+        const alza = liv => {
+            const ordine = { ok: 0, attenzione: 1, critico: 2 };
+            if (ordine[liv] > ordine[livello]) livello = liv;
+        };
+        const compilato = soci.length > 0 || amm.length > 0;
+        if (!compilato) return { compilato: false, livello: 'ok', notch: 0, punti: [{ tipo: 'nota', testo: 'Compagine e amministratori non ancora censiti.' }] };
+
+        const quote = soci.reduce((s, x) => s + (rbNum(x.quota) || 0), 0);
+        if (soci.length && Math.abs(quote - 100) > 0.5) {
+            punti.push({ tipo: 'nota', testo: 'Le quote dichiarate sommano ' + rbPct(quote, 1) + ': completa la compagine per arrivare al 100%.' });
+        }
+        if (soci.some(s => s.tipo === 'fiduciaria' || s.tipo === 'estero')) {
+            alza('attenzione');
+            punti.push({ tipo: 'attenzione', testo: 'Presenza di fiduciarie o soci esteri: la banca chiede la titolarita effettiva (UBO) e la trasparenza allunga o blocca l\'istruttoria.' });
+        }
+        if (soci.length === 1) {
+            punti.push({ tipo: 'nota', testo: soci[0].tipo === 'pf' ? 'Socio unico persona fisica: la continuita dipende da una persona sola.' : 'Socio unico: verifica il gruppo di appartenenza.' });
+        }
+        const controllantePg = soci.find(s => (s.tipo === 'pg' || s.tipo === 'estero') && (rbNum(s.quota) || 0) > 50);
+        if (controllantePg) {
+            punti.push({ tipo: 'nota', testo: 'Controllo societario di ' + (controllantePg.nome || 'una societa') + ': compila la sezione del gruppo.' });
+        }
+        if (amm.some(a => a.pregiudizievoli === 'si')) {
+            alza('critico');
+            punti.push({ tipo: 'critico', testo: 'Eventi pregiudizievoli dichiarati a carico di amministratori (protesti, pregiudizievoli di conservatoria, procedure): pesano direttamente sull\'istruttoria di ogni banca.' });
+        } else if (amm.some(a => a.pregiudizievoli === 'verificare')) {
+            alza('attenzione');
+            punti.push({ tipo: 'attenzione', testo: 'Posizioni degli amministratori da verificare (visure protesti e pregiudizievoli): meglio farlo prima che lo faccia la banca.' });
+        } else if (amm.length) {
+            punti.push({ tipo: 'ok', testo: 'Nessun evento pregiudizievole dichiarato sugli amministratori censiti.' });
+        }
+        return { compilato: true, livello, notch: livello === 'critico' ? 1 : 0, punti };
+    }
+
+    /* ------------------------------------------------------------
+       GRUPPO SOCIETARIO
+       L'appartenenza a un gruppo cambia la lettura: un gruppo
+       solido con consolidato documentabile sostiene il rating,
+       un gruppo che assorbe risorse lo appesantisce.
+    ------------------------------------------------------------ */
+    function rbProfiloGruppo(v) {
+        const g = v.gruppo || {};
+        if (g.appartiene !== 'si' && g.appartiene !== 'no') {
+            return { compilato: false, livello: 'ok', notch: 0, punti: [{ tipo: 'nota', testo: 'Appartenenza a gruppi non ancora verificata.' }] };
+        }
+        if (g.appartiene === 'no') {
+            return { compilato: true, livello: 'ok', notch: 0, punti: [{ tipo: 'ok', testo: 'Impresa indipendente: nessun effetto di gruppo sul rating.' }] };
+        }
+        const punti = [];
+        let notch = 0, livello = 'ok';
+        punti.push({ tipo: 'nota', testo: 'Appartiene al gruppo ' + (g.capogruppo ? '"' + g.capogruppo + '"' : '(capogruppo da indicare)') + (rbNum(g.quotaControllo) ? ', quota di controllo ' + rbPct(rbNum(g.quotaControllo), 1) : '') + '.' });
+        if (g.sostegno === 'rafforza') {
+            if (g.consolidato === 'si') {
+                notch = -1;
+                punti.push({ tipo: 'ok', testo: 'Gruppo che rafforza, con bilancio consolidato disponibile: il sostegno e documentabile e vale un gradino a favore.' });
+            } else {
+                punti.push({ tipo: 'attenzione', testo: 'Sostegno del gruppo dichiarato ma senza consolidato: per farlo pesare in banca servono consolidato o lettere di patronage.' });
+            }
+        } else if (g.sostegno === 'assorbe') {
+            notch = 1; livello = 'attenzione';
+            punti.push({ tipo: 'attenzione', testo: 'Il gruppo assorbe risorse (finanziamenti alla capogruppo, cash pooling passivo): la banca lo legge come rischio aggiuntivo, vale un gradino a sfavore.' });
+        }
+        if (g.garanziePrestate) {
+            livello = livello === 'ok' ? 'attenzione' : livello;
+            punti.push({ tipo: 'attenzione', testo: 'Garanzie prestate a favore di societa del gruppo: impegni fuori bilancio che la banca somma all\'esposizione.' });
+        }
+        if (g.garanzieRicevute) {
+            punti.push({ tipo: 'ok', testo: 'Garanzie ricevute dal gruppo: mitigano la perdita attesa nelle delibere.' });
+        }
+        if (g.cashPooling) {
+            punti.push({ tipo: 'nota', testo: 'Cash pooling attivo: la liquidita di bilancio va letta insieme ai saldi verso la tesoreria di gruppo.' });
+        }
+        return { compilato: true, livello, notch, punti };
+    }
+
+    /* ------------------------------------------------------------
+       POLITICHE DI CREDITO PER TIPO DI ISTITUTO
+       La stessa impresa non ha lo stesso rating in ogni banca: i
+       grandi gruppi usano modelli statistici standardizzati, le
+       banche del territorio pesano la relazione, i gruppi esteri
+       applicano soglie rigide della capogruppo, le specializzate
+       ragionano per prodotto. La stima per istituto parte dalla
+       classe ipotizzata e la adatta con questi profili.
+    ------------------------------------------------------------ */
+    const RB_POLITICHE = {
+        nazionale: { nome: 'Grande gruppo nazionale', testo: 'Modelli interni standardizzati: pesano bilancio e andamentale, poco la relazione personale.' },
+        territoriale: { nome: 'Banca del territorio', testo: 'Componente relazionale vera: la storia del rapporto e la conoscenza diretta contano nel giudizio.' },
+        estero: { nome: 'Gruppo estero', testo: 'Politiche di credito della capogruppo: soglie rigide su capitalizzazione e leva finanziaria.' },
+        specializzata: { nome: 'Banca specializzata', testo: 'Operativita mirata (factoring, digitale, private banking): il credito ordinario segue logiche di prodotto.' }
+    };
+    const RB_ANZIANITA = { nuovo: 'meno di 2 anni', medio: 'da 2 a 5 anni', storico: 'oltre 5 anni' };
+    function rbStimaIstituto(par) {
+        // par: { classe, banca, anzianita, utilizzo, sconfini, garanzie, eq }
+        const delta = [];
+        let cl = par.classe;
+        if (par.sconfini) { cl++; delta.push('+1 per gli sconfini sul rapporto'); }
+        if (par.utilizzo !== null && par.utilizzo > 90) { cl++; delta.push('+1 per l\'utilizzo pieno degli affidamenti'); }
+        const pol = par.banca && RB_POLITICHE[par.banca.politica] ? par.banca.politica : null;
+        if (pol === 'territoriale' && par.anzianita === 'storico' && !par.sconfini && !(par.utilizzo !== null && par.utilizzo > 90)) {
+            cl--; delta.push('-1 per la relazione storica con una banca del territorio');
+        }
+        if (pol === 'estero' && par.eq !== null && par.eq < 20) {
+            cl++; delta.push('+1 per la capitalizzazione sotto le soglie tipiche dei gruppi esteri');
+        }
+        if ((par.garanzie === 'Confidi / Fondo MCC' || par.garanzie === 'miste') && cl >= 5) {
+            cl--; delta.push('-1 in delibera per la garanzia consortile o del Fondo (agisce sulla perdita attesa)');
+        }
+        cl = Math.min(12, Math.max(1, cl));
+        return { classe: cl, delta, politica: pol ? RB_POLITICHE[pol] : null };
+    }
+
+    /* ------------------------------------------------------------
+       PEZZI DI INTERFACCIA: import, soggetti e gruppo, rettifiche,
+       manuale del metodo.
+    ------------------------------------------------------------ */
+    function rbHtmlStatoImport(st) {
+        return st ? '<div class="rb-status ' + st.classe + '">' + st.html + '</div>' : '';
+    }
+    function rbHtmlPunti(punti) {
+        const badge = t => t === 'critico' ? 'rosso' : (t === 'attenzione' ? 'ambra' : (t === 'ok' ? 'verde' : 'grigio'));
+        return '<ul class="rb-punti">' + punti.map(p =>
+            '<li><span class="badge ' + badge(p.tipo) + '">' + (p.tipo === 'nota' ? 'nota' : p.tipo) + '</span> ' + esc(p.testo) + '</li>').join('') + '</ul>';
+    }
+
+    // blocco dei dettagli delle voci (dentro la scheda Impresa e bilancio)
+    function rbDettagliBlocco(v) {
+        const det = v.dettagli || {};
+        return `<div class="riepilogo-blocco">
+            <h4>Dettagli delle voci che contano</h4>
+            <p class="hint" style="margin:0 0 10px;">Le domande che ogni analista fidi fa sulle voci principali: dalle risposte nasce il bilancio rettificato in ottica banca (vedi Esiti). Compila solo cio che esiste.</p>
+            <div class="griglia-3">
+                ${RB_DETTAGLI.map(c => `<div class="campo"><label>${esc(c.et)}</label>
+                    <input type="text" inputmode="decimal" data-det="${c.id}" value="${esc(rbFmtNum(rbNum(det[c.id])))}">
+                    ${c.hint ? '<div class="hint">' + esc(c.hint) + '</div>' : ''}</div>`).join('')}
+                <div class="campo"><label>I finanziamenti soci sono postergati o destinati a capitale?</label>
+                    <select data-det-sel="finSociPostergati">${[['', '-'], ['si', 'Si'], ['no', 'No']].map(o => `<option value="${o[0]}" ${det.finSociPostergati === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+            </div>
+        </div>`;
+    }
+
+    // --- scheda: soci, amministratori e gruppo ---
+    function rbTabSoggetti(v) {
+        const g = v.gruppo || {};
+        const soci = v.soci || [];
+        const amm = v.amministratori || [];
+        const soggetti = rbProfiloSoggetti(v);
+        const gruppo = rbProfiloGruppo(v);
+        const sel = (campo, val, opzioni) => `<select data-gr="${campo}">${opzioni.map(o => `<option value="${o[0]}" ${val === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+        return `
+            <div class="card">
+                <h2>Gruppo societario</h2>
+                <p class="hint" style="margin:-6px 0 12px;">L'appartenenza a un gruppo cambia la lettura della banca: sostegno documentabile a favore, drenaggio di risorse a sfavore. Le garanzie infragruppo sono impegni da dichiarare.</p>
+                <div class="griglia-3">
+                    <div class="campo"><label>L'impresa appartiene a un gruppo?</label>${sel('appartiene', g.appartiene || '', [['', '-'], ['si', 'Si'], ['no', 'No']])}</div>
+                    ${g.appartiene === 'si' ? `
+                    <div class="campo"><label>Capogruppo / controllante</label><input type="text" data-gr-txt="capogruppo" value="${esc(g.capogruppo || '')}"></div>
+                    <div class="campo"><label>Quota di controllo (%)</label><input type="text" inputmode="decimal" data-gr-txt="quotaControllo" value="${esc(g.quotaControllo || '')}"></div>
+                    <div class="campo"><label>Bilancio consolidato disponibile?</label>${sel('consolidato', g.consolidato || '', [['', '-'], ['si', 'Si'], ['no', 'No']])}</div>
+                    <div class="campo"><label>Effetto del gruppo sull'impresa</label>${sel('sostegno', g.sostegno || '', [['', '-'], ['rafforza', 'Rafforza (capogruppo solida, sostegno reale)'], ['neutro', 'Neutro'], ['assorbe', 'Assorbe risorse (finanzia il gruppo)']])}</div>` : ''}
+                </div>
+                ${g.appartiene === 'si' ? `
+                <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px;">
+                    <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" data-gr-chk="garanzieRicevute" ${g.garanzieRicevute ? 'checked' : ''} style="width:auto;">Garanzie ricevute dal gruppo</label>
+                    <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" data-gr-chk="garanziePrestate" ${g.garanziePrestate ? 'checked' : ''} style="width:auto;">Garanzie prestate al gruppo</label>
+                    <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" data-gr-chk="cashPooling" ${g.cashPooling ? 'checked' : ''} style="width:auto;">Cash pooling di gruppo</label>
+                </div>` : ''}
+                ${rbHtmlPunti(gruppo.punti)}
+            </div>
+            <div class="card">
+                <h2>Compagine sociale</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Chi possiede l'impresa: le banche verificano la titolarita effettiva (UBO). Fiduciarie e catene estere allungano l'istruttoria.</p>
+                ${soci.map((s, i) => `<div class="rb-riga-soggetto">
+                    <div class="campo"><label>Socio</label><input type="text" data-soc-idx="${i}" data-soc-campo="nome" value="${esc(s.nome || '')}"></div>
+                    <div class="campo"><label>Tipo</label><select data-soc-idx="${i}" data-soc-campo="tipo">${Object.keys(RB_TIPI_SOCIO).map(t => `<option value="${t}" ${s.tipo === t ? 'selected' : ''}>${RB_TIPI_SOCIO[t]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Quota %</label><input type="text" inputmode="decimal" data-soc-idx="${i}" data-soc-campo="quota" value="${esc(s.quota || '')}"></div>
+                    <button class="btn btn-ghost btn-sm" data-soc-rm="${i}" title="Rimuovi il socio">&times;</button>
+                </div>`).join('')}
+                <button class="btn btn-secondary btn-sm" id="rb-soc-add">+ Aggiungi socio</button>
+            </div>
+            <div class="card">
+                <h2>Amministratori</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Chi amministra e con quale storia: protesti, pregiudizievoli di conservatoria e procedure pregresse pesano direttamente sull'istruttoria. Meglio verificarli prima della banca.</p>
+                ${amm.map((a, i) => `<div class="rb-riga-soggetto">
+                    <div class="campo"><label>Amministratore</label><input type="text" data-amm-idx="${i}" data-amm-campo="nome" value="${esc(a.nome || '')}"></div>
+                    <div class="campo"><label>Carica</label><input type="text" data-amm-idx="${i}" data-amm-campo="carica" value="${esc(a.carica || '')}" placeholder="es. Amministratore unico"></div>
+                    <div class="campo"><label>Protesti / pregiudizievoli</label><select data-amm-idx="${i}" data-amm-campo="pregiudizievoli">${[['no', 'Nessuno (verificato)'], ['verificare', 'Da verificare'], ['si', 'Presenti']].map(o => `<option value="${o[0]}" ${(a.pregiudizievoli || 'verificare') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                    <button class="btn btn-ghost btn-sm" data-amm-rm="${i}" title="Rimuovi">&times;</button>
+                </div>`).join('')}
+                <button class="btn btn-secondary btn-sm" id="rb-amm-add">+ Aggiungi amministratore</button>
+                ${rbHtmlPunti(soggetti.punti)}
+            </div>`;
+    }
+
+    // riquadro degli esiti su soggetti e gruppo
+    function rbHtmlSoggettiGruppo(es) {
+        return rbHtmlPunti(es.gruppo.punti.concat(es.soggetti.punti));
+    }
+    // riquadro delle rettifiche prudenziali
+    function rbHtmlRettifiche(es) {
+        if (!es.rett.attive) return '<p class="hint">Nessun dettaglio rettificabile compilato: la classe MCC resta quella del bilancio ufficiale. Compila i "Dettagli delle voci che contano" nella scheda Impresa e bilancio per la lettura prudenziale.</p>';
+        const m = es.rett.mcc;
+        const diff = m.integrata - es.mcc.integrata;
+        return `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Voce dichiarata</th><th>Rettifica applicata</th></tr></thead><tbody>
+            ${es.rett.righe.map(r => `<tr><td>${esc(r.voce)}</td><td>${esc(r.effetto)}</td></tr>`).join('')}
+        </tbody></table></div>
+        <div class="rb-corr-riga" style="margin-top:10px;">
+            <div><div class="rb-corr-et">Classe MCC dal bilancio ufficiale</div>${rbBadgeClasse(es.mcc.integrata, es.mcc.fascia)}</div>
+            <div class="rb-corr-freccia">&rarr;</div>
+            <div><div class="rb-corr-et">Classe MCC dal bilancio rettificato</div>${rbBadgeClasse(m.integrata, m.fascia)} <span class="rb-corr-pd">PD ${rbPct(m.pd, 2)}</span></div>
+        </div>
+        <p class="hint">${diff > 0 ? 'Le rettifiche peggiorano la classe di ' + diff + (diff === 1 ? ' gradino' : ' gradini') + ': e la distanza tra il bilancio come lo leggi tu e come lo legge l\'analista fidi.'
+            : diff < 0 ? 'Le rettifiche MIGLIORANO la classe (finanziamenti soci postergati trattati come capitale): documentalo alla banca, e un argomento negoziale.'
+            : 'Le rettifiche non spostano la classe: il bilancio regge la lettura prudenziale.'}</p>`;
+    }
+
+    /* ------------------------------------------------------------
+       IL MANUALE DEL METODO: ogni calcolo spiegato, nella pagina.
+    ------------------------------------------------------------ */
+    function rbHtmlMetodo() {
+        const rig = (t, d) => '<tr><td><strong>' + t + '</strong></td><td>' + d + '</td></tr>';
+        return `
+            <div class="card"><h2>Come leggere questo manuale</h2>
+                <p class="rb-testo">Qui c'e la spiegazione di OGNI calcolo della verifica, nell'ordine in cui compare negli esiti: da dove vengono i numeri, quali formule si applicano, quali soglie decidono i giudizi. Le fonti: Specifiche tecniche del Fondo di Garanzia PMI in vigore dal 15/02/2020 (modello MCC), documento CNDCEC 20/10/2019 (indici della crisi), modelli Z' e Z'' di Altman, prassi bancaria per il cruscotto e per i profili di istituto.</p>
+            </div>
+            <div class="card"><h2>1. Rating MCC: il modulo economico-finanziario</h2>
+                <p class="rb-testo">Dal bilancio si costruiscono gli aggregati dello stato patrimoniale e del conto economico (gli stessi campi del simulatore pubblico). Per il settore scelto il modello calcola una serie di indicatori (da V1 a V21: debiti a breve su fatturato, oneri finanziari su MOL, autonomia finanziaria, quick ratio eccetera). Ogni indicatore viene "trattato": se supera un tetto (cap) o un pavimento (floor) viene riportato alla soglia; se il denominatore e zero si usa il valore convenzionale ".a" delle Specifiche. Alcune variabili aggiuntive (D1-D12) correggono il punteggio per MOL negativo, fatturato in calo, patrimonio netto negativo e per le imprese fino a 500.000 euro di ricavi.</p>
+                <p class="rb-testo">Ogni valore trattato viene moltiplicato per il suo coefficiente e sommato alla costante del settore: il risultato e lo <strong>score xb</strong> (lo vedi per esteso nel "Dettaglio del calcolo MCC"). Lo score si confronta con 10 soglie fisse (Tabella 30 delle Specifiche): ne esce la <strong>classe F da 1 a 11</strong> del modulo di bilancio.</p>
+            </div>
+            <div class="card"><h2>2. Il modulo andamentale (Centrale dei Rischi)</h2>
+                <p class="rb-testo">Dai 6 mesi piu recenti del prospetto si calcolano: <strong>C1</strong> = utilizzato / accordato dei rischi autoliquidanti e a revoca (cassa meno "a scadenza"), con tetto 1,2; <strong>C2</strong> = numero di mesi con sconfino di cassa (utilizzato oltre l'accordato); <strong>C3</strong> = mesi con sconfino sui rischi a scadenza; <strong>C4</strong> = mesi senza rapporti censiti. Lo score andamentale e: <code>-4,984468 + 3,179026 &times; C1 - 1,066972 &times; DC1 + 0,720867 &times; DC3 + 0,0326226 &times; C2</code> (DC1 scatta con 4 o piu mesi non censiti, DC3 con almeno uno sconfino a scadenza), piu un aggiustamento fisso di calibrazione. Le stesse 10 soglie della classe F danno la <strong>classe andamentale A1-A11</strong>.</p>
+                <p class="rb-testo">La <strong>matrice di integrazione</strong> delle societa di capitali incrocia classe F e classe A e produce la <strong>classe integrata da 1 a 12</strong>. Senza Centrale dei Rischi la classe integrata coincide con la F (la F11 diventa 12). Ogni classe ha una fascia (1-5) e una probabilita di inadempimento empirica (dallo 0,12% della classe 1 al 22,98% della 12). La garanzia del Fondo e ammissibile fino alla classe 10; le <strong>sofferenze</strong> la precludono comunque.</p>
+            </div>
+            <div class="card"><h2>3. Il questionario qualitativo e il correttivo</h2>
+                <p class="rb-testo">Venti domande in quattro sezioni (governance e assetti, compliance, rapporti bancari, struttura), ognuna con un punteggio fino a 10. Il totale diventa una percentuale che corregge la classe integrata: <strong>80% o piu: un gradino a favore; 60-79%: nessuna correzione; 40-59%: un gradino a sfavore; sotto il 40%: due gradini a sfavore</strong>. Replica il modo in cui i modelli interni delle banche integrano il giudizio qualitativo.</p>
+                <p class="rb-testo">Al correttivo del questionario si sommano: <strong>+1</strong> se risultano eventi pregiudizievoli a carico degli amministratori; <strong>-1</strong> se il gruppo rafforza l'impresa con consolidato documentabile, <strong>+1</strong> se il gruppo assorbe risorse. La somma, riportata tra 1 e 12, e il <strong>rating ipotizzato</strong>.</p>
+            </div>
+            <div class="card"><h2>4. Le rettifiche prudenziali (il bilancio come lo legge la banca)</h2>
+                <p class="rb-testo">Dai "Dettagli delle voci che contano" si costruisce un secondo bilancio, rettificato come farebbe un analista fidi: <strong>crediti scaduti oltre 90 giorni</strong> e <strong>magazzino obsoleto</strong> svalutati del 50% (contro il patrimonio netto); <strong>rivalutazioni</strong> sterilizzate per intero; <strong>finanziamenti soci postergati</strong> spostati dal debito finanziario al quasi-capitale; <strong>leasing non iscritti</strong> capitalizzati (entrano tra le immobilizzazioni e nella PFN estesa). Su questo bilancio il modello MCC viene ricalcolato da capo: il confronto tra le due classi misura quanto il bilancio "regge" la lettura prudenziale. I debiti fiscali scaduti e le fideiussioni prestate non rettificano il bilancio ma generano segnalazioni e azioni dedicate.</p>
+            </div>
+            <div class="card"><h2>5. Il cruscotto di bancabilita</h2>
+                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indicatore</th><th>Formula e soglie</th></tr></thead><tbody>
+                ${rig('DSCR (12 mesi, semplificato)', '(EBITDA - imposte) / (quota capitale + oneri finanziari). Sotto 1 insufficiente, 1-1,2 al limite, oltre 1,2 adeguato.')}
+                ${rig('PFN / EBITDA', 'PFN = debiti finanziari - liquidita - attivita finanziarie. Fino a 3 buono, 3-4 attenzione, 4-6 critico, oltre 6 leva estrema. PFN negativa = cassa netta.')}
+                ${rig('PFN / Patrimonio netto', 'Fino a 1,5 equilibrato, 1,5-3 attenzione, oltre 3 squilibrato. Con PN non positivo il rapporto non e significativo.')}
+                ${rig('Oneri finanziari / Ricavi', 'Fino al 3% fisiologico, 3-5% attenzione, oltre il 5% eccessivo.')}
+                ${rig('Copertura interessi', 'EBITDA / oneri finanziari: oltre 4 solida, 2-4 da monitorare, sotto 2 fragile.')}
+                ${rig('Patrimonio netto / Totale attivo', 'Oltre il 35% solido, 20-35% nella media, sotto il 20% sottocapitalizzata.')}
+                </tbody></table></div>
+            </div>
+            <div class="card"><h2>6. Indici della crisi CNDCEC e Z-Score</h2>
+                <p class="rb-testo">Prima i due segnali di primo livello: <strong>patrimonio netto negativo</strong> e <strong>DSCR sotto 1</strong>. Poi i cinque indici settoriali del documento CNDCEC 20/10/2019 (oneri finanziari/ricavi, patrimonio netto/debiti, attivo a breve/passivo a breve, cash flow/attivo, debiti fiscali/attivo), confrontati con le soglie del settore: l'allerta scatta solo se si accendono <strong>tutti e cinque</strong>. Per le attivita immobiliari il documento non fissa soglie.</p>
+                <p class="rb-testo">Lo <strong>Z-Score</strong> usa la variante Z' per le manifatturiere non quotate (<code>0,717&times;X1 + 0,847&times;X2 + 3,107&times;X3 + 0,420&times;X4 + 0,998&times;X5</code>; rischio sotto 1,23, sicurezza oltre 2,90) e la variante Z'' per le altre (<code>6,56&times;X1 + 3,26&times;X2 + 6,72&times;X3 + 1,05&times;X4</code>; rischio sotto 1,10, sicurezza oltre 2,60), dove X1 = capitale circolante netto/attivo, X2 = riserve di utili/attivo, X3 = EBIT/attivo, X4 = patrimonio/debiti, X5 = ricavi/attivo.</p>
+            </div>
+            <div class="card"><h2>7. La solidita delle banche e la stima per istituto</h2>
+                <p class="rb-testo">Ogni istituto censito ha i rating pubblici delle agenzie (Moody's, S&P, Fitch, DBRS), convertiti in una scala comune a 21 gradini e mediati: da li la classe di solidita (A elevata da A- in su, B investment grade, C speculativa, D fragile; senza rating si stima con prudenza dal CET1). Sono dati indicativi, aggiornati a ${RB_BANCHE_AGG}.</p>
+                <p class="rb-testo">La <strong>stima del rating per istituto</strong> parte dal rating ipotizzato dell'impresa e lo adatta al singolo rapporto e al profilo della banca: <strong>+1</strong> per sconfini sul rapporto, <strong>+1</strong> per utilizzo oltre il 90% del fido; <strong>-1</strong> presso una banca del territorio con relazione oltre i 5 anni e rapporto regolare; <strong>+1</strong> presso i gruppi esteri se il patrimonio e sotto il 20% dell'attivo; <strong>-1</strong> in delibera con garanzia Confidi o Fondo MCC (dalla classe 5 in su: la garanzia agisce sulla perdita attesa, non sulla PD). Ogni correzione e elencata accanto alla stima.</p>
+            </div>
+            <div class="card"><h2>8. Soci, amministratori, gruppo</h2>
+                <p class="rb-testo">La compagine si verifica per la titolarita effettiva: fiduciarie e soggetti esteri portano il profilo in attenzione (la banca chiede l'UBO). Gli amministratori si censiscono con l'esito delle visure (protesti, pregiudizievoli di conservatoria, procedure): eventi dichiarati portano il profilo in critico e valgono +1 sulla classe. Il gruppo: sostegno documentato con consolidato -1, gruppo che assorbe risorse +1, garanzie infragruppo segnalate tra gli impegni.</p>
+            </div>
+            <div class="card"><h2>9. Verdetto, azioni e report</h2>
+                <p class="rb-testo">Il verdetto complessivo e "area critica" con patrimonio netto negativo, tutti gli indici CNDCEC accesi, DSCR sotto 1, fascia 5 o sofferenze; "zona di attenzione" con fascia 4, Z-Score in rischio o due indicatori del cruscotto critici; "equilibrio migliorabile" con fascia 3, Z in incertezza o un indicatore critico; altrimenti "profilo solido". Le azioni migliorative nascono dalle debolezze rilevate, in ordine di priorita, ognuna con il servizio Revilaw che la copre. Il report finale raccoglie tutto, con la firma grafica del responsabile, e si stampa in PDF.</p>
+                <p class="rb-testo"><strong>Limiti.</strong> Il rating effettivo di ciascuna banca resta un modello proprietario: questa verifica replica il modello pubblico del Fondo e lo integra con stime professionali dichiarate. I dati sugli istituti vanno verificati sulle fonti ufficiali prima di un uso verso terzi.</p>
+            </div>`;
+    }
+
+    // il manuale del metodo raggiungibile anche in sola lettura (dall'elenco)
+    function vistaRatingMetodo() {
+        $vista().innerHTML = `
+            <header>
+                <div>
+                    <h1>Metodo di calcolo</h1>
+                    <p class="descrizione">Ogni calcolo della verifica del merito creditizio, spiegato: formule, soglie e fonti.</p>
+                </div>
+                <div class="header-azioni">
+                    <button class="btn btn-ghost" id="rb-met-indietro">&larr; Torna al rating</button>
+                    <button class="btn btn-secondary" id="rb-met-stampa">Stampa</button>
+                </div>
+            </header>
+            <div class="intest-stampa">
+                <div class="is-marchio">Revilaw S.p.A.</div>
+                <div class="is-tit">Rating bancario: metodo di calcolo</div>
+                <div class="is-meta">stampato il ${fmtData(oggiISO())}</div>
+            </div>
+            ${rbHtmlMetodo()}`;
+        document.getElementById('rb-met-indietro').addEventListener('click', () => naviga('rating'));
+        document.getElementById('rb-met-stampa').addEventListener('click', () => window.print());
     }
 
     /* ------------------------------------------------------------
@@ -6723,8 +7740,14 @@
         const z = rbComputeZ(x, sec.z);
         const quest = rbPunteggioQuestionario(v.questionario);
         const correttivo = rbCorrettivo(quest.perc);
-        const classeCorretta = Math.min(12, Math.max(1, mcc.integrata + correttivo));
-        const banche = rbAnalisiBanche(v.banche, classeCorretta);
+        // ai gradini del questionario si sommano quelli di soggetti e gruppo
+        const soggetti = rbProfiloSoggetti(v);
+        const gruppo = rbProfiloGruppo(v);
+        const correttivoTotale = correttivo + soggetti.notch + gruppo.notch;
+        const classeCorretta = Math.min(12, Math.max(1, mcc.integrata + correttivoTotale));
+        const rett = rbRettifiche(v, sec, cr);
+        const eq = x.SP14 > 0 ? x.SP15 / x.SP14 * 100 : null;
+        const banche = rbAnalisiBanche(v.banche, classeCorretta, eq);
 
         // verdetto complessivo (stessa logica del simulatore pubblico)
         const nRosso = bank.cards.filter(c => c.level === 'rosso' || c.level === 'arancio').length;
@@ -6739,7 +7762,8 @@
 
         const es = {
             pronta: true, mancanti: [], x, quadratura, cr, mcc, bank, cn, z, zZone,
-            quest, risposte: v.questionario || {}, correttivo, classeCorretta,
+            quest, risposte: v.questionario || {}, correttivo, correttivoTotale,
+            soggetti, gruppo, rett, dettagliInput: v.dettagli || {}, classeCorretta,
             fasciaCorretta: RB_CLASSI[classeCorretta].fascia, pdCorretta: RB_CLASSI[classeCorretta].pd,
             banche, verdetto
         };
@@ -6755,6 +7779,7 @@
             ammissibile: es.mcc.ammissibile, sofferenze: es.mcc.sofferenze,
             classeCorretta: es.classeCorretta, fasciaCorretta: es.fasciaCorretta, pdCorretta: es.pdCorretta,
             quest: es.quest.perc, questCompleto: es.quest.completo,
+            classeRett: es.rett.attive ? es.rett.mcc.integrata : null,
             verdetto: es.verdetto.livello, verdettoTesto: es.verdetto.chip,
             banche: es.banche.numero, azioni: es.azioni.length, calcolato: Date.now()
         };
@@ -6827,8 +7852,12 @@
             incaricoId: '',
             respVerifica: (Auth.utenteCorrente && Auth.utenteCorrente.nome) || '',
             bilancio: {},
-            cr: { attiva: false, sofferenze: false, righe: [{}, {}, {}, {}, {}, {}] },
+            dettagli: {},
+            cr: { attiva: false, sofferenze: false, righe: [{}, {}, {}, {}, {}, {}], mesi: [] },
             banche: [],
+            gruppo: {},
+            soci: [],
+            amministratori: [],
             questionario: {},
             note: '',
             esito: null
@@ -6857,6 +7886,7 @@
                     <p class="descrizione">Verifiche del merito creditizio: modello MCC del Fondo di Garanzia, questionario qualitativo, banche dell'impresa e azioni migliorative. Ogni verifica produce un report da firmare e stampare in PDF.</p>
                 </div>
                 <div class="header-azioni">
+                    <button class="btn btn-secondary" id="btn-rating-metodo" title="Ogni calcolo spiegato: formule, soglie e fonti">Metodo di calcolo</button>
                     ${scrive ? '<button class="btn btn-primary" id="btn-nuova-verifica">+ Nuova verifica</button>' : ''}
                 </div>
             </header>
@@ -6907,6 +7937,7 @@
 
         const btnNuova = document.getElementById('btn-nuova-verifica');
         if (btnNuova) btnNuova.addEventListener('click', () => naviga('ratingScheda', { nuova: true }));
+        document.getElementById('btn-rating-metodo').addEventListener('click', () => naviga('ratingMetodo'));
         $vista().querySelectorAll('[data-apri]').forEach(r => r.addEventListener('click', e => {
             if (e.target.closest('button')) return;
             if (scrive) naviga('ratingScheda', { id: r.dataset.apri });
@@ -6962,12 +7993,18 @@
         </div>`;
     }
     function rbHtmlCorrettivo(es) {
-        const corrTxt = es.correttivo === 0 ? 'conferma la classe senza correzioni'
-            : (es.correttivo < 0 ? 'migliora la classe di ' + (-es.correttivo) + (es.correttivo === -1 ? ' gradino' : ' gradini')
-                                 : 'peggiora la classe di ' + es.correttivo + (es.correttivo === 1 ? ' gradino' : ' gradini'));
+        const tot = es.correttivoTotale;
+        const corrTxt = tot === 0 ? 'la classe resta invariata'
+            : (tot < 0 ? 'la classe migliora di ' + (-tot) + (tot === -1 ? ' gradino' : ' gradini')
+                       : 'la classe peggiora di ' + tot + (tot === 1 ? ' gradino' : ' gradini'));
+        const pezzi = [];
+        pezzi.push('questionario ' + (es.correttivo > 0 ? '+' : '') + es.correttivo);
+        if (es.soggetti.notch) pezzi.push('amministratori +' + es.soggetti.notch);
+        if (es.gruppo.notch) pezzi.push('gruppo ' + (es.gruppo.notch > 0 ? '+' : '') + es.gruppo.notch);
         return `<div class="rb-correttivo">
-            <p style="margin:0 0 10px;">Il questionario qualitativo vale <strong>${es.quest.perc}%</strong>${es.quest.completo ? '' : ' <span class="badge grigio">' + es.quest.date + ' risposte su ' + es.quest.tot + '</span>'}
-            e <strong>${corrTxt}</strong>. E il modo in cui i modelli interni delle banche integrano governance, andamentale e presidi oltre i numeri di bilancio.</p>
+            <p style="margin:0 0 10px;">Il questionario qualitativo vale <strong>${es.quest.perc}%</strong>${es.quest.completo ? '' : ' <span class="badge grigio">' + es.quest.date + ' risposte su ' + es.quest.tot + '</span>'};
+            con i profili di soggetti e gruppo il correttivo complessivo e <strong>${tot > 0 ? '+' : ''}${tot}</strong> (${pezzi.join(', ')}): <strong>${corrTxt}</strong>.
+            E il modo in cui i modelli interni delle banche integrano governance, andamentale e presidi oltre i numeri di bilancio.</p>
             <div class="rb-corr-riga">
                 <div><div class="rb-corr-et">Rating MCC</div>${rbBadgeClasse(es.mcc.integrata, es.mcc.fascia)}</div>
                 <div class="rb-corr-freccia">&rarr;</div>
@@ -7019,12 +8056,14 @@
             <td class="num">${r.uti ? eurFmt.format(r.uti) : '-'}</td>
             <td class="num">${fmtU(r.utilizzo)}</td>
             <td class="num">${fmtQ(r.quota)}</td>
-            <td>${r.tensione ? '<span class="badge rosso">in tensione</span>' : '<span class="badge verde">regolare</span>'}${r.sconfini ? '<div class="rb-rif">sconfini dichiarati</div>' : ''}</td>
-            <td>${r.vista ? rbBadgeClasse(r.vista, RB_CLASSI[r.vista].fascia) : '-'}</td>
+            <td>${r.tensione ? '<span class="badge rosso">in tensione</span>' : '<span class="badge verde">regolare</span>'}${r.sconfini ? '<div class="rb-rif">sconfini dichiarati</div>' : ''}${r.anzianita ? '<div class="rb-rif">rapporto: ' + RB_ANZIANITA[r.anzianita] + '</div>' : ''}</td>
+            <td>${r.stima ? rbBadgeClasse(r.stima.classe, RB_CLASSI[r.stima.classe].fascia)
+                + (r.stima.politica ? '<div class="rb-rif"><strong>' + esc(r.stima.politica.nome) + '</strong>: ' + esc(r.stima.politica.testo) + '</div>' : '')
+                + (r.stima.delta.length ? '<div class="rb-rif">' + r.stima.delta.map(esc).join('; ') + '</div>' : '<div class="rb-rif">nessuna correzione sul rapporto</div>') : '-'}</td>
         </tr>`).join('')}
         </tbody></table></div>
         <p class="hint">Totale accordato ${b.totAcc ? eurFmt.format(b.totAcc) : '-'} &middot; utilizzato ${b.totUti ? eurFmt.format(b.totUti) : '-'}${b.utilizzoMedio !== null ? ' &middot; utilizzo medio ' + rbPct(b.utilizzoMedio, 0) : ''}${b.quotaMax ? ' &middot; prima banca ' + rbPct(b.quotaMax, 0) + ' degli affidamenti' : ''}.
-        Il "rating visto dalla banca" parte dalla classe con correttivo e peggiora se il singolo rapporto e in tensione (utilizzo oltre il 90% o sconfini). Rating delle agenzie indicativi, aggiornati a ${RB_BANCHE_AGG}.</p>`;
+        La stima per istituto parte dal rating ipotizzato e lo adatta al singolo rapporto e alla politica di credito della banca (le correzioni sono elencate riga per riga; il metodo e spiegato nella scheda "Metodo di calcolo"). Rating delle agenzie indicativi, aggiornati a ${RB_BANCHE_AGG}.</p>`;
     }
     function rbHtmlAzioni(es) {
         if (!es.azioni.length) return '<p class="hint">Nessuna azione da segnalare: profilo in equilibrio su tutti i fronti analizzati.</p>';
@@ -7079,11 +8118,17 @@
                 const v = Rating.trova(p.id);
                 if (!v) { toast('Verifica non trovata.', 'rosso'); naviga('rating'); return; }
                 schedaRB = JSON.parse(JSON.stringify(v));
-                if (!schedaRB.cr || !Array.isArray(schedaRB.cr.righe)) schedaRB.cr = { attiva: false, sofferenze: false, righe: [{}, {}, {}, {}, {}, {}] };
+                if (!schedaRB.cr || !Array.isArray(schedaRB.cr.righe)) schedaRB.cr = { attiva: false, sofferenze: false, righe: [{}, {}, {}, {}, {}, {}], mesi: [] };
                 while (schedaRB.cr.righe.length < 6) schedaRB.cr.righe.push({});
+                // i record salvati prima delle sezioni nuove ricevono i contenitori vuoti
+                if (!schedaRB.dettagli) schedaRB.dettagli = {};
+                if (!schedaRB.gruppo) schedaRB.gruppo = {};
+                if (!Array.isArray(schedaRB.soci)) schedaRB.soci = [];
+                if (!Array.isArray(schedaRB.amministratori)) schedaRB.amministratori = [];
             } else {
                 schedaRB = rbNuovaVerifica();
             }
+            statoImportXbrl = null; statoImportCr = null; attnXbrl = [];
             tabRB = 'impresa';
             parametriVista = { id: schedaRB.id };   // il "nuova" e consumato: i ridisegni non azzerano la scheda
         }
@@ -7092,9 +8137,11 @@
         const tabs = [
             ['impresa', 'Impresa e bilancio'],
             ['cr', 'Centrale Rischi'],
+            ['soggetti', 'Soci e gruppo'],
             ['banche', 'Banche'],
             ['questionario', 'Questionario'],
-            ['esiti', 'Esiti e azioni']
+            ['esiti', 'Esiti e azioni'],
+            ['metodo', 'Metodo di calcolo']
         ];
         $vista().innerHTML = `
             <header>
@@ -7124,8 +8171,10 @@
     function rbHtmlTab(v) {
         if (tabRB === 'impresa') return rbTabImpresa(v);
         if (tabRB === 'cr') return rbTabCr(v);
+        if (tabRB === 'soggetti') return rbTabSoggetti(v);
         if (tabRB === 'banche') return rbTabBanche(v);
         if (tabRB === 'questionario') return rbTabQuestionario(v);
+        if (tabRB === 'metodo') return rbHtmlMetodo();
         return rbTabEsiti(v);
     }
     function rbSalvaScheda() {
@@ -7153,7 +8202,7 @@
         const campoNum = c => {
             const val = (v.bilancio || {})[c.id];
             return `<div class="campo"><label>${esc(c.et)}${c.req ? ' *' : ''}</label>
-                <input type="text" inputmode="decimal" data-bil="${c.id}" value="${esc(rbFmtNum(val))}" placeholder="${c.req ? 'obbligatorio' : ''}">
+                <input type="text" inputmode="decimal" data-bil="${c.id}" ${attnXbrl.indexOf(c.id) >= 0 ? 'class="attn" title="Voce non esposta dal file XBRL: verificala a mano"' : ''} value="${esc(rbFmtNum(val))}" placeholder="${c.req ? 'obbligatorio' : ''}">
                 ${c.hint ? '<div class="hint">' + esc(c.hint) + '</div>' : ''}</div>`;
         };
         const gruppo = gr => `<div class="riepilogo-blocco"><h4>${RB_GRUPPI_BILANCIO[gr]}</h4>
@@ -7179,7 +8228,15 @@
             <div class="card">
                 <h2>Bilancio (schema civilistico, in euro)</h2>
                 <p class="hint" style="margin:-6px 0 10px;">Stessi campi del simulatore pubblico: importi in euro, formato italiano. I campi con * servono al calcolo. <span id="rb-quadratura">${rbHtmlQuadratura(v)}</span></p>
+                <div class="riepilogo-blocco">
+                    <h4>Importa il bilancio depositato (XBRL)</h4>
+                    <p class="hint" style="margin:0 0 8px;">Il file XBRL del Registro Imprese (tassonomia itcc-ci, schemi ordinario, abbreviato e micro) compila da solo i campi, esercizio corrente e precedente, e riconosce il settore dal codice ATECO. I campi evidenziati in giallo vanno verificati a mano. Il file resta nel browser.</p>
+                    <button class="btn btn-secondary btn-sm" id="rb-xbrl-btn" type="button">Scegli il file XBRL&hellip;</button>
+                    <input type="file" id="rb-xbrl-file" accept=".xbrl,.xml" hidden>
+                    ${rbHtmlStatoImport(statoImportXbrl)}
+                </div>
                 ${gruppo('ce')}${gruppo('att')}${gruppo('pas')}${gruppo('fin')}
+                ${rbDettagliBlocco(v)}
             </div>`;
     }
     function rbHtmlQuadratura(v) {
@@ -7201,11 +8258,18 @@
             <div class="card">
                 <h2>Modulo andamentale: Centrale dei Rischi</h2>
                 <p class="hint" style="margin:-6px 0 12px;">Ultimi 6 mesi del prospetto Banca d'Italia (mese 1 = piu recente): accordato e utilizzato per cassa, e la parte "a scadenza". Senza questi dati la classe usa il solo modulo di bilancio.</p>
+                <div class="riepilogo-blocco">
+                    <h4>Importa il prospetto della Banca d'Italia (PDF)</h4>
+                    <p class="hint" style="margin:0 0 8px;">Il PDF della Centrale dei Rischi (richiesto tramite la piattaforma della Banca d'Italia) viene letto nel browser: il programma riconosce le rilevazioni mensili, somma accordato e utilizzato per cassa, isola i rischi a scadenza e rileva le sofferenze. Vengono usati i 6 mesi piu recenti.</p>
+                    <button class="btn btn-secondary btn-sm" id="rb-crpdf-btn" type="button">Scegli il PDF della Centrale Rischi&hellip;</button>
+                    <input type="file" id="rb-crpdf-file" accept="application/pdf,.pdf" hidden>
+                    ${rbHtmlStatoImport(statoImportCr)}
+                </div>
                 <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-bottom:10px;"><input type="checkbox" id="rb-cr-attiva" ${cr.attiva ? 'checked' : ''} style="width:auto;">Uso i dati della Centrale dei Rischi</label>
                 <div class="tabella-wrap"><table class="dati compatta rb-cr-tab"><thead><tr>
                     <th>Mese</th><th class="num">Accordato per cassa</th><th class="num">Utilizzato per cassa</th><th class="num">di cui a scadenza: accordato</th><th class="num">di cui a scadenza: utilizzato</th>
                 </tr></thead><tbody>
-                ${[0, 1, 2, 3, 4, 5].map(m => `<tr><td>Mese ${m + 1}</td>${cella(m, 'at')}${cella(m, 'ut')}${cella(m, 'as')}${cella(m, 'us')}</tr>`).join('')}
+                ${[0, 1, 2, 3, 4, 5].map(m => `<tr><td>${(cr.mesi && cr.mesi[m]) ? esc(cr.mesi[m]) + (m === 0 ? ' <span class="rb-rif">(piu recente)</span>' : '') : 'Mese ' + (m + 1)}</td>${cella(m, 'at')}${cella(m, 'ut')}${cella(m, 'as')}${cella(m, 'us')}</tr>`).join('')}
                 </tbody></table></div>
                 <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px;">
                     <button class="btn btn-secondary btn-sm" id="rb-cr-copia" ${cr.attiva ? '' : 'disabled'}>Ripeti il mese 1 su tutti i mesi</button>
@@ -7231,6 +8295,9 @@
                     <div class="campo"><label>Utilizzato</label><input type="text" inputmode="decimal" data-b-idx="${i}" data-b-campo="utilizzato" value="${esc(rbFmtNum(rbNum(r.utilizzato)))}"></div>
                     <div class="campo"><label>Garanzie rilasciate</label>
                         <select data-b-idx="${i}" data-b-campo="garanzie">${['', 'nessuna', 'personali', 'reali', 'Confidi / Fondo MCC', 'miste'].map(g => `<option value="${g}" ${r.garanzie === g ? 'selected' : ''}>${g || '-'}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Anzianita del rapporto</label>
+                        <select data-b-idx="${i}" data-b-campo="anzianita">${[['', '-'], ['nuovo', 'meno di 2 anni'], ['medio', 'da 2 a 5 anni'], ['storico', 'oltre 5 anni']].map(o => `<option value="${o[0]}" ${(r.anzianita || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+                        <div class="hint">nelle banche del territorio la relazione storica vale un gradino</div></div>
                     <div class="campo"><label>Nota sul rapporto</label><input type="text" data-b-idx="${i}" data-b-campo="nota" value="${esc(r.nota || '')}"></div>
                 </div>
                 <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
@@ -7293,6 +8360,8 @@
                 ${rbHtmlDettaglioMcc(es)}
             </div>
             <div class="card"><h2>Correttivo qualitativo e rating ipotizzato</h2>${rbHtmlCorrettivo(es)}</div>
+            <div class="card"><h2>Rettifiche prudenziali: il bilancio come lo legge la banca</h2>${rbHtmlRettifiche(es)}</div>
+            <div class="card"><h2>Soci, amministratori e gruppo</h2>${rbHtmlSoggettiGruppo(es)}</div>
             <div class="card"><h2>Cruscotto di bancabilita</h2>${rbHtmlTabellaCruscotto(es)}</div>
             <div class="card"><h2>Indici della crisi (CNDCEC) e Z-Score</h2>${rbHtmlCndcec(es)}<div style="margin-top:12px;">${rbHtmlZ(es)}</div></div>
             <div class="card"><h2>Posizionamento bancario</h2>${rbHtmlTabellaBanche(es)}</div>
@@ -7351,6 +8420,87 @@
             for (let m = 1; m < 6; m++) v.cr.righe[m] = { ...primo };
             vistaRatingScheda();
         });
+        // importazione bilancio XBRL
+        const xbrlBtn = document.getElementById('rb-xbrl-btn');
+        const xbrlFile = document.getElementById('rb-xbrl-file');
+        if (xbrlBtn && xbrlFile) {
+            xbrlBtn.addEventListener('click', () => xbrlFile.click());
+            xbrlFile.addEventListener('change', () => {
+                const f = xbrlFile.files && xbrlFile.files[0];
+                if (!f) return;
+                f.text().then(t => { rbApplicaXbrl(v, rbImportXbrl(t)); vistaRatingScheda(); })
+                    .catch(() => { rbApplicaXbrl(v, { error: 'Impossibile leggere il file selezionato.' }); vistaRatingScheda(); });
+                xbrlFile.value = '';
+            });
+        }
+        // importazione PDF Centrale dei Rischi
+        const crBtn = document.getElementById('rb-crpdf-btn');
+        const crFile = document.getElementById('rb-crpdf-file');
+        if (crBtn && crFile) {
+            crBtn.addEventListener('click', () => crFile.click());
+            crFile.addEventListener('change', () => {
+                const f = crFile.files && crFile.files[0];
+                if (!f) return;
+                statoImportCr = { classe: 'warn', html: 'Lettura del PDF in corso&hellip;' };
+                vistaRatingScheda();
+                rbCaricaPdfJs()
+                    .then(() => f.arrayBuffer())
+                    .then(buf => rbPdfARighe(new Uint8Array(buf)))
+                    .then(lines => { rbApplicaCrPdf(v, rbParseCrPdf(lines)); vistaRatingScheda(); })
+                    .catch(err => {
+                        rbApplicaCrPdf(v, { error: 'Impossibile leggere il file: ' + (err && err.message ? err.message : 'formato non riconosciuto.') });
+                        vistaRatingScheda();
+                    });
+                crFile.value = '';
+            });
+        }
+        // dettagli delle voci di bilancio
+        $vista().querySelectorAll('[data-det]').forEach(el => el.addEventListener('change', () => {
+            const n = rbNum(el.value);
+            v.dettagli = v.dettagli || {};
+            if (n === null) delete v.dettagli[el.dataset.det];
+            else v.dettagli[el.dataset.det] = n;
+            el.value = rbFmtNum(n);
+        }));
+        $vista().querySelectorAll('[data-det-sel]').forEach(el => el.addEventListener('change', () => {
+            v.dettagli = v.dettagli || {};
+            v.dettagli[el.dataset.detSel] = el.value;
+        }));
+        // gruppo societario
+        $vista().querySelectorAll('[data-gr]').forEach(el => el.addEventListener('change', () => {
+            v.gruppo = v.gruppo || {};
+            v.gruppo[el.dataset.gr] = el.value;
+            vistaRatingScheda();
+        }));
+        $vista().querySelectorAll('[data-gr-txt]').forEach(el => el.addEventListener('change', () => {
+            v.gruppo = v.gruppo || {};
+            v.gruppo[el.dataset.grTxt] = el.value;
+        }));
+        $vista().querySelectorAll('[data-gr-chk]').forEach(el => el.addEventListener('change', () => {
+            v.gruppo = v.gruppo || {};
+            v.gruppo[el.dataset.grChk] = el.checked;
+            vistaRatingScheda();
+        }));
+        // compagine sociale
+        const socAdd = document.getElementById('rb-soc-add');
+        if (socAdd) socAdd.addEventListener('click', () => { v.soci.push({ nome: '', tipo: 'pf', quota: '' }); vistaRatingScheda(); });
+        $vista().querySelectorAll('[data-soc-rm]').forEach(b => b.addEventListener('click', () => { v.soci.splice(Number(b.dataset.socRm), 1); vistaRatingScheda(); }));
+        $vista().querySelectorAll('[data-soc-campo]').forEach(el => el.addEventListener('change', () => {
+            const s = v.soci[Number(el.dataset.socIdx)];
+            if (!s) return;
+            s[el.dataset.socCampo] = el.value;
+            if (el.dataset.socCampo !== 'nome') vistaRatingScheda();
+        }));
+        // amministratori
+        const ammAdd = document.getElementById('rb-amm-add');
+        if (ammAdd) ammAdd.addEventListener('click', () => { v.amministratori.push({ nome: '', carica: '', pregiudizievoli: 'verificare' }); vistaRatingScheda(); });
+        $vista().querySelectorAll('[data-amm-rm]').forEach(b => b.addEventListener('click', () => { v.amministratori.splice(Number(b.dataset.ammRm), 1); vistaRatingScheda(); }));
+        $vista().querySelectorAll('[data-amm-campo]').forEach(el => el.addEventListener('change', () => {
+            const a = v.amministratori[Number(el.dataset.ammIdx)];
+            if (!a) return;
+            a[el.dataset.ammCampo] = el.value;
+            if (el.dataset.ammCampo === 'pregiudizievoli') vistaRatingScheda();
+        }));
         // banche
         const addBanca = document.getElementById('rb-banca-add');
         if (addBanca) addBanca.addEventListener('click', () => { v.banche.push({ banca: '', nome: '', accordato: null, utilizzato: null, sconfini: false, garanzie: '', nota: '' }); vistaRatingScheda(); });
@@ -7416,6 +8566,13 @@
         const coppieBilancio = RB_CAMPI_BILANCIO
             .filter(c => bil[c.id] !== null && bil[c.id] !== undefined)
             .map(c => `<div class="rb-dato"><span>${esc(c.et)}</span><strong>${numFmt.format(bil[c.id])} &euro;</strong></div>`).join('');
+        const det = v.dettagli || {};
+        const coppieDettagli = RB_DETTAGLI
+            .filter(c => rbNum(det[c.id]))
+            .map(c => `<div class="rb-dato"><span>${esc(c.et)}</span><strong>${numFmt.format(rbNum(det[c.id]))} &euro;</strong></div>`).join('');
+        const soggettiCompilati = es.soggetti.compilato || es.gruppo.compilato;
+        let nSez = 0;
+        const tSez = titolo => (++nSez) + '. ' + titolo;
 
         $vista().innerHTML = `
             <div class="barra-stampa no-stampa">
@@ -7437,7 +8594,7 @@
                 </div>
 
                 <div class="rb-sezione">
-                    <h3>1. Sintesi</h3>
+                    <h3>${tSez('Sintesi')}</h3>
                     ${rbHtmlVerdetto(es, '')}
                     ${rbHtmlKpiMcc(es)}
                     <p class="rb-testo">${esc(rbTestoSintesi(es))}</p>
@@ -7445,13 +8602,13 @@
                 </div>
 
                 <div class="rb-sezione">
-                    <h3>2. Rating MCC del Fondo di Garanzia</h3>
+                    <h3>${tSez('Rating MCC del Fondo di Garanzia')}</h3>
                     ${rbHtmlScala(es.mcc.integrata)}
                     ${rbHtmlDettaglioMcc(es, true)}
                 </div>
 
                 <div class="rb-sezione">
-                    <h3>3. Questionario qualitativo e rating ipotizzato</h3>
+                    <h3>${tSez('Questionario qualitativo e rating ipotizzato')}</h3>
                     ${rbHtmlCorrettivo(es)}
                     <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Domanda</th><th>Risposta</th><th class="num">Punti</th></tr></thead><tbody>
                     ${RB_QUESTIONARIO.map(s => `<tr class="rb-riga-sezione"><td colspan="3"><strong>${esc(s.titolo)}</strong> &middot; ${es.quest.perSezione.find(x => x.id === s.id).perc}%</td></tr>`
@@ -7459,30 +8616,41 @@
                     </tbody></table></div>
                 </div>
 
+                ${es.rett.attive ? `<div class="rb-sezione">
+                    <h3>${tSez('Rettifiche prudenziali: il bilancio come lo legge la banca')}</h3>
+                    ${rbHtmlRettifiche(es)}
+                </div>` : ''}
+
+                ${soggettiCompilati ? `<div class="rb-sezione">
+                    <h3>${tSez('Soci, amministratori e gruppo')}</h3>
+                    ${rbHtmlSoggettiGruppo(es)}
+                </div>` : ''}
+
                 <div class="rb-sezione">
-                    <h3>4. Cruscotto di bancabilita</h3>
+                    <h3>${tSez('Cruscotto di bancabilita')}</h3>
                     ${rbHtmlTabellaCruscotto(es)}
                 </div>
 
                 <div class="rb-sezione">
-                    <h3>5. Indici della crisi (CNDCEC) e Z-Score</h3>
+                    <h3>${tSez('Indici della crisi (CNDCEC) e Z-Score')}</h3>
                     ${rbHtmlCndcec(es)}
                     <div style="margin-top:10px;">${rbHtmlZ(es)}</div>
                 </div>
 
                 <div class="rb-sezione">
-                    <h3>6. Posizionamento bancario</h3>
+                    <h3>${tSez('Posizionamento bancario')}</h3>
                     ${rbHtmlTabellaBanche(es)}
                 </div>
 
                 <div class="rb-sezione">
-                    <h3>7. Azioni migliorative proposte</h3>
+                    <h3>${tSez('Azioni migliorative proposte')}</h3>
                     ${rbHtmlAzioni(es)}
                 </div>
 
                 <div class="rb-sezione">
-                    <h3>8. Dati utilizzati</h3>
+                    <h3>${tSez('Dati utilizzati')}</h3>
                     <div class="rb-dati-griglia">${coppieBilancio}</div>
+                    ${coppieDettagli ? '<p class="rb-testo" style="margin:10px 0 4px;"><strong>Dettagli dichiarati sulle voci:</strong></p><div class="rb-dati-griglia">' + coppieDettagli + '</div>' : ''}
                     ${es.mcc.cr ? `<p class="rb-testo" style="margin-top:8px;"><strong>Centrale dei Rischi (6 mesi):</strong> utilizzo su accordato autoliquidanti e revoca ${rbFmt2.format(es.mcc.cr.c1)} &middot; mesi con sconfino di cassa ${es.mcc.cr.c2} &middot; mesi con sconfino a scadenza ${es.mcc.cr.c3} &middot; classe andamentale A${es.mcc.cr.classe}${es.mcc.sofferenze ? ' &middot; SOFFERENZE PRESENTI' : ''}.</p>`
                         : '<p class="rb-testo" style="margin-top:8px;">Centrale dei Rischi non utilizzata: classe calcolata con il solo modulo economico-finanziario.</p>'}
                     ${v.note ? '<p class="rb-testo"><strong>Note:</strong> ' + esc(v.note) + '</p>' : ''}
@@ -7490,7 +8658,7 @@
 
                 <div class="rb-sezione rb-nota-metodo">
                     <h3>Nota metodologica e limiti</h3>
-                    <p class="rb-testo">Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA). Il correttivo qualitativo e una stima professionale Revilaw di come i modelli interni delle banche integrano gli elementi organizzativi e andamentali: il rating effettivo assegnato da ciascuna banca puo differire. I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali. Questo documento e uno strumento di lavoro riservato e non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009.</p>
+                    <p class="rb-testo">Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA). Il correttivo qualitativo, le rettifiche prudenziali del bilancio, i profili di soggetti e gruppo e la stima per singolo istituto sono stime professionali Revilaw di come i modelli interni delle banche integrano gli elementi organizzativi e andamentali (il metodo completo, formula per formula, e nella scheda "Metodo di calcolo" dell'area riservata): il rating effettivo assegnato da ciascuna banca puo differire. I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali. Questo documento e uno strumento di lavoro riservato e non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009.</p>
                 </div>
 
                 <div class="rb-firma">
@@ -8288,6 +9456,21 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-21-rating-bancario-completo',
+            data: '2026-08-21',
+            titolo: 'Rating bancario: import dei documenti, soggetti e stima per istituto',
+            sommario: 'La sezione Rating bancario ora importa da sola il bilancio XBRL del Registro Imprese e il PDF della Centrale dei Rischi, chiede i dettagli delle voci che contano (crediti scaduti, magazzino, rivalutazioni, leasing, debiti fiscali), verifica compagine sociale, amministratori e gruppo, e stima il rating presso ogni singolo istituto in base alla sua politica di credito. In fondo alla scheda c\'e il manuale che spiega ogni calcolo.',
+            chi: 'Chi prepara le verifiche del merito creditizio. Il manuale del metodo e visibile anche a chi ha la sezione in sola lettura.',
+            dove: 'Sezione "Rating bancario": dentro la verifica, schede "Impresa e bilancio" (import XBRL e dettagli), "Centrale Rischi" (import PDF), "Soci e gruppo" e "Metodo di calcolo". Dall\'elenco, pulsante "Metodo di calcolo".',
+            voci: [
+                { titolo: 'Import dei documenti', testo: 'Il file XBRL depositato compila da solo il bilancio (esercizio corrente e precedente) e riconosce il settore dal codice ATECO; il PDF della Centrale dei Rischi compila la griglia dei sei mesi e rileva le sofferenze. Tutto viene letto nel browser, come nel simulatore pubblico.' },
+                { titolo: 'Dettagli delle voci e bilancio rettificato', testo: 'Le domande da analista fidi sulle voci importanti: crediti scaduti, magazzino fermo, rivalutazioni, finanziamenti soci, leasing, debiti fiscali scaduti, garanzie prestate. Il programma ricalcola il rating sul bilancio rettificato in ottica banca e mostra la differenza.' },
+                { titolo: 'Soci, amministratori e gruppo', testo: 'La compagine si censisce con la titolarita effettiva (fiduciarie e soci esteri vengono segnalati), gli amministratori con l\'esito delle visure su protesti e pregiudizievoli, il gruppo con sostegno, consolidato e garanzie infragruppo. Questi profili correggono la classe insieme al questionario.' },
+                { titolo: 'La stima per singolo istituto', testo: 'Ogni banca ha la sua politica di credito: grandi gruppi con modelli standardizzati, banche del territorio che pesano la relazione, gruppi esteri con soglie rigide sul capitale, specializzate. La tabella del posizionamento bancario mostra il rating stimato presso ciascun istituto con le correzioni spiegate riga per riga.' },
+                { titolo: 'Il manuale dei calcoli', testo: 'Nella scheda "Metodo di calcolo" ogni formula e spiegata: modello MCC, andamentale, correttivi, rettifiche, cruscotto, CNDCEC, Z-Score, solidita delle banche e stima per istituto, con soglie e fonti.' }
+            ]
+        },
         {
             id: '2026-08-21-rating-bancario',
             data: '2026-08-21',
@@ -15128,7 +16311,8 @@
                     </div>
                 </div>
                 <div class="ruolo-sez">${riepSez(r)}</div>
-                ${r.sistema ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw piu le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
+                ${r.id === 'coordinatore' || r.id === 'vicecoordinatore' ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw piu le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
+                ${r.id === RUOLO_MARKETING ? '<div class="ruolo-reg">Non e limitato al territorio: vede gli incarichi di tutte le regioni. Parte con tutto in sola lettura; la scrittura si concede sezione per sezione. Sulle richieste di correzione resta osservatore.</div>' : ''}
             </div>`).join('') +
             `</div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
@@ -15163,17 +16347,17 @@
         // sezione, anche la scrittura, esattamente come per un ruolo su misura.
         const soloAdmin = !!(esistente && esistente.id === 'admin');
         const diSistema = !!(esistente && esistente.sistema);
-        // profilo di sola visualizzazione (Marketing): la scrittura non e' nemmeno in elenco
-        const soloVis = !!(esistente && eRuoloSolaVisualizzazione(esistente.id));
+        // profilo Marketing: niente territorio e ruolo speciale sulle richieste, va spiegato a parte
+        const profiloMarketing = !!(esistente && esistente.id === RUOLO_MARKETING);
         const r = esistente || { id: '', nome: '', builtin: false, sezioni: sezioniTutte('no') };
         apriModale(`<h2>${esistente ? (soloAdmin ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
             ${(soloAdmin || diSistema) ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
             ${soloAdmin ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non e modificabile.</p>' : `
-            ${soloVis ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: profilo di <strong>sola visualizzazione</strong>. Qui sotto scegli quali sezioni vede; la <strong>scrittura non e disponibile</strong>, in nessuna sezione. Non e limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
+            ${profiloMarketing ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto quali sezioni vede e dove puo anche scrivere. Nasce con tutto in <strong>sola lettura</strong>, ma la <strong>scrittura si puo concedere</strong> sezione per sezione. Non e limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> resta osservatore: vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
                 : diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa puo modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioe la <strong>Regione</strong> della sua scheda in <strong>Aderenti Revilaw</strong> (agganciata all\'utente tramite email) piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa puo toccare</h3>
             <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
-                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).filter(liv => !(soloVis && liv === 'scrittura')).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
+                <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
             <div class="msg-errore hidden" id="r-errore"></div>
             <div class="modale-azioni">
                 ${soloAdmin ? '<button class="btn btn-primary" id="m-annulla">Chiudi</button>'
@@ -15197,8 +16381,7 @@
             const sezioni = {};
             SEZIONI_RUOLO.forEach(s => {
                 const sel = document.querySelector('[data-sez="' + s.id + '"]');
-                let v = sel ? sel.value : 'no';
-                if (soloVis && v === 'scrittura') v = 'lettura';   // profilo di sola visualizzazione: la scrittura non esiste
+                const v = sel ? sel.value : 'no';
                 sezioni[s.id] = (v === 'lettura' || v === 'scrittura') ? v : 'no';
             });
             const nuovo = { id: nid, nome: nome, builtin: !!(esistente && esistente.builtin), sistema: !!(esistente && esistente.sistema), sezioni: sezioni };
