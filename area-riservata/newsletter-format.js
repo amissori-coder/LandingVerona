@@ -1034,7 +1034,9 @@
            (il portale), cosi' chi riceve capisce perche' gli
            scriviamo noi e non solo Eventbrite.
        `dati`: nome, cognome, evento {titolo, quando, luogo, indirizzo,
-       url}, portale (etichetta leggibile), dataIscrizione (facolt.).
+       url}, portale (etichetta leggibile), partecipanti (numero di
+       persone coperte dall'iscrizione: sopra 1 la mail lo dice, a 1
+       tace perche' e' il caso normale), dataIscrizione (facolt.).
        Restituisce { oggetto, html, testo }: l'HTML e' la mail INTERA,
        il servizio la spedisce cosi' com'e'.
     ========================================================= */
@@ -1043,6 +1045,7 @@
         dati = dati || {};
         const ev = dati.evento || {};
         const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
+        const nPart = Math.floor(Number(dati.partecipanti)) || 0;
         const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const oggetto = 'Iscrizione confermata - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
@@ -1083,6 +1086,7 @@
             + riga('Data', ev.quando)
             + riga('Sede', dove)
             + riga('Iscritto', nomeCompleto)
+            + riga('Partecipanti', nPart > 1 ? String(nPart) : '')
             + riga('Iscrizione da', dati.portale)
             + riga('Registrata il', dati.dataIscrizione);
         const box = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
@@ -1090,9 +1094,12 @@
             + '<tr><td style="padding:16px 22px;">' + tabellaInterna(righe) + '</td></tr></table>';
 
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const posto = nPart > 1
+            ? 'I tuoi ' + nPart + ' posti sono riservati.'
+            : 'Il tuo posto è riservato.';
         const corpo = cella(tabellaInterna(
             spazio(30)
-            + par('Il tuo posto è riservato. Qui sotto trovi il riepilogo della tua iscrizione: se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.')
+            + par(posto + ' Qui sotto trovi il riepilogo della tua iscrizione: se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.')
             + spazio(22)
             + '<tr><td>' + box + '</td></tr>'
             + (urlEvento
@@ -1131,9 +1138,10 @@
         parti.push([
             rt('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business'),
             rt('Data', ev.quando), rt('Sede', dove), rt('Iscritto', nomeCompleto),
+            rt('Partecipanti', nPart > 1 ? String(nPart) : ''),
             rt('Iscrizione da', dati.portale), rt('Registrata il', dati.dataIscrizione)
         ].filter(Boolean).join('\n'));
-        parti.push('Se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.');
+        parti.push(posto + ' Se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.');
         if (urlEvento) parti.push('Programma e dettagli dell\'evento: ' + urlEvento);
         parti.push('--');
         parti.push(MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf);

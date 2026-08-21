@@ -16,7 +16,9 @@
      - "imposta"  : stato e/o nota di un iscritto (tutti gli abilitati)
      - "cancella" : rimuove un'iscrizione (SOLO amministratore)
      - "modifica" : corregge i dati di un'iscrizione (SOLO amministratore)
-     - "aggiungi" : registra un'iscrizione A MANO (SOLO amministratore),
+     - "aggiungi" : registra un'iscrizione A MANO (amministratore,
+       equity partner e founding partner: conta SOLO il RUOLO DI
+       ACCESSO dell'utente, non la spunta in anagrafica),
        per chi si e' iscritto da un portale esterno (Eventbrite): il
        portale di provenienza resta sulla scheda e, se richiesto, parte
        la mail di conferma in formato NGB gia' composta dall'area
@@ -99,6 +101,26 @@ function adesso() {
     f.formatToParts(new Date()).forEach(x => { p[x.type] = x.value; });
     return p.day + '/' + p.month + '/' + p.year + ' ' + p.hour + ':' + p.minute + ':' + p.second;
 }
+/* Equity o founding partner: conta SOLO il RUOLO DI ACCESSO dell'utente
+   (utenti/<email>.ruolo). Un ruolo il cui id o nome dice "equity" oppure
+   "founding/founder" abilita; l'id dei ruoli su misura e' lo slug del nome,
+   quindi di solito basta senza nemmeno leggere l'archivio ruoli. La spunta
+   Equity/Founding partner in anagrafica qui NON vale: il permesso si governa
+   dalla sezione Utenti. In caso di dubbio (archivio ruoli illeggibile) si
+   risponde no: il permesso largo resta all'amministratore. */
+const RE_PARTNER = /equity|found/i;
+async function ePartner(db, ruolo) {
+    if (!ruolo) return false;
+    if (RE_PARTNER.test(ruolo)) return true;
+    try {
+        const rd = await db.collection('archivio').doc('ruoli').get();
+        if (!rd.exists || typeof rd.data().json !== 'string') return false;
+        const lista = JSON.parse(rd.data().json) || [];
+        const r = (Array.isArray(lista) ? lista : []).find(x => x && x.id === ruolo);
+        return !!(r && RE_PARTNER.test(String(r.nome || '')));
+    } catch (_) { return false; }
+}
+
 // stesso trasporto SMTP delle altre mail dell'area riservata
 function trasporto() {
     return nodemailer.createTransport({
@@ -198,12 +220,20 @@ module.exports = async (req, res) => {
         if (azione !== 'aggiungi' && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
 
         if (azione === 'aggiungi') {
-            if (!eAdmin) { res.status(403).json({ ok: false, msg: 'Solo l\'amministratore puo aggiungere un\'iscrizione.' }); return; }
+            // oltre all'amministratore, TUTTI gli equity e founding partner:
+            // l'iscrizione da Eventbrite la riporta chi segue l'evento
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono aggiungere un\'iscrizione l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
             const c = body.campi || {};
             const pagina = testo(body.pagina, 200);
             if (!pagina) { res.status(400).json({ ok: false, msg: 'Pagina dell\'evento mancante.' }); return; }
             const portaleId = testo((body.portale || {}).id, 40).toLowerCase();
             if (!PORTALI[portaleId]) { res.status(400).json({ ok: false, msg: 'Portale di provenienza non riconosciuto.' }); return; }
+            // quante persone copre l'iscrizione (da Eventbrite un ordine puo' valere
+            // per piu' posti): fuori misura o mancante diventa 1, mai zero
+            const partecipanti = Math.min(99, Math.max(1, parseInt(testo(c.partecipanti, 6), 10) || 1));
             const scheda = {
                 data: testo(c.data, 40) || adesso(),
                 pagina: pagina,
@@ -214,11 +244,13 @@ module.exports = async (req, res) => {
                 ruolo: testo(c.ruolo, 200),
                 telefono: testo(c.telefono, 60),
                 messaggio: testo(c.messaggio, 2000),
-                /* il portale sta in DUE posti: come codice sulla scheda, e come
-                   colonna "Portale" fra le aggiuntive, che l'elenco mostra gia'
-                   da se' senza toccare la lettura */
+                /* portale e partecipanti stanno in DUE posti: come campi sulla
+                   scheda, e come colonne "Portale" e "Partecipanti" fra le
+                   aggiuntive, che l'elenco mostra gia' da se' senza toccare
+                   la lettura */
                 portale: portaleId,
-                extra: { Portale: PORTALI[portaleId] },
+                partecipanti: partecipanti,
+                extra: { Portale: PORTALI[portaleId], Partecipanti: String(partecipanti) },
                 origine: 'manuale',
                 inserito: { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() },
                 ricevuto: admin.firestore.FieldValue.serverTimestamp()

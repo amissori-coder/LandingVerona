@@ -183,11 +183,17 @@ al minuto per utente.
 - `azione: "cancella"`: **solo amministratore**. Cancella l'iscrizione e la sua
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
-- `azione: "aggiungi"`: **solo amministratore**. Registra un'iscrizione a mano,
+- `azione: "aggiungi"`: **amministratore, equity partner e founding partner**.
+  Conta **solo il ruolo di accesso** dell'utente (`utenti/<email>.ruolo`): un
+  ruolo il cui id o nome contiene "equity" o "founding/founder" abilita; la
+  spunta Equity/Founding partner in anagrafica non vale. Registra un'iscrizione
+  a mano,
   per chi si e iscritto da un portale esterno (dall'evento di Napoli in poi
   l'iscrizione passa anche da Eventbrite). Nel corpo: `pagina` (titolo del
   modulo dell'evento), `campi` (nome, cognome, email, telefono, azienda,
-  ruolo, data), `portale` (`{ id }` fra `eventbrite`, `sito`, `email`,
+  ruolo, partecipanti, data; `partecipanti` e il numero di posti coperti
+  dall'iscrizione, 1-99, e finisce anche nella colonna aggiuntiva
+  "Partecipanti"), `portale` (`{ id }` fra `eventbrite`, `sito`, `email`,
   `telefono`, `altro`: l'etichetta la mette il servizio e finisce nella
   colonna aggiuntiva "Portale") e, facoltativa, `mail` `{ oggetto, html,
   testo }`: la conferma in formato NGB gia composta dall'area riservata

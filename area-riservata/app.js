@@ -7615,6 +7615,23 @@
         { id: 'telefono', nome: 'Telefono o di persona' },
         { id: 'altro', nome: 'Altro portale' }
     ];
+    /* Chi puo' INSERIRE iscrizioni a mano: amministratore, titolare, e chi ha
+       un RUOLO DI ACCESSO da partner, quello assegnato nella sezione Utenti:
+       un ruolo il cui nome (o id, che ne e' lo slug) dice "equity" oppure
+       "founding/founder". Conta SOLO il ruolo: la spunta Equity o Founding
+       partner in anagrafica qui non vale, cosi' il permesso si governa da un
+       posto solo. */
+    function eRuoloPartner(idRuolo) {
+        if (!idRuolo) return false;
+        if (/equity|found/i.test(idRuolo)) return true;
+        const r = Ruoli.trova(idRuolo);
+        return !!(r && /equity|found/i.test(String(r.nome || '')));
+    }
+    function puoAggiungereIscrizioni() {
+        if (Auth.eAdmin() || Auth.eProprietario()) return true;
+        const u = Auth.utenteCorrente;
+        return !!(u && eRuoloPartner(u.ruolo));
+    }
     // filtri dei soli eventi veri: servono al riepilogo per NON pescare le iscrizioni
     // degli altri moduli del sito, che finiscono nello stesso archivio
     const FILTRI_EVENTI = EVENTI_DEF.filter(e => !e.tutti && e.filtro).map(e => e.filtro);
@@ -8007,7 +8024,15 @@
             + (ev.manuale ? '<button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button>' : '')
             + '<button class="btn btn-secondary" id="ev-accessi">Gestisci accessi</button>'
             + '<button class="btn btn-secondary" id="ev-importa">Importa iscrizioni</button></div></div>'
-            : '';
+            /* Anche EQUITY e FOUNDING PARTNER aggiungono le iscrizioni arrivate
+               dai portali esterni: conta il solo ruolo di accesso. A loro compare
+               la sola card con quel pulsante, il resto della gestione resta
+               all'amministratore. */
+            : (ev.manuale && puoAggiungereIscrizioni()
+                ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Iscrizioni da altri portali</strong>'
+                + '<div class="hint">Chi si iscrive da Eventbrite non compare da solo: la scheda si aggiunge da qui, con la mail di conferma in formato NGB.</div></div>'
+                + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-nuova">Aggiungi iscrizione</button></div></div>'
+                : '');
         const avviso = _evMsg ? '<div class="card tabella-vuota">' + esc(_evMsg) + '</div>' : '';
         const vuoto = ev.nota
             ? '<div class="card tabella-vuota">Nessuna iscrizione per ' + esc(ev.titolo) + '.<br><span class="hint">' + esc(ev.nota) + '</span></div>'
@@ -8241,15 +8266,17 @@
         });
     }
 
-    /* Inserimento A MANO di un'iscrizione (solo amministratore), per gli eventi
-       che raccolgono iscrizioni anche fuori dal sito: chi si iscrive da
-       Eventbrite non passa dal nostro form, quindi la sua scheda si ricopia qui.
+    /* Inserimento A MANO di un'iscrizione (amministratore, titolare e tutti gli
+       equity e founding partner, riconosciuti dal ruolo di accesso: vedi
+       puoAggiungereIscrizioni), per gli eventi che raccolgono iscrizioni anche
+       fuori dal sito: chi si iscrive da Eventbrite non passa dal nostro form,
+       quindi la sua scheda si ricopia qui.
        Si indica da quale portale arriva (resta visibile nell'elenco, colonna
        "Portale") e si puo' far partire subito la mail di conferma in formato
        NGB, uguale per impostazione alla newsletter: prima di salvare c'e'
        l'anteprima, cosi' si vede esattamente cio' che ricevera' la persona. */
     function modaleNuovaIscrizione(ev) {
-        if (!(Auth.eAdmin() || Auth.eProprietario())) return;
+        if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale) return;
         const campo = (id, et, tipo, ph) => '<div class="campo"><label for="' + id + '">' + et + '</label>'
             + '<input type="' + (tipo || 'text') + '" id="' + id + '" placeholder="' + esc(ph || '') + '"></div>';
@@ -8261,10 +8288,17 @@
             + campo('ni-email', 'Email', 'email', 'nome@azienda.it') + campo('ni-tel', 'Telefono')
             + campo('ni-azienda', 'Azienda') + campo('ni-ruolo', 'Ruolo')
             + '</div>'
+            + '<div class="griglia-2">'
             + '<div class="campo"><label for="ni-portale">Da quale portale arriva l\'iscrizione</label>'
             + '<select id="ni-portale">'
             + PORTALI_ISCRIZIONE.map(p => '<option value="' + p.id + '">' + esc(p.nome) + '</option>').join('')
             + '</select></div>'
+            // quante persone copre l'iscrizione: da Eventbrite un ordine solo puo'
+            // valere per piu' posti. Resta nell'elenco (colonna "Partecipanti")
+            // e sopra 1 lo dice anche la mail di conferma.
+            + '<div class="campo"><label for="ni-part">Numero di partecipanti</label>'
+            + '<input type="number" id="ni-part" value="1" min="1" max="99" step="1"></div>'
+            + '</div>'
             + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ni-mail" checked> '
             + 'Invia subito la mail di conferma in formato NGB</label>'
             + '<div class="hint">La riceve l\'iscritto all\'indirizzo indicato sopra. Con "Anteprima mail" la vedi prima di salvare.</div></div>'
@@ -8282,6 +8316,8 @@
             if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
         };
         const portaleScelto = () => PORTALI_ISCRIZIONE.find(p => p.id === v('ni-portale')) || PORTALI_ISCRIZIONE[0];
+        // un numero fuori misura o cancellato torna a 1: nessun salvataggio a zero posti
+        const nPartecipanti = () => Math.min(99, Math.max(1, parseInt(v('ni-part'), 10) || 1));
         // data di iscrizione nello stesso formato del form del sito: entra
         // nell'identificativo della scheda e nella mail ("Registrata il")
         const p2 = n => String(n).padStart(2, '0');
@@ -8295,6 +8331,7 @@
                 url: ev.urlPagina ? SITO_PUBBLICO + ev.urlPagina : ''
             },
             portale: portaleScelto().nome,
+            partecipanti: nPartecipanti(),
             dataIscrizione: dataIscrizione.slice(0, 16)
         }) : null;
 
@@ -8316,6 +8353,7 @@
                 nome: v('ni-nome'), cognome: v('ni-cognome'),
                 email: v('ni-email').toLowerCase(), telefono: v('ni-tel'),
                 azienda: v('ni-azienda'), ruolo: v('ni-ruolo'),
+                partecipanti: nPartecipanti(),
                 data: dataIscrizione
             };
             if (!campi.email && !campi.nome && !campi.cognome) { esito('Servono almeno nome e cognome, oppure l\'email.', true); return; }
