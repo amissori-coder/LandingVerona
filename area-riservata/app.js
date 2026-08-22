@@ -5980,7 +5980,8 @@
         { id: 'debTribPrev',  et: 'Debiti tributari e previdenziali (D.12+13)', gr: 'pas', req: true },
         { id: 'debFinBreve',  et: 'Debiti finanziari a breve',                 gr: 'fin', req: true, hint: 'banche entro 12 mesi' },
         { id: 'debFinLungo',  et: 'Debiti finanziari a medio-lungo',           gr: 'fin', req: true },
-        { id: 'quotaCapitale', et: 'Quota capitale in scadenza (12 mesi)',     gr: 'fin', req: false, hint: 'serve per il DSCR' }
+        { id: 'quotaCapitale', et: 'Quota capitale in scadenza (12 mesi)',     gr: 'fin', req: false, hint: 'serve per il DSCR' },
+        { id: 'flussoOperativo', et: 'Flusso di cassa operativo atteso (12 mesi)', gr: 'fin', req: false, hint: 'per il DSCR dello scoring; vuoto = 70% dell\'EBITDA' }
     ];
     const RB_GRUPPI_BILANCIO = { ce: 'Conto economico', att: 'Attivo', pas: 'Passivo', fin: 'Debito finanziario' };
 
@@ -6554,7 +6555,7 @@
             return { nome, banca, solidita: banca ? rbSoliditaBanca(banca) : null,
                      rating: banca ? rbEtichettaRating(banca) : 'da censire',
                      acc, uti, utilizzo, sconfini: !!r.sconfini, garanzie: r.garanzie || '',
-                     anzianita: r.anzianita || '', nota: r.nota || '', tensione,
+                     anzianita: r.anzianita || '', severita: r.severita, nota: r.nota || '', tensione,
                      stima, vista: stima ? stima.classe : null };
         });
         const totAcc = righe.reduce((s, r) => s + r.acc, 0);
@@ -6733,6 +6734,16 @@
         if (es.gruppo.notch > 0) {
             dai('media', 'Bilancio', 'Riequilibrare i flussi verso il gruppo',
                 'Il gruppo assorbe risorse dall\'impresa: formalizzare i rapporti infragruppo a condizioni di mercato e ridurre il drenaggio di cassa restituisce autonomia al merito creditizio della societa.', RB_SERVIZI.patrimonio);
+        }
+        // --- scoring e presidio CCII ---
+        if (es.scoring.presidio.segnaliPresenti > 0) {
+            const lettere = es.scoring.presidio.segnali.filter(s2 => s2.esito).map(s2 => s2.lettera).join(', ');
+            dai('alta', 'Governance', 'Segnali di crisi ex art. 3 CCII presenti',
+                'Risultano attivi i segnali di cui alle lettere ' + lettere + ' dell\'art. 3, comma 4, del Codice della crisi: gli adeguati assetti impongono di valutarli subito con l\'organo di controllo e di documentare le iniziative assunte.', RB_SERVIZI.crisi);
+        }
+        if (es.scoring.andam.righe.some(r2 => r2.nome.indexOf('Garanzie escusse') === 0 && r2.punteggio === 0)) {
+            dai('alta', 'Banche', 'Escussioni o revoche recenti da ricostruire',
+                'Escussioni di garanzie o revoche negli ultimi 24 mesi pesano su ogni nuova istruttoria: preparare una ricostruzione documentata dell\'accaduto e delle contromisure prima di chiedere nuova finanza.', RB_SERVIZI.rating);
         }
 
         const ordine = { alta: 0, media: 1, spunto: 2 };
@@ -7679,15 +7690,23 @@
                 <p class="rb-testo">Prima i due segnali di primo livello: <strong>patrimonio netto negativo</strong> e <strong>DSCR sotto 1</strong>. Poi i cinque indici settoriali del documento CNDCEC 20/10/2019 (oneri finanziari/ricavi, patrimonio netto/debiti, attivo a breve/passivo a breve, cash flow/attivo, debiti fiscali/attivo), confrontati con le soglie del settore: l'allerta scatta solo se si accendono <strong>tutti e cinque</strong>. Per le attivita immobiliari il documento non fissa soglie.</p>
                 <p class="rb-testo">Lo <strong>Z-Score</strong> usa la variante Z' per le manifatturiere non quotate (<code>0,717&times;X1 + 0,847&times;X2 + 3,107&times;X3 + 0,420&times;X4 + 0,998&times;X5</code>; rischio sotto 1,23, sicurezza oltre 2,90) e la variante Z'' per le altre (<code>6,56&times;X1 + 3,26&times;X2 + 6,72&times;X3 + 1,05&times;X4</code>; rischio sotto 1,10, sicurezza oltre 2,60), dove X1 = capitale circolante netto/attivo, X2 = riserve di utili/attivo, X3 = EBIT/attivo, X4 = patrimonio/debiti, X5 = ricavi/attivo.</p>
             </div>
-            <div class="card"><h2>7. La solidita delle banche e la stima per istituto</h2>
+            <div class="card"><h2>7. Il rating interno simulato (scoring a moduli)</h2>
+                <p class="rb-testo">Il secondo motore della verifica (integrato dal simulatore Excel dello studio) replica la STRUTTURA tipica dei sistemi di rating interni delle banche: tre moduli con punteggio 0-100, pesati per dimensione d'impresa determinata dai ricavi. <strong>Pesi</strong> (quantitativo / andamentale / qualitativo): Micro (fino a 2 milioni) 25/60/15; Piccola (fino a 10) 30/55/15; Media (fino a 50) 40/45/15; Grande 55/35/10 — sulle PMI l'andamentale prevale.</p>
+                <p class="rb-testo"><strong>Modulo quantitativo</strong> (dal bilancio gia inserito): otto indicatori con punteggio a soglie — PFN/EBITDA (peso 20%), EBITDA/ricavi (15%), patrimonio netto/attivo (15%), DSCR prospettico (20%: flusso operativo atteso se indicato, altrimenti il 70% dell'EBITDA, su quota capitale piu oneri finanziari), oneri finanziari/ricavi (10%), current ratio (10%), crescita dei ricavi (5%), ROE (5%). EBITDA o patrimonio negativi azzerano il punteggio dell'indicatore.</p>
+                <p class="rb-testo"><strong>Modulo andamentale</strong>: utilizzo/accordato (20%, dal mese piu recente della Centrale Rischi o dai rapporti censiti), sconfini in essere (20%: nessuno 100 punti, entro 15 giorni 40, entro 60 giorni 20, oltre 0), mesi con sconfini negli ultimi 12 (15%), insoluti su autoliquidante (15%), concentrazione bancaria (10%: una banca 60, due 80, tre o piu 100, meno 20 se la prima supera l'80%), trend dell'accordato (5%), anzianita del rapporto principale (5%), garanzie escusse o revoche (10%: presenti = 0). <strong>Modulo qualitativo</strong>: il punteggio percentuale del questionario della verifica.</p>
+                <p class="rb-testo">Lo <strong>score complessivo</strong> diventa una <strong>PD a 12 mesi</strong> con la tabella di calibrazione (da 90 punti in su 0,05%; 80: 0,15%; 70: 0,40%; 60: 0,90%; 50: 1,8%; 40: 3,5%; 30: 7%; 20: 13%; sotto: 25%) e la PD una <strong>classe interna da 1 a 10</strong> (1 Eccellente fino a 10 Pre-default). La <strong>mappatura per banca</strong> moltiplica la PD per il fattore di severita del singolo rapporto (1,00 neutro; oltre 1 banca piu severa, sotto 1 meno severa, calibrato sull'esperienza dello studio) e la traduce in classe indicativa e banda PD regolamentare del template EU CR6 dei Pillar 3 (le PD medie per classe di ogni gruppo sono sull'EBA Pillar 3 Data Hub).</p>
+                <p class="rb-testo"><strong>Presidio CCII</strong>: DSCR prospettico (adeguato da 1,1; al limite da 1; sotto criticita) e la checklist dei segnali dell'art. 3, comma 4, del Codice della crisi: a) retribuzioni scadute oltre 30 giorni sopra la meta del monte mensile; b) fornitori scaduti oltre 90 giorni sopra i non scaduti; c) esposizioni bancarie scadute o sconfinanti da oltre 60 giorni per almeno il 5% del totale; d) esposizioni rilevanti verso creditori pubblici qualificati. Un solo segnale presente porta il verdetto complessivo in area critica.</p>
+                <p class="rb-testo"><strong>MCC e scoring non sono la stessa scala</strong>: il primo replica il modello pubblico del Fondo (classi 1-12, PD empiriche della Tabella 57), il secondo la struttura dei modelli interni (classi 1-10, PD calibrate). Letti insieme: l'MCC dice come vi vede il Fondo di Garanzia, lo scoring come RAGIONANO le banche; se divergono molto, la spiegazione sta quasi sempre nell'andamentale o nel qualitativo.</p>
+            </div>
+            <div class="card"><h2>8. La solidita delle banche e la stima per istituto</h2>
                 <p class="rb-testo">Ogni istituto censito ha i rating pubblici delle agenzie (Moody's, S&P, Fitch, DBRS), convertiti in una scala comune a 21 gradini e mediati: da li la classe di solidita (A elevata da A- in su, B investment grade, C speculativa, D fragile; senza rating si stima con prudenza dal CET1). Sono dati indicativi, aggiornati a ${RB_BANCHE_AGG}.</p>
                 <p class="rb-testo">La <strong>stima del rating per istituto</strong> parte dal rating ipotizzato dell'impresa e lo adatta al singolo rapporto e al profilo della banca: <strong>+1</strong> per sconfini sul rapporto, <strong>+1</strong> per utilizzo oltre il 90% del fido; <strong>-1</strong> presso una banca del territorio con relazione oltre i 5 anni e rapporto regolare; <strong>+1</strong> presso i gruppi esteri se il patrimonio e sotto il 20% dell'attivo; <strong>-1</strong> in delibera con garanzia Confidi o Fondo MCC (dalla classe 5 in su: la garanzia agisce sulla perdita attesa, non sulla PD). Ogni correzione e elencata accanto alla stima.</p>
             </div>
-            <div class="card"><h2>8. Soci, amministratori, gruppo</h2>
+            <div class="card"><h2>9. Soci, amministratori, gruppo</h2>
                 <p class="rb-testo">La compagine si verifica per la titolarita effettiva: fiduciarie e soggetti esteri portano il profilo in attenzione (la banca chiede l'UBO). Gli amministratori si censiscono con l'esito delle visure (protesti, pregiudizievoli di conservatoria, procedure): eventi dichiarati portano il profilo in critico e valgono +1 sulla classe. Il gruppo: sostegno documentato con consolidato -1, gruppo che assorbe risorse +1, garanzie infragruppo segnalate tra gli impegni.</p>
             </div>
-            <div class="card"><h2>9. Verdetto, azioni e report</h2>
-                <p class="rb-testo">Il verdetto complessivo e "area critica" con patrimonio netto negativo, tutti gli indici CNDCEC accesi, DSCR sotto 1, fascia 5 o sofferenze; "zona di attenzione" con fascia 4, Z-Score in rischio o due indicatori del cruscotto critici; "equilibrio migliorabile" con fascia 3, Z in incertezza o un indicatore critico; altrimenti "profilo solido". Le azioni migliorative nascono dalle debolezze rilevate, in ordine di priorita, ognuna con il servizio Revilaw che la copre. Il report finale raccoglie tutto, con la firma grafica del responsabile, e si stampa in PDF.</p>
+            <div class="card"><h2>10. Verdetto, azioni e report</h2>
+                <p class="rb-testo">Il verdetto complessivo e "area critica" con patrimonio netto negativo, tutti gli indici CNDCEC accesi, DSCR sotto 1, fascia 5, sofferenze o segnali CCII presenti; "zona di attenzione" con fascia 4, Z-Score in rischio o due indicatori del cruscotto critici; "equilibrio migliorabile" con fascia 3, Z in incertezza o un indicatore critico; altrimenti "profilo solido". Le azioni migliorative nascono dalle debolezze rilevate, in ordine di priorita, ognuna con il servizio Revilaw che la copre. Il report finale raccoglie tutto, con la firma grafica del responsabile, e si stampa in PDF.</p>
                 <p class="rb-testo"><strong>Limiti.</strong> Il rating effettivo di ciascuna banca resta un modello proprietario: questa verifica replica il modello pubblico del Fondo e lo integra con stime professionali dichiarate. I dati sugli istituti vanno verificati sulle fonti ufficiali prima di un uso verso terzi.</p>
             </div>`;
     }
@@ -7713,6 +7732,249 @@
             ${rbHtmlMetodo()}`;
         document.getElementById('rb-met-indietro').addEventListener('click', () => naviga('rating'));
         document.getElementById('rb-met-stampa').addEventListener('click', () => window.print());
+    }
+
+
+    /* ------------------------------------------------------------
+       RATING INTERNO SIMULATO (scoring a moduli)
+       Il secondo motore della verifica, integrato dal simulatore
+       Excel dello studio (Simulatore Rating Bancario, v1.0): replica
+       la STRUTTURA tipica dei sistemi di rating interni delle banche
+       italiane. Tre moduli informativi con punteggi 0-100 (quantitativo
+       di bilancio, andamentale, qualitativo) pesati per dimensione di
+       impresa (andamentale prevalente sulle PMI); lo score complessivo
+       diventa una PD a 12 mesi tramite la tabella di calibrazione e la
+       PD una classe interna da 1 a 10. La mappatura per banca applica
+       il fattore di severita del singolo istituto alla PD e la traduce
+       in classe indicativa e banda PD regolamentare (template EU CR6
+       dei Pillar 3). Completa il quadro il presidio CCII: DSCR
+       prospettico e segnali dell'art. 3, comma 4, D.Lgs. 14/2019.
+       Dove il foglio Excel chiede un dato che la verifica gia possiede
+       (bilancio, utilizzo degli affidamenti, numero e quota delle
+       banche, anzianita del rapporto, questionario), il modulo lo
+       RIUSA invece di richiederlo.
+    ------------------------------------------------------------ */
+    const RB_SCORING = {
+        // pesi dei moduli per dimensione (dai ricavi): quantitativo, andamentale, qualitativo
+        pesi: [
+            { max: 2000000,  nome: 'Micro',   quant: 0.25, andam: 0.60, qual: 0.15 },
+            { max: 10000000, nome: 'Piccola', quant: 0.30, andam: 0.55, qual: 0.15 },
+            { max: 50000000, nome: 'Media',   quant: 0.40, andam: 0.45, qual: 0.15 },
+            { max: Infinity, nome: 'Grande',  quant: 0.55, andam: 0.35, qual: 0.10 }
+        ],
+        // calibrazione da score (0-100) a PD a 12 mesi
+        pd: [[0, 0.25], [20, 0.13], [30, 0.07], [40, 0.035], [50, 0.018], [60, 0.009], [70, 0.004], [80, 0.0015], [90, 0.0005]],
+        // classi interne da PD (1 = migliore)
+        classi: [[0, 1, 'Eccellente'], [0.001, 2, 'Molto solido'], [0.0025, 3, 'Solido'], [0.005, 4, 'Buono'],
+                 [0.01, 5, 'Adeguato'], [0.02, 6, 'Vulnerabile'], [0.04, 7, 'Fragile'], [0.08, 8, 'Molto fragile'],
+                 [0.15, 9, 'Critico'], [0.25, 10, 'Pre-default']],
+        // bande PD regolamentari (template EU CR6 dei Pillar 3)
+        bande: [[0, '0,00% - 0,15%'], [0.0015, '0,15% - 0,25%'], [0.0025, '0,25% - 0,50%'], [0.005, '0,50% - 0,75%'],
+                [0.0075, '0,75% - 2,50%'], [0.025, '2,50% - 10%'], [0.1, '10% - 100%']],
+        // soglie dei punteggi del modulo quantitativo (ricerca per valore crescente)
+        pfnEbitda:  [[-999, 100], [1.001, 85], [2.001, 70], [3.001, 55], [4.001, 40], [5.001, 25], [6.001, 10]],
+        margine:    [[-999, 10], [0.01, 25], [0.03, 40], [0.05, 55], [0.07, 70], [0.1, 85], [0.15, 100]],
+        pnAttivo:   [[-999, 0], [0.05, 10], [0.1, 25], [0.15, 40], [0.2, 55], [0.25, 70], [0.32, 85], [0.4, 100]],
+        dscr:       [[-999, 10], [0.9, 25], [1, 40], [1.1, 55], [1.2, 70], [1.3, 85], [1.5, 100]],
+        ofRicavi:   [[-999, 100], [0.01001, 85], [0.02001, 70], [0.03001, 55], [0.04001, 40], [0.05001, 25], [0.06001, 10]],
+        current:    [[-999, 10], [0.9, 25], [1, 40], [1.1, 55], [1.2, 70], [1.35, 85], [1.5, 100]],
+        crescita:   [[-999, 10], [-0.1, 25], [-0.05, 40], [0, 55], [0.02, 70], [0.05, 85], [0.1, 100]],
+        roe:        [[-999, 10], [0, 25], [0.03, 40], [0.06, 55], [0.09, 70], [0.12, 85], [0.16, 100]],
+        // soglie del modulo andamentale
+        utilizzo:   [[-999, 100], [0.5001, 85], [0.6001, 70], [0.7001, 55], [0.8001, 40], [0.9001, 25], [1.00001, 0]],
+        mesiSconf:  [[0, 100], [1, 75], [2, 50], [4, 25], [7, 0]],
+        insoluti:   [[0, 100], [0.000001, 80], [0.02001, 55], [0.05001, 30], [0.10001, 10]],
+        anzianita:  [[0, 40], [2, 60], [5, 80], [10, 100]],
+        sconfGiorni: { soglia1: 15, soglia2: 60, entro1: 40, entro2: 20, oltre: 0 }
+    };
+    // ricerca per valore crescente (equivale al VLOOKUP approssimato del foglio)
+    function rbSoglia(tab, val) {
+        let out = tab[0][1];
+        for (let i = 0; i < tab.length; i++) {
+            if (val >= tab[i][0]) out = tab[i][1];
+            else break;
+        }
+        return out;
+    }
+    function rbSoglia3(tab, val) {
+        let out = tab[0];
+        for (let i = 0; i < tab.length; i++) {
+            if (val >= tab[i][0]) out = tab[i];
+            else break;
+        }
+        return out;
+    }
+    // anni convenzionali dell'anzianita del rapporto (dal campo della scheda banche)
+    const RB_ANZIANITA_ANNI = { nuovo: 1, medio: 3, storico: 8 };
+
+    /* Il motore dello scoring: v = verifica, x = aggregati di bilancio,
+       quest = punteggio del questionario, ban = analisi delle banche censite. */
+    function rbScoring(v, x, quest, ban) {
+        const sc = v.scoring || {};
+        const b = v.bilancio || {};
+        const righeQ = [];
+        const punto = (nome, valore, punteggio, peso, nota) => {
+            righeQ.push({ nome, valore, punteggio, peso, contributo: punteggio * peso, nota: nota || '' });
+        };
+
+        // ---- modulo quantitativo (dal bilancio gia inserito) ----
+        const mol = b.mol || 0, ricavi = b.ricavi || 0, ricaviPrec = b.ricaviPrec || 0;
+        const of = b.oneriFin || 0, utile = b.utile || 0, pn = b.pn || 0;
+        const pfnEb = mol <= 0 ? null : x.PFN / mol;
+        punto('PFN / EBITDA', pfnEb === null ? 'EBITDA neg.' : rbFmt2.format(pfnEb) + 'x',
+            mol <= 0 ? 0 : rbSoglia(RB_SCORING.pfnEbitda, pfnEb), 0.20);
+        punto('EBITDA / Ricavi', ricavi ? rbPct(mol / ricavi * 100, 1) : 'n.c.',
+            ricavi ? rbSoglia(RB_SCORING.margine, mol / ricavi) : 0, 0.15);
+        punto('Patrimonio netto / Totale attivo', x.SP14 ? rbPct(pn / x.SP14 * 100, 1) : 'n.c.',
+            (pn < 0 || !x.SP14) ? 0 : rbSoglia(RB_SCORING.pnAttivo, pn / x.SP14), 0.15);
+        // DSCR prospettico: flusso operativo atteso se indicato, altrimenti il 70% dell'EBITDA
+        const quotaCap = (b.quotaCapitale === null || b.quotaCapitale === undefined) ? 0 : b.quotaCapitale;
+        const denDscr = quotaCap + of;
+        const numDscr = (b.flussoOperativo || 0) > 0 ? b.flussoOperativo : mol * 0.7;
+        const dscrS = denDscr > 0 ? numDscr / denDscr : null;
+        punto('DSCR prospettico 12 mesi', dscrS === null ? 'n.d.' : rbFmt2.format(dscrS),
+            dscrS === null ? 100 : rbSoglia(RB_SCORING.dscr, dscrS), 0.20,
+            (b.flussoOperativo || 0) > 0 ? 'dal flusso operativo atteso' : 'dal 70% dell\'EBITDA');
+        punto('Oneri finanziari / Ricavi', ricavi ? rbPct(of / ricavi * 100, 2) : 'n.c.',
+            ricavi ? rbSoglia(RB_SCORING.ofRicavi, of / ricavi) : 10, 0.10);
+        const curr = x.PASS_BREVE > 0 ? x.ATT_BREVE / x.PASS_BREVE : null;
+        punto('Current ratio', curr === null ? 'n.d.' : rbFmt2.format(curr),
+            curr === null ? 55 : rbSoglia(RB_SCORING.current, curr), 0.10);
+        punto('Crescita dei ricavi', ricaviPrec ? rbPct((ricavi / ricaviPrec - 1) * 100, 1) : 'n.d.',
+            ricaviPrec ? rbSoglia(RB_SCORING.crescita, ricavi / ricaviPrec - 1) : 55, 0.05);
+        punto('ROE', pn <= 0 ? 'PN neg.' : rbPct(utile / pn * 100, 1),
+            pn <= 0 ? 0 : rbSoglia(RB_SCORING.roe, utile / pn), 0.05);
+        const scoreQuant = righeQ.reduce((s, r) => s + r.contributo, 0) / righeQ.reduce((s, r) => s + r.peso, 0);
+
+        // ---- modulo andamentale (Centrale Rischi, banche censite, dati di sintesi) ----
+        const righeA = [];
+        const puntoA = (nome, valore, punteggio, peso, nota) => {
+            righeA.push({ nome, valore, punteggio, peso, contributo: punteggio * peso, nota: nota || '' });
+        };
+        // utilizzo/accordato: dal mese piu recente della CR, altrimenti dai rapporti censiti
+        let utilizzo = null, fonteUt = '';
+        const r1 = v.cr && v.cr.attiva && v.cr.righe && v.cr.righe[0];
+        if (r1 && (rbNum(r1.at) || 0) > 0) { utilizzo = (rbNum(r1.ut) || 0) / rbNum(r1.at); fonteUt = 'dalla Centrale dei Rischi (mese 1)'; }
+        else if (ban.totAcc > 0) { utilizzo = ban.totUti / ban.totAcc; fonteUt = 'dai rapporti bancari censiti'; }
+        puntoA('Utilizzo / accordato per cassa', utilizzo === null ? 'n.d.' : rbPct(utilizzo * 100, 0),
+            utilizzo === null ? 55 : rbSoglia(RB_SCORING.utilizzo, utilizzo), 0.20, fonteUt);
+        // sconfini in essere: importo e giorni di durata
+        const sconfImp = rbNum(sc.sconfiniImporto) || 0;
+        const sconfGg = rbNum(sc.sconfiniGiorni) || 0;
+        const g = RB_SCORING.sconfGiorni;
+        puntoA('Sconfini in essere', sconfImp ? eurFmt.format(sconfImp) + ' da ' + sconfGg + ' gg' : 'nessuno',
+            sconfImp === 0 ? 100 : (sconfGg <= g.soglia1 ? g.entro1 : (sconfGg <= g.soglia2 ? g.entro2 : g.oltre)), 0.20);
+        const mesiSc = rbNum(sc.mesiSconfini12);
+        puntoA('Mesi con sconfini (ultimi 12)', mesiSc === null ? 'n.d.' : String(mesiSc),
+            mesiSc === null ? 55 : rbSoglia(RB_SCORING.mesiSconf, mesiSc), 0.15,
+            mesiSc === null && v.cr && v.cr.attiva ? 'indica il dato: dai 6 mesi CR non basta' : '');
+        const insol = rbNum(sc.insolutiPerc);
+        puntoA('Insoluti su autoliquidante (12 mesi)', insol === null ? 'n.d.' : rbPct(insol, 1),
+            insol === null ? 55 : rbSoglia(RB_SCORING.insoluti, insol / 100), 0.15);
+        // concentrazione bancaria: dai rapporti censiti
+        let pConc = null, vConc = 'n.d.';
+        if (ban.numero > 0) {
+            pConc = Math.max(0, (ban.numero === 1 ? 60 : (ban.numero === 2 ? 80 : 100)) - (ban.quotaMax > 80 ? 20 : 0));
+            vConc = ban.numero + (ban.numero === 1 ? ' banca' : ' banche') + (ban.quotaMax ? ', prima ' + rbPct(ban.quotaMax, 0) : '');
+        }
+        puntoA('Concentrazione bancaria', vConc, pConc === null ? 55 : pConc, 0.10, 'dai rapporti censiti');
+        const trend = sc.trendAccordato || '';
+        puntoA('Trend dell\'accordato (12 mesi)', trend ? trend : 'n.d.',
+            trend === 'aumento' ? 100 : (trend === 'stabile' ? 70 : (trend === 'riduzione' ? 30 : 55)), 0.05);
+        // anzianita del rapporto con la banca principale (quota piu alta)
+        let anzAnni = null;
+        if (ban.righe.length) {
+            const principale = ban.righe.slice().sort((a, bb) => (bb.quota || 0) - (a.quota || 0))[0];
+            if (principale && principale.anzianita) anzAnni = RB_ANZIANITA_ANNI[principale.anzianita] || null;
+        }
+        puntoA('Anzianita rapporto banca principale', anzAnni === null ? 'n.d.' : '~' + anzAnni + ' anni',
+            anzAnni === null ? 60 : rbSoglia(RB_SCORING.anzianita, anzAnni), 0.05, 'dalla scheda banche');
+        const escusse = sc.garanzieEscusse || 'no';
+        puntoA('Garanzie escusse o revoche (24 mesi)', escusse === 'si' ? 'Si' : 'No', escusse === 'si' ? 0 : 100, 0.10);
+        const scoreAndam = righeA.reduce((s, r) => s + r.contributo, 0) / righeA.reduce((s, r) => s + r.peso, 0);
+
+        // ---- modulo qualitativo: il questionario della verifica (0-100) ----
+        const scoreQual = quest.perc;
+
+        // ---- sintesi: pesi per dimensione, score, PD, classe interna ----
+        let dim = RB_SCORING.pesi[RB_SCORING.pesi.length - 1];
+        for (let i = 0; i < RB_SCORING.pesi.length; i++) {
+            if (ricavi < RB_SCORING.pesi[i].max) { dim = RB_SCORING.pesi[i]; break; }
+        }
+        const score = scoreQuant * dim.quant + scoreAndam * dim.andam + scoreQual * dim.qual;
+        const pd = rbSoglia(RB_SCORING.pd, score);
+        const cl = rbSoglia3(RB_SCORING.classi, pd);
+        const banda = rbSoglia(RB_SCORING.bande, pd);
+
+        // ---- mappatura per banca: fattore di severita sulla PD ----
+        const mappatura = ban.righe.map(r => {
+            const fattore = rbNum(r.severita) || 1;
+            const pdAdj = Math.min(0.9999, pd * fattore);
+            const cla = rbSoglia3(RB_SCORING.classi, pdAdj);
+            return { nome: r.nome, fattore, pdAdj, classe: cla[1], giudizio: cla[2], banda: rbSoglia(RB_SCORING.bande, pdAdj) };
+        });
+
+        // ---- presidio crisi e adeguati assetti (CCII) ----
+        const ccii = sc.ccii || {};
+        const giudizioDscr = dscrS === null ? 'Verificare' : (dscrS >= 1.1 ? 'Adeguato' : (dscrS >= 1 ? 'Al limite' : 'Criticita'));
+        const espTot = rbNum(ccii.espTotali) !== null ? rbNum(ccii.espTotali) : (x.DEBFINB + x.DEBFINL);
+        const espScad = rbNum(ccii.espScadute60) || 0;
+        const segnaleBanche = espTot > 0 && espScad / espTot >= 0.05;
+        const segnali = [
+            { lettera: 'a', testo: 'Retribuzioni scadute da almeno 30 giorni oltre la meta del monte retribuzioni mensile', esito: ccii.retribuzioni === 'si' },
+            { lettera: 'b', testo: 'Debiti verso fornitori scaduti da almeno 90 giorni superiori ai debiti non scaduti', esito: ccii.fornitori === 'si' },
+            { lettera: 'c', testo: 'Esposizioni verso banche scadute o sconfinanti da oltre 60 giorni pari ad almeno il 5% del totale' + (espTot ? ' (' + eurFmt.format(espScad) + ' su ' + eurFmt.format(espTot) + ')' : ''), esito: segnaleBanche },
+            { lettera: 'd', testo: 'Esposizioni rilevanti verso creditori pubblici qualificati (art. 25-novies: INPS, INAIL, AdE, AdER)', esito: ccii.pubblici === 'si' }
+        ];
+        const segnaliPresenti = segnali.filter(s => s.esito).length;
+
+        return {
+            quant: { righe: righeQ, score: scoreQuant },
+            andam: { righe: righeA, score: scoreAndam },
+            qual: scoreQual,
+            dimensione: dim, score, pd, classe: cl[1], giudizio: cl[2], banda, mappatura,
+            presidio: { dscr: dscrS, giudizioDscr, pnPositivo: pn > 0, segnali, segnaliPresenti }
+        };
+    }
+
+    // il riquadro dello scoring per esiti e report
+    function rbHtmlScoring(es) {
+        const s = es.scoring;
+        const moduli = [
+            ['Quantitativo (bilancio)', s.quant.score, s.dimensione.quant],
+            ['Andamentale (CR e rapporti)', s.andam.score, s.dimensione.andam],
+            ['Qualitativo (questionario)', s.qual, s.dimensione.qual]
+        ];
+        const tabModulo = righe => `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indicatore</th><th class="num">Valore</th><th class="num">Punteggio</th><th class="num">Peso</th></tr></thead><tbody>
+            ${righe.map(r => `<tr><td>${esc(r.nome)}${r.nota ? '<div class="rb-rif">' + esc(r.nota) + '</div>' : ''}</td><td class="num">${esc(String(r.valore))}</td><td class="num"><strong>${Math.round(r.punteggio)}</strong></td><td class="num">${rbPct(r.peso * 100, 0)}</td></tr>`).join('')}
+        </tbody></table></div>`;
+        const badgeClasse = s.classe <= 3 ? 'verde' : (s.classe <= 5 ? 'ambra' : (s.classe <= 7 ? 'arancio' : 'rosso'));
+        return `
+            <div class="kpi-griglia rb-kpis">
+                <div class="kpi"><div class="etichetta">Score complessivo</div><div class="valore">${rbFmt2.format(s.score)} / 100</div>
+                    <div class="nota">impresa ${s.dimensione.nome.toLowerCase()}: pesi ${rbPct(s.dimensione.quant * 100, 0)} / ${rbPct(s.dimensione.andam * 100, 0)} / ${rbPct(s.dimensione.qual * 100, 0)}</div></div>
+                <div class="kpi"><div class="etichetta">PD stimata a 12 mesi</div><div class="valore">${rbPct(s.pd * 100, 2)}</div><div class="nota">banda EU CR6: ${esc(s.banda)}</div></div>
+                <div class="kpi ${badgeClasse}"><div class="etichetta">Classe interna simulata</div><div class="valore">${s.classe} / 10</div><div class="nota">${esc(s.giudizio)}</div></div>
+                <div class="kpi ${s.presidio.segnaliPresenti ? 'rosso' : 'verde'}"><div class="etichetta">Presidio CCII (art. 3)</div>
+                    <div class="valore">${s.presidio.segnaliPresenti ? s.presidio.segnaliPresenti + (s.presidio.segnaliPresenti === 1 ? ' segnale' : ' segnali') : 'Nessun segnale'}</div>
+                    <div class="nota">DSCR ${s.presidio.dscr === null ? 'n.d.' : rbFmt2.format(s.presidio.dscr)}: ${esc(s.presidio.giudizioDscr)}</div></div>
+            </div>
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Modulo</th><th class="num">Score (0-100)</th><th class="num">Peso (${esc(s.dimensione.nome)})</th><th class="num">Contributo</th></tr></thead><tbody>
+                ${moduli.map(m => `<tr><td>${m[0]}</td><td class="num"><strong>${rbFmt2.format(m[1])}</strong></td><td class="num">${rbPct(m[2] * 100, 0)}</td><td class="num">${rbFmt2.format(m[1] * m[2])}</td></tr>`).join('')}
+            </tbody></table></div>
+            <details class="rb-dettaglio"><summary>Dettaglio del modulo quantitativo</summary>${tabModulo(s.quant.righe)}</details>
+            <details class="rb-dettaglio"><summary>Dettaglio del modulo andamentale</summary>${tabModulo(s.andam.righe)}</details>
+            ${s.mappatura.length ? `<div class="rb-sottotitolo">Classi indicative per banca (fattore di severita sulla PD)</div>
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Istituto</th><th class="num">Fattore</th><th class="num">PD adattata</th><th class="num">Classe (1-10)</th><th>Giudizio</th><th>Banda EU CR6</th></tr></thead><tbody>
+                ${s.mappatura.map(m => `<tr><td>${esc(m.nome)}</td><td class="num">${rbFmt2.format(m.fattore)}</td><td class="num">${rbPct(m.pdAdj * 100, 2)}</td>
+                    <td class="num"><strong>${m.classe}</strong></td><td>${esc(m.giudizio)}</td><td>${esc(m.banda)}</td></tr>`).join('')}
+            </tbody></table></div>
+            <p class="hint">Il fattore di severita si imposta sul singolo rapporto (scheda Banche): 1,00 = neutro, 1,20 = banca piu severa, 0,85 = meno severa, secondo l'esperienza dello studio su quell'istituto. Le PD medie per classe di ciascun gruppo sono nell'Informativa al Pubblico Pillar 3 (EBA Pillar 3 Data Hub).</p>` : ''}
+            <div class="rb-chips" style="margin-top:10px;">
+                ${s.presidio.segnali.map(x2 => '<span class="badge ' + (x2.esito ? 'rosso' : 'verde') + '" title="' + esc(x2.testo) + '">art. 3 lett. ' + x2.lettera + ': ' + (x2.esito ? 'SI' : 'no') + '</span>').join('')}
+            </div>
+            <p class="hint">${s.presidio.segnaliPresenti ? 'Segnali dell\'art. 3, comma 4, CCII presenti: attivare le valutazioni degli adeguati assetti e il confronto con l\'organo di controllo.' : 'Nessun segnale dell\'art. 3, comma 4, CCII rilevato dai dati dichiarati.'}
+            Lo scoring e una stima indicativa a fini di pre-screening: la scala 1-10 e la PD non coincidono con la scala MCC 1-12, il confronto tra i due motori e spiegato nel Metodo di calcolo.</p>`;
     }
 
     /* ------------------------------------------------------------
@@ -7748,12 +8010,13 @@
         const rett = rbRettifiche(v, sec, cr);
         const eq = x.SP14 > 0 ? x.SP15 / x.SP14 * 100 : null;
         const banche = rbAnalisiBanche(v.banche, classeCorretta, eq);
+        const scoring = rbScoring(v, x, quest, banche);
 
-        // verdetto complessivo (stessa logica del simulatore pubblico)
+        // verdetto complessivo (stessa logica del simulatore pubblico, piu i segnali CCII)
         const nRosso = bank.cards.filter(c => c.level === 'rosso' || c.level === 'arancio').length;
         const zZone = rbZonaZ(z);
         const critico = cn.pnNeg || (cn.row && cn.tuttiAccesi) || (bank.dscr !== null && bank.dscr < 1)
-            || mcc.fascia === 5 || mcc.sofferenze;
+            || mcc.fascia === 5 || mcc.sofferenze || scoring.presidio.segnaliPresenti > 0;
         let verdetto;
         if (critico) verdetto = { livello: 'rosso', chip: 'Area critica', titolo: 'Area critica: servono interventi strutturali' };
         else if (mcc.fascia === 4 || zZone === 'rischio' || nRosso >= 2) verdetto = { livello: 'arancio', chip: 'Zona di attenzione', titolo: 'Zona di attenzione: il merito creditizio e fragile' };
@@ -7765,7 +8028,7 @@
             quest, risposte: v.questionario || {}, correttivo, correttivoTotale,
             soggetti, gruppo, rett, dettagliInput: v.dettagli || {}, classeCorretta,
             fasciaCorretta: RB_CLASSI[classeCorretta].fascia, pdCorretta: RB_CLASSI[classeCorretta].pd,
-            banche, verdetto
+            banche, scoring, verdetto
         };
         es.azioni = rbAzioni(es);
         return es;
@@ -7780,6 +8043,9 @@
             classeCorretta: es.classeCorretta, fasciaCorretta: es.fasciaCorretta, pdCorretta: es.pdCorretta,
             quest: es.quest.perc, questCompleto: es.quest.completo,
             classeRett: es.rett.attive ? es.rett.mcc.integrata : null,
+            score: Math.round(es.scoring.score * 10) / 10, scorePd: es.scoring.pd,
+            scoreClasse: es.scoring.classe, scoreGiudizio: es.scoring.giudizio,
+            segnaliCcii: es.scoring.presidio.segnaliPresenti,
             verdetto: es.verdetto.livello, verdettoTesto: es.verdetto.chip,
             banche: es.banche.numero, azioni: es.azioni.length, calcolato: Date.now()
         };
@@ -7854,6 +8120,7 @@
             bilancio: {},
             dettagli: {},
             cr: { attiva: false, sofferenze: false, righe: [{}, {}, {}, {}, {}, {}], mesi: [] },
+            scoring: { ccii: {} },
             banche: [],
             gruppo: {},
             soci: [],
@@ -8101,6 +8368,7 @@
                              : 'La Centrale dei Rischi non e stata caricata: la classe usa il solo modulo di bilancio.');
         parti.push(m.ammissibile ? 'La garanzia pubblica risulta ammissibile.' : 'La garanzia pubblica NON risulta ammissibile' + (m.sofferenze ? ' per le sofferenze segnalate.' : ' (fascia 5).'));
         parti.push('Il questionario qualitativo vale ' + es.quest.perc + '%' + (es.correttivo === 0 ? ' e conferma la classe.' : (es.correttivo < 0 ? ' e migliora la classe ipotizzata a ' + es.classeCorretta + '.' : ' e peggiora la classe ipotizzata a ' + es.classeCorretta + '.')));
+        parti.push('Il rating interno simulato (scoring a moduli) assegna ' + rbFmt2.format(es.scoring.score) + ' punti su 100: PD ' + rbPct(es.scoring.pd * 100, 2) + ', classe ' + es.scoring.classe + ' su 10 (' + es.scoring.giudizio + ')' + (es.scoring.presidio.segnaliPresenti ? ', con segnali CCII da presidiare.' : '.'));
         if (es.banche.numero) parti.push('Sono censiti ' + es.banche.numero + ' rapporti bancari' + (es.banche.conTensione ? ', di cui ' + es.banche.conTensione + ' in tensione.' : ', tutti regolari.'));
         parti.push('Le azioni proposte sono ' + es.azioni.length + ': le prime leve sono quelle a priorita alta.');
         return parti.join(' ');
@@ -8122,6 +8390,8 @@
                 while (schedaRB.cr.righe.length < 6) schedaRB.cr.righe.push({});
                 // i record salvati prima delle sezioni nuove ricevono i contenitori vuoti
                 if (!schedaRB.dettagli) schedaRB.dettagli = {};
+                if (!schedaRB.scoring) schedaRB.scoring = {};
+                if (!schedaRB.scoring.ccii) schedaRB.scoring.ccii = {};
                 if (!schedaRB.gruppo) schedaRB.gruppo = {};
                 if (!Array.isArray(schedaRB.soci)) schedaRB.soci = [];
                 if (!Array.isArray(schedaRB.amministratori)) schedaRB.amministratori = [];
@@ -8276,6 +8546,36 @@
                     <label style="display:flex;gap:8px;align-items:center;font-weight:600;"><input type="checkbox" id="rb-cr-soff" ${cr.sofferenze ? 'checked' : ''} style="width:auto;">Sono presenti sofferenze</label>
                 </div>
                 <p class="hint" style="margin-top:10px;">Le sofferenze rendono NON ammissibile la garanzia del Fondo, qualunque sia la classe. I rischi "a scadenza" non possono superare i totali per cassa: in quel caso il mese viene scartato.</p>
+            </div>
+            <div class="card">
+                <h2>Andamentale di sintesi (per il rating interno simulato)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">I dati che lo scoring a moduli usa oltre alla griglia: guardano agli ultimi 12 mesi. Utilizzo degli affidamenti, numero di banche, quota della prima e anzianita del rapporto vengono presi da soli dalla Centrale Rischi e dalla scheda Banche.</p>
+                <div class="griglia-3">
+                    <div class="campo"><label>Sconfini in essere OGGI (euro)</label><input type="text" inputmode="decimal" data-sc="sconfiniImporto" value="${esc(rbFmtNum(rbNum((v.scoring || {}).sconfiniImporto)))}"><div class="hint">0 = nessuno sconfino attuale</div></div>
+                    <div class="campo"><label>Giorni di sconfinamento continuativo</label><input type="text" inputmode="decimal" data-sc="sconfiniGiorni" value="${esc(rbFmtNum(rbNum((v.scoring || {}).sconfiniGiorni)))}"><div class="hint">oltre 60 giorni il punteggio si azzera</div></div>
+                    <div class="campo"><label>Mesi con sconfini negli ultimi 12</label><input type="text" inputmode="decimal" data-sc="mesiSconfini12" value="${esc(rbFmtNum(rbNum((v.scoring || {}).mesiSconfini12)))}"></div>
+                    <div class="campo"><label>Insoluti su autoliquidante, ultimi 12 mesi (%)</label><input type="text" inputmode="decimal" data-sc="insolutiPerc" value="${esc(rbFmtNum(rbNum((v.scoring || {}).insolutiPerc)))}"><div class="hint">es. 1 = 1% degli anticipi</div></div>
+                    <div class="campo"><label>Trend dell'accordato (12 mesi)</label>
+                        <select data-sc-sel="trendAccordato">${[['', '-'], ['aumento', 'In aumento'], ['stabile', 'Stabile'], ['riduzione', 'In riduzione']].map(o => `<option value="${o[0]}" ${((v.scoring || {}).trendAccordato || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Garanzie escusse o revoche (24 mesi)</label>
+                        <select data-sc-sel="garanzieEscusse">${[['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${((v.scoring || {}).garanzieEscusse || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Segnali di crisi CCII (art. 3, comma 4, D.Lgs. 14/2019)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">La checklist del presidio degli adeguati assetti: un solo segnale presente impone le valutazioni dell'art. 3. L'esito compare negli esiti e nel report.</p>
+                <div class="griglia-3">
+                    <div class="campo"><label>a) Retribuzioni scadute da oltre 30 giorni superiori alla meta del monte mensile</label>
+                        <select data-ccii-sel="retribuzioni">${[['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${(((v.scoring || {}).ccii || {}).retribuzioni || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>b) Debiti verso fornitori scaduti da oltre 90 giorni superiori ai non scaduti</label>
+                        <select data-ccii-sel="fornitori">${[['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${(((v.scoring || {}).ccii || {}).fornitori || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>d) Esposizioni rilevanti verso creditori pubblici qualificati (art. 25-novies)</label>
+                        <select data-ccii-sel="pubblici">${[['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${(((v.scoring || {}).ccii || {}).pubblici || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>c) Esposizioni verso banche scadute o sconfinanti da oltre 60 giorni (euro)</label>
+                        <input type="text" inputmode="decimal" data-ccii="espScadute60" value="${esc(rbFmtNum(rbNum(((v.scoring || {}).ccii || {}).espScadute60)))}"></div>
+                    <div class="campo"><label>Totale esposizioni verso banche e intermediari (euro)</label>
+                        <input type="text" inputmode="decimal" data-ccii="espTotali" value="${esc(rbFmtNum(rbNum(((v.scoring || {}).ccii || {}).espTotali)))}"><div class="hint">vuoto = debiti finanziari a breve + medio-lungo</div></div>
+                </div>
             </div>`;
     }
 
@@ -8298,6 +8598,9 @@
                     <div class="campo"><label>Anzianita del rapporto</label>
                         <select data-b-idx="${i}" data-b-campo="anzianita">${[['', '-'], ['nuovo', 'meno di 2 anni'], ['medio', 'da 2 a 5 anni'], ['storico', 'oltre 5 anni']].map(o => `<option value="${o[0]}" ${(r.anzianita || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
                         <div class="hint">nelle banche del territorio la relazione storica vale un gradino</div></div>
+                    <div class="campo"><label>Fattore di severita (scoring)</label>
+                        <input type="text" inputmode="decimal" data-b-idx="${i}" data-b-campo="severita" value="${esc(rbNum(r.severita) !== null ? rbFmt2.format(rbNum(r.severita)) : '')}" placeholder="1,00">
+                        <div class="hint">1,00 neutro; 1,20 banca piu severa, 0,85 meno severa (esperienza dello studio)</div></div>
                     <div class="campo"><label>Nota sul rapporto</label><input type="text" data-b-idx="${i}" data-b-campo="nota" value="${esc(r.nota || '')}"></div>
                 </div>
                 <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
@@ -8360,6 +8663,7 @@
                 ${rbHtmlDettaglioMcc(es)}
             </div>
             <div class="card"><h2>Correttivo qualitativo e rating ipotizzato</h2>${rbHtmlCorrettivo(es)}</div>
+            <div class="card"><h2>Rating interno simulato (scoring a moduli)</h2>${rbHtmlScoring(es)}</div>
             <div class="card"><h2>Rettifiche prudenziali: il bilancio come lo legge la banca</h2>${rbHtmlRettifiche(es)}</div>
             <div class="card"><h2>Soci, amministratori e gruppo</h2>${rbHtmlSoggettiGruppo(es)}</div>
             <div class="card"><h2>Cruscotto di bancabilita</h2>${rbHtmlTabellaCruscotto(es)}</div>
@@ -8466,6 +8770,31 @@
             v.dettagli = v.dettagli || {};
             v.dettagli[el.dataset.detSel] = el.value;
         }));
+        // andamentale di sintesi e segnali CCII (rating interno simulato)
+        $vista().querySelectorAll('[data-sc]').forEach(el => el.addEventListener('change', () => {
+            const n = rbNum(el.value);
+            v.scoring = v.scoring || {};
+            if (n === null) delete v.scoring[el.dataset.sc];
+            else v.scoring[el.dataset.sc] = n;
+            el.value = rbFmtNum(n);
+        }));
+        $vista().querySelectorAll('[data-sc-sel]').forEach(el => el.addEventListener('change', () => {
+            v.scoring = v.scoring || {};
+            v.scoring[el.dataset.scSel] = el.value;
+        }));
+        $vista().querySelectorAll('[data-ccii]').forEach(el => el.addEventListener('change', () => {
+            const n = rbNum(el.value);
+            v.scoring = v.scoring || {};
+            v.scoring.ccii = v.scoring.ccii || {};
+            if (n === null) delete v.scoring.ccii[el.dataset.ccii];
+            else v.scoring.ccii[el.dataset.ccii] = n;
+            el.value = rbFmtNum(n);
+        }));
+        $vista().querySelectorAll('[data-ccii-sel]').forEach(el => el.addEventListener('change', () => {
+            v.scoring = v.scoring || {};
+            v.scoring.ccii = v.scoring.ccii || {};
+            v.scoring.ccii[el.dataset.cciiSel] = el.value;
+        }));
         // gruppo societario
         $vista().querySelectorAll('[data-gr]').forEach(el => el.addEventListener('change', () => {
             v.gruppo = v.gruppo || {};
@@ -8511,6 +8840,7 @@
             const campo = el.dataset.bCampo;
             if (campo === 'sconfini') r.sconfini = el.checked;
             else if (campo === 'accordato' || campo === 'utilizzato') { r[campo] = rbNum(el.value); el.value = rbFmtNum(r[campo]); }
+            else if (campo === 'severita') { r.severita = rbNum(el.value); el.value = r.severita === null ? '' : rbFmt2.format(r.severita); }
             else r[campo] = el.value;
             if (campo === 'banca') vistaRatingScheda();
         }));
@@ -8616,6 +8946,11 @@
                     </tbody></table></div>
                 </div>
 
+                <div class="rb-sezione">
+                    <h3>${tSez('Rating interno simulato (scoring a moduli)')}</h3>
+                    ${rbHtmlScoring(es)}
+                </div>
+
                 ${es.rett.attive ? `<div class="rb-sezione">
                     <h3>${tSez('Rettifiche prudenziali: il bilancio come lo legge la banca')}</h3>
                     ${rbHtmlRettifiche(es)}
@@ -8658,7 +8993,7 @@
 
                 <div class="rb-sezione rb-nota-metodo">
                     <h3>Nota metodologica e limiti</h3>
-                    <p class="rb-testo">Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA). Il correttivo qualitativo, le rettifiche prudenziali del bilancio, i profili di soggetti e gruppo e la stima per singolo istituto sono stime professionali Revilaw di come i modelli interni delle banche integrano gli elementi organizzativi e andamentali (il metodo completo, formula per formula, e nella scheda "Metodo di calcolo" dell'area riservata): il rating effettivo assegnato da ciascuna banca puo differire. I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali. Questo documento e uno strumento di lavoro riservato e non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009.</p>
+                    <p class="rb-testo">Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA). Il rating interno simulato replica la struttura tipica dei sistemi di rating interni (tre moduli pesati per dimensione, calibrazione score-PD, classi 1-10, bande EU CR6): i modelli effettivi delle banche sono proprietari e riservati, la stima serve al pre-screening e all'advisory. Il correttivo qualitativo, le rettifiche prudenziali del bilancio, i profili di soggetti e gruppo e la stima per singolo istituto sono stime professionali Revilaw di come i modelli interni delle banche integrano gli elementi organizzativi e andamentali (il metodo completo, formula per formula, e nella scheda "Metodo di calcolo" dell'area riservata): il rating effettivo assegnato da ciascuna banca puo differire. I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali. Questo documento e uno strumento di lavoro riservato e non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009.</p>
                 </div>
 
                 <div class="rb-firma">
@@ -9456,6 +9791,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-rating-scoring',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: il rating interno simulato (scoring a moduli)',
+            sommario: 'Dentro la verifica del merito creditizio c\'e un secondo motore, integrato dal simulatore Excel dello studio: tre moduli con punteggio 0-100 (bilancio, andamentale, qualitativo) pesati per dimensione d\'impresa, score convertito in PD e classe interna da 1 a 10, mappatura per banca con il fattore di severita e le bande PD dei Pillar 3, presidio dei segnali di crisi dell\'art. 3 CCII.',
+            chi: 'Chi prepara le verifiche del merito creditizio.',
+            dove: 'Sezione "Rating bancario", dentro la verifica: i dati nuovi stanno nella scheda "Centrale Rischi" (andamentale di sintesi e segnali CCII) e nella scheda "Banche" (fattore di severita per istituto); l\'esito nel riquadro "Rating interno simulato" e nel report.',
+            voci: [
+                { titolo: 'Come ragiona', testo: 'Replica la struttura tipica dei sistemi di rating interni delle banche: sulle PMI pesa di piu l\'andamentale, sulle imprese grandi il bilancio. Il questionario della verifica vale come modulo qualitativo, senza doverlo ricompilare.' },
+                { titolo: 'Dalla PD alla classe per banca', testo: 'Lo score diventa una probabilita di inadempimento e una classe interna da 1 (eccellente) a 10 (pre-default). Per ogni banca censita si puo impostare un fattore di severita calibrato sull\'esperienza dello studio: la tabella mostra classe indicativa e banda PD regolamentare (template EU CR6).' },
+                { titolo: 'Presidio dei segnali di crisi', testo: 'La checklist dell\'art. 3, comma 4, del Codice della crisi (retribuzioni, fornitori, banche, creditori pubblici) e il DSCR prospettico: un segnale presente porta il verdetto in area critica, con l\'azione dedicata.' },
+                { titolo: 'Due motori, una lettura', testo: 'Il modello MCC dice come vede l\'impresa il Fondo di Garanzia (classi 1-12); lo scoring come ragionano le banche (classi 1-10). Il confronto e spiegato nella scheda "Metodo di calcolo", capitolo 7.' }
+            ]
+        },
         {
             id: '2026-08-21-rating-bancario-completo',
             data: '2026-08-21',

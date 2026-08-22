@@ -1463,6 +1463,7 @@ summary.ni-testa::before {
 .rb-corr-pd { font-size: 0.8rem; color: var(--grigio-600); margin-left: 6px; }
 
 .rb-rif { font-size: 0.74rem; color: var(--grigio-600); line-height: 1.4; }
+.rb-sottotitolo { margin: 14px 0 6px; font-size: 0.88rem; font-weight: 700; color: var(--blu-900); }
 .rb-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .rb-dettaglio { margin-top: 10px; }
 .rb-dettaglio summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--blu-700); padding: 4px 0; }
