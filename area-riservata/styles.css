@@ -1490,6 +1490,17 @@ summary.ni-testa::before {
 /* nella finestra della fase il piede tiene i tre pulsanti distanziati */
 .modale-fase > .modale-azioni { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 
+/* i campi strutturati delle fasi: una scheda per campo, controlli allineati in
+   alto e le due righe informative (che cosa inserire, come pesa) in basso */
+.cu-campi { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; margin: 4px 0 16px; }
+.campo.cu-campo { margin: 0; border: 1px solid var(--grigio-200); border-radius: var(--raggio); background: #fff; padding: 12px 14px; display: flex; flex-direction: column; }
+.cu-campo-testa { display: flex; flex-direction: column; align-items: flex-start; }
+.cu-campo-testa label { margin-bottom: 4px; }
+.cu-campo-testa .badge { margin-bottom: 8px; }
+.cu-campo-info { margin-top: auto; padding-top: 10px; border-top: 1px dashed var(--grigio-200); font-size: 0.78rem; color: var(--grigio-600); line-height: 1.55; display: flex; flex-direction: column; gap: 4px; }
+.cu-campo-info strong { color: var(--blu-900); font-weight: 600; }
+.cu-campo select, .cu-campo input { margin-bottom: 10px; }
+
 /* percorso unico: righe dei passi di caricamento dati (rientrate sotto la fase 4) */
 .cu-riga-passo { margin-left: 22px; border-left: 3px solid var(--grigio-200); }
 

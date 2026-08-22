@@ -8658,9 +8658,9 @@
               opzioni: [['si', 'Aggiornata e utilizzabile'], ['parziale', 'In ritardo o da sistemare'], ['no', 'Inutilizzabile o assente']],
               cosa: 'aggiornamento delle scritture e disponibilità di situazioni infrannuali',
               impatto: 'tutti i calcoli partono dal bilancio: con una contabilità debole i punteggi dei moduli vanno tenuti prudenti e, senza i documenti essenziali, il giudizio del check-up esce sospeso.' },
-            { id: 'procedura', et: 'Procedura concorsuale (anche pregressa rilevante)', tipo: 'sel', preset: 'no', mappa: 'gravi',
+            { id: 'procedura', et: 'Procedura concorsuale', tipo: 'sel', preset: 'no', mappa: 'gravi',
               opzioni: [['no', 'Nessuna'], ['si', 'Presente']],
-              cosa: 'fallimenti e procedure da visura camerale e conservatoria',
+              cosa: 'fallimenti e procedure, anche pregresse rilevanti, da visura camerale e conservatoria',
               impatto: 'è lo stesso dato del passo "Soci e gruppo" ed entra subito nel calcolo: con una procedura del tipo fallimentare la garanzia del Fondo NON è ammissibile, qualunque sia la classe.' },
             { id: 'interlocutore', et: 'Interlocutore che collabora', tipo: 'sel', preset: 'si',
               opzioni: [['si', 'Sì, referente individuato'], ['parziale', 'Da individuare meglio'], ['no', 'Nessuna collaborazione']],
@@ -8759,11 +8759,11 @@
         const dStato = (cu.fasi || {})[fid] || {};
         const rigaStato = `<div class="rb-riga-soggetto rb-riga-area" style="margin:10px 0 12px;">
             <div class="campo"><label>Stato della fase</label>${selStato(fid, dStato.stato || '')}</div>
-            <div class="campo"><label>Altre annotazioni della fase</label><input type="text" data-cu-fasenota="${fid}" value="${esc(dStato.nota || '')}">
-                <div class="hint">${esc(RB_FASE_NOTA[fid] || 'date, esiti e riferimenti utili')}</div></div>
+            <div class="campo"><label>Altre annotazioni della fase</label><input type="text" data-cu-fasenota="${fid}" value="${esc(dStato.nota || '')}" placeholder="${esc(RB_FASE_NOTA[fid] || 'date, esiti e riferimenti utili')}"></div>
         </div>`;
-        /* i campi strutturati della fase: risposta preimpostata dove esiste una
-           risposta normale, e sotto ogni campo che cosa inserire e come pesa */
+        /* i campi strutturati della fase: una scheda per campo, con il marcatore
+           della risposta preimpostata a destra e sotto, in due righe uniformi,
+           che cosa inserire e come la risposta pesa sugli esiti */
         const campoStrutturato = c => {
             const grezzo = c.mappa ? ((v.eventi || {})[c.mappa] || '') : ((dStato.dati || {})[c.id]);
             const usaPreset = c.tipo === 'sel' && c.preset !== undefined && (grezzo === undefined || grezzo === '');
@@ -8771,11 +8771,18 @@
             const controllo = c.tipo === 'sel'
                 ? `<select data-cu-fdato="${c.id}">${c.opzioni.map(o => `<option value="${o[0]}" ${val === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`
                 : `<input type="${c.tipo === 'date' ? 'date' : 'text'}" data-cu-fdato="${c.id}" value="${esc(val)}">`;
-            return `<div class="campo"><label>${esc(c.et)}${usaPreset ? ' <span class="badge neutro">risposta preimpostata</span>' : ''}</label>${controllo}
-                <div class="hint">Che cosa inserire: ${esc(c.cosa)}.<br>Come pesa: ${esc(c.impatto)}</div></div>`;
+            return `<div class="campo cu-campo">
+                <div class="cu-campo-testa"><label>${esc(c.et)}</label>${usaPreset ? '<span class="badge neutro">risposta preimpostata</span>' : ''}</div>
+                ${controllo}
+                <div class="cu-campo-info">
+                    <div><strong>Che cosa inserire:</strong> ${esc(c.cosa)}.</div>
+                    <div><strong>Come pesa:</strong> ${esc(c.impatto)}</div>
+                </div>
+            </div>`;
         };
-        const blocCampi = () => (RB_FASE_CAMPI[fid] || []).length
-            ? `<div class="griglia-3">${RB_FASE_CAMPI[fid].map(campoStrutturato).join('')}</div>` : '';
+        const blocCampi = titolo => (RB_FASE_CAMPI[fid] || []).length
+            ? (titolo ? `<div class="rb-sottotitolo">${esc(titolo)}</div>` : '')
+              + `<div class="cu-campi">${RB_FASE_CAMPI[fid].map(campoStrutturato).join('')}</div>` : '';
         const spunta = (ok, testo) => '<span class="badge ' + (ok ? 'verde' : 'grigio') + '">' + testo + '</span>';
         const campoVb = (gruppo, campo, label, tipo, largo) => `<div class="campo"${largo ? ' style="grid-column: span 2;"' : ''}><label>${label}</label><input type="${tipo || 'text'}" data-vb="${gruppo}.${campo}" value="${esc(((vb[gruppo] || {})[campo]) || '')}"></div>`;
         const blocDomande = (titolo, ids) => `<div class="rb-sottotitolo">${titolo}</div>${ids.map(qid => rbDomandaHtml(v, qid)).join('')}`;
@@ -8790,7 +8797,7 @@
             else if (procPre === 'si') avvisoPre = '<div class="avviso-ruoli">Procedura concorsuale dichiarata: la garanzia del Fondo NON è ammissibile e il dato è già entrato nel calcolo. Il check-up può proseguire come diagnosi, ma valuta se l\'impresa è seguibile.</div>';
             else if (esitoPre === 'riserva') avvisoPre = '<p class="hint"><strong>Seguibile con riserva:</strong> scrivi nelle annotazioni quale riserva hai posto e che cosa deve succedere per scioglierla.</p>';
             corpo = `
-            ${blocCampi()}
+            ${blocCampi('La pre-qualifica, campo per campo')}
             ${avvisoPre}
             <div class="rb-sottotitolo">Che cosa risulta già inserito nel programma</div>
             <div class="rb-chips">
@@ -8802,11 +8809,11 @@
             </div>
             <p class="hint">Se uno di questi punti resta scoperto, decidi consapevolmente se accettare comunque il lavoro e registralo nell\'esito della pre-qualifica.</p>`;
         } else if (fid === 'f1') {
-            corpo = blocCampi()
+            corpo = blocCampi('I dati del primo contatto')
                 + blocDomande('Profilo dell\'impresa: registra le risposte', RB_FASE_DOMANDE.f1)
                 + '<p class="hint" style="margin-top:8px;">Queste risposte entrano nel correttivo qualitativo, nel rating interno simulato e nei punteggi suggeriti dei moduli: si registrano una volta sola.</p>';
         } else if (fid === 'f2') {
-            corpo = blocCampi()
+            corpo = blocCampi('I dati dell\'incarico')
                 + '<p class="hint" style="margin-top:8px;">Se l\'incarico è censito nella sezione Incarichi dell\'area, collegalo dal passo "Impresa e bilancio": cliente e regione si compilano da soli.</p>';
         } else if (fid === 'f3') {
             corpo = `
