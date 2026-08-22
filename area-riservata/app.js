@@ -6753,6 +6753,15 @@
             dai('alta', 'Banche', 'Escussioni o revoche recenti da ricostruire',
                 'Escussioni di garanzie o revoche negli ultimi 24 mesi pesano su ogni nuova istruttoria: preparare una ricostruzione documentata dell\'accaduto e delle contromisure prima di chiedere nuova finanza.', RB_SERVIZI.rating);
         }
+        // --- check-up del manuale operativo ---
+        if (es.checkup.c1 > 0) {
+            dai('alta', 'Governance', 'Trattare i rilievi critici del check-up (C1)',
+                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo di classe C1 e aperto' : ' rilievi di classe C1 sono aperti') + ': per il Manuale operativo richiedono comunicazione immediata e azione urgente, e limitano il giudizio complessivo finche non sono trattati.', RB_SERVIZI.assetti);
+        }
+        if (es.checkup.avviato && es.checkup.sospeso) {
+            dai('media', 'Governance', 'Completare i punteggi delle aree essenziali del check-up',
+                'Alcune aree essenziali (liquidita, capacita di rimborso, dati, andamentale) sono senza punteggio: il giudizio complessivo resta limitato finche le verifiche non sono completate.', null);
+        }
 
         const ordine = { alta: 0, media: 1, spunto: 2 };
         az.sort((a, b) => ordine[a.pr] - ordine[b.pr]);
@@ -7727,7 +7736,12 @@
             <div class="card"><h2>9. Soci, amministratori, gruppo</h2>
                 <p class="rb-testo">La compagine si verifica per la titolarita effettiva: fiduciarie e soggetti esteri portano il profilo in attenzione (la banca chiede l'UBO). Gli amministratori si censiscono con l'esito delle visure (protesti, pregiudizievoli di conservatoria, procedure): eventi dichiarati portano il profilo in critico e valgono +1 sulla classe. Il gruppo: sostegno documentato con consolidato -1, gruppo che assorbe risorse +1, garanzie infragruppo segnalate tra gli impegni.</p>
             </div>
-            <div class="card"><h2>10. Verdetto, azioni e report</h2>
+            <div class="card"><h2>10. Il check-up del merito creditizio (Manuale operativo Revilaw)</h2>
+                <p class="rb-testo">La scheda "Check-up" porta nella verifica il Manuale operativo dello studio: il <strong>processo in fasi</strong> (dal primo contatto al monitoraggio della roadmap), la valutazione delle <strong>12 aree tecniche di analisi</strong> con la scala di presidio del Manuale (<strong>0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto</strong>, N/A con motivazione), i <strong>rilievi classificati</strong> (C1 critica: azione urgente; C2 significativa: 3-6 mesi; C3 miglioramento: 6-12 mesi; PF punto di forza da valorizzare) con la struttura fatto, evidenza, rischio, raccomandazione; la <strong>roadmap</strong> per orizzonti (0-30 giorni, 31-90 giorni, 3-6 mesi, 6-12 mesi) con responsabile, termine, stato ed evidenza di chiusura; la <strong>lista standard dei documenti</strong> con lo stato di raccolta.</p>
+                <p class="rb-testo">Il <strong>presidio complessivo</strong> e la media dei punteggi d'area ponderata con i pesi centrali della fase pilota: le aree essenziali pesano di piu (capacita di rimborso 1,5; Centrale Rischi e rapporti bancari 1,5; analisi economico-patrimoniale 1,25; pianificazione e tesoreria 1,25; le altre 1). Valgono le <strong>regole di override</strong> del Manuale, mai verso l'alto: un rilievo C1 aperto limita il giudizio a "parzialmente adeguato"; un'area essenziale critica o debole prevale sulla media; aree essenziali senza punteggio rendono il giudizio limitato. I punteggi 0, 1 e 4 vanno motivati con evidenze; niente 3 o 4 con documenti essenziali mancanti.</p>
+                <p class="rb-testo">Lo scoring del check-up e <strong>diagnostico</strong>: misura il grado di presidio delle aree per uniformare il lavoro e guidare la roadmap. Non e una probabilita di default e non sostituisce il rating MCC, lo scoring simulato o i giudizi delle banche: i tre strumenti si leggono insieme.</p>
+            </div>
+            <div class="card"><h2>11. Verdetto, azioni e report</h2>
                 <p class="rb-testo">Il verdetto complessivo e "area critica" con patrimonio netto negativo, tutti gli indici CNDCEC accesi, DSCR sotto 1, fascia 5, sofferenze o segnali CCII presenti; "zona di attenzione" con fascia 4, Z-Score in rischio o due indicatori del cruscotto critici; "equilibrio migliorabile" con fascia 3, Z in incertezza o un indicatore critico; altrimenti "profilo solido". Le azioni migliorative nascono dalle debolezze rilevate, in ordine di priorita, ognuna con il servizio Revilaw che la copre. Il report finale raccoglie tutto, con la firma grafica del responsabile, e si stampa in PDF.</p>
                 <p class="rb-testo"><strong>Limiti.</strong> Il rating effettivo di ciascuna banca resta un modello proprietario: questa verifica replica il modello pubblico del Fondo e lo integra con stime professionali dichiarate. I dati sugli istituti vanno verificati sulle fonti ufficiali prima di un uso verso terzi.</p>
             </div>`;
@@ -7999,6 +8013,273 @@
             Lo scoring e una stima indicativa a fini di pre-screening: la scala 1-10 e la PD non coincidono con la scala MCC 1-12, il confronto tra i due motori e spiegato nel Metodo di calcolo.</p>`;
     }
 
+
+    /* ------------------------------------------------------------
+       CHECK-UP DEL MERITO CREDITIZIO (Manuale operativo Revilaw)
+       La parte "di studio" della verifica, integrata dal Manuale
+       Operativo del Check-up: il processo in fasi (dal primo
+       contatto al monitoraggio), le 12 aree tecniche di analisi con
+       la scala di presidio 0-4 del manuale, i rilievi classificati
+       (C1 critica, C2 significativa, C3 miglioramento, PF punto di
+       forza) con la struttura fatto/evidenza/rischio/raccomandazione,
+       la roadmap per orizzonti e la lista standard dei documenti.
+       Lo scoring del check-up e DIAGNOSTICO (grado di presidio delle
+       aree): non e una probabilita di default e convive con MCC e
+       rating simulato, che misurano altro.
+    ------------------------------------------------------------ */
+    const RB_CHECKUP_FASI = [
+        { id: 'contatto', nome: 'Primo contatto e valutazione preliminare' },
+        { id: 'incarico', nome: 'Accettazione e lettera d\'incarico' },
+        { id: 'riunione', nome: 'Riunione iniziale con l\'impresa' },
+        { id: 'documenti', nome: 'Richiesta e raccolta dei documenti' },
+        { id: 'interviste', nome: 'Interviste alla direzione e ai responsabili' },
+        { id: 'verifiche', nome: 'Esecuzione delle verifiche per area' },
+        { id: 'punteggi', nome: 'Attribuzione dei punteggi' },
+        { id: 'priorita', nome: 'Individuazione delle priorita' },
+        { id: 'rapporto', nome: 'Redazione del rapporto' },
+        { id: 'presentazione', nome: 'Presentazione dei risultati' },
+        { id: 'monitoraggio', nome: 'Monitoraggio della roadmap' }
+    ];
+    /* Le 12 aree tecniche (capitoli 19-30 del Manuale). I pesi sono quelli
+       centrali della fase pilota: liquidita, capacita di rimborso, qualita dei
+       dati e andamentale bancario prevalgono sulla semplice media (par. 31.2);
+       le aree marcate "chiave" attivano le regole di override. */
+    const RB_CHECKUP_AREE = [
+        { id: 'profilo',   nome: 'Profilo dell\'impresa, governance e modello di business', peso: 1 },
+        { id: 'economica', nome: 'Analisi economica, patrimoniale e finanziaria', peso: 1.25, chiave: true },
+        { id: 'rimborso',  nome: 'Capacita di rimborso e sostenibilita del debito', peso: 1.5, chiave: true },
+        { id: 'cr',        nome: 'Centrale dei Rischi e rapporti bancari', peso: 1.5, chiave: true },
+        { id: 'tesoreria', nome: 'Pianificazione, tesoreria e controllo di gestione', peso: 1.25, chiave: true },
+        { id: 'assetti',   nome: 'Adeguati assetti organizzativi, amministrativi e contabili', peso: 1 },
+        { id: 'legalita',  nome: 'Governance, legalita e compliance', peso: 1 },
+        { id: 'mod231',    nome: 'Modello organizzativo 231 e gestione dei rischi', peso: 1 },
+        { id: 'esg',       nome: 'Sostenibilita ESG', peso: 1 },
+        { id: 'fiscale',   nome: 'Fiscalita e Tax Control Framework', peso: 1 },
+        { id: 'strategia', nome: 'Strategia finanziaria e finanza agevolata', peso: 1 },
+        { id: 'comunicazione', nome: 'Comunicazione finanziaria verso banche e investitori', peso: 1 }
+    ];
+    // scala di presidio del Manuale (cap. 14)
+    const RB_CHECKUP_SCALA = {
+        0: { nome: 'Critico', testo: 'presidio assente, grave anomalia o rischio non governato' },
+        1: { nome: 'Debole', testo: 'presidio occasionale, incompleto o non affidabile' },
+        2: { nome: 'Parzialmente adeguato', testo: 'presidio presente ma non sistematico o poco documentato' },
+        3: { nome: 'Adeguato', testo: 'presidio proporzionato, applicato e documentato' },
+        4: { nome: 'Evoluto', testo: 'presidio strutturato, monitorato e integrato nelle decisioni' }
+    };
+    const RB_CHECKUP_CLASSI = {
+        C1: { nome: 'C1 - Critica', badge: 'rosso', priorita: 'Alta', trattamento: 'comunicazione immediata e azione urgente' },
+        C2: { nome: 'C2 - Significativa', badge: 'arancio', priorita: 'Media', trattamento: 'azione entro tre-sei mesi' },
+        C3: { nome: 'C3 - Miglioramento', badge: 'ambra', priorita: 'Bassa', trattamento: 'piano entro sei-dodici mesi' },
+        PF: { nome: 'PF - Punto di forza', badge: 'verde', priorita: 'Mantenere', trattamento: 'mantenere e valorizzare verso i finanziatori' }
+    };
+    const RB_CHECKUP_ORIZZONTI = {
+        o1: '0-30 giorni', o2: '31-90 giorni', o3: '3-6 mesi', o4: '6-12 mesi'
+    };
+    // stati delle azioni di roadmap (cap. 18)
+    const RB_CHECKUP_STATI_AZIONE = {
+        nonavviata: 'Non avviata', incorso: 'In corso', completata: 'Completata', sospesa: 'Sospesa', superata: 'Superata'
+    };
+    // lista standard dei documenti (cap. 39); stato: R ricevuto, ND non disponibile, NA non applicabile, I da integrare
+    const RB_CHECKUP_DOCUMENTI = [
+        { id: 'visura', area: 'Societario', nome: 'Visura, statuto, organigramma, deleghe' },
+        { id: 'assetto', area: 'Societario', nome: 'Assetto proprietario e gruppo' },
+        { id: 'bilanci', area: 'Bilanci', nome: 'Ultimi tre bilanci e relazioni' },
+        { id: 'infrannuale', area: 'Bilanci', nome: 'Situazione contabile infrannuale' },
+        { id: 'dettagli', area: 'Bilanci', nome: 'Dettaglio crediti, debiti, scorte e fondi' },
+        { id: 'affidamenti', area: 'Finanza', nome: 'Elenco affidamenti e finanziamenti' },
+        { id: 'ammortamenti', area: 'Finanza', nome: 'Piani di ammortamento, covenant e garanzie' },
+        { id: 'centralerischi', area: 'Finanza', nome: 'Centrale dei Rischi e prospetto utilizzi' },
+        { id: 'budget', area: 'Pianificazione', nome: 'Budget, forecast e business plan' },
+        { id: 'tesoreria', area: 'Pianificazione', nome: 'Tesoreria e reporting periodico' },
+        { id: 'margini', area: 'Pianificazione', nome: 'Analisi margini e scostamenti' },
+        { id: 'clienti', area: 'Business', nome: 'Clienti, fornitori, ordini e contratti rilevanti' },
+        { id: 'investimenti', area: 'Business', nome: 'Piano investimenti e dati di settore' },
+        { id: 'procedure', area: 'Assetti', nome: 'Procedure, mansionari e flussi informativi' },
+        { id: 'reportcda', area: 'Assetti', nome: 'Report agli amministratori e indicatori' },
+        { id: 'contenziosi', area: 'Compliance', nome: 'Contenziosi, autorizzazioni e certificazioni' },
+        { id: 'compliance231', area: 'Compliance', nome: '231, privacy, sicurezza e rating di legalita' },
+        { id: 'esgdati', area: 'ESG', nome: 'Dati ambientali, sociali e di filiera' },
+        { id: 'esgobiettivi', area: 'ESG', nome: 'Obiettivi, investimenti e richieste di terzi' },
+        { id: 'fiscalescad', area: 'Fiscale', nome: 'Scadenze, contenziosi e procedure fiscali' },
+        { id: 'fiscalemappa', area: 'Fiscale', nome: 'Mappa rischi e controlli fiscali, se presente' }
+    ];
+
+    /* L'esito del check-up: avanzamento delle fasi, punteggio ponderato delle
+       aree con le regole di override del par. 31.3, conteggio dei rilievi,
+       stato di roadmap e documenti. */
+    function rbCheckup(v) {
+        const cu = v.checkup || {};
+        const fasi = cu.fasi || {};
+        const aree = cu.aree || {};
+        const rilievi = cu.rilievi || [];
+        const roadmap = cu.roadmap || [];
+        const documenti = cu.documenti || {};
+
+        const fasiFatte = RB_CHECKUP_FASI.filter(f => (fasi[f.id] || {}).stato === 'completata').length;
+        const fasiNa = RB_CHECKUP_FASI.filter(f => (fasi[f.id] || {}).stato === 'na').length;
+
+        // punteggio ponderato delle aree (0-4), N/A e non compilate escluse
+        let somma = 0, pesi = 0, compilate = 0;
+        const righeAree = RB_CHECKUP_AREE.map(a => {
+            const dato = aree[a.id] || {};
+            const p = (dato.punteggio === '' || dato.punteggio === undefined || dato.punteggio === null) ? null
+                : (dato.punteggio === 'na' ? 'na' : Number(dato.punteggio));
+            if (typeof p === 'number') { somma += p * a.peso; pesi += a.peso; compilate++; }
+            return { ...a, punteggio: p, conclusione: dato.conclusione || '' };
+        });
+        const media = pesi > 0 ? somma / pesi : null;
+
+        const conta = cl => rilievi.filter(r => r.classe === cl && r.stato !== 'trattato').length;
+        const c1 = conta('C1'), c2 = conta('C2'), c3 = conta('C3');
+        const pf = rilievi.filter(r => r.classe === 'PF').length;
+
+        // giudizio dalla media, poi le regole di override (mai verso l'alto)
+        const daMedia = m => m >= 3.4 ? 4 : (m >= 2.6 ? 3 : (m >= 1.8 ? 2 : (m >= 1 ? 1 : 0)));
+        const chiaviSenzaPunteggio = righeAree.filter(a => a.chiave && a.punteggio === null).length;
+        const limiti = [];
+        let giudizio = null, sospeso = false;
+        if (media !== null) {
+            let g = daMedia(media);
+            if (c1 > 0 && g > 2) { g = 2; limiti.push('una criticita C1 aperta limita il giudizio complessivo (par. 31.3)'); }
+            if (righeAree.some(a => a.chiave && typeof a.punteggio === 'number' && a.punteggio <= 1) && g > 1) {
+                g = 1; limiti.push('un\'area essenziale (liquidita, rimborso, dati, andamentale) e critica o debole: prevale sulla media');
+            }
+            if (chiaviSenzaPunteggio > 0) { sospeso = true; limiti.push('giudizio limitato: ' + chiaviSenzaPunteggio + (chiaviSenzaPunteggio === 1 ? ' area essenziale e' : ' aree essenziali sono') + ' senza punteggio'); }
+            giudizio = g;
+        }
+
+        const azioniAperte = roadmap.filter(r => r.stato !== 'completata' && r.stato !== 'superata').length;
+        const docRicevuti = RB_CHECKUP_DOCUMENTI.filter(d => documenti[d.id] === 'R').length;
+        const docDaIntegrare = RB_CHECKUP_DOCUMENTI.filter(d => documenti[d.id] === 'I' || documenti[d.id] === 'ND').length;
+        const docApplicabili = RB_CHECKUP_DOCUMENTI.filter(d => documenti[d.id] !== 'NA').length;
+
+        const avviato = fasiFatte > 0 || compilate > 0 || rilievi.length > 0 || roadmap.length > 0
+            || RB_CHECKUP_DOCUMENTI.some(d => documenti[d.id]);
+        return {
+            avviato, fasiFatte, fasiNa, fasiTot: RB_CHECKUP_FASI.length,
+            aree: righeAree, compilate, media, giudizio, sospeso, limiti,
+            rilievi, c1, c2, c3, pf,
+            roadmap, azioniAperte,
+            docRicevuti, docDaIntegrare, docApplicabili
+        };
+    }
+
+    // il riquadro del check-up per esiti e report
+    function rbHtmlCheckup(es) {
+        const c = es.checkup;
+        if (!c.avviato) return '<p class="hint">Check-up non ancora avviato: si compila nella scheda "Check-up" della verifica (fasi del processo, punteggi delle 12 aree, rilievi, roadmap e documenti, secondo il Manuale operativo Revilaw).</p>';
+        const nomeGiudizio = c.giudizio === null ? 'Da attribuire' : RB_CHECKUP_SCALA[c.giudizio].nome;
+        const badgeGiudizio = c.giudizio === null ? 'grigio' : (c.giudizio >= 3 ? 'verde' : (c.giudizio === 2 ? 'ambra' : 'rosso'));
+        const puntoArea = p => p === null ? '<span class="badge grigio">da valutare</span>'
+            : (p === 'na' ? '<span class="badge neutro">N/A</span>'
+                : '<span class="badge ' + (p >= 3 ? 'verde' : (p === 2 ? 'ambra' : 'rosso')) + '">' + p + ' - ' + RB_CHECKUP_SCALA[p].nome + '</span>');
+        return `
+            <div class="kpi-griglia rb-kpis">
+                <div class="kpi ${badgeGiudizio === 'grigio' ? '' : badgeGiudizio}"><div class="etichetta">Presidio complessivo</div>
+                    <div class="valore">${c.media !== null ? rbFmt2.format(c.media) + ' / 4' : '-'}</div>
+                    <div class="nota">${esc(nomeGiudizio)}${c.sospeso ? ' (limitato)' : ''}</div></div>
+                <div class="kpi"><div class="etichetta">Fasi del processo</div><div class="valore">${c.fasiFatte} / ${c.fasiTot - c.fasiNa}</div><div class="nota">completate</div></div>
+                <div class="kpi ${c.c1 ? 'rosso' : (c.c2 ? 'ambra' : 'verde')}"><div class="etichetta">Rilievi aperti</div>
+                    <div class="valore">${c.c1 + c.c2 + c.c3}</div><div class="nota">C1: ${c.c1} &middot; C2: ${c.c2} &middot; C3: ${c.c3} &middot; punti di forza: ${c.pf}</div></div>
+                <div class="kpi"><div class="etichetta">Roadmap e documenti</div><div class="valore">${c.azioniAperte}</div>
+                    <div class="nota">azioni aperte &middot; documenti: ${c.docRicevuti}/${c.docApplicabili} ricevuti${c.docDaIntegrare ? ', ' + c.docDaIntegrare + ' da integrare' : ''}</div></div>
+            </div>
+            ${c.limiti.length ? '<div class="rb-chips">' + c.limiti.map(l => '<span class="badge arancio">' + esc(l) + '</span>').join('') + '</div>' : ''}
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Area tecnica</th><th class="num">Peso</th><th>Presidio (0-4)</th><th>Conclusione dell'area</th></tr></thead><tbody>
+                ${c.aree.map(a => `<tr><td>${esc(a.nome)}${a.chiave ? ' <span class="badge neutro">essenziale</span>' : ''}</td><td class="num">${rbFmt2.format(a.peso)}</td><td>${puntoArea(a.punteggio)}</td><td class="rb-rif">${esc(a.conclusione)}</td></tr>`).join('')}
+            </tbody></table></div>
+            ${c.rilievi.length ? `<div class="rb-sottotitolo">Rilievi e punti di forza</div>
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Classe</th><th>Area</th><th>Fatto ed evidenza</th><th>Rischio</th><th>Raccomandazione</th><th>Stato</th></tr></thead><tbody>
+                ${c.rilievi.map(r => {
+                    const cl = RB_CHECKUP_CLASSI[r.classe] || RB_CHECKUP_CLASSI.C3;
+                    const area = RB_CHECKUP_AREE.find(a => a.id === r.area);
+                    return `<tr><td><span class="badge ${cl.badge}">${esc(cl.nome)}</span></td><td class="rb-rif">${area ? esc(area.nome) : '-'}</td>
+                        <td>${esc(r.fatto || '')}${r.evidenza ? '<div class="rb-rif">Evidenza: ' + esc(r.evidenza) + '</div>' : ''}</td>
+                        <td class="rb-rif">${esc(r.rischio || '')}</td><td class="rb-rif">${esc(r.raccomandazione || '')}</td>
+                        <td>${r.stato === 'trattato' ? '<span class="badge verde">trattato</span>' : '<span class="badge ambra">aperto</span>'}</td></tr>`;
+                }).join('')}
+            </tbody></table></div>` : ''}
+            ${c.roadmap.length ? `<div class="rb-sottotitolo">Roadmap per orizzonte</div>
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Orizzonte</th><th>Azione</th><th>Priorita</th><th>Responsabile</th><th>Termine</th><th>Stato</th></tr></thead><tbody>
+                ${['o1', 'o2', 'o3', 'o4'].map(o => c.roadmap.filter(r => (r.orizzonte || 'o2') === o).map(r =>
+                    `<tr><td>${RB_CHECKUP_ORIZZONTI[o]}</td><td>${esc(r.azione || '')}${r.evidenza ? '<div class="rb-rif">Evidenza di chiusura: ' + esc(r.evidenza) + '</div>' : ''}</td>
+                    <td>${esc(r.priorita || '')}</td><td class="rb-rif">${esc(r.responsabile || '')}</td><td class="rb-rif">${esc(r.termine || '')}</td>
+                    <td><span class="badge ${r.stato === 'completata' ? 'verde' : (r.stato === 'sospesa' ? 'arancio' : (r.stato === 'superata' ? 'neutro' : 'ambra'))}">${RB_CHECKUP_STATI_AZIONE[r.stato] || 'Non avviata'}</span></td></tr>`).join('')).join('')}
+            </tbody></table></div>` : ''}
+            <p class="hint">Scala del Manuale: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto. Lo scoring del check-up misura il GRADO DI PRESIDIO delle aree ed e diagnostico: non e una probabilita di default e non sostituisce rating MCC, scoring o giudizi delle banche.</p>`;
+    }
+
+    // --- scheda: il check-up operativo ---
+    function rbTabCheckup(v) {
+        const cu = v.checkup;
+        const c = rbCheckup(v);
+        const selStato = (id, val) => `<select data-cu-fase="${id}">${[['', '-'], ['incorso', 'In corso'], ['completata', 'Completata'], ['na', 'Non applicabile']].map(o => `<option value="${o[0]}" ${val === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+        return `
+            <div class="card">
+                <h2>Fasi del processo (Manuale operativo, capp. 8-18)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Il percorso dell'incarico dal primo contatto al monitoraggio: completate ${c.fasiFatte} su ${c.fasiTot - c.fasiNa}.</p>
+                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Fase</th><th>Stato</th><th>Nota</th></tr></thead><tbody>
+                ${RB_CHECKUP_FASI.map(f => { const d = (cu.fasi || {})[f.id] || {}; return `<tr><td>${esc(f.nome)}</td>
+                    <td>${selStato(f.id, d.stato || '')}</td>
+                    <td><input type="text" data-cu-fasenota="${f.id}" value="${esc(d.nota || '')}" placeholder="data, verbale, riferimenti"></td></tr>`; }).join('')}
+                </tbody></table></div>
+            </div>
+            <div class="card">
+                <h2>Valutazione delle 12 aree tecniche (scala 0-4)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Il punteggio misura il grado di presidio: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto; N/A esclude l'area dal calcolo (da motivare). I punteggi 0, 1 e 4 vanno motivati con evidenze; niente 3 o 4 con documenti essenziali mancanti. Le aree "essenziali" prevalgono sulla media.</p>
+                ${RB_CHECKUP_AREE.map(a => { const d = (cu.aree || {})[a.id] || {}; return `<div class="rb-riga-soggetto rb-riga-area">
+                    <div class="campo"><label>${esc(a.nome)}${a.chiave ? ' *' : ''}</label>
+                        <select data-cu-area="${a.id}">${[['', '-'], ['0', '0 - Critico'], ['1', '1 - Debole'], ['2', '2 - Parzialmente adeguato'], ['3', '3 - Adeguato'], ['4', '4 - Evoluto'], ['na', 'N/A (motivare)']].map(o => `<option value="${o[0]}" ${String(d.punteggio === undefined ? '' : d.punteggio) === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Conclusione dell'area</label><input type="text" data-cu-areanota="${a.id}" value="${esc(d.conclusione || '')}" placeholder="conclusione complessiva, evidenze principali"></div>
+                </div>`; }).join('')}
+                <p class="hint" style="margin-top:8px;">Presidio complessivo ponderato: <strong>${c.media !== null ? rbFmt2.format(c.media) + ' / 4 (' + RB_CHECKUP_SCALA[c.giudizio].nome + ')' : 'da calcolare'}</strong>${c.limiti.length ? ' &middot; ' + c.limiti.map(esc).join(' &middot; ') : ''}</p>
+            </div>
+            <div class="card">
+                <h2>Rilievi e punti di forza (classificazione C1/C2/C3/PF)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Ogni rilievo con la struttura del Manuale: fatto, evidenza, rischio, raccomandazione. C1 critica (azione urgente), C2 significativa (3-6 mesi), C3 miglioramento (6-12 mesi), PF punto di forza da valorizzare.</p>
+                ${(cu.rilievi || []).map((r, i) => `<div class="riepilogo-blocco">
+                    <h4>Rilievo ${i + 1} &middot; ${esc((RB_CHECKUP_CLASSI[r.classe] || {}).nome || '')}</h4>
+                    <div class="griglia-3">
+                        <div class="campo"><label>Classe</label><select data-ril-idx="${i}" data-ril-campo="classe">${Object.keys(RB_CHECKUP_CLASSI).map(k => `<option value="${k}" ${r.classe === k ? 'selected' : ''}>${RB_CHECKUP_CLASSI[k].nome}</option>`).join('')}</select></div>
+                        <div class="campo"><label>Area</label><select data-ril-idx="${i}" data-ril-campo="area">${['<option value="">-</option>'].concat(RB_CHECKUP_AREE.map(a => `<option value="${a.id}" ${r.area === a.id ? 'selected' : ''}>${esc(a.nome)}</option>`)).join('')}</select></div>
+                        <div class="campo"><label>Stato</label><select data-ril-idx="${i}" data-ril-campo="stato">${[['aperto', 'Aperto'], ['trattato', 'Trattato']].map(o => `<option value="${o[0]}" ${(r.stato || 'aperto') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                        <div class="campo"><label>Fatto</label><input type="text" data-ril-idx="${i}" data-ril-campo="fatto" value="${esc(r.fatto || '')}"></div>
+                        <div class="campo"><label>Evidenza</label><input type="text" data-ril-idx="${i}" data-ril-campo="evidenza" value="${esc(r.evidenza || '')}"></div>
+                        <div class="campo"><label>Rischio</label><input type="text" data-ril-idx="${i}" data-ril-campo="rischio" value="${esc(r.rischio || '')}"></div>
+                        <div class="campo"><label>Raccomandazione</label><input type="text" data-ril-idx="${i}" data-ril-campo="raccomandazione" value="${esc(r.raccomandazione || '')}"></div>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" data-ril-rm="${i}">Rimuovi il rilievo</button>
+                </div>`).join('')}
+                <button class="btn btn-secondary" id="rb-ril-add">+ Aggiungi un rilievo</button>
+            </div>
+            <div class="card">
+                <h2>Roadmap degli interventi</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Selettiva, ordinata per orizzonte: 0-30 giorni (liquidita, anomalie, urgenze), 31-90 giorni (tesoreria e reporting), 3-6 mesi (fonti e controllo), 6-12 mesi (progetti strutturali: ESG, TCF, 231, patrimonio).</p>
+                ${(cu.roadmap || []).map((r, i) => `<div class="riepilogo-blocco">
+                    <h4>Azione ${i + 1} &middot; ${RB_CHECKUP_ORIZZONTI[r.orizzonte || 'o2']}</h4>
+                    <div class="griglia-3">
+                        <div class="campo"><label>Azione (risultato concreto)</label><input type="text" data-rm-idx="${i}" data-rm-campo="azione" value="${esc(r.azione || '')}"></div>
+                        <div class="campo"><label>Orizzonte</label><select data-rm-idx="${i}" data-rm-campo="orizzonte">${Object.keys(RB_CHECKUP_ORIZZONTI).map(k => `<option value="${k}" ${(r.orizzonte || 'o2') === k ? 'selected' : ''}>${RB_CHECKUP_ORIZZONTI[k]}</option>`).join('')}</select></div>
+                        <div class="campo"><label>Priorita</label><select data-rm-idx="${i}" data-rm-campo="priorita">${['', 'Alta', 'Media', 'Bassa'].map(p => `<option value="${p}" ${(r.priorita || '') === p ? 'selected' : ''}>${p || '-'}</option>`).join('')}</select></div>
+                        <div class="campo"><label>Responsabile</label><input type="text" data-rm-idx="${i}" data-rm-campo="responsabile" value="${esc(r.responsabile || '')}"></div>
+                        <div class="campo"><label>Termine</label><input type="text" data-rm-idx="${i}" data-rm-campo="termine" value="${esc(r.termine || '')}" placeholder="data o intervallo realistico"></div>
+                        <div class="campo"><label>Stato</label><select data-rm-idx="${i}" data-rm-campo="stato">${Object.keys(RB_CHECKUP_STATI_AZIONE).map(k => `<option value="${k}" ${(r.stato || 'nonavviata') === k ? 'selected' : ''}>${RB_CHECKUP_STATI_AZIONE[k]}</option>`).join('')}</select></div>
+                        <div class="campo"><label>Evidenza di chiusura / KPI</label><input type="text" data-rm-idx="${i}" data-rm-campo="evidenza" value="${esc(r.evidenza || '')}"></div>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" data-rm-rm="${i}">Rimuovi l'azione</button>
+                </div>`).join('')}
+                <button class="btn btn-secondary" id="rb-rm-add">+ Aggiungi un'azione</button>
+            </div>
+            <div class="card">
+                <h2>Lista standard dei documenti (cap. 39)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">R ricevuto &middot; ND non disponibile &middot; N/A non applicabile &middot; I da integrare. Ricevuti: ${c.docRicevuti} su ${c.docApplicabili} applicabili.</p>
+                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Area</th><th>Documento</th><th>Stato</th></tr></thead><tbody>
+                ${RB_CHECKUP_DOCUMENTI.map(d => `<tr><td>${esc(d.area)}</td><td>${esc(d.nome)}</td>
+                    <td><select data-cu-doc="${d.id}">${[['', '-'], ['R', 'Ricevuto'], ['I', 'Da integrare'], ['ND', 'Non disponibile'], ['NA', 'Non applicabile']].map(o => `<option value="${o[0]}" ${((v.checkup.documenti || {})[d.id] || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></td></tr>`).join('')}
+                </tbody></table></div>
+            </div>`;
+    }
+
     /* ------------------------------------------------------------
        EVENTI PREGIUDIZIEVOLI DELL'IMPRESA (Disposizioni Operative)
        Il modello MCC declassa di DUE classi (con tetto alla 12) in
@@ -8056,6 +8337,7 @@
         const eq = x.SP14 > 0 ? x.SP15 / x.SP14 * 100 : null;
         const banche = rbAnalisiBanche(v.banche, classeCorretta, eq);
         const scoring = rbScoring(v, x, quest, banche);
+        const checkup = rbCheckup(v);
 
         // verdetto complessivo (stessa logica del simulatore pubblico, piu i segnali CCII)
         const nRosso = bank.cards.filter(c => c.level === 'rosso' || c.level === 'arancio').length;
@@ -8073,7 +8355,7 @@
             quest, risposte: v.questionario || {}, correttivo, correttivoTotale,
             soggetti, gruppo, rett, dettagliInput: v.dettagli || {}, classeCorretta,
             fasciaCorretta: RB_CLASSI[classeCorretta].fascia, pdCorretta: RB_CLASSI[classeCorretta].pd,
-            banche, scoring, verdetto
+            banche, scoring, checkup, verdetto
         };
         es.azioni = rbAzioni(es);
         return es;
@@ -8091,6 +8373,8 @@
             score: Math.round(es.scoring.score * 10) / 10, scorePd: es.scoring.pd,
             scoreClasse: es.scoring.classe, scoreGiudizio: es.scoring.giudizio,
             segnaliCcii: es.scoring.presidio.segnaliPresenti,
+            checkupMedia: es.checkup.media === null ? null : Math.round(es.checkup.media * 100) / 100,
+            checkupGiudizio: es.checkup.giudizio, checkupC1: es.checkup.c1,
             verdetto: es.verdetto.livello, verdettoTesto: es.verdetto.chip,
             banche: es.banche.numero, azioni: es.azioni.length, calcolato: Date.now()
         };
@@ -8169,6 +8453,7 @@
             banche: [],
             gruppo: {},
             eventi: {},
+            checkup: { fasi: {}, aree: {}, rilievi: [], roadmap: [], documenti: {} },
             soci: [],
             amministratori: [],
             questionario: {},
@@ -8441,6 +8726,9 @@
                 if (!schedaRB.scoring.ccii) schedaRB.scoring.ccii = {};
                 if (!schedaRB.gruppo) schedaRB.gruppo = {};
                 if (!schedaRB.eventi) schedaRB.eventi = {};
+                if (!schedaRB.checkup) schedaRB.checkup = {};
+                ['fasi', 'aree', 'documenti'].forEach(k => { if (!schedaRB.checkup[k]) schedaRB.checkup[k] = {}; });
+                ['rilievi', 'roadmap'].forEach(k => { if (!Array.isArray(schedaRB.checkup[k])) schedaRB.checkup[k] = []; });
                 if (!Array.isArray(schedaRB.soci)) schedaRB.soci = [];
                 if (!Array.isArray(schedaRB.amministratori)) schedaRB.amministratori = [];
             } else {
@@ -8458,6 +8746,7 @@
             ['soggetti', 'Soci e gruppo'],
             ['banche', 'Banche'],
             ['questionario', 'Questionario'],
+            ['checkup', 'Check-up'],
             ['esiti', 'Esiti e azioni'],
             ['metodo', 'Metodo di calcolo']
         ];
@@ -8492,6 +8781,7 @@
         if (tabRB === 'soggetti') return rbTabSoggetti(v);
         if (tabRB === 'banche') return rbTabBanche(v);
         if (tabRB === 'questionario') return rbTabQuestionario(v);
+        if (tabRB === 'checkup') return rbTabCheckup(v);
         if (tabRB === 'metodo') return rbHtmlMetodo();
         return rbTabEsiti(v);
     }
@@ -8717,6 +9007,7 @@
             <div class="card"><h2>Cruscotto di bancabilita</h2>${rbHtmlTabellaCruscotto(es)}</div>
             <div class="card"><h2>Indici della crisi (CNDCEC) e Z-Score</h2>${rbHtmlCndcec(es)}<div style="margin-top:12px;">${rbHtmlZ(es)}</div></div>
             <div class="card"><h2>Posizionamento bancario</h2>${rbHtmlTabellaBanche(es)}</div>
+            <div class="card"><h2>Check-up del merito creditizio (manuale operativo)</h2>${rbHtmlCheckup(es)}</div>
             <div class="card"><h2>Azioni migliorative proposte</h2>${rbHtmlAzioni(es)}</div>
             <div class="card">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -8862,6 +9153,42 @@
         $vista().querySelectorAll('[data-ev-sel]').forEach(el => el.addEventListener('change', () => {
             v.eventi = v.eventi || {};
             v.eventi[el.dataset.evSel] = el.value;
+        }));
+        // check-up: fasi, aree, rilievi, roadmap e documenti
+        $vista().querySelectorAll('[data-cu-fase]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.fasi[el.dataset.cuFase] = { ...(v.checkup.fasi[el.dataset.cuFase] || {}), stato: el.value };
+            vistaRatingScheda();
+        }));
+        $vista().querySelectorAll('[data-cu-fasenota]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.fasi[el.dataset.cuFasenota] = { ...(v.checkup.fasi[el.dataset.cuFasenota] || {}), nota: el.value };
+        }));
+        $vista().querySelectorAll('[data-cu-area]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.aree[el.dataset.cuArea] = { ...(v.checkup.aree[el.dataset.cuArea] || {}), punteggio: el.value };
+            vistaRatingScheda();
+        }));
+        $vista().querySelectorAll('[data-cu-areanota]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.aree[el.dataset.cuAreanota] = { ...(v.checkup.aree[el.dataset.cuAreanota] || {}), conclusione: el.value };
+        }));
+        $vista().querySelectorAll('[data-cu-doc]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.documenti[el.dataset.cuDoc] = el.value;
+        }));
+        const rilAdd = document.getElementById('rb-ril-add');
+        if (rilAdd) rilAdd.addEventListener('click', () => { v.checkup.rilievi.push({ classe: 'C2', area: '', stato: 'aperto' }); vistaRatingScheda(); });
+        $vista().querySelectorAll('[data-ril-rm]').forEach(b => b.addEventListener('click', () => { v.checkup.rilievi.splice(Number(b.dataset.rilRm), 1); vistaRatingScheda(); }));
+        $vista().querySelectorAll('[data-ril-campo]').forEach(el => el.addEventListener('change', () => {
+            const r = v.checkup.rilievi[Number(el.dataset.rilIdx)];
+            if (!r) return;
+            r[el.dataset.rilCampo] = el.value;
+            if (el.dataset.rilCampo === 'classe' || el.dataset.rilCampo === 'stato') vistaRatingScheda();
+        }));
+        const rmAdd = document.getElementById('rb-rm-add');
+        if (rmAdd) rmAdd.addEventListener('click', () => { v.checkup.roadmap.push({ orizzonte: 'o2', stato: 'nonavviata' }); vistaRatingScheda(); });
+        $vista().querySelectorAll('[data-rm-rm]').forEach(b => b.addEventListener('click', () => { v.checkup.roadmap.splice(Number(b.dataset.rmRm), 1); vistaRatingScheda(); }));
+        $vista().querySelectorAll('[data-rm-campo]').forEach(el => el.addEventListener('change', () => {
+            const r = v.checkup.roadmap[Number(el.dataset.rmIdx)];
+            if (!r) return;
+            r[el.dataset.rmCampo] = el.value;
+            if (el.dataset.rmCampo === 'orizzonte' || el.dataset.rmCampo === 'stato') vistaRatingScheda();
         }));
         // compagine sociale
         const socAdd = document.getElementById('rb-soc-add');
@@ -9030,6 +9357,11 @@
                     ${rbHtmlTabellaBanche(es)}
                 </div>
 
+                ${es.checkup.avviato ? `<div class="rb-sezione">
+                    <h3>${tSez('Check-up del merito creditizio')}</h3>
+                    ${rbHtmlCheckup(es)}
+                </div>` : ''}
+
                 <div class="rb-sezione">
                     <h3>${tSez('Azioni migliorative proposte')}</h3>
                     ${rbHtmlAzioni(es)}
@@ -9046,7 +9378,7 @@
 
                 <div class="rb-sezione rb-nota-metodo">
                     <h3>Nota metodologica e limiti</h3>
-                    <p class="rb-testo">Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA). Il rating interno simulato replica la struttura tipica dei sistemi di rating interni (tre moduli pesati per dimensione, calibrazione score-PD, classi 1-10, bande EU CR6): i modelli effettivi delle banche sono proprietari e riservati, la stima serve al pre-screening e all'advisory. Il correttivo qualitativo, le rettifiche prudenziali del bilancio, i profili di soggetti e gruppo e la stima per singolo istituto sono stime professionali Revilaw di come i modelli interni delle banche integrano gli elementi organizzativi e andamentali (il metodo completo, formula per formula, e nella scheda "Metodo di calcolo" dell'area riservata): il rating effettivo assegnato da ciascuna banca puo differire. I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali. Questo documento e uno strumento di lavoro riservato e non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009.</p>
+                    <p class="rb-testo">Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA). Il rating interno simulato replica la struttura tipica dei sistemi di rating interni (tre moduli pesati per dimensione, calibrazione score-PD, classi 1-10, bande EU CR6): i modelli effettivi delle banche sono proprietari e riservati, la stima serve al pre-screening e all'advisory. Il correttivo qualitativo, le rettifiche prudenziali del bilancio, i profili di soggetti e gruppo e la stima per singolo istituto sono stime professionali Revilaw di come i modelli interni delle banche integrano gli elementi organizzativi e andamentali (il metodo completo, formula per formula, e nella scheda "Metodo di calcolo" dell'area riservata): il rating effettivo assegnato da ciascuna banca puo differire. I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali. Il check-up del merito creditizio segue il Manuale operativo Revilaw: le valutazioni sono formulate sulla base delle informazioni rese disponibili alla data di riferimento, hanno natura diagnostica e vanno aggiornate quando cambiano dati o eventi rilevanti. Questo documento e uno strumento di lavoro riservato, non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009 ne garanzia di ottenimento del credito.</p>
                 </div>
 
                 <div class="rb-firma">
@@ -9844,6 +10176,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-rating-checkup',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: il Check-up del merito creditizio (Manuale operativo)',
+            sommario: 'Dentro la verifica c\'e la scheda "Check-up", che porta nel programma il Manuale operativo Revilaw: le fasi dell\'incarico dal primo contatto al monitoraggio, la valutazione delle 12 aree tecniche con la scala di presidio 0-4 e i pesi delle aree essenziali, i rilievi classificati C1/C2/C3/PF con fatto, evidenza, rischio e raccomandazione, la roadmap per orizzonti e la lista standard dei documenti. Tutto entra negli esiti e nel report firmato.',
+            chi: 'Chi prepara le verifiche del merito creditizio e chi le riesamina.',
+            dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica; l\'esito nel riquadro "Check-up del merito creditizio" e nella sezione dedicata del report. Il metodo e nel capitolo 10 del "Metodo di calcolo".',
+            voci: [
+                { titolo: 'Il processo in fasi', testo: 'Le undici fasi del Manuale (primo contatto, incarico, riunione iniziale, documenti, interviste, verifiche, punteggi, priorita, rapporto, presentazione, monitoraggio) con stato e note: l\'avanzamento si vede a colpo d\'occhio.' },
+                { titolo: 'Le 12 aree e il presidio complessivo', testo: 'Ogni area si valuta con la scala del Manuale (0 critico - 4 evoluto, N/A motivato). La media e ponderata: capacita di rimborso, Centrale Rischi, analisi economica e tesoreria pesano di piu, e valgono le regole di override (un C1 aperto o un\'area essenziale debole limitano il giudizio, mai verso l\'alto).' },
+                { titolo: 'Rilievi e roadmap', testo: 'I rilievi hanno la struttura del Manuale (fatto, evidenza, rischio, raccomandazione) e la classificazione C1/C2/C3/PF; la roadmap ordina le azioni per orizzonte (0-30 giorni fino a 6-12 mesi) con responsabile, termine, stato ed evidenza di chiusura.' },
+                { titolo: 'Documenti e report', testo: 'La lista standard dei documenti (cap. 39) tiene lo stato della raccolta. Esiti e report mostrano il quadro completo, con la formula sulle limitazioni del Manuale nella nota metodologica.' }
+            ]
+        },
         {
             id: '2026-08-22-rating-pregiudizievoli',
             data: '2026-08-22',

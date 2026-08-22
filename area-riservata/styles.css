@@ -1535,6 +1535,8 @@ summary.ni-testa::before {
 
 /* righe di soci e amministratori: campi in linea con il pulsante di rimozione */
 .rb-riga-soggetto { display: grid; grid-template-columns: 2fr 1.4fr 1fr auto; gap: 12px; align-items: end; padding: 6px 0; border-bottom: 1px solid var(--grigio-100); }
+.rb-riga-area { grid-template-columns: 1.4fr 1.6fr; }
+.rb-riga-area .campo label { font-size: 0.8rem; }
 .rb-riga-soggetto .campo { margin: 0; }
 .rb-riga-soggetto .btn { margin-bottom: 4px; }
 @media (max-width: 800px) { .rb-riga-soggetto { grid-template-columns: 1fr 1fr; } }
