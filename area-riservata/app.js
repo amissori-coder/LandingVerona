@@ -3283,12 +3283,12 @@
     let statoModifica = null;        // {tipo,id,etichetta} di cio che sto modificando ora (per la presenza)
     let _modalePersonaAperta = false; // per azzerare statoModifica alla chiusura della scheda persona
     // sottopagine di un incarico: entrarci da una sezione (es. Aderenti Revilaw) fa ricordare dove tornare
-    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera', 'ratingScheda', 'ratingReport', 'ratingMetodo'];
+    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera', 'ratingScheda', 'ratingReport', 'ratingMetodo', 'ratingVerbale'];
     let origineNav = null;           // {vista, parametri, scrollY} della sezione da cui si e entrati nel flusso
 
     // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
     // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
-    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating', ratingMetodo: 'rating' };
+    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating', ratingMetodo: 'rating', ratingVerbale: 'rating' };
     function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
     function naviga(id, parametri, ripristinaScroll) {
@@ -3316,7 +3316,8 @@
             rating: vistaRating,
             ratingScheda: vistaRatingScheda,
             ratingReport: vistaRatingReport,
-            ratingMetodo: vistaRatingMetodo
+            ratingMetodo: vistaRatingMetodo,
+            ratingVerbale: vistaRatingVerbale
         };
         // guardia permessi: la sezione richiesta deve essere consentita dal ruolo
         const sez = SEZIONE_DI_VISTA[id] || id;
@@ -3388,7 +3389,7 @@
             const inc = (typeof Incarichi !== 'undefined') ? Incarichi.trova(parametriVista.id) : null;
             return { tipo: 'incarico', id: parametriVista.id, etichetta: inc ? (inc.cliente || '') : '' };
         }
-        if ((vistaCorrente === 'ratingScheda' || vistaCorrente === 'ratingReport') && parametriVista && parametriVista.id) {
+        if ((vistaCorrente === 'ratingScheda' || vistaCorrente === 'ratingReport' || vistaCorrente === 'ratingVerbale') && parametriVista && parametriVista.id) {
             const ver = (typeof Rating !== 'undefined') ? Rating.trova(parametriVista.id) : null;
             return { tipo: 'rating', id: parametriVista.id, etichetta: ver ? (ver.cliente || '') : '' };
         }
@@ -6825,11 +6826,11 @@
         // --- check-up del manuale operativo ---
         if (es.checkup.c1 > 0) {
             dai('alta', 'Governance', 'Trattare i rilievi critici del check-up (C1)',
-                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo di classe C1 e aperto' : ' rilievi di classe C1 sono aperti') + ': per il Manuale operativo v1.0 richiedono comunicazione scritta all\'organo amministrativo entro 5 giorni lavorativi, azione urgente e riesame centrale, ed escludono le classi di sintesi A e B finche non sono trattati.', RB_SERVIZI.assetti);
+                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo critico (C1) e aperto' : ' rilievi critici (C1) sono aperti') + ': vanno comunicati per iscritto all\'organo amministrativo entro pochi giorni con azione urgente (la lettera si genera dalla scheda Check-up), ed escludono le classi di sintesi A e B finche non sono trattati.', RB_SERVIZI.assetti);
         }
         if (es.checkup.avviato && es.checkup.sospeso) {
             dai('media', 'Governance', 'Completare i punteggi del nucleo inderogabile del check-up',
-                'Alcuni moduli del nucleo inderogabile (A3-A8: analisi economica, circolante, capacita di rimborso, banche e Centrale Rischi, tesoreria, assetti) sono senza punteggio: il giudizio resta sospeso e la classe di sintesi non si determina finche le verifiche non sono completate (par. 49.2).', null);
+                'Alcuni moduli indispensabili (A3-A8: analisi economica, circolante, capacita di rimborso, banche e Centrale Rischi, tesoreria, assetti) sono senza punteggio: la classe di sintesi non si determina finche le valutazioni non sono completate.', null);
         }
 
         const ordine = { alta: 0, media: 1, spunto: 2 };
@@ -7805,6 +7806,7 @@
             <div class="card"><h2>10. Il check-up del merito creditizio (Manuale operativo Revilaw v1.0)</h2>
                 <p class="rb-testo">La scheda "Check-up" porta nella verifica il Manuale operativo dello studio, versione 1.0: il <strong>processo in undici fasi</strong> (dalla fase 0 di pre-qualifica al follow-up), la valutazione dei <strong>tredici moduli di analisi A1-A13</strong> con la scala di presidio (<strong>0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto</strong>, N/A con motivazione) e gli <strong>ancoraggi di punteggio</strong> del Manuale sotto ogni modulo; i <strong>rilievi classificati</strong> (C1 critica: comunicazione scritta all'organo amministrativo entro 5 giorni lavorativi e riesame centrale; C2 significativa: 3-6 mesi; C3 miglioramento: 6-12 mesi; PF punto di forza) con la struttura fatto, evidenza, rischio, raccomandazione; la <strong>roadmap</strong> per orizzonti (0-30 giorni, 31-90 giorni, 3-6 mesi, 6-12 mesi) con responsabile, termine, stato ed evidenza di chiusura; la <strong>check-list documentale master M-04</strong> (quattordici sezioni, 125 documenti di cui 31 essenziali) con lo stato di raccolta. La matrice di proporzionalita indica per ogni modulo il livello minimo di approfondimento per fascia dimensionale.</p>
                 <p class="rb-testo">Il punteggio complessivo e la <strong>media ponderata con i pesi per fascia dimensionale</strong> del par. 48.2 (Micro, Piccola, Media, Grande, dai ricavi): nelle imprese piu piccole pesano di piu capacita di rimborso, analisi economica e banche; al crescere della dimensione salgono tesoreria, assetti, compliance ed ESG. I moduli N/A si escludono e i pesi si ridistribuiscono. La media si traduce nella <strong>classe di sintesi da A a E</strong> (A presidi evoluti da 3,50; B adeguati da 2,80; C parziali da 2,00; D deboli da 1,20; E critici), una denominazione volutamente non assimilabile a un rating. Valgono gli <strong>override obbligatori</strong> del cap. 49, mai verso l'alto: DSCR prospettico sotto 1 o patrimonio netto negativo limitano alla classe D; creditori pubblici qualificati oltre soglia, sconfinamenti persistenti oltre 60 giorni, un modulo del nucleo inderogabile (A3-A8) a zero o le altre circostanze dichiarate limitano alla classe C; una criticita C1 aperta esclude le classi A e B. Un modulo del nucleo non valutabile rende il <strong>giudizio sospeso</strong> (par. 49.2): la classe non si determina. La <strong>regola di prudenza</strong> del par. 48.4 segnala i moduli con punteggio sopra 2 e documenti essenziali mancanti.</p>
+                <p class="rb-testo">Nella scheda il check-up e un <strong>percorso guidato</strong>: ogni fase spiega cosa fare e offre i suoi strumenti (raccolta documenti per sezioni, tracce di intervista, rilievi e roadmap), e <strong>verbali e lettere si generano dai dati inseriti</strong> (verbale di avvio, richiesta dei documenti mancanti, comunicazione delle criticita, verbale di consegna). I punteggi dei moduli arrivano <strong>suggeriti</strong> dalle risposte del questionario collegate a ciascun modulo (media delle risposte: da 85% vale 4, da 65% vale 3, da 45% vale 2, da 25% vale 1) corretta in senso prudente dai segnali dei calcoli (fascia MCC del bilancio per A3, DSCR per A5, sconfini e sofferenze in CR per A6, segnali CCII per A8, debiti fiscali scaduti per A10, profilo del gruppo per A2): il professionista li conferma o li corregge dopo interviste e verifiche, e ogni suggerimento dichiara le sue basi.</p>
                 <p class="rb-testo">Lo scoring del check-up e <strong>diagnostico</strong>: misura la qualita dei presidi alla data di riferimento per uniformare il lavoro e guidare la roadmap. Non e una probabilita di inadempimento, non corrisponde a rating bancari o fasce di garanzia e non sostituisce il rating MCC, lo scoring simulato o i giudizi delle banche: gli strumenti si leggono insieme, e le criticita decisive accompagnano sempre la classe.</p>
             </div>
             <div class="card"><h2>11. Verdetto, percorso di miglioramento e report</h2>
@@ -8386,7 +8388,9 @@
         const nucleoMancante = righeAree.filter(a => a.nucleo && typeof a.punteggio !== 'number');
         const sospeso = compilate > 0 && nucleoMancante.length > 0;
 
-        // override obbligatori (49.1) e criticita C1 (cap. 50, classe A)
+        /* circostanze che limitano il giudizio (mai verso l'alto) e criticita
+           C1; a parte, gli avvisi di prudenza (punteggio alto senza i
+           documenti essenziali che lo provano) */
         const limiti = [];
         let cap = null;   // 'C' oppure 'D'
         const applica = (livello, testo) => {
@@ -8396,17 +8400,17 @@
         const quotaCap = (b.quotaCapitale === null || b.quotaCapitale === undefined) ? 0 : b.quotaCapitale;
         const denDscr = quotaCap + (b.oneriFin || 0);
         const dscrBase = denDscr > 0 ? (((b.flussoOperativo || 0) > 0 ? b.flussoOperativo : (b.mol || 0) * 0.7) / denDscr) : null;
-        if (dscrBase !== null && dscrBase < 1) applica('D', 'DSCR prospettico sotto 1 nello scenario base: il profilo non puo superare la classe D (49.1)');
-        if ((b.pn || 0) < 0) applica('D', 'patrimonio netto negativo: il profilo non puo superare la classe D (49.1)');
-        if (((sc.ccii || {}).pubblici) === 'si') applica('C', 'soglie dei creditori pubblici qualificati superate: non oltre la classe C (49.1)');
-        if ((rbNum(sc.sconfiniGiorni) || 0) > 60 && (rbNum(sc.sconfiniImporto) || 0) > 0) applica('C', 'sconfinamenti persistenti oltre 60 giorni: non oltre la classe C (49.1)');
-        if (righeAree.some(a => a.nucleo && a.punteggio === 0)) applica('C', 'un modulo del nucleo inderogabile e a zero: non oltre la classe C (49.1)');
-        RB_CHECKUP_CIRCOSTANZE.forEach(cc => { if (circ[cc.id]) applica(cc.cap, cc.et.toLowerCase() + ': non oltre la classe ' + cc.cap + ' (49.1)'); });
-        if (c1 > 0) applica('C', 'criticita C1 aperte: le classi A e B sono escluse (cap. 50)');
-        // prudenza 48.4: punteggio alto con documenti essenziali mancanti
+        if (dscrBase !== null && dscrBase < 1) applica('D', 'il flusso di cassa atteso non copre le rate (DSCR sotto 1): il giudizio non supera la classe D');
+        if ((b.pn || 0) < 0) applica('D', 'patrimonio netto negativo: il giudizio non supera la classe D');
+        if (((sc.ccii || {}).pubblici) === 'si') applica('C', 'debiti verso gli enti pubblici oltre le soglie di allerta: non oltre la classe C');
+        if ((rbNum(sc.sconfiniGiorni) || 0) > 60 && (rbNum(sc.sconfiniImporto) || 0) > 0) applica('C', 'sconfinamenti bancari da oltre 60 giorni: non oltre la classe C');
+        if (righeAree.some(a => a.nucleo && a.punteggio === 0)) applica('C', 'un modulo indispensabile vale zero: non oltre la classe C');
+        RB_CHECKUP_CIRCOSTANZE.forEach(cc => { if (circ[cc.id]) applica(cc.cap, cc.et.toLowerCase() + ': non oltre la classe ' + cc.cap); });
+        if (c1 > 0) applica('C', 'criticita gravi (C1) aperte: le classi A e B sono escluse finche non trattate');
+        const prudenza = [];
         righeAree.forEach(a => {
             if (typeof a.punteggio === 'number' && a.punteggio > 2 && a.docMancanti.length) {
-                limiti.push(a.id.toUpperCase() + ' vale ' + a.punteggio + ' ma mancano documenti essenziali (' + a.docMancanti.length + '): il par. 48.4 impone al massimo 2');
+                prudenza.push(a.id.toUpperCase() + ' vale ' + a.punteggio + ' ma mancano ' + a.docMancanti.length + (a.docMancanti.length === 1 ? ' documento essenziale' : ' documenti essenziali') + ' a provarlo: prudente fermarsi a 2');
             }
         });
 
@@ -8431,7 +8435,7 @@
             || RB_CHECKUP_DOCUMENTI.some(d => documenti[d.id]);
         return {
             avviato, fascia, fasiFatte, fasiNa, fasiTot: RB_CHECKUP_FASI.length,
-            aree: righeAree, compilate, media, sintesi, sospeso, nucleoMancante, cap, limiti,
+            aree: righeAree, compilate, media, sintesi, sospeso, nucleoMancante, cap, limiti, prudenza,
             rilievi, c1, c2, c3, pf,
             roadmap, azioniAperte,
             docRicevuti, docApplicabili, essTot, essRicevuti
@@ -8444,16 +8448,16 @@
        badge invece di ripetersi modulo per modulo */
     function rbHtmlCheckup(es, compatto) {
         const c = es.checkup;
-        if (!c.avviato) return '<p class="hint">Check-up non ancora avviato: si compila nella scheda "Check-up" della verifica (fasi, tredici moduli A1-A13, rilievi, roadmap e check-list documentale, secondo il Manuale operativo Revilaw v1.0).</p>';
+        if (!c.avviato) return '<p class="hint">Check-up non ancora avviato: si lavora nella scheda "Check-up" della verifica, fase per fase, con i punteggi dei tredici moduli, i rilievi, la roadmap e la raccolta dei documenti.</p>';
         const badgeSintesi = c.sospeso ? 'grigio' : (c.sintesi ? (c.sintesi.classe <= 'B' ? 'verde' : (c.sintesi.classe === 'C' ? 'ambra' : 'rosso')) : 'grigio');
         const c1aperti = c.rilievi.filter(r => r.classe === 'C1' && r.stato !== 'trattato');
-        const override = c.limiti.filter(l => l.indexOf('48.4') < 0);
-        const prudenza = c.limiti.length - override.length;
+        const override = c.limiti;
+        const prudenza = c.prudenza.length;
         return `
             <div class="kpi-griglia rb-kpis">
                 <div class="kpi ${badgeSintesi === 'grigio' ? '' : badgeSintesi}"><div class="etichetta">Classe di sintesi</div>
                     <div class="valore">${c.sospeso ? '&mdash;' : (c.sintesi ? c.sintesi.classe : '-')}</div>
-                    <div class="nota">${c.sospeso ? 'profilo non determinabile (giudizio sospeso, par. 49.2)' : (c.sintesi ? esc(c.sintesi.nome) + ' &middot; media ponderata ' + rbFmt2.format(c.media) + ' / 4' : 'da valutare')} &middot; fascia ${esc(c.fascia.nome)}${c.fascia.stimata ? ' (senza ricavi)' : ''}</div></div>
+                    <div class="nota">${c.sospeso ? 'non determinabile: moduli indispensabili senza punteggio' : (c.sintesi ? esc(c.sintesi.nome) + ' &middot; media ponderata ' + rbFmt2.format(c.media) + ' / 4' : 'da valutare')} &middot; impresa ${esc(c.fascia.nome.toLowerCase())}${c.fascia.stimata ? ' (senza ricavi)' : ''}</div></div>
                 <div class="kpi"><div class="etichetta">Fasi del processo</div><div class="valore">${c.fasiFatte} / ${c.fasiTot - c.fasiNa}</div><div class="nota">completate (fasi 0-10)</div></div>
                 <div class="kpi ${c.c1 ? 'rosso' : (c.c2 ? 'ambra' : 'verde')}"><div class="etichetta">Rilievi aperti</div>
                     <div class="valore">${c.c1 + c.c2 + c.c3}</div><div class="nota">C1: ${c.c1} &middot; C2: ${c.c2} &middot; C3: ${c.c3} &middot; punti di forza: ${c.pf}</div></div>
@@ -8462,7 +8466,7 @@
             </div>
             ${c1aperti.length ? '<p class="rb-testo" style="margin:0 0 8px;"><strong>Criticita decisive (da rappresentare sempre con la classe):</strong> ' + c1aperti.map(r => esc(r.fatto || 'rilievo C1')).join('; ') + '.</p>' : ''}
             ${override.length || prudenza ? '<div class="rb-chips">' + override.map(l => '<span class="badge arancio">' + esc(l) + '</span>').join('')
-                + (prudenza ? '<span class="badge ambra">' + prudenza + (prudenza === 1 ? ' modulo con punteggio sopra 2 e documenti essenziali mancanti' : ' moduli con punteggio sopra 2 e documenti essenziali mancanti') + ' (prudenza 48.4)</span>' : '') + '</div>' : ''}
+                + (prudenza ? '<span class="badge ambra">' + prudenza + (prudenza === 1 ? ' modulo con punteggio alto ma documenti essenziali mancanti' : ' moduli con punteggio alto ma documenti essenziali mancanti') + '</span>' : '') + '</div>' : ''}
             ${compatto ? '<details class="rb-dettaglio"><summary>Dettaglio del check-up (moduli, rilievi e roadmap)</summary>' : ''}
             <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Modulo</th><th class="num">Peso (${esc(c.fascia.nome)})</th><th>Presidio (0-4)</th><th>Conclusione</th></tr></thead><tbody>
                 ${c.aree.map(a => `<tr><td>${esc(a.nome)}${a.nucleo ? ' <span class="badge neutro">nucleo</span>' : ''}</td><td class="num">${a.peso}</td>
@@ -8488,94 +8492,460 @@
                     <td><span class="badge ${r.stato === 'completata' ? 'verde' : (r.stato === 'sospesa' ? 'arancio' : (r.stato === 'superata' ? 'neutro' : 'ambra'))}">${RB_CHECKUP_STATI_AZIONE[r.stato] || 'Non avviata'}</span></td></tr>`).join('')).join('')}
             </tbody></table></div>` : ''}
             ${compatto ? '</details>' : ''}
-            <p class="hint">Scala del Manuale v1.0: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto; classi di sintesi da A (presidi evoluti) a E (presidi critici), sempre lette con le criticita decisive.</p>`;
+            <p class="hint">Scala dei punteggi: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto; classi di sintesi da A (presidi evoluti) a E (presidi critici), sempre lette insieme alle criticita.</p>`;
     }
 
-    // --- scheda: il check-up operativo (v1.0) ---
+    /* ------------------------------------------------------------
+       IL CHECK-UP GUIDATO: cosa fare in ogni fase, le tracce di
+       intervista pronte, e il collegamento con il questionario e con
+       i calcoli della verifica. Ogni modulo riceve un punteggio
+       SUGGERITO dai dati gia inseriti (risposte del questionario,
+       bilancio, Centrale dei Rischi, gruppo): il professionista lo
+       conferma o lo corregge dopo interviste e verifiche. Cosi le
+       stesse informazioni non si inseriscono due volte.
+    ------------------------------------------------------------ */
+    const RB_CHECKUP_GUIDA = {
+        f0: 'Prima di accettare il lavoro, verifica che l\'impresa sia seguibile: attivita in corso, contabilita utilizzabile, nessuna procedura concorsuale aperta, un interlocutore che collabora. Il quadro qui sotto riepiloga cosa risulta gia inserito nel programma.',
+        f1: 'Raccogli le informazioni di base e gli obiettivi: perche l\'impresa chiede il check-up (nuova finanza, rinnovo degli affidamenti, pricing, una tensione in corso), con quali banche lavora, quali scadenze ha davanti. Annota tutto nella nota della fase: entra nel fascicolo.',
+        f2: 'Formalizza l\'incarico prima di iniziare: oggetto (check-up del merito creditizio), perimetro, tempi, compenso e riservatezza. Se l\'incarico e censito nella sezione Incarichi dell\'area, collegalo dalla scheda "Impresa e bilancio": cliente e regione si compilano da soli.',
+        f3: 'Riunisci il titolare e le figure chiave: presenta il percorso, concorda il calendario e chi consegna i documenti. Compila data, luogo e partecipanti qui sotto e genera il verbale: resta agli atti e mette tutti d\'accordo su cosa succede.',
+        f4: 'Consegna all\'impresa la lista dei documenti e tieni qui lo stato della raccolta, sezione per sezione. La lettera di richiesta si genera da sola con i soli documenti che mancano. I documenti con il pallino sono essenziali: senza, il punteggio del modulo collegato non dovrebbe superare 2.',
+        f5: 'Le carte non bastano: intervista le persone. Qui sotto trovi le tracce pronte per i tre colloqui tipici; segna quello che emerge nelle conclusioni dei moduli (fase dei punteggi) come evidenza.',
+        f6: 'Prima di valutare, verifica che i numeri reggano: riconciliazioni banche-contabilita, Centrale dei Rischi contro il partitario, scaduto reale di clienti e fornitori, giacenze effettive di magazzino, autorizzazioni e coperture assicurative in corso di validita. I controlli automatici del programma sono riepilogati qui sotto.',
+        f7: 'Assegna a ogni modulo un punteggio da 0 (critico) a 4 (evoluto). Parti dal punteggio suggerito dai dati e dal questionario, poi confermalo o correggilo alla luce di interviste e verifiche, e scrivi la conclusione del modulo con le evidenze: e quella che finisce nel rapporto.',
+        f8: 'Trasforma quello che hai trovato in rilievi (fatto, evidenza, rischio, raccomandazione) e in una roadmap con responsabili e scadenze: poche azioni, concrete, per orizzonte. Una criticita grave va comunicata subito per iscritto all\'organo amministrativo: la lettera si genera da sola dai rilievi.',
+        f9: 'Componi e riesamina il rapporto, poi consegnalo di persona: prima i punti di forza, poi le criticita con le azioni proposte. Il report completo da firmare si apre dal pulsante in alto; il verbale di consegna chiude formalmente il lavoro.',
+        f10: 'Il check-up vale se le azioni si fanno: aggiorna lo stato della roadmap man mano, fissa la data della prossima revisione e riproponi la verifica quando cambiano i numeri o succede qualcosa di rilevante.'
+    };
+    // le tracce di intervista pronte per i tre colloqui tipici
+    const RB_CHECKUP_INTERVISTE = [
+        { id: 'titolare', nome: 'Titolare e governance', domande: [
+            'Come vengono prese le decisioni importanti e chi puo impegnare la societa verso banche e fornitori?',
+            'Cosa succederebbe all\'impresa se lei mancasse per sei mesi? Chi la sostituirebbe e con quali deleghe?',
+            'Quali sono i tre rischi che la preoccupano di piu e come li sta gestendo?',
+            'Come sceglie le banche con cui lavorare e ogni quanto le incontra?',
+            'Ci sono garanzie personali, fideiussioni o operazioni con parti correlate di cui tenere conto?'
+        ] },
+        { id: 'amministrazione', nome: 'Amministrazione e controllo', domande: [
+            'Ogni quanto chiudete una situazione contabile affidabile, e in quanti giorni dalla fine del mese?',
+            'Esiste un budget? Chi lo prepara, chi lo rivede e come si analizzano gli scostamenti?',
+            'Come gestite lo scaduto clienti: chi sollecita, con quali tempi e con quali risultati?',
+            'Ci sono debiti fiscali o contributivi scaduti o rateizzati? Con quale piano di rientro?',
+            'Quali controlli esistono su cassa, firme e pagamenti (deleghe, doppia firma, riconciliazioni)?'
+        ] },
+        { id: 'finanza', nome: 'Finanza, tesoreria e banche', domande: [
+            'Come prevedete la cassa: su quale orizzonte, con quale strumento e ogni quanto la aggiornate?',
+            'Quali affidamenti avete per banca, quanto sono utilizzati e con quali garanzie?',
+            'Ci sono stati sconfini o insoluti negli ultimi dodici mesi? Come sono stati gestiti?',
+            'Chi legge la Centrale dei Rischi e cosa e emerso dall\'ultima lettura?',
+            'Quali investimenti od operazioni straordinarie sono in vista e come pensate di finanziarli?'
+        ] }
+    ];
+    /* quali risposte del questionario parlano di ogni modulo: sono la base del
+       punteggio suggerito, insieme ai segnali dei calcoli */
+    const RB_CHECKUP_FONTI = {
+        a1: ['continuita', 'mercato', 'concentrazione', 'anzianita'],
+        a2: [],
+        a3: [],
+        a4: [],
+        a5: ['tesoreria', 'garanzie'],
+        a6: ['numbanche', 'sconfini', 'crlettura', 'puntualita'],
+        a7: ['controllo', 'piani', 'tesoreria'],
+        a8: ['assetti', 'organo'],
+        a9: ['mod231', 'legalita', 'cert'],
+        a10: ['tcf', 'puntualita'],
+        a11: ['esg'],
+        a12: [],
+        a13: ['proattiva', 'crlettura']
+    };
+    /* il punteggio suggerito per ogni modulo: dalla media delle risposte del
+       questionario collegate (85%+ vale 4, 65%+ vale 3, 45%+ vale 2, 25%+
+       vale 1, sotto vale 0) corretta dai segnali dei calcoli, sempre in senso
+       prudente. Ogni suggerimento elenca le sue basi: si vede DA COSA nasce. */
+    function rbCheckupSuggerimenti(v, es) {
+        const risposte = v.questionario || {};
+        const tutteDomande = rbDomande();
+        const out = {};
+        RB_CHECKUP_AREE.forEach(a => {
+            const base = [], mancanti = [];
+            let punti = 0, max = 0, date = 0;
+            (RB_CHECKUP_FONTI[a.id] || []).forEach(qid => {
+                const d = tutteDomande.find(x => x.id === qid);
+                if (!d) return;
+                const i = risposte[qid];
+                if (i !== undefined && i !== null && d.op[i]) {
+                    punti += d.op[i].p; max += Math.max(...d.op.map(o => o.p)); date++;
+                    base.push(d.testo.split(' (')[0].toLowerCase() + ': ' + d.op[i].t.toLowerCase());
+                } else mancanti.push(d.testo.split(' (')[0]);
+            });
+            let p = null;
+            if (date) {
+                const perc = punti / max * 100;
+                p = perc >= 85 ? 4 : (perc >= 65 ? 3 : (perc >= 45 ? 2 : (perc >= 25 ? 1 : 0)));
+            }
+            // i segnali dei calcoli: assegnano dove il questionario tace, limitano dove i numeri smentiscono
+            const limita = (val, motivo) => { p = (p === null) ? val : Math.min(p, val); base.push(motivo); };
+            if (es && es.pronta) {
+                if (a.id === 'a2' && es.gruppo.compilato) {
+                    if (es.gruppo.notch > 0) limita(1, 'flussi verso il gruppo squilibrati');
+                    else if (es.gruppo.punti.some(x => x.tipo === 'attenzione')) limita(2, 'gruppo con punti di attenzione');
+                    else limita(3, 'gruppo verificato senza rilievi');
+                }
+                if (a.id === 'a3') {
+                    const f = es.mcc.fascia;
+                    limita(f <= 2 ? 3 : (f === 3 ? 2 : (f === 4 ? 1 : 0)), 'bilancio in fascia ' + f + ' su 5 del modello MCC');
+                    if ((v.bilancio || {}).pn < 0) limita(0, 'patrimonio netto negativo');
+                }
+                if (a.id === 'a4') {
+                    const det = v.dettagli || {};
+                    const scad = rbNum(det.creditiScaduti) || 0, cred = (v.bilancio || {}).creditiEntro || 0;
+                    if (cred > 0 && scad > cred * 0.2) limita(1, 'crediti scaduti oltre un quinto del monte crediti');
+                    const obs = rbNum(det.magazzinoObsoleto) || 0, rim = (v.bilancio || {}).rimanenze || 0;
+                    if (rim > 0 && obs > rim * 0.25) limita(1, 'magazzino fermo rilevante');
+                }
+                if (a.id === 'a5' && es.bank.dscr !== null) {
+                    limita(es.bank.dscr >= 1.3 ? 3 : (es.bank.dscr >= 1.1 ? 2 : (es.bank.dscr >= 1 ? 1 : 0)), 'DSCR semplificato ' + rbFmt2.format(es.bank.dscr));
+                }
+                if (a.id === 'a6' && es.mcc.cr) {
+                    const mesi = (es.mcc.cr.c2 || 0) + (es.mcc.cr.c3 || 0);
+                    if (es.mcc.sofferenze) limita(0, 'sofferenze segnalate in Centrale dei Rischi');
+                    else if (mesi >= 3) limita(1, mesi + ' mesi con sconfini in Centrale dei Rischi');
+                    else if (mesi > 0) limita(2, mesi + (mesi === 1 ? ' mese' : ' mesi') + ' con sconfini in Centrale dei Rischi');
+                }
+                if (a.id === 'a8' && es.scoring.presidio.segnaliPresenti) limita(1, 'segnali di allerta dell\'art. 3 CCII presenti');
+                if (a.id === 'a10') {
+                    if ((rbNum((v.dettagli || {}).tribScaduto) || 0) > 0) limita(1, 'debiti fiscali o contributivi scaduti dichiarati');
+                }
+            }
+            out[a.id] = { punteggio: p, base, mancanti };
+        });
+        return out;
+    }
+    /* --- scheda: il check-up come percorso guidato per fasi ---
+       Ogni fase e un pannello con: cosa fare (in parole semplici), gli
+       strumenti per farlo davvero (check-list, tracce di intervista, punteggi
+       suggeriti, rilievi e roadmap) e i documenti che si generano da soli dai
+       dati inseriti (verbali e lettere). L'ultima fase aperta resta aperta
+       tra un ridisegno e l'altro. */
+    let cuFaseAperta = null;
     function rbTabCheckup(v) {
         const cu = v.checkup;
         const c = rbCheckup(v);
-        const selStato = (id, val) => `<select data-cu-fase="${id}">${[['', '-'], ['incorso', 'In corso'], ['completata', 'Completata'], ['na', 'Non applicabile']].map(o => `<option value="${o[0]}" ${val === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
-        let sezCorrente = '';
-        return `
-            <div class="card">
-                <h2>Fasi del processo (Manuale v1.0, capp. 9-20)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Dalla pre-qualifica al follow-up: completate ${c.fasiFatte} su ${c.fasiTot - c.fasiNa}.</p>
-                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Fase</th><th>Stato</th><th>Nota</th></tr></thead><tbody>
-                ${RB_CHECKUP_FASI.map(f => { const d = (cu.fasi || {})[f.id] || {}; return `<tr><td>${esc(f.nome)}</td>
-                    <td>${selStato(f.id, d.stato || '')}</td>
-                    <td><input type="text" data-cu-fasenota="${f.id}" value="${esc(d.nota || '')}" placeholder="data, verbale, riferimenti"></td></tr>`; }).join('')}
-                </tbody></table></div>
+        const es = rbEsiti(v);
+        const sugg = rbCheckupSuggerimenti(v, es);
+        const vb = cu.verbali || {};
+        const selStato = (id, val) => `<select data-cu-fase="${id}">${[['', 'Da fare'], ['incorso', 'In corso'], ['completata', 'Completata'], ['na', 'Non applicabile']].map(o => `<option value="${o[0]}" ${val === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+        const rigaStato = fid => { const d = (cu.fasi || {})[fid] || {}; return `<div class="rb-riga-soggetto rb-riga-area" style="margin:10px 0 12px;">
+            <div class="campo"><label>Stato della fase</label>${selStato(fid, d.stato || '')}</div>
+            <div class="campo"><label>Nota della fase (date, esiti, riferimenti)</label><input type="text" data-cu-fasenota="${fid}" value="${esc(d.nota || '')}"></div>
+        </div>`; };
+        const badgeStato = fid => { const s = ((cu.fasi || {})[fid] || {}).stato || '';
+            return s === 'completata' ? '<span class="badge verde">completata</span>'
+                : (s === 'incorso' ? '<span class="badge ambra">in corso</span>'
+                : (s === 'na' ? '<span class="badge neutro">n/a</span>' : '<span class="badge grigio">da fare</span>')); };
+        const spunta = (ok, testo) => '<span class="badge ' + (ok ? 'verde' : 'grigio') + '">' + testo + '</span>';
+        const campoVb = (gruppo, campo, label, tipo, largo) => `<div class="campo"${largo ? ' style="grid-column: span 2;"' : ''}><label>${label}</label><input type="${tipo || 'text'}" data-vb="${gruppo}.${campo}" value="${esc(((vb[gruppo] || {})[campo]) || '')}"></div>`;
+
+        // apertura di default: la prima fase non completata
+        if (!cuFaseAperta) {
+            const prima = RB_CHECKUP_FASI.find(f => { const s = ((cu.fasi || {})[f.id] || {}).stato; return s !== 'completata' && s !== 'na'; });
+            cuFaseAperta = prima ? prima.id : 'f0';
+        }
+
+        // --- contenuto specifico di ogni fase ---
+        const c1aperti = c.rilievi.filter(r => r.classe === 'C1' && r.stato !== 'trattato');
+        const corpo = {};
+        corpo.f0 = `
+            <div class="rb-chips">
+                ${spunta(!!v.settore, 'settore ' + (v.settore ? 'scelto' : 'da scegliere'))}
+                ${spunta(es.pronta, es.pronta ? 'bilancio completo' : 'bilancio: mancano ' + es.mancanti.length + ' dati')}
+                ${spunta(v.cr && v.cr.attiva, 'Centrale dei Rischi ' + (v.cr && v.cr.attiva ? 'caricata' : 'non caricata'))}
+                ${spunta(!!v.incaricoId, 'incarico ' + (v.incaricoId ? 'collegato' : 'non collegato'))}
+                ${spunta((v.soci || []).length > 0 || (v.amministratori || []).length > 0, 'soggetti ' + ((v.soci || []).length || (v.amministratori || []).length ? 'censiti' : 'da censire'))}
             </div>
-            <div class="card">
-                <h2>Valutazione dei 13 moduli (scala 0-4, pesi per fascia ${esc(c.fascia.nome)})</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Il punteggio misura il grado di presidio secondo gli <strong>ancoraggi del modulo</strong> (aprili sotto ogni voce). Regole di prudenza (48.4): un controllo essenziale a 0 tiene il modulo entro 1,5; un documento essenziale mancante lo tiene entro 2; il 4 richiede evidenza che il presidio incide sulle decisioni. Livello minimo dalla matrice di proporzionalita: ${esc('○ facoltativo · ● essenziale · ●● standard · ●●● esteso')}.</p>
-                ${RB_CHECKUP_AREE.map(a => { const d = (cu.aree || {})[a.id] || {}; const anc = RB_CHECKUP_ANCORAGGI[a.id]; return `<div class="riepilogo-blocco rb-blocco-area">
-                    <h4>${esc(a.nome)}${a.nucleo ? ' <span class="badge neutro">nucleo inderogabile</span>' : ''} <span class="rb-rif">peso ${a.pesi[c.fascia.nome]} &middot; livello minimo ${a.liv[c.fascia.nome]}</span></h4>
-                    <div class="rb-riga-soggetto rb-riga-area">
-                        <div class="campo"><label>Presidio (0-4)</label>
-                            <select data-cu-area="${a.id}">${[['', '-'], ['0', '0 - Critico'], ['1', '1 - Debole'], ['2', '2 - Parzialmente adeguato'], ['3', '3 - Adeguato'], ['4', '4 - Evoluto'], ['na', 'N/A (motivare)']].map(o => `<option value="${o[0]}" ${String(d.punteggio === undefined ? '' : d.punteggio) === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
-                        <div class="campo"><label>Conclusione del modulo</label><input type="text" data-cu-areanota="${a.id}" value="${esc(d.conclusione || '')}" placeholder="conclusione complessiva, evidenze principali"></div>
-                    </div>
-                    <details class="rb-dettaglio"><summary>Ancoraggi di punteggio del modulo</summary>
-                        <ul class="rb-punti">${[0, 1, 2, 3, 4].map(i => '<li><span class="badge ' + (i >= 3 ? 'verde' : (i === 2 ? 'ambra' : 'rosso')) + '">' + i + '</span> ' + esc(anc[i]) + '</li>').join('')}</ul>
-                    </details>
-                </div>`; }).join('')}
-                <p class="hint" style="margin-top:8px;">Classe di sintesi: <strong>${c.sospeso ? 'profilo non determinabile (nucleo non valutato)' : (c.sintesi ? c.sintesi.classe + ' - ' + c.sintesi.nome + ' (media ponderata ' + rbFmt2.format(c.media) + ' / 4)' : 'da calcolare')}</strong>${(() => { const ov = c.limiti.filter(l => l.indexOf('48.4') < 0); const pr = c.limiti.length - ov.length; return (ov.length ? ' &middot; ' + ov.map(esc).join(' &middot; ') : '') + (pr ? ' &middot; ' + pr + (pr === 1 ? ' modulo' : ' moduli') + ' oltre 2 con documenti essenziali mancanti (prudenza 48.4)' : ''); })()}</p>
+            <p class="hint">Se uno di questi punti resta scoperto, decidi consapevolmente se accettare comunque il lavoro e segnalo nella nota della fase.</p>`;
+        corpo.f1 = '';
+        corpo.f2 = '';
+        corpo.f3 = `
+            <div class="griglia-3">
+                ${campoVb('avvio', 'data', 'Data della riunione', 'date')}
+                ${campoVb('avvio', 'luogo', 'Luogo (o videoconferenza)')}
+                ${campoVb('avvio', 'partecipanti', 'Partecipanti (nomi e ruoli)', 'text', true)}
             </div>
-            <div class="card">
-                <h2>Circostanze di override (par. 49.1)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Le circostanze qui sotto si dichiarano a mano; le altre del par. 49.1 (DSCR sotto 1, patrimonio netto negativo, creditori pubblici qualificati, sconfinamenti oltre 60 giorni, modulo del nucleo a zero) scattano da sole dai dati della verifica.</p>
+            <button class="btn btn-secondary" data-verbale="avvio">Genera il verbale della riunione di avvio</button>`;
+        const sezioniDoc = [];
+        RB_CHECKUP_DOCUMENTI.forEach(d => { if (sezioniDoc.indexOf(d.sez) < 0) sezioniDoc.push(d.sez); });
+        corpo.f4 = `
+            <div class="griglia-3">
+                ${campoVb('documenti', 'referente', 'Referente dell\'impresa per la raccolta')}
+                ${campoVb('documenti', 'termine', 'Termine di consegna richiesto', 'date')}
+                <div class="campo"><label>&nbsp;</label><button class="btn btn-secondary" data-verbale="documenti">Genera la lettera di richiesta documenti</button></div>
+            </div>
+            <p class="hint" style="margin:4px 0 10px;">Ricevuti ${c.docRicevuti} documenti su ${c.docApplicabili} applicabili; essenziali ${c.essRicevuti} su ${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile. La lettera include solo cio che manca.</p>
+            ${sezioniDoc.map(sz => { const docs = RB_CHECKUP_DOCUMENTI.filter(d => d.sez === sz);
+                const ric = docs.filter(d => (cu.documenti || {})[d.id] === 'R').length;
+                const na = docs.filter(d => (cu.documenti || {})[d.id] === 'NA').length;
+                return `<details class="rb-dettaglio"><summary>${esc(sz)} <span class="rb-rif">${ric}/${docs.length - na} ricevuti</span></summary>
+                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Documento</th><th>Moduli</th><th>Stato</th></tr></thead><tbody>
+                ${docs.map(d => `<tr><td>${d.ess ? '&#9679; ' : ''}${esc(d.nome)}</td><td class="rb-rif">${esc(d.mod)}</td>
+                    <td><select data-cu-doc="${d.id}">${[['', '-'], ['R', 'Ricevuto'], ['I', 'Da integrare'], ['ND', 'Non disponibile'], ['NA', 'Non applicabile']].map(o => `<option value="${o[0]}" ${((cu.documenti || {})[d.id] || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></td></tr>`).join('')}
+                </tbody></table></div></details>`; }).join('')}`;
+        corpo.f5 = RB_CHECKUP_INTERVISTE.map(t => `<details class="rb-dettaglio"><summary>Traccia: ${esc(t.nome)}</summary>
+            <ul class="rb-punti">${t.domande.map(q => '<li>' + esc(q) + '</li>').join('')}</ul>
+        </details>`).join('') + '<p class="hint" style="margin-top:8px;">Le risposte non si trascrivono qui: portale nelle conclusioni dei moduli (fase dei punteggi) come evidenze, e nel questionario dove correggono una risposta.</p>';
+        corpo.f6 = `
+            <div class="rb-chips">
+                ${spunta(es.pronta && es.quadratura.ok, es.pronta ? (es.quadratura.ok ? 'attivo e passivo quadrano' : 'attivo e passivo NON quadrano') : 'quadratura: bilancio incompleto')}
+                ${spunta(v.cr && v.cr.attiva, v.cr && v.cr.attiva ? 'Centrale dei Rischi caricata' : 'Centrale dei Rischi da caricare')}
+                ${spunta((v.banche || []).length > 0, (v.banche || []).length ? (v.banche || []).length + ' rapporti bancari censiti' : 'rapporti bancari da censire')}
+                ${spunta(es.pronta && !es.scoring.presidio.segnaliPresenti, !es.pronta ? 'segnali di allerta: dati incompleti' : (es.scoring.presidio.segnaliPresenti ? 'segnali di allerta PRESENTI' : 'nessun segnale di allerta'))}
+            </div>
+            <p class="hint">Verifiche da fare a mano: riconciliazione dei saldi banca con la contabilita, confronto della Centrale dei Rischi con il partitario, ageing reale di clienti e fornitori, conta o conferma delle giacenze, controllo di autorizzazioni e polizze. L'esito va nella nota della fase e nelle evidenze dei moduli.</p>`;
+        const moduliBlocchi = RB_CHECKUP_AREE.map(a => {
+            const d = (cu.aree || {})[a.id] || {};
+            const anc = RB_CHECKUP_ANCORAGGI[a.id];
+            const s2 = sugg[a.id] || { punteggio: null, base: [], mancanti: [] };
+            const valAttuale = String(d.punteggio === undefined ? '' : d.punteggio);
+            let striscia = '';
+            if (s2.punteggio !== null) {
+                striscia = `<div class="cu-sugg"><span class="badge ${s2.punteggio >= 3 ? 'verde' : (s2.punteggio === 2 ? 'ambra' : 'rosso')}">suggerito ${s2.punteggio} - ${RB_CHECKUP_SCALA[s2.punteggio].nome}</span>
+                    <span class="rb-rif">${esc(s2.base.join(' &middot; '))}</span>
+                    ${valAttuale === String(s2.punteggio) ? '' : `<button class="btn btn-ghost btn-sm" data-cu-sugg="${a.id}" data-val="${s2.punteggio}">Usa</button>`}</div>`;
+            } else if (s2.mancanti.length) {
+                striscia = `<div class="cu-sugg"><span class="rb-rif">Per un punteggio suggerito rispondi nel Questionario a: ${esc(s2.mancanti.join('; '))}.</span></div>`;
+            } else {
+                striscia = '<div class="cu-sugg"><span class="rb-rif">Questo modulo si valuta con documenti, interviste e verifiche: nessun suggerimento automatico.</span></div>';
+            }
+            return `<div class="riepilogo-blocco rb-blocco-area">
+                <h4>${esc(a.nome)}${a.nucleo ? ' <span class="badge neutro">indispensabile</span>' : ''} <span class="rb-rif">peso ${a.pesi[c.fascia.nome]} nella media</span></h4>
+                ${striscia}
+                <div class="rb-riga-soggetto rb-riga-area">
+                    <div class="campo"><label>Presidio (0-4)</label>
+                        <select data-cu-area="${a.id}">${[['', '-'], ['0', '0 - Critico'], ['1', '1 - Debole'], ['2', '2 - Parzialmente adeguato'], ['3', '3 - Adeguato'], ['4', '4 - Evoluto'], ['na', 'N/A (motivare)']].map(o => `<option value="${o[0]}" ${valAttuale === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Conclusione del modulo (con le evidenze)</label><input type="text" data-cu-areanota="${a.id}" value="${esc(d.conclusione || '')}"></div>
+                </div>
+                <details class="rb-dettaglio"><summary>Come si assegna il punteggio (esempi per ogni livello)</summary>
+                    <ul class="rb-punti">${[0, 1, 2, 3, 4].map(i => '<li><span class="badge ' + (i >= 3 ? 'verde' : (i === 2 ? 'ambra' : 'rosso')) + '">' + i + '</span> ' + esc(anc[i]) + '</li>').join('')}</ul>
+                </details>
+            </div>`;
+        }).join('');
+        corpo.f7 = `
+            <div style="margin:0 0 12px;"><button class="btn btn-secondary" id="cu-sugg-tutti">Inserisci i punteggi suggeriti nei moduli ancora vuoti</button></div>
+            ${moduliBlocchi}
+            <div class="riepilogo-blocco" style="margin-top:12px;">
+                <h4>Circostanze che limitano il giudizio</h4>
+                <p class="hint" style="margin:0 0 8px;">Queste si dichiarano a mano; le altre (DSCR sotto 1, patrimonio netto negativo, debiti verso enti pubblici oltre soglia, sconfinamenti da oltre 60 giorni, un modulo indispensabile a zero) scattano da sole dai dati.</p>
                 ${RB_CHECKUP_CIRCOSTANZE.map(cc => `<label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;"><input type="checkbox" data-cu-circ="${cc.id}" ${((cu.circostanze || {})[cc.id]) ? 'checked' : ''} style="width:auto;margin-top:3px;"><span>${esc(cc.et)} <span class="rb-rif">(non oltre la classe ${cc.cap})</span></span></label>`).join('')}
             </div>
-            <div class="card">
-                <h2>Rilievi e punti di forza (C1/C2/C3/PF, cap. 51)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Struttura obbligatoria del rilievo: fatto, evidenza, rischio, raccomandazione. C1 critica: comunicazione scritta all'organo amministrativo entro 5 giorni lavorativi e riesame centrale; C2: azione entro 3-6 mesi; C3: piano entro 6-12 mesi; PF: da valorizzare.</p>
-                ${(cu.rilievi || []).map((r, i) => `<div class="riepilogo-blocco">
-                    <h4>Rilievo ${i + 1} &middot; ${esc((RB_CHECKUP_CLASSI[r.classe] || {}).nome || '')}</h4>
-                    <div class="griglia-3">
-                        <div class="campo"><label>Classe</label><select data-ril-idx="${i}" data-ril-campo="classe">${Object.keys(RB_CHECKUP_CLASSI).map(k => `<option value="${k}" ${r.classe === k ? 'selected' : ''}>${RB_CHECKUP_CLASSI[k].nome}</option>`).join('')}</select></div>
-                        <div class="campo"><label>Modulo</label><select data-ril-idx="${i}" data-ril-campo="area">${['<option value="">-</option>'].concat(RB_CHECKUP_AREE.map(a => `<option value="${a.id}" ${r.area === a.id ? 'selected' : ''}>${esc(a.nome)}</option>`)).join('')}</select></div>
-                        <div class="campo"><label>Stato</label><select data-ril-idx="${i}" data-ril-campo="stato">${[['aperto', 'Aperto'], ['trattato', 'Trattato']].map(o => `<option value="${o[0]}" ${(r.stato || 'aperto') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
-                        <div class="campo"><label>Fatto</label><input type="text" data-ril-idx="${i}" data-ril-campo="fatto" value="${esc(r.fatto || '')}"></div>
-                        <div class="campo"><label>Evidenza</label><input type="text" data-ril-idx="${i}" data-ril-campo="evidenza" value="${esc(r.evidenza || '')}"></div>
-                        <div class="campo"><label>Rischio</label><input type="text" data-ril-idx="${i}" data-ril-campo="rischio" value="${esc(r.rischio || '')}"></div>
-                        <div class="campo"><label>Raccomandazione</label><input type="text" data-ril-idx="${i}" data-ril-campo="raccomandazione" value="${esc(r.raccomandazione || '')}"></div>
-                    </div>
-                    <button class="btn btn-ghost btn-sm" data-ril-rm="${i}">Rimuovi il rilievo</button>
-                </div>`).join('')}
-                <button class="btn btn-secondary" id="rb-ril-add">+ Aggiungi un rilievo</button>
+            <p class="hint" style="margin-top:8px;">Classe di sintesi: <strong>${c.sospeso ? 'non ancora determinabile (moduli indispensabili senza punteggio)' : (c.sintesi ? c.sintesi.classe + ' - ' + c.sintesi.nome + ' (media ponderata ' + rbFmt2.format(c.media) + ' / 4)' : 'da calcolare')}</strong>${c.limiti.length ? ' &middot; ' + c.limiti.map(esc).join(' &middot; ') : ''}${c.prudenza.length ? ' &middot; ' + c.prudenza.length + (c.prudenza.length === 1 ? ' modulo con punteggio alto ma documenti essenziali mancanti' : ' moduli con punteggio alto ma documenti essenziali mancanti') : ''}</p>`;
+        corpo.f8 = `
+            <div class="rb-sottotitolo">Rilievi e punti di forza</div>
+            <p class="hint" style="margin:0 0 10px;">Ogni rilievo ha quattro pezzi: il fatto, l'evidenza che lo prova, il rischio che comporta, la raccomandazione. Classi: C1 critica (comunicazione scritta immediata e azione urgente), C2 significativa (azione entro 3-6 mesi), C3 miglioramento (entro 6-12 mesi), PF punto di forza da valorizzare.</p>
+            ${(cu.rilievi || []).map((r, i) => `<div class="riepilogo-blocco">
+                <h4>Rilievo ${i + 1} &middot; ${esc((RB_CHECKUP_CLASSI[r.classe] || {}).nome || '')}</h4>
+                <div class="griglia-3">
+                    <div class="campo"><label>Classe</label><select data-ril-idx="${i}" data-ril-campo="classe">${Object.keys(RB_CHECKUP_CLASSI).map(k => `<option value="${k}" ${r.classe === k ? 'selected' : ''}>${RB_CHECKUP_CLASSI[k].nome}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Modulo</label><select data-ril-idx="${i}" data-ril-campo="area">${['<option value="">-</option>'].concat(RB_CHECKUP_AREE.map(a => `<option value="${a.id}" ${r.area === a.id ? 'selected' : ''}>${esc(a.nome)}</option>`)).join('')}</select></div>
+                    <div class="campo"><label>Stato</label><select data-ril-idx="${i}" data-ril-campo="stato">${[['aperto', 'Aperto'], ['trattato', 'Trattato']].map(o => `<option value="${o[0]}" ${(r.stato || 'aperto') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Fatto</label><input type="text" data-ril-idx="${i}" data-ril-campo="fatto" value="${esc(r.fatto || '')}"></div>
+                    <div class="campo"><label>Evidenza</label><input type="text" data-ril-idx="${i}" data-ril-campo="evidenza" value="${esc(r.evidenza || '')}"></div>
+                    <div class="campo"><label>Rischio</label><input type="text" data-ril-idx="${i}" data-ril-campo="rischio" value="${esc(r.rischio || '')}"></div>
+                    <div class="campo"><label>Raccomandazione</label><input type="text" data-ril-idx="${i}" data-ril-campo="raccomandazione" value="${esc(r.raccomandazione || '')}"></div>
+                </div>
+                <button class="btn btn-ghost btn-sm" data-ril-rm="${i}">Rimuovi il rilievo</button>
+            </div>`).join('')}
+            <button class="btn btn-secondary" id="rb-ril-add">+ Aggiungi un rilievo</button>
+            ${c1aperti.length ? `<div class="cu-sugg" style="margin-top:10px;"><span class="badge rosso">${c1aperti.length} ${c1aperti.length === 1 ? 'criticita grave aperta' : 'criticita gravi aperte'}</span>
+                <span class="rb-rif">va comunicata per iscritto all'organo amministrativo entro pochi giorni</span></div>
+            <div class="griglia-3" style="margin-top:6px;">
+                ${campoVb('c1', 'destinatario', 'Destinatario (organo amministrativo)')}
+                <div class="campo"><label>&nbsp;</label><button class="btn btn-secondary" data-verbale="c1">Genera la comunicazione delle criticita</button></div>
+            </div>` : ''}
+            <div class="rb-sottotitolo" style="margin-top:16px;">Roadmap degli interventi</div>
+            <p class="hint" style="margin:0 0 10px;">Poche azioni concrete, per orizzonte: 0-30 giorni le urgenze di cassa e segnalazioni, 31-90 giorni tesoreria e reporting, 3-6 mesi fonti e compliance, 6-12 mesi patrimonio e percorsi lunghi. Ogni azione ha un responsabile, un termine e un'evidenza di chiusura.</p>
+            <div style="margin:0 0 10px;"><button class="btn btn-secondary" id="cu-rm-importa">Porta nella roadmap le azioni proposte dal calcolo</button></div>
+            ${(cu.roadmap || []).map((r, i) => `<div class="riepilogo-blocco">
+                <h4>Azione ${i + 1} &middot; ${RB_CHECKUP_ORIZZONTI[r.orizzonte || 'o2']}</h4>
+                <div class="griglia-3">
+                    <div class="campo"><label>Azione (risultato concreto)</label><input type="text" data-rm-idx="${i}" data-rm-campo="azione" value="${esc(r.azione || '')}"></div>
+                    <div class="campo"><label>Orizzonte</label><select data-rm-idx="${i}" data-rm-campo="orizzonte">${Object.keys(RB_CHECKUP_ORIZZONTI).map(k => `<option value="${k}" ${(r.orizzonte || 'o2') === k ? 'selected' : ''}>${RB_CHECKUP_ORIZZONTI[k]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Priorita</label><select data-rm-idx="${i}" data-rm-campo="priorita">${['', 'Alta', 'Media', 'Bassa'].map(p => `<option value="${p}" ${(r.priorita || '') === p ? 'selected' : ''}>${p || '-'}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Responsabile</label><input type="text" data-rm-idx="${i}" data-rm-campo="responsabile" value="${esc(r.responsabile || '')}"></div>
+                    <div class="campo"><label>Termine</label><input type="text" data-rm-idx="${i}" data-rm-campo="termine" value="${esc(r.termine || '')}" placeholder="data o intervallo realistico"></div>
+                    <div class="campo"><label>Stato</label><select data-rm-idx="${i}" data-rm-campo="stato">${Object.keys(RB_CHECKUP_STATI_AZIONE).map(k => `<option value="${k}" ${(r.stato || 'nonavviata') === k ? 'selected' : ''}>${RB_CHECKUP_STATI_AZIONE[k]}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Evidenza di chiusura / KPI</label><input type="text" data-rm-idx="${i}" data-rm-campo="evidenza" value="${esc(r.evidenza || '')}"></div>
+                </div>
+                <button class="btn btn-ghost btn-sm" data-rm-rm="${i}">Rimuovi l'azione</button>
+            </div>`).join('')}
+            <button class="btn btn-secondary" id="rb-rm-add">+ Aggiungi un'azione</button>`;
+        corpo.f9 = `
+            <div class="griglia-3">
+                ${campoVb('chiusura', 'data', 'Data della consegna', 'date')}
+                ${campoVb('chiusura', 'luogo', 'Luogo (o videoconferenza)')}
+                ${campoVb('chiusura', 'partecipanti', 'Presenti alla consegna', 'text', true)}
             </div>
-            <div class="card">
-                <h2>Roadmap degli interventi</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Selettiva, per orizzonte: 0-30 giorni (liquidita, sconfinamenti, segnalazioni errate, dati essenziali), 31-90 giorni (tesoreria a 13 settimane, reporting, deleghe), 3-6 mesi (fonti, budget, compliance), 6-12 mesi (patrimonio, ESG, TCF, modello organizzativo, successione).</p>
-                ${(cu.roadmap || []).map((r, i) => `<div class="riepilogo-blocco">
-                    <h4>Azione ${i + 1} &middot; ${RB_CHECKUP_ORIZZONTI[r.orizzonte || 'o2']}</h4>
-                    <div class="griglia-3">
-                        <div class="campo"><label>Azione (risultato concreto)</label><input type="text" data-rm-idx="${i}" data-rm-campo="azione" value="${esc(r.azione || '')}"></div>
-                        <div class="campo"><label>Orizzonte</label><select data-rm-idx="${i}" data-rm-campo="orizzonte">${Object.keys(RB_CHECKUP_ORIZZONTI).map(k => `<option value="${k}" ${(r.orizzonte || 'o2') === k ? 'selected' : ''}>${RB_CHECKUP_ORIZZONTI[k]}</option>`).join('')}</select></div>
-                        <div class="campo"><label>Priorita</label><select data-rm-idx="${i}" data-rm-campo="priorita">${['', 'Alta', 'Media', 'Bassa'].map(p => `<option value="${p}" ${(r.priorita || '') === p ? 'selected' : ''}>${p || '-'}</option>`).join('')}</select></div>
-                        <div class="campo"><label>Responsabile</label><input type="text" data-rm-idx="${i}" data-rm-campo="responsabile" value="${esc(r.responsabile || '')}"></div>
-                        <div class="campo"><label>Termine</label><input type="text" data-rm-idx="${i}" data-rm-campo="termine" value="${esc(r.termine || '')}" placeholder="data o intervallo realistico"></div>
-                        <div class="campo"><label>Stato</label><select data-rm-idx="${i}" data-rm-campo="stato">${Object.keys(RB_CHECKUP_STATI_AZIONE).map(k => `<option value="${k}" ${(r.stato || 'nonavviata') === k ? 'selected' : ''}>${RB_CHECKUP_STATI_AZIONE[k]}</option>`).join('')}</select></div>
-                        <div class="campo"><label>Evidenza di chiusura / KPI</label><input type="text" data-rm-idx="${i}" data-rm-campo="evidenza" value="${esc(r.evidenza || '')}"></div>
-                    </div>
-                    <button class="btn btn-ghost btn-sm" data-rm-rm="${i}">Rimuovi l'azione</button>
-                </div>`).join('')}
-                <button class="btn btn-secondary" id="rb-rm-add">+ Aggiungi un'azione</button>
+            <div class="rb-chips" style="margin:4px 0 10px;">
+                <button class="btn btn-secondary" id="cu-vai-esiti">Vai agli esiti e al report da firmare</button>
+                <button class="btn btn-secondary" data-verbale="chiusura">Genera il verbale di consegna</button>
             </div>
+            <p class="hint">Prima della consegna rileggi il rapporto con occhio critico: ogni rilievo ha la sua evidenza? Le azioni hanno responsabile e termine? La classe di sintesi e coerente con le criticita?</p>`;
+        const aperte = (cu.roadmap || []).filter(r => r.stato !== 'completata' && r.stato !== 'superata');
+        corpo.f10 = `
+            <div class="griglia-3">${campoVb('followup', 'prossima', 'Prossima revisione concordata', 'date')}</div>
+            ${aperte.length ? `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Azione aperta</th><th>Orizzonte</th><th>Responsabile</th><th>Stato</th></tr></thead><tbody>
+                ${aperte.map(r => `<tr><td>${esc(r.azione || '')}</td><td>${RB_CHECKUP_ORIZZONTI[r.orizzonte || 'o2']}</td><td class="rb-rif">${esc(r.responsabile || '')}</td>
+                <td><span class="badge ${r.stato === 'incorso' ? 'ambra' : (r.stato === 'sospesa' ? 'arancio' : 'grigio')}">${RB_CHECKUP_STATI_AZIONE[r.stato] || 'Non avviata'}</span></td></tr>`).join('')}
+            </tbody></table></div>` : '<p class="hint">Nessuna azione aperta in roadmap: o e tutto completato, o la roadmap va ancora costruita (fase delle priorita).</p>'}
+            <p class="hint" style="margin-top:8px;">Gli stati delle azioni si aggiornano nella fase delle priorita: qui vedi solo cio che resta aperto.</p>`;
+
+        // riepiloghi mostrati accanto al nome della fase
+        const riass = {
+            f4: c.essTot ? c.essRicevuti + '/' + c.essTot + ' essenziali' : '',
+            f7: c.compilate + '/13 moduli',
+            f8: (cu.rilievi || []).length + ' rilievi &middot; ' + (cu.roadmap || []).length + ' azioni',
+            f10: c.azioniAperte + ' azioni aperte'
+        };
+        return `
             <div class="card">
-                <h2>Check-list documentale master (M-04)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Quattordici sezioni, ${RB_CHECKUP_DOCUMENTI.length} documenti; il pallino indica gli <strong>essenziali</strong> (un essenziale mancante tiene il punteggio del modulo entro 2). Ricevuti: ${c.docRicevuti}/${c.docApplicabili}; essenziali: ${c.essRicevuti}/${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile.</p>
-                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Documento</th><th>Moduli</th><th>Stato</th></tr></thead><tbody>
-                ${RB_CHECKUP_DOCUMENTI.map(d => {
-                    const testa = d.sez !== sezCorrente ? '<tr class="rb-riga-sezione"><td colspan="3"><strong>' + esc(d.sez) + '</strong></td></tr>' : '';
-                    sezCorrente = d.sez;
-                    return testa + `<tr><td>${d.ess ? '&#9679; ' : ''}${esc(d.nome)}</td><td class="rb-rif">${esc(d.mod)}</td>
-                    <td><select data-cu-doc="${d.id}">${[['', '-'], ['R', 'Ricevuto'], ['I', 'Da integrare'], ['ND', 'Non disponibile'], ['NA', 'Non applicabile']].map(o => `<option value="${o[0]}" ${((v.checkup.documenti || {})[d.id] || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></td></tr>`;
-                }).join('')}
-                </tbody></table></div>
+                <h2>Il check-up, fase per fase</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Apri una fase per vedere cosa fare e con quali strumenti; segna lo stato man mano e usa i pulsanti per generare verbali e lettere gia compilati. Classe di sintesi attuale: <strong>${c.sospeso ? 'non ancora determinabile' : (c.sintesi ? c.sintesi.classe + ' - ' + c.sintesi.nome : 'da calcolare')}</strong>.</p>
+                ${RB_CHECKUP_FASI.map(f => { const pezzi = f.nome.split(' - '); return `
+                <details class="cu-fase" data-fase="${f.id}" ${cuFaseAperta === f.id ? 'open' : ''}>
+                    <summary><span class="badge neutro">${esc(pezzi[0])}</span><strong>${esc(pezzi[1] || pezzi[0])}</strong>
+                        <span class="cu-fase-destra">${riass[f.id] ? '<span class="rb-rif">' + riass[f.id] + '</span>' : ''}${badgeStato(f.id)}</span></summary>
+                    <div class="cu-fase-corpo">
+                        <div class="cu-guida">${esc(RB_CHECKUP_GUIDA[f.id] || '')}</div>
+                        ${rigaStato(f.id)}
+                        ${corpo[f.id] || ''}
+                    </div>
+                </details>`; }).join('')}
             </div>`;
+    }
+    /* --- i documenti del check-up generati dai dati inseriti ---
+       Verbali e lettere si compongono da soli con cliente, fasi, rilievi,
+       documenti mancanti e roadmap; si stampano con la stessa veste del
+       report e portano la firma grafica del responsabile. */
+    const RB_VERBALE_TIPI = {
+        avvio: 'Verbale della riunione di avvio',
+        documenti: 'Richiesta dei documenti',
+        c1: 'Comunicazione di criticita rilevanti',
+        chiusura: 'Verbale di consegna del rapporto'
+    };
+    function rbVerbaleData(iso) {
+        return /^\d{4}-\d{2}-\d{2}$/.test(String(iso || '')) ? fmtData(iso) : fmtData(oggiISO());
+    }
+    function rbVerbaleCorpo(v, tipo) {
+        const cu = v.checkup || {};
+        const vb = cu.verbali || {};
+        const resp = (v.respVerifica || '').trim() || 'il responsabile della verifica';
+        const t = s => '<p class="rb-testo">' + s + '</p>';
+        if (tipo === 'avvio') {
+            const d = vb.avvio || {};
+            const doc = vb.documenti || {};
+            const notaFase = ((cu.fasi || {}).f3 || {}).nota;
+            return t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si e tenuta la riunione di avvio del check-up del merito creditizio di <strong>' + esc(v.cliente || '(impresa)') + '</strong>.')
+                + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell\'impresa e ' + esc(resp) + ' per Revilaw.'))
+                + '<div class="rb-sottotitolo">Argomenti trattati e decisioni assunte</div><ul class="rb-punti">'
+                + '<li>Percorso di lavoro: raccolta dei documenti, interviste alle figure chiave, verifiche sui dati, valutazione dei tredici moduli di analisi, rilievi e roadmap degli interventi, rapporto finale con la consegna di persona.</li>'
+                + '<li>Perimetro: ' + esc(v.cliente || 'l\'impresa') + (RB_SETTORI[v.settore] ? ', settore ' + esc(RB_SETTORI[v.settore].label.toLowerCase()) : '') + (v.esercizio ? ', esercizio di riferimento ' + esc(v.esercizio) : '') + '.</li>'
+                + '<li>Raccolta dei documenti: l\'elenco viene consegnato all\'impresa' + (doc.referente ? '; referente per la raccolta: ' + esc(doc.referente) : '') + (doc.termine ? '; termine concordato: ' + rbVerbaleData(doc.termine) : '') + '. I documenti possono essere trasmessi anche in piu riprese.</li>'
+                + '<li>Interviste: da calendarizzare con il titolare, con l\'amministrazione e con chi segue finanza e banche.</li>'
+                + '<li>Riservatezza: dati e documenti sono trattati ai soli fini dell\'incarico e non vengono comunicati a terzi.</li></ul>'
+                + (notaFase ? t('<strong>Ulteriori annotazioni:</strong> ' + esc(notaFase)) : '')
+                + t('Letto, confermato e sottoscritto.');
+        }
+        if (tipo === 'documenti') {
+            const doc = vb.documenti || {};
+            const stati = cu.documenti || {};
+            const daChiedere = RB_CHECKUP_DOCUMENTI.filter(d2 => { const s = stati[d2.id] || ''; return s !== 'R' && s !== 'NA'; });
+            const sezioni = [];
+            daChiedere.forEach(d2 => { if (sezioni.indexOf(d2.sez) < 0) sezioni.push(d2.sez); });
+            return t('Spett.le <strong>' + esc(v.cliente || '(impresa)') + '</strong>' + (doc.referente ? '<br>alla cortese attenzione di ' + esc(doc.referente) : ''))
+                + t('per lo svolgimento del check-up del merito creditizio vi chiediamo di trasmetterci i documenti elencati di seguito' + (doc.termine ? ', possibilmente entro il <strong>' + rbVerbaleData(doc.termine) + '</strong>' : '') + '. I documenti gia ricevuti non sono elencati; quelli contrassegnati con il pallino (&#9679;) sono indispensabili per completare le valutazioni. Vanno bene copie in formato elettronico, anche trasmesse in piu riprese.')
+                + (daChiedere.length ? sezioni.map(sz => '<div class="rb-sottotitolo">' + esc(sz) + '</div><ul class="rb-punti">'
+                    + daChiedere.filter(d2 => d2.sez === sz).map(d2 => '<li>' + (d2.ess ? '&#9679; ' : '') + esc(d2.nome) + (stati[d2.id] === 'I' ? ' <em>(ricevuto parzialmente: da integrare)</em>' : '') + '</li>').join('') + '</ul>').join('')
+                    : t('<strong>Tutti i documenti della lista risultano gia ricevuti:</strong> vi ringraziamo per la collaborazione.'))
+                + t('Restiamo a disposizione per qualsiasi chiarimento sui singoli documenti.');
+        }
+        if (tipo === 'c1') {
+            const d = vb.c1 || {};
+            const aperti = (cu.rilievi || []).filter(r => r.classe === 'C1' && r.stato !== 'trattato');
+            return t('Spett.le <strong>' + esc(v.cliente || '(impresa)') + '</strong><br>all\'attenzione ' + (d.destinatario ? 'di ' + esc(d.destinatario) : 'dell\'organo amministrativo'))
+                + t('nel corso del check-up del merito creditizio in corso sono emerse criticita che riteniamo doveroso portare subito alla vostra attenzione, senza attendere il rapporto finale, per la loro possibile incidenza sull\'accesso al credito e sui doveri di adeguato assetto dell\'organo amministrativo.')
+                + (aperti.length ? aperti.map((r, i) => '<div class="rb-sottotitolo">Criticita ' + (i + 1) + '</div>'
+                    + t('<strong>' + esc(r.fatto || 'Rilievo critico') + '</strong>'
+                        + (r.evidenza ? '<br><strong>Evidenza:</strong> ' + esc(r.evidenza) : '')
+                        + (r.rischio ? '<br><strong>Rischio:</strong> ' + esc(r.rischio) : '')
+                        + (r.raccomandazione ? '<br><strong>Raccomandazione:</strong> ' + esc(r.raccomandazione) : ''))).join('')
+                    : t('Non risultano criticita gravi aperte alla data odierna.'))
+                + t('Vi invitiamo a esaminare quanto sopra con urgenza, ad avviare le azioni correttive e a darcene riscontro scritto. Restiamo a disposizione per approfondire insieme ogni punto.');
+        }
+        // chiusura e consegna
+        const d = vb.chiusura || {};
+        const c = rbCheckup(v);
+        const es = rbEsiti(v);
+        const fu = (vb.followup || {}).prossima;
+        const conte = [];
+        if (c.c1 || c.c2 || c.c3 || c.pf) conte.push('rilievi aperti: ' + (c.c1 + c.c2 + c.c3) + ' (C1: ' + c.c1 + ', C2: ' + c.c2 + ', C3: ' + c.c3 + '), punti di forza: ' + c.pf);
+        if ((cu.roadmap || []).length) conte.push('roadmap con ' + cu.roadmap.length + ' azioni');
+        return t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si e svolto l\'incontro di consegna del rapporto di check-up del merito creditizio di <strong>' + esc(v.cliente || '(impresa)') + '</strong>.')
+            + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell\'impresa e ' + esc(resp) + ' per Revilaw.'))
+            + '<div class="rb-sottotitolo">Sintesi degli esiti illustrati</div><ul class="rb-punti">'
+            + '<li>Qualita dei presidi: ' + (c.sospeso ? 'giudizio sospeso (moduli indispensabili non ancora valutabili)' : (c.sintesi ? 'classe di sintesi ' + c.sintesi.classe + ' - ' + c.sintesi.nome.toLowerCase() : 'valutazione non completata')) + '.</li>'
+            + (es.pronta ? '<li>Rating MCC del Fondo di Garanzia: classe ' + es.mcc.integrata + ' su 12; rating ipotizzato con il correttivo qualitativo: classe ' + es.classeCorretta + ' su 12.</li>' : '')
+            + (es.pronta && es.percorso.attivo && es.percorso.deltaClasse > 0 ? '<li>Classe potenziale completando il percorso di miglioramento proposto: ' + es.percorso.classe + ' su 12.</li>' : '')
+            + (conte.length ? '<li>' + conte.join('; ') + '.</li>' : '')
+            + '</ul>'
+            + t('Il rapporto e stato illustrato punto per punto e consegnato all\'impresa insieme alla roadmap degli interventi.' + (fu ? ' La prossima revisione e fissata per il <strong>' + rbVerbaleData(fu) + '</strong>.' : ' La data della prossima revisione verra concordata a valle delle prime azioni.'))
+            + t('Letto, confermato e sottoscritto.');
+    }
+    function vistaRatingVerbale() {
+        const p = parametriVista || {};
+        const v = p.id ? Rating.trova(p.id) : null;
+        if (!v) { toast('Verifica non trovata.', 'rosso'); naviga('rating'); return; }
+        const acc = rbAccessoCorrente(v);
+        if (!acc.vede) { toast('Non hai accesso a questa verifica.', 'rosso'); naviga('rating'); return; }
+        const tipo = RB_VERBALE_TIPI[p.tipo] ? p.tipo : 'avvio';
+        const oggi = fmtData(oggiISO());
+        const set = RB_SETTORI[v.settore];
+        $vista().innerHTML = `
+            <div class="barra-stampa no-stampa">
+                <button class="btn btn-ghost" id="rb-vb-indietro">&larr; ${acc.scrive ? 'Torna alla verifica' : 'Torna all\'elenco'}</button>
+                <button class="btn btn-primary" id="rb-vb-stampa">Stampa / salva in PDF</button>
+                <span class="hint" style="align-self:center;">Il documento si compila da solo con i dati della verifica: per cambiarlo, aggiorna la scheda Check-up e rigeneralo.</span>
+            </div>
+            <div class="rb-foglio">
+                <div class="rb-testata">
+                    <div>
+                        <div class="rb-marchio">Revilaw S.p.A.</div>
+                        <div class="rb-titolo">${esc(RB_VERBALE_TIPI[tipo])}</div>
+                    </div>
+                    <div class="rb-testata-meta">
+                        <div><strong>${esc(v.cliente || '(senza nome)')}</strong></div>
+                        <div>${set ? esc(set.label) : ''}${v.esercizio ? ' &middot; esercizio ' + esc(v.esercizio) : ''}</div>
+                        <div>Documento del ${oggi}</div>
+                    </div>
+                </div>
+                <div class="rb-sezione">${rbVerbaleCorpo(v, tipo)}</div>
+                <div class="rb-firma">
+                    <div class="rb-firma-col">
+                        <div class="rb-firma-et">Luogo e data</div>
+                        <div class="rb-firma-val">${esc((v.luogo || '').trim() || 'Verona')}, ${oggi}</div>
+                    </div>
+                    <div class="rb-firma-col">
+                        <div class="rb-firma-et">Il responsabile della verifica</div>
+                        <div class="rb-firma-area" id="rb-firma-area"></div>
+                        <div class="rb-firma-linea"></div>
+                        <div class="rb-firma-nome">${esc((v.respVerifica || '').trim() || 'Revilaw S.p.A.')}</div>
+                    </div>
+                </div>
+            </div>`;
+        document.getElementById('rb-vb-indietro').addEventListener('click', () => (acc.scrive ? naviga('ratingScheda', { id: v.id }) : naviga('rating')));
+        document.getElementById('rb-vb-stampa').addEventListener('click', () => {
+            Audit.registra(Auth.utenteCorrente, 'Stampato documento del check-up (' + RB_VERBALE_TIPI[tipo] + ')', 'rating', v.id, v.cliente, null);
+            window.print();
+        });
+        rbMostraFirmaReport(v);
     }
 
     /* ------------------------------------------------------------
@@ -8805,7 +9175,7 @@
             banche: [],
             gruppo: {},
             eventi: {},
-            checkup: { fasi: {}, aree: {}, rilievi: [], roadmap: [], documenti: {}, circostanze: {} },
+            checkup: { fasi: {}, aree: {}, rilievi: [], roadmap: [], documenti: {}, circostanze: {}, verbali: {} },
             soci: [],
             amministratori: [],
             questionario: {},
@@ -9164,7 +9534,7 @@
                 if (!schedaRB.gruppo) schedaRB.gruppo = {};
                 if (!schedaRB.eventi) schedaRB.eventi = {};
                 if (!schedaRB.checkup) schedaRB.checkup = {};
-                ['fasi', 'aree', 'documenti', 'circostanze'].forEach(k => { if (!schedaRB.checkup[k]) schedaRB.checkup[k] = {}; });
+                ['fasi', 'aree', 'documenti', 'circostanze', 'verbali'].forEach(k => { if (!schedaRB.checkup[k]) schedaRB.checkup[k] = {}; });
                 ['rilievi', 'roadmap'].forEach(k => { if (!Array.isArray(schedaRB.checkup[k])) schedaRB.checkup[k] = []; });
                 rbMigraCheckup(schedaRB.checkup);
                 if (!Array.isArray(schedaRB.soci)) schedaRB.soci = [];
@@ -9180,7 +9550,7 @@
             }
             statoImportXbrl = null; statoImportCr = null; attnXbrl = [];
             tabRB = 'impresa';
-            rbModifichePendenti = 0; rbUltimoAvvisoSalva = 0;
+            rbModifichePendenti = 0; rbUltimoAvvisoSalva = 0; cuFaseAperta = null;
             parametriVista = { id: schedaRB.id };   // il "nuova" e consumato: i ridisegni non azzerano la scheda
         }
         const v = schedaRB;
@@ -9527,7 +9897,7 @@
         return `
             <div class="card">
                 <h2>Questionario qualitativo</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Venti domande su governance, presidi, banche e struttura: cio che i modelli interni delle banche pesano oltre il bilancio. Risposte date: <strong>${q.date} su ${q.tot}</strong> &middot; punteggio attuale <strong>${q.perc}%</strong> (correttivo sulla classe: ${rbCorrettivo(q.perc) === 0 ? 'nessuno' : (rbCorrettivo(q.perc) > 0 ? '+' + rbCorrettivo(q.perc) : rbCorrettivo(q.perc))}).</p>
+                <p class="hint" style="margin:-6px 0 12px;">Venti domande su governance, presidi, banche e struttura: cio che i modelli interni delle banche pesano oltre il bilancio. Risposte date: <strong>${q.date} su ${q.tot}</strong> &middot; punteggio attuale <strong>${q.perc}%</strong> (correttivo sulla classe: ${rbCorrettivo(q.perc) === 0 ? 'nessuno' : (rbCorrettivo(q.perc) > 0 ? '+' + rbCorrettivo(q.perc) : rbCorrettivo(q.perc))}). Le risposte alimentano anche i punteggi suggeriti del Check-up: si rispondono qui, una volta sola.</p>
                 ${RB_QUESTIONARIO.map(s => `<div class="riepilogo-blocco"><h4>${esc(s.titolo)}</h4>
                     ${s.domande.map(d => `<div class="rb-domanda">
                         <div class="rb-domanda-testo">${esc(d.testo)}</div>
@@ -9729,6 +10099,51 @@
             v.checkup.circostanze = v.checkup.circostanze || {};
             v.checkup.circostanze[el.dataset.cuCirc] = el.checked;
             vistaRatingScheda();
+        }));
+        // il percorso guidato: fase aperta, punteggi suggeriti, verbali e roadmap dal calcolo
+        $vista().querySelectorAll('.cu-fase').forEach(d2 => d2.addEventListener('toggle', () => {
+            if (d2.open) cuFaseAperta = d2.dataset.fase;
+        }));
+        $vista().querySelectorAll('[data-cu-sugg]').forEach(b => b.addEventListener('click', () => {
+            v.checkup.aree[b.dataset.cuSugg] = { ...(v.checkup.aree[b.dataset.cuSugg] || {}), punteggio: String(b.dataset.val) };
+            vistaRatingScheda();
+        }));
+        const suggTutti = document.getElementById('cu-sugg-tutti');
+        if (suggTutti) suggTutti.addEventListener('click', () => {
+            const sg = rbCheckupSuggerimenti(v, rbEsiti(v));
+            let n = 0;
+            RB_CHECKUP_AREE.forEach(a => {
+                const d2 = v.checkup.aree[a.id] || {};
+                const vuoto = d2.punteggio === undefined || d2.punteggio === '' || d2.punteggio === null;
+                if (vuoto && sg[a.id].punteggio !== null) { v.checkup.aree[a.id] = { ...d2, punteggio: String(sg[a.id].punteggio) }; n++; }
+            });
+            toast(n ? 'Punteggi suggeriti inseriti in ' + n + (n === 1 ? ' modulo' : ' moduli') + ': confermali o correggili dopo interviste e verifiche.' : 'Nessun modulo vuoto con un punteggio proponibile: completa il questionario o valuta a mano.', n ? 'verde' : 'ambra');
+            vistaRatingScheda();
+        });
+        const rmImporta = document.getElementById('cu-rm-importa');
+        if (rmImporta) rmImporta.addEventListener('click', () => {
+            const es2 = rbEsiti(v);
+            const gia = (v.checkup.roadmap || []).map(r => String(r.azione || '').trim().toLowerCase());
+            let n = 0;
+            (es2.azioni || []).filter(a => a.pr !== 'spunto').forEach(a => {
+                if (gia.indexOf(a.titolo.trim().toLowerCase()) >= 0) return;
+                v.checkup.roadmap.push({ azione: a.titolo, orizzonte: a.pr === 'alta' ? 'o1' : 'o3', priorita: a.pr === 'alta' ? 'Alta' : 'Media', stato: 'nonavviata' });
+                n++;
+            });
+            toast(n ? n + (n === 1 ? ' azione portata' : ' azioni portate') + ' nella roadmap dal calcolo: assegna responsabili e termini.' : 'Le azioni del calcolo sono gia tutte in roadmap.', n ? 'verde' : 'ambra');
+            vistaRatingScheda();
+        });
+        const vaiEsiti = document.getElementById('cu-vai-esiti');
+        if (vaiEsiti) vaiEsiti.addEventListener('click', () => { tabRB = 'esiti'; vistaRatingScheda(); });
+        $vista().querySelectorAll('[data-vb]').forEach(el => el.addEventListener('change', () => {
+            const pezzi = el.dataset.vb.split('.');
+            v.checkup.verbali = v.checkup.verbali || {};
+            v.checkup.verbali[pezzi[0]] = v.checkup.verbali[pezzi[0]] || {};
+            v.checkup.verbali[pezzi[0]][pezzi[1]] = el.value;
+        }));
+        $vista().querySelectorAll('[data-verbale]').forEach(b => b.addEventListener('click', () => {
+            const id = rbSalvaScheda();
+            if (id) naviga('ratingVerbale', { id, tipo: b.dataset.verbale });
         }));
         const rilAdd = document.getElementById('rb-ril-add');
         if (rilAdd) rilAdd.addEventListener('click', () => { v.checkup.rilievi.push({ classe: 'C2', area: '', stato: 'aperto' }); vistaRatingScheda(); });
@@ -10738,6 +11153,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-checkup-guidato',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: il Check-up diventa un percorso guidato con verbali automatici',
+            sommario: 'La scheda Check-up non e piu un elenco di tabelle: e un percorso a pannelli, fase per fase, che spiega in parole semplici cosa fare e mette in ogni fase gli strumenti per farlo. I punteggi dei tredici moduli arrivano gia suggeriti dalle risposte del questionario e dai calcoli della verifica (si conferma o si corregge, senza inserire due volte le stesse cose), e verbali e lettere si generano da soli dai dati inseriti: verbale di avvio, richiesta dei documenti mancanti, comunicazione delle criticita all\'organo amministrativo, verbale di consegna.',
+            chi: 'Chi svolge i check-up del merito creditizio.',
+            dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica: ogni fase ha la sua guida, i suoi strumenti e i suoi documenti.',
+            voci: [
+                { titolo: 'Ogni fase spiega cosa fare', testo: 'Dalla pre-qualifica al follow-up, ogni pannello si apre con una guida operativa in linguaggio piano (niente rimandi a paragrafi): cosa verificare, cosa chiedere, cosa produrre. Lo stato della fase e le note restano a portata di mano.' },
+                { titolo: 'Punteggi suggeriti dal questionario e dai dati', testo: 'Ogni modulo mostra il punteggio suggerito con le sue basi: le risposte del questionario collegate, il DSCR, la Centrale dei Rischi, il gruppo, i debiti fiscali. Un clic lo inserisce (anche su tutti i moduli vuoti insieme); interviste e verifiche servono a confermarlo o correggerlo.' },
+                { titolo: 'Verbali e lettere gia compilati', testo: 'Il verbale della riunione di avvio, la lettera con i soli documenti che mancano, la comunicazione delle criticita gravi all\'organo amministrativo e il verbale di consegna si generano con un pulsante, nella stessa veste del report e con la firma grafica del responsabile.' },
+                { titolo: 'Strumenti dentro le fasi', testo: 'La raccolta documenti e organizzata per sezioni con i conteggi; le interviste hanno tre tracce di colloquio pronte; la roadmap puo importare con un clic le azioni proposte dal calcolo; il follow-up mostra le azioni ancora aperte e la data della prossima revisione.' }
+            ]
+        },
         {
             id: '2026-08-22-rating-percorso',
             data: '2026-08-22',
