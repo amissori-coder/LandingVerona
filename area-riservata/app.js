@@ -8635,6 +8635,13 @@
         });
         return out;
     }
+    /* i documenti che si caricano direttamente nell'area: sono la base dei
+       calcoli, percio' stanno in testa all'elenco della raccolta e alla
+       lettera di richiesta */
+    const RB_DOC_AREA = {
+        d12: { dove: 'scheda "Impresa e bilancio"', come: 'anche come file XBRL del Registro Imprese (il programma lo legge da solo)' },
+        d27: { dove: 'scheda "Centrale Rischi"', come: 'anche come PDF della Banca d’Italia (il programma lo legge da solo)' }
+    };
     // una domanda con le risposte a scelta: si registra nelle fasi e si riusa ovunque
     function rbDomandaHtml(v, qid) {
         const d = rbDomande().find(x => x.id === qid);
@@ -8687,23 +8694,27 @@
             </div>
             <button class="btn btn-secondary" data-verbale="avvio">Genera il verbale della riunione di avvio</button>`;
         } else if (fid === 'f4') {
+            const areaCaricato = { d12: es.pronta, d27: !!(v.cr && v.cr.attiva) };
+            const idsArea = Object.keys(RB_DOC_AREA);
             const sezioniDoc = [];
-            RB_CHECKUP_DOCUMENTI.forEach(d => { if (sezioniDoc.indexOf(d.sez) < 0) sezioniDoc.push(d.sez); });
+            RB_CHECKUP_DOCUMENTI.forEach(d => { if (idsArea.indexOf(d.id) < 0 && sezioniDoc.indexOf(d.sez) < 0) sezioniDoc.push(d.sez); });
+            const rigaDoc = (d, nota) => `<tr><td>${d.ess ? '&#9679; ' : ''}${esc(d.nome)}${nota || ''}</td><td class="rb-rif">${esc(d.mod)}</td>
+                    <td><select data-cu-doc="${d.id}">${[['', '-'], ['R', 'Ricevuto'], ['I', 'Da integrare'], ['ND', 'Non disponibile'], ['NA', 'Non applicabile']].map(o => `<option value="${o[0]}" ${((cu.documenti || {})[d.id] || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></td></tr>`;
             corpo = `
             <div class="griglia-3">
                 ${campoVb('documenti', 'referente', 'Referente dell’impresa per la raccolta')}
                 ${campoVb('documenti', 'termine', 'Termine di consegna richiesto', 'date')}
                 <div class="campo"><label>&nbsp;</label><button class="btn btn-secondary" data-verbale="documenti">Genera la lettera di richiesta documenti</button></div>
             </div>
-            <p class="hint" style="margin:4px 0 10px;">Ricevuti ${c.docRicevuti} documenti su ${c.docApplicabili} applicabili; essenziali ${c.essRicevuti} su ${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile. La lettera include solo ciò che manca.</p>
-            ${sezioniDoc.map(sz => { const docs = RB_CHECKUP_DOCUMENTI.filter(d => d.sez === sz);
-                const ric = docs.filter(d => (cu.documenti || {})[d.id] === 'R').length;
-                const na = docs.filter(d => (cu.documenti || {})[d.id] === 'NA').length;
-                return `<details class="rb-dettaglio"><summary>${esc(sz)} <span class="rb-rif">${ric}/${docs.length - na} ricevuti</span></summary>
-                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Documento</th><th>Moduli</th><th>Stato</th></tr></thead><tbody>
-                ${docs.map(d => `<tr><td>${d.ess ? '&#9679; ' : ''}${esc(d.nome)}</td><td class="rb-rif">${esc(d.mod)}</td>
-                    <td><select data-cu-doc="${d.id}">${[['', '-'], ['R', 'Ricevuto'], ['I', 'Da integrare'], ['ND', 'Non disponibile'], ['NA', 'Non applicabile']].map(o => `<option value="${o[0]}" ${((cu.documenti || {})[d.id] || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></td></tr>`).join('')}
-                </tbody></table></div></details>`; }).join('')}`;
+            <p class="hint" style="margin:4px 0 10px;">Ricevuti ${c.docRicevuti} documenti su ${c.docApplicabili} applicabili; essenziali ${c.essRicevuti} su ${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile. La lettera include solo ciò che manca. In testa ci sono i documenti da cui partono i calcoli: si caricano direttamente nell’area.</p>
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Documento</th><th>Moduli</th><th>Stato</th></tr></thead><tbody>
+                <tr class="rb-riga-sezione"><td colspan="3"><strong>Da caricare nell’area: la base dei calcoli</strong></td></tr>
+                ${idsArea.map(id => { const d = RB_CHECKUP_DOCUMENTI.find(x => x.id === id); const a = RB_DOC_AREA[id];
+                    return rigaDoc(d, '<div class="rb-rif">Si carica nella ' + esc(a.dove) + ', ' + esc(a.come) + '.</div>'
+                        + (areaCaricato[id] ? ' <span class="badge verde">caricato nell’area</span>' : ' <span class="badge grigio">non ancora caricato nell’area</span>')); }).join('')}
+                ${sezioniDoc.map(sz => `<tr class="rb-riga-sezione"><td colspan="3"><strong>${esc(sz)}</strong></td></tr>`
+                    + RB_CHECKUP_DOCUMENTI.filter(d => d.sez === sz && idsArea.indexOf(d.id) < 0).map(d => rigaDoc(d)).join('')).join('')}
+            </tbody></table></div>`;
         } else if (fid === 'f5') {
             corpo = RB_CHECKUP_INTERVISTE.map(t => `<div class="riepilogo-blocco">
                 <h4>Colloquio: ${esc(t.nome)}</h4>
@@ -9040,14 +9051,22 @@
             const doc = vb.documenti || {};
             const stati = cu.documenti || {};
             const daChiedere = RB_CHECKUP_DOCUMENTI.filter(d2 => { const s = stati[d2.id] || ''; return s !== 'R' && s !== 'NA'; });
+            const idsArea = Object.keys(RB_DOC_AREA);
+            const primaArea = daChiedere.filter(d2 => idsArea.indexOf(d2.id) >= 0);
+            const altri = daChiedere.filter(d2 => idsArea.indexOf(d2.id) < 0);
             const sezioni = [];
-            daChiedere.forEach(d2 => { if (sezioni.indexOf(d2.sez) < 0) sezioni.push(d2.sez); });
+            altri.forEach(d2 => { if (sezioni.indexOf(d2.sez) < 0) sezioni.push(d2.sez); });
+            const riga = d2 => '<li>' + (d2.ess ? '&#9679; ' : '') + esc(d2.nome) + (stati[d2.id] === 'I' ? ' <em>(ricevuto parzialmente: da integrare)</em>' : '') + '</li>';
             return t('Spett.le <strong>' + cliente + '</strong>' + (doc.referente ? '<br>alla cortese attenzione di ' + esc(doc.referente) : ''))
                 + oggetto('check-up del merito creditizio &mdash; richiesta dei documenti.')
                 + t('Con riferimento all’incarico in oggetto, vi chiediamo di trasmetterci i documenti elencati di seguito' + (doc.termine ? ', possibilmente entro il <strong>' + rbVerbaleData(doc.termine) + '</strong>' : '') + '. I documenti già ricevuti non sono elencati; quelli contrassegnati con il pallino (&#9679;) sono indispensabili per completare le valutazioni.')
                 + t('Vanno bene copie in formato elettronico, anche trasmesse in più riprese; per ogni documento è utile indicare la data a cui si riferisce.')
-                + (daChiedere.length ? sezioni.map(sz => '<div class="rb-sottotitolo">' + esc(sz) + '</div><ul class="rb-punti">'
-                    + daChiedere.filter(d2 => d2.sez === sz).map(d2 => '<li>' + (d2.ess ? '&#9679; ' : '') + esc(d2.nome) + (stati[d2.id] === 'I' ? ' <em>(ricevuto parzialmente: da integrare)</em>' : '') + '</li>').join('') + '</ul>').join('')
+                + (daChiedere.length
+                    ? (primaArea.length ? '<div class="rb-sottotitolo">Per primi: i documenti da cui partono i calcoli</div><ul class="rb-punti">'
+                        + primaArea.map(d2 => '<li>' + (d2.ess ? '&#9679; ' : '') + esc(d2.nome) + (stati[d2.id] === 'I' ? ' <em>(ricevuto parzialmente: da integrare)</em>' : '')
+                            + ' <em>(' + (d2.id === 'd12' ? 'per il bilancio va benissimo anche il file XBRL depositato al Registro Imprese' : 'per la Centrale dei Rischi va benissimo il PDF dei flussi di ritorno della Banca d’Italia') + ')</em></li>').join('') + '</ul>' : '')
+                    + sezioni.map(sz => '<div class="rb-sottotitolo">' + esc(sz) + '</div><ul class="rb-punti">'
+                        + altri.filter(d2 => d2.sez === sz).map(riga).join('') + '</ul>').join('')
                     : t('<strong>Tutti i documenti della lista risultano già ricevuti:</strong> vi ringraziamo per la collaborazione.'))
                 + t('Restiamo a disposizione per qualsiasi chiarimento sui singoli documenti e vi ringraziamo per la collaborazione.');
         }
@@ -11249,7 +11268,8 @@
                 { titolo: 'Una cosa sola', testo: 'Le domande qualitative vivono dove si raccolgono le risposte: il profilo dell\'impresa al primo contatto, le domande dei colloqui sotto ogni traccia di intervista, i presidi (231, rating di legalità, ESG, TCF, certificazioni) nella fase delle verifiche. Si risponde una volta sola e tutto il resto si aggiorna da solo.' },
                 { titolo: 'Fasi in finestra', testo: 'La scheda Check-up mostra il quadro del percorso con i contatori (risposte, moduli, documenti, classe di sintesi) e la fase corrente evidenziata; ogni fase si apre in una finestra dedicata, che si può ridurre a barra, ingrandire e scorrere, con i pulsanti per passare alla fase precedente o successiva.' },
                 { titolo: 'Verbali più curati', testo: 'Verbale di avvio, richiesta dei documenti, comunicazione delle criticità e verbale di consegna ora hanno oggetto, premesse, punti numerati e chiusura formale; avvio e consegna prevedono la controfirma dell\'impresa accanto a quella del responsabile.' },
-                { titolo: 'Ortografia', testo: 'Tutti i testi del check-up (guide, domande, moduli, documenti, esempi di punteggio) sono stati rivisti con gli accenti e la punteggiatura corretti.' }
+                { titolo: 'Ortografia', testo: 'Tutti i testi del check-up (guide, domande, moduli, documenti, esempi di punteggio) sono stati rivisti con gli accenti e la punteggiatura corretti.' },
+                { titolo: 'Un unico elenco dei documenti', testo: 'La raccolta documenti è un solo grande elenco, senza sezioni da aprire: in testa ci sono i documenti da cui partono i calcoli, che si caricano direttamente nell\'area (il bilancio anche come file XBRL nella scheda "Impresa e bilancio", la Centrale dei Rischi anche come PDF nella scheda dedicata), con l\'indicazione se risultano già caricati. La lettera di richiesta segue lo stesso ordine e suggerisce i formati che il programma legge da solo.' }
             ]
         },
         {
