@@ -1484,6 +1484,7 @@ summary.ni-testa::before {
 .badge.blu { background: var(--blu-700); color: #fff; }
 .cu-guida { font-size: 0.85rem; color: var(--grigio-900); line-height: 1.55; background: var(--grigio-050, #f5f7fa); border-left: 3px solid var(--blu-700); border-radius: var(--raggio); padding: 10px 12px; margin: 12px 0 4px; }
 .cu-sugg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.8rem; margin: 0 0 8px; }
+.rb-riga-sezione td { background: var(--grigio-050, #f5f7fa); color: var(--blu-900); }
 /* nella finestra della fase il piede tiene i tre pulsanti distanziati */
 .modale-fase > .modale-azioni { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 
