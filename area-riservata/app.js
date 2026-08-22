@@ -6530,6 +6530,75 @@
     }
 
     /* ------------------------------------------------------------
+       IL PERCORSO DI MIGLIORAMENTO REVILAW
+       L'obiettivo della verifica non e la fotografia ma il percorso:
+       quanto puo migliorare il rating con gli strumenti dello studio.
+       Le leve sono le domande del questionario la cui risposta
+       migliore e un DELIVERABLE dei servizi Revilaw (presidi,
+       modelli, percorsi, attivazione delle garanzie): la simulazione
+       le porta al traguardo e ricalcola correttivo e scoring, a
+       parita di bilancio e andamentale. Restano fuori, per onesta,
+       lo storico (sconfini, puntualita, anzianita) e i fattori
+       strutturali o di mercato (numero banche, concentrazione dei
+       clienti, andamento del settore): li si lavora nel tempo con
+       le azioni, non si simulano.
+    ------------------------------------------------------------ */
+    const RB_LEVE_REVILAW = [
+        { id: 'assetti', serv: 'assetti' },
+        { id: 'controllo', serv: 'assetti' },
+        { id: 'piani', serv: 'assetti' },
+        { id: 'organo', serv: 'assetti', soglia: 8 },       // chi e gia dotato (anche volontariamente) non riceve la leva
+        { id: 'continuita', serv: 'assetti', target: 1 },   // successione pianificata, non "team strutturato"
+        { id: 'tesoreria', serv: 'early' },
+        { id: 'crlettura', serv: 'early' },
+        { id: 'mod231', serv: 'mod231' },
+        { id: 'legalita', serv: 'legalita' },
+        { id: 'esg', serv: 'esg' },
+        { id: 'tcf', serv: 'tcf' },
+        { id: 'proattiva', serv: 'rating' },
+        { id: 'garanzie', serv: 'rating', target: 1 }       // Confidi e Fondo attivabili portano a "Limitate", non a "Ampie"
+    ];
+    // i moduli del check-up che ogni servizio presidia (Manuale v1.0)
+    const RB_SERVIZI_CHECKUP = {
+        assetti: 'A7, A8', early: 'A5, A7, A8', crisi: 'A5, A8', mod231: 'A9', legalita: 'A9',
+        esg: 'A11', tcf: 'A10', coop: 'A10', rating: 'A6, A13', patrimonio: 'A2, A3'
+    };
+    function rbPercorsoRevilaw(v, es) {
+        const risposte = { ...(v.questionario || {}) };
+        const leve = [];
+        RB_LEVE_REVILAW.forEach(l => {
+            const d = rbDomande().find(x => x.id === l.id);
+            if (!d) return;
+            let best = 0;
+            d.op.forEach((o, i) => { if (o.p > d.op[best].p) best = i; });
+            const target = l.target !== undefined ? l.target : best;
+            const cur = risposte[l.id];
+            const pCur = (cur !== undefined && cur !== null && d.op[cur]) ? d.op[cur].p : 0;
+            if (d.op[target].p <= pCur) return;
+            if (l.soglia !== undefined && pCur >= l.soglia) return;
+            risposte[l.id] = target;
+            leve.push({ id: l.id, serv: l.serv, testo: d.testo,
+                da: (cur !== undefined && cur !== null && d.op[cur]) ? d.op[cur].t : 'senza risposta',
+                a: d.op[target].t, guadagno: d.op[target].p - pCur });
+        });
+        if (!leve.length) {
+            return { attivo: false, leve: [], quest: es.quest.perc, classe: es.classeCorretta,
+                fascia: es.fasciaCorretta, pd: es.pdCorretta, deltaClasse: 0 };
+        }
+        const quest2 = rbPunteggioQuestionario(risposte);
+        const correttivo2 = rbCorrettivo(quest2.perc);
+        const classe2 = Math.min(12, Math.max(1, es.mcc.integrata + correttivo2 + es.soggetti.notch + es.gruppo.notch));
+        const scoring2 = rbScoring(v, es.x, quest2, es.banche);
+        return {
+            attivo: true, leve,
+            quest: quest2.perc, correttivo: correttivo2,
+            classe: classe2, fascia: RB_CLASSI[classe2].fascia, pd: RB_CLASSI[classe2].pd,
+            deltaClasse: es.classeCorretta - classe2,
+            score: scoring2.score, scoreClasse: scoring2.classe, scorePd: scoring2.pd, scoreGiudizio: scoring2.giudizio
+        };
+    }
+
+    /* ------------------------------------------------------------
        ANALISI DELLE BANCHE DELL'IMPRESA: per ogni rapporto la solidita
        dell'istituto, l'utilizzo degli affidamenti, la quota sul totale
        e una stima di come QUELLA banca vede l'impresa (la classe di
@@ -7661,26 +7730,23 @@
             </div>`;
     }
 
-    // riquadro degli esiti su soggetti e gruppo
-    function rbHtmlSoggettiGruppo(es) {
-        return rbHtmlPunti(es.gruppo.punti.concat(es.soggetti.punti));
-    }
-    // riquadro delle rettifiche prudenziali
+    /* le rettifiche prudenziali come blocco della card del correttivo: conta il
+       DELTA (la classe di partenza il lettore la conosce gia), la tabella sta
+       in un dettaglio richiudibile. Se i dettagli non sono compilati non si
+       aggiunge rumore: l'invito a compilarli e gia nella scheda Impresa. */
     function rbHtmlRettifiche(es) {
-        if (!es.rett.attive) return '<p class="hint">Nessun dettaglio rettificabile compilato: la classe MCC resta quella del bilancio ufficiale. Compila i "Dettagli delle voci che contano" nella scheda Impresa e bilancio per la lettura prudenziale.</p>';
+        if (!es.rett.attive) return '';
         const m = es.rett.mcc;
         const diff = m.integrata - es.mcc.integrata;
-        return `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Voce dichiarata</th><th>Rettifica applicata</th></tr></thead><tbody>
+        const frase = diff > 0 ? 'Con le rettifiche prudenziali la classe MCC passa da ' + es.mcc.integrata + ' a ' + m.integrata + ' (PD ' + rbPct(m.pd, 2) + '): e la distanza tra il bilancio come lo leggi tu e come lo legge l\'analista fidi.'
+            : diff < 0 ? 'Le rettifiche prudenziali MIGLIORANO la classe MCC da ' + es.mcc.integrata + ' a ' + m.integrata + ' (PD ' + rbPct(m.pd, 2) + '): i finanziamenti soci postergati trattati come capitale sono un argomento negoziale da documentare alla banca.'
+            : 'Le rettifiche prudenziali dichiarate non spostano la classe: il bilancio regge la lettura della banca.';
+        return `<div class="rb-sottotitolo">Il bilancio come lo legge la banca</div>
+        <p class="rb-testo" style="margin:0 0 6px;">${frase}</p>
+        <details class="rb-dettaglio"><summary>Rettifiche applicate (${es.rett.righe.length})</summary>
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Voce dichiarata</th><th>Rettifica applicata</th></tr></thead><tbody>
             ${es.rett.righe.map(r => `<tr><td>${esc(r.voce)}</td><td>${esc(r.effetto)}</td></tr>`).join('')}
-        </tbody></table></div>
-        <div class="rb-corr-riga" style="margin-top:10px;">
-            <div><div class="rb-corr-et">Classe MCC dal bilancio ufficiale</div>${rbBadgeClasse(es.mcc.integrata, es.mcc.fascia)}</div>
-            <div class="rb-corr-freccia">&rarr;</div>
-            <div><div class="rb-corr-et">Classe MCC dal bilancio rettificato</div>${rbBadgeClasse(m.integrata, m.fascia)} <span class="rb-corr-pd">PD ${rbPct(m.pd, 2)}</span></div>
-        </div>
-        <p class="hint">${diff > 0 ? 'Le rettifiche peggiorano la classe di ' + diff + (diff === 1 ? ' gradino' : ' gradini') + ': e la distanza tra il bilancio come lo leggi tu e come lo legge l\'analista fidi.'
-            : diff < 0 ? 'Le rettifiche MIGLIORANO la classe (finanziamenti soci postergati trattati come capitale): documentalo alla banca, e un argomento negoziale.'
-            : 'Le rettifiche non spostano la classe: il bilancio regge la lettura prudenziale.'}</p>`;
+            </tbody></table></div></details>`;
     }
 
     /* ------------------------------------------------------------
@@ -7741,9 +7807,10 @@
                 <p class="rb-testo">Il punteggio complessivo e la <strong>media ponderata con i pesi per fascia dimensionale</strong> del par. 48.2 (Micro, Piccola, Media, Grande, dai ricavi): nelle imprese piu piccole pesano di piu capacita di rimborso, analisi economica e banche; al crescere della dimensione salgono tesoreria, assetti, compliance ed ESG. I moduli N/A si escludono e i pesi si ridistribuiscono. La media si traduce nella <strong>classe di sintesi da A a E</strong> (A presidi evoluti da 3,50; B adeguati da 2,80; C parziali da 2,00; D deboli da 1,20; E critici), una denominazione volutamente non assimilabile a un rating. Valgono gli <strong>override obbligatori</strong> del cap. 49, mai verso l'alto: DSCR prospettico sotto 1 o patrimonio netto negativo limitano alla classe D; creditori pubblici qualificati oltre soglia, sconfinamenti persistenti oltre 60 giorni, un modulo del nucleo inderogabile (A3-A8) a zero o le altre circostanze dichiarate limitano alla classe C; una criticita C1 aperta esclude le classi A e B. Un modulo del nucleo non valutabile rende il <strong>giudizio sospeso</strong> (par. 49.2): la classe non si determina. La <strong>regola di prudenza</strong> del par. 48.4 segnala i moduli con punteggio sopra 2 e documenti essenziali mancanti.</p>
                 <p class="rb-testo">Lo scoring del check-up e <strong>diagnostico</strong>: misura la qualita dei presidi alla data di riferimento per uniformare il lavoro e guidare la roadmap. Non e una probabilita di inadempimento, non corrisponde a rating bancari o fasce di garanzia e non sostituisce il rating MCC, lo scoring simulato o i giudizi delle banche: gli strumenti si leggono insieme, e le criticita decisive accompagnano sempre la classe.</p>
             </div>
-            <div class="card"><h2>11. Verdetto, azioni e report</h2>
-                <p class="rb-testo">Il verdetto complessivo e "area critica" con patrimonio netto negativo, tutti gli indici CNDCEC accesi, DSCR sotto 1, fascia 5, sofferenze o segnali CCII presenti; "zona di attenzione" con fascia 4, Z-Score in rischio o due indicatori del cruscotto critici; "equilibrio migliorabile" con fascia 3, Z in incertezza o un indicatore critico; altrimenti "profilo solido". Le azioni migliorative nascono dalle debolezze rilevate, in ordine di priorita, ognuna con il servizio Revilaw che la copre. Il report finale raccoglie tutto, con la firma grafica del responsabile, e si stampa in PDF.</p>
-                <p class="rb-testo"><strong>Limiti.</strong> Il rating effettivo di ciascuna banca resta un modello proprietario: questa verifica replica il modello pubblico del Fondo e lo integra con stime professionali dichiarate. I dati sugli istituti vanno verificati sulle fonti ufficiali prima di un uso verso terzi.</p>
+            <div class="card"><h2>11. Verdetto, percorso di miglioramento e report</h2>
+                <p class="rb-testo">Il verdetto complessivo e "area critica" con patrimonio netto negativo, tutti gli indici CNDCEC accesi, DSCR sotto 1, fascia 5, sofferenze o segnali CCII presenti; "zona di attenzione" con fascia 4, Z-Score in rischio o due indicatori del cruscotto critici; "equilibrio migliorabile" con fascia 3, Z in incertezza o un indicatore critico; altrimenti "profilo solido".</p>
+                <p class="rb-testo">Il <strong>percorso di miglioramento Revilaw</strong> e il punto d'arrivo della verifica: le azioni nate dalle debolezze rilevate sono raggruppate per servizio dello studio (adeguati assetti, early warning, Modello 231, rating di legalita, ESG, TCF, rating advisory, protezione del patrimonio, crisi), con gli interventi di gestione e finanza in coda. In testa c'e la <strong>simulazione della classe potenziale</strong>: le domande del questionario la cui risposta migliore e un deliverable dei servizi Revilaw (assetti formalizzati, controllo di gestione, pianificazione, organo di controllo, successione pianificata, tesoreria e lettura mensile della CR, Modello 231, rating di legalita, percorso ESG, TCF, comunicazione proattiva, attivazione delle garanzie) vengono portate al traguardo e correttivo e scoring vengono ricalcolati, <strong>a parita di bilancio e di andamentale</strong>. Restano fuori dalla simulazione, per correttezza: lo storico (sconfini, puntualita, anzianita), i fattori strutturali o di mercato (numero di banche, concentrazione dei clienti, andamento del settore) e le certificazioni ISO, che sono una scelta dell'impresa e non un deliverable dello studio; su queste leve si lavora nel tempo con le azioni. I traguardi sono prudenti: le garanzie si simulano fino ad "attivabili in misura limitata" (Confidi e Fondo), la continuita fino alla successione pianificata, e chi e gia dotato volontariamente di un organo di controllo non riceve la leva. La classe potenziale e una stima professionale dichiarata, non una promessa di esito.</p>
+                <p class="rb-testo">Il report finale raccoglie tutto, con la firma grafica del responsabile, e si stampa in PDF. <strong>Limiti.</strong> Il rating effettivo di ciascuna banca resta un modello proprietario: questa verifica replica il modello pubblico del Fondo e lo integra con stime professionali dichiarate. I dati sugli istituti vanno verificati sulle fonti ufficiali prima di un uso verso terzi.</p>
             </div>`;
     }
 
@@ -7993,24 +8060,17 @@
                 <div class="kpi ${badgeClasse}"><div class="etichetta">Classe interna simulata</div><div class="valore">${s.classe} / 10</div><div class="nota">${esc(s.giudizio)}</div></div>
                 <div class="kpi ${s.presidio.segnaliPresenti ? 'rosso' : 'verde'}"><div class="etichetta">Presidio CCII (art. 3)</div>
                     <div class="valore">${s.presidio.segnaliPresenti ? s.presidio.segnaliPresenti + (s.presidio.segnaliPresenti === 1 ? ' segnale' : ' segnali') : 'Nessun segnale'}</div>
-                    <div class="nota">DSCR ${s.presidio.dscr === null ? 'n.d.' : rbFmt2.format(s.presidio.dscr)}: ${esc(s.presidio.giudizioDscr)}</div></div>
+                    <div class="nota">DSCR prospettico ${s.presidio.dscr === null ? 'n.d.' : rbFmt2.format(s.presidio.dscr)}: ${esc(s.presidio.giudizioDscr)} (nel cruscotto c'e il DSCR semplificato)</div></div>
             </div>
             <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Modulo</th><th class="num">Score (0-100)</th><th class="num">Peso (${esc(s.dimensione.nome)})</th><th class="num">Contributo</th></tr></thead><tbody>
                 ${moduli.map(m => `<tr><td>${m[0]}</td><td class="num"><strong>${rbFmt2.format(m[1])}</strong></td><td class="num">${rbPct(m[2] * 100, 0)}</td><td class="num">${rbFmt2.format(m[1] * m[2])}</td></tr>`).join('')}
             </tbody></table></div>
             <details class="rb-dettaglio"><summary>Dettaglio del modulo quantitativo</summary>${tabModulo(s.quant.righe)}</details>
             <details class="rb-dettaglio"><summary>Dettaglio del modulo andamentale</summary>${tabModulo(s.andam.righe)}</details>
-            ${s.mappatura.length ? `<div class="rb-sottotitolo">Classi indicative per banca (fattore di severita sulla PD)</div>
-            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Istituto</th><th class="num">Fattore</th><th class="num">PD adattata</th><th class="num">Classe (1-10)</th><th>Giudizio</th><th>Banda EU CR6</th></tr></thead><tbody>
-                ${s.mappatura.map(m => `<tr><td>${esc(m.nome)}</td><td class="num">${rbFmt2.format(m.fattore)}</td><td class="num">${rbPct(m.pdAdj * 100, 2)}</td>
-                    <td class="num"><strong>${m.classe}</strong></td><td>${esc(m.giudizio)}</td><td>${esc(m.banda)}</td></tr>`).join('')}
-            </tbody></table></div>
-            <p class="hint">Il fattore di severita si imposta sul singolo rapporto (scheda Banche): 1,00 = neutro, 1,20 = banca piu severa, 0,85 = meno severa, secondo l'esperienza dello studio su quell'istituto. Le PD medie per classe di ciascun gruppo sono nell'Informativa al Pubblico Pillar 3 (EBA Pillar 3 Data Hub).</p>` : ''}
             <div class="rb-chips" style="margin-top:10px;">
                 ${s.presidio.segnali.map(x2 => '<span class="badge ' + (x2.esito ? 'rosso' : 'verde') + '" title="' + esc(x2.testo) + '">art. 3 lett. ' + x2.lettera + ': ' + (x2.esito ? 'SI' : 'no') + '</span>').join('')}
             </div>
-            <p class="hint">${s.presidio.segnaliPresenti ? 'Segnali dell\'art. 3, comma 4, CCII presenti: attivare le valutazioni degli adeguati assetti e il confronto con l\'organo di controllo.' : 'Nessun segnale dell\'art. 3, comma 4, CCII rilevato dai dati dichiarati.'}
-            Lo scoring e una stima indicativa a fini di pre-screening: la scala 1-10 e la PD non coincidono con la scala MCC 1-12, il confronto tra i due motori e spiegato nel Metodo di calcolo.</p>`;
+            ${s.presidio.segnaliPresenti ? '<p class="hint">Segnali dell\'art. 3, comma 4, CCII presenti: attivare le valutazioni degli adeguati assetti e il confronto con l\'organo di controllo.</p>' : ''}`;
     }
 
 
@@ -8378,12 +8438,17 @@
         };
     }
 
-    // il riquadro del check-up per esiti e report
-    function rbHtmlCheckup(es) {
+    /* il riquadro del check-up per esiti e report: negli esiti (compatto) le
+       tabelle stanno in un dettaglio richiudibile, nel report si stampano per
+       intero; gli avvisi di prudenza del par. 48.4 si contano in un solo
+       badge invece di ripetersi modulo per modulo */
+    function rbHtmlCheckup(es, compatto) {
         const c = es.checkup;
         if (!c.avviato) return '<p class="hint">Check-up non ancora avviato: si compila nella scheda "Check-up" della verifica (fasi, tredici moduli A1-A13, rilievi, roadmap e check-list documentale, secondo il Manuale operativo Revilaw v1.0).</p>';
         const badgeSintesi = c.sospeso ? 'grigio' : (c.sintesi ? (c.sintesi.classe <= 'B' ? 'verde' : (c.sintesi.classe === 'C' ? 'ambra' : 'rosso')) : 'grigio');
         const c1aperti = c.rilievi.filter(r => r.classe === 'C1' && r.stato !== 'trattato');
+        const override = c.limiti.filter(l => l.indexOf('48.4') < 0);
+        const prudenza = c.limiti.length - override.length;
         return `
             <div class="kpi-griglia rb-kpis">
                 <div class="kpi ${badgeSintesi === 'grigio' ? '' : badgeSintesi}"><div class="etichetta">Classe di sintesi</div>
@@ -8396,7 +8461,9 @@
                     <div class="nota">azioni aperte &middot; documenti essenziali: ${c.essRicevuti}/${c.essTot} &middot; totali: ${c.docRicevuti}/${c.docApplicabili}</div></div>
             </div>
             ${c1aperti.length ? '<p class="rb-testo" style="margin:0 0 8px;"><strong>Criticita decisive (da rappresentare sempre con la classe):</strong> ' + c1aperti.map(r => esc(r.fatto || 'rilievo C1')).join('; ') + '.</p>' : ''}
-            ${c.limiti.length ? '<div class="rb-chips">' + c.limiti.map(l => '<span class="badge arancio">' + esc(l) + '</span>').join('') + '</div>' : ''}
+            ${override.length || prudenza ? '<div class="rb-chips">' + override.map(l => '<span class="badge arancio">' + esc(l) + '</span>').join('')
+                + (prudenza ? '<span class="badge ambra">' + prudenza + (prudenza === 1 ? ' modulo con punteggio sopra 2 e documenti essenziali mancanti' : ' moduli con punteggio sopra 2 e documenti essenziali mancanti') + ' (prudenza 48.4)</span>' : '') + '</div>' : ''}
+            ${compatto ? '<details class="rb-dettaglio"><summary>Dettaglio del check-up (moduli, rilievi e roadmap)</summary>' : ''}
             <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Modulo</th><th class="num">Peso (${esc(c.fascia.nome)})</th><th>Presidio (0-4)</th><th>Conclusione</th></tr></thead><tbody>
                 ${c.aree.map(a => `<tr><td>${esc(a.nome)}${a.nucleo ? ' <span class="badge neutro">nucleo</span>' : ''}</td><td class="num">${a.peso}</td>
                     <td>${a.punteggio === null ? '<span class="badge grigio">da valutare</span>' : (a.punteggio === 'na' ? '<span class="badge neutro">N/A</span>' : '<span class="badge ' + (a.punteggio >= 3 ? 'verde' : (a.punteggio === 2 ? 'ambra' : 'rosso')) + '">' + a.punteggio + ' - ' + RB_CHECKUP_SCALA[a.punteggio].nome + '</span>')}${a.docMancanti.length ? '<div class="rb-rif">' + a.docMancanti.length + ' doc. essenziali mancanti</div>' : ''}</td>
@@ -8420,7 +8487,8 @@
                     <td>${esc(r.priorita || '')}</td><td class="rb-rif">${esc(r.responsabile || '')}</td><td class="rb-rif">${esc(r.termine || '')}</td>
                     <td><span class="badge ${r.stato === 'completata' ? 'verde' : (r.stato === 'sospesa' ? 'arancio' : (r.stato === 'superata' ? 'neutro' : 'ambra'))}">${RB_CHECKUP_STATI_AZIONE[r.stato] || 'Non avviata'}</span></td></tr>`).join('')).join('')}
             </tbody></table></div>` : ''}
-            <p class="hint">Scala del Manuale v1.0: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto; classi di sintesi da A (presidi evoluti) a E (presidi critici). La classe descrive la QUALITA DEI PRESIDI alla data di riferimento, non la solvibilita: non corrisponde a rating bancari, fasce di garanzia o probabilita di inadempimento, e va sempre letta con le criticita decisive.</p>`;
+            ${compatto ? '</details>' : ''}
+            <p class="hint">Scala del Manuale v1.0: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto; classi di sintesi da A (presidi evoluti) a E (presidi critici), sempre lette con le criticita decisive.</p>`;
     }
 
     // --- scheda: il check-up operativo (v1.0) ---
@@ -8453,7 +8521,7 @@
                         <ul class="rb-punti">${[0, 1, 2, 3, 4].map(i => '<li><span class="badge ' + (i >= 3 ? 'verde' : (i === 2 ? 'ambra' : 'rosso')) + '">' + i + '</span> ' + esc(anc[i]) + '</li>').join('')}</ul>
                     </details>
                 </div>`; }).join('')}
-                <p class="hint" style="margin-top:8px;">Classe di sintesi: <strong>${c.sospeso ? 'profilo non determinabile (nucleo non valutato)' : (c.sintesi ? c.sintesi.classe + ' - ' + c.sintesi.nome + ' (media ponderata ' + rbFmt2.format(c.media) + ' / 4)' : 'da calcolare')}</strong>${c.limiti.length ? ' &middot; ' + c.limiti.map(esc).join(' &middot; ') : ''}</p>
+                <p class="hint" style="margin-top:8px;">Classe di sintesi: <strong>${c.sospeso ? 'profilo non determinabile (nucleo non valutato)' : (c.sintesi ? c.sintesi.classe + ' - ' + c.sintesi.nome + ' (media ponderata ' + rbFmt2.format(c.media) + ' / 4)' : 'da calcolare')}</strong>${(() => { const ov = c.limiti.filter(l => l.indexOf('48.4') < 0); const pr = c.limiti.length - ov.length; return (ov.length ? ' &middot; ' + ov.map(esc).join(' &middot; ') : '') + (pr ? ' &middot; ' + pr + (pr === 1 ? ' modulo' : ' moduli') + ' oltre 2 con documenti essenziali mancanti (prudenza 48.4)' : ''); })()}</p>
             </div>
             <div class="card">
                 <h2>Circostanze di override (par. 49.1)</h2>
@@ -8587,6 +8655,7 @@
             fasciaCorretta: RB_CLASSI[classeCorretta].fascia, pdCorretta: RB_CLASSI[classeCorretta].pd,
             banche, scoring, checkup, verdetto
         };
+        es.percorso = rbPercorsoRevilaw(v, es);
         es.azioni = rbAzioni(es);
         return es;
     }
@@ -8606,6 +8675,7 @@
             checkupMedia: es.checkup.media === null ? null : Math.round(es.checkup.media * 100) / 100,
             checkupClasse: es.checkup.sintesi ? es.checkup.sintesi.classe : null,
             checkupSospeso: es.checkup.sospeso, checkupC1: es.checkup.c1,
+            classePotenziale: es.percorso.attivo ? es.percorso.classe : null,
             verdetto: es.verdetto.livello, verdettoTesto: es.verdetto.chip,
             banche: es.banche.numero, azioni: es.azioni.length, calcolato: Date.now()
         };
@@ -8865,26 +8935,33 @@
     function rbBadgeLivello(level, testo) {
         return '<span class="badge ' + (RB_LIVELLO_BADGE[level] || 'grigio') + '">' + esc(testo) + '</span>';
     }
-    function rbHtmlScala(classeAttiva) {
+    /* la scala 1-12, disegnata UNA volta sola: il segmento pieno e la classe
+       MCC, quello bordato la classe con il correttivo (se diversa) */
+    function rbHtmlScala(classeAttiva, classeSeconda) {
+        const doppia = classeSeconda !== undefined && classeSeconda !== null && classeSeconda !== classeAttiva;
         let html = '<div class="rb-scala">';
         for (let c = 1; c <= 12; c++) {
             const f = RB_CLASSI[c].fascia;
-            html += '<span class="rb-seg rb-f' + f + (c === classeAttiva ? ' attiva' : '') + '">' + c + '</span>';
+            html += '<span class="rb-seg rb-f' + f + (c === classeAttiva ? ' attiva' : '') + (doppia && c === classeSeconda ? ' attiva-2' : '') + '">' + c + '</span>';
         }
-        return html + '</div><div class="rb-scala-note"><span>1 = migliore</span><span>12 = peggiore</span></div>';
+        return html + '</div><div class="rb-scala-note"><span>1 = migliore</span>' +
+            (doppia ? '<span>pieno = classe MCC &middot; bordato = con correttivo</span>' : '') +
+            '<span>12 = peggiore</span></div>';
     }
     function rbHtmlKpiMcc(es) {
         const m = es.mcc;
         return `<div class="kpi-griglia rb-kpis">
-            <div class="kpi"><div class="etichetta">Classe integrata</div><div class="valore">${m.integrata} / 12</div>
-                <div class="nota">modulo di bilancio: classe ${m.fClass}${m.aClasse ? ' &middot; andamentale: A' + m.aClasse : ' &middot; senza Centrale Rischi'}${m.declassamento ? ' &middot; declassata di ' + m.declassamento + ' (da ' + m.integrataBase + ') per eventi pregiudizievoli' : ''}</div></div>
-            <div class="kpi ${m.fascia <= 2 ? 'verde' : (m.fascia === 3 ? 'ambra' : 'rosso')}"><div class="etichetta">Fascia</div><div class="valore">${m.fascia} / 5</div>
-                <div class="nota">${m.fascia <= 2 ? 'profilo solido' : (m.fascia === 3 ? 'equilibrio da presidiare' : (m.fascia === 4 ? 'zona di attenzione' : 'area critica'))}</div></div>
+            <div class="kpi ${m.fascia <= 2 ? 'verde' : (m.fascia === 3 ? 'ambra' : 'rosso')}"><div class="etichetta">Classe integrata</div><div class="valore">${m.integrata} / 12</div>
+                <div class="nota">fascia ${m.fascia} di 5 &middot; bilancio: classe ${m.fClass}${m.aClasse ? ' &middot; andamentale: A' + m.aClasse : ' &middot; senza Centrale Rischi'}${m.declassamento ? ' &middot; declassata di ' + m.declassamento + ' (da ' + m.integrataBase + ') per eventi pregiudizievoli' : ''}</div></div>
             <div class="kpi"><div class="etichetta">Probabilita di inadempimento</div><div class="valore">${rbPct(m.pd, 2)}</div><div class="nota">PD empirica a 12 mesi</div></div>
             <div class="kpi ${m.ammissibile ? 'verde' : 'rosso'}"><div class="etichetta">Fondo di Garanzia</div><div class="valore">${m.ammissibile ? 'Ammissibile' : 'Non ammissibile'}</div>
                 <div class="nota">${m.eventoGrave ? 'evento del tipo fallimento' : (m.sofferenze ? 'sofferenze segnalate' : 'ammissibile fino alla classe 10')}</div></div>
         </div>`;
     }
+    /* correttivo qualitativo, soggetti, gruppo e rettifiche in una card sola:
+       il passaggio dalla classe MCC al rating ipotizzato, con le motivazioni
+       subito sotto (niente seconda scala: quella della card MCC ha i due
+       marcatori) */
     function rbHtmlCorrettivo(es) {
         const tot = es.correttivoTotale;
         const corrTxt = tot === 0 ? 'la classe resta invariata'
@@ -8894,17 +8971,18 @@
         pezzi.push('questionario ' + (es.correttivo > 0 ? '+' : '') + es.correttivo);
         if (es.soggetti.notch) pezzi.push('amministratori +' + es.soggetti.notch);
         if (es.gruppo.notch) pezzi.push('gruppo ' + (es.gruppo.notch > 0 ? '+' : '') + es.gruppo.notch);
+        // i segnaposto "non ancora censiti/verificata" non finiscono nel report: solo le sezioni compilate
+        const punti = (es.gruppo.compilato ? es.gruppo.punti : []).concat(es.soggetti.compilato ? es.soggetti.punti : []);
         return `<div class="rb-correttivo">
             <p style="margin:0 0 10px;">Il questionario qualitativo vale <strong>${es.quest.perc}%</strong>${es.quest.completo ? '' : ' <span class="badge grigio">' + es.quest.date + ' risposte su ' + es.quest.tot + '</span>'};
-            con i profili di soggetti e gruppo il correttivo complessivo e <strong>${tot > 0 ? '+' : ''}${tot}</strong> (${pezzi.join(', ')}): <strong>${corrTxt}</strong>.
-            E il modo in cui i modelli interni delle banche integrano governance, andamentale e presidi oltre i numeri di bilancio.</p>
+            con i profili di soggetti e gruppo il correttivo complessivo e <strong>${tot > 0 ? '+' : ''}${tot}</strong> (${pezzi.join(', ')}): <strong>${corrTxt}</strong>.</p>
             <div class="rb-corr-riga">
                 <div><div class="rb-corr-et">Rating MCC</div>${rbBadgeClasse(es.mcc.integrata, es.mcc.fascia)}</div>
                 <div class="rb-corr-freccia">&rarr;</div>
                 <div><div class="rb-corr-et">Rating ipotizzato con correttivo</div>${rbBadgeClasse(es.classeCorretta, es.fasciaCorretta)} <span class="rb-corr-pd">PD ${rbPct(es.pdCorretta, 2)}</span></div>
             </div>
-            ${rbHtmlScala(es.classeCorretta)}
-            <div class="hint" style="margin-top:6px;">Punteggi per sezione: ${es.quest.perSezione.map(s => esc(s.titolo) + ' ' + s.perc + '%').join(' &middot; ')}</div>
+            ${punti.length ? '<div class="rb-sottotitolo">Soci, amministratori e gruppo: i motivi dei gradini</div>' + rbHtmlPunti(punti) : ''}
+            ${rbHtmlRettifiche(es)}
         </div>`;
     }
     function rbHtmlTabellaCruscotto(es) {
@@ -8912,19 +8990,18 @@
             ${es.bank.cards.map(c => `<tr><td>${esc(c.name)}</td><td class="num"><strong>${esc(c.value)}</strong></td><td>${rbBadgeLivello(c.level, c.badge)}</td><td class="rb-rif">${esc(c.ref)}</td></tr>`).join('')}
         </tbody></table></div>`;
     }
+    /* indici della crisi: patrimonio netto e DSCR sono gia giudicati nel
+       cruscotto qui sopra, percio niente chips doppi */
     function rbHtmlCndcec(es) {
         const cn = es.cn;
-        const chips = `<div class="rb-chips">
-            <span class="badge ${cn.pnNeg ? 'rosso' : 'verde'}">${cn.pnNeg ? 'Patrimonio netto negativo' : 'Patrimonio netto positivo'}</span>
-            <span class="badge ${es.bank.dscr === null ? 'grigio' : (cn.dscrAlert ? 'rosso' : 'verde')}">DSCR ${es.bank.dscr === null ? 'non calcolato' : (cn.dscrAlert ? 'sotto 1' : 'almeno 1')}</span>
-        </div>`;
-        if (!cn.row) return chips + '<p class="hint">Per le attivita immobiliari il documento CNDCEC 20/10/2019 non fissa soglie settoriali: valgono i due indicatori di primo livello qui sopra.</p>';
+        const primoLiv = `<p class="rb-testo" style="margin:0 0 8px;"><strong>Indici della crisi (CNDCEC).</strong> Primo livello: patrimonio netto ${cn.pnNeg ? '<span class="badge rosso">negativo</span>' : 'positivo'} e DSCR ${es.bank.dscr === null ? 'non calcolato' : (cn.dscrAlert ? '<span class="badge rosso">sotto 1</span>' : 'almeno 1')} (il valore del DSCR e nel cruscotto).</p>`;
+        if (!cn.row) return primoLiv + '<p class="hint">Per le attivita immobiliari non ci sono soglie settoriali: valgono i due indicatori di primo livello.</p>';
         const fmtVal = r => r.val === null ? 'n.c.' : rbPct(r.val, 1);
-        return chips + `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indice</th><th class="num">Impresa</th><th class="num">Soglia (${esc(cn.row.label)})</th><th>Esito</th></tr></thead><tbody>
+        return primoLiv + `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indice</th><th class="num">Impresa</th><th class="num">Soglia (${esc(cn.row.label)})</th><th>Esito</th></tr></thead><tbody>
             ${cn.rows.map(r => `<tr><td>${esc(r.label)}</td><td class="num">${fmtVal(r)}</td><td class="num">${r.dir === 'ge' ? '&ge; ' : '&le; '}${rbPct(r.soglia, 1)}</td>
                 <td>${r.on ? '<span class="badge rosso">oltre soglia</span>' : '<span class="badge verde">nella norma</span>'}</td></tr>`).join('')}
         </tbody></table></div>
-        <p class="hint">Gli indici di allerta scattano solo se si accendono TUTTI, dopo patrimonio netto negativo e DSCR sotto 1: qui ${cn.tuttiAccesi ? '<strong>sono tutti accesi</strong>' : 'non sono tutti accesi'}.</p>`;
+        <p class="hint">Gli indici settoriali scattano solo se accesi TUTTI: qui ${cn.tuttiAccesi ? '<strong>sono tutti accesi</strong>' : 'non sono tutti accesi'}.</p>`;
     }
     function rbHtmlZ(es) {
         const zona = es.zZone;
@@ -8955,23 +9032,71 @@
                 + (r.stima.delta.length ? '<div class="rb-rif">' + r.stima.delta.map(esc).join('; ') + '</div>' : '<div class="rb-rif">nessuna correzione sul rapporto</div>') : '-'}</td>
         </tr>`).join('')}
         </tbody></table></div>
-        <p class="hint">Totale accordato ${b.totAcc ? eurFmt.format(b.totAcc) : '-'} &middot; utilizzato ${b.totUti ? eurFmt.format(b.totUti) : '-'}${b.utilizzoMedio !== null ? ' &middot; utilizzo medio ' + rbPct(b.utilizzoMedio, 0) : ''}${b.quotaMax ? ' &middot; prima banca ' + rbPct(b.quotaMax, 0) + ' degli affidamenti' : ''}.
-        La stima per istituto parte dal rating ipotizzato e lo adatta al singolo rapporto e alla politica di credito della banca (le correzioni sono elencate riga per riga; il metodo e spiegato nella scheda "Metodo di calcolo"). Rating delle agenzie indicativi, aggiornati a ${RB_BANCHE_AGG}.</p>`;
+        <p class="hint">Totale accordato ${b.totAcc ? eurFmt.format(b.totAcc) : '-'} &middot; utilizzato ${b.totUti ? eurFmt.format(b.totUti) : '-'}${b.utilizzoMedio !== null ? ' &middot; utilizzo medio ' + rbPct(b.utilizzoMedio, 0) : ''}${b.quotaMax ? ' &middot; prima banca ' + rbPct(b.quotaMax, 0) + ' degli affidamenti' : ''}. Rating delle agenzie indicativi, aggiornati a ${RB_BANCHE_AGG}.</p>
+        ${es.scoring && es.scoring.mappatura && es.scoring.mappatura.length ? `<details class="rb-dettaglio"><summary>La stessa lettura dal rating interno simulato (fattore di severita sulla PD)</summary>
+        <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Istituto</th><th class="num">Fattore</th><th class="num">PD adattata</th><th class="num">Classe (1-10)</th><th>Giudizio</th><th>Banda EU CR6</th></tr></thead><tbody>
+            ${es.scoring.mappatura.map(m => `<tr><td>${esc(m.nome)}</td><td class="num">${rbFmt2.format(m.fattore)}</td><td class="num">${rbPct(m.pdAdj * 100, 2)}</td>
+                <td class="num"><strong>${m.classe}</strong></td><td>${esc(m.giudizio)}</td><td>${esc(m.banda)}</td></tr>`).join('')}
+        </tbody></table></div>
+        <p class="hint">Il fattore di severita si imposta sul singolo rapporto (scheda Banche): 1,00 = neutro, 1,20 = banca piu severa, 0,85 = meno severa, secondo l'esperienza dello studio su quell'istituto. Le PD medie per classe dei gruppi bancari sono nell'Informativa al Pubblico Pillar 3 (EBA Pillar 3 Data Hub).</p></details>` : ''}`;
     }
-    function rbHtmlAzioni(es) {
-        if (!es.azioni.length) return '<p class="hint">Nessuna azione da segnalare: profilo in equilibrio su tutti i fronti analizzati.</p>';
+    /* IL PERCORSO DI MIGLIORAMENTO: prima la meta (la simulazione con le leve
+       Revilaw), poi le azioni raggruppate per servizio dello studio, in coda
+       gli interventi di gestione e finanza senza un servizio dedicato. Ogni
+       azione compare UNA volta, sotto il servizio che la copre. */
+    function rbHtmlPercorso(es) {
+        const p = es.percorso;
         const badgePr = pr => pr === 'alta' ? '<span class="badge rosso">priorita alta</span>'
             : (pr === 'media' ? '<span class="badge ambra">priorita media</span>' : '<span class="badge grigio">spunto</span>');
-        return '<div class="rb-azioni">' + es.azioni.map(a => `
+        const cardAzione = a => `
             <div class="rb-azione">
                 <div class="rb-azione-testa">${badgePr(a.pr)}<span class="badge neutro">${esc(a.area)}</span><strong>${esc(a.titolo)}</strong></div>
                 <p>${esc(a.testo)}</p>
-                ${a.serv ? '<div class="rb-azione-serv">Servizio Revilaw collegato: <strong>' + esc(a.serv.nome) + '</strong> <span class="rb-rif">(nextgenerationbusiness.it' + esc(a.serv.url) + ')</span></div>' : ''}
-            </div>`).join('') + '</div>';
+            </div>`;
+        if (!es.azioni.length && !p.attivo) return '<p class="hint">Le leve dei servizi Revilaw sul profilo qualitativo sono gia al massimo e non ci sono azioni da segnalare: profilo in equilibrio su tutti i fronti analizzati.</p>';
+        // simulazione: dove puo arrivare il rating con le leve Revilaw
+        let sim = '';
+        if (p.attivo) {
+            const frase = p.deltaClasse > 0
+                ? 'La classe ipotizzata migliorerebbe di ' + p.deltaClasse + (p.deltaClasse === 1 ? ' gradino' : ' gradini') + ' e il rating interno simulato salirebbe da ' + rbFmt2.format(es.scoring.score) + ' a ' + rbFmt2.format(p.score) + ' punti (classe ' + es.scoring.classe + ' &rarr; ' + p.scoreClasse + ' su 10).'
+                : 'Il correttivo non cambia gradino, ma il profilo qualitativo salirebbe dal ' + es.quest.perc + '% al ' + p.quest + '%: pesa nel rating interno simulato (da ' + rbFmt2.format(es.scoring.score) + ' a ' + rbFmt2.format(p.score) + ' punti) e in ogni istruttoria.';
+            sim = `<div class="rb-corr-riga">
+                <div><div class="rb-corr-et">Oggi: rating ipotizzato</div>${rbBadgeClasse(es.classeCorretta, es.fasciaCorretta)} <span class="rb-corr-pd">questionario ${es.quest.perc}%</span></div>
+                <div class="rb-corr-freccia">&rarr;</div>
+                <div><div class="rb-corr-et">Con il percorso Revilaw completato</div>${rbBadgeClasse(p.classe, p.fascia)} <span class="rb-corr-pd">PD ${rbPct(p.pd, 2)} &middot; questionario ${p.quest}%</span></div>
+            </div>
+            <p class="rb-testo" style="margin:8px 0 12px;">${frase} Stima a parita di bilancio e di andamentale: lo storico (sconfini, puntualita) e i fattori di struttura migliorano nel tempo con le azioni qui sotto e non sono simulati.</p>`;
+        } else {
+            sim = '<p class="hint" style="margin:0 0 10px;">Le leve dei servizi Revilaw sul profilo qualitativo sono gia al massimo: il percorso qui sotto consolida i presidi e lavora sulle leve di bilancio e andamentali.</p>';
+        }
+        // azioni raggruppate per servizio Revilaw (ordine: priorita migliore del gruppo)
+        const chiaveServ = a => a.serv ? (Object.keys(RB_SERVIZI).find(k => RB_SERVIZI[k] === a.serv) || '_gestione') : '_gestione';
+        const gruppi = {};
+        es.azioni.forEach(a => { const k = chiaveServ(a); (gruppi[k] = gruppi[k] || []).push(a); });
+        (p.leve || []).forEach(l => { gruppi[l.serv] = gruppi[l.serv] || []; });
+        const rango = { alta: 0, media: 1, spunto: 2 };
+        const rangoGruppo = k => Math.min(3, ...(gruppi[k].map(a => rango[a.pr])));
+        const chiavi = Object.keys(gruppi).filter(k => k !== '_gestione')
+            .sort((a, b) => rangoGruppo(a) - rangoGruppo(b) || (gruppi[b].length - gruppi[a].length));
+        const htmlGruppo = k => {
+            const s = RB_SERVIZI[k];
+            const leveServ = (p.leve || []).filter(l => l.serv === k);
+            return `<div class="rb-gruppo-serv">
+                <div class="rb-gruppo-testa"><strong>${esc(s.nome)}</strong> <span class="rb-rif">nextgenerationbusiness.it${esc(s.url)}${RB_SERVIZI_CHECKUP[k] ? ' &middot; presidia i moduli ' + RB_SERVIZI_CHECKUP[k] + ' del check-up' : ''}</span></div>
+                ${leveServ.length ? '<div class="rb-gruppo-leve">Porta avanti il questionario: ' + leveServ.map(l => esc(l.testo) + ' <span class="rb-rif">(da &laquo;' + esc(l.da) + '&raquo; a &laquo;' + esc(l.a) + '&raquo;, +' + l.guadagno + ' punti)</span>').join('; ') + '.</div>' : ''}
+                ${gruppi[k].map(cardAzione).join('')}
+            </div>`;
+        };
+        return sim
+            + '<div class="rb-azioni">' + chiavi.map(htmlGruppo).join('')
+            + (gruppi._gestione && gruppi._gestione.length ? `<div class="rb-gruppo-serv">
+                <div class="rb-gruppo-testa"><strong>Interventi di gestione e finanza</strong> <span class="rb-rif">azioni su bilancio, banche, soggetti e completamento della verifica</span></div>
+                ${gruppi._gestione.map(cardAzione).join('')}
+            </div>` : '') + '</div>';
     }
-    function rbHtmlDettaglioMcc(es, apri) {
+    function rbHtmlDettaglioMcc(es) {
         const fmtRaw = r => r.na || r.raw === null || !isFinite(r.raw) ? 'n.c.' : rbFmt2.format(r.raw);
-        return `<details class="rb-dettaglio"${apri ? ' open' : ''}><summary>Dettaglio del calcolo MCC (variabili, coefficienti, contributi)</summary>
+        return `<details class="rb-dettaglio"><summary>Dettaglio del calcolo MCC (variabili, coefficienti, contributi)</summary>
             <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indicatore</th><th class="num">Valore</th><th class="num">Trattato</th><th class="num">Coefficiente</th><th class="num">Contributo</th></tr></thead><tbody>
             ${es.mcc.rows.map(r => `<tr><td>${esc(r.label)}</td><td class="num">${fmtRaw(r)}</td><td class="num">${rbFmt2.format(r.treated)}</td><td class="num">${r.coef}</td><td class="num">${rbFmt2.format(r.contrib)}</td></tr>`).join('')}
             <tr><td><em>Costante del modello (${esc(es.mcc.settoreLabel)})</em></td><td class="num"></td><td class="num"></td><td class="num"></td><td class="num">${rbFmt2.format(es.mcc.costante)}</td></tr>
@@ -8986,18 +9111,19 @@
         </div>`;
     }
     // paragrafo narrativo di sintesi (per la scheda e per il report)
+    /* la sintesi narrativa del report: SOLO cio che i KPI qui sopra non
+       mostrano gia (andamentale, declassamenti, correzione qualitativa,
+       percorso di miglioramento); i numeri dei singoli motori vivono
+       nelle rispettive sezioni, una volta ciascuno */
     function rbTestoSintesi(es) {
         const m = es.mcc;
         const parti = [];
-        parti.push('Il modello del Fondo di Garanzia colloca l\'impresa in classe ' + m.integrata + ' su 12 (fascia ' + m.fascia + ' di 5), con una probabilita di inadempimento a 12 mesi del ' + rbPct(m.pd, 2) + '.');
         parti.push(m.aClasse ? 'Il modulo andamentale dalla Centrale dei Rischi vale A' + m.aClasse + (m.cr && m.cr.c2 ? ', con ' + m.cr.c2 + (m.cr.c2 === 1 ? ' mese' : ' mesi') + ' di sconfino di cassa.' : ', senza sconfinamenti di rilievo.')
                              : 'La Centrale dei Rischi non e stata caricata: la classe usa il solo modulo di bilancio.');
-        if (m.declassamento) parti.push('Gli eventi pregiudizievoli dichiarati (ipoteche giudiziali, pignoramenti o domande giudiziali) declassano la classe di ' + m.declassamento + ', dalla ' + m.integrataBase + ' alla ' + m.integrata + '.');
-        parti.push(m.ammissibile ? 'La garanzia pubblica risulta ammissibile.' : 'La garanzia pubblica NON risulta ammissibile' + (m.eventoGrave ? ' per un evento del tipo fallimento.' : (m.sofferenze ? ' per le sofferenze segnalate.' : ' (fascia 5).')));
-        parti.push('Il questionario qualitativo vale ' + es.quest.perc + '%' + (es.correttivo === 0 ? ' e conferma la classe.' : (es.correttivo < 0 ? ' e migliora la classe ipotizzata a ' + es.classeCorretta + '.' : ' e peggiora la classe ipotizzata a ' + es.classeCorretta + '.')));
-        parti.push('Il rating interno simulato (scoring a moduli) assegna ' + rbFmt2.format(es.scoring.score) + ' punti su 100: PD ' + rbPct(es.scoring.pd * 100, 2) + ', classe ' + es.scoring.classe + ' su 10 (' + es.scoring.giudizio + ')' + (es.scoring.presidio.segnaliPresenti ? ', con segnali CCII da presidiare.' : '.'));
-        if (es.banche.numero) parti.push('Sono censiti ' + es.banche.numero + ' rapporti bancari' + (es.banche.conTensione ? ', di cui ' + es.banche.conTensione + ' in tensione.' : ', tutti regolari.'));
-        parti.push('Le azioni proposte sono ' + es.azioni.length + ': le prime leve sono quelle a priorita alta.');
+        if (m.declassamento) parti.push('Gli eventi pregiudizievoli dichiarati declassano la classe di ' + m.declassamento + ', dalla ' + m.integrataBase + ' alla ' + m.integrata + '.');
+        parti.push('Il questionario qualitativo e i profili di soggetti e gruppo ' + (es.correttivoTotale === 0 ? 'confermano la classe.' : 'portano la classe ipotizzata a ' + es.classeCorretta + ' su 12.'));
+        if (es.percorso.attivo && es.percorso.deltaClasse > 0) parti.push('Con il percorso di miglioramento Revilaw la classe potenziale e ' + es.percorso.classe + ' su 12: il piano e nella sezione dedicata.');
+        if (es.banche.conTensione) parti.push('Dei ' + es.banche.numero + ' rapporti bancari censiti, ' + es.banche.conTensione + (es.banche.conTensione === 1 ? ' e in tensione.' : ' sono in tensione.'));
         return parti.join(' ');
     }
 
@@ -9422,23 +9548,20 @@
         }
         return `
             ${rbHtmlVerdetto(es, '')}
-            ${!es.quadratura.ok ? '<div class="avviso-ruoli">Attivo e passivo non quadrano (differenza ' + eurFmt.format(es.quadratura.diff) + '): per i controlli di qualita del par. 3.3 delle Specifiche MCC il risultato andrebbe considerato UNRATED finche il bilancio non quadra. Il calcolo qui sotto usa comunque i dati inseriti.</div>' : ''}
+            ${!es.quadratura.ok ? '<div class="avviso-ruoli">Attivo e passivo non quadrano (differenza ' + eurFmt.format(es.quadratura.diff) + '): esito da considerare UNRATED finche il bilancio non quadra (par. 3.3 delle Specifiche MCC). Il calcolo usa comunque i dati inseriti.</div>' : ''}
             <div class="card">
                 <h2>Rating MCC del Fondo di Garanzia</h2>
-                ${rbHtmlScala(es.mcc.integrata)}
+                ${rbHtmlScala(es.mcc.integrata, es.classeCorretta)}
                 ${rbHtmlKpiMcc(es)}
-                <p class="hint">${esc(rbTestoSintesi(es))}</p>
                 ${rbHtmlDettaglioMcc(es)}
             </div>
-            <div class="card"><h2>Correttivo qualitativo e rating ipotizzato</h2>${rbHtmlCorrettivo(es)}</div>
+            <div class="card"><h2>Dal rating MCC al rating ipotizzato</h2>${rbHtmlCorrettivo(es)}</div>
+            <div class="card"><h2>Percorso di miglioramento Revilaw</h2>${rbHtmlPercorso(es)}</div>
             <div class="card"><h2>Rating interno simulato (scoring a moduli)</h2>${rbHtmlScoring(es)}</div>
-            <div class="card"><h2>Rettifiche prudenziali: il bilancio come lo legge la banca</h2>${rbHtmlRettifiche(es)}</div>
-            <div class="card"><h2>Soci, amministratori e gruppo</h2>${rbHtmlSoggettiGruppo(es)}</div>
-            <div class="card"><h2>Cruscotto di bancabilita</h2>${rbHtmlTabellaCruscotto(es)}</div>
-            <div class="card"><h2>Indici della crisi (CNDCEC) e Z-Score</h2>${rbHtmlCndcec(es)}<div style="margin-top:12px;">${rbHtmlZ(es)}</div></div>
+            <div class="card"><h2>Cruscotto di bancabilita, indici della crisi e Z-Score</h2>${rbHtmlTabellaCruscotto(es)}<div style="margin-top:12px;">${rbHtmlCndcec(es)}</div><div style="margin-top:12px;">${rbHtmlZ(es)}</div></div>
             <div class="card"><h2>Posizionamento bancario</h2>${rbHtmlTabellaBanche(es)}</div>
-            <div class="card"><h2>Check-up del merito creditizio (manuale operativo)</h2>${rbHtmlCheckup(es)}</div>
-            <div class="card"><h2>Azioni migliorative proposte</h2>${rbHtmlAzioni(es)}</div>
+            <div class="card"><h2>Check-up del merito creditizio (manuale operativo)</h2>${rbHtmlCheckup(es, true)}</div>
+            <p class="hint" style="margin:2px 4px 10px;">Le tre scale della verifica non si confrontano tra loro: MCC 1-12 (fasce 1-5, PD empiriche del Fondo di Garanzia), rating interno simulato 1-10 (PD calibrate, stima di pre-screening), check-up A-E (qualita dei presidi, diagnostico). Come si integrano e spiegato nel Metodo di calcolo.</p>
             <div class="card">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                     <button class="btn btn-primary" id="rb-esiti-report">Salva e apri il report da firmare</button>
@@ -9717,7 +9840,6 @@
         const coppieDettagli = RB_DETTAGLI
             .filter(c => rbNum(det[c.id]))
             .map(c => `<div class="rb-dato"><span>${esc(c.et)}</span><strong>${numFmt.format(rbNum(det[c.id]))} &euro;</strong></div>`).join('');
-        const soggettiCompilati = es.soggetti.compilato || es.gruppo.compilato;
         let nSez = 0;
         const tSez = titolo => (++nSez) + '. ' + titolo;
 
@@ -9751,12 +9873,12 @@
 
                 <div class="rb-sezione">
                     <h3>${tSez('Rating MCC del Fondo di Garanzia')}</h3>
-                    ${rbHtmlScala(es.mcc.integrata)}
-                    ${rbHtmlDettaglioMcc(es, true)}
+                    ${rbHtmlScala(es.mcc.integrata, es.classeCorretta)}
+                    ${rbHtmlDettaglioMcc(es)}
                 </div>
 
                 <div class="rb-sezione">
-                    <h3>${tSez('Questionario qualitativo e rating ipotizzato')}</h3>
+                    <h3>${tSez('Dal rating MCC al rating ipotizzato')}</h3>
                     ${rbHtmlCorrettivo(es)}
                     <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Domanda</th><th>Risposta</th><th class="num">Punti</th></tr></thead><tbody>
                     ${RB_QUESTIONARIO.map(s => `<tr class="rb-riga-sezione"><td colspan="3"><strong>${esc(s.titolo)}</strong> &middot; ${es.quest.perSezione.find(x => x.id === s.id).perc}%</td></tr>`
@@ -9769,24 +9891,10 @@
                     ${rbHtmlScoring(es)}
                 </div>
 
-                ${es.rett.attive ? `<div class="rb-sezione">
-                    <h3>${tSez('Rettifiche prudenziali: il bilancio come lo legge la banca')}</h3>
-                    ${rbHtmlRettifiche(es)}
-                </div>` : ''}
-
-                ${soggettiCompilati ? `<div class="rb-sezione">
-                    <h3>${tSez('Soci, amministratori e gruppo')}</h3>
-                    ${rbHtmlSoggettiGruppo(es)}
-                </div>` : ''}
-
                 <div class="rb-sezione">
-                    <h3>${tSez('Cruscotto di bancabilita')}</h3>
+                    <h3>${tSez('Cruscotto di bancabilita, indici della crisi e Z-Score')}</h3>
                     ${rbHtmlTabellaCruscotto(es)}
-                </div>
-
-                <div class="rb-sezione">
-                    <h3>${tSez('Indici della crisi (CNDCEC) e Z-Score')}</h3>
-                    ${rbHtmlCndcec(es)}
+                    <div style="margin-top:10px;">${rbHtmlCndcec(es)}</div>
                     <div style="margin-top:10px;">${rbHtmlZ(es)}</div>
                 </div>
 
@@ -9801,22 +9909,26 @@
                 </div>` : ''}
 
                 <div class="rb-sezione">
-                    <h3>${tSez('Azioni migliorative proposte')}</h3>
-                    ${rbHtmlAzioni(es)}
+                    <h3>${tSez('Percorso di miglioramento Revilaw')}</h3>
+                    ${rbHtmlPercorso(es)}
                 </div>
 
                 <div class="rb-sezione">
                     <h3>${tSez('Dati utilizzati')}</h3>
                     <div class="rb-dati-griglia">${coppieBilancio}</div>
                     ${coppieDettagli ? '<p class="rb-testo" style="margin:10px 0 4px;"><strong>Dettagli dichiarati sulle voci:</strong></p><div class="rb-dati-griglia">' + coppieDettagli + '</div>' : ''}
-                    ${es.mcc.cr ? `<p class="rb-testo" style="margin-top:8px;"><strong>Centrale dei Rischi (6 mesi):</strong> utilizzo su accordato autoliquidanti e revoca ${rbFmt2.format(es.mcc.cr.c1)} &middot; mesi con sconfino di cassa ${es.mcc.cr.c2} &middot; mesi con sconfino a scadenza ${es.mcc.cr.c3} &middot; classe andamentale A${es.mcc.cr.classe}${es.mcc.sofferenze ? ' &middot; SOFFERENZE PRESENTI' : ''}.</p>`
+                    ${es.mcc.cr ? `<p class="rb-testo" style="margin-top:8px;"><strong>Centrale dei Rischi (6 mesi):</strong> utilizzo su accordato autoliquidanti e revoca ${rbFmt2.format(es.mcc.cr.c1)} &middot; mesi con sconfino di cassa ${es.mcc.cr.c2} &middot; mesi con sconfino a scadenza ${es.mcc.cr.c3}.</p>`
                         : '<p class="rb-testo" style="margin-top:8px;">Centrale dei Rischi non utilizzata: classe calcolata con il solo modulo economico-finanziario.</p>'}
                     ${v.note ? '<p class="rb-testo"><strong>Note:</strong> ' + esc(v.note) + '</p>' : ''}
                 </div>
 
                 <div class="rb-sezione rb-nota-metodo">
                     <h3>Nota metodologica e limiti</h3>
-                    <p class="rb-testo">Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA). Il rating interno simulato replica la struttura tipica dei sistemi di rating interni (tre moduli pesati per dimensione, calibrazione score-PD, classi 1-10, bande EU CR6): i modelli effettivi delle banche sono proprietari e riservati, la stima serve al pre-screening e all'advisory. Il correttivo qualitativo, le rettifiche prudenziali del bilancio, i profili di soggetti e gruppo e la stima per singolo istituto sono stime professionali Revilaw di come i modelli interni delle banche integrano gli elementi organizzativi e andamentali (il metodo completo, formula per formula, e nella scheda "Metodo di calcolo" dell'area riservata): il rating effettivo assegnato da ciascuna banca puo differire. I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali. Il check-up del merito creditizio segue il Manuale operativo Revilaw: le valutazioni sono formulate sulla base delle informazioni rese disponibili alla data di riferimento, hanno natura diagnostica e vanno aggiornate quando cambiano dati o eventi rilevanti. Questo documento e uno strumento di lavoro riservato, non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009 ne garanzia di ottenimento del credito.</p>
+                    <p class="rb-testo"><strong>Fonti dei modelli.</strong> Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA).</p>
+                    <p class="rb-testo"><strong>Stime professionali Revilaw.</strong> Il rating interno simulato replica la struttura tipica dei sistemi di rating interni (tre moduli pesati per dimensione, calibrazione score-PD, classi 1-10, bande EU CR6): i modelli effettivi delle banche sono proprietari e riservati, la stima serve al pre-screening e all'advisory. Correttivo qualitativo, rettifiche prudenziali, profili di soggetti e gruppo, stima per singolo istituto e percorso di miglioramento (che simula le sole leve coperte dai servizi Revilaw, a parita di bilancio e andamentale) sono stime professionali di come i modelli interni integrano gli elementi organizzativi: il metodo completo, formula per formula, e nella scheda "Metodo di calcolo" dell'area riservata, e il rating effettivo assegnato da ciascuna banca puo differire. Le tre scale (MCC 1-12, interno 1-10, check-up A-E) non sono confrontabili tra loro.</p>
+                    <p class="rb-testo"><strong>Dati sugli istituti.</strong> I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali.</p>
+                    <p class="rb-testo"><strong>Check-up.</strong> Il check-up del merito creditizio segue il Manuale operativo Revilaw v1.0: le valutazioni sono formulate sulla base delle informazioni rese disponibili alla data di riferimento, hanno natura diagnostica (misurano la qualita dei presidi, non la solvibilita) e vanno aggiornate quando cambiano dati o eventi rilevanti.</p>
+                    <p class="rb-testo"><strong>Riservatezza e limiti.</strong> Questo documento e uno strumento di lavoro riservato, non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009 ne garanzia di ottenimento del credito.</p>
                 </div>
 
                 <div class="rb-firma">
@@ -9842,6 +9954,18 @@
         if (btnFirma) btnFirma.addEventListener('click', () => modaleFirmaRating(v));
         rbMostraFirmaReport(v);
     }
+    /* in stampa (dal pulsante o con Ctrl+P) i dettagli richiudibili del foglio
+       si aprono da soli, altrimenti non finirebbero nel PDF, e si richiudono
+       alla fine; registrato UNA volta all'avvio */
+    let _rbDetailsStampa = null;
+    window.addEventListener('beforeprint', () => {
+        _rbDetailsStampa = Array.from(document.querySelectorAll('.rb-foglio details:not([open])'));
+        _rbDetailsStampa.forEach(d => d.setAttribute('open', ''));
+    });
+    window.addEventListener('afterprint', () => {
+        (_rbDetailsStampa || []).forEach(d => d.removeAttribute('open'));
+        _rbDetailsStampa = null;
+    });
     // carica in sottofondo la firma salvata del responsabile e la mette nel blocco firma
     function rbMostraFirmaReport(v) {
         const resp = (v.respVerifica || '').trim();
@@ -10614,6 +10738,19 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-rating-percorso',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: esiti piu scorrevoli e il Percorso di miglioramento Revilaw',
+            sommario: 'Gli esiti della verifica ora si leggono come un racconto unico, senza ripetizioni: una sola scala 1-12 con classe MCC e classe corretta insieme, il passaggio dal rating MCC al rating ipotizzato in una card sola (correttivo, soci e gruppo, rettifiche), cruscotto e indici della crisi riuniti, disclaimer in un\'unica nota. Al centro c\'e il nuovo Percorso di miglioramento Revilaw: la simulazione di dove puo arrivare la classe completando le leve coperte dai servizi dello studio, con le azioni raggruppate per servizio.',
+            chi: 'Chi prepara le verifiche del merito creditizio e chi le presenta alle imprese.',
+            dove: 'Sezione "Rating bancario", scheda "Esiti e azioni" della verifica e report da firmare; il metodo della simulazione e nel capitolo 11 del "Metodo di calcolo".',
+            voci: [
+                { titolo: 'La classe potenziale con i servizi Revilaw', testo: 'Le domande del questionario coperte da un servizio dello studio (assetti, tesoreria ed early warning, Modello 231, rating di legalita, ESG, TCF, comunicazione con le banche, attivazione delle garanzie) vengono simulate al traguardo: la verifica mostra la classe di oggi e la classe potenziale, con il nuovo punteggio del rating interno, a parita di bilancio e andamentale.' },
+                { titolo: 'Azioni raggruppate per servizio', testo: 'Le azioni migliorative non sono piu una lista piatta: stanno sotto il servizio Revilaw che le copre, con le leve del questionario che il servizio porta avanti e i moduli del check-up che presidia; gli interventi di gestione e finanza chiudono il percorso.' },
+                { titolo: 'Esiti senza ripetizioni', testo: 'Una sola scala del rating con due marcatori, una card unica dal rating MCC al rating ipotizzato (con soci, gruppo e rettifiche prudenziali), cruscotto, indici della crisi e Z-Score riuniti, la tabella per banca dello scoring dentro il posizionamento bancario, gli avvisi di prudenza del check-up in un solo badge e le avvertenze in un\'unica nota. Il report firmato adotta la stessa impostazione, con il percorso di miglioramento dopo l\'analisi e la nota metodologica in capoversi.' }
+            ]
+        },
         {
             id: '2026-08-22-rating-condivisione',
             data: '2026-08-22',
