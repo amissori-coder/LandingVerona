@@ -6826,7 +6826,7 @@
         // --- check-up del manuale operativo ---
         if (es.checkup.c1 > 0) {
             dai('alta', 'Governance', 'Trattare i rilievi critici del check-up (C1)',
-                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo critico (C1) è aperto' : ' rilievi critici (C1) sono aperti') + ': vanno comunicati per iscritto all\'organo amministrativo entro pochi giorni con azione urgente (la lettera si genera dalla scheda Check-up), ed escludono le classi di sintesi A e B finche non sono trattati.', RB_SERVIZI.assetti);
+                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo critico (C1) è aperto' : ' rilievi critici (C1) sono aperti') + ': vanno comunicati per iscritto all\'organo amministrativo entro pochi giorni con azione urgente (la lettera si genera dalla fase delle priorità del percorso), ed escludono le classi di sintesi A e B finche non sono trattati.', RB_SERVIZI.assetti);
         }
         if (es.checkup.avviato && es.checkup.sospeso) {
             dai('media', 'Governance', 'Completare i punteggi del nucleo inderogabile del check-up',
@@ -7770,7 +7770,7 @@
             </div>
             <div class="card"><h2>3. Le venti domande qualitative e il correttivo della classe</h2>
                 <p class="rb-testo"><strong>Che cosa fanno.</strong> Le banche non guardano solo i numeri: valutano anche come l'impresa &egrave; governata, quali presidi ha, come si comporta nei rapporti. La verifica riproduce questo giudizio con venti domande in quattro aree: governo e organizzazione, presidi premianti (modello organizzativo, rating di legalit&agrave;, sostenibilit&agrave;, rapporto collaborativo con il fisco, certificazioni), rapporti con le banche, struttura e mercato.</p>
-                <p class="rb-testo"><strong>Dove si rispondono e come impatta ogni risposta.</strong> Le risposte si registrano una volta sola, dentro le fasi del check-up: il profilo dell'impresa al primo contatto, le domande dei colloqui sotto ogni traccia di intervista, i presidi nella fase delle verifiche. Ogni risposta vale fino a dieci punti e lavora su quattro fronti insieme: alza o abbassa la <strong>percentuale del profilo qualitativo</strong>, che corregge la classe integrata (dall'80% in su un gradino a favore, tra 60% e 79% nessuna correzione, tra 40% e 59% un gradino a sfavore, sotto il 40% due gradini a sfavore); entra nel <strong>rating interno simulato</strong> come modulo qualitativo; guida il <strong>punteggio suggerito</strong> dei moduli del check-up collegati; e, quando la risposta migliore &egrave; un risultato che i servizi dello studio possono costruire, diventa una <strong>leva del percorso di miglioramento</strong>. Sotto ogni domanda, nella scheda, trovi scritto esattamente su che cosa incide.</p>
+                <p class="rb-testo"><strong>Dove si rispondono e come impatta ogni risposta.</strong> Le risposte si registrano una volta sola, dentro le fasi del check-up: il profilo dell'impresa al primo contatto, le domande dei colloqui sotto ogni traccia di intervista, i presidi nella fase delle verifiche. Ogni risposta vale fino a dieci punti e lavora su quattro fronti insieme: alza o abbassa la <strong>percentuale del profilo qualitativo</strong>, che corregge la classe integrata (dall'80% in su un gradino a favore, tra 60% e 79% nessuna correzione, tra 40% e 59% un gradino a sfavore, sotto il 40% due gradini a sfavore); entra nel <strong>rating interno simulato</strong> come modulo qualitativo; guida il <strong>punteggio suggerito</strong> dei moduli del check-up collegati; e, quando la risposta migliore &egrave; un risultato che i servizi dello studio possono costruire, diventa una <strong>leva del percorso di miglioramento</strong>. Sotto ogni domanda, nella sua finestra, trovi scritto esattamente su che cosa incide.</p>
                 <p class="rb-testo"><strong>Il correttivo complessivo.</strong> Al correttivo del questionario si sommano un gradino a sfavore se risultano eventi pregiudizievoli a carico degli amministratori, un gradino a favore se il gruppo rafforza l'impresa con un consolidato documentabile, uno a sfavore se il gruppo assorbe risorse. Il risultato, riportato tra 1 e 12, &egrave; il <strong>rating ipotizzato</strong>: la stima di come i giudizi interni delle banche correggono la classe di partenza.</p>
             </div>
             <div class="card"><h2>4. Le rettifiche prudenziali: il bilancio come lo legge la banca</h2>
@@ -7994,7 +7994,7 @@
             if (principale && principale.anzianita) anzAnni = RB_ANZIANITA_ANNI[principale.anzianita] || null;
         }
         puntoA('Anzianita rapporto banca principale', anzAnni === null ? 'n.d.' : '~' + anzAnni + ' anni',
-            anzAnni === null ? 60 : rbSoglia(RB_SCORING.anzianita, anzAnni), 0.05, 'dalla scheda banche');
+            anzAnni === null ? 60 : rbSoglia(RB_SCORING.anzianita, anzAnni), 0.05, 'dal passo Banche');
         const escusse = sc.garanzieEscusse || 'no';
         puntoA('Garanzie escusse o revoche (24 mesi)', escusse === 'si' ? 'Si' : 'No', escusse === 'si' ? 0 : 100, 0.10);
         const scoreAndam = righeA.reduce((s, r) => s + r.contributo, 0) / righeA.reduce((s, r) => s + r.peso, 0);
@@ -8449,7 +8449,7 @@
        badge invece di ripetersi modulo per modulo */
     function rbHtmlCheckup(es, compatto) {
         const c = es.checkup;
-        if (!c.avviato) return '<p class="hint">Check-up non ancora avviato: si lavora nella scheda "Check-up" della verifica, fase per fase, con i punteggi dei tredici moduli, i rilievi, la roadmap e la raccolta dei documenti.</p>';
+        if (!c.avviato) return '<p class="hint">Check-up non ancora avviato: si lavora nella scheda "Percorso" della verifica, fase per fase, con i punteggi dei tredici moduli, i rilievi, la roadmap e la raccolta dei documenti.</p>';
         const badgeSintesi = c.sospeso ? 'grigio' : (c.sintesi ? (c.sintesi.classe <= 'B' ? 'verde' : (c.sintesi.classe === 'C' ? 'ambra' : 'rosso')) : 'grigio');
         const c1aperti = c.rilievi.filter(r => r.classe === 'C1' && r.stato !== 'trattato');
         const override = c.limiti;
@@ -8508,7 +8508,7 @@
     const RB_CHECKUP_GUIDA = {
         f0: 'Prima di accettare il lavoro, verifica che l\'impresa sia seguibile: attività in corso, contabilità utilizzabile, nessuna procedura concorsuale aperta, un interlocutore che collabora. Il quadro qui sotto riepiloga che cosa risulta già inserito nel programma.',
         f1: 'Raccogli le informazioni di base e gli obiettivi: perché l\'impresa chiede il check-up (nuova finanza, rinnovo degli affidamenti, condizioni, una tensione in corso), con quali banche lavora, quali scadenze ha davanti. Registra qui sotto le prime risposte sul profilo dell\'impresa: verranno riprese nei calcoli e nei punteggi.',
-        f2: 'Formalizza l\'incarico prima di iniziare: oggetto (check-up del merito creditizio), perimetro, tempi, compenso e riservatezza. Se l\'incarico è censito nella sezione Incarichi dell\'area, collegalo dalla scheda “Impresa e bilancio”: cliente e regione si compilano da soli.',
+        f2: 'Formalizza l\'incarico prima di iniziare: oggetto (check-up del merito creditizio), perimetro, tempi, compenso e riservatezza. Se l\'incarico è censito nella sezione Incarichi dell\'area, collegalo dal passo "Impresa e bilancio" del percorso: cliente e regione si compilano da soli.',
         f3: 'Riunisci il titolare e le figure chiave: presenta il percorso, concorda il calendario e chi consegna i documenti. Compila data, luogo e partecipanti e genera il verbale: resta agli atti e mette tutti d\'accordo su che cosa succede.',
         f4: 'Consegna all\'impresa la lista dei documenti e tieni qui lo stato della raccolta, sezione per sezione. La lettera di richiesta si genera da sola con i soli documenti che mancano. I documenti con il pallino sono essenziali: senza, il punteggio del modulo collegato non dovrebbe superare 2.',
         f5: 'Le carte non bastano: intervista le persone. Per ogni colloquio trovi la traccia delle domande da fare e, subito sotto, le risposte da registrare: entrano nei calcoli e nei punteggi suggeriti. Quello che emerge in più va nelle conclusioni dei moduli come evidenza.',
@@ -8640,8 +8640,8 @@
        calcoli, percio' stanno in testa all'elenco della raccolta e alla
        lettera di richiesta */
     const RB_DOC_AREA = {
-        d12: { dove: 'scheda "Impresa e bilancio"', come: 'anche come file XBRL del Registro Imprese (il programma lo legge da solo)' },
-        d27: { dove: 'scheda "Centrale Rischi"', come: 'anche come PDF della Banca d\'Italia (il programma lo legge da solo)' }
+        d12: { dove: 'passo "Impresa e bilancio" del percorso', come: 'anche come file XBRL del Registro Imprese (il programma lo legge da solo)' },
+        d27: { dove: 'passo "Centrale dei Rischi" del percorso', come: 'anche come PDF della Banca d\'Italia (il programma lo legge da solo)' }
     };
     /* che cosa muove ogni risposta: lo si dichiara sotto la domanda, cosi' chi
        compila sa sempre dove finisce quello che sta registrando */
@@ -8722,10 +8722,14 @@
                 <div class="campo"><label>&nbsp;</label><button class="btn btn-secondary" data-verbale="documenti">Genera la lettera di richiesta documenti</button></div>
             </div>
             <p class="hint" style="margin:4px 0 10px;">Ricevuti ${c.docRicevuti} documenti su ${c.docApplicabili} applicabili; essenziali ${c.essRicevuti} su ${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile. La lettera include solo ciò che manca. In testa ci sono i documenti da cui partono i calcoli: si caricano direttamente nell\'area.</p>
+            <div class="rb-chips" style="margin:0 0 10px;">
+                <span class="rb-rif">Man mano che i documenti arrivano, caricali nei passi del percorso:</span>
+                ${RB_PASSI_DATI.map(p2 => `<button class="btn btn-secondary btn-sm" data-apri-passo="${p2.id}">${esc(p2.nome)}</button>`).join('')}
+            </div>
             <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Documento</th><th>Moduli</th><th>Stato</th></tr></thead><tbody>
                 <tr class="rb-riga-sezione"><td colspan="3"><strong>Da caricare nell\'area: la base dei calcoli</strong></td></tr>
                 ${idsArea.map(id => { const d = RB_CHECKUP_DOCUMENTI.find(x => x.id === id); const a = RB_DOC_AREA[id];
-                    return rigaDoc(d, '<div class="rb-rif">Si carica nella ' + esc(a.dove) + ', ' + esc(a.come) + '.</div>'
+                    return rigaDoc(d, '<div class="rb-rif">Si carica nel ' + esc(a.dove) + ', ' + esc(a.come) + '.</div>'
                         + (areaCaricato[id] ? ' <span class="badge verde">caricato nell\'area</span>' : ' <span class="badge grigio">non ancora caricato nell\'area</span>')); }).join('')}
                 ${sezioniDoc.map(sz => `<tr class="rb-riga-sezione"><td colspan="3"><strong>${esc(sz)}</strong></td></tr>`
                     + RB_CHECKUP_DOCUMENTI.filter(d => d.sez === sz && idsArea.indexOf(d.id) < 0).map(d => rigaDoc(d)).join('')).join('')}
@@ -8870,9 +8874,10 @@
         const f = RB_CHECKUP_FASI.find(x => x.id === fid);
         if (!f) return;
         const o = opz || {};
+        cuPassoAperto = null;   // la finestra di fase prende il posto di un eventuale passo dati aperto
         const pezzi = f.nome.split(' - ');
         const cont = apriModale(rbFaseCorpo(v, fid), { finestra: true, classe: 'modale-fase', titolo: pezzi[0] + ' - ' + (pezzi[1] || ''), massimizzata: !!o.massimizzata });
-        cont.querySelector('.mw-close').addEventListener('click', () => { if (tabRB === 'checkup') vistaRatingScheda(); });
+        cont.querySelector('.mw-close').addEventListener('click', () => { if (schedaRB && tabRB === 'checkup') vistaRatingScheda(); });
         const radice = cont.querySelector('.modale');
         radice.addEventListener('change', rbSegnaModificaScheda, true);
         rbCollegaFase(radice, fid, v);
@@ -8976,13 +8981,136 @@
             const eraMax = !!document.querySelector('#modale-contenitore .modale.massimizzata');
             apriFaseCheckup(b.dataset.faseVai, { massimizzata: eraMax });
         }));
+        q('[data-apri-passo]').forEach(b => b.addEventListener('click', () => {
+            const eraMax = !!document.querySelector('#modale-contenitore .modale.massimizzata');
+            apriPassoDati(b.dataset.apriPasso, { massimizzata: eraMax });
+        }));
         const chiudi = uno('#cu-fase-chiudi');
-        if (chiudi) chiudi.addEventListener('click', () => { chiudiModale(); if (tabRB === 'checkup') vistaRatingScheda(); });
+        if (chiudi) chiudi.addEventListener('click', () => { chiudiModale(); if (schedaRB && tabRB === 'checkup') vistaRatingScheda(); });
+    }
+    /* --- i passi di caricamento dei dati: dentro l'unico elenco del percorso ---
+       Le vecchie schede (Impresa e bilancio, Centrale Rischi, Soci e gruppo,
+       Banche) diventano passi del percorso, subito dopo la richiesta dei
+       documenti: e il momento in cui i documenti arrivano e si caricano.
+       Ogni passo si apre nella sua finestra e lo stato si legge dai dati. */
+    const RB_PASSI_DATI = [
+        { id: 'impresa', nome: 'Impresa e bilancio', breve: 'Bilancio', guida: 'Carica qui il bilancio ricevuto: con il file XBRL del Registro Imprese i campi si compilano da soli. Denominazione, settore e conto economico con stato patrimoniale sono la base di tutti i calcoli.' },
+        { id: 'cr', nome: 'Centrale dei Rischi', breve: 'Centrale Rischi', guida: 'Carica qui il prospetto della Centrale dei Rischi: con il PDF della Banca d\'Italia le rilevazioni mensili si compilano da sole. Senza questi dati la classe usa il solo modulo di bilancio.' },
+        { id: 'soggetti', nome: 'Soci e gruppo', breve: 'Soci e gruppo', guida: 'Registra qui compagine sociale, amministratori, gruppo societario ed eventi pregiudizievoli: pesano sul correttivo della classe e sono tra le prime verifiche che la banca fa.' },
+        { id: 'banche', nome: 'Banche', breve: 'Banche', guida: 'Registra qui i rapporti bancari dell\'impresa, con accordato, utilizzato e stato della relazione: servono al posizionamento bancario e ai moduli andamentali dello scoring.' }
+    ];
+    function rbStatoPasso(v, pid, es) {
+        if (pid === 'impresa') {
+            if (es.pronta) return { badge: 'verde', etichetta: 'caricato', testo: 'dati del calcolo completi' };
+            const b = v.bilancio || {};
+            const toccato = (v.cliente || '').trim() || Object.keys(b).some(k => b[k] !== null && b[k] !== undefined);
+            if (toccato) return { badge: 'ambra', etichetta: 'in corso', testo: (es.mancanti || []).length + (es.mancanti && es.mancanti.length === 1 ? ' dato mancante' : ' dati mancanti') };
+            return { badge: 'grigio', etichetta: 'da fare', testo: '' };
+        }
+        if (pid === 'cr') {
+            const cr = v.cr || {};
+            const righe = (cr.righe || []).filter(r => r && Object.keys(r).length);
+            if (cr.attiva && righe.length) return { badge: 'verde', etichetta: 'caricato', testo: righe.length + (righe.length === 1 ? ' mese in uso' : ' mesi in uso') };
+            if (cr.attiva || righe.length) return { badge: 'ambra', etichetta: 'in corso', testo: cr.attiva ? 'attiva ma senza rilevazioni' : 'dati inseriti ma non attivati' };
+            return { badge: 'grigio', etichetta: 'da fare', testo: 'senza CR vale il solo bilancio' };
+        }
+        if (pid === 'soggetti') {
+            const nS = (v.soci || []).length, nA = (v.amministratori || []).length;
+            const gr = (v.gruppo || {}).appartiene;
+            if (nS || nA || gr) return { badge: 'verde', etichetta: 'caricato', testo: nS + (nS === 1 ? ' socio' : ' soci') + ' &middot; ' + nA + (nA === 1 ? ' amministratore' : ' amministratori') };
+            return { badge: 'grigio', etichetta: 'da fare', testo: '' };
+        }
+        const nB = (v.banche || []).length;
+        if (nB) return { badge: 'verde', etichetta: 'caricato', testo: nB + (nB === 1 ? ' rapporto' : ' rapporti') };
+        return { badge: 'grigio', etichetta: 'da fare', testo: '' };
+    }
+    /* il diagramma di flusso dell'avanzamento: tutte le tappe del percorso in
+       fila, colorate per stato (verde fatta, blu corrente, ambra in corso,
+       grigio da fare, spenta se non applicabile) e cliccabili */
+    const RB_FLUSSO_BREVI = { f0: 'Pre-qualifica', f1: 'Primo contatto', f2: 'Incarico', f3: 'Avvio', f4: 'Documenti', f5: 'Interviste', f6: 'Verifiche', f7: 'Punteggi', f8: 'Roadmap', f9: 'Consegna', f10: 'Follow-up' };
+    function rbHtmlFlusso(v, es, corrente) {
+        const cu = v.checkup || {};
+        const nodi = [];
+        RB_CHECKUP_FASI.forEach(f => {
+            const s = ((cu.fasi || {})[f.id] || {}).stato || '';
+            const cl = s === 'completata' ? 'verde'
+                : (s === 'na' ? 'neutro'
+                : (corrente && corrente.id === f.id ? 'blu'
+                : (s === 'incorso' ? 'ambra' : 'grigio')));
+            nodi.push({ attr: 'data-apri-fase="' + f.id + '"', cl, dentro: cl === 'verde' ? '&#10003;' : f.id.slice(1), nome: RB_FLUSSO_BREVI[f.id] || f.nome, titolo: f.nome });
+            if (f.id === 'f4') RB_PASSI_DATI.forEach(p => {
+                const st = rbStatoPasso(v, p.id, es);
+                nodi.push({ attr: 'data-apri-passo="' + p.id + '"', cl: st.badge === 'verde' ? 'verde' : (st.badge === 'ambra' ? 'ambra' : 'grigio'), dentro: st.badge === 'verde' ? '&#10003;' : '&#8593;', nome: p.breve, titolo: 'Caricamento dati - ' + p.nome + ' (' + st.etichetta + ')' });
+            });
+        });
+        return `<div class="cu-flusso">${nodi.map((n, i) => (i ? `<span class="cu-tratto ${nodi[i - 1].cl === 'verde' ? 'verde' : ''}"></span>` : '')
+            + `<button type="button" class="cu-nodo ${n.cl}" ${n.attr} title="${esc(n.titolo)}"><span class="cu-nodo-pallino">${n.dentro}</span><span class="cu-nodo-nome">${esc(n.nome)}</span></button>`).join('')}</div>
+            <p class="hint" style="margin:0 0 12px;">L'avanzamento a colpo d'occhio: verde fatto, blu la fase in cui siamo, ambra in corso, grigio da fare. Ogni tappa si apre con un clic.</p>`;
+    }
+    /* la finestra di un passo di caricamento: stesso comportamento delle fasi
+       (riduci a barra, schermo intero, riapertura con scroll conservato). La
+       variabile cuPassoAperto permette ai gestori dei campi, che ridisegnano
+       la scheda, di ridisegnare anche la finestra aperta. */
+    let cuPassoAperto = null;
+    let cuRiapriTimer = null;   // la riapertura e differita: mai dentro un blur o un change in corso
+    function rbPassoCorpo(v, pid) {
+        const p = RB_PASSI_DATI.find(x => x.id === pid);
+        const idx = RB_PASSI_DATI.findIndex(x => x.id === pid);
+        const prec = idx > 0 ? RB_PASSI_DATI[idx - 1] : null;
+        const succ = idx < RB_PASSI_DATI.length - 1 ? RB_PASSI_DATI[idx + 1] : null;
+        const html = pid === 'impresa' ? rbTabImpresa(v) : (pid === 'cr' ? rbTabCr(v) : (pid === 'soggetti' ? rbTabSoggetti(v) : rbTabBanche(v)));
+        return `
+            <div class="cu-guida" style="margin-top:0;">${esc(p.guida)}</div>
+            ${html}
+            <div class="modale-azioni">
+                ${prec ? `<button class="btn btn-ghost" data-passo-vai="${prec.id}">&larr; ${esc(prec.nome)}</button>` : `<button class="btn btn-ghost" data-passo-fase="f4">&larr; Documenti</button>`}
+                <button class="btn btn-primary" id="cu-passo-chiudi">Chiudi il passo</button>
+                ${succ ? `<button class="btn btn-secondary" data-passo-vai="${succ.id}">${esc(succ.nome)} &rarr;</button>` : `<button class="btn btn-secondary" data-passo-fase="f5">Interviste &rarr;</button>`}
+            </div>`;
+    }
+    function apriPassoDati(pid, opz) {
+        const v = schedaRB;
+        if (!v) return;
+        const p = RB_PASSI_DATI.find(x => x.id === pid);
+        if (!p) return;
+        const o = opz || {};
+        cuPassoAperto = pid;
+        const cont = apriModale(rbPassoCorpo(v, pid), { finestra: true, classe: 'modale-fase modale-passo', titolo: 'Caricamento dati - ' + p.nome, massimizzata: !!o.massimizzata });
+        cont.querySelector('.mw-close').addEventListener('click', () => { cuPassoAperto = null; if (schedaRB) vistaRatingScheda(); });
+        const radice = cont.querySelector('.modale');
+        radice.addEventListener('change', rbSegnaModificaScheda, true);
+        rbCollegaTab(v, radice);
+        radice.querySelectorAll('[data-passo-vai]').forEach(b => b.addEventListener('click', () => {
+            const eraMax = !!document.querySelector('#modale-contenitore .modale.massimizzata');
+            apriPassoDati(b.dataset.passoVai, { massimizzata: eraMax });
+        }));
+        radice.querySelectorAll('[data-passo-fase]').forEach(b => b.addEventListener('click', () => {
+            cuPassoAperto = null;
+            const eraMax = !!document.querySelector('#modale-contenitore .modale.massimizzata');
+            apriFaseCheckup(b.dataset.passoFase, { massimizzata: eraMax });
+        }));
+        const chiudi = radice.querySelector('#cu-passo-chiudi');
+        if (chiudi) chiudi.addEventListener('click', () => { cuPassoAperto = null; chiudiModale(); if (schedaRB) vistaRatingScheda(); });
+        if (o.scroll) { const corpo = cont.querySelector('.modale-corpo'); if (corpo) corpo.scrollTop = o.scroll; }
+    }
+    function rbRiapriPasso() {
+        if (!cuPassoAperto) return;
+        const corpoPrec = document.querySelector('#modale-contenitore .modale-corpo');
+        const eraMax = !!document.querySelector('#modale-contenitore .modale.massimizzata');
+        const eraRidotta = !!document.querySelector('#modale-contenitore .modale.ridotta');
+        apriPassoDati(cuPassoAperto, { massimizzata: eraMax, scroll: corpoPrec ? corpoPrec.scrollTop : 0 });
+        if (eraRidotta) {
+            const m = document.querySelector('#modale-contenitore .modale');
+            const sf = document.querySelector('#modale-contenitore .modale-sfondo');
+            if (m) m.classList.add('ridotta');
+            if (sf) sf.classList.add('sfondo-ridotto');
+        }
     }
     /* --- la scheda Check-up: il quadro d'insieme del percorso --- */
     function rbTabCheckup(v) {
         const cu = v.checkup;
         const c = rbCheckup(v);
+        const es = rbEsiti(v);
         const qst = rbPunteggioQuestionario(v.questionario);
         const mappaDomande = rbDomandeFase();
         const perFase = {};
@@ -9005,11 +9133,20 @@
             f8: (cu.rilievi || []).length + ' rilievi &middot; ' + (cu.roadmap || []).length + ' azioni',
             f10: c.azioniAperte + ' azioni aperte'
         };
+        const rigaPasso = p => { const st = rbStatoPasso(v, p.id, es); return `
+                <div class="cu-riga cu-riga-passo">
+                    <span class="badge neutro">Dati</span>
+                    <div class="cu-riga-nome"><strong>${esc(p.nome)}</strong></div>
+                    <span class="cu-fase-destra">${st.testo ? '<span class="rb-rif">' + st.testo + '</span>' : ''}<span class="badge ${st.badge}">${st.etichetta}</span>
+                    <button class="btn btn-secondary btn-sm" data-apri-passo="${p.id}">Apri il passo</button></span>
+                </div>`; };
         return `
             <div class="card">
-                <h2>Il check-up, fase per fase</h2>
-                <p class="hint" style="margin:-6px 0 10px;">Ogni fase si apre nella sua finestra, con la guida e gli strumenti per svolgerla: le risposte si registrano lì e il programma le riusa ovunque servono (correttivo, rating interno, punteggi suggeriti, report). Le finestre si possono ridurre a barra e riaprire in ogni momento.</p>
+                <h2>Il percorso, in un colpo d'occhio</h2>
+                <p class="hint" style="margin:-6px 0 10px;">Un unico elenco per tutto il lavoro: le fasi del check-up e, subito dopo la richiesta dei documenti, i passi in cui i dati ricevuti si caricano nel programma (bilancio, Centrale dei Rischi, soci e gruppo, banche). Ogni tappa si apre nella sua finestra, con la guida e gli strumenti per svolgerla: le risposte si registrano lì e il programma le riusa ovunque servono. Le finestre si possono ridurre a barra e riaprire in ogni momento.</p>
+                ${rbHtmlFlusso(v, es, corrente)}
                 <div class="rb-chips" style="margin:0 0 14px;">
+                    <span class="badge ${es.pronta ? 'verde' : 'ambra'}">dati del calcolo: ${es.pronta ? 'completi' : 'da completare'}</span>
                     <span class="badge ${qst.date === qst.tot ? 'verde' : 'ambra'}">risposte registrate: ${qst.date}/${qst.tot}</span>
                     <span class="badge ${c.compilate === 13 ? 'verde' : 'ambra'}">moduli valutati: ${c.compilate}/13</span>
                     <span class="badge ${c.essRicevuti === c.essTot ? 'verde' : 'ambra'}">documenti essenziali: ${c.essRicevuti}/${c.essTot}</span>
@@ -9021,7 +9158,7 @@
                     <div class="cu-riga-nome"><strong>${esc(pezzi[1] || pezzi[0])}</strong>${corrente && corrente.id === f.id ? ' <span class="badge blu">fase corrente</span>' : ''}</div>
                     <span class="cu-fase-destra">${riass[f.id] ? '<span class="rb-rif">' + riass[f.id] + '</span>' : ''}${badgeStato(f.id)}
                     <button class="btn btn-secondary btn-sm" data-apri-fase="${f.id}">Apri la fase</button></span>
-                </div>`; }).join('')}
+                </div>` + (f.id === 'f4' ? RB_PASSI_DATI.map(rigaPasso).join('') : ''); }).join('')}
             </div>`;
     }
     /* --- i documenti del check-up generati dai dati inseriti ---
@@ -9608,7 +9745,7 @@
     }
     function rbHtmlTabellaBanche(es) {
         const b = es.banche;
-        if (!b.numero) return '<p class="hint">Nessuna banca censita nella verifica: aggiungi i rapporti nella scheda per l\'analisi di solidita e concentrazione.</p>';
+        if (!b.numero) return '<p class="hint">Nessuna banca censita nella verifica: aggiungi i rapporti nel passo "Banche" del percorso per l\'analisi di solidita e concentrazione.</p>';
         const fmtQ = q => q === null ? '-' : rbPct(q, 0);
         const fmtU = u => u === null ? '-' : (u === 999 ? 'senza fido' : rbPct(u, 0));
         return `<div class="tabella-wrap"><table class="dati compatta"><thead><tr>
@@ -9634,7 +9771,7 @@
             ${es.scoring.mappatura.map(m => `<tr><td>${esc(m.nome)}</td><td class="num">${rbFmt2.format(m.fattore)}</td><td class="num">${rbPct(m.pdAdj * 100, 2)}</td>
                 <td class="num"><strong>${m.classe}</strong></td><td>${esc(m.giudizio)}</td><td>${esc(m.banda)}</td></tr>`).join('')}
         </tbody></table></div>
-        <p class="hint">Il fattore di severita si imposta sul singolo rapporto (scheda Banche): 1,00 = neutro, 1,20 = banca piu severa, 0,85 = meno severa, secondo l'esperienza dello studio su quell'istituto. Le PD medie per classe dei gruppi bancari sono nell'Informativa al Pubblico Pillar 3 (EBA Pillar 3 Data Hub).</p></details>` : ''}`;
+        <p class="hint">Il fattore di severita si imposta sul singolo rapporto (passo "Banche" del percorso): 1,00 = neutro, 1,20 = banca piu severa, 0,85 = meno severa, secondo l'esperienza dello studio su quell'istituto. Le PD medie per classe dei gruppi bancari sono nell'Informativa al Pubblico Pillar 3 (EBA Pillar 3 Data Hub).</p></details>` : ''}`;
     }
     /* IL PERCORSO DI MIGLIORAMENTO: prima la meta (la simulazione con le leve
        Revilaw), poi le azioni raggruppate per servizio dello studio, in coda
@@ -9727,7 +9864,7 @@
        VISTA: SCHEDA DELLA VERIFICA (compilazione a schede)
     ========================================================= */
     let schedaRB = null;
-    let tabRB = 'impresa';
+    let tabRB = 'checkup';
     /* Il promemoria di salvataggio: la scheda conta le modifiche non ancora
        salvate; il bottone "Salva" mostra il pallino e, dopo un po' di lavoro,
        un avviso suggerisce il salvataggio temporaneo (mai piu di uno ogni
@@ -9775,18 +9912,14 @@
                 schedaRB = rbNuovaVerifica();
             }
             statoImportXbrl = null; statoImportCr = null; attnXbrl = [];
-            tabRB = 'impresa';
+            tabRB = 'checkup'; cuPassoAperto = null;
             rbModifichePendenti = 0; rbUltimoAvvisoSalva = 0;
             parametriVista = { id: schedaRB.id };   // il "nuova" e consumato: i ridisegni non azzerano la scheda
         }
         const v = schedaRB;
         statoModifica = { tipo: 'rating', id: v.id || 'nuova', etichetta: v.cliente || 'nuova verifica' };
         const tabs = [
-            ['impresa', 'Impresa e bilancio'],
-            ['cr', 'Centrale Rischi'],
-            ['soggetti', 'Soci e gruppo'],
-            ['banche', 'Banche'],
-            ['checkup', 'Check-up'],
+            ['checkup', 'Percorso'],
             ['esiti', 'Esiti e azioni'],
             ['metodo', 'Metodo di calcolo']
         ];
@@ -9794,7 +9927,7 @@
             <header>
                 <div>
                     <h1>${v.id ? 'Verifica del merito creditizio' : 'Nuova verifica del merito creditizio'}</h1>
-                    <p class="descrizione">${esc(v.cliente || 'Compila i dati dell\'impresa e del bilancio, poi Centrale Rischi, banche e check-up (le domande qualitative si registrano nelle sue fasi): gli esiti si aggiornano da soli.')}
+                    <p class="descrizione">${esc(v.cliente || 'Segui il percorso: fasi e caricamento dei dati sono in un unico elenco, ogni tappa si apre nella sua finestra e gli esiti si aggiornano da soli.')}
                     ${v.stato === 'completata' ? ' <span class="badge verde">completata</span>' : ' <span class="badge ambra">bozza</span>'}</p>
                 </div>
                 <div class="header-azioni">
@@ -9836,20 +9969,27 @@
         // (in fase di cattura: vale anche per gli eventi che non risalgono)
         document.getElementById('rb-corpo').addEventListener('change', rbSegnaModificaScheda, true);
         rbCollegaTab(v);
+        // se un passo di caricamento e aperto in finestra, il ridisegno della
+        // scheda lo ridisegna a sua volta (scroll e dimensioni conservati).
+        // Differito e coalescente: un blur o piu change nello stesso giro di
+        // eventi non devono sostituire il modale mentre il DOM e in smontaggio.
+        if (cuPassoAperto && document.querySelector('#modale-contenitore .modale-passo') && !cuRiapriTimer) {
+            cuRiapriTimer = setTimeout(() => {
+                cuRiapriTimer = null;
+                if (cuPassoAperto && schedaRB && document.querySelector('#modale-contenitore .modale-passo')) rbRiapriPasso();
+            }, 0);
+        }
     }
     function rbHtmlTab(v) {
-        if (tabRB === 'impresa') return rbTabImpresa(v);
-        if (tabRB === 'cr') return rbTabCr(v);
-        if (tabRB === 'soggetti') return rbTabSoggetti(v);
-        if (tabRB === 'banche') return rbTabBanche(v);
         if (tabRB === 'checkup') return rbTabCheckup(v);
         if (tabRB === 'metodo') return rbHtmlMetodo();
         return rbTabEsiti(v);
     }
     function rbSalvaScheda() {
+        if (!schedaRB) return null;
         if (!(schedaRB.cliente || '').trim()) {
-            toast('Indica la denominazione dell\'impresa (scheda "Impresa e bilancio").', 'rosso');
-            tabRB = 'impresa'; vistaRatingScheda(); return null;
+            toast('Indica la denominazione dell\'impresa nel passo "Impresa e bilancio" del percorso.', 'rosso');
+            tabRB = 'checkup'; vistaRatingScheda(); apriPassoDati('impresa'); return null;
         }
         if (schedaRB.id && !rbAccessoCorrente(schedaRB).scrive) {
             toast('Questa verifica e per te in sola visualizzazione: chiedi all\'autore la condivisione in scrittura.', 'rosso');
@@ -10122,7 +10262,8 @@
             return `<div class="card"><h2>Esiti</h2>
                 <div class="avviso-ruoli">Per calcolare il rating mancano questi dati:
                 <ul style="margin:8px 0 0 18px;">${es.mancanti.map(m => '<li>' + esc(m) + '</li>').join('')}</ul></div>
-                <p class="hint" style="margin-top:10px;">Compila la scheda "Impresa e bilancio" e torna qui: il calcolo e immediato.</p></div>`;
+                <p class="hint" style="margin:10px 0;">Si caricano nel passo "Impresa e bilancio" del percorso: appena inseriti, il calcolo e immediato.</p>
+                <button class="btn btn-secondary" data-apri-passo="impresa">Apri il passo "Impresa e bilancio"</button></div>`;
         }
         return `
             ${rbHtmlVerdetto(es, '')}
@@ -10149,13 +10290,16 @@
     }
 
     // collega gli eventi della scheda attiva (chiamata dopo ogni ridisegno)
-    function rbCollegaTab(v) {
+    function rbCollegaTab(v, radice) {
+        // radice: la vista principale oppure la finestra di un passo di caricamento
+        radice = radice || $vista();
+        const D = id => radice.querySelector('#' + id);
         // campi di testa (testo semplice)
-        $vista().querySelectorAll('[data-campo]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-campo]').forEach(el => el.addEventListener('change', () => {
             v[el.dataset.campo] = el.value;
             if (el.dataset.campo === 'settore') statoModifica = { tipo: 'rating', id: v.id || 'nuova', etichetta: v.cliente || 'nuova verifica' };
         }));
-        const selInc = document.getElementById('rb-incarico');
+        const selInc = D('rb-incarico');
         if (selInc) selInc.addEventListener('change', () => {
             v.incaricoId = selInc.value;
             const inc = selInc.value ? Incarichi.trova(selInc.value) : null;
@@ -10166,21 +10310,21 @@
             }
         });
         // bilancio: numeri in formato italiano, riformattati alla conferma
-        $vista().querySelectorAll('[data-bil]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-bil]').forEach(el => el.addEventListener('change', () => {
             const n = rbNum(el.value);
             v.bilancio = v.bilancio || {};
             if (n === null) delete v.bilancio[el.dataset.bil];
             else v.bilancio[el.dataset.bil] = n;
             el.value = rbFmtNum(n);
-            const q = document.getElementById('rb-quadratura');
+            const q = D('rb-quadratura');
             if (q) q.innerHTML = rbHtmlQuadratura(v);
         }));
         // Centrale Rischi
-        const crAtt = document.getElementById('rb-cr-attiva');
+        const crAtt = D('rb-cr-attiva');
         if (crAtt) crAtt.addEventListener('change', () => { v.cr.attiva = crAtt.checked; vistaRatingScheda(); });
-        const crSoff = document.getElementById('rb-cr-soff');
+        const crSoff = D('rb-cr-soff');
         if (crSoff) crSoff.addEventListener('change', () => { v.cr.sofferenze = crSoff.checked; });
-        $vista().querySelectorAll('[data-cr-m]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-cr-m]').forEach(el => el.addEventListener('change', () => {
             const m = Number(el.dataset.crM), c = el.dataset.crC;
             const n = rbNum(el.value);
             v.cr.righe[m] = v.cr.righe[m] || {};
@@ -10188,15 +10332,15 @@
             else v.cr.righe[m][c] = n;
             el.value = rbFmtNum(n);
         }));
-        const crCopia = document.getElementById('rb-cr-copia');
+        const crCopia = D('rb-cr-copia');
         if (crCopia) crCopia.addEventListener('click', () => {
             const primo = v.cr.righe[0] || {};
             for (let m = 1; m < 6; m++) v.cr.righe[m] = { ...primo };
             vistaRatingScheda();
         });
         // importazione bilancio XBRL
-        const xbrlBtn = document.getElementById('rb-xbrl-btn');
-        const xbrlFile = document.getElementById('rb-xbrl-file');
+        const xbrlBtn = D('rb-xbrl-btn');
+        const xbrlFile = D('rb-xbrl-file');
         if (xbrlBtn && xbrlFile) {
             xbrlBtn.addEventListener('click', () => xbrlFile.click());
             xbrlFile.addEventListener('change', () => {
@@ -10208,8 +10352,8 @@
             });
         }
         // importazione PDF Centrale dei Rischi
-        const crBtn = document.getElementById('rb-crpdf-btn');
-        const crFile = document.getElementById('rb-crpdf-file');
+        const crBtn = D('rb-crpdf-btn');
+        const crFile = D('rb-crpdf-file');
         if (crBtn && crFile) {
             crBtn.addEventListener('click', () => crFile.click());
             crFile.addEventListener('change', () => {
@@ -10229,30 +10373,30 @@
             });
         }
         // dettagli delle voci di bilancio
-        $vista().querySelectorAll('[data-det]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-det]').forEach(el => el.addEventListener('change', () => {
             const n = rbNum(el.value);
             v.dettagli = v.dettagli || {};
             if (n === null) delete v.dettagli[el.dataset.det];
             else v.dettagli[el.dataset.det] = n;
             el.value = rbFmtNum(n);
         }));
-        $vista().querySelectorAll('[data-det-sel]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-det-sel]').forEach(el => el.addEventListener('change', () => {
             v.dettagli = v.dettagli || {};
             v.dettagli[el.dataset.detSel] = el.value;
         }));
         // andamentale di sintesi e segnali CCII (rating interno simulato)
-        $vista().querySelectorAll('[data-sc]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-sc]').forEach(el => el.addEventListener('change', () => {
             const n = rbNum(el.value);
             v.scoring = v.scoring || {};
             if (n === null) delete v.scoring[el.dataset.sc];
             else v.scoring[el.dataset.sc] = n;
             el.value = rbFmtNum(n);
         }));
-        $vista().querySelectorAll('[data-sc-sel]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-sc-sel]').forEach(el => el.addEventListener('change', () => {
             v.scoring = v.scoring || {};
             v.scoring[el.dataset.scSel] = el.value;
         }));
-        $vista().querySelectorAll('[data-ccii]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-ccii]').forEach(el => el.addEventListener('change', () => {
             const n = rbNum(el.value);
             v.scoring = v.scoring || {};
             v.scoring.ccii = v.scoring.ccii || {};
@@ -10260,58 +10404,59 @@
             else v.scoring.ccii[el.dataset.ccii] = n;
             el.value = rbFmtNum(n);
         }));
-        $vista().querySelectorAll('[data-ccii-sel]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-ccii-sel]').forEach(el => el.addEventListener('change', () => {
             v.scoring = v.scoring || {};
             v.scoring.ccii = v.scoring.ccii || {};
             v.scoring.ccii[el.dataset.cciiSel] = el.value;
         }));
         // gruppo societario
-        $vista().querySelectorAll('[data-gr]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-gr]').forEach(el => el.addEventListener('change', () => {
             v.gruppo = v.gruppo || {};
             v.gruppo[el.dataset.gr] = el.value;
             vistaRatingScheda();
         }));
-        $vista().querySelectorAll('[data-gr-txt]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-gr-txt]').forEach(el => el.addEventListener('change', () => {
             v.gruppo = v.gruppo || {};
             v.gruppo[el.dataset.grTxt] = el.value;
         }));
-        $vista().querySelectorAll('[data-gr-chk]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-gr-chk]').forEach(el => el.addEventListener('change', () => {
             v.gruppo = v.gruppo || {};
             v.gruppo[el.dataset.grChk] = el.checked;
             vistaRatingScheda();
         }));
         // eventi pregiudizievoli dell'impresa
-        $vista().querySelectorAll('[data-ev-sel]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-ev-sel]').forEach(el => el.addEventListener('change', () => {
             v.eventi = v.eventi || {};
             v.eventi[el.dataset.evSel] = el.value;
         }));
-        // check-up guidato: ogni fase si apre nella sua finestra (gestori dentro la finestra)
-        $vista().querySelectorAll('[data-apri-fase]').forEach(b => b.addEventListener('click', () => apriFaseCheckup(b.dataset.apriFase)));
+        // percorso: fasi e passi di caricamento si aprono nella loro finestra (gestori dentro la finestra)
+        radice.querySelectorAll('[data-apri-fase]').forEach(b => b.addEventListener('click', () => apriFaseCheckup(b.dataset.apriFase)));
+        radice.querySelectorAll('[data-apri-passo]').forEach(b => b.addEventListener('click', () => apriPassoDati(b.dataset.apriPasso)));
         // compagine sociale
-        const socAdd = document.getElementById('rb-soc-add');
+        const socAdd = D('rb-soc-add');
         if (socAdd) socAdd.addEventListener('click', () => { v.soci.push({ nome: '', tipo: 'pf', quota: '' }); vistaRatingScheda(); });
-        $vista().querySelectorAll('[data-soc-rm]').forEach(b => b.addEventListener('click', () => { v.soci.splice(Number(b.dataset.socRm), 1); vistaRatingScheda(); }));
-        $vista().querySelectorAll('[data-soc-campo]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-soc-rm]').forEach(b => b.addEventListener('click', () => { v.soci.splice(Number(b.dataset.socRm), 1); vistaRatingScheda(); }));
+        radice.querySelectorAll('[data-soc-campo]').forEach(el => el.addEventListener('change', () => {
             const s = v.soci[Number(el.dataset.socIdx)];
             if (!s) return;
             s[el.dataset.socCampo] = el.value;
             if (el.dataset.socCampo !== 'nome') vistaRatingScheda();
         }));
         // amministratori
-        const ammAdd = document.getElementById('rb-amm-add');
+        const ammAdd = D('rb-amm-add');
         if (ammAdd) ammAdd.addEventListener('click', () => { v.amministratori.push({ nome: '', carica: '', pregiudizievoli: 'verificare' }); vistaRatingScheda(); });
-        $vista().querySelectorAll('[data-amm-rm]').forEach(b => b.addEventListener('click', () => { v.amministratori.splice(Number(b.dataset.ammRm), 1); vistaRatingScheda(); }));
-        $vista().querySelectorAll('[data-amm-campo]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-amm-rm]').forEach(b => b.addEventListener('click', () => { v.amministratori.splice(Number(b.dataset.ammRm), 1); vistaRatingScheda(); }));
+        radice.querySelectorAll('[data-amm-campo]').forEach(el => el.addEventListener('change', () => {
             const a = v.amministratori[Number(el.dataset.ammIdx)];
             if (!a) return;
             a[el.dataset.ammCampo] = el.value;
             if (el.dataset.ammCampo === 'pregiudizievoli') vistaRatingScheda();
         }));
         // banche
-        const addBanca = document.getElementById('rb-banca-add');
+        const addBanca = D('rb-banca-add');
         if (addBanca) addBanca.addEventListener('click', () => { v.banche.push({ banca: '', nome: '', accordato: null, utilizzato: null, sconfini: false, garanzie: '', nota: '' }); vistaRatingScheda(); });
-        $vista().querySelectorAll('[data-b-rm]').forEach(b => b.addEventListener('click', () => { v.banche.splice(Number(b.dataset.bRm), 1); vistaRatingScheda(); }));
-        $vista().querySelectorAll('[data-b-campo]').forEach(el => el.addEventListener('change', () => {
+        radice.querySelectorAll('[data-b-rm]').forEach(b => b.addEventListener('click', () => { v.banche.splice(Number(b.dataset.bRm), 1); vistaRatingScheda(); }));
+        radice.querySelectorAll('[data-b-campo]').forEach(el => el.addEventListener('change', () => {
             const r = v.banche[Number(el.dataset.bIdx)];
             if (!r) return;
             const campo = el.dataset.bCampo;
@@ -10322,11 +10467,11 @@
             if (campo === 'banca') vistaRatingScheda();
         }));
         // esiti
-        const btnRep = document.getElementById('rb-esiti-report');
+        const btnRep = D('rb-esiti-report');
         if (btnRep) btnRep.addEventListener('click', () => { const id = rbSalvaScheda(); if (id) { schedaRB = null; naviga('ratingReport', { id }); } });
-        const btnComp = document.getElementById('rb-esiti-completa');
+        const btnComp = D('rb-esiti-completa');
         if (btnComp) btnComp.addEventListener('click', () => { v.stato = 'completata'; if (rbSalvaScheda()) vistaRatingScheda(); });
-        const btnRiapri = document.getElementById('rb-esiti-riapri');
+        const btnRiapri = D('rb-esiti-riapri');
         if (btnRiapri) btnRiapri.addEventListener('click', () => { v.stato = 'bozza'; if (rbSalvaScheda()) vistaRatingScheda(); });
     }
 
@@ -10517,7 +10662,7 @@
        della stessa persona: e la SUA firma, non una firma del documento. */
     function modaleFirmaRating(v) {
         const resp = (v.respVerifica || '').trim();
-        if (!resp) { toast('Indica prima il responsabile della verifica nella scheda.', 'rosso'); return; }
+        if (!resp) { toast('Indica prima il responsabile della verifica nel passo "Impresa e bilancio" del percorso.', 'rosso'); return; }
         let firmaSalvata = null;
         let firmaNuova = null;
         const miniatura = src => `<img src="${src}" alt="Firma" style="max-height:56px; max-width:220px; border:1px solid var(--grigio-200); border-radius:6px; background:#fff; padding:4px;">`;
@@ -11272,6 +11417,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-percorso-unico',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: un solo percorso per tutto il lavoro, con il diagramma di flusso',
+            sommario: 'Le schede di inserimento dei dati (Impresa e bilancio, Centrale Rischi, Soci e gruppo, Banche) non esistono più come schede separate: sono diventate passi del percorso, inseriti subito dopo la richiesta dei documenti, cioè nel momento in cui i documenti arrivano e si caricano nel programma. La scheda della verifica ora ha tre sole viste (Percorso, Esiti e azioni, Metodo di calcolo) e si apre direttamente sul percorso, con un diagramma di flusso in testa che mostra l\'avanzamento a colpo d\'occhio.',
+            chi: 'Chi svolge le verifiche del merito creditizio e i check-up.',
+            dove: 'Sezione "Rating bancario", scheda "Percorso" della verifica: l\'elenco unico delle fasi e dei passi di caricamento, con il diagramma di flusso in testa.',
+            voci: [
+                { titolo: 'Un unico elenco', testo: 'Fasi e caricamento dei dati stanno in un solo elenco, nell\'ordine reale del lavoro: dopo la fase della richiesta dei documenti ci sono i quattro passi in cui i dati ricevuti si caricano (bilancio, anche come file XBRL; Centrale dei Rischi, anche come PDF della Banca d\'Italia; soci e gruppo; banche). Ogni passo si apre nella sua finestra, come le fasi, con la guida in testa e i pulsanti per passare al passo precedente o successivo.' },
+                { titolo: 'Lo stato si legge dai dati', testo: 'Ogni passo mostra da solo a che punto è: verde quando i dati sono caricati (con il riepilogo: mesi di Centrale Rischi in uso, numero di soci e rapporti bancari), ambra quando il lavoro è a metà, grigio quando è da fare. Anche dalla finestra della fase dei documenti si aprono i passi con un clic.' },
+                { titolo: 'Il diagramma di flusso', testo: 'In testa al percorso c\'è il diagramma dell\'avanzamento: quindici tappe collegate, colorate per stato (verde fatto, blu la fase in cui siamo, ambra in corso, grigio da fare). Ogni tappa si apre con un clic direttamente dal diagramma.' },
+                { titolo: 'Meno schede, stessa sostanza', testo: 'La scheda della verifica ha tre viste: Percorso (dove si lavora), Esiti e azioni (dove si leggono i risultati) e Metodo di calcolo (dove ogni formula è spiegata). Nulla dei dati e dei calcoli è cambiato: cambia solo il modo di arrivarci, uno solo per tutto.' }
+            ]
+        },
         {
             id: '2026-08-22-checkup-finestre',
             data: '2026-08-22',

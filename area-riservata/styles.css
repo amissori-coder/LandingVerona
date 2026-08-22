@@ -1020,7 +1020,9 @@ summary.ni-testa::before {
 }
 
 /* ---------- Toast ---------- */
-.toast-area { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+/* i toast non catturano il puntatore: un avviso che compare sotto il cursore
+   non deve mai rubare il click a un pulsante (es. il piede delle finestre) */
+.toast-area { position: fixed; bottom: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .toast {
     background: var(--blu-900); color: #fff; padding: 12px 18px; border-radius: var(--raggio);
     box-shadow: var(--ombra-lg); font-size: 0.88rem; max-width: 380px;
@@ -1487,6 +1489,23 @@ summary.ni-testa::before {
 .rb-riga-sezione td { background: var(--grigio-050, #f5f7fa); color: var(--blu-900); }
 /* nella finestra della fase il piede tiene i tre pulsanti distanziati */
 .modale-fase > .modale-azioni { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+
+/* percorso unico: righe dei passi di caricamento dati (rientrate sotto la fase 4) */
+.cu-riga-passo { margin-left: 22px; border-left: 3px solid var(--grigio-200); }
+
+/* diagramma di flusso dell'avanzamento: nodi cliccabili collegati da tratti */
+.cu-flusso { display: flex; align-items: flex-start; flex-wrap: wrap; row-gap: 12px; padding: 8px 2px 6px; margin: 0 0 6px; }
+.cu-nodo { display: flex; flex-direction: column; align-items: center; gap: 5px; flex: 0 0 auto; min-width: 62px; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+.cu-nodo-pallino { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; background: #fff; color: var(--grigio-600); border: 2px solid var(--grigio-200); transition: border-color .15s ease; }
+.cu-nodo-nome { font-size: 0.66rem; line-height: 1.25; text-align: center; color: var(--grigio-600); max-width: 76px; }
+.cu-nodo:hover .cu-nodo-pallino { border-color: var(--blu-700); }
+.cu-nodo.verde .cu-nodo-pallino { background: var(--verde-bg); border-color: var(--verde); color: var(--verde); }
+.cu-nodo.ambra .cu-nodo-pallino { background: var(--ambra-bg); border-color: var(--ambra); color: var(--ambra); }
+.cu-nodo.blu .cu-nodo-pallino { background: var(--blu-700); border-color: var(--blu-700); color: #fff; box-shadow: 0 0 0 3px rgba(22, 64, 104, 0.18); }
+.cu-nodo.blu .cu-nodo-nome { color: var(--blu-700); font-weight: 600; }
+.cu-nodo.neutro { opacity: 0.45; }
+.cu-tratto { flex: 0 0 12px; height: 2px; background: var(--grigio-200); margin-top: 14px; }
+.cu-tratto.verde { background: var(--verde); }
 
 /* percorso di miglioramento: gruppi per servizio Revilaw */
 .rb-gruppo-serv { display: flex; flex-direction: column; gap: 8px; }
