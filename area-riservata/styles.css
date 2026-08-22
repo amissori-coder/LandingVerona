@@ -1028,6 +1028,7 @@ summary.ni-testa::before {
 }
 .toast.verde { background: var(--verde); }
 .toast.rosso { background: var(--rosso); }
+.toast.ambra { background: var(--ambra, #b45309); color: #fff; }
 @keyframes toast-in { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ---------- Stampa lettera di incarico ---------- */

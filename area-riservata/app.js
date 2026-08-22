@@ -8624,21 +8624,72 @@
         { chiave: 'stato', nome: 'Stato' },
         { chiave: 'note', nome: 'Note' }
     ];
+    /* Chi vede e chi modifica UNA verifica. Le regole:
+       - ognuno vede e modifica le PROPRIE verifiche (l'autore e' chi le ha create);
+       - l'autore puo' CONDIVIDERLE con qualsiasi utente dell'area, in lettura o in
+         scrittura, e revocare l'accesso in ogni momento;
+       - chi ha un ruolo di accesso da partner (equity o founding, riconosciuto dal
+         ruolo come per le iscrizioni agli eventi) vede le verifiche di TUTTI ma in
+         sola visualizzazione, e vede di chi e' ogni calcolo;
+       - amministratore e titolare governano tutto, come nel resto dell'area.
+       In piu' valgono sempre il permesso di sezione (Ruoli e permessi) e il filtro
+       territoriale dei coordinatori. rbAccessoVerifica e' pura e testabile. */
+    function rbAutoreDi(v) {
+        if (v && v.autore) return String(v.autore).toLowerCase();
+        const m = String((v && v.creato && v.creato.da) || '').match(/<([^>]+)>/);
+        return m ? m[1].trim().toLowerCase() : '';
+    }
+    function rbCondivisioneCon(v, email) {
+        const mail = String(email || '').trim().toLowerCase();
+        if (!mail) return null;
+        return ((v && v.condivisa) || []).find(c => String(c.email || '').trim().toLowerCase() === mail) || null;
+    }
+    function rbAccessoVerifica(v, email, opz) {
+        const o = opz || {};
+        const mail = String(email || '').trim().toLowerCase();
+        const autore = !!mail && rbAutoreDi(v) === mail;
+        if (o.admin) return { vede: true, scrive: true, autore };
+        const cond = rbCondivisioneCon(v, mail);
+        return {
+            vede: autore || !!cond || !!o.equity,
+            scrive: autore || !!(cond && cond.permesso === 'scrittura'),
+            autore
+        };
+    }
+    // l'accesso dell'utente collegato a una verifica (regole sopra + permesso di sezione)
+    function rbAccessoCorrente(v) {
+        const u = Auth.utenteCorrente;
+        if (!u) return { vede: false, scrive: false, autore: false };
+        const acc = rbAccessoVerifica(v, u.email, {
+            admin: Auth.eAdmin() || Auth.eProprietario(),
+            equity: eRuoloPartner(u.ruolo)
+        });
+        acc.scrive = acc.scrive && Auth.puoScrivere('rating');
+        return acc;
+    }
+    // il nome dell'autore, per la colonna "di chi e' il calcolo"
+    function rbNomeAutore(v) {
+        const da = String((v && v.creato && v.creato.da) || '');
+        const nome = da.split('<')[0].trim();
+        return nome || rbAutoreDi(v) || '-';
+    }
     const Rating = {
         tutte() { return Store.leggi(CHIAVI.rating, []); },
-        // le verifiche che l'utente collegato puo vedere (stesso filtro territoriale degli incarichi)
+        /* le verifiche che l'utente collegato puo vedere: filtro territoriale (come
+           gli incarichi) E regole di proprieta/condivisione (rbAccessoCorrente) */
         visibili() {
             const reg = Auth.regioniConsentite();
-            const tutte = this.tutte();
-            if (!reg) return tutte;
-            return tutte.filter(v => reg.includes(chiaveRegione(v.regione || '')));
+            let lista = this.tutte();
+            if (reg) lista = lista.filter(v => reg.includes(chiaveRegione(v.regione || '')));
+            return lista.filter(v => rbAccessoCorrente(v).vede);
         },
         salva(lista) { Store.scrivi(CHIAVI.rating, lista); },
         trova(id) { return this.tutte().find(v => v.id === id) || null; },
         crea(dati, utente) {
             const lista = this.tutte();
             const nuova = {
-                id: uid(), stato: 'bozza', ...dati,
+                id: uid(), stato: 'bozza', condivisa: [], ...dati,
+                autore: String(utente.email || '').toLowerCase(),
                 creato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() },
                 modificato: null
             };
@@ -8689,6 +8740,7 @@
             amministratori: [],
             questionario: {},
             note: '',
+            condivisa: [],
             esito: null
         };
     }
@@ -8704,6 +8756,9 @@
         const verifiche = Rating.visibili().slice()
             .sort((a, b) => ((b.modificato && b.modificato.il) || b.creato.il) - ((a.modificato && a.modificato.il) || a.creato.il));
         const scrive = Auth.puoScrivere('rating');
+        const uCorr = Auth.utenteCorrente || {};
+        const eGoverno = Auth.eAdmin() || Auth.eProprietario();
+        const eEquity = !eGoverno && eRuoloPartner(uCorr.ruolo);
         const completate = verifiche.filter(v => v.stato === 'completata').length;
         const critiche = verifiche.filter(v => v.esito && v.esito.fascia >= 4).length;
         const dataDi = v => fmtData(new Date((v.modificato && v.modificato.il) || v.creato.il).toISOString().slice(0, 10));
@@ -8738,12 +8793,18 @@
             </div>
             <div class="card">
                 <h2>Verifiche del merito creditizio</h2>
+                ${eEquity ? '<p class="hint" style="margin:-4px 0 10px;">Come partner vedi le verifiche di tutti, in sola visualizzazione: la colonna "Autore" dice di chi e ogni calcolo. Per lavorare su una verifica di un collega chiedigli la condivisione in scrittura.</p>' : '<p class="hint" style="margin:-4px 0 10px;">Ognuno vede le proprie verifiche e quelle condivise con lui. Dalla scheda, con "Condivisione", l\'autore puo aprire il lavoro a un collega in lettura o in scrittura, e revocarlo quando vuole.</p>'}
                 ${verifiche.length ? `<div class="tabella-wrap"><table class="dati"><thead><tr>
-                    <th>Cliente</th><th>Esercizio</th><th>Settore</th><th>Rating MCC</th><th>Con correttivo</th><th class="num">PD</th><th>Questionario</th><th>Stato</th><th>Aggiornata</th><th></th>
+                    <th>Cliente</th><th>Esercizio</th><th>Settore</th><th>Rating MCC</th><th>Con correttivo</th><th class="num">PD</th><th>Questionario</th><th>Stato</th><th>Autore</th><th>Aggiornata</th><th></th>
                 </tr></thead><tbody>` +
                 verifiche.map(v => {
                     const e = v.esito;
                     const set = RB_SETTORI[v.settore];
+                    const acc = rbAccessoCorrente(v);
+                    const condMia = rbCondivisioneCon(v, uCorr.email);
+                    const badgeCond = acc.autore && (v.condivisa || []).length
+                        ? ' <span class="badge neutro" title="Verifica condivisa con altri utenti">condivisa (' + v.condivisa.length + ')</span>'
+                        : (condMia ? ' <span class="badge neutro">con te in ' + (condMia.permesso === 'scrittura' ? 'scrittura' : 'lettura') + '</span>' : '');
                     return `<tr class="cliccabile" data-apri="${esc(v.id)}">
                         <td class="cliente-cella" data-label="Cliente">${esc(v.cliente || '(senza nome)')}</td>
                         <td data-label="Esercizio">${esc(v.esercizio || '-')}</td>
@@ -8753,8 +8814,9 @@
                         <td class="num" data-label="PD">${e ? rbPct(e.pd, 2) : '-'}</td>
                         <td data-label="Questionario">${e ? (e.quest + '%' + (e.questCompleto ? '' : ' <span class="badge grigio">parziale</span>')) : '-'}</td>
                         <td data-label="Stato">${v.stato === 'completata' ? '<span class="badge verde">completata</span>' : '<span class="badge ambra">bozza</span>'}</td>
+                        <td data-label="Autore">${acc.autore ? 'tu' : esc(rbNomeAutore(v))}${badgeCond}</td>
                         <td data-label="Aggiornata">${dataDi(v)}</td>
-                        <td class="td-azioni"><button class="btn btn-secondary btn-sm" data-report="${esc(v.id)}" title="Apri il report da stampare">Report</button>${scrive ? `<button class="btn btn-ghost btn-sm" data-elimina="${esc(v.id)}" title="Elimina la verifica">Elimina</button>` : ''}</td>
+                        <td class="td-azioni"><button class="btn btn-secondary btn-sm" data-report="${esc(v.id)}" title="Apri il report da stampare">Report</button>${scrive && (acc.autore || eGoverno) ? `<button class="btn btn-ghost btn-sm" data-elimina="${esc(v.id)}" title="Elimina la verifica">Elimina</button>` : ''}</td>
                     </tr>`;
                 }).join('') + `</tbody></table></div>`
                 : `<div class="tabella-vuota">Nessuna verifica ancora.${scrive ? ' Crea la prima con "+ Nuova verifica": bastano bilancio e settore, il resto si aggiunge dopo.' : ''}</div>`}
@@ -8769,7 +8831,9 @@
         document.getElementById('btn-rating-metodo').addEventListener('click', () => naviga('ratingMetodo'));
         $vista().querySelectorAll('[data-apri]').forEach(r => r.addEventListener('click', e => {
             if (e.target.closest('button')) return;
-            if (scrive) naviga('ratingScheda', { id: r.dataset.apri });
+            const v = Rating.trova(r.dataset.apri);
+            // in scrittura si apre la scheda di lavoro; in sola visualizzazione il report completo
+            if (v && rbAccessoCorrente(v).scrive) naviga('ratingScheda', { id: r.dataset.apri });
             else naviga('ratingReport', { id: r.dataset.apri });
         }));
         $vista().querySelectorAll('[data-report]').forEach(b => b.addEventListener('click', () => naviga('ratingReport', { id: b.dataset.report })));
@@ -8942,6 +9006,22 @@
     ========================================================= */
     let schedaRB = null;
     let tabRB = 'impresa';
+    /* Il promemoria di salvataggio: la scheda conta le modifiche non ancora
+       salvate; il bottone "Salva" mostra il pallino e, dopo un po' di lavoro,
+       un avviso suggerisce il salvataggio temporaneo (mai piu di uno ogni
+       due minuti). Cosi il lavoro si puo interrompere e riprendere. */
+    let rbModifichePendenti = 0;
+    let rbUltimoAvvisoSalva = 0;
+    function rbSegnaModificaScheda() {
+        rbModifichePendenti++;
+        const btn = document.getElementById('rb-btn-salva');
+        if (btn) { btn.innerHTML = 'Salva &#9679;'; btn.title = 'Ci sono modifiche non ancora salvate'; }
+        const ora = Date.now();
+        if (rbModifichePendenti >= 12 && ora - rbUltimoAvvisoSalva > 120000) {
+            rbUltimoAvvisoSalva = ora;
+            toast('Molte modifiche non ancora salvate: un "Salva" adesso ti permette di riprendere il lavoro da qui in qualsiasi momento.', 'ambra');
+        }
+    }
     function vistaRatingScheda() {
         const p = parametriVista || {};
         if (p.nuova || !schedaRB || (p.id && schedaRB.id !== p.id)) {
@@ -8963,11 +9043,18 @@
                 rbMigraCheckup(schedaRB.checkup);
                 if (!Array.isArray(schedaRB.soci)) schedaRB.soci = [];
                 if (!Array.isArray(schedaRB.amministratori)) schedaRB.amministratori = [];
+                if (!Array.isArray(schedaRB.condivisa)) schedaRB.condivisa = [];
+                // la scheda di modifica si apre solo con l'accesso in scrittura:
+                // chi vede in sola visualizzazione va al report completo
+                const accApri = rbAccessoCorrente(schedaRB);
+                if (!accApri.vede) { schedaRB = null; toast('Non hai accesso a questa verifica.', 'rosso'); naviga('rating'); return; }
+                if (!accApri.scrive) { const idRep = schedaRB.id; schedaRB = null; naviga('ratingReport', { id: idRep }); return; }
             } else {
                 schedaRB = rbNuovaVerifica();
             }
             statoImportXbrl = null; statoImportCr = null; attnXbrl = [];
             tabRB = 'impresa';
+            rbModifichePendenti = 0; rbUltimoAvvisoSalva = 0;
             parametriVista = { id: schedaRB.id };   // il "nuova" e consumato: i ridisegni non azzerano la scheda
         }
         const v = schedaRB;
@@ -8991,20 +9078,42 @@
                 </div>
                 <div class="header-azioni">
                     <button class="btn btn-ghost" id="rb-btn-indietro">Torna all'elenco</button>
-                    <button class="btn btn-secondary" id="rb-btn-salva">Salva</button>
+                    ${((v.id ? rbAccessoCorrente(v).autore : true) || Auth.eAdmin() || Auth.eProprietario()) ? `<button class="btn btn-secondary" id="rb-btn-condividi" ${v.id ? '' : 'disabled title="Salva prima la verifica: la condivisione si applica alla verifica salvata"'}>Condivisione${(v.condivisa || []).length ? ' (' + v.condivisa.length + ')' : ''}</button>` : ''}
+                    <button class="btn btn-secondary" id="rb-btn-salva" ${rbModifichePendenti ? 'title="Ci sono modifiche non ancora salvate"' : 'title="Salva in qualsiasi momento: la verifica resta in bozza e si riprende dall\'elenco"'}>Salva${rbModifichePendenti ? ' &#9679;' : ''}</button>
                     <button class="btn btn-primary" id="rb-btn-report">Salva e apri il report</button>
                 </div>
             </header>
             <div class="tab-dest">${tabs.map(t => `<button class="tab-btn ${tabRB === t[0] ? 'attivo' : ''}" data-tab="${t[0]}">${t[1]}</button>`).join('')}</div>
             <div id="rb-corpo">${rbHtmlTab(v)}</div>`;
 
-        document.getElementById('rb-btn-indietro').addEventListener('click', () => { schedaRB = null; tornaOrigine(() => naviga('rating')); });
+        document.getElementById('rb-btn-indietro').addEventListener('click', () => {
+            if (!rbModifichePendenti) { schedaRB = null; tornaOrigine(() => naviga('rating')); return; }
+            // uscita protetta: le modifiche non salvate non si perdono in silenzio
+            apriModale(`<h2>Modifiche non salvate</h2>
+                <p class="descrizione">Su questa verifica ci sono modifiche non ancora salvate. Salvandole potrai riprendere il lavoro esattamente da qui.</p>
+                <div class="modale-azioni">
+                    <button class="btn btn-ghost" id="m-resta">Resta sulla scheda</button>
+                    <button class="btn btn-secondary" id="m-esci-senza">Esci senza salvare</button>
+                    <button class="btn btn-primary" id="m-salva-esci">Salva ed esci</button>
+                </div>`);
+            document.getElementById('m-resta').addEventListener('click', chiudiModale);
+            document.getElementById('m-esci-senza').addEventListener('click', () => { chiudiModale(); rbModifichePendenti = 0; schedaRB = null; tornaOrigine(() => naviga('rating')); });
+            document.getElementById('m-salva-esci').addEventListener('click', () => {
+                chiudiModale();
+                if (rbSalvaScheda()) { schedaRB = null; tornaOrigine(() => naviga('rating')); }
+            });
+        });
         document.getElementById('rb-btn-salva').addEventListener('click', () => { if (rbSalvaScheda()) vistaRatingScheda(); });
+        const btnCondividi = document.getElementById('rb-btn-condividi');
+        if (btnCondividi && v.id) btnCondividi.addEventListener('click', () => modaleCondivisioneRating());
         document.getElementById('rb-btn-report').addEventListener('click', () => {
             const id = rbSalvaScheda();
             if (id) { schedaRB = null; naviga('ratingReport', { id }); }
         });
         $vista().querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { tabRB = b.dataset.tab; vistaRatingScheda(); }));
+        // ogni modifica nei campi della scheda alimenta il promemoria di salvataggio
+        // (in fase di cattura: vale anche per gli eventi che non risalgono)
+        document.getElementById('rb-corpo').addEventListener('change', rbSegnaModificaScheda, true);
         rbCollegaTab(v);
     }
     function rbHtmlTab(v) {
@@ -9022,18 +9131,107 @@
             toast('Indica la denominazione dell\'impresa (scheda "Impresa e bilancio").', 'rosso');
             tabRB = 'impresa'; vistaRatingScheda(); return null;
         }
+        if (schedaRB.id && !rbAccessoCorrente(schedaRB).scrive) {
+            toast('Questa verifica e per te in sola visualizzazione: chiedi all\'autore la condivisione in scrittura.', 'rosso');
+            return null;
+        }
         const es = rbEsiti(schedaRB);
         schedaRB.esito = rbRiepilogoEsito(es);
+        const autoreV = rbAutoreDi(schedaRB);
         const { id, creato, modificato, ...dati } = schedaRB;
+        if (!dati.autore && autoreV) dati.autore = autoreV;   // i record storici ricevono l'autore dal "creato da"
         if (!schedaRB.id) {
             const n = Rating.crea(dati, Auth.utenteCorrente);
             schedaRB.id = n.id; schedaRB.creato = n.creato;
+            schedaRB.autore = n.autore; schedaRB.condivisa = n.condivisa || [];
             parametriVista = { id: n.id };
         } else {
             Rating.aggiorna(schedaRB.id, dati, Auth.utenteCorrente);
         }
-        toast('Verifica salvata.', 'verde');
+        rbModifichePendenti = 0;
+        toast('Verifica salvata: puoi riprenderla in qualsiasi momento dall\'elenco.', 'verde');
         return schedaRB.id;
+    }
+
+    /* La condivisione della verifica: l'autore (o l'amministrazione) abilita un altro
+       utente dell'area in lettura o in scrittura, e revoca l'accesso in qualsiasi
+       momento. Ogni cambiamento si salva subito sul record e resta nel registro
+       modifiche; per gli altri campi della scheda vale il normale "Salva". */
+    function modaleCondivisioneRating() {
+        const v = schedaRB;
+        if (!v || !v.id) return;
+        utentiSond(lista => {
+            const mailAutore = rbAutoreDi(v);
+            const mia = String((Auth.utenteCorrente || {}).email || '').toLowerCase();
+            const gia = (v.condivisa || []).map(c => String(c.email || '').toLowerCase());
+            const nomeDi = mail => {
+                const u = (lista || []).find(x => String(x.email || '').toLowerCase() === mail);
+                return u && u.nome ? u.nome : mail;
+            };
+            const candidati = (lista || [])
+                .filter(u => u.email && u.attivo !== false && !eRuoloSoloSondaggio(u.ruolo))
+                .filter(u => { const e = u.email.toLowerCase(); return e !== mailAutore && e !== mia && gia.indexOf(e) < 0; })
+                .sort((a, b) => String(a.nome || a.email).localeCompare(String(b.nome || b.email)));
+            const salvaCondivisa = azione => {
+                Rating.aggiorna(v.id, { condivisa: v.condivisa }, Auth.utenteCorrente, azione);
+            };
+            apriModale(`<h2>Condivisione della verifica</h2>
+                <p class="descrizione">La verifica di <strong>${esc(v.cliente || '(senza nome)')}</strong> e visibile solo a te${gia.length ? ' e alle persone qui sotto' : ''} (oltre ad amministrazione e partner, questi in sola visualizzazione). Puoi abilitare qualsiasi utente dell'area in <strong>lettura</strong> (vede il report completo) o in <strong>scrittura</strong> (lavora sulla scheda con te), e togliere l'accesso quando vuoi.</p>
+                ${(v.condivisa || []).length ? `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Utente</th><th>Accesso</th><th></th></tr></thead><tbody>
+                    ${v.condivisa.map((c, i) => `<tr>
+                        <td>${esc(nomeDi(String(c.email || '').toLowerCase()))}<div class="hint">${esc(c.email)}</div></td>
+                        <td><select data-cond-perm="${i}">
+                            <option value="lettura" ${c.permesso !== 'scrittura' ? 'selected' : ''}>Sola visualizzazione</option>
+                            <option value="scrittura" ${c.permesso === 'scrittura' ? 'selected' : ''}>Scrittura</option>
+                        </select></td>
+                        <td class="td-azioni"><button class="btn btn-ghost btn-sm" data-cond-rm="${i}">Rimuovi</button></td>
+                    </tr>`).join('')}
+                </tbody></table></div>` : '<p class="hint">Nessuna condivisione attiva.</p>'}
+                <div class="griglia-3" style="margin-top:10px; align-items:end;">
+                    <div class="campo" style="grid-column: span 1;"><label>Utente da abilitare</label>
+                        <input type="text" id="rb-cond-email" list="rb-cond-utenti" placeholder="indirizzo email dell'utente" autocomplete="off">
+                        <datalist id="rb-cond-utenti">${candidati.map(u => `<option value="${esc(u.email)}">${esc(u.nome || u.email)}</option>`).join('')}</datalist>
+                    </div>
+                    <div class="campo"><label>Accesso</label>
+                        <select id="rb-cond-permesso"><option value="lettura">Sola visualizzazione</option><option value="scrittura">Scrittura</option></select>
+                    </div>
+                    <div class="campo"><button class="btn btn-secondary" id="rb-cond-aggiungi">Abilita</button></div>
+                </div>
+                ${(!lista || !lista.length) ? '<p class="hint">L\'elenco degli utenti non e disponibile in questo momento: scrivi l\'indirizzo email esatto con cui il collega accede all\'area.</p>' : ''}
+                <div class="modale-azioni"><button class="btn btn-primary" id="rb-cond-chiudi">Chiudi</button></div>`);
+            document.getElementById('rb-cond-chiudi').addEventListener('click', () => { chiudiModale(); vistaRatingScheda(); });
+            document.getElementById('rb-cond-aggiungi').addEventListener('click', () => {
+                const mail = String(document.getElementById('rb-cond-email').value || '').trim().toLowerCase();
+                const permesso = document.getElementById('rb-cond-permesso').value === 'scrittura' ? 'scrittura' : 'lettura';
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { toast('Indica un indirizzo email valido.', 'rosso'); return; }
+                if (mail === mailAutore) { toast('L\'autore ha gia pieno accesso alla sua verifica.', 'rosso'); return; }
+                if (mail === mia) { toast('Hai gia accesso a questa verifica.', 'rosso'); return; }
+                if (gia.indexOf(mail) >= 0) { toast('Utente gia abilitato: cambia il permesso dalla riga qui sopra.', 'rosso'); return; }
+                if (lista && lista.length && !lista.some(u => String(u.email || '').toLowerCase() === mail)) {
+                    toast('L\'indirizzo non corrisponde a nessun utente dell\'area: la condivisione vale solo per chi ha accesso.', 'rosso'); return;
+                }
+                v.condivisa = v.condivisa || [];
+                v.condivisa.push({ email: mail, permesso, da: mia, il: Date.now() });
+                salvaCondivisa('Condivisione verifica: abilitato ' + mail + ' (' + permesso + ')');
+                toast('Condivisione attivata: ' + mail + ' in ' + (permesso === 'scrittura' ? 'scrittura' : 'sola visualizzazione') + '.', 'verde');
+                modaleCondivisioneRating();
+            });
+            document.querySelectorAll('[data-cond-perm]').forEach(el => el.addEventListener('change', () => {
+                const c = v.condivisa[Number(el.dataset.condPerm)];
+                if (!c) return;
+                c.permesso = el.value === 'scrittura' ? 'scrittura' : 'lettura';
+                salvaCondivisa('Condivisione verifica: ' + c.email + ' ora in ' + c.permesso);
+                toast('Permesso aggiornato.', 'verde');
+            }));
+            document.querySelectorAll('[data-cond-rm]').forEach(el => el.addEventListener('click', () => {
+                const c = v.condivisa[Number(el.dataset.condRm)];
+                if (!c) return;
+                v.condivisa.splice(Number(el.dataset.condRm), 1);
+                salvaCondivisa('Condivisione verifica: rimosso ' + c.email);
+                toast('Accesso rimosso.', 'verde');
+                modaleCondivisioneRating();
+            }));
+        });
     }
 
     // --- scheda 1: impresa e bilancio ---
@@ -9487,8 +9685,10 @@
         const p = parametriVista || {};
         const v = p.id ? Rating.trova(p.id) : null;
         if (!v) { toast('Verifica non trovata.', 'rosso'); naviga('rating'); return; }
+        const acc = rbAccessoCorrente(v);
+        if (!acc.vede) { toast('Non hai accesso a questa verifica.', 'rosso'); naviga('rating'); return; }
         const es = rbEsiti(v);
-        const scrive = Auth.puoScrivere('rating');
+        const scrive = acc.scrive;   // la firma e il ritorno alla scheda seguono l'accesso alla SINGOLA verifica
         const oggi = fmtData(oggiISO());
 
         if (!es.pronta) {
@@ -9526,6 +9726,7 @@
                 <button class="btn btn-ghost" id="rb-rep-indietro">&larr; ${scrive ? 'Torna alla verifica' : 'Torna all\'elenco'}</button>
                 ${scrive ? '<button class="btn btn-secondary" id="rb-rep-firma">Firma grafica&hellip;</button>' : ''}
                 <button class="btn btn-primary" id="rb-rep-stampa">Stampa / salva in PDF</button>
+                ${scrive ? '' : `<span class="hint" style="align-self:center;">Verifica di ${esc(rbNomeAutore(v))}, in sola visualizzazione</span>`}
             </div>
             <div class="rb-foglio">
                 <div class="rb-testata">
@@ -10413,6 +10614,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-rating-condivisione',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: verifiche personali, condivisione e salvataggio in ogni momento',
+            sommario: 'Ogni verifica del merito creditizio ora appartiene a chi la crea: ognuno vede le proprie, i partner (equity e founding) vedono quelle di tutti in sola visualizzazione con l\'indicazione dell\'autore, e l\'autore puo condividere il lavoro con qualsiasi utente dell\'area in lettura o in scrittura, revocando l\'accesso quando vuole. La scheda si salva in qualsiasi momento per riprendere il lavoro, e il programma suggerisce da solo il salvataggio temporaneo durante le sessioni lunghe.',
+            chi: 'Tutti quelli che lavorano sulle verifiche del merito creditizio.',
+            dove: 'Sezione "Rating bancario": l\'elenco mostra la colonna "Autore" e le condivisioni; nella scheda della verifica c\'e il pulsante "Condivisione".',
+            voci: [
+                { titolo: 'Le verifiche sono personali', testo: 'Nell\'elenco ognuno trova le proprie verifiche e quelle che i colleghi gli hanno condiviso. Amministrazione a parte, nessuno vede il lavoro degli altri.' },
+                { titolo: 'I partner vedono tutto, in sola visualizzazione', testo: 'Chi ha un ruolo di accesso da equity o founding partner vede le verifiche di tutti con l\'indicazione di chi le ha preparate, ma le apre solo come report: per intervenire serve la condivisione in scrittura dell\'autore.' },
+                { titolo: 'Condividere il lavoro', testo: 'Dalla scheda, il pulsante "Condivisione" abilita un altro utente dell\'area in sola visualizzazione oppure in scrittura (lavora sulla scheda con te). L\'accesso si toglie in qualsiasi momento dalla stessa finestra, e ogni cambiamento resta nel registro modifiche.' },
+                { titolo: 'Salva e riprendi quando vuoi', testo: 'Il pulsante "Salva" funziona in ogni momento e lascia la verifica in bozza: si riprende dall\'elenco esattamente da dove si era rimasti. Quando si accumulano molte modifiche non salvate il pulsante mostra un pallino e compare un promemoria; uscendo dalla scheda con modifiche pendenti il programma chiede se salvarle.' }
+            ]
+        },
         {
             id: '2026-08-22-rating-checkup-v1',
             data: '2026-08-22',
