@@ -1438,6 +1438,7 @@ summary.ni-testa::before {
 .rb-f4 { background: #fdeadd; color: #a5561a; }
 .rb-f5 { background: #fbdddd; color: #b3352c; }
 .rb-seg.attiva { transform: scale(1.12); color: #fff; box-shadow: 0 4px 12px rgba(10, 40, 68, 0.25); }
+.rb-seg.attiva-2 { transform: scale(1.08); box-shadow: inset 0 0 0 2px currentColor; }
 .rb-seg.attiva.rb-f1 { background: #1e7d46; }
 .rb-seg.attiva.rb-f2 { background: #5c9b32; }
 .rb-seg.attiva.rb-f3 { background: #c9971c; }
@@ -1475,7 +1476,12 @@ summary.ni-testa::before {
 .rb-azione-testa { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .rb-azione-testa strong { color: var(--blu-900); }
 .rb-azione p { margin: 0; font-size: 0.85rem; color: var(--grigio-900); line-height: 1.5; }
-.rb-azione-serv { margin-top: 6px; font-size: 0.78rem; color: var(--grigio-600); }
+/* percorso di miglioramento: gruppi per servizio Revilaw */
+.rb-gruppo-serv { display: flex; flex-direction: column; gap: 8px; }
+.rb-gruppo-serv + .rb-gruppo-serv { margin-top: 14px; }
+.rb-gruppo-testa { padding: 6px 2px 0; border-top: 2px solid var(--grigio-200); font-size: 0.92rem; color: var(--blu-900); }
+.rb-gruppo-testa .rb-rif { display: block; margin-top: 1px; }
+.rb-gruppo-leve { font-size: 0.8rem; color: var(--grigio-900); background: var(--grigio-050, #f5f7fa); border-radius: var(--raggio); padding: 8px 12px; line-height: 1.5; }
 
 /* questionario */
 .rb-domanda { padding: 10px 0; border-bottom: 1px solid var(--grigio-100); }
@@ -1557,6 +1563,7 @@ summary.ni-testa::before {
     .rb-seg, .rb-seg.attiva, .rb-verdetto, .rb-azione, .rb-opzione,
     .rb-firma-linea, .rb-testata { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .rb-seg.attiva { transform: none; box-shadow: none; }
+    .rb-seg.attiva-2 { transform: none; box-shadow: inset 0 0 0 2px currentColor; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .rb-sezione h3 { break-after: avoid; page-break-after: avoid; }
     .rb-testata, .rb-verdetto, .rb-azione, .rb-corr-riga, .rb-dato, .rb-scala { break-inside: avoid; page-break-inside: avoid; }
     .rb-dettaglio summary { list-style: none; }
