@@ -14671,7 +14671,7 @@
             + (invio.incerti ? ' &middot; ' + invio.incerti + ' con esito incerto' : '') + '</span></div>'
             + (invio.interrotto
                 ? '<div class="s-inv-riga"><span class="s-inv-lab">Interrotto</span><span class="s-inv-val s-inv-ko">'
-                + esc(invio.interrotto) + ' &mdash; riapri la newsletter e premi Invia per riprendere</span></div>' : '')
+                + esc(invio.interrotto) + ': riapri la newsletter e premi Invia per riprendere</span></div>' : '')
             + (motivi ? '<div class="s-inv-motivi"><span class="s-inv-lab">Perche alcune non sono riuscite</span><ul>' + motivi + '</ul></div>' : '')
             + (falliti.length ? '<div class="s-inv-motivi"><span class="s-inv-lab">Indirizzi</span><p class="hint">' + esc(falliti.map(f => f.email).join(', ')) + '</p></div>' : '')
             /* Con Brevo il numero dice quante mail sono state ACCETTATE: rimbalzi e
@@ -14955,10 +14955,10 @@
             + '<p class="descrizione">Vale solo per i contatti <b>raccolti fino a questo momento</b>: chi si iscrivera '
             + 'da domani torna a seguire la casella del suo modulo. La decisione resta scritta con il tuo nome e la '
             + 'data, e si puo revocare in qualsiasi momento.</p>'
-            + '<div class="nl-sez"><div class="nl-sez-tit">1. Consenso che non risulta &mdash; <b>' + nIgnoti + '</b> contatti</div>'
+            + '<div class="nl-sez"><div class="nl-sez-tit">1. Consenso che non risulta: <b>' + nIgnoti + '</b> contatti</div>'
             + '<div class="hint">Schede in cui la casella delle comunicazioni non e registrata: elenchi importati, moduli '
             + 'piu vecchi della casella. Non hanno detto no, non hanno detto niente. Rientrano sempre.</div></div>'
-            + '<div class="nl-sez"><div class="nl-sez-tit">2. Casella vista e lasciata vuota &mdash; <b>' + nNo + '</b> contatti</div>'
+            + '<div class="nl-sez"><div class="nl-sez-tit">2. Casella vista e lasciata vuota: <b>' + nNo + '</b> contatti</div>'
             + '<label class="mi-flag" style="margin-bottom:10px;"><input type="checkbox" id="cs-no-anche"'
             + (nNo ? ' checked' : ' disabled') + '> Comprendi anche questi</label>'
             + '<div class="ev-blocco">Queste persone la casella l\'hanno <b>vista e lasciata vuota</b>. Attribuire loro il '
@@ -17304,7 +17304,7 @@
             <div class="campo">
                 <label>1. Aggiornamento da comunicare</label>
                 <select id="ag-sel">
-                    <option value="">&mdash; scegli l'aggiornamento &mdash;</option>
+                    <option value="">scegli l'aggiornamento</option>
                     ${AGGIORNAMENTI_AREA.map(a => {
                         const inv = inviiAggiornamento(a.id);
                         return `<option value="${esc(a.id)}">${esc(fmtData(a.data) + ' - ' + a.titolo)}${inv.length ? ' (gia comunicato)' : ''}</option>`;
@@ -17707,7 +17707,7 @@
             <div class="campo" id="ric-box-incarico">
                 <label>Incarico</label>
                 <select id="ric-incarico">
-                    <option value="">— scegli l'incarico —</option>
+                    <option value="">scegli l'incarico</option>
                     ${incarichi.map(i => `<option value="${esc(i.id)}" ${preId === i.id ? 'selected' : ''}>${esc((i.cliente || '(senza nome)') + (i.regione ? ' - ' + i.regione : ''))}</option>`).join('')}
                 </select>
                 <div class="hint">${incarichi.length ? 'Sono elencati gli incarichi che il tuo ruolo puo vedere.' : 'Non vedi alcun incarico: scegli "Una funzionalita generale" oppure chiedi che ti venga assegnato il territorio.'}</div>
