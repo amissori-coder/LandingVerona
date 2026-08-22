@@ -6741,6 +6741,14 @@
             dai('alta', 'Governance', 'Segnali di crisi ex art. 3 CCII presenti',
                 'Risultano attivi i segnali di cui alle lettere ' + lettere + ' dell\'art. 3, comma 4, del Codice della crisi: gli adeguati assetti impongono di valutarli subito con l\'organo di controllo e di documentare le iniziative assunte.', RB_SERVIZI.crisi);
         }
+        if (es.mcc.declassamento) {
+            dai('alta', 'Bilancio', 'Cancellare i pregiudizievoli di conservatoria',
+                'Ipoteche giudiziali, pignoramenti o domande giudiziali a carico dell\'impresa declassano il rating MCC di 2 classi (qui dalla ' + es.mcc.integrataBase + ' alla ' + es.mcc.integrata + '): definire le posizioni e ottenere le cancellazioni in conservatoria e la leva piu rapida sull\'ammissibilita.', RB_SERVIZI.crisi);
+        }
+        if (es.mcc.eventoGrave) {
+            dai('alta', 'Bilancio', 'Evento del tipo fallimento: percorso dedicato',
+                'Con un evento del tipo fallimento la garanzia del Fondo e preclusa in via ordinaria: ogni richiesta di credito va costruita su un percorso di risanamento documentato e sugli strumenti del Codice della crisi.', RB_SERVIZI.crisi);
+        }
         if (es.scoring.andam.righe.some(r2 => r2.nome.indexOf('Garanzie escusse') === 0 && r2.punteggio === 0)) {
             dai('alta', 'Banche', 'Escussioni o revoche recenti da ricostruire',
                 'Escussioni di garanzie o revoche negli ultimi 24 mesi pesano su ogni nuova istruttoria: preparare una ricostruzione documentata dell\'accaduto e delle contromisure prima di chiedere nuova finanza.', RB_SERVIZI.rating);
@@ -7420,7 +7428,9 @@
         if (!righe.length) return { attive: false, righe: [] };
 
         const xR = rbBuildX(bilR);
-        const mccR = rbComputeMcc(sec.mcc, xR, cr);
+        // stesso declassamento per eventi del bilancio ufficiale: la differenza
+        // tra le due classi deve misurare SOLO l'effetto delle rettifiche
+        const mccR = rbApplicaEventi(rbComputeMcc(sec.mcc, xR, cr), v.eventi);
         return { attive: true, righe, bilancio: bilR, x: xR, mcc: mccR };
     }
 
@@ -7606,6 +7616,18 @@
                 ${rbHtmlPunti(gruppo.punti)}
             </div>
             <div class="card">
+                <h2>Eventi pregiudizievoli dell'impresa (visure di conservatoria e procedure)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Le Disposizioni Operative del Fondo li applicano direttamente sulla classe MCC: ipoteche giudiziali, pignoramenti, ipoteche legali e domande giudiziali declassano di DUE classi; un evento del tipo fallimento rende non ammissibile la garanzia. Qui si dichiarano quelli a carico dell'IMPRESA (per gli amministratori c'e il riquadro sotto).</p>
+                <div class="griglia-3">
+                    <div class="campo"><label>Ipoteca giudiziale, pignoramento, ipoteca legale o domanda giudiziale</label>
+                        <select data-ev-sel="pregiudizievoli">${[['', '-'], ['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${((v.eventi || {}).pregiudizievoli || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+                        <div class="hint">se presenti: declassamento MCC di 2 classi (tetto alla 12)</div></div>
+                    <div class="campo"><label>Fallimento o procedure similari (anche pregresse rilevanti)</label>
+                        <select data-ev-sel="gravi">${[['', '-'], ['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${((v.eventi || {}).gravi || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+                        <div class="hint">se presenti: garanzia del Fondo NON ammissibile</div></div>
+                </div>
+            </div>
+            <div class="card">
                 <h2>Compagine sociale</h2>
                 <p class="hint" style="margin:-6px 0 12px;">Chi possiede l'impresa: le banche verificano la titolarita effettiva (UBO). Fiduciarie e catene estere allungano l'istruttoria.</p>
                 ${soci.map((s, i) => `<div class="rb-riga-soggetto">
@@ -7667,7 +7689,7 @@
             </div>
             <div class="card"><h2>2. Il modulo andamentale (Centrale dei Rischi)</h2>
                 <p class="rb-testo">Dai 6 mesi piu recenti del prospetto si calcolano: <strong>C1</strong> = utilizzato / accordato dei rischi autoliquidanti e a revoca (cassa meno "a scadenza"), con tetto 1,2; <strong>C2</strong> = numero di mesi con sconfino di cassa (utilizzato oltre l'accordato); <strong>C3</strong> = mesi con sconfino sui rischi a scadenza; <strong>C4</strong> = mesi senza rapporti censiti. Lo score andamentale e: <code>-4,984468 + 3,179026 &times; C1 - 1,066972 &times; DC1 + 0,720867 &times; DC3 + 0,0326226 &times; C2</code> (DC1 scatta con 4 o piu mesi non censiti, DC3 con almeno uno sconfino a scadenza), piu un aggiustamento fisso di calibrazione. Le stesse 10 soglie della classe F danno la <strong>classe andamentale A1-A11</strong>.</p>
-                <p class="rb-testo">La <strong>matrice di integrazione</strong> delle societa di capitali incrocia classe F e classe A e produce la <strong>classe integrata da 1 a 12</strong>. Senza Centrale dei Rischi la classe integrata coincide con la F (la F11 diventa 12). Ogni classe ha una fascia (1-5) e una probabilita di inadempimento empirica (dallo 0,12% della classe 1 al 22,98% della 12). La garanzia del Fondo e ammissibile fino alla classe 10; le <strong>sofferenze</strong> la precludono comunque.</p>
+                <p class="rb-testo">La <strong>matrice di integrazione</strong> delle societa di capitali incrocia classe F e classe A e produce la <strong>classe integrata da 1 a 12</strong>. Senza Centrale dei Rischi la classe integrata coincide con la F (la F11 diventa 12). Gli <strong>eventi pregiudizievoli</strong> a carico dell'impresa (ipoteca giudiziale, pignoramento, ipoteca legale, domanda giudiziale) <strong>declassano di 2 classi</strong>, con tetto alla 12, come da Disposizioni Operative. Ogni classe ha una fascia (1-5) e una probabilita di inadempimento empirica (dallo 0,12% della classe 1 al 22,98% della 12). La garanzia del Fondo e ammissibile fino alla classe 10; le <strong>sofferenze</strong> e gli <strong>eventi del tipo fallimento</strong> la precludono comunque. I controlli di qualita del bilancio del par. 3.3 delle Specifiche sono soddisfatti per costruzione (i totali derivano dalle voci inserite), tranne la quadratura attivo/passivo: se non quadra, il risultato va considerato UNRATED e la verifica lo segnala.</p>
             </div>
             <div class="card"><h2>3. Il questionario qualitativo e il correttivo</h2>
                 <p class="rb-testo">Venti domande in quattro sezioni (governance e assetti, compliance, rapporti bancari, struttura), ognuna con un punteggio fino a 10. Il totale diventa una percentuale che corregge la classe integrata: <strong>80% o piu: un gradino a favore; 60-79%: nessuna correzione; 40-59%: un gradino a sfavore; sotto il 40%: due gradini a sfavore</strong>. Replica il modo in cui i modelli interni delle banche integrano il giudizio qualitativo.</p>
@@ -7978,6 +8000,29 @@
     }
 
     /* ------------------------------------------------------------
+       EVENTI PREGIUDIZIEVOLI DELL'IMPRESA (Disposizioni Operative)
+       Il modello MCC declassa di DUE classi (con tetto alla 12) in
+       presenza di ipoteca giudiziale, pignoramento, ipoteca legale o
+       domanda giudiziale a carico dell'impresa; un evento del tipo
+       fallimento o similari rende NON ammissibile la garanzia,
+       qualunque sia la classe. Si applica dopo la matrice di
+       integrazione, come nel simulatore Excel dello studio (v2).
+    ------------------------------------------------------------ */
+    function rbApplicaEventi(mcc, eventi) {
+        eventi = eventi || {};
+        if (eventi.pregiudizievoli === 'si') {
+            mcc.integrataBase = mcc.integrata;
+            mcc.integrata = Math.min(12, mcc.integrata + 2);
+            mcc.fascia = RB_CLASSI[mcc.integrata].fascia;
+            mcc.pd = RB_CLASSI[mcc.integrata].pd;
+            mcc.declassamento = 2;
+        }
+        if (eventi.gravi === 'si') mcc.eventoGrave = true;
+        mcc.ammissibile = mcc.integrata <= 10 && !mcc.sofferenze && eventi.gravi !== 'si';
+        return mcc;
+    }
+
+    /* ------------------------------------------------------------
        ESITO COMPLESSIVO DELLA VERIFICA: dal record salvato a tutti i
        risultati (MCC, cruscotto, CNDCEC, Z, questionario, banche,
        azioni). E la stessa funzione per la scheda e per il report.
@@ -7996,7 +8041,7 @@
         const quadratura = { ok: diffQuad <= Math.max(100, 0.005 * Math.max(x.SP14, x.SP23)), diff: diffQuad };
         const sec = RB_SETTORI[v.settore];
         const cr = rbComputeCr(v.cr);
-        const mcc = rbComputeMcc(sec.mcc, x, cr);
+        const mcc = rbApplicaEventi(rbComputeMcc(sec.mcc, x, cr), v.eventi);
         const bank = rbComputeBank(x);
         const cn = rbComputeCndcec(x, sec.cndcec, bank.dscr);
         const z = rbComputeZ(x, sec.z);
@@ -8123,6 +8168,7 @@
             scoring: { ccii: {} },
             banche: [],
             gruppo: {},
+            eventi: {},
             soci: [],
             amministratori: [],
             questionario: {},
@@ -8251,12 +8297,12 @@
         const m = es.mcc;
         return `<div class="kpi-griglia rb-kpis">
             <div class="kpi"><div class="etichetta">Classe integrata</div><div class="valore">${m.integrata} / 12</div>
-                <div class="nota">modulo di bilancio: classe ${m.fClass}${m.aClasse ? ' &middot; andamentale: A' + m.aClasse : ' &middot; senza Centrale Rischi'}</div></div>
+                <div class="nota">modulo di bilancio: classe ${m.fClass}${m.aClasse ? ' &middot; andamentale: A' + m.aClasse : ' &middot; senza Centrale Rischi'}${m.declassamento ? ' &middot; declassata di ' + m.declassamento + ' (da ' + m.integrataBase + ') per eventi pregiudizievoli' : ''}</div></div>
             <div class="kpi ${m.fascia <= 2 ? 'verde' : (m.fascia === 3 ? 'ambra' : 'rosso')}"><div class="etichetta">Fascia</div><div class="valore">${m.fascia} / 5</div>
                 <div class="nota">${m.fascia <= 2 ? 'profilo solido' : (m.fascia === 3 ? 'equilibrio da presidiare' : (m.fascia === 4 ? 'zona di attenzione' : 'area critica'))}</div></div>
             <div class="kpi"><div class="etichetta">Probabilita di inadempimento</div><div class="valore">${rbPct(m.pd, 2)}</div><div class="nota">PD empirica a 12 mesi</div></div>
             <div class="kpi ${m.ammissibile ? 'verde' : 'rosso'}"><div class="etichetta">Fondo di Garanzia</div><div class="valore">${m.ammissibile ? 'Ammissibile' : 'Non ammissibile'}</div>
-                <div class="nota">${m.sofferenze ? 'sofferenze segnalate' : 'ammissibile fino alla classe 10'}</div></div>
+                <div class="nota">${m.eventoGrave ? 'evento del tipo fallimento' : (m.sofferenze ? 'sofferenze segnalate' : 'ammissibile fino alla classe 10')}</div></div>
         </div>`;
     }
     function rbHtmlCorrettivo(es) {
@@ -8366,7 +8412,8 @@
         parti.push('Il modello del Fondo di Garanzia colloca l\'impresa in classe ' + m.integrata + ' su 12 (fascia ' + m.fascia + ' di 5), con una probabilita di inadempimento a 12 mesi del ' + rbPct(m.pd, 2) + '.');
         parti.push(m.aClasse ? 'Il modulo andamentale dalla Centrale dei Rischi vale A' + m.aClasse + (m.cr && m.cr.c2 ? ', con ' + m.cr.c2 + (m.cr.c2 === 1 ? ' mese' : ' mesi') + ' di sconfino di cassa.' : ', senza sconfinamenti di rilievo.')
                              : 'La Centrale dei Rischi non e stata caricata: la classe usa il solo modulo di bilancio.');
-        parti.push(m.ammissibile ? 'La garanzia pubblica risulta ammissibile.' : 'La garanzia pubblica NON risulta ammissibile' + (m.sofferenze ? ' per le sofferenze segnalate.' : ' (fascia 5).'));
+        if (m.declassamento) parti.push('Gli eventi pregiudizievoli dichiarati (ipoteche giudiziali, pignoramenti o domande giudiziali) declassano la classe di ' + m.declassamento + ', dalla ' + m.integrataBase + ' alla ' + m.integrata + '.');
+        parti.push(m.ammissibile ? 'La garanzia pubblica risulta ammissibile.' : 'La garanzia pubblica NON risulta ammissibile' + (m.eventoGrave ? ' per un evento del tipo fallimento.' : (m.sofferenze ? ' per le sofferenze segnalate.' : ' (fascia 5).')));
         parti.push('Il questionario qualitativo vale ' + es.quest.perc + '%' + (es.correttivo === 0 ? ' e conferma la classe.' : (es.correttivo < 0 ? ' e migliora la classe ipotizzata a ' + es.classeCorretta + '.' : ' e peggiora la classe ipotizzata a ' + es.classeCorretta + '.')));
         parti.push('Il rating interno simulato (scoring a moduli) assegna ' + rbFmt2.format(es.scoring.score) + ' punti su 100: PD ' + rbPct(es.scoring.pd * 100, 2) + ', classe ' + es.scoring.classe + ' su 10 (' + es.scoring.giudizio + ')' + (es.scoring.presidio.segnaliPresenti ? ', con segnali CCII da presidiare.' : '.'));
         if (es.banche.numero) parti.push('Sono censiti ' + es.banche.numero + ' rapporti bancari' + (es.banche.conTensione ? ', di cui ' + es.banche.conTensione + ' in tensione.' : ', tutti regolari.'));
@@ -8393,6 +8440,7 @@
                 if (!schedaRB.scoring) schedaRB.scoring = {};
                 if (!schedaRB.scoring.ccii) schedaRB.scoring.ccii = {};
                 if (!schedaRB.gruppo) schedaRB.gruppo = {};
+                if (!schedaRB.eventi) schedaRB.eventi = {};
                 if (!Array.isArray(schedaRB.soci)) schedaRB.soci = [];
                 if (!Array.isArray(schedaRB.amministratori)) schedaRB.amministratori = [];
             } else {
@@ -8654,7 +8702,7 @@
         }
         return `
             ${rbHtmlVerdetto(es, '')}
-            ${!es.quadratura.ok ? '<div class="avviso-ruoli">Attivo e passivo non quadrano (differenza ' + eurFmt.format(es.quadratura.diff) + '): il calcolo usa comunque i dati inseriti, ma controlla il bilancio.</div>' : ''}
+            ${!es.quadratura.ok ? '<div class="avviso-ruoli">Attivo e passivo non quadrano (differenza ' + eurFmt.format(es.quadratura.diff) + '): per i controlli di qualita del par. 3.3 delle Specifiche MCC il risultato andrebbe considerato UNRATED finche il bilancio non quadra. Il calcolo qui sotto usa comunque i dati inseriti.</div>' : ''}
             <div class="card">
                 <h2>Rating MCC del Fondo di Garanzia</h2>
                 ${rbHtmlScala(es.mcc.integrata)}
@@ -8810,6 +8858,11 @@
             v.gruppo[el.dataset.grChk] = el.checked;
             vistaRatingScheda();
         }));
+        // eventi pregiudizievoli dell'impresa
+        $vista().querySelectorAll('[data-ev-sel]').forEach(el => el.addEventListener('change', () => {
+            v.eventi = v.eventi || {};
+            v.eventi[el.dataset.evSel] = el.value;
+        }));
         // compagine sociale
         const socAdd = document.getElementById('rb-soc-add');
         if (socAdd) socAdd.addEventListener('click', () => { v.soci.push({ nome: '', tipo: 'pf', quota: '' }); vistaRatingScheda(); });
@@ -8928,7 +8981,7 @@
                     ${rbHtmlVerdetto(es, '')}
                     ${rbHtmlKpiMcc(es)}
                     <p class="rb-testo">${esc(rbTestoSintesi(es))}</p>
-                    ${!es.quadratura.ok ? '<p class="rb-testo"><strong>Avvertenza:</strong> attivo e passivo del bilancio inserito differiscono di ' + eurFmt.format(es.quadratura.diff) + '.</p>' : ''}
+                    ${!es.quadratura.ok ? '<p class="rb-testo"><strong>Avvertenza:</strong> attivo e passivo del bilancio inserito differiscono di ' + eurFmt.format(es.quadratura.diff) + ': per i controlli di qualita del par. 3.3 delle Specifiche MCC il rating andrebbe considerato UNRATED finche la quadratura non e sanata.</p>' : ''}
                 </div>
 
                 <div class="rb-sezione">
@@ -9791,6 +9844,19 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-rating-pregiudizievoli',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: eventi pregiudizievoli dell\'impresa nel modello MCC',
+            sommario: 'Il modello MCC della verifica ora applica le regole delle Disposizioni Operative sugli eventi pregiudizievoli: ipoteche giudiziali, pignoramenti, ipoteche legali e domande giudiziali a carico dell\'impresa declassano la classe di due gradini; un evento del tipo fallimento rende non ammissibile la garanzia. Se attivo e passivo non quadrano, la verifica segnala che il risultato va considerato UNRATED (controlli del par. 3.3).',
+            chi: 'Chi prepara le verifiche del merito creditizio.',
+            dove: 'Sezione "Rating bancario", scheda "Soci e gruppo" della verifica: riquadro "Eventi pregiudizievoli dell\'impresa". L\'effetto compare nella classe MCC, nella sintesi e nelle azioni.',
+            voci: [
+                { titolo: 'Declassamento di due classi', testo: 'I pregiudizievoli di conservatoria a carico dell\'impresa spostano la classe integrata di due gradini verso il basso, con tetto alla classe 12: la cancellazione delle formalita e spesso la leva piu rapida per recuperare l\'ammissibilita.' },
+                { titolo: 'Eventi del tipo fallimento', testo: 'Rendono la garanzia non ammissibile qualunque sia la classe, come le sofferenze: la verifica lo dice apertamente e propone il percorso dedicato.' },
+                { titolo: 'Distinti dagli amministratori', testo: 'Questi eventi riguardano l\'IMPRESA e agiscono sul modello MCC; le posizioni degli amministratori restano nel profilo dei soggetti e correggono il rating ipotizzato.' }
+            ]
+        },
         {
             id: '2026-08-22-rating-scoring',
             data: '2026-08-22',
