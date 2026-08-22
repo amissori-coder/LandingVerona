@@ -6756,11 +6756,11 @@
         // --- check-up del manuale operativo ---
         if (es.checkup.c1 > 0) {
             dai('alta', 'Governance', 'Trattare i rilievi critici del check-up (C1)',
-                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo di classe C1 e aperto' : ' rilievi di classe C1 sono aperti') + ': per il Manuale operativo richiedono comunicazione immediata e azione urgente, e limitano il giudizio complessivo finche non sono trattati.', RB_SERVIZI.assetti);
+                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo di classe C1 e aperto' : ' rilievi di classe C1 sono aperti') + ': per il Manuale operativo v1.0 richiedono comunicazione scritta all\'organo amministrativo entro 5 giorni lavorativi, azione urgente e riesame centrale, ed escludono le classi di sintesi A e B finche non sono trattati.', RB_SERVIZI.assetti);
         }
         if (es.checkup.avviato && es.checkup.sospeso) {
-            dai('media', 'Governance', 'Completare i punteggi delle aree essenziali del check-up',
-                'Alcune aree essenziali (liquidita, capacita di rimborso, dati, andamentale) sono senza punteggio: il giudizio complessivo resta limitato finche le verifiche non sono completate.', null);
+            dai('media', 'Governance', 'Completare i punteggi del nucleo inderogabile del check-up',
+                'Alcuni moduli del nucleo inderogabile (A3-A8: analisi economica, circolante, capacita di rimborso, banche e Centrale Rischi, tesoreria, assetti) sono senza punteggio: il giudizio resta sospeso e la classe di sintesi non si determina finche le verifiche non sono completate (par. 49.2).', null);
         }
 
         const ordine = { alta: 0, media: 1, spunto: 2 };
@@ -7736,10 +7736,10 @@
             <div class="card"><h2>9. Soci, amministratori, gruppo</h2>
                 <p class="rb-testo">La compagine si verifica per la titolarita effettiva: fiduciarie e soggetti esteri portano il profilo in attenzione (la banca chiede l'UBO). Gli amministratori si censiscono con l'esito delle visure (protesti, pregiudizievoli di conservatoria, procedure): eventi dichiarati portano il profilo in critico e valgono +1 sulla classe. Il gruppo: sostegno documentato con consolidato -1, gruppo che assorbe risorse +1, garanzie infragruppo segnalate tra gli impegni.</p>
             </div>
-            <div class="card"><h2>10. Il check-up del merito creditizio (Manuale operativo Revilaw)</h2>
-                <p class="rb-testo">La scheda "Check-up" porta nella verifica il Manuale operativo dello studio: il <strong>processo in fasi</strong> (dal primo contatto al monitoraggio della roadmap), la valutazione delle <strong>12 aree tecniche di analisi</strong> con la scala di presidio del Manuale (<strong>0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto</strong>, N/A con motivazione), i <strong>rilievi classificati</strong> (C1 critica: azione urgente; C2 significativa: 3-6 mesi; C3 miglioramento: 6-12 mesi; PF punto di forza da valorizzare) con la struttura fatto, evidenza, rischio, raccomandazione; la <strong>roadmap</strong> per orizzonti (0-30 giorni, 31-90 giorni, 3-6 mesi, 6-12 mesi) con responsabile, termine, stato ed evidenza di chiusura; la <strong>lista standard dei documenti</strong> con lo stato di raccolta.</p>
-                <p class="rb-testo">Il <strong>presidio complessivo</strong> e la media dei punteggi d'area ponderata con i pesi centrali della fase pilota: le aree essenziali pesano di piu (capacita di rimborso 1,5; Centrale Rischi e rapporti bancari 1,5; analisi economico-patrimoniale 1,25; pianificazione e tesoreria 1,25; le altre 1). Valgono le <strong>regole di override</strong> del Manuale, mai verso l'alto: un rilievo C1 aperto limita il giudizio a "parzialmente adeguato"; un'area essenziale critica o debole prevale sulla media; aree essenziali senza punteggio rendono il giudizio limitato. I punteggi 0, 1 e 4 vanno motivati con evidenze; niente 3 o 4 con documenti essenziali mancanti.</p>
-                <p class="rb-testo">Lo scoring del check-up e <strong>diagnostico</strong>: misura il grado di presidio delle aree per uniformare il lavoro e guidare la roadmap. Non e una probabilita di default e non sostituisce il rating MCC, lo scoring simulato o i giudizi delle banche: i tre strumenti si leggono insieme.</p>
+            <div class="card"><h2>10. Il check-up del merito creditizio (Manuale operativo Revilaw v1.0)</h2>
+                <p class="rb-testo">La scheda "Check-up" porta nella verifica il Manuale operativo dello studio, versione 1.0: il <strong>processo in undici fasi</strong> (dalla fase 0 di pre-qualifica al follow-up), la valutazione dei <strong>tredici moduli di analisi A1-A13</strong> con la scala di presidio (<strong>0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto</strong>, N/A con motivazione) e gli <strong>ancoraggi di punteggio</strong> del Manuale sotto ogni modulo; i <strong>rilievi classificati</strong> (C1 critica: comunicazione scritta all'organo amministrativo entro 5 giorni lavorativi e riesame centrale; C2 significativa: 3-6 mesi; C3 miglioramento: 6-12 mesi; PF punto di forza) con la struttura fatto, evidenza, rischio, raccomandazione; la <strong>roadmap</strong> per orizzonti (0-30 giorni, 31-90 giorni, 3-6 mesi, 6-12 mesi) con responsabile, termine, stato ed evidenza di chiusura; la <strong>check-list documentale master M-04</strong> (quattordici sezioni, 125 documenti di cui 31 essenziali) con lo stato di raccolta. La matrice di proporzionalita indica per ogni modulo il livello minimo di approfondimento per fascia dimensionale.</p>
+                <p class="rb-testo">Il punteggio complessivo e la <strong>media ponderata con i pesi per fascia dimensionale</strong> del par. 48.2 (Micro, Piccola, Media, Grande, dai ricavi): nelle imprese piu piccole pesano di piu capacita di rimborso, analisi economica e banche; al crescere della dimensione salgono tesoreria, assetti, compliance ed ESG. I moduli N/A si escludono e i pesi si ridistribuiscono. La media si traduce nella <strong>classe di sintesi da A a E</strong> (A presidi evoluti da 3,50; B adeguati da 2,80; C parziali da 2,00; D deboli da 1,20; E critici), una denominazione volutamente non assimilabile a un rating. Valgono gli <strong>override obbligatori</strong> del cap. 49, mai verso l'alto: DSCR prospettico sotto 1 o patrimonio netto negativo limitano alla classe D; creditori pubblici qualificati oltre soglia, sconfinamenti persistenti oltre 60 giorni, un modulo del nucleo inderogabile (A3-A8) a zero o le altre circostanze dichiarate limitano alla classe C; una criticita C1 aperta esclude le classi A e B. Un modulo del nucleo non valutabile rende il <strong>giudizio sospeso</strong> (par. 49.2): la classe non si determina. La <strong>regola di prudenza</strong> del par. 48.4 segnala i moduli con punteggio sopra 2 e documenti essenziali mancanti.</p>
+                <p class="rb-testo">Lo scoring del check-up e <strong>diagnostico</strong>: misura la qualita dei presidi alla data di riferimento per uniformare il lavoro e guidare la roadmap. Non e una probabilita di inadempimento, non corrisponde a rating bancari o fasce di garanzia e non sostituisce il rating MCC, lo scoring simulato o i giudizi delle banche: gli strumenti si leggono insieme, e le criticita decisive accompagnano sempre la classe.</p>
             </div>
             <div class="card"><h2>11. Verdetto, azioni e report</h2>
                 <p class="rb-testo">Il verdetto complessivo e "area critica" con patrimonio netto negativo, tutti gli indici CNDCEC accesi, DSCR sotto 1, fascia 5, sofferenze o segnali CCII presenti; "zona di attenzione" con fascia 4, Z-Score in rischio o due indicatori del cruscotto critici; "equilibrio migliorabile" con fascia 3, Z in incertezza o un indicatore critico; altrimenti "profilo solido". Le azioni migliorative nascono dalle debolezze rilevate, in ordine di priorita, ognuna con il servizio Revilaw che la copre. Il report finale raccoglie tutto, con la firma grafica del responsabile, e si stampa in PDF.</p>
@@ -8015,50 +8015,52 @@
 
 
     /* ------------------------------------------------------------
-       CHECK-UP DEL MERITO CREDITIZIO (Manuale operativo Revilaw)
-       La parte "di studio" della verifica, integrata dal Manuale
-       Operativo del Check-up: il processo in fasi (dal primo
-       contatto al monitoraggio), le 12 aree tecniche di analisi con
-       la scala di presidio 0-4 del manuale, i rilievi classificati
-       (C1 critica, C2 significativa, C3 miglioramento, PF punto di
-       forza) con la struttura fatto/evidenza/rischio/raccomandazione,
-       la roadmap per orizzonti e la lista standard dei documenti.
-       Lo scoring del check-up e DIAGNOSTICO (grado di presidio delle
-       aree): non e una probabilita di default e convive con MCC e
-       rating simulato, che misurano altro.
+       CHECK-UP DEL MERITO CREDITIZIO (Manuale operativo Revilaw v1.0)
+       La parte "di studio" della verifica, allineata alla versione
+       1.0 del Manuale: il processo in undici fasi (dalla pre-qualifica
+       al follow-up), i TREDICI moduli di analisi A1-A13 con la scala
+       di presidio 0-4 e gli ancoraggi descrittivi per modulo, i pesi
+       per fascia dimensionale (par. 48.2), le regole di prudenza
+       (48.4) e gli override obbligatori (49), le classi di sintesi
+       A-E con denominazione non assimilabile a un rating (50), i
+       rilievi C1/C2/C3/PF (51), la roadmap per orizzonti e la
+       check-list documentale master M-04. Lo scoring del check-up e
+       DIAGNOSTICO: misura il grado di presidio delle aree, non la
+       probabilita di inadempimento.
     ------------------------------------------------------------ */
     const RB_CHECKUP_FASI = [
-        { id: 'contatto', nome: 'Primo contatto e valutazione preliminare' },
-        { id: 'incarico', nome: 'Accettazione e lettera d\'incarico' },
-        { id: 'riunione', nome: 'Riunione iniziale con l\'impresa' },
-        { id: 'documenti', nome: 'Richiesta e raccolta dei documenti' },
-        { id: 'interviste', nome: 'Interviste alla direzione e ai responsabili' },
-        { id: 'verifiche', nome: 'Esecuzione delle verifiche per area' },
-        { id: 'punteggi', nome: 'Attribuzione dei punteggi' },
-        { id: 'priorita', nome: 'Individuazione delle priorita' },
-        { id: 'rapporto', nome: 'Redazione del rapporto' },
-        { id: 'presentazione', nome: 'Presentazione dei risultati' },
-        { id: 'monitoraggio', nome: 'Monitoraggio della roadmap' }
+        { id: 'f0', nome: 'Fase 0 - Pre-qualifica dell\'impresa' },
+        { id: 'f1', nome: 'Fase 1 - Primo contatto' },
+        { id: 'f2', nome: 'Fase 2 - Accettazione e conferimento dell\'incarico' },
+        { id: 'f3', nome: 'Fase 3 - Riunione di avvio' },
+        { id: 'f4', nome: 'Fase 4 - Richiesta e raccolta dei documenti' },
+        { id: 'f5', nome: 'Fase 5 - Interviste' },
+        { id: 'f6', nome: 'Fase 6 - Esecuzione delle verifiche' },
+        { id: 'f7', nome: 'Fase 7 - Attribuzione dei punteggi' },
+        { id: 'f8', nome: 'Fase 8 - Priorita e roadmap' },
+        { id: 'f9', nome: 'Fase 9 - Rapporto, riesame e consegna' },
+        { id: 'f10', nome: 'Fase 10 - Follow-up e monitoraggio' }
     ];
-    /* Le 12 aree tecniche (capitoli 19-30 del Manuale). I pesi sono quelli
-       centrali della fase pilota: liquidita, capacita di rimborso, qualita dei
-       dati e andamentale bancario prevalgono sulla semplice media (par. 31.2);
-       le aree marcate "chiave" attivano le regole di override. */
+    /* I tredici moduli di analisi con i pesi per fascia dimensionale del
+       par. 48.2 (definiti centralmente, somma 100 per fascia), il nucleo
+       inderogabile (A3-A8) e il livello minimo della matrice di
+       proporzionalita del par. 3.4. */
     const RB_CHECKUP_AREE = [
-        { id: 'profilo',   nome: 'Profilo dell\'impresa, governance e modello di business', peso: 1 },
-        { id: 'economica', nome: 'Analisi economica, patrimoniale e finanziaria', peso: 1.25, chiave: true },
-        { id: 'rimborso',  nome: 'Capacita di rimborso e sostenibilita del debito', peso: 1.5, chiave: true },
-        { id: 'cr',        nome: 'Centrale dei Rischi e rapporti bancari', peso: 1.5, chiave: true },
-        { id: 'tesoreria', nome: 'Pianificazione, tesoreria e controllo di gestione', peso: 1.25, chiave: true },
-        { id: 'assetti',   nome: 'Adeguati assetti organizzativi, amministrativi e contabili', peso: 1 },
-        { id: 'legalita',  nome: 'Governance, legalita e compliance', peso: 1 },
-        { id: 'mod231',    nome: 'Modello organizzativo 231 e gestione dei rischi', peso: 1 },
-        { id: 'esg',       nome: 'Sostenibilita ESG', peso: 1 },
-        { id: 'fiscale',   nome: 'Fiscalita e Tax Control Framework', peso: 1 },
-        { id: 'strategia', nome: 'Strategia finanziaria e finanza agevolata', peso: 1 },
-        { id: 'comunicazione', nome: 'Comunicazione finanziaria verso banche e investitori', peso: 1 }
+        { id: 'a1', nome: 'A1 - Profilo dell\'impresa, governance e modello di business', pesi: { Micro: 12, Piccola: 10, Media: 9, Grande: 8 }, liv: { Micro: '●', Piccola: '●', Media: '●●', Grande: '●●●' } },
+        { id: 'a2', nome: 'A2 - Gruppo, parti correlate e garanzie incrociate', pesi: { Micro: 4, Piccola: 5, Media: 6, Grande: 8 }, liv: { Micro: '○', Piccola: '●', Media: '●●', Grande: '●●●' } },
+        { id: 'a3', nome: 'A3 - Analisi economica, patrimoniale e finanziaria', nucleo: true, pesi: { Micro: 18, Piccola: 16, Media: 14, Grande: 13 }, liv: { Micro: '●●', Piccola: '●●', Media: '●●●', Grande: '●●●' } },
+        { id: 'a4', nome: 'A4 - Capitale circolante e ciclo monetario', nucleo: true, pesi: { Micro: 12, Piccola: 12, Media: 11, Grande: 9 }, liv: { Micro: '●●', Piccola: '●●', Media: '●●●', Grande: '●●●' } },
+        { id: 'a5', nome: 'A5 - Capacita di rimborso e sostenibilita del debito', nucleo: true, pesi: { Micro: 20, Piccola: 18, Media: 16, Grande: 15 }, liv: { Micro: '●●', Piccola: '●●●', Media: '●●●', Grande: '●●●' } },
+        { id: 'a6', nome: 'A6 - Struttura finanziaria, banche e Centrale dei Rischi', nucleo: true, pesi: { Micro: 16, Piccola: 15, Media: 13, Grande: 11 }, liv: { Micro: '●●', Piccola: '●●●', Media: '●●●', Grande: '●●●' } },
+        { id: 'a7', nome: 'A7 - Pianificazione, tesoreria e controllo di gestione', nucleo: true, pesi: { Micro: 6, Piccola: 9, Media: 11, Grande: 11 }, liv: { Micro: '●', Piccola: '●●', Media: '●●●', Grande: '●●●' } },
+        { id: 'a8', nome: 'A8 - Adeguati assetti e presidi di allerta', nucleo: true, pesi: { Micro: 6, Piccola: 8, Media: 10, Grande: 11 }, liv: { Micro: '●', Piccola: '●●', Media: '●●●', Grande: '●●●' } },
+        { id: 'a9', nome: 'A9 - Legalita, compliance, modello organizzativo e rischi assicurabili', pesi: { Micro: 2, Piccola: 2, Media: 3, Grande: 5 }, liv: { Micro: '●', Piccola: '●', Media: '●●', Grande: '●●●' } },
+        { id: 'a10', nome: 'A10 - Fiscalita e presidio del rischio fiscale', pesi: { Micro: 2, Piccola: 2, Media: 2, Grande: 3 }, liv: { Micro: '●', Piccola: '●', Media: '●●', Grande: '●●●' } },
+        { id: 'a11', nome: 'A11 - Sostenibilita e fattori ESG', pesi: { Micro: 0, Piccola: 1, Media: 2, Grande: 3 }, liv: { Micro: '○', Piccola: '●', Media: '●●', Grande: '●●●' } },
+        { id: 'a12', nome: 'A12 - Strategia finanziaria, finanza agevolata e operazioni straordinarie', pesi: { Micro: 1, Piccola: 1, Media: 2, Grande: 2 }, liv: { Micro: '●', Piccola: '●', Media: '●●', Grande: '●●●' } },
+        { id: 'a13', nome: 'A13 - Comunicazione finanziaria verso banche e investitori', pesi: { Micro: 1, Piccola: 1, Media: 1, Grande: 1 }, liv: { Micro: '●', Piccola: '●●', Media: '●●', Grande: '●●●' } }
     ];
-    // scala di presidio del Manuale (cap. 14)
+    // scala di presidio (cap. 17) e classi di sintesi (cap. 50)
     const RB_CHECKUP_SCALA = {
         0: { nome: 'Critico', testo: 'presidio assente, grave anomalia o rischio non governato' },
         1: { nome: 'Debole', testo: 'presidio occasionale, incompleto o non affidabile' },
@@ -8066,47 +8068,226 @@
         3: { nome: 'Adeguato', testo: 'presidio proporzionato, applicato e documentato' },
         4: { nome: 'Evoluto', testo: 'presidio strutturato, monitorato e integrato nelle decisioni' }
     };
+    const RB_CHECKUP_SINTESI = [
+        { classe: 'A', nome: 'Presidi evoluti', da: 3.5 },
+        { classe: 'B', nome: 'Presidi adeguati', da: 2.8 },
+        { classe: 'C', nome: 'Presidi parziali', da: 2.0 },
+        { classe: 'D', nome: 'Presidi deboli', da: 1.2 },
+        { classe: 'E', nome: 'Presidi critici', da: 0 }
+    ];
     const RB_CHECKUP_CLASSI = {
-        C1: { nome: 'C1 - Critica', badge: 'rosso', priorita: 'Alta', trattamento: 'comunicazione immediata e azione urgente' },
-        C2: { nome: 'C2 - Significativa', badge: 'arancio', priorita: 'Media', trattamento: 'azione entro tre-sei mesi' },
+        C1: { nome: 'C1 - Critica', badge: 'rosso', priorita: 'Alta', trattamento: 'comunicazione scritta all\'organo amministrativo entro 5 giorni lavorativi, azione urgente, riesame centrale obbligatorio' },
+        C2: { nome: 'C2 - Significativa', badge: 'arancio', priorita: 'Media', trattamento: 'azione entro tre-sei mesi, in roadmap con priorita media o alta' },
         C3: { nome: 'C3 - Miglioramento', badge: 'ambra', priorita: 'Bassa', trattamento: 'piano entro sei-dodici mesi' },
-        PF: { nome: 'PF - Punto di forza', badge: 'verde', priorita: 'Mantenere', trattamento: 'mantenere e valorizzare verso i finanziatori' }
+        PF: { nome: 'PF - Punto di forza', badge: 'verde', priorita: 'Mantenere', trattamento: 'mantenere, presidiare e valorizzare nella comunicazione' }
     };
     const RB_CHECKUP_ORIZZONTI = {
         o1: '0-30 giorni', o2: '31-90 giorni', o3: '3-6 mesi', o4: '6-12 mesi'
     };
-    // stati delle azioni di roadmap (cap. 18)
     const RB_CHECKUP_STATI_AZIONE = {
         nonavviata: 'Non avviata', incorso: 'In corso', completata: 'Completata', sospesa: 'Sospesa', superata: 'Superata'
     };
-    // lista standard dei documenti (cap. 39); stato: R ricevuto, ND non disponibile, NA non applicabile, I da integrare
-    const RB_CHECKUP_DOCUMENTI = [
-        { id: 'visura', area: 'Societario', nome: 'Visura, statuto, organigramma, deleghe' },
-        { id: 'assetto', area: 'Societario', nome: 'Assetto proprietario e gruppo' },
-        { id: 'bilanci', area: 'Bilanci', nome: 'Ultimi tre bilanci e relazioni' },
-        { id: 'infrannuale', area: 'Bilanci', nome: 'Situazione contabile infrannuale' },
-        { id: 'dettagli', area: 'Bilanci', nome: 'Dettaglio crediti, debiti, scorte e fondi' },
-        { id: 'affidamenti', area: 'Finanza', nome: 'Elenco affidamenti e finanziamenti' },
-        { id: 'ammortamenti', area: 'Finanza', nome: 'Piani di ammortamento, covenant e garanzie' },
-        { id: 'centralerischi', area: 'Finanza', nome: 'Centrale dei Rischi e prospetto utilizzi' },
-        { id: 'budget', area: 'Pianificazione', nome: 'Budget, forecast e business plan' },
-        { id: 'tesoreria', area: 'Pianificazione', nome: 'Tesoreria e reporting periodico' },
-        { id: 'margini', area: 'Pianificazione', nome: 'Analisi margini e scostamenti' },
-        { id: 'clienti', area: 'Business', nome: 'Clienti, fornitori, ordini e contratti rilevanti' },
-        { id: 'investimenti', area: 'Business', nome: 'Piano investimenti e dati di settore' },
-        { id: 'procedure', area: 'Assetti', nome: 'Procedure, mansionari e flussi informativi' },
-        { id: 'reportcda', area: 'Assetti', nome: 'Report agli amministratori e indicatori' },
-        { id: 'contenziosi', area: 'Compliance', nome: 'Contenziosi, autorizzazioni e certificazioni' },
-        { id: 'compliance231', area: 'Compliance', nome: '231, privacy, sicurezza e rating di legalita' },
-        { id: 'esgdati', area: 'ESG', nome: 'Dati ambientali, sociali e di filiera' },
-        { id: 'esgobiettivi', area: 'ESG', nome: 'Obiettivi, investimenti e richieste di terzi' },
-        { id: 'fiscalescad', area: 'Fiscale', nome: 'Scadenze, contenziosi e procedure fiscali' },
-        { id: 'fiscalemappa', area: 'Fiscale', nome: 'Mappa rischi e controlli fiscali, se presente' }
+    /* Le circostanze di override del par. 49.1 che non si ricavano dai dati
+       gia inseriti: si dichiarano nella scheda. Le altre (DSCR sotto 1,
+       patrimonio netto negativo, creditori pubblici, sconfinamenti oltre 60
+       giorni, modulo del nucleo a zero) scattano da sole. */
+    const RB_CHECKUP_CIRCOSTANZE = [
+        { id: 'proiezioneCassa', et: 'Impossibilita di produrre una proiezione di cassa a 12 mesi', cap: 'C' },
+        { id: 'contenzioso', et: 'Contenzioso o passivita potenziale oltre il patrimonio netto, non accantonata', cap: 'C' },
+        { id: 'autorizzazioni', et: 'Autorizzazione essenziale scaduta o a rischio di revoca', cap: 'C' },
+        { id: 'datiInattendibili', et: 'Dati contabili inattendibili o non riconciliabili', cap: 'D' }
     ];
+    const RB_CHECKUP_DOCUMENTI = [
+        { id: 'd1', sez: 'Societario e assetto proprietario', ess: true, mod: 'A1', nome: 'Visura camerale ordinaria aggiornata (max 30 giorni)' },
+        { id: 'd2', sez: 'Societario e assetto proprietario', ess: true, mod: 'A1', nome: 'Statuto e patti sociali vigenti' },
+        { id: 'd3', sez: 'Societario e assetto proprietario', ess: true, mod: 'A1-A2', nome: 'Libro soci / elenco soci con quote e diritti particolari' },
+        { id: 'd4', sez: 'Societario e assetto proprietario', ess: true, mod: 'A2', nome: 'Catena di controllo fino alle persone fisiche e titolare effettivo' },
+        { id: 'd5', sez: 'Societario e assetto proprietario', ess: false, mod: 'A1-A2', nome: 'Patti parasociali, se esistenti' },
+        { id: 'd6', sez: 'Societario e assetto proprietario', ess: true, mod: 'A1-A8', nome: 'Organigramma aziendale aggiornato' },
+        { id: 'd7', sez: 'Societario e assetto proprietario', ess: true, mod: 'A8', nome: 'Deleghe, procure e poteri di firma vigenti' },
+        { id: 'd8', sez: 'Societario e assetto proprietario', ess: false, mod: 'A1-A8', nome: 'Verbali di assemblea e di organo amministrativo (ultimi 3 esercizi)' },
+        { id: 'd9', sez: 'Societario e assetto proprietario', ess: false, mod: 'A8', nome: 'Verbali dell\'organo di controllo o del revisore' },
+        { id: 'd10', sez: 'Societario e assetto proprietario', ess: false, mod: 'A2', nome: 'Visure di tutte le societa riferibili ai soci o agli amministratori' },
+        { id: 'd11', sez: 'Societario e assetto proprietario', ess: false, mod: 'A2', nome: 'Comunicazione di direzione e coordinamento, se ricorre' },
+        { id: 'd12', sez: 'Bilanci e contabilita', ess: true, mod: 'A3', nome: 'Bilanci ultimi 3 esercizi completi (con nota integrativa e relazioni)' },
+        { id: 'd13', sez: 'Bilanci e contabilita', ess: true, mod: 'A3-A10', nome: 'Dichiarazioni dei redditi e IRAP ultimi 3 esercizi' },
+        { id: 'd14', sez: 'Bilanci e contabilita', ess: true, mod: 'A3', nome: 'Situazione contabile infrannuale (max 90 giorni) con bilancio di verifica' },
+        { id: 'd15', sez: 'Bilanci e contabilita', ess: true, mod: 'A3', nome: 'Bilancio di verifica di pari periodo dell\'anno precedente' },
+        { id: 'd16', sez: 'Bilanci e contabilita', ess: true, mod: 'A4', nome: 'Dettaglio crediti verso clienti con ageing (3 date)' },
+        { id: 'd17', sez: 'Bilanci e contabilita', ess: true, mod: 'A4', nome: 'Dettaglio debiti verso fornitori con ageing (3 date)' },
+        { id: 'd18', sez: 'Bilanci e contabilita', ess: true, mod: 'A4', nome: 'Dettaglio rimanenze per categoria e anzianita' },
+        { id: 'd19', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Dettaglio altri crediti e altri debiti' },
+        { id: 'd20', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Movimentazione dei fondi rischi e del trattamento di fine rapporto' },
+        { id: 'd21', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Prospetto immobilizzazioni con movimentazione e ammortamenti' },
+        { id: 'd22', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Rendiconto finanziario, se redatto' },
+        { id: 'd23', sez: 'Bilanci e contabilita', ess: false, mod: 'A3-A8', nome: 'Riconciliazioni banche-contabilita alla data di riferimento' },
+        { id: 'd24', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Elenco componenti non ricorrenti per esercizio' },
+        { id: 'd25', sez: 'Bilanci e contabilita', ess: false, mod: 'A2', nome: 'Elenco operazioni con parti correlate' },
+        { id: 'd26', sez: 'Bilanci e contabilita', ess: false, mod: 'A7', nome: 'Riconciliazioni reporting gestionale-contabilita' },
+        { id: 'd27', sez: 'Finanza e rapporti bancari', ess: true, mod: 'A6', nome: 'Flussi di ritorno Centrale dei Rischi - ultimi 24 mesi' },
+        { id: 'd28', sez: 'Finanza e rapporti bancari', ess: true, mod: 'A6', nome: 'Elenco completo affidamenti per banca e forma tecnica (accordato / utilizzato)' },
+        { id: 'd29', sez: 'Finanza e rapporti bancari', ess: true, mod: 'A5', nome: 'Contratti di finanziamento con piani di ammortamento' },
+        { id: 'd30', sez: 'Finanza e rapporti bancari', ess: true, mod: 'A2-A5', nome: 'Elenco garanzie rilasciate e ricevute (importi, beneficiari, scadenze)' },
+        { id: 'd31', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A6', nome: 'Estratti conto e scalari rapporti principali (min. 6 mesi)' },
+        { id: 'd32', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A6', nome: 'Contratti di affidamento con condizioni economiche complete' },
+        { id: 'd33', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A6', nome: 'Prospetto interno utilizzi alla data di riferimento' },
+        { id: 'd34', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A5', nome: 'Contratti di leasing con piani dei canoni e riscatti' },
+        { id: 'd35', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A4-A5', nome: 'Contratti di factoring / cessione crediti / reverse factoring' },
+        { id: 'd36', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A12', nome: 'Documentazione garanzie pubbliche ottenute o richieste' },
+        { id: 'd37', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A6', nome: 'Contratti derivati e relative valutazioni di mercato' },
+        { id: 'd38', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A5', nome: 'Estratto covenant con parametri, date di verifica e ultimi calcoli' },
+        { id: 'd39', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A6-A13', nome: 'Corrispondenza con gli intermediari su revisioni e rinegoziazioni' },
+        { id: 'd40', sez: 'Finanza e rapporti bancari', ess: false, mod: 'A6', nome: 'Visure presso sistemi di informazione creditizia privati' },
+        { id: 'd41', sez: 'Pianificazione e controllo', ess: true, mod: 'A5-A7', nome: 'Piano di tesoreria a 12 mesi' },
+        { id: 'd42', sez: 'Pianificazione e controllo', ess: true, mod: 'A7', nome: 'Budget dell\'esercizio in corso' },
+        { id: 'd43', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Piano di tesoreria a 13 settimane, se esistente' },
+        { id: 'd44', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Forecast aggiornato' },
+        { id: 'd45', sez: 'Pianificazione e controllo', ess: false, mod: 'A12', nome: 'Business plan e piano investimenti con ipotesi' },
+        { id: 'd46', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Reporting economico e finanziario ultimi 12 mesi' },
+        { id: 'd47', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Analisi scostamenti budget-consuntivo' },
+        { id: 'd48', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Analisi marginalita per prodotto / cliente / commessa' },
+        { id: 'd49', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Contabilita analitica e criteri di allocazione' },
+        { id: 'd50', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Calendario del processo di chiusura e date effettive ultimi 6 mesi' },
+        { id: 'd51', sez: 'Pianificazione e controllo', ess: false, mod: 'A5', nome: 'Scenari e analisi di sensitivita, se predisposti' },
+        { id: 'd52', sez: 'Commerciale e mercato', ess: true, mod: 'A1-A4', nome: 'Fatturato per cliente ultimi 3 esercizi' },
+        { id: 'd53', sez: 'Commerciale e mercato', ess: false, mod: 'A1', nome: 'Fatturato per prodotto, canale e area geografica' },
+        { id: 'd54', sez: 'Commerciale e mercato', ess: false, mod: 'A1', nome: 'Contratti con i primi clienti (durata, preavviso, esclusive, penali)' },
+        { id: 'd55', sez: 'Commerciale e mercato', ess: false, mod: 'A1', nome: 'Portafoglio ordini e pipeline alla data di riferimento' },
+        { id: 'd56', sez: 'Commerciale e mercato', ess: false, mod: 'A4', nome: 'Condizioni di pagamento applicate per cliente' },
+        { id: 'd57', sez: 'Commerciale e mercato', ess: false, mod: 'A4', nome: 'Politica di fido interno e limiti autorizzati' },
+        { id: 'd58', sez: 'Commerciale e mercato', ess: false, mod: 'A4', nome: 'Elenco insoluti e azioni di recupero in corso' },
+        { id: 'd59', sez: 'Commerciale e mercato', ess: false, mod: 'A4-A9', nome: 'Polizze di assicurazione crediti' },
+        { id: 'd60', sez: 'Commerciale e mercato', ess: false, mod: 'A3', nome: 'Listini e storico variazioni di prezzo' },
+        { id: 'd61', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A1-A4', nome: 'Acquisti per fornitore ultimi 3 esercizi' },
+        { id: 'd62', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A1', nome: 'Contratti con i fornitori critici e alternative qualificate' },
+        { id: 'd63', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A4', nome: 'Condizioni di pagamento concordate per fornitore' },
+        { id: 'd64', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A4', nome: 'Statistiche di rotazione del magazzino e obsolescenza' },
+        { id: 'd65', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A3-A4', nome: 'Inventario fisico e verbali delle rilevazioni' },
+        { id: 'd66', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A1', nome: 'Dati di capacita produttiva e saturazione' },
+        { id: 'd67', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A3-A4', nome: 'Per imprese su commessa: SAL, riserve, ritenute, anticipi' },
+        { id: 'd68', sez: 'Personale e organizzazione', ess: false, mod: 'A1-A8', nome: 'Organico per funzione e per inquadramento' },
+        { id: 'd69', sez: 'Personale e organizzazione', ess: false, mod: 'A3', nome: 'Costo del personale per funzione, ultimi 3 esercizi' },
+        { id: 'd70', sez: 'Personale e organizzazione', ess: false, mod: 'A11', nome: 'Dati su turnover, assenteismo e infortuni' },
+        { id: 'd71', sez: 'Personale e organizzazione', ess: false, mod: 'A8', nome: 'Mansionari e procedure operative' },
+        { id: 'd72', sez: 'Personale e organizzazione', ess: false, mod: 'A9', nome: 'Contenziosi di lavoro e vertenze in corso' },
+        { id: 'd73', sez: 'Personale e organizzazione', ess: false, mod: 'A9-A11', nome: 'Documento di valutazione dei rischi e nomine in materia di sicurezza' },
+        { id: 'd74', sez: 'Personale e organizzazione', ess: false, mod: 'A9-A11', nome: 'Piano formativo e registri della formazione' },
+        { id: 'd75', sez: 'Personale e organizzazione', ess: false, mod: 'A1', nome: 'Piano di successione per le figure chiave' },
+        { id: 'd76', sez: 'Fiscale e contributivo', ess: true, mod: 'A8-A10', nome: 'Estratto di ruolo aggiornato' },
+        { id: 'd77', sez: 'Fiscale e contributivo', ess: true, mod: 'A8-A10', nome: 'Situazione debitoria previdenziale e assistenziale; documento di regolarita contributiva' },
+        { id: 'd78', sez: 'Fiscale e contributivo', ess: true, mod: 'A10', nome: 'Scadenzario versamenti dei 12 mesi successivi' },
+        { id: 'd79', sez: 'Fiscale e contributivo', ess: false, mod: 'A8-A10', nome: 'Comunicazioni delle liquidazioni periodiche IVA ultimi 24 mesi' },
+        { id: 'd80', sez: 'Fiscale e contributivo', ess: false, mod: 'A5-A10', nome: 'Piani di rateizzazione in corso e stato dei pagamenti' },
+        { id: 'd81', sez: 'Fiscale e contributivo', ess: false, mod: 'A10', nome: 'Contenziosi tributari, verbali di constatazione, interpelli' },
+        { id: 'd82', sez: 'Fiscale e contributivo', ess: false, mod: 'A10', nome: 'Riconciliazioni imposte-contabilita e fiscalita differita' },
+        { id: 'd83', sez: 'Fiscale e contributivo', ess: false, mod: 'A10', nome: 'Documentazione dei crediti d\'imposta maturati e compensati' },
+        { id: 'd84', sez: 'Fiscale e contributivo', ess: false, mod: 'A2-A10', nome: 'Documentazione sui prezzi di trasferimento, se applicabile' },
+        { id: 'd85', sez: 'Fiscale e contributivo', ess: false, mod: 'A8', nome: 'Segnalazioni ricevute da creditori pubblici qualificati' },
+        { id: 'd86', sez: 'Legale, compliance e assicurativo', ess: true, mod: 'A9', nome: 'Elenco contenziosi con quantificazione e valutazione dei legali' },
+        { id: 'd87', sez: 'Legale, compliance e assicurativo', ess: true, mod: 'A9', nome: 'Autorizzazioni, licenze e certificazioni essenziali con scadenze' },
+        { id: 'd88', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A9', nome: 'Ispezioni e verifiche subite negli ultimi 5 esercizi e relativi esiti' },
+        { id: 'd89', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A9', nome: 'Modello organizzativo, codice etico e sistema disciplinare' },
+        { id: 'd90', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A9', nome: 'Verbali dell\'organismo di vigilanza e flussi informativi' },
+        { id: 'd91', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A9', nome: 'Registro dei trattamenti e documentazione privacy' },
+        { id: 'd92', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A9', nome: 'Procedura di segnalazione interna delle violazioni' },
+        { id: 'd93', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A9', nome: 'Polizze assicurative con massimali, franchigie ed esclusioni' },
+        { id: 'd94', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A1', nome: 'Contratti rilevanti diversi da quelli gia richiesti (locazioni, licenze, franchising)' },
+        { id: 'd95', sez: 'Sistemi informativi', ess: false, mod: 'A7-A8', nome: 'Elenco dei sistemi gestionali e loro copertura funzionale' },
+        { id: 'd96', sez: 'Sistemi informativi', ess: false, mod: 'A9', nome: 'Politica di backup ed evidenza dell\'ultimo ripristino testato' },
+        { id: 'd97', sez: 'Sistemi informativi', ess: false, mod: 'A8-A9', nome: 'Gestione degli accessi e delle utenze privilegiate' },
+        { id: 'd98', sez: 'Sistemi informativi', ess: false, mod: 'A9', nome: 'Registro degli incidenti informatici' },
+        { id: 'd99', sez: 'Sistemi informativi', ess: false, mod: 'A8-A9', nome: 'Piano di continuita operativa, se esistente' },
+        { id: 'd100', sez: 'Sistemi informativi', ess: false, mod: 'A7-A8', nome: 'Elenco dei fogli di calcolo critici per i processi amministrativi' },
+        { id: 'd101', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Richieste ESG ricevute da clienti o banche e relative risposte' },
+        { id: 'd102', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Dati su consumi energetici e relative fatture' },
+        { id: 'd103', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Dati su rifiuti, emissioni, acqua e materie' },
+        { id: 'd104', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Certificazioni ambientali, di qualita e di prodotto' },
+        { id: 'd105', sez: 'Sostenibilita', ess: false, mod: 'A9-A11', nome: 'Autorizzazioni ambientali con scadenze e prescrizioni' },
+        { id: 'd106', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Criteri di selezione e verifica dei fornitori' },
+        { id: 'd107', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Politiche e obiettivi ESG formalizzati, se esistenti' },
+        { id: 'd108', sez: 'Sostenibilita', ess: false, mod: 'A11-A12', nome: 'Investimenti di adeguamento o transizione previsti' },
+        { id: 'd109', sez: 'Gruppo e parti correlate', ess: true, mod: 'A2', nome: 'Mappa del gruppo con partecipazioni e cariche' },
+        { id: 'd110', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Bilanci delle societa collegate ultimi 3 esercizi' },
+        { id: 'd111', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Bilancio consolidato, se redatto' },
+        { id: 'd112', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Elenco rapporti infragruppo (crediti, debiti, garanzie, contratti)' },
+        { id: 'd113', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Contratti infragruppo con condizioni economiche' },
+        { id: 'd114', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Contratto di cash pooling, se esistente' },
+        { id: 'd115', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Elenco beni strumentali detenuti da soggetti riferibili ai soci e locati all\'impresa' },
+        { id: 'd116', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2-A3', nome: 'Finanziamenti dei soci con eventuale atto di postergazione' },
+        { id: 'd117', sez: 'Operazioni straordinarie', ess: false, mod: 'A12', nome: 'Atti e perizie relativi a operazioni realizzate negli ultimi 5 esercizi' },
+        { id: 'd118', sez: 'Operazioni straordinarie', ess: false, mod: 'A12', nome: 'Documentazione delle operazioni programmate e relativi piani' },
+        { id: 'd119', sez: 'Operazioni straordinarie', ess: false, mod: 'A12', nome: 'Finanziamenti collegati a operazioni straordinarie' },
+        { id: 'd120', sez: 'Operazioni straordinarie', ess: false, mod: 'A12', nome: 'Clausole contrattuali attivabili in caso di modifica del controllo' },
+        { id: 'd121', sez: 'Documentazione di incarico', ess: true, mod: '-', nome: 'Documentazione per l\'adeguata verifica antiriciclaggio' },
+        { id: 'd122', sez: 'Documentazione di incarico', ess: true, mod: '-', nome: 'Lettera d\'incarico sottoscritta' },
+        { id: 'd123', sez: 'Documentazione di incarico', ess: true, mod: '-', nome: 'Designazione scritta del referente e dei suoi poteri' },
+        { id: 'd124', sez: 'Documentazione di incarico', ess: true, mod: '-', nome: 'Informativa privacy consegnata' },
+        { id: 'd125', sez: 'Documentazione di incarico', ess: true, mod: '-', nome: 'Lettera di attestazione della direzione (M-30)' }
+    ];
+    const RB_CHECKUP_ANCORAGGI = {
+        a1: { 0: 'Modello di business non descrivibile in modo coerente; dipendenza critica non presidiata da un unico cliente, fornitore o persona; governance paralizzata o organo di controllo non nominato pur essendo obbligatorio; nessuna documentazione sulle decisioni strategiche.', 1: 'Modello comprensibile ma concentrazioni elevate senza alcuna mitigazione; deleghe non formalizzate; decisioni assunte informalmente; assenza di dati per cliente o prodotto.', 2: 'Modello chiaro e dati disponibili, ma concentrazioni significative senza piano di riduzione; governance funzionante ma poco formalizzata; nessun presidio di successione.', 3: 'Modello chiaro e documentato; concentrazioni monitorate e mitigate contrattualmente; deleghe formalizzate; organo amministrativo informato con regolarita; rischi di business identificati.', 4: 'Quanto sopra, con mappa dei rischi aggiornata e collegata a indicatori anticipatori, piano di successione formalizzato, monitoraggio strutturato del mercato e dei concorrenti, evidenza documentale che tali elementi orientano le decisioni.' },
+        a2: { 0: 'Perimetro del gruppo non ricostruibile; garanzie incrociate rilevanti non quantificate; presenza di societa collegate in difficolta con rapporti significativi; beni essenziali nella disponibilita di terzi senza titolo stabile.', 1: 'Mappa del gruppo ricostruita solo parzialmente; rapporti infragruppo non formalizzati o non riconciliati; garanzie note ma non quantificate.', 2: 'Mappa completa; rapporti infragruppo esistenti e riconciliati ma con condizioni non documentate o non allineate al mercato; garanzie quantificate ma non monitorate.', 3: 'Perimetro chiaro e documentato; rapporti infragruppo contrattualizzati a condizioni verificabili; garanzie quantificate, monitorate e rappresentate ai finanziatori; beni essenziali disponibili con titolo stabile.', 4: 'Quanto sopra, con prospetto aggregato di gruppo prodotto periodicamente, politica formalizzata sui rapporti infragruppo e monitoraggio dell\'esposizione complessiva verso il sistema finanziario a livello di gruppo.' },
+        a3: { 0: 'Dati non riconciliati o inattendibili; patrimonio netto negativo o eroso oltre i limiti di legge senza provvedimenti; perdite strutturali; assenza di situazione infrannuale.', 1: 'Dati disponibili ma con incoerenze significative non spiegate; marginalita negativa o erratica; patrimonio molto fragile; nessuna normalizzazione possibile per carenza di informazioni.', 2: 'Dati riconciliabili; marginalita positiva ma in calo o volatile; struttura patrimoniale squilibrata; qualita dell\'attivo non presidiata (assenza di ageing o di politiche di svalutazione).', 3: 'Dati attendibili e riconciliati; marginalita stabile e coerente con il settore; struttura patrimoniale equilibrata; qualita dell\'attivo presidiata; rendiconto finanziario disponibile.', 4: 'Quanto sopra, con marginalita stabile o crescente, patrimonio solido, dati infrannuali tempestivi e riconciliati, analisi dello scostamento tra risultato e flusso di cassa svolta dall\'impresa stessa e confronto strutturato con dati settoriali.' },
+        a4: { 0: 'Nessun controllo su crediti e magazzino; ageing non disponibile; scaduto rilevante non presidiato; allungamento non concordato dei pagamenti ai fornitori in atto.', 1: 'Dati disponibili solo su richiesta e non utilizzati; nessuna valutazione preventiva della clientela; sollecito occasionale; giacenze obsolete non quantificate.', 2: 'Ageing disponibile e monitorato in modo discontinuo; presidi esistenti ma informali; ciclo monetario noto ma non gestito come obiettivo.', 3: 'Presidi formalizzati e applicati: valutazione del cliente, limite di fido, sollecito con escalation, monitoraggio periodico di ageing e rotazione; ciclo monetario misurato e stabile.', 4: 'Quanto sopra, con obiettivi quantificati di DSO, DIO e DPO assegnati a responsabili, budget di circolante integrato nella pianificazione e azioni correttive documentate al superamento delle soglie interne.' },
+        a5: { 0: 'DSCR prospettico inferiore a 1 nello scenario base, o impossibilita di calcolarlo per assenza di dati; covenant violati senza waiver; scadenze imminenti prive di copertura; posizione finanziaria non ricostruibile.', 1: 'DSCR intorno a 1 o inferiore a 1 nello scenario avverso, senza risorse di copertura; piano di cassa assente o inattendibile; elevata concentrazione delle scadenze; forte dipendenza da linee a revoca.', 2: 'DSCR superiore a 1 nello scenario base ma con margini ridotti; piano di cassa esistente ma non aggiornato o non stressato; covenant monitorati in modo discontinuo; struttura delle scadenze parzialmente disallineata.', 3: 'DSCR adeguato anche nello scenario avverso; piano di cassa aggiornato e riconciliato; scadenze distribuite e coerenti con la durata degli impieghi; covenant monitorati con margini documentati; garanzie mappate.', 4: 'Quanto sopra, con scenari e punto di rottura elaborati dall\'impresa stessa, soglie interne di allerta formalizzate con azioni predefinite, gestione anticipata delle scadenze e margini di sicurezza documentati.' },
+        a6: { 0: 'Sconfinamenti persistenti o segnalazioni di deterioramento in atto; Centrale dei Rischi non disponibile; struttura degli affidamenti gravemente incoerente; revoche o riduzioni significative in corso.', 1: 'Sconfinamenti ricorrenti; linee a revoca sature; concentrazione elevata; impresa che non conosce il contenuto della propria Centrale dei Rischi; nessun presidio dei saldi.', 2: 'Andamentale sostanzialmente regolare con episodi isolati; struttura degli affidamenti parzialmente coerente; Centrale dei Rischi consultata occasionalmente; dialogo bancario reattivo.', 3: 'Andamentale regolare; struttura coerente con i fabbisogni; margini disponibili adeguati; Centrale dei Rischi monitorata con periodicita e riconciliata; dialogo bancario programmato.', 4: 'Quanto sopra, con monitoraggio mensile formalizzato e verbalizzato, presidio giornaliero dei saldi, concentrazione controllata, gestione anticipata delle revisioni e archivio strutturato delle informazioni trasmesse a ciascun intermediario.' },
+        a7: { 0: 'Nessun reporting periodico; dati disponibili solo con il bilancio annuale; nessuna previsione di cassa; impossibilita di produrre una situazione aggiornata.', 1: 'Reporting sporadico e non riconciliato; budget assente o puramente formale; previsione di cassa limitata al saldo bancario; nessuna analisi degli scostamenti.', 2: 'Reporting mensile esistente ma tardivo o parzialmente riconciliato; budget presente ma non confrontato sistematicamente; tesoreria a breve orizzonte; analisi degli scostamenti occasionale.', 3: 'Reporting mensile tempestivo e riconciliato; budget integrato con analisi degli scostamenti; tesoreria a tredici settimane aggiornata; evidenza dell\'uso dei dati nelle decisioni.', 4: 'Quanto sopra, con forecast aggiornato periodicamente, cruscotto di indicatori anticipatori, responsabilita formalizzate per linea, azioni correttive tracciate e processo non dipendente da singole persone.' },
+        a8: { 0: 'Assetti inesistenti o palesemente inadeguati; nessuna verifica delle soglie; organo di controllo non nominato pur essendo obbligatorio; impossibilita di produrre una proiezione a dodici mesi; segnalazioni ricevute e non trattate.', 1: 'Assetti embrionali; ruoli non formalizzati; nessun flusso informativo strutturato verso l\'organo amministrativo; verifica della sostenibilita del debito non eseguita.', 2: 'Assetti esistenti ma non formalizzati o non proporzionati alla dimensione raggiunta; flussi informativi discontinui; verifica della sostenibilita eseguita occasionalmente.', 3: 'Assetti proporzionati e documentati; separazione dei compiti nei processi sensibili; flussi informativi periodici verbalizzati; verifica documentata della sostenibilita del debito a dodici mesi; soglie monitorate.', 4: 'Quanto sopra, con procedura formalizzata di rilevazione precoce, indicatori di allerta monitorati con periodicita definita, aggiornamento degli assetti a fronte dei cambiamenti organizzativi, evidenza dell\'esame periodico da parte dell\'organo amministrativo e piano di continuita operativa.' },
+        a9: { 0: 'Autorizzazioni essenziali scadute o mancanti; contenziosi rilevanti non rappresentati; assenza totale di presidi in materia di sicurezza sul lavoro o di sicurezza informatica; sanzioni gravi in corso.', 1: 'Presidi frammentari; scadenze non monitorate; contenziosi noti ma non quantificati; coperture assicurative palesemente inadeguate.', 2: 'Presidi esistenti ma non sistematici; registro scadenze informale; contenziosi valutati ma non riflessi nei piani; assicurazioni non riviste da tempo.', 3: 'Obblighi mappati con responsabili; scadenze monitorate; contenziosi quantificati e riflessi nei piani; presidi minimi di sicurezza informatica e privacy attivi; coperture adeguate.', 4: 'Quanto sopra, con report periodico dei rischi all\'organo amministrativo, modello organizzativo effettivo e aggiornato ove adottato, procedure di gestione degli incidenti testate e programma assicurativo rivisto periodicamente sulla base della mappa dei rischi.' },
+        a10: { 0: 'Debiti fiscali o contributivi scaduti rilevanti; superamento delle soglie di segnalazione; omessi versamenti; contenziosi rilevanti non rappresentati.', 1: 'Ritardi ricorrenti; dilazioni utilizzate come fonte di finanziamento; nessun presidio interno; scadenze non inserite nel piano di cassa.', 2: 'Adempimenti sostanzialmente regolari ma senza controlli formalizzati; riconciliazioni occasionali; decisioni fiscali non documentate.', 3: 'Adempimenti regolari e monitorati; scadenzario integrato nel piano di cassa; riconciliazioni periodiche documentate; responsabilita assegnate; contenziosi quantificati.', 4: 'Quanto sopra, con mappa dei rischi fiscali e dei controlli, tracciabilita delle decisioni e dei pareri, controllo di secondo livello e reporting periodico all\'organo amministrativo.' },
+        a11: { 0: 'Rischi ESG rilevanti e non presidiati con impatto attuale (autorizzazioni a rischio, contenziosi ambientali, perdita di clienti per requisiti non soddisfatti); dati dichiarati falsi o non documentabili.', 1: 'Nessuna consapevolezza dei fattori rilevanti; richieste ricevute e non gestite; nessun dato disponibile.', 2: 'Consapevolezza dei fattori rilevanti; alcuni dati disponibili ma non sistematici ne sempre tracciabili; nessun piano di adeguamento.', 3: 'Fattori rilevanti identificati e collegati a impatti economici; dati principali disponibili e tracciabili; investimenti di adeguamento inclusi nei piani; risposte alle richieste di filiera gestite.', 4: 'Quanto sopra, con obiettivi formalizzati e monitorati, responsabilita assegnate, rendicontazione volontaria proporzionata, dati verificabili utilizzati nella comunicazione ai finanziatori e valutazione dei rischi fisici e di transizione integrata nella pianificazione.' },
+        a12: { 0: 'Investimenti rilevanti avviati senza copertura finanziaria identificata; debito a breve utilizzato per impieghi pluriennali in misura strutturale; adempimenti agevolativi violati con rischio di revoca in atto.', 1: 'Fonti scelte senza analisi; nessuna matrice fonti-impieghi; assenza di mezzi propri; nessun piano alternativo.', 2: 'Coerenza parziale tra fonti e impieghi; analisi del costo limitata al tasso nominale; agevolazioni gestite senza presidio degli adempimenti.', 3: 'Fonti coerenti con natura e durata degli impieghi; costo complessivo valutato; covenant e garanzie conosciuti; agevolazioni presidiate; piano di cassa integrato.', 4: 'Quanto sopra, con strategia finanziaria formalizzata, valutazione comparata delle alternative documentata, scenari alternativi in caso di mancata concessione e integrazione delle operazioni straordinarie nella pianificazione finanziaria pluriennale.' },
+        a13: { 0: 'Comunicazione assente o reticente; dati incoerenti trasmessi a soggetti diversi; criticita rilevanti taciute ai finanziatori.', 1: 'Comunicazione esclusivamente reattiva e in emergenza; nessun archivio; richieste generiche e non supportate.', 2: 'Comunicazione regolare su richiesta; dati coerenti ma non riconciliati; assenza di calendario e di referente unico.', 3: 'Comunicazione programmata e proattiva; dati riconciliati e coerenti; richieste complete di importo, durata, finalita e fonti di rimborso; referente designato.', 4: 'Quanto sopra, con dossier strutturato aggiornato periodicamente, archivio completo delle informazioni trasmesse, comunicazione tempestiva anche delle notizie sfavorevoli e preparazione documentata degli incontri.' }
+    };
 
-    /* L'esito del check-up: avanzamento delle fasi, punteggio ponderato delle
-       aree con le regole di override del par. 31.3, conteggio dei rilievi,
-       stato di roadmap e documenti. */
+    // fascia dimensionale dai ricavi (par. 3.4): senza ricavi vale "Piccola"
+    function rbCheckupFascia(v) {
+        const ricavi = (v.bilancio || {}).ricavi || 0;
+        if (!ricavi) return { nome: 'Piccola', stimata: true };
+        if (ricavi < 2000000) return { nome: 'Micro' };
+        if (ricavi < 10000000) return { nome: 'Piccola' };
+        if (ricavi < 50000000) return { nome: 'Media' };
+        return { nome: 'Grande' };
+    }
+    // i documenti essenziali mancanti di un modulo (per la regola 48.4)
+    function rbCheckupDocMancanti(documenti, areaId) {
+        const n = areaId.toUpperCase();
+        return RB_CHECKUP_DOCUMENTI.filter(d => d.ess && (d.mod || '').toUpperCase().split(/[^A-Z0-9]+/).indexOf(n) >= 0)
+            .filter(d => { const s = documenti[d.id] || ''; return s !== 'R' && s !== 'NA'; });
+    }
+
+    /* Le verifiche salvate con il Manuale COMPLETO usano identificativi
+       diversi per fasi, aree e documenti: al caricamento si traducono in
+       quelli della v1.0 (legalita e modello 231 confluiscono in A9 con il
+       punteggio piu prudente); gli stati dei vecchi documenti non hanno
+       corrispondenza con la M-04 e la raccolta riparte dalla check-list. */
+    function rbMigraCheckup(cu) {
+        const AREE_V0 = { profilo: 'a1', economica: 'a3', rimborso: 'a5', cr: 'a6', tesoreria: 'a7', assetti: 'a8', legalita: 'a9', mod231: 'a9', esg: 'a11', fiscale: 'a10', strategia: 'a12', comunicazione: 'a13' };
+        const FASI_V0 = { contatto: 'f1', incarico: 'f2', riunione: 'f3', documenti: 'f4', interviste: 'f5', verifiche: 'f6', punteggi: 'f7', priorita: 'f8', rapporto: 'f9', presentazione: 'f9', monitoraggio: 'f10' };
+        const num = p => (p === '' || p === undefined || p === null || p === 'na') ? null : Number(p);
+        Object.keys(AREE_V0).forEach(k => {
+            if (!(k in (cu.aree || {}))) return;
+            const nuovo = AREE_V0[k], dato = cu.aree[k], gia = cu.aree[nuovo];
+            if (!gia) cu.aree[nuovo] = dato;
+            else {
+                if (num(dato.punteggio) !== null && (num(gia.punteggio) === null || num(dato.punteggio) < num(gia.punteggio))) gia.punteggio = dato.punteggio;
+                if (dato.conclusione) gia.conclusione = (gia.conclusione ? gia.conclusione + ' - ' : '') + dato.conclusione;
+            }
+            delete cu.aree[k];
+        });
+        Object.keys(FASI_V0).forEach(k => {
+            if (!(k in (cu.fasi || {}))) return;
+            const nuovo = FASI_V0[k];
+            if (!cu.fasi[nuovo] || !cu.fasi[nuovo].stato) cu.fasi[nuovo] = cu.fasi[k];
+            delete cu.fasi[k];
+        });
+        (cu.rilievi || []).forEach(r => { if (AREE_V0[r.area]) r.area = AREE_V0[r.area]; });
+        Object.keys(cu.documenti || {}).forEach(k => { if (!/^d\d+$/.test(k)) delete cu.documenti[k]; });
+    }
+
+    /* L'esito del check-up secondo la v1.0: fascia e pesi, media ponderata,
+       classe di sintesi, override obbligatori (mai verso l'alto), giudizio
+       sospeso per i moduli del nucleo non valutabili. */
     function rbCheckup(v) {
         const cu = v.checkup || {};
         const fasi = cu.fasi || {};
@@ -8114,86 +8295,119 @@
         const rilievi = cu.rilievi || [];
         const roadmap = cu.roadmap || [];
         const documenti = cu.documenti || {};
+        const circ = cu.circostanze || {};
+        const b = v.bilancio || {};
+        const sc = v.scoring || {};
 
+        const fascia = rbCheckupFascia(v);
         const fasiFatte = RB_CHECKUP_FASI.filter(f => (fasi[f.id] || {}).stato === 'completata').length;
         const fasiNa = RB_CHECKUP_FASI.filter(f => (fasi[f.id] || {}).stato === 'na').length;
 
-        // punteggio ponderato delle aree (0-4), N/A e non compilate escluse
-        let somma = 0, pesi = 0, compilate = 0;
+        // media ponderata con i pesi della fascia; N/A e non valutati esclusi
+        // (la ridistribuzione proporzionale del par. 48.2 coincide con l'esclusione dal calcolo)
+        let somma = 0, pesiTot = 0, compilate = 0;
         const righeAree = RB_CHECKUP_AREE.map(a => {
             const dato = aree[a.id] || {};
             const p = (dato.punteggio === '' || dato.punteggio === undefined || dato.punteggio === null) ? null
                 : (dato.punteggio === 'na' ? 'na' : Number(dato.punteggio));
-            if (typeof p === 'number') { somma += p * a.peso; pesi += a.peso; compilate++; }
-            return { ...a, punteggio: p, conclusione: dato.conclusione || '' };
+            const peso = a.pesi[fascia.nome];
+            if (typeof p === 'number' && peso > 0) { somma += p * peso; pesiTot += peso; compilate++; }
+            else if (typeof p === 'number') compilate++;
+            const docMancanti = rbCheckupDocMancanti(documenti, a.id);
+            return { ...a, peso, punteggio: p, conclusione: dato.conclusione || '', docMancanti };
         });
-        const media = pesi > 0 ? somma / pesi : null;
+        const media = pesiTot > 0 ? somma / pesiTot : null;
 
         const conta = cl => rilievi.filter(r => r.classe === cl && r.stato !== 'trattato').length;
         const c1 = conta('C1'), c2 = conta('C2'), c3 = conta('C3');
         const pf = rilievi.filter(r => r.classe === 'PF').length;
 
-        // giudizio dalla media, poi le regole di override (mai verso l'alto)
-        const daMedia = m => m >= 3.4 ? 4 : (m >= 2.6 ? 3 : (m >= 1.8 ? 2 : (m >= 1 ? 1 : 0)));
-        const chiaviSenzaPunteggio = righeAree.filter(a => a.chiave && a.punteggio === null).length;
+        // giudizio sospeso (49.2): un modulo del nucleo inderogabile senza punteggio
+        const nucleoMancante = righeAree.filter(a => a.nucleo && typeof a.punteggio !== 'number');
+        const sospeso = compilate > 0 && nucleoMancante.length > 0;
+
+        // override obbligatori (49.1) e criticita C1 (cap. 50, classe A)
         const limiti = [];
-        let giudizio = null, sospeso = false;
-        if (media !== null) {
-            let g = daMedia(media);
-            if (c1 > 0 && g > 2) { g = 2; limiti.push('una criticita C1 aperta limita il giudizio complessivo (par. 31.3)'); }
-            if (righeAree.some(a => a.chiave && typeof a.punteggio === 'number' && a.punteggio <= 1) && g > 1) {
-                g = 1; limiti.push('un\'area essenziale (liquidita, rimborso, dati, andamentale) e critica o debole: prevale sulla media');
+        let cap = null;   // 'C' oppure 'D'
+        const applica = (livello, testo) => {
+            if (livello === 'D' || cap === null || cap === 'C') cap = (livello === 'D' || cap === 'D') ? 'D' : 'C';
+            limiti.push(testo);
+        };
+        const quotaCap = (b.quotaCapitale === null || b.quotaCapitale === undefined) ? 0 : b.quotaCapitale;
+        const denDscr = quotaCap + (b.oneriFin || 0);
+        const dscrBase = denDscr > 0 ? (((b.flussoOperativo || 0) > 0 ? b.flussoOperativo : (b.mol || 0) * 0.7) / denDscr) : null;
+        if (dscrBase !== null && dscrBase < 1) applica('D', 'DSCR prospettico sotto 1 nello scenario base: il profilo non puo superare la classe D (49.1)');
+        if ((b.pn || 0) < 0) applica('D', 'patrimonio netto negativo: il profilo non puo superare la classe D (49.1)');
+        if (((sc.ccii || {}).pubblici) === 'si') applica('C', 'soglie dei creditori pubblici qualificati superate: non oltre la classe C (49.1)');
+        if ((rbNum(sc.sconfiniGiorni) || 0) > 60 && (rbNum(sc.sconfiniImporto) || 0) > 0) applica('C', 'sconfinamenti persistenti oltre 60 giorni: non oltre la classe C (49.1)');
+        if (righeAree.some(a => a.nucleo && a.punteggio === 0)) applica('C', 'un modulo del nucleo inderogabile e a zero: non oltre la classe C (49.1)');
+        RB_CHECKUP_CIRCOSTANZE.forEach(cc => { if (circ[cc.id]) applica(cc.cap, cc.et.toLowerCase() + ': non oltre la classe ' + cc.cap + ' (49.1)'); });
+        if (c1 > 0) applica('C', 'criticita C1 aperte: le classi A e B sono escluse (cap. 50)');
+        // prudenza 48.4: punteggio alto con documenti essenziali mancanti
+        righeAree.forEach(a => {
+            if (typeof a.punteggio === 'number' && a.punteggio > 2 && a.docMancanti.length) {
+                limiti.push(a.id.toUpperCase() + ' vale ' + a.punteggio + ' ma mancano documenti essenziali (' + a.docMancanti.length + '): il par. 48.4 impone al massimo 2');
             }
-            if (chiaviSenzaPunteggio > 0) { sospeso = true; limiti.push('giudizio limitato: ' + chiaviSenzaPunteggio + (chiaviSenzaPunteggio === 1 ? ' area essenziale e' : ' aree essenziali sono') + ' senza punteggio'); }
-            giudizio = g;
+        });
+
+        // classe di sintesi (50): dalla media, poi il tetto degli override
+        let sintesi = null;
+        if (media !== null && !sospeso) {
+            let s = RB_CHECKUP_SINTESI.find(x => media >= x.da) || RB_CHECKUP_SINTESI[RB_CHECKUP_SINTESI.length - 1];
+            if (cap) {
+                const ordine = ['A', 'B', 'C', 'D', 'E'];
+                if (ordine.indexOf(s.classe) < ordine.indexOf(cap)) s = RB_CHECKUP_SINTESI.find(x => x.classe === cap);
+            }
+            sintesi = s;
         }
 
         const azioniAperte = roadmap.filter(r => r.stato !== 'completata' && r.stato !== 'superata').length;
+        const essTot = RB_CHECKUP_DOCUMENTI.filter(d => d.ess && documenti[d.id] !== 'NA').length;
+        const essRicevuti = RB_CHECKUP_DOCUMENTI.filter(d => d.ess && documenti[d.id] === 'R').length;
         const docRicevuti = RB_CHECKUP_DOCUMENTI.filter(d => documenti[d.id] === 'R').length;
-        const docDaIntegrare = RB_CHECKUP_DOCUMENTI.filter(d => documenti[d.id] === 'I' || documenti[d.id] === 'ND').length;
         const docApplicabili = RB_CHECKUP_DOCUMENTI.filter(d => documenti[d.id] !== 'NA').length;
 
         const avviato = fasiFatte > 0 || compilate > 0 || rilievi.length > 0 || roadmap.length > 0
             || RB_CHECKUP_DOCUMENTI.some(d => documenti[d.id]);
         return {
-            avviato, fasiFatte, fasiNa, fasiTot: RB_CHECKUP_FASI.length,
-            aree: righeAree, compilate, media, giudizio, sospeso, limiti,
+            avviato, fascia, fasiFatte, fasiNa, fasiTot: RB_CHECKUP_FASI.length,
+            aree: righeAree, compilate, media, sintesi, sospeso, nucleoMancante, cap, limiti,
             rilievi, c1, c2, c3, pf,
             roadmap, azioniAperte,
-            docRicevuti, docDaIntegrare, docApplicabili
+            docRicevuti, docApplicabili, essTot, essRicevuti
         };
     }
 
     // il riquadro del check-up per esiti e report
     function rbHtmlCheckup(es) {
         const c = es.checkup;
-        if (!c.avviato) return '<p class="hint">Check-up non ancora avviato: si compila nella scheda "Check-up" della verifica (fasi del processo, punteggi delle 12 aree, rilievi, roadmap e documenti, secondo il Manuale operativo Revilaw).</p>';
-        const nomeGiudizio = c.giudizio === null ? 'Da attribuire' : RB_CHECKUP_SCALA[c.giudizio].nome;
-        const badgeGiudizio = c.giudizio === null ? 'grigio' : (c.giudizio >= 3 ? 'verde' : (c.giudizio === 2 ? 'ambra' : 'rosso'));
-        const puntoArea = p => p === null ? '<span class="badge grigio">da valutare</span>'
-            : (p === 'na' ? '<span class="badge neutro">N/A</span>'
-                : '<span class="badge ' + (p >= 3 ? 'verde' : (p === 2 ? 'ambra' : 'rosso')) + '">' + p + ' - ' + RB_CHECKUP_SCALA[p].nome + '</span>');
+        if (!c.avviato) return '<p class="hint">Check-up non ancora avviato: si compila nella scheda "Check-up" della verifica (fasi, tredici moduli A1-A13, rilievi, roadmap e check-list documentale, secondo il Manuale operativo Revilaw v1.0).</p>';
+        const badgeSintesi = c.sospeso ? 'grigio' : (c.sintesi ? (c.sintesi.classe <= 'B' ? 'verde' : (c.sintesi.classe === 'C' ? 'ambra' : 'rosso')) : 'grigio');
+        const c1aperti = c.rilievi.filter(r => r.classe === 'C1' && r.stato !== 'trattato');
         return `
             <div class="kpi-griglia rb-kpis">
-                <div class="kpi ${badgeGiudizio === 'grigio' ? '' : badgeGiudizio}"><div class="etichetta">Presidio complessivo</div>
-                    <div class="valore">${c.media !== null ? rbFmt2.format(c.media) + ' / 4' : '-'}</div>
-                    <div class="nota">${esc(nomeGiudizio)}${c.sospeso ? ' (limitato)' : ''}</div></div>
-                <div class="kpi"><div class="etichetta">Fasi del processo</div><div class="valore">${c.fasiFatte} / ${c.fasiTot - c.fasiNa}</div><div class="nota">completate</div></div>
+                <div class="kpi ${badgeSintesi === 'grigio' ? '' : badgeSintesi}"><div class="etichetta">Classe di sintesi</div>
+                    <div class="valore">${c.sospeso ? '&mdash;' : (c.sintesi ? c.sintesi.classe : '-')}</div>
+                    <div class="nota">${c.sospeso ? 'profilo non determinabile (giudizio sospeso, par. 49.2)' : (c.sintesi ? esc(c.sintesi.nome) + ' &middot; media ponderata ' + rbFmt2.format(c.media) + ' / 4' : 'da valutare')} &middot; fascia ${esc(c.fascia.nome)}${c.fascia.stimata ? ' (senza ricavi)' : ''}</div></div>
+                <div class="kpi"><div class="etichetta">Fasi del processo</div><div class="valore">${c.fasiFatte} / ${c.fasiTot - c.fasiNa}</div><div class="nota">completate (fasi 0-10)</div></div>
                 <div class="kpi ${c.c1 ? 'rosso' : (c.c2 ? 'ambra' : 'verde')}"><div class="etichetta">Rilievi aperti</div>
                     <div class="valore">${c.c1 + c.c2 + c.c3}</div><div class="nota">C1: ${c.c1} &middot; C2: ${c.c2} &middot; C3: ${c.c3} &middot; punti di forza: ${c.pf}</div></div>
-                <div class="kpi"><div class="etichetta">Roadmap e documenti</div><div class="valore">${c.azioniAperte}</div>
-                    <div class="nota">azioni aperte &middot; documenti: ${c.docRicevuti}/${c.docApplicabili} ricevuti${c.docDaIntegrare ? ', ' + c.docDaIntegrare + ' da integrare' : ''}</div></div>
+                <div class="kpi ${c.essRicevuti < c.essTot ? 'ambra' : 'verde'}"><div class="etichetta">Roadmap e documenti</div><div class="valore">${c.azioniAperte}</div>
+                    <div class="nota">azioni aperte &middot; documenti essenziali: ${c.essRicevuti}/${c.essTot} &middot; totali: ${c.docRicevuti}/${c.docApplicabili}</div></div>
             </div>
+            ${c1aperti.length ? '<p class="rb-testo" style="margin:0 0 8px;"><strong>Criticita decisive (da rappresentare sempre con la classe):</strong> ' + c1aperti.map(r => esc(r.fatto || 'rilievo C1')).join('; ') + '.</p>' : ''}
             ${c.limiti.length ? '<div class="rb-chips">' + c.limiti.map(l => '<span class="badge arancio">' + esc(l) + '</span>').join('') + '</div>' : ''}
-            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Area tecnica</th><th class="num">Peso</th><th>Presidio (0-4)</th><th>Conclusione dell'area</th></tr></thead><tbody>
-                ${c.aree.map(a => `<tr><td>${esc(a.nome)}${a.chiave ? ' <span class="badge neutro">essenziale</span>' : ''}</td><td class="num">${rbFmt2.format(a.peso)}</td><td>${puntoArea(a.punteggio)}</td><td class="rb-rif">${esc(a.conclusione)}</td></tr>`).join('')}
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Modulo</th><th class="num">Peso (${esc(c.fascia.nome)})</th><th>Presidio (0-4)</th><th>Conclusione</th></tr></thead><tbody>
+                ${c.aree.map(a => `<tr><td>${esc(a.nome)}${a.nucleo ? ' <span class="badge neutro">nucleo</span>' : ''}</td><td class="num">${a.peso}</td>
+                    <td>${a.punteggio === null ? '<span class="badge grigio">da valutare</span>' : (a.punteggio === 'na' ? '<span class="badge neutro">N/A</span>' : '<span class="badge ' + (a.punteggio >= 3 ? 'verde' : (a.punteggio === 2 ? 'ambra' : 'rosso')) + '">' + a.punteggio + ' - ' + RB_CHECKUP_SCALA[a.punteggio].nome + '</span>')}${a.docMancanti.length ? '<div class="rb-rif">' + a.docMancanti.length + ' doc. essenziali mancanti</div>' : ''}</td>
+                    <td class="rb-rif">${esc(a.conclusione)}</td></tr>`).join('')}
             </tbody></table></div>
             ${c.rilievi.length ? `<div class="rb-sottotitolo">Rilievi e punti di forza</div>
-            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Classe</th><th>Area</th><th>Fatto ed evidenza</th><th>Rischio</th><th>Raccomandazione</th><th>Stato</th></tr></thead><tbody>
+            <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Classe</th><th>Modulo</th><th>Fatto ed evidenza</th><th>Rischio</th><th>Raccomandazione</th><th>Stato</th></tr></thead><tbody>
                 ${c.rilievi.map(r => {
                     const cl = RB_CHECKUP_CLASSI[r.classe] || RB_CHECKUP_CLASSI.C3;
                     const area = RB_CHECKUP_AREE.find(a => a.id === r.area);
-                    return `<tr><td><span class="badge ${cl.badge}">${esc(cl.nome)}</span></td><td class="rb-rif">${area ? esc(area.nome) : '-'}</td>
+                    return `<tr><td><span class="badge ${cl.badge}">${esc(cl.nome)}</span></td><td class="rb-rif">${area ? esc(area.nome.split(' - ')[0]) : '-'}</td>
                         <td>${esc(r.fatto || '')}${r.evidenza ? '<div class="rb-rif">Evidenza: ' + esc(r.evidenza) + '</div>' : ''}</td>
                         <td class="rb-rif">${esc(r.rischio || '')}</td><td class="rb-rif">${esc(r.raccomandazione || '')}</td>
                         <td>${r.stato === 'trattato' ? '<span class="badge verde">trattato</span>' : '<span class="badge ambra">aperto</span>'}</td></tr>`;
@@ -8206,18 +8420,19 @@
                     <td>${esc(r.priorita || '')}</td><td class="rb-rif">${esc(r.responsabile || '')}</td><td class="rb-rif">${esc(r.termine || '')}</td>
                     <td><span class="badge ${r.stato === 'completata' ? 'verde' : (r.stato === 'sospesa' ? 'arancio' : (r.stato === 'superata' ? 'neutro' : 'ambra'))}">${RB_CHECKUP_STATI_AZIONE[r.stato] || 'Non avviata'}</span></td></tr>`).join('')).join('')}
             </tbody></table></div>` : ''}
-            <p class="hint">Scala del Manuale: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto. Lo scoring del check-up misura il GRADO DI PRESIDIO delle aree ed e diagnostico: non e una probabilita di default e non sostituisce rating MCC, scoring o giudizi delle banche.</p>`;
+            <p class="hint">Scala del Manuale v1.0: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto; classi di sintesi da A (presidi evoluti) a E (presidi critici). La classe descrive la QUALITA DEI PRESIDI alla data di riferimento, non la solvibilita: non corrisponde a rating bancari, fasce di garanzia o probabilita di inadempimento, e va sempre letta con le criticita decisive.</p>`;
     }
 
-    // --- scheda: il check-up operativo ---
+    // --- scheda: il check-up operativo (v1.0) ---
     function rbTabCheckup(v) {
         const cu = v.checkup;
         const c = rbCheckup(v);
         const selStato = (id, val) => `<select data-cu-fase="${id}">${[['', '-'], ['incorso', 'In corso'], ['completata', 'Completata'], ['na', 'Non applicabile']].map(o => `<option value="${o[0]}" ${val === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+        let sezCorrente = '';
         return `
             <div class="card">
-                <h2>Fasi del processo (Manuale operativo, capp. 8-18)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Il percorso dell'incarico dal primo contatto al monitoraggio: completate ${c.fasiFatte} su ${c.fasiTot - c.fasiNa}.</p>
+                <h2>Fasi del processo (Manuale v1.0, capp. 9-20)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Dalla pre-qualifica al follow-up: completate ${c.fasiFatte} su ${c.fasiTot - c.fasiNa}.</p>
                 <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Fase</th><th>Stato</th><th>Nota</th></tr></thead><tbody>
                 ${RB_CHECKUP_FASI.map(f => { const d = (cu.fasi || {})[f.id] || {}; return `<tr><td>${esc(f.nome)}</td>
                     <td>${selStato(f.id, d.stato || '')}</td>
@@ -8225,23 +8440,34 @@
                 </tbody></table></div>
             </div>
             <div class="card">
-                <h2>Valutazione delle 12 aree tecniche (scala 0-4)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Il punteggio misura il grado di presidio: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto; N/A esclude l'area dal calcolo (da motivare). I punteggi 0, 1 e 4 vanno motivati con evidenze; niente 3 o 4 con documenti essenziali mancanti. Le aree "essenziali" prevalgono sulla media.</p>
-                ${RB_CHECKUP_AREE.map(a => { const d = (cu.aree || {})[a.id] || {}; return `<div class="rb-riga-soggetto rb-riga-area">
-                    <div class="campo"><label>${esc(a.nome)}${a.chiave ? ' *' : ''}</label>
-                        <select data-cu-area="${a.id}">${[['', '-'], ['0', '0 - Critico'], ['1', '1 - Debole'], ['2', '2 - Parzialmente adeguato'], ['3', '3 - Adeguato'], ['4', '4 - Evoluto'], ['na', 'N/A (motivare)']].map(o => `<option value="${o[0]}" ${String(d.punteggio === undefined ? '' : d.punteggio) === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
-                    <div class="campo"><label>Conclusione dell'area</label><input type="text" data-cu-areanota="${a.id}" value="${esc(d.conclusione || '')}" placeholder="conclusione complessiva, evidenze principali"></div>
+                <h2>Valutazione dei 13 moduli (scala 0-4, pesi per fascia ${esc(c.fascia.nome)})</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Il punteggio misura il grado di presidio secondo gli <strong>ancoraggi del modulo</strong> (aprili sotto ogni voce). Regole di prudenza (48.4): un controllo essenziale a 0 tiene il modulo entro 1,5; un documento essenziale mancante lo tiene entro 2; il 4 richiede evidenza che il presidio incide sulle decisioni. Livello minimo dalla matrice di proporzionalita: ${esc('○ facoltativo · ● essenziale · ●● standard · ●●● esteso')}.</p>
+                ${RB_CHECKUP_AREE.map(a => { const d = (cu.aree || {})[a.id] || {}; const anc = RB_CHECKUP_ANCORAGGI[a.id]; return `<div class="riepilogo-blocco rb-blocco-area">
+                    <h4>${esc(a.nome)}${a.nucleo ? ' <span class="badge neutro">nucleo inderogabile</span>' : ''} <span class="rb-rif">peso ${a.pesi[c.fascia.nome]} &middot; livello minimo ${a.liv[c.fascia.nome]}</span></h4>
+                    <div class="rb-riga-soggetto rb-riga-area">
+                        <div class="campo"><label>Presidio (0-4)</label>
+                            <select data-cu-area="${a.id}">${[['', '-'], ['0', '0 - Critico'], ['1', '1 - Debole'], ['2', '2 - Parzialmente adeguato'], ['3', '3 - Adeguato'], ['4', '4 - Evoluto'], ['na', 'N/A (motivare)']].map(o => `<option value="${o[0]}" ${String(d.punteggio === undefined ? '' : d.punteggio) === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                        <div class="campo"><label>Conclusione del modulo</label><input type="text" data-cu-areanota="${a.id}" value="${esc(d.conclusione || '')}" placeholder="conclusione complessiva, evidenze principali"></div>
+                    </div>
+                    <details class="rb-dettaglio"><summary>Ancoraggi di punteggio del modulo</summary>
+                        <ul class="rb-punti">${[0, 1, 2, 3, 4].map(i => '<li><span class="badge ' + (i >= 3 ? 'verde' : (i === 2 ? 'ambra' : 'rosso')) + '">' + i + '</span> ' + esc(anc[i]) + '</li>').join('')}</ul>
+                    </details>
                 </div>`; }).join('')}
-                <p class="hint" style="margin-top:8px;">Presidio complessivo ponderato: <strong>${c.media !== null ? rbFmt2.format(c.media) + ' / 4 (' + RB_CHECKUP_SCALA[c.giudizio].nome + ')' : 'da calcolare'}</strong>${c.limiti.length ? ' &middot; ' + c.limiti.map(esc).join(' &middot; ') : ''}</p>
+                <p class="hint" style="margin-top:8px;">Classe di sintesi: <strong>${c.sospeso ? 'profilo non determinabile (nucleo non valutato)' : (c.sintesi ? c.sintesi.classe + ' - ' + c.sintesi.nome + ' (media ponderata ' + rbFmt2.format(c.media) + ' / 4)' : 'da calcolare')}</strong>${c.limiti.length ? ' &middot; ' + c.limiti.map(esc).join(' &middot; ') : ''}</p>
             </div>
             <div class="card">
-                <h2>Rilievi e punti di forza (classificazione C1/C2/C3/PF)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Ogni rilievo con la struttura del Manuale: fatto, evidenza, rischio, raccomandazione. C1 critica (azione urgente), C2 significativa (3-6 mesi), C3 miglioramento (6-12 mesi), PF punto di forza da valorizzare.</p>
+                <h2>Circostanze di override (par. 49.1)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Le circostanze qui sotto si dichiarano a mano; le altre del par. 49.1 (DSCR sotto 1, patrimonio netto negativo, creditori pubblici qualificati, sconfinamenti oltre 60 giorni, modulo del nucleo a zero) scattano da sole dai dati della verifica.</p>
+                ${RB_CHECKUP_CIRCOSTANZE.map(cc => `<label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;"><input type="checkbox" data-cu-circ="${cc.id}" ${((cu.circostanze || {})[cc.id]) ? 'checked' : ''} style="width:auto;margin-top:3px;"><span>${esc(cc.et)} <span class="rb-rif">(non oltre la classe ${cc.cap})</span></span></label>`).join('')}
+            </div>
+            <div class="card">
+                <h2>Rilievi e punti di forza (C1/C2/C3/PF, cap. 51)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Struttura obbligatoria del rilievo: fatto, evidenza, rischio, raccomandazione. C1 critica: comunicazione scritta all'organo amministrativo entro 5 giorni lavorativi e riesame centrale; C2: azione entro 3-6 mesi; C3: piano entro 6-12 mesi; PF: da valorizzare.</p>
                 ${(cu.rilievi || []).map((r, i) => `<div class="riepilogo-blocco">
                     <h4>Rilievo ${i + 1} &middot; ${esc((RB_CHECKUP_CLASSI[r.classe] || {}).nome || '')}</h4>
                     <div class="griglia-3">
                         <div class="campo"><label>Classe</label><select data-ril-idx="${i}" data-ril-campo="classe">${Object.keys(RB_CHECKUP_CLASSI).map(k => `<option value="${k}" ${r.classe === k ? 'selected' : ''}>${RB_CHECKUP_CLASSI[k].nome}</option>`).join('')}</select></div>
-                        <div class="campo"><label>Area</label><select data-ril-idx="${i}" data-ril-campo="area">${['<option value="">-</option>'].concat(RB_CHECKUP_AREE.map(a => `<option value="${a.id}" ${r.area === a.id ? 'selected' : ''}>${esc(a.nome)}</option>`)).join('')}</select></div>
+                        <div class="campo"><label>Modulo</label><select data-ril-idx="${i}" data-ril-campo="area">${['<option value="">-</option>'].concat(RB_CHECKUP_AREE.map(a => `<option value="${a.id}" ${r.area === a.id ? 'selected' : ''}>${esc(a.nome)}</option>`)).join('')}</select></div>
                         <div class="campo"><label>Stato</label><select data-ril-idx="${i}" data-ril-campo="stato">${[['aperto', 'Aperto'], ['trattato', 'Trattato']].map(o => `<option value="${o[0]}" ${(r.stato || 'aperto') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
                         <div class="campo"><label>Fatto</label><input type="text" data-ril-idx="${i}" data-ril-campo="fatto" value="${esc(r.fatto || '')}"></div>
                         <div class="campo"><label>Evidenza</label><input type="text" data-ril-idx="${i}" data-ril-campo="evidenza" value="${esc(r.evidenza || '')}"></div>
@@ -8254,7 +8480,7 @@
             </div>
             <div class="card">
                 <h2>Roadmap degli interventi</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Selettiva, ordinata per orizzonte: 0-30 giorni (liquidita, anomalie, urgenze), 31-90 giorni (tesoreria e reporting), 3-6 mesi (fonti e controllo), 6-12 mesi (progetti strutturali: ESG, TCF, 231, patrimonio).</p>
+                <p class="hint" style="margin:-6px 0 12px;">Selettiva, per orizzonte: 0-30 giorni (liquidita, sconfinamenti, segnalazioni errate, dati essenziali), 31-90 giorni (tesoreria a 13 settimane, reporting, deleghe), 3-6 mesi (fonti, budget, compliance), 6-12 mesi (patrimonio, ESG, TCF, modello organizzativo, successione).</p>
                 ${(cu.roadmap || []).map((r, i) => `<div class="riepilogo-blocco">
                     <h4>Azione ${i + 1} &middot; ${RB_CHECKUP_ORIZZONTI[r.orizzonte || 'o2']}</h4>
                     <div class="griglia-3">
@@ -8271,11 +8497,15 @@
                 <button class="btn btn-secondary" id="rb-rm-add">+ Aggiungi un'azione</button>
             </div>
             <div class="card">
-                <h2>Lista standard dei documenti (cap. 39)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">R ricevuto &middot; ND non disponibile &middot; N/A non applicabile &middot; I da integrare. Ricevuti: ${c.docRicevuti} su ${c.docApplicabili} applicabili.</p>
-                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Area</th><th>Documento</th><th>Stato</th></tr></thead><tbody>
-                ${RB_CHECKUP_DOCUMENTI.map(d => `<tr><td>${esc(d.area)}</td><td>${esc(d.nome)}</td>
-                    <td><select data-cu-doc="${d.id}">${[['', '-'], ['R', 'Ricevuto'], ['I', 'Da integrare'], ['ND', 'Non disponibile'], ['NA', 'Non applicabile']].map(o => `<option value="${o[0]}" ${((v.checkup.documenti || {})[d.id] || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></td></tr>`).join('')}
+                <h2>Check-list documentale master (M-04)</h2>
+                <p class="hint" style="margin:-6px 0 12px;">Quattordici sezioni, ${RB_CHECKUP_DOCUMENTI.length} documenti; il pallino indica gli <strong>essenziali</strong> (un essenziale mancante tiene il punteggio del modulo entro 2). Ricevuti: ${c.docRicevuti}/${c.docApplicabili}; essenziali: ${c.essRicevuti}/${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile.</p>
+                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Documento</th><th>Moduli</th><th>Stato</th></tr></thead><tbody>
+                ${RB_CHECKUP_DOCUMENTI.map(d => {
+                    const testa = d.sez !== sezCorrente ? '<tr class="rb-riga-sezione"><td colspan="3"><strong>' + esc(d.sez) + '</strong></td></tr>' : '';
+                    sezCorrente = d.sez;
+                    return testa + `<tr><td>${d.ess ? '&#9679; ' : ''}${esc(d.nome)}</td><td class="rb-rif">${esc(d.mod)}</td>
+                    <td><select data-cu-doc="${d.id}">${[['', '-'], ['R', 'Ricevuto'], ['I', 'Da integrare'], ['ND', 'Non disponibile'], ['NA', 'Non applicabile']].map(o => `<option value="${o[0]}" ${((v.checkup.documenti || {})[d.id] || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></td></tr>`;
+                }).join('')}
                 </tbody></table></div>
             </div>`;
     }
@@ -8374,7 +8604,8 @@
             scoreClasse: es.scoring.classe, scoreGiudizio: es.scoring.giudizio,
             segnaliCcii: es.scoring.presidio.segnaliPresenti,
             checkupMedia: es.checkup.media === null ? null : Math.round(es.checkup.media * 100) / 100,
-            checkupGiudizio: es.checkup.giudizio, checkupC1: es.checkup.c1,
+            checkupClasse: es.checkup.sintesi ? es.checkup.sintesi.classe : null,
+            checkupSospeso: es.checkup.sospeso, checkupC1: es.checkup.c1,
             verdetto: es.verdetto.livello, verdettoTesto: es.verdetto.chip,
             banche: es.banche.numero, azioni: es.azioni.length, calcolato: Date.now()
         };
@@ -8453,7 +8684,7 @@
             banche: [],
             gruppo: {},
             eventi: {},
-            checkup: { fasi: {}, aree: {}, rilievi: [], roadmap: [], documenti: {} },
+            checkup: { fasi: {}, aree: {}, rilievi: [], roadmap: [], documenti: {}, circostanze: {} },
             soci: [],
             amministratori: [],
             questionario: {},
@@ -8727,8 +8958,9 @@
                 if (!schedaRB.gruppo) schedaRB.gruppo = {};
                 if (!schedaRB.eventi) schedaRB.eventi = {};
                 if (!schedaRB.checkup) schedaRB.checkup = {};
-                ['fasi', 'aree', 'documenti'].forEach(k => { if (!schedaRB.checkup[k]) schedaRB.checkup[k] = {}; });
+                ['fasi', 'aree', 'documenti', 'circostanze'].forEach(k => { if (!schedaRB.checkup[k]) schedaRB.checkup[k] = {}; });
                 ['rilievi', 'roadmap'].forEach(k => { if (!Array.isArray(schedaRB.checkup[k])) schedaRB.checkup[k] = []; });
+                rbMigraCheckup(schedaRB.checkup);
                 if (!Array.isArray(schedaRB.soci)) schedaRB.soci = [];
                 if (!Array.isArray(schedaRB.amministratori)) schedaRB.amministratori = [];
             } else {
@@ -9171,6 +9403,11 @@
         }));
         $vista().querySelectorAll('[data-cu-doc]').forEach(el => el.addEventListener('change', () => {
             v.checkup.documenti[el.dataset.cuDoc] = el.value;
+        }));
+        $vista().querySelectorAll('[data-cu-circ]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.circostanze = v.checkup.circostanze || {};
+            v.checkup.circostanze[el.dataset.cuCirc] = el.checked;
+            vistaRatingScheda();
         }));
         const rilAdd = document.getElementById('rb-ril-add');
         if (rilAdd) rilAdd.addEventListener('click', () => { v.checkup.rilievi.push({ classe: 'C2', area: '', stato: 'aperto' }); vistaRatingScheda(); });
@@ -10176,6 +10413,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-rating-checkup-v1',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: il Check-up aggiornato al Manuale operativo v1.0',
+            sommario: 'La scheda "Check-up" della verifica segue ora la versione 1.0 del Manuale operativo Revilaw: tredici moduli di analisi A1-A13 con gli ancoraggi di punteggio del Manuale sotto ogni voce, pesi per fascia dimensionale (Micro, Piccola, Media, Grande), classe di sintesi da A a E, override obbligatori e giudizio sospeso, undici fasi dalla pre-qualifica al follow-up e la check-list documentale master M-04 con 125 documenti di cui 31 essenziali.',
+            chi: 'Chi prepara le verifiche del merito creditizio e chi le riesamina.',
+            dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica; l\'esito nel riquadro "Check-up del merito creditizio" e nel report. Il metodo aggiornato e nel capitolo 10 del "Metodo di calcolo".',
+            voci: [
+                { titolo: 'Tredici moduli con ancoraggi e pesi per fascia', testo: 'I moduli A1-A13 sostituiscono le 12 aree: ogni punteggio 0-4 si assegna con gli ancoraggi descrittivi del Manuale (aperti sotto ogni modulo) e la media e ponderata con i pesi della fascia dimensionale dell\'impresa; il nucleo inderogabile A3-A8 non ammette N/A.' },
+                { titolo: 'Classe di sintesi A-E, override e giudizio sospeso', testo: 'La media diventa una classe da A (presidi evoluti) a E (presidi critici). Gli override del cap. 49 scattano da soli dai dati della verifica (DSCR sotto 1 e patrimonio netto negativo limitano a D; creditori pubblici, sconfinamenti oltre 60 giorni e moduli del nucleo a zero limitano a C); un C1 aperto esclude A e B; un modulo del nucleo non valutato sospende il giudizio.' },
+                { titolo: 'Fase 0 e regola di prudenza', testo: 'Il processo parte dalla pre-qualifica dell\'impresa (fase 0) e arriva al follow-up (fase 10). La regola di prudenza del par. 48.4 segnala i moduli con punteggio sopra 2 ma documenti essenziali mancanti.' },
+                { titolo: 'Check-list documentale M-04', testo: 'La lista master del Manuale: quattordici sezioni, 125 documenti con l\'indicazione dei 31 essenziali e dei moduli collegati. Le verifiche gia salvate si aggiornano da sole alla nuova struttura; la raccolta documenti riparte dalla M-04.' }
+            ]
+        },
         {
             id: '2026-08-22-rating-checkup',
             data: '2026-08-22',
