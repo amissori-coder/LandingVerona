@@ -8643,6 +8643,87 @@
         d12: { dove: 'passo "Impresa e bilancio" del percorso', come: 'anche come file XBRL del Registro Imprese (il programma lo legge da solo)' },
         d27: { dove: 'passo "Centrale dei Rischi" del percorso', come: 'anche come PDF della Banca d\'Italia (il programma lo legge da solo)' }
     };
+    /* I campi strutturati delle prime fasi: al posto della nota generica, dati
+       separati con scritto che cosa inserire. Dove esiste una risposta normale
+       e' preimpostata (si conferma o si corregge) e sotto ogni campo c'e' come
+       la risposta pesa sugli esiti. Il campo con "mappa" legge e scrive il
+       dato vero del programma (niente doppioni). */
+    const RB_FASE_CAMPI = {
+        f0: [
+            { id: 'attivita', et: 'Attività in corso', tipo: 'sel', preset: 'si',
+              opzioni: [['si', 'Sì, operativa'], ['ridotta', 'Operativa a regime ridotto'], ['no', 'Ferma, inattiva o in liquidazione']],
+              cosa: 'che cosa risulta da visura camerale, sito e primo colloquio',
+              impatto: 'un\'impresa ferma o in liquidazione non è seguibile: il percorso si interrompe qui e l\'esito della pre-qualifica lo documenta.' },
+            { id: 'contabilita', et: 'Contabilità utilizzabile', tipo: 'sel', preset: 'si',
+              opzioni: [['si', 'Aggiornata e utilizzabile'], ['parziale', 'In ritardo o da sistemare'], ['no', 'Inutilizzabile o assente']],
+              cosa: 'aggiornamento delle scritture e disponibilità di situazioni infrannuali',
+              impatto: 'tutti i calcoli partono dal bilancio: con una contabilità debole i punteggi dei moduli vanno tenuti prudenti e, senza i documenti essenziali, il giudizio del check-up esce sospeso.' },
+            { id: 'procedura', et: 'Procedura concorsuale (anche pregressa rilevante)', tipo: 'sel', preset: 'no', mappa: 'gravi',
+              opzioni: [['no', 'Nessuna'], ['si', 'Presente']],
+              cosa: 'fallimenti e procedure da visura camerale e conservatoria',
+              impatto: 'è lo stesso dato del passo "Soci e gruppo" ed entra subito nel calcolo: con una procedura del tipo fallimentare la garanzia del Fondo NON è ammissibile, qualunque sia la classe.' },
+            { id: 'interlocutore', et: 'Interlocutore che collabora', tipo: 'sel', preset: 'si',
+              opzioni: [['si', 'Sì, referente individuato'], ['parziale', 'Da individuare meglio'], ['no', 'Nessuna collaborazione']],
+              cosa: 'chi risponde per l\'impresa su documenti e colloqui',
+              impatto: 'senza un referente che risponde, raccolta documenti e interviste si fermano: pianifica le fasi 4 e 5 solo dopo averlo individuato.' },
+            { id: 'esito', et: 'Esito della pre-qualifica', tipo: 'sel',
+              opzioni: [['', 'Da decidere'], ['seguibile', 'Impresa seguibile'], ['riserva', 'Seguibile con riserva'], ['no', 'Non seguibile']],
+              cosa: 'la decisione consapevole di accettare o no il lavoro',
+              impatto: 'compare accanto alla fase nel quadro del percorso; "con riserva" e "non seguibile" vanno motivati nelle annotazioni.' }
+        ],
+        f1: [
+            { id: 'referente', et: 'Referente incontrato (nome e ruolo)', tipo: 'text',
+              cosa: 'es. "Mario Rossi, titolare" oppure "responsabile amministrativo"',
+              impatto: 'diventa il riferimento per i colloqui della fase delle interviste e per la raccolta dei documenti.' },
+            { id: 'data', et: 'Data del primo contatto', tipo: 'date',
+              cosa: 'quando è avvenuto il colloquio',
+              impatto: 'è la data di partenza del percorso e aiuta a ricostruire i tempi del lavoro nel rapporto.' },
+            { id: 'esigenza', et: 'Esigenza dichiarata dall\'impresa', tipo: 'sel', preset: 'check',
+              opzioni: [['check', 'Check-up preventivo del merito creditizio'], ['fido', 'Nuovo affidamento o aumento'], ['rinnovo', 'Rinnovo o revisione delle condizioni'], ['garanzia', 'Accesso alla garanzia del Fondo'], ['crisi', 'Tensione di liquidità da rientrare']],
+              cosa: 'il motivo per cui l\'impresa si è rivolta allo studio',
+              impatto: 'orienta la lettura degli esiti: per un nuovo affidamento pesano classe MCC e posizionamento bancario, per una tensione di liquidità contano prima DSCR e sconfini.' }
+        ],
+        f2: [
+            { id: 'data', et: 'Data del conferimento', tipo: 'date',
+              cosa: 'la data della firma dell\'incarico',
+              impatto: 'entra nel verbale della riunione di avvio ("in esecuzione dell\'incarico conferito il...").' },
+            { id: 'perimetro', et: 'Perimetro e oggetto confermati', tipo: 'sel', preset: 'si',
+              opzioni: [['si', 'Sì, come da primo contatto'], ['ampliato', 'Ampliato rispetto al primo contatto'], ['ridotto', 'Ridotto rispetto al primo contatto']],
+              cosa: 'oggetto (check-up del merito creditizio), esercizio e società interessate',
+              impatto: 'il perimetro delimita che cosa entra nel rapporto: le variazioni vanno nelle annotazioni e, se ampie, in un incarico integrativo.' },
+            { id: 'riservatezza', et: 'Riservatezza e trattamento dei dati', tipo: 'sel', preset: 'si',
+              opzioni: [['si', 'Clausole incluse nell\'incarico'], ['no', 'Da integrare']],
+              cosa: 'clausola di riservatezza e informativa sul trattamento dei dati',
+              impatto: 'è la condizione per raccogliere Centrale dei Rischi e dati bancari: senza, la raccolta documenti della fase 4 non può partire.' }
+        ]
+    };
+    /* il valore effettivo di un campo di fase: quello registrato, oppure il
+       dato del programma per i campi mappati, oppure la risposta preimpostata */
+    function rbFaseDato(v, fid, id) {
+        const c = (RB_FASE_CAMPI[fid] || []).find(x => x.id === id);
+        if (!c) return '';
+        if (c.mappa) {
+            const ev = ((v.eventi || {})[c.mappa] || '');
+            return ev !== '' ? ev : (c.preset !== undefined ? c.preset : '');
+        }
+        const dati = (((v.checkup || {}).fasi || {})[fid] || {}).dati || {};
+        if (dati[id] !== undefined && dati[id] !== '') return dati[id];
+        return dati[id] === undefined && c.preset !== undefined ? c.preset : '';
+    }
+    /* gli esempi sotto le annotazioni libere: che cosa scriverci, fase per fase */
+    const RB_FASE_NOTA = {
+        f0: 'ciò che non rientra nei campi qui sopra: es. riserve poste, tempi, condizioni dell\'impresa',
+        f1: 'es. impressioni del colloquio, materiale lasciato, prossimo appuntamento fissato',
+        f2: 'es. compenso concordato, tempi pattuiti, esclusioni dal perimetro',
+        f3: 'es. decisioni prese fuori verbale, richieste particolari dell\'impresa',
+        f4: 'es. documenti promessi a voce, solleciti fatti, formati non standard ricevuti',
+        f5: 'es. assenze ai colloqui, risposte da verificare con i documenti, tensioni emerse',
+        f6: 'es. esiti delle riconciliazioni, differenze trovate, controlli rinviati',
+        f7: 'es. motivazioni dei punteggi assegnati in modo diverso dal suggerito',
+        f8: 'es. priorità discusse con l\'impresa, vincoli su tempi e risorse',
+        f9: 'es. osservazioni dell\'impresa alla consegna, richieste di approfondimento',
+        f10: 'es. esiti della revisione periodica, nuovi eventi da monitorare'
+    };
     /* che cosa muove ogni risposta: lo si dichiara sotto la domanda, cosi' chi
        compila sa sempre dove finisce quello che sta registrando */
     function rbImpattoDomanda(qid) {
@@ -8678,15 +8759,40 @@
         const dStato = (cu.fasi || {})[fid] || {};
         const rigaStato = `<div class="rb-riga-soggetto rb-riga-area" style="margin:10px 0 12px;">
             <div class="campo"><label>Stato della fase</label>${selStato(fid, dStato.stato || '')}</div>
-            <div class="campo"><label>Nota della fase (date, esiti, riferimenti)</label><input type="text" data-cu-fasenota="${fid}" value="${esc(dStato.nota || '')}"></div>
+            <div class="campo"><label>Altre annotazioni della fase</label><input type="text" data-cu-fasenota="${fid}" value="${esc(dStato.nota || '')}">
+                <div class="hint">${esc(RB_FASE_NOTA[fid] || 'date, esiti e riferimenti utili')}</div></div>
         </div>`;
+        /* i campi strutturati della fase: risposta preimpostata dove esiste una
+           risposta normale, e sotto ogni campo che cosa inserire e come pesa */
+        const campoStrutturato = c => {
+            const grezzo = c.mappa ? ((v.eventi || {})[c.mappa] || '') : ((dStato.dati || {})[c.id]);
+            const usaPreset = c.tipo === 'sel' && c.preset !== undefined && (grezzo === undefined || grezzo === '');
+            const val = usaPreset ? c.preset : (grezzo === undefined ? '' : grezzo);
+            const controllo = c.tipo === 'sel'
+                ? `<select data-cu-fdato="${c.id}">${c.opzioni.map(o => `<option value="${o[0]}" ${val === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`
+                : `<input type="${c.tipo === 'date' ? 'date' : 'text'}" data-cu-fdato="${c.id}" value="${esc(val)}">`;
+            return `<div class="campo"><label>${esc(c.et)}${usaPreset ? ' <span class="badge neutro">risposta preimpostata</span>' : ''}</label>${controllo}
+                <div class="hint">Che cosa inserire: ${esc(c.cosa)}.<br>Come pesa: ${esc(c.impatto)}</div></div>`;
+        };
+        const blocCampi = () => (RB_FASE_CAMPI[fid] || []).length
+            ? `<div class="griglia-3">${RB_FASE_CAMPI[fid].map(campoStrutturato).join('')}</div>` : '';
         const spunta = (ok, testo) => '<span class="badge ' + (ok ? 'verde' : 'grigio') + '">' + testo + '</span>';
         const campoVb = (gruppo, campo, label, tipo, largo) => `<div class="campo"${largo ? ' style="grid-column: span 2;"' : ''}><label>${label}</label><input type="${tipo || 'text'}" data-vb="${gruppo}.${campo}" value="${esc(((vb[gruppo] || {})[campo]) || '')}"></div>`;
         const blocDomande = (titolo, ids) => `<div class="rb-sottotitolo">${titolo}</div>${ids.map(qid => rbDomandaHtml(v, qid)).join('')}`;
         const c1aperti = c.rilievi.filter(r => r.classe === 'C1' && r.stato !== 'trattato');
         let corpo = '';
         if (fid === 'f0') {
+            const attPre = rbFaseDato(v, 'f0', 'attivita');
+            const procPre = rbFaseDato(v, 'f0', 'procedura');
+            const esitoPre = rbFaseDato(v, 'f0', 'esito');
+            let avvisoPre = '';
+            if (attPre === 'no' || esitoPre === 'no') avvisoPre = '<div class="avviso-ruoli">Impresa NON seguibile: il percorso si ferma alla pre-qualifica. Motiva la decisione nelle annotazioni e segna la fase come completata: le fasi successive si segnano "Non applicabile".</div>';
+            else if (procPre === 'si') avvisoPre = '<div class="avviso-ruoli">Procedura concorsuale dichiarata: la garanzia del Fondo NON è ammissibile e il dato è già entrato nel calcolo. Il check-up può proseguire come diagnosi, ma valuta se l\'impresa è seguibile.</div>';
+            else if (esitoPre === 'riserva') avvisoPre = '<p class="hint"><strong>Seguibile con riserva:</strong> scrivi nelle annotazioni quale riserva hai posto e che cosa deve succedere per scioglierla.</p>';
             corpo = `
+            ${blocCampi()}
+            ${avvisoPre}
+            <div class="rb-sottotitolo">Che cosa risulta già inserito nel programma</div>
             <div class="rb-chips">
                 ${spunta(!!v.settore, 'settore ' + (v.settore ? 'scelto' : 'da scegliere'))}
                 ${spunta(es.pronta, es.pronta ? 'bilancio completo' : 'bilancio: mancano ' + es.mancanti.length + ' dati')}
@@ -8694,12 +8800,14 @@
                 ${spunta(!!v.incaricoId, 'incarico ' + (v.incaricoId ? 'collegato' : 'non collegato'))}
                 ${spunta((v.soci || []).length > 0 || (v.amministratori || []).length > 0, 'soggetti ' + ((v.soci || []).length || (v.amministratori || []).length ? 'censiti' : 'da censire'))}
             </div>
-            <p class="hint">Se uno di questi punti resta scoperto, decidi consapevolmente se accettare comunque il lavoro e segnalo nella nota della fase.</p>`;
+            <p class="hint">Se uno di questi punti resta scoperto, decidi consapevolmente se accettare comunque il lavoro e registralo nell\'esito della pre-qualifica.</p>`;
         } else if (fid === 'f1') {
-            corpo = blocDomande('Profilo dell\'impresa: registra le risposte', RB_FASE_DOMANDE.f1)
+            corpo = blocCampi()
+                + blocDomande('Profilo dell\'impresa: registra le risposte', RB_FASE_DOMANDE.f1)
                 + '<p class="hint" style="margin-top:8px;">Queste risposte entrano nel correttivo qualitativo, nel rating interno simulato e nei punteggi suggeriti dei moduli: si registrano una volta sola.</p>';
         } else if (fid === 'f2') {
-            corpo = '';
+            corpo = blocCampi()
+                + '<p class="hint" style="margin-top:8px;">Se l\'incarico è censito nella sezione Incarichi dell\'area, collegalo dal passo "Impresa e bilancio": cliente e regione si compilano da soli.</p>';
         } else if (fid === 'f3') {
             corpo = `
             <div class="griglia-3">
@@ -8896,6 +9004,20 @@
         }));
         q('[data-cu-fasenota]').forEach(el => el.addEventListener('change', () => {
             v.checkup.fasi[el.dataset.cuFasenota] = { ...(v.checkup.fasi[el.dataset.cuFasenota] || {}), nota: el.value };
+        }));
+        // i campi strutturati della fase: quelli mappati scrivono il dato vero
+        // del programma; i select si ridisegnano (marcatore e avvisi aggiornati)
+        q('[data-cu-fdato]').forEach(el => el.addEventListener('change', () => {
+            const c = (RB_FASE_CAMPI[fid] || []).find(x => x.id === el.dataset.cuFdato);
+            if (!c) return;
+            if (c.mappa) {
+                v.eventi = v.eventi || {};
+                v.eventi[c.mappa] = el.value;
+            } else {
+                const df = v.checkup.fasi[fid] = { ...(v.checkup.fasi[fid] || {}) };
+                df.dati = { ...(df.dati || {}), [c.id]: el.value };
+            }
+            if (el.tagName === 'SELECT') rbRiapriFase(fid);
         }));
         q('[data-q]').forEach(el => el.addEventListener('change', () => {
             v.questionario = v.questionario || {};
@@ -9126,7 +9248,9 @@
             return s === 'completata' ? '<span class="badge verde">completata</span>'
                 : (s === 'incorso' ? '<span class="badge ambra">in corso</span>'
                 : (s === 'na' ? '<span class="badge neutro">n/a</span>' : '<span class="badge grigio">da fare</span>')); };
+        const esitoPre = rbFaseDato(v, 'f0', 'esito');
         const riass = {
+            f0: esitoPre ? ({ seguibile: 'seguibile', riserva: 'seguibile con riserva', no: 'NON seguibile' })[esitoPre] : null,
             f1: risposteFase('f1'), f5: risposteFase('f5'), f6: risposteFase('f6'),
             f4: c.essTot ? c.essRicevuti + '/' + c.essTot + ' essenziali' : '',
             f7: c.compilate + '/13 moduli',
@@ -9188,7 +9312,7 @@
             const doc = vb.documenti || {};
             const notaFase = ((cu.fasi || {}).f3 || {}).nota;
             return oggetto('check-up del merito creditizio di ' + cliente + ', verbale della riunione di avvio.')
-                + t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si è tenuta la riunione di avvio del check-up del merito creditizio di <strong>' + cliente + '</strong>, in esecuzione dell\'incarico conferito.')
+                + t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si è tenuta la riunione di avvio del check-up del merito creditizio di <strong>' + cliente + '</strong>, in esecuzione dell\'incarico conferito' + (/^\d{4}-\d{2}-\d{2}$/.test(rbFaseDato(v, 'f2', 'data')) ? ' il ' + fmtData(rbFaseDato(v, 'f2', 'data')) : '') + '.')
                 + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell\'impresa e ' + esc(resp) + ' per Revilaw.'))
                 + '<div class="rb-sottotitolo">Argomenti trattati e decisioni assunte</div><ol class="rb-punti-num">'
                 + '<li><strong>Percorso di lavoro.</strong> È stato illustrato il percorso: raccolta dei documenti, colloqui con le figure chiave, verifiche sui dati, valutazione dei tredici moduli di analisi, rilievi e roadmap degli interventi, rapporto finale con consegna e illustrazione di persona.</li>'
@@ -11417,6 +11541,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-fasi-campi-guidati',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: le prime fasi con campi guidati e risposte preimpostate',
+            sommario: 'Le fasi di pre-qualifica, primo contatto e incarico non hanno più una nota generica: i dati stanno in campi separati, ognuno con scritto che cosa inserire e come la risposta pesa sugli esiti. Dove esiste una risposta normale è preimpostata (si conferma o si corregge) ed è marcata come tale; le annotazioni libere restano, con gli esempi di che cosa scriverci fase per fase.',
+            chi: 'Chi svolge le verifiche del merito creditizio e i check-up.',
+            dove: 'Sezione "Rating bancario", scheda "Percorso" della verifica: le finestre delle fasi 0, 1 e 2.',
+            voci: [
+                { titolo: 'Pre-qualifica strutturata', testo: 'Attività in corso, contabilità utilizzabile, procedura concorsuale, interlocutore che collabora ed esito della pre-qualifica: cinque campi al posto della nota. La procedura concorsuale è lo stesso dato del passo "Soci e gruppo" (niente doppioni) ed entra subito nel calcolo; un esito "non seguibile" ferma il percorso con l\'avviso dedicato e compare accanto alla fase nel quadro.' },
+                { titolo: 'Primo contatto e incarico', testo: 'Il primo contatto registra referente, data ed esigenza dichiarata dall\'impresa (che orienta la lettura degli esiti); l\'incarico registra data del conferimento, perimetro confermato e clausole di riservatezza. La data del conferimento entra da sola nel verbale della riunione di avvio.' },
+                { titolo: 'Come pesa ogni risposta', testo: 'Sotto ogni campo ci sono due righe fisse: "Che cosa inserire", con l\'indicazione precisa dell\'informazione richiesta, e "Come pesa", con l\'effetto della risposta sui risultati della verifica.' },
+                { titolo: 'Annotazioni con gli esempi', testo: 'Il campo delle annotazioni libere resta in ogni fase, ma ora dice che cosa scriverci: esempi diversi per ogni fase, dalle riserve della pre-qualifica agli esiti delle riconciliazioni della fase delle verifiche.' }
+            ]
+        },
         {
             id: '2026-08-22-percorso-unico',
             data: '2026-08-22',
