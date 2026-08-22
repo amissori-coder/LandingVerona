@@ -127,7 +127,7 @@
     function chiaveRegione(r) {
         return String(r == null ? '' : r).trim().toLowerCase()
             .normalize('NFD').replace(/[̀-ͯ]/g, '')    // via gli accenti
-            .replace(/['’`]/g, '')                // via gli apostrofi (dritto e curvo)
+            .replace(/['\'`]/g, '')                // via gli apostrofi (dritto e curvo)
             .replace(/[\s-]+/g, ' ');                            // trattini e spazi multipli -> spazio
     }
     function fmtData(iso) {
@@ -4986,7 +4986,7 @@
                 <div class="calc-riquadro" style="border-color:var(--ambra); background:var(--ambra-bg);">
                     <strong>${ICO_LUCCHETTO}Calcolo congelato</strong>
                     <p class="descrizione" style="margin:8px 0;">Il calcolo di questo incarico e stato congelato${cong.il ? ' il ' + fmtDataOra(cong.il) : ''}${cong.da ? ' da ' + esc(cong.da) : ''}. Il compenso concordato non puo essere modificato.</p>
-                    <div class="calc-riga totale"><span>Compenso concordato (primo esercizio)</span><span class="val">${compenso ? eurFmt.format(compenso) : '—'}</span></div>
+                    <div class="calc-riga totale"><span>Compenso concordato (primo esercizio)</span><span class="val">${compenso ? eurFmt.format(compenso) : '-'}</span></div>
                 </div>
                 <p class="descrizione">Per modificare il calcolo occorre prima sbloccarlo dal dettaglio dell'incarico, inviando un messaggio di allerta al titolare.</p>`;
             w.compensoModificato = false;
@@ -7757,62 +7757,63 @@
         const rig = (t, d) => '<tr><td><strong>' + t + '</strong></td><td>' + d + '</td></tr>';
         return `
             <div class="card"><h2>Come leggere questo manuale</h2>
-                <p class="rb-testo">Qui c'e la spiegazione di OGNI calcolo della verifica, nell'ordine in cui compare negli esiti: da dove vengono i numeri, quali formule si applicano, quali soglie decidono i giudizi. Le fonti: Specifiche tecniche del Fondo di Garanzia PMI in vigore dal 15/02/2020 (modello MCC), documento CNDCEC 20/10/2019 (indici della crisi), modelli Z' e Z'' di Altman, prassi bancaria per il cruscotto e per i profili di istituto.</p>
+                <p class="rb-testo">Questo manuale spiega ogni parte della verifica nell'ordine in cui compare negli esiti. Per ogni strumento trovi prima <strong>che cosa fa e a che cosa serve</strong>, poi <strong>come si legge il risultato</strong>, e solo alla fine il dettaglio tecnico per chi vuole ricostruire i numeri. Le fonti dei modelli sono pubbliche: le Specifiche tecniche del Fondo di Garanzia PMI in vigore dal 15 febbraio 2020, il documento del Consiglio Nazionale dei Dottori Commercialisti del 20 ottobre 2019 sugli indici della crisi, i modelli di Altman per lo Z-Score, la prassi bancaria per il cruscotto. Dove la verifica aggiunge stime professionali dello studio, lo dice espressamente.</p>
             </div>
-            <div class="card"><h2>1. Rating MCC: il modulo economico-finanziario</h2>
-                <p class="rb-testo">Dal bilancio si costruiscono gli aggregati dello stato patrimoniale e del conto economico (gli stessi campi del simulatore pubblico). Per il settore scelto il modello calcola una serie di indicatori (da V1 a V21: debiti a breve su fatturato, oneri finanziari su MOL, autonomia finanziaria, quick ratio eccetera). Ogni indicatore viene "trattato": se supera un tetto (cap) o un pavimento (floor) viene riportato alla soglia; se il denominatore e zero si usa il valore convenzionale ".a" delle Specifiche. Alcune variabili aggiuntive (D1-D12) correggono il punteggio per MOL negativo, fatturato in calo, patrimonio netto negativo e per le imprese fino a 500.000 euro di ricavi.</p>
-                <p class="rb-testo">Ogni valore trattato viene moltiplicato per il suo coefficiente e sommato alla costante del settore: il risultato e lo <strong>score xb</strong> (lo vedi per esteso nel "Dettaglio del calcolo MCC"). Lo score si confronta con 10 soglie fisse (Tabella 30 delle Specifiche): ne esce la <strong>classe F da 1 a 11</strong> del modulo di bilancio.</p>
+            <div class="card"><h2>1. Il rating del Fondo di Garanzia: il modulo di bilancio</h2>
+                <p class="rb-testo"><strong>Che cosa fa.</strong> Il Fondo di Garanzia pubblico assegna a ogni impresa che chiede la garanzia dello Stato una classe di merito, calcolata con un modello reso pubblico. La verifica replica quel modello: cos&igrave; sai in anticipo come il Fondo vede l'impresa, se la garanzia &egrave; ottenibile e da quale classe si parte quando si va in banca.</p>
+                <p class="rb-testo"><strong>Come funziona.</strong> Dal bilancio inserito il modello costruisce una serie di indicatori: quanto pesano i debiti a breve sul fatturato, quanto gli oneri finanziari assorbono il margine, quanta parte dell'attivo &egrave; finanziata con mezzi propri, quanta liquidit&agrave; copre gli impegni ravvicinati, e cos&igrave; via. Ogni indicatore viene riportato entro limiti minimi e massimi (cos&igrave; un valore estremo non stravolge il risultato) e pesato con il coefficiente previsto per il settore dell'impresa; correzioni dedicate scattano per il margine negativo, il fatturato in calo, il patrimonio netto negativo e per le imprese pi&ugrave; piccole. La somma pesata degli indicatori d&agrave; un punteggio complessivo, che confrontato con dieci soglie fisse produce la <strong>classe di bilancio da 1 a 11</strong> (1 &egrave; la migliore). Nel riquadro "Dettaglio del calcolo" vedi ogni indicatore con il suo valore, il valore trattato, il coefficiente e il contributo al punteggio: nulla &egrave; nascosto.</p>
             </div>
-            <div class="card"><h2>2. Il modulo andamentale (Centrale dei Rischi)</h2>
-                <p class="rb-testo">Dai 6 mesi piu recenti del prospetto si calcolano: <strong>C1</strong> = utilizzato / accordato dei rischi autoliquidanti e a revoca (cassa meno "a scadenza"), con tetto 1,2; <strong>C2</strong> = numero di mesi con sconfino di cassa (utilizzato oltre l'accordato); <strong>C3</strong> = mesi con sconfino sui rischi a scadenza; <strong>C4</strong> = mesi senza rapporti censiti. Lo score andamentale e: <code>-4,984468 + 3,179026 &times; C1 - 1,066972 &times; DC1 + 0,720867 &times; DC3 + 0,0326226 &times; C2</code> (DC1 scatta con 4 o piu mesi non censiti, DC3 con almeno uno sconfino a scadenza), piu un aggiustamento fisso di calibrazione. Le stesse 10 soglie della classe F danno la <strong>classe andamentale A1-A11</strong>.</p>
-                <p class="rb-testo">La <strong>matrice di integrazione</strong> delle societa di capitali incrocia classe F e classe A e produce la <strong>classe integrata da 1 a 12</strong>. Senza Centrale dei Rischi la classe integrata coincide con la F (la F11 diventa 12). Gli <strong>eventi pregiudizievoli</strong> a carico dell'impresa (ipoteca giudiziale, pignoramento, ipoteca legale, domanda giudiziale) <strong>declassano di 2 classi</strong>, con tetto alla 12, come da Disposizioni Operative. Ogni classe ha una fascia (1-5) e una probabilita di inadempimento empirica (dallo 0,12% della classe 1 al 22,98% della 12). La garanzia del Fondo e ammissibile fino alla classe 10; le <strong>sofferenze</strong> e gli <strong>eventi del tipo fallimento</strong> la precludono comunque. I controlli di qualita del bilancio del par. 3.3 delle Specifiche sono soddisfatti per costruzione (i totali derivano dalle voci inserite), tranne la quadratura attivo/passivo: se non quadra, il risultato va considerato UNRATED e la verifica lo segnala.</p>
+            <div class="card"><h2>2. La Centrale dei Rischi e la classe integrata</h2>
+                <p class="rb-testo"><strong>Che cosa fa.</strong> Per una banca conta il bilancio, ma conta almeno altrettanto come l'impresa usa gli affidamenti mese per mese: &egrave; la parte "andamentale" del giudizio. La verifica la calcola dai sei mesi pi&ugrave; recenti della Centrale dei Rischi, il prospetto della Banca d'Italia che ogni impresa pu&ograve; richiedere gratuitamente.</p>
+                <p class="rb-testo"><strong>Come funziona.</strong> Dai sei mesi si misurano quattro cose: quanto sono utilizzati gli affidamenti di cassa rispetto all'accordato, in quanti mesi c'&egrave; stato uno sconfinamento di cassa, in quanti mesi uno sconfinamento sulle scadenze, e se ci sono mesi senza rapporti censiti. Questi valori entrano in una formula pubblica che produce la <strong>classe andamentale da 1 a 11</strong>. Una tabella di incrocio (la matrice di integrazione) combina poi classe di bilancio e classe andamentale nella <strong>classe integrata da 1 a 12</strong>, quella che decide fascia e probabilit&agrave; di inadempimento. Senza Centrale dei Rischi la classe integrata coincide con quella di bilancio.</p>
+                <p class="rb-testo"><strong>Come si legge.</strong> Ogni classe appartiene a una fascia da 1 a 5 e porta con s&eacute; una probabilit&agrave; di inadempimento osservata storicamente (dallo 0,12% della classe migliore al 22,98% della peggiore). La garanzia del Fondo &egrave; ammissibile fino alla classe 10; le sofferenze segnalate e le procedure concorsuali la escludono comunque. Gli eventi pregiudizievoli sull'impresa (ipoteche giudiziali, pignoramenti, domande giudiziali) peggiorano la classe di due gradini, come previsto dalle regole del Fondo. Se attivo e passivo del bilancio non quadrano, l'esito va considerato non classificabile finch&eacute; la quadratura non &egrave; sanata: la verifica lo segnala da sola.</p>
             </div>
-            <div class="card"><h2>3. Il questionario qualitativo e il correttivo</h2>
-                <p class="rb-testo">Venti domande in quattro sezioni (governance e assetti, compliance, rapporti bancari, struttura), ognuna con un punteggio fino a 10. Le risposte si registrano <strong>direttamente nelle fasi del Check-up</strong> (profilo dell'impresa al primo contatto, colloqui, verifica dei presidi) e valgono per tutti i calcoli. Il totale diventa una percentuale che corregge la classe integrata: <strong>80% o piu: un gradino a favore; 60-79%: nessuna correzione; 40-59%: un gradino a sfavore; sotto il 40%: due gradini a sfavore</strong>. Replica il modo in cui i modelli interni delle banche integrano il giudizio qualitativo.</p>
-                <p class="rb-testo">Al correttivo del questionario si sommano: <strong>+1</strong> se risultano eventi pregiudizievoli a carico degli amministratori; <strong>-1</strong> se il gruppo rafforza l'impresa con consolidato documentabile, <strong>+1</strong> se il gruppo assorbe risorse. La somma, riportata tra 1 e 12, e il <strong>rating ipotizzato</strong>.</p>
+            <div class="card"><h2>3. Le venti domande qualitative e il correttivo della classe</h2>
+                <p class="rb-testo"><strong>Che cosa fanno.</strong> Le banche non guardano solo i numeri: valutano anche come l'impresa &egrave; governata, quali presidi ha, come si comporta nei rapporti. La verifica riproduce questo giudizio con venti domande in quattro aree: governo e organizzazione, presidi premianti (modello organizzativo, rating di legalit&agrave;, sostenibilit&agrave;, rapporto collaborativo con il fisco, certificazioni), rapporti con le banche, struttura e mercato.</p>
+                <p class="rb-testo"><strong>Dove si rispondono e come impatta ogni risposta.</strong> Le risposte si registrano una volta sola, dentro le fasi del check-up: il profilo dell'impresa al primo contatto, le domande dei colloqui sotto ogni traccia di intervista, i presidi nella fase delle verifiche. Ogni risposta vale fino a dieci punti e lavora su quattro fronti insieme: alza o abbassa la <strong>percentuale del profilo qualitativo</strong>, che corregge la classe integrata (dall'80% in su un gradino a favore, tra 60% e 79% nessuna correzione, tra 40% e 59% un gradino a sfavore, sotto il 40% due gradini a sfavore); entra nel <strong>rating interno simulato</strong> come modulo qualitativo; guida il <strong>punteggio suggerito</strong> dei moduli del check-up collegati; e, quando la risposta migliore &egrave; un risultato che i servizi dello studio possono costruire, diventa una <strong>leva del percorso di miglioramento</strong>. Sotto ogni domanda, nella scheda, trovi scritto esattamente su che cosa incide.</p>
+                <p class="rb-testo"><strong>Il correttivo complessivo.</strong> Al correttivo del questionario si sommano un gradino a sfavore se risultano eventi pregiudizievoli a carico degli amministratori, un gradino a favore se il gruppo rafforza l'impresa con un consolidato documentabile, uno a sfavore se il gruppo assorbe risorse. Il risultato, riportato tra 1 e 12, &egrave; il <strong>rating ipotizzato</strong>: la stima di come i giudizi interni delle banche correggono la classe di partenza.</p>
             </div>
-            <div class="card"><h2>4. Le rettifiche prudenziali (il bilancio come lo legge la banca)</h2>
-                <p class="rb-testo">Dai "Dettagli delle voci che contano" si costruisce un secondo bilancio, rettificato come farebbe un analista fidi: <strong>crediti scaduti oltre 90 giorni</strong> e <strong>magazzino obsoleto</strong> svalutati del 50% (contro il patrimonio netto); <strong>rivalutazioni</strong> sterilizzate per intero; <strong>finanziamenti soci postergati</strong> spostati dal debito finanziario al quasi-capitale; <strong>leasing non iscritti</strong> capitalizzati (entrano tra le immobilizzazioni e nella PFN estesa). Su questo bilancio il modello MCC viene ricalcolato da capo: il confronto tra le due classi misura quanto il bilancio "regge" la lettura prudenziale. I debiti fiscali scaduti e le fideiussioni prestate non rettificano il bilancio ma generano segnalazioni e azioni dedicate.</p>
+            <div class="card"><h2>4. Le rettifiche prudenziali: il bilancio come lo legge la banca</h2>
+                <p class="rb-testo"><strong>Che cosa fanno.</strong> Un analista fidi non prende il bilancio alla lettera: sconta i crediti che difficilmente rientreranno, il magazzino fermo, le rivalutazioni contabili, e riclassifica le poste che nascondono debito o capitale. Questa sezione rif&agrave; quel lavoro, cos&igrave; vedi la distanza tra il bilancio come lo leggi tu e come lo legge la banca.</p>
+                <p class="rb-testo"><strong>Come funziona.</strong> Dai dettagli dichiarati sulle voci si costruisce un secondo bilancio: i crediti scaduti da oltre novanta giorni e il magazzino obsoleto vengono svalutati della met&agrave;, le rivalutazioni vengono tolte per intero, i finanziamenti dei soci con clausola di postergazione vengono trattati come quasi capitale invece che come debito, i leasing non iscritti vengono fatti emergere tra le immobilizzazioni e nel debito. Su questo bilancio il modello del Fondo viene ricalcolato da capo: se la classe peggiora, quella distanza &egrave; il primo argomento da sistemare o da saper spiegare in banca; se non si muove, il bilancio regge la lettura prudenziale. I debiti fiscali scaduti e le garanzie prestate non modificano il bilancio ma generano segnalazioni e azioni dedicate.</p>
             </div>
-            <div class="card"><h2>5. Il cruscotto di bancabilita</h2>
-                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indicatore</th><th>Formula e soglie</th></tr></thead><tbody>
-                ${rig('DSCR (12 mesi, semplificato)', '(EBITDA - imposte) / (quota capitale + oneri finanziari). Sotto 1 insufficiente, 1-1,2 al limite, oltre 1,2 adeguato.')}
-                ${rig('PFN / EBITDA', 'PFN = debiti finanziari - liquidita - attivita finanziarie. Fino a 3 buono, 3-4 attenzione, 4-6 critico, oltre 6 leva estrema. PFN negativa = cassa netta.')}
-                ${rig('PFN / Patrimonio netto', 'Fino a 1,5 equilibrato, 1,5-3 attenzione, oltre 3 squilibrato. Con PN non positivo il rapporto non e significativo.')}
-                ${rig('Oneri finanziari / Ricavi', 'Fino al 3% fisiologico, 3-5% attenzione, oltre il 5% eccessivo.')}
-                ${rig('Copertura interessi', 'EBITDA / oneri finanziari: oltre 4 solida, 2-4 da monitorare, sotto 2 fragile.')}
-                ${rig('Patrimonio netto / Totale attivo', 'Oltre il 35% solido, 20-35% nella media, sotto il 20% sottocapitalizzata.')}
+            <div class="card"><h2>5. Il cruscotto di bancabilit&agrave;</h2>
+                <p class="rb-testo"><strong>Che cosa fa.</strong> Sono i sei rapporti che qualunque banca guarda per prima cosa, con le soglie di prassi usate negli affidamenti. Servono a capire a colpo d'occhio dove l'impresa &egrave; solida e dove &egrave; esposta.</p>
+                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indicatore</th><th>Che cosa misura e come si legge</th></tr></thead><tbody>
+                ${rig('DSCR (12 mesi, semplificato)', 'Se la cassa prodotta in un anno basta a pagare rate e interessi: (margine operativo lordo meno imposte) diviso (quota capitale pi&ugrave; oneri finanziari). Sotto 1 non basta, tra 1 e 1,2 &egrave; al limite, oltre 1,2 &egrave; adeguato.')}
+                ${rig('Debito netto su margine', 'In quanti anni di margine si ripagherebbe il debito finanziario netto. Fino a 3 buono, tra 3 e 4 attenzione, tra 4 e 6 critico, oltre 6 leva estrema. Un valore negativo significa cassa superiore ai debiti.')}
+                ${rig('Debito netto su patrimonio', 'Quanto debito c\'&egrave; per ogni euro di mezzi propri. Fino a 1,5 equilibrato, tra 1,5 e 3 attenzione, oltre 3 squilibrato.')}
+                ${rig('Oneri finanziari su ricavi', 'Quanta parte del fatturato se ne va in interessi. Fino al 3% fisiologico, tra 3% e 5% attenzione, oltre il 5% eccessivo.')}
+                ${rig('Copertura degli interessi', 'Quante volte il margine copre gli interessi. Oltre 4 solida, tra 2 e 4 da monitorare, sotto 2 fragile.')}
+                ${rig('Patrimonio su totale attivo', 'Quanta parte dell\'impresa &egrave; finanziata con mezzi propri. Oltre il 35% solida, tra 20% e 35% nella media, sotto il 20% sottocapitalizzata.')}
                 </tbody></table></div>
             </div>
-            <div class="card"><h2>6. Indici della crisi CNDCEC e Z-Score</h2>
-                <p class="rb-testo">Prima i due segnali di primo livello: <strong>patrimonio netto negativo</strong> e <strong>DSCR sotto 1</strong>. Poi i cinque indici settoriali del documento CNDCEC 20/10/2019 (oneri finanziari/ricavi, patrimonio netto/debiti, attivo a breve/passivo a breve, cash flow/attivo, debiti fiscali/attivo), confrontati con le soglie del settore: l'allerta scatta solo se si accendono <strong>tutti e cinque</strong>. Per le attivita immobiliari il documento non fissa soglie.</p>
-                <p class="rb-testo">Lo <strong>Z-Score</strong> usa la variante Z' per le manifatturiere non quotate (<code>0,717&times;X1 + 0,847&times;X2 + 3,107&times;X3 + 0,420&times;X4 + 0,998&times;X5</code>; rischio sotto 1,23, sicurezza oltre 2,90) e la variante Z'' per le altre (<code>6,56&times;X1 + 3,26&times;X2 + 6,72&times;X3 + 1,05&times;X4</code>; rischio sotto 1,10, sicurezza oltre 2,60), dove X1 = capitale circolante netto/attivo, X2 = riserve di utili/attivo, X3 = EBIT/attivo, X4 = patrimonio/debiti, X5 = ricavi/attivo.</p>
+            <div class="card"><h2>6. I segnali della crisi e lo Z-Score</h2>
+                <p class="rb-testo"><strong>Che cosa fanno.</strong> Sono i campanelli d'allarme previsti per legge e dalla prassi: dicono se l'impresa mostra i sintomi tipici che precedono una crisi. Non sono un rating: sono un semaforo.</p>
+                <p class="rb-testo"><strong>Come funzionano.</strong> Prima i due segnali di primo livello: patrimonio netto negativo e cassa annua insufficiente a coprire le rate (DSCR sotto 1). Poi cinque indici di settore del documento dei Dottori Commercialisti (oneri finanziari su ricavi, patrimonio su debiti, attivo a breve su passivo a breve, flusso di cassa su attivo, debiti fiscali e previdenziali su attivo), confrontati con le soglie del settore: l'allerta scatta solo se si accendono tutti e cinque insieme. Per le attivit&agrave; immobiliari non sono previste soglie di settore. Lo <strong>Z-Score</strong> di Altman riassume in un numero solo la probabilit&agrave; statistica di insolvenza combinando capitale circolante, utili accantonati, redditivit&agrave;, patrimonio e ricavi in rapporto all'attivo: sopra la soglia alta l'impresa &egrave; in zona di sicurezza, sotto quella bassa in zona di rischio, in mezzo serve attenzione. La verifica usa la variante per le manifatturiere non quotate e quella per tutte le altre imprese.</p>
             </div>
-            <div class="card"><h2>7. Il rating interno simulato (scoring a moduli)</h2>
-                <p class="rb-testo">Il secondo motore della verifica (integrato dal simulatore Excel dello studio) replica la STRUTTURA tipica dei sistemi di rating interni delle banche: tre moduli con punteggio 0-100, pesati per dimensione d'impresa determinata dai ricavi. <strong>Pesi</strong> (quantitativo / andamentale / qualitativo): Micro (fino a 2 milioni) 25/60/15; Piccola (fino a 10) 30/55/15; Media (fino a 50) 40/45/15; Grande 55/35/10 — sulle PMI l'andamentale prevale.</p>
-                <p class="rb-testo"><strong>Modulo quantitativo</strong> (dal bilancio gia inserito): otto indicatori con punteggio a soglie — PFN/EBITDA (peso 20%), EBITDA/ricavi (15%), patrimonio netto/attivo (15%), DSCR prospettico (20%: flusso operativo atteso se indicato, altrimenti il 70% dell'EBITDA, su quota capitale piu oneri finanziari), oneri finanziari/ricavi (10%), current ratio (10%), crescita dei ricavi (5%), ROE (5%). EBITDA o patrimonio negativi azzerano il punteggio dell'indicatore.</p>
-                <p class="rb-testo"><strong>Modulo andamentale</strong>: utilizzo/accordato (20%, dal mese piu recente della Centrale Rischi o dai rapporti censiti), sconfini in essere (20%: nessuno 100 punti, entro 15 giorni 40, entro 60 giorni 20, oltre 0), mesi con sconfini negli ultimi 12 (15%), insoluti su autoliquidante (15%), concentrazione bancaria (10%: una banca 60, due 80, tre o piu 100, meno 20 se la prima supera l'80%), trend dell'accordato (5%), anzianita del rapporto principale (5%), garanzie escusse o revoche (10%: presenti = 0). <strong>Modulo qualitativo</strong>: il punteggio percentuale del questionario della verifica.</p>
-                <p class="rb-testo">Lo <strong>score complessivo</strong> diventa una <strong>PD a 12 mesi</strong> con la tabella di calibrazione (da 90 punti in su 0,05%; 80: 0,15%; 70: 0,40%; 60: 0,90%; 50: 1,8%; 40: 3,5%; 30: 7%; 20: 13%; sotto: 25%) e la PD una <strong>classe interna da 1 a 10</strong> (1 Eccellente fino a 10 Pre-default). La <strong>mappatura per banca</strong> moltiplica la PD per il fattore di severita del singolo rapporto (1,00 neutro; oltre 1 banca piu severa, sotto 1 meno severa, calibrato sull'esperienza dello studio) e la traduce in classe indicativa e banda PD regolamentare del template EU CR6 dei Pillar 3 (le PD medie per classe di ogni gruppo sono sull'EBA Pillar 3 Data Hub).</p>
-                <p class="rb-testo"><strong>Presidio CCII</strong>: DSCR prospettico (adeguato da 1,1; al limite da 1; sotto criticita) e la checklist dei segnali dell'art. 3, comma 4, del Codice della crisi: a) retribuzioni scadute oltre 30 giorni sopra la meta del monte mensile; b) fornitori scaduti oltre 90 giorni sopra i non scaduti; c) esposizioni bancarie scadute o sconfinanti da oltre 60 giorni per almeno il 5% del totale; d) esposizioni rilevanti verso creditori pubblici qualificati. Un solo segnale presente porta il verdetto complessivo in area critica.</p>
-                <p class="rb-testo"><strong>MCC e scoring non sono la stessa scala</strong>: il primo replica il modello pubblico del Fondo (classi 1-12, PD empiriche della Tabella 57), il secondo la struttura dei modelli interni (classi 1-10, PD calibrate). Letti insieme: l'MCC dice come vi vede il Fondo di Garanzia, lo scoring come RAGIONANO le banche; se divergono molto, la spiegazione sta quasi sempre nell'andamentale o nel qualitativo.</p>
+            <div class="card"><h2>7. Il rating interno simulato</h2>
+                <p class="rb-testo"><strong>Che cosa fa.</strong> Ogni banca assegna ai clienti un rating con un proprio modello interno, riservato. Questi modelli per&ograve; si somigliano: pesano il bilancio, il comportamento con le banche e il giudizio qualitativo, con pesi che cambiano con la dimensione dell'impresa. La verifica ricostruisce questa struttura tipica, cos&igrave; vedi l'impresa con gli occhi di chi delibera: non il rating esatto di una banca precisa, ma il modo in cui le banche ragionano.</p>
+                <p class="rb-testo"><strong>Come funziona.</strong> Tre moduli, ognuno con un punteggio da 0 a 100. Il modulo <strong>quantitativo</strong> legge il bilancio gi&agrave; inserito: leva finanziaria, redditivit&agrave;, patrimonializzazione, capacit&agrave; di rimborso prospettica, peso degli interessi, liquidit&agrave;, crescita. Il modulo <strong>andamentale</strong> legge la Centrale dei Rischi e i rapporti censiti: utilizzo degli affidamenti, sconfini in essere e nell'anno, insoluti, concentrazione tra le banche, anzianit&agrave; e trend dei rapporti, eventuali escussioni. Il modulo <strong>qualitativo</strong> &egrave; la percentuale delle venti domande della verifica. I tre punteggi si combinano con pesi per dimensione: nelle imprese piccole il comportamento bancario pesa pi&ugrave; del bilancio, perch&eacute; &egrave; l'informazione pi&ugrave; affidabile che la banca possiede; al crescere della dimensione il bilancio guadagna peso.</p>
+                <p class="rb-testo"><strong>Come si legge.</strong> Il punteggio complessivo viene tradotto in una probabilit&agrave; di inadempimento a dodici mesi con una tabella di calibrazione coerente con i tassi osservati sul mercato, e la probabilit&agrave; in una <strong>classe interna da 1 a 10</strong> (1 eccellente, 10 a un passo dal default). La tabella per banca applica poi alla probabilit&agrave; il fattore di severit&agrave; del singolo istituto (impostato sul rapporto, in base all'esperienza dello studio con quella banca) e la colloca nelle bande regolamentari che le banche pubblicano nelle loro informative. Completa il quadro il presidio dei segnali di allerta del Codice della crisi (retribuzioni e fornitori scaduti oltre le soglie, esposizioni bancarie sconfinanti da oltre sessanta giorni, debiti rilevanti verso gli enti pubblici): un solo segnale acceso porta il verdetto in area critica. Attenzione a non confondere le scale: la classe del Fondo va da 1 a 12, quella interna da 1 a 10, e le probabilit&agrave; sottostanti sono diverse; i due strumenti si leggono insieme, non si sommano.</p>
             </div>
-            <div class="card"><h2>8. La solidita delle banche e la stima per istituto</h2>
-                <p class="rb-testo">Ogni istituto censito ha i rating pubblici delle agenzie (Moody's, S&P, Fitch, DBRS), convertiti in una scala comune a 21 gradini e mediati: da li la classe di solidita (A elevata da A- in su, B investment grade, C speculativa, D fragile; senza rating si stima con prudenza dal CET1). Sono dati indicativi, aggiornati a ${RB_BANCHE_AGG}.</p>
-                <p class="rb-testo">La <strong>stima del rating per istituto</strong> parte dal rating ipotizzato dell'impresa e lo adatta al singolo rapporto e al profilo della banca: <strong>+1</strong> per sconfini sul rapporto, <strong>+1</strong> per utilizzo oltre il 90% del fido; <strong>-1</strong> presso una banca del territorio con relazione oltre i 5 anni e rapporto regolare; <strong>+1</strong> presso i gruppi esteri se il patrimonio e sotto il 20% dell'attivo; <strong>-1</strong> in delibera con garanzia Confidi o Fondo MCC (dalla classe 5 in su: la garanzia agisce sulla perdita attesa, non sulla PD). Ogni correzione e elencata accanto alla stima.</p>
+            <div class="card"><h2>8. Le banche dell'impresa e la stima per istituto</h2>
+                <p class="rb-testo"><strong>Che cosa fa.</strong> Non tutte le banche sono uguali, n&eacute; per solidit&agrave; propria n&eacute; per come giudicano. Questa sezione fotografa gli istituti con cui l'impresa lavora e stima come ciascuno di loro vede l'impresa.</p>
+                <p class="rb-testo"><strong>Come funziona.</strong> Per ogni istituto la verifica riporta i giudizi pubblici delle agenzie di rating, convertiti in una scala comune e riassunti in una classe di solidit&agrave;; dove il rating manca si usa con prudenza il livello di capitale. La <strong>stima del rating presso il singolo istituto</strong> parte dal rating ipotizzato dell'impresa e lo corregge con quello che quella banca vede davvero: uno sconfinamento sul rapporto o un fido usato quasi per intero peggiorano la stima; una relazione lunga e regolare con una banca del territorio la migliora; un patrimonio sottile pesa di pi&ugrave; presso i grandi gruppi esteri; una garanzia pubblica o consortile in delibera migliora la decisione anche se non cambia la probabilit&agrave; di inadempimento. Ogni correzione applicata &egrave; scritta accanto alla stima. Sono dati indicativi, aggiornati a ${RB_BANCHE_AGG}, da verificare sulle fonti ufficiali per un uso verso terzi.</p>
             </div>
-            <div class="card"><h2>9. Soci, amministratori, gruppo</h2>
-                <p class="rb-testo">La compagine si verifica per la titolarita effettiva: fiduciarie e soggetti esteri portano il profilo in attenzione (la banca chiede l'UBO). Gli amministratori si censiscono con l'esito delle visure (protesti, pregiudizievoli di conservatoria, procedure): eventi dichiarati portano il profilo in critico e valgono +1 sulla classe. Il gruppo: sostegno documentato con consolidato -1, gruppo che assorbe risorse +1, garanzie infragruppo segnalate tra gli impegni.</p>
+            <div class="card"><h2>9. Soci, amministratori e gruppo</h2>
+                <p class="rb-testo"><strong>Che cosa fa.</strong> Prima di deliberare, ogni banca verifica chi c'&egrave; dietro l'impresa: chi sono i titolari effettivi, che storia hanno gli amministratori, se il gruppo di appartenenza aiuta o assorbe. La verifica replica questo passaggio.</p>
+                <p class="rb-testo"><strong>Come funziona.</strong> Fiduciarie e soci esteri portano il profilo in attenzione, perch&eacute; allungano l'istruttoria sulla titolarit&agrave; effettiva. Gli amministratori si censiscono con l'esito delle visure: protesti, pregiudizievoli o procedure dichiarate portano il profilo in critico e peggiorano il rating ipotizzato di un gradino. Il gruppo pu&ograve; muovere la classe in entrambe le direzioni: un sostegno documentato con un consolidato la migliora di un gradino, flussi che drenano risorse verso il gruppo la peggiorano; le garanzie tra societ&agrave; del gruppo vengono segnalate tra gli impegni.</p>
             </div>
-            <div class="card"><h2>10. Il check-up del merito creditizio (Manuale operativo Revilaw v1.0)</h2>
-                <p class="rb-testo">La scheda "Check-up" porta nella verifica il Manuale operativo dello studio, versione 1.0: il <strong>processo in undici fasi</strong> (dalla fase 0 di pre-qualifica al follow-up), la valutazione dei <strong>tredici moduli di analisi A1-A13</strong> con la scala di presidio (<strong>0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto</strong>, N/A con motivazione) e gli <strong>ancoraggi di punteggio</strong> del Manuale sotto ogni modulo; i <strong>rilievi classificati</strong> (C1 critica: comunicazione scritta all'organo amministrativo entro 5 giorni lavorativi e riesame centrale; C2 significativa: 3-6 mesi; C3 miglioramento: 6-12 mesi; PF punto di forza) con la struttura fatto, evidenza, rischio, raccomandazione; la <strong>roadmap</strong> per orizzonti (0-30 giorni, 31-90 giorni, 3-6 mesi, 6-12 mesi) con responsabile, termine, stato ed evidenza di chiusura; la <strong>check-list documentale master M-04</strong> (quattordici sezioni, 125 documenti di cui 31 essenziali) con lo stato di raccolta. La matrice di proporzionalita indica per ogni modulo il livello minimo di approfondimento per fascia dimensionale.</p>
-                <p class="rb-testo">Il punteggio complessivo e la <strong>media ponderata con i pesi per fascia dimensionale</strong> del par. 48.2 (Micro, Piccola, Media, Grande, dai ricavi): nelle imprese piu piccole pesano di piu capacita di rimborso, analisi economica e banche; al crescere della dimensione salgono tesoreria, assetti, compliance ed ESG. I moduli N/A si escludono e i pesi si ridistribuiscono. La media si traduce nella <strong>classe di sintesi da A a E</strong> (A presidi evoluti da 3,50; B adeguati da 2,80; C parziali da 2,00; D deboli da 1,20; E critici), una denominazione volutamente non assimilabile a un rating. Valgono gli <strong>override obbligatori</strong> del cap. 49, mai verso l'alto: DSCR prospettico sotto 1 o patrimonio netto negativo limitano alla classe D; creditori pubblici qualificati oltre soglia, sconfinamenti persistenti oltre 60 giorni, un modulo del nucleo inderogabile (A3-A8) a zero o le altre circostanze dichiarate limitano alla classe C; una criticita C1 aperta esclude le classi A e B. Un modulo del nucleo non valutabile rende il <strong>giudizio sospeso</strong> (par. 49.2): la classe non si determina. La <strong>regola di prudenza</strong> del par. 48.4 segnala i moduli con punteggio sopra 2 e documenti essenziali mancanti.</p>
-                <p class="rb-testo">Nella scheda il check-up e un <strong>percorso guidato</strong>: ogni fase spiega cosa fare e offre i suoi strumenti (raccolta documenti per sezioni, tracce di intervista, rilievi e roadmap), e <strong>verbali e lettere si generano dai dati inseriti</strong> (verbale di avvio, richiesta dei documenti mancanti, comunicazione delle criticita, verbale di consegna). I punteggi dei moduli arrivano <strong>suggeriti</strong> dalle risposte del questionario collegate a ciascun modulo (media delle risposte: da 85% vale 4, da 65% vale 3, da 45% vale 2, da 25% vale 1) corretta in senso prudente dai segnali dei calcoli (fascia MCC del bilancio per A3, DSCR per A5, sconfini e sofferenze in CR per A6, segnali CCII per A8, debiti fiscali scaduti per A10, profilo del gruppo per A2): il professionista li conferma o li corregge dopo interviste e verifiche, e ogni suggerimento dichiara le sue basi.</p>
-                <p class="rb-testo">Lo scoring del check-up e <strong>diagnostico</strong>: misura la qualita dei presidi alla data di riferimento per uniformare il lavoro e guidare la roadmap. Non e una probabilita di inadempimento, non corrisponde a rating bancari o fasce di garanzia e non sostituisce il rating MCC, lo scoring simulato o i giudizi delle banche: gli strumenti si leggono insieme, e le criticita decisive accompagnano sempre la classe.</p>
+            <div class="card"><h2>10. Il check-up del merito creditizio</h2>
+                <p class="rb-testo"><strong>Che cosa fa.</strong> I numeri dicono dove sta l'impresa oggi; il check-up dice <strong>quanto sono solidi i presidi</strong> con cui l'impresa governa se stessa: pianificazione, controllo, tesoreria, assetti, compliance, rapporti con le banche. &Egrave; il metodo di lavoro dello studio, portato dentro il programma: un percorso in undici fasi, dalla valutazione iniziale dell'impresa fino al monitoraggio delle azioni, con gli strumenti di ogni fase e i documenti che si generano da soli (verbale di avvio, richiesta dei documenti mancanti, comunicazione delle criticit&agrave;, verbale di consegna).</p>
+                <p class="rb-testo"><strong>Come si valuta.</strong> L'analisi copre tredici moduli, dal profilo dell'impresa alla comunicazione finanziaria. Ogni modulo riceve un punteggio da 0 (presidio assente) a 4 (presidio evoluto e integrato nelle decisioni), con esempi concreti per ogni livello sotto ogni voce; sei moduli formano il nucleo che non si pu&ograve; saltare: analisi economica, capitale circolante, capacit&agrave; di rimborso, banche, tesoreria, assetti. Il programma propone per ogni modulo un <strong>punteggio suggerito</strong>, costruito dalle risposte delle venti domande collegate e corretto in senso prudente dai numeri della verifica (la fascia del bilancio, la capacit&agrave; di rimborso, gli sconfini in Centrale dei Rischi, i segnali di allerta, i debiti fiscali scaduti, il profilo del gruppo), dichiarando sempre da dove nasce: il professionista lo conferma o lo corregge dopo interviste e verifiche.</p>
+                <p class="rb-testo"><strong>Come si legge la classe.</strong> La media dei punteggi, pesata secondo la dimensione dell'impresa (nelle piccole contano di pi&ugrave; rimborso, bilancio e banche; nelle grandi salgono tesoreria, assetti e compliance), diventa una <strong>classe da A a E</strong>: A presidi evoluti, B adeguati, C parziali, D deboli, E critici. La classe non pu&ograve; mai migliorare per effetto di correzioni, solo peggiorare quando i fatti lo impongono: cassa insufficiente per le rate o patrimonio negativo la limitano alla D; debiti rilevanti verso gli enti pubblici, sconfini da oltre sessanta giorni o un modulo del nucleo a zero la limitano alla C; una criticit&agrave; grave aperta esclude A e B finch&eacute; non &egrave; trattata. Se un modulo del nucleo non &egrave; valutabile, la classe resta sospesa. Un punteggio alto senza i documenti essenziali che lo provano viene segnalato: per prudenza non dovrebbe superare 2. La classe descrive la qualit&agrave; dei presidi, non la solvibilit&agrave;: non &egrave; un rating e non va confusa con le classi delle sezioni precedenti.</p>
             </div>
             <div class="card"><h2>11. Verdetto, percorso di miglioramento e report</h2>
-                <p class="rb-testo">Il verdetto complessivo e "area critica" con patrimonio netto negativo, tutti gli indici CNDCEC accesi, DSCR sotto 1, fascia 5, sofferenze o segnali CCII presenti; "zona di attenzione" con fascia 4, Z-Score in rischio o due indicatori del cruscotto critici; "equilibrio migliorabile" con fascia 3, Z in incertezza o un indicatore critico; altrimenti "profilo solido".</p>
-                <p class="rb-testo">Il <strong>percorso di miglioramento Revilaw</strong> e il punto d'arrivo della verifica: le azioni nate dalle debolezze rilevate sono raggruppate per servizio dello studio (adeguati assetti, early warning, Modello 231, rating di legalita, ESG, TCF, rating advisory, protezione del patrimonio, crisi), con gli interventi di gestione e finanza in coda. In testa c'e la <strong>simulazione della classe potenziale</strong>: le domande del questionario la cui risposta migliore e un deliverable dei servizi Revilaw (assetti formalizzati, controllo di gestione, pianificazione, organo di controllo, successione pianificata, tesoreria e lettura mensile della CR, Modello 231, rating di legalita, percorso ESG, TCF, comunicazione proattiva, attivazione delle garanzie) vengono portate al traguardo e correttivo e scoring vengono ricalcolati, <strong>a parita di bilancio e di andamentale</strong>. Restano fuori dalla simulazione, per correttezza: lo storico (sconfini, puntualita, anzianita), i fattori strutturali o di mercato (numero di banche, concentrazione dei clienti, andamento del settore) e le certificazioni ISO, che sono una scelta dell'impresa e non un deliverable dello studio; su queste leve si lavora nel tempo con le azioni. I traguardi sono prudenti: le garanzie si simulano fino ad "attivabili in misura limitata" (Confidi e Fondo), la continuita fino alla successione pianificata, e chi e gia dotato volontariamente di un organo di controllo non riceve la leva. La classe potenziale e una stima professionale dichiarata, non una promessa di esito.</p>
-                <p class="rb-testo">Il report finale raccoglie tutto, con la firma grafica del responsabile, e si stampa in PDF. <strong>Limiti.</strong> Il rating effettivo di ciascuna banca resta un modello proprietario: questa verifica replica il modello pubblico del Fondo e lo integra con stime professionali dichiarate. I dati sugli istituti vanno verificati sulle fonti ufficiali prima di un uso verso terzi.</p>
+                <p class="rb-testo"><strong>Il verdetto.</strong> &Egrave; la sintesi di tutto: "area critica" quando c'&egrave; almeno un fatto grave (patrimonio negativo, cassa insufficiente per le rate, fascia peggiore, sofferenze, segnali di allerta accesi); "zona di attenzione" e "equilibrio migliorabile" per le situazioni intermedie; "profilo solido" quando tutti gli strumenti concordano.</p>
+                <p class="rb-testo"><strong>Il percorso di miglioramento.</strong> &Egrave; il punto d'arrivo della verifica: le azioni nate dalle debolezze rilevate, raggruppate per servizio dello studio che le copre, con gli interventi di gestione e finanza in coda. In testa c'&egrave; la <strong>simulazione della classe potenziale</strong>: il programma porta al traguardo le sole risposte che un percorso con lo studio pu&ograve; realisticamente cambiare (assetti formalizzati, controllo di gestione, pianificazione, organo di controllo, successione pianificata, tesoreria e lettura mensile della Centrale dei Rischi, modello organizzativo, rating di legalit&agrave;, percorso di sostenibilit&agrave;, rapporto collaborativo con il fisco, comunicazione verso le banche, attivazione delle garanzie pubbliche e consortili) e ricalcola correttivo e rating interno a parit&agrave; di bilancio e di comportamento bancario. Restano fuori, per correttezza, lo storico (sconfini e puntualit&agrave; passati, anzianit&agrave;), i fattori di struttura o di mercato e le certificazioni, che sono una scelta dell'impresa: su queste leve si lavora nel tempo con le azioni. I traguardi sono prudenti e la classe potenziale &egrave; una stima professionale dichiarata, non una promessa di esito.</p>
+                <p class="rb-testo"><strong>Il report.</strong> Raccoglie tutto in un documento firmato con la firma grafica del responsabile, stampabile in PDF, con la nota metodologica e i limiti in chiaro. Il rating effettivo di ciascuna banca resta un modello riservato: questa verifica replica il modello pubblico del Fondo e lo integra con stime professionali dichiarate, utili per prepararsi, negoziare e migliorare.</p>
             </div>`;
     }
 
@@ -7822,7 +7823,7 @@
             <header>
                 <div>
                     <h1>Metodo di calcolo</h1>
-                    <p class="descrizione">Ogni calcolo della verifica del merito creditizio, spiegato: formule, soglie e fonti.</p>
+                    <p class="descrizione">Ogni parte della verifica spiegata in parole semplici: che cosa fa, come si legge il risultato e, per chi vuole, il dettaglio tecnico.</p>
                 </div>
                 <div class="header-azioni">
                     <button class="btn btn-ghost" id="rb-met-indietro">&larr; Torna al rating</button>
@@ -8456,7 +8457,7 @@
         return `
             <div class="kpi-griglia rb-kpis">
                 <div class="kpi ${badgeSintesi === 'grigio' ? '' : badgeSintesi}"><div class="etichetta">Classe di sintesi</div>
-                    <div class="valore">${c.sospeso ? '&mdash;' : (c.sintesi ? c.sintesi.classe : '-')}</div>
+                    <div class="valore">${c.sospeso ? '-' : (c.sintesi ? c.sintesi.classe : '-')}</div>
                     <div class="nota">${c.sospeso ? 'non determinabile: moduli indispensabili senza punteggio' : (c.sintesi ? esc(c.sintesi.nome) + ' &middot; media ponderata ' + rbFmt2.format(c.media) + ' / 4' : 'da valutare')} &middot; impresa ${esc(c.fascia.nome.toLowerCase())}${c.fascia.stimata ? ' (senza ricavi)' : ''}</div></div>
                 <div class="kpi"><div class="etichetta">Fasi del processo</div><div class="valore">${c.fasiFatte} / ${c.fasiTot - c.fasiNa}</div><div class="nota">completate (fasi 0-10)</div></div>
                 <div class="kpi ${c.c1 ? 'rosso' : (c.c2 ? 'ambra' : 'verde')}"><div class="etichetta">Rilievi aperti</div>
@@ -8505,15 +8506,15 @@
        punteggi suggeriti dei moduli, tabella del report.
     ------------------------------------------------------------ */
     const RB_CHECKUP_GUIDA = {
-        f0: 'Prima di accettare il lavoro, verifica che l’impresa sia seguibile: attività in corso, contabilità utilizzabile, nessuna procedura concorsuale aperta, un interlocutore che collabora. Il quadro qui sotto riepiloga che cosa risulta già inserito nel programma.',
-        f1: 'Raccogli le informazioni di base e gli obiettivi: perché l’impresa chiede il check-up (nuova finanza, rinnovo degli affidamenti, condizioni, una tensione in corso), con quali banche lavora, quali scadenze ha davanti. Registra qui sotto le prime risposte sul profilo dell’impresa: verranno riprese nei calcoli e nei punteggi.',
-        f2: 'Formalizza l’incarico prima di iniziare: oggetto (check-up del merito creditizio), perimetro, tempi, compenso e riservatezza. Se l’incarico è censito nella sezione Incarichi dell’area, collegalo dalla scheda “Impresa e bilancio”: cliente e regione si compilano da soli.',
-        f3: 'Riunisci il titolare e le figure chiave: presenta il percorso, concorda il calendario e chi consegna i documenti. Compila data, luogo e partecipanti e genera il verbale: resta agli atti e mette tutti d’accordo su che cosa succede.',
-        f4: 'Consegna all’impresa la lista dei documenti e tieni qui lo stato della raccolta, sezione per sezione. La lettera di richiesta si genera da sola con i soli documenti che mancano. I documenti con il pallino sono essenziali: senza, il punteggio del modulo collegato non dovrebbe superare 2.',
+        f0: 'Prima di accettare il lavoro, verifica che l\'impresa sia seguibile: attività in corso, contabilità utilizzabile, nessuna procedura concorsuale aperta, un interlocutore che collabora. Il quadro qui sotto riepiloga che cosa risulta già inserito nel programma.',
+        f1: 'Raccogli le informazioni di base e gli obiettivi: perché l\'impresa chiede il check-up (nuova finanza, rinnovo degli affidamenti, condizioni, una tensione in corso), con quali banche lavora, quali scadenze ha davanti. Registra qui sotto le prime risposte sul profilo dell\'impresa: verranno riprese nei calcoli e nei punteggi.',
+        f2: 'Formalizza l\'incarico prima di iniziare: oggetto (check-up del merito creditizio), perimetro, tempi, compenso e riservatezza. Se l\'incarico è censito nella sezione Incarichi dell\'area, collegalo dalla scheda “Impresa e bilancio”: cliente e regione si compilano da soli.',
+        f3: 'Riunisci il titolare e le figure chiave: presenta il percorso, concorda il calendario e chi consegna i documenti. Compila data, luogo e partecipanti e genera il verbale: resta agli atti e mette tutti d\'accordo su che cosa succede.',
+        f4: 'Consegna all\'impresa la lista dei documenti e tieni qui lo stato della raccolta, sezione per sezione. La lettera di richiesta si genera da sola con i soli documenti che mancano. I documenti con il pallino sono essenziali: senza, il punteggio del modulo collegato non dovrebbe superare 2.',
         f5: 'Le carte non bastano: intervista le persone. Per ogni colloquio trovi la traccia delle domande da fare e, subito sotto, le risposte da registrare: entrano nei calcoli e nei punteggi suggeriti. Quello che emerge in più va nelle conclusioni dei moduli come evidenza.',
-        f6: 'Prima di valutare, verifica che i numeri e i presidi reggano: riconciliazioni banche-contabilità, Centrale dei Rischi contro il partitario, scaduto reale di clienti e fornitori, giacenze effettive, certificazioni e modelli davvero attivi. Registra qui l’esito delle verifiche sui presidi: anche queste risposte alimentano calcoli e punteggi.',
+        f6: 'Prima di valutare, verifica che i numeri e i presidi reggano: riconciliazioni banche-contabilità, Centrale dei Rischi contro il partitario, scaduto reale di clienti e fornitori, giacenze effettive, certificazioni e modelli davvero attivi. Registra qui l\'esito delle verifiche sui presidi: anche queste risposte alimentano calcoli e punteggi.',
         f7: 'Assegna a ogni modulo un punteggio da 0 (critico) a 4 (evoluto). Parti dal punteggio suggerito dai dati e dalle risposte registrate nelle fasi, poi confermalo o correggilo alla luce di interviste e verifiche, e scrivi la conclusione del modulo con le evidenze: è quella che finisce nel rapporto.',
-        f8: 'Trasforma quello che hai trovato in rilievi (fatto, evidenza, rischio, raccomandazione) e in una roadmap con responsabili e scadenze: poche azioni, concrete, per orizzonte. Una criticità grave va comunicata subito per iscritto all’organo amministrativo: la lettera si genera da sola dai rilievi.',
+        f8: 'Trasforma quello che hai trovato in rilievi (fatto, evidenza, rischio, raccomandazione) e in una roadmap con responsabili e scadenze: poche azioni, concrete, per orizzonte. Una criticità grave va comunicata subito per iscritto all\'organo amministrativo: la lettera si genera da sola dai rilievi.',
         f9: 'Componi e riesamina il rapporto, poi consegnalo di persona: prima i punti di forza, poi le criticità con le azioni proposte. Il report completo da firmare si apre dagli esiti; il verbale di consegna chiude formalmente il lavoro.',
         f10: 'Il check-up vale se le azioni si fanno: aggiorna lo stato della roadmap man mano, fissa la data della prossima revisione e riproponi la verifica quando cambiano i numeri o succede qualcosa di rilevante.'
     };
@@ -8522,7 +8523,7 @@
     const RB_CHECKUP_INTERVISTE = [
         { id: 'titolare', nome: 'Titolare e governance', risposte: ['continuita'], domande: [
             'Come vengono prese le decisioni importanti e chi può impegnare la società verso banche e fornitori?',
-            'Che cosa succederebbe all’impresa se lei mancasse per sei mesi? Chi la sostituirebbe e con quali deleghe?',
+            'Che cosa succederebbe all\'impresa se lei mancasse per sei mesi? Chi la sostituirebbe e con quali deleghe?',
             'Quali sono i tre rischi che la preoccupano di più e come li sta gestendo?',
             'Come sceglie le banche con cui lavorare e ogni quanto le incontra?',
             'Ci sono garanzie personali, fideiussioni od operazioni con parti correlate di cui tenere conto?'
@@ -8538,7 +8539,7 @@
             'Come prevedete la cassa: su quale orizzonte, con quale strumento e ogni quanto la aggiornate?',
             'Quali affidamenti avete per banca, quanto sono utilizzati e con quali garanzie?',
             'Ci sono stati sconfini o insoluti negli ultimi dodici mesi? Come sono stati gestiti?',
-            'Chi legge la Centrale dei Rischi e che cosa è emerso dall’ultima lettura?',
+            'Chi legge la Centrale dei Rischi e che cosa è emerso dall\'ultima lettura?',
             'Quali investimenti od operazioni straordinarie sono in vista e come pensate di finanziarli?'
         ] },
     ];
@@ -8573,7 +8574,7 @@
         a13: ['proattiva', 'crlettura']
     };
     /* il punteggio suggerito per ogni modulo: dalla media delle risposte
-       collegate (dall’85% vale 4, dal 65% vale 3, dal 45% vale 2, dal 25%
+       collegate (dall\'85% vale 4, dal 65% vale 3, dal 45% vale 2, dal 25%
        vale 1, sotto vale 0) corretta dai segnali dei calcoli, sempre in
        senso prudente. Ogni suggerimento elenca le sue basi. */
     function rbCheckupSuggerimenti(v, es) {
@@ -8626,7 +8627,7 @@
                     else if (mesi >= 3) limita(1, mesi + ' mesi con sconfini in Centrale dei Rischi');
                     else if (mesi > 0) limita(2, mesi + (mesi === 1 ? ' mese' : ' mesi') + ' con sconfini in Centrale dei Rischi');
                 }
-                if (a.id === 'a8' && es.scoring.presidio.segnaliPresenti) limita(1, 'segnali di allerta dell’art. 3 CCII presenti');
+                if (a.id === 'a8' && es.scoring.presidio.segnaliPresenti) limita(1, 'segnali di allerta dell\'art. 3 CCII presenti');
                 if (a.id === 'a10') {
                     if ((rbNum((v.dettagli || {}).tribScaduto) || 0) > 0) limita(1, 'debiti fiscali o contributivi scaduti dichiarati');
                 }
@@ -8640,8 +8641,21 @@
        lettera di richiesta */
     const RB_DOC_AREA = {
         d12: { dove: 'scheda "Impresa e bilancio"', come: 'anche come file XBRL del Registro Imprese (il programma lo legge da solo)' },
-        d27: { dove: 'scheda "Centrale Rischi"', come: 'anche come PDF della Banca d’Italia (il programma lo legge da solo)' }
+        d27: { dove: 'scheda "Centrale Rischi"', come: 'anche come PDF della Banca d\'Italia (il programma lo legge da solo)' }
     };
+    /* che cosa muove ogni risposta: lo si dichiara sotto la domanda, cosi' chi
+       compila sa sempre dove finisce quello che sta registrando */
+    function rbImpattoDomanda(qid) {
+        const d = rbDomande().find(x => x.id === qid);
+        if (!d) return '';
+        const max = Math.max(...d.op.map(o => o.p));
+        const moduli = Object.keys(RB_CHECKUP_FONTI).filter(a => (RB_CHECKUP_FONTI[a] || []).indexOf(qid) >= 0).map(a => a.toUpperCase());
+        const leva = RB_LEVE_REVILAW.find(l => l.id === qid);
+        const pezzi = ['vale fino a ' + max + ' punti sul profilo qualitativo, che corregge la classe e alimenta il rating interno'];
+        if (moduli.length) pezzi.push('guida il punteggio suggerito ' + (moduli.length === 1 ? 'del modulo ' : 'dei moduli ') + moduli.join(' e '));
+        if (leva) pezzi.push('con il servizio "' + RB_SERVIZI[leva.serv].nome + '" diventa una leva del percorso di miglioramento');
+        return 'Come impatta: ' + pezzi.join('; ') + '.';
+    }
     // una domanda con le risposte a scelta: si registra nelle fasi e si riusa ovunque
     function rbDomandaHtml(v, qid) {
         const d = rbDomande().find(x => x.id === qid);
@@ -8650,6 +8664,7 @@
         return `<div class="rb-domanda">
             <div class="rb-domanda-testo">${esc(d.testo)}</div>
             <div class="rb-opzioni">${d.op.map((o, i) => `<label class="rb-opzione"><input type="radio" name="q-${d.id}" data-q="${d.id}" value="${i}" ${val === i ? 'checked' : ''}><span>${esc(o.t)}</span><em>${o.p} pt</em></label>`).join('')}</div>
+            <div class="rb-rif" style="margin-top:4px;">${esc(rbImpattoDomanda(qid))}</div>
         </div>`;
     }
     /* --- il contenuto di una fase, mostrato nella sua finestra --- */
@@ -8681,7 +8696,7 @@
             </div>
             <p class="hint">Se uno di questi punti resta scoperto, decidi consapevolmente se accettare comunque il lavoro e segnalo nella nota della fase.</p>`;
         } else if (fid === 'f1') {
-            corpo = blocDomande('Profilo dell’impresa: registra le risposte', RB_FASE_DOMANDE.f1)
+            corpo = blocDomande('Profilo dell\'impresa: registra le risposte', RB_FASE_DOMANDE.f1)
                 + '<p class="hint" style="margin-top:8px;">Queste risposte entrano nel correttivo qualitativo, nel rating interno simulato e nei punteggi suggeriti dei moduli: si registrano una volta sola.</p>';
         } else if (fid === 'f2') {
             corpo = '';
@@ -8702,16 +8717,16 @@
                     <td><select data-cu-doc="${d.id}">${[['', '-'], ['R', 'Ricevuto'], ['I', 'Da integrare'], ['ND', 'Non disponibile'], ['NA', 'Non applicabile']].map(o => `<option value="${o[0]}" ${((cu.documenti || {})[d.id] || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></td></tr>`;
             corpo = `
             <div class="griglia-3">
-                ${campoVb('documenti', 'referente', 'Referente dell’impresa per la raccolta')}
+                ${campoVb('documenti', 'referente', 'Referente dell\'impresa per la raccolta')}
                 ${campoVb('documenti', 'termine', 'Termine di consegna richiesto', 'date')}
                 <div class="campo"><label>&nbsp;</label><button class="btn btn-secondary" data-verbale="documenti">Genera la lettera di richiesta documenti</button></div>
             </div>
-            <p class="hint" style="margin:4px 0 10px;">Ricevuti ${c.docRicevuti} documenti su ${c.docApplicabili} applicabili; essenziali ${c.essRicevuti} su ${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile. La lettera include solo ciò che manca. In testa ci sono i documenti da cui partono i calcoli: si caricano direttamente nell’area.</p>
+            <p class="hint" style="margin:4px 0 10px;">Ricevuti ${c.docRicevuti} documenti su ${c.docApplicabili} applicabili; essenziali ${c.essRicevuti} su ${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile. La lettera include solo ciò che manca. In testa ci sono i documenti da cui partono i calcoli: si caricano direttamente nell\'area.</p>
             <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Documento</th><th>Moduli</th><th>Stato</th></tr></thead><tbody>
-                <tr class="rb-riga-sezione"><td colspan="3"><strong>Da caricare nell’area: la base dei calcoli</strong></td></tr>
+                <tr class="rb-riga-sezione"><td colspan="3"><strong>Da caricare nell\'area: la base dei calcoli</strong></td></tr>
                 ${idsArea.map(id => { const d = RB_CHECKUP_DOCUMENTI.find(x => x.id === id); const a = RB_DOC_AREA[id];
                     return rigaDoc(d, '<div class="rb-rif">Si carica nella ' + esc(a.dove) + ', ' + esc(a.come) + '.</div>'
-                        + (areaCaricato[id] ? ' <span class="badge verde">caricato nell’area</span>' : ' <span class="badge grigio">non ancora caricato nell’area</span>')); }).join('')}
+                        + (areaCaricato[id] ? ' <span class="badge verde">caricato nell\'area</span>' : ' <span class="badge grigio">non ancora caricato nell\'area</span>')); }).join('')}
                 ${sezioniDoc.map(sz => `<tr class="rb-riga-sezione"><td colspan="3"><strong>${esc(sz)}</strong></td></tr>`
                     + RB_CHECKUP_DOCUMENTI.filter(d => d.sez === sz && idsArea.indexOf(d.id) < 0).map(d => rigaDoc(d)).join('')).join('')}
             </tbody></table></div>`;
@@ -8731,8 +8746,8 @@
                 ${spunta((v.banche || []).length > 0, (v.banche || []).length ? (v.banche || []).length + ' rapporti bancari censiti' : 'rapporti bancari da censire')}
                 ${spunta(es.pronta && !es.scoring.presidio.segnaliPresenti, !es.pronta ? 'segnali di allerta: dati incompleti' : (es.scoring.presidio.segnaliPresenti ? 'segnali di allerta PRESENTI' : 'nessun segnale di allerta'))}
             </div>
-            <p class="hint">Verifiche da fare a mano: riconciliazione dei saldi banca con la contabilità, confronto della Centrale dei Rischi con il partitario, scaduto reale di clienti e fornitori, conta o conferma delle giacenze, controllo di autorizzazioni e polizze. L’esito va nella nota della fase e nelle evidenze dei moduli.</p>
-            ${blocDomande('Presidi verificati: registra l’esito', RB_FASE_DOMANDE.f6)}
+            <p class="hint">Verifiche da fare a mano: riconciliazione dei saldi banca con la contabilità, confronto della Centrale dei Rischi con il partitario, scaduto reale di clienti e fornitori, conta o conferma delle giacenze, controllo di autorizzazioni e polizze. L\'esito va nella nota della fase e nelle evidenze dei moduli.</p>
+            ${blocDomande('Presidi verificati: registra l\'esito', RB_FASE_DOMANDE.f6)}
             <p class="hint" style="margin-top:8px;">Rispondi dopo aver visto i documenti: un modello adottato solo sulla carta non vale come uno attivo.</p>`;
         } else if (fid === 'f7') {
             const moduli = RB_CHECKUP_AREE.map(a => {
@@ -8775,7 +8790,7 @@
         } else if (fid === 'f8') {
             corpo = `
             <div class="rb-sottotitolo">Rilievi e punti di forza</div>
-            <p class="hint" style="margin:0 0 10px;">Ogni rilievo ha quattro pezzi: il fatto, l’evidenza che lo prova, il rischio che comporta, la raccomandazione. Classi: C1 critica (comunicazione scritta immediata e azione urgente), C2 significativa (azione entro 3-6 mesi), C3 miglioramento (entro 6-12 mesi), PF punto di forza da valorizzare.</p>
+            <p class="hint" style="margin:0 0 10px;">Ogni rilievo ha quattro pezzi: il fatto, l\'evidenza che lo prova, il rischio che comporta, la raccomandazione. Classi: C1 critica (comunicazione scritta immediata e azione urgente), C2 significativa (azione entro 3-6 mesi), C3 miglioramento (entro 6-12 mesi), PF punto di forza da valorizzare.</p>
             ${(cu.rilievi || []).map((r, i) => `<div class="riepilogo-blocco">
                 <h4>Rilievo ${i + 1} &middot; ${esc((RB_CHECKUP_CLASSI[r.classe] || {}).nome || '')}</h4>
                 <div class="griglia-3">
@@ -8791,13 +8806,13 @@
             </div>`).join('')}
             <button class="btn btn-secondary" id="rb-ril-add">+ Aggiungi un rilievo</button>
             ${c1aperti.length ? `<div class="cu-sugg" style="margin-top:10px;"><span class="badge rosso">${c1aperti.length} ${c1aperti.length === 1 ? 'criticità grave aperta' : 'criticità gravi aperte'}</span>
-                <span class="rb-rif">va comunicata per iscritto all’organo amministrativo entro pochi giorni</span></div>
+                <span class="rb-rif">va comunicata per iscritto all\'organo amministrativo entro pochi giorni</span></div>
             <div class="griglia-3" style="margin-top:6px;">
                 ${campoVb('c1', 'destinatario', 'Destinatario (organo amministrativo)')}
                 <div class="campo"><label>&nbsp;</label><button class="btn btn-secondary" data-verbale="c1">Genera la comunicazione delle criticità</button></div>
             </div>` : ''}
             <div class="rb-sottotitolo" style="margin-top:16px;">Roadmap degli interventi</div>
-            <p class="hint" style="margin:0 0 10px;">Poche azioni concrete, per orizzonte: 0-30 giorni le urgenze di cassa e segnalazioni, 31-90 giorni tesoreria e reporting, 3-6 mesi fonti e compliance, 6-12 mesi patrimonio e percorsi lunghi. Ogni azione ha un responsabile, un termine e un’evidenza di chiusura.</p>
+            <p class="hint" style="margin:0 0 10px;">Poche azioni concrete, per orizzonte: 0-30 giorni le urgenze di cassa e segnalazioni, 31-90 giorni tesoreria e reporting, 3-6 mesi fonti e compliance, 6-12 mesi patrimonio e percorsi lunghi. Ogni azione ha un responsabile, un termine e un\'evidenza di chiusura.</p>
             <div style="margin:0 0 10px;"><button class="btn btn-secondary" id="cu-rm-importa">Porta nella roadmap le azioni proposte dal calcolo</button></div>
             ${(cu.roadmap || []).map((r, i) => `<div class="riepilogo-blocco">
                 <h4>Azione ${i + 1} &middot; ${RB_CHECKUP_ORIZZONTI[r.orizzonte || 'o2']}</h4>
@@ -8810,9 +8825,9 @@
                     <div class="campo"><label>Stato</label><select data-rm-idx="${i}" data-rm-campo="stato">${Object.keys(RB_CHECKUP_STATI_AZIONE).map(k => `<option value="${k}" ${(r.stato || 'nonavviata') === k ? 'selected' : ''}>${RB_CHECKUP_STATI_AZIONE[k]}</option>`).join('')}</select></div>
                     <div class="campo"><label>Evidenza di chiusura / KPI</label><input type="text" data-rm-idx="${i}" data-rm-campo="evidenza" value="${esc(r.evidenza || '')}"></div>
                 </div>
-                <button class="btn btn-ghost btn-sm" data-rm-rm="${i}">Rimuovi l’azione</button>
+                <button class="btn btn-ghost btn-sm" data-rm-rm="${i}">Rimuovi l\'azione</button>
             </div>`).join('')}
-            <button class="btn btn-secondary" id="rb-rm-add">+ Aggiungi un’azione</button>`;
+            <button class="btn btn-secondary" id="rb-rm-add">+ Aggiungi un\'azione</button>`;
         } else if (fid === 'f9') {
             corpo = `
             <div class="griglia-3">
@@ -9035,15 +9050,15 @@
             const d = vb.avvio || {};
             const doc = vb.documenti || {};
             const notaFase = ((cu.fasi || {}).f3 || {}).nota;
-            return oggetto('check-up del merito creditizio di ' + cliente + ' &mdash; verbale della riunione di avvio.')
-                + t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si è tenuta la riunione di avvio del check-up del merito creditizio di <strong>' + cliente + '</strong>, in esecuzione dell’incarico conferito.')
-                + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell’impresa e ' + esc(resp) + ' per Revilaw.'))
+            return oggetto('check-up del merito creditizio di ' + cliente + ', verbale della riunione di avvio.')
+                + t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si è tenuta la riunione di avvio del check-up del merito creditizio di <strong>' + cliente + '</strong>, in esecuzione dell\'incarico conferito.')
+                + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell\'impresa e ' + esc(resp) + ' per Revilaw.'))
                 + '<div class="rb-sottotitolo">Argomenti trattati e decisioni assunte</div><ol class="rb-punti-num">'
                 + '<li><strong>Percorso di lavoro.</strong> È stato illustrato il percorso: raccolta dei documenti, colloqui con le figure chiave, verifiche sui dati, valutazione dei tredici moduli di analisi, rilievi e roadmap degli interventi, rapporto finale con consegna e illustrazione di persona.</li>'
                 + '<li><strong>Perimetro.</strong> ' + cliente + (RB_SETTORI[v.settore] ? ', settore ' + esc(RB_SETTORI[v.settore].label.toLowerCase()) : '') + (v.esercizio ? ', esercizio di riferimento ' + esc(v.esercizio) : '') + '.</li>'
-                + '<li><strong>Documenti.</strong> L’elenco dei documenti viene consegnato all’impresa' + (doc.referente ? '; referente per la raccolta: ' + esc(doc.referente) : '') + (doc.termine ? '; termine concordato: ' + rbVerbaleData(doc.termine) : '') + '. I documenti possono essere trasmessi anche in più riprese.</li>'
-                + '<li><strong>Colloqui.</strong> Verranno calendarizzati i colloqui con il titolare, con l’amministrazione e con chi segue finanza e banche.</li>'
-                + '<li><strong>Riservatezza.</strong> Dati e documenti sono trattati ai soli fini dell’incarico e non vengono comunicati a terzi.</li></ol>'
+                + '<li><strong>Documenti.</strong> L\'elenco dei documenti viene consegnato all\'impresa' + (doc.referente ? '; referente per la raccolta: ' + esc(doc.referente) : '') + (doc.termine ? '; termine concordato: ' + rbVerbaleData(doc.termine) : '') + '. I documenti possono essere trasmessi anche in più riprese.</li>'
+                + '<li><strong>Colloqui.</strong> Verranno calendarizzati i colloqui con il titolare, con l\'amministrazione e con chi segue finanza e banche.</li>'
+                + '<li><strong>Riservatezza.</strong> Dati e documenti sono trattati ai soli fini dell\'incarico e non vengono comunicati a terzi.</li></ol>'
                 + (notaFase ? t('<strong>Ulteriori annotazioni:</strong> ' + esc(notaFase)) : '')
                 + t('Il presente verbale viene letto, confermato e sottoscritto dalle parti.');
         }
@@ -9058,13 +9073,13 @@
             altri.forEach(d2 => { if (sezioni.indexOf(d2.sez) < 0) sezioni.push(d2.sez); });
             const riga = d2 => '<li>' + (d2.ess ? '&#9679; ' : '') + esc(d2.nome) + (stati[d2.id] === 'I' ? ' <em>(ricevuto parzialmente: da integrare)</em>' : '') + '</li>';
             return t('Spett.le <strong>' + cliente + '</strong>' + (doc.referente ? '<br>alla cortese attenzione di ' + esc(doc.referente) : ''))
-                + oggetto('check-up del merito creditizio &mdash; richiesta dei documenti.')
-                + t('Con riferimento all’incarico in oggetto, vi chiediamo di trasmetterci i documenti elencati di seguito' + (doc.termine ? ', possibilmente entro il <strong>' + rbVerbaleData(doc.termine) + '</strong>' : '') + '. I documenti già ricevuti non sono elencati; quelli contrassegnati con il pallino (&#9679;) sono indispensabili per completare le valutazioni.')
+                + oggetto('check-up del merito creditizio, richiesta dei documenti.')
+                + t('Con riferimento all\'incarico in oggetto, vi chiediamo di trasmetterci i documenti elencati di seguito' + (doc.termine ? ', possibilmente entro il <strong>' + rbVerbaleData(doc.termine) + '</strong>' : '') + '. I documenti già ricevuti non sono elencati; quelli contrassegnati con il pallino (&#9679;) sono indispensabili per completare le valutazioni.')
                 + t('Vanno bene copie in formato elettronico, anche trasmesse in più riprese; per ogni documento è utile indicare la data a cui si riferisce.')
                 + (daChiedere.length
                     ? (primaArea.length ? '<div class="rb-sottotitolo">Per primi: i documenti da cui partono i calcoli</div><ul class="rb-punti">'
                         + primaArea.map(d2 => '<li>' + (d2.ess ? '&#9679; ' : '') + esc(d2.nome) + (stati[d2.id] === 'I' ? ' <em>(ricevuto parzialmente: da integrare)</em>' : '')
-                            + ' <em>(' + (d2.id === 'd12' ? 'per il bilancio va benissimo anche il file XBRL depositato al Registro Imprese' : 'per la Centrale dei Rischi va benissimo il PDF dei flussi di ritorno della Banca d’Italia') + ')</em></li>').join('') + '</ul>' : '')
+                            + ' <em>(' + (d2.id === 'd12' ? 'per il bilancio va benissimo anche il file XBRL depositato al Registro Imprese' : 'per la Centrale dei Rischi va benissimo il PDF dei flussi di ritorno della Banca d\'Italia') + ')</em></li>').join('') + '</ul>' : '')
                     + sezioni.map(sz => '<div class="rb-sottotitolo">' + esc(sz) + '</div><ul class="rb-punti">'
                         + altri.filter(d2 => d2.sez === sz).map(riga).join('') + '</ul>').join('')
                     : t('<strong>Tutti i documenti della lista risultano già ricevuti:</strong> vi ringraziamo per la collaborazione.'))
@@ -9073,16 +9088,16 @@
         if (tipo === 'c1') {
             const d = vb.c1 || {};
             const aperti = (cu.rilievi || []).filter(r => r.classe === 'C1' && r.stato !== 'trattato');
-            return t('Spett.le <strong>' + cliente + '</strong><br>all’attenzione ' + (d.destinatario ? 'di ' + esc(d.destinatario) : 'dell’organo amministrativo'))
-                + oggetto('check-up del merito creditizio &mdash; comunicazione di criticità rilevanti ai fini degli adeguati assetti (art. 2086 c.c.).')
-                + t('Nel corso del check-up del merito creditizio in corso sono emerse criticità che riteniamo doveroso portare subito alla vostra attenzione, senza attendere il rapporto finale, per la loro possibile incidenza sull’accesso al credito e sui doveri dell’organo amministrativo di dotare l’impresa di assetti adeguati e di attivarsi senza indugio.')
+            return t('Spett.le <strong>' + cliente + '</strong><br>all\'attenzione ' + (d.destinatario ? 'di ' + esc(d.destinatario) : 'dell\'organo amministrativo'))
+                + oggetto('check-up del merito creditizio, comunicazione di criticità rilevanti ai fini degli adeguati assetti (art. 2086 c.c.).')
+                + t('Nel corso del check-up del merito creditizio in corso sono emerse criticità che riteniamo doveroso portare subito alla vostra attenzione, senza attendere il rapporto finale, per la loro possibile incidenza sull\'accesso al credito e sui doveri dell\'organo amministrativo di dotare l\'impresa di assetti adeguati e di attivarsi senza indugio.')
                 + (aperti.length ? aperti.map((r, i) => '<div class="rb-sottotitolo">Criticità ' + (i + 1) + '</div>'
                     + t('<strong>' + esc(r.fatto || 'Rilievo critico') + '</strong>'
                         + (r.evidenza ? '<br><strong>Evidenza:</strong> ' + esc(r.evidenza) : '')
                         + (r.rischio ? '<br><strong>Rischio:</strong> ' + esc(r.rischio) : '')
                         + (r.raccomandazione ? '<br><strong>Raccomandazione:</strong> ' + esc(r.raccomandazione) : ''))).join('')
                     : t('Non risultano criticità gravi aperte alla data odierna.'))
-                + t('Vi invitiamo a esaminare quanto sopra nell’organo amministrativo con la massima urgenza, ad avviare le azioni correttive e a darcene <strong>riscontro scritto entro breve termine</strong>. Restiamo a disposizione per approfondire insieme ogni punto e per assistervi nella definizione degli interventi.');
+                + t('Vi invitiamo a esaminare quanto sopra nell\'organo amministrativo con la massima urgenza, ad avviare le azioni correttive e a darcene <strong>riscontro scritto entro breve termine</strong>. Restiamo a disposizione per approfondire insieme ogni punto e per assistervi nella definizione degli interventi.');
         }
         // verbale di consegna
         const d = vb.chiusura || {};
@@ -9092,16 +9107,16 @@
         const conte = [];
         if (c.c1 || c.c2 || c.c3 || c.pf) conte.push('rilievi aperti: ' + (c.c1 + c.c2 + c.c3) + ' (C1: ' + c.c1 + ', C2: ' + c.c2 + ', C3: ' + c.c3 + '), punti di forza: ' + c.pf);
         if ((cu.roadmap || []).length) conte.push('roadmap con ' + cu.roadmap.length + ' azioni');
-        return oggetto('check-up del merito creditizio di ' + cliente + ' &mdash; verbale di consegna del rapporto.')
-            + t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si è svolto l’incontro di consegna del rapporto di check-up del merito creditizio di <strong>' + cliente + '</strong>.')
-            + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell’impresa e ' + esc(resp) + ' per Revilaw.'))
+        return oggetto('check-up del merito creditizio di ' + cliente + ', verbale di consegna del rapporto.')
+            + t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si è svolto l\'incontro di consegna del rapporto di check-up del merito creditizio di <strong>' + cliente + '</strong>.')
+            + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell\'impresa e ' + esc(resp) + ' per Revilaw.'))
             + '<div class="rb-sottotitolo">Sintesi degli esiti illustrati</div><ul class="rb-punti">'
-            + '<li>Qualità dei presidi: ' + (c.sospeso ? 'giudizio sospeso (moduli indispensabili non ancora valutabili)' : (c.sintesi ? 'classe di sintesi ' + c.sintesi.classe + ' &ndash; ' + c.sintesi.nome.toLowerCase() : 'valutazione non completata')) + '.</li>'
+            + '<li>Qualità dei presidi: ' + (c.sospeso ? 'giudizio sospeso (moduli indispensabili non ancora valutabili)' : (c.sintesi ? 'classe di sintesi ' + c.sintesi.classe + ' - ' + c.sintesi.nome.toLowerCase() : 'valutazione non completata')) + '.</li>'
             + (es.pronta ? '<li>Rating MCC del Fondo di Garanzia: classe ' + es.mcc.integrata + ' su 12; rating ipotizzato con il correttivo qualitativo: classe ' + es.classeCorretta + ' su 12.</li>' : '')
             + (es.pronta && es.percorso.attivo && es.percorso.deltaClasse > 0 ? '<li>Classe potenziale completando il percorso di miglioramento proposto: ' + es.percorso.classe + ' su 12.</li>' : '')
             + (conte.length ? '<li>' + conte.join('; ') + '.</li>' : '')
             + '</ul>'
-            + t('Il rapporto è stato illustrato punto per punto e consegnato all’impresa insieme alla roadmap degli interventi; l’impresa ne ha preso atto e si è impegnata ad avviare le azioni concordate.' + (fu ? ' La prossima revisione è fissata per il <strong>' + rbVerbaleData(fu) + '</strong>.' : ' La data della prossima revisione verrà concordata a valle delle prime azioni.'))
+            + t('Il rapporto è stato illustrato punto per punto e consegnato all\'impresa insieme alla roadmap degli interventi; l\'impresa ne ha preso atto e si è impegnata ad avviare le azioni concordate.' + (fu ? ' La prossima revisione è fissata per il <strong>' + rbVerbaleData(fu) + '</strong>.' : ' La data della prossima revisione verrà concordata a valle delle prime azioni.'))
             + t('Il presente verbale viene letto, confermato e sottoscritto dalle parti.');
     }
     function vistaRatingVerbale() {
@@ -10123,7 +10138,7 @@
             <div class="card"><h2>Rating interno simulato (scoring a moduli)</h2>${rbHtmlScoring(es)}</div>
             <div class="card"><h2>Cruscotto di bancabilita, indici della crisi e Z-Score</h2>${rbHtmlTabellaCruscotto(es)}<div style="margin-top:12px;">${rbHtmlCndcec(es)}</div><div style="margin-top:12px;">${rbHtmlZ(es)}</div></div>
             <div class="card"><h2>Posizionamento bancario</h2>${rbHtmlTabellaBanche(es)}</div>
-            <div class="card"><h2>Check-up del merito creditizio (manuale operativo)</h2>${rbHtmlCheckup(es, true)}</div>
+            <div class="card"><h2>Check-up del merito creditizio</h2>${rbHtmlCheckup(es, true)}</div>
             <p class="hint" style="margin:2px 4px 10px;">Le tre scale della verifica non si confrontano tra loro: MCC 1-12 (fasce 1-5, PD empiriche del Fondo di Garanzia), rating interno simulato 1-10 (PD calibrate, stima di pre-screening), check-up A-E (qualità dei presidi, diagnostico). Come si integrano e spiegato nel Metodo di calcolo.</p>
             <div class="card">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -10446,7 +10461,7 @@
                     <p class="rb-testo"><strong>Fonti dei modelli.</strong> Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA).</p>
                     <p class="rb-testo"><strong>Stime professionali Revilaw.</strong> Il rating interno simulato replica la struttura tipica dei sistemi di rating interni (tre moduli pesati per dimensione, calibrazione score-PD, classi 1-10, bande EU CR6): i modelli effettivi delle banche sono proprietari e riservati, la stima serve al pre-screening e all'advisory. Correttivo qualitativo, rettifiche prudenziali, profili di soggetti e gruppo, stima per singolo istituto e percorso di miglioramento (che simula le sole leve coperte dai servizi Revilaw, a parita di bilancio e andamentale) sono stime professionali di come i modelli interni integrano gli elementi organizzativi: il metodo completo, formula per formula, e nella scheda "Metodo di calcolo" dell'area riservata, e il rating effettivo assegnato da ciascuna banca puo differire. Le tre scale (MCC 1-12, interno 1-10, check-up A-E) non sono confrontabili tra loro.</p>
                     <p class="rb-testo"><strong>Dati sugli istituti.</strong> I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali.</p>
-                    <p class="rb-testo"><strong>Check-up.</strong> Il check-up del merito creditizio segue il Manuale operativo Revilaw v1.0: le valutazioni sono formulate sulla base delle informazioni rese disponibili alla data di riferimento, hanno natura diagnostica (misurano la qualita dei presidi, non la solvibilita) e vanno aggiornate quando cambiano dati o eventi rilevanti.</p>
+                    <p class="rb-testo"><strong>Check-up.</strong> Il check-up del merito creditizio segue il metodo di lavoro dello studio: le valutazioni sono formulate sulla base delle informazioni rese disponibili alla data di riferimento, hanno natura diagnostica (misurano la qualita dei presidi, non la solvibilita) e vanno aggiornate quando cambiano dati o eventi rilevanti.</p>
                     <p class="rb-testo"><strong>Riservatezza e limiti.</strong> Questo documento e uno strumento di lavoro riservato, non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009 ne garanzia di ottenimento del credito.</p>
                 </div>
 
@@ -10666,8 +10681,8 @@
                 const nInc = incarichiDellaPersona(p, incVisibili, risolviInc).length;
                 return `<tr>
                 <td class="cliente-cella" data-label="Cognome">${esc(p.nome)}</td>
-                <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : '<span style="color:var(--grigio-400)">—</span>'}</td>
-                <td class="col-email" data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : '<span style="color:var(--grigio-400)">—</span>'}</td>
+                <td data-label="Nome">${p.nomeProprio ? esc(p.nomeProprio) : '<span style="color:var(--grigio-400)">-</span>'}</td>
+                <td class="col-email" data-label="Email">${p.email ? '<a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a>' : '<span style="color:var(--grigio-400)">-</span>'}</td>
                 <td data-label="Regione">${esc(p.regione || '')}</td>
                 <td class="col-mark" data-label="Qualita">${spunta(p.qualita)}</td>
                 <td class="col-mark" data-label="Resp. incarico">${spunta(p.respIncarico)}</td>
@@ -10795,7 +10810,7 @@
         const fuori = Auth.regioniConsentite() ? incarichiDelTerritorio(regioni, Incarichi.tutti()).length - voci.length : 0;
         const righe = voci.map(i => {
             const s = Incarichi.statoScadenza(i);
-            const vuoto = '<span style="color:var(--grigio-400)">&mdash;</span>';
+            const vuoto = '<span style="color:var(--grigio-400)">-</span>';
             // i data-label servono su schermo stretto: la tabella diventa una scheda per riga
             return `<tr class="cliccabile" data-apri="${esc(i.id)}">
                 <td data-label="Cliente">${esc(i.cliente || '')}</td>
@@ -10885,8 +10900,8 @@
                 const scoperta = d.n > 0 && !d.coord.length && !d.vice.length;
                 return `<tr>
                     <td class="cliente-cella" data-label="Regione">${esc(nomiPerChiave[k])}${scoperta ? ' <span class="badge rosso">scoperta</span>' : ''}</td>
-                    <td data-label="Coordinatori">${d.coord.length ? esc(d.coord.join(', ')) : '<span style="color:var(--grigio-400)">—</span>'}</td>
-                    <td data-label="Vice">${d.vice.length ? esc(d.vice.join(', ')) : '<span style="color:var(--grigio-400)">—</span>'}</td>
+                    <td data-label="Coordinatori">${d.coord.length ? esc(d.coord.join(', ')) : '<span style="color:var(--grigio-400)">-</span>'}</td>
+                    <td data-label="Vice">${d.vice.length ? esc(d.vice.join(', ')) : '<span style="color:var(--grigio-400)">-</span>'}</td>
                     <td class="num" data-label="Incarichi attivi">${d.n ? (puoIncarichi
                     ? `<button type="button" class="btn btn-sm btn-ghost co-inc-reg" data-regione="${esc(nomiPerChiave[k])}" title="Vedi gli incarichi attivi in ${esc(nomiPerChiave[k])}">${d.n}</button>`
                     : d.n) : ''}</td>
@@ -11269,7 +11284,8 @@
                 { titolo: 'Fasi in finestra', testo: 'La scheda Check-up mostra il quadro del percorso con i contatori (risposte, moduli, documenti, classe di sintesi) e la fase corrente evidenziata; ogni fase si apre in una finestra dedicata, che si può ridurre a barra, ingrandire e scorrere, con i pulsanti per passare alla fase precedente o successiva.' },
                 { titolo: 'Verbali più curati', testo: 'Verbale di avvio, richiesta dei documenti, comunicazione delle criticità e verbale di consegna ora hanno oggetto, premesse, punti numerati e chiusura formale; avvio e consegna prevedono la controfirma dell\'impresa accanto a quella del responsabile.' },
                 { titolo: 'Ortografia', testo: 'Tutti i testi del check-up (guide, domande, moduli, documenti, esempi di punteggio) sono stati rivisti con gli accenti e la punteggiatura corretti.' },
-                { titolo: 'Un unico elenco dei documenti', testo: 'La raccolta documenti è un solo grande elenco, senza sezioni da aprire: in testa ci sono i documenti da cui partono i calcoli, che si caricano direttamente nell\'area (il bilancio anche come file XBRL nella scheda "Impresa e bilancio", la Centrale dei Rischi anche come PDF nella scheda dedicata), con l\'indicazione se risultano già caricati. La lettera di richiesta segue lo stesso ordine e suggerisce i formati che il programma legge da solo.' }
+                { titolo: 'Un unico elenco dei documenti', testo: 'La raccolta documenti è un solo grande elenco, senza sezioni da aprire: in testa ci sono i documenti da cui partono i calcoli, che si caricano direttamente nell\'area (il bilancio anche come file XBRL nella scheda "Impresa e bilancio", la Centrale dei Rischi anche come PDF nella scheda dedicata), con l\'indicazione se risultano già caricati. La lettera di richiesta segue lo stesso ordine e suggerisce i formati che il programma legge da solo.' },
+                { titolo: 'Il metodo spiegato in parole semplici', testo: 'Il "Metodo di calcolo" è stato riscritto in forma descrittiva: per ogni strumento prima che cosa fa e a che cosa serve, poi come si legge il risultato, e solo alla fine il dettaglio tecnico. Sotto ogni domanda qualitativa c\'è scritto come impatta la risposta: quanti punti vale sul profilo qualitativo, quali moduli del check-up guida e se è una leva del percorso di miglioramento.' }
             ]
         },
         {
@@ -11316,29 +11332,29 @@
         {
             id: '2026-08-22-rating-checkup-v1',
             data: '2026-08-22',
-            titolo: 'Rating bancario: il Check-up aggiornato al Manuale operativo v1.0',
-            sommario: 'La scheda "Check-up" della verifica segue ora la versione 1.0 del Manuale operativo Revilaw: tredici moduli di analisi A1-A13 con gli ancoraggi di punteggio del Manuale sotto ogni voce, pesi per fascia dimensionale (Micro, Piccola, Media, Grande), classe di sintesi da A a E, override obbligatori e giudizio sospeso, undici fasi dalla pre-qualifica al follow-up e la check-list documentale master M-04 con 125 documenti di cui 31 essenziali.',
+            titolo: 'Rating bancario: il Check-up aggiornato al metodo operativo dello studio',
+            sommario: 'La scheda "Check-up" della verifica segue ora la versione aggiornata del metodo operativo dello studio: tredici moduli di analisi A1-A13 con gli esempi di punteggio per ogni livello sotto ogni voce, pesi per fascia dimensionale (Micro, Piccola, Media, Grande), classe di sintesi da A a E, override obbligatori e giudizio sospeso, undici fasi dalla pre-qualifica al follow-up e la check-list documentale completa con 125 documenti di cui 31 essenziali.',
             chi: 'Chi prepara le verifiche del merito creditizio e chi le riesamina.',
             dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica; l\'esito nel riquadro "Check-up del merito creditizio" e nel report. Il metodo aggiornato e nel capitolo 10 del "Metodo di calcolo".',
             voci: [
-                { titolo: 'Tredici moduli con ancoraggi e pesi per fascia', testo: 'I moduli A1-A13 sostituiscono le 12 aree: ogni punteggio 0-4 si assegna con gli ancoraggi descrittivi del Manuale (aperti sotto ogni modulo) e la media e ponderata con i pesi della fascia dimensionale dell\'impresa; il nucleo inderogabile A3-A8 non ammette N/A.' },
-                { titolo: 'Classe di sintesi A-E, override e giudizio sospeso', testo: 'La media diventa una classe da A (presidi evoluti) a E (presidi critici). Gli override del cap. 49 scattano da soli dai dati della verifica (DSCR sotto 1 e patrimonio netto negativo limitano a D; creditori pubblici, sconfinamenti oltre 60 giorni e moduli del nucleo a zero limitano a C); un C1 aperto esclude A e B; un modulo del nucleo non valutato sospende il giudizio.' },
-                { titolo: 'Fase 0 e regola di prudenza', testo: 'Il processo parte dalla pre-qualifica dell\'impresa (fase 0) e arriva al follow-up (fase 10). La regola di prudenza del par. 48.4 segnala i moduli con punteggio sopra 2 ma documenti essenziali mancanti.' },
-                { titolo: 'Check-list documentale M-04', testo: 'La lista master del Manuale: quattordici sezioni, 125 documenti con l\'indicazione dei 31 essenziali e dei moduli collegati. Le verifiche gia salvate si aggiornano da sole alla nuova struttura; la raccolta documenti riparte dalla M-04.' }
+                { titolo: 'Tredici moduli con ancoraggi e pesi per fascia', testo: 'I moduli A1-A13 sostituiscono le 12 aree: ogni punteggio 0-4 si assegna con gli esempi descrittivi per ogni livello (aperti sotto ogni modulo) e la media e ponderata con i pesi della fascia dimensionale dell\'impresa; il nucleo inderogabile A3-A8 non ammette N/A.' },
+                { titolo: 'Classe di sintesi A-E, override e giudizio sospeso', testo: 'La media diventa una classe da A (presidi evoluti) a E (presidi critici). Gli override del metodo scattano da soli dai dati della verifica (DSCR sotto 1 e patrimonio netto negativo limitano a D; creditori pubblici, sconfinamenti oltre 60 giorni e moduli del nucleo a zero limitano a C); un C1 aperto esclude A e B; un modulo del nucleo non valutato sospende il giudizio.' },
+                { titolo: 'Fase 0 e regola di prudenza', testo: 'Il processo parte dalla pre-qualifica dell\'impresa (fase 0) e arriva al follow-up (fase 10). La regola di prudenza di prudenza segnala i moduli con punteggio sopra 2 ma documenti essenziali mancanti.' },
+                { titolo: 'Check-list documentale completa', testo: 'La lista completa del metodo: quattordici sezioni, 125 documenti con l\'indicazione dei 31 essenziali e dei moduli collegati. Le verifiche gia salvate si aggiornano da sole alla nuova struttura; la raccolta documenti riparte dalla nuova lista.' }
             ]
         },
         {
             id: '2026-08-22-rating-checkup',
             data: '2026-08-22',
-            titolo: 'Rating bancario: il Check-up del merito creditizio (Manuale operativo)',
-            sommario: 'Dentro la verifica c\'e la scheda "Check-up", che porta nel programma il Manuale operativo Revilaw: le fasi dell\'incarico dal primo contatto al monitoraggio, la valutazione delle 12 aree tecniche con la scala di presidio 0-4 e i pesi delle aree essenziali, i rilievi classificati C1/C2/C3/PF con fatto, evidenza, rischio e raccomandazione, la roadmap per orizzonti e la lista standard dei documenti. Tutto entra negli esiti e nel report firmato.',
+            titolo: 'Rating bancario: il Check-up del merito creditizio (metodo operativo dello studio)',
+            sommario: 'Dentro la verifica c\'e la scheda "Check-up", che porta nel programma il metodo operativo dello studio: le fasi dell\'incarico dal primo contatto al monitoraggio, la valutazione delle 12 aree tecniche con la scala di presidio 0-4 e i pesi delle aree essenziali, i rilievi classificati C1/C2/C3/PF con fatto, evidenza, rischio e raccomandazione, la roadmap per orizzonti e la lista standard dei documenti. Tutto entra negli esiti e nel report firmato.',
             chi: 'Chi prepara le verifiche del merito creditizio e chi le riesamina.',
             dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica; l\'esito nel riquadro "Check-up del merito creditizio" e nella sezione dedicata del report. Il metodo e nel capitolo 10 del "Metodo di calcolo".',
             voci: [
-                { titolo: 'Il processo in fasi', testo: 'Le undici fasi del Manuale (primo contatto, incarico, riunione iniziale, documenti, interviste, verifiche, punteggi, priorita, rapporto, presentazione, monitoraggio) con stato e note: l\'avanzamento si vede a colpo d\'occhio.' },
-                { titolo: 'Le 12 aree e il presidio complessivo', testo: 'Ogni area si valuta con la scala del Manuale (0 critico - 4 evoluto, N/A motivato). La media e ponderata: capacita di rimborso, Centrale Rischi, analisi economica e tesoreria pesano di piu, e valgono le regole di override (un C1 aperto o un\'area essenziale debole limitano il giudizio, mai verso l\'alto).' },
-                { titolo: 'Rilievi e roadmap', testo: 'I rilievi hanno la struttura del Manuale (fatto, evidenza, rischio, raccomandazione) e la classificazione C1/C2/C3/PF; la roadmap ordina le azioni per orizzonte (0-30 giorni fino a 6-12 mesi) con responsabile, termine, stato ed evidenza di chiusura.' },
-                { titolo: 'Documenti e report', testo: 'La lista standard dei documenti (cap. 39) tiene lo stato della raccolta. Esiti e report mostrano il quadro completo, con la formula sulle limitazioni del Manuale nella nota metodologica.' }
+                { titolo: 'Il processo in fasi', testo: 'Le undici fasi del metodo (primo contatto, incarico, riunione iniziale, documenti, interviste, verifiche, punteggi, priorita, rapporto, presentazione, monitoraggio) con stato e note: l\'avanzamento si vede a colpo d\'occhio.' },
+                { titolo: 'Le 12 aree e il presidio complessivo', testo: 'Ogni area si valuta con la scala del metodo (0 critico - 4 evoluto, N/A motivato). La media e ponderata: capacita di rimborso, Centrale Rischi, analisi economica e tesoreria pesano di piu, e valgono le regole di override (un C1 aperto o un\'area essenziale debole limitano il giudizio, mai verso l\'alto).' },
+                { titolo: 'Rilievi e roadmap', testo: 'I rilievi hanno la struttura del metodo (fatto, evidenza, rischio, raccomandazione) e la classificazione C1/C2/C3/PF; la roadmap ordina le azioni per orizzonte (0-30 giorni fino a 6-12 mesi) con responsabile, termine, stato ed evidenza di chiusura.' },
+                { titolo: 'Documenti e report', testo: 'La lista standard dei documenti  tiene lo stato della raccolta. Esiti e report mostrano il quadro completo, con la formula sulle limitazioni del Manuale nella nota metodologica.' }
             ]
         },
         {
@@ -11358,7 +11374,7 @@
             id: '2026-08-22-rating-scoring',
             data: '2026-08-22',
             titolo: 'Rating bancario: il rating interno simulato (scoring a moduli)',
-            sommario: 'Dentro la verifica del merito creditizio c\'e un secondo motore, integrato dal simulatore Excel dello studio: tre moduli con punteggio 0-100 (bilancio, andamentale, qualitativo) pesati per dimensione d\'impresa, score convertito in PD e classe interna da 1 a 10, mappatura per banca con il fattore di severita e le bande PD dei Pillar 3, presidio dei segnali di crisi dell\'art. 3 CCII.',
+            sommario: 'Dentro la verifica del merito creditizio c\'e un secondo motore, costruito sul modello di calcolo dello studio: tre moduli con punteggio 0-100 (bilancio, andamentale, qualitativo) pesati per dimensione d\'impresa, score convertito in PD e classe interna da 1 a 10, mappatura per banca con il fattore di severita e le bande PD dei Pillar 3, presidio dei segnali di crisi dell\'art. 3 CCII.',
             chi: 'Chi prepara le verifiche del merito creditizio.',
             dove: 'Sezione "Rating bancario", dentro la verifica: i dati nuovi stanno nella scheda "Centrale Rischi" (andamentale di sintesi e segnali CCII) e nella scheda "Banche" (fattore di severita per istituto); l\'esito nel riquadro "Rating interno simulato" e nel report.',
             voci: [
@@ -14655,7 +14671,7 @@
             + (invio.incerti ? ' &middot; ' + invio.incerti + ' con esito incerto' : '') + '</span></div>'
             + (invio.interrotto
                 ? '<div class="s-inv-riga"><span class="s-inv-lab">Interrotto</span><span class="s-inv-val s-inv-ko">'
-                + esc(invio.interrotto) + ' &mdash; riapri la newsletter e premi Invia per riprendere</span></div>' : '')
+                + esc(invio.interrotto) + ': riapri la newsletter e premi Invia per riprendere</span></div>' : '')
             + (motivi ? '<div class="s-inv-motivi"><span class="s-inv-lab">Perche alcune non sono riuscite</span><ul>' + motivi + '</ul></div>' : '')
             + (falliti.length ? '<div class="s-inv-motivi"><span class="s-inv-lab">Indirizzi</span><p class="hint">' + esc(falliti.map(f => f.email).join(', ')) + '</p></div>' : '')
             /* Con Brevo il numero dice quante mail sono state ACCETTATE: rimbalzi e
@@ -14939,10 +14955,10 @@
             + '<p class="descrizione">Vale solo per i contatti <b>raccolti fino a questo momento</b>: chi si iscrivera '
             + 'da domani torna a seguire la casella del suo modulo. La decisione resta scritta con il tuo nome e la '
             + 'data, e si puo revocare in qualsiasi momento.</p>'
-            + '<div class="nl-sez"><div class="nl-sez-tit">1. Consenso che non risulta &mdash; <b>' + nIgnoti + '</b> contatti</div>'
+            + '<div class="nl-sez"><div class="nl-sez-tit">1. Consenso che non risulta: <b>' + nIgnoti + '</b> contatti</div>'
             + '<div class="hint">Schede in cui la casella delle comunicazioni non e registrata: elenchi importati, moduli '
             + 'piu vecchi della casella. Non hanno detto no, non hanno detto niente. Rientrano sempre.</div></div>'
-            + '<div class="nl-sez"><div class="nl-sez-tit">2. Casella vista e lasciata vuota &mdash; <b>' + nNo + '</b> contatti</div>'
+            + '<div class="nl-sez"><div class="nl-sez-tit">2. Casella vista e lasciata vuota: <b>' + nNo + '</b> contatti</div>'
             + '<label class="mi-flag" style="margin-bottom:10px;"><input type="checkbox" id="cs-no-anche"'
             + (nNo ? ' checked' : ' disabled') + '> Comprendi anche questi</label>'
             + '<div class="ev-blocco">Queste persone la casella l\'hanno <b>vista e lasciata vuota</b>. Attribuire loro il '
@@ -17288,7 +17304,7 @@
             <div class="campo">
                 <label>1. Aggiornamento da comunicare</label>
                 <select id="ag-sel">
-                    <option value="">&mdash; scegli l'aggiornamento &mdash;</option>
+                    <option value="">scegli l'aggiornamento</option>
                     ${AGGIORNAMENTI_AREA.map(a => {
                         const inv = inviiAggiornamento(a.id);
                         return `<option value="${esc(a.id)}">${esc(fmtData(a.data) + ' - ' + a.titolo)}${inv.length ? ' (gia comunicato)' : ''}</option>`;
@@ -17691,7 +17707,7 @@
             <div class="campo" id="ric-box-incarico">
                 <label>Incarico</label>
                 <select id="ric-incarico">
-                    <option value="">— scegli l'incarico —</option>
+                    <option value="">scegli l'incarico</option>
                     ${incarichi.map(i => `<option value="${esc(i.id)}" ${preId === i.id ? 'selected' : ''}>${esc((i.cliente || '(senza nome)') + (i.regione ? ' - ' + i.regione : ''))}</option>`).join('')}
                 </select>
                 <div class="hint">${incarichi.length ? 'Sono elencati gli incarichi che il tuo ruolo puo vedere.' : 'Non vedi alcun incarico: scegli "Una funzionalita generale" oppure chiedi che ti venga assegnato il territorio.'}</div>
