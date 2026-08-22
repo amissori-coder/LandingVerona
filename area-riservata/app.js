@@ -6419,13 +6419,13 @@
                     { t: 'Adottato', p: 7 },
                     { t: 'In valutazione', p: 3 },
                     { t: 'Assente', p: 0 }] },
-                { id: 'legalita', testo: 'Rating di legalita AGCM', op: [
+                { id: 'legalita', testo: 'Rating di legalità AGCM', op: [
                     { t: 'Ottenuto (2-3 stelle)', p: 10 },
                     { t: 'Ottenuto (1 stella)', p: 7 },
                     { t: 'Richiesto o in corso', p: 4 },
                     { t: 'Non richiesto', p: 0 }] },
-                { id: 'esg', testo: 'Percorso ESG e bilancio di sostenibilita', op: [
-                    { t: 'Report di sostenibilita pubblicato', p: 10 },
+                { id: 'esg', testo: 'Percorso ESG e bilancio di sostenibilità', op: [
+                    { t: 'Report di sostenibilità pubblicato', p: 10 },
                     { t: 'Percorso avviato', p: 6 },
                     { t: 'Non avviato', p: 0 }] },
                 { id: 'tcf', testo: 'Tax Control Framework / adempimento collaborativo', op: [
@@ -6433,7 +6433,7 @@
                     { t: 'In corso di adozione', p: 6 },
                     { t: 'Assente', p: 0 }] },
                 { id: 'cert', testo: 'Certificazioni (ISO 9001, 14001, 45001, SA8000...)', op: [
-                    { t: 'Piu certificazioni attive', p: 10 },
+                    { t: 'Più certificazioni attive', p: 10 },
                     { t: 'Una certificazione', p: 6 },
                     { t: 'Nessuna', p: 0 }] }
             ]
@@ -6444,7 +6444,7 @@
                 { id: 'numbanche', testo: 'Numero di banche con cui l\'impresa lavora', op: [
                     { t: 'Da 3 a 5', p: 10 },
                     { t: 'Due', p: 7 },
-                    { t: 'Piu di 5', p: 5 },
+                    { t: 'Più di 5', p: 5 },
                     { t: 'Una sola', p: 2 }] },
                 { id: 'sconfini', testo: 'Sconfinamenti o insoluti negli ultimi 12 mesi', op: [
                     { t: 'Mai', p: 10 },
@@ -6454,7 +6454,7 @@
                     { t: 'Ogni mese', p: 10 },
                     { t: 'Saltuaria', p: 5 },
                     { t: 'Mai richiesta', p: 0 }] },
-                { id: 'puntualita', testo: 'Puntualita nei pagamenti a fornitori ed erario', op: [
+                { id: 'puntualita', testo: 'Puntualità nei pagamenti a fornitori ed erario', op: [
                     { t: 'Sempre puntuale', p: 10 },
                     { t: 'Ritardi occasionali', p: 5 },
                     { t: 'Piani di rientro in corso', p: 2 },
@@ -6468,7 +6468,7 @@
         {
             id: 'strut', titolo: 'Struttura, mercato e continuita',
             domande: [
-                { id: 'anzianita', testo: 'Anni di attivita dell\'impresa', op: [
+                { id: 'anzianita', testo: 'Anni di attività dell\'impresa', op: [
                     { t: 'Oltre 10', p: 10 },
                     { t: 'Da 5 a 10', p: 7 },
                     { t: 'Da 2 a 5', p: 4 },
@@ -6482,7 +6482,7 @@
                     { t: 'In crescita', p: 10 },
                     { t: 'Stabile', p: 6 },
                     { t: 'In calo', p: 2 }] },
-                { id: 'continuita', testo: 'Continuita manageriale', op: [
+                { id: 'continuita', testo: 'Continuità manageriale', op: [
                     { t: 'Team strutturato, non dipende da una persona', p: 10 },
                     { t: 'Dipende dal titolare ma con successione pianificata', p: 6 },
                     { t: 'Tutto dipende dal titolare', p: 2 }] },
@@ -6650,8 +6650,8 @@
         early:     { nome: 'Assetti ed early warning', url: '/assetti_early_warning/' },
         crisi:     { nome: 'Crisi d\'impresa e risanamento', url: '/crisi_impresa/' },
         mod231:    { nome: 'Modello 231', url: '/modello_231/' },
-        legalita:  { nome: 'Rating di legalita', url: '/rating_legalita/' },
-        esg:       { nome: 'Sostenibilita ESG', url: '/sostenibilita_esg/' },
+        legalita:  { nome: 'Rating di legalità', url: '/rating_legalita/' },
+        esg:       { nome: 'Sostenibilità ESG', url: '/sostenibilita_esg/' },
         tcf:       { nome: 'TCF e benefici fiscali', url: '/tcf_benefici_fiscali/' },
         coop:      { nome: 'Adempimento collaborativo', url: '/adempimento_collaborativo/' },
         rating:    { nome: 'Rating advisory', url: '/rating_bancario/' },
@@ -6826,7 +6826,7 @@
         // --- check-up del manuale operativo ---
         if (es.checkup.c1 > 0) {
             dai('alta', 'Governance', 'Trattare i rilievi critici del check-up (C1)',
-                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo critico (C1) e aperto' : ' rilievi critici (C1) sono aperti') + ': vanno comunicati per iscritto all\'organo amministrativo entro pochi giorni con azione urgente (la lettera si genera dalla scheda Check-up), ed escludono le classi di sintesi A e B finche non sono trattati.', RB_SERVIZI.assetti);
+                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo critico (C1) è aperto' : ' rilievi critici (C1) sono aperti') + ': vanno comunicati per iscritto all\'organo amministrativo entro pochi giorni con azione urgente (la lettera si genera dalla scheda Check-up), ed escludono le classi di sintesi A e B finche non sono trattati.', RB_SERVIZI.assetti);
         }
         if (es.checkup.avviato && es.checkup.sospeso) {
             dai('media', 'Governance', 'Completare i punteggi del nucleo inderogabile del check-up',
@@ -7768,7 +7768,7 @@
                 <p class="rb-testo">La <strong>matrice di integrazione</strong> delle societa di capitali incrocia classe F e classe A e produce la <strong>classe integrata da 1 a 12</strong>. Senza Centrale dei Rischi la classe integrata coincide con la F (la F11 diventa 12). Gli <strong>eventi pregiudizievoli</strong> a carico dell'impresa (ipoteca giudiziale, pignoramento, ipoteca legale, domanda giudiziale) <strong>declassano di 2 classi</strong>, con tetto alla 12, come da Disposizioni Operative. Ogni classe ha una fascia (1-5) e una probabilita di inadempimento empirica (dallo 0,12% della classe 1 al 22,98% della 12). La garanzia del Fondo e ammissibile fino alla classe 10; le <strong>sofferenze</strong> e gli <strong>eventi del tipo fallimento</strong> la precludono comunque. I controlli di qualita del bilancio del par. 3.3 delle Specifiche sono soddisfatti per costruzione (i totali derivano dalle voci inserite), tranne la quadratura attivo/passivo: se non quadra, il risultato va considerato UNRATED e la verifica lo segnala.</p>
             </div>
             <div class="card"><h2>3. Il questionario qualitativo e il correttivo</h2>
-                <p class="rb-testo">Venti domande in quattro sezioni (governance e assetti, compliance, rapporti bancari, struttura), ognuna con un punteggio fino a 10. Il totale diventa una percentuale che corregge la classe integrata: <strong>80% o piu: un gradino a favore; 60-79%: nessuna correzione; 40-59%: un gradino a sfavore; sotto il 40%: due gradini a sfavore</strong>. Replica il modo in cui i modelli interni delle banche integrano il giudizio qualitativo.</p>
+                <p class="rb-testo">Venti domande in quattro sezioni (governance e assetti, compliance, rapporti bancari, struttura), ognuna con un punteggio fino a 10. Le risposte si registrano <strong>direttamente nelle fasi del Check-up</strong> (profilo dell'impresa al primo contatto, colloqui, verifica dei presidi) e valgono per tutti i calcoli. Il totale diventa una percentuale che corregge la classe integrata: <strong>80% o piu: un gradino a favore; 60-79%: nessuna correzione; 40-59%: un gradino a sfavore; sotto il 40%: due gradini a sfavore</strong>. Replica il modo in cui i modelli interni delle banche integrano il giudizio qualitativo.</p>
                 <p class="rb-testo">Al correttivo del questionario si sommano: <strong>+1</strong> se risultano eventi pregiudizievoli a carico degli amministratori; <strong>-1</strong> se il gruppo rafforza l'impresa con consolidato documentabile, <strong>+1</strong> se il gruppo assorbe risorse. La somma, riportata tra 1 e 12, e il <strong>rating ipotizzato</strong>.</p>
             </div>
             <div class="card"><h2>4. Le rettifiche prudenziali (il bilancio come lo legge la banca)</h2>
@@ -8099,7 +8099,7 @@
         { id: 'f5', nome: 'Fase 5 - Interviste' },
         { id: 'f6', nome: 'Fase 6 - Esecuzione delle verifiche' },
         { id: 'f7', nome: 'Fase 7 - Attribuzione dei punteggi' },
-        { id: 'f8', nome: 'Fase 8 - Priorita e roadmap' },
+        { id: 'f8', nome: 'Fase 8 - Priorità e roadmap' },
         { id: 'f9', nome: 'Fase 9 - Rapporto, riesame e consegna' },
         { id: 'f10', nome: 'Fase 10 - Follow-up e monitoraggio' }
     ];
@@ -8112,13 +8112,13 @@
         { id: 'a2', nome: 'A2 - Gruppo, parti correlate e garanzie incrociate', pesi: { Micro: 4, Piccola: 5, Media: 6, Grande: 8 }, liv: { Micro: '○', Piccola: '●', Media: '●●', Grande: '●●●' } },
         { id: 'a3', nome: 'A3 - Analisi economica, patrimoniale e finanziaria', nucleo: true, pesi: { Micro: 18, Piccola: 16, Media: 14, Grande: 13 }, liv: { Micro: '●●', Piccola: '●●', Media: '●●●', Grande: '●●●' } },
         { id: 'a4', nome: 'A4 - Capitale circolante e ciclo monetario', nucleo: true, pesi: { Micro: 12, Piccola: 12, Media: 11, Grande: 9 }, liv: { Micro: '●●', Piccola: '●●', Media: '●●●', Grande: '●●●' } },
-        { id: 'a5', nome: 'A5 - Capacita di rimborso e sostenibilita del debito', nucleo: true, pesi: { Micro: 20, Piccola: 18, Media: 16, Grande: 15 }, liv: { Micro: '●●', Piccola: '●●●', Media: '●●●', Grande: '●●●' } },
+        { id: 'a5', nome: 'A5 - Capacità di rimborso e sostenibilità del debito', nucleo: true, pesi: { Micro: 20, Piccola: 18, Media: 16, Grande: 15 }, liv: { Micro: '●●', Piccola: '●●●', Media: '●●●', Grande: '●●●' } },
         { id: 'a6', nome: 'A6 - Struttura finanziaria, banche e Centrale dei Rischi', nucleo: true, pesi: { Micro: 16, Piccola: 15, Media: 13, Grande: 11 }, liv: { Micro: '●●', Piccola: '●●●', Media: '●●●', Grande: '●●●' } },
         { id: 'a7', nome: 'A7 - Pianificazione, tesoreria e controllo di gestione', nucleo: true, pesi: { Micro: 6, Piccola: 9, Media: 11, Grande: 11 }, liv: { Micro: '●', Piccola: '●●', Media: '●●●', Grande: '●●●' } },
         { id: 'a8', nome: 'A8 - Adeguati assetti e presidi di allerta', nucleo: true, pesi: { Micro: 6, Piccola: 8, Media: 10, Grande: 11 }, liv: { Micro: '●', Piccola: '●●', Media: '●●●', Grande: '●●●' } },
-        { id: 'a9', nome: 'A9 - Legalita, compliance, modello organizzativo e rischi assicurabili', pesi: { Micro: 2, Piccola: 2, Media: 3, Grande: 5 }, liv: { Micro: '●', Piccola: '●', Media: '●●', Grande: '●●●' } },
-        { id: 'a10', nome: 'A10 - Fiscalita e presidio del rischio fiscale', pesi: { Micro: 2, Piccola: 2, Media: 2, Grande: 3 }, liv: { Micro: '●', Piccola: '●', Media: '●●', Grande: '●●●' } },
-        { id: 'a11', nome: 'A11 - Sostenibilita e fattori ESG', pesi: { Micro: 0, Piccola: 1, Media: 2, Grande: 3 }, liv: { Micro: '○', Piccola: '●', Media: '●●', Grande: '●●●' } },
+        { id: 'a9', nome: 'A9 - Legalità, compliance, modello organizzativo e rischi assicurabili', pesi: { Micro: 2, Piccola: 2, Media: 3, Grande: 5 }, liv: { Micro: '●', Piccola: '●', Media: '●●', Grande: '●●●' } },
+        { id: 'a10', nome: 'A10 - Fiscalità e presidio del rischio fiscale', pesi: { Micro: 2, Piccola: 2, Media: 2, Grande: 3 }, liv: { Micro: '●', Piccola: '●', Media: '●●', Grande: '●●●' } },
+        { id: 'a11', nome: 'A11 - Sostenibilità e fattori ESG', pesi: { Micro: 0, Piccola: 1, Media: 2, Grande: 3 }, liv: { Micro: '○', Piccola: '●', Media: '●●', Grande: '●●●' } },
         { id: 'a12', nome: 'A12 - Strategia finanziaria, finanza agevolata e operazioni straordinarie', pesi: { Micro: 1, Piccola: 1, Media: 2, Grande: 2 }, liv: { Micro: '●', Piccola: '●', Media: '●●', Grande: '●●●' } },
         { id: 'a13', nome: 'A13 - Comunicazione finanziaria verso banche e investitori', pesi: { Micro: 1, Piccola: 1, Media: 1, Grande: 1 }, liv: { Micro: '●', Piccola: '●●', Media: '●●', Grande: '●●●' } }
     ];
@@ -8139,7 +8139,7 @@
     ];
     const RB_CHECKUP_CLASSI = {
         C1: { nome: 'C1 - Critica', badge: 'rosso', priorita: 'Alta', trattamento: 'comunicazione scritta all\'organo amministrativo entro 5 giorni lavorativi, azione urgente, riesame centrale obbligatorio' },
-        C2: { nome: 'C2 - Significativa', badge: 'arancio', priorita: 'Media', trattamento: 'azione entro tre-sei mesi, in roadmap con priorita media o alta' },
+        C2: { nome: 'C2 - Significativa', badge: 'arancio', priorita: 'Media', trattamento: 'azione entro tre-sei mesi, in roadmap con priorità media o alta' },
         C3: { nome: 'C3 - Miglioramento', badge: 'ambra', priorita: 'Bassa', trattamento: 'piano entro sei-dodici mesi' },
         PF: { nome: 'PF - Punto di forza', badge: 'verde', priorita: 'Mantenere', trattamento: 'mantenere, presidiare e valorizzare nella comunicazione' }
     };
@@ -8154,8 +8154,8 @@
        patrimonio netto negativo, creditori pubblici, sconfinamenti oltre 60
        giorni, modulo del nucleo a zero) scattano da sole. */
     const RB_CHECKUP_CIRCOSTANZE = [
-        { id: 'proiezioneCassa', et: 'Impossibilita di produrre una proiezione di cassa a 12 mesi', cap: 'C' },
-        { id: 'contenzioso', et: 'Contenzioso o passivita potenziale oltre il patrimonio netto, non accantonata', cap: 'C' },
+        { id: 'proiezioneCassa', et: 'Impossibilità di produrre una proiezione di cassa a 12 mesi', cap: 'C' },
+        { id: 'contenzioso', et: 'Contenzioso o passività potenziale oltre il patrimonio netto, non accantonata', cap: 'C' },
         { id: 'autorizzazioni', et: 'Autorizzazione essenziale scaduta o a rischio di revoca', cap: 'C' },
         { id: 'datiInattendibili', et: 'Dati contabili inattendibili o non riconciliabili', cap: 'D' }
     ];
@@ -8169,23 +8169,23 @@
         { id: 'd7', sez: 'Societario e assetto proprietario', ess: true, mod: 'A8', nome: 'Deleghe, procure e poteri di firma vigenti' },
         { id: 'd8', sez: 'Societario e assetto proprietario', ess: false, mod: 'A1-A8', nome: 'Verbali di assemblea e di organo amministrativo (ultimi 3 esercizi)' },
         { id: 'd9', sez: 'Societario e assetto proprietario', ess: false, mod: 'A8', nome: 'Verbali dell\'organo di controllo o del revisore' },
-        { id: 'd10', sez: 'Societario e assetto proprietario', ess: false, mod: 'A2', nome: 'Visure di tutte le societa riferibili ai soci o agli amministratori' },
+        { id: 'd10', sez: 'Societario e assetto proprietario', ess: false, mod: 'A2', nome: 'Visure di tutte le società riferibili ai soci o agli amministratori' },
         { id: 'd11', sez: 'Societario e assetto proprietario', ess: false, mod: 'A2', nome: 'Comunicazione di direzione e coordinamento, se ricorre' },
-        { id: 'd12', sez: 'Bilanci e contabilita', ess: true, mod: 'A3', nome: 'Bilanci ultimi 3 esercizi completi (con nota integrativa e relazioni)' },
-        { id: 'd13', sez: 'Bilanci e contabilita', ess: true, mod: 'A3-A10', nome: 'Dichiarazioni dei redditi e IRAP ultimi 3 esercizi' },
-        { id: 'd14', sez: 'Bilanci e contabilita', ess: true, mod: 'A3', nome: 'Situazione contabile infrannuale (max 90 giorni) con bilancio di verifica' },
-        { id: 'd15', sez: 'Bilanci e contabilita', ess: true, mod: 'A3', nome: 'Bilancio di verifica di pari periodo dell\'anno precedente' },
-        { id: 'd16', sez: 'Bilanci e contabilita', ess: true, mod: 'A4', nome: 'Dettaglio crediti verso clienti con ageing (3 date)' },
-        { id: 'd17', sez: 'Bilanci e contabilita', ess: true, mod: 'A4', nome: 'Dettaglio debiti verso fornitori con ageing (3 date)' },
-        { id: 'd18', sez: 'Bilanci e contabilita', ess: true, mod: 'A4', nome: 'Dettaglio rimanenze per categoria e anzianita' },
-        { id: 'd19', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Dettaglio altri crediti e altri debiti' },
-        { id: 'd20', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Movimentazione dei fondi rischi e del trattamento di fine rapporto' },
-        { id: 'd21', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Prospetto immobilizzazioni con movimentazione e ammortamenti' },
-        { id: 'd22', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Rendiconto finanziario, se redatto' },
-        { id: 'd23', sez: 'Bilanci e contabilita', ess: false, mod: 'A3-A8', nome: 'Riconciliazioni banche-contabilita alla data di riferimento' },
-        { id: 'd24', sez: 'Bilanci e contabilita', ess: false, mod: 'A3', nome: 'Elenco componenti non ricorrenti per esercizio' },
-        { id: 'd25', sez: 'Bilanci e contabilita', ess: false, mod: 'A2', nome: 'Elenco operazioni con parti correlate' },
-        { id: 'd26', sez: 'Bilanci e contabilita', ess: false, mod: 'A7', nome: 'Riconciliazioni reporting gestionale-contabilita' },
+        { id: 'd12', sez: 'Bilanci e contabilità', ess: true, mod: 'A3', nome: 'Bilanci ultimi 3 esercizi completi (con nota integrativa e relazioni)' },
+        { id: 'd13', sez: 'Bilanci e contabilità', ess: true, mod: 'A3-A10', nome: 'Dichiarazioni dei redditi e IRAP ultimi 3 esercizi' },
+        { id: 'd14', sez: 'Bilanci e contabilità', ess: true, mod: 'A3', nome: 'Situazione contabile infrannuale (max 90 giorni) con bilancio di verifica' },
+        { id: 'd15', sez: 'Bilanci e contabilità', ess: true, mod: 'A3', nome: 'Bilancio di verifica di pari periodo dell\'anno precedente' },
+        { id: 'd16', sez: 'Bilanci e contabilità', ess: true, mod: 'A4', nome: 'Dettaglio crediti verso clienti con ageing (3 date)' },
+        { id: 'd17', sez: 'Bilanci e contabilità', ess: true, mod: 'A4', nome: 'Dettaglio debiti verso fornitori con ageing (3 date)' },
+        { id: 'd18', sez: 'Bilanci e contabilità', ess: true, mod: 'A4', nome: 'Dettaglio rimanenze per categoria e anzianità' },
+        { id: 'd19', sez: 'Bilanci e contabilità', ess: false, mod: 'A3', nome: 'Dettaglio altri crediti e altri debiti' },
+        { id: 'd20', sez: 'Bilanci e contabilità', ess: false, mod: 'A3', nome: 'Movimentazione dei fondi rischi e del trattamento di fine rapporto' },
+        { id: 'd21', sez: 'Bilanci e contabilità', ess: false, mod: 'A3', nome: 'Prospetto immobilizzazioni con movimentazione e ammortamenti' },
+        { id: 'd22', sez: 'Bilanci e contabilità', ess: false, mod: 'A3', nome: 'Rendiconto finanziario, se redatto' },
+        { id: 'd23', sez: 'Bilanci e contabilità', ess: false, mod: 'A3-A8', nome: 'Riconciliazioni banche-contabilità alla data di riferimento' },
+        { id: 'd24', sez: 'Bilanci e contabilità', ess: false, mod: 'A3', nome: 'Elenco componenti non ricorrenti per esercizio' },
+        { id: 'd25', sez: 'Bilanci e contabilità', ess: false, mod: 'A2', nome: 'Elenco operazioni con parti correlate' },
+        { id: 'd26', sez: 'Bilanci e contabilità', ess: false, mod: 'A7', nome: 'Riconciliazioni reporting gestionale-contabilità' },
         { id: 'd27', sez: 'Finanza e rapporti bancari', ess: true, mod: 'A6', nome: 'Flussi di ritorno Centrale dei Rischi - ultimi 24 mesi' },
         { id: 'd28', sez: 'Finanza e rapporti bancari', ess: true, mod: 'A6', nome: 'Elenco completo affidamenti per banca e forma tecnica (accordato / utilizzato)' },
         { id: 'd29', sez: 'Finanza e rapporti bancari', ess: true, mod: 'A5', nome: 'Contratti di finanziamento con piani di ammortamento' },
@@ -8207,10 +8207,10 @@
         { id: 'd45', sez: 'Pianificazione e controllo', ess: false, mod: 'A12', nome: 'Business plan e piano investimenti con ipotesi' },
         { id: 'd46', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Reporting economico e finanziario ultimi 12 mesi' },
         { id: 'd47', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Analisi scostamenti budget-consuntivo' },
-        { id: 'd48', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Analisi marginalita per prodotto / cliente / commessa' },
-        { id: 'd49', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Contabilita analitica e criteri di allocazione' },
+        { id: 'd48', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Analisi marginalità per prodotto / cliente / commessa' },
+        { id: 'd49', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Contabilità analitica e criteri di allocazione' },
         { id: 'd50', sez: 'Pianificazione e controllo', ess: false, mod: 'A7', nome: 'Calendario del processo di chiusura e date effettive ultimi 6 mesi' },
-        { id: 'd51', sez: 'Pianificazione e controllo', ess: false, mod: 'A5', nome: 'Scenari e analisi di sensitivita, se predisposti' },
+        { id: 'd51', sez: 'Pianificazione e controllo', ess: false, mod: 'A5', nome: 'Scenari e analisi di sensitività, se predisposti' },
         { id: 'd52', sez: 'Commerciale e mercato', ess: true, mod: 'A1-A4', nome: 'Fatturato per cliente ultimi 3 esercizi' },
         { id: 'd53', sez: 'Commerciale e mercato', ess: false, mod: 'A1', nome: 'Fatturato per prodotto, canale e area geografica' },
         { id: 'd54', sez: 'Commerciale e mercato', ess: false, mod: 'A1', nome: 'Contratti con i primi clienti (durata, preavviso, esclusive, penali)' },
@@ -8225,7 +8225,7 @@
         { id: 'd63', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A4', nome: 'Condizioni di pagamento concordate per fornitore' },
         { id: 'd64', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A4', nome: 'Statistiche di rotazione del magazzino e obsolescenza' },
         { id: 'd65', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A3-A4', nome: 'Inventario fisico e verbali delle rilevazioni' },
-        { id: 'd66', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A1', nome: 'Dati di capacita produttiva e saturazione' },
+        { id: 'd66', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A1', nome: 'Dati di capacità produttiva e saturazione' },
         { id: 'd67', sez: 'Acquisti, produzione e magazzino', ess: false, mod: 'A3-A4', nome: 'Per imprese su commessa: SAL, riserve, ritenute, anticipi' },
         { id: 'd68', sez: 'Personale e organizzazione', ess: false, mod: 'A1-A8', nome: 'Organico per funzione e per inquadramento' },
         { id: 'd69', sez: 'Personale e organizzazione', ess: false, mod: 'A3', nome: 'Costo del personale per funzione, ultimi 3 esercizi' },
@@ -8236,12 +8236,12 @@
         { id: 'd74', sez: 'Personale e organizzazione', ess: false, mod: 'A9-A11', nome: 'Piano formativo e registri della formazione' },
         { id: 'd75', sez: 'Personale e organizzazione', ess: false, mod: 'A1', nome: 'Piano di successione per le figure chiave' },
         { id: 'd76', sez: 'Fiscale e contributivo', ess: true, mod: 'A8-A10', nome: 'Estratto di ruolo aggiornato' },
-        { id: 'd77', sez: 'Fiscale e contributivo', ess: true, mod: 'A8-A10', nome: 'Situazione debitoria previdenziale e assistenziale; documento di regolarita contributiva' },
+        { id: 'd77', sez: 'Fiscale e contributivo', ess: true, mod: 'A8-A10', nome: 'Situazione debitoria previdenziale e assistenziale; documento di regolarità contributiva' },
         { id: 'd78', sez: 'Fiscale e contributivo', ess: true, mod: 'A10', nome: 'Scadenzario versamenti dei 12 mesi successivi' },
         { id: 'd79', sez: 'Fiscale e contributivo', ess: false, mod: 'A8-A10', nome: 'Comunicazioni delle liquidazioni periodiche IVA ultimi 24 mesi' },
         { id: 'd80', sez: 'Fiscale e contributivo', ess: false, mod: 'A5-A10', nome: 'Piani di rateizzazione in corso e stato dei pagamenti' },
         { id: 'd81', sez: 'Fiscale e contributivo', ess: false, mod: 'A10', nome: 'Contenziosi tributari, verbali di constatazione, interpelli' },
-        { id: 'd82', sez: 'Fiscale e contributivo', ess: false, mod: 'A10', nome: 'Riconciliazioni imposte-contabilita e fiscalita differita' },
+        { id: 'd82', sez: 'Fiscale e contributivo', ess: false, mod: 'A10', nome: 'Riconciliazioni imposte-contabilità e fiscalità differita' },
         { id: 'd83', sez: 'Fiscale e contributivo', ess: false, mod: 'A10', nome: 'Documentazione dei crediti d\'imposta maturati e compensati' },
         { id: 'd84', sez: 'Fiscale e contributivo', ess: false, mod: 'A2-A10', nome: 'Documentazione sui prezzi di trasferimento, se applicabile' },
         { id: 'd85', sez: 'Fiscale e contributivo', ess: false, mod: 'A8', nome: 'Segnalazioni ricevute da creditori pubblici qualificati' },
@@ -8253,23 +8253,23 @@
         { id: 'd91', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A9', nome: 'Registro dei trattamenti e documentazione privacy' },
         { id: 'd92', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A9', nome: 'Procedura di segnalazione interna delle violazioni' },
         { id: 'd93', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A9', nome: 'Polizze assicurative con massimali, franchigie ed esclusioni' },
-        { id: 'd94', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A1', nome: 'Contratti rilevanti diversi da quelli gia richiesti (locazioni, licenze, franchising)' },
+        { id: 'd94', sez: 'Legale, compliance e assicurativo', ess: false, mod: 'A1', nome: 'Contratti rilevanti diversi da quelli già richiesti (locazioni, licenze, franchising)' },
         { id: 'd95', sez: 'Sistemi informativi', ess: false, mod: 'A7-A8', nome: 'Elenco dei sistemi gestionali e loro copertura funzionale' },
         { id: 'd96', sez: 'Sistemi informativi', ess: false, mod: 'A9', nome: 'Politica di backup ed evidenza dell\'ultimo ripristino testato' },
         { id: 'd97', sez: 'Sistemi informativi', ess: false, mod: 'A8-A9', nome: 'Gestione degli accessi e delle utenze privilegiate' },
         { id: 'd98', sez: 'Sistemi informativi', ess: false, mod: 'A9', nome: 'Registro degli incidenti informatici' },
-        { id: 'd99', sez: 'Sistemi informativi', ess: false, mod: 'A8-A9', nome: 'Piano di continuita operativa, se esistente' },
+        { id: 'd99', sez: 'Sistemi informativi', ess: false, mod: 'A8-A9', nome: 'Piano di continuità operativa, se esistente' },
         { id: 'd100', sez: 'Sistemi informativi', ess: false, mod: 'A7-A8', nome: 'Elenco dei fogli di calcolo critici per i processi amministrativi' },
-        { id: 'd101', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Richieste ESG ricevute da clienti o banche e relative risposte' },
-        { id: 'd102', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Dati su consumi energetici e relative fatture' },
-        { id: 'd103', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Dati su rifiuti, emissioni, acqua e materie' },
-        { id: 'd104', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Certificazioni ambientali, di qualita e di prodotto' },
-        { id: 'd105', sez: 'Sostenibilita', ess: false, mod: 'A9-A11', nome: 'Autorizzazioni ambientali con scadenze e prescrizioni' },
-        { id: 'd106', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Criteri di selezione e verifica dei fornitori' },
-        { id: 'd107', sez: 'Sostenibilita', ess: false, mod: 'A11', nome: 'Politiche e obiettivi ESG formalizzati, se esistenti' },
-        { id: 'd108', sez: 'Sostenibilita', ess: false, mod: 'A11-A12', nome: 'Investimenti di adeguamento o transizione previsti' },
+        { id: 'd101', sez: 'Sostenibilità', ess: false, mod: 'A11', nome: 'Richieste ESG ricevute da clienti o banche e relative risposte' },
+        { id: 'd102', sez: 'Sostenibilità', ess: false, mod: 'A11', nome: 'Dati su consumi energetici e relative fatture' },
+        { id: 'd103', sez: 'Sostenibilità', ess: false, mod: 'A11', nome: 'Dati su rifiuti, emissioni, acqua e materie' },
+        { id: 'd104', sez: 'Sostenibilità', ess: false, mod: 'A11', nome: 'Certificazioni ambientali, di qualità e di prodotto' },
+        { id: 'd105', sez: 'Sostenibilità', ess: false, mod: 'A9-A11', nome: 'Autorizzazioni ambientali con scadenze e prescrizioni' },
+        { id: 'd106', sez: 'Sostenibilità', ess: false, mod: 'A11', nome: 'Criteri di selezione e verifica dei fornitori' },
+        { id: 'd107', sez: 'Sostenibilità', ess: false, mod: 'A11', nome: 'Politiche e obiettivi ESG formalizzati, se esistenti' },
+        { id: 'd108', sez: 'Sostenibilità', ess: false, mod: 'A11-A12', nome: 'Investimenti di adeguamento o transizione previsti' },
         { id: 'd109', sez: 'Gruppo e parti correlate', ess: true, mod: 'A2', nome: 'Mappa del gruppo con partecipazioni e cariche' },
-        { id: 'd110', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Bilanci delle societa collegate ultimi 3 esercizi' },
+        { id: 'd110', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Bilanci delle società collegate ultimi 3 esercizi' },
         { id: 'd111', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Bilancio consolidato, se redatto' },
         { id: 'd112', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Elenco rapporti infragruppo (crediti, debiti, garanzie, contratti)' },
         { id: 'd113', sez: 'Gruppo e parti correlate', ess: false, mod: 'A2', nome: 'Contratti infragruppo con condizioni economiche' },
@@ -8287,19 +8287,19 @@
         { id: 'd125', sez: 'Documentazione di incarico', ess: true, mod: '-', nome: 'Lettera di attestazione della direzione (M-30)' }
     ];
     const RB_CHECKUP_ANCORAGGI = {
-        a1: { 0: 'Modello di business non descrivibile in modo coerente; dipendenza critica non presidiata da un unico cliente, fornitore o persona; governance paralizzata o organo di controllo non nominato pur essendo obbligatorio; nessuna documentazione sulle decisioni strategiche.', 1: 'Modello comprensibile ma concentrazioni elevate senza alcuna mitigazione; deleghe non formalizzate; decisioni assunte informalmente; assenza di dati per cliente o prodotto.', 2: 'Modello chiaro e dati disponibili, ma concentrazioni significative senza piano di riduzione; governance funzionante ma poco formalizzata; nessun presidio di successione.', 3: 'Modello chiaro e documentato; concentrazioni monitorate e mitigate contrattualmente; deleghe formalizzate; organo amministrativo informato con regolarita; rischi di business identificati.', 4: 'Quanto sopra, con mappa dei rischi aggiornata e collegata a indicatori anticipatori, piano di successione formalizzato, monitoraggio strutturato del mercato e dei concorrenti, evidenza documentale che tali elementi orientano le decisioni.' },
-        a2: { 0: 'Perimetro del gruppo non ricostruibile; garanzie incrociate rilevanti non quantificate; presenza di societa collegate in difficolta con rapporti significativi; beni essenziali nella disponibilita di terzi senza titolo stabile.', 1: 'Mappa del gruppo ricostruita solo parzialmente; rapporti infragruppo non formalizzati o non riconciliati; garanzie note ma non quantificate.', 2: 'Mappa completa; rapporti infragruppo esistenti e riconciliati ma con condizioni non documentate o non allineate al mercato; garanzie quantificate ma non monitorate.', 3: 'Perimetro chiaro e documentato; rapporti infragruppo contrattualizzati a condizioni verificabili; garanzie quantificate, monitorate e rappresentate ai finanziatori; beni essenziali disponibili con titolo stabile.', 4: 'Quanto sopra, con prospetto aggregato di gruppo prodotto periodicamente, politica formalizzata sui rapporti infragruppo e monitoraggio dell\'esposizione complessiva verso il sistema finanziario a livello di gruppo.' },
-        a3: { 0: 'Dati non riconciliati o inattendibili; patrimonio netto negativo o eroso oltre i limiti di legge senza provvedimenti; perdite strutturali; assenza di situazione infrannuale.', 1: 'Dati disponibili ma con incoerenze significative non spiegate; marginalita negativa o erratica; patrimonio molto fragile; nessuna normalizzazione possibile per carenza di informazioni.', 2: 'Dati riconciliabili; marginalita positiva ma in calo o volatile; struttura patrimoniale squilibrata; qualita dell\'attivo non presidiata (assenza di ageing o di politiche di svalutazione).', 3: 'Dati attendibili e riconciliati; marginalita stabile e coerente con il settore; struttura patrimoniale equilibrata; qualita dell\'attivo presidiata; rendiconto finanziario disponibile.', 4: 'Quanto sopra, con marginalita stabile o crescente, patrimonio solido, dati infrannuali tempestivi e riconciliati, analisi dello scostamento tra risultato e flusso di cassa svolta dall\'impresa stessa e confronto strutturato con dati settoriali.' },
+        a1: { 0: 'Modello di business non descrivibile in modo coerente; dipendenza critica non presidiata da un unico cliente, fornitore o persona; governance paralizzata o organo di controllo non nominato pur essendo obbligatorio; nessuna documentazione sulle decisioni strategiche.', 1: 'Modello comprensibile ma concentrazioni elevate senza alcuna mitigazione; deleghe non formalizzate; decisioni assunte informalmente; assenza di dati per cliente o prodotto.', 2: 'Modello chiaro e dati disponibili, ma concentrazioni significative senza piano di riduzione; governance funzionante ma poco formalizzata; nessun presidio di successione.', 3: 'Modello chiaro e documentato; concentrazioni monitorate e mitigate contrattualmente; deleghe formalizzate; organo amministrativo informato con regolarità; rischi di business identificati.', 4: 'Quanto sopra, con mappa dei rischi aggiornata e collegata a indicatori anticipatori, piano di successione formalizzato, monitoraggio strutturato del mercato e dei concorrenti, evidenza documentale che tali elementi orientano le decisioni.' },
+        a2: { 0: 'Perimetro del gruppo non ricostruibile; garanzie incrociate rilevanti non quantificate; presenza di società collegate in difficolta con rapporti significativi; beni essenziali nella disponibilità di terzi senza titolo stabile.', 1: 'Mappa del gruppo ricostruita solo parzialmente; rapporti infragruppo non formalizzati o non riconciliati; garanzie note ma non quantificate.', 2: 'Mappa completa; rapporti infragruppo esistenti e riconciliati ma con condizioni non documentate o non allineate al mercato; garanzie quantificate ma non monitorate.', 3: 'Perimetro chiaro e documentato; rapporti infragruppo contrattualizzati a condizioni verificabili; garanzie quantificate, monitorate e rappresentate ai finanziatori; beni essenziali disponibili con titolo stabile.', 4: 'Quanto sopra, con prospetto aggregato di gruppo prodotto periodicamente, politica formalizzata sui rapporti infragruppo e monitoraggio dell\'esposizione complessiva verso il sistema finanziario a livello di gruppo.' },
+        a3: { 0: 'Dati non riconciliati o inattendibili; patrimonio netto negativo o eroso oltre i limiti di legge senza provvedimenti; perdite strutturali; assenza di situazione infrannuale.', 1: 'Dati disponibili ma con incoerenze significative non spiegate; marginalità negativa o erratica; patrimonio molto fragile; nessuna normalizzazione possibile per carenza di informazioni.', 2: 'Dati riconciliabili; marginalità positiva ma in calo o volatile; struttura patrimoniale squilibrata; qualità dell\'attivo non presidiata (assenza di ageing o di politiche di svalutazione).', 3: 'Dati attendibili e riconciliati; marginalità stabile e coerente con il settore; struttura patrimoniale equilibrata; qualità dell\'attivo presidiata; rendiconto finanziario disponibile.', 4: 'Quanto sopra, con marginalità stabile o crescente, patrimonio solido, dati infrannuali tempestivi e riconciliati, analisi dello scostamento tra risultato e flusso di cassa svolta dall\'impresa stessa e confronto strutturato con dati settoriali.' },
         a4: { 0: 'Nessun controllo su crediti e magazzino; ageing non disponibile; scaduto rilevante non presidiato; allungamento non concordato dei pagamenti ai fornitori in atto.', 1: 'Dati disponibili solo su richiesta e non utilizzati; nessuna valutazione preventiva della clientela; sollecito occasionale; giacenze obsolete non quantificate.', 2: 'Ageing disponibile e monitorato in modo discontinuo; presidi esistenti ma informali; ciclo monetario noto ma non gestito come obiettivo.', 3: 'Presidi formalizzati e applicati: valutazione del cliente, limite di fido, sollecito con escalation, monitoraggio periodico di ageing e rotazione; ciclo monetario misurato e stabile.', 4: 'Quanto sopra, con obiettivi quantificati di DSO, DIO e DPO assegnati a responsabili, budget di circolante integrato nella pianificazione e azioni correttive documentate al superamento delle soglie interne.' },
         a5: { 0: 'DSCR prospettico inferiore a 1 nello scenario base, o impossibilita di calcolarlo per assenza di dati; covenant violati senza waiver; scadenze imminenti prive di copertura; posizione finanziaria non ricostruibile.', 1: 'DSCR intorno a 1 o inferiore a 1 nello scenario avverso, senza risorse di copertura; piano di cassa assente o inattendibile; elevata concentrazione delle scadenze; forte dipendenza da linee a revoca.', 2: 'DSCR superiore a 1 nello scenario base ma con margini ridotti; piano di cassa esistente ma non aggiornato o non stressato; covenant monitorati in modo discontinuo; struttura delle scadenze parzialmente disallineata.', 3: 'DSCR adeguato anche nello scenario avverso; piano di cassa aggiornato e riconciliato; scadenze distribuite e coerenti con la durata degli impieghi; covenant monitorati con margini documentati; garanzie mappate.', 4: 'Quanto sopra, con scenari e punto di rottura elaborati dall\'impresa stessa, soglie interne di allerta formalizzate con azioni predefinite, gestione anticipata delle scadenze e margini di sicurezza documentati.' },
         a6: { 0: 'Sconfinamenti persistenti o segnalazioni di deterioramento in atto; Centrale dei Rischi non disponibile; struttura degli affidamenti gravemente incoerente; revoche o riduzioni significative in corso.', 1: 'Sconfinamenti ricorrenti; linee a revoca sature; concentrazione elevata; impresa che non conosce il contenuto della propria Centrale dei Rischi; nessun presidio dei saldi.', 2: 'Andamentale sostanzialmente regolare con episodi isolati; struttura degli affidamenti parzialmente coerente; Centrale dei Rischi consultata occasionalmente; dialogo bancario reattivo.', 3: 'Andamentale regolare; struttura coerente con i fabbisogni; margini disponibili adeguati; Centrale dei Rischi monitorata con periodicita e riconciliata; dialogo bancario programmato.', 4: 'Quanto sopra, con monitoraggio mensile formalizzato e verbalizzato, presidio giornaliero dei saldi, concentrazione controllata, gestione anticipata delle revisioni e archivio strutturato delle informazioni trasmesse a ciascun intermediario.' },
-        a7: { 0: 'Nessun reporting periodico; dati disponibili solo con il bilancio annuale; nessuna previsione di cassa; impossibilita di produrre una situazione aggiornata.', 1: 'Reporting sporadico e non riconciliato; budget assente o puramente formale; previsione di cassa limitata al saldo bancario; nessuna analisi degli scostamenti.', 2: 'Reporting mensile esistente ma tardivo o parzialmente riconciliato; budget presente ma non confrontato sistematicamente; tesoreria a breve orizzonte; analisi degli scostamenti occasionale.', 3: 'Reporting mensile tempestivo e riconciliato; budget integrato con analisi degli scostamenti; tesoreria a tredici settimane aggiornata; evidenza dell\'uso dei dati nelle decisioni.', 4: 'Quanto sopra, con forecast aggiornato periodicamente, cruscotto di indicatori anticipatori, responsabilita formalizzate per linea, azioni correttive tracciate e processo non dipendente da singole persone.' },
-        a8: { 0: 'Assetti inesistenti o palesemente inadeguati; nessuna verifica delle soglie; organo di controllo non nominato pur essendo obbligatorio; impossibilita di produrre una proiezione a dodici mesi; segnalazioni ricevute e non trattate.', 1: 'Assetti embrionali; ruoli non formalizzati; nessun flusso informativo strutturato verso l\'organo amministrativo; verifica della sostenibilita del debito non eseguita.', 2: 'Assetti esistenti ma non formalizzati o non proporzionati alla dimensione raggiunta; flussi informativi discontinui; verifica della sostenibilita eseguita occasionalmente.', 3: 'Assetti proporzionati e documentati; separazione dei compiti nei processi sensibili; flussi informativi periodici verbalizzati; verifica documentata della sostenibilita del debito a dodici mesi; soglie monitorate.', 4: 'Quanto sopra, con procedura formalizzata di rilevazione precoce, indicatori di allerta monitorati con periodicita definita, aggiornamento degli assetti a fronte dei cambiamenti organizzativi, evidenza dell\'esame periodico da parte dell\'organo amministrativo e piano di continuita operativa.' },
+        a7: { 0: 'Nessun reporting periodico; dati disponibili solo con il bilancio annuale; nessuna previsione di cassa; impossibilita di produrre una situazione aggiornata.', 1: 'Reporting sporadico e non riconciliato; budget assente o puramente formale; previsione di cassa limitata al saldo bancario; nessuna analisi degli scostamenti.', 2: 'Reporting mensile esistente ma tardivo o parzialmente riconciliato; budget presente ma non confrontato sistematicamente; tesoreria a breve orizzonte; analisi degli scostamenti occasionale.', 3: 'Reporting mensile tempestivo e riconciliato; budget integrato con analisi degli scostamenti; tesoreria a tredici settimane aggiornata; evidenza dell\'uso dei dati nelle decisioni.', 4: 'Quanto sopra, con forecast aggiornato periodicamente, cruscotto di indicatori anticipatori, responsabilità formalizzate per linea, azioni correttive tracciate e processo non dipendente da singole persone.' },
+        a8: { 0: 'Assetti inesistenti o palesemente inadeguati; nessuna verifica delle soglie; organo di controllo non nominato pur essendo obbligatorio; impossibilita di produrre una proiezione a dodici mesi; segnalazioni ricevute e non trattate.', 1: 'Assetti embrionali; ruoli non formalizzati; nessun flusso informativo strutturato verso l\'organo amministrativo; verifica della sostenibilità del debito non eseguita.', 2: 'Assetti esistenti ma non formalizzati o non proporzionati alla dimensione raggiunta; flussi informativi discontinui; verifica della sostenibilità eseguita occasionalmente.', 3: 'Assetti proporzionati e documentati; separazione dei compiti nei processi sensibili; flussi informativi periodici verbalizzati; verifica documentata della sostenibilità del debito a dodici mesi; soglie monitorate.', 4: 'Quanto sopra, con procedura formalizzata di rilevazione precoce, indicatori di allerta monitorati con periodicita definita, aggiornamento degli assetti a fronte dei cambiamenti organizzativi, evidenza dell\'esame periodico da parte dell\'organo amministrativo e piano di continuità operativa.' },
         a9: { 0: 'Autorizzazioni essenziali scadute o mancanti; contenziosi rilevanti non rappresentati; assenza totale di presidi in materia di sicurezza sul lavoro o di sicurezza informatica; sanzioni gravi in corso.', 1: 'Presidi frammentari; scadenze non monitorate; contenziosi noti ma non quantificati; coperture assicurative palesemente inadeguate.', 2: 'Presidi esistenti ma non sistematici; registro scadenze informale; contenziosi valutati ma non riflessi nei piani; assicurazioni non riviste da tempo.', 3: 'Obblighi mappati con responsabili; scadenze monitorate; contenziosi quantificati e riflessi nei piani; presidi minimi di sicurezza informatica e privacy attivi; coperture adeguate.', 4: 'Quanto sopra, con report periodico dei rischi all\'organo amministrativo, modello organizzativo effettivo e aggiornato ove adottato, procedure di gestione degli incidenti testate e programma assicurativo rivisto periodicamente sulla base della mappa dei rischi.' },
-        a10: { 0: 'Debiti fiscali o contributivi scaduti rilevanti; superamento delle soglie di segnalazione; omessi versamenti; contenziosi rilevanti non rappresentati.', 1: 'Ritardi ricorrenti; dilazioni utilizzate come fonte di finanziamento; nessun presidio interno; scadenze non inserite nel piano di cassa.', 2: 'Adempimenti sostanzialmente regolari ma senza controlli formalizzati; riconciliazioni occasionali; decisioni fiscali non documentate.', 3: 'Adempimenti regolari e monitorati; scadenzario integrato nel piano di cassa; riconciliazioni periodiche documentate; responsabilita assegnate; contenziosi quantificati.', 4: 'Quanto sopra, con mappa dei rischi fiscali e dei controlli, tracciabilita delle decisioni e dei pareri, controllo di secondo livello e reporting periodico all\'organo amministrativo.' },
-        a11: { 0: 'Rischi ESG rilevanti e non presidiati con impatto attuale (autorizzazioni a rischio, contenziosi ambientali, perdita di clienti per requisiti non soddisfatti); dati dichiarati falsi o non documentabili.', 1: 'Nessuna consapevolezza dei fattori rilevanti; richieste ricevute e non gestite; nessun dato disponibile.', 2: 'Consapevolezza dei fattori rilevanti; alcuni dati disponibili ma non sistematici ne sempre tracciabili; nessun piano di adeguamento.', 3: 'Fattori rilevanti identificati e collegati a impatti economici; dati principali disponibili e tracciabili; investimenti di adeguamento inclusi nei piani; risposte alle richieste di filiera gestite.', 4: 'Quanto sopra, con obiettivi formalizzati e monitorati, responsabilita assegnate, rendicontazione volontaria proporzionata, dati verificabili utilizzati nella comunicazione ai finanziatori e valutazione dei rischi fisici e di transizione integrata nella pianificazione.' },
+        a10: { 0: 'Debiti fiscali o contributivi scaduti rilevanti; superamento delle soglie di segnalazione; omessi versamenti; contenziosi rilevanti non rappresentati.', 1: 'Ritardi ricorrenti; dilazioni utilizzate come fonte di finanziamento; nessun presidio interno; scadenze non inserite nel piano di cassa.', 2: 'Adempimenti sostanzialmente regolari ma senza controlli formalizzati; riconciliazioni occasionali; decisioni fiscali non documentate.', 3: 'Adempimenti regolari e monitorati; scadenzario integrato nel piano di cassa; riconciliazioni periodiche documentate; responsabilità assegnate; contenziosi quantificati.', 4: 'Quanto sopra, con mappa dei rischi fiscali e dei controlli, tracciabilità delle decisioni e dei pareri, controllo di secondo livello e reporting periodico all\'organo amministrativo.' },
+        a11: { 0: 'Rischi ESG rilevanti e non presidiati con impatto attuale (autorizzazioni a rischio, contenziosi ambientali, perdita di clienti per requisiti non soddisfatti); dati dichiarati falsi o non documentabili.', 1: 'Nessuna consapevolezza dei fattori rilevanti; richieste ricevute e non gestite; nessun dato disponibile.', 2: 'Consapevolezza dei fattori rilevanti; alcuni dati disponibili ma non sistematici ne sempre tracciabili; nessun piano di adeguamento.', 3: 'Fattori rilevanti identificati e collegati a impatti economici; dati principali disponibili e tracciabili; investimenti di adeguamento inclusi nei piani; risposte alle richieste di filiera gestite.', 4: 'Quanto sopra, con obiettivi formalizzati e monitorati, responsabilità assegnate, rendicontazione volontaria proporzionata, dati verificabili utilizzati nella comunicazione ai finanziatori e valutazione dei rischi fisici e di transizione integrata nella pianificazione.' },
         a12: { 0: 'Investimenti rilevanti avviati senza copertura finanziaria identificata; debito a breve utilizzato per impieghi pluriennali in misura strutturale; adempimenti agevolativi violati con rischio di revoca in atto.', 1: 'Fonti scelte senza analisi; nessuna matrice fonti-impieghi; assenza di mezzi propri; nessun piano alternativo.', 2: 'Coerenza parziale tra fonti e impieghi; analisi del costo limitata al tasso nominale; agevolazioni gestite senza presidio degli adempimenti.', 3: 'Fonti coerenti con natura e durata degli impieghi; costo complessivo valutato; covenant e garanzie conosciuti; agevolazioni presidiate; piano di cassa integrato.', 4: 'Quanto sopra, con strategia finanziaria formalizzata, valutazione comparata delle alternative documentata, scenari alternativi in caso di mancata concessione e integrazione delle operazioni straordinarie nella pianificazione finanziaria pluriennale.' },
-        a13: { 0: 'Comunicazione assente o reticente; dati incoerenti trasmessi a soggetti diversi; criticita rilevanti taciute ai finanziatori.', 1: 'Comunicazione esclusivamente reattiva e in emergenza; nessun archivio; richieste generiche e non supportate.', 2: 'Comunicazione regolare su richiesta; dati coerenti ma non riconciliati; assenza di calendario e di referente unico.', 3: 'Comunicazione programmata e proattiva; dati riconciliati e coerenti; richieste complete di importo, durata, finalita e fonti di rimborso; referente designato.', 4: 'Quanto sopra, con dossier strutturato aggiornato periodicamente, archivio completo delle informazioni trasmesse, comunicazione tempestiva anche delle notizie sfavorevoli e preparazione documentata degli incontri.' }
+        a13: { 0: 'Comunicazione assente o reticente; dati incoerenti trasmessi a soggetti diversi; criticità rilevanti taciute ai finanziatori.', 1: 'Comunicazione esclusivamente reattiva e in emergenza; nessun archivio; richieste generiche e non supportate.', 2: 'Comunicazione regolare su richiesta; dati coerenti ma non riconciliati; assenza di calendario e di referente unico.', 3: 'Comunicazione programmata e proattiva; dati riconciliati e coerenti; richieste complete di importo, durata, finalità e fonti di rimborso; referente designato.', 4: 'Quanto sopra, con dossier strutturato aggiornato periodicamente, archivio completo delle informazioni trasmesse, comunicazione tempestiva anche delle notizie sfavorevoli e preparazione documentata degli incontri.' }
     };
 
     // fascia dimensionale dai ricavi (par. 3.4): senza ricavi vale "Piccola"
@@ -8406,7 +8406,7 @@
         if ((rbNum(sc.sconfiniGiorni) || 0) > 60 && (rbNum(sc.sconfiniImporto) || 0) > 0) applica('C', 'sconfinamenti bancari da oltre 60 giorni: non oltre la classe C');
         if (righeAree.some(a => a.nucleo && a.punteggio === 0)) applica('C', 'un modulo indispensabile vale zero: non oltre la classe C');
         RB_CHECKUP_CIRCOSTANZE.forEach(cc => { if (circ[cc.id]) applica(cc.cap, cc.et.toLowerCase() + ': non oltre la classe ' + cc.cap); });
-        if (c1 > 0) applica('C', 'criticita gravi (C1) aperte: le classi A e B sono escluse finche non trattate');
+        if (c1 > 0) applica('C', 'criticità gravi (C1) aperte: le classi A e B sono escluse finché non trattate');
         const prudenza = [];
         righeAree.forEach(a => {
             if (typeof a.punteggio === 'number' && a.punteggio > 2 && a.docMancanti.length) {
@@ -8464,7 +8464,7 @@
                 <div class="kpi ${c.essRicevuti < c.essTot ? 'ambra' : 'verde'}"><div class="etichetta">Roadmap e documenti</div><div class="valore">${c.azioniAperte}</div>
                     <div class="nota">azioni aperte &middot; documenti essenziali: ${c.essRicevuti}/${c.essTot} &middot; totali: ${c.docRicevuti}/${c.docApplicabili}</div></div>
             </div>
-            ${c1aperti.length ? '<p class="rb-testo" style="margin:0 0 8px;"><strong>Criticita decisive (da rappresentare sempre con la classe):</strong> ' + c1aperti.map(r => esc(r.fatto || 'rilievo C1')).join('; ') + '.</p>' : ''}
+            ${c1aperti.length ? '<p class="rb-testo" style="margin:0 0 8px;"><strong>Criticità decisive (da rappresentare sempre con la classe):</strong> ' + c1aperti.map(r => esc(r.fatto || 'rilievo C1')).join('; ') + '.</p>' : ''}
             ${override.length || prudenza ? '<div class="rb-chips">' + override.map(l => '<span class="badge arancio">' + esc(l) + '</span>').join('')
                 + (prudenza ? '<span class="badge ambra">' + prudenza + (prudenza === 1 ? ' modulo con punteggio alto ma documenti essenziali mancanti' : ' moduli con punteggio alto ma documenti essenziali mancanti') + '</span>' : '') + '</div>' : ''}
             ${compatto ? '<details class="rb-dettaglio"><summary>Dettaglio del check-up (moduli, rilievi e roadmap)</summary>' : ''}
@@ -8492,57 +8492,71 @@
                     <td><span class="badge ${r.stato === 'completata' ? 'verde' : (r.stato === 'sospesa' ? 'arancio' : (r.stato === 'superata' ? 'neutro' : 'ambra'))}">${RB_CHECKUP_STATI_AZIONE[r.stato] || 'Non avviata'}</span></td></tr>`).join('')).join('')}
             </tbody></table></div>` : ''}
             ${compatto ? '</details>' : ''}
-            <p class="hint">Scala dei punteggi: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto; classi di sintesi da A (presidi evoluti) a E (presidi critici), sempre lette insieme alle criticita.</p>`;
+            <p class="hint">Scala dei punteggi: 0 critico, 1 debole, 2 parzialmente adeguato, 3 adeguato, 4 evoluto; classi di sintesi da A (presidi evoluti) a E (presidi critici), sempre lette insieme alle criticità.</p>`;
     }
 
     /* ------------------------------------------------------------
-       IL CHECK-UP GUIDATO: cosa fare in ogni fase, le tracce di
-       intervista pronte, e il collegamento con il questionario e con
-       i calcoli della verifica. Ogni modulo riceve un punteggio
-       SUGGERITO dai dati gia inseriti (risposte del questionario,
-       bilancio, Centrale dei Rischi, gruppo): il professionista lo
-       conferma o lo corregge dopo interviste e verifiche. Cosi le
-       stesse informazioni non si inseriscono due volte.
+       IL CHECK-UP GUIDATO: ogni fase si apre in una finestra con la
+       guida, gli strumenti e le domande da registrare. Il questionario
+       qualitativo NON e' piu' una scheda separata: le venti domande
+       vivono dentro le fasi (conoscenza dell'impresa, interviste,
+       verifica dei presidi) e le risposte si riusano ovunque servono:
+       correttivo sulla classe, modulo qualitativo dello scoring,
+       punteggi suggeriti dei moduli, tabella del report.
     ------------------------------------------------------------ */
     const RB_CHECKUP_GUIDA = {
-        f0: 'Prima di accettare il lavoro, verifica che l\'impresa sia seguibile: attivita in corso, contabilita utilizzabile, nessuna procedura concorsuale aperta, un interlocutore che collabora. Il quadro qui sotto riepiloga cosa risulta gia inserito nel programma.',
-        f1: 'Raccogli le informazioni di base e gli obiettivi: perche l\'impresa chiede il check-up (nuova finanza, rinnovo degli affidamenti, pricing, una tensione in corso), con quali banche lavora, quali scadenze ha davanti. Annota tutto nella nota della fase: entra nel fascicolo.',
-        f2: 'Formalizza l\'incarico prima di iniziare: oggetto (check-up del merito creditizio), perimetro, tempi, compenso e riservatezza. Se l\'incarico e censito nella sezione Incarichi dell\'area, collegalo dalla scheda "Impresa e bilancio": cliente e regione si compilano da soli.',
-        f3: 'Riunisci il titolare e le figure chiave: presenta il percorso, concorda il calendario e chi consegna i documenti. Compila data, luogo e partecipanti qui sotto e genera il verbale: resta agli atti e mette tutti d\'accordo su cosa succede.',
-        f4: 'Consegna all\'impresa la lista dei documenti e tieni qui lo stato della raccolta, sezione per sezione. La lettera di richiesta si genera da sola con i soli documenti che mancano. I documenti con il pallino sono essenziali: senza, il punteggio del modulo collegato non dovrebbe superare 2.',
-        f5: 'Le carte non bastano: intervista le persone. Qui sotto trovi le tracce pronte per i tre colloqui tipici; segna quello che emerge nelle conclusioni dei moduli (fase dei punteggi) come evidenza.',
-        f6: 'Prima di valutare, verifica che i numeri reggano: riconciliazioni banche-contabilita, Centrale dei Rischi contro il partitario, scaduto reale di clienti e fornitori, giacenze effettive di magazzino, autorizzazioni e coperture assicurative in corso di validita. I controlli automatici del programma sono riepilogati qui sotto.',
-        f7: 'Assegna a ogni modulo un punteggio da 0 (critico) a 4 (evoluto). Parti dal punteggio suggerito dai dati e dal questionario, poi confermalo o correggilo alla luce di interviste e verifiche, e scrivi la conclusione del modulo con le evidenze: e quella che finisce nel rapporto.',
-        f8: 'Trasforma quello che hai trovato in rilievi (fatto, evidenza, rischio, raccomandazione) e in una roadmap con responsabili e scadenze: poche azioni, concrete, per orizzonte. Una criticita grave va comunicata subito per iscritto all\'organo amministrativo: la lettera si genera da sola dai rilievi.',
-        f9: 'Componi e riesamina il rapporto, poi consegnalo di persona: prima i punti di forza, poi le criticita con le azioni proposte. Il report completo da firmare si apre dal pulsante in alto; il verbale di consegna chiude formalmente il lavoro.',
+        f0: 'Prima di accettare il lavoro, verifica che l’impresa sia seguibile: attività in corso, contabilità utilizzabile, nessuna procedura concorsuale aperta, un interlocutore che collabora. Il quadro qui sotto riepiloga che cosa risulta già inserito nel programma.',
+        f1: 'Raccogli le informazioni di base e gli obiettivi: perché l’impresa chiede il check-up (nuova finanza, rinnovo degli affidamenti, condizioni, una tensione in corso), con quali banche lavora, quali scadenze ha davanti. Registra qui sotto le prime risposte sul profilo dell’impresa: verranno riprese nei calcoli e nei punteggi.',
+        f2: 'Formalizza l’incarico prima di iniziare: oggetto (check-up del merito creditizio), perimetro, tempi, compenso e riservatezza. Se l’incarico è censito nella sezione Incarichi dell’area, collegalo dalla scheda “Impresa e bilancio”: cliente e regione si compilano da soli.',
+        f3: 'Riunisci il titolare e le figure chiave: presenta il percorso, concorda il calendario e chi consegna i documenti. Compila data, luogo e partecipanti e genera il verbale: resta agli atti e mette tutti d’accordo su che cosa succede.',
+        f4: 'Consegna all’impresa la lista dei documenti e tieni qui lo stato della raccolta, sezione per sezione. La lettera di richiesta si genera da sola con i soli documenti che mancano. I documenti con il pallino sono essenziali: senza, il punteggio del modulo collegato non dovrebbe superare 2.',
+        f5: 'Le carte non bastano: intervista le persone. Per ogni colloquio trovi la traccia delle domande da fare e, subito sotto, le risposte da registrare: entrano nei calcoli e nei punteggi suggeriti. Quello che emerge in più va nelle conclusioni dei moduli come evidenza.',
+        f6: 'Prima di valutare, verifica che i numeri e i presidi reggano: riconciliazioni banche-contabilità, Centrale dei Rischi contro il partitario, scaduto reale di clienti e fornitori, giacenze effettive, certificazioni e modelli davvero attivi. Registra qui l’esito delle verifiche sui presidi: anche queste risposte alimentano calcoli e punteggi.',
+        f7: 'Assegna a ogni modulo un punteggio da 0 (critico) a 4 (evoluto). Parti dal punteggio suggerito dai dati e dalle risposte registrate nelle fasi, poi confermalo o correggilo alla luce di interviste e verifiche, e scrivi la conclusione del modulo con le evidenze: è quella che finisce nel rapporto.',
+        f8: 'Trasforma quello che hai trovato in rilievi (fatto, evidenza, rischio, raccomandazione) e in una roadmap con responsabili e scadenze: poche azioni, concrete, per orizzonte. Una criticità grave va comunicata subito per iscritto all’organo amministrativo: la lettera si genera da sola dai rilievi.',
+        f9: 'Componi e riesamina il rapporto, poi consegnalo di persona: prima i punti di forza, poi le criticità con le azioni proposte. Il report completo da firmare si apre dagli esiti; il verbale di consegna chiude formalmente il lavoro.',
         f10: 'Il check-up vale se le azioni si fanno: aggiorna lo stato della roadmap man mano, fissa la data della prossima revisione e riproponi la verifica quando cambiano i numeri o succede qualcosa di rilevante.'
     };
-    // le tracce di intervista pronte per i tre colloqui tipici
+    /* le tracce dei tre colloqui tipici: le domande da fare a voce e, per
+       ognuna, le risposte strutturate da registrare (ex questionario) */
     const RB_CHECKUP_INTERVISTE = [
-        { id: 'titolare', nome: 'Titolare e governance', domande: [
-            'Come vengono prese le decisioni importanti e chi puo impegnare la societa verso banche e fornitori?',
-            'Cosa succederebbe all\'impresa se lei mancasse per sei mesi? Chi la sostituirebbe e con quali deleghe?',
-            'Quali sono i tre rischi che la preoccupano di piu e come li sta gestendo?',
+        { id: 'titolare', nome: 'Titolare e governance', risposte: ['continuita'], domande: [
+            'Come vengono prese le decisioni importanti e chi può impegnare la società verso banche e fornitori?',
+            'Che cosa succederebbe all’impresa se lei mancasse per sei mesi? Chi la sostituirebbe e con quali deleghe?',
+            'Quali sono i tre rischi che la preoccupano di più e come li sta gestendo?',
             'Come sceglie le banche con cui lavorare e ogni quanto le incontra?',
-            'Ci sono garanzie personali, fideiussioni o operazioni con parti correlate di cui tenere conto?'
+            'Ci sono garanzie personali, fideiussioni od operazioni con parti correlate di cui tenere conto?'
         ] },
-        { id: 'amministrazione', nome: 'Amministrazione e controllo', domande: [
+        { id: 'amministrazione', nome: 'Amministrazione e controllo', risposte: ['controllo', 'piani', 'organo', 'assetti', 'puntualita'], domande: [
             'Ogni quanto chiudete una situazione contabile affidabile, e in quanti giorni dalla fine del mese?',
             'Esiste un budget? Chi lo prepara, chi lo rivede e come si analizzano gli scostamenti?',
             'Come gestite lo scaduto clienti: chi sollecita, con quali tempi e con quali risultati?',
             'Ci sono debiti fiscali o contributivi scaduti o rateizzati? Con quale piano di rientro?',
             'Quali controlli esistono su cassa, firme e pagamenti (deleghe, doppia firma, riconciliazioni)?'
         ] },
-        { id: 'finanza', nome: 'Finanza, tesoreria e banche', domande: [
+        { id: 'finanza', nome: 'Finanza, tesoreria e banche', risposte: ['tesoreria', 'numbanche', 'sconfini', 'crlettura', 'proattiva', 'garanzie'], domande: [
             'Come prevedete la cassa: su quale orizzonte, con quale strumento e ogni quanto la aggiornate?',
             'Quali affidamenti avete per banca, quanto sono utilizzati e con quali garanzie?',
             'Ci sono stati sconfini o insoluti negli ultimi dodici mesi? Come sono stati gestiti?',
-            'Chi legge la Centrale dei Rischi e cosa e emerso dall\'ultima lettura?',
+            'Chi legge la Centrale dei Rischi e che cosa è emerso dall’ultima lettura?',
             'Quali investimenti od operazioni straordinarie sono in vista e come pensate di finanziarli?'
-        ] }
+        ] },
     ];
-    /* quali risposte del questionario parlano di ogni modulo: sono la base del
-       punteggio suggerito, insieme ai segnali dei calcoli */
+    /* dove si registrano le altre risposte: al primo contatto il profilo
+       dell'impresa, nelle verifiche i presidi documentabili */
+    const RB_FASE_DOMANDE = {
+        f1: ['anzianita', 'mercato', 'concentrazione'],
+        f6: ['mod231', 'legalita', 'esg', 'tcf', 'cert']
+    };
+    // tutte le domande con la fase in cui si registrano (per contatori e rimandi)
+    function rbDomandeFase() {
+        const mappa = {};
+        Object.keys(RB_FASE_DOMANDE).forEach(fid => RB_FASE_DOMANDE[fid].forEach(q => { mappa[q] = fid; }));
+        RB_CHECKUP_INTERVISTE.forEach(t => t.risposte.forEach(q => { mappa[q] = 'f5'; }));
+        return mappa;
+    }
+    /* quali risposte parlano di ogni modulo: sono la base del punteggio
+       suggerito, insieme ai segnali dei calcoli */
     const RB_CHECKUP_FONTI = {
         a1: ['continuita', 'mercato', 'concentrazione', 'anzianita'],
         a2: [],
@@ -8558,10 +8572,10 @@
         a12: [],
         a13: ['proattiva', 'crlettura']
     };
-    /* il punteggio suggerito per ogni modulo: dalla media delle risposte del
-       questionario collegate (85%+ vale 4, 65%+ vale 3, 45%+ vale 2, 25%+
-       vale 1, sotto vale 0) corretta dai segnali dei calcoli, sempre in senso
-       prudente. Ogni suggerimento elenca le sue basi: si vede DA COSA nasce. */
+    /* il punteggio suggerito per ogni modulo: dalla media delle risposte
+       collegate (dall’85% vale 4, dal 65% vale 3, dal 45% vale 2, dal 25%
+       vale 1, sotto vale 0) corretta dai segnali dei calcoli, sempre in
+       senso prudente. Ogni suggerimento elenca le sue basi. */
     function rbCheckupSuggerimenti(v, es) {
         const risposte = v.questionario || {};
         const tutteDomande = rbDomande();
@@ -8583,7 +8597,7 @@
                 const perc = punti / max * 100;
                 p = perc >= 85 ? 4 : (perc >= 65 ? 3 : (perc >= 45 ? 2 : (perc >= 25 ? 1 : 0)));
             }
-            // i segnali dei calcoli: assegnano dove il questionario tace, limitano dove i numeri smentiscono
+            // i segnali dei calcoli: assegnano dove le risposte tacciono, limitano dove i numeri smentiscono
             const limita = (val, motivo) => { p = (p === null) ? val : Math.min(p, val); base.push(motivo); };
             if (es && es.pronta) {
                 if (a.id === 'a2' && es.gruppo.compilato) {
@@ -8612,7 +8626,7 @@
                     else if (mesi >= 3) limita(1, mesi + ' mesi con sconfini in Centrale dei Rischi');
                     else if (mesi > 0) limita(2, mesi + (mesi === 1 ? ' mese' : ' mesi') + ' con sconfini in Centrale dei Rischi');
                 }
-                if (a.id === 'a8' && es.scoring.presidio.segnaliPresenti) limita(1, 'segnali di allerta dell\'art. 3 CCII presenti');
+                if (a.id === 'a8' && es.scoring.presidio.segnaliPresenti) limita(1, 'segnali di allerta dell’art. 3 CCII presenti');
                 if (a.id === 'a10') {
                     if ((rbNum((v.dettagli || {}).tribScaduto) || 0) > 0) limita(1, 'debiti fiscali o contributivi scaduti dichiarati');
                 }
@@ -8621,41 +8635,36 @@
         });
         return out;
     }
-    /* --- scheda: il check-up come percorso guidato per fasi ---
-       Ogni fase e un pannello con: cosa fare (in parole semplici), gli
-       strumenti per farlo davvero (check-list, tracce di intervista, punteggi
-       suggeriti, rilievi e roadmap) e i documenti che si generano da soli dai
-       dati inseriti (verbali e lettere). L'ultima fase aperta resta aperta
-       tra un ridisegno e l'altro. */
-    let cuFaseAperta = null;
-    function rbTabCheckup(v) {
+    // una domanda con le risposte a scelta: si registra nelle fasi e si riusa ovunque
+    function rbDomandaHtml(v, qid) {
+        const d = rbDomande().find(x => x.id === qid);
+        if (!d) return '';
+        const val = (v.questionario || {})[qid];
+        return `<div class="rb-domanda">
+            <div class="rb-domanda-testo">${esc(d.testo)}</div>
+            <div class="rb-opzioni">${d.op.map((o, i) => `<label class="rb-opzione"><input type="radio" name="q-${d.id}" data-q="${d.id}" value="${i}" ${val === i ? 'checked' : ''}><span>${esc(o.t)}</span><em>${o.p} pt</em></label>`).join('')}</div>
+        </div>`;
+    }
+    /* --- il contenuto di una fase, mostrato nella sua finestra --- */
+    function rbFaseCorpo(v, fid) {
         const cu = v.checkup;
         const c = rbCheckup(v);
         const es = rbEsiti(v);
         const sugg = rbCheckupSuggerimenti(v, es);
         const vb = cu.verbali || {};
         const selStato = (id, val) => `<select data-cu-fase="${id}">${[['', 'Da fare'], ['incorso', 'In corso'], ['completata', 'Completata'], ['na', 'Non applicabile']].map(o => `<option value="${o[0]}" ${val === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
-        const rigaStato = fid => { const d = (cu.fasi || {})[fid] || {}; return `<div class="rb-riga-soggetto rb-riga-area" style="margin:10px 0 12px;">
-            <div class="campo"><label>Stato della fase</label>${selStato(fid, d.stato || '')}</div>
-            <div class="campo"><label>Nota della fase (date, esiti, riferimenti)</label><input type="text" data-cu-fasenota="${fid}" value="${esc(d.nota || '')}"></div>
-        </div>`; };
-        const badgeStato = fid => { const s = ((cu.fasi || {})[fid] || {}).stato || '';
-            return s === 'completata' ? '<span class="badge verde">completata</span>'
-                : (s === 'incorso' ? '<span class="badge ambra">in corso</span>'
-                : (s === 'na' ? '<span class="badge neutro">n/a</span>' : '<span class="badge grigio">da fare</span>')); };
+        const dStato = (cu.fasi || {})[fid] || {};
+        const rigaStato = `<div class="rb-riga-soggetto rb-riga-area" style="margin:10px 0 12px;">
+            <div class="campo"><label>Stato della fase</label>${selStato(fid, dStato.stato || '')}</div>
+            <div class="campo"><label>Nota della fase (date, esiti, riferimenti)</label><input type="text" data-cu-fasenota="${fid}" value="${esc(dStato.nota || '')}"></div>
+        </div>`;
         const spunta = (ok, testo) => '<span class="badge ' + (ok ? 'verde' : 'grigio') + '">' + testo + '</span>';
         const campoVb = (gruppo, campo, label, tipo, largo) => `<div class="campo"${largo ? ' style="grid-column: span 2;"' : ''}><label>${label}</label><input type="${tipo || 'text'}" data-vb="${gruppo}.${campo}" value="${esc(((vb[gruppo] || {})[campo]) || '')}"></div>`;
-
-        // apertura di default: la prima fase non completata
-        if (!cuFaseAperta) {
-            const prima = RB_CHECKUP_FASI.find(f => { const s = ((cu.fasi || {})[f.id] || {}).stato; return s !== 'completata' && s !== 'na'; });
-            cuFaseAperta = prima ? prima.id : 'f0';
-        }
-
-        // --- contenuto specifico di ogni fase ---
+        const blocDomande = (titolo, ids) => `<div class="rb-sottotitolo">${titolo}</div>${ids.map(qid => rbDomandaHtml(v, qid)).join('')}`;
         const c1aperti = c.rilievi.filter(r => r.classe === 'C1' && r.stato !== 'trattato');
-        const corpo = {};
-        corpo.f0 = `
+        let corpo = '';
+        if (fid === 'f0') {
+            corpo = `
             <div class="rb-chips">
                 ${spunta(!!v.settore, 'settore ' + (v.settore ? 'scelto' : 'da scegliere'))}
                 ${spunta(es.pronta, es.pronta ? 'bilancio completo' : 'bilancio: mancano ' + es.mancanti.length + ' dati')}
@@ -8664,24 +8673,29 @@
                 ${spunta((v.soci || []).length > 0 || (v.amministratori || []).length > 0, 'soggetti ' + ((v.soci || []).length || (v.amministratori || []).length ? 'censiti' : 'da censire'))}
             </div>
             <p class="hint">Se uno di questi punti resta scoperto, decidi consapevolmente se accettare comunque il lavoro e segnalo nella nota della fase.</p>`;
-        corpo.f1 = '';
-        corpo.f2 = '';
-        corpo.f3 = `
+        } else if (fid === 'f1') {
+            corpo = blocDomande('Profilo dell’impresa: registra le risposte', RB_FASE_DOMANDE.f1)
+                + '<p class="hint" style="margin-top:8px;">Queste risposte entrano nel correttivo qualitativo, nel rating interno simulato e nei punteggi suggeriti dei moduli: si registrano una volta sola.</p>';
+        } else if (fid === 'f2') {
+            corpo = '';
+        } else if (fid === 'f3') {
+            corpo = `
             <div class="griglia-3">
                 ${campoVb('avvio', 'data', 'Data della riunione', 'date')}
                 ${campoVb('avvio', 'luogo', 'Luogo (o videoconferenza)')}
                 ${campoVb('avvio', 'partecipanti', 'Partecipanti (nomi e ruoli)', 'text', true)}
             </div>
             <button class="btn btn-secondary" data-verbale="avvio">Genera il verbale della riunione di avvio</button>`;
-        const sezioniDoc = [];
-        RB_CHECKUP_DOCUMENTI.forEach(d => { if (sezioniDoc.indexOf(d.sez) < 0) sezioniDoc.push(d.sez); });
-        corpo.f4 = `
+        } else if (fid === 'f4') {
+            const sezioniDoc = [];
+            RB_CHECKUP_DOCUMENTI.forEach(d => { if (sezioniDoc.indexOf(d.sez) < 0) sezioniDoc.push(d.sez); });
+            corpo = `
             <div class="griglia-3">
-                ${campoVb('documenti', 'referente', 'Referente dell\'impresa per la raccolta')}
+                ${campoVb('documenti', 'referente', 'Referente dell’impresa per la raccolta')}
                 ${campoVb('documenti', 'termine', 'Termine di consegna richiesto', 'date')}
                 <div class="campo"><label>&nbsp;</label><button class="btn btn-secondary" data-verbale="documenti">Genera la lettera di richiesta documenti</button></div>
             </div>
-            <p class="hint" style="margin:4px 0 10px;">Ricevuti ${c.docRicevuti} documenti su ${c.docApplicabili} applicabili; essenziali ${c.essRicevuti} su ${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile. La lettera include solo cio che manca.</p>
+            <p class="hint" style="margin:4px 0 10px;">Ricevuti ${c.docRicevuti} documenti su ${c.docApplicabili} applicabili; essenziali ${c.essRicevuti} su ${c.essTot}. Stati: R ricevuto, I da integrare, ND non disponibile, N/A non applicabile. La lettera include solo ciò che manca.</p>
             ${sezioniDoc.map(sz => { const docs = RB_CHECKUP_DOCUMENTI.filter(d => d.sez === sz);
                 const ric = docs.filter(d => (cu.documenti || {})[d.id] === 'R').length;
                 const na = docs.filter(d => (cu.documenti || {})[d.id] === 'NA').length;
@@ -8690,57 +8704,67 @@
                 ${docs.map(d => `<tr><td>${d.ess ? '&#9679; ' : ''}${esc(d.nome)}</td><td class="rb-rif">${esc(d.mod)}</td>
                     <td><select data-cu-doc="${d.id}">${[['', '-'], ['R', 'Ricevuto'], ['I', 'Da integrare'], ['ND', 'Non disponibile'], ['NA', 'Non applicabile']].map(o => `<option value="${o[0]}" ${((cu.documenti || {})[d.id] || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></td></tr>`).join('')}
                 </tbody></table></div></details>`; }).join('')}`;
-        corpo.f5 = RB_CHECKUP_INTERVISTE.map(t => `<details class="rb-dettaglio"><summary>Traccia: ${esc(t.nome)}</summary>
-            <ul class="rb-punti">${t.domande.map(q => '<li>' + esc(q) + '</li>').join('')}</ul>
-        </details>`).join('') + '<p class="hint" style="margin-top:8px;">Le risposte non si trascrivono qui: portale nelle conclusioni dei moduli (fase dei punteggi) come evidenze, e nel questionario dove correggono una risposta.</p>';
-        corpo.f6 = `
+        } else if (fid === 'f5') {
+            corpo = RB_CHECKUP_INTERVISTE.map(t => `<div class="riepilogo-blocco">
+                <h4>Colloquio: ${esc(t.nome)}</h4>
+                <details class="rb-dettaglio"><summary>La traccia delle domande da fare</summary>
+                    <ul class="rb-punti">${t.domande.map(q => '<li>' + esc(q) + '</li>').join('')}</ul>
+                </details>
+                ${t.risposte.length ? blocDomande('Registra le risposte', t.risposte) : ''}
+            </div>`).join('') + '<p class="hint" style="margin-top:8px;">Quello che emerge oltre le risposte va nelle conclusioni dei moduli (fase dei punteggi) come evidenza.</p>';
+        } else if (fid === 'f6') {
+            corpo = `
             <div class="rb-chips">
                 ${spunta(es.pronta && es.quadratura.ok, es.pronta ? (es.quadratura.ok ? 'attivo e passivo quadrano' : 'attivo e passivo NON quadrano') : 'quadratura: bilancio incompleto')}
                 ${spunta(v.cr && v.cr.attiva, v.cr && v.cr.attiva ? 'Centrale dei Rischi caricata' : 'Centrale dei Rischi da caricare')}
                 ${spunta((v.banche || []).length > 0, (v.banche || []).length ? (v.banche || []).length + ' rapporti bancari censiti' : 'rapporti bancari da censire')}
                 ${spunta(es.pronta && !es.scoring.presidio.segnaliPresenti, !es.pronta ? 'segnali di allerta: dati incompleti' : (es.scoring.presidio.segnaliPresenti ? 'segnali di allerta PRESENTI' : 'nessun segnale di allerta'))}
             </div>
-            <p class="hint">Verifiche da fare a mano: riconciliazione dei saldi banca con la contabilita, confronto della Centrale dei Rischi con il partitario, ageing reale di clienti e fornitori, conta o conferma delle giacenze, controllo di autorizzazioni e polizze. L'esito va nella nota della fase e nelle evidenze dei moduli.</p>`;
-        const moduliBlocchi = RB_CHECKUP_AREE.map(a => {
-            const d = (cu.aree || {})[a.id] || {};
-            const anc = RB_CHECKUP_ANCORAGGI[a.id];
-            const s2 = sugg[a.id] || { punteggio: null, base: [], mancanti: [] };
-            const valAttuale = String(d.punteggio === undefined ? '' : d.punteggio);
-            let striscia = '';
-            if (s2.punteggio !== null) {
-                striscia = `<div class="cu-sugg"><span class="badge ${s2.punteggio >= 3 ? 'verde' : (s2.punteggio === 2 ? 'ambra' : 'rosso')}">suggerito ${s2.punteggio} - ${RB_CHECKUP_SCALA[s2.punteggio].nome}</span>
-                    <span class="rb-rif">${esc(s2.base.join(' &middot; '))}</span>
-                    ${valAttuale === String(s2.punteggio) ? '' : `<button class="btn btn-ghost btn-sm" data-cu-sugg="${a.id}" data-val="${s2.punteggio}">Usa</button>`}</div>`;
-            } else if (s2.mancanti.length) {
-                striscia = `<div class="cu-sugg"><span class="rb-rif">Per un punteggio suggerito rispondi nel Questionario a: ${esc(s2.mancanti.join('; '))}.</span></div>`;
-            } else {
-                striscia = '<div class="cu-sugg"><span class="rb-rif">Questo modulo si valuta con documenti, interviste e verifiche: nessun suggerimento automatico.</span></div>';
-            }
-            return `<div class="riepilogo-blocco rb-blocco-area">
-                <h4>${esc(a.nome)}${a.nucleo ? ' <span class="badge neutro">indispensabile</span>' : ''} <span class="rb-rif">peso ${a.pesi[c.fascia.nome]} nella media</span></h4>
-                ${striscia}
-                <div class="rb-riga-soggetto rb-riga-area">
-                    <div class="campo"><label>Presidio (0-4)</label>
-                        <select data-cu-area="${a.id}">${[['', '-'], ['0', '0 - Critico'], ['1', '1 - Debole'], ['2', '2 - Parzialmente adeguato'], ['3', '3 - Adeguato'], ['4', '4 - Evoluto'], ['na', 'N/A (motivare)']].map(o => `<option value="${o[0]}" ${valAttuale === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
-                    <div class="campo"><label>Conclusione del modulo (con le evidenze)</label><input type="text" data-cu-areanota="${a.id}" value="${esc(d.conclusione || '')}"></div>
-                </div>
-                <details class="rb-dettaglio"><summary>Come si assegna il punteggio (esempi per ogni livello)</summary>
-                    <ul class="rb-punti">${[0, 1, 2, 3, 4].map(i => '<li><span class="badge ' + (i >= 3 ? 'verde' : (i === 2 ? 'ambra' : 'rosso')) + '">' + i + '</span> ' + esc(anc[i]) + '</li>').join('')}</ul>
-                </details>
-            </div>`;
-        }).join('');
-        corpo.f7 = `
+            <p class="hint">Verifiche da fare a mano: riconciliazione dei saldi banca con la contabilità, confronto della Centrale dei Rischi con il partitario, scaduto reale di clienti e fornitori, conta o conferma delle giacenze, controllo di autorizzazioni e polizze. L’esito va nella nota della fase e nelle evidenze dei moduli.</p>
+            ${blocDomande('Presidi verificati: registra l’esito', RB_FASE_DOMANDE.f6)}
+            <p class="hint" style="margin-top:8px;">Rispondi dopo aver visto i documenti: un modello adottato solo sulla carta non vale come uno attivo.</p>`;
+        } else if (fid === 'f7') {
+            const moduli = RB_CHECKUP_AREE.map(a => {
+                const d = (cu.aree || {})[a.id] || {};
+                const anc = RB_CHECKUP_ANCORAGGI[a.id];
+                const s2 = sugg[a.id] || { punteggio: null, base: [], mancanti: [] };
+                const valAttuale = String(d.punteggio === undefined ? '' : d.punteggio);
+                let striscia;
+                if (s2.punteggio !== null) {
+                    striscia = `<div class="cu-sugg"><span class="badge ${s2.punteggio >= 3 ? 'verde' : (s2.punteggio === 2 ? 'ambra' : 'rosso')}">suggerito ${s2.punteggio} - ${RB_CHECKUP_SCALA[s2.punteggio].nome}</span>
+                        <span class="rb-rif">${esc(s2.base.join(' &middot; '))}</span>
+                        ${valAttuale === String(s2.punteggio) ? '' : `<button class="btn btn-ghost btn-sm" data-cu-sugg="${a.id}" data-val="${s2.punteggio}">Usa</button>`}</div>`;
+                } else if (s2.mancanti.length) {
+                    striscia = `<div class="cu-sugg"><span class="rb-rif">Per un punteggio suggerito registra le risposte nelle fasi del percorso: ${esc(s2.mancanti.join('; '))}.</span></div>`;
+                } else {
+                    striscia = '<div class="cu-sugg"><span class="rb-rif">Questo modulo si valuta con documenti, interviste e verifiche: nessun suggerimento automatico.</span></div>';
+                }
+                return `<div class="riepilogo-blocco rb-blocco-area">
+                    <h4>${esc(a.nome)}${a.nucleo ? ' <span class="badge neutro">indispensabile</span>' : ''} <span class="rb-rif">peso ${a.pesi[c.fascia.nome]} nella media</span></h4>
+                    ${striscia}
+                    <div class="rb-riga-soggetto rb-riga-area">
+                        <div class="campo"><label>Presidio (0-4)</label>
+                            <select data-cu-area="${a.id}">${[['', '-'], ['0', '0 - Critico'], ['1', '1 - Debole'], ['2', '2 - Parzialmente adeguato'], ['3', '3 - Adeguato'], ['4', '4 - Evoluto'], ['na', 'N/A (motivare)']].map(o => `<option value="${o[0]}" ${valAttuale === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                        <div class="campo"><label>Conclusione del modulo (con le evidenze)</label><input type="text" data-cu-areanota="${a.id}" value="${esc(d.conclusione || '')}"></div>
+                    </div>
+                    <details class="rb-dettaglio"><summary>Come si assegna il punteggio (esempi per ogni livello)</summary>
+                        <ul class="rb-punti">${[0, 1, 2, 3, 4].map(i => '<li><span class="badge ' + (i >= 3 ? 'verde' : (i === 2 ? 'ambra' : 'rosso')) + '">' + i + '</span> ' + esc(anc[i]) + '</li>').join('')}</ul>
+                    </details>
+                </div>`;
+            }).join('');
+            corpo = `
             <div style="margin:0 0 12px;"><button class="btn btn-secondary" id="cu-sugg-tutti">Inserisci i punteggi suggeriti nei moduli ancora vuoti</button></div>
-            ${moduliBlocchi}
+            ${moduli}
             <div class="riepilogo-blocco" style="margin-top:12px;">
                 <h4>Circostanze che limitano il giudizio</h4>
                 <p class="hint" style="margin:0 0 8px;">Queste si dichiarano a mano; le altre (DSCR sotto 1, patrimonio netto negativo, debiti verso enti pubblici oltre soglia, sconfinamenti da oltre 60 giorni, un modulo indispensabile a zero) scattano da sole dai dati.</p>
                 ${RB_CHECKUP_CIRCOSTANZE.map(cc => `<label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;"><input type="checkbox" data-cu-circ="${cc.id}" ${((cu.circostanze || {})[cc.id]) ? 'checked' : ''} style="width:auto;margin-top:3px;"><span>${esc(cc.et)} <span class="rb-rif">(non oltre la classe ${cc.cap})</span></span></label>`).join('')}
             </div>
             <p class="hint" style="margin-top:8px;">Classe di sintesi: <strong>${c.sospeso ? 'non ancora determinabile (moduli indispensabili senza punteggio)' : (c.sintesi ? c.sintesi.classe + ' - ' + c.sintesi.nome + ' (media ponderata ' + rbFmt2.format(c.media) + ' / 4)' : 'da calcolare')}</strong>${c.limiti.length ? ' &middot; ' + c.limiti.map(esc).join(' &middot; ') : ''}${c.prudenza.length ? ' &middot; ' + c.prudenza.length + (c.prudenza.length === 1 ? ' modulo con punteggio alto ma documenti essenziali mancanti' : ' moduli con punteggio alto ma documenti essenziali mancanti') : ''}</p>`;
-        corpo.f8 = `
+        } else if (fid === 'f8') {
+            corpo = `
             <div class="rb-sottotitolo">Rilievi e punti di forza</div>
-            <p class="hint" style="margin:0 0 10px;">Ogni rilievo ha quattro pezzi: il fatto, l'evidenza che lo prova, il rischio che comporta, la raccomandazione. Classi: C1 critica (comunicazione scritta immediata e azione urgente), C2 significativa (azione entro 3-6 mesi), C3 miglioramento (entro 6-12 mesi), PF punto di forza da valorizzare.</p>
+            <p class="hint" style="margin:0 0 10px;">Ogni rilievo ha quattro pezzi: il fatto, l’evidenza che lo prova, il rischio che comporta, la raccomandazione. Classi: C1 critica (comunicazione scritta immediata e azione urgente), C2 significativa (azione entro 3-6 mesi), C3 miglioramento (entro 6-12 mesi), PF punto di forza da valorizzare.</p>
             ${(cu.rilievi || []).map((r, i) => `<div class="riepilogo-blocco">
                 <h4>Rilievo ${i + 1} &middot; ${esc((RB_CHECKUP_CLASSI[r.classe] || {}).nome || '')}</h4>
                 <div class="griglia-3">
@@ -8755,30 +8779,31 @@
                 <button class="btn btn-ghost btn-sm" data-ril-rm="${i}">Rimuovi il rilievo</button>
             </div>`).join('')}
             <button class="btn btn-secondary" id="rb-ril-add">+ Aggiungi un rilievo</button>
-            ${c1aperti.length ? `<div class="cu-sugg" style="margin-top:10px;"><span class="badge rosso">${c1aperti.length} ${c1aperti.length === 1 ? 'criticita grave aperta' : 'criticita gravi aperte'}</span>
-                <span class="rb-rif">va comunicata per iscritto all'organo amministrativo entro pochi giorni</span></div>
+            ${c1aperti.length ? `<div class="cu-sugg" style="margin-top:10px;"><span class="badge rosso">${c1aperti.length} ${c1aperti.length === 1 ? 'criticità grave aperta' : 'criticità gravi aperte'}</span>
+                <span class="rb-rif">va comunicata per iscritto all’organo amministrativo entro pochi giorni</span></div>
             <div class="griglia-3" style="margin-top:6px;">
                 ${campoVb('c1', 'destinatario', 'Destinatario (organo amministrativo)')}
-                <div class="campo"><label>&nbsp;</label><button class="btn btn-secondary" data-verbale="c1">Genera la comunicazione delle criticita</button></div>
+                <div class="campo"><label>&nbsp;</label><button class="btn btn-secondary" data-verbale="c1">Genera la comunicazione delle criticità</button></div>
             </div>` : ''}
             <div class="rb-sottotitolo" style="margin-top:16px;">Roadmap degli interventi</div>
-            <p class="hint" style="margin:0 0 10px;">Poche azioni concrete, per orizzonte: 0-30 giorni le urgenze di cassa e segnalazioni, 31-90 giorni tesoreria e reporting, 3-6 mesi fonti e compliance, 6-12 mesi patrimonio e percorsi lunghi. Ogni azione ha un responsabile, un termine e un'evidenza di chiusura.</p>
+            <p class="hint" style="margin:0 0 10px;">Poche azioni concrete, per orizzonte: 0-30 giorni le urgenze di cassa e segnalazioni, 31-90 giorni tesoreria e reporting, 3-6 mesi fonti e compliance, 6-12 mesi patrimonio e percorsi lunghi. Ogni azione ha un responsabile, un termine e un’evidenza di chiusura.</p>
             <div style="margin:0 0 10px;"><button class="btn btn-secondary" id="cu-rm-importa">Porta nella roadmap le azioni proposte dal calcolo</button></div>
             ${(cu.roadmap || []).map((r, i) => `<div class="riepilogo-blocco">
                 <h4>Azione ${i + 1} &middot; ${RB_CHECKUP_ORIZZONTI[r.orizzonte || 'o2']}</h4>
                 <div class="griglia-3">
                     <div class="campo"><label>Azione (risultato concreto)</label><input type="text" data-rm-idx="${i}" data-rm-campo="azione" value="${esc(r.azione || '')}"></div>
                     <div class="campo"><label>Orizzonte</label><select data-rm-idx="${i}" data-rm-campo="orizzonte">${Object.keys(RB_CHECKUP_ORIZZONTI).map(k => `<option value="${k}" ${(r.orizzonte || 'o2') === k ? 'selected' : ''}>${RB_CHECKUP_ORIZZONTI[k]}</option>`).join('')}</select></div>
-                    <div class="campo"><label>Priorita</label><select data-rm-idx="${i}" data-rm-campo="priorita">${['', 'Alta', 'Media', 'Bassa'].map(p => `<option value="${p}" ${(r.priorita || '') === p ? 'selected' : ''}>${p || '-'}</option>`).join('')}</select></div>
+                    <div class="campo"><label>Priorità</label><select data-rm-idx="${i}" data-rm-campo="priorita">${['', 'Alta', 'Media', 'Bassa'].map(p => `<option value="${p}" ${(r.priorita || '') === p ? 'selected' : ''}>${p || '-'}</option>`).join('')}</select></div>
                     <div class="campo"><label>Responsabile</label><input type="text" data-rm-idx="${i}" data-rm-campo="responsabile" value="${esc(r.responsabile || '')}"></div>
                     <div class="campo"><label>Termine</label><input type="text" data-rm-idx="${i}" data-rm-campo="termine" value="${esc(r.termine || '')}" placeholder="data o intervallo realistico"></div>
                     <div class="campo"><label>Stato</label><select data-rm-idx="${i}" data-rm-campo="stato">${Object.keys(RB_CHECKUP_STATI_AZIONE).map(k => `<option value="${k}" ${(r.stato || 'nonavviata') === k ? 'selected' : ''}>${RB_CHECKUP_STATI_AZIONE[k]}</option>`).join('')}</select></div>
                     <div class="campo"><label>Evidenza di chiusura / KPI</label><input type="text" data-rm-idx="${i}" data-rm-campo="evidenza" value="${esc(r.evidenza || '')}"></div>
                 </div>
-                <button class="btn btn-ghost btn-sm" data-rm-rm="${i}">Rimuovi l'azione</button>
+                <button class="btn btn-ghost btn-sm" data-rm-rm="${i}">Rimuovi l’azione</button>
             </div>`).join('')}
-            <button class="btn btn-secondary" id="rb-rm-add">+ Aggiungi un'azione</button>`;
-        corpo.f9 = `
+            <button class="btn btn-secondary" id="rb-rm-add">+ Aggiungi un’azione</button>`;
+        } else if (fid === 'f9') {
+            corpo = `
             <div class="griglia-3">
                 ${campoVb('chiusura', 'data', 'Data della consegna', 'date')}
                 ${campoVb('chiusura', 'luogo', 'Luogo (o videoconferenza)')}
@@ -8788,18 +8813,167 @@
                 <button class="btn btn-secondary" id="cu-vai-esiti">Vai agli esiti e al report da firmare</button>
                 <button class="btn btn-secondary" data-verbale="chiusura">Genera il verbale di consegna</button>
             </div>
-            <p class="hint">Prima della consegna rileggi il rapporto con occhio critico: ogni rilievo ha la sua evidenza? Le azioni hanno responsabile e termine? La classe di sintesi e coerente con le criticita?</p>`;
-        const aperte = (cu.roadmap || []).filter(r => r.stato !== 'completata' && r.stato !== 'superata');
-        corpo.f10 = `
+            <p class="hint">Prima della consegna rileggi il rapporto con occhio critico: ogni rilievo ha la sua evidenza? Le azioni hanno responsabile e termine? La classe di sintesi è coerente con le criticità?</p>`;
+        } else if (fid === 'f10') {
+            const aperte = (cu.roadmap || []).filter(r => r.stato !== 'completata' && r.stato !== 'superata');
+            corpo = `
             <div class="griglia-3">${campoVb('followup', 'prossima', 'Prossima revisione concordata', 'date')}</div>
             ${aperte.length ? `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Azione aperta</th><th>Orizzonte</th><th>Responsabile</th><th>Stato</th></tr></thead><tbody>
                 ${aperte.map(r => `<tr><td>${esc(r.azione || '')}</td><td>${RB_CHECKUP_ORIZZONTI[r.orizzonte || 'o2']}</td><td class="rb-rif">${esc(r.responsabile || '')}</td>
                 <td><span class="badge ${r.stato === 'incorso' ? 'ambra' : (r.stato === 'sospesa' ? 'arancio' : 'grigio')}">${RB_CHECKUP_STATI_AZIONE[r.stato] || 'Non avviata'}</span></td></tr>`).join('')}
-            </tbody></table></div>` : '<p class="hint">Nessuna azione aperta in roadmap: o e tutto completato, o la roadmap va ancora costruita (fase delle priorita).</p>'}
-            <p class="hint" style="margin-top:8px;">Gli stati delle azioni si aggiornano nella fase delle priorita: qui vedi solo cio che resta aperto.</p>`;
-
-        // riepiloghi mostrati accanto al nome della fase
+            </tbody></table></div>` : '<p class="hint">Nessuna azione aperta in roadmap: o è tutto completato, o la roadmap va ancora costruita (fase delle priorità).</p>'}
+            <p class="hint" style="margin-top:8px;">Gli stati delle azioni si aggiornano nella fase delle priorità: qui vedi solo ciò che resta aperto.</p>`;
+        }
+        const idx = RB_CHECKUP_FASI.findIndex(f => f.id === fid);
+        const prec = idx > 0 ? RB_CHECKUP_FASI[idx - 1] : null;
+        const succ = idx < RB_CHECKUP_FASI.length - 1 ? RB_CHECKUP_FASI[idx + 1] : null;
+        return `
+            <div class="cu-guida" style="margin-top:0;">${esc(RB_CHECKUP_GUIDA[fid] || '')}</div>
+            ${rigaStato}
+            ${corpo}
+            <div class="modale-azioni">
+                ${prec ? `<button class="btn btn-ghost" data-fase-vai="${prec.id}">&larr; ${esc(prec.nome.split(' - ')[0])}</button>` : '<span></span>'}
+                <button class="btn btn-primary" id="cu-fase-chiudi">Chiudi la fase</button>
+                ${succ ? `<button class="btn btn-secondary" data-fase-vai="${succ.id}">${esc(succ.nome.split(' - ')[0])} &rarr;</button>` : ''}
+            </div>`;
+    }
+    /* --- la finestra di una fase: apertura, riapertura e collegamenti --- */
+    function apriFaseCheckup(fid, opz) {
+        const v = schedaRB;
+        if (!v) return;
+        const f = RB_CHECKUP_FASI.find(x => x.id === fid);
+        if (!f) return;
+        const o = opz || {};
+        const pezzi = f.nome.split(' - ');
+        const cont = apriModale(rbFaseCorpo(v, fid), { finestra: true, classe: 'modale-fase', titolo: pezzi[0] + ' - ' + (pezzi[1] || ''), massimizzata: !!o.massimizzata });
+        cont.querySelector('.mw-close').addEventListener('click', () => { if (tabRB === 'checkup') vistaRatingScheda(); });
+        const radice = cont.querySelector('.modale');
+        radice.addEventListener('change', rbSegnaModificaScheda, true);
+        rbCollegaFase(radice, fid, v);
+        if (o.scroll) { const corpo = cont.querySelector('.modale-corpo'); if (corpo) corpo.scrollTop = o.scroll; }
+    }
+    function rbRiapriFase(fid) {
+        const corpoPrec = document.querySelector('#modale-contenitore .modale-corpo');
+        const eraMax = !!document.querySelector('#modale-contenitore .modale.massimizzata');
+        apriFaseCheckup(fid, { massimizzata: eraMax, scroll: corpoPrec ? corpoPrec.scrollTop : 0 });
+    }
+    function rbCollegaFase(radice, fid, v) {
+        const q = sel => Array.from(radice.querySelectorAll(sel));
+        const uno = sel => radice.querySelector(sel);
+        q('[data-cu-fase]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.fasi[el.dataset.cuFase] = { ...(v.checkup.fasi[el.dataset.cuFase] || {}), stato: el.value };
+        }));
+        q('[data-cu-fasenota]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.fasi[el.dataset.cuFasenota] = { ...(v.checkup.fasi[el.dataset.cuFasenota] || {}), nota: el.value };
+        }));
+        q('[data-q]').forEach(el => el.addEventListener('change', () => {
+            v.questionario = v.questionario || {};
+            v.questionario[el.dataset.q] = Number(el.value);
+        }));
+        q('[data-cu-area]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.aree[el.dataset.cuArea] = { ...(v.checkup.aree[el.dataset.cuArea] || {}), punteggio: el.value };
+            rbRiapriFase(fid);
+        }));
+        q('[data-cu-areanota]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.aree[el.dataset.cuAreanota] = { ...(v.checkup.aree[el.dataset.cuAreanota] || {}), conclusione: el.value };
+        }));
+        q('[data-cu-doc]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.documenti[el.dataset.cuDoc] = el.value;
+        }));
+        q('[data-cu-circ]').forEach(el => el.addEventListener('change', () => {
+            v.checkup.circostanze = v.checkup.circostanze || {};
+            v.checkup.circostanze[el.dataset.cuCirc] = el.checked;
+            rbRiapriFase(fid);
+        }));
+        q('[data-cu-sugg]').forEach(b => b.addEventListener('click', () => {
+            v.checkup.aree[b.dataset.cuSugg] = { ...(v.checkup.aree[b.dataset.cuSugg] || {}), punteggio: String(b.dataset.val) };
+            rbRiapriFase(fid);
+        }));
+        const suggTutti = uno('#cu-sugg-tutti');
+        if (suggTutti) suggTutti.addEventListener('click', () => {
+            const sg = rbCheckupSuggerimenti(v, rbEsiti(v));
+            let n = 0;
+            RB_CHECKUP_AREE.forEach(a => {
+                const d = v.checkup.aree[a.id] || {};
+                const vuoto = d.punteggio === undefined || d.punteggio === '' || d.punteggio === null;
+                if (vuoto && sg[a.id].punteggio !== null) { v.checkup.aree[a.id] = { ...d, punteggio: String(sg[a.id].punteggio) }; n++; }
+            });
+            toast(n ? 'Punteggi suggeriti inseriti in ' + n + (n === 1 ? ' modulo' : ' moduli') + ': confermali o correggili dopo interviste e verifiche.' : 'Nessun modulo vuoto con un punteggio proponibile: registra le risposte nelle fasi o valuta a mano.', n ? 'verde' : 'ambra');
+            rbRiapriFase(fid);
+        });
+        const rilAdd = uno('#rb-ril-add');
+        if (rilAdd) rilAdd.addEventListener('click', () => { v.checkup.rilievi.push({ classe: 'C2', area: '', stato: 'aperto' }); rbRiapriFase(fid); });
+        q('[data-ril-rm]').forEach(b => b.addEventListener('click', () => { v.checkup.rilievi.splice(Number(b.dataset.rilRm), 1); rbRiapriFase(fid); }));
+        q('[data-ril-campo]').forEach(el => el.addEventListener('change', () => {
+            const r = v.checkup.rilievi[Number(el.dataset.rilIdx)];
+            if (!r) return;
+            r[el.dataset.rilCampo] = el.value;
+            if (el.dataset.rilCampo === 'classe' || el.dataset.rilCampo === 'stato') rbRiapriFase(fid);
+        }));
+        const rmAdd = uno('#rb-rm-add');
+        if (rmAdd) rmAdd.addEventListener('click', () => { v.checkup.roadmap.push({ orizzonte: 'o2', stato: 'nonavviata' }); rbRiapriFase(fid); });
+        q('[data-rm-rm]').forEach(b => b.addEventListener('click', () => { v.checkup.roadmap.splice(Number(b.dataset.rmRm), 1); rbRiapriFase(fid); }));
+        q('[data-rm-campo]').forEach(el => el.addEventListener('change', () => {
+            const r = v.checkup.roadmap[Number(el.dataset.rmIdx)];
+            if (!r) return;
+            r[el.dataset.rmCampo] = el.value;
+            if (el.dataset.rmCampo === 'orizzonte' || el.dataset.rmCampo === 'stato') rbRiapriFase(fid);
+        }));
+        const rmImporta = uno('#cu-rm-importa');
+        if (rmImporta) rmImporta.addEventListener('click', () => {
+            const es2 = rbEsiti(v);
+            const gia = (v.checkup.roadmap || []).map(r => String(r.azione || '').trim().toLowerCase());
+            let n = 0;
+            (es2.azioni || []).filter(a => a.pr !== 'spunto').forEach(a => {
+                if (gia.indexOf(a.titolo.trim().toLowerCase()) >= 0) return;
+                v.checkup.roadmap.push({ azione: a.titolo, orizzonte: a.pr === 'alta' ? 'o1' : 'o3', priorita: a.pr === 'alta' ? 'Alta' : 'Media', stato: 'nonavviata' });
+                n++;
+            });
+            toast(n ? n + (n === 1 ? ' azione portata' : ' azioni portate') + ' nella roadmap dal calcolo: assegna responsabili e termini.' : 'Le azioni del calcolo sono già tutte in roadmap.', n ? 'verde' : 'ambra');
+            rbRiapriFase(fid);
+        });
+        q('[data-vb]').forEach(el => el.addEventListener('change', () => {
+            const pezzi = el.dataset.vb.split('.');
+            v.checkup.verbali = v.checkup.verbali || {};
+            v.checkup.verbali[pezzi[0]] = v.checkup.verbali[pezzi[0]] || {};
+            v.checkup.verbali[pezzi[0]][pezzi[1]] = el.value;
+        }));
+        q('[data-verbale]').forEach(b => b.addEventListener('click', () => {
+            chiudiModale();
+            const id = rbSalvaScheda();
+            if (id) naviga('ratingVerbale', { id, tipo: b.dataset.verbale });
+            else vistaRatingScheda();
+        }));
+        const vaiEsiti = uno('#cu-vai-esiti');
+        if (vaiEsiti) vaiEsiti.addEventListener('click', () => { chiudiModale(); tabRB = 'esiti'; vistaRatingScheda(); });
+        q('[data-fase-vai]').forEach(b => b.addEventListener('click', () => {
+            const eraMax = !!document.querySelector('#modale-contenitore .modale.massimizzata');
+            apriFaseCheckup(b.dataset.faseVai, { massimizzata: eraMax });
+        }));
+        const chiudi = uno('#cu-fase-chiudi');
+        if (chiudi) chiudi.addEventListener('click', () => { chiudiModale(); if (tabRB === 'checkup') vistaRatingScheda(); });
+    }
+    /* --- la scheda Check-up: il quadro d'insieme del percorso --- */
+    function rbTabCheckup(v) {
+        const cu = v.checkup;
+        const c = rbCheckup(v);
+        const qst = rbPunteggioQuestionario(v.questionario);
+        const mappaDomande = rbDomandeFase();
+        const perFase = {};
+        Object.keys(mappaDomande).forEach(qid => { const fz = mappaDomande[qid]; (perFase[fz] = perFase[fz] || []).push(qid); });
+        const risposteFase = fid => {
+            const ids = perFase[fid] || [];
+            if (!ids.length) return null;
+            const date = ids.filter(qid => (v.questionario || {})[qid] !== undefined && (v.questionario || {})[qid] !== null).length;
+            return date + '/' + ids.length + ' risposte';
+        };
+        const corrente = RB_CHECKUP_FASI.find(f => { const s = ((cu.fasi || {})[f.id] || {}).stato; return s !== 'completata' && s !== 'na'; });
+        const badgeStato = fid => { const s = ((cu.fasi || {})[fid] || {}).stato || '';
+            return s === 'completata' ? '<span class="badge verde">completata</span>'
+                : (s === 'incorso' ? '<span class="badge ambra">in corso</span>'
+                : (s === 'na' ? '<span class="badge neutro">n/a</span>' : '<span class="badge grigio">da fare</span>')); };
         const riass = {
+            f1: risposteFase('f1'), f5: risposteFase('f5'), f6: risposteFase('f6'),
             f4: c.essTot ? c.essRicevuti + '/' + c.essTot + ' essenziali' : '',
             f7: c.compilate + '/13 moduli',
             f8: (cu.rilievi || []).length + ' rilievi &middot; ' + (cu.roadmap || []).length + ' azioni',
@@ -8808,27 +8982,32 @@
         return `
             <div class="card">
                 <h2>Il check-up, fase per fase</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Apri una fase per vedere cosa fare e con quali strumenti; segna lo stato man mano e usa i pulsanti per generare verbali e lettere gia compilati. Classe di sintesi attuale: <strong>${c.sospeso ? 'non ancora determinabile' : (c.sintesi ? c.sintesi.classe + ' - ' + c.sintesi.nome : 'da calcolare')}</strong>.</p>
+                <p class="hint" style="margin:-6px 0 10px;">Ogni fase si apre nella sua finestra, con la guida e gli strumenti per svolgerla: le risposte si registrano lì e il programma le riusa ovunque servono (correttivo, rating interno, punteggi suggeriti, report). Le finestre si possono ridurre a barra e riaprire in ogni momento.</p>
+                <div class="rb-chips" style="margin:0 0 14px;">
+                    <span class="badge ${qst.date === qst.tot ? 'verde' : 'ambra'}">risposte registrate: ${qst.date}/${qst.tot}</span>
+                    <span class="badge ${c.compilate === 13 ? 'verde' : 'ambra'}">moduli valutati: ${c.compilate}/13</span>
+                    <span class="badge ${c.essRicevuti === c.essTot ? 'verde' : 'ambra'}">documenti essenziali: ${c.essRicevuti}/${c.essTot}</span>
+                    <span class="badge ${c.sospeso || !c.sintesi ? 'grigio' : (c.sintesi.classe <= 'B' ? 'verde' : (c.sintesi.classe === 'C' ? 'ambra' : 'rosso'))}">classe di sintesi: ${c.sospeso ? 'da completare' : (c.sintesi ? c.sintesi.classe + ' - ' + c.sintesi.nome : 'da calcolare')}</span>
+                </div>
                 ${RB_CHECKUP_FASI.map(f => { const pezzi = f.nome.split(' - '); return `
-                <details class="cu-fase" data-fase="${f.id}" ${cuFaseAperta === f.id ? 'open' : ''}>
-                    <summary><span class="badge neutro">${esc(pezzi[0])}</span><strong>${esc(pezzi[1] || pezzi[0])}</strong>
-                        <span class="cu-fase-destra">${riass[f.id] ? '<span class="rb-rif">' + riass[f.id] + '</span>' : ''}${badgeStato(f.id)}</span></summary>
-                    <div class="cu-fase-corpo">
-                        <div class="cu-guida">${esc(RB_CHECKUP_GUIDA[f.id] || '')}</div>
-                        ${rigaStato(f.id)}
-                        ${corpo[f.id] || ''}
-                    </div>
-                </details>`; }).join('')}
+                <div class="cu-riga ${corrente && corrente.id === f.id ? 'cu-riga-corrente' : ''}">
+                    <span class="badge neutro">${esc(pezzi[0])}</span>
+                    <div class="cu-riga-nome"><strong>${esc(pezzi[1] || pezzi[0])}</strong>${corrente && corrente.id === f.id ? ' <span class="badge blu">fase corrente</span>' : ''}</div>
+                    <span class="cu-fase-destra">${riass[f.id] ? '<span class="rb-rif">' + riass[f.id] + '</span>' : ''}${badgeStato(f.id)}
+                    <button class="btn btn-secondary btn-sm" data-apri-fase="${f.id}">Apri la fase</button></span>
+                </div>`; }).join('')}
             </div>`;
     }
     /* --- i documenti del check-up generati dai dati inseriti ---
        Verbali e lettere si compongono da soli con cliente, fasi, rilievi,
-       documenti mancanti e roadmap; si stampano con la stessa veste del
-       report e portano la firma grafica del responsabile. */
+       documenti mancanti e roadmap; hanno oggetto, premesse e chiusura da
+       documento professionale, si stampano con la stessa veste del report
+       e portano la firma del responsabile (con controfirma dell'impresa
+       per il verbale di avvio e per quello di consegna). */
     const RB_VERBALE_TIPI = {
         avvio: 'Verbale della riunione di avvio',
         documenti: 'Richiesta dei documenti',
-        c1: 'Comunicazione di criticita rilevanti',
+        c1: 'Comunicazione di criticità rilevanti',
         chiusura: 'Verbale di consegna del rapporto'
     };
     function rbVerbaleData(iso) {
@@ -8838,21 +9017,24 @@
         const cu = v.checkup || {};
         const vb = cu.verbali || {};
         const resp = (v.respVerifica || '').trim() || 'il responsabile della verifica';
+        const cliente = esc(v.cliente || '(impresa)');
         const t = s => '<p class="rb-testo">' + s + '</p>';
+        const oggetto = s => t('<strong>Oggetto:</strong> ' + s);
         if (tipo === 'avvio') {
             const d = vb.avvio || {};
             const doc = vb.documenti || {};
             const notaFase = ((cu.fasi || {}).f3 || {}).nota;
-            return t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si e tenuta la riunione di avvio del check-up del merito creditizio di <strong>' + esc(v.cliente || '(impresa)') + '</strong>.')
-                + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell\'impresa e ' + esc(resp) + ' per Revilaw.'))
-                + '<div class="rb-sottotitolo">Argomenti trattati e decisioni assunte</div><ul class="rb-punti">'
-                + '<li>Percorso di lavoro: raccolta dei documenti, interviste alle figure chiave, verifiche sui dati, valutazione dei tredici moduli di analisi, rilievi e roadmap degli interventi, rapporto finale con la consegna di persona.</li>'
-                + '<li>Perimetro: ' + esc(v.cliente || 'l\'impresa') + (RB_SETTORI[v.settore] ? ', settore ' + esc(RB_SETTORI[v.settore].label.toLowerCase()) : '') + (v.esercizio ? ', esercizio di riferimento ' + esc(v.esercizio) : '') + '.</li>'
-                + '<li>Raccolta dei documenti: l\'elenco viene consegnato all\'impresa' + (doc.referente ? '; referente per la raccolta: ' + esc(doc.referente) : '') + (doc.termine ? '; termine concordato: ' + rbVerbaleData(doc.termine) : '') + '. I documenti possono essere trasmessi anche in piu riprese.</li>'
-                + '<li>Interviste: da calendarizzare con il titolare, con l\'amministrazione e con chi segue finanza e banche.</li>'
-                + '<li>Riservatezza: dati e documenti sono trattati ai soli fini dell\'incarico e non vengono comunicati a terzi.</li></ul>'
+            return oggetto('check-up del merito creditizio di ' + cliente + ' &mdash; verbale della riunione di avvio.')
+                + t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si è tenuta la riunione di avvio del check-up del merito creditizio di <strong>' + cliente + '</strong>, in esecuzione dell’incarico conferito.')
+                + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell’impresa e ' + esc(resp) + ' per Revilaw.'))
+                + '<div class="rb-sottotitolo">Argomenti trattati e decisioni assunte</div><ol class="rb-punti-num">'
+                + '<li><strong>Percorso di lavoro.</strong> È stato illustrato il percorso: raccolta dei documenti, colloqui con le figure chiave, verifiche sui dati, valutazione dei tredici moduli di analisi, rilievi e roadmap degli interventi, rapporto finale con consegna e illustrazione di persona.</li>'
+                + '<li><strong>Perimetro.</strong> ' + cliente + (RB_SETTORI[v.settore] ? ', settore ' + esc(RB_SETTORI[v.settore].label.toLowerCase()) : '') + (v.esercizio ? ', esercizio di riferimento ' + esc(v.esercizio) : '') + '.</li>'
+                + '<li><strong>Documenti.</strong> L’elenco dei documenti viene consegnato all’impresa' + (doc.referente ? '; referente per la raccolta: ' + esc(doc.referente) : '') + (doc.termine ? '; termine concordato: ' + rbVerbaleData(doc.termine) : '') + '. I documenti possono essere trasmessi anche in più riprese.</li>'
+                + '<li><strong>Colloqui.</strong> Verranno calendarizzati i colloqui con il titolare, con l’amministrazione e con chi segue finanza e banche.</li>'
+                + '<li><strong>Riservatezza.</strong> Dati e documenti sono trattati ai soli fini dell’incarico e non vengono comunicati a terzi.</li></ol>'
                 + (notaFase ? t('<strong>Ulteriori annotazioni:</strong> ' + esc(notaFase)) : '')
-                + t('Letto, confermato e sottoscritto.');
+                + t('Il presente verbale viene letto, confermato e sottoscritto dalle parti.');
         }
         if (tipo === 'documenti') {
             const doc = vb.documenti || {};
@@ -8860,27 +9042,30 @@
             const daChiedere = RB_CHECKUP_DOCUMENTI.filter(d2 => { const s = stati[d2.id] || ''; return s !== 'R' && s !== 'NA'; });
             const sezioni = [];
             daChiedere.forEach(d2 => { if (sezioni.indexOf(d2.sez) < 0) sezioni.push(d2.sez); });
-            return t('Spett.le <strong>' + esc(v.cliente || '(impresa)') + '</strong>' + (doc.referente ? '<br>alla cortese attenzione di ' + esc(doc.referente) : ''))
-                + t('per lo svolgimento del check-up del merito creditizio vi chiediamo di trasmetterci i documenti elencati di seguito' + (doc.termine ? ', possibilmente entro il <strong>' + rbVerbaleData(doc.termine) + '</strong>' : '') + '. I documenti gia ricevuti non sono elencati; quelli contrassegnati con il pallino (&#9679;) sono indispensabili per completare le valutazioni. Vanno bene copie in formato elettronico, anche trasmesse in piu riprese.')
+            return t('Spett.le <strong>' + cliente + '</strong>' + (doc.referente ? '<br>alla cortese attenzione di ' + esc(doc.referente) : ''))
+                + oggetto('check-up del merito creditizio &mdash; richiesta dei documenti.')
+                + t('Con riferimento all’incarico in oggetto, vi chiediamo di trasmetterci i documenti elencati di seguito' + (doc.termine ? ', possibilmente entro il <strong>' + rbVerbaleData(doc.termine) + '</strong>' : '') + '. I documenti già ricevuti non sono elencati; quelli contrassegnati con il pallino (&#9679;) sono indispensabili per completare le valutazioni.')
+                + t('Vanno bene copie in formato elettronico, anche trasmesse in più riprese; per ogni documento è utile indicare la data a cui si riferisce.')
                 + (daChiedere.length ? sezioni.map(sz => '<div class="rb-sottotitolo">' + esc(sz) + '</div><ul class="rb-punti">'
                     + daChiedere.filter(d2 => d2.sez === sz).map(d2 => '<li>' + (d2.ess ? '&#9679; ' : '') + esc(d2.nome) + (stati[d2.id] === 'I' ? ' <em>(ricevuto parzialmente: da integrare)</em>' : '') + '</li>').join('') + '</ul>').join('')
-                    : t('<strong>Tutti i documenti della lista risultano gia ricevuti:</strong> vi ringraziamo per la collaborazione.'))
-                + t('Restiamo a disposizione per qualsiasi chiarimento sui singoli documenti.');
+                    : t('<strong>Tutti i documenti della lista risultano già ricevuti:</strong> vi ringraziamo per la collaborazione.'))
+                + t('Restiamo a disposizione per qualsiasi chiarimento sui singoli documenti e vi ringraziamo per la collaborazione.');
         }
         if (tipo === 'c1') {
             const d = vb.c1 || {};
             const aperti = (cu.rilievi || []).filter(r => r.classe === 'C1' && r.stato !== 'trattato');
-            return t('Spett.le <strong>' + esc(v.cliente || '(impresa)') + '</strong><br>all\'attenzione ' + (d.destinatario ? 'di ' + esc(d.destinatario) : 'dell\'organo amministrativo'))
-                + t('nel corso del check-up del merito creditizio in corso sono emerse criticita che riteniamo doveroso portare subito alla vostra attenzione, senza attendere il rapporto finale, per la loro possibile incidenza sull\'accesso al credito e sui doveri di adeguato assetto dell\'organo amministrativo.')
-                + (aperti.length ? aperti.map((r, i) => '<div class="rb-sottotitolo">Criticita ' + (i + 1) + '</div>'
+            return t('Spett.le <strong>' + cliente + '</strong><br>all’attenzione ' + (d.destinatario ? 'di ' + esc(d.destinatario) : 'dell’organo amministrativo'))
+                + oggetto('check-up del merito creditizio &mdash; comunicazione di criticità rilevanti ai fini degli adeguati assetti (art. 2086 c.c.).')
+                + t('Nel corso del check-up del merito creditizio in corso sono emerse criticità che riteniamo doveroso portare subito alla vostra attenzione, senza attendere il rapporto finale, per la loro possibile incidenza sull’accesso al credito e sui doveri dell’organo amministrativo di dotare l’impresa di assetti adeguati e di attivarsi senza indugio.')
+                + (aperti.length ? aperti.map((r, i) => '<div class="rb-sottotitolo">Criticità ' + (i + 1) + '</div>'
                     + t('<strong>' + esc(r.fatto || 'Rilievo critico') + '</strong>'
                         + (r.evidenza ? '<br><strong>Evidenza:</strong> ' + esc(r.evidenza) : '')
                         + (r.rischio ? '<br><strong>Rischio:</strong> ' + esc(r.rischio) : '')
                         + (r.raccomandazione ? '<br><strong>Raccomandazione:</strong> ' + esc(r.raccomandazione) : ''))).join('')
-                    : t('Non risultano criticita gravi aperte alla data odierna.'))
-                + t('Vi invitiamo a esaminare quanto sopra con urgenza, ad avviare le azioni correttive e a darcene riscontro scritto. Restiamo a disposizione per approfondire insieme ogni punto.');
+                    : t('Non risultano criticità gravi aperte alla data odierna.'))
+                + t('Vi invitiamo a esaminare quanto sopra nell’organo amministrativo con la massima urgenza, ad avviare le azioni correttive e a darcene <strong>riscontro scritto entro breve termine</strong>. Restiamo a disposizione per approfondire insieme ogni punto e per assistervi nella definizione degli interventi.');
         }
-        // chiusura e consegna
+        // verbale di consegna
         const d = vb.chiusura || {};
         const c = rbCheckup(v);
         const es = rbEsiti(v);
@@ -8888,16 +9073,17 @@
         const conte = [];
         if (c.c1 || c.c2 || c.c3 || c.pf) conte.push('rilievi aperti: ' + (c.c1 + c.c2 + c.c3) + ' (C1: ' + c.c1 + ', C2: ' + c.c2 + ', C3: ' + c.c3 + '), punti di forza: ' + c.pf);
         if ((cu.roadmap || []).length) conte.push('roadmap con ' + cu.roadmap.length + ' azioni');
-        return t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si e svolto l\'incontro di consegna del rapporto di check-up del merito creditizio di <strong>' + esc(v.cliente || '(impresa)') + '</strong>.')
-            + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell\'impresa e ' + esc(resp) + ' per Revilaw.'))
+        return oggetto('check-up del merito creditizio di ' + cliente + ' &mdash; verbale di consegna del rapporto.')
+            + t('Il giorno <strong>' + rbVerbaleData(d.data) + '</strong>' + (d.luogo ? ', presso ' + esc(d.luogo) + ',' : '') + ' si è svolto l’incontro di consegna del rapporto di check-up del merito creditizio di <strong>' + cliente + '</strong>.')
+            + t('<strong>Presenti:</strong> ' + (d.partecipanti ? esc(d.partecipanti) : 'i rappresentanti dell’impresa e ' + esc(resp) + ' per Revilaw.'))
             + '<div class="rb-sottotitolo">Sintesi degli esiti illustrati</div><ul class="rb-punti">'
-            + '<li>Qualita dei presidi: ' + (c.sospeso ? 'giudizio sospeso (moduli indispensabili non ancora valutabili)' : (c.sintesi ? 'classe di sintesi ' + c.sintesi.classe + ' - ' + c.sintesi.nome.toLowerCase() : 'valutazione non completata')) + '.</li>'
+            + '<li>Qualità dei presidi: ' + (c.sospeso ? 'giudizio sospeso (moduli indispensabili non ancora valutabili)' : (c.sintesi ? 'classe di sintesi ' + c.sintesi.classe + ' &ndash; ' + c.sintesi.nome.toLowerCase() : 'valutazione non completata')) + '.</li>'
             + (es.pronta ? '<li>Rating MCC del Fondo di Garanzia: classe ' + es.mcc.integrata + ' su 12; rating ipotizzato con il correttivo qualitativo: classe ' + es.classeCorretta + ' su 12.</li>' : '')
             + (es.pronta && es.percorso.attivo && es.percorso.deltaClasse > 0 ? '<li>Classe potenziale completando il percorso di miglioramento proposto: ' + es.percorso.classe + ' su 12.</li>' : '')
             + (conte.length ? '<li>' + conte.join('; ') + '.</li>' : '')
             + '</ul>'
-            + t('Il rapporto e stato illustrato punto per punto e consegnato all\'impresa insieme alla roadmap degli interventi.' + (fu ? ' La prossima revisione e fissata per il <strong>' + rbVerbaleData(fu) + '</strong>.' : ' La data della prossima revisione verra concordata a valle delle prime azioni.'))
-            + t('Letto, confermato e sottoscritto.');
+            + t('Il rapporto è stato illustrato punto per punto e consegnato all’impresa insieme alla roadmap degli interventi; l’impresa ne ha preso atto e si è impegnata ad avviare le azioni concordate.' + (fu ? ' La prossima revisione è fissata per il <strong>' + rbVerbaleData(fu) + '</strong>.' : ' La data della prossima revisione verrà concordata a valle delle prime azioni.'))
+            + t('Il presente verbale viene letto, confermato e sottoscritto dalle parti.');
     }
     function vistaRatingVerbale() {
         const p = parametriVista || {};
@@ -8906,13 +9092,14 @@
         const acc = rbAccessoCorrente(v);
         if (!acc.vede) { toast('Non hai accesso a questa verifica.', 'rosso'); naviga('rating'); return; }
         const tipo = RB_VERBALE_TIPI[p.tipo] ? p.tipo : 'avvio';
+        const doppiaFirma = tipo === 'avvio' || tipo === 'chiusura';
         const oggi = fmtData(oggiISO());
         const set = RB_SETTORI[v.settore];
         $vista().innerHTML = `
             <div class="barra-stampa no-stampa">
                 <button class="btn btn-ghost" id="rb-vb-indietro">&larr; ${acc.scrive ? 'Torna alla verifica' : 'Torna all\'elenco'}</button>
                 <button class="btn btn-primary" id="rb-vb-stampa">Stampa / salva in PDF</button>
-                <span class="hint" style="align-self:center;">Il documento si compila da solo con i dati della verifica: per cambiarlo, aggiorna la scheda Check-up e rigeneralo.</span>
+                <span class="hint" style="align-self:center;">Il documento si compila da solo con i dati della verifica: per cambiarlo, aggiorna la fase e rigeneralo.</span>
             </div>
             <div class="rb-foglio">
                 <div class="rb-testata">
@@ -8929,16 +9116,21 @@
                 <div class="rb-sezione">${rbVerbaleCorpo(v, tipo)}</div>
                 <div class="rb-firma">
                     <div class="rb-firma-col">
-                        <div class="rb-firma-et">Luogo e data</div>
-                        <div class="rb-firma-val">${esc((v.luogo || '').trim() || 'Verona')}, ${oggi}</div>
+                        ${doppiaFirma ? `<div class="rb-firma-et">Per l'impresa (presa d'atto)</div>
+                        <div class="rb-firma-area"></div>
+                        <div class="rb-firma-linea"></div>
+                        <div class="rb-firma-nome">${esc(v.cliente || '')}</div>`
+                        : `<div class="rb-firma-et">Luogo e data</div>
+                        <div class="rb-firma-val">${esc((v.luogo || '').trim() || 'Verona')}, ${oggi}</div>`}
                     </div>
                     <div class="rb-firma-col">
-                        <div class="rb-firma-et">Il responsabile della verifica</div>
+                        <div class="rb-firma-et">${doppiaFirma ? 'Per Revilaw, il responsabile della verifica' : 'Il responsabile della verifica'}</div>
                         <div class="rb-firma-area" id="rb-firma-area"></div>
                         <div class="rb-firma-linea"></div>
                         <div class="rb-firma-nome">${esc((v.respVerifica || '').trim() || 'Revilaw S.p.A.')}</div>
                     </div>
                 </div>
+                ${doppiaFirma ? `<p class="rb-testo" style="margin-top:8px;">${esc((v.luogo || '').trim() || 'Verona')}, ${oggi}</p>` : ''}
             </div>`;
         document.getElementById('rb-vb-indietro').addEventListener('click', () => (acc.scrive ? naviga('ratingScheda', { id: v.id }) : naviga('rating')));
         document.getElementById('rb-vb-stampa').addEventListener('click', () => {
@@ -9550,7 +9742,7 @@
             }
             statoImportXbrl = null; statoImportCr = null; attnXbrl = [];
             tabRB = 'impresa';
-            rbModifichePendenti = 0; rbUltimoAvvisoSalva = 0; cuFaseAperta = null;
+            rbModifichePendenti = 0; rbUltimoAvvisoSalva = 0;
             parametriVista = { id: schedaRB.id };   // il "nuova" e consumato: i ridisegni non azzerano la scheda
         }
         const v = schedaRB;
@@ -9560,7 +9752,6 @@
             ['cr', 'Centrale Rischi'],
             ['soggetti', 'Soci e gruppo'],
             ['banche', 'Banche'],
-            ['questionario', 'Questionario'],
             ['checkup', 'Check-up'],
             ['esiti', 'Esiti e azioni'],
             ['metodo', 'Metodo di calcolo']
@@ -9569,7 +9760,7 @@
             <header>
                 <div>
                     <h1>${v.id ? 'Verifica del merito creditizio' : 'Nuova verifica del merito creditizio'}</h1>
-                    <p class="descrizione">${esc(v.cliente || 'Compila i dati dell\'impresa e del bilancio, poi Centrale Rischi, banche e questionario: gli esiti si aggiornano nell\'ultima scheda.')}
+                    <p class="descrizione">${esc(v.cliente || 'Compila i dati dell\'impresa e del bilancio, poi Centrale Rischi, banche e check-up (le domande qualitative si registrano nelle sue fasi): gli esiti si aggiornano da soli.')}
                     ${v.stato === 'completata' ? ' <span class="badge verde">completata</span>' : ' <span class="badge ambra">bozza</span>'}</p>
                 </div>
                 <div class="header-azioni">
@@ -9617,7 +9808,6 @@
         if (tabRB === 'cr') return rbTabCr(v);
         if (tabRB === 'soggetti') return rbTabSoggetti(v);
         if (tabRB === 'banche') return rbTabBanche(v);
-        if (tabRB === 'questionario') return rbTabQuestionario(v);
         if (tabRB === 'checkup') return rbTabCheckup(v);
         if (tabRB === 'metodo') return rbHtmlMetodo();
         return rbTabEsiti(v);
@@ -9892,22 +10082,6 @@
     }
 
     // --- scheda 4: questionario qualitativo ---
-    function rbTabQuestionario(v) {
-        const q = rbPunteggioQuestionario(v.questionario);
-        return `
-            <div class="card">
-                <h2>Questionario qualitativo</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Venti domande su governance, presidi, banche e struttura: cio che i modelli interni delle banche pesano oltre il bilancio. Risposte date: <strong>${q.date} su ${q.tot}</strong> &middot; punteggio attuale <strong>${q.perc}%</strong> (correttivo sulla classe: ${rbCorrettivo(q.perc) === 0 ? 'nessuno' : (rbCorrettivo(q.perc) > 0 ? '+' + rbCorrettivo(q.perc) : rbCorrettivo(q.perc))}). Le risposte alimentano anche i punteggi suggeriti del Check-up: si rispondono qui, una volta sola.</p>
-                ${RB_QUESTIONARIO.map(s => `<div class="riepilogo-blocco"><h4>${esc(s.titolo)}</h4>
-                    ${s.domande.map(d => `<div class="rb-domanda">
-                        <div class="rb-domanda-testo">${esc(d.testo)}</div>
-                        <div class="rb-opzioni">${d.op.map((o, i) => `<label class="rb-opzione"><input type="radio" name="q-${d.id}" data-q="${d.id}" value="${i}" ${(v.questionario || {})[d.id] === i ? 'checked' : ''}><span>${esc(o.t)}</span><em>${o.p} pt</em></label>`).join('')}</div>
-                    </div>`).join('')}
-                </div>`).join('')}
-            </div>`;
-    }
-
-    // --- scheda 5: esiti e azioni ---
     function rbTabEsiti(v) {
         const es = rbEsiti(v);
         if (!es.pronta) {
@@ -9931,7 +10105,7 @@
             <div class="card"><h2>Cruscotto di bancabilita, indici della crisi e Z-Score</h2>${rbHtmlTabellaCruscotto(es)}<div style="margin-top:12px;">${rbHtmlCndcec(es)}</div><div style="margin-top:12px;">${rbHtmlZ(es)}</div></div>
             <div class="card"><h2>Posizionamento bancario</h2>${rbHtmlTabellaBanche(es)}</div>
             <div class="card"><h2>Check-up del merito creditizio (manuale operativo)</h2>${rbHtmlCheckup(es, true)}</div>
-            <p class="hint" style="margin:2px 4px 10px;">Le tre scale della verifica non si confrontano tra loro: MCC 1-12 (fasce 1-5, PD empiriche del Fondo di Garanzia), rating interno simulato 1-10 (PD calibrate, stima di pre-screening), check-up A-E (qualita dei presidi, diagnostico). Come si integrano e spiegato nel Metodo di calcolo.</p>
+            <p class="hint" style="margin:2px 4px 10px;">Le tre scale della verifica non si confrontano tra loro: MCC 1-12 (fasce 1-5, PD empiriche del Fondo di Garanzia), rating interno simulato 1-10 (PD calibrate, stima di pre-screening), check-up A-E (qualità dei presidi, diagnostico). Come si integrano e spiegato nel Metodo di calcolo.</p>
             <div class="card">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                     <button class="btn btn-primary" id="rb-esiti-report">Salva e apri il report da firmare</button>
@@ -10077,92 +10251,8 @@
             v.eventi = v.eventi || {};
             v.eventi[el.dataset.evSel] = el.value;
         }));
-        // check-up: fasi, aree, rilievi, roadmap e documenti
-        $vista().querySelectorAll('[data-cu-fase]').forEach(el => el.addEventListener('change', () => {
-            v.checkup.fasi[el.dataset.cuFase] = { ...(v.checkup.fasi[el.dataset.cuFase] || {}), stato: el.value };
-            vistaRatingScheda();
-        }));
-        $vista().querySelectorAll('[data-cu-fasenota]').forEach(el => el.addEventListener('change', () => {
-            v.checkup.fasi[el.dataset.cuFasenota] = { ...(v.checkup.fasi[el.dataset.cuFasenota] || {}), nota: el.value };
-        }));
-        $vista().querySelectorAll('[data-cu-area]').forEach(el => el.addEventListener('change', () => {
-            v.checkup.aree[el.dataset.cuArea] = { ...(v.checkup.aree[el.dataset.cuArea] || {}), punteggio: el.value };
-            vistaRatingScheda();
-        }));
-        $vista().querySelectorAll('[data-cu-areanota]').forEach(el => el.addEventListener('change', () => {
-            v.checkup.aree[el.dataset.cuAreanota] = { ...(v.checkup.aree[el.dataset.cuAreanota] || {}), conclusione: el.value };
-        }));
-        $vista().querySelectorAll('[data-cu-doc]').forEach(el => el.addEventListener('change', () => {
-            v.checkup.documenti[el.dataset.cuDoc] = el.value;
-        }));
-        $vista().querySelectorAll('[data-cu-circ]').forEach(el => el.addEventListener('change', () => {
-            v.checkup.circostanze = v.checkup.circostanze || {};
-            v.checkup.circostanze[el.dataset.cuCirc] = el.checked;
-            vistaRatingScheda();
-        }));
-        // il percorso guidato: fase aperta, punteggi suggeriti, verbali e roadmap dal calcolo
-        $vista().querySelectorAll('.cu-fase').forEach(d2 => d2.addEventListener('toggle', () => {
-            if (d2.open) cuFaseAperta = d2.dataset.fase;
-        }));
-        $vista().querySelectorAll('[data-cu-sugg]').forEach(b => b.addEventListener('click', () => {
-            v.checkup.aree[b.dataset.cuSugg] = { ...(v.checkup.aree[b.dataset.cuSugg] || {}), punteggio: String(b.dataset.val) };
-            vistaRatingScheda();
-        }));
-        const suggTutti = document.getElementById('cu-sugg-tutti');
-        if (suggTutti) suggTutti.addEventListener('click', () => {
-            const sg = rbCheckupSuggerimenti(v, rbEsiti(v));
-            let n = 0;
-            RB_CHECKUP_AREE.forEach(a => {
-                const d2 = v.checkup.aree[a.id] || {};
-                const vuoto = d2.punteggio === undefined || d2.punteggio === '' || d2.punteggio === null;
-                if (vuoto && sg[a.id].punteggio !== null) { v.checkup.aree[a.id] = { ...d2, punteggio: String(sg[a.id].punteggio) }; n++; }
-            });
-            toast(n ? 'Punteggi suggeriti inseriti in ' + n + (n === 1 ? ' modulo' : ' moduli') + ': confermali o correggili dopo interviste e verifiche.' : 'Nessun modulo vuoto con un punteggio proponibile: completa il questionario o valuta a mano.', n ? 'verde' : 'ambra');
-            vistaRatingScheda();
-        });
-        const rmImporta = document.getElementById('cu-rm-importa');
-        if (rmImporta) rmImporta.addEventListener('click', () => {
-            const es2 = rbEsiti(v);
-            const gia = (v.checkup.roadmap || []).map(r => String(r.azione || '').trim().toLowerCase());
-            let n = 0;
-            (es2.azioni || []).filter(a => a.pr !== 'spunto').forEach(a => {
-                if (gia.indexOf(a.titolo.trim().toLowerCase()) >= 0) return;
-                v.checkup.roadmap.push({ azione: a.titolo, orizzonte: a.pr === 'alta' ? 'o1' : 'o3', priorita: a.pr === 'alta' ? 'Alta' : 'Media', stato: 'nonavviata' });
-                n++;
-            });
-            toast(n ? n + (n === 1 ? ' azione portata' : ' azioni portate') + ' nella roadmap dal calcolo: assegna responsabili e termini.' : 'Le azioni del calcolo sono gia tutte in roadmap.', n ? 'verde' : 'ambra');
-            vistaRatingScheda();
-        });
-        const vaiEsiti = document.getElementById('cu-vai-esiti');
-        if (vaiEsiti) vaiEsiti.addEventListener('click', () => { tabRB = 'esiti'; vistaRatingScheda(); });
-        $vista().querySelectorAll('[data-vb]').forEach(el => el.addEventListener('change', () => {
-            const pezzi = el.dataset.vb.split('.');
-            v.checkup.verbali = v.checkup.verbali || {};
-            v.checkup.verbali[pezzi[0]] = v.checkup.verbali[pezzi[0]] || {};
-            v.checkup.verbali[pezzi[0]][pezzi[1]] = el.value;
-        }));
-        $vista().querySelectorAll('[data-verbale]').forEach(b => b.addEventListener('click', () => {
-            const id = rbSalvaScheda();
-            if (id) naviga('ratingVerbale', { id, tipo: b.dataset.verbale });
-        }));
-        const rilAdd = document.getElementById('rb-ril-add');
-        if (rilAdd) rilAdd.addEventListener('click', () => { v.checkup.rilievi.push({ classe: 'C2', area: '', stato: 'aperto' }); vistaRatingScheda(); });
-        $vista().querySelectorAll('[data-ril-rm]').forEach(b => b.addEventListener('click', () => { v.checkup.rilievi.splice(Number(b.dataset.rilRm), 1); vistaRatingScheda(); }));
-        $vista().querySelectorAll('[data-ril-campo]').forEach(el => el.addEventListener('change', () => {
-            const r = v.checkup.rilievi[Number(el.dataset.rilIdx)];
-            if (!r) return;
-            r[el.dataset.rilCampo] = el.value;
-            if (el.dataset.rilCampo === 'classe' || el.dataset.rilCampo === 'stato') vistaRatingScheda();
-        }));
-        const rmAdd = document.getElementById('rb-rm-add');
-        if (rmAdd) rmAdd.addEventListener('click', () => { v.checkup.roadmap.push({ orizzonte: 'o2', stato: 'nonavviata' }); vistaRatingScheda(); });
-        $vista().querySelectorAll('[data-rm-rm]').forEach(b => b.addEventListener('click', () => { v.checkup.roadmap.splice(Number(b.dataset.rmRm), 1); vistaRatingScheda(); }));
-        $vista().querySelectorAll('[data-rm-campo]').forEach(el => el.addEventListener('change', () => {
-            const r = v.checkup.roadmap[Number(el.dataset.rmIdx)];
-            if (!r) return;
-            r[el.dataset.rmCampo] = el.value;
-            if (el.dataset.rmCampo === 'orizzonte' || el.dataset.rmCampo === 'stato') vistaRatingScheda();
-        }));
+        // check-up guidato: ogni fase si apre nella sua finestra (gestori dentro la finestra)
+        $vista().querySelectorAll('[data-apri-fase]').forEach(b => b.addEventListener('click', () => apriFaseCheckup(b.dataset.apriFase)));
         // compagine sociale
         const socAdd = document.getElementById('rb-soc-add');
         if (socAdd) socAdd.addEventListener('click', () => { v.soci.push({ nome: '', tipo: 'pf', quota: '' }); vistaRatingScheda(); });
@@ -10196,11 +10286,6 @@
             else if (campo === 'severita') { r.severita = rbNum(el.value); el.value = r.severita === null ? '' : rbFmt2.format(r.severita); }
             else r[campo] = el.value;
             if (campo === 'banca') vistaRatingScheda();
-        }));
-        // questionario
-        $vista().querySelectorAll('[data-q]').forEach(el => el.addEventListener('change', () => {
-            v.questionario = v.questionario || {};
-            v.questionario[el.dataset.q] = Number(el.value);
         }));
         // esiti
         const btnRep = document.getElementById('rb-esiti-report');
@@ -11153,6 +11238,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-08-22-checkup-finestre',
+            data: '2026-08-22',
+            titolo: 'Rating bancario: questionario e check-up uniti, fasi in finestra e verbali rifiniti',
+            sommario: 'Il questionario qualitativo non è più una scheda separata: le venti domande si registrano direttamente nelle fasi del check-up (conoscenza dell\'impresa al primo contatto, colloqui, verifica dei presidi) e il programma le riusa ovunque servono: correttivo sulla classe, rating interno, punteggi suggeriti dei moduli e tabella del report. Ogni fase ora si apre nella sua finestra, con la guida e gli strumenti, e i verbali generati hanno oggetto, premesse e controfirma dell\'impresa. Tutti i testi sono stati rivisti con l\'ortografia corretta.',
+            chi: 'Chi svolge i check-up del merito creditizio.',
+            dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica: il quadro delle fasi con i contatori e, per ogni fase, la sua finestra di lavoro.',
+            voci: [
+                { titolo: 'Una cosa sola', testo: 'Le domande qualitative vivono dove si raccolgono le risposte: il profilo dell\'impresa al primo contatto, le domande dei colloqui sotto ogni traccia di intervista, i presidi (231, rating di legalità, ESG, TCF, certificazioni) nella fase delle verifiche. Si risponde una volta sola e tutto il resto si aggiorna da solo.' },
+                { titolo: 'Fasi in finestra', testo: 'La scheda Check-up mostra il quadro del percorso con i contatori (risposte, moduli, documenti, classe di sintesi) e la fase corrente evidenziata; ogni fase si apre in una finestra dedicata, che si può ridurre a barra, ingrandire e scorrere, con i pulsanti per passare alla fase precedente o successiva.' },
+                { titolo: 'Verbali più curati', testo: 'Verbale di avvio, richiesta dei documenti, comunicazione delle criticità e verbale di consegna ora hanno oggetto, premesse, punti numerati e chiusura formale; avvio e consegna prevedono la controfirma dell\'impresa accanto a quella del responsabile.' },
+                { titolo: 'Ortografia', testo: 'Tutti i testi del check-up (guide, domande, moduli, documenti, esempi di punteggio) sono stati rivisti con gli accenti e la punteggiatura corretti.' }
+            ]
+        },
         {
             id: '2026-08-22-checkup-guidato',
             data: '2026-08-22',
