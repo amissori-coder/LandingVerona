@@ -14341,8 +14341,13 @@
        elenco e' stato invitato via PEC: sugli inviti via email non c'e' niente
        da leggere. */
     function riquadroRicevute(ev, tutte) {
-        if (!(tutte || []).some(a => a.invio && a.invio.canale === 'pec')) return '';
+        const conPec = (tutte || []).some(a => a.invio && a.invio.canale === 'pec');
         const l = lettoreCfg();
+        /* Se nessun invito PEC e' ancora partito il riquadro compare lo stesso,
+           purche' la casella sia configurata: e' l'unico modo per provare che
+           le credenziali funzionano PRIMA di spedire, invece di scoprirlo a
+           campagna avviata. */
+        if (!conPec && !(l && l.configurato && canaleCfg('pec').pronto)) return '';
         if (l && !l.configurato) {
             return '<div class="inv-lettore ko">Le ricevute non si possono leggere: manca la configurazione della casella PEC in lettura '
                 + '(PEC_IMAP_USER e PEC_IMAP_PASS, oppure le stesse credenziali dell\'invio).</div>';
@@ -14353,16 +14358,20 @@
                 + '<button class="btn btn-sm btn-secondary" id="inv-ric">Riprova adesso</button></div>';
         }
         const ultimo = l && l.ultimoGiro;
-        const vecchio = ultimo && ultimo.quando && (Date.now() - ultimo.quando) > 24 * 60 * 60 * 1000;
+        const vecchio = conPec && ultimo && ultimo.quando && (Date.now() - ultimo.quando) > 24 * 60 * 60 * 1000;
         const detto = !ultimo
-            ? 'Le ricevute non sono ancora state lette.'
+            ? (conPec
+                ? 'Le ricevute non sono ancora state lette.'
+                : 'Nessun invito PEC ancora partito. Il pulsante serve intanto a controllare che la casella '
+                + esc((l && l.casella) || '') + ' risponda.')
             : (ultimo.esito === 'ok'
                 ? 'Ultimo controllo ' + esc(fmtDataOra(ultimo.quando)) + ': ' + (ultimo.ricevute || 0) + ' ricevute, ' + (ultimo.risposte || 0) + ' risposte'
                 + (ultimo.nonRiconosciute ? ', ' + ultimo.nonRiconosciute + ' da guardare a mano' : '') + '.'
                 : 'L\'ultimo controllo non e riuscito: ' + esc(ultimo.motivo || ''));
         return '<div class="inv-lettore' + ((ultimo && ultimo.esito !== 'ok') || vecchio ? ' ko' : '') + '">'
             + '<span>' + detto + (vecchio ? ' <b>Sono passate piu di 24 ore.</b>' : '') + '</span>'
-            + '<button class="btn btn-sm btn-secondary" id="inv-ric">Controlla le ricevute</button></div>';
+            + '<button class="btn btn-sm btn-secondary" id="inv-ric">'
+            + (conPec ? 'Controlla le ricevute' : 'Prova la casella PEC') + '</button></div>';
     }
 
     function disegnaAziendeInvito(ev) {

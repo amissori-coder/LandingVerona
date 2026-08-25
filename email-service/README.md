@@ -95,19 +95,23 @@ Facoltative, ma **consigliate** per un invio a freddo:
 > conto separato e il danno resta li'. Se le variabili non ci sono, l'invio
 > funziona lo stesso dal mittente di sempre.
 
-**Secondo canale: PEC.** Per l'invito formale. Finche' le variabili mancano,
+**Secondo canale: PEC.** Per l'invito formale. La casella dello studio e'
+**`revilawngb@pec.it`**: il dominio `pec.it` e' di Aruba (gli MX puntano a
+`mx.pec.aruba.it`), quindi host e porte predefiniti nel codice sono gia' quelli
+giusti e **le sole variabili davvero necessarie sono tre**:
+`PEC_SMTP_USER`, `PEC_SMTP_PASS`, `PEC_FROM_EMAIL`. Finche' le variabili mancano,
 il canale resta spento nell'area riservata e il servizio **si rifiuta di
 spedire**: l'elenco si puo' comunque caricare e preparare.
 
 | Nome | Valore |
 |---|---|
-| `PEC_SMTP_HOST` | `smtps.pec.aruba.it` (e' anche il valore predefinito: con Aruba si puo' omettere) |
-| `PEC_SMTP_PORT` | `465` |
-| `PEC_SMTP_USER` | l'indirizzo della casella PEC dello studio |
-| `PEC_SMTP_PASS` | la password di quella casella PEC |
-| `PEC_FROM_EMAIL` | lo stesso indirizzo PEC (il gestore rifiuta qualunque altro mittente) |
+| `PEC_SMTP_USER` | `revilawngb@pec.it` |
+| `PEC_SMTP_PASS` | la password di quella casella (vedi la nota sulla verifica in due passaggi) |
+| `PEC_FROM_EMAIL` | `revilawngb@pec.it` (lo stesso: il gestore rifiuta qualunque altro mittente) |
 | `PEC_FROM_NAME` | `Revilaw S.p.A.` |
-| `PEC_REPLY_TO` | una casella **ordinaria** dello studio, dove far arrivare le risposte |
+| `PEC_REPLY_TO` | una casella **ordinaria** dello studio, dove far arrivare le risposte (da scegliere) |
+| `PEC_SMTP_HOST` | `smtps.pec.aruba.it` — **si puo' omettere**, e' il predefinito |
+| `PEC_SMTP_PORT` | `465` — si puo' omettere |
 | `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
 | `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 300) |
 
@@ -140,10 +144,10 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 
 | Nome | Valore |
 |---|---|
-| `PEC_IMAP_HOST` | `imaps.pec.aruba.it` (predefinito: con Aruba si puo' omettere) |
-| `PEC_IMAP_PORT` | `993` (predefinito) |
-| `PEC_IMAP_USER` | l'indirizzo PEC; se manca si usa `PEC_SMTP_USER` |
-| `PEC_IMAP_PASS` | la password IMAP; se manca si usa `PEC_SMTP_PASS` |
+| `PEC_IMAP_HOST` | `imaps.pec.aruba.it` — **si puo' omettere**, e' il predefinito |
+| `PEC_IMAP_PORT` | `993` — si puo' omettere |
+| `PEC_IMAP_USER` | si puo' **omettere**: senza, usa `PEC_SMTP_USER` (`revilawngb@pec.it`) |
+| `PEC_IMAP_PASS` | si puo' **omettere**: senza, usa `PEC_SMTP_PASS`. Da riempire solo se la casella ha una password dedicata ai programmi di posta diversa da quella dell'invio |
 | `PEC_IMAP_CARTELLA` | `INBOX` (predefinito). Da cambiare solo se un filtro sposta le ricevute altrove: quello che il lettore non vede, non esiste |
 | `PEC_LETTORE_MAX` | quanti messaggi per giro (predefinito 40) |
 | `PEC_LETTORE_RECUPERO` | quanti messaggi guardare all'indietro alla prima accensione (predefinito 200) |
