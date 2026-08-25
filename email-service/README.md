@@ -265,9 +265,9 @@ tavolo; chi riceve la mail sceglie a quali sedersi.
   la mail li riporta e invita a confermarli o cambiarli). Dal menu della riga si
   puo invitare anche UNA SOLA persona. Chi manda sceglie prima, nell'area
   riservata, le AZIENDE da invitare (la mail parte a TUTTI i referenti iscritti
-  delle imprese spuntate) e l'ORARIO in cui si svolgono gli incontri, che entra
-  nella mail gia composta: qui non cambia nulla, il servizio riceve comunque
-  solo l'elenco dei destinatari e l'HTML. Una mail per destinatario; i doppioni
+  delle imprese spuntate) e l'ORARIO DI OGNI TAVOLO, che entra nella mail gia
+  composta: qui non cambia nulla, il servizio riceve comunque solo l'elenco dei
+  destinatari e l'HTML. Una mail per destinatario; i doppioni
   di indirizzo partono una volta sola. L'area riservata manda sempre
   `forza: true`: chi ha gia ricevuto l'invito (`b2bInvito` sulla scheda) lo
   riceve di nuovo, perche saltarlo vorrebbe dire non convocarlo. Il salto resta
@@ -302,7 +302,8 @@ tavolo; chi riceve la mail sceglie a quali sedersi.
   scrive da `@alfa.it` e di Alfa anche con il campo azienda in bianco. I domini
   pubblici (gmail, libero, aruba, pec.it...) non contano; un prefisso `pec.` si
   toglie solo se quel che resta e ancora un dominio. Le due chiavi uniscono a
-  catena. La STESSA regola sta nell'area riservata (`app.js`,
+  catena. Unica eccezione: chi e stato spostato a mano (vedi sotto) non si
+  unisce piu per dominio. La STESSA regola sta nell'area riservata (`app.js`,
   `raggruppaPerAzienda`), che con quella raggruppa le aziende da invitare:
   devono vedere le stesse imprese, altrimenti si invita un gruppo e se ne mostra
   un altro.
@@ -335,11 +336,75 @@ scelti, da presentare al desk "Incontri B2B". La scelta si puo cambiare quante
 volte si vuole: ogni salvataggio rimanda la mail con un foglio aggiornato, e in
 fondo al foglio c'e la data di emissione, perche vale sempre l'ultimo.
 
-- **Da dove vengono orario, luogo e nome dell'evento**: dall'invito. L'area
-  riservata li manda insieme ai destinatari (`orario` e `eventoDati` nel corpo
-  di `invita-b2b`) e `presenze.js` li scrive su `b2bInvito` di ogni scheda. Il
-  servizio non ha una tabella degli eventi - sta nell'area riservata - e
-  tenerne una seconda qui vorrebbe dire vederle divergere.
+- **Da dove vengono orari, luogo e nome dell'evento**: dall'invito. L'area
+  riservata li manda insieme ai destinatari (`orari` e `eventoDati` nel corpo di
+  `invita-b2b`) e `presenze.js` li scrive su `b2bInvito` di ogni scheda. Il
+  servizio non ha una tabella degli eventi - sta nell'area riservata - e tenerne
+  una seconda qui vorrebbe dire vederle divergere.
+
+### Un orario per ogni tavolo
+
+Gli incontri non si tengono tutti insieme: ogni argomento e un tavolo con il suo
+orario, ed e l'unico modo perche chi prenota sappia se due si sovrappongono.
+
+- `b2bInvito.orari` e una mappa `etichetta corta del tavolo -> orario` ("dalle
+  14:30 alle 15:15"). `presenze.js` accetta solo le etichette che conosce
+  (`lib/temi-b2b.js`), cosi nessuno puo infilare voci inventate nel foglio del
+  desk.
+- **Un tavolo senza orario non e in programma** a quell'evento: non compare
+  nell'elenco della mail di invito, `b2b-leggi` lo rimanda con orario vuoto e la
+  pagina non lo propone, e `b2b-salva` rifiuta una prenotazione che lo contenga
+  (la firma sul collegamento non e un lasciapassare per scrivere quel che si
+  vuole). Chi aveva gia prenotato un tavolo che nel frattempo e uscito dal
+  programma lo legge scritto sulla pagina, invece di vederselo sparire.
+- **Svuotare un orario lo toglie davvero.** `set(..., {merge:true})` fonde le
+  mappe annidate CHIAVE PER CHIAVE: una chiave assente non viene cancellata.
+  Percio `presenze.js` scrive una voce per ogni tavolo, con
+  `FieldValue.delete()` dove l'orario e stato tolto; senza, al secondo invito il
+  tavolo svuotato sarebbe sparito dalla mail ma sarebbe rimasto prenotabile
+  dalla pagina, con tanto di orario stampato sul foglio del desk.
+- **Gli orari tornano con l'elenco** (`orariB2B` su ogni riga, da
+  `b2bInvito.orari`): l'area riservata li usa per riproporli anche da un altro
+  computer, invece di tenerli solo nel browser di chi ha spedito.
+- Se all'invito non erano stati dati orari per tavolo ma il vecchio `orario`
+  unico - inviti partiti con la versione precedente - vale quello per tutti i
+  tavoli: e quello che quella mail diceva davvero.
+- I nove argomenti stanno in `lib/temi-b2b.js`, condiviso fra `presenze.js` e
+  `iscrizione-nuova.js`: finche erano due copie bastava una virgola di
+  differenza perche un orario arrivasse su un tavolo e la prenotazione su un
+  altro. Le stesse etichette, nello stesso ordine, vivono anche in
+  `area-riservata/newsletter-format.js` (con le descrizioni lunghe) e in
+  `incontri_b2b/index.html`: sono altri pezzi del sistema, senza moduli in
+  comune con il servizio.
+
+### Spostare un referente da un'azienda a un'altra
+
+`/api/presenze`, `azione: "sposta-azienda"` (amministratore, equity e founding
+partner: la stessa mano che compone i tavoli). Serve perche chi organizza sa
+cose che l'iscritto non ha scritto - che "Mario di Alfa" lavora per la
+controllata, che due ragioni sociali sono la stessa impresa, che un indirizzo
+personale appartiene a un'azienda che non ha nominato.
+
+- Riceve `docs` (i nomi dei documenti: una persona puo avere piu iscrizioni allo
+  stesso evento, e spostarne una sola la lascerebbe mezza di qua e mezza di la)
+  e `azienda`. Tocca SOLO il campo azienda, mai email o data: l'identificativo
+  del documento nasce da quelle due, e cambiarle farebbe traslocare la scheda
+  perdendo prenotazione, invito e allegati, e invaliderebbe il collegamento
+  firmato gia spedito.
+- Lascia traccia in tre modi: `azienda` cambia ed e il dato che tutti leggono;
+  `aziendaSpostata` dice l'ultimo spostamento; `aziendaStorico` li tiene tutti,
+  perche la domanda vera - da dove viene questa persona - un campo singolo non
+  la regge dal secondo spostamento in poi.
+- `iscrizioni.js` espone la traccia come colonna aggiuntiva "Spostamento
+  azienda" (la lettura e una whitelist campo per campo: senza quella riga il
+  dato resterebbe sul database e non si vedrebbe mai). La frase la compone
+  `lib/traccia-azienda.js`, condiviso, cosi la riga non cambia testo da sola
+  fra la risposta immediata e la lettura successiva.
+- La traccia serve anche da BANDIERA: chi e stato spostato a mano non si unisce
+  piu per dominio della mail, ne qui (`radiciAziende`) ne nell'area riservata
+  (`raggruppaPerAzienda`). Senza, mario@alfa.it spostato in Beta tornerebbe fra
+  i colleghi di Alfa al primo ridisegno, e lo spostamento sembrerebbe non aver
+  funzionato.
 - **Il PDF e scritto a mano** (nessuna libreria): una pagina A4, i due font
   standard Helvetica in codifica WinAnsi, testo e rettangoli. Una libreria di
   impaginazione porterebbe megabyte in una funzione che deve partire in fretta.

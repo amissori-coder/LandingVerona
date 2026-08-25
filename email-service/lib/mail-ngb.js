@@ -220,33 +220,43 @@ function confermaVariazioni(dati, link) {
    con in allegato il foglio da presentare al desk. Il collegamento e' lo
    stesso della pagina, cosi' cambiare idea costa un clic.
    `dati`: { nome, azienda, pagina, evento: {titolo, quando, luogo, indirizzo},
-   orario, tavoli: [...] }; `link` e' il collegamento personale firmato. */
+   tavoli: [{nome, orario}] }; `link` e' il collegamento personale firmato.
+   Ogni tavolo porta il SUO orario: gli incontri non si tengono tutti insieme,
+   e una riga sola per tutti direbbe all'ospite di presentarsi all'ora
+   sbagliata. */
 function confermaB2B(dati, link) {
     const d = dati || {};
     const ev = d.evento || {};
     const evNome = [ev.titolo, ev.quando].filter(Boolean).join(', ') || nomeEvento(d.pagina);
-    const tavoli = (d.tavoli || []).filter(Boolean);
+    /* I tavoli arrivano come oggetti {nome, orario}; si accettano anche
+       stringhe, per non rompersi se un chiamante vecchio resta in giro. */
+    const tavoli = (d.tavoli || []).filter(Boolean)
+        .map(t => (typeof t === 'string' ? { nome: t, orario: '' } : { nome: String(t.nome || ''), orario: String(t.orario || '') }))
+        .filter(t => t.nome);
     const quanti = tavoli.length;
+    const conOrario = t => t.nome + (t.orario ? ' - ' + t.orario : '');
     const oggetto = 'Prenotazione confermata - Incontri B2B, Next Generation Business' + (evNome ? ', ' + evNome : '');
     const saluto = 'Gentile ' + (d.nome || 'ospite') + ',';
     const sommario = saluto + ' la Sua prenotazione agli incontri B2B'
         + (evNome ? ' del convegno di ' + evNome : '') + ' è registrata: '
-        + (quanti === 1 ? 'un incontro' : quanti + ' incontri') + ', qui sotto il riepilogo.';
+        + (quanti === 1 ? 'un incontro' : quanti + ' incontri') + ', qui sotto il riepilogo con gli orari.';
     const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
-    const righeTavoli = tavoli.map((t, i) => rigaBox(quanti === 1 ? 'Incontro' : 'Incontro ' + (i + 1), t)).join('');
+    const righeTavoli = tavoli.map((t, i) => rigaBox(quanti === 1 ? 'Incontro' : 'Incontro ' + (i + 1), conOrario(t))).join('');
     const html = involucro(oggetto, 'La Sua prenotazione agli incontri B2B è registrata: in allegato il foglio per il desk.',
         testata('Prenotazione confermata', sommario)
         + corpo(
             '<tr><td>' + box(
-                rigaBox('Convegno', 'Next Generation Business' + (evNome ? ' - ' + evNome : ''))
-                + rigaBox('Incontri B2B', [ev.quando, d.orario].filter(Boolean).join(', '))
+                // il giorno ha una riga sua: ripeterlo accanto al nome del convegno
+                // fa leggere due volte la stessa cosa
+                rigaBox('Convegno', 'Next Generation Business' + (ev.titolo ? ' - ' + ev.titolo : (evNome ? ' - ' + evNome : '')))
+                + rigaBox('Giorno', String(ev.quando || ''))
                 + rigaBox('Dove', dove)
                 + rigaBox('Partecipante', [d.nome, d.azienda].filter(Boolean).join(' - '))
                 + righeTavoli
             ) + '</td></tr>'
             + spazio(26)
-            + paragrafo('In allegato trova il foglio della prenotazione: lo presenti al desk "Incontri B2B" all\'ingresso, '
-                + 'stampato oppure dal telefono. Il turno preciso e gli specialisti a Sua disposizione Le saranno confermati sul posto.')
+            + paragrafo('In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk '
+                + '"Incontri B2B" all\'ingresso, stampato oppure dal telefono. Gli specialisti a Sua disposizione Le saranno confermati sul posto.')
             + spazio(22)
             + paragrafo('Se cambia idea può modificare la scelta quando vuole, dal pulsante qui sotto: '
                 + 'riceverà subito una nuova mail con il foglio aggiornato, e vale sempre l\'ultimo emesso.')
@@ -257,12 +267,12 @@ function confermaB2B(dati, link) {
         )
         + piede(MOTIVO));
     const testo = ['PRENOTAZIONE CONFERMATA', sommario,
-        'Convegno: Next Generation Business' + (evNome ? ' - ' + evNome : '')
-        + ([ev.quando, d.orario].filter(Boolean).length ? '\nIncontri B2B: ' + [ev.quando, d.orario].filter(Boolean).join(', ') : '')
+        'Convegno: Next Generation Business' + (ev.titolo ? ' - ' + ev.titolo : (evNome ? ' - ' + evNome : ''))
+        + (ev.quando ? '\nGiorno: ' + ev.quando : '')
         + (dove ? '\nDove: ' + dove : '')
         + ([d.nome, d.azienda].filter(Boolean).length ? '\nPartecipante: ' + [d.nome, d.azienda].filter(Boolean).join(' - ') : ''),
-        (quanti === 1 ? 'Il Suo incontro:' : 'I Suoi incontri:') + '\n' + tavoli.map(t => '- ' + t).join('\n'),
-        'In allegato trova il foglio della prenotazione: lo presenti al desk "Incontri B2B" all\'ingresso, stampato oppure dal telefono.',
+        (quanti === 1 ? 'Il Suo incontro:' : 'I Suoi incontri:') + '\n' + tavoli.map(t => '- ' + conOrario(t)).join('\n'),
+        'In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk "Incontri B2B" all\'ingresso, stampato oppure dal telefono.',
         'Modifica la prenotazione: ' + link,
         'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
         '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,

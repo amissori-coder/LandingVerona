@@ -150,7 +150,9 @@ function Foglio() {
    del testo che ci va dentro: per questo l'altezza dei riquadri si calcola
    mandando a capo il testo prima di stamparlo.
    `dati`: { nome, azienda, ruolo, evento: {titolo, quando, luogo, indirizzo},
-   orario, tavoli: [...], emessoIl } */
+   tavoli: [{nome, orario}], emessoIl }. Ogni tavolo porta il SUO orario: e'
+   la riga per cui questo foglio esiste, perche' gli incontri non si tengono
+   tutti insieme e chi si presenta all'ora sbagliata perde il suo. */
 function contenutoPagina(dati) {
     const d = dati || {};
     const ev = d.evento || {};
@@ -174,8 +176,11 @@ function contenutoPagina(dati) {
     const ev1 = [ev.titolo, ev.quando].filter(Boolean).join(', ');
     const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
     const righeBox = [];
-    if (ev1) righeBox.push(['CONVEGNO', 'Next Generation Business - ' + ev1]);
-    if (d.orario) righeBox.push(['INCONTRI B2B', (ev.quando ? ev.quando + ', ' : '') + d.orario]);
+    // il giorno ha una riga sua: ripeterlo anche accanto al nome del convegno
+    // fa leggere due volte la stessa cosa e allunga il riquadro per niente
+    if (ev.titolo) righeBox.push(['CONVEGNO', 'Next Generation Business - ' + ev.titolo]);
+    else if (ev1) righeBox.push(['CONVEGNO', 'Next Generation Business - ' + ev1]);
+    if (ev.quando) righeBox.push(['GIORNO', ev.quando]);
     if (dove) righeBox.push(['DOVE', dove]);
     if (righeBox.length) {
         const largoValore = DENTRO - 134;
@@ -200,40 +205,92 @@ function contenutoPagina(dati) {
     f.scendi(10);
     f.linea(LATO, f.y, A4.larghezza - LATO, C.bordo, 1);
     f.scendi(20);
-    const tavoli = (d.tavoli || []).filter(Boolean);
+    /* I tavoli arrivano come oggetti {nome, orario}; si accettano anche
+       stringhe, per non rompersi se un chiamante vecchio resta in giro. */
+    const tavoli = (d.tavoli || []).filter(Boolean)
+        .map(t => (typeof t === 'string' ? { nome: t, orario: '' } : { nome: String(t.nome || ''), orario: String(t.orario || '') }))
+        .filter(t => t.nome);
     if (!tavoli.length) {
         f.paragrafo('Nessun incontro selezionato.', { corpo: 11, colore: C.tenue });
     } else {
+        /* Il foglio e' UNA pagina e deve restarlo: con nove tavoli prenotati, il
+           nome su una riga e l'orario sotto sfonderebbero il piede. Da sette in
+           su si passa alla forma compatta - nome e orario sulla stessa riga,
+           passo ridotto - che sta larga il doppio ma alta la meta'. */
+        const stretti = tavoli.length > 6;
         tavoli.forEach(t => {
             const alto = f.y;
-            const righe = aCapo(t, 11.5, DENTRO - 24);
             f.rettangolo(LATO + 2, alto - 8, 7, 7, C.accento);
-            righe.forEach((riga, i) => {
-                f.testo(riga, { alto: alto + i * 16, x: LATO + 24, corpo: 11.5, grassetto: true, colore: C.scuro });
-            });
-            f.scendi(righe.length * 16 + 9);
+            let giu = 0;
+            if (stretti) {
+                const righe = aCapo(t.nome + (t.orario ? '  -  ' + t.orario : ''), 10.5, DENTRO - 24);
+                righe.forEach((riga, i) => {
+                    f.testo(riga, { alto: alto + i * 14, x: LATO + 24, corpo: 10.5, grassetto: true, colore: C.scuro });
+                });
+                giu = righe.length * 14;
+            } else {
+                const righe = aCapo(t.nome, 11.5, DENTRO - 24);
+                righe.forEach((riga, i) => {
+                    f.testo(riga, { alto: alto + i * 16, x: LATO + 24, corpo: 11.5, grassetto: true, colore: C.scuro });
+                });
+                giu = righe.length * 16;
+                /* L'orario sotto il nome del tavolo, in blu: e' quello che si cerca
+                   con l'occhio quando si e' in fila al desk. Va a capo come tutto
+                   il resto - "dalle 14:30 alle 15:15, dopo il coffee break" e'
+                   un orario che qualcuno scrivera' - invece di uscire dal margine. */
+                if (t.orario) {
+                    aCapo(t.orario, 11, DENTRO - 24).forEach((riga, i) => {
+                        f.testo(riga, { alto: alto + giu + i * 15, x: LATO + 24, corpo: 11, grassetto: true, colore: C.blu });
+                    });
+                    giu += aCapo(t.orario, 11, DENTRO - 24).length * 15;
+                }
+            }
+            f.scendi(giu + (stretti ? 6 : 10));
         });
     }
 
-    // --- l'avviso per il desk ---
+    /* --- l'avviso per il desk ---
+       Sta sopra il piede, e sopra il piede ci deve STARE: con nove tavoli dagli
+       orari lunghi lo spazio finisce, e un riquadro che sfora finirebbe stampato
+       sopra l'indirizzo di Revilaw. Quindi si misura prima quanto ne resta e si
+       lascia cadere quello che non entra, nell'ordine: la seconda frase (la
+       stessa cosa la dice anche la mail), poi il riquadro intero. La prima frase
+       - dove presentarsi - non si taglia mai: e' il motivo per cui questo foglio
+       esiste, e se non ci sta e' l'elenco che va stretto, non l'avviso. */
+    const altoPiede = A4.altezza - 66;
     f.scendi(14);
     const avviso1 = 'Presenti questo foglio, stampato o dal telefono, al desk "Incontri B2B" all\'ingresso.'
-        + (d.orario ? ' La aspettiamo ' + d.orario + '.' : '')
-        + ' Il turno preciso e gli specialisti a Sua disposizione Le saranno confermati sul posto.';
+        + ' La aspettiamo a ciascun incontro nell\'orario indicato qui sopra.'
+        + ' Gli specialisti a Sua disposizione Le saranno confermati sul posto.';
     const avviso2 = 'Può modificare la prenotazione quando vuole, dal collegamento personale che trova nella mail: '
         + 'riceve subito un foglio aggiornato. Vale sempre l\'ultimo emesso.';
     const largoAvviso = DENTRO - 36;
-    const alteAvviso = 22 + (aCapo(avviso1, 10.5, largoAvviso).length + aCapo(avviso2, 10.5, largoAvviso).length) * 15 + 10;
+    // la versione minima, quando lo spazio e' finito: due righe, ma la cosa da
+    // fare c'e' ancora
+    const avvisoCorto = 'Presenti questo foglio al desk "Incontri B2B" all\'ingresso: '
+        + 'la aspettiamo a ciascun incontro nell\'orario indicato qui sopra.';
+    const alte = (testo, corpo) => 20 + aCapo(testo, corpo, largoAvviso).length * (corpo + 4.5) + 8;
     const cimaAvviso = f.y;
-    f.rettangolo(LATO, cimaAvviso, DENTRO, alteAvviso, C.chiaro);
-    f.rettangolo(LATO, cimaAvviso, DENTRO, 3, C.accento);
-    f.y = cimaAvviso + 26;
-    f.paragrafo(avviso1, { corpo: 10.5, colore: C.testo, dentro: largoAvviso, x: LATO + 18, passo: 15 });
-    f.scendi(4);
-    f.paragrafo(avviso2, { corpo: 10.5, colore: C.tenue, dentro: largoAvviso, x: LATO + 18, passo: 15 });
+    const disponibile = altoPiede - 12 - cimaAvviso;
+    const alteConDue = alte(avviso1, 10.5) + aCapo(avviso2, 10.5, largoAvviso).length * 15 + 6;
+    let dueFrasi = false, testoAvviso = avvisoCorto, corpoAvviso = 9.5, alteAvviso = alte(avvisoCorto, 9.5);
+    if (alteConDue <= disponibile) {
+        dueFrasi = true; testoAvviso = avviso1; corpoAvviso = 10.5; alteAvviso = alteConDue;
+    } else if (alte(avviso1, 10.5) <= disponibile) {
+        testoAvviso = avviso1; corpoAvviso = 10.5; alteAvviso = alte(avviso1, 10.5);
+    }
+    if (alteAvviso <= disponibile) {
+        f.rettangolo(LATO, cimaAvviso, DENTRO, alteAvviso, C.chiaro);
+        f.rettangolo(LATO, cimaAvviso, DENTRO, 3, C.accento);
+        f.y = cimaAvviso + 24;
+        f.paragrafo(testoAvviso, { corpo: corpoAvviso, colore: C.testo, dentro: largoAvviso, x: LATO + 18, passo: corpoAvviso + 4.5 });
+        if (dueFrasi) {
+            f.scendi(4);
+            f.paragrafo(avviso2, { corpo: 10.5, colore: C.tenue, dentro: largoAvviso, x: LATO + 18, passo: 15 });
+        }
+    }
 
     // --- piede ---
-    const altoPiede = A4.altezza - 66;
     f.linea(LATO, altoPiede, A4.larghezza - LATO, C.bordo, 1);
     f.testo('Revilaw S.p.A. - Via XX Settembre 9, 37129 Verona - C.F. 04641610235',
         { alto: altoPiede + 18, corpo: 8.5, colore: C.tenue });
