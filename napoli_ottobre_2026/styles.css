@@ -1954,6 +1954,14 @@ ul {
     max-height: 80px;
 }
 
+/* Serviter e' un lockup impilato, simbolo sopra e logotipo sotto: a parita' di
+   altezza la scritta risulterebbe molto piu' piccola delle altre, quindi gli
+   si concede qualche pixel in piu' di altezza. */
+.partner-brand-img-serviter {
+    max-width: 205px;
+    max-height: 104px;
+}
+
 /* Thin vertical separator between Revilaw and Advant */
 .partner-sep {
     width: 1px;
@@ -2541,6 +2549,11 @@ ul {
         max-height: 72px;
     }
 
+    .partner-brand-img-serviter {
+        max-width: 186px;
+        max-height: 94px;
+    }
+
     .label-text {
         font-size: 0.64rem;
         letter-spacing: 2.2px;
@@ -2716,6 +2729,11 @@ ul {
         max-height: 67px;
     }
 
+    .partner-brand-img-serviter {
+        max-width: 172px;
+        max-height: 86px;
+    }
+
     .label-text {
         font-size: 0.6rem;
         letter-spacing: 1.8px;
@@ -2769,6 +2787,11 @@ ul {
     .partner-brand-img-fiscal {
         max-width: 68px;
         max-height: 62px;
+    }
+
+    .partner-brand-img-serviter {
+        max-width: 158px;
+        max-height: 80px;
     }
 
     .partner-brand-img-apri {
