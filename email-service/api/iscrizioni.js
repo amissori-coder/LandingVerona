@@ -118,11 +118,28 @@ const CAMPI_MATCHING = {
         etichetta: 'Incontro B2B',
         valori: { si: 'Vuole incontri', forse: 'Da confermare', no: 'Solo convegno' }
     },
+    /* Le preferenze dichiarate ISCRIVENDOSI: dicono cosa interessa all'impresa,
+       non che qualcuno verra' a un tavolo. La prenotazione vera e' un'altra
+       colonna (qui sotto), e le due non vanno confuse. */
     interessi: { etichetta: 'Interessi', valori: {} }
 };
 
+/* I tavoli B2B PRENOTATI rispondendo all'invito: colonna a parte, perche' e'
+   quella con cui si compongono i tavoli il giorno del convegno. Le schede che
+   avevano risposto al vecchio modulo (risposta registrata ma nessun `b2bScelte`)
+   portano dentro `interessi` la loro scelta: si prende quella, altrimenti
+   quelle risposte sparirebbero. */
+const COLONNA_B2B = 'B2B prenotati';
+function prenotatiB2B(v) {
+    if (Array.isArray(v.b2bScelte)) return v.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
+    const risposto = !!(v.b2bRisposta && v.b2bRisposta.quando);
+    return risposto ? String(v.interessi || '').split(',').map(x => x.trim()).filter(Boolean) : [];
+}
+
 function extraMatching(v) {
     const fuori = {};
+    const prenotati = prenotatiB2B(v);
+    if (prenotati.length) fuori[COLONNA_B2B] = prenotati.join(',');
     Object.keys(CAMPI_MATCHING).forEach(campo => {
         const grezzo = String(v[campo] == null ? '' : v[campo]).trim();
         if (!grezzo) return;   // campo assente: nessuna colonna, nessuna cella vuota

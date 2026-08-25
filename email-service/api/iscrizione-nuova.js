@@ -265,12 +265,103 @@ function indiciDaInteressi(grezzo) {
     });
     return { indici: Array.from(indici).sort((a, b) => a - b), nonMappate: nonMappate };
 }
-/* Nome dell'azienda ridotto alla forma da confrontare: minuscole, senza
-   accenti, spazi doppi schiacciati. Serve perche' "Alfa S.r.l.", "ALFA
-   s.r.l." e "alfa  srl " sono la stessa impresa scritta da tre persone
-   diverse, e i colleghi devono vedersi lo stesso. */
-function normalizzaAzienda(s) {
-    return normalizzaTema(s).replace(/\s+/g, ' ');
+/* --- PRENOTAZIONI e PREFERENZE sono due cose diverse ---
+   `interessi` sono le preferenze dichiarate iscrivendosi dal form del sito:
+   dicono cosa interessa all'impresa, non che qualcuno verra' a un tavolo.
+   La PRENOTAZIONE e' la risposta a questo invito, e sta per conto suo in
+   `b2bScelte` (etichette dei tavoli) con `b2bRisposta` a fare da data.
+   Tenerle separate e' l'unico modo perche' il riepilogo per argomento
+   dell'area riservata conti chi viene davvero, invece di sommarci dentro
+   chi aveva solo spuntato una casella al momento dell'iscrizione.
+   Le schede che avevano risposto al VECCHIO modulo, quando la risposta
+   finiva dentro `interessi`, si riconoscono da `b2bRisposta` senza
+   `b2bScelte`: per loro la prenotazione e' quello che c'e' in `interessi`,
+   altrimenti quelle risposte sparirebbero dal riepilogo. */
+function haPrenotato(scheda) {
+    return !!(scheda && scheda.b2bRisposta && scheda.b2bRisposta.quando);
+}
+function prenotatiDi(scheda) {
+    if (!scheda) return [];
+    if (Array.isArray(scheda.b2bScelte)) return scheda.b2bScelte.map(x => String(x || '')).filter(Boolean);
+    return haPrenotato(scheda) ? String(scheda.interessi || '').split(',').map(x => x.trim()).filter(Boolean) : [];
+}
+function indiciDaTemi(etichette) {
+    return indiciDaInteressi((etichette || []).join(',')).indici;
+}
+
+/* --- riconoscere che due persone sono della STESSA azienda ---
+   La ragione sociale la scrive ognuno a modo suo: "Alfa S.r.l.", "ALFA SRL",
+   "Alfa spa", "Alfa". Un confronto alla lettera lascerebbe i colleghi
+   invisibili gli uni agli altri, che e' il contrario di cio' che serve qui.
+   Quindi due passaggi:
+     1. la ragione sociale si riduce all'osso (minuscole, senza accenti, senza
+        punteggiatura, senza la forma giuridica): "Alfa S.r.l." e "ALFA SPA"
+        diventano tutte e due "alfa";
+     2. nel dubbio decide il DOMINIO della mail: chi scrive da @alfa.it e' di
+        Alfa anche se ha lasciato in bianco il campo azienda o l'ha scritta in
+        un modo che non somiglia a nessun altro. I domini di posta pubblici
+        (gmail, libero, aruba...) non dicono niente sull'azienda e non contano.
+   Le due cose insieme fondono i gruppi a catena: "Alfa Srl" + "Alfa SPA" con
+   lo stesso dominio sono una sola impresa. */
+const DOMINI_PUBBLICI = [
+    'gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.it', 'outlook.com', 'outlook.it',
+    'live.it', 'live.com', 'msn.com', 'yahoo.it', 'yahoo.com', 'libero.it', 'virgilio.it',
+    'alice.it', 'tin.it', 'tiscali.it', 'inwind.it', 'iol.it', 'email.it', 'fastwebnet.it',
+    'icloud.com', 'me.com', 'mac.com', 'aruba.it', 'pec.it', 'legalmail.it', 'poste.it',
+    'protonmail.com', 'proton.me', 'gmx.com', 'katamail.com', 'supereva.it', 'teletu.it',
+    'vodafone.it', 'wind.it', 'tim.it', 'windtre.it', 'blu.it'
+];
+/* Le forme giuridiche: si tolgono dal confronto perche' la stessa impresa
+   compare ora con la sigla, ora senza, ora con i punti. Restano fuori le
+   parole che potrebbero essere il nome vero ("studio", "impresa", "gruppo"):
+   toglierle farebbe di "Studio Rossi" e "Studio Bianchi" la stessa cosa. */
+const FORME_GIURIDICHE = /\b(s\s*r\s*l\s*s?|s\s*p\s*a|s\s*a\s*p\s*a|s\s*a\s*s|s\s*n\s*c|s\s*c\s*a\s*r\s*l|s\s*s|societa|soc|cooperativa|coop|sarl|ltd|limited|llc|inc|gmbh|plc)\b/g;
+function chiaveAzienda(s) {
+    let t = String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    t = t.replace(/&/g, ' e ');
+    // i punti e gli apostrofi spariscono senza lasciare spazio: "s.r.l." -> "srl"
+    t = t.replace(/[.'\u2019"]/g, '');
+    t = t.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const senzaForma = t.replace(FORME_GIURIDICHE, ' ').replace(/\s+/g, ' ').trim();
+    // se dell'azienda resta solo la forma giuridica, meglio la stringa intera
+    return senzaForma || t;
+}
+function dominioMail(email) {
+    const m = String(email || '').toLowerCase().trim().match(/@([a-z0-9.\-]+)$/);
+    if (!m) return '';
+    let d = m[1];
+    if (DOMINI_PUBBLICI.indexOf(d) >= 0) return '';
+    /* Le caselle di posta certificata dell'azienda portano lo stesso nome
+       (pec.alfa.it e alfa.it sono la stessa impresa). Il prefisso si toglie
+       solo se quel che resta e' ancora un dominio: da "pec.it" resterebbe
+       "it", e allora mezzo mondo diventerebbe un'azienda sola. */
+    const senzaPrefisso = d.replace(/^(pec|mail|posta)\./, '');
+    if (senzaPrefisso !== d && senzaPrefisso.indexOf('.') > 0) d = senzaPrefisso;
+    return DOMINI_PUBBLICI.indexOf(d) >= 0 ? '' : d;
+}
+/* Mette insieme le persone che risultano della stessa impresa, per nome
+   ridotto all'osso o per dominio della mail (una catena di unioni: chi condivide
+   l'uno o l'altro finisce nello stesso gruppo). Torna un vettore di radici,
+   una per persona, e `-1` per chi non ha ne' azienda ne' dominio aziendale:
+   quelli non sono un gruppo, sono singoli. */
+function radiciAziende(persone) {
+    const padre = persone.map((_, i) => i);
+    const trova = i => { while (padre[i] !== i) { padre[i] = padre[padre[i]]; i = padre[i]; } return i; };
+    const unisci = (a, b) => { a = trova(a); b = trova(b); if (a !== b) padre[b] = a; };
+    const perNome = {}, perDominio = {};
+    const identificabile = persone.map(p => {
+        const n = chiaveAzienda(p.azienda);
+        const d = dominioMail(p.email);
+        return !!(n || d);
+    });
+    persone.forEach((p, i) => {
+        if (!identificabile[i]) return;
+        const n = chiaveAzienda(p.azienda);
+        if (n) { if (perNome[n] === undefined) perNome[n] = i; else unisci(perNome[n], i); }
+        const d = dominioMail(p.email);
+        if (d) { if (perDominio[d] === undefined) perDominio[d] = i; else unisci(perDominio[d], i); }
+    });
+    return persone.map((p, i) => identificabile[i] ? trova(i) : -1);
 }
 /* Le schede di UN evento, tenute in memoria per qualche decina di secondi:
    la pagina delle prenotazioni le rilegge a ogni apertura e a ogni salvataggio
@@ -291,28 +382,30 @@ async function schedeDellEvento(db, pagina) {
     _cacheEvento[k] = { quando: Date.now(), righe: righe };
     return righe;
 }
-/* Chi altro, della stessa azienda e per lo stesso evento, ha gia' scelto i
-   suoi tavoli. Una voce per persona (i doppioni di indirizzo si fondono),
-   niente email e niente nota: alla pagina servono nome, ruolo e tavoli. */
+/* Chi altro, della stessa azienda e per lo stesso evento, e con che cosa:
+   i tavoli PRENOTATI (risposta a questo invito) e, a parte, le preferenze
+   dichiarate iscrivendosi - sono due cose diverse e la pagina le distingue.
+   Una voce per persona (i doppioni di indirizzo si fondono), niente email e
+   niente nota: alla pagina servono nome, ruolo e tavoli. */
 function prenotazioniColleghi(righe, scheda, idDoc) {
-    const mia = normalizzaAzienda(scheda.azienda);
-    if (!mia) return [];   // senza azienda scritta non c'e' nessun "noi"
+    const vive = righe.filter(r => !r.annullato);
+    const io = vive.findIndex(r => r._doc === idDoc);
+    if (io < 0) return [];
+    const radici = radiciAziende(vive);
+    if (radici[io] < 0) return [];   // ne' azienda scritta ne' dominio aziendale: nessun "noi"
     const visti = {};
     const fuori = [];
-    righe.forEach(r => {
-        if (r._doc === idDoc) return;
-        if (r.annullato) return;
-        if (normalizzaAzienda(r.azienda) !== mia) return;
+    vive.forEach((r, i) => {
+        if (i === io || radici[i] !== radici[io]) return;
         const em = String(r.email || '').toLowerCase();
         if (em && visti[em]) return;
         if (em) visti[em] = true;
         fuori.push({
             nome: ((String(r.nome || '') + ' ' + String(r.cognome || '')).trim()) || 'Un collega',
             ruolo: String(r.ruolo || '').slice(0, 120),
-            temi: indiciDaInteressi(r.interessi).indici,
-            // "ha risposto all'invito" e' un'altra cosa dall'aver dichiarato
-            // interessi al momento dell'iscrizione: la pagina lo dice
-            prenotato: !!(r.b2bRisposta && r.b2bRisposta.quando)
+            temi: indiciDaTemi(prenotatiDi(r)),
+            preferenze: indiciDaInteressi(r.interessi).indici,
+            prenotato: haPrenotato(r)
         });
     });
     fuori.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
@@ -339,15 +432,21 @@ async function interessiB2B(azione, body, res) {
         try {
             colleghi = prenotazioniColleghi(await schedeDellEvento(db, scheda.pagina), scheda, idDoc);
         } catch (e) { colleghi = []; }
+        /* Le caselle segnate all'apertura: la PRENOTAZIONE se c'e' gia', se no
+           le preferenze dichiarate iscrivendosi - li' sono un suggerimento da
+           confermare, non una prenotazione, e la pagina lo dice. */
+        const prenotati = indiciDaTemi(prenotatiDi(scheda));
+        const preferenze = indiciDaInteressi(scheda.interessi).indici;
         res.status(200).json({
             ok: true,
             pagina: String(scheda.pagina || ''),
             nome: ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()),
             azienda: String(scheda.azienda || ''),
             temi: TEMI_B2B,
-            // le scelte gia' fatte tornano come caselle spuntate, anche quando
-            // arrivano dal form del sito con le etichette storiche
-            scelti: indiciDaInteressi(scheda.interessi).indici,
+            scelti: prenotati.length ? prenotati : preferenze,
+            prenotato: haPrenotato(scheda),
+            // le caselle vengono dalle preferenze e non da una prenotazione
+            daPreferenze: !prenotati.length && preferenze.length > 0,
             nota: String((scheda.extra && scheda.extra['Nota B2B']) || ''),
             // chi altro dell'azienda ha gia' scelto, e cosa
             colleghi: colleghi
@@ -355,10 +454,8 @@ async function interessiB2B(azione, body, res) {
         return;
     }
 
-    // b2b-salva: indici dei tavoli scelti + nota libera. Le voci del campo che
-    // non corrispondono a nessuno dei nove temi (scritte a mano, per esempio)
-    // si riportano cosi' come sono: il modulo non le mostra e non deve
-    // nemmeno cancellarle.
+    // b2b-salva: indici dei tavoli scelti + nota libera. Dal modulo arrivano
+    // solo gli INDICI, quindi qui non puo' entrare un'etichetta inventata.
     const indici = Array.isArray(body.temi) ? body.temi.map(n => parseInt(n, 10)).filter(n => n >= 0 && n < TEMI_B2B.length) : [];
     const scelti = TEMI_B2B.filter((t, i) => indici.indexOf(i) >= 0);
     const nota = testo(body.nota, 800);
@@ -371,7 +468,10 @@ async function interessiB2B(azione, body, res) {
     }
     const chi = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()) || String(scheda.email || '');
     await rif.set({
-        interessi: scelti.concat(indiciDaInteressi(scheda.interessi).nonMappate).join(','),
+        /* La prenotazione sta per conto suo: `interessi` resta com'e', perche'
+           sono le preferenze dell'iscrizione e cancellarle vorrebbe dire
+           perdere un'informazione che non si puo' piu' ricostruire. */
+        b2bScelte: scelti,
         incontro: 'si',
         extra: { 'Nota B2B': nota },
         b2bRisposta: { quando: Date.now(), temi: scelti.length },

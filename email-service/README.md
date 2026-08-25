@@ -280,20 +280,51 @@ tavolo; chi riceve la mail sceglie a quali sedersi.
   cancellano al salvataggio. L'iscritto sceglie i tavoli (viaggiano solo gli
   INDICI: le etichette le decide il servizio, costante `TEMI_B2B`) e racconta il
   progetto; almeno un tavolo e obbligatorio, la sola nota non e una
-  prenotazione. Le scelte finiscono sulla sua scheda negli stessi campi del
-  modulo di Napoli (`interessi`, `incontro`), quindi nelle colonne aggiuntive
-  "Interessi" e "Incontro B2B"; la nota nella colonna "Nota B2B". L'area
-  riservata le raccoglie anche nel riepilogo per argomento, con i prenotati per
-  tavolo.
+  prenotazione. All'apertura le caselle segnate sono la prenotazione se c'e gia,
+  altrimenti le preferenze dell'iscrizione come punto di partenza (`daPreferenze`
+  lo dice alla pagina, che avverte che finche non conferma prenotazione non ce
+  n'e). La scelta va in `b2bScelte`, la nota nella colonna "Nota B2B",
+  `incontro` diventa "si". L'area riservata le raccoglie anche nel riepilogo per
+  argomento, con i prenotati per tavolo.
 - **Le prenotazioni dei colleghi**: siccome l'invito parte a tutti i referenti
   di un'azienda, `b2b-leggi` restituisce anche `colleghi` - le altre persone
-  della STESSA impresa (confronto senza maiuscole, accenti e spazi doppi) per lo
-  STESSO evento, con nome, ruolo e tavoli scelti. Senza, due referenti si
-  prenoterebbero allo stesso tavolo senza saperlo. Email e nota non escono: la
-  nota e scritta a noi. Le schede dell'evento restano in memoria una trentina di
-  secondi per non rileggere l'archivio a ogni apertura; chi salva butta via
-  quella memoria, cosi il collega che apre la pagina un attimo dopo vede la
-  scelta appena fatta.
+  della STESSA impresa per lo STESSO evento, con nome, ruolo, tavoli prenotati e
+  (a parte) preferenze dell'iscrizione. Senza, due referenti si prenoterebbero
+  allo stesso tavolo senza saperlo. Email e nota non escono: la nota e scritta a
+  noi. Le schede dell'evento restano in memoria una trentina di secondi per non
+  rileggere l'archivio a ogni apertura; chi salva butta via quella memoria, cosi
+  il collega che apre la pagina un attimo dopo vede la scelta appena fatta.
+- **Chi e della stessa azienda** (`chiaveAzienda` + `dominioMail` +
+  `radiciAziende`): la ragione sociale la scrive ognuno a modo suo, quindi il
+  confronto e tollerante. Il nome si riduce all'osso (minuscole, senza accenti,
+  senza punteggiatura, senza forma giuridica: "Alfa S.r.l." e "ALFA SPA"
+  diventano tutte e due `alfa`) e, nel dubbio, decide il DOMINIO della mail: chi
+  scrive da `@alfa.it` e di Alfa anche con il campo azienda in bianco. I domini
+  pubblici (gmail, libero, aruba, pec.it...) non contano; un prefisso `pec.` si
+  toglie solo se quel che resta e ancora un dominio. Le due chiavi uniscono a
+  catena. La STESSA regola sta nell'area riservata (`app.js`,
+  `raggruppaPerAzienda`), che con quella raggruppa le aziende da invitare:
+  devono vedere le stesse imprese, altrimenti si invita un gruppo e se ne mostra
+  un altro.
+
+### Prenotazioni e preferenze non sono la stessa cosa
+
+`interessi` sono le PREFERENZE spuntate dal form di iscrizione del sito: dicono
+cosa interessa all'impresa, non che qualcuno verra a un tavolo. La PRENOTAZIONE
+e la risposta all'invito e sta per conto suo in `b2bScelte` (etichette dei
+tavoli), con `b2bRisposta` a fare da data; `b2b-salva` non tocca piu `interessi`.
+
+- L'area riservata riceve le due cose in due colonne aggiuntive distinte:
+  `B2B prenotati` (da `b2bScelte`) e `Interessi`; negli eventi con inserimento
+  manuale si vedono SEMPRE, una accanto all'altra, perche e il confronto fra le
+  due che dice a chi vale la pena richiedere la prenotazione.
+- Il riepilogo per argomento conta SOLO le prenotazioni: sommarci le preferenze
+  gonfierebbe i tavoli di gente che non ha detto di venire.
+- Il riquadro "La Sua scelta attuale" della mail riporta la prenotazione, non le
+  preferenze. Chi non ha ancora prenotato non lo vede.
+- Le schede che avevano risposto al VECCHIO modulo (risposta registrata ma
+  nessun `b2bScelte`) tengono la scelta dentro `interessi`: chi legge le
+  prenotazioni prende quella, altrimenti quelle risposte sparirebbero.
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
