@@ -251,25 +251,9 @@ function partecipanteVuoto(p) { return !p.nome && !p.cognome && !p.email && !p.a
    si mostrano nome, ruolo e tavoli scelti: la nota no, e' scritta a
    noi e resta di chi l'ha scritta.
    ============================================================ */
-const TEMI_B2B = [
-    'Merito creditizio',
-    'Governance e controllo di gestione',
-    'Adeguati assetti',
-    'ESG e sostenibilita',
-    'Modello 231 e Rating di Legalita',
-    'Finanza agevolata',
-    'Tax Control Framework',
-    "Bagnoli e America's Cup 2027",
-    'Altre esigenze'
-];
-/* Etichette storiche del form del sito che non coincidono alla lettera con i
-   nove temi: si riportano comunque come caselle gia' spuntate, cosi' chi ha
-   scelto dal sito si ritrova le sue preferenze e puo' modificarle. Le chiavi
-   sono in forma normalizzata (minuscole, senza accenti). */
-const ALIAS_B2B = {
-    'modello 231 e tax control framework': [4, 6],
-    'rating di legalita': [4]
-};
+// i nove argomenti e i loro alias stanno in un modulo a parte: li usa anche
+// presenze.js, che con l'invito riceve l'orario di ciascun tavolo
+const { TEMI_B2B, ALIAS_B2B } = require('../lib/temi-b2b');
 function normalizzaTema(s) {
     return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
@@ -307,6 +291,28 @@ function haPrenotato(scheda) {
 function prenotatiDi(scheda) {
     if (!scheda || !Array.isArray(scheda.b2bScelte)) return [];
     return scheda.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
+}
+/* Gli orari dei tavoli scritti sulla scheda al momento dell'invito, per
+   etichetta corta. Gli inviti partiti con la versione precedente portano invece
+   `orario`, uno solo per tutti: si legge come "tutti i tavoli a quell'ora", che
+   e' quello che quella mail diceva davvero. Cosi' chi era gia' stato invitato
+   non si ritrova un foglio senza orari. */
+function orariDiInvito(scheda) {
+    const inv = (scheda && scheda.b2bInvito && typeof scheda.b2bInvito === 'object') ? scheda.b2bInvito : {};
+    const perTavolo = (inv.orari && typeof inv.orari === 'object') ? inv.orari : null;
+    if (perTavolo) {
+        const fuori = {};
+        TEMI_B2B.forEach(t => {
+            const v = String(perTavolo[t] || '').trim();
+            if (v) fuori[t] = v;
+        });
+        return fuori;
+    }
+    const unico = String(inv.orario || '').trim();
+    if (!unico) return {};
+    const fuori = {};
+    TEMI_B2B.forEach(t => { fuori[t] = unico; });
+    return fuori;
 }
 function indiciDaTemi(etichette) {
     return indiciDaInteressi((etichette || []).join(',')).indici;
@@ -372,16 +378,21 @@ function radiciAziende(persone) {
     const trova = i => { while (padre[i] !== i) { padre[i] = padre[padre[i]]; i = padre[i]; } return i; };
     const unisci = (a, b) => { a = trova(a); b = trova(b); if (a !== b) padre[b] = a; };
     const perNome = {}, perDominio = {};
-    const identificabile = persone.map(p => {
-        const n = chiaveAzienda(p.azienda);
-        const d = dominioMail(p.email);
-        return !!(n || d);
-    });
+    /* Chi e' stato SPOSTATO a mano da un'azienda a un'altra non si unisce piu'
+       per dominio: la decisione di una persona batte l'indizio ricavato
+       dall'indirizzo. Senza questa eccezione mario@alfa.it spostato in Beta
+       tornerebbe fra i colleghi di Alfa, e lo spostamento non si vedrebbe.
+       Stessa regola nell'area riservata (app.js, raggruppaPerAzienda). */
+    const chiavi = persone.map(p => ({
+        nome: chiaveAzienda(p.azienda),
+        dominio: (p.aziendaSpostata || p.aziendaFissa) ? '' : dominioMail(p.email)
+    }));
+    const identificabile = chiavi.map(k => !!(k.nome || k.dominio));
     persone.forEach((p, i) => {
         if (!identificabile[i]) return;
-        const n = chiaveAzienda(p.azienda);
+        const n = chiavi[i].nome;
         if (n) { if (perNome[n] === undefined) perNome[n] = i; else unisci(perNome[n], i); }
-        const d = dominioMail(p.email);
+        const d = chiavi[i].dominio;
         if (d) { if (perDominio[d] === undefined) perDominio[d] = i; else unisci(perDominio[d], i); }
     });
     return persone.map((p, i) => identificabile[i] ? trova(i) : -1);
@@ -460,12 +471,18 @@ async function interessiB2B(azione, body, res) {
            confermare, non una prenotazione, e la pagina lo dice. */
         const prenotati = indiciDaTemi(prenotatiDi(scheda));
         const preferenze = indiciDaInteressi(scheda.interessi).indici;
+        /* Gli orari dei tavoli, nello stesso ordine dei temi: la pagina li
+           mostra accanto a ogni incontro. Un tavolo senza orario non e' in
+           programma a questo evento e la pagina non lo propone. */
+        const invitoOrari = orariDiInvito(scheda);
+        const orari = TEMI_B2B.map(t => String(invitoOrari[t] || '').trim());
         res.status(200).json({
             ok: true,
             pagina: String(scheda.pagina || ''),
             nome: ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()),
             azienda: String(scheda.azienda || ''),
             temi: TEMI_B2B,
+            orari: orari,
             scelti: prenotati.length ? prenotati : preferenze,
             prenotato: haPrenotato(scheda),
             // le caselle vengono dalle preferenze e non da una prenotazione
@@ -488,6 +505,19 @@ async function interessiB2B(azione, body, res) {
     if (!scelti.length) {
         res.status(400).json({ ok: false, msg: 'Scelga almeno un incontro B2B a cui partecipare.' });
         return;
+    }
+    /* Non si prenota un tavolo che non e' in programma: la pagina non lo mostra
+       nemmeno, ma la firma sul collegamento non e' un lasciapassare per scrivere
+       quello che si vuole. Il controllo vale solo se all'invito erano stati dati
+       degli orari, altrimenti sarebbero tutti fuori programma. */
+    const orariInvito = orariDiInvito(scheda);
+    const inProgramma = TEMI_B2B.filter(t => String(orariInvito[t] || '').trim());
+    if (inProgramma.length) {
+        const fuori = scelti.filter(t => inProgramma.indexOf(t) < 0);
+        if (fuori.length) {
+            res.status(400).json({ ok: false, msg: 'Uno degli incontri scelti non e in programma: ricarichi la pagina e riprovi.' });
+            return;
+        }
     }
     if (troppiSalvataggi(idDoc)) {
         res.status(429).json({ ok: false, msg: 'Ha cambiato la prenotazione molte volte di seguito: aspetti qualche minuto e riprovi. Vale l\'ultima scelta salvata.' });
@@ -529,6 +559,7 @@ async function confermaPrenotazione(idDoc, scheda, tavoli) {
     if (!a || !emailValida(a)) return false;
     const invito = (scheda.b2bInvito && typeof scheda.b2bInvito === 'object') ? scheda.b2bInvito : {};
     const evento = (invito.evento && typeof invito.evento === 'object') ? invito.evento : {};
+    const orari = orariDiInvito(scheda);
     const nome = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim());
     const dati = {
         nome: nome, azienda: String(scheda.azienda || ''), ruolo: String(scheda.ruolo || ''),
@@ -538,8 +569,9 @@ async function confermaPrenotazione(idDoc, scheda, tavoli) {
             quando: String(evento.quando || ''),
             luogo: String(evento.luogo || ''), indirizzo: String(evento.indirizzo || '')
         },
-        orario: String(invito.orario || ''),
-        tavoli: tavoli
+        // ogni tavolo con il SUO orario: sul foglio del desk e nella mail e'
+        // l'unica cosa che dice all'ospite dove deve essere e quando
+        tavoli: tavoli.map(t => ({ nome: t, orario: String(orari[t] || '').trim() }))
     };
     const link = NL.linkB2B(idDoc);
     const m = MNGB.confermaB2B(dati, link);

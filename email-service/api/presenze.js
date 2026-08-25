@@ -34,6 +34,12 @@ const nodemailer = require('nodemailer');
 // firma e indirizzo del collegamento "completa i dati" (lib condivisa con la
 // newsletter: stesso segreto della disiscrizione, contesto diverso)
 const NL = require('../lib/newsletter');
+// i nove argomenti degli incontri B2B: servono a validare gli orari per tavolo
+// che arrivano con l'invito (le etichette sconosciute si scartano)
+const { TEMI_B2B } = require('../lib/temi-b2b');
+// la frase che racconta uno spostamento di azienda: la scrivono in due
+// (qui e in iscrizioni.js), quindi sta in un modulo solo
+const { tracciaSpostamento } = require('../lib/traccia-azienda');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -417,12 +423,36 @@ module.exports = async (req, res) => {
             const testoBase = String(m.testo || '').slice(0, 20000);
             if (!htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
             const forza = body.forza === true;
-            /* Orario e dati dell'evento arrivano con l'invito e restano scritti
+            /* Orari e dati dell'evento arrivano con l'invito e restano scritti
                sulla scheda: servono alla mail di conferma e al foglio da
                presentare al desk, che partono dopo, quando l'ospite prenota.
                Senza, il servizio non saprebbe dire ne' quando ne' dove: la
-               tabella degli eventi sta nell'area riservata, non qui. */
-            const orarioB2B = testo(body.orario, 120);
+               tabella degli eventi sta nell'area riservata, non qui.
+               Gli orari sono UNO PER TAVOLO (chiave = etichetta corta
+               dell'argomento): gli incontri non si tengono tutti insieme, e chi
+               prenota deve poter vedere se due si sovrappongono. Si accettano
+               solo le etichette che il servizio conosce, cosi' nessuno puo'
+               infilare voci inventate nel foglio del desk. */
+            /* Attenzione al merge: `set(..., {merge:true})` fonde le mappe
+               annidate CHIAVE PER CHIAVE, quindi una chiave semplicemente
+               assente non viene cancellata. Se al secondo invito si svuota un
+               tavolo, l'orario vecchio resterebbe sulla scheda: la mail nuova
+               non lo elencherebbe, ma la pagina continuerebbe a proporlo e il
+               foglio del desk a stamparne l'orario. Per questo si scrive una
+               voce per OGNI tavolo, con la sentinella di cancellazione dove
+               l'orario e' stato tolto: cosi' la maschera del merge copre tutti
+               e nove i percorsi e "in bianco = non in programma" e' vero
+               anche al secondo giro.
+               Se `orari` non arriva affatto (chiamante vecchio) non si tocca
+               niente: cancellare tutto sarebbe peggio che non aggiornare. */
+            const orariArrivati = (body.orari && typeof body.orari === 'object') ? body.orari : null;
+            const orariB2B = orariArrivati ? {} : null;
+            if (orariArrivati) {
+                TEMI_B2B.forEach(nome => {
+                    const v = testo(orariArrivati[nome], 120);
+                    orariB2B[nome] = v || admin.firestore.FieldValue.delete();
+                });
+            }
             /* `evento` e' gia' l'IDENTIFICATIVO dell'evento in questa chiamata,
                quindi i dati per la mail viaggiano sotto un altro nome. */
             const evB2B = (body.eventoDati && typeof body.eventoDati === 'object') ? {
@@ -469,7 +499,8 @@ module.exports = async (req, res) => {
                     inviate++;
                     await rif.set({
                         b2bInvito: Object.assign(
-                            { quando: Date.now(), da: email, orario: orarioB2B },
+                            { quando: Date.now(), da: email },
+                            orariB2B ? { orari: orariB2B } : {},
                             evB2B ? { evento: evB2B } : {}
                         )
                     }, { merge: true });
@@ -479,6 +510,88 @@ module.exports = async (req, res) => {
                 }
             }
             res.status(200).json({ ok: true, inviate: inviate, senzaScheda: senzaScheda, senzaEmail: senzaEmail, giaInvitate: giaInvitate, falliti: falliti.slice(0, 50) });
+            return;
+        }
+
+        /* Spostare un referente da un'azienda a un'altra. Serve perche' chi
+           organizza gli incontri sa cose che l'iscritto non ha scritto: che
+           "Mario di Alfa" lavora per la controllata, che due ragioni sociali
+           sono la stessa impresa, che un indirizzo personale appartiene a
+           un'azienda che non ha nominato.
+
+           Tocca SOLO il campo azienda, mai email o data: l'identificativo del
+           documento nasce da quelle due (vedi 'modifica' qui sotto), e cambiarle
+           farebbe traslocare la scheda perdendo prenotazione, invito e allegati,
+           oltre a invalidare il collegamento firmato gia' spedito.
+
+           Lascia TRACCIA in tre modi, perche' uno solo non basterebbe:
+             - `azienda` cambia, ed e' il dato che tutti leggono;
+             - `aziendaSpostata` dice l'ultimo spostamento in forma leggibile;
+             - `aziendaStorico` li tiene tutti, che e' la domanda vera - da dove
+               viene questa persona - a cui un campo singolo non risponde piu'
+               dal secondo spostamento in poi.
+           Puo' farlo chi puo' invitare (amministratore, equity e founding
+           partner): e' la stessa mano che compone i tavoli. */
+        if (azione === 'sposta-azienda') {
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono spostare un referente l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
+            const nuovaAzienda = testo(body.azienda, 200);
+            if (!nuovaAzienda) { res.status(400).json({ ok: false, msg: 'Indica l\'azienda in cui spostare il referente.' }); return; }
+            /* Le schede da spostare: quelle indicate per nome di documento (una
+               persona puo' avere piu' iscrizioni allo stesso evento, e spostarne
+               una sola la lascerebbe mezza di qua e mezza di la'). Senza elenco
+               si ricava dall'identificativo, come fanno le altre azioni. */
+            const docs = (Array.isArray(body.docs) ? body.docs : [])
+                .map(x => testo(x, 400)).filter(Boolean).slice(0, 20);
+            if (!docs.length && idIscritto) docs.push(idIscrizione(idIscritto));
+            if (!docs.length) { res.status(400).json({ ok: false, msg: 'Nessuna scheda indicata.' }); return; }
+            const firma = { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() };
+            /* Le due ragioni per cui una scheda non si sposta si contano a parte:
+               "e' gia' li'" e "non l'ho trovata" sono errori diversi, e dare il
+               primo messaggio per il secondo manda a cercare il problema dove
+               non e'. */
+            let spostate = 0, giaLi = 0, nonTrovate = 0, prima = '';
+            for (const docId of docs) {
+                const rif = db.collection('iscrizioni').doc(docId);
+                const snap = await rif.get();
+                if (!snap.exists) { nonTrovate++; continue; }
+                const s0 = snap.data() || {};
+                const vecchia = String(s0.azienda || '').trim();
+                if (vecchia === nuovaAzienda) { giaLi++; continue; }
+                if (!prima) prima = vecchia;
+                const voce = { prima: vecchia, dopo: nuovaAzienda, da: firma.da, daNome: firma.daNome, quando: firma.quando };
+                /* Lo storico si ACCODA, non si rilegge e riscrive: se due
+                   amministratori spostano lo stesso referente nello stesso
+                   momento, chi scrive per secondo cancellerebbe la voce del
+                   primo. `arrayUnion` accoda dentro la scrittura, quindi le
+                   voci ci sono comunque tutte e due. Nessuna potatura: gli
+                   spostamenti di una persona si contano sulle dita, e perdere
+                   la prima voce vorrebbe dire perdere proprio la domanda a cui
+                   lo storico risponde ("da dove viene"). */
+                await rif.set({
+                    azienda: nuovaAzienda,
+                    aziendaSpostata: voce,
+                    aziendaStorico: admin.firestore.FieldValue.arrayUnion(voce)
+                }, { merge: true });
+                spostate++;
+            }
+            if (!spostate) {
+                res.status(400).json({
+                    ok: false,
+                    msg: giaLi ? 'Il referente risulta gia in questa azienda.'
+                        : 'Scheda non trovata: ricarica l\'elenco e riprova.'
+                });
+                return;
+            }
+            await segnaCambiamento(db);
+            res.status(200).json({
+                ok: true, spostate: spostate, giaLi: giaLi, nonTrovate: nonTrovate,
+                // la stessa frase che l'area riservata mostra sotto la ragione
+                // sociale: la compone il servizio, cosi' e' una sola
+                traccia: tracciaSpostamento({ prima: prima, dopo: nuovaAzienda, daNome: firma.daNome, quando: firma.quando })
+            });
             return;
         }
 

@@ -30,6 +30,7 @@
         .tema:hover { border-color: var(--navy-light); background: var(--chiaro); }
         .tema input { width: 18px; height: 18px; margin-top: 3px; flex: 0 0 auto; }
         .tema span { font-size: 0.98rem; }
+        .tema-ora { display: block; margin-top: 2px; font-size: 0.88rem; font-weight: bold; color: var(--navy-light); }
         .campo { margin-top: 18px; display: flex; flex-direction: column; gap: 4px; }
         .campo label { font-size: 0.85rem; font-weight: bold; color: var(--tenue); }
         .campo textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--bordo); border-radius: 6px; width: 100%; min-height: 110px; resize: vertical; color: var(--testo); }
@@ -42,6 +43,8 @@
         .esito.ko { color: var(--rosso); font-weight: bold; }
         .fatto { text-align: center; padding: 26px 10px; }
         .fatto .segno { font-size: 2.4rem; color: var(--verde); }
+        .fuori-programma { margin-top: 14px; border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; background: #fdeedd; border-radius: 6px; padding: 12px 16px; font-size: 0.93rem; }
+        .fuori-programma b { color: #8a4a12; }
         .fatto h2 { color: var(--navy-dark); margin: 8px 0 6px; }
         .fatto p { color: var(--tenue); }
         .colleghi { margin-top: 22px; border-top: 1px solid var(--bordo); padding-top: 18px; }
@@ -131,8 +134,12 @@
                riga sola e non la descrizione per esteso. */
             function etichette(r, indici) {
                 var corte = r.temi || [];
-                return (indici || []).map(function (i) { return corte[i] || TEMI[i] || ''; })
-                    .filter(Boolean);
+                var orari = r.orari || [];
+                return (indici || []).map(function (i) {
+                    var nome = corte[i] || TEMI[i] || '';
+                    var ora = String(orari[i] || '').trim();
+                    return nome ? (ora ? nome + ' (' + ora + ')' : nome) : '';
+                }).filter(Boolean);
             }
             /* Chi altro dell'azienda ha gia' prenotato, e a quali tavoli. Chi non
                ha ancora risposto compare lo stesso: sapere che un collega non si
@@ -160,26 +167,61 @@
                     + ' iscritti al convegno. Vedete tutti le stesse scelte, cosi puo decidere se affiancarli o coprire un altro tavolo.</p>'
                     + '<ul>' + voci + '</ul></div>';
             }
+            /* Gli argomenti in programma a QUESTO evento: quelli per cui l'invito
+               ha indicato un orario. Un tavolo senza orario non si tiene, e
+               proporlo vorrebbe dire far prenotare un incontro che non esiste.
+               Se non arriva nessun orario (inviti vecchi) si mostrano tutti,
+               senza orario, com'era prima che li chiedessimo. */
+            function inProgramma(r) {
+                var orari = r.orari || [];
+                var conOrario = TEMI.map(function (t, i) { return i; })
+                    .filter(function (i) { return String(orari[i] || '').trim(); });
+                return conOrario.length ? conOrario : TEMI.map(function (t, i) { return i; });
+            }
+            /* Un tavolo che avevo prenotato e che NON e' piu' in programma: il
+               programma puo' cambiare fra un invito e l'altro, e la casella
+               sparisce dall'elenco. Se sparisse in silenzio, chi aveva prenotato
+               proprio quello si presenterebbe a un incontro che non si tiene, o
+               crederebbe di essere ancora prenotato. Quindi si dice. */
+            function fuoriProgrammaHtml(r, indici) {
+                if (!r.prenotato) return '';
+                var persi = (r.scelti || []).filter(function (i) { return indici.indexOf(i) < 0; });
+                if (!persi.length) return '';
+                var corte = r.temi || [];
+                var nomi = persi.map(function (i) { return esc(corte[i] || TEMI[i] || ''); }).join(', ');
+                return '<div class="fuori-programma"><b>'
+                    + (persi.length === 1 ? 'Un incontro che aveva prenotato non e piu in programma'
+                        : 'Alcuni incontri che aveva prenotato non sono piu in programma')
+                    + ':</b> ' + nomi + '. '
+                    + 'Ci dispiace: scelga qui sotto un altro tavolo e confermi, cosi la Sua prenotazione torna valida.</div>';
+            }
             function modulo(r) {
                 document.getElementById('sotto-titolo').textContent = 'Next Generation Business - ' + nomeEvento(r.pagina);
                 var scelti = r.scelti || [];
-                var caselle = TEMI.map(function (tema, i) {
+                var orari = r.orari || [];
+                var indici = inProgramma(r);
+                var caselle = indici.map(function (i) {
+                    var ora = String(orari[i] || '').trim();
                     return '<label class="tema"><input type="checkbox" class="tema-c" value="' + i + '"'
-                        + (scelti.indexOf(i) >= 0 ? ' checked' : '') + '><span>' + esc(tema) + '</span></label>';
+                        + (scelti.indexOf(i) >= 0 ? ' checked' : '') + '><span>' + esc(TEMI[i])
+                        + (ora ? '<span class="tema-ora">' + esc(ora) + '</span>' : '') + '</span></label>';
                 }).join('');
                 box.innerHTML =
                     '<div class="riepilogo">' + (r.nome ? 'Gentile <b>' + esc(r.nome) + '</b>, l' : 'L')
                     + 'a invitiamo agli incontri B2B riservati che si tengono durante la giornata: '
-                    + 'un tavolo per argomento, con i professionisti e gli specialisti della materia. '
-                    + 'Scelga a quale o a quali desidera partecipare.'
+                    + 'un tavolo per argomento, con i professionisti e gli specialisti della materia, '
+                    + 'ognuno con il suo orario. Scelga a quale o a quali desidera partecipare, '
+                    + 'controllando che gli orari non si sovrappongano.'
                     /* Le caselle possono venire da due posti diversi, e dirlo cambia
                        il senso di quello che si sta guardando: una prenotazione gia
                        fatta, oppure i temi indicati iscrivendosi, che sono solo un
                        punto di partenza e non valgono come prenotazione. */
-                    + (r.prenotato ? ' Le caselle gia segnate sono la Sua prenotazione: puo confermarla o cambiarla.'
+                    + (r.prenotato && scelti.some(function (i) { return indici.indexOf(i) >= 0; })
+                        ? ' Le caselle gia segnate sono la Sua prenotazione: puo confermarla o cambiarla.'
                         : (r.daPreferenze ? ' Abbiamo gia segnato i temi che aveva indicato iscrivendosi: li confermi, o li cambi. '
                             + 'Finche non conferma, per noi non c\'e ancora una prenotazione.' : ''))
                     + '</div>'
+                    + fuoriProgrammaHtml(r, indici)
                     + '<div class="temi">' + caselle + '</div>'
                     + '<div class="campo"><label for="nota">Il progetto o l\'esigenza su cui vorrebbe confrontarsi (facoltativo)</label>'
                     + '<textarea id="nota" maxlength="800" placeholder="Qualche riga basta: ci aiuta a scegliere gli interlocutori giusti.">' + esc(r.nota || '') + '</textarea></div>'
@@ -223,7 +265,11 @@
                quella la cosa da cercare in casella, e se non e' partita conviene
                saperlo subito invece che la mattina del convegno. */
             function fatto(r, temi, mailInviata) {
-                var elenco = temi.map(function (i) { return '<li>' + esc(TEMI[i]) + '</li>'; }).join('');
+                var orari = r.orari || [];
+                var elenco = temi.map(function (i) {
+                    var ora = String(orari[i] || '').trim();
+                    return '<li>' + esc(TEMI[i]) + (ora ? ' <b>' + esc(ora) + '</b>' : '') + '</li>';
+                }).join('');
                 box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
                     + '<h2>Prenotazione registrata</h2>'
                     + '<p>La aspettiamo' + (temi.length > 1 ? ' ai tavoli' : ' al tavolo') + ':</p>'
@@ -233,7 +279,7 @@
                         + 'lo porti stampato o sul telefono.</p>'
                         : '<p style="margin-top:12px;" class="avviso-mail">La prenotazione &egrave; registrata, ma la mail di conferma con il foglio per il desk non &egrave; partita. '
                         + 'Riprovi fra qualche minuto con il pulsante qui sotto, oppure scriva a info@nextgenerationbusiness.it: al desk basta il Suo nome.</p>')
-                    + '<p style="margin-top:10px;">Le confermeremo il turno preciso e gli specialisti che saranno a Sua disposizione.'
+                    + '<p style="margin-top:10px;">Le confermeremo gli specialisti che saranno a Sua disposizione a ciascun tavolo.'
                     + '<br>Pu&ograve; cambiare la scelta quando vuole: riceve subito una nuova mail con il foglio aggiornato.</p>'
                     + '<button type="button" class="rifai" id="rifai">Cambia la scelta o rimanda la mail</button></div>';
                 document.getElementById('rifai').addEventListener('click', apri);
