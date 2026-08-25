@@ -204,17 +204,27 @@ function pulisciPartecipante(p) {
 function partecipanteVuoto(p) { return !p.nome && !p.cognome && !p.email && !p.azienda && !p.telefono; }
 
 /* ============================================================
-   Interessi per gli incontri B2B (azioni "b2b-leggi" e "b2b-salva")
+   Prenotazione degli incontri B2B (azioni "b2b-leggi" e "b2b-salva")
    ------------------------------------------------------------
    L'invito agli incontri B2B porta un collegamento personale (stessa
-   firma della scheda) verso /incontri_b2b/: l'iscritto sceglie uno o
-   piu' temi e racconta in breve il progetto. Le scelte finiscono
-   sulla SUA scheda negli stessi campi del modulo di Napoli
+   firma della scheda) verso /incontri_b2b/: non e' un sondaggio di
+   gradimento, e' una PRENOTAZIONE. Chi apre la pagina sceglie a quali
+   incontri partecipare - un tavolo per argomento, gli stessi del
+   convegno - e puo' raccontare in breve il progetto. Le scelte
+   finiscono sulla SUA scheda negli stessi campi del modulo di Napoli
    ("interessi" e "incontro"), cosi' l'area riservata le mostra nelle
    colonne aggiuntive gia' esistenti e il riepilogo per argomento
    somma tutto, da qualunque strada arrivi; la nota libera va nella
    colonna "Nota B2B". Le etichette le decide il servizio: dal modulo
    arrivano solo gli indici.
+
+   L'invito parte a TUTTI i referenti dell'azienda, quindi la pagina
+   mostra anche le prenotazioni dei COLLEGHI della stessa impresa
+   (stesso evento): senza, due persone della stessa azienda si
+   prenoterebbero allo stesso tavolo senza saperlo, o lascerebbero
+   scoperto un argomento credendo che ci pensi l'altro. Dei colleghi
+   si mostrano nome, ruolo e tavoli scelti: la nota no, e' scritta a
+   noi e resta di chi l'ha scritta.
    ============================================================ */
 const TEMI_B2B = [
     'Merito creditizio',
@@ -255,6 +265,59 @@ function indiciDaInteressi(grezzo) {
     });
     return { indici: Array.from(indici).sort((a, b) => a - b), nonMappate: nonMappate };
 }
+/* Nome dell'azienda ridotto alla forma da confrontare: minuscole, senza
+   accenti, spazi doppi schiacciati. Serve perche' "Alfa S.r.l.", "ALFA
+   s.r.l." e "alfa  srl " sono la stessa impresa scritta da tre persone
+   diverse, e i colleghi devono vedersi lo stesso. */
+function normalizzaAzienda(s) {
+    return normalizzaTema(s).replace(/\s+/g, ' ');
+}
+/* Le schede di UN evento, tenute in memoria per qualche decina di secondi:
+   la pagina delle prenotazioni le rilegge a ogni apertura e a ogni salvataggio
+   di un collega, e senza questa memoria ogni visita costerebbe una lettura per
+   ogni iscritto dell'evento. Chi salva la butta via subito (`scordaEvento`),
+   altrimenti il collega che si prenota un attimo dopo non lo vedrebbe. */
+const COLLEGHI_MS = 30 * 1000;
+const _cacheEvento = {};
+function scordaEvento(pagina) { delete _cacheEvento[String(pagina || '')]; }
+async function schedeDellEvento(db, pagina) {
+    const k = String(pagina || '');
+    if (!k) return [];
+    const c = _cacheEvento[k];
+    if (c && (Date.now() - c.quando) < COLLEGHI_MS) return c.righe;
+    const snap = await db.collection('iscrizioni').where('pagina', '==', k).get();
+    const righe = [];
+    snap.forEach(d => righe.push(Object.assign({ _doc: d.id }, d.data() || {})));
+    _cacheEvento[k] = { quando: Date.now(), righe: righe };
+    return righe;
+}
+/* Chi altro, della stessa azienda e per lo stesso evento, ha gia' scelto i
+   suoi tavoli. Una voce per persona (i doppioni di indirizzo si fondono),
+   niente email e niente nota: alla pagina servono nome, ruolo e tavoli. */
+function prenotazioniColleghi(righe, scheda, idDoc) {
+    const mia = normalizzaAzienda(scheda.azienda);
+    if (!mia) return [];   // senza azienda scritta non c'e' nessun "noi"
+    const visti = {};
+    const fuori = [];
+    righe.forEach(r => {
+        if (r._doc === idDoc) return;
+        if (r.annullato) return;
+        if (normalizzaAzienda(r.azienda) !== mia) return;
+        const em = String(r.email || '').toLowerCase();
+        if (em && visti[em]) return;
+        if (em) visti[em] = true;
+        fuori.push({
+            nome: ((String(r.nome || '') + ' ' + String(r.cognome || '')).trim()) || 'Un collega',
+            ruolo: String(r.ruolo || '').slice(0, 120),
+            temi: indiciDaInteressi(r.interessi).indici,
+            // "ha risposto all'invito" e' un'altra cosa dall'aver dichiarato
+            // interessi al momento dell'iscrizione: la pagina lo dice
+            prenotato: !!(r.b2bRisposta && r.b2bRisposta.quando)
+        });
+    });
+    fuori.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+    return fuori.slice(0, 60);
+}
 async function interessiB2B(azione, body, res) {
     const idDoc = String(body.d || '').slice(0, 400);
     const token = String(body.t || '').trim();
@@ -270,28 +333,40 @@ async function interessiB2B(azione, body, res) {
     const scheda = snap.data() || {};
 
     if (azione === 'b2b-leggi') {
+        let colleghi = [];
+        // i colleghi sono un di piu': se la lettura non riesce, la prenotazione
+        // si fa lo stesso invece di fermarsi su un errore
+        try {
+            colleghi = prenotazioniColleghi(await schedeDellEvento(db, scheda.pagina), scheda, idDoc);
+        } catch (e) { colleghi = []; }
         res.status(200).json({
             ok: true,
             pagina: String(scheda.pagina || ''),
             nome: ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()),
+            azienda: String(scheda.azienda || ''),
             temi: TEMI_B2B,
-            // le preferenze gia' espresse tornano come caselle spuntate, anche
-            // quando arrivano dal form del sito con le etichette storiche
+            // le scelte gia' fatte tornano come caselle spuntate, anche quando
+            // arrivano dal form del sito con le etichette storiche
             scelti: indiciDaInteressi(scheda.interessi).indici,
-            nota: String((scheda.extra && scheda.extra['Nota B2B']) || '')
+            nota: String((scheda.extra && scheda.extra['Nota B2B']) || ''),
+            // chi altro dell'azienda ha gia' scelto, e cosa
+            colleghi: colleghi
         });
         return;
     }
 
-    // b2b-salva: indici dei temi + nota libera. Le voci del campo che non
-    // corrispondono a nessuno dei nove temi (scritte a mano, per esempio)
+    // b2b-salva: indici dei tavoli scelti + nota libera. Le voci del campo che
+    // non corrispondono a nessuno dei nove temi (scritte a mano, per esempio)
     // si riportano cosi' come sono: il modulo non le mostra e non deve
     // nemmeno cancellarle.
     const indici = Array.isArray(body.temi) ? body.temi.map(n => parseInt(n, 10)).filter(n => n >= 0 && n < TEMI_B2B.length) : [];
     const scelti = TEMI_B2B.filter((t, i) => indici.indexOf(i) >= 0);
     const nota = testo(body.nota, 800);
-    if (!scelti.length && !nota) {
-        res.status(400).json({ ok: false, msg: 'Indica almeno un tema di interesse, o racconta in breve la tua esigenza.' });
+    /* Almeno un tavolo: qui si prenota, e una prenotazione senza incontro non
+       e' una prenotazione. La sola nota non basta piu' (prima si raccoglievano
+       interessi, e bastava). */
+    if (!scelti.length) {
+        res.status(400).json({ ok: false, msg: 'Scelga almeno un incontro B2B a cui partecipare.' });
         return;
     }
     const chi = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()) || String(scheda.email || '');
@@ -302,6 +377,8 @@ async function interessiB2B(azione, body, res) {
         b2bRisposta: { quando: Date.now(), temi: scelti.length },
         compilato: { daNome: chi, quando: Date.now() }
     }, { merge: true });
+    // il collega che apre la pagina un attimo dopo deve vedere questa scelta
+    scordaEvento(scheda.pagina);
     await segnaCambiamento(db);
     res.status(200).json({ ok: true, temi: scelti.length });
 }

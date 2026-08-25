@@ -251,33 +251,49 @@ riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
 ## Incontri B2B
 
+L'invito B2B non e un sondaggio di gradimento: e la convocazione con cui
+Revilaw chiama le aziende agli incontri. Ogni argomento del convegno e un
+tavolo; chi riceve la mail sceglie a quali sedersi.
+
 - **Invito massivo** (`/api/presenze`, `azione: "invita-b2b"`; amministratore,
   equity e founding partner): riceve `destinatari` (fino a 50 per chiamata,
   `{id, doc}`; l'area riservata manda i lotti in sequenza) e la mail gia
   composta (formato NGB) con i segnaposti `{{NOME}}` e `{{B2B}}`, sostituiti
   QUI per destinatario con nome e collegamento personale firmato verso
   `/incontri_b2b/`; il tratto fra `{{SE_TEMI}}` e `{{/SE_TEMI}}` resta solo per
-  chi ha gia espresso preferenze, con `{{TEMI}}` sostituito dall'elenco (cosi la
-  mail le riporta e invita a confermarle o modificarle). Dal menu della riga si
+  chi ha gia scelto i suoi incontri, con `{{TEMI}}` sostituito dall'elenco (cosi
+  la mail li riporta e invita a confermarli o cambiarli). Dal menu della riga si
   puo invitare anche UNA SOLA persona. Chi manda sceglie prima, nell'area
-  riservata, le AZIENDE da invitare (la mail parte a tutti i referenti iscritti
+  riservata, le AZIENDE da invitare (la mail parte a TUTTI i referenti iscritti
   delle imprese spuntate) e l'ORARIO in cui si svolgono gli incontri, che entra
   nella mail gia composta: qui non cambia nulla, il servizio riceve comunque
-  solo l'elenco dei destinatari e l'HTML. Una mail per destinatario; chi ha gia
-  ricevuto l'invito
-  (`b2bInvito` sulla scheda) viene saltato salvo `forza: true`; i doppioni di
-  indirizzo partono una volta sola. `maxDuration` 60s in vercel.json.
-- **Modulo dei temi** (`/api/iscrizione-nuova`, azioni `b2b-leggi` e
-  `b2b-salva`, pubbliche con la stessa firma della scheda): le preferenze gia
-  espresse tornano come caselle spuntate, comprese le etichette storiche del
-  form del sito (alias in `ALIAS_B2B`); le voci non riconducibili ai nove temi
-  non si cancellano al salvataggio. L'iscritto sceglie
-  i temi (viaggiano solo gli INDICI: le etichette le decide il servizio,
-  costante `TEMI_B2B`) e racconta il progetto. Le scelte finiscono sulla sua
-  scheda negli stessi campi del modulo di Napoli (`interessi`, `incontro`),
-  quindi nelle colonne aggiuntive "Interessi" e "Incontro B2B"; la nota nella
-  colonna "Nota B2B". L'area riservata le raccoglie anche nel riepilogo per
-  argomento, con le persone interessate per tema.
+  solo l'elenco dei destinatari e l'HTML. Una mail per destinatario; i doppioni
+  di indirizzo partono una volta sola. L'area riservata manda sempre
+  `forza: true`: chi ha gia ricevuto l'invito (`b2bInvito` sulla scheda) lo
+  riceve di nuovo, perche saltarlo vorrebbe dire non convocarlo. Il salto resta
+  possibile a chi chiama il servizio senza quel flag. `maxDuration` 60s in
+  vercel.json.
+- **Pagina di prenotazione** (`/api/iscrizione-nuova`, azioni `b2b-leggi` e
+  `b2b-salva`, pubbliche con la stessa firma della scheda): le scelte gia fatte
+  tornano come caselle spuntate, comprese le etichette storiche del form del
+  sito (alias in `ALIAS_B2B`); le voci non riconducibili ai nove temi non si
+  cancellano al salvataggio. L'iscritto sceglie i tavoli (viaggiano solo gli
+  INDICI: le etichette le decide il servizio, costante `TEMI_B2B`) e racconta il
+  progetto; almeno un tavolo e obbligatorio, la sola nota non e una
+  prenotazione. Le scelte finiscono sulla sua scheda negli stessi campi del
+  modulo di Napoli (`interessi`, `incontro`), quindi nelle colonne aggiuntive
+  "Interessi" e "Incontro B2B"; la nota nella colonna "Nota B2B". L'area
+  riservata le raccoglie anche nel riepilogo per argomento, con i prenotati per
+  tavolo.
+- **Le prenotazioni dei colleghi**: siccome l'invito parte a tutti i referenti
+  di un'azienda, `b2b-leggi` restituisce anche `colleghi` - le altre persone
+  della STESSA impresa (confronto senza maiuscole, accenti e spazi doppi) per lo
+  STESSO evento, con nome, ruolo e tavoli scelti. Senza, due referenti si
+  prenoterebbero allo stesso tavolo senza saperlo. Email e nota non escono: la
+  nota e scritta a noi. Le schede dell'evento restano in memoria una trentina di
+  secondi per non rileggere l'archivio a ogni apertura; chi salva butta via
+  quella memoria, cosi il collega che apre la pagina un attimo dopo vede la
+  scelta appena fatta.
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 

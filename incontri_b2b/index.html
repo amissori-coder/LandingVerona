@@ -6,7 +6,7 @@
     <!-- Pagina di servizio raggiunta SOLO dal collegamento personale nella mail
          di invito agli incontri B2B: non va indicizzata e non e' nella sitemap. -->
     <meta name="robots" content="noindex, nofollow">
-    <title>I Suoi temi di interesse | Next Generation Business</title>
+    <title>Il Suo incontro B2B | Next Generation Business</title>
     <style>
         :root {
             --navy-dark: #0A2844; --navy: #164068; --navy-light: #2A5A85;
@@ -44,6 +44,17 @@
         .fatto .segno { font-size: 2.4rem; color: var(--verde); }
         .fatto h2 { color: var(--navy-dark); margin: 8px 0 6px; }
         .fatto p { color: var(--tenue); }
+        .colleghi { margin-top: 22px; border-top: 1px solid var(--bordo); padding-top: 18px; }
+        .colleghi h2 { font-size: 1.05rem; color: var(--navy-dark); }
+        .colleghi .spiega { font-size: 0.88rem; color: var(--tenue); margin-top: 4px; }
+        .colleghi ul { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+        .colleghi li { border: 1px solid var(--bordo); border-left: 3px solid var(--navy-light); border-radius: 6px; padding: 10px 14px; background: var(--chiaro); }
+        .col-chi { font-weight: bold; color: var(--navy-dark); }
+        .col-ruolo { color: var(--tenue); font-size: 0.85rem; }
+        .col-tavoli { font-size: 0.9rem; margin-top: 3px; }
+        .col-tavoli.vuoto { color: var(--tenue); font-style: italic; }
+        .scelti-elenco { margin: 10px 0 0; padding-left: 20px; text-align: left; display: inline-block; }
+        .rifai { font: inherit; font-size: 0.95rem; color: var(--navy); background: none; border: none; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 14px; }
         .piede { max-width: 680px; margin: 0 auto; padding: 0 20px 40px; text-align: center; font-size: 0.8rem; color: #94A3B8; }
         .piede a { color: var(--tenue); }
     </style>
@@ -52,7 +63,7 @@
     <header class="testata">
         <div class="testata-dentro">
             <a href="https://nextgenerationbusiness.it"><img src="/assets/logo-revilaw-bianco.png" alt="Revilaw - Revisione legale"></a>
-            <h1>I Suoi temi di interesse</h1>
+            <h1>Il Suo incontro B2B</h1>
             <p id="sotto-titolo">Next Generation Business</p>
         </div>
     </header>
@@ -71,13 +82,20 @@
             'use strict';
             /* Stessa funzione dei form del sito (iscrizione-nuova), azioni b2b-*.
                Il collegamento personale (d = scheda, t = firma) arriva dalla mail
-               di invito: senza firma valida il servizio non risponde nulla. */
+               di invito: senza firma valida il servizio non risponde nulla.
+               Qui non si raccolgono interessi: si PRENOTA. Ogni argomento e' un
+               tavolo, e chi apre la pagina sceglie a quali sedersi. Siccome
+               l'invito parte a tutti i referenti dell'azienda, la pagina mostra
+               anche cosa hanno scelto i colleghi: e' l'unico modo perche' due
+               persone della stessa impresa non finiscano allo stesso tavolo
+               lasciandone scoperto un altro. */
             var API = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
             var q = new URLSearchParams(location.search);
             var d = q.get('d') || '', t = q.get('t') || '';
             var box = document.getElementById('contenuto');
-            /* Le descrizioni dei temi, NELLO STESSO ORDINE di TEMI_B2B nel
-               servizio: al salvataggio viaggiano solo gli indici. */
+            /* Le descrizioni dei tavoli, NELLO STESSO ORDINE di TEMI_B2B nel
+               servizio: al salvataggio viaggiano solo gli indici. Sono gli
+               argomenti del convegno. */
             var TEMI = [
                 'miglioramento del merito creditizio e accesso ai finanziamenti',
                 'controllo di gestione e pianificazione finanziaria',
@@ -107,6 +125,40 @@
                 var p = String(pagina || '').split(' - ')[0].trim();
                 return p || 'Next Generation Business';
             }
+            /* Le etichette corte dei tavoli (quelle che finiscono in tabella)
+               arrivano dal servizio: si usano per i colleghi, dove serve una
+               riga sola e non la descrizione per esteso. */
+            function etichette(r, indici) {
+                var corte = r.temi || [];
+                return (indici || []).map(function (i) { return corte[i] || TEMI[i] || ''; })
+                    .filter(Boolean);
+            }
+            /* Chi altro dell'azienda ha gia' scelto, e cosa. Chi non ha ancora
+               risposto compare lo stesso: sapere che un collega non si e'
+               ancora prenotato vale quanto sapere dove si e' seduto. */
+            function colleghiHtml(r) {
+                var lista = r.colleghi || [];
+                if (!lista.length) return '';
+                var voci = lista.map(function (c) {
+                    var tavoli = etichette(r, c.temi);
+                    return '<li><span class="col-chi">' + esc(c.nome) + '</span>'
+                        + (c.ruolo ? ' <span class="col-ruolo">' + esc(c.ruolo) + '</span>' : '')
+                        + '<div class="col-tavoli' + (tavoli.length ? '' : ' vuoto') + '">'
+                        + (tavoli.length ? tavoli.map(esc).join(' &middot; ')
+                            : 'Non ha ancora scelto i suoi incontri')
+                        /* Chi ha temi in scheda ma non ha ancora aperto l'invito li
+                           aveva indicati iscrivendosi: e' un'intenzione, non una
+                           prenotazione, e conviene che si veda la differenza. */
+                        + (tavoli.length && !c.prenotato
+                            ? ' <span class="col-ruolo">(indicati all\'iscrizione)</span>' : '')
+                        + '</div></li>';
+                }).join('');
+                return '<div class="colleghi"><h2>Gli incontri dei Suoi colleghi</h2>'
+                    + '<p class="spiega">Gli altri referenti'
+                    + (r.azienda ? ' di <b>' + esc(r.azienda) + '</b>' : ' della Sua azienda')
+                    + ' iscritti al convegno. Vedete tutti le stesse scelte, cosi puo decidere se affiancarli o coprire un altro tavolo.</p>'
+                    + '<ul>' + voci + '</ul></div>';
+            }
             function modulo(r) {
                 document.getElementById('sotto-titolo').textContent = 'Next Generation Business - ' + nomeEvento(r.pagina);
                 var scelti = r.scelti || [];
@@ -115,56 +167,76 @@
                         + (scelti.indexOf(i) >= 0 ? ' checked' : '') + '><span>' + esc(tema) + '</span></label>';
                 }).join('');
                 box.innerHTML =
-                    '<div class="riepilogo">' + (r.nome ? 'Gentile <b>' + esc(r.nome) + '</b>, s' : 'S')
-                    + 'egni uno o più temi che desidera approfondire nell\'incontro B2B riservato: '
-                    + 'sarà nostra cura ricontattarLa per confermare l\'orario e gli specialisti a Sua disposizione.</div>'
+                    '<div class="riepilogo">' + (r.nome ? 'Gentile <b>' + esc(r.nome) + '</b>, l' : 'L')
+                    + 'a invitiamo agli incontri B2B riservati che si tengono durante la giornata: '
+                    + 'un tavolo per argomento, con i professionisti e gli specialisti della materia. '
+                    + 'Scelga a quale o a quali desidera partecipare.'
+                    + (scelti.length ? ' Le caselle gia segnate sono la Sua scelta attuale: puo confermarla o cambiarla.' : '')
+                    + '</div>'
                     + '<div class="temi">' + caselle + '</div>'
                     + '<div class="campo"><label for="nota">Il progetto o l\'esigenza su cui vorrebbe confrontarsi (facoltativo)</label>'
                     + '<textarea id="nota" maxlength="800" placeholder="Qualche riga basta: ci aiuta a scegliere gli interlocutori giusti.">' + esc(r.nota || '') + '</textarea></div>'
-                    + '<div class="azioni"><button type="button" class="invia" id="invia">Invia le preferenze</button>'
-                    + '<div class="esito" id="esito"></div></div>';
-                document.getElementById('invia').addEventListener('click', invia);
+                    + '<div class="azioni"><button type="button" class="invia" id="invia">'
+                    + (scelti.length ? 'Confermo la scelta' : 'Prenota il mio incontro') + '</button>'
+                    + '<div class="esito" id="esito"></div></div>'
+                    + colleghiHtml(r);
+                document.getElementById('invia').addEventListener('click', function () { invia(r); });
             }
-            function invia() {
+            function invia(r) {
                 var esito = document.getElementById('esito');
                 var temi = Array.prototype.slice.call(document.querySelectorAll('.tema-c:checked'))
                     .map(function (c) { return parseInt(c.value, 10); });
                 var nota = document.getElementById('nota').value.trim();
-                if (!temi.length && !nota) {
+                if (!temi.length) {
                     esito.className = 'esito ko';
-                    esito.textContent = 'Segni almeno un tema, o ci racconti in breve la Sua esigenza.';
+                    esito.textContent = 'Segni almeno un incontro: e la Sua prenotazione.';
                     return;
                 }
                 var b = document.getElementById('invia');
+                var etichettaB = b.textContent;
                 b.disabled = true; b.textContent = 'Invio in corso…';
                 esito.className = 'esito'; esito.textContent = '';
-                chiama({ azione: 'b2b-salva', temi: temi, nota: nota }).then(function (r) {
-                    if (!r || !r.ok) {
-                        b.disabled = false; b.textContent = 'Invia le preferenze';
+                chiama({ azione: 'b2b-salva', temi: temi, nota: nota }).then(function (esitoR) {
+                    if (!esitoR || !esitoR.ok) {
+                        b.disabled = false; b.textContent = etichettaB;
                         esito.className = 'esito ko';
-                        esito.textContent = (r && r.msg) || 'Invio non riuscito: riprovi fra un momento.';
+                        esito.textContent = (esitoR && esitoR.msg) || 'Invio non riuscito: riprovi fra un momento.';
                         return;
                     }
-                    box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
-                        + '<h2>Grazie, abbiamo ricevuto le Sue preferenze</h2>'
-                        + '<p>La ricontatteremo per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione.'
-                        + '<br>Per cambiare idea basta riaprire il collegamento della mail: questa pagina resta Sua.</p></div>';
+                    fatto(r, temi);
                 }).catch(function () {
-                    b.disabled = false; b.textContent = 'Invia le preferenze';
+                    b.disabled = false; b.textContent = etichettaB;
                     esito.className = 'esito ko';
                     esito.textContent = 'Servizio non raggiungibile: riprovi fra un momento.';
+                });
+            }
+            /* Prenotazione presa: si ripete quali tavoli, perche' la conferma
+               di una scelta senza la scelta scritta accanto non conferma niente. */
+            function fatto(r, temi) {
+                var elenco = temi.map(function (i) { return '<li>' + esc(TEMI[i]) + '</li>'; }).join('');
+                box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
+                    + '<h2>Prenotazione registrata</h2>'
+                    + '<p>La aspettiamo' + (temi.length > 1 ? ' ai tavoli' : ' al tavolo') + ':</p>'
+                    + '<ul class="scelti-elenco">' + elenco + '</ul>'
+                    + '<p style="margin-top:12px;">Le confermeremo il turno preciso e gli specialisti che saranno a Sua disposizione.'
+                    + '<br>Per cambiare la scelta basta riaprire il collegamento della mail: questa pagina resta Sua.</p>'
+                    + '<button type="button" class="rifai" id="rifai">Cambia la scelta adesso</button></div>';
+                document.getElementById('rifai').addEventListener('click', apri);
+            }
+            function apri() {
+                box.innerHTML = '<div class="avviso">Un momento: recupero la Sua iscrizione&hellip;</div>';
+                chiama({ azione: 'b2b-leggi' }).then(function (r) {
+                    if (!r || !r.ok) { errore((r && r.msg) || 'Collegamento non valido o scaduto. Scriva a info@nextgenerationbusiness.it e provvediamo noi.'); return; }
+                    modulo(r);
+                }).catch(function () {
+                    errore('Servizio non raggiungibile in questo momento: riprovi fra qualche minuto.');
                 });
             }
             if (!d || !t) {
                 errore('Questa pagina si apre dal collegamento personale che trova nella mail di invito. Se non la trova, scriva a info@nextgenerationbusiness.it');
                 return;
             }
-            chiama({ azione: 'b2b-leggi' }).then(function (r) {
-                if (!r || !r.ok) { errore((r && r.msg) || 'Collegamento non valido o scaduto. Scriva a info@nextgenerationbusiness.it e provvediamo noi.'); return; }
-                modulo(r);
-            }).catch(function () {
-                errore('Servizio non raggiungibile in questo momento: riprovi fra qualche minuto.');
-            });
+            apri();
         })();
     </script>
 </body>

@@ -1296,10 +1296,12 @@
     /* =========================================================
        MAIL DI INVITO AGLI INCONTRI B2B
        ---------------------------------------------------------
-       L'invito che parte A TUTTI gli iscritti di un evento: spiega
-       l'occasione, elenca i temi e porta al modulo online dove ognuno
-       indica i propri interessi (le risposte tornano nell'elenco e
-       nel riepilogo per argomento dell'area riservata).
+       L'invito che parte a TUTTI i referenti delle aziende scelte:
+       spiega l'occasione, elenca gli incontri (uno per argomento del
+       convegno) e porta alla pagina dove ognuno PRENOTA i suoi - e
+       vede quelli gia' scelti dai colleghi della sua impresa. Le
+       scelte tornano nell'elenco e nel riepilogo per argomento
+       dell'area riservata.
        Due segnaposti, sostituiti dal servizio PER DESTINATARIO:
          {{NOME}} - nome e cognome dell'iscritto;
          {{B2B}}  - il suo collegamento personale firmato al modulo.
@@ -1333,7 +1335,7 @@
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
         const oggetto = 'Il Suo incontro B2B al convegno - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
-        const anteprima = 'Un incontro riservato con i nostri specialisti, sui temi che sceglie Lei.';
+        const anteprima = 'Scelga a quali tavoli sedersi: un incontro riservato con i nostri specialisti.';
 
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', La ringraziamo per essersi iscritto al convegno "' + nomeConvegno + '"'
             + (quandoEv ? ' di ' + quandoEv : '') + ': nel corso della giornata potrà partecipare a un incontro B2B riservato.';
@@ -1369,7 +1371,7 @@
             + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
             + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
             + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
-            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Indichi i Suoi temi di interesse</a>'
+            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Scelga i Suoi incontri B2B</a>'
             + '</td></tr></table></td></tr>';
 
         /* La chiusura cambia con l'orario: senza, si promette di comunicarlo;
@@ -1399,7 +1401,7 @@
             + par('Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.')
             + (orario ? spazio(18) + riquadroOrario : '')
             + spazio(14)
-            + par('Per organizzare un incontro davvero utile e individuare gli interlocutori più adatti, La invitiamo a indicarci uno o più temi di Suo interesse:')
+            + par('Ogni incontro è dedicato a un argomento del convegno, con i professionisti e gli specialisti della materia. La invitiamo a scegliere a quale, o a quali, desidera partecipare:')
             + spazio(16)
             + '<tr><td style="padding-left:6px;">' + elencoTemi + '</td></tr>'
             /* Chi ha GIA' espresso preferenze (dal form del sito o da un invio
@@ -1411,13 +1413,13 @@
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
             + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Le Sue preferenze già indicate</span><br>'
+            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">La Sua scelta attuale</span><br>'
             + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">{{TEMI}}</span><br>'
-            + '<span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">Dal modulo può confermarle, aggiungerne o toglierne quando vuole.</span>'
+            + '<span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">Dalla pagina può confermarla, aggiungere un incontro o toglierne uno quando vuole.</span>'
             + '</td></tr></table></td></tr>'
             + '{{/SE_TEMI}}'
             + spazio(18)
-            + par('Basta un minuto: dal pulsante qui sotto trova il modulo con i temi già elencati, dove può anche anticiparci brevemente il progetto o l\'esigenza aziendale su cui vorrebbe confrontarsi.')
+            + par('Basta un minuto: dal pulsante qui sotto trova la pagina con gli incontri da spuntare, dove può anche anticiparci brevemente il progetto o l\'esigenza aziendale su cui vorrebbe confrontarsi. Nella stessa pagina vede le scelte degli altri referenti della Sua azienda, così potete dividervi i tavoli invece di sovrapporvi.')
             + spazio(26)
             + bottone
             + spazio(26)
@@ -1447,9 +1449,10 @@
             'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti. Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.',
             (orario ? 'Quando si svolgono gli incontri B2B: ' + (ev.quando ? ev.quando + ', ' : '') + orario
                 + (ev.luogo ? ' - ' + ev.luogo + (ev.indirizzo ? ', ' + ev.indirizzo : '') : '') : ''),
-            'I temi proposti:\n' + TEMI_B2B.map(t => '- ' + t.descrizione).join('\n'),
-            '{{SE_TEMI}}Le Sue preferenze già indicate: {{TEMI}}. Dal modulo può confermarle, aggiungerne o toglierne quando vuole.{{/SE_TEMI}}',
-            'Indichi i Suoi temi di interesse (e, se vuole, il progetto su cui confrontarsi): ' + SEGNAPOSTO_B2B,
+            'Gli incontri in programma, uno per argomento del convegno:\n' + TEMI_B2B.map(t => '- ' + t.descrizione).join('\n'),
+            '{{SE_TEMI}}La Sua scelta attuale: {{TEMI}}. Dalla pagina può confermarla, aggiungere un incontro o toglierne uno quando vuole.{{/SE_TEMI}}',
+            'Scelga i Suoi incontri B2B (e, se vuole, ci racconti il progetto su cui confrontarsi): ' + SEGNAPOSTO_B2B
+                + '\nNella stessa pagina vede le scelte degli altri referenti della Sua azienda.',
             chiusura,
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_CONFERMA,
