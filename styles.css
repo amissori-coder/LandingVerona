@@ -992,6 +992,15 @@ ul {
     height: 17px;
 }
 
+/* Camera di Commercio di Napoli (patrocinio): marchio molto largo (3,5:1).
+   A 44px sforerebbe la colonna della card, quindi lo vincoliamo in larghezza
+   e lasciamo che l'altezza si adegui. */
+.event-collab--multi .event-collab-logo--cciaa {
+    height: auto;
+    width: 148px;
+    max-width: 100%;
+}
+
 .event-collab-label {
     font-family: var(--font-display);
     font-size: 0.58rem;
@@ -3939,6 +3948,11 @@ ul {
 
     .event-collab-logo {
         height: 40px;
+    }
+
+    .event-collab--multi .event-collab-logo--cciaa {
+        height: auto;
+        width: 138px;
     }
 }
 
