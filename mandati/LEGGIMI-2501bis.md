@@ -52,9 +52,9 @@ dell'incarico.
 | Pec SIEM; sede/C.f./Pec SPV | vuoti (dati cliente) |
 | Luogo e data lettera | luogo precompilato "Verona", data vuota |
 | Responsabile incarico | vuoto (riesame qualità e team non più indicati in lettera) |
-| Tabella: ore/importi a-b-c | precompilati 24/36/20 h — € 4.500/6.750/3.750 (listino € 15.000) |
+| Tabella: ore/importi a-b-c | precompilati 24/36/20 h — € 2.400/3.600/2.000 (listino € 8.000) |
 | Tabella: riga extra descrizione libera | vuota (come il modello) |
-| Totale | sconto € 5.000 → 80 h — € 10.000 netti; tariffa € 187,50/h, effettiva € 125/h |
+| Totale | sconto € 3.000 → 80 h — € 5.000 netti; tariffa € 100/h, effettiva € 62,50/h |
 | Società di fatturazione | precompilata SIEM S.R.L. |
 | Date accettazione | uniche editabili nella versione definitiva |
 | Allegati N° | fisso: 2 |
@@ -62,10 +62,11 @@ dell'incarico.
 
 ## Impostazione del compenso (razionale)
 
-- Listino: 80 h × € 187,50/h = € 15.000; sconto di € 5.000 per il contestuale incarico di
-  revisione → **€ 10.000 netti** (tariffa effettiva € 125/h) + spese vive + forfait 5% + IVA.
-- Benchmark: 1,25 volte il corrispettivo annuo di revisione di SIEM (€ 8.000 da nota
-  integrativa 2025); range di mercato coerente € 8.000–16.000.
+- Listino: 80 h × € 100/h = € 8.000; sconto di € 3.000 per il contestuale incarico di
+  revisione → **€ 5.000 netti** (tariffa effettiva € 62,50/h) + spese vive + forfait 5% + IVA.
+- Scelta commerciale in logica di pacchetto (revisione SIEM + revisione SPV a € 1.500/anno
+  + relazione 2501-bis); il netto è sotto il corrispettivo annuo di revisione di SIEM
+  (€ 8.000) e sotto il range di mercato € 8.000–16.000 stimato per questa attività.
 - Nessun compenso condizionato all'esito (indipendenza ex art. 10 D.Lgs. 39/2010);
   extra a consuntivo per versioni successive del piano; indicazione in nota
   integrativa ex art. 2427, co. 1, n. 16-bis, c.c.
