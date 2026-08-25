@@ -14189,6 +14189,13 @@
        applica la stessa regola per conto suo: qui si decide solo cosa mostrare. */
     function puoGestireInviti() { return puoAggiungereIscrizioni(); }
 
+    /* Gli esiti letti dalla casella PEC. Sono una cosa diversa dallo stato
+       della scheda: lo stato dice a che punto siamo noi con quell'azienda,
+       questi dicono cosa ha risposto il sistema della posta certificata. */
+    const INV_PEC = {
+        'attesa': 'In attesa', 'accettata': 'Accettata dal gestore', 'consegnata': 'Consegnata',
+        'non-consegnata': 'NON consegnata', 'non-accettata': 'NON accettata', 'in-dubbio': 'Consegna in dubbio'
+    };
     const INV_STATI = {
         'da-invitare': 'Da invitare', 'inviata': 'Invitata', 'errore': 'Errore',
         'esclusa': 'Esclusa', 'disiscritta': 'Disiscritta', 'risposta': 'Ha risposto', 'iscritta': 'Iscritta'
@@ -14234,13 +14241,17 @@
     function caricaCfgInvito(poi) {
         if (_invCfg) { if (poi) poi(_invCfg); return; }
         Cloud.aziendeInvito({ azione: 'configurazione' }).then(r => {
-            _invCfg = (r.ok && r.canali) ? r.canali : { email: { pronto: false }, pec: { pronto: false } };
+            _invCfg = (r.ok && r.canali)
+                ? { canali: r.canali, lettore: r.lettore || null }
+                : { canali: { email: { pronto: false }, pec: { pronto: false } }, lettore: null };
             if (poi) poi(_invCfg);
         });
     }
     function canaleCfg(nome) {
-        return (_invCfg && _invCfg[nome]) ? _invCfg[nome] : { pronto: false, maxLotto: 40, maxOra: 0 };
+        const c = _invCfg && _invCfg.canali;
+        return (c && c[nome]) ? c[nome] : { pronto: false, maxLotto: 40, maxOra: 0 };
     }
+    function lettoreCfg() { return (_invCfg && _invCfg.lettore) || null; }
 
     function aziendeInvitoDi(ev) { return (_invCache[ev.id] || {}).aziende || []; }
     function aziendaInvitoDi(ev, id) { return aziendeInvitoDi(ev).find(a => a.id === id) || null; }
@@ -14297,6 +14308,61 @@
             if (!r.ok) { corpo.innerHTML = '<p class="ev-ko">' + esc(r.msg || 'Elenco non disponibile.') + '</p>'; return; }
             disegnaAziendeInvito(ev);
         });
+    }
+
+    /* La colonna delle ricevute: e' l'unica cosa che dice davvero se l'invito
+       e' arrivato. Resta vuota per chi e' stato invitato via email ordinaria,
+       perche' li' le ricevute non esistono: si scrive "-" invece di lasciare
+       un buco, che verrebbe letto come "non ha ricevuto". */
+    function cellaRicevute(a) {
+        const viaPec = a.invio && a.invio.canale === 'pec';
+        if (!viaPec) return '<span class="hint">-</span>';
+        const r = a.ricevute || {};
+        const esito = r.esito || 'attesa';
+        const parti = ['<span class="inv-pallino inv-pec-' + esc(esito) + '">' + esc(INV_PEC[esito] || esito) + '</span>'];
+        if (r.consegnata && r.consegnata.quando) {
+            parti.push('<div class="hint">' + esc(fmtDataOra(r.consegnata.quando)) + '</div>');
+        } else if (r.problema && r.problema.motivo) {
+            // il motivo lo scrive il gestore del destinatario: e' testo altrui,
+            // va sempre dentro esc(), attributo title compreso
+            parti.push('<div class="ev-ko hint" title="' + esc(r.problema.motivo) + '">' + esc(r.problema.motivo.slice(0, 70)) + '</div>');
+        } else if (r.accettata && r.accettata.quando) {
+            parti.push('<div class="hint">presa in carico il ' + esc(fmtDataOra(r.accettata.quando)) + '</div>');
+        }
+        if (r.risposta && r.risposta.quando) {
+            parti.push('<div class="inv-risposto" title="' + esc(r.risposta.oggetto || '') + '">Ha risposto il '
+                + esc(fmtDataOra(r.risposta.quando)) + '</div>');
+        }
+        return parti.join('');
+    }
+
+    /* Il riquadro in cima: quando si e' guardata l'ultima volta la casella PEC,
+       e il pulsante per guardarla adesso. Compare solo se qualcuno di questo
+       elenco e' stato invitato via PEC: sugli inviti via email non c'e' niente
+       da leggere. */
+    function riquadroRicevute(ev, tutte) {
+        if (!(tutte || []).some(a => a.invio && a.invio.canale === 'pec')) return '';
+        const l = lettoreCfg();
+        if (l && !l.configurato) {
+            return '<div class="inv-lettore ko">Le ricevute non si possono leggere: manca la configurazione della casella PEC in lettura '
+                + '(PEC_IMAP_USER e PEC_IMAP_PASS, oppure le stesse credenziali dell\'invio).</div>';
+        }
+        if (l && l.fermoPerCredenziali) {
+            return '<div class="inv-lettore ko"><b>Controllo fermo:</b> la casella PEC ha rifiutato la password. '
+                + 'Con la verifica in due passaggi attiva serve la "password per i programmi di posta" di Aruba, che scade ogni sei mesi. '
+                + '<button class="btn btn-sm btn-secondary" id="inv-ric">Riprova adesso</button></div>';
+        }
+        const ultimo = l && l.ultimoGiro;
+        const vecchio = ultimo && ultimo.quando && (Date.now() - ultimo.quando) > 24 * 60 * 60 * 1000;
+        const detto = !ultimo
+            ? 'Le ricevute non sono ancora state lette.'
+            : (ultimo.esito === 'ok'
+                ? 'Ultimo controllo ' + esc(fmtDataOra(ultimo.quando)) + ': ' + (ultimo.ricevute || 0) + ' ricevute, ' + (ultimo.risposte || 0) + ' risposte'
+                + (ultimo.nonRiconosciute ? ', ' + ultimo.nonRiconosciute + ' da guardare a mano' : '') + '.'
+                : 'L\'ultimo controllo non e riuscito: ' + esc(ultimo.motivo || ''));
+        return '<div class="inv-lettore' + ((ultimo && ultimo.esito !== 'ok') || vecchio ? ' ko' : '') + '">'
+            + '<span>' + detto + (vecchio ? ' <b>Sono passate piu di 24 ore.</b>' : '') + '</span>'
+            + '<button class="btn btn-sm btn-secondary" id="inv-ric">Controlla le ricevute</button></div>';
     }
 
     function disegnaAziendeInvito(ev) {
@@ -14360,6 +14426,7 @@
                 + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(INV_STATI[st] || st) + '</span>'
                 + (quando ? '<div class="hint">' + esc(quando) + (via ? ' via ' + via : '') + '</div>' : '')
                 + (motivo ? '<div class="ev-ko hint" title="' + esc(motivo) + '">' + esc(motivo.slice(0, 60)) + '</div>' : '') + '</td>'
+                + '<td data-label="Ricevute PEC">' + cellaRicevute(a) + '</td>'
                 + '<td class="inv-azioni-riga">'
                 + '<button class="btn btn-sm btn-ghost inv-mod" data-id="' + esc(a.id) + '">Modifica</button>'
                 + '<button class="btn btn-sm btn-ghost inv-canc" data-id="' + esc(a.id) + '">Elimina</button></td></tr>';
@@ -14367,12 +14434,13 @@
         const tabella = mostrate.length
             ? '<div class="tabella-wrap"><table class="dati inv-tabella"><thead><tr>'
             + '<th><input type="checkbox" id="inv-tutte"></th><th>Azienda</th><th>Recapiti</th><th>Citta</th>'
-            + '<th>Referente</th><th>Stato</th><th></th></tr></thead><tbody>'
+            + '<th>Referente</th><th>Stato</th><th>Ricevute PEC</th><th></th></tr></thead><tbody>'
             + mostrate.map(riga).join('') + '</tbody></table></div>'
             + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '')
             : '<p class="hint">' + (n.totale ? 'Nessuna azienda con questi filtri.' : 'Nessuna azienda in elenco: caricane una con il pulsante qui sopra.') + '</p>';
 
-        corpo.innerHTML = conta + barra + filtri + azioniSel + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
+        corpo.innerHTML = conta + riquadroRicevute(ev, tutte) + barra + filtri + azioniSel
+            + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
 
         const ridisegna = () => disegnaAziendeInvito(ev);
         const esito = (t, ko) => {
@@ -14384,6 +14452,45 @@
         document.getElementById('inv-nuova').addEventListener('click', () => modaleAziendaInvito(ev, null));
         const bScar = document.getElementById('inv-scarica');
         if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendeInvito(ev));
+
+        /* Lettura della casella PEC. Il servizio legge un pezzo per volta (ha
+           60 secondi) e dice se ne restano: si richiama finche' finisce, ma
+           con un tetto, perche' una casella molto arretrata non deve tenere
+           l'utente fermo davanti a una finestra che non si chiude mai. */
+        const bRic = document.getElementById('inv-ric');
+        if (bRic) bRic.addEventListener('click', () => {
+            bRic.disabled = true;
+            const testoPrima = bRic.textContent;
+            let ricevute = 0, risposte = 0, giri = 0, ko = '';
+            const MAX_GIRI = 6;
+            (async () => {
+                let restanti = true;
+                while (restanti && giri < MAX_GIRI) {
+                    giri++;
+                    bRic.textContent = 'Controllo... (' + giri + ')';
+                    let r;
+                    try { r = await Cloud.aziendeInvito({ azione: 'ricevute', evento: ev.id, forza: giri === 1 }); }
+                    catch (e) { r = { ok: false, msg: 'Servizio non raggiungibile.' }; }
+                    if (!r.ok) { ko = r.msg || 'Controllo non riuscito.'; break; }
+                    const g = r.ultimoGiro || {};
+                    ricevute += g.ricevute || 0;
+                    risposte += g.risposte || 0;
+                    restanti = !!r.restanti;
+                    // lo stato del lettore in memoria si aggiorna, cosi' il
+                    // riquadro dice l'ora giusta senza rileggere tutto
+                    if (_invCfg) _invCfg.lettore = Object.assign({}, _invCfg.lettore || {}, { ultimoGiro: g, fermoPerCredenziali: false });
+                }
+                bRic.disabled = false; bRic.textContent = testoPrima;
+                if (ko) { esito(ko, true); ridisegna(); return; }
+                const riepilogo = ricevute + ' ricevute e ' + risposte + ' risposte lette'
+                    + (restanti ? '. Ce ne sono altre: premi di nuovo.' : '.');
+                esito(riepilogo, false);
+                // le schede toccate arrivano gia' dal servizio, ma rileggere
+                // l'elenco e' l'unico modo per vedere anche gli esiti di chi
+                // e' stato invitato da un collega mentre eravamo qui
+                caricaAziendeInvito(ev, () => ridisegna());
+            })();
+        });
 
         const cerca = document.getElementById('inv-cerca');
         cerca.addEventListener('input', () => {
@@ -14467,14 +14574,24 @@
     /* L'elenco cosi' com'e', esiti compresi: serve a chi tiene la rendicontazione
        degli inviti fuori dall'area riservata. */
     function scaricaAziendeInvito(ev) {
-        const righe = [['Ragione sociale', 'Email', 'PEC', 'Partita IVA', 'Referente', 'Citta', 'Provincia', 'Telefono', 'Stato', 'Invitata il', 'Canale', 'Errore']];
-        aziendeInvitoDi(ev).forEach(a => righe.push([
-            a.ragioneSociale, a.email, a.pec, a.piva, a.referente, a.citta, a.provincia, a.telefono,
-            INV_STATI[a.stato || 'da-invitare'] || a.stato,
-            a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '',
-            a.invio && a.invio.canale === 'pec' ? 'PEC' : (a.invio ? 'Email' : ''),
-            a.errore && a.errore.motivo ? a.errore.motivo : ''
-        ]));
+        const righe = [['Ragione sociale', 'Email', 'PEC', 'Partita IVA', 'Referente', 'Citta', 'Provincia', 'Telefono',
+            'Stato', 'Invitata il', 'Canale', 'Errore di invio',
+            'Esito PEC', 'Consegnata il', 'Motivo del gestore', 'Ha risposto il']];
+        aziendeInvitoDi(ev).forEach(a => {
+            const r = a.ricevute || {};
+            const pec = a.invio && a.invio.canale === 'pec';
+            righe.push([
+                a.ragioneSociale, a.email, a.pec, a.piva, a.referente, a.citta, a.provincia, a.telefono,
+                INV_STATI[a.stato || 'da-invitare'] || a.stato,
+                a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '',
+                pec ? 'PEC' : (a.invio ? 'Email' : ''),
+                a.errore && a.errore.motivo ? a.errore.motivo : '',
+                pec ? (INV_PEC[r.esito || 'attesa'] || '') : '',
+                r.consegnata && r.consegnata.quando ? fmtDataOra(r.consegnata.quando) : '',
+                r.problema && r.problema.motivo ? r.problema.motivo : '',
+                r.risposta && r.risposta.quando ? fmtDataOra(r.risposta.quando) : ''
+            ]);
+        });
         const csv = righe.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
         // il BOM serve a Excel per riconoscere le lettere accentate
         const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));

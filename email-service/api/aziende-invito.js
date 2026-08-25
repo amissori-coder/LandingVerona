@@ -34,6 +34,7 @@
 const admin = require('firebase-admin');
 const CANALI = require('../lib/canali-invito');
 const NL = require('../lib/newsletter');
+const LETTORE = require('../lib/lettore-pec');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -191,15 +192,46 @@ function inChiaro(id, d) {
         citta: d.citta || '', provincia: d.provincia || '', telefono: d.telefono || '',
         settore: d.settore || '', note: d.note || '',
         stato: d.stato || 'da-invitare', extra: d.extra || {},
-        invio: d.invio || null, errore: d.errore || null, aggiunta: d.aggiunta || null
+        invio: d.invio || null, errore: d.errore || null, aggiunta: d.aggiunta || null,
+        /* Gli esiti letti dalla casella PEC. Si espone il riepilogo, non la
+           storia completa: alla tabella servono l'esito, quando e perche',
+           e ogni campo in piu' viaggia moltiplicato per tutte le schede. */
+        ricevute: d.ricevute ? {
+            esito: d.ricevute.esito || 'attesa',
+            accettata: d.ricevute.accettata || null,
+            consegnata: d.ricevute.consegnata || null,
+            problema: d.ricevute.problema || null,
+            risposta: d.ricevute.risposta || null,
+            aggiornato: d.ricevute.aggiornato || 0
+        } : null
     };
 }
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+
+    /* Deviazione per uno scheduler che controlla la casella PEC da solo.
+       Segreto DEDICATO, non il CRON_SECRET degli altri lavori: quello fa
+       partire newsletter e comunicazioni, e cio' che si consegna a un
+       servizio esterno deve poter fare una cosa sola. Sta qui in cima
+       perche' gli scheduler chiamano in GET, e piu' sotto un GET verrebbe
+       respinto. */
+    const segretoLettore = String(process.env.PEC_CRON_SECRET || '');
+    const autorizzazione = String((req.headers || {})['authorization'] || '');
+    if (segretoLettore && autorizzazione === 'Bearer ' + segretoLettore) {
+        try {
+            initAdmin(leggiServiceAccount());
+            const r = await LETTORE.giro(admin.firestore(), { da: 'scheduler' });
+            res.status(200).json({ ok: !!r.ok, esito: r.esito, msg: r.msg || '', restanti: !!r.restanti, ultimoGiro: r.ultimoGiro || null });
+        } catch (e) {
+            console.error('Lettore PEC (scheduler):', String((e && e.message) || e).slice(0, 200));
+            res.status(500).json({ ok: false, msg: 'Controllo non riuscito.' });
+        }
+        return;
+    }
     if (req.method !== 'POST') { res.status(405).json({ ok: false, msg: 'Metodo non consentito' }); return; }
 
     try {
@@ -256,7 +288,54 @@ module.exports = async (req, res) => {
                     maxLotto: CANALI.maxLotto(c), maxOra: CANALI.maxOra(c)
                 };
             };
-            res.status(200).json({ ok: true, canali: { email: canale('email'), pec: canale('pec') } });
+            res.status(200).json({
+                ok: true, canali: { email: canale('email'), pec: canale('pec') },
+                lettore: await LETTORE.stato(db)
+            });
+            return;
+        }
+
+        /* Com'e' messa la lettura della casella PEC: la vede chiunque apra la
+           sezione, perche' serve a capire se la colonna delle ricevute e'
+           aggiornata o se il controllo e' fermo da giorni. */
+        if (azione === 'stato-lettore') {
+            res.status(200).json(Object.assign({ ok: true }, await LETTORE.stato(db)));
+            return;
+        }
+
+        /* Un giro di lettura della casella PEC. Lo fa partire chi gestisce gli
+           inviti: apre una connessione a un servizio esterno e non e' una cosa
+           da lasciare a chiunque passi di li'. */
+        if (azione === 'ricevute') {
+            if (!puoGestire) { negato(); return; }
+            const r = await LETTORE.giro(db, { da: email, forza: body.forza === true });
+            res.status(200).json({
+                ok: !!r.ok, esito: r.esito || '', msg: r.msg || '',
+                restanti: !!r.restanti, ultimoGiro: r.ultimoGiro || null,
+                // solo le schede toccate da questo giro: l'area riservata
+                // aggiorna le righe che ha gia' a video
+                aggiornate: r.aggiornate || {}
+            });
+            return;
+        }
+
+        /* La posta che il lettore non sa a chi attribuire. Non e' un errore da
+           nascondere: e' l'elenco delle cose da guardare a mano nella casella,
+           ed e' anche il modo per accorgersi se la correlazione sta zoppicando. */
+        if (azione === 'non-riconosciute') {
+            if (!puoGestire) { negato(); return; }
+            const snap = await db.collection('pecNonRiconosciute').orderBy('quando', 'desc').limit(50).get()
+                .catch(() => db.collection('pecNonRiconosciute').limit(50).get());
+            const elenco = [];
+            snap.forEach(d => {
+                const v = d.data() || {};
+                elenco.push({
+                    id: d.id, quando: v.quando || 0, genere: v.genere || '', motivo: v.motivo || '',
+                    oggetto: v.oggetto || '', da: v.da || ''
+                });
+            });
+            elenco.sort((a, b) => (b.quando || 0) - (a.quando || 0));
+            res.status(200).json({ ok: true, messaggi: elenco });
             return;
         }
 
@@ -423,7 +502,16 @@ module.exports = async (req, res) => {
             if (ids.length > 500) { res.status(400).json({ ok: false, msg: 'Troppe aziende in una volta sola.' }); return; }
             let batch = db.batch(), n = 0;
             for (const id of ids) {
-                batch.delete(db.collection('aziendeInvito').doc(id));
+                const rif = db.collection('aziendeInvito').doc(id);
+                /* I riferimenti delle ricevute se ne vanno con la scheda:
+                   dentro ci sono l'indirizzo PEC dell'azienda e il legame con
+                   l'evento, e una cancellazione fatta a meta' non e' una
+                   cancellazione. */
+                try {
+                    const snap = await rif.get();
+                    if (snap.exists) n += LETTORE.dimenticaRiferimenti(batch, db, snap.data());
+                } catch (_) { /* la scheda si toglie comunque */ }
+                batch.delete(rif);
                 n++;
                 if (n >= 300) { await batch.commit(); batch = db.batch(); n = 0; }
             }
@@ -513,12 +601,21 @@ module.exports = async (req, res) => {
                     disiscritte++;
                     continue;
                 }
+                /* Il filo per ritrovare le ricevute. Si genera un Message-ID
+                   nostro e lo si annota PRIMA di spedire: se la funzione
+                   morisse fra l'invio e la scrittura dell'esito, la ricevuta
+                   arriverebbe comunque e troverebbe il filo gia' teso. */
+                const riferimento = CANALI.riferimentoNuovo(canale);
                 try {
+                    if (canale === 'pec') {
+                        await LETTORE.registraRiferimento(db, riferimento, { scheda: id, evento: evento, destinatario: dest });
+                    }
                     const info = await trans.sendMail(CANALI.messaggio(canale, a, { oggetto: oggetto, html: html }, {
-                        campagna: campagna, rispondiA: email
+                        campagna: campagna, rispondiA: email, riferimento: riferimento
                     }));
                     const invio = {
                         quando: Date.now(), da: email, canale: canale, destinatario: dest,
+                        riferimento: riferimento,
                         oggetto: CANALI.applica(oggetto, a).slice(0, 250),
                         messageId: String((info && info.messageId) || '').slice(0, 300),
                         risposta: String((info && info.response) || '').slice(0, 200)

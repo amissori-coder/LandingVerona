@@ -29,6 +29,7 @@
      usa comunque il mittente di sempre.
    ============================================================ */
 
+const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { avvolgi, senzaTrattiniLunghi } = require('./mail-layout');
 const NL = require('./newsletter');
@@ -113,6 +114,23 @@ function trasporto(canale) {
         pool: true, maxConnections: 1, maxMessages: canale === 'pec' ? 50 : 200,
         connectionTimeout: 20000, greetingTimeout: 20000, socketTimeout: 30000
     });
+}
+
+/* Il Message-ID che imponiamo al messaggio in partenza.
+   Perche' non lasciarlo generare a nodemailer: e' ESATTAMENTE questo
+   valore che il gestore PEC ricopia nell'intestazione
+   X-Riferimento-Message-ID di tutte le ricevute e dentro daticert.xml.
+   E' il filo che lega la ricevuta di consegna all'azienda a cui
+   abbiamo scritto: se lo genera qualcun altro e non lo annotiamo,
+   quando la ricevuta arriva non sappiamo piu' di chi sia.
+
+   Il dominio dev'essere quello della casella da cui si spedisce: un
+   Message-ID con un dominio estraneo e' una delle cose che fanno
+   scattare l'avviso di non accettazione per eccezioni formali. */
+function riferimentoNuovo(canale) {
+    const c = configurazione(canale);
+    const dominio = String(c.mittente || '').split('@')[1] || 'nextgenerationbusiness.it';
+    return 'inv-' + crypto.randomBytes(8).toString('hex') + '@' + dominio;
 }
 
 function esc(x) {
@@ -202,6 +220,8 @@ function messaggio(canale, azienda, mail, opz) {
     };
     const rispondiA = c.rispondiA || opz.rispondiA || '';
     if (rispondiA) m.replyTo = rispondiA;
+    // il filo per ritrovare le ricevute: si veda riferimentoNuovo()
+    if (opz.riferimento) m.messageId = '<' + opz.riferimento + '>';
     /* Le intestazioni che i client di posta usano da soli per il pulsante
        "Annulla iscrizione". Sulla PEC no: il gestore imbusta il messaggio e
        quel pulsante li' non esiste. */
@@ -222,6 +242,6 @@ function destinatarioDi(canale, a) {
 }
 
 module.exports = {
-    configurazione, configurato, trasporto, messaggio, destinatarioDi,
+    configurazione, configurato, trasporto, messaggio, destinatarioDi, riferimentoNuovo,
     applica, applicaHtml, htmlInTesto, maxLotto, maxOra, VARIABILI
 };

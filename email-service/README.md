@@ -111,7 +111,14 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 | `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
 | `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 300) |
 
-> **Perche' la PEC non passa da Brevo.** Una PEC ha valore legale solo se parte
+> **Dipendenza aggiunta: `imapflow`** (licenza MIT, usabile in un prodotto
+> chiuso). Attenzione se un domani si tocca la versione: imapflow e' stato
+> AGPL-3.0 dalla 1.0.28 alla 1.0.63 ed e' MIT dalla 1.0.65 in poi, quindi non
+> va mai fissato un intervallo che possa risolversi sotto quella versione. Il
+> `package-lock.json` e' nel repository apposta: senza, ogni deploy
+> reinstallerebbe l'ultima versione pubblicata, licenza compresa.
+>
+> > **Perche' la PEC non passa da Brevo.** Una PEC ha valore legale solo se parte
 > da una casella PEC attraverso l'SMTP del gestore accreditato: e' il gestore a
 > produrre la ricevuta di accettazione e quella di consegna. Brevo non e' un
 > gestore PEC, quindi da li' uscirebbe posta ordinaria, senza ricevute, e
@@ -121,6 +128,69 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 > **Le ricevute** (accettazione e consegna) arrivano nella casella PEC, non
 > qui: l'area riservata registra la presa in carico da parte del gestore e
 > l'eventuale rifiuto, non la consegna finale.
+
+### Ricevute PEC: consegne, errori e risposte
+
+Dopo un invio PEC il gestore risponde nella casella del mittente (accettazione,
+avvenuta consegna, mancata consegna) e li' arrivano anche le risposte delle
+aziende. Il servizio legge quella casella in **IMAP, in sola lettura**, e
+riporta gli esiti sulla scheda di ciascuna azienda: nell'area riservata compare
+la colonna **Ricevute PEC** con "Consegnata", "NON consegnata" e il motivo
+scritto dal gestore, "Consegna in dubbio", "Ha risposto".
+
+| Nome | Valore |
+|---|---|
+| `PEC_IMAP_HOST` | `imaps.pec.aruba.it` (predefinito: con Aruba si puo' omettere) |
+| `PEC_IMAP_PORT` | `993` (predefinito) |
+| `PEC_IMAP_USER` | l'indirizzo PEC; se manca si usa `PEC_SMTP_USER` |
+| `PEC_IMAP_PASS` | la password IMAP; se manca si usa `PEC_SMTP_PASS` |
+| `PEC_IMAP_CARTELLA` | `INBOX` (predefinito). Da cambiare solo se un filtro sposta le ricevute altrove: quello che il lettore non vede, non esiste |
+| `PEC_LETTORE_MAX` | quanti messaggi per giro (predefinito 40) |
+| `PEC_LETTORE_RECUPERO` | quanti messaggi guardare all'indietro alla prima accensione (predefinito 200) |
+| `PEC_CRON_SECRET` | **solo** se si vuole un controllo automatico da uno scheduler esterno (vedi sotto) |
+
+> **La password che scade: e' il punto piu' fragile di tutto l'impianto.** Con
+> la verifica in due passaggi attiva sulla casella PEC (obbligatoria nel
+> percorso verso la PEC europea), i programmi di posta non possono piu' usare
+> la password principale: serve la **password dedicata ai programmi di posta**,
+> che Aruba fa generare dalla webmail e che **scade ogni sei mesi**. Quando
+> scade il lettore smette di funzionare. Per questo: dopo tre rifiuti di
+> password consecutivi il lettore **si ferma da solo** invece di ribattere (un
+> login sbagliato ripetuto fa scattare le protezioni del gestore, e quelle
+> bloccherebbero anche l'INVIO delle PEC), e nell'area riservata compare un
+> riquadro rosso che dice esattamente cosa e' successo. Conviene annotarsi la
+> scadenza da qualche parte.
+
+> **Come si aggiorna.** Il modo normale e' il pulsante **"Controlla le
+> ricevute"** nella finestra delle aziende: legge la casella in quel momento.
+> Un controllo automatico serve un cron, e sul piano **Hobby di Vercel i cron
+> girano una volta al giorno**, che per una PEC e' poco: se serve piu' spesso,
+> o si passa al piano Pro, oppure si fa chiamare l'endpoint da uno scheduler
+> esterno (basta un workflow GitHub Actions) in **GET** su
+> `/api/aziende-invito` con l'intestazione `Authorization: Bearer <PEC_CRON_SECRET>`.
+> Il segreto e' **dedicato**, diverso da `CRON_SECRET`: quello fa partire
+> newsletter e comunicazioni, e cio' che si consegna a un servizio esterno deve
+> poter fare una cosa sola.
+
+> **Cosa il lettore non fa.** Non segna niente come letto, non sposta e non
+> cancella: quella casella e' l'archivio con valore legale, e il segno "letto"
+> e' condiviso con la webmail. Non verifica la firma S/MIME con cui il gestore
+> sigilla le ricevute: per un cruscotto interno va bene, ma la prova in una
+> contestazione resta il messaggio nella casella, non la riga sullo schermo. E
+> non conserva il corpo delle risposte: di una risposta si annotano data,
+> mittente e oggetto, il testo si legge nella casella.
+
+> **Le risposte da posta ordinaria non arrivano.** Di predefinito una casella
+> PEC Aruba **rifiuta** i messaggi non certificati: se un'azienda risponde
+> dalla propria mail normale, quel messaggio non entra proprio, e non e' il
+> lettore a perderlo. La ricezione ordinaria si accende dalla webmail Aruba;
+> in quel caso quelle risposte compaiono, segnate come non certificate.
+
+> **Lo spazio della casella.** Ogni invio genera almeno un'accettazione e una
+> consegna: il volume in casella e' piu' che doppio rispetto a quello spedito.
+> A casella piena Aruba continua a ricevere ma **blocca l'uscita**, quindi gli
+> inviti successivi non partono. Prima di una campagna grossa conviene
+> guardare quanto spazio resta.
 
 Su entrambi i canali si spedisce **un destinatario per messaggio**, a lotti:
 un elenco lungo parte in piu' riprese, e l'area riservata tiene il segno e non

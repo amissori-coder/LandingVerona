@@ -1376,6 +1376,17 @@ summary.ni-testa::before {
 .inv-pallino.inv-risposta, .inv-pallino.inv-iscritta { border-color: var(--verde); background: var(--verde-bg); color: var(--verde); }
 .inv-pallino.inv-errore { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
 .inv-pallino.inv-esclusa, .inv-pallino.inv-disiscritta { border-color: var(--ambra); background: var(--ambra-bg); color: var(--ambra); }
+/* esiti letti dalla casella PEC: sono una scala diversa dagli stati della
+   scheda, quindi hanno una famiglia di pastiglie loro */
+.inv-pallino.inv-pec-consegnata { border-color: var(--verde); background: var(--verde-bg); color: var(--verde); }
+.inv-pallino.inv-pec-non-consegnata, .inv-pallino.inv-pec-non-accettata { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
+.inv-pallino.inv-pec-in-dubbio { border-color: var(--ambra); background: var(--ambra-bg); color: var(--ambra); }
+.inv-pallino.inv-pec-accettata { border-color: var(--blu-700); background: var(--blu-050); color: var(--blu-700); }
+.inv-risposto { margin-top: 3px; font-size: 0.75rem; font-weight: 700; color: var(--verde); }
+/* riquadro con l'ora dell'ultimo controllo della casella e il pulsante */
+.inv-lettore { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--grigio-200); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; line-height: 1.45; color: var(--grigio-600); }
+.inv-lettore.ko { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
+.inv-lettore b { color: inherit; }
 
 /* scelta destinatari nell'invio inviti sondaggio (a tutti / nuovi+senza accesso / solo nuovi) */
 .ii-ambito { display: flex; align-items: flex-start; gap: 9px; padding: 9px 11px; border: 1px solid var(--grigio-200); border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 0.9rem; color: var(--grigio-900); }
