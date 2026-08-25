@@ -14086,6 +14086,43 @@
             return (o && typeof o === 'object') ? o : {};
         } catch (e) { return {}; }
     }
+    /* --- l'orario di un tavolo: due caselle, non una frase ---
+       Un orario scritto a mano ("dalle 14.30 alle 15,15", "14:30-15:15",
+       "pomeriggio") e' quattro modi diversi di dire la stessa cosa, e nessuno
+       che il programma possa confrontare: senza due orari confrontabili non si
+       puo' dire se due tavoli si sovrappongono, ne' ordinare gli incontri sul
+       foglio del desk. Quindi si scrivono in due caselle dell'ora (inizio e
+       fine) e da li' si compone la frase "dalle HH:MM alle HH:MM", che e' la
+       forma con cui l'orario viaggia ovunque: nella mail, sulla scheda, sulla
+       pagina di prenotazione, sul foglio.
+       All'apertura la frase si rilegge nelle due caselle - anche quella scritta
+       a mano dalla versione precedente, se contiene due ore riconoscibili. */
+    function oraValida(v) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || '')); }
+    function minutiOra(v) {
+        if (!oraValida(v)) return -1;
+        const p = String(v).split(':');
+        return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+    }
+    function oraDaMinuti(n) {
+        const m = ((n % 1440) + 1440) % 1440;
+        return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    }
+    function fraseOrario(inizio, fine) { return 'dalle ' + inizio + ' alle ' + fine; }
+    /* Dalla frase alle due ore, e SOLO dalla forma che le caselle compongono.
+       Pescare due ore da una frase qualunque sembra generoso e invece inventa:
+       da "sala 2.30, dalle 14:00 alle 15:00" verrebbero fuori le 02:30 come
+       inizio - il numero della sala - e riscrivendo la frase l'orario vero
+       sarebbe perso per sempre. Quello che non ha questa forma non si rilegge
+       nelle caselle: si dice a chi sta invitando, che lo riscrive.
+       Stessa regola nel servizio (`lib/orari-b2b.js`), e deve restare tale. */
+    const FRASE_ORARIO = /^dalle ([01]\d|2[0-3]):[0-5]\d alle ([01]\d|2[0-3]):[0-5]\d$/;
+    function oreDaFrase(frase) {
+        const t = String(frase || '').trim();
+        if (!FRASE_ORARIO.test(t)) return { inizio: '', fine: '' };
+        const ore = t.match(/([01]\d|2[0-3]):[0-5]\d/g);
+        return { inizio: ore[0], fine: ore[1] };
+    }
+
     /* Gli orari con cui le schede di questo evento sono gia' state invitate: li
        restituisce il servizio insieme all'elenco (b2bInvito.orari). Servono
        quando la finestra si apre da un ALTRO computer, dove il ricordo locale
@@ -14185,16 +14222,30 @@
         let spostaNuova = '';         // ...la ragione sociale scritta a mano: sopravvivono al ridisegno
         const destinatari = () => aziende.filter(a => scelte.has(a.chiave))
             .reduce((tot, a) => tot.concat(a.persone), []);
-        /* Gli orari scritti nei nove campi, per etichetta corta del tavolo.
-           Solo quelli compilati: gli altri argomenti non sono in programma. */
-        const orariScritti = () => {
-            const o = {};
+        /* Gli orari scritti nelle caselle, per etichetta corta del tavolo, piu'
+           quello che non torna. Un tavolo con una sola delle due ore, o con la
+           fine prima dell'inizio, non e' un orario: fermarsi qui e' meglio che
+           spedirlo a duecento persone. Le sovrapposizioni invece si segnalano
+           soltanto: due tavoli in parallelo, in sale diverse, sono legittimi. */
+        const leggiOrari = () => {
+            const valore = id => String((document.getElementById(id) || {}).value || '').trim();
+            const orari = {}, errori = [], fasce = [];
             TEMI.forEach((t, i) => {
-                const v = String((document.getElementById('ib-ora-' + i) || {}).value || '').trim();
-                if (v) o[t.nome] = v;
+                const da = valore('ib-ora-da-' + i), a = valore('ib-ora-a-' + i);
+                if (!da && !a) return;
+                if (!da || !a) { errori.push(t.nome + ': manca l\'ora di ' + (da ? 'fine' : 'inizio')); return; }
+                if (!oraValida(da) || !oraValida(a)) { errori.push(t.nome + ': ora non valida'); return; }
+                if (minutiOra(a) <= minutiOra(da)) { errori.push(t.nome + ': finisce prima di cominciare'); return; }
+                orari[t.nome] = fraseOrario(da, a);
+                fasce.push({ nome: t.nome, da: minutiOra(da), a: minutiOra(a) });
             });
-            return o;
+            const sovrapposti = [];
+            fasce.forEach((x, i) => fasce.slice(i + 1).forEach(y => {
+                if (x.da < y.a && y.da < x.a) sovrapposti.push(x.nome + ' e ' + y.nome);
+            }));
+            return { orari: orari, errori: errori, sovrapposti: sovrapposti, quanti: fasce.length };
         };
+        const orariScritti = () => leggiOrari().orari;
         /* Gli orari validi in questo momento. Nell'invito a UNA sola persona i nove
            campi non ci sono (la finestra e' ridotta): valgono quelli ricordati per
            l'evento, gli stessi che sono partiti con l'invito a tutti. Senza questo,
@@ -14228,18 +14279,44 @@
            dice ("dalle 14:30 alle 15:15", "subito dopo il coffee break"), ed e'
            quella la frase che finisce nella mail e sul foglio del desk. */
         const ricordati = (o => Object.keys(o).length ? o : orariB2BDalleSchede(_evIscrizioni))(orariB2BSalvati(ev.id));
+        const oreRicordate = TEMI.map(t => oreDaFrase(ricordati[t.nome]));
+        /* Gli orari gia' salvati che le caselle non sanno rileggere (scritti a
+           mano prima che le caselle esistessero). Non spariscono in silenzio:
+           finche' non li si riscrive, quei tavoli restano fuori programma, e
+           mandare l'invito cosi' li cancellerebbe da tutte le schede. */
+        const daRiscrivere = TEMI.filter((t, i) =>
+            String(ricordati[t.nome] || '').trim() && !oreRicordate[i].inizio).map(t => t.nome);
+        /* Due caselle dell'ora per tavolo, non una frase da scrivere: cosi' gli
+           orari si possono confrontare (sovrapposizioni) e ordinare (il foglio
+           del desk), e nessuno scrive "14.30" dove serve "14:30".
+           Sopra, i comandi per riempirli in fretta: nove tavoli scritti a mano
+           uno per uno sono nove occasioni di sbagliare un'ora. */
         const campoOrari = unica ? '' : '<div class="campo"><label>Orario di ogni incontro</label>'
-            + '<div class="hint" style="margin:-2px 0 8px;">Ogni argomento e un tavolo a se, con il suo orario: e cosi che chi prenota capisce se due incontri si sovrappongono. '
+            + '<div class="hint" style="margin:-2px 0 8px;">Ogni argomento e un tavolo a se, con la sua ora di inizio e di fine: '
+            + 'e cosi che chi prenota capisce se due incontri si sovrappongono. '
             + 'Un argomento lasciato <b>in bianco non e in programma</b>: non compare nella mail e non si puo prenotare. '
             + 'Almeno un tavolo deve avere un orario.</div>'
-            + '<div class="ib-ora-tutti"><input type="text" id="ib-ora-tutte" placeholder="es. dalle 14:30 alle 18:00" autocomplete="off">'
-            + '<button type="button" class="btn btn-sm btn-ghost" id="ib-ora-copia">Metti su tutti</button>'
+            + '<div class="ib-ora-tutti">'
+            + '<span class="ib-ora-et">Dalle</span><input type="time" id="ib-ora-primo" value="14:30" step="60">'
+            + '<span class="ib-ora-et">durata</span><input type="number" id="ib-ora-durata" value="45" min="5" max="480" step="5">'
+            + '<span class="ib-ora-et">min &middot; pausa</span><input type="number" id="ib-ora-pausa" value="10" min="0" max="120" step="5">'
+            + '<span class="ib-ora-et">min</span>'
+            + '<button type="button" class="btn btn-sm btn-secondary" id="ib-ora-sequenza">Riempi in sequenza</button>'
+            + '<button type="button" class="btn btn-sm btn-ghost" id="ib-ora-copia">Stesso orario per tutti</button>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="ib-ora-pulisci">Svuota tutti</button></div>'
             + '<div class="ib-ora-griglia">'
-            + TEMI.map((t, i) => '<label class="ib-ora-riga"><span class="ib-ora-nome">' + esc(t.nome) + '</span>'
-                + '<input type="text" id="ib-ora-' + i + '" value="' + esc(ricordati[t.nome] || '') + '" '
-                + 'placeholder="in bianco = non in programma" autocomplete="off"></label>').join('')
-            + '</div></div>';
+            + TEMI.map((t, i) => '<div class="ib-ora-riga"><span class="ib-ora-nome">' + esc(t.nome) + '</span>'
+                + '<span class="ib-ora-caselle">'
+                + '<label class="ib-ora-mini"><span>dalle</span>'
+                + '<input type="time" step="60" id="ib-ora-da-' + i + '" value="' + esc(oreRicordate[i].inizio) + '" '
+                + 'aria-label="Ora di inizio: ' + esc(t.nome) + '"></label>'
+                + '<label class="ib-ora-mini"><span>alle</span>'
+                + '<input type="time" step="60" id="ib-ora-a-' + i + '" value="' + esc(oreRicordate[i].fine) + '" '
+                + 'aria-label="Ora di fine: ' + esc(t.nome) + '"></label>'
+                + '<button type="button" class="ib-ora-vuota" data-vuota="' + i + '" title="Togli dal programma" '
+                + 'aria-label="Togli dal programma: ' + esc(t.nome) + '">&#10005;</button>'
+                + '</span></div>').join('')
+            + '</div><div id="ib-ora-avviso" class="hint"></div></div>';
         const campoAziende = unica
             ? '<div class="campo"><label>Azienda</label><div class="hint" style="margin-top:0;">'
             + esc(unica.azienda ? String(unica.azienda).trim() : 'Non indicata') + '</div></div>'
@@ -14483,22 +14560,98 @@
         }
         if (!unica) disegnaAziende();
         aggiornaInvio();
-        // un solo ascoltatore per la griglia degli orari: nove campi, nove
-        // ascoltatori sarebbero nove modi di dimenticarne uno
+        /* Sotto la griglia si racconta sempre come sta messo il programma: quanti
+           tavoli, cosa non torna, quali si sovrappongono. Scoprirlo al momento
+           dell'invio, con il dito sul pulsante, e' tardi. */
+        function aggiornaAvvisoOrari() {
+            const box = document.getElementById('ib-ora-avviso');
+            if (!box) return;
+            const r = leggiOrari();
+            const pezzi = [];
+            if (r.errori.length) pezzi.push('<span class="ev-ko">Da sistemare: ' + r.errori.map(esc).join('; ') + '.</span>');
+            /* Quelli scritti a mano che nessuno ha ancora riscritto: si ricorda
+               finche' restano vuoti, e sparisce da se' appena si compilano. */
+            const persi = daRiscrivere.filter((nome, k) => {
+                const i = TEMI.map(t => t.nome).indexOf(nome);
+                return i >= 0 && !String((document.getElementById('ib-ora-da-' + i) || {}).value || '').trim();
+            });
+            if (persi.length) pezzi.push('<span class="ib-ora-sovrapposti">Erano scritti a mano e non si rileggono nelle caselle: '
+                + persi.map(esc).join('; ') + '. Riscrivili, o quei tavoli restano fuori programma.</span>');
+            if (r.sovrapposti.length) pezzi.push('<span class="ib-ora-sovrapposti">Si sovrappongono: '
+                + r.sovrapposti.map(esc).join('; ') + '. Va bene se si tengono in sale diverse; '
+                + 'chi prenota vedra gli orari e potra scegliere.</span>');
+            pezzi.push(r.quanti
+                ? '<b>' + r.quanti + '</b> ' + (r.quanti === 1 ? 'tavolo in programma' : 'tavoli in programma')
+                + ' &middot; gli altri non compaiono nella mail'
+                : 'Nessun tavolo in programma: scrivi l\'orario di almeno uno.');
+            box.innerHTML = pezzi.join('<br>');
+        }
+        // un solo ascoltatore per la griglia: nove tavoli, diciotto caselle, e
+        // altrettanti modi di dimenticarne una
         const griglia = document.querySelector('.ib-ora-griglia');
-        if (griglia) griglia.addEventListener('input', () => esito(''));
+        if (griglia) {
+            griglia.addEventListener('input', () => { esito(''); aggiornaAvvisoOrari(); });
+            griglia.querySelectorAll('[data-vuota]').forEach(b => b.addEventListener('click', () => {
+                const i = b.getAttribute('data-vuota');
+                ['ib-ora-da-' + i, 'ib-ora-a-' + i].forEach(id => {
+                    const c = document.getElementById(id); if (c) c.value = '';
+                });
+                esito(''); aggiornaAvvisoOrari();
+            }));
+        }
+        const scriviOra = (i, da, a) => {
+            const c1 = document.getElementById('ib-ora-da-' + i), c2 = document.getElementById('ib-ora-a-' + i);
+            if (c1) c1.value = da;
+            if (c2) c2.value = a;
+        };
+        const numero = (id, minimo, massimo) => {
+            const n = parseInt(String((document.getElementById(id) || {}).value || ''), 10);
+            return isNaN(n) ? minimo : Math.min(massimo, Math.max(minimo, n));
+        };
+        /* Riempie i nove tavoli uno dopo l'altro a partire dall'ora indicata.
+           Li riempie TUTTI, non solo i vuoti: e' l'unico comportamento che si
+           possa prevedere guardando il pulsante. I tavoli che non si tengono si
+           svuotano dopo, con la crocetta della riga. */
+        const sequenza = document.getElementById('ib-ora-sequenza');
+        if (sequenza) sequenza.addEventListener('click', () => {
+            const primo = String((document.getElementById('ib-ora-primo') || {}).value || '');
+            if (!oraValida(primo)) { esito('Indica l\'ora del primo incontro.', true); return; }
+            const durata = numero('ib-ora-durata', 5, 480), pausa = numero('ib-ora-pausa', 0, 120);
+            let quando = minutiOra(primo);
+            let entrati = 0;
+            TEMI.forEach((t, i) => {
+                /* La giornata finisce a mezzanotte: oltre, gli orari
+                   ricomincerebbero da 00:xx e ogni tavolo risulterebbe finito
+                   prima di cominciare. Meglio fermarsi e dirlo. */
+                if (quando + durata > 24 * 60 - 1) { scriviOra(i, '', ''); return; }
+                scriviOra(i, oraDaMinuti(quando), oraDaMinuti(quando + durata));
+                quando += durata + pausa;
+                entrati++;
+            });
+            esito(entrati < TEMI.length
+                ? 'Nella giornata ci stanno ' + entrati + ' incontri: gli altri restano fuori programma. '
+                + 'Accorcia la durata o la pausa, o comincia prima.'
+                : '');
+            aggiornaAvvisoOrari();
+        });
+        // stesso orario su tutti: i tavoli in parallelo, in sale diverse
         const copia = document.getElementById('ib-ora-copia');
         if (copia) copia.addEventListener('click', () => {
-            const v = String((document.getElementById('ib-ora-tutte') || {}).value || '').trim();
-            if (!v) { esito('Scrivi l\'orario da mettere su tutti i tavoli.', true); return; }
-            TEMI.forEach((t, i) => { const c = document.getElementById('ib-ora-' + i); if (c) c.value = v; });
-            esito('');
+            const primo = String((document.getElementById('ib-ora-primo') || {}).value || '');
+            if (!oraValida(primo)) { esito('Indica l\'ora da mettere su tutti i tavoli.', true); return; }
+            const durata = numero('ib-ora-durata', 5, 480);
+            const fineMin = minutiOra(primo) + durata;
+            if (fineMin > 24 * 60 - 1) { esito('Con questa durata l\'incontro finirebbe dopo mezzanotte.', true); return; }
+            const fine = oraDaMinuti(fineMin);
+            TEMI.forEach((t, i) => scriviOra(i, primo, fine));
+            esito(''); aggiornaAvvisoOrari();
         });
         const pulisci = document.getElementById('ib-ora-pulisci');
         if (pulisci) pulisci.addEventListener('click', () => {
-            TEMI.forEach((t, i) => { const c = document.getElementById('ib-ora-' + i); if (c) c.value = ''; });
-            esito('');
+            TEMI.forEach((t, i) => scriviOra(i, '', ''));
+            esito(''); aggiornaAvvisoOrari();
         });
+        aggiornaAvvisoOrari();
         document.getElementById('ib-no').addEventListener('click', chiudiModale);
         document.getElementById('ib-ant').addEventListener('click', () => {
             const m = mailDi();
@@ -14519,13 +14672,24 @@
                     .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
         });
         document.getElementById('ib-si').addEventListener('click', () => {
+            if (!unica) {
+                const controllo = leggiOrari();
+                if (controllo.errori.length) {
+                    esito('Controlla gli orari: ' + controllo.errori.join('; ') + '.', true);
+                    aggiornaAvvisoOrari();
+                    return;
+                }
+            }
             const orari = orariCorrenti();
             if (!Object.keys(orari).length) {
                 esito(unica
                     ? 'Nessun orario risulta impostato per questo evento: aprilo dall\'invito a tutte le aziende, scrivi gli orari dei tavoli e riprova.'
                     : 'Scrivi l\'orario di almeno un tavolo: senza, chi riceve la mail non ha niente da prenotare.', true);
-                const c = document.getElementById('ib-ora-0');
-                if (c) c.focus();
+                const c = document.getElementById('ib-ora-da-0');
+                if (c) {
+                    if (c.scrollIntoView) c.scrollIntoView({ block: 'center' });
+                    c.focus();
+                }
                 return;
             }
             const scelti = destinatari();

@@ -999,22 +999,36 @@ summary.ni-testa::before {
 .nl-dest-riga input { width: auto; margin: 0; }
 .nl-dest-riga.escluso { color: var(--grigio-400); text-decoration: line-through; }
 
-/* invito B2B: gli orari, un tavolo per riga. Due colonne (argomento, orario)
-   che su schermo stretto diventano una sola. */
-.ib-ora-tutti { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-.ib-ora-tutti input { flex: 1 1 220px; min-width: 0; }
+/* invito B2B: gli orari, un tavolo per riga, con le due caselle dell'ora
+   (inizio e fine) invece di una frase da scrivere a mano. */
+.ib-ora-tutti {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;
+    padding: 8px 10px; background: #f8fafc; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm);
+}
+.ib-ora-et { font-size: 0.8rem; color: var(--grigio-600); }
+.ib-ora-tutti input { flex: none; margin: 0; padding: 4px 8px; font-size: 0.85rem; width: auto; }
+.ib-ora-tutti input[type="time"] { width: 7.5em; }
+.ib-ora-tutti input[type="number"] { width: 4.5em; }
+.ib-ora-tutti .btn { margin-left: 2px; }
 .ib-ora-griglia { border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; }
-label.ib-ora-riga {
-    display: flex; align-items: center; gap: 10px; margin: 0; padding: 6px 10px;
-    font-size: 0.85rem; font-weight: 400; color: var(--grigio-900);
+.ib-ora-riga {
+    display: flex; align-items: center; gap: 10px; padding: 5px 10px;
+    font-size: 0.85rem; color: var(--grigio-900);
     border-bottom: 1px solid var(--grigio-100);
 }
-label.ib-ora-riga:last-child { border-bottom: none; }
-.ib-ora-nome { flex: 0 0 40%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-label.ib-ora-riga input { flex: 1 1 auto; min-width: 0; margin: 0; padding: 5px 9px; font-size: 0.85rem; }
-@media (max-width: 640px) {
-    label.ib-ora-riga { flex-direction: column; align-items: stretch; gap: 4px; }
-    .ib-ora-nome { flex: none; font-weight: 600; }
+.ib-ora-riga:last-child { border-bottom: none; }
+.ib-ora-nome { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ib-ora-caselle { display: flex; align-items: center; gap: 6px; flex: none; }
+label.ib-ora-mini { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.78rem; font-weight: 400; color: var(--grigio-600); }
+label.ib-ora-mini input { margin: 0; padding: 4px 8px; font-size: 0.85rem; width: 7.5em; }
+/* la crocetta che toglie un tavolo dal programma: si vede solo quando serve */
+.ib-ora-vuota { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.8rem; padding: 2px 4px; line-height: 1; }
+.ib-ora-vuota:hover { color: var(--rosso); }
+.ib-ora-sovrapposti { color: #9a3412; }
+@media (max-width: 720px) {
+    .ib-ora-riga { flex-direction: column; align-items: stretch; gap: 5px; }
+    .ib-ora-nome { flex: none; font-weight: 600; white-space: normal; }
+    .ib-ora-caselle { justify-content: flex-start; }
 }
 
 /* invito B2B: l'elenco delle aziende da invitare (stessa cassetta dei
