@@ -62,6 +62,43 @@ Serve per generare i link di reimpostazione password.
 > dell'account fermerebbe anche le email con cui le persone entrano nell'area
 > riservata.
 
+### Casella PEC (inviti alle aziende)
+
+Servono **solo** se si usano gli inviti via PEC alle aziende, nella sezione
+Eventi dell'area riservata. Finche' mancano, quella parte si puo' usare per
+caricare e preparare gli elenchi, ma il servizio **si rifiuta di spedire**.
+
+| Nome | Valore |
+|---|---|
+| `PEC_SMTP_HOST` | `smtps.pec.aruba.it` (e' anche il valore predefinito: con Aruba si puo' omettere) |
+| `PEC_SMTP_PORT` | `465` |
+| `PEC_SMTP_USER` | l'indirizzo della casella PEC dello studio |
+| `PEC_SMTP_PASS` | la password di quella casella PEC |
+| `PEC_FROM_EMAIL` | lo stesso indirizzo PEC (il gestore rifiuta qualunque altro mittente) |
+| `PEC_FROM_NAME` | `Revilaw S.p.A.` |
+| `PEC_REPLY_TO` | una casella **ordinaria** dello studio, dove far arrivare le risposte |
+| `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
+| `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 300) |
+
+> **Perche' non si usa Brevo anche per queste.** Una PEC ha valore legale solo
+> se parte da una casella PEC attraverso l'SMTP del gestore accreditato: e' il
+> gestore a produrre la ricevuta di accettazione e quella di consegna. Brevo non
+> e' un gestore PEC, quindi quello che uscirebbe di li' sarebbe posta ordinaria,
+> senza ricevute, e diverse caselle PEC aziendali sono impostate per rifiutarla.
+> Per questo l'invio PEC ha un trasporto suo (`lib/pec.js`), separato da tutto
+> il resto.
+>
+> **Limiti del gestore.** Aruba PEC (come gli altri) pone dei tetti al numero di
+> messaggi: vanno verificati sul contratto della casella. Il servizio spedisce
+> **un destinatario per messaggio** (le ricevute restano leggibili una per una)
+> e a lotti, quindi un elenco lungo si spedisce in piu' riprese: l'area riservata
+> tiene il segno e non rispedisce a chi ha gia' ricevuto.
+>
+> **Le ricevute** (accettazione e consegna) arrivano nella casella PEC, non qui:
+> l'area riservata registra la presa in carico da parte del gestore e l'eventuale
+> rifiuto, non la consegna finale. Lo stato "Consegnata" si puo' segnare a mano
+> sulle schede.
+
 > **Nota sulla chiave (`FIREBASE_SERVICE_ACCOUNT`).** Il file JSON è su più righe e
 > Vercel non lo fa incollare bene nel campo valore. Conviene incollarlo **in base64**
 > (una sola riga). Dal tuo PC, in **PowerShell**, esegui — sostituendo il percorso col
