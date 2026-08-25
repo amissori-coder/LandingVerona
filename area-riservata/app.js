@@ -13054,6 +13054,11 @@
     let _evCache = {};
     // iscrizioni spuntate per la cancellazione in blocco (solo amministratore)
     let _evSelezionate = new Set();
+    /* Ultimo orario degli incontri B2B scritto per ciascun evento (solo in
+       memoria, per evento). L'invito parte quasi sempre a piu' riprese: senza
+       questo, l'orario andrebbe riscritto identico a ogni giro, ed e' proprio
+       riscrivendolo che si sbaglia. */
+    let _evOrarioB2B = {};
 
     let _evDiag = null;  // confronto fra l'elenco abilitati locale e quello sul server
     function caricaDiagnosticaEventi(poi) {
@@ -13907,39 +13912,95 @@
     }
 
     /* Invito agli incontri B2B: una mail personale (formato NGB) con il
-       collegamento firmato al modulo dei temi. A TUTTI dal pulsante della
-       sezione (a lotti, doppioni di indirizzo esclusi, gia' invitati saltati
-       salvo spunta) oppure a UNA SOLA persona dal menu della riga (`unica`),
-       dove il reinvio e' gia' spuntato: se la chiami per uno, di solito e'
-       apposta. Chi ha gia' espresso preferenze se le ritrova nella mail, con
-       l'invito a confermarle o modificarle. Le risposte tornano nell'elenco
-       e nel riepilogo per argomento. */
+       collegamento firmato al modulo dei temi. Prima dell'invio si decidono
+       due cose, in questa finestra:
+       - L'ORARIO in cui si svolgono gli incontri: obbligatorio, finisce in
+         evidenza nella mail, cosi' chi la riceve sa gia' quando presentarsi
+         invece di aspettare una seconda comunicazione. Resta scritto per
+         l'evento finche' la pagina e' aperta, quindi ai giri successivi e'
+         gia' li' e non si riscrive (e' riscrivendolo che si sbaglia).
+       - LE AZIENDE da invitare: l'invito si ragiona per impresa, non per
+         persona, quindi si spunta l'azienda e la mail parte a tutti i suoi
+         referenti iscritti. Di partenza sono spuntate tutte, com'era prima
+         quando il pulsante scriveva "invia a tutti"; per l'invio mirato a
+         poche imprese si usa "Togli tutte" e poi la ricerca.
+       A UNA SOLA persona si arriva dal menu della riga (`unica`): li' l'elenco
+       delle aziende non serve e il reinvio e' gia' spuntato, perche' se la
+       chiami per uno, di solito e' apposta. Chi ha gia' espresso preferenze se
+       le ritrova nella mail, con l'invito a confermarle o modificarle. Le
+       risposte tornano nell'elenco e nel riepilogo per argomento. */
     function modaleInvitoB2B(ev, unica) {
         if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale) return;
         if (unica && !unica.email) return;
         if (!unica && _evIscrizioni === null) { toast('Aspetta il caricamento delle iscrizioni e riprova.', 'rosso'); return; }
+        // un destinatario per INDIRIZZO: chi risulta iscritto due volte riceve una mail sola
         const visti = new Set();
-        const dest = [];
+        const candidati = [];
         (unica ? [unica] : (_evIscrizioni || [])).forEach(r => {
             const e = String(r.email || '').toLowerCase();
             if (!e || visti.has(e)) return;
             visti.add(e);
-            dest.push({ id: r.id, doc: r.doc || '' });
+            candidati.push({
+                id: r.id, doc: r.doc || '', email: e,
+                nome: (r.nome + ' ' + r.cognome).trim() || r.email,
+                azienda: String(r.azienda || '').trim()
+            });
         });
-        if (!dest.length) { toast('Nessun iscritto con indirizzo email in questo elenco.', 'rosso'); return; }
+        if (!candidati.length) { toast('Nessun iscritto con indirizzo email in questo elenco.', 'rosso'); return; }
+        /* Le aziende: una voce per ragione sociale. Il confronto ignora
+           maiuscole e spazi doppi, cosi' "Alfa S.r.l." e "ALFA  s.r.l." non
+           diventano due imprese diverse. Chi non ha l'azienda scritta finisce
+           in una voce sua, in fondo all'elenco: resta comunque invitabile,
+           invece di sparire dai destinatari possibili per un campo vuoto. */
+        const chiaveAz = t => String(t || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const aziende = [];
+        const perChiave = {};
+        candidati.forEach(c => {
+            const k = chiaveAz(c.azienda);
+            let a = perChiave[k];
+            if (!a) { a = perChiave[k] = { chiave: k, nome: c.azienda, persone: [] }; aziende.push(a); }
+            a.persone.push(c);
+        });
+        aziende.sort((a, b) => (a.chiave && b.chiave)
+            ? a.nome.localeCompare(b.nome, 'it')
+            : (a.chiave ? -1 : (b.chiave ? 1 : 0)));
+        const scelte = new Set(aziende.map(a => a.chiave));   // di partenza: tutte
+        let filtroAz = '';
+        const destinatari = () => aziende.filter(a => scelte.has(a.chiave))
+            .reduce((tot, a) => tot.concat(a.persone), []);
+        const orarioScritto = () => String((document.getElementById('ib-orario') || {}).value || '').trim();
         const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.invitoB2B({
-            evento: { titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '' }
+            evento: {
+                titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
+                luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
+            },
+            orario: orarioScritto()
         }) : null;
         const nomeUnica = unica ? ((unica.nome + ' ' + unica.cognome).trim() || unica.email) : '';
         const testaHint = unica
             ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') ricevera la mail con il suo collegamento personale al modulo dei temi. '
             + 'Le preferenze gia espresse compaiono nella mail e nel modulo, pronte da confermare o modificare.'
-            : 'Parte una mail personale a <b>' + dest.length + '</b> indirizzi (uno per iscritto con email, doppioni esclusi): '
-            + 'ognuno riceve il proprio collegamento al modulo dei temi, con le preferenze gia espresse riportate nella mail. '
+            : 'Scegli le aziende da invitare e l\'orario degli incontri: parte una mail personale a ogni referente iscritto delle aziende spuntate '
+            + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento al modulo dei temi e le preferenze gia espresse riportate nella mail. '
             + 'Le risposte compaiono nell\'elenco (colonne Interessi, Incontro B2B e Nota B2B) e nel riepilogo per argomento. Chi ha gia ricevuto l\'invito viene saltato.';
+        /* Il campo dell'orario e' testo libero, non un orologio: la fascia si
+           scrive come la si dice ("dalle 14:30 alle 18:00", "nel pomeriggio,
+           a partire dalle 15"), ed e' quella la frase che finisce nella mail. */
+        const campoOrario = '<div class="campo"><label for="ib-orario">Orario degli incontri B2B</label>'
+            + '<input type="text" id="ib-orario" value="' + esc(_evOrarioB2B[ev.id] || '') + '" '
+            + 'placeholder="es. dalle 14:30 alle 18:00" autocomplete="off">'
+            + '<div class="hint">Obbligatorio: finisce in evidenza nella mail, insieme'
+            + (ev.quando ? ' alla data (' + esc(ev.quando) + ')' : ' alla data')
+            + (ev.luogo ? ' e al luogo (' + esc(ev.luogo) + ')' : '') + '. Scrivilo come lo diresti a voce.</div></div>';
+        const campoAziende = unica
+            ? '<div class="campo"><label>Azienda</label><div class="hint" style="margin-top:0;">'
+            + esc(unica.azienda ? String(unica.azienda).trim() : 'Non indicata') + '</div></div>'
+            : '<div class="campo"><label>Aziende da invitare</label><div id="ib-aziende"></div></div>';
         apriModale('<h2>Invito agli incontri B2B - ' + esc(unica ? nomeUnica : (ev.titolo + ', ' + ev.quando)) + '</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">' + testaHint + '</p>'
+            + campoOrario
+            + campoAziende
             + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ib-forza"' + (unica ? ' checked' : '') + '> Manda anche a chi ha gia ricevuto l\'invito</label></div>'
             + '<div id="ib-anteprima" style="display:none;margin-top:10px;">'
             + '<iframe id="ib-frame" title="Anteprima della mail di invito" sandbox="allow-same-origin" '
@@ -13947,11 +14008,73 @@
             + '<div id="ib-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ib-no">Annulla</button>'
             + '<button class="btn btn-secondary" id="ib-ant">Anteprima mail</button>'
-            + '<button class="btn btn-primary" id="ib-si">' + (unica ? 'Invia l\'invito' : 'Invia a tutti') + '</button></div>', { classe: 'larga' });
+            + '<button class="btn btn-primary" id="ib-si">Invia l\'invito</button></div>', { classe: 'larga' });
         const esito = (testo, ko) => {
             const e = document.getElementById('ib-esito');
             if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
         };
+        /* Il pulsante dice sempre a QUANTI si sta per scrivere: "Invia a tutti"
+           su una selezione di tre aziende sarebbe una bugia, ed e' il genere di
+           bugia che si scopre dopo l'invio. Senza aziende spuntate non si parte. */
+        function aggiornaInvio() {
+            const b = document.getElementById('ib-si');
+            if (!b || b.dataset.inCorso === '1') return;
+            const n = unica ? 1 : destinatari().length;
+            b.textContent = unica ? 'Invia l\'invito'
+                : (n ? 'Invia a ' + n + (n === 1 ? ' destinatario' : ' destinatari') : 'Nessun destinatario');
+            b.disabled = !n;
+        }
+        /* L'elenco delle aziende, con quante persone riceverebbero per ognuna.
+           La ricerca filtra solo cio' che si vede: le spunte di chi resta fuori
+           dal filtro non si perdono, altrimenti cercare cancellerebbe la
+           selezione appena fatta. */
+        function disegnaAziende() {
+            const cont = document.getElementById('ib-aziende');
+            if (!cont) return;
+            const q = filtroAz.trim().toLowerCase();
+            const visibili = q
+                ? aziende.filter(a => ((a.nome || 'senza azienda') + ' '
+                    + a.persone.map(p => p.nome + ' ' + p.email).join(' ')).toLowerCase().indexOf(q) >= 0)
+                : aziende;
+            const riga = a => '<label class="ib-az-riga' + (scelte.has(a.chiave) ? '' : ' escluso') + '" '
+                + 'title="' + esc(a.persone.map(p => p.nome + ' <' + p.email + '>').join('\n')) + '">'
+                + '<input type="checkbox" class="ib-az" value="' + esc(a.chiave) + '"' + (scelte.has(a.chiave) ? ' checked' : '') + '>'
+                + '<span class="ib-az-nome">' + esc(a.nome || '(azienda non indicata)') + '</span>'
+                + '<span class="ib-az-num">' + a.persone.length + (a.persone.length === 1 ? ' referente' : ' referenti') + '</span></label>';
+            const nScelte = aziende.filter(a => scelte.has(a.chiave)).length;
+            cont.innerHTML = '<div class="nl-dest-barra" style="margin-top:0;">'
+                + '<input type="search" id="ib-cerca-az" placeholder="Cerca un\'azienda, un nome o un indirizzo..." value="' + esc(filtroAz) + '">'
+                + '<button type="button" class="btn btn-sm btn-ghost" data-tutteaz="1">Spunta le mostrate</button>'
+                + '<button type="button" class="btn btn-sm btn-ghost" data-tutteaz="0">Togli le mostrate</button></div>'
+                + '<div class="nl-dest-lista">' + (visibili.length
+                    ? visibili.map(riga).join('')
+                    : '<div class="hint" style="padding:10px;">Nessuna azienda corrisponde alla ricerca.</div>') + '</div>'
+                + '<div class="hint" style="margin-top:6px;"><b>' + nScelte + '</b> di ' + aziende.length
+                + (aziende.length === 1 ? ' azienda' : ' aziende') + ' spuntate &middot; <b>' + destinatari().length + '</b> '
+                + (destinatari().length === 1 ? 'destinatario' : 'destinatari')
+                + (q ? ' &middot; la ricerca ne mostra ' + visibili.length + ', le spunte fuori ricerca restano' : '') + '</div>';
+            const cerca = document.getElementById('ib-cerca-az');
+            if (cerca) cerca.addEventListener('input', () => {
+                filtroAz = cerca.value;
+                disegnaAziende();
+                const c2 = document.getElementById('ib-cerca-az');
+                if (c2) { c2.focus(); c2.setSelectionRange(c2.value.length, c2.value.length); }
+            });
+            cont.querySelectorAll('.ib-az').forEach(c => c.addEventListener('change', () => {
+                if (c.checked) scelte.add(c.value); else scelte.delete(c.value);
+                disegnaAziende();
+            }));
+            cont.querySelectorAll('[data-tutteaz]').forEach(b => b.addEventListener('click', () => {
+                const dentro = b.getAttribute('data-tutteaz') === '1';
+                visibili.forEach(a => { if (dentro) scelte.add(a.chiave); else scelte.delete(a.chiave); });
+                disegnaAziende();
+            }));
+            aggiornaInvio();
+        }
+        if (!unica) disegnaAziende();
+        aggiornaInvio();
+        const campo = document.getElementById('ib-orario');
+        if (campo) campo.addEventListener('input', () => esito(''));
         document.getElementById('ib-no').addEventListener('click', chiudiModale);
         document.getElementById('ib-ant').addEventListener('click', () => {
             const m = mailDi();
@@ -13961,7 +14084,7 @@
             cont.style.display = chiusa ? '' : 'none';
             document.getElementById('ib-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
             // per una persona sola l'anteprima e' la SUA mail (nome e preferenze
-            // veri); per l'invio a tutti un esempio, con il riquadro delle
+            // veri); per l'invio a piu' aziende un esempio, con il riquadro delle
             // preferenze mostrato per far vedere come appare a chi le ha
             const temiAnt = unica
                 ? String((unica.extra && unica.extra['Interessi']) || '').split(',').map(s => s.trim()).filter(Boolean).join(', ')
@@ -13972,11 +14095,26 @@
                     .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
         });
         document.getElementById('ib-si').addEventListener('click', () => {
+            const orario = orarioScritto();
+            if (!orario) {
+                esito('Scrivi l\'orario in cui si svolgeranno gli incontri B2B: e la prima cosa che chiedera chi riceve la mail.', true);
+                const c = document.getElementById('ib-orario');
+                if (c) c.focus();
+                return;
+            }
+            const scelti = destinatari();
+            if (!scelti.length) { esito('Nessuna azienda spuntata: scegli almeno un\'azienda da invitare.', true); return; }
             const m = mailDi();
             if (!m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
+            // l'orario resta pronto per il prossimo invio dello stesso evento
+            _evOrarioB2B[ev.id] = orario;
+            const dest = scelti.map(c => ({ id: c.id, doc: c.doc }));
+            const nAziende = aziende.filter(a => scelte.has(a.chiave)).length;
             const forza = !!(document.getElementById('ib-forza') || {}).checked;
             const b = document.getElementById('ib-si');
+            b.dataset.inCorso = '1';
             b.disabled = true; b.textContent = 'Invio...';
+            const liberaInvio = () => { delete b.dataset.inCorso; b.disabled = false; aggiornaInvio(); };
             // a lotti da 40: il servizio spedisce una mail alla volta, e cosi'
             // nessuna chiamata sfora il tempo massimo della funzione
             (async () => {
@@ -13991,7 +14129,7 @@
                         });
                     } catch (e) { r = { ok: false, msg: 'Servizio non raggiungibile.' }; }
                     if (!r.ok) {
-                        b.disabled = false; b.textContent = 'Invia a tutti';
+                        liberaInvio();
                         esito((r.msg || 'Invio non riuscito.') + (inviate ? ' Inviate finora: ' + inviate + '.' : ''), true);
                         return;
                     }
@@ -14001,10 +14139,15 @@
                 }
                 chiudiModale();
                 toast('Invito B2B: ' + inviate + ' mail inviate'
+                    + (unica ? '' : ' a ' + nAziende + (nAziende === 1 ? ' azienda' : ' aziende'))
                     + (gia ? ', ' + gia + ' gia invitati saltati' : '')
                     + (saltate ? ', ' + saltate + ' senza scheda o email' : '')
                     + (falliti ? ', ' + falliti + ' non riuscite' : '') + '.', falliti ? 'rosso' : 'verde');
-                try { Audit.registra(Auth.utenteCorrente, 'Evento: invito B2B inviato', 'sistema', ev.id, null, inviate + ' su ' + dest.length + (forza ? ' (reinvio incluso)' : '')); } catch (e) { }
+                try {
+                    Audit.registra(Auth.utenteCorrente, 'Evento: invito B2B inviato', 'sistema', ev.id, null,
+                        inviate + ' su ' + dest.length + (unica ? '' : ' (' + nAziende + ' aziende)')
+                        + ', orario ' + orario + (forza ? ' (reinvio incluso)' : ''));
+                } catch (e) { }
             })();
         });
     }
