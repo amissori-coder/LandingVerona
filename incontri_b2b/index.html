@@ -55,6 +55,7 @@
         .col-tavoli.vuoto { color: var(--tenue); font-style: italic; }
         .scelti-elenco { margin: 10px 0 0; padding-left: 20px; text-align: left; display: inline-block; }
         .rifai { font: inherit; font-size: 0.95rem; color: var(--navy); background: none; border: none; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 14px; }
+        .avviso-mail { color: var(--rosso); }
         .piede { max-width: 680px; margin: 0 auto; padding: 0 20px 40px; text-align: center; font-size: 0.8rem; color: #94A3B8; }
         .piede a { color: var(--tenue); }
     </style>
@@ -209,7 +210,7 @@
                         esito.textContent = (esitoR && esitoR.msg) || 'Invio non riuscito: riprovi fra un momento.';
                         return;
                     }
-                    fatto(r, temi);
+                    fatto(r, temi, esitoR.mailInviata !== false);
                 }).catch(function () {
                     b.disabled = false; b.textContent = etichettaB;
                     esito.className = 'esito ko';
@@ -217,16 +218,24 @@
                 });
             }
             /* Prenotazione presa: si ripete quali tavoli, perche' la conferma
-               di una scelta senza la scelta scritta accanto non conferma niente. */
-            function fatto(r, temi) {
+               di una scelta senza la scelta scritta accanto non conferma niente.
+               E si dice che la mail con il foglio per il desk e' partita: e'
+               quella la cosa da cercare in casella, e se non e' partita conviene
+               saperlo subito invece che la mattina del convegno. */
+            function fatto(r, temi, mailInviata) {
                 var elenco = temi.map(function (i) { return '<li>' + esc(TEMI[i]) + '</li>'; }).join('');
                 box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
                     + '<h2>Prenotazione registrata</h2>'
                     + '<p>La aspettiamo' + (temi.length > 1 ? ' ai tavoli' : ' al tavolo') + ':</p>'
                     + '<ul class="scelti-elenco">' + elenco + '</ul>'
-                    + '<p style="margin-top:12px;">Le confermeremo il turno preciso e gli specialisti che saranno a Sua disposizione.'
-                    + '<br>Per cambiare la scelta basta riaprire il collegamento della mail: questa pagina resta Sua.</p>'
-                    + '<button type="button" class="rifai" id="rifai">Cambia la scelta adesso</button></div>';
+                    + (mailInviata
+                        ? '<p style="margin-top:12px;">Le abbiamo mandato una mail di conferma con il <b>foglio da presentare al desk</b> in allegato: '
+                        + 'lo porti stampato o sul telefono.</p>'
+                        : '<p style="margin-top:12px;" class="avviso-mail">La prenotazione &egrave; registrata, ma la mail di conferma con il foglio per il desk non &egrave; partita. '
+                        + 'Riprovi fra qualche minuto con il pulsante qui sotto, oppure scriva a info@nextgenerationbusiness.it: al desk basta il Suo nome.</p>')
+                    + '<p style="margin-top:10px;">Le confermeremo il turno preciso e gli specialisti che saranno a Sua disposizione.'
+                    + '<br>Pu&ograve; cambiare la scelta quando vuole: riceve subito una nuova mail con il foglio aggiornato.</p>'
+                    + '<button type="button" class="rifai" id="rifai">Cambia la scelta o rimanda la mail</button></div>';
                 document.getElementById('rifai').addEventListener('click', apri);
             }
             function apri() {

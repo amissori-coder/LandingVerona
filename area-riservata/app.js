@@ -14258,6 +14258,16 @@
                                lo riceve di nuovo, con la scelta aggiornata scritta dentro.
                                Saltarlo lascerebbe fuori proprio i referenti gia' contattati. */
                             azione: 'invita-b2b', evento: ev.id, destinatari: dest.slice(i, i + 40), forza: true,
+                            /* Orario e dati dell'evento viaggiano con l'invito e restano
+                               scritti sulla scheda: la mail di conferma e il foglio da
+                               presentare al desk partono DOPO, quando l'ospite prenota,
+                               e il servizio non ha una tabella degli eventi da cui
+                               ricavarli. */
+                            orario: orario,
+                            eventoDati: {
+                                titolo: ev.titolo, quando: ev.quando,
+                                luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
+                            },
                             mail: { oggetto: m.oggetto, html: m.html, testo: m.testo }
                         });
                     } catch (e) { r = { ok: false, msg: 'Servizio non raggiungibile.' }; }

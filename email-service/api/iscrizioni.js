@@ -125,15 +125,13 @@ const CAMPI_MATCHING = {
 };
 
 /* I tavoli B2B PRENOTATI rispondendo all'invito: colonna a parte, perche' e'
-   quella con cui si compongono i tavoli il giorno del convegno. Le schede che
-   avevano risposto al vecchio modulo (risposta registrata ma nessun `b2bScelte`)
-   portano dentro `interessi` la loro scelta: si prende quella, altrimenti
-   quelle risposte sparirebbero. */
+   quella con cui si compongono i tavoli il giorno del convegno. Conta solo
+   `b2bScelte`: prima di questo invito nessun modulo di prenotazione era mai
+   partito, quindi `interessi` sono sempre e soltanto preferenze. */
 const COLONNA_B2B = 'B2B prenotati';
 function prenotatiB2B(v) {
-    if (Array.isArray(v.b2bScelte)) return v.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
-    const risposto = !!(v.b2bRisposta && v.b2bRisposta.quando);
-    return risposto ? String(v.interessi || '').split(',').map(x => x.trim()).filter(Boolean) : [];
+    if (!Array.isArray(v.b2bScelte)) return [];
+    return v.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
 }
 
 function extraMatching(v) {

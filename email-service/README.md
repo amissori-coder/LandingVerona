@@ -322,9 +322,38 @@ tavoli), con `b2bRisposta` a fare da data; `b2b-salva` non tocca piu `interessi`
   gonfierebbe i tavoli di gente che non ha detto di venire.
 - Il riquadro "La Sua scelta attuale" della mail riporta la prenotazione, non le
   preferenze. Chi non ha ancora prenotato non lo vede.
-- Le schede che avevano risposto al VECCHIO modulo (risposta registrata ma
-  nessun `b2bScelte`) tengono la scelta dentro `interessi`: chi legge le
-  prenotazioni prende quella, altrimenti quelle risposte sparirebbero.
+- Vale SOLO `b2bScelte`: prima di questo invito nessun modulo di prenotazione
+  era mai partito, quindi non c'e' niente da recuperare altrove e `interessi`
+  non e mai una prenotazione.
+
+### Conferma della prenotazione, con il foglio per il desk
+
+Appena l'ospite salva la scelta, `b2b-salva` gli manda una mail di conferma
+(`MNGB.confermaB2B`) con in allegato il PDF della prenotazione
+(`lib/pdf-prenotazione.js`): nome, azienda, convegno, orario, luogo e i tavoli
+scelti, da presentare al desk "Incontri B2B". La scelta si puo cambiare quante
+volte si vuole: ogni salvataggio rimanda la mail con un foglio aggiornato, e in
+fondo al foglio c'e la data di emissione, perche vale sempre l'ultimo.
+
+- **Da dove vengono orario, luogo e nome dell'evento**: dall'invito. L'area
+  riservata li manda insieme ai destinatari (`orario` e `eventoDati` nel corpo
+  di `invita-b2b`) e `presenze.js` li scrive su `b2bInvito` di ogni scheda. Il
+  servizio non ha una tabella degli eventi - sta nell'area riservata - e
+  tenerne una seconda qui vorrebbe dire vederle divergere.
+- **Il PDF e scritto a mano** (nessuna libreria): una pagina A4, i due font
+  standard Helvetica in codifica WinAnsi, testo e rettangoli. Una libreria di
+  impaginazione porterebbe megabyte in una funzione che deve partire in fretta.
+  Cio che Latin-1 non ha (virgolette curve, trattini lunghi) viene ricondotto al
+  carattere semplice piu vicino prima di scrivere.
+- **Se la posta non risponde** la prenotazione resta comunque registrata e la
+  risposta porta `mailInviata: false`: la pagina lo dice a chi ha appena
+  prenotato, invece di far credere che il foglio sia in arrivo.
+- **I limiti**: le azioni che si aprono solo dal collegamento firmato
+  (`completa-*`, `b2b-*`) NON passano dal limite per indirizzo IP - i referenti
+  di un'azienda escono tutti dallo stesso IP dell'ufficio e se lo mangerebbero
+  in due persone - ma il salvataggio ha un tetto per SCHEDA (12 ogni 10 minuti),
+  che lascia passare i ripensamenti veri e ferma l'accanimento sul pulsante, che
+  sarebbe una mail dietro l'altra.
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 
