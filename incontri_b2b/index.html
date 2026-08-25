@@ -133,25 +133,25 @@
                 return (indici || []).map(function (i) { return corte[i] || TEMI[i] || ''; })
                     .filter(Boolean);
             }
-            /* Chi altro dell'azienda ha gia' scelto, e cosa. Chi non ha ancora
-               risposto compare lo stesso: sapere che un collega non si e'
-               ancora prenotato vale quanto sapere dove si e' seduto. */
+            /* Chi altro dell'azienda ha gia' prenotato, e a quali tavoli. Chi non
+               ha ancora risposto compare lo stesso: sapere che un collega non si
+               e' ancora prenotato vale quanto sapere dove si e' seduto. I temi
+               spuntati da lui al momento dell'iscrizione si dicono a parte e con
+               parole diverse: sono preferenze, non un posto prenotato. */
             function colleghiHtml(r) {
                 var lista = r.colleghi || [];
                 if (!lista.length) return '';
                 var voci = lista.map(function (c) {
                     var tavoli = etichette(r, c.temi);
+                    var pref = etichette(r, c.preferenze);
+                    var riga = tavoli.length
+                        ? tavoli.map(esc).join(' &middot; ')
+                        : (pref.length
+                            ? 'Non ha ancora prenotato &middot; iscrivendosi aveva indicato: ' + pref.map(esc).join(', ')
+                            : 'Non ha ancora scelto i suoi incontri');
                     return '<li><span class="col-chi">' + esc(c.nome) + '</span>'
                         + (c.ruolo ? ' <span class="col-ruolo">' + esc(c.ruolo) + '</span>' : '')
-                        + '<div class="col-tavoli' + (tavoli.length ? '' : ' vuoto') + '">'
-                        + (tavoli.length ? tavoli.map(esc).join(' &middot; ')
-                            : 'Non ha ancora scelto i suoi incontri')
-                        /* Chi ha temi in scheda ma non ha ancora aperto l'invito li
-                           aveva indicati iscrivendosi: e' un'intenzione, non una
-                           prenotazione, e conviene che si veda la differenza. */
-                        + (tavoli.length && !c.prenotato
-                            ? ' <span class="col-ruolo">(indicati all\'iscrizione)</span>' : '')
-                        + '</div></li>';
+                        + '<div class="col-tavoli' + (tavoli.length ? '' : ' vuoto') + '">' + riga + '</div></li>';
                 }).join('');
                 return '<div class="colleghi"><h2>Gli incontri dei Suoi colleghi</h2>'
                     + '<p class="spiega">Gli altri referenti'
@@ -171,13 +171,19 @@
                     + 'a invitiamo agli incontri B2B riservati che si tengono durante la giornata: '
                     + 'un tavolo per argomento, con i professionisti e gli specialisti della materia. '
                     + 'Scelga a quale o a quali desidera partecipare.'
-                    + (scelti.length ? ' Le caselle gia segnate sono la Sua scelta attuale: puo confermarla o cambiarla.' : '')
+                    /* Le caselle possono venire da due posti diversi, e dirlo cambia
+                       il senso di quello che si sta guardando: una prenotazione gia
+                       fatta, oppure i temi indicati iscrivendosi, che sono solo un
+                       punto di partenza e non valgono come prenotazione. */
+                    + (r.prenotato ? ' Le caselle gia segnate sono la Sua prenotazione: puo confermarla o cambiarla.'
+                        : (r.daPreferenze ? ' Abbiamo gia segnato i temi che aveva indicato iscrivendosi: li confermi, o li cambi. '
+                            + 'Finche non conferma, per noi non c\'e ancora una prenotazione.' : ''))
                     + '</div>'
                     + '<div class="temi">' + caselle + '</div>'
                     + '<div class="campo"><label for="nota">Il progetto o l\'esigenza su cui vorrebbe confrontarsi (facoltativo)</label>'
                     + '<textarea id="nota" maxlength="800" placeholder="Qualche riga basta: ci aiuta a scegliere gli interlocutori giusti.">' + esc(r.nota || '') + '</textarea></div>'
                     + '<div class="azioni"><button type="button" class="invia" id="invia">'
-                    + (scelti.length ? 'Confermo la scelta' : 'Prenota il mio incontro') + '</button>'
+                    + (r.prenotato ? 'Confermo la prenotazione' : 'Prenota il mio incontro') + '</button>'
                     + '<div class="esito" id="esito"></div></div>'
                     + colleghiHtml(r);
                 document.getElementById('invia').addEventListener('click', function () { invia(r); });

@@ -1012,6 +1012,12 @@ label.ib-az-riga:last-child { border-bottom: none; }
 label.ib-az-riga input[type="checkbox"] { width: auto; margin: 0; padding: 0; flex: none; }
 label.ib-az-riga.escluso { color: var(--grigio-400); }
 .ib-az-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ib-az-alias { color: var(--grigio-400); font-weight: 400; font-size: 0.76rem; }
+/* elenco eventi: i tavoli B2B PRENOTATI si leggono a colpo d'occhio, le
+   preferenze dichiarate iscrivendosi restano in secondo piano - sono
+   un'informazione, non un impegno, e confonderle falserebbe i tavoli */
+.ev-b2b-si { color: var(--blu-900); font-weight: 600; }
+.ev-b2b-pref { color: var(--grigio-600); }
 label.ib-az-riga input:checked + .ib-az-nome { font-weight: 600; color: var(--blu-900); }
 .ib-az-num { color: var(--grigio-400); font-size: 0.76rem; white-space: nowrap; }
 .nl-esito { font-size: 0.88rem; margin: 8px 0 0; }

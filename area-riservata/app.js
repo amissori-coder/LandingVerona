@@ -13204,9 +13204,11 @@
     }
     function sceltaColonneHtml(ev, lista) {
         let disp = colonneExtraDisponibili(lista);
-        // negli eventi con inserimento manuale, Portale e Partecipanti sono gia'
-        // colonne fisse della tabella: offrirle anche qui le farebbe raddoppiare
-        if (ev.manuale) disp = disp.filter(c => c !== 'Portale' && c !== 'Partecipanti');
+        /* negli eventi con inserimento manuale quattro colonne sono gia' fisse
+           nella tabella (Portale, Partecipanti, B2B prenotati e le preferenze
+           dell'iscrizione): offrirle anche qui le farebbe raddoppiare */
+        const FISSE = ['Portale', 'Partecipanti', 'B2B prenotati', 'Interessi'];
+        if (ev.manuale) disp = disp.filter(c => FISSE.indexOf(c) < 0);
         // il pannello si mostra SEMPRE: se non c'e' niente da aggiungere lo dice, invece
         // di sparire e lasciare il dubbio che la funzione non esista
         if (!disp.length) {
@@ -13239,10 +13241,21 @@
         // delle azioni compare con quella sola voce
         const puoRichiedere = puoAggiungereIscrizioni();
         const azioniEv = adminEv || puoRichiedere;
-        // negli eventi con inserimento manuale, portale e partecipanti si vedono
-        // SEMPRE: sono il modo per distinguere le iscrizioni riportate a mano
+        /* Negli eventi con inserimento manuale si vedono SEMPRE quattro colonne,
+           senza doverle spuntare fra le aggiuntive:
+             Portale e Partecipanti, che distinguono le iscrizioni riportate a mano;
+             "B2B prenotati", i tavoli scelti rispondendo all'invito - e' il dato
+             con cui si compongono gli incontri, quindi non puo' stare nascosto;
+             "Interessi", le preferenze dichiarate ISCRIVENDOSI, che sono un'altra
+             cosa: dicono cosa interessa all'impresa, non chi verra' a un tavolo.
+           Stanno una accanto all'altra apposta: e' il confronto fra le due che
+           dice a chi vale la pena richiedere la prenotazione. */
         const fisse = !!ev.manuale;
-        const extra = (_evColonne[ev.id] || []).filter(c => !(fisse && (c === 'Portale' || c === 'Partecipanti')));
+        // "a, b, c" scritto come "a · b · c", con ogni voce al riparo dall'HTML
+        const elencoVoci = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean).map(esc).join(' &middot; ');
+        const COL_B2B = 'B2B prenotati', COL_PREF = 'Interessi';
+        const FISSE_EXTRA = ['Portale', 'Partecipanti', COL_B2B, COL_PREF];
+        const extra = (_evColonne[ev.id] || []).filter(c => !(fisse && FISSE_EXTRA.indexOf(c) >= 0));
         const righe = lista.map(r => {
             const p = EventiPresenze.di(ev.id, r.id) || {};
             const opz = (v, t) => '<option value="' + v + '"' + (p.stato === v ? ' selected' : '') + '>' + t + '</option>';
@@ -13270,7 +13283,12 @@
                    resterebbe ambiguo proprio nella colonna fatta per capire
                    da dove arriva ogni riga. */
                 + (fisse ? '<td data-label="Portale">' + esc((r.extra && r.extra.Portale) || 'Sito NGB') + '</td>'
-                    + '<td data-label="Partecipanti">' + partecipantiDi(r) + '</td>' : '')
+                    + '<td data-label="Partecipanti">' + partecipantiDi(r) + '</td>'
+                    + (v => '<td data-label="B2B prenotati">'
+                        + (v ? '<span class="ev-b2b-si">' + v + '</span>' : '<span class="hint">non prenotato</span>')
+                        + '</td>')(elencoVoci((r.extra || {})[COL_B2B]))
+                    + '<td data-label="Preferenze iscrizione"><span class="ev-b2b-pref">'
+                    + (elencoVoci((r.extra || {})[COL_PREF]) || '-') + '</span></td>' : '')
                 + (ev.tutti ? '<td data-label="Evento"><span class="ev-tag">' + esc(nomeEventoDa(r.pagina)) + '</span></td>' : '')
                 + extra.map(c => '<td data-label="' + esc(c) + '">' + esc((r.extra && r.extra[c]) || '-') + '</td>').join('')
                 /* "Aggiornato da": l'ultima mano che ha toccato la scheda. Con una
@@ -13329,7 +13347,9 @@
             + '<div class="tabella-wrap ev-wrap"><table class="dati compatta"><thead><tr>'
             + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
             + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th>'
-            + (fisse ? '<th>Portale</th><th>Partecipanti</th>' : '')
+            + (fisse ? '<th>Portale</th><th>Partecipanti</th>'
+                + '<th title="I tavoli scelti rispondendo all\'invito B2B">B2B prenotati</th>'
+                + '<th title="I temi indicati al momento dell\'iscrizione: preferenze, non prenotazioni">Preferenze iscrizione</th>' : '')
             + (ev.tutti ? '<th>Evento</th>' : '')
             + extra.map(c => '<th>' + esc(c) + '</th>').join('')
             + (ev.tutti ? '' : '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
@@ -13417,7 +13437,7 @@
             + ((ev.manuale || ev.tutti) ? '<div class="ev-num">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
-            + gestione + riepilogoInteressiHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
+            + gestione + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
             b.addEventListener('click', () => apriEvento(b.dataset.ev)));
@@ -13438,7 +13458,7 @@
         const bB2b = document.getElementById('ev-b2b');
         if (bB2b) bB2b.addEventListener('click', () => modaleInvitoB2B(ev));
         const bB2bPdf = document.getElementById('ev-b2b-pdf');
-        if (bB2bPdf) bB2bPdf.addEventListener('click', () => stampaInteressiB2B(ev));
+        if (bB2bPdf) bB2bPdf.addEventListener('click', () => stampaPrenotazioniB2B(ev));
         const bDiag = document.getElementById('ev-diag-btn');
         if (bDiag) bDiag.addEventListener('click', () => {
             bDiag.disabled = true; bDiag.textContent = 'Controllo...';
@@ -13804,39 +13824,43 @@
         });
     }
 
-    /* Riepilogo per ARGOMENTO degli incontri B2B: per ogni tavolo, quante
-       persone si sono prenotate e chi sono. E' l'elenco con cui si compongono i
-       tavoli il giorno del convegno. Somma tutto cio' che sta nella colonna
-       "Interessi", da qualunque strada arrivi (pagina di prenotazione dell'invito
-       B2B o form di iscrizione del sito): il raggruppamento e' per etichetta,
-       quindi anche le voci storiche compaiono. Una persona puo' stare sotto piu'
-       tavoli: sono incontri diversi, non una scelta sola. */
-    /* Raggruppa le scelte B2B per argomento: per ogni tavolo, l'elenco delle
-       persone con TUTTI i loro dati. Lo usano il riquadro a video e la stampa. */
-    function gruppiInteressiB2B(lista) {
+    /* Riepilogo per ARGOMENTO degli incontri B2B: per ogni tavolo, chi si e'
+       PRENOTATO rispondendo all'invito. E' l'elenco con cui si compongono i
+       tavoli il giorno del convegno, quindi conta solo chi ha risposto: i temi
+       spuntati al momento dell'iscrizione sono preferenze, non prenotazioni, e
+       sommarli qui gonfierebbe i tavoli di gente che non ha detto di venire.
+       Quelle preferenze restano visibili nell'elenco, colonna per colonna,
+       accanto alla prenotazione. Una persona puo' stare sotto piu' tavoli: sono
+       incontri diversi, non una scelta sola. */
+    /* Raggruppa le prenotazioni B2B per argomento: per ogni tavolo, l'elenco
+       delle persone con TUTTI i loro dati. Lo usano il riquadro e la stampa. */
+    function gruppiPrenotazioniB2B(lista) {
         const gruppi = {};
         (lista || []).forEach(r => {
-            const grezzo = (r.extra && r.extra['Interessi']) || '';
+            const grezzo = (r.extra && r.extra['B2B prenotati']) || '';
             String(grezzo).split(',').map(s => s.trim()).filter(Boolean).forEach(tema => {
                 (gruppi[tema] = gruppi[tema] || []).push({
                     chi: (r.nome + ' ' + r.cognome).trim() || r.email,
                     azienda: r.azienda || '', ruolo: r.ruolo || '',
                     email: r.email || '', telefono: r.telefono || '',
                     portale: (r.extra && r.extra.Portale) || 'Sito NGB',
-                    nota: (r.extra && r.extra['Nota B2B']) || ''
+                    nota: (r.extra && r.extra['Nota B2B']) || '',
+                    // le preferenze dell'iscrizione: nella stampa aiutano a capire
+                    // se il tavolo prenotato e' quello che l'impresa cercava
+                    preferenze: (r.extra && r.extra['Interessi']) || ''
                 });
             });
         });
         return gruppi;
     }
-    function riepilogoInteressiHtml(ev, lista) {
+    function riepilogoPrenotazioniHtml(ev, lista) {
         if (!ev || !ev.manuale || !lista || !lista.length) return '';
-        const gruppi = gruppiInteressiB2B(lista);
+        const gruppi = gruppiPrenotazioniB2B(lista);
         const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
         if (!temi.length) return '';
         return '<div class="card"><div class="s-admin" style="padding:0;border:none;box-shadow:none;background:none;">'
             + '<div class="s-admin-txt"><strong>Incontri B2B: prenotati per argomento</strong>'
-            + '<div class="hint">Chi si e prenotato a ciascun tavolo, dalla pagina dell\'invito B2B o dal form del sito. Una persona puo comparire sotto piu tavoli; la nota (se c\'e) racconta il progetto.</div></div>'
+            + '<div class="hint">Chi si e prenotato a ciascun tavolo <b>rispondendo all\'invito B2B</b>. I temi spuntati al momento dell\'iscrizione non entrano qui: sono preferenze, e si leggono nella colonna "Preferenze iscrizione" dell\'elenco. Una persona puo comparire sotto piu tavoli; la nota (se c\'e) racconta il progetto.</div></div>'
             + '<div class="s-admin-azioni"><button class="btn btn-sm btn-secondary" id="ev-b2b-pdf">Stampa PDF</button></div></div>'
             + temi.map(t => '<details class="ev-colonne" style="margin-top:8px;"><summary>' + esc(t) + ' &middot; ' + gruppi[t].length + '</summary>'
                 + '<div style="margin-top:6px;">' + gruppi[t].map(p =>
@@ -13851,8 +13875,8 @@
        compresa). Si apre la finestra di stampa del browser, da cui si salva
        in PDF: niente librerie, e l'impaginazione la fanno le regole di
        stampa scritte qui dentro. */
-    function stampaInteressiB2B(ev) {
-        const gruppi = gruppiInteressiB2B(_evIscrizioni);
+    function stampaPrenotazioniB2B(ev) {
+        const gruppi = gruppiPrenotazioniB2B(_evIscrizioni);
         const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
         if (!temi.length) { toast('Nessuna prenotazione ancora raccolta per questo evento.', 'rosso'); return; }
         const persone = new Set();
@@ -13862,14 +13886,14 @@
         const sezioni = temi.map(t =>
             '<section class="tema"><h2>' + esc(t) + ' <span class="conta">' + gruppi[t].length
             + (gruppi[t].length === 1 ? ' prenotato' : ' prenotati') + '</span></h2>'
-            + '<table><thead><tr><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Portale</th><th>Progetto / esigenza</th></tr></thead><tbody>'
+            + '<table><thead><tr><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Preferenze iscrizione</th><th>Progetto / esigenza</th></tr></thead><tbody>'
             + gruppi[t].map(p => '<tr>'
                 + '<td class="forte">' + esc(p.chi) + '</td>'
                 + '<td>' + esc(p.azienda || '-') + '</td>'
                 + '<td>' + esc(p.ruolo || '-') + '</td>'
                 + '<td>' + esc(p.email || '-') + '</td>'
                 + '<td>' + esc(p.telefono || '-') + '</td>'
-                + '<td>' + esc(p.portale) + '</td>'
+                + '<td class="nota">' + esc(p.preferenze || '-') + '</td>'
                 + '<td class="nota">' + esc(p.nota || '-') + '</td>'
                 + '</tr>').join('')
             + '</tbody></table></section>').join('');
@@ -13898,7 +13922,7 @@
             + '</style></head><body>'
             + '<header><h1>Incontri B2B: prenotati per argomento</h1>'
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.sottotitolo ? ' &middot; ' + esc(ev.sottotitolo) : '') + '</div>'
-            + '<div class="meta">' + temi.length + ' tavoli &middot; ' + persone.size + ' persone &middot; ' + scelte + ' prenotazioni &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
+            + '<div class="meta">' + temi.length + ' tavoli &middot; ' + persone.size + ' persone &middot; ' + scelte + ' prenotazioni (solo risposte all\'invito B2B) &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
             + sezioni
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';
@@ -13911,6 +13935,107 @@
         // da li' "Salva come PDF" fa il resto
         finestra.focus();
         setTimeout(() => { try { finestra.print(); } catch (e) { } }, 300);
+    }
+
+    /* --- riconoscere che due iscritti sono della STESSA azienda ---
+       La ragione sociale la scrive ognuno a modo suo: "Alfa S.r.l.", "ALFA SRL",
+       "Alfa spa", "Alfa". Un confronto alla lettera spezzerebbe l'impresa in tre
+       righe da invitare separatamente, ed e' proprio cosi' che qualcuno resta
+       fuori. Quindi due passaggi:
+         1. la ragione sociale si riduce all'osso (minuscole, senza accenti, senza
+            punteggiatura, senza la forma giuridica): "Alfa S.r.l." e "ALFA SPA"
+            diventano tutte e due "alfa";
+         2. nel dubbio decide il DOMINIO della mail: chi scrive da @alfa.it e' di
+            Alfa anche se ha lasciato in bianco il campo azienda o l'ha scritta in
+            un modo che non somiglia a nessun altro. I domini di posta pubblici
+            (gmail, libero, aruba...) non dicono niente e non contano.
+       Le due cose insieme fondono i gruppi a catena. Stessa regola, scritta
+       uguale, nel servizio (`iscrizione-nuova.js`): la pagina di prenotazione
+       deve mostrare come colleghi le stesse persone che qui sono una riga sola. */
+    const DOMINI_PUBBLICI = [
+        'gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.it', 'outlook.com', 'outlook.it',
+        'live.it', 'live.com', 'msn.com', 'yahoo.it', 'yahoo.com', 'libero.it', 'virgilio.it',
+        'alice.it', 'tin.it', 'tiscali.it', 'inwind.it', 'iol.it', 'email.it', 'fastwebnet.it',
+        'icloud.com', 'me.com', 'mac.com', 'aruba.it', 'pec.it', 'legalmail.it', 'poste.it',
+        'protonmail.com', 'proton.me', 'gmx.com', 'katamail.com', 'supereva.it', 'teletu.it',
+        'vodafone.it', 'wind.it', 'tim.it', 'windtre.it', 'blu.it'
+    ];
+    /* Le forme giuridiche si tolgono dal confronto. Restano fuori le parole che
+       potrebbero essere il nome vero ("studio", "impresa", "gruppo"): toglierle
+       farebbe di "Studio Rossi" e "Studio Bianchi" la stessa cosa. */
+    const FORME_GIURIDICHE = /\b(s\s*r\s*l\s*s?|s\s*p\s*a|s\s*a\s*p\s*a|s\s*a\s*s|s\s*n\s*c|s\s*c\s*a\s*r\s*l|s\s*s|societa|soc|cooperativa|coop|sarl|ltd|limited|llc|inc|gmbh|plc)\b/g;
+    function chiaveAzienda(t) {
+        let x = String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        x = x.replace(/&/g, ' e ');
+        // punti e apostrofi spariscono senza lasciare spazio: "s.r.l." -> "srl"
+        x = x.replace(/[.'\u2019"]/g, '');
+        x = x.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+        const senzaForma = x.replace(FORME_GIURIDICHE, ' ').replace(/\s+/g, ' ').trim();
+        // se dell'azienda resta solo la forma giuridica, meglio la stringa intera
+        return senzaForma || x;
+    }
+    function dominioMail(email) {
+        const m = String(email || '').toLowerCase().trim().match(/@([a-z0-9.\-]+)$/);
+        if (!m) return '';
+        let d = m[1];
+        if (DOMINI_PUBBLICI.indexOf(d) >= 0) return '';
+        /* Le caselle di posta certificata dell'azienda portano lo stesso nome
+           (pec.alfa.it e alfa.it sono la stessa impresa). Il prefisso si toglie
+           solo se quel che resta e' ancora un dominio: da "pec.it" resterebbe
+           "it", e allora mezzo mondo diventerebbe un'azienda sola. */
+        const senzaPrefisso = d.replace(/^(pec|mail|posta)\./, '');
+        if (senzaPrefisso !== d && senzaPrefisso.indexOf('.') > 0) d = senzaPrefisso;
+        return DOMINI_PUBBLICI.indexOf(d) >= 0 ? '' : d;
+    }
+    /* Le persone messe insieme per impresa. Ogni gruppo porta il nome scritto
+       piu' spesso (a parita', il piu' lungo: di solito e' quello completo) e le
+       varianti trovate, che si mostrano perche' chi invita deve poter capire
+       PERCHE' due scritture diverse sono finite in una riga sola. Chi non ha ne'
+       azienda ne' dominio aziendale finisce tutto insieme in coda, com'era. */
+    function raggruppaPerAzienda(persone) {
+        const padre = persone.map((_, i) => i);
+        const trova = i => { while (padre[i] !== i) { padre[i] = padre[padre[i]]; i = padre[i]; } return i; };
+        const unisci = (a, b) => { a = trova(a); b = trova(b); if (a !== b) padre[b] = a; };
+        const perNome = {}, perDominio = {};
+        const dati = persone.map(p => ({ nome: chiaveAzienda(p.azienda), dominio: dominioMail(p.email) }));
+        persone.forEach((p, i) => {
+            if (!dati[i].nome && !dati[i].dominio) return;
+            if (dati[i].nome) {
+                if (perNome[dati[i].nome] === undefined) perNome[dati[i].nome] = i;
+                else unisci(perNome[dati[i].nome], i);
+            }
+            if (dati[i].dominio) {
+                if (perDominio[dati[i].dominio] === undefined) perDominio[dati[i].dominio] = i;
+                else unisci(perDominio[dati[i].dominio], i);
+            }
+        });
+        const gruppi = [];
+        const perRadice = {};
+        const senza = { chiave: 'senza', nome: '', varianti: [], persone: [] };
+        persone.forEach((p, i) => {
+            if (!dati[i].nome && !dati[i].dominio) { senza.persone.push(p); return; }
+            const r = trova(i);
+            let g = perRadice[r];
+            if (!g) {
+                g = perRadice[r] = { chiave: 'g' + r, nome: '', varianti: [], persone: [], conte: {}, domini: {} };
+                gruppi.push(g);
+            }
+            g.persone.push(p);
+            const scritta = String(p.azienda || '').trim();
+            if (scritta) g.conte[scritta] = (g.conte[scritta] || 0) + 1;
+            if (dati[i].dominio) g.domini[dati[i].dominio] = true;
+        });
+        gruppi.forEach(g => {
+            const scritte = Object.keys(g.conte);
+            // il nome piu' usato; a pari merito il piu' lungo, di solito il completo
+            scritte.sort((a, b) => (g.conte[b] - g.conte[a]) || (b.length - a.length));
+            g.nome = scritte[0] || Object.keys(g.domini)[0] || '';
+            g.varianti = scritte.slice(1);
+            delete g.conte; delete g.domini;
+        });
+        gruppi.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+        if (senza.persone.length) gruppi.push(senza);
+        return gruppi;
     }
 
     /* Invito agli incontri B2B: una mail personale (formato NGB) con il
@@ -13954,23 +14079,12 @@
             });
         });
         if (!candidati.length) { toast('Nessun iscritto con indirizzo email in questo elenco.', 'rosso'); return; }
-        /* Le aziende: una voce per ragione sociale. Il confronto ignora
-           maiuscole e spazi doppi, cosi' "Alfa S.r.l." e "ALFA  s.r.l." non
-           diventano due imprese diverse. Chi non ha l'azienda scritta finisce
-           in una voce sua, in fondo all'elenco: resta comunque invitabile,
-           invece di sparire dai destinatari possibili per un campo vuoto. */
-        const chiaveAz = t => String(t || '').toLowerCase().replace(/\s+/g, ' ').trim();
-        const aziende = [];
-        const perChiave = {};
-        candidati.forEach(c => {
-            const k = chiaveAz(c.azienda);
-            let a = perChiave[k];
-            if (!a) { a = perChiave[k] = { chiave: k, nome: c.azienda, persone: [] }; aziende.push(a); }
-            a.persone.push(c);
-        });
-        aziende.sort((a, b) => (a.chiave && b.chiave)
-            ? a.nome.localeCompare(b.nome, 'it')
-            : (a.chiave ? -1 : (b.chiave ? 1 : 0)));
+        /* Le aziende, riconosciute anche quando la ragione sociale e' scritta in
+           modi diversi o manca del tutto (vedi raggruppaPerAzienda: nome ridotto
+           all'osso, e nel dubbio il dominio della mail). Chi non ha ne' azienda
+           ne' dominio aziendale finisce in una voce sua, in fondo: resta
+           comunque invitabile, invece di sparire per un campo vuoto. */
+        const aziende = raggruppaPerAzienda(candidati);
         const scelte = new Set(aziende.map(a => a.chiave));   // di partenza: tutte
         let filtroAz = '';
         const destinatari = () => aziende.filter(a => scelte.has(a.chiave))
@@ -13990,7 +14104,7 @@
             : 'Scegli le aziende da invitare e l\'orario degli incontri: parte una mail personale a <b>ogni</b> referente iscritto delle aziende spuntate '
             + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento alla pagina dove sceglie a quali incontri partecipare. '
             + 'Chi l\'ha gia ricevuta la riceve di nuovo, con la sua scelta attuale scritta dentro. '
-            + 'Le scelte compaiono nell\'elenco (colonne Interessi, Incontro B2B e Nota B2B) e nel riepilogo per argomento.';
+            + 'Le prenotazioni compaiono nell\'elenco (colonna "B2B prenotati") e nel riepilogo per argomento; i temi indicati iscrivendosi restano a parte, nella colonna "Preferenze iscrizione".';
         /* Il campo dell'orario e' testo libero, non un orologio: la fascia si
            scrive come la si dice ("dalle 14:30 alle 18:00", "nel pomeriggio,
            a partire dalle 15"), ed e' quella la frase che finisce nella mail. */
@@ -14043,9 +14157,14 @@
                     + a.persone.map(p => p.nome + ' ' + p.email).join(' ')).toLowerCase().indexOf(q) >= 0)
                 : aziende;
             const riga = a => '<label class="ib-az-riga' + (scelte.has(a.chiave) ? '' : ' escluso') + '" '
-                + 'title="' + esc(a.persone.map(p => p.nome + ' <' + p.email + '>').join('\n')) + '">'
+                + 'title="' + esc(a.persone.map(p => p.nome + ' <' + p.email + '>').join('\n')
+                    + (a.varianti.length ? '\n\nScritta anche: ' + a.varianti.join(' / ') : '')) + '">'
                 + '<input type="checkbox" class="ib-az" value="' + esc(a.chiave) + '"' + (scelte.has(a.chiave) ? ' checked' : '') + '>'
-                + '<span class="ib-az-nome">' + esc(a.nome || '(azienda non indicata)') + '</span>'
+                + '<span class="ib-az-nome">' + esc(a.nome || '(azienda non indicata)')
+                /* Le altre scritture della stessa impresa si dicono: una riga che
+                   ne raccoglie due senza spiegarlo sembra un errore del programma. */
+                + (a.varianti.length ? '<span class="ib-az-alias"> anche ' + esc(a.varianti.join(', ')) + '</span>' : '')
+                + '</span>'
                 + '<span class="ib-az-num">' + a.persone.length + (a.persone.length === 1 ? ' referente' : ' referenti') + '</span></label>';
             const nScelte = aziende.filter(a => scelte.has(a.chiave)).length;
             cont.innerHTML = '<div class="nl-dest-barra" style="margin-top:0;">'
@@ -14058,7 +14177,9 @@
                 + '<div class="hint" style="margin-top:6px;"><b>' + nScelte + '</b> di ' + aziende.length
                 + (aziende.length === 1 ? ' azienda' : ' aziende') + ' spuntate &middot; <b>' + destinatari().length + '</b> '
                 + (destinatari().length === 1 ? 'destinatario' : 'destinatari')
-                + (q ? ' &middot; la ricerca ne mostra ' + visibili.length + ', le spunte fuori ricerca restano' : '') + '</div>';
+                + (q ? ' &middot; la ricerca ne mostra ' + visibili.length + ', le spunte fuori ricerca restano' : '') + '</div>'
+                + '<div class="hint" style="margin-top:4px;">Le scritture diverse della stessa impresa ("Alfa S.r.l.", "ALFA SPA") stanno in una riga sola; '
+                + 'nel dubbio conta il dominio della mail, cosi chi ha lasciato in bianco l\'azienda finisce comunque con i suoi colleghi.</div>';
             const cerca = document.getElementById('ib-cerca-az');
             if (cerca) cerca.addEventListener('input', () => {
                 filtroAz = cerca.value;
@@ -14092,8 +14213,11 @@
             // per una persona sola l'anteprima e' la SUA mail (nome e scelte
             // vere); per l'invio a piu' aziende un esempio, con il riquadro della
             // scelta mostrato per far vedere come appare a chi ha gia' prenotato
+            /* Il riquadro della mail riporta la PRENOTAZIONE, non le preferenze
+               dell'iscrizione: l'anteprima deve mostrare la stessa cosa, altrimenti
+               promette un riquadro che a quella persona non arrivera'. */
             const temiAnt = unica
-                ? String((unica.extra && unica.extra['Interessi']) || '').split(',').map(s => s.trim()).filter(Boolean).join(', ')
+                ? String((unica.extra && unica.extra['B2B prenotati']) || '').split(',').map(s => s.trim()).filter(Boolean).join(', ')
                 : 'Merito creditizio, Finanza agevolata (esempio: ognuno vede la propria)';
             if (chiusa) document.getElementById('ib-frame').srcdoc =
                 RV_NEWSLETTER.conTemiB2B(m.html, temiAnt ? esc(temiAnt) : '')

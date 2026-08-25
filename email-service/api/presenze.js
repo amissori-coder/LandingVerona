@@ -437,9 +437,18 @@ module.exports = async (req, res) => {
                 visti[a] = true;
                 const nomeDest = ((String(s.nome || '') + ' ' + String(s.cognome || '')).trim()) || 'ospite';
                 const link = NL.linkB2B(docId);
-                // chi ha gia' espresso preferenze se le ritrova scritte nella mail,
-                // con l'invito a confermarle o modificarle dal modulo
-                const temiAttuali = String(s.interessi || '').split(',').map(x => x.trim()).filter(Boolean).join(', ');
+                /* Il riquadro "La Sua scelta attuale" nella mail riporta la
+                   PRENOTAZIONE, non le preferenze dichiarate iscrivendosi: quelle
+                   sono un'altra cosa, e chiamarle scelta sarebbe falso. Chi non ha
+                   ancora prenotato non vede il riquadro. Le schede che avevano
+                   risposto al vecchio modulo tengono la scelta dentro `interessi`:
+                   si riconoscono dalla risposta registrata senza `b2bScelte`. */
+                const scelteB2B = Array.isArray(s.b2bScelte)
+                    ? s.b2bScelte.map(x => String(x || '').trim()).filter(Boolean)
+                    : ((s.b2bRisposta && s.b2bRisposta.quando)
+                        ? String(s.interessi || '').split(',').map(x => x.trim()).filter(Boolean)
+                        : []);
+                const temiAttuali = scelteB2B.join(', ');
                 try {
                     await trans.sendMail({
                         from: '"' + fromName + '" <' + fromEmail + '>',
