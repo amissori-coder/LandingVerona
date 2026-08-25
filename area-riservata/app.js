@@ -14319,7 +14319,8 @@
         if (!viaPec) return '<span class="hint">-</span>';
         const r = a.ricevute || {};
         const esito = r.esito || 'attesa';
-        const parti = ['<span class="inv-pallino inv-pec-' + esc(esito) + '">' + esc(INV_PEC[esito] || esito) + '</span>'];
+        const parti = ['<button type="button" class="inv-pallino inv-pec-' + esc(esito) + ' inv-apri" data-id="' + esc(a.id)
+            + '" title="Apri le ricevute e le risposte">' + esc(INV_PEC[esito] || esito) + '</button>'];
         if (r.consegnata && r.consegnata.quando) {
             parti.push('<div class="hint">' + esc(fmtDataOra(r.consegnata.quando)) + '</div>');
         } else if (r.problema && r.problema.motivo) {
@@ -14330,8 +14331,8 @@
             parti.push('<div class="hint">presa in carico il ' + esc(fmtDataOra(r.accettata.quando)) + '</div>');
         }
         if (r.risposta && r.risposta.quando) {
-            parti.push('<div class="inv-risposto" title="' + esc(r.risposta.oggetto || '') + '">Ha risposto il '
-                + esc(fmtDataOra(r.risposta.quando)) + '</div>');
+            parti.push('<button type="button" class="inv-risposto inv-apri" data-id="' + esc(a.id) + '">Ha risposto il '
+                + esc(fmtDataOra(r.risposta.quando)) + ' - leggi</button>');
         }
         return parti.join('');
     }
@@ -14539,6 +14540,8 @@
             corpo.querySelectorAll('.inv-ck').forEach(c => { c.checked = tutteCk.checked; });
             aggiornaSel();
         });
+        corpo.querySelectorAll('.inv-apri').forEach(b => b.addEventListener('click', () =>
+            modaleMessaggiPec(ev, aziendaInvitoDi(ev, b.dataset.id))));
         corpo.querySelectorAll('.inv-mod').forEach(b => b.addEventListener('click', () =>
             modaleAziendaInvito(ev, aziendaInvitoDi(ev, b.dataset.id))));
         corpo.querySelectorAll('.inv-canc').forEach(b => b.addEventListener('click', () => {
@@ -14702,6 +14705,93 @@
                 }
                 caricaAziendeInvito(ev, () => { chiudi(); toast('Scheda salvata.', 'verde'); });
             });
+        });
+    }
+
+    /* Ricevute e risposte di UNA azienda, da leggere qui dentro.
+       Il testo non sta su Firestore: si va a prenderlo nella casella PEC nel
+       momento in cui qualcuno lo apre. Costa una connessione in piu', ma vuol
+       dire che la corrispondenza resta dov'e' (la casella e' l'archivio con
+       valore legale) invece di essere copiata in un archivio di marketing che
+       finisce anche nei backup. */
+    const MP_ETICHETTE = {
+        'accettazione': 'Ricevuta di accettazione',
+        'avvenuta-consegna': 'Ricevuta di avvenuta consegna',
+        'errore-consegna': 'Avviso di mancata consegna',
+        'mancata-consegna': 'Avviso di mancata consegna',
+        'preavviso-errore-consegna': 'Preavviso di mancata consegna',
+        'non-accettazione': 'Avviso di non accettazione',
+        'rilevazione-virus': 'Rilevazione virus',
+        'presa-in-carico': 'Presa in carico',
+        'risposta': 'Risposta dell\'azienda',
+        'risposta non certificata': 'Risposta (non certificata)'
+    };
+    function modaleMessaggiPec(ev, a) {
+        if (!puoGestireInviti() || !a) return;
+        const viaPec = a.invio && a.invio.canale === 'pec';
+        const testa = '<h2>Ricevute e risposte - ' + esc(a.ragioneSociale) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">'
+            + (viaPec
+                ? 'PEC inviata a <b>' + esc(a.invio.destinatario || a.pec) + '</b>'
+                + (a.invio.quando ? ' il ' + esc(fmtDataOra(a.invio.quando)) : '') + '.'
+                : 'Questa azienda e stata invitata via email ordinaria: le ricevute PEC non esistono.')
+            + '</p>';
+        apriModale(testa
+            + '<div class="mp-corpo"><div id="mp-elenco" class="mp-elenco"><p class="hint">Carico...</p></div>'
+            + '<div id="mp-testo" class="mp-testo"><p class="hint">Scegli un messaggio dall\'elenco per leggerlo.</p></div></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="mp-chiudi">Chiudi</button></div>',
+            { classe: 'larga' });
+        document.getElementById('mp-chiudi').addEventListener('click', () => { chiudiModale(); modaleAziendeInvito(ev); });
+        if (!viaPec) {
+            const el = document.getElementById('mp-elenco');
+            if (el) el.innerHTML = '<p class="hint">Nessun messaggio PEC per questa azienda.</p>';
+            return;
+        }
+
+        Cloud.aziendeInvito({ azione: 'messaggi', evento: ev.id, id: a.id }).then(r => {
+            const el = document.getElementById('mp-elenco');
+            if (!el) return;
+            if (!r.ok) { el.innerHTML = '<p class="ev-ko">' + esc(r.msg || 'Elenco non disponibile.') + '</p>'; return; }
+            const elenco = r.messaggi || [];
+            if (!elenco.length) {
+                el.innerHTML = '<p class="hint">Nessuna ricevuta ancora arrivata. Premi "Controlla le ricevute" nella finestra precedente.</p>';
+                return;
+            }
+            el.innerHTML = elenco.map(m =>
+                '<button type="button" class="mp-voce" data-uid="' + esc(String(m.uid)) + '">'
+                + '<span class="mp-tipo">' + esc(MP_ETICHETTE[m.tipo] || m.tipo || 'Messaggio') + '</span>'
+                + '<span class="mp-quando">' + esc(m.quando ? fmtDataOra(m.quando) : '') + '</span>'
+                + (m.oggetto ? '<span class="mp-oggetto">' + esc(m.oggetto) + '</span>' : '')
+                + '</button>').join('');
+            el.querySelectorAll('.mp-voce').forEach(b => b.addEventListener('click', () => {
+                el.querySelectorAll('.mp-voce').forEach(x => x.classList.remove('attiva'));
+                b.classList.add('attiva');
+                apriTestoPec(ev, a, b.dataset.uid);
+            }));
+            // il primo si apre da solo: nove volte su dieci e quello che si cerca
+            const primo = el.querySelector('.mp-voce');
+            if (primo) primo.click();
+        });
+    }
+    function apriTestoPec(ev, a, uid) {
+        const box = document.getElementById('mp-testo');
+        if (!box) return;
+        box.innerHTML = '<p class="hint">Leggo il messaggio dalla casella PEC...</p>';
+        Cloud.aziendeInvito({ azione: 'leggi-messaggio', evento: ev.id, id: a.id, uid: Number(uid) }).then(r => {
+            const b = document.getElementById('mp-testo');
+            if (!b) return;
+            if (!r.ok) { b.innerHTML = '<p class="ev-ko">' + esc(r.msg || 'Messaggio non leggibile.') + '</p>'; return; }
+            const allegati = (r.allegati || []).length
+                ? '<div class="mp-allegati">Allegati: ' + (r.allegati || []).map(x => esc(x.nome)).join(', ') + '</div>'
+                : '';
+            /* Tutto quello che segue e' testo scritto da altri: passa sempre
+               per esc(), attributi compresi. */
+            b.innerHTML = '<div class="mp-testa">'
+                + '<div class="mp-oggetto-grande">' + esc(r.oggetto || '(senza oggetto)') + '</div>'
+                + '<div class="hint">' + esc(r.da || '') + (r.quando ? ' - ' + esc(fmtDataOra(r.quando)) : '') + '</div></div>'
+                + allegati
+                + '<pre class="mp-corpo-testo">' + esc(r.testo || '(il messaggio non ha testo leggibile: aprilo dalla casella PEC)') + '</pre>'
+                + (r.troncato ? '<p class="hint">Messaggio molto lungo: qui e mostrato solo l\'inizio.</p>' : '');
         });
     }
 

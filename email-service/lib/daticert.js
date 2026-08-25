@@ -256,7 +256,74 @@ function esitoDa(r) {
     return 'attesa';
 }
 
+/* Il testo di un messaggio, decodificato secondo il gioco di caratteri
+   dichiarato dal mittente. Le PEC italiane usano quasi sempre iso-8859-1 o
+   utf-8: letto con quello sbagliato, un "e' andata" diventa "Ã¨". Se la
+   dichiarazione manca o e' sconosciuta si prova utf-8 e, se ne esce
+   spazzatura (il carattere di sostituzione), si ripiega su latin1. */
+function decodificaTesto(buffer, gioco) {
+    const b = Buffer.isBuffer(buffer) ? buffer : Buffer.from(String(buffer || ''), 'utf8');
+    const nome = String(gioco || '').trim().toLowerCase();
+    if (nome && nome !== 'utf-8' && nome !== 'utf8' && nome !== 'us-ascii') {
+        try { return new TextDecoder(nome).decode(b); }
+        catch (_) { return b.toString('latin1'); }
+    }
+    const utf = b.toString('utf8');
+    return utf.indexOf('\uFFFD') >= 0 ? b.toString('latin1') : utf;
+}
+
+/* Dove sta il testo leggibile dentro il messaggio.
+   Per una RISPOSTA il messaggio vero non e' quello esterno: la busta di
+   trasporto contiene postacert.eml, e dentro c'e' quello che l'azienda ha
+   scritto davvero. Si cerca quindi PRIMA dentro la busta, e solo se non
+   c'e' si prende il testo esterno (che per una ricevuta e' la descrizione
+   del gestore, cioe' proprio quello che serve leggere). */
+function trovaTesto(nodo, dentroBusta) {
+    if (!nodo) return null;
+    const p = nodo.parameters || {};
+    const dp = nodo.dispositionParameters || {};
+    const nomeFile = String(dp.filename || p.name || '').toLowerCase();
+    const tipo = String(nodo.type || '').toLowerCase();
+
+    // la busta: si scende li' dentro e quello che si trova ha la precedenza
+    if (nomeFile === 'postacert.eml' || tipo === 'message/rfc822') {
+        for (const figlio of (nodo.childNodes || [])) {
+            const t = trovaTesto(figlio, true);
+            if (t) return t;
+        }
+    }
+    let migliore = null;
+    if (tipo === 'text/plain' && nomeFile !== 'daticert.xml') {
+        migliore = { parte: nodo.part || '1', gioco: p.charset || '', dimensione: Number(nodo.size) || 0, dentroBusta: !!dentroBusta };
+    }
+    for (const figlio of (nodo.childNodes || [])) {
+        const t = trovaTesto(figlio, dentroBusta);
+        if (!t) continue;
+        // il testo dentro la busta vince sempre su quello fuori
+        if (!migliore || (t.dentroBusta && !migliore.dentroBusta)) migliore = t;
+    }
+    return migliore;
+}
+
+/* Gli allegati che il messaggio porta con se', per dire almeno che ci sono.
+   Si escludono le parti di servizio della PEC, che non interessano a nessuno. */
+const PARTI_DI_SERVIZIO = ['daticert.xml', 'smime.p7s', 'postacert.eml'];
+function trovaAllegati(nodo, elenco) {
+    elenco = elenco || [];
+    if (!nodo || elenco.length >= 20) return elenco;
+    const p = nodo.parameters || {};
+    const dp = nodo.dispositionParameters || {};
+    const nome = String(dp.filename || p.name || '');
+    const tipo = String(nodo.type || '').toLowerCase();
+    if (nome && PARTI_DI_SERVIZIO.indexOf(nome.toLowerCase()) < 0 && tipo.indexOf('multipart') !== 0) {
+        elenco.push({ nome: nome.slice(0, 120), dimensione: Number(nodo.size) || 0 });
+    }
+    (nodo.childNodes || []).forEach(f => trovaAllegati(f, elenco));
+    return elenco;
+}
+
 module.exports = {
+    decodificaTesto, trovaTesto, trovaAllegati,
     RICEVUTE, INTESTAZIONI,
     intestazioni, intestazione, chiaveMsgId, parteLocale,
     leggiDaticert, quandoDa, genere, automatica, soloIndirizzo, oggettoPulito,

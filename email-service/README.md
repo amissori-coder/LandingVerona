@@ -176,13 +176,29 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 > newsletter e comunicazioni, e cio' che si consegna a un servizio esterno deve
 > poter fare una cosa sola.
 
+> **Ricevute e risposte si leggono dall'area riservata.** Nella colonna
+> Ricevute PEC la pastiglia dell'esito e il "Ha risposto il..." sono
+> cliccabili: si apre la finestra con l'elenco dei messaggi di quell'azienda
+> (accettazione, consegna, avvisi, risposte) e il testo di quello scelto.
+>
+> Il testo **non viene copiato su Firestore**: si va a prenderlo nella casella
+> nel momento in cui qualcuno lo apre. Sulla scheda restano solo le coordinate
+> (quale messaggio, di che tipo, quando), poche decine di byte. Il motivo e'
+> che quella casella e' la PEC dello studio: contiene corrispondenza, e
+> copiarne il testo in un archivio di marketing - che finisce anche nei backup
+> notturni - vorrebbe dire conservare per sempre dati che nessuno ha chiesto.
+> Per la stessa ragione il contenuto lo vedono solo amministratore, equity e
+> founding partner, e il servizio accetta di leggere **solo** un messaggio
+> gia' collegato alla scheda che si sta guardando: senza quel controllo
+> l'endpoint diventerebbe "leggimi qualunque messaggio della PEC dello studio".
+
 > **Cosa il lettore non fa.** Non segna niente come letto, non sposta e non
 > cancella: quella casella e' l'archivio con valore legale, e il segno "letto"
 > e' condiviso con la webmail. Non verifica la firma S/MIME con cui il gestore
 > sigilla le ricevute: per un cruscotto interno va bene, ma la prova in una
-> contestazione resta il messaggio nella casella, non la riga sullo schermo. E
-> non conserva il corpo delle risposte: di una risposta si annotano data,
-> mittente e oggetto, il testo si legge nella casella.
+> contestazione resta il messaggio nella casella, non la riga sullo schermo.
+> Non scarica gli allegati delle risposte: ne mostra i nomi, il file si apre
+> dalla casella.
 
 > **Le risposte da posta ordinaria non arrivano.** Di predefinito una casella
 > PEC Aruba **rifiuta** i messaggi non certificati: se un'azienda risponde

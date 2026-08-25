@@ -1387,6 +1387,25 @@ summary.ni-testa::before {
 .inv-lettore { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--grigio-200); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; line-height: 1.45; color: var(--grigio-600); }
 .inv-lettore.ko { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
 .inv-lettore b { color: inherit; }
+/* ---- finestra di lettura delle ricevute e delle risposte ---- */
+/* elenco a sinistra, messaggio a destra: su schermo stretto uno sotto l'altro */
+.mp-corpo { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.mp-elenco { flex: 1 1 240px; min-width: 220px; max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.mp-voce { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px; border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff; cursor: pointer; font-family: inherit; }
+.mp-voce:hover { border-color: var(--blu-700); background: var(--blu-050); }
+.mp-voce.attiva { border-color: var(--blu-700); background: var(--blu-050); }
+.mp-tipo { font-weight: 700; font-size: 0.85rem; color: var(--grigio-900); }
+.mp-quando { font-size: 0.75rem; color: var(--grigio-600); }
+.mp-oggetto { font-size: 0.78rem; color: var(--grigio-600); overflow-wrap: anywhere; }
+.mp-testo { flex: 2 1 340px; min-width: 260px; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 12px 14px; background: var(--blu-050); max-height: 420px; overflow-y: auto; }
+.mp-testa { margin-bottom: 8px; }
+.mp-oggetto-grande { font-weight: 700; color: var(--grigio-900); overflow-wrap: anywhere; }
+.mp-allegati { font-size: 0.78rem; color: var(--grigio-600); margin-bottom: 8px; }
+/* il testo del messaggio si mostra com'e' stato scritto, a capo compresi */
+.mp-corpo-testo { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 0.85rem; line-height: 1.5; color: var(--grigio-900); }
+/* la pastiglia dell'esito e il "ha risposto" diventano cliccabili */
+button.inv-pallino, button.inv-risposto { cursor: pointer; font-family: inherit; }
+button.inv-risposto { background: none; border: none; padding: 0; text-align: left; text-decoration: underline; }
 
 /* scelta destinatari nell'invio inviti sondaggio (a tutti / nuovi+senza accesso / solo nuovi) */
 .ii-ambito { display: flex; align-items: flex-start; gap: 9px; padding: 9px 11px; border: 1px solid var(--grigio-200); border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 0.9rem; color: var(--grigio-900); }

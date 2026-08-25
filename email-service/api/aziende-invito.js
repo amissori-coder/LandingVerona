@@ -350,6 +350,47 @@ module.exports = async (req, res) => {
             return;
         }
 
+        /* I messaggi PEC che riguardano UNA azienda: ricevute del gestore e
+           risposte. Qui viaggiano solo le coordinate (quale messaggio, di che
+           tipo, quando), non il contenuto. */
+        if (azione === 'messaggi') {
+            if (!puoGestire) { negato(); return; }
+            const id = testo(body.id, 400);
+            if (!id) { res.status(400).json({ ok: false, msg: 'Azienda non indicata.' }); return; }
+            const snap = await db.collection('aziendeInvito').doc(id).get();
+            if (!snap.exists || String((snap.data() || {}).evento || '') !== evento) {
+                res.status(404).json({ ok: false, msg: 'Scheda non trovata.' }); return;
+            }
+            const r = (snap.data() || {}).ricevute || {};
+            res.status(200).json({ ok: true, messaggi: Array.isArray(r.messaggi) ? r.messaggi : [] });
+            return;
+        }
+
+        /* Il TESTO di un messaggio, letto dalla casella al momento e non
+           conservato da nessuna parte.
+
+           Il controllo che conta e' quello qui sotto: si accetta solo un uid
+           che risulta gia' annotato SU QUELLA scheda. Senza, questo endpoint
+           diventerebbe "leggimi qualunque messaggio della PEC dello studio",
+           cioe' la corrispondenza dei clienti, a chiunque sappia indovinare
+           un numero. */
+        if (azione === 'leggi-messaggio') {
+            if (!puoGestire) { negato(); return; }
+            const id = testo(body.id, 400);
+            const uid = Number(body.uid) || 0;
+            if (!id || !uid) { res.status(400).json({ ok: false, msg: 'Messaggio non indicato.' }); return; }
+            const snap = await db.collection('aziendeInvito').doc(id).get();
+            if (!snap.exists || String((snap.data() || {}).evento || '') !== evento) {
+                res.status(404).json({ ok: false, msg: 'Scheda non trovata.' }); return;
+            }
+            const elenco = ((snap.data() || {}).ricevute || {}).messaggi || [];
+            const suo = elenco.find(x => Number(x.uid) === uid);
+            if (!suo) { res.status(403).json({ ok: false, msg: 'Quel messaggio non risulta collegato a questa azienda.' }); return; }
+            const letto = await LETTORE.leggiMessaggio(db, { uid: uid, uidValidity: suo.uidValidity });
+            res.status(letto.ok ? 200 : 400).json(letto);
+            return;
+        }
+
         if (azione === 'importa') {
             if (!puoGestire) { negato(); return; }
             const righe = leggiCsv(typeof body.csv === 'string' ? body.csv : '');

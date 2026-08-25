@@ -66,6 +66,7 @@ const BUDGET_MS = 40000;
 const MAX_MESSAGGI = Number(process.env.PEC_LETTORE_MAX) || 40;
 const FINESTRA_UID = MAX_MESSAGGI * 5;      // quanti UID si chiedono al server per giro
 const MAX_DATICERT = 64 * 1024;             // un daticert.xml vero sta in pochi kB
+const MAX_TESTO = 200 * 1024;               // il testo di un messaggio che si apre a video
 const LUCCHETTO_MS = 3 * 60 * 1000;
 const PAUSA_ERRORE_MS = 10 * 60 * 1000;     // dopo un guasto non si ribatte subito
 const MAX_ERRORI_AUTH = 3;                  // poi ci si ferma: e' una password da rifare
@@ -227,6 +228,27 @@ async function applicaRicevuta(db, idScheda, fatto) {
            lo sappiamo dalla ricevuta, ed e' il momento giusto per rimetterlo. */
         if (!invio.destinatario && fatto.destinatario) {
             patch.invio = Object.assign({}, patch.invio, { destinatario: fatto.destinatario });
+        }
+
+        /* Le coordinate dei messaggi che riguardano questa azienda. NON il
+           testo: quello resta nella casella e si va a prendere quando
+           qualcuno lo apre davvero. Qui bastano poche decine di byte per
+           messaggio, e sono cio' che permette all'area riservata di
+           chiederne uno preciso senza poter chiedere gli altri. */
+        if (fatto.uid) {
+            const elenco = Array.isArray(r.messaggi) ? r.messaggi.slice() : [];
+            const chiave = fatto.uidValidity + '_' + fatto.uid;
+            if (!elenco.some(x => (x.uidValidity + '_' + x.uid) === chiave)) {
+                elenco.push({
+                    uid: Number(fatto.uid), uidValidity: String(fatto.uidValidity || ''),
+                    tipo: String(fatto.etichetta || fatto.tipo || fatto.genere || '').slice(0, 40),
+                    quando: fatto.quando || Date.now(),
+                    oggetto: String(fatto.oggetto || '').slice(0, 200)
+                });
+                elenco.sort((x, y) => (y.quando || 0) - (x.quando || 0));
+                r.messaggi = elenco.slice(0, 12);
+                cambiato = true;
+            }
         }
 
         if (!cambiato && !Object.keys(patch).length) return { ok: true, cambiato: false };
@@ -528,6 +550,10 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
     }
 
     let fatto = null;
+    const coordinate = {
+        uid: Number(m.uid), uidValidity: uidValidity,
+        oggetto: D.oggettoPulito(h['subject'])
+    };
     if (g.genere === 'ricevuta') {
         conto.ricevute++;
         const tipo = (dc && dc.tipo) || g.tipo;
@@ -580,7 +606,9 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
         };
     }
 
-    const scritto = await applicaRicevuta(db, trovata.scheda, fatto);
+    // l'etichetta e' quella che si legge nell'elenco dei messaggi
+    fatto.etichetta = g.genere === 'ricevuta' ? (dc && dc.tipo ? dc.tipo : g.tipo) : (g.genere === 'anomalia' ? 'risposta non certificata' : 'risposta');
+    const scritto = await applicaRicevuta(db, trovata.scheda, Object.assign(fatto, coordinate, { quando: fatto.quando }));
     if (scritto && scritto.cambiato) toccate[trovata.scheda] = scritto.esito || '';
     // l'identificativo del gestore diventa il ponte per le risposte future
     if (fatto.genere === 'accettata' && fatto.identificativo) {
@@ -589,8 +617,90 @@ async function lavoraMessaggio(db, client, m, uidValidity, conto, toccate, nonRi
     return { genere: g.genere, tipo: fatto.genere, scheda: trovata.scheda };
 }
 
+/* Il testo di UN messaggio, letto dalla casella al momento.
+   Perche' non si conserva su Firestore: quella casella e' la PEC dello
+   studio, il contenuto e' corrispondenza, e copiarne il testo in un
+   archivio di marketing (che finisce anche nei backup) sarebbe tenere dati
+   che non servono a nessuno finche' nessuno li apre. Quando invece
+   qualcuno li apre, si vanno a prendere: la casella e' li'.
+
+   Chi chiama DEVE aver gia' verificato che questo uid appartenga alla
+   scheda che l'utente sta guardando: qui non c'e' modo di saperlo, e
+   senza quel controllo questa funzione diventerebbe "leggi qualunque
+   messaggio della PEC dello studio". */
+async function leggiMessaggio(db, opz) {
+    opz = opz || {};
+    if (!configurato()) return { ok: false, msg: 'Casella PEC non configurata per la lettura.' };
+    const uid = Number(opz.uid) || 0;
+    if (!uid) return { ok: false, msg: 'Messaggio non indicato.' };
+    const c = configurazione();
+    const client = new ImapFlow({
+        host: c.host, port: c.porta, secure: true,
+        auth: { user: c.utente, pass: c.password },
+        logger: false, emitLogs: false,
+        socketTimeout: 25000, greetingTimeout: 15000, connectionTimeout: 15000
+    });
+    client.on('error', () => { });
+    try {
+        await client.connect();
+        const mb = await client.mailboxOpen(c.cartella, { readOnly: true });
+        /* Se la cartella e' stata rigenerata, quell'uid non indica piu' lo
+           stesso messaggio: meglio dire che non c'e' piuttosto che mostrare
+           il messaggio sbagliato a chi si fida di quello che legge. */
+        if (opz.uidValidity && String(mb.uidValidity) !== String(opz.uidValidity)) {
+            return { ok: false, msg: 'Il messaggio non e piu rintracciabile con lo stesso riferimento: apri la casella PEC.' };
+        }
+        let trovato = null;
+        for await (const m of client.fetch({ uid: uid + ':' + uid },
+            { uid: true, internalDate: true, bodyStructure: true, headers: D.INTESTAZIONI }, { uid: true })) {
+            if (Number(m.uid) === uid) trovato = m;
+        }
+        if (!trovato) return { ok: false, msg: 'Messaggio non trovato nella casella.' };
+
+        const h = D.intestazioni(trovato.headers);
+        const parte = D.trovaTesto(trovato.bodyStructure);
+        let testo = '';
+        if (parte && parte.dimensione <= MAX_TESTO) {
+            try {
+                const scaricato = await client.download(uid, parte.parte, { uid: true, maxBytes: MAX_TESTO });
+                if (scaricato && scaricato.content) {
+                    testo = D.decodificaTesto(await leggiBuffer(scaricato.content, MAX_TESTO), parte.gioco);
+                }
+            } catch (_) { testo = ''; }
+        }
+        const g = D.genere(h);
+        return {
+            ok: true,
+            genere: g.genere, tipo: g.tipo,
+            oggetto: D.oggettoPulito(h['subject']),
+            da: D.soloIndirizzo(h['reply-to']) || D.soloIndirizzo(h['from']),
+            quando: trovato.internalDate ? new Date(trovato.internalDate).getTime() : 0,
+            testo: String(testo || '').slice(0, MAX_TESTO),
+            troncato: !!(parte && parte.dimensione > MAX_TESTO),
+            allegati: D.trovaAllegati(trovato.bodyStructure)
+        };
+    } catch (e) {
+        const testo = String((e && (e.responseText || e.message)) || 'errore').slice(0, 200);
+        return { ok: false, msg: 'Lettura non riuscita: ' + testo };
+    } finally {
+        try { await client.logout(); } catch (_) { try { client.close(); } catch (_) { } }
+    }
+}
+function leggiBuffer(stream, max) {
+    return new Promise((risolvi, rifiuta) => {
+        const pezzi = []; let letti = 0, finito = false;
+        stream.on('data', p => {
+            letti += p.length;
+            pezzi.push(p);
+            if (letti > max) { stream.destroy(); if (!finito) { finito = true; risolvi(Buffer.concat(pezzi).slice(0, max)); } }
+        });
+        stream.on('end', () => { if (!finito) { finito = true; risolvi(Buffer.concat(pezzi)); } });
+        stream.on('error', e => { if (!finito) { finito = true; rifiuta(e); } });
+    });
+}
+
 module.exports = {
-    configurato, configurazione, stato, giro,
+    configurato, configurazione, stato, giro, leggiMessaggio,
     registraRiferimento, registraIdentificativo, dimenticaRiferimenti, chiaviInvio,
     MAX_MESSAGGI, RECUPERO,
     /* Esposti per le prove: il pezzo che decide a chi appartiene un messaggio
