@@ -13804,12 +13804,14 @@
         });
     }
 
-    /* Riepilogo per ARGOMENTO degli interessi B2B: per ogni tema, quante persone
-       lo hanno indicato e chi sono. Somma tutto cio' che sta nella colonna
-       "Interessi", da qualunque strada arrivi (modulo dell'invito B2B o form di
-       iscrizione del sito): il raggruppamento e' per etichetta, quindi anche le
-       voci storiche compaiono. Un nome puo' stare sotto piu' temi. */
-    /* Raggruppa gli interessi B2B per argomento: per ogni tema, l'elenco delle
+    /* Riepilogo per ARGOMENTO degli incontri B2B: per ogni tavolo, quante
+       persone si sono prenotate e chi sono. E' l'elenco con cui si compongono i
+       tavoli il giorno del convegno. Somma tutto cio' che sta nella colonna
+       "Interessi", da qualunque strada arrivi (pagina di prenotazione dell'invito
+       B2B o form di iscrizione del sito): il raggruppamento e' per etichetta,
+       quindi anche le voci storiche compaiono. Una persona puo' stare sotto piu'
+       tavoli: sono incontri diversi, non una scelta sola. */
+    /* Raggruppa le scelte B2B per argomento: per ogni tavolo, l'elenco delle
        persone con TUTTI i loro dati. Lo usano il riquadro a video e la stampa. */
     function gruppiInteressiB2B(lista) {
         const gruppi = {};
@@ -13833,8 +13835,8 @@
         const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
         if (!temi.length) return '';
         return '<div class="card"><div class="s-admin" style="padding:0;border:none;box-shadow:none;background:none;">'
-            + '<div class="s-admin-txt"><strong>Incontri B2B: interessati per argomento</strong>'
-            + '<div class="hint">Chi ha indicato ciascun tema, dal modulo dell\'invito B2B o dal form del sito. Una persona puo comparire sotto piu temi; la nota (se c\'e) racconta il progetto.</div></div>'
+            + '<div class="s-admin-txt"><strong>Incontri B2B: prenotati per argomento</strong>'
+            + '<div class="hint">Chi si e prenotato a ciascun tavolo, dalla pagina dell\'invito B2B o dal form del sito. Una persona puo comparire sotto piu tavoli; la nota (se c\'e) racconta il progetto.</div></div>'
             + '<div class="s-admin-azioni"><button class="btn btn-sm btn-secondary" id="ev-b2b-pdf">Stampa PDF</button></div></div>'
             + temi.map(t => '<details class="ev-colonne" style="margin-top:8px;"><summary>' + esc(t) + ' &middot; ' + gruppi[t].length + '</summary>'
                 + '<div style="margin-top:6px;">' + gruppi[t].map(p =>
@@ -13844,22 +13846,22 @@
             + '</div>';
     }
 
-    /* Stampa in PDF del riepilogo per argomento: un capitolo per tema con la
-       tabella completa degli interessati (tutti i dati della scheda, nota
+    /* Stampa in PDF del riepilogo per argomento: un capitolo per tavolo con la
+       tabella completa dei prenotati (tutti i dati della scheda, nota
        compresa). Si apre la finestra di stampa del browser, da cui si salva
        in PDF: niente librerie, e l'impaginazione la fanno le regole di
        stampa scritte qui dentro. */
     function stampaInteressiB2B(ev) {
         const gruppi = gruppiInteressiB2B(_evIscrizioni);
         const temi = Object.keys(gruppi).sort((a, b) => gruppi[b].length - gruppi[a].length);
-        if (!temi.length) { toast('Nessun interesse ancora raccolto per questo evento.', 'rosso'); return; }
+        if (!temi.length) { toast('Nessuna prenotazione ancora raccolta per questo evento.', 'rosso'); return; }
         const persone = new Set();
         let scelte = 0;
         temi.forEach(t => gruppi[t].forEach(p => { persone.add(p.email || p.chi); scelte++; }));
         const quando = new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
         const sezioni = temi.map(t =>
             '<section class="tema"><h2>' + esc(t) + ' <span class="conta">' + gruppi[t].length
-            + (gruppi[t].length === 1 ? ' interessato' : ' interessati') + '</span></h2>'
+            + (gruppi[t].length === 1 ? ' prenotato' : ' prenotati') + '</span></h2>'
             + '<table><thead><tr><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th><th>Portale</th><th>Progetto / esigenza</th></tr></thead><tbody>'
             + gruppi[t].map(p => '<tr>'
                 + '<td class="forte">' + esc(p.chi) + '</td>'
@@ -13894,9 +13896,9 @@
             + 'footer{margin-top:26px;padding-top:10px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;text-align:center;}'
             + '@page{margin:14mm 12mm;}'
             + '</style></head><body>'
-            + '<header><h1>Incontri B2B: interessati per argomento</h1>'
+            + '<header><h1>Incontri B2B: prenotati per argomento</h1>'
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.sottotitolo ? ' &middot; ' + esc(ev.sottotitolo) : '') + '</div>'
-            + '<div class="meta">' + temi.length + ' argomenti &middot; ' + persone.size + ' persone &middot; ' + scelte + ' preferenze &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
+            + '<div class="meta">' + temi.length + ' tavoli &middot; ' + persone.size + ' persone &middot; ' + scelte + ' prenotazioni &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
             + sezioni
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';
@@ -13912,8 +13914,14 @@
     }
 
     /* Invito agli incontri B2B: una mail personale (formato NGB) con il
-       collegamento firmato al modulo dei temi. Prima dell'invio si decidono
-       due cose, in questa finestra:
+       collegamento firmato alla pagina di PRENOTAZIONE. Non e' un sondaggio di
+       interessi: e' Revilaw che convoca le aziende agli incontri, e chi riceve
+       la mail sceglie da li' a quali tavoli sedersi (uno per argomento del
+       convegno). La scelta torna nell'elenco e nel riepilogo per argomento.
+       La mail parte a TUTTI i referenti delle aziende scelte, anche a chi
+       l'aveva gia' ricevuta: la spunta "manda anche a chi ha gia ricevuto
+       l'invito" non c'e' piu' perche' saltare qualcuno vorrebbe dire non
+       convocarlo. Prima dell'invio si decidono due cose, in questa finestra:
        - L'ORARIO in cui si svolgono gli incontri: obbligatorio, finisce in
          evidenza nella mail, cosi' chi la riceve sa gia' quando presentarsi
          invece di aspettare una seconda comunicazione. Resta scritto per
@@ -13925,10 +13933,8 @@
          quando il pulsante scriveva "invia a tutti"; per l'invio mirato a
          poche imprese si usa "Togli tutte" e poi la ricerca.
        A UNA SOLA persona si arriva dal menu della riga (`unica`): li' l'elenco
-       delle aziende non serve e il reinvio e' gia' spuntato, perche' se la
-       chiami per uno, di solito e' apposta. Chi ha gia' espresso preferenze se
-       le ritrova nella mail, con l'invito a confermarle o modificarle. Le
-       risposte tornano nell'elenco e nel riepilogo per argomento. */
+       delle aziende non serve. Chi ha gia' scelto i suoi incontri se li ritrova
+       scritti nella mail, con l'invito a confermarli o cambiarli. */
     function modaleInvitoB2B(ev, unica) {
         if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale) return;
@@ -13979,11 +13985,12 @@
         }) : null;
         const nomeUnica = unica ? ((unica.nome + ' ' + unica.cognome).trim() || unica.email) : '';
         const testaHint = unica
-            ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') ricevera la mail con il suo collegamento personale al modulo dei temi. '
-            + 'Le preferenze gia espresse compaiono nella mail e nel modulo, pronte da confermare o modificare.'
-            : 'Scegli le aziende da invitare e l\'orario degli incontri: parte una mail personale a ogni referente iscritto delle aziende spuntate '
-            + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento al modulo dei temi e le preferenze gia espresse riportate nella mail. '
-            + 'Le risposte compaiono nell\'elenco (colonne Interessi, Incontro B2B e Nota B2B) e nel riepilogo per argomento. Chi ha gia ricevuto l\'invito viene saltato.';
+            ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') ricevera la mail con il suo collegamento personale alla pagina di prenotazione. '
+            + 'Gli incontri gia scelti compaiono nella mail e nella pagina, pronti da confermare o cambiare.'
+            : 'Scegli le aziende da invitare e l\'orario degli incontri: parte una mail personale a <b>ogni</b> referente iscritto delle aziende spuntate '
+            + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento alla pagina dove sceglie a quali incontri partecipare. '
+            + 'Chi l\'ha gia ricevuta la riceve di nuovo, con la sua scelta attuale scritta dentro. '
+            + 'Le scelte compaiono nell\'elenco (colonne Interessi, Incontro B2B e Nota B2B) e nel riepilogo per argomento.';
         /* Il campo dell'orario e' testo libero, non un orologio: la fascia si
            scrive come la si dice ("dalle 14:30 alle 18:00", "nel pomeriggio,
            a partire dalle 15"), ed e' quella la frase che finisce nella mail. */
@@ -14001,7 +14008,6 @@
             + '<p class="hint" style="margin:-4px 0 12px;">' + testaHint + '</p>'
             + campoOrario
             + campoAziende
-            + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ib-forza"' + (unica ? ' checked' : '') + '> Manda anche a chi ha gia ricevuto l\'invito</label></div>'
             + '<div id="ib-anteprima" style="display:none;margin-top:10px;">'
             + '<iframe id="ib-frame" title="Anteprima della mail di invito" sandbox="allow-same-origin" '
             + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
@@ -14083,12 +14089,12 @@
             const chiusa = cont.style.display === 'none';
             cont.style.display = chiusa ? '' : 'none';
             document.getElementById('ib-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
-            // per una persona sola l'anteprima e' la SUA mail (nome e preferenze
-            // veri); per l'invio a piu' aziende un esempio, con il riquadro delle
-            // preferenze mostrato per far vedere come appare a chi le ha
+            // per una persona sola l'anteprima e' la SUA mail (nome e scelte
+            // vere); per l'invio a piu' aziende un esempio, con il riquadro della
+            // scelta mostrato per far vedere come appare a chi ha gia' prenotato
             const temiAnt = unica
                 ? String((unica.extra && unica.extra['Interessi']) || '').split(',').map(s => s.trim()).filter(Boolean).join(', ')
-                : 'Merito creditizio, Finanza agevolata (esempio: ognuno vede le proprie)';
+                : 'Merito creditizio, Finanza agevolata (esempio: ognuno vede la propria)';
             if (chiusa) document.getElementById('ib-frame').srcdoc =
                 RV_NEWSLETTER.conTemiB2B(m.html, temiAnt ? esc(temiAnt) : '')
                     .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(unica ? nomeUnica : 'Mario Rossi'))
@@ -14110,7 +14116,6 @@
             _evOrarioB2B[ev.id] = orario;
             const dest = scelti.map(c => ({ id: c.id, doc: c.doc }));
             const nAziende = aziende.filter(a => scelte.has(a.chiave)).length;
-            const forza = !!(document.getElementById('ib-forza') || {}).checked;
             const b = document.getElementById('ib-si');
             b.dataset.inCorso = '1';
             b.disabled = true; b.textContent = 'Invio...';
@@ -14124,7 +14129,11 @@
                     let r;
                     try {
                         r = await Cloud.operaPresenza({
-                            azione: 'invita-b2b', evento: ev.id, destinatari: dest.slice(i, i + 40), forza: forza,
+                            /* forza: SEMPRE. L'invito e' la convocazione agli incontri, non
+                               un sondaggio da mandare una volta sola: chi l'ha gia' ricevuto
+                               lo riceve di nuovo, con la scelta aggiornata scritta dentro.
+                               Saltarlo lascerebbe fuori proprio i referenti gia' contattati. */
+                            azione: 'invita-b2b', evento: ev.id, destinatari: dest.slice(i, i + 40), forza: true,
                             mail: { oggetto: m.oggetto, html: m.html, testo: m.testo }
                         });
                     } catch (e) { r = { ok: false, msg: 'Servizio non raggiungibile.' }; }
@@ -14140,13 +14149,13 @@
                 chiudiModale();
                 toast('Invito B2B: ' + inviate + ' mail inviate'
                     + (unica ? '' : ' a ' + nAziende + (nAziende === 1 ? ' azienda' : ' aziende'))
-                    + (gia ? ', ' + gia + ' gia invitati saltati' : '')
+                    + (gia ? ', ' + gia + ' doppioni di indirizzo saltati' : '')
                     + (saltate ? ', ' + saltate + ' senza scheda o email' : '')
                     + (falliti ? ', ' + falliti + ' non riuscite' : '') + '.', falliti ? 'rosso' : 'verde');
                 try {
                     Audit.registra(Auth.utenteCorrente, 'Evento: invito B2B inviato', 'sistema', ev.id, null,
                         inviate + ' su ' + dest.length + (unica ? '' : ' (' + nAziende + ' aziende)')
-                        + ', orario ' + orario + (forza ? ' (reinvio incluso)' : ''));
+                        + ', orario ' + orario);
                 } catch (e) { }
             })();
         });
