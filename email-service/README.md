@@ -259,7 +259,11 @@ riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
   `/incontri_b2b/`; il tratto fra `{{SE_TEMI}}` e `{{/SE_TEMI}}` resta solo per
   chi ha gia espresso preferenze, con `{{TEMI}}` sostituito dall'elenco (cosi la
   mail le riporta e invita a confermarle o modificarle). Dal menu della riga si
-  puo invitare anche UNA SOLA persona. Una mail per destinatario; chi ha gia
+  puo invitare anche UNA SOLA persona. Chi manda sceglie prima, nell'area
+  riservata, le AZIENDE da invitare (la mail parte a tutti i referenti iscritti
+  delle imprese spuntate) e l'ORARIO in cui si svolgono gli incontri, che entra
+  nella mail gia composta: qui non cambia nulla, il servizio riceve comunque
+  solo l'elenco dei destinatari e l'HTML. Una mail per destinatario; chi ha gia
   ricevuto l'invito
   (`b2bInvito` sulla scheda) viene saltato salvo `forza: true`; i doppioni di
   indirizzo partono una volta sola. `maxDuration` 60s in vercel.json.

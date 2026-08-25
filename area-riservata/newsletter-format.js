@@ -1305,6 +1305,10 @@
          {{B2B}}  - il suo collegamento personale firmato al modulo.
        Il tono e' formale (Lei): e' un invito personale, non una
        circolare. `dati.evento`: titolo, quando, sottotitolo.
+       `dati.orario` (facoltativo) e' la finestra in cui si svolgono gli
+       incontri ("dalle 14:30 alle 18:00"): quando c'e', la mail lo dice
+       in un riquadro in evidenza e nel testo, cosi' chi legge sa gia'
+       quando presentarsi invece di aspettare una seconda mail.
     ========================================================= */
     const SEGNAPOSTO_B2B = '{{B2B}}';
     const SEGNAPOSTO_NOME = '{{NOME}}';
@@ -1325,6 +1329,7 @@
     function invitoB2B(dati) {
         dati = dati || {};
         const ev = dati.evento || {};
+        const orario = String(dati.orario == null ? '' : dati.orario).trim();
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
         const oggetto = 'Il Suo incontro B2B al convegno - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
@@ -1367,11 +1372,32 @@
             + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Indichi i Suoi temi di interesse</a>'
             + '</td></tr></table></td></tr>';
 
+        /* La chiusura cambia con l'orario: senza, si promette di comunicarlo;
+           con, resta da confermare solo il turno preciso dentro la fascia. */
+        const chiusura = (orario
+            ? 'Gli incontri si terranno ' + orario + ': sarà nostra cura ricontattarLa per confermare il turno preciso e gli specialisti che saranno a Sua disposizione.'
+            : 'Sarà nostra cura ricontattarLa per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione.')
+            + ' Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.';
+
+        /* Quando gli incontri si svolgono: sta in evidenza subito dopo
+           l'annuncio dell'incontro, perche' e' la prima cosa che chi legge
+           vuole sapere (e quella che, senza, costringe a chiedere). Compare
+           solo se l'orario e' stato indicato al momento dell'invio. */
+        const riquadroOrario = '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
+            + '<tr><td style="padding:14px 20px;">'
+            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Quando si svolgono gli incontri B2B</span><br>'
+            + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">'
+            + (ev.quando ? esc(ev.quando) + ', ' : '') + esc(orario) + '</span>'
+            + (ev.luogo ? '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">' + esc(ev.luogo) + (ev.indirizzo ? ' - ' + esc(ev.indirizzo) : '') + '</span>' : '')
+            + '</td></tr></table></td></tr>';
+
         const corpo = cella(tabellaInterna(
             spazio(30)
             + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
             + spazio(14)
             + par('Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.')
+            + (orario ? spazio(18) + riquadroOrario : '')
             + spazio(14)
             + par('Per organizzare un incontro davvero utile e individuare gli interlocutori più adatti, La invitiamo a indicarci uno o più temi di Suo interesse:')
             + spazio(16)
@@ -1395,7 +1421,7 @@
             + spazio(26)
             + bottone
             + spazio(26)
-            + par('Sarà nostra cura ricontattarLa per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione. Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.')
+            + par(chiusura)
             + spazio(24)
             + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
@@ -1419,13 +1445,15 @@
 
         const testo = ['UN INCONTRO RISERVATO PER LA SUA IMPRESA', sommario,
             'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti. Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.',
+            (orario ? 'Quando si svolgono gli incontri B2B: ' + (ev.quando ? ev.quando + ', ' : '') + orario
+                + (ev.luogo ? ' - ' + ev.luogo + (ev.indirizzo ? ', ' + ev.indirizzo : '') : '') : ''),
             'I temi proposti:\n' + TEMI_B2B.map(t => '- ' + t.descrizione).join('\n'),
             '{{SE_TEMI}}Le Sue preferenze già indicate: {{TEMI}}. Dal modulo può confermarle, aggiungerne o toglierne quando vuole.{{/SE_TEMI}}',
             'Indichi i Suoi temi di interesse (e, se vuole, il progetto su cui confrontarsi): ' + SEGNAPOSTO_B2B,
-            'Sarà nostra cura ricontattarLa per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione. Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.',
+            chiusura,
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_CONFERMA,
-            'Informativa privacy: ' + PRIVACY].join('\n\n');
+            'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
 
         return { oggetto: oggetto, html: html, testo: testo };
     }

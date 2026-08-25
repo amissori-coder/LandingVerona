@@ -998,6 +998,22 @@ summary.ni-testa::before {
 .nl-dest-riga:last-child { border-bottom: none; }
 .nl-dest-riga input { width: auto; margin: 0; }
 .nl-dest-riga.escluso { color: var(--grigio-400); text-decoration: line-through; }
+
+/* invito B2B: l'elenco delle aziende da invitare (stessa cassetta dei
+   destinatari newsletter, ma la riga qui e' un'impresa con i suoi referenti).
+   Il selettore porta anche il tag perche' la riga sta dentro un ".campo", dove
+   ".campo label" la renderebbe a blocco e il quadratino finirebbe sopra il nome. */
+label.ib-az-riga {
+    display: flex; align-items: center; gap: 8px; margin: 0;
+    padding: 6px 10px; font-size: 0.85rem; font-weight: 400; color: var(--grigio-900);
+    cursor: pointer; border-bottom: 1px solid var(--grigio-100);
+}
+label.ib-az-riga:last-child { border-bottom: none; }
+label.ib-az-riga input[type="checkbox"] { width: auto; margin: 0; padding: 0; flex: none; }
+label.ib-az-riga.escluso { color: var(--grigio-400); }
+.ib-az-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+label.ib-az-riga input:checked + .ib-az-nome { font-weight: 600; color: var(--blu-900); }
+.ib-az-num { color: var(--grigio-400); font-size: 0.76rem; white-space: nowrap; }
 .nl-esito { font-size: 0.88rem; margin: 8px 0 0; }
 .nl-esito:empty { display: none; }
 .nl-esito.ok { background: var(--verde-bg); color: var(--verde); border: 1px solid rgba(30, 127, 79, .25); border-radius: var(--raggio-sm); padding: 10px 12px; }
