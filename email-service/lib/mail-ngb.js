@@ -17,6 +17,9 @@
    se di la' cambia l'impostazione, va aggiornata anche qui.
    ============================================================ */
 
+// gli orari letti dalla frase: servono a mettere gli incontri in fila
+const ORARI = require('./orari-b2b');
+
 const C = {
     scuro: '#0A2844', blu: '#164068', accento: '#2A5A85', chiaroBlu: '#5B89B8',
     suScuro: '#C8DAEA', testo: '#1E293B', tenue: '#475569',
@@ -228,13 +231,19 @@ function confermaB2B(dati, link) {
     const d = dati || {};
     const ev = d.evento || {};
     const evNome = [ev.titolo, ev.quando].filter(Boolean).join(', ') || nomeEvento(d.pagina);
-    /* I tavoli arrivano come oggetti {nome, orario}; si accettano anche
-       stringhe, per non rompersi se un chiamante vecchio resta in giro. */
-    const tavoli = (d.tavoli || []).filter(Boolean)
-        .map(t => (typeof t === 'string' ? { nome: t, orario: '' } : { nome: String(t.nome || ''), orario: String(t.orario || '') }))
-        .filter(t => t.nome);
+    /* I tavoli in ORDINE DI ORARIO: e' l'ordine in cui la giornata succede, ed
+       e' quello in cui vanno letti. Arrivano come oggetti {nome, orario}; si
+       accettano anche stringhe, per non rompersi se un chiamante vecchio resta
+       in giro. */
+    const tavoli = ORARI.ordinaPerOrario(ORARI.normalizzaTavoli(d.tavoli));
     const quanti = tavoli.length;
-    const conOrario = t => t.nome + (t.orario ? ' - ' + t.orario : '');
+    const conOrario = t => {
+        const ore = ORARI.oreDaFrase(t.orario);
+        // con un'ora vera si scrive prima l'ora, come su un programma; con una
+        // frase scritta a mano si scrive prima l'incontro, e la frase di seguito
+        if (ore.inizio && ore.fine) return ore.inizio + ' - ' + ore.fine + ', ' + t.nome;
+        return t.nome + (t.orario ? ' - ' + t.orario : '');
+    };
     const oggetto = 'Prenotazione confermata - Incontri B2B, Next Generation Business' + (evNome ? ', ' + evNome : '');
     const saluto = 'Gentile ' + (d.nome || 'ospite') + ',';
     const sommario = saluto + ' la Sua prenotazione agli incontri B2B'

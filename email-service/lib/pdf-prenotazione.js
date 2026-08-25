@@ -23,6 +23,9 @@
    perche' un carattere fuori tabella diventerebbe un segno a caso.
    ============================================================ */
 
+// gli orari letti dalla frase: servono a mettere gli incontri in fila
+const { ordinaPerOrario, normalizzaTavoli, oreDaFrase } = require('./orari-b2b');
+
 const A4 = { larghezza: 595.28, altezza: 841.89 };
 const LATO = 46;                       // margine sinistro e destro
 const DENTRO = A4.larghezza - LATO * 2;
@@ -201,52 +204,59 @@ function contenutoPagina(dati) {
     }
 
     // --- i tavoli prenotati ---
-    f.testo('I SUOI INCONTRI PRENOTATI', { corpo: 8.5, grassetto: true, colore: C.accento, spazio: 1.4 });
+    // dove finisce la pagina: lo sanno sia l'elenco sia l'avviso
+    const altoPiede = A4.altezza - 66;
+    f.testo('IL SUO PROGRAMMA', { corpo: 8.5, grassetto: true, colore: C.accento, spazio: 1.4 });
     f.scendi(10);
     f.linea(LATO, f.y, A4.larghezza - LATO, C.bordo, 1);
     f.scendi(20);
-    /* I tavoli arrivano come oggetti {nome, orario}; si accettano anche
-       stringhe, per non rompersi se un chiamante vecchio resta in giro. */
-    const tavoli = (d.tavoli || []).filter(Boolean)
-        .map(t => (typeof t === 'string' ? { nome: t, orario: '' } : { nome: String(t.nome || ''), orario: String(t.orario || '') }))
-        .filter(t => t.nome);
+    /* Gli incontri IN ORDINE DI ORARIO, impaginati come un orario: a sinistra
+       l'ora, a destra l'argomento. E' la forma in cui si legge un programma, ed
+       e' quella che serve a chi ha il foglio in mano fra un tavolo e l'altro:
+       la domanda non e' "a che ora e' il merito creditizio" ma "dove devo
+       essere adesso". La colonna dell'ora e' larga fissa, cosi' le ore restano
+       incolonnate e l'occhio le scorre. */
+    const tavoli = ordinaPerOrario(normalizzaTavoli(d.tavoli));
+    const LARGA_ORA = 108;
     if (!tavoli.length) {
         f.paragrafo('Nessun incontro selezionato.', { corpo: 11, colore: C.tenue });
     } else {
-        /* Il foglio e' UNA pagina e deve restarlo: con nove tavoli prenotati, il
-           nome su una riga e l'orario sotto sfonderebbero il piede. Da sette in
-           su si passa alla forma compatta - nome e orario sulla stessa riga,
-           passo ridotto - che sta larga il doppio ma alta la meta'. */
+        // il foglio e' UNA pagina e deve restarlo: con molti incontri si stringe
         const stretti = tavoli.length > 6;
-        tavoli.forEach(t => {
+        const corpoNome = stretti ? 10.5 : 11.5;
+        const passoNome = stretti ? 14 : 16;
+        /* Sotto l'elenco deve restare posto per l'avviso: e' la riga per cui
+           questo foglio esiste. Quindi l'elenco ha un tetto, e se non ci sta
+           tutto si dice quanti incontri non sono stampati invece di scriverli
+           sopra il piede. */
+        const limiteElenco = altoPiede - 12 - 14 - (20 + 2 * 15 + 8);
+        let saltati = 0;
+        tavoli.forEach((t, n) => {
+            const ore = oreDaFrase(t.orario);
+            /* Nella colonna stretta ci va SOLO un'ora vera. Una frase scritta a
+               mano ("nel primo pomeriggio") li' andrebbe a capo tre volte e
+               spingerebbe l'elenco sotto il piede: sta accanto al nome, dove c'e'
+               la larghezza, e resta scritta com'era invece di sparire. */
+            const oraVera = !!(ore.inizio && ore.fine);
+            const righeOra = oraVera ? [ore.inizio + ' - ' + ore.fine] : [];
+            const testoNome = (!oraVera && t.orario) ? (t.nome + ' - ' + t.orario) : t.nome;
+            const righeNome = aCapo(testoNome, corpoNome, DENTRO - LARGA_ORA - 8);
+            const altezza = Math.max(righeOra.length, righeNome.length) * passoNome + (stretti ? 8 : 12);
+            if (f.y + altezza > limiteElenco) { saltati++; return; }
             const alto = f.y;
-            f.rettangolo(LATO + 2, alto - 8, 7, 7, C.accento);
-            let giu = 0;
-            if (stretti) {
-                const righe = aCapo(t.nome + (t.orario ? '  -  ' + t.orario : ''), 10.5, DENTRO - 24);
-                righe.forEach((riga, i) => {
-                    f.testo(riga, { alto: alto + i * 14, x: LATO + 24, corpo: 10.5, grassetto: true, colore: C.scuro });
-                });
-                giu = righe.length * 14;
-            } else {
-                const righe = aCapo(t.nome, 11.5, DENTRO - 24);
-                righe.forEach((riga, i) => {
-                    f.testo(riga, { alto: alto + i * 16, x: LATO + 24, corpo: 11.5, grassetto: true, colore: C.scuro });
-                });
-                giu = righe.length * 16;
-                /* L'orario sotto il nome del tavolo, in blu: e' quello che si cerca
-                   con l'occhio quando si e' in fila al desk. Va a capo come tutto
-                   il resto - "dalle 14:30 alle 15:15, dopo il coffee break" e'
-                   un orario che qualcuno scrivera' - invece di uscire dal margine. */
-                if (t.orario) {
-                    aCapo(t.orario, 11, DENTRO - 24).forEach((riga, i) => {
-                        f.testo(riga, { alto: alto + giu + i * 15, x: LATO + 24, corpo: 11, grassetto: true, colore: C.blu });
-                    });
-                    giu += aCapo(t.orario, 11, DENTRO - 24).length * 15;
-                }
-            }
-            f.scendi(giu + (stretti ? 6 : 10));
+            if (n && !saltati) f.linea(LATO + 4, alto - 10, A4.larghezza - LATO, C.bordo, 0.6);
+            righeOra.forEach((riga, i) => {
+                f.testo(riga, { alto: alto + i * passoNome, x: LATO + 4, corpo: corpoNome, grassetto: true, colore: C.blu });
+            });
+            righeNome.forEach((riga, i) => {
+                f.testo(riga, { alto: alto + i * passoNome, x: LATO + LARGA_ORA, corpo: corpoNome, grassetto: true, colore: C.scuro });
+            });
+            f.scendi(altezza);
         });
+        if (saltati) {
+            f.paragrafo('e altri ' + saltati + (saltati === 1 ? ' incontro' : ' incontri')
+                + ': li trova elencati nella mail.', { corpo: 10, colore: C.tenue, passo: 14 });
+        }
     }
 
     /* --- l'avviso per il desk ---
@@ -256,19 +266,20 @@ function contenutoPagina(dati) {
        lascia cadere quello che non entra, nell'ordine: la seconda frase (la
        stessa cosa la dice anche la mail), poi il riquadro intero. La prima frase
        - dove presentarsi - non si taglia mai: e' il motivo per cui questo foglio
-       esiste, e se non ci sta e' l'elenco che va stretto, non l'avviso. */
-    const altoPiede = A4.altezza - 66;
+       esiste, e se non ci sta e' l'elenco che va stretto, non l'avviso: infatti
+       l'elenco qui sopra si ferma prima, lasciandogli il posto. */
     f.scendi(14);
     const avviso1 = 'Presenti questo foglio, stampato o dal telefono, al desk "Incontri B2B" all\'ingresso.'
         + ' La aspettiamo a ciascun incontro nell\'orario indicato qui sopra.'
-        + ' Gli specialisti a Sua disposizione Le saranno confermati sul posto.';
+        + ' Gli specialisti a Sua disposizione Le saranno confermati sul posto.'
+        + ' Per qualsiasi cosa: info@nextgenerationbusiness.it.';
     const avviso2 = 'Può modificare la prenotazione quando vuole, dal collegamento personale che trova nella mail: '
         + 'riceve subito un foglio aggiornato. Vale sempre l\'ultimo emesso.';
     const largoAvviso = DENTRO - 36;
     // la versione minima, quando lo spazio e' finito: due righe, ma la cosa da
     // fare c'e' ancora
-    const avvisoCorto = 'Presenti questo foglio al desk "Incontri B2B" all\'ingresso: '
-        + 'la aspettiamo a ciascun incontro nell\'orario indicato qui sopra.';
+    const avvisoCorto = 'Presenti questo foglio al desk "Incontri B2B" all\'ingresso: la aspettiamo a '
+        + 'ciascun incontro nell\'orario indicato qui sopra. Per qualsiasi cosa: info@nextgenerationbusiness.it.';
     const alte = (testo, corpo) => 20 + aCapo(testo, corpo, largoAvviso).length * (corpo + 4.5) + 8;
     const cimaAvviso = f.y;
     const disponibile = altoPiede - 12 - cimaAvviso;

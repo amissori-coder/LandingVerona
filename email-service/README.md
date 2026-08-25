@@ -351,6 +351,24 @@ orario, ed e l'unico modo perche chi prenota sappia se due si sovrappongono.
   14:30 alle 15:15"). `presenze.js` accetta solo le etichette che conosce
   (`lib/temi-b2b.js`), cosi nessuno puo infilare voci inventate nel foglio del
   desk.
+- **L'orario si scrive in due caselle dell'ora**, inizio e fine (area riservata),
+  e da li si compone la frase. Un orario scritto a mano ("14.30-15,15",
+  "pomeriggio") sarebbe quattro modi di dire la stessa cosa e nessuno
+  confrontabile: senza due ore confrontabili non si puo dire se due tavoli si
+  sovrappongono ne mettere gli incontri in fila sul foglio del desk. La finestra
+  riempie i nove tavoli in sequenza (ora del primo, durata, pausa) o con lo
+  stesso orario per tutti, segnala le sovrapposizioni e non lascia partire un
+  invito con un tavolo a meta o che finisce prima di cominciare.
+- `lib/orari-b2b.js` rilegge le ore dalla frase e mette i tavoli in ordine di
+  orario: lo usano la mail di conferma e il PDF. Riconosce SOLO la forma che le
+  caselle compongono (`dalle HH:MM alle HH:MM`). Pescare due ore da una frase
+  qualunque sembrerebbe generoso e invece inventa: da "sala 2.30, dalle 14:00
+  alle 15:00" verrebbero fuori le 02:30 come inizio - il numero della sala - e
+  il foglio del desk annuncerebbe un orario che nessuno ha mai comunicato,
+  mettendo per giunta quell'incontro per primo. Un orario scritto a mano prima
+  delle caselle si stampa com'e stato scritto, accanto al nome dell'incontro, e
+  va in coda. L'area riservata usa la stessa identica regola e avverte quando un
+  orario ricordato non si rilegge nelle caselle, invece di lasciarlo sparire.
 - **Un tavolo senza orario non e in programma** a quell'evento: non compare
   nell'elenco della mail di invito, `b2b-leggi` lo rimanda con orario vuoto e la
   pagina non lo propone, e `b2b-salva` rifiuta una prenotazione che lo contenga
@@ -405,6 +423,10 @@ personale appartiene a un'azienda che non ha nominato.
   (`raggruppaPerAzienda`). Senza, mario@alfa.it spostato in Beta tornerebbe fra
   i colleghi di Alfa al primo ridisegno, e lo spostamento sembrerebbe non aver
   funzionato.
+- **Il PDF e un programma della giornata**: gli incontri in ordine di orario,
+  impaginati come un orario - a sinistra l'ora, a destra l'argomento - perche la
+  domanda di chi ha il foglio in mano non e "a che ora e il merito creditizio"
+  ma "dove devo essere adesso".
 - **Il PDF e scritto a mano** (nessuna libreria): una pagina A4, i due font
   standard Helvetica in codifica WinAnsi, testo e rettangoli. Una libreria di
   impaginazione porterebbe megabyte in una funzione che deve partire in fretta.
