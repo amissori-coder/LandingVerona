@@ -148,7 +148,15 @@
                parole diverse: sono preferenze, non un posto prenotato. */
             function colleghiHtml(r) {
                 var lista = r.colleghi || [];
-                if (!lista.length) return '';
+                /* Nessun collega non vuol dire "non lo so": vuol dire che di
+                   quell'azienda e' iscritto solo lui. Dirlo evita la domanda -
+                   perche' non vedo nessuno? - che il silenzio lascia aperta. */
+                if (!lista.length) {
+                    if (!r.azienda) return '';
+                    return '<div class="colleghi"><h2>Gli incontri dei Suoi colleghi</h2>'
+                        + '<p class="spiega">Al momento e l\'unico referente di <b>' + esc(r.azienda)
+                        + '</b> iscritto al convegno: appena se ne iscrive un altro, qui compaiono le sue scelte.</p></div>';
+                }
                 var voci = lista.map(function (c) {
                     var tavoli = etichette(r, c.temi);
                     var pref = etichette(r, c.preferenze);

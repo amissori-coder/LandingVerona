@@ -855,10 +855,12 @@
             + '  .h1{font-size:24px!important;line-height:31px!important;}\n'
             + '  .lead{font-size:16px!important;line-height:26px!important;}\n'
             + '  .btnlink{display:block!important;text-align:center!important;}\n'
-            /* Il giustificato vive bene sui 520px della colonna desktop; su un
-               telefono, senza sillabazione, aprirebbe buchi bianchi fra le parole
-               proprio dove serve leggere meglio. Sotto i 620px si torna a sinistra. */
-            + '  .par{text-align:left!important;}\n'
+            /* Il giustificato resta anche sul telefono: i messaggi vanno sempre
+               a bandiera doppia, e' il modo in cui questo studio scrive. Perche'
+               sulla colonna stretta non si aprano buchi bianchi fra le parole si
+               chiede la sillabazione, che Apple Mail e Gmail su iOS applicano:
+               dove non c'e' si perde solo un po' di uniformita', non la forma. */
+            + '  .par{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}\n'
             /* Blocchi affiancati: sotto i 620px ciascuno prende tutta la larghezza
                e si impilano da soli, senza dover sapere quanti sono. Lo spazio fra
                le colonne sparisce e diventa uno spazio sotto ciascuna, altrimenti
