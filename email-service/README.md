@@ -286,6 +286,16 @@ tavolo; chi riceve la mail sceglie a quali sedersi.
   n'e). La scelta va in `b2bScelte`, la nota nella colonna "Nota B2B",
   `incontro` diventa "si". L'area riservata le raccoglie anche nel riepilogo per
   argomento, con i prenotati per tavolo.
+- **Chi e dello stesso EVENTO**: il campo `pagina` dice da dove arriva
+  un'iscrizione e non e scritto uguale da tutti - il modulo del sito di Napoli
+  scrive "Napoli 2 Ottobre 2026 - Manifestazione di interesse", l'area riservata
+  (quando si aggiunge a mano) solo "Napoli 2 Ottobre 2026", dal foglio importato
+  puo arrivare altro. Confrontare la stringa intera spezzava lo stesso evento in
+  tanti eventi quante sono le sue provenienze: due colleghi della stessa azienda,
+  uno iscritto dal sito e uno aggiunto a mano, non si vedevano. L'evento e quindi
+  la parte PRIMA del trattino, ridotta all'osso; le schede si chiedono per
+  intervallo su `pagina` (una lettura mirata) e, se da li non esce nessuno oltre
+  a chi sta guardando, si rilegge tutto e si filtra a mano.
 - **Le prenotazioni dei colleghi**: siccome l'invito parte a tutti i referenti
   di un'azienda, `b2b-leggi` restituisce anche `colleghi` - le altre persone
   della STESSA impresa per lo STESSO evento, con nome, ruolo, tavoli prenotati e

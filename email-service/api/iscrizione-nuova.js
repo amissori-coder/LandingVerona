@@ -404,15 +404,53 @@ function radiciAziende(persone) {
    altrimenti il collega che si prenota un attimo dopo non lo vedrebbe. */
 const COLLEGHI_MS = 30 * 1000;
 const _cacheEvento = {};
-function scordaEvento(pagina) { delete _cacheEvento[String(pagina || '')]; }
+
+/* --- quando due schede sono dello STESSO evento ---
+   Il campo `pagina` dice da dove arriva un'iscrizione, e non e' scritto uguale
+   da tutti: il modulo del sito di Napoli scrive "Napoli 2 Ottobre 2026 -
+   Manifestazione di interesse", quello di Roma "Roma 29 Aprile 2026 -
+   Iscrizione", l'area riservata - quando un'iscrizione si aggiunge a mano -
+   scrive solo "Napoli 2 Ottobre 2026", e dal foglio importato puo' arrivare
+   altro ancora. L'elenco degli eventi nell'area riservata infatti non confronta
+   la stringa intera: cerca la citta' dentro la pagina.
+   Confrontare la stringa INTERA, come si faceva qui, spezzava lo stesso evento
+   in tanti eventi quante sono le sue provenienze: due colleghi della stessa
+   azienda, uno iscritto dal sito e uno aggiunto a mano, non si vedevano.
+   L'evento e' quindi la parte PRIMA del trattino, ridotta all'osso. */
+function chiaveEvento(pagina) {
+    return String(pagina || '').split(/\s[-\u2013\u2014]\s/)[0]
+        .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+function scordaEvento(pagina) { delete _cacheEvento[chiaveEvento(pagina)]; }
+/* Le schede di un evento. Si chiedono a Firestore per INTERVALLO sul campo
+   pagina ("tutto quello che comincia per Napoli 2 Ottobre 2026"): una sola
+   lettura mirata, che prende sia la forma nuda sia quelle con il seguito.
+   Se dall'intervallo non esce nulla oltre alla scheda di chi sta guardando,
+   vuol dire che le pagine di questo evento sono scritte in modi che
+   l'intervallo non copre (maiuscole diverse, un'altra punteggiatura): allora,
+   e solo allora, si rilegge tutto e si filtra a mano. Costa, ma capita di rado
+   ed e' l'unico modo per non lasciare qualcuno da solo per un trattino. */
 async function schedeDellEvento(db, pagina) {
-    const k = String(pagina || '');
+    const k = chiaveEvento(pagina);
     if (!k) return [];
     const c = _cacheEvento[k];
     if (c && (Date.now() - c.quando) < COLLEGHI_MS) return c.righe;
-    const snap = await db.collection('iscrizioni').where('pagina', '==', k).get();
-    const righe = [];
-    snap.forEach(d => righe.push(Object.assign({ _doc: d.id }, d.data() || {})));
+    const base = String(pagina || '').split(/\s[-\u2013\u2014]\s/)[0].trim();
+    const daSnap = snap => {
+        const fuori = [];
+        snap.forEach(d => {
+            const r = Object.assign({ _doc: d.id }, d.data() || {});
+            if (chiaveEvento(r.pagina) === k) fuori.push(r);
+        });
+        return fuori;
+    };
+    let righe = [];
+    if (base) {
+        righe = daSnap(await db.collection('iscrizioni')
+            .where('pagina', '>=', base).where('pagina', '<=', base + '\uf8ff').get());
+    }
+    if (righe.length < 2) righe = daSnap(await db.collection('iscrizioni').get());
     _cacheEvento[k] = { quando: Date.now(), righe: righe };
     return righe;
 }
