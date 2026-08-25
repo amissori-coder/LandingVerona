@@ -62,11 +62,42 @@ Serve per generare i link di reimpostazione password.
 > dell'account fermerebbe anche le email con cui le persone entrano nell'area
 > riservata.
 
-### Casella PEC (inviti alle aziende)
+### Inviti alle aziende (sezione Eventi)
 
-Servono **solo** se si usano gli inviti via PEC alle aziende, nella sezione
-Eventi dell'area riservata. Finche' mancano, quella parte si puo' usare per
-caricare e preparare gli elenchi, ma il servizio **si rifiuta di spedire**.
+Nella sezione Eventi si carica un elenco di aziende **non ancora iscritte** e
+si manda l'invito. L'invito puo' partire su due canali, scelti al momento
+dell'invio.
+
+**Canale normale: email ordinaria da Brevo.** Funziona **senza aggiungere
+niente**: usa le variabili `SMTP_*` gia' presenti qui sopra. Ogni messaggio
+porta il collegamento di disiscrizione e le intestazioni `List-Unsubscribe`,
+e chi si e' gia' disiscritto viene saltato (stesso elenco della newsletter).
+
+Facoltative, ma **consigliate** per un invio a freddo:
+
+| Nome | Valore |
+|---|---|
+| `MKT_SMTP_HOST` | `smtp-relay.brevo.com` |
+| `MKT_SMTP_PORT` | `587` |
+| `MKT_SMTP_USER` | login SMTP di un **secondo** account (o sotto-account) Brevo |
+| `MKT_SMTP_PASS` | la chiave SMTP di quell'account |
+| `MKT_FROM_EMAIL` | il mittente degli inviti (es. `eventi@nextgenerationbusiness.it`) |
+| `MKT_FROM_NAME` | `Next Generation Business` |
+| `MKT_REPLY_TO` | dove far arrivare le risposte (se manca, risponde a chi ha premuto invia) |
+| `MKT_MAX_LOTTO` | quanti messaggi per chiamata (predefinito 40) |
+| `MKT_MAX_ORA` | tetto orario per utente (predefinito 2000) |
+
+> **Perche' un secondo account Brevo.** Come dice la nota qui sopra, un solo
+> account Brevo regge oggi TUTTE le email dello studio, comprese quelle con cui
+> le persone entrano nell'area riservata. Un invio a freddo porta rimbalzi e
+> segnalazioni di spam: se il conto viene sospeso per quelli, si ferma anche
+> l'accesso all'area riservata. Con `MKT_SMTP_*` gli inviti viaggiano su un
+> conto separato e il danno resta li'. Se le variabili non ci sono, l'invio
+> funziona lo stesso dal mittente di sempre.
+
+**Secondo canale: PEC.** Per l'invito formale. Finche' le variabili mancano,
+il canale resta spento nell'area riservata e il servizio **si rifiuta di
+spedire**: l'elenco si puo' comunque caricare e preparare.
 
 | Nome | Valore |
 |---|---|
@@ -80,24 +111,20 @@ caricare e preparare gli elenchi, ma il servizio **si rifiuta di spedire**.
 | `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
 | `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 300) |
 
-> **Perche' non si usa Brevo anche per queste.** Una PEC ha valore legale solo
-> se parte da una casella PEC attraverso l'SMTP del gestore accreditato: e' il
-> gestore a produrre la ricevuta di accettazione e quella di consegna. Brevo non
-> e' un gestore PEC, quindi quello che uscirebbe di li' sarebbe posta ordinaria,
-> senza ricevute, e diverse caselle PEC aziendali sono impostate per rifiutarla.
-> Per questo l'invio PEC ha un trasporto suo (`lib/pec.js`), separato da tutto
-> il resto.
+> **Perche' la PEC non passa da Brevo.** Una PEC ha valore legale solo se parte
+> da una casella PEC attraverso l'SMTP del gestore accreditato: e' il gestore a
+> produrre la ricevuta di accettazione e quella di consegna. Brevo non e' un
+> gestore PEC, quindi da li' uscirebbe posta ordinaria, senza ricevute, e
+> diverse caselle PEC aziendali sono impostate per rifiutarla. Per questo il
+> canale PEC ha credenziali sue (`lib/canali-invito.js`).
 >
-> **Limiti del gestore.** Aruba PEC (come gli altri) pone dei tetti al numero di
-> messaggi: vanno verificati sul contratto della casella. Il servizio spedisce
-> **un destinatario per messaggio** (le ricevute restano leggibili una per una)
-> e a lotti, quindi un elenco lungo si spedisce in piu' riprese: l'area riservata
-> tiene il segno e non rispedisce a chi ha gia' ricevuto.
->
-> **Le ricevute** (accettazione e consegna) arrivano nella casella PEC, non qui:
-> l'area riservata registra la presa in carico da parte del gestore e l'eventuale
-> rifiuto, non la consegna finale. Lo stato "Consegnata" si puo' segnare a mano
-> sulle schede.
+> **Le ricevute** (accettazione e consegna) arrivano nella casella PEC, non
+> qui: l'area riservata registra la presa in carico da parte del gestore e
+> l'eventuale rifiuto, non la consegna finale.
+
+Su entrambi i canali si spedisce **un destinatario per messaggio**, a lotti:
+un elenco lungo parte in piu' riprese, e l'area riservata tiene il segno e non
+rispedisce a chi ha gia' ricevuto.
 
 > **Nota sulla chiave (`FIREBASE_SERVICE_ACCOUNT`).** Il file JSON è su più righe e
 > Vercel non lo fa incollare bene nel campo valore. Conviene incollarlo **in base64**

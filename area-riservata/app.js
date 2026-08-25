@@ -1543,12 +1543,13 @@
             }
         },
 
-        /* Aziende da invitare via PEC: elenco, caricamento e invio. Un solo
-           servizio con piu' azioni, come le presenze. Chi puo' fare cosa lo
-           decide il servizio, non queste righe. */
-        async aziendePec(corpo) {
-            let url = window.RV_AZIENDE_PEC_URL;
-            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'aziende-pec$1');
+        /* Aziende da invitare a un evento: elenco, caricamento e invio
+           dell'invito (email ordinaria o PEC). Un solo servizio con piu'
+           azioni, come le presenze. Chi puo' fare cosa lo decide il
+           servizio, non queste righe. */
+        async aziendeInvito(corpo) {
+            let url = window.RV_AZIENDE_INVITO_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'aziende-invito$1');
             if (!url) return { ok: false, msg: 'Servizio non configurato.' };
             if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
             let idToken;
@@ -13436,7 +13437,7 @@
             + ((ev.manuale || ev.tutti) ? '<div class="ev-num">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
-            + gestione + aziendePecHtml(ev) + riepilogoInteressiHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
+            + gestione + aziendeInvitoHtml(ev) + riepilogoInteressiHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
             b.addEventListener('click', () => apriEvento(b.dataset.ev)));
@@ -13452,8 +13453,8 @@
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
         const bImp = document.getElementById('ev-importa');
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
-        const bPec = document.getElementById('ev-pec');
-        if (bPec) bPec.addEventListener('click', () => modaleAziendePec(ev));
+        const bInv = document.getElementById('ev-inviti');
+        if (bInv) bInv.addEventListener('click', () => modaleAziendeInvito(ev));
         const bNuova = document.getElementById('ev-nuova');
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
         const bB2b = document.getElementById('ev-b2b');
@@ -14157,46 +14158,49 @@
     }
 
     /* ============================================================
-       AZIENDE DA INVITARE VIA PEC
+       AZIENDE DA INVITARE A UN EVENTO
        ------------------------------------------------------------
-       Per ogni evento si puo' caricare un elenco di aziende con il
-       loro indirizzo PEC (un file .csv) e mandare a ciascuna
-       l'invito. L'invito parte come PEC VERA: il servizio lo
-       spedisce dalla casella PEC dello studio, attraverso l'SMTP
-       del gestore. Non passa da Brevo, che non e' un gestore PEC:
-       quello che parte di li' e' posta ordinaria, senza ricevute,
-       e diverse caselle PEC aziendali la rifiutano.
+       Sono aziende che NON si sono ancora iscritte: e' un elenco di
+       marketing, separato dalle iscrizioni e con un archivio suo. Si
+       carica da un file .csv (ragione sociale + PEC e/o email) e da
+       qui parte l'invito, un messaggio per azienda.
 
-       Una PEC per azienda, mai piu' destinatari insieme: le
-       ricevute del gestore arrivano per messaggio, e cosi' ogni
-       scheda porta il proprio esito. L'invio va a lotti (il
-       servizio ha 60 secondi): l'elenco si ricorda a che punto
-       era, quindi si puo' interrompere e riprendere senza
-       rispedire a chi ha gia' ricevuto.
+       Due canali, si sceglie al momento dell'invio:
+         - EMAIL ORDINARIA da Brevo, quello normale per un invito:
+           veloce, senza configurazioni nuove, con il collegamento di
+           disiscrizione in fondo a ogni messaggio;
+         - PEC dalla casella del gestore, per l'invito formale. Vale
+           come PEC solo perche' parte da li': Brevo non e' un gestore
+           PEC, quindi quel canale ha credenziali sue ed e' spento
+           finche' non sono configurate.
+
+       L'invio va a lotti (il servizio ha 60 secondi per chiamata):
+       l'elenco si ricorda a che punto era, quindi si puo' fermare e
+       riprendere senza rispedire a chi ha gia' ricevuto.
        ============================================================ */
-    let _pecCache = {};         // per evento: { aziende, aggiornato }
-    let _pecCfg = null;         // stato della casella PEC sul servizio
-    let _pecSel = new Set();    // aziende spuntate
-    let _pecFiltro = { testo: '', stato: '' };
-    let _pecCercaTimer = null;
+    let _invCache = {};         // per evento: { aziende, aggiornato }
+    let _invCfg = null;         // quali canali sono pronti sul servizio
+    let _invSel = new Set();    // aziende spuntate
+    let _invFiltro = { testo: '', stato: '' };
+    let _invCercaTimer = null;
 
     /* Chi carica l'elenco e spedisce: gli stessi che possono aggiungere
        un'iscrizione (amministratore, equity e founding partner). Il servizio
        applica la stessa regola per conto suo: qui si decide solo cosa mostrare. */
-    function puoGestirePec() { return puoAggiungereIscrizioni(); }
+    function puoGestireInviti() { return puoAggiungereIscrizioni(); }
 
-    const PEC_STATI = {
+    const INV_STATI = {
         'da-invitare': 'Da invitare', 'inviata': 'Invitata', 'errore': 'Errore',
-        'esclusa': 'Esclusa', 'consegnata': 'Consegnata', 'non-consegnata': 'Non consegnata'
+        'esclusa': 'Esclusa', 'disiscritta': 'Disiscritta', 'risposta': 'Ha risposto', 'iscritta': 'Iscritta'
     };
-    function contaPec(lista) {
-        const c = { totale: 0, daInvitare: 0, inviate: 0, errori: 0, escluse: 0 };
+    function contaInviti(lista) {
+        const c = { totale: 0, daInvitare: 0, inviate: 0, errori: 0, fuori: 0 };
         (lista || []).forEach(a => {
             c.totale++;
             const s = a.stato || 'da-invitare';
-            if (s === 'inviata' || s === 'consegnata') c.inviate++;
-            else if (s === 'errore' || s === 'non-consegnata') c.errori++;
-            else if (s === 'esclusa') c.escluse++;
+            if (s === 'inviata' || s === 'risposta' || s === 'iscritta') c.inviate++;
+            else if (s === 'errore') c.errori++;
+            else if (s === 'esclusa' || s === 'disiscritta') c.fuori++;
             else c.daInvitare++;
         });
         return c;
@@ -14204,45 +14208,53 @@
 
     /* La card nella pagina dell'evento: i numeri li mostra solo se l'elenco
        e' gia' stato letto, altrimenti spiega a cosa serve. */
-    function aziendePecHtml(ev) {
-        if (!ev || ev.tutti || !puoGestirePec()) return '';
-        const c = _pecCache[ev.id];
-        const n = c ? contaPec(c.aziende) : null;
+    function aziendeInvitoHtml(ev) {
+        if (!ev || ev.tutti || !puoGestireInviti()) return '';
+        const c = _invCache[ev.id];
+        const n = c ? contaInviti(c.aziende) : null;
         const riga = n
             ? '<b>' + n.totale + '</b> aziende in elenco: ' + n.daInvitare + ' da invitare, ' + n.inviate + ' invitate'
             + (n.errori ? ', <span class="ev-ko">' + n.errori + ' con errore</span>' : '')
-            + (n.escluse ? ', ' + n.escluse + ' escluse' : '') + '.'
-            : 'Carica l\'elenco delle aziende con la loro PEC e manda l\'invito all\'evento: parte una PEC per azienda, dalla casella PEC dello studio.';
-        return '<div class="card s-admin"><div class="s-admin-txt"><strong>Aziende da invitare via PEC</strong>'
+            + (n.fuori ? ', ' + n.fuori + ' fuori elenco' : '') + '.'
+            : 'Aziende non ancora iscritte, da invitare all\'evento: si carica l\'elenco da un file e parte un messaggio per azienda, via email o via PEC.';
+        return '<div class="card s-admin"><div class="s-admin-txt"><strong>Aziende da invitare</strong>'
             + '<div class="hint">' + riga + '</div></div>'
-            + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-pec">Gestisci le aziende</button></div></div>';
+            + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-inviti">Gestisci le aziende</button></div></div>';
     }
 
-    function caricaAziendePec(ev, poi) {
-        Cloud.aziendePec({ azione: 'elenco', evento: ev.id }).then(r => {
-            if (r.ok) _pecCache[ev.id] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now() };
+    function caricaAziendeInvito(ev, poi) {
+        Cloud.aziendeInvito({ azione: 'elenco', evento: ev.id }).then(r => {
+            if (r.ok) _invCache[ev.id] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now() };
             if (poi) poi(r);
         });
     }
-    /* Com'e' messa la casella PEC sul servizio: si chiede una volta sola per
-       sessione, e serve a dire in chiaro "l'invio non e' pronto" invece di far
+    /* Quali canali sono pronti sul servizio: si chiede una volta sola per
+       sessione, e serve a dire in chiaro cosa si puo' usare invece di far
        scoprire il guasto al primo invito. */
-    function caricaCfgPec(poi) {
-        if (_pecCfg) { if (poi) poi(_pecCfg); return; }
-        Cloud.aziendePec({ azione: 'configurazione' }).then(r => {
-            _pecCfg = r.ok ? r : { ok: false, pronta: false, msg: r.msg || '' };
-            if (poi) poi(_pecCfg);
+    function caricaCfgInvito(poi) {
+        if (_invCfg) { if (poi) poi(_invCfg); return; }
+        Cloud.aziendeInvito({ azione: 'configurazione' }).then(r => {
+            _invCfg = (r.ok && r.canali) ? r.canali : { email: { pronto: false }, pec: { pronto: false } };
+            if (poi) poi(_invCfg);
         });
     }
+    function canaleCfg(nome) {
+        return (_invCfg && _invCfg[nome]) ? _invCfg[nome] : { pronto: false, maxLotto: 40, maxOra: 0 };
+    }
 
-    function aziendePecDi(ev) { return (_pecCache[ev.id] || {}).aziende || []; }
-    function aziendaPecDi(ev, id) { return aziendePecDi(ev).find(a => a.id === id) || null; }
+    function aziendeInvitoDi(ev) { return (_invCache[ev.id] || {}).aziende || []; }
+    function aziendaInvitoDi(ev, id) { return aziendeInvitoDi(ev).find(a => a.id === id) || null; }
+    /* A quale indirizzo arriverebbe l'invito su un canale: sull'ordinaria si
+       preferisce la mail normale, che le aziende leggono piu' spesso della PEC. */
+    function recapitoDi(canale, a) {
+        return canale === 'pec' ? (a.pec || '') : (a.email || a.pec || '');
+    }
 
     /* Testo libero (quello scritto nella finestra) in HTML per la mail: righe
        vuote = paragrafi, a capo singoli = interruzioni di riga. I segnaposto
        {ragione_sociale} e compagnia restano tali e quali: li sostituisce il
        servizio, azienda per azienda. */
-    function pecTestoInHtml(t) {
+    function invTestoInHtml(t) {
         return String(t || '').replace(/\r\n/g, '\n').split(/\n{2,}/)
             .map(p => p.trim()).filter(Boolean)
             .map(p => '<p style="margin:0 0 14px;">' + esc(p).split('\n').join('<br>') + '</p>')
@@ -14250,11 +14262,11 @@
     }
     /* La bozza dell'invito, con i dati dell'evento gia' dentro. Chi invia la
        rilegge e la corregge: quello che parte e' sempre il testo a video. */
-    function pecTestoPredefinito(ev) {
+    function invTestoPredefinito(ev) {
         const dove = ev.luogo ? (ev.luogo + (ev.indirizzo ? ', ' + ev.indirizzo : '')) : '';
         const pagina = ev.urlPagina ? (SITO_PUBBLICO + ev.urlPagina) : SITO_PUBBLICO;
         return 'Spettabile {ragione_sociale},\n\n'
-            + 'con la presente Vi invitiamo a ' + ev.titolo + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '')
+            + 'siamo lieti di invitarVi a ' + ev.titolo + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '')
             + ', l\'incontro di Next Generation Business in programma il ' + ev.quando
             + (dove ? ' presso ' + dove : '') + '.\n\n'
             + 'La giornata e dedicata agli strumenti con cui l\'impresa affronta i prossimi anni: '
@@ -14263,215 +14275,204 @@
             + 'Il programma completo e il modulo di iscrizione sono su ' + pagina + '.\n\n'
             + 'Restiamo a disposizione per ogni informazione e cogliamo l\'occasione per porgere i nostri migliori saluti.';
     }
-    function pecOggettoPredefinito(ev) {
+    function invOggettoPredefinito(ev) {
         return 'Invito - ' + ev.titolo + ', ' + ev.quando + ' - Next Generation Business';
     }
 
     /* La finestra di gestione: elenco, caricamento, correzioni e invio.
        Si ridisegna da sola dopo ogni operazione, cosi' gli stati a video
        sono sempre quelli veri del servizio. */
-    function modaleAziendePec(ev) {
-        if (!puoGestirePec() || !ev || ev.tutti) return;
-        _pecSel = new Set();
-        _pecFiltro = { testo: '', stato: '' };
+    function modaleAziendeInvito(ev) {
+        if (!puoGestireInviti() || !ev || ev.tutti) return;
+        _invSel = new Set();
+        _invFiltro = { testo: '', stato: '' };
         apriModale('<h2>Aziende da invitare - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
-            + '<div id="pec-corpo"><p class="hint">Carico l\'elenco...</p></div>'
-            + '<div class="modale-azioni"><button class="btn btn-secondary" id="pec-chiudi">Chiudi</button></div>', { classe: 'larga' });
-        document.getElementById('pec-chiudi').addEventListener('click', chiudiModale);
-        caricaCfgPec(() => { if (document.getElementById('pec-corpo') && _pecCache[ev.id]) disegnaAziendePec(ev); });
-        caricaAziendePec(ev, r => {
-            const corpo = document.getElementById('pec-corpo');
+            + '<div id="inv-corpo"><p class="hint">Carico l\'elenco...</p></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-chiudi">Chiudi</button></div>', { classe: 'larga' });
+        document.getElementById('inv-chiudi').addEventListener('click', chiudiModale);
+        caricaCfgInvito(() => { if (document.getElementById('inv-corpo') && _invCache[ev.id]) disegnaAziendeInvito(ev); });
+        caricaAziendeInvito(ev, r => {
+            const corpo = document.getElementById('inv-corpo');
             if (!corpo) return;
             if (!r.ok) { corpo.innerHTML = '<p class="ev-ko">' + esc(r.msg || 'Elenco non disponibile.') + '</p>'; return; }
-            disegnaAziendePec(ev);
+            disegnaAziendeInvito(ev);
         });
     }
 
-    function disegnaAziendePec(ev) {
-        const corpo = document.getElementById('pec-corpo');
+    function disegnaAziendeInvito(ev) {
+        const corpo = document.getElementById('inv-corpo');
         if (!corpo) return;
-        const tutte = aziendePecDi(ev);
-        const n = contaPec(tutte);
+        const tutte = aziendeInvitoDi(ev);
+        const n = contaInviti(tutte);
         // la selezione non deve trascinarsi dietro schede cancellate nel frattempo
         const esistenti = new Set(tutte.map(a => a.id));
-        Array.from(_pecSel).forEach(id => { if (!esistenti.has(id)) _pecSel.delete(id); });
+        Array.from(_invSel).forEach(id => { if (!esistenti.has(id)) _invSel.delete(id); });
 
-        const q = _pecFiltro.testo.trim().toLowerCase();
+        const q = _invFiltro.testo.trim().toLowerCase();
         const lista = tutte.filter(a => {
-            if (_pecFiltro.stato && (a.stato || 'da-invitare') !== _pecFiltro.stato) return false;
+            if (_invFiltro.stato && (a.stato || 'da-invitare') !== _invFiltro.stato) return false;
             if (!q) return true;
-            return (a.ragioneSociale + ' ' + a.pec + ' ' + a.citta + ' ' + a.piva + ' ' + a.referente).toLowerCase().indexOf(q) >= 0;
+            return (a.ragioneSociale + ' ' + a.pec + ' ' + a.email + ' ' + a.citta + ' ' + a.piva + ' ' + a.referente).toLowerCase().indexOf(q) >= 0;
         });
         const MAX_RIGHE = 400;
         const mostrate = lista.slice(0, MAX_RIGHE);
 
-        // stato della casella PEC: se non e' pronta si dice subito, senza aspettare l'invio
-        const cfg = _pecCfg || {};
-        const avvisoPec = !_pecCfg
-            ? '<div class="ev-imp-esito">Controllo la casella PEC del servizio...</div>'
-            : cfg.pronta
-            ? '<div class="pec-stato-ok">Le PEC partono da <b>' + esc(cfg.casella || '') + '</b>'
-            + (cfg.rispondiA ? ', con le risposte indirizzate a <b>' + esc(cfg.rispondiA) + '</b>' : '')
-            + '. Massimo ' + (cfg.maxOra || 300) + ' PEC in un\'ora.</div>'
-            : '<div class="pec-stato-ko"><b>Invio PEC non ancora attivo.</b> L\'elenco si puo caricare e preparare, '
-            + 'ma per spedire serve la casella PEC configurata sul servizio (variabili PEC_SMTP_USER, PEC_SMTP_PASS, '
-            + 'PEC_FROM_EMAIL su Vercel). Finche non ci sono, il servizio si rifiuta di spedire: un invito mandato '
-            + 'dalla posta normale non sarebbe una PEC.</div>';
-
-        const conta = '<div class="pec-conta">'
+        const conta = '<div class="inv-conta">'
             + '<span><b>' + n.totale + '</b> aziende</span>'
             + '<span><b>' + n.daInvitare + '</b> da invitare</span>'
             + '<span><b>' + n.inviate + '</b> invitate</span>'
             + (n.errori ? '<span class="ev-ko"><b>' + n.errori + '</b> con errore</span>' : '')
-            + (n.escluse ? '<span><b>' + n.escluse + '</b> escluse</span>' : '')
+            + (n.fuori ? '<span><b>' + n.fuori + '</b> fuori elenco</span>' : '')
             + '</div>';
 
-        const barra = '<div class="pec-barra">'
-            + '<button class="btn btn-primary btn-sm" id="pec-carica">Carica elenco (.csv)</button>'
-            + '<button class="btn btn-secondary btn-sm" id="pec-nuova">Aggiungi azienda</button>'
-            + '<button class="btn btn-secondary btn-sm" id="pec-scarica"' + (n.totale ? '' : ' disabled') + '>Scarica elenco con gli esiti</button>'
+        const barra = '<div class="inv-barra">'
+            + '<button class="btn btn-primary btn-sm" id="inv-carica">Carica elenco (.csv)</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-nuova">Aggiungi azienda</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-scarica"' + (n.totale ? '' : ' disabled') + '>Scarica elenco con gli esiti</button>'
             + '</div>';
 
-        const filtri = '<div class="pec-filtri">'
-            + '<input type="text" id="pec-cerca" placeholder="Cerca per ragione sociale, PEC, citta o partita IVA" value="' + esc(_pecFiltro.testo) + '">'
-            + '<select id="pec-fstato"><option value="">Tutti gli stati</option>'
-            + Object.keys(PEC_STATI).map(s => '<option value="' + s + '"' + (_pecFiltro.stato === s ? ' selected' : '') + '>' + esc(PEC_STATI[s]) + '</option>').join('')
+        const filtri = '<div class="inv-filtri">'
+            + '<input type="text" id="inv-cerca" placeholder="Cerca per ragione sociale, indirizzo, citta o partita IVA" value="' + esc(_invFiltro.testo) + '">'
+            + '<select id="inv-fstato"><option value="">Tutti gli stati</option>'
+            + Object.keys(INV_STATI).map(s => '<option value="' + s + '"' + (_invFiltro.stato === s ? ' selected' : '') + '>' + esc(INV_STATI[s]) + '</option>').join('')
             + '</select></div>';
 
-        const azioniSel = '<div class="pec-sel-barra' + (_pecSel.size ? '' : ' hidden') + '" id="pec-sel-barra">'
-            + '<span id="pec-sel-n">' + _pecSel.size + ' selezionate</span>'
-            + '<button class="btn btn-primary btn-sm" id="pec-invia">Invia la PEC di invito</button>'
-            + '<button class="btn btn-secondary btn-sm" id="pec-escludi">Escludi</button>'
-            + '<button class="btn btn-secondary btn-sm" id="pec-ripristina">Rimetti da invitare</button>'
-            + '<button class="btn btn-danger btn-sm" id="pec-elimina">Elimina</button></div>';
+        const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
+            + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
+            + '<button class="btn btn-primary btn-sm" id="inv-invia">Invia l\'invito</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-escludi">Escludi</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da invitare</button>'
+            + '<button class="btn btn-danger btn-sm" id="inv-elimina">Elimina</button></div>';
 
         const riga = a => {
             const st = a.stato || 'da-invitare';
             const quando = a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '';
+            const via = a.invio && a.invio.canale === 'pec' ? 'PEC' : (a.invio ? 'email' : '');
             const motivo = a.errore && a.errore.motivo ? a.errore.motivo : '';
+            const recapiti = (a.email ? esc(a.email) : '')
+                + (a.email && a.pec ? '<div class="hint">PEC ' + esc(a.pec) + '</div>' : (a.pec ? '<span class="inv-solo-pec">PEC</span> ' + esc(a.pec) : ''));
             return '<tr data-id="' + esc(a.id) + '">'
-                + '<td><input type="checkbox" class="pec-ck" value="' + esc(a.id) + '"' + (_pecSel.has(a.id) ? ' checked' : '') + '></td>'
+                + '<td><input type="checkbox" class="inv-ck" value="' + esc(a.id) + '"' + (_invSel.has(a.id) ? ' checked' : '') + '></td>'
                 + '<td data-label="Azienda"><b>' + esc(a.ragioneSociale) + '</b>' + (a.piva ? '<div class="hint">P.IVA ' + esc(a.piva) + '</div>' : '') + '</td>'
-                + '<td data-label="PEC">' + esc(a.pec) + '</td>'
+                + '<td data-label="Recapiti">' + recapiti + '</td>'
                 + '<td data-label="Citta">' + esc(a.citta) + (a.provincia ? ' (' + esc(a.provincia) + ')' : '') + '</td>'
                 + '<td data-label="Referente">' + esc(a.referente) + '</td>'
-                + '<td data-label="Stato"><span class="pec-pallino pec-' + esc(st) + '">' + esc(PEC_STATI[st] || st) + '</span>'
-                + (quando ? '<div class="hint">' + esc(quando) + '</div>' : '')
+                + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(INV_STATI[st] || st) + '</span>'
+                + (quando ? '<div class="hint">' + esc(quando) + (via ? ' via ' + via : '') + '</div>' : '')
                 + (motivo ? '<div class="ev-ko hint" title="' + esc(motivo) + '">' + esc(motivo.slice(0, 60)) + '</div>' : '') + '</td>'
-                + '<td class="pec-azioni-riga">'
-                + '<button class="btn btn-sm btn-ghost pec-mod" data-id="' + esc(a.id) + '">Modifica</button>'
-                + '<button class="btn btn-sm btn-ghost pec-canc" data-id="' + esc(a.id) + '">Elimina</button></td></tr>';
+                + '<td class="inv-azioni-riga">'
+                + '<button class="btn btn-sm btn-ghost inv-mod" data-id="' + esc(a.id) + '">Modifica</button>'
+                + '<button class="btn btn-sm btn-ghost inv-canc" data-id="' + esc(a.id) + '">Elimina</button></td></tr>';
         };
         const tabella = mostrate.length
-            ? '<div class="tabella-wrap"><table class="dati pec-tabella"><thead><tr>'
-            + '<th><input type="checkbox" id="pec-tutte"></th><th>Azienda</th><th>PEC</th><th>Citta</th>'
+            ? '<div class="tabella-wrap"><table class="dati inv-tabella"><thead><tr>'
+            + '<th><input type="checkbox" id="inv-tutte"></th><th>Azienda</th><th>Recapiti</th><th>Citta</th>'
             + '<th>Referente</th><th>Stato</th><th></th></tr></thead><tbody>'
             + mostrate.map(riga).join('') + '</tbody></table></div>'
             + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '')
             : '<p class="hint">' + (n.totale ? 'Nessuna azienda con questi filtri.' : 'Nessuna azienda in elenco: caricane una con il pulsante qui sopra.') + '</p>';
 
-        corpo.innerHTML = avvisoPec + conta + barra + filtri + azioniSel + '<div id="pec-esito" class="ev-imp-esito"></div>' + tabella;
+        corpo.innerHTML = conta + barra + filtri + azioniSel + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
 
-        const ridisegna = () => disegnaAziendePec(ev);
+        const ridisegna = () => disegnaAziendeInvito(ev);
         const esito = (t, ko) => {
-            const e = document.getElementById('pec-esito');
+            const e = document.getElementById('inv-esito');
             if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
         };
 
-        document.getElementById('pec-carica').addEventListener('click', () => modaleImportaAziendePec(ev));
-        document.getElementById('pec-nuova').addEventListener('click', () => modaleAziendaPec(ev, null));
-        const bScar = document.getElementById('pec-scarica');
-        if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendePec(ev));
+        document.getElementById('inv-carica').addEventListener('click', () => modaleImportaAziendeInvito(ev));
+        document.getElementById('inv-nuova').addEventListener('click', () => modaleAziendaInvito(ev, null));
+        const bScar = document.getElementById('inv-scarica');
+        if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendeInvito(ev));
 
-        const cerca = document.getElementById('pec-cerca');
-        // il filtro NON ridisegna a ogni tasto: nasconde le righe, cosi' il
-        // cursore resta dov'e' e l'elenco non sfarfalla
+        const cerca = document.getElementById('inv-cerca');
         cerca.addEventListener('input', () => {
             const v = cerca.value.trim().toLowerCase();
-            _pecFiltro.testo = cerca.value;
-            corpo.querySelectorAll('.pec-tabella tbody tr').forEach(tr => {
+            _invFiltro.testo = cerca.value;
+            corpo.querySelectorAll('.inv-tabella tbody tr').forEach(tr => {
                 tr.style.display = (!v || tr.textContent.toLowerCase().indexOf(v) >= 0) ? '' : 'none';
             });
             /* Nascondere le righe basta per l'occhio, ma "seleziona tutte" e le
                azioni ragionano sull'elenco filtrato: appena si smette di
                digitare si ridisegna davvero, riportando il cursore dov'era. */
-            clearTimeout(_pecCercaTimer);
-            _pecCercaTimer = setTimeout(() => {
+            clearTimeout(_invCercaTimer);
+            _invCercaTimer = setTimeout(() => {
                 ridisegna();
-                const c2 = document.getElementById('pec-cerca');
+                const c2 = document.getElementById('inv-cerca');
                 if (c2) { c2.focus(); c2.setSelectionRange(c2.value.length, c2.value.length); }
             }, 400);
         });
-        document.getElementById('pec-fstato').addEventListener('change', e => {
-            _pecFiltro.stato = e.target.value; ridisegna();
+        document.getElementById('inv-fstato').addEventListener('change', e => {
+            _invFiltro.stato = e.target.value; ridisegna();
         });
 
-        const barraSel = document.getElementById('pec-sel-barra');
+        const barraSel = document.getElementById('inv-sel-barra');
         const aggiornaSel = () => {
-            const et = document.getElementById('pec-sel-n');
-            if (et) et.textContent = _pecSel.size + ' selezionate';
-            if (barraSel) barraSel.classList.toggle('hidden', !_pecSel.size);
+            const et = document.getElementById('inv-sel-n');
+            if (et) et.textContent = _invSel.size + ' selezionate';
+            if (barraSel) barraSel.classList.toggle('hidden', !_invSel.size);
         };
-        corpo.querySelectorAll('.pec-ck').forEach(c => c.addEventListener('change', () => {
-            if (c.checked) _pecSel.add(c.value); else _pecSel.delete(c.value);
+        corpo.querySelectorAll('.inv-ck').forEach(c => c.addEventListener('change', () => {
+            if (c.checked) _invSel.add(c.value); else _invSel.delete(c.value);
             aggiornaSel();
         }));
-        const tutteCk = document.getElementById('pec-tutte');
+        const tutteCk = document.getElementById('inv-tutte');
         if (tutteCk) tutteCk.addEventListener('change', () => {
             // vale su TUTTE le righe filtrate, non solo su quelle disegnate
-            lista.forEach(a => { if (tutteCk.checked) _pecSel.add(a.id); else _pecSel.delete(a.id); });
-            corpo.querySelectorAll('.pec-ck').forEach(c => { c.checked = tutteCk.checked; });
+            lista.forEach(a => { if (tutteCk.checked) _invSel.add(a.id); else _invSel.delete(a.id); });
+            corpo.querySelectorAll('.inv-ck').forEach(c => { c.checked = tutteCk.checked; });
             aggiornaSel();
         });
-        corpo.querySelectorAll('.pec-mod').forEach(b => b.addEventListener('click', () =>
-            modaleAziendaPec(ev, aziendaPecDi(ev, b.dataset.id))));
-        corpo.querySelectorAll('.pec-canc').forEach(b => b.addEventListener('click', () => {
-            const a = aziendaPecDi(ev, b.dataset.id);
+        corpo.querySelectorAll('.inv-mod').forEach(b => b.addEventListener('click', () =>
+            modaleAziendaInvito(ev, aziendaInvitoDi(ev, b.dataset.id))));
+        corpo.querySelectorAll('.inv-canc').forEach(b => b.addEventListener('click', () => {
+            const a = aziendaInvitoDi(ev, b.dataset.id);
             if (!a) return;
             if (!confirm('Togliere ' + a.ragioneSociale + ' dall\'elenco?')) return;
-            Cloud.aziendePec({ azione: 'cancella', evento: ev.id, ids: [a.id] }).then(r => {
+            Cloud.aziendeInvito({ azione: 'cancella', evento: ev.id, ids: [a.id] }).then(r => {
                 if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
-                caricaAziendePec(ev, () => { ridisegna(); toast('Azienda tolta dall\'elenco.', 'verde'); });
+                caricaAziendeInvito(ev, () => { ridisegna(); toast('Azienda tolta dall\'elenco.', 'verde'); });
             });
         }));
 
-        const selezionate = () => tutte.filter(a => _pecSel.has(a.id));
-        const bInvia = document.getElementById('pec-invia');
-        if (bInvia) bInvia.addEventListener('click', () => modaleInviaPec(ev, selezionate()));
+        const selezionate = () => tutte.filter(a => _invSel.has(a.id));
+        const bInvia = document.getElementById('inv-invia');
+        if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate()));
         const cambiaStato = (stato, parola) => {
-            const ids = Array.from(_pecSel);
+            const ids = Array.from(_invSel);
             if (!ids.length) return;
-            Cloud.aziendePec({ azione: 'segna', evento: ev.id, ids: ids, stato: stato }).then(r => {
+            Cloud.aziendeInvito({ azione: 'segna', evento: ev.id, ids: ids, stato: stato }).then(r => {
                 if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
-                _pecSel = new Set();
-                caricaAziendePec(ev, () => { ridisegna(); toast(ids.length + ' aziende ' + parola + '.', 'verde'); });
+                _invSel = new Set();
+                caricaAziendeInvito(ev, () => { ridisegna(); toast(ids.length + ' aziende ' + parola + '.', 'verde'); });
             });
         };
-        const bEsc = document.getElementById('pec-escludi');
+        const bEsc = document.getElementById('inv-escludi');
         if (bEsc) bEsc.addEventListener('click', () => cambiaStato('esclusa', 'escluse dagli invii'));
-        const bRip = document.getElementById('pec-ripristina');
+        const bRip = document.getElementById('inv-ripristina');
         if (bRip) bRip.addEventListener('click', () => cambiaStato('da-invitare', 'rimesse fra quelle da invitare'));
-        const bEli = document.getElementById('pec-elimina');
+        const bEli = document.getElementById('inv-elimina');
         if (bEli) bEli.addEventListener('click', () => {
-            const ids = Array.from(_pecSel);
+            const ids = Array.from(_invSel);
             if (!ids.length) return;
             if (!confirm('Eliminare ' + ids.length + ' aziende dall\'elenco? Gli esiti degli invii gia fatti si perdono.')) return;
-            Cloud.aziendePec({ azione: 'cancella', evento: ev.id, ids: ids }).then(r => {
+            Cloud.aziendeInvito({ azione: 'cancella', evento: ev.id, ids: ids }).then(r => {
                 if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
-                _pecSel = new Set();
-                caricaAziendePec(ev, () => { ridisegna(); toast(r.tolte + ' aziende eliminate.', 'verde'); });
+                _invSel = new Set();
+                caricaAziendeInvito(ev, () => { ridisegna(); toast(r.tolte + ' aziende eliminate.', 'verde'); });
             });
         });
     }
 
     /* L'elenco cosi' com'e', esiti compresi: serve a chi tiene la rendicontazione
        degli inviti fuori dall'area riservata. */
-    function scaricaAziendePec(ev) {
-        const righe = [['Ragione sociale', 'PEC', 'Partita IVA', 'Referente', 'Citta', 'Provincia', 'Telefono', 'Email', 'Stato', 'Inviata il', 'Errore']];
-        aziendePecDi(ev).forEach(a => righe.push([
-            a.ragioneSociale, a.pec, a.piva, a.referente, a.citta, a.provincia, a.telefono, a.email,
-            PEC_STATI[a.stato || 'da-invitare'] || a.stato,
+    function scaricaAziendeInvito(ev) {
+        const righe = [['Ragione sociale', 'Email', 'PEC', 'Partita IVA', 'Referente', 'Citta', 'Provincia', 'Telefono', 'Stato', 'Invitata il', 'Canale', 'Errore']];
+        aziendeInvitoDi(ev).forEach(a => righe.push([
+            a.ragioneSociale, a.email, a.pec, a.piva, a.referente, a.citta, a.provincia, a.telefono,
+            INV_STATI[a.stato || 'da-invitare'] || a.stato,
             a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '',
+            a.invio && a.invio.canale === 'pec' ? 'PEC' : (a.invio ? 'Email' : ''),
             a.errore && a.errore.motivo ? a.errore.motivo : ''
         ]));
         const csv = righe.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
@@ -14479,45 +14480,45 @@
         const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'aziende-pec-' + ev.id + '.csv';
+        a.download = 'aziende-invito-' + ev.id + '.csv';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
     /* Caricamento dell'elenco da file. Ricaricare lo stesso file non crea
-       doppioni (la chiave e' l'indirizzo PEC) e non azzera gli invii fatti. */
-    function modaleImportaAziendePec(ev) {
-        if (!puoGestirePec()) return;
+       doppioni (la chiave e' il recapito) e non azzera gli invii fatti. */
+    function modaleImportaAziendeInvito(ev) {
+        if (!puoGestireInviti()) return;
         apriModale('<h2>Carica l\'elenco delle aziende</h2>'
-            + '<p class="hint" style="margin:-4px 0 14px;">Un file <b>.csv</b> con una riga per azienda. Serve almeno la colonna '
-            + '<b>PEC</b>; vengono riconosciute anche Ragione sociale, Partita IVA, Codice fiscale, Referente, Citta, Provincia, '
-            + 'Telefono, Email e Note, scritte in vari modi. Le altre colonne restano sulla scheda. '
+            + '<p class="hint" style="margin:-4px 0 14px;">Un file <b>.csv</b> con una riga per azienda. Serve almeno una colonna '
+            + '<b>Email</b> oppure <b>PEC</b>; vengono riconosciute anche Ragione sociale, Partita IVA, Codice fiscale, Referente, '
+            + 'Citta, Provincia, Telefono, Settore e Note, scritte in vari modi. Le altre colonne restano sulla scheda. '
             + 'Virgola e punto e virgola vanno bene entrambi.</p>'
             + '<p class="hint">Ricaricare lo stesso elenco aggiorna i dati e <b>non</b> crea doppioni: chi ha gia ricevuto '
             + 'l\'invito resta segnato come invitato e non lo riceve una seconda volta.</p>'
-            + '<div class="ev-imp-passo"><input type="file" id="pec-file" accept=".csv,text/csv,text/plain"></div>'
-            + '<div id="pec-imp-esito" class="ev-imp-esito"></div>'
-            + '<div class="modale-azioni"><button class="btn btn-secondary" id="pec-imp-chiudi">Chiudi</button></div>', { classe: 'larga' });
+            + '<div class="ev-imp-passo"><input type="file" id="inv-file" accept=".csv,text/csv,text/plain"></div>'
+            + '<div id="inv-imp-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-imp-chiudi">Chiudi</button></div>', { classe: 'larga' });
         const mostra = (t, ko) => {
-            const e = document.getElementById('pec-imp-esito');
+            const e = document.getElementById('inv-imp-esito');
             if (e) e.innerHTML = '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>';
         };
-        document.getElementById('pec-imp-chiudi').addEventListener('click', () => { chiudiModale(); modaleAziendePec(ev); });
-        document.getElementById('pec-file').addEventListener('change', e => {
+        document.getElementById('inv-imp-chiudi').addEventListener('click', () => { chiudiModale(); modaleAziendeInvito(ev); });
+        document.getElementById('inv-file').addEventListener('change', e => {
             const f = e.target.files && e.target.files[0];
             if (!f) return;
             const lettore = new FileReader();
             lettore.onerror = () => mostra('Non riesco a leggere il file.', true);
             lettore.onload = () => {
                 mostra('Caricamento in corso...');
-                Cloud.aziendePec({ azione: 'importa', evento: ev.id, csv: String(lettore.result || '') }).then(r => {
+                Cloud.aziendeInvito({ azione: 'importa', evento: ev.id, csv: String(lettore.result || '') }).then(r => {
                     if (!r.ok) { mostra(r.msg || 'Caricamento non riuscito.', true); return; }
                     mostra('Lette ' + r.lette + ' righe: ' + r.nuove + ' aziende nuove, ' + r.aggiornate + ' aggiornate'
-                        + (r.senzaPec ? ', ' + r.senzaPec + ' scartate senza PEC valida' : '')
+                        + (r.senzaRecapito ? ', ' + r.senzaRecapito + ' scartate senza un indirizzo valido' : '')
                         + (r.doppie ? ', ' + r.doppie + ' doppioni nel file' : '')
                         + (r.oltreIlLimite ? ', ' + r.oltreIlLimite + ' oltre il limite dell\'evento' : '') + '.');
-                    try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco aziende PEC caricato', 'sistema', ev.id, null, r.nuove + ' nuove, ' + r.aggiornate + ' aggiornate'); } catch (er) { }
-                    caricaAziendePec(ev, () => { });
+                    try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco aziende da invitare caricato', 'sistema', ev.id, null, r.nuove + ' nuove, ' + r.aggiornate + ' aggiornate'); } catch (er) { }
+                    caricaAziendeInvito(ev, () => { });
                 });
             };
             lettore.readAsText(f, 'utf-8');
@@ -14525,41 +14526,47 @@
     }
 
     /* Una scheda a mano: per l'azienda che arriva per telefono, o per correggere
-       una PEC sbagliata nel file. */
-    function modaleAziendaPec(ev, a) {
-        if (!puoGestirePec()) return;
+       un indirizzo sbagliato nel file. */
+    function modaleAziendaInvito(ev, a) {
+        if (!puoGestireInviti()) return;
         const v = a || {};
         const campo = (id, et, val, extra) => '<div class="campo"><label for="' + id + '">' + esc(et) + '</label>'
             + '<input type="text" id="' + id + '" value="' + esc(val || '') + '"' + (extra || '') + '></div>';
         apriModale('<h2>' + (a ? 'Modifica azienda' : 'Aggiungi azienda') + '</h2>'
-            + campo('pa-rag', 'Ragione sociale', v.ragioneSociale, ' maxlength="200"')
-            + campo('pa-pec', 'Indirizzo PEC', v.pec, ' maxlength="200"')
-            + '<div class="pec-due">' + campo('pa-piva', 'Partita IVA', v.piva, ' maxlength="30"')
-            + campo('pa-ref', 'Referente', v.referente, ' maxlength="120"') + '</div>'
-            + '<div class="pec-due">' + campo('pa-citta', 'Citta', v.citta, ' maxlength="80"')
-            + campo('pa-prov', 'Provincia', v.provincia, ' maxlength="4"') + '</div>'
-            + '<div class="pec-due">' + campo('pa-tel', 'Telefono', v.telefono, ' maxlength="40"')
-            + campo('pa-mail', 'Email ordinaria', v.email, ' maxlength="200"') + '</div>'
-            + campo('pa-note', 'Note', v.note, ' maxlength="500"')
-            + '<div id="pa-esito" class="ev-imp-esito"></div>'
-            + '<div class="modale-azioni"><button class="btn btn-secondary" id="pa-no">Annulla</button>'
-            + '<button class="btn btn-primary" id="pa-si">Salva</button></div>', { classe: 'larga' });
-        const chiudi = () => { chiudiModale(); modaleAziendePec(ev); };
-        document.getElementById('pa-no').addEventListener('click', chiudi);
-        document.getElementById('pa-si').addEventListener('click', () => {
+            + campo('ia-rag', 'Ragione sociale', v.ragioneSociale, ' maxlength="200"')
+            + '<div class="inv-due">' + campo('ia-mail', 'Email', v.email, ' maxlength="200"')
+            + campo('ia-pec', 'PEC', v.pec, ' maxlength="200"') + '</div>'
+            + '<p class="hint" style="margin:-6px 0 12px;">Basta uno dei due. Con entrambi, l\'invito via email va all\'indirizzo ordinario.</p>'
+            + '<div class="inv-due">' + campo('ia-piva', 'Partita IVA', v.piva, ' maxlength="30"')
+            + campo('ia-ref', 'Referente', v.referente, ' maxlength="120"') + '</div>'
+            + '<div class="inv-due">' + campo('ia-citta', 'Citta', v.citta, ' maxlength="80"')
+            + campo('ia-prov', 'Provincia', v.provincia, ' maxlength="4"') + '</div>'
+            + '<div class="inv-due">' + campo('ia-tel', 'Telefono', v.telefono, ' maxlength="40"')
+            + campo('ia-set', 'Settore', v.settore, ' maxlength="120"') + '</div>'
+            + campo('ia-note', 'Note', v.note, ' maxlength="500"')
+            + '<div id="ia-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ia-no">Annulla</button>'
+            + '<button class="btn btn-primary" id="ia-si">Salva</button></div>', { classe: 'larga' });
+        const chiudi = () => { chiudiModale(); modaleAziendeInvito(ev); };
+        document.getElementById('ia-no').addEventListener('click', chiudi);
+        document.getElementById('ia-si').addEventListener('click', () => {
             const val = id => (document.getElementById(id) || {}).value || '';
             const azienda = {
-                ragioneSociale: val('pa-rag').trim(), pec: val('pa-pec').trim().toLowerCase(),
-                piva: val('pa-piva').trim(), referente: val('pa-ref').trim(), citta: val('pa-citta').trim(),
-                provincia: val('pa-prov').trim(), telefono: val('pa-tel').trim(),
-                email: val('pa-mail').trim().toLowerCase(), note: val('pa-note').trim()
+                ragioneSociale: val('ia-rag').trim(), pec: val('ia-pec').trim().toLowerCase(),
+                email: val('ia-mail').trim().toLowerCase(), piva: val('ia-piva').trim(),
+                referente: val('ia-ref').trim(), citta: val('ia-citta').trim(),
+                provincia: val('ia-prov').trim(), telefono: val('ia-tel').trim(),
+                settore: val('ia-set').trim(), note: val('ia-note').trim()
             };
-            const e = document.getElementById('pa-esito');
+            const e = document.getElementById('ia-esito');
+            const buono = x => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(x);
             if (!azienda.ragioneSociale) { e.innerHTML = '<span class="ev-ko">Manca la ragione sociale.</span>'; return; }
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(azienda.pec)) { e.innerHTML = '<span class="ev-ko">Indirizzo PEC non valido.</span>'; return; }
-            const b = document.getElementById('pa-si');
+            if (azienda.pec && !buono(azienda.pec)) { e.innerHTML = '<span class="ev-ko">Indirizzo PEC non valido.</span>'; return; }
+            if (azienda.email && !buono(azienda.email)) { e.innerHTML = '<span class="ev-ko">Indirizzo email non valido.</span>'; return; }
+            if (!azienda.pec && !azienda.email) { e.innerHTML = '<span class="ev-ko">Serve almeno un recapito: email o PEC.</span>'; return; }
+            const b = document.getElementById('ia-si');
             b.disabled = true; b.textContent = 'Salvo...';
-            Cloud.aziendePec({
+            Cloud.aziendeInvito({
                 azione: a ? 'modifica' : 'aggiungi', evento: ev.id, id: a ? a.id : '', azienda: azienda
             }).then(r => {
                 if (!r.ok) {
@@ -14567,7 +14574,7 @@
                     e.innerHTML = '<span class="ev-ko">' + esc(r.msg || 'Salvataggio non riuscito.') + '</span>';
                     return;
                 }
-                caricaAziendePec(ev, () => { chiudi(); toast('Scheda salvata.', 'verde'); });
+                caricaAziendeInvito(ev, () => { chiudi(); toast('Scheda salvata.', 'verde'); });
             });
         });
     }
@@ -14576,119 +14583,163 @@
        sempre quello a video. Si spedisce a LOTTI, cosi' nessuna chiamata sfora
        il tempo massimo del servizio, e a ogni giro l'esito e' gia' scritto sulle
        schede: interrompere e riprendere non fa danni. */
-    function modaleInviaPec(ev, elenco) {
-        if (!puoGestirePec()) return;
-        const cfg = _pecCfg || {};
-        const daFare = (elenco || []).filter(a => a.stato !== 'esclusa');
-        if (!daFare.length) { toast('Nessuna azienda selezionata (le escluse non contano).', 'rosso'); return; }
-        const gia = daFare.filter(a => a.invio && a.invio.quando).length;
-        apriModale('<h2>Invito via PEC - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
-            + (cfg.pronta
-                ? '<p class="hint" style="margin:-4px 0 12px;">Parte una PEC per ciascuna delle <b>' + daFare.length + '</b> aziende selezionate, '
-                + 'dalla casella <b>' + esc(cfg.casella || '') + '</b>. Un destinatario per messaggio: le ricevute del gestore restano leggibili una per una.'
-                + (gia ? ' <b>' + gia + '</b> hanno gia ricevuto l\'invito e vengono saltate, salvo la spunta qui sotto.' : '') + '</p>'
-                : '<div class="pec-stato-ko" style="margin-bottom:12px;"><b>Invio non disponibile:</b> la casella PEC non e configurata sul servizio. '
-                + 'Il testo si puo comunque scrivere e rileggere.</div>')
-            + '<div class="campo"><label for="pi-ogg">Oggetto</label>'
-            + '<input type="text" id="pi-ogg" maxlength="200" value="' + esc(pecOggettoPredefinito(ev)) + '"></div>'
-            + '<div class="campo"><label for="pi-testo">Testo dell\'invito</label>'
-            + '<textarea id="pi-testo" rows="14">' + esc(pecTestoPredefinito(ev)) + '</textarea>'
-            + '<div class="hint">Intestazione con il marchio e firma dello studio le aggiunge il servizio. '
+    function modaleInviaInvito(ev, elenco) {
+        if (!puoGestireInviti()) return;
+        const scelte = (elenco || []).filter(a => a.stato !== 'esclusa' && a.stato !== 'disiscritta');
+        if (!scelte.length) { toast('Nessuna azienda selezionata (escluse e disiscritte non contano).', 'rosso'); return; }
+        const cEmail = canaleCfg('email'), cPec = canaleCfg('pec');
+        // canale iniziale: l'email ordinaria, che e' quella dell'invito normale
+        let canale = cEmail.pronto ? 'email' : 'pec';
+
+        const raggiungibili = c => scelte.filter(a => recapitoDi(c, a)).length;
+        const gia = scelte.filter(a => a.invio && a.invio.quando).length;
+
+        const opzione = (id, nome, etichetta, spiega, attivo, pronto) =>
+            '<label class="inv-canale' + (attivo ? ' attiva' : '') + (pronto ? '' : ' spenta') + '">'
+            + '<input type="radio" name="inv-canale" id="' + id + '" value="' + nome + '"'
+            + (attivo ? ' checked' : '') + (pronto ? '' : ' disabled') + '>'
+            + '<span><b>' + etichetta + '</b><br><span class="hint">' + spiega + '</span></span></label>';
+
+        apriModale('<h2>Invito - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 10px;">Un messaggio per azienda, mai piu destinatari insieme: cosi ogni scheda porta il proprio esito e nessuno vede gli indirizzi degli altri.'
+            + (gia ? ' <b>' + gia + '</b> hanno gia ricevuto l\'invito e vengono saltate, salvo la spunta piu sotto.' : '') + '</p>'
+            + '<div class="campo"><label>Come far partire l\'invito</label>'
+            + opzione('inv-c-email', 'email', 'Email ordinaria',
+                cEmail.pronto
+                    ? 'Da ' + esc(cEmail.mittente || 'Brevo') + '. Raggiunge <b>' + raggiungibili('email') + '</b> delle ' + scelte.length + ' aziende selezionate. '
+                    + 'Ogni messaggio porta il collegamento per disiscriversi.'
+                    : 'Server di posta non configurato sul servizio.',
+                canale === 'email', cEmail.pronto)
+            + opzione('inv-c-pec', 'pec', 'PEC certificata',
+                cPec.pronto
+                    ? 'Da ' + esc(cPec.mittente || '') + '. Raggiunge <b>' + raggiungibili('pec') + '</b> delle ' + scelte.length + ' aziende (solo quelle con PEC). Ogni messaggio ha un costo.'
+                    : 'Casella PEC non configurata sul servizio: servono le variabili PEC_SMTP_USER, PEC_SMTP_PASS e PEC_FROM_EMAIL su Vercel.',
+                canale === 'pec', cPec.pronto)
+            + '</div>'
+            + '<div class="campo"><label for="ii-ogg">Oggetto</label>'
+            + '<input type="text" id="ii-ogg" maxlength="200" value="' + esc(invOggettoPredefinito(ev)) + '"></div>'
+            + '<div class="campo"><label for="ii-testo">Testo dell\'invito</label>'
+            + '<textarea id="ii-testo" rows="14">' + esc(invTestoPredefinito(ev)) + '</textarea>'
+            + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
             + 'Puoi scrivere <b>{ragione_sociale}</b>, <b>{referente}</b>, <b>{citta}</b>, <b>{provincia}</b>, <b>{piva}</b>: '
             + 'ogni azienda riceve i propri dati al loro posto.</div></div>'
-            + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="pi-forza"> '
+            + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ii-forza"> '
             + 'Manda anche a chi ha gia ricevuto l\'invito</label></div>'
-            + '<div id="pi-anteprima" style="display:none;margin-top:10px;">'
-            + '<iframe id="pi-frame" title="Anteprima dell\'invito" sandbox="allow-same-origin" '
+            + '<div id="ii-anteprima" style="display:none;margin-top:10px;">'
+            + '<iframe id="ii-frame" title="Anteprima dell\'invito" sandbox="allow-same-origin" '
             + 'style="width:100%;height:360px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
-            + '<div id="pi-esito" class="ev-imp-esito"></div>'
-            + '<div class="modale-azioni"><button class="btn btn-secondary" id="pi-no">Annulla</button>'
-            + '<button class="btn btn-secondary" id="pi-ant">Anteprima</button>'
-            + '<button class="btn btn-primary" id="pi-si"' + (cfg.pronta ? '' : ' disabled') + '>Invia ' + daFare.length + ' PEC</button></div>',
+            + '<div id="ii-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ii-no">Annulla</button>'
+            + '<button class="btn btn-secondary" id="ii-ant">Anteprima</button>'
+            + '<button class="btn btn-primary" id="ii-si"' + ((cEmail.pronto || cPec.pronto) ? '' : ' disabled') + '>Invia</button></div>',
             { classe: 'larga', bloccante: true });
 
         const esito = (t, ko) => {
-            const e = document.getElementById('pi-esito');
+            const e = document.getElementById('ii-esito');
             if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
         };
-        const chiudi = () => { chiudiModale(); modaleAziendePec(ev); };
-        /* Lo stesso pulsante fa due cose: prima di partire annulla, mentre le PEC
-           stanno partendo ferma l'invio dopo il lotto in corso (quelle gia'
-           consegnate al gestore non si richiamano indietro). Un solo ascoltatore,
-           altrimenti il "ferma" chiuderebbe anche la finestra. */
+        const chiudi = () => { chiudiModale(); modaleAziendeInvito(ev); };
+        /* Lo stesso pulsante fa due cose: prima di partire annulla, mentre i
+           messaggi stanno partendo ferma l'invio dopo il lotto in corso (quelli
+           gia' consegnati al server di posta non si richiamano indietro). Un
+           solo ascoltatore, altrimenti il "ferma" chiuderebbe anche la finestra. */
         const stato = { inCorso: false, fermato: false };
-        document.getElementById('pi-no').addEventListener('click', () => {
+        document.getElementById('ii-no').addEventListener('click', () => {
             if (!stato.inCorso) { chiudi(); return; }
             stato.fermato = true;
-            const b = document.getElementById('pi-no');
+            const b = document.getElementById('ii-no');
             if (b) { b.disabled = true; b.textContent = 'Mi fermo...'; }
         });
-        document.getElementById('pi-ant').addEventListener('click', () => {
-            const cont = document.getElementById('pi-anteprima');
+
+        // quante ne partono davvero su questo canale: si aggiorna il pulsante
+        const daFare = () => scelte.filter(a => recapitoDi(canale, a));
+        const aggiornaBottone = () => {
+            const b = document.getElementById('ii-si');
+            if (!b || stato.inCorso) return;
+            const n = daFare().length;
+            b.textContent = n ? ('Invia ' + n + (canale === 'pec' ? ' PEC' : ' email')) : 'Nessun recapito su questo canale';
+            b.disabled = !n;
+        };
+        document.querySelectorAll('input[name="inv-canale"]').forEach(r => r.addEventListener('change', () => {
+            canale = r.value;
+            document.querySelectorAll('.inv-canale').forEach(l => l.classList.remove('attiva'));
+            r.closest('.inv-canale').classList.add('attiva');
+            aggiornaBottone();
+        }));
+        aggiornaBottone();
+
+        document.getElementById('ii-ant').addEventListener('click', () => {
+            const cont = document.getElementById('ii-anteprima');
             const chiusa = cont.style.display === 'none';
             cont.style.display = chiusa ? '' : 'none';
-            document.getElementById('pi-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima';
+            document.getElementById('ii-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima';
             if (!chiusa) return;
             // esempio con i dati della prima azienda selezionata, cosi' si vede
             // davvero come vengono sostituiti i segnaposto
-            const a = daFare[0];
-            const html = pecTestoInHtml((document.getElementById('pi-testo') || {}).value || '')
+            const a = daFare()[0] || scelte[0];
+            const html = invTestoInHtml((document.getElementById('ii-testo') || {}).value || '')
                 .split('{ragione_sociale}').join(esc(a.ragioneSociale || ''))
                 .split('{referente}').join(esc(a.referente || ''))
                 .split('{citta}').join(esc(a.citta || ''))
                 .split('{provincia}').join(esc(a.provincia || ''))
                 .split('{piva}').join(esc(a.piva || ''));
-            document.getElementById('pi-frame').srcdoc =
+            document.getElementById('ii-frame').srcdoc =
                 '<!doctype html><html lang="it"><head><meta charset="utf-8"></head>'
                 + '<body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
                 + 'line-height:1.6;color:#1E293B;text-align:justify;background:#fff;">'
                 + '<p style="margin:0 0 14px;color:#64748B;font-size:12px;">Anteprima del solo testo: '
-                + 'intestazione con il marchio e firma le aggiunge il servizio.</p>' + html + '</body></html>';
+                + 'intestazione, firma e piede con la disiscrizione le aggiunge il servizio.</p>' + html + '</body></html>';
         });
 
-        document.getElementById('pi-si').addEventListener('click', () => {
-            const oggetto = ((document.getElementById('pi-ogg') || {}).value || '').trim();
-            const testoInvito = ((document.getElementById('pi-testo') || {}).value || '').trim();
+        document.getElementById('ii-si').addEventListener('click', () => {
+            const oggetto = ((document.getElementById('ii-ogg') || {}).value || '').trim();
+            const testoInvito = ((document.getElementById('ii-testo') || {}).value || '').trim();
             if (!oggetto) { esito('Manca l\'oggetto.', true); return; }
             if (!testoInvito) { esito('Manca il testo dell\'invito.', true); return; }
-            const forza = !!(document.getElementById('pi-forza') || {}).checked;
-            if (!confirm('Vengono spedite fino a ' + daFare.length + ' PEC, una per azienda. Le PEC gia partite non si possono richiamare indietro. Procedo?')) return;
-            const html = pecTestoInHtml(testoInvito);
-            const b = document.getElementById('pi-si');
-            const bAnn = document.getElementById('pi-no');
+            const elencoInvio = daFare();
+            if (!elencoInvio.length) { esito('Nessuna delle aziende scelte ha un recapito su questo canale.', true); return; }
+            const forza = !!(document.getElementById('ii-forza') || {}).checked;
+            const quale = canale === 'pec' ? 'PEC' : 'email';
+            if (!confirm('Partono fino a ' + elencoInvio.length + ' ' + quale + ', una per azienda'
+                + (canale === 'pec' ? '. Ogni PEC ha un costo e non si richiama indietro.' : '.') + ' Procedo?')) return;
+            const html = invTestoInHtml(testoInvito);
+            const b = document.getElementById('ii-si');
+            const bAnn = document.getElementById('ii-no');
             b.disabled = true; b.textContent = 'Invio...';
             stato.inCorso = true; stato.fermato = false;
             bAnn.textContent = 'Ferma l\'invio';
 
             (async () => {
-                const lotto = Math.max(1, Number(cfg.maxLotto) || 15);
-                let inviate = 0, saltate = 0, falliti = 0, msgKo = '';
-                for (let i = 0; i < daFare.length && !stato.fermato; i += lotto) {
-                    esito('Invio in corso: ' + inviate + ' PEC partite su ' + daFare.length + '...');
+                const lotto = Math.max(1, Number(canaleCfg(canale).maxLotto) || 40);
+                let inviate = 0, saltate = 0, disiscritte = 0, falliti = 0, msgKo = '';
+                for (let i = 0; i < elencoInvio.length && !stato.fermato; i += lotto) {
+                    esito('Invio in corso: ' + inviate + ' su ' + elencoInvio.length + '...');
                     let r;
                     try {
-                        r = await Cloud.aziendePec({
-                            azione: 'invia', evento: ev.id, forza: forza,
-                            ids: daFare.slice(i, i + lotto).map(a => a.id),
+                        r = await Cloud.aziendeInvito({
+                            azione: 'invia', evento: ev.id, canale: canale, forza: forza,
+                            ids: elencoInvio.slice(i, i + lotto).map(a => a.id),
                             mail: { oggetto: oggetto, html: html }
                         });
                     } catch (e) { r = { ok: false, msg: 'Servizio non raggiungibile.' }; }
                     if (!r.ok) { msgKo = r.msg || 'Invio interrotto.'; break; }
                     inviate += r.inviate || 0;
-                    saltate += (r.giaInviate || 0) + (r.mancanti || 0);
+                    saltate += (r.saltate || 0) + (r.senzaRecapito || 0);
+                    disiscritte += r.disiscritte || 0;
                     falliti += (r.falliti || []).length;
-                    if (r.tettoRaggiunto) { msgKo = 'Raggiunto il tetto orario di PEC: riprendi piu tardi, chi ha gia ricevuto viene saltato.'; break; }
+                    if (r.tettoRaggiunto) { msgKo = 'Raggiunto il tetto orario su questo canale: riprendi piu tardi, chi ha gia ricevuto viene saltato.'; break; }
                 }
                 stato.inCorso = false;
                 b.disabled = false; b.textContent = 'Invia le restanti';
                 bAnn.disabled = false; bAnn.textContent = 'Chiudi';
-                const riepilogo = inviate + ' PEC partite'
-                    + (saltate ? ', ' + saltate + ' saltate (gia invitate o escluse)' : '')
+                const riepilogo = inviate + ' ' + quale + ' partite'
+                    + (saltate ? ', ' + saltate + ' saltate (gia invitate o senza recapito)' : '')
+                    + (disiscritte ? ', ' + disiscritte + ' disiscritte' : '')
                     + (falliti ? ', ' + falliti + ' non riuscite' : '') + '.';
                 esito(riepilogo + (stato.fermato ? ' Invio fermato.' : '') + (msgKo ? ' ' + msgKo : ''), !!(falliti || msgKo));
-                try { Audit.registra(Auth.utenteCorrente, 'Evento: invito PEC alle aziende', 'sistema', ev.id, null, riepilogo); } catch (e) { }
-                caricaAziendePec(ev, () => { });
-                if (inviate) toast(inviate + ' PEC di invito partite.', 'verde');
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: invito alle aziende (' + quale + ')', 'sistema', ev.id, null, riepilogo); } catch (e) { }
+                caricaAziendeInvito(ev, () => { });
+                if (inviate) toast(inviate + ' inviti partiti.', 'verde');
             })();
         });
     }
