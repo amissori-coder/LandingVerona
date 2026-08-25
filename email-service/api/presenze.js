@@ -417,6 +417,20 @@ module.exports = async (req, res) => {
             const testoBase = String(m.testo || '').slice(0, 20000);
             if (!htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
             const forza = body.forza === true;
+            /* Orario e dati dell'evento arrivano con l'invito e restano scritti
+               sulla scheda: servono alla mail di conferma e al foglio da
+               presentare al desk, che partono dopo, quando l'ospite prenota.
+               Senza, il servizio non saprebbe dire ne' quando ne' dove: la
+               tabella degli eventi sta nell'area riservata, non qui. */
+            const orarioB2B = testo(body.orario, 120);
+            /* `evento` e' gia' l'IDENTIFICATIVO dell'evento in questa chiamata,
+               quindi i dati per la mail viaggiano sotto un altro nome. */
+            const evB2B = (body.eventoDati && typeof body.eventoDati === 'object') ? {
+                titolo: testo(body.eventoDati.titolo, 120),
+                quando: testo(body.eventoDati.quando, 120),
+                luogo: testo(body.eventoDati.luogo, 200),
+                indirizzo: testo(body.eventoDati.indirizzo, 200)
+            } : null;
             const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
             const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
             const trans = trasporto();
@@ -438,17 +452,11 @@ module.exports = async (req, res) => {
                 const nomeDest = ((String(s.nome || '') + ' ' + String(s.cognome || '')).trim()) || 'ospite';
                 const link = NL.linkB2B(docId);
                 /* Il riquadro "La Sua scelta attuale" nella mail riporta la
-                   PRENOTAZIONE, non le preferenze dichiarate iscrivendosi: quelle
-                   sono un'altra cosa, e chiamarle scelta sarebbe falso. Chi non ha
-                   ancora prenotato non vede il riquadro. Le schede che avevano
-                   risposto al vecchio modulo tengono la scelta dentro `interessi`:
-                   si riconoscono dalla risposta registrata senza `b2bScelte`. */
-                const scelteB2B = Array.isArray(s.b2bScelte)
-                    ? s.b2bScelte.map(x => String(x || '').trim()).filter(Boolean)
-                    : ((s.b2bRisposta && s.b2bRisposta.quando)
-                        ? String(s.interessi || '').split(',').map(x => x.trim()).filter(Boolean)
-                        : []);
-                const temiAttuali = scelteB2B.join(', ');
+                   PRENOTAZIONE (`b2bScelte`), non le preferenze dichiarate
+                   iscrivendosi: quelle sono un'altra cosa, e chiamarle scelta
+                   sarebbe falso. Chi non ha ancora prenotato non vede il riquadro. */
+                const temiAttuali = (Array.isArray(s.b2bScelte) ? s.b2bScelte : [])
+                    .map(x => String(x || '').trim()).filter(Boolean).join(', ');
                 try {
                     await trans.sendMail({
                         from: '"' + fromName + '" <' + fromEmail + '>',
@@ -459,7 +467,12 @@ module.exports = async (req, res) => {
                         html: conTemi(htmlBase, esc(temiAttuali)).split('{{NOME}}').join(esc(nomeDest)).split('{{B2B}}').join(link)
                     });
                     inviate++;
-                    await rif.set({ b2bInvito: { quando: Date.now(), da: email } }, { merge: true });
+                    await rif.set({
+                        b2bInvito: Object.assign(
+                            { quando: Date.now(), da: email, orario: orarioB2B },
+                            evB2B ? { evento: evB2B } : {}
+                        )
+                    }, { merge: true });
                 } catch (e) {
                     const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 150);
                     falliti.push({ email: a, motivo: motivo });

@@ -214,4 +214,60 @@ function confermaVariazioni(dati, link) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-module.exports = { confermaSito, confermaVariazioni, nomeEvento };
+/* --- Conferma della prenotazione agli incontri B2B ---
+   Parte appena l'ospite sceglie i suoi tavoli dalla pagina dell'invito, e
+   riparte uguale a ogni modifica: e' la ricevuta di quello che ha scelto,
+   con in allegato il foglio da presentare al desk. Il collegamento e' lo
+   stesso della pagina, cosi' cambiare idea costa un clic.
+   `dati`: { nome, azienda, pagina, evento: {titolo, quando, luogo, indirizzo},
+   orario, tavoli: [...] }; `link` e' il collegamento personale firmato. */
+function confermaB2B(dati, link) {
+    const d = dati || {};
+    const ev = d.evento || {};
+    const evNome = [ev.titolo, ev.quando].filter(Boolean).join(', ') || nomeEvento(d.pagina);
+    const tavoli = (d.tavoli || []).filter(Boolean);
+    const quanti = tavoli.length;
+    const oggetto = 'Prenotazione confermata - Incontri B2B, Next Generation Business' + (evNome ? ', ' + evNome : '');
+    const saluto = 'Gentile ' + (d.nome || 'ospite') + ',';
+    const sommario = saluto + ' la Sua prenotazione agli incontri B2B'
+        + (evNome ? ' del convegno di ' + evNome : '') + ' è registrata: '
+        + (quanti === 1 ? 'un incontro' : quanti + ' incontri') + ', qui sotto il riepilogo.';
+    const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
+    const righeTavoli = tavoli.map((t, i) => rigaBox(quanti === 1 ? 'Incontro' : 'Incontro ' + (i + 1), t)).join('');
+    const html = involucro(oggetto, 'La Sua prenotazione agli incontri B2B è registrata: in allegato il foglio per il desk.',
+        testata('Prenotazione confermata', sommario)
+        + corpo(
+            '<tr><td>' + box(
+                rigaBox('Convegno', 'Next Generation Business' + (evNome ? ' - ' + evNome : ''))
+                + rigaBox('Incontri B2B', [ev.quando, d.orario].filter(Boolean).join(', '))
+                + rigaBox('Dove', dove)
+                + rigaBox('Partecipante', [d.nome, d.azienda].filter(Boolean).join(' - '))
+                + righeTavoli
+            ) + '</td></tr>'
+            + spazio(26)
+            + paragrafo('In allegato trova il foglio della prenotazione: lo presenti al desk "Incontri B2B" all\'ingresso, '
+                + 'stampato oppure dal telefono. Il turno preciso e gli specialisti a Sua disposizione Le saranno confermati sul posto.')
+            + spazio(22)
+            + paragrafo('Se cambia idea può modificare la scelta quando vuole, dal pulsante qui sotto: '
+                + 'riceverà subito una nuova mail con il foglio aggiornato, e vale sempre l\'ultimo emesso.')
+            + spazio(28)
+            + bottone('Modifica la prenotazione', link)
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+        )
+        + piede(MOTIVO));
+    const testo = ['PRENOTAZIONE CONFERMATA', sommario,
+        'Convegno: Next Generation Business' + (evNome ? ' - ' + evNome : '')
+        + ([ev.quando, d.orario].filter(Boolean).length ? '\nIncontri B2B: ' + [ev.quando, d.orario].filter(Boolean).join(', ') : '')
+        + (dove ? '\nDove: ' + dove : '')
+        + ([d.nome, d.azienda].filter(Boolean).length ? '\nPartecipante: ' + [d.nome, d.azienda].filter(Boolean).join(' - ') : ''),
+        (quanti === 1 ? 'Il Suo incontro:' : 'I Suoi incontri:') + '\n' + tavoli.map(t => '- ' + t).join('\n'),
+        'In allegato trova il foglio della prenotazione: lo presenti al desk "Incontri B2B" all\'ingresso, stampato oppure dal telefono.',
+        'Modifica la prenotazione: ' + link,
+        'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
+        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+        'Informativa privacy: ' + PRIVACY].join('\n\n');
+    return { oggetto: oggetto, html: html, testo: testo };
+}
+
+module.exports = { confermaSito, confermaVariazioni, confermaB2B, nomeEvento };

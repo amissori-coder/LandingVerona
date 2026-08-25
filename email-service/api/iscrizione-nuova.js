@@ -41,6 +41,8 @@ const NL = require('../lib/newsletter');
 // mail NGB composte dal servizio: questo endpoint e' pubblico, quindi l'HTML
 // non puo' arrivare da fuori come per gli invii dell'area riservata
 const MNGB = require('../lib/mail-ngb');
+// il foglio della prenotazione B2B, allegato alla mail di conferma
+const PDF = require('../lib/pdf-prenotazione');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -85,6 +87,29 @@ function initAdmin(cred) {
     if (appPronta) return;
     admin.initializeApp({ credential: admin.credential.cert(cred) });
     appPronta = true;
+}
+
+/* --- limite dei salvataggi di UNA scheda ---
+   La prenotazione si puo' cambiare quante volte si vuole, ed e' giusto cosi':
+   ogni cambio pero' fa partire una mail con l'allegato. Questo tetto lascia
+   passare tutti i ripensamenti veri e ferma solo l'accanimento sul pulsante,
+   che sarebbe una mail dietro l'altra allo stesso indirizzo. */
+const RL_SCHEDA_MS = 10 * 60 * 1000;
+const RL_SCHEDA_MAX = 12;
+const salvataggi = new Map();
+function troppiSalvataggi(idDoc) {
+    if (!idDoc) return false;
+    const ora = Date.now();
+    const elenco = (salvataggi.get(idDoc) || []).filter(t => ora - t < RL_SCHEDA_MS);
+    if (elenco.length >= RL_SCHEDA_MAX) { salvataggi.set(idDoc, elenco); return true; }
+    elenco.push(ora);
+    salvataggi.set(idDoc, elenco);
+    if (salvataggi.size > 500) {
+        for (const [k, v] of salvataggi) {
+            if (!v.length || ora - v[v.length - 1] > RL_SCHEDA_MS) salvataggi.delete(k);
+        }
+    }
+    return false;
 }
 
 /* --- limite invii per indirizzo IP ---
@@ -273,17 +298,15 @@ function indiciDaInteressi(grezzo) {
    Tenerle separate e' l'unico modo perche' il riepilogo per argomento
    dell'area riservata conti chi viene davvero, invece di sommarci dentro
    chi aveva solo spuntato una casella al momento dell'iscrizione.
-   Le schede che avevano risposto al VECCHIO modulo, quando la risposta
-   finiva dentro `interessi`, si riconoscono da `b2bRisposta` senza
-   `b2bScelte`: per loro la prenotazione e' quello che c'e' in `interessi`,
-   altrimenti quelle risposte sparirebbero dal riepilogo. */
+   Vale SOLO `b2bScelte`: prima di questo invito nessun modulo di
+   prenotazione era mai partito, quindi non c'e' niente da recuperare
+   altrove e `interessi` non e' mai una prenotazione. */
 function haPrenotato(scheda) {
-    return !!(scheda && scheda.b2bRisposta && scheda.b2bRisposta.quando);
+    return !!(scheda && Array.isArray(scheda.b2bScelte) && scheda.b2bScelte.length);
 }
 function prenotatiDi(scheda) {
-    if (!scheda) return [];
-    if (Array.isArray(scheda.b2bScelte)) return scheda.b2bScelte.map(x => String(x || '')).filter(Boolean);
-    return haPrenotato(scheda) ? String(scheda.interessi || '').split(',').map(x => x.trim()).filter(Boolean) : [];
+    if (!scheda || !Array.isArray(scheda.b2bScelte)) return [];
+    return scheda.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
 }
 function indiciDaTemi(etichette) {
     return indiciDaInteressi((etichette || []).join(',')).indici;
@@ -466,6 +489,10 @@ async function interessiB2B(azione, body, res) {
         res.status(400).json({ ok: false, msg: 'Scelga almeno un incontro B2B a cui partecipare.' });
         return;
     }
+    if (troppiSalvataggi(idDoc)) {
+        res.status(429).json({ ok: false, msg: 'Ha cambiato la prenotazione molte volte di seguito: aspetti qualche minuto e riprovi. Vale l\'ultima scelta salvata.' });
+        return;
+    }
     const chi = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()) || String(scheda.email || '');
     await rif.set({
         /* La prenotazione sta per conto suo: `interessi` resta com'e', perche'
@@ -480,7 +507,72 @@ async function interessiB2B(azione, body, res) {
     // il collega che apre la pagina un attimo dopo deve vedere questa scelta
     scordaEvento(scheda.pagina);
     await segnaCambiamento(db);
-    res.status(200).json({ ok: true, temi: scelti.length });
+    /* La ricevuta: mail di conferma con in allegato il foglio da presentare al
+       desk. Riparte a ogni modifica, perche' vale sempre l'ultimo foglio
+       emesso. Se la posta non risponde la prenotazione resta comunque
+       registrata - perderla per una mail non partita sarebbe il danno
+       peggiore - e la pagina lo dice a chi ha appena prenotato. */
+    let mailInviata = false;
+    try { mailInviata = await confermaPrenotazione(idDoc, scheda, scelti); }
+    catch (e) {
+        console.error('Conferma prenotazione B2B non inviata:', String((e && e.message) || e).slice(0, 200));
+    }
+    res.status(200).json({ ok: true, temi: scelti.length, mailInviata: mailInviata });
+}
+
+/* Mail di conferma della prenotazione, con il PDF in allegato. Data, orario e
+   luogo degli incontri arrivano da `b2bInvito`, dove li ha scritti l'invito:
+   il servizio non ha una tabella degli eventi, e chiederglielo di nuovo
+   vorrebbe dire tenerne due che prima o poi divergono. */
+async function confermaPrenotazione(idDoc, scheda, tavoli) {
+    const a = String(scheda.email || '').toLowerCase();
+    if (!a || !emailValida(a)) return false;
+    const invito = (scheda.b2bInvito && typeof scheda.b2bInvito === 'object') ? scheda.b2bInvito : {};
+    const evento = (invito.evento && typeof invito.evento === 'object') ? invito.evento : {};
+    const nome = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim());
+    const dati = {
+        nome: nome, azienda: String(scheda.azienda || ''), ruolo: String(scheda.ruolo || ''),
+        pagina: String(scheda.pagina || ''),
+        evento: {
+            titolo: String(evento.titolo || '') || MNGB.nomeEvento(scheda.pagina),
+            quando: String(evento.quando || ''),
+            luogo: String(evento.luogo || ''), indirizzo: String(evento.indirizzo || '')
+        },
+        orario: String(invito.orario || ''),
+        tavoli: tavoli
+    };
+    const link = NL.linkB2B(idDoc);
+    const m = MNGB.confermaB2B(dati, link);
+    const foglio = PDF.pdfPrenotazione(Object.assign({}, dati, { emessoIl: quandoInItalia() }));
+    await trasporto().sendMail({
+        from: mittenteMail(),
+        to: a,
+        subject: m.oggetto,
+        text: m.testo,
+        html: m.html,
+        attachments: [{
+            filename: nomeFileFoglio(nome),
+            content: foglio,
+            contentType: 'application/pdf'
+        }]
+    });
+    return true;
+}
+/* Data e ora in Italia, per il "emessa il" stampato sul foglio: e' l'unico
+   modo per capire quale di due fogli e' il piu' recente. */
+function quandoInItalia() {
+    try {
+        return new Date().toLocaleString('it-IT', {
+            timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        }).replace(',', ' alle');
+    } catch (e) { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
+}
+// il nome del file lo legge chi lo salva sul telefono: niente accenti ne' spazi
+function nomeFileFoglio(nome) {
+    const pulito = PDF.inLatin1(nome).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    return 'Incontri-B2B-prenotazione' + (pulito ? '-' + pulito : '') + '.pdf';
 }
 
 async function completaIscrizione(azione, body, res) {
@@ -682,9 +774,17 @@ module.exports = async (req, res) => {
 
     try {
         const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-        if (troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
-
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+        /* Il limite per indirizzo IP vale per i moduli APERTI del sito, dove
+           chiunque puo' scrivere. Le pagine che si aprono solo dal collegamento
+           firmato ne restano fuori: i referenti di un'azienda escono tutti dallo
+           stesso IP dell'ufficio, e otto richieste in dieci minuti se le
+           mangerebbero in due persone, bloccando proprio chi ha il diritto di
+           cambiare idea. Li' il freno e' un altro, per singola scheda. */
+        const conFirma = ['completa-leggi', 'completa-salva', 'b2b-leggi', 'b2b-salva']
+            .indexOf(String(body.azione || '')) >= 0;
+        if (!conFirma && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
+
         // completamento dei dati (dal collegamento personale nella mail): altra
         // azione, stessa funzione. I form del sito non mandano "azione", quindi
         // per loro non cambia niente.
