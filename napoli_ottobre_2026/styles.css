@@ -1934,6 +1934,13 @@ ul {
     max-height: 62px;
 }
 
+/* Camera di Commercio di Napoli (patrocinio): marchio molto largo (3,5:1) e
+   gia' rifilato, quindi il limite che conta e' la larghezza. */
+.partner-brand-img-cciaa {
+    max-width: 280px;
+    max-height: 90px;
+}
+
 /* Thin vertical separator between Revilaw and Advant */
 .partner-sep {
     width: 1px;
@@ -2506,6 +2513,11 @@ ul {
         max-height: 52px;
     }
 
+    .partner-brand-img-cciaa {
+        max-width: 240px;
+        max-height: 76px;
+    }
+
     .label-text {
         font-size: 0.64rem;
         letter-spacing: 2.2px;
@@ -2666,6 +2678,11 @@ ul {
         max-height: 49px;
     }
 
+    .partner-brand-img-cciaa {
+        max-width: 220px;
+        max-height: 70px;
+    }
+
     .label-text {
         font-size: 0.6rem;
         letter-spacing: 1.8px;
@@ -2706,7 +2723,8 @@ ul {
 
     .partner-brand-img,
     .partner-brand-img-lg,
-    .partner-brand-img-advant {
+    .partner-brand-img-advant,
+    .partner-brand-img-cciaa {
         max-width: 200px;
     }
 
