@@ -115,7 +115,10 @@ COSA NON C'E' (e va tenuto altrove)
  FIREBASE_SERVICE_ACCOUNT e' il contenuto della chiave del service account.
  Le SMTP_* sono le credenziali di invio. EVENTI_SHEET_ID punta al foglio Google
  delle iscrizioni agli eventi.
- Ricorda il tetto del piano Hobby: 12 funzioni serverless, non una di piu'.
+ Il progetto sta sul piano PRO: serve per i lavori programmati ogni quarto
+ d'ora (lettore PEC e newsletter) e per l'uso commerciale. Ricreandolo sul
+ piano Hobby tornano i vecchi limiti - 12 funzioni serverless e cron una
+ volta al giorno - e il lettore PEC smette di funzionare da solo.
 
 4) RIMETTERE IN PIEDI IL BACKUP STESSO
 ---------------------------------------

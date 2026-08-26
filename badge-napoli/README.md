@@ -10,11 +10,14 @@ Tre pezzi che lavorano insieme:
 
 Tutto gira in locale tranne la pagina, che è un file statico sul sito.
 
-**Nessuna funzione nuova sul servizio.** `email-service` è fermo a dodici
-funzioni, che è il tetto del piano Hobby: la tredicesima blocca il deploy. La
-pagina legge Firestore direttamente dal browser con l'SDK web, come fa già
-l'area riservata, e la scrittura la fa questo script dal computer con l'account
-di servizio. Il conteggio delle funzioni non si muove.
+**Nessuna funzione nuova sul servizio.** La pagina legge Firestore
+direttamente dal browser con l'SDK web, come fa già l'area riservata, e la
+scrittura la fa questo script dal computer con l'account di servizio.
+
+Nasce così perché `email-service` era fermo a dodici funzioni, il tetto del
+piano Hobby, e la tredicesima bloccava il deploy. Sul piano Pro quel tetto non
+c'è più: se un domani conviene che le agende si pubblichino da sole invece che
+da un computer, la strada è aperta.
 
 ---
 

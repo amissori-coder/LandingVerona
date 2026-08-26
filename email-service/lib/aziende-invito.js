@@ -7,12 +7,15 @@
    da un file CSV nella sezione Eventi dell'area riservata.
 
    PERCHE' QUESTO NON E' UN ENDPOINT A SE'. Il piano Hobby di
-   Vercel ammette 12 funzioni serverless per rilascio, e in api/
+   Vercel ammetteva 12 funzioni serverless per rilascio, e in api/
    ce n'erano gia' 12: la tredicesima faceva fallire la
    distribuzione con "No more than 12 Serverless Functions can be
    added to a Deployment on the Hobby plan". Quindi la logica vive
    qui in lib/, che non conta come funzione, e api/presenze.js le
-   passa le richieste che portano sezione: 'aziende'. E' la stessa
+   passa le richieste che portano sezione: 'aziende'. Sul piano Pro
+   quel tetto non c'e' piu' e questa e' tornata una scelta: si puo'
+   riportare fuori, lasciando per un po' anche la deviazione, perche'
+   l'indirizzo lo tiene in mano l'area riservata. E' la stessa
    strada che il repository usa gia' per il giro della newsletter,
    che bussa a un endpoint esistente invece di averne uno suo.
 

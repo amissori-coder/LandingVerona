@@ -1589,11 +1589,13 @@
            servizio, non queste righe. */
         async aziendeInvito(corpo) {
             /* Stesso indirizzo delle presenze, non uno suo. Il piano Hobby di
-               Vercel ammette 12 funzioni per rilascio e in api/ ce n'erano
-               gia' 12: la tredicesima faceva fallire la distribuzione. La
-               sezione distingue le richieste, perche' i nomi delle azioni si
-               somigliano (aggiungi, modifica, cancella stanno da entrambe le
-               parti). */
+               Vercel ammetteva 12 funzioni per rilascio e in api/ ce n'erano
+               gia' 12: la tredicesima faceva fallire la distribuzione. Sul
+               piano Pro il tetto non c'e' piu', ma finche' il servizio devia
+               le richieste da presenze questo indirizzo resta quello giusto.
+               La sezione distingue le richieste, perche' i nomi delle azioni
+               si somigliano (aggiungi, modifica, cancella stanno da entrambe
+               le parti). */
             let url = window.RV_PRESENZE_URL;
             if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'presenze$1');
             if (!url) return { ok: false, msg: 'Servizio non configurato.' };
@@ -17584,8 +17586,16 @@
             const d = new Date(giorno + 'T12:00:00');
             const quando = isNaN(d.getTime()) ? giorno
                 : d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+            /* Con il lavoro programmato ogni quarto d'ora l'invio non aspetta
+               piu' il mattino dopo: parte nel giorno scelto. L'ORA e'
+               mezzogiorno perche' e' li' che la mette chi programma qui sotto
+               (T12:00, per non farsi spostare il giorno dal fuso), non perche'
+               l'abbia scelta qualcuno: finche' sopra c'e' un campo "giorno" e
+               basta, questa frase deve dire mezzogiorno e non "l'orario
+               scelto". Se un domani si aggiunge il campo dell'ora, e' questa
+               riga a doverlo seguire. */
             return passo === '15min'
-                ? 'Parte ' + quando + ', entro un quarto d\'ora dall\'orario scelto.'
+                ? 'Parte a mezzogiorno di ' + quando + ', entro un quarto d\'ora.'
                 : 'Parte nella prima mattina di ' + quando + '. Conta il giorno, non l\'ora.';
         }
 
