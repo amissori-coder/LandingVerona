@@ -1543,6 +1543,31 @@
             }
         },
 
+        /* Aziende da invitare a un evento: elenco, caricamento e invio
+           dell'invito (email ordinaria o PEC). Un solo servizio con piu'
+           azioni, come le presenze. Chi puo' fare cosa lo decide il
+           servizio, non queste righe. */
+        async aziendeInvito(corpo) {
+            let url = window.RV_AZIENDE_INVITO_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'aziende-invito$1');
+            if (!url) return { ok: false, msg: 'Servizio non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, ...corpo })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ...data, ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
+                return { ...data, ok: true };
+            } catch (e) {
+                return { ok: false, msg: 'Servizio non raggiungibile.' };
+            }
+        },
+
         /* --- NEWSLETTER ---
            Un unico servizio per l'elenco dei destinatari raccolti dal sito
            (tutte le pagine, non solo gli eventi) e per le disiscrizioni. */
@@ -13450,7 +13475,7 @@
             + ((ev.manuale || ev.tutti) ? '<div class="ev-num">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
-            + gestione + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
+            + gestione + aziendeInvitoHtml(ev) + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
             b.addEventListener('click', () => apriEvento(b.dataset.ev)));
@@ -13466,6 +13491,8 @@
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
         const bImp = document.getElementById('ev-importa');
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
+        const bInv = document.getElementById('ev-inviti');
+        if (bInv) bInv.addEventListener('click', () => modaleAziendeInvito(ev));
         const bNuova = document.getElementById('ev-nuova');
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
         const bB2b = document.getElementById('ev-b2b');
@@ -14874,6 +14901,809 @@
             lettore.readAsText(f, 'utf-8');
         });
         document.getElementById('imp-chiudi').addEventListener('click', chiudiModale);
+    }
+
+    /* ============================================================
+       AZIENDE DA INVITARE A UN EVENTO
+       ------------------------------------------------------------
+       Sono aziende che NON si sono ancora iscritte: e' un elenco di
+       marketing, separato dalle iscrizioni e con un archivio suo. Si
+       carica da un file .csv (ragione sociale + PEC e/o email) e da
+       qui parte l'invito, un messaggio per azienda.
+
+       Due canali, si sceglie al momento dell'invio:
+         - EMAIL ORDINARIA da Brevo, quello normale per un invito:
+           veloce, senza configurazioni nuove, con il collegamento di
+           disiscrizione in fondo a ogni messaggio;
+         - PEC dalla casella del gestore, per l'invito formale. Vale
+           come PEC solo perche' parte da li': Brevo non e' un gestore
+           PEC, quindi quel canale ha credenziali sue ed e' spento
+           finche' non sono configurate.
+
+       L'invio va a lotti (il servizio ha 60 secondi per chiamata):
+       l'elenco si ricorda a che punto era, quindi si puo' fermare e
+       riprendere senza rispedire a chi ha gia' ricevuto.
+       ============================================================ */
+    let _invCache = {};         // per evento: { aziende, aggiornato }
+    let _invCfg = null;         // quali canali sono pronti sul servizio
+    let _invSel = new Set();    // aziende spuntate
+    let _invFiltro = { testo: '', stato: '' };
+    let _invCercaTimer = null;
+
+    /* Chi carica l'elenco e spedisce: gli stessi che possono aggiungere
+       un'iscrizione (amministratore, equity e founding partner). Il servizio
+       applica la stessa regola per conto suo: qui si decide solo cosa mostrare. */
+    function puoGestireInviti() { return puoAggiungereIscrizioni(); }
+
+    /* Gli esiti letti dalla casella PEC. Sono una cosa diversa dallo stato
+       della scheda: lo stato dice a che punto siamo noi con quell'azienda,
+       questi dicono cosa ha risposto il sistema della posta certificata. */
+    const INV_PEC = {
+        'attesa': 'In attesa', 'accettata': 'Accettata dal gestore', 'consegnata': 'Consegnata',
+        'non-consegnata': 'NON consegnata', 'non-accettata': 'NON accettata', 'in-dubbio': 'Consegna in dubbio'
+    };
+    const INV_STATI = {
+        'da-invitare': 'Da invitare', 'inviata': 'Invitata', 'errore': 'Errore',
+        'esclusa': 'Esclusa', 'disiscritta': 'Disiscritta', 'risposta': 'Ha risposto', 'iscritta': 'Iscritta'
+    };
+    function contaInviti(lista) {
+        const c = { totale: 0, daInvitare: 0, inviate: 0, errori: 0, fuori: 0 };
+        (lista || []).forEach(a => {
+            c.totale++;
+            const s = a.stato || 'da-invitare';
+            if (s === 'inviata' || s === 'risposta' || s === 'iscritta') c.inviate++;
+            else if (s === 'errore') c.errori++;
+            else if (s === 'esclusa' || s === 'disiscritta') c.fuori++;
+            else c.daInvitare++;
+        });
+        return c;
+    }
+
+    /* La card nella pagina dell'evento: i numeri li mostra solo se l'elenco
+       e' gia' stato letto, altrimenti spiega a cosa serve. */
+    function aziendeInvitoHtml(ev) {
+        if (!ev || ev.tutti || !puoGestireInviti()) return '';
+        const c = _invCache[ev.id];
+        const n = c ? contaInviti(c.aziende) : null;
+        const riga = n
+            ? '<b>' + n.totale + '</b> aziende in elenco: ' + n.daInvitare + ' da invitare, ' + n.inviate + ' invitate'
+            + (n.errori ? ', <span class="ev-ko">' + n.errori + ' con errore</span>' : '')
+            + (n.fuori ? ', ' + n.fuori + ' fuori elenco' : '') + '.'
+            : 'Aziende non ancora iscritte, da invitare all\'evento: si carica l\'elenco da un file e parte un messaggio per azienda, via email o via PEC.';
+        return '<div class="card s-admin"><div class="s-admin-txt"><strong>Aziende da invitare</strong>'
+            + '<div class="hint">' + riga + '</div></div>'
+            + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-inviti">Gestisci le aziende</button></div></div>';
+    }
+
+    function caricaAziendeInvito(ev, poi) {
+        Cloud.aziendeInvito({ azione: 'elenco', evento: ev.id }).then(r => {
+            if (r.ok) _invCache[ev.id] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now() };
+            if (poi) poi(r);
+        });
+    }
+    /* Quali canali sono pronti sul servizio: si chiede una volta sola per
+       sessione, e serve a dire in chiaro cosa si puo' usare invece di far
+       scoprire il guasto al primo invito. */
+    function caricaCfgInvito(poi) {
+        if (_invCfg) { if (poi) poi(_invCfg); return; }
+        Cloud.aziendeInvito({ azione: 'configurazione' }).then(r => {
+            _invCfg = (r.ok && r.canali)
+                ? { canali: r.canali, lettore: r.lettore || null }
+                : { canali: { email: { pronto: false }, pec: { pronto: false } }, lettore: null };
+            if (poi) poi(_invCfg);
+        });
+    }
+    function canaleCfg(nome) {
+        const c = _invCfg && _invCfg.canali;
+        return (c && c[nome]) ? c[nome] : { pronto: false, maxLotto: 40, maxOra: 0 };
+    }
+    function lettoreCfg() { return (_invCfg && _invCfg.lettore) || null; }
+
+    function aziendeInvitoDi(ev) { return (_invCache[ev.id] || {}).aziende || []; }
+    function aziendaInvitoDi(ev, id) { return aziendeInvitoDi(ev).find(a => a.id === id) || null; }
+    /* A quale indirizzo arriverebbe l'invito su un canale: sull'ordinaria si
+       preferisce la mail normale, che le aziende leggono piu' spesso della PEC. */
+    function recapitoDi(canale, a) {
+        return canale === 'pec' ? (a.pec || '') : (a.email || a.pec || '');
+    }
+
+    /* Testo libero (quello scritto nella finestra) in HTML per la mail: righe
+       vuote = paragrafi, a capo singoli = interruzioni di riga. I segnaposto
+       {ragione_sociale} e compagnia restano tali e quali: li sostituisce il
+       servizio, azienda per azienda. */
+    function invTestoInHtml(t) {
+        return String(t || '').replace(/\r\n/g, '\n').split(/\n{2,}/)
+            .map(p => p.trim()).filter(Boolean)
+            .map(p => '<p style="margin:0 0 14px;">' + esc(p).split('\n').join('<br>') + '</p>')
+            .join('\n');
+    }
+    /* La bozza dell'invito, con i dati dell'evento gia' dentro. Chi invia la
+       rilegge e la corregge: quello che parte e' sempre il testo a video. */
+    function invTestoPredefinito(ev) {
+        const dove = ev.luogo ? (ev.luogo + (ev.indirizzo ? ', ' + ev.indirizzo : '')) : '';
+        const pagina = ev.urlPagina ? (SITO_PUBBLICO + ev.urlPagina) : SITO_PUBBLICO;
+        return 'Spettabile {ragione_sociale},\n\n'
+            + 'siamo lieti di invitarVi a ' + ev.titolo + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '')
+            + ', l\'incontro di Next Generation Business in programma il ' + ev.quando
+            + (dove ? ' presso ' + dove : '') + '.\n\n'
+            + 'La giornata e dedicata agli strumenti con cui l\'impresa affronta i prossimi anni: '
+            + 'assetti adeguati, merito creditizio, finanza agevolata, sostenibilita e intelligenza artificiale. '
+            + 'La partecipazione e gratuita e i posti sono limitati.\n\n'
+            + 'Il programma completo e il modulo di iscrizione sono su ' + pagina + '.\n\n'
+            + 'Restiamo a disposizione per ogni informazione e cogliamo l\'occasione per porgere i nostri migliori saluti.';
+    }
+    function invOggettoPredefinito(ev) {
+        return 'Invito - ' + ev.titolo + ', ' + ev.quando + ' - Next Generation Business';
+    }
+
+    /* La finestra di gestione: elenco, caricamento, correzioni e invio.
+       Si ridisegna da sola dopo ogni operazione, cosi' gli stati a video
+       sono sempre quelli veri del servizio. */
+    function modaleAziendeInvito(ev) {
+        if (!puoGestireInviti() || !ev || ev.tutti) return;
+        _invSel = new Set();
+        _invFiltro = { testo: '', stato: '' };
+        apriModale('<h2>Aziende da invitare - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
+            + '<div id="inv-corpo"><p class="hint">Carico l\'elenco...</p></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-chiudi">Chiudi</button></div>', { classe: 'larga' });
+        document.getElementById('inv-chiudi').addEventListener('click', chiudiModale);
+        caricaCfgInvito(() => { if (document.getElementById('inv-corpo') && _invCache[ev.id]) disegnaAziendeInvito(ev); });
+        caricaAziendeInvito(ev, r => {
+            const corpo = document.getElementById('inv-corpo');
+            if (!corpo) return;
+            if (!r.ok) { corpo.innerHTML = '<p class="ev-ko">' + esc(r.msg || 'Elenco non disponibile.') + '</p>'; return; }
+            disegnaAziendeInvito(ev);
+        });
+    }
+
+    /* La colonna delle ricevute: e' l'unica cosa che dice davvero se l'invito
+       e' arrivato. Resta vuota per chi e' stato invitato via email ordinaria,
+       perche' li' le ricevute non esistono: si scrive "-" invece di lasciare
+       un buco, che verrebbe letto come "non ha ricevuto". */
+    function cellaRicevute(a) {
+        const viaPec = a.invio && a.invio.canale === 'pec';
+        if (!viaPec) return '<span class="hint">-</span>';
+        const r = a.ricevute || {};
+        const esito = r.esito || 'attesa';
+        const parti = ['<button type="button" class="inv-pallino inv-pec-' + esc(esito) + ' inv-apri" data-id="' + esc(a.id)
+            + '" title="Apri le ricevute e le risposte">' + esc(INV_PEC[esito] || esito) + '</button>'];
+        if (r.consegnata && r.consegnata.quando) {
+            parti.push('<div class="hint">' + esc(fmtDataOra(r.consegnata.quando)) + '</div>');
+        } else if (r.problema && r.problema.motivo) {
+            // il motivo lo scrive il gestore del destinatario: e' testo altrui,
+            // va sempre dentro esc(), attributo title compreso
+            parti.push('<div class="ev-ko hint" title="' + esc(r.problema.motivo) + '">' + esc(r.problema.motivo.slice(0, 70)) + '</div>');
+        } else if (r.accettata && r.accettata.quando) {
+            parti.push('<div class="hint">presa in carico il ' + esc(fmtDataOra(r.accettata.quando)) + '</div>');
+        }
+        if (r.risposta && r.risposta.quando) {
+            parti.push('<button type="button" class="inv-risposto inv-apri" data-id="' + esc(a.id) + '">Ha risposto il '
+                + esc(fmtDataOra(r.risposta.quando)) + ' - leggi</button>');
+        }
+        return parti.join('');
+    }
+
+    /* Il riquadro in cima: quando si e' guardata l'ultima volta la casella PEC,
+       e il pulsante per guardarla adesso. Compare solo se qualcuno di questo
+       elenco e' stato invitato via PEC: sugli inviti via email non c'e' niente
+       da leggere. */
+    function riquadroRicevute(ev, tutte) {
+        const conPec = (tutte || []).some(a => a.invio && a.invio.canale === 'pec');
+        const l = lettoreCfg();
+        /* Se nessun invito PEC e' ancora partito il riquadro compare lo stesso,
+           purche' la casella sia configurata: e' l'unico modo per provare che
+           le credenziali funzionano PRIMA di spedire, invece di scoprirlo a
+           campagna avviata. */
+        if (!conPec && !(l && l.configurato && canaleCfg('pec').pronto)) return '';
+        if (l && !l.configurato) {
+            return '<div class="inv-lettore ko">Le ricevute non si possono leggere: manca la configurazione della casella PEC in lettura '
+                + '(PEC_IMAP_USER e PEC_IMAP_PASS, oppure le stesse credenziali dell\'invio).</div>';
+        }
+        if (l && l.fermoPerCredenziali) {
+            return '<div class="inv-lettore ko"><b>Controllo fermo:</b> la casella PEC ha rifiutato la password. '
+                + 'Con la verifica in due passaggi attiva serve la "password per i programmi di posta" di Aruba, che scade ogni sei mesi. '
+                + '<button class="btn btn-sm btn-secondary" id="inv-ric">Riprova adesso</button></div>';
+        }
+        const ultimo = l && l.ultimoGiro;
+        const vecchio = conPec && ultimo && ultimo.quando && (Date.now() - ultimo.quando) > 24 * 60 * 60 * 1000;
+        const detto = !ultimo
+            ? (conPec
+                ? 'Le ricevute non sono ancora state lette.'
+                : 'Nessun invito PEC ancora partito. Il pulsante serve intanto a controllare che la casella '
+                + esc((l && l.casella) || '') + ' risponda.')
+            : (ultimo.esito === 'ok'
+                ? 'Ultimo controllo ' + esc(fmtDataOra(ultimo.quando)) + ': ' + (ultimo.ricevute || 0) + ' ricevute, ' + (ultimo.risposte || 0) + ' risposte'
+                + (ultimo.nonRiconosciute ? ', ' + ultimo.nonRiconosciute + ' da guardare a mano' : '') + '.'
+                : 'L\'ultimo controllo non e riuscito: ' + esc(ultimo.motivo || ''));
+        return '<div class="inv-lettore' + ((ultimo && ultimo.esito !== 'ok') || vecchio ? ' ko' : '') + '">'
+            + '<span>' + detto + (vecchio ? ' <b>Sono passate piu di 24 ore.</b>' : '') + '</span>'
+            + '<button class="btn btn-sm btn-secondary" id="inv-ric">'
+            + (conPec ? 'Controlla le ricevute' : 'Prova la casella PEC') + '</button></div>';
+    }
+
+    function disegnaAziendeInvito(ev) {
+        const corpo = document.getElementById('inv-corpo');
+        if (!corpo) return;
+        const tutte = aziendeInvitoDi(ev);
+        const n = contaInviti(tutte);
+        // la selezione non deve trascinarsi dietro schede cancellate nel frattempo
+        const esistenti = new Set(tutte.map(a => a.id));
+        Array.from(_invSel).forEach(id => { if (!esistenti.has(id)) _invSel.delete(id); });
+
+        const q = _invFiltro.testo.trim().toLowerCase();
+        const lista = tutte.filter(a => {
+            if (_invFiltro.stato && (a.stato || 'da-invitare') !== _invFiltro.stato) return false;
+            if (!q) return true;
+            return (a.ragioneSociale + ' ' + a.pec + ' ' + a.email + ' ' + a.citta + ' ' + a.piva + ' ' + a.referente).toLowerCase().indexOf(q) >= 0;
+        });
+        const MAX_RIGHE = 400;
+        const mostrate = lista.slice(0, MAX_RIGHE);
+
+        const conta = '<div class="inv-conta">'
+            + '<span><b>' + n.totale + '</b> aziende</span>'
+            + '<span><b>' + n.daInvitare + '</b> da invitare</span>'
+            + '<span><b>' + n.inviate + '</b> invitate</span>'
+            + (n.errori ? '<span class="ev-ko"><b>' + n.errori + '</b> con errore</span>' : '')
+            + (n.fuori ? '<span><b>' + n.fuori + '</b> fuori elenco</span>' : '')
+            + '</div>';
+
+        const barra = '<div class="inv-barra">'
+            + '<button class="btn btn-primary btn-sm" id="inv-carica">Carica elenco (.csv)</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-nuova">Aggiungi azienda</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-scarica"' + (n.totale ? '' : ' disabled') + '>Scarica elenco con gli esiti</button>'
+            + '</div>';
+
+        const filtri = '<div class="inv-filtri">'
+            + '<input type="text" id="inv-cerca" placeholder="Cerca per ragione sociale, indirizzo, citta o partita IVA" value="' + esc(_invFiltro.testo) + '">'
+            + '<select id="inv-fstato"><option value="">Tutti gli stati</option>'
+            + Object.keys(INV_STATI).map(s => '<option value="' + s + '"' + (_invFiltro.stato === s ? ' selected' : '') + '>' + esc(INV_STATI[s]) + '</option>').join('')
+            + '</select></div>';
+
+        const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
+            + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
+            + '<button class="btn btn-primary btn-sm" id="inv-invia">Invia l\'invito</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-escludi">Escludi</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da invitare</button>'
+            + '<button class="btn btn-danger btn-sm" id="inv-elimina">Elimina</button></div>';
+
+        const riga = a => {
+            const st = a.stato || 'da-invitare';
+            const quando = a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '';
+            const via = a.invio && a.invio.canale === 'pec' ? 'PEC' : (a.invio ? 'email' : '');
+            const motivo = a.errore && a.errore.motivo ? a.errore.motivo : '';
+            const recapiti = (a.email ? esc(a.email) : '')
+                + (a.email && a.pec ? '<div class="hint">PEC ' + esc(a.pec) + '</div>' : (a.pec ? '<span class="inv-solo-pec">PEC</span> ' + esc(a.pec) : ''));
+            return '<tr data-id="' + esc(a.id) + '">'
+                + '<td><input type="checkbox" class="inv-ck" value="' + esc(a.id) + '"' + (_invSel.has(a.id) ? ' checked' : '') + '></td>'
+                + '<td data-label="Azienda"><b>' + esc(a.ragioneSociale) + '</b>' + (a.piva ? '<div class="hint">P.IVA ' + esc(a.piva) + '</div>' : '') + '</td>'
+                + '<td data-label="Recapiti">' + recapiti + '</td>'
+                + '<td data-label="Citta">' + esc(a.citta) + (a.provincia ? ' (' + esc(a.provincia) + ')' : '') + '</td>'
+                + '<td data-label="Referente">' + esc(a.referente) + '</td>'
+                + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(INV_STATI[st] || st) + '</span>'
+                + (quando ? '<div class="hint">' + esc(quando) + (via ? ' via ' + via : '') + '</div>' : '')
+                + (motivo ? '<div class="ev-ko hint" title="' + esc(motivo) + '">' + esc(motivo.slice(0, 60)) + '</div>' : '') + '</td>'
+                + '<td data-label="Ricevute PEC">' + cellaRicevute(a) + '</td>'
+                + '<td class="inv-azioni-riga">'
+                + '<button class="btn btn-sm btn-ghost inv-mod" data-id="' + esc(a.id) + '">Modifica</button>'
+                + '<button class="btn btn-sm btn-ghost inv-canc" data-id="' + esc(a.id) + '">Elimina</button></td></tr>';
+        };
+        const tabella = mostrate.length
+            ? '<div class="tabella-wrap"><table class="dati inv-tabella"><thead><tr>'
+            + '<th><input type="checkbox" id="inv-tutte"></th><th>Azienda</th><th>Recapiti</th><th>Citta</th>'
+            + '<th>Referente</th><th>Stato</th><th>Ricevute PEC</th><th></th></tr></thead><tbody>'
+            + mostrate.map(riga).join('') + '</tbody></table></div>'
+            + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '')
+            : '<p class="hint">' + (n.totale ? 'Nessuna azienda con questi filtri.' : 'Nessuna azienda in elenco: caricane una con il pulsante qui sopra.') + '</p>';
+
+        corpo.innerHTML = conta + riquadroRicevute(ev, tutte) + barra + filtri + azioniSel
+            + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
+
+        const ridisegna = () => disegnaAziendeInvito(ev);
+        const esito = (t, ko) => {
+            const e = document.getElementById('inv-esito');
+            if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
+        };
+
+        document.getElementById('inv-carica').addEventListener('click', () => modaleImportaAziendeInvito(ev));
+        document.getElementById('inv-nuova').addEventListener('click', () => modaleAziendaInvito(ev, null));
+        const bScar = document.getElementById('inv-scarica');
+        if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendeInvito(ev));
+
+        /* Lettura della casella PEC. Il servizio legge un pezzo per volta (ha
+           60 secondi) e dice se ne restano: si richiama finche' finisce, ma
+           con un tetto, perche' una casella molto arretrata non deve tenere
+           l'utente fermo davanti a una finestra che non si chiude mai. */
+        const bRic = document.getElementById('inv-ric');
+        if (bRic) bRic.addEventListener('click', () => {
+            bRic.disabled = true;
+            const testoPrima = bRic.textContent;
+            let ricevute = 0, risposte = 0, giri = 0, ko = '';
+            const MAX_GIRI = 6;
+            (async () => {
+                let restanti = true;
+                while (restanti && giri < MAX_GIRI) {
+                    giri++;
+                    bRic.textContent = 'Controllo... (' + giri + ')';
+                    let r;
+                    try { r = await Cloud.aziendeInvito({ azione: 'ricevute', evento: ev.id, forza: giri === 1 }); }
+                    catch (e) { r = { ok: false, msg: 'Servizio non raggiungibile.' }; }
+                    if (!r.ok) { ko = r.msg || 'Controllo non riuscito.'; break; }
+                    const g = r.ultimoGiro || {};
+                    ricevute += g.ricevute || 0;
+                    risposte += g.risposte || 0;
+                    restanti = !!r.restanti;
+                    // lo stato del lettore in memoria si aggiorna, cosi' il
+                    // riquadro dice l'ora giusta senza rileggere tutto
+                    if (_invCfg) _invCfg.lettore = Object.assign({}, _invCfg.lettore || {}, { ultimoGiro: g, fermoPerCredenziali: false });
+                }
+                bRic.disabled = false; bRic.textContent = testoPrima;
+                if (ko) { esito(ko, true); ridisegna(); return; }
+                const riepilogo = ricevute + ' ricevute e ' + risposte + ' risposte lette'
+                    + (restanti ? '. Ce ne sono altre: premi di nuovo.' : '.');
+                esito(riepilogo, false);
+                // le schede toccate arrivano gia' dal servizio, ma rileggere
+                // l'elenco e' l'unico modo per vedere anche gli esiti di chi
+                // e' stato invitato da un collega mentre eravamo qui
+                caricaAziendeInvito(ev, () => ridisegna());
+            })();
+        });
+
+        const cerca = document.getElementById('inv-cerca');
+        cerca.addEventListener('input', () => {
+            const v = cerca.value.trim().toLowerCase();
+            _invFiltro.testo = cerca.value;
+            corpo.querySelectorAll('.inv-tabella tbody tr').forEach(tr => {
+                tr.style.display = (!v || tr.textContent.toLowerCase().indexOf(v) >= 0) ? '' : 'none';
+            });
+            /* Nascondere le righe basta per l'occhio, ma "seleziona tutte" e le
+               azioni ragionano sull'elenco filtrato: appena si smette di
+               digitare si ridisegna davvero, riportando il cursore dov'era. */
+            clearTimeout(_invCercaTimer);
+            _invCercaTimer = setTimeout(() => {
+                ridisegna();
+                const c2 = document.getElementById('inv-cerca');
+                if (c2) { c2.focus(); c2.setSelectionRange(c2.value.length, c2.value.length); }
+            }, 400);
+        });
+        document.getElementById('inv-fstato').addEventListener('change', e => {
+            _invFiltro.stato = e.target.value; ridisegna();
+        });
+
+        const barraSel = document.getElementById('inv-sel-barra');
+        const aggiornaSel = () => {
+            const et = document.getElementById('inv-sel-n');
+            if (et) et.textContent = _invSel.size + ' selezionate';
+            if (barraSel) barraSel.classList.toggle('hidden', !_invSel.size);
+        };
+        corpo.querySelectorAll('.inv-ck').forEach(c => c.addEventListener('change', () => {
+            if (c.checked) _invSel.add(c.value); else _invSel.delete(c.value);
+            aggiornaSel();
+        }));
+        const tutteCk = document.getElementById('inv-tutte');
+        if (tutteCk) tutteCk.addEventListener('change', () => {
+            // vale su TUTTE le righe filtrate, non solo su quelle disegnate
+            lista.forEach(a => { if (tutteCk.checked) _invSel.add(a.id); else _invSel.delete(a.id); });
+            corpo.querySelectorAll('.inv-ck').forEach(c => { c.checked = tutteCk.checked; });
+            aggiornaSel();
+        });
+        corpo.querySelectorAll('.inv-apri').forEach(b => b.addEventListener('click', () =>
+            modaleMessaggiPec(ev, aziendaInvitoDi(ev, b.dataset.id))));
+        corpo.querySelectorAll('.inv-mod').forEach(b => b.addEventListener('click', () =>
+            modaleAziendaInvito(ev, aziendaInvitoDi(ev, b.dataset.id))));
+        corpo.querySelectorAll('.inv-canc').forEach(b => b.addEventListener('click', () => {
+            const a = aziendaInvitoDi(ev, b.dataset.id);
+            if (!a) return;
+            if (!confirm('Togliere ' + a.ragioneSociale + ' dall\'elenco?')) return;
+            Cloud.aziendeInvito({ azione: 'cancella', evento: ev.id, ids: [a.id] }).then(r => {
+                if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
+                caricaAziendeInvito(ev, () => { ridisegna(); toast('Azienda tolta dall\'elenco.', 'verde'); });
+            });
+        }));
+
+        const selezionate = () => tutte.filter(a => _invSel.has(a.id));
+        const bInvia = document.getElementById('inv-invia');
+        if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate()));
+        const cambiaStato = (stato, parola) => {
+            const ids = Array.from(_invSel);
+            if (!ids.length) return;
+            Cloud.aziendeInvito({ azione: 'segna', evento: ev.id, ids: ids, stato: stato }).then(r => {
+                if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
+                _invSel = new Set();
+                caricaAziendeInvito(ev, () => { ridisegna(); toast(ids.length + ' aziende ' + parola + '.', 'verde'); });
+            });
+        };
+        const bEsc = document.getElementById('inv-escludi');
+        if (bEsc) bEsc.addEventListener('click', () => cambiaStato('esclusa', 'escluse dagli invii'));
+        const bRip = document.getElementById('inv-ripristina');
+        if (bRip) bRip.addEventListener('click', () => cambiaStato('da-invitare', 'rimesse fra quelle da invitare'));
+        const bEli = document.getElementById('inv-elimina');
+        if (bEli) bEli.addEventListener('click', () => {
+            const ids = Array.from(_invSel);
+            if (!ids.length) return;
+            if (!confirm('Eliminare ' + ids.length + ' aziende dall\'elenco? Gli esiti degli invii gia fatti si perdono.')) return;
+            Cloud.aziendeInvito({ azione: 'cancella', evento: ev.id, ids: ids }).then(r => {
+                if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
+                _invSel = new Set();
+                caricaAziendeInvito(ev, () => { ridisegna(); toast(r.tolte + ' aziende eliminate.', 'verde'); });
+            });
+        });
+    }
+
+    /* L'elenco cosi' com'e', esiti compresi: serve a chi tiene la rendicontazione
+       degli inviti fuori dall'area riservata. */
+    function scaricaAziendeInvito(ev) {
+        const righe = [['Ragione sociale', 'Email', 'PEC', 'Partita IVA', 'Referente', 'Citta', 'Provincia', 'Telefono',
+            'Stato', 'Invitata il', 'Canale', 'Errore di invio',
+            'Esito PEC', 'Consegnata il', 'Motivo del gestore', 'Ha risposto il']];
+        aziendeInvitoDi(ev).forEach(a => {
+            const r = a.ricevute || {};
+            const pec = a.invio && a.invio.canale === 'pec';
+            righe.push([
+                a.ragioneSociale, a.email, a.pec, a.piva, a.referente, a.citta, a.provincia, a.telefono,
+                INV_STATI[a.stato || 'da-invitare'] || a.stato,
+                a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '',
+                pec ? 'PEC' : (a.invio ? 'Email' : ''),
+                a.errore && a.errore.motivo ? a.errore.motivo : '',
+                pec ? (INV_PEC[r.esito || 'attesa'] || '') : '',
+                r.consegnata && r.consegnata.quando ? fmtDataOra(r.consegnata.quando) : '',
+                r.problema && r.problema.motivo ? r.problema.motivo : '',
+                r.risposta && r.risposta.quando ? fmtDataOra(r.risposta.quando) : ''
+            ]);
+        });
+        const csv = righe.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+        // il BOM serve a Excel per riconoscere le lettere accentate
+        const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'aziende-invito-' + ev.id + '.csv';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    /* Caricamento dell'elenco da file. Ricaricare lo stesso file non crea
+       doppioni (la chiave e' il recapito) e non azzera gli invii fatti. */
+    function modaleImportaAziendeInvito(ev) {
+        if (!puoGestireInviti()) return;
+        apriModale('<h2>Carica l\'elenco delle aziende</h2>'
+            + '<p class="hint" style="margin:-4px 0 14px;">Un file <b>.csv</b> con una riga per azienda. Serve almeno una colonna '
+            + '<b>Email</b> oppure <b>PEC</b>; vengono riconosciute anche Ragione sociale, Partita IVA, Codice fiscale, Referente, '
+            + 'Citta, Provincia, Telefono, Settore e Note, scritte in vari modi. Le altre colonne restano sulla scheda. '
+            + 'Virgola e punto e virgola vanno bene entrambi.</p>'
+            + '<p class="hint">Ricaricare lo stesso elenco aggiorna i dati e <b>non</b> crea doppioni: chi ha gia ricevuto '
+            + 'l\'invito resta segnato come invitato e non lo riceve una seconda volta.</p>'
+            + '<div class="ev-imp-passo"><input type="file" id="inv-file" accept=".csv,text/csv,text/plain"></div>'
+            + '<div id="inv-imp-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-imp-chiudi">Chiudi</button></div>', { classe: 'larga' });
+        const mostra = (t, ko) => {
+            const e = document.getElementById('inv-imp-esito');
+            if (e) e.innerHTML = '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>';
+        };
+        document.getElementById('inv-imp-chiudi').addEventListener('click', () => { chiudiModale(); modaleAziendeInvito(ev); });
+        document.getElementById('inv-file').addEventListener('change', e => {
+            const f = e.target.files && e.target.files[0];
+            if (!f) return;
+            const lettore = new FileReader();
+            lettore.onerror = () => mostra('Non riesco a leggere il file.', true);
+            lettore.onload = () => {
+                mostra('Caricamento in corso...');
+                Cloud.aziendeInvito({ azione: 'importa', evento: ev.id, csv: String(lettore.result || '') }).then(r => {
+                    if (!r.ok) { mostra(r.msg || 'Caricamento non riuscito.', true); return; }
+                    mostra('Lette ' + r.lette + ' righe: ' + r.nuove + ' aziende nuove, ' + r.aggiornate + ' aggiornate'
+                        + (r.senzaRecapito ? ', ' + r.senzaRecapito + ' scartate senza un indirizzo valido' : '')
+                        + (r.doppie ? ', ' + r.doppie + ' doppioni nel file' : '')
+                        + (r.oltreIlLimite ? ', ' + r.oltreIlLimite + ' oltre il limite dell\'evento' : '') + '.');
+                    try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco aziende da invitare caricato', 'sistema', ev.id, null, r.nuove + ' nuove, ' + r.aggiornate + ' aggiornate'); } catch (er) { }
+                    caricaAziendeInvito(ev, () => { });
+                });
+            };
+            lettore.readAsText(f, 'utf-8');
+        });
+    }
+
+    /* Una scheda a mano: per l'azienda che arriva per telefono, o per correggere
+       un indirizzo sbagliato nel file. */
+    function modaleAziendaInvito(ev, a) {
+        if (!puoGestireInviti()) return;
+        const v = a || {};
+        const campo = (id, et, val, extra) => '<div class="campo"><label for="' + id + '">' + esc(et) + '</label>'
+            + '<input type="text" id="' + id + '" value="' + esc(val || '') + '"' + (extra || '') + '></div>';
+        apriModale('<h2>' + (a ? 'Modifica azienda' : 'Aggiungi azienda') + '</h2>'
+            + campo('ia-rag', 'Ragione sociale', v.ragioneSociale, ' maxlength="200"')
+            + '<div class="inv-due">' + campo('ia-mail', 'Email', v.email, ' maxlength="200"')
+            + campo('ia-pec', 'PEC', v.pec, ' maxlength="200"') + '</div>'
+            + '<p class="hint" style="margin:-6px 0 12px;">Basta uno dei due. Con entrambi, l\'invito via email va all\'indirizzo ordinario.</p>'
+            + '<div class="inv-due">' + campo('ia-piva', 'Partita IVA', v.piva, ' maxlength="30"')
+            + campo('ia-ref', 'Referente', v.referente, ' maxlength="120"') + '</div>'
+            + '<div class="inv-due">' + campo('ia-citta', 'Citta', v.citta, ' maxlength="80"')
+            + campo('ia-prov', 'Provincia', v.provincia, ' maxlength="4"') + '</div>'
+            + '<div class="inv-due">' + campo('ia-tel', 'Telefono', v.telefono, ' maxlength="40"')
+            + campo('ia-set', 'Settore', v.settore, ' maxlength="120"') + '</div>'
+            + campo('ia-note', 'Note', v.note, ' maxlength="500"')
+            + '<div id="ia-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ia-no">Annulla</button>'
+            + '<button class="btn btn-primary" id="ia-si">Salva</button></div>', { classe: 'larga' });
+        const chiudi = () => { chiudiModale(); modaleAziendeInvito(ev); };
+        document.getElementById('ia-no').addEventListener('click', chiudi);
+        document.getElementById('ia-si').addEventListener('click', () => {
+            const val = id => (document.getElementById(id) || {}).value || '';
+            const azienda = {
+                ragioneSociale: val('ia-rag').trim(), pec: val('ia-pec').trim().toLowerCase(),
+                email: val('ia-mail').trim().toLowerCase(), piva: val('ia-piva').trim(),
+                referente: val('ia-ref').trim(), citta: val('ia-citta').trim(),
+                provincia: val('ia-prov').trim(), telefono: val('ia-tel').trim(),
+                settore: val('ia-set').trim(), note: val('ia-note').trim()
+            };
+            const e = document.getElementById('ia-esito');
+            const buono = x => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(x);
+            if (!azienda.ragioneSociale) { e.innerHTML = '<span class="ev-ko">Manca la ragione sociale.</span>'; return; }
+            if (azienda.pec && !buono(azienda.pec)) { e.innerHTML = '<span class="ev-ko">Indirizzo PEC non valido.</span>'; return; }
+            if (azienda.email && !buono(azienda.email)) { e.innerHTML = '<span class="ev-ko">Indirizzo email non valido.</span>'; return; }
+            if (!azienda.pec && !azienda.email) { e.innerHTML = '<span class="ev-ko">Serve almeno un recapito: email o PEC.</span>'; return; }
+            const b = document.getElementById('ia-si');
+            b.disabled = true; b.textContent = 'Salvo...';
+            Cloud.aziendeInvito({
+                azione: a ? 'modifica' : 'aggiungi', evento: ev.id, id: a ? a.id : '', azienda: azienda
+            }).then(r => {
+                if (!r.ok) {
+                    b.disabled = false; b.textContent = 'Salva';
+                    e.innerHTML = '<span class="ev-ko">' + esc(r.msg || 'Salvataggio non riuscito.') + '</span>';
+                    return;
+                }
+                caricaAziendeInvito(ev, () => { chiudi(); toast('Scheda salvata.', 'verde'); });
+            });
+        });
+    }
+
+    /* Ricevute e risposte di UNA azienda, da leggere qui dentro.
+       Il testo non sta su Firestore: si va a prenderlo nella casella PEC nel
+       momento in cui qualcuno lo apre. Costa una connessione in piu', ma vuol
+       dire che la corrispondenza resta dov'e' (la casella e' l'archivio con
+       valore legale) invece di essere copiata in un archivio di marketing che
+       finisce anche nei backup. */
+    const MP_ETICHETTE = {
+        'accettazione': 'Ricevuta di accettazione',
+        'avvenuta-consegna': 'Ricevuta di avvenuta consegna',
+        'errore-consegna': 'Avviso di mancata consegna',
+        'mancata-consegna': 'Avviso di mancata consegna',
+        'preavviso-errore-consegna': 'Preavviso di mancata consegna',
+        'non-accettazione': 'Avviso di non accettazione',
+        'rilevazione-virus': 'Rilevazione virus',
+        'presa-in-carico': 'Presa in carico',
+        'risposta': 'Risposta dell\'azienda',
+        'risposta non certificata': 'Risposta (non certificata)'
+    };
+    function modaleMessaggiPec(ev, a) {
+        if (!puoGestireInviti() || !a) return;
+        const viaPec = a.invio && a.invio.canale === 'pec';
+        const testa = '<h2>Ricevute e risposte - ' + esc(a.ragioneSociale) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">'
+            + (viaPec
+                ? 'PEC inviata a <b>' + esc(a.invio.destinatario || a.pec) + '</b>'
+                + (a.invio.quando ? ' il ' + esc(fmtDataOra(a.invio.quando)) : '') + '.'
+                : 'Questa azienda e stata invitata via email ordinaria: le ricevute PEC non esistono.')
+            + '</p>';
+        apriModale(testa
+            + '<div class="mp-corpo"><div id="mp-elenco" class="mp-elenco"><p class="hint">Carico...</p></div>'
+            + '<div id="mp-testo" class="mp-testo"><p class="hint">Scegli un messaggio dall\'elenco per leggerlo.</p></div></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="mp-chiudi">Chiudi</button></div>',
+            { classe: 'larga' });
+        document.getElementById('mp-chiudi').addEventListener('click', () => { chiudiModale(); modaleAziendeInvito(ev); });
+        if (!viaPec) {
+            const el = document.getElementById('mp-elenco');
+            if (el) el.innerHTML = '<p class="hint">Nessun messaggio PEC per questa azienda.</p>';
+            return;
+        }
+
+        Cloud.aziendeInvito({ azione: 'messaggi', evento: ev.id, id: a.id }).then(r => {
+            const el = document.getElementById('mp-elenco');
+            if (!el) return;
+            if (!r.ok) { el.innerHTML = '<p class="ev-ko">' + esc(r.msg || 'Elenco non disponibile.') + '</p>'; return; }
+            const elenco = r.messaggi || [];
+            if (!elenco.length) {
+                el.innerHTML = '<p class="hint">Nessuna ricevuta ancora arrivata. Premi "Controlla le ricevute" nella finestra precedente.</p>';
+                return;
+            }
+            el.innerHTML = elenco.map(m =>
+                '<button type="button" class="mp-voce" data-uid="' + esc(String(m.uid)) + '">'
+                + '<span class="mp-tipo">' + esc(MP_ETICHETTE[m.tipo] || m.tipo || 'Messaggio') + '</span>'
+                + '<span class="mp-quando">' + esc(m.quando ? fmtDataOra(m.quando) : '') + '</span>'
+                + (m.oggetto ? '<span class="mp-oggetto">' + esc(m.oggetto) + '</span>' : '')
+                + '</button>').join('');
+            el.querySelectorAll('.mp-voce').forEach(b => b.addEventListener('click', () => {
+                el.querySelectorAll('.mp-voce').forEach(x => x.classList.remove('attiva'));
+                b.classList.add('attiva');
+                apriTestoPec(ev, a, b.dataset.uid);
+            }));
+            // il primo si apre da solo: nove volte su dieci e quello che si cerca
+            const primo = el.querySelector('.mp-voce');
+            if (primo) primo.click();
+        });
+    }
+    function apriTestoPec(ev, a, uid) {
+        const box = document.getElementById('mp-testo');
+        if (!box) return;
+        box.innerHTML = '<p class="hint">Leggo il messaggio dalla casella PEC...</p>';
+        Cloud.aziendeInvito({ azione: 'leggi-messaggio', evento: ev.id, id: a.id, uid: Number(uid) }).then(r => {
+            const b = document.getElementById('mp-testo');
+            if (!b) return;
+            if (!r.ok) { b.innerHTML = '<p class="ev-ko">' + esc(r.msg || 'Messaggio non leggibile.') + '</p>'; return; }
+            const allegati = (r.allegati || []).length
+                ? '<div class="mp-allegati">Allegati: ' + (r.allegati || []).map(x => esc(x.nome)).join(', ') + '</div>'
+                : '';
+            /* Tutto quello che segue e' testo scritto da altri: passa sempre
+               per esc(), attributi compresi. */
+            b.innerHTML = '<div class="mp-testa">'
+                + '<div class="mp-oggetto-grande">' + esc(r.oggetto || '(senza oggetto)') + '</div>'
+                + '<div class="hint">' + esc(r.da || '') + (r.quando ? ' - ' + esc(fmtDataOra(r.quando)) : '') + '</div></div>'
+                + allegati
+                + '<pre class="mp-corpo-testo">' + esc(r.testo || '(il messaggio non ha testo leggibile: aprilo dalla casella PEC)') + '</pre>'
+                + (r.troncato ? '<p class="hint">Messaggio molto lungo: qui e mostrato solo l\'inizio.</p>' : '');
+        });
+    }
+
+    /* L'invio vero. Il testo si rilegge e si corregge qui: quello che parte e'
+       sempre quello a video. Si spedisce a LOTTI, cosi' nessuna chiamata sfora
+       il tempo massimo del servizio, e a ogni giro l'esito e' gia' scritto sulle
+       schede: interrompere e riprendere non fa danni. */
+    function modaleInviaInvito(ev, elenco) {
+        if (!puoGestireInviti()) return;
+        const scelte = (elenco || []).filter(a => a.stato !== 'esclusa' && a.stato !== 'disiscritta');
+        if (!scelte.length) { toast('Nessuna azienda selezionata (escluse e disiscritte non contano).', 'rosso'); return; }
+        const cEmail = canaleCfg('email'), cPec = canaleCfg('pec');
+        // canale iniziale: l'email ordinaria, che e' quella dell'invito normale
+        let canale = cEmail.pronto ? 'email' : 'pec';
+
+        const raggiungibili = c => scelte.filter(a => recapitoDi(c, a)).length;
+        const gia = scelte.filter(a => a.invio && a.invio.quando).length;
+
+        const opzione = (id, nome, etichetta, spiega, attivo, pronto) =>
+            '<label class="inv-canale' + (attivo ? ' attiva' : '') + (pronto ? '' : ' spenta') + '">'
+            + '<input type="radio" name="inv-canale" id="' + id + '" value="' + nome + '"'
+            + (attivo ? ' checked' : '') + (pronto ? '' : ' disabled') + '>'
+            + '<span><b>' + etichetta + '</b><br><span class="hint">' + spiega + '</span></span></label>';
+
+        apriModale('<h2>Invito - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 10px;">Un messaggio per azienda, mai piu destinatari insieme: cosi ogni scheda porta il proprio esito e nessuno vede gli indirizzi degli altri.'
+            + (gia ? ' <b>' + gia + '</b> hanno gia ricevuto l\'invito e vengono saltate, salvo la spunta piu sotto.' : '') + '</p>'
+            + '<div class="campo"><label>Come far partire l\'invito</label>'
+            + opzione('inv-c-email', 'email', 'Email ordinaria',
+                cEmail.pronto
+                    ? 'Da ' + esc(cEmail.mittente || 'Brevo') + '. Raggiunge <b>' + raggiungibili('email') + '</b> delle ' + scelte.length + ' aziende selezionate. '
+                    + 'Ogni messaggio porta il collegamento per disiscriversi.'
+                    : 'Server di posta non configurato sul servizio.',
+                canale === 'email', cEmail.pronto)
+            + opzione('inv-c-pec', 'pec', 'PEC certificata',
+                cPec.pronto
+                    ? 'Da ' + esc(cPec.mittente || '') + '. Raggiunge <b>' + raggiungibili('pec') + '</b> delle ' + scelte.length + ' aziende (solo quelle con PEC). Ogni messaggio ha un costo.'
+                    : 'Casella PEC non configurata sul servizio: servono le variabili PEC_SMTP_USER, PEC_SMTP_PASS e PEC_FROM_EMAIL su Vercel.',
+                canale === 'pec', cPec.pronto)
+            + '</div>'
+            + '<div class="campo"><label for="ii-ogg">Oggetto</label>'
+            + '<input type="text" id="ii-ogg" maxlength="200" value="' + esc(invOggettoPredefinito(ev)) + '"></div>'
+            + '<div class="campo"><label for="ii-testo">Testo dell\'invito</label>'
+            + '<textarea id="ii-testo" rows="14">' + esc(invTestoPredefinito(ev)) + '</textarea>'
+            + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
+            + 'Puoi scrivere <b>{ragione_sociale}</b>, <b>{referente}</b>, <b>{citta}</b>, <b>{provincia}</b>, <b>{piva}</b>: '
+            + 'ogni azienda riceve i propri dati al loro posto.</div></div>'
+            + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ii-forza"> '
+            + 'Manda anche a chi ha gia ricevuto l\'invito</label></div>'
+            + '<div id="ii-anteprima" style="display:none;margin-top:10px;">'
+            + '<iframe id="ii-frame" title="Anteprima dell\'invito" sandbox="allow-same-origin" '
+            + 'style="width:100%;height:360px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + '<div id="ii-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ii-no">Annulla</button>'
+            + '<button class="btn btn-secondary" id="ii-ant">Anteprima</button>'
+            + '<button class="btn btn-primary" id="ii-si"' + ((cEmail.pronto || cPec.pronto) ? '' : ' disabled') + '>Invia</button></div>',
+            { classe: 'larga', bloccante: true });
+
+        const esito = (t, ko) => {
+            const e = document.getElementById('ii-esito');
+            if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
+        };
+        const chiudi = () => { chiudiModale(); modaleAziendeInvito(ev); };
+        /* Lo stesso pulsante fa due cose: prima di partire annulla, mentre i
+           messaggi stanno partendo ferma l'invio dopo il lotto in corso (quelli
+           gia' consegnati al server di posta non si richiamano indietro). Un
+           solo ascoltatore, altrimenti il "ferma" chiuderebbe anche la finestra. */
+        const stato = { inCorso: false, fermato: false };
+        document.getElementById('ii-no').addEventListener('click', () => {
+            if (!stato.inCorso) { chiudi(); return; }
+            stato.fermato = true;
+            const b = document.getElementById('ii-no');
+            if (b) { b.disabled = true; b.textContent = 'Mi fermo...'; }
+        });
+
+        // quante ne partono davvero su questo canale: si aggiorna il pulsante
+        const daFare = () => scelte.filter(a => recapitoDi(canale, a));
+        const aggiornaBottone = () => {
+            const b = document.getElementById('ii-si');
+            if (!b || stato.inCorso) return;
+            const n = daFare().length;
+            b.textContent = n ? ('Invia ' + n + (canale === 'pec' ? ' PEC' : ' email')) : 'Nessun recapito su questo canale';
+            b.disabled = !n;
+        };
+        document.querySelectorAll('input[name="inv-canale"]').forEach(r => r.addEventListener('change', () => {
+            canale = r.value;
+            document.querySelectorAll('.inv-canale').forEach(l => l.classList.remove('attiva'));
+            r.closest('.inv-canale').classList.add('attiva');
+            aggiornaBottone();
+        }));
+        aggiornaBottone();
+
+        document.getElementById('ii-ant').addEventListener('click', () => {
+            const cont = document.getElementById('ii-anteprima');
+            const chiusa = cont.style.display === 'none';
+            cont.style.display = chiusa ? '' : 'none';
+            document.getElementById('ii-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima';
+            if (!chiusa) return;
+            // esempio con i dati della prima azienda selezionata, cosi' si vede
+            // davvero come vengono sostituiti i segnaposto
+            const a = daFare()[0] || scelte[0];
+            const html = invTestoInHtml((document.getElementById('ii-testo') || {}).value || '')
+                .split('{ragione_sociale}').join(esc(a.ragioneSociale || ''))
+                .split('{referente}').join(esc(a.referente || ''))
+                .split('{citta}').join(esc(a.citta || ''))
+                .split('{provincia}').join(esc(a.provincia || ''))
+                .split('{piva}').join(esc(a.piva || ''));
+            document.getElementById('ii-frame').srcdoc =
+                '<!doctype html><html lang="it"><head><meta charset="utf-8"></head>'
+                + '<body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
+                + 'line-height:1.6;color:#1E293B;text-align:justify;background:#fff;">'
+                + '<p style="margin:0 0 14px;color:#64748B;font-size:12px;">Anteprima del solo testo: '
+                + 'intestazione, firma e piede con la disiscrizione le aggiunge il servizio.</p>' + html + '</body></html>';
+        });
+
+        document.getElementById('ii-si').addEventListener('click', () => {
+            const oggetto = ((document.getElementById('ii-ogg') || {}).value || '').trim();
+            const testoInvito = ((document.getElementById('ii-testo') || {}).value || '').trim();
+            if (!oggetto) { esito('Manca l\'oggetto.', true); return; }
+            if (!testoInvito) { esito('Manca il testo dell\'invito.', true); return; }
+            const elencoInvio = daFare();
+            if (!elencoInvio.length) { esito('Nessuna delle aziende scelte ha un recapito su questo canale.', true); return; }
+            const forza = !!(document.getElementById('ii-forza') || {}).checked;
+            const quale = canale === 'pec' ? 'PEC' : 'email';
+            if (!confirm('Partono fino a ' + elencoInvio.length + ' ' + quale + ', una per azienda'
+                + (canale === 'pec' ? '. Ogni PEC ha un costo e non si richiama indietro.' : '.') + ' Procedo?')) return;
+            const html = invTestoInHtml(testoInvito);
+            const b = document.getElementById('ii-si');
+            const bAnn = document.getElementById('ii-no');
+            b.disabled = true; b.textContent = 'Invio...';
+            stato.inCorso = true; stato.fermato = false;
+            bAnn.textContent = 'Ferma l\'invio';
+
+            (async () => {
+                const lotto = Math.max(1, Number(canaleCfg(canale).maxLotto) || 40);
+                let inviate = 0, saltate = 0, disiscritte = 0, falliti = 0, msgKo = '';
+                for (let i = 0; i < elencoInvio.length && !stato.fermato; i += lotto) {
+                    esito('Invio in corso: ' + inviate + ' su ' + elencoInvio.length + '...');
+                    let r;
+                    try {
+                        r = await Cloud.aziendeInvito({
+                            azione: 'invia', evento: ev.id, canale: canale, forza: forza,
+                            ids: elencoInvio.slice(i, i + lotto).map(a => a.id),
+                            mail: { oggetto: oggetto, html: html }
+                        });
+                    } catch (e) { r = { ok: false, msg: 'Servizio non raggiungibile.' }; }
+                    if (!r.ok) { msgKo = r.msg || 'Invio interrotto.'; break; }
+                    inviate += r.inviate || 0;
+                    saltate += (r.saltate || 0) + (r.senzaRecapito || 0);
+                    disiscritte += r.disiscritte || 0;
+                    falliti += (r.falliti || []).length;
+                    if (r.tettoRaggiunto) { msgKo = 'Raggiunto il tetto orario su questo canale: riprendi piu tardi, chi ha gia ricevuto viene saltato.'; break; }
+                }
+                stato.inCorso = false;
+                b.disabled = false; b.textContent = 'Invia le restanti';
+                bAnn.disabled = false; bAnn.textContent = 'Chiudi';
+                const riepilogo = inviate + ' ' + quale + ' partite'
+                    + (saltate ? ', ' + saltate + ' saltate (gia invitate o senza recapito)' : '')
+                    + (disiscritte ? ', ' + disiscritte + ' disiscritte' : '')
+                    + (falliti ? ', ' + falliti + ' non riuscite' : '') + '.';
+                esito(riepilogo + (stato.fermato ? ' Invio fermato.' : '') + (msgKo ? ' ' + msgKo : ''), !!(falliti || msgKo));
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: invito alle aziende (' + quale + ')', 'sistema', ev.id, null, riepilogo); } catch (e) { }
+                caricaAziendeInvito(ev, () => { });
+                if (inviate) toast(inviate + ' inviti partiti.', 'verde');
+            })();
+        });
     }
 
     /* Chi puo aprire la sezione Eventi: elenco di utenti scelti dall'amministratore. */

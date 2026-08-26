@@ -5,6 +5,7 @@
   ],
   "functions": {
     "api/presenze.js": { "maxDuration": 60 },
+    "api/aziende-invito.js": { "maxDuration": 60 },
     "api/iscrizione-nuova.js": { "maxDuration": 30 },
     "api/cron-comunicazioni.js": { "maxDuration": 60 },
     "api/invia-newsletter.js": { "maxDuration": 60 },

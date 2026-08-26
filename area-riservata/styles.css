@@ -1426,6 +1426,69 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ev-avviso { flex: 1 0 100%; color: var(--rosso); font-size: 0.8rem; line-height: 1.35; margin-top: 2px; }
 /* precisazione, non problema: si puo abilitare lo stesso */
 .ev-info { flex: 1 0 100%; color: var(--grigio-600); font-size: 0.8rem; line-height: 1.35; margin-top: 2px; }
+/* ---- aziende da invitare a un evento (sezione Eventi) ---- */
+.inv-conta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.88rem; color: var(--grigio-600); }
+.inv-conta b { color: var(--grigio-900); }
+.inv-barra { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.inv-filtri { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.inv-filtri input[type="text"] { flex: 1 1 260px; min-width: 180px; }
+.inv-filtri select { flex: 0 0 auto; }
+/* barra che compare solo con qualcosa di spuntato */
+.inv-sel-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--blu-700); border-radius: 6px; background: var(--blu-050); font-size: 0.88rem; }
+.inv-sel-barra.hidden { display: none; }
+.inv-due { display: flex; gap: 12px; flex-wrap: wrap; }
+.inv-due > .campo { flex: 1 1 200px; }
+.inv-tabella { font-size: 0.82rem; }
+.inv-tabella td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+.inv-tabella .hint { margin: 2px 0 0; font-size: 0.75rem; }
+.inv-azioni-riga { white-space: nowrap; }
+/* l'azienda di cui si ha la sola PEC: si segnala, perche' sul canale email
+   l'invito le arriverebbe li' */
+.inv-solo-pec { display: inline-block; padding: 1px 6px; margin-right: 4px; border-radius: 999px; background: var(--blu-050); border: 1px solid var(--grigio-200); color: var(--blu-700); font-size: 0.7rem; font-weight: 700; }
+/* scelta del canale nella finestra di invio */
+.inv-canale { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; border: 1px solid var(--grigio-200); border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 0.9rem; color: var(--grigio-900); }
+.inv-canale:hover { background: var(--blu-050); }
+.inv-canale.attiva { border-color: var(--blu-700); background: var(--blu-050); }
+.inv-canale.spenta { opacity: 0.65; cursor: not-allowed; }
+.inv-canale input[type="radio"] { width: auto; flex: 0 0 auto; margin-top: 3px; accent-color: var(--blu-700); }
+.inv-canale .hint { margin: 2px 0 0; }
+/* stato dell'invito, una pastiglia per riga */
+.inv-pallino { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.76rem; font-weight: 600; white-space: nowrap; border: 1px solid var(--grigio-200); background: #fff; color: var(--grigio-600); }
+.inv-pallino.inv-inviata { border-color: var(--blu-700); background: var(--blu-050); color: var(--blu-700); }
+.inv-pallino.inv-risposta, .inv-pallino.inv-iscritta { border-color: var(--verde); background: var(--verde-bg); color: var(--verde); }
+.inv-pallino.inv-errore { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
+.inv-pallino.inv-esclusa, .inv-pallino.inv-disiscritta { border-color: var(--ambra); background: var(--ambra-bg); color: var(--ambra); }
+/* esiti letti dalla casella PEC: sono una scala diversa dagli stati della
+   scheda, quindi hanno una famiglia di pastiglie loro */
+.inv-pallino.inv-pec-consegnata { border-color: var(--verde); background: var(--verde-bg); color: var(--verde); }
+.inv-pallino.inv-pec-non-consegnata, .inv-pallino.inv-pec-non-accettata { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
+.inv-pallino.inv-pec-in-dubbio { border-color: var(--ambra); background: var(--ambra-bg); color: var(--ambra); }
+.inv-pallino.inv-pec-accettata { border-color: var(--blu-700); background: var(--blu-050); color: var(--blu-700); }
+.inv-risposto { margin-top: 3px; font-size: 0.75rem; font-weight: 700; color: var(--verde); }
+/* riquadro con l'ora dell'ultimo controllo della casella e il pulsante */
+.inv-lettore { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--grigio-200); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; line-height: 1.45; color: var(--grigio-600); }
+.inv-lettore.ko { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
+.inv-lettore b { color: inherit; }
+/* ---- finestra di lettura delle ricevute e delle risposte ---- */
+/* elenco a sinistra, messaggio a destra: su schermo stretto uno sotto l'altro */
+.mp-corpo { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.mp-elenco { flex: 1 1 240px; min-width: 220px; max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.mp-voce { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 8px 10px; border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff; cursor: pointer; font-family: inherit; }
+.mp-voce:hover { border-color: var(--blu-700); background: var(--blu-050); }
+.mp-voce.attiva { border-color: var(--blu-700); background: var(--blu-050); }
+.mp-tipo { font-weight: 700; font-size: 0.85rem; color: var(--grigio-900); }
+.mp-quando { font-size: 0.75rem; color: var(--grigio-600); }
+.mp-oggetto { font-size: 0.78rem; color: var(--grigio-600); overflow-wrap: anywhere; }
+.mp-testo { flex: 2 1 340px; min-width: 260px; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 12px 14px; background: var(--blu-050); max-height: 420px; overflow-y: auto; }
+.mp-testa { margin-bottom: 8px; }
+.mp-oggetto-grande { font-weight: 700; color: var(--grigio-900); overflow-wrap: anywhere; }
+.mp-allegati { font-size: 0.78rem; color: var(--grigio-600); margin-bottom: 8px; }
+/* il testo del messaggio si mostra com'e' stato scritto, a capo compresi */
+.mp-corpo-testo { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 0.85rem; line-height: 1.5; color: var(--grigio-900); }
+/* la pastiglia dell'esito e il "ha risposto" diventano cliccabili */
+button.inv-pallino, button.inv-risposto { cursor: pointer; font-family: inherit; }
+button.inv-risposto { background: none; border: none; padding: 0; text-align: left; text-decoration: underline; }
+
 /* scelta destinatari nell'invio inviti sondaggio (a tutti / nuovi+senza accesso / solo nuovi) */
 .ii-ambito { display: flex; align-items: flex-start; gap: 9px; padding: 9px 11px; border: 1px solid var(--grigio-200); border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 0.9rem; color: var(--grigio-900); }
 .ii-ambito:hover { background: var(--blu-050); }

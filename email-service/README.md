@@ -62,6 +62,171 @@ Serve per generare i link di reimpostazione password.
 > dell'account fermerebbe anche le email con cui le persone entrano nell'area
 > riservata.
 
+### Inviti alle aziende (sezione Eventi)
+
+Nella sezione Eventi si carica un elenco di aziende **non ancora iscritte** e
+si manda l'invito. L'invito puo' partire su due canali, scelti al momento
+dell'invio.
+
+**Canale normale: email ordinaria da Brevo.** Funziona **senza aggiungere
+niente**: usa le variabili `SMTP_*` gia' presenti qui sopra. Ogni messaggio
+porta il collegamento di disiscrizione e le intestazioni `List-Unsubscribe`,
+e chi si e' gia' disiscritto viene saltato (stesso elenco della newsletter).
+
+Facoltative, ma **consigliate** per un invio a freddo:
+
+| Nome | Valore |
+|---|---|
+| `MKT_SMTP_HOST` | `smtp-relay.brevo.com` |
+| `MKT_SMTP_PORT` | `587` |
+| `MKT_SMTP_USER` | login SMTP di un **secondo** account (o sotto-account) Brevo |
+| `MKT_SMTP_PASS` | la chiave SMTP di quell'account |
+| `MKT_FROM_EMAIL` | il mittente degli inviti (es. `eventi@nextgenerationbusiness.it`) |
+| `MKT_FROM_NAME` | `Next Generation Business` |
+| `MKT_REPLY_TO` | dove far arrivare le risposte (se manca, risponde a chi ha premuto invia) |
+| `MKT_MAX_LOTTO` | quanti messaggi per chiamata (predefinito 40) |
+| `MKT_MAX_ORA` | tetto orario per utente (predefinito 2000) |
+
+> **Perche' un secondo account Brevo.** Come dice la nota qui sopra, un solo
+> account Brevo regge oggi TUTTE le email dello studio, comprese quelle con cui
+> le persone entrano nell'area riservata. Un invio a freddo porta rimbalzi e
+> segnalazioni di spam: se il conto viene sospeso per quelli, si ferma anche
+> l'accesso all'area riservata. Con `MKT_SMTP_*` gli inviti viaggiano su un
+> conto separato e il danno resta li'. Se le variabili non ci sono, l'invio
+> funziona lo stesso dal mittente di sempre.
+
+**Secondo canale: PEC.** Per l'invito formale. La casella dello studio e'
+**`revilawngb@pec.it`**: il dominio `pec.it` e' di Aruba (gli MX puntano a
+`mx.pec.aruba.it`), quindi host e porte predefiniti nel codice sono gia' quelli
+giusti e **le sole variabili davvero necessarie sono tre**:
+`PEC_SMTP_USER`, `PEC_SMTP_PASS`, `PEC_FROM_EMAIL`. Finche' le variabili mancano,
+il canale resta spento nell'area riservata e il servizio **si rifiuta di
+spedire**: l'elenco si puo' comunque caricare e preparare.
+
+| Nome | Valore |
+|---|---|
+| `PEC_SMTP_USER` | `revilawngb@pec.it` |
+| `PEC_SMTP_PASS` | la password di quella casella (vedi la nota sulla verifica in due passaggi) |
+| `PEC_FROM_EMAIL` | `revilawngb@pec.it` (lo stesso: il gestore rifiuta qualunque altro mittente) |
+| `PEC_FROM_NAME` | `Revilaw S.p.A.` |
+| `PEC_REPLY_TO` | **da lasciare vuota** se le risposte si vogliono leggere nell'area riservata (vedi la nota) |
+| `PEC_SMTP_HOST` | `smtps.pec.aruba.it` — **si puo' omettere**, e' il predefinito |
+| `PEC_SMTP_PORT` | `465` — si puo' omettere |
+| `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
+| `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 300) |
+
+> **Dipendenza aggiunta: `imapflow`** (licenza MIT, usabile in un prodotto
+> chiuso). Attenzione se un domani si tocca la versione: imapflow e' stato
+> AGPL-3.0 dalla 1.0.28 alla 1.0.63 ed e' MIT dalla 1.0.65 in poi, quindi non
+> va mai fissato un intervallo che possa risolversi sotto quella versione. Il
+> `package-lock.json` e' nel repository apposta: senza, ogni deploy
+> reinstallerebbe l'ultima versione pubblicata, licenza compresa.
+>
+> > **Perche' la PEC non passa da Brevo.** Una PEC ha valore legale solo se parte
+> da una casella PEC attraverso l'SMTP del gestore accreditato: e' il gestore a
+> produrre la ricevuta di accettazione e quella di consegna. Brevo non e' un
+> gestore PEC, quindi da li' uscirebbe posta ordinaria, senza ricevute, e
+> diverse caselle PEC aziendali sono impostate per rifiutarla. Per questo il
+> canale PEC ha credenziali sue (`lib/canali-invito.js`).
+>
+> **Le ricevute** (accettazione e consegna) arrivano nella casella PEC, non
+> qui: l'area riservata registra la presa in carico da parte del gestore e
+> l'eventuale rifiuto, non la consegna finale.
+
+### Ricevute PEC: consegne, errori e risposte
+
+Dopo un invio PEC il gestore risponde nella casella del mittente (accettazione,
+avvenuta consegna, mancata consegna) e li' arrivano anche le risposte delle
+aziende. Il servizio legge quella casella in **IMAP, in sola lettura**, e
+riporta gli esiti sulla scheda di ciascuna azienda: nell'area riservata compare
+la colonna **Ricevute PEC** con "Consegnata", "NON consegnata" e il motivo
+scritto dal gestore, "Consegna in dubbio", "Ha risposto".
+
+| Nome | Valore |
+|---|---|
+| `PEC_IMAP_HOST` | `imaps.pec.aruba.it` — **si puo' omettere**, e' il predefinito |
+| `PEC_IMAP_PORT` | `993` — si puo' omettere |
+| `PEC_IMAP_USER` | si puo' **omettere**: senza, usa `PEC_SMTP_USER` (`revilawngb@pec.it`) |
+| `PEC_IMAP_PASS` | si puo' **omettere**: senza, usa `PEC_SMTP_PASS`. Da riempire solo se la casella ha una password dedicata ai programmi di posta diversa da quella dell'invio |
+| `PEC_IMAP_CARTELLA` | `INBOX` (predefinito). Da cambiare solo se un filtro sposta le ricevute altrove: quello che il lettore non vede, non esiste |
+| `PEC_LETTORE_MAX` | quanti messaggi per giro (predefinito 40) |
+| `PEC_LETTORE_RECUPERO` | quanti messaggi guardare all'indietro alla prima accensione (predefinito 200) |
+| `PEC_CRON_SECRET` | **solo** se si vuole un controllo automatico da uno scheduler esterno (vedi sotto) |
+
+> **La password che scade: e' il punto piu' fragile di tutto l'impianto.** Con
+> la verifica in due passaggi attiva sulla casella PEC (obbligatoria nel
+> percorso verso la PEC europea), i programmi di posta non possono piu' usare
+> la password principale: serve la **password dedicata ai programmi di posta**,
+> che Aruba fa generare dalla webmail e che **scade ogni sei mesi**. Quando
+> scade il lettore smette di funzionare. Per questo: dopo tre rifiuti di
+> password consecutivi il lettore **si ferma da solo** invece di ribattere (un
+> login sbagliato ripetuto fa scattare le protezioni del gestore, e quelle
+> bloccherebbero anche l'INVIO delle PEC), e nell'area riservata compare un
+> riquadro rosso che dice esattamente cosa e' successo. Conviene annotarsi la
+> scadenza da qualche parte.
+
+> **Come si aggiorna.** Il modo normale e' il pulsante **"Controlla le
+> ricevute"** nella finestra delle aziende: legge la casella in quel momento.
+> Un controllo automatico serve un cron, e sul piano **Hobby di Vercel i cron
+> girano una volta al giorno**, che per una PEC e' poco: se serve piu' spesso,
+> o si passa al piano Pro, oppure si fa chiamare l'endpoint da uno scheduler
+> esterno (basta un workflow GitHub Actions) in **GET** su
+> `/api/aziende-invito` con l'intestazione `Authorization: Bearer <PEC_CRON_SECRET>`.
+> Il segreto e' **dedicato**, diverso da `CRON_SECRET`: quello fa partire
+> newsletter e comunicazioni, e cio' che si consegna a un servizio esterno deve
+> poter fare una cosa sola.
+
+> **`PEC_REPLY_TO`: attenzione, decide DOVE finiscono le risposte.**
+> Lasciata vuota (consigliato) la risposta dell'azienda torna alla casella
+> `revilawngb@pec.it`, cioe' proprio dove il lettore va a prenderla: e' cosi'
+> che compare sulla scheda dell'azienda e si legge nell'area riservata.
+> Impostandola, le risposte vengono dirottate su quella casella ordinaria e
+> **spariscono dall'area riservata**, perche' il lettore guarda solo la PEC.
+> Ha senso solo se si preferisce gestirle a mano dalla posta di sempre.
+>
+> Sul canale email ordinaria e' l'opposto: li' non c'e' nessun lettore, quindi
+> se `MKT_REPLY_TO` non c'e' la risposta va a chi ha premuto invia.
+
+> **Ricevute e risposte si leggono dall'area riservata.** Nella colonna
+> Ricevute PEC la pastiglia dell'esito e il "Ha risposto il..." sono
+> cliccabili: si apre la finestra con l'elenco dei messaggi di quell'azienda
+> (accettazione, consegna, avvisi, risposte) e il testo di quello scelto.
+>
+> Il testo **non viene copiato su Firestore**: si va a prenderlo nella casella
+> nel momento in cui qualcuno lo apre. Sulla scheda restano solo le coordinate
+> (quale messaggio, di che tipo, quando), poche decine di byte. Il motivo e'
+> che quella casella e' la PEC dello studio: contiene corrispondenza, e
+> copiarne il testo in un archivio di marketing - che finisce anche nei backup
+> notturni - vorrebbe dire conservare per sempre dati che nessuno ha chiesto.
+> Per la stessa ragione il contenuto lo vedono solo amministratore, equity e
+> founding partner, e il servizio accetta di leggere **solo** un messaggio
+> gia' collegato alla scheda che si sta guardando: senza quel controllo
+> l'endpoint diventerebbe "leggimi qualunque messaggio della PEC dello studio".
+
+> **Cosa il lettore non fa.** Non segna niente come letto, non sposta e non
+> cancella: quella casella e' l'archivio con valore legale, e il segno "letto"
+> e' condiviso con la webmail. Non verifica la firma S/MIME con cui il gestore
+> sigilla le ricevute: per un cruscotto interno va bene, ma la prova in una
+> contestazione resta il messaggio nella casella, non la riga sullo schermo.
+> Non scarica gli allegati delle risposte: ne mostra i nomi, il file si apre
+> dalla casella.
+
+> **Le risposte da posta ordinaria non arrivano.** Di predefinito una casella
+> PEC Aruba **rifiuta** i messaggi non certificati: se un'azienda risponde
+> dalla propria mail normale, quel messaggio non entra proprio, e non e' il
+> lettore a perderlo. La ricezione ordinaria si accende dalla webmail Aruba;
+> in quel caso quelle risposte compaiono, segnate come non certificate.
+
+> **Lo spazio della casella.** Ogni invio genera almeno un'accettazione e una
+> consegna: il volume in casella e' piu' che doppio rispetto a quello spedito.
+> A casella piena Aruba continua a ricevere ma **blocca l'uscita**, quindi gli
+> inviti successivi non partono. Prima di una campagna grossa conviene
+> guardare quanto spazio resta.
+
+Su entrambi i canali si spedisce **un destinatario per messaggio**, a lotti:
+un elenco lungo parte in piu' riprese, e l'area riservata tiene il segno e non
+rispedisce a chi ha gia' ricevuto.
+
 > **Nota sulla chiave (`FIREBASE_SERVICE_ACCOUNT`).** Il file JSON è su più righe e
 > Vercel non lo fa incollare bene nel campo valore. Conviene incollarlo **in base64**
 > (una sola riga). Dal tuo PC, in **PowerShell**, esegui — sostituendo il percorso col
