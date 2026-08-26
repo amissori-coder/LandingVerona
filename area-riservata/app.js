@@ -1517,7 +1517,9 @@
                 // dell'invito B2B (inviate, giaInvitate, falliti...)
                 return { ...data, ok: true, presenza: data.presenza || null };
             } catch (e) {
-                return { ok: false, msg: 'Servizio non raggiungibile.' };
+                /* Stesso indirizzo delle aziende: se cade qui, cade tutto il
+                   servizio, non una sezione. Vale la pena saperlo subito. */
+                return { ok: false, msg: await this._perche(url, e) };
             }
         },
 
@@ -1541,6 +1543,44 @@
             } catch (e) {
                 return { ok: false, msg: 'Servizio non raggiungibile.' };
             }
+        },
+
+        /* PERCHE' la chiamata non e' arrivata a destinazione.
+           "Servizio non raggiungibile" da solo non dice nulla, e il motivo e'
+           una crudelta' del browser: quando la risposta gli arriva SENZA i
+           permessi per leggerla (CORS), solleva esattamente lo stesso errore
+           che solleva quando dall'altra parte non risponde nessuno. Due
+           guasti opposti, una frase sola, e si finisce a indovinare.
+
+           Qui si separano, con due sonde:
+
+           1. Un GET semplice: non porta intestazioni sue, quindi il browser
+              NON manda la richiesta di permesso preventiva e va dritto alla
+              funzione. Se torna un 405 leggibile, la funzione e' viva, le
+              intestazioni CORS ci sono, e il guasto sta piu' avanti (nella
+              richiesta di permesso o nel POST).
+           2. Un GET "no-cors": non chiede permessi, quindi RIESCE se
+              dall'altra parte risponde qualcuno, comunque risponda. Se
+              riesce mentre il primo fallisce, il servizio c'e' ma sta
+              rispondendo senza permessi: la funzione si interrompe prima di
+              scriverli. Se fallisce anche questo, non risponde nessuno.
+
+           Il verdetto finisce a schermo cosi' com'e': meglio una riga lunga
+           che si legge, di una corta che costringe ad aprire la console. */
+        async _perche(url, err) {
+            const dettaglio = ' [' + ((err && err.message) ? String(err.message).slice(0, 120) : 'errore non descritto') + ' - ' + url + ']';
+            try {
+                const r = await fetch(url, { method: 'GET', cache: 'no-store' });
+                return 'Il servizio risponde (' + r.status + ') alle richieste semplici, ma rifiuta questa: '
+                    + 'il permesso preventivo del browser non passa.' + dettaglio;
+            } catch (e1) { /* si prova la seconda sonda */ }
+            try {
+                await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store' });
+                return 'Il servizio c\'e\' e risponde, ma la risposta arriva senza i permessi per questa pagina. '
+                    + 'O la funzione si interrompe prima di scriverli, oppure sul servizio ALLOWED_ORIGIN '
+                    + 'non corrisponde a ' + (location.origin || '(origine ignota)') + '.' + dettaglio;
+            } catch (e2) { /* nessuno risponde */ }
+            return 'Nessuna risposta dal servizio: indirizzo sbagliato, rilascio assente o rete bloccata.' + dettaglio;
         },
 
         /* Aziende da invitare a un evento: elenco, caricamento e invio
@@ -1570,7 +1610,7 @@
                 if (!r.ok || !data.ok) return { ...data, ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
                 return { ...data, ok: true };
             } catch (e) {
-                return { ok: false, msg: 'Servizio non raggiungibile.' };
+                return { ok: false, msg: await this._perche(url, e) };
             }
         },
 
