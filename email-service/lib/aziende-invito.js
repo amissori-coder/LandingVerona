@@ -6,6 +6,21 @@
    "aziendeInvito", una scheda per azienda per evento). Si carica
    da un file CSV nella sezione Eventi dell'area riservata.
 
+   PERCHE' QUESTO NON E' UN ENDPOINT A SE'. Il piano Hobby di
+   Vercel ammette 12 funzioni serverless per rilascio, e in api/
+   ce n'erano gia' 12: la tredicesima faceva fallire la
+   distribuzione con "No more than 12 Serverless Functions can be
+   added to a Deployment on the Hobby plan". Quindi la logica vive
+   qui in lib/, che non conta come funzione, e api/presenze.js le
+   passa le richieste che portano sezione: 'aziende'. E' la stessa
+   strada che il repository usa gia' per il giro della newsletter,
+   che bussa a un endpoint esistente invece di averne uno suo.
+
+   Di conseguenza qui NON ci sono: intestazioni CORS, avvio
+   dell'Admin SDK, verifica dell'ID token, controllo del permesso
+   sugli Eventi. Li ha gia' fatti presenze.js, e i suoi esiti
+   arrivano dentro il contesto.
+
    Due canali, si sceglie al momento dell'invio (lib/canali-invito.js):
      - EMAIL ORDINARIA da Brevo: quello normale per un invito.
        Nessuna configurazione nuova, e ogni mail porta il
@@ -20,47 +35,16 @@
    ogni scheda porta con se' il proprio esito, cosi' una ripresa non
    rispedisce a chi ha gia' ricevuto.
 
-   Azioni:
-     - "elenco"    : le aziende di un evento (chi vede gli Eventi)
-     - "importa"   : carica un CSV (amministratore e partner)
-     - "aggiungi"  : una scheda a mano
-     - "modifica"  : corregge una scheda
-     - "cancella"  : toglie una o piu' schede
-     - "segna"     : stato a mano (esclusa, risposta ricevuta...)
-     - "invia"     : spedisce l'invito a un LOTTO di aziende
-     - "configurazione" : dice quali canali sono pronti
+   Azioni, tutte con sezione: 'aziende':
+     elenco, importa, aggiungi, modifica, cancella, segna, invia,
+     configurazione, stato-lettore, ricevute, non-riconosciute,
+     messaggi, leggi-messaggio.
    ============================================================ */
 
 const admin = require('firebase-admin');
-const CANALI = require('../lib/canali-invito');
-const NL = require('../lib/newsletter');
-const LETTORE = require('../lib/lettore-pec');
-
-function leggiServiceAccount() {
-    const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
-    if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT mancante');
-    let testoCred = raw;
-    if (testoCred[0] !== '{') {
-        try {
-            const dec = Buffer.from(testoCred, 'base64').toString('utf8').trim();
-            if (dec[0] === '{') testoCred = dec;
-        } catch (_) { /* lo segnala JSON.parse */ }
-    }
-    let cred;
-    try { cred = JSON.parse(testoCred); }
-    catch (_) { throw new Error('FIREBASE_SERVICE_ACCOUNT non valido'); }
-    if (cred.private_key && cred.private_key.includes('\\n')) {
-        cred.private_key = cred.private_key.replace(/\\n/g, '\n');
-    }
-    return cred;
-}
-
-let appPronta = false;
-function initAdmin(cred) {
-    if (appPronta) return;
-    admin.initializeApp({ credential: admin.credential.cert(cred) });
-    appPronta = true;
-}
+const CANALI = require('./canali-invito');
+const NL = require('./newsletter');
+const LETTORE = require('./lettore-pec');
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -207,68 +191,45 @@ function inChiaro(id, d) {
     };
 }
 
-module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+/* Riconosce le richieste che riguardano questa sezione. presenze.js chiama
+   questa prima del proprio smistamento: i nomi delle azioni si somigliano
+   (aggiungi, modifica, cancella stanno da entrambe le parti) e senza un
+   discriminante esplicito finirebbero nel posto sbagliato. */
+function gestisce(body) {
+    return !!(body && String(body.sezione || '') === 'aziende');
+}
 
-    /* Deviazione per uno scheduler che controlla la casella PEC da solo.
-       Segreto DEDICATO, non il CRON_SECRET degli altri lavori: quello fa
-       partire newsletter e comunicazioni, e cio' che si consegna a un
-       servizio esterno deve poter fare una cosa sola. Sta qui in cima
-       perche' gli scheduler chiamano in GET, e piu' sotto un GET verrebbe
-       respinto. */
-    const segretoLettore = String(process.env.PEC_CRON_SECRET || '');
-    const autorizzazione = String((req.headers || {})['authorization'] || '');
-    if (segretoLettore && autorizzazione === 'Bearer ' + segretoLettore) {
-        try {
-            initAdmin(leggiServiceAccount());
-            const r = await LETTORE.giro(admin.firestore(), { da: 'scheduler' });
-            res.status(200).json({ ok: !!r.ok, esito: r.esito, msg: r.msg || '', restanti: !!r.restanti, ultimoGiro: r.ultimoGiro || null });
-        } catch (e) {
-            console.error('Lettore PEC (scheduler):', String((e && e.message) || e).slice(0, 200));
-            res.status(500).json({ ok: false, msg: 'Controllo non riuscito.' });
-        }
-        return;
-    }
-    if (req.method !== 'POST') { res.status(405).json({ ok: false, msg: 'Metodo non consentito' }); return; }
+/* Un giro di lettura della casella PEC senza passare da un utente: lo usa
+   la deviazione per lo scheduler in presenze.js. */
+async function giroLettore(db, da) {
+    return LETTORE.giro(db, { da: da || 'scheduler' });
+}
 
+/* L'esecuzione vera. Riceve dal chiamante cio' che ha gia' accertato
+   (chi e', se e' amministratore, che ruolo ha) e restituisce lo stato HTTP
+   con il corpo, senza toccare la risposta: e' presenze.js a scriverla.
+
+   Il piccolo raccoglitore "res" qui sotto tiene il corpo di questa funzione
+   IDENTICO a quando era un endpoint: era gia' provato riga per riga, e
+   riscriverne duecento righe di uscite solo per cambiare la forma della
+   risposta sarebbe stato un rischio senza vantaggio. */
+async function esegui(ctx) {
+    const db = ctx.db;
+    const body = ctx.body || {};
+    const email = ctx.email;
+    const ruolo = ctx.ruolo || '';
+    const eAdmin = !!ctx.eAdmin;
+    let esito = null;
+    const res = {
+        _stato: 200,
+        status(s) { this._stato = s; return this; },
+        json(v) { esito = { stato: this._stato, corpo: v }; return this; }
+    };
+    /* Il corpo sta dentro una funzione sua perche' conserva i "return" del
+       codice originale: senza, quei return uscirebbero da esegui() prima che
+       possa restituire l'esito raccolto qui sopra. */
     try {
-        const cred = leggiServiceAccount();
-        initAdmin(cred);
-        const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
-
-        // 1) chi sta chiamando
-        const idToken = String(body.idToken || '');
-        if (!idToken) { res.status(401).json({ ok: false, msg: 'Autenticazione mancante' }); return; }
-        let decoded;
-        try { decoded = await admin.auth().verifyIdToken(idToken); }
-        catch (e) { res.status(401).json({ ok: false, msg: 'Sessione non valida: rientra e riprova.' }); return; }
-        const email = String(decoded.email || '').toLowerCase();
-        if (!email) { res.status(401).json({ ok: false, msg: 'Utente non valido' }); return; }
-
-        const db = admin.firestore();
-        const uDoc = await db.collection('utenti').doc(email).get();
-        if (!uDoc.exists || uDoc.data().attivo === false) { res.status(403).json({ ok: false, msg: 'Utenza non abilitata.' }); return; }
-        const dati = uDoc.data() || {};
-        const ruolo = String(dati.ruolo || '');
-        const eAdmin = ruolo === 'admin';
-
-        // 2) abilitato agli Eventi: stessa regola di presenze.js
-        let abilitati = [];
-        try {
-            const cfgDoc = await db.collection('archivio').doc('eventiConfig').get();
-            if (cfgDoc.exists) {
-                const cfg = JSON.parse(cfgDoc.data().json || '{}');
-                abilitati = Array.isArray(cfg.abilitati) ? cfg.abilitati.map(x => String(x).toLowerCase()) : [];
-            }
-        } catch (_) { abilitati = []; }
-        if (!eAdmin && dati.eventi !== true && abilitati.indexOf(email) < 0) {
-            res.status(403).json({ ok: false, msg: 'Non sei abilitato alla sezione Eventi.' });
-            return;
-        }
-
+        await (async () => {
         const azione = String(body.azione || 'elenco');
         const evento = testo(body.evento, 80);
 
@@ -695,9 +656,13 @@ module.exports = async (req, res) => {
         }
 
         res.status(400).json({ ok: false, msg: 'Azione non riconosciuta.' });
+        })();
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 200);
         console.error('Aziende invito:', motivo);
-        res.status(500).json({ ok: false, msg: 'Operazione non riuscita: ' + motivo });
+        return { stato: 500, corpo: { ok: false, msg: 'Operazione non riuscita: ' + motivo } };
     }
-};
+    return esito || { stato: 500, corpo: { ok: false, msg: 'Nessuna risposta prodotta.' } };
+}
+
+module.exports = { gestisce, esegui, giroLettore };
