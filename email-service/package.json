@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Servizio email dell'Area riservata Revilaw (link + invio via Aruba SMTP)",
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
     "firebase-admin": "^12.7.0",
     "google-auth-library": "^9.14.1",
