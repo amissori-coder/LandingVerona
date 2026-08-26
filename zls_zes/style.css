@@ -1600,7 +1600,13 @@ img {
     padding: 48px 40px;
     border-radius: 20px;
     border: 1px solid var(--border-color);
-    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Solo le due proprieta' che cambiano davvero al passaggio del mouse.
+       La scorciatoia senza elenco vale "all", e quindi anima anche la
+       larghezza: restringendo la finestra la scheda si stringeva in tre
+       decimi di secondo invece che subito, e per quel tempo la pagina
+       sforava in orizzontale. */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     text-align: center;
 }
 
