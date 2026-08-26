@@ -218,7 +218,22 @@ function messaggio(canale, azienda, mail, opz) {
         text: htmlInTesto(applica(corpo, a)) + piede.testo,
         html: avvolgi(applicaHtml(corpo, a) + piede.html)
     };
-    const rispondiA = c.rispondiA || opz.rispondiA || '';
+    /* DOVE VANNO A FINIRE LE RISPOSTE. Non e' un dettaglio di forma: decide
+       se si potranno leggere o no dall'area riservata.
+
+       Sulla PEC, se non si dice niente, la risposta torna al mittente, cioe'
+       nella casella PEC: e' li' che il lettore va a prenderla, ed e' cosi'
+       che compare sulla scheda dell'azienda. Percio' qui NON si ripiega
+       sull'indirizzo di chi ha premuto invia: lo si facesse, le risposte
+       finirebbero nella posta personale di quella persona e l'area riservata
+       non ne saprebbe piu' niente. Un PEC_REPLY_TO impostato apposta vale
+       come scelta esplicita, e ha la stessa conseguenza: chi lo mette deve
+       sapere che sta portando le risposte fuori di qui.
+
+       Sull'email ordinaria il ragionamento e' opposto: non c'e' nessun
+       lettore che guardi la casella, quindi la cosa piu' utile e' che la
+       risposta arrivi a chi ha mandato l'invito. */
+    const rispondiA = canale === 'pec' ? c.rispondiA : (c.rispondiA || opz.rispondiA || '');
     if (rispondiA) m.replyTo = rispondiA;
     // il filo per ritrovare le ricevute: si veda riferimentoNuovo()
     if (opz.riferimento) m.messageId = '<' + opz.riferimento + '>';

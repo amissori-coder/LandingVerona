@@ -109,7 +109,7 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 | `PEC_SMTP_PASS` | la password di quella casella (vedi la nota sulla verifica in due passaggi) |
 | `PEC_FROM_EMAIL` | `revilawngb@pec.it` (lo stesso: il gestore rifiuta qualunque altro mittente) |
 | `PEC_FROM_NAME` | `Revilaw S.p.A.` |
-| `PEC_REPLY_TO` | una casella **ordinaria** dello studio, dove far arrivare le risposte (da scegliere) |
+| `PEC_REPLY_TO` | **da lasciare vuota** se le risposte si vogliono leggere nell'area riservata (vedi la nota) |
 | `PEC_SMTP_HOST` | `smtps.pec.aruba.it` — **si puo' omettere**, e' il predefinito |
 | `PEC_SMTP_PORT` | `465` — si puo' omettere |
 | `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
@@ -175,6 +175,17 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 > Il segreto e' **dedicato**, diverso da `CRON_SECRET`: quello fa partire
 > newsletter e comunicazioni, e cio' che si consegna a un servizio esterno deve
 > poter fare una cosa sola.
+
+> **`PEC_REPLY_TO`: attenzione, decide DOVE finiscono le risposte.**
+> Lasciata vuota (consigliato) la risposta dell'azienda torna alla casella
+> `revilawngb@pec.it`, cioe' proprio dove il lettore va a prenderla: e' cosi'
+> che compare sulla scheda dell'azienda e si legge nell'area riservata.
+> Impostandola, le risposte vengono dirottate su quella casella ordinaria e
+> **spariscono dall'area riservata**, perche' il lettore guarda solo la PEC.
+> Ha senso solo se si preferisce gestirle a mano dalla posta di sempre.
+>
+> Sul canale email ordinaria e' l'opposto: li' non c'e' nessun lettore, quindi
+> se `MKT_REPLY_TO` non c'e' la risposta va a chi ha premuto invia.
 
 > **Ricevute e risposte si leggono dall'area riservata.** Nella colonna
 > Ricevute PEC la pastiglia dell'esito e il "Ha risposto il..." sono
