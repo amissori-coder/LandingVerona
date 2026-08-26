@@ -186,6 +186,14 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Governance: l'inconscio dell'impresa, valutare le organizzazioni sui comportamenti -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/inconscio_impresa/</loc>
+        <lastmod>2026-08-26</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
     <!-- Osservatorio: assetti adeguati ed early warning, dalla norma al segnale operativo -->
     <url>
         <loc>https://nextgenerationbusiness.it/assetti_early_warning/</loc>
