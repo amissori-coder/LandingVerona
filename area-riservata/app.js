@@ -15227,7 +15227,13 @@
                 + '<td data-label="Referente">' + esc(a.referente) + '</td>'
                 + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(INV_STATI[st] || st) + '</span>'
                 + (quando ? '<div class="hint">' + esc(quando) + (via ? ' via ' + via : '') + '</div>' : '')
-                + (motivo ? '<div class="ev-ko hint" title="' + esc(motivo) + '">' + esc(motivo.slice(0, 60)) + '</div>' : '') + '</td>'
+                /* Il motivo per intero, non i primi sessanta caratteri: le
+                   risposte dei server di posta mettono il codice in testa e la
+                   ragione in coda ("554 5.7.1 Indirizzo IP bloccato
+                   temporaneamente PER..."), quindi tagliare a meta' butta via
+                   proprio la parte che dice cosa fare. Il servizio ne salva
+                   200: si mostrano quelli. */
+                + (motivo ? '<div class="ev-ko hint inv-motivo" title="' + esc(motivo) + '">' + esc(motivo) + '</div>' : '') + '</td>'
                 + '<td data-label="Ricevute PEC">' + cellaRicevute(a) + '</td>'
                 + '<td class="inv-azioni-riga">'
                 + '<button class="btn btn-sm btn-ghost inv-mod" data-id="' + esc(a.id) + '">Modifica</button>'
