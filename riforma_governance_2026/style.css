@@ -409,6 +409,80 @@
 }
 
 /* ============================================
+   4-bis. EFFETTI DI UNO STATUTO DISALLINEATO
+   Tre schede che non sono consigli ma conseguenze:
+   il tono ripreso dalla scheda "grave" usata altrove
+   nel sito (mattone su fondo appena rosato) le stacca
+   dalle griglie informative senza uscire dalla tavolozza.
+   Restano sobrie perche' il registro della pagina e'
+   professionale, non allarmistico.
+   ============================================ */
+.rischi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    max-width: 1140px;
+    margin: 40px auto 0;
+}
+
+.rischio {
+    background: #ffffff;
+    border: 1px solid #f0cfcf;
+    border-top: 3px solid #8c2f2f;
+    border-radius: 14px;
+    padding: 26px 26px 24px;
+    transition: all 0.3s ease;
+}
+
+.rischio:hover {
+    border-color: #e0b4b4;
+    border-top-color: #8c2f2f;
+    box-shadow: 0 14px 34px rgba(140, 47, 47, 0.1);
+    transform: translateY(-3px);
+}
+
+.rischio-icona {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: #fdf2f2;
+    border: 1px solid #f0cfcf;
+    color: #8c2f2f;
+    margin-bottom: 14px;
+}
+
+.rischio-icona svg {
+    width: 21px;
+    height: 21px;
+}
+
+.rischio h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 10px;
+}
+
+.rischio p {
+    font-size: 0.89rem;
+    line-height: 1.7;
+    color: #5A6270;
+    margin: 0;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.rischio p strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+/* ============================================
    5. NODI INTERPRETATIVI
    Le questioni aperte non sono avvertenze da nascondere
    in fondo: sono la parte in cui un lettore competente
@@ -562,6 +636,7 @@
     }
 
     .modelli-grid,
+    .rischi-grid,
     .nodi-grid {
         grid-template-columns: 1fr;
         max-width: 640px;
@@ -673,8 +748,23 @@
 @media (max-width: 560px) {
     .percorso-tappa,
     .modello-card,
+    .rischio,
     .nodo {
         padding: 22px 22px 20px;
+    }
+
+    /* Le schede delle competenze tengono l'icona in una colonna a
+       sinistra: su telefono al testo resta una striscia di poco piu'
+       di duecento pixel, dove la giustificazione apre voragini fra
+       le parole e il titolo si spezza in tre righe. L'icona passa
+       sopra e la colonna torna piena. */
+    .content-page .benefit-item {
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .content-page .benefit-item p {
+        text-align: left;
     }
 
     .riparto-col {
@@ -684,6 +774,7 @@
     /* In colonna stretta la giustificazione apre buchi fra
        le parole: meglio la bandiera a destra. */
     .modello-card p,
+    .rischio p,
     .nodo p,
     .riparto-nota {
         text-align: left;
@@ -709,7 +800,9 @@
     .percorso-tappa,
     .modello-card,
     .riparto-col,
+    .rischio,
     .nodo,
+    .benefit-item,
     .processo-step {
         break-inside: avoid;
         box-shadow: none;
