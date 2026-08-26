@@ -416,29 +416,206 @@ riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
 ## Incontri B2B
 
+L'invito B2B non e un sondaggio di gradimento: e la convocazione con cui
+Revilaw chiama le aziende agli incontri. Ogni argomento del convegno e un
+tavolo; chi riceve la mail sceglie a quali sedersi.
+
 - **Invito massivo** (`/api/presenze`, `azione: "invita-b2b"`; amministratore,
   equity e founding partner): riceve `destinatari` (fino a 50 per chiamata,
   `{id, doc}`; l'area riservata manda i lotti in sequenza) e la mail gia
   composta (formato NGB) con i segnaposti `{{NOME}}` e `{{B2B}}`, sostituiti
   QUI per destinatario con nome e collegamento personale firmato verso
   `/incontri_b2b/`; il tratto fra `{{SE_TEMI}}` e `{{/SE_TEMI}}` resta solo per
-  chi ha gia espresso preferenze, con `{{TEMI}}` sostituito dall'elenco (cosi la
-  mail le riporta e invita a confermarle o modificarle). Dal menu della riga si
-  puo invitare anche UNA SOLA persona. Una mail per destinatario; chi ha gia
-  ricevuto l'invito
-  (`b2bInvito` sulla scheda) viene saltato salvo `forza: true`; i doppioni di
-  indirizzo partono una volta sola. `maxDuration` 60s in vercel.json.
-- **Modulo dei temi** (`/api/iscrizione-nuova`, azioni `b2b-leggi` e
-  `b2b-salva`, pubbliche con la stessa firma della scheda): le preferenze gia
-  espresse tornano come caselle spuntate, comprese le etichette storiche del
-  form del sito (alias in `ALIAS_B2B`); le voci non riconducibili ai nove temi
-  non si cancellano al salvataggio. L'iscritto sceglie
-  i temi (viaggiano solo gli INDICI: le etichette le decide il servizio,
-  costante `TEMI_B2B`) e racconta il progetto. Le scelte finiscono sulla sua
-  scheda negli stessi campi del modulo di Napoli (`interessi`, `incontro`),
-  quindi nelle colonne aggiuntive "Interessi" e "Incontro B2B"; la nota nella
-  colonna "Nota B2B". L'area riservata le raccoglie anche nel riepilogo per
-  argomento, con le persone interessate per tema.
+  chi ha gia scelto i suoi incontri, con `{{TEMI}}` sostituito dall'elenco (cosi
+  la mail li riporta e invita a confermarli o cambiarli). Dal menu della riga si
+  puo invitare anche UNA SOLA persona. Chi manda sceglie prima, nell'area
+  riservata, le AZIENDE da invitare (la mail parte a TUTTI i referenti iscritti
+  delle imprese spuntate) e l'ORARIO DI OGNI TAVOLO, che entra nella mail gia
+  composta: qui non cambia nulla, il servizio riceve comunque solo l'elenco dei
+  destinatari e l'HTML. Una mail per destinatario; i doppioni
+  di indirizzo partono una volta sola. L'area riservata manda sempre
+  `forza: true`: chi ha gia ricevuto l'invito (`b2bInvito` sulla scheda) lo
+  riceve di nuovo, perche saltarlo vorrebbe dire non convocarlo. Il salto resta
+  possibile a chi chiama il servizio senza quel flag. `maxDuration` 60s in
+  vercel.json.
+- **Pagina di prenotazione** (`/api/iscrizione-nuova`, azioni `b2b-leggi` e
+  `b2b-salva`, pubbliche con la stessa firma della scheda): le scelte gia fatte
+  tornano come caselle spuntate, comprese le etichette storiche del form del
+  sito (alias in `ALIAS_B2B`); le voci non riconducibili ai nove temi non si
+  cancellano al salvataggio. L'iscritto sceglie i tavoli (viaggiano solo gli
+  INDICI: le etichette le decide il servizio, costante `TEMI_B2B`) e racconta il
+  progetto; almeno un tavolo e obbligatorio, la sola nota non e una
+  prenotazione. All'apertura le caselle segnate sono la prenotazione se c'e gia,
+  altrimenti le preferenze dell'iscrizione come punto di partenza (`daPreferenze`
+  lo dice alla pagina, che avverte che finche non conferma prenotazione non ce
+  n'e). La scelta va in `b2bScelte`, la nota nella colonna "Nota B2B",
+  `incontro` diventa "si". L'area riservata le raccoglie anche nel riepilogo per
+  argomento, con i prenotati per tavolo.
+- **Chi e dello stesso EVENTO**: il campo `pagina` dice da dove arriva
+  un'iscrizione e non e scritto uguale da tutti - il modulo del sito di Napoli
+  scrive "Napoli 2 Ottobre 2026 - Manifestazione di interesse", l'area riservata
+  (quando si aggiunge a mano) solo "Napoli 2 Ottobre 2026", dal foglio importato
+  puo arrivare altro. Confrontare la stringa intera spezzava lo stesso evento in
+  tanti eventi quante sono le sue provenienze: due colleghi della stessa azienda,
+  uno iscritto dal sito e uno aggiunto a mano, non si vedevano. L'evento e quindi
+  la parte PRIMA del trattino, ridotta all'osso; le schede si chiedono per
+  intervallo su `pagina` (una lettura mirata) e, se da li non esce nessuno oltre
+  a chi sta guardando, si rilegge tutto e si filtra a mano.
+- **Le prenotazioni dei colleghi**: siccome l'invito parte a tutti i referenti
+  di un'azienda, `b2b-leggi` restituisce anche `colleghi` - le altre persone
+  della STESSA impresa per lo STESSO evento, con nome, ruolo, tavoli prenotati e
+  (a parte) preferenze dell'iscrizione. Senza, due referenti si prenoterebbero
+  allo stesso tavolo senza saperlo. Email e nota non escono: la nota e scritta a
+  noi. Le schede dell'evento restano in memoria una trentina di secondi per non
+  rileggere l'archivio a ogni apertura; chi salva butta via quella memoria, cosi
+  il collega che apre la pagina un attimo dopo vede la scelta appena fatta.
+- **Chi e della stessa azienda** (`chiaveAzienda` + `dominioMail` +
+  `radiciAziende`): la ragione sociale la scrive ognuno a modo suo, quindi il
+  confronto e tollerante. Il nome si riduce all'osso (minuscole, senza accenti,
+  senza punteggiatura, senza forma giuridica: "Alfa S.r.l." e "ALFA SPA"
+  diventano tutte e due `alfa`) e, nel dubbio, decide il DOMINIO della mail: chi
+  scrive da `@alfa.it` e di Alfa anche con il campo azienda in bianco. I domini
+  pubblici (gmail, libero, aruba, pec.it...) non contano; un prefisso `pec.` si
+  toglie solo se quel che resta e ancora un dominio. Le due chiavi uniscono a
+  catena. Unica eccezione: chi e stato spostato a mano (vedi sotto) non si
+  unisce piu per dominio. La STESSA regola sta nell'area riservata (`app.js`,
+  `raggruppaPerAzienda`), che con quella raggruppa le aziende da invitare:
+  devono vedere le stesse imprese, altrimenti si invita un gruppo e se ne mostra
+  un altro.
+
+### Prenotazioni e preferenze non sono la stessa cosa
+
+`interessi` sono le PREFERENZE spuntate dal form di iscrizione del sito: dicono
+cosa interessa all'impresa, non che qualcuno verra a un tavolo. La PRENOTAZIONE
+e la risposta all'invito e sta per conto suo in `b2bScelte` (etichette dei
+tavoli), con `b2bRisposta` a fare da data; `b2b-salva` non tocca piu `interessi`.
+
+- L'area riservata riceve le due cose in due colonne aggiuntive distinte:
+  `B2B prenotati` (da `b2bScelte`) e `Interessi`; negli eventi con inserimento
+  manuale si vedono SEMPRE, una accanto all'altra, perche e il confronto fra le
+  due che dice a chi vale la pena richiedere la prenotazione.
+- Il riepilogo per argomento conta SOLO le prenotazioni: sommarci le preferenze
+  gonfierebbe i tavoli di gente che non ha detto di venire.
+- Il riquadro "La Sua scelta attuale" della mail riporta la prenotazione, non le
+  preferenze. Chi non ha ancora prenotato non lo vede.
+- Vale SOLO `b2bScelte`: prima di questo invito nessun modulo di prenotazione
+  era mai partito, quindi non c'e' niente da recuperare altrove e `interessi`
+  non e mai una prenotazione.
+
+### Conferma della prenotazione, con il foglio per il desk
+
+Appena l'ospite salva la scelta, `b2b-salva` gli manda una mail di conferma
+(`MNGB.confermaB2B`) con in allegato il PDF della prenotazione
+(`lib/pdf-prenotazione.js`): nome, azienda, convegno, orario, luogo e i tavoli
+scelti, da presentare al desk "Incontri B2B". La scelta si puo cambiare quante
+volte si vuole: ogni salvataggio rimanda la mail con un foglio aggiornato, e in
+fondo al foglio c'e la data di emissione, perche vale sempre l'ultimo.
+
+- **Da dove vengono orari, luogo e nome dell'evento**: dall'invito. L'area
+  riservata li manda insieme ai destinatari (`orari` e `eventoDati` nel corpo di
+  `invita-b2b`) e `presenze.js` li scrive su `b2bInvito` di ogni scheda. Il
+  servizio non ha una tabella degli eventi - sta nell'area riservata - e tenerne
+  una seconda qui vorrebbe dire vederle divergere.
+
+### Un orario per ogni tavolo
+
+Gli incontri non si tengono tutti insieme: ogni argomento e un tavolo con il suo
+orario, ed e l'unico modo perche chi prenota sappia se due si sovrappongono.
+
+- `b2bInvito.orari` e una mappa `etichetta corta del tavolo -> orario` ("dalle
+  14:30 alle 15:15"). `presenze.js` accetta solo le etichette che conosce
+  (`lib/temi-b2b.js`), cosi nessuno puo infilare voci inventate nel foglio del
+  desk.
+- **L'orario si scrive in due caselle dell'ora**, inizio e fine (area riservata),
+  e da li si compone la frase. Un orario scritto a mano ("14.30-15,15",
+  "pomeriggio") sarebbe quattro modi di dire la stessa cosa e nessuno
+  confrontabile: senza due ore confrontabili non si puo dire se due tavoli si
+  sovrappongono ne mettere gli incontri in fila sul foglio del desk. La finestra
+  riempie i nove tavoli in sequenza (ora del primo, durata, pausa) o con lo
+  stesso orario per tutti, segnala le sovrapposizioni e non lascia partire un
+  invito con un tavolo a meta o che finisce prima di cominciare.
+- `lib/orari-b2b.js` rilegge le ore dalla frase e mette i tavoli in ordine di
+  orario: lo usano la mail di conferma e il PDF. Riconosce SOLO la forma che le
+  caselle compongono (`dalle HH:MM alle HH:MM`). Pescare due ore da una frase
+  qualunque sembrerebbe generoso e invece inventa: da "sala 2.30, dalle 14:00
+  alle 15:00" verrebbero fuori le 02:30 come inizio - il numero della sala - e
+  il foglio del desk annuncerebbe un orario che nessuno ha mai comunicato,
+  mettendo per giunta quell'incontro per primo. Un orario scritto a mano prima
+  delle caselle si stampa com'e stato scritto, accanto al nome dell'incontro, e
+  va in coda. L'area riservata usa la stessa identica regola e avverte quando un
+  orario ricordato non si rilegge nelle caselle, invece di lasciarlo sparire.
+- **Un tavolo senza orario non e in programma** a quell'evento: non compare
+  nell'elenco della mail di invito, `b2b-leggi` lo rimanda con orario vuoto e la
+  pagina non lo propone, e `b2b-salva` rifiuta una prenotazione che lo contenga
+  (la firma sul collegamento non e un lasciapassare per scrivere quel che si
+  vuole). Chi aveva gia prenotato un tavolo che nel frattempo e uscito dal
+  programma lo legge scritto sulla pagina, invece di vederselo sparire.
+- **Svuotare un orario lo toglie davvero.** `set(..., {merge:true})` fonde le
+  mappe annidate CHIAVE PER CHIAVE: una chiave assente non viene cancellata.
+  Percio `presenze.js` scrive una voce per ogni tavolo, con
+  `FieldValue.delete()` dove l'orario e stato tolto; senza, al secondo invito il
+  tavolo svuotato sarebbe sparito dalla mail ma sarebbe rimasto prenotabile
+  dalla pagina, con tanto di orario stampato sul foglio del desk.
+- **Gli orari tornano con l'elenco** (`orariB2B` su ogni riga, da
+  `b2bInvito.orari`): l'area riservata li usa per riproporli anche da un altro
+  computer, invece di tenerli solo nel browser di chi ha spedito.
+- Se all'invito non erano stati dati orari per tavolo ma il vecchio `orario`
+  unico - inviti partiti con la versione precedente - vale quello per tutti i
+  tavoli: e quello che quella mail diceva davvero.
+- I nove argomenti stanno in `lib/temi-b2b.js`, condiviso fra `presenze.js` e
+  `iscrizione-nuova.js`: finche erano due copie bastava una virgola di
+  differenza perche un orario arrivasse su un tavolo e la prenotazione su un
+  altro. Le stesse etichette, nello stesso ordine, vivono anche in
+  `area-riservata/newsletter-format.js` (con le descrizioni lunghe) e in
+  `incontri_b2b/index.html`: sono altri pezzi del sistema, senza moduli in
+  comune con il servizio.
+
+### Spostare un referente da un'azienda a un'altra
+
+`/api/presenze`, `azione: "sposta-azienda"` (amministratore, equity e founding
+partner: la stessa mano che compone i tavoli). Serve perche chi organizza sa
+cose che l'iscritto non ha scritto - che "Mario di Alfa" lavora per la
+controllata, che due ragioni sociali sono la stessa impresa, che un indirizzo
+personale appartiene a un'azienda che non ha nominato.
+
+- Riceve `docs` (i nomi dei documenti: una persona puo avere piu iscrizioni allo
+  stesso evento, e spostarne una sola la lascerebbe mezza di qua e mezza di la)
+  e `azienda`. Tocca SOLO il campo azienda, mai email o data: l'identificativo
+  del documento nasce da quelle due, e cambiarle farebbe traslocare la scheda
+  perdendo prenotazione, invito e allegati, e invaliderebbe il collegamento
+  firmato gia spedito.
+- Lascia traccia in tre modi: `azienda` cambia ed e il dato che tutti leggono;
+  `aziendaSpostata` dice l'ultimo spostamento; `aziendaStorico` li tiene tutti,
+  perche la domanda vera - da dove viene questa persona - un campo singolo non
+  la regge dal secondo spostamento in poi.
+- `iscrizioni.js` espone la traccia come colonna aggiuntiva "Spostamento
+  azienda" (la lettura e una whitelist campo per campo: senza quella riga il
+  dato resterebbe sul database e non si vedrebbe mai). La frase la compone
+  `lib/traccia-azienda.js`, condiviso, cosi la riga non cambia testo da sola
+  fra la risposta immediata e la lettura successiva.
+- La traccia serve anche da BANDIERA: chi e stato spostato a mano non si unisce
+  piu per dominio della mail, ne qui (`radiciAziende`) ne nell'area riservata
+  (`raggruppaPerAzienda`). Senza, mario@alfa.it spostato in Beta tornerebbe fra
+  i colleghi di Alfa al primo ridisegno, e lo spostamento sembrerebbe non aver
+  funzionato.
+- **Il PDF e un programma della giornata**: gli incontri in ordine di orario,
+  impaginati come un orario - a sinistra l'ora, a destra l'argomento - perche la
+  domanda di chi ha il foglio in mano non e "a che ora e il merito creditizio"
+  ma "dove devo essere adesso".
+- **Il PDF e scritto a mano** (nessuna libreria): una pagina A4, i due font
+  standard Helvetica in codifica WinAnsi, testo e rettangoli. Una libreria di
+  impaginazione porterebbe megabyte in una funzione che deve partire in fretta.
+  Cio che Latin-1 non ha (virgolette curve, trattini lunghi) viene ricondotto al
+  carattere semplice piu vicino prima di scrivere.
+- **Se la posta non risponde** la prenotazione resta comunque registrata e la
+  risposta porta `mailInviata: false`: la pagina lo dice a chi ha appena
+  prenotato, invece di far credere che il foglio sia in arrivo.
+- **I limiti**: le azioni che si aprono solo dal collegamento firmato
+  (`completa-*`, `b2b-*`) NON passano dal limite per indirizzo IP - i referenti
+  di un'azienda escono tutti dallo stesso IP dell'ufficio e se lo mangerebbero
+  in due persone - ma il salvataggio ha un tetto per SCHEDA (12 ogni 10 minuti),
+  che lascia passare i ripensamenti veri e ferma l'accanimento sul pulsante, che
+  sarebbe una mail dietro l'altra.
 
 ## Importazione una tantum (`/api/importa-iscrizioni`)
 

@@ -19,6 +19,9 @@
 
 const admin = require('firebase-admin');
 const { JWT } = require('google-auth-library');
+// la frase che racconta uno spostamento di azienda: la stessa che presenze.js
+// restituisce a chi ha appena spostato
+const { tracciaSpostamento } = require('../lib/traccia-azienda');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -118,11 +121,34 @@ const CAMPI_MATCHING = {
         etichetta: 'Incontro B2B',
         valori: { si: 'Vuole incontri', forse: 'Da confermare', no: 'Solo convegno' }
     },
+    /* Le preferenze dichiarate ISCRIVENDOSI: dicono cosa interessa all'impresa,
+       non che qualcuno verra' a un tavolo. La prenotazione vera e' un'altra
+       colonna (qui sotto), e le due non vanno confuse. */
     interessi: { etichetta: 'Interessi', valori: {} }
 };
 
+/* I tavoli B2B PRENOTATI rispondendo all'invito: colonna a parte, perche' e'
+   quella con cui si compongono i tavoli il giorno del convegno. Conta solo
+   `b2bScelte`: prima di questo invito nessun modulo di prenotazione era mai
+   partito, quindi `interessi` sono sempre e soltanto preferenze. */
+const COLONNA_B2B = 'B2B prenotati';
+const COLONNA_SPOSTATO = 'Spostamento azienda';
+function prenotatiB2B(v) {
+    if (!Array.isArray(v.b2bScelte)) return [];
+    return v.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
+}
+
 function extraMatching(v) {
     const fuori = {};
+    const prenotati = prenotatiB2B(v);
+    if (prenotati.length) fuori[COLONNA_B2B] = prenotati.join(',');
+    /* Chi e' stato spostato d'azienda a mano se lo porta scritto dietro: la
+       lettura dell'elenco e' una whitelist campo per campo, quindi senza questa
+       riga la traccia resterebbe sul database e non si vedrebbe mai. Vale anche
+       da bandiera: l'area riservata, per chi ce l'ha, smette di raggruppare per
+       dominio della mail, altrimenti lo spostamento se lo rimangerebbe. */
+    const traccia = tracciaSpostamento(v.aziendaSpostata);
+    if (traccia) fuori[COLONNA_SPOSTATO] = traccia;
     Object.keys(CAMPI_MATCHING).forEach(campo => {
         const grezzo = String(v[campo] == null ? '' : v[campo]).trim();
         if (!grezzo) return;   // campo assente: nessuna colonna, nessuna cella vuota
@@ -330,6 +356,13 @@ module.exports = async (req, res) => {
                         daNome: String(v.compilato.daNome || ''),
                         quando: typeof v.compilato.quando === 'number' ? v.compilato.quando : 0
                     } : null,
+                    /* Gli orari dei tavoli con cui questa persona e' stata invitata.
+                       Non e' una colonna: e' il dato che permette all'area riservata
+                       di riproporre gli orari gia' usati anche da un altro computer,
+                       invece di tenerli solo nel browser di chi ha spedito. */
+                    orariB2B: (v.b2bInvito && typeof v.b2bInvito === 'object'
+                        && v.b2bInvito.orari && typeof v.b2bInvito.orari === 'object')
+                        ? v.b2bInvito.orari : null,
                     /* Colonne aggiuntive: quelle dell'elenco importato piu' i campi
                        del business matching. Si costruisce una copia nuova, cosi'
                        l'oggetto letto dal database resta com'e'. */

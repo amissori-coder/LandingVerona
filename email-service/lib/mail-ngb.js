@@ -17,6 +17,9 @@
    se di la' cambia l'impostazione, va aggiornata anche qui.
    ============================================================ */
 
+// gli orari letti dalla frase: servono a mettere gli incontri in fila
+const ORARI = require('./orari-b2b');
+
 const C = {
     scuro: '#0A2844', blu: '#164068', accento: '#2A5A85', chiaroBlu: '#5B89B8',
     suScuro: '#C8DAEA', testo: '#1E293B', tenue: '#475569',
@@ -67,7 +70,13 @@ function involucro(oggetto, anteprima, corpoInterno) {
         + '.px{padding-left:24px!important;padding-right:24px!important;}'
         + '.h1{font-size:24px!important;line-height:31px!important;}'
         + '.lead{font-size:16px!important;line-height:26px!important;}'
-        + '.par{text-align:left!important;}}\n'
+        /* Il giustificato resta anche sul telefono: i messaggi vanno sempre a
+           bandiera doppia. La sillabazione, dove il lettore la applica, evita i
+           buchi bianchi sulla colonna stretta. */
+        + '.par{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}'
+        /* le righe del riquadro si impilano: etichetta sopra, valore sotto */
+        + '.bxet{display:block!important;width:100%!important;padding:6px 0 1px!important;line-height:18px!important;}'
+        + '.bxv{display:block!important;width:100%!important;padding:0 0 4px!important;}}\n'
         + '</style>\n</head>\n'
         + '<body style="margin:0;padding:0;background-color:' + C.sfondo + ';">\n'
         + preheader
@@ -97,10 +106,14 @@ function testata(titolo, sommario) {
         + '<img src="' + FASCIA + '" width="' + LARGHEZZA + '" alt="" style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;"></td></tr>';
 }
 
+/* Una riga del riquadro: etichetta a sinistra, valore a destra. Sul telefono
+   le due celle si impilano (classi bxet/bxv nel foglio di stile): con la
+   colonna dell'etichetta larga 150px su 400 di schermo, un indirizzo finiva su
+   quattro righe strette. */
 function rigaBox(et, val) {
     if (!val) return '';
-    return '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + esc(et) + '</td>'
-        + '<td valign="top" style="' + FONTE + 'font-size:16px;line-height:27px;color:' + C.testo + ';padding:5px 0;">' + esc(val) + '</td></tr>';
+    return '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + esc(et) + '</td>'
+        + '<td class="bxv" valign="top" style="' + FONTE + 'font-size:16px;line-height:27px;color:' + C.testo + ';padding:5px 0;">' + esc(val) + '</td></tr>';
 }
 function box(righe) {
     return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
@@ -117,6 +130,27 @@ function bottone(testoBtn, url) {
         + '<a href="' + esc(url) + '" style="display:inline-block;padding:14px 30px;font-family:' + FONT
         + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">' + esc(testoBtn) + '</a>'
         + '</td></tr></table></td></tr>';
+}
+/* Un'etichetta di sezione: piccola, maiuscola, con il filetto sotto. Serve a
+   staccare "i Suoi incontri" dai dati dell'evento, che sono due cose diverse e
+   in un riquadro solo si leggevano come una lista sola. */
+function occhiello(t) {
+    return '<tr><td style="' + FONTE + 'font-size:12px;line-height:18px;letter-spacing:1.6px;text-transform:uppercase;'
+        + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';">' + esc(t) + '</td></tr>';
+}
+/* Gli incontri come un orario: a sinistra l'ora, a destra l'argomento. E'
+   la stessa forma del foglio da presentare al desk, ed e' quella in cui si
+   legge un programma - "INCONTRO 1, INCONTRO 2" numerava le righe senza dire
+   niente che l'ora non dicesse gia'. */
+function tabellaIncontri(voci) {
+    const riga = v => '<tr>'
+        + '<td width="110" valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.blu
+        + ';font-weight:bold;white-space:nowrap;padding:7px 14px 7px 0;border-bottom:1px solid ' + C.bordo + ';">'
+        + esc(v.ora || '&nbsp;').replace('&amp;nbsp;', '&nbsp;') + '</td>'
+        + '<td valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.scuro
+        + ';font-weight:bold;padding:7px 0;border-bottom:1px solid ' + C.bordo + ';">' + esc(v.nome) + '</td></tr>';
+    return '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+        + 'style="border-collapse:collapse;">' + voci.map(riga).join('') + '</table></td></tr>';
 }
 function corpo(righe) {
     return '<tr><td class="px" style="padding:0 ' + LATO + 'px;' + FONTE + '">' + tabella(spazio(30) + righe) + '</td></tr>';
@@ -214,4 +248,88 @@ function confermaVariazioni(dati, link) {
     return { oggetto: oggetto, html: html, testo: testo };
 }
 
-module.exports = { confermaSito, confermaVariazioni, nomeEvento };
+/* --- Conferma della prenotazione agli incontri B2B ---
+   Parte appena l'ospite sceglie i suoi tavoli dalla pagina dell'invito, e
+   riparte uguale a ogni modifica: e' la ricevuta di quello che ha scelto,
+   con in allegato il foglio da presentare al desk. Il collegamento e' lo
+   stesso della pagina, cosi' cambiare idea costa un clic.
+   `dati`: { nome, azienda, pagina, evento: {titolo, quando, luogo, indirizzo},
+   tavoli: [{nome, orario}] }; `link` e' il collegamento personale firmato.
+   Ogni tavolo porta il SUO orario: gli incontri non si tengono tutti insieme,
+   e una riga sola per tutti direbbe all'ospite di presentarsi all'ora
+   sbagliata. */
+function confermaB2B(dati, link) {
+    const d = dati || {};
+    const ev = d.evento || {};
+    const evNome = [ev.titolo, ev.quando].filter(Boolean).join(', ') || nomeEvento(d.pagina);
+    /* I tavoli in ORDINE DI ORARIO: e' l'ordine in cui la giornata succede, ed
+       e' quello in cui vanno letti. Arrivano come oggetti {nome, orario}; si
+       accettano anche stringhe, per non rompersi se un chiamante vecchio resta
+       in giro. */
+    const tavoli = ORARI.ordinaPerOrario(ORARI.normalizzaTavoli(d.tavoli));
+    const quanti = tavoli.length;
+    const conOrario = t => {
+        const ore = ORARI.oreDaFrase(t.orario);
+        // con un'ora vera si scrive prima l'ora, come su un programma; con una
+        // frase scritta a mano si scrive prima l'incontro, e la frase di seguito
+        if (ore.inizio && ore.fine) return ore.inizio + ' - ' + ore.fine + ', ' + t.nome;
+        return t.nome + (t.orario ? ' - ' + t.orario : '');
+    };
+    const oggetto = 'Prenotazione confermata - Incontri B2B, Next Generation Business' + (evNome ? ', ' + evNome : '');
+    const saluto = 'Gentile ' + (d.nome || 'ospite') + ',';
+    const sommario = saluto + ' la Sua prenotazione agli incontri B2B'
+        + (evNome ? ' del convegno di ' + evNome : '') + ' è registrata: '
+        + (quanti === 1 ? 'un incontro' : quanti + ' incontri') + ', qui sotto il riepilogo con gli orari.';
+    const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
+    /* Gli incontri stanno in una sezione loro, come un orario: nel riquadro dei
+       dati dell'evento si leggevano come una riga qualunque, e sono invece la
+       cosa per cui questa mail esiste. */
+    const vociIncontri = tavoli.map(t => {
+        const ore = ORARI.oreDaFrase(t.orario);
+        return {
+            ora: (ore.inizio && ore.fine) ? ore.inizio + ' - ' + ore.fine : '',
+            nome: t.nome + ((!ore.inizio && t.orario) ? ' - ' + t.orario : '')
+        };
+    });
+    const html = involucro(oggetto, 'La Sua prenotazione agli incontri B2B è registrata: in allegato il foglio per il desk.',
+        testata('Prenotazione confermata', sommario)
+        + corpo(
+            '<tr><td>' + box(
+                // il giorno ha una riga sua: ripeterlo accanto al nome del convegno
+                // fa leggere due volte la stessa cosa
+                rigaBox('Convegno', 'Next Generation Business' + (ev.titolo ? ' - ' + ev.titolo : (evNome ? ' - ' + evNome : '')))
+                + rigaBox('Giorno', String(ev.quando || ''))
+                + rigaBox('Dove', dove)
+                + rigaBox('Partecipante', [d.nome, d.azienda].filter(Boolean).join(' - '))
+            ) + '</td></tr>'
+            + spazio(30)
+            + occhiello(quanti === 1 ? 'Il Suo incontro' : 'I Suoi incontri')
+            + spazio(4)
+            + tabellaIncontri(vociIncontri)
+            + spazio(28)
+            + paragrafo('In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk '
+                + '"Incontri B2B" all\'ingresso, stampato oppure dal telefono. Gli specialisti a Sua disposizione Le saranno confermati sul posto.')
+            + spazio(22)
+            + paragrafo('Se cambia idea può modificare la scelta quando vuole, dal pulsante qui sotto: '
+                + 'riceverà subito una nuova mail con il foglio aggiornato, e vale sempre l\'ultimo emesso.')
+            + spazio(28)
+            + bottone('Modifica la prenotazione', link)
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+        )
+        + piede(MOTIVO));
+    const testo = ['PRENOTAZIONE CONFERMATA', sommario,
+        'Convegno: Next Generation Business' + (ev.titolo ? ' - ' + ev.titolo : (evNome ? ' - ' + evNome : ''))
+        + (ev.quando ? '\nGiorno: ' + ev.quando : '')
+        + (dove ? '\nDove: ' + dove : '')
+        + ([d.nome, d.azienda].filter(Boolean).length ? '\nPartecipante: ' + [d.nome, d.azienda].filter(Boolean).join(' - ') : ''),
+        (quanti === 1 ? 'Il Suo incontro:' : 'I Suoi incontri:') + '\n' + tavoli.map(t => '- ' + conOrario(t)).join('\n'),
+        'In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk "Incontri B2B" all\'ingresso, stampato oppure dal telefono.',
+        'Modifica la prenotazione: ' + link,
+        'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
+        '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,
+        'Informativa privacy: ' + PRIVACY].join('\n\n');
+    return { oggetto: oggetto, html: html, testo: testo };
+}
+
+module.exports = { confermaSito, confermaVariazioni, confermaB2B, nomeEvento };

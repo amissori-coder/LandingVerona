@@ -855,10 +855,12 @@
             + '  .h1{font-size:24px!important;line-height:31px!important;}\n'
             + '  .lead{font-size:16px!important;line-height:26px!important;}\n'
             + '  .btnlink{display:block!important;text-align:center!important;}\n'
-            /* Il giustificato vive bene sui 520px della colonna desktop; su un
-               telefono, senza sillabazione, aprirebbe buchi bianchi fra le parole
-               proprio dove serve leggere meglio. Sotto i 620px si torna a sinistra. */
-            + '  .par{text-align:left!important;}\n'
+            /* Il giustificato resta anche sul telefono: i messaggi vanno sempre
+               a bandiera doppia, e' il modo in cui questo studio scrive. Perche'
+               sulla colonna stretta non si aprano buchi bianchi fra le parole si
+               chiede la sillabazione, che Apple Mail e Gmail su iOS applicano:
+               dove non c'e' si perde solo un po' di uniformita', non la forma. */
+            + '  .par{-webkit-hyphens:auto;-ms-hyphens:auto;hyphens:auto;}\n'
             /* Blocchi affiancati: sotto i 620px ciascuno prende tutta la larghezza
                e si impilano da soli, senza dover sapere quanti sono. Lo spazio fra
                le colonne sparisce e diventa uno spazio sotto ciascuna, altrimenti
@@ -1296,15 +1298,24 @@
     /* =========================================================
        MAIL DI INVITO AGLI INCONTRI B2B
        ---------------------------------------------------------
-       L'invito che parte A TUTTI gli iscritti di un evento: spiega
-       l'occasione, elenca i temi e porta al modulo online dove ognuno
-       indica i propri interessi (le risposte tornano nell'elenco e
-       nel riepilogo per argomento dell'area riservata).
+       L'invito che parte a TUTTI i referenti delle aziende scelte:
+       spiega l'occasione, elenca gli incontri (uno per argomento del
+       convegno) e porta alla pagina dove ognuno PRENOTA i suoi - e
+       vede quelli gia' scelti dai colleghi della sua impresa. Le
+       scelte tornano nell'elenco e nel riepilogo per argomento
+       dell'area riservata.
        Due segnaposti, sostituiti dal servizio PER DESTINATARIO:
          {{NOME}} - nome e cognome dell'iscritto;
          {{B2B}}  - il suo collegamento personale firmato al modulo.
        Il tono e' formale (Lei): e' un invito personale, non una
        circolare. `dati.evento`: titolo, quando, sottotitolo.
+       `dati.orari` (facoltativo) e' l'orario DI OGNI TAVOLO, per etichetta
+       corta: { 'Merito creditizio': 'dalle 14:30 alle 15:15', ... }. Gli
+       incontri non si tengono tutti insieme - sono tavoli diversi, uno per
+       argomento - quindi l'orario sta accanto a ciascuno invece che in una
+       riga sola per tutti: e' l'unico modo perche' chi sceglie sappia se
+       due tavoli si sovrappongono. Un argomento SENZA orario non e' in
+       programma a questo evento e non compare nell'elenco.
     ========================================================= */
     const SEGNAPOSTO_B2B = '{{B2B}}';
     const SEGNAPOSTO_NOME = '{{NOME}}';
@@ -1325,10 +1336,17 @@
     function invitoB2B(dati) {
         dati = dati || {};
         const ev = dati.evento || {};
+        /* Gli orari, per etichetta corta del tavolo. In programma ci sono i
+           tavoli CON un orario; se non ne arriva nessuno si elencano tutti,
+           senza orari, com'era prima che li chiedessimo. */
+        const orari = (dati.orari && typeof dati.orari === 'object') ? dati.orari : {};
+        const conOrario = TEMI_B2B.filter(t => String(orari[t.nome] || '').trim());
+        const temiInProgramma = conOrario.length ? conOrario : TEMI_B2B;
+        const orarioDi = t => String(orari[t.nome] || '').trim();
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
         const oggetto = 'Il Suo incontro B2B al convegno - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
-        const anteprima = 'Un incontro riservato con i nostri specialisti, sui temi che sceglie Lei.';
+        const anteprima = 'Scelga a quali tavoli sedersi: un incontro riservato con i nostri specialisti.';
 
         const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', La ringraziamo per essersi iscritto al convegno "' + nomeConvegno + '"'
             + (quandoEv ? ' di ' + quandoEv : '') + ': nel corso della giornata potrà partecipare a un incontro B2B riservato.';
@@ -1353,18 +1371,47 @@
             + '</td></tr>';
 
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
-        // l'elenco dei temi, con il quadratino blu del formato newsletter
+        /* L'elenco dei tavoli, con il quadratino blu del formato newsletter e
+           l'orario del singolo tavolo sotto la descrizione: e' li' che serve,
+           perche' la domanda di chi legge non e' "quando sono gli incontri" ma
+           "a che ora e' QUESTO". */
         const voceTema = t => '<tr><td width="18" valign="top" style="' + FONTE + 'font-size:16px;line-height:27px;">'
             + '<span style="display:inline-block;width:8px;height:8px;background-color:' + C.accento + ';"></span></td>'
-            + '<td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding-bottom:7px;">' + testoHtml(t.descrizione) + '</td></tr>';
+            + '<td style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding-bottom:' + (orarioDi(t) ? '4' : '7') + 'px;">'
+            + testoHtml(t.descrizione)
+            + (orarioDi(t) ? '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.blu + ';font-weight:bold;">'
+                + esc(orarioDi(t)) + '</span>' : '')
+            + '</td></tr>'
+            + (orarioDi(t) ? '<tr><td colspan="2" style="font-size:0;line-height:0;height:9px;">&nbsp;</td></tr>' : '');
         const elencoTemi = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
-            + TEMI_B2B.map(voceTema).join('') + '</table>';
+            + temiInProgramma.map(voceTema).join('') + '</table>';
 
         const bottone = '<tr><td align="center" style="text-align:center;">'
             + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>'
             + '<td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
             + '<a href="' + SEGNAPOSTO_B2B + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
-            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Indichi i Suoi temi di interesse</a>'
+            + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';">Scelga i Suoi incontri B2B</a>'
+            + '</td></tr></table></td></tr>';
+
+        /* La chiusura cambia con gli orari: senza, si promette di comunicarli;
+           con, sono gia' scritti accanto a ogni tavolo e resta da confermare
+           solo gli specialisti. */
+        const chiusura = (conOrario.length
+            ? 'Gli orari di ciascun incontro sono indicati qui sopra: dopo la Sua scelta Le confermeremo gli specialisti che saranno a Sua disposizione.'
+            : 'Sarà nostra cura ricontattarLa per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione.')
+            + ' Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.';
+
+        /* Giorno e luogo in evidenza subito dopo l'annuncio: sono la cornice
+           comune a tutti i tavoli. L'ora invece e' di ciascun tavolo e sta
+           nell'elenco, accanto al suo argomento. */
+        const riquadroOrario = '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.blu + ';">'
+            + '<tr><td style="padding:14px 20px;">'
+            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Quando e dove</span><br>'
+            + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">'
+            + esc([ev.quando, ev.luogo].filter(Boolean).join(' - ')) + '</span>'
+            + (ev.indirizzo ? '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">' + esc(ev.indirizzo) + '</span>' : '')
+            + '<br><span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">L\'orario di ciascun incontro è indicato qui sotto, accanto al suo argomento.</span>'
             + '</td></tr></table></td></tr>';
 
         const corpo = cella(tabellaInterna(
@@ -1372,8 +1419,9 @@
             + par('L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti.')
             + spazio(14)
             + par('Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.')
+            + ((ev.quando || ev.luogo) ? spazio(18) + riquadroOrario : '')
             + spazio(14)
-            + par('Per organizzare un incontro davvero utile e individuare gli interlocutori più adatti, La invitiamo a indicarci uno o più temi di Suo interesse:')
+            + par('Ogni incontro è dedicato a un argomento del convegno, con i professionisti e gli specialisti della materia. La invitiamo a scegliere a quale, o a quali, desidera partecipare:')
             + spazio(16)
             + '<tr><td style="padding-left:6px;">' + elencoTemi + '</td></tr>'
             /* Chi ha GIA' espresso preferenze (dal form del sito o da un invio
@@ -1385,17 +1433,17 @@
             + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
             + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
             + '<tr><td style="padding:14px 20px;">'
-            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">Le Sue preferenze già indicate</span><br>'
+            + '<span style="' + FONTE + 'font-size:12px;line-height:20px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;">La Sua scelta attuale</span><br>'
             + '<span style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';font-weight:bold;">{{TEMI}}</span><br>'
-            + '<span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">Dal modulo può confermarle, aggiungerne o toglierne quando vuole.</span>'
+            + '<span style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';">Dalla pagina può confermarla, aggiungere un incontro o toglierne uno quando vuole.</span>'
             + '</td></tr></table></td></tr>'
             + '{{/SE_TEMI}}'
             + spazio(18)
-            + par('Basta un minuto: dal pulsante qui sotto trova il modulo con i temi già elencati, dove può anche anticiparci brevemente il progetto o l\'esigenza aziendale su cui vorrebbe confrontarsi.')
+            + par('Basta un minuto: dal pulsante qui sotto trova la pagina con gli incontri da spuntare, dove può anche anticiparci brevemente il progetto o l\'esigenza aziendale su cui vorrebbe confrontarsi. Nella stessa pagina vede le scelte degli altri referenti della Sua azienda, così potete dividervi i tavoli invece di sovrapporvi.')
             + spazio(26)
             + bottone
             + spazio(26)
-            + par('Sarà nostra cura ricontattarLa per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione. Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.')
+            + par(chiusura)
             + spazio(24)
             + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
         ));
@@ -1419,13 +1467,17 @@
 
         const testo = ['UN INCONTRO RISERVATO PER LA SUA IMPRESA', sommario,
             'L\'iniziativa è stata pensata non soltanto come un momento di approfondimento, ma anche come un\'occasione concreta di confronto sulle esigenze e sui programmi di sviluppo delle imprese partecipanti. Per questo desideriamo offrirLe la possibilità di partecipare, nel corso della giornata, a un incontro B2B riservato con professionisti e specialisti delle materie trattate durante il convegno.',
-            'I temi proposti:\n' + TEMI_B2B.map(t => '- ' + t.descrizione).join('\n'),
-            '{{SE_TEMI}}Le Sue preferenze già indicate: {{TEMI}}. Dal modulo può confermarle, aggiungerne o toglierne quando vuole.{{/SE_TEMI}}',
-            'Indichi i Suoi temi di interesse (e, se vuole, il progetto su cui confrontarsi): ' + SEGNAPOSTO_B2B,
-            'Sarà nostra cura ricontattarLa per confermare l\'orario dell\'incontro e gli specialisti che saranno a Sua disposizione. Nell\'attesa di incontrarLa' + (ev.titolo ? ' a ' + ev.titolo : '') + ', Le porgiamo i nostri più cordiali saluti.',
+            ((ev.quando || ev.luogo) ? 'Quando e dove: ' + [ev.quando, ev.luogo].filter(Boolean).join(' - ')
+                + (ev.indirizzo ? ', ' + ev.indirizzo : '') : ''),
+            'Gli incontri in programma, uno per argomento del convegno:\n'
+                + temiInProgramma.map(t => '- ' + t.descrizione + (orarioDi(t) ? ' (' + orarioDi(t) + ')' : '')).join('\n'),
+            '{{SE_TEMI}}La Sua scelta attuale: {{TEMI}}. Dalla pagina può confermarla, aggiungere un incontro o toglierne uno quando vuole.{{/SE_TEMI}}',
+            'Scelga i Suoi incontri B2B (e, se vuole, ci racconti il progetto su cui confrontarsi): ' + SEGNAPOSTO_B2B
+                + '\nNella stessa pagina vede le scelte degli altri referenti della Sua azienda.',
+            chiusura,
             'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
             '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_CONFERMA,
-            'Informativa privacy: ' + PRIVACY].join('\n\n');
+            'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
 
         return { oggetto: oggetto, html: html, testo: testo };
     }

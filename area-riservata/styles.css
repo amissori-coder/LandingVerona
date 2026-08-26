@@ -998,6 +998,88 @@ summary.ni-testa::before {
 .nl-dest-riga:last-child { border-bottom: none; }
 .nl-dest-riga input { width: auto; margin: 0; }
 .nl-dest-riga.escluso { color: var(--grigio-400); text-decoration: line-through; }
+
+/* invito B2B: gli orari, un tavolo per riga, con le due caselle dell'ora
+   (inizio e fine) invece di una frase da scrivere a mano. */
+.ib-ora-tutti {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;
+    padding: 8px 10px; background: #f8fafc; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm);
+}
+.ib-ora-et { font-size: 0.8rem; color: var(--grigio-600); }
+.ib-ora-tutti input { flex: none; margin: 0; padding: 4px 8px; font-size: 0.85rem; width: auto; }
+.ib-ora-tutti input[type="time"] { width: 7.5em; }
+.ib-ora-tutti input[type="number"] { width: 4.5em; }
+.ib-ora-tutti .btn { margin-left: 2px; }
+.ib-ora-griglia { border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; }
+.ib-ora-riga {
+    display: flex; align-items: center; gap: 10px; padding: 5px 10px;
+    font-size: 0.85rem; color: var(--grigio-900);
+    border-bottom: 1px solid var(--grigio-100);
+}
+.ib-ora-riga:last-child { border-bottom: none; }
+.ib-ora-nome { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ib-ora-caselle { display: flex; align-items: center; gap: 6px; flex: none; }
+label.ib-ora-mini { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.78rem; font-weight: 400; color: var(--grigio-600); }
+label.ib-ora-mini input { margin: 0; padding: 4px 8px; font-size: 0.85rem; width: 7.5em; }
+/* la crocetta che toglie un tavolo dal programma: si vede solo quando serve */
+.ib-ora-vuota { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.8rem; padding: 2px 4px; line-height: 1; }
+.ib-ora-vuota:hover { color: var(--rosso); }
+.ib-ora-sovrapposti { color: #9a3412; }
+@media (max-width: 720px) {
+    .ib-ora-riga { flex-direction: column; align-items: stretch; gap: 5px; }
+    .ib-ora-nome { flex: none; font-weight: 600; white-space: normal; }
+    .ib-ora-caselle { justify-content: flex-start; }
+}
+
+/* invito B2B: l'elenco delle aziende da invitare (stessa cassetta dei
+   destinatari newsletter, ma la riga qui e' un'impresa con i suoi referenti).
+   La riga NON e' una label: dentro una label ogni clic - sul pulsante della
+   tendina, su "Sposta", su un campo - farebbe scattare la casella di spunta.
+   La label resta attorno alla sola casella e al nome. */
+.ib-az-lista { max-height: 420px; }
+.ib-az-riga { border-bottom: 1px solid var(--grigio-100); }
+.ib-az-riga:last-child { border-bottom: none; }
+.ib-az-riga.aperta { background: #f8fafc; }
+.ib-az-testa { display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
+label.ib-az-spunta {
+    display: flex; align-items: center; gap: 8px; margin: 0; flex: 1; min-width: 0;
+    font-size: 0.85rem; font-weight: 400; color: var(--grigio-900); cursor: pointer;
+}
+label.ib-az-spunta input[type="checkbox"] { width: auto; margin: 0; padding: 0; flex: none; }
+.ib-az-riga.escluso label.ib-az-spunta { color: var(--grigio-400); }
+.ib-az-nome { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ib-az-alias { color: var(--grigio-400); font-weight: 400; font-size: 0.76rem; }
+label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--blu-900); }
+.ib-az-apri {
+    display: flex; align-items: center; gap: 6px; flex: none;
+    background: none; border: none; cursor: pointer; padding: 2px 4px; font: inherit;
+}
+.ib-az-apri:hover .ib-az-num { color: var(--blu-700); }
+.ib-az-num { color: var(--grigio-400); font-size: 0.76rem; white-space: nowrap; }
+.ib-az-freccia { color: var(--grigio-400); font-size: 0.7rem; }
+
+/* la tendina: i referenti di un'azienda con quello che hanno dichiarato */
+.ib-az-persone { padding: 0 10px 10px 30px; display: flex; flex-direction: column; gap: 8px; }
+.ib-ref { border: 1px solid var(--grigio-200); border-left: 3px solid var(--blu-700); border-radius: var(--raggio-sm); background: #fff; padding: 8px 12px; }
+.ib-ref-testa { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ib-ref-nome { font-weight: 600; color: var(--blu-900); font-size: 0.87rem; }
+.ib-ref-ruolo { color: var(--grigio-600); font-size: 0.78rem; }
+.ib-ref-testa .btn { margin-left: auto; }
+.ib-ref-dato { display: flex; gap: 8px; font-size: 0.8rem; margin-top: 3px; align-items: baseline; }
+.ib-ref-et { flex: 0 0 130px; color: var(--grigio-400); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.4px; }
+.ib-ref-dato > span:last-child { flex: 1; min-width: 0; word-break: break-word; }
+.ib-ref-storia { color: #9a3412; }
+.ib-sposta-box { margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px dashed var(--grigio-200); border-radius: var(--raggio-sm); }
+.ib-sposta-riga { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ib-sposta-riga select, .ib-sposta-riga input { flex: 1 1 180px; min-width: 0; margin: 0; padding: 5px 9px; font-size: 0.85rem; }
+/* elenco eventi: la traccia dello spostamento sotto la ragione sociale */
+.ev-spostato { margin-top: 2px; font-size: 0.72rem; line-height: 1.3; color: #9a3412; }
+
+/* elenco eventi: i tavoli B2B PRENOTATI si leggono a colpo d'occhio, le
+   preferenze dichiarate iscrivendosi restano in secondo piano - sono
+   un'informazione, non un impegno, e confonderle falserebbe i tavoli */
+.ev-b2b-si { color: var(--blu-900); font-weight: 600; }
+.ev-b2b-pref { color: var(--grigio-600); }
 .nl-esito { font-size: 0.88rem; margin: 8px 0 0; }
 .nl-esito:empty { display: none; }
 .nl-esito.ok { background: var(--verde-bg); color: var(--verde); border: 1px solid rgba(30, 127, 79, .25); border-radius: var(--raggio-sm); padding: 10px 12px; }

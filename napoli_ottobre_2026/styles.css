@@ -1941,6 +1941,27 @@ ul {
     max-height: 90px;
 }
 
+/* Sponsor. I due marchi hanno proporzioni opposte: il logotipo Natu' e' largo
+   (2,9:1), il segno Fiscalrevisione e' quasi quadrato. Per pareggiarli a
+   occhio il primo si vincola in larghezza, il secondo in altezza. */
+.partner-brand-img-natu {
+    max-width: 220px;
+    max-height: 78px;
+}
+
+.partner-brand-img-fiscal {
+    max-width: 88px;
+    max-height: 80px;
+}
+
+/* Serviter e' un lockup impilato, simbolo sopra e logotipo sotto: a parita' di
+   altezza la scritta risulterebbe molto piu' piccola delle altre, quindi gli
+   si concede qualche pixel in piu' di altezza. */
+.partner-brand-img-serviter {
+    max-width: 205px;
+    max-height: 104px;
+}
+
 /* Thin vertical separator between Revilaw and Advant */
 .partner-sep {
     width: 1px;
@@ -2518,6 +2539,21 @@ ul {
         max-height: 76px;
     }
 
+    .partner-brand-img-natu {
+        max-width: 200px;
+        max-height: 70px;
+    }
+
+    .partner-brand-img-fiscal {
+        max-width: 80px;
+        max-height: 72px;
+    }
+
+    .partner-brand-img-serviter {
+        max-width: 186px;
+        max-height: 94px;
+    }
+
     .label-text {
         font-size: 0.64rem;
         letter-spacing: 2.2px;
@@ -2683,6 +2719,21 @@ ul {
         max-height: 70px;
     }
 
+    .partner-brand-img-natu {
+        max-width: 186px;
+        max-height: 65px;
+    }
+
+    .partner-brand-img-fiscal {
+        max-width: 74px;
+        max-height: 67px;
+    }
+
+    .partner-brand-img-serviter {
+        max-width: 172px;
+        max-height: 86px;
+    }
+
     .label-text {
         font-size: 0.6rem;
         letter-spacing: 1.8px;
@@ -2726,6 +2777,21 @@ ul {
     .partner-brand-img-advant,
     .partner-brand-img-cciaa {
         max-width: 200px;
+    }
+
+    .partner-brand-img-natu {
+        max-width: 170px;
+        max-height: 59px;
+    }
+
+    .partner-brand-img-fiscal {
+        max-width: 68px;
+        max-height: 62px;
+    }
+
+    .partner-brand-img-serviter {
+        max-width: 158px;
+        max-height: 80px;
     }
 
     .partner-brand-img-apri {

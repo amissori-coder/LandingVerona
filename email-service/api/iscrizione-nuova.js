@@ -41,6 +41,8 @@ const NL = require('../lib/newsletter');
 // mail NGB composte dal servizio: questo endpoint e' pubblico, quindi l'HTML
 // non puo' arrivare da fuori come per gli invii dell'area riservata
 const MNGB = require('../lib/mail-ngb');
+// il foglio della prenotazione B2B, allegato alla mail di conferma
+const PDF = require('../lib/pdf-prenotazione');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -85,6 +87,29 @@ function initAdmin(cred) {
     if (appPronta) return;
     admin.initializeApp({ credential: admin.credential.cert(cred) });
     appPronta = true;
+}
+
+/* --- limite dei salvataggi di UNA scheda ---
+   La prenotazione si puo' cambiare quante volte si vuole, ed e' giusto cosi':
+   ogni cambio pero' fa partire una mail con l'allegato. Questo tetto lascia
+   passare tutti i ripensamenti veri e ferma solo l'accanimento sul pulsante,
+   che sarebbe una mail dietro l'altra allo stesso indirizzo. */
+const RL_SCHEDA_MS = 10 * 60 * 1000;
+const RL_SCHEDA_MAX = 12;
+const salvataggi = new Map();
+function troppiSalvataggi(idDoc) {
+    if (!idDoc) return false;
+    const ora = Date.now();
+    const elenco = (salvataggi.get(idDoc) || []).filter(t => ora - t < RL_SCHEDA_MS);
+    if (elenco.length >= RL_SCHEDA_MAX) { salvataggi.set(idDoc, elenco); return true; }
+    elenco.push(ora);
+    salvataggi.set(idDoc, elenco);
+    if (salvataggi.size > 500) {
+        for (const [k, v] of salvataggi) {
+            if (!v.length || ora - v[v.length - 1] > RL_SCHEDA_MS) salvataggi.delete(k);
+        }
+    }
+    return false;
 }
 
 /* --- limite invii per indirizzo IP ---
@@ -204,37 +229,31 @@ function pulisciPartecipante(p) {
 function partecipanteVuoto(p) { return !p.nome && !p.cognome && !p.email && !p.azienda && !p.telefono; }
 
 /* ============================================================
-   Interessi per gli incontri B2B (azioni "b2b-leggi" e "b2b-salva")
+   Prenotazione degli incontri B2B (azioni "b2b-leggi" e "b2b-salva")
    ------------------------------------------------------------
    L'invito agli incontri B2B porta un collegamento personale (stessa
-   firma della scheda) verso /incontri_b2b/: l'iscritto sceglie uno o
-   piu' temi e racconta in breve il progetto. Le scelte finiscono
-   sulla SUA scheda negli stessi campi del modulo di Napoli
+   firma della scheda) verso /incontri_b2b/: non e' un sondaggio di
+   gradimento, e' una PRENOTAZIONE. Chi apre la pagina sceglie a quali
+   incontri partecipare - un tavolo per argomento, gli stessi del
+   convegno - e puo' raccontare in breve il progetto. Le scelte
+   finiscono sulla SUA scheda negli stessi campi del modulo di Napoli
    ("interessi" e "incontro"), cosi' l'area riservata le mostra nelle
    colonne aggiuntive gia' esistenti e il riepilogo per argomento
    somma tutto, da qualunque strada arrivi; la nota libera va nella
    colonna "Nota B2B". Le etichette le decide il servizio: dal modulo
    arrivano solo gli indici.
+
+   L'invito parte a TUTTI i referenti dell'azienda, quindi la pagina
+   mostra anche le prenotazioni dei COLLEGHI della stessa impresa
+   (stesso evento): senza, due persone della stessa azienda si
+   prenoterebbero allo stesso tavolo senza saperlo, o lascerebbero
+   scoperto un argomento credendo che ci pensi l'altro. Dei colleghi
+   si mostrano nome, ruolo e tavoli scelti: la nota no, e' scritta a
+   noi e resta di chi l'ha scritta.
    ============================================================ */
-const TEMI_B2B = [
-    'Merito creditizio',
-    'Governance e controllo di gestione',
-    'Adeguati assetti',
-    'ESG e sostenibilita',
-    'Modello 231 e Rating di Legalita',
-    'Finanza agevolata',
-    'Tax Control Framework',
-    "Bagnoli e America's Cup 2027",
-    'Altre esigenze'
-];
-/* Etichette storiche del form del sito che non coincidono alla lettera con i
-   nove temi: si riportano comunque come caselle gia' spuntate, cosi' chi ha
-   scelto dal sito si ritrova le sue preferenze e puo' modificarle. Le chiavi
-   sono in forma normalizzata (minuscole, senza accenti). */
-const ALIAS_B2B = {
-    'modello 231 e tax control framework': [4, 6],
-    'rating di legalita': [4]
-};
+// i nove argomenti e i loro alias stanno in un modulo a parte: li usa anche
+// presenze.js, che con l'invito riceve l'orario di ciascun tavolo
+const { TEMI_B2B, ALIAS_B2B } = require('../lib/temi-b2b');
 function normalizzaTema(s) {
     return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
@@ -255,6 +274,215 @@ function indiciDaInteressi(grezzo) {
     });
     return { indici: Array.from(indici).sort((a, b) => a - b), nonMappate: nonMappate };
 }
+/* --- PRENOTAZIONI e PREFERENZE sono due cose diverse ---
+   `interessi` sono le preferenze dichiarate iscrivendosi dal form del sito:
+   dicono cosa interessa all'impresa, non che qualcuno verra' a un tavolo.
+   La PRENOTAZIONE e' la risposta a questo invito, e sta per conto suo in
+   `b2bScelte` (etichette dei tavoli) con `b2bRisposta` a fare da data.
+   Tenerle separate e' l'unico modo perche' il riepilogo per argomento
+   dell'area riservata conti chi viene davvero, invece di sommarci dentro
+   chi aveva solo spuntato una casella al momento dell'iscrizione.
+   Vale SOLO `b2bScelte`: prima di questo invito nessun modulo di
+   prenotazione era mai partito, quindi non c'e' niente da recuperare
+   altrove e `interessi` non e' mai una prenotazione. */
+function haPrenotato(scheda) {
+    return !!(scheda && Array.isArray(scheda.b2bScelte) && scheda.b2bScelte.length);
+}
+function prenotatiDi(scheda) {
+    if (!scheda || !Array.isArray(scheda.b2bScelte)) return [];
+    return scheda.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
+}
+/* Gli orari dei tavoli scritti sulla scheda al momento dell'invito, per
+   etichetta corta. Gli inviti partiti con la versione precedente portano invece
+   `orario`, uno solo per tutti: si legge come "tutti i tavoli a quell'ora", che
+   e' quello che quella mail diceva davvero. Cosi' chi era gia' stato invitato
+   non si ritrova un foglio senza orari. */
+function orariDiInvito(scheda) {
+    const inv = (scheda && scheda.b2bInvito && typeof scheda.b2bInvito === 'object') ? scheda.b2bInvito : {};
+    const perTavolo = (inv.orari && typeof inv.orari === 'object') ? inv.orari : null;
+    if (perTavolo) {
+        const fuori = {};
+        TEMI_B2B.forEach(t => {
+            const v = String(perTavolo[t] || '').trim();
+            if (v) fuori[t] = v;
+        });
+        return fuori;
+    }
+    const unico = String(inv.orario || '').trim();
+    if (!unico) return {};
+    const fuori = {};
+    TEMI_B2B.forEach(t => { fuori[t] = unico; });
+    return fuori;
+}
+function indiciDaTemi(etichette) {
+    return indiciDaInteressi((etichette || []).join(',')).indici;
+}
+
+/* --- riconoscere che due persone sono della STESSA azienda ---
+   La ragione sociale la scrive ognuno a modo suo: "Alfa S.r.l.", "ALFA SRL",
+   "Alfa spa", "Alfa". Un confronto alla lettera lascerebbe i colleghi
+   invisibili gli uni agli altri, che e' il contrario di cio' che serve qui.
+   Quindi due passaggi:
+     1. la ragione sociale si riduce all'osso (minuscole, senza accenti, senza
+        punteggiatura, senza la forma giuridica): "Alfa S.r.l." e "ALFA SPA"
+        diventano tutte e due "alfa";
+     2. nel dubbio decide il DOMINIO della mail: chi scrive da @alfa.it e' di
+        Alfa anche se ha lasciato in bianco il campo azienda o l'ha scritta in
+        un modo che non somiglia a nessun altro. I domini di posta pubblici
+        (gmail, libero, aruba...) non dicono niente sull'azienda e non contano.
+   Le due cose insieme fondono i gruppi a catena: "Alfa Srl" + "Alfa SPA" con
+   lo stesso dominio sono una sola impresa. */
+const DOMINI_PUBBLICI = [
+    'gmail.com', 'googlemail.com', 'hotmail.com', 'hotmail.it', 'outlook.com', 'outlook.it',
+    'live.it', 'live.com', 'msn.com', 'yahoo.it', 'yahoo.com', 'libero.it', 'virgilio.it',
+    'alice.it', 'tin.it', 'tiscali.it', 'inwind.it', 'iol.it', 'email.it', 'fastwebnet.it',
+    'icloud.com', 'me.com', 'mac.com', 'aruba.it', 'pec.it', 'legalmail.it', 'poste.it',
+    'protonmail.com', 'proton.me', 'gmx.com', 'katamail.com', 'supereva.it', 'teletu.it',
+    'vodafone.it', 'wind.it', 'tim.it', 'windtre.it', 'blu.it'
+];
+/* Le forme giuridiche: si tolgono dal confronto perche' la stessa impresa
+   compare ora con la sigla, ora senza, ora con i punti. Restano fuori le
+   parole che potrebbero essere il nome vero ("studio", "impresa", "gruppo"):
+   toglierle farebbe di "Studio Rossi" e "Studio Bianchi" la stessa cosa. */
+const FORME_GIURIDICHE = /\b(s\s*r\s*l\s*s?|s\s*p\s*a|s\s*a\s*p\s*a|s\s*a\s*s|s\s*n\s*c|s\s*c\s*a\s*r\s*l|s\s*s|societa|soc|cooperativa|coop|sarl|ltd|limited|llc|inc|gmbh|plc)\b/g;
+function chiaveAzienda(s) {
+    let t = String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    t = t.replace(/&/g, ' e ');
+    // i punti e gli apostrofi spariscono senza lasciare spazio: "s.r.l." -> "srl"
+    t = t.replace(/[.'\u2019"]/g, '');
+    t = t.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const senzaForma = t.replace(FORME_GIURIDICHE, ' ').replace(/\s+/g, ' ').trim();
+    // se dell'azienda resta solo la forma giuridica, meglio la stringa intera
+    return senzaForma || t;
+}
+function dominioMail(email) {
+    const m = String(email || '').toLowerCase().trim().match(/@([a-z0-9.\-]+)$/);
+    if (!m) return '';
+    let d = m[1];
+    if (DOMINI_PUBBLICI.indexOf(d) >= 0) return '';
+    /* Le caselle di posta certificata dell'azienda portano lo stesso nome
+       (pec.alfa.it e alfa.it sono la stessa impresa). Il prefisso si toglie
+       solo se quel che resta e' ancora un dominio: da "pec.it" resterebbe
+       "it", e allora mezzo mondo diventerebbe un'azienda sola. */
+    const senzaPrefisso = d.replace(/^(pec|mail|posta)\./, '');
+    if (senzaPrefisso !== d && senzaPrefisso.indexOf('.') > 0) d = senzaPrefisso;
+    return DOMINI_PUBBLICI.indexOf(d) >= 0 ? '' : d;
+}
+/* Mette insieme le persone che risultano della stessa impresa, per nome
+   ridotto all'osso o per dominio della mail (una catena di unioni: chi condivide
+   l'uno o l'altro finisce nello stesso gruppo). Torna un vettore di radici,
+   una per persona, e `-1` per chi non ha ne' azienda ne' dominio aziendale:
+   quelli non sono un gruppo, sono singoli. */
+function radiciAziende(persone) {
+    const padre = persone.map((_, i) => i);
+    const trova = i => { while (padre[i] !== i) { padre[i] = padre[padre[i]]; i = padre[i]; } return i; };
+    const unisci = (a, b) => { a = trova(a); b = trova(b); if (a !== b) padre[b] = a; };
+    const perNome = {}, perDominio = {};
+    /* Chi e' stato SPOSTATO a mano da un'azienda a un'altra non si unisce piu'
+       per dominio: la decisione di una persona batte l'indizio ricavato
+       dall'indirizzo. Senza questa eccezione mario@alfa.it spostato in Beta
+       tornerebbe fra i colleghi di Alfa, e lo spostamento non si vedrebbe.
+       Stessa regola nell'area riservata (app.js, raggruppaPerAzienda). */
+    const chiavi = persone.map(p => ({
+        nome: chiaveAzienda(p.azienda),
+        dominio: (p.aziendaSpostata || p.aziendaFissa) ? '' : dominioMail(p.email)
+    }));
+    const identificabile = chiavi.map(k => !!(k.nome || k.dominio));
+    persone.forEach((p, i) => {
+        if (!identificabile[i]) return;
+        const n = chiavi[i].nome;
+        if (n) { if (perNome[n] === undefined) perNome[n] = i; else unisci(perNome[n], i); }
+        const d = chiavi[i].dominio;
+        if (d) { if (perDominio[d] === undefined) perDominio[d] = i; else unisci(perDominio[d], i); }
+    });
+    return persone.map((p, i) => identificabile[i] ? trova(i) : -1);
+}
+/* Le schede di UN evento, tenute in memoria per qualche decina di secondi:
+   la pagina delle prenotazioni le rilegge a ogni apertura e a ogni salvataggio
+   di un collega, e senza questa memoria ogni visita costerebbe una lettura per
+   ogni iscritto dell'evento. Chi salva la butta via subito (`scordaEvento`),
+   altrimenti il collega che si prenota un attimo dopo non lo vedrebbe. */
+const COLLEGHI_MS = 30 * 1000;
+const _cacheEvento = {};
+
+/* --- quando due schede sono dello STESSO evento ---
+   Il campo `pagina` dice da dove arriva un'iscrizione, e non e' scritto uguale
+   da tutti: il modulo del sito di Napoli scrive "Napoli 2 Ottobre 2026 -
+   Manifestazione di interesse", quello di Roma "Roma 29 Aprile 2026 -
+   Iscrizione", l'area riservata - quando un'iscrizione si aggiunge a mano -
+   scrive solo "Napoli 2 Ottobre 2026", e dal foglio importato puo' arrivare
+   altro ancora. L'elenco degli eventi nell'area riservata infatti non confronta
+   la stringa intera: cerca la citta' dentro la pagina.
+   Confrontare la stringa INTERA, come si faceva qui, spezzava lo stesso evento
+   in tanti eventi quante sono le sue provenienze: due colleghi della stessa
+   azienda, uno iscritto dal sito e uno aggiunto a mano, non si vedevano.
+   L'evento e' quindi la parte PRIMA del trattino, ridotta all'osso. */
+function chiaveEvento(pagina) {
+    return String(pagina || '').split(/\s[-\u2013\u2014]\s/)[0]
+        .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+function scordaEvento(pagina) { delete _cacheEvento[chiaveEvento(pagina)]; }
+/* Le schede di un evento. Si chiedono a Firestore per INTERVALLO sul campo
+   pagina ("tutto quello che comincia per Napoli 2 Ottobre 2026"): una sola
+   lettura mirata, che prende sia la forma nuda sia quelle con il seguito.
+   Se dall'intervallo non esce nulla oltre alla scheda di chi sta guardando,
+   vuol dire che le pagine di questo evento sono scritte in modi che
+   l'intervallo non copre (maiuscole diverse, un'altra punteggiatura): allora,
+   e solo allora, si rilegge tutto e si filtra a mano. Costa, ma capita di rado
+   ed e' l'unico modo per non lasciare qualcuno da solo per un trattino. */
+async function schedeDellEvento(db, pagina) {
+    const k = chiaveEvento(pagina);
+    if (!k) return [];
+    const c = _cacheEvento[k];
+    if (c && (Date.now() - c.quando) < COLLEGHI_MS) return c.righe;
+    const base = String(pagina || '').split(/\s[-\u2013\u2014]\s/)[0].trim();
+    const daSnap = snap => {
+        const fuori = [];
+        snap.forEach(d => {
+            const r = Object.assign({ _doc: d.id }, d.data() || {});
+            if (chiaveEvento(r.pagina) === k) fuori.push(r);
+        });
+        return fuori;
+    };
+    let righe = [];
+    if (base) {
+        righe = daSnap(await db.collection('iscrizioni')
+            .where('pagina', '>=', base).where('pagina', '<=', base + '\uf8ff').get());
+    }
+    if (righe.length < 2) righe = daSnap(await db.collection('iscrizioni').get());
+    _cacheEvento[k] = { quando: Date.now(), righe: righe };
+    return righe;
+}
+/* Chi altro, della stessa azienda e per lo stesso evento, e con che cosa:
+   i tavoli PRENOTATI (risposta a questo invito) e, a parte, le preferenze
+   dichiarate iscrivendosi - sono due cose diverse e la pagina le distingue.
+   Una voce per persona (i doppioni di indirizzo si fondono), niente email e
+   niente nota: alla pagina servono nome, ruolo e tavoli. */
+function prenotazioniColleghi(righe, scheda, idDoc) {
+    const vive = righe.filter(r => !r.annullato);
+    const io = vive.findIndex(r => r._doc === idDoc);
+    if (io < 0) return [];
+    const radici = radiciAziende(vive);
+    if (radici[io] < 0) return [];   // ne' azienda scritta ne' dominio aziendale: nessun "noi"
+    const visti = {};
+    const fuori = [];
+    vive.forEach((r, i) => {
+        if (i === io || radici[i] !== radici[io]) return;
+        const em = String(r.email || '').toLowerCase();
+        if (em && visti[em]) return;
+        if (em) visti[em] = true;
+        fuori.push({
+            nome: ((String(r.nome || '') + ' ' + String(r.cognome || '')).trim()) || 'Un collega',
+            ruolo: String(r.ruolo || '').slice(0, 120),
+            temi: indiciDaTemi(prenotatiDi(r)),
+            preferenze: indiciDaInteressi(r.interessi).indici,
+            prenotato: haPrenotato(r)
+        });
+    });
+    fuori.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+    return fuori.slice(0, 60);
+}
 async function interessiB2B(azione, body, res) {
     const idDoc = String(body.d || '').slice(0, 400);
     const token = String(body.t || '').trim();
@@ -270,40 +498,151 @@ async function interessiB2B(azione, body, res) {
     const scheda = snap.data() || {};
 
     if (azione === 'b2b-leggi') {
+        let colleghi = [];
+        // i colleghi sono un di piu': se la lettura non riesce, la prenotazione
+        // si fa lo stesso invece di fermarsi su un errore
+        try {
+            colleghi = prenotazioniColleghi(await schedeDellEvento(db, scheda.pagina), scheda, idDoc);
+        } catch (e) { colleghi = []; }
+        /* Le caselle segnate all'apertura: la PRENOTAZIONE se c'e' gia', se no
+           le preferenze dichiarate iscrivendosi - li' sono un suggerimento da
+           confermare, non una prenotazione, e la pagina lo dice. */
+        const prenotati = indiciDaTemi(prenotatiDi(scheda));
+        const preferenze = indiciDaInteressi(scheda.interessi).indici;
+        /* Gli orari dei tavoli, nello stesso ordine dei temi: la pagina li
+           mostra accanto a ogni incontro. Un tavolo senza orario non e' in
+           programma a questo evento e la pagina non lo propone. */
+        const invitoOrari = orariDiInvito(scheda);
+        const orari = TEMI_B2B.map(t => String(invitoOrari[t] || '').trim());
         res.status(200).json({
             ok: true,
             pagina: String(scheda.pagina || ''),
             nome: ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()),
+            azienda: String(scheda.azienda || ''),
             temi: TEMI_B2B,
-            // le preferenze gia' espresse tornano come caselle spuntate, anche
-            // quando arrivano dal form del sito con le etichette storiche
-            scelti: indiciDaInteressi(scheda.interessi).indici,
-            nota: String((scheda.extra && scheda.extra['Nota B2B']) || '')
+            orari: orari,
+            scelti: prenotati.length ? prenotati : preferenze,
+            prenotato: haPrenotato(scheda),
+            // le caselle vengono dalle preferenze e non da una prenotazione
+            daPreferenze: !prenotati.length && preferenze.length > 0,
+            nota: String((scheda.extra && scheda.extra['Nota B2B']) || ''),
+            // chi altro dell'azienda ha gia' scelto, e cosa
+            colleghi: colleghi
         });
         return;
     }
 
-    // b2b-salva: indici dei temi + nota libera. Le voci del campo che non
-    // corrispondono a nessuno dei nove temi (scritte a mano, per esempio)
-    // si riportano cosi' come sono: il modulo non le mostra e non deve
-    // nemmeno cancellarle.
+    // b2b-salva: indici dei tavoli scelti + nota libera. Dal modulo arrivano
+    // solo gli INDICI, quindi qui non puo' entrare un'etichetta inventata.
     const indici = Array.isArray(body.temi) ? body.temi.map(n => parseInt(n, 10)).filter(n => n >= 0 && n < TEMI_B2B.length) : [];
     const scelti = TEMI_B2B.filter((t, i) => indici.indexOf(i) >= 0);
     const nota = testo(body.nota, 800);
-    if (!scelti.length && !nota) {
-        res.status(400).json({ ok: false, msg: 'Indica almeno un tema di interesse, o racconta in breve la tua esigenza.' });
+    /* Almeno un tavolo: qui si prenota, e una prenotazione senza incontro non
+       e' una prenotazione. La sola nota non basta piu' (prima si raccoglievano
+       interessi, e bastava). */
+    if (!scelti.length) {
+        res.status(400).json({ ok: false, msg: 'Scelga almeno un incontro B2B a cui partecipare.' });
+        return;
+    }
+    /* Non si prenota un tavolo che non e' in programma: la pagina non lo mostra
+       nemmeno, ma la firma sul collegamento non e' un lasciapassare per scrivere
+       quello che si vuole. Il controllo vale solo se all'invito erano stati dati
+       degli orari, altrimenti sarebbero tutti fuori programma. */
+    const orariInvito = orariDiInvito(scheda);
+    const inProgramma = TEMI_B2B.filter(t => String(orariInvito[t] || '').trim());
+    if (inProgramma.length) {
+        const fuori = scelti.filter(t => inProgramma.indexOf(t) < 0);
+        if (fuori.length) {
+            res.status(400).json({ ok: false, msg: 'Uno degli incontri scelti non e in programma: ricarichi la pagina e riprovi.' });
+            return;
+        }
+    }
+    if (troppiSalvataggi(idDoc)) {
+        res.status(429).json({ ok: false, msg: 'Ha cambiato la prenotazione molte volte di seguito: aspetti qualche minuto e riprovi. Vale l\'ultima scelta salvata.' });
         return;
     }
     const chi = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()) || String(scheda.email || '');
     await rif.set({
-        interessi: scelti.concat(indiciDaInteressi(scheda.interessi).nonMappate).join(','),
+        /* La prenotazione sta per conto suo: `interessi` resta com'e', perche'
+           sono le preferenze dell'iscrizione e cancellarle vorrebbe dire
+           perdere un'informazione che non si puo' piu' ricostruire. */
+        b2bScelte: scelti,
         incontro: 'si',
         extra: { 'Nota B2B': nota },
         b2bRisposta: { quando: Date.now(), temi: scelti.length },
         compilato: { daNome: chi, quando: Date.now() }
     }, { merge: true });
+    // il collega che apre la pagina un attimo dopo deve vedere questa scelta
+    scordaEvento(scheda.pagina);
     await segnaCambiamento(db);
-    res.status(200).json({ ok: true, temi: scelti.length });
+    /* La ricevuta: mail di conferma con in allegato il foglio da presentare al
+       desk. Riparte a ogni modifica, perche' vale sempre l'ultimo foglio
+       emesso. Se la posta non risponde la prenotazione resta comunque
+       registrata - perderla per una mail non partita sarebbe il danno
+       peggiore - e la pagina lo dice a chi ha appena prenotato. */
+    let mailInviata = false;
+    try { mailInviata = await confermaPrenotazione(idDoc, scheda, scelti); }
+    catch (e) {
+        console.error('Conferma prenotazione B2B non inviata:', String((e && e.message) || e).slice(0, 200));
+    }
+    res.status(200).json({ ok: true, temi: scelti.length, mailInviata: mailInviata });
+}
+
+/* Mail di conferma della prenotazione, con il PDF in allegato. Data, orario e
+   luogo degli incontri arrivano da `b2bInvito`, dove li ha scritti l'invito:
+   il servizio non ha una tabella degli eventi, e chiederglielo di nuovo
+   vorrebbe dire tenerne due che prima o poi divergono. */
+async function confermaPrenotazione(idDoc, scheda, tavoli) {
+    const a = String(scheda.email || '').toLowerCase();
+    if (!a || !emailValida(a)) return false;
+    const invito = (scheda.b2bInvito && typeof scheda.b2bInvito === 'object') ? scheda.b2bInvito : {};
+    const evento = (invito.evento && typeof invito.evento === 'object') ? invito.evento : {};
+    const orari = orariDiInvito(scheda);
+    const nome = ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim());
+    const dati = {
+        nome: nome, azienda: String(scheda.azienda || ''), ruolo: String(scheda.ruolo || ''),
+        pagina: String(scheda.pagina || ''),
+        evento: {
+            titolo: String(evento.titolo || '') || MNGB.nomeEvento(scheda.pagina),
+            quando: String(evento.quando || ''),
+            luogo: String(evento.luogo || ''), indirizzo: String(evento.indirizzo || '')
+        },
+        // ogni tavolo con il SUO orario: sul foglio del desk e nella mail e'
+        // l'unica cosa che dice all'ospite dove deve essere e quando
+        tavoli: tavoli.map(t => ({ nome: t, orario: String(orari[t] || '').trim() }))
+    };
+    const link = NL.linkB2B(idDoc);
+    const m = MNGB.confermaB2B(dati, link);
+    const foglio = PDF.pdfPrenotazione(Object.assign({}, dati, { emessoIl: quandoInItalia() }));
+    await trasporto().sendMail({
+        from: mittenteMail(),
+        to: a,
+        subject: m.oggetto,
+        text: m.testo,
+        html: m.html,
+        attachments: [{
+            filename: nomeFileFoglio(nome),
+            content: foglio,
+            contentType: 'application/pdf'
+        }]
+    });
+    return true;
+}
+/* Data e ora in Italia, per il "emessa il" stampato sul foglio: e' l'unico
+   modo per capire quale di due fogli e' il piu' recente. */
+function quandoInItalia() {
+    try {
+        return new Date().toLocaleString('it-IT', {
+            timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        }).replace(',', ' alle');
+    } catch (e) { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
+}
+// il nome del file lo legge chi lo salva sul telefono: niente accenti ne' spazi
+function nomeFileFoglio(nome) {
+    const pulito = PDF.inLatin1(nome).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    return 'Incontri-B2B-prenotazione' + (pulito ? '-' + pulito : '') + '.pdf';
 }
 
 async function completaIscrizione(azione, body, res) {
@@ -505,9 +844,17 @@ module.exports = async (req, res) => {
 
     try {
         const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-        if (troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
-
         const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+        /* Il limite per indirizzo IP vale per i moduli APERTI del sito, dove
+           chiunque puo' scrivere. Le pagine che si aprono solo dal collegamento
+           firmato ne restano fuori: i referenti di un'azienda escono tutti dallo
+           stesso IP dell'ufficio, e otto richieste in dieci minuti se le
+           mangerebbero in due persone, bloccando proprio chi ha il diritto di
+           cambiare idea. Li' il freno e' un altro, per singola scheda. */
+        const conFirma = ['completa-leggi', 'completa-salva', 'b2b-leggi', 'b2b-salva']
+            .indexOf(String(body.azione || '')) >= 0;
+        if (!conFirma && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
+
         // completamento dei dati (dal collegamento personale nella mail): altra
         // azione, stessa funzione. I form del sito non mandano "azione", quindi
         // per loro non cambia niente.
