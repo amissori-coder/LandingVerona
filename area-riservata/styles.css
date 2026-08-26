@@ -1935,3 +1935,7 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
     #msg-popup-area { left: 12px; right: 12px; bottom: 72px; width: auto; }
 }
 
+
+/* Il motivo di un invio fallito e' una diagnosi, non un'etichetta: si legge
+   tutto, andando a capo, senza allargare la colonna oltre il ragionevole. */
+.inv-motivo { max-width: 22rem; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
