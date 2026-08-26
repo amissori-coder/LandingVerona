@@ -266,7 +266,7 @@
         { id: 'persone', nome: 'Aderenti Revilaw' },
         { id: 'fatturazione', nome: 'Fatturazione' },
         { id: 'report', nome: 'Report compensi' },
-        { id: 'rating', nome: 'Rating bancario' },
+        { id: 'rating', nome: 'Verifica merito creditizio' },
         { id: 'comunicazioni', nome: 'Comunicazione teams di revisione' },
         { id: 'sondaggi', nome: 'Sondaggi' },
         { id: 'registro', nome: 'Registro modifiche' }
@@ -3330,7 +3330,7 @@
         /* MACROAREA DEL MERITO CREDITIZIO. La versione di lavoro del simulatore
            pubblico di rating: qui le verifiche si salvano per cliente, con
            questionario, banche e report firmato da stampare in PDF. */
-        { id: 'rating', nome: 'Rating bancario', gruppo: 'Merito creditizio', icona: 'M3 21h18M4 18h16M6 18v-8m4 8v-8m4 8v-8m4 8v-8M2 10l10-6 10 6' },
+        { id: 'rating', nome: 'Verifica merito creditizio', gruppo: 'Merito creditizio', icona: 'M3 21h18M4 18h16M6 18v-8m4 8v-8m4 8v-8m4 8v-8M2 10l10-6 10 6' },
         /* MACROAREA DELLE COMUNICAZIONI. Le tre sezioni che mandano messaggi fuori
            stavano sparse nell'elenco, con i Sondaggi in mezzo: una accanto
            all'altra, sotto un'intestazione, si capisce a colpo d'occhio che sono
@@ -3526,13 +3526,46 @@
                 }
                 const conta = (v.id === 'richieste' && nuoveRichieste)
                     ? '<span class="nav-conta" title="Richieste in attesa di una tua risposta">' + nuoveRichieste + '</span>' : '';
+                /* Il nome sta in uno <span>: col menu ridotto a icone si nasconde
+                   lui soltanto, e il "title" fa da etichetta al passaggio del mouse. */
                 return testa
-                    + '<button class="nav-voce' + (g ? ' in-gruppo' : '') + (vistaCorrente === v.id ? ' attiva' : '') + '" data-vista="' + v.id + '">'
+                    + '<button class="nav-voce' + (g ? ' in-gruppo' : '') + (vistaCorrente === v.id ? ' attiva' : '') + '" data-vista="' + v.id + '" title="' + esc(v.nome) + '">'
                     + '<svg class="icona" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="' + v.icona + '"/></svg>'
-                    + esc(v.nome) + conta + '</button>';
+                    + '<span class="et">' + esc(v.nome) + '</span>' + conta + '</button>';
             }).join('');
         nav.querySelectorAll('.nav-voce').forEach(b =>
             b.addEventListener('click', () => { naviga(b.dataset.vista); chiudiMenuMobile(); }));
+    }
+
+    /* Menu ridotto alle sole icone (schermo largo): il contenuto si allarga di
+       180px, che e' quanto basta alla tabella degli iscritti per stare comoda
+       anche su un portatile. La scelta resta fra una sessione e l'altra. Passando
+       il mouse sulla barra le voci ricompaiono per intero SOPRA il contenuto,
+       senza spostarlo: si naviga senza dover riaprire il menu. */
+    const CHIAVE_MENU_RIDOTTO = 'rvArea.menuRidotto';
+    function menuRidotto() {
+        try { return localStorage.getItem(CHIAVE_MENU_RIDOTTO) === '1'; } catch (e) { return false; }
+    }
+    function applicaMenuRidotto(ridotto) {
+        const app = document.getElementById('app');
+        if (app) app.classList.toggle('menu-ridotto', !!ridotto);
+        const b = document.getElementById('nav-riduci');
+        if (!b) return;
+        const etich = ridotto ? 'Allarga il menu' : 'Riduci il menu';
+        b.setAttribute('aria-pressed', ridotto ? 'true' : 'false');
+        b.setAttribute('aria-label', etich);
+        b.setAttribute('title', etich);
+    }
+    function collegaRiduciMenu() {
+        const b = document.getElementById('nav-riduci');
+        if (!b || b._collegato) return;
+        b._collegato = true;
+        applicaMenuRidotto(menuRidotto());
+        b.addEventListener('click', () => {
+            const nuovo = !menuRidotto();
+            try { localStorage.setItem(CHIAVE_MENU_RIDOTTO, nuovo ? '1' : '0'); } catch (e) { }
+            applicaMenuRidotto(nuovo);
+        });
     }
 
     /* menu a comparsa su smartphone */
@@ -9771,7 +9804,7 @@
         $vista().innerHTML = `
             <header>
                 <div>
-                    <h1>Rating bancario</h1>
+                    <h1>Verifica merito creditizio</h1>
                     <p class="descrizione">Verifiche del merito creditizio: modello MCC del Fondo di Garanzia, questionario qualitativo, banche dell'impresa e azioni migliorative. Ogni verifica produce un report da firmare e stampare in PDF.</p>
                 </div>
                 <div class="header-azioni">
@@ -13312,37 +13345,15 @@
         return n > 0 ? Math.min(99, n) : 1;
     }
 
-    /* Menu a tre puntini delle righe iscritti. Da quando la tabella puo' scorrere
-       in orizzontale, il riquadro che la contiene ritaglia cio' che esce dai suoi
-       bordi: un menu aperto sull'ultima riga (o sulla colonna piu' a destra)
-       verrebbe tagliato. Si aggancia quindi al pulsante con coordinate fisse sullo
-       schermo, calcolate all'apertura: se sotto non c'e' spazio si ribalta verso
-       l'alto, e se sborderebbe a destra rientra dentro la finestra. */
-    function posizionaMenuEv(btn, lista) {
-        const r = btn.getBoundingClientRect();
-        lista.style.position = 'fixed';
-        lista.style.right = 'auto';
-        lista.style.top = '0px';
-        lista.style.left = '0px';
-        const m = lista.getBoundingClientRect();   // misurato da visibile: prima sarebbe 0
-        const spazioSotto = window.innerHeight - r.bottom;
-        const versoAlto = spazioSotto < m.height + 10 && r.top > m.height + 10;
-        const top = versoAlto ? r.top - m.height - 4 : r.bottom + 4;
-        const left = Math.min(Math.max(8, r.right - m.width), window.innerWidth - m.width - 8);
-        lista.style.top = Math.max(8, top) + 'px';
-        lista.style.left = Math.max(8, left) + 'px';
-    }
-    /* Chiude i menu aperti e rimette le posizioni come le vuole il foglio di
-       stile: sul telefono la tabella diventa un elenco di schede, e li' il menu
-       deve tornare a stare sotto il suo pulsante. */
-    function chiudiMenuEv() {
-        document.querySelectorAll('.ev-menu-lista').forEach(l => {
-            if (l.classList.contains('hidden')) return;
-            l.classList.add('hidden');
-            l.style.position = ''; l.style.top = ''; l.style.left = ''; l.style.right = '';
-            const b = l.previousElementSibling;
-            if (b) b.setAttribute('aria-expanded', 'false');
-        });
+    /* Un indirizzo email non si spezza a meta' di una parola: se proprio non entra
+       nella sua colonna, va a capo DOPO la chiocciola, dove si legge ancora bene
+       ("mario.rossi@" sopra, "azienda.it" sotto). Il <wbr> e' solo un punto in cui
+       il browser PUO' andare a capo: se l'indirizzo ci sta, resta su una riga. Non
+       aggiunge testo, quindi ricerca ed esportazione in CSV non se ne accorgono. */
+    function emailInterrompibile(indirizzo) {
+        const e = esc(indirizzo || '');
+        const i = e.indexOf('@');
+        return i < 0 ? e : e.slice(0, i + 1) + '<wbr>' + e.slice(i + 1);
     }
 
     function tabellaIscrizioni(ev, lista) {
@@ -13392,7 +13403,7 @@
                     + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '') + '</td>')
                     ((r.extra || {})[COL_SPOSTATO] || '')
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
-                + '<td data-label="Email">' + esc(r.email) + '</td>'
+                + '<td data-label="Email">' + emailInterrompibile(r.email) + '</td>'
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
                 /* Portale assente = iscrizione arrivata dai nostri form (o dal
                    foglio storico, che raccoglieva gli stessi form): si scrive
@@ -13459,9 +13470,28 @@
             // questa la ripropone sopra l'elenco. A video largo resta nascosta.
             + (adminEv ? '<label class="ev-sel-mobile"><input type="checkbox" id="ev-sel-tutte-m"> Seleziona tutte le iscrizioni in elenco</label>' : '')
             // "ev-wrap": questa tabella deve ENTRARE in larghezza, senza barra di
-            // scorrimento (le celle vanno a capo), e l'overflow visibile non taglia
-            // il menu a tendina delle azioni
-            + '<div class="tabella-wrap ev-wrap"><table class="dati compatta"><thead><tr>'
+            // scorrimento; ci riesce con le larghezze di colonna del colgroup qui
+            // sotto. L'overflow visibile non taglia il menu a tendina delle azioni.
+            + '<div class="tabella-wrap ev-wrap"><table class="dati compatta">'
+            /* Le larghezze delle colonne: questa tabella deve stare tutta nella
+               pagina, senza barra di scorrimento, e per riuscirci il browser deve
+               sapere in anticipo quanto dare a ciascuna (table-layout: fixed nel
+               foglio di stile). Le colonne "atomiche" - data, email, telefono,
+               portale, partecipanti - hanno una larghezza propria, tarata sul loro
+               contenuto, cosi' non vanno mai a capo; le altre, fatte di parole
+               separate da spazi, si dividono in parti uguali lo spazio che resta e
+               vanno a capo fra una parola e l'altra. Le misure stanno nel foglio di
+               stile (classi c-*), che le adatta anche agli schermi piu' stretti. */
+            + '<colgroup>'
+            + (adminEv ? '<col class="c-sel">' : '')
+            + '<col class="c-data"><col class="c-nome"><col class="c-azienda"><col class="c-ruolo"><col class="c-email"><col class="c-tel">'
+            + (fisse ? '<col class="c-portale"><col class="c-part"><col class="c-b2b"><col class="c-pref">' : '')
+            + (ev.tutti ? '<col>' : '')
+            + extra.map(() => '<col>').join('')
+            + (ev.tutti ? '' : '<col class="c-stato"><col><col>')
+            + (azioniEv ? '<col class="c-azioni">' : '')
+            + '</colgroup>'
+            + '<thead><tr>'
             + (adminEv ? '<th><input type="checkbox" id="ev-sel-tutte" aria-label="Seleziona tutte"></th>' : '')
             + '<th>Data</th><th>Nome</th><th>Azienda</th><th>Ruolo</th><th>Email</th><th>Telefono</th>'
             + (fisse ? '<th>Portale</th><th>Partecipanti</th>'
@@ -13629,28 +13659,30 @@
             if (r) modaleInvitoB2B(ev, r);
         }));
         // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
+        const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
+            l.classList.add('hidden');
+            const b = l.previousElementSibling;
+            if (b) b.setAttribute('aria-expanded', 'false');
+        });
         $vista().querySelectorAll('.ev-menu-btn').forEach(b => b.addEventListener('click', e => {
             e.stopPropagation();
             const lista = b.nextElementSibling;
             const eraChiuso = lista.classList.contains('hidden');
             chiudiMenuEv();
-            if (eraChiuso) {
-                lista.classList.remove('hidden');
-                b.setAttribute('aria-expanded', 'true');
-                posizionaMenuEv(b, lista);
-            }
+            if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); }
         }));
         $vista().querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
         // il clic fuori chiude tutti i menu: UN solo ascoltatore sul documento,
-        // che a ogni ridisegno ritrova da se' i menu correnti. Lo stesso vale per
-        // lo scorrimento (anche quello DENTRO la tabella, da cui il capture) e per
-        // il ridimensionamento: il menu e' agganciato al pulsante con coordinate
-        // fisse, quindi invece di restare a mezz'aria si chiude.
+        // che a ogni ridisegno ritrova da se' i menu correnti
         if (!document.body.dataset.evMenuDoc) {
             document.body.dataset.evMenuDoc = '1';
-            document.addEventListener('click', chiudiMenuEv);
-            document.addEventListener('scroll', chiudiMenuEv, true);
-            window.addEventListener('resize', chiudiMenuEv);
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.ev-menu-lista').forEach(l => {
+                    l.classList.add('hidden');
+                    const b = l.previousElementSibling;
+                    if (b) b.setAttribute('aria-expanded', 'false');
+                });
+            });
         }
         // colonne aggiuntive: si spuntano e la tabella si ridisegna con quelle in piu'
         $vista().querySelectorAll('.ev-col').forEach(c => c.addEventListener('change', () => {
@@ -21961,6 +21993,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         document.getElementById('schermata-login').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         collegaHamburger();
+        collegaRiduciMenu();
         document.getElementById('utente-nome').textContent = Auth.utenteCorrente.nome;
         aggiornaEtichettaUtente();
         if (typeof Cloud !== 'undefined' && Cloud.attivo) Cloud.avviaPresenza();
