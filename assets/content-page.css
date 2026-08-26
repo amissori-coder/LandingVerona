@@ -397,6 +397,10 @@
 }
 
 /* ---------- 4-column components grid: Modello 231 ---------- */
+/* Alcune pagine ne vogliono tre invece di quattro. Va chiesto con la
+   classe .is-tre e non con uno stile in linea: lo stile in linea batte
+   qualsiasi media query, e su telefono la griglia resterebbe a tre
+   colonne facendo scorrere la pagina in orizzontale. */
 .components-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -591,9 +595,14 @@
     /* inherits zls_zes look */
 }
 
+.components-grid.is-tre {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1024px) {
-    .components-grid {
+    .components-grid,
+    .components-grid.is-tre {
         grid-template-columns: repeat(2, 1fr);
     }
 }
@@ -628,7 +637,8 @@
         max-width: 560px;
     }
 
-    .components-grid {
+    .components-grid,
+    .components-grid.is-tre {
         grid-template-columns: 1fr;
         max-width: 520px;
     }

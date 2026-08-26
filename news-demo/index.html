@@ -150,6 +150,10 @@
     .feature-meta {
         display: flex; align-items: center; gap: 12px; margin-bottom: 22px;
         font-family: var(--font-display);
+        /* Cinque voci in fila senza possibilita' di andare a capo: su schermi
+           stretti la loro somma diventa la larghezza minima dell'articolo, che
+           sfora la colonna e fa scorrere la pagina in orizzontale. */
+        flex-wrap: wrap; row-gap: 8px;
     }
     .category {
         font-size: 0.7rem; font-weight: 700; color: var(--accent);

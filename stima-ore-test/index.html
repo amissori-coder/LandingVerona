@@ -356,7 +356,13 @@
     .ngb-result-panel .ngb-panel-head p { color: rgba(255, 255, 255, 0.78); }
 
     @media (max-width: 1024px) {
-      .ngb-result-panel { position: static; }
+      /* Non "static": il cerchio decorativo del pannello e' un ::before in
+         posizione assoluta con right: -140px, e si aggancia al primo antenato
+         posizionato. Con il pannello static quell'antenato e' piu' in alto, il
+         cerchio esce dal ritaglio del pannello e fa scorrere la pagina in
+         orizzontale. "relative" senza scostamenti occupa lo spazio come static
+         e rimette il cerchio dentro al suo overflow: hidden. */
+      .ngb-result-panel { position: relative; top: auto; }
     }
 
     .year-cards {
