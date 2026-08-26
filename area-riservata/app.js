@@ -13312,6 +13312,39 @@
         return n > 0 ? Math.min(99, n) : 1;
     }
 
+    /* Menu a tre puntini delle righe iscritti. Da quando la tabella puo' scorrere
+       in orizzontale, il riquadro che la contiene ritaglia cio' che esce dai suoi
+       bordi: un menu aperto sull'ultima riga (o sulla colonna piu' a destra)
+       verrebbe tagliato. Si aggancia quindi al pulsante con coordinate fisse sullo
+       schermo, calcolate all'apertura: se sotto non c'e' spazio si ribalta verso
+       l'alto, e se sborderebbe a destra rientra dentro la finestra. */
+    function posizionaMenuEv(btn, lista) {
+        const r = btn.getBoundingClientRect();
+        lista.style.position = 'fixed';
+        lista.style.right = 'auto';
+        lista.style.top = '0px';
+        lista.style.left = '0px';
+        const m = lista.getBoundingClientRect();   // misurato da visibile: prima sarebbe 0
+        const spazioSotto = window.innerHeight - r.bottom;
+        const versoAlto = spazioSotto < m.height + 10 && r.top > m.height + 10;
+        const top = versoAlto ? r.top - m.height - 4 : r.bottom + 4;
+        const left = Math.min(Math.max(8, r.right - m.width), window.innerWidth - m.width - 8);
+        lista.style.top = Math.max(8, top) + 'px';
+        lista.style.left = Math.max(8, left) + 'px';
+    }
+    /* Chiude i menu aperti e rimette le posizioni come le vuole il foglio di
+       stile: sul telefono la tabella diventa un elenco di schede, e li' il menu
+       deve tornare a stare sotto il suo pulsante. */
+    function chiudiMenuEv() {
+        document.querySelectorAll('.ev-menu-lista').forEach(l => {
+            if (l.classList.contains('hidden')) return;
+            l.classList.add('hidden');
+            l.style.position = ''; l.style.top = ''; l.style.left = ''; l.style.right = '';
+            const b = l.previousElementSibling;
+            if (b) b.setAttribute('aria-expanded', 'false');
+        });
+    }
+
     function tabellaIscrizioni(ev, lista) {
         const segna = puoSegnarePresenze() && !ev.tutti;   // nel riepilogo le presenze non servono
         const adminEv = Auth.eAdmin() || Auth.eProprietario();
@@ -13596,30 +13629,28 @@
             if (r) modaleInvitoB2B(ev, r);
         }));
         // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
-        const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
-            l.classList.add('hidden');
-            const b = l.previousElementSibling;
-            if (b) b.setAttribute('aria-expanded', 'false');
-        });
         $vista().querySelectorAll('.ev-menu-btn').forEach(b => b.addEventListener('click', e => {
             e.stopPropagation();
             const lista = b.nextElementSibling;
             const eraChiuso = lista.classList.contains('hidden');
             chiudiMenuEv();
-            if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); }
+            if (eraChiuso) {
+                lista.classList.remove('hidden');
+                b.setAttribute('aria-expanded', 'true');
+                posizionaMenuEv(b, lista);
+            }
         }));
         $vista().querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
         // il clic fuori chiude tutti i menu: UN solo ascoltatore sul documento,
-        // che a ogni ridisegno ritrova da se' i menu correnti
+        // che a ogni ridisegno ritrova da se' i menu correnti. Lo stesso vale per
+        // lo scorrimento (anche quello DENTRO la tabella, da cui il capture) e per
+        // il ridimensionamento: il menu e' agganciato al pulsante con coordinate
+        // fisse, quindi invece di restare a mezz'aria si chiude.
         if (!document.body.dataset.evMenuDoc) {
             document.body.dataset.evMenuDoc = '1';
-            document.addEventListener('click', () => {
-                document.querySelectorAll('.ev-menu-lista').forEach(l => {
-                    l.classList.add('hidden');
-                    const b = l.previousElementSibling;
-                    if (b) b.setAttribute('aria-expanded', 'false');
-                });
-            });
+            document.addEventListener('click', chiudiMenuEv);
+            document.addEventListener('scroll', chiudiMenuEv, true);
+            window.addEventListener('resize', chiudiMenuEv);
         }
         // colonne aggiuntive: si spuntano e la tabella si ridisegna con quelle in piu'
         $vista().querySelectorAll('.ev-col').forEach(c => c.addEventListener('change', () => {
