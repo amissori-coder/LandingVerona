@@ -359,7 +359,7 @@ d'ambiente non parte nessuno dei tre.
 
 | Percorso | Quando | Cosa fa |
 |---|---|---|
-| `/api/cron-comunicazioni` | `0 6 * * *` — una volta al giorno | invia le comunicazioni programmate dovute |
+| `/api/cron-comunicazioni` | `0 6-18 * * *` — ogni ora, dalle 06:00 alle 18:00 UTC | invia le comunicazioni programmate dovute, riprendendo quelle lasciate a meta' |
 | `/api/programma-newsletter` | `*/15 * * * *` — ogni quarto d'ora | manda avanti le newsletter programmate, un lotto per volta |
 | `/api/presenze` | `*/15 * * * *` — ogni quarto d'ora | legge la casella PEC: ricevute, errori, risposte |
 
@@ -367,25 +367,71 @@ Sul piano Hobby i primi due giravano **una volta al giorno** e il terzo non
 esisteva: i cron Hobby sono due in tutto e girano una volta al giorno, a orario
 approssimativo. Il piano Pro toglie il vincolo.
 
-### Perche' le comunicazioni sono rimaste a una volta al giorno
+### Le comunicazioni: perche' piu' giri al giorno non rispediscono
 
-Non per dimenticanza. `api/cron-comunicazioni.js` invia **e poi** registra
-l'avanzamento (`applicaPatch`): se la funzione muore *fra* le due cose, il giro
-successivo rispedisce a tutti i destinatari di quella comunicazione. Oggi quel
-giro successivo e' il mattino dopo; con un cron orario sarebbero **tredici
-rispedizioni in una giornata** invece di una. Prima di alzare la frequenza qui
-va reso incrementale l'avanzamento *dentro* la singola comunicazione — come
-gia' fa il giro delle newsletter, che scrive dopo **ogni lotto** e si appoggia
-alla chiave di non ripetizione di Brevo.
+Un invio **personalizzato** (con `{nome}`, `{incarichi}`… nell'oggetto o nel
+testo) manda **una mail per destinatario, in fila**: puo' durare minuti. Prima
+`api/cron-comunicazioni.js` inviava **e poi** registrava l'avanzamento, per cui
+una funzione che moriva a meta' non lasciava traccia e il giro dopo
+ricominciava **da tutti**. Con un giro al giorno era una rispedizione; con
+tredici giri sarebbero state tredici.
 
-Nel frattempo il rischio si e' comunque ridotto: `maxDuration` di quella
-funzione passa da 60 a **300 secondi**, quindi il caso "muore a meta' invio" e'
-molto meno probabile di prima.
+Ora l'avanzamento si scrive **durante** l'invio, in
+`lib/comunicazioni-avanzamento.js`: un documento per comunicazione, con
+l'elenco di chi e' gia' stato servito, scritto ogni **20 destinatari**. Alla
+ripresa quelli si saltano. E' la stessa strada del giro delle newsletter, che
+scrive dopo ogni lotto.
 
-Una comunicazione programmata parte quindi ancora al primo mattino utile **a
-partire dalla** data scelta, non a un'ora esatta — che e' esattamente quello
-che l'area riservata promette a chi la programma, e resta perfetto per invii
-settimanali/mensili/trimestrali/annuali.
+Le regole che ne governano i casi storti, tutte verificate:
+
+- **Il tempo si guarda prima di spedire, mai dopo.** La funzione ha un budget
+  di 240 secondi dentro i 300 di `maxDuration`: quando scade si ferma senza
+  cominciare una mail nuova, **non** fa avanzare la programmazione, e il giro
+  dopo riprende da li'. Una comunicazione lasciata a meta' resta "dovuta".
+- **Prima lo storico, poi la pulizia dell'avanzamento.** Nell'ordine inverso,
+  un guasto in mezzo cancellerebbe la memoria di chi ha gia' ricevuto
+  lasciando la comunicazione ancora dovuta: cioe' il doppio invio che tutto
+  questo evita. Cosi' invece l'avanzamento sopravvive un giro di troppo e
+  viene scartato da se', perche' l'occorrenza non combacia piu'.
+- **L'avanzamento e' legato all'ISTANTE dell'occorrenza.** Una ricorrente
+  rispedisce ogni mese con lo stesso identificativo: senza il campo `quando`,
+  l'invio di settembre salterebbe tutti quelli serviti ad agosto.
+- **"Servito" vuol dire tentato**, riuscito o no: un indirizzo che rifiuta
+  (casella inesistente o piena) non si ritenta a ogni giro per sempre, e il
+  motivo finisce nello storico della comunicazione, dove si legge dall'area
+  riservata.
+- **Ma finche' non parte nemmeno una mail non si segna nessuno.** Se a
+  rifiutare e' il *server* (irraggiungibile, credenziali scadute) falliscono
+  tutti allo stesso modo: segnarli vorrebbe dire non riprovare mai piu' e
+  chiudere la comunicazione con "0 destinatari". Al primo invio riuscito si sa
+  che il canale c'e', e da li' un fallimento e' dell'indirizzo.
+- **Un lucchetto** (6 minuti, piu' della durata della funzione) impedisce che
+  due giri lavorino la stessa comunicazione. Con il solo cron non
+  capiterebbe; basterebbe un'esecuzione lanciata a mano dalla dashboard mentre
+  il cron gira.
+- Il **BCC** (nessuna variabile nel testo) resta una sola transazione SMTP: non
+  c'e' un "a meta'" da riprendere. Si registra subito dopo, e se non e' partito
+  niente non si segna nessuno.
+
+Tutto questo e' verificato da `prove/cron-comunicazioni.prove.js`, che si
+lancia con `node prove/cron-comunicazioni.prove.js` e non richiede di
+installare niente: Firestore, il server di posta e l'orologio sono finti e
+stanno nel file. Esce con codice 1 se qualcosa e' rosso. Se un domani si tocca
+`inviaUna()` o l'ordine fra `applicaPatch` e `AV.chiudi`, e' li' che ci si
+accorge di aver rotto qualcosa.
+
+Di indirizzi, li' dentro, non ce ne sono: di ogni servito si tiene solo
+l'**impronta** (`improntaEmail`, la stessa della newsletter e dell'area
+riservata). In chiaro compaiono solo i falliti, perche' devono finire nello
+storico leggibile, e il documento si cancella appena l'invio si conclude.
+
+**Il primo giro resta quello delle 06:00 UTC**, la mattina presto in Italia, e
+non e' un dettaglio: chi programma sceglie un **giorno** e l'area riservata lo
+fissa a **mezzanotte**, quindi un cron che girasse anche di notte manderebbe
+posta di lavoro alle 00:30. I giri dalle 07:00 alle 18:00 servono a finire gli
+invii lunghi e a riprovare quelli andati storti, non ad anticipare. Per chi
+programma non cambia niente: la comunicazione parte al primo mattino utile **a
+partire dalla** data scelta, che e' quello che l'area riservata promette.
 
 ### La newsletter: `NEWSLETTER_PASSO_CRON`
 
@@ -425,13 +471,25 @@ Hobby il tetto era **60 secondi**; sul Pro si arriva a 300.
 | `api/invia-comunicazione.js` | *(predefinito, ~10 s)* | **120** | stesso invio in fila, avviato a mano dall'area riservata |
 
 **Le altre sono rimaste a 60 apposta.** `api/programma-newsletter.js` e
-`api/presenze.js` hanno un budget interno legato a quel numero
-(`BUDGET_MS` in `lib/giro-newsletter.js` e `lib/lettore-pec.js`) e un lucchetto
-che deve durare **piu'** della funzione. Sono numeri che si muovono in tre, e i
-commenti nel codice lo dicono: alzarne uno solo fa perdere l'ultimo lotto o
-lascia entrare due giri insieme. Alzarli non serviva, perche' a fare il lavoro
-adesso e' la **frequenza**: quindici minuti per volta, novantasei volte al
-giorno, invece di un solo giro lungo.
+`api/presenze.js` hanno un budget interno legato a quel numero (`BUDGET_MS` in
+`lib/giro-newsletter.js` e `lib/lettore-pec.js`) e un lucchetto che deve durare
+**piu'** della funzione. Alzarli non serviva, perche' a fare il lavoro adesso
+e' la **frequenza**: quindici minuti per volta, novantasei volte al giorno,
+invece di un solo giro lungo.
+
+> **Tre numeri che si muovono insieme, in tutti e tre i lavori programmati.**
+>
+> | Funzione | `maxDuration` | budget interno | lucchetto |
+> |---|---|---|---|
+> | `cron-comunicazioni` | 300 | 240 s | 6 min |
+> | `programma-newsletter` | 60 | 45 s (`giro-newsletter`) | 6 min |
+> | `presenze` (lettore PEC) | 60 | 40 s (`lettore-pec`) | 3 min |
+>
+> Il budget sta **dentro** il `maxDuration`, con margine per scrivere prima di
+> essere interrotti; il lucchetto dura **piu'** del `maxDuration`, o un secondo
+> giro entrerebbe mentre il primo sta ancora spedendo. Alzarne uno solo fa
+> perdere l'ultimo lotto oppure lascia entrare due giri insieme: si toccano
+> tutti e tre o nessuno.
 
 ## Nuova iscrizione dal sito (`/api/iscrizione-nuova`)
 

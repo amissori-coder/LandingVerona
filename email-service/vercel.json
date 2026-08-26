@@ -1,6 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron-comunicazioni", "schedule": "0 6 * * *" },
+    { "path": "/api/cron-comunicazioni", "schedule": "0 6-18 * * *" },
     { "path": "/api/programma-newsletter", "schedule": "*/15 * * * *" },
     { "path": "/api/presenze", "schedule": "*/15 * * * *" }
   ],

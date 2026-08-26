@@ -1,10 +1,24 @@
 /* ============================================================
    Cron: invio delle comunicazioni programmate (Area riservata)
    ------------------------------------------------------------
-   Vercel richiama questo endpoint una volta al giorno (vedi vercel.json).
-   Legge le comunicazioni in archivio/comunicazioni, invia quelle in stato
-   "programmata" la cui data di invio e' arrivata, e aggiorna la programmazione
-   (unica -> inviata; ricorrente -> sposta al periodo successivo).
+   Vercel richiama questo endpoint ogni ora dalle 06:00 alle 18:00 UTC (vedi
+   vercel.json). Legge le comunicazioni in archivio/comunicazioni, invia quelle
+   in stato "programmata" la cui data di invio e' arrivata, e aggiorna la
+   programmazione (unica -> inviata; ricorrente -> sposta al periodo successivo).
+
+   PERCHE' PIU' GIRI AL GIORNO NON RISPEDISCONO. Un invio personalizzato manda
+   una mail per destinatario, in fila: puo' durare minuti. Prima l'avanzamento
+   si registrava solo ALLA FINE, quindi una funzione che moriva a meta' non
+   lasciava traccia e il giro dopo ricominciava da capo, per tutti. Ora si
+   scrive DURANTE (lib/comunicazioni-avanzamento.js): chi ha gia' ricevuto e'
+   segnato, e la ripresa lo salta. E' la stessa strada del giro delle
+   newsletter, che scrive dopo ogni lotto.
+
+   Il primo giro resta quello delle 06:00 UTC, cioe' la mattina presto in
+   Italia: chi programma sceglie un GIORNO e l'area riservata lo fissa a
+   mezzanotte, quindi un cron che girasse anche di notte manderebbe posta di
+   lavoro alle 00:30. I giri successivi servono a finire gli invii lunghi e a
+   riprovare quelli andati storti, non ad anticipare.
 
    Protezione: solo Vercel puo' chiamarlo, tramite l'header Authorization con
    il segreto CRON_SECRET (da impostare nelle variabili d'ambiente Vercel).
@@ -16,6 +30,21 @@ const nodemailer = require('nodemailer');
 // Impaginazione e firma delle mail: un posto solo, cosi' quello che parte da qui
 // e quello che parte dagli invii programmati e' identico (lib/mail-layout.js)
 const { avvolgi, senzaTrattiniLunghi } = require('../lib/mail-layout');
+// a che punto era arrivato l'invio: e' quello che rende ripetibile questo giro
+const AV = require('../lib/comunicazioni-avanzamento');
+
+/* I numeri si muovono insieme, come in lib/giro-newsletter.js e
+   lib/lettore-pec.js. BUDGET_MS sta DENTRO il maxDuration dichiarato in
+   vercel.json (300 s) con un minuto di margine per scrivere lo storico prima
+   di essere interrotti; LUCCHETTO_MS deve durare PIU' della funzione, o un
+   secondo giro entrerebbe mentre il primo sta ancora spedendo. */
+const BUDGET_MS = 240 * 1000;
+const LUCCHETTO_MS = 6 * 60 * 1000;
+/* Ogni quanti destinatari si scrive l'avanzamento. E' il compromesso fra le
+   scritture su Firestore e quanto si rispedisce nel caso peggiore: con 20, una
+   funzione uccisa nell'istante sbagliato fa al massimo venti doppioni invece
+   di cinquecento. */
+const PASSO_SALVATAGGIO = 20;
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -185,14 +214,24 @@ function risolviDestinatariCron(com, persone, utenti, incarichi) {
     return Object.keys(byEmail).map(k => byEmail[k]);
 }
 
-async function inviaUna(trans, com, destinatari) {
-    const seen = {}, dd = [];
+/* avanz = { serviti: Set di impronte, scadenza: istante oltre il quale non si
+   comincia una mail nuova, segna: (impronte, delta) => Promise }. */
+async function inviaUna(trans, com, destinatari, avanz) {
+    const seen = {}, tutti = [];
     (destinatari || []).forEach(d => {
         const k = String((d && d.email) || '').trim().toLowerCase();
         if (!reEmail.test(k) || seen[k]) return;
-        seen[k] = 1; dd.push(Object.assign({}, d, { email: k }));
+        seen[k] = 1; tutti.push(Object.assign({}, d, { email: k }));
     });
-    if (!dd.length) throw new Error('nessun destinatario valido');
+    if (!tutti.length) throw new Error('nessun destinatario valido');
+
+    /* Chi ha gia' ricevuto esce QUI, prima di qualunque ramo: vale per
+       l'invio personalizzato come per il BCC. Se non resta nessuno, l'invio
+       era gia' finito e si era interrotta solo la registrazione: si risponde
+       "fatto, zero mail nuove" e il chiamante puo' finalmente far avanzare la
+       programmazione invece di rispedire a tutti. */
+    const dd = tutti.filter(d => !avanz.serviti.has(AV.impronta(d.email)));
+    if (!dd.length) return { inviati: 0, falliti: [], restanti: false };
     const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
     const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.');
     const from = '"' + fromName + '" <' + fromEmail + '>';
@@ -212,19 +251,51 @@ async function inviaUna(trans, com, destinatari) {
 
     // testo/oggetto con variabili -> una mail personalizzata per destinatario; altrimenti BCC
     if (haVariabili(oggBase) || haVariabili(testoBase)) {
-        let inviati = 0; const falliti = [];
+        let inviati = 0, tentati = 0, restanti = false;
+        const falliti = [];
+        let impronte = [], delta = { inviati: 0, falliti: [] };
+        /* Finche' non e' partita NEMMENO UNA mail non si segna niente, e non
+           e' pignoleria. Se a rifiutare e' il server - irraggiungibile,
+           credenziali scadute, quota finita - falliscono tutti allo stesso
+           modo: segnarli come serviti vorrebbe dire non riprovare mai piu' e
+           chiudere la comunicazione con "0 destinatari". Al primo invio
+           riuscito invece si sa che il server c'e', e da quel momento un
+           fallimento e' dell'indirizzo, non del canale. */
+        const scarica = async () => {
+            if (!inviati || !impronte.length) return;
+            await avanz.segna(impronte, delta);
+            impronte = []; delta = { inviati: 0, falliti: [] };
+        };
         for (const d of dd) {
+            /* Il tempo si guarda PRIMA di spedire, mai dopo: una mail partita
+               e non ancora registrata e' esattamente il caso che tutto questo
+               serve a evitare. */
+            if (Date.now() > avanz.scadenza) { restanti = true; break; }
             const ogg = applicaVariabili(oggBase, d).trim() || '(senza oggetto)';
             const txt = sostBody(testoBase, d);
-            try { await trans.sendMail({ from: from, replyTo: replyTo, to: d.email, subject: ogg, text: corpoText(txt), html: corpoHtml(txt) }); inviati++; }
+            tentati++;
+            try {
+                await trans.sendMail({ from: from, replyTo: replyTo, to: d.email, subject: ogg, text: corpoText(txt), html: corpoHtml(txt) });
+                inviati++; delta.inviati++;
+            }
             catch (e) {
                 const motivo = String((e && e.message) || 'errore sconosciuto').slice(0, 200);
                 console.error('Invio programmato personalizzato a', d.email, 'non riuscito:', motivo);
                 falliti.push({ email: d.email, motivo: motivo });
+                delta.falliti.push({ email: d.email, motivo: motivo });
             }
+            /* Servito vuol dire TENTATO, riuscito o no. Un indirizzo che ha
+               dato errore non si ritenta al giro dopo: se l'errore e' stabile
+               (casella inesistente, casella piena) si riproverebbe a ogni
+               giro per sempre, e il motivo e' comunque finito nello storico
+               della comunicazione, dove qualcuno lo puo' leggere. */
+            impronte.push(AV.impronta(d.email));
+            if (impronte.length >= PASSO_SALVATAGGIO) await scarica();
         }
-        if (!inviati) throw new Error('nessuna mail inviata');
-        return { inviati: inviati, falliti: falliti };
+        await scarica();
+        // tutto quello che si e' provato e' fallito: e' un guasto, non un invio
+        if (tentati && !inviati && !restanti) throw new Error('nessuna mail inviata');
+        return { inviati: inviati, falliti: falliti, restanti: restanti };
     }
     const emails = dd.map(d => d.email);
     const setEmails = new Set(emails);
@@ -241,8 +312,15 @@ async function inviaUna(trans, com, destinatari) {
         falliti = emails.map(em => ({ email: em, motivo: motivo }));
     }
     const inviati = emails.length - falliti.length;
+    // niente e' partito: si esce come guasto, e senza segnare nessuno come
+    // servito, cosi' il giro dopo puo' riprovare davvero
     if (!inviati) throw new Error('nessuna mail inviata');
-    return { inviati: inviati, falliti: falliti };
+    /* Il BCC e' UNA transazione SMTP sola: non esiste un "a meta'" da
+       riprendere, o e' partita o no. Si registra subito, cosi' un guasto fra
+       qui e lo storico non fa ripartire l'intero lotto. I rifiutati vanno
+       segnati con gli altri, per la stessa ragione del ramo qui sopra. */
+    await avanz.segna(emails.map(e => AV.impronta(e)), { inviati: inviati, falliti: falliti });
+    return { inviati: inviati, falliti: falliti, restanti: false };
 }
 
 // Applica una patch a UNA sola comunicazione, fondendo per CAMPO sul record piu
@@ -277,9 +355,14 @@ module.exports = async (req, res) => {
     const auth = req.headers['authorization'] || '';
     if (!segreto || auth !== 'Bearer ' + segreto) { res.status(401).json({ ok: false, msg: 'Non autorizzato' }); return; }
 
+    const inizio = Date.now();
+    const scadenza = inizio + BUDGET_MS;
+    const giro = 'run-' + inizio.toString(36);
+
     try {
         initAdmin();
-        const rif = admin.firestore().collection('archivio').doc('comunicazioni');
+        const db = admin.firestore();
+        const rif = db.collection('archivio').doc('comunicazioni');
         const snap = await rif.get();
         let lista = [];
         if (snap.exists && typeof snap.data().json === 'string') {
@@ -308,8 +391,11 @@ module.exports = async (req, res) => {
         } catch (_) { incarichi = []; }
 
         const trans = trasporto();
-        let inviate = 0;
+        let inviate = 0, sospese = 0;
         for (const com of dovute) {
+            /* Tempo finito: si smette in ordine invece di essere interrotti a
+               meta'. Quel che resta lo prende il giro dopo, fra un'ora. */
+            if (Date.now() > scadenza) { sospese++; continue; }
             try {
                 const p = com.programmazione;
                 // programmazione scaduta (oltre la data di fine): disattiva senza inviare
@@ -333,24 +419,61 @@ module.exports = async (req, res) => {
                     await applicaPatch(rif, com.id, { prog: avanza() });
                     continue;
                 }
-                const esito = await inviaUna(trans, com, destinatari);
-                const n = esito.inviati;
-                inviate++;
-                const voce = { il: ora, n: n, da: 'programmato' };
-                if (esito.falliti && esito.falliti.length) { voce.falliti = esito.falliti.length; voce.dettaglioFalliti = esito.falliti.slice(0, 100); }
-                const inviata = { da: 'programmato', il: ora, n: n };
-                if (esito.falliti && esito.falliti.length) { inviata.falliti = esito.falliti.length; inviata.dettaglioFalliti = esito.falliti.slice(0, 100); }
-                const patch = (next == null)
-                    ? { stato: 'inviata', prog: { attiva: false }, inviata: inviata, voce } // unica: completata
-                    : { prog: avanza(), voce };
-                // Persistenza incrementale: registra subito l'avanzamento, cosi un
-                // timeout/crash successivo non re-invia le comunicazioni gia spedite.
-                await applicaPatch(rif, com.id, patch);
+                /* Il lucchetto si prende solo ADESSO, non prima: fin qui non
+                   c'era niente da proteggere, e prenderlo per poi non spedire
+                   lascerebbe in giro un avanzamento vuoto. */
+                const preso = await AV.prendiLucchetto(db, com.id, giro, LUCCHETTO_MS);
+                if (!preso) { sospese++; continue; }
+                try {
+                    /* L'avanzamento e' legato all'ISTANTE dell'occorrenza: una
+                       ricorrente rispedisce ogni mese con lo stesso id, e senza
+                       questo l'invio di settembre salterebbe tutti quelli
+                       serviti ad agosto. */
+                    const stato = await AV.apri(db, com.id, p.prossimoInvio);
+                    const esito = await inviaUna(trans, com, destinatari, {
+                        serviti: stato.serviti,
+                        scadenza: scadenza,
+                        segna: (impronte, delta) => AV.segna(db, com.id, p.prossimoInvio, impronte, delta)
+                    });
+
+                    if (esito.restanti) {
+                        /* Tempo esaurito a meta' invio. NON si avanza la
+                           programmazione: la comunicazione resta dovuta, e il
+                           giro dopo riprende da qui saltando chi ha gia'
+                           ricevuto. Avanzare adesso vorrebbe dire lasciare a
+                           bocca asciutta la meta' non ancora servita. */
+                        sospese++;
+                        continue;
+                    }
+
+                    // i conti sono di TUTTA l'occorrenza, non del solo giro corrente
+                    const n = stato.inviati + esito.inviati;
+                    const falliti = stato.falliti.concat(esito.falliti || []);
+                    if (esito.inviati) inviate++;
+                    const voce = { il: ora, n: n, da: 'programmato' };
+                    if (falliti.length) { voce.falliti = falliti.length; voce.dettaglioFalliti = falliti.slice(0, 100); }
+                    const inviata = { da: 'programmato', il: ora, n: n };
+                    if (falliti.length) { inviata.falliti = falliti.length; inviata.dettaglioFalliti = falliti.slice(0, 100); }
+                    const patch = (next == null)
+                        ? { stato: 'inviata', prog: { attiva: false }, inviata: inviata, voce } // unica: completata
+                        : { prog: avanza(), voce };
+
+                    /* PRIMA lo storico, POI la pulizia dell'avanzamento. Nell'ordine
+                       inverso, un guasto in mezzo cancellerebbe la memoria di chi ha
+                       gia' ricevuto lasciando la comunicazione ancora dovuta: cioe'
+                       esattamente il doppio invio che tutto questo evita. Cosi'
+                       invece l'avanzamento sopravvive un giro di troppo, e al giro
+                       dopo lo scarta da se' perche' l'occorrenza non combacia piu'. */
+                    await applicaPatch(rif, com.id, patch);
+                    await AV.chiudi(db, com.id);
+                } finally {
+                    await AV.mollaLucchetto(db, com.id);
+                }
             } catch (e) {
                 console.error('Comunicazione programmata non inviata (' + (com.id || '?') + '):', e && e.message);
             }
         }
-        res.status(200).json({ ok: true, inviate });
+        res.status(200).json({ ok: true, inviate: inviate, sospese: sospese });
     } catch (e) {
         console.error('Cron comunicazioni: errore', e);
         res.status(500).json({ ok: false, msg: 'Errore interno' });
