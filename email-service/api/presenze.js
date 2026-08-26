@@ -36,8 +36,21 @@ const nodemailer = require('nodemailer');
 const NL = require('../lib/newsletter');
 /* Le aziende da invitare a un evento vivono in lib/, non in un endpoint
    loro: il piano Hobby di Vercel ammette 12 funzioni per rilascio e in api/
-   ce n'erano gia' 12. Le richieste con sezione: 'aziende' si deviano li'. */
-const INVITI = require('../lib/aziende-invito');
+   ce n'erano gia' 12. Le richieste con sezione: 'aziende' si deviano li'.
+
+   Il modulo si carica SOLO quando arriva una di quelle richieste, non
+   all'avvio. Caricarlo sempre aveva un costo che non si vedeva da qui: si
+   tira dietro il lettore IMAP e, con lui, imapflow -> pino -> thread-stream.
+   Se una di quelle librerie non parte sulla macchina che ospita il servizio,
+   a morire non e' la sezione aziende: e' TUTTO questo file, prima ancora di
+   scrivere le intestazioni CORS. Il browser vede una risposta senza
+   permessi, non un errore, e riporta soltanto "Servizio non raggiungibile".
+   Presenze, note e cancellazioni non c'entrano nulla e non devono cadere per
+   una libreria di posta che magari non verra' nemmeno usata. */
+function moduloInviti() { return require('../lib/aziende-invito'); }
+/* La stessa domanda che fa aziende-invito.gestisce(), scritta qui perche'
+   chiedere "e' roba tua?" non deve costare il caricamento del modulo. */
+function sezioneAziende(body) { return !!(body && String(body.sezione || '') === 'aziende'); }
 // i nove argomenti degli incontri B2B: servono a validare gli orari per tavolo
 // che arrivano con l'invito (le etichette sconosciute si scartano)
 const { TEMI_B2B } = require('../lib/temi-b2b');
@@ -213,7 +226,7 @@ module.exports = async (req, res) => {
     if (segretoLettore && autorizzazione === 'Bearer ' + segretoLettore) {
         try {
             initAdmin(leggiServiceAccount());
-            const r = await INVITI.giroLettore(admin.firestore(), 'scheduler');
+            const r = await moduloInviti().giroLettore(admin.firestore(), 'scheduler');
             res.status(200).json({ ok: !!r.ok, esito: r.esito, msg: r.msg || '', restanti: !!r.restanti, ultimoGiro: r.ultimoGiro || null });
         } catch (e) {
             console.error('Lettore PEC (scheduler):', String((e && e.message) || e).slice(0, 200));
@@ -265,7 +278,17 @@ module.exports = async (req, res) => {
            azioni si somigliano (aggiungi, modifica e cancella stanno da
            entrambe le parti) e perche' quelle richieste non hanno un iscritto
            da indicare, che invece piu' sotto e' obbligatorio. */
-        if (INVITI.gestisce(body)) {
+        if (sezioneAziende(body)) {
+            let INVITI;
+            try { INVITI = moduloInviti(); }
+            catch (e) {
+                /* Un modulo che non si carica va detto, non subito in silenzio:
+                   qui le intestazioni CORS ci sono gia', quindi l'area riservata
+                   legge il motivo invece di vedere il servizio sparito. */
+                console.error('Sezione aziende non caricata:', String((e && e.message) || e).slice(0, 300));
+                res.status(500).json({ ok: false, msg: 'Sezione aziende non disponibile sul servizio: ' + String((e && e.message) || e).slice(0, 160) });
+                return;
+            }
             const r = await INVITI.esegui({ db: db, body: body, email: email, ruolo: ruolo, eAdmin: eAdmin });
             res.status(r.stato).json(r.corpo);
             return;

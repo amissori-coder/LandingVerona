@@ -37,7 +37,18 @@
    resta il messaggio nella casella PEC, non la riga sullo schermo.
    ============================================================ */
 
-const { ImapFlow } = require('imapflow');
+/* imapflow si carica alla prima connessione, non all'avvio del file.
+   Si porta dietro pino e thread-stream, e thread-stream chiede Node 20 o
+   piu': se la macchina che ospita il servizio non ce la fa, con un require
+   in cima moriva l'intero endpoint che ci passa attraverso, prima di
+   qualunque risposta. Cosi' invece cade solo la lettura della casella, e lo
+   dice. Elenco, importazione e invio degli inviti non usano IMAP e non
+   devono dipendere da lui. */
+let _ImapFlow = null;
+function ImapFlowClasse() {
+    if (!_ImapFlow) _ImapFlow = require('imapflow').ImapFlow;
+    return _ImapFlow;
+}
 const D = require('./daticert');
 
 const s = v => String(v == null ? '' : v).trim();
@@ -363,7 +374,7 @@ async function giro(db, opz) {
     }
 
     const c = configurazione();
-    const client = new ImapFlow({
+    const client = new (ImapFlowClasse())({
         host: c.host, port: c.porta, secure: true,
         auth: { user: c.utente, pass: c.password },
         logger: false, emitLogs: false,
@@ -634,7 +645,7 @@ async function leggiMessaggio(db, opz) {
     const uid = Number(opz.uid) || 0;
     if (!uid) return { ok: false, msg: 'Messaggio non indicato.' };
     const c = configurazione();
-    const client = new ImapFlow({
+    const client = new (ImapFlowClasse())({
         host: c.host, port: c.porta, secure: true,
         auth: { user: c.utente, pass: c.password },
         logger: false, emitLogs: false,

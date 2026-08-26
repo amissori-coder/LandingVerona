@@ -144,6 +144,23 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 > l'azione a un endpoint gia' esistente, come si fa qui e per il giro della
 > newsletter.
 
+> **Il modulo si carica solo quando serve, e non e' un dettaglio.**
+> `api/presenze.js` chiede `require('../lib/aziende-invito')` **dentro** il
+> ramo che gestisce `sezione: "aziende"`, e `lib/lettore-pec.js` carica
+> `imapflow` solo quando apre davvero la casella. Con i `require` in cima
+> succedeva questo: `imapflow` si tira dietro `pino` e `thread-stream`
+> (quest'ultimo dichiara `node >= 20`), e se una di quelle librerie non parte
+> sul runtime non muore la sezione aziende, muore **tutto** `presenze.js` —
+> prima di scrivere le intestazioni CORS. Il browser non riceve una risposta
+> con i permessi, quindi `fetch` **solleva** invece di tornare un errore, e
+> l'area riservata puo' solo dire *"Servizio non raggiungibile"*: nessun
+> codice, nessun messaggio, e presenze e cancellazioni giu' insieme a una
+> libreria di posta che magari non si usa nemmeno. La distribuzione, intanto,
+> risultava riuscita: il guasto era all'invocazione, non alla compilazione.
+> Per lo stesso motivo `package.json` fissa `engines.node` a `22.x`, cosi'
+> il runtime soddisfa quel `node >= 20` invece di dipendere dal valore
+> predefinito del progetto Vercel.
+
 ### Ricevute PEC: consegne, errori e risposte
 
 Dopo un invio PEC il gestore risponde nella casella del mittente (accettazione,
