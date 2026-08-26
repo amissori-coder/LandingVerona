@@ -1548,8 +1548,14 @@
            azioni, come le presenze. Chi puo' fare cosa lo decide il
            servizio, non queste righe. */
         async aziendeInvito(corpo) {
-            let url = window.RV_AZIENDE_INVITO_URL;
-            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'aziende-invito$1');
+            /* Stesso indirizzo delle presenze, non uno suo. Il piano Hobby di
+               Vercel ammette 12 funzioni per rilascio e in api/ ce n'erano
+               gia' 12: la tredicesima faceva fallire la distribuzione. La
+               sezione distingue le richieste, perche' i nomi delle azioni si
+               somigliano (aggiungi, modifica, cancella stanno da entrambe le
+               parti). */
+            let url = window.RV_PRESENZE_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'presenze$1');
             if (!url) return { ok: false, msg: 'Servizio non configurato.' };
             if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
             let idToken;
@@ -1558,7 +1564,7 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken, ...corpo })
+                    body: JSON.stringify({ idToken, sezione: 'aziende', ...corpo })
                 });
                 const data = await r.json().catch(() => ({}));
                 if (!r.ok || !data.ok) return { ...data, ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };

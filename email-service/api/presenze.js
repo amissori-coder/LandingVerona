@@ -34,6 +34,10 @@ const nodemailer = require('nodemailer');
 // firma e indirizzo del collegamento "completa i dati" (lib condivisa con la
 // newsletter: stesso segreto della disiscrizione, contesto diverso)
 const NL = require('../lib/newsletter');
+/* Le aziende da invitare a un evento vivono in lib/, non in un endpoint
+   loro: il piano Hobby di Vercel ammette 12 funzioni per rilascio e in api/
+   ce n'erano gia' 12. Le richieste con sezione: 'aziende' si deviano li'. */
+const INVITI = require('../lib/aziende-invito');
 // i nove argomenti degli incontri B2B: servono a validare gli orari per tavolo
 // che arrivano con l'invito (le etichette sconosciute si scartano)
 const { TEMI_B2B } = require('../lib/temi-b2b');
@@ -194,9 +198,29 @@ function troppiInvii(chi) {
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
+
+    /* Deviazione per uno scheduler che controlla da solo la casella PEC.
+       Segreto DEDICATO, non il CRON_SECRET degli altri lavori: quello fa
+       partire newsletter e comunicazioni, e cio' che si consegna a un
+       servizio esterno deve poter fare una cosa sola. Sta qui in cima
+       perche' gli scheduler chiamano in GET, e piu' sotto un GET verrebbe
+       respinto. */
+    const segretoLettore = String(process.env.PEC_CRON_SECRET || '');
+    const autorizzazione = String((req.headers || {})['authorization'] || '');
+    if (segretoLettore && autorizzazione === 'Bearer ' + segretoLettore) {
+        try {
+            initAdmin(leggiServiceAccount());
+            const r = await INVITI.giroLettore(admin.firestore(), 'scheduler');
+            res.status(200).json({ ok: !!r.ok, esito: r.esito, msg: r.msg || '', restanti: !!r.restanti, ultimoGiro: r.ultimoGiro || null });
+        } catch (e) {
+            console.error('Lettore PEC (scheduler):', String((e && e.message) || e).slice(0, 200));
+            res.status(500).json({ ok: false, msg: 'Controllo non riuscito.' });
+        }
+        return;
+    }
     if (req.method !== 'POST') { res.status(405).json({ ok: false, msg: 'Metodo non consentito' }); return; }
 
     try {
@@ -235,6 +259,17 @@ module.exports = async (req, res) => {
         }
 
         if (troppiInvii(email)) { res.status(429).json({ ok: false, msg: 'Troppe modifiche ravvicinate: attendi qualche istante.' }); return; }
+
+        /* Aziende da invitare: stessa sezione, stessi permessi, altro archivio.
+           Si devia PRIMA dello smistamento qui sotto perche' i nomi delle
+           azioni si somigliano (aggiungi, modifica e cancella stanno da
+           entrambe le parti) e perche' quelle richieste non hanno un iscritto
+           da indicare, che invece piu' sotto e' obbligatorio. */
+        if (INVITI.gestisce(body)) {
+            const r = await INVITI.esegui({ db: db, body: body, email: email, ruolo: ruolo, eAdmin: eAdmin });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
 
         const evento = testo(body.evento, 80);
         const azione = String(body.azione || 'imposta');

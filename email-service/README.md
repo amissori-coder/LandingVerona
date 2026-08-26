@@ -133,6 +133,17 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 > qui: l'area riservata registra la presa in carico da parte del gestore e
 > l'eventuale rifiuto, non la consegna finale.
 
+> **Dove sta il codice degli inviti.** Non in un endpoint suo:
+> `lib/aziende-invito.js`, con `api/presenze.js` che gli devia le richieste
+> che portano `sezione: "aziende"`. Il motivo e' il tetto di **12 funzioni
+> serverless per rilascio** del piano Hobby, che qui e' gia' raggiunto: la
+> tredicesima fa fallire la distribuzione con *"No more than 12 Serverless
+> Functions can be added to a Deployment on the Hobby plan"*. Le librerie in
+> `lib/` non contano, quindi tutto il lavoro sta li'. Se un domani serve
+> aggiungere una funzione in `api/`, o si passa al piano Pro o si aggancia
+> l'azione a un endpoint gia' esistente, come si fa qui e per il giro della
+> newsletter.
+
 ### Ricevute PEC: consegne, errori e risposte
 
 Dopo un invio PEC il gestore risponde nella casella del mittente (accettazione,
@@ -171,7 +182,7 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 > girano una volta al giorno**, che per una PEC e' poco: se serve piu' spesso,
 > o si passa al piano Pro, oppure si fa chiamare l'endpoint da uno scheduler
 > esterno (basta un workflow GitHub Actions) in **GET** su
-> `/api/aziende-invito` con l'intestazione `Authorization: Bearer <PEC_CRON_SECRET>`.
+> `/api/presenze` con l'intestazione `Authorization: Bearer <PEC_CRON_SECRET>`.
 > Il segreto e' **dedicato**, diverso da `CRON_SECRET`: quello fa partire
 > newsletter e comunicazioni, e cio' che si consegna a un servizio esterno deve
 > poter fare una cosa sola.
