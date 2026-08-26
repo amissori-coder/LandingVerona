@@ -13345,6 +13345,31 @@
         return n > 0 ? Math.min(99, n) : 1;
     }
 
+    /* La colonna della data porta data E ora ("25/08/2026 11:38"). Su una riga
+       sola sarebbe la colonna piu' larga della tabella per un dato secondario,
+       quindi l'ora va sotto, piu' piccola e piu' chiara: si legge lo stesso e la
+       colonna resta stretta. Lo spazio prima dello <span> resta nel testo della
+       cella, cosi' la ricerca e l'esportazione in CSV continuano a vedere
+       "25/08/2026 11:38" come prima. */
+    /* La firma "Chi, quando" della colonna "Aggiornato da": il quando va sotto,
+       piu' piccolo e piu' chiaro, e resta intero. Una data spezzata a meta'
+       ("21/08/202" sopra e "6" sotto) non si legge. Virgola e spazio restano nel
+       testo della cella, quindi ricerca ed esportazione in CSV non cambiano. */
+    function firmaDueRighe(testo) {
+        const t = String(testo || '').trim();
+        const i = t.lastIndexOf(', ');
+        if (i < 0) return esc(t);
+        return esc(t.slice(0, i)) + ', <span class="ev-quando">' + esc(t.slice(i + 2)) + '</span>';
+    }
+
+    function cellaDataOra(valore) {
+        const t = String(valore || '').trim();
+        const i = t.indexOf(' ');
+        if (i < 0) return '<td data-label="Data">' + esc(t) + '</td>';
+        return '<td data-label="Data"><span class="ev-giorno">' + esc(t.slice(0, i)) + '</span>'
+            + ' <span class="ev-ora">' + esc(t.slice(i + 1).trim()) + '</span></td>';
+    }
+
     /* Un indirizzo email non si spezza a meta' di una parola: se proprio non entra
        nella sua colonna, va a capo DOPO la chiocciola, dove si legge ancora bene
        ("mario.rossi@" sopra, "azienda.it" sotto). Il <wbr> e' solo un punto in cui
@@ -13393,7 +13418,7 @@
             return '<tr>'
                 + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
                     + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
-                + '<td data-label="Data">' + esc(r.data) + '</td>'
+                + cellaDataOra(r.data)
                 + '<td class="cliente-cella" data-label="Nome">' + esc((r.nome + ' ' + r.cognome).trim()) + '</td>'
                 /* Sotto la ragione sociale, se c'e', da dove viene questa persona:
                    spostarla d'azienda e' una decisione di chi organizza, non un
@@ -13425,7 +13450,7 @@
                    per ultima la firma di chi ha inserito la scheda a mano. Tutte
                    hanno la forma di una presenza, quindi si scrivono uguali. */
                 + (ev.tutti ? '' : cellaStato + cellaNota
-                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + esc(firmaPresenza(p)
+                    + '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(firmaPresenza(p)
                         || (r.compilato && r.compilato.daNome ? firmaPresenza({ daNome: r.compilato.daNome + ' (dal modulo)', quando: r.compilato.quando }) : '')
                         || firmaPresenza(r.inserito) || '-') + '</span></td>')
                 // Modifica e Cancella stanno in un menu a tre puntini: due pulsanti
@@ -13488,7 +13513,7 @@
             + (fisse ? '<col class="c-portale"><col class="c-part"><col class="c-b2b"><col class="c-pref">' : '')
             + (ev.tutti ? '<col>' : '')
             + extra.map(() => '<col>').join('')
-            + (ev.tutti ? '' : '<col class="c-stato"><col><col>')
+            + (ev.tutti ? '' : '<col class="c-stato"><col><col class="c-agg">')
             + (azioniEv ? '<col class="c-azioni">' : '')
             + '</colgroup>'
             + '<thead><tr>'
@@ -13617,7 +13642,9 @@
         const aggiornaFirma = (elemento, id) => {
             const riga = elemento.closest('tr');
             const f = riga ? riga.querySelector('.ev-firma') : null;
-            if (f) f.textContent = firmaPresenza(EventiPresenze.di(ev.id, id)) || '-';
+            // innerHTML e non textContent: la firma e' su due righe (nome sopra,
+            // quando sotto), e firmaDueRighe fa gia' l'escape di quello che scrive
+            if (f) f.innerHTML = firmaDueRighe(firmaPresenza(EventiPresenze.di(ev.id, id)) || '-');
         };
         $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
             const id = s.dataset.id;

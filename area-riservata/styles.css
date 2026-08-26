@@ -1533,19 +1533,32 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    separate da spazi, che vanno a capo senza danno. */
 .ev-wrap col.c-sel { width: 26px; }
 .ev-wrap col.c-data { width: 78px; }
-.ev-wrap col.c-email { width: 196px; }
-.ev-wrap col.c-tel { width: 120px; }
-.ev-wrap col.c-portale { width: 70px; }
+.ev-wrap col.c-email { width: 214px; }
+.ev-wrap col.c-tel { width: 116px; }
+.ev-wrap col.c-portale { width: 72px; }
 .ev-wrap col.c-part { width: 90px; }
-.ev-wrap col.c-ruolo { width: 124px; }
-.ev-wrap col.c-b2b, .ev-wrap col.c-pref { width: 142px; }
+.ev-wrap col.c-ruolo { width: 108px; }
+.ev-wrap col.c-b2b, .ev-wrap col.c-pref { width: 156px; }
 .ev-wrap col.c-stato { width: 84px; }
-.ev-wrap col.c-azioni { width: 44px; }
-/* !important perche' la regola generale delle tabelle (table.dati td) impone
-   white-space: normal !important per la vista a schede del telefono */
-.ev-wrap table.dati td[data-label="Data"],
-.ev-wrap table.dati td[data-label="Portale"],
-.ev-wrap table.dati td[data-label="Partecipanti"] { white-space: nowrap !important; }
+.ev-wrap col.c-agg { width: 118px; }
+.ev-wrap col.c-azioni { width: 42px; }
+/* Niente white-space: nowrap in questa tabella. Con le larghezze decise in
+   anticipo, un contenuto che non puo' andare a capo e non entra non si stringe:
+   ESCE dalla cella e finisce SOPRA la colonna accanto - ed e' cosi' che la data
+   con l'ora ("25/08/2026 11:38") si sovrapponeva al nome. Senza nowrap il caso
+   peggiore e' un a capo: brutto, ma leggibile e mai sovrapposto.
+   L'ora sta su una riga sua, piu' piccola e piu' chiara (la divide app.js). */
+/* Giorno, ora e "quando" della firma non si spezzano MAI: una data tagliata a
+   meta' ("21/08/202" sopra, "6" sotto) non si legge. Le colonne qui sotto sono
+   dimensionate sulla misura vera di questi testi, con un margine sopra. */
+.ev-wrap table.dati .ev-giorno,
+.ev-wrap table.dati .ev-ora,
+.ev-wrap table.dati .ev-quando { white-space: nowrap; }
+.ev-wrap table.dati .ev-ora,
+.ev-wrap table.dati .ev-quando { display: block; color: var(--grigio-600); font-size: 0.94em; line-height: 1.25; }
+/* .ev-firma ha una misura assoluta (0.82rem) pensata per il resto dell'area:
+   qui dentro sarebbe piu' GRANDE del testo della tabella. Segue il corpo riga. */
+.ev-wrap table.dati .ev-firma { font-size: 1em; line-height: 1.3; }
 /* La tendina dello stato e la casella della nota prendono la loro colonna e
    basta: lasciate alla misura di sistema erano larghe il doppio del necessario
    e rubavano spazio alle colonne di testo. */
@@ -1554,6 +1567,10 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 /* le voci separate da " - " (tavoli B2B, preferenze) vanno a capo fra una voce
    e l'altra prima che dentro una voce */
 .ev-wrap .ev-b2b-si, .ev-wrap .ev-b2b-pref, .ev-wrap .ev-tag { overflow-wrap: break-word; }
+/* Il pulsante dei tre puntini alla sua misura di partenza (34px piu' i margini)
+   era piu' largo della colonna piu' stretta, e sbordava sulla colonna prima. */
+.ev-wrap .ev-menu-btn { min-width: 22px; padding: 1px 4px; }
+.ev-wrap td.ev-azioni { padding-left: 2px; padding-right: 2px; }
 /* Meno spazio a disposizione: cala il corpo del testo, e con esso la larghezza
    che serve alle colonne di misura nota - cosi' ne resta di piu' per le colonne
    di parole. Le soglie sono due volte, perche' lo spazio utile dipende anche dal
@@ -1563,63 +1580,110 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 @media (max-width: 1783px) {
     .app-shell:not(.menu-ridotto) .ev-wrap table.dati { font-size: 0.68rem; }
     .app-shell:not(.menu-ridotto) .ev-wrap col.c-sel { width: 24px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-data { width: 74px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-email { width: 180px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-tel { width: 110px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-portale { width: 64px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-part { width: 84px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-ruolo { width: 114px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-data { width: 76px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-email { width: 200px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-tel { width: 112px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-portale { width: 70px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-part { width: 90px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-ruolo { width: 102px; }
     .app-shell:not(.menu-ridotto) .ev-wrap col.c-b2b,
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-pref { width: 130px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-stato { width: 78px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-pref { width: 150px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-stato { width: 80px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-agg { width: 112px; }
     .app-shell:not(.menu-ridotto) .ev-wrap col.c-azioni { width: 40px; }
 }
 @media (max-width: 1603px) {
     .menu-ridotto .ev-wrap table.dati { font-size: 0.68rem; }
     .menu-ridotto .ev-wrap col.c-sel { width: 24px; }
-    .menu-ridotto .ev-wrap col.c-data { width: 74px; }
-    .menu-ridotto .ev-wrap col.c-email { width: 180px; }
-    .menu-ridotto .ev-wrap col.c-tel { width: 110px; }
-    .menu-ridotto .ev-wrap col.c-portale { width: 64px; }
-    .menu-ridotto .ev-wrap col.c-part { width: 84px; }
-    .menu-ridotto .ev-wrap col.c-ruolo { width: 114px; }
+    .menu-ridotto .ev-wrap col.c-data { width: 76px; }
+    .menu-ridotto .ev-wrap col.c-email { width: 200px; }
+    .menu-ridotto .ev-wrap col.c-tel { width: 112px; }
+    .menu-ridotto .ev-wrap col.c-portale { width: 70px; }
+    .menu-ridotto .ev-wrap col.c-part { width: 90px; }
+    .menu-ridotto .ev-wrap col.c-ruolo { width: 102px; }
     .menu-ridotto .ev-wrap col.c-b2b,
-    .menu-ridotto .ev-wrap col.c-pref { width: 130px; }
-    .menu-ridotto .ev-wrap col.c-stato { width: 78px; }
+    .menu-ridotto .ev-wrap col.c-pref { width: 150px; }
+    .menu-ridotto .ev-wrap col.c-stato { width: 80px; }
+    .menu-ridotto .ev-wrap col.c-agg { width: 112px; }
     .menu-ridotto .ev-wrap col.c-azioni { width: 40px; }
 }
 @media (max-width: 1695px) {
     .app-shell:not(.menu-ridotto) .ev-wrap table.dati { font-size: 0.65rem; }
     .app-shell:not(.menu-ridotto) .ev-wrap table.dati th,
     .app-shell:not(.menu-ridotto) .ev-wrap table.dati td { padding: 4px 4px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-sel { width: 20px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-data { width: 62px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-email { width: 138px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-tel { width: 84px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-portale { width: 52px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-part { width: 64px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-ruolo { width: 88px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-sel { width: 22px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-data { width: 70px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-email { width: 150px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-tel { width: 104px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-portale { width: 66px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-part { width: 88px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-ruolo { width: 92px; }
     .app-shell:not(.menu-ridotto) .ev-wrap col.c-b2b,
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-pref { width: 92px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-stato { width: 66px; }
-    .app-shell:not(.menu-ridotto) .ev-wrap col.c-azioni { width: 34px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-pref { width: 142px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-stato { width: 72px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-agg { width: 104px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-azioni { width: 38px; }
 }
 @media (max-width: 1515px) {
     .menu-ridotto .ev-wrap table.dati { font-size: 0.65rem; }
     .menu-ridotto .ev-wrap table.dati th,
     .menu-ridotto .ev-wrap table.dati td { padding: 4px 4px; }
-    .menu-ridotto .ev-wrap col.c-sel { width: 20px; }
-    .menu-ridotto .ev-wrap col.c-data { width: 62px; }
-    .menu-ridotto .ev-wrap col.c-email { width: 138px; }
-    .menu-ridotto .ev-wrap col.c-tel { width: 84px; }
+    .menu-ridotto .ev-wrap col.c-sel { width: 22px; }
+    .menu-ridotto .ev-wrap col.c-data { width: 70px; }
+    .menu-ridotto .ev-wrap col.c-email { width: 150px; }
+    .menu-ridotto .ev-wrap col.c-tel { width: 104px; }
+    .menu-ridotto .ev-wrap col.c-portale { width: 66px; }
+    .menu-ridotto .ev-wrap col.c-part { width: 88px; }
+    .menu-ridotto .ev-wrap col.c-ruolo { width: 92px; }
+    .menu-ridotto .ev-wrap col.c-b2b,
+    .menu-ridotto .ev-wrap col.c-pref { width: 142px; }
+    .menu-ridotto .ev-wrap col.c-stato { width: 72px; }
+    .menu-ridotto .ev-wrap col.c-agg { width: 104px; }
+    .menu-ridotto .ev-wrap col.c-azioni { width: 38px; }
+}
+
+/* Quarta fascia: finestra stretta e menu aperto. Qui lo spazio non basta piu'
+   nemmeno alle colonne di misura nota, e senza questo blocco le colonne di testo
+   (nome, azienda, nota) si riducevano a zero e il contenuto usciva dalla cella.
+   Le misure scendono al minimo: date e intestazioni restano intere, l'indirizzo
+   email va a capo dopo la chiocciola e il telefono dopo il prefisso.
+   Sotto i 1000px di finestra subentra la vista a schede (in fondo al foglio) e
+   il problema non si pone piu'. */
+@media (max-width: 1437px) {
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati { font-size: 0.62rem; }
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati th { font-size: 0.55rem; padding: 4px 4px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati td { padding: 3px 4px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-sel { width: 18px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-data { width: 68px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-email { width: 86px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-tel { width: 68px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-portale { width: 52px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-part { width: 64px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-ruolo { width: 64px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-b2b,
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-pref { width: 84px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-stato { width: 56px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-agg { width: 88px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-azioni { width: 30px; }
+}
+@media (max-width: 1257px) {
+    .menu-ridotto .ev-wrap table.dati { font-size: 0.62rem; }
+    .menu-ridotto .ev-wrap table.dati th { font-size: 0.55rem; padding: 4px 4px; }
+    .menu-ridotto .ev-wrap table.dati td { padding: 3px 4px; }
+    .menu-ridotto .ev-wrap col.c-sel { width: 18px; }
+    .menu-ridotto .ev-wrap col.c-data { width: 68px; }
+    .menu-ridotto .ev-wrap col.c-email { width: 86px; }
+    .menu-ridotto .ev-wrap col.c-tel { width: 68px; }
     .menu-ridotto .ev-wrap col.c-portale { width: 52px; }
     .menu-ridotto .ev-wrap col.c-part { width: 64px; }
-    .menu-ridotto .ev-wrap col.c-ruolo { width: 88px; }
+    .menu-ridotto .ev-wrap col.c-ruolo { width: 64px; }
     .menu-ridotto .ev-wrap col.c-b2b,
-    .menu-ridotto .ev-wrap col.c-pref { width: 92px; }
-    .menu-ridotto .ev-wrap col.c-stato { width: 66px; }
-    .menu-ridotto .ev-wrap col.c-azioni { width: 34px; }
+    .menu-ridotto .ev-wrap col.c-pref { width: 84px; }
+    .menu-ridotto .ev-wrap col.c-stato { width: 56px; }
+    .menu-ridotto .ev-wrap col.c-agg { width: 88px; }
+    .menu-ridotto .ev-wrap col.c-azioni { width: 30px; }
 }
+
 /* scelta dell'evento: un riquadro per evento, si apre uno alla volta */
 .ev-schede { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .ev-scheda { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; padding: 9px 16px; border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff; cursor: pointer; text-align: left; font-family: inherit; }
@@ -1975,13 +2039,18 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
     .rb-foglio .kpi-griglia { grid-template-columns: repeat(4, 1fr); }
 }
 
-/* Sotto i 1000px le tabelle larghe non possono comprimersi oltre senza scorrere in
+/* Sotto i 1200px le tabelle larghe non possono comprimersi oltre senza scorrere in
    orizzontale o spezzare i contenuti: ogni riga di OGNI tabella diventa una scheda
    impilata e leggibile. Le celle senza data-label mostrano solo il valore.
+   La soglia era 1000px: fra i 1000 e i 1200, con la barra del menu aperta, restano
+   circa 800px utili e una tabella da quindici colonne (gli iscritti a un evento)
+   non ci sta - le colonne di testo si riducevano a zero e il contenuto usciva
+   dalla cella, finendo sopra la colonna accanto. A quelle larghezze le schede si
+   leggono meglio di una griglia schiacciata, per questa e per le altre tabelle.
    "screen and": un foglio A4 e largo circa 794px, quindi senza questo vincolo la
    regola varrebbe anche in stampa e, stando dopo @media print, gli toglierebbe
    l'intestazione ripetuta della tabella. Su carta serve la tabella vera. */
-@media screen and (max-width: 1000px) {
+@media screen and (max-width: 1200px) {
     table.dati,
     table.dati thead,
     table.dati tbody,
