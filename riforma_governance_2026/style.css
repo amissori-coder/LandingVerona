@@ -575,47 +575,6 @@
 }
 
 /* ============================================
-   6-bis. RIMANDI IN LINEA FUORI DAL CORPO DEL TESTO
-   Il foglio comune veste i collegamenti dentro
-   .detail-block e .highlight-box, ma non quelli che
-   cadono in un passo del percorso, in una risposta
-   delle FAQ o in una voce dei riferimenti: li' un
-   collegamento resta del colore del testo e senza
-   sottolineatura, cioe' invisibile. Si estende la
-   stessa veste ai tre contesti, cosi' un rimando si
-   riconosce ovunque compaia.
-   ============================================ */
-.content-page .processo-step-content p a,
-.content-page .faq-answer-inner a,
-.content-page .ref-list a {
-    color: #164068;
-    font-weight: 600;
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-decoration-color: rgba(22, 64, 104, 0.32);
-    text-underline-offset: 3px;
-    border-radius: 3px;
-    padding: 0 2px;
-    margin: 0 -2px;
-    transition: var(--transition);
-}
-
-.content-page .processo-step-content p a:hover,
-.content-page .faq-answer-inner a:hover,
-.content-page .ref-list a:hover {
-    color: #0f2f4f;
-    text-decoration-color: #164068;
-    background: rgba(22, 64, 104, 0.09);
-}
-
-.content-page .processo-step-content p a:focus-visible,
-.content-page .faq-answer-inner a:focus-visible,
-.content-page .ref-list a:focus-visible {
-    outline: 2px solid #164068;
-    outline-offset: 2px;
-}
-
-/* ============================================
    7. RESPONSIVE
    ============================================ */
 @media (max-width: 1024px) {
@@ -751,20 +710,6 @@
     .rischio,
     .nodo {
         padding: 22px 22px 20px;
-    }
-
-    /* Le schede delle competenze tengono l'icona in una colonna a
-       sinistra: su telefono al testo resta una striscia di poco piu'
-       di duecento pixel, dove la giustificazione apre voragini fra
-       le parole e il titolo si spezza in tre righe. L'icona passa
-       sopra e la colonna torna piena. */
-    .content-page .benefit-item {
-        flex-direction: column;
-        gap: 14px;
-    }
-
-    .content-page .benefit-item p {
-        text-align: left;
     }
 
     .riparto-col {
