@@ -15244,10 +15244,18 @@
             + 'style="border-collapse:collapse;margin:0 auto;"><tr>'
             + '<td align="center" style="padding:9px 18px;background:#F4F8FB;border:1px solid #C9DDEC;'
             + 'border-radius:6px;text-align:center;">'
-            + '<div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#475569;'
-            + 'padding-bottom:3px;">Codice riservato</div>'
-            + '<div style="font-family:Consolas,Menlo,monospace;font-size:19px;line-height:1.25;'
-            + 'font-weight:700;letter-spacing:0.14em;text-indent:0.14em;color:#0A2844;">' + dentro + '</div>'
+            /* text-align su OGNI div, non solo sulla cella.
+               L'involucro della mail ha una regola ".rv-corpo div{text-align:
+               justify}", e una regola batte sempre l'allineamento ereditato
+               dal genitore: i due div finivano giustificati, che su una riga
+               sola vuol dire allineati a sinistra. Il riquadro era centrato,
+               il codice dentro no, e da fuori sembrava storto il riquadro.
+               Lo stile in riga vince sulla regola, ed e' l'unico modo. */
+            + '<div style="text-align:center;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;'
+            + 'color:#475569;padding-bottom:3px;">Codice riservato</div>'
+            + '<div style="text-align:center;font-family:Consolas,Menlo,monospace;font-size:19px;'
+            + 'line-height:1.25;font-weight:700;letter-spacing:0.14em;text-indent:0.07em;color:#0A2844;">'
+            + dentro + '</div>'
             + '</td></tr></table>');
     }
     function invPulsante(url, etichetta) {
