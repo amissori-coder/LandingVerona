@@ -900,11 +900,18 @@
         const sCosa = sezioneCosa(nl.cosa);
         const conSezioni = !!(sPerche || sCome || sCosa.lastra);
         /* Lo stacco superiore appartiene alla sezione che segue, e c'e' solo se
-           qualcosa la precede: cosi' una sezione vuota non lascia il suo buco. */
+           qualcosa la precede: cosi' una sezione vuota non lascia il suo buco.
+           Ma lo stacco e' bianco, e serve solo a staccare un campo di colore da
+           una colonna di testo su bianco: fra il pannello tenue del "come" e la
+           lastra blu del "che cosa" diventerebbe una striscia bianca in mezzo a
+           due colori, cioe' un buco. Li' i due campi si toccano: il cambio di
+           colore stacca gia', e le imbottiture interne (32px sotto il pannello,
+           34px sopra la lastra) tengono il respiro. E' la stessa regola con cui
+           la testata e la fascia si toccano senza spazio in mezzo. */
         const sezioni = conSezioni
             ? sPerche
             + (sCome ? (sPerche ? spazio(34) : '') + sCome : '')
-            + (sCosa.lastra ? ((sPerche || sCome) ? spazio(28) : '') + sCosa.lastra : '')
+            + (sCosa.lastra ? (!sCome && sPerche ? spazio(28) : '') + sCosa.lastra : '')
             + sCosa.coda
             : '';
         const blocchi = sezioni
@@ -1574,9 +1581,17 @@
            una pagina web non e' scritta in quest'ordine, e chi rivede la bozza
            dovra' quasi sempre riscrivere il "perche'", che e' la parte che una
            pagina istituzionale di solito non ha. */
+        /* Il titolo del momento e' quello della PRIMA sezione che ci finisce dentro,
+           anche quando ne confluiscono piu' d'una: prima si teneva solo se era una
+           sola, e siccome il "come" raccoglie quasi sempre tutte quelle di mezzo,
+           il secondo momento arrivava sistematicamente senza titolo. Restava la
+           testatina "02 COME" sospesa sopra un grassetto, e il momento centrale
+           era l'unico dei tre a non dire di che cosa parla.
+           Le sezioni successive alla prima restano dei sopratitoli in grassetto
+           dentro il corpo: sono passaggi del discorso, non titoli del momento. */
         const unisci = (elenco) => ({
-            titolo: elenco.length === 1 ? elenco[0].titolo : '',
-            html: elenco.map(b => (elenco.length > 1 && b.titolo ? '<p><strong>' + esc(b.titolo) + '</strong></p>' : '') + b.html).join('')
+            titolo: elenco.length ? elenco[0].titolo : '',
+            html: elenco.map((b, i) => (i && b.titolo ? '<p><strong>' + esc(b.titolo) + '</strong></p>' : '') + b.html).join('')
         });
         const vuota = { titolo: '', testo: '' };
         let perche = vuota, come = vuota, cosa = vuota;
