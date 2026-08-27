@@ -18179,21 +18179,33 @@
            puo' anche restare chiuso. */
         let _progStato = null;      // cosa dice il servizio di questa newsletter
 
-        function frasePartenza(giorno, passo) {
-            const d = new Date(giorno + 'T12:00:00');
-            const quando = isNaN(d.getTime()) ? giorno
-                : d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
-            /* Con il lavoro programmato ogni quarto d'ora l'invio non aspetta
-               piu' il mattino dopo: parte nel giorno scelto. L'ORA e'
-               mezzogiorno perche' e' li' che la mette chi programma qui sotto
-               (T12:00, per non farsi spostare il giorno dal fuso), non perche'
-               l'abbia scelta qualcuno: finche' sopra c'e' un campo "giorno" e
-               basta, questa frase deve dire mezzogiorno e non "l'orario
-               scelto". Se un domani si aggiunge il campo dell'ora, e' questa
-               riga a doverlo seguire. */
-            return passo === '15min'
-                ? 'Parte a mezzogiorno di ' + quando + ', entro un quarto d\'ora.'
-                : 'Parte nella prima mattina di ' + quando + '. Conta il giorno, non l\'ora.';
+        /* Ogni quanto passa il lavoro programmato sul server: "15min" quando
+           il cron gira ogni quarto d'ora, "giornaliero" quando passa una volta
+           sola la mattina presto. Lo dice il SERVIZIO, non questa pagina: far
+           scegliere un orario che il cron non puo' rispettare sarebbe peggio
+           che non offrirlo affatto. Finche' la risposta non e' arrivata vale
+           "giornaliero", cioe' il comportamento prudente. */
+        function passoCron() { return (_progStato && _progStato.passo) || 'giornaliero'; }
+
+        /* Accetta "2026-09-03" e "2026-09-03 15:30". Il primo e' quello che
+           scrivevano le programmazioni prima che ci fosse il campo dell'ora, e
+           resta nelle newsletter gia' in coda: va continuato a leggere, o dopo
+           il rilascio quelle diventerebbero illeggibili. Senza ora si intende
+           mezzogiorno, che e' l'istante che la programmazione usava sempre. */
+        function frasePartenza(quandoTesto, passo) {
+            const t = String(quandoTesto || '').trim();
+            const pezzi = t.split(/[ T]/);
+            const giorno = pezzi[0] || '';
+            let ora = /^\d{1,2}:\d{2}$/.test(pezzi[1] || '') ? pezzi[1] : '';
+            if (ora && ora.length === 4) ora = '0' + ora;   // "9:30" -> "09:30", o la Date non la legge
+            const d = new Date(giorno + 'T' + (ora || '12:00') + ':00');
+            const valida = !isNaN(d.getTime());
+            const quando = valida ? d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }) : t;
+            if (passo !== '15min') return 'Parte nella prima mattina di ' + quando + '. Conta il giorno, non l\'ora.';
+            // se la data non si legge non si inventa un'ora che non si sa
+            return valida
+                ? 'Parte ' + quando + ' alle ' + (ora || '12:00') + ', entro un quarto d\'ora.'
+                : 'Parte ' + quando + ', entro un quarto d\'ora.';
         }
 
         $('nl-programma').addEventListener('click', () => {
@@ -18209,11 +18221,25 @@
             if (!r.destinatari.length) { mostraEsitoNL(perchePochi(r), false); return; }
             const fuori = r.saltati.filter(x => x.motivo === 'disiscritto').length;
 
-            const domani = new Date(Date.now() + 24 * 3600 * 1000);
+            /* L'ora si sceglie solo se il cron passa ogni quarto d'ora. Con
+               quello giornaliero il campo sarebbe una promessa che il server
+               non puo' mantenere: li' si sceglie il giorno e basta, come
+               prima. */
+            const quindici = passoCron() === '15min';
             const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            /* Con il cron ogni quarto d'ora si puo' programmare anche per OGGI,
+               perche' il primo giro utile arriva entro quindici minuti. Con
+               quello giornaliero no: il giro della mattina e' gia' passato, e
+               offrire oggi vorrebbe dire far partire l'invio domani. */
+            const primoGiorno = quindici ? new Date() : new Date(Date.now() + 24 * 3600 * 1000);
             const campo = '<div class="campo" style="max-width:230px;margin:2px 0 10px;">'
                 + '<label for="nlk-data">Giorno dell\'invio</label>'
-                + '<input type="date" id="nlk-data" value="' + iso(domani) + '" min="' + iso(domani) + '"></div>'
+                + '<input type="date" id="nlk-data" value="' + iso(primoGiorno) + '" min="' + iso(primoGiorno) + '"></div>'
+                + (quindici
+                    ? '<div class="campo" style="max-width:140px;margin:2px 0 10px;">'
+                        + '<label for="nlk-ora">Ora</label>'
+                        + '<input type="time" id="nlk-ora" value="12:00"></div>'
+                    : '')
                 + '<div class="hint" id="nlk-quando" style="margin:-4px 0 8px;"></div>';
 
             confermaInLinea('Programmare l\'invio?',
@@ -18225,35 +18251,51 @@
                 (btn, avanz) => {
                     const g = ($('nlk-data') || {}).value || '';
                     if (!g) { avanz.textContent = 'Scegli un giorno.'; return; }
-                    // mezzogiorno: cosi' il fuso non sposta il giorno scelto
-                    const quando = new Date(g + 'T12:00:00').getTime();
-                    if (!quando || quando < Date.now()) { avanz.textContent = 'Scegli un giorno futuro.'; return; }
+                    /* Senza il campo dell'ora resta mezzogiorno, com'era prima:
+                       serve a non farsi spostare il giorno scelto dal fuso. */
+                    const ora = quindici ? (($('nlk-ora') || {}).value || '12:00') : '12:00';
+                    const quando = new Date(g + 'T' + ora + ':00').getTime();
+                    if (!quando || isNaN(quando)) { avanz.textContent = 'Giorno od ora non validi.'; return; }
+                    /* Un minuto di margine, lo stesso che pretende il servizio:
+                       controllarlo solo di la' vorrebbe dire far compilare
+                       tutto per poi farsi rifiutare. */
+                    if (quando < Date.now() + 60000) {
+                        avanz.textContent = quindici
+                            ? 'Scegli un momento almeno un minuto nel futuro.'
+                            : 'Scegli un giorno futuro.';
+                        return;
+                    }
+                    // quello che si mostra e si registra: con l'ora se c'e'
+                    const quandoTesto = quindici ? (g + ' ' + ora) : g;
                     const mail = RV_NEWSLETTER.costruisci(rec);
                     conAttesa(btn, async () => {
                         const res = await Cloud.programmaNewsletter({
                             campagna: rec.id, invio: 'inv-' + uid(),
-                            quando: quando, quandoTesto: g,
+                            quando: quando, quandoTesto: quandoTesto,
                             oggetto: rec.oggetto, html: mail.html, testo: mail.testo,
                             destinatari: r.destinatari
                         });
                         if (!res.ok) { avanz.textContent = res.msg || 'Programmazione non riuscita.'; return; }
                         chiudiConfermaInLinea();
                         rec.stato = 'programmata';
-                        rec.programmazione = { quando: quando, quandoTesto: g, previsti: res.previsti, da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+                        rec.programmazione = { quando: quando, quandoTesto: quandoTesto, previsti: res.previsti, da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
                         Newsletter.salvaUna(JSON.parse(JSON.stringify(rec)));
-                        try { Audit.registra(Auth.utenteCorrente, 'Newsletter programmata', 'sistema', rec.id, null, g + ' - ' + res.previsti + ' destinatari'); } catch (e) { }
-                        mostraEsitoNL('In coda: ' + res.previsti + ' destinatari. ' + frasePartenza(g, res.passo), true);
+                        try { Audit.registra(Auth.utenteCorrente, 'Newsletter programmata', 'sistema', rec.id, null, quandoTesto + ' - ' + res.previsti + ' destinatari'); } catch (e) { }
+                        mostraEsitoNL('In coda: ' + res.previsti + ' destinatari. ' + frasePartenza(quandoTesto, res.passo), true);
                         caricaStatoProgrammazione(rec);
                     }, { testo: 'Metto in coda...' });
                 }, campo);
 
-            // la frase di verita' si aggiorna mentre si cambia il giorno
+            // la frase di verita' si aggiorna mentre si cambiano giorno e ora
             const agg = () => {
-                const q = $('nlk-quando'), d = $('nlk-data');
-                if (q && d) q.textContent = frasePartenza(d.value, (_progStato && _progStato.passo) || 'giornaliero');
+                const q = $('nlk-quando'), d = $('nlk-data'), o = $('nlk-ora');
+                if (!q || !d) return;
+                q.textContent = frasePartenza(d.value + (o && o.value ? ' ' + o.value : ''), passoCron());
             };
-            const d = $('nlk-data');
-            if (d) { d.addEventListener('change', agg); agg(); }
+            const dCampo = $('nlk-data'), oCampo = $('nlk-ora');
+            if (dCampo) dCampo.addEventListener('change', agg);
+            if (oCampo) { oCampo.addEventListener('change', agg); oCampo.addEventListener('input', agg); }
+            if (dCampo) agg();
         });
 
         function caricaStatoProgrammazione(rec) {

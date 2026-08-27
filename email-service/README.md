@@ -444,22 +444,31 @@ l'area riservata continua a dire il falso** a chi programma un invio:
 |---|---|
 | `NEWSLETTER_PASSO_CRON` | `15min` |
 
-Senza (o con `giornaliero`, il valore predefinito) la schermata Newsletter
-annuncia *"Parte nella prima mattina di … Conta il giorno, non l'ora"*. Con
-`15min` annuncia *"Parte a mezzogiorno di …, entro un quarto d'ora"*, che con
-questo `vercel.json` e' la verita': chi programma sceglie **il giorno**, e
-l'area riservata fissa l'invio a **mezzogiorno** di quel giorno (`T12:00`, per
-non farsi spostare il giorno dal fuso orario).
+Questa variabile decide anche **cosa si vede** nella finestra di
+programmazione, non solo cosa annuncia:
+
+| `NEWSLETTER_PASSO_CRON` | La finestra chiede | Primo giorno scegliibile | La frase dice |
+|---|---|---|---|
+| assente o `giornaliero` | solo **Giorno dell'invio** | domani | *"Parte nella prima mattina di …, conta il giorno non l'ora"* |
+| `15min` | **Giorno** e **Ora** | **oggi** | *"Parte \<giorno\> alle \<ora\>, entro un quarto d'ora"* |
+
+L'ora si offre **solo** con il cron ogni quarto d'ora, e non e' pudore: con il
+cron giornaliero il campo sarebbe una promessa che il server non puo'
+mantenere. Per la stessa ragione con `15min` si puo' programmare anche per
+**oggi** - il primo giro utile arriva entro quindici minuti - mentre con quello
+giornaliero no, perche' il giro della mattina e' gia' passato e "oggi"
+vorrebbe dire domani.
+
+Senza ora scelta l'istante resta **mezzogiorno**, che e' quello che la
+programmazione usava da sempre (`T12:00`, per non farsi spostare il giorno dal
+fuso orario). Le newsletter programmate **prima** di questo cambiamento hanno
+un `quandoTesto` senza ora: `frasePartenza` legge tutte e due le forme apposta,
+altrimenti dopo il rilascio quelle diventerebbero illeggibili.
 
 > **Prima cambiava il giorno, non solo l'ora.** Con il cron delle 05:00 UTC una
 > newsletter fissata a mezzogiorno del giorno X non era ancora dovuta quando il
 > cron passava quella mattina, quindi partiva **il giorno dopo**. Ogni quarto
-> d'ora, parte nel giorno scelto.
-
-Se un domani si vuole far scegliere anche **l'ora**, il campo da aggiungere e'
-uno solo (accanto a "Giorno dell'invio", nella schermata Newsletter): il
-servizio accetta gia' un istante qualsiasi, e `frasePartenza` in
-`area-riservata/app.js` porta il commento con quello che va cambiato.
+> d'ora, parte quando deve.
 
 ### I tempi massimi delle funzioni
 
