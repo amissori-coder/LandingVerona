@@ -1753,7 +1753,15 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .inv-pallino.inv-pec-non-consegnata, .inv-pallino.inv-pec-non-accettata { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
 .inv-pallino.inv-pec-in-dubbio { border-color: var(--ambra); background: var(--ambra-bg); color: var(--ambra); }
 .inv-pallino.inv-pec-accettata { border-color: var(--blu-700); background: var(--blu-050); color: var(--blu-700); }
-.inv-risposto { margin-top: 3px; font-size: 0.75rem; font-weight: 700; color: var(--verde); }
+/* La colonna delle risposte. Una risposta e' una notizia, non uno stato:
+   ha un fondo suo e si vede da lontano scorrendo l'elenco. L'oggetto si legge
+   su due righe e poi si taglia, perche' e' un titolo, non il messaggio: il
+   messaggio si apre col pulsante. */
+.inv-risp { display: flex; flex-direction: column; gap: 1px; padding: 5px 7px; border-left: 3px solid var(--verde); border-radius: 3px; background: var(--verde-bg); }
+.inv-risp-quando { font-size: 0.76rem; font-weight: 700; color: var(--verde); }
+.inv-risp-ogg { font-size: 0.75rem; color: var(--grigio-900); line-height: 1.35; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.inv-risposto { align-self: flex-start; margin-top: 3px; padding: 1px 8px; border: 1px solid var(--verde); border-radius: 999px; background: #fff; font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--verde); cursor: pointer; }
+.inv-risposto:hover { background: var(--verde); color: #fff; }
 /* riquadro con l'ora dell'ultimo controllo della casella e il pulsante */
 .inv-lettore { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--grigio-200); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; line-height: 1.45; color: var(--grigio-600); }
 .inv-lettore.ko { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
@@ -2283,8 +2291,7 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .inv-iscritti { margin-top: 4px; font-size: 0.75rem; font-weight: 600; color: var(--verde); }
 
 /* Nella tabella degli iscritti: chi e' arrivato con il codice della sua
-   azienda. E' l'unico punto in cui si vede che la campagna ha prodotto una
-   presenza, quindi si nota. */
-.ev-selezionata { margin-top: 4px; display: inline-block; padding: 2px 8px; border: 1px solid var(--verde); border-radius: 999px; background: var(--verde-bg); color: var(--verde); font-size: 0.72rem; font-weight: 700; line-height: 1.5; }
-.ev-selezionata .ev-cod { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.08em; }
-.ev-selezionata .hint { margin: 1px 0 0; color: var(--verde); font-weight: 500; }
+   azienda. Sulla stessa riga del nome e con il solo codice dentro: da blocco
+   a parte rubava un rigo a ogni riga, sfalsando la tabella fra chi ce l'ha e
+   chi no. Il verde dice cosa e', il suggerimento dice il resto. */
+.ev-sel { display: inline-block; vertical-align: baseline; margin-left: 5px; padding: 0 6px; border: 1px solid var(--verde); border-radius: 3px; background: var(--verde-bg); color: var(--verde); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; cursor: help; }

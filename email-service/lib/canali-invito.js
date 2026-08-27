@@ -212,12 +212,30 @@ function applicaHtml(testo, a) {
    spam per i filtri. */
 function htmlInTesto(h) {
     return String(h || '')
+        /* I collegamenti tengono il proprio indirizzo. Togliendo i tag e
+           basta, un pulsante "Programma e registrazione" diventava quelle tre
+           parole e l'indirizzo spariva: chi legge la posta senza HTML si
+           trovava un invito che rimandava a una pagina di cui non era scritto
+           il nome da nessuna parte. Se l'etichetta E' gia' l'indirizzo non lo
+           si ripete due volte. */
+        .replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (t, url, dentro) => {
+            const et = String(dentro).replace(/<[^>]+>/g, '').trim();
+            if (!url || url.indexOf('mailto:') === 0) return et;
+            return (!et || et === url) ? url : et + ': ' + url;
+        })
         .replace(/<\s*br\s*\/?>/gi, '\n')
         .replace(/<\/(td|th)>/gi, '\t')
         .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
         .replace(/<li[^>]*>/gi, '- ')
         .replace(/<[^>]+>/g, '')
         .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+        /* Le celle di una tabella diventano tabulazioni, ed e' giusto quando le
+           celle sono tante; ma un riquadro o un pulsante sono una cella sola, e
+           quella tabulazione restava appesa a fine riga o su una riga tutta sua.
+           Spazi e tabulazioni in coda si tolgono, e le righe che restano fatte
+           di solo bianco spariscono. */
+        .replace(/[ \t]+$/gm, '')
+        .replace(/^[ \t]+$/gm, '')
         .replace(/\n{3,}/g, '\n\n').trim();
 }
 
