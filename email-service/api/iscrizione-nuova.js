@@ -43,6 +43,10 @@ const NL = require('../lib/newsletter');
 const MNGB = require('../lib/mail-ngb');
 // il foglio della prenotazione B2B, allegato alla mail di conferma
 const PDF = require('../lib/pdf-prenotazione');
+/* I codici riservati alle aziende invitate: nascono nella PEC di invito e
+   tornano qui scritti nel modulo. Sono il filo che lega l'elenco delle
+   aziende selezionate a quello degli iscritti. */
+const CODICI = require('../lib/codici-invito');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -867,6 +871,21 @@ module.exports = async (req, res) => {
             await interessiB2B(azione, body, res);
             return;
         }
+        /* Il modulo chiede se un codice e' buono PRIMA di spedire, cosi' chi
+           lo ha trascritto male se ne accorge subito invece di scoprirlo il
+           giorno dell'evento. Si risponde il minimo: se esiste e a che nome.
+           E' un endpoint aperto, quindi ogni campo in piu' sarebbe un campo
+           leggibile da chiunque provi codici a caso; il freno per indirizzo IP
+           qui sopra vale anche per questa azione, ed e' cio' che rende il
+           tentativo a tappeto impraticabile. */
+        if (azione === 'verifica-codice') {
+            const cred0 = leggiServiceAccount();
+            initAdmin(cred0);
+            const v = await CODICI.verifica(admin.firestore(), body.codice, testo(body.evento, 80), testo(body.pagina, 200));
+            if (!v.ok) { res.status(200).json({ ok: false, motivo: v.motivo }); return; }
+            res.status(200).json({ ok: true, codice: v.codice, azienda: v.ragioneSociale });
+            return;
+        }
         const email = testo(body.email, 200).toLowerCase();
         const nome = testo(body.nome, 120);
         const cognome = testo(body.cognome, 120);
@@ -878,6 +897,25 @@ module.exports = async (req, res) => {
 
         const cred = leggiServiceAccount();
         initAdmin(cred);
+
+        /* Il codice e' FACOLTATIVO: la pagina resta aperta a tutti e chi
+           arriva dal sito non ne ha uno. Ma se c'e' dev'essere buono, perche'
+           un codice inventato che passasse renderebbe "azienda selezionata"
+           un'etichetta senza significato. Sbagliato si rifiuta subito, con un
+           messaggio che dice cosa fare invece di un no secco. */
+        let invito = null;
+        const codiceScritto = String(body.codiceInvito || body.codice || '').trim();
+        if (codiceScritto) {
+            const v = await CODICI.verifica(admin.firestore(), codiceScritto, '', pagina);
+            if (!v.ok) {
+                res.status(400).json({
+                    ok: false, codiceKo: true,
+                    msg: 'Il codice indicato non risulta fra quelli inviati. Controlla di averlo copiato per intero dal messaggio che hai ricevuto, oppure lascia il campo vuoto e registrati senza.'
+                });
+                return;
+            }
+            invito = v;
+        }
 
         const data = testo(body.data, 40) || adesso();
         const scheda = {
@@ -894,6 +932,20 @@ module.exports = async (req, res) => {
             marketing: consenso(body.marketing),
             ricevuto: admin.firestore.FieldValue.serverTimestamp()
         };
+
+        /* Il ponte fra le due tabelle. Si scrive sulla scheda dell'iscritto, e
+           non solo sul codice, perche' l'elenco degli iscritti si legge da
+           solo: chi lo guarda deve vedere "azienda selezionata" senza che
+           l'area riservata debba andare a interrogare un'altra collezione per
+           ognuna delle righe. La ragione sociale e' quella dell'INVITO, non
+           quella digitata nel modulo: e' l'unica che combacia con l'elenco
+           delle aziende, ed e' tutto il punto di avere un codice. */
+        if (invito) {
+            scheda.invitoCodice = invito.codice;
+            scheda.invitoAzienda = invito.ragioneSociale;
+            scheda.invitoScheda = invito.scheda;
+            scheda.selezionata = true;
+        }
 
         /* Campi per il business matching, oggi mandati solo dal modulo di
            Napoli. Vengono aggiunti SOLO se arrivano davvero: tutti gli altri
@@ -912,6 +964,30 @@ module.exports = async (req, res) => {
             .doc(idDoc)
             .set(scheda, { merge: true });
         await segnaCambiamento(admin.firestore());
+
+        /* Il ritorno verso l'elenco delle aziende: la scheda dell'azienda
+           passa a "iscritta" e si tiene chi si e' registrato. Se qualcosa qui
+           non riesce l'iscrizione resta valida: e' informazione di servizio,
+           non una condizione. Il codice NON si consuma - un'azienda invitata
+           puo' mandare due persone, e la seconda non va respinta. */
+        if (invito) {
+            await CODICI.segnaUso(admin.firestore(), invito.codice, { email: email, iscrizione: idDoc });
+            if (invito.scheda) {
+                try {
+                    await admin.firestore().collection('aziendeInvito').doc(invito.scheda).set({
+                        stato: 'iscritta',
+                        iscritti: admin.firestore.FieldValue.arrayUnion({
+                            quando: Date.now(),
+                            nome: (nome + ' ' + cognome).trim().slice(0, 200),
+                            email: email,
+                            iscrizione: idDoc
+                        })
+                    }, { merge: true });
+                } catch (e) {
+                    console.error('Azienda invitata non aggiornata:', String((e && e.message) || e).slice(0, 200));
+                }
+            }
+        }
 
         /* Conferma automatica a chi si iscrive dai moduli degli EVENTI, con il
            collegamento personale per modificare o annullare l'iscrizione: la

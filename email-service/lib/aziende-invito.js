@@ -45,6 +45,7 @@ const admin = require('firebase-admin');
 const CANALI = require('./canali-invito');
 const NL = require('./newsletter');
 const LETTORE = require('./lettore-pec');
+const CODICI = require('./codici-invito');
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -176,6 +177,8 @@ function inChiaro(id, d) {
         citta: d.citta || '', provincia: d.provincia || '', telefono: d.telefono || '',
         settore: d.settore || '', note: d.note || '',
         stato: d.stato || 'da-invitare', extra: d.extra || {},
+        codice: d.codice || '',
+        iscritti: Array.isArray(d.iscritti) ? d.iscritti.slice(0, 20) : [],
         invio: d.invio || null, errore: d.errore || null, aggiunta: d.aggiunta || null,
         /* Gli esiti letti dalla casella PEC. Si espone il riepilogo, non la
            storia completa: alla tabella servono l'esito, quando e perche',
@@ -624,6 +627,31 @@ async function esegui(ctx) {
                    nostro e lo si annota PRIMA di spedire: se la funzione
                    morisse fra l'invio e la scrittura dell'esito, la ricevuta
                    arriverebbe comunque e troverebbe il filo gia' teso. */
+                /* Il codice riservato all'azienda, creato PRIMA di spedire e
+                   subito scritto in archivio. L'ordine conta: se partisse la
+                   mail e poi fallisse la scrittura, l'azienda avrebbe in mano
+                   un codice che qui non risulta, e al momento di registrarsi
+                   si sentirebbe dire di no. Una scheda gia' col suo codice lo
+                   tiene: un secondo invito deve ripetere lo stesso, altrimenti
+                   il primo smette di valere senza che nessuno lo sappia. */
+                let codice = String(a.codice || '');
+                if (!codice) {
+                    try {
+                        codice = await CODICI.assegna(db, {
+                            scheda: id, evento: evento, ragioneSociale: a.ragioneSociale,
+                            pagina: testo(body.pagina, 200)
+                        });
+                        await rif.set({ codice: codice }, { merge: true });
+                        a.codice = codice;
+                    } catch (e) {
+                        const motivo = 'Codice invito non assegnato: ' + String((e && e.message) || e).slice(0, 120);
+                        const errore = { quando: Date.now(), da: email, canale: canale, motivo: motivo };
+                        await rif.set({ stato: 'errore', errore: errore }, { merge: true });
+                        esiti[id] = { stato: 'errore', errore: errore };
+                        falliti.push({ id: id, indirizzo: dest, motivo: motivo });
+                        continue;
+                    }
+                }
                 const riferimento = CANALI.riferimentoNuovo(canale);
                 if (!primo) await CANALI.aspetta(pausa);
                 primo = false;
@@ -636,13 +664,14 @@ async function esegui(ctx) {
                     }));
                     const invio = {
                         quando: Date.now(), da: email, canale: canale, destinatario: dest,
+                        codice: codice,
                         riferimento: riferimento,
                         oggetto: CANALI.applica(oggetto, a).slice(0, 250),
                         messageId: String((info && info.messageId) || '').slice(0, 300),
                         risposta: String((info && info.response) || '').slice(0, 200)
                     };
                     await rif.set({ stato: 'inviata', invio: invio, errore: null }, { merge: true });
-                    esiti[id] = { stato: 'inviata', invio: invio };
+                    esiti[id] = { stato: 'inviata', invio: invio, codice: codice };
                     inviate++;
                 } catch (e) {
                     const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);

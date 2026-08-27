@@ -13372,7 +13372,23 @@
                    dato dell'iscritto, e chi legge la tabella deve poterlo sapere
                    senza aprire nulla. */
                 + (t => '<td data-label="Azienda">' + esc(r.azienda)
-                    + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '') + '</td>')
+                    + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
+                    /* Chi e' arrivato col codice riservato alla sua azienda. E'
+                       l'unico segno, in questa tabella, che la campagna PEC ha
+                       prodotto una presenza: senza, l'elenco degli iscritti e
+                       quello delle aziende invitate restano due mondi separati
+                       e nessuno sa quanto e' servito invitare. La ragione
+                       sociale mostrata e' quella dell'invito quando differisce
+                       da quella digitata: e' l'unica che combacia con l'altro
+                       elenco. */
+                    + (r.invito && r.invito.codice
+                        ? '<div class="ev-selezionata" title="Registrato con il codice riservato all\'azienda invitata">'
+                        + 'Azienda selezionata <span class="ev-cod">' + esc(r.invito.codice) + '</span>'
+                        + (r.invito.azienda && chiaveAzienda(r.invito.azienda) !== chiaveAzienda(r.azienda)
+                            ? '<div class="hint">invito intestato a ' + esc(r.invito.azienda) + '</div>' : '')
+                        + '</div>'
+                        : '')
+                    + '</td>')
                     ((r.extra || {})[COL_SPOSTATO] || '')
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 + '<td data-label="Email">' + esc(r.email) + '</td>'
@@ -15106,9 +15122,20 @@
             + istituzioni
             + (inv.contesto ? inv.contesto + '\n\n' : '')
             + 'La giornata è dedicata agli strumenti con cui l\'impresa affronta i prossimi anni: '
-            + 'assetti adeguati, merito creditizio, finanza agevolata, sostenibilità e intelligenza artificiale. '
-            + 'La partecipazione è gratuita e i posti sono limitati.\n\n'
-            + 'Il programma completo e il modulo di iscrizione sono su ' + pagina + '.\n\n'
+            + 'assetti adeguati, merito creditizio, finanza agevolata, sostenibilità e intelligenza artificiale.\n\n'
+            /* Il codice. Va detto per cosa serve e cosa succede se non lo si
+               usa, altrimenti resta cinque caratteri buttati in fondo a una
+               mail e nessuno lo trascrive. Il segnaposto {codice} lo sostituisce
+               il servizio, azienda per azienda, con quello riservato a lei. */
+            + 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
+            + '     {codice}\n\n'
+            + 'Il codice è nominativo, vale per la sola azienda a cui questo messaggio è indirizzato '
+            + 'e va indicato nel modulo di registrazione, nel campo dedicato: è quello che ci permette '
+            + 'di riconoscere le aziende selezionate e di tenere il posto riservato.\n\n'
+            + 'La partecipazione è gratuita e i posti sono limitati. Per riservare il posto Vi chiediamo '
+            + 'di registrarVi a stretto giro: le adesioni si raccolgono in ordine di arrivo e i posti '
+            + 'riservati alle aziende selezionate restano disponibili fino a esaurimento della sala.\n\n'
+            + 'Il programma completo e il modulo di registrazione sono su ' + pagina + '.\n\n'
             + 'Restiamo a disposizione per ogni informazione e cogliamo l\'occasione per porgere i nostri migliori saluti.';
     }
     function invOggettoPredefinito(ev) {
@@ -15256,7 +15283,8 @@
             else if (_invFiltro.pec && esitoPecDi(a) !== _invFiltro.pec) return false;
             if (!q) return true;
             return (a.ragioneSociale + ' ' + a.pec + ' ' + a.email + ' ' + a.citta + ' '
-                + a.provincia + ' ' + a.piva + ' ' + a.referente + ' ' + (a.settore || '')).toLowerCase().indexOf(q) >= 0;
+                + a.provincia + ' ' + a.piva + ' ' + a.referente + ' ' + (a.settore || '')
+                + ' ' + (a.codice || '')).toLowerCase().indexOf(q) >= 0;
         });
         /* L'ordine non e' un vezzo: su quattrocento righe, "chi e' andato
            storto" e "chi e' partito per ultimo" sono le due cose che si
@@ -15301,7 +15329,7 @@
             + voci.map(v => '<option value="' + esc(v[0]) + '"' + (scelto === v[0] ? ' selected' : '') + '>' + esc(v[1]) + '</option>').join('')
             + '</select>';
         const filtri = '<div class="inv-filtri">'
-            + '<input type="text" id="inv-cerca" placeholder="Cerca azienda, PEC, email, citta, provincia, P.IVA, referente o settore" value="' + esc(_invFiltro.testo) + '">'
+            + '<input type="text" id="inv-cerca" placeholder="Cerca azienda, codice, PEC, email, citta, provincia, P.IVA, referente o settore" value="' + esc(_invFiltro.testo) + '">'
             + opzioni('inv-fstato', 'Tutti gli stati', Object.keys(INV_STATI).map(s => [s, INV_STATI[s]]), _invFiltro.stato)
             + opzioni('inv-fcanale', 'Tutti i canali', [['pec', 'Invitate via PEC'], ['email', 'Invitate via email'], ['nessuno', 'Non ancora invitate']], _invFiltro.canale)
             + opzioni('inv-fpec', 'Tutte le ricevute', [['consegnata', 'PEC consegnata'], ['attesa', 'PEC in attesa'],
@@ -15342,7 +15370,13 @@
             return '<tr data-id="' + esc(a.id) + '"' + (st === 'errore' ? ' class="inv-riga-ko"' : '') + '>'
                 + '<td><input type="checkbox" class="inv-ck" value="' + esc(a.id) + '"' + (_invSel.has(a.id) ? ' checked' : '') + '></td>'
                 + '<td data-label="Azienda"><b class="inv-nome">' + esc(a.ragioneSociale) + '</b>'
-                + (sotto.length ? '<div class="hint inv-sotto">' + sotto.join(' &middot; ') + '</div>' : '') + '</td>'
+                + (sotto.length ? '<div class="hint inv-sotto">' + sotto.join(' &middot; ') + '</div>' : '')
+                /* Il codice riservato all'azienda. Sta qui accanto al nome e non
+                   in una colonna sua perche' e' il secondo modo di chiamare
+                   questa riga: chi arriva dal modulo di registrazione o da una
+                   telefonata ha in mano il codice, non la ragione sociale, e lo
+                   cerca dalla casella di ricerca. */
+                + (a.codice ? '<div class="inv-codice" title="Codice riservato a questa azienda">' + esc(a.codice) + '</div>' : '') + '</td>'
                 + '<td data-label="Recapiti">' + recapiti + '</td>'
                 + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(INV_STATI[st] || st) + '</span>'
                 + (quando ? '<div class="hint">' + esc(quando) + (via ? ' via ' + via : '') + '</div>' : '')
@@ -15350,7 +15384,14 @@
                    risposte dei server di posta mettono il codice in testa e la
                    ragione in coda, quindi tagliare a meta' butta via proprio la
                    parte che dice cosa fare. */
-                + (motivo ? '<div class="ev-ko hint inv-motivo" title="' + esc(motivo) + '">' + esc(motivo) + '</div>' : '') + '</td>'
+                + (motivo ? '<div class="ev-ko hint inv-motivo" title="' + esc(motivo) + '">' + esc(motivo) + '</div>' : '')
+                /* Il ritorno: chi si e' registrato usando il codice di questa
+                   azienda. E' l'unico punto in cui l'invito e l'iscrizione si
+                   vedono insieme, ed e' la domanda per cui la campagna esiste. */
+                + ((a.iscritti && a.iscritti.length)
+                    ? '<div class="inv-iscritti" title="' + esc(a.iscritti.map(i => i.nome + ' (' + i.email + ')').join(', ')) + '">'
+                    + 'Registrati: ' + esc(a.iscritti.map(i => i.nome || i.email).join(', ')) + '</div>'
+                    : '') + '</td>'
                 + '<td data-label="Ricevute PEC">' + cellaRicevute(a) + '</td>'
                 + '<td class="inv-azioni-riga">'
                 + '<button class="btn btn-sm btn-ghost inv-mod" data-id="' + esc(a.id) + '">Modifica</button>'
@@ -15527,16 +15568,17 @@
        quante ne sta portando via, cosi' nessuno crede di averle tutte. */
     function scaricaAziendeInvito(ev, lista) {
         const colonne = [
-            ['Ragione sociale', 32], ['PEC', 28], ['Email', 26], ['Partita IVA', 14], ['Referente', 20],
+            ['Ragione sociale', 32], ['Codice invito', 13], ['PEC', 28], ['Email', 26], ['Partita IVA', 14], ['Referente', 20],
             ['Citta', 16], ['Provincia', 9], ['Telefono', 15], ['Settore', 20],
             ['Stato', 14], ['Invitata il', 17], ['Canale', 9], ['Errore di invio', 40],
-            ['Esito PEC', 20], ['Accettata il', 17], ['Consegnata il', 17], ['Motivo del gestore', 40], ['Ha risposto il', 17]
+            ['Esito PEC', 20], ['Accettata il', 17], ['Consegnata il', 17], ['Motivo del gestore', 40], ['Ha risposto il', 17],
+            ['Registrati col codice', 40]
         ];
         const righe = (lista || aziendeInvitoDi(ev)).map(a => {
             const r = a.ricevute || {};
             const pec = a.invio && a.invio.canale === 'pec';
             return [
-                a.ragioneSociale, a.pec, a.email, a.piva, a.referente, a.citta, a.provincia, a.telefono, a.settore || '',
+                a.ragioneSociale, a.codice || '', a.pec, a.email, a.piva, a.referente, a.citta, a.provincia, a.telefono, a.settore || '',
                 INV_STATI[a.stato || 'da-invitare'] || a.stato,
                 a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '',
                 pec ? 'PEC' : (a.invio ? 'Email' : ''),
@@ -15545,7 +15587,8 @@
                 r.accettata && r.accettata.quando ? fmtDataOra(r.accettata.quando) : '',
                 r.consegnata && r.consegnata.quando ? fmtDataOra(r.consegnata.quando) : '',
                 r.problema && r.problema.motivo ? r.problema.motivo : '',
-                r.risposta && r.risposta.quando ? fmtDataOra(r.risposta.quando) : ''
+                r.risposta && r.risposta.quando ? fmtDataOra(r.risposta.quando) : '',
+                (a.iscritti || []).map(i => (i.nome || '') + ' <' + (i.email || '') + '>').join('; ')
             ].map(v => String(v == null ? '' : v));
         });
         const blob = xlsxCrea(colonne.map(c => c[0]), righe, colonne.map(c => c[1]));
@@ -16098,7 +16141,10 @@
             + '<textarea id="ii-testo" rows="14">' + esc(invTestoPredefinito(ev)) + '</textarea>'
             + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
             + 'Puoi scrivere <b>{ragione_sociale}</b>, <b>{referente}</b>, <b>{citta}</b>, <b>{provincia}</b>, <b>{piva}</b>: '
-            + 'ogni azienda riceve i propri dati al loro posto.</div></div>'
+            + 'ogni azienda riceve i propri dati al loro posto.<br>'
+            + '<b>{codice}</b> e diverso: e il codice di 5 caratteri riservato a quell\'azienda, che il servizio crea '
+            + 'al momento dell\'invio e che l\'azienda dovra scrivere nel modulo di registrazione. Toglilo dal testo e '
+            + 'nessuno sapra di averlo.</div></div>'
             /* La spunta del rinvio. Prima diceva solo "manda anche a chi ha gia
                ricevuto l'invito", che lascia aperta la domanda vera: e se NON
                la spunto, cosa succede a quelle aziende? Ora la risposta c'e',
@@ -16209,6 +16255,11 @@
                     try {
                         r = await Cloud.aziendeInvito({
                             azione: 'invia', evento: ev.id, canale: canale, forza: forza,
+                            /* Il nome della pagina di iscrizione viaggia col codice:
+                               e' l'unico modo che ha il modulo pubblico, che l'evento
+                               lo conosce solo per nome, di accorgersi che gli stanno
+                               presentando il codice di un altro evento. */
+                            pagina: ev.pagina || '',
                             ids: elencoInvio.slice(i, i + lotto).map(a => a.id),
                             mail: { oggetto: oggetto, html: html }
                         });

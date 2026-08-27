@@ -177,7 +177,11 @@ function esc(x) {
 /* Variabili scrivibili nell'oggetto e nel testo dell'invito. Il valore
    inserito e' LETTERALE: un "$" nella ragione sociale non e' un riferimento
    speciale (stessa attenzione di api/invia-comunicazione.js). */
-const VARIABILI = ['ragione_sociale', 'referente', 'citta', 'provincia', 'piva', 'pec'];
+/* Le variabili che chi scrive l'invito puo' mettere nel testo. "codice" e'
+   diversa dalle altre: le altre ripetono un dato che l'azienda gia' conosce,
+   questa porta un'informazione che nasce qui e che l'azienda dovra'
+   restituirci per registrarsi. */
+const VARIABILI = ['ragione_sociale', 'referente', 'citta', 'provincia', 'piva', 'pec', 'codice'];
 function valori(a) {
     a = a || {};
     return {
@@ -186,7 +190,8 @@ function valori(a) {
         citta: String(a.citta || ''),
         provincia: String(a.provincia || ''),
         piva: String(a.piva || ''),
-        pec: String(a.pec || '')
+        pec: String(a.pec || ''),
+        codice: String(a.codice || '')
     };
 }
 function applica(testo, a) {

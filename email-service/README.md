@@ -974,3 +974,49 @@ scartate e **contate a parte** (`senzaDenominazione`, `senzaRecapito`), perche'
 un elenco che entra a meta' senza spiegazioni e' peggio di uno che non entra.
 L'asterisco che nel modello segna le colonne obbligatorie viene ignorato in
 lettura: toglierlo o lasciarlo non cambia nulla.
+
+
+## Codici di invito: il filo fra le due tabelle
+
+Ogni azienda invitata riceve, dentro il messaggio, un codice di **5 caratteri**
+riservato a lei. Lo scrive nel modulo di registrazione, e da quel momento le
+due tabelle si parlano: nell'elenco delle aziende si vede chi si e' registrato,
+nell'elenco degli iscritti si vede chi e' arrivato perche' era stato scelto.
+Senza il codice le due liste restano estranee, e l'unico modo di incrociarle e'
+confrontare i nomi a occhio, che con "Alfa S.r.l." e "ALFA SRL" non funziona.
+
+**L'alfabeto e' quello di Crockford**, senza `I`, `L`, `O`, `U`: le prime tre
+si confondono con `1` e `0` quando il codice viene letto al telefono o
+ricopiato da una stampa. In lettura `I` e `L` diventano `1` e `O` diventa `0`,
+cosi' chi trascrive male viene comunque riconosciuto invece di ricevere un
+"codice non valido" che non sa come correggere.
+
+L'unicita' non e' affidata alla fortuna: **il codice e' l'identificativo del
+documento** in `codiciInvito`, e `create()` fallisce se esiste gia' (su 20.000
+sorteggi di prova gli scontri sono stati 5, quindi il caso si presenta davvero).
+
+Regole che valgono la pena di essere ricordate:
+
+- **Il codice nasce PRIMA che il messaggio parta.** Se partisse la mail e poi
+  fallisse la scrittura, l'azienda avrebbe in mano un codice che qui non
+  risulta, e al momento di registrarsi si sentirebbe dire di no.
+- **Un secondo invito ripete lo stesso codice**, non ne crea un altro:
+  altrimenti quello ricevuto per primo smetterebbe di valere in silenzio.
+- **Il codice non si consuma.** Un'azienda selezionata puo' mandare due
+  persone; si contano gli usi e si ricorda il primo.
+- **Nel modulo pubblico e' facoltativo**, perche' la pagina resta aperta a
+  tutti. Ma se viene scritto dev'essere uno di quelli spediti davvero: un
+  codice inventato che passasse renderebbe "azienda selezionata" un'etichetta
+  che chiunque puo' mettersi da solo.
+- **Un codice di un altro evento non vale.** Il modulo pubblico conosce
+  l'evento solo per nome, quindi la pagina di iscrizione viaggia insieme al
+  codice e si confronta con quella. I codici spediti prima di questa regola
+  continuano a valere.
+- La verifica dal modulo passa per l'azione `verifica-codice`, che ricade
+  **sotto il limite per indirizzo IP** come tutti i moduli aperti: e' cio' che
+  rende impraticabile provare codici a tappeto.
+
+Quando qualcuno si registra con un codice, la scheda dell'iscritto porta
+`invitoCodice`, `invitoAzienda` e `selezionata`, e la scheda dell'azienda passa
+a `iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
+**l'iscrizione resta valida**: e' informazione di servizio, non una condizione.

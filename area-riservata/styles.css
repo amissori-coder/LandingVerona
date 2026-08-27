@@ -1984,3 +1984,16 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    si vede che non serve, invece di far pensare che si stia dimenticando qualcosa. */
 .inv-rinvio.spenta { opacity: 0.6; }
 .inv-rinvio .hint { margin-top: 4px; }
+
+/* Il codice riservato all'azienda. A larghezza fissa perche' va letto
+   carattere per carattere: e' quello che qualcuno detta al telefono o ricopia
+   da una PEC, e in un carattere proporzionale le somiglianze ingannano. */
+.inv-codice { display: inline-block; margin-top: 4px; padding: 1px 7px; border: 1px solid var(--blu-100); border-radius: 4px; background: var(--blu-050); color: var(--blu-900); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.09em; }
+.inv-iscritti { margin-top: 4px; font-size: 0.75rem; font-weight: 600; color: var(--verde); }
+
+/* Nella tabella degli iscritti: chi e' arrivato con il codice della sua
+   azienda. E' l'unico punto in cui si vede che la campagna ha prodotto una
+   presenza, quindi si nota. */
+.ev-selezionata { margin-top: 4px; display: inline-block; padding: 2px 8px; border: 1px solid var(--verde); border-radius: 999px; background: var(--verde-bg); color: var(--verde); font-size: 0.72rem; font-weight: 700; line-height: 1.5; }
+.ev-selezionata .ev-cod { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.08em; }
+.ev-selezionata .hint { margin: 1px 0 0; color: var(--verde); font-weight: 500; }

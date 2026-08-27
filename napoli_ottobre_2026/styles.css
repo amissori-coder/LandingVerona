@@ -1516,6 +1516,17 @@ ul {
     transition: var(--transition);
 }
 
+/* La conferma verde sotto il codice invito. Serve a chiudere il dubbio prima
+   di premere invia: senza, chi ha trascritto cinque caratteri da una PEC resta
+   con il sospetto di averli sbagliati fino al giorno dell'evento. */
+.form-hint {
+    display: block;
+    font-size: 0.78rem;
+    color: #68D391;
+    margin-top: 5px;
+    font-weight: 600;
+}
+
 /* Checkbox */
 .checkbox-label {
     display: flex;
