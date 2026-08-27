@@ -1025,7 +1025,14 @@
 
 }
 
-@media (max-width: 760px) {
+/* Il ramo a tre colonne si impila prima di quello a due: le schede non
+   scendono sotto i 250px, quindi tre affiancate con i distanziatori
+   chiedono poco meno di 800px piu' i margini della pagina. La soglia
+   stava a 760px, e nella fascia fra 761 e 830 - dove cade l'iPad in
+   verticale, 768px - le tre colonne restavano affiancate e la pagina
+   scorreva in orizzontale. Ora si impilano alla stessa soglia del
+   funzionigramma, che ha lo stesso numero di colonne. */
+@media (max-width: 900px) {
     .org-ramo-3 {
         grid-template-columns: 1fr;
         max-width: 560px;
