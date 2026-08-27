@@ -37,9 +37,17 @@
    sottolineatura di ogni <a>: va bene per bottoni e card, non per i
    collegamenti dentro un paragrafo, che altrimenti sono
    indistinguibili dal testo. Qui vengono riportati alla forma
-   riconoscibile, limitatamente ai paragrafi. */
+   riconoscibile, limitatamente ai paragrafi.
+   L'elenco comprende anche i tre contesti in cui un rimando cade
+   fuori dal corpo del testo ma resta in mezzo a una frase: un passo
+   del percorso, una risposta delle FAQ, una voce dei riferimenti.
+   Senza, li' il collegamento ha il colore del testo e nessuna
+   sottolineatura, cioe' non si vede. */
 .content-page .detail-block p a,
-.content-page .highlight-box p a {
+.content-page .highlight-box p a,
+.content-page .processo-step-content p a,
+.content-page .faq-answer-inner a,
+.content-page .ref-list a {
     color: #164068;
     font-weight: 600;
     text-decoration: underline;
@@ -56,14 +64,20 @@
    velatura di fondo, cosi' si vede quale delle parole vicine e' quella
    cliccabile. */
 .content-page .detail-block p a:hover,
-.content-page .highlight-box p a:hover {
+.content-page .highlight-box p a:hover,
+.content-page .processo-step-content p a:hover,
+.content-page .faq-answer-inner a:hover,
+.content-page .ref-list a:hover {
     color: #0f2f4f;
     text-decoration-color: #164068;
     background: rgba(22, 64, 104, 0.09);
 }
 
 .content-page .detail-block p a:focus-visible,
-.content-page .highlight-box p a:focus-visible {
+.content-page .highlight-box p a:focus-visible,
+.content-page .processo-step-content p a:focus-visible,
+.content-page .faq-answer-inner a:focus-visible,
+.content-page .ref-list a:focus-visible {
     outline: 2px solid #164068;
     outline-offset: 2px;
 }
@@ -383,6 +397,10 @@
 }
 
 /* ---------- 4-column components grid: Modello 231 ---------- */
+/* Alcune pagine ne vogliono tre invece di quattro. Va chiesto con la
+   classe .is-tre e non con uno stile in linea: lo stile in linea batte
+   qualsiasi media query, e su telefono la griglia resterebbe a tre
+   colonne facendo scorrere la pagina in orizzontale. */
 .components-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -577,9 +595,14 @@
     /* inherits zls_zes look */
 }
 
+.components-grid.is-tre {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1024px) {
-    .components-grid {
+    .components-grid,
+    .components-grid.is-tre {
         grid-template-columns: repeat(2, 1fr);
     }
 }
@@ -614,7 +637,8 @@
         max-width: 560px;
     }
 
-    .components-grid {
+    .components-grid,
+    .components-grid.is-tre {
         grid-template-columns: 1fr;
         max-width: 520px;
     }
@@ -626,9 +650,18 @@
         padding: 28px 22px 26px;
     }
 
+    /* La scheda tiene l'icona in una colonna a sinistra: su telefono
+       al testo resta una striscia di poco piu' di duecento pixel, dove
+       la giustificazione apre voragini fra le parole e il titolo si
+       spezza in tre righe. L'icona passa sopra e la colonna torna piena. */
     .benefit-item {
+        flex-direction: column;
         padding: 22px 22px;
-        gap: 16px;
+        gap: 14px;
+    }
+
+    .content-page .benefit-item p {
+        text-align: left;
     }
 
     .component-card {
