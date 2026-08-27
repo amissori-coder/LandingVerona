@@ -16469,6 +16469,17 @@
             + '<div id="ii-anteprima" style="display:none;margin-top:10px;">'
             + '<iframe id="ii-frame" title="Anteprima dell\'invito" sandbox="allow-same-origin" '
             + 'style="width:100%;height:360px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            /* L'avanzamento. Prima c'era una riga di testo che cambiava a ogni
+               lotto: su un invio da trecento PEC, che dura sette minuti, non
+               bastava a distinguere "sta lavorando" da "si e' piantato". Qui
+               ci sono la barra, i conteggi separati e il tempo che manca. */
+            + '<div id="ii-avanz" class="ii-avanz" style="display:none;">'
+            + '<div class="ii-barra"><span id="ii-barra-int"></span></div>'
+            + '<div class="ii-numeri">'
+            + '<span id="ii-fatte">0</span>'
+            + '<span id="ii-dettagli" class="hint"></span>'
+            + '<span id="ii-manca" class="hint"></span>'
+            + '</div><div id="ii-passo" class="hint"></div></div>'
             + '<div id="ii-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ii-no">Annulla</button>'
             + '<button class="btn btn-secondary" id="ii-ant">Anteprima</button>'
@@ -16478,6 +16489,47 @@
         const esito = (t, ko) => {
             const e = document.getElementById('ii-esito');
             if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
+        };
+        /* Lo stato dell'invio, mentre succede.
+           Il tempo che manca non e' un indovinello: il servizio aspetta un
+           tempo noto fra un messaggio e l'altro (un secondo e mezzo sulla PEC),
+           quindi si misura quanto e' costato davvero quello che e' gia'
+           partito e lo si applica a quello che resta. Dopo il primo lotto e'
+           una stima onesta; prima non si scrive niente, che e' meglio di un
+           numero inventato. */
+        const avanzamento = (fatte, totale, c, passo) => {
+            const box = document.getElementById('ii-avanz');
+            if (!box) return;
+            box.style.display = '';
+            const perc = totale ? Math.min(100, Math.round(fatte / totale * 100)) : 0;
+            const barra = document.getElementById('ii-barra-int');
+            if (barra) barra.style.width = perc + '%';
+            const et = document.getElementById('ii-fatte');
+            if (et) et.textContent = fatte + ' di ' + totale;
+            const det = document.getElementById('ii-dettagli');
+            if (det) {
+                const pezzi = [];
+                // "1 saltate" si legge male, e questa riga si legge tutto il giorno
+                const dice = (n, una, tante) => n + ' ' + (n === 1 ? una : tante);
+                if (c.inviate) pezzi.push(dice(c.inviate, 'partita', 'partite'));
+                if (c.falliti) pezzi.push(dice(c.falliti, 'non riuscita', 'non riuscite'));
+                if (c.saltate) pezzi.push(dice(c.saltate, 'saltata', 'saltate'));
+                if (c.disiscritte) pezzi.push(dice(c.disiscritte, 'disiscritta', 'disiscritte'));
+                det.textContent = pezzi.join(' - ');
+                det.classList.toggle('ev-ko', !!c.falliti);
+            }
+            const man = document.getElementById('ii-manca');
+            if (man) {
+                const restanti = Math.max(0, totale - fatte);
+                if (fatte > 0 && restanti > 0 && c.da) {
+                    const secondi = Math.round((Date.now() - c.da) / fatte * restanti / 1000);
+                    man.textContent = secondi < 60
+                        ? 'meno di un minuto'
+                        : ('circa ' + Math.round(secondi / 60) + ' minuti');
+                } else man.textContent = '';
+            }
+            const pa = document.getElementById('ii-passo');
+            if (pa) pa.textContent = passo || '';
         };
         const chiudi = () => { chiudiModale(); modaleAziendeInvito(ev); };
         /* Lo stesso pulsante fa due cose: prima di partire annulla, mentre i
@@ -16553,8 +16605,21 @@
             (async () => {
                 const lotto = Math.max(1, Number(canaleCfg(canale).maxLotto) || 40);
                 let inviate = 0, saltate = 0, disiscritte = 0, falliti = 0, msgKo = '';
+                const totale = elencoInvio.length;
+                const lotti = Math.ceil(totale / lotto);
+                const conti = { inviate: 0, saltate: 0, disiscritte: 0, falliti: 0, da: Date.now() };
+                esito('');
+                avanzamento(0, totale, conti, 'Preparo il primo gruppo...');
                 for (let i = 0; i < elencoInvio.length && !stato.fermato; i += lotto) {
-                    esito('Invio in corso: ' + inviate + ' su ' + elencoInvio.length + '...');
+                    const nLotto = Math.floor(i / lotto) + 1;
+                    const inQuesto = Math.min(lotto, totale - i);
+                    /* Durante l'attesa della risposta si dice cosa sta partendo
+                       ADESSO: e' l'unico momento in cui non arriva nessun dato
+                       nuovo, e sono anche i venti secondi in cui, senza una
+                       riga che si muove, sembra tutto fermo. */
+                    avanzamento(i, totale, conti,
+                        'Gruppo ' + nLotto + ' di ' + lotti + ': ' + inQuesto + ' messaggi in partenza'
+                        + (canale === 'pec' ? ' (uno ogni secondo e mezzo)' : '') + '...');
                     let r;
                     try {
                         r = await Cloud.aziendeInvito({
@@ -16573,6 +16638,9 @@
                     saltate += (r.saltate || 0) + (r.senzaRecapito || 0);
                     disiscritte += r.disiscritte || 0;
                     falliti += (r.falliti || []).length;
+                    conti.inviate = inviate; conti.saltate = saltate;
+                    conti.disiscritte = disiscritte; conti.falliti = falliti;
+                    avanzamento(Math.min(totale, i + inQuesto), totale, conti, '');
                     /* Il gestore ha rifiutato NOI, non un destinatario: continuare
                        con i lotti seguenti li farebbe rifiutare tutti allo stesso
                        modo, allungando il blocco e marcando "errore" aziende che
@@ -16586,6 +16654,8 @@
                     if (r.tettoRaggiunto) { msgKo = 'Raggiunto il tetto orario su questo canale: riprendi piu tardi, chi ha gia ricevuto viene saltato.'; break; }
                 }
                 stato.inCorso = false;
+                avanzamento(Math.min(totale, inviate + falliti + saltate + disiscritte), totale, conti,
+                    stato.fermato ? 'Invio fermato: quello che non e partito resta da invitare.' : 'Finito.');
                 b.disabled = false; b.textContent = 'Invia le restanti';
                 bAnn.disabled = false; bAnn.textContent = 'Chiudi';
                 const riepilogo = inviate + ' ' + quale + ' partite'
