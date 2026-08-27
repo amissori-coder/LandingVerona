@@ -3134,7 +3134,6 @@ ul {
 @media (max-width: 480px) {
     .spine-card { padding: 22px 20px; }
     .spine-card-title { font-size: 1.22rem; }
-    .spine-card-lead { text-align: left; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3209,3 +3208,26 @@ ul {
         margin-top: 8px;
     }
 }
+
+/* ===== Testo sempre giustificato =====
+   Tutti i blocchi di testo discorsivo della pagina condividono lo stesso
+   allineamento giustificato, con sillabazione automatica per evitare
+   spaziature troppo larghe fra le parole. Restano come sono le voci che
+   testo discorsivo non sono: occhielli, titoli, etichette, pulsanti e
+   piede pagina. */
+.evento-intro p,
+.evento-quote,
+.matching-text,
+.program-note,
+.form-success p,
+.rel-rel-text {
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
+}
+
+/* La descrizione di ogni relazione è uno span: va reso blocco perché la
+   giustificazione abbia effetto. */
+.rel-rel-text { display: block; }
