@@ -311,66 +311,90 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .app-shell { min-height: 100vh; }
 
 .sidebar {
-    width: 240px; flex-shrink: 0; background: var(--blu-900); color: #fff;
+    width: 232px; flex-shrink: 0; background: var(--blu-900); color: #fff;
     display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; height: 100dvh; z-index: 20;
 }
-.sidebar .brand { padding: 20px 18px 14px; border-bottom: 1px solid rgba(255,255,255,0.12); position: relative; }
-.sidebar .brand .titolo-area { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-top: 8px; font-weight: 600; }
+.sidebar .brand { padding: 13px 15px 10px; border-bottom: 1px solid rgba(255,255,255,0.12); position: relative; flex: 0 0 auto; }
+.sidebar .brand .titolo-area { font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-top: 4px; font-weight: 600; line-height: 1.3; }
 /* hamburger: nascosto su desktop, visibile su smartphone */
 .nav-hamburger { display: none; position: absolute; top: 18px; right: 14px; width: 40px; height: 40px; background: rgba(255,255,255,0.10); border: none; border-radius: 8px; cursor: pointer; padding: 11px 9px; flex-direction: column; justify-content: space-between; }
 .nav-hamburger span { display: block; height: 2px; background: #fff; border-radius: 2px; transition: transform .2s ease, opacity .2s ease; }
-.sidebar nav { flex: 1; padding: 14px 10px; overflow-y: auto; }
+/* La nav e' l'unica parte elastica della barra: min-height:0 le permette di
+   rimpicciolirsi davvero dentro il contenitore flex (senza, il browser le
+   riserva l'altezza del contenuto e a scorrere finirebbe la pagina intera).
+   Niente barra di scorrimento a vista: le voci sono compatte abbastanza da
+   entrare tutte sugli schermi normali, e sui portatili bassi si scorre "alla
+   macOS", senza una barra che rubi larghezza alle voci. Al posto della barra
+   ci sono due ombre morbide, sopra e sotto, che compaiono SOLO quando c'e'
+   davvero altro da vedere: i due sfondi "local" scorrono col contenuto e
+   coprono l'ombra quando si e' arrivati in fondo (o si e' ancora in cima). */
+.sidebar nav {
+    flex: 1 1 auto; min-height: 0; padding: 6px 7px 8px;
+    overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: none; -ms-overflow-style: none;
+    background:
+        linear-gradient(var(--blu-900) 40%, rgba(10, 40, 68, 0)) top / 100% 22px no-repeat local,
+        linear-gradient(rgba(10, 40, 68, 0), var(--blu-900) 60%) bottom / 100% 22px no-repeat local,
+        radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) top / 100% 12px no-repeat scroll,
+        radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) bottom / 100% 12px no-repeat scroll;
+}
+.sidebar nav::-webkit-scrollbar { width: 0; height: 0; }
 .nav-voce {
-    display: flex; align-items: center; gap: 10px; width: 100%;
-    padding: 10px 12px; margin-bottom: 2px; border: none; background: transparent;
-    color: rgba(255,255,255,0.82); font-size: 0.9rem; font-weight: 500;
-    border-radius: 8px; text-align: left;
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    padding: 5px 8px; margin-bottom: 0; border: none; background: transparent;
+    color: rgba(255,255,255,0.82); font-size: 0.83rem; font-weight: 500; line-height: 1.3;
+    border-radius: 7px; text-align: left;
 }
 .nav-voce:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .nav-voce.attiva { background: var(--blu-500); color: #fff; font-weight: 600; }
-.nav-voce .icona { width: 18px; height: 18px; flex-shrink: 0; }
+.nav-voce .icona { width: 16px; height: 16px; flex-shrink: 0; }
 /* Numero delle richieste di correzione in attesa di una risposta di chi guarda:
    sta sulla voce di menu, cosi una risposta arrivata mentre si lavora altrove
    non passa inosservata. */
 .nav-conta {
-    margin-left: auto; flex: 0 0 auto; min-width: 20px; padding: 1px 6px;
+    margin-left: auto; flex: 0 0 auto; min-width: 17px; padding: 0 4px;
     background: var(--ambra, #B45309); color: #fff; border-radius: 999px;
-    font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 1.5;
+    font-size: 0.68rem; font-weight: 700; text-align: center; line-height: 1.55;
 }
 /* Macroaree: le sezioni che parlano della stessa cosa (i compensi, gli
    aderenti, i messaggi che escono) stanno insieme sotto un titolino, staccate
    dalle altre. Il filetto a sinistra le tiene legate anche quando l'occhio
    scorre in fretta. */
 .nav-gruppo {
-    margin: 16px 0 6px; padding: 0 12px;
-    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.45);
+    margin: 9px 0 2px; padding: 0 8px;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.42); line-height: 1.5;
 }
-.nav-voce.in-gruppo { margin-left: 10px; width: calc(100% - 10px); border-left: 2px solid rgba(255, 255, 255, 0.14); border-radius: 0 8px 8px 0; }
+.nav-gruppo:first-child { margin-top: 2px; }
+.nav-voce.in-gruppo { margin-left: 8px; width: calc(100% - 8px); border-left: 2px solid rgba(255, 255, 255, 0.14); border-radius: 0 7px 7px 0; }
 .nav-voce.in-gruppo.attiva { border-left-color: rgba(255, 255, 255, 0.6); }
-.sidebar .utente-box { padding: 14px 18px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 0.82rem; }
+.sidebar .utente-box { flex: 0 0 auto; padding: 9px 14px 11px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 0.79rem; line-height: 1.4; }
 .sidebar .utente-box .nome { font-weight: 700; }
-.sidebar .utente-box .ruolo { color: rgba(255,255,255,0.6); font-size: 0.75rem; text-transform: capitalize; }
+.sidebar .utente-box .ruolo { color: rgba(255,255,255,0.6); font-size: 0.72rem; text-transform: capitalize; }
 /* Regioni assegnate ai coordinatori e ai vice: riga propria, sempre visibile sotto il
    ruolo. Niente capitalize ereditato da .ruolo, che storpiava i nomi propri delle
    regioni ("Valle d'Aosta" diventava "Valle D'aosta"). */
 .sidebar .utente-box .regioni-assegnate { display: block; margin-top: 4px; text-transform: none; color: rgba(255,255,255,0.75); line-height: 1.35; }
 .sidebar .utente-box .regioni-assegnate strong { color: #fff; font-weight: 600; }
 /* manuale ed uscita affiancati sotto il nome: due comandi brevi, una riga sola */
-.sidebar .utente-box .utente-azioni { display: flex; gap: 8px; margin-top: 10px; }
+.sidebar .utente-box .utente-azioni { display: flex; gap: 7px; margin-top: 7px; }
+.sidebar .utente-box .utente-azioni .btn { padding: 4px 9px; font-size: 0.76rem; }
 .sidebar .utente-box .utente-azioni > * { flex: 1 1 0; justify-content: center; text-align: center; }
 .sidebar .utente-box .utente-azioni a { text-decoration: none; }
 
 /* Box "utenti connessi ora": un pannello integrato in fondo alla sidebar */
-.sidebar .presenza-box { padding: 12px; border-top: 1px solid rgba(255,255,255,0.10); }
+.sidebar .presenza-box { flex: 0 0 auto; padding: 9px 10px; border-top: 1px solid rgba(255,255,255,0.10); }
 .sidebar .presenza-box:empty { display: none; }
-.presenza-pannello { background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 10px 11px; display: flex; flex-direction: column; gap: 8px; }
-.presenza-titolo { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: rgba(255,255,255,0.55); font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+.presenza-pannello { background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.09); border-radius: 9px; padding: 8px 9px; display: flex; flex-direction: column; gap: 6px; }
+.presenza-titolo { display: flex; align-items: center; justify-content: space-between; gap: 7px; color: rgba(255,255,255,0.55); font-size: 0.6rem; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; line-height: 1.4; }
+/* "Connessi ora - N" su una riga sola: andando a capo il puntino separatore
+   finiva a inizio riga, e il conteggio sembrava un elenco puntato. */
+.presenza-titolo > span { white-space: nowrap; }
 /* pulsante "Messaggi" leggibile sul blu scuro (btn-ghost qui sarebbe blu su blu) */
-.pres-inbox { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-family: inherit; font-size: 0.68rem; font-weight: 600; letter-spacing: 0; text-transform: none; cursor: pointer; transition: all .15s ease; }
+.pres-inbox { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); font-family: inherit; font-size: 0.66rem; font-weight: 600; letter-spacing: 0; text-transform: none; cursor: pointer; transition: all .15s ease; white-space: nowrap; flex-shrink: 0; }
 .pres-inbox:hover { background: rgba(255,255,255,0.14); color: #fff; }
 .pres-badge { background: var(--oro, #C9A227); color: #1a1a1a; border-radius: 999px; min-width: 16px; padding: 0 4px; font-size: 0.66rem; font-weight: 800; text-align: center; }
-.presenza-utente { display: flex; align-items: flex-start; gap: 8px; color: rgba(255,255,255,0.92); font-size: 0.8rem; }
+.presenza-utente { display: flex; align-items: flex-start; gap: 8px; color: rgba(255,255,255,0.92); font-size: 0.78rem; line-height: 1.4; }
 .presenza-utente .pallino { width: 8px; height: 8px; border-radius: 50%; background: var(--verde); flex-shrink: 0; margin-top: 5px; box-shadow: 0 0 0 3px rgba(46,160,67,0.18); }
 .pres-corpo { flex: 1; min-width: 0; }
 .pres-nome-riga { display: flex; align-items: center; gap: 6px; }
@@ -383,13 +407,13 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .pres-mod .et { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .presenza-utente.sta-modificando .pallino { background: var(--oro, #C9A227); box-shadow: 0 0 0 3px rgba(201,162,39,0.22); }
 /* elenco numeroso: vista compatta con le iniziali dei connessi; un clic apre il menu completo */
-.presenza-riassunto { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 4px 3px; border: none; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.85); font-family: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background .15s ease; }
+.presenza-riassunto { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 1px 2px; border: none; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.85); font-family: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: background .15s ease; }
 .presenza-riassunto:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .pres-avatars { display: flex; align-items: center; }
-.pres-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--blu-500); border: 2px solid var(--blu-900); color: #fff; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.02em; display: inline-flex; align-items: center; justify-content: center; margin-left: -7px; }
+.pres-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--blu-500); border: 2px solid var(--blu-900); color: #fff; font-size: 0.58rem; font-weight: 800; letter-spacing: 0; display: inline-flex; align-items: center; justify-content: center; margin-left: -5px; }
 .pres-avatar:first-child { margin-left: 0; }
 .pres-avatar-extra { background: rgba(255,255,255,0.16); }
-.pres-riass-apri { display: inline-flex; align-items: center; gap: 4px; color: rgba(255,255,255,0.65); font-size: 0.7rem; flex-shrink: 0; }
+.pres-riass-apri { display: inline-flex; align-items: center; gap: 4px; color: rgba(255,255,255,0.65); font-size: 0.68rem; flex-shrink: 0; white-space: nowrap; }
 .presenza-riassunto:hover .pres-riass-apri { color: #fff; }
 .presenza-riduci { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; padding: 3px 8px; border: none; border-radius: 999px; background: transparent; color: rgba(255,255,255,0.55); font-family: inherit; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all .15s ease; }
 .presenza-riduci:hover { background: rgba(255,255,255,0.10); color: #fff; }
@@ -410,7 +434,59 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .msg-popup-risposta textarea:focus { outline: none; border-color: var(--blu-500); box-shadow: 0 0 0 3px var(--blu-100); }
 .msg-popup-azioni { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
-.contenuto { margin-left: 240px; padding: 28px 32px 60px; max-width: 1500px; min-width: 0; }
+.contenuto { margin-left: 232px; padding: 24px 28px 56px; max-width: 1560px; min-width: 0; }
+
+/* ---------- Menu ridotto alle sole icone (solo schermo largo) ----------
+   Serve a dare larghezza al contenuto: la barra passa da 232 a 52px, e i 180px
+   guadagnati vanno alle tabelle piu' larghe (gli iscritti agli eventi). Non e'
+   un menu che sparisce: le icone restano, e passandoci sopra col mouse la barra
+   si riapre per intero SOPRA il contenuto (che non si sposta, perche' il suo
+   margine resta quello della barra ridotta). */
+.nav-riduci { display: none; }
+@media (min-width: 901px) {
+    .nav-riduci {
+        display: flex; align-items: center; justify-content: center;
+        position: absolute; top: 11px; right: 8px; width: 24px; height: 24px;
+        padding: 0; border: none; border-radius: 6px;
+        background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.65);
+        cursor: pointer; transition: background .15s ease, color .15s ease, transform .18s ease;
+    }
+    .nav-riduci:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+    .nav-riduci svg { width: 15px; height: 15px; display: block; }
+    /* il pulsante sta sopra la riga del marchio, che e' corta: niente padding
+       sul riquadro, altrimenti "Area riservata incarichi" andrebbe a capo */
+    .sidebar .brand .marchio { padding-right: 30px; }
+    .sidebar, .contenuto { transition: width .18s ease, margin-left .18s ease; }
+
+    .menu-ridotto .sidebar { width: 52px; }
+    .menu-ridotto .contenuto { margin-left: 52px; }
+    /* la freccia si gira: indica che il clic riapre */
+    .menu-ridotto .nav-riduci { transform: rotate(180deg); }
+
+    /* --- barra ridotta a riposo: solo icone --- */
+    .menu-ridotto .sidebar:not(:hover) .brand { padding: 13px 6px 10px; text-align: center; }
+    .menu-ridotto .sidebar:not(:hover) .brand .marchio img { margin: 0 auto; }
+    .menu-ridotto .sidebar:not(:hover) .brand .logo-revilaw,
+    .menu-ridotto .sidebar:not(:hover) .brand .logo-spa,
+    .menu-ridotto .sidebar:not(:hover) .titolo-area,
+    .menu-ridotto .sidebar:not(:hover) .nav-gruppo,
+    .menu-ridotto .sidebar:not(:hover) .nav-voce .et,
+    .menu-ridotto .sidebar:not(:hover) .presenza-box,
+    .menu-ridotto .sidebar:not(:hover) .utente-box { display: none; }
+    .menu-ridotto .sidebar:not(:hover) .nav-riduci { position: static; margin: 8px auto 0; }
+    .menu-ridotto .sidebar:not(:hover) nav { padding: 8px 6px; }
+    .menu-ridotto .sidebar:not(:hover) .nav-voce { justify-content: center; padding: 7px 0; position: relative; }
+    .menu-ridotto .sidebar:not(:hover) .nav-voce.in-gruppo { margin-left: 0; width: 100%; border-left: none; border-radius: 7px; }
+    /* il numero delle richieste in attesa diventa un bollino sull'icona: senza
+       l'etichetta accanto non avrebbe piu' un posto dove stare */
+    .menu-ridotto .sidebar:not(:hover) .nav-conta {
+        position: absolute; top: 2px; right: 4px; margin: 0; min-width: 14px;
+        padding: 0 3px; font-size: 0.58rem; line-height: 1.5;
+    }
+
+    /* --- col mouse sopra: la barra si riapre sul contenuto --- */
+    .menu-ridotto .sidebar:hover { width: 232px; box-shadow: 8px 0 26px rgba(0, 0, 0, 0.30); }
+}
 .contenuto > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
 .contenuto > header h1 { font-size: 1.45rem; }
 .contenuto > header .descrizione { color: var(--grigio-600); font-size: 0.9rem; margin-top: 4px; max-width: 640px; }
@@ -430,11 +506,14 @@ td.td-menu { white-space: nowrap; text-align: right; }
     .sidebar nav, .sidebar .utente-box, .sidebar .presenza-box { display: none; }
     /* col menu aperto le voci + il riquadro utente superavano l'altezza dello schermo
        e "Esci" restava tagliato: la barra si limita allo schermo e scorre dentro di se */
-    .sidebar.menu-aperto { border-bottom: 1px solid rgba(255,255,255,0.12); max-height: 100vh; max-height: 100dvh; overflow-y: auto; }
+    .sidebar.menu-aperto { border-bottom: 1px solid rgba(255,255,255,0.12); max-height: 100vh; max-height: 100dvh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .sidebar.menu-aperto::-webkit-scrollbar { width: 0; height: 0; }
     /* flex:0 0 auto + overflow visibile: senza, la nav (flex:1 e overflow-y:auto)
        assorbiva tutta la compressione e si riduceva a poche voci, mentre a scorrere
        doveva essere la barra. Cosi la nav resta intera e scorre la barra. */
-    .sidebar.menu-aperto nav { display: flex; flex-direction: column; flex-wrap: nowrap; padding: 6px 12px 12px; flex: 0 0 auto; overflow-y: visible; }
+    /* col menu a comparsa scorre la BARRA, non la nav: qui la nav torna alta quanto
+       il suo contenuto e senza ombre di scorrimento (che sarebbero sempre accese). */
+    .sidebar.menu-aperto nav { display: flex; flex-direction: column; flex-wrap: nowrap; padding: 6px 12px 12px; flex: 0 0 auto; overflow-y: visible; background: none; }
     .sidebar.menu-aperto .nav-voce { width: 100%; font-size: 0.98rem; padding: 12px 14px; }
     .sidebar.menu-aperto .utente-box { display: block; }
     .sidebar.menu-aperto .presenza-box { display: flex; }
@@ -502,8 +581,20 @@ tr.riga-proposta td:first-child { box-shadow: inset 3px 0 0 #6B4CC2; }
 /* ---------- Tabelle ---------- */
 /* Le tabelle stanno SEMPRE dentro il riquadro, senza scorrimento orizzontale:
    intestazioni e celle vanno a capo, e i contenuti lunghi si spezzano. overflow-x
-   resta come rete di sicurezza ma con i ritorni a capo non entra mai in gioco. */
+   resta come rete di sicurezza ma con i ritorni a capo non entra mai in gioco.
+   Unica eccezione voluta: la tabella degli iscritti agli eventi (.ev-wrap, in
+   fondo al foglio), dove il testo unito non si spezza e a scorrere e' la
+   tabella. */
 .tabella-wrap { overflow-x: auto; background: #fff; border-radius: var(--raggio); box-shadow: var(--ombra); border: 1px solid var(--grigio-200); }
+/* Quando una tabella deve scorrere, la barra e' sottile e appena accennata:
+   si scurisce passandoci sopra, cosi' non ruba attenzione ai dati. */
+.tabella-wrap { scrollbar-width: thin; scrollbar-color: rgba(10, 40, 68, 0.20) transparent; }
+.tabella-wrap::-webkit-scrollbar { height: 8px; width: 8px; }
+.tabella-wrap::-webkit-scrollbar-track { background: transparent; }
+.tabella-wrap::-webkit-scrollbar-thumb { background: rgba(10, 40, 68, 0.16); border-radius: 999px; }
+.tabella-wrap:hover { scrollbar-color: rgba(10, 40, 68, 0.32) transparent; }
+.tabella-wrap:hover::-webkit-scrollbar-thumb { background: rgba(10, 40, 68, 0.28); }
+.tabella-wrap::-webkit-scrollbar-thumb:hover { background: rgba(10, 40, 68, 0.42); }
 table.dati { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 table.dati th {
     background: var(--blu-900); color: #fff; text-align: left; padding: 7px 7px;
@@ -1185,6 +1276,13 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
     /* le tabelle lunghe devono poter spezzarsi, ma non a meta di una riga,
        e l'intestazione va ripetuta su ogni pagina */
     .tabella-wrap { overflow: visible; box-shadow: none; border-radius: 0; }
+    /* Sulla carta le colonne si ridimensionano da se': via le larghezze fisse
+       pensate per lo schermo, cosi' la tabella si adatta al foglio. I selettori
+       sono piu' specifici di quelli a video apposta, perche' quelli stanno piu'
+       avanti nel foglio. */
+    .ev-wrap table.dati { table-layout: auto; }
+    .ev-wrap table.dati tbody td[data-label] { white-space: normal !important; overflow-wrap: anywhere; }
+    .ev-wrap table.dati .ev-b2b-si, .ev-wrap table.dati .ev-b2b-pref, .ev-wrap table.dati .ev-tag { overflow-wrap: anywhere; }
     table.dati thead { display: table-header-group; }
     table.dati tr { break-inside: avoid; page-break-inside: avoid; }
     table.dati th, table.dati td { padding: 4px 6px; font-size: 0.72rem; }
@@ -1395,14 +1493,197 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 }
 .ev-menu-voce:hover { background: var(--blu-050); }
 .ev-menu-voce.ev-canc { color: var(--rosso); }
-/* La tabella degli iscritti deve ENTRARE in larghezza, senza barra di
-   scorrimento: corpo un filo piu' piccolo e celle che vanno a capo, email
-   comprese. L'overflow visibile evita anche che il menu delle azioni venga
-   tagliato dal bordo del riquadro. */
+/* La tabella degli iscritti sta tutta nella pagina, SENZA barra di scorrimento,
+   e senza spezzare le parole a meta'. Le due cose insieme si tengono solo
+   decidendo in anticipo la larghezza delle colonne: con table-layout:fixed il
+   browser non allarga piu' la tabella per far entrare la parola piu' lunga (era
+   cosi' che nasceva la barra), e distribuisce quello che c'e' secondo le misure
+   qui sotto.
+   Le colonne "atomiche" - data, email, telefono, portale, partecipanti - hanno
+   una larghezza propria, tarata sul loro contenuto: restano su una riga sola.
+   Le altre sono fatte di parole separate da spazi, quindi si dividono in parti
+   uguali lo spazio che resta e vanno a capo FRA una parola e l'altra.
+   overflow-wrap:break-word e' solo la valvola di sicurezza: spezza una parola
+   soltanto se da sola non entrerebbe comunque nella sua colonna (a differenza
+   del vecchio "anywhere", che spezzava sempre e riduceva gli indirizzi email a
+   colonne di lettere). */
 .ev-wrap { overflow: visible; }
-.ev-wrap table.dati { font-size: 0.78rem; }
-.ev-wrap table.dati th { white-space: normal; }
-.ev-wrap table.dati td { white-space: normal; overflow-wrap: anywhere; padding: 5px 6px; }
+.ev-wrap table.dati {
+    table-layout: fixed; width: 100%; font-size: 0.71rem;
+}
+/* Se una parola lunga proprio non entra nella sua colonna, va a capo COL
+   TRATTINO, dove si dividono le sillabe ("Amministra-zione"), non tagliata a
+   caso. La pagina dichiara lang="it", quindi il browser sillaba in italiano.
+   Fanno eccezione le colonne dove un trattino inventato sarebbe un errore:
+   l'indirizzo email, il telefono e la data (sotto, hyphens: none). */
+.ev-wrap table.dati th,
+.ev-wrap table.dati td { overflow-wrap: break-word; word-break: normal; hyphens: auto; }
+.ev-wrap table.dati td[data-label="Email"],
+.ev-wrap table.dati td[data-label="Telefono"],
+.ev-wrap table.dati td[data-label="Data"] { hyphens: none; }
+/* Le INTESTAZIONI possono spezzarsi con il trattino se una parola lunga non
+   entra ("PARTECI-PANTI"): sono etichette fisse, si leggono una volta, e cosi'
+   la colonna dei numeri non deve essere larga quanto la sua parola. I DATI no:
+   sotto hanno hyphens:none e non si spezzano mai col trattino. */
+.ev-wrap table.dati th { white-space: normal; padding: 5px 5px; hyphens: auto; }
+.ev-wrap table.dati td { white-space: normal; padding: 4px 5px; }
+/* Larghezza delle colonne con un contenuto di misura nota. Il resto della riga
+   se lo dividono in parti uguali le colonne senza misura: nome, azienda, ruolo,
+   nota, "aggiornato da" e le eventuali colonne aggiuntive - tutte fatte di parole
+   separate da spazi, che vanno a capo senza danno. */
+.ev-wrap col.c-sel { width: 26px; }
+.ev-wrap col.c-data { width: 78px; }
+.ev-wrap col.c-email { width: 214px; }
+.ev-wrap col.c-tel { width: 116px; }
+.ev-wrap col.c-portale { width: 72px; }
+.ev-wrap col.c-part { width: 90px; }
+.ev-wrap col.c-ruolo { width: 108px; }
+.ev-wrap col.c-b2b, .ev-wrap col.c-pref { width: 156px; }
+.ev-wrap col.c-stato { width: 84px; }
+.ev-wrap col.c-agg { width: 118px; }
+.ev-wrap col.c-azioni { width: 42px; }
+/* Niente white-space: nowrap in questa tabella. Con le larghezze decise in
+   anticipo, un contenuto che non puo' andare a capo e non entra non si stringe:
+   ESCE dalla cella e finisce SOPRA la colonna accanto - ed e' cosi' che la data
+   con l'ora ("25/08/2026 11:38") si sovrapponeva al nome. Senza nowrap il caso
+   peggiore e' un a capo: brutto, ma leggibile e mai sovrapposto.
+   L'ora sta su una riga sua, piu' piccola e piu' chiara (la divide app.js). */
+/* Giorno, ora e "quando" della firma non si spezzano MAI: una data tagliata a
+   meta' ("21/08/202" sopra, "6" sotto) non si legge. Le colonne qui sotto sono
+   dimensionate sulla misura vera di questi testi, con un margine sopra. */
+.ev-wrap table.dati .ev-giorno,
+.ev-wrap table.dati .ev-ora,
+.ev-wrap table.dati .ev-quando { white-space: nowrap; }
+.ev-wrap table.dati .ev-ora,
+.ev-wrap table.dati .ev-quando { display: block; color: var(--grigio-600); font-size: 0.94em; line-height: 1.25; }
+/* .ev-firma ha una misura assoluta (0.82rem) pensata per il resto dell'area:
+   qui dentro sarebbe piu' GRANDE del testo della tabella. Segue il corpo riga. */
+.ev-wrap table.dati .ev-firma { font-size: 1em; line-height: 1.3; }
+/* La tendina dello stato e la casella della nota prendono la loro colonna e
+   basta: lasciate alla misura di sistema erano larghe il doppio del necessario
+   e rubavano spazio alle colonne di testo. */
+.ev-wrap table.dati select,
+.ev-wrap table.dati input[type="text"] { width: 100%; min-width: 0; font-size: 0.71rem; padding: 3px 4px; }
+/* le voci separate da " - " (tavoli B2B, preferenze) vanno a capo fra una voce
+   e l'altra prima che dentro una voce */
+.ev-wrap .ev-b2b-si, .ev-wrap .ev-b2b-pref, .ev-wrap .ev-tag { overflow-wrap: break-word; }
+/* Il pulsante dei tre puntini alla sua misura di partenza (34px piu' i margini)
+   era piu' largo della colonna piu' stretta, e sbordava sulla colonna prima. */
+.ev-wrap .ev-menu-btn { min-width: 22px; padding: 1px 4px; }
+.ev-wrap td.ev-azioni { padding-left: 2px; padding-right: 2px; }
+/* Meno spazio a disposizione: cala il corpo del testo, e con esso la larghezza
+   che serve alle colonne di misura nota - cosi' ne resta di piu' per le colonne
+   di parole. Le soglie sono due volte, perche' lo spazio utile dipende anche dal
+   menu: a barra aperta il contenuto e' la finestra meno 288px, a barra ridotta
+   meno 108px. Sono gli stessi valori, applicati dove il contenuto e' altrettanto
+   largo. */
+@media (max-width: 1783px) {
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati { font-size: 0.68rem; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-sel { width: 24px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-data { width: 76px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-email { width: 200px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-tel { width: 112px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-portale { width: 70px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-part { width: 90px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-ruolo { width: 102px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-b2b,
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-pref { width: 150px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-stato { width: 80px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-agg { width: 112px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-azioni { width: 40px; }
+}
+@media (max-width: 1603px) {
+    .menu-ridotto .ev-wrap table.dati { font-size: 0.68rem; }
+    .menu-ridotto .ev-wrap col.c-sel { width: 24px; }
+    .menu-ridotto .ev-wrap col.c-data { width: 76px; }
+    .menu-ridotto .ev-wrap col.c-email { width: 200px; }
+    .menu-ridotto .ev-wrap col.c-tel { width: 112px; }
+    .menu-ridotto .ev-wrap col.c-portale { width: 70px; }
+    .menu-ridotto .ev-wrap col.c-part { width: 90px; }
+    .menu-ridotto .ev-wrap col.c-ruolo { width: 102px; }
+    .menu-ridotto .ev-wrap col.c-b2b,
+    .menu-ridotto .ev-wrap col.c-pref { width: 150px; }
+    .menu-ridotto .ev-wrap col.c-stato { width: 80px; }
+    .menu-ridotto .ev-wrap col.c-agg { width: 112px; }
+    .menu-ridotto .ev-wrap col.c-azioni { width: 40px; }
+}
+@media (max-width: 1695px) {
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati { font-size: 0.65rem; }
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati th,
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati td { padding: 4px 4px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-sel { width: 22px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-data { width: 70px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-email { width: 150px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-tel { width: 104px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-portale { width: 66px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-part { width: 88px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-ruolo { width: 92px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-b2b,
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-pref { width: 142px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-stato { width: 72px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-agg { width: 104px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-azioni { width: 38px; }
+}
+@media (max-width: 1515px) {
+    .menu-ridotto .ev-wrap table.dati { font-size: 0.65rem; }
+    .menu-ridotto .ev-wrap table.dati th,
+    .menu-ridotto .ev-wrap table.dati td { padding: 4px 4px; }
+    .menu-ridotto .ev-wrap col.c-sel { width: 22px; }
+    .menu-ridotto .ev-wrap col.c-data { width: 70px; }
+    .menu-ridotto .ev-wrap col.c-email { width: 150px; }
+    .menu-ridotto .ev-wrap col.c-tel { width: 104px; }
+    .menu-ridotto .ev-wrap col.c-portale { width: 66px; }
+    .menu-ridotto .ev-wrap col.c-part { width: 88px; }
+    .menu-ridotto .ev-wrap col.c-ruolo { width: 92px; }
+    .menu-ridotto .ev-wrap col.c-b2b,
+    .menu-ridotto .ev-wrap col.c-pref { width: 142px; }
+    .menu-ridotto .ev-wrap col.c-stato { width: 72px; }
+    .menu-ridotto .ev-wrap col.c-agg { width: 104px; }
+    .menu-ridotto .ev-wrap col.c-azioni { width: 38px; }
+}
+
+/* Quarta fascia: finestra stretta e menu aperto. Qui lo spazio non basta piu'
+   nemmeno alle colonne di misura nota, e senza questo blocco le colonne di testo
+   (nome, azienda, nota) si riducevano a zero e il contenuto usciva dalla cella.
+   Le misure scendono al minimo: date e intestazioni restano intere, l'indirizzo
+   email va a capo dopo la chiocciola e il telefono dopo il prefisso.
+   Sotto i 1000px di finestra subentra la vista a schede (in fondo al foglio) e
+   il problema non si pone piu'. */
+@media (max-width: 1437px) {
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati { font-size: 0.62rem; }
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati th { font-size: 0.55rem; padding: 4px 4px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap table.dati td { padding: 3px 4px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-sel { width: 18px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-data { width: 68px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-email { width: 86px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-tel { width: 68px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-portale { width: 52px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-part { width: 64px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-ruolo { width: 64px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-b2b,
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-pref { width: 84px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-stato { width: 56px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-agg { width: 88px; }
+    .app-shell:not(.menu-ridotto) .ev-wrap col.c-azioni { width: 30px; }
+}
+@media (max-width: 1257px) {
+    .menu-ridotto .ev-wrap table.dati { font-size: 0.62rem; }
+    .menu-ridotto .ev-wrap table.dati th { font-size: 0.55rem; padding: 4px 4px; }
+    .menu-ridotto .ev-wrap table.dati td { padding: 3px 4px; }
+    .menu-ridotto .ev-wrap col.c-sel { width: 18px; }
+    .menu-ridotto .ev-wrap col.c-data { width: 68px; }
+    .menu-ridotto .ev-wrap col.c-email { width: 86px; }
+    .menu-ridotto .ev-wrap col.c-tel { width: 68px; }
+    .menu-ridotto .ev-wrap col.c-portale { width: 52px; }
+    .menu-ridotto .ev-wrap col.c-part { width: 64px; }
+    .menu-ridotto .ev-wrap col.c-ruolo { width: 64px; }
+    .menu-ridotto .ev-wrap col.c-b2b,
+    .menu-ridotto .ev-wrap col.c-pref { width: 84px; }
+    .menu-ridotto .ev-wrap col.c-stato { width: 56px; }
+    .menu-ridotto .ev-wrap col.c-agg { width: 88px; }
+    .menu-ridotto .ev-wrap col.c-azioni { width: 30px; }
+}
+
 /* scelta dell'evento: un riquadro per evento, si apre uno alla volta */
 .ev-schede { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .ev-scheda { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; padding: 9px 16px; border: 1px solid var(--grigio-200); border-radius: 6px; background: #fff; cursor: pointer; text-align: left; font-family: inherit; }
@@ -1758,13 +2039,18 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
     .rb-foglio .kpi-griglia { grid-template-columns: repeat(4, 1fr); }
 }
 
-/* Sotto i 1000px le tabelle larghe non possono comprimersi oltre senza scorrere in
+/* Sotto i 1200px le tabelle larghe non possono comprimersi oltre senza scorrere in
    orizzontale o spezzare i contenuti: ogni riga di OGNI tabella diventa una scheda
    impilata e leggibile. Le celle senza data-label mostrano solo il valore.
+   La soglia era 1000px: fra i 1000 e i 1200, con la barra del menu aperta, restano
+   circa 800px utili e una tabella da quindici colonne (gli iscritti a un evento)
+   non ci sta - le colonne di testo si riducevano a zero e il contenuto usciva
+   dalla cella, finendo sopra la colonna accanto. A quelle larghezze le schede si
+   leggono meglio di una griglia schiacciata, per questa e per le altre tabelle.
    "screen and": un foglio A4 e largo circa 794px, quindi senza questo vincolo la
    regola varrebbe anche in stampa e, stando dopo @media print, gli toglierebbe
    l'intestazione ripetuta della tabella. Su carta serve la tabella vera. */
-@media screen and (max-width: 1000px) {
+@media screen and (max-width: 1200px) {
     table.dati,
     table.dati thead,
     table.dati tbody,
@@ -1803,6 +2089,11 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
        colonna di scheda larga ~150px il testo non andrebbe a capo e sfonderebbe la
        pagina. [data-label] alza la specificita quel tanto che basta per batterli. */
     table.dati tbody td[data-label] { white-space: normal !important; }
+    /* piu' specifica delle colonne "atomiche" degli Eventi: dentro una scheda
+       verticale un nowrap sull'email farebbe uscire il testo dallo schermo */
+    .ev-wrap table.dati { table-layout: auto; }
+    .ev-wrap table.dati tbody td[data-label] { white-space: normal !important; overflow-wrap: break-word; }
+    .ev-wrap .ev-b2b-si, .ev-wrap .ev-b2b-pref, .ev-wrap .ev-tag { overflow-wrap: break-word; }
     table.dati tbody td::before {
         content: attr(data-label); display: block;
         font-weight: 600; color: var(--grigio-600);
