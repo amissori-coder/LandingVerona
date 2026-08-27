@@ -15222,23 +15222,42 @@
     function invEtichettaUrl(u) {
         return String(u).replace(/^https?:\/\//, '').replace(/\/$/, '');
     }
-    function invRiquadroCodice(dentro) {
+    /* Centrare qualcosa in una mail.
+       Una tabella senza larghezza si stringe sul contenuto e resta a
+       sinistra: l'align="center" sulla cella centra il contenuto DENTRO la
+       cella, e se la cella e' larga quanto il pulsante non centra niente.
+       Serve una tabella esterna larga tutto, con la cella centrata, e dentro
+       quella il blocco vero. L'attributo align sulla tabella interna e' per
+       Outlook, che i margini automatici non li guarda. */
+    function invCentrato(dentro, sotto) {
         return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" '
-            + 'style="margin:0 0 18px;border-collapse:collapse;"><tr>'
-            + '<td align="center" style="padding:14px 10px;background:#F4F8FB;border:1px solid #C9DDEC;border-radius:6px;">'
-            + '<div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#475569;padding-bottom:6px;">'
-            + 'Codice riservato</div>'
-            + '<div style="font-family:Consolas,Menlo,monospace;font-size:26px;line-height:1.2;font-weight:700;'
-            + 'letter-spacing:0.28em;color:#0A2844;">' + dentro + '</div>'
-            + '</td></tr></table>';
+            + 'style="margin:0 0 ' + (sotto || 16) + 'px;border-collapse:collapse;">'
+            + '<tr><td align="center" style="text-align:center;">' + dentro + '</td></tr></table>';
+    }
+    function invRiquadroCodice(dentro) {
+        /* La spaziatura fra le lettere lascia uno spazio anche DOPO l'ultima,
+           e con il testo centrato quello spazio conta: il codice risulta
+           spostato a sinistra di mezza spaziatura. Il rientro iniziale della
+           stessa misura lo rimette in asse. */
+        return invCentrato(
+            '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" '
+            + 'style="border-collapse:collapse;margin:0 auto;"><tr>'
+            + '<td align="center" style="padding:9px 18px;background:#F4F8FB;border:1px solid #C9DDEC;'
+            + 'border-radius:6px;text-align:center;">'
+            + '<div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#475569;'
+            + 'padding-bottom:3px;">Codice riservato</div>'
+            + '<div style="font-family:Consolas,Menlo,monospace;font-size:19px;line-height:1.25;'
+            + 'font-weight:700;letter-spacing:0.14em;text-indent:0.14em;color:#0A2844;">' + dentro + '</div>'
+            + '</td></tr></table>');
     }
     function invPulsante(url, etichetta) {
-        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
-            + 'style="margin:0 0 18px;border-collapse:collapse;"><tr>'
+        return invCentrato(
+            '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" '
+            + 'style="border-collapse:collapse;margin:0 auto;"><tr>'
             + '<td align="center" style="background:#164068;border-radius:6px;">'
-            + '<a href="' + esc(url) + '" style="display:inline-block;padding:12px 26px;font-size:15px;'
+            + '<a href="' + esc(url) + '" style="display:inline-block;padding:11px 24px;font-size:14px;'
             + 'font-weight:700;color:#ffffff;text-decoration:none;">' + esc(etichetta) + '</a>'
-            + '</td></tr></table>';
+            + '</td></tr></table>');
     }
     function invTestoInHtml(t) {
         const capoversi = String(t || '').replace(/\r\n/g, '\n').split(/\n{2,}/)
