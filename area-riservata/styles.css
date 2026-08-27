@@ -2319,3 +2319,17 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .inv-f:focus { outline: none; border-color: var(--blu-700); box-shadow: 0 0 0 2px var(--blu-100); }
 .inv-ord { cursor: pointer; -webkit-user-select: none; user-select: none; }
 .inv-ord:hover { text-decoration: underline; }
+
+/* ---- avanzamento dell'invito ----------------------------------------
+   Un invio da trecento PEC dura sette minuti. Con la sola riga di testo che
+   cambiava a ogni gruppo non si distingueva "sta lavorando" da "si e'
+   piantato": qui la barra si muove, i conteggi stanno separati (partite e non
+   riuscite non vanno sommate a occhio) e c'e' scritto quanto manca. */
+.ii-avanz { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--blu-100); border-radius: 6px; background: var(--blu-050); }
+.ii-barra { height: 8px; border-radius: 999px; background: var(--grigio-200); overflow: hidden; }
+.ii-barra span { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--blu-700); transition: width 0.35s ease; }
+.ii-numeri { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+#ii-fatte { font-size: 1.05rem; font-weight: 700; color: var(--blu-900); }
+.ii-numeri .hint { margin: 0; }
+#ii-manca { margin-left: auto; }
+#ii-passo { margin-top: 4px; font-size: 0.78rem; color: var(--grigio-600); }
