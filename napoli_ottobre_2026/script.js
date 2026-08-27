@@ -159,6 +159,89 @@ document.addEventListener('DOMContentLoaded', () => {
     if (form) {
         const requiredFields = form.querySelectorAll('[required]');
 
+        /* ---- Codice riservato alle aziende invitate ----
+           Facoltativo, ma se c'e' dev'essere uno di quelli spediti davvero.
+           Si verifica mentre la persona compila il resto del modulo, non al
+           momento dell'invio: cinque caratteri copiati da una PEC si sbagliano,
+           e scoprirlo dopo aver riempito quindici campi e' il modo migliore per
+           far abbandonare la registrazione. Se il servizio non risponde NON si
+           blocca nulla: l'iscrizione vale comunque, il codice si controlla poi. */
+        const SERVIZIO_NGB = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+        const PAGINA_NGB = 'Napoli 2 Ottobre 2026 - Manifestazione di interesse';
+        const campoCodice = document.getElementById('codiceInvito');
+        const codiceOk = document.getElementById('codiceInvitoOk');
+        const codiceErr = document.getElementById('codiceInvitoError');
+        // 0, 1 e le lettere che ci somigliano non esistono nei codici: chi le
+        // scrive le ha lette male, e correggerle e' piu' utile che rifiutarle
+        const ripulisci = v => String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
+            .replace(/[IL]/g, '1').replace(/O/g, '0').slice(0, 5);
+        let statoCodice = { valore: '', esito: 'vuoto', azienda: '' };
+
+        function mostraCodice(esito, azienda) {
+            if (!codiceOk || !codiceErr) return;
+            codiceOk.textContent = '';
+            codiceErr.textContent = '';
+            if (campoCodice) campoCodice.classList.remove('error');
+            if (esito === 'buono') {
+                codiceOk.textContent = azienda
+                    ? 'Codice riconosciuto: invito a ' + azienda
+                    : 'Codice riconosciuto.';
+            } else if (esito === 'cattivo') {
+                if (campoCodice) campoCodice.classList.add('error');
+                codiceErr.textContent = 'Questo codice non risulta fra quelli inviati. Ricontrollalo sul messaggio che hai ricevuto, oppure lascia il campo vuoto e registrati senza.';
+            } else if (esito === 'corto') {
+                if (campoCodice) campoCodice.classList.add('error');
+                codiceErr.textContent = 'Il codice e di 5 caratteri.';
+            }
+        }
+
+        function verificaCodice() {
+            if (!campoCodice) return Promise.resolve(true);
+            const c = ripulisci(campoCodice.value);
+            campoCodice.value = c;
+            if (!c) { statoCodice = { valore: '', esito: 'vuoto', azienda: '' }; mostraCodice('vuoto'); return Promise.resolve(true); }
+            if (c.length < 5) { statoCodice = { valore: c, esito: 'corto', azienda: '' }; mostraCodice('corto'); return Promise.resolve(false); }
+            if (statoCodice.valore === c && statoCodice.esito !== 'ignoto') {
+                mostraCodice(statoCodice.esito === 'buono' ? 'buono' : 'cattivo', statoCodice.azienda);
+                return Promise.resolve(statoCodice.esito === 'buono');
+            }
+            return fetch(SERVIZIO_NGB, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                // la pagina viaggia con la domanda: un codice di un altro evento
+                // dev'essere respinto qui, non scoperto il giorno dell'evento
+                body: JSON.stringify({ azione: 'verifica-codice', codice: c, pagina: PAGINA_NGB })
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d && d.ok) {
+                        statoCodice = { valore: c, esito: 'buono', azienda: String(d.azienda || '') };
+                        mostraCodice('buono', statoCodice.azienda);
+                        return true;
+                    }
+                    statoCodice = { valore: c, esito: 'cattivo', azienda: '' };
+                    mostraCodice('cattivo');
+                    return false;
+                })
+                .catch(function () {
+                    /* Servizio non raggiungibile: non e' colpa di chi si sta
+                       registrando e non gli si sbarra la strada. Il codice
+                       viaggia lo stesso e si controlla dall'area riservata. */
+                    statoCodice = { valore: c, esito: 'ignoto', azienda: '' };
+                    mostraCodice('vuoto');
+                    return true;
+                });
+        }
+
+        if (campoCodice) {
+            campoCodice.addEventListener('blur', function () { verificaCodice(); });
+            campoCodice.addEventListener('input', function () {
+                const c = ripulisci(campoCodice.value);
+                if (campoCodice.value !== c) campoCodice.value = c;
+                if (c.length === 5) verificaCodice(); else mostraCodice('vuoto');
+            });
+        }
+
         requiredFields.forEach(field => {
             if (field.type !== 'checkbox') {
                 field.addEventListener('blur', () => validateField(field));
@@ -187,6 +270,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     firstError.focus();
                 }
+                return;
+            }
+
+            /* Il codice, se c'e', deve risultare fra quelli spediti. Quando non
+               si e' ancora fatto in tempo a verificarlo (l'invio parte subito
+               dopo aver digitato) si verifica adesso e si rimanda l'invio: si
+               rientra qui con la risposta gia' in mano, quindi non si gira in
+               tondo. Servizio irraggiungibile vale come "non lo so" e non
+               ferma nessuno: l'iscrizione conta piu' dell'etichetta. */
+            const codiceScritto = campoCodice ? ripulisci(campoCodice.value) : '';
+            if (codiceScritto && statoCodice.esito !== 'buono' && statoCodice.esito !== 'ignoto') {
+                verificaCodice().then(function (buono) {
+                    if (buono) {
+                        if (form.requestSubmit) form.requestSubmit();
+                        else form.dispatchEvent(new Event('submit', { cancelable: true }));
+                        return;
+                    }
+                    campoCodice.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    campoCodice.focus();
+                });
                 return;
             }
 
@@ -223,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const payload = {
                 data:      _ts,
-                pagina:    'Napoli 2 Ottobre 2026 - Manifestazione di interesse',
+                pagina:    PAGINA_NGB,
                 nome:      (form.querySelector('#nome')    || {}).value || '',
                 cognome:   (form.querySelector('#cognome') || {}).value || '',
                 email:     (form.querySelector('#email')   || {}).value || '',
@@ -237,6 +340,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 dimensione:  (form.querySelector('#dimensione') || {}).value || '',
                 incontro:    (form.querySelector('#incontro')   || {}).value || '',
                 interessi:   interessi,
+                // il codice riservato all'azienda invitata, se ne ha uno: e' cio'
+                // che lega questa iscrizione all'elenco delle aziende selezionate
+                codiceInvito: campoCodice ? ripulisci(campoCodice.value) : '',
                 privacy:   !!(form.querySelector('#privacy')   && form.querySelector('#privacy').checked),
                 marketing: !!(form.querySelector('#marketing') && form.querySelector('#marketing').checked)
             };

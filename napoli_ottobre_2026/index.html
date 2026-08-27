@@ -723,6 +723,20 @@
                         <input type="text" id="ruolo" name="ruolo" required placeholder="La tua qualifica" autocomplete="organization-title">
                         <span class="form-error" id="ruoloError"></span>
                     </div>
+                    <!-- Codice riservato alle aziende invitate. Facoltativo per
+                         scelta: la pagina resta aperta a chiunque, e chi arriva
+                         dal sito un codice non ce l'ha. Ma se viene scritto deve
+                         essere uno di quelli davvero spediti, altrimenti
+                         "azienda selezionata" diventa un'etichetta che chiunque
+                         puo' mettersi da solo. La verifica avviene PRIMA di
+                         spedire il modulo, cosi' chi lo ha trascritto male se ne
+                         accorge subito. -->
+                    <div class="form-group full-width">
+                        <label for="codiceInvito">Codice invito <span class="field-optional">(solo se hai ricevuto l'invito riservato alla tua azienda)</span></label>
+                        <input type="text" id="codiceInvito" name="codiceInvito" placeholder="5 caratteri, per esempio A7K2M" maxlength="12" autocomplete="off" spellcheck="false" style="text-transform:uppercase;letter-spacing:0.12em;">
+                        <span class="form-hint" id="codiceInvitoOk"></span>
+                        <span class="form-error" id="codiceInvitoError"></span>
+                    </div>
                     <!-- Campi per il business matching del pomeriggio.
                          Servono a incrociare gli ospiti PRIMA dell'evento: con
                          il solo nome e ruolo non si abbina nessuno, e due ore di

@@ -86,6 +86,7 @@ Facoltative, ma **consigliate** per un invio a freddo:
 | `MKT_REPLY_TO` | dove far arrivare le risposte (se manca, risponde a chi ha premuto invia) |
 | `MKT_MAX_LOTTO` | quanti messaggi per chiamata (predefinito 40) |
 | `MKT_MAX_ORA` | tetto orario per utente (predefinito 2000) |
+| `MKT_PAUSA_MS` | pausa fra un messaggio e il successivo (predefinito 0: il relay ha le sue code) |
 
 > **Perche' un secondo account Brevo.** Come dice la nota qui sopra, un solo
 > account Brevo regge oggi TUTTE le email dello studio, comprese quelle con cui
@@ -114,6 +115,7 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 | `PEC_SMTP_PORT` | `465` — si puo' omettere |
 | `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
 | `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 300) |
+| `PEC_PAUSA_MS` | pausa fra una PEC e la successiva (predefinito 1500) |
 
 > **Dipendenza aggiunta: `imapflow`** (licenza MIT, usabile in un prodotto
 > chiuso). Attenzione se un domani si tocca la versione: imapflow e' stato
@@ -927,3 +929,94 @@ la disiscrizione funziona subito, senza toccare niente.
 Se il progetto Vercel non si chiama `revilaw-email`, imposta anche
 `NEWSLETTER_API_BASE` con l'indirizzo del servizio (serve a costruire il
 collegamento "un clic" negli header della mail).
+
+
+## Invii PEC: il ritmo, e cosa succede quando il gestore blocca
+
+Fra una PEC e la successiva il servizio aspetta un secondo e mezzo
+(`PEC_PAUSA_MS`). Non e' prudenza generica: i gestori misurano il ritmo con
+cui arriva la posta, e una raffica da un indirizzo che non conoscono e' il
+profilo che fa scattare i filtri antiabuso. La pausa non si nota — la
+funzione ha comunque i suoi 60 secondi e l'area riservata richiama finche'
+l'elenco non e' finito — e cambia il profilo dell'invio.
+
+Quando il rifiuto riguarda **noi** e non il destinatario, il lotto si ferma
+subito. La distinzione la fa `CANALI.fermaTutto()` e conta piu' di quanto
+sembri:
+
+| Risposta del server | Cosa vuol dire | Cosa fa il servizio |
+|---|---|---|
+| `550 User unknown` | quell'indirizzo non esiste | segna la scheda in errore e **va avanti** |
+| `554 5.7.1 Indirizzo IP bloccato` | il gestore rifiuta la nostra connessione | **ferma il lotto** |
+| `421`, `450`, `451`, `452` | rifiuto temporaneo o servizio non disponibile | **ferma il lotto** |
+| credenziali rifiutate (`EAUTH`) | la casella non ci fa entrare | **ferma il lotto** |
+
+Insistere dopo un blocco fa due danni: allunga il blocco stesso, e marca
+"errore" decine di aziende che non hanno alcun problema, costringendo poi a
+ripulirle a mano. Fermandosi, le schede mai tentate restano `da-invitare` e
+l'invio riprende da li' quando si preme di nuovo Invia.
+
+> **Il blocco dell'IP non si risolve dal codice.** Le funzioni girano su
+> indirizzi condivisi e rotanti: la pausa riduce la probabilita' di finire
+> nel mirino, non la elimina. La soluzione stabile e' spedire da un IP fisso
+> italiano — un piccolo server dedicato che faccia da ponte verso
+> `smtps.pec.aruba.it` — oppure autorizzare quell'IP presso il gestore.
+
+## Il modello per il caricamento delle aziende
+
+L'area riservata genera un `.xlsx` da compilare (pulsante *Scarica il
+modello*), lo rilegge, e lo converte in CSV prima di consegnarlo al servizio:
+il lettore dei fogli sta nel browser, non qui, cosi' il servizio non si porta
+dietro un lettore di zip dentro una funzione che ha sessanta secondi.
+
+Obbligatorie **Denominazione** e **PEC**; le righe che ne sono prive vengono
+scartate e **contate a parte** (`senzaDenominazione`, `senzaRecapito`), perche'
+un elenco che entra a meta' senza spiegazioni e' peggio di uno che non entra.
+L'asterisco che nel modello segna le colonne obbligatorie viene ignorato in
+lettura: toglierlo o lasciarlo non cambia nulla.
+
+
+## Codici di invito: il filo fra le due tabelle
+
+Ogni azienda invitata riceve, dentro il messaggio, un codice di **5 caratteri**
+riservato a lei. Lo scrive nel modulo di registrazione, e da quel momento le
+due tabelle si parlano: nell'elenco delle aziende si vede chi si e' registrato,
+nell'elenco degli iscritti si vede chi e' arrivato perche' era stato scelto.
+Senza il codice le due liste restano estranee, e l'unico modo di incrociarle e'
+confrontare i nomi a occhio, che con "Alfa S.r.l." e "ALFA SRL" non funziona.
+
+**L'alfabeto e' quello di Crockford**, senza `I`, `L`, `O`, `U`: le prime tre
+si confondono con `1` e `0` quando il codice viene letto al telefono o
+ricopiato da una stampa. In lettura `I` e `L` diventano `1` e `O` diventa `0`,
+cosi' chi trascrive male viene comunque riconosciuto invece di ricevere un
+"codice non valido" che non sa come correggere.
+
+L'unicita' non e' affidata alla fortuna: **il codice e' l'identificativo del
+documento** in `codiciInvito`, e `create()` fallisce se esiste gia' (su 20.000
+sorteggi di prova gli scontri sono stati 5, quindi il caso si presenta davvero).
+
+Regole che valgono la pena di essere ricordate:
+
+- **Il codice nasce PRIMA che il messaggio parta.** Se partisse la mail e poi
+  fallisse la scrittura, l'azienda avrebbe in mano un codice che qui non
+  risulta, e al momento di registrarsi si sentirebbe dire di no.
+- **Un secondo invito ripete lo stesso codice**, non ne crea un altro:
+  altrimenti quello ricevuto per primo smetterebbe di valere in silenzio.
+- **Il codice non si consuma.** Un'azienda selezionata puo' mandare due
+  persone; si contano gli usi e si ricorda il primo.
+- **Nel modulo pubblico e' facoltativo**, perche' la pagina resta aperta a
+  tutti. Ma se viene scritto dev'essere uno di quelli spediti davvero: un
+  codice inventato che passasse renderebbe "azienda selezionata" un'etichetta
+  che chiunque puo' mettersi da solo.
+- **Un codice di un altro evento non vale.** Il modulo pubblico conosce
+  l'evento solo per nome, quindi la pagina di iscrizione viaggia insieme al
+  codice e si confronta con quella. I codici spediti prima di questa regola
+  continuano a valere.
+- La verifica dal modulo passa per l'azione `verifica-codice`, che ricade
+  **sotto il limite per indirizzo IP** come tutti i moduli aperti: e' cio' che
+  rende impraticabile provare codici a tappeto.
+
+Quando qualcuno si registra con un codice, la scheda dell'iscritto porta
+`invitoCodice`, `invitoAzienda` e `selezionata`, e la scheda dell'azienda passa
+a `iscritta` con l'elenco di chi si e' registrato. Se questa parte non riesce,
+**l'iscrizione resta valida**: e' informazione di servizio, non una condizione.

@@ -356,6 +356,18 @@ module.exports = async (req, res) => {
                         daNome: String(v.compilato.daNome || ''),
                         quando: typeof v.compilato.quando === 'number' ? v.compilato.quando : 0
                     } : null,
+                    /* L'altra meta' del filo: questa persona si e' registrata con
+                       il codice riservato a un'azienda invitata. La lettura e' una
+                       whitelist campo per campo, quindi senza queste righe il dato
+                       resterebbe sul database senza mai comparire in tabella. Si
+                       tiene la ragione sociale dell'INVITO, non quella digitata nel
+                       modulo: e' l'unica che combacia con l'elenco delle aziende,
+                       ed e' tutto il motivo per cui esiste un codice. */
+                    invito: v.invitoCodice ? {
+                        codice: String(v.invitoCodice || ''),
+                        azienda: String(v.invitoAzienda || ''),
+                        scheda: String(v.invitoScheda || '')
+                    } : null,
                     /* Gli orari dei tavoli con cui questa persona e' stata invitata.
                        Non e' una colonna: e' il dato che permette all'area riservata
                        di riproporre gli orari gia' usati anche da un altro computer,

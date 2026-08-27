@@ -1708,8 +1708,17 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 /* precisazione, non problema: si puo abilitare lo stesso */
 .ev-info { flex: 1 0 100%; color: var(--grigio-600); font-size: 0.8rem; line-height: 1.35; margin-top: 2px; }
 /* ---- aziende da invitare a un evento (sezione Eventi) ---- */
-.inv-conta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.88rem; color: var(--grigio-600); }
-.inv-conta b { color: var(--grigio-900); }
+.inv-conta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+/* I conteggi sono anche i filtri: hanno quindi l'aspetto di qualcosa che si
+   preme, non di un'etichetta. Premuto due volte, il filtro si toglie. */
+.inv-chip { display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 11px; border: 1px solid var(--grigio-200); border-radius: 999px; background: #fff; font: inherit; font-size: 0.84rem; color: var(--grigio-600); cursor: pointer; }
+.inv-chip b { color: var(--grigio-900); font-size: 0.95rem; }
+.inv-chip:hover { border-color: var(--blu-700); background: var(--blu-050); }
+.inv-chip.attivo { border-color: var(--blu-700); background: var(--blu-100); color: var(--blu-900); }
+.inv-chip.ko { border-color: var(--rosso); color: var(--rosso); }
+.inv-chip.ko b { color: var(--rosso); }
+.inv-chip.ko.attivo { background: var(--rosso-bg); }
+.inv-filtrate { margin: -4px 0 10px; }
 .inv-barra { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .inv-filtri { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .inv-filtri input[type="text"] { flex: 1 1 260px; min-width: 180px; }
@@ -1725,7 +1734,6 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .inv-azioni-riga { white-space: nowrap; }
 /* l'azienda di cui si ha la sola PEC: si segnala, perche' sul canale email
    l'invito le arriverebbe li' */
-.inv-solo-pec { display: inline-block; padding: 1px 6px; margin-right: 4px; border-radius: 999px; background: var(--blu-050); border: 1px solid var(--grigio-200); color: var(--blu-700); font-size: 0.7rem; font-weight: 700; }
 /* scelta del canale nella finestra di invio */
 .inv-canale { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; border: 1px solid var(--grigio-200); border-radius: 6px; margin-top: 6px; cursor: pointer; font-size: 0.9rem; color: var(--grigio-900); }
 .inv-canale:hover { background: var(--blu-050); }
@@ -2230,3 +2238,53 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* Il motivo di un invio fallito e' una diagnosi, non un'etichetta: si legge
    tutto, andando a capo, senza allargare la colonna oltre il ragionevole. */
 .inv-motivo { max-width: 22rem; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+
+/* --- elenco delle aziende: leggibilita' della riga ---------------------
+   Prima ogni dato aveva la sua colonna e su uno schermo normale il nome
+   dell'azienda andava a capo dopo due parole. Ora anagrafica sotto il nome,
+   recapiti in colonna, e la scaletta delle ricevute come una scaletta. */
+.inv-th-ck { width: 34px; }
+.inv-nome { font-size: 0.9rem; line-height: 1.3; }
+.inv-sotto { margin-top: 3px; }
+.inv-riga-ko > td { background: var(--rosso-bg); }
+.inv-rec { line-height: 1.4; margin-bottom: 2px; overflow-wrap: anywhere; }
+.inv-tag-pec, .inv-tag-mail { display: inline-block; min-width: 34px; padding: 0 5px; margin-right: 4px; border-radius: 3px; font-size: 0.66rem; font-weight: 700; text-align: center; letter-spacing: 0.02em; }
+.inv-tag-pec { background: var(--blu-100); color: var(--blu-700); }
+.inv-tag-mail { background: var(--grigio-100); color: var(--grigio-600); }
+.inv-motivo { max-width: 22rem; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+
+/* La scaletta delle due ricevute che il gestore certifica. Il pallino pieno
+   dice "questo passo e' avvenuto", quello vuoto "si aspetta ancora": la
+   differenza si coglie senza leggere. */
+.inv-scaletta { margin-top: 5px; display: flex; flex-direction: column; gap: 2px; }
+.inv-passo { display: flex; align-items: baseline; gap: 6px; font-size: 0.75rem; color: var(--grigio-400); }
+.inv-passo.fatto { color: var(--grigio-900); }
+.inv-passo.ko { color: var(--rosso); }
+.inv-passo .hint { display: inline; margin: 0; font-size: 0.72rem; }
+.inv-punto { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--grigio-200); background: #fff; }
+.inv-passo.fatto .inv-punto { border-color: var(--verde); background: var(--verde); }
+.inv-passo.ko .inv-punto { border-color: var(--rosso); background: var(--rosso); }
+.inv-vecchia { color: var(--ambra); font-weight: 600; }
+
+/* Caricamento: il modello sta in evidenza, perche' partire da li' e' la
+   strada corta e ogni elenco compilato a mano poi va corretto a mano. */
+.inv-imp-modello { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 11px 13px; margin-bottom: 14px; border: 1px solid var(--blu-100); border-radius: 6px; background: var(--blu-050); }
+.inv-imp-modello .hint { margin: 0; flex: 1 1 240px; }
+
+/* La spunta del rinvio: quando non c'e' nessuno a cui rimandare resta li' ma
+   si vede che non serve, invece di far pensare che si stia dimenticando qualcosa. */
+.inv-rinvio.spenta { opacity: 0.6; }
+.inv-rinvio .hint { margin-top: 4px; }
+
+/* Il codice riservato all'azienda. A larghezza fissa perche' va letto
+   carattere per carattere: e' quello che qualcuno detta al telefono o ricopia
+   da una PEC, e in un carattere proporzionale le somiglianze ingannano. */
+.inv-codice { display: inline-block; margin-top: 4px; padding: 1px 7px; border: 1px solid var(--blu-100); border-radius: 4px; background: var(--blu-050); color: var(--blu-900); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.09em; }
+.inv-iscritti { margin-top: 4px; font-size: 0.75rem; font-weight: 600; color: var(--verde); }
+
+/* Nella tabella degli iscritti: chi e' arrivato con il codice della sua
+   azienda. E' l'unico punto in cui si vede che la campagna ha prodotto una
+   presenza, quindi si nota. */
+.ev-selezionata { margin-top: 4px; display: inline-block; padding: 2px 8px; border: 1px solid var(--verde); border-radius: 999px; background: var(--verde-bg); color: var(--verde); font-size: 0.72rem; font-weight: 700; line-height: 1.5; }
+.ev-selezionata .ev-cod { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.08em; }
+.ev-selezionata .hint { margin: 1px 0 0; color: var(--verde); font-weight: 500; }

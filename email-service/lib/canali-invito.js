@@ -101,6 +101,43 @@ function maxOra(canale) {
         : (Number(process.env.MKT_MAX_ORA) || 2000);
 }
 
+/* Quanto si aspetta fra un messaggio e il successivo.
+   Sulla PEC non e' prudenza generica: i gestori misurano il ritmo con cui
+   arriva la posta, e una raffica da un indirizzo che non conoscono e' il
+   profilo che fanno scattare i filtri antiabuso. Un secondo e mezzo non si
+   nota (la funzione ha comunque i suoi 60 secondi e l'area riservata
+   richiama finche' l'elenco non finisce) e cambia il profilo dell'invio.
+   Sull'ordinaria non serve: la consegna al relay, che ha le sue code. */
+function pausaFra(canale) {
+    const v = canale === 'pec' ? process.env.PEC_PAUSA_MS : process.env.MKT_PAUSA_MS;
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) return Math.min(n, 10000);
+    return canale === 'pec' ? 1500 : 0;
+}
+function aspetta(ms) {
+    return ms > 0 ? new Promise(r => setTimeout(r, ms)) : Promise.resolve();
+}
+
+/* Un rifiuto che riguarda NOI, non il destinatario.
+   La differenza conta piu' di quanto sembri: un indirizzo inesistente e' un
+   problema di quella riga e si va avanti; un IP bloccato o un tetto superato
+   valgono per tutto il lotto, e insistere non lo migliora - semmai allunga il
+   blocco e brucia il resto dell'elenco marcandolo "errore" senza motivo.
+   Quando si riconosce uno di questi, l'invio si ferma li'. */
+function fermaTutto(e) {
+    const testo = String((e && e.message) || '').toLowerCase();
+    const codice = String((e && e.responseCode) || '');
+    if (/bloccat|blocked|blacklist|spam|abus|too many|rate limit|troppi|quota|not allowed to send|sender denied/.test(testo)) return true;
+    /* 421 e' "servizio non disponibile, riprova", 45x sono rifiuti temporanei:
+       il codice arriva in un campo suo, ma non sempre, quindi si guarda anche
+       il testo, dove nodemailer ricopia la risposta del server per intero. */
+    if (/^(421|450|451|452)$/.test(codice)) return true;
+    if (/(^|[\s:])(421|45[0-2])([\s-]|$)/.test(testo)) return true;
+    if (/5\.7\.\d/.test(testo) && /ip|host|client/.test(testo)) return true;
+    if (e && (e.code === 'EAUTH' || e.code === 'ECONNECTION' || e.code === 'ETIMEDOUT')) return true;
+    return false;
+}
+
 function trasporto(canale) {
     const c = configurazione(canale);
     return nodemailer.createTransport({
@@ -140,7 +177,11 @@ function esc(x) {
 /* Variabili scrivibili nell'oggetto e nel testo dell'invito. Il valore
    inserito e' LETTERALE: un "$" nella ragione sociale non e' un riferimento
    speciale (stessa attenzione di api/invia-comunicazione.js). */
-const VARIABILI = ['ragione_sociale', 'referente', 'citta', 'provincia', 'piva', 'pec'];
+/* Le variabili che chi scrive l'invito puo' mettere nel testo. "codice" e'
+   diversa dalle altre: le altre ripetono un dato che l'azienda gia' conosce,
+   questa porta un'informazione che nasce qui e che l'azienda dovra'
+   restituirci per registrarsi. */
+const VARIABILI = ['ragione_sociale', 'referente', 'citta', 'provincia', 'piva', 'pec', 'codice'];
 function valori(a) {
     a = a || {};
     return {
@@ -149,7 +190,8 @@ function valori(a) {
         citta: String(a.citta || ''),
         provincia: String(a.provincia || ''),
         piva: String(a.piva || ''),
-        pec: String(a.pec || '')
+        pec: String(a.pec || ''),
+        codice: String(a.codice || '')
     };
 }
 function applica(testo, a) {
@@ -258,5 +300,6 @@ function destinatarioDi(canale, a) {
 
 module.exports = {
     configurazione, configurato, trasporto, messaggio, destinatarioDi, riferimentoNuovo,
+    pausaFra, aspetta, fermaTutto,
     applica, applicaHtml, htmlInTesto, maxLotto, maxOra, VARIABILI
 };
