@@ -2283,8 +2283,7 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .inv-iscritti { margin-top: 4px; font-size: 0.75rem; font-weight: 600; color: var(--verde); }
 
 /* Nella tabella degli iscritti: chi e' arrivato con il codice della sua
-   azienda. E' l'unico punto in cui si vede che la campagna ha prodotto una
-   presenza, quindi si nota. */
-.ev-selezionata { margin-top: 4px; display: inline-block; padding: 2px 8px; border: 1px solid var(--verde); border-radius: 999px; background: var(--verde-bg); color: var(--verde); font-size: 0.72rem; font-weight: 700; line-height: 1.5; }
-.ev-selezionata .ev-cod { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0.08em; }
-.ev-selezionata .hint { margin: 1px 0 0; color: var(--verde); font-weight: 500; }
+   azienda. Sulla stessa riga del nome e con il solo codice dentro: da blocco
+   a parte rubava un rigo a ogni riga, sfalsando la tabella fra chi ce l'ha e
+   chi no. Il verde dice cosa e', il suggerimento dice il resto. */
+.ev-sel { display: inline-block; vertical-align: baseline; margin-left: 5px; padding: 0 6px; border: 1px solid var(--verde); border-radius: 3px; background: var(--verde-bg); color: var(--verde); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; cursor: help; }
