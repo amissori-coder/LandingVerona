@@ -355,9 +355,12 @@ async function esegui(ctx) {
         if (azione === 'importa') {
             if (!puoGestire) { negato(); return; }
             const righe = leggiCsv(typeof body.csv === 'string' ? body.csv : '');
-            if (righe.length < 2) { res.status(400).json({ ok: false, msg: 'Il file non contiene righe da importare.' }); return; }
+            if (righe.length < 2) { res.status(400).json({ ok: false, msg: 'Il file non contiene righe da importare: la prima riga sono le intestazioni, dalla seconda in poi le aziende.' }); return; }
 
-            const intest = righe[0].map(h => chiave(h).replace(/\s+/g, ' '));
+            /* L'asterisco del modello segna le colonne obbligatorie a chi apre
+               il foglio; qui non significa niente e si toglie, cosi' chi lo
+               cancella e chi lo lascia ottengono lo stesso risultato. */
+            const intest = righe[0].map(h => chiave(h).replace(/\*/g, '').replace(/\s+/g, ' ').trim());
             const campoDi = {};
             const presi = {};
             intest.forEach((h, i) => {
@@ -369,7 +372,7 @@ async function esegui(ctx) {
             const col = n => { for (const i in campoDi) { if (campoDi[i] === n) return +i; } return -1; };
             const iPec = col('pec'), iMail = col('email'), iRag = col('ragioneSociale');
             if (iPec < 0 && iMail < 0) {
-                res.status(400).json({ ok: false, msg: 'Non trovo ne la colonna PEC ne quella Email: chiamane una "PEC" o "Email" nella prima riga del file.' });
+                res.status(400).json({ ok: false, msg: 'Nella prima riga non trovo ne la colonna PEC ne quella Email: scarica il modello, oppure chiama "PEC" la colonna degli indirizzi.' });
                 return;
             }
             const cella = (riga, i) => (i >= 0 && riga[i] != null) ? testo(riga[i], 300) : '';
@@ -379,7 +382,7 @@ async function esegui(ctx) {
             try { gia = (await db.collection('aziendeInvito').where('evento', '==', evento).count().get()).data().count || 0; }
             catch (_) { gia = 0; }
 
-            let importate = 0, senzaRecapito = 0, doppie = 0, oltreIlLimite = 0;
+            let importate = 0, senzaRecapito = 0, doppie = 0, oltreIlLimite = 0, senzaDenominazione = 0;
             const viste = {};
             let batch = db.batch(), nel = 0;
             const nuoviId = [];
@@ -392,6 +395,10 @@ async function esegui(ctx) {
                 const mailOk = indirizzoValido(mail) ? mail : '';
                 const contatto = pecOk || mailOk;
                 if (!contatto) { senzaRecapito++; continue; }
+                /* Senza denominazione la scheda non serve a niente: non si sa a
+                   chi si sta scrivendo, l'invito non si puo' intestare e in
+                   elenco resta una riga muta. Si scarta e si dice quante. */
+                if (!cella(riga, iRag)) { senzaDenominazione++; continue; }
                 if (viste[contatto]) { doppie++; continue; }
                 viste[contatto] = true;
                 if (gia + importate >= MAX_AZIENDE_EVENTO) { oltreIlLimite++; continue; }
@@ -443,7 +450,8 @@ async function esegui(ctx) {
 
             res.status(200).json({
                 ok: true, lette: righe.length - 1, importate: importate, nuove: nuove,
-                aggiornate: importate - nuove, senzaRecapito: senzaRecapito, doppie: doppie, oltreIlLimite: oltreIlLimite
+                aggiornate: importate - nuove, senzaRecapito: senzaRecapito, doppie: doppie,
+                oltreIlLimite: oltreIlLimite, senzaDenominazione: senzaDenominazione
             });
             return;
         }
@@ -581,10 +589,19 @@ async function esegui(ctx) {
             const tettoRaggiunto = gettoni.concessi < ids.length;
 
             const trans = CANALI.trasporto(canale);
+            const pausa = CANALI.pausaFra(canale);
             const partite = Date.now();
             let inviate = 0, saltate = 0, senzaRecapito = 0, disiscritte = 0;
             const falliti = [];
             const esiti = {};
+            /* Quando il server di posta rifiuta NOI e non il destinatario
+               (IP bloccato, tetto superato, credenziali), il lotto si ferma
+               qui: le schede rimaste restano "da invitare" e si riprendera'
+               piu' tardi da dove si era arrivati. Insistere non serve a
+               niente e fa due danni - allunga il blocco, e marca "errore"
+               decine di aziende che non hanno nessun problema. */
+            let bloccato = null;
+            let primo = true;
             for (const id of daFare) {
                 // oltre i 45 secondi si smette: il resto lo fa la chiamata dopo
                 if (Date.now() - partite > 45000) break;
@@ -608,6 +625,8 @@ async function esegui(ctx) {
                    morisse fra l'invio e la scrittura dell'esito, la ricevuta
                    arriverebbe comunque e troverebbe il filo gia' teso. */
                 const riferimento = CANALI.riferimentoNuovo(canale);
+                if (!primo) await CANALI.aspetta(pausa);
+                primo = false;
                 try {
                     if (canale === 'pec') {
                         await LETTORE.registraRiferimento(db, riferimento, { scheda: id, evento: evento, destinatario: dest });
@@ -631,6 +650,7 @@ async function esegui(ctx) {
                     await rif.set({ stato: 'errore', errore: errore }, { merge: true });
                     esiti[id] = { stato: 'errore', errore: errore };
                     falliti.push({ id: id, indirizzo: dest, motivo: motivo });
+                    if (CANALI.fermaTutto(e)) { bloccato = motivo; break; }
                 }
             }
             try { trans.close(); } catch (_) { /* niente da chiudere */ }
@@ -650,7 +670,8 @@ async function esegui(ctx) {
                 ok: true, canale: canale, inviate: inviate, saltate: saltate,
                 senzaRecapito: senzaRecapito, disiscritte: disiscritte,
                 falliti: falliti.slice(0, 50), esiti: esiti,
-                tettoRaggiunto: tettoRaggiunto, maxLotto: maxLotto
+                tettoRaggiunto: tettoRaggiunto, maxLotto: maxLotto,
+                bloccato: bloccato || ''
             });
             return;
         }

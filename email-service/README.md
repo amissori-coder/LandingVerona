@@ -86,6 +86,7 @@ Facoltative, ma **consigliate** per un invio a freddo:
 | `MKT_REPLY_TO` | dove far arrivare le risposte (se manca, risponde a chi ha premuto invia) |
 | `MKT_MAX_LOTTO` | quanti messaggi per chiamata (predefinito 40) |
 | `MKT_MAX_ORA` | tetto orario per utente (predefinito 2000) |
+| `MKT_PAUSA_MS` | pausa fra un messaggio e il successivo (predefinito 0: il relay ha le sue code) |
 
 > **Perche' un secondo account Brevo.** Come dice la nota qui sopra, un solo
 > account Brevo regge oggi TUTTE le email dello studio, comprese quelle con cui
@@ -114,6 +115,7 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 | `PEC_SMTP_PORT` | `465` — si puo' omettere |
 | `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
 | `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 300) |
+| `PEC_PAUSA_MS` | pausa fra una PEC e la successiva (predefinito 1500) |
 
 > **Dipendenza aggiunta: `imapflow`** (licenza MIT, usabile in un prodotto
 > chiuso). Attenzione se un domani si tocca la versione: imapflow e' stato
@@ -927,3 +929,48 @@ la disiscrizione funziona subito, senza toccare niente.
 Se il progetto Vercel non si chiama `revilaw-email`, imposta anche
 `NEWSLETTER_API_BASE` con l'indirizzo del servizio (serve a costruire il
 collegamento "un clic" negli header della mail).
+
+
+## Invii PEC: il ritmo, e cosa succede quando il gestore blocca
+
+Fra una PEC e la successiva il servizio aspetta un secondo e mezzo
+(`PEC_PAUSA_MS`). Non e' prudenza generica: i gestori misurano il ritmo con
+cui arriva la posta, e una raffica da un indirizzo che non conoscono e' il
+profilo che fa scattare i filtri antiabuso. La pausa non si nota — la
+funzione ha comunque i suoi 60 secondi e l'area riservata richiama finche'
+l'elenco non e' finito — e cambia il profilo dell'invio.
+
+Quando il rifiuto riguarda **noi** e non il destinatario, il lotto si ferma
+subito. La distinzione la fa `CANALI.fermaTutto()` e conta piu' di quanto
+sembri:
+
+| Risposta del server | Cosa vuol dire | Cosa fa il servizio |
+|---|---|---|
+| `550 User unknown` | quell'indirizzo non esiste | segna la scheda in errore e **va avanti** |
+| `554 5.7.1 Indirizzo IP bloccato` | il gestore rifiuta la nostra connessione | **ferma il lotto** |
+| `421`, `450`, `451`, `452` | rifiuto temporaneo o servizio non disponibile | **ferma il lotto** |
+| credenziali rifiutate (`EAUTH`) | la casella non ci fa entrare | **ferma il lotto** |
+
+Insistere dopo un blocco fa due danni: allunga il blocco stesso, e marca
+"errore" decine di aziende che non hanno alcun problema, costringendo poi a
+ripulirle a mano. Fermandosi, le schede mai tentate restano `da-invitare` e
+l'invio riprende da li' quando si preme di nuovo Invia.
+
+> **Il blocco dell'IP non si risolve dal codice.** Le funzioni girano su
+> indirizzi condivisi e rotanti: la pausa riduce la probabilita' di finire
+> nel mirino, non la elimina. La soluzione stabile e' spedire da un IP fisso
+> italiano — un piccolo server dedicato che faccia da ponte verso
+> `smtps.pec.aruba.it` — oppure autorizzare quell'IP presso il gestore.
+
+## Il modello per il caricamento delle aziende
+
+L'area riservata genera un `.xlsx` da compilare (pulsante *Scarica il
+modello*), lo rilegge, e lo converte in CSV prima di consegnarlo al servizio:
+il lettore dei fogli sta nel browser, non qui, cosi' il servizio non si porta
+dietro un lettore di zip dentro una funzione che ha sessanta secondi.
+
+Obbligatorie **Denominazione** e **PEC**; le righe che ne sono prive vengono
+scartate e **contate a parte** (`senzaDenominazione`, `senzaRecapito`), perche'
+un elenco che entra a meta' senza spiegazioni e' peggio di uno che non entra.
+L'asterisco che nel modello segna le colonne obbligatorie viene ignorato in
+lettura: toglierlo o lasciarlo non cambia nulla.
