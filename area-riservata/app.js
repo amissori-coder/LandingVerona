@@ -15393,11 +15393,35 @@
         if (esito === 'attesa' && a.invio && a.invio.quando && (Date.now() - a.invio.quando) > 24 * 60 * 60 * 1000) {
             parti.push('<div class="hint inv-vecchia">Nessuna ricevuta dopo 24 ore: controlla la casella PEC.</div>');
         }
-        if (r.risposta && r.risposta.quando) {
-            parti.push('<button type="button" class="inv-risposto inv-apri" data-id="' + esc(a.id) + '">Ha risposto il '
-                + esc(fmtDataOra(r.risposta.quando)) + ' - leggi</button>');
-        }
         return parti.join('');
+    }
+
+    /* Le risposte hanno una colonna loro.
+       Stavano in fondo a quella delle ricevute, ed erano due cose diverse
+       messe insieme: le ricevute le scrive il GESTORE e dicono se il
+       messaggio e' arrivato; la risposta la scrive l'AZIENDA e dice cosa ne
+       pensa. La seconda e' il motivo per cui si e' spedito, e finiva sotto
+       tre righe di stati tecnici, dove per vederla bisognava cercarla.
+
+       Su un invito via email ordinaria resta vuota, e non e' una dimenticanza:
+       li' la risposta torna nella posta di chi ha premuto invia, non nella
+       casella PEC, quindi da qui non si puo' vedere. Il suggerimento lo dice,
+       cosi' nessuno la aspetta invano. */
+    function cellaRisposte(a) {
+        if (!(a.invio && a.invio.canale === 'pec')) {
+            return a.invio
+                ? '<span class="hint" title="Invito partito via email ordinaria: la risposta torna a chi lo ha inviato, non nella casella PEC.">via email</span>'
+                : '<span class="hint">-</span>';
+        }
+        const r = (a.ricevute || {}).risposta;
+        if (!r || !r.quando) return '<span class="hint">-</span>';
+        const oggetto = String(r.oggetto || '').trim();
+        return '<div class="inv-risp">'
+            + '<div class="inv-risp-quando">' + esc(fmtDataOra(r.quando)) + '</div>'
+            + (r.da ? '<div class="hint">' + esc(r.da) + '</div>' : '')
+            + (oggetto ? '<div class="inv-risp-ogg" title="' + esc(oggetto) + '">' + esc(oggetto) + '</div>' : '')
+            + '<button type="button" class="inv-risposto inv-apri" data-id="' + esc(a.id) + '">Leggi</button>'
+            + '</div>';
     }
 
     /* Il riquadro in cima: quando si e' guardata l'ultima volta la casella PEC,
@@ -15592,6 +15616,7 @@
                     + 'Registrati: ' + esc(a.iscritti.map(i => i.nome || i.email).join(', ')) + '</div>'
                     : '') + '</td>'
                 + '<td data-label="Ricevute PEC">' + cellaRicevute(a) + '</td>'
+                + '<td data-label="Risposta">' + cellaRisposte(a) + '</td>'
                 + '<td class="inv-azioni-riga">'
                 + '<button class="btn btn-sm btn-ghost inv-mod" data-id="' + esc(a.id) + '">Modifica</button>'
                 + '<button class="btn btn-sm btn-ghost inv-canc" data-id="' + esc(a.id) + '">Elimina</button></td></tr>';
@@ -15599,7 +15624,7 @@
         const tabella = mostrate.length
             ? '<div class="tabella-wrap"><table class="dati inv-tabella"><thead><tr>'
             + '<th class="inv-th-ck"><input type="checkbox" id="inv-tutte" title="Seleziona tutte le righe filtrate"></th>'
-            + '<th>Azienda</th><th>Recapiti</th><th>Stato dell\'invito</th><th>Ricevute PEC</th><th></th>'
+            + '<th>Azienda</th><th>Recapiti</th><th>Stato dell\'invito</th><th>Ricevute PEC</th><th>Risposta</th><th></th>'
             + '</tr></thead><tbody>'
             + mostrate.map(riga).join('') + '</tbody></table></div>'
             + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '')
@@ -15779,7 +15804,7 @@
             ['Ragione sociale', 32], ['Codice invito', 13], ['PEC', 28], ['Email', 26], ['Partita IVA', 14], ['Referente', 20],
             ['Citta', 16], ['Provincia', 9], ['Telefono', 15], ['Settore', 20],
             ['Stato', 14], ['Invitata il', 17], ['Canale', 9], ['Errore di invio', 40],
-            ['Esito PEC', 20], ['Accettata il', 17], ['Consegnata il', 17], ['Motivo del gestore', 40], ['Ha risposto il', 17],
+            ['Esito PEC', 20], ['Accettata il', 17], ['Consegnata il', 17], ['Motivo del gestore', 40], ['Ha risposto il', 17], ['Risposta da', 26], ['Oggetto della risposta', 40],
             ['Registrati col codice', 40]
         ];
         const righe = (lista || aziendeInvitoDi(ev)).map(a => {
@@ -15796,6 +15821,8 @@
                 r.consegnata && r.consegnata.quando ? fmtDataOra(r.consegnata.quando) : '',
                 r.problema && r.problema.motivo ? r.problema.motivo : '',
                 r.risposta && r.risposta.quando ? fmtDataOra(r.risposta.quando) : '',
+                r.risposta ? (r.risposta.da || '') : '',
+                r.risposta ? (r.risposta.oggetto || '') : '',
                 (a.iscritti || []).map(i => (i.nome || '') + ' <' + (i.email || '') + '>').join('; ')
             ].map(v => String(v == null ? '' : v));
         });
