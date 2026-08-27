@@ -13440,25 +13440,27 @@
                    spostarla d'azienda e' una decisione di chi organizza, non un
                    dato dell'iscritto, e chi legge la tabella deve poterlo sapere
                    senza aprire nulla. */
-                + (t => '<td data-label="Azienda">' + esc(r.azienda)
-                    + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
-                    /* Chi e' arrivato col codice riservato alla sua azienda. E'
-                       l'unico segno, in questa tabella, che la campagna PEC ha
-                       prodotto una presenza: senza, l'elenco degli iscritti e
-                       quello delle aziende invitate restano due mondi separati
-                       e nessuno sa quanto e' servito invitare. La ragione
-                       sociale mostrata e' quella dell'invito quando differisce
-                       da quella digitata: e' l'unica che combacia con l'altro
-                       elenco. */
-                    + (r.invito && r.invito.codice
-                        ? '<div class="ev-selezionata" title="Registrato con il codice riservato all\'azienda invitata">'
-                        + 'Azienda selezionata <span class="ev-cod">' + esc(r.invito.codice) + '</span>'
-                        + (r.invito.azienda && chiaveAzienda(r.invito.azienda) !== chiaveAzienda(r.azienda)
-                            ? '<div class="hint">invito intestato a ' + esc(r.invito.azienda) + '</div>' : '')
-                        + '</div>'
+                /* Chi e' arrivato col codice riservato alla sua azienda: e'
+                   l'unico segno, in questa tabella, che la campagna PEC ha
+                   prodotto una presenza. Sta sulla STESSA riga del nome e
+                   contiene il solo codice: prima era un blocco sotto, con
+                   scritto "Azienda selezionata" per esteso, e su un elenco di
+                   trenta righe rubava un rigo a testa a chi lo aveva e a chi
+                   no, sfalsando tutta la tabella. Il verde basta a dire cosa
+                   e', e il resto sta nel suggerimento, ragione sociale
+                   dell'invito compresa quando non coincide con quella digitata
+                   (l'unica che combacia con l'altro elenco). */
+                + ((t, inv) => '<td data-label="Azienda">' + esc(r.azienda)
+                    + (inv && inv.codice
+                        ? ' <span class="ev-sel" title="Azienda selezionata: registrata con il codice '
+                        + esc(inv.codice) + ' riservato all\'invito'
+                        + (inv.azienda && chiaveAzienda(inv.azienda) !== chiaveAzienda(r.azienda)
+                            ? ', intestato a ' + esc(inv.azienda) : '')
+                        + '">' + esc(inv.codice) + '</span>'
                         : '')
+                    + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
                     + '</td>')
-                    ((r.extra || {})[COL_SPOSTATO] || '')
+                    ((r.extra || {})[COL_SPOSTATO] || '', r.invito)
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 + '<td data-label="Email">' + emailInterrompibile(r.email) + '</td>'
                 + '<td data-label="Telefono">' + esc(r.telefono) + '</td>'
@@ -15095,7 +15097,7 @@
     let _invCache = {};         // per evento: { aziende, aggiornato }
     let _invCfg = null;         // quali canali sono pronti sul servizio
     let _invSel = new Set();    // aziende spuntate
-    let _invFiltro = { testo: '', stato: '', canale: '', pec: '', ordina: '' };
+    let _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', ordina: '' };
     let _invCercaTimer = null;
 
     /* Chi carica l'elenco e spedisce: gli stessi che possono aggiungere
@@ -15114,15 +15116,34 @@
         'da-invitare': 'Da invitare', 'inviata': 'Invitata', 'errore': 'Errore',
         'esclusa': 'Esclusa', 'disiscritta': 'Disiscritta', 'risposta': 'Ha risposto', 'iscritta': 'Iscritta'
     };
+    /* LE VISTE dell'elenco, definite UNA volta sola.
+       Il difetto che questa costante ripara: il conteggio diceva "5 invitate"
+       e la vista ne mostrava 3, perche' il numero contava anche chi aveva
+       risposto o si era iscritto e il filtro no. Erano due definizioni della
+       stessa parola in due punti diversi del file, ed e' bastato che una
+       cambiasse. Ora il conteggio e il filtro leggono da qui, e divergere non
+       e' piu' possibile.
+
+       "in elenco" (vista vuota) le prende tutte. Uno stato che non fosse in
+       nessun gruppo finirebbe fra le "da invitare": e' la scelta prudente,
+       perche' una scheda dimenticata si rivede invece di sparire. */
+    const INV_VISTE = {
+        'da-invitare': ['da-invitare'],
+        'inviate': ['inviata', 'risposta', 'iscritta'],
+        'errore': ['errore'],
+        'fuori': ['esclusa', 'disiscritta']
+    };
+    function vistaDi(stato) {
+        const s = stato || 'da-invitare';
+        for (const v in INV_VISTE) { if (INV_VISTE[v].indexOf(s) >= 0) return v; }
+        return 'da-invitare';
+    }
     function contaInviti(lista) {
         const c = { totale: 0, daInvitare: 0, inviate: 0, errori: 0, fuori: 0 };
+        const dove = { 'da-invitare': 'daInvitare', 'inviate': 'inviate', 'errore': 'errori', 'fuori': 'fuori' };
         (lista || []).forEach(a => {
             c.totale++;
-            const s = a.stato || 'da-invitare';
-            if (s === 'inviata' || s === 'risposta' || s === 'iscritta') c.inviate++;
-            else if (s === 'errore') c.errori++;
-            else if (s === 'esclusa' || s === 'disiscritta') c.fuori++;
-            else c.daInvitare++;
+            c[dove[vistaDi(a.stato)]]++;
         });
         return c;
     }
@@ -15179,11 +15200,74 @@
        vuote = paragrafi, a capo singoli = interruzioni di riga. I segnaposto
        {ragione_sociale} e compagnia restano tali e quali: li sostituisce il
        servizio, azienda per azienda. */
+    /* Dal testo scritto nella finestra all'HTML che parte davvero.
+       Non e' una conversione a capoverso e basta: tre righe del testo
+       meritano una forma loro, e senza gliela si toglie.
+
+         - la riga del CODICE diventa un riquadro. Prima era una riga
+           rientrata con degli spazi davanti, che l'HTML mangia: restava
+           un codice appoggiato a sinistra in mezzo al discorso, e chi
+           doveva ricopiarlo faceva fatica a trovarlo.
+         - una riga che contiene SOLO un indirizzo diventa un pulsante.
+           Prima si vedeva l'indirizzo nudo, lungo e brutto, che a capo
+           si spezzava a meta'.
+         - gli indirizzi dentro una frase diventano collegamenti, con
+           scritto il nome del sito invece dell'indirizzo intero.
+
+       Tutto con tabelle e stili in riga: nelle mail e' l'unico modo che
+       funziona ovunque, Outlook compreso. I margini sono uno solo, in
+       fondo a ogni blocco, cosi' non si sommano e non restano spazi
+       vuoti fra un capoverso e l'altro. */
+    const INV_URL = /(https?:\/\/[^\s<>"']+[^\s<>"'.,;:)\]])/g;
+    function invEtichettaUrl(u) {
+        return String(u).replace(/^https?:\/\//, '').replace(/\/$/, '');
+    }
+    function invRiquadroCodice(dentro) {
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" '
+            + 'style="margin:0 0 18px;border-collapse:collapse;"><tr>'
+            + '<td align="center" style="padding:14px 10px;background:#F4F8FB;border:1px solid #C9DDEC;border-radius:6px;">'
+            + '<div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#475569;padding-bottom:6px;">'
+            + 'Codice riservato</div>'
+            + '<div style="font-family:Consolas,Menlo,monospace;font-size:26px;line-height:1.2;font-weight:700;'
+            + 'letter-spacing:0.28em;color:#0A2844;">' + dentro + '</div>'
+            + '</td></tr></table>';
+    }
+    function invPulsante(url, etichetta) {
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="margin:0 0 18px;border-collapse:collapse;"><tr>'
+            + '<td align="center" style="background:#164068;border-radius:6px;">'
+            + '<a href="' + esc(url) + '" style="display:inline-block;padding:12px 26px;font-size:15px;'
+            + 'font-weight:700;color:#ffffff;text-decoration:none;">' + esc(etichetta) + '</a>'
+            + '</td></tr></table>';
+    }
     function invTestoInHtml(t) {
-        return String(t || '').replace(/\r\n/g, '\n').split(/\n{2,}/)
-            .map(p => p.trim()).filter(Boolean)
-            .map(p => '<p style="margin:0 0 14px;">' + esc(p).split('\n').join('<br>') + '</p>')
-            .join('\n');
+        const capoversi = String(t || '').replace(/\r\n/g, '\n').split(/\n{2,}/)
+            .map(p => p.trim()).filter(Boolean);
+        return capoversi.map((p, i) => {
+            const nudo = p.replace(/\s+/g, ' ').trim();
+
+            // la riga del codice, da sola: diventa il riquadro
+            if (/^\{codice\}$/.test(nudo)) return invRiquadroCodice('{codice}');
+
+            // una riga che e' solo un indirizzo: diventa il pulsante
+            if (/^https?:\/\/\S+$/.test(nudo)) return invPulsante(nudo, 'Programma e registrazione');
+
+            /* La riga dei destinatari interni, in cima: si stacca dal resto
+               invece di sembrare la prima frase della lettera. Se chi scrive
+               la cambia, torna un capoverso normale: nessuna magia da
+               ricordare. */
+            if (i === 0 && /^alla cortese attenzione/i.test(nudo)) {
+                return '<p style="margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid #E2E8F0;'
+                    + 'font-size:12px;line-height:1.5;letter-spacing:0.03em;color:#475569;">'
+                    + esc(nudo) + '</p>';
+            }
+
+            // capoverso normale: gli indirizzi dentro diventano collegamenti
+            const corpo = esc(p).split('\n').join('<br>')
+                .replace(INV_URL, u => '<a href="' + u + '" style="color:#164068;font-weight:600;">'
+                    + esc(invEtichettaUrl(u)) + '</a>');
+            return '<p style="margin:0 0 14px;line-height:1.6;">' + corpo + '</p>';
+        }).join('\n');
     }
     /* La bozza dell'invito, con i dati dell'evento gia' dentro. Chi invia la
        rilegge e la corregge: quello che parte e' sempre il testo a video. */
@@ -15218,14 +15302,20 @@
                mail e nessuno lo trascrive. Il segnaposto {codice} lo sostituisce
                il servizio, azienda per azienda, con quello riservato a lei. */
             + 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
-            + '     {codice}\n\n'
+            /* Da sola su una riga: cosi' diventa il riquadro. Gli spazi davanti
+               non servivano a niente, l'HTML se li mangia. */
+            + '{codice}\n\n'
             + 'Il codice è nominativo, vale per la sola azienda a cui questo messaggio è indirizzato '
             + 'e va indicato nel modulo di registrazione, nel campo dedicato: è quello che ci permette '
             + 'di riconoscere le aziende selezionate e di tenere il posto riservato.\n\n'
             + 'La partecipazione è gratuita e i posti sono limitati. Per riservare il posto Vi chiediamo '
             + 'di registrarVi a stretto giro: le adesioni si raccolgono in ordine di arrivo e i posti '
             + 'riservati alle aziende selezionate restano disponibili fino a esaurimento della sala.\n\n'
-            + 'Il programma completo e il modulo di registrazione sono su ' + pagina + '.\n\n'
+            /* L'indirizzo da solo su una riga diventa un pulsante. Scritto
+               dentro la frase restava un indirizzo nudo che a capo si
+               spezzava a meta'. */
+            + 'Il programma completo e il modulo di registrazione sono qui:\n\n'
+            + pagina + '\n\n'
             + 'Restiamo a disposizione per ogni informazione e cogliamo l\'occasione per porgere i nostri migliori saluti.';
     }
     function invOggettoPredefinito(ev) {
@@ -15238,7 +15328,7 @@
     function modaleAziendeInvito(ev) {
         if (!puoGestireInviti() || !ev || ev.tutti) return;
         _invSel = new Set();
-        _invFiltro = { testo: '', stato: '', canale: '', pec: '', ordina: '' };
+        _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', ordina: '' };
         apriModale('<h2>Aziende da invitare - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
             + '<div id="inv-corpo"><p class="hint">Carico l\'elenco...</p></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-chiudi">Chiudi</button></div>', { classe: 'larga' });
@@ -15362,11 +15452,23 @@
            canale e' partito l'invito, com'e' finita la PEC, e chi ha risposto.
            Sono separati perche' si incrociano: "invitate via PEC ma non ancora
            consegnate" e' la domanda che si fa davvero il giorno dopo l'invio. */
+        /* LE VISTE. Un'azienda invitata ha finito il suo giro: lasciarla in
+           mezzo alle altre vuol dire rileggere ogni volta un elenco che
+           cresce e in cui la riga che serve e' sempre piu' rara. Quindi
+           l'elenco di lavoro e' "da invitare", e chi e' partito passa nella
+           sua vista.
+
+           "Inviate" le prende TUTTE quelle a cui il messaggio e' partito, non
+           solo quelle ferme sullo stato "inviata": chi nel frattempo ha
+           risposto o si e' iscritto e' comunque stato invitato, e prima
+           spariva da entrambe le parti. Era il difetto. */
         const q = _invFiltro.testo.trim().toLowerCase();
         const canaleDi = a => (a.invio && a.invio.canale) ? a.invio.canale : '';
         const esitoPecDi = a => (canaleDi(a) === 'pec' && a.ricevute) ? (a.ricevute.esito || 'attesa') : '';
         const lista = tutte.filter(a => {
-            if (_invFiltro.stato && (a.stato || 'da-invitare') !== _invFiltro.stato) return false;
+            const st = a.stato || 'da-invitare';
+            if (_invFiltro.vista && vistaDi(st) !== _invFiltro.vista) return false;
+            if (_invFiltro.stato && st !== _invFiltro.stato) return false;
             if (_invFiltro.canale === 'nessuno' && canaleDi(a)) return false;
             if (_invFiltro.canale && _invFiltro.canale !== 'nessuno' && canaleDi(a) !== _invFiltro.canale) return false;
             if (_invFiltro.pec === 'risposta') { if (!(a.ricevute && a.ricevute.risposta)) return false; }
@@ -15395,17 +15497,20 @@
 
         /* I numeri in cima sono anche i filtri: e' il gesto che viene naturale
            ("1 con errore" - e chi sara'?) e prima non faceva niente. */
-        const chip = (etich, num, valore, classe) => num || valore === ''
-            ? '<button type="button" class="inv-chip' + (classe ? ' ' + classe : '')
-            + (_invFiltro.stato === valore && valore !== null ? ' attivo' : '') + '" data-stato="' + esc(valore == null ? '' : valore) + '">'
-            + '<b>' + num + '</b> ' + esc(etich) + '</button>'
-            : '';
+        /* Le pastiglie non sono un riepilogo con sopra un filtro: SONO le
+           viste, e quella accesa dice dove ci si trova. Premere la stessa due
+           volte non spegne piu' niente, perche' una vista bisogna comunque
+           averla; per vedere tutto c'e' "in elenco". */
+        const chip = (etich, num, vista, classe) => '<button type="button" class="inv-chip'
+            + (classe ? ' ' + classe : '') + (_invFiltro.vista === vista ? ' attivo' : '')
+            + '" data-vista="' + esc(vista) + '">'
+            + '<b>' + num + '</b> ' + esc(etich) + '</button>';
         const conta = '<div class="inv-conta">'
-            + chip('aziende', n.totale, '')
             + chip('da invitare', n.daInvitare, 'da-invitare')
-            + chip('invitate', n.inviate, 'inviata')
-            + chip('con errore', n.errori, 'errore', 'ko')
-            + chip('fuori elenco', n.fuori, 'esclusa')
+            + chip('inviate', n.inviate, 'inviate')
+            + (n.errori ? chip('con errore', n.errori, 'errore', 'ko') : '')
+            + (n.fuori ? chip('fuori elenco', n.fuori, 'fuori') : '')
+            + chip('in elenco', n.totale, '')
             + '</div>';
 
         const barra = '<div class="inv-barra">'
@@ -15429,6 +15534,10 @@
             + (filtrato ? '<button class="btn btn-sm btn-ghost" id="inv-pulisci">Togli i filtri</button>' : '')
             + '</div>'
             + (filtrato ? '<p class="inv-filtrate hint"><b>' + lista.length + '</b> su ' + n.totale + ' con questi filtri.</p>' : '');
+        const NOMI_VISTA = {
+            'da-invitare': 'da invitare', 'inviate': 'gia invitate',
+            'errore': 'con un errore di invio', 'fuori': 'escluse o disiscritte'
+        };
 
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
             + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
@@ -15494,9 +15603,16 @@
             + '</tr></thead><tbody>'
             + mostrate.map(riga).join('') + '</tbody></table></div>'
             + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '')
-            : '<p class="hint">' + (n.totale
-                ? 'Nessuna azienda con questi filtri.'
-                : 'Nessuna azienda in elenco: caricane una con "Carica elenco", partendo dal modello.') + '</p>';
+            /* Un elenco vuoto deve dire PERCHE'. "Nessuna azienda" davanti a un
+               archivio pieno si legge come un guasto; "sono partite tutte" si
+               legge come una buona notizia, che e' quello che e'. */
+            : '<p class="hint">' + (!n.totale
+                ? 'Nessuna azienda in elenco: caricane una con "Carica elenco", partendo dal modello.'
+                : (filtrato
+                    ? 'Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || 'in elenco') + ' con questi filtri.'
+                    : (_invFiltro.vista === 'da-invitare'
+                        ? 'Nessuna azienda da invitare: l\'invito e partito a tutte quelle in elenco.'
+                        : 'Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || 'in elenco') + '.'))) + '</p>';
 
         corpo.innerHTML = conta + riquadroRicevute(ev, tutte) + barra + filtri + azioniSel
             + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
@@ -15578,15 +15694,17 @@
         collega('inv-fordina', 'ordina');
         const bPul = document.getElementById('inv-pulisci');
         if (bPul) bPul.addEventListener('click', () => {
-            _invFiltro = { testo: '', stato: '', canale: '', pec: '', ordina: _invFiltro.ordina };
+            _invFiltro = { vista: _invFiltro.vista, testo: '', stato: '', canale: '', pec: '', ordina: _invFiltro.ordina };
             ridisegna();
         });
-        /* Le pastiglie dei conteggi filtrano per stato. La stessa pastiglia
-           premuta due volte toglie il filtro: e' il gesto che ci si aspetta,
-           e risparmia di andare a cercare "Tutti gli stati" nella tendina. */
+        /* Cambiare vista azzera il filtro fine sullo stato: tenerlo produrrebbe
+           elenchi vuoti senza spiegazione (vista "inviate" piu' stato "da
+           invitare" non contiene niente, ed e' colpa di due comandi che non si
+           vedono insieme). */
         corpo.querySelectorAll('.inv-chip').forEach(c => c.addEventListener('click', () => {
-            const v = c.dataset.stato || '';
-            _invFiltro.stato = (_invFiltro.stato === v) ? '' : v;
+            _invFiltro.vista = c.dataset.vista || '';
+            _invFiltro.stato = '';
+            _invSel.clear();
             ridisegna();
         }));
 
