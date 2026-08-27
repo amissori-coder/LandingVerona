@@ -186,6 +186,14 @@
         <priority>0.8</priority>
     </url>
 
+    <!-- Governance: l'inconscio dell'impresa, valutare le organizzazioni sui comportamenti -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/inconscio_impresa/</loc>
+        <lastmod>2026-08-26</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
     <!-- Osservatorio: assetti adeguati ed early warning, dalla norma al segnale operativo -->
     <url>
         <loc>https://nextgenerationbusiness.it/assetti_early_warning/</loc>
@@ -214,6 +222,14 @@
     <url>
         <loc>https://nextgenerationbusiness.it/reati_231_ia/</loc>
         <lastmod>2026-08-18</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
+    <!-- Riforma della governance delle societa di capitali: Dlgs 47/2026, artt. 2380 e 2380-bis c.c. -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/riforma_governance_2026/</loc>
+        <lastmod>2026-08-26</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.9</priority>
     </url>

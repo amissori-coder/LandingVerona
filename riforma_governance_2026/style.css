@@ -1,0 +1,784 @@
+/* ============================================
+   La riforma della governance societaria
+   Stili specifici della pagina: si appoggia a
+   zls_zes/style.css e assets/content-page.css e
+   aggiunge la linea del tempo normativa, le schede
+   dei tre sistemi di amministrazione e controllo,
+   la tabella del lessico, il riparto fra consiglio
+   e organi delegati, la tabella del check-up
+   statutario e i nodi interpretativi.
+   ============================================ */
+
+/* ============================================
+   0. ALLINEAMENTO DEI DATI DELL'HERO
+   I tre riquadri hanno etichette di lunghezza diversa e
+   il contenitore li centra sull'asse verticale: il terzo
+   numero finisce cosi' una riga piu' in basso degli altri
+   due. Allungando i riquadri all'altezza della riga i tre
+   numeri tornano allineati in alto, mentre i separatori
+   restano centrati con la loro altezza fissa.
+   ============================================ */
+.hero-stats .stat {
+    align-self: stretch;
+}
+
+/* "Art. 2380-bis" e' un dato, non una frase: andando a capo dopo il
+   trattino si leggerebbe come due cose diverse. Lo tiene unito il foglio
+   di stile, non un trattino unificatore, che in certi caratteri diventa
+   un quadratino quando il testo viene copiato altrove. */
+.hero-stats .stat-number {
+    white-space: nowrap;
+}
+
+/* ============================================
+   1. IL PERCORSO NORMATIVO
+   La riforma si capisce solo se si vede da dove
+   arriva: quattro tappe in fila su un asse
+   orizzontale dicono in un colpo d'occhio che gli
+   assetti non nascono nel 2026. Su schermi stretti
+   la fila si raddrizza in verticale, perche' quattro
+   tappe affiancate diventerebbero illeggibili.
+   ============================================ */
+.percorso {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    max-width: 1140px;
+    margin: 48px auto 0;
+}
+
+.percorso-tappa {
+    position: relative;
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 14px;
+    padding: 26px 24px 24px;
+    margin-right: 22px;
+    transition: all 0.3s ease;
+}
+
+.percorso-tappa:last-child {
+    margin-right: 0;
+}
+
+/* La freccia fra una tappa e la successiva: e' disegnata
+   con i bordi di uno pseudo-elemento quadrato ruotato,
+   cosi' non serve caricare un'icona per un segno che si
+   ripete tre volte. */
+.percorso-tappa:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -15px;
+    width: 11px;
+    height: 11px;
+    border-top: 2px solid #2A5A85;
+    border-right: 2px solid #2A5A85;
+    transform: translateY(-50%) rotate(45deg);
+}
+
+.percorso-tappa:hover {
+    border-color: rgba(22, 64, 104, 0.32);
+    box-shadow: 0 14px 34px rgba(10, 40, 68, 0.1);
+    transform: translateY(-3px);
+}
+
+/* L'ultima tappa e' il punto d'arrivo. Il fondo pieno la
+   distingue dai passaggi intermedi, che sono strumentali
+   a capirla. */
+.percorso-tappa.is-arrivo {
+    background: linear-gradient(135deg, #164068 0%, #2A5A85 100%);
+    border-color: #164068;
+    color: #ffffff;
+}
+
+.percorso-anno {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: #2A5A85;
+    line-height: 1;
+    margin-bottom: 10px;
+}
+
+.percorso-tappa.is-arrivo .percorso-anno {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.percorso-tappa h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 10px;
+}
+
+.percorso-tappa.is-arrivo h3 {
+    color: #ffffff;
+}
+
+.percorso-tappa p {
+    font-size: 0.86rem;
+    line-height: 1.62;
+    color: #5A6270;
+    margin: 0;
+}
+
+.percorso-tappa.is-arrivo p {
+    color: rgba(255, 255, 255, 0.86);
+}
+
+/* ============================================
+   2. I TRE SISTEMI
+   Tre schede affiancate e identiche nel peso visivo:
+   e' il modo piu' diretto di rendere il principio di
+   neutralita' senza doverlo ripetere. Nessuna scheda
+   ha il fondo pieno, proprio perche' nessun modello e'
+   piu' quello ordinario.
+   ============================================ */
+.modelli-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    max-width: 1140px;
+    margin: 48px auto 0;
+}
+
+.modello-card {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-top: 3px solid #2A5A85;
+    border-radius: 14px;
+    padding: 26px 26px 24px;
+    transition: all 0.3s ease;
+}
+
+.modello-card:hover {
+    border-color: rgba(22, 64, 104, 0.32);
+    border-top-color: #164068;
+    box-shadow: 0 14px 34px rgba(10, 40, 68, 0.1);
+    transform: translateY(-3px);
+}
+
+.modello-eyebrow {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: #2A5A85;
+    margin-bottom: 9px;
+}
+
+.modello-card h3 {
+    font-size: 1.06rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 12px;
+}
+
+/* La riga della struttura dice chi nomina chi: sta su fondo
+   proprio per staccarsi dal testo della scheda e farsi leggere
+   per prima. Non va giustificata, perche' e' corta e in colonna
+   stretta la giustificazione le aprirebbe dentro spazi larghi
+   quanto una parola. */
+.modello-card .modello-struttura {
+    text-align: left;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    font-weight: 600;
+    color: #164068;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: 9px;
+    padding: 10px 13px;
+    margin: 0 0 14px;
+}
+
+.modello-card p {
+    font-size: 0.89rem;
+    line-height: 1.7;
+    color: #5A6270;
+    margin: 0;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.modello-card p strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+/* ============================================
+   3. TABELLA DEL LESSICO
+   Il cambio di nomi e' la parte che verra' letta come
+   un dettaglio formale: affiancare vecchio, nuovo e
+   ragione del cambio e' il modo piu' rapido di mostrare
+   che formale non e'.
+   ============================================ */
+.lessico-wrap,
+.checkup-wrap {
+    max-width: 1140px;
+    margin: 48px auto 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+}
+
+.lessico,
+.checkup {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+.lessico {
+    min-width: 780px;
+}
+
+.checkup {
+    min-width: 900px;
+}
+
+.lessico th,
+.lessico td,
+.checkup th,
+.checkup td {
+    padding: 18px 22px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 0.9rem;
+    line-height: 1.66;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.lessico thead th,
+.checkup thead th {
+    background: #f4f7fb;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: #164068;
+    border-bottom: 2px solid rgba(22, 64, 104, 0.16);
+}
+
+.lessico tbody th,
+.checkup tbody th {
+    font-weight: 700;
+    color: #0A2844;
+    background: #fafbfc;
+    width: 200px;
+}
+
+.lessico td,
+.checkup td {
+    color: #5A6270;
+}
+
+.lessico td strong,
+.checkup td strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+.lessico tbody tr:last-child th,
+.lessico tbody tr:last-child td,
+.checkup tbody tr:last-child th,
+.checkup tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* La colonna per cui si legge la tabella: un fondo appena
+   piu' caldo la tiene agganciata all'occhio anche
+   scorrendo in orizzontale. */
+.lessico .col-nuovo,
+.checkup .col-nuovo {
+    background: #f7fafd;
+}
+
+.lessico thead .col-nuovo,
+.checkup thead .col-nuovo {
+    background: #eaf1f8;
+}
+
+/* ============================================
+   4. RIPARTO FRA CONSIGLIO E ORGANI DELEGATI
+   La delega e' il punto su cui si sbaglia di piu': due
+   colonne affiancate dicono che cosa resta e che cosa
+   passa senza costringere a inseguire la distinzione
+   dentro un paragrafo.
+   ============================================ */
+.riparto {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    max-width: 1080px;
+    margin: 48px auto 0;
+    align-items: start;
+}
+
+.riparto-col {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 14px;
+    padding: 28px 28px 26px;
+}
+
+/* La colonna del consiglio e' quella che la riforma
+   rafforza: il bordo pieno a sinistra dice quale delle
+   due regge il peso. */
+.riparto-col.is-consiglio {
+    border-left: 4px solid #164068;
+}
+
+.riparto-tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: #164068;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: 100px;
+    padding: 5px 13px;
+    margin-bottom: 14px;
+}
+
+.riparto-col h3 {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 16px;
+}
+
+.riparto-col ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.riparto-col li {
+    position: relative;
+    padding-left: 24px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    line-height: 1.66;
+    color: #5A6270;
+}
+
+.riparto-col li:last-child {
+    margin-bottom: 0;
+}
+
+/* Il segno di spunta e' disegnato con due bordi ruotati:
+   una icona caricata sei volte per una lista non vale il
+   peso che costa. */
+.riparto-col li::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 8px;
+    width: 6px;
+    height: 10px;
+    border-right: 2px solid #2A5A85;
+    border-bottom: 2px solid #2A5A85;
+    transform: rotate(45deg);
+}
+
+.riparto-col li strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+.riparto-nota {
+    margin: 18px 0 0;
+    padding-top: 16px;
+    border-top: 1px dashed rgba(22, 64, 104, 0.2);
+    font-size: 0.86rem;
+    line-height: 1.7;
+    color: #5A6270;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.riparto-nota strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+/* ============================================
+   4-bis. EFFETTI DI UNO STATUTO DISALLINEATO
+   Tre schede che non sono consigli ma conseguenze:
+   il tono ripreso dalla scheda "grave" usata altrove
+   nel sito (mattone su fondo appena rosato) le stacca
+   dalle griglie informative senza uscire dalla tavolozza.
+   Restano sobrie perche' il registro della pagina e'
+   professionale, non allarmistico.
+   ============================================ */
+.rischi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    max-width: 1140px;
+    margin: 40px auto 0;
+}
+
+.rischio {
+    background: #ffffff;
+    border: 1px solid #f0cfcf;
+    border-top: 3px solid #8c2f2f;
+    border-radius: 14px;
+    padding: 26px 26px 24px;
+    transition: all 0.3s ease;
+}
+
+.rischio:hover {
+    border-color: #e0b4b4;
+    border-top-color: #8c2f2f;
+    box-shadow: 0 14px 34px rgba(140, 47, 47, 0.1);
+    transform: translateY(-3px);
+}
+
+.rischio-icona {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: #fdf2f2;
+    border: 1px solid #f0cfcf;
+    color: #8c2f2f;
+    margin-bottom: 14px;
+}
+
+.rischio-icona svg {
+    width: 21px;
+    height: 21px;
+}
+
+.rischio h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 10px;
+}
+
+.rischio p {
+    font-size: 0.89rem;
+    line-height: 1.7;
+    color: #5A6270;
+    margin: 0;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.rischio p strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+/* ============================================
+   5. NODI INTERPRETATIVI
+   Le questioni aperte non sono avvertenze da nascondere
+   in fondo: sono la parte in cui un lettore competente
+   giudica la serieta' della pagina. Numerate e in
+   evidenza, con il bordo tratteggiato a dire che il
+   punto e' aperto.
+   ============================================ */
+.nodi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    max-width: 1140px;
+    margin: 48px auto 0;
+}
+
+.nodo {
+    background: #ffffff;
+    border: 1px dashed rgba(22, 64, 104, 0.28);
+    border-radius: 14px;
+    padding: 26px 26px 24px;
+    transition: all 0.3s ease;
+}
+
+.nodo:hover {
+    border-style: solid;
+    border-color: rgba(22, 64, 104, 0.4);
+    box-shadow: 0 14px 34px rgba(10, 40, 68, 0.08);
+    transform: translateY(-3px);
+}
+
+.nodo-numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    color: #164068;
+    font-size: 0.9rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.nodo h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 10px;
+}
+
+.nodo p {
+    font-size: 0.89rem;
+    line-height: 1.7;
+    color: #5A6270;
+    margin: 0;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+/* ============================================
+   6. ELENCO DEI RIFERIMENTI
+   La voce dell'elenco nasce come contenitore flex, e in
+   flexbox ogni figlio diventa un elemento a se': un
+   <strong> o un <em> in mezzo alla frase si stacca in una
+   colonna propria e la riga si spezza in blocchi
+   affiancati. Qui i riferimenti normativi sono pieni di
+   grassetti e corsivi e il testo deve scorrere: la voce
+   torna a blocco e il pallino passa in uno pseudo-elemento
+   posizionato. Le sigle lunghe possono spezzarsi, altrimenti
+   una sola basta a imporre a tutta la pagina una larghezza
+   maggiore dello schermo del telefono.
+   ============================================ */
+.content-page .ref-list li {
+    display: block;
+    position: relative;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding-left: 18px;
+}
+
+.content-page .ref-list li::before {
+    position: absolute;
+    left: 0;
+    top: 21px;
+    margin-top: 0;
+}
+
+/* ============================================
+   7. RESPONSIVE
+   ============================================ */
+@media (max-width: 1024px) {
+    .percorso {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 22px;
+    }
+
+    /* In griglia a due colonne la freccia laterale
+       punterebbe nel vuoto a fine riga: si toglie e
+       resta l'ordine di lettura. */
+    .percorso-tappa {
+        margin-right: 0;
+    }
+
+    .percorso-tappa:not(:last-child)::after {
+        display: none;
+    }
+
+    .modelli-grid,
+    .rischi-grid,
+    .nodi-grid {
+        grid-template-columns: 1fr;
+        max-width: 640px;
+    }
+}
+
+@media (max-width: 900px) {
+    /* Le due tabelle diventano elenchi di blocchi:
+       l'intestazione di colonna torna davanti al dato
+       tramite data-label, cosi' nessuna cella resta
+       senza contesto. */
+    .lessico-wrap,
+    .checkup-wrap {
+        overflow-x: visible;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    .lessico,
+    .checkup {
+        min-width: 0;
+        background: transparent;
+    }
+
+    /* Nascondere l'intestazione con la tecnica del ritaglio non
+       basta: le celle restano in flusso e continuano a imporre
+       alla pagina la larghezza della tabella, che su telefono si
+       traduce in scorrimento orizzontale. Va tolta dal layout. */
+    .lessico thead,
+    .checkup thead {
+        display: none;
+    }
+
+    .lessico tbody,
+    .checkup tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .lessico tbody tr,
+    .checkup tbody tr {
+        display: block;
+        background: #ffffff;
+        border: 1px solid rgba(22, 64, 104, 0.14);
+        border-radius: 14px;
+        padding: 6px 4px;
+        margin-bottom: 18px;
+        box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+    }
+
+    .lessico tbody th,
+    .lessico td,
+    .checkup tbody th,
+    .checkup td {
+        display: block;
+        width: 100%;
+        border-bottom: none;
+        padding: 12px 20px;
+        background: transparent;
+    }
+
+    /* Fra una cella e l'altra dello stesso blocco serve un filo di
+       separazione: senza, le risposte si leggono come un unico
+       paragrafo. */
+    .lessico tbody td + td,
+    .checkup tbody td + td {
+        border-top: 1px solid rgba(22, 64, 104, 0.08);
+    }
+
+    .lessico td::before,
+    .checkup td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 1.1px;
+        text-transform: uppercase;
+        color: #2A5A85;
+        margin-bottom: 5px;
+    }
+
+    .lessico tbody th,
+    .checkup tbody th {
+        font-size: 1rem;
+        padding-bottom: 4px;
+    }
+
+    .lessico .col-nuovo,
+    .lessico thead .col-nuovo,
+    .checkup .col-nuovo,
+    .checkup thead .col-nuovo {
+        background: transparent;
+    }
+
+    .riparto {
+        grid-template-columns: 1fr;
+        max-width: 620px;
+    }
+}
+
+@media (max-width: 860px) {
+    .percorso {
+        grid-template-columns: 1fr;
+        max-width: 520px;
+    }
+}
+
+@media (max-width: 560px) {
+    .percorso-tappa,
+    .modello-card,
+    .rischio,
+    .nodo {
+        padding: 22px 22px 20px;
+    }
+
+    .riparto-col {
+        padding: 24px 22px 22px;
+    }
+
+    /* In colonna stretta la giustificazione apre buchi fra
+       le parole: meglio la bandiera a destra. */
+    .modello-card p,
+    .rischio p,
+    .nodo p,
+    .riparto-nota {
+        text-align: left;
+    }
+}
+
+/* ============================================
+   8. STAMPA
+   La pagina finisce spesso allegata a una nota per il
+   consiglio o per il notaio incaricato della revisione
+   statutaria: in carta servono i contenuti, non la
+   navigazione.
+   ============================================ */
+@media print {
+    .navbar,
+    .hero-actions,
+    .section-cta,
+    .footer,
+    .rimando-vai {
+        display: none !important;
+    }
+
+    .percorso-tappa,
+    .modello-card,
+    .riparto-col,
+    .rischio,
+    .nodo,
+    .benefit-item,
+    .processo-step {
+        break-inside: avoid;
+        box-shadow: none;
+    }
+
+    .percorso-tappa.is-arrivo {
+        background: #ffffff;
+        color: #0A2844;
+        border: 2px solid #164068;
+    }
+
+    .percorso-tappa.is-arrivo h3,
+    .percorso-tappa.is-arrivo p,
+    .percorso-tappa.is-arrivo .percorso-anno {
+        color: #0A2844;
+    }
+
+    .lessico-wrap,
+    .checkup-wrap {
+        overflow: visible;
+    }
+
+    .lessico tr,
+    .checkup tr {
+        break-inside: avoid;
+    }
+}
