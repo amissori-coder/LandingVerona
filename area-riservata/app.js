@@ -12987,7 +12987,23 @@
         {
             id: 'napoli-2026-10-02', titolo: 'Napoli', quando: '2 ottobre 2026', giorno: '2026-10-02', filtro: 'napoli', pagina: 'Napoli 2 Ottobre 2026',
             manuale: true, luogo: 'Hotel Eurostars Excelsior', indirizzo: 'Via Partenope 48, Napoli', urlPagina: '/napoli_ottobre_2026/',
-            sottotitolo: 'Costruire l\'impresa del futuro'
+            sottotitolo: 'Costruire l\'impresa del futuro',
+            /* Quello che rende questo invito diverso da un invito qualunque:
+               chi patrocina, chi partecipa e perche' proprio adesso. Sta qui e
+               non dentro la funzione che compone il testo, perche' cambia da
+               evento a evento ed e' esattamente il genere di cosa che, riscritta
+               a mano ogni volta, prima o poi si sbaglia. Chi manda puo'
+               comunque riscrivere tutto prima di premere Invia. */
+            invito: {
+                patrocinio: 'Camera di Commercio di Napoli',
+                con: ['Invitalia', 'SIMEST'],
+                contesto: 'Napoli sta attraversando una stagione di investimenti che non capita spesso: '
+                    + 'la rigenerazione di Bagnoli e l\'America\'s Cup muovono opere, commesse e filiere '
+                    + 'che ridisegnano la domanda per gli anni a venire. Sono occasioni che premiano le '
+                    + 'imprese pronte: quelle con assetti organizzativi adeguati, un merito creditizio '
+                    + 'difendibile davanti alle banche e gli strumenti giusti di finanza agevolata e di '
+                    + 'sostegno all\'internazionalizzazione.'
+            }
         },
         {
             id: 'milano-2027-02-27', titolo: 'Milano', quando: '27 febbraio 2027', giorno: '2027-02-27', filtro: 'milano', pagina: 'Milano 27 Febbraio 2027',
@@ -13427,7 +13443,23 @@
                    dato dell'iscritto, e chi legge la tabella deve poterlo sapere
                    senza aprire nulla. */
                 + (t => '<td data-label="Azienda">' + esc(r.azienda)
-                    + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '') + '</td>')
+                    + (t ? '<div class="hint ev-spostato">' + esc(t) + '</div>' : '')
+                    /* Chi e' arrivato col codice riservato alla sua azienda. E'
+                       l'unico segno, in questa tabella, che la campagna PEC ha
+                       prodotto una presenza: senza, l'elenco degli iscritti e
+                       quello delle aziende invitate restano due mondi separati
+                       e nessuno sa quanto e' servito invitare. La ragione
+                       sociale mostrata e' quella dell'invito quando differisce
+                       da quella digitata: e' l'unica che combacia con l'altro
+                       elenco. */
+                    + (r.invito && r.invito.codice
+                        ? '<div class="ev-selezionata" title="Registrato con il codice riservato all\'azienda invitata">'
+                        + 'Azienda selezionata <span class="ev-cod">' + esc(r.invito.codice) + '</span>'
+                        + (r.invito.azienda && chiaveAzienda(r.invito.azienda) !== chiaveAzienda(r.azienda)
+                            ? '<div class="hint">invito intestato a ' + esc(r.invito.azienda) + '</div>' : '')
+                        + '</div>'
+                        : '')
+                    + '</td>')
                     ((r.extra || {})[COL_SPOSTATO] || '')
                 + '<td data-label="Ruolo">' + esc(r.ruolo) + '</td>'
                 + '<td data-label="Email">' + emailInterrompibile(r.email) + '</td>'
@@ -15065,7 +15097,7 @@
     let _invCache = {};         // per evento: { aziende, aggiornato }
     let _invCfg = null;         // quali canali sono pronti sul servizio
     let _invSel = new Set();    // aziende spuntate
-    let _invFiltro = { testo: '', stato: '' };
+    let _invFiltro = { testo: '', stato: '', canale: '', pec: '', ordina: '' };
     let _invCercaTimer = null;
 
     /* Chi carica l'elenco e spedisce: gli stessi che possono aggiungere
@@ -15157,17 +15189,45 @@
     }
     /* La bozza dell'invito, con i dati dell'evento gia' dentro. Chi invia la
        rilegge e la corregge: quello che parte e' sempre il testo a video. */
+    /* Il testo proposto quando si apre la finestra dell'invito.
+       In cima c'e' l'indicazione dei destinatari interni: una PEC aziendale
+       la legge la segreteria o il protocollo, non l'imprenditore. Senza quella
+       riga il messaggio giusto finisce sulla scrivania sbagliata. */
     function invTestoPredefinito(ev) {
         const dove = ev.luogo ? (ev.luogo + (ev.indirizzo ? ', ' + ev.indirizzo : '')) : '';
         const pagina = ev.urlPagina ? (SITO_PUBBLICO + ev.urlPagina) : SITO_PUBBLICO;
-        return 'Spettabile {ragione_sociale},\n\n'
-            + 'siamo lieti di invitarVi a ' + ev.titolo + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '')
+        const inv = ev.invito || {};
+        const con = (inv.con || []).filter(Boolean);
+        const elenca = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : (a[0] || '');
+        const istituzioni = (inv.patrocinio || con.length)
+            ? 'L\'incontro si svolge'
+            + (inv.patrocinio ? ' con il patrocinio della ' + inv.patrocinio : '')
+            + (con.length ? (inv.patrocinio ? ' e' : '') + ' con la partecipazione di ' + elenca(con) : '')
+            + ', insieme ad altre istituzioni.\n\n'
+            : '';
+        return 'Alla cortese attenzione del Legale Rappresentante e del Direttore Amministrativo e Finanziario (CFO)\n\n'
+            + 'Spettabile {ragione_sociale},\n\n'
+            + 'abbiamo selezionato la Vostra azienda fra le realtà a cui rivolgere l\'invito a '
+            + ev.titolo + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '')
             + ', l\'incontro di Next Generation Business in programma il ' + ev.quando
             + (dove ? ' presso ' + dove : '') + '.\n\n'
-            + 'La giornata e dedicata agli strumenti con cui l\'impresa affronta i prossimi anni: '
-            + 'assetti adeguati, merito creditizio, finanza agevolata, sostenibilita e intelligenza artificiale. '
-            + 'La partecipazione e gratuita e i posti sono limitati.\n\n'
-            + 'Il programma completo e il modulo di iscrizione sono su ' + pagina + '.\n\n'
+            + istituzioni
+            + (inv.contesto ? inv.contesto + '\n\n' : '')
+            + 'La giornata è dedicata agli strumenti con cui l\'impresa affronta i prossimi anni: '
+            + 'assetti adeguati, merito creditizio, finanza agevolata, sostenibilità e intelligenza artificiale.\n\n'
+            /* Il codice. Va detto per cosa serve e cosa succede se non lo si
+               usa, altrimenti resta cinque caratteri buttati in fondo a una
+               mail e nessuno lo trascrive. Il segnaposto {codice} lo sostituisce
+               il servizio, azienda per azienda, con quello riservato a lei. */
+            + 'Alla Vostra azienda è riservato il seguente codice di accesso:\n\n'
+            + '     {codice}\n\n'
+            + 'Il codice è nominativo, vale per la sola azienda a cui questo messaggio è indirizzato '
+            + 'e va indicato nel modulo di registrazione, nel campo dedicato: è quello che ci permette '
+            + 'di riconoscere le aziende selezionate e di tenere il posto riservato.\n\n'
+            + 'La partecipazione è gratuita e i posti sono limitati. Per riservare il posto Vi chiediamo '
+            + 'di registrarVi a stretto giro: le adesioni si raccolgono in ordine di arrivo e i posti '
+            + 'riservati alle aziende selezionate restano disponibili fino a esaurimento della sala.\n\n'
+            + 'Il programma completo e il modulo di registrazione sono su ' + pagina + '.\n\n'
             + 'Restiamo a disposizione per ogni informazione e cogliamo l\'occasione per porgere i nostri migliori saluti.';
     }
     function invOggettoPredefinito(ev) {
@@ -15180,7 +15240,7 @@
     function modaleAziendeInvito(ev) {
         if (!puoGestireInviti() || !ev || ev.tutti) return;
         _invSel = new Set();
-        _invFiltro = { testo: '', stato: '' };
+        _invFiltro = { testo: '', stato: '', canale: '', pec: '', ordina: '' };
         apriModale('<h2>Aziende da invitare - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
             + '<div id="inv-corpo"><p class="hint">Carico l\'elenco...</p></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-chiudi">Chiudi</button></div>', { classe: 'larga' });
@@ -15200,19 +15260,50 @@
        un buco, che verrebbe letto come "non ha ricevuto". */
     function cellaRicevute(a) {
         const viaPec = a.invio && a.invio.canale === 'pec';
-        if (!viaPec) return '<span class="hint">-</span>';
+        if (!viaPec) {
+            /* Vuoto qui verrebbe letto come "non ha ricevuto". Non e' cosi': su
+               un invito via email ordinaria le ricevute non esistono proprio. */
+            return a.invio
+                ? '<span class="hint">via email:<br>nessuna ricevuta</span>'
+                : '<span class="hint">-</span>';
+        }
         const r = a.ricevute || {};
         const esito = r.esito || 'attesa';
+        const passo = (fatto, etich, quando, classe) => '<div class="inv-passo' + (fatto ? ' fatto' : '')
+            + (classe ? ' ' + classe : '') + '"><span class="inv-punto"></span><span>' + esc(etich)
+            + (quando ? ' <span class="hint">' + esc(fmtDataOra(quando)) + '</span>' : '') + '</span></div>';
+
         const parti = ['<button type="button" class="inv-pallino inv-pec-' + esc(esito) + ' inv-apri" data-id="' + esc(a.id)
             + '" title="Apri le ricevute e le risposte">' + esc(INV_PEC[esito] || esito) + '</button>'];
-        if (r.consegnata && r.consegnata.quando) {
-            parti.push('<div class="hint">' + esc(fmtDataOra(r.consegnata.quando)) + '</div>');
-        } else if (r.problema && r.problema.motivo) {
+
+        /* I due passi che il gestore certifica, nell'ordine in cui avvengono:
+           prima prende in carico il messaggio, poi lo consegna. Vederli come
+           una scaletta invece che come una data sola dice a colpo d'occhio
+           dove ci si e' fermati - "accettata ma non consegnata" e' uno stato
+           normale per qualche minuto e preoccupante dopo un giorno. */
+        const passi = [];
+        passi.push(passo(!!(r.accettata && r.accettata.quando), 'Accettata',
+            r.accettata && r.accettata.quando));
+        if (r.problema && r.problema.definitivo) {
+            passi.push(passo(true, r.problema.tipo === 'non-accettazione' ? 'Non accettata' : 'Non consegnata',
+                r.problema.quando, 'ko'));
+        } else {
+            passi.push(passo(!!(r.consegnata && r.consegnata.quando), 'Consegnata',
+                r.consegnata && r.consegnata.quando));
+        }
+        parti.push('<div class="inv-scaletta">' + passi.join('') + '</div>');
+
+        if (r.problema && r.problema.motivo) {
             // il motivo lo scrive il gestore del destinatario: e' testo altrui,
             // va sempre dentro esc(), attributo title compreso
-            parti.push('<div class="ev-ko hint" title="' + esc(r.problema.motivo) + '">' + esc(r.problema.motivo.slice(0, 70)) + '</div>');
-        } else if (r.accettata && r.accettata.quando) {
-            parti.push('<div class="hint">presa in carico il ' + esc(fmtDataOra(r.accettata.quando)) + '</div>');
+            parti.push('<div class="ev-ko hint inv-motivo" title="' + esc(r.problema.motivo) + '">'
+                + esc(r.problema.motivo) + '</div>');
+        }
+        /* Un invito partito da piu' di un giorno senza nemmeno l'accettazione
+           non e' "in attesa": o le ricevute non sono state ancora lette, o
+           qualcosa non ha funzionato. Meglio dirlo che lasciarlo intuire. */
+        if (esito === 'attesa' && a.invio && a.invio.quando && (Date.now() - a.invio.quando) > 24 * 60 * 60 * 1000) {
+            parti.push('<div class="hint inv-vecchia">Nessuna ricevuta dopo 24 ore: controlla la casella PEC.</div>');
         }
         if (r.risposta && r.risposta.quando) {
             parti.push('<button type="button" class="inv-risposto inv-apri" data-id="' + esc(a.id) + '">Ha risposto il '
@@ -15268,34 +15359,78 @@
         const esistenti = new Set(tutte.map(a => a.id));
         Array.from(_invSel).forEach(id => { if (!esistenti.has(id)) _invSel.delete(id); });
 
+        /* I filtri. Quattro domande diverse, che prima si potevano fare solo
+           a occhio scorrendo l'elenco: a che punto e' la scheda, da quale
+           canale e' partito l'invito, com'e' finita la PEC, e chi ha risposto.
+           Sono separati perche' si incrociano: "invitate via PEC ma non ancora
+           consegnate" e' la domanda che si fa davvero il giorno dopo l'invio. */
         const q = _invFiltro.testo.trim().toLowerCase();
+        const canaleDi = a => (a.invio && a.invio.canale) ? a.invio.canale : '';
+        const esitoPecDi = a => (canaleDi(a) === 'pec' && a.ricevute) ? (a.ricevute.esito || 'attesa') : '';
         const lista = tutte.filter(a => {
             if (_invFiltro.stato && (a.stato || 'da-invitare') !== _invFiltro.stato) return false;
+            if (_invFiltro.canale === 'nessuno' && canaleDi(a)) return false;
+            if (_invFiltro.canale && _invFiltro.canale !== 'nessuno' && canaleDi(a) !== _invFiltro.canale) return false;
+            if (_invFiltro.pec === 'risposta') { if (!(a.ricevute && a.ricevute.risposta)) return false; }
+            else if (_invFiltro.pec && esitoPecDi(a) !== _invFiltro.pec) return false;
             if (!q) return true;
-            return (a.ragioneSociale + ' ' + a.pec + ' ' + a.email + ' ' + a.citta + ' ' + a.piva + ' ' + a.referente).toLowerCase().indexOf(q) >= 0;
+            return (a.ragioneSociale + ' ' + a.pec + ' ' + a.email + ' ' + a.citta + ' '
+                + a.provincia + ' ' + a.piva + ' ' + a.referente + ' ' + (a.settore || '')
+                + ' ' + (a.codice || '')).toLowerCase().indexOf(q) >= 0;
         });
+        /* L'ordine non e' un vezzo: su quattrocento righe, "chi e' andato
+           storto" e "chi e' partito per ultimo" sono le due cose che si
+           cercano, e cercarle in ordine alfabetico vuol dire scorrere tutto. */
+        const PESO_STATO = { 'errore': 0, 'risposta': 1, 'da-invitare': 2, 'inviata': 3, 'iscritta': 4, 'esclusa': 5, 'disiscritta': 6 };
+        const perNome = (x, y) => String(x.ragioneSociale || '').localeCompare(String(y.ragioneSociale || ''), 'it');
+        const peso = a => (PESO_STATO[a.stato] === undefined ? 9 : PESO_STATO[a.stato]);
+        if (_invFiltro.ordina === 'stato') {
+            lista.sort((x, y) => peso(x) - peso(y) || perNome(x, y));
+        } else if (_invFiltro.ordina === 'invio') {
+            lista.sort((x, y) => ((y.invio && y.invio.quando) || 0) - ((x.invio && x.invio.quando) || 0) || perNome(x, y));
+        } else {
+            lista.sort(perNome);
+        }
         const MAX_RIGHE = 400;
         const mostrate = lista.slice(0, MAX_RIGHE);
+        const filtrato = !!(_invFiltro.testo || _invFiltro.stato || _invFiltro.canale || _invFiltro.pec);
 
+        /* I numeri in cima sono anche i filtri: e' il gesto che viene naturale
+           ("1 con errore" - e chi sara'?) e prima non faceva niente. */
+        const chip = (etich, num, valore, classe) => num || valore === ''
+            ? '<button type="button" class="inv-chip' + (classe ? ' ' + classe : '')
+            + (_invFiltro.stato === valore && valore !== null ? ' attivo' : '') + '" data-stato="' + esc(valore == null ? '' : valore) + '">'
+            + '<b>' + num + '</b> ' + esc(etich) + '</button>'
+            : '';
         const conta = '<div class="inv-conta">'
-            + '<span><b>' + n.totale + '</b> aziende</span>'
-            + '<span><b>' + n.daInvitare + '</b> da invitare</span>'
-            + '<span><b>' + n.inviate + '</b> invitate</span>'
-            + (n.errori ? '<span class="ev-ko"><b>' + n.errori + '</b> con errore</span>' : '')
-            + (n.fuori ? '<span><b>' + n.fuori + '</b> fuori elenco</span>' : '')
+            + chip('aziende', n.totale, '')
+            + chip('da invitare', n.daInvitare, 'da-invitare')
+            + chip('invitate', n.inviate, 'inviata')
+            + chip('con errore', n.errori, 'errore', 'ko')
+            + chip('fuori elenco', n.fuori, 'esclusa')
             + '</div>';
 
         const barra = '<div class="inv-barra">'
-            + '<button class="btn btn-primary btn-sm" id="inv-carica">Carica elenco (.csv)</button>'
+            + '<button class="btn btn-primary btn-sm" id="inv-carica">Carica elenco (.xlsx o .csv)</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-nuova">Aggiungi azienda</button>'
-            + '<button class="btn btn-secondary btn-sm" id="inv-scarica"' + (n.totale ? '' : ' disabled') + '>Scarica elenco con gli esiti</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-scarica"' + (lista.length ? '' : ' disabled') + '>'
+            + 'Scarica con gli esiti (' + lista.length + (filtrato ? ' filtrate' : '') + ')</button>'
             + '</div>';
 
+        const opzioni = (id, vuoto, voci, scelto) => '<select id="' + id + '"><option value="">' + esc(vuoto) + '</option>'
+            + voci.map(v => '<option value="' + esc(v[0]) + '"' + (scelto === v[0] ? ' selected' : '') + '>' + esc(v[1]) + '</option>').join('')
+            + '</select>';
         const filtri = '<div class="inv-filtri">'
-            + '<input type="text" id="inv-cerca" placeholder="Cerca per ragione sociale, indirizzo, citta o partita IVA" value="' + esc(_invFiltro.testo) + '">'
-            + '<select id="inv-fstato"><option value="">Tutti gli stati</option>'
-            + Object.keys(INV_STATI).map(s => '<option value="' + s + '"' + (_invFiltro.stato === s ? ' selected' : '') + '>' + esc(INV_STATI[s]) + '</option>').join('')
-            + '</select></div>';
+            + '<input type="text" id="inv-cerca" placeholder="Cerca azienda, codice, PEC, email, citta, provincia, P.IVA, referente o settore" value="' + esc(_invFiltro.testo) + '">'
+            + opzioni('inv-fstato', 'Tutti gli stati', Object.keys(INV_STATI).map(s => [s, INV_STATI[s]]), _invFiltro.stato)
+            + opzioni('inv-fcanale', 'Tutti i canali', [['pec', 'Invitate via PEC'], ['email', 'Invitate via email'], ['nessuno', 'Non ancora invitate']], _invFiltro.canale)
+            + opzioni('inv-fpec', 'Tutte le ricevute', [['consegnata', 'PEC consegnata'], ['attesa', 'PEC in attesa'],
+                ['accettata', 'PEC accettata, non ancora consegnata'], ['non-consegnata', 'PEC NON consegnata'],
+                ['non-accettata', 'PEC non accettata'], ['in-dubbio', 'PEC in dubbio'], ['risposta', 'Hanno risposto']], _invFiltro.pec)
+            + opzioni('inv-fordina', 'Ordina: A-Z', [['stato', 'Ordina: prima i problemi'], ['invio', 'Ordina: invii piu recenti']], _invFiltro.ordina)
+            + (filtrato ? '<button class="btn btn-sm btn-ghost" id="inv-pulisci">Togli i filtri</button>' : '')
+            + '</div>'
+            + (filtrato ? '<p class="inv-filtrate hint"><b>' + lista.length + '</b> su ' + n.totale + ' con questi filtri.</p>' : '');
 
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
             + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
@@ -15304,28 +15439,51 @@
             + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da invitare</button>'
             + '<button class="btn btn-danger btn-sm" id="inv-elimina">Elimina</button></div>';
 
+        /* La riga. Prima erano otto colonne strette, con citta e referente
+           ognuna per conto suo: su uno schermo normale l'azienda finiva a capo
+           dopo due parole. Qui i dati anagrafici stanno insieme sotto il nome,
+           dove si leggono come si leggono su un biglietto da visita, e le
+           colonne diventano quattro: chi e', come lo raggiungo, a che punto
+           siamo, com'e' finita. */
         const riga = a => {
             const st = a.stato || 'da-invitare';
             const quando = a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '';
-            const via = a.invio && a.invio.canale === 'pec' ? 'PEC' : (a.invio ? 'email' : '');
+            const via = canaleDi(a) === 'pec' ? 'PEC' : (a.invio ? 'email' : '');
             const motivo = a.errore && a.errore.motivo ? a.errore.motivo : '';
-            const recapiti = (a.email ? esc(a.email) : '')
-                + (a.email && a.pec ? '<div class="hint">PEC ' + esc(a.pec) + '</div>' : (a.pec ? '<span class="inv-solo-pec">PEC</span> ' + esc(a.pec) : ''));
-            return '<tr data-id="' + esc(a.id) + '">'
+            const sotto = [];
+            if (a.piva) sotto.push('P.IVA ' + esc(a.piva));
+            if (a.citta) sotto.push(esc(a.citta) + (a.provincia ? ' (' + esc(a.provincia) + ')' : ''));
+            if (a.referente) sotto.push(esc(a.referente));
+            if (a.settore) sotto.push(esc(a.settore));
+            const recapiti = (a.pec ? '<div class="inv-rec"><span class="inv-tag-pec">PEC</span> ' + esc(a.pec) + '</div>' : '')
+                + (a.email ? '<div class="inv-rec"><span class="inv-tag-mail">mail</span> ' + esc(a.email) + '</div>' : '')
+                + (a.telefono ? '<div class="inv-rec hint">' + esc(a.telefono) + '</div>' : '')
+                + (!a.pec && !a.email ? '<span class="ev-ko hint">nessun recapito</span>' : '');
+            return '<tr data-id="' + esc(a.id) + '"' + (st === 'errore' ? ' class="inv-riga-ko"' : '') + '>'
                 + '<td><input type="checkbox" class="inv-ck" value="' + esc(a.id) + '"' + (_invSel.has(a.id) ? ' checked' : '') + '></td>'
-                + '<td data-label="Azienda"><b>' + esc(a.ragioneSociale) + '</b>' + (a.piva ? '<div class="hint">P.IVA ' + esc(a.piva) + '</div>' : '') + '</td>'
+                + '<td data-label="Azienda"><b class="inv-nome">' + esc(a.ragioneSociale) + '</b>'
+                + (sotto.length ? '<div class="hint inv-sotto">' + sotto.join(' &middot; ') + '</div>' : '')
+                /* Il codice riservato all'azienda. Sta qui accanto al nome e non
+                   in una colonna sua perche' e' il secondo modo di chiamare
+                   questa riga: chi arriva dal modulo di registrazione o da una
+                   telefonata ha in mano il codice, non la ragione sociale, e lo
+                   cerca dalla casella di ricerca. */
+                + (a.codice ? '<div class="inv-codice" title="Codice riservato a questa azienda">' + esc(a.codice) + '</div>' : '') + '</td>'
                 + '<td data-label="Recapiti">' + recapiti + '</td>'
-                + '<td data-label="Citta">' + esc(a.citta) + (a.provincia ? ' (' + esc(a.provincia) + ')' : '') + '</td>'
-                + '<td data-label="Referente">' + esc(a.referente) + '</td>'
                 + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(INV_STATI[st] || st) + '</span>'
                 + (quando ? '<div class="hint">' + esc(quando) + (via ? ' via ' + via : '') + '</div>' : '')
                 /* Il motivo per intero, non i primi sessanta caratteri: le
                    risposte dei server di posta mettono il codice in testa e la
-                   ragione in coda ("554 5.7.1 Indirizzo IP bloccato
-                   temporaneamente PER..."), quindi tagliare a meta' butta via
-                   proprio la parte che dice cosa fare. Il servizio ne salva
-                   200: si mostrano quelli. */
-                + (motivo ? '<div class="ev-ko hint inv-motivo" title="' + esc(motivo) + '">' + esc(motivo) + '</div>' : '') + '</td>'
+                   ragione in coda, quindi tagliare a meta' butta via proprio la
+                   parte che dice cosa fare. */
+                + (motivo ? '<div class="ev-ko hint inv-motivo" title="' + esc(motivo) + '">' + esc(motivo) + '</div>' : '')
+                /* Il ritorno: chi si e' registrato usando il codice di questa
+                   azienda. E' l'unico punto in cui l'invito e l'iscrizione si
+                   vedono insieme, ed e' la domanda per cui la campagna esiste. */
+                + ((a.iscritti && a.iscritti.length)
+                    ? '<div class="inv-iscritti" title="' + esc(a.iscritti.map(i => i.nome + ' (' + i.email + ')').join(', ')) + '">'
+                    + 'Registrati: ' + esc(a.iscritti.map(i => i.nome || i.email).join(', ')) + '</div>'
+                    : '') + '</td>'
                 + '<td data-label="Ricevute PEC">' + cellaRicevute(a) + '</td>'
                 + '<td class="inv-azioni-riga">'
                 + '<button class="btn btn-sm btn-ghost inv-mod" data-id="' + esc(a.id) + '">Modifica</button>'
@@ -15333,11 +15491,14 @@
         };
         const tabella = mostrate.length
             ? '<div class="tabella-wrap"><table class="dati inv-tabella"><thead><tr>'
-            + '<th><input type="checkbox" id="inv-tutte"></th><th>Azienda</th><th>Recapiti</th><th>Citta</th>'
-            + '<th>Referente</th><th>Stato</th><th>Ricevute PEC</th><th></th></tr></thead><tbody>'
+            + '<th class="inv-th-ck"><input type="checkbox" id="inv-tutte" title="Seleziona tutte le righe filtrate"></th>'
+            + '<th>Azienda</th><th>Recapiti</th><th>Stato dell\'invito</th><th>Ricevute PEC</th><th></th>'
+            + '</tr></thead><tbody>'
             + mostrate.map(riga).join('') + '</tbody></table></div>'
             + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '')
-            : '<p class="hint">' + (n.totale ? 'Nessuna azienda con questi filtri.' : 'Nessuna azienda in elenco: caricane una con il pulsante qui sopra.') + '</p>';
+            : '<p class="hint">' + (n.totale
+                ? 'Nessuna azienda con questi filtri.'
+                : 'Nessuna azienda in elenco: caricane una con "Carica elenco", partendo dal modello.') + '</p>';
 
         corpo.innerHTML = conta + riquadroRicevute(ev, tutte) + barra + filtri + azioniSel
             + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
@@ -15351,7 +15512,7 @@
         document.getElementById('inv-carica').addEventListener('click', () => modaleImportaAziendeInvito(ev));
         document.getElementById('inv-nuova').addEventListener('click', () => modaleAziendaInvito(ev, null));
         const bScar = document.getElementById('inv-scarica');
-        if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendeInvito(ev));
+        if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendeInvito(ev, lista));
 
         /* Lettura della casella PEC. Il servizio legge un pezzo per volta (ha
            60 secondi) e dice se ne restano: si richiama finche' finisce, ma
@@ -15409,9 +15570,27 @@
                 if (c2) { c2.focus(); c2.setSelectionRange(c2.value.length, c2.value.length); }
             }, 400);
         });
-        document.getElementById('inv-fstato').addEventListener('change', e => {
-            _invFiltro.stato = e.target.value; ridisegna();
+        const collega = (id, campo) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', e => { _invFiltro[campo] = e.target.value; ridisegna(); });
+        };
+        collega('inv-fstato', 'stato');
+        collega('inv-fcanale', 'canale');
+        collega('inv-fpec', 'pec');
+        collega('inv-fordina', 'ordina');
+        const bPul = document.getElementById('inv-pulisci');
+        if (bPul) bPul.addEventListener('click', () => {
+            _invFiltro = { testo: '', stato: '', canale: '', pec: '', ordina: _invFiltro.ordina };
+            ridisegna();
         });
+        /* Le pastiglie dei conteggi filtrano per stato. La stessa pastiglia
+           premuta due volte toglie il filtro: e' il gesto che ci si aspetta,
+           e risparmia di andare a cercare "Tutti gli stati" nella tendina. */
+        corpo.querySelectorAll('.inv-chip').forEach(c => c.addEventListener('click', () => {
+            const v = c.dataset.stato || '';
+            _invFiltro.stato = (_invFiltro.stato === v) ? '' : v;
+            ridisegna();
+        }));
 
         const barraSel = document.getElementById('inv-sel-barra');
         const aggiornaSel = () => {
@@ -15475,47 +15654,343 @@
 
     /* L'elenco cosi' com'e', esiti compresi: serve a chi tiene la rendicontazione
        degli inviti fuori dall'area riservata. */
-    function scaricaAziendeInvito(ev) {
-        const righe = [['Ragione sociale', 'Email', 'PEC', 'Partita IVA', 'Referente', 'Citta', 'Provincia', 'Telefono',
-            'Stato', 'Invitata il', 'Canale', 'Errore di invio',
-            'Esito PEC', 'Consegnata il', 'Motivo del gestore', 'Ha risposto il']];
-        aziendeInvitoDi(ev).forEach(a => {
+    /* Lo scarico segue i FILTRI a video, non l'archivio intero: "dammi le
+       non consegnate" e' la richiesta vera, e farla in Excel dopo aver
+       scaricato tutto e' lavoro che qui e' gia' fatto. Il pulsante dice
+       quante ne sta portando via, cosi' nessuno crede di averle tutte. */
+    function scaricaAziendeInvito(ev, lista) {
+        const colonne = [
+            ['Ragione sociale', 32], ['Codice invito', 13], ['PEC', 28], ['Email', 26], ['Partita IVA', 14], ['Referente', 20],
+            ['Citta', 16], ['Provincia', 9], ['Telefono', 15], ['Settore', 20],
+            ['Stato', 14], ['Invitata il', 17], ['Canale', 9], ['Errore di invio', 40],
+            ['Esito PEC', 20], ['Accettata il', 17], ['Consegnata il', 17], ['Motivo del gestore', 40], ['Ha risposto il', 17],
+            ['Registrati col codice', 40]
+        ];
+        const righe = (lista || aziendeInvitoDi(ev)).map(a => {
             const r = a.ricevute || {};
             const pec = a.invio && a.invio.canale === 'pec';
-            righe.push([
-                a.ragioneSociale, a.email, a.pec, a.piva, a.referente, a.citta, a.provincia, a.telefono,
+            return [
+                a.ragioneSociale, a.codice || '', a.pec, a.email, a.piva, a.referente, a.citta, a.provincia, a.telefono, a.settore || '',
                 INV_STATI[a.stato || 'da-invitare'] || a.stato,
                 a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '',
                 pec ? 'PEC' : (a.invio ? 'Email' : ''),
                 a.errore && a.errore.motivo ? a.errore.motivo : '',
                 pec ? (INV_PEC[r.esito || 'attesa'] || '') : '',
+                r.accettata && r.accettata.quando ? fmtDataOra(r.accettata.quando) : '',
                 r.consegnata && r.consegnata.quando ? fmtDataOra(r.consegnata.quando) : '',
                 r.problema && r.problema.motivo ? r.problema.motivo : '',
-                r.risposta && r.risposta.quando ? fmtDataOra(r.risposta.quando) : ''
-            ]);
+                r.risposta && r.risposta.quando ? fmtDataOra(r.risposta.quando) : '',
+                (a.iscritti || []).map(i => (i.nome || '') + ' <' + (i.email || '') + '>').join('; ')
+            ].map(v => String(v == null ? '' : v));
         });
-        const csv = righe.map(r => r.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
-        // il BOM serve a Excel per riconoscere le lettere accentate
-        const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
+        const blob = xlsxCrea(colonne.map(c => c[0]), righe, colonne.map(c => c[1]));
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'aziende-invito-' + ev.id + '.csv';
+        a.download = 'aziende-invito-' + ev.id + '.xlsx';
         document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
 
     /* Caricamento dell'elenco da file. Ricaricare lo stesso file non crea
        doppioni (la chiave e' il recapito) e non azzera gli invii fatti. */
+    /* ============================================================
+       FOGLI DI CALCOLO, SENZA LIBRERIE
+       ------------------------------------------------------------
+       Un .xlsx e' un archivio zip con dentro dell'XML. Serve leggerlo
+       (per l'import) e scriverlo (per il modello da compilare), e per
+       farlo bastano poche decine di righe: aggiungere una libreria da
+       mezzo megabyte per due file di poche colonne sarebbe una spesa
+       senza ritorno, e questo e' codice che non cambia mai, perche' il
+       formato non cambia.
+
+       Si legge solo il PRIMO foglio: chi compila il modello lavora li'.
+       ============================================================ */
+    function zipVoci(buf) {
+        const d = new DataView(buf), b = new Uint8Array(buf);
+        /* La coda dell'archivio ("end of central directory") si cerca
+           all'indietro: puo' avere in fondo un commento di lunghezza
+           qualunque, quindi non sta a una posizione fissa. */
+        let fine = -1;
+        for (let i = b.length - 22; i >= 0 && i > b.length - 65558; i--) {
+            if (d.getUint32(i, true) === 0x06054b50) { fine = i; break; }
+        }
+        if (fine < 0) throw new Error('Non e un file .xlsx valido.');
+        const n = d.getUint16(fine + 10, true);
+        let p = d.getUint32(fine + 16, true);
+        const voci = [];
+        for (let k = 0; k < n; k++) {
+            if (p + 46 > b.length || d.getUint32(p, true) !== 0x02014b50) break;
+            const metodo = d.getUint16(p + 10, true);
+            const compressa = d.getUint32(p + 20, true);
+            const lNome = d.getUint16(p + 28, true);
+            const lExtra = d.getUint16(p + 30, true);
+            const lNota = d.getUint16(p + 32, true);
+            const dove = d.getUint32(p + 42, true);
+            const nome = new TextDecoder().decode(b.subarray(p + 46, p + 46 + lNome));
+            /* L'inizio dei dati si legge dall'intestazione locale, non da qui:
+               i campi "extra" delle due intestazioni possono avere lunghezze
+               diverse, e fidarsi di questa e' il modo classico di leggere
+               spazzatura. */
+            const lNome2 = d.getUint16(dove + 26, true), lExtra2 = d.getUint16(dove + 28, true);
+            const inizio = dove + 30 + lNome2 + lExtra2;
+            voci.push({ nome: nome, metodo: metodo, dati: b.subarray(inizio, inizio + compressa) });
+            p += 46 + lNome + lExtra + lNota;
+        }
+        return voci;
+    }
+    async function zipTesto(voce) {
+        if (!voce) return '';
+        if (voce.metodo === 0) return new TextDecoder().decode(voce.dati);
+        if (voce.metodo !== 8) throw new Error('Compressione non supportata nel file.');
+        const flusso = new Blob([voce.dati]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+        return await new Response(flusso).text();
+    }
+    function xmlTesto(v) {
+        return String(v == null ? '' : v)
+            .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+            .replace(/&#x([0-9a-fA-F]+);/g, (_, c) => String.fromCodePoint(parseInt(c, 16)))
+            .replace(/&#(\d+);/g, (_, c) => String.fromCodePoint(+c))
+            .replace(/&amp;/g, '&');
+    }
+    function xmlEsc(v) {
+        /* I caratteri di controllo in un XML non sono ammessi e fanno
+           rifiutare il file a Excel senza spiegazioni: si tolgono qui. */
+        return String(v == null ? '' : v)
+            .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+    /* Le celle di testo di un .xlsx stanno quasi sempre in una tabella a parte
+       (sharedStrings) e nel foglio resta solo il loro numero: senza questo
+       passaggio si leggerebbero indici al posto delle parole. */
+    function xlsxStringhe(xml) {
+        const fuori = [];
+        String(xml || '').split(/<si[\s>]/).slice(1).forEach(b => {
+            const fine = b.indexOf('</si>');
+            const dentro = fine >= 0 ? b.slice(0, fine) : b;
+            let t = '';
+            dentro.replace(/<t[^>]*>([\s\S]*?)<\/t>/g, (_, v) => { t += v; return ''; });
+            fuori.push(xmlTesto(t));
+        });
+        return fuori;
+    }
+    function colonnaDi(rif) {
+        // "BC12" -> 54: le colonne sono in base 26, con le lettere come cifre
+        const l = String(rif || '').match(/^[A-Z]+/);
+        if (!l) return 0;
+        let n = 0;
+        for (const c of l[0]) n = n * 26 + (c.charCodeAt(0) - 64);
+        return n - 1;
+    }
+    async function xlsxRighe(buf) {
+        const voci = zipVoci(buf);
+        const trova = f => voci.find(v => v.nome.toLowerCase() === f);
+        const foglio = trova('xl/worksheets/sheet1.xml')
+            || voci.find(v => /^xl\/worksheets\/.+\.xml$/i.test(v.nome));
+        if (!foglio) throw new Error('Nel file non trovo nessun foglio di lavoro.');
+        const cond = trova('xl/sharedstrings.xml');
+        const stringhe = cond ? xlsxStringhe(await zipTesto(cond)) : [];
+        const xml = await zipTesto(foglio);
+        const righe = [];
+        String(xml).replace(/<row[^>]*>([\s\S]*?)<\/row>/g, (_, dentro) => {
+            const riga = [];
+            dentro.replace(/<c([^>]*)\/>|<c([^>]*)>([\s\S]*?)<\/c>/g, (tutto, vuota, attr, corpo) => {
+                const a = vuota || attr || '';
+                const rif = (a.match(/r="([A-Z]+\d+)"/) || [])[1] || '';
+                const tipo = (a.match(/t="([^"]+)"/) || [])[1] || '';
+                let val = '';
+                if (corpo) {
+                    if (tipo === 'inlineStr') {
+                        corpo.replace(/<t[^>]*>([\s\S]*?)<\/t>/g, (x, v) => { val += xmlTesto(v); return ''; });
+                    } else {
+                        const g = corpo.match(/<v[^>]*>([\s\S]*?)<\/v>/);
+                        val = g ? xmlTesto(g[1]) : '';
+                        if (tipo === 's') val = stringhe[+val] || '';
+                    }
+                }
+                const i = rif ? colonnaDi(rif) : riga.length;
+                while (riga.length < i) riga.push('');
+                riga[i] = val;
+                return '';
+            });
+            righe.push(riga);
+            return '';
+        });
+        // le righe lasciate vuote in coda non sono dati
+        while (righe.length && !righe[righe.length - 1].some(c => String(c).trim())) righe.pop();
+        return righe;
+    }
+
+    /* --- scrittura: il modello da compilare --- */
+    const CRC_TAB = (() => {
+        const t = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+            let c = i;
+            for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+            t[i] = c >>> 0;
+        }
+        return t;
+    })();
+    function crc32(b) {
+        let c = 0xFFFFFFFF;
+        for (let i = 0; i < b.length; i++) c = CRC_TAB[(c ^ b[i]) & 0xFF] ^ (c >>> 8);
+        return (c ^ 0xFFFFFFFF) >>> 0;
+    }
+    /* Le voci si scrivono NON compresse: un modello di poche righe pesa due
+       kilobyte, e in cambio non serve un compressore. Excel apre senza
+       obiezioni un archivio con voci "stored". */
+    function zipCrea(file) {
+        const cod = new TextEncoder();
+        const pezzi = [], sommario = [];
+        let pos = 0;
+        file.forEach(f => {
+            const nome = cod.encode(f.nome), dati = cod.encode(f.testo);
+            const crc = crc32(dati);
+            const loc = new Uint8Array(30 + nome.length);
+            const dl = new DataView(loc.buffer);
+            dl.setUint32(0, 0x04034b50, true); dl.setUint16(4, 20, true);
+            dl.setUint32(14, crc, true); dl.setUint32(18, dati.length, true); dl.setUint32(22, dati.length, true);
+            dl.setUint16(26, nome.length, true);
+            loc.set(nome, 30);
+            pezzi.push(loc, dati);
+            const cen = new Uint8Array(46 + nome.length);
+            const dc = new DataView(cen.buffer);
+            dc.setUint32(0, 0x02014b50, true); dc.setUint16(4, 20, true); dc.setUint16(6, 20, true);
+            dc.setUint32(16, crc, true); dc.setUint32(20, dati.length, true); dc.setUint32(24, dati.length, true);
+            dc.setUint16(28, nome.length, true); dc.setUint32(42, pos, true);
+            cen.set(nome, 46);
+            sommario.push(cen);
+            pos += loc.length + dati.length;
+        });
+        let lung = 0; sommario.forEach(c => lung += c.length);
+        const coda = new Uint8Array(22), dq = new DataView(coda.buffer);
+        dq.setUint32(0, 0x06054b50, true);
+        dq.setUint16(8, file.length, true); dq.setUint16(10, file.length, true);
+        dq.setUint32(12, lung, true); dq.setUint32(16, pos, true);
+        return new Blob(pezzi.concat(sommario, [coda]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    }
+    function xlsxCrea(intestazioni, righe, larghezze) {
+        const lettera = i => {
+            let s = '', n = i + 1;
+            while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+            return s;
+        };
+        const cella = (c, r, v, gr) => '<c r="' + lettera(c) + r + '" t="inlineStr"' + (gr ? ' s="1"' : '')
+            + '><is><t xml:space="preserve">' + xmlEsc(v) + '</t></is></c>';
+        const tutte = [intestazioni].concat(righe || []);
+        const corpo = tutte.map((riga, i) =>
+            '<row r="' + (i + 1) + '">' + riga.map((v, c) => cella(c, i + 1, v, i === 0)).join('') + '</row>').join('');
+        const cols = (larghezze || []).map((w, i) =>
+            '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>').join('');
+        const foglio = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            + (cols ? '<cols>' + cols + '</cols>' : '')
+            + '<sheetData>' + corpo + '</sheetData></worksheet>';
+        /* Un solo stile: le intestazioni in grassetto. Serve a far capire a
+           colpo d'occhio qual e' la riga che non va toccata. */
+        const stili = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            + '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>'
+            + '<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+            + '<fills count="2"><fill><patternFill patternType="none"/></fill>'
+            + '<fill><patternFill patternType="gray125"/></fill></fills>'
+            + '<borders count="1"><border/></borders>'
+            + '<cellStyleXfs count="1"><xf/></cellStyleXfs>'
+            /* Senza uno stile "Normal" dichiarato, alcuni lettori aprono il
+               file lamentandosi o lo "riparano": due righe per evitarlo. */
+            + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+            + '<cellXfs count="2"><xf xfId="0"/><xf fontId="1" applyFont="1" xfId="0"/></cellXfs></styleSheet>';
+        return zipCrea([
+            {
+                nome: '[Content_Types].xml', testo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                    + '<Default Extension="xml" ContentType="application/xml"/>'
+                    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+                    + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                    + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+                    + '</Types>'
+            },
+            {
+                nome: '_rels/.rels', testo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+                    + '</Relationships>'
+            },
+            {
+                nome: 'xl/workbook.xml', testo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                    + 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                    + '<sheets><sheet name="Aziende" sheetId="1" r:id="rId1"/></sheets></workbook>'
+            },
+            {
+                nome: 'xl/_rels/workbook.xml.rels', testo: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+                    + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+                    + '</Relationships>'
+            },
+            { nome: 'xl/styles.xml', testo: stili },
+            { nome: 'xl/worksheets/sheet1.xml', testo: foglio }
+        ]);
+    }
+
+    /* Le colonne del modello. Le prime due sono obbligatorie e l'asterisco lo
+       dice a chi apre il file; il servizio, quando rilegge le intestazioni,
+       l'asterisco lo ignora, cosi' toglierlo non rompe nulla. */
+    const INV_MODELLO = [
+        { nome: 'Denominazione *', largo: 34, es: ['Alfa Costruzioni S.r.l.', 'Beta Servizi S.p.A.'] },
+        { nome: 'PEC *', largo: 30, es: ['alfacostruzioni@pec.it', 'betaservizi@legalmail.it'] },
+        { nome: 'Partita IVA', largo: 15, es: ['01234567890', '09876543210'] },
+        { nome: 'Referente', largo: 22, es: ['Mario Rossi', 'Anna Bianchi'] },
+        { nome: 'Email', largo: 26, es: ['info@alfacostruzioni.it', ''] },
+        { nome: 'Telefono', largo: 16, es: ['081 1234567', ''] },
+        { nome: 'Citta', largo: 18, es: ['Napoli', 'Pozzuoli'] },
+        { nome: 'Provincia', largo: 10, es: ['NA', 'NA'] },
+        { nome: 'Settore', largo: 22, es: ['Edilizia', 'Servizi alle imprese'] },
+        { nome: 'Note', largo: 28, es: ['', ''] }
+    ];
+    function scaricaModelloAziende() {
+        const intest = INV_MODELLO.map(c => c.nome);
+        const righe = [0, 1].map(i => INV_MODELLO.map(c => c.es[i] || ''));
+        const blob = xlsxCrea(intest, righe, INV_MODELLO.map(c => c.largo));
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'modello-aziende-da-invitare.xlsx';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+    /* Dal foglio al formato che il servizio gia' sa leggere. Convertire qui
+       invece che sul server evita di portarsi un lettore di zip dentro una
+       funzione che ha sessanta secondi e dodici posti liberi. */
+    function righeInCsv(righe) {
+        const cella = v => {
+            const t = String(v == null ? '' : v);
+            return /[",;\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+        };
+        return (righe || []).map(r => (r || []).map(cella).join(';')).join('\n');
+    }
+
     function modaleImportaAziendeInvito(ev) {
         if (!puoGestireInviti()) return;
+        const colonne = INV_MODELLO.map(c => c.nome.replace(' *', '')).join(', ');
         apriModale('<h2>Carica l\'elenco delle aziende</h2>'
-            + '<p class="hint" style="margin:-4px 0 14px;">Un file <b>.csv</b> con una riga per azienda. Serve almeno una colonna '
-            + '<b>Email</b> oppure <b>PEC</b>; vengono riconosciute anche Ragione sociale, Partita IVA, Codice fiscale, Referente, '
-            + 'Citta, Provincia, Telefono, Settore e Note, scritte in vari modi. Le altre colonne restano sulla scheda. '
-            + 'Virgola e punto e virgola vanno bene entrambi.</p>'
-            + '<p class="hint">Ricaricare lo stesso elenco aggiorna i dati e <b>non</b> crea doppioni: chi ha gia ricevuto '
+            + '<p class="hint" style="margin:-4px 0 12px;">Il modo piu\' rapido e\' partire dal modello: ha gia\' le colonne '
+            + 'giuste, nell\'ordine giusto, e due righe di esempio da sostituire.</p>'
+            + '<div class="inv-imp-modello">'
+            + '<button class="btn btn-secondary btn-sm" id="inv-modello">Scarica il modello (.xlsx)</button>'
+            + '<span class="hint">Obbligatorie <b>Denominazione</b> e <b>PEC</b>. Le altre colonne ('
+            + esc(colonne.replace('Denominazione, PEC, ', '')) + ') sono facoltative: quello che c\'e\' finisce sulla scheda.</span>'
+            + '</div>'
+            + '<div class="ev-imp-passo"><label for="inv-file"><b>Il file compilato</b></label>'
+            + '<input type="file" id="inv-file" accept=".xlsx,.csv,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>'
+            + '<p class="hint">Vanno bene <b>.xlsx</b> e <b>.csv</b> (con virgola o punto e virgola). Se hai un vecchio <b>.xls</b>, '
+            + 'aprilo e salvalo come <i>Cartella di lavoro di Excel (.xlsx)</i>. Le colonne si riconoscono dalla prima riga, '
+            + 'scritte in vari modi; le colonne in piu\' restano sulla scheda.</p>'
+            + '<p class="hint">Ricaricare lo stesso elenco aggiorna i dati e <b>non</b> crea doppioni: chi ha gia\' ricevuto '
             + 'l\'invito resta segnato come invitato e non lo riceve una seconda volta.</p>'
-            + '<div class="ev-imp-passo"><input type="file" id="inv-file" accept=".csv,text/csv,text/plain"></div>'
             + '<div id="inv-imp-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-imp-chiudi">Chiudi</button></div>', { classe: 'larga' });
         const mostra = (t, ko) => {
@@ -15523,23 +15998,53 @@
             if (e) e.innerHTML = '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>';
         };
         document.getElementById('inv-imp-chiudi').addEventListener('click', () => { chiudiModale(); modaleAziendeInvito(ev); });
+        document.getElementById('inv-modello').addEventListener('click', () => {
+            try { scaricaModelloAziende(); }
+            catch (e) { mostra('Non riesco a creare il modello: ' + ((e && e.message) || 'errore'), true); }
+        });
+
+        const manda = csv => {
+            mostra('Caricamento in corso...');
+            Cloud.aziendeInvito({ azione: 'importa', evento: ev.id, csv: csv }).then(r => {
+                if (!r.ok) { mostra(r.msg || 'Caricamento non riuscito.', true); return; }
+                /* Ogni scarto si dice, e si dice PERCHE'. Un elenco che entra a
+                   meta' senza spiegazioni e' peggio di uno che non entra: chi
+                   carica crede di aver invitato tutti. */
+                const scarti = [];
+                if (r.senzaDenominazione) scarti.push(r.senzaDenominazione + ' senza denominazione');
+                if (r.senzaRecapito) scarti.push(r.senzaRecapito + ' senza una PEC valida');
+                if (r.doppie) scarti.push(r.doppie + ' doppioni nel file');
+                if (r.oltreIlLimite) scarti.push(r.oltreIlLimite + ' oltre il limite dell\'evento');
+                mostra('Lette ' + r.lette + ' righe: ' + r.nuove + ' aziende nuove, ' + r.aggiornate + ' aggiornate'
+                    + (scarti.length ? '. Scartate: ' + scarti.join(', ') : '') + '.',
+                    scarti.length > 0 && !r.nuove && !r.aggiornate);
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco aziende da invitare caricato', 'sistema', ev.id, null, r.nuove + ' nuove, ' + r.aggiornate + ' aggiornate'); } catch (er) { }
+                caricaAziendeInvito(ev, () => { });
+            });
+        };
+
         document.getElementById('inv-file').addEventListener('change', e => {
             const f = e.target.files && e.target.files[0];
             if (!f) return;
+            const nome = String(f.name || '').toLowerCase();
+            if (/\.xls$/.test(nome)) {
+                mostra('Questo e\' il vecchio formato .xls, che non so leggere: aprilo con Excel e salvalo come .xlsx.', true);
+                return;
+            }
+            if (/\.xlsx$/.test(nome)) {
+                mostra('Leggo il foglio...');
+                f.arrayBuffer()
+                    .then(buf => xlsxRighe(buf))
+                    .then(righe => {
+                        if (righe.length < 2) throw new Error('Il foglio non contiene righe oltre alle intestazioni.');
+                        manda(righeInCsv(righe));
+                    })
+                    .catch(err => mostra('Non riesco a leggere il foglio: ' + ((err && err.message) || 'errore') + '.', true));
+                return;
+            }
             const lettore = new FileReader();
             lettore.onerror = () => mostra('Non riesco a leggere il file.', true);
-            lettore.onload = () => {
-                mostra('Caricamento in corso...');
-                Cloud.aziendeInvito({ azione: 'importa', evento: ev.id, csv: String(lettore.result || '') }).then(r => {
-                    if (!r.ok) { mostra(r.msg || 'Caricamento non riuscito.', true); return; }
-                    mostra('Lette ' + r.lette + ' righe: ' + r.nuove + ' aziende nuove, ' + r.aggiornate + ' aggiornate'
-                        + (r.senzaRecapito ? ', ' + r.senzaRecapito + ' scartate senza un indirizzo valido' : '')
-                        + (r.doppie ? ', ' + r.doppie + ' doppioni nel file' : '')
-                        + (r.oltreIlLimite ? ', ' + r.oltreIlLimite + ' oltre il limite dell\'evento' : '') + '.');
-                    try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco aziende da invitare caricato', 'sistema', ev.id, null, r.nuove + ' nuove, ' + r.aggiornate + ' aggiornate'); } catch (er) { }
-                    caricaAziendeInvito(ev, () => { });
-                });
-            };
+            lettore.onload = () => manda(String(lettore.result || ''));
             lettore.readAsText(f, 'utf-8');
         });
     }
@@ -15708,7 +16213,7 @@
 
         apriModale('<h2>Invito - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
             + '<p class="hint" style="margin:-4px 0 10px;">Un messaggio per azienda, mai piu destinatari insieme: cosi ogni scheda porta il proprio esito e nessuno vede gli indirizzi degli altri.'
-            + (gia ? ' <b>' + gia + '</b> hanno gia ricevuto l\'invito e vengono saltate, salvo la spunta piu sotto.' : '') + '</p>'
+            + (gia ? ' <b>' + gia + '</b> hanno gia ricevuto l\'invito e vengono saltate, salvo la spunta in fondo.' : '') + '</p>'
             + '<div class="campo"><label>Come far partire l\'invito</label>'
             + opzione('inv-c-email', 'email', 'Email ordinaria',
                 cEmail.pronto
@@ -15728,9 +16233,27 @@
             + '<textarea id="ii-testo" rows="14">' + esc(invTestoPredefinito(ev)) + '</textarea>'
             + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
             + 'Puoi scrivere <b>{ragione_sociale}</b>, <b>{referente}</b>, <b>{citta}</b>, <b>{provincia}</b>, <b>{piva}</b>: '
-            + 'ogni azienda riceve i propri dati al loro posto.</div></div>'
-            + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ii-forza"> '
-            + 'Manda anche a chi ha gia ricevuto l\'invito</label></div>'
+            + 'ogni azienda riceve i propri dati al loro posto.<br>'
+            + '<b>{codice}</b> e diverso: e il codice di 5 caratteri riservato a quell\'azienda, che il servizio crea '
+            + 'al momento dell\'invio e che l\'azienda dovra scrivere nel modulo di registrazione. Toglilo dal testo e '
+            + 'nessuno sapra di averlo.</div></div>'
+            /* La spunta del rinvio. Prima diceva solo "manda anche a chi ha gia
+               ricevuto l'invito", che lascia aperta la domanda vera: e se NON
+               la spunto, cosa succede a quelle aziende? Ora la risposta c'e',
+               con il numero davanti, e quando non c'e' nessuno da rimandare la
+               spunta e' spenta invece di stare li' a far pensare. */
+            + '<div class="campo inv-rinvio' + (gia ? '' : ' spenta') + '">'
+            + '<label class="mi-flag" style="margin:0;"><input type="checkbox" id="ii-forza"' + (gia ? '' : ' disabled') + '> '
+            + (gia
+                ? 'Manda una <b>seconda volta</b> alle ' + gia + ' che l\'hanno gia ricevuto'
+                : 'Manda una seconda volta a chi l\'ha gia ricevuto')
+            + '</label>'
+            + '<div class="hint">' + (gia
+                ? 'Lasciandola vuota, quelle ' + gia + ' vengono <b>saltate</b> e ricevono l\'invito solo le altre '
+                + (scelte.length - gia) + ': e\' quello che serve per riprendere un invio interrotto senza mandare doppioni. '
+                + 'Spuntandola, l\'invito riparte anche a loro.'
+                : 'Nessuna delle ' + scelte.length + ' selezionate ha ancora ricevuto l\'invito, quindi qui non c\'e\' niente da rimandare.')
+            + '</div></div>'
             + '<div id="ii-anteprima" style="display:none;margin-top:10px;">'
             + '<iframe id="ii-frame" title="Anteprima dell\'invito" sandbox="allow-same-origin" '
             + 'style="width:100%;height:360px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
@@ -15824,6 +16347,11 @@
                     try {
                         r = await Cloud.aziendeInvito({
                             azione: 'invia', evento: ev.id, canale: canale, forza: forza,
+                            /* Il nome della pagina di iscrizione viaggia col codice:
+                               e' l'unico modo che ha il modulo pubblico, che l'evento
+                               lo conosce solo per nome, di accorgersi che gli stanno
+                               presentando il codice di un altro evento. */
+                            pagina: ev.pagina || '',
                             ids: elencoInvio.slice(i, i + lotto).map(a => a.id),
                             mail: { oggetto: oggetto, html: html }
                         });
@@ -15833,6 +16361,16 @@
                     saltate += (r.saltate || 0) + (r.senzaRecapito || 0);
                     disiscritte += r.disiscritte || 0;
                     falliti += (r.falliti || []).length;
+                    /* Il gestore ha rifiutato NOI, non un destinatario: continuare
+                       con i lotti seguenti li farebbe rifiutare tutti allo stesso
+                       modo, allungando il blocco e marcando "errore" aziende che
+                       non c'entrano niente. Ci si ferma e si dice cosa fare. */
+                    if (r.bloccato) {
+                        msgKo = 'Il server di posta ha bloccato l\'invio: "' + r.bloccato + '". '
+                            + 'Le aziende non ancora tentate restano da invitare e riprendono da qui: '
+                            + 'aspetta qualche ora e premi di nuovo Invia.';
+                        break;
+                    }
                     if (r.tettoRaggiunto) { msgKo = 'Raggiunto il tetto orario su questo canale: riprendi piu tardi, chi ha gia ricevuto viene saltato.'; break; }
                 }
                 stato.inCorso = false;
