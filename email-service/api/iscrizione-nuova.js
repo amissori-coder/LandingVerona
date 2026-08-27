@@ -24,10 +24,11 @@
    Non restituisce mai dati: risponde solo ok/non ok.
 
    QUI DENTRO vive anche il COMPLETAMENTO dei dati di un'iscrizione
-   manuale (azioni "completa-leggi" e "completa-salva"), perche' il
-   piano Hobby di Vercel ammette al massimo 12 funzioni per deploy e
-   una tredicesima farebbe fallire l'intera pubblicazione. E' lo
-   stesso tipo di endpoint (pubblico, con limite per IP): cambia solo
+   manuale (azioni "completa-leggi" e "completa-salva"). Ci e' finito
+   perche' il piano Hobby ammetteva 12 funzioni per deploy e una
+   tredicesima faceva fallire l'intera pubblicazione; sul piano Pro
+   quel tetto non c'e' piu', ma resta il motivo buono: e' lo stesso
+   tipo di endpoint (pubblico, con limite per IP), cambia solo
    l'azione nel corpo. Vedi completaIscrizione() qui sotto.
    ============================================================ */
 

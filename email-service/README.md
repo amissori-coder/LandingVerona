@@ -14,10 +14,13 @@ nelle variabili d'ambiente di Vercel.
 
 ---
 
-## 1. Crea l'account Vercel (gratuito)
+## 1. L'account Vercel
 
 1. Vai su https://vercel.com e registrati con GitHub (l'account `amissori-coder`).
-   Il piano **Hobby** è gratuito e non richiede carta.
+2. **Il progetto gira sul piano Pro**, e non è un dettaglio contabile. Il piano
+   Hobby vieta l'uso commerciale, ammette **12 funzioni** per rilascio e fa
+   girare i lavori programmati **una volta al giorno**. Tutti e tre i vincoli
+   hanno lasciato tracce nel codice: sono segnalate qui sotto, una per una.
 
 ## 2. Genera la chiave di servizio Firebase
 
@@ -137,14 +140,18 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 
 > **Dove sta il codice degli inviti.** Non in un endpoint suo:
 > `lib/aziende-invito.js`, con `api/presenze.js` che gli devia le richieste
-> che portano `sezione: "aziende"`. Il motivo e' il tetto di **12 funzioni
-> serverless per rilascio** del piano Hobby, che qui e' gia' raggiunto: la
-> tredicesima fa fallire la distribuzione con *"No more than 12 Serverless
+> che portano `sezione: "aziende"`. Il motivo era il tetto di **12 funzioni
+> serverless per rilascio** del piano Hobby, che qui era gia' raggiunto: la
+> tredicesima faceva fallire la distribuzione con *"No more than 12 Serverless
 > Functions can be added to a Deployment on the Hobby plan"*. Le librerie in
-> `lib/` non contano, quindi tutto il lavoro sta li'. Se un domani serve
-> aggiungere una funzione in `api/`, o si passa al piano Pro o si aggancia
-> l'azione a un endpoint gia' esistente, come si fa qui e per il giro della
-> newsletter.
+> `lib/` non contano, quindi tutto il lavoro sta li'.
+>
+> **Sul piano Pro quel tetto non c'e' piu'** (si sta abbondantemente sotto il
+> limite del piano), quindi oggi questa e' una scelta e non una costrizione:
+> si puo' riportare fuori come endpoint suo, e guadagnarci log ed errori
+> separati invece che mescolati a quelli delle presenze. Non e' una modifica
+> a costo zero - cambia l'indirizzo che chiama l'area riservata - quindi va
+> fatta lasciando per un po' anche la vecchia deviazione, non tagliando netto.
 
 > **Il modulo si carica solo quando serve, e non e' un dettaglio.**
 > `api/presenze.js` chiede `require('../lib/aziende-invito')` **dentro** il
@@ -181,7 +188,7 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 | `PEC_IMAP_CARTELLA` | `INBOX` (predefinito). Da cambiare solo se un filtro sposta le ricevute altrove: quello che il lettore non vede, non esiste |
 | `PEC_LETTORE_MAX` | quanti messaggi per giro (predefinito 40) |
 | `PEC_LETTORE_RECUPERO` | quanti messaggi guardare all'indietro alla prima accensione (predefinito 200) |
-| `PEC_CRON_SECRET` | **solo** se si vuole un controllo automatico da uno scheduler esterno (vedi sotto) |
+| `PEC_CRON_SECRET` | **di norma non serve**: solo per guidare il controllo da uno scheduler ESTERNO al posto del cron di Vercel (vedi sotto) |
 
 > **La password che scade: e' il punto piu' fragile di tutto l'impianto.** Con
 > la verifica in due passaggi attiva sulla casella PEC (obbligatoria nel
@@ -195,16 +202,26 @@ scritto dal gestore, "Consegna in dubbio", "Ha risposto".
 > riquadro rosso che dice esattamente cosa e' successo. Conviene annotarsi la
 > scadenza da qualche parte.
 
-> **Come si aggiorna.** Il modo normale e' il pulsante **"Controlla le
-> ricevute"** nella finestra delle aziende: legge la casella in quel momento.
-> Un controllo automatico serve un cron, e sul piano **Hobby di Vercel i cron
-> girano una volta al giorno**, che per una PEC e' poco: se serve piu' spesso,
-> o si passa al piano Pro, oppure si fa chiamare l'endpoint da uno scheduler
-> esterno (basta un workflow GitHub Actions) in **GET** su
-> `/api/presenze` con l'intestazione `Authorization: Bearer <PEC_CRON_SECRET>`.
-> Il segreto e' **dedicato**, diverso da `CRON_SECRET`: quello fa partire
-> newsletter e comunicazioni, e cio' che si consegna a un servizio esterno deve
-> poter fare una cosa sola.
+> **Come si aggiorna: da solo, ogni quarto d'ora.** Sul piano Pro il lettore
+> ha un lavoro programmato suo (`/api/presenze` in `vercel.json`, `*/15`), e
+> ricevute, errori e risposte compaiono senza che nessuno prema niente. Il
+> pulsante **"Controlla le ricevute"** nella finestra delle aziende resta e
+> serve ancora: legge la casella *adesso*, quando si e' appena spedito e non
+> si vuole aspettare.
+>
+> Prima non era cosi': sul piano Hobby i cron girano **una volta al giorno**,
+> che per una PEC e' inutile, e il controllo era solo manuale.
+>
+> Il giro automatico si riconosce dal segreto nell'intestazione
+> `Authorization: Bearer <segreto>`, in **GET**. Ne valgono due, e la
+> differenza conta:
+>
+> - `CRON_SECRET` — lo mette **Vercel da se'** quando fa partire i lavori di
+>   `vercel.json`. Non esce mai da Vercel. E' quello in uso normalmente.
+> - `PEC_CRON_SECRET` — **dedicato** a questo solo giro, da consegnare a uno
+>   scheduler **esterno** (per esempio un workflow GitHub Actions) se un
+>   domani si volesse guidarlo da fuori: cio' che si da' fuori deve poter fare
+>   una cosa sola. Oggi non serve impostarlo.
 
 > **`PEC_REPLY_TO`: attenzione, decide DOVE finiscono le risposte.**
 > Lasciata vuota (consigliato) la risposta dell'azienda torna alla casella
@@ -335,12 +352,155 @@ immediato e la composizione funzionano comunque).
 > riservata → Comunicazioni e invia a mano, annulla o riprogramma a una data
 > futura ogni record scaduto, così non parte nulla di inatteso.
 
-Nota: sul piano Hobby il cron gira **una volta al giorno** alle **06:00 UTC**
-(≈ 08:00 in ora legale, 07:00 in ora solare), a orario approssimativo. Una mail
-programmata parte quindi al primo mattino utile **a partire dalla** data scelta,
-non all'ora esatta impostata — perfetto per invii settimanali/mensili/
-trimestrali/annuali. Il `vercel.json` alza il timeout della funzione cron a
-`maxDuration: 60` (tetto Hobby) per gestire più invii nello stesso mattino.
+## I lavori programmati (cron)
+
+Stanno tutti in `email-service/vercel.json`. Vercel li fa partire **solo sulla
+Production** e solo dal ramo predefinito, mettendo da se' l'intestazione
+`Authorization: Bearer <CRON_SECRET>`: senza `CRON_SECRET` fra le variabili
+d'ambiente non parte nessuno dei tre.
+
+| Percorso | Quando | Cosa fa |
+|---|---|---|
+| `/api/cron-comunicazioni` | `0 6-18 * * *` — ogni ora, dalle 06:00 alle 18:00 UTC | invia le comunicazioni programmate dovute, riprendendo quelle lasciate a meta' |
+| `/api/programma-newsletter` | `*/15 * * * *` — ogni quarto d'ora | manda avanti le newsletter programmate, un lotto per volta |
+| `/api/presenze` | `*/15 * * * *` — ogni quarto d'ora | legge la casella PEC: ricevute, errori, risposte |
+
+Sul piano Hobby i primi due giravano **una volta al giorno** e il terzo non
+esisteva: i cron Hobby sono due in tutto e girano una volta al giorno, a orario
+approssimativo. Il piano Pro toglie il vincolo.
+
+### Le comunicazioni: perche' piu' giri al giorno non rispediscono
+
+Un invio **personalizzato** (con `{nome}`, `{incarichi}`… nell'oggetto o nel
+testo) manda **una mail per destinatario, in fila**: puo' durare minuti. Prima
+`api/cron-comunicazioni.js` inviava **e poi** registrava l'avanzamento, per cui
+una funzione che moriva a meta' non lasciava traccia e il giro dopo
+ricominciava **da tutti**. Con un giro al giorno era una rispedizione; con
+tredici giri sarebbero state tredici.
+
+Ora l'avanzamento si scrive **durante** l'invio, in
+`lib/comunicazioni-avanzamento.js`: un documento per comunicazione, con
+l'elenco di chi e' gia' stato servito, scritto ogni **20 destinatari**. Alla
+ripresa quelli si saltano. E' la stessa strada del giro delle newsletter, che
+scrive dopo ogni lotto.
+
+Le regole che ne governano i casi storti, tutte verificate:
+
+- **Il tempo si guarda prima di spedire, mai dopo.** La funzione ha un budget
+  di 240 secondi dentro i 300 di `maxDuration`: quando scade si ferma senza
+  cominciare una mail nuova, **non** fa avanzare la programmazione, e il giro
+  dopo riprende da li'. Una comunicazione lasciata a meta' resta "dovuta".
+- **Prima lo storico, poi la pulizia dell'avanzamento.** Nell'ordine inverso,
+  un guasto in mezzo cancellerebbe la memoria di chi ha gia' ricevuto
+  lasciando la comunicazione ancora dovuta: cioe' il doppio invio che tutto
+  questo evita. Cosi' invece l'avanzamento sopravvive un giro di troppo e
+  viene scartato da se', perche' l'occorrenza non combacia piu'.
+- **L'avanzamento e' legato all'ISTANTE dell'occorrenza.** Una ricorrente
+  rispedisce ogni mese con lo stesso identificativo: senza il campo `quando`,
+  l'invio di settembre salterebbe tutti quelli serviti ad agosto.
+- **"Servito" vuol dire tentato**, riuscito o no: un indirizzo che rifiuta
+  (casella inesistente o piena) non si ritenta a ogni giro per sempre, e il
+  motivo finisce nello storico della comunicazione, dove si legge dall'area
+  riservata.
+- **Ma finche' non parte nemmeno una mail non si segna nessuno.** Se a
+  rifiutare e' il *server* (irraggiungibile, credenziali scadute) falliscono
+  tutti allo stesso modo: segnarli vorrebbe dire non riprovare mai piu' e
+  chiudere la comunicazione con "0 destinatari". Al primo invio riuscito si sa
+  che il canale c'e', e da li' un fallimento e' dell'indirizzo.
+- **Un lucchetto** (6 minuti, piu' della durata della funzione) impedisce che
+  due giri lavorino la stessa comunicazione. Con il solo cron non
+  capiterebbe; basterebbe un'esecuzione lanciata a mano dalla dashboard mentre
+  il cron gira.
+- Il **BCC** (nessuna variabile nel testo) resta una sola transazione SMTP: non
+  c'e' un "a meta'" da riprendere. Si registra subito dopo, e se non e' partito
+  niente non si segna nessuno.
+
+Tutto questo e' verificato da `prove/cron-comunicazioni.prove.js`, che si
+lancia con `node prove/cron-comunicazioni.prove.js` e non richiede di
+installare niente: Firestore, il server di posta e l'orologio sono finti e
+stanno nel file. Esce con codice 1 se qualcosa e' rosso. Se un domani si tocca
+`inviaUna()` o l'ordine fra `applicaPatch` e `AV.chiudi`, e' li' che ci si
+accorge di aver rotto qualcosa.
+
+Di indirizzi, li' dentro, non ce ne sono: di ogni servito si tiene solo
+l'**impronta** (`improntaEmail`, la stessa della newsletter e dell'area
+riservata). In chiaro compaiono solo i falliti, perche' devono finire nello
+storico leggibile, e il documento si cancella appena l'invio si conclude.
+
+**Il primo giro resta quello delle 06:00 UTC**, la mattina presto in Italia, e
+non e' un dettaglio: chi programma sceglie un **giorno** e l'area riservata lo
+fissa a **mezzanotte**, quindi un cron che girasse anche di notte manderebbe
+posta di lavoro alle 00:30. I giri dalle 07:00 alle 18:00 servono a finire gli
+invii lunghi e a riprovare quelli andati storti, non ad anticipare. Per chi
+programma non cambia niente: la comunicazione parte al primo mattino utile **a
+partire dalla** data scelta, che e' quello che l'area riservata promette.
+
+### La newsletter: `NEWSLETTER_PASSO_CRON`
+
+Con il cron ogni quarto d'ora va impostata anche questa variabile, **altrimenti
+l'area riservata continua a dire il falso** a chi programma un invio:
+
+| Nome | Valore |
+|---|---|
+| `NEWSLETTER_PASSO_CRON` | `15min` |
+
+Questa variabile decide anche **cosa si vede** nella finestra di
+programmazione, non solo cosa annuncia:
+
+| `NEWSLETTER_PASSO_CRON` | La finestra chiede | Primo giorno scegliibile | La frase dice |
+|---|---|---|---|
+| assente o `giornaliero` | solo **Giorno dell'invio** | domani | *"Parte nella prima mattina di …, conta il giorno non l'ora"* |
+| `15min` | **Giorno** e **Ora** | **oggi** | *"Parte \<giorno\> alle \<ora\>, entro un quarto d'ora"* |
+
+L'ora si offre **solo** con il cron ogni quarto d'ora, e non e' pudore: con il
+cron giornaliero il campo sarebbe una promessa che il server non puo'
+mantenere. Per la stessa ragione con `15min` si puo' programmare anche per
+**oggi** - il primo giro utile arriva entro quindici minuti - mentre con quello
+giornaliero no, perche' il giro della mattina e' gia' passato e "oggi"
+vorrebbe dire domani.
+
+Senza ora scelta l'istante resta **mezzogiorno**, che e' quello che la
+programmazione usava da sempre (`T12:00`, per non farsi spostare il giorno dal
+fuso orario). Le newsletter programmate **prima** di questo cambiamento hanno
+un `quandoTesto` senza ora: `frasePartenza` legge tutte e due le forme apposta,
+altrimenti dopo il rilascio quelle diventerebbero illeggibili.
+
+> **Prima cambiava il giorno, non solo l'ora.** Con il cron delle 05:00 UTC una
+> newsletter fissata a mezzogiorno del giorno X non era ancora dovuta quando il
+> cron passava quella mattina, quindi partiva **il giorno dopo**. Ogni quarto
+> d'ora, parte quando deve.
+
+### I tempi massimi delle funzioni
+
+Il blocco `functions` di `vercel.json` alza `maxDuration` dove serve. Sul piano
+Hobby il tetto era **60 secondi**; sul Pro si arriva a 300.
+
+| Funzione | Prima | Ora | Perche' |
+|---|---|---|---|
+| `api/cron-comunicazioni.js` | 60 | **300** | un invio personalizzato manda **una mail per destinatario**, in fila |
+| `api/importa-iscrizioni.js` | *(predefinito, ~10 s)* | **300** | importa il foglio intero, a blocchi di 400 scritture |
+| `api/invia-comunicazione.js` | *(predefinito, ~10 s)* | **120** | stesso invio in fila, avviato a mano dall'area riservata |
+
+**Le altre sono rimaste a 60 apposta.** `api/programma-newsletter.js` e
+`api/presenze.js` hanno un budget interno legato a quel numero (`BUDGET_MS` in
+`lib/giro-newsletter.js` e `lib/lettore-pec.js`) e un lucchetto che deve durare
+**piu'** della funzione. Alzarli non serviva, perche' a fare il lavoro adesso
+e' la **frequenza**: quindici minuti per volta, novantasei volte al giorno,
+invece di un solo giro lungo.
+
+> **Tre numeri che si muovono insieme, in tutti e tre i lavori programmati.**
+>
+> | Funzione | `maxDuration` | budget interno | lucchetto |
+> |---|---|---|---|
+> | `cron-comunicazioni` | 300 | 240 s | 6 min |
+> | `programma-newsletter` | 60 | 45 s (`giro-newsletter`) | 6 min |
+> | `presenze` (lettore PEC) | 60 | 40 s (`lettore-pec`) | 3 min |
+>
+> Il budget sta **dentro** il `maxDuration`, con margine per scrivere prima di
+> essere interrotti; il lucchetto dura **piu'** del `maxDuration`, o un secondo
+> giro entrerebbe mentre il primo sta ancora spedendo. Alzarne uno solo fa
+> perdere l'ultimo lotto oppure lascia entrare due giri insieme: si toccano
+> tutti e tre o nessuno.
 
 ## Nuova iscrizione dal sito (`/api/iscrizione-nuova`)
 
@@ -411,9 +571,11 @@ al minuto per utente.
 ## Completamento dati partecipanti (dentro `/api/iscrizione-nuova`)
 
 Azioni `completa-leggi` e `completa-salva` della funzione `iscrizione-nuova`:
-NON e una funzione a parte, perche il piano Hobby di Vercel ammette al massimo
-**12 funzioni per deploy** e una tredicesima fa fallire l'intera pubblicazione
-(il servizio resta alla versione precedente senza che nulla lo dica). Flusso
+NON e una funzione a parte. Il motivo era il tetto di **12 funzioni per deploy**
+del piano Hobby, dove la tredicesima faceva fallire l'intera pubblicazione (il
+servizio restava alla versione precedente senza che nulla lo dicesse). Sul piano
+Pro il tetto non c'e' piu' e resta solo il motivo buono: e' lo stesso tipo di
+endpoint, pubblico e con limite per IP, e cambia solo l'azione nel corpo. Flusso
 **pubblico** (lo apre l'iscritto dal collegamento nella mail), con
 firma HMAC dell'identificativo del documento: stesso segreto della
 disiscrizione, contesto diverso, quindi un collegamento vale per quella sola

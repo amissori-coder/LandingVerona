@@ -176,10 +176,12 @@ async function lavora(db, id, dati, scadenza, giro) {
 
 /* Un giro completo: guarda cosa e' dovuto e lo spedisce finche' ha tempo.
    NON e' un endpoint. Sta in una libreria e non in api/ per un motivo molto
-   concreto: il piano Hobby di Vercel consente al massimo 12 funzioni serverless,
-   e con questa se ne aggiungeva una tredicesima. Il deploy falliva, e finche'
-   falliva NESSUNA modifica al servizio arrivava in produzione. I file di lib/
-   non contano come funzioni.
+   concreto: il piano Hobby di Vercel consentiva al massimo 12 funzioni
+   serverless, e con questa se ne aggiungeva una tredicesima. Il deploy
+   falliva, e finche' falliva NESSUNA modifica al servizio arrivava in
+   produzione. I file di lib/ non contano come funzioni. Sul piano Pro il
+   tetto non c'e' piu': si potrebbe riportare in api/, ma cambierebbe solo
+   l'indirizzo da cui la si raggiunge.
    La chiama api/programma-newsletter.js quando riceve il segreto del lavoro
    programmato: e' lo stesso codice, raggiunto da un indirizzo diverso. */
 async function eseguiGiro() {
