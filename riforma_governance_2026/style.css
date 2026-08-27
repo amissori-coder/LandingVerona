@@ -22,6 +22,14 @@
     align-self: stretch;
 }
 
+/* "Art. 2380-bis" e' un dato, non una frase: andando a capo dopo il
+   trattino si leggerebbe come due cose diverse. Lo tiene unito il foglio
+   di stile, non un trattino unificatore, che in certi caratteri diventa
+   un quadratino quando il testo viene copiato altrove. */
+.hero-stats .stat-number {
+    white-space: nowrap;
+}
+
 /* ============================================
    1. IL PERCORSO NORMATIVO
    La riforma si capisce solo se si vede da dove
@@ -171,11 +179,10 @@
     margin: 0 0 12px;
 }
 
-/* La riga della struttura e' l'unica informazione
-   schematica della scheda: sta su fondo proprio perche'
-   si legga come uno schema e non come una frase. Per lo
-   stesso motivo non va giustificata: le frecce finirebbero
-   separate dagli organi che collegano da spazi larghi
+/* La riga della struttura dice chi nomina chi: sta su fondo
+   proprio per staccarsi dal testo della scheda e farsi leggere
+   per prima. Non va giustificata, perche' e' corta e in colonna
+   stretta la giustificazione le aprirebbe dentro spazi larghi
    quanto una parola. */
 .modello-card .modello-struttura {
     text-align: left;
