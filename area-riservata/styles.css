@@ -1708,21 +1708,9 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 /* precisazione, non problema: si puo abilitare lo stesso */
 .ev-info { flex: 1 0 100%; color: var(--grigio-600); font-size: 0.8rem; line-height: 1.35; margin-top: 2px; }
 /* ---- aziende da invitare a un evento (sezione Eventi) ---- */
-.inv-conta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 /* I conteggi sono anche i filtri: hanno quindi l'aspetto di qualcosa che si
    preme, non di un'etichetta. Premuto due volte, il filtro si toglie. */
-.inv-chip { display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 11px; border: 1px solid var(--grigio-200); border-radius: 999px; background: #fff; font: inherit; font-size: 0.84rem; color: var(--grigio-600); cursor: pointer; }
-.inv-chip b { color: var(--grigio-900); font-size: 0.95rem; }
-.inv-chip:hover { border-color: var(--blu-700); background: var(--blu-050); }
-.inv-chip.attivo { border-color: var(--blu-700); background: var(--blu-100); color: var(--blu-900); }
-.inv-chip.ko { border-color: var(--rosso); color: var(--rosso); }
-.inv-chip.ko b { color: var(--rosso); }
-.inv-chip.ko.attivo { background: var(--rosso-bg); }
-.inv-filtrate { margin: -4px 0 10px; }
 .inv-barra { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-.inv-filtri { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-.inv-filtri input[type="text"] { flex: 1 1 260px; min-width: 180px; }
-.inv-filtri select { flex: 0 0 auto; }
 /* barra che compare solo con qualcosa di spuntato */
 .inv-sel-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--blu-700); border-radius: 6px; background: var(--blu-050); font-size: 0.88rem; }
 .inv-sel-barra.hidden { display: none; }
@@ -2295,3 +2283,39 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    a parte rubava un rigo a ogni riga, sfalsando la tabella fra chi ce l'ha e
    chi no. Il verde dice cosa e', il suggerimento dice il resto. */
 .ev-sel { display: inline-block; vertical-align: baseline; margin-left: 5px; padding: 0 6px; border: 1px solid var(--verde); border-radius: 3px; background: var(--verde-bg); color: var(--verde); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; cursor: help; }
+
+/* ---- la finestra delle aziende --------------------------------------
+   Non e' un avviso, e' un posto dove si lavora: c'e' dentro una tabella con
+   sette colonne e qualche centinaio di righe. Larga quanto lo schermo
+   consente, con la barra del titolo, il piede fisso e i pulsanti riduci /
+   ingrandisci che l'area riservata gia' aveva. */
+.modale.modale-finestra.inv-finestra { width: 1500px; max-width: 97vw; height: 93vh; height: 93dvh; }
+.inv-finestra .modale-corpo { padding: 0; display: flex; flex-direction: column; }
+
+/* Le schede: la vista attiva si stacca dalle altre e si attacca alla tabella,
+   come in un raccoglitore. Il numero e' grande perche' e' quello che si
+   guarda; l'etichetta sta sotto e serve solo a dire di cosa. */
+.inv-schede { display: flex; gap: 2px; flex-wrap: wrap; padding: 12px 18px 0; background: var(--blu-050); border-bottom: 1px solid var(--grigio-200); }
+.inv-scheda { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; background: transparent; font: inherit; color: var(--grigio-600); cursor: pointer; line-height: 1.15; }
+.inv-scheda b { font-size: 1.15rem; color: var(--grigio-900); font-weight: 700; }
+.inv-scheda span { font-size: 0.76rem; letter-spacing: 0.01em; }
+.inv-scheda:hover { background: #fff; }
+.inv-scheda.attiva { background: #fff; border-color: var(--grigio-200); color: var(--blu-900); box-shadow: 0 -2px 0 var(--blu-700) inset; margin-bottom: -1px; }
+.inv-scheda.attiva b { color: var(--blu-900); }
+.inv-scheda.ko b { color: var(--rosso); }
+
+.inv-finestra .inv-lettore, .inv-finestra .inv-barra, .inv-finestra .inv-sel-barra, .inv-finestra .ev-imp-esito { margin: 12px 18px 0; }
+.inv-altrove { align-self: center; margin: 0 0 0 4px; }
+.inv-vuoto { padding: 26px 18px; }
+/* La tabella prende tutto lo spazio che resta e scorre da sola: le schede, i
+   pulsanti e le intestazioni restano fermi mentre si scorrono le righe. */
+.inv-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 12px 0 0; padding: 0 18px 18px; }
+.inv-tabella thead th { position: sticky; top: 0; z-index: 2; background: var(--blu-900); }
+.inv-tabella thead tr.inv-riga-filtri th { top: 38px; z-index: 1; background: var(--grigio-100); padding: 5px 6px; border-bottom: 1px solid var(--grigio-200); }
+
+/* I filtri stanno nella colonna su cui agiscono: niente etichette, ci pensa
+   l'intestazione sopra. */
+.inv-f { width: 100%; min-width: 0; padding: 4px 6px; font-size: 0.76rem; border: 1px solid var(--grigio-200); border-radius: 4px; background: #fff; color: var(--grigio-900); }
+.inv-f:focus { outline: none; border-color: var(--blu-700); box-shadow: 0 0 0 2px var(--blu-100); }
+.inv-ord { cursor: pointer; -webkit-user-select: none; user-select: none; }
+.inv-ord:hover { text-decoration: underline; }

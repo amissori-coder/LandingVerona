@@ -15097,7 +15097,7 @@
     let _invCache = {};         // per evento: { aziende, aggiornato }
     let _invCfg = null;         // quali canali sono pronti sul servizio
     let _invSel = new Set();    // aziende spuntate
-    let _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', ordina: '' };
+    let _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', ordina: 'azienda', verso: 1 };
     let _invCercaTimer = null;
 
     /* Chi carica l'elenco e spedisce: gli stessi che possono aggiungere
@@ -15127,24 +15127,45 @@
        "in elenco" (vista vuota) le prende tutte. Uno stato che non fosse in
        nessun gruppo finirebbe fra le "da invitare": e' la scelta prudente,
        perche' una scheda dimenticata si rivede invece di sparire. */
-    const INV_VISTE = {
-        'da-invitare': ['da-invitare'],
-        'inviate': ['inviata', 'risposta', 'iscritta'],
-        'errore': ['errore'],
-        'fuori': ['esclusa', 'disiscritta']
-    };
-    function vistaDi(stato) {
-        const s = stato || 'da-invitare';
-        for (const v in INV_VISTE) { if (INV_VISTE[v].indexOf(s) >= 0) return v; }
+    /* LE VISTE dell'elenco, definite UNA volta sola: da qui leggono sia i
+       conteggi sulle schede sia il filtro che riempie la tabella. Il difetto
+       che questa scelta ripara: il conteggio diceva "5 invitate" e la vista
+       ne mostrava 3, perche' erano due definizioni della stessa parola in due
+       punti diversi del file.
+
+       "PEC non arrivata" e' una vista a se' e NON sta anche fra le inviate:
+       un messaggio rifiutato dal gestore del destinatario non e' un invito
+       consegnato, e tenerlo fra le inviate vorrebbe dire contare come fatto
+       un lavoro da rifare. Cosi' le cinque schede sono esclusive e i numeri
+       tornano.
+
+       La vista si decide sulla SCHEDA INTERA, non sul solo stato: lo stato
+       dice che il messaggio e' partito, sono le ricevute a dire se e' anche
+       arrivato. */
+    const INV_PEC_KO = ['non-consegnata', 'non-accettata', 'in-dubbio'];
+    function vistaDi(a) {
+        const st = (a && a.stato) || 'da-invitare';
+        if (st === 'esclusa' || st === 'disiscritta') return 'fuori';
+        if (st === 'errore') return 'errore';
+        if (st === 'inviata' || st === 'risposta' || st === 'iscritta') {
+            const viaPec = a && a.invio && a.invio.canale === 'pec';
+            const esito = (a && a.ricevute && a.ricevute.esito) || '';
+            if (viaPec && INV_PEC_KO.indexOf(esito) >= 0) return 'non-arrivate';
+            return 'inviate';
+        }
+        // uno stato che non conosciamo ricade fra le da invitare: una scheda
+        // dimenticata si rivede, invece di sparire da tutte le schede
         return 'da-invitare';
     }
+    const NOMI_VISTA = {
+        'da-invitare': 'da invitare', 'inviate': 'gia invitate',
+        'non-arrivate': 'con la PEC non arrivata',
+        'errore': 'con un errore di invio', 'fuori': 'escluse o disiscritte'
+    };
     function contaInviti(lista) {
-        const c = { totale: 0, daInvitare: 0, inviate: 0, errori: 0, fuori: 0 };
-        const dove = { 'da-invitare': 'daInvitare', 'inviate': 'inviate', 'errore': 'errori', 'fuori': 'fuori' };
-        (lista || []).forEach(a => {
-            c.totale++;
-            c[dove[vistaDi(a.stato)]]++;
-        });
+        const c = { totale: 0, daInvitare: 0, inviate: 0, nonArrivate: 0, errori: 0, fuori: 0 };
+        const dove = { 'da-invitare': 'daInvitare', 'inviate': 'inviate', 'non-arrivate': 'nonArrivate', 'errore': 'errori', 'fuori': 'fuori' };
+        (lista || []).forEach(a => { c.totale++; c[dove[vistaDi(a)]]++; });
         return c;
     }
 
@@ -15156,6 +15177,7 @@
         const n = c ? contaInviti(c.aziende) : null;
         const riga = n
             ? '<b>' + n.totale + '</b> aziende in elenco: ' + n.daInvitare + ' da invitare, ' + n.inviate + ' invitate'
+            + (n.nonArrivate ? ', <span class="ev-ko">' + n.nonArrivate + ' con la PEC non arrivata</span>' : '')
             + (n.errori ? ', <span class="ev-ko">' + n.errori + ' con errore</span>' : '')
             + (n.fuori ? ', ' + n.fuori + ' fuori elenco' : '') + '.'
             : 'Aziende non ancora iscritte, da invitare all\'evento: si carica l\'elenco da un file e parte un messaggio per azienda, via email o via PEC.';
@@ -15355,10 +15377,15 @@
     function modaleAziendeInvito(ev) {
         if (!puoGestireInviti() || !ev || ev.tutti) return;
         _invSel = new Set();
-        _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', ordina: '' };
-        apriModale('<h2>Aziende da invitare - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
-            + '<div id="inv-corpo"><p class="hint">Carico l\'elenco...</p></div>'
-            + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-chiudi">Chiudi</button></div>', { classe: 'larga' });
+        _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', ordina: 'azienda', verso: 1 };
+        /* Finestra vera, non una finestrella: c'e' dentro una tabella con sette
+           colonne e qualche centinaio di righe, e su una scheda larga 900
+           pixel si lavora di scorrimento orizzontale. La modalita' "finestra"
+           esisteva gia' nel resto dell'area riservata (barra del titolo,
+           riduci, ingrandisci, piede fisso): questa sezione non la usava. */
+        apriModale('<div id="inv-corpo"><p class="hint">Carico l\'elenco...</p></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-chiudi">Chiudi</button></div>',
+            { finestra: true, classe: 'inv-finestra', titolo: 'Aziende da invitare - ' + ev.titolo + ', ' + ev.quando });
         document.getElementById('inv-chiudi').addEventListener('click', chiudiModale);
         caricaCfgInvito(() => { if (document.getElementById('inv-corpo') && _invCache[ev.id]) disegnaAziendeInvito(ev); });
         caricaAziendeInvito(ev, r => {
@@ -15516,79 +15543,74 @@
         const q = _invFiltro.testo.trim().toLowerCase();
         const canaleDi = a => (a.invio && a.invio.canale) ? a.invio.canale : '';
         const esitoPecDi = a => (canaleDi(a) === 'pec' && a.ricevute) ? (a.ricevute.esito || 'attesa') : '';
-        const lista = tutte.filter(a => {
-            const st = a.stato || 'da-invitare';
-            if (_invFiltro.vista && vistaDi(st) !== _invFiltro.vista) return false;
-            if (_invFiltro.stato && st !== _invFiltro.stato) return false;
+        const combacia = a => (a.ragioneSociale + ' ' + a.pec + ' ' + a.email + ' ' + a.citta + ' '
+            + a.provincia + ' ' + a.piva + ' ' + a.referente + ' ' + (a.settore || '')
+            + ' ' + (a.codice || '')).toLowerCase().indexOf(q) >= 0;
+        const altriFiltri = a => {
+            if (_invFiltro.stato && (a.stato || 'da-invitare') !== _invFiltro.stato) return false;
             if (_invFiltro.canale === 'nessuno' && canaleDi(a)) return false;
             if (_invFiltro.canale && _invFiltro.canale !== 'nessuno' && canaleDi(a) !== _invFiltro.canale) return false;
-            if (_invFiltro.pec === 'risposta') { if (!(a.ricevute && a.ricevute.risposta)) return false; }
-            else if (_invFiltro.pec && esitoPecDi(a) !== _invFiltro.pec) return false;
-            if (!q) return true;
-            return (a.ragioneSociale + ' ' + a.pec + ' ' + a.email + ' ' + a.citta + ' '
-                + a.provincia + ' ' + a.piva + ' ' + a.referente + ' ' + (a.settore || '')
-                + ' ' + (a.codice || '')).toLowerCase().indexOf(q) >= 0;
-        });
-        /* L'ordine non e' un vezzo: su quattrocento righe, "chi e' andato
-           storto" e "chi e' partito per ultimo" sono le due cose che si
-           cercano, e cercarle in ordine alfabetico vuol dire scorrere tutto. */
+            if (_invFiltro.pec && esitoPecDi(a) !== _invFiltro.pec) return false;
+            if (_invFiltro.risposta === 'si' && !(a.ricevute && a.ricevute.risposta)) return false;
+            if (_invFiltro.risposta === 'no' && (a.ricevute && a.ricevute.risposta)) return false;
+            if (q && !combacia(a)) return false;
+            return true;
+        };
+        const lista = tutte.filter(a => vistaDi(a) === _invFiltro.vista && altriFiltri(a));
+        /* Quante risponderebbero ai filtri ma stanno in un'altra scheda. Senza,
+           cercare un'azienda dalla scheda sbagliata darebbe "nessun risultato"
+           e la si crederebbe cancellata. Si conta SOLO a filtri attivi: senza
+           filtri sarebbero semplicemente tutte le altre, e la frase direbbe il
+           nulla con l'aria di dire qualcosa. */
+        const cercando = !!(_invFiltro.testo || _invFiltro.stato || _invFiltro.canale || _invFiltro.pec || _invFiltro.risposta);
+        const altrove = cercando
+            ? tutte.filter(a => vistaDi(a) !== _invFiltro.vista && altriFiltri(a)).length
+            : 0;
+
         const PESO_STATO = { 'errore': 0, 'risposta': 1, 'da-invitare': 2, 'inviata': 3, 'iscritta': 4, 'esclusa': 5, 'disiscritta': 6 };
-        const perNome = (x, y) => String(x.ragioneSociale || '').localeCompare(String(y.ragioneSociale || ''), 'it');
         const peso = a => (PESO_STATO[a.stato] === undefined ? 9 : PESO_STATO[a.stato]);
-        if (_invFiltro.ordina === 'stato') {
-            lista.sort((x, y) => peso(x) - peso(y) || perNome(x, y));
-        } else if (_invFiltro.ordina === 'invio') {
-            lista.sort((x, y) => ((y.invio && y.invio.quando) || 0) - ((x.invio && x.invio.quando) || 0) || perNome(x, y));
-        } else {
-            lista.sort(perNome);
-        }
+        const perNome = (x, y) => String(x.ragioneSociale || '').localeCompare(String(y.ragioneSociale || ''), 'it');
+        const quandoRisp = a => (a.ricevute && a.ricevute.risposta && a.ricevute.risposta.quando) || 0;
+        const verso = _invFiltro.verso || 1;
+        if (_invFiltro.ordina === 'stato') lista.sort((x, y) => verso * (peso(x) - peso(y)) || perNome(x, y));
+        else if (_invFiltro.ordina === 'risposta') lista.sort((x, y) => verso * (quandoRisp(y) - quandoRisp(x)) || perNome(x, y));
+        else lista.sort((x, y) => verso * perNome(x, y));
+
         const MAX_RIGHE = 400;
         const mostrate = lista.slice(0, MAX_RIGHE);
-        const filtrato = !!(_invFiltro.testo || _invFiltro.stato || _invFiltro.canale || _invFiltro.pec);
+        const filtrato = cercando;
 
-        /* I numeri in cima sono anche i filtri: e' il gesto che viene naturale
-           ("1 con errore" - e chi sara'?) e prima non faceva niente. */
-        /* Le pastiglie non sono un riepilogo con sopra un filtro: SONO le
-           viste, e quella accesa dice dove ci si trova. Premere la stessa due
-           volte non spegne piu' niente, perche' una vista bisogna comunque
-           averla; per vedere tutto c'e' "in elenco". */
-        const chip = (etich, num, vista, classe) => '<button type="button" class="inv-chip'
-            + (classe ? ' ' + classe : '') + (_invFiltro.vista === vista ? ' attivo' : '')
-            + '" data-vista="' + esc(vista) + '">'
-            + '<b>' + num + '</b> ' + esc(etich) + '</button>';
-        const conta = '<div class="inv-conta">'
-            + chip('da invitare', n.daInvitare, 'da-invitare')
-            + chip('inviate', n.inviate, 'inviate')
-            + (n.errori ? chip('con errore', n.errori, 'errore', 'ko') : '')
-            + (n.fuori ? chip('fuori elenco', n.fuori, 'fuori') : '')
-            + chip('in elenco', n.totale, '')
+        /* Le schede in cima. Non un riepilogo con sopra un filtro: sono le
+           viste, e quella accesa dice dove ci si trova. "In elenco" non c'e'
+           piu' perche' una scheda che contiene tutte le altre non risponde a
+           nessuna domanda; al suo posto "PEC non arrivata", che invece e' la
+           domanda che ci si fa il giorno dopo l'invio. */
+        const scheda = (etich, num, vista, classe) => '<button type="button" class="inv-scheda'
+            + (classe ? ' ' + classe : '') + (_invFiltro.vista === vista ? ' attiva' : '')
+            + '" data-vista="' + esc(vista) + '"><b>' + num + '</b><span>' + esc(etich) + '</span></button>';
+        const schede = '<div class="inv-schede">'
+            + scheda('Da invitare', n.daInvitare, 'da-invitare')
+            + scheda('Inviate', n.inviate, 'inviate')
+            + scheda('PEC non arrivata', n.nonArrivate, 'non-arrivate', 'ko')
+            + scheda('Con errore', n.errori, 'errore', 'ko')
+            + scheda('Fuori elenco', n.fuori, 'fuori')
             + '</div>';
 
+        /* Il caricamento sta SOLO nella scheda "da invitare". Un elenco si
+           carica per invitarlo: offrirlo mentre si guardano le gia' partite
+           invita a rifare l'import a meta' campagna, che e' il modo piu'
+           rapido per non capire piu' a che punto si e'. */
+        const soloDaInvitare = _invFiltro.vista === 'da-invitare';
         const barra = '<div class="inv-barra">'
-            + '<button class="btn btn-primary btn-sm" id="inv-carica">Carica elenco (.xlsx o .csv)</button>'
-            + '<button class="btn btn-secondary btn-sm" id="inv-nuova">Aggiungi azienda</button>'
+            + (soloDaInvitare
+                ? '<button class="btn btn-primary btn-sm" id="inv-carica">Carica elenco (.xlsx o .csv)</button>'
+                + '<button class="btn btn-secondary btn-sm" id="inv-nuova">Aggiungi azienda</button>'
+                : '')
             + '<button class="btn btn-secondary btn-sm" id="inv-scarica"' + (lista.length ? '' : ' disabled') + '>'
-            + 'Scarica con gli esiti (' + lista.length + (filtrato ? ' filtrate' : '') + ')</button>'
-            + '</div>';
-
-        const opzioni = (id, vuoto, voci, scelto) => '<select id="' + id + '"><option value="">' + esc(vuoto) + '</option>'
-            + voci.map(v => '<option value="' + esc(v[0]) + '"' + (scelto === v[0] ? ' selected' : '') + '>' + esc(v[1]) + '</option>').join('')
-            + '</select>';
-        const filtri = '<div class="inv-filtri">'
-            + '<input type="text" id="inv-cerca" placeholder="Cerca azienda, codice, PEC, email, citta, provincia, P.IVA, referente o settore" value="' + esc(_invFiltro.testo) + '">'
-            + opzioni('inv-fstato', 'Tutti gli stati', Object.keys(INV_STATI).map(s => [s, INV_STATI[s]]), _invFiltro.stato)
-            + opzioni('inv-fcanale', 'Tutti i canali', [['pec', 'Invitate via PEC'], ['email', 'Invitate via email'], ['nessuno', 'Non ancora invitate']], _invFiltro.canale)
-            + opzioni('inv-fpec', 'Tutte le ricevute', [['consegnata', 'PEC consegnata'], ['attesa', 'PEC in attesa'],
-                ['accettata', 'PEC accettata, non ancora consegnata'], ['non-consegnata', 'PEC NON consegnata'],
-                ['non-accettata', 'PEC non accettata'], ['in-dubbio', 'PEC in dubbio'], ['risposta', 'Hanno risposto']], _invFiltro.pec)
-            + opzioni('inv-fordina', 'Ordina: A-Z', [['stato', 'Ordina: prima i problemi'], ['invio', 'Ordina: invii piu recenti']], _invFiltro.ordina)
+            + 'Scarica con gli esiti (' + lista.length + ')</button>'
             + (filtrato ? '<button class="btn btn-sm btn-ghost" id="inv-pulisci">Togli i filtri</button>' : '')
-            + '</div>'
-            + (filtrato ? '<p class="inv-filtrate hint"><b>' + lista.length + '</b> su ' + n.totale + ' con questi filtri.</p>' : '');
-        const NOMI_VISTA = {
-            'da-invitare': 'da invitare', 'inviate': 'gia invitate',
-            'errore': 'con un errore di invio', 'fuori': 'escluse o disiscritte'
-        };
+            + (altrove ? '<span class="inv-altrove hint">' + altrove + ' con questi criteri in altre schede</span>' : '')
+            + '</div>';
 
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
             + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
@@ -15597,12 +15619,6 @@
             + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da invitare</button>'
             + '<button class="btn btn-danger btn-sm" id="inv-elimina">Elimina</button></div>';
 
-        /* La riga. Prima erano otto colonne strette, con citta e referente
-           ognuna per conto suo: su uno schermo normale l'azienda finiva a capo
-           dopo due parole. Qui i dati anagrafici stanno insieme sotto il nome,
-           dove si leggono come si leggono su un biglietto da visita, e le
-           colonne diventano quattro: chi e', come lo raggiungo, a che punto
-           siamo, com'e' finita. */
         const riga = a => {
             const st = a.stato || 'da-invitare';
             const quando = a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '';
@@ -15621,23 +15637,13 @@
                 + '<td><input type="checkbox" class="inv-ck" value="' + esc(a.id) + '"' + (_invSel.has(a.id) ? ' checked' : '') + '></td>'
                 + '<td data-label="Azienda"><b class="inv-nome">' + esc(a.ragioneSociale) + '</b>'
                 + (sotto.length ? '<div class="hint inv-sotto">' + sotto.join(' &middot; ') + '</div>' : '')
-                /* Il codice riservato all'azienda. Sta qui accanto al nome e non
-                   in una colonna sua perche' e' il secondo modo di chiamare
-                   questa riga: chi arriva dal modulo di registrazione o da una
-                   telefonata ha in mano il codice, non la ragione sociale, e lo
-                   cerca dalla casella di ricerca. */
+                /* Il codice riservato: e' il secondo modo di chiamare questa
+                   riga, e chi arriva da una telefonata ha in mano quello. */
                 + (a.codice ? '<div class="inv-codice" title="Codice riservato a questa azienda">' + esc(a.codice) + '</div>' : '') + '</td>'
                 + '<td data-label="Recapiti">' + recapiti + '</td>'
                 + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(INV_STATI[st] || st) + '</span>'
                 + (quando ? '<div class="hint">' + esc(quando) + (via ? ' via ' + via : '') + '</div>' : '')
-                /* Il motivo per intero, non i primi sessanta caratteri: le
-                   risposte dei server di posta mettono il codice in testa e la
-                   ragione in coda, quindi tagliare a meta' butta via proprio la
-                   parte che dice cosa fare. */
                 + (motivo ? '<div class="ev-ko hint inv-motivo" title="' + esc(motivo) + '">' + esc(motivo) + '</div>' : '')
-                /* Il ritorno: chi si e' registrato usando il codice di questa
-                   azienda. E' l'unico punto in cui l'invito e l'iscrizione si
-                   vedono insieme, ed e' la domanda per cui la campagna esiste. */
                 + ((a.iscritti && a.iscritti.length)
                     ? '<div class="inv-iscritti" title="' + esc(a.iscritti.map(i => i.nome + ' (' + i.email + ')').join(', ')) + '">'
                     + 'Registrati: ' + esc(a.iscritti.map(i => i.nome || i.email).join(', ')) + '</div>'
@@ -15648,25 +15654,48 @@
                 + '<button class="btn btn-sm btn-ghost inv-mod" data-id="' + esc(a.id) + '">Modifica</button>'
                 + '<button class="btn btn-sm btn-ghost inv-canc" data-id="' + esc(a.id) + '">Elimina</button></td></tr>';
         };
+
+        /* I FILTRI STANNO NELLA TABELLA, sotto le intestazioni: ogni comando
+           nella colonna su cui agisce. Prima erano una fila di tendine sopra
+           la tabella, e per capire su cosa agisse ognuna bisognava aprirla.
+           Cosi' invece la colonna lo dice da se'. */
+        const opzioni = (id, vuoto, voci, scelto) => '<select id="' + id + '" class="inv-f">'
+            + '<option value="">' + esc(vuoto) + '</option>'
+            + voci.map(v => '<option value="' + esc(v[0]) + '"' + (scelto === v[0] ? ' selected' : '') + '>' + esc(v[1]) + '</option>').join('')
+            + '</select>';
+        const freccia = c => _invFiltro.ordina === c ? (verso > 0 ? ' ▲' : ' ▼') : '';
+        const intest = c => '<th class="inv-ord" data-ordina="' + c[0] + '" title="Ordina">' + esc(c[1]) + freccia(c[0]) + '</th>';
         const tabella = mostrate.length
-            ? '<div class="tabella-wrap"><table class="dati inv-tabella"><thead><tr>'
+            ? '<div class="tabella-wrap inv-wrap"><table class="dati inv-tabella"><thead>'
+            + '<tr>'
             + '<th class="inv-th-ck"><input type="checkbox" id="inv-tutte" title="Seleziona tutte le righe filtrate"></th>'
-            + '<th>Azienda</th><th>Recapiti</th><th>Stato dell\'invito</th><th>Ricevute PEC</th><th>Risposta</th><th></th>'
-            + '</tr></thead><tbody>'
+            + intest(['azienda', 'Azienda'])
+            + '<th>Recapiti</th>'
+            + intest(['stato', 'Stato dell\'invito'])
+            + '<th>Ricevute PEC</th>'
+            + intest(['risposta', 'Risposta'])
+            + '<th></th></tr>'
+            + '<tr class="inv-riga-filtri">'
+            + '<th></th>'
+            + '<th><input type="text" id="inv-cerca" class="inv-f" placeholder="Cerca nome, codice, P.IVA, citta..." value="' + esc(_invFiltro.testo) + '"></th>'
+            + '<th>' + opzioni('inv-fcanale', 'Ogni canale', [['pec', 'Solo PEC'], ['email', 'Solo email'], ['nessuno', 'Non inviate']], _invFiltro.canale) + '</th>'
+            + '<th>' + opzioni('inv-fstato', 'Ogni stato', Object.keys(INV_STATI).map(x => [x, INV_STATI[x]]), _invFiltro.stato) + '</th>'
+            + '<th>' + opzioni('inv-fpec', 'Ogni esito', [['consegnata', 'Consegnata'], ['accettata', 'Accettata'], ['attesa', 'In attesa'],
+                ['non-consegnata', 'NON consegnata'], ['non-accettata', 'NON accettata'], ['in-dubbio', 'In dubbio']], _invFiltro.pec) + '</th>'
+            + '<th>' + opzioni('inv-frisp', 'Tutte', [['si', 'Hanno risposto'], ['no', 'Senza risposta']], _invFiltro.risposta) + '</th>'
+            + '<th></th></tr></thead><tbody>'
             + mostrate.map(riga).join('') + '</tbody></table></div>'
             + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '')
-            /* Un elenco vuoto deve dire PERCHE'. "Nessuna azienda" davanti a un
-               archivio pieno si legge come un guasto; "sono partite tutte" si
-               legge come una buona notizia, che e' quello che e'. */
-            : '<p class="hint">' + (!n.totale
+            : '<p class="inv-vuoto hint">' + (!n.totale
                 ? 'Nessuna azienda in elenco: caricane una con "Carica elenco", partendo dal modello.'
                 : (filtrato
-                    ? 'Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || 'in elenco') + ' con questi filtri.'
+                    ? 'Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || '') + ' con questi filtri.'
+                    + (altrove ? ' Ce ne sono ' + altrove + ' in altre schede.' : '')
                     : (_invFiltro.vista === 'da-invitare'
                         ? 'Nessuna azienda da invitare: l\'invito e partito a tutte quelle in elenco.'
-                        : 'Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || 'in elenco') + '.'))) + '</p>';
+                        : 'Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || '') + '.'))) + '</p>';
 
-        corpo.innerHTML = conta + riquadroRicevute(ev, tutte) + barra + filtri + azioniSel
+        corpo.innerHTML = schede + riquadroRicevute(ev, tutte) + barra + azioniSel
             + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
 
         const ridisegna = () => disegnaAziendeInvito(ev);
@@ -15675,8 +15704,10 @@
             if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
         };
 
-        document.getElementById('inv-carica').addEventListener('click', () => modaleImportaAziendeInvito(ev));
-        document.getElementById('inv-nuova').addEventListener('click', () => modaleAziendaInvito(ev, null));
+        const bCar = document.getElementById('inv-carica');
+        if (bCar) bCar.addEventListener('click', () => modaleImportaAziendeInvito(ev));
+        const bNuo = document.getElementById('inv-nuova');
+        if (bNuo) bNuo.addEventListener('click', () => modaleAziendaInvito(ev, null));
         const bScar = document.getElementById('inv-scarica');
         if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendeInvito(ev, lista));
 
@@ -15720,7 +15751,7 @@
         });
 
         const cerca = document.getElementById('inv-cerca');
-        cerca.addEventListener('input', () => {
+        if (cerca) cerca.addEventListener('input', () => {
             const v = cerca.value.trim().toLowerCase();
             _invFiltro.testo = cerca.value;
             corpo.querySelectorAll('.inv-tabella tbody tr').forEach(tr => {
@@ -15743,19 +15774,30 @@
         collega('inv-fstato', 'stato');
         collega('inv-fcanale', 'canale');
         collega('inv-fpec', 'pec');
-        collega('inv-fordina', 'ordina');
+        collega('inv-frisp', 'risposta');
         const bPul = document.getElementById('inv-pulisci');
         if (bPul) bPul.addEventListener('click', () => {
-            _invFiltro = { vista: _invFiltro.vista, testo: '', stato: '', canale: '', pec: '', ordina: _invFiltro.ordina };
+            _invFiltro = Object.assign({}, _invFiltro, { testo: '', stato: '', canale: '', pec: '', risposta: '' });
             ridisegna();
         });
-        /* Cambiare vista azzera il filtro fine sullo stato: tenerlo produrrebbe
-           elenchi vuoti senza spiegazione (vista "inviate" piu' stato "da
-           invitare" non contiene niente, ed e' colpa di due comandi che non si
-           vedono insieme). */
-        corpo.querySelectorAll('.inv-chip').forEach(c => c.addEventListener('click', () => {
-            _invFiltro.vista = c.dataset.vista || '';
-            _invFiltro.stato = '';
+        /* L'ordine si cambia dall'intestazione della colonna, come in un
+           foglio di calcolo: la stessa colonna premuta due volte inverte il
+           verso. Una tendina "ordina per" a parte costringeva a tradurre da
+           sola il nome della colonna. */
+        corpo.querySelectorAll('.inv-ord').forEach(th => th.addEventListener('click', () => {
+            const c = th.dataset.ordina;
+            if (_invFiltro.ordina === c) _invFiltro.verso = -(_invFiltro.verso || 1);
+            else { _invFiltro.ordina = c; _invFiltro.verso = 1; }
+            ridisegna();
+        }));
+        /* Cambiare scheda azzera i filtri fini: tenerli produrrebbe elenchi
+           vuoti senza spiegazione (scheda "inviate" piu' stato "da invitare"
+           non contiene niente, ed e' colpa di due comandi che non si vedono
+           insieme). La ricerca invece resta: chi sta cercando un'azienda
+           cambia scheda proprio per trovarla. */
+        corpo.querySelectorAll('.inv-scheda').forEach(c => c.addEventListener('click', () => {
+            _invFiltro.vista = c.dataset.vista || 'da-invitare';
+            _invFiltro.stato = ''; _invFiltro.canale = ''; _invFiltro.pec = ''; _invFiltro.risposta = '';
             _invSel.clear();
             ridisegna();
         }));
