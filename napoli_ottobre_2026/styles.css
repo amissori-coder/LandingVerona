@@ -1240,12 +1240,6 @@ ul {
     white-space: nowrap;
 }
 
-/* Variante per gli interventi ancora da confermare */
-.timeline-dur--tbc {
-    color: var(--accent);
-    background: rgba(177, 33, 59, 0.08);
-}
-
 /* Intervento in evidenza (Invitalia · Bagnoli e America's Cup 2027) */
 .timeline-item--highlight .timeline-content {
     border-color: rgba(177, 33, 59, 0.28);
