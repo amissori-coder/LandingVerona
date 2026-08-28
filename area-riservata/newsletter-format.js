@@ -94,7 +94,7 @@
     const FASI = {
         perche: { n: '01', etichetta: 'Perché', aiuto: 'Perché questa cosa riguarda chi legge. Il problema, il rischio, l\'occasione. Niente riferimenti normativi qui.' },
         come: { n: '02', etichetta: 'Come', aiuto: 'Come funziona: il meccanismo, le condizioni, i passaggi. Qui ci stanno i riferimenti.' },
-        cosa: { n: '03', etichetta: 'Che cosa', aiuto: 'Che cosa fare adesso, e che cosa facciamo noi. Concreto e con una scadenza, se c\'e.' }
+        cosa: { n: '03', etichetta: 'Che cosa', aiuto: 'Che cosa fare adesso, e che cosa facciamo noi. Concreto e con una scadenza, se c\'è.' }
     };
 
     /* La newsletter ha una struttura FISSA: perche', come, che cosa. Non e' una
