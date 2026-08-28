@@ -14,10 +14,12 @@
    Il file e' escluso dal repo: e' una chiave, non va pubblicata.
 
    PERCHE' NON C'E' UNA FUNZIONE SUL SERVIZIO
-   Il servizio email e' fermo a dodici funzioni, che e' il tetto del
-   piano: la successiva blocca la pubblicazione del deploy. Questo
-   script gira sul computer con l'account di servizio, quindi le
-   agende arrivano su Firestore senza aggiungere nulla al conteggio.
+   Quando questo script e' nato, il servizio email era fermo a dodici
+   funzioni - il tetto del piano Hobby - e la successiva bloccava la
+   pubblicazione del deploy. Cosi' le agende arrivano su Firestore da
+   qui, con l'account di servizio, senza aggiungere nulla al conteggio.
+   Sul piano Pro il tetto non c'e' piu': resta un limite vero, che
+   questo script vuole un computer acceso e una persona che lo lanci.
 
    LE REGOLE DI FIRESTORE VANNO MESSE A MANO, UNA VOLTA SOLA
    Vedi README.md. Senza quelle regole la pagina degli ospiti non

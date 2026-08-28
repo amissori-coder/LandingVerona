@@ -35,8 +35,10 @@ const nodemailer = require('nodemailer');
 // newsletter: stesso segreto della disiscrizione, contesto diverso)
 const NL = require('../lib/newsletter');
 /* Le aziende da invitare a un evento vivono in lib/, non in un endpoint
-   loro: il piano Hobby di Vercel ammette 12 funzioni per rilascio e in api/
-   ce n'erano gia' 12. Le richieste con sezione: 'aziende' si deviano li'.
+   loro: il piano Hobby di Vercel ammetteva 12 funzioni per rilascio e in
+   api/ ce n'erano gia' 12. Le richieste con sezione: 'aziende' si deviano
+   li'. Sul piano Pro il tetto non c'e' piu': si potrebbero riportare fuori,
+   ma l'indirizzo lo tiene in mano l'area riservata, quindi non e' gratis.
 
    Il modulo si carica SOLO quando arriva una di quelle richieste, non
    all'avvio. Caricarlo sempre aveva un costo che non si vedeva da qui: si
@@ -215,15 +217,30 @@ module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
 
-    /* Deviazione per uno scheduler che controlla da solo la casella PEC.
-       Segreto DEDICATO, non il CRON_SECRET degli altri lavori: quello fa
-       partire newsletter e comunicazioni, e cio' che si consegna a un
-       servizio esterno deve poter fare una cosa sola. Sta qui in cima
-       perche' gli scheduler chiamano in GET, e piu' sotto un GET verrebbe
-       respinto. */
-    const segretoLettore = String(process.env.PEC_CRON_SECRET || '');
+    /* Deviazione per il controllo automatico della casella PEC. Sta qui in
+       cima perche' gli scheduler chiamano in GET, e piu' sotto un GET
+       verrebbe respinto.
+
+       DUE segreti la aprono, e la differenza fra i due conta:
+
+       - CRON_SECRET e' quello che Vercel mette DA SE' nell'intestazione
+         quando fa partire i lavori elencati in vercel.json. Non esce mai da
+         Vercel, ed e' lo stesso che gia' autorizza il giro delle newsletter
+         e le comunicazioni programmate. Serve qui perche' dal piano Pro il
+         lettore ha un lavoro programmato suo (ogni 15 minuti) e Vercel non
+         sa mandare un segreto diverso per ogni percorso.
+       - PEC_CRON_SECRET resta DEDICATO a questo solo giro, ed e' quello da
+         consegnare a uno scheduler ESTERNO (un workflow GitHub Actions):
+         cio' che si da' fuori deve poter fare una cosa sola. La ragione per
+         cui esiste e' intatta - cambia solo che ora, di norma, non serve.
+
+       Il filtro sui vuoti non e' pignoleria: senza, una variabile non
+       impostata diventerebbe la stringa 'Bearer undefined', che chiunque
+       puo' scrivere a mano. */
+    const segretiGiro = [process.env.CRON_SECRET, process.env.PEC_CRON_SECRET]
+        .map(v => String(v || '').trim()).filter(Boolean);
     const autorizzazione = String((req.headers || {})['authorization'] || '');
-    if (segretoLettore && autorizzazione === 'Bearer ' + segretoLettore) {
+    if (segretiGiro.some(v => autorizzazione === 'Bearer ' + v)) {
         try {
             initAdmin(leggiServiceAccount());
             const r = await moduloInviti().giroLettore(admin.firestore(), 'scheduler');

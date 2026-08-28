@@ -40,10 +40,11 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
 
     /* IL GIRO AUTOMATICO ENTRA DA QUI, prima di tutto il resto.
-       Non ha una funzione sua perche' il piano Hobby di Vercel ne consente 12 in
-       tutto, e la tredicesima faceva fallire il deploy: finche' falliva, nessuna
-       modifica al servizio arrivava in produzione. Quindi il lavoro programmato
-       bussa a questo indirizzo con il segreto invece che a uno suo.
+       Non ha una funzione sua perche' il piano Hobby di Vercel ne consentiva 12
+       in tutto, e la tredicesima faceva fallire il deploy: finche' falliva,
+       nessuna modifica al servizio arrivava in produzione. Quindi il lavoro
+       programmato bussa a questo indirizzo con il segreto invece che a uno suo.
+       Sul piano Pro quel tetto non c'e' piu' e questa e' tornata una scelta.
        Si riconosce dal segreto, non dal metodo: Vercel chiama i lavori
        programmati in GET, l'area riservata in POST. */
     const segreto = process.env.CRON_SECRET;
