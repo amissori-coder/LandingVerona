@@ -3567,6 +3567,16 @@
             const nuovo = !menuRidotto();
             try { localStorage.setItem(CHIAVE_MENU_RIDOTTO, nuovo ? '1' : '0'); } catch (e) { }
             applicaMenuRidotto(nuovo);
+            /* Il grafico a barre e' disegnato su una tela la cui larghezza viene
+               scritta in linea al momento del disegno: allargando il contenuto
+               resterebbe della misura di prima, con una striscia bianca dentro
+               la scheda. Si ridisegna solo dove c'e' davvero (il cruscotto):
+               ridisegnare sempre costerebbe un rifacimento della vista a ogni
+               clic, e sugli elenchi lunghi si vedrebbe. I 200ms aspettano che
+               sia finita la transizione da 180ms del foglio di stile. */
+            if (document.getElementById('grafico-mesi')) {
+                setTimeout(() => { if (vistaCorrente === 'dashboard') naviga(vistaCorrente, parametriVista, true); }, 200);
+            }
         });
     }
 
@@ -13205,7 +13215,7 @@
     function diagnosticaEventiHtml() {
         if (!_evDiag) {
             return '<div class="card s-admin"><div class="s-admin-txt"><strong>Diagnostica accessi</strong>'
-                + '<div class="hint">Controlla se l\'elenco degli abilitati e arrivato al server. Lo vedi solo tu.</div></div>'
+                + '<div class="hint">Controlla se l\'elenco degli abilitati è arrivato al server. Lo vedi solo tu.</div></div>'
                 + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="ev-diag-btn">Verifica sul server</button></div></div>';
         }
         const loc = elencoAbilitatiDa(_evDiag.locale);
