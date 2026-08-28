@@ -3364,6 +3364,126 @@
     const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating', ratingMetodo: 'rating', ratingVerbale: 'rating' };
     function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
+    /* =========================================================
+       SOTTO-MENU DI SEZIONE
+       Alcune sezioni non sono un elenco solo: sono piu' blocchi con un titolo,
+       uno sotto l'altro, e su uno schermo non ci stanno (il Report ha tre
+       grafici, Dati e backup sei riquadri). Scorrere a cercare quello giusto e'
+       la parte noiosa; questa barra elenca i blocchi, ci porta con un clic e
+       dice a che punto della pagina si e'.
+       Non e' scritta a mano sezione per sezione: si costruisce da sola da cio'
+       che la vista ha davvero disegnato. Percio' compare dove serve e sparisce
+       dove non serve, oggi e anche fra sei mesi, senza che nessuno se ne ricordi.
+    ========================================================= */
+    /* Che cos'e' un "blocco": un riquadro di PRIMO livello con un suo titolo.
+       Il primo livello conta: le schede dei ruoli hanno un h2 a testa ma stanno
+       affiancate dentro una griglia, e un elenco di collegamenti non aiuterebbe
+       a scorrerle - si vedono gia' tutte insieme. */
+    const SOTTOMENU_MIN_BLOCCHI = 3;
+    let _scorrimentoSottoMenu = null;
+
+    function bloccoTitolo(card) {
+        return card.querySelector(':scope > h2') || card.querySelector(':scope > .s-sez-tit');
+    }
+
+    function costruisciSottoMenu() {
+        const vista = $vista();
+        if (!vista) return;
+        if (_scorrimentoSottoMenu) {
+            window.removeEventListener('scroll', _scorrimentoSottoMenu);
+            window.removeEventListener('resize', _scorrimentoSottoMenu);
+            _scorrimentoSottoMenu = null;
+        }
+        const vecchio = vista.querySelector(':scope > .sotto-menu');
+        if (vecchio) vecchio.remove();
+
+        const blocchi = Array.from(vista.children)
+            .filter(el => el.classList && el.classList.contains('card'))
+            .map(card => ({ card, tit: bloccoTitolo(card) }))
+            .filter(b => b.tit && b.tit.textContent.trim());
+        if (blocchi.length < SOTTOMENU_MIN_BLOCCHI) return;
+        /* Se la pagina ci sta tutta sotto gli occhi non c'e' niente da scorrere,
+           e la barra sarebbe solo una riga in piu' da leggere. */
+        if (document.documentElement.scrollHeight <= window.innerHeight + 200) return;
+
+        const nav = document.createElement('nav');
+        nav.className = 'sotto-menu';
+        nav.setAttribute('aria-label', 'Blocchi di questa sezione');
+        blocchi.forEach((b, i) => {
+            if (!b.card.id) b.card.id = 'blocco-' + vistaCorrente + '-' + i;
+            /* il titolo del riquadro puo' contenere pastiglie e numeri: nella
+               barra va il solo testo, e non troppo lungo */
+            const testo = (b.tit.textContent || '').trim().replace(/\s+/g, ' ');
+            const voce = document.createElement('button');
+            voce.type = 'button';
+            voce.className = 'sotto-menu-voce';
+            voce.textContent = testo.length > 42 ? testo.slice(0, 41).trimEnd() + '\u2026' : testo;
+            if (testo.length > 42) voce.title = testo;
+            voce.dataset.blocco = b.card.id;
+            voce.addEventListener('click', () => {
+                /* La barra e' appiccicata in cima: portando il riquadro a filo
+                   pagina il suo titolo finirebbe proprio sotto la barra. Si
+                   scende fino a poco sopra, cosi' il titolo resta in vista. */
+                const y = b.card.getBoundingClientRect().top + window.scrollY - nav.offsetHeight - 14;
+                window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+            });
+            nav.appendChild(voce);
+        });
+
+        /* La barra va SOTTO l'intestazione della sezione (titolo e pulsanti):
+           quella si legge una volta, i collegamenti servono mentre si scorre. */
+        const testata = vista.querySelector(':scope > header');
+        if (testata && testata.nextSibling) vista.insertBefore(nav, testata.nextSibling);
+        else if (testata) vista.appendChild(nav);
+        else vista.insertBefore(nav, vista.firstChild);
+
+        /* Quale blocco si sta guardando: l'ULTIMO il cui inizio e' gia' passato
+           sotto la barra. E' un criterio deterministico e si spiega in una riga,
+           al contrario di "quello che occupa piu' schermo", che con un grafico
+           alto accanto a una tabella lunga fa saltare l'accensione avanti e
+           indietro mentre si scorre.
+           Caso a parte il fondo pagina: l'ultimo blocco puo' essere troppo corto
+           per arrivare mai sotto la barra, e resterebbe l'unico che non si
+           accende mai. Arrivati in fondo, quello e'. */
+        const voci = Array.from(nav.querySelectorAll('.sotto-menu-voce'));
+        let acceso = null;
+        const accendi = id => {
+            if (id === acceso) return;
+            acceso = id;
+            voci.forEach(v => {
+                const suo = v.dataset.blocco === id;
+                v.classList.toggle('attiva', suo);
+                if (suo) v.setAttribute('aria-current', 'true'); else v.removeAttribute('aria-current');
+            });
+        };
+        const quale = () => {
+            const doc = document.documentElement;
+            if (window.innerHeight + window.scrollY >= doc.scrollHeight - 4)
+                return blocchi[blocchi.length - 1].card.id;
+            /* Un blocco diventa "quello che si sta guardando" quando il suo
+               titolo e' sceso nel quarto alto dello schermo, non appena tocca
+               il bordo della barra: altrimenti, con un blocco che riempie lo
+               schermo, resta accesa la voce di quello precedente e la barra
+               sembra in ritardo. */
+            const soglia = nav.getBoundingClientRect().bottom + window.innerHeight * 0.25;
+            let corrente = blocchi[0].card.id;
+            blocchi.forEach(b => { if (b.card.getBoundingClientRect().top <= soglia) corrente = b.card.id; });
+            return corrente;
+        };
+        /* Un solo calcolo per fotogramma: lo scorrimento genera decine di eventi
+           al secondo e leggere le posizioni a ogni evento fa scattare il
+           ricalcolo del foglio di stile ogni volta. */
+        let inCoda = false;
+        _scorrimentoSottoMenu = () => {
+            if (inCoda) return;
+            inCoda = true;
+            requestAnimationFrame(() => { inCoda = false; accendi(quale()); });
+        };
+        window.addEventListener('scroll', _scorrimentoSottoMenu, { passive: true });
+        window.addEventListener('resize', _scorrimentoSottoMenu);
+        accendi(quale());
+    }
+
     function naviga(id, parametri, ripristinaScroll) {
         statoModifica = null;   // cambiando vista non sto piu modificando (il wizard lo re-imposta)
         const viste = {
@@ -3415,6 +3535,7 @@
         parametriVista = parametri || null;
         disegnaNav();
         (viste[id] || vistaDashboard)();
+        costruisciSottoMenu();
         window.scrollTo(0, ripristinaScroll || 0);
         if (typeof Cloud !== 'undefined' && Cloud.pubblicaPresenza) Cloud.pubblicaPresenza();
     }
