@@ -15667,10 +15667,21 @@
             + '</select>';
         const freccia = c => _invFiltro.ordina === c ? (verso > 0 ? ' ▲' : ' ▼') : '';
         const intest = c => '<th class="inv-ord" data-ordina="' + c[0] + '" title="Ordina">' + esc(c[1]) + freccia(c[0]) + '</th>';
-        const tabella = mostrate.length
-            ? '<div class="tabella-wrap inv-wrap"><table class="dati inv-tabella"><thead>'
+        /* LA TABELLA C'E' ANCHE QUANDO NON HA RIGHE.
+           Non e' una questione estetica: i filtri stanno DENTRO la tabella,
+           sotto le intestazioni. Sostituendola con una frase, insieme alle
+           righe spariva anche il modo di togliere il filtro che le aveva fatte
+           sparire, e restava solo "Togli i filtri" in mezzo ai pulsanti - se
+           uno lo trovava. Il vuoto si dice in una riga dentro il corpo della
+           tabella, dove non porta via niente.
+
+           L'unica frase da sola resta quella dell'archivio vuoto: li' non c'e'
+           nessun filtro da correggere e nessuna colonna da mostrare, solo un
+           elenco da caricare. */
+        const intestazioni = '<thead>'
             + '<tr>'
-            + '<th class="inv-th-ck"><input type="checkbox" id="inv-tutte" title="Seleziona tutte le righe filtrate"></th>'
+            + '<th class="inv-th-ck"><input type="checkbox" id="inv-tutte" title="Seleziona tutte le righe filtrate"'
+            + (mostrate.length ? '' : ' disabled') + '></th>'
             + intest(['azienda', 'Azienda'])
             + '<th>Recapiti</th>'
             + intest(['stato', 'Stato dell\'invito'])
@@ -15685,17 +15696,25 @@
             + '<th>' + opzioni('inv-fpec', 'Ogni esito', [['consegnata', 'Consegnata'], ['accettata', 'Accettata'], ['attesa', 'In attesa'],
                 ['non-consegnata', 'NON consegnata'], ['non-accettata', 'NON accettata'], ['in-dubbio', 'In dubbio']], _invFiltro.pec) + '</th>'
             + '<th>' + opzioni('inv-frisp', 'Tutte', [['si', 'Hanno risposto'], ['no', 'Senza risposta']], _invFiltro.risposta) + '</th>'
-            + '<th></th></tr></thead><tbody>'
-            + mostrate.map(riga).join('') + '</tbody></table></div>'
-            + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '')
-            : '<p class="inv-vuoto hint">' + (!n.totale
-                ? 'Nessuna azienda in elenco: caricane una con "Carica elenco", partendo dal modello.'
-                : (filtrato
-                    ? 'Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || '') + ' con questi filtri.'
-                    + (altrove ? ' Ce ne sono ' + altrove + ' in altre schede.' : '')
-                    : (_invFiltro.vista === 'da-invitare'
-                        ? 'Nessuna azienda da invitare: l\'invito e partito a tutte quelle in elenco.'
-                        : 'Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || '') + '.'))) + '</p>';
+            + '<th></th></tr></thead>';
+
+        const rigaVuota = testo => '<tr class="inv-nessuna"><td colspan="7">' + testo + '</td></tr>';
+        const nessuna = filtrato
+            ? '<b>Nessuna azienda con questi filtri.</b>'
+            + (altrove
+                ? ' Ce ne sono <b>' + altrove + '</b> che ci corrispondono, ma in altre schede.'
+                : ' Prova a togliere qualche filtro qui sopra.')
+            : (_invFiltro.vista === 'da-invitare'
+                ? '<b>Nessuna azienda da invitare:</b> l\'invito e partito a tutte quelle in elenco.'
+                : '<b>Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || '') + '.</b>');
+
+        const tabella = !n.totale
+            ? '<p class="inv-vuoto hint">Nessuna azienda in elenco: caricane una con "Carica elenco", partendo dal modello.</p>'
+            : '<div class="tabella-wrap inv-wrap"><table class="dati inv-tabella">'
+            + intestazioni + '<tbody>'
+            + (mostrate.length ? mostrate.map(riga).join('') : rigaVuota(nessuna))
+            + '</tbody></table></div>'
+            + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '');
 
         corpo.innerHTML = schede + riquadroRicevute(ev, tutte) + barra + azioniSel
             + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
@@ -15756,7 +15775,10 @@
         if (cerca) cerca.addEventListener('input', () => {
             const v = cerca.value.trim().toLowerCase();
             _invFiltro.testo = cerca.value;
-            corpo.querySelectorAll('.inv-tabella tbody tr').forEach(tr => {
+            /* La riga che dice "nessuna" non e' un dato e non si nasconde:
+               altrimenti, mentre si digita, il corpo della tabella resterebbe
+               vuoto per i quattro decimi di secondo prima del ridisegno. */
+            corpo.querySelectorAll('.inv-tabella tbody tr:not(.inv-nessuna)').forEach(tr => {
                 tr.style.display = (!v || tr.textContent.toLowerCase().indexOf(v) >= 0) ? '' : 'none';
             });
             /* Nascondere le righe basta per l'occhio, ma "seleziona tutte" e le
