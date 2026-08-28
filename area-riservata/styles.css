@@ -2333,3 +2333,8 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .ii-numeri .hint { margin: 0; }
 #ii-manca { margin-left: auto; }
 #ii-passo { margin-top: 4px; font-size: 0.78rem; color: var(--grigio-600); }
+
+/* La riga del "non c'e' niente": sta DENTRO la tabella, cosi' le intestazioni
+   e i filtri restano dove sono e il filtro appena messo si puo' togliere. */
+.inv-nessuna td { padding: 34px 18px; text-align: center; color: var(--grigio-600); font-size: 0.86rem; background: var(--blu-050); }
+.inv-nessuna b { color: var(--grigio-900); }
