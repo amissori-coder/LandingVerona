@@ -608,7 +608,16 @@ td.td-menu { white-space: nowrap; text-align: right; }
     /* il pulsante sta sopra la riga del marchio, che e' corta: niente padding
        sul riquadro, altrimenti "Area riservata incarichi" andrebbe a capo */
     .sidebar .brand .marchio { padding-right: 30px; }
-    .sidebar, .contenuto { transition: width .18s ease, margin-left .18s ease; }
+    /* Niente transizione su larghezza e margine, e non e' una rinuncia: sono
+       due misure che decidono il LAYOUT, quindi animarle costringe il browser a
+       rifare i conti a ogni fotogramma. Con la tabella degli iscritti aperta un
+       solo ricalcolo misura novanta millisecondi (duecentocinquanta nel caso
+       peggiore, misurato su duecentocinquanta righe): animato per 180ms
+       diventerebbe una decina di ricalcoli di fila, cioe' uno scatto lungo
+       mezzo secondo al posto di uno scorrimento morbido.
+       Cosi' invece il passaggio e' uno solo e immediato. La morbidezza sta
+       altrove: nel ritardo di intenzione prima di aprire (vedi app.js), che
+       impedisce alla pagina di muoversi per un passaggio distratto del mouse. */
 
     /* Un solo numero: la barra si stringe e il contenuto guadagna esattamente
        quei 180px. La regola sta sulla shell, non sulla barra, perche' la
@@ -618,33 +627,36 @@ td.td-menu { white-space: nowrap; text-align: right; }
     .menu-ridotto .nav-riduci { transform: rotate(180deg); }
 
     /* --- barra ridotta a riposo: solo icone --- */
-    .menu-ridotto .sidebar:not(:hover) .brand { padding: 13px 6px 10px; text-align: center; }
-    .menu-ridotto .sidebar:not(:hover) .brand .marchio img { margin: 0 auto; }
-    .menu-ridotto .sidebar:not(:hover) .brand .logo-revilaw,
-    .menu-ridotto .sidebar:not(:hover) .brand .logo-spa,
-    .menu-ridotto .sidebar:not(:hover) .titolo-area,
-    .menu-ridotto .sidebar:not(:hover) .nav-gruppo,
-    .menu-ridotto .sidebar:not(:hover) .nav-voce .et,
-    .menu-ridotto .sidebar:not(:hover) .presenza-box,
-    .menu-ridotto .sidebar:not(:hover) .utente-box { display: none; }
-    .menu-ridotto .sidebar:not(:hover) .nav-riduci { position: static; margin: 8px auto 0; }
-    .menu-ridotto .sidebar:not(:hover) nav { padding: 8px 6px; }
-    .menu-ridotto .sidebar:not(:hover) .nav-voce { justify-content: center; padding: 7px 0; position: relative; }
-    .menu-ridotto .sidebar:not(:hover) .nav-voce.in-gruppo { margin-left: 0; width: 100%; border-left: none; border-radius: 7px; }
+    .menu-ridotto:not(.barra-aperta) .sidebar .brand { padding: 13px 6px 10px; text-align: center; }
+    .menu-ridotto:not(.barra-aperta) .sidebar .brand .marchio img { margin: 0 auto; }
+    .menu-ridotto:not(.barra-aperta) .sidebar .brand .logo-revilaw,
+    .menu-ridotto:not(.barra-aperta) .sidebar .brand .logo-spa,
+    .menu-ridotto:not(.barra-aperta) .sidebar .titolo-area,
+    .menu-ridotto:not(.barra-aperta) .sidebar .nav-gruppo,
+    .menu-ridotto:not(.barra-aperta) .sidebar .nav-voce .et,
+    .menu-ridotto:not(.barra-aperta) .sidebar .presenza-box,
+    .menu-ridotto:not(.barra-aperta) .sidebar .utente-box { display: none; }
+    .menu-ridotto:not(.barra-aperta) .sidebar .nav-riduci { position: static; margin: 8px auto 0; }
+    .menu-ridotto:not(.barra-aperta) .sidebar nav { padding: 8px 6px; }
+    .menu-ridotto:not(.barra-aperta) .sidebar .nav-voce { justify-content: center; padding: 7px 0; position: relative; }
+    .menu-ridotto:not(.barra-aperta) .sidebar .nav-voce.in-gruppo { margin-left: 0; width: 100%; border-left: none; border-radius: 7px; }
     /* il numero delle richieste in attesa diventa un bollino sull'icona: senza
        l'etichetta accanto non avrebbe piu' un posto dove stare */
-    .menu-ridotto .sidebar:not(:hover) .nav-conta {
+    .menu-ridotto:not(.barra-aperta) .sidebar .nav-conta {
         position: absolute; top: 2px; right: 4px; margin: 0; min-width: 14px;
         padding: 0 3px; font-size: 0.58rem; line-height: 1.5;
     }
 
-    /* --- col mouse sopra: la barra si riapre sul contenuto --- */
-    /* Solo la LARGHEZZA della barra, mai --larghezza-menu: cambiando la
-       variabile cambierebbe anche il margine del contenuto e tutta la pagina
-       scivolerebbe avanti e indietro a ogni passaggio del mouse. La barra e'
-       position:fixed, quindi allargarla non tocca il flusso: il contenuto resta
-       fermo per costruzione. */
-    .menu-ridotto .sidebar:hover { width: var(--menu-largo); box-shadow: 8px 0 26px rgba(0, 0, 0, 0.30); }
+    /* --- barra riaperta: il contenuto RIENTRA, non ci finisce sotto ---
+       Cambia --larghezza-menu, quindi si muove tutto insieme: la barra si
+       allarga e il contenuto si stringe esattamente di quanto lei cresce.
+       Prima la barra si apriva SOPRA il contenuto e quello restava fermo:
+       niente da ricalcolare, ma il menu copriva la prima colonna della tabella
+       proprio mentre lo si stava usando per navigare.
+       La classe la mette il programma e non :hover, perche' da un :hover sulla
+       barra non si puo' risalire alla shell per spostare anche il contenuto. */
+    .menu-ridotto.barra-aperta { --larghezza-menu: var(--menu-largo); }
+    .menu-ridotto.barra-aperta .sidebar { box-shadow: 8px 0 26px rgba(0, 0, 0, 0.22); }
 }
 .contenuto > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
 .contenuto > header h1 { font-size: clamp(1.28rem, 1.1rem + 0.5vw, 1.6rem); }
