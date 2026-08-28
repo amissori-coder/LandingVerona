@@ -109,6 +109,31 @@
     min-width: 900px;
 }
 
+/* Le larghezze delle colonne vanno decise qui e non lasciate al browser.
+   In automatico il browser le ricava dal contenuto, e il risultato era
+   rovesciato: nella tabella del perimetro la colonna del diritto vigente
+   prendeva 628 pixel e la domanda, che e' il motivo per cui la tabella
+   esiste, ne prendeva 310, andando a capo ogni sei parole. Con il
+   tracciato fisso comanda il <colgroup> di ciascuna tabella, e le
+   proporzioni seguono la quantita' di testo che ogni colonna deve
+   reggere: alle colonne di prosa una larghezza che tenga almeno otto
+   parole per riga, a quelle di etichetta quanto basta per non spezzare
+   ogni parola. */
+.lessico,
+.checkup {
+    table-layout: fixed;
+}
+
+/* Una colonna di etichette che va a capo fra l'articolo e il sostantivo
+   si legge male: qui le parole restano intere e si spezzano solo se non
+   c'e' alternativa. */
+.lessico tbody th,
+.checkup tbody th {
+    overflow-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
 .lessico th,
 .lessico td,
 .checkup th,
@@ -621,10 +646,27 @@
         border-radius: 0;
     }
 
+    /* Sotto i 900px le celle diventano blocchi, ma la tabella resta una
+       tabella: il tracciato fisso e il <colgroup> continuano a comandare
+       le larghezze, e le celle si ritrovano larghe sessanta pixel con il
+       testo incolonnato una parola per riga. Va tolto il contesto di
+       formattazione tabellare, non solo il min-width: senza questo la
+       terza tabella diventa alta ventiduemila pixel, e il difetto non si
+       vede nella prova dello scorrimento orizzontale perche' le celle
+       sono troppo strette, non troppo larghe. */
     .lessico,
     .checkup {
         min-width: 0;
         background: transparent;
+        display: block;
+        table-layout: auto;
+    }
+
+    .lessico colgroup,
+    .checkup colgroup,
+    .lessico col,
+    .checkup col {
+        display: none;
     }
 
     /* Nascondere l'intestazione con la tecnica del ritaglio non
@@ -780,6 +822,15 @@
     word-spacing: -0.01em;
 }
 
+/* Anche gli elenchi dentro le schede dei rischi: la scheda e' larga 293
+   pixel e la giustificazione, li' dentro, arriva ad allargare uno spazio
+   fino a quasi otto volte il normale. La stessa classe fuori dalle
+   schede, dentro il corpo del testo, e' larga 860 pixel e resta
+   giustificata: e' la larghezza a decidere, non il componente. */
+.content-page .pillar-card .pillar-list li {
+    text-align: left;
+}
+
 /* Le colonne strette restano a sinistra. Sono le celle delle tabelle,
    larghe fra i 320 e i 440 pixel, le schede dei rischi e dei nodi, che
    stanno a tre per riga e non superano i 320, e le due formule a
@@ -802,6 +853,32 @@
 .content-page .lessico td,
 .content-page .checkup td {
     overflow-wrap: break-word;
+}
+
+/* ============================================
+   8. LE CINQUE FAMIGLIE DI RISCHIO, SENZA IL BUCO
+   Le schede sono cinque e la griglia condivisa ne mette
+   tre per riga: la seconda riga resta con due schede e
+   un posto vuoto a destra, che si legge come un errore
+   di impaginazione. Portando il tracciato a sei colonne
+   le prime tre schede ne occupano due ciascuna, cioe'
+   restano dei terzi, e le ultime due ne occupano tre,
+   cioe' diventano meta'. Il risultato e' tre sopra e
+   due sotto, entrambe le righe piene.
+   ============================================ */
+@media (min-width: 861px) {
+    .theme-assetti .pillars-grid {
+        grid-template-columns: repeat(6, 1fr);
+    }
+
+    .theme-assetti .pillars-grid > .pillar-card {
+        grid-column: span 2;
+    }
+
+    .theme-assetti .pillars-grid > .pillar-card:nth-child(4),
+    .theme-assetti .pillars-grid > .pillar-card:nth-child(5) {
+        grid-column: span 3;
+    }
 }
 
 /* Sotto i 768 pixel la colonna del testo scende sotto i 350 e la
