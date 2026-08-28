@@ -3695,10 +3695,79 @@
                ridisegnare sempre costerebbe un rifacimento della vista a ogni
                clic, e sugli elenchi lunghi si vedrebbe. I 200ms aspettano che
                sia finita la transizione da 180ms del foglio di stile. */
-            if (document.getElementById('grafico-mesi')) {
-                setTimeout(() => { if (vistaCorrente === 'dashboard') naviga(vistaCorrente, parametriVista, true); }, 200);
-            }
+            ridisegnaGraficoTela();
         });
+        collegaAperturaAlPassaggio(b);
+    }
+
+    /* La tela del grafico a barre (la sola dell'area: sta in Fatturazione) ha la
+       larghezza scritta DENTRO l'elemento al momento del disegno, quindi
+       cambiando la larghezza del contenuto resterebbe della misura di prima,
+       con una striscia bianca dentro la scheda. Gli altri grafici sono in SVG e
+       si adattano da soli: qui non c'e' niente da fare per loro.
+       La condizione guarda se la tela C'E', non in quale sezione siamo: prima
+       chiedeva "sono nel cruscotto", ma la tela sta in Fatturazione, quindi il
+       ridisegno non e' mai scattato. Si rifa' la vista solo dove serve davvero:
+       rifarla sempre, sugli elenchi lunghi, si vedrebbe.
+       Il ritardo raggruppa i passaggi ravvicinati (entra ed esce dalla barra)
+       in un ridisegno solo. */
+    let _timerTela = null;
+    function ridisegnaGraficoTela() {
+        if (!document.getElementById('grafico-mesi')) return;
+        const vista = vistaCorrente, parametri = parametriVista;
+        clearTimeout(_timerTela);
+        _timerTela = setTimeout(() => {
+            if (vistaCorrente === vista && document.getElementById('grafico-mesi'))
+                naviga(vista, parametri, window.scrollY);
+        }, 90);
+    }
+
+    /* APERTURA DELLA BARRA AL PASSAGGIO DEL MOUSE
+       A menu ridotto, portando il mouse sulla barra questa si riapre per intero
+       e il contenuto RIENTRA di altrettanto, invece di finirle sotto.
+       Il ritardo di intenzione e' la parte che conta. Muovere la pagina e'
+       un'operazione visibile - la tabella degli iscritti si ridisegna tutta -
+       e non deve succedere perche' il mouse ha sfiorato il bordo sinistro
+       andando altrove (per esempio verso la casella di selezione della prima
+       colonna, che sta proprio li'). Centoquaranta millisecondi separano il
+       "ci sto andando" dal "ci sono passato sopra".
+       In chiusura nessun ritardo: uscire dalla barra e' sempre voluto.
+       La tastiera ha una strada sua: chi arriva col tabulatore ha bisogno delle
+       etichette subito, senza aspettare. */
+    const RITARDO_APERTURA = 140;
+    function collegaAperturaAlPassaggio(pulsante) {
+        const barra = document.querySelector('.sidebar');
+        const app = document.getElementById('app');
+        if (!barra || !app || barra._passaggio) return;
+        barra._passaggio = true;
+        let timer = null;
+        const apri = () => {
+            if (app.classList.contains('barra-aperta')) return;
+            app.classList.add('barra-aperta');
+            ridisegnaGraficoTela();
+        };
+        const chiudi = () => {
+            clearTimeout(timer); timer = null;
+            if (!app.classList.contains('barra-aperta')) return;
+            app.classList.remove('barra-aperta');
+            ridisegnaGraficoTela();
+        };
+        barra.addEventListener('mouseenter', () => {
+            if (!app.classList.contains('menu-ridotto')) return;
+            clearTimeout(timer);
+            timer = setTimeout(apri, RITARDO_APERTURA);
+        });
+        barra.addEventListener('mouseleave', chiudi);
+        barra.addEventListener('focusin', () => { if (app.classList.contains('menu-ridotto')) apri(); });
+        barra.addEventListener('focusout', e => {
+            /* si chiude solo quando il fuoco esce DAVVERO dalla barra: passando
+               da una voce all'altra il focusout scatta lo stesso */
+            if (!barra.contains(e.relatedTarget)) chiudi();
+        });
+        /* Allargando il menu col pulsante la barra resta sotto il mouse: senza
+           questo, la classe di passaggio resterebbe accesa e richiudendo il
+           menu il contenuto non tornerebbe largo finche' il mouse non se ne va. */
+        if (pulsante) pulsante.addEventListener('click', chiudi);
     }
 
     /* menu a comparsa su smartphone */
