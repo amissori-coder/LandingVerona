@@ -1,0 +1,774 @@
+/* ============================================
+   L'organo di controllo dopo il Dlgs 47/2026
+   Stili specifici della pagina: si appoggia a
+   zls_zes/style.css e assets/content-page.css e
+   aggiunge la tabella del perimetro della vigilanza,
+   la tabella delle evidenze e dello scambio
+   informativo, il confine fra merito della scelta e
+   qualita' del processo, le conseguenze in materia di
+   responsabilita', i nodi interpretativi e le formule
+   di verbalizzazione messe a confronto.
+   Buona parte del foglio e' ricopiata da
+   riforma_governance_2026/style.css: le due pagine sono
+   gemelle e devono avere la stessa resa, ma ciascuna
+   tiene il proprio foglio locale perche' questi
+   componenti non appartengono alla base condivisa.
+   ============================================ */
+
+/* ============================================
+   0. ALLINEAMENTO DEI DATI DELL'HERO
+   I tre riquadri hanno etichette di lunghezza diversa e
+   il contenitore li centra sull'asse verticale: il terzo
+   numero finisce cosi' una riga piu' in basso degli altri
+   due. Allungando i riquadri all'altezza della riga i tre
+   numeri tornano allineati in alto, mentre i separatori
+   restano centrati con la loro altezza fissa.
+   ============================================ */
+.hero-stats .stat {
+    align-self: stretch;
+}
+
+/* "Art. 2403 c.c." e' un dato, non una frase. Il testo porta gia' lo
+   spazio unificatore dopo "Art.", ma quello prima di "c.c." resta un
+   punto di rottura, e la riga spezzata li' si legge come due cose
+   diverse. La tiene intera il foglio di stile, non un trattino
+   unificatore, che in certi caratteri diventa un quadratino quando il
+   testo viene copiato altrove. */
+.hero-stats .stat-number {
+    white-space: nowrap;
+}
+
+/* Sotto i 420px la scelta si rovescia. I tre dati previsti qui stanno
+   nella colonna anche a quella larghezza, ma un dato piu' lungo
+   imporrebbe al riquadro una larghezza minima superiore a quella
+   disponibile e l'hero uscirebbe dallo schermo: un a capo prima di
+   "c.c." e' meno grave di una pagina tagliata. */
+@media (max-width: 420px) {
+    .hero-stats .stat-number {
+        white-space: normal;
+    }
+}
+
+/* Sui telefoni piu' stretti la parola piu' lunga del titolo supera da sola
+   la larghezza disponibile. Non avendo un punto in cui andare a capo, il
+   titolo impone alla colonna dell'hero una larghezza minima maggiore dello
+   schermo: la fascia ritaglia quello che sporge e la fine delle righe
+   sparisce, senza che la pagina scorra e quindi senza che il difetto si
+   noti scorrendo. La sillabazione risolve dove il browser ha il dizionario
+   italiano, l'interruzione forzata copre gli altri casi. Vale anche per le
+   etichette dei tre dati, che contengono parole lunghe. */
+@media (max-width: 480px) {
+    .hero h1,
+    .hero .hero-badge,
+    .hero-stats .stat-label {
+        hyphens: auto;
+        -webkit-hyphens: auto;
+        /* Serve "anywhere" e non "break-word": sono equivalenti nel
+           risultato a schermo, ma solo il primo entra nel calcolo della
+           larghezza minima dell'elemento, che e' esattamente cio' che
+           qui va abbassato. */
+        overflow-wrap: anywhere;
+        word-break: normal;
+    }
+}
+
+/* ============================================
+   1. TABELLE DEL PERIMETRO, DELLE EVIDENZE E
+   DELLO SCAMBIO INFORMATIVO
+   Tre tabelle con la stessa impaginazione: la prima
+   affianca al dovere vigente la domanda che regge oggi
+   il giudizio, la seconda dice chi produce ciascuna
+   evidenza e quando deve esistere, la terza chi trasmette
+   che cosa a chi. Affiancare le colonne e' il modo piu'
+   rapido di mostrare che il perimetro non nasce oggi
+   senza doverlo ripetere riga per riga.
+   ============================================ */
+.lessico-wrap,
+.checkup-wrap {
+    max-width: 1140px;
+    margin: 48px auto 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+}
+
+.lessico,
+.checkup {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+.lessico {
+    min-width: 780px;
+}
+
+.checkup {
+    min-width: 900px;
+}
+
+.lessico th,
+.lessico td,
+.checkup th,
+.checkup td {
+    padding: 18px 22px;
+    text-align: left;
+    vertical-align: top;
+    font-size: 0.9rem;
+    line-height: 1.66;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.lessico thead th,
+.checkup thead th {
+    background: #f4f7fb;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: #164068;
+    border-bottom: 2px solid rgba(22, 64, 104, 0.16);
+}
+
+.lessico tbody th,
+.checkup tbody th {
+    font-weight: 700;
+    color: #0A2844;
+    background: #fafbfc;
+    width: 200px;
+}
+
+.lessico td,
+.checkup td {
+    color: #5A6270;
+}
+
+.lessico td strong,
+.checkup td strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+.lessico tbody tr:last-child th,
+.lessico tbody tr:last-child td,
+.checkup tbody tr:last-child th,
+.checkup tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* La colonna per cui si legge la tabella: un fondo appena
+   piu' caldo la tiene agganciata all'occhio anche
+   scorrendo in orizzontale. */
+.lessico .col-nuovo,
+.checkup .col-nuovo {
+    background: #f7fafd;
+}
+
+.lessico thead .col-nuovo,
+.checkup thead .col-nuovo {
+    background: #eaf1f8;
+}
+
+/* ============================================
+   2. IL CONFINE FRA MERITO E PROCESSO
+   Due colonne affiancate dicono che cosa resta agli
+   amministratori e che cosa rientra nel giudizio di chi
+   vigila, senza costringere a inseguire la distinzione
+   dentro un paragrafo. E' il punto su cui si sbaglia di
+   piu', e va visto tutto insieme.
+   ============================================ */
+.riparto {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    max-width: 1080px;
+    margin: 48px auto 0;
+    align-items: start;
+}
+
+.riparto-col {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.14);
+    border-radius: 14px;
+    padding: 28px 28px 26px;
+}
+
+/* La colonna del controllo e' quella su cui la pagina si
+   regge: il bordo pieno a sinistra dice quale delle due
+   porta il peso del discorso. */
+.riparto-col.is-controllo {
+    border-left: 4px solid #164068;
+}
+
+.riparto-tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    color: #164068;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    border-radius: 100px;
+    padding: 5px 13px;
+    margin-bottom: 14px;
+}
+
+.riparto-col h3 {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 16px;
+}
+
+.riparto-col ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.riparto-col li {
+    position: relative;
+    padding-left: 24px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    line-height: 1.66;
+    color: #5A6270;
+}
+
+.riparto-col li:last-child {
+    margin-bottom: 0;
+}
+
+/* Il segno di spunta e' disegnato con due bordi ruotati:
+   una icona caricata sei volte per una lista non vale il
+   peso che costa. */
+.riparto-col li::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 8px;
+    width: 6px;
+    height: 10px;
+    border-right: 2px solid #2A5A85;
+    border-bottom: 2px solid #2A5A85;
+    transform: rotate(45deg);
+}
+
+.riparto-col li strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+.riparto-nota {
+    margin: 18px 0 0;
+    padding-top: 16px;
+    border-top: 1px dashed rgba(22, 64, 104, 0.2);
+    font-size: 0.86rem;
+    line-height: 1.7;
+    color: #5A6270;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.riparto-nota strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+/* ============================================
+   3. LE CONSEGUENZE IN MATERIA DI RESPONSABILITA'
+   Tre schede che non sono consigli ma conseguenze:
+   il tono ripreso dalla scheda "grave" usata altrove
+   nel sito (mattone su fondo appena rosato) le stacca
+   dalle griglie informative senza uscire dalla tavolozza.
+   Restano sobrie perche' il registro della pagina e'
+   professionale, non allarmistico. La tavolozza mattone
+   compare qui e in nessun altro punto della pagina.
+   ============================================ */
+.rischi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    max-width: 1140px;
+    margin: 40px auto 0;
+}
+
+.rischio {
+    background: #ffffff;
+    border: 1px solid #f0cfcf;
+    border-top: 3px solid #8c2f2f;
+    border-radius: 14px;
+    padding: 26px 26px 24px;
+    transition: all 0.3s ease;
+}
+
+.rischio:hover {
+    border-color: #e0b4b4;
+    border-top-color: #8c2f2f;
+    box-shadow: 0 14px 34px rgba(140, 47, 47, 0.1);
+    transform: translateY(-3px);
+}
+
+.rischio-icona {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: #fdf2f2;
+    border: 1px solid #f0cfcf;
+    color: #8c2f2f;
+    margin-bottom: 14px;
+}
+
+.rischio-icona svg {
+    width: 21px;
+    height: 21px;
+}
+
+.rischio h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 10px;
+}
+
+.rischio p {
+    font-size: 0.89rem;
+    line-height: 1.7;
+    color: #5A6270;
+    margin: 0;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+.rischio p strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+/* ============================================
+   4. NODI INTERPRETATIVI
+   Le questioni aperte non sono avvertenze da nascondere
+   in fondo: sono la parte in cui un lettore competente
+   giudica la serieta' della pagina. Numerate e in
+   evidenza, con il bordo tratteggiato a dire che il
+   punto e' aperto.
+   ============================================ */
+.nodi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
+    max-width: 1140px;
+    margin: 48px auto 0;
+}
+
+.nodo {
+    background: #ffffff;
+    border: 1px dashed rgba(22, 64, 104, 0.28);
+    border-radius: 14px;
+    padding: 26px 26px 24px;
+    transition: all 0.3s ease;
+}
+
+.nodo:hover {
+    border-style: solid;
+    border-color: rgba(22, 64, 104, 0.4);
+    box-shadow: 0 14px 34px rgba(10, 40, 68, 0.08);
+    transform: translateY(-3px);
+}
+
+.nodo-numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    color: #164068;
+    font-size: 0.9rem;
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.nodo h3 {
+    font-size: 1.02rem;
+    font-weight: 700;
+    color: #0A2844;
+    line-height: 1.32;
+    margin: 0 0 10px;
+}
+
+.nodo p {
+    font-size: 0.89rem;
+    line-height: 1.7;
+    color: #5A6270;
+    margin: 0;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+/* ============================================
+   5. LE FORMULE DI VERBALIZZAZIONE
+   E' il componente proprio di questa pagina. Nessuno dei
+   blocchi condivisi affianca due formulazioni contrapposte
+   della stessa cosa: .riparto e' fatto di elenchi,
+   .levels-grid e' una scala crescente, .components-grid e'
+   un insieme. Qui servono due caselle di pari dimensione,
+   quella che non regge e quella che regge, perche' la
+   differenza fra le due si vede solo leggendole vicine.
+   La distinzione passa per tre segni sobri: il fondo,
+   il colore dell'occhiello e una barra a sinistra sulla
+   sola formula che regge. La barra serve perche' la
+   formula debole ha un fondo proprio e su fascia chiara
+   sarebbe la piu' visibile delle due, cioe' l'opposto di
+   quello che il componente deve dire; il segno non e'
+   nuovo, e' lo stesso di .riparto-col.is-controllo, ed e'
+   anche l'unico che sopravvive alla stampa, dove i fondi
+   non vengono resi. La tavolozza mattone resta riservata
+   alle conseguenze in materia di responsabilita': una
+   formula debole non e' un rischio, e' una formula da
+   riscrivere.
+   ============================================ */
+.formule {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    max-width: 1040px;
+    margin: 48px auto 0;
+    align-items: start;
+}
+
+.formula {
+    background: #ffffff;
+    border: 1px solid rgba(22, 64, 104, 0.12);
+    border-left: 3px solid #164068;
+    border-radius: 12px;
+    padding: 22px 22px 20px;
+}
+
+/* La formula che non regge resta leggibile ma non ha
+   risalto: fondo grigio-azzurro, nessuna barra colorata,
+   perche' non e' un modello da imitare. */
+.formula.is-debole {
+    background: #f4f7fb;
+    border: 1px solid rgba(22, 64, 104, 0.1);
+    color: #5A6270;
+}
+
+.formula-tag {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: #164068;
+    margin-bottom: 12px;
+}
+
+.formula.is-debole .formula-tag {
+    color: #5A6270;
+}
+
+/* La giustificazione della base condivisa vale su quattro
+   soli selettori: qui va dichiarata dal componente. */
+.formula-testo {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: #5A6270;
+    text-align: justify;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    overflow-wrap: break-word;
+}
+
+.formula-testo strong {
+    color: #0A2844;
+    font-weight: 700;
+}
+
+/* ============================================
+   6. IL RIQUADRO DELLA PRASSI
+   La .highlight-box condivisa e' gia' occupata: e' il
+   punto per chi decide, e chiude quasi tutte le sezioni.
+   Quando invece il riquadro serve a dire che una nozione
+   appartiene alla prassi e non a una norma, il navy
+   sarebbe fuorviante, perche' e' il colore con cui la
+   pagina segnala cio' che regge. Stessa scatola, grigio
+   ardesia: due dichiarazioni, nessun markup nuovo.
+   ============================================ */
+.highlight-box.is-prassi {
+    background: #f6f7f9;
+    border-color: rgba(90, 98, 112, 0.22);
+    border-left-color: #5A6270;
+}
+
+.highlight-box.is-prassi strong {
+    color: #5A6270;
+}
+
+/* ============================================
+   7. VISIBILITA' DEI RIMANDI NEI CONTESTI NUOVI
+   assets/content-page.css riporta i collegamenti alla
+   forma riconoscibile in cinque contesti soltanto. Questa
+   pagina ne mette altri quattro: dentro un elenco di
+   riscontri, dentro le celle delle tabelle e dentro una
+   scheda delle conseguenze. Senza questa regola quei
+   rimandi avrebbero il colore del testo e nessuna
+   sottolineatura, cioe' non si vedrebbero. Gli stati sono
+   gli stessi della base, ricopiati per intero.
+   ============================================ */
+.content-page .pillar-list a,
+.content-page .checkup td a,
+.content-page .checkup th a,
+.content-page .lessico td a,
+.content-page .lessico th a,
+.content-page .rischio p a {
+    color: #164068;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-decoration-color: rgba(22, 64, 104, 0.32);
+    text-underline-offset: 3px;
+    border-radius: 3px;
+    padding: 0 2px;
+    margin: 0 -2px;
+    transition: var(--transition);
+}
+
+.content-page .pillar-list a:hover,
+.content-page .checkup td a:hover,
+.content-page .checkup th a:hover,
+.content-page .lessico td a:hover,
+.content-page .lessico th a:hover,
+.content-page .rischio p a:hover {
+    color: #0f2f4f;
+    text-decoration-color: #164068;
+    background: rgba(22, 64, 104, 0.09);
+}
+
+.content-page .pillar-list a:focus-visible,
+.content-page .checkup td a:focus-visible,
+.content-page .checkup th a:focus-visible,
+.content-page .lessico td a:focus-visible,
+.content-page .lessico th a:focus-visible,
+.content-page .rischio p a:focus-visible {
+    outline: 2px solid #164068;
+    outline-offset: 2px;
+}
+
+/* ============================================
+   8. ELENCO DEI RIFERIMENTI
+   La voce dell'elenco nasce come contenitore flex, e in
+   flexbox ogni figlio diventa un elemento a se': un
+   <strong> o un <em> in mezzo alla frase si stacca in una
+   colonna propria e la riga si spezza in blocchi
+   affiancati. Qui i riferimenti normativi sono pieni di
+   grassetti e corsivi e il testo deve scorrere: la voce
+   torna a blocco e il pallino passa in uno pseudo-elemento
+   posizionato. Le sigle lunghe possono spezzarsi, altrimenti
+   una sola basta a imporre a tutta la pagina una larghezza
+   maggiore dello schermo del telefono.
+   ============================================ */
+.content-page .ref-list li {
+    display: block;
+    position: relative;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding-left: 18px;
+}
+
+.content-page .ref-list li::before {
+    position: absolute;
+    left: 0;
+    top: 21px;
+    margin-top: 0;
+}
+
+/* ============================================
+   9. RESPONSIVE
+   ============================================ */
+@media (max-width: 1024px) {
+    .rischi-grid,
+    .nodi-grid {
+        grid-template-columns: 1fr;
+        max-width: 640px;
+    }
+}
+
+@media (max-width: 900px) {
+    /* Le tabelle diventano elenchi di blocchi:
+       l'intestazione di colonna torna davanti al dato
+       tramite data-label, cosi' nessuna cella resta
+       senza contesto. */
+    .lessico-wrap,
+    .checkup-wrap {
+        overflow-x: visible;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    .lessico,
+    .checkup {
+        min-width: 0;
+        background: transparent;
+    }
+
+    /* Nascondere l'intestazione con la tecnica del ritaglio non
+       basta: le celle restano in flusso e continuano a imporre
+       alla pagina la larghezza della tabella, che su telefono si
+       traduce in scorrimento orizzontale. Va tolta dal layout. */
+    .lessico thead,
+    .checkup thead {
+        display: none;
+    }
+
+    .lessico tbody,
+    .checkup tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .lessico tbody tr,
+    .checkup tbody tr {
+        display: block;
+        background: #ffffff;
+        border: 1px solid rgba(22, 64, 104, 0.14);
+        border-radius: 14px;
+        padding: 6px 4px;
+        margin-bottom: 18px;
+        box-shadow: 0 2px 12px rgba(10, 40, 68, 0.05);
+    }
+
+    .lessico tbody th,
+    .lessico td,
+    .checkup tbody th,
+    .checkup td {
+        display: block;
+        width: 100%;
+        border-bottom: none;
+        padding: 12px 20px;
+        background: transparent;
+    }
+
+    /* Fra una cella e l'altra dello stesso blocco serve un filo di
+       separazione: senza, le risposte si leggono come un unico
+       paragrafo. */
+    .lessico tbody td + td,
+    .checkup tbody td + td {
+        border-top: 1px solid rgba(22, 64, 104, 0.08);
+    }
+
+    .lessico td::before,
+    .checkup td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 1.1px;
+        text-transform: uppercase;
+        color: #2A5A85;
+        margin-bottom: 5px;
+    }
+
+    .lessico tbody th,
+    .checkup tbody th {
+        font-size: 1rem;
+        padding-bottom: 4px;
+    }
+
+    .lessico .col-nuovo,
+    .lessico thead .col-nuovo,
+    .checkup .col-nuovo,
+    .checkup thead .col-nuovo {
+        background: transparent;
+    }
+
+    .riparto {
+        grid-template-columns: 1fr;
+        max-width: 620px;
+    }
+}
+
+@media (max-width: 860px) {
+    /* Due formule affiancate in colonna stretta diventano due
+       colonne di parole singole: sotto questa soglia si leggono
+       una sotto l'altra, nell'ordine in cui stanno nel testo. */
+    .formule {
+        grid-template-columns: 1fr;
+        max-width: 620px;
+    }
+}
+
+@media (max-width: 560px) {
+    .rischio,
+    .nodo {
+        padding: 22px 22px 20px;
+    }
+
+    .riparto-col {
+        padding: 24px 22px 22px;
+    }
+
+    .formula {
+        padding: 20px 18px 18px;
+    }
+
+    /* In colonna stretta la giustificazione apre buchi fra
+       le parole: meglio la bandiera a destra. */
+    .rischio p,
+    .nodo p,
+    .riparto-nota,
+    .formula-testo {
+        text-align: left;
+    }
+}
+
+/* ============================================
+   10. STAMPA
+   La pagina finisce spesso allegata a una nota per il
+   collegio sindacale o a un piano di vigilanza: in carta
+   servono i contenuti, non la navigazione.
+   ============================================ */
+@media print {
+    .navbar,
+    .hero-actions,
+    .section-cta,
+    .footer,
+    .rimando-vai {
+        display: none !important;
+    }
+
+    .riparto-col,
+    .rischio,
+    .nodo,
+    .formula,
+    .benefit-item,
+    .processo-step {
+        break-inside: avoid;
+        box-shadow: none;
+    }
+
+    .lessico-wrap,
+    .checkup-wrap {
+        overflow: visible;
+    }
+
+    .lessico tr,
+    .checkup tr {
+        break-inside: avoid;
+    }
+}
