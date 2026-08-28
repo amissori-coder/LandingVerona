@@ -60,6 +60,8 @@
     --spazio-utile: 100vw;
     --spazio-tabella: calc(100vw - 32px);
     --misura-testo: 92ch;
+    --misura-grafico: 900px;
+    --misura-campo: 460px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -175,6 +177,13 @@ td.td-menu { white-space: nowrap; text-align: right; }
     outline: none; border-color: var(--blu-500); box-shadow: 0 0 0 3px rgba(42, 90, 133, 0.15);
 }
 .campo .hint { font-size: 0.78rem; color: var(--grigio-600); margin-top: 4px; }
+/* Le caselle non si allargano oltre la loro misura naturale. L'area di testo fa
+   eccezione: dentro ci sta un discorso, quindi segue la misura di lettura.
+   Spunte e pulsanti di scelta restano fuori: la loro larghezza la decide gia'
+   il riquadro che li contiene. */
+.campo input:not([type="checkbox"]):not([type="radio"]),
+.campo select { max-width: var(--misura-campo); }
+.campo textarea { max-width: var(--misura-testo); }
 .campo.errore input { border-color: var(--rosso); }
 .campo .msg-errore { font-size: 0.78rem; color: var(--rosso); margin-top: 4px; }
 
@@ -422,6 +431,22 @@ td.td-menu { white-space: nowrap; text-align: right; }
        larghezza (le tabelle lo sprecavano), quindi il limite lo portano addosso
        i paragrafi: una riga di 90 caratteri si legge, una di 250 no. */
     --misura-testo: 92ch;
+    /* Misura di un GRAFICO. I grafici sono disegnati su una tela di 760 punti e
+       il foglio li stirava al 100% della pagina: su uno schermo largo, col menu
+       ridotto, diventavano alti settecento pixel - due volte e mezzo la misura
+       per cui erano stati pensati, con le scritte gonfiate a proporzione.
+       Qui sta la differenza fra un DATO e un DISEGNO: una tabella e' un dato e
+       piu' larga sta meglio, un grafico e' un disegno e oltre la sua misura si
+       deforma soltanto. 900px sono il progetto piu' un quinto: abbastanza per
+       guadagnare respiro su uno schermo grande, non tanto da sembrare un
+       manifesto. */
+    --misura-grafico: 900px;
+    /* Misura di una CASELLA di modulo. Stessa idea del grafico: una casella in
+       cui si scrive un nome o si sceglie una voce ha una sua misura naturale, e
+       oltre quella non diventa piu' comoda, solo piu' grande. Senza questo
+       limite, in un riquadro largo, il selettore di un file arrivava a
+       millesettecento pixel. */
+    --misura-campo: 460px;
 }
 
 .sidebar {
@@ -626,6 +651,43 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .contenuto > header .descrizione { color: var(--grigio-600); font-size: 0.9rem; margin-top: 4px; max-width: min(var(--misura-testo), 68ch); }
 .header-azioni { display: flex; gap: var(--gap-azioni); flex-wrap: wrap; align-items: center; }
 
+/* ---------- Sotto-menu di sezione ----------
+   Dove una sezione e' fatta di piu' blocchi con un titolo, questa barra li
+   elenca, ci porta con un clic e resta in vista mentre si scorre, accendendo
+   il blocco che si sta guardando. La costruisce il programma da cio' che la
+   vista ha disegnato: qui c'e' solo il vestito.
+   I margini negativi servono a farle coprire tutta la larghezza compreso il
+   margine interno della pagina: senza, scorrendo si vedrebbe il contenuto
+   passare nei due corridoi ai lati della barra. */
+.sotto-menu {
+    position: sticky; top: 0; z-index: 15;
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    margin: -6px calc(-1 * var(--pad-pagina)) 18px;
+    padding: 9px var(--pad-pagina);
+    background: var(--blu-050);
+    border-bottom: 1px solid var(--grigio-200);
+}
+.sotto-menu-voce {
+    padding: 5px 12px; border: 1px solid var(--grigio-200); border-radius: 999px;
+    background: #fff; color: var(--grigio-600);
+    font-family: inherit; font-size: 0.8rem; font-weight: 600; line-height: 1.3;
+    cursor: pointer; white-space: nowrap;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.sotto-menu-voce:hover { border-color: var(--blu-500); color: var(--blu-700); }
+.sotto-menu-voce:focus-visible { outline: 2px solid var(--blu-500); outline-offset: 2px; }
+/* il blocco che si sta guardando: pieno, non solo colorato, perche' si deve
+   riconoscere con la coda dell'occhio mentre si scorre */
+.sotto-menu-voce.attiva { background: var(--blu-700); border-color: var(--blu-700); color: #fff; }
+
+@media (max-width: 900px) {
+    /* Sul telefono la barra del menu principale e' gia' appiccicata in cima con
+       una z-index piu' alta: questa ci finirebbe sotto e sparirebbe. Resta in
+       testa alla pagina e scorre col resto. */
+    .sotto-menu { position: static; margin-inline: 0; padding-inline: 0; }
+}
+@media print { .sotto-menu { display: none !important; } }
+
 @media (max-width: 900px) {
     /* Sotto i 900px la barra passa in cima, a tutta larghezza: il contenuto non
        ha piu' niente a sinistra da scansare, quindi la variabile va a zero e il
@@ -691,10 +753,20 @@ table.dati .hint { font-size: 0.92em; max-width: none; }
 /* La misura minima di un riquadro respira con la finestra: a 190px fissi, su un
    portatile con il menu aperto, il quarto indicatore andava a capo da solo e
    lasciava mezza riga vuota. */
-.kpi-griglia { display: grid; grid-template-columns: repeat(auto-fit, minmax(clamp(158px, 12vw, 215px), 1fr)); gap: clamp(10px, 0.9vw, 16px); margin-bottom: 20px; }
+/* La misura minima di un riquadro respira con la finestra: a 190px fissi, su un
+   portatile con il menu aperto, il quarto indicatore andava a capo da solo e
+   lasciava mezza riga vuota. */
+.kpi-griglia { display: grid; grid-template-columns: repeat(auto-fit, minmax(clamp(158px, 12vw, 215px), 1fr)); gap: clamp(10px, 0.9vw, 16px); margin-bottom: 20px; justify-items: start; }
+/* Il limite di larghezza sta sul RIQUADRO, non sulla colonna. Messo sulla
+   colonna cambierebbe quante ne stanno in riga - con un massimo di 440px, su
+   uno schermo da 1920, il quarto indicatore andava a capo da solo - mentre
+   cosi' le colonne restano quelle di prima e a fermarsi e' solo il riquadro:
+   tre riquadri da seicento pixel per contenere un numero di due cifre erano
+   sproporzionati quanto il grafico gonfiato. */
 .kpi {
     background: #fff; border-radius: var(--raggio); box-shadow: var(--ombra); border: 1px solid var(--grigio-200);
     padding: 15px 16px; border-left: 3px solid var(--blu-500);
+    width: 100%; max-width: 440px;
 }
 .kpi .etichetta { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--grigio-600); }
 .kpi .valore { font-family: 'Montserrat', sans-serif; font-size: 1.5rem; font-weight: 800; color: var(--blu-900); margin-top: 4px; }
@@ -826,6 +898,17 @@ table.dati tbody tr.cliccabile { cursor: pointer; }
 table.dati .cliente-cella { font-weight: 600; color: var(--blu-900); }
 table.dati tfoot td { font-weight: 700; background: var(--blu-100); border-top: 2px solid var(--blu-500); }
 .tabella-vuota { padding: 40px; text-align: center; color: var(--grigio-600); }
+/* Una tabella di due o tre colonne non ha bisogno di tutta la pagina. Con il
+   nome a sinistra e l'importo a destra, in mezzo restava mezzo metro di bianco:
+   per seguire la riga con l'occhio bisognava attraversarlo tutto, e si leggeva
+   peggio, non meglio. Sopra le quattro colonne il problema non c'e': le colonne
+   riempiono la riga da sole, ed e' li' che la larghezza serve davvero.
+   Il selettore dice esattamente questo: "ha una seconda colonna ma non una
+   quarta". Dove :has non e' riconosciuto la regola viene ignorata e la tabella
+   resta larga: si perde il ritocco, non la leggibilita'. */
+.tabella-wrap:has(table.dati thead th:nth-child(2)):not(:has(table.dati thead th:nth-child(4))) {
+    max-width: var(--misura-grafico);
+}
 
 /* Tabella compatta: molte colonne su una riga senza scorrimento orizzontale (es. Persone) */
 table.dati.compatta { font-size: 0.8rem; }
@@ -970,18 +1053,21 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .reg-a { color: var(--blu-700); font-weight: 600; }
 
 /* ---------- Grafici ---------- */
-.grafico-wrap { position: relative; width: 100%; }
+/* I grafici non superano la propria misura di progetto e restano centrati nel
+   riquadro: allineati a sinistra, su uno schermo largo, lascerebbero mezzo
+   metro di bianco a destra e sembrerebbero dimenticati li'. */
+.grafico-wrap { position: relative; width: 100%; max-width: var(--misura-grafico); margin-inline: auto; }
 .grafico-wrap canvas { width: 100%; display: block; }
-.legenda { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.8rem; color: var(--grigio-600); }
+.legenda { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.8rem; color: var(--grigio-600); max-width: var(--misura-grafico); margin-inline: auto; }
 .legenda .voce { display: inline-flex; align-items: center; gap: 6px; }
 
 /* ---- Grafico SVG interattivo (cruscotto) ---- */
-.g-svg-wrap { position: relative; width: 100%; }
+.g-svg-wrap { position: relative; width: 100%; max-width: var(--misura-grafico); margin-inline: auto; }
 .g-svg-wrap svg { width: 100%; height: auto; display: block; overflow: visible; }
 .g-bar { cursor: pointer; transition: opacity 0.12s ease; }
 .g-bar:hover { opacity: 0.82; }
 .g-tip { position: absolute; z-index: 5; pointer-events: none; background: var(--blu-900); color: #fff; font-size: 0.78rem; line-height: 1.45; padding: 7px 10px; border-radius: 6px; box-shadow: var(--ombra-lg); white-space: nowrap; max-width: 220px; }
-.g-legenda { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; font-size: 0.8rem; color: var(--grigio-600); }
+.g-legenda { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; font-size: 0.8rem; color: var(--grigio-600); max-width: var(--misura-grafico); margin-inline: auto; }
 .g-legenda span { display: inline-flex; align-items: center; gap: 6px; }
 .g-legenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 
@@ -1101,7 +1187,7 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .g-punto { cursor: pointer; transition: r 0.1s ease; }
 .g-punto:hover { fill-opacity: 1; r: 7; }
 /* legenda del grafico ore/compenso: nome suo, per non toccare la .g-legenda del cruscotto */
-.g-legenda-oc { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 0.78rem; color: var(--grigio-600); }
+.g-legenda-oc { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 0.78rem; color: var(--grigio-600); max-width: var(--misura-grafico); margin-inline: auto; }
 .g-legenda-oc span { display: inline-flex; align-items: center; gap: 5px; }
 .g-legenda-oc i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .g-legenda-oc i.g-linea { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed var(--blu-900); }
