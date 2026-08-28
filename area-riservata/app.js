@@ -621,7 +621,7 @@
         { chiave: 'nome', desc: 'Nome della persona (o ragione sociale del cliente)' },
         { chiave: 'cognome', desc: 'Cognome della persona' },
         { chiave: 'nome_completo', desc: 'Nome e cognome (o ragione sociale)' },
-        { chiave: 'incarichi', desc: 'Tabella degli incarichi della persona: cliente, resp. qualita e resp. incarico (aggiornata a ogni invio). Nel testo del messaggio diventa una tabella; nell\'oggetto resta l\'elenco dei clienti.' },
+        { chiave: 'incarichi', desc: 'Tabella degli incarichi della persona: cliente, resp. qualità e resp. incarico (aggiornata a ogni invio). Nel testo del messaggio diventa una tabella; nell\'oggetto resta l\'elenco dei clienti.' },
         { chiave: 'periodo', desc: 'Periodo di riferimento (es. "primo trimestre 2026"): solo per invii programmati ricorrenti, dipende dalla frequenza e dalla data di ogni invio' }
     ];
     // {periodo} e una variabile "di invio" (uguale per tutti i destinatari), calcolata
@@ -1018,7 +1018,7 @@
         { chiave: 'email1', nome: 'Email 1' },
         { chiave: 'email2', nome: 'Email 2' },
         { chiave: 'compensi', nome: 'Compensi' },
-        { chiave: 'fatturazione', nome: 'Modalita fatturazione' },
+        { chiave: 'fatturazione', nome: 'Modalità fatturazione' },
         { chiave: 'gruppoFatturazione', nome: 'Gruppo di fatturazione' },
         { chiave: 'fattInizio', nome: 'Inizio fatturazione' },
         { chiave: 'fattFine', nome: 'Fine fatturazione' },
@@ -1046,9 +1046,9 @@
             if (Cloud.attivo) return Cloud.primaPassword(email);
             const utenti = this.utenti();
             const u = utenti.find(x => x.email.toLowerCase() === email.toLowerCase());
-            if (!u) return { ok: false, msg: 'Indirizzo non autorizzato. L\'accesso e riservato agli utenti abilitati dall\'amministratore.' };
+            if (!u) return { ok: false, msg: 'Indirizzo non autorizzato. L\'accesso è riservato agli utenti abilitati dall\'amministratore.' };
             if (!u.attivo) return { ok: false, msg: 'Utenza disabilitata. Contatta l\'amministratore.' };
-            if (u.hash) return { ok: false, msg: 'Password gia impostata per questa utenza. Usa "Password dimenticata?" per reimpostarla.' };
+            if (u.hash) return { ok: false, msg: 'Password già impostata per questa utenza. Usa "Password dimenticata?" per reimpostarla.' };
             const temp = generaPasswordTemporanea();
             u.hash = await sha256(u.sale + '|' + temp);
             u.mustChange = true;
@@ -1064,7 +1064,7 @@
             const u = utenti.find(x => x.email.toLowerCase() === email.toLowerCase());
             if (!u) return { ok: false, msg: 'Indirizzo non autorizzato.' };
             if (!u.attivo) return { ok: false, msg: 'Utenza disabilitata. Contatta l\'amministratore.' };
-            if (!u.hash) return { ok: false, msg: 'Per questa utenza non e mai stata impostata una password: usa "Richiedi la prima password".' };
+            if (!u.hash) return { ok: false, msg: 'Per questa utenza non è mai stata impostata una password: usa "Richiedi la prima password".' };
             const temp = generaPasswordTemporanea();
             u.hash = await sha256(u.sale + '|' + temp);
             u.mustChange = true;
@@ -1722,12 +1722,12 @@
             // testo semplice della mail (dove il servizio rimuove i tag <a> tenendo solo il testo)
             const btn = '<p style="text-align:center;margin:22px 0 8px;"><a href="' + link + '" style="background:#164068;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;display:inline-block;">Vai all\'area riservata</a></p>'
                 + '<p style="font-size:12px;color:#64748B;margin:0 0 14px;text-align:center;">oppure apri: <span style="word-break:break-all;">' + esc(link) + '</span></p>';
-            const intro = p('Accanto alla revisione legale, Revilaw sta sviluppando un percorso di consulenza integrata su sei aree: <b>adeguati assetti organizzativi</b>, <b>ESG e sostenibilita</b>, <b>compliance</b> con Tax Control Framework e Modello 231, <b>finanza agevolata</b>, <b>crisi d\'impresa e risanamento</b>, <b>wealth management</b>. Per ciascuna nasce un "gruppo di specialisti".');
+            const intro = p('Accanto alla revisione legale, Revilaw sta sviluppando un percorso di consulenza integrata su sei aree: <b>adeguati assetti organizzativi</b>, <b>ESG e sostenibilità</b>, <b>compliance</b> con Tax Control Framework e Modello 231, <b>finanza agevolata</b>, <b>crisi d\'impresa e risanamento</b>, <b>wealth management</b>. Per ciascuna nasce un "gruppo di specialisti".');
             const accesso = '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#F1F5F9;border-radius:8px;margin:0 0 14px;"><tr><td style="padding:12px 16px;font-size:13px;color:#334155;line-height:1.55;">'
-                + '<b>Come accedere:</b> usa le tue credenziali dell\'area riservata. Se e il tuo primo accesso, imposta prima la password dal link che trovi nella nostra email <b>"Imposta la tua password"</b> (controlla anche la posta indesiderata / spam).'
+                + '<b>Come accedere:</b> usa le tue credenziali dell\'area riservata. Se è il tuo primo accesso, imposta prima la password dal link che trovi nella nostra email <b>"Imposta la tua password"</b> (controlla anche la posta indesiderata / spam).'
                 + '</td></tr></table>';
             if (tipo === 'compila') {
-                const scad = scadenzaTxt ? p('<b>C\'e tempo fino al ' + esc(scadenzaTxt) + '</b> (entro le 23:59).') : '';
+                const scad = scadenzaTxt ? p('<b>C\'è tempo fino al ' + esc(scadenzaTxt) + '</b> (entro le 23:59).') : '';
                 return h('Sei invitato a compilare il questionario')
                     + p('Gentile collega,')
                     + intro
@@ -3679,7 +3679,7 @@
             </div>` : ''}
             <div class="card">
                 <h2>Andamento compensi per anno</h2>
-                <p class="hint" style="margin:-6px 0 10px;">Passa sopra le barre per il dettaglio. Nell'anno in corso il fatturato <span style="color:#C9A227;font-weight:600;">in scadenza</span> e <span style="color:#C0392B;font-weight:600;">scaduto</span> e evidenziato nella barra.</p>
+                <p class="hint" style="margin:-6px 0 10px;">Passa sopra le barre per il dettaglio. Nell'anno in corso il fatturato <span style="color:#C9A227;font-weight:600;">in scadenza</span> e <span style="color:#C0392B;font-weight:600;">scaduto</span> è evidenziato nella barra.</p>
                 <div id="grafico-compensi"></div>
             </div>
             <div class="card" id="sez-scadenze-dash">
@@ -3924,7 +3924,7 @@
                 : '<div class="card tabella-vuota">Nessuna proposta non accettata.</div>';
         } else if (incarichiTab === 'dismessi') {
             corpo = dismessi.length ? `<div class="card" id="sez-dismessi">
-                <p class="descrizione" style="margin:0 0 12px;">Incarichi da cui il revisore si e dimesso, con la data delle dimissioni. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
+                <p class="descrizione" style="margin:0 0 12px;">Incarichi da cui il revisore si è dimesso, con la data delle dimissioni. Apri una riga per il dettaglio o premi <strong>Riattiva</strong> per riportarlo tra gli attivi.</p>
                 <div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>
                     <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Resp. incarico</th><th>Data dimissioni</th><th>Registrate il</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
@@ -3973,7 +3973,7 @@
                 { chiave: 'compenso', nome: 'Compenso ' + annoRif, num: true },
                 { chiave: 'scadenza', nome: 'Stato' }
             ];
-            corpo = attivi.length ? (nProposte ? `<div class="avviso-proposta">${ICO_PROPOSTA}<span><strong>${nProposte} ${nProposte === 1 ? 'incarico e' : 'incarichi sono'} in proposta</strong> (righe evidenziate): compensi e scadenze non entrano nel totale finché non ${nProposte === 1 ? 'lo confermi' : 'li confermi'} con il pulsante <strong>Conferma</strong>.</span></div>` : '') + `<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>` +
+            corpo = attivi.length ? (nProposte ? `<div class="avviso-proposta">${ICO_PROPOSTA}<span><strong>${nProposte} ${nProposte === 1 ? 'incarico è' : 'incarichi sono'} in proposta</strong> (righe evidenziate): compensi e scadenze non entrano nel totale finché non ${nProposte === 1 ? 'lo confermi' : 'li confermi'} con il pulsante <strong>Conferma</strong>.</span></div>` : '') + `<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>` +
                 colonne.map(c => `<th class="${c.num ? 'num' : ''}" data-ordina="${c.chiave}">${c.nome}${filtriIncarichi.ordina === c.chiave ? (filtriIncarichi.verso > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') +
                 (colAzioni ? '<th></th>' : '') +
                 `</tr></thead><tbody>` +
@@ -4092,7 +4092,7 @@
 
     function esportaCsvIncarichi() {
         const anni = Incarichi.anniConCompensi();
-        const righe = [['Cliente', 'Tipo', 'Codice fiscale', 'Data inizio', 'Data fine', 'Rinnovo', 'Area', 'Regione', 'Qualita', 'Resp. incarico', 'Referente', 'Team', 'Fatturazione', 'Stato'].concat(anni.map(String))];
+        const righe = [['Cliente', 'Tipo', 'Codice fiscale', 'Data inizio', 'Data fine', 'Rinnovo', 'Area', 'Regione', 'Qualità', 'Resp. incarico', 'Referente', 'Team', 'Fatturazione', 'Stato'].concat(anni.map(String))];
         incarichiFiltrati(annoRiferimento()).forEach(i => {
             righe.push([
                 i.cliente, nomeTipo(i.tipo), i.codiceFiscale || '', i.dataInizio || i.dataInizioNote || '', i.dataFine || '',
@@ -4257,7 +4257,7 @@
                     </div>
                     ${Auth.puoEliminareIncarichi() ? `<div class="card">
                         <h2>Zona amministratore</h2>
-                        <p class="descrizione" style="margin-bottom:12px;">L'eliminazione e definitiva e porta via anche compensi e scadenze. Per chiudere l'incarico conservando tutto usa <strong>Termina</strong> o <strong>Dimissioni</strong>.</p>
+                        <p class="descrizione" style="margin-bottom:12px;">L'eliminazione è definitiva e porta via anche compensi e scadenze. Per chiudere l'incarico conservando tutto usa <strong>Termina</strong> o <strong>Dimissioni</strong>.</p>
                         <button class="btn btn-danger btn-sm" id="btn-elimina">Elimina incarico</button>
                     </div>` : ''}
                 </div>
@@ -4304,7 +4304,7 @@
     // onDone opzionale: eseguito dopo la conferma (dall'elenco ridisegna la tabella; dal dettaglio si ricarica la scheda)
     function modaleRiattivaIncarico(inc, onDone) {
         apriModale(`<h2>Riattivare l'incarico?</h2>
-            <p>L'incarico <strong>${esc(inc.cliente)}</strong> tornera tra gli <strong>attivi</strong>. L'operazione resta nel registro modifiche.</p>
+            <p>L'incarico <strong>${esc(inc.cliente)}</strong> tornerà tra gli <strong>attivi</strong>. L'operazione resta nel registro modifiche.</p>
             <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-conferma">Riattiva</button></div>`);
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
         document.getElementById('m-conferma').addEventListener('click', () => {
@@ -4325,7 +4325,7 @@
             <p>Stai per confermare <strong>${esc(inc.cliente)}</strong>. Da questo momento il periodo <strong>${esc(periodo)}</strong> entra in <strong>fatturazione e compensi</strong>.</p>
             <div class="riepilogo-blocco" style="margin-top:6px;">
                 <h4>Fatturazione del periodo</h4>
-                ${rigaRiepilogo('Modalita', descriviFatturazione(inc))}
+                ${rigaRiepilogo('Modalità', descriviFatturazione(inc))}
                 ${rigaRiepilogo('Spese generali', spesePerc(inc) ? percTesto(spesePerc(inc)) + '% sugli onorari' : 'non addebitate')}
                 ${rigaRiepilogo('Compenso del periodo', eurFmt.format(compP) + (rate ? ' in ' + rate + (rate === 1 ? ' scadenza' : ' scadenze') : ''))}
             </div>
@@ -4443,7 +4443,7 @@
     // sblocco del calcolo: obbliga a comporre un messaggio di allerta
     function modaleSblocco(inc) {
         apriModale(`<h2>Sbloccare il calcolo?</h2>
-            <p class="descrizione" style="margin-bottom:12px;">Il calcolo di <strong>${esc(inc.cliente)}</strong> e congelato. Per sbloccarlo devi inviare un messaggio di allerta al titolare dello studio, spiegando il motivo. Lo sblocco e la motivazione restano nel registro.</p>
+            <p class="descrizione" style="margin-bottom:12px;">Il calcolo di <strong>${esc(inc.cliente)}</strong> è congelato. Per sbloccarlo devi inviare un messaggio di allerta al titolare dello studio, spiegando il motivo. Lo sblocco e la motivazione restano nel registro.</p>
             <div class="campo"><label>Motivo dello sblocco (messaggio di allerta) *</label><textarea id="m-sblocco-msg" placeholder="Es. rinegoziazione del compenso concordata con il cliente il ..."></textarea></div>
             <div class="msg-errore hidden" id="m-sblocco-err"></div>
             <div class="modale-azioni">
@@ -4684,7 +4684,7 @@
                 const k = p ? p.id : '_' + String(voce).trim().toLowerCase();
                 if (vistiPrec.has(k)) return;
                 vistiPrec.add(k);
-                precedenti.push({ valore: voce, etichetta: p ? etichettaPersona(p, tutteP) : voce, motivo: p ? (p.eliminato ? 'eliminata' : 'disattivata') : 'non piu in anagrafica' });
+                precedenti.push({ valore: voce, etichetta: p ? etichettaPersona(p, tutteP) : voce, motivo: p ? (p.eliminato ? 'eliminata' : 'disattivata') : 'non più in anagrafica' });
             });
             const selezionabili = tutteP.filter(p => p.attivo && !p.eliminato)
                 .map(p => ({ etichetta: etichettaPersona(p, tutteP), sel: idNelTeam.has(p.id) }))
@@ -4754,7 +4754,7 @@
             const gruppiFatt = Array.from(new Set(Incarichi.tutti().map(i => i.gruppoFatturazione).filter(Boolean))).sort();
             corpo.innerHTML = `
                 <h2>Fatturazione</h2>
-                <div class="campo"><label>Modalita di fatturazione *</label>
+                <div class="campo"><label>Modalità di fatturazione *</label>
                     <select id="w-fatturazione">
                         <option value="annuale" ${d.fatturazione === 'annuale' ? 'selected' : ''}>Annuale (una rata l'anno)</option>
                         <option value="trimestrale" ${d.fatturazione === 'trimestrale' ? 'selected' : ''}>Trimestrale (quattro rate l'anno)</option>
@@ -4841,7 +4841,7 @@
             }).join('')}
                     ${rigaRiepilogo('Fatturazione', descriviFatturazione(d))}
                     ${rigaRiepilogo('Spese generali', spesePerc(d) ? percTesto(spesePerc(d)) + '% sugli onorari' : 'non addebitate')}
-                    ${w.modalita === 'modifica' && !w.compensoModificato ? '<p class="hint" style="font-size:0.78rem; color:var(--grigio-600); margin-top:6px;">Il passo 3 non e stato modificato: i compensi esistenti restano invariati.</p>' : ''}
+                    ${w.modalita === 'modifica' && !w.compensoModificato ? '<p class="hint" style="font-size:0.78rem; color:var(--grigio-600); margin-top:6px;">Il passo 3 non è stato modificato: i compensi esistenti restano invariati.</p>' : ''}
                 </div>
                 <p class="descrizione">Salvando, la modifica viene registrata nel registro con il tuo nome (${esc(Auth.utenteCorrente.nome)}).</p>`;
         }
@@ -5027,11 +5027,11 @@
                 ? `<tr><td data-label="Esercizio">${i === 0 ? p.anno : ''}</td><td data-label="Periodo">${esc(etichettaRigaPiano(r.scadenza, p.incarico.fatturazione || 'annuale', r.numero))}</td><td data-label="Scadenza">${esc(fmtData(r.scadenza))}</td><td class="num" data-label="Importo">${eurFmt2.format(r.importo)}</td><td data-label="Stato"><span class="badge ${r.stato === 'incassata' ? 'verde' : (r.stato === 'emessa' ? 'ambra' : 'neutro')}">${esc(r.stato)}</span></td></tr>`
                 : `<tr><td data-label="Esercizio">${p.anno}</td><td colspan="4" class="tabella-vuota">Nessuna scadenza registrata.</td></tr>`).join('')).join('')}
             </tbody></table></div>
-            <p class="hint" style="margin-top:8px;">Sola lettura: resta com'e, con i suoi stati di fatturazione, e finisce in "Periodi precedenti" sul dettaglio dell'incarico.</p>
+            <p class="hint" style="margin-top:8px;">Sola lettura: resta com'è, con i suoi stati di fatturazione, e finisce in "Periodi precedenti" sul dettaglio dell'incarico.</p>
         </details>`;
 
         cont.innerHTML = `<h3 style="margin-top:20px;">Periodi di fatturazione e importi</h3>
-            <p class="descrizione" style="margin-bottom:12px;">Ogni riga e una scadenza: puoi cambiarne la data e l'importo, eliminarla o aggiungerne una. <strong>Il compenso dell'esercizio e la somma delle sue righe</strong>, quindi quello che scrivi qui e quello che finisce in fatturazione, nei report e nella lettera.</p>
+            <p class="descrizione" style="margin-bottom:12px;">Ogni riga è una scadenza: puoi cambiarne la data e l'importo, eliminarla o aggiungerne una. <strong>Il compenso dell'esercizio è la somma delle sue righe</strong>, quindi quello che scrivi qui è quello che finisce in fatturazione, nei report e nella lettera.</p>
             ${bloccoPrec}
             ${anni.map(bloccoAnno).join('')}`;
 
@@ -5656,7 +5656,7 @@
             </div>
             <div class="card">
                 <h2>Dettaglio rate ${anno}</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Rate divise per periodicita (schede); il mensile e il trimestrale si dividono a loro volta in una finestra per ogni mese/trimestre. In ogni finestra gli incarichi sono raggruppati per gruppo di fatturazione: clicca un gruppo per vedere i singoli clienti; clicca il nome del cliente per aprire l'incarico. Le scadenze e gli importi arrivano dal piano concordato sull'incarico (passo Fatturazione del wizard). Colonna Spese gen. con la percentuale scelta sull'incarico, Totale = importo + spese generali + rimborsi; i rimborsi delle spese vive (in euro) si inseriscono qui e si possono congelare/sbloccare per campo.</p>
+                <p class="hint" style="margin:-6px 0 12px;">Rate divise per periodicità (schede); il mensile e il trimestrale si dividono a loro volta in una finestra per ogni mese/trimestre. In ogni finestra gli incarichi sono raggruppati per gruppo di fatturazione: clicca un gruppo per vedere i singoli clienti; clicca il nome del cliente per aprire l'incarico. Le scadenze e gli importi arrivano dal piano concordato sull'incarico (passo Fatturazione del wizard). Colonna Spese gen. con la percentuale scelta sull'incarico, Totale = importo + spese generali + rimborsi; i rimborsi delle spese vive (in euro) si inseriscono qui e si possono congelare/sbloccare per campo.</p>
                 ${tabs}
                 ${subTabs}
                 ${gruppi.length ? '<div class="fatt-gruppi">' + gruppi.map(sezGruppo).join('') + '</div>' : '<p class="tabella-vuota">Nessuna rata per questa finestra.</p>'}
@@ -5712,7 +5712,7 @@
         const anno = annoFatturazione;
         const rate = Fatture.tutteAnno(anno);
         const mesi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-        const righe = [['Cliente', 'Gruppo di fatturazione', 'Periodicita', 'Rata', 'Mese', 'Scadenza', 'Importo', 'Spese generali', '% spese', 'Rimborsi spese', 'Totale', 'Stato']];
+        const righe = [['Cliente', 'Gruppo di fatturazione', 'Periodicità', 'Rata', 'Mese', 'Scadenza', 'Importo', 'Spese generali', '% spese', 'Rimborsi spese', 'Totale', 'Stato']];
         rate.forEach(r => {
             const rb = Fatture.rimborso(r.chiave);
             const spese = speseSu(r.importo, r.incarico);
@@ -5821,14 +5821,14 @@
             </div>
             <div class="card">
                 <h2>Compenso rispetto alle ore stimate ${annoRif}</h2>
-                <p class="hint" style="margin:-6px 0 10px;">Ogni punto e un incarico: a destra chi costa più ore, in alto chi rende di più. Chi sta <strong>sotto la retta</strong> e pagato poco per le ore che assorbe. Passa sopra un punto per il dettaglio; clicca per aprire l'incarico.</p>
+                <p class="hint" style="margin:-6px 0 10px;">Ogni punto è un incarico: a destra chi costa più ore, in alto chi rende di più. Chi sta <strong>sotto la retta</strong> è pagato poco per le ore che assorbe. Passa sopra un punto per il dettaglio; clicca per aprire l'incarico.</p>
                 ${oreDati.length ? `<div class="ore-sintesi">
                     <div class="ore-box"><span class="ore-n">${oreDati.length}</span><span class="ore-et">incarichi con ore stimate</span></div>
                     ${confrontabile ? `<div class="ore-box"><span class="ore-n">${eurFmt.format(Math.round(tariffaRif))}</span><span class="ore-et">tariffa mediana per ora</span></div>
                     <div class="ore-box ${moltoSotto ? 'ore-box-att' : ''}"><span class="ore-n">${moltoSotto}</span><span class="ore-et">sotto il 70% della mediana</span></div>` : ''}
                 </div>` : ''}
                 ${oreDati.length && !confrontabile ? `<div class="ore-avviso">
-                    Solo ${oreDati.length} ${oreDati.length === 1 ? 'incarico ha' : 'incarichi hanno'} le ore stimate: troppo pochi per dire cosa e alto e cosa e basso.
+                    Solo ${oreDati.length} ${oreDati.length === 1 ? 'incarico ha' : 'incarichi hanno'} le ore stimate: troppo pochi per dire cosa è alto e cosa è basso.
                     I punti sono mostrati senza giudizio; servono almeno ${MIN_CONFRONTO} incarichi perché il confronto con la mediana abbia senso.
                 </div>` : ''}
                 <div id="grafico-ore-compenso"></div>
@@ -5903,7 +5903,7 @@
         trasporti: { mcc: 'servizi',     cndcec: 7,    z: 'Z2', label: 'Trasporto, magazzinaggio, alberghi' },
         servimp:   { mcc: 'servizi',     cndcec: 8,    z: 'Z2', label: 'Servizi alle imprese' },
         servpers:  { mcc: 'servizi',     cndcec: 9,    z: 'Z2', label: 'Servizi alle persone' },
-        immob:     { mcc: 'immobiliare', cndcec: null, z: 'Z2', label: 'Attivita immobiliari' }
+        immob:     { mcc: 'immobiliare', cndcec: null, z: 'Z2', label: 'Attività immobiliari' }
     };
 
     // ------- Modello MCC: trattamenti (cap/floor/.a) e coefficienti per settore (SdC) -------
@@ -6023,7 +6023,7 @@
         V2:  'Oneri finanziari / MOL',
         V2A: 'Oneri finanziari / MOL (corretto)',
         V3:  'Oneri finanziari / Totale debiti',
-        V4:  'Liquidita / Fatturato',
+        V4:  'Liquidità / Fatturato',
         V5:  'Fatturato / Rimanenze',
         V6:  'Variazione % del fatturato',
         V7:  'Autonomia finanziaria',
@@ -6033,7 +6033,7 @@
         V12: 'Copertura immobilizzazioni con PN',
         V13: 'Variazione % del valore della produzione',
         V14: 'MOL / (Oneri finanziari + Totale debiti)',
-        V15: 'Liquidita primaria (quick ratio)',
+        V15: 'Liquidità primaria (quick ratio)',
         V16: 'Turnover (Fatturato / Totale attivo)',
         V18: 'Oneri finanziari / Valore della produzione',
         V19: 'Totale debiti / Patrimonio netto',
@@ -6044,7 +6044,7 @@
         D4:  'Fatturato fino a 500.000 euro',
         D5:  'Interazione dimensione: debiti a breve',
         D6:  'Interazione dimensione: costo del debito',
-        D7:  'Interazione dimensione: liquidita',
+        D7:  'Interazione dimensione: liquidità',
         D8:  'Correttivo per produzione in calo',
         D9:  'Interazione dimensione: indebitamento',
         D10: 'Interazione dimensione: autonomia',
@@ -6083,8 +6083,8 @@
         { id: 'rimanenze',    et: 'Rimanenze (C.I)',                           gr: 'att', req: true },
         { id: 'creditiEntro', et: 'Crediti entro 12 mesi',                     gr: 'att', req: true },
         { id: 'creditiOltre', et: 'Crediti oltre 12 mesi',                     gr: 'att', req: false },
-        { id: 'attFin',       et: 'Attivita finanziarie (C.III)',              gr: 'att', req: false },
-        { id: 'liquidita',    et: 'Disponibilita liquide (C.IV)',              gr: 'att', req: true },
+        { id: 'attFin',       et: 'Attività finanziarie (C.III)',              gr: 'att', req: false },
+        { id: 'liquidita',    et: 'Disponibilità liquide (C.IV)',              gr: 'att', req: true },
         { id: 'rateiAttivi',  et: 'Ratei e risconti attivi (D)',               gr: 'att', req: false },
         { id: 'creditiSoci',  et: 'Crediti verso soci (A)',                    gr: 'att', req: false },
         { id: 'pn',           et: 'Patrimonio netto (A)',                      gr: 'pas', req: true, neg: true },
@@ -6268,17 +6268,17 @@
             level: dscr === null ? 'neutro' : (dscr < 1 ? 'rosso' : (dscr < 1.2 ? 'giallo' : 'verde')),
             badge: dscr === null ? 'Non calcolato' : (dscr < 1 ? 'Insufficiente' : (dscr < 1.2 ? 'Al limite' : 'Adeguato')),
             ref: dscr === null
-                ? 'Indica la quota capitale in scadenza per calcolarlo: (EBITDA meno imposte) su (quota capitale piu interessi).'
+                ? 'Indica la quota capitale in scadenza per calcolarlo: (EBITDA meno imposte) su (quota capitale più interessi).'
                 : 'Sotto 1 i flussi non coprono il servizio del debito; le banche chiedono di norma almeno 1,1-1,2.'
         });
 
         let pfnEbitda = null, pfnLvl, pfnBadge, pfnRef;
         if (x.PFN <= 0) {
             pfnBadge = 'Cassa netta'; pfnLvl = 'verde';
-            pfnRef = 'La liquidita supera i debiti finanziari: posizione finanziaria netta positiva.';
+            pfnRef = 'La liquidità supera i debiti finanziari: posizione finanziaria netta positiva.';
         } else if (x.MOL <= 0) {
             pfnBadge = 'Non sostenibile'; pfnLvl = 'rosso';
-            pfnRef = 'Con EBITDA nullo o negativo il debito finanziario non e ripagabile con i flussi della gestione.';
+            pfnRef = 'Con EBITDA nullo o negativo il debito finanziario non è ripagabile con i flussi della gestione.';
         } else {
             pfnEbitda = x.PFN / x.MOL;
             pfnLvl = pfnEbitda < 3 ? 'verde' : (pfnEbitda < 4 ? 'giallo' : (pfnEbitda < 6 ? 'arancio' : 'rosso'));
@@ -6289,7 +6289,7 @@
                      level: pfnLvl, badge: pfnBadge, ref: pfnRef });
 
         let pfnPn = null, lvl3 = 'neutro', b3 = '', r3 = 'Prassi: fino a 1,5 equilibrato, oltre 3 squilibrio strutturale tra debito e mezzi propri.';
-        if (x.SP15 <= 0) { b3 = 'PN non positivo'; lvl3 = 'rosso'; r3 = 'Con patrimonio netto nullo o negativo il rapporto non e significativo: priorita alla ricapitalizzazione.'; }
+        if (x.SP15 <= 0) { b3 = 'PN non positivo'; lvl3 = 'rosso'; r3 = 'Con patrimonio netto nullo o negativo il rapporto non è significativo: priorità alla ricapitalizzazione.'; }
         else if (x.PFN <= 0) { b3 = 'Cassa netta'; lvl3 = 'verde'; pfnPn = x.PFN / x.SP15; }
         else {
             pfnPn = x.PFN / x.SP15;
@@ -6308,7 +6308,7 @@
         });
 
         let cover = null, lvl5 = 'neutro', b5 = '', r5 = 'Prassi: oltre 4 solido, tra 2 e 4 da monitorare, sotto 2 fragile.';
-        if (x.CE19 <= 0) { b5 = 'Nessun onere'; lvl5 = 'verde'; r5 = 'In assenza di oneri finanziari la copertura degli interessi non e un vincolo.'; }
+        if (x.CE19 <= 0) { b5 = 'Nessun onere'; lvl5 = 'verde'; r5 = 'In assenza di oneri finanziari la copertura degli interessi non è un vincolo.'; }
         else {
             cover = x.MOL / x.CE19;
             lvl5 = cover > 4 ? 'verde' : (cover >= 2 ? 'giallo' : 'rosso');
@@ -6345,7 +6345,7 @@
         }
         idx('Oneri finanziari / Ricavi', x.CE19, x.CE01, s.of, 'ge', n => n > 0);
         idx('Patrimonio netto / Debiti totali', x.SP15 - x.SP01, x.SP21 + x.SP22, s.pn, 'le', n => n <= 0);
-        idx('Attivita a breve / Passivita a breve', x.ATT_BREVE, x.PASS_BREVE, s.liq, 'le', n => n <= 0);
+        idx('Attività a breve / Passività a breve', x.ATT_BREVE, x.PASS_BREVE, s.liq, 'le', n => n <= 0);
         idx('Cash flow / Totale attivo', x.CE25 + x.AMMORT, x.SP14, s.cf, 'le', n => n <= 0);
         idx('Debiti previdenziali e tributari / Attivo', x.DEBTRIB, x.SP14, s.trib, 'ge', n => n > 0);
         res.tuttiAccesi = res.rows.every(r => r.on);
@@ -6427,18 +6427,18 @@
     const RB_BANCHE_AGG = 'agosto 2026';
     const RB_BANCHE = [
         { id: 'intesa', politica: 'nazionale',     nome: 'Intesa Sanpaolo',                          moodys: 'Baa1', sp: 'BBB+', fitch: 'BBB',  cet1: 13.9, nota: 'Primo gruppo italiano; depositi a A3 per Moody\'s dopo il rialzo dell\'Italia.' },
-        { id: 'unicredit', politica: 'nazionale',  nome: 'UniCredit',                                moodys: 'Baa1', sp: 'BBB+', fitch: 'BBB+', cet1: 16.2, nota: 'Depositi a A3 per Moody\'s; capitalizzazione tra le piu alte dei grandi gruppi.' },
+        { id: 'unicredit', politica: 'nazionale',  nome: 'UniCredit',                                moodys: 'Baa1', sp: 'BBB+', fitch: 'BBB+', cet1: 16.2, nota: 'Depositi a A3 per Moody\'s; capitalizzazione tra le più alte dei grandi gruppi.' },
         { id: 'bancobpm', politica: 'nazionale',   nome: 'Banco BPM',                                moodys: 'Baa2', sp: 'BBB-', fitch: 'BBB',  cet1: 15.0, nota: 'Profilo di credito individuale salito a baa3 nel 2026.' },
         { id: 'bper', politica: 'nazionale',       nome: 'BPER Banca',                               moodys: 'Baa2', sp: 'BBB-', fitch: 'BBB',  cet1: 15.5, nota: 'Dal 20 aprile 2026 incorpora la Banca Popolare di Sondrio; outlook positivo.' },
-        { id: 'mps', politica: 'nazionale',        nome: 'Banca Monte dei Paschi di Siena',          moodys: 'Ba1',  sp: 'BB+',  fitch: 'BB+',  cet1: 18.0, nota: 'Con Mediobanca dal 2025 e il terzo gruppo; profilo in miglioramento, rating ancora sotto l\'investment grade.' },
+        { id: 'mps', politica: 'nazionale',        nome: 'Banca Monte dei Paschi di Siena',          moodys: 'Ba1',  sp: 'BB+',  fitch: 'BB+',  cet1: 18.0, nota: 'Con Mediobanca dal 2025 è il terzo gruppo; profilo in miglioramento, rating ancora sotto l\'investment grade.' },
         { id: 'mediobanca', politica: 'nazionale', nome: 'Mediobanca (gruppo MPS)',                  moodys: 'Baa1', sp: 'BBB',  fitch: 'BBB',  cet1: 15.2, nota: 'Dal 2025 parte del gruppo MPS.' },
-        { id: 'credem', politica: 'territoriale',     nome: 'Credito Emiliano (Credem)',                moodys: 'Baa1', sp: '',     fitch: 'BBB+', cet1: 15.5, nota: 'Storicamente tra i profili piu solidi del sistema.' },
+        { id: 'credem', politica: 'territoriale',     nome: 'Credito Emiliano (Credem)',                moodys: 'Baa1', sp: '',     fitch: 'BBB+', cet1: 15.5, nota: 'Storicamente tra i profili più solidi del sistema.' },
         { id: 'popso', politica: 'territoriale',      nome: 'Banca Popolare di Sondrio (BPER)',         moodys: '',     sp: '',     fitch: 'BBB',  dbrs: 'BBB', cet1: 15.4, nota: 'Incorporata in BPER Banca dal 20 aprile 2026: vale il profilo del gruppo BPER.' },
         { id: 'mediolanum', politica: 'specializzata', nome: 'Banca Mediolanum',                         moodys: '',     sp: '',     fitch: 'BBB+', cet1: 20.0, nota: 'Modello banca-rete; patrimonializzazione elevata.' },
         { id: 'fineco', politica: 'specializzata',     nome: 'FinecoBank',                               moodys: 'Baa1', sp: 'BBB',  fitch: '',     cet1: 24.0, nota: 'Banca diretta; capitale largamente sopra i requisiti.' },
         { id: 'bgenerali', politica: 'specializzata',  nome: 'Banca Generali',                           moodys: '',     sp: '',     fitch: '',     cet1: 16.0, nota: 'Gruppo Assicurazioni Generali; private banking.' },
         { id: 'iccrea', politica: 'territoriale',     nome: 'Gruppo BCC Iccrea',                        moodys: 'Baa3', sp: '',     fitch: 'BBB-', cet1: 22.0, nota: 'Capogruppo delle BCC aderenti: per la singola BCC vale il gruppo.' },
-        { id: 'ccb', politica: 'territoriale',        nome: 'Cassa Centrale Banca (gruppo)',            moodys: '',     sp: '',     fitch: 'BBB-', dbrs: 'BBB', cet1: 25.0, nota: 'CET1 tra i piu alti in Europa; capogruppo delle Casse Rurali aderenti.' },
+        { id: 'ccb', politica: 'territoriale',        nome: 'Cassa Centrale Banca (gruppo)',            moodys: '',     sp: '',     fitch: 'BBB-', dbrs: 'BBB', cet1: 25.0, nota: 'CET1 tra i più alti in Europa; capogruppo delle Casse Rurali aderenti.' },
         { id: 'sella', politica: 'territoriale',      nome: 'Banca Sella',                              moodys: '',     sp: '',     fitch: 'BBB-', cet1: 13.5, nota: 'Gruppo privato; forte sui servizi digitali.' },
         { id: 'desio', politica: 'territoriale',      nome: 'Banco di Desio e della Brianza',           moodys: '',     sp: '',     fitch: 'BBB-', cet1: 16.5, nota: '' },
         { id: 'ifis', politica: 'specializzata',       nome: 'Banca Ifis',                               moodys: '',     sp: '',     fitch: 'BB+',  cet1: 15.0, nota: 'Specializzata in factoring e NPL; dal 2025 controlla illimity.' },
@@ -6576,13 +6576,13 @@
                     { t: 'Piani di rientro in corso', p: 2 },
                     { t: 'Ritardi frequenti o cartelle', p: 0 }] },
                 { id: 'proattiva', testo: 'Bilancio e piani presentati alle banche in modo proattivo', op: [
-                    { t: 'Si, con incontri periodici', p: 10 },
+                    { t: 'Sì, con incontri periodici', p: 10 },
                     { t: 'Solo su richiesta della banca', p: 5 },
                     { t: 'No', p: 0 }] }
             ]
         },
         {
-            id: 'strut', titolo: 'Struttura, mercato e continuita',
+            id: 'strut', titolo: 'Struttura, mercato e continuità',
             domande: [
                 { id: 'anzianita', testo: 'Anni di attività dell\'impresa', op: [
                     { t: 'Oltre 10', p: 10 },
@@ -6784,19 +6784,19 @@
         if (mcc.fascia === 5 || mcc.sofferenze || cn.pnNeg) {
             dai('alta', 'Bilancio', 'Piano di risanamento e presidio della crisi',
                 mcc.sofferenze
-                    ? 'Con segnalazioni a sofferenza la garanzia del Fondo e preclusa: prima di ogni altra leva serve ricostruire il rapporto con le banche dentro un piano credibile.'
-                    : 'Il profilo e in area critica: servono interventi strutturali su capitale e flussi, dentro il perimetro degli adeguati assetti e degli strumenti del Codice della crisi.',
+                    ? 'Con segnalazioni a sofferenza la garanzia del Fondo è preclusa: prima di ogni altra leva serve ricostruire il rapporto con le banche dentro un piano credibile.'
+                    : 'Il profilo è in area critica: servono interventi strutturali su capitale e flussi, dentro il perimetro degli adeguati assetti e degli strumenti del Codice della crisi.',
                 RB_SERVIZI.crisi);
         }
         if (eq !== null && eq < 20) {
             dai(eq < 10 ? 'alta' : 'media', 'Bilancio', 'Patrimonializzazione',
-                'Il patrimonio netto pesa il ' + rbPct(eq, 1) + ' dell\'attivo (prassi: almeno 20%, solido oltre 35%). Aumento di capitale, rinuncia a finanziamenti soci, utili a riserva: ogni punto in piu migliora quasi tutti gli indicatori del modello.',
+                'Il patrimonio netto pesa il ' + rbPct(eq, 1) + ' dell\'attivo (prassi: almeno 20%, solido oltre 35%). Aumento di capitale, rinuncia a finanziamenti soci, utili a riserva: ogni punto in più migliora quasi tutti gli indicatori del modello.',
                 RB_SERVIZI.patrimonio);
         }
         const cPfn = trova('PFN / EBITDA');
         if (cPfn && (cPfn.level === 'rosso' || cPfn.level === 'arancio')) {
             dai('alta', 'Bilancio', 'Riequilibrio del debito finanziario',
-                'La leva PFN/EBITDA e in zona critica (' + cPfn.value + '). Allungare le scadenze, consolidare il breve termine e destinare la cassa in eccesso a riduzione del debito riporta il rapporto verso la soglia di sorveglianza (3-4 volte).',
+                'La leva PFN/EBITDA è in zona critica (' + cPfn.value + '). Allungare le scadenze, consolidare il breve termine e destinare la cassa in eccesso a riduzione del debito riporta il rapporto verso la soglia di sorveglianza (3-4 volte).',
                 RB_SERVIZI.rating);
         } else if (cPfn && cPfn.level === 'giallo') {
             dai('media', 'Bilancio', 'Sorveglianza della leva finanziaria',
@@ -6804,7 +6804,7 @@
         }
         if (bank.dscr !== null && bank.dscr < 1.2) {
             dai(bank.dscr < 1 ? 'alta' : 'media', 'Bilancio', 'DSCR e piano di tesoreria',
-                'Il DSCR e ' + rbFmt2.format(bank.dscr) + (bank.dscr < 1 ? ': i flussi non coprono il servizio del debito.' : ': sotto la soglia di comfort delle banche (1,2).') + ' Un piano di tesoreria a 12 mesi con DSCR prospettico e il primo presidio che banche e Codice della crisi si aspettano.',
+                'Il DSCR è ' + rbFmt2.format(bank.dscr) + (bank.dscr < 1 ? ': i flussi non coprono il servizio del debito.' : ': sotto la soglia di comfort delle banche (1,2).') + ' Un piano di tesoreria a 12 mesi con DSCR prospettico è il primo presidio che banche e Codice della crisi si aspettano.',
                 RB_SERVIZI.early);
         }
         const cOf = trova('Oneri finanziari / Ricavi');
@@ -6815,43 +6815,43 @@
         }
         if (x.CE01 > 0 && x.MOL / x.CE01 * 100 < 5) {
             dai('media', 'Bilancio', 'Marginalita operativa',
-                'Il MOL e il ' + rbPct(x.MOL / x.CE01 * 100, 1) + ' dei ricavi: margini sottili assorbono ogni scossone. Revisione dei listini, del mix di vendita e dei costi fissi prima di chiedere nuova finanza.', null);
+                'Il MOL è il ' + rbPct(x.MOL / x.CE01 * 100, 1) + ' dei ricavi: margini sottili assorbono ogni scossone. Revisione dei listini, del mix di vendita e dei costi fissi prima di chiedere nuova finanza.', null);
         }
         if (cn.row && cn.rows.some(r => r.on)) {
             dai(cn.tuttiAccesi ? 'alta' : 'media', 'Bilancio', 'Indici della crisi CNDCEC',
-                (cn.tuttiAccesi ? 'TUTTI gli indici settoriali CNDCEC sono oltre soglia: e un segnale di allerta rilevante ex art. 3 del Codice della crisi.'
+                (cn.tuttiAccesi ? 'TUTTI gli indici settoriali CNDCEC sono oltre soglia: è un segnale di allerta rilevante ex art. 3 del Codice della crisi.'
                                 : 'Alcuni indici settoriali CNDCEC sono oltre soglia.')
                 + ' Il monitoraggio continuo dentro gli adeguati assetti evita che diventino segnalazioni.',
                 RB_SERVIZI.early);
         }
         if (es.z && rbZonaZ(es.z) === 'rischio') {
             dai('media', 'Bilancio', 'Z-Score in zona di rischio',
-                'Lo Z-Score (' + rbFmt2.format(es.z.value) + ') colloca l\'impresa nell\'area di rischio del modello di Altman: rafforza il messaggio degli altri indicatori sulla necessita di intervenire su capitale e margini.', null);
+                'Lo Z-Score (' + rbFmt2.format(es.z.value) + ') colloca l\'impresa nell\'area di rischio del modello di Altman: rafforza il messaggio degli altri indicatori sulla necessità di intervenire su capitale e margini.', null);
         }
 
         // --- banche e andamentale ---
         if (mcc.cr && mcc.cr.c2 > 0) {
             dai('alta', 'Banche', 'Azzerare gli sconfinamenti',
-                'La Centrale dei Rischi registra ' + mcc.cr.c2 + (mcc.cr.c2 === 1 ? ' mese' : ' mesi') + ' con sconfino di cassa negli ultimi sei: e la variabile che piu pesa sul modulo andamentale. Pianificare i picchi di tesoreria e chiedere fidi adeguati PRIMA di usarli.',
+                'La Centrale dei Rischi registra ' + mcc.cr.c2 + (mcc.cr.c2 === 1 ? ' mese' : ' mesi') + ' con sconfino di cassa negli ultimi sei: è la variabile che più pesa sul modulo andamentale. Pianificare i picchi di tesoreria e chiedere fidi adeguati PRIMA di usarli.',
                 RB_SERVIZI.early);
         }
         if (ban.utilizzoMedio !== null && ban.utilizzoMedio > 80) {
             dai('media', 'Banche', 'Allentare la tensione sugli affidamenti',
-                'L\'utilizzo medio degli affidamenti dichiarati e il ' + rbPct(ban.utilizzoMedio, 0) + ': sopra l\'80% le banche leggono tensione di liquidita. Ampliare gli accordati o smobilizzare il circolante (anticipi, factoring) riporta l\'utilizzo in zona fisiologica (60-70%).', null);
+                'L\'utilizzo medio degli affidamenti dichiarati è il ' + rbPct(ban.utilizzoMedio, 0) + ': sopra l\'80% le banche leggono tensione di liquidità. Ampliare gli accordati o smobilizzare il circolante (anticipi, factoring) riporta l\'utilizzo in zona fisiologica (60-70%).', null);
         } else if (ban.conTensione > 0) {
             dai('media', 'Banche', 'Rientrare dalle tensioni sui singoli rapporti',
-                ban.conTensione + (ban.conTensione === 1 ? ' rapporto bancario e in tensione' : ' rapporti bancari sono in tensione') + ' (sconfini dichiarati o utilizzo oltre l\'85%): e li che il rating andamentale della singola banca si deteriora per primo. Concordare il rientro e monitorare il rapporto ogni mese.', RB_SERVIZI.early);
+                ban.conTensione + (ban.conTensione === 1 ? ' rapporto bancario è in tensione' : ' rapporti bancari sono in tensione') + ' (sconfini dichiarati o utilizzo oltre l\'85%): è lì che il rating andamentale della singola banca si deteriora per primo. Concordare il rientro e monitorare il rapporto ogni mese.', RB_SERVIZI.early);
         }
         if (ban.numero === 1) {
             dai('media', 'Banche', 'Diversificare gli istituti',
-                'L\'impresa lavora con una sola banca: un rapporto esclusivo indebolisce il potere negoziale e concentra il rischio di revoca. Un secondo istituto, scelto tra quelli piu solidi, riequilibra la relazione.', RB_SERVIZI.rating);
+                'L\'impresa lavora con una sola banca: un rapporto esclusivo indebolisce il potere negoziale e concentra il rischio di revoca. Un secondo istituto, scelto tra quelli più solidi, riequilibra la relazione.', RB_SERVIZI.rating);
         } else if (ban.quotaMax > 60) {
             dai('media', 'Banche', 'Ridurre la concentrazione bancaria',
                 'La prima banca pesa il ' + rbPct(ban.quotaMax, 0) + ' degli affidamenti: distribuire meglio gli utilizzi riduce la dipendenza da un solo istituto.', null);
         }
         if (ban.fragili > 0) {
-            dai('media', 'Banche', 'Presidiare le controparti piu deboli',
-                ban.fragili + (ban.fragili === 1 ? ' istituto ha' : ' istituti hanno') + ' un profilo di solidita speculativo o fragile: non e un\'urgenza, ma nelle scelte di nuova finanza conviene privilegiare le controparti investment grade.', null);
+            dai('media', 'Banche', 'Presidiare le controparti più deboli',
+                ban.fragili + (ban.fragili === 1 ? ' istituto ha' : ' istituti hanno') + ' un profilo di solidità speculativo o fragile: non è un\'urgenza, ma nelle scelte di nuova finanza conviene privilegiare le controparti investment grade.', null);
         }
         if (quest.perc < 60 || !quest.completo) {
             const dom = q => rbDomande().find(d => d.id === q);
@@ -6861,7 +6861,7 @@
             };
             const basso = (q, soglia) => { const p = punteggio(q); return p !== null && p <= soglia; };
             if (basso('crlettura', 5)) dai('media', 'Banche', 'Leggere la Centrale dei Rischi ogni mese',
-                'La CR e il biglietto da visita andamentale: va richiesta e letta ogni mese, per correggere gli errori di segnalazione e anticipare le domande della banca.', RB_SERVIZI.early);
+                'La CR è il biglietto da visita andamentale: va richiesta e letta ogni mese, per correggere gli errori di segnalazione e anticipare le domande della banca.', RB_SERVIZI.early);
             if (basso('proattiva', 5)) dai('spunto', 'Banche', 'Comunicazione finanziaria proattiva',
                 'Portare in banca bilancio, piani e rating PRIMA che vengano chiesti sposta la relazione dal sospetto alla fiducia, e si paga in spread.', RB_SERVIZI.rating);
         }
@@ -6875,23 +6875,23 @@
         if (manca('controllo', 3) || manca('piani', 3)) dai('media', 'Governance', 'Controllo di gestione e pianificazione',
             'Senza budget, piano e reporting periodico ogni discussione con la banca parte in salita: sono i numeri che il rating interno legge per primi.', RB_SERVIZI.assetti);
         if (manca('mod231', 3)) dai('media', 'Governance', 'Adottare il Modello 231',
-            'Il Modello 231 con OdV attivo riduce il rischio sanzionatorio, e premiato nei bandi e nel rating di legalita e qualifica la governance agli occhi delle banche.', RB_SERVIZI.mod231);
+            'Il Modello 231 con OdV attivo riduce il rischio sanzionatorio, è premiato nei bandi e nel rating di legalità e qualifica la governance agli occhi delle banche.', RB_SERVIZI.mod231);
         if (manca('legalita', 4)) dai('spunto', 'Governance', 'Richiedere il rating di legalita',
-            'Con il rating di legalita AGCM le banche devono tenere conto del punteggio nell\'istruttoria (DM 57/2014): costa poco e vale in ogni pratica di fido.', RB_SERVIZI.legalita);
+            'Con il rating di legalità AGCM le banche devono tenere conto del punteggio nell\'istruttoria (DM 57/2014): costa poco e vale in ogni pratica di fido.', RB_SERVIZI.legalita);
         if (manca('esg', 0)) dai('spunto', 'Governance', 'Avviare il percorso ESG',
-            'Le banche raccolgono gia dati ESG sulle imprese affidate: un percorso di sostenibilita documentato migliora l\'accesso ai plafond dedicati e anticipa le richieste della filiera.', RB_SERVIZI.esg);
+            'Le banche raccolgono già dati ESG sulle imprese affidate: un percorso di sostenibilità documentato migliora l\'accesso ai plafond dedicati e anticipa le richieste della filiera.', RB_SERVIZI.esg);
         if (manca('tcf', 0)) dai('spunto', 'Governance', 'Valutare il Tax Control Framework',
-            'Il presidio del rischio fiscale (fino all\'adempimento collaborativo) riduce il contenzioso potenziale, che per la banca e passivo latente.', RB_SERVIZI.tcf);
+            'Il presidio del rischio fiscale (fino all\'adempimento collaborativo) riduce il contenzioso potenziale, che per la banca è passivo latente.', RB_SERVIZI.tcf);
 
         // --- dettagli delle voci, rettifiche, soggetti e gruppo ---
         const det = es.dettagliInput || {};
         const dNum = k => rbNum(det[k]) || 0;
         if (dNum('tribScaduto') > 0) {
             dai('alta', 'Bilancio', 'Regolarizzare i debiti fiscali scaduti',
-                eurFmt.format(dNum('tribScaduto')) + ' di debiti tributari e previdenziali scaduti senza rateizzazione: per la banca e uno dei segnali peggiori (DURC, ipoteche, segnalazioni). Rateizzare subito e documentare la regolarita nelle istruttorie.', RB_SERVIZI.tcf);
+                eurFmt.format(dNum('tribScaduto')) + ' di debiti tributari e previdenziali scaduti senza rateizzazione: per la banca è uno dei segnali peggiori (DURC, ipoteche, segnalazioni). Rateizzare subito e documentare la regolarità nelle istruttorie.', RB_SERVIZI.tcf);
         }
         if (x.SP07 > 0 && dNum('creditiScaduti') > x.SP07 * 0.15) {
-            dai('media', 'Bilancio', 'Qualita del portafoglio crediti',
+            dai('media', 'Bilancio', 'Qualità del portafoglio crediti',
                 'I crediti scaduti da oltre 90 giorni sono ' + eurFmt.format(dNum('creditiScaduti')) + ', oltre il 15% dei crediti a breve: solleciti strutturati, anticipo fatture selettivo e valutazione della cessione riportano il circolante a girare.', null);
         }
         if (dNum('magazzinoObsoleto') > 0) {
@@ -6915,11 +6915,11 @@
                 'Gli eventi dichiarati a carico di amministratori compromettono ogni istruttoria: valutare la ricomposizione dell\'organo amministrativo o la regolarizzazione documentata delle posizioni, prima di nuove richieste di fido.', null);
         } else if (es.soggetti.compilato && es.soggetti.punti.some(p => p.tipo === 'attenzione')) {
             dai('media', 'Governance', 'Trasparenza della compagine e verifiche sui soggetti',
-                'Fiduciarie, soci esteri o posizioni non verificate: preparare in anticipo la documentazione sulla titolarita effettiva (UBO) e le visure su protesti e pregiudizievoli accorcia ogni istruttoria.', null);
+                'Fiduciarie, soci esteri o posizioni non verificate: preparare in anticipo la documentazione sulla titolarità effettiva (UBO) e le visure su protesti e pregiudizievoli accorcia ogni istruttoria.', null);
         }
         if (es.gruppo.notch > 0) {
             dai('media', 'Bilancio', 'Riequilibrare i flussi verso il gruppo',
-                'Il gruppo assorbe risorse dall\'impresa: formalizzare i rapporti infragruppo a condizioni di mercato e ridurre il drenaggio di cassa restituisce autonomia al merito creditizio della societa.', RB_SERVIZI.patrimonio);
+                'Il gruppo assorbe risorse dall\'impresa: formalizzare i rapporti infragruppo a condizioni di mercato e ridurre il drenaggio di cassa restituisce autonomia al merito creditizio della società.', RB_SERVIZI.patrimonio);
         }
         // --- scoring e presidio CCII ---
         if (es.scoring.presidio.segnaliPresenti > 0) {
@@ -6929,11 +6929,11 @@
         }
         if (es.mcc.declassamento) {
             dai('alta', 'Bilancio', 'Cancellare i pregiudizievoli di conservatoria',
-                'Ipoteche giudiziali, pignoramenti o domande giudiziali a carico dell\'impresa declassano il rating MCC di 2 classi (qui dalla ' + es.mcc.integrataBase + ' alla ' + es.mcc.integrata + '): definire le posizioni e ottenere le cancellazioni in conservatoria e la leva piu rapida sull\'ammissibilita.', RB_SERVIZI.crisi);
+                'Ipoteche giudiziali, pignoramenti o domande giudiziali a carico dell\'impresa declassano il rating MCC di 2 classi (qui dalla ' + es.mcc.integrataBase + ' alla ' + es.mcc.integrata + '): definire le posizioni e ottenere le cancellazioni in conservatoria è la leva più rapida sull\'ammissibilità.', RB_SERVIZI.crisi);
         }
         if (es.mcc.eventoGrave) {
             dai('alta', 'Bilancio', 'Evento del tipo fallimento: percorso dedicato',
-                'Con un evento del tipo fallimento la garanzia del Fondo e preclusa in via ordinaria: ogni richiesta di credito va costruita su un percorso di risanamento documentato e sugli strumenti del Codice della crisi.', RB_SERVIZI.crisi);
+                'Con un evento del tipo fallimento la garanzia del Fondo è preclusa in via ordinaria: ogni richiesta di credito va costruita su un percorso di risanamento documentato e sugli strumenti del Codice della crisi.', RB_SERVIZI.crisi);
         }
         if (es.scoring.andam.righe.some(r2 => r2.nome.indexOf('Garanzie escusse') === 0 && r2.punteggio === 0)) {
             dai('alta', 'Banche', 'Escussioni o revoche recenti da ricostruire',
@@ -6942,11 +6942,11 @@
         // --- check-up del manuale operativo ---
         if (es.checkup.c1 > 0) {
             dai('alta', 'Governance', 'Trattare i rilievi critici del check-up (C1)',
-                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo critico (C1) è aperto' : ' rilievi critici (C1) sono aperti') + ': vanno comunicati per iscritto all\'organo amministrativo entro pochi giorni con azione urgente (la lettera si genera dalla fase delle priorità del percorso), ed escludono le classi di sintesi A e B finche non sono trattati.', RB_SERVIZI.assetti);
+                es.checkup.c1 + (es.checkup.c1 === 1 ? ' rilievo critico (C1) è aperto' : ' rilievi critici (C1) sono aperti') + ': vanno comunicati per iscritto all\'organo amministrativo entro pochi giorni con azione urgente (la lettera si genera dalla fase delle priorità del percorso), ed escludono le classi di sintesi A e B finché non sono trattati.', RB_SERVIZI.assetti);
         }
         if (es.checkup.avviato && es.checkup.sospeso) {
             dai('media', 'Governance', 'Completare i punteggi del nucleo inderogabile del check-up',
-                'Alcuni moduli indispensabili (A3-A8: analisi economica, circolante, capacita di rimborso, banche e Centrale Rischi, tesoreria, assetti) sono senza punteggio: la classe di sintesi non si determina finche le valutazioni non sono completate.', null);
+                'Alcuni moduli indispensabili (A3-A8: analisi economica, circolante, capacità di rimborso, banche e Centrale Rischi, tesoreria, assetti) sono senza punteggio: la classe di sintesi non si determina finché le valutazioni non sono completate.', null);
         }
 
         const ordine = { alta: 0, media: 1, spunto: 2 };
@@ -7225,12 +7225,12 @@
         let html = '<strong>Centrale dei Rischi importata</strong>' +
             (res.intestatario ? ' (' + esc(res.intestatario) + ')' : '') + ': lette ' +
             (res.months.length === 1 ? '1 rilevazione mensile' : res.months.length + ' rilevazioni mensili') +
-            (res.totaliMesi > 6 ? ' (le 6 piu recenti su ' + res.totaliMesi + ' presenti nel prospetto)' : '') +
+            (res.totaliMesi > 6 ? ' (le 6 più recenti su ' + res.totaliMesi + ' presenti nel prospetto)' : '') +
             ', ' + res.intermediari + (res.intermediari === 1 ? ' intermediario segnalante' : ' intermediari segnalanti') +
             ', sofferenze: ' + (res.sofferenze ? 'presenti' : 'non presenti') +
             '. Verifica i valori nella griglia e salva la verifica.';
         const warn = res.months.length < 6;
-        if (warn) html += '<ul><li>Il prospetto contiene meno di 6 mensilita: il modello MCC usa gli ultimi 6 mesi, completa la griglia se disponi degli altri dati.</li></ul>';
+        if (warn) html += '<ul><li>Il prospetto contiene meno di 6 mensilità: il modello MCC usa gli ultimi 6 mesi, completa la griglia se disponi degli altri dati.</li></ul>';
         statoImportCr = { classe: warn ? 'warn' : 'ok', html };
     }
 
@@ -7272,7 +7272,7 @@
     function rbParseXbrl(xmlText) {
         const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
         if (doc.getElementsByTagName('parsererror').length) {
-            return { error: 'Il file non e un XML valido.' };
+            return { error: 'Il file non è un XML valido.' };
         }
         const all = doc.getElementsByTagName('*');
         let i, node;
@@ -7430,7 +7430,7 @@
         const totCrediti = p.pick('TotaleCrediti', p.curI);
         if (credEntro === null && totCrediti !== null) {
             credEntro = totCrediti - impAnt; credOltre = 0;
-            w.push('La ripartizione dei crediti tra entro e oltre l\'esercizio non e presente nel file: il totale e stato attribuito alla quota entro l\'esercizio. Verifica il dato.');
+            w.push('La ripartizione dei crediti tra entro e oltre l\'esercizio non è presente nel file: il totale è stato attribuito alla quota entro l\'esercizio. Verifica il dato.');
             attn.push('creditiEntro', 'creditiOltre');
         }
         if (credEntro !== null) setIf('creditiEntro', credEntro);
@@ -7457,7 +7457,7 @@
         const totDebiti = p.pick('TotaleDebiti', p.curI);
         if (debEntro === null && totDebiti !== null) {
             debEntro = totDebiti; debOltre = 0;
-            w.push('La ripartizione dei debiti tra entro e oltre l\'esercizio non e presente nel file: il totale e stato attribuito alla quota entro l\'esercizio. Verifica il dato.');
+            w.push('La ripartizione dei debiti tra entro e oltre l\'esercizio non è presente nel file: il totale è stato attribuito alla quota entro l\'esercizio. Verifica il dato.');
             attn.push('debitiEntro', 'debitiOltre');
         }
         if (debEntro !== null) setIf('debitiEntro', debEntro);
@@ -7494,7 +7494,7 @@
             if (finT.found) {
                 setIf('debFinBreve', finT.value);
                 setIf('debFinLungo', 0);
-                w.push('La ripartizione del debito finanziario tra breve e medio-lungo termine non e presente nel file: l\'importo complessivo e stato indicato nella quota entro 12 mesi (ai fini della PFN conta solo la somma). Ripartiscilo se vuoi maggiore precisione.');
+                w.push('La ripartizione del debito finanziario tra breve e medio-lungo termine non è presente nel file: l\'importo complessivo è stato indicato nella quota entro 12 mesi (ai fini della PFN conta solo la somma). Ripartiscilo se vuoi maggiore precisione.');
             } else {
                 w.push('Il bilancio ' + p.schema + ' non espone il dettaglio dei debiti verso banche e finanziatori: inserisci manualmente il debito finanziario per PFN e DSCR.');
             }
@@ -7516,7 +7516,7 @@
         const filled = Object.keys(out).length;
         if (!filled) return { error: 'Nel file non sono state trovate voci di bilancio della tassonomia italiana itcc-ci.' };
 
-        w.push('La quota capitale dei finanziamenti in scadenza nei prossimi 12 mesi non e desumibile dal bilancio: inseriscila per calcolare il DSCR.');
+        w.push('La quota capitale dei finanziamenti in scadenza nei prossimi 12 mesi non è desumibile dal bilancio: inseriscila per calcolare il DSCR.');
         attn.push('quotaCapitale');
 
         return {
@@ -7570,12 +7570,12 @@
         { id: 'magazzinoObsoleto', et: 'Rimanenze obsolete o a lento rigiro',                    hint: 'rettifica prudenziale del 50%' },
         { id: 'rivalutazioni',    et: 'Rivalutazioni comprese nel patrimonio netto',             hint: 'la banca le sterilizza per intero' },
         { id: 'tribScaduto',      et: 'Debiti tributari e previdenziali SCADUTI non rateizzati', hint: 'segnale grave in ogni istruttoria (DURC, ipoteche)' },
-        { id: 'tribRateizzato',   et: 'Debiti tributari in rateizzazione regolare',              hint: 'da dichiarare: la regolarita pesa a favore' },
+        { id: 'tribRateizzato',   et: 'Debiti tributari in rateizzazione regolare',              hint: 'da dichiarare: la regolarità pesa a favore' },
         { id: 'finSoci',          et: 'Finanziamenti soci compresi nei debiti finanziari',       hint: 'se postergati diventano quasi-capitale' },
         { id: 'leasingResiduo',   et: 'Debito residuo dei leasing non iscritti (impegni)',       hint: 'entra nella PFN estesa e tra le immobilizzazioni' },
         { id: 'fideiussioni',     et: 'Fideiussioni e garanzie prestate a terzi o al gruppo',    hint: 'impegni fuori bilancio: la banca li somma al rischio' },
-        { id: 'infragruppoCrediti', et: 'Crediti verso societa del gruppo compresi nei crediti', hint: 'rilevano per concentrazione e sostegno al gruppo' },
-        { id: 'infragruppoDebiti',  et: 'Debiti verso societa del gruppo',                       hint: '' }
+        { id: 'infragruppoCrediti', et: 'Crediti verso società del gruppo compresi nei crediti', hint: 'rilevano per concentrazione e sostegno al gruppo' },
+        { id: 'infragruppoDebiti',  et: 'Debiti verso società del gruppo',                       hint: '' }
     ];
 
     function rbRettifiche(v, sec, cr) {
@@ -7636,7 +7636,7 @@
        storia. Fiduciarie e catene estere allungano l'istruttoria;
        pregiudizievoli sugli amministratori la compromettono.
     ------------------------------------------------------------ */
-    const RB_TIPI_SOCIO = { pf: 'Persona fisica', pg: 'Societa italiana', fiduciaria: 'Fiduciaria', estero: 'Soggetto estero' };
+    const RB_TIPI_SOCIO = { pf: 'Persona fisica', pg: 'Società italiana', fiduciaria: 'Fiduciaria', estero: 'Soggetto estero' };
     function rbProfiloSoggetti(v) {
         const soci = v.soci || [];
         const amm = v.amministratori || [];
@@ -7655,14 +7655,14 @@
         }
         if (soci.some(s => s.tipo === 'fiduciaria' || s.tipo === 'estero')) {
             alza('attenzione');
-            punti.push({ tipo: 'attenzione', testo: 'Presenza di fiduciarie o soci esteri: la banca chiede la titolarita effettiva (UBO) e la trasparenza allunga o blocca l\'istruttoria.' });
+            punti.push({ tipo: 'attenzione', testo: 'Presenza di fiduciarie o soci esteri: la banca chiede la titolarità effettiva (UBO) e la trasparenza allunga o blocca l\'istruttoria.' });
         }
         if (soci.length === 1) {
-            punti.push({ tipo: 'nota', testo: soci[0].tipo === 'pf' ? 'Socio unico persona fisica: la continuita dipende da una persona sola.' : 'Socio unico: verifica il gruppo di appartenenza.' });
+            punti.push({ tipo: 'nota', testo: soci[0].tipo === 'pf' ? 'Socio unico persona fisica: la continuità dipende da una persona sola.' : 'Socio unico: verifica il gruppo di appartenenza.' });
         }
         const controllantePg = soci.find(s => (s.tipo === 'pg' || s.tipo === 'estero') && (rbNum(s.quota) || 0) > 50);
         if (controllantePg) {
-            punti.push({ tipo: 'nota', testo: 'Controllo societario di ' + (controllantePg.nome || 'una societa') + ': compila la sezione del gruppo.' });
+            punti.push({ tipo: 'nota', testo: 'Controllo societario di ' + (controllantePg.nome || 'una società') + ': compila la sezione del gruppo.' });
         }
         if (amm.some(a => a.pregiudizievoli === 'si')) {
             alza('critico');
@@ -7696,7 +7696,7 @@
         if (g.sostegno === 'rafforza') {
             if (g.consolidato === 'si') {
                 notch = -1;
-                punti.push({ tipo: 'ok', testo: 'Gruppo che rafforza, con bilancio consolidato disponibile: il sostegno e documentabile e vale un gradino a favore.' });
+                punti.push({ tipo: 'ok', testo: 'Gruppo che rafforza, con bilancio consolidato disponibile: il sostegno è documentabile e vale un gradino a favore.' });
             } else {
                 punti.push({ tipo: 'attenzione', testo: 'Sostegno del gruppo dichiarato ma senza consolidato: per farlo pesare in banca servono consolidato o lettere di patronage.' });
             }
@@ -7706,13 +7706,13 @@
         }
         if (g.garanziePrestate) {
             livello = livello === 'ok' ? 'attenzione' : livello;
-            punti.push({ tipo: 'attenzione', testo: 'Garanzie prestate a favore di societa del gruppo: impegni fuori bilancio che la banca somma all\'esposizione.' });
+            punti.push({ tipo: 'attenzione', testo: 'Garanzie prestate a favore di società del gruppo: impegni fuori bilancio che la banca somma all\'esposizione.' });
         }
         if (g.garanzieRicevute) {
             punti.push({ tipo: 'ok', testo: 'Garanzie ricevute dal gruppo: mitigano la perdita attesa nelle delibere.' });
         }
         if (g.cashPooling) {
-            punti.push({ tipo: 'nota', testo: 'Cash pooling attivo: la liquidita di bilancio va letta insieme ai saldi verso la tesoreria di gruppo.' });
+            punti.push({ tipo: 'nota', testo: 'Cash pooling attivo: la liquidità di bilancio va letta insieme ai saldi verso la tesoreria di gruppo.' });
         }
         return { compilato: true, livello, notch, punti };
     }
@@ -7730,7 +7730,7 @@
         nazionale: { nome: 'Grande gruppo nazionale', testo: 'Modelli interni standardizzati: pesano bilancio e andamentale, poco la relazione personale.' },
         territoriale: { nome: 'Banca del territorio', testo: 'Componente relazionale vera: la storia del rapporto e la conoscenza diretta contano nel giudizio.' },
         estero: { nome: 'Gruppo estero', testo: 'Politiche di credito della capogruppo: soglie rigide su capitalizzazione e leva finanziaria.' },
-        specializzata: { nome: 'Banca specializzata', testo: 'Operativita mirata (factoring, digitale, private banking): il credito ordinario segue logiche di prodotto.' }
+        specializzata: { nome: 'Banca specializzata', testo: 'Operatività mirata (factoring, digitale, private banking): il credito ordinario segue logiche di prodotto.' }
     };
     const RB_ANZIANITA = { nuovo: 'meno di 2 anni', medio: 'da 2 a 5 anni', storico: 'oltre 5 anni' };
     function rbStimaIstituto(par) {
@@ -7777,7 +7777,7 @@
                     <input type="text" inputmode="decimal" data-det="${c.id}" value="${esc(rbFmtNum(rbNum(det[c.id])))}">
                     ${c.hint ? '<div class="hint">' + esc(c.hint) + '</div>' : ''}</div>`).join('')}
                 <div class="campo"><label>I finanziamenti soci sono postergati o destinati a capitale?</label>
-                    <select data-det-sel="finSociPostergati">${[['', '-'], ['si', 'Si'], ['no', 'No']].map(o => `<option value="${o[0]}" ${det.finSociPostergati === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                    <select data-det-sel="finSociPostergati">${[['', '-'], ['si', 'Sì'], ['no', 'No']].map(o => `<option value="${o[0]}" ${det.finSociPostergati === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
             </div>
         </div>`;
     }
@@ -7795,11 +7795,11 @@
                 <h2>Gruppo societario</h2>
                 <p class="hint" style="margin:-6px 0 12px;">L'appartenenza a un gruppo cambia la lettura della banca: sostegno documentabile a favore, drenaggio di risorse a sfavore. Le garanzie infragruppo sono impegni da dichiarare.</p>
                 <div class="griglia-3">
-                    <div class="campo"><label>L'impresa appartiene a un gruppo?</label>${sel('appartiene', g.appartiene || '', [['', '-'], ['si', 'Si'], ['no', 'No']])}</div>
+                    <div class="campo"><label>L'impresa appartiene a un gruppo?</label>${sel('appartiene', g.appartiene || '', [['', '-'], ['si', 'Sì'], ['no', 'No']])}</div>
                     ${g.appartiene === 'si' ? `
                     <div class="campo"><label>Capogruppo / controllante</label><input type="text" data-gr-txt="capogruppo" value="${esc(g.capogruppo || '')}"></div>
                     <div class="campo"><label>Quota di controllo (%)</label><input type="text" inputmode="decimal" data-gr-txt="quotaControllo" value="${esc(g.quotaControllo || '')}"></div>
-                    <div class="campo"><label>Bilancio consolidato disponibile?</label>${sel('consolidato', g.consolidato || '', [['', '-'], ['si', 'Si'], ['no', 'No']])}</div>
+                    <div class="campo"><label>Bilancio consolidato disponibile?</label>${sel('consolidato', g.consolidato || '', [['', '-'], ['si', 'Sì'], ['no', 'No']])}</div>
                     <div class="campo"><label>Effetto del gruppo sull'impresa</label>${sel('sostegno', g.sostegno || '', [['', '-'], ['rafforza', 'Rafforza (capogruppo solida, sostegno reale)'], ['neutro', 'Neutro'], ['assorbe', 'Assorbe risorse (finanzia il gruppo)']])}</div>` : ''}
                 </div>
                 ${g.appartiene === 'si' ? `
@@ -7812,19 +7812,19 @@
             </div>
             <div class="card">
                 <h2>Eventi pregiudizievoli dell'impresa (visure di conservatoria e procedure)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Le Disposizioni Operative del Fondo li applicano direttamente sulla classe MCC: ipoteche giudiziali, pignoramenti, ipoteche legali e domande giudiziali declassano di DUE classi; un evento del tipo fallimento rende non ammissibile la garanzia. Qui si dichiarano quelli a carico dell'IMPRESA (per gli amministratori c'e il riquadro sotto).</p>
+                <p class="hint" style="margin:-6px 0 12px;">Le Disposizioni Operative del Fondo li applicano direttamente sulla classe MCC: ipoteche giudiziali, pignoramenti, ipoteche legali e domande giudiziali declassano di DUE classi; un evento del tipo fallimento rende non ammissibile la garanzia. Qui si dichiarano quelli a carico dell'IMPRESA (per gli amministratori c'è il riquadro sotto).</p>
                 <div class="griglia-3">
                     <div class="campo"><label>Ipoteca giudiziale, pignoramento, ipoteca legale o domanda giudiziale</label>
-                        <select data-ev-sel="pregiudizievoli">${[['', '-'], ['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${((v.eventi || {}).pregiudizievoli || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+                        <select data-ev-sel="pregiudizievoli">${[['', '-'], ['no', 'No'], ['si', 'Sì']].map(o => `<option value="${o[0]}" ${((v.eventi || {}).pregiudizievoli || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
                         <div class="hint">se presenti: declassamento MCC di 2 classi (tetto alla 12)</div></div>
                     <div class="campo"><label>Fallimento o procedure similari (anche pregresse rilevanti)</label>
-                        <select data-ev-sel="gravi">${[['', '-'], ['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${((v.eventi || {}).gravi || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
+                        <select data-ev-sel="gravi">${[['', '-'], ['no', 'No'], ['si', 'Sì']].map(o => `<option value="${o[0]}" ${((v.eventi || {}).gravi || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
                         <div class="hint">se presenti: garanzia del Fondo NON ammissibile</div></div>
                 </div>
             </div>
             <div class="card">
                 <h2>Compagine sociale</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Chi possiede l'impresa: le banche verificano la titolarita effettiva (UBO). Fiduciarie e catene estere allungano l'istruttoria.</p>
+                <p class="hint" style="margin:-6px 0 12px;">Chi possiede l'impresa: le banche verificano la titolarità effettiva (UBO). Fiduciarie e catene estere allungano l'istruttoria.</p>
                 ${soci.map((s, i) => `<div class="rb-riga-soggetto">
                     <div class="campo"><label>Socio</label><input type="text" data-soc-idx="${i}" data-soc-campo="nome" value="${esc(s.nome || '')}"></div>
                     <div class="campo"><label>Tipo</label><select data-soc-idx="${i}" data-soc-campo="tipo">${Object.keys(RB_TIPI_SOCIO).map(t => `<option value="${t}" ${s.tipo === t ? 'selected' : ''}>${RB_TIPI_SOCIO[t]}</option>`).join('')}</select></div>
@@ -7855,7 +7855,7 @@
         if (!es.rett.attive) return '';
         const m = es.rett.mcc;
         const diff = m.integrata - es.mcc.integrata;
-        const frase = diff > 0 ? 'Con le rettifiche prudenziali la classe MCC passa da ' + es.mcc.integrata + ' a ' + m.integrata + ' (PD ' + rbPct(m.pd, 2) + '): e la distanza tra il bilancio come lo leggi tu e come lo legge l\'analista fidi.'
+        const frase = diff > 0 ? 'Con le rettifiche prudenziali la classe MCC passa da ' + es.mcc.integrata + ' a ' + m.integrata + ' (PD ' + rbPct(m.pd, 2) + '): è la distanza tra il bilancio come lo leggi tu e come lo legge l\'analista fidi.'
             : diff < 0 ? 'Le rettifiche prudenziali MIGLIORANO la classe MCC da ' + es.mcc.integrata + ' a ' + m.integrata + ' (PD ' + rbPct(m.pd, 2) + '): i finanziamenti soci postergati trattati come capitale sono un argomento negoziale da documentare alla banca.'
             : 'Le rettifiche prudenziali dichiarate non spostano la classe: il bilancio regge la lettura della banca.';
         return `<div class="rb-sottotitolo">Il bilancio come lo legge la banca</div>
@@ -8109,10 +8109,10 @@
             const principale = ban.righe.slice().sort((a, bb) => (bb.quota || 0) - (a.quota || 0))[0];
             if (principale && principale.anzianita) anzAnni = RB_ANZIANITA_ANNI[principale.anzianita] || null;
         }
-        puntoA('Anzianita rapporto banca principale', anzAnni === null ? 'n.d.' : '~' + anzAnni + ' anni',
+        puntoA('Anzianità rapporto banca principale', anzAnni === null ? 'n.d.' : '~' + anzAnni + ' anni',
             anzAnni === null ? 60 : rbSoglia(RB_SCORING.anzianita, anzAnni), 0.05, 'dal passo Banche');
         const escusse = sc.garanzieEscusse || 'no';
-        puntoA('Garanzie escusse o revoche (24 mesi)', escusse === 'si' ? 'Si' : 'No', escusse === 'si' ? 0 : 100, 0.10);
+        puntoA('Garanzie escusse o revoche (24 mesi)', escusse === 'si' ? 'Sì' : 'No', escusse === 'si' ? 0 : 100, 0.10);
         const scoreAndam = righeA.reduce((s, r) => s + r.contributo, 0) / righeA.reduce((s, r) => s + r.peso, 0);
 
         // ---- modulo qualitativo: il questionario della verifica (0-100) ----
@@ -8138,7 +8138,7 @@
 
         // ---- presidio crisi e adeguati assetti (CCII) ----
         const ccii = sc.ccii || {};
-        const giudizioDscr = dscrS === null ? 'Verificare' : (dscrS >= 1.1 ? 'Adeguato' : (dscrS >= 1 ? 'Al limite' : 'Criticita'));
+        const giudizioDscr = dscrS === null ? 'Verificare' : (dscrS >= 1.1 ? 'Adeguato' : (dscrS >= 1 ? 'Al limite' : 'Criticità'));
         const espTot = rbNum(ccii.espTotali) !== null ? rbNum(ccii.espTotali) : (x.DEBFINB + x.DEBFINL);
         const espScad = rbNum(ccii.espScadute60) || 0;
         const segnaleBanche = espTot > 0 && espScad / espTot >= 0.05;
@@ -8179,7 +8179,7 @@
                 <div class="kpi ${badgeClasse}"><div class="etichetta">Classe interna simulata</div><div class="valore">${s.classe} / 10</div><div class="nota">${esc(s.giudizio)}</div></div>
                 <div class="kpi ${s.presidio.segnaliPresenti ? 'rosso' : 'verde'}"><div class="etichetta">Presidio CCII (art. 3)</div>
                     <div class="valore">${s.presidio.segnaliPresenti ? s.presidio.segnaliPresenti + (s.presidio.segnaliPresenti === 1 ? ' segnale' : ' segnali') : 'Nessun segnale'}</div>
-                    <div class="nota">DSCR prospettico ${s.presidio.dscr === null ? 'n.d.' : rbFmt2.format(s.presidio.dscr)}: ${esc(s.presidio.giudizioDscr)} (nel cruscotto c'e il DSCR semplificato)</div></div>
+                    <div class="nota">DSCR prospettico ${s.presidio.dscr === null ? 'n.d.' : rbFmt2.format(s.presidio.dscr)}: ${esc(s.presidio.giudizioDscr)} (nel cruscotto c'è il DSCR semplificato)</div></div>
             </div>
             <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Modulo</th><th class="num">Score (0-100)</th><th class="num">Peso (${esc(s.dimensione.nome)})</th><th class="num">Contributo</th></tr></thead><tbody>
                 ${moduli.map(m => `<tr><td>${m[0]}</td><td class="num"><strong>${rbFmt2.format(m[1])}</strong></td><td class="num">${rbPct(m[2] * 100, 0)}</td><td class="num">${rbFmt2.format(m[1] * m[2])}</td></tr>`).join('')}
@@ -8405,16 +8405,16 @@
     ];
     const RB_CHECKUP_ANCORAGGI = {
         a1: { 0: 'Modello di business non descrivibile in modo coerente; dipendenza critica non presidiata da un unico cliente, fornitore o persona; governance paralizzata o organo di controllo non nominato pur essendo obbligatorio; nessuna documentazione sulle decisioni strategiche.', 1: 'Modello comprensibile ma concentrazioni elevate senza alcuna mitigazione; deleghe non formalizzate; decisioni assunte informalmente; assenza di dati per cliente o prodotto.', 2: 'Modello chiaro e dati disponibili, ma concentrazioni significative senza piano di riduzione; governance funzionante ma poco formalizzata; nessun presidio di successione.', 3: 'Modello chiaro e documentato; concentrazioni monitorate e mitigate contrattualmente; deleghe formalizzate; organo amministrativo informato con regolarità; rischi di business identificati.', 4: 'Quanto sopra, con mappa dei rischi aggiornata e collegata a indicatori anticipatori, piano di successione formalizzato, monitoraggio strutturato del mercato e dei concorrenti, evidenza documentale che tali elementi orientano le decisioni.' },
-        a2: { 0: 'Perimetro del gruppo non ricostruibile; garanzie incrociate rilevanti non quantificate; presenza di società collegate in difficolta con rapporti significativi; beni essenziali nella disponibilità di terzi senza titolo stabile.', 1: 'Mappa del gruppo ricostruita solo parzialmente; rapporti infragruppo non formalizzati o non riconciliati; garanzie note ma non quantificate.', 2: 'Mappa completa; rapporti infragruppo esistenti e riconciliati ma con condizioni non documentate o non allineate al mercato; garanzie quantificate ma non monitorate.', 3: 'Perimetro chiaro e documentato; rapporti infragruppo contrattualizzati a condizioni verificabili; garanzie quantificate, monitorate e rappresentate ai finanziatori; beni essenziali disponibili con titolo stabile.', 4: 'Quanto sopra, con prospetto aggregato di gruppo prodotto periodicamente, politica formalizzata sui rapporti infragruppo e monitoraggio dell\'esposizione complessiva verso il sistema finanziario a livello di gruppo.' },
+        a2: { 0: 'Perimetro del gruppo non ricostruibile; garanzie incrociate rilevanti non quantificate; presenza di società collegate in difficoltà con rapporti significativi; beni essenziali nella disponibilità di terzi senza titolo stabile.', 1: 'Mappa del gruppo ricostruita solo parzialmente; rapporti infragruppo non formalizzati o non riconciliati; garanzie note ma non quantificate.', 2: 'Mappa completa; rapporti infragruppo esistenti e riconciliati ma con condizioni non documentate o non allineate al mercato; garanzie quantificate ma non monitorate.', 3: 'Perimetro chiaro e documentato; rapporti infragruppo contrattualizzati a condizioni verificabili; garanzie quantificate, monitorate e rappresentate ai finanziatori; beni essenziali disponibili con titolo stabile.', 4: 'Quanto sopra, con prospetto aggregato di gruppo prodotto periodicamente, politica formalizzata sui rapporti infragruppo e monitoraggio dell\'esposizione complessiva verso il sistema finanziario a livello di gruppo.' },
         a3: { 0: 'Dati non riconciliati o inattendibili; patrimonio netto negativo o eroso oltre i limiti di legge senza provvedimenti; perdite strutturali; assenza di situazione infrannuale.', 1: 'Dati disponibili ma con incoerenze significative non spiegate; marginalità negativa o erratica; patrimonio molto fragile; nessuna normalizzazione possibile per carenza di informazioni.', 2: 'Dati riconciliabili; marginalità positiva ma in calo o volatile; struttura patrimoniale squilibrata; qualità dell\'attivo non presidiata (assenza di ageing o di politiche di svalutazione).', 3: 'Dati attendibili e riconciliati; marginalità stabile e coerente con il settore; struttura patrimoniale equilibrata; qualità dell\'attivo presidiata; rendiconto finanziario disponibile.', 4: 'Quanto sopra, con marginalità stabile o crescente, patrimonio solido, dati infrannuali tempestivi e riconciliati, analisi dello scostamento tra risultato e flusso di cassa svolta dall\'impresa stessa e confronto strutturato con dati settoriali.' },
         a4: { 0: 'Nessun controllo su crediti e magazzino; ageing non disponibile; scaduto rilevante non presidiato; allungamento non concordato dei pagamenti ai fornitori in atto.', 1: 'Dati disponibili solo su richiesta e non utilizzati; nessuna valutazione preventiva della clientela; sollecito occasionale; giacenze obsolete non quantificate.', 2: 'Ageing disponibile e monitorato in modo discontinuo; presidi esistenti ma informali; ciclo monetario noto ma non gestito come obiettivo.', 3: 'Presidi formalizzati e applicati: valutazione del cliente, limite di fido, sollecito con escalation, monitoraggio periodico di ageing e rotazione; ciclo monetario misurato e stabile.', 4: 'Quanto sopra, con obiettivi quantificati di DSO, DIO e DPO assegnati a responsabili, budget di circolante integrato nella pianificazione e azioni correttive documentate al superamento delle soglie interne.' },
-        a5: { 0: 'DSCR prospettico inferiore a 1 nello scenario base, o impossibilita di calcolarlo per assenza di dati; covenant violati senza waiver; scadenze imminenti prive di copertura; posizione finanziaria non ricostruibile.', 1: 'DSCR intorno a 1 o inferiore a 1 nello scenario avverso, senza risorse di copertura; piano di cassa assente o inattendibile; elevata concentrazione delle scadenze; forte dipendenza da linee a revoca.', 2: 'DSCR superiore a 1 nello scenario base ma con margini ridotti; piano di cassa esistente ma non aggiornato o non stressato; covenant monitorati in modo discontinuo; struttura delle scadenze parzialmente disallineata.', 3: 'DSCR adeguato anche nello scenario avverso; piano di cassa aggiornato e riconciliato; scadenze distribuite e coerenti con la durata degli impieghi; covenant monitorati con margini documentati; garanzie mappate.', 4: 'Quanto sopra, con scenari e punto di rottura elaborati dall\'impresa stessa, soglie interne di allerta formalizzate con azioni predefinite, gestione anticipata delle scadenze e margini di sicurezza documentati.' },
-        a6: { 0: 'Sconfinamenti persistenti o segnalazioni di deterioramento in atto; Centrale dei Rischi non disponibile; struttura degli affidamenti gravemente incoerente; revoche o riduzioni significative in corso.', 1: 'Sconfinamenti ricorrenti; linee a revoca sature; concentrazione elevata; impresa che non conosce il contenuto della propria Centrale dei Rischi; nessun presidio dei saldi.', 2: 'Andamentale sostanzialmente regolare con episodi isolati; struttura degli affidamenti parzialmente coerente; Centrale dei Rischi consultata occasionalmente; dialogo bancario reattivo.', 3: 'Andamentale regolare; struttura coerente con i fabbisogni; margini disponibili adeguati; Centrale dei Rischi monitorata con periodicita e riconciliata; dialogo bancario programmato.', 4: 'Quanto sopra, con monitoraggio mensile formalizzato e verbalizzato, presidio giornaliero dei saldi, concentrazione controllata, gestione anticipata delle revisioni e archivio strutturato delle informazioni trasmesse a ciascun intermediario.' },
-        a7: { 0: 'Nessun reporting periodico; dati disponibili solo con il bilancio annuale; nessuna previsione di cassa; impossibilita di produrre una situazione aggiornata.', 1: 'Reporting sporadico e non riconciliato; budget assente o puramente formale; previsione di cassa limitata al saldo bancario; nessuna analisi degli scostamenti.', 2: 'Reporting mensile esistente ma tardivo o parzialmente riconciliato; budget presente ma non confrontato sistematicamente; tesoreria a breve orizzonte; analisi degli scostamenti occasionale.', 3: 'Reporting mensile tempestivo e riconciliato; budget integrato con analisi degli scostamenti; tesoreria a tredici settimane aggiornata; evidenza dell\'uso dei dati nelle decisioni.', 4: 'Quanto sopra, con forecast aggiornato periodicamente, cruscotto di indicatori anticipatori, responsabilità formalizzate per linea, azioni correttive tracciate e processo non dipendente da singole persone.' },
-        a8: { 0: 'Assetti inesistenti o palesemente inadeguati; nessuna verifica delle soglie; organo di controllo non nominato pur essendo obbligatorio; impossibilita di produrre una proiezione a dodici mesi; segnalazioni ricevute e non trattate.', 1: 'Assetti embrionali; ruoli non formalizzati; nessun flusso informativo strutturato verso l\'organo amministrativo; verifica della sostenibilità del debito non eseguita.', 2: 'Assetti esistenti ma non formalizzati o non proporzionati alla dimensione raggiunta; flussi informativi discontinui; verifica della sostenibilità eseguita occasionalmente.', 3: 'Assetti proporzionati e documentati; separazione dei compiti nei processi sensibili; flussi informativi periodici verbalizzati; verifica documentata della sostenibilità del debito a dodici mesi; soglie monitorate.', 4: 'Quanto sopra, con procedura formalizzata di rilevazione precoce, indicatori di allerta monitorati con periodicita definita, aggiornamento degli assetti a fronte dei cambiamenti organizzativi, evidenza dell\'esame periodico da parte dell\'organo amministrativo e piano di continuità operativa.' },
+        a5: { 0: 'DSCR prospettico inferiore a 1 nello scenario base, o impossibilità di calcolarlo per assenza di dati; covenant violati senza waiver; scadenze imminenti prive di copertura; posizione finanziaria non ricostruibile.', 1: 'DSCR intorno a 1 o inferiore a 1 nello scenario avverso, senza risorse di copertura; piano di cassa assente o inattendibile; elevata concentrazione delle scadenze; forte dipendenza da linee a revoca.', 2: 'DSCR superiore a 1 nello scenario base ma con margini ridotti; piano di cassa esistente ma non aggiornato o non stressato; covenant monitorati in modo discontinuo; struttura delle scadenze parzialmente disallineata.', 3: 'DSCR adeguato anche nello scenario avverso; piano di cassa aggiornato e riconciliato; scadenze distribuite e coerenti con la durata degli impieghi; covenant monitorati con margini documentati; garanzie mappate.', 4: 'Quanto sopra, con scenari e punto di rottura elaborati dall\'impresa stessa, soglie interne di allerta formalizzate con azioni predefinite, gestione anticipata delle scadenze e margini di sicurezza documentati.' },
+        a6: { 0: 'Sconfinamenti persistenti o segnalazioni di deterioramento in atto; Centrale dei Rischi non disponibile; struttura degli affidamenti gravemente incoerente; revoche o riduzioni significative in corso.', 1: 'Sconfinamenti ricorrenti; linee a revoca sature; concentrazione elevata; impresa che non conosce il contenuto della propria Centrale dei Rischi; nessun presidio dei saldi.', 2: 'Andamentale sostanzialmente regolare con episodi isolati; struttura degli affidamenti parzialmente coerente; Centrale dei Rischi consultata occasionalmente; dialogo bancario reattivo.', 3: 'Andamentale regolare; struttura coerente con i fabbisogni; margini disponibili adeguati; Centrale dei Rischi monitorata con periodicità e riconciliata; dialogo bancario programmato.', 4: 'Quanto sopra, con monitoraggio mensile formalizzato e verbalizzato, presidio giornaliero dei saldi, concentrazione controllata, gestione anticipata delle revisioni e archivio strutturato delle informazioni trasmesse a ciascun intermediario.' },
+        a7: { 0: 'Nessun reporting periodico; dati disponibili solo con il bilancio annuale; nessuna previsione di cassa; impossibilità di produrre una situazione aggiornata.', 1: 'Reporting sporadico e non riconciliato; budget assente o puramente formale; previsione di cassa limitata al saldo bancario; nessuna analisi degli scostamenti.', 2: 'Reporting mensile esistente ma tardivo o parzialmente riconciliato; budget presente ma non confrontato sistematicamente; tesoreria a breve orizzonte; analisi degli scostamenti occasionale.', 3: 'Reporting mensile tempestivo e riconciliato; budget integrato con analisi degli scostamenti; tesoreria a tredici settimane aggiornata; evidenza dell\'uso dei dati nelle decisioni.', 4: 'Quanto sopra, con forecast aggiornato periodicamente, cruscotto di indicatori anticipatori, responsabilità formalizzate per linea, azioni correttive tracciate e processo non dipendente da singole persone.' },
+        a8: { 0: 'Assetti inesistenti o palesemente inadeguati; nessuna verifica delle soglie; organo di controllo non nominato pur essendo obbligatorio; impossibilità di produrre una proiezione a dodici mesi; segnalazioni ricevute e non trattate.', 1: 'Assetti embrionali; ruoli non formalizzati; nessun flusso informativo strutturato verso l\'organo amministrativo; verifica della sostenibilità del debito non eseguita.', 2: 'Assetti esistenti ma non formalizzati o non proporzionati alla dimensione raggiunta; flussi informativi discontinui; verifica della sostenibilità eseguita occasionalmente.', 3: 'Assetti proporzionati e documentati; separazione dei compiti nei processi sensibili; flussi informativi periodici verbalizzati; verifica documentata della sostenibilità del debito a dodici mesi; soglie monitorate.', 4: 'Quanto sopra, con procedura formalizzata di rilevazione precoce, indicatori di allerta monitorati con periodicità definita, aggiornamento degli assetti a fronte dei cambiamenti organizzativi, evidenza dell\'esame periodico da parte dell\'organo amministrativo e piano di continuità operativa.' },
         a9: { 0: 'Autorizzazioni essenziali scadute o mancanti; contenziosi rilevanti non rappresentati; assenza totale di presidi in materia di sicurezza sul lavoro o di sicurezza informatica; sanzioni gravi in corso.', 1: 'Presidi frammentari; scadenze non monitorate; contenziosi noti ma non quantificati; coperture assicurative palesemente inadeguate.', 2: 'Presidi esistenti ma non sistematici; registro scadenze informale; contenziosi valutati ma non riflessi nei piani; assicurazioni non riviste da tempo.', 3: 'Obblighi mappati con responsabili; scadenze monitorate; contenziosi quantificati e riflessi nei piani; presidi minimi di sicurezza informatica e privacy attivi; coperture adeguate.', 4: 'Quanto sopra, con report periodico dei rischi all\'organo amministrativo, modello organizzativo effettivo e aggiornato ove adottato, procedure di gestione degli incidenti testate e programma assicurativo rivisto periodicamente sulla base della mappa dei rischi.' },
         a10: { 0: 'Debiti fiscali o contributivi scaduti rilevanti; superamento delle soglie di segnalazione; omessi versamenti; contenziosi rilevanti non rappresentati.', 1: 'Ritardi ricorrenti; dilazioni utilizzate come fonte di finanziamento; nessun presidio interno; scadenze non inserite nel piano di cassa.', 2: 'Adempimenti sostanzialmente regolari ma senza controlli formalizzati; riconciliazioni occasionali; decisioni fiscali non documentate.', 3: 'Adempimenti regolari e monitorati; scadenzario integrato nel piano di cassa; riconciliazioni periodiche documentate; responsabilità assegnate; contenziosi quantificati.', 4: 'Quanto sopra, con mappa dei rischi fiscali e dei controlli, tracciabilità delle decisioni e dei pareri, controllo di secondo livello e reporting periodico all\'organo amministrativo.' },
-        a11: { 0: 'Rischi ESG rilevanti e non presidiati con impatto attuale (autorizzazioni a rischio, contenziosi ambientali, perdita di clienti per requisiti non soddisfatti); dati dichiarati falsi o non documentabili.', 1: 'Nessuna consapevolezza dei fattori rilevanti; richieste ricevute e non gestite; nessun dato disponibile.', 2: 'Consapevolezza dei fattori rilevanti; alcuni dati disponibili ma non sistematici ne sempre tracciabili; nessun piano di adeguamento.', 3: 'Fattori rilevanti identificati e collegati a impatti economici; dati principali disponibili e tracciabili; investimenti di adeguamento inclusi nei piani; risposte alle richieste di filiera gestite.', 4: 'Quanto sopra, con obiettivi formalizzati e monitorati, responsabilità assegnate, rendicontazione volontaria proporzionata, dati verificabili utilizzati nella comunicazione ai finanziatori e valutazione dei rischi fisici e di transizione integrata nella pianificazione.' },
+        a11: { 0: 'Rischi ESG rilevanti e non presidiati con impatto attuale (autorizzazioni a rischio, contenziosi ambientali, perdita di clienti per requisiti non soddisfatti); dati dichiarati falsi o non documentabili.', 1: 'Nessuna consapevolezza dei fattori rilevanti; richieste ricevute e non gestite; nessun dato disponibile.', 2: 'Consapevolezza dei fattori rilevanti; alcuni dati disponibili ma non sistematici né sempre tracciabili; nessun piano di adeguamento.', 3: 'Fattori rilevanti identificati e collegati a impatti economici; dati principali disponibili e tracciabili; investimenti di adeguamento inclusi nei piani; risposte alle richieste di filiera gestite.', 4: 'Quanto sopra, con obiettivi formalizzati e monitorati, responsabilità assegnate, rendicontazione volontaria proporzionata, dati verificabili utilizzati nella comunicazione ai finanziatori e valutazione dei rischi fisici e di transizione integrata nella pianificazione.' },
         a12: { 0: 'Investimenti rilevanti avviati senza copertura finanziaria identificata; debito a breve utilizzato per impieghi pluriennali in misura strutturale; adempimenti agevolativi violati con rischio di revoca in atto.', 1: 'Fonti scelte senza analisi; nessuna matrice fonti-impieghi; assenza di mezzi propri; nessun piano alternativo.', 2: 'Coerenza parziale tra fonti e impieghi; analisi del costo limitata al tasso nominale; agevolazioni gestite senza presidio degli adempimenti.', 3: 'Fonti coerenti con natura e durata degli impieghi; costo complessivo valutato; covenant e garanzie conosciuti; agevolazioni presidiate; piano di cassa integrato.', 4: 'Quanto sopra, con strategia finanziaria formalizzata, valutazione comparata delle alternative documentata, scenari alternativi in caso di mancata concessione e integrazione delle operazioni straordinarie nella pianificazione finanziaria pluriennale.' },
         a13: { 0: 'Comunicazione assente o reticente; dati incoerenti trasmessi a soggetti diversi; criticità rilevanti taciute ai finanziatori.', 1: 'Comunicazione esclusivamente reattiva e in emergenza; nessun archivio; richieste generiche e non supportate.', 2: 'Comunicazione regolare su richiesta; dati coerenti ma non riconciliati; assenza di calendario e di referente unico.', 3: 'Comunicazione programmata e proattiva; dati riconciliati e coerenti; richieste complete di importo, durata, finalità e fonti di rimborso; referente designato.', 4: 'Quanto sopra, con dossier strutturato aggiornato periodicamente, archivio completo delle informazioni trasmesse, comunicazione tempestiva anche delle notizie sfavorevoli e preparazione documentata degli incontri.' }
     };
@@ -9624,7 +9624,7 @@
             || mcc.fascia === 5 || mcc.sofferenze || scoring.presidio.segnaliPresenti > 0;
         let verdetto;
         if (critico) verdetto = { livello: 'rosso', chip: 'Area critica', titolo: 'Area critica: servono interventi strutturali' };
-        else if (mcc.fascia === 4 || zZone === 'rischio' || nRosso >= 2) verdetto = { livello: 'arancio', chip: 'Zona di attenzione', titolo: 'Zona di attenzione: il merito creditizio e fragile' };
+        else if (mcc.fascia === 4 || zZone === 'rischio' || nRosso >= 2) verdetto = { livello: 'arancio', chip: 'Zona di attenzione', titolo: 'Zona di attenzione: il merito creditizio è fragile' };
         else if (mcc.fascia === 3 || zZone === 'incertezza' || nRosso === 1) verdetto = { livello: 'giallo', chip: 'Equilibrio migliorabile', titolo: 'Equilibrio con margini di miglioramento' };
         else verdetto = { livello: 'verde', chip: 'Profilo solido', titolo: 'Profilo solido: ora si negozia' };
 
@@ -9843,7 +9843,7 @@
             </div>
             <div class="card">
                 <h2>Verifiche del merito creditizio</h2>
-                ${eEquity ? '<p class="hint" style="margin:-4px 0 10px;">Come partner vedi le verifiche di tutti, in sola visualizzazione: la colonna "Autore" dice di chi e ogni calcolo. Per lavorare su una verifica di un collega chiedigli la condivisione in scrittura.</p>' : '<p class="hint" style="margin:-4px 0 10px;">Ognuno vede le proprie verifiche e quelle condivise con lui. Dalla scheda, con "Condivisione", l\'autore puo aprire il lavoro a un collega in lettura o in scrittura, e revocarlo quando vuole.</p>'}
+                ${eEquity ? '<p class="hint" style="margin:-4px 0 10px;">Come partner vedi le verifiche di tutti, in sola visualizzazione: la colonna "Autore" dice di chi è ogni calcolo. Per lavorare su una verifica di un collega chiedigli la condivisione in scrittura.</p>' : '<p class="hint" style="margin:-4px 0 10px;">Ognuno vede le proprie verifiche e quelle condivise con lui. Dalla scheda, con "Condivisione", l\'autore può aprire il lavoro a un collega in lettura o in scrittura, e revocarlo quando vuole.</p>'}
                 ${verifiche.length ? `<div class="tabella-wrap"><table class="dati"><thead><tr>
                     <th>Cliente</th><th>Esercizio</th><th>Settore</th><th>Rating MCC</th><th>Con correttivo</th><th class="num">PD</th><th>Questionario</th><th>Stato</th><th>Autore</th><th>Aggiornata</th><th></th>
                 </tr></thead><tbody>` +
@@ -9873,7 +9873,7 @@
             </div>
             <div class="card">
                 <h2>Come funziona</h2>
-                <p class="descrizione" style="margin-bottom:0;">La verifica replica il modello di rating del <strong>Fondo di Garanzia PMI (MCC)</strong>: modulo economico-finanziario dal bilancio, modulo andamentale dalla Centrale dei Rischi, classe integrata da 1 a 12 in 5 fasce con la probabilita di inadempimento. Il <strong>questionario qualitativo</strong> corregge la classe di uno o piu gradini, come fanno i modelli interni delle banche. La sezione <strong>banche</strong> confronta gli istituti dell'impresa con i rating delle agenzie (dati indicativi, ${RB_BANCHE_AGG}) e misura utilizzo e concentrazione degli affidamenti. Dalle debolezze nascono le <strong>azioni migliorative</strong>, collegate ai servizi Revilaw (assetti, 231, rating di legalita, ESG, TCF). Il report finale si firma con la firma grafica caricata, come i mandati, e si stampa in PDF.</p>
+                <p class="descrizione" style="margin-bottom:0;">La verifica replica il modello di rating del <strong>Fondo di Garanzia PMI (MCC)</strong>: modulo economico-finanziario dal bilancio, modulo andamentale dalla Centrale dei Rischi, classe integrata da 1 a 12 in 5 fasce con la probabilità di inadempimento. Il <strong>questionario qualitativo</strong> corregge la classe di uno o più gradini, come fanno i modelli interni delle banche. La sezione <strong>banche</strong> confronta gli istituti dell'impresa con i rating delle agenzie (dati indicativi, ${RB_BANCHE_AGG}) e misura utilizzo e concentrazione degli affidamenti. Dalle debolezze nascono le <strong>azioni migliorative</strong>, collegate ai servizi Revilaw (assetti, 231, rating di legalità, ESG, TCF). Il report finale si firma con la firma grafica caricata, come i mandati, e si stampa in PDF.</p>
             </div>`;
 
         const btnNuova = document.getElementById('btn-nuova-verifica');
@@ -9955,7 +9955,7 @@
         const punti = (es.gruppo.compilato ? es.gruppo.punti : []).concat(es.soggetti.compilato ? es.soggetti.punti : []);
         return `<div class="rb-correttivo">
             <p style="margin:0 0 10px;">Il questionario qualitativo vale <strong>${es.quest.perc}%</strong>${es.quest.completo ? '' : ' <span class="badge grigio">' + es.quest.date + ' risposte su ' + es.quest.tot + '</span>'};
-            con i profili di soggetti e gruppo il correttivo complessivo e <strong>${tot > 0 ? '+' : ''}${tot}</strong> (${pezzi.join(', ')}): <strong>${corrTxt}</strong>.</p>
+            con i profili di soggetti e gruppo il correttivo complessivo è <strong>${tot > 0 ? '+' : ''}${tot}</strong> (${pezzi.join(', ')}): <strong>${corrTxt}</strong>.</p>
             <div class="rb-corr-riga">
                 <div><div class="rb-corr-et">Rating MCC</div>${rbBadgeClasse(es.mcc.integrata, es.mcc.fascia)}</div>
                 <div class="rb-corr-freccia">&rarr;</div>
@@ -9974,7 +9974,7 @@
        cruscotto qui sopra, percio niente chips doppi */
     function rbHtmlCndcec(es) {
         const cn = es.cn;
-        const primoLiv = `<p class="rb-testo" style="margin:0 0 8px;"><strong>Indici della crisi (CNDCEC).</strong> Primo livello: patrimonio netto ${cn.pnNeg ? '<span class="badge rosso">negativo</span>' : 'positivo'} e DSCR ${es.bank.dscr === null ? 'non calcolato' : (cn.dscrAlert ? '<span class="badge rosso">sotto 1</span>' : 'almeno 1')} (il valore del DSCR e nel cruscotto).</p>`;
+        const primoLiv = `<p class="rb-testo" style="margin:0 0 8px;"><strong>Indici della crisi (CNDCEC).</strong> Primo livello: patrimonio netto ${cn.pnNeg ? '<span class="badge rosso">negativo</span>' : 'positivo'} e DSCR ${es.bank.dscr === null ? 'non calcolato' : (cn.dscrAlert ? '<span class="badge rosso">sotto 1</span>' : 'almeno 1')} (il valore del DSCR è nel cruscotto).</p>`;
         if (!cn.row) return primoLiv + '<p class="hint">Per le attività immobiliari non ci sono soglie settoriali: valgono i due indicatori di primo livello.</p>';
         const fmtVal = r => r.val === null ? 'n.c.' : rbPct(r.val, 1);
         return primoLiv + `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Indice</th><th class="num">Impresa</th><th class="num">Soglia (${esc(cn.row.label)})</th><th>Esito</th></tr></thead><tbody>
@@ -9992,7 +9992,7 @@
     }
     function rbHtmlTabellaBanche(es) {
         const b = es.banche;
-        if (!b.numero) return '<p class="hint">Nessuna banca censita nella verifica: aggiungi i rapporti nel passo "Banche" del percorso per l\'analisi di solidita e concentrazione.</p>';
+        if (!b.numero) return '<p class="hint">Nessuna banca censita nella verifica: aggiungi i rapporti nel passo "Banche" del percorso per l\'analisi di solidità e concentrazione.</p>';
         const fmtQ = q => q === null ? '-' : rbPct(q, 0);
         const fmtU = u => u === null ? '-' : (u === 999 ? 'senza fido' : rbPct(u, 0));
         return `<div class="tabella-wrap"><table class="dati compatta"><thead><tr>
@@ -10013,12 +10013,12 @@
         </tr>`).join('')}
         </tbody></table></div>
         <p class="hint">Totale accordato ${b.totAcc ? eurFmt.format(b.totAcc) : '-'} &middot; utilizzato ${b.totUti ? eurFmt.format(b.totUti) : '-'}${b.utilizzoMedio !== null ? ' &middot; utilizzo medio ' + rbPct(b.utilizzoMedio, 0) : ''}${b.quotaMax ? ' &middot; prima banca ' + rbPct(b.quotaMax, 0) + ' degli affidamenti' : ''}. Rating delle agenzie indicativi, aggiornati a ${RB_BANCHE_AGG}.</p>
-        ${es.scoring && es.scoring.mappatura && es.scoring.mappatura.length ? `<details class="rb-dettaglio"><summary>La stessa lettura dal rating interno simulato (fattore di severita sulla PD)</summary>
+        ${es.scoring && es.scoring.mappatura && es.scoring.mappatura.length ? `<details class="rb-dettaglio"><summary>La stessa lettura dal rating interno simulato (fattore di severità sulla PD)</summary>
         <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Istituto</th><th class="num">Fattore</th><th class="num">PD adattata</th><th class="num">Classe (1-10)</th><th>Giudizio</th><th>Banda EU CR6</th></tr></thead><tbody>
             ${es.scoring.mappatura.map(m => `<tr><td>${esc(m.nome)}</td><td class="num">${rbFmt2.format(m.fattore)}</td><td class="num">${rbPct(m.pdAdj * 100, 2)}</td>
                 <td class="num"><strong>${m.classe}</strong></td><td>${esc(m.giudizio)}</td><td>${esc(m.banda)}</td></tr>`).join('')}
         </tbody></table></div>
-        <p class="hint">Il fattore di severita si imposta sul singolo rapporto (passo "Banche" del percorso): 1,00 = neutro, 1,20 = banca più severa, 0,85 = meno severa, secondo l'esperienza dello studio su quell'istituto. Le PD medie per classe dei gruppi bancari sono nell'Informativa al Pubblico Pillar 3 (EBA Pillar 3 Data Hub).</p></details>` : ''}`;
+        <p class="hint">Il fattore di severità si imposta sul singolo rapporto (passo "Banche" del percorso): 1,00 = neutro, 1,20 = banca più severa, 0,85 = meno severa, secondo l'esperienza dello studio su quell'istituto. Le PD medie per classe dei gruppi bancari sono nell'Informativa al Pubblico Pillar 3 (EBA Pillar 3 Data Hub).</p></details>` : ''}`;
     }
     /* IL PERCORSO DI MIGLIORAMENTO: prima la meta (la simulazione con le leve
        Revilaw), poi le azioni raggruppate per servizio dello studio, in coda
@@ -10045,7 +10045,7 @@
                 <div class="rb-corr-freccia">&rarr;</div>
                 <div><div class="rb-corr-et">Con il percorso Revilaw completato</div>${rbBadgeClasse(p.classe, p.fascia)} <span class="rb-corr-pd">PD ${rbPct(p.pd, 2)} &middot; questionario ${p.quest}%</span></div>
             </div>
-            <p class="rb-testo" style="margin:8px 0 12px;">${frase} Stima a parita di bilancio e di andamentale: lo storico (sconfini, puntualita) e i fattori di struttura migliorano nel tempo con le azioni qui sotto e non sono simulati.</p>`;
+            <p class="rb-testo" style="margin:8px 0 12px;">${frase} Stima a parità di bilancio e di andamentale: lo storico (sconfini, puntualità) e i fattori di struttura migliorano nel tempo con le azioni qui sotto e non sono simulati.</p>`;
         } else {
             sim = '<p class="hint" style="margin:0 0 10px;">Le leve dei servizi Revilaw sul profilo qualitativo sono già al massimo: il percorso qui sotto consolida i presidi e lavora sulle leve di bilancio e andamentali.</p>';
         }
@@ -10099,11 +10099,11 @@
         const m = es.mcc;
         const parti = [];
         parti.push(m.aClasse ? 'Il modulo andamentale dalla Centrale dei Rischi vale A' + m.aClasse + (m.cr && m.cr.c2 ? ', con ' + m.cr.c2 + (m.cr.c2 === 1 ? ' mese' : ' mesi') + ' di sconfino di cassa.' : ', senza sconfinamenti di rilievo.')
-                             : 'La Centrale dei Rischi non e stata caricata: la classe usa il solo modulo di bilancio.');
+                             : 'La Centrale dei Rischi non è stata caricata: la classe usa il solo modulo di bilancio.');
         if (m.declassamento) parti.push('Gli eventi pregiudizievoli dichiarati declassano la classe di ' + m.declassamento + ', dalla ' + m.integrataBase + ' alla ' + m.integrata + '.');
         parti.push('Il questionario qualitativo e i profili di soggetti e gruppo ' + (es.correttivoTotale === 0 ? 'confermano la classe.' : 'portano la classe ipotizzata a ' + es.classeCorretta + ' su 12.'));
-        if (es.percorso.attivo && es.percorso.deltaClasse > 0) parti.push('Con il percorso di miglioramento Revilaw la classe potenziale e ' + es.percorso.classe + ' su 12: il piano e nella sezione dedicata.');
-        if (es.banche.conTensione) parti.push('Dei ' + es.banche.numero + ' rapporti bancari censiti, ' + es.banche.conTensione + (es.banche.conTensione === 1 ? ' e in tensione.' : ' sono in tensione.'));
+        if (es.percorso.attivo && es.percorso.deltaClasse > 0) parti.push('Con il percorso di miglioramento Revilaw la classe potenziale è ' + es.percorso.classe + ' su 12: il piano è nella sezione dedicata.');
+        if (es.banche.conTensione) parti.push('Dei ' + es.banche.numero + ' rapporti bancari censiti, ' + es.banche.conTensione + (es.banche.conTensione === 1 ? ' è in tensione.' : ' sono in tensione.'));
         return parti.join(' ');
     }
 
@@ -10239,7 +10239,7 @@
             tabRB = 'checkup'; vistaRatingScheda(); apriPassoDati('impresa'); return null;
         }
         if (schedaRB.id && !rbAccessoCorrente(schedaRB).scrive) {
-            toast('Questa verifica e per te in sola visualizzazione: chiedi all\'autore la condivisione in scrittura.', 'rosso');
+            toast('Questa verifica è per te in sola visualizzazione: chiedi all\'autore la condivisione in scrittura.', 'rosso');
             return null;
         }
         const es = rbEsiti(schedaRB);
@@ -10283,7 +10283,7 @@
                 Rating.aggiorna(v.id, { condivisa: v.condivisa }, Auth.utenteCorrente, azione);
             };
             apriModale(`<h2>Condivisione della verifica</h2>
-                <p class="descrizione">La verifica di <strong>${esc(v.cliente || '(senza nome)')}</strong> e visibile solo a te${gia.length ? ' e alle persone qui sotto' : ''} (oltre ad amministrazione e partner, questi in sola visualizzazione). Puoi abilitare qualsiasi utente dell'area in <strong>lettura</strong> (vede il report completo) o in <strong>scrittura</strong> (lavora sulla scheda con te), e togliere l'accesso quando vuoi.</p>
+                <p class="descrizione">La verifica di <strong>${esc(v.cliente || '(senza nome)')}</strong> è visibile solo a te${gia.length ? ' e alle persone qui sotto' : ''} (oltre ad amministrazione e partner, questi in sola visualizzazione). Puoi abilitare qualsiasi utente dell'area in <strong>lettura</strong> (vede il report completo) o in <strong>scrittura</strong> (lavora sulla scheda con te), e togliere l'accesso quando vuoi.</p>
                 ${(v.condivisa || []).length ? `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Utente</th><th>Accesso</th><th></th></tr></thead><tbody>
                     ${v.condivisa.map((c, i) => `<tr>
                         <td>${esc(nomeDi(String(c.email || '').toLowerCase()))}<div class="hint">${esc(c.email)}</div></td>
@@ -10304,7 +10304,7 @@
                     </div>
                     <div class="campo"><button class="btn btn-secondary" id="rb-cond-aggiungi">Abilita</button></div>
                 </div>
-                ${(!lista || !lista.length) ? '<p class="hint">L\'elenco degli utenti non e disponibile in questo momento: scrivi l\'indirizzo email esatto con cui il collega accede all\'area.</p>' : ''}
+                ${(!lista || !lista.length) ? '<p class="hint">L\'elenco degli utenti non è disponibile in questo momento: scrivi l\'indirizzo email esatto con cui il collega accede all\'area.</p>' : ''}
                 <div class="modale-azioni"><button class="btn btn-primary" id="rb-cond-chiudi">Chiudi</button></div>`);
             document.getElementById('rb-cond-chiudi').addEventListener('click', () => { chiudiModale(); vistaRatingScheda(); });
             document.getElementById('rb-cond-aggiungi').addEventListener('click', () => {
@@ -10402,10 +10402,10 @@
         return `
             <div class="card">
                 <h2>Modulo andamentale: Centrale dei Rischi</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Ultimi 6 mesi del prospetto Banca d'Italia (mese 1 = piu recente): accordato e utilizzato per cassa, e la parte "a scadenza". Senza questi dati la classe usa il solo modulo di bilancio.</p>
+                <p class="hint" style="margin:-6px 0 12px;">Ultimi 6 mesi del prospetto Banca d'Italia (mese 1 = più recente): accordato e utilizzato per cassa, e la parte "a scadenza". Senza questi dati la classe usa il solo modulo di bilancio.</p>
                 <div class="riepilogo-blocco">
                     <h4>Importa il prospetto della Banca d'Italia (PDF)</h4>
-                    <p class="hint" style="margin:0 0 8px;">Il PDF della Centrale dei Rischi (richiesto tramite la piattaforma della Banca d'Italia) viene letto nel browser: il programma riconosce le rilevazioni mensili, somma accordato e utilizzato per cassa, isola i rischi a scadenza e rileva le sofferenze. Vengono usati i 6 mesi piu recenti.</p>
+                    <p class="hint" style="margin:0 0 8px;">Il PDF della Centrale dei Rischi (richiesto tramite la piattaforma della Banca d'Italia) viene letto nel browser: il programma riconosce le rilevazioni mensili, somma accordato e utilizzato per cassa, isola i rischi a scadenza e rileva le sofferenze. Vengono usati i 6 mesi più recenti.</p>
                     <button class="btn btn-secondary btn-sm" id="rb-crpdf-btn" type="button">Scegli il PDF della Centrale Rischi&hellip;</button>
                     <input type="file" id="rb-crpdf-file" accept="application/pdf,.pdf" hidden>
                     ${rbHtmlStatoImport(statoImportCr)}
@@ -10414,7 +10414,7 @@
                 <div class="tabella-wrap"><table class="dati compatta rb-cr-tab"><thead><tr>
                     <th>Mese</th><th class="num">Accordato per cassa</th><th class="num">Utilizzato per cassa</th><th class="num">di cui a scadenza: accordato</th><th class="num">di cui a scadenza: utilizzato</th>
                 </tr></thead><tbody>
-                ${[0, 1, 2, 3, 4, 5].map(m => `<tr><td>${(cr.mesi && cr.mesi[m]) ? esc(cr.mesi[m]) + (m === 0 ? ' <span class="rb-rif">(piu recente)</span>' : '') : 'Mese ' + (m + 1)}</td>${cella(m, 'at')}${cella(m, 'ut')}${cella(m, 'as')}${cella(m, 'us')}</tr>`).join('')}
+                ${[0, 1, 2, 3, 4, 5].map(m => `<tr><td>${(cr.mesi && cr.mesi[m]) ? esc(cr.mesi[m]) + (m === 0 ? ' <span class="rb-rif">(più recente)</span>' : '') : 'Mese ' + (m + 1)}</td>${cella(m, 'at')}${cella(m, 'ut')}${cella(m, 'as')}${cella(m, 'us')}</tr>`).join('')}
                 </tbody></table></div>
                 <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:10px;">
                     <button class="btn btn-secondary btn-sm" id="rb-cr-copia" ${cr.attiva ? '' : 'disabled'}>Ripeti il mese 1 su tutti i mesi</button>
@@ -10424,7 +10424,7 @@
             </div>
             <div class="card">
                 <h2>Andamentale di sintesi (per il rating interno simulato)</h2>
-                <p class="hint" style="margin:-6px 0 12px;">I dati che lo scoring a moduli usa oltre alla griglia: guardano agli ultimi 12 mesi. Utilizzo degli affidamenti, numero di banche, quota della prima e anzianita del rapporto vengono presi da soli dalla Centrale Rischi e dalla scheda Banche.</p>
+                <p class="hint" style="margin:-6px 0 12px;">I dati che lo scoring a moduli usa oltre alla griglia: guardano agli ultimi 12 mesi. Utilizzo degli affidamenti, numero di banche, quota della prima e anzianità del rapporto vengono presi da soli dalla Centrale Rischi e dalla scheda Banche.</p>
                 <div class="griglia-3">
                     <div class="campo"><label>Sconfini in essere OGGI (euro)</label><input type="text" inputmode="decimal" data-sc="sconfiniImporto" value="${esc(rbFmtNum(rbNum((v.scoring || {}).sconfiniImporto)))}"><div class="hint">0 = nessuno sconfino attuale</div></div>
                     <div class="campo"><label>Giorni di sconfinamento continuativo</label><input type="text" inputmode="decimal" data-sc="sconfiniGiorni" value="${esc(rbFmtNum(rbNum((v.scoring || {}).sconfiniGiorni)))}"><div class="hint">oltre 60 giorni il punteggio si azzera</div></div>
@@ -10433,7 +10433,7 @@
                     <div class="campo"><label>Trend dell'accordato (12 mesi)</label>
                         <select data-sc-sel="trendAccordato">${[['', '-'], ['aumento', 'In aumento'], ['stabile', 'Stabile'], ['riduzione', 'In riduzione']].map(o => `<option value="${o[0]}" ${((v.scoring || {}).trendAccordato || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
                     <div class="campo"><label>Garanzie escusse o revoche (24 mesi)</label>
-                        <select data-sc-sel="garanzieEscusse">${[['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${((v.scoring || {}).garanzieEscusse || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                        <select data-sc-sel="garanzieEscusse">${[['no', 'No'], ['si', 'Sì']].map(o => `<option value="${o[0]}" ${((v.scoring || {}).garanzieEscusse || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
                 </div>
             </div>
             <div class="card">
@@ -10441,11 +10441,11 @@
                 <p class="hint" style="margin:-6px 0 12px;">La checklist del presidio degli adeguati assetti: un solo segnale presente impone le valutazioni dell'art. 3. L'esito compare negli esiti e nel report.</p>
                 <div class="griglia-3">
                     <div class="campo"><label>a) Retribuzioni scadute da oltre 30 giorni superiori alla metà del monte mensile</label>
-                        <select data-ccii-sel="retribuzioni">${[['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${(((v.scoring || {}).ccii || {}).retribuzioni || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                        <select data-ccii-sel="retribuzioni">${[['no', 'No'], ['si', 'Sì']].map(o => `<option value="${o[0]}" ${(((v.scoring || {}).ccii || {}).retribuzioni || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
                     <div class="campo"><label>b) Debiti verso fornitori scaduti da oltre 90 giorni superiori ai non scaduti</label>
-                        <select data-ccii-sel="fornitori">${[['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${(((v.scoring || {}).ccii || {}).fornitori || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                        <select data-ccii-sel="fornitori">${[['no', 'No'], ['si', 'Sì']].map(o => `<option value="${o[0]}" ${(((v.scoring || {}).ccii || {}).fornitori || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
                     <div class="campo"><label>d) Esposizioni rilevanti verso creditori pubblici qualificati (art. 25-novies)</label>
-                        <select data-ccii-sel="pubblici">${[['no', 'No'], ['si', 'Si']].map(o => `<option value="${o[0]}" ${(((v.scoring || {}).ccii || {}).pubblici || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
+                        <select data-ccii-sel="pubblici">${[['no', 'No'], ['si', 'Sì']].map(o => `<option value="${o[0]}" ${(((v.scoring || {}).ccii || {}).pubblici || 'no') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select></div>
                     <div class="campo"><label>c) Esposizioni verso banche scadute o sconfinanti da oltre 60 giorni (euro)</label>
                         <input type="text" inputmode="decimal" data-ccii="espScadute60" value="${esc(rbFmtNum(rbNum(((v.scoring || {}).ccii || {}).espScadute60)))}"></div>
                     <div class="campo"><label>Totale esposizioni verso banche e intermediari (euro)</label>
@@ -10473,7 +10473,7 @@
                     <div class="campo"><label>Anzianita del rapporto</label>
                         <select data-b-idx="${i}" data-b-campo="anzianita">${[['', '-'], ['nuovo', 'meno di 2 anni'], ['medio', 'da 2 a 5 anni'], ['storico', 'oltre 5 anni']].map(o => `<option value="${o[0]}" ${(r.anzianita || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
                         <div class="hint">nelle banche del territorio la relazione storica vale un gradino</div></div>
-                    <div class="campo"><label>Fattore di severita (scoring)</label>
+                    <div class="campo"><label>Fattore di severità (scoring)</label>
                         <input type="text" inputmode="decimal" data-b-idx="${i}" data-b-campo="severita" value="${esc(rbNum(r.severita) !== null ? rbFmt2.format(rbNum(r.severita)) : '')}" placeholder="1,00">
                         <div class="hint">1,00 neutro; 1,20 banca più severa, 0,85 meno severa (esperienza dello studio)</div></div>
                     <div class="campo"><label>Nota sul rapporto</label><input type="text" data-b-idx="${i}" data-b-campo="nota" value="${esc(r.nota || '')}"></div>
@@ -10488,13 +10488,13 @@
         return `
             <div class="card">
                 <h2>Le banche dell'impresa</h2>
-                <p class="hint" style="margin:-6px 0 12px;">Per ogni istituto: affidamenti accordati e utilizzati e lo stato del rapporto. La solidita dell'istituto viene dai rating delle agenzie (dati indicativi, aggiornati a ${RB_BANCHE_AGG}: verifica sui siti ufficiali prima dell'uso verso terzi).</p>
+                <p class="hint" style="margin:-6px 0 12px;">Per ogni istituto: affidamenti accordati e utilizzati e lo stato del rapporto. La solidità dell'istituto viene dai rating delle agenzie (dati indicativi, aggiornati a ${RB_BANCHE_AGG}: verifica sui siti ufficiali prima dell'uso verso terzi).</p>
                 ${(v.banche || []).map(riga).join('')}
                 <button class="btn btn-secondary" id="rb-banca-add">+ Aggiungi un rapporto bancario</button>
             </div>
             <div class="card">
                 <h2>Il panorama degli istituti</h2>
-                <details class="rb-dettaglio"><summary>Rating e solidita delle principali banche italiane (${RB_BANCHE_AGG})</summary>
+                <details class="rb-dettaglio"><summary>Rating e solidità delle principali banche italiane (${RB_BANCHE_AGG})</summary>
                 <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Istituto</th><th>Rating agenzie</th><th class="num">CET1</th><th>Solidita</th><th>Nota</th></tr></thead><tbody>
                 ${RB_BANCHE.map(b => { const s = rbSoliditaBanca(b); return `<tr><td>${esc(b.nome)}</td><td class="rb-rif">${esc(rbEtichettaRating(b))}</td><td class="num">${b.cet1 ? rbPct(b.cet1, 1) : '-'}</td>
                     <td><span class="badge ${s.classe === 'A' || s.classe === 'B' ? 'verde' : (s.classe === 'C' ? 'ambra' : (s.classe === 'D' ? 'rosso' : 'grigio'))}">${s.classe}</span></td><td class="rb-rif">${esc(b.nota || '')}</td></tr>`; }).join('')}
@@ -10509,7 +10509,7 @@
             return `<div class="card"><h2>Esiti</h2>
                 <div class="avviso-ruoli">Per calcolare il rating mancano questi dati:
                 <ul style="margin:8px 0 0 18px;">${es.mancanti.map(m => '<li>' + esc(m) + '</li>').join('')}</ul></div>
-                <p class="hint" style="margin:10px 0;">Si caricano nel passo "Impresa e bilancio" del percorso: appena inseriti, il calcolo e immediato.</p>
+                <p class="hint" style="margin:10px 0;">Si caricano nel passo "Impresa e bilancio" del percorso: appena inseriti, il calcolo è immediato.</p>
                 <button class="btn btn-secondary" data-apri-passo="impresa">Apri il passo "Impresa e bilancio"</button></div>`;
         }
         return `
@@ -10527,7 +10527,7 @@
             <div class="card"><h2>Cruscotto di bancabilità, indici della crisi e Z-Score</h2>${rbHtmlTabellaCruscotto(es)}<div style="margin-top:12px;">${rbHtmlCndcec(es)}</div><div style="margin-top:12px;">${rbHtmlZ(es)}</div></div>
             <div class="card"><h2>Posizionamento bancario</h2>${rbHtmlTabellaBanche(es)}</div>
             <div class="card"><h2>Check-up del merito creditizio</h2>${rbHtmlCheckup(es, true)}</div>
-            <p class="hint" style="margin:2px 4px 10px;">Le tre scale della verifica non si confrontano tra loro: MCC 1-12 (fasce 1-5, PD empiriche del Fondo di Garanzia), rating interno simulato 1-10 (PD calibrate, stima di pre-screening), check-up A-E (qualità dei presidi, diagnostico). Come si integrano e spiegato nel Metodo di calcolo.</p>
+            <p class="hint" style="margin:2px 4px 10px;">Le tre scale della verifica non si confrontano tra loro: MCC 1-12 (fasce 1-5, PD empiriche del Fondo di Garanzia), rating interno simulato 1-10 (PD calibrate, stima di pre-screening), check-up A-E (qualità dei presidi, diagnostico). Come si integrano è spiegato nel Metodo di calcolo.</p>
             <div class="card">
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
                     <button class="btn btn-primary" id="rb-esiti-report">Salva e apri il report da firmare</button>
@@ -10794,7 +10794,7 @@
                     ${rbHtmlVerdetto(es, '')}
                     ${rbHtmlKpiMcc(es)}
                     <p class="rb-testo">${esc(rbTestoSintesi(es))}</p>
-                    ${!es.quadratura.ok ? '<p class="rb-testo"><strong>Avvertenza:</strong> attivo e passivo del bilancio inserito differiscono di ' + eurFmt.format(es.quadratura.diff) + ': per i controlli di qualita del par. 3.3 delle Specifiche MCC il rating andrebbe considerato UNRATED finche la quadratura non e sanata.</p>' : ''}
+                    ${!es.quadratura.ok ? '<p class="rb-testo"><strong>Avvertenza:</strong> attivo e passivo del bilancio inserito differiscono di ' + eurFmt.format(es.quadratura.diff) + ': per i controlli di qualità del par. 3.3 delle Specifiche MCC il rating andrebbe considerato UNRATED finché la quadratura non è sanata.</p>' : ''}
                 </div>
 
                 <div class="rb-sezione">
@@ -10850,11 +10850,11 @@
 
                 <div class="rb-sezione rb-nota-metodo">
                     <h3>Nota metodologica e limiti</h3>
-                    <p class="rb-testo"><strong>Fonti dei modelli.</strong> Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilita di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le societa di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilita applica soglie di prassi (covenant tipici, orientamenti EBA).</p>
-                    <p class="rb-testo"><strong>Stime professionali Revilaw.</strong> Il rating interno simulato replica la struttura tipica dei sistemi di rating interni (tre moduli pesati per dimensione, calibrazione score-PD, classi 1-10, bande EU CR6): i modelli effettivi delle banche sono proprietari e riservati, la stima serve al pre-screening e all'advisory. Correttivo qualitativo, rettifiche prudenziali, profili di soggetti e gruppo, stima per singolo istituto e percorso di miglioramento (che simula le sole leve coperte dai servizi Revilaw, a parita di bilancio e andamentale) sono stime professionali di come i modelli interni integrano gli elementi organizzativi: il metodo completo, formula per formula, e nella scheda "Metodo di calcolo" dell'area riservata, e il rating effettivo assegnato da ciascuna banca puo differire. Le tre scale (MCC 1-12, interno 1-10, check-up A-E) non sono confrontabili tra loro.</p>
+                    <p class="rb-testo"><strong>Fonti dei modelli.</strong> Il rating replica il modello pubblico del Fondo di Garanzia PMI (Mediocredito Centrale): Specifiche tecniche per il calcolo della probabilità di inadempimento in vigore dal 15/02/2020, con modulo economico-finanziario per settore, modulo andamentale da Centrale dei Rischi e matrice di integrazione per le società di capitali. Gli indici della crisi seguono il documento CNDCEC del 20/10/2019; lo Z-Score usa le varianti Z' e Z'' di Altman; il cruscotto di bancabilità applica soglie di prassi (covenant tipici, orientamenti EBA).</p>
+                    <p class="rb-testo"><strong>Stime professionali Revilaw.</strong> Il rating interno simulato replica la struttura tipica dei sistemi di rating interni (tre moduli pesati per dimensione, calibrazione score-PD, classi 1-10, bande EU CR6): i modelli effettivi delle banche sono proprietari e riservati, la stima serve al pre-screening e all'advisory. Correttivo qualitativo, rettifiche prudenziali, profili di soggetti e gruppo, stima per singolo istituto e percorso di miglioramento (che simula le sole leve coperte dai servizi Revilaw, a parità di bilancio e andamentale) sono stime professionali di come i modelli interni integrano gli elementi organizzativi: il metodo completo, formula per formula, è nella scheda "Metodo di calcolo" dell'area riservata, e il rating effettivo assegnato da ciascuna banca può differire. Le tre scale (MCC 1-12, interno 1-10, check-up A-E) non sono confrontabili tra loro.</p>
                     <p class="rb-testo"><strong>Dati sugli istituti.</strong> I rating degli istituti di credito sono tratti dalle comunicazioni pubbliche delle agenzie e aggiornati a ${RB_BANCHE_AGG}: sono dati indicativi, da verificare sulle fonti ufficiali.</p>
-                    <p class="rb-testo"><strong>Check-up.</strong> Il check-up del merito creditizio segue il metodo di lavoro dello studio: le valutazioni sono formulate sulla base delle informazioni rese disponibili alla data di riferimento, hanno natura diagnostica (misurano la qualita dei presidi, non la solvibilita) e vanno aggiornate quando cambiano dati o eventi rilevanti.</p>
-                    <p class="rb-testo"><strong>Riservatezza e limiti.</strong> Questo documento e uno strumento di lavoro riservato, non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009 ne garanzia di ottenimento del credito.</p>
+                    <p class="rb-testo"><strong>Check-up.</strong> Il check-up del merito creditizio segue il metodo di lavoro dello studio: le valutazioni sono formulate sulla base delle informazioni rese disponibili alla data di riferimento, hanno natura diagnostica (misurano la qualità dei presidi, non la solvibilità) e vanno aggiornate quando cambiano dati o eventi rilevanti.</p>
+                    <p class="rb-testo"><strong>Riservatezza e limiti.</strong> Questo documento è uno strumento di lavoro riservato, non costituisce giudizio di rating ai sensi del Regolamento (CE) 1060/2009 né garanzia di ottenimento del credito.</p>
                 </div>
 
                 <div class="rb-firma">
@@ -10914,13 +10914,13 @@
         let firmaNuova = null;
         const miniatura = src => `<img src="${src}" alt="Firma" style="max-height:56px; max-width:220px; border:1px solid var(--grigio-200); border-radius:6px; background:#fff; padding:4px;">`;
         apriModale(`<h2>Firma grafica del report</h2>
-            <p class="descrizione" style="margin-bottom:12px;">La firma di <strong>${esc(resp)}</strong> compare nel blocco firma del report, sopra il nome. E la stessa firma usata per i mandati: caricarla qui la aggiorna ovunque.</p>
+            <p class="descrizione" style="margin-bottom:12px;">La firma di <strong>${esc(resp)}</strong> compare nel blocco firma del report, sopra il nome. È la stessa firma usata per i mandati: caricarla qui la aggiorna ovunque.</p>
             <div class="campo" style="margin-bottom:12px;">
                 <label style="font-weight:600;">Firma di ${esc(resp)}</label>
                 <div id="m-firma-stato" class="descrizione" style="margin:4px 0 6px;">Controllo se c'è una firma già salvata&hellip;</div>
                 <div id="m-firma-anteprima" style="margin-bottom:6px;"></div>
                 <input type="file" id="m-firma-file" accept="image/png,image/jpeg">
-                <label style="display:flex; gap:8px; align-items:center; font-weight:400; margin-top:6px;"><input type="checkbox" id="m-firma-salva" checked style="width:auto;">Salva questa firma: le prossime volte comparira in automatico per ${esc(resp)}</label>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:400; margin-top:6px;"><input type="checkbox" id="m-firma-salva" checked style="width:auto;">Salva questa firma: le prossime volte comparirà in automatico per ${esc(resp)}</label>
             </div>
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="m-annulla">Annulla</button>
@@ -11136,7 +11136,7 @@
                 const p = Persone.tutte().find(x => x.id === b.dataset.id);
                 if (!p) return;
                 apriModale(`<h2>Eliminare la persona?</h2>
-                    <p><strong>${esc((p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome)}</strong> verrà spostata nella scheda <strong>Eliminate</strong>: non comparirà più nelle tendine né nelle sezioni Coordinatori e Responsabili. Resta negli incarichi già registrati e si può ripristinare in qualsiasi momento. L'operazione e nel registro.</p>
+                    <p><strong>${esc((p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome)}</strong> verrà spostata nella scheda <strong>Eliminate</strong>: non comparirà più nelle tendine né nelle sezioni Coordinatori e Responsabili. Resta negli incarichi già registrati e si può ripristinare in qualsiasi momento. L'operazione è nel registro.</p>
                     <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-danger" id="m-conferma">Elimina</button></div>`);
                 document.getElementById('m-annulla').addEventListener('click', chiudiModale);
                 document.getElementById('m-conferma').addEventListener('click', () => {
@@ -11317,7 +11317,7 @@
             <header>
                 <div>
                     <h1>Coordinatori e vice</h1>
-                    <p class="descrizione">Coordinatori territoriali e vice dall'anagrafica, con le regioni coordinate e gli incarichi attivi di quelle regioni. Le regioni si spuntano nella scheda della persona, tra i ruoli (sezione Aderenti Revilaw): la Regione della scheda e la sede e non assegna da sola alcun territorio.</p>
+                    <p class="descrizione">Coordinatori territoriali e vice dall'anagrafica, con le regioni coordinate e gli incarichi attivi di quelle regioni. Le regioni si spuntano nella scheda della persona, tra i ruoli (sezione Aderenti Revilaw): la Regione della scheda è la sede e non assegna da sola alcun territorio.</p>
                 </div>
             </header>
             ${tabBar}${corpo}
@@ -11482,7 +11482,7 @@
                     ${RV_ROSTER.regioni.map(r => `<option ${p && p.regione === r ? 'selected' : ''}>${r}</option>`).join('')}
                 </select><div class="hint">Dove la persona ha sede. Non assegna alcun territorio: le regioni coordinate si scelgono tra i ruoli, qui sotto.</div></div>
                 <div class="campo"><label>Provincia</label><input id="m-p-provincia" value="${p && p.provincia ? esc(p.provincia) : ''}"></div>
-                <div class="campo"><label>Localita</label><input id="m-p-localita" value="${p && p.localita ? esc(p.localita) : ''}"></div>
+                <div class="campo"><label>Località</label><input id="m-p-localita" value="${p && p.localita ? esc(p.localita) : ''}"></div>
                 <div class="campo"><label>Indirizzo</label><input id="m-p-indirizzo" value="${p && p.indirizzo ? esc(p.indirizzo) : ''}"></div>
             </div>
             <div class="campo"><label>Ruoli</label>
@@ -11556,8 +11556,8 @@
                 { chiave: 'nome', nome: 'Cognome' }, { chiave: 'nomeProprio', nome: 'Nome' },
                 { chiave: 'email', nome: 'Email' }, { chiave: 'telefono', nome: 'Telefono' },
                 { chiave: 'regione', nome: 'Regione' }, { chiave: 'provincia', nome: 'Provincia' },
-                { chiave: 'localita', nome: 'Localita' }, { chiave: 'indirizzo', nome: 'Indirizzo' },
-                { chiave: 'qualita', nome: 'Ruolo qualita' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
+                { chiave: 'localita', nome: 'Località' }, { chiave: 'indirizzo', nome: 'Indirizzo' },
+                { chiave: 'qualita', nome: 'Ruolo qualità' }, { chiave: 'respIncarico', nome: 'Ruolo resp. incarico' },
                 { chiave: 'coordinatore', nome: 'Coordinatore territoriale' },
                 { chiave: 'viceCoordinatore', nome: 'Vice coordinatore territoriale' },
                 { chiave: 'equityPartner', nome: 'Equity partner' },
@@ -11712,26 +11712,26 @@
             id: '2026-08-22-checkup-guidato',
             data: '2026-08-22',
             titolo: 'Rating bancario: il Check-up diventa un percorso guidato con verbali automatici',
-            sommario: 'La scheda Check-up non e piu un elenco di tabelle: e un percorso a pannelli, fase per fase, che spiega in parole semplici cosa fare e mette in ogni fase gli strumenti per farlo. I punteggi dei tredici moduli arrivano gia suggeriti dalle risposte del questionario e dai calcoli della verifica (si conferma o si corregge, senza inserire due volte le stesse cose), e verbali e lettere si generano da soli dai dati inseriti: verbale di avvio, richiesta dei documenti mancanti, comunicazione delle criticita all\'organo amministrativo, verbale di consegna.',
+            sommario: 'La scheda Check-up non è più un elenco di tabelle: è un percorso a pannelli, fase per fase, che spiega in parole semplici cosa fare e mette in ogni fase gli strumenti per farlo. I punteggi dei tredici moduli arrivano già suggeriti dalle risposte del questionario e dai calcoli della verifica (si conferma o si corregge, senza inserire due volte le stesse cose), e verbali e lettere si generano da soli dai dati inseriti: verbale di avvio, richiesta dei documenti mancanti, comunicazione delle criticità all\'organo amministrativo, verbale di consegna.',
             chi: 'Chi svolge i check-up del merito creditizio.',
             dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica: ogni fase ha la sua guida, i suoi strumenti e i suoi documenti.',
             voci: [
                 { titolo: 'Ogni fase spiega cosa fare', testo: 'Dalla pre-qualifica al follow-up, ogni pannello si apre con una guida operativa in linguaggio piano (niente rimandi a paragrafi): cosa verificare, cosa chiedere, cosa produrre. Lo stato della fase e le note restano a portata di mano.' },
                 { titolo: 'Punteggi suggeriti dal questionario e dai dati', testo: 'Ogni modulo mostra il punteggio suggerito con le sue basi: le risposte del questionario collegate, il DSCR, la Centrale dei Rischi, il gruppo, i debiti fiscali. Un clic lo inserisce (anche su tutti i moduli vuoti insieme); interviste e verifiche servono a confermarlo o correggerlo.' },
-                { titolo: 'Verbali e lettere gia compilati', testo: 'Il verbale della riunione di avvio, la lettera con i soli documenti che mancano, la comunicazione delle criticita gravi all\'organo amministrativo e il verbale di consegna si generano con un pulsante, nella stessa veste del report e con la firma grafica del responsabile.' },
-                { titolo: 'Strumenti dentro le fasi', testo: 'La raccolta documenti e organizzata per sezioni con i conteggi; le interviste hanno tre tracce di colloquio pronte; la roadmap puo importare con un clic le azioni proposte dal calcolo; il follow-up mostra le azioni ancora aperte e la data della prossima revisione.' }
+                { titolo: 'Verbali e lettere già compilati', testo: 'Il verbale della riunione di avvio, la lettera con i soli documenti che mancano, la comunicazione delle criticità gravi all\'organo amministrativo e il verbale di consegna si generano con un pulsante, nella stessa veste del report e con la firma grafica del responsabile.' },
+                { titolo: 'Strumenti dentro le fasi', testo: 'La raccolta documenti è organizzata per sezioni con i conteggi; le interviste hanno tre tracce di colloquio pronte; la roadmap può importare con un clic le azioni proposte dal calcolo; il follow-up mostra le azioni ancora aperte e la data della prossima revisione.' }
             ]
         },
         {
             id: '2026-08-22-rating-percorso',
             data: '2026-08-22',
-            titolo: 'Rating bancario: esiti piu scorrevoli e il Percorso di miglioramento Revilaw',
-            sommario: 'Gli esiti della verifica ora si leggono come un racconto unico, senza ripetizioni: una sola scala 1-12 con classe MCC e classe corretta insieme, il passaggio dal rating MCC al rating ipotizzato in una card sola (correttivo, soci e gruppo, rettifiche), cruscotto e indici della crisi riuniti, disclaimer in un\'unica nota. Al centro c\'e il nuovo Percorso di miglioramento Revilaw: la simulazione di dove puo arrivare la classe completando le leve coperte dai servizi dello studio, con le azioni raggruppate per servizio.',
+            titolo: 'Rating bancario: esiti più scorrevoli e il Percorso di miglioramento Revilaw',
+            sommario: 'Gli esiti della verifica ora si leggono come un racconto unico, senza ripetizioni: una sola scala 1-12 con classe MCC e classe corretta insieme, il passaggio dal rating MCC al rating ipotizzato in una card sola (correttivo, soci e gruppo, rettifiche), cruscotto e indici della crisi riuniti, disclaimer in un\'unica nota. Al centro c\'è il nuovo Percorso di miglioramento Revilaw: la simulazione di dove può arrivare la classe completando le leve coperte dai servizi dello studio, con le azioni raggruppate per servizio.',
             chi: 'Chi prepara le verifiche del merito creditizio e chi le presenta alle imprese.',
-            dove: 'Sezione "Rating bancario", scheda "Esiti e azioni" della verifica e report da firmare; il metodo della simulazione e nel capitolo 11 del "Metodo di calcolo".',
+            dove: 'Sezione "Rating bancario", scheda "Esiti e azioni" della verifica e report da firmare; il metodo della simulazione è nel capitolo 11 del "Metodo di calcolo".',
             voci: [
-                { titolo: 'La classe potenziale con i servizi Revilaw', testo: 'Le domande del questionario coperte da un servizio dello studio (assetti, tesoreria ed early warning, Modello 231, rating di legalita, ESG, TCF, comunicazione con le banche, attivazione delle garanzie) vengono simulate al traguardo: la verifica mostra la classe di oggi e la classe potenziale, con il nuovo punteggio del rating interno, a parita di bilancio e andamentale.' },
-                { titolo: 'Azioni raggruppate per servizio', testo: 'Le azioni migliorative non sono piu una lista piatta: stanno sotto il servizio Revilaw che le copre, con le leve del questionario che il servizio porta avanti e i moduli del check-up che presidia; gli interventi di gestione e finanza chiudono il percorso.' },
+                { titolo: 'La classe potenziale con i servizi Revilaw', testo: 'Le domande del questionario coperte da un servizio dello studio (assetti, tesoreria ed early warning, Modello 231, rating di legalità, ESG, TCF, comunicazione con le banche, attivazione delle garanzie) vengono simulate al traguardo: la verifica mostra la classe di oggi e la classe potenziale, con il nuovo punteggio del rating interno, a parità di bilancio e andamentale.' },
+                { titolo: 'Azioni raggruppate per servizio', testo: 'Le azioni migliorative non sono più una lista piatta: stanno sotto il servizio Revilaw che le copre, con le leve del questionario che il servizio porta avanti e i moduli del check-up che presidia; gli interventi di gestione e finanza chiudono il percorso.' },
                 { titolo: 'Esiti senza ripetizioni', testo: 'Una sola scala del rating con due marcatori, una card unica dal rating MCC al rating ipotizzato (con soci, gruppo e rettifiche prudenziali), cruscotto, indici della crisi e Z-Score riuniti, la tabella per banca dello scoring dentro il posizionamento bancario, gli avvisi di prudenza del check-up in un solo badge e le avvertenze in un\'unica nota. Il report firmato adotta la stessa impostazione, con il percorso di miglioramento dopo l\'analisi e la nota metodologica in capoversi.' }
             ]
         },
@@ -11739,9 +11739,9 @@
             id: '2026-08-22-rating-condivisione',
             data: '2026-08-22',
             titolo: 'Rating bancario: verifiche personali, condivisione e salvataggio in ogni momento',
-            sommario: 'Ogni verifica del merito creditizio ora appartiene a chi la crea: ognuno vede le proprie, i partner (equity e founding) vedono quelle di tutti in sola visualizzazione con l\'indicazione dell\'autore, e l\'autore puo condividere il lavoro con qualsiasi utente dell\'area in lettura o in scrittura, revocando l\'accesso quando vuole. La scheda si salva in qualsiasi momento per riprendere il lavoro, e il programma suggerisce da solo il salvataggio temporaneo durante le sessioni lunghe.',
+            sommario: 'Ogni verifica del merito creditizio ora appartiene a chi la crea: ognuno vede le proprie, i partner (equity e founding) vedono quelle di tutti in sola visualizzazione con l\'indicazione dell\'autore, e l\'autore può condividere il lavoro con qualsiasi utente dell\'area in lettura o in scrittura, revocando l\'accesso quando vuole. La scheda si salva in qualsiasi momento per riprendere il lavoro, e il programma suggerisce da solo il salvataggio temporaneo durante le sessioni lunghe.',
             chi: 'Tutti quelli che lavorano sulle verifiche del merito creditizio.',
-            dove: 'Sezione "Rating bancario": l\'elenco mostra la colonna "Autore" e le condivisioni; nella scheda della verifica c\'e il pulsante "Condivisione".',
+            dove: 'Sezione "Rating bancario": l\'elenco mostra la colonna "Autore" e le condivisioni; nella scheda della verifica c\'è il pulsante "Condivisione".',
             voci: [
                 { titolo: 'Le verifiche sono personali', testo: 'Nell\'elenco ognuno trova le proprie verifiche e quelle che i colleghi gli hanno condiviso. Amministrazione a parte, nessuno vede il lavoro degli altri.' },
                 { titolo: 'I partner vedono tutto, in sola visualizzazione', testo: 'Chi ha un ruolo di accesso da equity o founding partner vede le verifiche di tutti con l\'indicazione di chi le ha preparate, ma le apre solo come report: per intervenire serve la condivisione in scrittura dell\'autore.' },
@@ -11755,24 +11755,24 @@
             titolo: 'Rating bancario: il Check-up aggiornato al metodo operativo dello studio',
             sommario: 'La scheda "Check-up" della verifica segue ora la versione aggiornata del metodo operativo dello studio: tredici moduli di analisi A1-A13 con gli esempi di punteggio per ogni livello sotto ogni voce, pesi per fascia dimensionale (Micro, Piccola, Media, Grande), classe di sintesi da A a E, override obbligatori e giudizio sospeso, undici fasi dalla pre-qualifica al follow-up e la check-list documentale completa con 125 documenti di cui 31 essenziali.',
             chi: 'Chi prepara le verifiche del merito creditizio e chi le riesamina.',
-            dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica; l\'esito nel riquadro "Check-up del merito creditizio" e nel report. Il metodo aggiornato e nel capitolo 10 del "Metodo di calcolo".',
+            dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica; l\'esito nel riquadro "Check-up del merito creditizio" e nel report. Il metodo aggiornato è nel capitolo 10 del "Metodo di calcolo".',
             voci: [
-                { titolo: 'Tredici moduli con ancoraggi e pesi per fascia', testo: 'I moduli A1-A13 sostituiscono le 12 aree: ogni punteggio 0-4 si assegna con gli esempi descrittivi per ogni livello (aperti sotto ogni modulo) e la media e ponderata con i pesi della fascia dimensionale dell\'impresa; il nucleo inderogabile A3-A8 non ammette N/A.' },
+                { titolo: 'Tredici moduli con ancoraggi e pesi per fascia', testo: 'I moduli A1-A13 sostituiscono le 12 aree: ogni punteggio 0-4 si assegna con gli esempi descrittivi per ogni livello (aperti sotto ogni modulo) e la media è ponderata con i pesi della fascia dimensionale dell\'impresa; il nucleo inderogabile A3-A8 non ammette N/A.' },
                 { titolo: 'Classe di sintesi A-E, override e giudizio sospeso', testo: 'La media diventa una classe da A (presidi evoluti) a E (presidi critici). Gli override del metodo scattano da soli dai dati della verifica (DSCR sotto 1 e patrimonio netto negativo limitano a D; creditori pubblici, sconfinamenti oltre 60 giorni e moduli del nucleo a zero limitano a C); un C1 aperto esclude A e B; un modulo del nucleo non valutato sospende il giudizio.' },
                 { titolo: 'Fase 0 e regola di prudenza', testo: 'Il processo parte dalla pre-qualifica dell\'impresa (fase 0) e arriva al follow-up (fase 10). La regola di prudenza di prudenza segnala i moduli con punteggio sopra 2 ma documenti essenziali mancanti.' },
-                { titolo: 'Check-list documentale completa', testo: 'La lista completa del metodo: quattordici sezioni, 125 documenti con l\'indicazione dei 31 essenziali e dei moduli collegati. Le verifiche gia salvate si aggiornano da sole alla nuova struttura; la raccolta documenti riparte dalla nuova lista.' }
+                { titolo: 'Check-list documentale completa', testo: 'La lista completa del metodo: quattordici sezioni, 125 documenti con l\'indicazione dei 31 essenziali e dei moduli collegati. Le verifiche già salvate si aggiornano da sole alla nuova struttura; la raccolta documenti riparte dalla nuova lista.' }
             ]
         },
         {
             id: '2026-08-22-rating-checkup',
             data: '2026-08-22',
             titolo: 'Rating bancario: il Check-up del merito creditizio (metodo operativo dello studio)',
-            sommario: 'Dentro la verifica c\'e la scheda "Check-up", che porta nel programma il metodo operativo dello studio: le fasi dell\'incarico dal primo contatto al monitoraggio, la valutazione delle 12 aree tecniche con la scala di presidio 0-4 e i pesi delle aree essenziali, i rilievi classificati C1/C2/C3/PF con fatto, evidenza, rischio e raccomandazione, la roadmap per orizzonti e la lista standard dei documenti. Tutto entra negli esiti e nel report firmato.',
+            sommario: 'Dentro la verifica c\'è la scheda "Check-up", che porta nel programma il metodo operativo dello studio: le fasi dell\'incarico dal primo contatto al monitoraggio, la valutazione delle 12 aree tecniche con la scala di presidio 0-4 e i pesi delle aree essenziali, i rilievi classificati C1/C2/C3/PF con fatto, evidenza, rischio e raccomandazione, la roadmap per orizzonti e la lista standard dei documenti. Tutto entra negli esiti e nel report firmato.',
             chi: 'Chi prepara le verifiche del merito creditizio e chi le riesamina.',
-            dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica; l\'esito nel riquadro "Check-up del merito creditizio" e nella sezione dedicata del report. Il metodo e nel capitolo 10 del "Metodo di calcolo".',
+            dove: 'Sezione "Rating bancario", scheda "Check-up" della verifica; l\'esito nel riquadro "Check-up del merito creditizio" e nella sezione dedicata del report. Il metodo è nel capitolo 10 del "Metodo di calcolo".',
             voci: [
-                { titolo: 'Il processo in fasi', testo: 'Le undici fasi del metodo (primo contatto, incarico, riunione iniziale, documenti, interviste, verifiche, punteggi, priorita, rapporto, presentazione, monitoraggio) con stato e note: l\'avanzamento si vede a colpo d\'occhio.' },
-                { titolo: 'Le 12 aree e il presidio complessivo', testo: 'Ogni area si valuta con la scala del metodo (0 critico - 4 evoluto, N/A motivato). La media e ponderata: capacita di rimborso, Centrale Rischi, analisi economica e tesoreria pesano di piu, e valgono le regole di override (un C1 aperto o un\'area essenziale debole limitano il giudizio, mai verso l\'alto).' },
+                { titolo: 'Il processo in fasi', testo: 'Le undici fasi del metodo (primo contatto, incarico, riunione iniziale, documenti, interviste, verifiche, punteggi, priorità, rapporto, presentazione, monitoraggio) con stato e note: l\'avanzamento si vede a colpo d\'occhio.' },
+                { titolo: 'Le 12 aree e il presidio complessivo', testo: 'Ogni area si valuta con la scala del metodo (0 critico - 4 evoluto, N/A motivato). La media è ponderata: capacità di rimborso, Centrale Rischi, analisi economica e tesoreria pesano di più, e valgono le regole di override (un C1 aperto o un\'area essenziale debole limitano il giudizio, mai verso l\'alto).' },
                 { titolo: 'Rilievi e roadmap', testo: 'I rilievi hanno la struttura del metodo (fatto, evidenza, rischio, raccomandazione) e la classificazione C1/C2/C3/PF; la roadmap ordina le azioni per orizzonte (0-30 giorni fino a 6-12 mesi) con responsabile, termine, stato ed evidenza di chiusura.' },
                 { titolo: 'Documenti e report', testo: 'La lista standard dei documenti  tiene lo stato della raccolta. Esiti e report mostrano il quadro completo, con la formula sulle limitazioni del Manuale nella nota metodologica.' }
             ]
@@ -11785,7 +11785,7 @@
             chi: 'Chi prepara le verifiche del merito creditizio.',
             dove: 'Sezione "Rating bancario", scheda "Soci e gruppo" della verifica: riquadro "Eventi pregiudizievoli dell\'impresa". L\'effetto compare nella classe MCC, nella sintesi e nelle azioni.',
             voci: [
-                { titolo: 'Declassamento di due classi', testo: 'I pregiudizievoli di conservatoria a carico dell\'impresa spostano la classe integrata di due gradini verso il basso, con tetto alla classe 12: la cancellazione delle formalita e spesso la leva piu rapida per recuperare l\'ammissibilita.' },
+                { titolo: 'Declassamento di due classi', testo: 'I pregiudizievoli di conservatoria a carico dell\'impresa spostano la classe integrata di due gradini verso il basso, con tetto alla classe 12: la cancellazione delle formalità è spesso la leva più rapida per recuperare l\'ammissibilità.' },
                 { titolo: 'Eventi del tipo fallimento', testo: 'Rendono la garanzia non ammissibile qualunque sia la classe, come le sofferenze: la verifica lo dice apertamente e propone il percorso dedicato.' },
                 { titolo: 'Distinti dagli amministratori', testo: 'Questi eventi riguardano l\'IMPRESA e agiscono sul modello MCC; le posizioni degli amministratori restano nel profilo dei soggetti e correggono il rating ipotizzato.' }
             ]
@@ -11794,57 +11794,57 @@
             id: '2026-08-22-rating-scoring',
             data: '2026-08-22',
             titolo: 'Rating bancario: il rating interno simulato (scoring a moduli)',
-            sommario: 'Dentro la verifica del merito creditizio c\'e un secondo motore, costruito sul modello di calcolo dello studio: tre moduli con punteggio 0-100 (bilancio, andamentale, qualitativo) pesati per dimensione d\'impresa, score convertito in PD e classe interna da 1 a 10, mappatura per banca con il fattore di severita e le bande PD dei Pillar 3, presidio dei segnali di crisi dell\'art. 3 CCII.',
+            sommario: 'Dentro la verifica del merito creditizio c\'è un secondo motore, costruito sul modello di calcolo dello studio: tre moduli con punteggio 0-100 (bilancio, andamentale, qualitativo) pesati per dimensione d\'impresa, score convertito in PD e classe interna da 1 a 10, mappatura per banca con il fattore di severità e le bande PD dei Pillar 3, presidio dei segnali di crisi dell\'art. 3 CCII.',
             chi: 'Chi prepara le verifiche del merito creditizio.',
-            dove: 'Sezione "Rating bancario", dentro la verifica: i dati nuovi stanno nella scheda "Centrale Rischi" (andamentale di sintesi e segnali CCII) e nella scheda "Banche" (fattore di severita per istituto); l\'esito nel riquadro "Rating interno simulato" e nel report.',
+            dove: 'Sezione "Rating bancario", dentro la verifica: i dati nuovi stanno nella scheda "Centrale Rischi" (andamentale di sintesi e segnali CCII) e nella scheda "Banche" (fattore di severità per istituto); l\'esito nel riquadro "Rating interno simulato" e nel report.',
             voci: [
-                { titolo: 'Come ragiona', testo: 'Replica la struttura tipica dei sistemi di rating interni delle banche: sulle PMI pesa di piu l\'andamentale, sulle imprese grandi il bilancio. Il questionario della verifica vale come modulo qualitativo, senza doverlo ricompilare.' },
-                { titolo: 'Dalla PD alla classe per banca', testo: 'Lo score diventa una probabilita di inadempimento e una classe interna da 1 (eccellente) a 10 (pre-default). Per ogni banca censita si puo impostare un fattore di severita calibrato sull\'esperienza dello studio: la tabella mostra classe indicativa e banda PD regolamentare (template EU CR6).' },
+                { titolo: 'Come ragiona', testo: 'Replica la struttura tipica dei sistemi di rating interni delle banche: sulle PMI pesa di più l\'andamentale, sulle imprese grandi il bilancio. Il questionario della verifica vale come modulo qualitativo, senza doverlo ricompilare.' },
+                { titolo: 'Dalla PD alla classe per banca', testo: 'Lo score diventa una probabilità di inadempimento e una classe interna da 1 (eccellente) a 10 (pre-default). Per ogni banca censita si può impostare un fattore di severità calibrato sull\'esperienza dello studio: la tabella mostra classe indicativa e banda PD regolamentare (template EU CR6).' },
                 { titolo: 'Presidio dei segnali di crisi', testo: 'La checklist dell\'art. 3, comma 4, del Codice della crisi (retribuzioni, fornitori, banche, creditori pubblici) e il DSCR prospettico: un segnale presente porta il verdetto in area critica, con l\'azione dedicata.' },
-                { titolo: 'Due motori, una lettura', testo: 'Il modello MCC dice come vede l\'impresa il Fondo di Garanzia (classi 1-12); lo scoring come ragionano le banche (classi 1-10). Il confronto e spiegato nella scheda "Metodo di calcolo", capitolo 7.' }
+                { titolo: 'Due motori, una lettura', testo: 'Il modello MCC dice come vede l\'impresa il Fondo di Garanzia (classi 1-12); lo scoring come ragionano le banche (classi 1-10). Il confronto è spiegato nella scheda "Metodo di calcolo", capitolo 7.' }
             ]
         },
         {
             id: '2026-08-21-rating-bancario-completo',
             data: '2026-08-21',
             titolo: 'Rating bancario: import dei documenti, soggetti e stima per istituto',
-            sommario: 'La sezione Rating bancario ora importa da sola il bilancio XBRL del Registro Imprese e il PDF della Centrale dei Rischi, chiede i dettagli delle voci che contano (crediti scaduti, magazzino, rivalutazioni, leasing, debiti fiscali), verifica compagine sociale, amministratori e gruppo, e stima il rating presso ogni singolo istituto in base alla sua politica di credito. In fondo alla scheda c\'e il manuale che spiega ogni calcolo.',
-            chi: 'Chi prepara le verifiche del merito creditizio. Il manuale del metodo e visibile anche a chi ha la sezione in sola lettura.',
+            sommario: 'La sezione Rating bancario ora importa da sola il bilancio XBRL del Registro Imprese e il PDF della Centrale dei Rischi, chiede i dettagli delle voci che contano (crediti scaduti, magazzino, rivalutazioni, leasing, debiti fiscali), verifica compagine sociale, amministratori e gruppo, e stima il rating presso ogni singolo istituto in base alla sua politica di credito. In fondo alla scheda c\'è il manuale che spiega ogni calcolo.',
+            chi: 'Chi prepara le verifiche del merito creditizio. Il manuale del metodo è visibile anche a chi ha la sezione in sola lettura.',
             dove: 'Sezione "Rating bancario": dentro la verifica, schede "Impresa e bilancio" (import XBRL e dettagli), "Centrale Rischi" (import PDF), "Soci e gruppo" e "Metodo di calcolo". Dall\'elenco, pulsante "Metodo di calcolo".',
             voci: [
                 { titolo: 'Import dei documenti', testo: 'Il file XBRL depositato compila da solo il bilancio (esercizio corrente e precedente) e riconosce il settore dal codice ATECO; il PDF della Centrale dei Rischi compila la griglia dei sei mesi e rileva le sofferenze. Tutto viene letto nel browser, come nel simulatore pubblico.' },
                 { titolo: 'Dettagli delle voci e bilancio rettificato', testo: 'Le domande da analista fidi sulle voci importanti: crediti scaduti, magazzino fermo, rivalutazioni, finanziamenti soci, leasing, debiti fiscali scaduti, garanzie prestate. Il programma ricalcola il rating sul bilancio rettificato in ottica banca e mostra la differenza.' },
-                { titolo: 'Soci, amministratori e gruppo', testo: 'La compagine si censisce con la titolarita effettiva (fiduciarie e soci esteri vengono segnalati), gli amministratori con l\'esito delle visure su protesti e pregiudizievoli, il gruppo con sostegno, consolidato e garanzie infragruppo. Questi profili correggono la classe insieme al questionario.' },
+                { titolo: 'Soci, amministratori e gruppo', testo: 'La compagine si censisce con la titolarità effettiva (fiduciarie e soci esteri vengono segnalati), gli amministratori con l\'esito delle visure su protesti e pregiudizievoli, il gruppo con sostegno, consolidato e garanzie infragruppo. Questi profili correggono la classe insieme al questionario.' },
                 { titolo: 'La stima per singolo istituto', testo: 'Ogni banca ha la sua politica di credito: grandi gruppi con modelli standardizzati, banche del territorio che pesano la relazione, gruppi esteri con soglie rigide sul capitale, specializzate. La tabella del posizionamento bancario mostra il rating stimato presso ciascun istituto con le correzioni spiegate riga per riga.' },
-                { titolo: 'Il manuale dei calcoli', testo: 'Nella scheda "Metodo di calcolo" ogni formula e spiegata: modello MCC, andamentale, correttivi, rettifiche, cruscotto, CNDCEC, Z-Score, solidita delle banche e stima per istituto, con soglie e fonti.' }
+                { titolo: 'Il manuale dei calcoli', testo: 'Nella scheda "Metodo di calcolo" ogni formula è spiegata: modello MCC, andamentale, correttivi, rettifiche, cruscotto, CNDCEC, Z-Score, solidità delle banche e stima per istituto, con soglie e fonti.' }
             ]
         },
         {
             id: '2026-08-21-rating-bancario',
             data: '2026-08-21',
             titolo: 'Rating bancario e merito creditizio',
-            sommario: 'Nell\'area riservata c\'e la sezione "Rating bancario": la versione di lavoro del simulatore pubblico. Le verifiche si salvano per cliente e si completano con il questionario qualitativo, con le banche dell\'impresa e con le azioni migliorative; alla fine si stampa un report in PDF con la firma grafica del responsabile.',
+            sommario: 'Nell\'area riservata c\'è la sezione "Rating bancario": la versione di lavoro del simulatore pubblico. Le verifiche si salvano per cliente e si completano con il questionario qualitativo, con le banche dell\'impresa e con le azioni migliorative; alla fine si stampa un report in PDF con la firma grafica del responsabile.',
             chi: 'Chi prepara le verifiche del merito creditizio per i clienti. La sezione compare a chi ha il permesso "Rating bancario" nel proprio ruolo; in sola lettura si consultano gli esiti e i report.',
             dove: 'Nel menu di sinistra, alla voce "Rating bancario" sotto l\'intestazione "Merito creditizio".',
             voci: [
-                { titolo: 'Il modello di calcolo', testo: 'La verifica replica il modello del Fondo di Garanzia PMI: bilancio per settore, Centrale dei Rischi per l\'andamentale, classe integrata da 1 a 12 in 5 fasce con la probabilita di inadempimento. Ci sono anche il cruscotto di bancabilita, gli indici della crisi CNDCEC e lo Z-Score, come nel simulatore del sito.' },
-                { titolo: 'Il questionario qualitativo', testo: 'Venti domande su governance, presidi (231, rating di legalita, ESG, TCF), rapporti bancari e struttura. Il punteggio corregge la classe di uno o piu gradini, come fanno i modelli interni delle banche: cosi si arriva al rating ipotizzato.' },
+                { titolo: 'Il modello di calcolo', testo: 'La verifica replica il modello del Fondo di Garanzia PMI: bilancio per settore, Centrale dei Rischi per l\'andamentale, classe integrata da 1 a 12 in 5 fasce con la probabilità di inadempimento. Ci sono anche il cruscotto di bancabilità, gli indici della crisi CNDCEC e lo Z-Score, come nel simulatore del sito.' },
+                { titolo: 'Il questionario qualitativo', testo: 'Venti domande su governance, presidi (231, rating di legalità, ESG, TCF), rapporti bancari e struttura. Il punteggio corregge la classe di uno o più gradini, come fanno i modelli interni delle banche: così si arriva al rating ipotizzato.' },
                 { titolo: 'Le banche dell\'impresa', testo: 'Per ogni rapporto si indicano accordato, utilizzato e stato della relazione. Il programma confronta gli istituti con i rating delle agenzie, misura utilizzo e concentrazione degli affidamenti e stima come ogni banca vede l\'impresa.' },
-                { titolo: 'Azioni migliorative e report', testo: 'Dalle debolezze rilevate nascono le azioni proposte, collegate ai servizi Revilaw (assetti, 231, rating di legalita, ESG, TCF). Il report finale si firma con la firma grafica caricata, come i mandati, e si stampa o si salva in PDF.' }
+                { titolo: 'Azioni migliorative e report', testo: 'Dalle debolezze rilevate nascono le azioni proposte, collegate ai servizi Revilaw (assetti, 231, rating di legalità, ESG, TCF). Il report finale si firma con la firma grafica caricata, come i mandati, e si stampa o si salva in PDF.' }
             ]
         },
         {
             id: '2026-08-14-richieste-correzione',
             data: '2026-08-14',
             titolo: 'Richieste di correzione dati',
-            sommario: 'Nell\'area riservata c\'e una sezione nuova per far correggere un dato sbagliato. La correzione non si chiede piu a voce: si scrive a un equity partner e della richiesta resta traccia, con tutte le risposte in un posto solo.',
+            sommario: 'Nell\'area riservata c\'è una sezione nuova per far correggere un dato sbagliato. La correzione non si chiede più a voce: si scrive a un equity partner e della richiesta resta traccia, con tutte le risposte in un posto solo.',
             chi: 'Tutti gli utenti dell\'area. Serve soprattutto a coordinatori e vice, che i dati li vedono ma non li possono modificare.',
-            dove: 'Nel menu di sinistra, alla voce "Richieste di correzione". Se il dato sbagliato e su un incarico, si puo partire anche dal pulsante "Chiedi una correzione" nella scheda dell\'incarico.',
+            dove: 'Nel menu di sinistra, alla voce "Richieste di correzione". Se il dato sbagliato è su un incarico, si può partire anche dal pulsante "Chiedi una correzione" nella scheda dell\'incarico.',
             voci: [
-                { titolo: 'A chi si scrive', testo: 'La richiesta puo riguardare un incarico preciso oppure una funzione generale dell\'area. Il destinatario si sceglie da una tendina che elenca gli equity partner.' },
-                { titolo: 'Chi la vede', testo: 'Oltre a chi la scrive e all\'equity partner a cui e indirizzata, la richiesta compare al coordinatore e al vice della regione a cui si riferisce. Gli equity partner e i founding partner vedono tutte le richieste di Revilaw.' },
-                { titolo: 'Gli avvisi per email', testo: 'Una mail parte quando la richiesta viene inviata, quando qualcuno risponde e a ogni cambio di stato, compreso il momento in cui la correzione risulta eseguita. L\'oggetto dice subito cosa e successo e il pulsante nella mail apre direttamente la richiesta.' },
-                { titolo: 'I messaggi restano insieme', testo: 'Ogni richiesta e una scheda con lo scambio completo in ordine di tempo: la segnalazione iniziale, le risposte e i passaggi di stato, da aperta a presa in carico fino a corretta o respinta.' }
+                { titolo: 'A chi si scrive', testo: 'La richiesta può riguardare un incarico preciso oppure una funzione generale dell\'area. Il destinatario si sceglie da una tendina che elenca gli equity partner.' },
+                { titolo: 'Chi la vede', testo: 'Oltre a chi la scrive e all\'equity partner a cui è indirizzata, la richiesta compare al coordinatore e al vice della regione a cui si riferisce. Gli equity partner e i founding partner vedono tutte le richieste di Revilaw.' },
+                { titolo: 'Gli avvisi per email', testo: 'Una mail parte quando la richiesta viene inviata, quando qualcuno risponde e a ogni cambio di stato, compreso il momento in cui la correzione risulta eseguita. L\'oggetto dice subito cosa è successo e il pulsante nella mail apre direttamente la richiesta.' },
+                { titolo: 'I messaggi restano insieme', testo: 'Ogni richiesta è una scheda con lo scambio completo in ordine di tempo: la segnalazione iniziale, le risposte e i passaggi di stato, da aperta a presa in carico fino a corretta o respinta.' }
             ]
         }
     ];
@@ -11873,13 +11873,13 @@
         // il testo passa comunque dal servizio, che i trattini lunghi li toglie:
         // qui si tolgono subito, cosi' quello che si vede a video e' gia' quello che parte
         return senzaTrattiniLunghi((nota ? pMail(esc(nota).replace(/\n/g, '<br>')) : '')
-            + pMail('L\'area riservata Revilaw e stata aggiornata. Ecco cosa cambia.')
+            + pMail('L\'area riservata Revilaw è stata aggiornata. Ecco cosa cambia.')
             + '<h3 style="font-family:Arial,Helvetica,sans-serif;color:#0A2844;font-size:16px;line-height:1.35;margin:18px 0 4px;text-align:left;">' + esc(a.titolo) + '</h3>'
             + '<div style="color:#475569;font-size:13px;margin-bottom:10px;text-align:left;">Rilasciato il ' + esc(fmtData(a.data)) + '</div>'
             + pMail(esc(a.sommario))
             + elencoMail((a.voci || []).map(v => '<strong>' + esc(v.titolo) + '.</strong>' + (v.testo ? ' ' + esc(v.testo) : '')))
             + tabellaMail([['Dove si trova', esc(a.dove || '')], ['A chi interessa', esc(a.chi || '')]])
-            + pMail('Il manuale completo dell\'area e sempre disponibile dal pulsante <strong>Manuale</strong>, in basso a sinistra accanto a "Esci".',
+            + pMail('Il manuale completo dell\'area è sempre disponibile dal pulsante <strong>Manuale</strong>, in basso a sinistra accanto a "Esci".',
                 'color:#475569;font-size:13px;'));
     }
     /* Elenco puntato di una mail: fatto a tabella, con il pallino in una colonna sua.
@@ -12219,7 +12219,7 @@
         scadenzaDefault: SCADENZA_DEFAULT,
         argomenti: [
             { id: 'adeguati_assetti', nome: 'Adeguati Assetti Organizzativi', coord: 'Stefano Pizzutelli', desc: 'Assetti organizzativi, amministrativi e contabili adeguati ai sensi dell\'art. 2086 c.c.' },
-            { id: 'esg', nome: 'ESG e Sostenibilità', coord: 'Antonella Candelieri', desc: 'Rendicontazione di sostenibilita, criteri ESG e finanza sostenibile per le imprese.', flag: 'Sono già revisore della sostenibilità' },
+            { id: 'esg', nome: 'ESG e Sostenibilità', coord: 'Antonella Candelieri', desc: 'Rendicontazione di sostenibilità, criteri ESG e finanza sostenibile per le imprese.', flag: 'Sono già revisore della sostenibilità' },
             { id: 'compliance', nome: 'Compliance, TCF e Modello 231', coord: 'Melo Martella', desc: 'Tax Control Framework, adempimento collaborativo e responsabilità amministrativa degli enti (D.Lgs. 231).', flag: 'Sono iscritto all\'albo TCF dell\'Agenzia delle Entrate' },
             { id: 'finanza_agevolata', nome: 'Finanza Agevolata', coord: 'Andrea Missori', desc: 'Bandi, incentivi e strumenti agevolativi per gli investimenti e la crescita d\'impresa.' },
             { id: 'crisi_impresa', nome: 'Crisi d\'Impresa e Risanamento', coord: 'Vincenzo Napolitano', desc: 'Allerta precoce, composizione negoziata e percorsi di risanamento dell\'impresa.' },
@@ -12411,7 +12411,7 @@
                 ? '<label class="s-flag"><input type="checkbox" class="s-flag-chk"' + (c.flag ? ' checked' : '') + '>'
                 + '<span class="s-flag-txt"><span class="s-flag-badge">' + esc(etichettaFlagBreve(a.id)) + '</span>'
                 + '<span class="s-flag-tit">' + esc(a.flag) + '</span>'
-                + '<span class="s-flag-sub">Spunta la casella solo se ti riguarda: e una qualifica molto rilevante per questa area.</span></span></label>'
+                + '<span class="s-flag-sub">Spunta la casella solo se ti riguarda: è una qualifica molto rilevante per questa area.</span></span></label>'
                 : '';
             return '<div class="s-scelta' + (scelta ? ' attiva' : '') + '" data-id="' + esc(a.id) + '">'
                 + '<label class="s-scelta-head"><input type="checkbox" class="s-check"' + (scelta ? ' checked' : '') + '>'
@@ -12452,7 +12452,7 @@
             + ' <span class="s-guida-cnt">Aree selezionate: <b><span id="s-conta">' + scelte.size + ' di ' + MAX_SCELTE + '</span></b></span></p></div>'
             + '<div id="s-scelte" class="s-scelte">' + SOND_DEF.argomenti.map(cardHtml).join('') + '</div>'
             + '<div class="campo" style="margin-top:16px;"><label for="s-note">Nota per la direzione (facoltativa)</label>'
-            + '<textarea id="s-note" rows="2" maxlength="600" placeholder="Disponibilita, specializzazioni, proposte">' + esc(bozzaNote.v) + '</textarea></div>'
+            + '<textarea id="s-note" rows="2" maxlength="600" placeholder="Disponibilità, specializzazioni, proposte">' + esc(bozzaNote.v) + '</textarea></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="s-annulla">Annulla</button>'
             + '<button class="btn btn-primary" id="s-salva">' + (eNuovo ? 'Invia la risposta' : 'Aggiorna la risposta') + '</button></div>',
             { classe: 's-modale-compila', finestra: true, massimizzata: true, titolo: (eNuovo ? 'Compila il questionario' : 'Modifica la tua risposta') });
@@ -12508,7 +12508,7 @@
     }
 
     function confermaEliminaRisposta(id, nome) {
-        apriModale('<h2>Elimina la risposta</h2><p>Vuoi eliminare la risposta di <strong>' + esc(nome || id) + '</strong>? L\'operazione non e reversibile.</p>'
+        apriModale('<h2>Elimina la risposta</h2><p>Vuoi eliminare la risposta di <strong>' + esc(nome || id) + '</strong>? L\'operazione non è reversibile.</p>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="e-no">Annulla</button><button class="btn btn-danger" id="e-si">Elimina</button></div>');
         document.getElementById('e-no').addEventListener('click', chiudiModale);
         document.getElementById('e-si').addEventListener('click', () => {
@@ -12572,7 +12572,7 @@
             + riga('Visualizzatori (solo risultati)', d.risultati)
             + ((pw.inviati || pwFal) ? '<div class="s-inv-riga"><span class="s-inv-lab">Nuovi accessi (email per la password)</span>'
                 + '<span class="s-inv-val"><b>' + (pw.inviati || 0) + '</b> creati' + (pwFal ? ' &middot; <span class="s-inv-ko">' + pwFal + ' non riusciti</span>' : '') + '</span></div>' : '')
-            + (motivi ? '<div class="s-inv-motivi"><span class="s-inv-lab">Perche alcuni non sono riusciti</span><ul>' + motivi + '</ul></div>' : '')
+            + (motivi ? '<div class="s-inv-motivi"><span class="s-inv-lab">Perché alcuni non sono riusciti</span><ul>' + motivi + '</ul></div>' : '')
             + '</div>';
     }
 
@@ -12641,7 +12641,7 @@
                 statoCard = '<div class="card s-stato"><div><strong>Non risulti tra gli invitati a compilare questo sondaggio.</strong>'
                     + '<div class="hint" style="margin-top:4px;">Se pensi si tratti di un errore, contatta l\'amministratore.</div></div></div>';
             } else if (invitato && !aperto) {
-                statoCard = '<div class="card s-stato"><div><strong>La compilazione e chiusa.</strong>'
+                statoCard = '<div class="card s-stato"><div><strong>La compilazione è chiusa.</strong>'
                     + (haRisposto ? '<div class="s-top3" style="margin-top:6px;">Le tue due aree: ' + esc(scelteTxt) + '</div>'
                         : '<div class="hint" style="margin-top:4px;">Non hai inviato una risposta.</div>') + '</div></div>';
             } else if (invitato && haRisposto) {
@@ -12712,7 +12712,7 @@
         const perc = nInv ? (nRispInvitati === nInv ? 100 : Math.min(99, Math.round(nRispInvitati / nInv * 100))) : 0;
         const admin = Auth.eAdmin() || Auth.eProprietario();
         if (!valide) {
-            return '<div class="card tabella-vuota">Ancora nessuna risposta.' + (nInv ? ' Invitati: ' + nInv + '.' : '') + ' Il riepilogo comparira qui appena arrivano le prime risposte.</div>';
+            return '<div class="card tabella-vuota">Ancora nessuna risposta.' + (nInv ? ' Invitati: ' + nInv + '.' : '') + ' Il riepilogo comparirà qui appena arrivano le prime risposte.</div>';
         }
 
         // 1) partecipazione + come si legge
@@ -12777,13 +12777,13 @@
                 + '<div class="tabella-wrap"><table class="dati a-schede compatta"><thead><tr>'
                 + '<th>Persona</th><th>Ruolo</th><th>Aree scelte (competenza)</th><th>Aggiornata</th><th></th>'
                 + '</tr></thead><tbody>' + drighe + '</tbody></table></div>'
-                + '<p class="hint" style="margin-top:8px;">La tabella con eliminazione e visibile solo ad amministratore e titolare.</p>';
+                + '<p class="hint" style="margin-top:8px;">La tabella con eliminazione è visibile solo ad amministratore e titolare.</p>';
         }
         return partec + torta + classificaBox + dettaglio;
     }
 
     function etichettaFlagBreve(id) {
-        if (id === 'esg') return 'Revisore sostenibilita';
+        if (id === 'esg') return 'Revisore sostenibilità';
         if (id === 'compliance') return 'Albo TCF';
         return 'Requisito';
     }
@@ -12867,7 +12867,7 @@
             + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Singole persone (dalla sezione Aderenti Revilaw): spunta "compila" oppure "risultati"</label>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="mi-deseleziona">Deseleziona tutti</button></div>'
             + '<input type="text" id="mi-cerca" class="mi-cerca" placeholder="Cerca per nome o email"><div class="mi-utenti">' + personeHtml + '</div>'
-            + '<p class="hint" style="margin-top:6px;">Chi non e un utente con ruolo (badge "solo sondaggio") ricevera un accesso limitato: vede solo il questionario o solo i risultati. Il collegamento persone-utenti avviene tramite l\'email.</p></div>'
+            + '<p class="hint" style="margin-top:6px;">Chi non è un utente con ruolo (badge "solo sondaggio") riceverà un accesso limitato: vede solo il questionario o solo i risultati. Il collegamento persone-utenti avviene tramite l\'email.</p></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="mi-annulla">Annulla</button>'
             + '<button class="btn btn-primary" id="mi-salva">Salva</button></div>', { classe: 'larga' });
         const cerca = document.getElementById('mi-cerca');
@@ -12939,8 +12939,8 @@
             + opz('nuovi_senza', 'Solo ai nuovi e a chi non ha ancora fatto il primo accesso', nNuoviSenza)
             + opz('solo_nuovi', 'Solo ai nuovi aggiunti', nNuovi)
             + '</div>'
-            + (nVisStaff ? '<p class="hint"><b>' + nVisStaff + '</b> tra i visualizzatori sono utenti dello staff: vedono gia i risultati dalla loro area, quindi NON ricevono l\'email "sola visualizzazione".</p>' : '')
-            + (nNuovi ? '<p class="hint"><b>' + nNuovi + '</b> non sono ancora utenti: verra creato un accesso limitato (ruolo "solo sondaggio") e riceveranno l\'email per impostare la password.</p>' : '')
+            + (nVisStaff ? '<p class="hint"><b>' + nVisStaff + '</b> tra i visualizzatori sono utenti dello staff: vedono già i risultati dalla loro area, quindi NON ricevono l\'email "sola visualizzazione".</p>' : '')
+            + (nNuovi ? '<p class="hint"><b>' + nNuovi + '</b> non sono ancora utenti: verrà creato un accesso limitato (ruolo "solo sondaggio") e riceveranno l\'email per impostare la password.</p>' : '')
             + '<p class="hint">Il servizio email accetta un invio ogni ~20 secondi: se avvisi sia i compilatori sia i visualizzatori, tra i due gruppi il sistema attende in automatico. Non chiudere la finestra fino al termine.</p>'
             + '<div class="ii-stato" id="ii-stato"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ii-no">Annulla</button><button class="btn btn-primary" id="ii-si">Invia inviti</button></div>');
@@ -13824,11 +13824,11 @@
         // Dal riepilogo si toglie SOLO dal riepilogo: la scheda resta nel suo evento.
         const testa = ev.tutti
             ? '<h2>' + (uno ? 'Togliere dal riepilogo?' : 'Togliere ' + elenco.length + ' righe dal riepilogo?') + '</h2>'
-            + '<p>' + chi + ' non ' + (uno ? 'comparira' : 'compariranno') + ' più in questo elenco riepilogativo.</p>'
+            + '<p>' + chi + ' non ' + (uno ? 'comparirà' : 'compariranno') + ' più in questo elenco riepilogativo.</p>'
             + '<p class="hint">L\'iscrizione resta nel suo evento, con stato e nota: qui si nasconde soltanto.</p>'
             : '<h2>' + (uno ? 'Cancellare l\'iscrizione?' : 'Cancellare ' + elenco.length + ' iscrizioni?') + '</h2>'
             + '<p>Stai per togliere ' + chi + ' dall\'elenco di ' + esc(ev.titolo) + '. '
-            + (uno ? 'Sparira' : 'Spariranno') + ' per tutti, insieme allo stato e alla nota collegati.</p>'
+            + (uno ? 'Sparirà' : 'Spariranno') + ' per tutti, insieme allo stato e alla nota collegati.</p>'
             + '<p class="hint">Non ricompariranno nemmeno se le loro righe sono ancora sul foglio.</p>';
         apriModale(testa
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ci-no">Annulla</button>'
@@ -14082,7 +14082,7 @@
         if (!temi.length) return '';
         return '<div class="card"><div class="s-admin" style="padding:0;border:none;box-shadow:none;background:none;">'
             + '<div class="s-admin-txt"><strong>Incontri B2B: prenotati per argomento</strong>'
-            + '<div class="hint">Chi si è prenotato a ciascun tavolo <b>rispondendo all\'invito B2B</b>. I temi spuntati al momento dell\'iscrizione non entrano qui: sono preferenze, e si leggono nella colonna "Preferenze iscrizione" dell\'elenco. Una persona può comparire sotto più tavoli; la nota (se c\'e) racconta il progetto.</div></div>'
+            + '<div class="hint">Chi si è prenotato a ciascun tavolo <b>rispondendo all\'invito B2B</b>. I temi spuntati al momento dell\'iscrizione non entrano qui: sono preferenze, e si leggono nella colonna "Preferenze iscrizione" dell\'elenco. Una persona può comparire sotto più tavoli; la nota (se c\'è) racconta il progetto.</div></div>'
             + '<div class="s-admin-azioni"><button class="btn btn-sm btn-secondary" id="ev-b2b-pdf">Stampa PDF</button></div></div>'
             + temi.map(t => '<details class="ev-colonne" style="margin-top:8px;"><summary>' + esc(t) + ' &middot; ' + gruppi[t].length + '</summary>'
                 + '<div style="margin-top:6px;">' + gruppi[t].map(p =>
@@ -14478,7 +14478,7 @@
         }) : null;
         const nomeUnica = unica ? ((unica.nome + ' ' + unica.cognome).trim() || unica.email) : '';
         const testaHint = unica
-            ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') ricevera la mail con il suo collegamento personale alla pagina di prenotazione. '
+            ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') riceverà la mail con il suo collegamento personale alla pagina di prenotazione. '
             + 'Gli incontri già scelti compaiono nella mail e nella pagina, pronti da confermare o cambiare.'
             : 'Scegli gli orari dei tavoli e le aziende da invitare: parte una mail personale a <b>ogni</b> referente iscritto delle aziende spuntate '
             + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento alla pagina dove sceglie a quali incontri partecipare. '
@@ -14501,7 +14501,7 @@
            Sopra, i comandi per riempirli in fretta: nove tavoli scritti a mano
            uno per uno sono nove occasioni di sbagliare un'ora. */
         const campoOrari = unica ? '' : '<div class="campo"><label>Orario di ogni incontro</label>'
-            + '<div class="hint" style="margin:-2px 0 8px;">Ogni argomento e un tavolo a se, con la sua ora di inizio e di fine: '
+            + '<div class="hint" style="margin:-2px 0 8px;">Ogni argomento è un tavolo a sé, con la sua ora di inizio e di fine: '
             + 'è così che chi prenota capisce se due incontri si sovrappongono. '
             + 'Un argomento lasciato <b>in bianco non è in programma</b>: non compare nella mail e non si può prenotare. '
             + 'Almeno un tavolo deve avere un orario.</div>'
@@ -14984,8 +14984,8 @@
             partecipanti: nPart
         }) : null;
         apriModale('<h2>Chiedi i dati dei partecipanti</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;"><b>' + esc(nome) + '</b> ricevera una mail in formato NGB con un collegamento personale: '
-            + 'da li completa i suoi dati' + (nPart > 1 ? ' e indica nome, cognome ed email di ciascuno dei <b>' + nPart + ' partecipanti</b>' : '') + '. '
+            + '<p class="hint" style="margin:-4px 0 12px;"><b>' + esc(nome) + '</b> riceverà una mail in formato NGB con un collegamento personale: '
+            + 'da lì completa i suoi dati' + (nPart > 1 ? ' e indica nome, cognome ed email di ciascuno dei <b>' + nPart + ' partecipanti</b>' : '') + '. '
             + 'Al salvataggio l\'elenco si aggiorna da solo e il totale dei partecipanti resta lo stesso: i posti si ripartiscono, non si sommano.</p>'
             + '<div id="rd-anteprima" style="display:none;margin-top:10px;">'
             + '<iframe id="rd-frame" title="Anteprima della mail di richiesta dati" sandbox="allow-same-origin" '
@@ -15041,7 +15041,7 @@
             + '<p class="hint" style="margin:-4px 0 14px;">Serve una volta sola. Le iscrizioni nuove arrivano già da sole. '
             + 'Reimportare non crea doppioni e non tocca gli stati e le note che hai già messo.</p>'
             + '<div class="ev-imp-passo"><strong>1. Direttamente dal foglio</strong>'
-            + '<div class="hint">Funziona se il foglio e condiviso con il servizio.</div>'
+            + '<div class="hint">Funziona se il foglio è condiviso con il servizio.</div>'
             + '<button class="btn btn-primary" id="imp-foglio">Leggi dal foglio</button></div>'
             + '<div class="ev-imp-passo"><strong>2. Oppure da un file</strong>'
             + '<div class="hint">Un file .csv con l\'elenco. Le colonne Nome, Cognome, Email, Azienda, Ruolo, Telefono '
@@ -15521,7 +15521,7 @@
             : (ultimo.esito === 'ok'
                 ? 'Ultimo controllo ' + esc(fmtDataOra(ultimo.quando)) + ': ' + (ultimo.ricevute || 0) + ' ricevute, ' + (ultimo.risposte || 0) + ' risposte'
                 + (ultimo.nonRiconosciute ? ', ' + ultimo.nonRiconosciute + ' da guardare a mano' : '') + '.'
-                : 'L\'ultimo controllo non e riuscito: ' + esc(ultimo.motivo || ''));
+                : 'L\'ultimo controllo non è riuscito: ' + esc(ultimo.motivo || ''));
         return '<div class="inv-lettore' + ((ultimo && ultimo.esito !== 'ok') || vecchio ? ' ko' : '') + '">'
             + '<span>' + detto + (vecchio ? ' <b>Sono passate più di 24 ore.</b>' : '') + '</span>'
             + '<button class="btn btn-sm btn-secondary" id="inv-ric">'
@@ -15715,7 +15715,7 @@
                 ? ' Ce ne sono <b>' + altrove + '</b> che ci corrispondono, ma in altre schede.'
                 : ' Prova a togliere qualche filtro qui sopra.')
             : (_invFiltro.vista === 'da-invitare'
-                ? '<b>Nessuna azienda da invitare:</b> l\'invito e partito a tutte quelle in elenco.'
+                ? '<b>Nessuna azienda da invitare:</b> l\'invito è partito a tutte quelle in elenco.'
                 : '<b>Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || '') + '.</b>');
 
         const tabella = !n.totale
@@ -15961,7 +15961,7 @@
         for (let i = b.length - 22; i >= 0 && i > b.length - 65558; i--) {
             if (d.getUint32(i, true) === 0x06054b50) { fine = i; break; }
         }
-        if (fine < 0) throw new Error('Non e un file .xlsx valido.');
+        if (fine < 0) throw new Error('Non è un file .xlsx valido.');
         const n = d.getUint16(fine + 10, true);
         let p = d.getUint32(fine + 16, true);
         const voci = [];
@@ -16375,7 +16375,7 @@
             + (viaPec
                 ? 'PEC inviata a <b>' + esc(a.invio.destinatario || a.pec) + '</b>'
                 + (a.invio.quando ? ' il ' + esc(fmtDataOra(a.invio.quando)) : '') + '.'
-                : 'Questa azienda e stata invitata via email ordinaria: le ricevute PEC non esistono.')
+                : 'Questa azienda è stata invitata via email ordinaria: le ricevute PEC non esistono.')
             + '</p>';
         apriModale(testa
             + '<div class="mp-corpo"><div id="mp-elenco" class="mp-elenco"><p class="hint">Carico...</p></div>'
@@ -16432,7 +16432,7 @@
                 + '<div class="hint">' + esc(r.da || '') + (r.quando ? ' - ' + esc(fmtDataOra(r.quando)) : '') + '</div></div>'
                 + allegati
                 + '<pre class="mp-corpo-testo">' + esc(r.testo || '(il messaggio non ha testo leggibile: aprilo dalla casella PEC)') + '</pre>'
-                + (r.troncato ? '<p class="hint">Messaggio molto lungo: qui e mostrato solo l\'inizio.</p>' : '');
+                + (r.troncato ? '<p class="hint">Messaggio molto lungo: qui è mostrato solo l\'inizio.</p>' : '');
         });
     }
 
@@ -16480,9 +16480,9 @@
             + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
             + 'Puoi scrivere <b>{ragione_sociale}</b>, <b>{referente}</b>, <b>{citta}</b>, <b>{provincia}</b>, <b>{piva}</b>: '
             + 'ogni azienda riceve i propri dati al loro posto.<br>'
-            + '<b>{codice}</b> e diverso: e il codice di 5 caratteri riservato a quell\'azienda, che il servizio crea '
-            + 'al momento dell\'invio e che l\'azienda dovra scrivere nel modulo di registrazione. Toglilo dal testo e '
-            + 'nessuno sapra di averlo.</div></div>'
+            + '<b>{codice}</b> è diverso: è il codice di 5 caratteri riservato a quell\'azienda, che il servizio crea '
+            + 'al momento dell\'invio e che l\'azienda dovrà scrivere nel modulo di registrazione. Toglilo dal testo e '
+            + 'nessuno saprà di averlo.</div></div>'
             /* La spunta del rinvio. Prima diceva solo "manda anche a chi ha gia
                ricevuto l'invito", che lascia aperta la domanda vera: e se NON
                la spunto, cosa succede a quelle aziende? Ora la risposta c'e',
@@ -16689,7 +16689,7 @@
                 }
                 stato.inCorso = false;
                 avanzamento(Math.min(totale, inviate + falliti + saltate + disiscritte), totale, conti,
-                    stato.fermato ? 'Invio fermato: quello che non e partito resta da invitare.' : 'Finito.');
+                    stato.fermato ? 'Invio fermato: quello che non è partito resta da invitare.' : 'Finito.');
                 b.disabled = false; b.textContent = 'Invia le restanti';
                 bAnn.disabled = false; bAnn.textContent = 'Chiudi';
                 const riepilogo = inviate + ' ' + quale + ' partite'
@@ -16731,7 +16731,7 @@
         // lista basata su cio' che si vede, cioe' niente): meglio dirlo e bloccare il salvataggio.
         const koLista = _sondUtentiKo || !lista.length;
         const avvisoKo = koLista
-            ? '<div class="ev-blocco">Elenco utenze non disponibile in questo momento, quindi il salvataggio e disattivato: '
+            ? '<div class="ev-blocco">Elenco utenze non disponibile in questo momento, quindi il salvataggio è disattivato: '
             + 'salvare adesso cancellerebbe le abilitazioni già impostate. <button type="button" class="btn btn-sm btn-secondary" id="ev-riprova">Riprova</button></div>'
             : '';
         apriModale('<h2>Chi può vedere la sezione Eventi</h2>'
@@ -16819,11 +16819,11 @@
         { percorso: '/assetti_early_warning/', nome: 'Assetti adeguati ed early warning' },
         { percorso: '/cassazione_7134_2026/', nome: 'Adeguati assetti e credito: Cassazione 7134/2026' },
         { percorso: '/crisi_impresa/', nome: 'Crisi d\'impresa: prevenzione e assetti' },
-        { percorso: '/modello_231/', nome: 'Modello 231: responsabilita degli enti' },
+        { percorso: '/modello_231/', nome: 'Modello 231: responsabilità degli enti' },
         { percorso: '/adempimento_collaborativo/', nome: 'Adempimento collaborativo e Tax Control Framework' },
-        { percorso: '/rating_legalita/', nome: 'Rating di legalita: punteggio AGCM' },
+        { percorso: '/rating_legalita/', nome: 'Rating di legalità: punteggio AGCM' },
         { percorso: '/rating_bancario/', nome: 'Rating bancario: simulatore MCC' },
-        { percorso: '/sostenibilita_esg/', nome: 'Sostenibilita d\'impresa ed ESG' },
+        { percorso: '/sostenibilita_esg/', nome: 'Sostenibilità d\'impresa ed ESG' },
         { percorso: '/ai_act_2026/', nome: 'AI Act: gli obblighi dal 2 agosto 2026' },
         { percorso: '/ai_governance/', nome: 'AI governance in azienda' },
         { percorso: '/protezione_patrimonio/', nome: 'Protezione del patrimonio: holding e trust' },
@@ -17328,11 +17328,11 @@
            da li' che nasce la domanda "e gli altri dove sono finiti". */
         const testa = c.righeEventi === null ? '' : (
             riga('', 'Iscrizioni sulle pagine degli eventi', c.righeEventi, 'lo stesso numero della sezione Eventi')
-            + riga('meno', 'stessa persona iscritta piu di una volta', '&minus;' + (c.righeEventi - c.eventi), '')
+            + riga('meno', 'stessa persona iscritta più di una volta', '&minus;' + (c.righeEventi - c.eventi), '')
         );
         return '<div class="card nl-conti"><strong>Dai moduli ai destinatari</strong>'
             + '<div class="hint" style="margin:2px 0 12px;">La sezione Eventi conta <b>iscrizioni</b>, questa conta <b>indirizzi</b>. '
-            + 'Qui sotto ogni scarto e scritto: le righe in grassetto chiudono il conto, quella sopra meno gli scarti fa esattamente quella sotto.</div>'
+            + 'Qui sotto ogni scarto è scritto: le righe in grassetto chiudono il conto, quella sopra meno gli scarti fa esattamente quella sotto.</div>'
             + '<div class="nl-conti-griglia">'
             + testa
             + riga('tot', 'Da eventi', c.eventi, 'indirizzi diversi, tutti, anche senza consenso')
@@ -17341,7 +17341,7 @@
             + riga('', '+ Clienti', c.clienti, 'le mail indicate negli incarichi, proposte escluse')
             + riga('', '+ Inseriti a mano', c.manuali, 'raccolti di persona')
             + riga('tot', 'Somma delle provenienze', c.provenienze, '')
-            + riga('meno', 'gia contati in un\'altra provenienza', '&minus;' + c.sovrapposti, 'per lo piu aderenti gia iscritti dal sito')
+            + riga('meno', 'già contati in un\'altra provenienza', '&minus;' + c.sovrapposti, 'per lo più aderenti già iscritti dal sito')
             + riga('tot', 'Indirizzi diversi in tutto', c.unici, '')
             + riga('meno', 'senza consenso alle comunicazioni', '&minus;' + c.senzaConsenso, '')
             + riga('meno', 'disiscritti presenti in questo elenco', '&minus;' + c.disiscrittiQui, '')
@@ -17550,7 +17550,7 @@
             + (invio.interrotto
                 ? '<div class="s-inv-riga"><span class="s-inv-lab">Interrotto</span><span class="s-inv-val s-inv-ko">'
                 + esc(invio.interrotto) + ': riapri la newsletter e premi Invia per riprendere</span></div>' : '')
-            + (motivi ? '<div class="s-inv-motivi"><span class="s-inv-lab">Perche alcune non sono riuscite</span><ul>' + motivi + '</ul></div>' : '')
+            + (motivi ? '<div class="s-inv-motivi"><span class="s-inv-lab">Perché alcune non sono riuscite</span><ul>' + motivi + '</ul></div>' : '')
             + (falliti.length ? '<div class="s-inv-motivi"><span class="s-inv-lab">Indirizzi</span><p class="hint">' + esc(falliti.map(f => f.email).join(', ')) + '</p></div>' : '')
             /* Con Brevo il numero dice quante mail sono state ACCETTATE: rimbalzi e
                blocchi si sanno dopo, e li racconta il pannello di Brevo. Dirlo evita
@@ -17627,7 +17627,7 @@
         const badgeConsenso = c => c === 'no'
             ? '<span class="badge rosso">Niente promozionali</span>'
             : (c === 'ignoto' ? '<span class="badge ambra">Non risultante</span>'
-                : (c === 'attribuito' ? '<span class="badge">Attribuito</span>' : '<span class="badge verde">Si</span>'));
+                : (c === 'attribuito' ? '<span class="badge">Attribuito</span>' : '<span class="badge verde">Sì</span>'));
         const corpo = elenco.map(p => '<tr>'
             + '<td>' + esc(p.cognome || '-') + '</td>'
             + '<td>' + esc(p.nome || '') + '</td>'
@@ -17637,12 +17637,14 @@
             + '<td>' + badgeConsenso(p.consenso) + '</td>'
             + '<td>' + (p.fuori ? '<span class="badge rosso">Disiscritto</span>' : '<span class="badge verde">Iscritto</span>') + '</td>'
             + '</tr>').join('');
-        return '<div class="card nl-barra-contatti">'
-            + '<div><strong>Iscritti presi di persona</strong><div class="hint">Aggiungi qui chi ti lascia il biglietto da visita a un convegno o in studio.</div></div>'
+        // stesso vestito degli altri riquadri di intestazione sezione (s-admin):
+        // titolo a sinistra, spiegazione sotto, comandi a destra
+        return '<div class="card s-admin nl-barra-contatti">'
+            + '<div class="s-admin-txt"><strong>Iscritti presi di persona</strong><div class="hint">Aggiungi qui chi ti lascia il biglietto da visita a un convegno o in studio.</div></div>'
             + '<div class="s-admin-azioni"><button class="btn btn-secondary" id="nl-contatto">Aggiungi contatto</button>'
             + '<button class="btn btn-secondary" id="nl-importa">Importa un elenco</button></div></div>'
             + '<p class="hint" style="margin:0 0 10px;">La colonna <strong>Consenso</strong> dice chi ha spuntato, sul modulo del sito, la casella per ricevere comunicazioni su eventi e iniziative. '
-            + 'Chi ha risposto di no non compare fra i destinatari e non e selezionabile. Chi risulta &laquo;non risultante&raquo; arriva da elenchi importati e sta in un gruppo a parte. '
+            + 'Chi ha risposto di no non compare fra i destinatari e non è selezionabile. Chi risulta &laquo;non risultante&raquo; arriva da elenchi importati e sta in un gruppo a parte. '
             + '&laquo;Attribuito&raquo; vuol dire che il consenso l\'ha deciso l\'amministratore per i contatti già presenti.</p>'
             + '<div class="card tabella-wrap" id="nl-tab-iscritti"><table class="dati"><thead><tr>'
             + '<th>Cognome</th><th>Nome</th><th>Email</th><th>Azienda</th><th>Provenienza</th><th>Consenso</th><th>Stato</th>'
@@ -17653,7 +17655,7 @@
         const elenco = Object.keys(disiscritti).map(e => ({ email: e, ...disiscritti[e] }))
             .sort((a, b) => (b.quando || 0) - (a.quando || 0));
         if (!elenco.length) {
-            return '<div class="card tabella-vuota">Nessuno si e disiscritto.<br>'
+            return '<div class="card tabella-vuota">Nessuno si è disiscritto.<br>'
                 + '<span class="hint">Chi usa il collegamento in fondo alla newsletter compare qui e viene escluso da tutti gli invii successivi.</span></div>';
         }
         const righe = elenco.map(d => '<tr>'
@@ -17830,11 +17832,11 @@
                risposto di no non sono la stessa cosa, e mescolarli in una frase
                sola fa prendere la seconda senza accorgersene. */
             : '<h2>Attribuire il consenso ai contatti già presenti?</h2>'
-            + '<p class="descrizione">Vale solo per i contatti <b>raccolti fino a questo momento</b>: chi si iscrivera '
+            + '<p class="descrizione">Vale solo per i contatti <b>raccolti fino a questo momento</b>: chi si iscriverà '
             + 'da domani torna a seguire la casella del suo modulo. La decisione resta scritta con il tuo nome e la '
             + 'data, e si può revocare in qualsiasi momento.</p>'
             + '<div class="nl-sez"><div class="nl-sez-tit">1. Consenso che non risulta: <b>' + nIgnoti + '</b> contatti</div>'
-            + '<div class="hint">Schede in cui la casella delle comunicazioni non e registrata: elenchi importati, moduli '
+            + '<div class="hint">Schede in cui la casella delle comunicazioni non è registrata: elenchi importati, moduli '
             + 'più vecchi della casella. Non hanno detto no, non hanno detto niente. Rientrano sempre.</div></div>'
             + '<div class="nl-sez"><div class="nl-sez-tit">2. Casella vista e lasciata vuota: <b>' + nNo + '</b> contatti</div>'
             + '<label class="mi-flag" style="margin-bottom:10px;"><input type="checkbox" id="cs-no-anche"'
@@ -17842,7 +17844,7 @@
             + '<div class="ev-blocco">Queste persone la casella l\'hanno <b>vista e lasciata vuota</b>. Attribuire loro il '
             + 'consenso ha senso solo se quel consenso ce l\'hai in altra forma: un modulo firmato, un rapporto professionale '
             + 'in corso, un elenco raccolto di persona. Se non è così il rischio non è formale: sono le persone che segnalano '
-            + 'la mail come indesiderata, ed e proprio quello che fa sospendere un account di invio.</div></div>';
+            + 'la mail come indesiderata, ed è proprio quello che fa sospendere un account di invio.</div></div>';
         apriModale(corpo
             + '<div class="modale-azioni"><button class="btn btn-ghost" id="cs-no">Annulla</button>'
             + '<button class="btn ' + (revoca ? 'btn-secondary' : 'btn-primary') + '" id="cs-si">'
@@ -17898,7 +17900,7 @@
         }).join('') : '<p class="hint">Nessun altro utente disponibile.</p>';
         const koLista = _sondUtentiKo || !lista.length;
         const avvisoKo = koLista
-            ? '<div class="ev-blocco">Elenco utenze non disponibile in questo momento, quindi il salvataggio e disattivato: '
+            ? '<div class="ev-blocco">Elenco utenze non disponibile in questo momento, quindi il salvataggio è disattivato: '
             + 'salvare adesso cancellerebbe le abilitazioni già impostate. <button type="button" class="btn btn-sm btn-secondary" id="nla-riprova">Riprova</button></div>'
             : '';
         apriModale('<h2>Chi può vedere la sezione Newsletter</h2>'
@@ -18137,10 +18139,10 @@
             $('nl-gruppi').innerHTML =
                 '<p class="hint nl-spiega-gruppi">Puoi partire da un gruppo e poi correggere persona per persona nell\'elenco qui sotto. '
                 + 'I gruppi non congelano niente: chi si iscrive prima dell\'invio entra da solo.</p>'
-                + blocco('Chi si e iscritto a un evento', g.eventi,
+                + blocco('Chi si è iscritto a un evento', g.eventi,
                     'Ha compilato il modulo su una pagina di convegno (Verona, Roma, Napoli, Milano) per partecipare.')
                 + blocco('Chi ha lasciato i dati sul sito', g.sito,
-                    'Ha compilato la casella newsletter in fondo alla home, o un modulo di contatto di una pagina tematica. Il nome del gruppo e la pagina da cui e arrivato.')
+                    'Ha compilato la casella newsletter in fondo alla home, o un modulo di contatto di una pagina tematica. Il nome del gruppo è la pagina da cui è arrivato.')
                 + blocco('Elenchi nostri', g.altri,
                     'Gli aderenti presi dall\'anagrafica Aderenti Revilaw e i contatti che hai inserito a mano dalla scheda Iscritti.')
                 + blocco('Da valutare', g.ignoti,
@@ -18177,7 +18179,7 @@
             const scelti = (bozza.gruppi || []).length;
             if (!scelti && !(bozza.singoli || []).length) return 'Nessun gruppo selezionato: spunta almeno un gruppo qui sopra.';
             const motivi = [];
-            if (dis) motivi.push(dis + (dis === 1 ? ' si e disiscritto' : ' si sono disiscritti'));
+            if (dis) motivi.push(dis + (dis === 1 ? ' si è disiscritto' : ' si sono disiscritti'));
             if (mano) motivi.push(mano + (mano === 1 ? ' tolto a mano' : ' tolti a mano') + ' nell\'elenco qui sotto');
             if (gia) motivi.push(gia + ' già servit' + (gia === 1 ? 'o' : 'i') + ' da un invio interrotto');
             if (rif) motivi.push(rif + ' fuori perché non ha dato il consenso alle comunicazioni');
@@ -18249,7 +18251,7 @@
                 /* Il caso "perche' alcuni del gruppo non me li seleziona": si dice
                    subito, con il numero, invece di lasciarlo dedurre. */
                 + (toltiQui
-                    ? '<div class="hint nl-tolti">' + toltiQui + (toltiQui === 1 ? ' di questi e spento perché era stato TOLTO A MANO' : ' di questi sono spenti perché erano stati TOLTI A MANO')
+                    ? '<div class="hint nl-tolti">' + toltiQui + (toltiQui === 1 ? ' di questi è spento perché era stato TOLTO A MANO' : ' di questi sono spenti perché erano stati TOLTI A MANO')
                     + ', non perché fuori dal gruppo. Rimettil' + (toltiQui === 1 ? 'o' : 'i') + ' con la spunta, o tutti insieme dal pulsante qui sopra.</div>'
                     : '')
                 + (!q && daiGruppi.length
@@ -18461,7 +18463,7 @@
         });
 
         $('nl-invia').addEventListener('click', () => {
-            if (invioInCorso) { mostraEsitoNL('C\'e già un invio in corso: attendi che finisca.', false); return; }
+            if (invioInCorso) { mostraEsitoNL('C\'è già un invio in corso: attendi che finisca.', false); return; }
             const rec = componiRecord();
             const problema = controllaNewsletter(rec, false);
             if (problema) { mostraEsitoNL(problema, false); return; }
@@ -18481,7 +18483,7 @@
             }
             confermaInLinea(ripresa ? 'Riprendere l\'invio interrotto?' : 'Inviare la newsletter?',
                 (ripresa ? 'Riparte dai ' + r.destinatari.length + ' non ancora serviti (' + gia + ' già serviti vengono saltati)'
-                    : 'Partira a ' + r.destinatari.length + ' destinatari')
+                    : 'Partirà a ' + r.destinatari.length + ' destinatari')
                 + (fuori ? ', ' + fuori + (fuori === 1 ? ' saltato perché disiscritto' : ' saltati perché disiscritti') : '')
                 + '. Ognuno riceverà una mail sua, con il collegamento per disiscriversi. Non si può annullare.'
                 + (r.destinatari.length > lottoNewsletter() ? ' Tieni questa finestra aperta e in primo piano fino alla fine: passando ad altre schede il browser rallenta l\'invio.' : ''),
@@ -18525,7 +18527,7 @@
         }
 
         $('nl-programma').addEventListener('click', () => {
-            if (invioInCorso) { mostraEsitoNL('C\'e gia un invio in corso: attendi che finisca.', false); return; }
+            if (invioInCorso) { mostraEsitoNL('C\'è già un invio in corso: attendi che finisca.', false); return; }
             if (_progStato && ['programmata', 'in-corso'].indexOf(_progStato.stato) >= 0) {
                 mostraEsitoNL('Questa newsletter è già programmata. Annulla la programmazione prima di rifarla.', false);
                 return;
@@ -18559,7 +18561,7 @@
                 + '<div class="hint" id="nlk-quando" style="margin:-4px 0 8px;"></div>';
 
             confermaInLinea('Programmare l\'invio?',
-                'Partira a ' + r.destinatari.length + ' destinatari'
+                'Partirà a ' + r.destinatari.length + ' destinatari'
                 + (fuori ? ', ' + fuori + (fuori === 1 ? ' saltato perché disiscritto' : ' saltati perché disiscritti') : '')
                 + '. Parte a QUESTI destinatari, non a chi si iscrive nel frattempo; chi si disiscrive prima della partenza viene comunque tolto. '
                 + 'Parte anche questo TESTO: se la modifichi dopo, la modifica non entra nell\'invio programmato.',
@@ -19019,7 +19021,7 @@
 
         apriModale('<h2>' + nuovi.length + (nuovi.length === 1 ? ' nuova iscrizione dal sito' : ' nuove iscrizioni dal sito') + '</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">'
-            + (primaVolta ? 'Le ultime della settimana: e la prima volta che apri questo avviso.' : 'Da quando hai guardato l\'ultima volta.')
+            + (primaVolta ? 'Le ultime della settimana: è la prima volta che apri questo avviso.' : 'Da quando hai guardato l\'ultima volta.')
             + (conMessaggio.length ? ' <strong>' + conMessaggio.length + '</strong> ' + (conMessaggio.length === 1 ? 'ha lasciato un messaggio' : 'hanno lasciato un messaggio') + '.' : '')
             + '</p>'
             + riassunto
@@ -19173,7 +19175,7 @@
 
         if (inv.trasporto && inv.trasporto !== 'brevo') {
             return '<div class="nl-and-riga">' + testa + nostri
-                + '<div class="nl-and-nota">Questo invio e partito dalla casella di posta, non da Brevo: degli esiti si sa solo quante mail sono state accettate.</div></div>';
+                + '<div class="nl-and-nota">Questo invio è partito dalla casella di posta, non da Brevo: degli esiti si sa solo quante mail sono state accettate.</div></div>';
         }
         if (!blocco || blocco.stato !== 'ok') {
             const msg = (blocco && blocco.msg) || 'Esiti non ancora disponibili.';
@@ -19181,7 +19183,7 @@
             return '<div class="nl-and-riga">' + testa + nostri
                 + '<div class="nl-and-nota">' + esc(msg)
                 + (attesa ? ' I primi esiti compaiono di solito entro pochi minuti: premi Aggiorna più tardi.' : '')
-                + (inv.giaAccettati ? ' <b>' + inv.giaAccettati + '</b> di queste mail erano un rinvio dello stesso lotto: Brevo le aveva gia accettate e le ha registrate sotto l\'invio precedente.' : '')
+                + (inv.giaAccettati ? ' <b>' + inv.giaAccettati + '</b> di queste mail erano un rinvio dello stesso lotto: Brevo le aveva già accettate e le ha registrate sotto l\'invio precedente.' : '')
                 + '</div></div>';
         }
 
@@ -19198,18 +19200,18 @@
             + (nonConsegnate ? '<div class="nl-and-n ko"><span class="e">Non consegnate</span><span class="v">' + nonConsegnate + '</span>'
                 + '<span class="q">' + [(n.rimbalziDuri ? n.rimbalziDuri + ' indirizzi inesistenti' : ''), (n.rimbalziMorbidi ? n.rimbalziMorbidi + ' casella piena o irraggiungibile' : ''), (n.bloccate ? n.bloccate + ' bloccate' : ''), (n.nonValide ? n.nonValide + ' non valide' : '')].filter(Boolean).join(', ') + '</span></div>' : '')
             + (n.disiscritti ? '<div class="nl-and-n"><span class="e">Disiscritti</span><span class="v">' + n.disiscritti + '</span><span class="q">rilevati da Brevo dopo questo invio</span></div>' : '')
-            + (n.spam ? '<div class="nl-and-n ko"><span class="e">Segnalate come spam</span><span class="v">' + n.spam + '</span><span class="q">e il numero che fa sospendere un mittente</span></div>' : '')
+            + (n.spam ? '<div class="nl-and-n ko"><span class="e">Segnalate come spam</span><span class="v">' + n.spam + '</span><span class="q">è il numero che fa sospendere un mittente</span></div>' : '')
             + (senzaEsito ? '<div class="nl-and-n"><span class="e">Ancora senza esito</span><span class="v">' + senzaEsito + '</span><span class="q">consegna in corso</span></div>' : '')
             + '</div>';
 
         // avvertenze scritte solo quando servono davvero
         const note = [];
-        if (n.clicUnici > n.apertureUniche) note.push('Alcuni hanno cliccato senza che l\'apertura risultasse: succede con le immagini bloccate, e non e un errore.');
+        if (n.clicUnici > n.apertureUniche) note.push('Alcuni hanno cliccato senza che l\'apertura risultasse: succede con le immagini bloccate, e non è un errore.');
         if (inv.n && n.richieste && Math.abs(inv.n - n.richieste) > 1) {
             note.push('Noi contiamo ' + inv.n + ' mail partite, Brevo ne registra ' + n.richieste + ' su questo invio'
-                + (inv.giaAccettati ? ': ' + inv.giaAccettati + ' erano un rinvio dello stesso lotto, gia accettato e registrato sotto l\'invio precedente.' : '.'));
+                + (inv.giaAccettati ? ': ' + inv.giaAccettati + ' erano un rinvio dello stesso lotto, già accettato e registrato sotto l\'invio precedente.' : '.'));
         }
-        if (blocco.per === 'campagna') note.push('Sono i dati dell\'intera campagna: comprendono tutti gli invii di questa newsletter e le prove. Questo invio e precedente all\'etichetta per singolo giro.');
+        if (blocco.per === 'campagna') note.push('Sono i dati dell\'intera campagna: comprendono tutti gli invii di questa newsletter e le prove. Questo invio è precedente all\'etichetta per singolo giro.');
         note.push('Aperture e clic si sovrappongono: chi ha cliccato ha anche ricevuto, e quasi sempre aperto. Nella torta ogni mail compare una volta sola, nel punto più avanzato che ha raggiunto.');
 
         return '<div class="nl-and-riga">' + testa + nostri + numeri
@@ -19228,10 +19230,10 @@
         if (!invii.length) {
             const conBrevo = trasportoNewsletter() === 'brevo';
             cont.innerHTML = '<div class="nl-sez nl-and">'
-                + '<div class="nl-sez-tit">Com\'e andato l\'invio</div>'
-                + '<div class="nl-and-nota">Questa newsletter non e ancora stata spedita: qui compariranno consegne, aperture e clic, '
+                + '<div class="nl-sez-tit">Com\'è andato l\'invio</div>'
+                + '<div class="nl-and-nota">Questa newsletter non è ancora stata spedita: qui compariranno consegne, aperture e clic, '
                 + 'con il grafico, a partire dal primo invio vero.<br>'
-                + 'La <b>prova a te stesso</b> non compare: e una mail sola e non fa statistica.'
+                + 'La <b>prova a te stesso</b> non compare: è una mail sola e non fa statistica.'
                 + (conBrevo ? '' : '<br><b>Attenzione:</b> il servizio dice che spedirebbe dalla casella di posta, non da Brevo. '
                     + 'In quel caso degli esiti si sa solo quante mail sono state accettate: consegne, aperture e clic li rileva Brevo.')
                 + '</div></div>';
@@ -19242,7 +19244,7 @@
             return schedaAndamento(inv, _nlAnd[chiave] || null);
         }).join('');
         cont.innerHTML = '<div class="nl-sez nl-and">'
-            + '<div class="nl-sez-tit">Com\'e andato l\'invio'
+            + '<div class="nl-sez-tit">Com\'è andato l\'invio'
             + '<span class="nl-and-azioni"><span class="ev-live">'
             + (_nlAndInFlight ? 'aggiornamento...' : (_nlAndAggiornato ? 'letto alle ' + esc(new Date(_nlAndAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) : 'non ancora letto'))
             + '</span><button type="button" class="btn btn-secondary" id="nl-and-agg"' + (_nlAndInFlight ? ' disabled' : '') + '>Aggiorna</button></span></div>'
@@ -19288,13 +19290,13 @@
         if (!u) return '';
         if (u.interrotto) {
             return '<div class="nl-esito ko">Invio <strong>interrotto</strong> il ' + esc(fmtDataOra(u.il))
-                + ': ' + (u.n || 0) + ' mail partite, poi si e fermato (' + esc(u.interrotto) + ').<br>'
-                + 'Premendo <strong>Invia la newsletter</strong> si riprende da chi non e ancora stato servito.'
+                + ': ' + (u.n || 0) + ' mail partite, poi si è fermato (' + esc(u.interrotto) + ').<br>'
+                + 'Premendo <strong>Invia la newsletter</strong> si riprende da chi non è ancora stato servito.'
                 + (u.incerti ? ' ' + u.incerti + ' con esito incerto verranno saltati.' : '') + '</div>';
         }
-        return '<p class="descrizione">Gia inviata il ' + esc(fmtDataOra(u.il)) + ' a ' + (u.n || 0)
+        return '<p class="descrizione">Già inviata il ' + esc(fmtDataOra(u.il)) + ' a ' + (u.n || 0)
             + ' destinatari' + (u.falliti ? ', ' + u.falliti + ' non riusciti' : '')
-            + '. Puoi modificarla e reinviarla: chi si e disiscritto resta comunque fuori.</p>'
+            + '. Puoi modificarla e reinviarla: chi si è disiscritto resta comunque fuori.</p>'
             + (u.falliti && (u.dettaglioFalliti || []).length
                 ? '<p class="hint">Non riuscite: ' + esc(u.dettaglioFalliti.map(f => f.email).join(', ')) + '</p>' : '');
     }
@@ -19330,7 +19332,7 @@
     /* Requisiti minimi prima di spedire. */
     function controllaNewsletter(rec, prova) {
         if (!rec.oggetto) return 'Manca l\'oggetto della mail.';
-        if (!rec.titolo && !rec.blocchi.length) return 'La newsletter e vuota: aggiungi almeno un titolo o un blocco.';
+        if (!rec.titolo && !rec.blocchi.length) return 'La newsletter è vuota: aggiungi almeno un titolo o un blocco.';
         if (!Cloud.attivo) return 'In modalità dimostrativa non si possono spedire email.';
         if (prova) return '';
         const r = destinatariNewsletter(rec);
@@ -19341,7 +19343,7 @@
     /* Legge una pagina del sito e ne ricava la bozza. */
     async function leggiPaginaSito(url) {
         if (!window.RV_NEWSLETTER || !RV_NEWSLETTER.estraiDaPagina) {
-            return { ok: false, msg: 'Il formato newsletter non e caricato: ricarica la pagina.' };
+            return { ok: false, msg: 'Il formato newsletter non è caricato: ricarica la pagina.' };
         }
         let testo;
         try {
@@ -19355,7 +19357,7 @@
             const doc = new DOMParser().parseFromString(testo, 'text/html');
             return { ok: true, dati: RV_NEWSLETTER.estraiDaPagina(doc, url) };
         } catch (e) {
-            return { ok: false, msg: 'La pagina non si e potuta interpretare.' };
+            return { ok: false, msg: 'La pagina non si è potuta interpretare.' };
         }
     }
 
@@ -19436,7 +19438,7 @@
 
         const sezBozze = bozze.length ? `<div class="card" id="sez-bozze">
             <h2>Comunicazioni in preparazione (${bozze.length})</h2>
-            <p class="hint" style="margin:-6px 0 12px;">Salvate ma non ancora inviate ne programmate. Premi <strong>Apri</strong> per completarle e poi inviarle o programmarle.</p>
+            <p class="hint" style="margin:-6px 0 12px;">Salvate ma non ancora inviate né programmate. Premi <strong>Apri</strong> per completarle e poi inviarle o programmarle.</p>
             <div class="tabella-wrap"><table class="dati a-schede"><thead><tr>
                 <th>Contesto</th><th>Nome</th><th class="num">Destinatari</th><th>Creata da</th><th>Creata il</th><th></th>
             </tr></thead><tbody>` +
@@ -19501,13 +19503,13 @@
             </header>
             ${maiComunicati.length ? `<div class="avviso-ruoli">
                 ${maiComunicati.length === 1
-                ? `<strong>Un aggiornamento dell'area riservata non e ancora stato comunicato:</strong> &laquo;${esc(maiComunicati[0].titolo)}&raquo;, del ${esc(fmtData(maiComunicati[0].data))}.`
+                ? `<strong>Un aggiornamento dell'area riservata non è ancora stato comunicato:</strong> &laquo;${esc(maiComunicati[0].titolo)}&raquo;, del ${esc(fmtData(maiComunicati[0].data))}.`
                 : `<strong>${maiComunicati.length} aggiornamenti dell'area riservata non sono ancora stati comunicati.</strong> Il più recente è &laquo;${esc(maiComunicati[0].titolo)}&raquo;, del ${esc(fmtData(maiComunicati[0].data))}.`}
                 Con <strong>Comunica un aggiornamento</strong> scegli quale annunciare: il riepilogo del contenuto lo prepara il programma, tu decidi quali iscritti all'area lo ricevono.
             </div>` : ''}
             ${tabs}
             ${corpo}
-            ${puoInviare ? '' : '<p class="descrizione" style="margin-top:10px;">L\'invio dal server e disponibile solo con l\'accesso protetto attivo; qui puoi comunque preparare le comunicazioni e salvarle in preparazione.</p>'}`;
+            ${puoInviare ? '' : '<p class="descrizione" style="margin-top:10px;">L\'invio dal server è disponibile solo con l\'accesso protetto attivo; qui puoi comunque preparare le comunicazioni e salvarle in preparazione.</p>'}`;
 
         $vista().querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { comuniTab = b.dataset.tab; vistaComunicazioni(); }));
         $vista().querySelectorAll('[data-vista]').forEach(b => b.addEventListener('click', () => { comuniVista = b.dataset.vista; vistaComunicazioni(); }));
@@ -19562,7 +19564,7 @@
                 ? '<div class="tabella-wrap"><table class="dati"><thead><tr><th>Destinatario</th><th>Motivo</th></tr></thead><tbody>'
                     + dett.map(x => '<tr><td>' + esc(x.email || '') + '</td><td>' + esc(x.motivo || 'errore') + '</td></tr>').join('')
                     + '</tbody></table></div>'
-                : '<p class="descrizione">Il numero di falliti e registrato, ma il dettaglio dei destinatari non e disponibile per questo invio.</p>';
+                : '<p class="descrizione">Il numero di falliti è registrato, ma il dettaglio dei destinatari non è disponibile per questo invio.</p>';
             apriModale('<h2>Destinatari falliti (' + s.falliti + ')</h2>'
                 + '<p class="descrizione" style="margin-bottom:10px;">' + esc(s.nome || s.oggetto || '') + ' &middot; ' + fmtDataOra(s.il) + ' &middot; inviati ' + (s.n || 0) + '</p>'
                 + righe
@@ -19716,7 +19718,7 @@
                 <div class="campo"><label>Contesto</label><select id="c-contesto">${CONTESTI.map(x => `<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select></div>
                 <div class="campo"><label>Nome della comunicazione</label><input id="c-nome" value="${esc((c && c.nome) || '')}" placeholder="es. Promemoria scadenze trimestrali"><div class="hint">Etichetta interna per riconoscerla in elenco e nel calendario.</div></div>
             </div>
-            <div class="campo"><label>Oggetto della mail</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}" placeholder="Oggetto che vedra il destinatario"></div>
+            <div class="campo"><label>Oggetto della mail</label><input id="c-oggetto" value="${esc((c && c.oggetto) || '')}" placeholder="Oggetto che vedrà il destinatario"></div>
             <div class="campo">
                 <div class="rte-intest">
                     <label style="margin:0;">Messaggio</label>
@@ -19744,7 +19746,7 @@
                         <li><strong>Mensile</strong> &rarr; &ldquo;gennaio 2026&rdquo;, &ldquo;febbraio 2026&rdquo;&hellip;</li>
                         <li><strong>Annuale</strong> &rarr; &ldquo;2026&rdquo;, &ldquo;2027&rdquo;&hellip;</li>
                     </ul>
-                    <p>Cosi una sola comunicazione ricorrente genera da sola l'oggetto e il testo giusti per ogni periodo. Nell'invio immediato <code>{periodo}</code> resta vuoto, perché non c'è una frequenza.</p>
+                    <p>Così una sola comunicazione ricorrente genera da sola l'oggetto e il testo giusti per ogni periodo. Nell'invio immediato <code>{periodo}</code> resta vuoto, perché non c'è una frequenza.</p>
                 </div>
             </div>
             <div class="comp-scelta" id="c-card-prog">
@@ -19861,7 +19863,7 @@
             }
             const oggFinale = applicaVariabili(sostituisciPeriodo(oggRaw, periodoAnt), CAMPIONE_VAR).trim() || '(nessun oggetto)';
             const corpoHtml = editor.textContent.trim() ? applicaVariabiliHtml(sostituisciPeriodo(testoRaw, esc(periodoAnt)), CAMPIONE_VAR) : '<span style="color:#94A3B8;">(nessun testo)</span>';
-            const nota = usaPersonal ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario ricevera la sua versione.' : (usaPeriodo ? 'Anteprima con un periodo di esempio; {periodo} cambia a ogni invio programmato.' : '');
+            const nota = usaPersonal ? 'Anteprima con dati di esempio (Mario Rossi). Ogni destinatario riceverà la sua versione.' : (usaPeriodo ? 'Anteprima con un periodo di esempio; {periodo} cambia a ogni invio programmato.' : '');
             apriAnteprimaMail(senzaTrattiniLunghi(oggFinale), senzaTrattiniLunghi(corpoHtml), nota);
         };
         const btnAnt = $('c-anteprima-btn');
@@ -20025,7 +20027,7 @@
                 const fd = $('c-fine-data').value;
                 if (!fd) return { errore: 'Imposta la data di fine, oppure scegli "Senza fine".' };
                 fine = new Date(fd + 'T23:59:59').getTime();
-                if (fine < t) return { errore: 'La data di fine e precedente al primo invio.' };
+                if (fine < t) return { errore: 'La data di fine è precedente al primo invio.' };
             }
             return { prog: { attiva: true, frequenza: freq, prossimoInvio: t, fine: fine, periodoNelOggetto: false } };
         };
@@ -20148,7 +20150,7 @@
         $('c-annulla').addEventListener('click', chiudiModale);
         if ($('c-bozza')) $('c-bozza').addEventListener('click', () => {
             const rec = componiRecord();
-            if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErrSu(null, 'Non c\'e nulla da salvare: aggiungi almeno l\'oggetto, il testo o un destinatario.'); return; }
+            if (!rec.oggetto && !rec.testo && !rec.destinatari.length) { mostraErrSu(null, 'Non c\'è nulla da salvare: aggiungi almeno l\'oggetto, il testo o un destinatario.'); return; }
             // In preparazione: la programmazione si salva SEMPRE come non attiva e puo essere incompleta
             // (la data si puo mettere dopo). Non parte finche non premi Programma, che valida tutto.
             let progBozza = null;
@@ -20243,7 +20245,7 @@
             <div id="ag-riep"><div class="riep-vuoto">2. Il riepilogo del contenuto compare qui, appena scegli un aggiornamento.</div></div>
             <div class="griglia-2">
                 <div class="campo"><label>Oggetto della mail</label><input id="ag-oggetto" placeholder="Si compila da solo con l'aggiornamento scelto"></div>
-                <div class="campo"><label>Nota introduttiva <span class="hint" style="display:inline;">(facoltativa)</span></label><textarea id="ag-nota" rows="2" maxlength="600" placeholder="Una riga tua, prima del riepilogo. Es. Da lunedi usiamo questa sezione per..."></textarea></div>
+                <div class="campo"><label>Nota introduttiva <span class="hint" style="display:inline;">(facoltativa)</span></label><textarea id="ag-nota" rows="2" maxlength="600" placeholder="Una riga tua, prima del riepilogo. Es. Da lunedì usiamo questa sezione per..."></textarea></div>
             </div>
             <div class="campo">
                 <label>3. Destinatari: iscritti all'area riservata <span class="hint" id="ag-conta"></span></label>
@@ -20291,7 +20293,7 @@
             $('ag-conta').textContent = tot ? '(' + n + ' su ' + tot + ')' : '';
             $('ag-esclusi').textContent = esclusi > 0 ? (esclusi + (esclusi === 1 ? ' escluso' : ' esclusi')) : 'nessuno escluso';
             const e = $('ag-esito');
-            if (!a) { e.className = 'comp-esito vuoto'; e.innerHTML = 'Scegli prima <strong>quale aggiornamento</strong> comunicare: senza, non c\'e nulla da inviare.'; return; }
+            if (!a) { e.className = 'comp-esito vuoto'; e.innerHTML = 'Scegli prima <strong>quale aggiornamento</strong> comunicare: senza, non c\'è nulla da inviare.'; return; }
             if (!n) { e.className = 'comp-esito vuoto'; e.innerHTML = '<strong>Nessun destinatario</strong>: hai escluso tutti gli iscritti.'; return; }
             e.className = 'comp-esito subito';
             e.innerHTML = 'Invio <strong>SUBITO</strong> a ' + n + (n === 1 ? ' iscritto' : ' iscritti')
@@ -20364,7 +20366,7 @@
             const a = scelto();
             if (!a) { err('Scegli prima l\'aggiornamento da comunicare.'); return; }
             apriAnteprimaMail($('ag-oggetto').value.trim() || ('Area riservata: ' + a.titolo), corpoHtml(),
-                'Anteprima dell\'annuncio: e la mail che ricevera ogni iscritto selezionato.');
+                'Anteprima dell\'annuncio: è la mail che riceverà ogni iscritto selezionato.');
         });
 
         const btn = $('ag-invia');
@@ -20562,7 +20564,7 @@
                 : vedoTutto
                     ? 'Vedi <strong>tutte</strong> le richieste di Revilaw: sei equity o founding partner (oppure amministratore).'
                     : 'Le richieste che hai scritto, quelle indirizzate a te e quelle del territorio che coordini.'}
-                        Ogni richiesta e indirizzata a un equity partner e raccoglie in un'unica scheda tutti i messaggi che la riguardano.</p>
+                        Ogni richiesta è indirizzata a un equity partner e raccoglie in un'unica scheda tutti i messaggi che la riguardano.</p>
                 </div>
                 <div class="header-azioni">
                     ${vedoTutto ? `<div class="toggle-vista"><button class="btn btn-sm ${richSoloMie ? 'btn-secondary' : 'btn-primary'}" data-mie="0">Tutte</button><button class="btn btn-sm ${richSoloMie ? 'btn-primary' : 'btn-secondary'}" data-mie="1">Solo le mie</button></div>` : ''}
@@ -20570,7 +20572,7 @@
                 </div>
             </header>
             <div class="tab-dest" style="margin-bottom:16px;">${schede.map(s => `<button class="tab-btn ${richTab === s.k ? 'attivo' : ''}" data-rtab="${s.k}">${s.nome} (${s.n})</button>`).join('')}</div>
-            ${equity.length ? '' : '<div class="avviso-ruoli"><strong>Nessun equity partner in anagrafica.</strong> Finche non c\'e almeno una scheda con la casella <em>Equity partner</em> spuntata, l\'email e la scheda attiva, non e possibile indirizzare una richiesta. Lo si imposta in <em>Aderenti Revilaw</em>, nella scheda della persona.</div>'}
+            ${equity.length ? '' : '<div class="avviso-ruoli"><strong>Nessun equity partner in anagrafica.</strong> Finché non c\'è almeno una scheda con la casella <em>Equity partner</em> spuntata, l\'email e la scheda attiva, non è possibile indirizzare una richiesta. Lo si imposta in <em>Aderenti Revilaw</em>, nella scheda della persona.</div>'}
             ${corpo}
             <p class="descrizione" style="margin-top:10px;">Alla partenza di una richiesta, a ogni risposta e a <strong>ogni cambio di stato</strong> (chiusura compresa) parte un avviso per email a chi ha scritto la richiesta e all'equity partner che la riceve. Coordinatore e vice della regione indicata restano in copia dentro l'area: la trovano in questo elenco.</p>`;
 
@@ -20611,7 +20613,7 @@
         const equity = equityPartners();
         if (!equity.length) {
             apriModale('<h2>Nessun equity partner in anagrafica</h2>'
-                + '<p>Le richieste di correzione vanno indirizzate a un <strong>equity partner</strong>, ma in anagrafica non ce n\'e ancora nessuno.</p>'
+                + '<p>Le richieste di correzione vanno indirizzate a un <strong>equity partner</strong>, ma in anagrafica non ce n\'è ancora nessuno.</p>'
                 + '<p class="hint">Va spuntata la casella <strong>Equity partner</strong> sulla scheda della persona (sezione <em>Aderenti Revilaw</em>): la scheda deve essere attiva e avere l\'indirizzo email.</p>'
                 + '<div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Ho capito</button></div>');
             document.getElementById('m-ok').addEventListener('click', chiudiModale);
@@ -20641,7 +20643,7 @@
                 <div class="hint">${incarichi.length ? 'Sono elencati gli incarichi che il tuo ruolo può vedere.' : 'Non vedi alcun incarico: scegli "Una funzionalità generale" oppure chiedi che ti venga assegnato il territorio.'}</div>
             </div>
             <div class="campo nascosto" id="ric-box-funzione">
-                <label>Funzionalita</label>
+                <label>Funzionalità</label>
                 <select id="ric-funzione">${funzioniRichiesta().map(f => `<option>${esc(f)}</option>`).join('')}</select>
             </div>
             <div class="griglia-2">
@@ -20656,12 +20658,12 @@
                     <select id="ric-destinatario">
                         ${equity.map(e => `<option value="${esc(e.email)}">${esc(e.nome)}</option>`).join('')}
                     </select>
-                    <div class="hint">Riceve la richiesta per email ed e chi la lavora.</div>
+                    <div class="hint">Riceve la richiesta per email ed è chi la lavora.</div>
                 </div>
             </div>
             <div class="campo"><label>Oggetto</label><input id="ric-oggetto" maxlength="120" placeholder="es. Data fine incarico errata"></div>
             <div class="campo"><label>Dato da correggere <span class="hint" style="display:inline;">(facoltativo)</span></label><input id="ric-campo" maxlength="120" placeholder="es. Data fine (approvazione ultimo bilancio)"></div>
-            <div class="campo"><label>Descrizione</label><textarea id="ric-testo" rows="5" maxlength="4000" placeholder="Cosa c'e scritto adesso, cosa dovrebbe esserci e perché."></textarea></div>
+            <div class="campo"><label>Descrizione</label><textarea id="ric-testo" rows="5" maxlength="4000" placeholder="Cosa c'è scritto adesso, cosa dovrebbe esserci e perché."></textarea></div>
             <div class="riquadro-ambito" id="ric-copia"></div>
             <div class="msg-errore hidden" id="ric-errore"></div>
             <div class="modale-azioni">
@@ -20754,7 +20756,7 @@
             chiudiModale();
             toast(esito.ok
                 ? 'Richiesta inviata a ' + dest.nome + ': riepilogo per email a te e a ' + dest.nome + '.'
-                : 'Richiesta registrata, ma il riepilogo per email non e partito: ' + esito.msg,
+                : 'Richiesta registrata, ma il riepilogo per email non è partito: ' + esito.msg,
                 esito.ok ? 'verde' : 'ambra');
             naviga('richieste');
         }, { testo: 'Invio…' }));
@@ -20802,7 +20804,7 @@
         apriModale(`<h2>${esc(r.oggetto || '(senza oggetto)')}</h2>
             <div class="ric-testata">
                 ${badgeStatoRichiesta(r.stato)}
-                <span class="badge ${r.ambito === 'incarico' ? 'legale' : 'volontaria'}">${esc(r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita')}</span>
+                <span class="badge ${r.ambito === 'incarico' ? 'legale' : 'volontaria'}">${esc(r.ambito === 'incarico' ? 'Incarico' : 'Funzionalità')}</span>
                 <span class="ric-rif">${esc(riferimentoRichiesta(r))}${r.regione ? ' &middot; ' + esc(r.regione) : ''}</span>
             </div>
             <div class="riepilogo-riga"><span class="etichetta">Richiesta da</span><span class="valore">${esc((r.richiedente && r.richiedente.nome) || '')} &middot; ${fmtDataOra(r.creato)}</span></div>
@@ -20819,7 +20821,7 @@
                 <textarea id="ric-risposta" rows="3" maxlength="4000" placeholder="Scrivi un messaggio su questa richiesta..."></textarea>
                 <div class="hint">Il messaggio resta qui, dentro la richiesta, e parte per email a ${esc((r.richiedente && r.richiedente.nome) || '')} e a ${esc((r.destinatario && r.destinatario.nome) || '')}.</div>
             </div>` : `<div class="avviso-ruoli" style="margin-top:12px;">Il tuo accesso alle richieste di correzione è in <strong>sola visualizzazione</strong>: le vedi tutte, ma non puoi rispondere né cambiarne lo stato. Le richieste che scrivi tu restano tue e puoi seguirle come sempre.</div>`}
-            ${ultimoInvio && ultimoInvio.esito !== 'ok' ? `<div class="msg-errore">Ultimo avviso per email non partito (${esc(ultimoInvio.msg || 'errore')}). La richiesta e comunque registrata e visibile a tutti nell'area.
+            ${ultimoInvio && ultimoInvio.esito !== 'ok' ? `<div class="msg-errore">Ultimo avviso per email non partito (${esc(ultimoInvio.msg || 'errore')}). La richiesta è comunque registrata e visibile a tutti nell'area.
                 <button type="button" class="btn btn-sm btn-secondary" id="ric-reinvia" style="margin-left:8px;">Reinvia l'avviso</button></div>` : ''}
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="m-chiudi">Chiudi</button>
@@ -20863,7 +20865,7 @@
                 [{ campo: 'Messaggio', prima: '', dopo: troncaTesto(testo, 200) }]);
             const esito = await inviaMailRichiesta(fresca, 'messaggio', testo);
             toast(esito.ok ? 'Risposta inviata e riepilogo spedito per email.'
-                : 'Risposta registrata, ma l\'email non e partita: ' + esito.msg, esito.ok ? 'verde' : 'ambra');
+                : 'Risposta registrata, ma l\'email non è partita: ' + esito.msg, esito.ok ? 'verde' : 'ambra');
             chiudiModale();
             modaleRichiesta(fresca.id);
         }, { testo: 'Invio…' }));
@@ -20905,10 +20907,10 @@
         const chi = (extra && extra.autore && (extra.autore.nome || extra.autore.email)) || '';
         const evento = esc((extra && extra.evento) || statoRichiesta(r.stato).nome.toLowerCase());
         const intro = tipo === 'nuova'
-            ? 'E stata inviata una <strong>richiesta di correzione dati</strong>.'
+            ? 'È stata inviata una <strong>richiesta di correzione dati</strong>.'
             : tipo === 'stato'
                 ? (chi ? esc(chi) + ' ha segnato la richiesta come <strong>' + evento + '</strong>.'
-                    : 'La richiesta e ora <strong>' + evento + '</strong>.')
+                    : 'La richiesta è ora <strong>' + evento + '</strong>.')
                 : 'Nuovo messaggio su una <strong>richiesta di correzione dati</strong>.';
         const forte = v => '<strong>' + esc(v) + '</strong>';
         // il messaggio riportato sta in una tabella a una cella: la barretta laterale
@@ -20922,7 +20924,7 @@
         return senzaTrattiniLunghi(pMail(intro)
             + tabellaMail([
                 ['Oggetto', forte(r.oggetto || '')],
-                [r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita', forte(riferimentoRichiesta(r))],
+                [r.ambito === 'incarico' ? 'Incarico' : 'Funzionalità', forte(riferimentoRichiesta(r))],
                 ['Dato da correggere', r.campo ? forte(r.campo) : ''],
                 ['Regione', r.regione ? forte(r.regione) : ''],
                 ['Richiesta da', forte((r.richiedente && r.richiedente.nome) || '')],
@@ -20956,7 +20958,7 @@
         if (!destinatari.length) { registra('errore', 'nessun indirizzo'); return { ok: false, msg: 'nessun indirizzo email' }; }
         if (typeof Cloud === 'undefined' || !Cloud.attivo) {
             registra('errore', 'servizio email non attivo');
-            return { ok: false, msg: 'il servizio email e disponibile solo con l\'accesso protetto attivo' };
+            return { ok: false, msg: 'il servizio email è disponibile solo con l\'accesso protetto attivo' };
         }
         // l'oggetto dice gia' cosa e' successo: chi legge la posta capisce che la
         // correzione e' stata fatta (o respinta) senza dover aprire il messaggio
@@ -21167,8 +21169,8 @@
                     </div>
                 </div>
                 <div class="ruolo-sez">${riepSez(r)}</div>
-                ${r.id === 'coordinatore' || r.id === 'vicecoordinatore' ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw piu le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
-                ${r.id === RUOLO_MARKETING ? '<div class="ruolo-reg">Non e limitato al territorio: vede gli incarichi di tutte le regioni. Parte con tutto in sola lettura; la scrittura si concede sezione per sezione. Sulle richieste di correzione resta osservatore.</div>' : ''}
+                ${r.id === 'coordinatore' || r.id === 'vicecoordinatore' ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw più le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
+                ${r.id === RUOLO_MARKETING ? '<div class="ruolo-reg">Non è limitato al territorio: vede gli incarichi di tutte le regioni. Parte con tutto in sola lettura; la scrittura si concede sezione per sezione. Sulle richieste di correzione resta osservatore.</div>' : ''}
             </div>`).join('') +
             `</div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
@@ -21181,7 +21183,7 @@
                 try { const u = await Cloud.listaUtenti(); n = (u || []).filter(x => x.ruolo === r.id).length; }
                 catch (e) { contato = false; }
             } else { n = utentiConRuolo(r.id); }
-            const avviso = !contato ? 'Non e stato possibile contare gli utenti con questo ruolo: verifica a mano che nessuno lo usi prima di eliminarlo.'
+            const avviso = !contato ? 'Non è stato possibile contare gli utenti con questo ruolo: verifica a mano che nessuno lo usi prima di eliminarlo.'
                 : (n ? '<strong>' + n + (n === 1 ? ' utente ha' : ' utenti hanno') + '</strong> questo ruolo: riassegnalo prima, altrimenti resteranno senza accesso finché l\'amministratore non interviene.'
                     : 'Nessun utente risulta avere questo ruolo.');
             apriModale(`<h2>Eliminare il ruolo "${esc(r.nome)}"?</h2>
@@ -21208,9 +21210,9 @@
         const r = esistente || { id: '', nome: '', builtin: false, sezioni: sezioniTutte('no') };
         apriModale(`<h2>${esistente ? (soloAdmin ? esc(r.nome) : 'Modifica ruolo') : 'Nuovo ruolo'}</h2>
             ${(soloAdmin || diSistema) ? '' : `<div class="campo"><label>Nome del ruolo</label><input id="r-nome" value="${esc(r.nome)}" placeholder="es. Referente Nord"></div>`}
-            ${soloAdmin ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non e modificabile.</p>' : `
-            ${profiloMarketing ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto quali sezioni vede e dove puo anche scrivere. Nasce con tutto in <strong>sola lettura</strong>, ma la <strong>scrittura si puo concedere</strong> sezione per sezione. Non e limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> resta osservatore: vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
-                : diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa puo modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioe la <strong>Regione</strong> della sua scheda in <strong>Aderenti Revilaw</strong> (agganciata all\'utente tramite email) piu le eventuali <strong>altre regioni coordinate</strong> spuntate li. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
+            ${soloAdmin ? '<p class="descrizione">L\'amministratore ha sempre accesso completo a tutte le sezioni: non è modificabile.</p>' : `
+            ${profiloMarketing ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto quali sezioni vede e dove può anche scrivere. Nasce con tutto in <strong>sola lettura</strong>, ma la <strong>scrittura si può concedere</strong> sezione per sezione. Non è limitato al territorio: vede gli incarichi di tutte le regioni. Sulle <strong>richieste di correzione</strong> resta osservatore: vede tutto quello che vede un equity partner, ma non ne riceve, non le prende in carico e non risponde.</p>'
+                : diSistema ? '<p class="descrizione"><strong>' + esc(r.nome) + '</strong>: scegli qui sotto cosa vede e cosa può modificare. Vede comunque SOLO gli incarichi delle sue regioni, cioè la <strong>Regione</strong> della sua scheda in <strong>Aderenti Revilaw</strong> (agganciata all\'utente tramite email) più le eventuali <strong>altre regioni coordinate</strong> spuntate lì. Senza alcuna regione, non vede alcun incarico.</p>' : ''}
             <h3 style="margin:14px 0 6px;font-size:0.95rem;">Cosa vede e cosa può toccare</h3>
             <div class="ruolo-sezgrid">${SEZIONI_RUOLO.map(s => `<div class="campo"><label>${esc(s.nome)}</label>
                 <select data-sez="${s.id}">${Object.keys(LIVELLI_SEZIONE).map(liv => '<option value="' + liv + '"' + ((r.sezioni[s.id] || 'no') === liv ? ' selected' : '') + '>' + LIVELLI_SEZIONE[liv] + '</option>').join('')}</select></div>`).join('')}</div>`}
@@ -21262,7 +21264,7 @@
         apriModale('<h2>Elimina definitivamente l\'utente</h2>'
             + '<p>Vuoi eliminare <strong>' + esc(nome || email) + '</strong> (' + esc(email) + ')?</p>'
             + '<p class="descrizione">L\'utente sparisce dall\'elenco e perde subito l\'accesso all\'area riservata. '
-            + 'L\'operazione non e reversibile: per riammetterlo dovrai abilitarlo di nuovo con "Abilita utente".</p>'
+            + 'L\'operazione non è reversibile: per riammetterlo dovrai abilitarlo di nuovo con "Abilita utente".</p>'
             + '<div class="modale-azioni"><button class="btn btn-ghost" id="ue-no">Annulla</button>'
             + '<button class="btn btn-danger" id="ue-si">Elimina definitivamente</button></div>');
         document.getElementById('ue-no').addEventListener('click', chiudiModale);
@@ -21321,7 +21323,7 @@
                 <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
                 <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
                 <div class="campo"><label>Ruolo</label><select id="m-ruolo">${opzioniRuolo(null)}</select></div>
-                <p class="descrizione">L'utente ricevera l'accesso richiedendo la prima password dalla pagina di ingresso.</p>
+                <p class="descrizione">L'utente riceverà l'accesso richiedendo la prima password dalla pagina di ingresso.</p>
                 <div class="modale-azioni">
                     <button class="btn btn-ghost" id="m-annulla">Annulla</button>
                     <button class="btn btn-primary" id="m-salva">Abilita</button>
@@ -21353,7 +21355,7 @@
             u.mustChange = true; u.tentativi = 0; u.bloccatoFino = 0;
             Auth.salvaUtenti(utenti2);
             Audit.registra(Auth.utenteCorrente, 'Password reimpostata dall\'amministratore', 'utente', email, null, null);
-            mostraPasswordTemporanea(u.email, temp, 'Comunica questa password temporanea all\'utente. Al primo accesso dovra sceglierne una nuova.');
+            mostraPasswordTemporanea(u.email, temp, 'Comunica questa password temporanea all\'utente. Al primo accesso dovrà sceglierne una nuova.');
         }, { testo: 'Reimposto…' })));
         $vista().querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => {
             const email = b.dataset.email;
@@ -21398,7 +21400,7 @@
                 <div class="campo"><label>Ruolo</label><select id="m-ruolo">
                     ${opzioniRuolo(null)}
                 </select></div>
-                <p class="descrizione">L'utente ricevera una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password. Ricordagli di controllare anche la posta indesiderata / spam.</p>
+                <p class="descrizione">L'utente riceverà una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password. Ricordagli di controllare anche la posta indesiderata / spam.</p>
                 <div class="modale-azioni">
                     <button class="btn btn-ghost" id="m-annulla">Annulla</button>
                     <button class="btn btn-primary" id="m-salva">Abilita e invia email</button>
@@ -21508,12 +21510,12 @@
             </header>
             <div class="card">
                 <h2>Fatturazione predefinita per tipo</h2>
-                <p class="descrizione" style="margin-bottom:12px;">Imposta la periodicità di fatturazione secondo lo standard dello studio: <strong>trimestrale</strong> per la revisione legale triennale, <strong>annuale</strong> per la revisione volontaria. Vale per i nuovi incarichi; da qui puoi applicarla anche a tutti quelli gia presenti.</p>
+                <p class="descrizione" style="margin-bottom:12px;">Imposta la periodicità di fatturazione secondo lo standard dello studio: <strong>trimestrale</strong> per la revisione legale triennale, <strong>annuale</strong> per la revisione volontaria. Vale per i nuovi incarichi; da qui puoi applicarla anche a tutti quelli già presenti.</p>
                 <button class="btn btn-secondary" id="d-fatturazione-default">Applica a tutti gli incarichi esistenti</button>
             </div>
             <div class="card">
                 <h2>Genera il piano di fatturazione su tutti gli incarichi</h2>
-                <p class="descrizione" style="margin-bottom:12px;">Trasforma le scadenze calcolate degli incarichi già presenti in un <strong>piano modificabile</strong> (scadenze e importi che potrai correggere dal wizard, una per una). Gli importi <strong>non cambiano</strong>: ogni scadenza resta com'e ora. Dopo, cambiare la periodicita di un incarico non ridistribuira piu gli esercizi gia fatturati.</p>
+                <p class="descrizione" style="margin-bottom:12px;">Trasforma le scadenze calcolate degli incarichi già presenti in un <strong>piano modificabile</strong> (scadenze e importi che potrai correggere dal wizard, una per una). Gli importi <strong>non cambiano</strong>: ogni scadenza resta com'è ora. Dopo, cambiare la periodicità di un incarico non ridistribuirà più gli esercizi già fatturati.</p>
                 <button class="btn btn-secondary" id="d-materializza-piani">Genera il piano su tutti gli incarichi</button>
             </div>
             <div class="card">
@@ -21523,7 +21525,7 @@
                 <div class="campo">
                 ${Auth.eAdmin() ? `<label style="display:flex; gap:8px; align-items:center; font-weight:600;"><input type="radio" name="d-modo" value="sostituisci" style="width:auto;">Sostituisci l'elenco attuale (solo amministratore)</label>` : ''}
                 <label style="display:flex; gap:8px; align-items:center; font-weight:600;"><input type="radio" name="d-modo" value="aggiungi" checked style="width:auto;">Aggiungi all'elenco attuale</label>
-                <label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="radio" name="d-modo" value="aggiorna" style="width:auto; margin-top:3px;"><span>Aggiorna la stima delle ore dai bilanci<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Non crea e non elimina nulla: cerca ogni riga per codice fiscale (o per nome cliente) e salva <strong>attivo</strong> e <strong>ricavi</strong>, da cui si ricavano le ore stimate per il report. Serve solo all'analisi: <strong>non tocca il calcolo del compenso concordato, ne le proposte di incarico o i PDF</strong>, che continuano a riportare solo le ore decise nel wizard.</span></span></label></div>
+                <label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="radio" name="d-modo" value="aggiorna" style="width:auto; margin-top:3px;"><span>Aggiorna la stima delle ore dai bilanci<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Non crea e non elimina nulla: cerca ogni riga per codice fiscale (o per nome cliente) e salva <strong>attivo</strong> e <strong>ricavi</strong>, da cui si ricavano le ore stimate per il report. Serve solo all'analisi: <strong>non tocca il calcolo del compenso concordato, né le proposte di incarico o i PDF</strong>, che continuano a riportare solo le ore decise nel wizard.</span></span></label></div>
                 <button class="btn btn-primary" id="d-importa">Importa</button>
             </div>
             <div class="card">
@@ -21541,10 +21543,10 @@
                     : '<p class="descrizione">Disponibile con l\'accesso al cloud condiviso.</p>'}
             </div>` : ''}
             <div class="card">
-                <h2>Modalita di funzionamento</h2>
+                <h2>Modalità di funzionamento</h2>
                 ${Cloud.attivo
                     ? '<p class="descrizione">Accesso protetto attivo: ogni utente entra con le proprie credenziali (password via email) e i dati sono condivisi in tempo reale tra gli utenti abilitati.</p>'
-                    : '<p class="descrizione">Modalita dimostrativa: accessi e dati vivono solo in questo browser. Per avere la password via email e i dati condivisi tra colleghi occorre attivare il servizio cloud seguendo la <a href="FIREBASE-SETUP.md" target="_blank">guida di configurazione</a>.</p>'}
+                    : '<p class="descrizione">Modalità dimostrativa: accessi e dati vivono solo in questo browser. Per avere la password via email e i dati condivisi tra colleghi occorre attivare il servizio cloud seguendo la <a href="FIREBASE-SETUP.md" target="_blank">guida di configurazione</a>.</p>'}
             </div>`;
         if (Auth.eAdmin() && Cloud.attivo) disegnaStatoModelli();
 
@@ -21760,7 +21762,7 @@
             const daCambiare = lista.filter(i => (i.tipo === 'legale' || i.tipo === 'volontaria') && i.fatturazione !== fatturazionePredefinita(i.tipo));
             if (!daCambiare.length) { toast('Tutti gli incarichi hanno già la fatturazione predefinita.', 'verde'); return; }
             apriModale(`<h2>Applicare la fatturazione predefinita?</h2>
-                <p>Verra impostata la fatturazione <strong>trimestrale</strong> per gli incarichi di revisione legale triennale e <strong>annuale</strong> per la revisione volontaria.</p>
+                <p>Verrà impostata la fatturazione <strong>trimestrale</strong> per gli incarichi di revisione legale triennale e <strong>annuale</strong> per la revisione volontaria.</p>
                 <p>Incarichi interessati: <strong>${daCambiare.length}</strong>. L'operazione viene registrata nel registro modifiche.</p>
                 <div class="modale-azioni">
                     <button class="btn btn-ghost" id="m-annulla">Annulla</button>
@@ -21950,19 +21952,19 @@
         let firmaNuova = null;
         const miniatura = src => `<img src="${src}" alt="Firma" style="max-height:56px; max-width:220px; border:1px solid var(--grigio-200); border-radius:6px; background:#fff; padding:4px;">`;
         apriModale(`<h2>Stampa del mandato</h2>
-            <p class="descrizione" style="margin-bottom:12px;">Verra generato il PDF ufficiale di <strong>${esc(inc.cliente)}</strong> con i dati compilati resi definitivi (non modificabili) e i campi del cliente lasciati editabili.</p>
+            <p class="descrizione" style="margin-bottom:12px;">Verrà generato il PDF ufficiale di <strong>${esc(inc.cliente)}</strong> con i dati compilati resi definitivi (non modificabili) e i campi del cliente lasciati editabili.</p>
             <div class="campo" style="margin-bottom:12px;">
                 <label style="font-weight:600;">Firma grafica di ${esc(respNome)}</label>
                 <div id="m-firma-stato" class="descrizione" style="margin:4px 0 6px;">Controllo se c'è una firma già salvata…</div>
                 <div id="m-firma-anteprima" style="margin-bottom:6px;"></div>
                 <input type="file" id="m-firma-file" accept="image/png,image/jpeg">
-                <label style="display:flex; gap:8px; align-items:center; font-weight:400; margin-top:6px;"><input type="checkbox" id="m-firma-salva" checked style="width:auto;">Salva questa firma: le prossime volte comparira in automatico per ${esc(respNome)}</label>
+                <label style="display:flex; gap:8px; align-items:center; font-weight:400; margin-top:6px;"><input type="checkbox" id="m-firma-salva" checked style="width:auto;">Salva questa firma: le prossime volte comparirà in automatico per ${esc(respNome)}</label>
             </div>
             ${inc.stato === 'proposta'
                 ? '<p class="descrizione">L\'incarico è in attesa di approvazione del cliente: il calcolo NON viene congelato, così puoi ancora modificare l\'incarico, cambiare la firma e ristampare il mandato. Il congelamento si propone alla stampa dopo la conferma.</p>'
                 : giaCongelato
                     ? '<p class="descrizione">Il calcolo di questo incarico è già congelato: il compenso non è modificabile finché non viene sbloccato.</p>'
-                    : `<label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="checkbox" id="m-congela" checked style="width:auto; margin-top:3px;"><span>Congela il calcolo del compenso<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Il compenso e le ore concordati vengono bloccati: per modificarli in seguito occorrera sbloccarli inviando un messaggio di allerta.</span></span></label>`}
+                    : `<label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="checkbox" id="m-congela" checked style="width:auto; margin-top:3px;"><span>Congela il calcolo del compenso<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Il compenso e le ore concordati vengono bloccati: per modificarli in seguito occorrerà sbloccarli inviando un messaggio di allerta.</span></span></label>`}
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="m-annulla">Annulla</button>
                 <button class="btn btn-primary" id="m-conferma">Genera PDF</button>
@@ -21990,7 +21992,7 @@
                 firmaNuova = await leggiImmagineFirma(file);
                 document.getElementById('m-firma-anteprima').innerHTML = miniatura(firmaNuova);
                 document.getElementById('m-firma-stato').textContent = firmaSalvata
-                    ? 'Nuova firma pronta: sostituira quella salvata.'
+                    ? 'Nuova firma pronta: sostituirà quella salvata.'
                     : 'Nuova firma pronta: verrà inserita sotto REVILAW S.p.A.';
             } catch (e) {
                 firmaNuova = null; inputFirma.value = '';
@@ -22393,7 +22395,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
 
     function firmeLettera(inc) {
         return `
-            <p>Desideriamo esprimere i nostri ringraziamenti per l'opportunita offertaci e ribadire il nostro vivo interesse professionale per l'assegnazione dell'incarico, che svolgeremo con la massima cura. Vorrete quindi comunicarci per iscritto la Vostra determinazione in ordine al conferimento dell'incarico, sulla base della deliberazione dell'Assemblea dei Soci della Vostra Societa in conformita a quanto previsto dall'art. 13 del D.Lgs. n. 39/2010, restituendoci la presente proposta firmata per accettazione.</p>
+            <p>Desideriamo esprimere i nostri ringraziamenti per l'opportunità offertaci e ribadire il nostro vivo interesse professionale per l'assegnazione dell'incarico, che svolgeremo con la massima cura. Vorrete quindi comunicarci per iscritto la Vostra determinazione in ordine al conferimento dell'incarico, sulla base della deliberazione dell'Assemblea dei Soci della Vostra Società in conformità a quanto previsto dall'art. 13 del D.Lgs. n. 39/2010, restituendoci la presente proposta firmata per accettazione.</p>
             <p>Con i migliori saluti</p>
             <div class="firme">
                 <div class="firma-blocco">
@@ -22481,7 +22483,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             <p>${esc(testoSpeseLettera(inc, false))}</p>
             <p>${testoFatturazioneLettera(inc)}, oltre spese ed IVA. Il pagamento dovrà essere effettuato a 30 giorni data fattura tramite ricevuta bancaria a scadenza.</p>
             <h2>6. Condizioni generali</h2>
-            <p>Formano parte integrante della presente proposta le condizioni generali dell'incarico (riservatezza, limiti di utilizzo della relazione, conservazione delle carte di lavoro, limitazioni di responsabilita, interruzione anticipata) riportate nel documento completo, unitamente agli allegati.</p>
+            <p>Formano parte integrante della presente proposta le condizioni generali dell'incarico (riservatezza, limiti di utilizzo della relazione, conservazione delle carte di lavoro, limitazioni di responsabilità, interruzione anticipata) riportate nel documento completo, unitamente agli allegati.</p>
             ${firmeLettera(inc)}`;
     }
 
@@ -22712,7 +22714,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         }
 
         cont.innerHTML = `<div class="g-svg-wrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img"
-            aria-label="Compenso rispetto alle ore stimate: ogni punto e un incarico, la retta e la tariffa di riferimento">${g}${retta}${cerchi}${etich}</svg>
+            aria-label="Compenso rispetto alle ore stimate: ogni punto è un incarico, la retta è la tariffa di riferimento">${g}${retta}${cerchi}${etich}</svg>
             <div class="g-tip" id="g-tip-oc" hidden></div></div>
             ${conRif ? `<div class="g-legenda-oc">
                 <span><i style="background:#B3261E"></i>Sotto il 70% della tariffa</span>
@@ -22888,7 +22890,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             ? `Il tuo accesso è in <strong>sola visualizzazione</strong> su tutto, tranne che su ${esc(elencoIt(scrivibili))}, dove puoi anche operare - sempre e solo entro le regioni qui sopra.`
             : 'Il tuo accesso è in <strong>sola visualizzazione</strong>: puoi consultare i dati del tuo territorio, non modificarli.';
         apriModale(`<h2>${esc(nomeR)}</h2>
-            <p class="descrizione" style="margin:-6px 0 14px;">Il tuo accesso all'area riservata e legato al territorio che ti e stato assegnato.</p>
+            <p class="descrizione" style="margin:-6px 0 14px;">Il tuo accesso all'area riservata è legato al territorio che ti è stato assegnato.</p>
             <div class="riquadro-ambito">
                 <div class="etichetta-ambito">Regioni assegnate</div>
                 ${regioni.length
@@ -22901,7 +22903,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                         <li>${accesso}</li>
                    </ul>`
                 : `<ul class="elenco-ambito">
-                        <li>Finche non ti viene assegnata almeno una regione <strong>non vedi alcun incarico</strong>: non e un guasto, e la regola di sicurezza.</li>
+                        <li>Finché non ti viene assegnata almeno una regione <strong>non vedi alcun incarico</strong>: non è un guasto, è la regola di sicurezza.</li>
                         <li>Chiedi all'amministratore di spuntare le tue regioni sulla tua scheda, nella sezione Aderenti Revilaw.</li>
                    </ul>`}
             <p class="nota-riferimento">Eventuali <strong>modifiche e correzioni</strong> ai dati non si eseguono da qui: si chiedono a un <strong>equity partner</strong> dalla sezione <strong>Richieste di correzione</strong>, nel menu a sinistra. La richiesta resta scritta e la vedi anche tu, insieme all'altro coordinatore o vice del tuo territorio.</p>
@@ -23121,13 +23123,13 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             chiediEmail('Recupero password',
                 Cloud.attivo
                     ? 'Riceverai una email con il collegamento per reimpostare la password.'
-                    : 'Verra generata una nuova password temporanea, da cambiare al primo accesso.',
+                    : 'Verrà generata una nuova password temporanea, da cambiare al primo accesso.',
                 async email => {
                     const esito = await Auth.recuperaPassword(email);
                     if (esito.ok) {
                         chiudiModale();
                         document.getElementById('login-email').value = email;
-                        if (esito.viaEmail) mostraMessaggio('Email inviata', 'Se l\'indirizzo ' + email + ' corrisponde a un account, ricevera una email (da noreply@nextgenerationbusiness.it) con il collegamento per reimpostare la password. Controlla anche la posta indesiderata / spam.');
+                        if (esito.viaEmail) mostraMessaggio('Email inviata', 'Se l\'indirizzo ' + email + ' corrisponde a un account, riceverà una email (da noreply@nextgenerationbusiness.it) con il collegamento per reimpostare la password. Controlla anche la posta indesiderata / spam.');
                         else mostraPasswordTemporanea(email, esito.temp);
                     }
                     return esito;
@@ -23161,7 +23163,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         if (Auth.utenteCorrente && sessioneScaduta()) {
             Auth.esci();
             mostraLogin(true);
-            toast('Sessione chiusa per inattivita.');
+            toast('Sessione chiusa per inattività.');
         }
     }, 60000);
 
@@ -23259,7 +23261,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         collegaLogin();
         if (Cloud.attivo) {
             const avviso = document.querySelector('.avviso-demo');
-            if (avviso) avviso.innerHTML = '<strong>Accesso protetto.</strong> L\'accesso e riservato agli utenti abilitati dall\'amministratore; la password si imposta e si recupera tramite email. Se non hai ancora le credenziali, contatta l\'amministratore.';
+            if (avviso) avviso.innerHTML = '<strong>Accesso protetto.</strong> L\'accesso è riservato agli utenti abilitati dall\'amministratore; la password si imposta e si recupera tramite email. Se non hai ancora le credenziali, contatta l\'amministratore.';
             const u = await Cloud.utenteDaSessione();
             if (u) { Auth.utenteCorrente = u; mostraApp(); return; }
             mostraLogin();
