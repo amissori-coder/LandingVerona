@@ -738,6 +738,64 @@
 }
 
 /* ============================================
+   7. ALLINEAMENTO GIUSTIFICATO, DAPPERTUTTO
+   Il foglio condiviso giustifica quattro soli contesti
+   (descrizione di sezione, corpo del testo, schede dei
+   vantaggi, risposte delle FAQ). Su questa pagina la
+   prosa sta anche altrove: nei riquadri in evidenza,
+   negli elenchi puntati, nei passi dei due percorsi,
+   nelle celle delle tre tabelle, nei riferimenti e
+   nelle descrizioni dei rimandi. Lasciandoli allineati
+   a sinistra l'allineamento risulterebbe misto, con
+   blocchi giustificati e blocchi no uno accanto
+   all'altro. Qui vengono portati tutti alla stessa
+   resa, con la sillabazione automatica perche' su
+   colonne strette la giustificazione, da sola, apre
+   spazi troppo larghi fra le parole.
+   Restano fuori l'hero e le etichette dei tre dati,
+   che sono centrati per scelta su tutte le pagine del
+   sito, i titoli, le sigle e gli occhielli.
+   ============================================ */
+.content-page .highlight-box p,
+.content-page .pillar-list li,
+.content-page .processo-step-content p,
+.content-page .ref-list li,
+.content-page .rimando-desc,
+.content-page .riparto-col li,
+.content-page .cta-text p,
+.content-page .lessico td,
+.content-page .checkup td:not(.col-breve) {
+    text-align: justify;
+    text-justify: inter-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
+}
+
+/* Nelle celle la colonna e' stretta e una parola lunga, da sola, puo'
+   allargare la tabella: la sillabazione va lasciata libera di spezzare
+   anche dove il dizionario non propone un punto. */
+.content-page .lessico td,
+.content-page .checkup td {
+    overflow-wrap: break-word;
+}
+
+/* Due eccezioni, e sono eccezioni di sostanza. L'intestazione di riga e'
+   un'etichetta di poche parole: giustificarla significa distribuire su
+   tutta la colonna righe da due parole, che e' il difetto che la
+   giustificazione dovrebbe evitare. Stesso discorso per le due colonne
+   strette della tabella delle evidenze, marcate con .col-breve, che
+   contengono chi produce il documento e quando: nomi di funzione e
+   cadenze, non prosa. Restano allineate a sinistra. */
+.content-page .lessico tbody th,
+.content-page .checkup tbody th,
+.content-page .checkup td.col-breve {
+    text-align: left;
+    hyphens: manual;
+    -webkit-hyphens: manual;
+}
+
+/* ============================================
    10. STAMPA
    La pagina finisce spesso allegata a una nota per il
    collegio sindacale o a un piano di vigilanza: in carta
