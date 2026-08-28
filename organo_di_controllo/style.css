@@ -738,23 +738,30 @@
 }
 
 /* ============================================
-   7. ALLINEAMENTO GIUSTIFICATO, DAPPERTUTTO
-   Il foglio condiviso giustifica quattro soli contesti
-   (descrizione di sezione, corpo del testo, schede dei
-   vantaggi, risposte delle FAQ). Su questa pagina la
-   prosa sta anche altrove: nei riquadri in evidenza,
-   negli elenchi puntati, nei passi dei due percorsi,
-   nelle celle delle tre tabelle, nei riferimenti e
-   nelle descrizioni dei rimandi. Lasciandoli allineati
-   a sinistra l'allineamento risulterebbe misto, con
-   blocchi giustificati e blocchi no uno accanto
-   all'altro. Qui vengono portati tutti alla stessa
-   resa, con la sillabazione automatica perche' su
-   colonne strette la giustificazione, da sola, apre
-   spazi troppo larghi fra le parole.
-   Restano fuori l'hero e le etichette dei tre dati,
-   che sono centrati per scelta su tutte le pagine del
-   sito, i titoli, le sigle e gli occhielli.
+   7. ALLINEAMENTO GIUSTIFICATO, DOVE LA COLONNA E' LARGA
+   ABBASTANZA
+   Il foglio condiviso giustifica quattro soli contesti.
+   Su questa pagina la prosa sta anche altrove, e
+   lasciarla a sinistra accanto a blocchi giustificati
+   dava un allineamento misto: i contesti mancanti sono
+   aggiunti qui sotto.
+   La giustificazione, pero', regge solo se la riga e'
+   abbastanza lunga. Su una colonna stretta il browser
+   ha poche parole su cui distribuire lo spazio avanzato
+   e apre buchi fra una parola e l'altra. Misurando la
+   larghezza reale degli spazi rispetto a quella
+   naturale del carattere, i blocchi larghi 600 pixel e
+   piu' restano entro il doppio, che non si nota; le
+   celle delle tabelle a quattro colonne arrivano a
+   tredici volte, e li' il fiume bianco attraversa il
+   paragrafo.
+   La sillabazione automatica ridurrebbe il problema, ma
+   dipende da un dizionario che il browser puo' non
+   avere: resta impostata come miglioramento dove c'e',
+   non come rimedio su cui contare.
+   Percio' la regola e' doppia: giustificato dove la
+   colonna e' larga, allineato a sinistra dove e'
+   stretta.
    ============================================ */
 .content-page .highlight-box p,
 .content-page .pillar-list li,
@@ -762,37 +769,67 @@
 .content-page .ref-list li,
 .content-page .rimando-desc,
 .content-page .riparto-col li,
-.content-page .cta-text p,
-.content-page .lessico td,
-.content-page .checkup td:not(.col-breve) {
+.content-page .cta-text p {
     text-align: justify;
     text-justify: inter-word;
     hyphens: auto;
     -webkit-hyphens: auto;
     -ms-hyphens: auto;
+    /* Un soffio di spazio in meno fra le parole, come nel foglio
+       condiviso: non si legge, e su riga giustificata aiuta. */
+    word-spacing: -0.01em;
 }
 
-/* Nelle celle la colonna e' stretta e una parola lunga, da sola, puo'
-   allargare la tabella: la sillabazione va lasciata libera di spezzare
-   anche dove il dizionario non propone un punto. */
+/* Le colonne strette restano a sinistra. Sono le celle delle tabelle,
+   larghe fra i 320 e i 440 pixel, le schede dei rischi e dei nodi, che
+   stanno a tre per riga e non superano i 320, e le due formule a
+   confronto, che oltretutto riportano un testo virgolettato, dove il
+   buco fra le parole si nota ancora di piu'. */
+.content-page .lessico td,
+.content-page .lessico tbody th,
+.content-page .checkup td,
+.content-page .checkup tbody th,
+.content-page .rischio p,
+.content-page .nodo p,
+.content-page .formula-testo {
+    text-align: left;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+}
+
+/* Le parole lunghe nelle celle possono allargare la colonna: se non
+   c'e' un punto di sillabazione, si spezzano comunque. */
 .content-page .lessico td,
 .content-page .checkup td {
     overflow-wrap: break-word;
 }
 
-/* Due eccezioni, e sono eccezioni di sostanza. L'intestazione di riga e'
-   un'etichetta di poche parole: giustificarla significa distribuire su
-   tutta la colonna righe da due parole, che e' il difetto che la
-   giustificazione dovrebbe evitare. Stesso discorso per le due colonne
-   strette della tabella delle evidenze, marcate con .col-breve, che
-   contengono chi produce il documento e quando: nomi di funzione e
-   cadenze, non prosa. Restano allineate a sinistra. */
-.content-page .lessico tbody th,
-.content-page .checkup tbody th,
-.content-page .checkup td.col-breve {
-    text-align: left;
-    hyphens: manual;
-    -webkit-hyphens: manual;
+/* Sotto i 768 pixel la colonna del testo scende sotto i 350 e la
+   giustificazione smette di funzionare per tutti, comprese le quattro
+   voci che arrivano dal foglio condiviso. Misurato allargando via via
+   la finestra: lo spazio piu' largo di ogni paragrafo vale 4,4 volte
+   quello normale a 414 pixel, 3,1 a 480, 2,6 a 560, 2,2 a 640 e 1,9 a
+   768. Da li' in su non si nota; sotto, il testo si riempie di buchi.
+   Su schermo stretto vince quindi l'allineamento a sinistra, che e'
+   anche il motivo per cui i giornali su carta stretta usano colonne
+   corte e testo a bandiera. */
+@media (max-width: 767px) {
+    .content-page .section-desc,
+    .content-page .detail-block p,
+    .content-page .benefit-item p,
+    .content-page .perche-item p,
+    .content-page .faq-answer-inner,
+    .content-page .highlight-box p,
+    .content-page .pillar-list li,
+    .content-page .processo-step-content p,
+    .content-page .ref-list li,
+    .content-page .rimando-desc,
+    .content-page .riparto-col li,
+    .content-page .riparto-nota,
+    .content-page .cta-text p {
+        text-align: left;
+        word-spacing: normal;
+    }
 }
 
 /* ============================================
