@@ -106,8 +106,13 @@ a { color: var(--blu-700); }
    non deve comparire. */
 .btn:focus-visible { outline: 2px solid var(--blu-500); outline-offset: 2px; }
 .btn-danger:focus-visible { outline-color: var(--rosso); }
-/* sul blu scuro della barra laterale l'anello blu sparirebbe: li' e' bianco */
-.sidebar .btn:focus-visible { outline-color: #fff; }
+/* sul blu scuro della barra laterale l'anello blu sparirebbe: li' e' bianco.
+   Vale per tutto cio' che si raggiunge col tasto di tabulazione, non solo per
+   i pulsanti con la classe .btn: le voci di menu, il pulsante che riduce la
+   barra, quello dei messaggi e i collegamenti. */
+.sidebar .btn:focus-visible,
+.sidebar button:focus-visible,
+.sidebar a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 /* Premuto, il pulsante scende di un pixel: e' l'unico segnale che dice "il clic
    e' arrivato" nell'attimo prima che la vista si ridisegni. Il transform non sta
    fra le transizioni di proposito: animato sembrerebbe un ritardo. */
@@ -152,7 +157,7 @@ td.td-menu { white-space: nowrap; text-align: right; }
    l'esclusione ogni pulsante in attesa diventerebbe grigio e la rotellina,
    disegnata con currentColor, sparirebbe. */
 .btn:disabled:not(.caricamento), .btn[disabled]:not(.caricamento) {
-    background: var(--grigio-100); color: var(--grigio-400);
+    background: var(--grigio-100); color: var(--grigio-500);
     border-color: var(--grigio-200); box-shadow: none;
     opacity: 1; cursor: not-allowed;
 }
@@ -676,6 +681,10 @@ td.td-menu { white-space: nowrap; text-align: right; }
    riservata, ma aveva una regola SOLO dentro .campo: altrove usciva a corpo
    pieno e in nero, indistinguibile dal contenuto vero. */
 .hint { font-size: 0.82rem; color: var(--grigio-600); line-height: 1.5; max-width: var(--misura-testo); }
+/* Dentro una tabella la nota segue il corpo della riga: con una misura
+   assoluta, nella tabella degli iscritti (corpo elastico da 9,9 a 12px)
+   risultava piu' grande del dato che deve accompagnare. */
+table.dati .hint { font-size: 0.92em; max-width: none; }
 .card h2 { font-size: 1.05rem; margin-bottom: 14px; }
 .card h3 { font-size: 0.95rem; margin-bottom: 10px; }
 
@@ -735,7 +744,11 @@ tr.riga-proposta td:first-child { box-shadow: inset 3px 0 0 #6B4CC2; }
 .barra-tabella .campo input, .barra-tabella .campo select {
     padding: 7px 10px; font-size: 0.85rem; background: #fff;
 }
-.barra-tabella-azioni { grid-column: 1 / -1; justify-self: end; display: flex; align-items: center; flex-wrap: wrap; gap: var(--gap-azioni); }
+/* -2 / -1, cioe' l'ULTIMA colonna, non tutta la riga: i comandi restano a
+   filo destro ma salgono accanto ai filtri quando c'e' posto, invece di
+   prendersi una riga vuota per se'. Con "1 / -1" le colonne vuote non
+   collassavano piu' e i filtri restavano stretti. */
+.barra-tabella-azioni { grid-column: -2 / -1; justify-self: end; display: flex; align-items: center; flex-wrap: wrap; gap: var(--gap-azioni); }
 .barra-tabella-azioni .btn { white-space: nowrap; }
 
 /* ---------- Tabelle ---------- */
@@ -927,7 +940,11 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .riepilogo-blocco h4 { font-size: 0.85rem; margin-bottom: 8px; color: var(--blu-500); text-transform: uppercase; letter-spacing: 0.05em; }
 .riepilogo-riga { display: flex; justify-content: space-between; gap: 16px; padding: 3px 0; font-size: 0.88rem; }
 .riepilogo-riga .etichetta { color: var(--grigio-600); }
-.riepilogo-riga .valore { font-weight: 600; text-align: right; }
+/* min-width:0 e overflow-wrap servono insieme: da sola, la prima fa smettere
+   la scatola di risultare sforata ma il testo continua a essere disegnato
+   fuori. Un indirizzo email lungo, in una finestra di poco superiore ai
+   mille pixel, usciva dalla riga del riepilogo. */
+.riepilogo-riga .valore { font-weight: 600; text-align: right; min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- Dettaglio incarico ---------- */
 /* La colonna della storia contiene righe corte (data, nome, campo): con "1fr"
@@ -991,7 +1008,13 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .ruolo-testa { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .ruolo-testa h2 { font-size: 1.05rem; margin: 0; }
 .ruolo-azioni { display: flex; gap: 6px; flex: 0 0 auto; }
+/* Le pastiglie dei permessi vanno a capo DENTRO la scheda. Altrove una
+   pastiglia intera e' giusta (in tabella deve restare su una riga), ma qui la
+   piu' lunga - "Comunicazione teams di revisione: Sola lettura" - misura piu'
+   di trecento pixel e scavalcava il bordo della scheda finendo su quella
+   accanto. */
 .ruolo-sez { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.ruolo-sez .badge { white-space: normal; }
 .ruolo-reg { font-size: 0.85rem; color: var(--grigio-600); }
 .ruolo-sezgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 /* caselle delle "altre regioni coordinate" nella scheda persona */
@@ -1446,7 +1469,13 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
        gestione della sezione, la scelta delle colonne, la barra della selezione
        multipla e la spunta "seleziona tutte" del telefono. Su carta occupavano
        mezza pagina per non dire niente. */
-    .card.s-admin, .ev-colonne, .ev-barra, .ev-sel-mobile { display: none !important; }
+    .ev-colonne, .ev-barra, .ev-sel-mobile { display: none !important; }
+    /* Del pannello di intestazione sezione spariscono i soli PULSANTI: il
+       titolo e la riga di spiegazione a volte sono un dato (quanti contatti
+       hanno dato il consenso, quante aziende sono da invitare) e su carta
+       servono. */
+    .s-admin-azioni { display: none !important; }
+    .card.s-admin { border-left: 0; }
     /* margin-left: 0 e' necessario. La barra qui e' nascosta, ma il margine che
        le lasciava spazio restava: sul foglio il testo partiva rientrato di due
        centimetri e l'ultima colonna delle tabelle finiva fuori pagina. */
@@ -1528,20 +1557,35 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
     /* le intestazioni sono etichette fisse, si leggono una volta: possono
        stringersi piu' dei dati */
     .app-shell .ev-wrap table.dati th { font-size: 0.56rem; letter-spacing: 0; }
+    /* Una quota anche alle colonne SENZA classe - la nota, l'evento, le
+       colonne aggiuntive: senza, si spartivano il poco che avanzava e con
+       quattro colonne aggiuntive attive restavano larghe due millimetri.
+       Questa regola sta prima delle altre apposta: le colonne con una classe
+       la scavalcano subito sotto. */
+    .app-shell .ev-wrap colgroup col { width: 7%; }
     .app-shell .ev-wrap colgroup col.c-sel { width: 2%; }
-    .app-shell .ev-wrap colgroup col.c-data { width: 11%; }
+    .app-shell .ev-wrap colgroup col.c-data { width: 10%; }
     .app-shell .ev-wrap colgroup col.c-nome { width: 9%; }
     .app-shell .ev-wrap colgroup col.c-azienda { width: 9%; }
-    .app-shell .ev-wrap colgroup col.c-ruolo { width: 7%; }
+    .app-shell .ev-wrap colgroup col.c-ruolo { width: 6%; }
     .app-shell .ev-wrap colgroup col.c-email { width: 8%; }
     .app-shell .ev-wrap colgroup col.c-tel { width: 7%; }
     .app-shell .ev-wrap colgroup col.c-portale { width: 5%; }
     .app-shell .ev-wrap colgroup col.c-part { width: 5%; }
-    .app-shell .ev-wrap colgroup col.c-b2b,
+    .app-shell .ev-wrap colgroup col.c-b2b { width: 7%; }
     .app-shell .ev-wrap colgroup col.c-pref { width: 8%; }
     .app-shell .ev-wrap colgroup col.c-stato { width: 5%; }
-    .app-shell .ev-wrap colgroup col.c-agg { width: 7%; }
+    /* "Aggiornato da" porta dentro la data della firma, che a video non si
+       spezza mai: al 7% non ci stava e usciva sopra la colonna accanto. */
+    .app-shell .ev-wrap colgroup col.c-agg { width: 11%; }
     .app-shell .ev-wrap colgroup col.c-azioni { width: 1%; }
+    /* Tendine e caselle di testo si stampano come testo: la cornice e lo
+       sfondo di un comando su carta non vogliono dire niente, e rubano spazio
+       al valore che c'e' dentro. */
+    .app-shell .ev-wrap table.dati select,
+    .app-shell .ev-wrap table.dati input[type="text"] {
+        border: none; background: none; padding: 0; appearance: none; -webkit-appearance: none;
+    }
     /* Su carta la casella di selezione e il menu delle azioni non servono a
        nulla: sono comandi. E non stavano nemmeno dentro la loro colonna, larga
        un centimetro scarso: il pulsante dei tre puntini usciva dal foglio. */
@@ -1853,8 +1897,12 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    meta' ("21/08/202" sopra, "6" sotto) non si legge. Le colonne qui sotto sono
    dimensionate sulla misura vera di questi testi, con un margine sopra. */
 .ev-wrap table.dati .ev-giorno,
-.ev-wrap table.dati .ev-ora,
-.ev-wrap table.dati .ev-quando { white-space: nowrap; }
+.ev-wrap table.dati .ev-ora { white-space: nowrap; }
+/* La firma ("il 25/08/2026 11:38") va a capo FRA la data e l'ora, mai dentro
+   la data: nella sua colonna, a finestra stretta, per intero non ci stava e
+   finiva sopra la colonna accanto. Andando a capo dopo la data si legge tutto
+   e non si sovrappone niente. */
+.ev-wrap table.dati .ev-quando { white-space: normal; }
 .ev-wrap table.dati .ev-ora,
 .ev-wrap table.dati .ev-quando { display: block; color: var(--grigio-600); font-size: 0.94em; line-height: 1.25; }
 /* .ev-firma ha una misura assoluta (0.82rem) pensata per il resto dell'area:
@@ -2415,7 +2463,13 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
     .campo input, .campo select, .campo textarea,
     .filtri .campo input, .filtri .campo select,
     .barra-tabella .campo input, .barra-tabella .campo select,
-    table.dati tbody td select, table.dati tbody td input { font-size: 16px; }
+    table.dati tbody td select, table.dati tbody td input,
+    /* Questi due vanno nominati per nome: la regola della tabella degli
+       iscritti (.ev-wrap table.dati select) e' piu' specifica di
+       "table.dati tbody td select" e senza questa aggiunta vincerebbe lei,
+       riportando i campi sotto i 16px - cioe' proprio la misura che fa
+       ingrandire la pagina su iPhone appena si tocca la casella. */
+    .ev-wrap table.dati select, .ev-wrap table.dati input[type="text"] { font-size: 16px; }
 
     /* avvisi a comparsa: a tutta larghezza, non una strisciolina nell'angolo */
     .toast-area { left: 12px; right: 12px; bottom: 12px; }
@@ -2503,10 +2557,13 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    pulsanti e le intestazioni restano fermi mentre si scorrono le righe. */
 .inv-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 12px 0 0; padding: 0 18px 18px; }
 .inv-tabella thead th { position: sticky; top: 0; z-index: 2; background: var(--grigio-100); }
-/* I 38px sono l'ALTEZZA della riga di intestazione qui sopra: la riga dei
-   filtri si appiccica appena sotto di lei. Cambiando il padding o il corpo di
-   table.dati th, questo numero va ricalcolato o compare una fessura. */
-.inv-tabella thead tr.inv-riga-filtri th { top: 38px; z-index: 1; background: #fff; padding: 5px 6px; border-bottom: 1px solid var(--grigio-200); box-shadow: none; }
+/* I 33px sono l'ALTEZZA della riga di intestazione qui sopra (corpo 0.7rem
+   per interlinea 1.55, piu' 7px di margine sopra e sotto: 31,4px), arrotondata
+   per eccesso. La riga dei filtri si appiccica appena sotto di lei. Cambiando
+   il padding o il corpo di table.dati th, questo numero va ricalcolato: se e'
+   troppo piccolo le due righe si sovrappongono, se e' troppo grande resta una
+   fessura da cui si vedono passare le righe. */
+.inv-tabella thead tr.inv-riga-filtri th { top: 33px; z-index: 1; background: #fff; padding: 5px 6px; border-bottom: 1px solid var(--grigio-200); box-shadow: none; }
 
 /* I filtri stanno nella colonna su cui agiscono: niente etichette, ci pensa
    l'intestazione sopra. */

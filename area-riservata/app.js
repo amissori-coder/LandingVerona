@@ -1576,7 +1576,7 @@
             } catch (e1) { /* si prova la seconda sonda */ }
             try {
                 await fetch(url, { method: 'GET', mode: 'no-cors', cache: 'no-store' });
-                return 'Il servizio c\'e\' e risponde, ma la risposta arriva senza i permessi per questa pagina. '
+                return 'Il servizio c\'è e risponde, ma la risposta arriva senza i permessi per questa pagina. '
                     + 'O la funzione si interrompe prima di scriverli, oppure sul servizio ALLOWED_ORIGIN '
                     + 'non corrisponde a ' + (location.origin || '(origine ignota)') + '.' + dettaglio;
             } catch (e2) { /* nessuno risponde */ }
@@ -6814,7 +6814,7 @@
                 RB_SERVIZI.rating);
         }
         if (x.CE01 > 0 && x.MOL / x.CE01 * 100 < 5) {
-            dai('media', 'Bilancio', 'Marginalita operativa',
+            dai('media', 'Bilancio', 'Marginalità operativa',
                 'Il MOL è il ' + rbPct(x.MOL / x.CE01 * 100, 1) + ' dei ricavi: margini sottili assorbono ogni scossone. Revisione dei listini, del mix di vendita e dei costi fissi prima di chiedere nuova finanza.', null);
         }
         if (cn.row && cn.rows.some(r => r.on)) {
@@ -6876,7 +6876,7 @@
             'Senza budget, piano e reporting periodico ogni discussione con la banca parte in salita: sono i numeri che il rating interno legge per primi.', RB_SERVIZI.assetti);
         if (manca('mod231', 3)) dai('media', 'Governance', 'Adottare il Modello 231',
             'Il Modello 231 con OdV attivo riduce il rischio sanzionatorio, è premiato nei bandi e nel rating di legalità e qualifica la governance agli occhi delle banche.', RB_SERVIZI.mod231);
-        if (manca('legalita', 4)) dai('spunto', 'Governance', 'Richiedere il rating di legalita',
+        if (manca('legalita', 4)) dai('spunto', 'Governance', 'Richiedere il rating di legalità',
             'Con il rating di legalità AGCM le banche devono tenere conto del punteggio nell\'istruttoria (DM 57/2014): costa poco e vale in ogni pratica di fido.', RB_SERVIZI.legalita);
         if (manca('esg', 0)) dai('spunto', 'Governance', 'Avviare il percorso ESG',
             'Le banche raccolgono già dati ESG sulle imprese affidate: un percorso di sostenibilità documentato migliora l\'accesso ai plafond dedicati e anticipa le richieste della filiera.', RB_SERVIZI.esg);
@@ -7771,7 +7771,7 @@
         const det = v.dettagli || {};
         return `<div class="riepilogo-blocco">
             <h4>Dettagli delle voci che contano</h4>
-            <p class="hint" style="margin:0 0 10px;">Le domande che ogni analista fidi fa sulle voci principali: dalle risposte nasce il bilancio rettificato in ottica banca (vedi Esiti). Compila solo cio che esiste.</p>
+            <p class="hint" style="margin:0 0 10px;">Le domande che ogni analista fidi fa sulle voci principali: dalle risposte nasce il bilancio rettificato in ottica banca (vedi Esiti). Compila solo ciò che esiste.</p>
             <div class="griglia-3">
                 ${RB_DETTAGLI.map(c => `<div class="campo"><label>${esc(c.et)}</label>
                     <input type="text" inputmode="decimal" data-det="${c.id}" value="${esc(rbFmtNum(rbNum(det[c.id])))}">
@@ -9933,7 +9933,7 @@
         return `<div class="kpi-griglia rb-kpis">
             <div class="kpi ${m.fascia <= 2 ? 'verde' : (m.fascia === 3 ? 'ambra' : 'rosso')}"><div class="etichetta">Classe integrata</div><div class="valore">${m.integrata} / 12</div>
                 <div class="nota">fascia ${m.fascia} di 5 &middot; bilancio: classe ${m.fClass}${m.aClasse ? ' &middot; andamentale: A' + m.aClasse : ' &middot; senza Centrale Rischi'}${m.declassamento ? ' &middot; declassata di ' + m.declassamento + ' (da ' + m.integrataBase + ') per eventi pregiudizievoli' : ''}</div></div>
-            <div class="kpi"><div class="etichetta">Probabilita di inadempimento</div><div class="valore">${rbPct(m.pd, 2)}</div><div class="nota">PD empirica a 12 mesi</div></div>
+            <div class="kpi"><div class="etichetta">Probabilità di inadempimento</div><div class="valore">${rbPct(m.pd, 2)}</div><div class="nota">PD empirica a 12 mesi</div></div>
             <div class="kpi ${m.ammissibile ? 'verde' : 'rosso'}"><div class="etichetta">Fondo di Garanzia</div><div class="valore">${m.ammissibile ? 'Ammissibile' : 'Non ammissibile'}</div>
                 <div class="nota">${m.eventoGrave ? 'evento del tipo fallimento' : (m.sofferenze ? 'sofferenze segnalate' : 'ammissibile fino alla classe 10')}</div></div>
         </div>`;
@@ -9996,7 +9996,7 @@
         const fmtQ = q => q === null ? '-' : rbPct(q, 0);
         const fmtU = u => u === null ? '-' : (u === 999 ? 'senza fido' : rbPct(u, 0));
         return `<div class="tabella-wrap"><table class="dati compatta"><thead><tr>
-            <th>Istituto</th><th>Rating agenzie</th><th>Solidita</th><th class="num">Accordato</th><th class="num">Utilizzato</th><th class="num">Utilizzo</th><th class="num">Quota</th><th>Rapporto</th><th>Rating visto dalla banca</th>
+            <th>Istituto</th><th>Rating agenzie</th><th>Solidità</th><th class="num">Accordato</th><th class="num">Utilizzato</th><th class="num">Utilizzo</th><th class="num">Quota</th><th>Rapporto</th><th>Rating visto dalla banca</th>
         </tr></thead><tbody>
         ${b.righe.map(r => `<tr>
             <td>${esc(r.nome)}</td>
@@ -10470,7 +10470,7 @@
                     <div class="campo"><label>Utilizzato</label><input type="text" inputmode="decimal" data-b-idx="${i}" data-b-campo="utilizzato" value="${esc(rbFmtNum(rbNum(r.utilizzato)))}"></div>
                     <div class="campo"><label>Garanzie rilasciate</label>
                         <select data-b-idx="${i}" data-b-campo="garanzie">${['', 'nessuna', 'personali', 'reali', 'Confidi / Fondo MCC', 'miste'].map(g => `<option value="${g}" ${r.garanzie === g ? 'selected' : ''}>${g || '-'}</option>`).join('')}</select></div>
-                    <div class="campo"><label>Anzianita del rapporto</label>
+                    <div class="campo"><label>Anzianità del rapporto</label>
                         <select data-b-idx="${i}" data-b-campo="anzianita">${[['', '-'], ['nuovo', 'meno di 2 anni'], ['medio', 'da 2 a 5 anni'], ['storico', 'oltre 5 anni']].map(o => `<option value="${o[0]}" ${(r.anzianita || '') === o[0] ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>
                         <div class="hint">nelle banche del territorio la relazione storica vale un gradino</div></div>
                     <div class="campo"><label>Fattore di severità (scoring)</label>
@@ -10495,7 +10495,7 @@
             <div class="card">
                 <h2>Il panorama degli istituti</h2>
                 <details class="rb-dettaglio"><summary>Rating e solidità delle principali banche italiane (${RB_BANCHE_AGG})</summary>
-                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Istituto</th><th>Rating agenzie</th><th class="num">CET1</th><th>Solidita</th><th>Nota</th></tr></thead><tbody>
+                <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Istituto</th><th>Rating agenzie</th><th class="num">CET1</th><th>Solidità</th><th>Nota</th></tr></thead><tbody>
                 ${RB_BANCHE.map(b => { const s = rbSoliditaBanca(b); return `<tr><td>${esc(b.nome)}</td><td class="rb-rif">${esc(rbEtichettaRating(b))}</td><td class="num">${b.cet1 ? rbPct(b.cet1, 1) : '-'}</td>
                     <td><span class="badge ${s.classe === 'A' || s.classe === 'B' ? 'verde' : (s.classe === 'C' ? 'ambra' : (s.classe === 'D' ? 'rosso' : 'grigio'))}">${s.classe}</span></td><td class="rb-rif">${esc(b.nota || '')}</td></tr>`; }).join('')}
                 </tbody></table></div></details>
@@ -19773,7 +19773,7 @@
                     </div>
                     <div class="filtri-dest">
                         <input id="cp-cerca" type="search" placeholder="Oppure scegli singole persone: filtra per cognome, nome, email...">
-                        <input type="search" id="cp-ruolo" list="cp-ruolo-dl" placeholder="Tutti i ruoli"><datalist id="cp-ruolo-dl"><option value="Responsabile qualita"></option><option value="Responsabile incarico (procuratori)"></option><option value="Coordinatore territoriale"></option><option value="Vice coordinatore territoriale"></option></datalist>
+                        <input type="search" id="cp-ruolo" list="cp-ruolo-dl" placeholder="Tutti i ruoli"><datalist id="cp-ruolo-dl"><option value="Responsabile qualità"></option><option value="Responsabile incarico (procuratori)"></option><option value="Coordinatore territoriale"></option><option value="Vice coordinatore territoriale"></option></datalist>
                     </div>
                     <div class="sel-azioni"><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="1">Seleziona tutti (filtrati)</button><button type="button" class="btn btn-sm btn-ghost" data-selpane="cp-lista" data-seltutti="0">Deseleziona</button><span class="hint" id="cp-conta"></span></div>
                     <div class="lista-destinatari" id="cp-lista">
@@ -19919,7 +19919,7 @@
             const t = ($('cp-cerca').value || '').trim().toLowerCase();
             const r = ($('cp-ruolo').value || '').trim();
             // il ruolo si digita per nome: si risalgono le chiavi dei ruoli il cui nome contiene il testo
-            const MAPPA_RUOLI = [['qualita', 'Responsabile qualita'], ['respIncarico', 'Responsabile incarico (procuratori)'], ['coordinatore', 'Coordinatore territoriale'], ['vice', 'Vice coordinatore territoriale']];
+            const MAPPA_RUOLI = [['qualita', 'Responsabile qualità'], ['respIncarico', 'Responsabile incarico (procuratori)'], ['coordinatore', 'Coordinatore territoriale'], ['vice', 'Vice coordinatore territoriale']];
             // il nome scelto per intero dal suggerimento vale ESATTO: "Coordinatore territoriale"
             // non deve prendere anche il vice (il cui nome lo contiene). Il testo parziale filtra per "contiene".
             const esatte = r ? MAPPA_RUOLI.filter(([, n]) => n.toLowerCase() === r.toLowerCase()) : [];
@@ -20520,7 +20520,7 @@
             const nMsg = (r.messaggi || []).length;
             const cerca = [r.oggetto, riferimentoRichiesta(r), r.regione, r.destinatario && r.destinatario.nome,
                 r.richiedente && r.richiedente.nome].filter(Boolean).join(' ').toLowerCase();
-            return `<details class="comm-item ric-item${nuovo ? ' ric-nuovo' : ''}" data-stato="${esc(statoRichiesta(r.stato).nome)}" data-ambito="${esc(r.ambito === 'incarico' ? 'Incarico' : 'Funzionalita')}" data-regione="${esc(r.regione || '')}" data-cerca="${esc(cerca)}">
+            return `<details class="comm-item ric-item${nuovo ? ' ric-nuovo' : ''}" data-stato="${esc(statoRichiesta(r.stato).nome)}" data-ambito="${esc(r.ambito === 'incarico' ? 'Incarico' : 'Funzionalità')}" data-regione="${esc(r.regione || '')}" data-cerca="${esc(cerca)}">
                 <summary class="comm-sommario">
                     ${badgeStatoRichiesta(r.stato)}
                     <span class="comm-nome">${esc(r.oggetto || '(senza oggetto)')}${nuovo ? '<span class="ric-pallino" title="In attesa di una tua risposta"></span>' : ''}</span>
@@ -20544,7 +20544,7 @@
                 ${base.length > 1 ? `<div class="filtri" id="ric-filtri">
                     <div class="campo ricerca"><label>Ricerca</label><input id="ric-cerca" type="search" placeholder="Oggetto, cliente, persona..."></div>
                     ${comboFiltro('ric-stato', 'Stato', Array.from(new Set(lista.map(r => statoRichiesta(r.stato).nome))))}
-                    ${comboFiltro('ric-ambito', 'Ambito', ['Incarico', 'Funzionalita'])}
+                    ${comboFiltro('ric-ambito', 'Ambito', ['Incarico', 'Funzionalità'])}
                     ${comboFiltro('ric-regione', 'Regione', Array.from(new Set(lista.map(r => r.regione).filter(Boolean))))}
                     <span class="filtro-conteggio" id="ric-conta"></span>
                 </div>` : ''}
