@@ -3069,36 +3069,55 @@
         return applica;
     }
 
+    /* OGNI modale e' una finestra: barra del titolo blu con riduci, schermo
+       intero e chiudi, come le finestre del sistema. Due taglie sole:
+       - "finestra" (opts.finestra): l'area di lavoro, alta 86vh qualunque sia
+         il contenuto - la usa chi ci lavora dentro a lungo (newsletter,
+         aziende da invitare, fasi del rating);
+       - "dialogo" (tutto il resto): alta quanto il suo contenuto, come i
+         vecchi pop-up, ma vestita da finestra come tutto il resto.
+       Il titolo nella barra: quello passato nelle opzioni oppure, per i
+       dialoghi che aprivano con un <h2> in testa, proprio quel titolo, che
+       sale nella barra invece di stare due volte a schermo.
+       Un dialogo "bloccante" (il cambio password obbligatorio, l'avviso di
+       ambito) ha la barra ma NESSUN pulsante: non c'e' niente da ridurre o
+       chiudere finche' non si e' risposto.
+       Niente chiusura col clic fuori, che era un comportamento da pop-up: una
+       finestra si chiude con la X, con i suoi pulsanti, o con Esc (i dialoghi
+       non bloccanti soltanto: su una finestra di lavoro un Esc distratto
+       butterebbe via quello che c'e' dentro). */
     function apriModale(html, opts) {
         opts = opts || {};
         const cont = document.getElementById('modale-contenitore');
         const finestra = !!opts.finestra;
-        let inner;
-        if (finestra) {
-            const barra = '<div class="modale-barra">'
-                + '<span class="modale-titolo">' + esc(opts.titolo || '') + '</span>'
-                + '<span class="modale-controlli">'
-                + '<button type="button" class="mw-btn mw-min" title="Riduci a barra" aria-label="Riduci">&#8211;</button>'
-                + '<button type="button" class="mw-btn mw-max" title="A schermo intero" aria-label="A schermo intero">&#9633;</button>'
-                + '<button type="button" class="mw-btn mw-close" title="Chiudi" aria-label="Chiudi">&#10005;</button>'
-                + '</span></div>';
-            inner = '<div class="modale ' + (opts.classe || '') + ' modale-finestra">' + barra + '<div class="modale-corpo">' + html + '</div></div>';
-        } else {
-            inner = '<div class="modale ' + (opts.classe || '') + '">' + html + '</div>';
-        }
-        cont.innerHTML = '<div class="modale-sfondo' + (finestra ? ' modale-sfondo-finestra' : '') + '">' + inner + '</div>';
+        const bloccante = !!opts.bloccante;
+        const controlli = bloccante ? '' : '<span class="modale-controlli">'
+            + '<button type="button" class="mw-btn mw-min" title="Riduci a barra" aria-label="Riduci">&#8211;</button>'
+            + '<button type="button" class="mw-btn mw-max" title="A schermo intero" aria-label="A schermo intero">&#9633;</button>'
+            + '<button type="button" class="mw-btn mw-close" title="Chiudi" aria-label="Chiudi">&#10005;</button>'
+            + '</span>';
+        const barra = '<div class="modale-barra">'
+            + '<span class="modale-titolo">' + esc(opts.titolo || '') + '</span>' + controlli + '</div>';
+        cont.innerHTML = '<div class="modale-sfondo modale-sfondo-finestra">'
+            + '<div class="modale ' + (opts.classe || '') + ' modale-finestra' + (finestra ? '' : ' modale-dialogo')
+            + '" role="dialog" aria-modal="true">' + barra + '<div class="modale-corpo">' + html + '</div></div></div>';
         const sfondo = cont.querySelector('.modale-sfondo');
-        sfondo.addEventListener('click', e => {
-            // le finestre non si chiudono cliccando fuori (comportamento da finestra)
-            if (e.target.classList.contains('modale-sfondo') && !opts.bloccante && !finestra) chiudiModale();
-        });
-        if (finestra) {
-            const modale = cont.querySelector('.modale');
-            // il piede con i pulsanti esce dall'area scorrevole e diventa un footer fisso della finestra:
-            // resta sempre visibile e non copre piu il contenuto finale (es. la sezione del periodo)
-            const corpo = modale.querySelector('.modale-corpo');
-            const azioni = corpo && corpo.lastElementChild;
-            if (azioni && azioni.classList && azioni.classList.contains('modale-azioni')) modale.appendChild(azioni);
+        const modale = cont.querySelector('.modale');
+        const corpo = modale.querySelector('.modale-corpo');
+        // il titolo del dialogo sale nella barra: se il contenuto apre con un
+        // <h2>, e' lui il titolo della finestra e in mezzo alla pagina non serve
+        if (!opts.titolo) {
+            const h2 = corpo.firstElementChild;
+            if (h2 && h2.tagName === 'H2') {
+                cont.querySelector('.modale-titolo').textContent = h2.textContent.trim();
+                h2.remove();
+            }
+        }
+        // il piede con i pulsanti esce dall'area scorrevole e diventa un footer fisso della finestra:
+        // resta sempre visibile e non copre piu il contenuto finale (es. la sezione del periodo)
+        const azioni = corpo.lastElementChild;
+        if (azioni && azioni.classList && azioni.classList.contains('modale-azioni')) modale.appendChild(azioni);
+        if (!bloccante) {
             const btnMax = cont.querySelector('.mw-max');
             // pulsante centrale: alterna "a schermo intero" e "rimpicciolisci" (icona e titolo seguono lo stato)
             const setMax = m => {
@@ -3114,9 +3133,26 @@
             btnMax.addEventListener('click', () => { setRidotta(false); setMax(!modale.classList.contains('massimizzata')); });
             cont.querySelector('.modale-barra').addEventListener('dblclick', e => { if (!e.target.closest('.mw-btn')) { setRidotta(false); setMax(!modale.classList.contains('massimizzata')); } });
             cont.querySelector('.modale-titolo').addEventListener('click', () => { if (modale.classList.contains('ridotta')) setRidotta(false); });
+            // Esc chiude i dialoghi: e' l'equivalente da finestra del clic
+            // fuori con cui si chiudevano i pop-up di ieri. Le finestre di
+            // lavoro no: un Esc distratto butterebbe via quello che c'e' dentro.
+            if (!finestra) modale.setAttribute('data-esc', '1');
         }
         return cont;
     }
+    /* Un solo ascoltatore per l'Esc, sempre attivo: i singoli dialoghi vanno e
+       vengono (il contenitore si svuota a ogni chiusura), un ascoltatore per
+       dialogo andrebbe rimesso ogni volta e scordarselo e' facile. Qui si
+       guarda lo stato vero: c'e' un dialogo che accetta l'Esc, e sopra non c'e'
+       una sotto-finestra (quella l'Esc ce l'ha suo e se lo tiene, ma solo se il
+       fuoco le sta dentro: da fuori deciderebbe questo ascoltatore, e
+       chiuderebbe il livello sbagliato). */
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        const cont = document.getElementById('modale-contenitore');
+        if (!cont || cont.querySelector('.modale-sfondo-sopra')) return;
+        if (cont.querySelector('.modale[data-esc]')) chiudiModale();
+    });
     function chiudiModale() {
         document.getElementById('modale-contenitore').innerHTML = '';
         // chiudendo la scheda persona non la sto piu modificando: aggiorna la presenza
@@ -3163,6 +3199,7 @@
         sfondo.innerHTML = '<div class="modale ' + (opts.classe || '') + ' modale-finestra" tabindex="-1" role="dialog" aria-modal="true">'
             + '<div class="modale-barra"><span class="modale-titolo">' + esc(opts.titolo || '') + '</span>'
             + '<span class="modale-controlli">'
+            + '<button type="button" class="mw-btn mw-min" title="Riduci a barra" aria-label="Riduci">&#8211;</button>'
             + '<button type="button" class="mw-btn mw-max" title="A schermo intero" aria-label="A schermo intero">&#9633;</button>'
             + '<button type="button" class="mw-btn mw-close" title="Chiudi" aria-label="Chiudi">&#10005;</button>'
             + '</span></div>'
@@ -3182,7 +3219,13 @@
         };
         sfondo.querySelector('.mw-close').addEventListener('click', chiudi);
         sfondo.querySelector('[data-sf-ok]').addEventListener('click', chiudi);
-        sfondo.querySelector('.mw-max').addEventListener('click', () => modale.classList.toggle('massimizzata'));
+        /* Ridotta a barra: si vede la finestra sotto (che resta inerte finche'
+           questa non si chiude), utile per controllare un dato senza perdere
+           quello che si sta scrivendo qui. Il clic sul titolo la riapre. */
+        const setRidottaSf = r => { modale.classList.toggle('ridotta', r); sfondo.classList.toggle('sfondo-ridotto', r); };
+        sfondo.querySelector('.mw-min').addEventListener('click', () => setRidottaSf(!modale.classList.contains('ridotta')));
+        sfondo.querySelector('.modale-titolo').addEventListener('click', () => { if (modale.classList.contains('ridotta')) setRidottaSf(false); });
+        sfondo.querySelector('.mw-max').addEventListener('click', () => { setRidottaSf(false); modale.classList.toggle('massimizzata'); });
         sfondo.querySelector('.modale-barra').addEventListener('dblclick', e => { if (!e.target.closest('.mw-btn')) modale.classList.toggle('massimizzata'); });
         sfondo.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); chiudi(); } });
         try { modale.focus(); } catch (_) { }   // il focus entra nella finestra nuova
