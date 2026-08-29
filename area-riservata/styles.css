@@ -231,10 +231,12 @@ td.td-menu { white-space: nowrap; text-align: right; }
 .marchio.chiaro img { height: 30px; }
 .login-card h1 { font-size: 1.3rem; text-align: center; margin-bottom: 4px; }
 .login-card .sottotitolo { text-align: center; color: var(--grigio-600); font-size: 0.9rem; margin-bottom: 24px; }
-/* "Ricorda il mio indirizzo": ricorda SOLO l'email, mai la password
-   (quella la custodisce il gestore password del browser) */
-.login-ricorda { display: flex; align-items: center; gap: 8px; margin-top: 14px; cursor: pointer; font-size: 0.85rem; color: var(--grigio-600); }
-.login-ricorda input { width: auto; margin: 0; flex: none; }
+/* "Ricorda l'accesso": l'app ricorda SOLO l'indirizzo, mai la password. Quella la
+   custodisce il gestore password del browser, e la riga sotto lo dice a chiare
+   lettere: chi spunta la casella deve sapere chi tiene che cosa. */
+.login-ricorda { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; cursor: pointer; font-size: 0.85rem; color: var(--grigio-600); }
+.login-ricorda input { width: auto; margin: 2px 0 0; flex: none; }
+.login-ricorda-nota { margin: 6px 0 0 24px; font-size: 0.76rem; }
 .login-azioni { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
 .login-links { display: flex; justify-content: space-between; margin-top: 14px; font-size: 0.85rem; }
 .login-links a { cursor: pointer; }
@@ -791,6 +793,20 @@ td.td-menu { white-space: nowrap; text-align: right; }
    assoluta, nella tabella degli iscritti (corpo elastico da 9,9 a 12px)
    risultava piu' grande del dato che deve accompagnare. */
 table.dati .hint { font-size: 0.92em; max-width: none; }
+
+/* --- IL TESTO DISTESO E' GIUSTIFICATO ---
+   Come nelle pagine del sito: i paragrafi di spiegazione sotto i titoli, le note,
+   i suggerimenti dei moduli, l'avviso della schermata di accesso. Insieme alla
+   sillabazione italiana (la pagina e' lang="it") i margini restano dritti senza
+   che si aprano buchi fra una parola e l'altra.
+   Un paragrafo di una riga sola non cambia di un pixel, perche' l'ultima riga di
+   un blocco giustificato resta allineata a sinistra: per questo la regola si puo'
+   mettere su tutto il testo disteso senza stare a guardare quanto e' lungo.
+   Nelle celle di tabella no: li' comanda l'allineamento della colonna, e una
+   riga di testo tirata da bordo a bordo dentro una colonna stretta si legge
+   peggio, non meglio. */
+.descrizione, .hint, .nota, .avviso-demo { text-align: justify; hyphens: auto; }
+table .descrizione, table .hint, table .nota { text-align: inherit; hyphens: manual; }
 .card h2 { font-size: 1.05rem; margin-bottom: 14px; }
 .card h3 { font-size: 0.95rem; margin-bottom: 10px; }
 

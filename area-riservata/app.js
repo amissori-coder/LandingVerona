@@ -23124,6 +23124,10 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             const esito = await Auth.cambiaPassword(email, p1);
             if (!esito.ok) { err.textContent = esito.msg; err.classList.remove('hidden'); return; }
             chiudiModale();
+            /* Il browser ha in cassaforte quella di prima: se non gli si dice che e'
+               cambiata, al rientro riempie il modulo con una password che non vale piu'.
+               Si propone a chi aveva chiesto di ricordare l'accesso su questo computer. */
+            if (emailRicordata()) proponiSalvataggioAlBrowser(email, p1);
             toast('Password aggiornata.', 'verde');
             if (dopo) dopo();
         }, { testo: 'Salvataggio…' }));
@@ -23239,12 +23243,17 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         return voce ? { vista: voce.id } : null;
     }
 
-    /* "Ricorda il mio indirizzo": si memorizza SOLO l'email, e solo su questo computer.
-       La password non viene mai scritta dall'app da nessuna parte: a custodirla e' il
-       gestore password del browser (cassaforte del sistema operativo, cifrata), che ora
-       puo' farlo perche' il modulo di accesso non ha piu' autocomplete="off".
-       Cosi' chi rientra trova l'indirizzo gia' scritto e il cursore sulla password, che
-       il browser riempie da solo se l'utente ha accettato di salvarla. */
+    /* "Ricorda l'accesso su questo computer": l'app memorizza SOLO l'indirizzo, e solo
+       qui. La password non la scrive da nessuna parte, e non e' una dimenticanza:
+       scriverla in localStorage vorrebbe dire tenerla in chiaro accanto agli altri dati,
+       leggibile da qualunque script della pagina e da chiunque apra gli strumenti per
+       sviluppatori. A custodirla e' il gestore password del browser - cassaforte del
+       sistema operativo, cifrata, protetta dalla password del computer - che la riempie
+       da solo al rientro.
+       Perche' finora il browser non lo proponeva quasi mai: qui l'accesso non ricarica
+       la pagina (il modulo viene solo nascosto), e senza un vero invio il browser deve
+       INDOVINARE che l'accesso e' riuscito. Ora glielo si dice, con l'unico modo
+       previsto per farlo: vedi proponiSalvataggioAlBrowser piu' sotto. */
     const CHIAVE_EMAIL_RICORDATA = 'rvArea.emailRicordata';
 
     function emailRicordata() {
@@ -23256,9 +23265,28 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
             else localStorage.removeItem(CHIAVE_EMAIL_RICORDATA);
         } catch (e) { }
     }
+    /* Chiede al browser di salvare l'accesso nel proprio gestore password. E' il modo
+       previsto per gli accessi che non ricaricano la pagina, come questo: senza, il
+       browser deve accorgersene da solo guardando il modulo sparire, e spesso non
+       propone niente.
+       Dove non c'e' (per ora Firefox e Safari) resta l'euristica del browser, che i
+       campi con name, autocomplete="username" e autocomplete="current-password"
+       aiutano quanto basta.
+       Se qualcosa non va, non si dice niente a nessuno: l'accesso e' comunque riuscito,
+       e un messaggio d'errore su una comodita' sarebbe solo rumore. */
+    function proponiSalvataggioAlBrowser(email, password) {
+        try {
+            if (!window.PasswordCredential || !navigator.credentials || !navigator.credentials.store) return;
+            const credenziale = new PasswordCredential({ id: email, password: password, name: email });
+            Promise.resolve(navigator.credentials.store(credenziale)).catch(() => { });
+        } catch (e) { }
+    }
     /* Riempie la schermata di accesso con l'indirizzo ricordato. NON svuota mai i campi:
        all'avvio della pagina il gestore password del browser puo' averli gia' compilati,
-       e cancellarli qui vanificherebbe il riempimento automatico. */
+       e cancellarli qui vanificherebbe il riempimento automatico. Per la stessa ragione
+       non si sovrascrive un indirizzo gia' scritto: se il browser ha compilato la coppia
+       indirizzo + password, cambiargli l'indirizzo sotto lascerebbe una password che non
+       gli corrisponde piu'. */
     function precompilaLogin() {
         const campoEmail = document.getElementById('login-email');
         const campoRicorda = document.getElementById('login-ricorda');
@@ -23266,7 +23294,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         if (!campoEmail || !campoRicorda) return;
         const salvata = emailRicordata();
         campoRicorda.checked = !!salvata;
-        if (!salvata) return;
+        if (!salvata || campoEmail.value) return;
         campoEmail.value = salvata;
         // se il browser ha gia' riempito la password non gli si ruba il fuoco;
         // altrimenti si parte dal solo campo che resta da digitare
@@ -23327,7 +23355,8 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                 }
                 // si ricorda solo un indirizzo che ha funzionato davvero: cosi' un refuso
                 // non resta appiccicato alla schermata di accesso
-                ricordaEmail(email, document.getElementById('login-ricorda').checked);
+                const ricorda = document.getElementById('login-ricorda').checked;
+                ricordaEmail(email, ricorda);
                 if (esito.mustChange) {
                     chiediCambioPassword(email, true, () => {
                         const u = Auth.trova(email);
@@ -23337,6 +23366,12 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                     });
                     return;
                 }
+                /* Solo per una password che ha davvero funzionato, e solo se l'utente ha
+                   chiesto di ricordare l'accesso: su un computer condiviso chi lascia la
+                   casella vuota non deve vedersi proporre niente. Al primo accesso
+                   obbligato a cambiare password non si propone questa, che sta per essere
+                   sostituita: si propone la nuova, appena e' stata scelta. */
+                if (ricorda) proponiSalvataggioAlBrowser(email, password);
                 mostraApp();
             } catch (ex) {
                 err.textContent = 'Accesso non riuscito. Riprova.';

@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=20260829c">
+    <link rel="stylesheet" href="styles.css?v=20260829d">
 </head>
 <body>
 
@@ -26,16 +26,18 @@
             <p class="sottotitolo">Gestione degli incarichi di revisione</p>
 
             <!-- niente autocomplete="off": impediva al gestore password del browser
-                 di proporre il salvataggio e il riempimento automatico dei campi -->
+                 di proporre il salvataggio e il riempimento automatico dei campi.
+                 I campi hanno anche un "name", che e' quello che i gestori password
+                 guardano per riconoscere la coppia indirizzo + password. -->
             <form id="form-login">
                 <div class="campo">
                     <label for="login-email">Indirizzo email</label>
-                    <input type="email" id="login-email" required autocomplete="username" placeholder="nome@studio.it">
+                    <input type="email" id="login-email" name="email" required autocomplete="username" placeholder="nome@studio.it">
                 </div>
                 <div class="campo">
                     <label for="login-password">Password</label>
                     <div class="campo-password">
-                        <input type="password" id="login-password" required autocomplete="current-password">
+                        <input type="password" id="login-password" name="password" required autocomplete="current-password">
                         <button type="button" class="mostra-password" id="toggle-password" aria-label="Mostra la password" aria-pressed="false" title="Mostra la password">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
@@ -44,8 +46,11 @@
                 </div>
                 <label class="login-ricorda" for="login-ricorda">
                     <input type="checkbox" id="login-ricorda">
-                    <span>Ricorda il mio indirizzo su questo computer</span>
+                    <span>Ricorda l'accesso su questo computer</span>
                 </label>
+                <p class="hint login-ricorda-nota">L'indirizzo resta scritto qui; la password la
+                    custodisce il gestore del browser, che al primo accesso chiede il permesso di
+                    salvarla e alle volte successive compila i due campi da solo.</p>
                 <div class="login-azioni">
                     <button type="submit" class="btn btn-primary btn-block">Accedi</button>
                     <button type="button" class="btn btn-secondary btn-block" id="btn-prima-password">Richiedi la prima password</button>
@@ -108,6 +113,6 @@
          cambiata a OGNI modifica di app.js, altrimenti chi e' gia' entrato
          una volta non vede nulla di nuovo e la funzione sembra rotta. Lo
          stesso vale per styles.css qui sopra. -->
-    <script src="app.js?v=20260829c"></script>
+    <script src="app.js?v=20260829d"></script>
 </body>
 </html>
