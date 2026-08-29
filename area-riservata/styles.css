@@ -62,6 +62,16 @@
     --misura-testo: 92ch;
     --misura-grafico: 900px;
     --misura-campo: 460px;
+    /* Il tempo del movimento della barra, in un posto solo: lo usano la barra
+       per la propria larghezza, il contenuto per il proprio margine e il
+       programma per sapere quando il movimento e' finito (DURATA_MOVIMENTO in
+       app.js). Centosettanta millisecondi sono la misura di un gesto: sotto i
+       cento il movimento non si legge e vale quanto un salto, sopra i
+       duecentocinquanta si aspetta.
+       La curva parte veloce e si posa piano, cosi' l'occhio vede subito dov'e'
+       andata la barra e il resto e' solo l'arrivo. */
+    --durata-menu: 170ms;
+    --curva-menu: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -592,8 +602,8 @@ td.td-menu { white-space: nowrap; text-align: right; }
    Serve a dare larghezza al contenuto: la barra passa da 232 a 52px, e i 180px
    guadagnati vanno alle tabelle piu' larghe (gli iscritti agli eventi). Non e'
    un menu che sparisce: le icone restano, e passandoci sopra col mouse la barra
-   si riapre per intero SOPRA il contenuto (che non si sposta, perche' il suo
-   margine resta quello della barra ridotta). */
+   si riapre per intero e il contenuto RIENTRA di altrettanto, invece di
+   finirle sotto. */
 .nav-riduci { display: none; }
 @media (min-width: 901px) {
     .nav-riduci {
@@ -608,16 +618,38 @@ td.td-menu { white-space: nowrap; text-align: right; }
     /* il pulsante sta sopra la riga del marchio, che e' corta: niente padding
        sul riquadro, altrimenti "Area riservata incarichi" andrebbe a capo */
     .sidebar .brand .marchio { padding-right: 30px; }
-    /* Niente transizione su larghezza e margine, e non e' una rinuncia: sono
-       due misure che decidono il LAYOUT, quindi animarle costringe il browser a
-       rifare i conti a ogni fotogramma. Con la tabella degli iscritti aperta un
-       solo ricalcolo misura novanta millisecondi (duecentocinquanta nel caso
-       peggiore, misurato su duecentocinquanta righe): animato per 180ms
-       diventerebbe una decina di ricalcoli di fila, cioe' uno scatto lungo
-       mezzo secondo al posto di uno scorrimento morbido.
-       Cosi' invece il passaggio e' uno solo e immediato. La morbidezza sta
-       altrove: nel ritardo di intenzione prima di aprire (vedi app.js), che
-       impedisce alla pagina di muoversi per un passaggio distratto del mouse. */
+    /* --- IL MOVIMENTO DELLA BARRA ---
+       Larghezza e margine decidono il LAYOUT: animarli costringe il browser a
+       rifare i conti a ogni fotogramma, e con la tabella degli iscritti aperta
+       un ricalcolo intero misura un decimo di secondo. Animate cosi' come sono,
+       duecentocinquanta righe scendevano a DUE fotogrammi in tutto: uno
+       strappo, non un movimento. Per questo prima la barra saltava da una
+       misura all'altra, senza transizione.
+       Il rimedio non e' rinunciare al movimento, e' togliergli il peso. Mentre
+       la barra si muove il programma mette .barra-in-moto sulla shell, e per
+       quei centosettanta millisecondi:
+       - il contenuto della barra sta gia' alla misura di ARRIVO e viene
+         scoperto man mano che la barra si allarga, invece di essere strizzato a
+         ogni fotogramma. Senza, le etichette delle voci andrebbero a capo
+         mentre passano, e si vedrebbe;
+       - la tabella degli iscritti prende la larghezza dalla variabile invece
+         che dal contenitore, cosi' si impagina una volta sola: e' lei la parte
+         cara, quindici colonne per qualche centinaio di righe. La variabile vale
+         gia' la misura di arrivo (le variabili non si animano, cambiano di
+         colpo), quindi la tabella e' subito impaginata come sara' alla fine e
+         il riquadro le arriva intorno.
+       Misurato a 1920px dall'inizio alla fine del movimento: 250 righe passano
+       da 2 fotogrammi a 10-12, cioe' da uno scatto a uno scorrimento; fino a 120
+       righe non se ne perde nemmeno uno.
+       Chi ha chiesto al sistema meno animazioni non vede niente di tutto
+       questo: piu' avanti, in prefers-reduced-motion, la transizione sparisce e
+       le due misure arrivano subito dove devono. */
+    .sidebar { transition: width var(--durata-menu) var(--curva-menu); }
+    .contenuto { transition: margin-left var(--durata-menu) var(--curva-menu); }
+    .barra-in-moto .sidebar { overflow: hidden; }
+    .barra-in-moto .sidebar > * { width: var(--larghezza-menu); }
+    .barra-in-moto .ev-wrap { overflow: hidden; }
+    .barra-in-moto .ev-wrap table.dati { width: var(--spazio-tabella); }
 
     /* Un solo numero: la barra si stringe e il contenuto guadagna esattamente
        quei 180px. La regola sta sulla shell, non sulla barra, perche' la

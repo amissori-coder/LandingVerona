@@ -3687,14 +3687,15 @@
         b.addEventListener('click', () => {
             const nuovo = !menuRidotto();
             try { localStorage.setItem(CHIAVE_MENU_RIDOTTO, nuovo ? '1' : '0'); } catch (e) { }
+            segnalaMovimentoBarra();
             applicaMenuRidotto(nuovo);
             /* Il grafico a barre e' disegnato su una tela la cui larghezza viene
                scritta in linea al momento del disegno: allargando il contenuto
                resterebbe della misura di prima, con una striscia bianca dentro
                la scheda. Si ridisegna solo dove c'e' davvero (il cruscotto):
                ridisegnare sempre costerebbe un rifacimento della vista a ogni
-               clic, e sugli elenchi lunghi si vedrebbe. I 200ms aspettano che
-               sia finita la transizione da 180ms del foglio di stile. */
+               clic, e sugli elenchi lunghi si vedrebbe. Il ridisegno aspetta
+               che la barra abbia finito di muoversi. */
             ridisegnaGraficoTela();
         });
         collegaAperturaAlPassaggio(b);
@@ -3710,7 +3711,9 @@
        ridisegno non e' mai scattato. Si rifa' la vista solo dove serve davvero:
        rifarla sempre, sugli elenchi lunghi, si vedrebbe.
        Il ritardo raggruppa i passaggi ravvicinati (entra ed esce dalla barra)
-       in un ridisegno solo. */
+       in un ridisegno solo, e aspetta che la barra abbia finito di muoversi:
+       rifare la vista mentre la transizione e' in corso costerebbe proprio i
+       fotogrammi che la transizione serve a guadagnare. */
     let _timerTela = null;
     function ridisegnaGraficoTela() {
         if (!document.getElementById('grafico-mesi')) return;
@@ -3719,36 +3722,75 @@
         _timerTela = setTimeout(() => {
             if (vistaCorrente === vista && document.getElementById('grafico-mesi'))
                 naviga(vista, parametri, window.scrollY);
-        }, 90);
+        }, DURATA_MOVIMENTO + 20);
     }
 
     /* APERTURA DELLA BARRA AL PASSAGGIO DEL MOUSE
        A menu ridotto, portando il mouse sulla barra questa si riapre per intero
        e il contenuto RIENTRA di altrettanto, invece di finirle sotto.
-       Il ritardo di intenzione e' la parte che conta. Muovere la pagina e'
-       un'operazione visibile - la tabella degli iscritti si ridisegna tutta -
-       e non deve succedere perche' il mouse ha sfiorato il bordo sinistro
+       Il ritardo di intenzione e' la parte che conta. Muovere la pagina si
+       vede, e non deve succedere perche' il mouse ha sfiorato il bordo sinistro
        andando altrove (per esempio verso la casella di selezione della prima
-       colonna, che sta proprio li'). Centoquaranta millisecondi separano il
-       "ci sto andando" dal "ci sono passato sopra".
-       In chiusura nessun ritardo: uscire dalla barra e' sempre voluto.
+       colonna, che sta proprio li'). Centodieci millisecondi separano il "ci
+       sto andando" dal "ci sono passato sopra": abbastanza da non scattare per
+       un passaggio di striscio, poco abbastanza da non farsi aspettare.
+       In chiusura nessun ritardo, ma una condizione sola: che il mouse sia
+       USCITO DAVVERO. Dentro la barra ci si puo' muovere, cliccare una
+       sezione, aspettare che si ridisegni: finche' il puntatore e' li' sopra,
+       la barra resta aperta.
        La tastiera ha una strada sua: chi arriva col tabulatore ha bisogno delle
        etichette subito, senza aspettare. */
-    const RITARDO_APERTURA = 140;
+    const RITARDO_APERTURA = 110;
+    /* Dove si e' visto il puntatore l'ultima volta: serve a distinguere un
+       fuoco che se ne va perche' si e' cliccato altrove da un fuoco che se ne
+       va mentre il mouse e' fermo sulla barra. Due numeri e non un oggetto:
+       si aggiornano a ogni movimento del mouse. */
+    let puntX = -1, puntY = -1;
+    /* Quanto dura il movimento: i 170ms della transizione (--durata-menu nel
+       foglio di stile) piu' un margine, perche' la classe che alleggerisce il
+       movimento vada via DOPO che si e' fermato, non un attimo prima. */
+    const DURATA_MOVIMENTO = 230;
+    let _timerMoto = null;
+    /* La barra sta cambiando misura: per tutta la durata del movimento il
+       foglio di stile dispone il contenuto della barra alla misura di arrivo e
+       lo scopre man mano, e svincola la tabella degli iscritti dal contenitore,
+       invece di rifare l'impaginazione a ogni fotogramma. Serve a ogni cambio
+       di larghezza: il passaggio del mouse e anche il pulsante che riduce. */
+    function segnalaMovimentoBarra() {
+        const app = document.getElementById('app');
+        if (!app) return;
+        app.classList.add('barra-in-moto');
+        clearTimeout(_timerMoto);
+        _timerMoto = setTimeout(() => app.classList.remove('barra-in-moto'), DURATA_MOVIMENTO);
+    }
     function collegaAperturaAlPassaggio(pulsante) {
         const barra = document.querySelector('.sidebar');
         const app = document.getElementById('app');
         if (!barra || !app || barra._passaggio) return;
         barra._passaggio = true;
         let timer = null;
+        /* La barra e' fissata in alto a sinistra e alta quanto la finestra:
+           per sapere se il puntatore ci sta sopra basta la sua larghezza.
+           Si legge dalla variabile e si tiene da parte, invece di misurare
+           l'elemento a ogni movimento del mouse: la variabile vale gia' la
+           misura di ARRIVO anche mentre la barra si sta aprendo (le variabili
+           non si animano, cambiano di colpo), quindi spostandosi verso destra
+           dentro una barra ancora in movimento non si finisce "fuori" per un
+           attimo, con la barra che si richiude e si riapre da sola. */
+        let larghezzaAperta = 0;
+        const dentroLaBarra = (x, y) =>
+            x >= 0 && x < larghezzaAperta && y >= 0 && y < window.innerHeight;
         const apri = () => {
             if (app.classList.contains('barra-aperta')) return;
+            segnalaMovimentoBarra();
             app.classList.add('barra-aperta');
+            larghezzaAperta = parseFloat(getComputedStyle(app).getPropertyValue('--larghezza-menu')) || 0;
             ridisegnaGraficoTela();
         };
         const chiudi = () => {
             clearTimeout(timer); timer = null;
             if (!app.classList.contains('barra-aperta')) return;
+            segnalaMovimentoBarra();
             app.classList.remove('barra-aperta');
             ridisegnaGraficoTela();
         };
@@ -3757,17 +3799,58 @@
             clearTimeout(timer);
             timer = setTimeout(apri, RITARDO_APERTURA);
         });
-        barra.addEventListener('mouseleave', chiudi);
+        /* CHIUSURA: si guarda DOV'E' il puntatore, non cosa dice l'evento.
+           Ogni volta che le voci del menu vengono ridisegnate - un clic su una
+           sezione, ma anche dati arrivati dalla sincronizzazione - il pulsante
+           che sta sotto il mouse viene distrutto, e il browser manda un
+           "mouseleave" alla barra anche se il mouse non si e' mosso di un
+           pixel. Bastava a richiuderla proprio mentre la si stava usando: si
+           sceglieva una sezione e il menu se ne andava sotto le dita. Se le
+           coordinate dell'uscita cadono ancora dentro la barra, l'uscita e'
+           finta e non si chiude niente. */
+        barra.addEventListener('mouseleave', e => {
+            if (!dentroLaBarra(e.clientX, e.clientY)) chiudi();
+        });
+        /* Rete di sicurezza per le uscite finte: dopo una di quelle il browser
+           considera il mouse gia' fuori, quindi quando esce davvero non manda
+           nessun altro "mouseleave" e la barra resterebbe aperta per sempre.
+           Finche' e' aperta si guarda il movimento del mouse sulla pagina:
+           appena esce dal rettangolo della barra, si chiude. Il primo controllo
+           e' una classe, cioe' niente, per le altre novantanove volte su cento
+           in cui la barra e' chiusa e il mouse si muove per i fatti suoi. */
+        document.addEventListener('mousemove', e => {
+            puntX = e.clientX; puntY = e.clientY;
+            if (!app.classList.contains('barra-aperta')) return;
+            if (!dentroLaBarra(puntX, puntY)) chiudi();
+        }, { passive: true });
+        /* Ultima rete: il mouse esce dalla finestra (la barra del browser, un
+           altro programma, un altro schermo) mentre la barra e' aperta. Qui il
+           "mouseleave" del documento si puo' usare senza guardare le
+           coordinate, perche' ridisegnare le voci non lo fa scattare: il
+           documento non viene distrutto, le voci si'. */
+        document.addEventListener('mouseleave', chiudi);
         barra.addEventListener('focusin', () => { if (app.classList.contains('menu-ridotto')) apri(); });
         barra.addEventListener('focusout', e => {
             /* si chiude solo quando il fuoco esce DAVVERO dalla barra: passando
-               da una voce all'altra il focusout scatta lo stesso */
-            if (!barra.contains(e.relatedTarget)) chiudi();
+               da una voce all'altra il focusout scatta lo stesso. Se pero' il
+               mouse e' rimasto sulla barra, la barra resta aperta: comanda chi
+               ci sta sopra, non chi se n'e' andato. */
+            if (barra.contains(e.relatedTarget)) return;
+            if (dentroLaBarra(puntX, puntY)) return;
+            chiudi();
         });
         /* Allargando il menu col pulsante la barra resta sotto il mouse: senza
            questo, la classe di passaggio resterebbe accesa e richiudendo il
            menu il contenuto non tornerebbe largo finche' il mouse non se ne va. */
         if (pulsante) pulsante.addEventListener('click', chiudi);
+        /* Ridimensionando la finestra la misura della barra puo' cambiare
+           (sotto i 901px il menu diventa quello a comparsa e la variabile va a
+           zero): la misura tenuta da parte va rinfrescata, altrimenti la barra
+           resterebbe aperta con un rettangolo che non esiste piu'. */
+        window.addEventListener('resize', () => {
+            if (app.classList.contains('barra-aperta'))
+                larghezzaAperta = parseFloat(getComputedStyle(app).getPropertyValue('--larghezza-menu')) || 0;
+        }, { passive: true });
     }
 
     /* menu a comparsa su smartphone */
