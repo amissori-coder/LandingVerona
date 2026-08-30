@@ -1294,6 +1294,45 @@ ul {
     line-height: 1.6;
 }
 
+/* Nota sull'accreditamento ODCEC per i crediti formativi */
+.cfp-note {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: 780px;
+    margin: 22px auto 0;
+    padding: 16px 22px;
+    border: 1px solid rgba(177, 33, 59, 0.22);
+    border-radius: 12px;
+    background: rgba(177, 33, 59, 0.045);
+}
+
+.cfp-note svg {
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.cfp-note p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--text-muted);
+}
+
+.cfp-note strong {
+    color: var(--navy);
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .cfp-note {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 16px 18px;
+    }
+}
+
 /* === Location Section === */
 .location-grid {
     display: grid;
@@ -3213,6 +3252,7 @@ ul {
 .evento-quote,
 .matching-text,
 .program-note,
+.cfp-note p,
 .form-success p,
 .rel-rel-text {
     text-align: justify;
