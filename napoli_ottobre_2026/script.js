@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const animateElements = document.querySelectorAll(
         '.about-card, .about-feature, .speaker-item, .timeline-item, ' +
         '.location-info, .location-map, .partner-category, .form-wrapper, ' +
-        '.tema-card, .evento-intro, .evento-quote, .matching-band, ' +
+        '.tema-card, .evento-intro, .evento-quote, .video-shell, .matching-band, ' +
         '.section-header, .form-benefits-strip, .partner-brand, .register-card'
     );
 

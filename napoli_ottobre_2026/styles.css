@@ -3265,3 +3265,28 @@ ul {
 /* La descrizione di ogni relazione è uno span: va reso blocco perché la
    giustificazione abbia effetto. */
 .rel-rel-text { display: block; }
+
+/* ===== Sezione video =====
+   Il player è servito dalla release media-napoli-2026 del repository,
+   come gli altri video del sito: così il file non appesantisce il repo
+   né la pagina, che scarica solo l'anteprima finché non si preme play. */
+.video-shell {
+    max-width: 880px;
+    margin: 0 auto;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 30px 70px rgba(2, 12, 27, 0.55);
+}
+
+.video-player {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+}
+
+@media (max-width: 600px) {
+    .video-shell { border-radius: 10px; }
+}
