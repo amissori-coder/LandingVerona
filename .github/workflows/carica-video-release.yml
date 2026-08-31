@@ -10,10 +10,16 @@ name: Carica video su release
 # viene riconvertito; altrimenti viene solo reimpacchettato in .mp4
 # senza perdita di qualita'.
 #
-# Si lancia a mano da Actions > "Carica video su release" > Run workflow,
-# oppure via API. La release viene creata se non esiste ancora.
+# Si lancia a mano da Actions > "Carica video su release" > Run workflow.
+# Come il backup, si esegue anche da solo quando questo file cambia: cosi'
+# basta aggiornare i default qui sotto e fare push per caricare un nuovo
+# video. La release viene creata se non esiste ancora.
 
 on:
+  push:
+    branches: [claude/github-video-upload-z68v21]
+    paths: ['.github/workflows/carica-video-release.yml']
+
   workflow_dispatch:
     inputs:
       drive_id:
@@ -42,10 +48,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      DRIVE_ID: ${{ inputs.drive_id }}
-      RELEASE_TAG: ${{ inputs.release_tag }}
-      NOME_FILE: ${{ inputs.nome_file }}
-      RELEASE_TITOLO: ${{ inputs.release_titolo }}
+      # Al push non ci sono input: valgono i default, cioe' l'ultimo video
+      # richiesto (Video Evento Napoli).
+      DRIVE_ID: ${{ inputs.drive_id || '1-vfrx67PWYJBbxOEQ-XaYdUTKB_dBZIC' }}
+      RELEASE_TAG: ${{ inputs.release_tag || 'media-napoli-2026' }}
+      NOME_FILE: ${{ inputs.nome_file || 'video-evento-napoli.mp4' }}
+      RELEASE_TITOLO: ${{ inputs.release_titolo || 'Media evento Napoli, ottobre 2026' }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
     steps:
