@@ -61,7 +61,7 @@ jobs:
         run: |
           pip install --quiet gdown
           for tentativo in 1 2 3; do
-            gdown --id "$DRIVE_ID" -O originale && break
+            gdown "$DRIVE_ID" -O originale && break
             echo "tentativo $tentativo fallito, riprovo tra 10 secondi"
             sleep 10
           done
