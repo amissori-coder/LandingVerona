@@ -39,6 +39,11 @@ on:
         required: false
         type: string
         default: ""
+      poster_secondo:
+        description: "Secondo del video da cui estrarre l'anteprima"
+        required: false
+        type: string
+        default: "1"
 
 permissions:
   contents: write
@@ -54,6 +59,9 @@ jobs:
       RELEASE_TAG: ${{ inputs.release_tag || 'media-napoli-2026' }}
       NOME_FILE: ${{ inputs.nome_file || 'video-evento-napoli.mp4' }}
       RELEASE_TITOLO: ${{ inputs.release_titolo || 'Media evento Napoli, ottobre 2026' }}
+      # A 8 secondi il titolo del video di Napoli e' completo, con data,
+      # sede e patrocini a fuoco: il fotogramma giusto per l'anteprima.
+      POSTER_SECONDO: ${{ inputs.poster_secondo || '8' }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
     steps:
@@ -96,7 +104,7 @@ jobs:
 
           # Un fotogramma come anteprima: la pagina lo mostra al posto del
           # nero prima che l'utente prema play.
-          ffmpeg -hide_banner -loglevel warning -ss 1 -i "$NOME_FILE" -frames:v 1 -q:v 3 "${NOME_FILE%.*}-poster.jpg"
+          ffmpeg -hide_banner -loglevel warning -ss "$POSTER_SECONDO" -i "$NOME_FILE" -frames:v 1 -q:v 3 "${NOME_FILE%.*}-poster.jpg"
           ls -lh "$NOME_FILE" "${NOME_FILE%.*}-poster.jpg"
 
       - name: Carica sulla release (creandola se manca)
