@@ -1,7 +1,9 @@
 /*
  * Popup promozionale - Bando-tipo aiuti di Stato 2026 (decreto Mimit 18 giugno 2026)
  * Componente condiviso, autonomo (HTML + stile + logica iniettati da JS).
- * - Sostituisce il popup FCD sulla home page.
+ * - Sulla home page cede la precedenza al popup FCD finche questo e attivo
+ *   (flag window.__fcdPromoPlanned impostato da fcd-popup.js, caricato prima);
+ *   torna a comparire da solo quando il popup FCD scade o e gia stato visto.
  * - Compare una volta per sessione, dopo un breve ritardo, senza data di scadenza.
  * - Si auto-disattiva sulla pagina dell'approfondimento (/bando_tipo_2026/).
  * - Marca come "visto" anche il popup FCD: mai due popup nella stessa sessione.
@@ -26,6 +28,9 @@
   if (location.pathname.indexOf("/bando_tipo_2026") === 0) return;
   // Evita doppia iniezione.
   if (document.getElementById("btPromo")) return;
+  // Il popup FCD ha la precedenza: se sta per comparire in questa visita
+  // (fcd-popup.js e caricato prima e imposta il flag), non sovrapporsi.
+  if (window.__fcdPromoPlanned) return;
 
   function ss(get, key, val) {
     try { return get ? sessionStorage.getItem(key) : sessionStorage.setItem(key, val); }

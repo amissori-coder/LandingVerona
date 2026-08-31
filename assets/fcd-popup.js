@@ -1,9 +1,12 @@
 /*
  * Popup promozionale - Fondo Contrasto Deindustrializzazione 2026
- * Componente condiviso, autonomo (HTML + stile + logica iniettati da JS).
- * - Compare su tutte le pagine del sito, una volta per sessione.
+ * Componente autonomo (HTML + stile + logica iniettati da JS).
+ * - Compare SOLO sulla home page, una volta per sessione.
  * - Mostra la data: attivo fino al 28 novembre 2026, poi si nasconde da solo.
- * - Si auto-disattiva sulla pagina del fondo stesso (/fcd_2026/).
+ * - Ha la precedenza sul popup Bando-tipo: quando sta per comparire imposta
+ *   window.__fcdPromoPlanned e marca come visto anche quel popup
+ *   (mai due popup nella stessa sessione).
+ * - Entra a pagina carica, con transizione morbida (doppio rAF, ease-out lungo).
  * - Accessibile: role="dialog", focus trap, ESC, click sullo sfondo.
  * Percorsi root-relative: il sito e servito dalla radice del dominio.
  */
@@ -18,10 +21,11 @@
   var SHOW_DELAY_MS = 900;
   var SS_SEEN = "fcdPromoSeen";     // gia mostrato in questa sessione
   var LS_HIDDEN = "fcdPromoHidden"; // "non mostrare piu"
+  var SS_BT_SEEN = "btPromoSeen";   // chiave del popup Bando-tipo, per non sovrapporsi
 
   // --- Guardie di uscita ------------------------------------------------
-  // Non mostrare sulla pagina del fondo stesso (path ancorato all'inizio).
-  if (location.pathname.indexOf("/fcd_2026") === 0) return;
+  // Mostra SOLO sulla home page.
+  if (location.pathname !== "/" && location.pathname !== "/index.html") return;
   // Non mostrare dopo la data limite.
   try { if (new Date().getTime() >= HIDE_FROM.getTime()) return; } catch (e) {}
   // Evita doppia iniezione.
@@ -38,6 +42,10 @@
   if (ls(true, LS_HIDDEN) === "1") return; // disattivato in modo permanente
   if (ss(true, SS_SEEN) === "1") return;   // gia visto in questa sessione
 
+  // Tutte le guardie superate: questo popup comparira. Il flag dice al popup
+  // Bando-tipo (bando-tipo-popup.js, caricato dopo) di cedere la precedenza.
+  window.__fcdPromoPlanned = true;
+
   // --- Stili (iniettati una sola volta) ---------------------------------
   var css = ''
     + '#fcdPromo{position:fixed;inset:0;z-index:2147482000;display:flex;'
@@ -45,13 +53,16 @@
     + 'font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;}'
     + '#fcdPromo[hidden]{display:none;}'
     + '#fcdPromo,#fcdPromo *{box-sizing:border-box;}'
+    /* entrata lenta e morbida (ease-out lungo), uscita piu rapida */
     + '#fcdPromo .fcdp-backdrop{position:absolute;inset:0;background:rgba(10,40,68,.55);'
-    + 'backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:0;transition:opacity .28s ease;}'
-    + '#fcdPromo.is-open .fcdp-backdrop{opacity:1;}'
+    + 'backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:0;transition:opacity .3s ease;}'
+    + '#fcdPromo.is-open .fcdp-backdrop{opacity:1;transition:opacity .55s ease;}'
     + '#fcdPromo .fcdp-card{position:relative;width:100%;max-width:440px;background:#fff;'
     + 'border-radius:18px;box-shadow:0 30px 70px rgba(10,40,68,.35);overflow:hidden;'
-    + 'transform:translateY(14px) scale(.98);opacity:0;transition:transform .3s cubic-bezier(.22,1,.36,1),opacity .3s ease;}'
-    + '#fcdPromo.is-open .fcdp-card{transform:none;opacity:1;}'
+    + 'transform:translateY(26px) scale(.96);opacity:0;will-change:transform,opacity;'
+    + 'transition:transform .3s ease,opacity .25s ease;outline:none;}'
+    + '#fcdPromo.is-open .fcdp-card{transform:none;opacity:1;'
+    + 'transition:transform .65s cubic-bezier(.16,1,.3,1),opacity .45s cubic-bezier(.33,1,.68,1);}'
     + '#fcdPromo .fcdp-accent{height:5px;background:linear-gradient(90deg,#0A2844,#2A5A85 55%,#5B89B8);}'
     + '#fcdPromo .fcdp-pad{padding:26px 26px 24px;}'
     + '#fcdPromo .fcdp-eyebrow{display:inline-flex;align-items:center;gap:7px;'
@@ -111,7 +122,7 @@
 
   var html = ''
     + '<div class="fcdp-backdrop" data-fcdp-close aria-hidden="true"></div>'
-    + '<div class="fcdp-card" role="dialog" aria-modal="true" '
+    + '<div class="fcdp-card" role="dialog" aria-modal="true" tabindex="-1" '
     + 'aria-labelledby="fcdPromoTitle" aria-describedby="fcdPromoDesc">'
     + '<div class="fcdp-accent"></div>'
     + '<button type="button" class="fcdp-close" data-fcdp-close aria-label="Chiudi">' + iconX + '</button>'
@@ -160,12 +171,18 @@
     function open() {
       lastFocus = document.activeElement;
       root.hidden = false;
-      ss(false, SS_SEEN, "1"); // conta come "visto" in questa sessione
-      // forza reflow per far partire la transizione
-      void root.offsetWidth;
-      root.classList.add("is-open");
-      var f = focusables();
-      if (f.length) f[0].focus();
+      ss(false, SS_SEEN, "1");    // conta come "visto" in questa sessione
+      ss(false, SS_BT_SEEN, "1"); // niente secondo popup nella stessa sessione
+      // doppio rAF: la transizione parte a stili applicati e layout stabile,
+      // senza il "salto" del reflow forzato
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          root.classList.add("is-open");
+        });
+      });
+      // focus sul dialog stesso: nessun anello di focus che lampeggia
+      // sui bottoni durante l'animazione di entrata
+      try { card.focus({ preventScroll: true }); } catch (e) { card.focus(); }
       document.addEventListener("keydown", onKey, true);
     }
     function close() {
@@ -209,7 +226,11 @@
     var cta = root.querySelector(".fcdp-cta");
     if (cta) cta.addEventListener("click", function () { ss(false, SS_SEEN, "1"); });
 
-    setTimeout(open, SHOW_DELAY_MS);
+    // Apri solo a pagina completamente carica: l'entrata non compete con il
+    // rendering iniziale (immagini, font) e la transizione resta fluida.
+    function scheduleOpen() { setTimeout(open, SHOW_DELAY_MS); }
+    if (document.readyState === "complete") scheduleOpen();
+    else window.addEventListener("load", scheduleOpen, { once: true });
   }
 
   if (document.readyState === "loading") {
