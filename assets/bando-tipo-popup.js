@@ -50,15 +50,17 @@
     + 'font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;}'
     + '#btPromo[hidden]{display:none;}'
     + '#btPromo,#btPromo *{box-sizing:border-box;}'
+    /* entrata lenta e morbida (ease-out lungo), uscita piu rapida */
     + '#btPromo .btp-backdrop{position:absolute;inset:0;background:rgba(10,40,68,.62);'
     + 'backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);opacity:0;transition:opacity .3s ease;}'
-    + '#btPromo.is-open .btp-backdrop{opacity:1;}'
+    + '#btPromo.is-open .btp-backdrop{opacity:1;transition:opacity .55s ease;}'
     + '#btPromo .btp-card{position:relative;width:100%;max-width:520px;background:#fff;'
     + 'border-radius:20px;box-shadow:0 36px 80px rgba(10,40,68,.42);overflow:hidden;'
-    + 'transform:translateY(18px) scale(.94);opacity:0;'
-    + 'transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .32s ease;'
+    + 'transform:translateY(26px) scale(.96);opacity:0;will-change:transform,opacity;'
+    + 'transition:transform .3s ease,opacity .25s ease;outline:none;'
     + 'max-height:calc(100vh - 40px);overflow-y:auto;}'
-    + '#btPromo.is-open .btp-card{transform:none;opacity:1;}'
+    + '#btPromo.is-open .btp-card{transform:none;opacity:1;'
+    + 'transition:transform .65s cubic-bezier(.16,1,.3,1),opacity .45s cubic-bezier(.33,1,.68,1);}'
 
     /* intestazione scura */
     + '#btPromo .btp-head{position:relative;padding:26px 28px 24px;overflow:hidden;'
@@ -144,7 +146,7 @@
 
   var html = ''
     + '<div class="btp-backdrop" data-btp-close aria-hidden="true"></div>'
-    + '<div class="btp-card" role="dialog" aria-modal="true" '
+    + '<div class="btp-card" role="dialog" aria-modal="true" tabindex="-1" '
     + 'aria-labelledby="btPromoTitle" aria-describedby="btPromoDesc">'
     + '<button type="button" class="btp-close" data-btp-close aria-label="Chiudi">' + iconX + '</button>'
     + '<div class="btp-head">'
@@ -201,12 +203,17 @@
       lastFocus = document.activeElement;
       root.hidden = false;
       ss(false, SS_SEEN, "1");     // conta come "visto" in questa sessione
-      ss(false, SS_FCD_SEEN, "1"); // niente secondo popup sulle altre pagine
-      // forza reflow per far partire la transizione
-      void root.offsetWidth;
-      root.classList.add("is-open");
-      var f = focusables();
-      if (f.length) f[0].focus();
+      ss(false, SS_FCD_SEEN, "1"); // niente secondo popup nella stessa sessione
+      // doppio rAF: la transizione parte a stili applicati e layout stabile,
+      // senza il "salto" del reflow forzato
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          root.classList.add("is-open");
+        });
+      });
+      // focus sul dialog stesso: nessun anello di focus che lampeggia
+      // sui bottoni durante l'animazione di entrata
+      try { card.focus({ preventScroll: true }); } catch (e) { card.focus(); }
       document.addEventListener("keydown", onKey, true);
     }
     function close() {
@@ -255,7 +262,11 @@
       }
     });
 
-    setTimeout(open, SHOW_DELAY_MS);
+    // Apri solo a pagina completamente carica: l'entrata non compete con il
+    // rendering iniziale (immagini, font) e la transizione resta fluida.
+    function scheduleOpen() { setTimeout(open, SHOW_DELAY_MS); }
+    if (document.readyState === "complete") scheduleOpen();
+    else window.addEventListener("load", scheduleOpen, { once: true });
   }
 
   if (document.readyState === "loading") {
