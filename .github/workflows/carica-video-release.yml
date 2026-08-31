@@ -76,6 +76,10 @@ jobs:
 
       - name: Converti in MP4 pronto per il web
         run: |
+          # L'immagine ubuntu-24.04 dei runner non porta piu' ffmpeg con se'.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg >/dev/null
+
           video=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 originale)
           audio=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 originale || true)
           echo "codec video: $video, codec audio: ${audio:-nessuno}"
