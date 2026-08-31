@@ -519,6 +519,35 @@ Nessuna configurazione aggiuntiva: usa `FIREBASE_SERVICE_ACCOUNT`, gia presente.
 Per collegare un altro form basta aggiungere nella pagina un secondo `fetch` a
 questo indirizzo con lo stesso payload (vedi `napoli_ottobre_2026/script.js`).
 
+## Download dell'ebook per gli iscritti (`/api/scarica-ebook`)
+
+Endpoint **pubblico**: lo chiama la pagina dell'ebook sul sito (per ora
+`/responsabilita_amministratori/`). Riceve `{ email, ebook }` e risponde solo
+`{ ok, iscritto: true|false }`: l'ebook si scarica soltanto se l'indirizzo è
+già fra gli iscritti alla newsletter.
+
+"Iscritto" significa: l'indirizzo compare fra le iscrizioni raccolte dai
+moduli del sito (Firestore `iscrizioni`, qualunque pagina — lo stesso
+perimetro della sezione Newsletter dell'area riservata) oppure nel foglio
+storico, e non risulta una disiscrizione **posteriore** all'ultima
+iscrizione. Chi si era disiscritto e poi si riscrive dal modulo della pagina
+torna quindi "iscritto" da sé, perché la nuova iscrizione è più recente della
+disiscrizione registrata.
+
+Protezioni: accetta solo POST, valida l'indirizzo, riconosce solo le chiavi
+di ebook note (mai un percorso) e limita i tentativi per indirizzo IP
+(12 ogni 10 minuti): senza il freno sarebbe un oracolo con cui scoprire chi è
+in rubrica provando indirizzi a caso. Non restituisce mai altri dati della
+scheda. A download concesso registra la traccia (best effort) nella
+collezione `ebookScaricati` (indirizzo, ebook, quante volte, quando): se la
+scrittura fallisce il download parte lo stesso.
+
+Nessuna configurazione aggiuntiva: usa `FIREBASE_SERVICE_ACCOUNT` e, se
+presente, `EVENTI_SHEET_ID` per il foglio storico (letto con memoria di 5
+minuti, e solo quando l'indirizzo non risulta su Firestore). Il PDF sta sul
+sito, non qui: il "cancello" è la pagina, che avvia il download solo dopo il
+sì di questo endpoint.
+
 ## Presenze, note e cancellazioni (`/api/presenze`)
 
 Stato ("confermato / presente / assente") e nota di ogni iscritto stanno nella
