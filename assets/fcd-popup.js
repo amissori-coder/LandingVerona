@@ -3,9 +3,10 @@
  * Componente autonomo (HTML + stile + logica iniettati da JS).
  * - Compare SOLO sulla home page, una volta per sessione.
  * - Mostra la data: attivo fino al 28 novembre 2026, poi si nasconde da solo.
- * - Ha la precedenza sul popup Bando-tipo: quando sta per comparire imposta
- *   window.__fcdPromoPlanned e marca come visto anche quel popup
- *   (mai due popup nella stessa sessione).
+ * - Cede la precedenza al popup Bando-tipo (bando-tipo-popup.js, caricato
+ *   prima, imposta window.__btPromoPlanned): compare solo quando quello non
+ *   deve comparire (es. disattivato con "non mostrare piu"), e quando compare
+ *   marca come visto anche quel popup (mai due popup nella stessa sessione).
  * - Entra a pagina carica, con transizione morbida (doppio rAF, ease-out lungo).
  * - Accessibile: role="dialog", focus trap, ESC, click sullo sfondo.
  * Percorsi root-relative: il sito e servito dalla radice del dominio.
@@ -41,10 +42,9 @@
   }
   if (ls(true, LS_HIDDEN) === "1") return; // disattivato in modo permanente
   if (ss(true, SS_SEEN) === "1") return;   // gia visto in questa sessione
-
-  // Tutte le guardie superate: questo popup comparira. Il flag dice al popup
-  // Bando-tipo (bando-tipo-popup.js, caricato dopo) di cedere la precedenza.
-  window.__fcdPromoPlanned = true;
+  // Il popup Bando-tipo ha la precedenza sulla home: se sta per comparire
+  // (bando-tipo-popup.js e caricato prima e imposta il flag), non sovrapporsi.
+  if (window.__btPromoPlanned) return;
 
   // --- Stili (iniettati una sola volta) ---------------------------------
   var css = ''
