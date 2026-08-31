@@ -3271,13 +3271,13 @@ ul {
    come gli altri video del sito: così il file non appesantisce il repo
    né la pagina, che scarica solo l'anteprima finché non si preme play. */
 .video-shell {
-    max-width: 880px;
+    max-width: 680px;
     margin: 0 auto;
     background: #000;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: 0 30px 70px rgba(2, 12, 27, 0.55);
+    box-shadow: 0 24px 48px -20px rgba(2, 12, 27, 0.6);
 }
 
 .video-player {
@@ -3285,8 +3285,12 @@ ul {
     width: 100%;
     aspect-ratio: 16 / 9;
     background: #000;
+    /* Safari non ritaglia i video sull'overflow del contenitore:
+       il raggio va ripetuto anche qui. */
+    border-radius: var(--radius-lg);
 }
 
 @media (max-width: 600px) {
-    .video-shell { border-radius: 10px; }
+    .video-shell,
+    .video-player { border-radius: var(--radius-md); }
 }
