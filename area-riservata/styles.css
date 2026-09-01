@@ -2338,3 +2338,22 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    e i filtri restano dove sono e il filtro appena messo si puo' togliere. */
 .inv-nessuna td { padding: 34px 18px; text-align: center; color: var(--grigio-600); font-size: 0.86rem; background: var(--blu-050); }
 .inv-nessuna b { color: var(--grigio-900); }
+
+/* Selezionare a gruppi. Spuntare a mano duecentocinquanta caselle non si fa, e
+   "tutte" su un elenco da mille manda via tutto in un colpo: i gruppi sono la
+   via di mezzo, e stanno accanto ai comandi perche' e' li' che si decide. */
+.inv-gruppi { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 18px 0; }
+.inv-gruppi .hint { margin: 0 2px 0 0; }
+.inv-gruppo { padding: 3px 11px; border: 1px solid var(--grigio-200); border-radius: 999px; background: #fff; font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--blu-700); cursor: pointer; }
+.inv-gruppo:hover { border-color: var(--blu-700); background: var(--blu-050); }
+.inv-gruppo-no { color: var(--grigio-600); font-weight: 500; }
+.inv-sel-barra .hint { margin: 0; }
+
+/* Il tetto orario, detto prima di premere invia. Vuoto non occupa spazio. */
+.ii-tetto:not(:empty) { margin-top: 10px; padding: 8px 11px; border-left: 3px solid var(--ambra); border-radius: 4px; background: var(--ambra-bg); color: var(--ambra); font-size: 0.82rem; line-height: 1.45; }
+.ii-tetto b { color: inherit; }
+
+/* La nota sulle righe non mostrate sta fuori dall area che scorre, quindi
+   resta sempre visibile: le servono i suoi margini, altrimenti si appiccica
+   al piede della finestra. */
+.inv-troppe { flex: 0 0 auto; margin: 0; padding: 8px 18px 12px; border-top: 1px solid var(--grigio-200); background: var(--blu-050); }
