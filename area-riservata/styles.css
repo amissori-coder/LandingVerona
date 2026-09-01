@@ -2781,6 +2781,9 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* Il tetto orario, detto prima di premere invia. Vuoto non occupa spazio. */
 .ii-tetto:not(:empty) { margin-top: 10px; padding: 8px 11px; border-left: 3px solid var(--ambra); border-radius: 4px; background: var(--ambra-bg); color: var(--ambra); font-size: 0.82rem; line-height: 1.45; }
 .ii-tetto b { color: inherit; }
+/* Tetto esaurito: non e un avviso, e uno stop. Rosso, e il tempo che manca
+   dentro il testo scende da solo. */
+.ii-tetto-fermo { border-left-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
 
 /* La nota sulle righe non mostrate sta fuori dall area che scorre, quindi
    resta sempre visibile: le servono i suoi margini, altrimenti si appiccica
