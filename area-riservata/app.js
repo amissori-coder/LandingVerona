@@ -15944,13 +15944,13 @@
                una volta sola. I gruppi sono la via di mezzo: si sceglie quanto
                spedire adesso, si guarda com'e' andata, e si riprende.
 
-               250 non e' un numero a caso: il tetto e' di 300 PEC all'ora per
-               utente, quindi un gruppo da 250 sta dentro la finestra e non si
-               ferma a meta' per il freno. Al primo giro, con un elenco nuovo,
-               conviene comunque partire da 50. */
+               250 non e' un numero a caso: e' anche il tetto orario della PEC,
+               quindi il gruppo piu' grande entra sempre intero in una finestra
+               e non si ferma a tre quarti per il freno. Al primo giro, con un
+               elenco nuovo, conviene comunque partire da 50. */
             + (lista.length > 1 ? '<div class="inv-gruppi">'
                 + '<span class="hint">Seleziona</span>'
-                + [50, 250, 500].filter(k => k < lista.length)
+                + [50, 250].filter(k => k < lista.length)
                     .map(k => '<button type="button" class="inv-gruppo" data-quante="' + k + '">le prime ' + k + '</button>').join('')
                 + '<button type="button" class="inv-gruppo" data-quante="tutte">tutte (' + lista.length + ')</button>'
                 + (_invSel.size ? '<button type="button" class="inv-gruppo inv-gruppo-no" data-quante="0">nessuna</button>' : '')
