@@ -12779,10 +12779,10 @@
             <p class="descrizione" style="margin-bottom:12px;">Il nuovo blocco può ripartire da <strong>${esc(origine)}</strong>: scegli che cosa copiare. I blocchi precedenti si riducono a una riga e restano apribili.</p>
             <div class="campo"><label>Data dell'avanzamento</label><input type="date" id="cq-na-data" value="${cqOggiIso()}"></div>
             <div class="cq-scelte">
-                <label><input type="checkbox" id="cq-na-attivita" checked> Copia le <strong>attività con il loro stato</strong> (altrimenti riparte dalle attività proposte)</label>
-                <label><input type="checkbox" id="cq-na-note" checked> Copia le <strong>note interne e i to do ancora aperti</strong> di ogni attività</label>
-                <label><input type="checkbox" id="cq-na-tempi"> Copia le righe del <strong>tempo qualità</strong></label>
-                <label><input type="checkbox" id="cq-na-sosp"> Copia la <strong>richiesta di sospensione</strong> del compenso (senza inviare una nuova email)</label>
+                <label><input type="checkbox" id="cq-na-attivita" checked><span>Copia le <strong>attività con il loro stato</strong> (altrimenti riparte dalle attività proposte)</span></label>
+                <label><input type="checkbox" id="cq-na-note" checked><span>Copia le <strong>note interne e i to do ancora aperti</strong> di ogni attività</span></label>
+                <label><input type="checkbox" id="cq-na-tempi"><span>Copia le righe del <strong>tempo qualità</strong></span></label>
+                <label><input type="checkbox" id="cq-na-sosp"><span>Copia la <strong>richiesta di sospensione</strong> del compenso (senza inviare una nuova email)</span></label>
             </div>
             <div class="modale-azioni">
                 <button class="btn btn-secondary" id="cq-na-annulla">Annulla</button>
