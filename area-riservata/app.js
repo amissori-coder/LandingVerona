@@ -15944,16 +15944,27 @@
                una volta sola. I gruppi sono la via di mezzo: si sceglie quanto
                spedire adesso, si guarda com'e' andata, e si riprende.
 
-               250 non e' un numero a caso: e' anche il tetto orario della PEC,
-               quindi il gruppo piu' grande entra sempre intero in una finestra
-               e non si ferma a tre quarti per il freno. Al primo giro, con un
-               elenco nuovo, conviene comunque partire da 50. */
+               250 e 500 non sono numeri a caso: sono i due tetti orari, PEC e
+               email ordinaria. Un gruppo scelto cosi' entra intero in una
+               finestra e non si ferma a tre quarti per il freno. Al primo
+               giro, con un elenco nuovo, conviene comunque partire da 50. */
+            /* I due tetti sono DIVERSI, e il canale si sceglie dopo, nella
+               finestra dell'invito: qui non si sa ancora se partira' una PEC o
+               un'email. Quindi i due gruppi che coincidono con un tetto lo
+               dicono da se', e sotto c'e' la riga che spiega la regola. Senza,
+               "le prime 500" sembrerebbe una scelta libera e poi si fermerebbe
+               a 250 sulla PEC, che e' esattamente la sorpresa da evitare. */
             + (lista.length > 1 ? '<div class="inv-gruppi">'
                 + '<span class="hint">Seleziona</span>'
-                + [50, 250].filter(k => k < lista.length)
-                    .map(k => '<button type="button" class="inv-gruppo" data-quante="' + k + '">le prime ' + k + '</button>').join('')
+                + [[50, ''], [250, 'Il massimo che parte in un\'ora via PEC'], [500, 'Il massimo che parte in un\'ora via email ordinaria']]
+                    .filter(g => g[0] < lista.length)
+                    .map(g => '<button type="button" class="inv-gruppo' + (g[1] ? ' inv-gruppo-tetto' : '') + '"'
+                        + (g[1] ? ' title="' + esc(g[1]) + '"' : '')
+                        + ' data-quante="' + g[0] + '">le prime ' + g[0] + '</button>').join('')
                 + '<button type="button" class="inv-gruppo" data-quante="tutte">tutte (' + lista.length + ')</button>'
                 + (_invSel.size ? '<button type="button" class="inv-gruppo inv-gruppo-no" data-quante="0">nessuna</button>' : '')
+                + '<span class="inv-tetti hint">In un\'ora partono al massimo <b>250 PEC</b> o <b>500 email</b>: '
+                + 'quello che avanza resta da invitare e riprende dopo.</span>'
                 + '</div>' : '');
 
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
