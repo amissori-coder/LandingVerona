@@ -2859,3 +2859,17 @@ table.dati tr.cq-tot td { font-weight: 700; background: var(--blu-050); border-t
 table.dati tr.cq-completata td { background: var(--verde-bg); }
 table.dati tr.cq-completata td.cliente-cella { border-left: 4px solid var(--verde); }
 .cq-schede .tab-btn { white-space: nowrap; }
+
+/* Sezione Avanzamenti: titolo con il suo pulsante; blocchi precedenti ridotti a una riga */
+.cq-sezione-testa { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 26px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--grigio-200); }
+.cq-sezione-titolo { margin: 0; font-size: 1.15rem; }
+.cq-avz-ridotto { padding: 12px 18px; }
+.cq-avz-riga { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cq-avz-testa-azioni { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+/* Il ritorno all'elenco: un pulsante vero, in testa e in fondo */
+.cq-btn-torna { margin-bottom: 10px; font-weight: 700; }
+.cq-fondo { display: flex; justify-content: flex-start; margin: 4px 0 24px; }
+/* Le scelte della finestra "Nuovo avanzamento" */
+.cq-scelte { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px; }
+.cq-scelte label { display: flex; align-items: flex-start; gap: 8px; font-size: 0.92rem; line-height: 1.4; }
+.cq-scelte input[type="checkbox"] { width: 16px; height: 16px; margin-top: 3px; flex: none; }
