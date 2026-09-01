@@ -2771,9 +2771,10 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    riepilogo (i due check con i commenti), la griglia dei blocchi
    di avanzamento e le tendine colorate a semaforo.
 ========================================================= */
-.cq-riepilogo-griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.cq-riepilogo-griglia { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 .cq-avz-griglia { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; margin-top: 12px; }
-@media (max-width: 900px) { .cq-riepilogo-griglia, .cq-avz-griglia { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .cq-riepilogo-griglia { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .cq-avz-griglia { grid-template-columns: 1fr; } }
 .cq-sotto { margin: 0 0 8px; color: var(--blu-500); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.82rem; }
 
 /* Tendine a semaforo: il colore dice lo stato anche a colpo d'occhio,
@@ -2791,9 +2792,45 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .cq-avz table input[type="text"], .cq-avz table input[type="time"] { width: 100%; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 5px 7px; font-size: 0.88rem; font-family: inherit; }
 .cq-cella-togli { width: 36px; text-align: center; }
 
-#cq-commento-12, #cq-commento-4, .cq-note { width: 100%; margin-top: 8px; border: 1px solid var(--grigio-200); border-radius: 8px; padding: 8px 10px; resize: vertical; font-family: inherit; font-size: 0.9rem; }
+#cq-commento-area12, #cq-commento-area3, #cq-commento-area4, .cq-note { width: 100%; margin-top: 8px; border: 1px solid var(--grigio-200); border-radius: 8px; padding: 8px 10px; resize: vertical; font-family: inherit; font-size: 0.9rem; }
 
 /* La richiesta di sospensione del compenso: in evidenza, come nel foglio. */
 .cq-sospensione { margin-top: 14px; padding: 10px 12px; border: 1px dashed var(--grigio-200); border-radius: 8px; }
 .cq-sospensione label { display: block; font-size: 0.85rem; color: var(--rosso); font-weight: 600; margin-bottom: 6px; }
 .cq-sospensione .cq-sel { width: auto; min-width: 90px; }
+
+/* Anno di riferimento dei controlli: schede + pulsante per il prossimo anno */
+.cq-anni { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.cq-anni .btn { margin-left: 8px; }
+
+/* Cose da fare dentro un avanzamento */
+.cq-todo { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cq-todo li { display: flex; align-items: center; gap: 8px; }
+.cq-todo li.fatto .cq-todo-testo, .cq-todo li.fatto .cq-todo-etich { text-decoration: line-through; color: var(--grigio-600); }
+.cq-todo .cq-todo-testo { flex: 1; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 5px 7px; font-size: 0.88rem; font-family: inherit; }
+.cq-todo input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--verde); }
+.cq-todo-vuota { padding: 4px 0; }
+.cq-esito-ko { color: var(--rosso); font-weight: 600; }
+
+/* Storia della scheda: linea del tempo per giorno, con il tipo a pastiglia */
+.cq-storia-filtri { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.cq-storia-giorno { margin-bottom: 14px; }
+.cq-storia-data { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--blu-500); padding: 4px 0; border-bottom: 1px solid var(--grigio-200); margin-bottom: 6px; }
+.cq-storia-voce { display: grid; grid-template-columns: 44px auto 1fr; gap: 10px; align-items: start; padding: 6px 0; border-bottom: 1px dashed var(--grigio-200); font-size: 0.88rem; }
+.cq-storia-voce:last-child { border-bottom: 0; }
+.cq-storia-voce .ora { color: var(--grigio-600); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.cq-storia-voce .badge { justify-self: start; }
+.cq-storia-voce .chi { font-weight: 600; color: var(--blu-900); }
+.cq-storia-voce .campi { margin: 4px 0 0; padding-left: 18px; color: var(--grigio-600); font-size: 0.84rem; }
+.cq-storia-voce div.campi { padding-left: 0; }
+.cq-storia-voce .cq-vedi-email { margin-top: 4px; }
+.cq-storia-voce.tipo-email { background: var(--blu-050); border-radius: 6px; padding: 8px; }
+
+/* Destinatari del riepilogo al team */
+.cq-destinatari { display: flex; flex-direction: column; gap: 6px; }
+.cq-dest { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.cq-dest.senza-email { opacity: 0.7; }
+.cq-dest input[type="checkbox"] { width: 16px; height: 16px; }
+.cq-rt-anteprima { margin: 10px 0; }
+.cq-rt-anteprima summary { cursor: pointer; font-weight: 600; color: var(--blu-500); }
+.cq-email-anteprima { margin-top: 10px; padding: 14px 16px; border: 1px solid var(--grigio-200); border-radius: 8px; background: #fff; max-height: 420px; overflow: auto; }
