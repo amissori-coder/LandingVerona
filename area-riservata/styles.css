@@ -2834,3 +2834,11 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .cq-rt-anteprima { margin: 10px 0; }
 .cq-rt-anteprima summary { cursor: pointer; font-weight: 600; color: var(--blu-500); }
 .cq-email-anteprima { margin-top: 10px; padding: 14px 16px; border: 1px solid var(--grigio-200); border-radius: 8px; background: #fff; max-height: 420px; overflow: auto; }
+
+/* Tempo qualità in ore e minuti, totali e riepilogo dei tempi */
+.cq-tempo-cella { white-space: nowrap; }
+.cq-tempo-cella input[type="number"] { width: 58px !important; text-align: right; }
+.cq-tempo-unita { font-size: 0.8rem; color: var(--grigio-600); margin: 0 6px 0 3px; }
+.cq-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.dati tr.cq-tot td { font-weight: 700; background: var(--blu-050); border-top: 2px solid var(--grigio-200); }
+.cq-tempo-totale-avz { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }

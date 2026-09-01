@@ -351,10 +351,12 @@
                 RV_ROSTER.team.forEach(n => { mappa[n] = { team: true }; });
                 RV_ROSTER.qualita.forEach(n => { mappa[n] = { ...(mappa[n] || {}), qualita: true, team: true }; });
                 RV_ROSTER.respIncarico.forEach(n => { mappa[n] = { ...(mappa[n] || {}), respIncarico: true, team: true }; });
+                const noti = (typeof RV_EMAIL_PERSONE !== 'undefined' && RV_EMAIL_PERSONE) || {};
                 const persone = Object.keys(mappa).sort().map(n => ({
                     id: uid(), nome: n,
                     qualita: !!mappa[n].qualita, respIncarico: !!mappa[n].respIncarico,
-                    team: true, attivo: true
+                    team: true, attivo: true,
+                    email: (noti[n] && noti[n].email) || '', nomeProprio: (noti[n] && noti[n].nomeProprio) || ''
                 }));
                 Store.scrivi(CHIAVI.persone, persone);
             }
@@ -864,6 +866,25 @@
         // migrazione una tantum: dai vecchi record con "nomeCompleto" ai nuovi
         // campi (cognome = nome; nomeProprio = nomeCompleto senza il cognome finale).
         // Idempotente: dopo la prima esecuzione non trova piu nulla da migrare.
+        /* Indirizzi (e nomi propri) noti di alcune persone dello studio, da
+           dati-demo.js (RV_EMAIL_PERSONE): le schede che ne sono ancora prive li
+           ricevono all'apertura dell'area. Servono alle email automatiche dei
+           Controlli qualita (es. la richiesta di sospensione del compenso al
+           responsabile incarico). Idempotente: non tocca chi ha gia' un valore. */
+        migraEmailNote() {
+            const noti = (typeof RV_EMAIL_PERSONE !== 'undefined' && RV_EMAIL_PERSONE) || {};
+            const cognomi = Object.keys(noti);
+            if (!cognomi.length) return;
+            const lista = this.tutte();
+            let cambiato = false;
+            cognomi.forEach(cog => {
+                const p = lista.find(x => x && !x.eliminato && String(x.nome || '').trim().toLowerCase() === cog.toLowerCase());
+                if (!p) return;
+                if (noti[cog].email && !p.email) { p.email = noti[cog].email; cambiato = true; }
+                if (noti[cog].nomeProprio && !p.nomeProprio) { p.nomeProprio = noti[cog].nomeProprio; cambiato = true; }
+            });
+            if (cambiato) this.salva(lista);
+        },
         migraNomi() {
             const lista = this.tutte();
             let cambiato = false;
@@ -1261,6 +1282,10 @@
             // proprio chi non ha la scrittura ad averne piu' bisogno. Restano fuori solo
             // gli invitati "solo sondaggio", che dei dati dello studio non vedono nulla.
             if (sez === 'richieste') return this.puoUsareRichieste();
+            // I Controlli qualita hanno un filtro in piu' sulla PERSONA: la sezione compare
+            // solo a chi in Aderenti Revilaw e' responsabile qualita o equity partner
+            // (e ad amministratore e titolare). Vedi cqProfilo().
+            if (sez === 'controlloQualita') return this.accessoSezione(sez) !== 'no' && !!cqProfilo();
             return this.accessoSezione(sez) !== 'no';
         },
         puoScrivere(sez) {
@@ -11682,17 +11707,25 @@
        in essere in quell'anno o con scadenza nel suo corso: uno scaduto
        l'anno prima e non rinnovato non compare, uno rinnovato continua.
        Per ogni incarico e anno c'e' UNA scheda: i blocchi "Avanzamento
-       al ..." (attivita' a semaforo, tempo qualita, note interne, cose da
-       fare, richiesta di sospensione del compenso) e il riepilogo dei
-       controlli - i semafori delle aree 1-2, 3 e 4 con i commenti, che
-       l'elenco riprende.
-       Chi vede cosa: amministratore e titolare vedono tutti gli incarichi;
-       ogni altro utente SOLO quelli in cui la sua scheda in Aderenti
-       Revilaw (agganciata per email) e' il responsabile della qualita.
-       Scheda mancante = elenco vuoto (fail-closed, come i coordinatori).
-       Le email (richiesta di sospensione al responsabile incarico,
-       riepilogo al team) partono dal servizio delle Comunicazioni e
-       restano nella storia della scheda insieme alle modifiche.
+       al ..." (attivita' a semaforo, tempo qualita in ore e minuti, note
+       interne, cose da fare, richiesta di sospensione del compenso), il
+       riepilogo dei controlli - i semafori delle aree 1-2, 3 e 4 con i
+       commenti, che l'elenco riprende - e il riepilogo dei tempi.
+
+       CHI ENTRA (oltre al permesso del ruolo in "Ruoli e permessi"):
+       - amministratore e titolare: tutti gli incarichi, in scrittura;
+       - chi in Aderenti Revilaw e' EQUITY PARTNER: vede tutti gli incarichi,
+         ma modifica solo quelli in cui e' lui il responsabile della qualita
+         (campo "Responsabile qualita" dell'incarico); sugli altri e' in sola
+         visualizzazione;
+       - chi in Aderenti Revilaw e' RESPONSABILE QUALITA: vede e modifica i
+         soli incarichi in cui e' il responsabile della qualita;
+       - chiunque altro non vede la sezione (ne' la voce di menu).
+       Il collegamento utente -> scheda passa dall'email (Auth.personaCorrente).
+
+       Le email (richiesta di sospensione al responsabile incarico, riepilogo
+       al team) partono dal servizio delle Comunicazioni, con chi le invia
+       in copia, e restano nella storia della scheda insieme alle modifiche.
        Ogni salvataggio timbra "modificato" (chi e quando) e passa dal
        Registro modifiche con i campi variati.
     ========================================================= */
@@ -11717,6 +11750,7 @@
     ];
     const CQ_ANNI_INIZIALI = [2025, 2026];
     const CQ_ID_CONFIG = 'cq-config';   // record di configurazione dentro l'archivio (gli anni)
+    const ICO_EMAIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>';
     const cqCheck = id => CQ_CHECK.find(c => c.id === id) || null;
     const cqStatoRiga = id => CQ_STATI_RIGA.find(s => s.id === id) || null;
     let cqAnno = null;   // anno di riferimento scelto nell'elenco (resta tra una vista e l'altra)
@@ -11737,6 +11771,31 @@
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
     function cqFirma(utente) { return (utente && utente.nome) ? utente.nome + ' <' + utente.email + '>' : String(utente || ''); }
+    /* Minuti -> "1h 25m" (sotto l'ora: "25 min"). */
+    function cqFmtMinuti(m) {
+        m = Math.max(0, Math.round(Number(m) || 0));
+        const h = Math.floor(m / 60), r = m % 60;
+        return h ? h + 'h ' + String(r).padStart(2, '0') + 'm' : r + ' min';
+    }
+    /* "hh:mm[:ss]" (i tempi salvati dalla prima versione) -> minuti. */
+    function cqMinutiDaDurata(s) {
+        const m = /^(\d{1,3}):(\d{2})/.exec(String(s || '').trim());
+        return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+    }
+    const cqMinutiAvz = a => (a && a.tempi || []).reduce((s, t) => s + (Number(t.minuti) || 0), 0);
+    const cqMinutiScheda = s => (s && s.avanzamenti || []).reduce((tot, a) => tot + cqMinutiAvz(a), 0);
+
+    /* Il profilo di accesso alla sezione della persona collegata (vedi in testa).
+       null = la sezione non compare. */
+    function cqProfilo() {
+        if (!Auth.utenteCorrente) return null;
+        const p = Auth.personaCorrente();
+        if (Auth.eAdmin() || Auth.eProprietario()) return { admin: true, tutti: true, persona: p };
+        if (!p || p.eliminato || p.attivo === false) return null;
+        if (p.equityPartner) return { admin: false, tutti: true, persona: p, equity: true };
+        if (p.qualita) return { admin: false, tutti: false, persona: p };
+        return null;
+    }
 
     const ControlliQualita = {
         tutte() { return Store.leggi(CHIAVI.controlliQualita, []); },
@@ -11751,6 +11810,7 @@
             s.avanzamenti.forEach(a => {
                 if (!Array.isArray(a.righe)) a.righe = [];
                 if (!Array.isArray(a.tempi)) a.tempi = [];
+                a.tempi.forEach(t => { if (t.minuti == null) { t.minuti = cqMinutiDaDurata(t.durata); delete t.durata; } });
                 if (!Array.isArray(a.todo)) a.todo = [];
                 if (a.note == null) a.note = '';
                 if (a.sospensione == null) a.sospensione = '';
@@ -11785,8 +11845,6 @@
             return nuovo;
         },
         /* ---- perimetro ---- */
-        /* true se l'utente vede i controlli di TUTTI gli incarichi */
-        vedeTutti() { return Auth.eAdmin() || Auth.eProprietario(); },
         /* L'incarico e' "dell'anno" se il suo periodo tocca l'anno: iniziato entro
            il 31/12 e con fine (rinnovo, scadenza, dimissioni o chiusura) dal 1/1 in
            poi. Cosi' un incarico scaduto l'anno prima e non rinnovato sparisce,
@@ -11805,21 +11863,35 @@
             if (fine && fine < daAnno) return false;
             return true;
         },
-        /* Gli incarichi dell'anno di cui l'utente vede i controlli. Il confronto
-           con il responsabile qualita passa dal risolutore delle persone (non
-           dal testo nudo), cosi' "Rossi" e "Rossi Mario" restano la stessa
-           persona anche negli incarichi importati o storici. */
+        /* true se la persona collegata e' il responsabile della qualita di questo
+           incarico (confronto tramite il risolutore, non sul testo nudo). */
+        eResponsabileQualita(inc, persona, risolvi) {
+            if (!inc || !persona) return false;
+            const x = (risolvi || risolutorePersone())(String(inc.qualita || '').trim());
+            return !!x && x.id === persona.id;
+        },
+        /* Gli incarichi dell'anno che l'utente vede (vedi il profilo in testa). */
         incarichiPerAnno(anno) {
+            const prof = cqProfilo();
+            if (!prof) return [];
             let lista = Incarichi.visibili().filter(i => this.incaricoInAnno(i, anno));
-            if (!this.vedeTutti()) {
-                const p = Auth.personaCorrente();
-                if (!p) return [];
+            if (!prof.tutti) {
                 const risolvi = risolutorePersone();
-                lista = lista.filter(i => { const x = risolvi(String(i.qualita || '').trim()); return !!x && x.id === p.id; });
+                lista = lista.filter(i => this.eResponsabileQualita(i, prof.persona, risolvi));
             }
             return lista.slice().sort((a, b) => String(a.cliente || '').localeCompare(String(b.cliente || ''), 'it'));
         },
         vedeIncarico(inc, anno) { return !!inc && this.incarichiPerAnno(anno).some(i => i.id === inc.id); },
+        /* Scrittura sulla scheda di UN incarico: il ruolo deve avere la scrittura
+           e la persona deve essere il responsabile della qualita di quell'incarico
+           (amministratore e titolare: sempre). */
+        puoModificare(inc) {
+            if (!Auth.puoScrivere('controlloQualita')) return false;
+            const prof = cqProfilo();
+            if (!prof) return false;
+            if (prof.admin) return true;
+            return this.eResponsabileQualita(inc, prof.persona);
+        },
         /* ---- scrittura ---- */
         /* Unico punto di scrittura: crea la scheda dell'anno al primo salvataggio
            (niente record vuoti per chi entra solo a guardare), applica la
@@ -11853,9 +11925,9 @@
            nel Registro con l'esito: la storia della scheda le mostra insieme alle
            modifiche. Ne restano le ultime 100. */
         registraEmail(inc, anno, utente, rec) {
-            const voce = { id: uid(), ts: Date.now(), da: cqFirma(utente), tipo: rec.tipo, a: rec.a || [], oggetto: rec.oggetto || '', testo: rec.testo || '', esito: rec.esito, msg: rec.msg || '' };
+            const voce = { id: uid(), ts: Date.now(), da: cqFirma(utente), tipo: rec.tipo, a: rec.a || [], cc: rec.cc || '', oggetto: rec.oggetto || '', testo: rec.testo || '', esito: rec.esito, msg: rec.msg || '' };
             const azione = (rec.esito === 'inviata' ? 'Email inviata: ' : 'Email non inviata: ') + (rec.tipo === 'sospensione' ? 'richiesta di sospensione del compenso' : 'riepilogo al team di revisione');
-            const dett = 'A: ' + (voce.a.length ? voce.a.join(', ') : 'nessuno') + ' · Oggetto: ' + voce.oggetto + (voce.msg ? ' · ' + voce.msg : '');
+            const dett = 'A: ' + (voce.a.length ? voce.a.join(', ') : 'nessuno') + (voce.cc ? ' · In copia: ' + voce.cc : '') + ' · Oggetto: ' + voce.oggetto + (voce.msg ? ' · ' + voce.msg : '');
             return this.aggiorna(inc, anno, utente, azione, dett, s => { s.email.push(voce); if (s.email.length > 100) s.email = s.email.slice(-100); });
         }
     };
@@ -11866,6 +11938,7 @@
     }
     /* il solo nome da un timbro "Nome <email>": nell'elenco l'email e' rumore */
     function cqSoloNome(da) { const s = String(da || ''); const i = s.indexOf(' <'); return i > 0 ? s.slice(0, i) : s; }
+    function cqNomePersona(p, altrimenti) { return p ? ((p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome) : (altrimenti || ''); }
     /* Le persone del team di revisione dell'incarico, con l'email della loro
        scheda in Aderenti Revilaw (se c'e'): sono i destinatari del riepilogo. */
     function cqPersoneTeam(inc) {
@@ -11874,22 +11947,25 @@
         return dividiNomi(inc.team).map(n => {
             const p = risolvi(n);
             const email = p && p.email ? String(p.email).trim().toLowerCase() : '';
-            const nome = p ? ((p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome) : n;
             if (email && viste.has(email)) return null;
             if (email) viste.add(email);
-            return { nome, email };
+            return { nome: cqNomePersona(p, n), email };
         }).filter(Boolean);
     }
     function cqPersonaResp(inc) {
         const p = risolutorePersone()(String(inc.respIncarico || '').trim());
-        return { nome: p ? ((p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome) : (inc.respIncarico || ''), email: p && p.email ? String(p.email).trim().toLowerCase() : '' };
+        return { nome: cqNomePersona(p, inc.respIncarico), email: p && p.email ? String(p.email).trim().toLowerCase() : '' };
     }
     /* Invio vero e proprio: passa dal servizio delle Comunicazioni (solo con
-       l'accesso protetto attivo). Ritorna {ok, msg}. */
-    async function cqInviaMail(oggetto, html, emails) {
+       l'accesso protetto attivo). Chi invia va sempre in copia: il servizio,
+       con piu' destinatari, mette il mittente come destinatario visibile e gli
+       altri in copia nascosta. Ritorna {ok, msg}. */
+    async function cqInviaMail(oggetto, html, emails, utente) {
+        const mio = String((utente && utente.email) || '').toLowerCase();
+        const tutti = Array.from(new Set((emails || []).map(e => String(e).toLowerCase()).concat(mio ? [mio] : [])));
         if (!emails || !emails.length) return { ok: false, msg: 'nessun indirizzo email' };
         if (typeof Cloud === 'undefined' || !Cloud.attivo) return { ok: false, msg: 'servizio email disponibile solo con l\'accesso protetto attivo' };
-        const esito = await Cloud.inviaComunicazione(oggetto, html, datiDestinatari(emails), 'html');
+        const esito = await Cloud.inviaComunicazione(oggetto, html, datiDestinatari(tutti), 'html');
         if (!esito || !esito.ok) return { ok: false, msg: (esito && esito.msg) || 'invio non riuscito' };
         if (esito.falliti && esito.falliti.length) return { ok: false, msg: 'rifiutati: ' + esito.falliti.map(f => (f && f.email) || f).join(', ') };
         return { ok: true };
@@ -11904,9 +11980,29 @@
             + righe.map(r => { const s = cqStatoRiga(r.stato) || { nome: '', classe: '' }; return '<tr><td style="padding:4px 12px 4px 0;color:#0A2844;">' + esc(r.etichetta || '') + '</td><td style="padding:4px 0;font-weight:bold;color:' + (colore[s.classe] || '#0A2844') + ';">' + esc(s.nome) + '</td></tr>'; }).join('')
             + '</table>';
     }
+    /* Il blocco "ultimo avanzamento" delle email: attivita' con lo stato, cose
+       da fare ancora aperte, eventuale richiesta di sospensione. Le note
+       interne e i tempi restano nella scheda. */
+    function cqBloccoAvanzamentoMail(avz) {
+        if (!avz) return pMail('<em>Nessun avanzamento registrato.</em>');
+        const daFare = avz.todo.filter(t => !t.fatto && t.testo);
+        return pMail('<strong>Ultimo avanzamento al ' + esc(fmtData(avz.data)) + '</strong>')
+            + cqTabellaAttivitaMail(avz)
+            + (daFare.length ? pMail('<strong>Da fare</strong>') + '<ul style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#0A2844;margin:0 0 12px;padding-left:20px;">' + daFare.map(t => '<li>' + esc(t.testo) + '</li>').join('') + '</ul>' : '')
+            + (avz.sospensione === 'si' ? pMail('Per questo avanzamento è stata <strong>richiesta la sospensione del compenso trimestrale</strong>.') : '');
+    }
     function cqFirmaMail(utente) {
         return pMail('Cordiali saluti,<br><strong>' + esc(utente.nome || '') + '</strong><br>Responsabile qualità - Revilaw S.p.A.<br>'
             + '<a href="mailto:' + esc(utente.email) + '" style="color:#164068;">' + esc(utente.email) + '</a>');
+    }
+    function cqTabellaIncaricoMail(inc, anno, righeExtra) {
+        return tabellaMail([
+            ['Incarico', '<strong>' + esc(inc.cliente || '') + '</strong>'],
+            ['Anno di riferimento', esc(String(anno))],
+            ['Team di revisione', esc(inc.team || '')],
+            ['Responsabile incarico', esc(inc.respIncarico || '')],
+            ['Responsabile qualità', esc(inc.qualita || '')]
+        ].concat(righeExtra || []));
     }
     /* Corpo della richiesta di sospensione del compenso al responsabile incarico. */
     function cqMailSospensione(inc, anno, avz, utente) {
@@ -11914,42 +12010,28 @@
         return senzaTrattiniLunghi(
             pMail('Gentile ' + esc(resp.nome || 'collega') + ',')
             + pMail('nell\'ambito del <strong>controllo di qualità</strong> sull\'incarico <strong>' + esc(inc.cliente || '') + '</strong>'
-                + ' (anno di riferimento ' + esc(String(anno)) + ', avanzamento al ' + esc(fmtData(avz.data)) + ') si richiede la '
+                + ' (anno di riferimento ' + esc(String(anno)) + ') si richiede la '
                 + '<strong>sospensione del compenso trimestrale</strong>, in attesa del completamento delle attività di seguito indicate.')
-            + tabellaMail([
-                ['Incarico', '<strong>' + esc(inc.cliente || '') + '</strong>'],
-                ['Team di revisione', esc(inc.team || '')],
-                ['Responsabile incarico', esc(inc.respIncarico || '')],
-                ['Responsabile qualità', esc(inc.qualita || '')],
-                ['Avanzamento al', esc(fmtData(avz.data))]
-            ])
-            + cqTabellaAttivitaMail(avz)
+            + cqTabellaIncaricoMail(inc, anno)
+            + cqBloccoAvanzamentoMail(avz)
             + pMail('La richiesta è registrata nella scheda dei controlli di qualità dell\'area riservata.')
             + cqFirmaMail(utente));
     }
-    /* Corpo del riepilogo al team di revisione. */
+    /* Corpo del riepilogo al team di revisione: prima i controlli per area,
+       poi l'ultimo avanzamento. */
     function cqMailRiepilogo(inc, anno, scheda, avz, intro, utente) {
+        const colore = { verde: '#1E7F4F', ambra: '#9A6700', rosso: '#B3261E' };
         const aree = tabellaMail(CQ_AREE.map(a => {
             const v = scheda ? scheda[a.id] : { check: '', commento: '' };
             const c = cqCheck(v.check);
-            const colore = { verde: '#1E7F4F', ambra: '#9A6700', rosso: '#B3261E' };
             return ['Check ' + a.nome, '<strong style="color:' + (c ? colore[c.classe] : '#475569') + ';">' + esc(c ? c.nome : 'Da valutare') + '</strong>' + (v.commento ? ' - ' + esc(v.commento) : '')];
         }));
-        const daFare = avz ? avz.todo.filter(t => !t.fatto && t.testo) : [];
         return senzaTrattiniLunghi(
             pMail('Gentile team,')
             + pMail(esc(intro || '').replace(/\n/g, '<br>'))
-            + tabellaMail([
-                ['Incarico', '<strong>' + esc(inc.cliente || '') + '</strong>'],
-                ['Anno di riferimento', esc(String(anno))],
-                ['Team di revisione', esc(inc.team || '')],
-                ['Responsabile incarico', esc(inc.respIncarico || '')],
-                ['Responsabile qualità', esc(inc.qualita || '')],
-                ['Avanzamento al', avz ? esc(fmtData(avz.data)) : '']
-            ])
-            + (avz ? pMail('<strong>Stato delle attività</strong>') + cqTabellaAttivitaMail(avz) : '')
+            + cqTabellaIncaricoMail(inc, anno)
             + pMail('<strong>Riepilogo dei controlli per area</strong>') + aree
-            + (daFare.length ? pMail('<strong>Da fare</strong>') + '<ul style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#0A2844;margin:0 0 12px;padding-left:20px;">' + daFare.map(t => '<li>' + esc(t.testo) + '</li>').join('') + '</ul>' : '')
+            + cqBloccoAvanzamentoMail(avz)
             + cqFirmaMail(utente));
     }
 
@@ -11958,57 +12040,62 @@
        In testa l'anno di riferimento (schede 2025, 2026, ... con il pulsante
        per aggiungere il successivo). Una riga per incarico dell'anno:
        societa', responsabile qualita, team, i tre semafori con i commenti
-       (ripresi dalla scheda) e l'ultimo aggiornamento con il suo autore.
-       La riga apre la scheda di monitoraggio del cliente per quell'anno.
+       (ripresi dalla scheda), il tempo qualita dell'anno e l'ultimo
+       aggiornamento con il suo autore. La riga apre la scheda del cliente.
     ========================================================= */
     function vistaControlliQualita() {
-        const vedeTutti = ControlliQualita.vedeTutti();
+        const prof = cqProfilo();
+        if (!prof) { naviga(primaVistaVisibile() || 'dashboard'); return; }
         const anni = ControlliQualita.anni();
         if (!cqAnno || !anni.includes(cqAnno)) cqAnno = ControlliQualita.annoPredefinito();
         const incs = ControlliQualita.incarichiPerAnno(cqAnno);
-        const senzaScheda = !vedeTutti && !Auth.personaCorrente();
         const puoScrivere = Auth.puoScrivere('controlloQualita');
+        const risolvi = risolutorePersone();
         const schede = {};
         ControlliQualita.schede().forEach(s => { if (Number(s.anno) === cqAnno) schede[s.incaricoId] = s; });
+        const minutiTotali = incs.reduce((tot, i) => tot + cqMinutiScheda(schede[i.id]), 0);
+        const perimetro = prof.admin
+            ? 'Il quadro dei controlli di qualità su tutti gli incarichi.'
+            : prof.equity
+                ? 'Come equity partner vedi <strong>tutti</strong> gli incarichi; puoi modificare solo quelli in cui sei <strong>responsabile della qualità</strong>, gli altri sono in sola visualizzazione.'
+                : 'Gli incarichi in cui sei <strong>responsabile della qualità</strong>.';
 
         $vista().innerHTML = `
             <header>
                 <div>
                     <h1>Controlli qualità</h1>
-                    <p class="descrizione">${vedeTutti
-                ? 'Il quadro dei controlli di qualità su tutti gli incarichi.'
-                : 'Gli incarichi in cui sei <strong>responsabile della qualità</strong>.'}
-                    Scegli l'<strong>anno di riferimento</strong>: compaiono gli incarichi in essere in quell'anno o con scadenza nel suo corso (chi è scaduto l'anno prima senza rinnovo non c'è; chi è stato rinnovato continua). Semafori e commenti arrivano dalla scheda di ogni cliente; l'aggiornamento è l'ultima modifica registrata, con il suo autore.</p>
+                    <p class="descrizione">${perimetro}
+                    Scegli l'<strong>anno di riferimento</strong>: compaiono gli incarichi in essere in quell'anno o con scadenza nel suo corso (chi è scaduto l'anno prima senza rinnovo non c'è; chi è stato rinnovato continua). Semafori e commenti arrivano dalla scheda di ogni cliente; il tempo qualità è la somma dei tempi registrati nell'anno; l'aggiornamento è l'ultima modifica, con il suo autore.</p>
                 </div>
             </header>
             <div class="tab-dest cq-anni" style="margin-bottom:16px;">
                 ${anni.map(a => `<button class="tab-btn ${a === cqAnno ? 'attivo' : ''}" data-cqanno="${a}">${a}</button>`).join('')}
                 ${puoScrivere ? `<button class="btn btn-sm btn-secondary" id="cq-aggiungi-anno" title="Apre l'anno ${anni[anni.length - 1] + 1}">+ Aggiungi anno</button>` : ''}
             </div>
-            ${senzaScheda ? `<div class="card" style="border-left:4px solid var(--rosso);">
-                <p class="descrizione" style="margin:0;">Il tuo indirizzo email non risulta su alcuna scheda in <strong>Aderenti Revilaw</strong>: senza quel collegamento il programma non può sapere di quali incarichi sei responsabile della qualità. Chiedi all'amministratore di completare la tua scheda.</p>
-            </div>` : ''}
-            ${!senzaScheda && !incs.length ? `<div class="card"><p class="tabella-vuota">${vedeTutti
+            ${!incs.length ? `<div class="card"><p class="tabella-vuota">${prof.tutti
                 ? 'Nessun incarico in essere nel ' + cqAnno + '.'
                 : 'Nessun incarico in essere nel ' + cqAnno + ' in cui risulti responsabile della qualità.'}</p></div>` : ''}
             ${incs.length ? `<div class="card">
-                <h2>Controlli ${cqAnno} <span class="hint" style="font-weight:normal;">(${incs.length} incarichi)</span></h2>
+                <h2>Controlli ${cqAnno} <span class="hint" style="font-weight:normal;">(${incs.length} incarichi · tempo qualità complessivo <strong id="cq-tempo-totale">${esc(cqFmtMinuti(minutiTotali))}</strong>)</span></h2>
                 <div class="tabella-wrap"><table class="dati a-schede" id="tabella-cq"><thead><tr>
                     <th>Società</th><th>Resp. qualità</th><th>Team di revisione</th>
                     ${CQ_AREE.map(a => '<th>Check ' + esc(a.nome) + '</th><th>Commento</th>').join('')}
-                    <th>Aggiornamento</th><th></th>
+                    <th>Tempo qualità</th><th>Aggiornamento</th><th></th>
                 </tr></thead><tbody>
                 ${incs.map(i => {
                     const s = schede[i.id];
                     const agg = s ? (s.modificato || s.creato) : null;
+                    const modificabile = puoScrivere && (prof.admin || ControlliQualita.eResponsabileQualita(i, prof.persona, risolvi));
+                    const min = cqMinutiScheda(s);
                     return `<tr class="cliccabile" data-apri="${esc(i.id)}">
                         <td class="cliente-cella" data-label="Società">${esc(i.cliente || '')}</td>
                         <td data-label="Resp. qualità">${esc(i.qualita || '')}</td>
                         <td data-label="Team">${esc(i.team || '')}</td>
                         ${CQ_AREE.map(a => `<td data-label="Check ${esc(a.nome)}">${cqBadgeCheck(s && s[a.id].check)}</td>
                         <td data-label="Commento">${esc(troncaTesto((s && s[a.id].commento) || '', 90))}</td>`).join('')}
+                        <td data-label="Tempo qualità" class="cq-num">${min ? esc(cqFmtMinuti(min)) : '<span class="hint">-</span>'}</td>
                         <td data-label="Aggiornamento">${agg ? esc(fmtGiorno(agg.il)) + '<div class="hint">di ' + esc(cqSoloNome(agg.da)) + '</div>' : '<span class="hint">mai</span>'}</td>
-                        <td data-label=""><button class="btn btn-sm btn-secondary" data-apri-scheda="${esc(i.id)}">Apri scheda</button></td>
+                        <td data-label=""><button class="btn btn-sm btn-secondary" data-apri-scheda="${esc(i.id)}" title="${modificabile ? 'Apre la scheda in scrittura' : 'Apre la scheda in sola visualizzazione'}">${modificabile ? 'Apri scheda' : 'Vedi scheda'}</button></td>
                     </tr>`;
                 }).join('')}
                 </tbody></table></div>
@@ -12058,7 +12145,7 @@
                 return `<div class="cq-storia-voce tipo-email" data-tipo="email">
                     <span class="ora">${ora}</span>${badge.email}
                     <div class="corpo"><span class="chi">${esc(v.chi)}</span> ${m.esito === 'inviata' ? 'ha inviato' : 'non è riuscito a inviare'} ${m.tipo === 'sospensione' ? 'la <strong>richiesta di sospensione del compenso</strong>' : 'il <strong>riepilogo al team di revisione</strong>'}
-                        <div class="campi">A: ${esc(m.a.length ? m.a.join(', ') : 'nessun destinatario')} · Oggetto: ${esc(m.oggetto)}${m.msg ? ' · <span class="cq-esito-ko">' + esc(m.msg) + '</span>' : ''}</div>
+                        <div class="campi">A: ${esc(m.a.length ? m.a.join(', ') : 'nessun destinatario')}${m.cc ? ' · In copia: ' + esc(m.cc) : ''} · Oggetto: ${esc(m.oggetto)}${m.msg ? ' · <span class="cq-esito-ko">' + esc(m.msg) + '</span>' : ''}</div>
                         <button class="btn btn-sm btn-ghost cq-vedi-email" data-email="${esc(m.id)}">Vedi testo</button>
                     </div>
                 </div>`;
@@ -12084,19 +12171,21 @@
     /* =========================================================
        VISTA: SCHEDA CONTROLLO QUALITA' DI UN INCARICO (per anno)
        In testa i dati dell'incarico; poi un blocco per ogni "Avanzamento
-       al ...": le attivita' con lo stato a semaforo, il tempo qualita, le
-       note interne, le cose da fare e la richiesta di sospensione del
-       compenso (che parte come email al responsabile incarico, previa
-       conferma). Sotto, il riepilogo dei controlli per area (ripreso
-       dall'elenco) e la storia con modifiche ed email. Ogni modifica si
-       salva subito e finisce nel Registro con autore, data e campi variati.
+       al ...": le attivita' con lo stato a semaforo, il tempo qualita in
+       ore e minuti, le note interne, le cose da fare e la richiesta di
+       sospensione del compenso (che parte come email al responsabile
+       incarico, previa conferma). Sotto, il riepilogo dei controlli per
+       area (ripreso dall'elenco), il riepilogo dei tempi e la storia con
+       modifiche ed email. Ogni modifica si salva subito e finisce nel
+       Registro con autore, data e campi variati.
     ========================================================= */
     function vistaControlloQualitaScheda() {
         const inc = parametriVista && parametriVista.id ? Incarichi.trova(parametriVista.id) : null;
         const anno = Number((parametriVista && parametriVista.anno) || cqAnno || ControlliQualita.annoPredefinito());
         if (!inc || !ControlliQualita.vedeIncarico(inc, anno)) { naviga('controlloQualita'); return; }
         cqAnno = anno;
-        const puoScrivere = Auth.puoScrivere('controlloQualita');
+        const prof = cqProfilo();
+        const puoScrivere = ControlliQualita.puoModificare(inc);
         const scheda = ControlliQualita.perIncarico(inc.id, anno);
         const avanzamenti = scheda ? scheda.avanzamenti : [];
         const storia = scheda ? Store.leggi(CHIAVI.audit, []).filter(v => v.rif === scheda.id) : [];
@@ -12105,6 +12194,7 @@
 
         const agg = scheda ? (scheda.modificato || scheda.creato) : null;
         const resp = cqPersonaResp(inc);
+        const utente = Auth.utenteCorrente;
         const selCheck = (id, valore) => `<select id="${id}" class="cq-sel ${(cqCheck(valore) || {}).classe || 'neutro'}"${puoScrivere ? '' : ' disabled'}>
             <option value=""${valore ? '' : ' selected'}>Da valutare</option>
             ${CQ_CHECK.map(c => `<option value="${c.id}"${valore === c.id ? ' selected' : ''}>${esc(c.opzione)}</option>`).join('')}
@@ -12118,6 +12208,16 @@
                 ? `<textarea id="cq-commento-${a.id}" rows="3" placeholder="Commento per l'elenco (es. svolta al 95% ma errore sulla materialità...)">${esc(v.commento)}</textarea>`
                 : '<p class="descrizione" style="margin-top:8px;">' + (v.commento ? esc(v.commento) : '<span class="hint">Nessun commento.</span>') + '</p>'}
         </div>`;
+        };
+        const rigaTempo = t => {
+            const min = Number(t.minuti) || 0;
+            return `<tr data-tempo="${esc(t.id)}">
+                <td class="cq-tempo-cella">${puoScrivere
+                    ? `<input type="number" min="0" max="999" class="cq-tempo-ore" value="${Math.floor(min / 60)}" aria-label="Ore"><span class="cq-tempo-unita">h</span> <input type="number" min="0" max="59" step="5" class="cq-tempo-min" value="${min % 60}" aria-label="Minuti"><span class="cq-tempo-unita">min</span>`
+                    : esc(cqFmtMinuti(min))}</td>
+                <td>${puoScrivere ? `<input type="text" class="cq-tempo-attivita" placeholder="Es. controllo delle carte di lavoro" value="${esc(t.attivita || '')}">` : esc(t.attivita || '')}</td>
+                ${puoScrivere ? '<td class="cq-cella-togli"><button class="btn btn-sm btn-ghost cq-tempo-togli" title="Togli questa riga">&#10005;</button></td>' : ''}
+            </tr>`;
         };
 
         const bloccoAvz = a => `<div class="card cq-avz" data-avz="${esc(a.id)}">
@@ -12143,13 +12243,9 @@
                 </div>
                 <div>
                     <h4 class="cq-sotto">Tempo qualità</h4>
-                    <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th style="width:120px;">Tempo</th><th>Attività</th>${puoScrivere ? '<th></th>' : ''}</tr></thead><tbody>
-                    ${a.tempi.length ? a.tempi.map(t => `<tr data-tempo="${esc(t.id)}">
-                        <td>${puoScrivere ? `<input type="time" step="1" class="cq-tempo-durata" value="${esc(t.durata || '')}">` : esc(t.durata || '')}</td>
-                        <td>${puoScrivere ? `<input type="text" class="cq-tempo-attivita" placeholder="Es. controllo delle carte di lavoro" value="${esc(t.attivita || '')}">` : esc(t.attivita || '')}</td>
-                        ${puoScrivere ? '<td class="cq-cella-togli"><button class="btn btn-sm btn-ghost cq-tempo-togli" title="Togli questa riga">&#10005;</button></td>' : ''}
-                    </tr>`).join('') : `<tr class="cq-vuota"><td colspan="${puoScrivere ? 3 : 2}"><span class="hint">Nessun tempo registrato.</span></td></tr>`}
-                    </tbody></table></div>
+                    <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th style="width:190px;">Tempo (ore e minuti)</th><th>Attività</th>${puoScrivere ? '<th></th>' : ''}</tr></thead><tbody>
+                    ${a.tempi.length ? a.tempi.map(rigaTempo).join('') : `<tr class="cq-vuota"><td colspan="${puoScrivere ? 3 : 2}"><span class="hint">Nessun tempo registrato.</span></td></tr>`}
+                    </tbody>${a.tempi.length ? `<tfoot><tr class="cq-tot"><td class="cq-tempo-totale-avz">${esc(cqFmtMinuti(cqMinutiAvz(a)))}</td><td colspan="${puoScrivere ? 2 : 1}">Totale di questo avanzamento</td></tr></tfoot>` : ''}</table></div>
                     ${puoScrivere ? '<button class="btn btn-sm btn-secondary cq-tempo-aggiungi" style="margin-top:8px;">+ Aggiungi tempo</button>' : ''}
 
                     <h4 class="cq-sotto" style="margin-top:16px;">Note interne qualità</h4>
@@ -12174,24 +12270,28 @@
                             <option value="si"${a.sospensione === 'si' ? ' selected' : ''}>Sì</option>
                             <option value="no"${a.sospensione === 'no' ? ' selected' : ''}>No</option>
                         </select>
-                        <p class="hint" style="margin:6px 0 0;">Con <strong>Sì</strong> parte in automatico una email di richiesta ${resp.nome ? 'a ' + esc(resp.nome) : 'al responsabile incarico'}${resp.email ? ' (' + esc(resp.email) + ')' : ' <span class="cq-esito-ko">(nessun indirizzo email sulla sua scheda in Aderenti Revilaw)</span>'}, firmata da chi sta facendo il controllo.</p>
+                        <p class="hint" style="margin:6px 0 0;">${ICO_EMAIL}Con <strong>Sì</strong> parte in automatico una email di richiesta ${resp.nome ? 'a ' + esc(resp.nome) : 'al responsabile incarico'}${resp.email ? ' (' + esc(resp.email) + ')' : ' <span class="cq-esito-ko">(nessun indirizzo email sulla sua scheda in Aderenti Revilaw)</span>'}, firmata da chi sta facendo il controllo e con lui in copia.</p>
                     </div>
                 </div>
             </div>
         </div>`;
 
+        const minutiTot = cqMinutiScheda(scheda);
         $vista().innerHTML = `
             <header>
                 <div>
                     <a id="cq-torna" style="display:inline-block;cursor:pointer;font-size:0.85rem;color:var(--blu-500);margin-bottom:4px;">&#8592; Torna a Controlli qualità ${anno}</a>
                     <h1>${esc(inc.cliente)}</h1>
-                    <p class="descrizione"><span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span> <span class="badge legale">Controlli ${anno}</span> Scheda di monitoraggio dei controlli di qualità</p>
+                    <p class="descrizione"><span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span> <span class="badge legale">Controlli ${anno}</span> ${puoScrivere ? '' : '<span class="badge ambra">Sola visualizzazione</span> '}Scheda di monitoraggio dei controlli di qualità</p>
                 </div>
                 <div class="header-azioni">
-                    ${puoScrivere ? '<button class="btn btn-secondary" id="cq-riepilogo-team" title="Prepara l\'email di riepilogo per il team di revisione">Riepilogo al team</button>' : ''}
+                    ${puoScrivere ? '<button class="btn btn-secondary" id="cq-riepilogo-team" title="Prepara e invia l\'email di riepilogo al team di revisione">' + ICO_EMAIL + 'Invia email di riepilogo al team</button>' : ''}
                     ${puoScrivere ? '<button class="btn btn-primary" id="cq-nuovo-avz">+ Nuovo avanzamento</button>' : ''}
                 </div>
             </header>
+            ${!puoScrivere && prof && !prof.admin ? `<div class="card" style="border-left:4px solid var(--ambra);">
+                <p class="descrizione" style="margin:0;"><strong>Sola visualizzazione.</strong> Il responsabile della qualità di questo incarico è <strong>${esc(inc.qualita || 'non indicato')}</strong>: puoi modificare solo le schede degli incarichi in cui il responsabile della qualità sei tu.</p>
+            </div>` : ''}
             <div class="card">
                 <h2>Incarico</h2>
                 <div class="riepilogo-blocco">
@@ -12211,6 +12311,14 @@
                 <div class="cq-riepilogo-griglia">
                     ${CQ_AREE.map(areaRiepilogo).join('')}
                 </div>
+            </div>
+            <div class="card" id="cq-tempi">
+                <h2>Riepilogo dei tempi ${anno}</h2>
+                <p class="descrizione">Il tempo qualità registrato in ogni avanzamento e il totale dell'anno, che compare anche nell'elenco.</p>
+                ${avanzamenti.length ? `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Avanzamento</th><th class="cq-num">Righe di tempo</th><th class="cq-num">Tempo qualità</th></tr></thead><tbody>
+                    ${avanzamenti.map(a => `<tr><td>Avanzamento al ${a.data ? esc(fmtData(a.data)) : '...'}</td><td class="cq-num">${a.tempi.length}</td><td class="cq-num">${esc(cqFmtMinuti(cqMinutiAvz(a)))}</td></tr>`).join('')}
+                    </tbody><tfoot><tr class="cq-tot"><td>Totale ${anno}</td><td class="cq-num">${avanzamenti.reduce((n, a) => n + a.tempi.length, 0)}</td><td class="cq-num" id="cq-tempo-totale-scheda">${esc(cqFmtMinuti(minutiTot))}</td></tr></tfoot></table></div>`
+                : '<p class="tabella-vuota">Nessun tempo registrato.</p>'}
             </div>
             <div class="card" id="cq-storia">
                 <h2>Storia della scheda</h2>
@@ -12235,6 +12343,7 @@
                     ${rigaRiepilogo('Inviata il', fmtDataOra(m.ts))}
                     ${rigaRiepilogo('Da', m.da)}
                     ${rigaRiepilogo('A', m.a.length ? m.a.join(', ') : 'nessun destinatario')}
+                    ${rigaRiepilogo('In copia', m.cc || '')}
                     ${rigaRiepilogo('Esito', m.esito === 'inviata' ? 'inviata' : 'non inviata' + (m.msg ? ' (' + m.msg + ')' : ''))}
                 </div>
                 <div class="cq-email-anteprima">${m.testo}</div>
@@ -12245,7 +12354,6 @@
         if (!puoScrivere) return;
 
         /* --- da qui in poi solo scrittura: ogni cambio si salva subito --- */
-        const utente = Auth.utenteCorrente;
         const salva = (azione, dettagli, mutatore) => ControlliQualita.aggiorna(inc, anno, utente, azione, dettagli, mutatore);
         const aggiornaTimbro = s => {
             const el = document.getElementById('cq-timbro');
@@ -12299,7 +12407,7 @@
             ridisegna();
         });
 
-        // riepilogo al team di revisione
+        // email di riepilogo al team di revisione
         document.getElementById('cq-riepilogo-team').addEventListener('click', () => cqModaleRiepilogoTeam(inc, anno, utente, ridisegna));
 
         // blocchi di avanzamento
@@ -12308,6 +12416,12 @@
             const trovaAvz = () => { const pv = schedaFresca(); return pv ? pv.avanzamenti.find(v => v.id === avzId) : null; };
             const conAvz = fn => x => { const a = x.avanzamenti.find(v => v.id === avzId); if (a) fn(a); };
             const etichettaAvz = () => { const a = trovaAvz(); return a && a.data ? 'Avanzamento al ' + fmtData(a.data) : 'Avanzamento'; };
+            // i totali dei tempi (blocco, scheda, riepilogo) si aggiornano senza ridisegnare
+            const aggiornaTotali = () => {
+                const a = trovaAvz(); const s = schedaFresca();
+                const tAvz = card.querySelector('.cq-tempo-totale-avz'); if (tAvz && a) tAvz.textContent = cqFmtMinuti(cqMinutiAvz(a));
+                const tSch = document.getElementById('cq-tempo-totale-scheda'); if (tSch) tSch.textContent = cqFmtMinuti(cqMinutiScheda(s));
+            };
 
             const dataEl = card.querySelector('.cq-avz-data');
             if (dataEl) dataEl.addEventListener('change', () => {
@@ -12376,20 +12490,25 @@
                 ridisegna();
             });
 
-            // tempo qualita
+            // tempo qualita: ore e minuti, salvati come minuti
             card.querySelectorAll('tr[data-tempo]').forEach(tr => {
                 const tempoId = tr.dataset.tempo;
                 const trovaTempo = () => { const a = trovaAvz(); return a ? a.tempi.find(v => v.id === tempoId) : null; };
                 const conTempo = fn => conAvz(a => { const t = a.tempi.find(v => v.id === tempoId); if (t) fn(t); });
-                const inDurata = tr.querySelector('.cq-tempo-durata');
-                if (inDurata) inDurata.addEventListener('change', () => {
-                    const t0 = trovaTempo(); const prima = t0 ? t0.durata : '';
-                    const dopo = inDurata.value;
+                const inOre = tr.querySelector('.cq-tempo-ore'), inMin = tr.querySelector('.cq-tempo-min');
+                const salvaDurata = () => {
+                    const t0 = trovaTempo(); const prima = t0 ? (Number(t0.minuti) || 0) : 0;
+                    let ore = Math.max(0, Math.floor(Number(inOre.value) || 0)), min = Math.max(0, Math.floor(Number(inMin.value) || 0));
+                    if (min > 59) { ore += Math.floor(min / 60); min = min % 60; inOre.value = ore; inMin.value = min; }
+                    const dopo = ore * 60 + min;
                     if (dopo === prima) return;
-                    aggiornaTimbro(salva('Aggiornamento controllo qualità',
-                        [{ campo: etichettaAvz() + ' · tempo qualità', prima: prima || 'vuoto', dopo: dopo || 'vuoto' }],
-                        conTempo(t => { t.durata = dopo; })));
-                });
+                    const s = salva('Aggiornamento controllo qualità',
+                        [{ campo: etichettaAvz() + ' · tempo qualità', prima: cqFmtMinuti(prima), dopo: cqFmtMinuti(dopo) }],
+                        conTempo(t => { t.minuti = dopo; }));
+                    aggiornaTotali();
+                    aggiornaTimbro(s);
+                };
+                if (inOre && inMin) { inOre.addEventListener('change', salvaDurata); inMin.addEventListener('change', salvaDurata); }
                 const inAtt = tr.querySelector('.cq-tempo-attivita');
                 if (inAtt) inAtt.addEventListener('change', () => {
                     const t0 = trovaTempo(); const prima = t0 ? t0.attivita : '';
@@ -12409,8 +12528,10 @@
             const aggiungiTempo = card.querySelector('.cq-tempo-aggiungi');
             if (aggiungiTempo) aggiungiTempo.addEventListener('click', () => {
                 salva('Aggiornamento controllo qualità', 'Aggiunta una riga di tempo qualità a "' + etichettaAvz() + '"',
-                    conAvz(a => { a.tempi.push({ id: uid(), durata: '', attivita: '' }); }));
+                    conAvz(a => { a.tempi.push({ id: uid(), minuti: 0, attivita: '' }); }));
                 ridisegna();
+                const ultimo = $vista().querySelector('.cq-avz[data-avz="' + avzId + '"] tr[data-tempo]:last-child .cq-tempo-ore');
+                if (ultimo) ultimo.focus();
             });
 
             // note interne
@@ -12488,23 +12609,24 @@
         });
     }
 
-    /* Conferma prima di segnare "Si'": dice a chi va la mail e con quale firma.
-       Senza indirizzo del responsabile si puo' comunque registrare la richiesta
-       (la mail resta "non inviata" nella storia, cosi' non si perde). */
+    /* Conferma prima di segnare "Si'": dice a chi va la mail, chi la firma e
+       chi e' in copia. Senza indirizzo del responsabile si puo' comunque
+       registrare la richiesta (la mail resta "non inviata" nella storia). */
     function cqModaleSospensione(inc, anno, avz, utente, azioni) {
         const resp = cqPersonaResp(inc);
-        apriModale(`<h2>Richiedere la sospensione del compenso?</h2>
+        apriModale(`<h2>Inviare la richiesta di sospensione del compenso?</h2>
             <p class="descrizione" style="margin-bottom:12px;">Segnando <strong>Sì</strong> viene inviata <strong>in automatico</strong> una email di richiesta di sospensione del compenso trimestrale per l'incarico <strong>${esc(inc.cliente || '')}</strong> (avanzamento al ${esc(fmtData(avz.data))}).</p>
             <div class="riepilogo-blocco">
                 ${rigaRiepilogo('Destinatario', resp.nome + (resp.email ? ' <' + resp.email + '>' : ''))}
-                ${rigaRiepilogo('Firmata da', (utente.nome || '') + ' - responsabile qualità <' + utente.email + '>')}
-                ${rigaRiepilogo('Contenuto', 'Richiesta di sospensione con l\'elenco delle attività e il loro stato (le note interne non escono)')}
+                ${rigaRiepilogo('In copia', (utente.nome || '') + ' <' + utente.email + '>')}
+                ${rigaRiepilogo('Firmata da', (utente.nome || '') + ' - responsabile qualità')}
+                ${rigaRiepilogo('Contenuto', 'Richiesta di sospensione con l\'ultimo avanzamento: attività con lo stato e cose da fare (le note interne e i tempi non escono)')}
             </div>
             ${resp.email ? '' : '<p class="msg-errore" style="margin-top:10px;">Sulla scheda di ' + esc(resp.nome || 'questo responsabile') + ' in Aderenti Revilaw non c\'è un indirizzo email: la richiesta viene registrata nella storia come <strong>non inviata</strong>. Aggiungi l\'indirizzo e ripeti l\'operazione per farla partire.</p>'}
             ${(typeof Cloud === 'undefined' || !Cloud.attivo) ? '<p class="hint" style="margin-top:10px;">In modalità dimostrativa le email non partono davvero: la richiesta resta registrata nella storia come non inviata.</p>' : ''}
             <div class="modale-azioni">
                 <button class="btn btn-secondary" id="cq-sosp-annulla">Annulla</button>
-                <button class="btn btn-primary" id="cq-sosp-conferma">${resp.email ? 'Conferma e invia la mail' : 'Registra senza inviare'}</button>
+                <button class="btn btn-primary" id="cq-sosp-conferma">${ICO_EMAIL}${resp.email ? 'Conferma e invia l\'email a ' + esc(resp.nome) : 'Registra senza inviare'}</button>
             </div>`);
         document.getElementById('cq-sosp-annulla').addEventListener('click', () => { chiudiModale(); azioni.annulla(); });
         const btn = document.getElementById('cq-sosp-conferma');
@@ -12514,41 +12636,42 @@
         const resp = cqPersonaResp(inc);
         const oggetto = 'Richiesta di sospensione del compenso trimestrale - ' + (inc.cliente || '');
         const testo = cqMailSospensione(inc, anno, avz, utente);
-        const esito = resp.email ? await cqInviaMail(oggetto, testo, [resp.email]) : { ok: false, msg: 'indirizzo email del responsabile incarico mancante' };
-        ControlliQualita.registraEmail(inc, anno, utente, { tipo: 'sospensione', a: resp.email ? [resp.email] : [], oggetto, testo, esito: esito.ok ? 'inviata' : 'non inviata', msg: esito.ok ? '' : esito.msg });
-        toast(esito.ok ? 'Richiesta di sospensione inviata a ' + resp.nome + '.' : 'Richiesta registrata ma email non inviata: ' + esito.msg, esito.ok ? 'verde' : 'rosso');
+        const esito = resp.email ? await cqInviaMail(oggetto, testo, [resp.email], utente) : { ok: false, msg: 'indirizzo email del responsabile incarico mancante' };
+        ControlliQualita.registraEmail(inc, anno, utente, { tipo: 'sospensione', a: resp.email ? [resp.email] : [], cc: utente.email, oggetto, testo, esito: esito.ok ? 'inviata' : 'non inviata', msg: esito.ok ? '' : esito.msg });
+        toast(esito.ok ? 'Richiesta di sospensione inviata a ' + resp.nome + ' (tu in copia).' : 'Richiesta registrata ma email non inviata: ' + esito.msg, esito.ok ? 'verde' : 'rosso');
     }
 
-    /* Il riepilogo al team: si scelgono i destinatari tra le persone del team
-       di revisione (anche piu' di uno), si rivede oggetto e messaggio, e la
-       mail parte con il riepilogo generato dalla scheda. */
+    /* L'email di riepilogo al team: si scelgono i destinatari tra le persone
+       del team di revisione (anche piu' di uno), si rivedono oggetto e
+       messaggio, e la mail parte con il riepilogo generato dalla scheda e
+       l'ultimo avanzamento. Chi invia e' in copia. */
     function cqModaleRiepilogoTeam(inc, anno, utente, dopo) {
         const scheda = ControlliQualita.perIncarico(inc.id, anno);
         const avz = scheda && scheda.avanzamenti.length ? scheda.avanzamenti[scheda.avanzamenti.length - 1] : null;
         const team = cqPersoneTeam(inc);
-        const conEmail = team.filter(t => t.email);
         const oggettoIniz = 'Controllo qualità ' + (inc.cliente || '') + ': riepilogo' + (avz ? ' al ' + fmtData(avz.data) : '') + ' (' + anno + ')';
         const introIniz = 'vi invio il riepilogo del controllo di qualità sull\'incarico' + (avz ? ' aggiornato al ' + fmtData(avz.data) : '') + '. Vi chiedo di completare le attività ancora aperte e di segnalarmi eventuali difficoltà.';
-        apriModale(`<h2>Riepilogo al team di revisione</h2>
-            <p class="descrizione" style="margin-bottom:12px;">Scegli a chi mandarlo tra le persone del team di revisione (${esc(inc.team || 'nessuno indicato')}). Il riepilogo con lo stato delle attività, i check per area e le cose da fare viene generato dalla scheda; le note interne non escono.</p>
+        apriModale(`<h2>Email di riepilogo al team di revisione</h2>
+            <p class="descrizione" style="margin-bottom:12px;">${ICO_EMAIL}Scegli a chi mandare l'email tra le persone del team di revisione (${esc(inc.team || 'nessuno indicato')}); tu sei sempre in copia. Il testo è generato dalla scheda: i check per area con i commenti e l'ultimo avanzamento (attività con lo stato, cose da fare); le note interne e i tempi non escono.</p>
             <div class="campo"><label>Destinatari</label>
                 <div class="cq-destinatari">
-                ${team.length ? team.map((t, i) => `<label class="cq-dest${t.email ? '' : ' senza-email'}">
+                ${team.length ? team.map(t => `<label class="cq-dest${t.email ? '' : ' senza-email'}">
                     <input type="checkbox" class="cq-dest-chk" value="${esc(t.email)}"${t.email ? ' checked' : ' disabled'}>
                     <span>${esc(t.nome)}</span> <span class="hint">${t.email ? esc(t.email) : 'nessun indirizzo in Aderenti Revilaw'}</span>
                 </label>`).join('') : '<span class="hint">Nessuna persona indicata come team di revisione su questo incarico.</span>'}
                 </div>
             </div>
             <div class="campo"><label>Altri indirizzi (facoltativi, separati da virgola)</label><input type="text" id="cq-rt-altri" placeholder="nome@studio.it, altro@studio.it"></div>
+            <div class="campo"><label>In copia</label><input type="text" value="${esc(utente.email)}" disabled></div>
             <div class="campo"><label>Oggetto</label><input type="text" id="cq-rt-oggetto" value="${esc(oggettoIniz)}"></div>
             <div class="campo"><label>Messaggio introduttivo</label><textarea id="cq-rt-intro" rows="3">${esc(introIniz)}</textarea></div>
-            <details class="cq-rt-anteprima"><summary>Anteprima del riepilogo generato</summary><div class="cq-email-anteprima" id="cq-rt-anteprima"></div></details>
+            <details class="cq-rt-anteprima" open><summary>Anteprima dell'email (riepilogo e ultimo avanzamento)</summary><div class="cq-email-anteprima" id="cq-rt-anteprima"></div></details>
             <div class="msg-errore hidden" id="cq-rt-errore"></div>
             ${(typeof Cloud === 'undefined' || !Cloud.attivo) ? '<p class="hint" style="margin-top:10px;">In modalità dimostrativa le email non partono davvero: il riepilogo resta registrato nella storia come non inviato.</p>' : ''}
             <div class="modale-azioni">
                 <button class="btn btn-secondary" id="cq-rt-annulla">Annulla</button>
-                <button class="btn btn-primary" id="cq-rt-invia"${conEmail.length ? '' : ''}>Invia il riepilogo</button>
-            </div>`, { classe: 'larga', finestra: true, titolo: 'Riepilogo al team di revisione' });
+                <button class="btn btn-primary" id="cq-rt-invia">${ICO_EMAIL}Invia l'email</button>
+            </div>`, { classe: 'larga', finestra: true, titolo: 'Email di riepilogo al team di revisione' });
         const anteprima = () => { document.getElementById('cq-rt-anteprima').innerHTML = cqMailRiepilogo(inc, anno, scheda, avz, document.getElementById('cq-rt-intro').value, utente); };
         anteprima();
         document.getElementById('cq-rt-intro').addEventListener('input', anteprima);
@@ -12562,10 +12685,10 @@
             if (!emails.length) { err.textContent = 'Scegli almeno un destinatario con un indirizzo email.'; err.classList.remove('hidden'); return; }
             const oggetto = document.getElementById('cq-rt-oggetto').value.trim() || oggettoIniz;
             const testo = cqMailRiepilogo(inc, anno, scheda, avz, document.getElementById('cq-rt-intro').value, utente);
-            const esito = await cqInviaMail(oggetto, testo, emails);
-            ControlliQualita.registraEmail(inc, anno, utente, { tipo: 'riepilogo', a: emails, oggetto, testo, esito: esito.ok ? 'inviata' : 'non inviata', msg: esito.ok ? '' : esito.msg });
+            const esito = await cqInviaMail(oggetto, testo, emails, utente);
+            ControlliQualita.registraEmail(inc, anno, utente, { tipo: 'riepilogo', a: emails, cc: utente.email, oggetto, testo, esito: esito.ok ? 'inviata' : 'non inviata', msg: esito.ok ? '' : esito.msg });
             chiudiModale();
-            toast(esito.ok ? 'Riepilogo inviato a ' + emails.length + (emails.length === 1 ? ' destinatario.' : ' destinatari.') : 'Riepilogo registrato ma email non inviata: ' + esito.msg, esito.ok ? 'verde' : 'rosso');
+            toast(esito.ok ? 'Email di riepilogo inviata a ' + emails.length + (emails.length === 1 ? ' destinatario' : ' destinatari') + ' (tu in copia).' : 'Riepilogo registrato ma email non inviata: ' + esito.msg, esito.ok ? 'verde' : 'rosso');
             if (dopo) dopo();
         }, { testo: 'Invio…' }));
     }
@@ -12895,17 +13018,17 @@
             id: '2026-09-01-controlli-qualita',
             data: '2026-09-01',
             titolo: 'Controlli qualità: la nuova sezione per il monitoraggio dei controlli',
-            sommario: 'Nel menu c\'è la nuova sezione "Controlli qualità", organizzata per anno di riferimento (2025, 2026 e gli anni che si aggiungono). Ogni responsabile della qualità vede gli incarichi in essere nell\'anno scelto in cui è responsabile (amministratore e titolare li vedono tutti), con i semafori delle aree 1-2, 3 e 4, i commenti e l\'ultimo aggiornamento con il suo autore. Da ogni riga si apre la scheda del cliente con gli avanzamenti periodici: attività a semaforo, tempo qualità, note interne, cose da fare e richiesta di sospensione del compenso, che parte come email al responsabile incarico. Dalla scheda si manda anche il riepilogo al team di revisione. Ogni modifica e ogni email restano nella storia della scheda e nel Registro modifiche.',
-            chi: 'I responsabili della qualità; amministratore e titolare per il quadro complessivo.',
+            sommario: 'Nel menu c\'è la nuova sezione "Controlli qualità", organizzata per anno di riferimento (2025, 2026 e gli anni che si aggiungono). La vede chi in Aderenti Revilaw è responsabile qualità (i propri incarichi) o equity partner (tutti gli incarichi, in scrittura solo i propri); amministratore e titolare vedono tutto. Per ogni incarico: i semafori delle aree 1-2, 3 e 4 con i commenti, il tempo qualità dell\'anno e l\'ultimo aggiornamento con il suo autore. Da ogni riga si apre la scheda del cliente con gli avanzamenti: attività a semaforo, tempo qualità in ore e minuti, note interne, cose da fare e richiesta di sospensione del compenso, che parte come email al responsabile incarico. Dalla scheda si manda anche l\'email di riepilogo al team di revisione. Ogni modifica e ogni email restano nella storia della scheda e nel Registro modifiche.',
+            chi: 'I responsabili della qualità e gli equity partner; amministratore e titolare per il quadro complessivo.',
             dove: 'Sezione "Controlli qualità" (macroarea Qualità del menu).',
             voci: [
+                { titolo: 'Chi entra', testo: 'La sezione compare solo a chi in Aderenti Revilaw è qualificato come responsabile qualità o equity partner (oltre ad amministratore e titolare), e solo se il suo ruolo la consente in "Ruoli e permessi". Il responsabile qualità vede e modifica i soli incarichi in cui è indicato come responsabile della qualità. L\'equity partner vede tutti gli incarichi ma modifica solo i propri: sugli altri apre la scheda in sola visualizzazione. Il collegamento passa dall\'email della scheda in Aderenti Revilaw.' },
                 { titolo: 'L\'anno di riferimento', testo: 'In testa all\'elenco ci sono gli anni (si parte da 2025 e 2026; "+ Aggiungi anno" apre il successivo). Per l\'anno scelto compaiono gli incarichi in essere o con scadenza nel suo corso: chi è scaduto l\'anno prima senza rinnovo non c\'è, chi è stato rinnovato continua.' },
-                { titolo: 'L\'elenco', testo: 'Una riga per incarico: società, responsabile qualità, team di revisione, i check delle aree 1-2, 3 e 4 con i commenti, e l\'ultimo aggiornamento con chi l\'ha fatto. Ricerca, filtri per colonna ed esportazione CSV come nelle altre tabelle.' },
-                { titolo: 'La scheda del cliente', testo: 'In testa i dati dell\'incarico; poi un blocco per ogni "Avanzamento al ..." con le attività a semaforo (svolta, parzialmente svolta da sollecitare, non svolta sollecitata, completate), il tempo qualità, le note interne qualità (riservate, non escono nelle email) e le cose da fare con la spunta. Un nuovo avanzamento riparte dalle attività dell\'ultimo blocco, anche dell\'anno precedente. Sotto, il riepilogo dei controlli per area: i semafori e i commenti che l\'elenco riprende.' },
-                { titolo: 'Richiesta di sospensione del compenso', testo: 'Segnando "Sì" il programma chiede conferma e invia in automatico l\'email di richiesta al responsabile incarico (all\'indirizzo della sua scheda in Aderenti Revilaw), con l\'elenco delle attività e la firma di chi sta facendo il controllo. Se l\'indirizzo manca, la richiesta resta registrata come non inviata.' },
-                { titolo: 'Riepilogo al team', testo: 'Il pulsante "Riepilogo al team" prepara l\'email con lo stato delle attività, i check per area e le cose da fare: si scelgono i destinatari tra le persone del team di revisione (anche più di uno), si rivedono oggetto e messaggio e si invia.' },
-                { titolo: 'La storia della scheda', testo: 'Modifiche, avanzamenti ed email in un\'unica linea del tempo raggruppata per giorno, con il filtro per tipo e il testo di ogni email consultabile. Tutto passa anche dal Registro modifiche (ambito "Controlli qualità").' },
-                { titolo: 'I permessi', testo: 'La sezione compare tra i permessi di "Ruoli e permessi" (nascosta, sola lettura o scrittura). I ruoli storici ad accesso pieno la ricevono in scrittura da soli; per i ruoli su misura la apre l\'amministratore.' }
+                { titolo: 'L\'elenco', testo: 'Una riga per incarico: società, responsabile qualità, team di revisione, i check delle aree 1-2, 3 e 4 con i commenti, il tempo qualità dell\'anno (con il totale complessivo in testa) e l\'ultimo aggiornamento con chi l\'ha fatto. Ricerca, filtri per colonna ed esportazione CSV come nelle altre tabelle.' },
+                { titolo: 'La scheda del cliente', testo: 'In testa i dati dell\'incarico; poi un blocco per ogni "Avanzamento al ..." con le attività a semaforo (svolta, parzialmente svolta da sollecitare, non svolta sollecitata, completate), il tempo qualità in ore e minuti con il totale del blocco, le note interne qualità (riservate, non escono nelle email) e le cose da fare con la spunta. Un nuovo avanzamento riparte dalle attività dell\'ultimo blocco, anche dell\'anno precedente. Sotto: il riepilogo dei controlli per area (i semafori e i commenti che l\'elenco riprende) e il riepilogo dei tempi dell\'anno.' },
+                { titolo: 'Richiesta di sospensione del compenso', testo: 'Segnando "Sì" il programma chiede conferma e invia in automatico l\'email di richiesta al responsabile incarico (all\'indirizzo della sua scheda in Aderenti Revilaw), con l\'ultimo avanzamento e la firma di chi sta facendo il controllo, che riceve una copia. Se l\'indirizzo manca, la richiesta resta registrata come non inviata.' },
+                { titolo: 'Email di riepilogo al team', testo: 'Il pulsante "Invia email di riepilogo al team" prepara l\'email con i check per area e l\'ultimo avanzamento (attività con lo stato, cose da fare): si scelgono i destinatari tra le persone del team di revisione (anche più di uno), si rivedono oggetto e messaggio, si vede l\'anteprima e si invia; chi invia è in copia.' },
+                { titolo: 'La storia della scheda', testo: 'Modifiche, avanzamenti ed email in un\'unica linea del tempo raggruppata per giorno, con il filtro per tipo e il testo di ogni email consultabile. Tutto passa anche dal Registro modifiche (ambito "Controlli qualità").' }
             ]
         },
         {
@@ -24174,6 +24297,7 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         segnaAttivita();
         Persone.migraNomi(); // porta i vecchi record "nomeCompleto" ai campi nome/cognome
         Persone.migraRegioniCoordinate(); // rende esplicite le regioni coordinate di coordinatori e vice
+        Persone.migraEmailNote(); // indirizzi noti (dati-demo.js) sulle schede che ne sono prive
         document.getElementById('schermata-login').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         collegaHamburger();
