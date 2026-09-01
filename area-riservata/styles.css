@@ -2842,3 +2842,20 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .cq-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 table.dati tr.cq-tot td { font-weight: 700; background: var(--blu-050); border-top: 2px solid var(--grigio-200); }
 .cq-tempo-totale-avz { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Attività con note interne e to do apribili nella riga sotto */
+.cq-tab-attivita .cq-cella-dett { white-space: nowrap; }
+.cq-tab-attivita tr.cq-riga-aperta td { background: var(--blu-050); }
+.cq-tab-attivita tr.cq-riga-dett td { background: var(--blu-050); padding: 10px 14px 14px; border-bottom: 2px solid var(--grigio-200); }
+.cq-dett-griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 900px) { .cq-dett-griglia { grid-template-columns: 1fr; } }
+.cq-dett-griglia h5.cq-sotto { font-size: 0.76rem; margin-bottom: 6px; }
+.cq-riga-note { width: 100%; border: 1px solid var(--grigio-200); border-radius: 8px; padding: 7px 9px; resize: vertical; font-family: inherit; font-size: 0.88rem; }
+
+/* Controlli completati: la card del riepilogo e la riga in elenco si accendono di verde */
+.cq-completamento { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 18px; padding: 12px 14px; border-radius: 8px; background: var(--blu-050); border: 1px dashed var(--grigio-200); }
+.cq-card-completata { border-left: 4px solid var(--verde); }
+.cq-card-completata .cq-completamento { background: var(--verde-bg); border-color: var(--verde); color: var(--verde); }
+table.dati tr.cq-completata td { background: var(--verde-bg); }
+table.dati tr.cq-completata td.cliente-cella { border-left: 4px solid var(--verde); }
+.cq-schede .tab-btn { white-space: nowrap; }

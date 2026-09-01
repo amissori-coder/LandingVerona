@@ -11706,26 +11706,33 @@
        (2025, 2026, e i successivi che si aggiungono) e mostra gli incarichi
        in essere in quell'anno o con scadenza nel suo corso: uno scaduto
        l'anno prima e non rinnovato non compare, uno rinnovato continua.
+       L'elenco ha due schede: i controlli DA SVOLGERE (gli incarichi che
+       l'utente puo' modificare) e gli incarichi in SOLA VISUALIZZAZIONE.
        Per ogni incarico e anno c'e' UNA scheda: i blocchi "Avanzamento
-       al ..." (attivita' a semaforo, tempo qualita in ore e minuti, note
-       interne, cose da fare, richiesta di sospensione del compenso), il
-       riepilogo dei controlli - i semafori delle aree 1-2, 3 e 4 con i
-       commenti, che l'elenco riprende - e il riepilogo dei tempi.
+       al ..." (attivita' a semaforo, ognuna con le sue note interne e le
+       sue cose da fare; tempo qualita in ore e minuti; richiesta di
+       sospensione del compenso), il riepilogo dei controlli - i semafori
+       delle aree 1-2, 3 e 4 con i commenti, che l'elenco riprende, e il
+       pulsante che segna i controlli come COMPLETATI quando sono tutti
+       verdi - e il riepilogo dei tempi.
 
        CHI ENTRA (oltre al permesso del ruolo in "Ruoli e permessi"):
        - amministratore e titolare: tutti gli incarichi, in scrittura;
        - chi in Aderenti Revilaw e' EQUITY PARTNER: vede tutti gli incarichi,
          ma modifica solo quelli in cui e' lui il responsabile della qualita
-         (campo "Responsabile qualita" dell'incarico); sugli altri e' in sola
-         visualizzazione;
+         (campo "Responsabile qualita" dell'incarico); gli altri stanno nella
+         scheda "sola visualizzazione". Un equity che non e' responsabile
+         della qualita di nulla ha tutto in sola visualizzazione;
        - chi in Aderenti Revilaw e' RESPONSABILE QUALITA: vede e modifica i
          soli incarichi in cui e' il responsabile della qualita;
        - chiunque altro non vede la sezione (ne' la voce di menu).
        Il collegamento utente -> scheda passa dall'email (Auth.personaCorrente).
 
-       Le email (richiesta di sospensione al responsabile incarico, riepilogo
-       al team) partono dal servizio delle Comunicazioni, con chi le invia
-       in copia, e restano nella storia della scheda insieme alle modifiche.
+       Le email partono dal servizio delle Comunicazioni, con chi le invia in
+       copia, e restano nella storia della scheda insieme alle modifiche:
+       la richiesta di sospensione del compenso va SEMPRE allo stesso
+       destinatario (RV_DESTINATARIO_SOSPENSIONE in dati-demo.js), il
+       riepilogo al team di revisione ai destinatari scelti.
        Ogni salvataggio timbra "modificato" (chi e quando) e passa dal
        Registro modifiche con i campi variati.
     ========================================================= */
@@ -11751,20 +11758,28 @@
     const CQ_ANNI_INIZIALI = [2025, 2026];
     const CQ_ID_CONFIG = 'cq-config';   // record di configurazione dentro l'archivio (gli anni)
     const ICO_EMAIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>';
+    const ICO_SPUNTA = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5"/></svg>';
     const cqCheck = id => CQ_CHECK.find(c => c.id === id) || null;
     const cqStatoRiga = id => CQ_STATI_RIGA.find(s => s.id === id) || null;
     let cqAnno = null;   // anno di riferimento scelto nell'elenco (resta tra una vista e l'altra)
+    let cqTab = 'miei';  // scheda dell'elenco: 'miei' (da svolgere) | 'visualizzazione'
+    const cqRigheAperte = new Set();   // attivita' con note/to do aperti (restano aperti al ridisegno)
 
+    /* Il destinatario FISSO della richiesta di sospensione del compenso. */
+    function cqDestinatarioSospensione() {
+        const d = (typeof RV_DESTINATARIO_SOSPENSIONE !== 'undefined' && RV_DESTINATARIO_SOSPENSIONE) || {};
+        return { nome: d.nome || 'Pier Luigi Sterzi', email: String(d.email || 'pierluigisterzi@revilaw.it').toLowerCase() };
+    }
     /* Attivita' proposte al PRIMO avanzamento di un anno: l'esercizio in
        revisione e' l'anno di riferimento. I blocchi successivi ripartono
        dalle attivita' dell'ultimo blocco (anche dell'anno precedente, se
        l'anno nuovo e' vuoto), e ogni riga si aggiunge, rinomina o toglie. */
+    function cqRigaNuova(etichetta, stato) { return { id: uid(), etichetta: etichetta || 'Nuova attività', stato: stato || '', note: '', todo: [] }; }
     function cqRigheIniziali(anno) {
         const a = anno || annoCorrente();
         return ['Area 1', 'Area 2', 'I trimestre ' + a, 'II trimestre ' + a,
             'III trimestre ' + a, 'IV trimestre ' + a, 'Magazzino ' + a, 'Cespiti ' + a,
-            'Circo obbligatorie ' + a, 'Circo commerciali ' + a]
-            .map(et => ({ id: uid(), etichetta: et, stato: '' }));
+            'Circo obbligatorie ' + a, 'Circo commerciali ' + a].map(et => cqRigaNuova(et));
     }
     function cqOggiIso() {
         const d = new Date();
@@ -11784,6 +11799,8 @@
     }
     const cqMinutiAvz = a => (a && a.tempi || []).reduce((s, t) => s + (Number(t.minuti) || 0), 0);
     const cqMinutiScheda = s => (s && s.avanzamenti || []).reduce((tot, a) => tot + cqMinutiAvz(a), 0);
+    /* tutti e tre i check verdi: i controlli si possono segnare come completati */
+    const cqTuttoVerde = s => !!s && CQ_AREE.every(a => s[a.id] && s[a.id].check === 'verde');
 
     /* Il profilo di accesso alla sezione della persona collegata (vedi in testa).
        null = la sezione non compare. */
@@ -11803,19 +11820,25 @@
         /* Le schede vere (senza il record di configurazione), normalizzate. */
         schede() { return this.tutte().filter(s => s && !s.config).map(s => this.normalizza(s)); },
         /* La scheda salvata prima di un campo nuovo riceve i contenitori vuoti
-           al momento della lettura (stessa via difensiva del resto dell'app). */
+           al momento della lettura (stessa via difensiva del resto dell'app).
+           Le note e le cose da fare scritte a livello di blocco dalla prima
+           versione finiscono in una riga "Note generali", cosi' non si perdono. */
         normalizza(s) {
             CQ_AREE.forEach(a => { if (!s[a.id]) s[a.id] = { check: '', commento: '' }; });
             if (!Array.isArray(s.avanzamenti)) s.avanzamenti = [];
             s.avanzamenti.forEach(a => {
                 if (!Array.isArray(a.righe)) a.righe = [];
+                a.righe.forEach(r => { if (r.note == null) r.note = ''; if (!Array.isArray(r.todo)) r.todo = []; });
+                if ((a.note && String(a.note).trim()) || (Array.isArray(a.todo) && a.todo.length)) {
+                    a.righe.push({ id: uid(), etichetta: 'Note generali', stato: '', note: String(a.note || ''), todo: Array.isArray(a.todo) ? a.todo : [] });
+                }
+                delete a.note; delete a.todo;
                 if (!Array.isArray(a.tempi)) a.tempi = [];
                 a.tempi.forEach(t => { if (t.minuti == null) { t.minuti = cqMinutiDaDurata(t.durata); delete t.durata; } });
-                if (!Array.isArray(a.todo)) a.todo = [];
-                if (a.note == null) a.note = '';
                 if (a.sospensione == null) a.sospensione = '';
             });
             if (!Array.isArray(s.email)) s.email = [];
+            if (s.completato === undefined) s.completato = null;
             if (!s.anno) s.anno = annoCorrente();
             return s;
         },
@@ -11885,12 +11908,12 @@
         /* Scrittura sulla scheda di UN incarico: il ruolo deve avere la scrittura
            e la persona deve essere il responsabile della qualita di quell'incarico
            (amministratore e titolare: sempre). */
-        puoModificare(inc) {
+        puoModificare(inc, prof, risolvi) {
             if (!Auth.puoScrivere('controlloQualita')) return false;
-            const prof = cqProfilo();
+            prof = prof || cqProfilo();
             if (!prof) return false;
             if (prof.admin) return true;
-            return this.eResponsabileQualita(inc, prof.persona);
+            return this.eResponsabileQualita(inc, prof.persona, risolvi);
         },
         /* ---- scrittura ---- */
         /* Unico punto di scrittura: crea la scheda dell'anno al primo salvataggio
@@ -11903,7 +11926,7 @@
                 lista.push({
                     id: uid(), incaricoId: inc.id, anno: Number(anno), cliente: inc.cliente || '', regione: inc.regione || '',
                     area12: { check: '', commento: '' }, area3: { check: '', commento: '' }, area4: { check: '', commento: '' },
-                    avanzamenti: [], email: [],
+                    avanzamenti: [], email: [], completato: null,
                     creato: { da: cqFirma(utente), il: Date.now() },
                     modificato: null
                 });
@@ -11952,10 +11975,6 @@
             return { nome: cqNomePersona(p, n), email };
         }).filter(Boolean);
     }
-    function cqPersonaResp(inc) {
-        const p = risolutorePersone()(String(inc.respIncarico || '').trim());
-        return { nome: cqNomePersona(p, inc.respIncarico), email: p && p.email ? String(p.email).trim().toLowerCase() : '' };
-    }
     /* Invio vero e proprio: passa dal servizio delle Comunicazioni (solo con
        l'accesso protetto attivo). Chi invia va sempre in copia: il servizio,
        con piu' destinatari, mette il mittente come destinatario visibile e gli
@@ -11970,47 +11989,49 @@
         if (esito.falliti && esito.falliti.length) return { ok: false, msg: 'rifiutati: ' + esito.falliti.map(f => (f && f.email) || f).join(', ') };
         return { ok: true };
     }
-    /* Tabella HTML (email-safe) delle attivita' di un avanzamento con lo stato. */
+    /* Tabella HTML (email-safe) delle attivita' di un avanzamento: stato e cose
+       da fare ancora aperte di ogni attivita'. Le note interne non escono. */
     function cqTabellaAttivitaMail(avz) {
-        const righe = (avz && avz.righe || []).filter(r => r.stato);
+        const righe = (avz && avz.righe || []).filter(r => r.stato || r.todo.some(t => !t.fatto && t.testo));
         if (!righe.length) return pMail('<em>Nessuna attività con uno stato registrato.</em>');
         const colore = { verde: '#1E7F4F', ambra: '#9A6700', rosso: '#B3261E' };
+        const cella = 'padding:5px 12px 5px 0;vertical-align:top;color:#0A2844;';
         return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;margin:12px 0;border-collapse:collapse;">'
-            + '<tr><td style="padding:4px 12px 4px 0;color:#475569;border-bottom:1px solid #E2E8F0;">Attività</td><td style="padding:4px 0;color:#475569;border-bottom:1px solid #E2E8F0;">Stato</td></tr>'
-            + righe.map(r => { const s = cqStatoRiga(r.stato) || { nome: '', classe: '' }; return '<tr><td style="padding:4px 12px 4px 0;color:#0A2844;">' + esc(r.etichetta || '') + '</td><td style="padding:4px 0;font-weight:bold;color:' + (colore[s.classe] || '#0A2844') + ';">' + esc(s.nome) + '</td></tr>'; }).join('')
+            + '<tr><td style="padding:4px 12px 4px 0;color:#475569;border-bottom:1px solid #E2E8F0;">Attività</td><td style="padding:4px 12px 4px 0;color:#475569;border-bottom:1px solid #E2E8F0;">Stato</td><td style="padding:4px 0;color:#475569;border-bottom:1px solid #E2E8F0;">Da fare</td></tr>'
+            + righe.map(r => {
+                const s = cqStatoRiga(r.stato) || { nome: '-', classe: '' };
+                const daFare = r.todo.filter(t => !t.fatto && t.testo).map(t => esc(t.testo)).join('<br>');
+                return '<tr><td style="' + cella + '">' + esc(r.etichetta || '') + '</td><td style="' + cella + 'font-weight:bold;color:' + (colore[s.classe] || '#475569') + ';">' + esc(s.nome) + '</td><td style="padding:5px 0;vertical-align:top;color:#0A2844;">' + (daFare || '-') + '</td></tr>';
+            }).join('')
             + '</table>';
     }
-    /* Il blocco "ultimo avanzamento" delle email: attivita' con lo stato, cose
-       da fare ancora aperte, eventuale richiesta di sospensione. Le note
-       interne e i tempi restano nella scheda. */
+    /* Il blocco "ultimo avanzamento" delle email. */
     function cqBloccoAvanzamentoMail(avz) {
         if (!avz) return pMail('<em>Nessun avanzamento registrato.</em>');
-        const daFare = avz.todo.filter(t => !t.fatto && t.testo);
         return pMail('<strong>Ultimo avanzamento al ' + esc(fmtData(avz.data)) + '</strong>')
             + cqTabellaAttivitaMail(avz)
-            + (daFare.length ? pMail('<strong>Da fare</strong>') + '<ul style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#0A2844;margin:0 0 12px;padding-left:20px;">' + daFare.map(t => '<li>' + esc(t.testo) + '</li>').join('') + '</ul>' : '')
             + (avz.sospensione === 'si' ? pMail('Per questo avanzamento è stata <strong>richiesta la sospensione del compenso trimestrale</strong>.') : '');
     }
     function cqFirmaMail(utente) {
         return pMail('Cordiali saluti,<br><strong>' + esc(utente.nome || '') + '</strong><br>Responsabile qualità - Revilaw S.p.A.<br>'
             + '<a href="mailto:' + esc(utente.email) + '" style="color:#164068;">' + esc(utente.email) + '</a>');
     }
-    function cqTabellaIncaricoMail(inc, anno, righeExtra) {
+    function cqTabellaIncaricoMail(inc, anno) {
         return tabellaMail([
             ['Incarico', '<strong>' + esc(inc.cliente || '') + '</strong>'],
             ['Anno di riferimento', esc(String(anno))],
             ['Team di revisione', esc(inc.team || '')],
             ['Responsabile incarico', esc(inc.respIncarico || '')],
             ['Responsabile qualità', esc(inc.qualita || '')]
-        ].concat(righeExtra || []));
+        ]);
     }
-    /* Corpo della richiesta di sospensione del compenso al responsabile incarico. */
+    /* Corpo della richiesta di sospensione del compenso (destinatario fisso). */
     function cqMailSospensione(inc, anno, avz, utente) {
-        const resp = cqPersonaResp(inc);
+        const dest = cqDestinatarioSospensione();
         return senzaTrattiniLunghi(
-            pMail('Gentile ' + esc(resp.nome || 'collega') + ',')
+            pMail('Gentile ' + esc(dest.nome) + ',')
             + pMail('nell\'ambito del <strong>controllo di qualità</strong> sull\'incarico <strong>' + esc(inc.cliente || '') + '</strong>'
-                + ' (anno di riferimento ' + esc(String(anno)) + ') si richiede la '
+                + ' (anno di riferimento ' + esc(String(anno)) + ', responsabile incarico ' + esc(inc.respIncarico || '-') + ') si richiede la '
                 + '<strong>sospensione del compenso trimestrale</strong>, in attesa del completamento delle attività di seguito indicate.')
             + cqTabellaIncaricoMail(inc, anno)
             + cqBloccoAvanzamentoMail(avz)
@@ -12031,6 +12052,7 @@
             + pMail(esc(intro || '').replace(/\n/g, '<br>'))
             + cqTabellaIncaricoMail(inc, anno)
             + pMail('<strong>Riepilogo dei controlli per area</strong>') + aree
+            + (scheda && scheda.completato ? pMail('I controlli di qualità risultano <strong>completati</strong> il ' + esc(fmtGiorno(scheda.completato.il)) + '.') : '')
             + cqBloccoAvanzamentoMail(avz)
             + cqFirmaMail(utente));
     }
@@ -12038,10 +12060,12 @@
     /* =========================================================
        VISTA: ELENCO CONTROLLI QUALITA'
        In testa l'anno di riferimento (schede 2025, 2026, ... con il pulsante
-       per aggiungere il successivo). Una riga per incarico dell'anno:
-       societa', responsabile qualita, team, i tre semafori con i commenti
-       (ripresi dalla scheda), il tempo qualita dell'anno e l'ultimo
-       aggiornamento con il suo autore. La riga apre la scheda del cliente.
+       per aggiungere il successivo), poi le due schede: i controlli DA
+       SVOLGERE (gli incarichi che l'utente puo' modificare) e gli incarichi
+       in SOLA VISUALIZZAZIONE. Una riga per incarico: societa', stato dei
+       controlli (completati o in corso), responsabile qualita, team, i tre
+       semafori con i commenti, il tempo qualita dell'anno e l'ultimo
+       aggiornamento con il suo autore.
     ========================================================= */
     function vistaControlliQualita() {
         const prof = cqProfilo();
@@ -12053,56 +12077,71 @@
         const risolvi = risolutorePersone();
         const schede = {};
         ControlliQualita.schede().forEach(s => { if (Number(s.anno) === cqAnno) schede[s.incaricoId] = s; });
-        const minutiTotali = incs.reduce((tot, i) => tot + cqMinutiScheda(schede[i.id]), 0);
+        const miei = incs.filter(i => ControlliQualita.puoModificare(i, prof, risolvi));
+        const soloVis = incs.filter(i => !ControlliQualita.puoModificare(i, prof, risolvi));
+        // la scheda "da svolgere" vuota non e' un buon punto di partenza: chi e' solo
+        // equity (o in sola lettura) apre direttamente la visualizzazione
+        if (cqTab === 'miei' && !miei.length && soloVis.length) cqTab = 'visualizzazione';
+        if (cqTab === 'visualizzazione' && !soloVis.length && miei.length) cqTab = 'miei';
+        const lista = cqTab === 'miei' ? miei : soloVis;
+        const minutiTotali = lista.reduce((tot, i) => tot + cqMinutiScheda(schede[i.id]), 0);
+        const completati = lista.filter(i => schede[i.id] && schede[i.id].completato).length;
         const perimetro = prof.admin
             ? 'Il quadro dei controlli di qualità su tutti gli incarichi.'
             : prof.equity
-                ? 'Come equity partner vedi <strong>tutti</strong> gli incarichi; puoi modificare solo quelli in cui sei <strong>responsabile della qualità</strong>, gli altri sono in sola visualizzazione.'
+                ? 'Come equity partner vedi <strong>tutti</strong> gli incarichi: nella prima scheda quelli in cui sei <strong>responsabile della qualità</strong> (li puoi modificare), nella seconda gli altri, in sola visualizzazione.'
                 : 'Gli incarichi in cui sei <strong>responsabile della qualità</strong>.';
+
+        const riga = i => {
+            const s = schede[i.id];
+            const agg = s ? (s.modificato || s.creato) : null;
+            const min = cqMinutiScheda(s);
+            const compl = s && s.completato;
+            return `<tr class="cliccabile${compl ? ' cq-completata' : ''}" data-apri="${esc(i.id)}">
+                <td class="cliente-cella" data-label="Società">${esc(i.cliente || '')}</td>
+                <td data-label="Stato controlli">${compl ? '<span class="badge verde" title="Completati il ' + esc(fmtGiorno(compl.il)) + ' da ' + esc(cqSoloNome(compl.da)) + '">' + ICO_SPUNTA + 'Completati</span>' : (s ? '<span class="badge ambra">In corso</span>' : '<span class="badge neutro">Da iniziare</span>')}</td>
+                <td data-label="Resp. qualità">${esc(i.qualita || '')}</td>
+                <td data-label="Team">${esc(i.team || '')}</td>
+                ${CQ_AREE.map(a => `<td data-label="Check ${esc(a.nome)}">${cqBadgeCheck(s && s[a.id].check)}</td>
+                <td data-label="Commento">${esc(troncaTesto((s && s[a.id].commento) || '', 90))}</td>`).join('')}
+                <td data-label="Tempo qualità" class="cq-num">${min ? esc(cqFmtMinuti(min)) : '<span class="hint">-</span>'}</td>
+                <td data-label="Aggiornamento">${agg ? esc(fmtGiorno(agg.il)) + '<div class="hint">di ' + esc(cqSoloNome(agg.da)) + '</div>' : '<span class="hint">mai</span>'}</td>
+                <td data-label=""><button class="btn btn-sm btn-secondary" data-apri-scheda="${esc(i.id)}">${cqTab === 'miei' ? 'Apri scheda' : 'Vedi scheda'}</button></td>
+            </tr>`;
+        };
 
         $vista().innerHTML = `
             <header>
                 <div>
                     <h1>Controlli qualità</h1>
                     <p class="descrizione">${perimetro}
-                    Scegli l'<strong>anno di riferimento</strong>: compaiono gli incarichi in essere in quell'anno o con scadenza nel suo corso (chi è scaduto l'anno prima senza rinnovo non c'è; chi è stato rinnovato continua). Semafori e commenti arrivano dalla scheda di ogni cliente; il tempo qualità è la somma dei tempi registrati nell'anno; l'aggiornamento è l'ultima modifica, con il suo autore.</p>
+                    Scegli l'<strong>anno di riferimento</strong>: compaiono gli incarichi in essere in quell'anno o con scadenza nel suo corso (chi è scaduto l'anno prima senza rinnovo non c'è; chi è stato rinnovato continua). Semafori e commenti arrivano dalla scheda di ogni cliente; "Completati" è lo stato che il responsabile qualità assegna dalla scheda quando tutti i check sono verdi.</p>
                 </div>
             </header>
-            <div class="tab-dest cq-anni" style="margin-bottom:16px;">
+            <div class="tab-dest cq-anni" style="margin-bottom:12px;">
                 ${anni.map(a => `<button class="tab-btn ${a === cqAnno ? 'attivo' : ''}" data-cqanno="${a}">${a}</button>`).join('')}
                 ${puoScrivere ? `<button class="btn btn-sm btn-secondary" id="cq-aggiungi-anno" title="Apre l'anno ${anni[anni.length - 1] + 1}">+ Aggiungi anno</button>` : ''}
             </div>
-            ${!incs.length ? `<div class="card"><p class="tabella-vuota">${prof.tutti
-                ? 'Nessun incarico in essere nel ' + cqAnno + '.'
-                : 'Nessun incarico in essere nel ' + cqAnno + ' in cui risulti responsabile della qualità.'}</p></div>` : ''}
-            ${incs.length ? `<div class="card">
-                <h2>Controlli ${cqAnno} <span class="hint" style="font-weight:normal;">(${incs.length} incarichi · tempo qualità complessivo <strong id="cq-tempo-totale">${esc(cqFmtMinuti(minutiTotali))}</strong>)</span></h2>
+            <div class="tab-dest cq-schede" style="margin-bottom:16px;">
+                <button class="tab-btn ${cqTab === 'miei' ? 'attivo' : ''}" data-cqtab="miei">Controlli qualità da svolgere (${miei.length})</button>
+                <button class="tab-btn ${cqTab === 'visualizzazione' ? 'attivo' : ''}" data-cqtab="visualizzazione">Incarichi in sola visualizzazione (${soloVis.length})</button>
+            </div>
+            ${!lista.length ? `<div class="card"><p class="tabella-vuota">${cqTab === 'miei'
+                ? (prof.tutti && !prof.admin ? 'Nel ' + cqAnno + ' non risulti responsabile della qualità di alcun incarico: trovi tutto nella scheda "Incarichi in sola visualizzazione".' : 'Nessun incarico in essere nel ' + cqAnno + ' in cui risulti responsabile della qualità.')
+                : 'Nessun incarico in sola visualizzazione nel ' + cqAnno + '.'}</p></div>` : ''}
+            ${lista.length ? `<div class="card">
+                <h2>${cqTab === 'miei' ? 'Controlli da svolgere' : 'Sola visualizzazione'} ${cqAnno} <span class="hint" style="font-weight:normal;">(${lista.length} incarichi · completati <strong>${completati}</strong> · tempo qualità complessivo <strong id="cq-tempo-totale">${esc(cqFmtMinuti(minutiTotali))}</strong>)</span></h2>
                 <div class="tabella-wrap"><table class="dati a-schede" id="tabella-cq"><thead><tr>
-                    <th>Società</th><th>Resp. qualità</th><th>Team di revisione</th>
+                    <th>Società</th><th>Stato controlli</th><th>Resp. qualità</th><th>Team di revisione</th>
                     ${CQ_AREE.map(a => '<th>Check ' + esc(a.nome) + '</th><th>Commento</th>').join('')}
                     <th>Tempo qualità</th><th>Aggiornamento</th><th></th>
-                </tr></thead><tbody>
-                ${incs.map(i => {
-                    const s = schede[i.id];
-                    const agg = s ? (s.modificato || s.creato) : null;
-                    const modificabile = puoScrivere && (prof.admin || ControlliQualita.eResponsabileQualita(i, prof.persona, risolvi));
-                    const min = cqMinutiScheda(s);
-                    return `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                        <td class="cliente-cella" data-label="Società">${esc(i.cliente || '')}</td>
-                        <td data-label="Resp. qualità">${esc(i.qualita || '')}</td>
-                        <td data-label="Team">${esc(i.team || '')}</td>
-                        ${CQ_AREE.map(a => `<td data-label="Check ${esc(a.nome)}">${cqBadgeCheck(s && s[a.id].check)}</td>
-                        <td data-label="Commento">${esc(troncaTesto((s && s[a.id].commento) || '', 90))}</td>`).join('')}
-                        <td data-label="Tempo qualità" class="cq-num">${min ? esc(cqFmtMinuti(min)) : '<span class="hint">-</span>'}</td>
-                        <td data-label="Aggiornamento">${agg ? esc(fmtGiorno(agg.il)) + '<div class="hint">di ' + esc(cqSoloNome(agg.da)) + '</div>' : '<span class="hint">mai</span>'}</td>
-                        <td data-label=""><button class="btn btn-sm btn-secondary" data-apri-scheda="${esc(i.id)}" title="${modificabile ? 'Apre la scheda in scrittura' : 'Apre la scheda in sola visualizzazione'}">${modificabile ? 'Apri scheda' : 'Vedi scheda'}</button></td>
-                    </tr>`;
-                }).join('')}
-                </tbody></table></div>
+                </tr></thead><tbody>${lista.map(riga).join('')}</tbody></table></div>
             </div>` : ''}`;
 
         $vista().querySelectorAll('[data-cqanno]').forEach(b =>
             b.addEventListener('click', () => { cqAnno = Number(b.dataset.cqanno); vistaControlliQualita(); }));
+        $vista().querySelectorAll('[data-cqtab]').forEach(b =>
+            b.addEventListener('click', () => { cqTab = b.dataset.cqtab; vistaControlliQualita(); }));
         { const ba = document.getElementById('cq-aggiungi-anno'); if (ba) ba.addEventListener('click', () => {
             const nuovo = ControlliQualita.aggiungiAnno(Auth.utenteCorrente);
             cqAnno = nuovo;
@@ -12110,7 +12149,7 @@
             vistaControlliQualita();
         }); }
         const tab = document.getElementById('tabella-cq');
-        if (tab) attrezzaTabella(tab, { nomeFile: 'controlli-qualita-' + cqAnno, ricerca: true });
+        if (tab) attrezzaTabella(tab, { nomeFile: 'controlli-qualita-' + cqAnno + (cqTab === 'miei' ? '' : '-visualizzazione'), ricerca: true });
         const apri = id => naviga('controlloQualitaScheda', { id: id, anno: cqAnno });
         $vista().querySelectorAll('tr[data-apri]').forEach(tr =>
             tr.addEventListener('click', e => { if (!e.target.closest('button')) apri(tr.dataset.apri); }));
@@ -12128,7 +12167,7 @@
         const voci = [];
         storia.forEach(v => {
             if (/^Email /.test(v.azione || '')) return;   // le email stanno nella scheda, con il testo
-            const struttura = /avanzamento/i.test(v.azione || '') && !/^Aggiornamento/.test(v.azione || '');
+            const struttura = (/avanzamento/i.test(v.azione || '') && !/^Aggiornamento/.test(v.azione || '')) || /completat|riapert/i.test(v.azione || '');
             voci.push({ ts: v.ts, tipo: struttura ? 'avanzamento' : 'modifica', chi: cqSoloNome(v.utente), azione: v.azione, dettagli: v.dettagli });
         });
         (scheda ? scheda.email : []).forEach(m => voci.push({ ts: m.ts, tipo: 'email', chi: cqSoloNome(m.da), email: m }));
@@ -12171,13 +12210,14 @@
     /* =========================================================
        VISTA: SCHEDA CONTROLLO QUALITA' DI UN INCARICO (per anno)
        In testa i dati dell'incarico; poi un blocco per ogni "Avanzamento
-       al ...": le attivita' con lo stato a semaforo, il tempo qualita in
-       ore e minuti, le note interne, le cose da fare e la richiesta di
-       sospensione del compenso (che parte come email al responsabile
-       incarico, previa conferma). Sotto, il riepilogo dei controlli per
-       area (ripreso dall'elenco), il riepilogo dei tempi e la storia con
-       modifiche ed email. Ogni modifica si salva subito e finisce nel
-       Registro con autore, data e campi variati.
+       al ...": le attivita' con lo stato a semaforo e, per ognuna, le note
+       interne e le cose da fare (riga apribile); il tempo qualita in ore e
+       minuti; la richiesta di sospensione del compenso (email al
+       destinatario fisso, previa conferma). Sotto, il riepilogo dei
+       controlli per area con il pulsante "controlli completati", il
+       riepilogo dei tempi e la storia con modifiche ed email. Ogni
+       modifica si salva subito e finisce nel Registro con autore, data e
+       campi variati.
     ========================================================= */
     function vistaControlloQualitaScheda() {
         const inc = parametriVista && parametriVista.id ? Incarichi.trova(parametriVista.id) : null;
@@ -12185,7 +12225,7 @@
         if (!inc || !ControlliQualita.vedeIncarico(inc, anno)) { naviga('controlloQualita'); return; }
         cqAnno = anno;
         const prof = cqProfilo();
-        const puoScrivere = ControlliQualita.puoModificare(inc);
+        const puoScrivere = ControlliQualita.puoModificare(inc, prof);
         const scheda = ControlliQualita.perIncarico(inc.id, anno);
         const avanzamenti = scheda ? scheda.avanzamenti : [];
         const storia = scheda ? Store.leggi(CHIAVI.audit, []).filter(v => v.rif === scheda.id) : [];
@@ -12193,8 +12233,9 @@
         if (puoScrivere) statoModifica = { tipo: 'controlloQualita', id: inc.id, etichetta: inc.cliente || '' };
 
         const agg = scheda ? (scheda.modificato || scheda.creato) : null;
-        const resp = cqPersonaResp(inc);
+        const dest = cqDestinatarioSospensione();
         const utente = Auth.utenteCorrente;
+        const completato = scheda ? scheda.completato : null;
         const selCheck = (id, valore) => `<select id="${id}" class="cq-sel ${(cqCheck(valore) || {}).classe || 'neutro'}"${puoScrivere ? '' : ' disabled'}>
             <option value=""${valore ? '' : ' selected'}>Da valutare</option>
             ${CQ_CHECK.map(c => `<option value="${c.id}"${valore === c.id ? ' selected' : ''}>${esc(c.opzione)}</option>`).join('')}
@@ -12219,6 +12260,51 @@
                 ${puoScrivere ? '<td class="cq-cella-togli"><button class="btn btn-sm btn-ghost cq-tempo-togli" title="Togli questa riga">&#10005;</button></td>' : ''}
             </tr>`;
         };
+        /* Etichetta del pulsante che apre note e to do di una attivita': dice
+           subito se c'e' qualcosa dentro. */
+        const contaDett = r => {
+            const parti = [];
+            if (r.note && r.note.trim()) parti.push('nota');
+            const aperti = r.todo.filter(t => !t.fatto).length;
+            if (r.todo.length) parti.push(aperti ? aperti + ' da fare' : 'to do fatti');
+            return parti.length ? parti.join(' · ') : 'Note / to do';
+        };
+        const rigaAttivita = r => {
+            const aperta = cqRigheAperte.has(r.id);
+            const colonne = puoScrivere ? 4 : 3;
+            return `<tr data-riga="${esc(r.id)}"${aperta ? ' class="cq-riga-aperta"' : ''}>
+                <td>${puoScrivere ? `<input type="text" class="cq-riga-etichetta" value="${esc(r.etichetta || '')}">` : esc(r.etichetta || '')}</td>
+                <td><select class="cq-sel cq-riga-stato ${(cqStatoRiga(r.stato) || {}).classe || 'neutro'}"${puoScrivere ? '' : ' disabled'}>
+                    <option value=""${r.stato ? '' : ' selected'}>&#8212;</option>
+                    ${CQ_STATI_RIGA.map(s => `<option value="${s.id}"${r.stato === s.id ? ' selected' : ''}>${esc(s.nome)}</option>`).join('')}
+                </select></td>
+                <td class="cq-cella-dett"><button type="button" class="btn btn-sm ${(r.note && r.note.trim()) || r.todo.length ? 'btn-secondary' : 'btn-ghost'} cq-riga-apri" aria-expanded="${aperta ? 'true' : 'false'}" title="Note interne e cose da fare di questa attività">${esc(contaDett(r))}</button></td>
+                ${puoScrivere ? '<td class="cq-cella-togli"><button class="btn btn-sm btn-ghost cq-riga-togli" title="Togli questa attività">&#10005;</button></td>' : ''}
+            </tr>
+            <tr class="cq-riga-dett" data-riga-dett="${esc(r.id)}"${aperta ? '' : ' hidden'}>
+                <td colspan="${colonne}">
+                    <div class="cq-dett-griglia">
+                        <div>
+                            <h5 class="cq-sotto">Note interne qualità</h5>
+                            ${puoScrivere
+                                ? `<textarea class="cq-riga-note" rows="3" placeholder="Appunti riservati su questa attività: non escono nelle email">${esc(r.note || '')}</textarea>`
+                                : (r.note ? '<p class="descrizione">' + esc(r.note) + '</p>' : '<p class="hint">Nessuna nota.</p>')}
+                        </div>
+                        <div>
+                            <h5 class="cq-sotto">To do</h5>
+                            <ul class="cq-todo">
+                                ${r.todo.length ? r.todo.map(t => `<li data-todo="${esc(t.id)}" class="${t.fatto ? 'fatto' : ''}">
+                                    <input type="checkbox" class="cq-todo-fatto"${t.fatto ? ' checked' : ''}${puoScrivere ? '' : ' disabled'} title="Segna come fatto">
+                                    ${puoScrivere ? `<input type="text" class="cq-todo-testo" placeholder="Cosa c'è da fare" value="${esc(t.testo || '')}">` : '<span class="cq-todo-etich">' + esc(t.testo || '') + '</span>'}
+                                    ${puoScrivere ? '<button class="btn btn-sm btn-ghost cq-todo-togli" title="Togli">&#10005;</button>' : ''}
+                                </li>`).join('') : '<li class="cq-todo-vuota"><span class="hint">Niente da fare.</span></li>'}
+                            </ul>
+                            ${puoScrivere ? '<button class="btn btn-sm btn-secondary cq-todo-aggiungi">+ Aggiungi to do</button>' : ''}
+                        </div>
+                    </div>
+                </td>
+            </tr>`;
+        };
 
         const bloccoAvz = a => `<div class="card cq-avz" data-avz="${esc(a.id)}">
             <h2>Avanzamento al ${a.data ? esc(fmtData(a.data)) : '...'}</h2>
@@ -12229,15 +12315,9 @@
             <div class="cq-avz-griglia">
                 <div>
                     <h4 class="cq-sotto">Attività</h4>
-                    <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Attività</th><th>Stato</th>${puoScrivere ? '<th></th>' : ''}</tr></thead><tbody>
-                    ${a.righe.map(r => `<tr data-riga="${esc(r.id)}">
-                        <td>${puoScrivere ? `<input type="text" class="cq-riga-etichetta" value="${esc(r.etichetta || '')}">` : esc(r.etichetta || '')}</td>
-                        <td><select class="cq-sel cq-riga-stato ${(cqStatoRiga(r.stato) || {}).classe || 'neutro'}"${puoScrivere ? '' : ' disabled'}>
-                            <option value=""${r.stato ? '' : ' selected'}>&#8212;</option>
-                            ${CQ_STATI_RIGA.map(s => `<option value="${s.id}"${r.stato === s.id ? ' selected' : ''}>${esc(s.nome)}</option>`).join('')}
-                        </select></td>
-                        ${puoScrivere ? '<td class="cq-cella-togli"><button class="btn btn-sm btn-ghost cq-riga-togli" title="Togli questa attività">&#10005;</button></td>' : ''}
-                    </tr>`).join('')}
+                    <p class="hint" style="margin:0 0 8px;">Ogni attività ha le sue note interne e le sue cose da fare: si aprono dal pulsante nella riga.</p>
+                    <div class="tabella-wrap"><table class="dati compatta cq-tab-attivita"><thead><tr><th>Attività</th><th>Stato</th><th>Note / to do</th>${puoScrivere ? '<th></th>' : ''}</tr></thead><tbody>
+                    ${a.righe.map(rigaAttivita).join('')}
                     </tbody></table></div>
                     ${puoScrivere ? '<button class="btn btn-sm btn-secondary cq-riga-aggiungi" style="margin-top:8px;">+ Aggiungi attività</button>' : ''}
                 </div>
@@ -12248,41 +12328,27 @@
                     </tbody>${a.tempi.length ? `<tfoot><tr class="cq-tot"><td class="cq-tempo-totale-avz">${esc(cqFmtMinuti(cqMinutiAvz(a)))}</td><td colspan="${puoScrivere ? 2 : 1}">Totale di questo avanzamento</td></tr></tfoot>` : ''}</table></div>
                     ${puoScrivere ? '<button class="btn btn-sm btn-secondary cq-tempo-aggiungi" style="margin-top:8px;">+ Aggiungi tempo</button>' : ''}
 
-                    <h4 class="cq-sotto" style="margin-top:16px;">Note interne qualità</h4>
-                    ${puoScrivere
-                        ? `<textarea class="cq-note" rows="4" placeholder="Appunti riservati al controllo qualità: non escono nelle email (es. carte di lavoro da completare, verifiche svolte fino al 3° trimestre...)">${esc(a.note || '')}</textarea>`
-                        : (a.note ? '<p class="descrizione">' + esc(a.note) + '</p>' : '<p class="tabella-vuota">Nessuna nota.</p>')}
-
-                    <h4 class="cq-sotto" style="margin-top:16px;">To do</h4>
-                    <ul class="cq-todo">
-                        ${a.todo.length ? a.todo.map(t => `<li data-todo="${esc(t.id)}" class="${t.fatto ? 'fatto' : ''}">
-                            <input type="checkbox" class="cq-todo-fatto"${t.fatto ? ' checked' : ''}${puoScrivere ? '' : ' disabled'} title="Segna come fatto">
-                            ${puoScrivere ? `<input type="text" class="cq-todo-testo" placeholder="Cosa c'è da fare" value="${esc(t.testo || '')}">` : '<span class="cq-todo-etich">' + esc(t.testo || '') + '</span>'}
-                            ${puoScrivere ? '<button class="btn btn-sm btn-ghost cq-todo-togli" title="Togli">&#10005;</button>' : ''}
-                        </li>`).join('') : '<li class="cq-todo-vuota"><span class="hint">Niente da fare.</span></li>'}
-                    </ul>
-                    ${puoScrivere ? '<button class="btn btn-sm btn-secondary cq-todo-aggiungi">+ Aggiungi to do</button>' : ''}
-
                     <div class="cq-sospensione">
-                        <label>Richiesta ${resp.nome ? 'a <strong>' + esc(resp.nome) + '</strong>' : 'al responsabile incarico'} di sospensione del compenso trimestrale</label>
+                        <label>Richiesta a <strong>${esc(dest.nome)}</strong> di sospensione del compenso trimestrale</label>
                         <select class="cq-sel cq-sosp ${a.sospensione === 'si' ? 'rosso' : (a.sospensione === 'no' ? 'verde' : 'neutro')}"${puoScrivere ? '' : ' disabled'}>
                             <option value=""${a.sospensione ? '' : ' selected'}>&#8212;</option>
                             <option value="si"${a.sospensione === 'si' ? ' selected' : ''}>Sì</option>
                             <option value="no"${a.sospensione === 'no' ? ' selected' : ''}>No</option>
                         </select>
-                        <p class="hint" style="margin:6px 0 0;">${ICO_EMAIL}Con <strong>Sì</strong> parte in automatico una email di richiesta ${resp.nome ? 'a ' + esc(resp.nome) : 'al responsabile incarico'}${resp.email ? ' (' + esc(resp.email) + ')' : ' <span class="cq-esito-ko">(nessun indirizzo email sulla sua scheda in Aderenti Revilaw)</span>'}, firmata da chi sta facendo il controllo e con lui in copia.</p>
+                        <p class="hint" style="margin:6px 0 0;">${ICO_EMAIL}Con <strong>Sì</strong> parte in automatico l'email di richiesta a ${esc(dest.nome)} (${esc(dest.email)}), firmata da chi sta facendo il controllo e con lui in copia.</p>
                     </div>
                 </div>
             </div>
         </div>`;
 
         const minutiTot = cqMinutiScheda(scheda);
+        const tuttoVerde = cqTuttoVerde(scheda);
         $vista().innerHTML = `
             <header>
                 <div>
                     <a id="cq-torna" style="display:inline-block;cursor:pointer;font-size:0.85rem;color:var(--blu-500);margin-bottom:4px;">&#8592; Torna a Controlli qualità ${anno}</a>
                     <h1>${esc(inc.cliente)}</h1>
-                    <p class="descrizione"><span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span> <span class="badge legale">Controlli ${anno}</span> ${puoScrivere ? '' : '<span class="badge ambra">Sola visualizzazione</span> '}Scheda di monitoraggio dei controlli di qualità</p>
+                    <p class="descrizione"><span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span> <span class="badge legale">Controlli ${anno}</span> ${completato ? '<span class="badge verde">' + ICO_SPUNTA + 'Controlli completati il ' + esc(fmtGiorno(completato.il)) + '</span> ' : ''}${puoScrivere ? '' : '<span class="badge ambra">Sola visualizzazione</span> '}Scheda di monitoraggio dei controlli di qualità</p>
                 </div>
                 <div class="header-azioni">
                     ${puoScrivere ? '<button class="btn btn-secondary" id="cq-riepilogo-team" title="Prepara e invia l\'email di riepilogo al team di revisione">' + ICO_EMAIL + 'Invia email di riepilogo al team</button>' : ''}
@@ -12304,12 +12370,19 @@
             </div>
             ${avanzamenti.map(bloccoAvz).join('')}
             ${!avanzamenti.length ? `<div class="card"><p class="tabella-vuota">Nessun avanzamento registrato per il ${anno}${puoScrivere ? ': premi "+ Nuovo avanzamento" per aprire il primo blocco' : ''}.</p></div>` : ''}
-            <div class="card" id="cq-riepilogo">
+            <div class="card${completato ? ' cq-card-completata' : ''}" id="cq-riepilogo">
                 <h2>Riepilogo dei controlli</h2>
                 <p class="descrizione">Questi semafori e commenti sono quelli che compaiono nell'elenco dei controlli qualità ${anno}.
                     <span id="cq-timbro" class="hint">${agg ? 'Ultimo aggiornamento: ' + fmtDataOra(agg.il) + ' di ' + esc(cqSoloNome(agg.da)) : 'Nessun aggiornamento registrato.'}</span></p>
                 <div class="cq-riepilogo-griglia">
                     ${CQ_AREE.map(areaRiepilogo).join('')}
+                </div>
+                <div class="cq-completamento">
+                    ${completato
+                        ? `<div class="cq-completamento-testo">${ICO_SPUNTA}<strong>Controlli completati</strong> il ${esc(fmtDataOra(completato.il))} da ${esc(cqSoloNome(completato.da))}: nell'elenco questo incarico compare come completato.</div>
+                           ${puoScrivere ? '<button class="btn btn-sm btn-secondary" id="cq-riapri">Riapri i controlli</button>' : ''}`
+                        : `<div class="cq-completamento-testo">${tuttoVerde ? 'Tutti i check sono verdi: puoi segnare i controlli come <strong>completati</strong>, e nell\'elenco l\'incarico verrà evidenziato.' : 'Quando tutti e tre i check sono <strong>verdi</strong> puoi segnare i controlli come completati.'}</div>
+                           ${puoScrivere ? '<button class="btn btn-primary" id="cq-completa"' + (tuttoVerde ? '' : ' disabled title="Prima porta tutti i check a verde"') + '>' + ICO_SPUNTA + 'Segna i controlli come completati</button>' : ''}`}
                 </div>
             </div>
             <div class="card" id="cq-tempi">
@@ -12327,6 +12400,17 @@
             </div>`;
 
         document.getElementById('cq-torna').addEventListener('click', () => tornaOrigine(() => naviga('controlloQualita')));
+
+        // apertura/chiusura di note e to do di una attivita' (anche in sola lettura)
+        $vista().querySelectorAll('.cq-riga-apri').forEach(b => b.addEventListener('click', () => {
+            const tr = b.closest('tr'); const id = tr.dataset.riga;
+            const dett = $vista().querySelector('tr[data-riga-dett="' + id + '"]');
+            const apri = dett.hidden;
+            dett.hidden = !apri;
+            tr.classList.toggle('cq-riga-aperta', apri);
+            b.setAttribute('aria-expanded', apri ? 'true' : 'false');
+            if (apri) cqRigheAperte.add(id); else cqRigheAperte.delete(id);
+        }));
 
         // storia: filtro per tipo e testo delle email (anche in sola lettura)
         $vista().querySelectorAll('[data-cqstoria]').forEach(b => b.addEventListener('click', () => {
@@ -12370,11 +12454,16 @@
                 const prima = pv ? pv[area.id].check : '';
                 const dopo = sel.value;
                 const nomeDi = v => (cqCheck(v) || { opzione: 'da valutare' }).opzione;
-                const s = salva('Aggiornamento controllo qualità',
-                    [{ campo: 'Check ' + area.nome, prima: nomeDi(prima), dopo: nomeDi(dopo) }],
-                    x => { x[area.id].check = dopo; });
+                const dett = [{ campo: 'Check ' + area.nome, prima: nomeDi(prima), dopo: nomeDi(dopo) }];
+                // un check che torna non verde riapre i controlli gia' segnati come completati
+                const riapre = !!(pv && pv.completato) && dopo !== 'verde';
+                if (riapre) dett.push({ campo: 'Controlli', prima: 'completati', dopo: 'riaperti (un check non è più verde)' });
+                const s = salva(riapre ? 'Controlli qualità riaperti' : 'Aggiornamento controllo qualità', dett,
+                    x => { x[area.id].check = dopo; if (riapre) x.completato = null; });
                 sel.className = 'cq-sel ' + ((cqCheck(dopo) || {}).classe || 'neutro');
                 aggiornaTimbro(s);
+                // il pulsante "completati" e il suo testo dipendono dai check: si ridisegna
+                ridisegna();
             });
             const ta = document.getElementById('cq-commento-' + area.id);
             if (ta) ta.addEventListener('change', () => {
@@ -12387,6 +12476,19 @@
                     x => { x[area.id].commento = dopo; }));
             });
         });
+        // controlli completati / riaperti
+        { const bc = document.getElementById('cq-completa'); if (bc) bc.addEventListener('click', () => {
+            if (!cqTuttoVerde(schedaFresca())) { toast('Prima porta tutti e tre i check a verde.', 'rosso'); return; }
+            salva('Controlli qualità completati', [{ campo: 'Controlli', prima: 'in corso', dopo: 'completati' }],
+                x => { x.completato = { da: cqFirma(utente), il: Date.now() }; });
+            toast('Controlli segnati come completati: nell\'elenco l\'incarico è evidenziato.', 'verde');
+            ridisegna();
+        }); }
+        { const br = document.getElementById('cq-riapri'); if (br) br.addEventListener('click', () => {
+            salva('Controlli qualità riaperti', [{ campo: 'Controlli', prima: 'completati', dopo: 'in corso' }],
+                x => { x.completato = null; });
+            ridisegna();
+        }); }
 
         // nuovo blocco di avanzamento: riparte dall'ultimo (anche dell'anno prima)
         document.getElementById('cq-nuovo-avz').addEventListener('click', () => {
@@ -12398,12 +12500,13 @@
                 if (prec && prec.avanzamenti.length) { ultimo = prec.avanzamenti[prec.avanzamenti.length - 1]; origine = ' ripartendo dalle attività dell\'ultimo avanzamento ' + (anno - 1); }
             } else origine = ' ripartendo dalle attività del blocco precedente';
             const oggi = cqOggiIso();
+            // le attivita' si ricopiano con lo stato; note e cose da fare restano nel blocco in cui sono nate
             const righe = ultimo && ultimo.righe.length
-                ? ultimo.righe.map(r => ({ id: uid(), etichetta: r.etichetta, stato: r.stato }))
+                ? ultimo.righe.map(r => cqRigaNuova(r.etichetta, r.stato))
                 : cqRigheIniziali(anno);
             salva('Nuovo avanzamento controllo qualità',
                 'Aperto il blocco "Avanzamento al ' + fmtData(oggi) + '"' + origine,
-                x => { x.avanzamenti.push({ id: uid(), data: oggi, righe: righe, tempi: [], note: '', todo: [], sospensione: '' }); });
+                x => { x.avanzamenti.push({ id: uid(), data: oggi, righe: righe, tempi: [], sospensione: '' }); });
             ridisegna();
         });
 
@@ -12437,7 +12540,7 @@
             if (elimina) elimina.addEventListener('click', () => {
                 const et = etichettaAvz();
                 apriModale(`<h2>Eliminare questo avanzamento?</h2>
-                    <p>Il blocco "<strong>${esc(et)}</strong>" con attività, tempi, note e cose da fare verrà tolto dalla scheda. L'operazione resta tracciata nella storia.</p>
+                    <p>Il blocco "<strong>${esc(et)}</strong>" con attività, note, cose da fare e tempi verrà tolto dalla scheda. L'operazione resta tracciata nella storia.</p>
                     <div class="modale-azioni"><button class="btn btn-secondary" id="cq-el-annulla">Annulla</button><button class="btn btn-danger" id="cq-el-conferma">Elimina</button></div>`);
                 document.getElementById('cq-el-annulla').addEventListener('click', chiudiModale);
                 document.getElementById('cq-el-conferma').addEventListener('click', () => {
@@ -12448,11 +12551,13 @@
                 });
             });
 
-            // attivita' del blocco
+            // attivita' del blocco: stato, nome, note interne e cose da fare
             card.querySelectorAll('tr[data-riga]').forEach(tr => {
                 const rigaId = tr.dataset.riga;
+                const dett = card.querySelector('tr[data-riga-dett="' + rigaId + '"]');
                 const trovaRiga = () => { const a = trovaAvz(); return a ? a.righe.find(v => v.id === rigaId) : null; };
                 const conRiga = fn => conAvz(a => { const r = a.righe.find(v => v.id === rigaId); if (r) fn(r); });
+                const nomeRiga = () => { const r = trovaRiga(); return etichettaAvz() + ' · ' + ((r && r.etichetta) || 'attività'); };
                 const inEt = tr.querySelector('.cq-riga-etichetta');
                 if (inEt) inEt.addEventListener('change', () => {
                     const r0 = trovaRiga(); const prima = r0 ? r0.etichetta : '';
@@ -12469,7 +12574,7 @@
                     const dopo = selSt.value;
                     const nomeDi = v => (cqStatoRiga(v) || { nome: 'vuoto' }).nome;
                     const s = salva('Aggiornamento controllo qualità',
-                        [{ campo: etichettaAvz() + ' · ' + ((r0 && r0.etichetta) || 'attività'), prima: nomeDi(prima), dopo: nomeDi(dopo) }],
+                        [{ campo: nomeRiga(), prima: nomeDi(prima), dopo: nomeDi(dopo) }],
                         conRiga(r => { r.stato = dopo; }));
                     selSt.className = 'cq-sel cq-riga-stato ' + ((cqStatoRiga(dopo) || {}).classe || 'neutro');
                     aggiornaTimbro(s);
@@ -12477,16 +12582,69 @@
                 const togli = tr.querySelector('.cq-riga-togli');
                 if (togli) togli.addEventListener('click', () => {
                     const r0 = trovaRiga();
+                    cqRigheAperte.delete(rigaId);
                     salva('Aggiornamento controllo qualità',
                         'Tolta l\'attività "' + ((r0 && r0.etichetta) || '') + '" da "' + etichettaAvz() + '"',
                         conAvz(a => { a.righe = a.righe.filter(v => v.id !== rigaId); }));
                     ridisegna();
                 });
+                if (!dett) return;
+                const nota = dett.querySelector('.cq-riga-note');
+                if (nota) nota.addEventListener('change', () => {
+                    const r0 = trovaRiga(); const prima = r0 ? r0.note : '';
+                    const dopo = nota.value.trim();
+                    if (prima === dopo) return;
+                    aggiornaTimbro(salva('Aggiornamento controllo qualità',
+                        [{ campo: nomeRiga() + ' · note interne', prima: prima || 'vuote', dopo: dopo || 'vuote' }],
+                        conRiga(r => { r.note = dopo; })));
+                    const b = tr.querySelector('.cq-riga-apri'); if (b) { b.className = 'btn btn-sm btn-secondary cq-riga-apri'; }
+                });
+                dett.querySelectorAll('li[data-todo]').forEach(li => {
+                    const todoId = li.dataset.todo;
+                    const trovaTodo = () => { const r = trovaRiga(); return r ? r.todo.find(v => v.id === todoId) : null; };
+                    const conTodo = fn => conRiga(r => { const t = r.todo.find(v => v.id === todoId); if (t) fn(t); });
+                    const chk = li.querySelector('.cq-todo-fatto');
+                    if (chk) chk.addEventListener('change', () => {
+                        const t0 = trovaTodo();
+                        const dopo = chk.checked;
+                        const s = salva('Aggiornamento controllo qualità',
+                            [{ campo: nomeRiga() + ' · to do "' + ((t0 && t0.testo) || '') + '"', prima: dopo ? 'da fare' : 'fatto', dopo: dopo ? 'fatto' : 'da fare' }],
+                            conTodo(t => { t.fatto = dopo; }));
+                        li.classList.toggle('fatto', dopo);
+                        aggiornaTimbro(s);
+                    });
+                    const testo = li.querySelector('.cq-todo-testo');
+                    if (testo) testo.addEventListener('change', () => {
+                        const t0 = trovaTodo(); const prima = t0 ? t0.testo : '';
+                        const dopo = testo.value.trim();
+                        if (dopo === prima) return;
+                        aggiornaTimbro(salva('Aggiornamento controllo qualità',
+                            [{ campo: nomeRiga() + ' · to do', prima: prima || 'vuoto', dopo: dopo || 'vuoto' }],
+                            conTodo(t => { t.testo = dopo; })));
+                    });
+                    const togliT = li.querySelector('.cq-todo-togli');
+                    if (togliT) togliT.addEventListener('click', () => {
+                        const t0 = trovaTodo();
+                        salva('Aggiornamento controllo qualità', 'Tolto il to do "' + ((t0 && t0.testo) || '') + '" da "' + nomeRiga() + '"',
+                            conRiga(r => { r.todo = r.todo.filter(v => v.id !== todoId); }));
+                        ridisegna();
+                    });
+                });
+                const aggiungiTodo = dett.querySelector('.cq-todo-aggiungi');
+                if (aggiungiTodo) aggiungiTodo.addEventListener('click', () => {
+                    cqRigheAperte.add(rigaId);
+                    salva('Aggiornamento controllo qualità', 'Aggiunto un to do a "' + nomeRiga() + '"',
+                        conRiga(r => { r.todo.push({ id: uid(), testo: '', fatto: false }); }));
+                    ridisegna();
+                    // il cursore va subito nella riga nuova
+                    const ultimo = $vista().querySelector('tr[data-riga-dett="' + rigaId + '"] li[data-todo]:last-child .cq-todo-testo');
+                    if (ultimo) ultimo.focus();
+                });
             });
             const aggiungiRiga = card.querySelector('.cq-riga-aggiungi');
             if (aggiungiRiga) aggiungiRiga.addEventListener('click', () => {
                 salva('Aggiornamento controllo qualità', 'Aggiunta una attività a "' + etichettaAvz() + '"',
-                    conAvz(a => { a.righe.push({ id: uid(), etichetta: 'Nuova attività', stato: '' }); }));
+                    conAvz(a => { a.righe.push(cqRigaNuova()); }));
                 ridisegna();
             });
 
@@ -12534,59 +12692,6 @@
                 if (ultimo) ultimo.focus();
             });
 
-            // note interne
-            const nota = card.querySelector('.cq-note');
-            if (nota) nota.addEventListener('change', () => {
-                const a0 = trovaAvz(); const prima = a0 ? a0.note : '';
-                const dopo = nota.value.trim();
-                if (prima === dopo) return;
-                aggiornaTimbro(salva('Aggiornamento controllo qualità',
-                    [{ campo: etichettaAvz() + ' · note interne qualità', prima: prima || 'vuote', dopo: dopo || 'vuote' }],
-                    conAvz(a => { a.note = dopo; })));
-            });
-
-            // cose da fare
-            card.querySelectorAll('li[data-todo]').forEach(li => {
-                const todoId = li.dataset.todo;
-                const trovaTodo = () => { const a = trovaAvz(); return a ? a.todo.find(v => v.id === todoId) : null; };
-                const conTodo = fn => conAvz(a => { const t = a.todo.find(v => v.id === todoId); if (t) fn(t); });
-                const chk = li.querySelector('.cq-todo-fatto');
-                if (chk) chk.addEventListener('change', () => {
-                    const t0 = trovaTodo();
-                    const dopo = chk.checked;
-                    const s = salva('Aggiornamento controllo qualità',
-                        [{ campo: etichettaAvz() + ' · to do "' + ((t0 && t0.testo) || '') + '"', prima: dopo ? 'da fare' : 'fatto', dopo: dopo ? 'fatto' : 'da fare' }],
-                        conTodo(t => { t.fatto = dopo; }));
-                    li.classList.toggle('fatto', dopo);
-                    aggiornaTimbro(s);
-                });
-                const testo = li.querySelector('.cq-todo-testo');
-                if (testo) testo.addEventListener('change', () => {
-                    const t0 = trovaTodo(); const prima = t0 ? t0.testo : '';
-                    const dopo = testo.value.trim();
-                    if (dopo === prima) return;
-                    aggiornaTimbro(salva('Aggiornamento controllo qualità',
-                        [{ campo: etichettaAvz() + ' · to do', prima: prima || 'vuoto', dopo: dopo || 'vuoto' }],
-                        conTodo(t => { t.testo = dopo; })));
-                });
-                const togli = li.querySelector('.cq-todo-togli');
-                if (togli) togli.addEventListener('click', () => {
-                    const t0 = trovaTodo();
-                    salva('Aggiornamento controllo qualità', 'Tolto il to do "' + ((t0 && t0.testo) || '') + '" da "' + etichettaAvz() + '"',
-                        conAvz(a => { a.todo = a.todo.filter(v => v.id !== todoId); }));
-                    ridisegna();
-                });
-            });
-            const aggiungiTodo = card.querySelector('.cq-todo-aggiungi');
-            if (aggiungiTodo) aggiungiTodo.addEventListener('click', () => {
-                salva('Aggiornamento controllo qualità', 'Aggiunto un to do a "' + etichettaAvz() + '"',
-                    conAvz(a => { a.todo.push({ id: uid(), testo: '', fatto: false }); }));
-                ridisegna();
-                // il cursore va subito nella riga nuova
-                const ultimo = $vista().querySelector('.cq-avz[data-avz="' + avzId + '"] li[data-todo]:last-child .cq-todo-testo');
-                if (ultimo) ultimo.focus();
-            });
-
             // richiesta di sospensione del compenso: "Si'" chiede conferma e manda la mail
             const sosp = card.querySelector('.cq-sosp');
             if (sosp) sosp.addEventListener('change', () => {
@@ -12609,36 +12714,34 @@
         });
     }
 
-    /* Conferma prima di segnare "Si'": dice a chi va la mail, chi la firma e
-       chi e' in copia. Senza indirizzo del responsabile si puo' comunque
-       registrare la richiesta (la mail resta "non inviata" nella storia). */
+    /* Conferma prima di segnare "Si'": dice a chi va la mail (destinatario
+       fisso), chi la firma e chi e' in copia. */
     function cqModaleSospensione(inc, anno, avz, utente, azioni) {
-        const resp = cqPersonaResp(inc);
+        const dest = cqDestinatarioSospensione();
         apriModale(`<h2>Inviare la richiesta di sospensione del compenso?</h2>
             <p class="descrizione" style="margin-bottom:12px;">Segnando <strong>Sì</strong> viene inviata <strong>in automatico</strong> una email di richiesta di sospensione del compenso trimestrale per l'incarico <strong>${esc(inc.cliente || '')}</strong> (avanzamento al ${esc(fmtData(avz.data))}).</p>
             <div class="riepilogo-blocco">
-                ${rigaRiepilogo('Destinatario', resp.nome + (resp.email ? ' <' + resp.email + '>' : ''))}
+                ${rigaRiepilogo('Destinatario', dest.nome + ' <' + dest.email + '>')}
                 ${rigaRiepilogo('In copia', (utente.nome || '') + ' <' + utente.email + '>')}
                 ${rigaRiepilogo('Firmata da', (utente.nome || '') + ' - responsabile qualità')}
                 ${rigaRiepilogo('Contenuto', 'Richiesta di sospensione con l\'ultimo avanzamento: attività con lo stato e cose da fare (le note interne e i tempi non escono)')}
             </div>
-            ${resp.email ? '' : '<p class="msg-errore" style="margin-top:10px;">Sulla scheda di ' + esc(resp.nome || 'questo responsabile') + ' in Aderenti Revilaw non c\'è un indirizzo email: la richiesta viene registrata nella storia come <strong>non inviata</strong>. Aggiungi l\'indirizzo e ripeti l\'operazione per farla partire.</p>'}
             ${(typeof Cloud === 'undefined' || !Cloud.attivo) ? '<p class="hint" style="margin-top:10px;">In modalità dimostrativa le email non partono davvero: la richiesta resta registrata nella storia come non inviata.</p>' : ''}
             <div class="modale-azioni">
                 <button class="btn btn-secondary" id="cq-sosp-annulla">Annulla</button>
-                <button class="btn btn-primary" id="cq-sosp-conferma">${ICO_EMAIL}${resp.email ? 'Conferma e invia l\'email a ' + esc(resp.nome) : 'Registra senza inviare'}</button>
+                <button class="btn btn-primary" id="cq-sosp-conferma">${ICO_EMAIL}Conferma e invia l'email a ${esc(dest.nome)}</button>
             </div>`);
         document.getElementById('cq-sosp-annulla').addEventListener('click', () => { chiudiModale(); azioni.annulla(); });
         const btn = document.getElementById('cq-sosp-conferma');
         btn.addEventListener('click', () => conAttesa(btn, async () => { await azioni.conferma(); chiudiModale(); }, { testo: 'Invio…' }));
     }
     async function cqInviaSospensione(inc, anno, avz, utente) {
-        const resp = cqPersonaResp(inc);
+        const dest = cqDestinatarioSospensione();
         const oggetto = 'Richiesta di sospensione del compenso trimestrale - ' + (inc.cliente || '');
         const testo = cqMailSospensione(inc, anno, avz, utente);
-        const esito = resp.email ? await cqInviaMail(oggetto, testo, [resp.email], utente) : { ok: false, msg: 'indirizzo email del responsabile incarico mancante' };
-        ControlliQualita.registraEmail(inc, anno, utente, { tipo: 'sospensione', a: resp.email ? [resp.email] : [], cc: utente.email, oggetto, testo, esito: esito.ok ? 'inviata' : 'non inviata', msg: esito.ok ? '' : esito.msg });
-        toast(esito.ok ? 'Richiesta di sospensione inviata a ' + resp.nome + ' (tu in copia).' : 'Richiesta registrata ma email non inviata: ' + esito.msg, esito.ok ? 'verde' : 'rosso');
+        const esito = await cqInviaMail(oggetto, testo, [dest.email], utente);
+        ControlliQualita.registraEmail(inc, anno, utente, { tipo: 'sospensione', a: [dest.email], cc: utente.email, oggetto, testo, esito: esito.ok ? 'inviata' : 'non inviata', msg: esito.ok ? '' : esito.msg });
+        toast(esito.ok ? 'Richiesta di sospensione inviata a ' + dest.nome + ' (tu in copia).' : 'Richiesta registrata ma email non inviata: ' + esito.msg, esito.ok ? 'verde' : 'rosso');
     }
 
     /* L'email di riepilogo al team: si scelgono i destinatari tra le persone
@@ -12652,7 +12755,7 @@
         const oggettoIniz = 'Controllo qualità ' + (inc.cliente || '') + ': riepilogo' + (avz ? ' al ' + fmtData(avz.data) : '') + ' (' + anno + ')';
         const introIniz = 'vi invio il riepilogo del controllo di qualità sull\'incarico' + (avz ? ' aggiornato al ' + fmtData(avz.data) : '') + '. Vi chiedo di completare le attività ancora aperte e di segnalarmi eventuali difficoltà.';
         apriModale(`<h2>Email di riepilogo al team di revisione</h2>
-            <p class="descrizione" style="margin-bottom:12px;">${ICO_EMAIL}Scegli a chi mandare l'email tra le persone del team di revisione (${esc(inc.team || 'nessuno indicato')}); tu sei sempre in copia. Il testo è generato dalla scheda: i check per area con i commenti e l'ultimo avanzamento (attività con lo stato, cose da fare); le note interne e i tempi non escono.</p>
+            <p class="descrizione" style="margin-bottom:12px;">${ICO_EMAIL}Scegli a chi mandare l'email tra le persone del team di revisione (${esc(inc.team || 'nessuno indicato')}); tu sei sempre in copia. Il testo è generato dalla scheda: i check per area con i commenti e l'ultimo avanzamento (attività con lo stato e cose da fare); le note interne e i tempi non escono.</p>
             <div class="campo"><label>Destinatari</label>
                 <div class="cq-destinatari">
                 ${team.length ? team.map(t => `<label class="cq-dest${t.email ? '' : ' senza-email'}">
@@ -13018,16 +13121,17 @@
             id: '2026-09-01-controlli-qualita',
             data: '2026-09-01',
             titolo: 'Controlli qualità: la nuova sezione per il monitoraggio dei controlli',
-            sommario: 'Nel menu c\'è la nuova sezione "Controlli qualità", organizzata per anno di riferimento (2025, 2026 e gli anni che si aggiungono). La vede chi in Aderenti Revilaw è responsabile qualità (i propri incarichi) o equity partner (tutti gli incarichi, in scrittura solo i propri); amministratore e titolare vedono tutto. Per ogni incarico: i semafori delle aree 1-2, 3 e 4 con i commenti, il tempo qualità dell\'anno e l\'ultimo aggiornamento con il suo autore. Da ogni riga si apre la scheda del cliente con gli avanzamenti: attività a semaforo, tempo qualità in ore e minuti, note interne, cose da fare e richiesta di sospensione del compenso, che parte come email al responsabile incarico. Dalla scheda si manda anche l\'email di riepilogo al team di revisione. Ogni modifica e ogni email restano nella storia della scheda e nel Registro modifiche.',
+            sommario: 'Nel menu c\'è la nuova sezione "Controlli qualità", organizzata per anno di riferimento (2025, 2026 e gli anni che si aggiungono) e in due schede: i controlli da svolgere e gli incarichi in sola visualizzazione. La vede chi in Aderenti Revilaw è responsabile qualità (i propri incarichi) o equity partner (tutti gli incarichi, in scrittura solo i propri); amministratore e titolare vedono tutto. Per ogni incarico: lo stato dei controlli (completati o in corso), i semafori delle aree 1-2, 3 e 4 con i commenti, il tempo qualità dell\'anno e l\'ultimo aggiornamento con il suo autore. Da ogni riga si apre la scheda del cliente con gli avanzamenti: attività a semaforo, ognuna con le sue note interne e le sue cose da fare, tempo qualità in ore e minuti, richiesta di sospensione del compenso (email automatica a Pier Luigi Sterzi). Dalla scheda si manda anche l\'email di riepilogo al team di revisione e, quando i check sono tutti verdi, si segnano i controlli come completati. Ogni modifica e ogni email restano nella storia della scheda e nel Registro modifiche.',
             chi: 'I responsabili della qualità e gli equity partner; amministratore e titolare per il quadro complessivo.',
             dove: 'Sezione "Controlli qualità" (macroarea Qualità del menu).',
             voci: [
-                { titolo: 'Chi entra', testo: 'La sezione compare solo a chi in Aderenti Revilaw è qualificato come responsabile qualità o equity partner (oltre ad amministratore e titolare), e solo se il suo ruolo la consente in "Ruoli e permessi". Il responsabile qualità vede e modifica i soli incarichi in cui è indicato come responsabile della qualità. L\'equity partner vede tutti gli incarichi ma modifica solo i propri: sugli altri apre la scheda in sola visualizzazione. Il collegamento passa dall\'email della scheda in Aderenti Revilaw.' },
-                { titolo: 'L\'anno di riferimento', testo: 'In testa all\'elenco ci sono gli anni (si parte da 2025 e 2026; "+ Aggiungi anno" apre il successivo). Per l\'anno scelto compaiono gli incarichi in essere o con scadenza nel suo corso: chi è scaduto l\'anno prima senza rinnovo non c\'è, chi è stato rinnovato continua.' },
-                { titolo: 'L\'elenco', testo: 'Una riga per incarico: società, responsabile qualità, team di revisione, i check delle aree 1-2, 3 e 4 con i commenti, il tempo qualità dell\'anno (con il totale complessivo in testa) e l\'ultimo aggiornamento con chi l\'ha fatto. Ricerca, filtri per colonna ed esportazione CSV come nelle altre tabelle.' },
-                { titolo: 'La scheda del cliente', testo: 'In testa i dati dell\'incarico; poi un blocco per ogni "Avanzamento al ..." con le attività a semaforo (svolta, parzialmente svolta da sollecitare, non svolta sollecitata, completate), il tempo qualità in ore e minuti con il totale del blocco, le note interne qualità (riservate, non escono nelle email) e le cose da fare con la spunta. Un nuovo avanzamento riparte dalle attività dell\'ultimo blocco, anche dell\'anno precedente. Sotto: il riepilogo dei controlli per area (i semafori e i commenti che l\'elenco riprende) e il riepilogo dei tempi dell\'anno.' },
-                { titolo: 'Richiesta di sospensione del compenso', testo: 'Segnando "Sì" il programma chiede conferma e invia in automatico l\'email di richiesta al responsabile incarico (all\'indirizzo della sua scheda in Aderenti Revilaw), con l\'ultimo avanzamento e la firma di chi sta facendo il controllo, che riceve una copia. Se l\'indirizzo manca, la richiesta resta registrata come non inviata.' },
-                { titolo: 'Email di riepilogo al team', testo: 'Il pulsante "Invia email di riepilogo al team" prepara l\'email con i check per area e l\'ultimo avanzamento (attività con lo stato, cose da fare): si scelgono i destinatari tra le persone del team di revisione (anche più di uno), si rivedono oggetto e messaggio, si vede l\'anteprima e si invia; chi invia è in copia.' },
+                { titolo: 'Chi entra', testo: 'La sezione compare solo a chi in Aderenti Revilaw è qualificato come responsabile qualità o equity partner (oltre ad amministratore e titolare), e solo se il suo ruolo la consente in "Ruoli e permessi". Il responsabile qualità vede e modifica i soli incarichi in cui è indicato come responsabile della qualità. L\'equity partner vede tutti gli incarichi ma modifica solo i propri: chi è solo equity, e non responsabile della qualità di nulla, ha tutto in sola visualizzazione. Il collegamento passa dall\'email della scheda in Aderenti Revilaw.' },
+                { titolo: 'Anno di riferimento e due schede', testo: 'In testa all\'elenco ci sono gli anni (si parte da 2025 e 2026; "+ Aggiungi anno" apre il successivo): per l\'anno scelto compaiono gli incarichi in essere o con scadenza nel suo corso (chi è scaduto l\'anno prima senza rinnovo non c\'è, chi è stato rinnovato continua). Sotto, due schede: "Controlli qualità da svolgere" con gli incarichi che si possono modificare e "Incarichi in sola visualizzazione" con gli altri.' },
+                { titolo: 'L\'elenco', testo: 'Una riga per incarico: società, stato dei controlli (completati, in corso, da iniziare), responsabile qualità, team di revisione, i check delle aree 1-2, 3 e 4 con i commenti, il tempo qualità dell\'anno (con il totale complessivo in testa) e l\'ultimo aggiornamento con chi l\'ha fatto. Gli incarichi completati sono evidenziati in verde.' },
+                { titolo: 'La scheda del cliente', testo: 'In testa i dati dell\'incarico; poi un blocco per ogni "Avanzamento al ..." con le attività a semaforo (svolta, parzialmente svolta da sollecitare, non svolta sollecitata, completate): ogni attività ha le sue note interne qualità (riservate, non escono nelle email) e le sue cose da fare con la spunta, che si aprono dal pulsante nella riga. Accanto, il tempo qualità in ore e minuti con il totale del blocco. Un nuovo avanzamento riparte dalle attività dell\'ultimo blocco, anche dell\'anno precedente. Sotto: il riepilogo dei controlli per area e il riepilogo dei tempi dell\'anno.' },
+                { titolo: 'Controlli completati', testo: 'Quando i tre check del riepilogo sono tutti verdi, il pulsante "Segna i controlli come completati" chiude il lavoro: la scheda e la riga in elenco si evidenziano in verde con data e autore. Se un check torna non verde i controlli si riaprono da soli; "Riapri i controlli" lo fa a mano.' },
+                { titolo: 'Richiesta di sospensione del compenso', testo: 'Segnando "Sì" il programma chiede conferma e invia in automatico l\'email di richiesta a Pier Luigi Sterzi, sempre lui qualunque sia il responsabile dell\'incarico, con l\'ultimo avanzamento e la firma di chi sta facendo il controllo, che riceve una copia.' },
+                { titolo: 'Email di riepilogo al team', testo: 'Il pulsante "Invia email di riepilogo al team" prepara l\'email con i check per area e l\'ultimo avanzamento (attività con lo stato e cose da fare): si scelgono i destinatari tra le persone del team di revisione (anche più di uno), si rivedono oggetto e messaggio, si vede l\'anteprima e si invia; chi invia è in copia.' },
                 { titolo: 'La storia della scheda', testo: 'Modifiche, avanzamenti ed email in un\'unica linea del tempo raggruppata per giorno, con il filtro per tipo e il testo di ogni email consultabile. Tutto passa anche dal Registro modifiche (ambito "Controlli qualità").' }
             ]
         },

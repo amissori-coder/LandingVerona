@@ -72,3 +72,7 @@ const RV_INCARICHI_DEMO = [
 const RV_EMAIL_PERSONE = {
     'Sterzi': { email: 'pierluigisterzi@revilaw.it', nomeProprio: 'Pier Luigi' }
 };
+
+/* Chi riceve SEMPRE la richiesta di sospensione del compenso trimestrale
+   che parte dai Controlli qualita' (chi la invia e' in copia). */
+const RV_DESTINATARIO_SOSPENSIONE = { nome: 'Pier Luigi Sterzi', email: 'pierluigisterzi@revilaw.it' };
