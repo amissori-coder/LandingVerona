@@ -15938,10 +15938,27 @@
             + 'Scarica con gli esiti (' + lista.length + ')</button>'
             + (filtrato ? '<button class="btn btn-sm btn-ghost" id="inv-pulisci">Togli i filtri</button>' : '')
             + (altrove ? '<span class="inv-altrove hint">' + altrove + ' con questi criteri in altre schede</span>' : '')
-            + '</div>';
+            + '</div>'
+            /* SELEZIONE A GRUPPI. Spuntare a mano duecentocinquanta caselle non
+               si fa, e "seleziona tutte" su un elenco da mille manda tutto in
+               una volta sola. I gruppi sono la via di mezzo: si sceglie quanto
+               spedire adesso, si guarda com'e' andata, e si riprende.
+
+               250 non e' un numero a caso: il tetto e' di 300 PEC all'ora per
+               utente, quindi un gruppo da 250 sta dentro la finestra e non si
+               ferma a meta' per il freno. Al primo giro, con un elenco nuovo,
+               conviene comunque partire da 50. */
+            + (lista.length > 1 ? '<div class="inv-gruppi">'
+                + '<span class="hint">Seleziona</span>'
+                + [50, 250, 500].filter(k => k < lista.length)
+                    .map(k => '<button type="button" class="inv-gruppo" data-quante="' + k + '">le prime ' + k + '</button>').join('')
+                + '<button type="button" class="inv-gruppo" data-quante="tutte">tutte (' + lista.length + ')</button>'
+                + (_invSel.size ? '<button type="button" class="inv-gruppo inv-gruppo-no" data-quante="0">nessuna</button>' : '')
+                + '</div>' : '');
 
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
             + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
+            + (_invSel.size ? '<span class="hint">su ' + lista.length + ' in questa scheda</span>' : '')
             + '<button class="btn btn-primary btn-sm" id="inv-invia">Invia l\'invito</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-escludi">Escludi</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da invitare</button>'
@@ -16040,7 +16057,9 @@
             + intestazioni + '<tbody>'
             + (mostrate.length ? mostrate.map(riga).join('') : rigaVuota(nessuna))
             + '</tbody></table></div>'
-            + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '');
+            + (lista.length > MAX_RIGHE ? '<p class="hint inv-troppe">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length
+                + ': restringi la ricerca per vedere le altre. La spunta in cima, i gruppi e le azioni valgono comunque su tutte le '
+                + lista.length + ' righe filtrate.</p>' : '');
 
         corpo.innerHTML = schede + riquadroRicevute(ev, tutte) + barra + azioniSel
             + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
@@ -16161,6 +16180,23 @@
         corpo.querySelectorAll('.inv-ck').forEach(c => c.addEventListener('change', () => {
             if (c.checked) _invSel.add(c.value); else _invSel.delete(c.value);
             aggiornaSel();
+        }));
+        /* I gruppi lavorano sull'elenco FILTRATO per intero, non sulle righe a
+           video: la tabella ne mostra al massimo quattrocento, ma "le prime
+           250" devono essere le prime 250 di quelle che passano i filtri,
+           altrimenti il numero sul pulsante e quello che finisce selezionato
+           direbbero due cose diverse. Ogni gruppo SOSTITUISCE la selezione
+           precedente invece di aggiungersi: e' quello che ci si aspetta
+           premendo "le prime 250", e chi vuole aggiungere qualcuna lo fa con
+           le spunte. */
+        corpo.querySelectorAll('.inv-gruppo').forEach(b => b.addEventListener('click', () => {
+            const q = b.dataset.quante;
+            _invSel = new Set();
+            if (q !== '0') {
+                const quante = (q === 'tutte') ? lista.length : Number(q);
+                lista.slice(0, quante).forEach(a => _invSel.add(a.id));
+            }
+            ridisegna();
         }));
         const tutteCk = document.getElementById('inv-tutte');
         if (tutteCk) tutteCk.addEventListener('change', () => {
@@ -16823,6 +16859,7 @@
                lotto: su un invio da trecento PEC, che dura sette minuti, non
                bastava a distinguere "sta lavorando" da "si e' piantato". Qui
                ci sono la barra, i conteggi separati e il tempo che manca. */
+            + '<div id="ii-tetto" class="ii-tetto"></div>'
             + '<div id="ii-avanz" class="ii-avanz" style="display:none;">'
             + '<div class="ii-barra"><span id="ii-barra-int"></span></div>'
             + '<div class="ii-numeri">'
@@ -16902,6 +16939,19 @@
             const n = daFare().length;
             b.textContent = n ? ('Invia ' + n + (canale === 'pec' ? ' PEC' : ' email')) : 'Nessun recapito su questo canale';
             b.disabled = !n;
+            /* Il tetto orario si dice PRIMA, non a meta' invio. Il servizio si
+               ferma da solo quando lo raggiunge e riprende dopo, ma scoprirlo
+               alla duecentesima PEC, con la barra a meta', sembra un guasto:
+               detto qui e' una regola, detto li' e' una brutta sorpresa. */
+            const tetto = Number(canaleCfg(canale).maxOra) || 0;
+            const avviso = document.getElementById('ii-tetto');
+            if (avviso) {
+                avviso.innerHTML = (tetto && n > tetto)
+                    ? 'Il tetto e di <b>' + tetto + '</b> ' + (canale === 'pec' ? 'PEC' : 'email')
+                    + ' all\'ora: ne partono ' + tetto + ' adesso, le altre ' + (n - tetto)
+                    + ' restano da invitare e si riprendono fra un\'ora.'
+                    : '';
+            }
         };
         document.querySelectorAll('input[name="inv-canale"]').forEach(r => r.addEventListener('change', () => {
             canale = r.value;
