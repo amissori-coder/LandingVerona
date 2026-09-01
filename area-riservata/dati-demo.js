@@ -63,3 +63,16 @@ const RV_INCARICHI_DEMO = [
     { cliente: 'ZEFIRO TESSILE SRL', tipo: 'legale', codiceFiscale: '01234560121', area: 'Nord', regione: 'Piemonte', localita: 'BIELLA', dataInizio: '2024-04-26', dataFine: '2027-04-30', qualita: 'Magaraci', respIncarico: 'Sterzi', referente: 'Speca', team: 'Speca, Portinari', email1: 'amministrazione@zefirotessile.example', compensi: { 2024: 7000, 2025: 7000, 2026: 7000 }, fatturazione: 'annuale' },
     { cliente: 'DOLOMITI SKI RESORT SPA', tipo: 'legale', codiceFiscale: '01234560122', area: 'Nord', regione: 'Trentino Alto Adige', localita: 'TRENTO', dataInizio: '2023-05-08', dataFine: '2026-04-30', qualita: 'Pisano', respIncarico: 'Novembre', referente: 'Varetti', team: 'Varetti, Giannelli', email1: 'cda@dolomitiski.example', compensi: { 2023: 10000, 2024: 10000, 2025: 10000 }, fatturazione: 'trimestrale' }
 ];
+
+/* Indirizzi email (e nome proprio) noti di alcune persone dello studio.
+   Al primo avvio finiscono nelle schede di Aderenti Revilaw; le schede gia'
+   esistenti senza indirizzo li ricevono all'apertura dell'area. Servono alle
+   email automatiche dei Controlli qualita' (es. la richiesta di sospensione
+   del compenso al responsabile incarico). La chiave e' il cognome. */
+const RV_EMAIL_PERSONE = {
+    'Sterzi': { email: 'pierluigisterzi@revilaw.it', nomeProprio: 'Pier Luigi' }
+};
+
+/* Chi riceve SEMPRE la richiesta di sospensione del compenso trimestrale
+   che parte dai Controlli qualita' (chi la invia e' in copia). */
+const RV_DESTINATARIO_SOSPENSIONE = { nome: 'Pier Luigi Sterzi', email: 'pierluigisterzi@revilaw.it' };
