@@ -2764,3 +2764,36 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
     .sidebar, .contenuto { transition: none; }
     .btn:active:not([disabled]) { transform: none; }
 }
+
+/* =========================================================
+   CONTROLLI DI QUALITA'
+   L'elenco usa la tabella standard; qui ci sono la griglia del
+   riepilogo (i due check con i commenti), la griglia dei blocchi
+   di avanzamento e le tendine colorate a semaforo.
+========================================================= */
+.cq-riepilogo-griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.cq-avz-griglia { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; margin-top: 12px; }
+@media (max-width: 900px) { .cq-riepilogo-griglia, .cq-avz-griglia { grid-template-columns: 1fr; } }
+.cq-sotto { margin: 0 0 8px; color: var(--blu-500); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.82rem; }
+
+/* Tendine a semaforo: il colore dice lo stato anche a colpo d'occhio,
+   come le celle del vecchio foglio di calcolo. */
+.cq-sel { width: 100%; border: 1px solid var(--grigio-200); border-radius: 8px; padding: 7px 9px; font-family: inherit; font-size: 0.88rem; font-weight: 600; background: #fff; color: var(--grigio-700); }
+.cq-sel.verde { background: var(--verde-bg); color: var(--verde); border-color: var(--verde); }
+.cq-sel.ambra { background: var(--ambra-bg); color: var(--ambra); border-color: var(--ambra); }
+.cq-sel.rosso { background: var(--rosso-bg); color: var(--rosso); border-color: var(--rosso); }
+.cq-sel.neutro { color: var(--grigio-600); }
+/* in sola lettura la tendina resta leggibile, non sbiadita */
+.cq-sel:disabled { opacity: 1; }
+
+.cq-avz .cq-avz-testa { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: -4px 0 4px; }
+.cq-avz-testa input[type="date"] { margin-left: 6px; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 4px 6px; font-family: inherit; }
+.cq-avz table input[type="text"], .cq-avz table input[type="time"] { width: 100%; border: 1px solid var(--grigio-200); border-radius: 6px; padding: 5px 7px; font-size: 0.88rem; font-family: inherit; }
+.cq-cella-togli { width: 36px; text-align: center; }
+
+#cq-commento-12, #cq-commento-4, .cq-note { width: 100%; margin-top: 8px; border: 1px solid var(--grigio-200); border-radius: 8px; padding: 8px 10px; resize: vertical; font-family: inherit; font-size: 0.9rem; }
+
+/* La richiesta di sospensione del compenso: in evidenza, come nel foglio. */
+.cq-sospensione { margin-top: 14px; padding: 10px 12px; border: 1px dashed var(--grigio-200); border-radius: 8px; }
+.cq-sospensione label { display: block; font-size: 0.85rem; color: var(--rosso); font-weight: 600; margin-bottom: 6px; }
+.cq-sospensione .cq-sel { width: auto; min-width: 90px; }
