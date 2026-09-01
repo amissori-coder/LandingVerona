@@ -2873,3 +2873,64 @@ table.dati tr.cq-completata td.cliente-cella { border-left: 4px solid var(--verd
 .cq-scelte { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 4px; }
 .cq-scelte label { display: flex; align-items: flex-start; gap: 8px; font-size: 0.92rem; line-height: 1.4; }
 .cq-scelte input[type="checkbox"] { width: 16px; height: 16px; margin-top: 3px; flex: none; }
+
+/* =========================================================
+   CONTROLLI DI QUALITA' - impaginazione compatta (.cq-pagina)
+   Riquadri piu' stretti, testi di servizio ridotti, barra strumenti
+   fissa nella scheda con il pulsante Salva e lo stato del salvataggio.
+========================================================= */
+.cq-pagina .card { padding: 14px 18px; margin-bottom: 14px; }
+.cq-pagina .card > h2 { font-size: 1rem; margin: 0 0 10px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.cq-pagina .descrizione { text-align: left; font-size: 0.86rem; }
+.cq-pagina .hint { text-align: left; }
+.cq-kpi { font-size: 0.8rem; font-weight: 400; color: var(--grigio-600); font-family: 'Inter', system-ui, sans-serif; text-transform: none; letter-spacing: 0; }
+.cq-kpi strong { color: var(--blu-900); font-weight: 700; }
+.cq-aiuto { margin-top: 6px; font-size: 0.82rem; color: var(--grigio-600); max-width: 72ch; }
+.cq-aiuto summary { cursor: pointer; color: var(--blu-500); font-weight: 600; list-style-position: inside; }
+.cq-aiuto p { margin: 6px 0 0; text-align: left; }
+/* Barra dell'elenco: anno a sinistra, le due schede a destra */
+.cq-barra { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; border-bottom: 1px solid var(--grigio-200); }
+.cq-barra .tab-dest { border-bottom: 0; margin: 0; align-items: center; }
+.cq-barra-etich { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--grigio-600); margin-right: 4px; }
+.cq-anni .btn { margin-left: 4px; }
+/* Celle dell'elenco: semaforo con il commento sotto, in piccolo */
+.cq-commento-mini { font-size: 0.76rem; color: var(--grigio-600); margin-top: 3px; line-height: 1.3; max-width: 220px; white-space: normal; }
+table.dati.cq-elenco td { vertical-align: top; }
+table.dati.cq-elenco .cq-agg { white-space: nowrap; }
+/* Barra strumenti della scheda: appiccicata in cima, con Salva sempre a portata */
+.cq-toolbar { position: sticky; top: 0; z-index: 15; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: -6px calc(-1 * var(--pad-pagina)) 14px; padding: 10px var(--pad-pagina); background: var(--blu-050); border-bottom: 1px solid var(--grigio-200); }
+.cq-toolbar .cq-titolo { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 4px; }
+.cq-toolbar h1 { font-size: 1.15rem; margin: 0; line-height: 1.2; }
+.cq-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.cq-toolbar-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cq-toolbar .cq-btn-torna { margin: 0; }
+.cq-stato-salv { font-size: 0.76rem; color: var(--grigio-600); white-space: nowrap; }
+.cq-stato-salv.ok { color: var(--verde); }
+.cq-stato-salv.sporco { color: var(--ambra); font-weight: 600; white-space: normal; max-width: 260px; text-align: right; }
+@media (max-width: 900px) { .cq-toolbar { position: static; margin-inline: 0; padding-inline: 0; background: transparent; border-bottom: 0; } }
+/* Avviso di sola visualizzazione e striscia dati dell'incarico */
+.cq-avviso { padding: 10px 14px; margin-bottom: 12px; border-left: 4px solid var(--ambra); background: var(--ambra-bg); border-radius: var(--raggio); font-size: 0.86rem; }
+.cq-info { display: flex; flex-wrap: wrap; gap: 6px 26px; padding: 10px 16px; margin-bottom: 14px; background: #fff; border: 1px solid var(--grigio-200); border-radius: var(--raggio); font-size: 0.84rem; }
+.cq-info div { display: flex; flex-direction: column; gap: 1px; }
+.cq-info span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--grigio-600); }
+.cq-info strong { color: var(--blu-900); font-weight: 600; }
+/* Sezione avanzamenti e blocchi */
+.cq-pagina .cq-sezione-testa { margin: 18px 0 10px; padding-bottom: 6px; }
+.cq-pagina .cq-sezione-titolo { font-size: 1rem; }
+.cq-pagina .cq-avz-testa { margin: 0 0 10px; }
+.cq-avz-titolo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cq-avz-titolo h2 { margin: 0 !important; }
+.cq-avz-titolo input[type="date"] { border: 1px solid var(--grigio-200); border-radius: 6px; padding: 3px 6px; font-family: inherit; font-size: 0.82rem; }
+.cq-pagina .cq-avz-griglia { margin-top: 0; gap: 20px; }
+.cq-pagina .cq-sotto { font-size: 0.74rem; margin-bottom: 6px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.cq-sotto-nota { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--grigio-600); font-size: 0.74rem; }
+.cq-pagina .cq-sel { padding: 5px 8px; font-size: 0.82rem; }
+.cq-pagina .cq-avz table input[type="text"], .cq-pagina .cq-avz table input[type="number"] { padding: 4px 6px; font-size: 0.84rem; }
+.cq-pagina table.dati.compatta td { padding: 4px 6px; }
+.cq-pagina .cq-avz-ridotto { padding: 10px 16px; }
+.cq-pagina .cq-sospensione { margin-top: 12px; padding: 8px 12px; }
+.cq-pagina .cq-sospensione label { font-size: 0.82rem; }
+.cq-pagina #cq-commento-area12, .cq-pagina #cq-commento-area3, .cq-pagina #cq-commento-area4 { font-size: 0.84rem; padding: 6px 8px; }
+.cq-pagina .cq-completamento { margin-top: 12px; padding: 10px 12px; font-size: 0.86rem; }
+.cq-pagina .cq-storia-voce { font-size: 0.84rem; padding: 5px 0; }
+.cq-pagina .cq-fondo { justify-content: space-between; gap: 10px; flex-wrap: wrap; }

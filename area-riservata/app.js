@@ -11758,6 +11758,21 @@
     const CQ_ANNI_INIZIALI = [2025, 2026];
     const CQ_ID_CONFIG = 'cq-config';   // record di configurazione dentro l'archivio (gli anni)
     const ICO_EMAIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>';
+    const ICO_SALVA = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+    let cqTastoSalva = null;   // ascoltatore di Ctrl+S della scheda aperta (si sostituisce a ogni apertura)
+    let cqUltimoSalvataggio = 0;   // timbro dell'ultimo salvataggio fatto da questo browser (stato nella barra)
+    /* Ogni campo si salva da solo quando lo si lascia (evento change). Qui si
+       forza il salvataggio di cio' che e' ancora "in mano": il campo a fuoco e
+       i campi digitati il cui valore differisce da quello disegnato. I gestori
+       dei campi confrontano prima/dopo, quindi rilanciare un change su un campo
+       gia' salvato non produce doppioni. */
+    function cqFlushCampi() {
+        const attivo = document.activeElement;
+        if (attivo && attivo.closest && attivo.closest('.cq-pagina') && attivo.matches('input, textarea, select')) attivo.blur();
+        document.querySelectorAll('.cq-pagina input[type="text"], .cq-pagina input[type="number"], .cq-pagina input[type="date"], .cq-pagina textarea').forEach(el => {
+            if (el.value !== el.defaultValue) { el.dispatchEvent(new Event('change', { bubbles: true })); el.defaultValue = el.value; }
+        });
+    }
     const ICO_SPUNTA = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5"/></svg>';
     const cqCheck = id => CQ_CHECK.find(c => c.id === id) || null;
     const cqStatoRiga = id => CQ_STATI_RIGA.find(s => s.id === id) || null;
@@ -12113,6 +12128,10 @@
                 ? 'Come equity partner vedi <strong>tutti</strong> gli incarichi: nella prima scheda quelli in cui sei <strong>responsabile della qualità</strong> (li puoi modificare), nella seconda gli altri, in sola visualizzazione.'
                 : 'Gli incarichi in cui sei <strong>responsabile della qualità</strong>.';
 
+        const cellaArea = (s, a) => {
+            const v = s ? s[a.id] : { check: '', commento: '' };
+            return `<td data-label="${esc(a.nome)}">${cqBadgeCheck(v.check)}${v.commento ? '<div class="cq-commento-mini" title="' + esc(v.commento) + '">' + esc(troncaTesto(v.commento, 70)) + '</div>' : ''}</td>`;
+        };
         const riga = i => {
             const s = schede[i.id];
             const agg = s ? (s.modificato || s.creato) : null;
@@ -12123,41 +12142,45 @@
                 <td data-label="Stato controlli">${compl ? '<span class="badge verde" title="Completati il ' + esc(fmtGiorno(compl.il)) + ' da ' + esc(cqSoloNome(compl.da)) + '">' + ICO_SPUNTA + 'Completati</span>' : (s ? '<span class="badge ambra">In corso</span>' : '<span class="badge neutro">Da iniziare</span>')}</td>
                 <td data-label="Resp. qualità">${esc(i.qualita || '')}</td>
                 <td data-label="Team">${esc(i.team || '')}</td>
-                ${CQ_AREE.map(a => `<td data-label="Check ${esc(a.nome)}">${cqBadgeCheck(s && s[a.id].check)}</td>
-                <td data-label="Commento">${esc(troncaTesto((s && s[a.id].commento) || '', 90))}</td>`).join('')}
+                ${CQ_AREE.map(a => cellaArea(s, a)).join('')}
                 <td data-label="Tempo qualità" class="cq-num">${min ? esc(cqFmtMinuti(min)) : '<span class="hint">-</span>'}</td>
-                <td data-label="Aggiornamento">${agg ? esc(fmtGiorno(agg.il)) + '<div class="hint">di ' + esc(cqSoloNome(agg.da)) + '</div>' : '<span class="hint">mai</span>'}</td>
+                <td data-label="Aggiornamento" class="cq-agg">${agg ? esc(fmtGiorno(agg.il)) + '<div class="hint">' + esc(cqSoloNome(agg.da)) + '</div>' : '<span class="hint">mai</span>'}</td>
                 <td data-label=""><button class="btn btn-sm btn-secondary" data-apri-scheda="${esc(i.id)}">${cqTab === 'miei' ? 'Apri scheda' : 'Vedi scheda'}</button></td>
             </tr>`;
         };
 
-        $vista().innerHTML = `
+        $vista().innerHTML = `<div class="cq-pagina">
             <header>
                 <div>
                     <h1>Controlli qualità</h1>
-                    <p class="descrizione">${perimetro}
-                    Scegli l'<strong>anno di riferimento</strong>: compaiono gli incarichi in essere in quell'anno o con scadenza nel suo corso (chi è scaduto l'anno prima senza rinnovo non c'è; chi è stato rinnovato continua). Semafori e commenti arrivano dalla scheda di ogni cliente; "Completati" è lo stato che il responsabile qualità assegna dalla scheda quando tutti i check sono verdi.</p>
+                    <p class="descrizione">${perimetro}</p>
+                    <details class="cq-aiuto"><summary>Come funziona</summary>
+                        <p>Scegli l'<strong>anno di riferimento</strong>: compaiono gli incarichi in essere in quell'anno o con scadenza nel suo corso (chi è scaduto l'anno prima senza rinnovo non c'è; chi è stato rinnovato continua). Semafori e commenti arrivano dalla scheda di ogni cliente; "Completati" è lo stato che il responsabile qualità assegna dalla scheda quando tutti i check sono verdi. Il tempo qualità è la somma dei tempi registrati nell'anno.</p>
+                    </details>
                 </div>
             </header>
-            <div class="tab-dest cq-anni" style="margin-bottom:12px;">
-                ${anni.map(a => `<button class="tab-btn ${a === cqAnno ? 'attivo' : ''}" data-cqanno="${a}">${a}</button>`).join('')}
-                ${puoScrivere ? `<button class="btn btn-sm btn-secondary" id="cq-aggiungi-anno" title="Apre l'anno ${anni[anni.length - 1] + 1}">+ Aggiungi anno</button>` : ''}
-            </div>
-            <div class="tab-dest cq-schede" style="margin-bottom:16px;">
-                <button class="tab-btn ${cqTab === 'miei' ? 'attivo' : ''}" data-cqtab="miei">Controlli qualità da svolgere (${miei.length})</button>
-                <button class="tab-btn ${cqTab === 'visualizzazione' ? 'attivo' : ''}" data-cqtab="visualizzazione">Incarichi in sola visualizzazione (${soloVis.length})</button>
+            <div class="cq-barra">
+                <div class="tab-dest cq-anni"><span class="cq-barra-etich">Anno</span>
+                    ${anni.map(a => `<button class="tab-btn ${a === cqAnno ? 'attivo' : ''}" data-cqanno="${a}">${a}</button>`).join('')}
+                    ${puoScrivere ? `<button class="btn btn-sm btn-ghost" id="cq-aggiungi-anno" title="Apre l'anno ${anni[anni.length - 1] + 1}">+ Anno</button>` : ''}
+                </div>
+                <div class="tab-dest cq-schede">
+                    <button class="tab-btn ${cqTab === 'miei' ? 'attivo' : ''}" data-cqtab="miei">Da svolgere (${miei.length})</button>
+                    <button class="tab-btn ${cqTab === 'visualizzazione' ? 'attivo' : ''}" data-cqtab="visualizzazione">Sola visualizzazione (${soloVis.length})</button>
+                </div>
             </div>
             ${!lista.length ? `<div class="card"><p class="tabella-vuota">${cqTab === 'miei'
-                ? (prof.tutti && !prof.admin ? 'Nel ' + cqAnno + ' non risulti responsabile della qualità di alcun incarico: trovi tutto nella scheda "Incarichi in sola visualizzazione".' : 'Nessun incarico in essere nel ' + cqAnno + ' in cui risulti responsabile della qualità.')
+                ? (prof.tutti && !prof.admin ? 'Nel ' + cqAnno + ' non risulti responsabile della qualità di alcun incarico: trovi tutto in "Sola visualizzazione".' : 'Nessun incarico in essere nel ' + cqAnno + ' in cui risulti responsabile della qualità.')
                 : 'Nessun incarico in sola visualizzazione nel ' + cqAnno + '.'}</p></div>` : ''}
             ${lista.length ? `<div class="card">
-                <h2>${cqTab === 'miei' ? 'Controlli da svolgere' : 'Sola visualizzazione'} ${cqAnno} <span class="hint" style="font-weight:normal;">(${lista.length} incarichi · completati <strong>${completati}</strong> · tempo qualità complessivo <strong id="cq-tempo-totale">${esc(cqFmtMinuti(minutiTotali))}</strong>)</span></h2>
-                <div class="tabella-wrap"><table class="dati a-schede" id="tabella-cq"><thead><tr>
-                    <th>Società</th><th>Stato controlli</th><th>Resp. qualità</th><th>Team di revisione</th>
-                    ${CQ_AREE.map(a => '<th>Check ' + esc(a.nome) + '</th><th>Commento</th>').join('')}
+                <h2>${cqTab === 'miei' ? 'Controlli da svolgere' : 'Sola visualizzazione'} ${cqAnno} <span class="cq-kpi">${lista.length} incarichi · completati <strong>${completati}</strong> · tempo qualità <strong id="cq-tempo-totale">${esc(cqFmtMinuti(minutiTotali))}</strong></span></h2>
+                <div class="tabella-wrap"><table class="dati a-schede cq-elenco" id="tabella-cq"><thead><tr>
+                    <th>Società</th><th>Stato</th><th>Resp. qualità</th><th>Team di revisione</th>
+                    ${CQ_AREE.map(a => '<th>' + esc(a.nome) + '</th>').join('')}
                     <th>Tempo qualità</th><th>Aggiornamento</th><th></th>
                 </tr></thead><tbody>${lista.map(riga).join('')}</tbody></table></div>
-            </div>` : ''}`;
+            </div>` : ''}
+        </div>`;
 
         $vista().querySelectorAll('[data-cqanno]').forEach(b =>
             b.addEventListener('click', () => { cqAnno = Number(b.dataset.cqanno); vistaControlliQualita(); }));
@@ -12339,18 +12362,20 @@
         </div>`;
         const bloccoAvz = a => avzAperto(a) ? bloccoAvzEsteso(a) : bloccoAvzRidotto(a);
         const bloccoAvzEsteso = a => `<div class="card cq-avz" data-avz="${esc(a.id)}">
-            <h2>Avanzamento al ${a.data ? esc(fmtData(a.data)) : '...'}</h2>
             <div class="cq-avz-testa">
-                ${puoScrivere ? `<label class="hint">Data dell'avanzamento <input type="date" class="cq-avz-data" value="${esc(a.data || '')}"></label>` : '<span class="hint">' + esc(cqRiassuntoAvz(a)) + '</span>'}
+                <div class="cq-avz-titolo">
+                    <h2>Avanzamento al ${a.data ? esc(fmtData(a.data)) : '...'}</h2>
+                    ${puoScrivere ? `<input type="date" class="cq-avz-data" value="${esc(a.data || '')}" title="Cambia la data dell'avanzamento">` : ''}
+                    <span class="hint">${esc(cqRiassuntoAvz(a))}</span>
+                </div>
                 <span class="cq-avz-testa-azioni">
-                    ${avanzamenti.length > 1 ? `<button type="button" class="btn btn-sm btn-secondary cq-avz-riduci" data-avz-riduci="${esc(a.id)}">Riduci a una riga</button>` : ''}
-                    ${puoScrivere ? '<button class="btn btn-sm btn-danger cq-avz-elimina">Elimina avanzamento</button>' : ''}
+                    ${avanzamenti.length > 1 ? `<button type="button" class="btn btn-sm btn-ghost cq-avz-riduci" data-avz-riduci="${esc(a.id)}" title="Riduci a una riga">Riduci</button>` : ''}
+                    ${puoScrivere ? '<button class="btn btn-sm btn-ghost cq-avz-elimina" title="Elimina questo avanzamento">Elimina</button>' : ''}
                 </span>
             </div>
             <div class="cq-avz-griglia">
                 <div>
-                    <h4 class="cq-sotto">Attività</h4>
-                    <p class="hint" style="margin:0 0 8px;">Ogni attività ha le sue note interne e le sue cose da fare: si aprono dal pulsante nella riga.</p>
+                    <h4 class="cq-sotto">Attività <span class="cq-sotto-nota">note interne e to do dal pulsante nella riga</span></h4>
                     <div class="tabella-wrap"><table class="dati compatta cq-tab-attivita"><thead><tr><th>Attività</th><th>Stato</th><th>Note / to do</th>${puoScrivere ? '<th></th>' : ''}</tr></thead><tbody>
                     ${a.righe.map(rigaAttivita).join('')}
                     </tbody></table></div>
@@ -12370,7 +12395,7 @@
                             <option value="si"${a.sospensione === 'si' ? ' selected' : ''}>Sì</option>
                             <option value="no"${a.sospensione === 'no' ? ' selected' : ''}>No</option>
                         </select>
-                        <p class="hint" style="margin:6px 0 0;">${ICO_EMAIL}Con <strong>Sì</strong> parte in automatico l'email di richiesta a ${esc(dest.nome)} (${esc(dest.email)}), firmata da chi sta facendo il controllo e con lui in copia.</p>
+                        <p class="hint" style="margin:6px 0 0;">${ICO_EMAIL}Con <strong>Sì</strong> parte l'email a ${esc(dest.nome)}, firmata da te e con te in copia.</p>
                     </div>
                 </div>
             </div>
@@ -12378,68 +12403,65 @@
 
         const minutiTot = cqMinutiScheda(scheda);
         const tuttoVerde = cqTuttoVerde(scheda);
-        $vista().innerHTML = `
-            <header>
-                <div>
-                    <button type="button" class="btn btn-secondary cq-btn-torna" id="cq-torna">&#8592; Torna ai Controlli qualità ${anno}</button>
-                    <h1>${esc(inc.cliente)}</h1>
-                    <p class="descrizione"><span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span> <span class="badge legale">Controlli ${anno}</span> ${completato ? '<span class="badge verde">' + ICO_SPUNTA + 'Controlli completati il ' + esc(fmtGiorno(completato.il)) + '</span> ' : ''}${puoScrivere ? '' : '<span class="badge ambra">Sola visualizzazione</span> '}Scheda di monitoraggio dei controlli di qualità</p>
+        const badges = `<span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span><span class="badge legale">Controlli ${anno}</span>${completato ? '<span class="badge verde">' + ICO_SPUNTA + 'Controlli completati il ' + esc(fmtGiorno(completato.il)) + '</span>' : ''}${puoScrivere ? '' : '<span class="badge ambra">Sola visualizzazione</span>'}`;
+        $vista().innerHTML = `<div class="cq-pagina">
+            <div class="cq-toolbar" id="cq-toolbar">
+                <button type="button" class="btn btn-secondary btn-sm cq-btn-torna" id="cq-torna" title="Torna all'elenco dei controlli qualità ${anno}">&#8592; Elenco ${anno}</button>
+                <div class="cq-titolo"><h1>${esc(inc.cliente)}</h1><div class="cq-badges">${badges}</div></div>
+                <div class="cq-toolbar-azioni">
+                    ${puoScrivere ? `<span class="cq-stato-salv${scheda ? ' ok' : ''}" id="cq-stato-salvataggio">${scheda && scheda.modificato && scheda.modificato.il === cqUltimoSalvataggio ? 'Salvato alle ' + fmtDataOra(scheda.modificato.il).slice(11) : (scheda ? 'Tutte le modifiche sono salvate' : 'Le modifiche si salvano da sole')}</span>
+                    <button class="btn btn-primary btn-sm" id="cq-salva" title="Salva subito quello che stai scrivendo (Ctrl+S)">${ICO_SALVA}Salva</button>
+                    <button class="btn btn-secondary btn-sm" id="cq-riepilogo-team" title="Prepara e invia l'email di riepilogo al team di revisione">${ICO_EMAIL}Email al team</button>` : ''}
                 </div>
-                <div class="header-azioni">
-                    ${puoScrivere ? '<button class="btn btn-secondary" id="cq-riepilogo-team" title="Prepara e invia l\'email di riepilogo al team di revisione">' + ICO_EMAIL + 'Invia email di riepilogo al team</button>' : ''}
-                </div>
-            </header>
-            ${!puoScrivere && prof && !prof.admin ? `<div class="card" style="border-left:4px solid var(--ambra);">
-                <p class="descrizione" style="margin:0;"><strong>Sola visualizzazione.</strong> Il responsabile della qualità di questo incarico è <strong>${esc(inc.qualita || 'non indicato')}</strong>: puoi modificare solo le schede degli incarichi in cui il responsabile della qualità sei tu.</p>
-            </div>` : ''}
-            <div class="card">
-                <h2>Incarico</h2>
-                <div class="riepilogo-blocco">
-                    ${rigaRiepilogo('Società', inc.cliente)}
-                    ${rigaRiepilogo('Team di revisione', inc.team)}
-                    ${rigaRiepilogo('Responsabile incarico', inc.respIncarico)}
-                    ${rigaRiepilogo('Responsabile qualità', inc.qualita)}
-                    ${rigaRiepilogo('Anno di riferimento', String(anno))}
-                </div>
+            </div>
+            ${!puoScrivere && prof && !prof.admin ? `<div class="cq-avviso"><strong>Sola visualizzazione.</strong> Il responsabile della qualità di questo incarico è <strong>${esc(inc.qualita || 'non indicato')}</strong>: puoi modificare solo le schede degli incarichi in cui il responsabile della qualità sei tu.</div>` : ''}
+            <div class="cq-info">
+                <div><span>Team di revisione</span><strong>${esc(inc.team || '-')}</strong></div>
+                <div><span>Responsabile incarico</span><strong>${esc(inc.respIncarico || '-')}</strong></div>
+                <div><span>Responsabile qualità</span><strong>${esc(inc.qualita || '-')}</strong></div>
+                <div><span>Anno di riferimento</span><strong>${anno}</strong></div>
+                <div><span>Ultimo aggiornamento</span><strong id="cq-timbro">${agg ? esc(fmtDataOra(agg.il)) + ' · ' + esc(cqSoloNome(agg.da)) : '-'}</strong></div>
             </div>
             <div class="cq-sezione-testa">
                 <h2 class="cq-sezione-titolo">Avanzamenti ${anno} <span class="hint">(${avanzamenti.length})</span></h2>
-                ${puoScrivere ? '<button class="btn btn-primary" id="cq-nuovo-avz">+ Nuovo avanzamento</button>' : ''}
+                ${puoScrivere ? '<button class="btn btn-primary btn-sm" id="cq-nuovo-avz">+ Nuovo avanzamento</button>' : ''}
             </div>
             ${avanzamenti.map(bloccoAvz).join('')}
-            ${!avanzamenti.length ? `<div class="card"><p class="tabella-vuota">Nessun avanzamento registrato per il ${anno}${puoScrivere ? ': premi "+ Nuovo avanzamento" qui sopra per aprire il primo blocco' : ''}.</p></div>` : ''}
+            ${!avanzamenti.length ? `<div class="card"><p class="tabella-vuota">Nessun avanzamento registrato per il ${anno}${puoScrivere ? ': premi "+ Nuovo avanzamento" per aprire il primo blocco' : ''}.</p></div>` : ''}
             <div class="card${completato ? ' cq-card-completata' : ''}" id="cq-riepilogo">
-                <h2>Riepilogo dei controlli</h2>
-                <p class="descrizione">Questi semafori e commenti sono quelli che compaiono nell'elenco dei controlli qualità ${anno}.
-                    <span id="cq-timbro" class="hint">${agg ? 'Ultimo aggiornamento: ' + fmtDataOra(agg.il) + ' di ' + esc(cqSoloNome(agg.da)) : 'Nessun aggiornamento registrato.'}</span></p>
+                <h2>Riepilogo dei controlli <span class="cq-kpi">semafori e commenti ripresi nell'elenco ${anno}</span></h2>
                 <div class="cq-riepilogo-griglia">
                     ${CQ_AREE.map(areaRiepilogo).join('')}
                 </div>
                 <div class="cq-completamento">
                     ${completato
-                        ? `<div class="cq-completamento-testo">${ICO_SPUNTA}<strong>Controlli completati</strong> il ${esc(fmtDataOra(completato.il))} da ${esc(cqSoloNome(completato.da))}: nell'elenco questo incarico compare come completato.</div>
+                        ? `<div class="cq-completamento-testo">${ICO_SPUNTA}<strong>Controlli completati</strong> il ${esc(fmtDataOra(completato.il))} da ${esc(cqSoloNome(completato.da))}.</div>
                            ${puoScrivere ? '<button class="btn btn-sm btn-secondary" id="cq-riapri">Riapri i controlli</button>' : ''}`
-                        : `<div class="cq-completamento-testo">${tuttoVerde ? 'Tutti i check sono verdi: puoi segnare i controlli come <strong>completati</strong>, e nell\'elenco l\'incarico verrà evidenziato.' : 'Quando tutti e tre i check sono <strong>verdi</strong> puoi segnare i controlli come completati.'}</div>
-                           ${puoScrivere ? '<button class="btn btn-primary" id="cq-completa"' + (tuttoVerde ? '' : ' disabled title="Prima porta tutti i check a verde"') + '>' + ICO_SPUNTA + 'Segna i controlli come completati</button>' : ''}`}
+                        : `<div class="cq-completamento-testo">${tuttoVerde ? 'Tutti i check sono verdi: puoi segnare i controlli come <strong>completati</strong>.' : 'Con i tre check <strong>verdi</strong> puoi segnare i controlli come completati.'}</div>
+                           ${puoScrivere ? '<button class="btn btn-primary btn-sm" id="cq-completa"' + (tuttoVerde ? '' : ' disabled title="Prima porta tutti i check a verde"') + '>' + ICO_SPUNTA + 'Segna come completati</button>' : ''}`}
                 </div>
             </div>
             <div class="card" id="cq-tempi">
                 <h2>Riepilogo dei tempi ${anno}</h2>
-                <p class="descrizione">Il tempo qualità registrato in ogni avanzamento e il totale dell'anno, che compare anche nell'elenco.</p>
-                ${avanzamenti.length ? `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Avanzamento</th><th class="cq-num">Righe di tempo</th><th class="cq-num">Tempo qualità</th></tr></thead><tbody>
+                ${avanzamenti.length ? `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Avanzamento</th><th class="cq-num">Righe</th><th class="cq-num">Tempo qualità</th></tr></thead><tbody>
                     ${avanzamenti.map(a => `<tr><td>Avanzamento al ${a.data ? esc(fmtData(a.data)) : '...'}</td><td class="cq-num">${a.tempi.length}</td><td class="cq-num">${esc(cqFmtMinuti(cqMinutiAvz(a)))}</td></tr>`).join('')}
                     </tbody><tfoot><tr class="cq-tot"><td>Totale ${anno}</td><td class="cq-num">${avanzamenti.reduce((n, a) => n + a.tempi.length, 0)}</td><td class="cq-num" id="cq-tempo-totale-scheda">${esc(cqFmtMinuti(minutiTot))}</td></tr></tfoot></table></div>`
                 : '<p class="tabella-vuota">Nessun tempo registrato.</p>'}
             </div>
             <div class="card" id="cq-storia">
                 <h2>Storia della scheda</h2>
-                <p class="descrizione">Modifiche, avanzamenti ed email, dal più recente. Ogni voce dice chi ha fatto cosa e quando.</p>
                 ${cqStoriaHtml(scheda, storia)}
             </div>
-            <div class="cq-fondo"><button type="button" class="btn btn-secondary cq-btn-torna" id="cq-torna-fondo">&#8592; Torna ai Controlli qualità ${anno}</button></div>`;
+            <div class="cq-fondo">
+                <button type="button" class="btn btn-secondary btn-sm cq-btn-torna" id="cq-torna-fondo">&#8592; Elenco ${anno}</button>
+                ${puoScrivere ? '<button class="btn btn-primary btn-sm" id="cq-salva-fondo" title="Salva subito quello che stai scrivendo (Ctrl+S)">' + ICO_SALVA + 'Salva</button>' : ''}
+            </div>
+        </div>`;
 
-        document.getElementById('cq-torna').addEventListener('click', () => tornaOrigine(() => naviga('controlloQualita')));
-        document.getElementById('cq-torna-fondo').addEventListener('click', () => tornaOrigine(() => naviga('controlloQualita')));
+        // tornare all'elenco salva prima quello che e' ancora in mano
+        const torna = () => { cqFlushCampi(); tornaOrigine(() => naviga('controlloQualita')); };
+        document.getElementById('cq-torna').addEventListener('click', torna);
+        document.getElementById('cq-torna-fondo').addEventListener('click', torna);
         // apri / riduci gli avanzamenti (anche in sola lettura): si ridisegna con lo scorrimento fermo
         const ridisegnaVista = () => naviga('controlloQualitaScheda', { id: inc.id, anno: anno }, window.scrollY);
         $vista().querySelectorAll('[data-avz-apri]').forEach(b => b.addEventListener('click', () => { cqAvzStato.set(b.dataset.avzApri, true); ridisegnaVista(); }));
@@ -12456,15 +12478,20 @@
             if (apri) cqRigheAperte.add(id); else cqRigheAperte.delete(id);
         }));
 
-        // storia: filtro per tipo e testo delle email (anche in sola lettura)
-        $vista().querySelectorAll('[data-cqstoria]').forEach(b => b.addEventListener('click', () => {
-            $vista().querySelectorAll('[data-cqstoria]').forEach(x => x.classList.toggle('attivo', x === b));
+        // storia: filtro per tipo e testo delle email (anche in sola lettura). E' una
+        // funzione perche' la storia si riaggiorna a ogni salvataggio senza ridisegnare.
+        const legaStoria = () => {
+        const cardStoria = document.getElementById('cq-storia');
+        if (!cardStoria) return;
+        cardStoria.querySelectorAll('[data-cqstoria]').forEach(b => b.addEventListener('click', () => {
+            cardStoria.querySelectorAll('[data-cqstoria]').forEach(x => x.classList.toggle('attivo', x === b));
             const t = b.dataset.cqstoria;
-            $vista().querySelectorAll('.cq-storia-voce').forEach(v => { v.style.display = (t === 'tutte' || v.dataset.tipo === t) ? '' : 'none'; });
-            $vista().querySelectorAll('.cq-storia-giorno').forEach(g => { g.style.display = Array.from(g.querySelectorAll('.cq-storia-voce')).some(v => v.style.display !== 'none') ? '' : 'none'; });
+            cardStoria.querySelectorAll('.cq-storia-voce').forEach(v => { v.style.display = (t === 'tutte' || v.dataset.tipo === t) ? '' : 'none'; });
+            cardStoria.querySelectorAll('.cq-storia-giorno').forEach(g => { g.style.display = Array.from(g.querySelectorAll('.cq-storia-voce')).some(v => v.style.display !== 'none') ? '' : 'none'; });
         }));
-        $vista().querySelectorAll('.cq-vedi-email').forEach(b => b.addEventListener('click', () => {
-            const m = scheda && scheda.email.find(x => x.id === b.dataset.email);
+        cardStoria.querySelectorAll('.cq-vedi-email').forEach(b => b.addEventListener('click', () => {
+            const sch = ControlliQualita.perIncarico(inc.id, anno);
+            const m = sch && sch.email.find(x => x.id === b.dataset.email);
             if (!m) return;
             apriModale(`<h2>${esc(m.oggetto || 'Email')}</h2>
                 <div class="riepilogo-blocco">
@@ -12478,14 +12505,42 @@
                 <div class="modale-azioni"><button class="btn btn-primary" id="cq-em-chiudi">Chiudi</button></div>`, { classe: 'larga' });
             document.getElementById('cq-em-chiudi').addEventListener('click', chiudiModale);
         }));
+        };
+        legaStoria();
+        const aggiornaStoria = () => {
+            const cardStoria = document.getElementById('cq-storia');
+            if (!cardStoria) return;
+            const sch = ControlliQualita.perIncarico(inc.id, anno);
+            const voci = sch ? Store.leggi(CHIAVI.audit, []).filter(v => v.rif === sch.id) : [];
+            cardStoria.innerHTML = '<h2>Storia della scheda</h2>' + cqStoriaHtml(sch, voci);
+            legaStoria();
+        };
 
         if (!puoScrivere) return;
 
         /* --- da qui in poi solo scrittura: ogni cambio si salva subito --- */
-        const salva = (azione, dettagli, mutatore) => ControlliQualita.aggiorna(inc, anno, utente, azione, dettagli, mutatore);
+        /* Stato del salvataggio nella barra: "modifiche in corso" appena si digita,
+           "salvato alle hh:mm" dopo ogni scrittura. Ogni campo si salva quando lo si
+           lascia; Salva (e Ctrl+S) salvano subito anche il campo che si sta scrivendo. */
+        const statoSalv = document.getElementById('cq-stato-salvataggio');
+        const segnaSalvato = () => { if (statoSalv) { statoSalv.textContent = 'Salvato alle ' + fmtDataOra(Date.now()).slice(11); statoSalv.className = 'cq-stato-salv ok'; } };
+        const segnaSporco = () => { if (statoSalv && !statoSalv.classList.contains('sporco')) { statoSalv.textContent = 'Modifiche in corso: si salvano lasciando il campo o con Salva'; statoSalv.className = 'cq-stato-salv sporco'; } };
+        $vista().addEventListener('input', e => { if (e.target.matches('input, textarea')) segnaSporco(); });
+        const salva = (azione, dettagli, mutatore) => {
+            const s = ControlliQualita.aggiorna(inc, anno, utente, azione, dettagli, mutatore);
+            cqUltimoSalvataggio = s.modificato ? s.modificato.il : Date.now();
+            segnaSalvato();
+            aggiornaStoria();
+            return s;
+        };
+        const salvaTutto = () => { cqFlushCampi(); segnaSalvato(); toast('Salvato.', 'verde'); };
+        ['cq-salva', 'cq-salva-fondo'].forEach(id => { const b = document.getElementById(id); if (b) b.addEventListener('click', salvaTutto); });
+        if (cqTastoSalva) document.removeEventListener('keydown', cqTastoSalva);
+        cqTastoSalva = e => { if ((e.ctrlKey || e.metaKey) && !e.altKey && String(e.key).toLowerCase() === 's' && vistaCorrente === 'controlloQualitaScheda') { e.preventDefault(); salvaTutto(); } };
+        document.addEventListener('keydown', cqTastoSalva);
         const aggiornaTimbro = s => {
             const el = document.getElementById('cq-timbro');
-            if (el && s.modificato) el.textContent = 'Ultimo aggiornamento: ' + fmtDataOra(s.modificato.il) + ' di ' + cqSoloNome(s.modificato.da);
+            if (el && s.modificato) el.textContent = fmtDataOra(s.modificato.il) + ' · ' + cqSoloNome(s.modificato.da);
         };
         const ridisegna = () => naviga('controlloQualitaScheda', { id: inc.id, anno: anno }, window.scrollY);
         const schedaFresca = () => ControlliQualita.perIncarico(inc.id, anno);
@@ -13218,6 +13273,7 @@
                 { titolo: 'Anno di riferimento e due schede', testo: 'In testa all\'elenco ci sono gli anni (si parte da 2025 e 2026; "+ Aggiungi anno" apre il successivo): per l\'anno scelto compaiono gli incarichi in essere o con scadenza nel suo corso (chi è scaduto l\'anno prima senza rinnovo non c\'è, chi è stato rinnovato continua). Sotto, due schede: "Controlli qualità da svolgere" con gli incarichi che si possono modificare e "Incarichi in sola visualizzazione" con gli altri.' },
                 { titolo: 'L\'elenco', testo: 'Una riga per incarico: società, stato dei controlli (completati, in corso, da iniziare), responsabile qualità, team di revisione, i check delle aree 1-2, 3 e 4 con i commenti, il tempo qualità dell\'anno (con il totale complessivo in testa) e l\'ultimo aggiornamento con chi l\'ha fatto. Gli incarichi completati sono evidenziati in verde.' },
                 { titolo: 'La scheda del cliente', testo: 'In testa i dati dell\'incarico e il pulsante ben visibile per tornare all\'elenco (c\'è anche in fondo alla pagina); poi la sezione Avanzamenti con il pulsante "+ Nuovo avanzamento". Ogni blocco "Avanzamento al ..." ha le attività a semaforo (svolta, parzialmente svolta da sollecitare, non svolta sollecitata, completate): ogni attività ha le sue note interne qualità (riservate, non escono nelle email) e le sue cose da fare con la spunta, che si aprono dal pulsante nella riga. Accanto, il tempo qualità in ore e minuti con il totale del blocco. Quando si crea un nuovo avanzamento si sceglie che cosa copiare dal precedente (attività con lo stato, note e to do aperti, tempi, richiesta di sospensione), anche dall\'anno prima; i blocchi precedenti si riducono a una riga con il riassunto e il pulsante "Apri". Sotto: il riepilogo dei controlli per area e il riepilogo dei tempi dell\'anno.' },
+                { titolo: 'Salvataggio', testo: 'Ogni campo si salva da solo quando lo si lascia; nella barra in cima alla scheda ci sono lo stato del salvataggio ("Salvato alle ...", "Modifiche in corso") e il pulsante Salva, che scrive subito anche il campo che si sta compilando (vale anche Ctrl+S). Tornando all\'elenco, il testo lasciato a metà viene salvato prima di uscire.' },
                 { titolo: 'Controlli completati', testo: 'Quando i tre check del riepilogo sono tutti verdi, il pulsante "Segna i controlli come completati" chiude il lavoro: la scheda e la riga in elenco si evidenziano in verde con data e autore. Se un check torna non verde i controlli si riaprono da soli; "Riapri i controlli" lo fa a mano.' },
                 { titolo: 'Richiesta di sospensione del compenso', testo: 'Segnando "Sì" il programma chiede conferma e invia in automatico l\'email di richiesta a Pier Luigi Sterzi, sempre lui qualunque sia il responsabile dell\'incarico, con l\'ultimo avanzamento e la firma di chi sta facendo il controllo, che riceve una copia.' },
                 { titolo: 'Email di riepilogo al team', testo: 'Il pulsante "Invia email di riepilogo al team" prepara l\'email con i check per area e l\'ultimo avanzamento (attività con lo stato e cose da fare): si scelgono i destinatari tra le persone del team di revisione (anche più di uno), si rivedono oggetto e messaggio, si vede l\'anteprima e si invia; chi invia è in copia.' },
