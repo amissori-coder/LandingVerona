@@ -11848,7 +11848,10 @@
                 if (!Array.isArray(a.righe)) a.righe = [];
                 a.righe.forEach(r => { if (r.note == null) r.note = ''; if (!Array.isArray(r.todo)) r.todo = []; });
                 if ((a.note && String(a.note).trim()) || (Array.isArray(a.todo) && a.todo.length)) {
-                    a.righe.push({ id: uid(), etichetta: 'Note generali', stato: '', note: String(a.note || ''), todo: Array.isArray(a.todo) ? a.todo : [] });
+                    // id stabile (derivato dal blocco): la migrazione avviene a ogni lettura finche'
+                    // la scheda non viene risalvata, e la riga deve restare la stessa tra un
+                    // ridisegno e il salvataggio successivo
+                    a.righe.push({ id: String(a.id || 'avz') + '-note', etichetta: 'Note generali', stato: '', note: String(a.note || ''), todo: Array.isArray(a.todo) ? a.todo : [] });
                 }
                 delete a.note; delete a.todo;
                 if (!Array.isArray(a.tempi)) a.tempi = [];
