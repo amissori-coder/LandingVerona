@@ -2703,7 +2703,12 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    consente, con la barra del titolo, il piede fisso e i pulsanti riduci /
    ingrandisci che l'area riservata gia' aveva. */
 .modale.modale-finestra.inv-finestra { width: min(97vw, 1720px); max-width: 97vw; height: 93vh; height: 93dvh; }
+/* Due contenitori, non uno. Il corpo della finestra e' il primo, ma tutto il
+   contenuto sta dentro #inv-corpo: senza rendere flessibile anche quello, la
+   tabella non riceveva l'altezza e la nota in fondo finiva sopra l'ultima
+   riga invece che sotto. */
 .inv-finestra .modale-corpo { padding: 0; display: flex; flex-direction: column; }
+.inv-finestra #inv-corpo { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 
 /* Le schede: la vista attiva si stacca dalle altre e si attacca alla tabella,
    come in un raccoglitore. Il numero e' grande perche' e' quello che si
@@ -2766,6 +2771,11 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .inv-gruppo { padding: 3px 11px; border: 1px solid var(--grigio-200); border-radius: 999px; background: #fff; font: inherit; font-size: 0.78rem; font-weight: 600; color: var(--blu-700); cursor: pointer; }
 .inv-gruppo:hover { border-color: var(--blu-700); background: var(--blu-050); }
 .inv-gruppo-no { color: var(--grigio-600); font-weight: 500; }
+/* I due gruppi che coincidono con un tetto orario si distinguono: premerli
+   vuol dire "tutto quello che ci sta in un'ora", ed e' un'informazione. */
+.inv-gruppo-tetto { border-color: var(--blu-100); background: var(--blu-050); }
+.inv-tetti { flex: 1 1 240px; margin: 0 0 0 6px; }
+.inv-tetti b { color: var(--grigio-900); }
 .inv-sel-barra .hint { margin: 0; }
 
 /* Il tetto orario, detto prima di premere invia. Vuoto non occupa spazio. */
@@ -2775,7 +2785,11 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* La nota sulle righe non mostrate sta fuori dall area che scorre, quindi
    resta sempre visibile: le servono i suoi margini, altrimenti si appiccica
    al piede della finestra. */
-.inv-troppe { flex: 0 0 auto; margin: 0; padding: 8px 18px 12px; border-top: 1px solid var(--grigio-200); background: var(--blu-050); }
+/* max-width: none perche' questa e' una FASCIA, non un capoverso: .hint
+   limita la larghezza del testo per leggibilita', giusto ovunque tranne qui,
+   dove faceva finire lo sfondo a meta' finestra come se fosse un difetto di
+   disegno. */
+.inv-troppe { flex: 0 0 auto; max-width: none; margin: 0; padding: 8px 18px 12px; border-top: 1px solid var(--grigio-200); background: var(--blu-050); }
 /* Chi ha chiesto al sistema meno animazioni non deve vedere la pagina scivolare
    quando si riduce il menu: il contenuto arriva subito alla sua nuova misura. */
 @media (prefers-reduced-motion: reduce) {

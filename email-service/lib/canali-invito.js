@@ -96,13 +96,16 @@ function maxLotto(canale) {
    e non si richiama indietro; sull'ordinaria serve solo a contenere i danni
    di un invio partito per sbaglio.
 
-   250 sulla PEC coincide con il gruppo piu' grande che l'area riservata
-   propone: cosi' un gruppo scelto col pulsante entra sempre intero in una
-   finestra oraria, e non capita di vederlo fermarsi a tre quarti. */
+   Tutti e due i numeri coincidono con un gruppo che l'area riservata propone:
+   250 per la PEC, 500 per l'ordinaria. Cosi' il gruppo scelto col pulsante
+   entra intero in una finestra oraria e non capita di vederlo fermarsi a tre
+   quarti. Sull'ordinaria il tetto e' piu' alto perche' li' i messaggi non si
+   pagano e il freno serve solo a contenere i danni di un invio partito per
+   sbaglio, non a dosare una spesa. */
 function maxOra(canale) {
     return canale === 'pec'
         ? (Number(process.env.PEC_MAX_ORA) || 250)
-        : (Number(process.env.MKT_MAX_ORA) || 2000);
+        : (Number(process.env.MKT_MAX_ORA) || 500);
 }
 
 /* Quanto si aspetta fra un messaggio e il successivo.

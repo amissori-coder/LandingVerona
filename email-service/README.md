@@ -88,7 +88,7 @@ Facoltative, ma **consigliate** per un invio a freddo:
 | `MKT_FROM_NAME` | `Next Generation Business` |
 | `MKT_REPLY_TO` | dove far arrivare le risposte (se manca, risponde a chi ha premuto invia) |
 | `MKT_MAX_LOTTO` | quanti messaggi per chiamata (predefinito 40) |
-| `MKT_MAX_ORA` | tetto orario per utente (predefinito 2000) |
+| `MKT_MAX_ORA` | tetto orario per utente (predefinito 500, quanto il gruppo piu' grande selezionabile) |
 | `MKT_PAUSA_MS` | pausa fra un messaggio e il successivo (predefinito 0: il relay ha le sue code) |
 
 > **Perche' un secondo account Brevo.** Come dice la nota qui sopra, un solo
