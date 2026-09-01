@@ -1294,6 +1294,45 @@ ul {
     line-height: 1.6;
 }
 
+/* Nota sull'accreditamento ODCEC per i crediti formativi */
+.cfp-note {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: 780px;
+    margin: 22px auto 0;
+    padding: 16px 22px;
+    border: 1px solid rgba(177, 33, 59, 0.22);
+    border-radius: 12px;
+    background: rgba(177, 33, 59, 0.045);
+}
+
+.cfp-note svg {
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.cfp-note p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--text-muted);
+}
+
+.cfp-note strong {
+    color: var(--navy);
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .cfp-note {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 16px 18px;
+    }
+}
+
 /* === Location Section === */
 .location-grid {
     display: grid;
@@ -3213,6 +3252,7 @@ ul {
 .evento-quote,
 .matching-text,
 .program-note,
+.cfp-note p,
 .form-success p,
 .rel-rel-text {
     text-align: justify;
@@ -3225,3 +3265,32 @@ ul {
 /* La descrizione di ogni relazione è uno span: va reso blocco perché la
    giustificazione abbia effetto. */
 .rel-rel-text { display: block; }
+
+/* ===== Sezione video =====
+   Il player è servito dalla release media-napoli-2026 del repository,
+   come gli altri video del sito: così il file non appesantisce il repo
+   né la pagina, che scarica solo l'anteprima finché non si preme play. */
+.video-shell {
+    max-width: 680px;
+    margin: 0 auto;
+    background: #000;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 24px 48px -20px rgba(2, 12, 27, 0.6);
+}
+
+.video-player {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    /* Safari non ritaglia i video sull'overflow del contenitore:
+       il raggio va ripetuto anche qui. */
+    border-radius: var(--radius-lg);
+}
+
+@media (max-width: 600px) {
+    .video-shell,
+    .video-player { border-radius: var(--radius-md); }
+}

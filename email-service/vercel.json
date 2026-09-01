@@ -7,6 +7,7 @@
   "functions": {
     "api/presenze.js": { "maxDuration": 60 },
     "api/iscrizione-nuova.js": { "maxDuration": 30 },
+    "api/scarica-ebook.js": { "maxDuration": 30 },
     "api/cron-comunicazioni.js": { "maxDuration": 300 },
     "api/invia-comunicazione.js": { "maxDuration": 120 },
     "api/importa-iscrizioni.js": { "maxDuration": 300 },

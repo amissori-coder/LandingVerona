@@ -1,0 +1,119 @@
+name: Carica video su release
+
+# Porta un video da Google Drive a una release di questo repository, pronto
+# per il web: e' il percorso che usano le pagine del sito (media-home,
+# media-verona-2026, ...) per non appesantire il repository.
+#
+# Il file su Drive deve essere condiviso "Chiunque abbia il link": il
+# workflow scarica senza credenziali. Se il video non e' gia' H.264/AAC
+# (i .MOV di iPhone sono spesso HEVC, che i browser non riproducono),
+# viene riconvertito; altrimenti viene solo reimpacchettato in .mp4
+# senza perdita di qualita'.
+#
+# Si lancia a mano da Actions > "Carica video su release" > Run workflow.
+# Come il backup, si esegue anche da solo quando questo file cambia: cosi'
+# basta aggiornare i default qui sotto e fare push per caricare un nuovo
+# video. La release viene creata se non esiste ancora.
+
+on:
+  push:
+    branches: [claude/github-video-upload-z68v21]
+    paths: ['.github/workflows/carica-video-release.yml']
+
+  workflow_dispatch:
+    inputs:
+      drive_id:
+        description: "Id del file su Google Drive (la parte tra /d/ e /view del link)"
+        required: true
+        type: string
+      release_tag:
+        description: "Tag della release di destinazione (es. media-napoli-2026)"
+        required: true
+        type: string
+      nome_file:
+        description: "Nome dell'asset caricato (es. video-evento-napoli.mp4)"
+        required: true
+        type: string
+      release_titolo:
+        description: "Titolo della release, usato solo se va creata"
+        required: false
+        type: string
+        default: ""
+      poster_secondo:
+        description: "Secondo del video da cui estrarre l'anteprima"
+        required: false
+        type: string
+        default: "1"
+
+permissions:
+  contents: write
+
+jobs:
+  carica:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Al push non ci sono input: valgono i default, cioe' l'ultimo video
+      # richiesto (Video Evento Napoli).
+      DRIVE_ID: ${{ inputs.drive_id || '1-vfrx67PWYJBbxOEQ-XaYdUTKB_dBZIC' }}
+      RELEASE_TAG: ${{ inputs.release_tag || 'media-napoli-2026' }}
+      NOME_FILE: ${{ inputs.nome_file || 'video-evento-napoli.mp4' }}
+      RELEASE_TITOLO: ${{ inputs.release_titolo || 'Media evento Napoli, ottobre 2026' }}
+      # A 8 secondi il titolo del video di Napoli e' completo, con data,
+      # sede e patrocini a fuoco: il fotogramma giusto per l'anteprima.
+      POSTER_SECONDO: ${{ inputs.poster_secondo || '8' }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Scarica il video da Google Drive
+        run: |
+          pip install --quiet gdown
+          for tentativo in 1 2 3; do
+            gdown "$DRIVE_ID" -O originale && break
+            echo "tentativo $tentativo fallito, riprovo tra 10 secondi"
+            sleep 10
+          done
+          # Se Drive risponde con una pagina invece del file (permessi o
+          # quota), meglio accorgersene subito che caricare spazzatura.
+          test -s originale
+          if file originale | grep -qi 'html'; then
+            echo "::error::Drive ha restituito una pagina HTML, non il video: controlla che il file sia condiviso 'Chiunque abbia il link'"
+            exit 1
+          fi
+          ls -lh originale
+
+      - name: Converti in MP4 pronto per il web
+        run: |
+          # L'immagine ubuntu-24.04 dei runner non porta piu' ffmpeg con se'.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg >/dev/null
+
+          video=$(ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 originale)
+          audio=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 originale || true)
+          echo "codec video: $video, codec audio: ${audio:-nessuno}"
+
+          if [ "$video" = h264 ]; then cv="-c:v copy"; else
+            # -2 lascia calcolare a ffmpeg un'altezza pari, obbligatoria per H.264.
+            cv="-c:v libx264 -crf 23 -preset medium -pix_fmt yuv420p -vf scale=w='min(1920,iw)':h=-2"
+          fi
+          if [ -z "$audio" ]; then ca=""; elif [ "$audio" = aac ]; then ca="-c:a copy"; else ca="-c:a aac -b:a 128k"; fi
+
+          # +faststart mette l'indice in testa al file: il browser puo'
+          # partire subito invece di scaricare tutto il video.
+          ffmpeg -hide_banner -loglevel warning -i originale $cv $ca -movflags +faststart "$NOME_FILE"
+
+          # Un fotogramma come anteprima: la pagina lo mostra al posto del
+          # nero prima che l'utente prema play.
+          ffmpeg -hide_banner -loglevel warning -ss "$POSTER_SECONDO" -i "$NOME_FILE" -frames:v 1 -q:v 3 "${NOME_FILE%.*}-poster.jpg"
+          ls -lh "$NOME_FILE" "${NOME_FILE%.*}-poster.jpg"
+
+      - name: Carica sulla release (creandola se manca)
+        run: |
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --title "${RELEASE_TITOLO:-$RELEASE_TAG}" \
+              --notes "Video e altri media serviti dalle pagine del sito." \
+              --latest=false
+          fi
+          gh release upload "$RELEASE_TAG" "$NOME_FILE" "${NOME_FILE%.*}-poster.jpg" --clobber
+          echo "Caricato: https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/$NOME_FILE"

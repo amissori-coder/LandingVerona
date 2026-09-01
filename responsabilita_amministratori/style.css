@@ -1,0 +1,273 @@
+/* ============================================
+   Responsabilità degli amministratori — ebook
+   Stili della sola sezione di download: tutto il
+   resto arriva da zls_zes/style.css e da
+   assets/content-page.css, come nelle altre
+   pagine di contenuto.
+   ============================================ */
+
+/* ---------- La sezione del download ---------- */
+.ebook-gate {
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) 1fr;
+    gap: 56px;
+    align-items: start;
+    max-width: 1040px;
+    margin: 48px auto 0;
+}
+
+/* ---------- La copertina, disegnata in CSS ----------
+   Niente immagine da tenere aggiornata: titolo ed edizione sono
+   testo, e se l'ebook cambia edizione basta cambiare due righe. */
+.ebook-cover {
+    aspect-ratio: 210 / 297;
+    background: linear-gradient(160deg, #0A2844 0%, #164068 58%, #2A5A85 100%);
+    border-radius: 10px;
+    padding: 34px 30px;
+    display: flex;
+    flex-direction: column;
+    color: #F1F5F9;
+    box-shadow: 18px 24px 48px rgba(10, 40, 68, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+    position: relative;
+    overflow: hidden;
+}
+
+/* il dorso: la piega chiara che fa "libro" */
+.ebook-cover::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 14px;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.ebook-cover-eyebrow {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 2.4px;
+    text-transform: uppercase;
+    color: #9FBBD6;
+    margin-bottom: 22px;
+}
+
+.ebook-cover-title {
+    font-size: clamp(1.25rem, 1.8vw, 1.55rem);
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.4px;
+    margin-bottom: 16px;
+}
+
+.ebook-cover-sub {
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: #C7D6E5;
+    max-width: 32ch;
+}
+
+.ebook-cover-foot {
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.7rem;
+    letter-spacing: 0.6px;
+    color: #9FBBD6;
+}
+
+.ebook-cover-foot strong {
+    color: #F1F5F9;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+}
+
+/* ---------- Il modulo del download ---------- */
+.gate-card {
+    background: var(--bg-card, #ffffff);
+    border: 1px solid var(--border-color, rgba(22, 64, 104, 0.12));
+    border-radius: var(--radius-lg, 16px);
+    padding: 36px 38px;
+    box-shadow: var(--shadow, 0 2px 10px rgba(10, 40, 68, 0.06));
+}
+
+.gate-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin-bottom: 10px;
+}
+
+.gate-card > p {
+    font-size: 0.92rem;
+    line-height: 1.7;
+    color: #5A6270;
+    margin-bottom: 24px;
+}
+
+.gate-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.gate-row .form-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.gate-row .btn {
+    white-space: nowrap;
+    padding: 12px 26px;
+}
+
+.gate-note {
+    font-size: 0.76rem;
+    line-height: 1.6;
+    color: #8A93A2;
+    margin-top: 14px;
+}
+
+/* ---------- Gli esiti della verifica ---------- */
+.gate-status {
+    margin-top: 18px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    border: 1px solid transparent;
+}
+
+.gate-status.is-ok {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: #0F3D2E;
+}
+
+.gate-status.is-no {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #6B4A0A;
+}
+
+.gate-status.is-errore {
+    background: rgba(239, 68, 68, 0.07);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #5C1A1F;
+}
+
+.gate-status strong {
+    font-weight: 700;
+}
+
+/* ---------- Il modulo di iscrizione (compare solo se serve) ---------- */
+.gate-subscribe {
+    margin-top: 26px;
+    padding-top: 26px;
+    border-top: 1px dashed var(--border-color, rgba(22, 64, 104, 0.18));
+}
+
+.gate-subscribe h4 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0A2844;
+    margin-bottom: 6px;
+}
+
+.gate-subscribe > p {
+    font-size: 0.86rem;
+    line-height: 1.65;
+    color: #5A6270;
+    margin-bottom: 20px;
+}
+
+.gate-subscribe .form-due {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
+}
+
+.gate-subscribe .form-check {
+    margin-bottom: 14px;
+}
+
+/* ---------- I tre passi sopra il modulo ---------- */
+.gate-passi {
+    display: flex;
+    gap: 22px;
+    max-width: 1040px;
+    margin: 40px auto 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: passo;
+}
+
+.gate-passi li {
+    flex: 1;
+    position: relative;
+    padding: 18px 20px 16px 56px;
+    background: rgba(22, 64, 104, 0.05);
+    border: 1px solid rgba(22, 64, 104, 0.1);
+    border-radius: 12px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #5A6270;
+    counter-increment: passo;
+}
+
+.gate-passi li::before {
+    content: counter(passo);
+    position: absolute;
+    left: 18px;
+    top: 18px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #164068;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gate-passi li strong {
+    color: #0A2844;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .ebook-gate {
+        grid-template-columns: 1fr;
+        gap: 36px;
+    }
+
+    .ebook-cover {
+        max-width: 300px;
+        margin: 0 auto;
+    }
+
+    .gate-passi {
+        flex-direction: column;
+        max-width: 560px;
+    }
+}
+
+@media (max-width: 560px) {
+    .gate-card {
+        padding: 26px 22px;
+    }
+
+    /* pulsante sotto al campo: in riga non ci sta */
+    .gate-row {
+        flex-direction: column;
+    }
+
+    .gate-subscribe .form-due {
+        grid-template-columns: 1fr;
+    }
+}

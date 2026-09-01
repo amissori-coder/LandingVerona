@@ -94,7 +94,7 @@
     const FASI = {
         perche: { n: '01', etichetta: 'Perché', aiuto: 'Perché questa cosa riguarda chi legge. Il problema, il rischio, l\'occasione. Niente riferimenti normativi qui.' },
         come: { n: '02', etichetta: 'Come', aiuto: 'Come funziona: il meccanismo, le condizioni, i passaggi. Qui ci stanno i riferimenti.' },
-        cosa: { n: '03', etichetta: 'Che cosa', aiuto: 'Che cosa fare adesso, e che cosa facciamo noi. Concreto e con una scadenza, se c\'e.' }
+        cosa: { n: '03', etichetta: 'Che cosa', aiuto: 'Che cosa fare adesso, e che cosa facciamo noi. Concreto e con una scadenza, se c\'è.' }
     };
 
     /* La newsletter ha una struttura FISSA: perche', come, che cosa. Non e' una
@@ -116,7 +116,7 @@
         { id: 'bottone', nome: 'Pulsante', desc: 'Invito all\'azione (leggi, iscriviti, scarica)' },
         { id: 'elenco', nome: 'Elenco puntato', desc: 'Punti brevi, uno per riga' },
         { id: 'duo', nome: 'Due schede affiancate', desc: 'Due notizie brevi una accanto all\'altra' },
-        { id: 'spalla', nome: 'Immagine di fianco al testo', desc: 'Immagine a lato, testo accanto: da ritmo alla pagina' },
+        { id: 'spalla', nome: 'Immagine di fianco al testo', desc: 'Immagine a lato, testo accanto: dà ritmo alla pagina' },
         { id: 'numero', nome: 'Numero in grande', desc: 'Una cifra sola su fondo scuro: ferma l\'occhio' },
         { id: 'separatore', nome: 'Linea di separazione', desc: 'Divide due parti della newsletter' }
     ];
@@ -1021,7 +1021,7 @@
         parti.push(MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf);
         parti.push(motivo);
         parti.push('Informativa privacy: ' + PRIVACY);
-        parti.push('Per non ricevere piu\' queste email: ' + SEGNAPOSTO_DISISCRIVI);
+        parti.push('Per non ricevere più queste email: ' + SEGNAPOSTO_DISISCRIVI);
         const testo = parti.join('\n\n');
 
         return { html: html, testo: testo };
