@@ -94,10 +94,14 @@ function maxLotto(canale) {
 }
 /* Tetto orario per utente. Sulla PEC e' basso perche' ogni messaggio si paga
    e non si richiama indietro; sull'ordinaria serve solo a contenere i danni
-   di un invio partito per sbaglio. */
+   di un invio partito per sbaglio.
+
+   250 sulla PEC coincide con il gruppo piu' grande che l'area riservata
+   propone: cosi' un gruppo scelto col pulsante entra sempre intero in una
+   finestra oraria, e non capita di vederlo fermarsi a tre quarti. */
 function maxOra(canale) {
     return canale === 'pec'
-        ? (Number(process.env.PEC_MAX_ORA) || 300)
+        ? (Number(process.env.PEC_MAX_ORA) || 250)
         : (Number(process.env.MKT_MAX_ORA) || 2000);
 }
 

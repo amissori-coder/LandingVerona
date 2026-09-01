@@ -117,7 +117,7 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 | `PEC_SMTP_HOST` | `smtps.pec.aruba.it` — **si puo' omettere**, e' il predefinito |
 | `PEC_SMTP_PORT` | `465` — si puo' omettere |
 | `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
-| `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 300) |
+| `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 250, quanto il gruppo piu' grande selezionabile) |
 | `PEC_PAUSA_MS` | pausa fra una PEC e la successiva (predefinito 1500) |
 
 > **Dipendenza aggiunta: `imapflow`** (licenza MIT, usabile in un prodotto
