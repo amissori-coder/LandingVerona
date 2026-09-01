@@ -88,7 +88,7 @@ Facoltative, ma **consigliate** per un invio a freddo:
 | `MKT_FROM_NAME` | `Next Generation Business` |
 | `MKT_REPLY_TO` | dove far arrivare le risposte (se manca, risponde a chi ha premuto invia) |
 | `MKT_MAX_LOTTO` | quanti messaggi per chiamata (predefinito 40) |
-| `MKT_MAX_ORA` | tetto orario per utente (predefinito 2000) |
+| `MKT_MAX_ORA` | tetto orario per utente (predefinito 500, quanto il gruppo piu' grande selezionabile) |
 | `MKT_PAUSA_MS` | pausa fra un messaggio e il successivo (predefinito 0: il relay ha le sue code) |
 
 > **Perche' un secondo account Brevo.** Come dice la nota qui sopra, un solo
@@ -117,7 +117,7 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 | `PEC_SMTP_HOST` | `smtps.pec.aruba.it` — **si puo' omettere**, e' il predefinito |
 | `PEC_SMTP_PORT` | `465` — si puo' omettere |
 | `PEC_MAX_LOTTO` | quante PEC per chiamata (predefinito 15) |
-| `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 300) |
+| `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 250, quanto il gruppo piu' grande selezionabile) |
 | `PEC_PAUSA_MS` | pausa fra una PEC e la successiva (predefinito 1500) |
 
 > **Dipendenza aggiunta: `imapflow`** (licenza MIT, usabile in un prodotto

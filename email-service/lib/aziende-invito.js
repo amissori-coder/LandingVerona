@@ -165,8 +165,37 @@ async function consumaGettoni(db, chi, canale, quanti) {
                 conteggio: fatti + concessi, ultimo: ora
             }, { merge: true });
         }
-        return { concessi: concessi, disponibili: disponibili, tetto: tetto };
+        /* Quando la finestra si riapre. Non e' un di piu': quando il tetto e'
+           pieno, "riprova piu' tardi" lascia la persona a indovinare, e chi
+           indovina riprova ogni due minuti. Con l'ora esatta si sa se
+           aspettare o andare a fare altro. */
+        const inizio = stessaFinestra ? (d.inizioFinestra || ora) : ora;
+        return {
+            concessi: concessi, disponibili: disponibili, tetto: tetto,
+            riprendeAlle: (fatti + concessi) >= tetto ? inizio + ORA_MS : 0
+        };
     });
+}
+
+/* Lo stesso conto, ma senza consumare niente: serve a dire PRIMA dell'invio
+   quanti ne restano in questa finestra, e a far vedere il tempo che scorre
+   quando sono finiti. Fuori dalla transazione, perche' qui si legge e basta. */
+async function gettoniStato(db, chi, canale) {
+    const tetto = CANALI.maxOra(canale);
+    let d = {};
+    try {
+        const snap = await db.collection('invito_throttle').doc(chi + '~' + canale).get();
+        d = snap.exists ? (snap.data() || {}) : {};
+    } catch (_) { d = {}; }
+    const ora = Date.now();
+    const inizio = d.inizioFinestra || 0;
+    const dentro = (ora - inizio) < ORA_MS;
+    const fatti = dentro ? (d.conteggio || 0) : 0;
+    const disponibili = Math.max(0, tetto - fatti);
+    return {
+        tetto: tetto, usati: fatti, disponibili: disponibili,
+        riprendeAlle: (dentro && disponibili === 0) ? inizio + ORA_MS : 0
+    };
 }
 
 /* La scheda come la vede l'area riservata: fuori restano solo i campi
@@ -257,6 +286,13 @@ async function esegui(ctx) {
             };
             res.status(200).json({
                 ok: true, canali: { email: canale('email'), pec: canale('pec') },
+                /* Quanti ne restano in questa finestra oraria, canale per
+                   canale: cosi' la finestra dell'invito lo dice prima, invece
+                   di lasciarlo scoprire a meta' invio. */
+                freno: {
+                    email: await gettoniStato(db, email, 'email'),
+                    pec: await gettoniStato(db, email, 'pec')
+                },
                 lettore: await LETTORE.stato(db)
             });
             return;
@@ -588,7 +624,10 @@ async function esegui(ctx) {
             try { gettoni = await consumaGettoni(db, email, canale, ids.length); }
             catch (_) { gettoni = { concessi: ids.length, disponibili: ids.length, tetto: CANALI.maxOra(canale) }; }
             if (!gettoni.concessi) {
-                res.status(429).json({ ok: false, msg: 'Hai raggiunto il tetto di ' + gettoni.tetto + ' invii in un\'ora su questo canale: riprendi fra un po\', l\'elenco si ricorda a che punto era.' });
+                res.status(429).json({
+                    ok: false, tettoPieno: true, riprendeAlle: gettoni.riprendeAlle || 0,
+                    msg: 'Hai raggiunto il tetto di ' + gettoni.tetto + ' invii in un\'ora su questo canale. L\'elenco si ricorda a che punto era.'
+                });
                 return;
             }
             const daFare = ids.slice(0, gettoni.concessi);
@@ -703,7 +742,9 @@ async function esegui(ctx) {
                 senzaRecapito: senzaRecapito, disiscritte: disiscritte,
                 falliti: falliti.slice(0, 50), esiti: esiti,
                 tettoRaggiunto: tettoRaggiunto, maxLotto: maxLotto,
-                bloccato: bloccato || ''
+                bloccato: bloccato || '',
+                // l'ora in cui la finestra si riapre, cosi' non si tira a indovinare
+                riprendeAlle: gettoni.riprendeAlle || 0
             });
             return;
         }

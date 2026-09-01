@@ -16837,6 +16837,27 @@
         return (c && c[nome]) ? c[nome] : { pronto: false, maxLotto: 40, maxOra: 0 };
     }
     function lettoreCfg() { return (_invCfg && _invCfg.lettore) || null; }
+    /* Quanti invii restano in questa finestra oraria, canale per canale, e a
+       che ora si riapre. Lo dice il servizio, che e' l'unico a saperlo: il
+       conteggio sta su Firestore perche' ogni chiamata puo' finire su una
+       macchina diversa, e un conto tenuto nel browser sarebbe sbagliato al
+       primo cambio di computer. */
+    function frenoCfg(nome) {
+        const f = _invCfg && _invCfg.freno;
+        return (f && f[nome]) ? f[nome] : null;
+    }
+    /* Da un'ora futura a quanto manca, detto come lo direbbe una persona.
+       Sotto il minuto si contano i secondi, perche' li' guardare il numero
+       che scende e' proprio quello che si fa. */
+    function fraQuanto(quando) {
+        const ms = Math.max(0, (quando || 0) - Date.now());
+        if (!ms) return '';
+        const sec = Math.round(ms / 1000);
+        if (sec < 60) return sec + (sec === 1 ? ' secondo' : ' secondi');
+        const min = Math.round(sec / 60);
+        if (min < 60) return min + (min === 1 ? ' minuto' : ' minuti');
+        return 'circa un\'ora';
+    }
 
     function aziendeInvitoDi(ev) { return (_invCache[ev.id] || {}).aziende || []; }
     function aziendaInvitoDi(ev, id) { return aziendeInvitoDi(ev).find(a => a.id === id) || null; }
@@ -17238,10 +17259,42 @@
             + 'Scarica con gli esiti (' + lista.length + ')</button>'
             + (filtrato ? '<button class="btn btn-sm btn-ghost" id="inv-pulisci">Togli i filtri</button>' : '')
             + (altrove ? '<span class="inv-altrove hint">' + altrove + ' con questi criteri in altre schede</span>' : '')
-            + '</div>';
+            + '</div>'
+            /* SELEZIONE A GRUPPI. Spuntare a mano duecentocinquanta caselle non
+               si fa, e "seleziona tutte" su un elenco da mille manda tutto in
+               una volta sola. I gruppi sono la via di mezzo: si sceglie quanto
+               spedire adesso, si guarda com'e' andata, e si riprende.
+
+               250 e 500 non sono numeri a caso: sono i due tetti orari, PEC e
+               email ordinaria. Un gruppo scelto cosi' entra intero in una
+               finestra e non si ferma a tre quarti per il freno. Al primo
+               giro, con un elenco nuovo, conviene comunque partire da 50. */
+            /* I due tetti sono DIVERSI, e il canale si sceglie dopo, nella
+               finestra dell'invito: qui non si sa ancora se partira' una PEC o
+               un'email. Quindi i due gruppi che coincidono con un tetto lo
+               dicono da se', e sotto c'e' la riga che spiega la regola. Senza,
+               "le prime 500" sembrerebbe una scelta libera e poi si fermerebbe
+               a 250 sulla PEC, che e' esattamente la sorpresa da evitare. */
+            + (lista.length > 1 ? '<div class="inv-gruppi">'
+                + '<span class="hint">Seleziona</span>'
+                + [[50, ''], [250, 'Il massimo che parte in un\'ora via PEC'], [500, 'Il massimo che parte in un\'ora via email ordinaria']]
+                    .filter(g => g[0] < lista.length)
+                    .map(g => '<button type="button" class="inv-gruppo' + (g[1] ? ' inv-gruppo-tetto' : '') + '"'
+                        + (g[1] ? ' title="' + esc(g[1]) + '"' : '')
+                        + ' data-quante="' + g[0] + '">le prime ' + g[0] + '</button>').join('')
+                + '<button type="button" class="inv-gruppo" data-quante="tutte">tutte (' + lista.length + ')</button>'
+                + (_invSel.size ? '<button type="button" class="inv-gruppo inv-gruppo-no" data-quante="0">nessuna</button>' : '')
+                /* "da inviare", non "da invitare": qui il soggetto sono i
+                   MESSAGGI ("250 PEC o 500 email"), non le aziende. Nella
+                   scheda accanto, dove il soggetto e' l'azienda, resta "da
+                   invitare". */
+                + '<span class="inv-tetti hint">In un\'ora partono al massimo <b>250 PEC</b> o <b>500 email</b>: '
+                + 'quello che avanza resta da inviare e riparte dopo.</span>'
+                + '</div>' : '');
 
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
             + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
+            + (_invSel.size ? '<span class="hint">su ' + lista.length + ' in questa scheda</span>' : '')
             + '<button class="btn btn-primary btn-sm" id="inv-invia">Invia l\'invito</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-escludi">Escludi</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da invitare</button>'
@@ -17340,7 +17393,9 @@
             + intestazioni + '<tbody>'
             + (mostrate.length ? mostrate.map(riga).join('') : rigaVuota(nessuna))
             + '</tbody></table></div>'
-            + (lista.length > MAX_RIGHE ? '<p class="hint">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length + ': restringi la ricerca per vedere le altre. La spunta in cima e le azioni valgono comunque su tutte le ' + lista.length + ' righe filtrate.</p>' : '');
+            + (lista.length > MAX_RIGHE ? '<p class="hint inv-troppe">Mostrate le prime ' + MAX_RIGHE + ' di ' + lista.length
+                + ': restringi la ricerca per vedere le altre. La spunta in cima, i gruppi e le azioni valgono comunque su tutte le '
+                + lista.length + ' righe filtrate.</p>' : '');
 
         corpo.innerHTML = schede + riquadroRicevute(ev, tutte) + barra + azioniSel
             + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
@@ -17461,6 +17516,23 @@
         corpo.querySelectorAll('.inv-ck').forEach(c => c.addEventListener('change', () => {
             if (c.checked) _invSel.add(c.value); else _invSel.delete(c.value);
             aggiornaSel();
+        }));
+        /* I gruppi lavorano sull'elenco FILTRATO per intero, non sulle righe a
+           video: la tabella ne mostra al massimo quattrocento, ma "le prime
+           250" devono essere le prime 250 di quelle che passano i filtri,
+           altrimenti il numero sul pulsante e quello che finisce selezionato
+           direbbero due cose diverse. Ogni gruppo SOSTITUISCE la selezione
+           precedente invece di aggiungersi: e' quello che ci si aspetta
+           premendo "le prime 250", e chi vuole aggiungere qualcuna lo fa con
+           le spunte. */
+        corpo.querySelectorAll('.inv-gruppo').forEach(b => b.addEventListener('click', () => {
+            const q = b.dataset.quante;
+            _invSel = new Set();
+            if (q !== '0') {
+                const quante = (q === 'tutte') ? lista.length : Number(q);
+                lista.slice(0, quante).forEach(a => _invSel.add(a.id));
+            }
+            ridisegna();
         }));
         const tutteCk = document.getElementById('inv-tutte');
         if (tutteCk) tutteCk.addEventListener('change', () => {
@@ -18123,6 +18195,7 @@
                lotto: su un invio da trecento PEC, che dura sette minuti, non
                bastava a distinguere "sta lavorando" da "si e' piantato". Qui
                ci sono la barra, i conteggi separati e il tempo che manca. */
+            + '<div id="ii-tetto" class="ii-tetto"></div>'
             + '<div id="ii-avanz" class="ii-avanz" style="display:none;">'
             + '<div class="ii-barra"><span id="ii-barra-int"></span></div>'
             + '<div class="ii-numeri">'
@@ -18181,7 +18254,44 @@
             const pa = document.getElementById('ii-passo');
             if (pa) pa.textContent = passo || '';
         };
-        const chiudi = () => { chiudiModale(); modaleAziendeInvito(ev); };
+        /* Il freno orario, detto PRIMA di premere invia e con il tempo che
+           scorre. Tre casi diversi, e confonderli e' il modo per non farsi
+           capire:
+             - ne restano abbastanza: non si dice niente, non c'e' nulla da
+               decidere;
+             - ne restano alcuni ma non abbastanza: quanti partono adesso e
+               quanti dopo;
+             - non ne resta nessuno: fra quanto si riapre, e il numero scende
+               da solo. "Riprova piu' tardi" lascia a indovinare, e chi
+               indovina riprova ogni due minuti. */
+        let _tettoTimer = null;
+        const aggiornaTetto = quanti => {
+            const avviso = document.getElementById('ii-tetto');
+            if (!avviso) return;
+            clearTimeout(_tettoTimer);
+            const f = frenoCfg(canale);
+            const tetto = (f && f.tetto) || Number(canaleCfg(canale).maxOra) || 0;
+            const quale = canale === 'pec' ? 'PEC' : 'email';
+            if (!tetto || !quanti) { avviso.innerHTML = ''; avviso.classList.remove('ii-tetto-fermo'); return; }
+            const liberi = f ? f.disponibili : tetto;
+
+            if (f && liberi === 0 && f.riprendeAlle) {
+                avviso.classList.add('ii-tetto-fermo');
+                avviso.innerHTML = 'Il tetto di <b>' + tetto + ' ' + quale + ' all\'ora</b> e esaurito: '
+                    + 'nessun invio parte adesso. Si riprende fra <b>' + esc(fraQuanto(f.riprendeAlle)) + '</b>'
+                    + ' (alle ' + esc(fmtDataOra(f.riprendeAlle).slice(-5)) + ').';
+                // il numero deve scendere da solo, altrimenti e' una fotografia
+                _tettoTimer = setTimeout(() => aggiornaTetto(quanti), 15000);
+                return;
+            }
+            avviso.classList.remove('ii-tetto-fermo');
+            avviso.innerHTML = (quanti > liberi)
+                ? 'In questa finestra oraria restano <b>' + liberi + '</b> invii dei ' + tetto + ' ' + quale
+                + ': ne partono ' + liberi + ' adesso, gli altri ' + (quanti - liberi)
+                + ' restano da inviare e ripartono fra un\'ora.'
+                : '';
+        };
+        const chiudi = () => { clearTimeout(_tettoTimer); chiudiModale(); modaleAziendeInvito(ev); };
         /* Lo stesso pulsante fa due cose: prima di partire annulla, mentre i
            messaggi stanno partendo ferma l'invio dopo il lotto in corso (quelli
            gia' consegnati al server di posta non si richiamano indietro). Un
@@ -18202,6 +18312,19 @@
             const n = daFare().length;
             b.textContent = n ? ('Invia ' + n + (canale === 'pec' ? ' PEC' : ' email')) : 'Nessun recapito su questo canale';
             b.disabled = !n;
+            /* Il tetto orario si dice PRIMA, non a meta' invio. Il servizio si
+               ferma da solo quando lo raggiunge e riprende dopo, ma scoprirlo
+               alla duecentesima PEC, con la barra a meta', sembra un guasto:
+               detto qui e' una regola, detto li' e' una brutta sorpresa. */
+            const tetto = Number(canaleCfg(canale).maxOra) || 0;
+            const avviso = document.getElementById('ii-tetto');
+            if (avviso) {
+                avviso.innerHTML = (tetto && n > tetto)
+                    ? 'Il tetto e di <b>' + tetto + '</b> ' + (canale === 'pec' ? 'PEC' : 'email')
+                    + ' all\'ora: ne partono ' + tetto + ' adesso, le altre ' + (n - tetto)
+                    + ' restano da inviare e ripartono dopo.'
+                    : '';
+            }
         };
         document.querySelectorAll('input[name="inv-canale"]').forEach(r => r.addEventListener('change', () => {
             canale = r.value;
@@ -18283,7 +18406,17 @@
                             mail: { oggetto: oggetto, html: html }
                         });
                     } catch (e) { r = { ok: false, msg: 'Servizio non raggiungibile.' }; }
-                    if (!r.ok) { msgKo = r.msg || 'Invio interrotto.'; break; }
+                    if (!r.ok) {
+                        if (r.tettoPieno && r.riprendeAlle && _invCfg) {
+                            _invCfg.freno = Object.assign({}, _invCfg.freno);
+                            _invCfg.freno[canale] = Object.assign({}, _invCfg.freno[canale] || {},
+                                { disponibili: 0, riprendeAlle: r.riprendeAlle });
+                            aggiornaTetto(elencoInvio.length);
+                        }
+                        msgKo = (r.msg || 'Invio interrotto.')
+                            + (r.riprendeAlle ? ' Si riprende fra ' + fraQuanto(r.riprendeAlle) + '.' : '');
+                        break;
+                    }
                     inviate += r.inviate || 0;
                     saltate += (r.saltate || 0) + (r.senzaRecapito || 0);
                     disiscritte += r.disiscritte || 0;
@@ -18301,7 +18434,23 @@
                             + 'aspetta qualche ora e premi di nuovo Invia.';
                         break;
                     }
-                    if (r.tettoRaggiunto) { msgKo = 'Raggiunto il tetto orario su questo canale: riprendi più tardi, chi ha già ricevuto viene saltato.'; break; }
+                    /* Tetto pieno: si dice FRA QUANTO si riapre, non "più
+                       tardi". E si aggiorna il freno in memoria, così il
+                       riquadro in cima comincia subito il conto alla rovescia
+                       invece di aspettare la prossima apertura. */
+                    if (r.tettoRaggiunto) {
+                        const quando = r.riprendeAlle || 0;
+                        if (quando && _invCfg) {
+                            _invCfg.freno = Object.assign({}, _invCfg.freno);
+                            _invCfg.freno[canale] = Object.assign({}, _invCfg.freno[canale] || {},
+                                { disponibili: 0, riprendeAlle: quando });
+                        }
+                        aggiornaTetto(elencoInvio.length);
+                        msgKo = 'Raggiunto il tetto orario su questo canale'
+                            + (quando ? ': si riprende fra ' + fraQuanto(quando) : ': riprendi più tardi')
+                            + '. Chi ha già ricevuto viene saltato, quindi basta premere di nuovo Invia.';
+                        break;
+                    }
                 }
                 stato.inCorso = false;
                 avanzamento(Math.min(totale, inviate + falliti + saltate + disiscritte), totale, conti,
