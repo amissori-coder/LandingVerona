@@ -2719,6 +2719,19 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* Le schede: la vista attiva si stacca dalle altre e si attacca alla tabella,
    come in un raccoglitore. Il numero e' grande perche' e' quello che si
    guarda; l'etichetta sta sotto e serve solo a dire di cosa. */
+/* A CHI ARRIVANO LE RISPOSTE AL MODULO. Le due caselle affiancate finche'
+   c'e' spazio: sono la stessa domanda ("a chi") fatta in due modi, e in
+   colonna sembrerebbero due passaggi diversi. */
+.inv-dest { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.inv-dest-campo { margin: 0; }
+.inv-dest-campo textarea { resize: vertical; min-height: 52px; }
+.inv-dest-agg { margin-top: 5px; }
+/* La tendina degli aderenti non deve sembrare un campo da compilare: e' una
+   scorciatoia, e chi scrive a mano deve poterla ignorare. */
+.inv-dest-agg select { width: 100%; font-size: 0.82rem; color: var(--grigio-600); background: var(--grigio-050); }
+.inv-dest-riquadro { padding: 12px 14px; border: 1px solid var(--grigio-200); border-radius: 8px; background: var(--blu-050); }
+@media (max-width: 640px) { .inv-dest { grid-template-columns: 1fr; } }
+
 /* "Sta anche nell'altro elenco". Sotto il nome dell'azienda, dove ci sono
    gia' P.IVA e citta': e' un dato dell'anagrafica, non un esito. Diventa
    rosso solo quando di la' il messaggio e' gia' partito, che e' l'unico
