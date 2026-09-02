@@ -2158,6 +2158,12 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .inv-risp-ogg { font-size: 0.75rem; color: var(--grigio-900); line-height: 1.35; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .inv-risposto { align-self: flex-start; margin-top: 3px; padding: 1px 8px; border: 1px solid var(--verde); border-radius: 999px; background: #fff; font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--verde); cursor: pointer; }
 .inv-risposto:hover { background: var(--verde); color: #fff; }
+/* La stessa pastiglia quando non e' un pulsante ma un'etichetta (la
+   richiesta di contatto arrivata dal modulo: non c'e' niente da
+   aprire). Senza, il puntatore a mano e il colore che si inverte
+   promettono un clic che non fa niente. */
+span.inv-risposto { cursor: default; }
+span.inv-risposto:hover { background: #fff; color: var(--verde); }
 /* riquadro con l'ora dell'ultimo controllo della casella e il pulsante */
 .inv-lettore { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--grigio-200); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; line-height: 1.45; color: var(--grigio-600); }
 .inv-lettore.ko { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
@@ -2713,6 +2719,21 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* Le schede: la vista attiva si stacca dalle altre e si attacca alla tabella,
    come in un raccoglitore. Il numero e' grande perche' e' quello che si
    guarda; l'etichetta sta sotto e serve solo a dire di cosa. */
+/* LE DUE CAMPAGNE. Sopra le viste e visivamente piu' in alto di loro: sono
+   due elenchi diversi, non due modi di guardare lo stesso. Se stessero allo
+   stesso livello delle schede ("Da invitare", "Inviate") si leggerebbero
+   come una sesta e una settima vista, e passare da una campagna all'altra
+   sembrerebbe un filtro invece di un cambio di lista. */
+.inv-campagne { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 18px; background: var(--blu-900); }
+.inv-campagna { padding: 6px 14px; border: 1px solid transparent; border-radius: 999px; background: transparent; font: inherit; font-size: 0.86rem; font-weight: 600; color: #C8DAEA; cursor: pointer; line-height: 1.3; }
+.inv-campagna:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.inv-campagna.attiva { background: #fff; color: var(--blu-900); }
+.inv-campagne .inv-contatti-apri { margin-left: auto; }
+/* L'esito di un'email ordinaria non e' una ricevuta e non deve sembrarlo:
+   stessa forma delle pastiglie della PEC, ma senza il peso del grassetto,
+   perche' li' c'e' un valore legale e qui no. */
+.inv-esito-mail { font-weight: 600; }
+
 .inv-schede { display: flex; gap: 2px; flex-wrap: wrap; padding: 12px 18px 0; background: var(--blu-050); border-bottom: 1px solid var(--grigio-200); }
 .inv-scheda { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; background: transparent; font: inherit; color: var(--grigio-600); cursor: pointer; line-height: 1.15; }
 .inv-scheda b { font-size: 1.15rem; color: var(--grigio-900); font-weight: 700; }

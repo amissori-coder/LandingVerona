@@ -83,6 +83,10 @@ async function assegna(db, dati) {
                 codice: codice,
                 evento: evento,
                 scheda: scheda,
+                /* Per quale delle due liste e' stato emesso. Serve al modulo
+                   di richiesta contatto, che dal solo codice deve risalire
+                   all'azienda e sapere di che conversazione si tratta. */
+                campagna: String((dati && dati.campagna) || 'invito').slice(0, 40),
                 ragioneSociale: String((dati && dati.ragioneSociale) || '').slice(0, 200),
                 /* Il nome della pagina di iscrizione dell'evento. Il modulo
                    pubblico non conosce l'identificativo interno dell'evento,
@@ -129,7 +133,11 @@ async function verifica(db, codiceGrezzo, evento, pagina) {
     if (pagina && suaPagina && String(pagina).indexOf(suaPagina) !== 0) {
         return { ok: false, motivo: 'altro-evento' };
     }
-    return { ok: true, codice: codice, ragioneSociale: String(d.ragioneSociale || ''), scheda: String(d.scheda || ''), evento: String(d.evento || '') };
+    return {
+        ok: true, codice: codice, ragioneSociale: String(d.ragioneSociale || ''),
+        scheda: String(d.scheda || ''), evento: String(d.evento || ''),
+        campagna: String(d.campagna || 'invito')
+    };
 }
 
 /* Il codice e' stato usato per iscriversi.
@@ -139,6 +147,25 @@ async function verifica(db, codiceGrezzo, evento, pagina) {
    solo il primo uso, che e' l'informazione utile, e si contano gli usi.
    Se la scrittura non riesce, l'iscrizione resta valida: e' un dato di
    servizio, non una condizione. */
+/* Il codice come sta scritto in archivio, senza le regole del modulo
+   pubblico. Lo usa la richiesta di contatto, che arriva da una pagina sola
+   e non deve confrontare eventi: le basta sapere di quale azienda si
+   tratta. Un codice sconosciuto non e' un errore da mostrare - il modulo
+   deve funzionare anche per chi ci arriva senza. */
+async function cerca(db, codiceGrezzo) {
+    const codice = normalizza(codiceGrezzo);
+    if (!valido(codice)) return null;
+    try {
+        const snap = await db.collection('codiciInvito').doc(codice).get();
+        if (!snap.exists) return null;
+        const d = snap.data() || {};
+        return {
+            codice: codice, evento: String(d.evento || ''), scheda: String(d.scheda || ''),
+            campagna: String(d.campagna || 'invito'), ragioneSociale: String(d.ragioneSociale || '')
+        };
+    } catch (_) { return null; }
+}
+
 async function segnaUso(db, codice, chi) {
     const c = normalizza(codice);
     if (!valido(c)) return;
@@ -163,4 +190,4 @@ async function segnaUso(db, codice, chi) {
     }
 }
 
-module.exports = { ALFABETO, LUNGHEZZA, sorteggia, normalizza, valido, assegna, verifica, segnaUso };
+module.exports = { ALFABETO, LUNGHEZZA, sorteggia, normalizza, valido, assegna, verifica, cerca, segnaUso };
