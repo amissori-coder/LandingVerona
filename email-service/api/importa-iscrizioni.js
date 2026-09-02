@@ -127,7 +127,8 @@ module.exports = async (req, res) => {
         try { decoded = await admin.auth().verifyIdToken(idToken); }
         catch (e) { res.status(401).json({ ok: false, msg: 'Sessione non valida: rientra e riprova.' }); return; }
         const email = String(decoded.email || '').toLowerCase();
-        // un collaboratore dell'amministratore vale quanto lui (lib/utente-effettivo.js)
+        // il ruolo che conta e' quello dell'utente effettivo (lib/utente-effettivo.js);
+        // l'amministratore non puo' avere collaboratori, quindi qui passa solo lui
         const ue = await utenteEffettivo(admin.firestore(), email);
         if (!ue.ok) { res.status(403).json({ ok: false, msg: ue.msg || 'Utenza non abilitata.' }); return; }
         if (ue.ruolo !== 'admin') {

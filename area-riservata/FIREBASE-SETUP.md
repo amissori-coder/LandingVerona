@@ -79,13 +79,15 @@ sufficiente per questo utilizzo.
            && esisteScheda(mia())
            && schedaDi(mia()).attivo == true
            // un collaboratore entra solo se il suo riferimento e' indicato, esiste,
-           // e' attivo e non e' a sua volta un collaboratore (niente catene) ne' un
-           // invitato "solo sondaggio" (le stesse regole dell'app e del servizio email)
+           // e' attivo e non e' l'amministratore o il titolare (i loro poteri non si
+           // delegano), un altro collaboratore (niente catene) o un invitato "solo
+           // sondaggio" (le stesse regole dell'app e del servizio email)
            && (!eCollaboratore()
                || (emailEffettiva() != ''
+                   && emailEffettiva() != 'a.missori@emvas.tax'
                    && esisteScheda(emailEffettiva())
                    && schedaDi(emailEffettiva()).attivo == true
-                   && !(schedaDi(emailEffettiva()).get('ruolo', '') in ['collaboratore', 'sondaggio_compila', 'sondaggio_risultati'])));
+                   && !(schedaDi(emailEffettiva()).get('ruolo', '') in ['admin', 'collaboratore', 'sondaggio_compila', 'sondaggio_risultati'])));
        }
        function admin() {
          return abilitato() && ruoloUtente() == 'admin';
@@ -164,20 +166,19 @@ sufficiente per questo utilizzo.
    > lato server: le funzioni `eCollaboratore()`, `emailEffettiva()` e
    > `ruoloUtente()` qui sopra leggono il ruolo dalla scheda del riferimento, e
    > `abilitato()` pretende che il riferimento sia indicato, esista, sia attivo e
-   > non sia a sua volta un collaboratore ne' un invitato "solo sondaggio"; la
-   > propria scheda resta pero' leggibile a ogni utente attivo, cosi' l'app puo'
-   > spiegare il blocco alla porta (la scheda del riferimento, invece, si legge
-   > solo da staff). Un collaboratore dell'amministratore e' quindi
-   > amministratore anche per le regole (scrive `utenti`, `archivio/ruoli`,
-   > `modelli`); un collaboratore del titolare ha i poteri del titolare dentro
-   > l'app. Le regole leggono al massimo due schede utente per richiesta (la
-   > propria e quella del riferimento): si resta ben sotto il limite di dieci
-   > letture per valutazione. **Finche' non pubblichi queste regole aggiornate**,
-   > un collaboratore entra comunque (la sua scheda e' attiva e il suo ruolo non
-   > e' "solo sondaggio", quindi e' staff), ma con le regole vecchie NON eredita
-   > l'amministrazione: i salvataggi riservati all'admin gli verrebbero rifiutati
-   > dal server. Anche il servizio email (`email-service/lib/utente-effettivo.js`)
-   > risolve il riferimento allo stesso modo.
+   > non sia l'amministratore o il titolare (i poteri su utenti, ruoli e dati
+   > non si delegano: un collaboratore non e' mai `admin()`), ne' a sua volta un
+   > collaboratore, ne' un invitato "solo sondaggio"; la propria scheda resta
+   > pero' leggibile a ogni utente attivo, cosi' l'app puo' spiegare il blocco
+   > alla porta (la scheda del riferimento, invece, si legge solo da staff). Le
+   > regole leggono al massimo due schede utente per richiesta (la propria e
+   > quella del riferimento): si resta ben sotto il limite di dieci letture per
+   > valutazione. **Finche' non pubblichi queste regole aggiornate**, un
+   > collaboratore entra comunque come staff (la sua scheda e' attiva e il suo
+   > ruolo non e' "solo sondaggio"), ma il server non controlla che il suo
+   > riferimento sia ancora abilitato: lo fa solo l'app. Anche il servizio email
+   > (`email-service/lib/utente-effettivo.js`) risolve il riferimento allo
+   > stesso modo.
 
    > **Messaggi tra utenti connessi.** Il blocco `match /messaggi/{email}` serve
    > ai messaggi privati tra colleghi (popup con risposta). Se le regole
@@ -311,8 +312,10 @@ scheda in `utenti`). Il collaboratore:
   riferimento collegato in prima persona. Come per il filtro per regione, e'
   una riservatezza lato browser: il campo sta nei documenti condivisi.
 
-Un collaboratore non puo' essere riferimento di un altro collaboratore, e un
-invitato "solo sondaggio" non puo' avere collaboratori.
+Non possono avere collaboratori l'amministratore e il titolare (i poteri su
+utenti, ruoli e dati non si delegano: un collaboratore non vede mai Utenti,
+Ruoli e permessi o Dati e backup), un altro collaboratore e un invitato "solo
+sondaggio". La tendina "Collaboratore di" propone solo chi puo'.
 
 Attenzione a un caso raro: se in passato e' stato creato da Ruoli e permessi un
 ruolo su misura chiamato proprio "Collaboratore", il suo identificativo

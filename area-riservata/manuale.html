@@ -510,7 +510,7 @@
         <div class="prosa">
           <p>Un <b>collaboratore</b> non ha permessi propri: è un accesso che <b>eredita tutto</b> da un altro utente, il suo <b>utente di riferimento</b>, scelto dall'amministratore quando lo abilita nella sezione Utenti. Vede e può fare esattamente quello che vede e può fare quell'utente: ruolo e sezioni, filtro per territorio, abilitazioni a Eventi e Newsletter, qualifiche della scheda in Aderenti Revilaw (responsabile qualità, equity partner), verifiche di rating e richieste di correzione. Se il riferimento viene disabilitato o eliminato, anche il collaboratore resta fuori, e la schermata di accesso gli dice il perché.</p>
           <p><b>Con quale nome compaiono le sue modifiche.</b> Tutto ciò che il collaboratore fa (incarichi, Registro modifiche, Controlli qualità, verifiche, comunicazioni ed email) porta nome e indirizzo dell'<b>utente di riferimento</b>: per tutti gli altri utenti è come se avesse operato lui, e le risposte alle email tornano a lui. <b>Solo l'utente di riferimento</b>, entrando in prima persona, vede accanto all'autore l'etichetta <b>«tramite <i>nome del collaboratore</i>»</b>: né l'amministratore né gli altri colleghi, e nemmeno il collaboratore stesso. Lo stesso vale per l'elenco «Connessi ora» e per i messaggi tra colleghi.</p>
-          <p>Nella barra laterale il collaboratore vede il proprio nome e, sotto, «A nome di» con l'utente di riferimento e il suo ruolo. Un collaboratore non può fare da riferimento a un altro collaboratore, e un invitato «solo sondaggio» non può avere collaboratori. Come si abilita è spiegato al capitolo <a href="#p-utenti">Utenti, ruoli e registro</a>.</p>
+          <p>Nella barra laterale il collaboratore vede il proprio nome e, sotto, «A nome di» con l'utente di riferimento e il suo ruolo. Non possono avere collaboratori l'<b>amministratore</b> e il <b>titolare</b> (i poteri su utenti, ruoli e dati non si delegano), un altro collaboratore e un invitato «solo sondaggio». Come si abilita è spiegato al capitolo <a href="#p-utenti">Utenti, ruoli e registro</a>.</p>
         </div>
 
         <div class="nota attenzione">
@@ -661,7 +661,7 @@
             <dl class="voce-elenco">
               <dt>Vede</dt><dd>Tutto ciò che vede il suo <b>utente di riferimento</b>: stesse sezioni, stessi livelli, stesso territorio, stesse abilitazioni a Eventi e Newsletter.</dd>
               <dt>Può fare</dt><dd>Quello che può fare il riferimento, a nome suo: le modifiche compaiono a tutti con il nome dell'utente di riferimento. Solo quest'ultimo vede anche «tramite <i>collaboratore</i>».</dd>
-              <dt>Non può</dt><dd>Entrare se il riferimento è disabilitato o eliminato. Essere riferimento di un altro collaboratore.</dd>
+              <dt>Non può</dt><dd>Entrare se il riferimento è disabilitato o eliminato. Essere collaboratore dell'amministratore o del titolare, né riferimento di un altro collaboratore.</dd>
             </dl>
             <div class="rimandi"><a href="#collaboratori">Capitolo 4</a> <a href="#p-utenti">Abilitare un collaboratore</a></div>
           </div>
@@ -1244,7 +1244,7 @@
           <li>
             <div class="passo-titolo">Abilita un collaboratore</div>
             <div class="passo-testo">
-              <p>Nella finestra <b>Abilita utente</b> scegli il ruolo <b>«Collaboratore (eredita i permessi di un utente)»</b>: compare il campo <b>Collaboratore di</b>, in cui indichi l'utente di riferimento. Senza quel campo il collaboratore non si salva. La tendina propone solo gli utenti attivi dello staff: non altri collaboratori, non gli invitati al solo sondaggio.</p>
+              <p>Nella finestra <b>Abilita utente</b> scegli il ruolo <b>«Collaboratore (eredita i permessi di un utente)»</b>: compare il campo <b>Collaboratore di</b>, in cui indichi l'utente di riferimento. Senza quel campo il collaboratore non si salva. La tendina propone solo gli utenti attivi dello staff: non l'amministratore né il titolare, non altri collaboratori, non gli invitati al solo sondaggio.</p>
               <p>Lo stesso si fa con un utente già presente, cambiandogli ruolo dalla tendina della tabella: si apre la finestra per scegliere di chi è collaboratore. Sotto la tendina resta scritto <b>di</b> chi lo è, con il pulsante <b>Cambia</b> per spostarlo su un altro riferimento. Nella tabella un collaboratore il cui riferimento non va più bene (disabilitato, eliminato) ha un'etichetta rossa: finché non lo associ a un utente valido non può entrare.</p>
               <p>Disabilitando, eliminando o cambiando ruolo a un utente che ha collaboratori il programma avvisa prima: quei collaboratori resterebbero fuori. La scheda del profilo, con la spiegazione, è anche nella sezione <b>Ruoli e permessi</b> (pulsante «Abilita un collaboratore»). Che cosa vede e con quale nome compare è spiegato al capitolo <a href="#collaboratori">Il profilo Collaboratore</a>.</p>
             </div>

@@ -320,10 +320,13 @@
     const NOME_RUOLO_COLLABORATORE = 'Collaboratore';
     function eRuoloCollaboratore(ruolo) { return ruolo === RUOLO_COLLABORATORE; }
     /* Un utente puo' fare da riferimento a un collaboratore solo se e' un utente pieno
-       dello staff, attivo: non un altro collaboratore (niente catene) e non un invitato
-       "solo sondaggio" (il server gli nega gli archivi, il collaboratore non vedrebbe nulla). */
+       dello staff, attivo: non un altro collaboratore (niente catene), non un invitato
+       "solo sondaggio" (il server gli nega gli archivi, il collaboratore non vedrebbe
+       nulla) e nemmeno l'amministratore o il titolare: i poteri su utenti, ruoli e dati
+       non si delegano a nessuno. Stessa regola nelle regole Firestore e nel servizio email. */
     function puoAvereCollaboratori(u) {
-        return !!u && u.attivo !== false && !eRuoloCollaboratore(u.ruolo) && !eRuoloSoloSondaggio(u.ruolo);
+        return !!u && u.attivo !== false && !eRuoloCollaboratore(u.ruolo) && !eRuoloSoloSondaggio(u.ruolo)
+            && u.ruolo !== 'admin' && String(u.email || '').toLowerCase() !== PROPRIETARIO;
     }
 
     const Store = {
@@ -13496,7 +13499,7 @@
             chi: 'L\'amministratore, che abilita i collaboratori; chi ha un collaboratore, che nel Registro e nelle schede vede "tramite <nome>" accanto alle modifiche fatte a suo nome.',
             dove: 'Sezione "Utenti" (tendina Ruolo: "Collaboratore", poi il campo "Collaboratore di"); la scheda del profilo in "Ruoli e permessi".',
             voci: [
-                { titolo: 'Abilitare un collaboratore', testo: 'In Utenti, "+ Abilita utente": nome, email, ruolo "Collaboratore (eredita i permessi di un utente)" e, nel campo che compare, l\'utente di riferimento. Lo stesso si fa cambiando ruolo a un utente già presente; "Cambia" sotto la tendina cambia il riferimento. Un collaboratore non può fare da riferimento a un altro collaboratore, e nemmeno un invitato al solo sondaggio.' },
+                { titolo: 'Abilitare un collaboratore', testo: 'In Utenti, "+ Abilita utente": nome, email, ruolo "Collaboratore (eredita i permessi di un utente)" e, nel campo che compare, l\'utente di riferimento. Lo stesso si fa cambiando ruolo a un utente già presente; "Cambia" sotto la tendina cambia il riferimento. Non possono avere collaboratori l\'amministratore e il titolare, un altro collaboratore e un invitato al solo sondaggio.' },
                 { titolo: 'Che cosa vede e può fare', testo: 'Esattamente quello che vede e può fare il suo utente di riferimento: ruolo e sezioni, filtro per regione, abilitazioni a Eventi e Newsletter, qualifiche della scheda in Aderenti Revilaw, verifiche di rating e richieste di correzione. Se il riferimento viene disabilitato o eliminato, il collaboratore non entra più: la schermata di accesso lo dice.' },
                 { titolo: 'Con quale nome compaiono le modifiche', testo: 'Incarichi, Registro modifiche, Controlli qualità, verifiche, comunicazioni ed email portano nome e indirizzo dell\'utente di riferimento (le risposte alle email tornano a lui). Solo l\'utente di riferimento, entrando in prima persona, vede accanto all\'autore l\'etichetta "tramite <collaboratore>". Nella barra laterale il collaboratore vede il proprio nome e, sotto, a nome di chi sta lavorando.' },
                 { titolo: 'Chi è connesso', testo: 'Nell\'elenco "Connessi ora" e nei messaggi tra colleghi il collaboratore compare con il nome del suo utente di riferimento; anche qui, solo il riferimento vede chi c\'è davvero.' }
@@ -23186,7 +23189,7 @@
         if (!di) { toast('Indica di quale utente è collaboratore.', 'rosso'); return null; }
         if (di === String(emailUtente || '').toLowerCase()) { toast('Un utente non può essere collaboratore di sé stesso.', 'rosso'); return null; }
         const p = (lista || []).find(u => String(u.email || '').toLowerCase() === di);
-        if (!p || !puoAvereCollaboratori(p)) { toast('L\'utente scelto non può avere collaboratori: serve un utente attivo dello staff (non un altro collaboratore né un invitato al solo sondaggio).', 'rosso'); return null; }
+        if (!p || !puoAvereCollaboratori(p)) { toast('L\'utente scelto non può avere collaboratori: serve un utente attivo dello staff, che non sia l\'amministratore o il titolare, un altro collaboratore o un invitato al solo sondaggio.', 'rosso'); return null; }
         return di;
     }
     // i collaboratori che dipendono da un utente: prima di disabilitarlo o eliminarlo va detto
@@ -23290,7 +23293,7 @@
                     <div class="ruolo-azioni"><button class="btn btn-sm btn-secondary" id="r-collab-utenti">Abilita un collaboratore</button></div>
                 </div>
                 <div class="ruolo-sez"><span class="badge collegio">Nessun permesso proprio: eredita tutto dall'utente di riferimento</span></div>
-                <div class="ruolo-reg">Si assegna dalla sezione <strong>Utenti</strong>, indicando <strong>di quale utente</strong> è collaboratore. Vede e può fare esattamente quello che vede e può fare quell'utente: ruolo, sezioni, territorio, Eventi e Newsletter comprese; se il riferimento viene disabilitato, anche il collaboratore resta fuori. Le sue modifiche compaiono a tutti con il <strong>nome dell'utente di riferimento</strong>; solo quest'ultimo vede anche quale collaboratore le ha fatte.</div>
+                <div class="ruolo-reg">Si assegna dalla sezione <strong>Utenti</strong>, indicando <strong>di quale utente</strong> è collaboratore. Vede e può fare esattamente quello che vede e può fare quell'utente: ruolo, sezioni, territorio, Eventi e Newsletter comprese; se il riferimento viene disabilitato, anche il collaboratore resta fuori. <strong>Amministratore e titolare non possono avere collaboratori</strong>, e nemmeno un altro collaboratore o un invitato al solo sondaggio. Le sue modifiche compaiono a tutti con il <strong>nome dell'utente di riferimento</strong>; solo quest'ultimo vede anche quale collaboratore le ha fatte.</div>
             </div>
             </div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));

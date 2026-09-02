@@ -6,9 +6,10 @@
    l'indirizzo di un altro utente) che lavora A NOME di quell'altro
    utente, con i suoi stessi permessi. Qui si risolve la scheda che
    conta: per un utente normale la sua; per un collaboratore quella del
-   suo utente di riferimento, purche' esista, sia attiva e non sia a sua
-   volta un collaboratore o un invitato "solo sondaggio". Sono le stesse
-   regole dell'app (area-riservata/app.js) e delle regole Firestore
+   suo utente di riferimento, purche' esista, sia attiva e non sia
+   l'amministratore o il titolare (i loro poteri non si delegano), un altro
+   collaboratore o un invitato "solo sondaggio". Sono le stesse regole
+   dell'app (area-riservata/app.js) e delle regole Firestore
    (area-riservata/FIREBASE-SETUP.md).
 
    Risultato, se va bene:
@@ -24,6 +25,9 @@
 
 const RUOLO_COLLABORATORE = 'collaboratore';
 const RUOLI_SOLO_SONDAGGIO = ['sondaggio_compila', 'sondaggio_risultati'];
+// il titolare dello studio: come in area-riservata/app.js (PROPRIETARIO), ha sempre i
+// poteri dell'amministratore anche se la sua scheda dice altro
+const PROPRIETARIO = 'a.missori@emvas.tax';
 
 async function utenteEffettivo(db, email) {
     const e = String(email || '').toLowerCase();
@@ -41,7 +45,7 @@ async function utenteEffettivo(db, email) {
     if (!pDoc.exists || pDoc.data().attivo === false) return { ok: false, msg: 'L\'utente a cui il tuo accesso è associato non risulta abilitato: chiedi all\'amministratore.' };
     const p = pDoc.data() || {};
     const ruoloP = String(p.ruolo || '');
-    if (ruoloP === RUOLO_COLLABORATORE || RUOLI_SOLO_SONDAGGIO.indexOf(ruoloP) >= 0) {
+    if (ruoloP === RUOLO_COLLABORATORE || RUOLI_SOLO_SONDAGGIO.indexOf(ruoloP) >= 0 || ruoloP === 'admin' || di === PROPRIETARIO) {
         return { ok: false, msg: 'L\'utente a cui il tuo accesso è associato non può avere collaboratori: chiedi all\'amministratore.' };
     }
     return { ok: true, email: di, dati: p, ruolo: ruoloP, sessione: sessione, collaboratore: true };
