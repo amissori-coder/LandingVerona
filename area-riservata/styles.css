@@ -2777,6 +2777,9 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 
 .inv-finestra .inv-lettore, .inv-finestra .inv-barra, .inv-finestra .inv-sel-barra, .inv-finestra .ev-imp-esito { margin: 12px 18px 0; }
 .inv-altrove { align-self: center; margin: 0 0 0 4px; }
+/* L'ora dell'ultima lettura, accanto ad "Aggiorna": dice se quello che
+   si sta guardando e' di adesso o di venti minuti fa. */
+.inv-letto { align-self: center; margin: 0 0 0 2px; white-space: nowrap; }
 .inv-vuoto { padding: 26px 18px; }
 /* La tabella prende tutto lo spazio che resta e scorre da sola: le schede, i
    pulsanti e le intestazioni restano fermi mentre si scorrono le righe. */

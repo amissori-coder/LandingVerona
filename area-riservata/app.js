@@ -17158,10 +17158,55 @@
         }).join('');
     }
 
+    /* RILEGGERE L'ELENCO MENTRE LA FINESTRA E' APERTA.
+       Le risposte non arrivano da qui: arrivano da fuori, quando un'azienda
+       compila il modulo o il gestore consegna una PEC. Finche' la finestra
+       leggeva solo all'apertura, chi la teneva aperta - che e' quello che si
+       fa mentre si aspettano risposte - non vedeva mai cambiare niente, e
+       concludeva che il modulo non funzionasse.
+
+       Si rilegge quando si torna su questa scheda del browser: e' il gesto
+       che segue naturalmente il "provo a compilare il modulo" fatto
+       nell'altra. L'ascoltatore si registra UNA volta per tutta la vita
+       dell'applicazione e ogni volta controlla se la finestra c'e' ancora:
+       cosi' non c'e' niente da disiscrivere quando si chiude, e nessuna
+       chiusura dimenticata lascia un ascoltatore appeso. */
+    let _invEvento = null;
+    let _invRiletturaArmata = false;
+    const INV_RILETTURA_MS = 10000;   // non piu' di una rilettura ogni dieci secondi
+    function armaRiletturaElenco() {
+        if (_invRiletturaArmata) return;
+        _invRiletturaArmata = true;
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden || !_invEvento) return;
+            if (!document.getElementById('inv-corpo')) return;
+            const c = _invCache[invChiave(_invEvento)];
+            if (c && (Date.now() - (c.aggiornato || 0)) < INV_RILETTURA_MS) return;
+            const ev = _invEvento;
+            caricaAziendeInvito(ev, () => {
+                if (document.getElementById('inv-corpo')) disegnaAziendeInvito(ev);
+            });
+        });
+    }
+
     function caricaAziendeInvito(ev, poi) {
         const k = invChiave(ev);
+        const prima = _invCache[k] ? contaInviti(_invCache[k].aziende) : null;
         Cloud.aziendeInvito({ azione: 'elenco', evento: ev.id, campagna: _invCampagna }).then(r => {
             if (r.ok) _invCache[k] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now() };
+            /* Se nel frattempo qualcuno ha risposto lo si DICE. Senza, la
+               riga si sposta nella scheda delle risposte e chi stava
+               guardando le contattate vede solo un numero calare: e' la
+               notizia migliore della giornata, e passava inosservata. */
+            if (r.ok && prima) {
+                const dopo = contaInviti(_invCache[k].aziende);
+                const nuove = dopo.risposte - prima.risposte;
+                if (nuove > 0) {
+                    toast(nuove === 1
+                        ? 'Un\'azienda ha risposto: la trovi in "Hanno risposto".'
+                        : nuove + ' aziende hanno risposto: le trovi in "Hanno risposto".', 'verde');
+                }
+            }
             if (poi) poi(r);
         });
     }
@@ -17439,6 +17484,8 @@
     function modaleAziendeInvito(ev, campagna) {
         if (!puoGestireInviti() || !ev || ev.tutti) return;
         if (campagna) _invCampagna = campagnaDef(campagna).id;
+        _invEvento = ev;
+        armaRiletturaElenco();
         _invSel = new Set();
         _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false, ordina: 'azienda', verso: 1 };
         /* Finestra vera, non una finestrella: c'e' dentro una tabella con sette
@@ -17709,7 +17756,10 @@
                sa conclude che dodici persone hanno letto la mail, e su quel
                numero prende decisioni. */
             + '<span class="hint">Le aperture le contano anche i filtri antispam e le anteprime: il clic è l\'unico gesto sicuro.</span>'
-            + '</span><button class="btn btn-sm btn-secondary" id="inv-esiti">Aggiorna</button></div>';
+            /* "Aggiorna" e basta no: accanto c'e' quello che rilegge
+               l'elenco, e due pulsanti con lo stesso nome a quattro
+               centimetri di distanza si premono a caso. */
+            + '</span><button class="btn btn-sm btn-secondary" id="inv-esiti">Rileggi aperture e clic</button></div>';
     }
 
     /* Accanto alla tabella: a chi arrivano le risposte al modulo, in chiaro.
@@ -17852,6 +17902,15 @@
            invita a rifare l'import a meta' campagna, che e' il modo piu'
            rapido per non capire piu' a che punto si e'. */
         const soloDaInvitare = _invFiltro.vista === 'da-invitare';
+        const quandoLetto = (_invCache[invChiave(ev)] || {}).aggiornato || 0;
+        /* Solo l'ora, non la data: l'elenco lo si e' letto oggi, e "letto
+           02/09/2026 23:41" fa cercare la parte che conta in mezzo a quella
+           che non serve. Se per qualche ragione fosse di ieri, lo dice. */
+        const letto = quandoLetto
+            ? (fmtGiorno(quandoLetto) === fmtGiorno(Date.now())
+                ? 'alle ' + new Date(quandoLetto).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+                : fmtDataOra(quandoLetto))
+            : '';
         const barra = '<div class="inv-barra">'
             + (soloDaInvitare
                 ? '<button class="btn btn-primary btn-sm" id="inv-carica">Carica elenco (.xlsx o .csv)</button>'
@@ -17859,6 +17918,15 @@
                 : '')
             + '<button class="btn btn-secondary btn-sm" id="inv-scarica"' + (lista.length ? '' : ' disabled') + '>'
             + 'Scarica con gli esiti (' + lista.length + ')</button>'
+            /* Rileggere a mano. Serve perche' le risposte arrivano da fuori:
+               si rilegge da se' tornando su questa scheda del browser, ma chi
+               sta al telefono con l'azienda mentre quella compila il modulo
+               non cambia scheda, e deve poterlo chiedere. L'ora dell'ultima
+               lettura sta accanto, altrimenti non si sa se quello che si vede
+               e' di adesso o di venti minuti fa. */
+            + '<button class="btn btn-secondary btn-sm" id="inv-rileggi" title="Rilegge l\'elenco dal servizio: '
+            + 'le risposte al modulo e le ricevute arrivano da fuori, non da questa finestra">Aggiorna l\'elenco</button>'
+            + (letto ? '<span class="inv-letto hint">letto ' + esc(letto) + '</span>' : '')
             /* Le sovrapposizioni non sono una scheda (una riga puo' essere
                insieme "da invitare" e "anche nell'altro elenco"): sono un
                filtro, e sta qui perche' il numero da solo non serve a niente
@@ -18038,6 +18106,19 @@
         if (bNuo) bNuo.addEventListener('click', () => modaleAziendaInvito(ev, null));
         const bScar = document.getElementById('inv-scarica');
         if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendeInvito(ev, lista));
+
+        const bRil = document.getElementById('inv-rileggi');
+        if (bRil) bRil.addEventListener('click', () => {
+            bRil.disabled = true; bRil.textContent = 'Rileggo...';
+            caricaAziendeInvito(ev, () => {
+                if (!document.getElementById('inv-corpo')) return;
+                /* Si rileggono anche i destinatari: se un collega li ha
+                   cambiati nel frattempo, la riga qui sopra direbbe il falso
+                   proprio mentre si e' premuto "Aggiorna". */
+                caricaContatti(ev, () => { if (document.getElementById('inv-corpo')) disegnaAziendeInvito(ev); });
+                disegnaAziendeInvito(ev);
+            });
+        });
 
         const bDop = document.getElementById('inv-doppie');
         if (bDop) bDop.addEventListener('click', () => { _invFiltro.doppie = !_invFiltro.doppie; ridisegna(); });
