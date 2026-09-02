@@ -316,7 +316,7 @@
     <h1>Manuale dell'area riservata</h1>
     <p class="sommario">Guida completa alla gestione degli incarichi di revisione: che cosa vede e che cosa può fare ciascun ruolo, sezione per sezione, con le schermate di ogni passaggio.</p>
     <div class="schedina">
-      <span>Ruoli documentati <b>9</b></span>
+      <span>Ruoli documentati <b>10</b></span>
       <span>Sezioni <b>14</b></span>
       <span>Capitoli <b>15</b></span>
       <span>Schermate <b>40</b></span>
@@ -332,6 +332,7 @@
         <li><a href="#schermata">Come si legge una schermata</a></li>
         <li><a href="#mappa">La mappa delle sezioni</a></li>
         <li><a href="#permessi">Come funzionano i permessi</a></li>
+        <li><a href="#collaboratori">Il profilo Collaboratore</a></li>
         <li><a href="#matrice">Matrice ruoli e sezioni</a></li>
         <li><a href="#indice-ruoli">Indice per ruolo</a></li>
         <li><a href="#amministratore">Amministratore e Titolare</a></li>
@@ -505,6 +506,13 @@
           <p><b>L'eliminazione definitiva.</b> Cancellare per sempre un incarico, con il suo piano di fatturazione, resta all'amministratore e al titolare. Gli altri ruoli con la scrittura chiudono un incarico con <b>Termina</b> o <b>Dimissioni</b>: operazioni reversibili che conservano tutto lo storico.</p>
         </div>
 
+        <h3 id="collaboratori">Il profilo Collaboratore: lavorare a nome di un altro utente</h3>
+        <div class="prosa">
+          <p>Un <b>collaboratore</b> non ha permessi propri: è un accesso che <b>eredita tutto</b> da un altro utente, il suo <b>utente di riferimento</b>, scelto dall'amministratore quando lo abilita nella sezione Utenti. Vede e può fare esattamente quello che vede e può fare quell'utente: ruolo e sezioni, filtro per territorio, abilitazioni a Eventi e Newsletter, qualifiche della scheda in Aderenti Revilaw (responsabile qualità, equity partner), verifiche di rating e richieste di correzione. Se il riferimento viene disabilitato o eliminato, anche il collaboratore resta fuori, e la schermata di accesso gli dice il perché.</p>
+          <p><b>Con quale nome compaiono le sue modifiche.</b> Tutto ciò che il collaboratore fa (incarichi, Registro modifiche, Controlli qualità, verifiche, comunicazioni ed email) porta nome e indirizzo dell'<b>utente di riferimento</b>: per tutti gli altri utenti è come se avesse operato lui, e le risposte alle email tornano a lui. <b>Solo l'utente di riferimento</b>, entrando in prima persona, vede accanto all'autore l'etichetta <b>«tramite <i>nome del collaboratore</i>»</b>: né l'amministratore né gli altri colleghi, e nemmeno il collaboratore stesso. Lo stesso vale per l'elenco «Connessi ora» e per i messaggi tra colleghi.</p>
+          <p>Nella barra laterale il collaboratore vede il proprio nome e, sotto, «A nome di» con l'utente di riferimento e il suo ruolo. Non possono avere collaboratori l'<b>amministratore</b> e il <b>titolare</b> (i poteri su utenti, ruoli e dati non si delegano), un altro collaboratore e un invitato «solo sondaggio». Come si abilita è spiegato al capitolo <a href="#p-utenti">Utenti, ruoli e registro</a>.</p>
+        </div>
+
         <div class="nota attenzione">
           <div class="nota-titolo">I permessi non sono una cassaforte</div>
           <p>Valgono dentro il programma e servono a tenere ognuno nella sua parte, prevenendo errori. La protezione vera dei dati più delicati sta nelle regole del server, non in questa configurazione.</p>
@@ -557,6 +565,7 @@
         </div>
         <p class="passo-testo"><b>Marketing</b> non è in tabella perché la sua riga di partenza sarebbe tutta uguale: <b>sola lettura</b> in ogni sezione che l'amministratore gli lascia visibile. Da Ruoli e permessi l'amministratore può però dargli la <b>scrittura</b>, sezione per sezione, come per Coordinatore e Vice. Vede gli incarichi di tutte le regioni e tutte le richieste di correzione, senza poterle ricevere né lavorare.</p>
         <p class="passo-testo">I livelli indicati per Responsabile qualità e Procuratore sono quelli <b>di partenza</b>: entrambi nascono con la scrittura ovunque e vanno ristretti dalla sezione Ruoli e permessi se lo studio vuole limitarli.</p>
+        <p class="passo-testo">Il <b>Collaboratore</b> non ha una colonna sua: prende, riga per riga, la colonna del suo <b>utente di riferimento</b>, territorio compreso. Vedi <a href="#collaboratori">Il profilo Collaboratore</a>.</p>
       </section>
 
       <!-- ======================= 5 ======================= -->
@@ -644,6 +653,17 @@
               <dt>Non può</dt><dd>Accedere a Utenti, Ruoli e Dati. <b>E non è limitabile per territorio</b>: il filtro per regione esiste solo nei due ruoli di sistema.</dd>
             </dl>
             <div class="rimandi"><a href="#personalizzati">Capitolo 10</a> <a href="#p-utenti">Configurare un ruolo</a></div>
+          </div>
+
+          <div class="scheda-ruolo tinta-lettura">
+            <h4>Collaboratore</h4>
+            <div class="ruolo-id">collaboratore, profilo di sistema, con «Collaboratore di»</div>
+            <dl class="voce-elenco">
+              <dt>Vede</dt><dd>Tutto ciò che vede il suo <b>utente di riferimento</b>: stesse sezioni, stessi livelli, stesso territorio, stesse abilitazioni a Eventi e Newsletter.</dd>
+              <dt>Può fare</dt><dd>Quello che può fare il riferimento, a nome suo: le modifiche compaiono a tutti con il nome dell'utente di riferimento. Solo quest'ultimo vede anche «tramite <i>collaboratore</i>».</dd>
+              <dt>Non può</dt><dd>Entrare se il riferimento è disabilitato o eliminato. Essere collaboratore dell'amministratore o del titolare, né riferimento di un altro collaboratore.</dd>
+            </dl>
+            <div class="rimandi"><a href="#collaboratori">Capitolo 4</a> <a href="#p-utenti">Abilitare un collaboratore</a></div>
           </div>
 
           <div class="scheda-ruolo tinta-isolato">
@@ -1220,6 +1240,14 @@
               <p>Chi non deve più entrare si <b>disattiva</b> invece di essere cancellato: l'utenza resta nel registro delle operazioni passate ma non consente più l'accesso.</p>
             </div>
             <figure><img src="manuale/26-admin-utenti.jpg" alt="Sezione Utenti"><figcaption><b>Utenti.</b> Da qui si cambia il ruolo di una persona già registrata e si disattiva chi non deve più entrare.</figcaption></figure>
+          </li>
+          <li>
+            <div class="passo-titolo">Abilita un collaboratore</div>
+            <div class="passo-testo">
+              <p>Nella finestra <b>Abilita utente</b> scegli il ruolo <b>«Collaboratore (eredita i permessi di un utente)»</b>: compare il campo <b>Collaboratore di</b>, in cui indichi l'utente di riferimento. Senza quel campo il collaboratore non si salva. La tendina propone solo gli utenti attivi dello staff: non l'amministratore né il titolare, non altri collaboratori, non gli invitati al solo sondaggio.</p>
+              <p>Lo stesso si fa con un utente già presente, cambiandogli ruolo dalla tendina della tabella: si apre la finestra per scegliere di chi è collaboratore. Sotto la tendina resta scritto <b>di</b> chi lo è, con il pulsante <b>Cambia</b> per spostarlo su un altro riferimento. Nella tabella un collaboratore il cui riferimento non va più bene (disabilitato, eliminato) ha un'etichetta rossa: finché non lo associ a un utente valido non può entrare.</p>
+              <p>Disabilitando, eliminando o cambiando ruolo a un utente che ha collaboratori il programma avvisa prima: quei collaboratori resterebbero fuori. La scheda del profilo, con la spiegazione, è anche nella sezione <b>Ruoli e permessi</b> (pulsante «Abilita un collaboratore»). Che cosa vede e con quale nome compare è spiegato al capitolo <a href="#collaboratori">Il profilo Collaboratore</a>.</p>
+            </div>
           </li>
           <li>
             <div class="passo-titolo">Configura il ruolo</div>

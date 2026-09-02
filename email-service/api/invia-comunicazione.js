@@ -12,6 +12,7 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const { utenteEffettivo } = require('../lib/utente-effettivo');
 const nodemailer = require('nodemailer');
 // Impaginazione e firma delle mail: un posto solo, cosi' quello che parte da qui
 // e quello che parte dagli invii programmati e' identico (lib/mail-layout.js)
@@ -129,9 +130,12 @@ module.exports = async (req, res) => {
         const mittente = String(decoded.email || '').toLowerCase();
         if (!EMAIL_RE.test(mittente)) { res.status(401).json({ ok: false, msg: 'Utente non valido' }); return; }
 
-        // 2) autorizzazione: dev'essere un utente abilitato e attivo
-        const uDoc = await admin.firestore().collection('utenti').doc(mittente).get();
-        if (!uDoc.exists || uDoc.data().attivo === false) { res.status(403).json({ ok: false, msg: 'Utenza non abilitata all\'invio.' }); return; }
+        // 2) autorizzazione: dev'essere un utente abilitato e attivo. Un collaboratore
+        //    vale quanto il suo utente di riferimento e scrive a nome suo: le risposte
+        //    tornano al riferimento (lib/utente-effettivo.js)
+        const ue = await utenteEffettivo(admin.firestore(), mittente);
+        if (!ue.ok) { res.status(403).json({ ok: false, msg: ue.msg || 'Utenza non abilitata all\'invio.' }); return; }
+        const rispondiA = ue.email;
 
         // 3) validazione contenuto
         const oggetto = String(body.oggetto || '').trim();
@@ -181,7 +185,7 @@ module.exports = async (req, res) => {
                 const ogg = applicaVariabili(oggBase, d).trim() || '(senza oggetto)';
                 const txt = sostBody(testoBase, d);
                 try {
-                    await trans.sendMail({ from: from, replyTo: mittente, to: d.email, subject: ogg, text: corpoText(txt), html: corpoHtml(txt) });
+                    await trans.sendMail({ from: from, replyTo: rispondiA, to: d.email, subject: ogg, text: corpoText(txt), html: corpoHtml(txt) });
                     inviati++;
                 } catch (e) {
                     const motivo = String((e && e.message) || 'errore sconosciuto').slice(0, 200);
@@ -196,15 +200,17 @@ module.exports = async (req, res) => {
 
         const emails = destinatari.map(d => d.email);
         const setEmails = new Set(emails.map(e => e.toLowerCase()));
-        const messaggio = { from: from, replyTo: mittente, subject: oggBase, text: corpoText(testoBase), html: corpoHtml(testoBase) };
+        const messaggio = { from: from, replyTo: rispondiA, subject: oggBase, text: corpoText(testoBase), html: corpoHtml(testoBase) };
         if (emails.length === 1) messaggio.to = emails[0];
         else {
-            // il mittente e' gia' il destinatario visibile: se compare anche tra gli
-            // indirizzi scelti (capita quando ci si mette in copia, come nei riepiloghi
-            // delle richieste di correzione) non va ripetuto in BCC, altrimenti riceve
-            // due volte la stessa mail.
-            messaggio.to = mittente;
-            messaggio.bcc = emails.filter(em => em.toLowerCase() !== mittente);
+            // l'utente effettivo (per un collaboratore, il suo riferimento) e' gia' il
+            // destinatario visibile: se compare anche tra gli indirizzi scelti (capita
+            // quando ci si mette in copia, come nei riepiloghi delle richieste di
+            // correzione) non va ripetuto in BCC, altrimenti riceve due volte la stessa
+            // mail. L'indirizzo reale del collaboratore non deve comparire: e' a nome
+            // del riferimento che si scrive.
+            messaggio.to = rispondiA;
+            messaggio.bcc = emails.filter(em => em.toLowerCase() !== rispondiA);
         }
         // cattura i destinatari rifiutati dal server di posta (es. superamento limiti Aruba, indirizzi non validi)
         let falliti = [];

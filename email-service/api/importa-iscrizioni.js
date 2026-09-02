@@ -18,6 +18,7 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const { utenteEffettivo } = require('../lib/utente-effettivo');
 const { JWT } = require('google-auth-library');
 
 function leggiServiceAccount() {
@@ -126,9 +127,11 @@ module.exports = async (req, res) => {
         try { decoded = await admin.auth().verifyIdToken(idToken); }
         catch (e) { res.status(401).json({ ok: false, msg: 'Sessione non valida: rientra e riprova.' }); return; }
         const email = String(decoded.email || '').toLowerCase();
-        const uDoc = await admin.firestore().collection('utenti').doc(email).get();
-        if (!uDoc.exists || uDoc.data().attivo === false) { res.status(403).json({ ok: false, msg: 'Utenza non abilitata.' }); return; }
-        if (String(uDoc.data().ruolo || '') !== 'admin') {
+        // il ruolo che conta e' quello dell'utente effettivo (lib/utente-effettivo.js);
+        // l'amministratore non puo' avere collaboratori, quindi qui passa solo lui
+        const ue = await utenteEffettivo(admin.firestore(), email);
+        if (!ue.ok) { res.status(403).json({ ok: false, msg: ue.msg || 'Utenza non abilitata.' }); return; }
+        if (ue.ruolo !== 'admin') {
             res.status(403).json({ ok: false, msg: 'Solo l\'amministratore puo importare le iscrizioni.' });
             return;
         }

@@ -28,13 +28,16 @@ const RV_ROSTER = {
     ]
 };
 
-/* Utenti iniziali: l'amministratore reale piu' due profili di prova.
+/* Utenti iniziali: l'amministratore reale piu' tre profili di prova, tra cui
+   un collaboratore che lavora a nome del responsabile qualita' (stessi
+   permessi; le sue modifiche compaiono agli altri con il nome di quest'ultimo).
    Le password NON sono precaricate: ogni utente richiede la prima
    password dal pulsante dedicato nella pagina di accesso. */
 const RV_UTENTI_INIZIALI = [
     { email: 'a.missori@emvas.tax', nome: 'Andrea Missori', ruolo: 'admin' },
     { email: 'qualita@demo.revilaw.it', nome: 'Utente Qualita (demo)', ruolo: 'qualita' },
-    { email: 'procuratore@demo.revilaw.it', nome: 'Utente Procuratore (demo)', ruolo: 'procuratore' }
+    { email: 'procuratore@demo.revilaw.it', nome: 'Utente Procuratore (demo)', ruolo: 'procuratore' },
+    { email: 'collaboratore@demo.revilaw.it', nome: 'Utente Collaboratore (demo)', ruolo: 'collaboratore', collaboratoreDi: 'qualita@demo.revilaw.it' }
 ];
 
 /* Incarichi dimostrativi: societa' fittizie con struttura identica

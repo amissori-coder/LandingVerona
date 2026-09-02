@@ -113,7 +113,7 @@ module.exports = async (req, res) => {
                 tx.set(P.rif(db, id), {
                     annullaRichiesto: true,
                     stato: inCorso ? 'in-corso' : 'annullata',
-                    annullato: { da: aut.email, il: Date.now() }
+                    annullato: { da: aut.email, collab: aut.collab || '', il: Date.now() }
                 }, { merge: true });
                 esito = {
                     ok: true, inCorso: inCorso,
@@ -190,7 +190,7 @@ module.exports = async (req, res) => {
                 testo: String(body.testo || ''),
                 mittenteNome: String(body.mittenteNome || '').slice(0, 80),
                 previsti: destinatari.length, lotti: lotti.length,
-                creato: { da: aut.email, il: ora },
+                creato: { da: aut.email, collab: aut.collab || '', il: ora },
                 annullaRichiesto: false,
                 lucchetto: null, avviato: null, concluso: null, ultimoErrore: '',
                 conti: { inviati: 0, saltati: 0, falliti: 0, giaAccettati: 0, incerti: 0 },
@@ -217,7 +217,7 @@ module.exports = async (req, res) => {
             stato: 'programmata',
             programmazione: {
                 quando: quando, quandoTesto: quandoTesto,
-                previsti: destinatari.length, da: aut.email, il: ora
+                previsti: destinatari.length, da: aut.email, collab: aut.collab || '', il: ora
             }
         });
 

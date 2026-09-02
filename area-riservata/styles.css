@@ -2969,3 +2969,14 @@ table.dati.cq-elenco .cq-agg { white-space: nowrap; }
 .cq-pagina .cq-completamento { margin-top: 12px; padding: 10px 12px; font-size: 0.86rem; }
 .cq-pagina .cq-storia-voce { font-size: 0.84rem; padding: 5px 0; }
 .cq-pagina .cq-fondo { justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+
+/* ---------- Collaboratori: chi lavora a nome di un altro utente ---------- */
+/* nella barra laterale, sotto "Collaboratore": a nome di chi e con quale ruolo */
+.sidebar .utente-box .a-nome-di { display: block; margin-top: 4px; text-transform: none; color: rgba(255,255,255,0.75); line-height: 1.35; }
+.sidebar .utente-box .a-nome-di strong { color: #fff; font-weight: 600; }
+/* l'etichetta "tramite <collaboratore>" accanto a un autore: la vede solo l'utente di riferimento */
+.tramite-collab { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 999px; background: var(--ambra-bg); color: var(--ambra); font-size: 0.72rem; font-weight: 600; white-space: nowrap; vertical-align: middle; }
+/* vista Utenti: sotto la tendina del ruolo, di chi e' collaboratore */
+.u-collab-di { margin-top: 4px; font-size: 0.8rem; color: var(--grigio-600); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.avviso-collab { margin: 10px 0; padding: 10px 12px; border-radius: 6px; background: var(--ambra-bg); color: var(--ambra); font-size: 0.88rem; line-height: 1.45; }
+.ruolo-card-collab { border-left: 4px solid var(--ambra); }
