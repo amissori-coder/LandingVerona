@@ -519,6 +519,15 @@ async function esegui(ctx) {
             return;
         }
 
+        if (azione === 'richieste-elimina') {
+            if (!puoGestire) { negato(); return; }
+            const ids = (Array.isArray(body.ids) ? body.ids : []).map(x => testo(x, 200)).filter(Boolean);
+            if (!ids.length) { res.status(400).json({ ok: false, msg: 'Nessuna richiesta indicata.' }); return; }
+            const r = await CONTATTI.elimina(db, evento, campagna, ids);
+            res.status(200).json({ ok: true, tolte: r.tolte, schede: r.schede });
+            return;
+        }
+
         if (azione === 'contatti-salva') {
             if (!puoGestire) { negato(); return; }
             const d = (body.destinatari && typeof body.destinatari === 'object') ? body.destinatari : {};

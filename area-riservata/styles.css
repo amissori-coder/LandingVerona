@@ -2729,7 +2729,39 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* La tendina degli aderenti non deve sembrare un campo da compilare: e' una
    scorciatoia, e chi scrive a mano deve poterla ignorare. */
 .inv-dest-agg select { width: 100%; font-size: 0.82rem; color: var(--grigio-600); background: var(--grigio-050); }
-.inv-dest-riquadro { padding: 12px 14px; border: 1px solid var(--grigio-200); border-radius: 8px; background: var(--blu-050); }
+.inv-dest-riquadro { padding: 14px 16px; border: 1px solid var(--grigio-200); border-radius: 8px; background: var(--blu-050); }
+/* Le frasi del riquadro: distanziate con un margine PROPRIO e mai negativo.
+   Un -6px copiato da un altro punto della pagina, dove seguiva un campo con
+   il suo margine sotto, qui faceva finire la spiegazione sotto le tendine:
+   misurato in Chromium, sei pixel esatti di sovrapposizione. */
+/* Tutte le frasi del riquadro alla stessa misura, avviso compreso: un
+   avviso scritto piu' grande del testo che spiega cosa fare sposta
+   l'occhio sul problema e via dalla soluzione. Il rosso basta. */
+.inv-dest-nota { margin: 0 0 10px; max-width: none; font-size: 0.82rem; line-height: 1.5; }
+.inv-dest-riquadro > label { margin-bottom: 4px; }
+.inv-dest-riquadro .inv-dest { margin-bottom: 12px; }
+.inv-dest-azioni { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.inv-dest-azioni .ev-imp-esito { margin: 0; }
+/* Il titolo dell'elenco: staccato dal riquadro sopra, cosi' si vede che
+   comincia un'altra cosa. */
+.inv-rc-titolo { margin: 18px 0 8px; }
+/* Le larghezze delle colonne. Senza, il messaggio - che e' l'unica colonna
+   con dentro un discorso - si prendeva meta' tabella e spezzava gli indirizzi
+   a meta' parola nella colonna accanto. Il recapito non va mai spezzato: e'
+   quello che si copia per richiamare. */
+.inv-rc-tab th:nth-child(1), .inv-rc-tab td:nth-child(1) { width: 8.5rem; }
+/* Il nome non va spezzato in due righe: e' la prima cosa che si legge
+   scorrendo l'elenco. */
+.inv-rc-tab th:nth-child(2), .inv-rc-tab td:nth-child(2) { width: 13rem; }
+.inv-rc-tab td:nth-child(2) > b { white-space: nowrap; }
+.inv-rc-tab th:nth-child(3), .inv-rc-tab td:nth-child(3) { width: 15rem; }
+.inv-rc-tab th:nth-child(5), .inv-rc-tab td:nth-child(5) { width: 9rem; }
+.inv-rc-tab th:nth-child(6), .inv-rc-tab td:nth-child(6) { width: 6rem; }
+.inv-rc-tab td:nth-child(3) .inv-rec { white-space: nowrap; }
+@media (max-width: 900px) {
+    .inv-rc-tab th:nth-child(n), .inv-rc-tab td:nth-child(n) { width: auto; }
+    .inv-rc-tab td:nth-child(3) .inv-rec { white-space: normal; overflow-wrap: anywhere; }
+}
 @media (max-width: 640px) { .inv-dest { grid-template-columns: 1fr; } }
 
 /* "Sta anche nell'altro elenco". Sotto il nome dell'azienda, dove ci sono

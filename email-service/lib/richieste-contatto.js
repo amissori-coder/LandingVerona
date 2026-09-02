@@ -297,7 +297,64 @@ async function elenco(db, evento, campagna, quante) {
     return out;
 }
 
+/* Togliere una richiesta.
+   Serve per le prove e per i doppioni: chi compila due volte lo stesso
+   modulo lascia due righe identiche, e l'elenco e' anche il posto da cui si
+   capisce quante richieste vere sono arrivate.
+
+   La parte delicata non e' cancellare la richiesta: e' quello che resta
+   ATTACCATO alla scheda dell'azienda. Se la riga dell'elenco dice "ha
+   chiesto di essere contattato" e la richiesta non c'e' piu', quel segno
+   punta al nulla e non si capisce piu' da dove venga. Quindi si toglie
+   anche di li' - ma solo se e' proprio QUELLA richiesta, riconosciuta
+   dall'identificativo: se nel frattempo ne e' arrivata un'altra, quella
+   resta e la scheda continua a dire il vero.
+
+   Lo stato torna a 'inviata' e non a 'da-invitare': il messaggio era
+   partito davvero, e fingere il contrario lo farebbe ripartire. E non si
+   tocca chi si e' iscritto, e' stato escluso o disiscritto: quelle sono
+   decisioni prese altrove, e una richiesta cancellata non le annulla. */
+async function elimina(db, evento, campagna, ids) {
+    const camp = CAMPAGNE.normalizza(campagna);
+    const chiesti = (Array.isArray(ids) ? ids : []).map(x => testo(x, 200)).filter(Boolean).slice(0, 200);
+    if (!chiesti.length) return { tolte: 0, schede: 0 };
+
+    let tolte = 0, schede = 0;
+    for (const id of chiesti) {
+        const rif = db.collection('richiesteContatto').doc(id);
+        let d = null;
+        try {
+            const snap = await rif.get();
+            if (!snap.exists) continue;
+            d = snap.data() || {};
+        } catch (_) { continue; }
+        /* Si cancella solo dentro l'evento e la campagna che si sta
+           guardando: l'identificativo arriva dalla rete, e senza questo
+           controllo basterebbe indovinarne uno per togliere la richiesta di
+           un altro evento. */
+        if (String(d.evento || '') !== String(evento || '')) continue;
+        if (CAMPAGNE.normalizza(d.campagna) !== camp) continue;
+
+        if (d.scheda) {
+            try {
+                const sr = db.collection('aziendeInvito').doc(String(d.scheda));
+                const ss = await sr.get();
+                const sd = ss.exists ? (ss.data() || {}) : null;
+                if (sd && sd.contatto && String(sd.contatto.id || '') === id) {
+                    const patch = { contatto: null };
+                    if (sd.stato === 'risposta') patch.stato = 'inviata';
+                    await sr.set(patch, { merge: true });
+                    schede++;
+                }
+            } catch (_) { /* la richiesta si toglie comunque */ }
+        }
+        try { await rif.delete(); tolte++; }
+        catch (e) { console.error('Richiesta contatto non tolta:', String((e && e.message) || e).slice(0, 200)); }
+    }
+    return { tolte: tolte, schede: schede };
+}
+
 module.exports = {
-    ricevi, elenco, destinatari, salvaDestinatari, elencoIndirizzi,
+    ricevi, elenco, elimina, destinatari, salvaDestinatari, elencoIndirizzi,
     indirizzoValido, configurato, MAX_DESTINATARI
 };
