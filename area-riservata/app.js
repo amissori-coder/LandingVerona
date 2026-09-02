@@ -14949,7 +14949,7 @@
     function firmaPresenza(p) {
         if (!p || (!p.daNome && !p.da && !p.quando)) return '';
         // se ha operato un collaboratore, lo vede solo il suo utente di riferimento
-        const chi = (p.daNome || p.da || 'utente sconosciuto') + ((p.collab && vedoCollaboratoreDi(p.da)) ? ' (tramite ' + p.collab + ')' : '');
+        const chi = (p.daNome || p.da || 'utente sconosciuto') + ((p.collab && vedoCollaboratoreDi(p.da)) ? ' (tramite ' + nomeDaFirma(p.collab) + ')' : '');
         if (!p.quando) return chi;
         const d = new Date(p.quando);
         const oggi = new Date();

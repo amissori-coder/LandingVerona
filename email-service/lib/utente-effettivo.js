@@ -47,4 +47,13 @@ async function utenteEffettivo(db, email) {
     return { ok: true, email: di, dati: p, ruolo: ruoloP, sessione: sessione, collaboratore: true };
 }
 
-module.exports = { utenteEffettivo, RUOLO_COLLABORATORE };
+/* La firma del collaboratore reale da mettere nei timbri accanto a "da": 'Nome <email>',
+   lo stesso formato che usa l'area riservata (firmaCollaboratore in app.js), cosi'
+   a video si estraggono nome ed email allo stesso modo. Vuota se non e' un collaboratore. */
+function firmaCollaboratore(ue) {
+    if (!ue || !ue.ok || !ue.collaboratore) return '';
+    const s = ue.sessione || {};
+    return (s.nome || s.email || '') + (s.email ? ' <' + s.email + '>' : '');
+}
+
+module.exports = { utenteEffettivo, firmaCollaboratore, RUOLO_COLLABORATORE };

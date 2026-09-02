@@ -13,7 +13,7 @@
 
 const crypto = require('crypto');
 const admin = require('firebase-admin');
-const { utenteEffettivo } = require('./utente-effettivo');
+const { utenteEffettivo, firmaCollaboratore } = require('./utente-effettivo');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -212,7 +212,7 @@ async function autorizza(idToken) {
     const ruolo = ue.ruolo;
     if (ruolo === 'admin' || dati.newsletter === true) {
         // collab = il collaboratore reale, da mettere nei timbri accanto a "da" (l'area lo mostra solo al riferimento)
-        return { ok: true, email: ue.email, sessione: email, collab: ue.collaboratore ? (ue.sessione.nome || ue.sessione.email) : '', ruolo: ruolo, admin: ruolo === 'admin' };
+        return { ok: true, email: ue.email, sessione: email, collab: firmaCollaboratore(ue), ruolo: ruolo, admin: ruolo === 'admin' };
     }
     return {
         ok: false, stato: 403,

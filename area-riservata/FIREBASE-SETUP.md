@@ -62,13 +62,14 @@ sufficiente per questo utilizzo.
        }
        // Il "collaboratore" (ruolo 'collaboratore', campo collaboratoreDi = l'email
        // di un altro utente) lavora a nome di quell'utente: il ruolo che conta e'
-       // quello del suo riferimento, non il suo. Senza collaboratoreDi la lettura
-       // fallisce e l'accesso e' negato (fail-closed).
+       // quello del suo riferimento, non il suo. Senza collaboratoreDi l'email
+       // effettiva e' vuota e l'accesso e' negato (fail-closed). I campi si leggono
+       // con get(campo, '') cosi' una scheda senza ruolo non manda in errore la regola.
        function eCollaboratore() {
-         return schedaDi(mia()).ruolo == 'collaboratore';
+         return schedaDi(mia()).get('ruolo', '') == 'collaboratore';
        }
        function emailEffettiva() {
-         return eCollaboratore() ? schedaDi(mia()).collaboratoreDi : mia();
+         return eCollaboratore() ? schedaDi(mia()).get('collaboratoreDi', '') : mia();
        }
        function ruoloUtente() {
          return schedaDi(emailEffettiva()).ruolo;
@@ -77,12 +78,14 @@ sufficiente per questo utilizzo.
          return request.auth != null
            && esisteScheda(mia())
            && schedaDi(mia()).attivo == true
-           // un collaboratore entra solo se il suo riferimento esiste, e' attivo e
-           // non e' a sua volta un collaboratore (niente catene)
+           // un collaboratore entra solo se il suo riferimento e' indicato, esiste,
+           // e' attivo e non e' a sua volta un collaboratore (niente catene) ne' un
+           // invitato "solo sondaggio" (le stesse regole dell'app e del servizio email)
            && (!eCollaboratore()
-               || (esisteScheda(emailEffettiva())
+               || (emailEffettiva() != ''
+                   && esisteScheda(emailEffettiva())
                    && schedaDi(emailEffettiva()).attivo == true
-                   && schedaDi(emailEffettiva()).ruolo != 'collaboratore'));
+                   && !(schedaDi(emailEffettiva()).get('ruolo', '') in ['collaboratore', 'sondaggio_compila', 'sondaggio_risultati'])));
        }
        function admin() {
          return abilitato() && ruoloUtente() == 'admin';
@@ -157,8 +160,9 @@ sufficiente per questo utilizzo.
    > riferimento) eredita TUTTI i permessi dell'utente a cui e' associato, anche
    > lato server: le funzioni `eCollaboratore()`, `emailEffettiva()` e
    > `ruoloUtente()` qui sopra leggono il ruolo dalla scheda del riferimento, e
-   > `abilitato()` pretende che il riferimento esista, sia attivo e non sia a sua
-   > volta un collaboratore. Un collaboratore dell'amministratore e' quindi
+   > `abilitato()` pretende che il riferimento sia indicato, esista, sia attivo e
+   > non sia a sua volta un collaboratore ne' un invitato "solo sondaggio". Un
+   > collaboratore dell'amministratore e' quindi
    > amministratore anche per le regole (scrive `utenti`, `archivio/ruoli`,
    > `modelli`); un collaboratore del titolare ha i poteri del titolare dentro
    > l'app. Le regole leggono al massimo due schede utente per richiesta (la

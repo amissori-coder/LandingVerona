@@ -312,6 +312,8 @@ module.exports = async (req, res) => {
                     presenze[v.idIscritto] = {
                         stato: String(v.stato || ''), nota: String(v.nota || ''),
                         da: String(v.da || ''), daNome: String(v.daNome || ''),
+                        // il collaboratore reale, se c'e': l'area lo mostra solo al suo riferimento
+                        collab: String(v.collab || ''),
                         quando: typeof v.quando === 'number' ? v.quando : 0
                     };
                 });
@@ -353,6 +355,7 @@ module.exports = async (req, res) => {
                     inserito: (v.inserito && typeof v.inserito === 'object') ? {
                         da: String(v.inserito.da || ''),
                         daNome: String(v.inserito.daNome || ''),
+                        collab: String(v.inserito.collab || ''),
                         quando: typeof v.inserito.quando === 'number' ? v.inserito.quando : 0
                     } : null,
                     /* chi ha compilato il modulo "completa i dati" (l'intestatario):

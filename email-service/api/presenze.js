@@ -30,7 +30,7 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
-const { utenteEffettivo } = require('../lib/utente-effettivo');
+const { utenteEffettivo, firmaCollaboratore } = require('../lib/utente-effettivo');
 const nodemailer = require('nodemailer');
 // firma e indirizzo del collegamento "completa i dati" (lib condivisa con la
 // newsletter: stesso segreto della disiscrizione, contesto diverso)
@@ -281,7 +281,7 @@ module.exports = async (req, res) => {
         const eAdmin = ruolo === 'admin';
         // il collaboratore reale, se c'e': va nelle firme delle schede, dove l'area
         // riservata lo mostra soltanto al suo utente di riferimento
-        const collab = ue.collaboratore ? (ue.sessione.nome || ue.sessione.email) : '';
+        const collab = firmaCollaboratore(ue);
 
         // 2) abilitato agli Eventi: amministratore, contrassegno sulla scheda, o elenco condiviso
         let abilitati = [];
@@ -315,7 +315,7 @@ module.exports = async (req, res) => {
                 res.status(500).json({ ok: false, msg: 'Sezione aziende non disponibile sul servizio: ' + String((e && e.message) || e).slice(0, 160) });
                 return;
             }
-            const r = await INVITI.esegui({ db: db, body: body, email: email, ruolo: ruolo, eAdmin: eAdmin });
+            const r = await INVITI.esegui({ db: db, body: body, email: email, ruolo: ruolo, eAdmin: eAdmin, collab: collab });
             res.status(r.stato).json(r.corpo);
             return;
         }
@@ -583,7 +583,7 @@ module.exports = async (req, res) => {
                     inviate++;
                     await rif.set({
                         b2bInvito: Object.assign(
-                            { quando: Date.now(), da: email },
+                            { quando: Date.now(), da: email, collab: collab },
                             orariB2B ? { orari: orariB2B } : {},
                             evB2B ? { evento: evB2B } : {}
                         )
@@ -645,7 +645,7 @@ module.exports = async (req, res) => {
                 const vecchia = String(s0.azienda || '').trim();
                 if (vecchia === nuovaAzienda) { giaLi++; continue; }
                 if (!prima) prima = vecchia;
-                const voce = { prima: vecchia, dopo: nuovaAzienda, da: firma.da, daNome: firma.daNome, quando: firma.quando };
+                const voce = { prima: vecchia, dopo: nuovaAzienda, da: firma.da, daNome: firma.daNome, collab: firma.collab || '', quando: firma.quando };
                 /* Lo storico si ACCODA, non si rilegge e riscrive: se due
                    amministratori spostano lo stesso referente nello stesso
                    momento, chi scrive per secondo cancellerebbe la voce del
@@ -791,6 +791,7 @@ module.exports = async (req, res) => {
             presenza: {
                 stato: String(v.stato || ''), nota: String(v.nota || ''),
                 da: String(v.da || ''), daNome: String(v.daNome || ''),
+                collab: String(v.collab || ''),
                 quando: typeof v.quando === 'number' ? v.quando : Date.now()
             }
         });

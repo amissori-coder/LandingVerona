@@ -332,9 +332,19 @@ sua volta un collaboratore o un invitato "solo sondaggio". Su quella scheda si
 decidono `admin`, `eventi`, `newsletter` e l'appartenenza ai partner; con
 quell'indirizzo si firmano le schede (`da`, `daNome`) e si impostano il
 Reply-To delle comunicazioni e delle newsletter. Il collaboratore reale resta
-nel campo `sessione` (usato per i rate limit) e finisce nelle firme come
-`collab`, che l'area riservata mostra soltanto al riferimento. Un
-collaboratore senza riferimento valido riceve 403 con il motivo.
+nel campo `sessione` (usato per i rate limit e per la mail di prova della
+newsletter) e finisce nelle firme come `collab`, nel formato `Nome <email>`
+(`firmaCollaboratore(ue)`, lo stesso dell'area riservata), che l'area
+riservata mostra soltanto al riferimento. Un collaboratore senza riferimento
+valido riceve 403 con il motivo.
+
+Non passano dall'helper, di proposito: `/api/invia-email` (attivazione e
+recupero password: il collaboratore ha il proprio account e la propria
+scheda) e i lavori programmati (`cron-comunicazioni`, `giro-newsletter`),
+che non hanno una sessione e prendono Reply-To e firma da `creato.da`, che
+l'area riservata scrive gia' con l'email del riferimento (e il collaboratore
+in `creato.collab`). Il gruppo dinamico "Utenti abilitati" delle
+comunicazioni include anche i collaboratori: hanno una casella propria.
 
 ## Comunicazioni (mail composte nell'area riservata)
 
@@ -587,7 +597,8 @@ al minuto per utente.
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
 - `azione: "aggiungi"`: **amministratore, equity partner e founding partner**.
-  Conta **solo il ruolo di accesso** dell'utente (`utenti/<email>.ruolo`): un
+  Conta **solo il ruolo di accesso** dell'utente (`utenti/<email>.ruolo`; per un
+collaboratore, quello del suo utente di riferimento): un
   ruolo il cui id o nome contiene "equity" o "founding/founder" abilita; la
   spunta Equity/Founding partner in anagrafica non vale. Registra un'iscrizione
   a mano,
