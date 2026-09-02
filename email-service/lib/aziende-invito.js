@@ -504,10 +504,15 @@ async function esegui(ctx) {
            per aprire una finestra. */
         if (azione === 'contatti') {
             if (!puoGestire) { negato(); return; }
+            /* La finestra dell'invio e quella dell'elenco chiedono solo A CHI
+               arrivano le richieste, non quelle gia' arrivate: leggerle
+               sarebbe una query in piu' per un dato che non mostrano. */
+            const soloDest = body.soloDestinatari === true;
             res.status(200).json({
                 ok: true,
                 destinatari: await CONTATTI.destinatari(db, evento, campagna),
-                richieste: await CONTATTI.elenco(db, evento, campagna, body.quante),
+                richieste: soloDest ? [] : await CONTATTI.elenco(db, evento, campagna, body.quante),
+                soloDestinatari: soloDest,
                 postaPronta: CONTATTI.configurato(),
                 max: CONTATTI.MAX_DESTINATARI
             });

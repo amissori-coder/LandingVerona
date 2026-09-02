@@ -17454,6 +17454,7 @@
             });
         document.getElementById('inv-chiudi').addEventListener('click', chiudiModale);
         caricaCfgInvito(() => { if (document.getElementById('inv-corpo') && _invCache[invChiave(ev)]) disegnaAziendeInvito(ev); });
+        caricaContatti(ev, () => { if (document.getElementById('inv-corpo') && _invCache[invChiave(ev)]) disegnaAziendeInvito(ev); });
         caricaAziendeInvito(ev, r => {
             const corpo = document.getElementById('inv-corpo');
             if (!corpo) return;
@@ -17711,6 +17712,32 @@
             + '</span><button class="btn btn-sm btn-secondary" id="inv-esiti">Aggiorna</button></div>';
     }
 
+    /* Accanto alla tabella: a chi arrivano le risposte al modulo, in chiaro.
+       Non e' un doppione della finestra dell'invio: li' lo si decide una
+       volta, mentre si spedisce, e poi la finestra si chiude; qui resta
+       scritto, e chi apre l'elenco tre settimane dopo vede subito se le
+       richieste stanno andando a qualcuno o si stanno fermando in archivio. */
+    function riquadroContatti(ev, tutte) {
+        const c = contattiDi(ev);
+        if (!c) return '';
+        /* Compare quando serve: sulla campagna che usa il modulo, oppure
+           appena qualcuno ha impostato dei destinatari (segno che quella
+           lista il modulo lo usa, comunque si chiami). */
+        const d = c.destinatari || { a: [], cc: [] };
+        const conRichieste = (tutte || []).some(a => a.contatto && a.contatto.quando);
+        if (_invCampagna !== 'sponsor' && !d.a.length && !d.cc.length && !conRichieste) return '';
+        const vuoto = !d.a.length && !d.cc.length;
+        return '<div class="inv-lettore' + (vuoto ? ' ko' : '') + '"><span>'
+            + (vuoto
+                ? '<b>Nessun destinatario per le risposte al modulo:</b> chi preme il pulsante nel messaggio '
+                + 'viene registrato qui, ma nessuno riceve la richiesta per email.'
+                : 'Le risposte al modulo arrivano a <b>' + esc(frasedestinatari(d)) + '</b>.')
+            + (c.postaPronta === false
+                ? ' <span class="ev-ko">Il server di posta non è configurato sul servizio.</span>' : '')
+            + '</span><button class="btn btn-sm btn-secondary" id="inv-contatti">'
+            + (vuoto ? 'Indica a chi' : 'Cambia') + '</button></div>';
+    }
+
     function disegnaAziendeInvito(ev) {
         const corpo = document.getElementById('inv-corpo');
         if (!corpo) return;
@@ -17802,8 +17829,13 @@
             + INV_CAMPAGNE.map(c => '<button type="button" class="inv-campagna'
                 + (c.id === _invCampagna ? ' attiva' : '') + '" data-campagna="' + esc(c.id) + '">'
                 + esc(c.nome) + '</button>').join('')
+            /* Il pulsante in cima apre l'ELENCO delle richieste ricevute; a
+               chi arrivano lo si cambia dalla riga qui sotto, che e' anche
+               dove lo si legge. Due pulsanti con lo stesso nome, uno sopra
+               l'altro, erano il modo piu' rapido per non capire quale dei due
+               premere. */
             + (_invCampagna === 'sponsor'
-                ? '<button type="button" class="btn btn-sm btn-secondary inv-contatti-apri" id="inv-contatti">Richieste di contatto</button>'
+                ? '<button type="button" class="btn btn-sm btn-secondary inv-contatti-apri" id="inv-richieste">Richieste ricevute</button>'
                 : '')
             + '</div>';
         const schede = '<div class="inv-schede">'
@@ -17990,7 +18022,8 @@
                 + ': restringi la ricerca per vedere le altre. La spunta in cima, i gruppi e le azioni valgono comunque su tutte le '
                 + lista.length + ' righe filtrate.</p>' : '');
 
-        corpo.innerHTML = campagne + schede + riquadroRicevute(ev, tutte) + riquadroEsitiEmail(ev, tutte) + barra + azioniSel
+        corpo.innerHTML = campagne + schede + riquadroRicevute(ev, tutte) + riquadroEsitiEmail(ev, tutte)
+            + riquadroContatti(ev, tutte) + barra + azioniSel
             + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
 
         const ridisegna = () => disegnaAziendeInvito(ev);
@@ -18023,6 +18056,7 @@
                 _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false, ordina: 'azienda', verso: 1 };
                 const t = document.querySelector('.modale-titolo-testo') || document.querySelector('.modale-titolo');
                 if (t) t.textContent = campagnaDef(nuova).titolo + ' - ' + ev.titolo + ', ' + ev.quando;
+                caricaContatti(ev, () => { if (document.getElementById('inv-corpo') && _invCache[invChiave(ev)]) disegnaAziendeInvito(ev); });
                 if (_invCache[invChiave(ev)]) { disegnaAziendeInvito(ev); return; }
                 corpo.innerHTML = '<p class="hint">Carico l\'elenco...</p>';
                 caricaAziendeInvito(ev, r => {
@@ -18040,8 +18074,9 @@
             caricaEsitiEmail(ev, () => { if (document.getElementById('inv-corpo')) ridisegna(); });
         });
 
-        const bCon = document.getElementById('inv-contatti');
-        if (bCon) bCon.addEventListener('click', () => modaleContattiRichieste(ev));
+        document.querySelectorAll('#inv-contatti, #inv-richieste').forEach(b => {
+            b.addEventListener('click', () => modaleContattiRichieste(ev));
+        });
 
         /* Lettura della casella PEC. Il servizio legge un pezzo per volta (ha
            60 secondi) e dice se ne restano: si richiama finche' finisce, ma
@@ -18636,6 +18671,123 @@
         });
     }
 
+    /* ============================================================
+       A CHI ARRIVANO LE RISPOSTE AL MODULO
+       ------------------------------------------------------------
+       Lo stesso blocco in tre posti: nella finestra dell'invio (dove si
+       decide mentre si spedisce, che e' il momento in cui la domanda si
+       pone davvero), nella finestra delle richieste, e in sola lettura
+       accanto alla tabella delle aziende. Scritto una volta perche' tre
+       copie divergono: basta che una dimentichi lo scarto degli indirizzi
+       storti e le richieste smettono di arrivare senza che nessuno lo
+       veda.
+       ============================================================ */
+
+    /* Gli indirizzi degli Aderenti Revilaw, per non doverli ricopiare a
+       mano. Si prendono dall'anagrafica, non dagli utenti dell'area
+       riservata: nell'anagrafica c'e' anche chi l'area riservata non la
+       usa, ed e' gente a cui una richiesta commerciale va comunque. */
+    function aderentiConEmail() {
+        let lista = [];
+        try { lista = Persone.tutte() || []; } catch (_) { lista = []; }
+        const visti = {};
+        return lista
+            .filter(p => p && p.email && !p.eliminato && p.attivo !== false)
+            .map(p => ({
+                email: String(p.email).trim().toLowerCase(),
+                nome: ((p.nomeProprio ? p.nomeProprio + ' ' : '') + (p.nome || '')).trim() || String(p.email)
+            }))
+            .filter(p => {
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(p.email) || visti[p.email]) return false;
+                visti[p.email] = true;
+                return true;
+            })
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+    }
+
+    /* Il blocco: due caselle e, accanto a ognuna, la tendina degli
+       aderenti. La tendina AGGIUNGE e non sostituisce, e torna subito su
+       "scegli": cosi' se ne possono mettere tre di fila senza che la
+       seconda cancelli la prima. */
+    function bloccoDestinatari(d, opz) {
+        opz = opz || {};
+        const pre = opz.pre || 'rc';
+        const aderenti = aderentiConEmail();
+        const tendina = quale => aderenti.length
+            ? '<select class="' + pre + '-agg" data-dove="' + quale + '">'
+            + '<option value="">Aggiungi da Aderenti Revilaw...</option>'
+            + aderenti.map(p => '<option value="' + esc(p.email) + '">' + esc(p.nome) + ' - ' + esc(p.email) + '</option>').join('')
+            + '</select>'
+            : '<span class="hint">Nessun indirizzo in Aderenti Revilaw.</span>';
+        const casella = (quale, et, val) => '<div class="campo inv-dest-campo">'
+            + '<label for="' + pre + '-' + quale + '">' + esc(et) + '</label>'
+            + '<textarea id="' + pre + '-' + quale + '" rows="2" placeholder="uno per riga, oppure separati da virgola">'
+            + esc((val || []).join('\n')) + '</textarea>'
+            + '<div class="inv-dest-agg">' + tendina(quale) + '</div></div>';
+        return '<div class="inv-dest">'
+            + casella('a', 'Destinatari (campo A)', d.a)
+            + casella('cc', 'In copia (campo Cc)', d.cc)
+            + '</div>';
+    }
+    /* Gli ascoltatori delle tendine. Separati dall'HTML perche' i tre posti
+       che usano il blocco lo inseriscono in momenti diversi. */
+    function collegaDestinatari(pre) {
+        document.querySelectorAll('.' + pre + '-agg').forEach(sel => {
+            sel.addEventListener('change', () => {
+                const ind = sel.value;
+                sel.value = '';
+                if (!ind) return;
+                const casella = document.getElementById(pre + '-' + sel.dataset.dove);
+                if (!casella) return;
+                const dentro = String(casella.value || '');
+                // gia' scritto: non lo si ripete, e non si fa finta di niente
+                if (dentro.toLowerCase().indexOf(ind) >= 0) {
+                    casella.focus();
+                    return;
+                }
+                casella.value = dentro.trim() ? (dentro.replace(/\s+$/, '') + '\n' + ind) : ind;
+                casella.focus();
+            });
+        });
+    }
+    function leggiDestinatari(pre) {
+        const val = q => ((document.getElementById(pre + '-' + q) || {}).value || '');
+        return { a: val('a'), cc: val('cc') };
+    }
+    /* Come si legge un elenco di destinatari a video, in una riga sola. */
+    function frasedestinatari(d) {
+        if (!d || (!d.a.length && !d.cc.length)) return '';
+        return d.a.join(', ') + (d.cc.length ? ' (in copia: ' + d.cc.join(', ') + ')' : '');
+    }
+
+    /* La memoria dei destinatari, per evento e campagna. Si legge una volta
+       per finestra: e' un documento solo, ma su una tabella che si ridisegna
+       a ogni spunta rileggerlo ogni volta sarebbe una chiamata per clic. */
+    let _invContatti = {};
+    function contattiDi(ev, campagna) { return _invContatti[invChiave(ev, campagna)] || null; }
+    function caricaContatti(ev, poi) {
+        const k = invChiave(ev);
+        Cloud.aziendeInvito({ azione: 'contatti', evento: ev.id, campagna: _invCampagna, soloDestinatari: true })
+            .then(r => {
+                _invContatti[k] = r.ok
+                    ? { destinatari: r.destinatari || { a: [], cc: [] }, postaPronta: !!r.postaPronta, max: r.max || 10 }
+                    : { destinatari: { a: [], cc: [] }, postaPronta: true, max: 10, ko: r.msg || '' };
+                if (poi) poi(_invContatti[k]);
+            })
+            .catch(() => { if (poi) poi(null); });
+    }
+    function salvaContatti(ev, campi, poi) {
+        Cloud.aziendeInvito({
+            azione: 'contatti-salva', evento: ev.id, campagna: _invCampagna, destinatari: campi
+        }).then(r => {
+            if (r.ok) {
+                const c = _invContatti[invChiave(ev)] || {};
+                _invContatti[invChiave(ev)] = Object.assign({}, c, { destinatari: r.destinatari });
+            }
+            if (poi) poi(r);
+        }).catch(() => { if (poi) poi({ ok: false, msg: 'Servizio non raggiungibile.' }); });
+    }
+
     /* LE AZIENDE CHE STANNO IN TUTTE E DUE LE LISTE.
        Compare dopo un caricamento, quando il servizio ne ha trovate. Non e'
        un errore da correggere per forza: invitare a venire un'azienda a cui
@@ -18794,10 +18946,7 @@
            tutto quello che c'e' sotto e' arrivato senza che nessuno lo
            sapesse, ed e' la prima cosa da vedere aprendo. */
         const vuoto = !d.a.length && !d.cc.length;
-        const testa = '<div class="campo"><label for="rc-a">Destinatari (campo A)</label>'
-            + '<textarea id="rc-a" rows="2" placeholder="uno per riga, oppure separati da virgola">' + esc(d.a.join('\n')) + '</textarea></div>'
-            + '<div class="campo"><label for="rc-cc">In copia (campo Cc)</label>'
-            + '<textarea id="rc-cc" rows="2" placeholder="uno per riga, oppure separati da virgola">' + esc(d.cc.join('\n')) + '</textarea></div>'
+        const testa = bloccoDestinatari(d, { pre: 'rc' })
             + '<p class="hint" style="margin:-6px 0 10px;">Al massimo ' + max + ' indirizzi in tutto fra i due campi. '
             + 'Chi è già fra i destinatari non viene messo anche in copia. '
             + 'Rispondendo alla mail si scrive direttamente a chi ha compilato il modulo.'
@@ -18834,18 +18983,13 @@
             : '<p class="hint">Nessuna richiesta di contatto ricevuta finora.</p>';
 
         box.innerHTML = testa + '<h3 style="margin:6px 0 8px;">Richieste ricevute (' + richieste.length + ')</h3>' + tabella;
+        collegaDestinatari('rc');
 
         document.getElementById('rc-salva').addEventListener('click', () => {
             const b = document.getElementById('rc-salva');
             const e = document.getElementById('rc-esito');
             b.disabled = true; b.textContent = 'Salvo...';
-            Cloud.aziendeInvito({
-                azione: 'contatti-salva', evento: ev.id, campagna: _invCampagna,
-                destinatari: {
-                    a: (document.getElementById('rc-a') || {}).value || '',
-                    cc: (document.getElementById('rc-cc') || {}).value || ''
-                }
-            }).then(r => {
+            salvaContatti(ev, leggiDestinatari('rc'), r => {
                 b.disabled = false; b.textContent = 'Salva i destinatari';
                 if (!r.ok) { e.innerHTML = '<span class="ev-ko">' + esc(r.msg || 'Salvataggio non riuscito.') + '</span>'; return; }
                 /* Si ridisegna con quello che il servizio ha DAVVERO salvato,
@@ -18857,9 +19001,6 @@
                 if (e2) e2.innerHTML = r.avviso
                     ? '<span class="ev-ko">' + esc(r.avviso) + '</span>'
                     : '<span class="ev-ok">Destinatari salvati.</span>';
-            }).catch(() => {
-                b.disabled = false; b.textContent = 'Salva i destinatari';
-                e.innerHTML = '<span class="ev-ko">Servizio non raggiungibile.</span>';
             });
         });
     }
@@ -19035,6 +19176,22 @@
             + '<span><b>' + etichetta + '</b><br><span class="hint">' + spiega + '</span></span></label>';
 
         const campI = campagnaDef(_invCampagna);
+        /* Il messaggio porta il pulsante del modulo? Non lo si decide dalla
+           campagna ma dal TESTO: il pulsante si puo' togliere dallo sponsor e
+           si puo' incollare in un invito, e in tutti e due i casi la domanda
+           "a chi arrivano le risposte" segue il pulsante, non l'etichetta
+           della lista. */
+        const testoIniziale = invTestoPredefinito(ev);
+        const contatti = contattiDi(ev);
+        /* Il blocco compare solo se i destinatari di adesso sono GIA' stati
+           letti. Mostrarlo vuoto perche' la lettura non e' ancora tornata
+           vorrebbe dire che premendo Invia si salvano due caselle vuote, e si
+           cancellano gli indirizzi che c'erano: un danno silenzioso, fatto da
+           chi non stava neanche cercando di cambiarli. Se manca, restano la
+           finestra "Richieste di contatto" e quello che c'e' gia' in
+           archivio, che continua a valere. */
+        const usaModulo = testoIniziale.indexOf('richiesta_contatto') >= 0 && !!contatti;
+        const destAttuali = (contatti && contatti.destinatari) || { a: [], cc: [] };
         apriModale('<h2>' + esc(campI.id === 'sponsor' ? 'Richiesta di sponsorizzazione' : 'Invito')
             + ' - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
             + '<p class="hint" style="margin:-4px 0 10px;">Un messaggio per azienda, mai più destinatari insieme: così ogni scheda porta il proprio esito e nessuno vede gli indirizzi degli altri.'
@@ -19055,7 +19212,7 @@
             + '<div class="campo"><label for="ii-ogg">Oggetto</label>'
             + '<input type="text" id="ii-ogg" maxlength="200" value="' + esc(invOggettoPredefinito(ev)) + '"></div>'
             + '<div class="campo"><label for="ii-testo">Testo ' + esc(campI.id === 'sponsor' ? 'della richiesta' : 'dell\'invito') + '</label>'
-            + '<textarea id="ii-testo" rows="14">' + esc(invTestoPredefinito(ev)) + '</textarea>'
+            + '<textarea id="ii-testo" rows="14">' + esc(testoIniziale) + '</textarea>'
             + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
             + 'Puoi scrivere <b>{ragione_sociale}</b>, <b>{referente}</b>, <b>{citta}</b>, <b>{provincia}</b>, <b>{piva}</b>: '
             + 'ogni azienda riceve i propri dati al loro posto.<br>'
@@ -19087,6 +19244,22 @@
                 + 'Spuntandola, l\'invito riparte anche a loro.'
                 : 'Nessuna delle ' + scelte.length + ' selezionate ha ancora ricevuto l\'invito, quindi qui non c\'è niente da rimandare.')
             + '</div></div>'
+            /* A CHI ARRIVANO LE RISPOSTE AL MODULO. Sta qui, dentro l'invio, e
+               non solo in una finestra a parte: e' mentre si sta per spedire
+               che ci si accorge di non averlo mai impostato, e una richiesta
+               arrivata a nessuno la si scopre settimane dopo. Si salva
+               premendo Invia, insieme al resto. */
+            + (usaModulo
+                ? '<div class="campo inv-dest-riquadro"><label>A chi arrivano le risposte al modulo</label>'
+                + '<div class="hint" style="margin:-2px 0 8px;">Chi preme il pulsante nel messaggio lascia i propri recapiti: '
+                + 'la richiesta arriva a questi indirizzi, e rispondendo si scrive direttamente alla persona. '
+                + 'Si salvano premendo Invia.</div>'
+                + bloccoDestinatari(destAttuali, { pre: 'ii' })
+                + (destAttuali.a.length || destAttuali.cc.length
+                    ? ''
+                    : '<div class="ev-ko hint">Adesso non c\'è nessuno: le richieste verrebbero registrate nell\'area riservata, ma nessuno le riceverebbe per email.</div>')
+                + '</div>'
+                : '')
             + '<div id="ii-anteprima" style="display:none;margin-top:10px;">'
             + '<iframe id="ii-frame" title="Anteprima dell\'invito" sandbox="allow-same-origin" '
             + 'style="width:100%;height:360px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
@@ -19256,6 +19429,8 @@
                 + 'intestazione, firma e piede con la disiscrizione le aggiunge il servizio.</p>' + html + '</body></html>';
         });
 
+        if (usaModulo) collegaDestinatari('ii');
+
         document.getElementById('ii-si').addEventListener('click', () => {
             const oggetto = ((document.getElementById('ii-ogg') || {}).value || '').trim();
             const testoInvito = ((document.getElementById('ii-testo') || {}).value || '').trim();
@@ -19275,6 +19450,17 @@
             bAnn.textContent = 'Ferma l\'invio';
 
             (async () => {
+                /* Prima di spedire, non dopo: se il salvataggio non riesce si
+                   fa in tempo a fermarsi, mentre una richiesta arrivata a
+                   nessuno non si recupera. Non blocca l'invio - il messaggio
+                   e' comunque buono - ma lo dice. */
+                if (usaModulo) {
+                    await new Promise(fine => salvaContatti(ev, leggiDestinatari('ii'), r => {
+                        if (!r.ok) esito('I destinatari delle risposte non sono stati salvati (' + (r.msg || 'errore') + '): l\'invio prosegue.', true);
+                        else if (r.avviso) esito(r.avviso, true);
+                        fine();
+                    }));
+                }
                 const lotto = Math.max(1, Number(canaleCfg(canale).maxLotto) || 40);
                 let inviate = 0, saltate = 0, disiscritte = 0, falliti = 0, msgKo = '';
                 const totale = elencoInvio.length;
