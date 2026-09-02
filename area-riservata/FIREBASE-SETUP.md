@@ -98,12 +98,15 @@ sufficiente per questo utilizzo.
        function staff() {
          return abilitato() && !soloSondaggio();
        }
-       // elenco degli utenti abilitati: lo legge lo STAFF (ogni utente puo
-       // comunque leggere la PROPRIA scheda, serve al login); lo modifica solo
-       // l'admin; ogni utente puo aggiornare soltanto il proprio "ultimoAccesso".
-       // Cosi gli invitati esterni "solo sondaggio" non vedono l'elenco dello staff.
+       // elenco degli utenti abilitati: lo legge lo STAFF (ogni utente attivo puo
+       // comunque leggere la PROPRIA scheda, serve al login: anche un collaboratore
+       // rimasto senza riferimento, cosi' la schermata di accesso gli dice perche'
+       // non entra); lo modifica solo l'admin; ogni utente puo aggiornare soltanto
+       // il proprio "ultimoAccesso". Cosi gli invitati esterni "solo sondaggio" non
+       // vedono l'elenco dello staff.
        match /utenti/{email} {
-         allow read: if staff() || (abilitato() && request.auth.token.email == email);
+         allow read: if staff()
+           || (request.auth != null && request.auth.token.email == email && resource.data.attivo == true);
          allow create, delete: if admin();
          allow update: if admin()
            || (abilitato()
@@ -161,8 +164,10 @@ sufficiente per questo utilizzo.
    > lato server: le funzioni `eCollaboratore()`, `emailEffettiva()` e
    > `ruoloUtente()` qui sopra leggono il ruolo dalla scheda del riferimento, e
    > `abilitato()` pretende che il riferimento sia indicato, esista, sia attivo e
-   > non sia a sua volta un collaboratore ne' un invitato "solo sondaggio". Un
-   > collaboratore dell'amministratore e' quindi
+   > non sia a sua volta un collaboratore ne' un invitato "solo sondaggio"; la
+   > propria scheda resta pero' leggibile a ogni utente attivo, cosi' l'app puo'
+   > spiegare il blocco alla porta (la scheda del riferimento, invece, si legge
+   > solo da staff). Un collaboratore dell'amministratore e' quindi
    > amministratore anche per le regole (scrive `utenti`, `archivio/ruoli`,
    > `modelli`); un collaboratore del titolare ha i poteri del titolare dentro
    > l'app. Le regole leggono al massimo due schede utente per richiesta (la
@@ -308,6 +313,13 @@ scheda in `utenti`). Il collaboratore:
 
 Un collaboratore non puo' essere riferimento di un altro collaboratore, e un
 invitato "solo sondaggio" non puo' avere collaboratori.
+
+Attenzione a un caso raro: se in passato e' stato creato da Ruoli e permessi un
+ruolo su misura chiamato proprio "Collaboratore", il suo identificativo
+(`collaboratore`) coincide con quello del profilo di sistema e chi lo ha non
+entra piu'. La sezione Ruoli e permessi lo segnala in testa alla pagina:
+assegna a quegli utenti un altro ruolo (o abilitali come collaboratori di
+qualcuno) e poi elimina il vecchio ruolo.
 
 ## Note
 

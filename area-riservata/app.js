@@ -1187,6 +1187,19 @@
             if (this.motivoCollaboratoreBloccato(u, principale)) return null;
             return this.componiIdentita(u, principale);
         },
+        /* Chi firma, in modalita' dimostrativa, le voci del registro che riguardano una scheda
+           (password, blocchi): per un collaboratore l'identita' effettiva, cosi' il suo
+           indirizzo reale non compare in chiaro (resta nel campo collaboratore, che vede
+           solo il riferimento). Se il collaboratore e' bloccato non c'e' identita' da
+           comporre e resta la sua email. */
+        autoreVoceScheda(u) {
+            if (!u) return { chi: '', rif: '' };
+            if (!eRuoloCollaboratore(u.ruolo)) return { chi: u.email, rif: u.email };
+            const principale = this.trova(u.collaboratoreDi);
+            if (this.motivoCollaboratoreBloccato(u, principale)) return { chi: u.email, rif: u.email };
+            const identita = this.componiIdentita(u, principale);
+            return { chi: identita, rif: identita.email };
+        },
         eCollaboratore() { return !!(this.utenteCorrente && this.utenteCorrente.collaboratore); },
         // l'indirizzo e il nome con cui si e' entrati DAVVERO (per un collaboratore, i suoi)
         emailSessione() {
@@ -1209,7 +1222,8 @@
             u.hash = await sha256(u.sale + '|' + temp);
             u.mustChange = true;
             this.salvaUtenti(utenti);
-            Audit.registra(u.email, 'Prima password generata', 'utente', u.email, null,
+            const a1 = this.autoreVoceScheda(u);
+            Audit.registra(a1.chi, 'Prima password generata', 'utente', a1.rif, null,
                 'Richiesta prima password dalla pagina di accesso');
             return { ok: true, temp };
         },
@@ -1226,7 +1240,8 @@
             u.mustChange = true;
             u.tentativi = 0; u.bloccatoFino = 0;
             this.salvaUtenti(utenti);
-            Audit.registra(u.email, 'Password reimpostata (recupero)', 'utente', u.email, null,
+            const a2 = this.autoreVoceScheda(u);
+            Audit.registra(a2.chi, 'Password reimpostata (recupero)', 'utente', a2.rif, null,
                 'Recupero password dalla pagina di accesso');
             return { ok: true, temp };
         },
@@ -1247,7 +1262,8 @@
                 if (u.tentativi >= 5) {
                     u.bloccatoFino = Date.now() + 5 * 60000;
                     u.tentativi = 0;
-                    Audit.registra(u.email, 'Utenza bloccata (5 tentativi falliti)', 'utente', u.email, null, null);
+                    const a3 = this.autoreVoceScheda(u);
+                    Audit.registra(a3.chi, 'Utenza bloccata (5 tentativi falliti)', 'utente', a3.rif, null, null);
                 }
                 this.salvaUtenti(utenti);
                 return { ok: false, msg: 'Credenziali non valide.' };
@@ -1278,7 +1294,8 @@
             u.mustChange = false;
             this.salvaUtenti(utenti);
             // l'identita' collegata non porta con se' la password: non c'e' nulla da aggiornare
-            Audit.registra(u.email, 'Password modificata', 'utente', u.email, null, null);
+            const a4 = this.autoreVoceScheda(u);
+            Audit.registra(a4.chi, 'Password modificata', 'utente', a4.rif, null, null);
             return { ok: true };
         },
 
@@ -1584,7 +1601,7 @@
             try { dati = await this.docUtente(email); } catch (e) { /* lettura negata = non abilitato */ }
             if (!dati || dati.attivo === false) {
                 await signOut(this.auth);
-                return { ok: false, msg: 'Utenza non abilitata: chiedi all\'amministratore di aggiungerti all\'elenco utenti.' };
+                return { ok: false, msg: 'Utenza non abilitata: chiedi all\'amministratore di aggiungerti all\'elenco utenti. Se sei un collaboratore, l\'utente a cui il tuo accesso è associato potrebbe non essere più abilitato.' };
             }
             // collaboratore: i permessi sono quelli del suo utente di riferimento, che deve
             // esserci ed essere abilitato; altrimenti non si entra, e si dice il perche'
@@ -3452,7 +3469,7 @@
         const mio = Auth.emailSessione();
         // un collaboratore compare col nome del suo utente di riferimento; solo quest'ultimo
         // vede anche chi c'e' davvero dietro
-        const nomeDi = c => (c.nome || c.email) + ((c.collab && c.per && vedoCollaboratoreDi(c.per)) ? ' (collaboratore: ' + c.collab + ')' : '');
+        const nomeDi = c => (c.nome || c.email) + ((c.collab && c.per && vedoCollaboratoreDi(c.per)) ? ' (tramite ' + nomeDaFirma(c.collab) + ')' : '');
         const nonLetti = (typeof Cloud !== 'undefined' && Cloud._msgNonLetti) || 0;
         const icoMatita = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
         const icoBusta = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="m3 6 9 6 9-6"/></svg>';
@@ -3869,7 +3886,7 @@
         const c = lista.find(x => String(x.email).toLowerCase() !== mio && x.modifica && x.modifica.tipo === tipo && String(x.modifica.id) === String(id));
         if (!c) return null;
         // un collaboratore compare col nome del suo riferimento; chi e' davvero lo sa solo quest'ultimo
-        return (c.nome || c.email) + ((c.collab && c.per && vedoCollaboratoreDi(c.per)) ? ' (collaboratore: ' + c.collab + ')' : '');
+        return (c.nome || c.email) + ((c.collab && c.per && vedoCollaboratoreDi(c.per)) ? ' (tramite ' + nomeDaFirma(c.collab) + ')' : '');
     }
     /* Avvisa (senza bloccare) se un altro connesso sta gia modificando questo record. */
     function avvisaSeAltriModificano(tipo, id) {
@@ -18904,7 +18921,7 @@
                    stato attribuito solo a chi non aveva risposto, o anche a chi
                    aveva risposto di no. */
                 consensoStorico: cs ? {
-                    il: cs.il, da: String(cs.da || ''), nota: String(cs.nota || ''),
+                    il: cs.il, da: String(cs.da || ''), collab: String(cs.collab || ''), nota: String(cs.nota || ''),
                     comprendeNo: cs.comprendeNo === true
                 } : null
             };
@@ -23122,7 +23139,9 @@
     // l'admin puo passare un invitato del sondaggio a un ruolo pieno (per abilitare le altre
     // aree) e viceversa.
     function opzioniRuolo(sel) {
-        const base = Ruoli.tutti().map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
+        // un ruolo su misura salvato in passato con l'id riservato 'collaboratore' non si propone: il
+        // suo id ormai vuol dire il profilo di sistema (Ruoli e permessi lo segnala)
+        const base = Ruoli.tutti().filter(r => !eRuoloCollaboratore(r.id)).map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
         const collab = '<optgroup label="A nome di un altro utente">'
             + '<option value="' + RUOLO_COLLABORATORE + '"' + (sel === RUOLO_COLLABORATORE ? ' selected' : '') + '>' + esc(NOME_RUOLO_COLLABORATORE) + ' (eredita i permessi di un utente)</option>'
             + '</optgroup>';
@@ -23232,7 +23251,11 @@
 
     function vistaRuoli() {
         if (!Auth.eAdmin() && !Auth.eProprietario()) { naviga('dashboard'); return; }
-        const ruoli = Ruoli.tutti().map(Ruoli.normalizza);
+        // un ruolo su misura creato in passato con l'id 'collaboratore' (lo slug del nome) oggi
+        // collide con il profilo di sistema: chi ce l'ha non entra finche' non gli si da' un
+        // altro ruolo. Si dice in testa alla pagina, e la sua scheda non si mostra.
+        const ruoloOmonimo = Ruoli.tutti().find(r => eRuoloCollaboratore(r.id) && !r.sistema);
+        const ruoli = Ruoli.tutti().filter(r => !eRuoloCollaboratore(r.id)).map(Ruoli.normalizza);
         const riepSez = r => SEZIONI_RUOLO.map(s => {
             const liv = r.sezioni[s.id] || 'no';
             const cls = liv === 'scrittura' ? 'verde' : (liv === 'lettura' ? 'ambra' : 'neutro');
@@ -23247,6 +23270,7 @@
                 <div class="header-azioni"><button class="btn btn-primary" id="btn-nuovo-ruolo">+ Nuovo ruolo</button></div>
             </header>
             <div class="avviso-ruoli">Questi permessi tengono ognuno nella sua parte e prevengono gli errori, ma valgono dentro il programma: non sono una cassaforte. I dati più delicati restano protetti dalle regole del server.</div>
+            ${ruoloOmonimo ? '<div class="avviso-collab">Esiste un ruolo su misura chiamato <strong>' + esc(ruoloOmonimo.nome) + '</strong> con lo stesso identificativo del profilo di sistema Collaboratore: gli utenti che lo hanno non possono più entrare. Assegna loro un altro ruolo dalla sezione Utenti (o abilitali come collaboratori di qualcuno) e poi elimina quel ruolo.</div>' : ''}
             <div class="ruoli-griglia">` +
             ruoli.map(r => `<div class="ruolo-card">
                 <div class="ruolo-testa">
@@ -23270,7 +23294,7 @@
             </div>
             </div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
-        document.getElementById('r-collab-utenti').addEventListener('click', () => naviga('utenti'));
+        document.getElementById('r-collab-utenti').addEventListener('click', apriNuovoCollaboratore);
         $vista().querySelectorAll('.r-mod').forEach(b => b.addEventListener('click', () => modaleRuolo(b.dataset.id)));
         $vista().querySelectorAll('.r-del').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             const r = Ruoli.trova(b.dataset.id); if (!r || r.id === 'admin' || r.sistema) return;
@@ -23293,6 +23317,22 @@
                 chiudiModale(); toast('Ruolo eliminato.', 'verde'); vistaRuoli();
             });
         })));
+    }
+
+    /* Da Ruoli e permessi: va in Utenti, apre "Abilita nuovo utente" e sceglie gia' il profilo
+       Collaboratore, cosi' il campo "Collaboratore di" compare subito. In cloud la finestra
+       arriva dopo la lettura dell'elenco: si aspetta che compaia, senza bloccare. */
+    function apriNuovoCollaboratore() {
+        naviga('utenti');
+        const attendi = (sel, poi, tentativi) => {
+            const el = document.querySelector(sel);
+            if (el) { poi(el); return; }
+            if (tentativi > 0) setTimeout(() => attendi(sel, poi, tentativi - 1), 150);
+        };
+        attendi('#btn-nuovo-utente', b => {
+            b.click();
+            attendi('#m-ruolo', r => { r.value = RUOLO_COLLABORATORE; r.dispatchEvent(new Event('change')); }, 40);
+        }, 20);
     }
 
     function modaleRuolo(id) {
@@ -23550,11 +23590,17 @@
                 toast('Ruolo aggiornato per ' + email + '.', 'verde');
                 vistaUtenti();
             };
-            // verso il profilo Collaboratore: prima si sceglie di chi, poi si salva
-            if (eRuoloCollaboratore(nuovo)) { modaleScegliRiferimento(u, utenti2, async di => { chiudiModale(); applica(di); }, () => { sel.value = prima; }); return; }
-            // chi ha collaboratori e passa a un profilo che non puo' averne li lascerebbe fuori
-            if (!puoAvereCollaboratori({ ...u, ruolo: nuovo })) { confermaSeCollaboratori(email, utenti2, 'con questo ruolo non potranno più entrare, finché non li associ a un altro utente.', () => applica(''), () => { sel.value = prima; }); return; }
-            applica('');
+            // la tendina torna al ruolo salvato finche' non si salva davvero: cosi' chiudere una
+            // finestra con Esc o con la X non lascia a video un ruolo che non esiste
+            const procedi = () => {
+                // verso il profilo Collaboratore: prima si sceglie di chi, poi si salva
+                if (eRuoloCollaboratore(nuovo)) { sel.value = prima; modaleScegliRiferimento(u, utenti2, async di => { chiudiModale(); applica(di); }); return; }
+                applica('');
+            };
+            // chi ha collaboratori e passa a un profilo che non puo' averne (Collaboratore
+            // compreso) li lascerebbe fuori: si avvisa prima
+            if (!puoAvereCollaboratori({ ...u, ruolo: nuovo })) { sel.value = prima; confermaSeCollaboratori(email, utenti2, 'con questo ruolo non potranno più entrare, finché non li associ a un altro utente.', procedi); return; }
+            procedi();
         }));
     }
 
@@ -23574,7 +23620,10 @@
         let utenti = [];
         document.getElementById('btn-nuovo-utente').addEventListener('click', async () => {
             // l'elenco serve alla tendina "Collaboratore di": se non e' ancora arrivato si riprova
-            if (!utenti.length) { try { utenti = await Cloud.listaUtenti(); } catch (e) { utenti = []; } }
+            if (!utenti.length) {
+                try { utenti = await Cloud.listaUtenti(); }
+                catch (e) { toast('Elenco utenti non disponibile (' + Cloud.msgErrore(e) + '): riprova tra poco.', 'rosso'); return; }
+            }
             apriModale(htmlModaleNuovoUtente(utenti, 'L\'utente riceverà una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password. Ricordagli di controllare anche la posta indesiderata / spam.', 'Abilita e invia email'));
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
             collegaSelettorePersona();
@@ -23694,11 +23743,17 @@
                         toast('Cambio ruolo non riuscito: ' + Cloud.msgErrore(e), 'rosso');
                     } finally { sel.disabled = false; }
                 };
-                // verso il profilo Collaboratore: prima si sceglie di chi, poi si salva
-                if (eRuoloCollaboratore(nuovo)) { modaleScegliRiferimento(u, utenti, async di => { chiudiModale(); await salva(di); }, () => { sel.value = prec; }); return; }
-                // chi ha collaboratori e passa a un profilo che non puo' averne li lascerebbe fuori
-                if (!puoAvereCollaboratori({ ...u, ruolo: nuovo })) { confermaSeCollaboratori(email, utenti, 'con questo ruolo non potranno più entrare, finché non li associ a un altro utente.', () => salva(''), () => { sel.value = prec; }); return; }
-                await salva('');
+                // la tendina torna al ruolo salvato finche' non si salva davvero: cosi' chiudere
+                // una finestra con Esc o con la X non lascia a video un ruolo che non esiste
+                const procedi = async () => {
+                    // verso il profilo Collaboratore: prima si sceglie di chi, poi si salva
+                    if (eRuoloCollaboratore(nuovo)) { sel.value = prec; modaleScegliRiferimento(u, utenti, async di => { chiudiModale(); await salva(di); }); return; }
+                    await salva('');
+                };
+                // chi ha collaboratori e passa a un profilo che non puo' averne (Collaboratore
+                // compreso) li lascerebbe fuori: si avvisa prima
+                if (!puoAvereCollaboratori({ ...u, ruolo: nuovo })) { sel.value = prec; confermaSeCollaboratori(email, utenti, 'con questo ruolo non potranno più entrare, finché non li associ a un altro utente.', procedi); return; }
+                await procedi();
             });
         });
     }

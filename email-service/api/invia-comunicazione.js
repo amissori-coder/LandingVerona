@@ -203,12 +203,14 @@ module.exports = async (req, res) => {
         const messaggio = { from: from, replyTo: rispondiA, subject: oggBase, text: corpoText(testoBase), html: corpoHtml(testoBase) };
         if (emails.length === 1) messaggio.to = emails[0];
         else {
-            // il mittente e' gia' il destinatario visibile: se compare anche tra gli
-            // indirizzi scelti (capita quando ci si mette in copia, come nei riepiloghi
-            // delle richieste di correzione) non va ripetuto in BCC, altrimenti riceve
-            // due volte la stessa mail.
-            messaggio.to = mittente;
-            messaggio.bcc = emails.filter(em => em.toLowerCase() !== mittente);
+            // l'utente effettivo (per un collaboratore, il suo riferimento) e' gia' il
+            // destinatario visibile: se compare anche tra gli indirizzi scelti (capita
+            // quando ci si mette in copia, come nei riepiloghi delle richieste di
+            // correzione) non va ripetuto in BCC, altrimenti riceve due volte la stessa
+            // mail. L'indirizzo reale del collaboratore non deve comparire: e' a nome
+            // del riferimento che si scrive.
+            messaggio.to = rispondiA;
+            messaggio.bcc = emails.filter(em => em.toLowerCase() !== rispondiA);
         }
         // cattura i destinatari rifiutati dal server di posta (es. superamento limiti Aruba, indirizzi non validi)
         let falliti = [];
