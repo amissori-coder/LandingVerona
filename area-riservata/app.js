@@ -15534,8 +15534,9 @@
         if (bAcc) bAcc.addEventListener('click', () => utentiSond(u => modaleEventiAbilitati(u)));
         const bImp = document.getElementById('ev-importa');
         if (bImp) bImp.addEventListener('click', () => modaleImportaIscrizioni(ev));
-        const bInv = document.getElementById('ev-inviti');
-        if (bInv) bInv.addEventListener('click', () => modaleAziendeInvito(ev));
+        document.querySelectorAll('.ev-inviti').forEach(b => {
+            b.addEventListener('click', () => modaleAziendeInvito(ev, b.dataset.campagna));
+        });
         const bNuova = document.getElementById('ev-nuova');
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
         const bB2b = document.getElementById('ev-b2b');
@@ -16969,10 +16970,44 @@
        l'elenco si ricorda a che punto era, quindi si puo' fermare e
        riprendere senza rispedire a chi ha gia' ricevuto.
        ============================================================ */
-    let _invCache = {};         // per evento: { aziende, aggiornato }
+    /* LE CAMPAGNE. La stessa macchina - elenco, invio a lotti, PEC o email,
+       ricevute, esiti - serve a due discorsi diversi: chiedere a un'azienda
+       di VENIRE, e chiederle di SOSTENERE. Sono liste diverse per natura
+       (alla prima si scrive a centinaia di imprese del territorio, alla
+       seconda a poche decine scelte apposta) e tenerle insieme vorrebbe dire
+       che "quante restano da invitare" non risponde piu' a niente.
+
+       Questo elenco deve restare uguale a quello del servizio
+       (email-service/lib/campagne-invito.js): il servizio decide, qui si
+       decide solo come chiamarle a video. */
+    const INV_CAMPAGNE = [
+        {
+            id: 'invito', nome: 'Aziende da invitare', breve: 'Invito',
+            titolo: 'Aziende da invitare',
+            azione: 'invitare', fatto: 'invitate', spedizione: 'l\'invito',
+            spiega: 'Aziende non ancora iscritte, da invitare all\'evento: si carica l\'elenco da un file e parte un messaggio per azienda, via email o via PEC.'
+        },
+        {
+            id: 'sponsor', nome: 'Richieste di sponsorizzazione', breve: 'Sponsor',
+            titolo: 'Aziende da contattare per la sponsorizzazione',
+            azione: 'contattare', fatto: 'contattate', spedizione: 'la richiesta',
+            spiega: 'Aziende a cui chiedere di sostenere l\'evento: stesso meccanismo dell\'invito, elenco separato, e nella mail un pulsante con cui rispondere lasciando i propri recapiti.'
+        }
+    ];
+    function campagnaDef(id) {
+        return INV_CAMPAGNE.find(c => c.id === id) || INV_CAMPAGNE[0];
+    }
+    let _invCampagna = 'invito';   // quale delle due si sta guardando
+    /* La chiave della cache tiene dentro la campagna: senza, aprire lo
+       sponsor dopo l'invito mostrerebbe le aziende dell'altro elenco finche'
+       la lettura non risponde, e per un istante si vedrebbero righe che in
+       quella lista non ci sono. */
+    function invChiave(ev, campagna) { return ev.id + '~' + (campagna || _invCampagna); }
+    let _invCache = {};         // per evento e campagna: { aziende, aggiornato }
     let _invCfg = null;         // quali canali sono pronti sul servizio
+    let _invEsiti = {};         // per evento e campagna: aperture e clic letti da Brevo
     let _invSel = new Set();    // aziende spuntate
-    let _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', ordina: 'azienda', verso: 1 };
+    let _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false, ordina: 'azienda', verso: 1 };
     let _invCercaTimer = null;
 
     /* Chi carica l'elenco e spedisce: gli stessi che possono aggiungere
@@ -16991,6 +17026,17 @@
         'da-invitare': 'Da invitare', 'inviata': 'Invitata', 'errore': 'Errore',
         'esclusa': 'Esclusa', 'disiscritta': 'Disiscritta', 'risposta': 'Ha risposto', 'iscritta': 'Iscritta'
     };
+    /* Gli stessi stati detti nella lingua della campagna. Su una richiesta
+       di sponsorizzazione "Invitata" e' semplicemente falso: quell'azienda
+       non e' stata invitata a niente, le e' stata fatta una proposta. Solo
+       i due stati che nominano l'invito cambiano; gli altri (errore,
+       esclusa, ha risposto) vogliono gia' dire la stessa cosa. */
+    const INV_STATI_SPONSOR = { 'da-invitare': 'Da contattare', 'inviata': 'Contattata' };
+    function statoInv(st, campagna) {
+        const c = campagnaDef(campagna || _invCampagna).id;
+        if (c === 'sponsor' && INV_STATI_SPONSOR[st]) return INV_STATI_SPONSOR[st];
+        return INV_STATI[st] || st;
+    }
     /* LE VISTE dell'elenco, definite UNA volta sola.
        Il difetto che questa costante ripara: il conteggio diceva "5 invitate"
        e la vista ne mostrava 3, perche' il numero contava anche chi aveva
@@ -17018,11 +17064,36 @@
        dice che il messaggio e' partito, sono le ricevute a dire se e' anche
        arrivato. */
     const INV_PEC_KO = ['non-consegnata', 'non-accettata', 'in-dubbio'];
+    /* SI E' FATTA VIVA? Tre strade diverse per la stessa cosa: ha risposto
+       alla PEC, ha premuto il pulsante e chiesto di essere contattata, si e'
+       registrata col codice. Chi guarda l'elenco vuole sapere "chi ha
+       reagito", non da quale delle tre porte e' entrato. Stessa regola del
+       servizio (lib/aziende-invito.js): se le due divergono, il numero sulla
+       scheda smette di corrispondere alle righe, ed e' gia' successo. */
+    function haRisposto(a) {
+        if (!a) return false;
+        if (a.risposto) return true;              // lo dice gia' il servizio
+        if (a.contatto && a.contatto.quando) return true;
+        if (a.ricevute && a.ricevute.risposta && a.ricevute.risposta.quando) return true;
+        return a.stato === 'risposta' || a.stato === 'iscritta';
+    }
     function vistaDi(a) {
         const st = (a && a.stato) || 'da-invitare';
         if (st === 'esclusa' || st === 'disiscritta') return 'fuori';
         if (st === 'errore') return 'errore';
-        if (st === 'inviata' || st === 'risposta' || st === 'iscritta') {
+        /* CHI HA RISPOSTO STA IN UNA SCHEDA SUA, e non piu' in mezzo alle
+           inviate. Prima ci stava, per una ragione buona: erano comunque
+           state invitate, e toglierle da li' le faceva sparire. Ma "inviate"
+           e' l'elenco su cui non c'e' altro da fare, e una risposta e'
+           esattamente il contrario - e' l'unica riga della giornata su cui
+           qualcuno deve richiamare qualcuno. Perdersela in fondo a
+           seicento righe gia' evase e' il modo piu' rapido per buttare via
+           il lavoro dell'invio.
+
+           Le sei schede restano esclusive e la somma torna: chi risponde non
+           sparisce, cambia scheda, e la scheda ha il numero scritto sopra. */
+        if (haRisposto(a)) return 'risposte';
+        if (st === 'inviata') {
             const viaPec = a && a.invio && a.invio.canale === 'pec';
             const esito = (a && a.ricevute && a.ricevute.esito) || '';
             if (viaPec && INV_PEC_KO.indexOf(esito) >= 0) return 'non-arrivate';
@@ -17032,38 +17103,65 @@
         // dimenticata si rivede, invece di sparire da tutte le schede
         return 'da-invitare';
     }
-    const NOMI_VISTA = {
-        'da-invitare': 'da invitare', 'inviate': 'già invitate',
-        'non-arrivate': 'con la PEC non arrivata',
-        'errore': 'con un errore di invio', 'fuori': 'escluse o disiscritte'
-    };
+    /* Come si chiama una vista quando la si nomina dentro una frase. Due
+       voci dipendono dalla campagna: su una richiesta di sponsorizzazione
+       "già invitate" direbbe una cosa che non è successa. */
+    function nomeVista(vista, campagna) {
+        const c = campagnaDef(campagna || _invCampagna);
+        const fissi = {
+            'risposte': 'che hanno risposto',
+            'non-arrivate': 'con la PEC non arrivata',
+            'errore': 'con un errore di invio', 'fuori': 'escluse o disiscritte'
+        };
+        if (vista === 'da-invitare') return 'da ' + c.azione;
+        if (vista === 'inviate') return 'già ' + c.fatto;
+        return fissi[vista] || '';
+    }
     function contaInviti(lista) {
-        const c = { totale: 0, daInvitare: 0, inviate: 0, nonArrivate: 0, errori: 0, fuori: 0 };
-        const dove = { 'da-invitare': 'daInvitare', 'inviate': 'inviate', 'non-arrivate': 'nonArrivate', 'errore': 'errori', 'fuori': 'fuori' };
-        (lista || []).forEach(a => { c.totale++; c[dove[vistaDi(a)]]++; });
+        const c = { totale: 0, daInvitare: 0, inviate: 0, risposte: 0, nonArrivate: 0, errori: 0, fuori: 0, doppie: 0 };
+        const dove = {
+            'da-invitare': 'daInvitare', 'inviate': 'inviate', 'risposte': 'risposte',
+            'non-arrivate': 'nonArrivate', 'errore': 'errori', 'fuori': 'fuori'
+        };
+        (lista || []).forEach(a => {
+            c.totale++;
+            c[dove[vistaDi(a)]]++;
+            // le sovrapposizioni con l'altra lista NON sono una vista: una
+            // scheda puo' essere insieme "da invitare" e "gia' nell'altro
+            // elenco", e sono due informazioni diverse
+            if (a && a.anche) c.doppie++;
+        });
         return c;
     }
 
     /* La card nella pagina dell'evento: i numeri li mostra solo se l'elenco
        e' gia' stato letto, altrimenti spiega a cosa serve. */
+    /* Una card per campagna. Non una sola con dentro un commutatore: sono
+       due lavori distinti, con due elenchi e due conti, e su una card sola i
+       numeri dell'uno si leggerebbero come quelli dell'altro. */
     function aziendeInvitoHtml(ev) {
         if (!ev || ev.tutti || !puoGestireInviti()) return '';
-        const c = _invCache[ev.id];
-        const n = c ? contaInviti(c.aziende) : null;
-        const riga = n
-            ? '<b>' + n.totale + '</b> aziende in elenco: ' + n.daInvitare + ' da invitare, ' + n.inviate + ' invitate'
-            + (n.nonArrivate ? ', <span class="ev-ko">' + n.nonArrivate + ' con la PEC non arrivata</span>' : '')
-            + (n.errori ? ', <span class="ev-ko">' + n.errori + ' con errore</span>' : '')
-            + (n.fuori ? ', ' + n.fuori + ' fuori elenco' : '') + '.'
-            : 'Aziende non ancora iscritte, da invitare all\'evento: si carica l\'elenco da un file e parte un messaggio per azienda, via email o via PEC.';
-        return '<div class="card s-admin"><div class="s-admin-txt"><strong>Aziende da invitare</strong>'
-            + '<div class="hint">' + riga + '</div></div>'
-            + '<div class="s-admin-azioni"><button class="btn btn-primary" id="ev-inviti">Gestisci le aziende</button></div></div>';
+        return INV_CAMPAGNE.map(camp => {
+            const c = _invCache[invChiave(ev, camp.id)];
+            const n = c ? contaInviti(c.aziende) : null;
+            const riga = n
+                ? '<b>' + n.totale + '</b> aziende in elenco: ' + n.daInvitare + ' da ' + camp.azione + ', ' + n.inviate + ' ' + camp.fatto
+                + (n.risposte ? ', <span class="ev-ok"><b>' + n.risposte + '</b> hanno risposto</span>' : '')
+                + (n.nonArrivate ? ', <span class="ev-ko">' + n.nonArrivate + ' con la PEC non arrivata</span>' : '')
+                + (n.errori ? ', <span class="ev-ko">' + n.errori + ' con errore</span>' : '')
+                + (n.fuori ? ', ' + n.fuori + ' fuori elenco' : '') + '.'
+                : camp.spiega;
+            return '<div class="card s-admin"><div class="s-admin-txt"><strong>' + esc(camp.nome) + '</strong>'
+                + '<div class="hint">' + riga + '</div></div>'
+                + '<div class="s-admin-azioni"><button class="btn btn-primary ev-inviti" data-campagna="' + esc(camp.id) + '">'
+                + 'Gestisci le aziende</button></div></div>';
+        }).join('');
     }
 
     function caricaAziendeInvito(ev, poi) {
-        Cloud.aziendeInvito({ azione: 'elenco', evento: ev.id }).then(r => {
-            if (r.ok) _invCache[ev.id] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now() };
+        const k = invChiave(ev);
+        Cloud.aziendeInvito({ azione: 'elenco', evento: ev.id, campagna: _invCampagna }).then(r => {
+            if (r.ok) _invCache[k] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now() };
             if (poi) poi(r);
         });
     }
@@ -17106,7 +17204,7 @@
         return 'circa un\'ora';
     }
 
-    function aziendeInvitoDi(ev) { return (_invCache[ev.id] || {}).aziende || []; }
+    function aziendeInvitoDi(ev, campagna) { return (_invCache[invChiave(ev, campagna)] || {}).aziende || []; }
     function aziendaInvitoDi(ev, id) { return aziendeInvitoDi(ev).find(a => a.id === id) || null; }
     /* A quale indirizzo arriverebbe l'invito su un canale: sull'ordinaria si
        preferisce la mail normale, che le aziende leggono piu' spesso della PEC. */
@@ -17194,8 +17292,16 @@
             // la riga del codice, da sola: diventa il riquadro
             if (/^\{codice\}$/.test(nudo)) return invRiquadroCodice('{codice}');
 
-            // una riga che e' solo un indirizzo: diventa il pulsante
-            if (/^https?:\/\/\S+$/.test(nudo)) return invPulsante(nudo, 'Programma e registrazione');
+            /* Una riga che e' solo un indirizzo: diventa il pulsante.
+               L'etichetta la decide l'indirizzo, non chi scrive: un pulsante
+               che porta al modulo di contatto e dice "Programma e
+               registrazione" manda al posto giusto la persona sbagliata, e
+               chi voleva essere richiamato non preme. */
+            if (/^https?:\/\/\S+$/.test(nudo)) {
+                return invPulsante(nudo, /richiesta_contatto/.test(nudo)
+                    ? 'Richiedo di essere contattato'
+                    : 'Programma e registrazione');
+            }
 
             /* La riga dei destinatari interni, in cima: si stacca dal resto
                invece di sembrare la prima frase della lettera. Se chi scrive
@@ -17220,7 +17326,64 @@
        In cima c'e' l'indicazione dei destinatari interni: una PEC aziendale
        la legge la segreteria o il protocollo, non l'imprenditore. Senza quella
        riga il messaggio giusto finisce sulla scrivania sbagliata. */
-    function invTestoPredefinito(ev) {
+    /* L'indirizzo del modulo di richiesta contatto, con dentro il codice
+       dell'azienda. Il segnaposto {codice} lo sostituisce il servizio, una
+       riga per volta: cosi' chi preme il pulsante arriva a un modulo che sa
+       gia' da quale azienda viene, e la richiesta si attacca alla scheda
+       giusta senza che nessuno debba ricopiare niente. */
+    function invUrlContatto(ev) {
+        return SITO_PUBBLICO + '/richiesta_contatto/?c={codice}&k=sponsor'
+            + '&e=' + encodeURIComponent(ev.id)
+            + '&n=' + encodeURIComponent(ev.titolo + ', ' + ev.quando);
+    }
+
+    /* La lettera con cui si chiede una sponsorizzazione. Non e' l'invito con
+       due parole cambiate: cambia il destinatario dentro l'azienda (chi
+       decide una spesa di marketing non e' chi decide di venire a una
+       giornata di formazione), cambia cosa si chiede, e soprattutto cambia
+       come si risponde. All'invito si risponde registrandosi da soli; qui
+       no: si lascia un recapito e si viene richiamati, perche' una
+       sponsorizzazione si concorda parlando. Per questo il pulsante porta al
+       modulo di contatto e non alla pagina dell'evento, che resta piu' sotto
+       come rimando. */
+    function invTestoSponsor(ev) {
+        const dove = ev.luogo ? (ev.luogo + (ev.indirizzo ? ', ' + ev.indirizzo : '')) : '';
+        const pagina = ev.urlPagina ? (SITO_PUBBLICO + ev.urlPagina) : SITO_PUBBLICO;
+        const inv = ev.invito || {};
+        const con = (inv.con || []).filter(Boolean);
+        const elenca = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1] : (a[0] || '');
+        const istituzioni = (inv.patrocinio || con.length)
+            ? 'L\'incontro si svolge'
+            + (inv.patrocinio ? ' con il patrocinio della ' + inv.patrocinio : '')
+            + (con.length ? (inv.patrocinio ? ' e' : '') + ' con la partecipazione di ' + elenca(con) : '')
+            + ', insieme ad altre istituzioni.\n\n'
+            : '';
+        return 'Alla cortese attenzione del Legale Rappresentante e della Direzione Marketing\n\n'
+            + 'Spettabile {ragione_sociale},\n\n'
+            + 'Vi scriviamo per proporVi di affiancare il Vostro nome a '
+            + ev.titolo + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '')
+            + ', l\'incontro di Next Generation Business in programma il ' + ev.quando
+            + (dove ? ' presso ' + dove : '') + '.\n\n'
+            + istituzioni
+            + (inv.contesto ? inv.contesto + '\n\n' : '')
+            + 'In sala si ritrovano imprenditori, direttori amministrativi e finanziari e professionisti '
+            + 'del territorio: una platea selezionata, davanti alla quale il sostegno di un\'impresa si '
+            + 'vede e si ricorda. Le formule di partecipazione sono diverse, dalla presenza del marchio '
+            + 'negli spazi dell\'evento a un intervento dal palco, e si definiscono insieme a seconda di '
+            + 'cosa serve alla Vostra azienda.\n\n'
+            /* Il pulsante, da solo su una riga: chi legge non deve scrivere a
+               nessuno ne' cercare un numero, preme e lascia i propri
+               recapiti. E' il gesto piu' corto fra "mi interessa" e una
+               telefonata nostra, ed e' l'unico che si puo' anche misurare. */
+            + 'Se la proposta Vi interessa, lasciateci un recapito da questo collegamento: Vi ricontattiamo noi, senza impegno.\n\n'
+            + invUrlContatto(ev) + '\n\n'
+            + 'Il programma completo della giornata è consultabile qui:\n\n'
+            + pagina + '\n\n'
+            + 'Restiamo a disposizione per ogni chiarimento e cogliamo l\'occasione per porgere i nostri migliori saluti.';
+    }
+
+    function invTestoPredefinito(ev, campagna) {
+        if (campagnaDef(campagna || _invCampagna).id === 'sponsor') return invTestoSponsor(ev);
         const dove = ev.luogo ? (ev.luogo + (ev.indirizzo ? ', ' + ev.indirizzo : '')) : '';
         const pagina = ev.urlPagina ? (SITO_PUBBLICO + ev.urlPagina) : SITO_PUBBLICO;
         const inv = ev.invito || {};
@@ -17263,17 +17426,21 @@
             + pagina + '\n\n'
             + 'Restiamo a disposizione per ogni informazione e cogliamo l\'occasione per porgere i nostri migliori saluti.';
     }
-    function invOggettoPredefinito(ev) {
-        return 'Invito - ' + ev.titolo + ', ' + ev.quando + ' - Next Generation Business';
+    function invOggettoPredefinito(ev, campagna) {
+        return (campagnaDef(campagna || _invCampagna).id === 'sponsor'
+            ? 'Proposta di sponsorizzazione - '
+            : 'Invito - ')
+            + ev.titolo + ', ' + ev.quando + ' - Next Generation Business';
     }
 
     /* La finestra di gestione: elenco, caricamento, correzioni e invio.
        Si ridisegna da sola dopo ogni operazione, cosi' gli stati a video
        sono sempre quelli veri del servizio. */
-    function modaleAziendeInvito(ev) {
+    function modaleAziendeInvito(ev, campagna) {
         if (!puoGestireInviti() || !ev || ev.tutti) return;
+        if (campagna) _invCampagna = campagnaDef(campagna).id;
         _invSel = new Set();
-        _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', ordina: 'azienda', verso: 1 };
+        _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false, ordina: 'azienda', verso: 1 };
         /* Finestra vera, non una finestrella: c'e' dentro una tabella con sette
            colonne e qualche centinaio di righe, e su una scheda larga 900
            pixel si lavora di scorrimento orizzontale. La modalita' "finestra"
@@ -17281,9 +17448,12 @@
            riduci, ingrandisci, piede fisso): questa sezione non la usava. */
         apriModale('<div id="inv-corpo"><p class="hint">Carico l\'elenco...</p></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-chiudi">Chiudi</button></div>',
-            { finestra: true, classe: 'inv-finestra', titolo: 'Aziende da invitare - ' + ev.titolo + ', ' + ev.quando });
+            {
+                finestra: true, classe: 'inv-finestra',
+                titolo: campagnaDef(_invCampagna).titolo + ' - ' + ev.titolo + ', ' + ev.quando
+            });
         document.getElementById('inv-chiudi').addEventListener('click', chiudiModale);
-        caricaCfgInvito(() => { if (document.getElementById('inv-corpo') && _invCache[ev.id]) disegnaAziendeInvito(ev); });
+        caricaCfgInvito(() => { if (document.getElementById('inv-corpo') && _invCache[invChiave(ev)]) disegnaAziendeInvito(ev); });
         caricaAziendeInvito(ev, r => {
             const corpo = document.getElementById('inv-corpo');
             if (!corpo) return;
@@ -17296,14 +17466,81 @@
        e' arrivato. Resta vuota per chi e' stato invitato via email ordinaria,
        perche' li' le ricevute non esistono: si scrive "-" invece di lasciare
        un buco, che verrebbe letto come "non ha ricevuto". */
-    function cellaRicevute(a) {
+    /* --- gli esiti dell'email ordinaria ---
+       Sulla PEC l'esito lo certifica il gestore. Sull'email ordinaria non
+       esiste niente del genere: "inviata" vuol dire solo che il relay ha
+       preso in carico il messaggio. Chi l'ha ricevuto, chi l'ha aperto e chi
+       ha premuto il pulsante lo sa Brevo, che quelle mail le consegna, e il
+       servizio glielo chiede una volta per campagna (la sua quota e' di 300
+       chiamate l'ora per tutto: una lettura per riga la finirebbe in un
+       pomeriggio).
+
+       Le aperture NON vanno lette come "l'ha letto una persona": i filtri
+       antispam e le anteprime dei client aprono le immagini da soli. Il clic
+       invece e' un gesto, e per questo e' la colonna che conta davvero. */
+    function esitiEmailDi(ev, campagna) { return _invEsiti[invChiave(ev, campagna)] || null; }
+    function esitoEmailDi(ev, a) {
+        const e = esitiEmailDi(ev);
+        if (!e || !e.esiti) return null;
+        const ind = String((a.invio && a.invio.destinatario) || a.email || '').trim().toLowerCase();
+        return ind ? (e.esiti[ind] || null) : null;
+    }
+    function caricaEsitiEmail(ev, poi) {
+        const k = invChiave(ev);
+        Cloud.aziendeInvito({ azione: 'esiti-email', evento: ev.id, campagna: _invCampagna }).then(r => {
+            _invEsiti[k] = r.ok
+                ? { stato: r.stato || 'ok', aggiornato: r.aggiornato || 0, esiti: r.esiti || {}, msg: r.msg || '', guardati: r.guardati || 0 }
+                : { stato: 'errore', esiti: {}, msg: r.msg || 'Esiti non disponibili.' };
+            if (poi) poi(_invEsiti[k]);
+        }).catch(() => {
+            _invEsiti[k] = { stato: 'errore', esiti: {}, msg: 'Servizio non raggiungibile.' };
+            if (poi) poi(_invEsiti[k]);
+        });
+    }
+    function cellaEsitoEmail(ev, a) {
+        const quadro = esitiEmailDi(ev);
+        if (!quadro) {
+            return '<span class="hint">via email:<br>aperture non ancora lette</span>';
+        }
+        if (quadro.stato === 'non-disponibile' || quadro.stato === 'errore') {
+            return '<span class="hint">via email:<br>' + esc(quadro.msg || 'esiti non disponibili') + '</span>';
+        }
+        const e = esitoEmailDi(ev, a);
+        /* Nessuna riga per questo indirizzo non vuol dire "non ha aperto":
+           vuol dire che Brevo non riporta ancora niente. Sono due cose
+           diverse e vanno dette in modo diverso, altrimenti mezz'ora dopo
+           l'invio la colonna annuncia un disastro che non c'e'. */
+        if (!e) return '<span class="hint">via email:<br>ancora nessun esito</span>';
+        const passo = (fatto, etich, quando, classe) => '<div class="inv-passo' + (fatto ? ' fatto' : '')
+            + (classe ? ' ' + classe : '') + '"><span class="inv-punto"></span><span>' + esc(etich)
+            + (quando > 1 ? ' <span class="hint">' + esc(fmtDataOra(quando)) + '</span>' : '') + '</span></div>';
+        const parti = [];
+        if (e.rimbalzo) {
+            parti.push('<button type="button" class="inv-pallino inv-pec-non-consegnata inv-esito-mail">Non recapitata</button>');
+            if (e.motivo) parti.push('<div class="ev-ko hint inv-motivo" title="' + esc(e.motivo) + '">' + esc(e.motivo) + '</div>');
+            return parti.join('');
+        }
+        const stato = e.clic ? 'consegnata' : (e.consegnata ? 'accettata' : 'attesa');
+        const etichetta = e.clic ? 'Ha cliccato' : (e.aperta ? 'Aperta' : (e.consegnata ? 'Consegnata' : 'In attesa'));
+        parti.push('<span class="inv-pallino inv-pec-' + stato + ' inv-esito-mail">' + esc(etichetta) + '</span>');
+        parti.push('<div class="inv-scaletta">'
+            + passo(!!e.consegnata, 'Consegnata', e.consegnata)
+            + passo(!!e.aperta, e.aperture > 1 ? 'Aperta (' + e.aperture + ' volte)' : 'Aperta', e.aperta)
+            + passo(!!e.clic, e.clicTotali > 1 ? 'Cliccata (' + e.clicTotali + ' volte)' : 'Cliccata', e.clic)
+            + '</div>');
+        if (e.spam) parti.push('<div class="ev-ko hint">Segnalata come spam.</div>');
+        if (e.disiscritto) parti.push('<div class="hint">Si è disiscritto.</div>');
+        return parti.join('');
+    }
+
+    function cellaRicevute(ev, a) {
         const viaPec = a.invio && a.invio.canale === 'pec';
         if (!viaPec) {
             /* Vuoto qui verrebbe letto come "non ha ricevuto". Non e' cosi': su
-               un invito via email ordinaria le ricevute non esistono proprio. */
-            return a.invio
-                ? '<span class="hint">via email:<br>nessuna ricevuta</span>'
-                : '<span class="hint">-</span>';
+               un invito via email ordinaria le ricevute del gestore non
+               esistono proprio, ma consegna, apertura e clic si', e sono
+               proprio la domanda che ci si fa su questa colonna. */
+            return a.invio ? cellaEsitoEmail(ev, a) : '<span class="hint">-</span>';
         }
         const r = a.ricevute || {};
         const esito = r.esito || 'attesa';
@@ -17358,6 +17595,21 @@
        casella PEC, quindi da qui non si puo' vedere. Il suggerimento lo dice,
        cosi' nessuno la aspetta invano. */
     function cellaRisposte(a) {
+        /* LA RICHIESTA DI CONTATTO viene prima di tutto il resto. Su una
+           campagna di sponsorizzazione e' LA risposta: chi ha premuto il
+           pulsante nella mail e ha lasciato nome e numero. Vale su
+           entrambi i canali, perche' il pulsante e' nel messaggio e non
+           nel modo in cui e' partito. */
+        if (a.contatto && a.contatto.quando) {
+            const c = a.contatto;
+            return '<div class="inv-risp">'
+                + '<div class="inv-risp-quando">' + esc(fmtDataOra(c.quando)) + '</div>'
+                + '<div class="inv-risp-ogg"><b>' + esc(c.nome || '') + '</b></div>'
+                + (c.email ? '<div class="hint">' + esc(c.email) + '</div>' : '')
+                + (c.telefono ? '<div class="hint">' + esc(c.telefono) + '</div>' : '')
+                + '<span class="inv-risposto" title="Arrivata dal modulo di richiesta contatto">Ha chiesto di essere contattato</span>'
+                + '</div>';
+        }
         if (!(a.invio && a.invio.canale === 'pec')) {
             return a.invio
                 ? '<span class="hint" title="Invito partito via email ordinaria: la risposta torna a chi lo ha inviato, non nella casella PEC.">via email</span>'
@@ -17412,6 +17664,53 @@
             + (conPec ? 'Controlla le ricevute' : 'Prova la casella PEC') + '</button></div>';
     }
 
+    /* La riga sugli esiti dell'email ordinaria: quanti hanno ricevuto,
+       aperto, cliccato. Compare solo se qualcosa e' partito via email,
+       perche' su una campagna tutta PEC non avrebbe niente da dire. */
+    function riquadroEsitiEmail(ev, tutte) {
+        const conMail = (tutte || []).filter(a => a.invio && a.invio.canale === 'email');
+        if (!conMail.length) return '';
+        const q = esitiEmailDi(ev);
+        if (!q) {
+            return '<div class="inv-lettore"><span>' + conMail.length + ' inviti partiti via email ordinaria. '
+                + 'Chi ha ricevuto, aperto e cliccato lo sa il servizio di spedizione.</span>'
+                + '<button class="btn btn-sm btn-secondary" id="inv-esiti">Leggi aperture e clic</button></div>';
+        }
+        if (q.stato === 'non-disponibile' || q.stato === 'errore') {
+            return '<div class="inv-lettore ko"><span>' + esc(q.msg || 'Aperture e clic non disponibili.') + '</span>'
+                + '<button class="btn btn-sm btn-secondary" id="inv-esiti">Riprova</button></div>';
+        }
+        /* I conti si fanno sulle righe che si hanno davanti, non su quelle
+           che il servizio ha guardato: cosi' il numero corrisponde a quello
+           che si vede scorrendo, e non c'e' da spiegare perche' no. */
+        let cons = 0, ape = 0, cli = 0, rim = 0;
+        conMail.forEach(a => {
+            const e = esitoEmailDi(ev, a);
+            if (!e) return;
+            if (e.rimbalzo) { rim++; return; }
+            if (e.consegnata) cons++;
+            if (e.aperta) ape++;
+            if (e.clic) cli++;
+        });
+        const vecchio = q.stato === 'vecchio' || q.stato === 'attesa';
+        /* Singolare e plurale: "1 aperti" e' il genere di sciatteria che
+           fa sembrare sbagliato anche il numero. */
+        const conta = (n, uno, tanti) => '<b>' + n + '</b> ' + (n === 1 ? uno : tanti);
+        return '<div class="inv-lettore' + (vecchio ? ' ko' : '') + '"><span>'
+            + 'Su <b>' + conMail.length + '</b> inviti via email: '
+            + conta(cons, 'consegnato', 'consegnati') + ', '
+            + conta(ape, 'aperto', 'aperti') + ', '
+            + conta(cli, 'con un clic', 'con un clic')
+            + (rim ? ', <span class="ev-ko">' + rim + (rim === 1 ? ' non recapitato' : ' non recapitati') + '</span>' : '') + '. '
+            + (q.aggiornato ? 'Letto ' + esc(fmtDataOra(q.aggiornato)) + '. ' : '')
+            + (vecchio ? '<b>' + esc(q.msg || 'Numeri non aggiornati.') + '</b> ' : '')
+            /* Detto qui e non in un manuale: chi legge "12 aperte" e non lo
+               sa conclude che dodici persone hanno letto la mail, e su quel
+               numero prende decisioni. */
+            + '<span class="hint">Le aperture le contano anche i filtri antispam e le anteprime: il clic è l\'unico gesto sicuro.</span>'
+            + '</span><button class="btn btn-sm btn-secondary" id="inv-esiti">Aggiorna</button></div>';
+    }
+
     function disegnaAziendeInvito(ev) {
         const corpo = document.getElementById('inv-corpo');
         if (!corpo) return;
@@ -17446,9 +17745,20 @@
             if (_invFiltro.stato && (a.stato || 'da-invitare') !== _invFiltro.stato) return false;
             if (_invFiltro.canale === 'nessuno' && canaleDi(a)) return false;
             if (_invFiltro.canale && _invFiltro.canale !== 'nessuno' && canaleDi(a) !== _invFiltro.canale) return false;
-            if (_invFiltro.pec && esitoPecDi(a) !== _invFiltro.pec) return false;
+            if (_invFiltro.pec.indexOf('mail-') === 0) {
+                /* Domande sull'email ordinaria: valgono solo per chi e'
+                   partito da li' e solo se gli esiti sono stati letti.
+                   Senza la lettura la risposta sarebbe "nessuna", che qui
+                   vorrebbe dire "non ha aperto nessuno" ed e' falso. */
+                if (canaleDi(a) !== 'email') return false;
+                const e = esitoEmailDi(ev, a);
+                if (_invFiltro.pec === 'mail-aperta' && !(e && e.aperta)) return false;
+                if (_invFiltro.pec === 'mail-clic' && !(e && e.clic)) return false;
+                if (_invFiltro.pec === 'mail-muta' && (!e || e.aperta || e.rimbalzo)) return false;
+            } else if (_invFiltro.pec && esitoPecDi(a) !== _invFiltro.pec) return false;
             if (_invFiltro.risposta === 'si' && !(a.ricevute && a.ricevute.risposta)) return false;
             if (_invFiltro.risposta === 'no' && (a.ricevute && a.ricevute.risposta)) return false;
+            if (_invFiltro.doppie && !a.anche) return false;
             if (q && !combacia(a)) return false;
             return true;
         };
@@ -17458,7 +17768,7 @@
            e la si crederebbe cancellata. Si conta SOLO a filtri attivi: senza
            filtri sarebbero semplicemente tutte le altre, e la frase direbbe il
            nulla con l'aria di dire qualcosa. */
-        const cercando = !!(_invFiltro.testo || _invFiltro.stato || _invFiltro.canale || _invFiltro.pec || _invFiltro.risposta);
+        const cercando = !!(_invFiltro.testo || _invFiltro.stato || _invFiltro.canale || _invFiltro.pec || _invFiltro.risposta || _invFiltro.doppie);
         const altrove = cercando
             ? tutte.filter(a => vistaDi(a) !== _invFiltro.vista && altriFiltri(a)).length
             : 0;
@@ -17484,9 +17794,22 @@
         const scheda = (etich, num, vista, classe) => '<button type="button" class="inv-scheda'
             + (classe ? ' ' + classe : '') + (_invFiltro.vista === vista ? ' attiva' : '')
             + '" data-vista="' + esc(vista) + '"><b>' + num + '</b><span>' + esc(etich) + '</span></button>';
+        /* Le due campagne, in cima. Si cambia da qui invece di chiudere la
+           finestra e ripartire dalla card: sono due elenchi che si guardano
+           uno dopo l'altro, e sull'evento la card e' in fondo alla pagina. */
+        const camp = campagnaDef(_invCampagna);
+        const campagne = '<div class="inv-campagne">'
+            + INV_CAMPAGNE.map(c => '<button type="button" class="inv-campagna'
+                + (c.id === _invCampagna ? ' attiva' : '') + '" data-campagna="' + esc(c.id) + '">'
+                + esc(c.nome) + '</button>').join('')
+            + (_invCampagna === 'sponsor'
+                ? '<button type="button" class="btn btn-sm btn-secondary inv-contatti-apri" id="inv-contatti">Richieste di contatto</button>'
+                : '')
+            + '</div>';
         const schede = '<div class="inv-schede">'
-            + scheda('Da invitare', n.daInvitare, 'da-invitare')
-            + scheda('Inviate', n.inviate, 'inviate')
+            + scheda('Da ' + camp.azione, n.daInvitare, 'da-invitare')
+            + scheda(camp.id === 'sponsor' ? 'Contattate' : 'Inviate', n.inviate, 'inviate')
+            + scheda('Hanno risposto', n.risposte, 'risposte', 'ok')
             + scheda('PEC non arrivata', n.nonArrivate, 'non-arrivate', 'ko')
             + scheda('Con errore', n.errori, 'errore', 'ko')
             + scheda('Fuori elenco', n.fuori, 'fuori')
@@ -17504,6 +17827,13 @@
                 : '')
             + '<button class="btn btn-secondary btn-sm" id="inv-scarica"' + (lista.length ? '' : ' disabled') + '>'
             + 'Scarica con gli esiti (' + lista.length + ')</button>'
+            /* Le sovrapposizioni non sono una scheda (una riga puo' essere
+               insieme "da invitare" e "anche nell'altro elenco"): sono un
+               filtro, e sta qui perche' il numero da solo non serve a niente
+               se poi bisogna cercarle a occhio. */
+            + (n.doppie ? '<button type="button" class="btn btn-sm' + (_invFiltro.doppie ? ' btn-primary' : ' btn-ghost')
+                + '" id="inv-doppie" title="Aziende presenti anche nell\'altro elenco dello stesso evento">'
+                + n.doppie + ' anche nell\'altro elenco</button>' : '')
             + (filtrato ? '<button class="btn btn-sm btn-ghost" id="inv-pulisci">Togli i filtri</button>' : '')
             + (altrove ? '<span class="inv-altrove hint">' + altrove + ' con questi criteri in altre schede</span>' : '')
             + '</div>'
@@ -17542,9 +17872,9 @@
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
             + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
             + (_invSel.size ? '<span class="hint">su ' + lista.length + ' in questa scheda</span>' : '')
-            + '<button class="btn btn-primary btn-sm" id="inv-invia">Invia l\'invito</button>'
+            + '<button class="btn btn-primary btn-sm" id="inv-invia">Invia ' + esc(camp.spedizione) + '</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-escludi">Escludi</button>'
-            + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da invitare</button>'
+            + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da ' + esc(camp.azione) + '</button>'
             + '<button class="btn btn-danger btn-sm" id="inv-elimina">Elimina</button></div>';
 
         const riga = a => {
@@ -17567,16 +17897,26 @@
                 + (sotto.length ? '<div class="hint inv-sotto">' + sotto.join(' &middot; ') + '</div>' : '')
                 /* Il codice riservato: e' il secondo modo di chiamare questa
                    riga, e chi arriva da una telefonata ha in mano quello. */
-                + (a.codice ? '<div class="inv-codice" title="Codice riservato a questa azienda">' + esc(a.codice) + '</div>' : '') + '</td>'
+                + (a.codice ? '<div class="inv-codice" title="Codice riservato a questa azienda">' + esc(a.codice) + '</div>' : '')
+                /* Sta anche nell'altra lista dello stesso evento. Non e' un
+                   errore, a volte e' voluto: e' un avviso, e dice a che punto
+                   e' di la', perche' e' quello che decide se qui conviene
+                   fermarsi. */
+                + (a.anche ? '<div class="inv-doppia' + (a.anche.inviata ? ' ko' : '') + '" title="'
+                    + esc('Questa azienda è nell\'elenco "' + campagnaDef(a.anche.campagna).nome + '" dello stesso evento'
+                        + (a.anche.inviata ? ', e lì il messaggio le è già partito il ' + fmtDataOra(a.anche.quando) : ', dove non le è ancora partito niente')
+                        + (a.anche.risposto ? ', e ha già risposto' : '') + '.') + '">'
+                    + 'anche in ' + esc(campagnaDef(a.anche.campagna).breve.toLowerCase())
+                    + (a.anche.inviata ? ': già inviata' : '') + '</div>' : '') + '</td>'
                 + '<td data-label="Recapiti">' + recapiti + '</td>'
-                + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(INV_STATI[st] || st) + '</span>'
+                + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(statoInv(st)) + '</span>'
                 + (quando ? '<div class="hint">' + esc(quando) + (via ? ' via ' + via : '') + '</div>' : '')
                 + (motivo ? '<div class="ev-ko hint inv-motivo" title="' + esc(motivo) + '">' + esc(motivo) + '</div>' : '')
                 + ((a.iscritti && a.iscritti.length)
                     ? '<div class="inv-iscritti" title="' + esc(a.iscritti.map(i => i.nome + ' (' + i.email + ')').join(', ')) + '">'
                     + 'Registrati: ' + esc(a.iscritti.map(i => i.nome || i.email).join(', ')) + '</div>'
                     : '') + '</td>'
-                + '<td data-label="Ricevute PEC">' + cellaRicevute(a) + '</td>'
+                + '<td data-label="Esito del recapito">' + cellaRicevute(ev, a) + '</td>'
                 + '<td data-label="Risposta">' + cellaRisposte(a) + '</td>'
                 + '<td class="inv-azioni-riga">'
                 + '<button class="btn btn-sm btn-ghost inv-mod" data-id="' + esc(a.id) + '">Modifica</button>'
@@ -17610,17 +17950,23 @@
             + (mostrate.length ? '' : ' disabled') + '></th>'
             + intest(['azienda', 'Azienda'])
             + '<th>Recapiti</th>'
-            + intest(['stato', 'Stato dell\'invito'])
-            + '<th>Ricevute PEC</th>'
+            + intest(['stato', camp.id === 'sponsor' ? 'Stato della richiesta' : 'Stato dell\'invito'])
+            + '<th>Esito del recapito</th>'
             + intest(['risposta', 'Risposta'])
             + '<th></th></tr>'
             + '<tr class="inv-riga-filtri">'
             + '<th></th>'
             + '<th><input type="text" id="inv-cerca" class="inv-f" placeholder="Cerca nome, codice, P.IVA, città..." value="' + esc(_invFiltro.testo) + '"></th>'
             + '<th>' + opzioni('inv-fcanale', 'Ogni canale', [['pec', 'Solo PEC'], ['email', 'Solo email'], ['nessuno', 'Non inviate']], _invFiltro.canale) + '</th>'
-            + '<th>' + opzioni('inv-fstato', 'Ogni stato', Object.keys(INV_STATI).map(x => [x, INV_STATI[x]]), _invFiltro.stato) + '</th>'
+            + '<th>' + opzioni('inv-fstato', 'Ogni stato', Object.keys(INV_STATI).map(x => [x, statoInv(x)]), _invFiltro.stato) + '</th>'
+            /* Le sei voci della PEC piu' le tre dell'email ordinaria. Sono
+               nella stessa tendina perche' la colonna e' una sola: "com'e'
+               finita". Le voci dell'email si prefiggono con "mail:" cosi'
+               non si confondono con quelle certificate, che sono un'altra
+               cosa e valgono in giudizio. */
             + '<th>' + opzioni('inv-fpec', 'Ogni esito', [['consegnata', 'Consegnata'], ['accettata', 'Accettata'], ['attesa', 'In attesa'],
-                ['non-consegnata', 'NON consegnata'], ['non-accettata', 'NON accettata'], ['in-dubbio', 'In dubbio']], _invFiltro.pec) + '</th>'
+                ['non-consegnata', 'NON consegnata'], ['non-accettata', 'NON accettata'], ['in-dubbio', 'In dubbio'],
+                ['mail-aperta', 'mail: aperta'], ['mail-clic', 'mail: ha cliccato'], ['mail-muta', 'mail: mai aperta']], _invFiltro.pec) + '</th>'
             + '<th>' + opzioni('inv-frisp', 'Tutte', [['si', 'Hanno risposto'], ['no', 'Senza risposta']], _invFiltro.risposta) + '</th>'
             + '<th></th></tr></thead>';
 
@@ -17631,8 +17977,8 @@
                 ? ' Ce ne sono <b>' + altrove + '</b> che ci corrispondono, ma in altre schede.'
                 : ' Prova a togliere qualche filtro qui sopra.')
             : (_invFiltro.vista === 'da-invitare'
-                ? '<b>Nessuna azienda da invitare:</b> l\'invito è partito a tutte quelle in elenco.'
-                : '<b>Nessuna azienda ' + esc(NOMI_VISTA[_invFiltro.vista] || '') + '.</b>');
+                ? '<b>Nessuna azienda da ' + esc(camp.azione) + ':</b> il messaggio è partito a tutte quelle in elenco.'
+                : '<b>Nessuna azienda ' + esc(nomeVista(_invFiltro.vista)) + '.</b>');
 
         const tabella = !n.totale
             ? '<p class="inv-vuoto hint">Nessuna azienda in elenco: caricane una con "Carica elenco", partendo dal modello.</p>'
@@ -17644,7 +17990,7 @@
                 + ': restringi la ricerca per vedere le altre. La spunta in cima, i gruppi e le azioni valgono comunque su tutte le '
                 + lista.length + ' righe filtrate.</p>' : '');
 
-        corpo.innerHTML = schede + riquadroRicevute(ev, tutte) + barra + azioniSel
+        corpo.innerHTML = campagne + schede + riquadroRicevute(ev, tutte) + riquadroEsitiEmail(ev, tutte) + barra + azioniSel
             + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
 
         const ridisegna = () => disegnaAziendeInvito(ev);
@@ -17659,6 +18005,43 @@
         if (bNuo) bNuo.addEventListener('click', () => modaleAziendaInvito(ev, null));
         const bScar = document.getElementById('inv-scarica');
         if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendeInvito(ev, lista));
+
+        const bDop = document.getElementById('inv-doppie');
+        if (bDop) bDop.addEventListener('click', () => { _invFiltro.doppie = !_invFiltro.doppie; ridisegna(); });
+
+        /* Il cambio di campagna. Si azzerano selezione e filtri: sono due
+           elenchi diversi, e una spunta rimasta accesa qui vorrebbe dire
+           spedire alla lista sbagliata. Il titolo della finestra segue,
+           altrimenti resterebbe quello di prima e sarebbe l'unica cosa a
+           video a dire il falso. */
+        document.querySelectorAll('.inv-campagna').forEach(b => {
+            b.addEventListener('click', () => {
+                const nuova = campagnaDef(b.dataset.campagna).id;
+                if (nuova === _invCampagna) return;
+                _invCampagna = nuova;
+                _invSel = new Set();
+                _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false, ordina: 'azienda', verso: 1 };
+                const t = document.querySelector('.modale-titolo-testo') || document.querySelector('.modale-titolo');
+                if (t) t.textContent = campagnaDef(nuova).titolo + ' - ' + ev.titolo + ', ' + ev.quando;
+                if (_invCache[invChiave(ev)]) { disegnaAziendeInvito(ev); return; }
+                corpo.innerHTML = '<p class="hint">Carico l\'elenco...</p>';
+                caricaAziendeInvito(ev, r => {
+                    if (!document.getElementById('inv-corpo')) return;
+                    if (!r.ok) { corpo.innerHTML = '<p class="ev-ko">' + esc(r.msg || 'Elenco non disponibile.') + '</p>'; return; }
+                    disegnaAziendeInvito(ev);
+                });
+            });
+        });
+
+        const bEsi = document.getElementById('inv-esiti');
+        if (bEsi) bEsi.addEventListener('click', () => {
+            bEsi.disabled = true;
+            bEsi.textContent = 'Leggo...';
+            caricaEsitiEmail(ev, () => { if (document.getElementById('inv-corpo')) ridisegna(); });
+        });
+
+        const bCon = document.getElementById('inv-contatti');
+        if (bCon) bCon.addEventListener('click', () => modaleContattiRichieste(ev));
 
         /* Lettura della casella PEC. Il servizio legge un pezzo per volta (ha
            60 secondi) e dice se ne restano: si richiama finche' finisce, ma
@@ -17729,7 +18112,7 @@
         collega('inv-frisp', 'risposta');
         const bPul = document.getElementById('inv-pulisci');
         if (bPul) bPul.addEventListener('click', () => {
-            _invFiltro = Object.assign({}, _invFiltro, { testo: '', stato: '', canale: '', pec: '', risposta: '' });
+            _invFiltro = Object.assign({}, _invFiltro, { testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false });
             ridisegna();
         });
         /* L'ordine si cambia dall'intestazione della colonna, come in un
@@ -17796,7 +18179,7 @@
             const a = aziendaInvitoDi(ev, b.dataset.id);
             if (!a) return;
             if (!confirm('Togliere ' + a.ragioneSociale + ' dall\'elenco?')) return;
-            Cloud.aziendeInvito({ azione: 'cancella', evento: ev.id, ids: [a.id] }).then(r => {
+            Cloud.aziendeInvito({ azione: 'cancella', evento: ev.id, campagna: _invCampagna, ids: [a.id] }).then(r => {
                 if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
                 caricaAziendeInvito(ev, () => { ridisegna(); toast('Azienda tolta dall\'elenco.', 'verde'); });
             });
@@ -17808,7 +18191,7 @@
         const cambiaStato = (stato, parola) => {
             const ids = Array.from(_invSel);
             if (!ids.length) return;
-            Cloud.aziendeInvito({ azione: 'segna', evento: ev.id, ids: ids, stato: stato }).then(r => {
+            Cloud.aziendeInvito({ azione: 'segna', evento: ev.id, campagna: _invCampagna, ids: ids, stato: stato }).then(r => {
                 if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
                 _invSel = new Set();
                 caricaAziendeInvito(ev, () => { ridisegna(); toast(ids.length + ' aziende ' + parola + '.', 'verde'); });
@@ -17823,7 +18206,7 @@
             const ids = Array.from(_invSel);
             if (!ids.length) return;
             if (!confirm('Eliminare ' + ids.length + ' aziende dall\'elenco? Gli esiti degli invii già fatti si perdono.')) return;
-            Cloud.aziendeInvito({ azione: 'cancella', evento: ev.id, ids: ids }).then(r => {
+            Cloud.aziendeInvito({ azione: 'cancella', evento: ev.id, campagna: _invCampagna, ids: ids }).then(r => {
                 if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
                 _invSel = new Set();
                 caricaAziendeInvito(ev, () => { ridisegna(); toast(r.tolte + ' aziende eliminate.', 'verde'); });
@@ -17843,6 +18226,11 @@
             ['Citta', 16], ['Provincia', 9], ['Telefono', 15], ['Settore', 20],
             ['Stato', 14], ['Invitata il', 17], ['Canale', 9], ['Errore di invio', 40],
             ['Esito PEC', 20], ['Accettata il', 17], ['Consegnata il', 17], ['Motivo del gestore', 40], ['Ha risposto il', 17], ['Risposta da', 26], ['Oggetto della risposta', 40],
+            /* Gli esiti dell'email ordinaria. Escono vuoti finche' non sono
+               stati letti almeno una volta: meglio una colonna vuota che
+               tre "no" che nessuno ha verificato. */
+            ['Email consegnata il', 19], ['Email aperta il', 19], ['Aperture', 9], ['Email cliccata il', 19], ['Clic', 8], ['Email non recapitata', 30],
+            ['Anche nell altro elenco', 30],
             ['Registrati col codice', 40]
         ];
         const righe = (lista || aziendeInvitoDi(ev)).map(a => {
@@ -17850,7 +18238,7 @@
             const pec = a.invio && a.invio.canale === 'pec';
             return [
                 a.ragioneSociale, a.codice || '', a.pec, a.email, a.piva, a.referente, a.citta, a.provincia, a.telefono, a.settore || '',
-                INV_STATI[a.stato || 'da-invitare'] || a.stato,
+                statoInv(a.stato || 'da-invitare'),
                 a.invio && a.invio.quando ? fmtDataOra(a.invio.quando) : '',
                 pec ? 'PEC' : (a.invio ? 'Email' : ''),
                 a.errore && a.errore.motivo ? a.errore.motivo : '',
@@ -17861,14 +18249,25 @@
                 r.risposta && r.risposta.quando ? fmtDataOra(r.risposta.quando) : '',
                 r.risposta ? (r.risposta.da || '') : '',
                 r.risposta ? (r.risposta.oggetto || '') : '',
+                (function () {
+                    const e = pec ? null : esitoEmailDi(ev, a);
+                    if (!e) return ['', '', '', '', '', ''];
+                    const q = v => (v > 1 ? fmtDataOra(v) : (v ? 'si' : ''));
+                    return [q(e.consegnata), q(e.aperta), e.aperture || '', q(e.clic), e.clicTotali || '',
+                        e.rimbalzo ? (e.motivo || 'non recapitata') : ''];
+                }()),
+                a.anche
+                    ? (campagnaDef(a.anche.campagna).nome
+                        + (a.anche.inviata ? ' (gia inviata il ' + fmtDataOra(a.anche.quando) + ')' : ' (non ancora inviata)'))
+                    : '',
                 (a.iscritti || []).map(i => (i.nome || '') + ' <' + (i.email || '') + '>').join('; ')
-            ].map(v => String(v == null ? '' : v));
+            ].flat().map(v => String(v == null ? '' : v));
         });
         const blob = xlsxCrea(colonne.map(c => c[0]), righe, colonne.map(c => c[1]));
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'aziende-invito-' + ev.id + '.xlsx';
+        a.download = 'aziende-' + _invCampagna + '-' + ev.id + '.xlsx';
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
@@ -18186,7 +18585,7 @@
 
         const manda = csv => {
             mostra('Caricamento in corso...');
-            Cloud.aziendeInvito({ azione: 'importa', evento: ev.id, csv: csv }).then(r => {
+            Cloud.aziendeInvito({ azione: 'importa', evento: ev.id, campagna: _invCampagna, csv: csv }).then(r => {
                 if (!r.ok) { mostra(r.msg || 'Caricamento non riuscito.', true); return; }
                 /* Ogni scarto si dice, e si dice PERCHE'. Un elenco che entra a
                    meta' senza spiegazioni e' peggio di uno che non entra: chi
@@ -18200,7 +18599,14 @@
                     + (scarti.length ? '. Scartate: ' + scarti.join(', ') : '') + '.',
                     scarti.length > 0 && !r.nuove && !r.aggiornate);
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco aziende da invitare caricato', 'sistema', ev.id, null, r.nuove + ' nuove, ' + r.aggiornate + ' aggiornate'); } catch (er) { }
-                caricaAziendeInvito(ev, () => { });
+                /* Le sovrapposizioni con l'altra lista si mostrano SUBITO,
+                   prima che la finestra si chiuda: chi ha appena caricato il
+                   file sa perche' l'ha caricato, e fra tre settimane non se lo
+                   ricordera' piu'. */
+                const sovr = Array.isArray(r.sovrapposte) ? r.sovrapposte : [];
+                caricaAziendeInvito(ev, () => {
+                    if (sovr.length) modaleSovrapposte(ev, sovr, r.sovrapposteTotali || sovr.length);
+                });
             });
         };
 
@@ -18227,6 +18633,234 @@
             lettore.onerror = () => mostra('Non riesco a leggere il file.', true);
             lettore.onload = () => manda(String(lettore.result || ''));
             lettore.readAsText(f, 'utf-8');
+        });
+    }
+
+    /* LE AZIENDE CHE STANNO IN TUTTE E DUE LE LISTE.
+       Compare dopo un caricamento, quando il servizio ne ha trovate. Non e'
+       un errore da correggere per forza: invitare a venire un'azienda a cui
+       si sta anche chiedendo una sponsorizzazione a volte e' esattamente
+       quello che si vuole. Ma sono due messaggi diversi allo stesso indirizzo
+       a poche settimane di distanza, e chi decide dev'essere una persona.
+
+       DUE CASI, E SI COMPORTANO DIVERSAMENTE:
+       - se di la' il messaggio E' GIA' PARTITO, la scelta e' quasi fatta:
+         quella conversazione e' aperta, e aprirne una seconda sullo stesso
+         indirizzo confonde. La proposta preselezionata e' toglierla di qui.
+       - se di la' non e' partito niente, non c'e' un motivo per preferire una
+         lista all'altra: si sceglie, e il valore predefinito e' non toccare
+         niente, perche' e' l'unica scelta che non butta via lavoro.
+
+       Niente si muove finche' non si preme Applica: la finestra propone,
+       non esegue. */
+    function modaleSovrapposte(ev, elenco, totali) {
+        const camp = campagnaDef(_invCampagna);
+        const gia = elenco.filter(x => x.inviata).length;
+        const righe = elenco.map((x, i) => {
+            const altra = campagnaDef(x.campagna);
+            /* La proposta. Preselezionata solo quando c'e' un motivo per
+               preferirne una: altrimenti "lascia tutto" e la scelta resta
+               davvero aperta invece di essere suggerita di nascosto. */
+            const scelta = x.inviata ? 'qui' : '';
+            const opz = (v, et, tit) => '<label class="inv-sov-scelta' + (scelta === v ? ' attiva' : '') + '"'
+                + (tit ? ' title="' + esc(tit) + '"' : '') + '>'
+                + '<input type="radio" name="sov' + i + '" value="' + v + '"' + (scelta === v ? ' checked' : '') + '>'
+                + '<span>' + esc(et) + '</span></label>';
+            const dove = altra.nome + (x.inviata
+                ? ' - messaggio partito il ' + fmtDataOra(x.quando)
+                : ' - non ancora partito niente')
+                + (x.risposto ? ', e ha già risposto' : '');
+            return '<tr' + (x.inviata ? ' class="inv-riga-ko"' : '') + '>'
+                + '<td data-label="Azienda"><b>' + esc(x.ragioneSociale || x.contatto) + '</b>'
+                + '<div class="hint">' + esc(x.contatto) + '</div></td>'
+                + '<td data-label="Nell altro elenco"><span class="' + (x.inviata ? 'ev-ko' : 'hint') + '">'
+                + esc(dove) + '</span></td>'
+                + '<td data-label="Cosa faccio" class="inv-sov-scelte">'
+                /* "Questa" e "l'altra" scritti per esteso, col nome della
+                   lista accanto: due voci che cominciano tutte e due con
+                   "Tolgo da" e finiscono con un nome lungo si leggono uguali,
+                   e la scelta che si fa e' quella sbagliata. */
+                + opz('', 'La lascio in tutte e due', 'Riceverà tutti e due i messaggi')
+                + opz('qui', 'La tolgo da QUESTA lista (' + camp.nome + ')',
+                    x.inviata ? 'Consigliato: di là la conversazione è già aperta' : 'Resta solo in ' + altra.nome.toLowerCase())
+                + opz('la', 'La tolgo dall\'ALTRA (' + altra.nome + ')',
+                    /* Togliere la scheda su cui l'azienda ha gia' RISPOSTO e'
+                       la cosa peggiore che si possa fare da questa finestra:
+                       si butta via l'unico esito che valeva qualcosa. Va
+                       detto per esteso, non lasciato capire. */
+                    x.risposto
+                        ? 'Sconsigliato: di là questa azienda ha già risposto, e togliendo la scheda si perde la sua risposta'
+                        : (x.inviata
+                            ? 'Attenzione: di là il messaggio è già partito, e con la scheda spariscono i suoi esiti'
+                            : 'Resta solo in ' + camp.nome.toLowerCase()))
+                + '</td></tr>';
+        }).join('');
+
+        apriModale('<h2>' + elenco.length + (elenco.length === 1 ? ' azienda è' : ' aziende sono')
+            + ' anche nell\'altro elenco</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Stesso evento, stesso recapito, due liste diverse: '
+            + 'riceverebbero due messaggi diversi a poche settimane di distanza. '
+            + (gia ? '<b>' + gia + (gia === 1 ? '</b> ha' : '</b> hanno') + ' già ricevuto il messaggio dall\'altra lista: '
+                + 'per quelle la proposta è di toglierle da qui, perché quella conversazione è già aperta. ' : '')
+            + 'Niente si muove finché non premi Applica.</p>'
+            + (totali > elenco.length
+                ? '<p class="ev-ko">Mostrate le prime ' + elenco.length + ' di ' + totali + '.</p>' : '')
+            + '<div class="tabella-wrap"><table class="dati"><thead><tr>'
+            + '<th>Azienda</th><th>Nell\'altro elenco</th><th>Cosa faccio</th>'
+            + '</tr></thead><tbody>' + righe + '</tbody></table></div>'
+            + '<div id="sov-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni">'
+            + '<button class="btn btn-secondary" id="sov-no">Le lascio tutte</button>'
+            + '<button class="btn btn-primary" id="sov-si">Applica</button></div>',
+            { classe: 'larga', titolo: 'Aziende in tutte e due le liste' });
+
+        const chiudi = () => { chiudiModale(); modaleAziendeInvito(ev); };
+        document.getElementById('sov-no').addEventListener('click', chiudi);
+        document.getElementById('sov-si').addEventListener('click', () => {
+            const b = document.getElementById('sov-si');
+            const e = document.getElementById('sov-esito');
+            /* Si raccolgono per CAMPAGNA, perche' cancellare e' un'azione per
+               campagna: due chiamate al massimo, non una per riga. */
+            const daTogliere = { };
+            elenco.forEach((x, i) => {
+                const scelto = document.querySelector('input[name="sov' + i + '"]:checked');
+                const v = scelto ? scelto.value : '';
+                if (v === 'qui') (daTogliere[_invCampagna] = daTogliere[_invCampagna] || []).push(x.qui);
+                else if (v === 'la') (daTogliere[x.campagna] = daTogliere[x.campagna] || []).push(x.la);
+            });
+            const campagne = Object.keys(daTogliere);
+            if (!campagne.length) { chiudi(); return; }
+            b.disabled = true; b.textContent = 'Tolgo...';
+            (async () => {
+                let tolte = 0, ko = '';
+                for (const c of campagne) {
+                    try {
+                        const r = await Cloud.aziendeInvito({
+                            azione: 'cancella', evento: ev.id, campagna: c, ids: daTogliere[c]
+                        });
+                        if (r.ok) tolte += r.tolte || 0;
+                        else ko = r.msg || 'Cancellazione non riuscita.';
+                    } catch (_) { ko = 'Servizio non raggiungibile.'; }
+                }
+                if (ko) {
+                    b.disabled = false; b.textContent = 'Applica';
+                    e.innerHTML = '<span class="ev-ko">' + esc(ko) + '</span>';
+                    return;
+                }
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: aziende tolte da un elenco per sovrapposizione', 'sistema', ev.id, null, tolte + ' tolte'); } catch (er) { }
+                /* Si rileggono TUTTE le liste toccate, non solo quella aperta:
+                   togliendo di la si e' cambiato anche l'altro elenco, e
+                   lasciarlo in cache vorrebbe dire rivederci righe che non
+                   ci sono piu'. */
+                campagne.forEach(c => { delete _invCache[invChiave(ev, c)]; });
+                caricaAziendeInvito(ev, () => { chiudi(); toast(tolte + (tolte === 1 ? ' azienda tolta.' : ' aziende tolte.'), 'verde'); });
+            })();
+        });
+    }
+
+    /* Le richieste di contatto: a chi arrivano, e quelle gia' arrivate.
+       Una finestra sola per due cose che si guardano insieme: chi apre
+       questo elenco o vuole vedere chi ha risposto, o si e' accorto che le
+       richieste non arrivavano a nessuno. Tenerle separate vorrebbe dire che
+       la seconda domanda si fa solo dopo aver perso qualche richiesta. */
+    function modaleContattiRichieste(ev) {
+        if (!puoGestireInviti()) return;
+        apriModale('<h2>Richieste di contatto - ' + esc(ev.titolo) + '</h2>'
+            + '<div id="rc-corpo"><p class="hint">Carico...</p></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="rc-chiudi">Chiudi</button></div>',
+            { classe: 'larga' });
+        const chiudi = () => { chiudiModale(); modaleAziendeInvito(ev); };
+        document.getElementById('rc-chiudi').addEventListener('click', chiudi);
+
+        Cloud.aziendeInvito({ azione: 'contatti', evento: ev.id, campagna: _invCampagna }).then(r => {
+            const box = document.getElementById('rc-corpo');
+            if (!box) return;
+            if (!r.ok) { box.innerHTML = '<p class="ev-ko">' + esc(r.msg || 'Elenco non disponibile.') + '</p>'; return; }
+            disegnaContatti(ev, r);
+        }).catch(() => {
+            const box = document.getElementById('rc-corpo');
+            if (box) box.innerHTML = '<p class="ev-ko">Servizio non raggiungibile.</p>';
+        });
+    }
+
+    function disegnaContatti(ev, dati) {
+        const box = document.getElementById('rc-corpo');
+        if (!box) return;
+        const d = dati.destinatari || { a: [], cc: [] };
+        const richieste = dati.richieste || [];
+        const max = dati.max || 10;
+
+        /* Il quadro dei destinatari e' in cima e non in fondo: se e' vuoto,
+           tutto quello che c'e' sotto e' arrivato senza che nessuno lo
+           sapesse, ed e' la prima cosa da vedere aprendo. */
+        const vuoto = !d.a.length && !d.cc.length;
+        const testa = '<div class="campo"><label for="rc-a">Destinatari (campo A)</label>'
+            + '<textarea id="rc-a" rows="2" placeholder="uno per riga, oppure separati da virgola">' + esc(d.a.join('\n')) + '</textarea></div>'
+            + '<div class="campo"><label for="rc-cc">In copia (campo Cc)</label>'
+            + '<textarea id="rc-cc" rows="2" placeholder="uno per riga, oppure separati da virgola">' + esc(d.cc.join('\n')) + '</textarea></div>'
+            + '<p class="hint" style="margin:-6px 0 10px;">Al massimo ' + max + ' indirizzi in tutto fra i due campi. '
+            + 'Chi è già fra i destinatari non viene messo anche in copia. '
+            + 'Rispondendo alla mail si scrive direttamente a chi ha compilato il modulo.'
+            + (dati.postaPronta ? '' : '<br><span class="ev-ko">Il server di posta non è configurato sul servizio: '
+                + 'le richieste vengono registrate qui, ma non parte nessuna mail.</span>')
+            + (vuoto ? '<br><span class="ev-ko">Nessun destinatario impostato: le richieste si fermano in questo elenco '
+                + 'e non arrivano per email a nessuno.</span>' : '')
+            + '</p>'
+            + '<div class="modale-azioni" style="justify-content:flex-start;margin:0 0 16px;">'
+            + '<button class="btn btn-primary btn-sm" id="rc-salva">Salva i destinatari</button>'
+            + '<span id="rc-esito" class="ev-imp-esito"></span></div>';
+
+        const riga = x => '<tr>'
+            + '<td data-label="Quando"><span class="hint">' + esc(fmtDataOra(x.quando)) + '</span></td>'
+            + '<td data-label="Chi"><b>' + esc(x.nome + ' ' + x.cognome) + '</b>'
+            + (x.azienda ? '<div class="hint">' + esc(x.azienda) + '</div>' : '')
+            + (x.codice ? '<div class="inv-codice" title="Codice dell\'azienda a cui avevamo scritto">' + esc(x.codice) + '</div>' : '') + '</td>'
+            + '<td data-label="Recapiti"><div class="inv-rec">' + esc(x.email) + '</div>'
+            + (x.telefono ? '<div class="inv-rec">' + esc(x.telefono) + '</div>' : '') + '</td>'
+            + '<td data-label="Messaggio">' + (x.messaggio ? esc(x.messaggio) : '<span class="hint">-</span>') + '</td>'
+            /* Se la mail interna non e' partita bisogna saperlo su QUESTA
+               riga: e' la differenza fra "l'abbiamo vista tutti" e "e' qui da
+               tre settimane e nessuno lo sa". */
+            + '<td data-label="Avviso">' + (x.avvisati
+                ? '<span class="hint">inoltrata a ' + x.avvisati + '</span>'
+                : '<span class="ev-ko">non inoltrata</span>')
+            + (x.confermato ? '<div class="hint">conferma inviata</div>' : '<div class="ev-ko">senza conferma</div>')
+            + '</td></tr>';
+
+        const tabella = richieste.length
+            ? '<div class="tabella-wrap"><table class="dati"><thead><tr>'
+            + '<th>Quando</th><th>Chi</th><th>Recapiti</th><th>Messaggio</th><th>Avviso</th>'
+            + '</tr></thead><tbody>' + richieste.map(riga).join('') + '</tbody></table></div>'
+            : '<p class="hint">Nessuna richiesta di contatto ricevuta finora.</p>';
+
+        box.innerHTML = testa + '<h3 style="margin:6px 0 8px;">Richieste ricevute (' + richieste.length + ')</h3>' + tabella;
+
+        document.getElementById('rc-salva').addEventListener('click', () => {
+            const b = document.getElementById('rc-salva');
+            const e = document.getElementById('rc-esito');
+            b.disabled = true; b.textContent = 'Salvo...';
+            Cloud.aziendeInvito({
+                azione: 'contatti-salva', evento: ev.id, campagna: _invCampagna,
+                destinatari: {
+                    a: (document.getElementById('rc-a') || {}).value || '',
+                    cc: (document.getElementById('rc-cc') || {}).value || ''
+                }
+            }).then(r => {
+                b.disabled = false; b.textContent = 'Salva i destinatari';
+                if (!r.ok) { e.innerHTML = '<span class="ev-ko">' + esc(r.msg || 'Salvataggio non riuscito.') + '</span>'; return; }
+                /* Si ridisegna con quello che il servizio ha DAVVERO salvato,
+                   non con quello che era scritto nelle caselle: un indirizzo
+                   storto viene scartato li', e lasciarlo a video farebbe
+                   credere che sia stato accettato. */
+                disegnaContatti(ev, Object.assign({}, dati, { destinatari: r.destinatari }));
+                const e2 = document.getElementById('rc-esito');
+                if (e2) e2.innerHTML = r.avviso
+                    ? '<span class="ev-ko">' + esc(r.avviso) + '</span>'
+                    : '<span class="ev-ok">Destinatari salvati.</span>';
+            }).catch(() => {
+                b.disabled = false; b.textContent = 'Salva i destinatari';
+                e.innerHTML = '<span class="ev-ko">Servizio non raggiungibile.</span>';
+            });
         });
     }
 
@@ -18272,14 +18906,22 @@
             const b = document.getElementById('ia-si');
             b.disabled = true; b.textContent = 'Salvo...';
             Cloud.aziendeInvito({
-                azione: a ? 'modifica' : 'aggiungi', evento: ev.id, id: a ? a.id : '', azienda: azienda
+                azione: a ? 'modifica' : 'aggiungi', evento: ev.id, campagna: _invCampagna,
+                id: a ? a.id : '', azienda: azienda
             }).then(r => {
                 if (!r.ok) {
                     b.disabled = false; b.textContent = 'Salva';
                     e.innerHTML = '<span class="ev-ko">' + esc(r.msg || 'Salvataggio non riuscito.') + '</span>';
                     return;
                 }
-                caricaAziendeInvito(ev, () => { chiudi(); toast('Scheda salvata.', 'verde'); });
+                const sovr = Array.isArray(r.sovrapposte) ? r.sovrapposte : [];
+                caricaAziendeInvito(ev, () => {
+                    chiudi();
+                    toast('Scheda salvata.', 'verde');
+                    // stesso avviso dell'importazione: una scheda scritta a
+                    // mano si sovrappone all'altra lista esattamente uguale
+                    if (sovr.length) modaleSovrapposte(ev, sovr, sovr.length);
+                });
             });
         });
     }
@@ -18392,10 +19034,12 @@
             + (attivo ? ' checked' : '') + (pronto ? '' : ' disabled') + '>'
             + '<span><b>' + etichetta + '</b><br><span class="hint">' + spiega + '</span></span></label>';
 
-        apriModale('<h2>Invito - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
+        const campI = campagnaDef(_invCampagna);
+        apriModale('<h2>' + esc(campI.id === 'sponsor' ? 'Richiesta di sponsorizzazione' : 'Invito')
+            + ' - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
             + '<p class="hint" style="margin:-4px 0 10px;">Un messaggio per azienda, mai più destinatari insieme: così ogni scheda porta il proprio esito e nessuno vede gli indirizzi degli altri.'
-            + (gia ? ' <b>' + gia + '</b> hanno già ricevuto l\'invito e vengono saltate, salvo la spunta in fondo.' : '') + '</p>'
-            + '<div class="campo"><label>Come far partire l\'invito</label>'
+            + (gia ? ' <b>' + gia + '</b> hanno già ricevuto il messaggio e vengono saltate, salvo la spunta in fondo.' : '') + '</p>'
+            + '<div class="campo"><label>Come far partire ' + esc(campI.spedizione) + '</label>'
             + opzione('inv-c-email', 'email', 'Email ordinaria',
                 cEmail.pronto
                     ? 'Da ' + esc(cEmail.mittente || 'Brevo') + '. Raggiunge <b>' + raggiungibili('email') + '</b> delle ' + scelte.length + ' aziende selezionate. '
@@ -18410,14 +19054,22 @@
             + '</div>'
             + '<div class="campo"><label for="ii-ogg">Oggetto</label>'
             + '<input type="text" id="ii-ogg" maxlength="200" value="' + esc(invOggettoPredefinito(ev)) + '"></div>'
-            + '<div class="campo"><label for="ii-testo">Testo dell\'invito</label>'
+            + '<div class="campo"><label for="ii-testo">Testo ' + esc(campI.id === 'sponsor' ? 'della richiesta' : 'dell\'invito') + '</label>'
             + '<textarea id="ii-testo" rows="14">' + esc(invTestoPredefinito(ev)) + '</textarea>'
             + '<div class="hint">Intestazione con il marchio, firma dello studio e piede con la disiscrizione le aggiunge il servizio. '
             + 'Puoi scrivere <b>{ragione_sociale}</b>, <b>{referente}</b>, <b>{citta}</b>, <b>{provincia}</b>, <b>{piva}</b>: '
             + 'ogni azienda riceve i propri dati al loro posto.<br>'
-            + '<b>{codice}</b> è diverso: è il codice di 5 caratteri riservato a quell\'azienda, che il servizio crea '
-            + 'al momento dell\'invio e che l\'azienda dovrà scrivere nel modulo di registrazione. Toglilo dal testo e '
-            + 'nessuno saprà di averlo.</div></div>'
+            /* Il codice fa due mestieri diversi nelle due campagne, e dirlo
+               male qui vuol dire un testo spedito a centinaia di aziende con
+               dentro la frase sbagliata. */
+            + (campI.id === 'sponsor'
+                ? '<b>{codice}</b> qui non si scrive da solo: è già dentro l\'indirizzo del pulsante, e serve a '
+                + 'ricollegare la richiesta di contatto all\'azienda che l\'ha mandata. Se togli quella riga, il '
+                + 'pulsante sparisce e chi vuole essere ricontattato non ha più come dirlo.'
+                : '<b>{codice}</b> è diverso: è il codice di 5 caratteri riservato a quell\'azienda, che il servizio crea '
+                + 'al momento dell\'invio e che l\'azienda dovrà scrivere nel modulo di registrazione. Toglilo dal testo e '
+                + 'nessuno saprà di averlo.')
+            + '</div></div>'
             /* La spunta del rinvio. Prima diceva solo "manda anche a chi ha gia
                ricevuto l'invito", che lascia aperta la domanda vera: e se NON
                la spunto, cosa succede a quelle aziende? Ora la risposta c'e',
@@ -18643,7 +19295,7 @@
                     let r;
                     try {
                         r = await Cloud.aziendeInvito({
-                            azione: 'invia', evento: ev.id, canale: canale, forza: forza,
+                            azione: 'invia', evento: ev.id, campagna: _invCampagna, canale: canale, forza: forza,
                             /* Il nome della pagina di iscrizione viaggia col codice:
                                e' l'unico modo che ha il modulo pubblico, che l'evento
                                lo conosce solo per nome, di accorgersi che gli stanno

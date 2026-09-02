@@ -2158,6 +2158,12 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .inv-risp-ogg { font-size: 0.75rem; color: var(--grigio-900); line-height: 1.35; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .inv-risposto { align-self: flex-start; margin-top: 3px; padding: 1px 8px; border: 1px solid var(--verde); border-radius: 999px; background: #fff; font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--verde); cursor: pointer; }
 .inv-risposto:hover { background: var(--verde); color: #fff; }
+/* La stessa pastiglia quando non e' un pulsante ma un'etichetta (la
+   richiesta di contatto arrivata dal modulo: non c'e' niente da
+   aprire). Senza, il puntatore a mano e il colore che si inverte
+   promettono un clic che non fa niente. */
+span.inv-risposto { cursor: default; }
+span.inv-risposto:hover { background: #fff; color: var(--verde); }
 /* riquadro con l'ora dell'ultimo controllo della casella e il pulsante */
 .inv-lettore { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 9px 12px; margin-bottom: 10px; border: 1px solid var(--grigio-200); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; line-height: 1.45; color: var(--grigio-600); }
 .inv-lettore.ko { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
@@ -2713,6 +2719,37 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* Le schede: la vista attiva si stacca dalle altre e si attacca alla tabella,
    come in un raccoglitore. Il numero e' grande perche' e' quello che si
    guarda; l'etichetta sta sotto e serve solo a dire di cosa. */
+/* "Sta anche nell'altro elenco". Sotto il nome dell'azienda, dove ci sono
+   gia' P.IVA e citta': e' un dato dell'anagrafica, non un esito. Diventa
+   rosso solo quando di la' il messaggio e' gia' partito, che e' l'unico
+   caso in cui c'e' qualcosa da decidere adesso. */
+.inv-doppia { display: inline-block; margin-top: 4px; padding: 1px 7px; border: 1px solid var(--grigio-200); border-radius: 4px; background: var(--grigio-050); color: var(--grigio-600); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em; cursor: help; }
+.inv-doppia.ko { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
+
+/* La finestra che chiede cosa fare delle sovrapposizioni. Le tre scelte
+   incolonnate e non in fila: sono frasi, non parole, e in fila la terza
+   finirebbe a capo su meta' degli schermi. */
+.inv-sov-scelte { min-width: 260px; }
+.inv-sov-scelta { display: flex; align-items: flex-start; gap: 7px; padding: 3px 6px; border: 1px solid transparent; border-radius: 5px; font-size: 0.82rem; line-height: 1.35; color: var(--grigio-600); cursor: pointer; }
+.inv-sov-scelta:hover { background: var(--blu-050); }
+.inv-sov-scelta.attiva { border-color: var(--blu-300); background: var(--blu-050); color: var(--blu-900); font-weight: 600; }
+.inv-sov-scelta input { margin-top: 2px; }
+
+/* LE DUE CAMPAGNE. Sopra le viste e visivamente piu' in alto di loro: sono
+   due elenchi diversi, non due modi di guardare lo stesso. Se stessero allo
+   stesso livello delle schede ("Da invitare", "Inviate") si leggerebbero
+   come una sesta e una settima vista, e passare da una campagna all'altra
+   sembrerebbe un filtro invece di un cambio di lista. */
+.inv-campagne { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 18px; background: var(--blu-900); }
+.inv-campagna { padding: 6px 14px; border: 1px solid transparent; border-radius: 999px; background: transparent; font: inherit; font-size: 0.86rem; font-weight: 600; color: #C8DAEA; cursor: pointer; line-height: 1.3; }
+.inv-campagna:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.inv-campagna.attiva { background: #fff; color: var(--blu-900); }
+.inv-campagne .inv-contatti-apri { margin-left: auto; }
+/* L'esito di un'email ordinaria non e' una ricevuta e non deve sembrarlo:
+   stessa forma delle pastiglie della PEC, ma senza il peso del grassetto,
+   perche' li' c'e' un valore legale e qui no. */
+.inv-esito-mail { font-weight: 600; }
+
 .inv-schede { display: flex; gap: 2px; flex-wrap: wrap; padding: 12px 18px 0; background: var(--blu-050); border-bottom: 1px solid var(--grigio-200); }
 .inv-scheda { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 16px; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; background: transparent; font: inherit; color: var(--grigio-600); cursor: pointer; line-height: 1.15; }
 .inv-scheda b { font-size: 1.15rem; color: var(--grigio-900); font-weight: 700; }
@@ -2721,6 +2758,9 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .inv-scheda.attiva { background: #fff; border-color: var(--grigio-200); color: var(--blu-900); box-shadow: 0 -2px 0 var(--blu-700) inset; margin-bottom: -1px; }
 .inv-scheda.attiva b { color: var(--blu-900); }
 .inv-scheda.ko b { color: var(--rosso); }
+/* Le risposte sono l'unica scheda con una buona notizia sopra: e' la
+   sola riga della giornata su cui c'e' da richiamare qualcuno. */
+.inv-scheda.ok b { color: var(--verde); }
 
 .inv-finestra .inv-lettore, .inv-finestra .inv-barra, .inv-finestra .inv-sel-barra, .inv-finestra .ev-imp-esito { margin: 12px 18px 0; }
 .inv-altrove { align-self: center; margin: 0 0 0 4px; }

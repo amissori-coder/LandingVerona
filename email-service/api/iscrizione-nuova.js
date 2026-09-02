@@ -48,6 +48,12 @@ const PDF = require('../lib/pdf-prenotazione');
    tornano qui scritti nel modulo. Sono il filo che lega l'elenco delle
    aziende selezionate a quello degli iscritti. */
 const CODICI = require('../lib/codici-invito');
+/* Le richieste di contatto che arrivano dal pulsante dentro le mail di
+   sponsorizzazione. Stanno qui e non in una funzione loro perche' sono lo
+   stesso genere di endpoint - pubblico, con il freno per indirizzo IP che
+   questo file gia' applica - e riscriverne la guardia altrove vorrebbe dire
+   avere due porte aperte da tenere chiuse invece di una. */
+const CONTATTI = require('../lib/richieste-contatto');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -885,6 +891,17 @@ module.exports = async (req, res) => {
             const v = await CODICI.verifica(admin.firestore(), body.codice, testo(body.evento, 80), testo(body.pagina, 200));
             if (!v.ok) { res.status(200).json({ ok: false, motivo: v.motivo }); return; }
             res.status(200).json({ ok: true, codice: v.codice, azienda: v.ragioneSociale });
+            return;
+        }
+        /* La richiesta di contatto del modulo di sponsorizzazione. Il freno
+           per indirizzo IP qui sopra vale anche per questa azione: e' un
+           modulo aperto, e senza sarebbe un modo comodo per far partire mail
+           a raffica verso i nostri stessi indirizzi. */
+        if (azione === 'richiesta-contatto') {
+            const cred1 = leggiServiceAccount();
+            initAdmin(cred1);
+            const r = await CONTATTI.ricevi(admin.firestore(), body);
+            res.status(r.stato).json(r.corpo);
             return;
         }
         const email = testo(body.email, 200).toLowerCase();

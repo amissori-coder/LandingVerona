@@ -49,6 +49,9 @@ const CANALI = require('./canali-invito');
 const NL = require('./newsletter');
 const LETTORE = require('./lettore-pec');
 const CODICI = require('./codici-invito');
+const CAMPAGNE = require('./campagne-invito');
+const ESITI = require('./esiti-email');
+const CONTATTI = require('./richieste-contatto');
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -66,8 +69,14 @@ function indirizzoValido(e) {
 function chiaveContatto(a) {
     return String((a && a.pec) || (a && a.email) || '').toLowerCase();
 }
-function idDoc(evento, contatto) {
-    return (evento + '~' + String(contatto || '').toLowerCase()).replace(/[\/\\.#$\[\]]/g, '-').slice(0, 400);
+/* L'identificativo della scheda. Sulla campagna predefinita resta quello
+   di sempre, senza suffisso: cambiarlo avrebbe reso irraggiungibili tutti
+   gli inviti gia' spediti, con le loro ricevute e i loro codici. Le
+   campagne nuove aggiungono il proprio, cosi' la stessa azienda puo'
+   stare in due liste con due schede e due esiti separati. */
+function idDoc(evento, contatto, campagna) {
+    return (evento + '~' + String(contatto || '').toLowerCase() + CAMPAGNE.suffissoId(campagna))
+        .replace(/[\/\\.#$\[\]]/g, '-').slice(0, 400);
 }
 
 const STATI = ['da-invitare', 'inviata', 'errore', 'esclusa', 'disiscritta', 'risposta', 'iscritta'];
@@ -198,6 +207,70 @@ async function gettoniStato(db, chi, canale) {
     };
 }
 
+/* Ha risposto? Le tre forme che una risposta puo' prendere, in un posto
+   solo: la risposta a una PEC, il modulo di richiesta contatto, e
+   l'iscrizione all'evento col codice. Sono tre strade diverse per dire la
+   stessa cosa - "questa azienda si e' fatta viva" - e chi guarda l'elenco
+   non deve doverle cercare in tre colonne. */
+function haRisposto(d) {
+    if (!d) return false;
+    if (d.contatto && d.contatto.quando) return true;
+    if (d.ricevute && d.ricevute.risposta && d.ricevute.risposta.quando) return true;
+    return d.stato === 'risposta' || d.stato === 'iscritta';
+}
+
+/* La stessa azienda nell'ALTRA lista dello stesso evento.
+   Serve due volte: quando si importa (per avvisare prima che parta un
+   doppione) e a ogni lettura dell'elenco (perche' l'avviso all'import lo si
+   vede una volta sola, e tre settimane dopo la sovrapposizione c'e' ancora).
+   Torna il minimo per decidere: dov'e', a che punto e', e se le e' gia'
+   partito qualcosa - che e' l'unica cosa che rende la scelta obbligata. */
+function altrove(d) {
+    if (!d) return null;
+    return {
+        campagna: CAMPAGNE.diScheda(d),
+        stato: d.stato || 'da-invitare',
+        inviata: !!(d.invio && d.invio.quando),
+        quando: (d.invio && d.invio.quando) || 0,
+        risposto: haRisposto(d)
+    };
+}
+
+/* Le sovrapposizioni fra questa campagna e le altre, per un elenco di
+   recapiti. Si leggono per identificativo e non con una query: gli
+   identificativi li sappiamo comporre, e getAll a blocchi costa una lettura
+   per scheda invece di rileggere tutto l'evento. */
+async function sovrapposizioni(db, evento, campagna, contatti) {
+    const cercate = [];
+    CAMPAGNE.altre(campagna).forEach(altra => {
+        contatti.forEach(c => cercate.push({ contatto: c, campagna: altra, id: idDoc(evento, c, altra) }));
+    });
+    const trovate = [];
+    for (let i = 0; i < cercate.length; i += 200) {
+        const fetta = cercate.slice(i, i + 200);
+        let doc;
+        try { doc = await db.getAll.apply(db, fetta.map(x => db.collection('aziendeInvito').doc(x.id))); }
+        catch (_) { continue; }
+        doc.forEach((snap, k) => {
+            if (!snap || !snap.exists) return;
+            const v = snap.data() || {};
+            const q = fetta[k];
+            trovate.push({
+                contatto: q.contatto,
+                ragioneSociale: v.ragioneSociale || '',
+                qui: idDoc(evento, q.contatto, campagna),
+                la: q.id,
+                campagna: q.campagna,
+                stato: v.stato || 'da-invitare',
+                inviata: !!(v.invio && v.invio.quando),
+                quando: (v.invio && v.invio.quando) || 0,
+                risposto: haRisposto(v)
+            });
+        });
+    }
+    return trovate;
+}
+
 /* La scheda come la vede l'area riservata: fuori restano solo i campi
    che servono a video, non l'intero documento. */
 function inChiaro(id, d) {
@@ -209,9 +282,20 @@ function inChiaro(id, d) {
         citta: d.citta || '', provincia: d.provincia || '', telefono: d.telefono || '',
         settore: d.settore || '', note: d.note || '',
         stato: d.stato || 'da-invitare', extra: d.extra || {},
+        campagna: CAMPAGNE.diScheda(d),
         codice: d.codice || '',
         iscritti: Array.isArray(d.iscritti) ? d.iscritti.slice(0, 20) : [],
         invio: d.invio || null, errore: d.errore || null, aggiunta: d.aggiunta || null,
+        /* Chi ha premuto il pulsante nella mail e ha lasciato i propri
+           recapiti. E' l'esito che conta su una campagna di
+           sponsorizzazione, e sta sulla scheda perche' la riga lo dica
+           senza dover aprire un altro elenco. */
+        contatto: d.contatto || null,
+        risposto: haRisposto(d),
+        /* Dov'e' la stessa azienda nell'altra lista, se c'e'. Lo riempie
+           l'elenco, che ha gia' davanti tutte le schede dell'evento: qui
+           resta null e non si va a cercarlo scheda per scheda. */
+        anche: null,
         /* Gli esiti letti dalla casella PEC. Si espone il riepilogo, non la
            storia completa: alla tabella servono l'esito, quando e perche',
            e ogni campo in piu' viaggia moltiplicato per tutte le schede. */
@@ -269,6 +353,10 @@ async function esegui(ctx) {
         await (async () => {
         const azione = String(body.azione || 'elenco');
         const evento = testo(body.evento, 80);
+        /* Quale delle due liste si sta guardando. Non riconosciuta = 'invito':
+           l'area riservata vecchia in cache non manda niente, e deve
+           continuare a vedere l'elenco che vedeva prima. */
+        const campagna = CAMPAGNE.normalizza(body.campagna);
 
         /* Chi puo' TOCCARE l'elenco e spedire: amministratore, equity e founding
            partner. Consultarlo lo puo' chiunque veda la sezione Eventi. */
@@ -349,9 +437,100 @@ async function esegui(ctx) {
         if (azione === 'elenco') {
             const snap = await db.collection('aziendeInvito').where('evento', '==', evento).limit(MAX_AZIENDE_EVENTO).get();
             const aziende = [];
-            snap.forEach(d => aziende.push(inChiaro(d.id, d.data())));
+            /* Le schede delle ALTRE campagne non si buttano via: servono a
+               dire, riga per riga, "questa azienda sta anche nell'altro
+               elenco". Sono gia' in mano - la lettura e' per evento, non per
+               campagna - quindi costa un giro di ciclo e nessuna lettura in
+               piu'. */
+            const fuoriCampagna = {};
+            /* Il filtro sulla campagna si fa QUI e non nel where(): le schede
+               scritte prima delle campagne non hanno il campo, e un
+               where('campagna','==','invito') non troverebbe proprio quelle. */
+            snap.forEach(d => {
+                const v = d.data() || {};
+                if (CAMPAGNE.diScheda(v) === campagna) { aziende.push(inChiaro(d.id, v)); return; }
+                const k = chiaveContatto(v);
+                if (k) fuoriCampagna[k] = altrove(v);
+            });
+            aziende.forEach(a => {
+                const k = String(a.pec || a.email || '').toLowerCase();
+                if (k && fuoriCampagna[k]) a.anche = fuoriCampagna[k];
+            });
             aziende.sort((a, b) => String(a.ragioneSociale).localeCompare(String(b.ragioneSociale), 'it'));
             res.status(200).json({ ok: true, aziende: aziende, aggiornato: Date.now() });
+            return;
+        }
+
+        /* Chi ha ricevuto, aperto, cliccato: solo per il canale ordinario.
+           Sulla PEC la domanda non si pone - li' l'esito e' la ricevuta del
+           gestore, che vale in giudizio, e non un pixel dentro un'immagine.
+
+           Si chiede una lettura sola per evento e campagna, non una per
+           azienda: la quota di Brevo e' di 300 chiamate l'ora per tutto il
+           servizio, e una colonna che si aggiorna riga per riga la
+           esaurirebbe da sola in un pomeriggio. */
+        if (azione === 'esiti-email') {
+            if (!puoGestire) { negato(); return; }
+            const snap = await db.collection('aziendeInvito').where('evento', '==', evento).limit(MAX_AZIENDE_EVENTO).get();
+            const indirizzi = [];
+            let dal = 0;
+            snap.forEach(d => {
+                const v = d.data() || {};
+                if (CAMPAGNE.diScheda(v) !== campagna) return;
+                if (!v.invio || v.invio.canale !== 'email') return;
+                const ind = String(v.invio.destinatario || v.email || '').trim().toLowerCase();
+                if (!ind) return;
+                indirizzi.push(ind);
+                const q = Number(v.invio.quando) || 0;
+                if (q && (!dal || q < dal)) dal = q;
+            });
+            if (!indirizzi.length) {
+                res.status(200).json({ ok: true, stato: 'nessuno', esiti: {}, msg: 'Nessun invio via email ordinaria in questa campagna.' });
+                return;
+            }
+            const r = await ESITI.leggi(db, {
+                chiave: evento + '~' + campagna, indirizzi: indirizzi, dal: dal || Date.now()
+            });
+            res.status(200).json({
+                ok: true, stato: r.stato, aggiornato: r.aggiornato || 0,
+                esiti: r.esiti || {}, msg: r.msg || '', guardati: indirizzi.length
+            });
+            return;
+        }
+
+        /* A chi arrivano le richieste di contatto di questa campagna, e
+           quelle gia' arrivate. Sono la stessa schermata, quindi una
+           chiamata sola: chiederle separate vorrebbe dire due giri di rete
+           per aprire una finestra. */
+        if (azione === 'contatti') {
+            if (!puoGestire) { negato(); return; }
+            res.status(200).json({
+                ok: true,
+                destinatari: await CONTATTI.destinatari(db, evento, campagna),
+                richieste: await CONTATTI.elenco(db, evento, campagna, body.quante),
+                postaPronta: CONTATTI.configurato(),
+                max: CONTATTI.MAX_DESTINATARI
+            });
+            return;
+        }
+
+        if (azione === 'contatti-salva') {
+            if (!puoGestire) { negato(); return; }
+            const d = (body.destinatari && typeof body.destinatari === 'object') ? body.destinatari : {};
+            /* Un elenco vuoto e' una scelta legittima (si sospende la
+                  campagna), ma va detto: senza destinatari le richieste si
+                  registrano e basta, e nessuno riceve niente. */
+            /* Chi ha cambiato i destinatari resta scritto, col collaboratore
+               vero accanto se a operare e' stato uno di loro: e' la stessa
+               regola dei timbri sulle schede. */
+            const salvati = await CONTATTI.salvaDestinatari(db, evento, campagna, d,
+                email + (collab ? ' (' + collab + ')' : ''));
+            res.status(200).json({
+                ok: true, destinatari: salvati,
+                avviso: (!salvati.a.length && !salvati.cc.length)
+                    ? 'Nessun destinatario: le richieste verranno registrate qui, ma non arriveranno per email a nessuno.'
+                    : ''
+            });
             return;
         }
 
@@ -425,9 +604,14 @@ async function esegui(ctx) {
             let gia = 0;
             try { gia = (await db.collection('aziendeInvito').where('evento', '==', evento).count().get()).data().count || 0; }
             catch (_) { gia = 0; }
+            /* Il tetto vale sull'evento intero, non sulla singola campagna:
+               e' li' che si misura quanto pesa la lettura dell'elenco, che
+               legge tutte le schede dell'evento e filtra dopo. */
 
             let importate = 0, senzaRecapito = 0, doppie = 0, oltreIlLimite = 0, senzaDenominazione = 0;
             const viste = {};
+            // i recapiti finiti in questa lista: servono per il controllo incrociato
+            const contattiVisti = [];
             let batch = db.batch(), nel = 0;
             const nuoviId = [];
             for (let r = 1; r < righe.length; r++) {
@@ -456,13 +640,14 @@ async function esegui(ctx) {
                     if (!et || !val) continue;
                     extra[et.slice(0, 60)] = val.slice(0, 300);
                 }
-                const id = idDoc(evento, contatto);
+                const id = idDoc(evento, contatto, campagna);
                 nuoviId.push(id);
+                contattiVisti.push(contatto);
                 /* merge: ricaricare lo stesso elenco aggiorna i dati anagrafici
                    e NON tocca stato ed esito dell'invio gia' fatto. Lo stato
                    iniziale si scrive solo alla creazione della scheda. */
                 batch.set(db.collection('aziendeInvito').doc(id), {
-                    evento: evento, pec: pecOk, email: mailOk,
+                    evento: evento, campagna: campagna, pec: pecOk, email: mailOk,
                     ragioneSociale: cella(riga, iRag) || contatto.split('@')[0],
                     piva: cella(riga, col('piva')), cf: cella(riga, col('cf')),
                     referente: cella(riga, col('referente')), citta: cella(riga, col('citta')),
@@ -492,10 +677,27 @@ async function esegui(ctx) {
                 if (n) await b.commit();
             }
 
+            /* IL CONTROLLO INCROCIATO. La stessa azienda in tutte e due le
+               liste dello stesso evento vuol dire due messaggi diversi allo
+               stesso indirizzo, a poche settimane di distanza: si invita a
+               venire chi si sta gia' chiedendo di pagare, o viceversa. Non lo
+               si vieta - a volte e' voluto - ma va detto SUBITO, mentre chi ha
+               caricato il file e' ancora davanti allo schermo e sa perche'
+               l'ha caricato. Fra tre settimane sarebbe una scoperta.
+
+               Si dice e basta: la scelta di che cosa togliere resta a chi
+               guarda, perche' e' l'unico a sapere quale delle due
+               conversazioni conta di piu' con quell'azienda. */
+            let sovrapposte = [];
+            try { sovrapposte = await sovrapposizioni(db, evento, campagna, contattiVisti); }
+            catch (e) { console.error('Sovrapposizioni non verificate:', String((e && e.message) || e).slice(0, 200)); }
+
             res.status(200).json({
                 ok: true, lette: righe.length - 1, importate: importate, nuove: nuove,
                 aggiornate: importate - nuove, senzaRecapito: senzaRecapito, doppie: doppie,
-                oltreIlLimite: oltreIlLimite, senzaDenominazione: senzaDenominazione
+                oltreIlLimite: oltreIlLimite, senzaDenominazione: senzaDenominazione,
+                sovrapposte: sovrapposte.slice(0, 500),
+                sovrapposteTotali: sovrapposte.length
             });
             return;
         }
@@ -511,13 +713,13 @@ async function esegui(ctx) {
             const rag = testo(a.ragioneSociale, 200);
             if (!rag) { res.status(400).json({ ok: false, msg: 'Ragione sociale mancante.' }); return; }
             const campi = {
-                evento: evento, pec: pec, email: mail, ragioneSociale: rag,
+                evento: evento, campagna: campagna, pec: pec, email: mail, ragioneSociale: rag,
                 piva: testo(a.piva, 30), cf: testo(a.cf, 30), referente: testo(a.referente, 120),
                 citta: testo(a.citta, 80), provincia: testo(a.provincia, 4), telefono: testo(a.telefono, 40),
                 settore: testo(a.settore, 120), note: testo(a.note, 500),
                 aggiornata: { quando: Date.now(), da: email, collab: collab }
             };
-            const id = idDoc(evento, chiaveContatto(campi));
+            const id = idDoc(evento, chiaveContatto(campi), campagna);
             const rif = db.collection('aziendeInvito').doc(id);
             const prima = await rif.get();
             if (!prima.exists) {
@@ -545,7 +747,14 @@ async function esegui(ctx) {
             }
             await rif.set(campi, { merge: true });
             const dopo = await rif.get();
-            res.status(200).json({ ok: true, azienda: inChiaro(id, dopo.data()) });
+            /* Stesso controllo dell'importazione: una scheda aggiunta a mano
+               puo' sovrapporsi all'altra lista esattamente come una riga di
+               foglio, e chi la sta scrivendo e' il momento giusto per
+               dirglielo. */
+            let sovr = [];
+            try { sovr = await sovrapposizioni(db, evento, campagna, [chiaveContatto(campi)]); }
+            catch (_) { sovr = []; }
+            res.status(200).json({ ok: true, azienda: inChiaro(id, dopo.data()), sovrapposte: sovr });
             return;
         }
 
@@ -612,7 +821,7 @@ async function esegui(ctx) {
             if (!oggetto) { res.status(400).json({ ok: false, msg: 'Oggetto dell\'invito mancante.' }); return; }
             if (!html.trim()) { res.status(400).json({ ok: false, msg: 'Testo dell\'invito mancante.' }); return; }
             const forza = body.forza === true;
-            const campagna = ('invito-' + evento).slice(0, 60);
+            const etichettaInvio = CAMPAGNE.etichetta(campagna, evento);
 
             /* Chi ha gia' chiesto di non ricevere piu' nulla non lo si tocca,
                qualunque sia la lista da cui e' rispuntato. Si legge una volta
@@ -657,6 +866,10 @@ async function esegui(ctx) {
                 if (!snap.exists) { saltate++; continue; }
                 const a = snap.data() || {};
                 if (String(a.evento || '') !== evento) { saltate++; continue; }
+                /* Una scheda dell'altra campagna non parte da qui, nemmeno se
+                   il suo identificativo arriva per sbaglio: riceverebbe il
+                   testo sbagliato, e quello e' un danno che non si ritira. */
+                if (CAMPAGNE.diScheda(a) !== campagna) { saltate++; continue; }
                 if (a.stato === 'esclusa' || a.stato === 'disiscritta') { saltate++; continue; }
                 if (a.invio && a.invio.quando && !forza) { saltate++; continue; }
                 const dest = CANALI.destinatarioDi(canale, a);
@@ -682,7 +895,8 @@ async function esegui(ctx) {
                 if (!codice) {
                     try {
                         codice = await CODICI.assegna(db, {
-                            scheda: id, evento: evento, ragioneSociale: a.ragioneSociale,
+                            scheda: id, evento: evento, campagna: campagna,
+                            ragioneSociale: a.ragioneSociale,
                             pagina: testo(body.pagina, 200)
                         });
                         await rif.set({ codice: codice }, { merge: true });
@@ -704,7 +918,7 @@ async function esegui(ctx) {
                         await LETTORE.registraRiferimento(db, riferimento, { scheda: id, evento: evento, destinatario: dest });
                     }
                     const info = await trans.sendMail(CANALI.messaggio(canale, a, { oggetto: oggetto, html: html }, {
-                        campagna: campagna, rispondiA: email, riferimento: riferimento
+                        campagna: etichettaInvio, rispondiA: email, riferimento: riferimento
                     }));
                     const invio = {
                         quando: Date.now(), da: email, collab: collab, canale: canale, destinatario: dest,

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Pagina di servizio raggiunta dal pulsante dentro le nostre mail:
+         non va indicizzata e non e' nella sitemap. -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>Richiesta di contatto | Next Generation Business</title>
+    <style>
+        :root {
+            --navy-dark: #0A2844; --navy: #164068; --navy-light: #2A5A85;
+            --testo: #1E293B; --tenue: #475569; --bordo: #E2E8F0;
+            --sfondo: #F1F5F9; --chiaro: #F4F8FB; --rosso: #B3261E; --verde: #1E7F4F;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; background: var(--sfondo); color: var(--testo); line-height: 1.6; }
+        .testata { background: var(--navy-dark); padding: 26px 20px; }
+        .testata-dentro { max-width: 680px; margin: 0 auto; }
+        .testata img { display: block; width: 140px; height: auto; }
+        .testata h1 { color: #fff; font-size: 1.6rem; letter-spacing: -0.3px; margin-top: 18px; }
+        .testata p { color: #C8DAEA; font-size: 1rem; margin-top: 6px; }
+        main { max-width: 680px; margin: 0 auto; padding: 24px 20px 60px; }
+        .scheda { background: #fff; border: 1px solid var(--bordo); border-radius: 10px; padding: 22px; margin-top: 18px; }
+        .intro { color: var(--tenue); margin-bottom: 18px; }
+        .riconosciuta { background: var(--chiaro); border: 1px solid var(--bordo); border-left: 3px solid var(--navy-light); border-radius: 6px; padding: 12px 16px; font-size: 0.95rem; margin-bottom: 18px; }
+        .riconosciuta b { color: var(--navy-dark); }
+        .griglia { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+        .campo { display: flex; flex-direction: column; gap: 4px; }
+        .campo.largo { grid-column: 1 / -1; }
+        .campo label { font-size: 0.8rem; font-weight: bold; color: var(--tenue); }
+        .campo input, .campo textarea { font: inherit; font-size: 16px; padding: 9px 11px; border: 1px solid var(--bordo); border-radius: 6px; width: 100%; background: #fff; color: var(--testo); }
+        .campo textarea { resize: vertical; min-height: 84px; }
+        .campo input:focus, .campo textarea:focus { outline: 2px solid var(--navy-light); outline-offset: 1px; }
+        .campo input:invalid:not(:placeholder-shown) { border-color: var(--rosso); }
+        .hint { font-size: 0.85rem; color: var(--tenue); margin-top: 12px; }
+        .azioni { margin-top: 22px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        .invia { font: inherit; font-size: 1.05rem; font-weight: bold; letter-spacing: 0.3px; color: #fff; background: var(--navy); border: none; border-radius: 6px; padding: 14px 34px; cursor: pointer; }
+        .invia:hover { background: var(--navy-dark); }
+        .invia[disabled] { opacity: 0.6; cursor: default; }
+        .esito { min-height: 22px; font-size: 0.92rem; text-align: center; }
+        .esito.ko { color: var(--rosso); font-weight: bold; }
+        .fatto { text-align: center; padding: 26px 10px; }
+        .fatto .segno { font-size: 2.4rem; color: var(--verde); }
+        .fatto h2 { color: var(--navy-dark); margin: 8px 0 6px; }
+        .fatto p { color: var(--tenue); }
+        .piede { max-width: 680px; margin: 0 auto; padding: 0 20px 40px; text-align: center; font-size: 0.8rem; color: #94A3B8; }
+        .piede a { color: var(--tenue); }
+        @media (max-width: 560px) { .griglia { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <header class="testata">
+        <div class="testata-dentro">
+            <a href="https://nextgenerationbusiness.it"><img src="/assets/logo-revilaw-bianco.png" alt="Revilaw - Revisione legale"></a>
+            <h1>Richiesta di contatto</h1>
+            <p id="sotto-titolo">Next Generation Business</p>
+        </div>
+    </header>
+    <main>
+        <div class="scheda" id="contenuto">
+            <p class="intro">Lasciateci i Vostri recapiti: sarete ricontattati quanto prima da un nostro referente.</p>
+            <div class="riconosciuta" id="riconosciuta" hidden></div>
+            <form id="modulo" novalidate>
+                <div class="griglia">
+                    <div class="campo">
+                        <label for="nome">Nome *</label>
+                        <input type="text" id="nome" name="nome" autocomplete="given-name" maxlength="80" required placeholder=" ">
+                    </div>
+                    <div class="campo">
+                        <label for="cognome">Cognome *</label>
+                        <input type="text" id="cognome" name="cognome" autocomplete="family-name" maxlength="80" required placeholder=" ">
+                    </div>
+                    <div class="campo largo">
+                        <label for="azienda">Azienda *</label>
+                        <input type="text" id="azienda" name="azienda" autocomplete="organization" maxlength="200" required placeholder=" ">
+                    </div>
+                    <div class="campo">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email" autocomplete="email" maxlength="200" required placeholder=" ">
+                    </div>
+                    <div class="campo">
+                        <label for="telefono">Telefono *</label>
+                        <input type="tel" id="telefono" name="telefono" autocomplete="tel" maxlength="40" required placeholder=" ">
+                    </div>
+                    <div class="campo largo">
+                        <label for="messaggio">Messaggio (facoltativo)</label>
+                        <textarea id="messaggio" name="messaggio" maxlength="2000" rows="4"></textarea>
+                    </div>
+                </div>
+                <p class="hint">I campi con l'asterisco sono obbligatori. I dati vengono trattati secondo l'<a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">informativa privacy</a>.</p>
+                <div class="azioni">
+                    <button type="submit" class="invia" id="invia">Invia la richiesta</button>
+                    <div class="esito" id="esito"></div>
+                </div>
+            </form>
+        </div>
+    </main>
+    <footer class="piede">
+        <p>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235</p>
+        <p><a href="https://www.iubenda.com/privacy-policy/40996386" target="_blank" rel="noopener">Informativa privacy</a>
+            &nbsp;&middot;&nbsp; <a href="https://nextgenerationbusiness.it">nextgenerationbusiness.it</a></p>
+    </footer>
+    <script>
+        (function () {
+            'use strict';
+            /* Stesso endpoint dei moduli del sito: cambia solo l'azione nel
+               corpo. Vedi email-service/api/iscrizione-nuova.js. */
+            var API = 'https://revilaw-email.vercel.app/api/iscrizione-nuova';
+
+            var modulo = document.getElementById('modulo');
+            var bottone = document.getElementById('invia');
+            var esito = document.getElementById('esito');
+            var box = document.getElementById('contenuto');
+
+            function esc(s) {
+                return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+                });
+            }
+
+            /* Il codice riservato all'azienda viaggia nell'indirizzo del
+               pulsante (?c=ABCDE). Non e' un campo del modulo: chi arriva da
+               una nostra mail non deve ricopiare niente, e chi arriva da
+               un'altra strada compila lo stesso e la richiesta vale
+               ugualmente. Si accettano anche "codice" e "cod" perche' un
+               indirizzo scritto a mano prima o poi arriva in una di quelle
+               forme. */
+            var q = new URLSearchParams(location.search);
+            var codice = String(q.get('c') || q.get('codice') || q.get('cod') || '')
+                .toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 5);
+            var evento = String(q.get('e') || q.get('evento') || '').slice(0, 80);
+            var eventoNome = String(q.get('n') || '').slice(0, 120);
+            var campagna = String(q.get('k') || 'sponsor').slice(0, 40);
+
+            if (eventoNome) {
+                document.getElementById('sotto-titolo').textContent = eventoNome;
+            }
+            if (codice) {
+                var r = document.getElementById('riconosciuta');
+                r.innerHTML = 'Questa richiesta arriva dal nostro invito con codice <b>' + esc(codice) + '</b>. '
+                    + 'Il codice ci serve solo a ricollegare la Vostra richiesta al messaggio che avete ricevuto.';
+                r.hidden = false;
+            }
+
+            function vuota(id) { return !String(document.getElementById(id).value || '').trim(); }
+
+            modulo.addEventListener('submit', function (ev) {
+                ev.preventDefault();
+                esito.className = 'esito';
+                esito.textContent = '';
+
+                /* Il controllo si fa qui e non solo con "required": cosi' il
+                   messaggio e' uno solo, in italiano, e dice quale campo
+                   manca invece di far comparire cinque fumetti del browser. */
+                var mancanti = ['nome', 'cognome', 'azienda', 'email', 'telefono'].filter(vuota);
+                if (mancanti.length) {
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Compilate anche: ' + mancanti.join(', ') + '.';
+                    document.getElementById(mancanti[0]).focus();
+                    return;
+                }
+                var mail = String(document.getElementById('email').value || '').trim();
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) {
+                    esito.className = 'esito ko';
+                    esito.textContent = 'L\'indirizzo email non sembra valido.';
+                    document.getElementById('email').focus();
+                    return;
+                }
+                var tel = String(document.getElementById('telefono').value || '').replace(/[^0-9]/g, '');
+                if (tel.length < 6) {
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Indicate un numero di telefono a cui possiamo richiamarvi.';
+                    document.getElementById('telefono').focus();
+                    return;
+                }
+
+                bottone.disabled = true;
+                esito.textContent = 'Invio in corso...';
+
+                fetch(API, {
+                    method: 'POST',
+                    /* text/plain e non application/json: cosi' la richiesta
+                       resta "semplice" e il browser non manda la preflight,
+                       che e' un giro in piu' e una cosa in piu' che puo'
+                       rompersi. Il servizio il corpo lo interpreta comunque. */
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify({
+                        azione: 'richiesta-contatto',
+                        nome: document.getElementById('nome').value,
+                        cognome: document.getElementById('cognome').value,
+                        azienda: document.getElementById('azienda').value,
+                        email: mail,
+                        telefono: document.getElementById('telefono').value,
+                        messaggio: document.getElementById('messaggio').value,
+                        codice: codice, evento: evento, eventoNome: eventoNome,
+                        campagna: campagna, origine: location.href.slice(0, 200)
+                    })
+                }).then(function (r) {
+                    return r.json().catch(function () { return {}; });
+                }).then(function (r) {
+                    if (!r || !r.ok) {
+                        bottone.disabled = false;
+                        esito.className = 'esito ko';
+                        esito.textContent = (r && r.msg) || 'Non siamo riusciti a inviare la richiesta: riprovate fra poco.';
+                        return;
+                    }
+                    box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
+                        + '<h2>Richiesta inviata</h2>'
+                        + '<p>Grazie: sarete contattati quanto prima da un nostro referente.'
+                        + (r.confermato ? '<br>Vi abbiamo inviato una mail di conferma.' : '')
+                        + '</p></div>';
+                }).catch(function () {
+                    bottone.disabled = false;
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Servizio non raggiungibile: riprovate fra poco.';
+                });
+            });
+        }());
+    </script>
+</body>
+</html>
