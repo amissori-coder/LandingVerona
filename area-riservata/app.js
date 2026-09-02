@@ -19025,25 +19025,38 @@
 
         /* Il quadro dei destinatari e' in cima e non in fondo: se e' vuoto,
            tutto quello che c'e' sotto e' arrivato senza che nessuno lo
-           sapesse, ed e' la prima cosa da vedere aprendo. */
-        const vuoto = !d.a.length && !d.cc.length;
-        const testa = bloccoDestinatari(d, { pre: 'rc' })
-            + '<p class="hint" style="margin:-6px 0 10px;">Al massimo ' + max + ' indirizzi in tutto fra i due campi. '
-            + 'Chi è già fra i destinatari non viene messo anche in copia. '
-            + 'Rispondendo alla mail si scrive direttamente a chi ha compilato il modulo.'
-            + (dati.postaPronta ? '' : '<br><span class="ev-ko">Il server di posta non è configurato sul servizio: '
-                + 'le richieste vengono registrate qui, ma non parte nessuna mail.</span>')
-            + (vuoto ? '<br><span class="ev-ko">Nessun destinatario impostato: le richieste si fermano in questo elenco '
-                + 'e non arrivano per email a nessuno.</span>' : '')
-            + '</p>'
-            + '<div class="modale-azioni" style="justify-content:flex-start;margin:0 0 16px;">'
-            + '<button class="btn btn-primary btn-sm" id="rc-salva">Salva i destinatari</button>'
-            + '<span id="rc-esito" class="ev-imp-esito"></span></div>';
+           sapesse, ed e' la prima cosa da vedere aprendo.
 
-        const riga = x => '<tr>'
+           Sta dentro un riquadro suo, con il titolo, uguale a quello della
+           finestra dell'invio: prima era una fila di caselle e frasi senza
+           un contorno, e non si capiva dove finisse la configurazione e
+           dove cominciasse l'elenco. */
+        const vuoto = !d.a.length && !d.cc.length;
+        const testa = '<div class="campo inv-dest-riquadro"><label>A chi arrivano le richieste</label>'
+            + '<div class="hint inv-dest-nota">Chi preme il pulsante nel messaggio lascia i propri recapiti: '
+            + 'la richiesta arriva a questi indirizzi. Al massimo ' + max + ' in tutto fra i due campi; '
+            + 'chi è già fra i destinatari non viene messo anche in copia. '
+            + 'Rispondendo alla mail si scrive direttamente a chi ha compilato il modulo.</div>'
+            + bloccoDestinatari(d, { pre: 'rc' })
+            + (dati.postaPronta === false
+                ? '<div class="ev-ko inv-dest-nota">Il server di posta non è configurato sul servizio: '
+                + 'le richieste vengono registrate qui, ma non parte nessuna mail.</div>' : '')
+            + (vuoto
+                ? '<div class="ev-ko inv-dest-nota"><b>Nessun destinatario impostato:</b> le richieste si fermano '
+                + 'in questo elenco e non arrivano per email a nessuno.</div>' : '')
+            + '<div class="inv-dest-azioni">'
+            + '<button class="btn btn-primary btn-sm" id="rc-salva">Salva i destinatari</button>'
+            + '<span id="rc-esito" class="ev-imp-esito"></span></div>'
+            + '</div>';
+
+        const riga = x => '<tr data-id="' + esc(x.id) + '">'
             + '<td data-label="Quando"><span class="hint">' + esc(fmtDataOra(x.quando)) + '</span></td>'
-            + '<td data-label="Chi"><b>' + esc(x.nome + ' ' + x.cognome) + '</b>'
-            + (x.azienda ? '<div class="hint">' + esc(x.azienda) + '</div>' : '')
+            + '<td data-label="Chi"><b>' + esc((x.nome + ' ' + x.cognome).trim()) + '</b>'
+            /* L'azienda solo se dice qualcosa in piu' del nome: chi scrive
+               il proprio nome anche nella casella "azienda" si ritrovava la
+               stessa riga scritta due volte, una sotto l'altra. */
+            + (x.azienda && x.azienda.trim().toLowerCase() !== (x.nome + ' ' + x.cognome).trim().toLowerCase()
+                ? '<div class="hint">' + esc(x.azienda) + '</div>' : '')
             + (x.codice ? '<div class="inv-codice" title="Codice dell\'azienda a cui avevamo scritto">' + esc(x.codice) + '</div>' : '') + '</td>'
             + '<td data-label="Recapiti"><div class="inv-rec">' + esc(x.email) + '</div>'
             + (x.telefono ? '<div class="inv-rec">' + esc(x.telefono) + '</div>' : '') + '</td>'
@@ -19055,16 +19068,59 @@
                 ? '<span class="hint">inoltrata a ' + x.avvisati + '</span>'
                 : '<span class="ev-ko">non inoltrata</span>')
             + (x.confermato ? '<div class="hint">conferma inviata</div>' : '<div class="ev-ko">senza conferma</div>')
-            + '</td></tr>';
+            + '</td>'
+            + '<td class="inv-azioni-riga">'
+            + '<button class="btn btn-sm btn-ghost rc-canc" data-id="' + esc(x.id) + '">Elimina</button></td></tr>';
 
         const tabella = richieste.length
-            ? '<div class="tabella-wrap"><table class="dati"><thead><tr>'
-            + '<th>Quando</th><th>Chi</th><th>Recapiti</th><th>Messaggio</th><th>Avviso</th>'
+            ? '<div class="tabella-wrap"><table class="dati inv-rc-tab"><thead><tr>'
+            + '<th>Quando</th><th>Chi</th><th>Recapiti</th><th>Messaggio</th><th>Avviso</th><th></th>'
             + '</tr></thead><tbody>' + richieste.map(riga).join('') + '</tbody></table></div>'
             : '<p class="hint">Nessuna richiesta di contatto ricevuta finora.</p>';
 
-        box.innerHTML = testa + '<h3 style="margin:6px 0 8px;">Richieste ricevute (' + richieste.length + ')</h3>' + tabella;
+        box.innerHTML = testa
+            + '<h3 class="inv-rc-titolo">Richieste ricevute (' + richieste.length + ')</h3>'
+            + '<div id="rc-esito-tab" class="ev-imp-esito"></div>' + tabella;
         collegaDestinatari('rc');
+
+        /* Togliere una richiesta. Si chiede conferma perche' non si disfa, e
+           si dice cosa succede anche alla riga dell'azienda: chi cancella una
+           prova non si aspetta che cambi anche l'elenco delle aziende, e
+           invece e' giusto che cambi. */
+        box.querySelectorAll('.rc-canc').forEach(b => {
+            b.addEventListener('click', () => {
+                const x = richieste.find(r => r.id === b.dataset.id);
+                if (!x) return;
+                const chi = (x.nome + ' ' + x.cognome).trim() || x.email;
+                if (!confirm('Elimino la richiesta di ' + chi + '?'
+                    + (x.scheda ? '\n\nL\'azienda a cui era collegata torna fra le contattate, senza risposta.' : '')
+                    + '\n\nNon si può annullare.')) return;
+                b.disabled = true; b.textContent = 'Elimino...';
+                const e = document.getElementById('rc-esito-tab');
+                Cloud.aziendeInvito({ azione: 'richieste-elimina', evento: ev.id, campagna: _invCampagna, ids: [x.id] })
+                    .then(r => {
+                        if (!r.ok) {
+                            b.disabled = false; b.textContent = 'Elimina';
+                            if (e) e.innerHTML = '<span class="ev-ko">' + esc(r.msg || 'Eliminazione non riuscita.') + '</span>';
+                            return;
+                        }
+                        try { Audit.registra(Auth.utenteCorrente, 'Evento: richiesta di contatto eliminata', 'sistema', ev.id, null, chi); } catch (er) { }
+                        /* Se la scheda dell'azienda e' cambiata, l'elenco in
+                           memoria non lo sa: si butta, cosi' alla riapertura
+                           si rilegge invece di mostrare un "ha risposto" che
+                           non c'e' piu'. */
+                        if (r.schede) delete _invCache[invChiave(ev)];
+                        disegnaContatti(ev, Object.assign({}, dati, {
+                            richieste: richieste.filter(y => y.id !== x.id)
+                        }));
+                        toast('Richiesta eliminata.', 'verde');
+                    })
+                    .catch(() => {
+                        b.disabled = false; b.textContent = 'Elimina';
+                        if (e) e.innerHTML = '<span class="ev-ko">Servizio non raggiungibile.</span>';
+                    });
+            });
+        });
 
         document.getElementById('rc-salva').addEventListener('click', () => {
             const b = document.getElementById('rc-salva');
