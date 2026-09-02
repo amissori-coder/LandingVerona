@@ -98,7 +98,9 @@ COSA NON C'E' (e va tenuto altrove)
     Se quei parametri mancassero, gli account si ricreano lo stesso ma va fatto
     partire un reset password per ciascuno dei ${d.quantiUtenti}.
  5. Ruoli e abilitazioni non stanno in Authentication ma nella collezione
-    "utenti" di Firestore (campi ruolo e attivo): arrivano con il punto 3.
+    "utenti" di Firestore (campi ruolo e attivo; per i collaboratori anche
+    collaboratoreDi, l'utente a nome del quale lavorano): arrivano con il
+    punto 3.
     Quindi i punti 3 e 4 vanno fatti ENTRAMBI: il 4 crea chi puo' entrare, il 3
     stabilisce cosa ciascuno puo' fare una volta dentro.
 

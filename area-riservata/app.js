@@ -254,6 +254,7 @@
         newsletterConfig: 'rvArea.newsletterConfig',     // chi e abilitato alla sezione Newsletter
         richieste: 'rvArea.richieste',             // richieste di correzione dati (con gli scambi di messaggi)
         rating: 'rvArea.rating',                   // verifiche del merito creditizio (rating bancario)
+        controlliQualita: 'rvArea.controlliQualita', // schede dei controlli di qualita (una per incarico)
         ruoli: 'rvArea.ruoli',
         impostazioni: 'rvArea.impostazioni'
     };
@@ -267,6 +268,7 @@
         { id: 'fatturazione', nome: 'Fatturazione' },
         { id: 'report', nome: 'Report compensi' },
         { id: 'rating', nome: 'Verifica merito creditizio' },
+        { id: 'controlloQualita', nome: 'Controlli qualità' },
         { id: 'comunicazioni', nome: 'Comunicazione teams di revisione' },
         { id: 'sondaggi', nome: 'Sondaggi' },
         { id: 'registro', nome: 'Registro modifiche' }
@@ -307,6 +309,25 @@
         [RUOLI_SOND.risultati]: 'Sondaggio (sola visualizzazione)'
     };
     function eRuoloSoloSondaggio(ruolo) { return ruolo === RUOLI_SOND.compila || ruolo === RUOLI_SOND.risultati; }
+    /* Profilo "Collaboratore": non e' un ruolo con permessi propri, ma un accesso che
+       EREDITA tutto da un altro utente (il campo utente.collaboratoreDi, scelto
+       dall'amministratore nella sezione Utenti). Il collaboratore lavora a nome del suo
+       utente di riferimento: le sue modifiche compaiono a tutti con il nome di
+       quest'ultimo, e solo l'utente di riferimento vede anche quale collaboratore le ha
+       fatte. L'id e' riservato come quelli del sondaggio: non sta in archivio/ruoli e non
+       si configura da Ruoli e permessi. */
+    const RUOLO_COLLABORATORE = 'collaboratore';
+    const NOME_RUOLO_COLLABORATORE = 'Collaboratore';
+    function eRuoloCollaboratore(ruolo) { return ruolo === RUOLO_COLLABORATORE; }
+    /* Un utente puo' fare da riferimento a un collaboratore solo se e' un utente pieno
+       dello staff, attivo: non un altro collaboratore (niente catene), non un invitato
+       "solo sondaggio" (il server gli nega gli archivi, il collaboratore non vedrebbe
+       nulla) e nemmeno l'amministratore o il titolare: i poteri su utenti, ruoli e dati
+       non si delegano a nessuno. Stessa regola nelle regole Firestore e nel servizio email. */
+    function puoAvereCollaboratori(u) {
+        return !!u && u.attivo !== false && !eRuoloCollaboratore(u.ruolo) && !eRuoloSoloSondaggio(u.ruolo)
+            && u.ruolo !== 'admin' && String(u.email || '').toLowerCase() !== PROPRIETARIO;
+    }
 
     const Store = {
         leggi(chiave, def) {
@@ -349,10 +370,12 @@
                 RV_ROSTER.team.forEach(n => { mappa[n] = { team: true }; });
                 RV_ROSTER.qualita.forEach(n => { mappa[n] = { ...(mappa[n] || {}), qualita: true, team: true }; });
                 RV_ROSTER.respIncarico.forEach(n => { mappa[n] = { ...(mappa[n] || {}), respIncarico: true, team: true }; });
+                const noti = (typeof RV_EMAIL_PERSONE !== 'undefined' && RV_EMAIL_PERSONE) || {};
                 const persone = Object.keys(mappa).sort().map(n => ({
                     id: uid(), nome: n,
                     qualita: !!mappa[n].qualita, respIncarico: !!mappa[n].respIncarico,
-                    team: true, attivo: true
+                    team: true, attivo: true,
+                    email: (noti[n] && noti[n].email) || '', nomeProprio: (noti[n] && noti[n].nomeProprio) || ''
                 }));
                 Store.scrivi(CHIAVI.persone, persone);
             }
@@ -735,6 +758,7 @@
         newsletterConfig: 'accessi alla newsletter',
         richieste: 'richieste di correzione dati',
         rating: 'verifiche di rating bancario',
+        controlliQualita: 'controlli di qualità',
         ruoli: 'definizione dei ruoli'
     };
     function nomeArchivio(doc) {
@@ -861,6 +885,25 @@
         // migrazione una tantum: dai vecchi record con "nomeCompleto" ai nuovi
         // campi (cognome = nome; nomeProprio = nomeCompleto senza il cognome finale).
         // Idempotente: dopo la prima esecuzione non trova piu nulla da migrare.
+        /* Indirizzi (e nomi propri) noti di alcune persone dello studio, da
+           dati-demo.js (RV_EMAIL_PERSONE): le schede che ne sono ancora prive li
+           ricevono all'apertura dell'area. Servono alle email automatiche dei
+           Controlli qualita (es. la richiesta di sospensione del compenso al
+           responsabile incarico). Idempotente: non tocca chi ha gia' un valore. */
+        migraEmailNote() {
+            const noti = (typeof RV_EMAIL_PERSONE !== 'undefined' && RV_EMAIL_PERSONE) || {};
+            const cognomi = Object.keys(noti);
+            if (!cognomi.length) return;
+            const lista = this.tutte();
+            let cambiato = false;
+            cognomi.forEach(cog => {
+                const p = lista.find(x => x && !x.eliminato && String(x.nome || '').trim().toLowerCase() === cog.toLowerCase());
+                if (!p) return;
+                if (noti[cog].email && !p.email) { p.email = noti[cog].email; cambiato = true; }
+                if (noti[cog].nomeProprio && !p.nomeProprio) { p.nomeProprio = noti[cog].nomeProprio; cambiato = true; }
+            });
+            if (cambiato) this.salva(lista);
+        },
         migraNomi() {
             const lista = this.tutte();
             let cambiato = false;
@@ -969,17 +1012,85 @@
     }
 
     /* =========================================================
+       FIRME E TIMBRI (chi ha fatto cosa)
+       ------------------------------------------------------------
+       La firma che finisce nei dati e' "Nome <email>" dell'utente EFFETTIVO: per un
+       collaboratore e' quella del suo utente di riferimento (vedi Auth.componiIdentita),
+       cosi' tutti vedono la modifica con il nome di chi ne risponde. Il collaboratore
+       reale viaggia in un campo a parte (collab), che a video compare SOLO all'utente di
+       riferimento. Un unico punto per costruirli: i timbri sparsi nel programma passano
+       tutti da qui. */
+    function firmaUtente(u) {
+        if (!u) return '';
+        if (typeof u === 'string') return u;
+        return (u.nome || u.email || '') + (u.email ? ' <' + u.email + '>' : '');
+    }
+    function firmaCollaboratore(u) {
+        const c = u && typeof u === 'object' && u.collaboratore;
+        return c ? (c.nome || c.email || '') + (c.email ? ' <' + c.email + '>' : '') : '';
+    }
+    /* { da, il[, collab] } piu' gli eventuali campi extra (nota, data, messaggio...). */
+    function timbro(u, extra) {
+        const t = { da: firmaUtente(u), il: Date.now() };
+        const c = firmaCollaboratore(u);
+        if (c) t.collab = c;
+        return extra ? Object.assign(t, extra) : t;
+    }
+    /* Come timbro(), ma "da" e' la sola email dell'utente collegato: e' la forma usata da
+       comunicazioni e newsletter. Anche qui il collaboratore reale viaggia in collab. */
+    function timbroEmail(extra) {
+        const u = Auth.utenteCorrente;
+        const t = { da: u ? String(u.email || '') : '', il: Date.now() };
+        const c = firmaCollaboratore(u);
+        if (c) t.collab = c;
+        return extra ? Object.assign(t, extra) : t;
+    }
+    function emailDaFirma(f) { const m = /<([^>]+)>/.exec(String(f || '')); return m ? m[1].trim().toLowerCase() : ''; }
+    function nomeDaFirma(f) { const s = String(f || ''); const i = s.indexOf(' <'); return i > 0 ? s.slice(0, i) : s; }
+    /* L'annotazione "tramite <collaboratore>" la vede SOLO l'utente di riferimento, collegato
+       in prima persona: non gli altri utenti, non l'amministratore, e nemmeno il
+       collaboratore stesso (che lavora a nome dell'altro). Si riconosce dall'email nella
+       firma principale ("Nome <email>" oppure la sola email). */
+    function vedoCollaboratoreDi(firmaPrincipale) {
+        const u = Auth.utenteCorrente;
+        if (!u || u.collaboratore || !u.email) return false;
+        const s = String(firmaPrincipale || '');
+        const em = emailDaFirma(s) || s.trim().toLowerCase();
+        return !!em && em === String(u.email).toLowerCase();
+    }
+    /* Testo semplice: "Nome <email>" oppure "Nome <email> (tramite Collaboratore)". */
+    function firmaConCollab(da, collab) {
+        const base = String(da || '');
+        return (collab && vedoCollaboratoreDi(base)) ? base + ' (tramite ' + nomeDaFirma(collab) + ')' : base;
+    }
+    /* HTML: il testo (firma o solo nome) con, se spetta a chi guarda, l'etichetta del
+       collaboratore. firmaPrincipale serve quando testo e' il solo nome, senza email. */
+    function htmlConCollab(testo, collab, firmaPrincipale) {
+        const base = esc(testo);
+        if (!collab || !vedoCollaboratoreDi(firmaPrincipale != null ? firmaPrincipale : testo)) return base;
+        const chi = nomeDaFirma(collab);
+        return base + ' <span class="tramite-collab" title="Fatto dal tuo collaboratore ' + esc(chi) + '">tramite ' + esc(chi) + '</span>';
+    }
+    // comodi per i timbri {da, il, collab}: la firma intera oppure il solo nome, a video
+    function htmlTimbro(t) { return t ? htmlConCollab(t.da, t.collab) : ''; }
+    function htmlTimbroNome(t) { return t ? htmlConCollab(nomeDaFirma(t.da), t.collab, t.da) : ''; }
+
+    /* =========================================================
        REGISTRO MODIFICHE (audit trail)
     ========================================================= */
     const Audit = {
         registra(utente, azione, entita, rif, cliente, dettagli) {
             const log = Store.leggi(CHIAVI.audit, []);
-            log.unshift({
+            const voce = {
                 id: uid(), ts: Date.now(),
-                utente: typeof utente === 'object' ? (utente.nome + ' <' + utente.email + '>') : utente,
+                utente: typeof utente === 'object' ? firmaUtente(utente) : utente,
                 azione, entita, rif: rif || null, cliente: cliente || null,
                 dettagli: dettagli || null
-            });
+            };
+            // il collaboratore reale, se c'e': a video lo vede solo l'utente di riferimento
+            const collab = typeof utente === 'object' ? firmaCollaboratore(utente) : '';
+            if (collab) voce.collaboratore = collab;
+            log.unshift(voce);
             if (log.length > 2000) log.length = 2000;
             Store.scrivi(CHIAVI.audit, log);
         },
@@ -1042,6 +1153,67 @@
             return this.utenti().find(u => u.email.toLowerCase() === String(email || '').trim().toLowerCase()) || null;
         },
 
+        /* L'identita' con cui si lavora, a partire dalla scheda dell'utente che ha fatto
+           l'accesso (scheda) e, per un collaboratore, dalla scheda del suo utente di
+           riferimento (principale). Per un collaboratore i campi principali (email, nome,
+           ruolo, eventi, newsletter) sono quelli del RIFERIMENTO: cosi' permessi, filtri
+           per regione, qualifiche dell'anagrafica e firme ereditano da soli, senza che ogni
+           controllo sparso nel programma debba saperlo. La sessione reale resta in
+           "collaboratore" {email, nome}: la usano l'heartbeat di presenza, la casella dei
+           messaggi, la barra laterale e la vista Utenti. */
+        componiIdentita(scheda, principale) {
+            const base = u => ({
+                email: String(u.email || '').toLowerCase(), nome: u.nome || u.email || '',
+                ruolo: u.ruolo || 'procuratore', eventi: u.eventi === true, newsletter: u.newsletter === true
+            });
+            if (!eRuoloCollaboratore(scheda.ruolo)) return base(scheda);
+            const id = base(principale);
+            id.collaboratore = { email: String(scheda.email || '').toLowerCase(), nome: scheda.nome || scheda.email || '' };
+            return id;
+        },
+        /* Perche' un collaboratore NON puo' entrare (null se puo'): senza il suo utente di
+           riferimento non ha alcun permesso, meglio dirglielo alla porta che farlo entrare
+           in un'area vuota. */
+        motivoCollaboratoreBloccato(scheda, principale) {
+            if (!scheda || !eRuoloCollaboratore(scheda.ruolo)) return null;
+            const di = String(scheda.collaboratoreDi || '').trim().toLowerCase();
+            if (!di) return 'Il tuo accesso da collaboratore non indica l\'utente di riferimento: chiedi all\'amministratore di completarlo.';
+            if (!principale) return 'L\'utente a cui il tuo accesso è associato (' + di + ') non risulta più abilitato: chiedi all\'amministratore.';
+            if (principale.attivo === false) return 'L\'utente a cui il tuo accesso è associato (' + di + ') è disabilitato: chiedi all\'amministratore.';
+            if (!puoAvereCollaboratori(principale)) return 'L\'utente a cui il tuo accesso è associato (' + di + ') non può avere collaboratori: chiedi all\'amministratore.';
+            return null;
+        },
+        // identita' composta dalla scheda locale (modalita' dimostrativa); null se non puo' entrare
+        identitaLocale(email) {
+            const u = this.trova(email); if (!u) return null;
+            const principale = eRuoloCollaboratore(u.ruolo) ? this.trova(u.collaboratoreDi) : null;
+            if (this.motivoCollaboratoreBloccato(u, principale)) return null;
+            return this.componiIdentita(u, principale);
+        },
+        /* Chi firma, in modalita' dimostrativa, le voci del registro che riguardano una scheda
+           (password, blocchi): per un collaboratore l'identita' effettiva, cosi' il suo
+           indirizzo reale non compare in chiaro (resta nel campo collaboratore, che vede
+           solo il riferimento). Se il collaboratore e' bloccato non c'e' identita' da
+           comporre e resta la sua email. */
+        autoreVoceScheda(u) {
+            if (!u) return { chi: '', rif: '' };
+            if (!eRuoloCollaboratore(u.ruolo)) return { chi: u.email, rif: u.email };
+            const principale = this.trova(u.collaboratoreDi);
+            if (this.motivoCollaboratoreBloccato(u, principale)) return { chi: u.email, rif: u.email };
+            const identita = this.componiIdentita(u, principale);
+            return { chi: identita, rif: identita.email };
+        },
+        eCollaboratore() { return !!(this.utenteCorrente && this.utenteCorrente.collaboratore); },
+        // l'indirizzo e il nome con cui si e' entrati DAVVERO (per un collaboratore, i suoi)
+        emailSessione() {
+            const u = this.utenteCorrente; if (!u) return '';
+            return String((u.collaboratore ? u.collaboratore.email : u.email) || '').toLowerCase();
+        },
+        nomeSessione() {
+            const u = this.utenteCorrente; if (!u) return '';
+            return (u.collaboratore ? u.collaboratore.nome : u.nome) || this.emailSessione();
+        },
+
         async richiediPrimaPassword(email) {
             if (Cloud.attivo) return Cloud.primaPassword(email);
             const utenti = this.utenti();
@@ -1053,7 +1225,8 @@
             u.hash = await sha256(u.sale + '|' + temp);
             u.mustChange = true;
             this.salvaUtenti(utenti);
-            Audit.registra(u.email, 'Prima password generata', 'utente', u.email, null,
+            const a1 = this.autoreVoceScheda(u);
+            Audit.registra(a1.chi, 'Prima password generata', 'utente', a1.rif, null,
                 'Richiesta prima password dalla pagina di accesso');
             return { ok: true, temp };
         },
@@ -1070,7 +1243,8 @@
             u.mustChange = true;
             u.tentativi = 0; u.bloccatoFino = 0;
             this.salvaUtenti(utenti);
-            Audit.registra(u.email, 'Password reimpostata (recupero)', 'utente', u.email, null,
+            const a2 = this.autoreVoceScheda(u);
+            Audit.registra(a2.chi, 'Password reimpostata (recupero)', 'utente', a2.rif, null,
                 'Recupero password dalla pagina di accesso');
             return { ok: true, temp };
         },
@@ -1091,16 +1265,23 @@
                 if (u.tentativi >= 5) {
                     u.bloccatoFino = Date.now() + 5 * 60000;
                     u.tentativi = 0;
-                    Audit.registra(u.email, 'Utenza bloccata (5 tentativi falliti)', 'utente', u.email, null, null);
+                    const a3 = this.autoreVoceScheda(u);
+                    Audit.registra(a3.chi, 'Utenza bloccata (5 tentativi falliti)', 'utente', a3.rif, null, null);
                 }
                 this.salvaUtenti(utenti);
                 return { ok: false, msg: 'Credenziali non valide.' };
             }
             u.tentativi = 0; u.bloccatoFino = 0; u.ultimoAccesso = Date.now();
             this.salvaUtenti(utenti);
-            this.utenteCorrente = u;
+            // collaboratore: entra solo se il suo utente di riferimento c'e' ed e' abilitato
+            const principale = eRuoloCollaboratore(u.ruolo) ? this.trova(u.collaboratoreDi) : null;
+            const bloccato = this.motivoCollaboratoreBloccato(u, principale);
+            if (bloccato) return { ok: false, msg: bloccato };
+            this.utenteCorrente = this.componiIdentita(u, principale);
             sessionStorage.setItem('rvArea.sessione', JSON.stringify({ email: u.email, ts: Date.now() }));
-            Audit.registra(u.email, 'Accesso effettuato', 'utente', u.email, null, null);
+            // la voce del registro e' a nome dell'utente effettivo: chi c'era dietro (il
+            // collaboratore) sta nel campo collaboratore, che vede solo il suo riferimento
+            Audit.registra(this.utenteCorrente, 'Accesso effettuato', 'utente', this.utenteCorrente.email, null, null);
             return { ok: true, mustChange: !!u.mustChange };
         },
 
@@ -1115,8 +1296,9 @@
             u.hash = await sha256(u.sale + '|' + nuova);
             u.mustChange = false;
             this.salvaUtenti(utenti);
-            if (this.utenteCorrente && this.utenteCorrente.email === u.email) this.utenteCorrente = u;
-            Audit.registra(u.email, 'Password modificata', 'utente', u.email, null, null);
+            // l'identita' collegata non porta con se' la password: non c'e' nulla da aggiornare
+            const a4 = this.autoreVoceScheda(u);
+            Audit.registra(a4.chi, 'Password modificata', 'utente', a4.rif, null, null);
             return { ok: true };
         },
 
@@ -1134,13 +1316,15 @@
                 if (!s) return false;
                 const u = this.trova(s.email);
                 if (!u || !u.attivo || u.mustChange) return false;
-                this.utenteCorrente = u;
+                const identita = this.identitaLocale(u.email);
+                if (!identita) return false;
+                this.utenteCorrente = identita;
                 return true;
             } catch (e) { return false; }
         },
 
         esci() {
-            if (this.utenteCorrente) Audit.registra(this.utenteCorrente.email, 'Uscita', 'utente', this.utenteCorrente.email, null, null);
+            if (this.utenteCorrente) Audit.registra(this.utenteCorrente, 'Uscita', 'utente', this.utenteCorrente.email, null, null);
             this.utenteCorrente = null;
             sessionStorage.removeItem('rvArea.sessione');
             // chi rientra deve rivedere l'avviso sul proprio territorio
@@ -1258,6 +1442,10 @@
             // proprio chi non ha la scrittura ad averne piu' bisogno. Restano fuori solo
             // gli invitati "solo sondaggio", che dei dati dello studio non vedono nulla.
             if (sez === 'richieste') return this.puoUsareRichieste();
+            // I Controlli qualita hanno un filtro in piu' sulla PERSONA: la sezione compare
+            // solo a chi in Aderenti Revilaw e' responsabile qualita o equity partner
+            // (e ad amministratore e titolare). Vedi cqProfilo().
+            if (sez === 'controlloQualita') return this.accessoSezione(sez) !== 'no' && !!cqProfilo();
             return this.accessoSezione(sez) !== 'no';
         },
         puoScrivere(sez) {
@@ -1352,6 +1540,7 @@
                 this.DOC_SYNC[CHIAVI.newsletterConfig] = 'newsletterConfig';
                 this.DOC_SYNC[CHIAVI.richieste] = 'richieste';
                 this.DOC_SYNC[CHIAVI.rating] = 'rating';
+                this.DOC_SYNC[CHIAVI.controlliQualita] = 'controlliQualita';
                 this.DOC_SYNC[CHIAVI.ruoli] = 'ruoli';
                 this.attivo = true;
                 // svuota la coda di scritture prima che la scheda venga chiusa
@@ -1383,9 +1572,25 @@
             try {
                 const dati = await this.docUtente(utenteFb.email);
                 if (!dati || dati.attivo === false) { await signOut(this.auth); return null; }
-                await this.avviaSync(dati.ruolo, utenteFb.email);
-                return { email: utenteFb.email.toLowerCase(), nome: dati.nome || utenteFb.email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true, newsletter: dati.newsletter === true };
+                const scheda = { ...dati, email: utenteFb.email.toLowerCase() };
+                const principale = await this.principaleDi(scheda);
+                // collaboratore rimasto senza utente di riferimento: si esce, al prossimo
+                // accesso la schermata di ingresso spiega il perche'
+                if (Auth.motivoCollaboratoreBloccato(scheda, principale)) { await signOut(this.auth); return null; }
+                const identita = Auth.componiIdentita(scheda, principale);
+                await this.avviaSync(identita.ruolo, identita.email);
+                return identita;
             } catch (e) { return null; }
+        },
+
+        /* La scheda dell'utente di riferimento di un collaboratore (utenti/<collaboratoreDi>),
+           con l'email dentro; null se manca, non e' indicata o non e' leggibile. */
+        async principaleDi(scheda) {
+            if (!scheda || !eRuoloCollaboratore(scheda.ruolo)) return null;
+            const di = String(scheda.collaboratoreDi || '').trim().toLowerCase();
+            if (!di) return null;
+            try { const p = await this.docUtente(di); return p ? { ...p, email: di } : null; }
+            catch (e) { return null; }
         },
 
         async accedi(email, password) {
@@ -1399,17 +1604,29 @@
             try { dati = await this.docUtente(email); } catch (e) { /* lettura negata = non abilitato */ }
             if (!dati || dati.attivo === false) {
                 await signOut(this.auth);
-                return { ok: false, msg: 'Utenza non abilitata: chiedi all\'amministratore di aggiungerti all\'elenco utenti.' };
+                return { ok: false, msg: 'Utenza non abilitata: chiedi all\'amministratore di aggiungerti all\'elenco utenti. Se sei un collaboratore, l\'utente a cui il tuo accesso è associato potrebbe non essere più abilitato.' };
             }
+            // collaboratore: i permessi sono quelli del suo utente di riferimento, che deve
+            // esserci ed essere abilitato; altrimenti non si entra, e si dice il perche'
+            const scheda = { ...dati, email: String(email).toLowerCase() };
+            const principale = await this.principaleDi(scheda);
+            const bloccato = Auth.motivoCollaboratoreBloccato(scheda, principale);
+            if (bloccato) {
+                try { await signOut(this.auth); } catch (e2) { }
+                return { ok: false, msg: bloccato };
+            }
+            const identita = Auth.componiIdentita(scheda, principale);
             try {
-                await this.avviaSync(dati.ruolo, email);
+                await this.avviaSync(identita.ruolo, identita.email);
             } catch (e) {
                 try { await signOut(this.auth); } catch (e2) { }
                 return { ok: false, msg: 'Accesso verificato ma dati non raggiungibili (' + this.msgErrore(e) + '). Riprova tra poco.' };
             }
-            Auth.utenteCorrente = { email: email.toLowerCase(), nome: dati.nome || email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true, newsletter: dati.newsletter === true };
+            Auth.utenteCorrente = identita;
+            // l'ultimo accesso e' della sessione reale (per un collaboratore, la sua scheda)
             this.salvaUtente(email, { ultimoAccesso: Date.now() }).catch(() => {});
-            Audit.registra(Auth.utenteCorrente, 'Accesso effettuato', 'utente', email.toLowerCase(), null, null);
+            // la voce del registro e' a nome dell'utente effettivo (per un collaboratore, il suo riferimento)
+            Audit.registra(Auth.utenteCorrente, 'Accesso effettuato', 'utente', identita.email, null, null);
             return { ok: true, mustChange: false };
         },
 
@@ -2074,7 +2291,9 @@
             // gli utenti "solo sondaggio" (esterni) non vedono la presenza dello staff
             const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
             if (rc && rc.soloSondaggio) return;
-            const email = Auth.utenteCorrente ? Auth.utenteCorrente.email : null;
+            // la SESSIONE reale: per un collaboratore il suo indirizzo, non quello del suo
+            // utente di riferimento (heartbeat, slot di presenza e casella messaggi sono suoi)
+            const email = Auth.emailSessione() || null;
             if (!email) return;
             // stato messaggi per QUESTO utente: su browser condiviso l'utente successivo non deve
             // vedere i messaggi del precedente. Dedup per id (persistito per utente), non per timestamp.
@@ -2151,7 +2370,10 @@
                 try {
                     const { setDoc } = this.fb.fsMod;
                     const slot = { nome: u.nome || u.email, ts: Date.now(), vista: presenzaVistaCorrente(), modifica: statoModifica || null };
-                    setDoc(this._presenzaRef(), { stati: { [u.email.toLowerCase()]: slot } }, { merge: true }).catch(() => { });
+                    // il collaboratore compare con il nome del suo utente di riferimento; chi
+                    // e' davvero lo vede solo quest'ultimo (vedi aggiornaPresenza)
+                    if (u.collaboratore) { slot.collab = u.collaboratore.nome || u.collaboratore.email; slot.per = String(u.email).toLowerCase(); }
+                    setDoc(this._presenzaRef(), { stati: { [Auth.emailSessione()]: slot } }, { merge: true }).catch(() => { });
                 } catch (e) { }
             }, 250);
         },
@@ -2173,7 +2395,7 @@
         _scriviLapide() {
             const u = Auth.utenteCorrente;
             if (!u || !u.email || !this.attivo || !this.pronto) return;
-            try { const { setDoc } = this.fb.fsMod; setDoc(this._presenzaRef(), { stati: { [u.email.toLowerCase()]: { nome: u.nome || u.email, ts: 0, vista: null, modifica: null } } }, { merge: true }).catch(() => { }); } catch (e) { }
+            try { const { setDoc } = this.fb.fsMod; setDoc(this._presenzaRef(), { stati: { [Auth.emailSessione()]: { nome: u.nome || u.email, ts: 0, vista: null, modifica: null } } }, { merge: true }).catch(() => { }); } catch (e) { }
         },
         // notifica: popup con risposta per i messaggi nuovi a me destinati. Dedup per ID
         // (persistito per utente), non per timestamp: cosi non si perdono messaggi con clock
@@ -2206,7 +2428,10 @@
             const dest = String(aEmail || '').toLowerCase();
             if (!t || !dest) return false;
             const { setDoc, arrayUnion } = this.fb.fsMod;
-            const msg = { id: 'm_' + uid(), da: u.email.toLowerCase(), daNome: u.nome || u.email, a: dest, testo: t, ts: Date.now() };
+            // "da" e' la sessione reale (la risposta deve tornare a chi ha scritto), il nome
+            // e' quello con cui si lavora; il collaboratore lo vede solo il suo riferimento
+            const msg = { id: 'm_' + uid(), da: Auth.emailSessione(), daNome: u.nome || u.email, a: dest, testo: t, ts: Date.now() };
+            if (u.collaboratore) { msg.collab = u.collaboratore.nome || u.collaboratore.email; msg.per = String(u.email).toLowerCase(); }
             // recapito nel documento privato del destinatario (che solo lui puo leggere)
             try {
                 await setDoc(this._msgRef(dest), { lista: arrayUnion(msg) }, { merge: true });
@@ -2226,7 +2451,7 @@
         // potatura opportunistica della PROPRIA casella (il mittente non puo leggere quella altrui):
         // se i messaggi superano ~60, tiene gli ultimi 40 (transazione con retry)
         async _potaMessaggi(email) {
-            const e = String(email || (Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+            const e = String(email || Auth.emailSessione() || '').toLowerCase();
             if (!e) return;
             try {
                 const { runTransaction } = this.fb.fsMod;
@@ -2254,6 +2479,8 @@
             const { doc, setDoc } = this.fb.fsMod;
             await setDoc(doc(this.db, 'utenti', email.toLowerCase()), dati, { merge: true });
         },
+        // il valore che, passato a salvaUtente, CANCELLA un campo della scheda (es. collaboratoreDi)
+        campoDaTogliere() { return this.fb.fsMod.deleteField(); },
         /* Eliminazione definitiva dell'utente: rimuove il documento dalla collezione
            "utenti". Da quel momento l'indirizzo non supera piu abilitato() e perde ogni
            accesso. L'account Firebase Authentication (se mai attivato) non e toccabile
@@ -2501,7 +2728,7 @@
             const lista = this.tutti();
             const nuovo = {
                 id: uid(), stato: 'attivo', ...dati,
-                creato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() },
+                creato: timbro(utente),
                 modificato: null
             };
             lista.push(nuovo);
@@ -2516,7 +2743,7 @@
             const idx = lista.findIndex(i => i.id === id);
             if (idx < 0) return null;
             const prima = JSON.parse(JSON.stringify(lista[idx]));
-            const dopo = { ...lista[idx], ...dati, modificato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() } };
+            const dopo = { ...lista[idx], ...dati, modificato: timbro(utente) };
             lista[idx] = dopo;
             this.salva(lista);
             const diff = Audit.confronta(prima, dopo, CAMPI_TRACCIATI);
@@ -2563,7 +2790,7 @@
             const idx = lista.findIndex(i => i.id === id);
             if (idx < 0) return null;
             lista[idx].calcoloCongelato = true;
-            lista[idx].congelamento = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            lista[idx].congelamento = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Calcolo congelato', 'incarico', id, lista[idx].cliente,
                 'Compenso e ore bloccati alla stampa del mandato');
@@ -2581,7 +2808,7 @@
             this.salva(lista);
             Allerte.aggiungi({
                 tipo: 'sblocco-calcolo', incaricoId: id, cliente: inc.cliente,
-                da: utente.nome + ' <' + utente.email + '>', messaggio: messaggio
+                da: firmaUtente(utente), collab: firmaCollaboratore(utente) || null, messaggio: messaggio
             });
             Audit.registra(utente, 'Allerta: sblocco calcolo congelato', 'incarico', id, inc.cliente,
                 [{ campo: 'Messaggio di allerta', prima: '', dopo: messaggio }]);
@@ -2596,8 +2823,8 @@
             const inc = lista[idx];
             const prima = inc.stato || 'attivo';
             inc.stato = 'cessato';
-            inc.terminato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.terminato = timbro(utente);
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico terminato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: prima, dopo: 'terminato' }]);
             return inc;
@@ -2612,8 +2839,8 @@
             const inc = lista[idx];
             const prima = inc.stato || 'attivo';
             inc.stato = 'dimesso';
-            inc.dimissioni = { data: dataDimissioni || null, da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.dimissioni = timbro(utente, { data: dataDimissioni || null });
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Dimissioni dall\'incarico', 'incarico', id, inc.cliente,
                 [{ campo: 'Stato', prima: prima, dopo: 'dimesso' }].concat(dataDimissioni ? [{ campo: 'Data dimissioni', prima: '', dopo: fmtData(dataDimissioni) }] : []));
@@ -2628,8 +2855,8 @@
             if (idx < 0) return null;
             const inc = lista[idx];
             inc.stato = 'attivo';
-            inc.confermato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.confermato = timbro(utente);
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico confermato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: 'proposta', dopo: 'attivo' }]);
             return inc;
@@ -2644,8 +2871,8 @@
             const inc = lista[idx];
             const prima = inc.stato || 'attivo';
             inc.stato = 'nonAccettato';
-            inc.nonAccettato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now(), nota: nota || '' };
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.nonAccettato = timbro(utente, { nota: nota || '' });
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico non accettato', 'incarico', id, inc.cliente,
                 [{ campo: 'Stato', prima: prima, dopo: 'non accettato' }].concat(nota ? [{ campo: 'Motivo', prima: '', dopo: nota }] : []));
@@ -2662,7 +2889,7 @@
             inc.stato = 'proposta';
             inc.nonAccettato = null;
             inc.confermato = null;
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico riportato in proposta', 'incarico', id, inc.cliente,
                 [{ campo: 'Stato', prima: 'non accettato', dopo: 'proposta' }]);
@@ -2679,7 +2906,7 @@
             inc.stato = 'attivo';
             inc.terminato = null;
             inc.dimissioni = null;
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico riattivato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: prima, dopo: 'attivo' }]);
             return inc;
@@ -3241,7 +3468,11 @@
         const box = document.getElementById('presenza-box');
         if (!box) return;
         if (!connessi || !connessi.length) { box.innerHTML = ''; return; }
-        const mio = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        // gli slot sono per sessione reale: il mio e' quello del mio indirizzo di accesso
+        const mio = Auth.emailSessione();
+        // un collaboratore compare col nome del suo utente di riferimento; solo quest'ultimo
+        // vede anche chi c'e' davvero dietro
+        const nomeDi = c => (c.nome || c.email) + ((c.collab && c.per && vedoCollaboratoreDi(c.per)) ? ' (tramite ' + nomeDaFirma(c.collab) + ')' : '');
         const nonLetti = (typeof Cloud !== 'undefined' && Cloud._msgNonLetti) || 0;
         const icoMatita = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
         const icoBusta = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="m3 6 9 6 9-6"/></svg>';
@@ -3250,7 +3481,7 @@
         let corpo;
         if (compatta) {
             const inizialiDi = n => (String(n || '?').trim().split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('') || '?');
-            const chips = connessi.slice(0, 5).map(c => '<span class="pres-avatar" title="' + esc(c.nome || c.email) + '">' + esc(inizialiDi(c.nome || c.email)) + '</span>').join('')
+            const chips = connessi.slice(0, 5).map(c => '<span class="pres-avatar" title="' + esc(nomeDi(c)) + '">' + esc(inizialiDi(c.nome || c.email)) + '</span>').join('')
                 + (connessi.length > 5 ? '<span class="pres-avatar pres-avatar-extra">+' + (connessi.length - 5) + '</span>' : '');
             corpo = '<button type="button" class="presenza-riassunto" aria-expanded="false" title="Apri l\'elenco degli utenti connessi">'
                 + '<span class="pres-avatars">' + chips + '</span>'
@@ -3263,7 +3494,7 @@
                     : '';
                 const scrivi = io ? '' : '<button class="btn btn-sm btn-ghost pres-msg" data-email="' + esc(c.email) + '" data-nome="' + esc(c.nome || c.email) + '" title="Scrivi a ' + esc(c.nome || c.email) + '" aria-label="Scrivi a ' + esc(c.nome || c.email) + '">' + icoBusta + '</button>';
                 return '<div class="presenza-utente' + (mod ? ' sta-modificando' : '') + '"><span class="pallino"></span>'
-                    + '<span class="pres-corpo"><span class="pres-nome-riga"><span class="pres-nome">' + esc((c.nome || c.email) + (io ? ' (tu)' : '')) + '</span>' + scrivi + '</span>' + mod + '</span></div>';
+                    + '<span class="pres-corpo"><span class="pres-nome-riga"><span class="pres-nome">' + esc(nomeDi(c) + (io ? ' (tu)' : '')) + '</span>' + scrivi + '</span>' + mod + '</span></div>';
             }).join('');
             const riduci = connessi.length >= PRESENZA_COMPATTA_DA
                 ? '<button type="button" class="presenza-riduci" aria-expanded="true"><span class="freccia-su">' + icoFreccia + '</span><span>Riduci elenco</span></button>'
@@ -3300,7 +3531,7 @@
         if (typeof Cloud !== 'undefined') Cloud._msgNonLetti = 0;
         const inbox = (typeof Cloud !== 'undefined' && Cloud._inbox) || [];
         const righe = inbox.length
-            ? inbox.map(m => '<div class="riepilogo-riga"><span class="etichetta">' + esc(m.daNome || m.da || '') + '</span><span class="valore">' + esc(m.testo || '') + ' <span class="hint">' + fmtDataOra(m.ts) + '</span> <button type="button" class="btn btn-sm btn-ghost msg-rispondi" data-email="' + esc(m.da || '') + '" data-nome="' + esc(m.daNome || m.da || '') + '">Rispondi</button></span></div>').join('')
+            ? inbox.map(m => '<div class="riepilogo-riga"><span class="etichetta">' + esc(nomeMittente(m)) + '</span><span class="valore">' + esc(m.testo || '') + ' <span class="hint">' + fmtDataOra(m.ts) + '</span> <button type="button" class="btn btn-sm btn-ghost msg-rispondi" data-email="' + esc(m.da || '') + '" data-nome="' + esc(m.daNome || m.da || '') + '">Rispondi</button></span></div>').join('')
             : '<p class="descrizione">Nessun messaggio ricevuto in questa sessione.</p>';
         const cont = apriModale('<h2>Messaggi ricevuti</h2>' + righe + '<div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>', { classe: 'larga' });
         document.getElementById('m-ok').addEventListener('click', chiudiModale);
@@ -3315,10 +3546,16 @@
         if (!area) { area = document.createElement('div'); area.id = 'msg-popup-area'; document.body.appendChild(area); }
         return area;
     }
+    /* Il mittente di un messaggio: si vede il nome con cui lavora chi scrive; se l'ha
+       scritto un collaboratore, solo il suo utente di riferimento vede anche chi. */
+    function nomeMittente(m) {
+        const base = (m && (m.daNome || m.da)) || '';
+        return (m && m.collab && m.per && vedoCollaboratoreDi(m.per)) ? base + ' (tramite ' + m.collab + ')' : base;
+    }
     function mostraPopupMessaggio(m) {
         const area = areaPopupMessaggi();
         while (area.children.length >= 3) area.firstElementChild.remove();   // al massimo 3 popup impilati
-        const mitt = m.daNome || m.da || '';
+        const mitt = nomeMittente(m);
         const card = document.createElement('div');
         card.className = 'msg-popup';
         card.setAttribute('role', 'alert');
@@ -3376,6 +3613,11 @@
            pubblico di rating: qui le verifiche si salvano per cliente, con
            questionario, banche e report firmato da stampare in PDF. */
         { id: 'rating', nome: 'Verifica merito creditizio', gruppo: 'Merito creditizio', icona: 'M3 21h18M4 18h16M6 18v-8m4 8v-8m4 8v-8m4 8v-8M2 10l10-6 10 6' },
+        /* MACROAREA DELLA QUALITA'. Il monitoraggio dei controlli di qualita:
+           l'elenco degli incarichi con i semafori delle aree e, per ogni cliente,
+           la scheda con gli avanzamenti periodici. Ogni responsabile della
+           qualita vede SOLO gli incarichi in cui e' lui il responsabile. */
+        { id: 'controlloQualita', nome: 'Controlli qualità', gruppo: 'Qualità', icona: 'M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6zM9 12l2 2 4-4' },
         /* MACROAREA DELLE COMUNICAZIONI. Le tre sezioni che mandano messaggi fuori
            stavano sparse nell'elenco, con i Sondaggi in mezzo: una accanto
            all'altra, sotto un'intestazione, si capisce a colpo d'occhio che sono
@@ -3399,12 +3641,12 @@
     let statoModifica = null;        // {tipo,id,etichetta} di cio che sto modificando ora (per la presenza)
     let _modalePersonaAperta = false; // per azzerare statoModifica alla chiusura della scheda persona
     // sottopagine di un incarico: entrarci da una sezione (es. Aderenti Revilaw) fa ricordare dove tornare
-    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera', 'ratingScheda', 'ratingReport', 'ratingMetodo', 'ratingVerbale'];
+    const SOTTOVISTE = ['dettaglio', 'wizard', 'lettera', 'ratingScheda', 'ratingReport', 'ratingMetodo', 'ratingVerbale', 'controlloQualitaScheda'];
     let origineNav = null;           // {vista, parametri, scrollY} della sezione da cui si e entrati nel flusso
 
     // dettaglio/wizard/lettera sono sottopagine degli incarichi: valgono il permesso "incarichi".
     // La sezione Coordinatori e' una vista dell'anagrafica: valgono i permessi di "persone".
-    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating', ratingMetodo: 'rating', ratingVerbale: 'rating' };
+    const SEZIONE_DI_VISTA = { dettaglio: 'incarichi', wizard: 'incarichi', lettera: 'incarichi', coordinatori: 'persone', responsabili: 'persone', ratingScheda: 'rating', ratingReport: 'rating', ratingMetodo: 'rating', ratingVerbale: 'rating', controlloQualitaScheda: 'controlloQualita' };
     function primaVistaVisibile() { const v = VOCI_NAV.find(x => Auth.puoVedere(SEZIONE_DI_VISTA[x.id] || x.id)); return v ? v.id : null; }
 
     /* =========================================================
@@ -3553,7 +3795,9 @@
             ratingScheda: vistaRatingScheda,
             ratingReport: vistaRatingReport,
             ratingMetodo: vistaRatingMetodo,
-            ratingVerbale: vistaRatingVerbale
+            ratingVerbale: vistaRatingVerbale,
+            controlloQualita: vistaControlliQualita,
+            controlloQualitaScheda: vistaControlloQualitaScheda
         };
         // guardia permessi: la sezione richiesta deve essere consentita dal ruolo
         const sez = SEZIONE_DI_VISTA[id] || id;
@@ -3630,20 +3874,27 @@
             const ver = (typeof Rating !== 'undefined') ? Rating.trova(parametriVista.id) : null;
             return { tipo: 'rating', id: parametriVista.id, etichetta: ver ? (ver.cliente || '') : '' };
         }
+        if (vistaCorrente === 'controlloQualitaScheda' && parametriVista && parametriVista.id) {
+            const inc = (typeof Incarichi !== 'undefined') ? Incarichi.trova(parametriVista.id) : null;
+            return { tipo: 'controlloQualita', id: parametriVista.id, etichetta: inc ? (inc.cliente || '') : '' };
+        }
         const v = VOCI_NAV.find(x => x.id === vistaCorrente);
         return { tipo: 'sezione', id: vistaCorrente, etichetta: v ? v.nome : vistaCorrente };
     }
     /* Nome di chi (diverso da me) sta gia modificando questo tipo+id, tra i connessi recenti; else null. */
     function chiModificaGia(tipo, id) {
-        const mio = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        // gli slot di presenza sono per sessione reale: il mio e' quello del mio indirizzo di accesso
+        const mio = Auth.emailSessione();
         const lista = (typeof Cloud !== 'undefined' && Cloud._presenzaUltima) || [];
         const c = lista.find(x => String(x.email).toLowerCase() !== mio && x.modifica && x.modifica.tipo === tipo && String(x.modifica.id) === String(id));
-        return c ? (c.nome || c.email) : null;
+        if (!c) return null;
+        // un collaboratore compare col nome del suo riferimento; chi e' davvero lo sa solo quest'ultimo
+        return (c.nome || c.email) + ((c.collab && c.per && vedoCollaboratoreDi(c.per)) ? ' (tramite ' + nomeDaFirma(c.collab) + ')' : '');
     }
     /* Avvisa (senza bloccare) se un altro connesso sta gia modificando questo record. */
     function avvisaSeAltriModificano(tipo, id) {
         const chi = chiModificaGia(tipo, id);
-        if (chi) toast('Attenzione: ' + chi + ' sta modificando ' + (tipo === 'incarico' ? 'questo incarico' : 'questa persona') + ' in questo momento.', 'rosso');
+        if (chi) toast('Attenzione: ' + chi + ' sta modificando ' + (tipo === 'incarico' ? 'questo incarico' : (tipo === 'controlloQualita' ? 'questa scheda di controllo qualità' : 'questa persona')) + ' in questo momento.', 'rosso');
     }
 
     function vistaSenzaAccesso() {
@@ -3657,16 +3908,23 @@
        l'anagrafica cambia mentre si e' collegati. */
     function aggiornaEtichettaUtente() {
         const el = document.getElementById('utente-ruolo');
-        if (!el || !Auth.utenteCorrente) return;
-        const etich = nomeRuolo(Auth.utenteCorrente.ruolo);
+        const u = Auth.utenteCorrente;
+        if (!el || !u) return;
+        let html = esc(nomeRuolo(u.ruolo));
+        // il collaboratore vede subito a nome di chi sta lavorando, e con quale ruolo
+        if (u.collaboratore) {
+            html = esc(NOME_RUOLO_COLLABORATORE) + '<span class="a-nome-di">A nome di <strong>' + esc(u.nome || u.email) + '</strong> (' + esc(nomeRuolo(u.ruolo)) + ')</span>';
+        }
         // le regioni assegnate restano sempre sott'occhio, su una riga loro e con
         // l'etichetta che dice cosa sono: appese al ruolo dopo un punto separatore si
         // leggevano come parte del nome del ruolo
         const regioni = regioniDelRuolo();   // null = ruolo senza limite di territorio
-        if (!regioni) { el.textContent = etich; return; }
-        el.innerHTML = esc(etich) + '<span class="regioni-assegnate">' + (regioni.length
-            ? 'Regioni assegnate: <strong>' + esc(regioni.join(', ')) + '</strong>'
-            : '<span class="badge rosso">nessuna regione assegnata</span>') + '</span>';
+        if (regioni) {
+            html += '<span class="regioni-assegnate">' + (regioni.length
+                ? 'Regioni assegnate: <strong>' + esc(regioni.join(', ')) + '</strong>'
+                : '<span class="badge rosso">nessuna regione assegnata</span>') + '</span>';
+        }
+        el.innerHTML = html;
     }
 
     function disegnaNav() {
@@ -3963,7 +4221,7 @@
                 <h2>${ICO_ALLERTA}Allerte (${allerte.length})</h2>
                 ${allerte.slice(0, 20).map(a => `<div class="storia-voce" style="border-left-color:var(--rosso);">
                     <div class="quando">${fmtDataOra(a.ts)}</div>
-                    <div><span class="chi">${esc(a.da || '')}</span> ha sbloccato il calcolo di <strong>${esc(a.cliente || '')}</strong></div>
+                    <div><span class="chi">${htmlConCollab(a.da || '', a.collab)}</span> ha sbloccato il calcolo di <strong>${esc(a.cliente || '')}</strong></div>
                     <div class="campi">"${esc(a.messaggio || '')}"</div>
                     <button class="btn btn-sm btn-ghost a-letta" data-id="${esc(a.id)}" style="margin-top:4px;">Segna come letta</button>
                 </div>`).join('')}
@@ -4566,10 +4824,10 @@
                         <h2>Storia delle modifiche</h2>
                         ${storia.length ? storia.map(v => `<div class="storia-voce">
                             <div class="quando">${fmtDataOra(v.ts)}</div>
-                            <div><span class="chi">${esc(v.utente)}</span> - ${esc(v.azione)}</div>
+                            <div><span class="chi">${htmlConCollab(v.utente, v.collaboratore)}</span> - ${esc(v.azione)}</div>
                             ${Array.isArray(v.dettagli) ? '<ul class="campi">' + v.dettagli.map(d => '<li>' + esc(d.campo) + ': ' + esc(troncaTesto(d.prima, 40)) + ' → ' + esc(troncaTesto(d.dopo, 40)) + '</li>').join('') + '</ul>' : (v.dettagli ? '<div class="campi">' + esc(v.dettagli) + '</div>' : '')}
                         </div>`).join('') : '<p class="tabella-vuota">Nessuna modifica registrata.</p>'}
-                        ${inc.creato ? `<div class="storia-voce"><div class="quando">${fmtDataOra(inc.creato.il)}</div><div>Creato da <span class="chi">${esc(inc.creato.da)}</span></div></div>` : ''}
+                        ${inc.creato ? `<div class="storia-voce"><div class="quando">${fmtDataOra(inc.creato.il)}</div><div>Creato da <span class="chi">${htmlTimbro(inc.creato)}</span></div></div>` : ''}
                     </div>
                     ${Auth.puoEliminareIncarichi() ? `<div class="card">
                         <h2>Zona amministratore</h2>
@@ -5159,7 +5417,7 @@
                     ${rigaRiepilogo('Spese generali', spesePerc(d) ? percTesto(spesePerc(d)) + '% sugli onorari' : 'non addebitate')}
                     ${w.modalita === 'modifica' && !w.compensoModificato ? '<p class="hint" style="font-size:0.78rem; color:var(--grigio-600); margin-top:6px;">Il passo 3 non è stato modificato: i compensi esistenti restano invariati.</p>' : ''}
                 </div>
-                <p class="descrizione">Salvando, la modifica viene registrata nel registro con il tuo nome (${esc(Auth.utenteCorrente.nome)}).</p>`;
+                <p class="descrizione">Salvando, la modifica viene registrata nel registro ${Auth.eCollaboratore() ? 'a nome di <strong>' + esc(Auth.utenteCorrente.nome) + '</strong> (di cui sei collaboratore)' : 'con il tuo nome (' + esc(Auth.utenteCorrente.nome) + ')'}.</p>`;
         }
     }
 
@@ -5417,7 +5675,7 @@
                 <h2>Calcolo del compenso</h2>
                 <div class="calc-riquadro" style="border-color:var(--ambra); background:var(--ambra-bg);">
                     <strong>${ICO_LUCCHETTO}Calcolo congelato</strong>
-                    <p class="descrizione" style="margin:8px 0;">Il calcolo di questo incarico è stato congelato${cong.il ? ' il ' + fmtDataOra(cong.il) : ''}${cong.da ? ' da ' + esc(cong.da) : ''}. Il compenso concordato non può essere modificato.</p>
+                    <p class="descrizione" style="margin:8px 0;">Il calcolo di questo incarico è stato congelato${cong.il ? ' il ' + fmtDataOra(cong.il) : ''}${cong.da ? ' da ' + htmlTimbro(cong) : ''}. Il compenso concordato non può essere modificato.</p>
                     <div class="calc-riga totale"><span>Compenso concordato (primo esercizio)</span><span class="val">${compenso ? eurFmt.format(compenso) : '-'}</span></div>
                 </div>
                 <p class="descrizione">Per modificare il calcolo occorre prima sbloccarlo dal dettaglio dell'incarico, inviando un messaggio di allerta al titolare.</p>`;
@@ -5667,7 +5925,7 @@
             const utente = Auth.utenteCorrente;
             const entries = rimossi.map((r, i) => {
                 const inp = document.querySelector('.u-team-data[data-i="' + i + '"]');
-                return { nome: r.etichetta, al: (inp && inp.value) || null, da: utente ? (utente.nome + ' <' + utente.email + '>') : '', il: Date.now() };
+                return Object.assign({ nome: r.etichetta, al: (inp && inp.value) || null }, utente ? timbro(utente) : { da: '', il: Date.now() });
             });
             chiudiModale();
             onConferma(entries);
@@ -5780,7 +6038,7 @@
                 const pianoPrec = {};
                 Object.keys(d.piano || {}).forEach(a => { if (!anni.includes(Number(a))) pianoPrec[a] = d.piano[a]; });
                 const snap = {
-                    chiuso: { il: Date.now(), da: (Auth.utenteCorrente.nome || Auth.utenteCorrente.email || '') },
+                    chiuso: timbro(Auth.utenteCorrente),
                     esercizioPeriodo: prec.esercizioPeriodo || null,
                     tipo: prec.tipo,
                     dataInizio: prec.dataInizio || null,
@@ -10037,7 +10295,10 @@
     function rbNomeAutore(v) {
         const da = String((v && v.creato && v.creato.da) || '');
         const nome = da.split('<')[0].trim();
-        return nome || rbAutoreDi(v) || '-';
+        const base = nome || rbAutoreDi(v) || '-';
+        // aperta da un collaboratore: lo vede solo il suo utente di riferimento
+        const collab = v && v.creato && v.creato.collab;
+        return (collab && vedoCollaboratoreDi(da)) ? base + ' (tramite ' + nomeDaFirma(collab) + ')' : base;
     }
     const Rating = {
         tutte() { return Store.leggi(CHIAVI.rating, []); },
@@ -10056,7 +10317,7 @@
             const nuova = {
                 id: uid(), stato: 'bozza', condivisa: [], ...dati,
                 autore: String(utente.email || '').toLowerCase(),
-                creato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() },
+                creato: timbro(utente),
                 modificato: null
             };
             lista.push(nuova);
@@ -10070,7 +10331,7 @@
             const idx = lista.findIndex(v => v.id === id);
             if (idx < 0) return null;
             const prima = JSON.parse(JSON.stringify(lista[idx]));
-            const dopo = { ...lista[idx], ...dati, modificato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() } };
+            const dopo = { ...lista[idx], ...dati, modificato: timbro(utente) };
             lista[idx] = dopo;
             this.salva(lista);
             const diff = Audit.confronta(prima, dopo, CAMPI_RATING);
@@ -10180,7 +10441,7 @@
                         <td class="num" data-label="PD">${e ? rbPct(e.pd, 2) : '-'}</td>
                         <td data-label="Questionario">${e ? (e.quest + '%' + (e.questCompleto ? '' : ' <span class="badge grigio">parziale</span>')) : '-'}</td>
                         <td data-label="Stato">${v.stato === 'completata' ? '<span class="badge verde">completata</span>' : '<span class="badge ambra">bozza</span>'}</td>
-                        <td data-label="Autore">${acc.autore ? 'tu' : esc(rbNomeAutore(v))}${badgeCond}</td>
+                        <td data-label="Autore">${acc.autore ? htmlConCollab('tu', v.creato && v.creato.collab, v.creato && v.creato.da) : esc(rbNomeAutore(v))}${badgeCond}</td>
                         <td data-label="Aggiornata">${dataDi(v)}</td>
                         <td class="td-azioni"><button class="btn btn-secondary btn-sm" data-report="${esc(v.id)}" title="Apri il report da stampare">Report</button>${scrive && (acc.autore || eGoverno) ? `<button class="btn btn-ghost btn-sm" data-elimina="${esc(v.id)}" title="Elimina la verifica">Elimina</button>` : ''}</td>
                     </tr>`;
@@ -10593,7 +10854,8 @@
             };
             const candidati = (lista || [])
                 .filter(u => u.email && u.attivo !== false && !eRuoloSoloSondaggio(u.ruolo))
-                .filter(u => { const e = u.email.toLowerCase(); return e !== mailAutore && e !== mia && gia.indexOf(e) < 0; })
+                // niente collaboratori: ereditano l'accesso del loro utente di riferimento (e nemmeno me stesso, se lo sono)
+                .filter(u => { const e = u.email.toLowerCase(); return e !== mailAutore && e !== mia && e !== Auth.emailSessione() && !eRuoloCollaboratore(u.ruolo) && gia.indexOf(e) < 0; })
                 .sort((a, b) => String(a.nome || a.email).localeCompare(String(b.nome || b.email)));
             const salvaCondivisa = azione => {
                 Rating.aggiorna(v.id, { condivisa: v.condivisa }, Auth.utenteCorrente, azione);
@@ -10630,11 +10892,11 @@
                 if (mail === mailAutore) { toast('L\'autore ha già pieno accesso alla sua verifica.', 'rosso'); return; }
                 if (mail === mia) { toast('Hai già accesso a questa verifica.', 'rosso'); return; }
                 if (gia.indexOf(mail) >= 0) { toast('Utente già abilitato: cambia il permesso dalla riga qui sopra.', 'rosso'); return; }
-                if (lista && lista.length && !lista.some(u => String(u.email || '').toLowerCase() === mail)) {
+                if (lista && lista.length && !lista.some(u => String(u.email || '').toLowerCase() === mail && !eRuoloCollaboratore(u.ruolo))) {
                     toast('L\'indirizzo non corrisponde a nessun utente dell\'area: la condivisione vale solo per chi ha accesso.', 'rosso'); return;
                 }
                 v.condivisa = v.condivisa || [];
-                v.condivisa.push({ email: mail, permesso, da: mia, il: Date.now() });
+                v.condivisa.push(Object.assign({ email: mail, permesso: permesso }, timbroEmail()));
                 salvaCondivisa('Condivisione verifica: abilitato ' + mail + ' (' + permesso + ')');
                 toast('Condivisione attivata: ' + mail + ' in ' + (permesso === 'scrittura' ? 'scrittura' : 'sola visualizzazione') + '.', 'verde');
                 modaleCondivisioneRating();
@@ -11458,7 +11720,7 @@
                 document.getElementById('m-conferma').addEventListener('click', () => {
                     const l = Persone.tutte();
                     const x = l.find(y => y.id === p.id); if (!x) return;
-                    x.eliminato = { da: Auth.utenteCorrente.nome + ' <' + Auth.utenteCorrente.email + '>', il: Date.now() };
+                    x.eliminato = timbro(Auth.utenteCorrente);
                     Persone.salva(l);
                     Audit.registra(Auth.utenteCorrente, 'Persona eliminata', 'persona', x.id, x.nome, null);
                     chiudiModale(); toast('Persona eliminata: è nella scheda "Eliminate".', 'verde'); vistaPersone();
@@ -11657,6 +11919,1255 @@
                 'Incarichi attivi in ' + b.dataset.regione, '', [b.dataset.regione])));
         $vista().querySelectorAll('.co-modifica').forEach(b =>
             b.addEventListener('click', () => modalePersona(b.dataset.id)));
+    }
+
+    /* =========================================================
+       CONTROLLI DI QUALITA'
+       Il monitoraggio che il responsabile della qualita svolge sui propri
+       incarichi, ANNO PER ANNO. L'elenco parte dall'anno di riferimento
+       (2025, 2026, e i successivi che si aggiungono) e mostra gli incarichi
+       in essere in quell'anno o con scadenza nel suo corso: uno scaduto
+       l'anno prima e non rinnovato non compare, uno rinnovato continua.
+       L'elenco ha due schede: i controlli DA SVOLGERE (gli incarichi che
+       l'utente puo' modificare) e gli incarichi in SOLA VISUALIZZAZIONE.
+       Per ogni incarico e anno c'e' UNA scheda: i blocchi "Avanzamento
+       al ..." (attivita' a semaforo, ognuna con le sue note interne e le
+       sue cose da fare; tempo qualita in ore e minuti; richiesta di
+       sospensione del compenso), il riepilogo dei controlli - i semafori
+       delle aree 1-2, 3 e 4 con i commenti, che l'elenco riprende, e il
+       pulsante che segna i controlli come COMPLETATI quando sono tutti
+       verdi - e il riepilogo dei tempi.
+
+       CHI ENTRA (oltre al permesso del ruolo in "Ruoli e permessi"):
+       - amministratore e titolare: tutti gli incarichi, in scrittura;
+       - chi in Aderenti Revilaw e' EQUITY PARTNER: vede tutti gli incarichi,
+         ma modifica solo quelli in cui e' lui il responsabile della qualita
+         (campo "Responsabile qualita" dell'incarico); gli altri stanno nella
+         scheda "sola visualizzazione". Un equity che non e' responsabile
+         della qualita di nulla ha tutto in sola visualizzazione;
+       - chi in Aderenti Revilaw e' RESPONSABILE QUALITA: vede e modifica i
+         soli incarichi in cui e' il responsabile della qualita;
+       - chiunque altro non vede la sezione (ne' la voce di menu).
+       Il collegamento utente -> scheda passa dall'email (Auth.personaCorrente).
+
+       Le email partono dal servizio delle Comunicazioni, con chi le invia in
+       copia, e restano nella storia della scheda insieme alle modifiche:
+       la richiesta di sospensione del compenso va SEMPRE allo stesso
+       destinatario (RV_DESTINATARIO_SOSPENSIONE in dati-demo.js), il
+       riepilogo al team di revisione ai destinatari scelti.
+       Ogni salvataggio timbra "modificato" (chi e quando) e passa dal
+       Registro modifiche con i campi variati.
+    ========================================================= */
+    /* Semafori delle aree (elenco e riepilogo della scheda). */
+    const CQ_CHECK = [
+        { id: 'verde', nome: 'Svolta', opzione: 'Verde - svolta', classe: 'verde' },
+        { id: 'giallo', nome: 'Parziale', opzione: 'Giallo - parzialmente svolta', classe: 'ambra' },
+        { id: 'rosso', nome: 'Non svolta', opzione: 'Rosso - non svolta', classe: 'rosso' }
+    ];
+    /* Le aree controllate, nell'ordine in cui compaiono ovunque. */
+    const CQ_AREE = [
+        { id: 'area12', nome: 'Area 1, 2' },
+        { id: 'area3', nome: 'Area 3' },
+        { id: 'area4', nome: 'Area 4' }
+    ];
+    /* Stati di una attivita' dentro un blocco di avanzamento. */
+    const CQ_STATI_RIGA = [
+        { id: 'svolta', nome: 'SVOLTA', classe: 'verde' },
+        { id: 'parziale', nome: 'PARZIALMENTE SVOLTA - Sollecitare', classe: 'ambra' },
+        { id: 'nonsvolta', nome: 'NON SVOLTA - Sollecitata', classe: 'rosso' },
+        { id: 'completate', nome: 'COMPLETATE', classe: 'verde' }
+    ];
+    const CQ_ANNI_INIZIALI = [2025, 2026];
+    const CQ_ID_CONFIG = 'cq-config';   // record di configurazione dentro l'archivio (gli anni)
+    const ICO_EMAIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>';
+    const ICO_SALVA = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+    let cqTastoSalva = null;   // ascoltatore di Ctrl+S della scheda aperta (si sostituisce a ogni apertura)
+    let cqUltimoSalvataggio = 0;   // timbro dell'ultimo salvataggio fatto da questo browser (stato nella barra)
+    /* Ogni campo si salva da solo quando lo si lascia (evento change). Qui si
+       forza il salvataggio di cio' che e' ancora "in mano": il campo a fuoco e
+       i campi digitati il cui valore differisce da quello disegnato. I gestori
+       dei campi confrontano prima/dopo, quindi rilanciare un change su un campo
+       gia' salvato non produce doppioni. */
+    function cqFlushCampi() {
+        const attivo = document.activeElement;
+        if (attivo && attivo.closest && attivo.closest('.cq-pagina') && attivo.matches('input, textarea, select')) attivo.blur();
+        document.querySelectorAll('.cq-pagina input[type="text"], .cq-pagina input[type="number"], .cq-pagina input[type="date"], .cq-pagina textarea').forEach(el => {
+            if (el.value !== el.defaultValue) { el.dispatchEvent(new Event('change', { bubbles: true })); el.defaultValue = el.value; }
+        });
+    }
+    const ICO_SPUNTA = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:6px;"><path d="M20 6L9 17l-5-5"/></svg>';
+    const cqCheck = id => CQ_CHECK.find(c => c.id === id) || null;
+    const cqStatoRiga = id => CQ_STATI_RIGA.find(s => s.id === id) || null;
+    let cqAnno = null;   // anno di riferimento scelto nell'elenco (resta tra una vista e l'altra)
+    let cqTab = 'miei';  // scheda dell'elenco: 'miei' (da svolgere) | 'visualizzazione'
+    const cqRigheAperte = new Set();   // attivita' con note/to do aperti (restano aperti al ridisegno)
+    const cqAvzStato = new Map();      // avanzamento -> aperto (true) o ridotto a una riga (false); senza voce: aperto solo l'ultimo
+
+    /* Il destinatario FISSO della richiesta di sospensione del compenso. */
+    function cqDestinatarioSospensione() {
+        const d = (typeof RV_DESTINATARIO_SOSPENSIONE !== 'undefined' && RV_DESTINATARIO_SOSPENSIONE) || {};
+        return { nome: d.nome || 'Pier Luigi Sterzi', email: String(d.email || 'pierluigisterzi@revilaw.it').toLowerCase() };
+    }
+    /* Attivita' proposte al PRIMO avanzamento di un anno: l'esercizio in
+       revisione e' l'anno di riferimento. I blocchi successivi ripartono
+       dalle attivita' dell'ultimo blocco (anche dell'anno precedente, se
+       l'anno nuovo e' vuoto), e ogni riga si aggiunge, rinomina o toglie. */
+    function cqRigaNuova(etichetta, stato) { return { id: uid(), etichetta: etichetta || 'Nuova attività', stato: stato || '', note: '', todo: [] }; }
+    function cqRigheIniziali(anno) {
+        const a = anno || annoCorrente();
+        return ['Area 1', 'Area 2', 'I trimestre ' + a, 'II trimestre ' + a,
+            'III trimestre ' + a, 'IV trimestre ' + a, 'Magazzino ' + a, 'Cespiti ' + a,
+            'Circo obbligatorie ' + a, 'Circo commerciali ' + a].map(et => cqRigaNuova(et));
+    }
+    function cqOggiIso() {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function cqFirma(utente) { return (utente && utente.nome) ? firmaUtente(utente) : String(utente || ''); }
+    /* Minuti -> "1h 25m" (sotto l'ora: "25 min"). */
+    function cqFmtMinuti(m) {
+        m = Math.max(0, Math.round(Number(m) || 0));
+        const h = Math.floor(m / 60), r = m % 60;
+        return h ? h + 'h ' + String(r).padStart(2, '0') + 'm' : r + ' min';
+    }
+    /* "hh:mm[:ss]" (i tempi salvati dalla prima versione) -> minuti. */
+    function cqMinutiDaDurata(s) {
+        const m = /^(\d{1,3}):(\d{2})/.exec(String(s || '').trim());
+        return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+    }
+    const cqMinutiAvz = a => (a && a.tempi || []).reduce((s, t) => s + (Number(t.minuti) || 0), 0);
+    const cqMinutiScheda = s => (s && s.avanzamenti || []).reduce((tot, a) => tot + cqMinutiAvz(a), 0);
+    /* Una riga che riassume un avanzamento ridotto: quante attivita' in che stato,
+       to do aperti, tempo qualita, richiesta di sospensione. */
+    function cqRiassuntoAvz(a) {
+        const conta = { verde: 0, ambra: 0, rosso: 0, vuote: 0 };
+        (a.righe || []).forEach(r => { const s = cqStatoRiga(r.stato); if (s) conta[s.classe]++; else conta.vuote++; });
+        const parti = [(a.righe || []).length + ' attività'];
+        if (conta.verde) parti.push(conta.verde + ' svolte');
+        if (conta.ambra) parti.push(conta.ambra + ' parziali');
+        if (conta.rosso) parti.push(conta.rosso + ' non svolte');
+        if (conta.vuote) parti.push(conta.vuote + ' senza stato');
+        const daFare = (a.righe || []).reduce((n, r) => n + (r.todo || []).filter(t => !t.fatto && t.testo).length, 0);
+        if (daFare) parti.push(daFare + ' to do aperti');
+        const min = cqMinutiAvz(a);
+        if (min) parti.push('tempo qualità ' + cqFmtMinuti(min));
+        if (a.sospensione === 'si') parti.push('sospensione compenso richiesta');
+        return parti.join(' · ');
+    }
+    /* tutti e tre i check verdi: i controlli si possono segnare come completati */
+    const cqTuttoVerde = s => !!s && CQ_AREE.every(a => s[a.id] && s[a.id].check === 'verde');
+
+    /* Il profilo di accesso alla sezione della persona collegata (vedi in testa).
+       null = la sezione non compare. */
+    function cqProfilo() {
+        if (!Auth.utenteCorrente) return null;
+        const p = Auth.personaCorrente();
+        if (Auth.eAdmin() || Auth.eProprietario()) return { admin: true, tutti: true, persona: p };
+        if (!p || p.eliminato || p.attivo === false) return null;
+        if (p.equityPartner) return { admin: false, tutti: true, persona: p, equity: true };
+        if (p.qualita) return { admin: false, tutti: false, persona: p };
+        return null;
+    }
+
+    const ControlliQualita = {
+        tutte() { return Store.leggi(CHIAVI.controlliQualita, []); },
+        salva(l) { Store.scrivi(CHIAVI.controlliQualita, l); },
+        /* Le schede vere (senza il record di configurazione), normalizzate. */
+        schede() { return this.tutte().filter(s => s && !s.config).map(s => this.normalizza(s)); },
+        /* La scheda salvata prima di un campo nuovo riceve i contenitori vuoti
+           al momento della lettura (stessa via difensiva del resto dell'app).
+           Le note e le cose da fare scritte a livello di blocco dalla prima
+           versione finiscono in una riga "Note generali", cosi' non si perdono. */
+        normalizza(s) {
+            CQ_AREE.forEach(a => { if (!s[a.id]) s[a.id] = { check: '', commento: '' }; });
+            if (!Array.isArray(s.avanzamenti)) s.avanzamenti = [];
+            s.avanzamenti.forEach(a => {
+                if (!Array.isArray(a.righe)) a.righe = [];
+                a.righe.forEach(r => { if (r.note == null) r.note = ''; if (!Array.isArray(r.todo)) r.todo = []; });
+                if ((a.note && String(a.note).trim()) || (Array.isArray(a.todo) && a.todo.length)) {
+                    // id stabile (derivato dal blocco): la migrazione avviene a ogni lettura finche'
+                    // la scheda non viene risalvata, e la riga deve restare la stessa tra un
+                    // ridisegno e il salvataggio successivo
+                    a.righe.push({ id: String(a.id || 'avz') + '-note', etichetta: 'Note generali', stato: '', note: String(a.note || ''), todo: Array.isArray(a.todo) ? a.todo : [] });
+                }
+                delete a.note; delete a.todo;
+                if (!Array.isArray(a.tempi)) a.tempi = [];
+                a.tempi.forEach(t => { if (t.minuti == null) { t.minuti = cqMinutiDaDurata(t.durata); delete t.durata; } });
+                if (a.sospensione == null) a.sospensione = '';
+            });
+            if (!Array.isArray(s.email)) s.email = [];
+            if (s.completato === undefined) s.completato = null;
+            if (!s.anno) s.anno = annoCorrente();
+            return s;
+        },
+        perIncarico(incaricoId, anno) {
+            return this.schede().find(x => x.incaricoId === incaricoId && Number(x.anno) === Number(anno)) || null;
+        },
+        /* ---- anni di riferimento ---- */
+        anni() {
+            const c = this.tutte().find(s => s && s.config && s.id === CQ_ID_CONFIG);
+            const lista = (c && Array.isArray(c.anni) && c.anni.length ? c.anni : CQ_ANNI_INIZIALI)
+                .map(Number).filter(a => a > 2000 && a < 2100);
+            return Array.from(new Set(lista)).sort((a, b) => a - b);
+        },
+        annoPredefinito() {
+            const anni = this.anni();
+            return anni.includes(annoCorrente()) ? annoCorrente() : anni[anni.length - 1];
+        },
+        aggiungiAnno(utente) {
+            const anni = this.anni();
+            const nuovo = anni[anni.length - 1] + 1;
+            const lista = this.tutte();
+            const idx = lista.findIndex(s => s && s.config && s.id === CQ_ID_CONFIG);
+            const rec = { id: CQ_ID_CONFIG, config: true, anni: anni.concat([nuovo]), modificato: timbro(utente) };
+            if (idx < 0) lista.push(rec); else lista[idx] = rec;
+            this.salva(lista);
+            Audit.registra(utente, 'Nuovo anno controlli qualità', 'controlloQualita', CQ_ID_CONFIG, null, 'Aggiunto l\'anno di riferimento ' + nuovo);
+            return nuovo;
+        },
+        /* ---- perimetro ---- */
+        /* L'incarico e' "dell'anno" se il suo periodo tocca l'anno: iniziato entro
+           il 31/12 e con fine (rinnovo, scadenza, dimissioni o chiusura) dal 1/1 in
+           poi. Cosi' un incarico scaduto l'anno prima e non rinnovato sparisce,
+           uno rinnovato continua (la data di rinnovo sposta la fine in avanti).
+           Senza data di fine l'incarico e' aperto: resta. Proposte e non accettati
+           non sono in essere. */
+        incaricoInAnno(inc, anno) {
+            if (!inc || inc.stato === 'proposta' || inc.stato === 'nonAccettato') return false;
+            const inizio = String(inc.dataInizio || '');
+            let fine = String(inc.rinnovo || inc.dataFine || '');
+            const giorno = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+            if (inc.stato === 'dimesso' && inc.dimissioni && inc.dimissioni.data) fine = String(inc.dimissioni.data);
+            else if (inc.stato === 'cessato' && inc.terminato && inc.terminato.il) { const g = giorno(inc.terminato.il); if (!fine || g < fine) fine = g; }
+            const daAnno = anno + '-01-01', aAnno = anno + '-12-31';
+            if (inizio && inizio > aAnno) return false;
+            if (fine && fine < daAnno) return false;
+            return true;
+        },
+        /* true se la persona collegata e' il responsabile della qualita di questo
+           incarico (confronto tramite il risolutore, non sul testo nudo). */
+        eResponsabileQualita(inc, persona, risolvi) {
+            if (!inc || !persona) return false;
+            const x = (risolvi || risolutorePersone())(String(inc.qualita || '').trim());
+            return !!x && x.id === persona.id;
+        },
+        /* Gli incarichi dell'anno che l'utente vede (vedi il profilo in testa). */
+        incarichiPerAnno(anno) {
+            const prof = cqProfilo();
+            if (!prof) return [];
+            let lista = Incarichi.visibili().filter(i => this.incaricoInAnno(i, anno));
+            if (!prof.tutti) {
+                const risolvi = risolutorePersone();
+                lista = lista.filter(i => this.eResponsabileQualita(i, prof.persona, risolvi));
+            }
+            return lista.slice().sort((a, b) => String(a.cliente || '').localeCompare(String(b.cliente || ''), 'it'));
+        },
+        vedeIncarico(inc, anno) { return !!inc && this.incarichiPerAnno(anno).some(i => i.id === inc.id); },
+        /* Scrittura sulla scheda di UN incarico: il ruolo deve avere la scrittura
+           e la persona deve essere il responsabile della qualita di quell'incarico
+           (amministratore e titolare: sempre). */
+        puoModificare(inc, prof, risolvi) {
+            if (!Auth.puoScrivere('controlloQualita')) return false;
+            prof = prof || cqProfilo();
+            if (!prof) return false;
+            if (prof.admin) return true;
+            return this.eResponsabileQualita(inc, prof.persona, risolvi);
+        },
+        /* ---- scrittura ---- */
+        /* Unico punto di scrittura: crea la scheda dell'anno al primo salvataggio
+           (niente record vuoti per chi entra solo a guardare), applica la
+           modifica, timbra "modificato" e registra la voce nel Registro. */
+        aggiorna(inc, anno, utente, azione, dettagli, mutatore) {
+            const lista = this.tutte();
+            let idx = lista.findIndex(x => x && !x.config && x.incaricoId === inc.id && Number(x.anno) === Number(anno));
+            if (idx < 0) {
+                lista.push({
+                    id: uid(), incaricoId: inc.id, anno: Number(anno), cliente: inc.cliente || '', regione: inc.regione || '',
+                    area12: { check: '', commento: '' }, area3: { check: '', commento: '' }, area4: { check: '', commento: '' },
+                    avanzamenti: [], email: [], completato: null,
+                    creato: timbro(utente),
+                    modificato: null
+                });
+                idx = lista.length - 1;
+            }
+            const scheda = this.normalizza(lista[idx]);
+            if (mutatore) mutatore(scheda);
+            // cliente e regione restano allineati all'incarico: servono a elenco,
+            // registro e filtro territoriale senza dover rifare il collegamento
+            scheda.cliente = inc.cliente || scheda.cliente;
+            scheda.regione = inc.regione || scheda.regione;
+            scheda.modificato = timbro(utente);
+            lista[idx] = scheda;
+            this.salva(lista);
+            Audit.registra(utente, azione, 'controlloQualita', scheda.id, inc.cliente || '', dettagli || null);
+            return scheda;
+        },
+        /* Ogni email (inviata o no) resta nella scheda con testo e destinatari, e
+           nel Registro con l'esito: la storia della scheda le mostra insieme alle
+           modifiche. Ne restano le ultime 100. */
+        registraEmail(inc, anno, utente, rec) {
+            const voce = { id: uid(), ts: Date.now(), da: cqFirma(utente), collab: firmaCollaboratore(utente) || '', tipo: rec.tipo, a: rec.a || [], cc: rec.cc || '', oggetto: rec.oggetto || '', testo: rec.testo || '', esito: rec.esito, msg: rec.msg || '' };
+            const azione = (rec.esito === 'inviata' ? 'Email inviata: ' : 'Email non inviata: ') + (rec.tipo === 'sospensione' ? 'richiesta di sospensione del compenso' : 'riepilogo al team di revisione');
+            const dett = 'A: ' + (voce.a.length ? voce.a.join(', ') : 'nessuno') + (voce.cc ? ' · In copia: ' + voce.cc : '') + ' · Oggetto: ' + voce.oggetto + (voce.msg ? ' · ' + voce.msg : '');
+            return this.aggiorna(inc, anno, utente, azione, dett, s => { s.email.push(voce); if (s.email.length > 100) s.email = s.email.slice(-100); });
+        }
+    };
+
+    function cqBadgeCheck(id) {
+        const c = cqCheck(id);
+        return c ? '<span class="badge ' + c.classe + '">' + esc(c.nome) + '</span>' : '<span class="badge neutro">Da valutare</span>';
+    }
+    /* il solo nome da un timbro "Nome <email>": nell'elenco l'email e' rumore */
+    function cqSoloNome(da) { const s = String(da || ''); const i = s.indexOf(' <'); return i > 0 ? s.slice(0, i) : s; }
+    /* Il solo nome di un timbro {da, collab}, in testo semplice, con "(tramite <collaboratore>)"
+       quando spetta a chi guarda (solo l'utente di riferimento): per attributi, textContent
+       e le righe della storia. */
+    function nomeConCollab(t) {
+        if (!t) return '';
+        const base = cqSoloNome(t.da);
+        return (t.collab && vedoCollaboratoreDi(t.da)) ? base + ' (tramite ' + nomeDaFirma(t.collab) + ')' : base;
+    }
+    function cqNomePersona(p, altrimenti) { return p ? ((p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome) : (altrimenti || ''); }
+    /* Le persone del team di revisione dell'incarico, con l'email della loro
+       scheda in Aderenti Revilaw (se c'e'): sono i destinatari del riepilogo. */
+    function cqPersoneTeam(inc) {
+        const risolvi = risolutorePersone();
+        const viste = new Set();
+        return dividiNomi(inc.team).map(n => {
+            const p = risolvi(n);
+            const email = p && p.email ? String(p.email).trim().toLowerCase() : '';
+            if (email && viste.has(email)) return null;
+            if (email) viste.add(email);
+            return { nome: cqNomePersona(p, n), email };
+        }).filter(Boolean);
+    }
+    /* Invio vero e proprio: passa dal servizio delle Comunicazioni (solo con
+       l'accesso protetto attivo). Chi invia va sempre in copia: il servizio,
+       con piu' destinatari, mette il mittente come destinatario visibile e gli
+       altri in copia nascosta. Ritorna {ok, msg}. */
+    async function cqInviaMail(oggetto, html, emails, utente) {
+        const mio = String((utente && utente.email) || '').toLowerCase();
+        const tutti = Array.from(new Set((emails || []).map(e => String(e).toLowerCase()).concat(mio ? [mio] : [])));
+        if (!emails || !emails.length) return { ok: false, msg: 'nessun indirizzo email' };
+        if (typeof Cloud === 'undefined' || !Cloud.attivo) return { ok: false, msg: 'servizio email disponibile solo con l\'accesso protetto attivo' };
+        const esito = await Cloud.inviaComunicazione(oggetto, html, datiDestinatari(tutti), 'html');
+        if (!esito || !esito.ok) return { ok: false, msg: (esito && esito.msg) || 'invio non riuscito' };
+        if (esito.falliti && esito.falliti.length) return { ok: false, msg: 'rifiutati: ' + esito.falliti.map(f => (f && f.email) || f).join(', ') };
+        return { ok: true };
+    }
+    /* Tabella HTML (email-safe) delle attivita' di un avanzamento: stato e cose
+       da fare ancora aperte di ogni attivita'. Le note interne non escono. */
+    function cqTabellaAttivitaMail(avz) {
+        const righe = (avz && avz.righe || []).filter(r => r.stato || r.todo.some(t => !t.fatto && t.testo));
+        if (!righe.length) return pMail('<em>Nessuna attività con uno stato registrato.</em>');
+        const colore = { verde: '#1E7F4F', ambra: '#9A6700', rosso: '#B3261E' };
+        const cella = 'padding:5px 12px 5px 0;vertical-align:top;color:#0A2844;';
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.5;margin:12px 0;border-collapse:collapse;">'
+            + '<tr><td style="padding:4px 12px 4px 0;color:#475569;border-bottom:1px solid #E2E8F0;">Attività</td><td style="padding:4px 12px 4px 0;color:#475569;border-bottom:1px solid #E2E8F0;">Stato</td><td style="padding:4px 0;color:#475569;border-bottom:1px solid #E2E8F0;">Da fare</td></tr>'
+            + righe.map(r => {
+                const s = cqStatoRiga(r.stato) || { nome: '-', classe: '' };
+                const daFare = r.todo.filter(t => !t.fatto && t.testo).map(t => esc(t.testo)).join('<br>');
+                return '<tr><td style="' + cella + '">' + esc(r.etichetta || '') + '</td><td style="' + cella + 'font-weight:bold;color:' + (colore[s.classe] || '#475569') + ';">' + esc(s.nome) + '</td><td style="padding:5px 0;vertical-align:top;color:#0A2844;">' + (daFare || '-') + '</td></tr>';
+            }).join('')
+            + '</table>';
+    }
+    /* Il blocco "ultimo avanzamento" delle email. */
+    function cqBloccoAvanzamentoMail(avz) {
+        if (!avz) return pMail('<em>Nessun avanzamento registrato.</em>');
+        return pMail('<strong>Ultimo avanzamento al ' + esc(fmtData(avz.data)) + '</strong>')
+            + cqTabellaAttivitaMail(avz)
+            + (avz.sospensione === 'si' ? pMail('Per questo avanzamento è stata <strong>richiesta la sospensione del compenso trimestrale</strong>.') : '');
+    }
+    function cqFirmaMail(utente) {
+        return pMail('Cordiali saluti,<br><strong>' + esc(utente.nome || '') + '</strong><br>Responsabile qualità - Revilaw S.p.A.<br>'
+            + '<a href="mailto:' + esc(utente.email) + '" style="color:#164068;">' + esc(utente.email) + '</a>');
+    }
+    function cqTabellaIncaricoMail(inc, anno) {
+        return tabellaMail([
+            ['Incarico', '<strong>' + esc(inc.cliente || '') + '</strong>'],
+            ['Anno di riferimento', esc(String(anno))],
+            ['Team di revisione', esc(inc.team || '')],
+            ['Responsabile incarico', esc(inc.respIncarico || '')],
+            ['Responsabile qualità', esc(inc.qualita || '')]
+        ]);
+    }
+    /* Corpo della richiesta di sospensione del compenso (destinatario fisso). */
+    function cqMailSospensione(inc, anno, avz, utente) {
+        const dest = cqDestinatarioSospensione();
+        return senzaTrattiniLunghi(
+            pMail('Gentile ' + esc(dest.nome) + ',')
+            + pMail('nell\'ambito del <strong>controllo di qualità</strong> sull\'incarico <strong>' + esc(inc.cliente || '') + '</strong>'
+                + ' (anno di riferimento ' + esc(String(anno)) + ', responsabile incarico ' + esc(inc.respIncarico || '-') + ') si richiede la '
+                + '<strong>sospensione del compenso trimestrale</strong>, in attesa del completamento delle attività di seguito indicate.')
+            + cqTabellaIncaricoMail(inc, anno)
+            + cqBloccoAvanzamentoMail(avz)
+            + pMail('La richiesta è registrata nella scheda dei controlli di qualità dell\'area riservata.')
+            + cqFirmaMail(utente));
+    }
+    /* Corpo del riepilogo al team di revisione: prima i controlli per area,
+       poi l'ultimo avanzamento. */
+    function cqMailRiepilogo(inc, anno, scheda, avz, intro, utente) {
+        const colore = { verde: '#1E7F4F', ambra: '#9A6700', rosso: '#B3261E' };
+        const aree = tabellaMail(CQ_AREE.map(a => {
+            const v = scheda ? scheda[a.id] : { check: '', commento: '' };
+            const c = cqCheck(v.check);
+            return ['Check ' + a.nome, '<strong style="color:' + (c ? colore[c.classe] : '#475569') + ';">' + esc(c ? c.nome : 'Da valutare') + '</strong>' + (v.commento ? ' - ' + esc(v.commento) : '')];
+        }));
+        return senzaTrattiniLunghi(
+            pMail('Gentile team,')
+            + pMail(esc(intro || '').replace(/\n/g, '<br>'))
+            + cqTabellaIncaricoMail(inc, anno)
+            + pMail('<strong>Riepilogo dei controlli per area</strong>') + aree
+            + (scheda && scheda.completato ? pMail('I controlli di qualità risultano <strong>completati</strong> il ' + esc(fmtGiorno(scheda.completato.il)) + '.') : '')
+            + cqBloccoAvanzamentoMail(avz)
+            + cqFirmaMail(utente));
+    }
+
+    /* =========================================================
+       VISTA: ELENCO CONTROLLI QUALITA'
+       In testa l'anno di riferimento (schede 2025, 2026, ... con il pulsante
+       per aggiungere il successivo), poi le due schede: i controlli DA
+       SVOLGERE (gli incarichi che l'utente puo' modificare) e gli incarichi
+       in SOLA VISUALIZZAZIONE. Una riga per incarico: societa', stato dei
+       controlli (completati o in corso), responsabile qualita, team, i tre
+       semafori con i commenti, il tempo qualita dell'anno e l'ultimo
+       aggiornamento con il suo autore.
+    ========================================================= */
+    function vistaControlliQualita() {
+        const prof = cqProfilo();
+        if (!prof) { naviga(primaVistaVisibile() || 'dashboard'); return; }
+        const anni = ControlliQualita.anni();
+        if (!cqAnno || !anni.includes(cqAnno)) cqAnno = ControlliQualita.annoPredefinito();
+        const incs = ControlliQualita.incarichiPerAnno(cqAnno);
+        const puoScrivere = Auth.puoScrivere('controlloQualita');
+        const risolvi = risolutorePersone();
+        const schede = {};
+        ControlliQualita.schede().forEach(s => { if (Number(s.anno) === cqAnno) schede[s.incaricoId] = s; });
+        const miei = incs.filter(i => ControlliQualita.puoModificare(i, prof, risolvi));
+        const soloVis = incs.filter(i => !ControlliQualita.puoModificare(i, prof, risolvi));
+        // la scheda "da svolgere" vuota non e' un buon punto di partenza: chi e' solo
+        // equity (o in sola lettura) apre direttamente la visualizzazione
+        if (cqTab === 'miei' && !miei.length && soloVis.length) cqTab = 'visualizzazione';
+        if (cqTab === 'visualizzazione' && !soloVis.length && miei.length) cqTab = 'miei';
+        const lista = cqTab === 'miei' ? miei : soloVis;
+        const minutiTotali = lista.reduce((tot, i) => tot + cqMinutiScheda(schede[i.id]), 0);
+        const completati = lista.filter(i => schede[i.id] && schede[i.id].completato).length;
+        const perimetro = prof.admin
+            ? 'Il quadro dei controlli di qualità su tutti gli incarichi.'
+            : prof.equity
+                ? 'Come equity partner vedi <strong>tutti</strong> gli incarichi: nella prima scheda quelli in cui sei <strong>responsabile della qualità</strong> (li puoi modificare), nella seconda gli altri, in sola visualizzazione.'
+                : 'Gli incarichi in cui sei <strong>responsabile della qualità</strong>.';
+
+        const cellaArea = (s, a) => {
+            const v = s ? s[a.id] : { check: '', commento: '' };
+            return `<td data-label="${esc(a.nome)}">${cqBadgeCheck(v.check)}${v.commento ? '<div class="cq-commento-mini" title="' + esc(v.commento) + '">' + esc(troncaTesto(v.commento, 70)) + '</div>' : ''}</td>`;
+        };
+        const riga = i => {
+            const s = schede[i.id];
+            const agg = s ? (s.modificato || s.creato) : null;
+            const min = cqMinutiScheda(s);
+            const compl = s && s.completato;
+            return `<tr class="cliccabile${compl ? ' cq-completata' : ''}" data-apri="${esc(i.id)}">
+                <td class="cliente-cella" data-label="Società">${esc(i.cliente || '')}</td>
+                <td data-label="Stato controlli">${compl ? '<span class="badge verde" title="Completati il ' + esc(fmtGiorno(compl.il)) + ' da ' + esc(nomeConCollab(compl)) + '">' + ICO_SPUNTA + 'Completati</span>' : (s ? '<span class="badge ambra">In corso</span>' : '<span class="badge neutro">Da iniziare</span>')}</td>
+                <td data-label="Resp. qualità">${esc(i.qualita || '')}</td>
+                <td data-label="Team">${esc(i.team || '')}</td>
+                ${CQ_AREE.map(a => cellaArea(s, a)).join('')}
+                <td data-label="Tempo qualità" class="cq-num">${min ? esc(cqFmtMinuti(min)) : '<span class="hint">-</span>'}</td>
+                <td data-label="Aggiornamento" class="cq-agg">${agg ? esc(fmtGiorno(agg.il)) + '<div class="hint">' + htmlTimbroNome(agg) + '</div>' : '<span class="hint">mai</span>'}</td>
+                <td data-label=""><button class="btn btn-sm btn-secondary" data-apri-scheda="${esc(i.id)}">${cqTab === 'miei' ? 'Apri scheda' : 'Vedi scheda'}</button></td>
+            </tr>`;
+        };
+
+        $vista().innerHTML = `<div class="cq-pagina">
+            <header>
+                <div>
+                    <h1>Controlli qualità</h1>
+                    <p class="descrizione">${perimetro}</p>
+                    <details class="cq-aiuto"><summary>Come funziona</summary>
+                        <p>Scegli l'<strong>anno di riferimento</strong>: compaiono gli incarichi in essere in quell'anno o con scadenza nel suo corso (chi è scaduto l'anno prima senza rinnovo non c'è; chi è stato rinnovato continua). Semafori e commenti arrivano dalla scheda di ogni cliente; "Completati" è lo stato che il responsabile qualità assegna dalla scheda quando tutti i check sono verdi. Il tempo qualità è la somma dei tempi registrati nell'anno.</p>
+                    </details>
+                </div>
+            </header>
+            <div class="cq-barra">
+                <div class="tab-dest cq-anni"><span class="cq-barra-etich">Anno</span>
+                    ${anni.map(a => `<button class="tab-btn ${a === cqAnno ? 'attivo' : ''}" data-cqanno="${a}">${a}</button>`).join('')}
+                    ${puoScrivere ? `<button class="btn btn-sm btn-ghost" id="cq-aggiungi-anno" title="Apre l'anno ${anni[anni.length - 1] + 1}">+ Anno</button>` : ''}
+                </div>
+                <div class="tab-dest cq-schede">
+                    <button class="tab-btn ${cqTab === 'miei' ? 'attivo' : ''}" data-cqtab="miei">Da svolgere (${miei.length})</button>
+                    <button class="tab-btn ${cqTab === 'visualizzazione' ? 'attivo' : ''}" data-cqtab="visualizzazione">Sola visualizzazione (${soloVis.length})</button>
+                </div>
+            </div>
+            ${!lista.length ? `<div class="card"><p class="tabella-vuota">${cqTab === 'miei'
+                ? (prof.tutti && !prof.admin ? 'Nel ' + cqAnno + ' non risulti responsabile della qualità di alcun incarico: trovi tutto in "Sola visualizzazione".' : 'Nessun incarico in essere nel ' + cqAnno + ' in cui risulti responsabile della qualità.')
+                : 'Nessun incarico in sola visualizzazione nel ' + cqAnno + '.'}</p></div>` : ''}
+            ${lista.length ? `<div class="card">
+                <h2>${cqTab === 'miei' ? 'Controlli da svolgere' : 'Sola visualizzazione'} ${cqAnno} <span class="cq-kpi">${lista.length} incarichi · completati <strong>${completati}</strong> · tempo qualità <strong id="cq-tempo-totale">${esc(cqFmtMinuti(minutiTotali))}</strong></span></h2>
+                <div class="tabella-wrap"><table class="dati a-schede cq-elenco" id="tabella-cq"><thead><tr>
+                    <th>Società</th><th>Stato</th><th>Resp. qualità</th><th>Team di revisione</th>
+                    ${CQ_AREE.map(a => '<th>' + esc(a.nome) + '</th>').join('')}
+                    <th>Tempo qualità</th><th>Aggiornamento</th><th></th>
+                </tr></thead><tbody>${lista.map(riga).join('')}</tbody></table></div>
+            </div>` : ''}
+        </div>`;
+
+        $vista().querySelectorAll('[data-cqanno]').forEach(b =>
+            b.addEventListener('click', () => { cqAnno = Number(b.dataset.cqanno); vistaControlliQualita(); }));
+        $vista().querySelectorAll('[data-cqtab]').forEach(b =>
+            b.addEventListener('click', () => { cqTab = b.dataset.cqtab; vistaControlliQualita(); }));
+        { const ba = document.getElementById('cq-aggiungi-anno'); if (ba) ba.addEventListener('click', () => {
+            const nuovo = ControlliQualita.aggiungiAnno(Auth.utenteCorrente);
+            cqAnno = nuovo;
+            toast('Aperto l\'anno di riferimento ' + nuovo + '.', 'verde');
+            vistaControlliQualita();
+        }); }
+        const tab = document.getElementById('tabella-cq');
+        if (tab) attrezzaTabella(tab, { nomeFile: 'controlli-qualita-' + cqAnno + (cqTab === 'miei' ? '' : '-visualizzazione'), ricerca: true });
+        const apri = id => naviga('controlloQualitaScheda', { id: id, anno: cqAnno });
+        $vista().querySelectorAll('tr[data-apri]').forEach(tr =>
+            tr.addEventListener('click', e => { if (!e.target.closest('button')) apri(tr.dataset.apri); }));
+        $vista().querySelectorAll('[data-apri-scheda]').forEach(b =>
+            b.addEventListener('click', () => apri(b.dataset.apriScheda)));
+    }
+
+    /* =========================================================
+       STORIA DELLA SCHEDA
+       Modifiche (dal Registro) ed email (dalla scheda) in un'unica linea
+       del tempo, raggruppate per giorno, con un filtro per tipo. Le
+       email hanno il testo consultabile.
+    ========================================================= */
+    function cqStoriaHtml(scheda, storia) {
+        const voci = [];
+        storia.forEach(v => {
+            if (/^Email /.test(v.azione || '')) return;   // le email stanno nella scheda, con il testo
+            const struttura = (/avanzamento/i.test(v.azione || '') && !/^Aggiornamento/.test(v.azione || '')) || /completat|riapert/i.test(v.azione || '');
+            voci.push({ ts: v.ts, tipo: struttura ? 'avanzamento' : 'modifica', chi: nomeConCollab({ da: v.utente, collab: v.collaboratore }), azione: v.azione, dettagli: v.dettagli });
+        });
+        (scheda ? scheda.email : []).forEach(m => voci.push({ ts: m.ts, tipo: 'email', chi: nomeConCollab(m), email: m }));
+        if (scheda && scheda.creato) voci.push({ ts: scheda.creato.il, tipo: 'avanzamento', chi: nomeConCollab(scheda.creato), azione: 'Scheda aperta' });
+        voci.sort((a, b) => b.ts - a.ts);
+        const n = t => voci.filter(v => t === 'tutte' || v.tipo === t).length;
+        const badge = { modifica: '<span class="badge neutro">Modifica</span>', avanzamento: '<span class="badge legale">Avanzamento</span>', email: '<span class="badge collegio">Email</span>' };
+        const gruppi = [];
+        voci.forEach(v => { const g = fmtGiorno(v.ts); const u = gruppi[gruppi.length - 1]; if (u && u.giorno === g) u.voci.push(v); else gruppi.push({ giorno: g, voci: [v] }); });
+        const rigaVoce = v => {
+            const ora = fmtDataOra(v.ts).slice(11);
+            if (v.tipo === 'email') {
+                const m = v.email;
+                return `<div class="cq-storia-voce tipo-email" data-tipo="email">
+                    <span class="ora">${ora}</span>${badge.email}
+                    <div class="corpo"><span class="chi">${esc(v.chi)}</span> ${m.esito === 'inviata' ? 'ha inviato' : 'non è riuscito a inviare'} ${m.tipo === 'sospensione' ? 'la <strong>richiesta di sospensione del compenso</strong>' : 'il <strong>riepilogo al team di revisione</strong>'}
+                        <div class="campi">A: ${esc(m.a.length ? m.a.join(', ') : 'nessun destinatario')}${m.cc ? ' · In copia: ' + esc(m.cc) : ''} · Oggetto: ${esc(m.oggetto)}${m.msg ? ' · <span class="cq-esito-ko">' + esc(m.msg) + '</span>' : ''}</div>
+                        <button class="btn btn-sm btn-ghost cq-vedi-email" data-email="${esc(m.id)}">Vedi testo</button>
+                    </div>
+                </div>`;
+            }
+            const dett = Array.isArray(v.dettagli)
+                ? '<ul class="campi">' + v.dettagli.map(d => '<li>' + esc(d.campo) + ': ' + esc(troncaTesto(d.prima, 60)) + ' → ' + esc(troncaTesto(d.dopo, 60)) + '</li>').join('') + '</ul>'
+                : (v.dettagli ? '<div class="campi">' + esc(v.dettagli) + '</div>' : '');
+            return `<div class="cq-storia-voce tipo-${v.tipo}" data-tipo="${v.tipo}">
+                <span class="ora">${ora}</span>${badge[v.tipo]}
+                <div class="corpo"><span class="chi">${esc(v.chi)}</span> - ${esc(v.azione)}${dett}</div>
+            </div>`;
+        };
+        return `<div class="cq-storia-filtri">
+                <button class="tab-btn attivo" data-cqstoria="tutte">Tutto (${n('tutte')})</button>
+                <button class="tab-btn" data-cqstoria="modifica">Modifiche (${n('modifica')})</button>
+                <button class="tab-btn" data-cqstoria="avanzamento">Avanzamenti (${n('avanzamento')})</button>
+                <button class="tab-btn" data-cqstoria="email">Email (${n('email')})</button>
+            </div>
+            ${voci.length ? gruppi.map(g => `<div class="cq-storia-giorno"><div class="cq-storia-data">${esc(g.giorno)}</div>${g.voci.map(rigaVoce).join('')}</div>`).join('')
+                : '<p class="tabella-vuota">Nessuna modifica registrata.</p>'}`;
+    }
+
+    /* =========================================================
+       VISTA: SCHEDA CONTROLLO QUALITA' DI UN INCARICO (per anno)
+       In testa i dati dell'incarico; poi un blocco per ogni "Avanzamento
+       al ...": le attivita' con lo stato a semaforo e, per ognuna, le note
+       interne e le cose da fare (riga apribile); il tempo qualita in ore e
+       minuti; la richiesta di sospensione del compenso (email al
+       destinatario fisso, previa conferma). Sotto, il riepilogo dei
+       controlli per area con il pulsante "controlli completati", il
+       riepilogo dei tempi e la storia con modifiche ed email. Ogni
+       modifica si salva subito e finisce nel Registro con autore, data e
+       campi variati.
+    ========================================================= */
+    function vistaControlloQualitaScheda() {
+        const inc = parametriVista && parametriVista.id ? Incarichi.trova(parametriVista.id) : null;
+        const anno = Number((parametriVista && parametriVista.anno) || cqAnno || ControlliQualita.annoPredefinito());
+        if (!inc || !ControlliQualita.vedeIncarico(inc, anno)) { naviga('controlloQualita'); return; }
+        cqAnno = anno;
+        const prof = cqProfilo();
+        const puoScrivere = ControlliQualita.puoModificare(inc, prof);
+        const scheda = ControlliQualita.perIncarico(inc.id, anno);
+        const avanzamenti = scheda ? scheda.avanzamenti : [];
+        const storia = scheda ? Store.leggi(CHIAVI.audit, []).filter(v => v.rif === scheda.id) : [];
+        avvisaSeAltriModificano('controlloQualita', inc.id);
+        if (puoScrivere) statoModifica = { tipo: 'controlloQualita', id: inc.id, etichetta: inc.cliente || '' };
+
+        const agg = scheda ? (scheda.modificato || scheda.creato) : null;
+        const dest = cqDestinatarioSospensione();
+        const utente = Auth.utenteCorrente;
+        const completato = scheda ? scheda.completato : null;
+        const selCheck = (id, valore) => `<select id="${id}" class="cq-sel ${(cqCheck(valore) || {}).classe || 'neutro'}"${puoScrivere ? '' : ' disabled'}>
+            <option value=""${valore ? '' : ' selected'}>Da valutare</option>
+            ${CQ_CHECK.map(c => `<option value="${c.id}"${valore === c.id ? ' selected' : ''}>${esc(c.opzione)}</option>`).join('')}
+        </select>`;
+        const areaRiepilogo = a => {
+            const v = scheda ? scheda[a.id] : { check: '', commento: '' };
+            return `<div>
+            <h4 class="cq-sotto">Check ${esc(a.nome)}</h4>
+            ${selCheck('cq-check-' + a.id, v.check)}
+            ${puoScrivere
+                ? `<textarea id="cq-commento-${a.id}" rows="3" placeholder="Commento per l'elenco (es. svolta al 95% ma errore sulla materialità...)">${esc(v.commento)}</textarea>`
+                : '<p class="descrizione" style="margin-top:8px;">' + (v.commento ? esc(v.commento) : '<span class="hint">Nessun commento.</span>') + '</p>'}
+        </div>`;
+        };
+        const rigaTempo = t => {
+            const min = Number(t.minuti) || 0;
+            return `<tr data-tempo="${esc(t.id)}">
+                <td class="cq-tempo-cella">${puoScrivere
+                    ? `<input type="number" min="0" max="999" class="cq-tempo-ore" value="${Math.floor(min / 60)}" aria-label="Ore"><span class="cq-tempo-unita">h</span> <input type="number" min="0" max="59" step="5" class="cq-tempo-min" value="${min % 60}" aria-label="Minuti"><span class="cq-tempo-unita">min</span>`
+                    : esc(cqFmtMinuti(min))}</td>
+                <td>${puoScrivere ? `<input type="text" class="cq-tempo-attivita" placeholder="Es. controllo delle carte di lavoro" value="${esc(t.attivita || '')}">` : esc(t.attivita || '')}</td>
+                ${puoScrivere ? '<td class="cq-cella-togli"><button class="btn btn-sm btn-ghost cq-tempo-togli" title="Togli questa riga">&#10005;</button></td>' : ''}
+            </tr>`;
+        };
+        /* Etichetta del pulsante che apre note e to do di una attivita': dice
+           subito se c'e' qualcosa dentro. */
+        const contaDett = r => {
+            const parti = [];
+            if (r.note && r.note.trim()) parti.push('nota');
+            const aperti = r.todo.filter(t => !t.fatto).length;
+            if (r.todo.length) parti.push(aperti ? aperti + ' da fare' : 'to do fatti');
+            return parti.length ? parti.join(' · ') : 'Note / to do';
+        };
+        const rigaAttivita = r => {
+            const aperta = cqRigheAperte.has(r.id);
+            const colonne = puoScrivere ? 4 : 3;
+            return `<tr data-riga="${esc(r.id)}"${aperta ? ' class="cq-riga-aperta"' : ''}>
+                <td>${puoScrivere ? `<input type="text" class="cq-riga-etichetta" value="${esc(r.etichetta || '')}">` : esc(r.etichetta || '')}</td>
+                <td><select class="cq-sel cq-riga-stato ${(cqStatoRiga(r.stato) || {}).classe || 'neutro'}"${puoScrivere ? '' : ' disabled'}>
+                    <option value=""${r.stato ? '' : ' selected'}>&#8212;</option>
+                    ${CQ_STATI_RIGA.map(s => `<option value="${s.id}"${r.stato === s.id ? ' selected' : ''}>${esc(s.nome)}</option>`).join('')}
+                </select></td>
+                <td class="cq-cella-dett"><button type="button" class="btn btn-sm ${(r.note && r.note.trim()) || r.todo.length ? 'btn-secondary' : 'btn-ghost'} cq-riga-apri" aria-expanded="${aperta ? 'true' : 'false'}" title="Note interne e cose da fare di questa attività">${esc(contaDett(r))}</button></td>
+                ${puoScrivere ? '<td class="cq-cella-togli"><button class="btn btn-sm btn-ghost cq-riga-togli" title="Togli questa attività">&#10005;</button></td>' : ''}
+            </tr>
+            <tr class="cq-riga-dett" data-riga-dett="${esc(r.id)}"${aperta ? '' : ' hidden'}>
+                <td colspan="${colonne}">
+                    <div class="cq-dett-griglia">
+                        <div>
+                            <h5 class="cq-sotto">Note interne qualità</h5>
+                            ${puoScrivere
+                                ? `<textarea class="cq-riga-note" rows="3" placeholder="Appunti riservati su questa attività: non escono nelle email">${esc(r.note || '')}</textarea>`
+                                : (r.note ? '<p class="descrizione">' + esc(r.note) + '</p>' : '<p class="hint">Nessuna nota.</p>')}
+                        </div>
+                        <div>
+                            <h5 class="cq-sotto">To do</h5>
+                            <ul class="cq-todo">
+                                ${r.todo.length ? r.todo.map(t => `<li data-todo="${esc(t.id)}" class="${t.fatto ? 'fatto' : ''}">
+                                    <input type="checkbox" class="cq-todo-fatto"${t.fatto ? ' checked' : ''}${puoScrivere ? '' : ' disabled'} title="Segna come fatto">
+                                    ${puoScrivere ? `<input type="text" class="cq-todo-testo" placeholder="Cosa c'è da fare" value="${esc(t.testo || '')}">` : '<span class="cq-todo-etich">' + esc(t.testo || '') + '</span>'}
+                                    ${puoScrivere ? '<button class="btn btn-sm btn-ghost cq-todo-togli" title="Togli">&#10005;</button>' : ''}
+                                </li>`).join('') : '<li class="cq-todo-vuota"><span class="hint">Niente da fare.</span></li>'}
+                            </ul>
+                            ${puoScrivere ? '<button class="btn btn-sm btn-secondary cq-todo-aggiungi">+ Aggiungi to do</button>' : ''}
+                        </div>
+                    </div>
+                </td>
+            </tr>`;
+        };
+
+        const ultimoAvzId = avanzamenti.length ? avanzamenti[avanzamenti.length - 1].id : null;
+        const avzAperto = a => cqAvzStato.has(a.id) ? cqAvzStato.get(a.id) : a.id === ultimoAvzId;
+        /* Un avanzamento precedente sta in una riga sola: data, riassunto e il
+           pulsante per aprirlo. Cosi' la scheda non si allunga a ogni periodo. */
+        const bloccoAvzRidotto = a => `<div class="card cq-avz cq-avz-ridotto" data-avz-ridotto="${esc(a.id)}">
+            <div class="cq-avz-riga">
+                <div><strong>Avanzamento al ${a.data ? esc(fmtData(a.data)) : '...'}</strong> <span class="hint">· ${esc(cqRiassuntoAvz(a))}</span></div>
+                <button type="button" class="btn btn-sm btn-secondary cq-avz-apri" data-avz-apri="${esc(a.id)}">Apri</button>
+            </div>
+        </div>`;
+        const bloccoAvz = a => avzAperto(a) ? bloccoAvzEsteso(a) : bloccoAvzRidotto(a);
+        const bloccoAvzEsteso = a => `<div class="card cq-avz" data-avz="${esc(a.id)}">
+            <div class="cq-avz-testa">
+                <div class="cq-avz-titolo">
+                    <h2>Avanzamento al ${a.data ? esc(fmtData(a.data)) : '...'}</h2>
+                    ${puoScrivere ? `<input type="date" class="cq-avz-data" value="${esc(a.data || '')}" title="Cambia la data dell'avanzamento">` : ''}
+                    <span class="hint">${esc(cqRiassuntoAvz(a))}</span>
+                </div>
+                <span class="cq-avz-testa-azioni">
+                    ${avanzamenti.length > 1 ? `<button type="button" class="btn btn-sm btn-ghost cq-avz-riduci" data-avz-riduci="${esc(a.id)}" title="Riduci a una riga">Riduci</button>` : ''}
+                    ${puoScrivere ? '<button class="btn btn-sm btn-ghost cq-avz-elimina" title="Elimina questo avanzamento">Elimina</button>' : ''}
+                </span>
+            </div>
+            <div class="cq-avz-griglia">
+                <div>
+                    <h4 class="cq-sotto">Attività <span class="cq-sotto-nota">note interne e to do dal pulsante nella riga</span></h4>
+                    <div class="tabella-wrap"><table class="dati compatta cq-tab-attivita"><thead><tr><th>Attività</th><th>Stato</th><th>Note / to do</th>${puoScrivere ? '<th></th>' : ''}</tr></thead><tbody>
+                    ${a.righe.map(rigaAttivita).join('')}
+                    </tbody></table></div>
+                    ${puoScrivere ? '<button class="btn btn-sm btn-secondary cq-riga-aggiungi" style="margin-top:8px;">+ Aggiungi attività</button>' : ''}
+                </div>
+                <div>
+                    <h4 class="cq-sotto">Tempo qualità</h4>
+                    <div class="tabella-wrap"><table class="dati compatta"><thead><tr><th style="width:190px;">Tempo (ore e minuti)</th><th>Attività</th>${puoScrivere ? '<th></th>' : ''}</tr></thead><tbody>
+                    ${a.tempi.length ? a.tempi.map(rigaTempo).join('') : `<tr class="cq-vuota"><td colspan="${puoScrivere ? 3 : 2}"><span class="hint">Nessun tempo registrato.</span></td></tr>`}
+                    </tbody>${a.tempi.length ? `<tfoot><tr class="cq-tot"><td class="cq-tempo-totale-avz">${esc(cqFmtMinuti(cqMinutiAvz(a)))}</td><td colspan="${puoScrivere ? 2 : 1}">Totale di questo avanzamento</td></tr></tfoot>` : ''}</table></div>
+                    ${puoScrivere ? '<button class="btn btn-sm btn-secondary cq-tempo-aggiungi" style="margin-top:8px;">+ Aggiungi tempo</button>' : ''}
+
+                    <div class="cq-sospensione">
+                        <label>Richiesta a <strong>${esc(dest.nome)}</strong> di sospensione del compenso trimestrale</label>
+                        <select class="cq-sel cq-sosp ${a.sospensione === 'si' ? 'rosso' : (a.sospensione === 'no' ? 'verde' : 'neutro')}"${puoScrivere ? '' : ' disabled'}>
+                            <option value=""${a.sospensione ? '' : ' selected'}>&#8212;</option>
+                            <option value="si"${a.sospensione === 'si' ? ' selected' : ''}>Sì</option>
+                            <option value="no"${a.sospensione === 'no' ? ' selected' : ''}>No</option>
+                        </select>
+                        <p class="hint" style="margin:6px 0 0;">${ICO_EMAIL}Con <strong>Sì</strong> parte l'email a ${esc(dest.nome)}, firmata da te e con te in copia.</p>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        const minutiTot = cqMinutiScheda(scheda);
+        const tuttoVerde = cqTuttoVerde(scheda);
+        const badges = `<span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span><span class="badge legale">Controlli ${anno}</span>${completato ? '<span class="badge verde">' + ICO_SPUNTA + 'Controlli completati il ' + esc(fmtGiorno(completato.il)) + '</span>' : ''}${puoScrivere ? '' : '<span class="badge ambra">Sola visualizzazione</span>'}`;
+        $vista().innerHTML = `<div class="cq-pagina">
+            <div class="cq-toolbar" id="cq-toolbar">
+                <button type="button" class="btn btn-secondary btn-sm cq-btn-torna" id="cq-torna" title="Torna all'elenco dei controlli qualità ${anno}">&#8592; Elenco ${anno}</button>
+                <div class="cq-titolo"><h1>${esc(inc.cliente)}</h1><div class="cq-badges">${badges}</div></div>
+                <div class="cq-toolbar-azioni">
+                    ${puoScrivere ? `<span class="cq-stato-salv${scheda ? ' ok' : ''}" id="cq-stato-salvataggio">${scheda && scheda.modificato && scheda.modificato.il === cqUltimoSalvataggio ? 'Salvato alle ' + fmtDataOra(scheda.modificato.il).slice(11) : (scheda ? 'Tutte le modifiche sono salvate' : 'Le modifiche si salvano da sole')}</span>
+                    <button class="btn btn-primary btn-sm" id="cq-salva" title="Salva subito quello che stai scrivendo (Ctrl+S)">${ICO_SALVA}Salva</button>
+                    <button class="btn btn-secondary btn-sm" id="cq-riepilogo-team" title="Prepara e invia l'email di riepilogo al team di revisione">${ICO_EMAIL}Email al team</button>` : ''}
+                </div>
+            </div>
+            ${!puoScrivere && prof && !prof.admin ? `<div class="cq-avviso"><strong>Sola visualizzazione.</strong> Il responsabile della qualità di questo incarico è <strong>${esc(inc.qualita || 'non indicato')}</strong>: puoi modificare solo le schede degli incarichi in cui il responsabile della qualità sei tu.</div>` : ''}
+            <div class="cq-info">
+                <div><span>Team di revisione</span><strong>${esc(inc.team || '-')}</strong></div>
+                <div><span>Responsabile incarico</span><strong>${esc(inc.respIncarico || '-')}</strong></div>
+                <div><span>Responsabile qualità</span><strong>${esc(inc.qualita || '-')}</strong></div>
+                <div><span>Anno di riferimento</span><strong>${anno}</strong></div>
+                <div><span>Ultimo aggiornamento</span><strong id="cq-timbro">${agg ? esc(fmtDataOra(agg.il)) + ' · ' + htmlTimbroNome(agg) : '-'}</strong></div>
+            </div>
+            <div class="cq-sezione-testa">
+                <h2 class="cq-sezione-titolo">Avanzamenti ${anno} <span class="hint">(${avanzamenti.length})</span></h2>
+                ${puoScrivere ? '<button class="btn btn-primary btn-sm" id="cq-nuovo-avz">+ Nuovo avanzamento</button>' : ''}
+            </div>
+            ${avanzamenti.map(bloccoAvz).join('')}
+            ${!avanzamenti.length ? `<div class="card"><p class="tabella-vuota">Nessun avanzamento registrato per il ${anno}${puoScrivere ? ': premi "+ Nuovo avanzamento" per aprire il primo blocco' : ''}.</p></div>` : ''}
+            <div class="card${completato ? ' cq-card-completata' : ''}" id="cq-riepilogo">
+                <h2>Riepilogo dei controlli <span class="cq-kpi">semafori e commenti ripresi nell'elenco ${anno}</span></h2>
+                <div class="cq-riepilogo-griglia">
+                    ${CQ_AREE.map(areaRiepilogo).join('')}
+                </div>
+                <div class="cq-completamento">
+                    ${completato
+                        ? `<div class="cq-completamento-testo">${ICO_SPUNTA}<strong>Controlli completati</strong> il ${esc(fmtDataOra(completato.il))} da ${htmlTimbroNome(completato)}.</div>
+                           ${puoScrivere ? '<button class="btn btn-sm btn-secondary" id="cq-riapri">Riapri i controlli</button>' : ''}`
+                        : `<div class="cq-completamento-testo">${tuttoVerde ? 'Tutti i check sono verdi: puoi segnare i controlli come <strong>completati</strong>.' : 'Con i tre check <strong>verdi</strong> puoi segnare i controlli come completati.'}</div>
+                           ${puoScrivere ? '<button class="btn btn-primary btn-sm" id="cq-completa"' + (tuttoVerde ? '' : ' disabled title="Prima porta tutti i check a verde"') + '>' + ICO_SPUNTA + 'Segna come completati</button>' : ''}`}
+                </div>
+            </div>
+            <div class="card" id="cq-tempi">
+                <h2>Riepilogo dei tempi ${anno}</h2>
+                ${avanzamenti.length ? `<div class="tabella-wrap"><table class="dati compatta"><thead><tr><th>Avanzamento</th><th class="cq-num">Righe</th><th class="cq-num">Tempo qualità</th></tr></thead><tbody>
+                    ${avanzamenti.map(a => `<tr><td>Avanzamento al ${a.data ? esc(fmtData(a.data)) : '...'}</td><td class="cq-num">${a.tempi.length}</td><td class="cq-num">${esc(cqFmtMinuti(cqMinutiAvz(a)))}</td></tr>`).join('')}
+                    </tbody><tfoot><tr class="cq-tot"><td>Totale ${anno}</td><td class="cq-num">${avanzamenti.reduce((n, a) => n + a.tempi.length, 0)}</td><td class="cq-num" id="cq-tempo-totale-scheda">${esc(cqFmtMinuti(minutiTot))}</td></tr></tfoot></table></div>`
+                : '<p class="tabella-vuota">Nessun tempo registrato.</p>'}
+            </div>
+            <div class="card" id="cq-storia">
+                <h2>Storia della scheda</h2>
+                ${cqStoriaHtml(scheda, storia)}
+            </div>
+            <div class="cq-fondo">
+                <button type="button" class="btn btn-secondary btn-sm cq-btn-torna" id="cq-torna-fondo">&#8592; Elenco ${anno}</button>
+                ${puoScrivere ? '<button class="btn btn-primary btn-sm" id="cq-salva-fondo" title="Salva subito quello che stai scrivendo (Ctrl+S)">' + ICO_SALVA + 'Salva</button>' : ''}
+            </div>
+        </div>`;
+
+        // tornare all'elenco salva prima quello che e' ancora in mano
+        const torna = () => { cqFlushCampi(); tornaOrigine(() => naviga('controlloQualita')); };
+        document.getElementById('cq-torna').addEventListener('click', torna);
+        document.getElementById('cq-torna-fondo').addEventListener('click', torna);
+        // apri / riduci gli avanzamenti (anche in sola lettura): si ridisegna con lo scorrimento fermo
+        const ridisegnaVista = () => naviga('controlloQualitaScheda', { id: inc.id, anno: anno }, window.scrollY);
+        $vista().querySelectorAll('[data-avz-apri]').forEach(b => b.addEventListener('click', () => { cqAvzStato.set(b.dataset.avzApri, true); ridisegnaVista(); }));
+        $vista().querySelectorAll('[data-avz-riduci]').forEach(b => b.addEventListener('click', () => { cqAvzStato.set(b.dataset.avzRiduci, false); ridisegnaVista(); }));
+
+        // apertura/chiusura di note e to do di una attivita' (anche in sola lettura)
+        $vista().querySelectorAll('.cq-riga-apri').forEach(b => b.addEventListener('click', () => {
+            const tr = b.closest('tr'); const id = tr.dataset.riga;
+            const dett = $vista().querySelector('tr[data-riga-dett="' + id + '"]');
+            const apri = dett.hidden;
+            dett.hidden = !apri;
+            tr.classList.toggle('cq-riga-aperta', apri);
+            b.setAttribute('aria-expanded', apri ? 'true' : 'false');
+            if (apri) cqRigheAperte.add(id); else cqRigheAperte.delete(id);
+        }));
+
+        // storia: filtro per tipo e testo delle email (anche in sola lettura). E' una
+        // funzione perche' la storia si riaggiorna a ogni salvataggio senza ridisegnare.
+        const legaStoria = () => {
+        const cardStoria = document.getElementById('cq-storia');
+        if (!cardStoria) return;
+        cardStoria.querySelectorAll('[data-cqstoria]').forEach(b => b.addEventListener('click', () => {
+            cardStoria.querySelectorAll('[data-cqstoria]').forEach(x => x.classList.toggle('attivo', x === b));
+            const t = b.dataset.cqstoria;
+            cardStoria.querySelectorAll('.cq-storia-voce').forEach(v => { v.style.display = (t === 'tutte' || v.dataset.tipo === t) ? '' : 'none'; });
+            cardStoria.querySelectorAll('.cq-storia-giorno').forEach(g => { g.style.display = Array.from(g.querySelectorAll('.cq-storia-voce')).some(v => v.style.display !== 'none') ? '' : 'none'; });
+        }));
+        cardStoria.querySelectorAll('.cq-vedi-email').forEach(b => b.addEventListener('click', () => {
+            const sch = ControlliQualita.perIncarico(inc.id, anno);
+            const m = sch && sch.email.find(x => x.id === b.dataset.email);
+            if (!m) return;
+            apriModale(`<h2>${esc(m.oggetto || 'Email')}</h2>
+                <div class="riepilogo-blocco">
+                    ${rigaRiepilogo('Inviata il', fmtDataOra(m.ts))}
+                    ${rigaRiepilogo('Da', firmaConCollab(m.da, m.collab))}
+                    ${rigaRiepilogo('A', m.a.length ? m.a.join(', ') : 'nessun destinatario')}
+                    ${rigaRiepilogo('In copia', m.cc || '')}
+                    ${rigaRiepilogo('Esito', m.esito === 'inviata' ? 'inviata' : 'non inviata' + (m.msg ? ' (' + m.msg + ')' : ''))}
+                </div>
+                <div class="cq-email-anteprima">${m.testo}</div>
+                <div class="modale-azioni"><button class="btn btn-primary" id="cq-em-chiudi">Chiudi</button></div>`, { classe: 'larga' });
+            document.getElementById('cq-em-chiudi').addEventListener('click', chiudiModale);
+        }));
+        };
+        legaStoria();
+        const aggiornaStoria = () => {
+            const cardStoria = document.getElementById('cq-storia');
+            if (!cardStoria) return;
+            const sch = ControlliQualita.perIncarico(inc.id, anno);
+            const voci = sch ? Store.leggi(CHIAVI.audit, []).filter(v => v.rif === sch.id) : [];
+            cardStoria.innerHTML = '<h2>Storia della scheda</h2>' + cqStoriaHtml(sch, voci);
+            legaStoria();
+        };
+
+        if (!puoScrivere) return;
+
+        /* --- da qui in poi solo scrittura: ogni cambio si salva subito --- */
+        /* Stato del salvataggio nella barra: "modifiche in corso" appena si digita,
+           "salvato alle hh:mm" dopo ogni scrittura. Ogni campo si salva quando lo si
+           lascia; Salva (e Ctrl+S) salvano subito anche il campo che si sta scrivendo. */
+        const statoSalv = document.getElementById('cq-stato-salvataggio');
+        const segnaSalvato = () => { if (statoSalv) { statoSalv.textContent = 'Salvato alle ' + fmtDataOra(Date.now()).slice(11); statoSalv.className = 'cq-stato-salv ok'; } };
+        const segnaSporco = () => { if (statoSalv && !statoSalv.classList.contains('sporco')) { statoSalv.textContent = 'Modifiche in corso: si salvano lasciando il campo o con Salva'; statoSalv.className = 'cq-stato-salv sporco'; } };
+        $vista().addEventListener('input', e => { if (e.target.matches('input, textarea')) segnaSporco(); });
+        const salva = (azione, dettagli, mutatore) => {
+            const s = ControlliQualita.aggiorna(inc, anno, utente, azione, dettagli, mutatore);
+            cqUltimoSalvataggio = s.modificato ? s.modificato.il : Date.now();
+            segnaSalvato();
+            aggiornaStoria();
+            return s;
+        };
+        const salvaTutto = () => { cqFlushCampi(); segnaSalvato(); toast('Salvato.', 'verde'); };
+        ['cq-salva', 'cq-salva-fondo'].forEach(id => { const b = document.getElementById(id); if (b) b.addEventListener('click', salvaTutto); });
+        if (cqTastoSalva) document.removeEventListener('keydown', cqTastoSalva);
+        cqTastoSalva = e => { if ((e.ctrlKey || e.metaKey) && !e.altKey && String(e.key).toLowerCase() === 's' && vistaCorrente === 'controlloQualitaScheda') { e.preventDefault(); salvaTutto(); } };
+        document.addEventListener('keydown', cqTastoSalva);
+        const aggiornaTimbro = s => {
+            const el = document.getElementById('cq-timbro');
+            if (el && s.modificato) el.textContent = fmtDataOra(s.modificato.il) + ' · ' + nomeConCollab(s.modificato);
+        };
+        const ridisegna = () => naviga('controlloQualitaScheda', { id: inc.id, anno: anno }, window.scrollY);
+        const schedaFresca = () => ControlliQualita.perIncarico(inc.id, anno);
+
+        // semafori e commenti del riepilogo
+        CQ_AREE.forEach(area => {
+            const sel = document.getElementById('cq-check-' + area.id);
+            if (sel) sel.addEventListener('change', () => {
+                const pv = schedaFresca();
+                const prima = pv ? pv[area.id].check : '';
+                const dopo = sel.value;
+                const nomeDi = v => (cqCheck(v) || { opzione: 'da valutare' }).opzione;
+                const dett = [{ campo: 'Check ' + area.nome, prima: nomeDi(prima), dopo: nomeDi(dopo) }];
+                // un check che torna non verde riapre i controlli gia' segnati come completati
+                const riapre = !!(pv && pv.completato) && dopo !== 'verde';
+                if (riapre) dett.push({ campo: 'Controlli', prima: 'completati', dopo: 'riaperti (un check non è più verde)' });
+                const s = salva(riapre ? 'Controlli qualità riaperti' : 'Aggiornamento controllo qualità', dett,
+                    x => { x[area.id].check = dopo; if (riapre) x.completato = null; });
+                sel.className = 'cq-sel ' + ((cqCheck(dopo) || {}).classe || 'neutro');
+                aggiornaTimbro(s);
+                // il pulsante "completati" e il suo testo dipendono dai check: si ridisegna
+                ridisegna();
+            });
+            const ta = document.getElementById('cq-commento-' + area.id);
+            if (ta) ta.addEventListener('change', () => {
+                const pv = schedaFresca();
+                const prima = pv ? pv[area.id].commento : '';
+                const dopo = ta.value.trim();
+                if (prima === dopo) return;
+                aggiornaTimbro(salva('Aggiornamento controllo qualità',
+                    [{ campo: 'Commento ' + area.nome, prima: prima || 'vuoto', dopo: dopo || 'vuoto' }],
+                    x => { x[area.id].commento = dopo; }));
+            });
+        });
+        // controlli completati / riaperti
+        { const bc = document.getElementById('cq-completa'); if (bc) bc.addEventListener('click', () => {
+            if (!cqTuttoVerde(schedaFresca())) { toast('Prima porta tutti e tre i check a verde.', 'rosso'); return; }
+            salva('Controlli qualità completati', [{ campo: 'Controlli', prima: 'in corso', dopo: 'completati' }],
+                x => { x.completato = timbro(utente); });
+            toast('Controlli segnati come completati: nell\'elenco l\'incarico è evidenziato.', 'verde');
+            ridisegna();
+        }); }
+        { const br = document.getElementById('cq-riapri'); if (br) br.addEventListener('click', () => {
+            salva('Controlli qualità riaperti', [{ campo: 'Controlli', prima: 'completati', dopo: 'in corso' }],
+                x => { x.completato = null; });
+            ridisegna();
+        }); }
+
+        // nuovo blocco di avanzamento: con un precedente (anche dell'anno prima) si
+        // sceglie che cosa copiare; il primo in assoluto parte dalle attivita' proposte
+        document.getElementById('cq-nuovo-avz').addEventListener('click', () => {
+            const pv = schedaFresca();
+            let ultimo = pv && pv.avanzamenti.length ? pv.avanzamenti[pv.avanzamenti.length - 1] : null;
+            let origine = ultimo ? 'Avanzamento al ' + fmtData(ultimo.data) : '';
+            if (!ultimo) {
+                const prec = ControlliQualita.perIncarico(inc.id, anno - 1);
+                if (prec && prec.avanzamenti.length) { ultimo = prec.avanzamenti[prec.avanzamenti.length - 1]; origine = 'Avanzamento al ' + fmtData(ultimo.data) + ' (anno ' + (anno - 1) + ')'; }
+            }
+            const crea = (data, scelte) => {
+                const copiaAtt = !!(ultimo && scelte.attivita);
+                const righe = copiaAtt
+                    ? ultimo.righe.map(r => ({ id: uid(), etichetta: r.etichetta, stato: r.stato,
+                        note: scelte.note ? (r.note || '') : '',
+                        todo: scelte.note ? (r.todo || []).filter(t => !t.fatto && t.testo).map(t => ({ id: uid(), testo: t.testo, fatto: false })) : [] }))
+                    : cqRigheIniziali(anno);
+                const tempi = ultimo && scelte.tempi ? ultimo.tempi.map(t => ({ id: uid(), minuti: Number(t.minuti) || 0, attivita: t.attivita || '' })) : [];
+                const sosp = ultimo && scelte.sospensione ? (ultimo.sospensione || '') : '';
+                const copiato = [];
+                if (copiaAtt) copiato.push('attività con lo stato');
+                if (copiaAtt && scelte.note) copiato.push('note interne e to do aperti');
+                if (ultimo && scelte.tempi) copiato.push('tempi');
+                if (ultimo && scelte.sospensione) copiato.push('richiesta di sospensione');
+                salva('Nuovo avanzamento controllo qualità',
+                    'Aperto il blocco "Avanzamento al ' + fmtData(data) + '"' + (copiato.length ? ' copiando da "' + origine + '": ' + copiato.join(', ') : (ultimo ? ' vuoto, con le attività proposte' : ' con le attività proposte')),
+                    x => { x.avanzamenti.push({ id: uid(), data: data, righe: righe, tempi: tempi, sospensione: sosp }); });
+                // il nuovo resta aperto, i precedenti si riducono a una riga
+                cqAvzStato.clear();
+                ridisegna();
+            };
+            if (!ultimo) { crea(cqOggiIso(), {}); return; }
+            cqModaleNuovoAvanzamento(origine, crea);
+        });
+
+        // email di riepilogo al team di revisione
+        document.getElementById('cq-riepilogo-team').addEventListener('click', () => cqModaleRiepilogoTeam(inc, anno, utente, ridisegna));
+
+        // blocchi di avanzamento
+        $vista().querySelectorAll('.cq-avz').forEach(card => {
+            const avzId = card.dataset.avz;
+            const trovaAvz = () => { const pv = schedaFresca(); return pv ? pv.avanzamenti.find(v => v.id === avzId) : null; };
+            const conAvz = fn => x => { const a = x.avanzamenti.find(v => v.id === avzId); if (a) fn(a); };
+            const etichettaAvz = () => { const a = trovaAvz(); return a && a.data ? 'Avanzamento al ' + fmtData(a.data) : 'Avanzamento'; };
+            // i totali dei tempi (blocco, scheda, riepilogo) si aggiornano senza ridisegnare
+            const aggiornaTotali = () => {
+                const a = trovaAvz(); const s = schedaFresca();
+                const tAvz = card.querySelector('.cq-tempo-totale-avz'); if (tAvz && a) tAvz.textContent = cqFmtMinuti(cqMinutiAvz(a));
+                const tSch = document.getElementById('cq-tempo-totale-scheda'); if (tSch) tSch.textContent = cqFmtMinuti(cqMinutiScheda(s));
+            };
+
+            const dataEl = card.querySelector('.cq-avz-data');
+            if (dataEl) dataEl.addEventListener('change', () => {
+                const a0 = trovaAvz(); const prima = a0 ? a0.data : '';
+                const dopo = dataEl.value;
+                if (!dopo || dopo === prima) return;
+                salva('Aggiornamento controllo qualità',
+                    [{ campo: 'Data avanzamento', prima: prima ? fmtData(prima) : 'vuota', dopo: fmtData(dopo) }],
+                    conAvz(a => { a.data = dopo; }));
+                ridisegna();
+            });
+            const elimina = card.querySelector('.cq-avz-elimina');
+            if (elimina) elimina.addEventListener('click', () => {
+                const et = etichettaAvz();
+                apriModale(`<h2>Eliminare questo avanzamento?</h2>
+                    <p>Il blocco "<strong>${esc(et)}</strong>" con attività, note, cose da fare e tempi verrà tolto dalla scheda. L'operazione resta tracciata nella storia.</p>
+                    <div class="modale-azioni"><button class="btn btn-secondary" id="cq-el-annulla">Annulla</button><button class="btn btn-danger" id="cq-el-conferma">Elimina</button></div>`);
+                document.getElementById('cq-el-annulla').addEventListener('click', chiudiModale);
+                document.getElementById('cq-el-conferma').addEventListener('click', () => {
+                    chiudiModale();
+                    salva('Eliminazione avanzamento controllo qualità', 'Tolto il blocco "' + et + '"',
+                        x => { x.avanzamenti = x.avanzamenti.filter(v => v.id !== avzId); });
+                    ridisegna();
+                });
+            });
+
+            // attivita' del blocco: stato, nome, note interne e cose da fare
+            card.querySelectorAll('tr[data-riga]').forEach(tr => {
+                const rigaId = tr.dataset.riga;
+                const dett = card.querySelector('tr[data-riga-dett="' + rigaId + '"]');
+                const trovaRiga = () => { const a = trovaAvz(); return a ? a.righe.find(v => v.id === rigaId) : null; };
+                const conRiga = fn => conAvz(a => { const r = a.righe.find(v => v.id === rigaId); if (r) fn(r); });
+                const nomeRiga = () => { const r = trovaRiga(); return etichettaAvz() + ' · ' + ((r && r.etichetta) || 'attività'); };
+                const inEt = tr.querySelector('.cq-riga-etichetta');
+                if (inEt) inEt.addEventListener('change', () => {
+                    const r0 = trovaRiga(); const prima = r0 ? r0.etichetta : '';
+                    const dopo = inEt.value.trim();
+                    if (!dopo) { inEt.value = prima; return; }   // una attivita' senza nome non si legge
+                    if (dopo === prima) return;
+                    aggiornaTimbro(salva('Aggiornamento controllo qualità',
+                        [{ campo: etichettaAvz() + ' · attività', prima: prima || 'vuota', dopo: dopo }],
+                        conRiga(r => { r.etichetta = dopo; })));
+                });
+                const selSt = tr.querySelector('.cq-riga-stato');
+                if (selSt) selSt.addEventListener('change', () => {
+                    const r0 = trovaRiga(); const prima = r0 ? r0.stato : '';
+                    const dopo = selSt.value;
+                    const nomeDi = v => (cqStatoRiga(v) || { nome: 'vuoto' }).nome;
+                    const s = salva('Aggiornamento controllo qualità',
+                        [{ campo: nomeRiga(), prima: nomeDi(prima), dopo: nomeDi(dopo) }],
+                        conRiga(r => { r.stato = dopo; }));
+                    selSt.className = 'cq-sel cq-riga-stato ' + ((cqStatoRiga(dopo) || {}).classe || 'neutro');
+                    aggiornaTimbro(s);
+                });
+                const togli = tr.querySelector('.cq-riga-togli');
+                if (togli) togli.addEventListener('click', () => {
+                    const r0 = trovaRiga();
+                    cqRigheAperte.delete(rigaId);
+                    salva('Aggiornamento controllo qualità',
+                        'Tolta l\'attività "' + ((r0 && r0.etichetta) || '') + '" da "' + etichettaAvz() + '"',
+                        conAvz(a => { a.righe = a.righe.filter(v => v.id !== rigaId); }));
+                    ridisegna();
+                });
+                if (!dett) return;
+                const nota = dett.querySelector('.cq-riga-note');
+                if (nota) nota.addEventListener('change', () => {
+                    const r0 = trovaRiga(); const prima = r0 ? r0.note : '';
+                    const dopo = nota.value.trim();
+                    if (prima === dopo) return;
+                    aggiornaTimbro(salva('Aggiornamento controllo qualità',
+                        [{ campo: nomeRiga() + ' · note interne', prima: prima || 'vuote', dopo: dopo || 'vuote' }],
+                        conRiga(r => { r.note = dopo; })));
+                    const b = tr.querySelector('.cq-riga-apri'); if (b) { b.className = 'btn btn-sm btn-secondary cq-riga-apri'; }
+                });
+                dett.querySelectorAll('li[data-todo]').forEach(li => {
+                    const todoId = li.dataset.todo;
+                    const trovaTodo = () => { const r = trovaRiga(); return r ? r.todo.find(v => v.id === todoId) : null; };
+                    const conTodo = fn => conRiga(r => { const t = r.todo.find(v => v.id === todoId); if (t) fn(t); });
+                    const chk = li.querySelector('.cq-todo-fatto');
+                    if (chk) chk.addEventListener('change', () => {
+                        const t0 = trovaTodo();
+                        const dopo = chk.checked;
+                        const s = salva('Aggiornamento controllo qualità',
+                            [{ campo: nomeRiga() + ' · to do "' + ((t0 && t0.testo) || '') + '"', prima: dopo ? 'da fare' : 'fatto', dopo: dopo ? 'fatto' : 'da fare' }],
+                            conTodo(t => { t.fatto = dopo; }));
+                        li.classList.toggle('fatto', dopo);
+                        aggiornaTimbro(s);
+                    });
+                    const testo = li.querySelector('.cq-todo-testo');
+                    if (testo) testo.addEventListener('change', () => {
+                        const t0 = trovaTodo(); const prima = t0 ? t0.testo : '';
+                        const dopo = testo.value.trim();
+                        if (dopo === prima) return;
+                        aggiornaTimbro(salva('Aggiornamento controllo qualità',
+                            [{ campo: nomeRiga() + ' · to do', prima: prima || 'vuoto', dopo: dopo || 'vuoto' }],
+                            conTodo(t => { t.testo = dopo; })));
+                    });
+                    const togliT = li.querySelector('.cq-todo-togli');
+                    if (togliT) togliT.addEventListener('click', () => {
+                        const t0 = trovaTodo();
+                        salva('Aggiornamento controllo qualità', 'Tolto il to do "' + ((t0 && t0.testo) || '') + '" da "' + nomeRiga() + '"',
+                            conRiga(r => { r.todo = r.todo.filter(v => v.id !== todoId); }));
+                        ridisegna();
+                    });
+                });
+                const aggiungiTodo = dett.querySelector('.cq-todo-aggiungi');
+                if (aggiungiTodo) aggiungiTodo.addEventListener('click', () => {
+                    cqRigheAperte.add(rigaId);
+                    salva('Aggiornamento controllo qualità', 'Aggiunto un to do a "' + nomeRiga() + '"',
+                        conRiga(r => { r.todo.push({ id: uid(), testo: '', fatto: false }); }));
+                    ridisegna();
+                    // il cursore va subito nella riga nuova
+                    const ultimo = $vista().querySelector('tr[data-riga-dett="' + rigaId + '"] li[data-todo]:last-child .cq-todo-testo');
+                    if (ultimo) ultimo.focus();
+                });
+            });
+            const aggiungiRiga = card.querySelector('.cq-riga-aggiungi');
+            if (aggiungiRiga) aggiungiRiga.addEventListener('click', () => {
+                salva('Aggiornamento controllo qualità', 'Aggiunta una attività a "' + etichettaAvz() + '"',
+                    conAvz(a => { a.righe.push(cqRigaNuova()); }));
+                ridisegna();
+            });
+
+            // tempo qualita: ore e minuti, salvati come minuti
+            card.querySelectorAll('tr[data-tempo]').forEach(tr => {
+                const tempoId = tr.dataset.tempo;
+                const trovaTempo = () => { const a = trovaAvz(); return a ? a.tempi.find(v => v.id === tempoId) : null; };
+                const conTempo = fn => conAvz(a => { const t = a.tempi.find(v => v.id === tempoId); if (t) fn(t); });
+                const inOre = tr.querySelector('.cq-tempo-ore'), inMin = tr.querySelector('.cq-tempo-min');
+                const salvaDurata = () => {
+                    const t0 = trovaTempo(); const prima = t0 ? (Number(t0.minuti) || 0) : 0;
+                    let ore = Math.max(0, Math.floor(Number(inOre.value) || 0)), min = Math.max(0, Math.floor(Number(inMin.value) || 0));
+                    if (min > 59) { ore += Math.floor(min / 60); min = min % 60; inOre.value = ore; inMin.value = min; }
+                    const dopo = ore * 60 + min;
+                    if (dopo === prima) return;
+                    const s = salva('Aggiornamento controllo qualità',
+                        [{ campo: etichettaAvz() + ' · tempo qualità', prima: cqFmtMinuti(prima), dopo: cqFmtMinuti(dopo) }],
+                        conTempo(t => { t.minuti = dopo; }));
+                    aggiornaTotali();
+                    aggiornaTimbro(s);
+                };
+                if (inOre && inMin) { inOre.addEventListener('change', salvaDurata); inMin.addEventListener('change', salvaDurata); }
+                const inAtt = tr.querySelector('.cq-tempo-attivita');
+                if (inAtt) inAtt.addEventListener('change', () => {
+                    const t0 = trovaTempo(); const prima = t0 ? t0.attivita : '';
+                    const dopo = inAtt.value.trim();
+                    if (dopo === prima) return;
+                    aggiornaTimbro(salva('Aggiornamento controllo qualità',
+                        [{ campo: etichettaAvz() + ' · attività del tempo qualità', prima: prima || 'vuota', dopo: dopo || 'vuota' }],
+                        conTempo(t => { t.attivita = dopo; })));
+                });
+                const togli = tr.querySelector('.cq-tempo-togli');
+                if (togli) togli.addEventListener('click', () => {
+                    salva('Aggiornamento controllo qualità', 'Tolta una riga di tempo qualità da "' + etichettaAvz() + '"',
+                        conAvz(a => { a.tempi = a.tempi.filter(v => v.id !== tempoId); }));
+                    ridisegna();
+                });
+            });
+            const aggiungiTempo = card.querySelector('.cq-tempo-aggiungi');
+            if (aggiungiTempo) aggiungiTempo.addEventListener('click', () => {
+                salva('Aggiornamento controllo qualità', 'Aggiunta una riga di tempo qualità a "' + etichettaAvz() + '"',
+                    conAvz(a => { a.tempi.push({ id: uid(), minuti: 0, attivita: '' }); }));
+                ridisegna();
+                const ultimo = $vista().querySelector('.cq-avz[data-avz="' + avzId + '"] tr[data-tempo]:last-child .cq-tempo-ore');
+                if (ultimo) ultimo.focus();
+            });
+
+            // richiesta di sospensione del compenso: "Si'" chiede conferma e manda la mail
+            const sosp = card.querySelector('.cq-sosp');
+            if (sosp) sosp.addEventListener('change', () => {
+                const a0 = trovaAvz(); const prima = a0 ? a0.sospensione : '';
+                const dopo = sosp.value;
+                const nomeDi = v => v === 'si' ? 'Sì' : (v === 'no' ? 'No' : 'vuota');
+                const applica = () => {
+                    const s = salva('Aggiornamento controllo qualità',
+                        [{ campo: etichettaAvz() + ' · richiesta sospensione compenso', prima: nomeDi(prima), dopo: nomeDi(dopo) }],
+                        conAvz(a => { a.sospensione = dopo; }));
+                    sosp.className = 'cq-sel cq-sosp ' + (dopo === 'si' ? 'rosso' : (dopo === 'no' ? 'verde' : 'neutro'));
+                    aggiornaTimbro(s);
+                };
+                if (dopo !== 'si') { applica(); return; }
+                cqModaleSospensione(inc, anno, a0, utente, {
+                    annulla: () => { sosp.value = prima; sosp.className = 'cq-sel cq-sosp ' + (prima === 'si' ? 'rosso' : (prima === 'no' ? 'verde' : 'neutro')); },
+                    conferma: async () => { applica(); await cqInviaSospensione(inc, anno, trovaAvz() || a0, utente); ridisegna(); }
+                });
+            });
+        });
+    }
+
+    /* Nuovo avanzamento con un precedente: data e che cosa copiare. Le attivita'
+       con lo stato e le note/to do aperti si copiano di norma (e' la continuita'
+       del lavoro); tempi e richiesta di sospensione no, perche' appartengono al
+       periodo concluso. */
+    function cqModaleNuovoAvanzamento(origine, crea) {
+        apriModale(`<h2>Nuovo avanzamento</h2>
+            <p class="descrizione" style="margin-bottom:12px;">Il nuovo blocco può ripartire da <strong>${esc(origine)}</strong>: scegli che cosa copiare. I blocchi precedenti si riducono a una riga e restano apribili.</p>
+            <div class="campo"><label>Data dell'avanzamento</label><input type="date" id="cq-na-data" value="${cqOggiIso()}"></div>
+            <div class="cq-scelte">
+                <label><input type="checkbox" id="cq-na-attivita" checked><span>Copia le <strong>attività con il loro stato</strong> (altrimenti riparte dalle attività proposte)</span></label>
+                <label><input type="checkbox" id="cq-na-note" checked><span>Copia le <strong>note interne e i to do ancora aperti</strong> di ogni attività</span></label>
+                <label><input type="checkbox" id="cq-na-tempi"><span>Copia le righe del <strong>tempo qualità</strong></span></label>
+                <label><input type="checkbox" id="cq-na-sosp"><span>Copia la <strong>richiesta di sospensione</strong> del compenso (senza inviare una nuova email)</span></label>
+            </div>
+            <div class="modale-azioni">
+                <button class="btn btn-secondary" id="cq-na-annulla">Annulla</button>
+                <button class="btn btn-primary" id="cq-na-crea">Crea l'avanzamento</button>
+            </div>`);
+        const att = document.getElementById('cq-na-attivita'), note = document.getElementById('cq-na-note');
+        const lega = () => { note.disabled = !att.checked; if (!att.checked) note.checked = false; };
+        att.addEventListener('change', lega); lega();
+        document.getElementById('cq-na-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('cq-na-crea').addEventListener('click', () => {
+            const data = document.getElementById('cq-na-data').value || cqOggiIso();
+            const scelte = { attivita: att.checked, note: note.checked, tempi: document.getElementById('cq-na-tempi').checked, sospensione: document.getElementById('cq-na-sosp').checked };
+            chiudiModale();
+            crea(data, scelte);
+        });
+    }
+
+    /* Conferma prima di segnare "Si'": dice a chi va la mail (destinatario
+       fisso), chi la firma e chi e' in copia. */
+    function cqModaleSospensione(inc, anno, avz, utente, azioni) {
+        const dest = cqDestinatarioSospensione();
+        apriModale(`<h2>Inviare la richiesta di sospensione del compenso?</h2>
+            <p class="descrizione" style="margin-bottom:12px;">Segnando <strong>Sì</strong> viene inviata <strong>in automatico</strong> una email di richiesta di sospensione del compenso trimestrale per l'incarico <strong>${esc(inc.cliente || '')}</strong> (avanzamento al ${esc(fmtData(avz.data))}).</p>
+            <div class="riepilogo-blocco">
+                ${rigaRiepilogo('Destinatario', dest.nome + ' <' + dest.email + '>')}
+                ${rigaRiepilogo('In copia', (utente.nome || '') + ' <' + utente.email + '>')}
+                ${rigaRiepilogo('Firmata da', (utente.nome || '') + ' - responsabile qualità')}
+                ${rigaRiepilogo('Contenuto', 'Richiesta di sospensione con l\'ultimo avanzamento: attività con lo stato e cose da fare (le note interne e i tempi non escono)')}
+            </div>
+            ${(typeof Cloud === 'undefined' || !Cloud.attivo) ? '<p class="hint" style="margin-top:10px;">In modalità dimostrativa le email non partono davvero: la richiesta resta registrata nella storia come non inviata.</p>' : ''}
+            <div class="modale-azioni">
+                <button class="btn btn-secondary" id="cq-sosp-annulla">Annulla</button>
+                <button class="btn btn-primary" id="cq-sosp-conferma">${ICO_EMAIL}Conferma e invia l'email a ${esc(dest.nome)}</button>
+            </div>`);
+        document.getElementById('cq-sosp-annulla').addEventListener('click', () => { chiudiModale(); azioni.annulla(); });
+        const btn = document.getElementById('cq-sosp-conferma');
+        btn.addEventListener('click', () => conAttesa(btn, async () => { await azioni.conferma(); chiudiModale(); }, { testo: 'Invio…' }));
+    }
+    async function cqInviaSospensione(inc, anno, avz, utente) {
+        const dest = cqDestinatarioSospensione();
+        const oggetto = 'Richiesta di sospensione del compenso trimestrale - ' + (inc.cliente || '');
+        const testo = cqMailSospensione(inc, anno, avz, utente);
+        const esito = await cqInviaMail(oggetto, testo, [dest.email], utente);
+        ControlliQualita.registraEmail(inc, anno, utente, { tipo: 'sospensione', a: [dest.email], cc: utente.email, oggetto, testo, esito: esito.ok ? 'inviata' : 'non inviata', msg: esito.ok ? '' : esito.msg });
+        toast(esito.ok ? 'Richiesta di sospensione inviata a ' + dest.nome + ' (tu in copia).' : 'Richiesta registrata ma email non inviata: ' + esito.msg, esito.ok ? 'verde' : 'rosso');
+    }
+
+    /* L'email di riepilogo al team: si scelgono i destinatari tra le persone
+       del team di revisione (anche piu' di uno), si rivedono oggetto e
+       messaggio, e la mail parte con il riepilogo generato dalla scheda e
+       l'ultimo avanzamento. Chi invia e' in copia. */
+    function cqModaleRiepilogoTeam(inc, anno, utente, dopo) {
+        const scheda = ControlliQualita.perIncarico(inc.id, anno);
+        const avz = scheda && scheda.avanzamenti.length ? scheda.avanzamenti[scheda.avanzamenti.length - 1] : null;
+        const team = cqPersoneTeam(inc);
+        const oggettoIniz = 'Controllo qualità ' + (inc.cliente || '') + ': riepilogo' + (avz ? ' al ' + fmtData(avz.data) : '') + ' (' + anno + ')';
+        const introIniz = 'vi invio il riepilogo del controllo di qualità sull\'incarico' + (avz ? ' aggiornato al ' + fmtData(avz.data) : '') + '. Vi chiedo di completare le attività ancora aperte e di segnalarmi eventuali difficoltà.';
+        apriModale(`<h2>Email di riepilogo al team di revisione</h2>
+            <p class="descrizione" style="margin-bottom:12px;">${ICO_EMAIL}Scegli a chi mandare l'email tra le persone del team di revisione (${esc(inc.team || 'nessuno indicato')}); tu sei sempre in copia. Il testo è generato dalla scheda: i check per area con i commenti e l'ultimo avanzamento (attività con lo stato e cose da fare); le note interne e i tempi non escono.</p>
+            <div class="campo"><label>Destinatari</label>
+                <div class="cq-destinatari">
+                ${team.length ? team.map(t => `<label class="cq-dest${t.email ? '' : ' senza-email'}">
+                    <input type="checkbox" class="cq-dest-chk" value="${esc(t.email)}"${t.email ? ' checked' : ' disabled'}>
+                    <span>${esc(t.nome)}</span> <span class="hint">${t.email ? esc(t.email) : 'nessun indirizzo in Aderenti Revilaw'}</span>
+                </label>`).join('') : '<span class="hint">Nessuna persona indicata come team di revisione su questo incarico.</span>'}
+                </div>
+            </div>
+            <div class="campo"><label>Altri indirizzi (facoltativi, separati da virgola)</label><input type="text" id="cq-rt-altri" placeholder="nome@studio.it, altro@studio.it"></div>
+            <div class="campo"><label>In copia</label><input type="text" value="${esc(utente.email)}" disabled></div>
+            <div class="campo"><label>Oggetto</label><input type="text" id="cq-rt-oggetto" value="${esc(oggettoIniz)}"></div>
+            <div class="campo"><label>Messaggio introduttivo</label><textarea id="cq-rt-intro" rows="3">${esc(introIniz)}</textarea></div>
+            <details class="cq-rt-anteprima" open><summary>Anteprima dell'email (riepilogo e ultimo avanzamento)</summary><div class="cq-email-anteprima" id="cq-rt-anteprima"></div></details>
+            <div class="msg-errore hidden" id="cq-rt-errore"></div>
+            ${(typeof Cloud === 'undefined' || !Cloud.attivo) ? '<p class="hint" style="margin-top:10px;">In modalità dimostrativa le email non partono davvero: il riepilogo resta registrato nella storia come non inviato.</p>' : ''}
+            <div class="modale-azioni">
+                <button class="btn btn-secondary" id="cq-rt-annulla">Annulla</button>
+                <button class="btn btn-primary" id="cq-rt-invia">${ICO_EMAIL}Invia l'email</button>
+            </div>`, { classe: 'larga', finestra: true, titolo: 'Email di riepilogo al team di revisione' });
+        const anteprima = () => { document.getElementById('cq-rt-anteprima').innerHTML = cqMailRiepilogo(inc, anno, scheda, avz, document.getElementById('cq-rt-intro').value, utente); };
+        anteprima();
+        document.getElementById('cq-rt-intro').addEventListener('input', anteprima);
+        document.getElementById('cq-rt-annulla').addEventListener('click', chiudiModale);
+        const btn = document.getElementById('cq-rt-invia');
+        btn.addEventListener('click', () => conAttesa(btn, async () => {
+            const err = document.getElementById('cq-rt-errore');
+            const scelti = Array.from(document.querySelectorAll('.cq-dest-chk:checked')).map(c => c.value).filter(Boolean);
+            const altri = document.getElementById('cq-rt-altri').value.split(/[,;\s]+/).map(e => e.trim().toLowerCase()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+            const emails = Array.from(new Set(scelti.concat(altri)));
+            if (!emails.length) { err.textContent = 'Scegli almeno un destinatario con un indirizzo email.'; err.classList.remove('hidden'); return; }
+            const oggetto = document.getElementById('cq-rt-oggetto').value.trim() || oggettoIniz;
+            const testo = cqMailRiepilogo(inc, anno, scheda, avz, document.getElementById('cq-rt-intro').value, utente);
+            const esito = await cqInviaMail(oggetto, testo, emails, utente);
+            ControlliQualita.registraEmail(inc, anno, utente, { tipo: 'riepilogo', a: emails, cc: utente.email, oggetto, testo, esito: esito.ok ? 'inviata' : 'non inviata', msg: esito.ok ? '' : esito.msg });
+            chiudiModale();
+            toast(esito.ok ? 'Email di riepilogo inviata a ' + emails.length + (emails.length === 1 ? ' destinatario' : ' destinatari') + ' (tu in copia).' : 'Riepilogo registrato ma email non inviata: ' + esito.msg, esito.ok ? 'verde' : 'rosso');
+            if (dopo) dopo();
+        }, { testo: 'Invio…' }));
     }
 
     /* =========================================================
@@ -11942,7 +13453,7 @@
             });
             if (cambiato) {
                 toccati++;
-                i.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+                i.modificato = timbro(utente);
                 Audit.registra(utente, 'Rinomina persona nell\'incarico', 'incarico', i.id, i.cliente,
                     Audit.confronta(prima, i, CAMPI_TRACCIATI));
             }
@@ -11980,6 +13491,39 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-09-02-collaboratori',
+            data: '2026-09-02',
+            titolo: 'Utenti: il profilo Collaboratore, che lavora a nome di un altro utente',
+            sommario: 'Dalla sezione Utenti l\'amministratore può abilitare un collaboratore indicando di quale utente è collaboratore. Il collaboratore eredita tutti i permessi di quell\'utente (ruolo, sezioni, territorio, Eventi e Newsletter) e le sue modifiche compaiono a tutti con il nome dell\'utente di riferimento; solo quest\'ultimo vede anche quale collaboratore le ha fatte. La scheda del profilo è in "Ruoli e permessi".',
+            chi: 'L\'amministratore, che abilita i collaboratori; chi ha un collaboratore, che nel Registro e nelle schede vede "tramite <nome>" accanto alle modifiche fatte a suo nome.',
+            dove: 'Sezione "Utenti" (tendina Ruolo: "Collaboratore", poi il campo "Collaboratore di"); la scheda del profilo in "Ruoli e permessi".',
+            voci: [
+                { titolo: 'Abilitare un collaboratore', testo: 'In Utenti, "+ Abilita utente": nome, email, ruolo "Collaboratore (eredita i permessi di un utente)" e, nel campo che compare, l\'utente di riferimento. Lo stesso si fa cambiando ruolo a un utente già presente; "Cambia" sotto la tendina cambia il riferimento. Non possono avere collaboratori l\'amministratore e il titolare, un altro collaboratore e un invitato al solo sondaggio.' },
+                { titolo: 'Che cosa vede e può fare', testo: 'Esattamente quello che vede e può fare il suo utente di riferimento: ruolo e sezioni, filtro per regione, abilitazioni a Eventi e Newsletter, qualifiche della scheda in Aderenti Revilaw, verifiche di rating e richieste di correzione. Se il riferimento viene disabilitato o eliminato, il collaboratore non entra più: la schermata di accesso lo dice.' },
+                { titolo: 'Con quale nome compaiono le modifiche', testo: 'Incarichi, Registro modifiche, Controlli qualità, verifiche, comunicazioni ed email portano nome e indirizzo dell\'utente di riferimento (le risposte alle email tornano a lui). Solo l\'utente di riferimento, entrando in prima persona, vede accanto all\'autore l\'etichetta "tramite <collaboratore>". Nella barra laterale il collaboratore vede il proprio nome e, sotto, a nome di chi sta lavorando.' },
+                { titolo: 'Chi è connesso', testo: 'Nell\'elenco "Connessi ora" e nei messaggi tra colleghi il collaboratore compare con il nome del suo utente di riferimento; anche qui, solo il riferimento vede chi c\'è davvero.' }
+            ]
+        },
+        {
+            id: '2026-09-01-controlli-qualita',
+            data: '2026-09-01',
+            titolo: 'Controlli qualità: la nuova sezione per il monitoraggio dei controlli',
+            sommario: 'Nel menu c\'è la nuova sezione "Controlli qualità", organizzata per anno di riferimento (2025, 2026 e gli anni che si aggiungono) e in due schede: i controlli da svolgere e gli incarichi in sola visualizzazione. La vede chi in Aderenti Revilaw è responsabile qualità (i propri incarichi) o equity partner (tutti gli incarichi, in scrittura solo i propri); amministratore e titolare vedono tutto. Per ogni incarico: lo stato dei controlli (completati o in corso), i semafori delle aree 1-2, 3 e 4 con i commenti, il tempo qualità dell\'anno e l\'ultimo aggiornamento con il suo autore. Da ogni riga si apre la scheda del cliente con gli avanzamenti: attività a semaforo, ognuna con le sue note interne e le sue cose da fare, tempo qualità in ore e minuti, richiesta di sospensione del compenso (email automatica a Pier Luigi Sterzi). Dalla scheda si manda anche l\'email di riepilogo al team di revisione e, quando i check sono tutti verdi, si segnano i controlli come completati. Ogni modifica e ogni email restano nella storia della scheda e nel Registro modifiche.',
+            chi: 'I responsabili della qualità e gli equity partner; amministratore e titolare per il quadro complessivo.',
+            dove: 'Sezione "Controlli qualità" (macroarea Qualità del menu).',
+            voci: [
+                { titolo: 'Chi entra', testo: 'La sezione compare solo a chi in Aderenti Revilaw è qualificato come responsabile qualità o equity partner (oltre ad amministratore e titolare), e solo se il suo ruolo la consente in "Ruoli e permessi". Il responsabile qualità vede e modifica i soli incarichi in cui è indicato come responsabile della qualità. L\'equity partner vede tutti gli incarichi ma modifica solo i propri: chi è solo equity, e non responsabile della qualità di nulla, ha tutto in sola visualizzazione. Il collegamento passa dall\'email della scheda in Aderenti Revilaw.' },
+                { titolo: 'Anno di riferimento e due schede', testo: 'In testa all\'elenco ci sono gli anni (si parte da 2025 e 2026; "+ Aggiungi anno" apre il successivo): per l\'anno scelto compaiono gli incarichi in essere o con scadenza nel suo corso (chi è scaduto l\'anno prima senza rinnovo non c\'è, chi è stato rinnovato continua). Sotto, due schede: "Controlli qualità da svolgere" con gli incarichi che si possono modificare e "Incarichi in sola visualizzazione" con gli altri.' },
+                { titolo: 'L\'elenco', testo: 'Una riga per incarico: società, stato dei controlli (completati, in corso, da iniziare), responsabile qualità, team di revisione, i check delle aree 1-2, 3 e 4 con i commenti, il tempo qualità dell\'anno (con il totale complessivo in testa) e l\'ultimo aggiornamento con chi l\'ha fatto. Gli incarichi completati sono evidenziati in verde.' },
+                { titolo: 'La scheda del cliente', testo: 'In testa i dati dell\'incarico e il pulsante ben visibile per tornare all\'elenco (c\'è anche in fondo alla pagina); poi la sezione Avanzamenti con il pulsante "+ Nuovo avanzamento". Ogni blocco "Avanzamento al ..." ha le attività a semaforo (svolta, parzialmente svolta da sollecitare, non svolta sollecitata, completate): ogni attività ha le sue note interne qualità (riservate, non escono nelle email) e le sue cose da fare con la spunta, che si aprono dal pulsante nella riga. Accanto, il tempo qualità in ore e minuti con il totale del blocco. Quando si crea un nuovo avanzamento si sceglie che cosa copiare dal precedente (attività con lo stato, note e to do aperti, tempi, richiesta di sospensione), anche dall\'anno prima; i blocchi precedenti si riducono a una riga con il riassunto e il pulsante "Apri". Sotto: il riepilogo dei controlli per area e il riepilogo dei tempi dell\'anno.' },
+                { titolo: 'Salvataggio', testo: 'Ogni campo si salva da solo quando lo si lascia; nella barra in cima alla scheda ci sono lo stato del salvataggio ("Salvato alle ...", "Modifiche in corso") e il pulsante Salva, che scrive subito anche il campo che si sta compilando (vale anche Ctrl+S). Tornando all\'elenco, il testo lasciato a metà viene salvato prima di uscire.' },
+                { titolo: 'Controlli completati', testo: 'Quando i tre check del riepilogo sono tutti verdi, il pulsante "Segna i controlli come completati" chiude il lavoro: la scheda e la riga in elenco si evidenziano in verde con data e autore. Se un check torna non verde i controlli si riaprono da soli; "Riapri i controlli" lo fa a mano.' },
+                { titolo: 'Richiesta di sospensione del compenso', testo: 'Segnando "Sì" il programma chiede conferma e invia in automatico l\'email di richiesta a Pier Luigi Sterzi, sempre lui qualunque sia il responsabile dell\'incarico, con l\'ultimo avanzamento e la firma di chi sta facendo il controllo, che riceve una copia.' },
+                { titolo: 'Email di riepilogo al team', testo: 'Il pulsante "Invia email di riepilogo al team" prepara l\'email con i check per area e l\'ultimo avanzamento (attività con lo stato e cose da fare): si scelgono i destinatari tra le persone del team di revisione (anche più di uno), si rivedono oggetto e messaggio, si vede l\'anteprima e si invia; chi invia è in copia.' },
+                { titolo: 'La storia della scheda', testo: 'Modifiche, avanzamenti ed email in un\'unica linea del tempo raggruppata per giorno, con il filtro per tipo e il testo di ogni email consultabile. Tutto passa anche dal Registro modifiche (ambito "Controlli qualità").' }
+            ]
+        },
         {
             id: '2026-08-22-fasi-campi-guidati',
             data: '2026-08-22',
@@ -13401,6 +14945,7 @@
                 ...(prima || {}), ...patch,
                 da: u ? String(u.email).toLowerCase() : '',
                 daNome: u ? (u.nome || u.email || '') : '',
+                collab: (u && u.collaboratore) ? (u.collaboratore.nome || u.collaboratore.email) : '',
                 quando: Date.now()
             };
             if (typeof Cloud === 'undefined' || !Cloud.attivo) { if (poi) poi({ ok: true }); return; }
@@ -13423,7 +14968,8 @@
     /* "Mario Rossi, 21/07 alle 18:40" oppure stringa vuota se non risulta nessuna modifica. */
     function firmaPresenza(p) {
         if (!p || (!p.daNome && !p.da && !p.quando)) return '';
-        const chi = p.daNome || p.da || 'utente sconosciuto';
+        // se ha operato un collaboratore, lo vede solo il suo utente di riferimento
+        const chi = (p.daNome || p.da || 'utente sconosciuto') + ((p.collab && vedoCollaboratoreDi(p.da)) ? ' (tramite ' + nomeDaFirma(p.collab) + ')' : '');
         if (!p.quando) return chi;
         const d = new Date(p.quando);
         const oggi = new Date();
@@ -13557,6 +15103,7 @@
             else if (!u) esito = '<span class="ev-ko">nessuna utenza con questa email</span>';
             else if (u.attivo === false) esito = '<span class="ev-ko">utenza disattivata</span>';
             else if (eRuoloSoloSondaggio(u.ruolo)) esito = '<span class="ev-ko">ruolo "' + esc(nomeRuolo(u.ruolo)) + '": non può leggere gli archivi generali, va cambiato il ruolo</span>';
+            else if (eRuoloCollaboratore(u.ruolo)) esito = '<span class="hint">' + esc(etichettaRuoloUtente(u, utenti)) + ': eredita l\'accesso dal suo utente di riferimento, questa voce non serve</span>';
             else if (elencoServer && elencoServer.indexOf(e) < 0) esito = '<span class="ev-ko">abilitato solo in questo browser, non sul server</span>';
             else esito = 'può vedere gli Eventi (' + esc(nomeRuolo(u.ruolo)) + ')';
             return '<div class="ev-diag-riga"><span>' + esc(e) + '</span><span>' + esito + '</span></div>';
@@ -17627,7 +19174,8 @@
         utenti = utenti || [];
         const sel = new Set(EventiConfig.leggi().abilitati);
         const me = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : '';
-        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me);
+        // i collaboratori non compaiono: ereditano l'abilitazione del loro utente di riferimento
+        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me && !eRuoloCollaboratore(u.ruolo));
         // Un ruolo "solo sondaggio" ora puo' essere abilitato: vede la sezione e consulta
         // gli iscritti. Non puo' pero' segnare presenze e note, perche' quelle stanno in un
         // archivio che il server riserva allo staff. Si dice, senza impedire la spunta.
@@ -17652,7 +19200,7 @@
             + 'salvare adesso cancellerebbe le abilitazioni già impostate. <button type="button" class="btn btn-sm btn-secondary" id="ev-riprova">Riprova</button></div>'
             : '';
         apriModale('<h2>Chi può vedere la sezione Eventi</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;">L\'amministratore la vede sempre. Spunta gli utenti che devono poterla aprire: gli altri non vedranno nemmeno la voce di menu.</p>'
+            + '<p class="hint" style="margin:-4px 0 12px;">L\'amministratore la vede sempre. Spunta gli utenti che devono poterla aprire: gli altri non vedranno nemmeno la voce di menu. I collaboratori non sono in elenco: ereditano l\'abilitazione del loro utente di riferimento.</p>'
             + avvisoKo
             + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Utenti</label>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="ev-nessuno">Deseleziona tutti</button></div>'
@@ -17828,7 +19376,7 @@
                    stato attribuito solo a chi non aveva risposto, o anche a chi
                    aveva risposto di no. */
                 consensoStorico: cs ? {
-                    il: cs.il, da: String(cs.da || ''), nota: String(cs.nota || ''),
+                    il: cs.il, da: String(cs.da || ''), collab: String(cs.collab || ''), nota: String(cs.nota || ''),
                     comprendeNo: cs.comprendeNo === true
                 } : null
             };
@@ -18382,7 +19930,7 @@
                genere di cosa che fra un anno nessuno ricorda, e che serve poterla mostrare. */
             + '<div class="card s-admin"><div class="s-admin-txt"><strong>Consenso dei contatti già presenti</strong>'
             + (cs
-                ? '<div class="hint">Attribuito il <b>' + esc(fmtDataOra(cs.il)) + '</b> da <b>' + esc(cs.da || '') + '</b>'
+                ? '<div class="hint">Attribuito il <b>' + esc(fmtDataOra(cs.il)) + '</b> da <b>' + htmlConCollab(cs.da || '', cs.collab) + '</b>'
                 + ' ai contatti raccolti fino a quel momento, '
                 + (cs.comprendeNo
                     ? '<b>compresi</b> quelli che avevano lasciato vuota la casella delle comunicazioni'
@@ -18495,7 +20043,7 @@
                 + (n.oggetto && n.nome ? '<div class="hint">' + esc(n.oggetto) + '</div>' : '') + '</td>'
                 + '<td>' + stato + '</td>'
                 + '<td>' + esc(etichettaGruppi(n)) + '</td>'
-                + '<td>' + (ultimo ? esc(fmtDataOra(ultimo.il)) + '<div class="hint">' + (ultimo.n || 0) + ' destinatari &middot; ' + esc(ultimo.da || '') + '</div>' : '-') + '</td>'
+                + '<td>' + (ultimo ? esc(fmtDataOra(ultimo.il)) + '<div class="hint">' + (ultimo.n || 0) + ' destinatari &middot; ' + htmlConCollab(ultimo.da || '', ultimo.collab) + '</div>' : '-') + '</td>'
                 + '<td class="td-azioni">'
                 + '<button class="btn btn-sm btn-secondary" data-apri="' + esc(n.id) + '">Apri</button> '
                 + '<button class="btn btn-sm btn-ghost" data-duplica="' + esc(n.id) + '">Duplica</button> '
@@ -18636,7 +20184,7 @@
         copia.nome = (n.nome || n.oggetto || 'Newsletter') + ' (copia)';
         copia.stato = 'bozza';
         copia.invii = [];
-        copia.creato = { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+        copia.creato = timbroEmail();
         Newsletter.salvaUna(copia);
         vistaNewsletter();
         modaleNewsletter(copia.id);
@@ -18683,7 +20231,7 @@
                 nome: $('ct-nome').value.trim(), cognome: $('ct-cognome').value.trim(),
                 azienda: $('ct-azienda').value.trim(), ruolo: $('ct-ruolo').value.trim(),
                 note: $('ct-note').value.trim(),
-                aggiunto: (c && c.aggiunto) || { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() }
+                aggiunto: (c && c.aggiunto) || timbroEmail()
             };
             ContattiNL.salvaUno(rec);
             try { Audit.registra(Auth.utenteCorrente, c ? 'Contatto newsletter modificato' : 'Contatto newsletter aggiunto', 'sistema', email, null, null); } catch (e) { }
@@ -18717,7 +20265,7 @@
                 esistenti.unshift({
                     id: uid(), email: email, nome: parti[1] || '', cognome: parti[2] || '', azienda: parti[3] || '',
                     ruolo: '', note: 'importato',
-                    aggiunto: { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() }
+                    aggiunto: timbroEmail()
                 });
                 aggiunti++;
             });
@@ -18779,7 +20327,7 @@
                    se un giorno qualcuno chiede conto di una mail ricevuta. */
                 const anche = !!(document.getElementById('cs-no-anche') || {}).checked;
                 const nota = nIgnoti + ' non risultanti, ' + nNo + ' senza spunta ' + (anche ? 'COMPRESI' : 'esclusi');
-                NewsletterConfig.salva({ consensoStorico: { il: ora, da: u, comprendeNo: anche, nota: nota } });
+                NewsletterConfig.salva({ consensoStorico: Object.assign(timbroEmail({ il: ora }), { comprendeNo: anche, nota: nota }) });
                 try {
                     Audit.registra(Auth.utenteCorrente, 'Newsletter: consenso attribuito ai contatti presenti', 'sistema', 'newsletterConfig', null,
                         'fino al ' + fmtDataOra(ora) + ' - ' + nota);
@@ -18796,7 +20344,8 @@
         utenti = utenti || [];
         const sel = new Set(NewsletterConfig.leggi().abilitati);
         const me = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : '';
-        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me);
+        // i collaboratori non compaiono: ereditano l'abilitazione del loro utente di riferimento
+        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me && !eRuoloCollaboratore(u.ruolo));
         const righe = lista.length ? lista.map(u => {
             const e = String(u.email).toLowerCase();
             const spento = u.attivo === false;
@@ -18821,7 +20370,7 @@
             + 'salvare adesso cancellerebbe le abilitazioni già impostate. <button type="button" class="btn btn-sm btn-secondary" id="nla-riprova">Riprova</button></div>'
             : '';
         apriModale('<h2>Chi può vedere la sezione Newsletter</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;">Da qui partono email a nome dello studio: abilita solo chi deve poterle scrivere e spedire.</p>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Da qui partono email a nome dello studio: abilita solo chi deve poterle scrivere e spedire. I collaboratori non sono in elenco: ereditano l\'abilitazione del loro utente di riferimento.</p>'
             + avvisoKo
             + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Utenti</label>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="nla-nessuno">Deseleziona tutti</button></div>'
@@ -18889,7 +20438,7 @@
             cosa: { titolo: '', testo: '' },
             cta: { testo: '', url: '' }, fonte: { url: '', titolo: '' },
             gruppi: [], esclusi: [], singoli: [], stato: 'bozza',
-            creato: { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() },
+            creato: timbroEmail(),
             invii: []
         };
         // bozze salvate con il formato vecchio: le tre sezioni possono mancare
@@ -19338,7 +20887,7 @@
             bozza.titolo = $('nl-titolo').value.trim();
             bozza.sommario = $('nl-sommario').value.trim();
             bozza.cta = { testo: $('nl-cta-testo').value.trim(), url: $('nl-cta-url').value.trim() };
-            bozza.modificato = { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+            bozza.modificato = timbroEmail();
             return bozza;
         }
 
@@ -19513,7 +21062,7 @@
                         if (!res.ok) { avanz.textContent = res.msg || 'Programmazione non riuscita.'; return; }
                         chiudiConfermaInLinea();
                         rec.stato = 'programmata';
-                        rec.programmazione = { quando: quando, quandoTesto: quandoTesto, previsti: res.previsti, da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+                        rec.programmazione = timbroEmail({ quando: quando, quandoTesto: quandoTesto, previsti: res.previsti });
                         Newsletter.salvaUna(JSON.parse(JSON.stringify(rec)));
                         try { Audit.registra(Auth.utenteCorrente, 'Newsletter programmata', 'sistema', rec.id, null, quandoTesto + ' - ' + res.previsti + ' destinatari'); } catch (e) { }
                         mostraEsitoNL('In coda: ' + res.previsti + ' destinatari. ' + frasePartenza(quandoTesto, res.passo), true);
@@ -19553,7 +21102,7 @@
                 + '<strong>' + (inCorso ? 'Invio in corso' : 'Invio programmato') + '</strong>'
                 + '<div class="hint">' + esc(frasePartenza(p.quandoTesto || '', p.passo))
                 + ' A <b>' + (p.previsti || 0) + '</b> destinatari.'
-                + (p.creato && p.creato.da ? ' Programmata da ' + esc(p.creato.da) + '.' : '')
+                + (p.creato && p.creato.da ? ' Programmata da ' + htmlTimbro(p.creato) + '.' : '')
                 + '<br>Se modifichi il testo adesso, la modifica NON entra in questo invio: annulla e riprogramma.'
                 + (p.ultimoErrore ? '<br><b>Ultimo tentativo non riuscito:</b> ' + esc(p.ultimoErrore) : '')
                 + '</div></div>'
@@ -19696,7 +21245,7 @@
             if (inviati || interrotto) {
                 rec.stato = interrotto ? 'interrotta' : 'inviata';
                 rec.invii = [{
-                    il: Date.now(), da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '',
+                    ...timbroEmail(),
                     n: inviati, saltati: saltati.length, falliti: falliti.length,
                     dettaglioFalliti: falliti.slice(0, 100),
                     interrotto: interrotto || '', incerti: incerti,
@@ -19779,7 +21328,8 @@
        accesso vedranno comunque gli stessi nuovi iscritti.
     ========================================================= */
     function chiaveVistiNL() {
-        const u = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : 'anonimo';
+        // segnalibro della sessione reale: un collaboratore ha il suo, non quello del riferimento
+        const u = Auth.emailSessione() || 'anonimo';
         return 'rvArea.nlVisti.' + u;
     }
     /* Chi apre l'avviso per la prima volta non ha un segnalibro. Rovesciargli
@@ -20079,7 +21629,7 @@
        invece di mostrare una fila di zeri. */
     function schedaAndamento(inv, blocco) {
         const testa = '<div class="nl-and-testa"><b>' + esc(fmtDataOra(inv.il)) + '</b>'
-            + (inv.da ? ' <span class="hint">di ' + esc(inv.da) + '</span>' : '')
+            + (inv.da ? ' <span class="hint">di ' + htmlConCollab(inv.da, inv.collab) + '</span>' : '')
             + (inv.interrotto ? ' <span class="badge ambra">interrotto</span>' : '') + '</div>';
         // i NOSTRI numeri: certi, indipendenti da Brevo
         const nostri = '<div class="nl-and-nostri">'
@@ -20295,7 +21845,7 @@
         const invii = [];
         lista.forEach(c => {
             const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da, falliti: c.inviata.falliti, dettaglioFalliti: c.inviata.dettaglioFalliti }] : []);
-            storia.forEach(s => invii.push({ contesto: c.contesto, nome: c.nome, oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '', falliti: s.falliti || 0, dettaglioFalliti: s.dettaglioFalliti || [] }));
+            storia.forEach(s => invii.push({ contesto: c.contesto, nome: c.nome, oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '', collab: s.collab || '', falliti: s.falliti || 0, dettaglioFalliti: s.dettaglioFalliti || [] }));
         });
         invii.sort((a, b) => (b.il || 0) - (a.il || 0));
 
@@ -20363,7 +21913,7 @@
                 <td data-label="Contesto">${badgeContesto(c.contesto)}</td>
                 <td class="cliente-cella" data-label="Nome">${esc(c.nome || c.oggetto || '(senza nome)')}${c.nome && c.oggetto ? '<div class="hint">' + esc(c.oggetto) + '</div>' : ''}</td>
                 <td data-label="Destinatari">${(c.destinatari || []).length}${(c.gruppi && c.gruppi.length) ? ' <span class="hint">+ ' + esc(c.gruppi.map(nomeGruppo).join(', ')) + '</span>' : ''}</td>
-                <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
+                <td data-label="Creata da">${c.creato ? htmlTimbro(c.creato) : ''}</td>
                 <td data-label="Creata il">${c.creato ? fmtDataOra(c.creato.il) : ''}</td>
                 ${azioni(c)}
             </tr>`).join('') + `</tbody></table></div></div>`
@@ -20381,7 +21931,7 @@
                 <td class="num" data-label="Inviati">${s.n || 0}</td>
                 <td data-label="Esito">${s.falliti ? '<button type="button" class="btn btn-sm btn-danger inv-falliti" data-idx="' + idx + '">' + s.falliti + ' fallit' + (s.falliti === 1 ? 'o' : 'i') + '</button>' : '<span class="badge verde">tutti ok</span>'}</td>
                 <td data-label="Tipo">${s.da === 'programmato' ? '<span class="badge legale">programmato</span>' : '<span class="badge neutro">manuale</span>'}</td>
-                <td data-label="Da">${esc(s.da)}</td>
+                <td data-label="Da">${htmlConCollab(s.da, s.collab)}</td>
             </tr>`).join('') + `</tbody></table></div></div>`
             : '<div class="card tabella-vuota">Nessun invio effettuato finora.</div>';
 
@@ -20563,7 +22113,7 @@
         delete copia.inviata;
         // la copia non deve poter partire da sola: niente stato attivo e nessuna data d'invio ereditata (si reimposta a mano)
         if (copia.programmazione) copia.programmazione = Object.assign({}, copia.programmazione, { attiva: false, ultimoInvio: null, prossimoInvio: null });
-        copia.creato = { da: Auth.utenteCorrente.email, il: Date.now() };
+        copia.creato = timbroEmail();
         Comunicazioni.salvaUna(copia);
         Audit.registra(Auth.utenteCorrente, 'Comunicazione duplicata', 'comunicazione', copia.id, copia.oggetto || null,
             [{ campo: 'Copiata da', prima: '', dopo: orig.oggetto || orig.nome || orig.id }]);
@@ -20623,7 +22173,7 @@
         const testoInizialeHtml = c ? (c.formato === 'html' ? (c.testo || '') : esc(c.testo || '').replace(/\n/g, '<br>')) : '';
 
         apriModale(`
-            ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
+            ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${htmlConCollab(c.inviata.da || '', c.inviata.collab)}. Puoi modificarla e reinviarla.</p>` : ''}
             <div class="comp-scelta" id="c-card-dest">
                 <div class="comp-scelta-testa">
                     <div class="comp-scelta-tit">Destinatari</div>
@@ -20920,7 +22470,7 @@
             destinatariManuali: manuali(),        // scelte singole statiche
             destinatari: tuttiDestinatari(),      // snapshot risolto ora (per invio immediato e conteggio)
             stato: (c && c.stato) || 'bozza',
-            creato: (c && c.creato) || { da: Auth.utenteCorrente.email, il: Date.now() },
+            creato: (c && c.creato) || timbroEmail(),
             // storico degli invii effettuati (migra i vecchi record che avevano solo "inviata")
             invii: (c && c.invii) || (c && c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da }] : [])
         });
@@ -21123,7 +22673,7 @@
             if (!esito.ok) { mostraErr('Invio non riuscito: ' + esito.msg + (falliti.length ? ' (' + falliti.length + ' destinatari rifiutati)' : '')); return; }
             const ora = Date.now();
             rec.stato = 'inviata';
-            const voceInv = { il: ora, n: esito.inviati, da: Auth.utenteCorrente.email };
+            const voceInv = timbroEmail({ il: ora, n: esito.inviati });
             if (falliti.length) { voceInv.falliti = falliti.length; voceInv.dettaglioFalliti = falliti.slice(0, 100); }
             rec.inviata = Object.assign({}, voceInv, { da: Auth.utenteCorrente.email });
             rec.invii = (rec.invii || []).concat([voceInv]);
@@ -21246,7 +22796,7 @@
                 .map(u => ({
                     email: u.email,
                     nome: u.nome || nomeDaAnagrafica[u.email] || u.email,
-                    ruoloNome: nomeRuolo(u.ruolo)
+                    ruoloNome: etichettaRuoloUtente(u, grezzi)
                 }))
                 .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
             disegnaLista();
@@ -21310,14 +22860,14 @@
                 esclusi: esclusi,
                 stato: 'bozza',
                 programmazione: null,
-                creato: { da: Auth.utenteCorrente.email, il: Date.now() },
+                creato: timbroEmail(),
                 invii: []
             };
             Comunicazioni.salvaUna(rec);   // salva prima: se l'invio fallisce non si perde nulla
             const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, datiDestinatari(dest), 'html');
             const falliti = (esito && esito.falliti) || [];
             if (!esito || !esito.ok) { err('Invio non riuscito: ' + ((esito && esito.msg) || 'errore') + (falliti.length ? ' (' + falliti.length + ' destinatari rifiutati)' : '')); return; }
-            const voce = { il: Date.now(), n: esito.inviati, da: Auth.utenteCorrente.email };
+            const voce = timbroEmail({ n: esito.inviati });
             if (falliti.length) { voce.falliti = falliti.length; voce.dettaglioFalliti = falliti.slice(0, 100); }
             rec.stato = 'inviata';
             rec.inviata = Object.assign({}, voce);
@@ -21391,8 +22941,14 @@
     }
     function meRichiesta() {
         const u = Auth.utenteCorrente || {};
-        return { email: String(u.email || '').toLowerCase(), nome: u.nome || u.email || '' };
+        const io = { email: String(u.email || '').toLowerCase(), nome: u.nome || u.email || '' };
+        // scritto da un collaboratore: lo vede solo il suo utente di riferimento
+        const c = firmaCollaboratore(u);
+        if (c) io.collab = c;
+        return io;
     }
+    // il nome dell'autore di un messaggio di richiesta, con l'eventuale "tramite" per chi lo puo' vedere
+    function htmlAutoreRichiesta(a) { return a ? htmlConCollab(a.nome || '', a.collab, a.email) : ''; }
     /* Come si dice il passaggio di stato in una frase: "la richiesta e' stata CORRETTA".
        Serve all'oggetto della mail e all'avviso a video, dove "risolta" da sola non
        direbbe cosa e' successo davvero. */
@@ -21447,9 +23003,9 @@
                 </summary>
                 <div class="comm-dettaglio">
                     <div class="ric-meta">
-                        <span><strong>Richiesta da</strong> ${esc((r.richiedente && r.richiedente.nome) || '')} il ${fmtDataOra(r.creato)}</span>
+                        <span><strong>Richiesta da</strong> ${htmlAutoreRichiesta(r.richiedente)} il ${fmtDataOra(r.creato)}</span>
                         <span><strong>In conoscenza</strong> ${(r.conoscenza || []).length ? esc((r.conoscenza || []).map(c => c.nome).join(', ')) : 'nessuno (regione senza coordinatore)'}</span>
-                        ${ult ? `<span><strong>Ultimo messaggio</strong> ${esc((ult.autore && ult.autore.nome) || '')} &middot; ${fmtDataOra(ult.ts)}</span>` : ''}
+                        ${ult ? `<span><strong>Ultimo messaggio</strong> ${htmlAutoreRichiesta(ult.autore)} &middot; ${fmtDataOra(ult.ts)}</span>` : ''}
                     </div>
                     <p class="ric-anteprima">${esc(troncaTesto(((r.messaggi || [])[0] || {}).testo || '', 260))}</p>
                 </div>
@@ -21695,11 +23251,11 @@
             if (m.tipo === 'stato') {
                 // i record piu' vecchi non hanno "evento": si ripiega sul testo salvato allora
                 const detto = m.evento ? ('ha segnato la richiesta come ' + m.evento) : (m.testo || '');
-                return '<div class="ric-evento">' + esc(((m.autore && m.autore.nome) || '') + ' ' + detto) + ' &middot; '
+                return '<div class="ric-evento">' + htmlAutoreRichiesta(m.autore) + ' ' + esc(detto) + ' &middot; '
                     + fmtDataOra(m.ts) + '</div>';
             }
             return '<div class="ric-msg' + (suo ? ' mio' : '') + '">'
-                + '<div class="ric-msg-testa"><strong>' + esc((m.autore && m.autore.nome) || '') + '</strong>'
+                + '<div class="ric-msg-testa"><strong>' + htmlAutoreRichiesta(m.autore) + '</strong>'
                 + '<span>' + fmtDataOra(m.ts) + '</span>'
                 + (m.tipo === 'richiesta' ? '<span class="badge neutro">richiesta iniziale</span>' : '') + '</div>'
                 + '<div class="ric-msg-testo">' + esc(m.testo || '').replace(/\n/g, '<br>') + '</div>'
@@ -21897,8 +23453,8 @@
     /* =========================================================
        VISTA: REGISTRO MODIFICHE
     ========================================================= */
-    const ENTITA_LABEL = { incarico: 'Incarico', fattura: 'Fatturazione', persona: 'Persona', comunicazione: 'Comunicazione', richiesta: 'Richiesta correzione', utente: 'Utente/accesso', sistema: 'Sistema' };
-    const ENTITA_CLASSE = { incarico: 'legale', fattura: 'ambra', persona: 'volontaria', comunicazione: 'collegio', richiesta: 'proposta', utente: 'neutro', sistema: 'neutro' };
+    const ENTITA_LABEL = { incarico: 'Incarico', fattura: 'Fatturazione', persona: 'Persona', comunicazione: 'Comunicazione', richiesta: 'Richiesta correzione', controlloQualita: 'Controllo qualità', utente: 'Utente/accesso', sistema: 'Sistema' };
+    const ENTITA_CLASSE = { incarico: 'legale', fattura: 'ambra', persona: 'volontaria', comunicazione: 'collegio', richiesta: 'proposta', controlloQualita: 'verde', utente: 'neutro', sistema: 'neutro' };
     function badgeEntita(ent) { return '<span class="badge ' + (ENTITA_CLASSE[ent] || 'neutro') + '">' + esc(ENTITA_LABEL[ent] || ent || 'altro') + '</span>'; }
 
     // Dettaglio completo di una voce del registro: riferimento risolto, modifiche
@@ -21922,7 +23478,7 @@
                 ${rigaRiepilogo('Data e ora', fmtDataOra(v.ts))}
                 <div class="riepilogo-riga"><span class="etichetta">Ambito</span><span class="valore">${badgeEntita(ent)}</span></div>
                 ${rigaRiepilogo('Azione', v.azione)}
-                ${rigaRiepilogo('Autore', v.utente)}
+                <div class="riepilogo-riga"><span class="etichetta">Autore</span><span class="valore">${htmlConCollab(v.utente, v.collaboratore)}</span></div>
                 <div class="riepilogo-riga"><span class="etichetta">Riferimento</span><span class="valore">${rifHtml}</span></div>
             </div>
             <h4 style="margin:14px 0 8px; color:var(--blu-500); text-transform:uppercase; letter-spacing:0.05em; font-size:0.82rem;">Modifiche</h4>
@@ -21962,6 +23518,7 @@
                     <option value="fattura">Fatturazione</option>
                     <option value="persona">Aderenti Revilaw</option>
                     <option value="comunicazione">Comunicazioni</option>
+                    <option value="controlloQualita">Controlli qualità</option>
                     <option value="utente">Utenti e accessi</option>
                     <option value="sistema">Sistema</option>
                 </select></div>
@@ -21979,7 +23536,8 @@
             const dalV = document.getElementById('r-dal').value, alV = document.getElementById('r-al').value;
             const dal = dalV ? new Date(dalV + 'T00:00:00').getTime() : null;
             const al = alV ? new Date(alV + 'T23:59:59').getTime() : null;
-            const testoVoce = v => ((v.cliente || '') + ' ' + (v.azione || '') + ' ' + (v.utente || '') + ' ' + (Array.isArray(v.dettagli) ? v.dettagli.map(d => d.campo + ' ' + d.prima + ' ' + d.dopo).join(' ') : (v.dettagli || ''))).toLowerCase();
+            // il collaboratore entra nella ricerca solo per chi lo puo' vedere (il suo riferimento)
+            const testoVoce = v => ((v.cliente || '') + ' ' + (v.azione || '') + ' ' + firmaConCollab(v.utente, v.collaboratore) + ' ' + (Array.isArray(v.dettagli) ? v.dettagli.map(d => d.campo + ' ' + d.prima + ' ' + d.dopo).join(' ') : (v.dettagli || ''))).toLowerCase();
             let lista = base;
             if (t) lista = lista.filter(v => testoVoce(v).includes(t));
             if (u) lista = lista.filter(v => v.utente === u);
@@ -21997,7 +23555,7 @@
                 lista.map((v, i) => `<tr class="cliccabile" data-idx="${i}">
                     <td data-label="Data e ora">${fmtDataOra(v.ts)}</td>
                     <td data-label="Ambito">${badgeEntita(v.entita)}</td>
-                    <td data-label="Autore">${esc(v.utente)}</td>
+                    <td data-label="Autore">${htmlConCollab(v.utente, v.collaboratore)}</td>
                     <td data-label="Azione"><strong>${esc(v.azione)}</strong></td>
                     <td data-label="Riferimento">${esc(v.cliente || (v.entita === 'utente' ? v.rif : '') || '')}</td>
                     <td data-label="Dettagli">${Array.isArray(v.dettagli) ? '<ul class="reg-diff">' + v.dettagli.map(d => '<li><span class="reg-campo">' + esc(d.campo) + '</span> <span class="reg-da">' + esc(troncaTesto(d.prima, 44)) + '</span> <span class="reg-fr">&rarr;</span> <span class="reg-a">' + esc(troncaTesto(d.dopo, 44)) + '</span></li>').join('') + '</ul>' : esc(v.dettagli || '')}</td>
@@ -22018,19 +23576,99 @@
     // etichetta di un ruolo per id (compresi i ruoli personalizzati)
     function nomeRuolo(id) {
         if (id === 'admin') return 'Amministratore';
+        if (eRuoloCollaboratore(id)) return NOME_RUOLO_COLLABORATORE;
         if (Object.prototype.hasOwnProperty.call(NOMI_RUOLO_SOND, id)) return NOMI_RUOLO_SOND[id];
         const r = Ruoli.trova(id);
         return r ? r.nome : (id || 'Senza ruolo');
     }
+    /* "Collaboratore di Mario Rossi": l'etichetta del ruolo di un utente negli elenchi, che per
+       un collaboratore dice anche a chi e' associato (lista = gli utenti, per risalire al nome). */
+    function etichettaRuoloUtente(u, lista) {
+        if (!u || !eRuoloCollaboratore(u.ruolo)) return nomeRuolo(u ? u.ruolo : '');
+        const di = String(u.collaboratoreDi || '').toLowerCase();
+        const p = (lista || []).find(x => String(x.email || '').toLowerCase() === di);
+        return NOME_RUOLO_COLLABORATORE + ' di ' + (p ? (p.nome || p.email) : (di || '(non indicato)'));
+    }
     // <option> per assegnare un ruolo a un utente (sel = ruolo attualmente scelto). In coda,
-    // i due ruoli "solo sondaggio": cosi l'admin puo passare un invitato del sondaggio a un
-    // ruolo pieno (per abilitare le altre aree) e viceversa.
+    // il profilo Collaboratore (che chiede anche di chi) e i due ruoli "solo sondaggio": cosi
+    // l'admin puo passare un invitato del sondaggio a un ruolo pieno (per abilitare le altre
+    // aree) e viceversa.
     function opzioniRuolo(sel) {
-        const base = Ruoli.tutti().map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
+        // un ruolo su misura salvato in passato con l'id riservato 'collaboratore' non si propone: il
+        // suo id ormai vuol dire il profilo di sistema (Ruoli e permessi lo segnala)
+        const base = Ruoli.tutti().filter(r => !eRuoloCollaboratore(r.id)).map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
+        const collab = '<optgroup label="A nome di un altro utente">'
+            + '<option value="' + RUOLO_COLLABORATORE + '"' + (sel === RUOLO_COLLABORATORE ? ' selected' : '') + '>' + esc(NOME_RUOLO_COLLABORATORE) + ' (eredita i permessi di un utente)</option>'
+            + '</optgroup>';
         const sond = '<optgroup label="Solo sondaggio">'
             + Object.keys(NOMI_RUOLO_SOND).map(id => '<option value="' + esc(id) + '"' + (id === sel ? ' selected' : '') + '>' + esc(NOMI_RUOLO_SOND[id]) + '</option>').join('')
             + '</optgroup>';
-        return base + sond;
+        return base + collab + sond;
+    }
+
+    /* --- Collaboratori: la scelta dell'utente di riferimento (sezione Utenti) --- */
+    // gli utenti che possono fare da riferimento (lista = tutti gli utenti; escluso = un indirizzo da togliere)
+    function candidatiRiferimento(lista, escluso) {
+        const ex = String(escluso || '').toLowerCase();
+        return (lista || []).filter(u => u && u.email && String(u.email).toLowerCase() !== ex && puoAvereCollaboratori(u))
+            .sort((a, b) => String(a.nome || a.email).localeCompare(String(b.nome || b.email), 'it'));
+    }
+    function opzioniRiferimento(lista, escluso, sel) {
+        const s = String(sel || '').toLowerCase();
+        return '<option value="">- scegli l\'utente -</option>' + candidatiRiferimento(lista, escluso).map(u => {
+            const e = String(u.email).toLowerCase();
+            return '<option value="' + esc(e) + '"' + (e === s ? ' selected' : '') + '>' + esc((u.nome || e) + ' - ' + e + ' (' + nomeRuolo(u.ruolo) + ')') + '</option>';
+        }).join('');
+    }
+    // il blocco "Collaboratore di" della modale utente: compare solo con il profilo Collaboratore
+    function campoRiferimentoHtml(lista, escluso, sel, visibile) {
+        return '<div class="campo' + (visibile ? '' : ' hidden') + '" id="m-collab-campo"><label>Collaboratore di</label>'
+            + '<select id="m-collab-di">' + opzioniRiferimento(lista, escluso, sel) + '</select>'
+            + '<div class="hint">Il collaboratore vede e può fare tutto quello che può l\'utente scelto, e le sue modifiche compaiono agli altri con il nome di quest\'ultimo. Solo l\'utente scelto vede anche chi le ha fatte davvero.</div></div>';
+    }
+    function collegaCampoRiferimento() {
+        const r = document.getElementById('m-ruolo'), c = document.getElementById('m-collab-campo');
+        if (!r || !c) return;
+        const aggiorna = () => { c.classList.toggle('hidden', !eRuoloCollaboratore(r.value)); };
+        r.addEventListener('change', aggiorna); aggiorna();
+    }
+    /* L'indirizzo scelto come riferimento, controllato: '' se il ruolo non lo richiede,
+       null (con avviso a video) se manca o non va bene. */
+    function riferimentoScelto(ruolo, emailUtente, lista) {
+        if (!eRuoloCollaboratore(ruolo)) return '';
+        const sel = document.getElementById('m-collab-di');
+        const di = sel ? String(sel.value || '').trim().toLowerCase() : '';
+        if (!di) { toast('Indica di quale utente è collaboratore.', 'rosso'); return null; }
+        if (di === String(emailUtente || '').toLowerCase()) { toast('Un utente non può essere collaboratore di sé stesso.', 'rosso'); return null; }
+        const p = (lista || []).find(u => String(u.email || '').toLowerCase() === di);
+        if (!p || !puoAvereCollaboratori(p)) { toast('L\'utente scelto non può avere collaboratori: serve un utente attivo dello staff, che non sia l\'amministratore o il titolare, un altro collaboratore o un invitato al solo sondaggio.', 'rosso'); return null; }
+        return di;
+    }
+    // i collaboratori che dipendono da un utente: prima di disabilitarlo o eliminarlo va detto
+    function collaboratoriDi(email, lista) {
+        const e = String(email || '').toLowerCase();
+        return (lista || []).filter(u => u && eRuoloCollaboratore(u.ruolo) && String(u.collaboratoreDi || '').toLowerCase() === e);
+    }
+    function avvisoCollaboratoriDipendenti(email, lista, conseguenza) {
+        const c = collaboratoriDi(email, lista);
+        if (!c.length) return '';
+        return '<p class="avviso-collab"><strong>' + (c.length === 1 ? 'Un collaboratore dipende' : c.length + ' collaboratori dipendono') + ' da questo utente</strong> ('
+            + esc(c.map(x => x.nome || x.email).join(', ')) + '): ' + conseguenza + '</p>';
+    }
+    /* Finestra per scegliere (o cambiare) l'utente di riferimento di un collaboratore.
+       salva(di) fa il salvataggio (anche async); annulla() al rifiuto. */
+    function modaleScegliRiferimento(u, lista, salva, annulla) {
+        apriModale('<h2>Collaboratore di</h2>'
+            + '<p class="descrizione"><strong>' + esc(u.nome || u.email) + '</strong> (' + esc(u.email) + ') lavorerà a nome dell\'utente scelto qui sotto, con i suoi stessi permessi.</p>'
+            + campoRiferimentoHtml(lista, u.email, u.collaboratoreDi, true)
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-salva">Salva</button></div>');
+        document.getElementById('m-annulla').addEventListener('click', () => { chiudiModale(); if (annulla) annulla(); });
+        const b = document.getElementById('m-salva');
+        b.addEventListener('click', () => conAttesa(b, async () => {
+            const di = riferimentoScelto(RUOLO_COLLABORATORE, u.email, lista);
+            if (!di) return;
+            await salva(di);
+        }));
     }
     /* Selettore "dall'anagrafica" nel modale di creazione utente: si sceglie una persona
        gia' in Aderenti Revilaw (con email) e nome + email si compilano da soli, restando modificabili. */
@@ -22056,12 +23694,23 @@
     }
     // quanti utenti (in locale) hanno un dato ruolo: per avvisare prima di cancellarlo
     function utentiConRuolo(id) {
-        try { return Auth.utenti().filter(u => u.ruolo === id).length; } catch (e) { return 0; }
+        try { return contaUtentiConRuolo(Auth.utenti(), id); } catch (e) { return 0; }
+    }
+    /* Quanti perderebbero l'accesso senza quel ruolo: chi ce l'ha piu' i collaboratori di
+       costoro, che ereditano tutto dal loro utente di riferimento. */
+    function contaUtentiConRuolo(lista, id) {
+        const l = lista || [];
+        const conRuolo = new Set(l.filter(u => u && u.ruolo === id).map(u => String(u.email || '').toLowerCase()));
+        return l.filter(u => u && (u.ruolo === id || (eRuoloCollaboratore(u.ruolo) && conRuolo.has(String(u.collaboratoreDi || '').toLowerCase())))).length;
     }
 
     function vistaRuoli() {
         if (!Auth.eAdmin() && !Auth.eProprietario()) { naviga('dashboard'); return; }
-        const ruoli = Ruoli.tutti().map(Ruoli.normalizza);
+        // un ruolo su misura creato in passato con l'id 'collaboratore' (lo slug del nome) oggi
+        // collide con il profilo di sistema: chi ce l'ha non entra finche' non gli si da' un
+        // altro ruolo. Si dice in testa alla pagina, e la sua scheda non si mostra.
+        const ruoloOmonimo = Ruoli.tutti().find(r => eRuoloCollaboratore(r.id) && !r.sistema);
+        const ruoli = Ruoli.tutti().filter(r => !eRuoloCollaboratore(r.id)).map(Ruoli.normalizza);
         const riepSez = r => SEZIONI_RUOLO.map(s => {
             const liv = r.sezioni[s.id] || 'no';
             const cls = liv === 'scrittura' ? 'verde' : (liv === 'lettura' ? 'ambra' : 'neutro');
@@ -22076,6 +23725,7 @@
                 <div class="header-azioni"><button class="btn btn-primary" id="btn-nuovo-ruolo">+ Nuovo ruolo</button></div>
             </header>
             <div class="avviso-ruoli">Questi permessi tengono ognuno nella sua parte e prevengono gli errori, ma valgono dentro il programma: non sono una cassaforte. I dati più delicati restano protetti dalle regole del server.</div>
+            ${ruoloOmonimo ? '<div class="avviso-collab">Esiste un ruolo su misura chiamato <strong>' + esc(ruoloOmonimo.nome) + '</strong> con lo stesso identificativo del profilo di sistema Collaboratore: gli utenti che lo hanno non possono più entrare. Assegna loro un altro ruolo dalla sezione Utenti (o abilitali come collaboratori di qualcuno) e poi elimina quel ruolo.</div>' : ''}
             <div class="ruoli-griglia">` +
             ruoli.map(r => `<div class="ruolo-card">
                 <div class="ruolo-testa">
@@ -22089,19 +23739,28 @@
                 ${r.id === 'coordinatore' || r.id === 'vicecoordinatore' ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw più le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
                 ${r.id === RUOLO_MARKETING ? '<div class="ruolo-reg">Non è limitato al territorio: vede gli incarichi di tutte le regioni. Parte con tutto in sola lettura; la scrittura si concede sezione per sezione. Sulle richieste di correzione resta osservatore.</div>' : ''}
             </div>`).join('') +
-            `</div>`;
+            `<div class="ruolo-card ruolo-card-collab">
+                <div class="ruolo-testa">
+                    <h2>${esc(NOME_RUOLO_COLLABORATORE)} <span class="badge ambra">di sistema</span></h2>
+                    <div class="ruolo-azioni"><button class="btn btn-sm btn-secondary" id="r-collab-utenti">Abilita un collaboratore</button></div>
+                </div>
+                <div class="ruolo-sez"><span class="badge collegio">Nessun permesso proprio: eredita tutto dall'utente di riferimento</span></div>
+                <div class="ruolo-reg">Si assegna dalla sezione <strong>Utenti</strong>, indicando <strong>di quale utente</strong> è collaboratore. Vede e può fare esattamente quello che vede e può fare quell'utente: ruolo, sezioni, territorio, Eventi e Newsletter comprese; se il riferimento viene disabilitato, anche il collaboratore resta fuori. <strong>Amministratore e titolare non possono avere collaboratori</strong>, e nemmeno un altro collaboratore o un invitato al solo sondaggio. Le sue modifiche compaiono a tutti con il <strong>nome dell'utente di riferimento</strong>; solo quest'ultimo vede anche quale collaboratore le ha fatte.</div>
+            </div>
+            </div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
+        document.getElementById('r-collab-utenti').addEventListener('click', apriNuovoCollaboratore);
         $vista().querySelectorAll('.r-mod').forEach(b => b.addEventListener('click', () => modaleRuolo(b.dataset.id)));
         $vista().querySelectorAll('.r-del').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             const r = Ruoli.trova(b.dataset.id); if (!r || r.id === 'admin' || r.sistema) return;
             // conteggio utenti col ruolo: in cloud gli utenti stanno su Firestore, non in locale
             let n = 0, contato = true;
             if (Cloud.attivo) {
-                try { const u = await Cloud.listaUtenti(); n = (u || []).filter(x => x.ruolo === r.id).length; }
+                try { const u = await Cloud.listaUtenti(); n = contaUtentiConRuolo(u || [], r.id); }
                 catch (e) { contato = false; }
             } else { n = utentiConRuolo(r.id); }
             const avviso = !contato ? 'Non è stato possibile contare gli utenti con questo ruolo: verifica a mano che nessuno lo usi prima di eliminarlo.'
-                : (n ? '<strong>' + n + (n === 1 ? ' utente ha' : ' utenti hanno') + '</strong> questo ruolo: riassegnalo prima, altrimenti resteranno senza accesso finché l\'amministratore non interviene.'
+                : (n ? '<strong>' + n + (n === 1 ? ' utente ha' : ' utenti hanno') + '</strong> questo ruolo (contando anche i loro eventuali collaboratori): riassegnalo prima, altrimenti resteranno senza accesso finché l\'amministratore non interviene.'
                     : 'Nessun utente risulta avere questo ruolo.');
             apriModale(`<h2>Eliminare il ruolo "${esc(r.nome)}"?</h2>
                 <p>${avviso}</p>
@@ -22113,6 +23772,22 @@
                 chiudiModale(); toast('Ruolo eliminato.', 'verde'); vistaRuoli();
             });
         })));
+    }
+
+    /* Da Ruoli e permessi: va in Utenti, apre "Abilita nuovo utente" e sceglie gia' il profilo
+       Collaboratore, cosi' il campo "Collaboratore di" compare subito. In cloud la finestra
+       arriva dopo la lettura dell'elenco: si aspetta che compaia, senza bloccare. */
+    function apriNuovoCollaboratore() {
+        naviga('utenti');
+        const attendi = (sel, poi, tentativi) => {
+            const el = document.querySelector(sel);
+            if (el) { poi(el); return; }
+            if (tentativi > 0) setTimeout(() => attendi(sel, poi, tentativi - 1), 150);
+        };
+        attendi('#btn-nuovo-utente', b => {
+            b.click();
+            attendi('#m-ruolo', r => { r.value = RUOLO_COLLABORATORE; r.dispatchEvent(new Event('change')); }, 40);
+        }, 20);
     }
 
     function modaleRuolo(id) {
@@ -22146,11 +23821,15 @@
             // i ruoli di sistema hanno nome fisso: non c'e il campo nome nella modale
             const nome = diSistema ? r.nome : document.getElementById('r-nome').value.trim();
             if (!nome) { mostra('Dai un nome al ruolo.'); return; }
+            // "Collaboratore" e' un profilo di sistema con la sua logica: un ruolo su misura
+            // con lo stesso nome farebbe solo confusione nella tendina degli utenti
+            if (!diSistema && nome.toLowerCase() === NOME_RUOLO_COLLABORATORE.toLowerCase()) { mostra('"' + NOME_RUOLO_COLLABORATORE + '" è un profilo di sistema: si assegna dalla sezione Utenti, scegliendo di quale utente è collaboratore.'); return; }
             const lista = Ruoli.tutti();
             let nid = r.id;
             if (!nid) {
                 const base = nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'ruolo';
-                nid = base; let k = 2; while (nid === 'admin' || lista.some(x => x.id === nid)) { nid = base + '-' + k; k++; }
+                // gli id riservati (admin, collaboratore, solo sondaggio) non si occupano
+                nid = base; let k = 2; while (nid === 'admin' || eRuoloCollaboratore(nid) || eRuoloSoloSondaggio(nid) || lista.some(x => x.id === nid)) { nid = base + '-' + k; k++; }
             }
             if (!diSistema && lista.some(x => x.id !== nid && String(x.nome).trim().toLowerCase() === nome.toLowerCase())) { mostra('Esiste già un ruolo con questo nome.'); return; }
             const sezioni = {};
@@ -22174,14 +23853,15 @@
     /* Elimina definitivamente un utente (locale o cloud). A differenza di
        "Disabilita" (reversibile), qui l'utente sparisce dall'elenco e perde
        ogni accesso: per riammetterlo va riabilitato da capo. */
-    function confermaEliminaUtente(email, nome) {
-        if (Auth.utenteCorrente && String(email).toLowerCase() === String(Auth.utenteCorrente.email).toLowerCase()) {
+    function confermaEliminaUtente(email, nome, lista) {
+        if (eUtenteMio(email)) {
             toast('Non puoi eliminare il tuo stesso utente.', 'rosso'); return;
         }
         apriModale('<h2>Elimina definitivamente l\'utente</h2>'
             + '<p>Vuoi eliminare <strong>' + esc(nome || email) + '</strong> (' + esc(email) + ')?</p>'
             + '<p class="descrizione">L\'utente sparisce dall\'elenco e perde subito l\'accesso all\'area riservata. '
             + 'L\'operazione non è reversibile: per riammetterlo dovrai abilitarlo di nuovo con "Abilita utente".</p>'
+            + avvisoCollaboratoriDipendenti(email, lista, 'senza il loro utente di riferimento non potranno più entrare, finché non li associ a un altro utente.')
             + '<div class="modale-azioni"><button class="btn btn-ghost" id="ue-no">Annulla</button>'
             + '<button class="btn btn-danger" id="ue-si">Elimina definitivamente</button></div>');
         document.getElementById('ue-no').addEventListener('click', chiudiModale);
@@ -22203,6 +23883,60 @@
         }, { testo: 'Elimino…' }));
     }
 
+    /* "Il mio utente" nella vista Utenti: la mia sessione e, se sono un collaboratore, anche
+       il mio utente di riferimento. Il ruolo da cui dipende il proprio accesso non si cambia
+       da soli, e non ci si elimina. */
+    function eUtenteMio(email) {
+        const e = String(email || '').toLowerCase();
+        return e === Auth.emailSessione() || (!!Auth.utenteCorrente && e === String(Auth.utenteCorrente.email || '').toLowerCase());
+    }
+    /* La cella "Ruolo" della tabella utenti: la tendina e, per un collaboratore, di chi lo e'
+       (con l'avviso se il riferimento non va piu' bene) e il pulsante per cambiarlo. */
+    function cellaRuoloUtente(u, utenti) {
+        if (eUtenteMio(u.email)) return esc(etichettaRuoloUtente(u, utenti));
+        let html = '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>';
+        if (eRuoloCollaboratore(u.ruolo)) {
+            const di = String(u.collaboratoreDi || '').toLowerCase();
+            const p = (utenti || []).find(x => String(x.email || '').toLowerCase() === di);
+            const problema = !di ? 'non indicato' : !p ? 'utente non trovato'
+                : (p.attivo === false ? 'utente disabilitato' : (!puoAvereCollaboratori(p) ? 'non può fare da riferimento' : ''));
+            html += '<div class="u-collab-di">di <strong>' + esc(p ? (p.nome || p.email) : (di || 'nessuno')) + '</strong>'
+                + (problema ? ' <span class="badge rosso" title="Finché non lo associ a un utente valido, il collaboratore non può entrare">' + esc(problema) + '</span>' : '')
+                + ' <button type="button" class="btn btn-sm btn-ghost u-cambia-rif" data-email="' + esc(u.email) + '">Cambia</button></div>';
+        }
+        return html;
+    }
+    /* Prima di un'operazione che lascerebbe fuori i collaboratori di un utente (disabilitarlo,
+       cambiargli ruolo): se ce ne sono, si chiede conferma; altrimenti si procede subito. */
+    function confermaSeCollaboratori(email, lista, conseguenza, poi, annulla) {
+        const avviso = avvisoCollaboratoriDipendenti(email, lista, conseguenza);
+        if (!avviso) { poi(); return; }
+        apriModale('<h2>Attenzione ai collaboratori</h2>' + avviso
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-danger" id="m-conferma">Procedi comunque</button></div>');
+        document.getElementById('m-annulla').addEventListener('click', () => { chiudiModale(); if (annulla) annulla(); });
+        document.getElementById('m-conferma').addEventListener('click', () => { chiudiModale(); poi(); });
+    }
+    // la modale "Abilita nuovo utente", uguale in locale e in cloud (cambia solo il testo finale)
+    function htmlModaleNuovoUtente(utenti, notaFinale, testoPulsante) {
+        return `<h2>Abilita nuovo utente</h2>
+                ${selettorePersonaUtente()}
+                <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
+                <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
+                <div class="campo"><label>Ruolo</label><select id="m-ruolo">${opzioniRuolo(null)}</select></div>
+                ${campoRiferimentoHtml(utenti, '', '', false)}
+                <p class="descrizione">${notaFinale}</p>
+                <div class="modale-azioni">
+                    <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                    <button class="btn btn-primary" id="m-salva">${testoPulsante}</button>
+                </div>`;
+    }
+    // le voci del registro per un ruolo appena assegnato (con l'eventuale riferimento)
+    function dettagliRuoloAudit(prima, dopo, primaDi, dopoDi) {
+        const d = [{ campo: 'Ruolo', prima: prima ? nomeRuolo(prima) : 'vuoto', dopo: nomeRuolo(dopo) }];
+        if ((primaDi || '') !== (dopoDi || '')) d.push({ campo: 'Collaboratore di', prima: primaDi || 'vuoto', dopo: dopoDi || 'vuoto' });
+        return d;
+    }
+
     function vistaUtenti() {
         if (!Auth.eAdmin() && !Auth.eProprietario()) { naviga('dashboard'); return; }
         if (Cloud.attivo) { vistaUtentiCloud(); return; }
@@ -22212,7 +23946,7 @@
             <header>
                 <div>
                     <h1>Utenti abilitati</h1>
-                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono richiedere la prima password e accedere all'area riservata.</p>
+                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono richiedere la prima password e accedere all'area riservata. Un <strong>collaboratore</strong> lavora a nome di un altro utente, con i suoi stessi permessi.</p>
                 </div>
                 <div class="header-azioni"><button class="btn btn-primary" id="btn-nuovo-utente">+ Abilita utente</button></div>
             </header>
@@ -22222,31 +23956,23 @@
             utenti.map(u => `<tr>
                 <td class="cliente-cella" data-label="Nome">${esc(u.nome)}</td>
                 <td data-label="Email">${esc(u.email)}</td>
-                <td data-label="Ruolo">${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
+                <td data-label="Ruolo">${cellaRuoloUtente(u, utenti)}</td>
                 <td data-label="Stato">${u.attivo ? (u.hash ? '<span class="badge verde">attivo</span>' : '<span class="badge ambra">in attesa di prima password</span>') : '<span class="badge rosso">disabilitato</span>'}${u.mustChange && u.hash ? ' <span class="badge neutro">cambio password richiesto</span>' : ''}</td>
                 <td data-label="Ultimo accesso">${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
                 <td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary u-reimposta" data-email="${esc(u.email)}">Reimposta password</button>
-                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm ${u.attivo ? 'btn-danger' : 'btn-secondary'} u-attiva" data-email="${esc(u.email)}">${u.attivo ? 'Disabilita' : 'Riabilita'}</button>` : ''}
-                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
+                    ${!eUtenteMio(u.email) ? `<button class="btn btn-sm ${u.attivo ? 'btn-danger' : 'btn-secondary'} u-attiva" data-email="${esc(u.email)}">${u.attivo ? 'Disabilita' : 'Riabilita'}</button>` : ''}
+                    ${!eUtenteMio(u.email) ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
                 </td>
             </tr>`).join('') +
             `</tbody></table></div>`;
 
         attrezzaTabella($vista(), { nomeFile: 'utenti' });
         document.getElementById('btn-nuovo-utente').addEventListener('click', () => {
-            apriModale(`<h2>Abilita nuovo utente</h2>
-                ${selettorePersonaUtente()}
-                <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
-                <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
-                <div class="campo"><label>Ruolo</label><select id="m-ruolo">${opzioniRuolo(null)}</select></div>
-                <p class="descrizione">L'utente riceverà l'accesso richiedendo la prima password dalla pagina di ingresso.</p>
-                <div class="modale-azioni">
-                    <button class="btn btn-ghost" id="m-annulla">Annulla</button>
-                    <button class="btn btn-primary" id="m-salva">Abilita</button>
-                </div>`);
+            apriModale(htmlModaleNuovoUtente(utenti, 'L\'utente riceverà l\'accesso richiedendo la prima password dalla pagina di ingresso.', 'Abilita'));
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
             collegaSelettorePersona();
+            collegaCampoRiferimento();
             document.getElementById('m-salva').addEventListener('click', () => {
                 const nome = document.getElementById('m-nome').value.trim();
                 const email = document.getElementById('m-email').value.trim().toLowerCase();
@@ -22254,9 +23980,14 @@
                 if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Inserisci nome e un indirizzo email valido.', 'rosso'); return; }
                 if (Auth.trova(email)) { toast('Esiste già un utente con questo indirizzo.', 'rosso'); return; }
                 const utenti2 = Auth.utenti();
-                utenti2.push({ email, nome, ruolo, hash: null, sale: uid(), mustChange: false, tentativi: 0, bloccatoFino: 0, attivo: true, creato: Date.now(), creatoDa: Auth.utenteCorrente.email });
+                // il profilo Collaboratore vuole anche di chi: senza, non si salva
+                const di = riferimentoScelto(ruolo, email, utenti2);
+                if (di === null) return;
+                const nuovo = { email, nome, ruolo, hash: null, sale: uid(), mustChange: false, tentativi: 0, bloccatoFino: 0, attivo: true, creato: Date.now(), creatoDa: Auth.utenteCorrente.email };
+                if (di) nuovo.collaboratoreDi = di;
+                utenti2.push(nuovo);
                 Auth.salvaUtenti(utenti2);
-                Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, [{ campo: 'Ruolo', prima: 'vuoto', dopo: ruolo }]);
+                Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, dettagliRuoloAudit('', ruolo, '', di));
                 chiudiModale();
                 toast('Utente abilitato: potrà richiedere la prima password dalla pagina di accesso.', 'verde');
                 vistaUtenti();
@@ -22277,22 +24008,54 @@
         $vista().querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => {
             const email = b.dataset.email;
             const utenti2 = Auth.utenti();
-            const u = utenti2.find(x => x.email === email);
-            u.attivo = !u.attivo;
-            Auth.salvaUtenti(utenti2);
-            Audit.registra(Auth.utenteCorrente, u.attivo ? 'Utente riabilitato' : 'Utente disabilitato', 'utente', email, null, null);
-            toast(u.attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
-            vistaUtenti();
+            const u = utenti2.find(x => x.email === email); if (!u) return;
+            const esegui = () => {
+                u.attivo = !u.attivo;
+                Auth.salvaUtenti(utenti2);
+                Audit.registra(Auth.utenteCorrente, u.attivo ? 'Utente riabilitato' : 'Utente disabilitato', 'utente', email, null, null);
+                toast(u.attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
+                vistaUtenti();
+            };
+            // disabilitando un utente restano fuori anche i suoi collaboratori: si avvisa prima
+            if (u.attivo) confermaSeCollaboratori(email, utenti2, 'finché resta disabilitato non potranno entrare nemmeno loro.', esegui);
+            else esegui();
         }));
-        $vista().querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome)));
+        $vista().querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome, utenti)));
+        $vista().querySelectorAll('.u-cambia-rif').forEach(b => b.addEventListener('click', () => {
+            const utenti2 = Auth.utenti();
+            const u = utenti2.find(x => x.email === b.dataset.email); if (!u) return;
+            modaleScegliRiferimento(u, utenti2, async di => {
+                const prima = u.collaboratoreDi || '';
+                u.collaboratoreDi = di;
+                Auth.salvaUtenti(utenti2);
+                Audit.registra(Auth.utenteCorrente, 'Collaboratore: cambiato utente di riferimento', 'utente', u.email, null, [{ campo: 'Collaboratore di', prima: prima || 'vuoto', dopo: di }]);
+                chiudiModale(); toast('Utente di riferimento aggiornato.', 'verde'); vistaUtenti();
+            });
+        }));
         $vista().querySelectorAll('.u-ruolo').forEach(sel => sel.addEventListener('change', () => {
             const email = sel.dataset.email, nuovo = sel.value;
             const utenti2 = Auth.utenti();
             const u = utenti2.find(x => x.email === email); if (!u) return;
-            const prima = u.ruolo; u.ruolo = nuovo;
-            Auth.salvaUtenti(utenti2);
-            Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, [{ campo: 'Ruolo', prima: nomeRuolo(prima), dopo: nomeRuolo(nuovo) }]);
-            toast('Ruolo aggiornato per ' + email + '.', 'verde');
+            const prima = u.ruolo, primaDi = u.collaboratoreDi || '';
+            const applica = di => {
+                u.ruolo = nuovo;
+                if (di) u.collaboratoreDi = di; else delete u.collaboratoreDi;
+                Auth.salvaUtenti(utenti2);
+                Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, dettagliRuoloAudit(prima, nuovo, primaDi, di));
+                toast('Ruolo aggiornato per ' + email + '.', 'verde');
+                vistaUtenti();
+            };
+            // la tendina torna al ruolo salvato finche' non si salva davvero: cosi' chiudere una
+            // finestra con Esc o con la X non lascia a video un ruolo che non esiste
+            const procedi = () => {
+                // verso il profilo Collaboratore: prima si sceglie di chi, poi si salva
+                if (eRuoloCollaboratore(nuovo)) { sel.value = prima; modaleScegliRiferimento(u, utenti2, async di => { chiudiModale(); applica(di); }); return; }
+                applica('');
+            };
+            // chi ha collaboratori e passa a un profilo che non puo' averne (Collaboratore
+            // compreso) li lascerebbe fuori: si avvisa prima
+            if (!puoAvereCollaboratori({ ...u, ruolo: nuovo })) { sel.value = prima; confermaSeCollaboratori(email, utenti2, 'con questo ruolo non potranno più entrare, finché non li associ a un altro utente.', procedi); return; }
+            procedi();
         }));
     }
 
@@ -22302,37 +24065,38 @@
             <header>
                 <div>
                     <h1>Utenti abilitati</h1>
-                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono accedere. La password si imposta e si recupera tramite email.</p>
+                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono accedere. La password si imposta e si recupera tramite email. Un <strong>collaboratore</strong> lavora a nome di un altro utente, con i suoi stessi permessi.</p>
                 </div>
                 <div class="header-azioni"><button class="btn btn-primary" id="btn-nuovo-utente">+ Abilita utente</button></div>
             </header>
             <div class="card tabella-vuota" id="u-caricamento">Caricamento elenco utenti...</div>
             <div id="u-tabella"></div>`;
 
-        document.getElementById('btn-nuovo-utente').addEventListener('click', () => {
-            apriModale(`<h2>Abilita nuovo utente</h2>
-                ${selettorePersonaUtente()}
-                <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
-                <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
-                <div class="campo"><label>Ruolo</label><select id="m-ruolo">
-                    ${opzioniRuolo(null)}
-                </select></div>
-                <p class="descrizione">L'utente riceverà una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password. Ricordagli di controllare anche la posta indesiderata / spam.</p>
-                <div class="modale-azioni">
-                    <button class="btn btn-ghost" id="m-annulla">Annulla</button>
-                    <button class="btn btn-primary" id="m-salva">Abilita e invia email</button>
-                </div>`);
+        let utenti = [];
+        document.getElementById('btn-nuovo-utente').addEventListener('click', async () => {
+            // l'elenco serve alla tendina "Collaboratore di": se non e' ancora arrivato si riprova
+            if (!utenti.length) {
+                try { utenti = await Cloud.listaUtenti(); }
+                catch (e) { toast('Elenco utenti non disponibile (' + Cloud.msgErrore(e) + '): riprova tra poco.', 'rosso'); return; }
+            }
+            apriModale(htmlModaleNuovoUtente(utenti, 'L\'utente riceverà una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password. Ricordagli di controllare anche la posta indesiderata / spam.', 'Abilita e invia email'));
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
             collegaSelettorePersona();
+            collegaCampoRiferimento();
             const btnSalvaU = document.getElementById('m-salva');
             btnSalvaU.addEventListener('click', () => conAttesa(btnSalvaU, async () => {
                 const nome = document.getElementById('m-nome').value.trim();
                 const email = document.getElementById('m-email').value.trim().toLowerCase();
                 const ruolo = document.getElementById('m-ruolo').value;
                 if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Inserisci nome e un indirizzo email valido.', 'rosso'); return; }
+                // il profilo Collaboratore vuole anche di chi: senza, non si salva
+                const di = riferimentoScelto(ruolo, email, utenti);
+                if (di === null) return;
                 try {
-                    await Cloud.salvaUtente(email, { nome, ruolo, attivo: true, creato: Date.now(), creatoDa: Auth.utenteCorrente.email });
-                    Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, [{ campo: 'Ruolo', prima: 'vuoto', dopo: ruolo }]);
+                    const dati = { nome, ruolo, attivo: true, creato: Date.now(), creatoDa: Auth.utenteCorrente.email };
+                    if (di) dati.collaboratoreDi = di;
+                    await Cloud.salvaUtente(email, dati);
+                    Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, dettagliRuoloAudit('', ruolo, '', di));
                     const invio = await Cloud.primaPassword(email);
                     chiudiModale();
                     if (invio.ok && invio.saltato) toast('Utente abilitato. Email password NON inviata ora: ' + (invio.msg || 'limite raggiunto per questo indirizzo, riprova tra qualche minuto.'), 'ambra');
@@ -22344,7 +24108,6 @@
             }, { testo: 'Abilito…' }));
         });
 
-        let utenti = [];
         try {
             utenti = await Cloud.listaUtenti();
         } catch (e) {
@@ -22364,13 +24127,13 @@
             utenti.map(u => `<tr>
                 <td class="cliente-cella" data-label="Nome">${esc(u.nome || '')}</td>
                 <td data-label="Email">${esc(u.email)}</td>
-                <td data-label="Ruolo">${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
+                <td data-label="Ruolo">${cellaRuoloUtente(u, utenti)}</td>
                 <td data-label="Stato">${u.attivo === false ? '<span class="badge rosso">disabilitato</span>' : '<span class="badge verde">attivo</span>'}</td>
                 <td data-label="Ultimo accesso">${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
                 <td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary u-reimposta" data-email="${esc(u.email)}">Invia email reimposta password</button>
-                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm ${u.attivo === false ? 'btn-secondary' : 'btn-danger'} u-attiva" data-email="${esc(u.email)}" data-attivo="${u.attivo === false ? '0' : '1'}">${u.attivo === false ? 'Riabilita' : 'Disabilita'}</button>` : ''}
-                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
+                    ${!eUtenteMio(u.email) ? `<button class="btn btn-sm ${u.attivo === false ? 'btn-secondary' : 'btn-danger'} u-attiva" data-email="${esc(u.email)}" data-attivo="${u.attivo === false ? '0' : '1'}">${u.attivo === false ? 'Riabilita' : 'Disabilita'}</button>` : ''}
+                    ${!eUtenteMio(u.email) ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
                 </td>
             </tr>`).join('') +
             `</tbody></table></div>`;
@@ -22383,32 +24146,69 @@
             if (esito.ok && esito.saltato) toast('NON inviata: ' + (esito.msg || 'limite raggiunto per questo indirizzo, riprova tra qualche minuto.'), 'ambra');
             else toast(esito.ok ? 'Email inviata a ' + b.dataset.email + ' (potrebbe finire nello spam).' : esito.msg, esito.ok ? 'verde' : 'rosso');
         }, { testo: 'Invio…' })));
-        document.querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
+        document.querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => {
             const attivo = b.dataset.attivo !== '1';
-            try {
-                await Cloud.salvaUtente(b.dataset.email, { attivo });
-                Audit.registra(Auth.utenteCorrente, attivo ? 'Utente riabilitato' : 'Utente disabilitato', 'utente', b.dataset.email, null, null);
-                toast(attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
-                vistaUtentiCloud();
-            } catch (e) {
-                toast('Operazione non riuscita: ' + Cloud.msgErrore(e), 'rosso');
-            }
-        })));
-        document.querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome)));
+            const esegui = () => conAttesa(b, async () => {
+                try {
+                    await Cloud.salvaUtente(b.dataset.email, { attivo });
+                    Audit.registra(Auth.utenteCorrente, attivo ? 'Utente riabilitato' : 'Utente disabilitato', 'utente', b.dataset.email, null, null);
+                    toast(attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
+                    vistaUtentiCloud();
+                } catch (e) {
+                    toast('Operazione non riuscita: ' + Cloud.msgErrore(e), 'rosso');
+                }
+            });
+            // disabilitando un utente restano fuori anche i suoi collaboratori: si avvisa prima
+            if (!attivo) confermaSeCollaboratori(b.dataset.email, utenti, 'finché resta disabilitato non potranno entrare nemmeno loro.', esegui);
+            else esegui();
+        }));
+        document.querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome, utenti)));
+        document.querySelectorAll('.u-cambia-rif').forEach(b => b.addEventListener('click', () => {
+            const u = utenti.find(x => x.email === b.dataset.email); if (!u) return;
+            modaleScegliRiferimento(u, utenti, async di => {
+                const prima = u.collaboratoreDi || '';
+                try {
+                    await Cloud.salvaUtente(u.email, { collaboratoreDi: di });
+                    Audit.registra(Auth.utenteCorrente, 'Collaboratore: cambiato utente di riferimento', 'utente', u.email, null, [{ campo: 'Collaboratore di', prima: prima || 'vuoto', dopo: di }]);
+                    chiudiModale(); toast('Utente di riferimento aggiornato.', 'verde'); vistaUtentiCloud();
+                } catch (e) {
+                    toast('Salvataggio non riuscito: ' + Cloud.msgErrore(e), 'rosso');
+                }
+            });
+        }));
         document.querySelectorAll('.u-ruolo').forEach(sel => {
             let prec = sel.value;
             sel.addEventListener('change', async () => {
                 const email = sel.dataset.email, nuovo = sel.value;
-                sel.disabled = true;
-                try {
-                    await Cloud.salvaUtente(email, { ruolo: nuovo });
-                    Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, [{ campo: 'Ruolo', prima: nomeRuolo(prec), dopo: nomeRuolo(nuovo) }]);
-                    prec = nuovo;
-                    toast('Ruolo aggiornato per ' + email + '.', 'verde');
-                } catch (e) {
-                    sel.value = prec;
-                    toast('Cambio ruolo non riuscito: ' + Cloud.msgErrore(e), 'rosso');
-                } finally { sel.disabled = false; }
+                const u = utenti.find(x => x.email === email) || { email: email };
+                const precDi = u.collaboratoreDi || '';
+                const salva = async di => {
+                    sel.disabled = true;
+                    try {
+                        const dati = { ruolo: nuovo };
+                        // il riferimento si scrive col profilo Collaboratore e si toglie uscendone
+                        if (di) dati.collaboratoreDi = di; else if (precDi) dati.collaboratoreDi = Cloud.campoDaTogliere();
+                        await Cloud.salvaUtente(email, dati);
+                        Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, dettagliRuoloAudit(prec, nuovo, precDi, di));
+                        prec = nuovo;
+                        toast('Ruolo aggiornato per ' + email + '.', 'verde');
+                        vistaUtentiCloud();
+                    } catch (e) {
+                        sel.value = prec;
+                        toast('Cambio ruolo non riuscito: ' + Cloud.msgErrore(e), 'rosso');
+                    } finally { sel.disabled = false; }
+                };
+                // la tendina torna al ruolo salvato finche' non si salva davvero: cosi' chiudere
+                // una finestra con Esc o con la X non lascia a video un ruolo che non esiste
+                const procedi = async () => {
+                    // verso il profilo Collaboratore: prima si sceglie di chi, poi si salva
+                    if (eRuoloCollaboratore(nuovo)) { sel.value = prec; modaleScegliRiferimento(u, utenti, async di => { chiudiModale(); await salva(di); }); return; }
+                    await salva('');
+                };
+                // chi ha collaboratori e passa a un profilo che non puo' averne (Collaboratore
+                // compreso) li lascerebbe fuori: si avvisa prima
+                if (!puoAvereCollaboratori({ ...u, ruolo: nuovo })) { sel.value = prec; confermaSeCollaboratori(email, utenti, 'con questo ruolo non potranno più entrare, finché non li associ a un altro utente.', procedi); return; }
+                await procedi();
             });
         });
     }
@@ -22547,7 +24347,7 @@
                                     media: res.media, oreAnno1: res.oreAnno1, oreAnni23: res.oreAnni23,
                                     origine: 'bilanci importati', il: Date.now()
                                 });
-                                inc.modificato = { da: Auth.utenteCorrente.nome + ' (stima ore da bilanci)', il: Date.now() };
+                                inc.modificato = timbro(Auth.utenteCorrente, { da: firmaUtente(Auth.utenteCorrente) + ' (stima ore da bilanci)' });
                                 aggiornati++; usata = true;
                             });
                             if (usata) righeUsate++;
@@ -22608,7 +24408,7 @@
                             dataFine: dFine.data, dataFineNote: dFine.nota || resto.dataFineNote || null,
                             rinnovo: dRinnovo.data, rinnovoNote: dRinnovo.nota || resto.rinnovoNote || null,
                             id: uid(),
-                            creato: { da: Auth.utenteCorrente.nome + ' (importazione)', il: Date.now() },
+                            creato: timbro(Auth.utenteCorrente, { da: firmaUtente(Auth.utenteCorrente) + ' (importazione)' }),
                             modificato: null
                         });
                     });
@@ -23846,11 +25646,13 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         segnaAttivita();
         Persone.migraNomi(); // porta i vecchi record "nomeCompleto" ai campi nome/cognome
         Persone.migraRegioniCoordinate(); // rende esplicite le regioni coordinate di coordinatori e vice
+        Persone.migraEmailNote(); // indirizzi noti (dati-demo.js) sulle schede che ne sono prive
         document.getElementById('schermata-login').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         collegaHamburger();
         collegaRiduciMenu();
-        document.getElementById('utente-nome').textContent = Auth.utenteCorrente.nome;
+        // il nome di chi e' entrato davvero: un collaboratore vede il suo, e sotto a nome di chi lavora
+        document.getElementById('utente-nome').textContent = Auth.nomeSessione();
         aggiornaEtichettaUtente();
         if (typeof Cloud !== 'undefined' && Cloud.attivo) Cloud.avviaPresenza();
         /* Collegamento diretto: il pulsante di una mail porta a #richiesta-<id> (o a
@@ -24003,9 +25805,11 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                 ricordaEmail(email, ricorda);
                 if (esito.mustChange) {
                     chiediCambioPassword(email, true, () => {
-                        const u = Auth.trova(email);
-                        Auth.utenteCorrente = u;
-                        sessionStorage.setItem('rvArea.sessione', JSON.stringify({ email: u.email, ts: Date.now() }));
+                        // l'identita' composta (per un collaboratore, quella del suo riferimento)
+                        const identita = Auth.identitaLocale(email);
+                        if (!identita) { mostraLogin(); return; }
+                        Auth.utenteCorrente = identita;
+                        sessionStorage.setItem('rvArea.sessione', JSON.stringify({ email: String(email).toLowerCase(), ts: Date.now() }));
                         mostraApp();
                     });
                     return;

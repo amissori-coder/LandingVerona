@@ -18,6 +18,7 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const { utenteEffettivo } = require('../lib/utente-effettivo');
 const { JWT } = require('google-auth-library');
 // la frase che racconta uno spostamento di azienda: la stessa che presenze.js
 // restituisce a chi ha appena spostato
@@ -249,13 +250,17 @@ module.exports = async (req, res) => {
         let decoded;
         try { decoded = await admin.auth().verifyIdToken(idToken); }
         catch (e) { res.status(401).json({ ok: false, msg: 'Sessione non valida: rientra e riprova.' }); return; }
-        const email = String(decoded.email || '').toLowerCase();
-        if (!email) { res.status(401).json({ ok: false, msg: 'Utente non valido' }); return; }
+        const emailSessione = String(decoded.email || '').toLowerCase();
+        if (!emailSessione) { res.status(401).json({ ok: false, msg: 'Utente non valido' }); return; }
 
-        // 2) utente abilitato e attivo
-        const uDoc = await admin.firestore().collection('utenti').doc(email).get();
-        if (!uDoc.exists || uDoc.data().attivo === false) { res.status(403).json({ ok: false, msg: 'Utenza non abilitata.' }); return; }
-        const ruolo = String(uDoc.data().ruolo || '');
+        // 2) utente abilitato e attivo. Un collaboratore vale quanto il suo utente di
+        //    riferimento (lib/utente-effettivo.js): da qui in poi "email" e' l'utente
+        //    EFFETTIVO, cioe' quello di cui contano ruolo e abilitazioni
+        const ue = await utenteEffettivo(admin.firestore(), emailSessione);
+        if (!ue.ok) { res.status(403).json({ ok: false, msg: ue.msg || 'Utenza non abilitata.' }); return; }
+        const email = ue.email;
+        const uDoc = { exists: true, data: () => ue.dati };
+        const ruolo = ue.ruolo;
 
         // 3) autorizzazione alla sezione Eventi: admin oppure nell'elenco abilitati
         let abilitati = [];
@@ -307,6 +312,8 @@ module.exports = async (req, res) => {
                     presenze[v.idIscritto] = {
                         stato: String(v.stato || ''), nota: String(v.nota || ''),
                         da: String(v.da || ''), daNome: String(v.daNome || ''),
+                        // il collaboratore reale, se c'e': l'area lo mostra solo al suo riferimento
+                        collab: String(v.collab || ''),
                         quando: typeof v.quando === 'number' ? v.quando : 0
                     };
                 });
@@ -348,6 +355,7 @@ module.exports = async (req, res) => {
                     inserito: (v.inserito && typeof v.inserito === 'object') ? {
                         da: String(v.inserito.da || ''),
                         daNome: String(v.inserito.daNome || ''),
+                        collab: String(v.inserito.collab || ''),
                         quando: typeof v.inserito.quando === 'number' ? v.inserito.quando : 0
                     } : null,
                     /* chi ha compilato il modulo "completa i dati" (l'intestatario):

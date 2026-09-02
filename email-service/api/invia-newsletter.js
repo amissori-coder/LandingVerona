@@ -59,10 +59,12 @@ module.exports = async (req, res) => {
         if (!aut.ok) { res.status(aut.stato).json({ ok: false, msg: aut.msg }); return; }
 
         /* prova: si manda solo a chi sta usando la sezione, con il suo collegamento
-           vero (cosi' si puo' verificare anche la disiscrizione, e poi riattivarsi). */
+           vero (cosi' si puo' verificare anche la disiscrizione, e poi riattivarsi).
+           A chi ha premuto davvero (aut.sessione): un collaboratore la prova la
+           vuole nella propria casella, non in quella del suo riferimento. */
         const prova = body.prova === true;
         const destinatari = prova
-            ? [{ email: aut.email, nome: 'Prova', cognome: '' }]
+            ? [{ email: aut.sessione || aut.email, nome: 'Prova', cognome: '' }]
             : (Array.isArray(body.destinatari) ? body.destinatari : []);
 
         /* Prima i controlli che non costano niente, POI il gettone: una richiesta
@@ -73,7 +75,8 @@ module.exports = async (req, res) => {
 
         // il tetto sui gettoni vale solo per chi ha una sessione: un lavoro
         // programmato non deve consumare i gettoni di nessuno
-        const consentito = await consumaGettone(aut.email);
+        // il freno e' per persona: la sessione reale, non il riferimento del collaboratore
+        const consentito = await consumaGettone(aut.sessione || aut.email);
         if (!consentito) {
             res.status(429).json({
                 ok: false, msg: 'Troppi invii ravvicinati: attendi qualche secondo e riprova.',

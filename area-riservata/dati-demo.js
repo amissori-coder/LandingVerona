@@ -28,13 +28,16 @@ const RV_ROSTER = {
     ]
 };
 
-/* Utenti iniziali: l'amministratore reale piu' due profili di prova.
+/* Utenti iniziali: l'amministratore reale piu' tre profili di prova, tra cui
+   un collaboratore che lavora a nome del responsabile qualita' (stessi
+   permessi; le sue modifiche compaiono agli altri con il nome di quest'ultimo).
    Le password NON sono precaricate: ogni utente richiede la prima
    password dal pulsante dedicato nella pagina di accesso. */
 const RV_UTENTI_INIZIALI = [
     { email: 'a.missori@emvas.tax', nome: 'Andrea Missori', ruolo: 'admin' },
     { email: 'qualita@demo.revilaw.it', nome: 'Utente Qualita (demo)', ruolo: 'qualita' },
-    { email: 'procuratore@demo.revilaw.it', nome: 'Utente Procuratore (demo)', ruolo: 'procuratore' }
+    { email: 'procuratore@demo.revilaw.it', nome: 'Utente Procuratore (demo)', ruolo: 'procuratore' },
+    { email: 'collaboratore@demo.revilaw.it', nome: 'Utente Collaboratore (demo)', ruolo: 'collaboratore', collaboratoreDi: 'qualita@demo.revilaw.it' }
 ];
 
 /* Incarichi dimostrativi: societa' fittizie con struttura identica
@@ -63,3 +66,16 @@ const RV_INCARICHI_DEMO = [
     { cliente: 'ZEFIRO TESSILE SRL', tipo: 'legale', codiceFiscale: '01234560121', area: 'Nord', regione: 'Piemonte', localita: 'BIELLA', dataInizio: '2024-04-26', dataFine: '2027-04-30', qualita: 'Magaraci', respIncarico: 'Sterzi', referente: 'Speca', team: 'Speca, Portinari', email1: 'amministrazione@zefirotessile.example', compensi: { 2024: 7000, 2025: 7000, 2026: 7000 }, fatturazione: 'annuale' },
     { cliente: 'DOLOMITI SKI RESORT SPA', tipo: 'legale', codiceFiscale: '01234560122', area: 'Nord', regione: 'Trentino Alto Adige', localita: 'TRENTO', dataInizio: '2023-05-08', dataFine: '2026-04-30', qualita: 'Pisano', respIncarico: 'Novembre', referente: 'Varetti', team: 'Varetti, Giannelli', email1: 'cda@dolomitiski.example', compensi: { 2023: 10000, 2024: 10000, 2025: 10000 }, fatturazione: 'trimestrale' }
 ];
+
+/* Indirizzi email (e nome proprio) noti di alcune persone dello studio.
+   Al primo avvio finiscono nelle schede di Aderenti Revilaw; le schede gia'
+   esistenti senza indirizzo li ricevono all'apertura dell'area. Servono alle
+   email automatiche dei Controlli qualita' (es. la richiesta di sospensione
+   del compenso al responsabile incarico). La chiave e' il cognome. */
+const RV_EMAIL_PERSONE = {
+    'Sterzi': { email: 'pierluigisterzi@revilaw.it', nomeProprio: 'Pier Luigi' }
+};
+
+/* Chi riceve SEMPRE la richiesta di sospensione del compenso trimestrale
+   che parte dai Controlli qualita' (chi la invia e' in copia). */
+const RV_DESTINATARIO_SOSPENSIONE = { nome: 'Pier Luigi Sterzi', email: 'pierluigisterzi@revilaw.it' };

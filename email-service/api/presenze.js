@@ -30,6 +30,7 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const { utenteEffettivo, firmaCollaboratore } = require('../lib/utente-effettivo');
 const nodemailer = require('nodemailer');
 // firma e indirizzo del collegamento "completa i dati" (lib condivisa con la
 // newsletter: stesso segreto della disiscrizione, contesto diverso)
@@ -264,15 +265,23 @@ module.exports = async (req, res) => {
         let decoded;
         try { decoded = await admin.auth().verifyIdToken(idToken); }
         catch (e) { res.status(401).json({ ok: false, msg: 'Sessione non valida: rientra e riprova.' }); return; }
-        const email = String(decoded.email || '').toLowerCase();
-        if (!email) { res.status(401).json({ ok: false, msg: 'Utente non valido' }); return; }
+        const emailSessione = String(decoded.email || '').toLowerCase();
+        if (!emailSessione) { res.status(401).json({ ok: false, msg: 'Utente non valido' }); return; }
 
         const db = admin.firestore();
-        const uDoc = await db.collection('utenti').doc(email).get();
-        if (!uDoc.exists || uDoc.data().attivo === false) { res.status(403).json({ ok: false, msg: 'Utenza non abilitata.' }); return; }
-        const dati = uDoc.data() || {};
-        const ruolo = String(dati.ruolo || '');
+        // Un collaboratore vale quanto il suo utente di riferimento e opera a nome
+        // suo (lib/utente-effettivo.js): da qui in poi "email" e "dati" sono quelli
+        // dell'utente EFFETTIVO, cosi' permessi, firme sulle schede e risposte alle
+        // email seguono il riferimento. Il rate limit resta sulla sessione reale.
+        const ue = await utenteEffettivo(db, emailSessione);
+        if (!ue.ok) { res.status(403).json({ ok: false, msg: ue.msg || 'Utenza non abilitata.' }); return; }
+        const email = ue.email;
+        const dati = ue.dati;
+        const ruolo = ue.ruolo;
         const eAdmin = ruolo === 'admin';
+        // il collaboratore reale, se c'e': va nelle firme delle schede, dove l'area
+        // riservata lo mostra soltanto al suo utente di riferimento
+        const collab = firmaCollaboratore(ue);
 
         // 2) abilitato agli Eventi: amministratore, contrassegno sulla scheda, o elenco condiviso
         let abilitati = [];
@@ -288,7 +297,7 @@ module.exports = async (req, res) => {
             return;
         }
 
-        if (troppiInvii(email)) { res.status(429).json({ ok: false, msg: 'Troppe modifiche ravvicinate: attendi qualche istante.' }); return; }
+        if (troppiInvii(emailSessione)) { res.status(429).json({ ok: false, msg: 'Troppe modifiche ravvicinate: attendi qualche istante.' }); return; }
 
         /* Aziende da invitare: stessa sezione, stessi permessi, altro archivio.
            Si devia PRIMA dello smistamento qui sotto perche' i nomi delle
@@ -306,7 +315,7 @@ module.exports = async (req, res) => {
                 res.status(500).json({ ok: false, msg: 'Sezione aziende non disponibile sul servizio: ' + String((e && e.message) || e).slice(0, 160) });
                 return;
             }
-            const r = await INVITI.esegui({ db: db, body: body, email: email, ruolo: ruolo, eAdmin: eAdmin });
+            const r = await INVITI.esegui({ db: db, body: body, email: email, ruolo: ruolo, eAdmin: eAdmin, collab: collab });
             res.status(r.stato).json(r.corpo);
             return;
         }
@@ -360,7 +369,7 @@ module.exports = async (req, res) => {
                 partecipanti: partecipanti,
                 extra: { Portale: portaleNome, Partecipanti: String(partecipanti) },
                 origine: 'manuale',
-                inserito: { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() },
+                inserito: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() },
                 ricevuto: admin.firestore.FieldValue.serverTimestamp()
             };
             if (!scheda.email && !scheda.nome && !scheda.cognome) {
@@ -471,7 +480,7 @@ module.exports = async (req, res) => {
             }
             // sulla scheda resta scritto che i dati sono stati chiesti, e da chi:
             // non cambia i conteggi e non tocca la colonna delle firme
-            await rif.set({ datiRichiesti: { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() } }, { merge: true });
+            await rif.set({ datiRichiesti: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() } }, { merge: true });
             res.status(200).json({ ok: true, mail: { inviata: true } });
             return;
         }
@@ -574,7 +583,7 @@ module.exports = async (req, res) => {
                     inviate++;
                     await rif.set({
                         b2bInvito: Object.assign(
-                            { quando: Date.now(), da: email },
+                            { quando: Date.now(), da: email, collab: collab },
                             orariB2B ? { orari: orariB2B } : {},
                             evB2B ? { evento: evB2B } : {}
                         )
@@ -622,7 +631,7 @@ module.exports = async (req, res) => {
                 .map(x => testo(x, 400)).filter(Boolean).slice(0, 20);
             if (!docs.length && idIscritto) docs.push(idIscrizione(idIscritto));
             if (!docs.length) { res.status(400).json({ ok: false, msg: 'Nessuna scheda indicata.' }); return; }
-            const firma = { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() };
+            const firma = { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() };
             /* Le due ragioni per cui una scheda non si sposta si contano a parte:
                "e' gia' li'" e "non l'ho trovata" sono errori diversi, e dare il
                primo messaggio per il secondo manda a cercare il problema dove
@@ -636,7 +645,7 @@ module.exports = async (req, res) => {
                 const vecchia = String(s0.azienda || '').trim();
                 if (vecchia === nuovaAzienda) { giaLi++; continue; }
                 if (!prima) prima = vecchia;
-                const voce = { prima: vecchia, dopo: nuovaAzienda, da: firma.da, daNome: firma.daNome, quando: firma.quando };
+                const voce = { prima: vecchia, dopo: nuovaAzienda, da: firma.da, daNome: firma.daNome, collab: firma.collab || '', quando: firma.quando };
                 /* Lo storico si ACCODA, non si rilegge e riscrive: se due
                    amministratori spostano lo stesso referente nello stesso
                    momento, chi scrive per secondo cancellerebbe la voce del
@@ -674,7 +683,7 @@ module.exports = async (req, res) => {
             if (!eAdmin) { res.status(403).json({ ok: false, msg: 'Solo l\'amministratore puo cancellare un\'iscrizione.' }); return; }
             const daCancellare = elencoId.length ? elencoId : [idIscritto];
             if (daCancellare.length > 300) { res.status(400).json({ ok: false, msg: 'Troppe iscrizioni in una volta sola.' }); return; }
-            const firma = { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() };
+            const firma = { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() };
             // Traccia PRIMA, cancellazione poi: se qualcosa va storto a meta' strada la
             // persona resta comunque fuori dall'elenco, invece di ricomparire dal foglio.
             let batch = db.batch(), nel = 0;
@@ -725,7 +734,7 @@ module.exports = async (req, res) => {
                 ruolo: c.ruolo !== undefined ? testo(c.ruolo, 200) : String(attuale.ruolo || ''),
                 telefono: c.telefono !== undefined ? testo(c.telefono, 60) : String(attuale.telefono || ''),
                 messaggio: c.messaggio !== undefined ? testo(c.messaggio, 2000) : String(attuale.messaggio || ''),
-                modificato: { da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now() }
+                modificato: { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() }
             };
             if (nuovo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(nuovo.email)) {
                 res.status(400).json({ ok: false, msg: 'Indirizzo email non valido.' }); return;
@@ -759,7 +768,7 @@ module.exports = async (req, res) => {
         // 3) stato e nota
         const patch = {
             evento: evento, idIscritto: idIscritto,
-            da: email, daNome: testo(dati.nome, 120) || email, quando: Date.now()
+            da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now()
         };
         if (Object.prototype.hasOwnProperty.call(body, 'stato')) {
             const st = testo(body.stato, 20);
@@ -782,6 +791,7 @@ module.exports = async (req, res) => {
             presenza: {
                 stato: String(v.stato || ''), nota: String(v.nota || ''),
                 da: String(v.da || ''), daNome: String(v.daNome || ''),
+                collab: String(v.collab || ''),
                 quando: typeof v.quando === 'number' ? v.quando : Date.now()
             }
         });

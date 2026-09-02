@@ -81,6 +81,7 @@ async function concludi(db, id, dati, stato, conti, serviti) {
         programmazione: null,
         voce: {
             il: ora, da: (dati.creato && dati.creato.da) || 'invio programmato',
+            collab: (dati.creato && dati.creato.collab) || '',
             n: conti.inviati, saltati: conti.saltati, falliti: conti.falliti,
             dettaglioFalliti: [], interrotto: stato === 'inviata' ? '' : 'invio programmato interrotto',
             incerti: conti.incerti, previsti: dati.previsti || 0,

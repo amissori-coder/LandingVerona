@@ -267,6 +267,8 @@ async function esegui(ctx) {
     const db = ctx.db;
     const body = ctx.body || {};
     const email = ctx.email;
+    // il collaboratore reale ('Nome <email>'), se a operare e' un collaboratore: nei timbri accanto a "da"
+    const collab = ctx.collab || '';
     const ruolo = ctx.ruolo || '';
     const eAdmin = !!ctx.eAdmin;
     let esito = null;
@@ -560,7 +562,7 @@ async function esegui(ctx) {
                     referente: cella(riga, col('referente')), citta: cella(riga, col('citta')),
                     provincia: cella(riga, col('provincia')).slice(0, 4), telefono: cella(riga, col('telefono')),
                     settore: cella(riga, col('settore')), note: cella(riga, col('note')), extra: extra,
-                    aggiornata: { quando: Date.now(), da: email }
+                    aggiornata: { quando: Date.now(), da: email, collab: collab }
                 }, { merge: true });
                 nel++; importate++;
                 if (nel >= 300) { await batch.commit(); batch = db.batch(); nel = 0; }
@@ -578,7 +580,7 @@ async function esegui(ctx) {
                     if (!d.exists) return;
                     const v = d.data() || {};
                     if (v.stato) return;
-                    b.set(d.ref, { stato: 'da-invitare', aggiunta: { quando: Date.now(), da: email } }, { merge: true });
+                    b.set(d.ref, { stato: 'da-invitare', aggiunta: { quando: Date.now(), da: email, collab: collab } }, { merge: true });
                     n++; nuove++;
                 });
                 if (n) await b.commit();
@@ -607,14 +609,14 @@ async function esegui(ctx) {
                 piva: testo(a.piva, 30), cf: testo(a.cf, 30), referente: testo(a.referente, 120),
                 citta: testo(a.citta, 80), provincia: testo(a.provincia, 4), telefono: testo(a.telefono, 40),
                 settore: testo(a.settore, 120), note: testo(a.note, 500),
-                aggiornata: { quando: Date.now(), da: email }
+                aggiornata: { quando: Date.now(), da: email, collab: collab }
             };
             const id = idDoc(evento, chiaveContatto(campi), campagna);
             const rif = db.collection('aziendeInvito').doc(id);
             const prima = await rif.get();
             if (!prima.exists) {
                 campi.stato = 'da-invitare';
-                campi.aggiunta = { quando: Date.now(), da: email };
+                campi.aggiunta = { quando: Date.now(), da: email, collab: collab };
             }
             /* Cambiare il recapito principale vuol dire cambiare identificativo:
                la scheda vecchia va tolta, altrimenti resterebbe un doppione con
@@ -674,7 +676,7 @@ async function esegui(ctx) {
             if (STATI.indexOf(stato) < 0) { res.status(400).json({ ok: false, msg: 'Stato non riconosciuto.' }); return; }
             let batch = db.batch(), n = 0;
             for (const id of ids) {
-                batch.set(db.collection('aziendeInvito').doc(id), { stato: stato, aggiornata: { quando: Date.now(), da: email } }, { merge: true });
+                batch.set(db.collection('aziendeInvito').doc(id), { stato: stato, aggiornata: { quando: Date.now(), da: email, collab: collab } }, { merge: true });
                 n++;
                 if (n >= 300) { await batch.commit(); batch = db.batch(); n = 0; }
             }
@@ -786,7 +788,7 @@ async function esegui(ctx) {
                         a.codice = codice;
                     } catch (e) {
                         const motivo = 'Codice invito non assegnato: ' + String((e && e.message) || e).slice(0, 120);
-                        const errore = { quando: Date.now(), da: email, canale: canale, motivo: motivo };
+                        const errore = { quando: Date.now(), da: email, collab: collab, canale: canale, motivo: motivo };
                         await rif.set({ stato: 'errore', errore: errore }, { merge: true });
                         esiti[id] = { stato: 'errore', errore: errore };
                         falliti.push({ id: id, indirizzo: dest, motivo: motivo });
@@ -804,7 +806,7 @@ async function esegui(ctx) {
                         campagna: etichettaInvio, rispondiA: email, riferimento: riferimento
                     }));
                     const invio = {
-                        quando: Date.now(), da: email, canale: canale, destinatario: dest,
+                        quando: Date.now(), da: email, collab: collab, canale: canale, destinatario: dest,
                         codice: codice,
                         riferimento: riferimento,
                         oggetto: CANALI.applica(oggetto, a).slice(0, 250),
@@ -816,7 +818,7 @@ async function esegui(ctx) {
                     inviate++;
                 } catch (e) {
                     const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
-                    const errore = { quando: Date.now(), da: email, canale: canale, motivo: motivo };
+                    const errore = { quando: Date.now(), da: email, collab: collab, canale: canale, motivo: motivo };
                     await rif.set({ stato: 'errore', errore: errore }, { merge: true });
                     esiti[id] = { stato: 'errore', errore: errore };
                     falliti.push({ id: id, indirizzo: dest, motivo: motivo });
