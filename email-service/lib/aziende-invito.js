@@ -436,7 +436,11 @@ async function esegui(ctx) {
             /* Un elenco vuoto e' una scelta legittima (si sospende la
                   campagna), ma va detto: senza destinatari le richieste si
                   registrano e basta, e nessuno riceve niente. */
-            const salvati = await CONTATTI.salvaDestinatari(db, evento, campagna, d, email);
+            /* Chi ha cambiato i destinatari resta scritto, col collaboratore
+               vero accanto se a operare e' stato uno di loro: e' la stessa
+               regola dei timbri sulle schede. */
+            const salvati = await CONTATTI.salvaDestinatari(db, evento, campagna, d,
+                email + (collab ? ' (' + collab + ')' : ''));
             res.status(200).json({
                 ok: true, destinatari: salvati,
                 avviso: (!salvati.a.length && !salvati.cc.length)
