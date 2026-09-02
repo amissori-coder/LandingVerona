@@ -317,6 +317,25 @@ standard (mittente firebaseapp.com): niente si rompe durante la transizione.
 
 ---
 
+## Collaboratori: chi chiama e a nome di chi
+
+L'area riservata ha il profilo **collaboratore**: una scheda in `utenti` con
+`ruolo: 'collaboratore'` e `collaboratoreDi: <email di un altro utente>`. Il
+collaboratore lavora a nome di quell'utente, con i suoi stessi permessi, e le
+sue azioni compaiono a tutti con il nome del riferimento.
+
+Ogni funzione che verifica l'ID token passa poi da
+`lib/utente-effettivo.js` (`utenteEffettivo(db, email)`): per un utente normale
+restituisce la sua scheda; per un collaboratore restituisce la scheda del suo
+**riferimento** (email, dati, ruolo), purche' esista, sia attiva e non sia a
+sua volta un collaboratore o un invitato "solo sondaggio". Su quella scheda si
+decidono `admin`, `eventi`, `newsletter` e l'appartenenza ai partner; con
+quell'indirizzo si firmano le schede (`da`, `daNome`) e si impostano il
+Reply-To delle comunicazioni e delle newsletter. Il collaboratore reale resta
+nel campo `sessione` (usato per i rate limit) e finisce nelle firme come
+`collab`, che l'area riservata mostra soltanto al riferimento. Un
+collaboratore senza riferimento valido riceve 403 con il motivo.
+
 ## Comunicazioni (mail composte nell'area riservata)
 
 Oltre a `invia-email`, il progetto include due funzioni per la sezione

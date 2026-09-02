@@ -13,6 +13,7 @@
 
 const crypto = require('crypto');
 const admin = require('firebase-admin');
+const { utenteEffettivo } = require('./utente-effettivo');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -202,11 +203,17 @@ async function autorizza(idToken) {
     const email = String(decoded.email || '').toLowerCase();
     if (!EMAIL_RE.test(email)) return { ok: false, stato: 401, msg: 'Utente non valido' };
 
-    const uDoc = await admin.firestore().collection('utenti').doc(email).get();
-    if (!uDoc.exists || uDoc.data().attivo === false) return { ok: false, stato: 403, msg: 'Utenza non abilitata.' };
-    const dati = uDoc.data() || {};
-    const ruolo = String(dati.ruolo || '');
-    if (ruolo === 'admin' || dati.newsletter === true) return { ok: true, email: email, ruolo: ruolo, admin: ruolo === 'admin' };
+    // un collaboratore vale quanto il suo utente di riferimento e lavora a nome suo
+    // (lib/utente-effettivo.js): "email" restituita = l'utente effettivo, quello che
+    // firma le campagne e a cui tornano le risposte; "sessione" = chi ha premuto
+    const ue = await utenteEffettivo(admin.firestore(), email);
+    if (!ue.ok) return { ok: false, stato: 403, msg: ue.msg || 'Utenza non abilitata.' };
+    const dati = ue.dati;
+    const ruolo = ue.ruolo;
+    if (ruolo === 'admin' || dati.newsletter === true) {
+        // collab = il collaboratore reale, da mettere nei timbri accanto a "da" (l'area lo mostra solo al riferimento)
+        return { ok: true, email: ue.email, sessione: email, collab: ue.collaboratore ? (ue.sessione.nome || ue.sessione.email) : '', ruolo: ruolo, admin: ruolo === 'admin' };
+    }
     return {
         ok: false, stato: 403,
         msg: 'Non sei abilitato alla sezione Newsletter. Chiedi all\'amministratore di abilitarti da "Gestisci accessi".'

@@ -309,6 +309,22 @@
         [RUOLI_SOND.risultati]: 'Sondaggio (sola visualizzazione)'
     };
     function eRuoloSoloSondaggio(ruolo) { return ruolo === RUOLI_SOND.compila || ruolo === RUOLI_SOND.risultati; }
+    /* Profilo "Collaboratore": non e' un ruolo con permessi propri, ma un accesso che
+       EREDITA tutto da un altro utente (il campo utente.collaboratoreDi, scelto
+       dall'amministratore nella sezione Utenti). Il collaboratore lavora a nome del suo
+       utente di riferimento: le sue modifiche compaiono a tutti con il nome di
+       quest'ultimo, e solo l'utente di riferimento vede anche quale collaboratore le ha
+       fatte. L'id e' riservato come quelli del sondaggio: non sta in archivio/ruoli e non
+       si configura da Ruoli e permessi. */
+    const RUOLO_COLLABORATORE = 'collaboratore';
+    const NOME_RUOLO_COLLABORATORE = 'Collaboratore';
+    function eRuoloCollaboratore(ruolo) { return ruolo === RUOLO_COLLABORATORE; }
+    /* Un utente puo' fare da riferimento a un collaboratore solo se e' un utente pieno
+       dello staff, attivo: non un altro collaboratore (niente catene) e non un invitato
+       "solo sondaggio" (il server gli nega gli archivi, il collaboratore non vedrebbe nulla). */
+    function puoAvereCollaboratori(u) {
+        return !!u && u.attivo !== false && !eRuoloCollaboratore(u.ruolo) && !eRuoloSoloSondaggio(u.ruolo);
+    }
 
     const Store = {
         leggi(chiave, def) {
@@ -993,17 +1009,85 @@
     }
 
     /* =========================================================
+       FIRME E TIMBRI (chi ha fatto cosa)
+       ------------------------------------------------------------
+       La firma che finisce nei dati e' "Nome <email>" dell'utente EFFETTIVO: per un
+       collaboratore e' quella del suo utente di riferimento (vedi Auth.componiIdentita),
+       cosi' tutti vedono la modifica con il nome di chi ne risponde. Il collaboratore
+       reale viaggia in un campo a parte (collab), che a video compare SOLO all'utente di
+       riferimento. Un unico punto per costruirli: i timbri sparsi nel programma passano
+       tutti da qui. */
+    function firmaUtente(u) {
+        if (!u) return '';
+        if (typeof u === 'string') return u;
+        return (u.nome || u.email || '') + (u.email ? ' <' + u.email + '>' : '');
+    }
+    function firmaCollaboratore(u) {
+        const c = u && typeof u === 'object' && u.collaboratore;
+        return c ? (c.nome || c.email || '') + (c.email ? ' <' + c.email + '>' : '') : '';
+    }
+    /* { da, il[, collab] } piu' gli eventuali campi extra (nota, data, messaggio...). */
+    function timbro(u, extra) {
+        const t = { da: firmaUtente(u), il: Date.now() };
+        const c = firmaCollaboratore(u);
+        if (c) t.collab = c;
+        return extra ? Object.assign(t, extra) : t;
+    }
+    /* Come timbro(), ma "da" e' la sola email dell'utente collegato: e' la forma usata da
+       comunicazioni e newsletter. Anche qui il collaboratore reale viaggia in collab. */
+    function timbroEmail(extra) {
+        const u = Auth.utenteCorrente;
+        const t = { da: u ? String(u.email || '') : '', il: Date.now() };
+        const c = firmaCollaboratore(u);
+        if (c) t.collab = c;
+        return extra ? Object.assign(t, extra) : t;
+    }
+    function emailDaFirma(f) { const m = /<([^>]+)>/.exec(String(f || '')); return m ? m[1].trim().toLowerCase() : ''; }
+    function nomeDaFirma(f) { const s = String(f || ''); const i = s.indexOf(' <'); return i > 0 ? s.slice(0, i) : s; }
+    /* L'annotazione "tramite <collaboratore>" la vede SOLO l'utente di riferimento, collegato
+       in prima persona: non gli altri utenti, non l'amministratore, e nemmeno il
+       collaboratore stesso (che lavora a nome dell'altro). Si riconosce dall'email nella
+       firma principale ("Nome <email>" oppure la sola email). */
+    function vedoCollaboratoreDi(firmaPrincipale) {
+        const u = Auth.utenteCorrente;
+        if (!u || u.collaboratore || !u.email) return false;
+        const s = String(firmaPrincipale || '');
+        const em = emailDaFirma(s) || s.trim().toLowerCase();
+        return !!em && em === String(u.email).toLowerCase();
+    }
+    /* Testo semplice: "Nome <email>" oppure "Nome <email> (tramite Collaboratore)". */
+    function firmaConCollab(da, collab) {
+        const base = String(da || '');
+        return (collab && vedoCollaboratoreDi(base)) ? base + ' (tramite ' + nomeDaFirma(collab) + ')' : base;
+    }
+    /* HTML: il testo (firma o solo nome) con, se spetta a chi guarda, l'etichetta del
+       collaboratore. firmaPrincipale serve quando testo e' il solo nome, senza email. */
+    function htmlConCollab(testo, collab, firmaPrincipale) {
+        const base = esc(testo);
+        if (!collab || !vedoCollaboratoreDi(firmaPrincipale != null ? firmaPrincipale : testo)) return base;
+        const chi = nomeDaFirma(collab);
+        return base + ' <span class="tramite-collab" title="Fatto dal tuo collaboratore ' + esc(chi) + '">tramite ' + esc(chi) + '</span>';
+    }
+    // comodi per i timbri {da, il, collab}: la firma intera oppure il solo nome, a video
+    function htmlTimbro(t) { return t ? htmlConCollab(t.da, t.collab) : ''; }
+    function htmlTimbroNome(t) { return t ? htmlConCollab(nomeDaFirma(t.da), t.collab, t.da) : ''; }
+
+    /* =========================================================
        REGISTRO MODIFICHE (audit trail)
     ========================================================= */
     const Audit = {
         registra(utente, azione, entita, rif, cliente, dettagli) {
             const log = Store.leggi(CHIAVI.audit, []);
-            log.unshift({
+            const voce = {
                 id: uid(), ts: Date.now(),
-                utente: typeof utente === 'object' ? (utente.nome + ' <' + utente.email + '>') : utente,
+                utente: typeof utente === 'object' ? firmaUtente(utente) : utente,
                 azione, entita, rif: rif || null, cliente: cliente || null,
                 dettagli: dettagli || null
-            });
+            };
+            // il collaboratore reale, se c'e': a video lo vede solo l'utente di riferimento
+            const collab = typeof utente === 'object' ? firmaCollaboratore(utente) : '';
+            if (collab) voce.collaboratore = collab;
+            log.unshift(voce);
             if (log.length > 2000) log.length = 2000;
             Store.scrivi(CHIAVI.audit, log);
         },
@@ -1066,6 +1150,54 @@
             return this.utenti().find(u => u.email.toLowerCase() === String(email || '').trim().toLowerCase()) || null;
         },
 
+        /* L'identita' con cui si lavora, a partire dalla scheda dell'utente che ha fatto
+           l'accesso (scheda) e, per un collaboratore, dalla scheda del suo utente di
+           riferimento (principale). Per un collaboratore i campi principali (email, nome,
+           ruolo, eventi, newsletter) sono quelli del RIFERIMENTO: cosi' permessi, filtri
+           per regione, qualifiche dell'anagrafica e firme ereditano da soli, senza che ogni
+           controllo sparso nel programma debba saperlo. La sessione reale resta in
+           "collaboratore" {email, nome}: la usano l'heartbeat di presenza, la casella dei
+           messaggi, la barra laterale e la vista Utenti. */
+        componiIdentita(scheda, principale) {
+            const base = u => ({
+                email: String(u.email || '').toLowerCase(), nome: u.nome || u.email || '',
+                ruolo: u.ruolo || 'procuratore', eventi: u.eventi === true, newsletter: u.newsletter === true
+            });
+            if (!eRuoloCollaboratore(scheda.ruolo)) return base(scheda);
+            const id = base(principale);
+            id.collaboratore = { email: String(scheda.email || '').toLowerCase(), nome: scheda.nome || scheda.email || '' };
+            return id;
+        },
+        /* Perche' un collaboratore NON puo' entrare (null se puo'): senza il suo utente di
+           riferimento non ha alcun permesso, meglio dirglielo alla porta che farlo entrare
+           in un'area vuota. */
+        motivoCollaboratoreBloccato(scheda, principale) {
+            if (!scheda || !eRuoloCollaboratore(scheda.ruolo)) return null;
+            const di = String(scheda.collaboratoreDi || '').trim().toLowerCase();
+            if (!di) return 'Il tuo accesso da collaboratore non indica l\'utente di riferimento: chiedi all\'amministratore di completarlo.';
+            if (!principale) return 'L\'utente a cui il tuo accesso è associato (' + di + ') non risulta più abilitato: chiedi all\'amministratore.';
+            if (principale.attivo === false) return 'L\'utente a cui il tuo accesso è associato (' + di + ') è disabilitato: chiedi all\'amministratore.';
+            if (!puoAvereCollaboratori(principale)) return 'L\'utente a cui il tuo accesso è associato (' + di + ') non può avere collaboratori: chiedi all\'amministratore.';
+            return null;
+        },
+        // identita' composta dalla scheda locale (modalita' dimostrativa); null se non puo' entrare
+        identitaLocale(email) {
+            const u = this.trova(email); if (!u) return null;
+            const principale = eRuoloCollaboratore(u.ruolo) ? this.trova(u.collaboratoreDi) : null;
+            if (this.motivoCollaboratoreBloccato(u, principale)) return null;
+            return this.componiIdentita(u, principale);
+        },
+        eCollaboratore() { return !!(this.utenteCorrente && this.utenteCorrente.collaboratore); },
+        // l'indirizzo e il nome con cui si e' entrati DAVVERO (per un collaboratore, i suoi)
+        emailSessione() {
+            const u = this.utenteCorrente; if (!u) return '';
+            return String((u.collaboratore ? u.collaboratore.email : u.email) || '').toLowerCase();
+        },
+        nomeSessione() {
+            const u = this.utenteCorrente; if (!u) return '';
+            return (u.collaboratore ? u.collaboratore.nome : u.nome) || this.emailSessione();
+        },
+
         async richiediPrimaPassword(email) {
             if (Cloud.attivo) return Cloud.primaPassword(email);
             const utenti = this.utenti();
@@ -1122,9 +1254,15 @@
             }
             u.tentativi = 0; u.bloccatoFino = 0; u.ultimoAccesso = Date.now();
             this.salvaUtenti(utenti);
-            this.utenteCorrente = u;
+            // collaboratore: entra solo se il suo utente di riferimento c'e' ed e' abilitato
+            const principale = eRuoloCollaboratore(u.ruolo) ? this.trova(u.collaboratoreDi) : null;
+            const bloccato = this.motivoCollaboratoreBloccato(u, principale);
+            if (bloccato) return { ok: false, msg: bloccato };
+            this.utenteCorrente = this.componiIdentita(u, principale);
             sessionStorage.setItem('rvArea.sessione', JSON.stringify({ email: u.email, ts: Date.now() }));
-            Audit.registra(u.email, 'Accesso effettuato', 'utente', u.email, null, null);
+            // la voce del registro e' a nome dell'utente effettivo: chi c'era dietro (il
+            // collaboratore) sta nel campo collaboratore, che vede solo il suo riferimento
+            Audit.registra(this.utenteCorrente, 'Accesso effettuato', 'utente', this.utenteCorrente.email, null, null);
             return { ok: true, mustChange: !!u.mustChange };
         },
 
@@ -1139,7 +1277,7 @@
             u.hash = await sha256(u.sale + '|' + nuova);
             u.mustChange = false;
             this.salvaUtenti(utenti);
-            if (this.utenteCorrente && this.utenteCorrente.email === u.email) this.utenteCorrente = u;
+            // l'identita' collegata non porta con se' la password: non c'e' nulla da aggiornare
             Audit.registra(u.email, 'Password modificata', 'utente', u.email, null, null);
             return { ok: true };
         },
@@ -1158,13 +1296,15 @@
                 if (!s) return false;
                 const u = this.trova(s.email);
                 if (!u || !u.attivo || u.mustChange) return false;
-                this.utenteCorrente = u;
+                const identita = this.identitaLocale(u.email);
+                if (!identita) return false;
+                this.utenteCorrente = identita;
                 return true;
             } catch (e) { return false; }
         },
 
         esci() {
-            if (this.utenteCorrente) Audit.registra(this.utenteCorrente.email, 'Uscita', 'utente', this.utenteCorrente.email, null, null);
+            if (this.utenteCorrente) Audit.registra(this.utenteCorrente, 'Uscita', 'utente', this.utenteCorrente.email, null, null);
             this.utenteCorrente = null;
             sessionStorage.removeItem('rvArea.sessione');
             // chi rientra deve rivedere l'avviso sul proprio territorio
@@ -1412,9 +1552,25 @@
             try {
                 const dati = await this.docUtente(utenteFb.email);
                 if (!dati || dati.attivo === false) { await signOut(this.auth); return null; }
-                await this.avviaSync(dati.ruolo, utenteFb.email);
-                return { email: utenteFb.email.toLowerCase(), nome: dati.nome || utenteFb.email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true, newsletter: dati.newsletter === true };
+                const scheda = { ...dati, email: utenteFb.email.toLowerCase() };
+                const principale = await this.principaleDi(scheda);
+                // collaboratore rimasto senza utente di riferimento: si esce, al prossimo
+                // accesso la schermata di ingresso spiega il perche'
+                if (Auth.motivoCollaboratoreBloccato(scheda, principale)) { await signOut(this.auth); return null; }
+                const identita = Auth.componiIdentita(scheda, principale);
+                await this.avviaSync(identita.ruolo, identita.email);
+                return identita;
             } catch (e) { return null; }
+        },
+
+        /* La scheda dell'utente di riferimento di un collaboratore (utenti/<collaboratoreDi>),
+           con l'email dentro; null se manca, non e' indicata o non e' leggibile. */
+        async principaleDi(scheda) {
+            if (!scheda || !eRuoloCollaboratore(scheda.ruolo)) return null;
+            const di = String(scheda.collaboratoreDi || '').trim().toLowerCase();
+            if (!di) return null;
+            try { const p = await this.docUtente(di); return p ? { ...p, email: di } : null; }
+            catch (e) { return null; }
         },
 
         async accedi(email, password) {
@@ -1430,15 +1586,27 @@
                 await signOut(this.auth);
                 return { ok: false, msg: 'Utenza non abilitata: chiedi all\'amministratore di aggiungerti all\'elenco utenti.' };
             }
+            // collaboratore: i permessi sono quelli del suo utente di riferimento, che deve
+            // esserci ed essere abilitato; altrimenti non si entra, e si dice il perche'
+            const scheda = { ...dati, email: String(email).toLowerCase() };
+            const principale = await this.principaleDi(scheda);
+            const bloccato = Auth.motivoCollaboratoreBloccato(scheda, principale);
+            if (bloccato) {
+                try { await signOut(this.auth); } catch (e2) { }
+                return { ok: false, msg: bloccato };
+            }
+            const identita = Auth.componiIdentita(scheda, principale);
             try {
-                await this.avviaSync(dati.ruolo, email);
+                await this.avviaSync(identita.ruolo, identita.email);
             } catch (e) {
                 try { await signOut(this.auth); } catch (e2) { }
                 return { ok: false, msg: 'Accesso verificato ma dati non raggiungibili (' + this.msgErrore(e) + '). Riprova tra poco.' };
             }
-            Auth.utenteCorrente = { email: email.toLowerCase(), nome: dati.nome || email, ruolo: dati.ruolo || 'procuratore', eventi: dati.eventi === true, newsletter: dati.newsletter === true };
+            Auth.utenteCorrente = identita;
+            // l'ultimo accesso e' della sessione reale (per un collaboratore, la sua scheda)
             this.salvaUtente(email, { ultimoAccesso: Date.now() }).catch(() => {});
-            Audit.registra(Auth.utenteCorrente, 'Accesso effettuato', 'utente', email.toLowerCase(), null, null);
+            // la voce del registro e' a nome dell'utente effettivo (per un collaboratore, il suo riferimento)
+            Audit.registra(Auth.utenteCorrente, 'Accesso effettuato', 'utente', identita.email, null, null);
             return { ok: true, mustChange: false };
         },
 
@@ -2103,7 +2271,9 @@
             // gli utenti "solo sondaggio" (esterni) non vedono la presenza dello staff
             const rc = Auth.ruoloCorrente ? Auth.ruoloCorrente() : null;
             if (rc && rc.soloSondaggio) return;
-            const email = Auth.utenteCorrente ? Auth.utenteCorrente.email : null;
+            // la SESSIONE reale: per un collaboratore il suo indirizzo, non quello del suo
+            // utente di riferimento (heartbeat, slot di presenza e casella messaggi sono suoi)
+            const email = Auth.emailSessione() || null;
             if (!email) return;
             // stato messaggi per QUESTO utente: su browser condiviso l'utente successivo non deve
             // vedere i messaggi del precedente. Dedup per id (persistito per utente), non per timestamp.
@@ -2180,7 +2350,10 @@
                 try {
                     const { setDoc } = this.fb.fsMod;
                     const slot = { nome: u.nome || u.email, ts: Date.now(), vista: presenzaVistaCorrente(), modifica: statoModifica || null };
-                    setDoc(this._presenzaRef(), { stati: { [u.email.toLowerCase()]: slot } }, { merge: true }).catch(() => { });
+                    // il collaboratore compare con il nome del suo utente di riferimento; chi
+                    // e' davvero lo vede solo quest'ultimo (vedi aggiornaPresenza)
+                    if (u.collaboratore) { slot.collab = u.collaboratore.nome || u.collaboratore.email; slot.per = String(u.email).toLowerCase(); }
+                    setDoc(this._presenzaRef(), { stati: { [Auth.emailSessione()]: slot } }, { merge: true }).catch(() => { });
                 } catch (e) { }
             }, 250);
         },
@@ -2202,7 +2375,7 @@
         _scriviLapide() {
             const u = Auth.utenteCorrente;
             if (!u || !u.email || !this.attivo || !this.pronto) return;
-            try { const { setDoc } = this.fb.fsMod; setDoc(this._presenzaRef(), { stati: { [u.email.toLowerCase()]: { nome: u.nome || u.email, ts: 0, vista: null, modifica: null } } }, { merge: true }).catch(() => { }); } catch (e) { }
+            try { const { setDoc } = this.fb.fsMod; setDoc(this._presenzaRef(), { stati: { [Auth.emailSessione()]: { nome: u.nome || u.email, ts: 0, vista: null, modifica: null } } }, { merge: true }).catch(() => { }); } catch (e) { }
         },
         // notifica: popup con risposta per i messaggi nuovi a me destinati. Dedup per ID
         // (persistito per utente), non per timestamp: cosi non si perdono messaggi con clock
@@ -2235,7 +2408,10 @@
             const dest = String(aEmail || '').toLowerCase();
             if (!t || !dest) return false;
             const { setDoc, arrayUnion } = this.fb.fsMod;
-            const msg = { id: 'm_' + uid(), da: u.email.toLowerCase(), daNome: u.nome || u.email, a: dest, testo: t, ts: Date.now() };
+            // "da" e' la sessione reale (la risposta deve tornare a chi ha scritto), il nome
+            // e' quello con cui si lavora; il collaboratore lo vede solo il suo riferimento
+            const msg = { id: 'm_' + uid(), da: Auth.emailSessione(), daNome: u.nome || u.email, a: dest, testo: t, ts: Date.now() };
+            if (u.collaboratore) { msg.collab = u.collaboratore.nome || u.collaboratore.email; msg.per = String(u.email).toLowerCase(); }
             // recapito nel documento privato del destinatario (che solo lui puo leggere)
             try {
                 await setDoc(this._msgRef(dest), { lista: arrayUnion(msg) }, { merge: true });
@@ -2255,7 +2431,7 @@
         // potatura opportunistica della PROPRIA casella (il mittente non puo leggere quella altrui):
         // se i messaggi superano ~60, tiene gli ultimi 40 (transazione con retry)
         async _potaMessaggi(email) {
-            const e = String(email || (Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+            const e = String(email || Auth.emailSessione() || '').toLowerCase();
             if (!e) return;
             try {
                 const { runTransaction } = this.fb.fsMod;
@@ -2283,6 +2459,8 @@
             const { doc, setDoc } = this.fb.fsMod;
             await setDoc(doc(this.db, 'utenti', email.toLowerCase()), dati, { merge: true });
         },
+        // il valore che, passato a salvaUtente, CANCELLA un campo della scheda (es. collaboratoreDi)
+        campoDaTogliere() { return this.fb.fsMod.deleteField(); },
         /* Eliminazione definitiva dell'utente: rimuove il documento dalla collezione
            "utenti". Da quel momento l'indirizzo non supera piu abilitato() e perde ogni
            accesso. L'account Firebase Authentication (se mai attivato) non e toccabile
@@ -2530,7 +2708,7 @@
             const lista = this.tutti();
             const nuovo = {
                 id: uid(), stato: 'attivo', ...dati,
-                creato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() },
+                creato: timbro(utente),
                 modificato: null
             };
             lista.push(nuovo);
@@ -2545,7 +2723,7 @@
             const idx = lista.findIndex(i => i.id === id);
             if (idx < 0) return null;
             const prima = JSON.parse(JSON.stringify(lista[idx]));
-            const dopo = { ...lista[idx], ...dati, modificato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() } };
+            const dopo = { ...lista[idx], ...dati, modificato: timbro(utente) };
             lista[idx] = dopo;
             this.salva(lista);
             const diff = Audit.confronta(prima, dopo, CAMPI_TRACCIATI);
@@ -2592,7 +2770,7 @@
             const idx = lista.findIndex(i => i.id === id);
             if (idx < 0) return null;
             lista[idx].calcoloCongelato = true;
-            lista[idx].congelamento = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            lista[idx].congelamento = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Calcolo congelato', 'incarico', id, lista[idx].cliente,
                 'Compenso e ore bloccati alla stampa del mandato');
@@ -2610,7 +2788,7 @@
             this.salva(lista);
             Allerte.aggiungi({
                 tipo: 'sblocco-calcolo', incaricoId: id, cliente: inc.cliente,
-                da: utente.nome + ' <' + utente.email + '>', messaggio: messaggio
+                da: firmaUtente(utente), collab: firmaCollaboratore(utente) || null, messaggio: messaggio
             });
             Audit.registra(utente, 'Allerta: sblocco calcolo congelato', 'incarico', id, inc.cliente,
                 [{ campo: 'Messaggio di allerta', prima: '', dopo: messaggio }]);
@@ -2625,8 +2803,8 @@
             const inc = lista[idx];
             const prima = inc.stato || 'attivo';
             inc.stato = 'cessato';
-            inc.terminato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.terminato = timbro(utente);
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico terminato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: prima, dopo: 'terminato' }]);
             return inc;
@@ -2641,8 +2819,8 @@
             const inc = lista[idx];
             const prima = inc.stato || 'attivo';
             inc.stato = 'dimesso';
-            inc.dimissioni = { data: dataDimissioni || null, da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.dimissioni = timbro(utente, { data: dataDimissioni || null });
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Dimissioni dall\'incarico', 'incarico', id, inc.cliente,
                 [{ campo: 'Stato', prima: prima, dopo: 'dimesso' }].concat(dataDimissioni ? [{ campo: 'Data dimissioni', prima: '', dopo: fmtData(dataDimissioni) }] : []));
@@ -2657,8 +2835,8 @@
             if (idx < 0) return null;
             const inc = lista[idx];
             inc.stato = 'attivo';
-            inc.confermato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.confermato = timbro(utente);
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico confermato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: 'proposta', dopo: 'attivo' }]);
             return inc;
@@ -2673,8 +2851,8 @@
             const inc = lista[idx];
             const prima = inc.stato || 'attivo';
             inc.stato = 'nonAccettato';
-            inc.nonAccettato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now(), nota: nota || '' };
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.nonAccettato = timbro(utente, { nota: nota || '' });
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico non accettato', 'incarico', id, inc.cliente,
                 [{ campo: 'Stato', prima: prima, dopo: 'non accettato' }].concat(nota ? [{ campo: 'Motivo', prima: '', dopo: nota }] : []));
@@ -2691,7 +2869,7 @@
             inc.stato = 'proposta';
             inc.nonAccettato = null;
             inc.confermato = null;
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico riportato in proposta', 'incarico', id, inc.cliente,
                 [{ campo: 'Stato', prima: 'non accettato', dopo: 'proposta' }]);
@@ -2708,7 +2886,7 @@
             inc.stato = 'attivo';
             inc.terminato = null;
             inc.dimissioni = null;
-            inc.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+            inc.modificato = timbro(utente);
             this.salva(lista);
             Audit.registra(utente, 'Incarico riattivato', 'incarico', id, inc.cliente, [{ campo: 'Stato', prima: prima, dopo: 'attivo' }]);
             return inc;
@@ -3270,7 +3448,11 @@
         const box = document.getElementById('presenza-box');
         if (!box) return;
         if (!connessi || !connessi.length) { box.innerHTML = ''; return; }
-        const mio = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        // gli slot sono per sessione reale: il mio e' quello del mio indirizzo di accesso
+        const mio = Auth.emailSessione();
+        // un collaboratore compare col nome del suo utente di riferimento; solo quest'ultimo
+        // vede anche chi c'e' davvero dietro
+        const nomeDi = c => (c.nome || c.email) + ((c.collab && c.per && vedoCollaboratoreDi(c.per)) ? ' (collaboratore: ' + c.collab + ')' : '');
         const nonLetti = (typeof Cloud !== 'undefined' && Cloud._msgNonLetti) || 0;
         const icoMatita = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
         const icoBusta = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="m3 6 9 6 9-6"/></svg>';
@@ -3279,7 +3461,7 @@
         let corpo;
         if (compatta) {
             const inizialiDi = n => (String(n || '?').trim().split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('') || '?');
-            const chips = connessi.slice(0, 5).map(c => '<span class="pres-avatar" title="' + esc(c.nome || c.email) + '">' + esc(inizialiDi(c.nome || c.email)) + '</span>').join('')
+            const chips = connessi.slice(0, 5).map(c => '<span class="pres-avatar" title="' + esc(nomeDi(c)) + '">' + esc(inizialiDi(c.nome || c.email)) + '</span>').join('')
                 + (connessi.length > 5 ? '<span class="pres-avatar pres-avatar-extra">+' + (connessi.length - 5) + '</span>' : '');
             corpo = '<button type="button" class="presenza-riassunto" aria-expanded="false" title="Apri l\'elenco degli utenti connessi">'
                 + '<span class="pres-avatars">' + chips + '</span>'
@@ -3292,7 +3474,7 @@
                     : '';
                 const scrivi = io ? '' : '<button class="btn btn-sm btn-ghost pres-msg" data-email="' + esc(c.email) + '" data-nome="' + esc(c.nome || c.email) + '" title="Scrivi a ' + esc(c.nome || c.email) + '" aria-label="Scrivi a ' + esc(c.nome || c.email) + '">' + icoBusta + '</button>';
                 return '<div class="presenza-utente' + (mod ? ' sta-modificando' : '') + '"><span class="pallino"></span>'
-                    + '<span class="pres-corpo"><span class="pres-nome-riga"><span class="pres-nome">' + esc((c.nome || c.email) + (io ? ' (tu)' : '')) + '</span>' + scrivi + '</span>' + mod + '</span></div>';
+                    + '<span class="pres-corpo"><span class="pres-nome-riga"><span class="pres-nome">' + esc(nomeDi(c) + (io ? ' (tu)' : '')) + '</span>' + scrivi + '</span>' + mod + '</span></div>';
             }).join('');
             const riduci = connessi.length >= PRESENZA_COMPATTA_DA
                 ? '<button type="button" class="presenza-riduci" aria-expanded="true"><span class="freccia-su">' + icoFreccia + '</span><span>Riduci elenco</span></button>'
@@ -3329,7 +3511,7 @@
         if (typeof Cloud !== 'undefined') Cloud._msgNonLetti = 0;
         const inbox = (typeof Cloud !== 'undefined' && Cloud._inbox) || [];
         const righe = inbox.length
-            ? inbox.map(m => '<div class="riepilogo-riga"><span class="etichetta">' + esc(m.daNome || m.da || '') + '</span><span class="valore">' + esc(m.testo || '') + ' <span class="hint">' + fmtDataOra(m.ts) + '</span> <button type="button" class="btn btn-sm btn-ghost msg-rispondi" data-email="' + esc(m.da || '') + '" data-nome="' + esc(m.daNome || m.da || '') + '">Rispondi</button></span></div>').join('')
+            ? inbox.map(m => '<div class="riepilogo-riga"><span class="etichetta">' + esc(nomeMittente(m)) + '</span><span class="valore">' + esc(m.testo || '') + ' <span class="hint">' + fmtDataOra(m.ts) + '</span> <button type="button" class="btn btn-sm btn-ghost msg-rispondi" data-email="' + esc(m.da || '') + '" data-nome="' + esc(m.daNome || m.da || '') + '">Rispondi</button></span></div>').join('')
             : '<p class="descrizione">Nessun messaggio ricevuto in questa sessione.</p>';
         const cont = apriModale('<h2>Messaggi ricevuti</h2>' + righe + '<div class="modale-azioni"><button class="btn btn-primary" id="m-ok">Chiudi</button></div>', { classe: 'larga' });
         document.getElementById('m-ok').addEventListener('click', chiudiModale);
@@ -3344,10 +3526,16 @@
         if (!area) { area = document.createElement('div'); area.id = 'msg-popup-area'; document.body.appendChild(area); }
         return area;
     }
+    /* Il mittente di un messaggio: si vede il nome con cui lavora chi scrive; se l'ha
+       scritto un collaboratore, solo il suo utente di riferimento vede anche chi. */
+    function nomeMittente(m) {
+        const base = (m && (m.daNome || m.da)) || '';
+        return (m && m.collab && m.per && vedoCollaboratoreDi(m.per)) ? base + ' (tramite ' + m.collab + ')' : base;
+    }
     function mostraPopupMessaggio(m) {
         const area = areaPopupMessaggi();
         while (area.children.length >= 3) area.firstElementChild.remove();   // al massimo 3 popup impilati
-        const mitt = m.daNome || m.da || '';
+        const mitt = nomeMittente(m);
         const card = document.createElement('div');
         card.className = 'msg-popup';
         card.setAttribute('role', 'alert');
@@ -3675,10 +3863,13 @@
     }
     /* Nome di chi (diverso da me) sta gia modificando questo tipo+id, tra i connessi recenti; else null. */
     function chiModificaGia(tipo, id) {
-        const mio = String((Auth.utenteCorrente && Auth.utenteCorrente.email) || '').toLowerCase();
+        // gli slot di presenza sono per sessione reale: il mio e' quello del mio indirizzo di accesso
+        const mio = Auth.emailSessione();
         const lista = (typeof Cloud !== 'undefined' && Cloud._presenzaUltima) || [];
         const c = lista.find(x => String(x.email).toLowerCase() !== mio && x.modifica && x.modifica.tipo === tipo && String(x.modifica.id) === String(id));
-        return c ? (c.nome || c.email) : null;
+        if (!c) return null;
+        // un collaboratore compare col nome del suo riferimento; chi e' davvero lo sa solo quest'ultimo
+        return (c.nome || c.email) + ((c.collab && c.per && vedoCollaboratoreDi(c.per)) ? ' (collaboratore: ' + c.collab + ')' : '');
     }
     /* Avvisa (senza bloccare) se un altro connesso sta gia modificando questo record. */
     function avvisaSeAltriModificano(tipo, id) {
@@ -3697,16 +3888,23 @@
        l'anagrafica cambia mentre si e' collegati. */
     function aggiornaEtichettaUtente() {
         const el = document.getElementById('utente-ruolo');
-        if (!el || !Auth.utenteCorrente) return;
-        const etich = nomeRuolo(Auth.utenteCorrente.ruolo);
+        const u = Auth.utenteCorrente;
+        if (!el || !u) return;
+        let html = esc(nomeRuolo(u.ruolo));
+        // il collaboratore vede subito a nome di chi sta lavorando, e con quale ruolo
+        if (u.collaboratore) {
+            html = esc(NOME_RUOLO_COLLABORATORE) + '<span class="a-nome-di">A nome di <strong>' + esc(u.nome || u.email) + '</strong> (' + esc(nomeRuolo(u.ruolo)) + ')</span>';
+        }
         // le regioni assegnate restano sempre sott'occhio, su una riga loro e con
         // l'etichetta che dice cosa sono: appese al ruolo dopo un punto separatore si
         // leggevano come parte del nome del ruolo
         const regioni = regioniDelRuolo();   // null = ruolo senza limite di territorio
-        if (!regioni) { el.textContent = etich; return; }
-        el.innerHTML = esc(etich) + '<span class="regioni-assegnate">' + (regioni.length
-            ? 'Regioni assegnate: <strong>' + esc(regioni.join(', ')) + '</strong>'
-            : '<span class="badge rosso">nessuna regione assegnata</span>') + '</span>';
+        if (regioni) {
+            html += '<span class="regioni-assegnate">' + (regioni.length
+                ? 'Regioni assegnate: <strong>' + esc(regioni.join(', ')) + '</strong>'
+                : '<span class="badge rosso">nessuna regione assegnata</span>') + '</span>';
+        }
+        el.innerHTML = html;
     }
 
     function disegnaNav() {
@@ -4003,7 +4201,7 @@
                 <h2>${ICO_ALLERTA}Allerte (${allerte.length})</h2>
                 ${allerte.slice(0, 20).map(a => `<div class="storia-voce" style="border-left-color:var(--rosso);">
                     <div class="quando">${fmtDataOra(a.ts)}</div>
-                    <div><span class="chi">${esc(a.da || '')}</span> ha sbloccato il calcolo di <strong>${esc(a.cliente || '')}</strong></div>
+                    <div><span class="chi">${htmlConCollab(a.da || '', a.collab)}</span> ha sbloccato il calcolo di <strong>${esc(a.cliente || '')}</strong></div>
                     <div class="campi">"${esc(a.messaggio || '')}"</div>
                     <button class="btn btn-sm btn-ghost a-letta" data-id="${esc(a.id)}" style="margin-top:4px;">Segna come letta</button>
                 </div>`).join('')}
@@ -4606,10 +4804,10 @@
                         <h2>Storia delle modifiche</h2>
                         ${storia.length ? storia.map(v => `<div class="storia-voce">
                             <div class="quando">${fmtDataOra(v.ts)}</div>
-                            <div><span class="chi">${esc(v.utente)}</span> - ${esc(v.azione)}</div>
+                            <div><span class="chi">${htmlConCollab(v.utente, v.collaboratore)}</span> - ${esc(v.azione)}</div>
                             ${Array.isArray(v.dettagli) ? '<ul class="campi">' + v.dettagli.map(d => '<li>' + esc(d.campo) + ': ' + esc(troncaTesto(d.prima, 40)) + ' → ' + esc(troncaTesto(d.dopo, 40)) + '</li>').join('') + '</ul>' : (v.dettagli ? '<div class="campi">' + esc(v.dettagli) + '</div>' : '')}
                         </div>`).join('') : '<p class="tabella-vuota">Nessuna modifica registrata.</p>'}
-                        ${inc.creato ? `<div class="storia-voce"><div class="quando">${fmtDataOra(inc.creato.il)}</div><div>Creato da <span class="chi">${esc(inc.creato.da)}</span></div></div>` : ''}
+                        ${inc.creato ? `<div class="storia-voce"><div class="quando">${fmtDataOra(inc.creato.il)}</div><div>Creato da <span class="chi">${htmlTimbro(inc.creato)}</span></div></div>` : ''}
                     </div>
                     ${Auth.puoEliminareIncarichi() ? `<div class="card">
                         <h2>Zona amministratore</h2>
@@ -5199,7 +5397,7 @@
                     ${rigaRiepilogo('Spese generali', spesePerc(d) ? percTesto(spesePerc(d)) + '% sugli onorari' : 'non addebitate')}
                     ${w.modalita === 'modifica' && !w.compensoModificato ? '<p class="hint" style="font-size:0.78rem; color:var(--grigio-600); margin-top:6px;">Il passo 3 non è stato modificato: i compensi esistenti restano invariati.</p>' : ''}
                 </div>
-                <p class="descrizione">Salvando, la modifica viene registrata nel registro con il tuo nome (${esc(Auth.utenteCorrente.nome)}).</p>`;
+                <p class="descrizione">Salvando, la modifica viene registrata nel registro ${Auth.eCollaboratore() ? 'a nome di <strong>' + esc(Auth.utenteCorrente.nome) + '</strong> (di cui sei collaboratore)' : 'con il tuo nome (' + esc(Auth.utenteCorrente.nome) + ')'}.</p>`;
         }
     }
 
@@ -5457,7 +5655,7 @@
                 <h2>Calcolo del compenso</h2>
                 <div class="calc-riquadro" style="border-color:var(--ambra); background:var(--ambra-bg);">
                     <strong>${ICO_LUCCHETTO}Calcolo congelato</strong>
-                    <p class="descrizione" style="margin:8px 0;">Il calcolo di questo incarico è stato congelato${cong.il ? ' il ' + fmtDataOra(cong.il) : ''}${cong.da ? ' da ' + esc(cong.da) : ''}. Il compenso concordato non può essere modificato.</p>
+                    <p class="descrizione" style="margin:8px 0;">Il calcolo di questo incarico è stato congelato${cong.il ? ' il ' + fmtDataOra(cong.il) : ''}${cong.da ? ' da ' + htmlTimbro(cong) : ''}. Il compenso concordato non può essere modificato.</p>
                     <div class="calc-riga totale"><span>Compenso concordato (primo esercizio)</span><span class="val">${compenso ? eurFmt.format(compenso) : '-'}</span></div>
                 </div>
                 <p class="descrizione">Per modificare il calcolo occorre prima sbloccarlo dal dettaglio dell'incarico, inviando un messaggio di allerta al titolare.</p>`;
@@ -5707,7 +5905,7 @@
             const utente = Auth.utenteCorrente;
             const entries = rimossi.map((r, i) => {
                 const inp = document.querySelector('.u-team-data[data-i="' + i + '"]');
-                return { nome: r.etichetta, al: (inp && inp.value) || null, da: utente ? (utente.nome + ' <' + utente.email + '>') : '', il: Date.now() };
+                return Object.assign({ nome: r.etichetta, al: (inp && inp.value) || null }, utente ? timbro(utente) : { da: '', il: Date.now() });
             });
             chiudiModale();
             onConferma(entries);
@@ -5820,7 +6018,7 @@
                 const pianoPrec = {};
                 Object.keys(d.piano || {}).forEach(a => { if (!anni.includes(Number(a))) pianoPrec[a] = d.piano[a]; });
                 const snap = {
-                    chiuso: { il: Date.now(), da: (Auth.utenteCorrente.nome || Auth.utenteCorrente.email || '') },
+                    chiuso: timbro(Auth.utenteCorrente),
                     esercizioPeriodo: prec.esercizioPeriodo || null,
                     tipo: prec.tipo,
                     dataInizio: prec.dataInizio || null,
@@ -10077,7 +10275,10 @@
     function rbNomeAutore(v) {
         const da = String((v && v.creato && v.creato.da) || '');
         const nome = da.split('<')[0].trim();
-        return nome || rbAutoreDi(v) || '-';
+        const base = nome || rbAutoreDi(v) || '-';
+        // aperta da un collaboratore: lo vede solo il suo utente di riferimento
+        const collab = v && v.creato && v.creato.collab;
+        return (collab && vedoCollaboratoreDi(da)) ? base + ' (tramite ' + nomeDaFirma(collab) + ')' : base;
     }
     const Rating = {
         tutte() { return Store.leggi(CHIAVI.rating, []); },
@@ -10096,7 +10297,7 @@
             const nuova = {
                 id: uid(), stato: 'bozza', condivisa: [], ...dati,
                 autore: String(utente.email || '').toLowerCase(),
-                creato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() },
+                creato: timbro(utente),
                 modificato: null
             };
             lista.push(nuova);
@@ -10110,7 +10311,7 @@
             const idx = lista.findIndex(v => v.id === id);
             if (idx < 0) return null;
             const prima = JSON.parse(JSON.stringify(lista[idx]));
-            const dopo = { ...lista[idx], ...dati, modificato: { da: utente.nome + ' <' + utente.email + '>', il: Date.now() } };
+            const dopo = { ...lista[idx], ...dati, modificato: timbro(utente) };
             lista[idx] = dopo;
             this.salva(lista);
             const diff = Audit.confronta(prima, dopo, CAMPI_RATING);
@@ -10220,7 +10421,7 @@
                         <td class="num" data-label="PD">${e ? rbPct(e.pd, 2) : '-'}</td>
                         <td data-label="Questionario">${e ? (e.quest + '%' + (e.questCompleto ? '' : ' <span class="badge grigio">parziale</span>')) : '-'}</td>
                         <td data-label="Stato">${v.stato === 'completata' ? '<span class="badge verde">completata</span>' : '<span class="badge ambra">bozza</span>'}</td>
-                        <td data-label="Autore">${acc.autore ? 'tu' : esc(rbNomeAutore(v))}${badgeCond}</td>
+                        <td data-label="Autore">${acc.autore ? htmlConCollab('tu', v.creato && v.creato.collab, v.creato && v.creato.da) : esc(rbNomeAutore(v))}${badgeCond}</td>
                         <td data-label="Aggiornata">${dataDi(v)}</td>
                         <td class="td-azioni"><button class="btn btn-secondary btn-sm" data-report="${esc(v.id)}" title="Apri il report da stampare">Report</button>${scrive && (acc.autore || eGoverno) ? `<button class="btn btn-ghost btn-sm" data-elimina="${esc(v.id)}" title="Elimina la verifica">Elimina</button>` : ''}</td>
                     </tr>`;
@@ -10633,7 +10834,8 @@
             };
             const candidati = (lista || [])
                 .filter(u => u.email && u.attivo !== false && !eRuoloSoloSondaggio(u.ruolo))
-                .filter(u => { const e = u.email.toLowerCase(); return e !== mailAutore && e !== mia && gia.indexOf(e) < 0; })
+                // niente collaboratori: ereditano l'accesso del loro utente di riferimento (e nemmeno me stesso, se lo sono)
+                .filter(u => { const e = u.email.toLowerCase(); return e !== mailAutore && e !== mia && e !== Auth.emailSessione() && !eRuoloCollaboratore(u.ruolo) && gia.indexOf(e) < 0; })
                 .sort((a, b) => String(a.nome || a.email).localeCompare(String(b.nome || b.email)));
             const salvaCondivisa = azione => {
                 Rating.aggiorna(v.id, { condivisa: v.condivisa }, Auth.utenteCorrente, azione);
@@ -10670,11 +10872,11 @@
                 if (mail === mailAutore) { toast('L\'autore ha già pieno accesso alla sua verifica.', 'rosso'); return; }
                 if (mail === mia) { toast('Hai già accesso a questa verifica.', 'rosso'); return; }
                 if (gia.indexOf(mail) >= 0) { toast('Utente già abilitato: cambia il permesso dalla riga qui sopra.', 'rosso'); return; }
-                if (lista && lista.length && !lista.some(u => String(u.email || '').toLowerCase() === mail)) {
+                if (lista && lista.length && !lista.some(u => String(u.email || '').toLowerCase() === mail && !eRuoloCollaboratore(u.ruolo))) {
                     toast('L\'indirizzo non corrisponde a nessun utente dell\'area: la condivisione vale solo per chi ha accesso.', 'rosso'); return;
                 }
                 v.condivisa = v.condivisa || [];
-                v.condivisa.push({ email: mail, permesso, da: mia, il: Date.now() });
+                v.condivisa.push(Object.assign({ email: mail, permesso: permesso }, timbroEmail()));
                 salvaCondivisa('Condivisione verifica: abilitato ' + mail + ' (' + permesso + ')');
                 toast('Condivisione attivata: ' + mail + ' in ' + (permesso === 'scrittura' ? 'scrittura' : 'sola visualizzazione') + '.', 'verde');
                 modaleCondivisioneRating();
@@ -11498,7 +11700,7 @@
                 document.getElementById('m-conferma').addEventListener('click', () => {
                     const l = Persone.tutte();
                     const x = l.find(y => y.id === p.id); if (!x) return;
-                    x.eliminato = { da: Auth.utenteCorrente.nome + ' <' + Auth.utenteCorrente.email + '>', il: Date.now() };
+                    x.eliminato = timbro(Auth.utenteCorrente);
                     Persone.salva(l);
                     Audit.registra(Auth.utenteCorrente, 'Persona eliminata', 'persona', x.id, x.nome, null);
                     chiudiModale(); toast('Persona eliminata: è nella scheda "Eliminate".', 'verde'); vistaPersone();
@@ -11801,7 +12003,7 @@
         const d = new Date();
         return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
-    function cqFirma(utente) { return (utente && utente.nome) ? utente.nome + ' <' + utente.email + '>' : String(utente || ''); }
+    function cqFirma(utente) { return (utente && utente.nome) ? firmaUtente(utente) : String(utente || ''); }
     /* Minuti -> "1h 25m" (sotto l'ora: "25 min"). */
     function cqFmtMinuti(m) {
         m = Math.max(0, Math.round(Number(m) || 0));
@@ -11897,7 +12099,7 @@
             const nuovo = anni[anni.length - 1] + 1;
             const lista = this.tutte();
             const idx = lista.findIndex(s => s && s.config && s.id === CQ_ID_CONFIG);
-            const rec = { id: CQ_ID_CONFIG, config: true, anni: anni.concat([nuovo]), modificato: { da: cqFirma(utente), il: Date.now() } };
+            const rec = { id: CQ_ID_CONFIG, config: true, anni: anni.concat([nuovo]), modificato: timbro(utente) };
             if (idx < 0) lista.push(rec); else lista[idx] = rec;
             this.salva(lista);
             Audit.registra(utente, 'Nuovo anno controlli qualità', 'controlloQualita', CQ_ID_CONFIG, null, 'Aggiunto l\'anno di riferimento ' + nuovo);
@@ -11963,7 +12165,7 @@
                     id: uid(), incaricoId: inc.id, anno: Number(anno), cliente: inc.cliente || '', regione: inc.regione || '',
                     area12: { check: '', commento: '' }, area3: { check: '', commento: '' }, area4: { check: '', commento: '' },
                     avanzamenti: [], email: [], completato: null,
-                    creato: { da: cqFirma(utente), il: Date.now() },
+                    creato: timbro(utente),
                     modificato: null
                 });
                 idx = lista.length - 1;
@@ -11974,7 +12176,7 @@
             // registro e filtro territoriale senza dover rifare il collegamento
             scheda.cliente = inc.cliente || scheda.cliente;
             scheda.regione = inc.regione || scheda.regione;
-            scheda.modificato = { da: cqFirma(utente), il: Date.now() };
+            scheda.modificato = timbro(utente);
             lista[idx] = scheda;
             this.salva(lista);
             Audit.registra(utente, azione, 'controlloQualita', scheda.id, inc.cliente || '', dettagli || null);
@@ -11984,7 +12186,7 @@
            nel Registro con l'esito: la storia della scheda le mostra insieme alle
            modifiche. Ne restano le ultime 100. */
         registraEmail(inc, anno, utente, rec) {
-            const voce = { id: uid(), ts: Date.now(), da: cqFirma(utente), tipo: rec.tipo, a: rec.a || [], cc: rec.cc || '', oggetto: rec.oggetto || '', testo: rec.testo || '', esito: rec.esito, msg: rec.msg || '' };
+            const voce = { id: uid(), ts: Date.now(), da: cqFirma(utente), collab: firmaCollaboratore(utente) || '', tipo: rec.tipo, a: rec.a || [], cc: rec.cc || '', oggetto: rec.oggetto || '', testo: rec.testo || '', esito: rec.esito, msg: rec.msg || '' };
             const azione = (rec.esito === 'inviata' ? 'Email inviata: ' : 'Email non inviata: ') + (rec.tipo === 'sospensione' ? 'richiesta di sospensione del compenso' : 'riepilogo al team di revisione');
             const dett = 'A: ' + (voce.a.length ? voce.a.join(', ') : 'nessuno') + (voce.cc ? ' · In copia: ' + voce.cc : '') + ' · Oggetto: ' + voce.oggetto + (voce.msg ? ' · ' + voce.msg : '');
             return this.aggiorna(inc, anno, utente, azione, dett, s => { s.email.push(voce); if (s.email.length > 100) s.email = s.email.slice(-100); });
@@ -11997,6 +12199,14 @@
     }
     /* il solo nome da un timbro "Nome <email>": nell'elenco l'email e' rumore */
     function cqSoloNome(da) { const s = String(da || ''); const i = s.indexOf(' <'); return i > 0 ? s.slice(0, i) : s; }
+    /* Il solo nome di un timbro {da, collab}, in testo semplice, con "(tramite <collaboratore>)"
+       quando spetta a chi guarda (solo l'utente di riferimento): per attributi, textContent
+       e le righe della storia. */
+    function nomeConCollab(t) {
+        if (!t) return '';
+        const base = cqSoloNome(t.da);
+        return (t.collab && vedoCollaboratoreDi(t.da)) ? base + ' (tramite ' + nomeDaFirma(t.collab) + ')' : base;
+    }
     function cqNomePersona(p, altrimenti) { return p ? ((p.nomeProprio ? p.nomeProprio + ' ' : '') + p.nome) : (altrimenti || ''); }
     /* Le persone del team di revisione dell'incarico, con l'email della loro
        scheda in Aderenti Revilaw (se c'e'): sono i destinatari del riepilogo. */
@@ -12139,12 +12349,12 @@
             const compl = s && s.completato;
             return `<tr class="cliccabile${compl ? ' cq-completata' : ''}" data-apri="${esc(i.id)}">
                 <td class="cliente-cella" data-label="Società">${esc(i.cliente || '')}</td>
-                <td data-label="Stato controlli">${compl ? '<span class="badge verde" title="Completati il ' + esc(fmtGiorno(compl.il)) + ' da ' + esc(cqSoloNome(compl.da)) + '">' + ICO_SPUNTA + 'Completati</span>' : (s ? '<span class="badge ambra">In corso</span>' : '<span class="badge neutro">Da iniziare</span>')}</td>
+                <td data-label="Stato controlli">${compl ? '<span class="badge verde" title="Completati il ' + esc(fmtGiorno(compl.il)) + ' da ' + esc(nomeConCollab(compl)) + '">' + ICO_SPUNTA + 'Completati</span>' : (s ? '<span class="badge ambra">In corso</span>' : '<span class="badge neutro">Da iniziare</span>')}</td>
                 <td data-label="Resp. qualità">${esc(i.qualita || '')}</td>
                 <td data-label="Team">${esc(i.team || '')}</td>
                 ${CQ_AREE.map(a => cellaArea(s, a)).join('')}
                 <td data-label="Tempo qualità" class="cq-num">${min ? esc(cqFmtMinuti(min)) : '<span class="hint">-</span>'}</td>
-                <td data-label="Aggiornamento" class="cq-agg">${agg ? esc(fmtGiorno(agg.il)) + '<div class="hint">' + esc(cqSoloNome(agg.da)) + '</div>' : '<span class="hint">mai</span>'}</td>
+                <td data-label="Aggiornamento" class="cq-agg">${agg ? esc(fmtGiorno(agg.il)) + '<div class="hint">' + htmlTimbroNome(agg) + '</div>' : '<span class="hint">mai</span>'}</td>
                 <td data-label=""><button class="btn btn-sm btn-secondary" data-apri-scheda="${esc(i.id)}">${cqTab === 'miei' ? 'Apri scheda' : 'Vedi scheda'}</button></td>
             </tr>`;
         };
@@ -12212,10 +12422,10 @@
         storia.forEach(v => {
             if (/^Email /.test(v.azione || '')) return;   // le email stanno nella scheda, con il testo
             const struttura = (/avanzamento/i.test(v.azione || '') && !/^Aggiornamento/.test(v.azione || '')) || /completat|riapert/i.test(v.azione || '');
-            voci.push({ ts: v.ts, tipo: struttura ? 'avanzamento' : 'modifica', chi: cqSoloNome(v.utente), azione: v.azione, dettagli: v.dettagli });
+            voci.push({ ts: v.ts, tipo: struttura ? 'avanzamento' : 'modifica', chi: nomeConCollab({ da: v.utente, collab: v.collaboratore }), azione: v.azione, dettagli: v.dettagli });
         });
-        (scheda ? scheda.email : []).forEach(m => voci.push({ ts: m.ts, tipo: 'email', chi: cqSoloNome(m.da), email: m }));
-        if (scheda && scheda.creato) voci.push({ ts: scheda.creato.il, tipo: 'avanzamento', chi: cqSoloNome(scheda.creato.da), azione: 'Scheda aperta' });
+        (scheda ? scheda.email : []).forEach(m => voci.push({ ts: m.ts, tipo: 'email', chi: nomeConCollab(m), email: m }));
+        if (scheda && scheda.creato) voci.push({ ts: scheda.creato.il, tipo: 'avanzamento', chi: nomeConCollab(scheda.creato), azione: 'Scheda aperta' });
         voci.sort((a, b) => b.ts - a.ts);
         const n = t => voci.filter(v => t === 'tutte' || v.tipo === t).length;
         const badge = { modifica: '<span class="badge neutro">Modifica</span>', avanzamento: '<span class="badge legale">Avanzamento</span>', email: '<span class="badge collegio">Email</span>' };
@@ -12420,7 +12630,7 @@
                 <div><span>Responsabile incarico</span><strong>${esc(inc.respIncarico || '-')}</strong></div>
                 <div><span>Responsabile qualità</span><strong>${esc(inc.qualita || '-')}</strong></div>
                 <div><span>Anno di riferimento</span><strong>${anno}</strong></div>
-                <div><span>Ultimo aggiornamento</span><strong id="cq-timbro">${agg ? esc(fmtDataOra(agg.il)) + ' · ' + esc(cqSoloNome(agg.da)) : '-'}</strong></div>
+                <div><span>Ultimo aggiornamento</span><strong id="cq-timbro">${agg ? esc(fmtDataOra(agg.il)) + ' · ' + htmlTimbroNome(agg) : '-'}</strong></div>
             </div>
             <div class="cq-sezione-testa">
                 <h2 class="cq-sezione-titolo">Avanzamenti ${anno} <span class="hint">(${avanzamenti.length})</span></h2>
@@ -12435,7 +12645,7 @@
                 </div>
                 <div class="cq-completamento">
                     ${completato
-                        ? `<div class="cq-completamento-testo">${ICO_SPUNTA}<strong>Controlli completati</strong> il ${esc(fmtDataOra(completato.il))} da ${esc(cqSoloNome(completato.da))}.</div>
+                        ? `<div class="cq-completamento-testo">${ICO_SPUNTA}<strong>Controlli completati</strong> il ${esc(fmtDataOra(completato.il))} da ${htmlTimbroNome(completato)}.</div>
                            ${puoScrivere ? '<button class="btn btn-sm btn-secondary" id="cq-riapri">Riapri i controlli</button>' : ''}`
                         : `<div class="cq-completamento-testo">${tuttoVerde ? 'Tutti i check sono verdi: puoi segnare i controlli come <strong>completati</strong>.' : 'Con i tre check <strong>verdi</strong> puoi segnare i controlli come completati.'}</div>
                            ${puoScrivere ? '<button class="btn btn-primary btn-sm" id="cq-completa"' + (tuttoVerde ? '' : ' disabled title="Prima porta tutti i check a verde"') + '>' + ICO_SPUNTA + 'Segna come completati</button>' : ''}`}
@@ -12496,7 +12706,7 @@
             apriModale(`<h2>${esc(m.oggetto || 'Email')}</h2>
                 <div class="riepilogo-blocco">
                     ${rigaRiepilogo('Inviata il', fmtDataOra(m.ts))}
-                    ${rigaRiepilogo('Da', m.da)}
+                    ${rigaRiepilogo('Da', firmaConCollab(m.da, m.collab))}
                     ${rigaRiepilogo('A', m.a.length ? m.a.join(', ') : 'nessun destinatario')}
                     ${rigaRiepilogo('In copia', m.cc || '')}
                     ${rigaRiepilogo('Esito', m.esito === 'inviata' ? 'inviata' : 'non inviata' + (m.msg ? ' (' + m.msg + ')' : ''))}
@@ -12540,7 +12750,7 @@
         document.addEventListener('keydown', cqTastoSalva);
         const aggiornaTimbro = s => {
             const el = document.getElementById('cq-timbro');
-            if (el && s.modificato) el.textContent = fmtDataOra(s.modificato.il) + ' · ' + cqSoloNome(s.modificato.da);
+            if (el && s.modificato) el.textContent = fmtDataOra(s.modificato.il) + ' · ' + nomeConCollab(s.modificato);
         };
         const ridisegna = () => naviga('controlloQualitaScheda', { id: inc.id, anno: anno }, window.scrollY);
         const schedaFresca = () => ControlliQualita.perIncarico(inc.id, anno);
@@ -12579,7 +12789,7 @@
         { const bc = document.getElementById('cq-completa'); if (bc) bc.addEventListener('click', () => {
             if (!cqTuttoVerde(schedaFresca())) { toast('Prima porta tutti e tre i check a verde.', 'rosso'); return; }
             salva('Controlli qualità completati', [{ campo: 'Controlli', prima: 'in corso', dopo: 'completati' }],
-                x => { x.completato = { da: cqFirma(utente), il: Date.now() }; });
+                x => { x.completato = timbro(utente); });
             toast('Controlli segnati come completati: nell\'elenco l\'incarico è evidenziato.', 'verde');
             ridisegna();
         }); }
@@ -13223,7 +13433,7 @@
             });
             if (cambiato) {
                 toccati++;
-                i.modificato = { da: utente.nome + ' <' + utente.email + '>', il: Date.now() };
+                i.modificato = timbro(utente);
                 Audit.registra(utente, 'Rinomina persona nell\'incarico', 'incarico', i.id, i.cliente,
                     Audit.confronta(prima, i, CAMPI_TRACCIATI));
             }
@@ -13261,6 +13471,20 @@
                voci: [{titolo, testo}] }
     ========================================================= */
     const AGGIORNAMENTI_AREA = [
+        {
+            id: '2026-09-02-collaboratori',
+            data: '2026-09-02',
+            titolo: 'Utenti: il profilo Collaboratore, che lavora a nome di un altro utente',
+            sommario: 'Dalla sezione Utenti l\'amministratore può abilitare un collaboratore indicando di quale utente è collaboratore. Il collaboratore eredita tutti i permessi di quell\'utente (ruolo, sezioni, territorio, Eventi e Newsletter) e le sue modifiche compaiono a tutti con il nome dell\'utente di riferimento; solo quest\'ultimo vede anche quale collaboratore le ha fatte. La scheda del profilo è in "Ruoli e permessi".',
+            chi: 'L\'amministratore, che abilita i collaboratori; chi ha un collaboratore, che nel Registro e nelle schede vede "tramite <nome>" accanto alle modifiche fatte a suo nome.',
+            dove: 'Sezione "Utenti" (tendina Ruolo: "Collaboratore", poi il campo "Collaboratore di"); la scheda del profilo in "Ruoli e permessi".',
+            voci: [
+                { titolo: 'Abilitare un collaboratore', testo: 'In Utenti, "+ Abilita utente": nome, email, ruolo "Collaboratore (eredita i permessi di un utente)" e, nel campo che compare, l\'utente di riferimento. Lo stesso si fa cambiando ruolo a un utente già presente; "Cambia" sotto la tendina cambia il riferimento. Un collaboratore non può fare da riferimento a un altro collaboratore, e nemmeno un invitato al solo sondaggio.' },
+                { titolo: 'Che cosa vede e può fare', testo: 'Esattamente quello che vede e può fare il suo utente di riferimento: ruolo e sezioni, filtro per regione, abilitazioni a Eventi e Newsletter, qualifiche della scheda in Aderenti Revilaw, verifiche di rating e richieste di correzione. Se il riferimento viene disabilitato o eliminato, il collaboratore non entra più: la schermata di accesso lo dice.' },
+                { titolo: 'Con quale nome compaiono le modifiche', testo: 'Incarichi, Registro modifiche, Controlli qualità, verifiche, comunicazioni ed email portano nome e indirizzo dell\'utente di riferimento (le risposte alle email tornano a lui). Solo l\'utente di riferimento, entrando in prima persona, vede accanto all\'autore l\'etichetta "tramite <collaboratore>". Nella barra laterale il collaboratore vede il proprio nome e, sotto, a nome di chi sta lavorando.' },
+                { titolo: 'Chi è connesso', testo: 'Nell\'elenco "Connessi ora" e nei messaggi tra colleghi il collaboratore compare con il nome del suo utente di riferimento; anche qui, solo il riferimento vede chi c\'è davvero.' }
+            ]
+        },
         {
             id: '2026-09-01-controlli-qualita',
             data: '2026-09-01',
@@ -14701,6 +14925,7 @@
                 ...(prima || {}), ...patch,
                 da: u ? String(u.email).toLowerCase() : '',
                 daNome: u ? (u.nome || u.email || '') : '',
+                collab: (u && u.collaboratore) ? (u.collaboratore.nome || u.collaboratore.email) : '',
                 quando: Date.now()
             };
             if (typeof Cloud === 'undefined' || !Cloud.attivo) { if (poi) poi({ ok: true }); return; }
@@ -14723,7 +14948,8 @@
     /* "Mario Rossi, 21/07 alle 18:40" oppure stringa vuota se non risulta nessuna modifica. */
     function firmaPresenza(p) {
         if (!p || (!p.daNome && !p.da && !p.quando)) return '';
-        const chi = p.daNome || p.da || 'utente sconosciuto';
+        // se ha operato un collaboratore, lo vede solo il suo utente di riferimento
+        const chi = (p.daNome || p.da || 'utente sconosciuto') + ((p.collab && vedoCollaboratoreDi(p.da)) ? ' (tramite ' + p.collab + ')' : '');
         if (!p.quando) return chi;
         const d = new Date(p.quando);
         const oggi = new Date();
@@ -14857,6 +15083,7 @@
             else if (!u) esito = '<span class="ev-ko">nessuna utenza con questa email</span>';
             else if (u.attivo === false) esito = '<span class="ev-ko">utenza disattivata</span>';
             else if (eRuoloSoloSondaggio(u.ruolo)) esito = '<span class="ev-ko">ruolo "' + esc(nomeRuolo(u.ruolo)) + '": non può leggere gli archivi generali, va cambiato il ruolo</span>';
+            else if (eRuoloCollaboratore(u.ruolo)) esito = '<span class="hint">' + esc(etichettaRuoloUtente(u, utenti)) + ': eredita l\'accesso dal suo utente di riferimento, questa voce non serve</span>';
             else if (elencoServer && elencoServer.indexOf(e) < 0) esito = '<span class="ev-ko">abilitato solo in questo browser, non sul server</span>';
             else esito = 'può vedere gli Eventi (' + esc(nomeRuolo(u.ruolo)) + ')';
             return '<div class="ev-diag-riga"><span>' + esc(e) + '</span><span>' + esito + '</span></div>';
@@ -18475,7 +18702,8 @@
         utenti = utenti || [];
         const sel = new Set(EventiConfig.leggi().abilitati);
         const me = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : '';
-        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me);
+        // i collaboratori non compaiono: ereditano l'abilitazione del loro utente di riferimento
+        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me && !eRuoloCollaboratore(u.ruolo));
         // Un ruolo "solo sondaggio" ora puo' essere abilitato: vede la sezione e consulta
         // gli iscritti. Non puo' pero' segnare presenze e note, perche' quelle stanno in un
         // archivio che il server riserva allo staff. Si dice, senza impedire la spunta.
@@ -18500,7 +18728,7 @@
             + 'salvare adesso cancellerebbe le abilitazioni già impostate. <button type="button" class="btn btn-sm btn-secondary" id="ev-riprova">Riprova</button></div>'
             : '';
         apriModale('<h2>Chi può vedere la sezione Eventi</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;">L\'amministratore la vede sempre. Spunta gli utenti che devono poterla aprire: gli altri non vedranno nemmeno la voce di menu.</p>'
+            + '<p class="hint" style="margin:-4px 0 12px;">L\'amministratore la vede sempre. Spunta gli utenti che devono poterla aprire: gli altri non vedranno nemmeno la voce di menu. I collaboratori non sono in elenco: ereditano l\'abilitazione del loro utente di riferimento.</p>'
             + avvisoKo
             + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Utenti</label>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="ev-nessuno">Deseleziona tutti</button></div>'
@@ -19230,7 +19458,7 @@
                genere di cosa che fra un anno nessuno ricorda, e che serve poterla mostrare. */
             + '<div class="card s-admin"><div class="s-admin-txt"><strong>Consenso dei contatti già presenti</strong>'
             + (cs
-                ? '<div class="hint">Attribuito il <b>' + esc(fmtDataOra(cs.il)) + '</b> da <b>' + esc(cs.da || '') + '</b>'
+                ? '<div class="hint">Attribuito il <b>' + esc(fmtDataOra(cs.il)) + '</b> da <b>' + htmlConCollab(cs.da || '', cs.collab) + '</b>'
                 + ' ai contatti raccolti fino a quel momento, '
                 + (cs.comprendeNo
                     ? '<b>compresi</b> quelli che avevano lasciato vuota la casella delle comunicazioni'
@@ -19343,7 +19571,7 @@
                 + (n.oggetto && n.nome ? '<div class="hint">' + esc(n.oggetto) + '</div>' : '') + '</td>'
                 + '<td>' + stato + '</td>'
                 + '<td>' + esc(etichettaGruppi(n)) + '</td>'
-                + '<td>' + (ultimo ? esc(fmtDataOra(ultimo.il)) + '<div class="hint">' + (ultimo.n || 0) + ' destinatari &middot; ' + esc(ultimo.da || '') + '</div>' : '-') + '</td>'
+                + '<td>' + (ultimo ? esc(fmtDataOra(ultimo.il)) + '<div class="hint">' + (ultimo.n || 0) + ' destinatari &middot; ' + htmlConCollab(ultimo.da || '', ultimo.collab) + '</div>' : '-') + '</td>'
                 + '<td class="td-azioni">'
                 + '<button class="btn btn-sm btn-secondary" data-apri="' + esc(n.id) + '">Apri</button> '
                 + '<button class="btn btn-sm btn-ghost" data-duplica="' + esc(n.id) + '">Duplica</button> '
@@ -19484,7 +19712,7 @@
         copia.nome = (n.nome || n.oggetto || 'Newsletter') + ' (copia)';
         copia.stato = 'bozza';
         copia.invii = [];
-        copia.creato = { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+        copia.creato = timbroEmail();
         Newsletter.salvaUna(copia);
         vistaNewsletter();
         modaleNewsletter(copia.id);
@@ -19531,7 +19759,7 @@
                 nome: $('ct-nome').value.trim(), cognome: $('ct-cognome').value.trim(),
                 azienda: $('ct-azienda').value.trim(), ruolo: $('ct-ruolo').value.trim(),
                 note: $('ct-note').value.trim(),
-                aggiunto: (c && c.aggiunto) || { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() }
+                aggiunto: (c && c.aggiunto) || timbroEmail()
             };
             ContattiNL.salvaUno(rec);
             try { Audit.registra(Auth.utenteCorrente, c ? 'Contatto newsletter modificato' : 'Contatto newsletter aggiunto', 'sistema', email, null, null); } catch (e) { }
@@ -19565,7 +19793,7 @@
                 esistenti.unshift({
                     id: uid(), email: email, nome: parti[1] || '', cognome: parti[2] || '', azienda: parti[3] || '',
                     ruolo: '', note: 'importato',
-                    aggiunto: { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() }
+                    aggiunto: timbroEmail()
                 });
                 aggiunti++;
             });
@@ -19627,7 +19855,7 @@
                    se un giorno qualcuno chiede conto di una mail ricevuta. */
                 const anche = !!(document.getElementById('cs-no-anche') || {}).checked;
                 const nota = nIgnoti + ' non risultanti, ' + nNo + ' senza spunta ' + (anche ? 'COMPRESI' : 'esclusi');
-                NewsletterConfig.salva({ consensoStorico: { il: ora, da: u, comprendeNo: anche, nota: nota } });
+                NewsletterConfig.salva({ consensoStorico: Object.assign(timbroEmail({ il: ora }), { comprendeNo: anche, nota: nota }) });
                 try {
                     Audit.registra(Auth.utenteCorrente, 'Newsletter: consenso attribuito ai contatti presenti', 'sistema', 'newsletterConfig', null,
                         'fino al ' + fmtDataOra(ora) + ' - ' + nota);
@@ -19644,7 +19872,8 @@
         utenti = utenti || [];
         const sel = new Set(NewsletterConfig.leggi().abilitati);
         const me = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : '';
-        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me);
+        // i collaboratori non compaiono: ereditano l'abilitazione del loro utente di riferimento
+        const lista = utenti.filter(u => String(u.email).toLowerCase() !== me && !eRuoloCollaboratore(u.ruolo));
         const righe = lista.length ? lista.map(u => {
             const e = String(u.email).toLowerCase();
             const spento = u.attivo === false;
@@ -19669,7 +19898,7 @@
             + 'salvare adesso cancellerebbe le abilitazioni già impostate. <button type="button" class="btn btn-sm btn-secondary" id="nla-riprova">Riprova</button></div>'
             : '';
         apriModale('<h2>Chi può vedere la sezione Newsletter</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;">Da qui partono email a nome dello studio: abilita solo chi deve poterle scrivere e spedire.</p>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Da qui partono email a nome dello studio: abilita solo chi deve poterle scrivere e spedire. I collaboratori non sono in elenco: ereditano l\'abilitazione del loro utente di riferimento.</p>'
             + avvisoKo
             + '<div class="campo"><div class="mi-lista-top"><label style="margin:0;">Utenti</label>'
             + '<button type="button" class="btn btn-sm btn-ghost" id="nla-nessuno">Deseleziona tutti</button></div>'
@@ -19737,7 +19966,7 @@
             cosa: { titolo: '', testo: '' },
             cta: { testo: '', url: '' }, fonte: { url: '', titolo: '' },
             gruppi: [], esclusi: [], singoli: [], stato: 'bozza',
-            creato: { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() },
+            creato: timbroEmail(),
             invii: []
         };
         // bozze salvate con il formato vecchio: le tre sezioni possono mancare
@@ -20186,7 +20415,7 @@
             bozza.titolo = $('nl-titolo').value.trim();
             bozza.sommario = $('nl-sommario').value.trim();
             bozza.cta = { testo: $('nl-cta-testo').value.trim(), url: $('nl-cta-url').value.trim() };
-            bozza.modificato = { da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+            bozza.modificato = timbroEmail();
             return bozza;
         }
 
@@ -20361,7 +20590,7 @@
                         if (!res.ok) { avanz.textContent = res.msg || 'Programmazione non riuscita.'; return; }
                         chiudiConfermaInLinea();
                         rec.stato = 'programmata';
-                        rec.programmazione = { quando: quando, quandoTesto: quandoTesto, previsti: res.previsti, da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '', il: Date.now() };
+                        rec.programmazione = timbroEmail({ quando: quando, quandoTesto: quandoTesto, previsti: res.previsti });
                         Newsletter.salvaUna(JSON.parse(JSON.stringify(rec)));
                         try { Audit.registra(Auth.utenteCorrente, 'Newsletter programmata', 'sistema', rec.id, null, quandoTesto + ' - ' + res.previsti + ' destinatari'); } catch (e) { }
                         mostraEsitoNL('In coda: ' + res.previsti + ' destinatari. ' + frasePartenza(quandoTesto, res.passo), true);
@@ -20401,7 +20630,7 @@
                 + '<strong>' + (inCorso ? 'Invio in corso' : 'Invio programmato') + '</strong>'
                 + '<div class="hint">' + esc(frasePartenza(p.quandoTesto || '', p.passo))
                 + ' A <b>' + (p.previsti || 0) + '</b> destinatari.'
-                + (p.creato && p.creato.da ? ' Programmata da ' + esc(p.creato.da) + '.' : '')
+                + (p.creato && p.creato.da ? ' Programmata da ' + htmlTimbro(p.creato) + '.' : '')
                 + '<br>Se modifichi il testo adesso, la modifica NON entra in questo invio: annulla e riprogramma.'
                 + (p.ultimoErrore ? '<br><b>Ultimo tentativo non riuscito:</b> ' + esc(p.ultimoErrore) : '')
                 + '</div></div>'
@@ -20544,7 +20773,7 @@
             if (inviati || interrotto) {
                 rec.stato = interrotto ? 'interrotta' : 'inviata';
                 rec.invii = [{
-                    il: Date.now(), da: Auth.utenteCorrente ? Auth.utenteCorrente.email : '',
+                    ...timbroEmail(),
                     n: inviati, saltati: saltati.length, falliti: falliti.length,
                     dettaglioFalliti: falliti.slice(0, 100),
                     interrotto: interrotto || '', incerti: incerti,
@@ -20627,7 +20856,8 @@
        accesso vedranno comunque gli stessi nuovi iscritti.
     ========================================================= */
     function chiaveVistiNL() {
-        const u = Auth.utenteCorrente ? String(Auth.utenteCorrente.email).toLowerCase() : 'anonimo';
+        // segnalibro della sessione reale: un collaboratore ha il suo, non quello del riferimento
+        const u = Auth.emailSessione() || 'anonimo';
         return 'rvArea.nlVisti.' + u;
     }
     /* Chi apre l'avviso per la prima volta non ha un segnalibro. Rovesciargli
@@ -20927,7 +21157,7 @@
        invece di mostrare una fila di zeri. */
     function schedaAndamento(inv, blocco) {
         const testa = '<div class="nl-and-testa"><b>' + esc(fmtDataOra(inv.il)) + '</b>'
-            + (inv.da ? ' <span class="hint">di ' + esc(inv.da) + '</span>' : '')
+            + (inv.da ? ' <span class="hint">di ' + htmlConCollab(inv.da, inv.collab) + '</span>' : '')
             + (inv.interrotto ? ' <span class="badge ambra">interrotto</span>' : '') + '</div>';
         // i NOSTRI numeri: certi, indipendenti da Brevo
         const nostri = '<div class="nl-and-nostri">'
@@ -21143,7 +21373,7 @@
         const invii = [];
         lista.forEach(c => {
             const storia = (c.invii && c.invii.length) ? c.invii : (c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da, falliti: c.inviata.falliti, dettaglioFalliti: c.inviata.dettaglioFalliti }] : []);
-            storia.forEach(s => invii.push({ contesto: c.contesto, nome: c.nome, oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '', falliti: s.falliti || 0, dettaglioFalliti: s.dettaglioFalliti || [] }));
+            storia.forEach(s => invii.push({ contesto: c.contesto, nome: c.nome, oggetto: c.oggetto || '(senza oggetto)', il: s.il, n: s.n, da: s.da || '', collab: s.collab || '', falliti: s.falliti || 0, dettaglioFalliti: s.dettaglioFalliti || [] }));
         });
         invii.sort((a, b) => (b.il || 0) - (a.il || 0));
 
@@ -21211,7 +21441,7 @@
                 <td data-label="Contesto">${badgeContesto(c.contesto)}</td>
                 <td class="cliente-cella" data-label="Nome">${esc(c.nome || c.oggetto || '(senza nome)')}${c.nome && c.oggetto ? '<div class="hint">' + esc(c.oggetto) + '</div>' : ''}</td>
                 <td data-label="Destinatari">${(c.destinatari || []).length}${(c.gruppi && c.gruppi.length) ? ' <span class="hint">+ ' + esc(c.gruppi.map(nomeGruppo).join(', ')) + '</span>' : ''}</td>
-                <td data-label="Creata da">${esc((c.creato && c.creato.da) || '')}</td>
+                <td data-label="Creata da">${c.creato ? htmlTimbro(c.creato) : ''}</td>
                 <td data-label="Creata il">${c.creato ? fmtDataOra(c.creato.il) : ''}</td>
                 ${azioni(c)}
             </tr>`).join('') + `</tbody></table></div></div>`
@@ -21229,7 +21459,7 @@
                 <td class="num" data-label="Inviati">${s.n || 0}</td>
                 <td data-label="Esito">${s.falliti ? '<button type="button" class="btn btn-sm btn-danger inv-falliti" data-idx="' + idx + '">' + s.falliti + ' fallit' + (s.falliti === 1 ? 'o' : 'i') + '</button>' : '<span class="badge verde">tutti ok</span>'}</td>
                 <td data-label="Tipo">${s.da === 'programmato' ? '<span class="badge legale">programmato</span>' : '<span class="badge neutro">manuale</span>'}</td>
-                <td data-label="Da">${esc(s.da)}</td>
+                <td data-label="Da">${htmlConCollab(s.da, s.collab)}</td>
             </tr>`).join('') + `</tbody></table></div></div>`
             : '<div class="card tabella-vuota">Nessun invio effettuato finora.</div>';
 
@@ -21411,7 +21641,7 @@
         delete copia.inviata;
         // la copia non deve poter partire da sola: niente stato attivo e nessuna data d'invio ereditata (si reimposta a mano)
         if (copia.programmazione) copia.programmazione = Object.assign({}, copia.programmazione, { attiva: false, ultimoInvio: null, prossimoInvio: null });
-        copia.creato = { da: Auth.utenteCorrente.email, il: Date.now() };
+        copia.creato = timbroEmail();
         Comunicazioni.salvaUna(copia);
         Audit.registra(Auth.utenteCorrente, 'Comunicazione duplicata', 'comunicazione', copia.id, copia.oggetto || null,
             [{ campo: 'Copiata da', prima: '', dopo: orig.oggetto || orig.nome || orig.id }]);
@@ -21471,7 +21701,7 @@
         const testoInizialeHtml = c ? (c.formato === 'html' ? (c.testo || '') : esc(c.testo || '').replace(/\n/g, '<br>')) : '';
 
         apriModale(`
-            ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${esc(c.inviata.da || '')}. Puoi modificarla e reinviarla.</p>` : ''}
+            ${inviata ? `<p class="descrizione">Inviata il ${fmtDataOra(c.inviata.il)} a ${c.inviata.n} destinatari da ${htmlConCollab(c.inviata.da || '', c.inviata.collab)}. Puoi modificarla e reinviarla.</p>` : ''}
             <div class="comp-scelta" id="c-card-dest">
                 <div class="comp-scelta-testa">
                     <div class="comp-scelta-tit">Destinatari</div>
@@ -21768,7 +21998,7 @@
             destinatariManuali: manuali(),        // scelte singole statiche
             destinatari: tuttiDestinatari(),      // snapshot risolto ora (per invio immediato e conteggio)
             stato: (c && c.stato) || 'bozza',
-            creato: (c && c.creato) || { da: Auth.utenteCorrente.email, il: Date.now() },
+            creato: (c && c.creato) || timbroEmail(),
             // storico degli invii effettuati (migra i vecchi record che avevano solo "inviata")
             invii: (c && c.invii) || (c && c.inviata ? [{ il: c.inviata.il, n: c.inviata.n, da: c.inviata.da }] : [])
         });
@@ -21971,7 +22201,7 @@
             if (!esito.ok) { mostraErr('Invio non riuscito: ' + esito.msg + (falliti.length ? ' (' + falliti.length + ' destinatari rifiutati)' : '')); return; }
             const ora = Date.now();
             rec.stato = 'inviata';
-            const voceInv = { il: ora, n: esito.inviati, da: Auth.utenteCorrente.email };
+            const voceInv = timbroEmail({ il: ora, n: esito.inviati });
             if (falliti.length) { voceInv.falliti = falliti.length; voceInv.dettaglioFalliti = falliti.slice(0, 100); }
             rec.inviata = Object.assign({}, voceInv, { da: Auth.utenteCorrente.email });
             rec.invii = (rec.invii || []).concat([voceInv]);
@@ -22094,7 +22324,7 @@
                 .map(u => ({
                     email: u.email,
                     nome: u.nome || nomeDaAnagrafica[u.email] || u.email,
-                    ruoloNome: nomeRuolo(u.ruolo)
+                    ruoloNome: etichettaRuoloUtente(u, grezzi)
                 }))
                 .sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
             disegnaLista();
@@ -22158,14 +22388,14 @@
                 esclusi: esclusi,
                 stato: 'bozza',
                 programmazione: null,
-                creato: { da: Auth.utenteCorrente.email, il: Date.now() },
+                creato: timbroEmail(),
                 invii: []
             };
             Comunicazioni.salvaUna(rec);   // salva prima: se l'invio fallisce non si perde nulla
             const esito = await Cloud.inviaComunicazione(rec.oggetto, rec.testo, datiDestinatari(dest), 'html');
             const falliti = (esito && esito.falliti) || [];
             if (!esito || !esito.ok) { err('Invio non riuscito: ' + ((esito && esito.msg) || 'errore') + (falliti.length ? ' (' + falliti.length + ' destinatari rifiutati)' : '')); return; }
-            const voce = { il: Date.now(), n: esito.inviati, da: Auth.utenteCorrente.email };
+            const voce = timbroEmail({ n: esito.inviati });
             if (falliti.length) { voce.falliti = falliti.length; voce.dettaglioFalliti = falliti.slice(0, 100); }
             rec.stato = 'inviata';
             rec.inviata = Object.assign({}, voce);
@@ -22239,8 +22469,14 @@
     }
     function meRichiesta() {
         const u = Auth.utenteCorrente || {};
-        return { email: String(u.email || '').toLowerCase(), nome: u.nome || u.email || '' };
+        const io = { email: String(u.email || '').toLowerCase(), nome: u.nome || u.email || '' };
+        // scritto da un collaboratore: lo vede solo il suo utente di riferimento
+        const c = firmaCollaboratore(u);
+        if (c) io.collab = c;
+        return io;
     }
+    // il nome dell'autore di un messaggio di richiesta, con l'eventuale "tramite" per chi lo puo' vedere
+    function htmlAutoreRichiesta(a) { return a ? htmlConCollab(a.nome || '', a.collab, a.email) : ''; }
     /* Come si dice il passaggio di stato in una frase: "la richiesta e' stata CORRETTA".
        Serve all'oggetto della mail e all'avviso a video, dove "risolta" da sola non
        direbbe cosa e' successo davvero. */
@@ -22295,9 +22531,9 @@
                 </summary>
                 <div class="comm-dettaglio">
                     <div class="ric-meta">
-                        <span><strong>Richiesta da</strong> ${esc((r.richiedente && r.richiedente.nome) || '')} il ${fmtDataOra(r.creato)}</span>
+                        <span><strong>Richiesta da</strong> ${htmlAutoreRichiesta(r.richiedente)} il ${fmtDataOra(r.creato)}</span>
                         <span><strong>In conoscenza</strong> ${(r.conoscenza || []).length ? esc((r.conoscenza || []).map(c => c.nome).join(', ')) : 'nessuno (regione senza coordinatore)'}</span>
-                        ${ult ? `<span><strong>Ultimo messaggio</strong> ${esc((ult.autore && ult.autore.nome) || '')} &middot; ${fmtDataOra(ult.ts)}</span>` : ''}
+                        ${ult ? `<span><strong>Ultimo messaggio</strong> ${htmlAutoreRichiesta(ult.autore)} &middot; ${fmtDataOra(ult.ts)}</span>` : ''}
                     </div>
                     <p class="ric-anteprima">${esc(troncaTesto(((r.messaggi || [])[0] || {}).testo || '', 260))}</p>
                 </div>
@@ -22543,11 +22779,11 @@
             if (m.tipo === 'stato') {
                 // i record piu' vecchi non hanno "evento": si ripiega sul testo salvato allora
                 const detto = m.evento ? ('ha segnato la richiesta come ' + m.evento) : (m.testo || '');
-                return '<div class="ric-evento">' + esc(((m.autore && m.autore.nome) || '') + ' ' + detto) + ' &middot; '
+                return '<div class="ric-evento">' + htmlAutoreRichiesta(m.autore) + ' ' + esc(detto) + ' &middot; '
                     + fmtDataOra(m.ts) + '</div>';
             }
             return '<div class="ric-msg' + (suo ? ' mio' : '') + '">'
-                + '<div class="ric-msg-testa"><strong>' + esc((m.autore && m.autore.nome) || '') + '</strong>'
+                + '<div class="ric-msg-testa"><strong>' + htmlAutoreRichiesta(m.autore) + '</strong>'
                 + '<span>' + fmtDataOra(m.ts) + '</span>'
                 + (m.tipo === 'richiesta' ? '<span class="badge neutro">richiesta iniziale</span>' : '') + '</div>'
                 + '<div class="ric-msg-testo">' + esc(m.testo || '').replace(/\n/g, '<br>') + '</div>'
@@ -22770,7 +23006,7 @@
                 ${rigaRiepilogo('Data e ora', fmtDataOra(v.ts))}
                 <div class="riepilogo-riga"><span class="etichetta">Ambito</span><span class="valore">${badgeEntita(ent)}</span></div>
                 ${rigaRiepilogo('Azione', v.azione)}
-                ${rigaRiepilogo('Autore', v.utente)}
+                <div class="riepilogo-riga"><span class="etichetta">Autore</span><span class="valore">${htmlConCollab(v.utente, v.collaboratore)}</span></div>
                 <div class="riepilogo-riga"><span class="etichetta">Riferimento</span><span class="valore">${rifHtml}</span></div>
             </div>
             <h4 style="margin:14px 0 8px; color:var(--blu-500); text-transform:uppercase; letter-spacing:0.05em; font-size:0.82rem;">Modifiche</h4>
@@ -22828,7 +23064,8 @@
             const dalV = document.getElementById('r-dal').value, alV = document.getElementById('r-al').value;
             const dal = dalV ? new Date(dalV + 'T00:00:00').getTime() : null;
             const al = alV ? new Date(alV + 'T23:59:59').getTime() : null;
-            const testoVoce = v => ((v.cliente || '') + ' ' + (v.azione || '') + ' ' + (v.utente || '') + ' ' + (Array.isArray(v.dettagli) ? v.dettagli.map(d => d.campo + ' ' + d.prima + ' ' + d.dopo).join(' ') : (v.dettagli || ''))).toLowerCase();
+            // il collaboratore entra nella ricerca solo per chi lo puo' vedere (il suo riferimento)
+            const testoVoce = v => ((v.cliente || '') + ' ' + (v.azione || '') + ' ' + firmaConCollab(v.utente, v.collaboratore) + ' ' + (Array.isArray(v.dettagli) ? v.dettagli.map(d => d.campo + ' ' + d.prima + ' ' + d.dopo).join(' ') : (v.dettagli || ''))).toLowerCase();
             let lista = base;
             if (t) lista = lista.filter(v => testoVoce(v).includes(t));
             if (u) lista = lista.filter(v => v.utente === u);
@@ -22846,7 +23083,7 @@
                 lista.map((v, i) => `<tr class="cliccabile" data-idx="${i}">
                     <td data-label="Data e ora">${fmtDataOra(v.ts)}</td>
                     <td data-label="Ambito">${badgeEntita(v.entita)}</td>
-                    <td data-label="Autore">${esc(v.utente)}</td>
+                    <td data-label="Autore">${htmlConCollab(v.utente, v.collaboratore)}</td>
                     <td data-label="Azione"><strong>${esc(v.azione)}</strong></td>
                     <td data-label="Riferimento">${esc(v.cliente || (v.entita === 'utente' ? v.rif : '') || '')}</td>
                     <td data-label="Dettagli">${Array.isArray(v.dettagli) ? '<ul class="reg-diff">' + v.dettagli.map(d => '<li><span class="reg-campo">' + esc(d.campo) + '</span> <span class="reg-da">' + esc(troncaTesto(d.prima, 44)) + '</span> <span class="reg-fr">&rarr;</span> <span class="reg-a">' + esc(troncaTesto(d.dopo, 44)) + '</span></li>').join('') + '</ul>' : esc(v.dettagli || '')}</td>
@@ -22867,19 +23104,97 @@
     // etichetta di un ruolo per id (compresi i ruoli personalizzati)
     function nomeRuolo(id) {
         if (id === 'admin') return 'Amministratore';
+        if (eRuoloCollaboratore(id)) return NOME_RUOLO_COLLABORATORE;
         if (Object.prototype.hasOwnProperty.call(NOMI_RUOLO_SOND, id)) return NOMI_RUOLO_SOND[id];
         const r = Ruoli.trova(id);
         return r ? r.nome : (id || 'Senza ruolo');
     }
+    /* "Collaboratore di Mario Rossi": l'etichetta del ruolo di un utente negli elenchi, che per
+       un collaboratore dice anche a chi e' associato (lista = gli utenti, per risalire al nome). */
+    function etichettaRuoloUtente(u, lista) {
+        if (!u || !eRuoloCollaboratore(u.ruolo)) return nomeRuolo(u ? u.ruolo : '');
+        const di = String(u.collaboratoreDi || '').toLowerCase();
+        const p = (lista || []).find(x => String(x.email || '').toLowerCase() === di);
+        return NOME_RUOLO_COLLABORATORE + ' di ' + (p ? (p.nome || p.email) : (di || '(non indicato)'));
+    }
     // <option> per assegnare un ruolo a un utente (sel = ruolo attualmente scelto). In coda,
-    // i due ruoli "solo sondaggio": cosi l'admin puo passare un invitato del sondaggio a un
-    // ruolo pieno (per abilitare le altre aree) e viceversa.
+    // il profilo Collaboratore (che chiede anche di chi) e i due ruoli "solo sondaggio": cosi
+    // l'admin puo passare un invitato del sondaggio a un ruolo pieno (per abilitare le altre
+    // aree) e viceversa.
     function opzioniRuolo(sel) {
         const base = Ruoli.tutti().map(r => '<option value="' + esc(r.id) + '"' + (r.id === sel ? ' selected' : '') + '>' + esc(r.nome) + '</option>').join('');
+        const collab = '<optgroup label="A nome di un altro utente">'
+            + '<option value="' + RUOLO_COLLABORATORE + '"' + (sel === RUOLO_COLLABORATORE ? ' selected' : '') + '>' + esc(NOME_RUOLO_COLLABORATORE) + ' (eredita i permessi di un utente)</option>'
+            + '</optgroup>';
         const sond = '<optgroup label="Solo sondaggio">'
             + Object.keys(NOMI_RUOLO_SOND).map(id => '<option value="' + esc(id) + '"' + (id === sel ? ' selected' : '') + '>' + esc(NOMI_RUOLO_SOND[id]) + '</option>').join('')
             + '</optgroup>';
-        return base + sond;
+        return base + collab + sond;
+    }
+
+    /* --- Collaboratori: la scelta dell'utente di riferimento (sezione Utenti) --- */
+    // gli utenti che possono fare da riferimento (lista = tutti gli utenti; escluso = un indirizzo da togliere)
+    function candidatiRiferimento(lista, escluso) {
+        const ex = String(escluso || '').toLowerCase();
+        return (lista || []).filter(u => u && u.email && String(u.email).toLowerCase() !== ex && puoAvereCollaboratori(u))
+            .sort((a, b) => String(a.nome || a.email).localeCompare(String(b.nome || b.email), 'it'));
+    }
+    function opzioniRiferimento(lista, escluso, sel) {
+        const s = String(sel || '').toLowerCase();
+        return '<option value="">- scegli l\'utente -</option>' + candidatiRiferimento(lista, escluso).map(u => {
+            const e = String(u.email).toLowerCase();
+            return '<option value="' + esc(e) + '"' + (e === s ? ' selected' : '') + '>' + esc((u.nome || e) + ' - ' + e + ' (' + nomeRuolo(u.ruolo) + ')') + '</option>';
+        }).join('');
+    }
+    // il blocco "Collaboratore di" della modale utente: compare solo con il profilo Collaboratore
+    function campoRiferimentoHtml(lista, escluso, sel, visibile) {
+        return '<div class="campo' + (visibile ? '' : ' hidden') + '" id="m-collab-campo"><label>Collaboratore di</label>'
+            + '<select id="m-collab-di">' + opzioniRiferimento(lista, escluso, sel) + '</select>'
+            + '<div class="hint">Il collaboratore vede e può fare tutto quello che può l\'utente scelto, e le sue modifiche compaiono agli altri con il nome di quest\'ultimo. Solo l\'utente scelto vede anche chi le ha fatte davvero.</div></div>';
+    }
+    function collegaCampoRiferimento() {
+        const r = document.getElementById('m-ruolo'), c = document.getElementById('m-collab-campo');
+        if (!r || !c) return;
+        const aggiorna = () => { c.classList.toggle('hidden', !eRuoloCollaboratore(r.value)); };
+        r.addEventListener('change', aggiorna); aggiorna();
+    }
+    /* L'indirizzo scelto come riferimento, controllato: '' se il ruolo non lo richiede,
+       null (con avviso a video) se manca o non va bene. */
+    function riferimentoScelto(ruolo, emailUtente, lista) {
+        if (!eRuoloCollaboratore(ruolo)) return '';
+        const sel = document.getElementById('m-collab-di');
+        const di = sel ? String(sel.value || '').trim().toLowerCase() : '';
+        if (!di) { toast('Indica di quale utente è collaboratore.', 'rosso'); return null; }
+        if (di === String(emailUtente || '').toLowerCase()) { toast('Un utente non può essere collaboratore di sé stesso.', 'rosso'); return null; }
+        const p = (lista || []).find(u => String(u.email || '').toLowerCase() === di);
+        if (!p || !puoAvereCollaboratori(p)) { toast('L\'utente scelto non può avere collaboratori: serve un utente attivo dello staff (non un altro collaboratore né un invitato al solo sondaggio).', 'rosso'); return null; }
+        return di;
+    }
+    // i collaboratori che dipendono da un utente: prima di disabilitarlo o eliminarlo va detto
+    function collaboratoriDi(email, lista) {
+        const e = String(email || '').toLowerCase();
+        return (lista || []).filter(u => u && eRuoloCollaboratore(u.ruolo) && String(u.collaboratoreDi || '').toLowerCase() === e);
+    }
+    function avvisoCollaboratoriDipendenti(email, lista, conseguenza) {
+        const c = collaboratoriDi(email, lista);
+        if (!c.length) return '';
+        return '<p class="avviso-collab"><strong>' + (c.length === 1 ? 'Un collaboratore dipende' : c.length + ' collaboratori dipendono') + ' da questo utente</strong> ('
+            + esc(c.map(x => x.nome || x.email).join(', ')) + '): ' + conseguenza + '</p>';
+    }
+    /* Finestra per scegliere (o cambiare) l'utente di riferimento di un collaboratore.
+       salva(di) fa il salvataggio (anche async); annulla() al rifiuto. */
+    function modaleScegliRiferimento(u, lista, salva, annulla) {
+        apriModale('<h2>Collaboratore di</h2>'
+            + '<p class="descrizione"><strong>' + esc(u.nome || u.email) + '</strong> (' + esc(u.email) + ') lavorerà a nome dell\'utente scelto qui sotto, con i suoi stessi permessi.</p>'
+            + campoRiferimentoHtml(lista, u.email, u.collaboratoreDi, true)
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-salva">Salva</button></div>');
+        document.getElementById('m-annulla').addEventListener('click', () => { chiudiModale(); if (annulla) annulla(); });
+        const b = document.getElementById('m-salva');
+        b.addEventListener('click', () => conAttesa(b, async () => {
+            const di = riferimentoScelto(RUOLO_COLLABORATORE, u.email, lista);
+            if (!di) return;
+            await salva(di);
+        }));
     }
     /* Selettore "dall'anagrafica" nel modale di creazione utente: si sceglie una persona
        gia' in Aderenti Revilaw (con email) e nome + email si compilano da soli, restando modificabili. */
@@ -22905,7 +23220,14 @@
     }
     // quanti utenti (in locale) hanno un dato ruolo: per avvisare prima di cancellarlo
     function utentiConRuolo(id) {
-        try { return Auth.utenti().filter(u => u.ruolo === id).length; } catch (e) { return 0; }
+        try { return contaUtentiConRuolo(Auth.utenti(), id); } catch (e) { return 0; }
+    }
+    /* Quanti perderebbero l'accesso senza quel ruolo: chi ce l'ha piu' i collaboratori di
+       costoro, che ereditano tutto dal loro utente di riferimento. */
+    function contaUtentiConRuolo(lista, id) {
+        const l = lista || [];
+        const conRuolo = new Set(l.filter(u => u && u.ruolo === id).map(u => String(u.email || '').toLowerCase()));
+        return l.filter(u => u && (u.ruolo === id || (eRuoloCollaboratore(u.ruolo) && conRuolo.has(String(u.collaboratoreDi || '').toLowerCase())))).length;
     }
 
     function vistaRuoli() {
@@ -22938,19 +23260,28 @@
                 ${r.id === 'coordinatore' || r.id === 'vicecoordinatore' ? '<div class="ruolo-reg">Vede solo gli incarichi delle <strong>sue regioni</strong> (la Regione della sua scheda in Aderenti Revilaw più le eventuali altre regioni coordinate). I permessi per sezione qui sopra li imposta l\'amministratore.</div>' : ''}
                 ${r.id === RUOLO_MARKETING ? '<div class="ruolo-reg">Non è limitato al territorio: vede gli incarichi di tutte le regioni. Parte con tutto in sola lettura; la scrittura si concede sezione per sezione. Sulle richieste di correzione resta osservatore.</div>' : ''}
             </div>`).join('') +
-            `</div>`;
+            `<div class="ruolo-card ruolo-card-collab">
+                <div class="ruolo-testa">
+                    <h2>${esc(NOME_RUOLO_COLLABORATORE)} <span class="badge ambra">di sistema</span></h2>
+                    <div class="ruolo-azioni"><button class="btn btn-sm btn-secondary" id="r-collab-utenti">Abilita un collaboratore</button></div>
+                </div>
+                <div class="ruolo-sez"><span class="badge collegio">Nessun permesso proprio: eredita tutto dall'utente di riferimento</span></div>
+                <div class="ruolo-reg">Si assegna dalla sezione <strong>Utenti</strong>, indicando <strong>di quale utente</strong> è collaboratore. Vede e può fare esattamente quello che vede e può fare quell'utente: ruolo, sezioni, territorio, Eventi e Newsletter comprese; se il riferimento viene disabilitato, anche il collaboratore resta fuori. Le sue modifiche compaiono a tutti con il <strong>nome dell'utente di riferimento</strong>; solo quest'ultimo vede anche quale collaboratore le ha fatte.</div>
+            </div>
+            </div>`;
         document.getElementById('btn-nuovo-ruolo').addEventListener('click', () => modaleRuolo(null));
+        document.getElementById('r-collab-utenti').addEventListener('click', () => naviga('utenti'));
         $vista().querySelectorAll('.r-mod').forEach(b => b.addEventListener('click', () => modaleRuolo(b.dataset.id)));
         $vista().querySelectorAll('.r-del').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
             const r = Ruoli.trova(b.dataset.id); if (!r || r.id === 'admin' || r.sistema) return;
             // conteggio utenti col ruolo: in cloud gli utenti stanno su Firestore, non in locale
             let n = 0, contato = true;
             if (Cloud.attivo) {
-                try { const u = await Cloud.listaUtenti(); n = (u || []).filter(x => x.ruolo === r.id).length; }
+                try { const u = await Cloud.listaUtenti(); n = contaUtentiConRuolo(u || [], r.id); }
                 catch (e) { contato = false; }
             } else { n = utentiConRuolo(r.id); }
             const avviso = !contato ? 'Non è stato possibile contare gli utenti con questo ruolo: verifica a mano che nessuno lo usi prima di eliminarlo.'
-                : (n ? '<strong>' + n + (n === 1 ? ' utente ha' : ' utenti hanno') + '</strong> questo ruolo: riassegnalo prima, altrimenti resteranno senza accesso finché l\'amministratore non interviene.'
+                : (n ? '<strong>' + n + (n === 1 ? ' utente ha' : ' utenti hanno') + '</strong> questo ruolo (contando anche i loro eventuali collaboratori): riassegnalo prima, altrimenti resteranno senza accesso finché l\'amministratore non interviene.'
                     : 'Nessun utente risulta avere questo ruolo.');
             apriModale(`<h2>Eliminare il ruolo "${esc(r.nome)}"?</h2>
                 <p>${avviso}</p>
@@ -22995,11 +23326,15 @@
             // i ruoli di sistema hanno nome fisso: non c'e il campo nome nella modale
             const nome = diSistema ? r.nome : document.getElementById('r-nome').value.trim();
             if (!nome) { mostra('Dai un nome al ruolo.'); return; }
+            // "Collaboratore" e' un profilo di sistema con la sua logica: un ruolo su misura
+            // con lo stesso nome farebbe solo confusione nella tendina degli utenti
+            if (!diSistema && nome.toLowerCase() === NOME_RUOLO_COLLABORATORE.toLowerCase()) { mostra('"' + NOME_RUOLO_COLLABORATORE + '" è un profilo di sistema: si assegna dalla sezione Utenti, scegliendo di quale utente è collaboratore.'); return; }
             const lista = Ruoli.tutti();
             let nid = r.id;
             if (!nid) {
                 const base = nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'ruolo';
-                nid = base; let k = 2; while (nid === 'admin' || lista.some(x => x.id === nid)) { nid = base + '-' + k; k++; }
+                // gli id riservati (admin, collaboratore, solo sondaggio) non si occupano
+                nid = base; let k = 2; while (nid === 'admin' || eRuoloCollaboratore(nid) || eRuoloSoloSondaggio(nid) || lista.some(x => x.id === nid)) { nid = base + '-' + k; k++; }
             }
             if (!diSistema && lista.some(x => x.id !== nid && String(x.nome).trim().toLowerCase() === nome.toLowerCase())) { mostra('Esiste già un ruolo con questo nome.'); return; }
             const sezioni = {};
@@ -23023,14 +23358,15 @@
     /* Elimina definitivamente un utente (locale o cloud). A differenza di
        "Disabilita" (reversibile), qui l'utente sparisce dall'elenco e perde
        ogni accesso: per riammetterlo va riabilitato da capo. */
-    function confermaEliminaUtente(email, nome) {
-        if (Auth.utenteCorrente && String(email).toLowerCase() === String(Auth.utenteCorrente.email).toLowerCase()) {
+    function confermaEliminaUtente(email, nome, lista) {
+        if (eUtenteMio(email)) {
             toast('Non puoi eliminare il tuo stesso utente.', 'rosso'); return;
         }
         apriModale('<h2>Elimina definitivamente l\'utente</h2>'
             + '<p>Vuoi eliminare <strong>' + esc(nome || email) + '</strong> (' + esc(email) + ')?</p>'
             + '<p class="descrizione">L\'utente sparisce dall\'elenco e perde subito l\'accesso all\'area riservata. '
             + 'L\'operazione non è reversibile: per riammetterlo dovrai abilitarlo di nuovo con "Abilita utente".</p>'
+            + avvisoCollaboratoriDipendenti(email, lista, 'senza il loro utente di riferimento non potranno più entrare, finché non li associ a un altro utente.')
             + '<div class="modale-azioni"><button class="btn btn-ghost" id="ue-no">Annulla</button>'
             + '<button class="btn btn-danger" id="ue-si">Elimina definitivamente</button></div>');
         document.getElementById('ue-no').addEventListener('click', chiudiModale);
@@ -23052,6 +23388,60 @@
         }, { testo: 'Elimino…' }));
     }
 
+    /* "Il mio utente" nella vista Utenti: la mia sessione e, se sono un collaboratore, anche
+       il mio utente di riferimento. Il ruolo da cui dipende il proprio accesso non si cambia
+       da soli, e non ci si elimina. */
+    function eUtenteMio(email) {
+        const e = String(email || '').toLowerCase();
+        return e === Auth.emailSessione() || (!!Auth.utenteCorrente && e === String(Auth.utenteCorrente.email || '').toLowerCase());
+    }
+    /* La cella "Ruolo" della tabella utenti: la tendina e, per un collaboratore, di chi lo e'
+       (con l'avviso se il riferimento non va piu' bene) e il pulsante per cambiarlo. */
+    function cellaRuoloUtente(u, utenti) {
+        if (eUtenteMio(u.email)) return esc(etichettaRuoloUtente(u, utenti));
+        let html = '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>';
+        if (eRuoloCollaboratore(u.ruolo)) {
+            const di = String(u.collaboratoreDi || '').toLowerCase();
+            const p = (utenti || []).find(x => String(x.email || '').toLowerCase() === di);
+            const problema = !di ? 'non indicato' : !p ? 'utente non trovato'
+                : (p.attivo === false ? 'utente disabilitato' : (!puoAvereCollaboratori(p) ? 'non può fare da riferimento' : ''));
+            html += '<div class="u-collab-di">di <strong>' + esc(p ? (p.nome || p.email) : (di || 'nessuno')) + '</strong>'
+                + (problema ? ' <span class="badge rosso" title="Finché non lo associ a un utente valido, il collaboratore non può entrare">' + esc(problema) + '</span>' : '')
+                + ' <button type="button" class="btn btn-sm btn-ghost u-cambia-rif" data-email="' + esc(u.email) + '">Cambia</button></div>';
+        }
+        return html;
+    }
+    /* Prima di un'operazione che lascerebbe fuori i collaboratori di un utente (disabilitarlo,
+       cambiargli ruolo): se ce ne sono, si chiede conferma; altrimenti si procede subito. */
+    function confermaSeCollaboratori(email, lista, conseguenza, poi, annulla) {
+        const avviso = avvisoCollaboratoriDipendenti(email, lista, conseguenza);
+        if (!avviso) { poi(); return; }
+        apriModale('<h2>Attenzione ai collaboratori</h2>' + avviso
+            + '<div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-danger" id="m-conferma">Procedi comunque</button></div>');
+        document.getElementById('m-annulla').addEventListener('click', () => { chiudiModale(); if (annulla) annulla(); });
+        document.getElementById('m-conferma').addEventListener('click', () => { chiudiModale(); poi(); });
+    }
+    // la modale "Abilita nuovo utente", uguale in locale e in cloud (cambia solo il testo finale)
+    function htmlModaleNuovoUtente(utenti, notaFinale, testoPulsante) {
+        return `<h2>Abilita nuovo utente</h2>
+                ${selettorePersonaUtente()}
+                <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
+                <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
+                <div class="campo"><label>Ruolo</label><select id="m-ruolo">${opzioniRuolo(null)}</select></div>
+                ${campoRiferimentoHtml(utenti, '', '', false)}
+                <p class="descrizione">${notaFinale}</p>
+                <div class="modale-azioni">
+                    <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                    <button class="btn btn-primary" id="m-salva">${testoPulsante}</button>
+                </div>`;
+    }
+    // le voci del registro per un ruolo appena assegnato (con l'eventuale riferimento)
+    function dettagliRuoloAudit(prima, dopo, primaDi, dopoDi) {
+        const d = [{ campo: 'Ruolo', prima: prima ? nomeRuolo(prima) : 'vuoto', dopo: nomeRuolo(dopo) }];
+        if ((primaDi || '') !== (dopoDi || '')) d.push({ campo: 'Collaboratore di', prima: primaDi || 'vuoto', dopo: dopoDi || 'vuoto' });
+        return d;
+    }
+
     function vistaUtenti() {
         if (!Auth.eAdmin() && !Auth.eProprietario()) { naviga('dashboard'); return; }
         if (Cloud.attivo) { vistaUtentiCloud(); return; }
@@ -23061,7 +23451,7 @@
             <header>
                 <div>
                     <h1>Utenti abilitati</h1>
-                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono richiedere la prima password e accedere all'area riservata.</p>
+                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono richiedere la prima password e accedere all'area riservata. Un <strong>collaboratore</strong> lavora a nome di un altro utente, con i suoi stessi permessi.</p>
                 </div>
                 <div class="header-azioni"><button class="btn btn-primary" id="btn-nuovo-utente">+ Abilita utente</button></div>
             </header>
@@ -23071,31 +23461,23 @@
             utenti.map(u => `<tr>
                 <td class="cliente-cella" data-label="Nome">${esc(u.nome)}</td>
                 <td data-label="Email">${esc(u.email)}</td>
-                <td data-label="Ruolo">${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
+                <td data-label="Ruolo">${cellaRuoloUtente(u, utenti)}</td>
                 <td data-label="Stato">${u.attivo ? (u.hash ? '<span class="badge verde">attivo</span>' : '<span class="badge ambra">in attesa di prima password</span>') : '<span class="badge rosso">disabilitato</span>'}${u.mustChange && u.hash ? ' <span class="badge neutro">cambio password richiesto</span>' : ''}</td>
                 <td data-label="Ultimo accesso">${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
                 <td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary u-reimposta" data-email="${esc(u.email)}">Reimposta password</button>
-                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm ${u.attivo ? 'btn-danger' : 'btn-secondary'} u-attiva" data-email="${esc(u.email)}">${u.attivo ? 'Disabilita' : 'Riabilita'}</button>` : ''}
-                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
+                    ${!eUtenteMio(u.email) ? `<button class="btn btn-sm ${u.attivo ? 'btn-danger' : 'btn-secondary'} u-attiva" data-email="${esc(u.email)}">${u.attivo ? 'Disabilita' : 'Riabilita'}</button>` : ''}
+                    ${!eUtenteMio(u.email) ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
                 </td>
             </tr>`).join('') +
             `</tbody></table></div>`;
 
         attrezzaTabella($vista(), { nomeFile: 'utenti' });
         document.getElementById('btn-nuovo-utente').addEventListener('click', () => {
-            apriModale(`<h2>Abilita nuovo utente</h2>
-                ${selettorePersonaUtente()}
-                <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
-                <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
-                <div class="campo"><label>Ruolo</label><select id="m-ruolo">${opzioniRuolo(null)}</select></div>
-                <p class="descrizione">L'utente riceverà l'accesso richiedendo la prima password dalla pagina di ingresso.</p>
-                <div class="modale-azioni">
-                    <button class="btn btn-ghost" id="m-annulla">Annulla</button>
-                    <button class="btn btn-primary" id="m-salva">Abilita</button>
-                </div>`);
+            apriModale(htmlModaleNuovoUtente(utenti, 'L\'utente riceverà l\'accesso richiedendo la prima password dalla pagina di ingresso.', 'Abilita'));
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
             collegaSelettorePersona();
+            collegaCampoRiferimento();
             document.getElementById('m-salva').addEventListener('click', () => {
                 const nome = document.getElementById('m-nome').value.trim();
                 const email = document.getElementById('m-email').value.trim().toLowerCase();
@@ -23103,9 +23485,14 @@
                 if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Inserisci nome e un indirizzo email valido.', 'rosso'); return; }
                 if (Auth.trova(email)) { toast('Esiste già un utente con questo indirizzo.', 'rosso'); return; }
                 const utenti2 = Auth.utenti();
-                utenti2.push({ email, nome, ruolo, hash: null, sale: uid(), mustChange: false, tentativi: 0, bloccatoFino: 0, attivo: true, creato: Date.now(), creatoDa: Auth.utenteCorrente.email });
+                // il profilo Collaboratore vuole anche di chi: senza, non si salva
+                const di = riferimentoScelto(ruolo, email, utenti2);
+                if (di === null) return;
+                const nuovo = { email, nome, ruolo, hash: null, sale: uid(), mustChange: false, tentativi: 0, bloccatoFino: 0, attivo: true, creato: Date.now(), creatoDa: Auth.utenteCorrente.email };
+                if (di) nuovo.collaboratoreDi = di;
+                utenti2.push(nuovo);
                 Auth.salvaUtenti(utenti2);
-                Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, [{ campo: 'Ruolo', prima: 'vuoto', dopo: ruolo }]);
+                Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, dettagliRuoloAudit('', ruolo, '', di));
                 chiudiModale();
                 toast('Utente abilitato: potrà richiedere la prima password dalla pagina di accesso.', 'verde');
                 vistaUtenti();
@@ -23126,22 +23513,48 @@
         $vista().querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => {
             const email = b.dataset.email;
             const utenti2 = Auth.utenti();
-            const u = utenti2.find(x => x.email === email);
-            u.attivo = !u.attivo;
-            Auth.salvaUtenti(utenti2);
-            Audit.registra(Auth.utenteCorrente, u.attivo ? 'Utente riabilitato' : 'Utente disabilitato', 'utente', email, null, null);
-            toast(u.attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
-            vistaUtenti();
+            const u = utenti2.find(x => x.email === email); if (!u) return;
+            const esegui = () => {
+                u.attivo = !u.attivo;
+                Auth.salvaUtenti(utenti2);
+                Audit.registra(Auth.utenteCorrente, u.attivo ? 'Utente riabilitato' : 'Utente disabilitato', 'utente', email, null, null);
+                toast(u.attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
+                vistaUtenti();
+            };
+            // disabilitando un utente restano fuori anche i suoi collaboratori: si avvisa prima
+            if (u.attivo) confermaSeCollaboratori(email, utenti2, 'finché resta disabilitato non potranno entrare nemmeno loro.', esegui);
+            else esegui();
         }));
-        $vista().querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome)));
+        $vista().querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome, utenti)));
+        $vista().querySelectorAll('.u-cambia-rif').forEach(b => b.addEventListener('click', () => {
+            const utenti2 = Auth.utenti();
+            const u = utenti2.find(x => x.email === b.dataset.email); if (!u) return;
+            modaleScegliRiferimento(u, utenti2, async di => {
+                const prima = u.collaboratoreDi || '';
+                u.collaboratoreDi = di;
+                Auth.salvaUtenti(utenti2);
+                Audit.registra(Auth.utenteCorrente, 'Collaboratore: cambiato utente di riferimento', 'utente', u.email, null, [{ campo: 'Collaboratore di', prima: prima || 'vuoto', dopo: di }]);
+                chiudiModale(); toast('Utente di riferimento aggiornato.', 'verde'); vistaUtenti();
+            });
+        }));
         $vista().querySelectorAll('.u-ruolo').forEach(sel => sel.addEventListener('change', () => {
             const email = sel.dataset.email, nuovo = sel.value;
             const utenti2 = Auth.utenti();
             const u = utenti2.find(x => x.email === email); if (!u) return;
-            const prima = u.ruolo; u.ruolo = nuovo;
-            Auth.salvaUtenti(utenti2);
-            Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, [{ campo: 'Ruolo', prima: nomeRuolo(prima), dopo: nomeRuolo(nuovo) }]);
-            toast('Ruolo aggiornato per ' + email + '.', 'verde');
+            const prima = u.ruolo, primaDi = u.collaboratoreDi || '';
+            const applica = di => {
+                u.ruolo = nuovo;
+                if (di) u.collaboratoreDi = di; else delete u.collaboratoreDi;
+                Auth.salvaUtenti(utenti2);
+                Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, dettagliRuoloAudit(prima, nuovo, primaDi, di));
+                toast('Ruolo aggiornato per ' + email + '.', 'verde');
+                vistaUtenti();
+            };
+            // verso il profilo Collaboratore: prima si sceglie di chi, poi si salva
+            if (eRuoloCollaboratore(nuovo)) { modaleScegliRiferimento(u, utenti2, async di => { chiudiModale(); applica(di); }, () => { sel.value = prima; }); return; }
+            // chi ha collaboratori e passa a un profilo che non puo' averne li lascerebbe fuori
+            if (!puoAvereCollaboratori({ ...u, ruolo: nuovo })) { confermaSeCollaboratori(email, utenti2, 'con questo ruolo non potranno più entrare, finché non li associ a un altro utente.', () => applica(''), () => { sel.value = prima; }); return; }
+            applica('');
         }));
     }
 
@@ -23151,37 +23564,35 @@
             <header>
                 <div>
                     <h1>Utenti abilitati</h1>
-                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono accedere. La password si imposta e si recupera tramite email.</p>
+                    <p class="descrizione">Solo gli indirizzi presenti in questo elenco possono accedere. La password si imposta e si recupera tramite email. Un <strong>collaboratore</strong> lavora a nome di un altro utente, con i suoi stessi permessi.</p>
                 </div>
                 <div class="header-azioni"><button class="btn btn-primary" id="btn-nuovo-utente">+ Abilita utente</button></div>
             </header>
             <div class="card tabella-vuota" id="u-caricamento">Caricamento elenco utenti...</div>
             <div id="u-tabella"></div>`;
 
-        document.getElementById('btn-nuovo-utente').addEventListener('click', () => {
-            apriModale(`<h2>Abilita nuovo utente</h2>
-                ${selettorePersonaUtente()}
-                <div class="campo"><label>Nome e cognome</label><input id="m-nome"></div>
-                <div class="campo"><label>Email</label><input id="m-email" type="email"></div>
-                <div class="campo"><label>Ruolo</label><select id="m-ruolo">
-                    ${opzioniRuolo(null)}
-                </select></div>
-                <p class="descrizione">L'utente riceverà una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password. Ricordagli di controllare anche la posta indesiderata / spam.</p>
-                <div class="modale-azioni">
-                    <button class="btn btn-ghost" id="m-annulla">Annulla</button>
-                    <button class="btn btn-primary" id="m-salva">Abilita e invia email</button>
-                </div>`);
+        let utenti = [];
+        document.getElementById('btn-nuovo-utente').addEventListener('click', async () => {
+            // l'elenco serve alla tendina "Collaboratore di": se non e' ancora arrivato si riprova
+            if (!utenti.length) { try { utenti = await Cloud.listaUtenti(); } catch (e) { utenti = []; } }
+            apriModale(htmlModaleNuovoUtente(utenti, 'L\'utente riceverà una email (da noreply@nextgenerationbusiness.it) con il collegamento per impostare la password. Ricordagli di controllare anche la posta indesiderata / spam.', 'Abilita e invia email'));
             document.getElementById('m-annulla').addEventListener('click', chiudiModale);
             collegaSelettorePersona();
+            collegaCampoRiferimento();
             const btnSalvaU = document.getElementById('m-salva');
             btnSalvaU.addEventListener('click', () => conAttesa(btnSalvaU, async () => {
                 const nome = document.getElementById('m-nome').value.trim();
                 const email = document.getElementById('m-email').value.trim().toLowerCase();
                 const ruolo = document.getElementById('m-ruolo').value;
                 if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast('Inserisci nome e un indirizzo email valido.', 'rosso'); return; }
+                // il profilo Collaboratore vuole anche di chi: senza, non si salva
+                const di = riferimentoScelto(ruolo, email, utenti);
+                if (di === null) return;
                 try {
-                    await Cloud.salvaUtente(email, { nome, ruolo, attivo: true, creato: Date.now(), creatoDa: Auth.utenteCorrente.email });
-                    Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, [{ campo: 'Ruolo', prima: 'vuoto', dopo: ruolo }]);
+                    const dati = { nome, ruolo, attivo: true, creato: Date.now(), creatoDa: Auth.utenteCorrente.email };
+                    if (di) dati.collaboratoreDi = di;
+                    await Cloud.salvaUtente(email, dati);
+                    Audit.registra(Auth.utenteCorrente, 'Utente abilitato', 'utente', email, null, dettagliRuoloAudit('', ruolo, '', di));
                     const invio = await Cloud.primaPassword(email);
                     chiudiModale();
                     if (invio.ok && invio.saltato) toast('Utente abilitato. Email password NON inviata ora: ' + (invio.msg || 'limite raggiunto per questo indirizzo, riprova tra qualche minuto.'), 'ambra');
@@ -23193,7 +23604,6 @@
             }, { testo: 'Abilito…' }));
         });
 
-        let utenti = [];
         try {
             utenti = await Cloud.listaUtenti();
         } catch (e) {
@@ -23213,13 +23623,13 @@
             utenti.map(u => `<tr>
                 <td class="cliente-cella" data-label="Nome">${esc(u.nome || '')}</td>
                 <td data-label="Email">${esc(u.email)}</td>
-                <td data-label="Ruolo">${u.email === Auth.utenteCorrente.email ? esc(nomeRuolo(u.ruolo)) : '<select class="u-ruolo" data-email="' + esc(u.email) + '">' + opzioniRuolo(u.ruolo) + '</select>'}</td>
+                <td data-label="Ruolo">${cellaRuoloUtente(u, utenti)}</td>
                 <td data-label="Stato">${u.attivo === false ? '<span class="badge rosso">disabilitato</span>' : '<span class="badge verde">attivo</span>'}</td>
                 <td data-label="Ultimo accesso">${u.ultimoAccesso ? fmtDataOra(u.ultimoAccesso) : ''}</td>
                 <td data-label="" style="white-space:nowrap;">
                     <button class="btn btn-sm btn-secondary u-reimposta" data-email="${esc(u.email)}">Invia email reimposta password</button>
-                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm ${u.attivo === false ? 'btn-secondary' : 'btn-danger'} u-attiva" data-email="${esc(u.email)}" data-attivo="${u.attivo === false ? '0' : '1'}">${u.attivo === false ? 'Riabilita' : 'Disabilita'}</button>` : ''}
-                    ${u.email !== Auth.utenteCorrente.email ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
+                    ${!eUtenteMio(u.email) ? `<button class="btn btn-sm ${u.attivo === false ? 'btn-secondary' : 'btn-danger'} u-attiva" data-email="${esc(u.email)}" data-attivo="${u.attivo === false ? '0' : '1'}">${u.attivo === false ? 'Riabilita' : 'Disabilita'}</button>` : ''}
+                    ${!eUtenteMio(u.email) ? `<button class="btn btn-sm btn-danger u-elimina" data-email="${esc(u.email)}" data-nome="${esc(u.nome || '')}">Elimina</button>` : ''}
                 </td>
             </tr>`).join('') +
             `</tbody></table></div>`;
@@ -23232,32 +23642,63 @@
             if (esito.ok && esito.saltato) toast('NON inviata: ' + (esito.msg || 'limite raggiunto per questo indirizzo, riprova tra qualche minuto.'), 'ambra');
             else toast(esito.ok ? 'Email inviata a ' + b.dataset.email + ' (potrebbe finire nello spam).' : esito.msg, esito.ok ? 'verde' : 'rosso');
         }, { testo: 'Invio…' })));
-        document.querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => conAttesa(b, async () => {
+        document.querySelectorAll('.u-attiva').forEach(b => b.addEventListener('click', () => {
             const attivo = b.dataset.attivo !== '1';
-            try {
-                await Cloud.salvaUtente(b.dataset.email, { attivo });
-                Audit.registra(Auth.utenteCorrente, attivo ? 'Utente riabilitato' : 'Utente disabilitato', 'utente', b.dataset.email, null, null);
-                toast(attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
-                vistaUtentiCloud();
-            } catch (e) {
-                toast('Operazione non riuscita: ' + Cloud.msgErrore(e), 'rosso');
-            }
-        })));
-        document.querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome)));
+            const esegui = () => conAttesa(b, async () => {
+                try {
+                    await Cloud.salvaUtente(b.dataset.email, { attivo });
+                    Audit.registra(Auth.utenteCorrente, attivo ? 'Utente riabilitato' : 'Utente disabilitato', 'utente', b.dataset.email, null, null);
+                    toast(attivo ? 'Utente riabilitato.' : 'Utente disabilitato.', 'verde');
+                    vistaUtentiCloud();
+                } catch (e) {
+                    toast('Operazione non riuscita: ' + Cloud.msgErrore(e), 'rosso');
+                }
+            });
+            // disabilitando un utente restano fuori anche i suoi collaboratori: si avvisa prima
+            if (!attivo) confermaSeCollaboratori(b.dataset.email, utenti, 'finché resta disabilitato non potranno entrare nemmeno loro.', esegui);
+            else esegui();
+        }));
+        document.querySelectorAll('.u-elimina').forEach(b => b.addEventListener('click', () => confermaEliminaUtente(b.dataset.email, b.dataset.nome, utenti)));
+        document.querySelectorAll('.u-cambia-rif').forEach(b => b.addEventListener('click', () => {
+            const u = utenti.find(x => x.email === b.dataset.email); if (!u) return;
+            modaleScegliRiferimento(u, utenti, async di => {
+                const prima = u.collaboratoreDi || '';
+                try {
+                    await Cloud.salvaUtente(u.email, { collaboratoreDi: di });
+                    Audit.registra(Auth.utenteCorrente, 'Collaboratore: cambiato utente di riferimento', 'utente', u.email, null, [{ campo: 'Collaboratore di', prima: prima || 'vuoto', dopo: di }]);
+                    chiudiModale(); toast('Utente di riferimento aggiornato.', 'verde'); vistaUtentiCloud();
+                } catch (e) {
+                    toast('Salvataggio non riuscito: ' + Cloud.msgErrore(e), 'rosso');
+                }
+            });
+        }));
         document.querySelectorAll('.u-ruolo').forEach(sel => {
             let prec = sel.value;
             sel.addEventListener('change', async () => {
                 const email = sel.dataset.email, nuovo = sel.value;
-                sel.disabled = true;
-                try {
-                    await Cloud.salvaUtente(email, { ruolo: nuovo });
-                    Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, [{ campo: 'Ruolo', prima: nomeRuolo(prec), dopo: nomeRuolo(nuovo) }]);
-                    prec = nuovo;
-                    toast('Ruolo aggiornato per ' + email + '.', 'verde');
-                } catch (e) {
-                    sel.value = prec;
-                    toast('Cambio ruolo non riuscito: ' + Cloud.msgErrore(e), 'rosso');
-                } finally { sel.disabled = false; }
+                const u = utenti.find(x => x.email === email) || { email: email };
+                const precDi = u.collaboratoreDi || '';
+                const salva = async di => {
+                    sel.disabled = true;
+                    try {
+                        const dati = { ruolo: nuovo };
+                        // il riferimento si scrive col profilo Collaboratore e si toglie uscendone
+                        if (di) dati.collaboratoreDi = di; else if (precDi) dati.collaboratoreDi = Cloud.campoDaTogliere();
+                        await Cloud.salvaUtente(email, dati);
+                        Audit.registra(Auth.utenteCorrente, 'Ruolo utente cambiato', 'utente', email, null, dettagliRuoloAudit(prec, nuovo, precDi, di));
+                        prec = nuovo;
+                        toast('Ruolo aggiornato per ' + email + '.', 'verde');
+                        vistaUtentiCloud();
+                    } catch (e) {
+                        sel.value = prec;
+                        toast('Cambio ruolo non riuscito: ' + Cloud.msgErrore(e), 'rosso');
+                    } finally { sel.disabled = false; }
+                };
+                // verso il profilo Collaboratore: prima si sceglie di chi, poi si salva
+                if (eRuoloCollaboratore(nuovo)) { modaleScegliRiferimento(u, utenti, async di => { chiudiModale(); await salva(di); }, () => { sel.value = prec; }); return; }
+                // chi ha collaboratori e passa a un profilo che non puo' averne li lascerebbe fuori
+                if (!puoAvereCollaboratori({ ...u, ruolo: nuovo })) { confermaSeCollaboratori(email, utenti, 'con questo ruolo non potranno più entrare, finché non li associ a un altro utente.', () => salva(''), () => { sel.value = prec; }); return; }
+                await salva('');
             });
         });
     }
@@ -23396,7 +23837,7 @@
                                     media: res.media, oreAnno1: res.oreAnno1, oreAnni23: res.oreAnni23,
                                     origine: 'bilanci importati', il: Date.now()
                                 });
-                                inc.modificato = { da: Auth.utenteCorrente.nome + ' (stima ore da bilanci)', il: Date.now() };
+                                inc.modificato = timbro(Auth.utenteCorrente, { da: firmaUtente(Auth.utenteCorrente) + ' (stima ore da bilanci)' });
                                 aggiornati++; usata = true;
                             });
                             if (usata) righeUsate++;
@@ -23457,7 +23898,7 @@
                             dataFine: dFine.data, dataFineNote: dFine.nota || resto.dataFineNote || null,
                             rinnovo: dRinnovo.data, rinnovoNote: dRinnovo.nota || resto.rinnovoNote || null,
                             id: uid(),
-                            creato: { da: Auth.utenteCorrente.nome + ' (importazione)', il: Date.now() },
+                            creato: timbro(Auth.utenteCorrente, { da: firmaUtente(Auth.utenteCorrente) + ' (importazione)' }),
                             modificato: null
                         });
                     });
@@ -24700,7 +25141,8 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
         document.getElementById('app').classList.remove('hidden');
         collegaHamburger();
         collegaRiduciMenu();
-        document.getElementById('utente-nome').textContent = Auth.utenteCorrente.nome;
+        // il nome di chi e' entrato davvero: un collaboratore vede il suo, e sotto a nome di chi lavora
+        document.getElementById('utente-nome').textContent = Auth.nomeSessione();
         aggiornaEtichettaUtente();
         if (typeof Cloud !== 'undefined' && Cloud.attivo) Cloud.avviaPresenza();
         /* Collegamento diretto: il pulsante di una mail porta a #richiesta-<id> (o a
@@ -24853,9 +25295,11 @@ Alla cortese attenzione dell'Organo Amministrativo</div>
                 ricordaEmail(email, ricorda);
                 if (esito.mustChange) {
                     chiediCambioPassword(email, true, () => {
-                        const u = Auth.trova(email);
-                        Auth.utenteCorrente = u;
-                        sessionStorage.setItem('rvArea.sessione', JSON.stringify({ email: u.email, ts: Date.now() }));
+                        // l'identita' composta (per un collaboratore, quella del suo riferimento)
+                        const identita = Auth.identitaLocale(email);
+                        if (!identita) { mostraLogin(); return; }
+                        Auth.utenteCorrente = identita;
+                        sessionStorage.setItem('rvArea.sessione', JSON.stringify({ email: String(email).toLowerCase(), ts: Date.now() }));
                         mostraApp();
                     });
                     return;

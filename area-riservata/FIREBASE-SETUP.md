@@ -51,13 +51,38 @@ sufficiente per questo utilizzo.
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
+       function mia() {
+         return request.auth.token.email;
+       }
+       function esisteScheda(email) {
+         return exists(/databases/$(database)/documents/utenti/$(email));
+       }
+       function schedaDi(email) {
+         return get(/databases/$(database)/documents/utenti/$(email)).data;
+       }
+       // Il "collaboratore" (ruolo 'collaboratore', campo collaboratoreDi = l'email
+       // di un altro utente) lavora a nome di quell'utente: il ruolo che conta e'
+       // quello del suo riferimento, non il suo. Senza collaboratoreDi la lettura
+       // fallisce e l'accesso e' negato (fail-closed).
+       function eCollaboratore() {
+         return schedaDi(mia()).ruolo == 'collaboratore';
+       }
+       function emailEffettiva() {
+         return eCollaboratore() ? schedaDi(mia()).collaboratoreDi : mia();
+       }
        function ruoloUtente() {
-         return get(/databases/$(database)/documents/utenti/$(request.auth.token.email)).data.ruolo;
+         return schedaDi(emailEffettiva()).ruolo;
        }
        function abilitato() {
          return request.auth != null
-           && exists(/databases/$(database)/documents/utenti/$(request.auth.token.email))
-           && get(/databases/$(database)/documents/utenti/$(request.auth.token.email)).data.attivo == true;
+           && esisteScheda(mia())
+           && schedaDi(mia()).attivo == true
+           // un collaboratore entra solo se il suo riferimento esiste, e' attivo e
+           // non e' a sua volta un collaboratore (niente catene)
+           && (!eCollaboratore()
+               || (esisteScheda(emailEffettiva())
+                   && schedaDi(emailEffettiva()).attivo == true
+                   && schedaDi(emailEffettiva()).ruolo != 'collaboratore'));
        }
        function admin() {
          return abilitato() && ruoloUtente() == 'admin';
@@ -126,6 +151,24 @@ sufficiente per questo utilizzo.
      }
    }
    ```
+
+   > **Collaboratori.** Il profilo "Collaboratore" (sezione Utenti: ruolo
+   > `collaboratore` piu' il campo `collaboratoreDi` con l'email dell'utente di
+   > riferimento) eredita TUTTI i permessi dell'utente a cui e' associato, anche
+   > lato server: le funzioni `eCollaboratore()`, `emailEffettiva()` e
+   > `ruoloUtente()` qui sopra leggono il ruolo dalla scheda del riferimento, e
+   > `abilitato()` pretende che il riferimento esista, sia attivo e non sia a sua
+   > volta un collaboratore. Un collaboratore dell'amministratore e' quindi
+   > amministratore anche per le regole (scrive `utenti`, `archivio/ruoli`,
+   > `modelli`); un collaboratore del titolare ha i poteri del titolare dentro
+   > l'app. Le regole leggono al massimo due schede utente per richiesta (la
+   > propria e quella del riferimento): si resta ben sotto il limite di dieci
+   > letture per valutazione. **Finche' non pubblichi queste regole aggiornate**,
+   > un collaboratore entra comunque (la sua scheda e' attiva e il suo ruolo non
+   > e' "solo sondaggio", quindi e' staff), ma con le regole vecchie NON eredita
+   > l'amministrazione: i salvataggi riservati all'admin gli verrebbero rifiutati
+   > dal server. Anche il servizio email (`email-service/lib/utente-effettivo.js`)
+   > risolve il riferimento allo stesso modo.
 
    > **Messaggi tra utenti connessi.** Il blocco `match /messaggi/{email}` serve
    > ai messaggi privati tra colleghi (popup con risposta). Se le regole
@@ -237,6 +280,30 @@ Cosa succede a livello di sicurezza:
 In sintesi: nessuno puo' auto-promuoversi (quello e' blindato); il "chi vede
 cosa" per sezione e regione e una divisione organizzativa affidabile per un
 gruppo di lavoro interno, non una barriera contro un uso volutamente ostile.
+
+## Collaboratori: chi lavora a nome di un altro utente
+
+Dalla sezione Utenti l'amministratore puo' abilitare un **collaboratore**,
+indicando di quale utente e' collaboratore (campo `collaboratoreDi` sulla sua
+scheda in `utenti`). Il collaboratore:
+
+- **eredita tutti i permessi** dell'utente di riferimento: ruolo, sezioni,
+  filtro per regione, abilitazioni a Eventi e Newsletter, qualifiche della
+  scheda in Aderenti Revilaw (equity partner, responsabile qualita'), proprieta'
+  delle verifiche di rating e delle richieste. Se il riferimento viene
+  disabilitato o eliminato, il collaboratore non entra piu' (la schermata di
+  accesso dice il perche');
+- **firma con il nome del riferimento**: incarichi, registro modifiche,
+  controlli qualita', verifiche, comunicazioni ed email partono con nome e
+  indirizzo dell'utente di riferimento (le risposte alle email tornano a lui);
+- **resta riconoscibile solo al suo riferimento**: nei dati ogni timbro porta
+  anche il campo `collab` (nel registro `collaboratore`) con il nome del
+  collaboratore, che l'app mostra come "tramite <nome>" soltanto all'utente di
+  riferimento collegato in prima persona. Come per il filtro per regione, e'
+  una riservatezza lato browser: il campo sta nei documenti condivisi.
+
+Un collaboratore non puo' essere riferimento di un altro collaboratore, e un
+invitato "solo sondaggio" non puo' avere collaboratori.
 
 ## Note
 
