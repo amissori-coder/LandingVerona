@@ -207,6 +207,70 @@ async function gettoniStato(db, chi, canale) {
     };
 }
 
+/* Ha risposto? Le tre forme che una risposta puo' prendere, in un posto
+   solo: la risposta a una PEC, il modulo di richiesta contatto, e
+   l'iscrizione all'evento col codice. Sono tre strade diverse per dire la
+   stessa cosa - "questa azienda si e' fatta viva" - e chi guarda l'elenco
+   non deve doverle cercare in tre colonne. */
+function haRisposto(d) {
+    if (!d) return false;
+    if (d.contatto && d.contatto.quando) return true;
+    if (d.ricevute && d.ricevute.risposta && d.ricevute.risposta.quando) return true;
+    return d.stato === 'risposta' || d.stato === 'iscritta';
+}
+
+/* La stessa azienda nell'ALTRA lista dello stesso evento.
+   Serve due volte: quando si importa (per avvisare prima che parta un
+   doppione) e a ogni lettura dell'elenco (perche' l'avviso all'import lo si
+   vede una volta sola, e tre settimane dopo la sovrapposizione c'e' ancora).
+   Torna il minimo per decidere: dov'e', a che punto e', e se le e' gia'
+   partito qualcosa - che e' l'unica cosa che rende la scelta obbligata. */
+function altrove(d) {
+    if (!d) return null;
+    return {
+        campagna: CAMPAGNE.diScheda(d),
+        stato: d.stato || 'da-invitare',
+        inviata: !!(d.invio && d.invio.quando),
+        quando: (d.invio && d.invio.quando) || 0,
+        risposto: haRisposto(d)
+    };
+}
+
+/* Le sovrapposizioni fra questa campagna e le altre, per un elenco di
+   recapiti. Si leggono per identificativo e non con una query: gli
+   identificativi li sappiamo comporre, e getAll a blocchi costa una lettura
+   per scheda invece di rileggere tutto l'evento. */
+async function sovrapposizioni(db, evento, campagna, contatti) {
+    const cercate = [];
+    CAMPAGNE.altre(campagna).forEach(altra => {
+        contatti.forEach(c => cercate.push({ contatto: c, campagna: altra, id: idDoc(evento, c, altra) }));
+    });
+    const trovate = [];
+    for (let i = 0; i < cercate.length; i += 200) {
+        const fetta = cercate.slice(i, i + 200);
+        let doc;
+        try { doc = await db.getAll.apply(db, fetta.map(x => db.collection('aziendeInvito').doc(x.id))); }
+        catch (_) { continue; }
+        doc.forEach((snap, k) => {
+            if (!snap || !snap.exists) return;
+            const v = snap.data() || {};
+            const q = fetta[k];
+            trovate.push({
+                contatto: q.contatto,
+                ragioneSociale: v.ragioneSociale || '',
+                qui: idDoc(evento, q.contatto, campagna),
+                la: q.id,
+                campagna: q.campagna,
+                stato: v.stato || 'da-invitare',
+                inviata: !!(v.invio && v.invio.quando),
+                quando: (v.invio && v.invio.quando) || 0,
+                risposto: haRisposto(v)
+            });
+        });
+    }
+    return trovate;
+}
+
 /* La scheda come la vede l'area riservata: fuori restano solo i campi
    che servono a video, non l'intero documento. */
 function inChiaro(id, d) {
@@ -227,6 +291,11 @@ function inChiaro(id, d) {
            sponsorizzazione, e sta sulla scheda perche' la riga lo dica
            senza dover aprire un altro elenco. */
         contatto: d.contatto || null,
+        risposto: haRisposto(d),
+        /* Dov'e' la stessa azienda nell'altra lista, se c'e'. Lo riempie
+           l'elenco, che ha gia' davanti tutte le schede dell'evento: qui
+           resta null e non si va a cercarlo scheda per scheda. */
+        anche: null,
         /* Gli esiti letti dalla casella PEC. Si espone il riepilogo, non la
            storia completa: alla tabella servono l'esito, quando e perche',
            e ogni campo in piu' viaggia moltiplicato per tutte le schede. */
@@ -368,10 +437,25 @@ async function esegui(ctx) {
         if (azione === 'elenco') {
             const snap = await db.collection('aziendeInvito').where('evento', '==', evento).limit(MAX_AZIENDE_EVENTO).get();
             const aziende = [];
+            /* Le schede delle ALTRE campagne non si buttano via: servono a
+               dire, riga per riga, "questa azienda sta anche nell'altro
+               elenco". Sono gia' in mano - la lettura e' per evento, non per
+               campagna - quindi costa un giro di ciclo e nessuna lettura in
+               piu'. */
+            const fuoriCampagna = {};
             /* Il filtro sulla campagna si fa QUI e non nel where(): le schede
                scritte prima delle campagne non hanno il campo, e un
                where('campagna','==','invito') non troverebbe proprio quelle. */
-            snap.forEach(d => { if (CAMPAGNE.diScheda(d.data()) === campagna) aziende.push(inChiaro(d.id, d.data())); });
+            snap.forEach(d => {
+                const v = d.data() || {};
+                if (CAMPAGNE.diScheda(v) === campagna) { aziende.push(inChiaro(d.id, v)); return; }
+                const k = chiaveContatto(v);
+                if (k) fuoriCampagna[k] = altrove(v);
+            });
+            aziende.forEach(a => {
+                const k = String(a.pec || a.email || '').toLowerCase();
+                if (k && fuoriCampagna[k]) a.anche = fuoriCampagna[k];
+            });
             aziende.sort((a, b) => String(a.ragioneSociale).localeCompare(String(b.ragioneSociale), 'it'));
             res.status(200).json({ ok: true, aziende: aziende, aggiornato: Date.now() });
             return;
@@ -526,6 +610,8 @@ async function esegui(ctx) {
 
             let importate = 0, senzaRecapito = 0, doppie = 0, oltreIlLimite = 0, senzaDenominazione = 0;
             const viste = {};
+            // i recapiti finiti in questa lista: servono per il controllo incrociato
+            const contattiVisti = [];
             let batch = db.batch(), nel = 0;
             const nuoviId = [];
             for (let r = 1; r < righe.length; r++) {
@@ -556,6 +642,7 @@ async function esegui(ctx) {
                 }
                 const id = idDoc(evento, contatto, campagna);
                 nuoviId.push(id);
+                contattiVisti.push(contatto);
                 /* merge: ricaricare lo stesso elenco aggiorna i dati anagrafici
                    e NON tocca stato ed esito dell'invio gia' fatto. Lo stato
                    iniziale si scrive solo alla creazione della scheda. */
@@ -590,10 +677,27 @@ async function esegui(ctx) {
                 if (n) await b.commit();
             }
 
+            /* IL CONTROLLO INCROCIATO. La stessa azienda in tutte e due le
+               liste dello stesso evento vuol dire due messaggi diversi allo
+               stesso indirizzo, a poche settimane di distanza: si invita a
+               venire chi si sta gia' chiedendo di pagare, o viceversa. Non lo
+               si vieta - a volte e' voluto - ma va detto SUBITO, mentre chi ha
+               caricato il file e' ancora davanti allo schermo e sa perche'
+               l'ha caricato. Fra tre settimane sarebbe una scoperta.
+
+               Si dice e basta: la scelta di che cosa togliere resta a chi
+               guarda, perche' e' l'unico a sapere quale delle due
+               conversazioni conta di piu' con quell'azienda. */
+            let sovrapposte = [];
+            try { sovrapposte = await sovrapposizioni(db, evento, campagna, contattiVisti); }
+            catch (e) { console.error('Sovrapposizioni non verificate:', String((e && e.message) || e).slice(0, 200)); }
+
             res.status(200).json({
                 ok: true, lette: righe.length - 1, importate: importate, nuove: nuove,
                 aggiornate: importate - nuove, senzaRecapito: senzaRecapito, doppie: doppie,
-                oltreIlLimite: oltreIlLimite, senzaDenominazione: senzaDenominazione
+                oltreIlLimite: oltreIlLimite, senzaDenominazione: senzaDenominazione,
+                sovrapposte: sovrapposte.slice(0, 500),
+                sovrapposteTotali: sovrapposte.length
             });
             return;
         }
@@ -643,7 +747,14 @@ async function esegui(ctx) {
             }
             await rif.set(campi, { merge: true });
             const dopo = await rif.get();
-            res.status(200).json({ ok: true, azienda: inChiaro(id, dopo.data()) });
+            /* Stesso controllo dell'importazione: una scheda aggiunta a mano
+               puo' sovrapporsi all'altra lista esattamente come una riga di
+               foglio, e chi la sta scrivendo e' il momento giusto per
+               dirglielo. */
+            let sovr = [];
+            try { sovr = await sovrapposizioni(db, evento, campagna, [chiaveContatto(campi)]); }
+            catch (_) { sovr = []; }
+            res.status(200).json({ ok: true, azienda: inChiaro(id, dopo.data()), sovrapposte: sovr });
             return;
         }
 

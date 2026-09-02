@@ -2719,6 +2719,22 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* Le schede: la vista attiva si stacca dalle altre e si attacca alla tabella,
    come in un raccoglitore. Il numero e' grande perche' e' quello che si
    guarda; l'etichetta sta sotto e serve solo a dire di cosa. */
+/* "Sta anche nell'altro elenco". Sotto il nome dell'azienda, dove ci sono
+   gia' P.IVA e citta': e' un dato dell'anagrafica, non un esito. Diventa
+   rosso solo quando di la' il messaggio e' gia' partito, che e' l'unico
+   caso in cui c'e' qualcosa da decidere adesso. */
+.inv-doppia { display: inline-block; margin-top: 4px; padding: 1px 7px; border: 1px solid var(--grigio-200); border-radius: 4px; background: var(--grigio-050); color: var(--grigio-600); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.01em; cursor: help; }
+.inv-doppia.ko { border-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
+
+/* La finestra che chiede cosa fare delle sovrapposizioni. Le tre scelte
+   incolonnate e non in fila: sono frasi, non parole, e in fila la terza
+   finirebbe a capo su meta' degli schermi. */
+.inv-sov-scelte { min-width: 260px; }
+.inv-sov-scelta { display: flex; align-items: flex-start; gap: 7px; padding: 3px 6px; border: 1px solid transparent; border-radius: 5px; font-size: 0.82rem; line-height: 1.35; color: var(--grigio-600); cursor: pointer; }
+.inv-sov-scelta:hover { background: var(--blu-050); }
+.inv-sov-scelta.attiva { border-color: var(--blu-300); background: var(--blu-050); color: var(--blu-900); font-weight: 600; }
+.inv-sov-scelta input { margin-top: 2px; }
+
 /* LE DUE CAMPAGNE. Sopra le viste e visivamente piu' in alto di loro: sono
    due elenchi diversi, non due modi di guardare lo stesso. Se stessero allo
    stesso livello delle schede ("Da invitare", "Inviate") si leggerebbero
@@ -2742,6 +2758,9 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 .inv-scheda.attiva { background: #fff; border-color: var(--grigio-200); color: var(--blu-900); box-shadow: 0 -2px 0 var(--blu-700) inset; margin-bottom: -1px; }
 .inv-scheda.attiva b { color: var(--blu-900); }
 .inv-scheda.ko b { color: var(--rosso); }
+/* Le risposte sono l'unica scheda con una buona notizia sopra: e' la
+   sola riga della giornata su cui c'e' da richiamare qualcuno. */
+.inv-scheda.ok b { color: var(--verde); }
 
 .inv-finestra .inv-lettore, .inv-finestra .inv-barra, .inv-finestra .inv-sel-barra, .inv-finestra .ev-imp-esito { margin: 12px 18px 0; }
 .inv-altrove { align-self: center; margin: 0 0 0 4px; }

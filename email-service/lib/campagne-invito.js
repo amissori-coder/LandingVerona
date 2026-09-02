@@ -89,4 +89,13 @@ function etichetta(v, evento) {
     return (definizione(v).tag + '-' + String(evento || '')).slice(0, 60);
 }
 
-module.exports = { PREDEFINITA, ELENCO, normalizza, definizione, esiste, diScheda, suffissoId, etichetta };
+/* Le ALTRE campagne rispetto a una. Oggi sono due e "l'altra" e' una sola,
+   ma chi chiama non deve saperlo: il giorno che se ne aggiunge una terza,
+   il controllo delle sovrapposizioni continua a guardarle tutte invece di
+   guardarne una e dire che va bene. */
+function altre(v) {
+    const c = normalizza(v);
+    return ELENCO.filter(x => x.id !== c).map(x => x.id);
+}
+
+module.exports = { PREDEFINITA, ELENCO, normalizza, definizione, esiste, diScheda, suffissoId, etichetta, altre };

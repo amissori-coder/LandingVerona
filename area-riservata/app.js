@@ -17007,7 +17007,7 @@
     let _invCfg = null;         // quali canali sono pronti sul servizio
     let _invEsiti = {};         // per evento e campagna: aperture e clic letti da Brevo
     let _invSel = new Set();    // aziende spuntate
-    let _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', ordina: 'azienda', verso: 1 };
+    let _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false, ordina: 'azienda', verso: 1 };
     let _invCercaTimer = null;
 
     /* Chi carica l'elenco e spedisce: gli stessi che possono aggiungere
@@ -17064,11 +17064,36 @@
        dice che il messaggio e' partito, sono le ricevute a dire se e' anche
        arrivato. */
     const INV_PEC_KO = ['non-consegnata', 'non-accettata', 'in-dubbio'];
+    /* SI E' FATTA VIVA? Tre strade diverse per la stessa cosa: ha risposto
+       alla PEC, ha premuto il pulsante e chiesto di essere contattata, si e'
+       registrata col codice. Chi guarda l'elenco vuole sapere "chi ha
+       reagito", non da quale delle tre porte e' entrato. Stessa regola del
+       servizio (lib/aziende-invito.js): se le due divergono, il numero sulla
+       scheda smette di corrispondere alle righe, ed e' gia' successo. */
+    function haRisposto(a) {
+        if (!a) return false;
+        if (a.risposto) return true;              // lo dice gia' il servizio
+        if (a.contatto && a.contatto.quando) return true;
+        if (a.ricevute && a.ricevute.risposta && a.ricevute.risposta.quando) return true;
+        return a.stato === 'risposta' || a.stato === 'iscritta';
+    }
     function vistaDi(a) {
         const st = (a && a.stato) || 'da-invitare';
         if (st === 'esclusa' || st === 'disiscritta') return 'fuori';
         if (st === 'errore') return 'errore';
-        if (st === 'inviata' || st === 'risposta' || st === 'iscritta') {
+        /* CHI HA RISPOSTO STA IN UNA SCHEDA SUA, e non piu' in mezzo alle
+           inviate. Prima ci stava, per una ragione buona: erano comunque
+           state invitate, e toglierle da li' le faceva sparire. Ma "inviate"
+           e' l'elenco su cui non c'e' altro da fare, e una risposta e'
+           esattamente il contrario - e' l'unica riga della giornata su cui
+           qualcuno deve richiamare qualcuno. Perdersela in fondo a
+           seicento righe gia' evase e' il modo piu' rapido per buttare via
+           il lavoro dell'invio.
+
+           Le sei schede restano esclusive e la somma torna: chi risponde non
+           sparisce, cambia scheda, e la scheda ha il numero scritto sopra. */
+        if (haRisposto(a)) return 'risposte';
+        if (st === 'inviata') {
             const viaPec = a && a.invio && a.invio.canale === 'pec';
             const esito = (a && a.ricevute && a.ricevute.esito) || '';
             if (viaPec && INV_PEC_KO.indexOf(esito) >= 0) return 'non-arrivate';
@@ -17084,6 +17109,7 @@
     function nomeVista(vista, campagna) {
         const c = campagnaDef(campagna || _invCampagna);
         const fissi = {
+            'risposte': 'che hanno risposto',
             'non-arrivate': 'con la PEC non arrivata',
             'errore': 'con un errore di invio', 'fuori': 'escluse o disiscritte'
         };
@@ -17092,9 +17118,19 @@
         return fissi[vista] || '';
     }
     function contaInviti(lista) {
-        const c = { totale: 0, daInvitare: 0, inviate: 0, nonArrivate: 0, errori: 0, fuori: 0 };
-        const dove = { 'da-invitare': 'daInvitare', 'inviate': 'inviate', 'non-arrivate': 'nonArrivate', 'errore': 'errori', 'fuori': 'fuori' };
-        (lista || []).forEach(a => { c.totale++; c[dove[vistaDi(a)]]++; });
+        const c = { totale: 0, daInvitare: 0, inviate: 0, risposte: 0, nonArrivate: 0, errori: 0, fuori: 0, doppie: 0 };
+        const dove = {
+            'da-invitare': 'daInvitare', 'inviate': 'inviate', 'risposte': 'risposte',
+            'non-arrivate': 'nonArrivate', 'errore': 'errori', 'fuori': 'fuori'
+        };
+        (lista || []).forEach(a => {
+            c.totale++;
+            c[dove[vistaDi(a)]]++;
+            // le sovrapposizioni con l'altra lista NON sono una vista: una
+            // scheda puo' essere insieme "da invitare" e "gia' nell'altro
+            // elenco", e sono due informazioni diverse
+            if (a && a.anche) c.doppie++;
+        });
         return c;
     }
 
@@ -17110,6 +17146,7 @@
             const n = c ? contaInviti(c.aziende) : null;
             const riga = n
                 ? '<b>' + n.totale + '</b> aziende in elenco: ' + n.daInvitare + ' da ' + camp.azione + ', ' + n.inviate + ' ' + camp.fatto
+                + (n.risposte ? ', <span class="ev-ok"><b>' + n.risposte + '</b> hanno risposto</span>' : '')
                 + (n.nonArrivate ? ', <span class="ev-ko">' + n.nonArrivate + ' con la PEC non arrivata</span>' : '')
                 + (n.errori ? ', <span class="ev-ko">' + n.errori + ' con errore</span>' : '')
                 + (n.fuori ? ', ' + n.fuori + ' fuori elenco' : '') + '.'
@@ -17403,7 +17440,7 @@
         if (!puoGestireInviti() || !ev || ev.tutti) return;
         if (campagna) _invCampagna = campagnaDef(campagna).id;
         _invSel = new Set();
-        _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', ordina: 'azienda', verso: 1 };
+        _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false, ordina: 'azienda', verso: 1 };
         /* Finestra vera, non una finestrella: c'e' dentro una tabella con sette
            colonne e qualche centinaio di righe, e su una scheda larga 900
            pixel si lavora di scorrimento orizzontale. La modalita' "finestra"
@@ -17721,6 +17758,7 @@
             } else if (_invFiltro.pec && esitoPecDi(a) !== _invFiltro.pec) return false;
             if (_invFiltro.risposta === 'si' && !(a.ricevute && a.ricevute.risposta)) return false;
             if (_invFiltro.risposta === 'no' && (a.ricevute && a.ricevute.risposta)) return false;
+            if (_invFiltro.doppie && !a.anche) return false;
             if (q && !combacia(a)) return false;
             return true;
         };
@@ -17730,7 +17768,7 @@
            e la si crederebbe cancellata. Si conta SOLO a filtri attivi: senza
            filtri sarebbero semplicemente tutte le altre, e la frase direbbe il
            nulla con l'aria di dire qualcosa. */
-        const cercando = !!(_invFiltro.testo || _invFiltro.stato || _invFiltro.canale || _invFiltro.pec || _invFiltro.risposta);
+        const cercando = !!(_invFiltro.testo || _invFiltro.stato || _invFiltro.canale || _invFiltro.pec || _invFiltro.risposta || _invFiltro.doppie);
         const altrove = cercando
             ? tutte.filter(a => vistaDi(a) !== _invFiltro.vista && altriFiltri(a)).length
             : 0;
@@ -17771,6 +17809,7 @@
         const schede = '<div class="inv-schede">'
             + scheda('Da ' + camp.azione, n.daInvitare, 'da-invitare')
             + scheda(camp.id === 'sponsor' ? 'Contattate' : 'Inviate', n.inviate, 'inviate')
+            + scheda('Hanno risposto', n.risposte, 'risposte', 'ok')
             + scheda('PEC non arrivata', n.nonArrivate, 'non-arrivate', 'ko')
             + scheda('Con errore', n.errori, 'errore', 'ko')
             + scheda('Fuori elenco', n.fuori, 'fuori')
@@ -17788,6 +17827,13 @@
                 : '')
             + '<button class="btn btn-secondary btn-sm" id="inv-scarica"' + (lista.length ? '' : ' disabled') + '>'
             + 'Scarica con gli esiti (' + lista.length + ')</button>'
+            /* Le sovrapposizioni non sono una scheda (una riga puo' essere
+               insieme "da invitare" e "anche nell'altro elenco"): sono un
+               filtro, e sta qui perche' il numero da solo non serve a niente
+               se poi bisogna cercarle a occhio. */
+            + (n.doppie ? '<button type="button" class="btn btn-sm' + (_invFiltro.doppie ? ' btn-primary' : ' btn-ghost')
+                + '" id="inv-doppie" title="Aziende presenti anche nell\'altro elenco dello stesso evento">'
+                + n.doppie + ' anche nell\'altro elenco</button>' : '')
             + (filtrato ? '<button class="btn btn-sm btn-ghost" id="inv-pulisci">Togli i filtri</button>' : '')
             + (altrove ? '<span class="inv-altrove hint">' + altrove + ' con questi criteri in altre schede</span>' : '')
             + '</div>'
@@ -17851,7 +17897,17 @@
                 + (sotto.length ? '<div class="hint inv-sotto">' + sotto.join(' &middot; ') + '</div>' : '')
                 /* Il codice riservato: e' il secondo modo di chiamare questa
                    riga, e chi arriva da una telefonata ha in mano quello. */
-                + (a.codice ? '<div class="inv-codice" title="Codice riservato a questa azienda">' + esc(a.codice) + '</div>' : '') + '</td>'
+                + (a.codice ? '<div class="inv-codice" title="Codice riservato a questa azienda">' + esc(a.codice) + '</div>' : '')
+                /* Sta anche nell'altra lista dello stesso evento. Non e' un
+                   errore, a volte e' voluto: e' un avviso, e dice a che punto
+                   e' di la', perche' e' quello che decide se qui conviene
+                   fermarsi. */
+                + (a.anche ? '<div class="inv-doppia' + (a.anche.inviata ? ' ko' : '') + '" title="'
+                    + esc('Questa azienda è nell\'elenco "' + campagnaDef(a.anche.campagna).nome + '" dello stesso evento'
+                        + (a.anche.inviata ? ', e lì il messaggio le è già partito il ' + fmtDataOra(a.anche.quando) : ', dove non le è ancora partito niente')
+                        + (a.anche.risposto ? ', e ha già risposto' : '') + '.') + '">'
+                    + 'anche in ' + esc(campagnaDef(a.anche.campagna).breve.toLowerCase())
+                    + (a.anche.inviata ? ': già inviata' : '') + '</div>' : '') + '</td>'
                 + '<td data-label="Recapiti">' + recapiti + '</td>'
                 + '<td data-label="Stato"><span class="inv-pallino inv-' + esc(st) + '">' + esc(statoInv(st)) + '</span>'
                 + (quando ? '<div class="hint">' + esc(quando) + (via ? ' via ' + via : '') + '</div>' : '')
@@ -17950,6 +18006,9 @@
         const bScar = document.getElementById('inv-scarica');
         if (bScar && !bScar.disabled) bScar.addEventListener('click', () => scaricaAziendeInvito(ev, lista));
 
+        const bDop = document.getElementById('inv-doppie');
+        if (bDop) bDop.addEventListener('click', () => { _invFiltro.doppie = !_invFiltro.doppie; ridisegna(); });
+
         /* Il cambio di campagna. Si azzerano selezione e filtri: sono due
            elenchi diversi, e una spunta rimasta accesa qui vorrebbe dire
            spedire alla lista sbagliata. Il titolo della finestra segue,
@@ -17961,7 +18020,7 @@
                 if (nuova === _invCampagna) return;
                 _invCampagna = nuova;
                 _invSel = new Set();
-                _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', ordina: 'azienda', verso: 1 };
+                _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false, ordina: 'azienda', verso: 1 };
                 const t = document.querySelector('.modale-titolo-testo') || document.querySelector('.modale-titolo');
                 if (t) t.textContent = campagnaDef(nuova).titolo + ' - ' + ev.titolo + ', ' + ev.quando;
                 if (_invCache[invChiave(ev)]) { disegnaAziendeInvito(ev); return; }
@@ -18053,7 +18112,7 @@
         collega('inv-frisp', 'risposta');
         const bPul = document.getElementById('inv-pulisci');
         if (bPul) bPul.addEventListener('click', () => {
-            _invFiltro = Object.assign({}, _invFiltro, { testo: '', stato: '', canale: '', pec: '', risposta: '' });
+            _invFiltro = Object.assign({}, _invFiltro, { testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false });
             ridisegna();
         });
         /* L'ordine si cambia dall'intestazione della colonna, come in un
@@ -18171,6 +18230,7 @@
                stati letti almeno una volta: meglio una colonna vuota che
                tre "no" che nessuno ha verificato. */
             ['Email consegnata il', 19], ['Email aperta il', 19], ['Aperture', 9], ['Email cliccata il', 19], ['Clic', 8], ['Email non recapitata', 30],
+            ['Anche nell altro elenco', 30],
             ['Registrati col codice', 40]
         ];
         const righe = (lista || aziendeInvitoDi(ev)).map(a => {
@@ -18196,6 +18256,10 @@
                     return [q(e.consegnata), q(e.aperta), e.aperture || '', q(e.clic), e.clicTotali || '',
                         e.rimbalzo ? (e.motivo || 'non recapitata') : ''];
                 }()),
+                a.anche
+                    ? (campagnaDef(a.anche.campagna).nome
+                        + (a.anche.inviata ? ' (gia inviata il ' + fmtDataOra(a.anche.quando) + ')' : ' (non ancora inviata)'))
+                    : '',
                 (a.iscritti || []).map(i => (i.nome || '') + ' <' + (i.email || '') + '>').join('; ')
             ].flat().map(v => String(v == null ? '' : v));
         });
@@ -18535,7 +18599,14 @@
                     + (scarti.length ? '. Scartate: ' + scarti.join(', ') : '') + '.',
                     scarti.length > 0 && !r.nuove && !r.aggiornate);
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco aziende da invitare caricato', 'sistema', ev.id, null, r.nuove + ' nuove, ' + r.aggiornate + ' aggiornate'); } catch (er) { }
-                caricaAziendeInvito(ev, () => { });
+                /* Le sovrapposizioni con l'altra lista si mostrano SUBITO,
+                   prima che la finestra si chiuda: chi ha appena caricato il
+                   file sa perche' l'ha caricato, e fra tre settimane non se lo
+                   ricordera' piu'. */
+                const sovr = Array.isArray(r.sovrapposte) ? r.sovrapposte : [];
+                caricaAziendeInvito(ev, () => {
+                    if (sovr.length) modaleSovrapposte(ev, sovr, r.sovrapposteTotali || sovr.length);
+                });
             });
         };
 
@@ -18562,6 +18633,128 @@
             lettore.onerror = () => mostra('Non riesco a leggere il file.', true);
             lettore.onload = () => manda(String(lettore.result || ''));
             lettore.readAsText(f, 'utf-8');
+        });
+    }
+
+    /* LE AZIENDE CHE STANNO IN TUTTE E DUE LE LISTE.
+       Compare dopo un caricamento, quando il servizio ne ha trovate. Non e'
+       un errore da correggere per forza: invitare a venire un'azienda a cui
+       si sta anche chiedendo una sponsorizzazione a volte e' esattamente
+       quello che si vuole. Ma sono due messaggi diversi allo stesso indirizzo
+       a poche settimane di distanza, e chi decide dev'essere una persona.
+
+       DUE CASI, E SI COMPORTANO DIVERSAMENTE:
+       - se di la' il messaggio E' GIA' PARTITO, la scelta e' quasi fatta:
+         quella conversazione e' aperta, e aprirne una seconda sullo stesso
+         indirizzo confonde. La proposta preselezionata e' toglierla di qui.
+       - se di la' non e' partito niente, non c'e' un motivo per preferire una
+         lista all'altra: si sceglie, e il valore predefinito e' non toccare
+         niente, perche' e' l'unica scelta che non butta via lavoro.
+
+       Niente si muove finche' non si preme Applica: la finestra propone,
+       non esegue. */
+    function modaleSovrapposte(ev, elenco, totali) {
+        const camp = campagnaDef(_invCampagna);
+        const gia = elenco.filter(x => x.inviata).length;
+        const righe = elenco.map((x, i) => {
+            const altra = campagnaDef(x.campagna);
+            /* La proposta. Preselezionata solo quando c'e' un motivo per
+               preferirne una: altrimenti "lascia tutto" e la scelta resta
+               davvero aperta invece di essere suggerita di nascosto. */
+            const scelta = x.inviata ? 'qui' : '';
+            const opz = (v, et, tit) => '<label class="inv-sov-scelta' + (scelta === v ? ' attiva' : '') + '"'
+                + (tit ? ' title="' + esc(tit) + '"' : '') + '>'
+                + '<input type="radio" name="sov' + i + '" value="' + v + '"' + (scelta === v ? ' checked' : '') + '>'
+                + '<span>' + esc(et) + '</span></label>';
+            const dove = altra.nome + (x.inviata
+                ? ' - messaggio partito il ' + fmtDataOra(x.quando)
+                : ' - non ancora partito niente')
+                + (x.risposto ? ', e ha già risposto' : '');
+            return '<tr' + (x.inviata ? ' class="inv-riga-ko"' : '') + '>'
+                + '<td data-label="Azienda"><b>' + esc(x.ragioneSociale || x.contatto) + '</b>'
+                + '<div class="hint">' + esc(x.contatto) + '</div></td>'
+                + '<td data-label="Nell altro elenco"><span class="' + (x.inviata ? 'ev-ko' : 'hint') + '">'
+                + esc(dove) + '</span></td>'
+                + '<td data-label="Cosa faccio" class="inv-sov-scelte">'
+                /* "Questa" e "l'altra" scritti per esteso, col nome della
+                   lista accanto: due voci che cominciano tutte e due con
+                   "Tolgo da" e finiscono con un nome lungo si leggono uguali,
+                   e la scelta che si fa e' quella sbagliata. */
+                + opz('', 'La lascio in tutte e due', 'Riceverà tutti e due i messaggi')
+                + opz('qui', 'La tolgo da QUESTA lista (' + camp.nome + ')',
+                    x.inviata ? 'Consigliato: di là la conversazione è già aperta' : 'Resta solo in ' + altra.nome.toLowerCase())
+                + opz('la', 'La tolgo dall\'ALTRA (' + altra.nome + ')',
+                    /* Togliere la scheda su cui l'azienda ha gia' RISPOSTO e'
+                       la cosa peggiore che si possa fare da questa finestra:
+                       si butta via l'unico esito che valeva qualcosa. Va
+                       detto per esteso, non lasciato capire. */
+                    x.risposto
+                        ? 'Sconsigliato: di là questa azienda ha già risposto, e togliendo la scheda si perde la sua risposta'
+                        : (x.inviata
+                            ? 'Attenzione: di là il messaggio è già partito, e con la scheda spariscono i suoi esiti'
+                            : 'Resta solo in ' + camp.nome.toLowerCase()))
+                + '</td></tr>';
+        }).join('');
+
+        apriModale('<h2>' + elenco.length + (elenco.length === 1 ? ' azienda è' : ' aziende sono')
+            + ' anche nell\'altro elenco</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Stesso evento, stesso recapito, due liste diverse: '
+            + 'riceverebbero due messaggi diversi a poche settimane di distanza. '
+            + (gia ? '<b>' + gia + (gia === 1 ? '</b> ha' : '</b> hanno') + ' già ricevuto il messaggio dall\'altra lista: '
+                + 'per quelle la proposta è di toglierle da qui, perché quella conversazione è già aperta. ' : '')
+            + 'Niente si muove finché non premi Applica.</p>'
+            + (totali > elenco.length
+                ? '<p class="ev-ko">Mostrate le prime ' + elenco.length + ' di ' + totali + '.</p>' : '')
+            + '<div class="tabella-wrap"><table class="dati"><thead><tr>'
+            + '<th>Azienda</th><th>Nell\'altro elenco</th><th>Cosa faccio</th>'
+            + '</tr></thead><tbody>' + righe + '</tbody></table></div>'
+            + '<div id="sov-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni">'
+            + '<button class="btn btn-secondary" id="sov-no">Le lascio tutte</button>'
+            + '<button class="btn btn-primary" id="sov-si">Applica</button></div>',
+            { classe: 'larga', titolo: 'Aziende in tutte e due le liste' });
+
+        const chiudi = () => { chiudiModale(); modaleAziendeInvito(ev); };
+        document.getElementById('sov-no').addEventListener('click', chiudi);
+        document.getElementById('sov-si').addEventListener('click', () => {
+            const b = document.getElementById('sov-si');
+            const e = document.getElementById('sov-esito');
+            /* Si raccolgono per CAMPAGNA, perche' cancellare e' un'azione per
+               campagna: due chiamate al massimo, non una per riga. */
+            const daTogliere = { };
+            elenco.forEach((x, i) => {
+                const scelto = document.querySelector('input[name="sov' + i + '"]:checked');
+                const v = scelto ? scelto.value : '';
+                if (v === 'qui') (daTogliere[_invCampagna] = daTogliere[_invCampagna] || []).push(x.qui);
+                else if (v === 'la') (daTogliere[x.campagna] = daTogliere[x.campagna] || []).push(x.la);
+            });
+            const campagne = Object.keys(daTogliere);
+            if (!campagne.length) { chiudi(); return; }
+            b.disabled = true; b.textContent = 'Tolgo...';
+            (async () => {
+                let tolte = 0, ko = '';
+                for (const c of campagne) {
+                    try {
+                        const r = await Cloud.aziendeInvito({
+                            azione: 'cancella', evento: ev.id, campagna: c, ids: daTogliere[c]
+                        });
+                        if (r.ok) tolte += r.tolte || 0;
+                        else ko = r.msg || 'Cancellazione non riuscita.';
+                    } catch (_) { ko = 'Servizio non raggiungibile.'; }
+                }
+                if (ko) {
+                    b.disabled = false; b.textContent = 'Applica';
+                    e.innerHTML = '<span class="ev-ko">' + esc(ko) + '</span>';
+                    return;
+                }
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: aziende tolte da un elenco per sovrapposizione', 'sistema', ev.id, null, tolte + ' tolte'); } catch (er) { }
+                /* Si rileggono TUTTE le liste toccate, non solo quella aperta:
+                   togliendo di la si e' cambiato anche l'altro elenco, e
+                   lasciarlo in cache vorrebbe dire rivederci righe che non
+                   ci sono piu'. */
+                campagne.forEach(c => { delete _invCache[invChiave(ev, c)]; });
+                caricaAziendeInvito(ev, () => { chiudi(); toast(tolte + (tolte === 1 ? ' azienda tolta.' : ' aziende tolte.'), 'verde'); });
+            })();
         });
     }
 
@@ -18721,7 +18914,14 @@
                     e.innerHTML = '<span class="ev-ko">' + esc(r.msg || 'Salvataggio non riuscito.') + '</span>';
                     return;
                 }
-                caricaAziendeInvito(ev, () => { chiudi(); toast('Scheda salvata.', 'verde'); });
+                const sovr = Array.isArray(r.sovrapposte) ? r.sovrapposte : [];
+                caricaAziendeInvito(ev, () => {
+                    chiudi();
+                    toast('Scheda salvata.', 'verde');
+                    // stesso avviso dell'importazione: una scheda scritta a
+                    // mano si sovrappone all'altra lista esattamente uguale
+                    if (sovr.length) modaleSovrapposte(ev, sovr, sovr.length);
+                });
             });
         });
     }
