@@ -43,3 +43,9 @@ window.RV_COMUNICAZIONI_URL = "https://revilaw-email.vercel.app/api/invia-comuni
    Anche questi, se lasciati null, si deducono dall'indirizzo del servizio email. */
 window.RV_NEWSLETTER_URL = "https://revilaw-email.vercel.app/api/newsletter";
 window.RV_INVIA_NEWSLETTER_URL = "https://revilaw-email.vercel.app/api/invia-newsletter";
+
+/* Sblocco del calcolo congelato: la richiesta parte dall'area riservata e la
+   decide il responsabile dell'incarico dalla mail che riceve (la pagina di
+   conferma e' area-riservata/sblocco.html). Se lasciato null si deduce
+   dall'indirizzo del servizio email (.../invia-email -> .../sblocco-incarico). */
+window.RV_SBLOCCO_URL = "https://revilaw-email.vercel.app/api/sblocco-incarico";

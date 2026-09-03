@@ -360,6 +360,50 @@ Oltre a `invia-email`, il progetto include due funzioni per la sezione
   richiama **una volta al giorno** (vedi `vercel.json`): invia le comunicazioni
   in stato "programmata" la cui data è arrivata e aggiorna la pianificazione.
 
+## Sblocco del calcolo congelato (`/api/sblocco-incarico`)
+
+Quando il calcolo del compenso di un incarico è **congelato**, il compenso
+concordato non si tocca più. Per riaprirlo serve il **responsabile
+dell'incarico**, e il consenso viaggia per posta: chi lavora sull'incarico
+chiede, il responsabile decide.
+
+1. **`POST {azione:'richiedi', idToken, incaricoId, motivo}`** — dall'area
+   riservata. Verifica l'ID token (come `invia-comunicazione`), legge
+   `archivio/incarichi` e `archivio/persone`, ricava **da sé** l'indirizzo del
+   responsabile (il destinatario non arriva dal browser: non si può usare questa
+   funzione per scrivere a chi si vuole), crea un gettone casuale in
+   `sbloccoIncarichi/<gettone>`, segna la richiesta sull'incarico
+   (`sbloccoRichiesto`, così si vede nell'elenco) e manda la mail al
+   responsabile. Se la mail non parte, gettone e segno vengono tolti: nessun
+   incarico resta "in attesa" di una decisione che nessuno ha ricevuto.
+2. **`POST {azione:'stato', token}`** — la usa la pagina di conferma
+   `area-riservata/sblocco.html`, aperta dal pulsante della mail, per mostrare
+   cliente, richiedente e motivo.
+3. **`POST {azione:'approva'|'rifiuta', token}`** — la decisione. Con
+   l'approvazione il servizio sblocca davvero il calcolo su
+   `archivio/incarichi`, scrive la voce nel registro (`archivio/audit`), lascia
+   l'allerta al titolare (`archivio/allerte`) e manda a chi aveva chiesto la
+   mail con l'esito. Il gettone vale **una volta sola** e scade dopo 14 giorni.
+4. **`POST {azione:'annulla', idToken, incaricoId}`** — ritira una richiesta
+   rimasta senza risposta (la può ritirare chi l'ha fatta, oppure un
+   amministratore), così se ne può fare un'altra.
+
+Il pulsante della mail **non sblocca da solo**: apre la pagina di conferma. Una
+GET qui non decide nulla, e risponde 405: i controlli antivirus dei programmi di
+posta aprono i collegamenti per conto loro, e con una GET che sblocca sarebbe
+l'antivirus a dare l'approvazione (stessa ragione per cui la disiscrizione dalla
+newsletter non agisce mai su GET).
+
+Nessuna variabile d'ambiente nuova: usa quelle già configurate
+(`FIREBASE_SERVICE_ACCOUNT`, `SMTP_*`, `APP_BASE_URL`, `ALLOWED_ORIGIN`).
+L'app la richiama tramite `window.RV_SBLOCCO_URL` (in `firebase-config.js`).
+
+> **La collezione `sbloccoIncarichi` non va esposta ai client.** I gettoni sono
+> l'unica chiave dell'approvazione: le regole di Firestore non hanno un `match`
+> per quella collezione, quindi dal browser non è leggibile e ci arriva solo
+> l'account di servizio. Non aggiungere regole che la aprano allo staff:
+> chiunque potrebbe leggersi il gettone e approvare da sé la propria richiesta.
+
 ### Variabile in più da impostare su Vercel: `CRON_SECRET`
 
 Perché gli invii programmati partano (e solo Vercel possa attivarli), aggiungi

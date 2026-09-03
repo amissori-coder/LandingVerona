@@ -13,6 +13,7 @@
     "api/importa-iscrizioni.js": { "maxDuration": 300 },
     "api/invia-newsletter.js": { "maxDuration": 60 },
     "api/andamento-newsletter.js": { "maxDuration": 30 },
-    "api/programma-newsletter.js": { "maxDuration": 60 }
+    "api/programma-newsletter.js": { "maxDuration": 60 },
+    "api/sblocco-incarico.js": { "maxDuration": 30 }
   }
 }
