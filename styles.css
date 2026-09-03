@@ -1881,8 +1881,13 @@ ul {
     color: var(--text-muted);
     text-align: justify;
     text-justify: inter-word;
-    hyphens: auto;
-    -webkit-hyphens: auto;
+    /* Niente sillabazione automatica, qui e negli altri paragrafi giustificati
+       di questo foglio: con 'auto' i browser che sillabano l'italiano spezzano
+       le parole a meta' con il trattino ("ri-ceve") anche a riga quasi piena, e
+       a leggerlo sembra un a capo senza motivo. Meglio un soffio di spazio in
+       piu' fra le parole che una parola tagliata. */
+    hyphens: manual;
+    -webkit-hyphens: manual;
     margin-bottom: 22px;
 }
 
@@ -2839,8 +2844,8 @@ ul {
     margin: 0;
     text-align: justify;
     text-justify: inter-word;
-    hyphens: auto;
-    -webkit-hyphens: auto;
+    hyphens: manual;
+    -webkit-hyphens: manual;
 }
 
 .mission-lead strong { color: var(--navy-dark); font-weight: 700; }
@@ -2938,8 +2943,8 @@ ul {
     margin: 0 0 18px;
     text-align: justify;
     text-justify: inter-word;
-    hyphens: auto;
-    -webkit-hyphens: auto;
+    hyphens: manual;
+    -webkit-hyphens: manual;
 }
 
 .theme-card-text strong { color: var(--navy-dark); }
@@ -3281,8 +3286,8 @@ ul {
     color: var(--text-muted);
     text-align: justify;
     text-justify: inter-word;
-    hyphens: auto;
-    -webkit-hyphens: auto;
+    hyphens: manual;
+    -webkit-hyphens: manual;
     margin: 0 0 22px;
 }
 
@@ -3408,8 +3413,8 @@ ul {
     margin: 0;
     text-align: justify;
     text-justify: inter-word;
-    hyphens: auto;
-    -webkit-hyphens: auto;
+    hyphens: manual;
+    -webkit-hyphens: manual;
 }
 
 /* ============================================

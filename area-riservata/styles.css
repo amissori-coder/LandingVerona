@@ -796,16 +796,25 @@ table.dati .hint { font-size: 0.92em; max-width: none; }
 
 /* --- IL TESTO DISTESO E' GIUSTIFICATO ---
    Come nelle pagine del sito: i paragrafi di spiegazione sotto i titoli, le note,
-   i suggerimenti dei moduli, l'avviso della schermata di accesso. Insieme alla
-   sillabazione italiana (la pagina e' lang="it") i margini restano dritti senza
-   che si aprano buchi fra una parola e l'altra.
+   i suggerimenti dei moduli, l'avviso della schermata di accesso.
    Un paragrafo di una riga sola non cambia di un pixel, perche' l'ultima riga di
    un blocco giustificato resta allineata a sinistra: per questo la regola si puo'
    mettere su tutto il testo disteso senza stare a guardare quanto e' lungo.
    Nelle celle di tabella no: li' comanda l'allineamento della colonna, e una
    riga di testo tirata da bordo a bordo dentro una colonna stretta si legge
-   peggio, non meglio. */
-.descrizione, .hint, .nota, .avviso-demo { text-align: justify; hyphens: auto; }
+   peggio, non meglio.
+   NIENTE SILLABAZIONE (hyphens: manual, che e' il valore predefinito e qui si
+   scrive per non ritrovarselo cambiato). C'era 'auto', per tenere dritti i
+   margini senza aprire buchi fra le parole, ma sui browser che sillabano
+   davvero l'italiano il prezzo si vedeva subito: le parole si spezzavano a
+   meta' con il trattino ("...dalla mail che ri-ceve...") anche a riga quasi
+   piena, e a leggerlo sembrava un a capo senza motivo. Fra un margine
+   perfettamente dritto e una parola intera, vince la parola intera: gli spazi
+   fra le parole si allargano di un soffio e non se ne accorge nessuno.
+   Le tabelle degli Eventi fanno storia a se': li' le colonne sono strette e a
+   larghezza fissa, e una parola che non entra nella sua colonna e' meglio
+   sillabarla che tagliarla a caso (vedi .ev-wrap piu' sotto). */
+.descrizione, .hint, .nota, .avviso-demo { text-align: justify; hyphens: manual; }
 table .descrizione, table .hint, table .nota { text-align: inherit; hyphens: manual; }
 .card h2 { font-size: 1.05rem; margin-bottom: 14px; }
 .card h3 { font-size: 0.95rem; margin-bottom: 10px; }
@@ -1099,6 +1108,21 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .calc-riga { display: flex; justify-content: space-between; padding: 5px 0; font-size: 0.9rem; }
 .calc-riga.totale { border-top: 2px solid var(--blu-500); margin-top: 8px; padding-top: 10px; font-weight: 800; font-size: 1.05rem; color: var(--blu-900); }
 .calc-riga .val { font-weight: 700; }
+/* Stato del calcolo e comando per cambiarlo, in fondo al riquadro dei compensi
+   della scheda cliente: la barra dei pulsanti in alto e' lontana e affollata, e
+   il congelamento riguarda il compenso, che si guarda qui. Il testo prende lo
+   spazio che c'e' e il pulsante resta intero a destra; sotto i 640px vanno uno
+   sopra l'altro. */
+.calc-comandi {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px 16px;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--grigio-200);
+}
+/* qui il testo NON e' giustificato: in una colonna stretta accanto al pulsante
+   la giustificazione apre buchi fra le parole invece di tenere il margine dritto */
+.calc-comandi p { flex: 1 1 260px; min-width: 0; text-align: left; }
+.calc-comandi .btn { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 640px) { .calc-comandi .btn { width: 100%; } }
 
 .riepilogo-blocco { border: 1px solid var(--grigio-200); border-radius: var(--raggio); padding: 14px 16px; margin-bottom: 12px; }
 .riepilogo-blocco h4 { font-size: 0.85rem; margin-bottom: 8px; color: var(--blu-500); text-transform: uppercase; letter-spacing: 0.05em; }
