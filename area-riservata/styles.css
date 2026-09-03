@@ -1108,6 +1108,21 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .calc-riga { display: flex; justify-content: space-between; padding: 5px 0; font-size: 0.9rem; }
 .calc-riga.totale { border-top: 2px solid var(--blu-500); margin-top: 8px; padding-top: 10px; font-weight: 800; font-size: 1.05rem; color: var(--blu-900); }
 .calc-riga .val { font-weight: 700; }
+/* Stato del calcolo e comando per cambiarlo, in fondo al riquadro dei compensi
+   della scheda cliente: la barra dei pulsanti in alto e' lontana e affollata, e
+   il congelamento riguarda il compenso, che si guarda qui. Il testo prende lo
+   spazio che c'e' e il pulsante resta intero a destra; sotto i 640px vanno uno
+   sopra l'altro. */
+.calc-comandi {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px 16px;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--grigio-200);
+}
+/* qui il testo NON e' giustificato: in una colonna stretta accanto al pulsante
+   la giustificazione apre buchi fra le parole invece di tenere il margine dritto */
+.calc-comandi p { flex: 1 1 260px; min-width: 0; text-align: left; }
+.calc-comandi .btn { flex: 0 0 auto; white-space: nowrap; }
+@media (max-width: 640px) { .calc-comandi .btn { width: 100%; } }
 
 .riepilogo-blocco { border: 1px solid var(--grigio-200); border-radius: var(--raggio); padding: 14px 16px; margin-bottom: 12px; }
 .riepilogo-blocco h4 { font-size: 0.85rem; margin-bottom: 8px; color: var(--blu-500); text-transform: uppercase; letter-spacing: 0.05em; }

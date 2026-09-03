@@ -4852,7 +4852,7 @@
                             ${rigaRiepilogo('Data inizio', inc.dataInizio ? fmtData(inc.dataInizio) : inc.dataInizioNote)}
                             ${rigaRiepilogo('Data fine', fmtData(inc.dataFine) || inc.dataFineNote)}
                             ${rigaRiepilogo('Rinnovo', inc.rinnovo ? fmtData(inc.rinnovo) : inc.rinnovoNote)}
-                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'dimesso' ? 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' il ' + fmtData(inc.dimissioni.data) : '') : (inc.stato === 'proposta' ? 'Proposta (da confermare)' : (inc.stato === 'nonAccettato' ? 'Non accettato' + (inc.nonAccettato && inc.nonAccettato.il ? ' il ' + fmtDataOra(inc.nonAccettato.il) : '') : (inc.stato === 'attivo' ? 'Attivo' + (inc.confermato && inc.confermato.il ? ' - confermato il ' + fmtDataOra(inc.confermato.il) : '') : inc.stato))))) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
+                            ${rigaRiepilogo('Stato', (inc.stato === 'cessato' ? 'Terminato' : (inc.stato === 'dimesso' ? 'Dimesso' + (inc.dimissioni && inc.dimissioni.data ? ' il ' + fmtData(inc.dimissioni.data) : '') : (inc.stato === 'proposta' ? 'Proposta (da confermare)' : (inc.stato === 'nonAccettato' ? 'Non accettato' + (inc.nonAccettato && inc.nonAccettato.il ? ' il ' + fmtDataOra(inc.nonAccettato.il) : '') : (!inc.stato || inc.stato === 'attivo' ? 'Attivo' + (inc.confermato && inc.confermato.il ? ' - confermato il ' + fmtDataOra(inc.confermato.il) : '') : inc.stato))))) + (inc.statoNote ? ' (' + inc.statoNote + ')' : ''))}
                         </div>
                         <div class="riepilogo-blocco">
                             <h4>Team</h4>
@@ -4892,6 +4892,18 @@
                             <div class="calc-riga"><span>Media dimensionale</span><span class="val">${eurFmt.format(inc.calc.media || 0)}</span></div>
                             <div class="calc-riga"><span>Ore finali (anno 1)</span><span class="val">${numFmt.format(inc.calc.oreAnno1 || 0)} h</span></div>
                             <div class="calc-riga"><span>Tariffa oraria</span><span class="val">${eurFmt.format(inc.calc.tariffa || 0)}</span></div>
+                        </div>` : ''}
+                        ${Auth.puoScrivere('incarichi') ? `<div class="calc-comandi">
+                            <p class="descrizione" style="margin:0;">${inc.calcoloCongelato
+                        ? ICO_LUCCHETTO + '<strong>Calcolo congelato</strong>' + (inc.congelamento && inc.congelamento.il ? ' dal ' + fmtDataOra(inc.congelamento.il) : '') + '. Il compenso concordato non si può modificare.'
+                        : (inc.stato === 'proposta'
+                            ? 'Il calcolo resta modificabile finché la proposta non è confermata: si congela alla conferma, stampando la lettera di incarico.'
+                            : 'Il calcolo del compenso è <strong>modificabile</strong>. Congelandolo il compenso e le ore concordati vengono protetti.')}</p>
+                            ${inc.calcoloCongelato
+                        ? (inc.sbloccoRichiesto
+                            ? '<button class="btn btn-sm btn-secondary" id="btn-annulla-sblocco-c">Ritira la richiesta</button>'
+                            : '<button class="btn btn-sm btn-secondary" id="btn-sblocca-c">Chiedi lo sblocco</button>')
+                        : (inc.stato === 'proposta' ? '' : '<button class="btn btn-sm btn-secondary" id="btn-congela-c">' + ICO_LUCCHETTO + 'Congela calcolo</button>')}
                         </div>` : ''}
                     </div>
                     ${(inc.storico && inc.storico.length) ? `<div class="card" id="periodi-precedenti">
@@ -4944,8 +4956,13 @@
             if (btnSblocca) btnSblocca.addEventListener('click', () => modaleSblocco(inc));
             const btnAnnullaSbl = document.getElementById('btn-annulla-sblocco');
             if (btnAnnullaSbl) btnAnnullaSbl.addEventListener('click', () => modaleAnnullaSblocco(inc));
-            const btnCongela = document.getElementById('btn-congela');
-            if (btnCongela) btnCongela.addEventListener('click', () => modaleCongela(inc));
+            // gli stessi comandi compaiono due volte (barra in alto e riquadro dei
+            // compensi): un solo gestore per entrambi, cosi' non si sdoppia la logica
+            const perId = (id, azione) => { const b = document.getElementById(id); if (b) b.addEventListener('click', azione); };
+            perId('btn-congela', () => modaleCongela(inc));
+            perId('btn-congela-c', () => modaleCongela(inc));
+            perId('btn-sblocca-c', () => modaleSblocco(inc));
+            perId('btn-annulla-sblocco-c', () => modaleAnnullaSblocco(inc));
             const btnTermina = document.getElementById('btn-termina-inc');
             if (btnTermina) btnTermina.addEventListener('click', () => modaleTerminaIncarico(inc));
             const btnDimetti = document.getElementById('btn-dimetti-inc');
