@@ -4449,6 +4449,12 @@
         const puoEliminare = Auth.puoEliminareIncarichi();
         const colAzioni = puoRinnovare || puoEliminare;
         const btnElimina = i => puoEliminare ? ` <button class="btn btn-sm btn-danger" data-elimina="${esc(i.id)}">Elimina</button>` : '';
+        // il calcolo congelato si vede e si sblocca gia' dall'elenco: prima il comando
+        // stava solo dentro il dettaglio dell'incarico e non lo si trovava
+        const btnSblocca = i => (puoRinnovare && i.calcoloCongelato)
+            ? `<button class="btn btn-sm btn-secondary" data-sblocca="${esc(i.id)}">Sblocca calcolo</button>` : '';
+        const badgeCongelato = i => i.calcoloCongelato
+            ? ` <span class="badge ambra" title="Calcolo del compenso congelato: per modificarlo va sbloccato">${ICO_LUCCHETTO}Congelato</span>` : '';
         // modalita compatta: nella riga resta un solo pulsante, le azioni compaiono in un
         // menu a comparsa e la riga resta bassa. I tre puntini da soli non si leggevano
         // come un comando: ci vuole la parola "Azioni" e il bordo del pulsante.
@@ -4485,13 +4491,13 @@
                     const periodo = anniP && anniP.length ? (anniP.length > 1 ? anniP[0] + '-' + anniP[anniP.length - 1] : String(anniP[0])) : '';
                     const compP = anniP && anniP.length ? anniP.reduce((s, a) => s + Incarichi.compensoAnno(i, a), 0) : 0;
                     return `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgeCongelato(i)}</td>
                     <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                     <td data-label="Periodo proposto">${esc(periodo)}</td>
                     <td class="num" data-label="Compenso proposto">${compP ? eurFmt.format(compP) : ''}</td>
                     <td data-label="Non accettato il">${i.nonAccettato ? esc(fmtDataOra(i.nonAccettato.il)) : ''}</td>
                     <td data-label="Motivo">${esc((i.nonAccettato && i.nonAccettato.nota) || '')}</td>
-                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riproponi="${esc(i.id)}">Riporta in proposta</button>` : '') + btnElimina(i))}</td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riproponi="${esc(i.id)}">Riporta in proposta</button>` : '') + btnSblocca(i) + btnElimina(i))}</td>` : ''}
                 </tr>`;
                 }).join('') +
                 `</tbody></table></div></div>`
@@ -4503,13 +4509,13 @@
                     <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Resp. incarico</th><th>Data dimissioni</th><th>Registrate il</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 dismessi.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgeCongelato(i)}</td>
                     <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                     <td data-label="Regione">${esc(i.regione || '')}</td>
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                     <td data-label="Data dimissioni">${i.dimissioni && i.dimissioni.data ? esc(fmtData(i.dimissioni.data)) : ''}</td>
                     <td data-label="Registrate il">${i.dimissioni ? esc(fmtDataOra(i.dimissioni.il)) : ''}</td>
-                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnElimina(i))}</td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnSblocca(i) + btnElimina(i))}</td>` : ''}
                 </tr>`).join('') +
                 `</tbody></table></div></div>`
                 : '<div class="card tabella-vuota">Nessun incarico dismesso.</div>';
@@ -4520,13 +4526,13 @@
                     <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 terminati.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgeCongelato(i)}</td>
                     <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                     <td data-label="Regione">${esc(i.regione || '')}</td>
                     <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                     <td data-label="Terminato il">${i.terminato ? esc(fmtDataOra(i.terminato.il)) : ''}</td>
-                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnElimina(i))}</td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnSblocca(i) + btnElimina(i))}</td>` : ''}
                 </tr>`).join('') +
                 `</tbody></table></div></div>`
                 : '<div class="card tabella-vuota">Nessun incarico terminato.</div>';
@@ -4555,7 +4561,7 @@
                     const s = Incarichi.statoScadenza(i);
                     const prop = inProposta(i);
                     return `<tr class="cliccabile${prop ? ' riga-proposta' : ''}" data-apri="${esc(i.id)}">
-                        <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}</td>
+                        <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgeCongelato(i)}</td>
                         <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                         <td data-label="Inizio">${i.dataInizio ? esc(fmtData(i.dataInizio)) : esc(i.dataInizioNote || '')}</td>
                         <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
@@ -4568,7 +4574,7 @@
                         <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
                         ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((!puoRinnovare ? '' : (prop
                         ? `<button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button><button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button><button class="btn btn-sm btn-secondary" data-non-accettato="${esc(i.id)}">Non accettato</button>`
-                        : `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button><button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button><button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button>`)) + btnElimina(i))}</td>` : ''}
+                        : `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button><button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button><button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button>`)) + btnSblocca(i) + btnElimina(i))}</td>` : ''}
                     </tr>`;
                 }).join('') +
                 `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi${nProposte ? ', ' + nProposte + (nProposte === 1 ? ' in proposta escluso' : ' in proposta esclusi') + ' dal totale' : ''})</td><td class="num">${eurFmt.format(totale)}</td><td></td>${colAzioni ? '<td></td>' : ''}</tr></tfoot></table></div>`
@@ -4598,6 +4604,12 @@
             // il clic dentro il menu non deve aprire il dettaglio della riga
             m.addEventListener('click', e => e.stopPropagation());
         });
+        cont.querySelectorAll('[data-sblocca]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.sblocca);
+                if (inc) modaleSblocco(inc, () => disegnaTabellaIncarichi(annoRif));
+            }));
         cont.querySelectorAll('[data-non-accettato]').forEach(b =>
             b.addEventListener('click', e => {
                 e.stopPropagation();
@@ -5014,10 +5026,14 @@
         });
     }
 
-    // sblocco del calcolo: obbliga a comporre un messaggio di allerta
-    function modaleSblocco(inc) {
+    // sblocco del calcolo: obbliga a comporre un messaggio di allerta.
+    // onDone opzionale: eseguito dopo lo sblocco (dall'elenco ridisegna la tabella;
+    // senza callback si apre il dettaglio dell'incarico). nota opzionale: avviso in piu'
+    // per chi sblocca da dentro il wizard.
+    function modaleSblocco(inc, onDone, nota) {
         apriModale(`<h2>Sbloccare il calcolo?</h2>
             <p class="descrizione" style="margin-bottom:12px;">Il calcolo di <strong>${esc(inc.cliente)}</strong> è congelato. Per sbloccarlo devi inviare un messaggio di allerta al titolare dello studio, spiegando il motivo. Lo sblocco e la motivazione restano nel registro.</p>
+            ${nota ? `<p class="descrizione" style="margin-bottom:12px;"><strong>${esc(nota)}</strong></p>` : ''}
             <div class="campo"><label>Motivo dello sblocco (messaggio di allerta) *</label><textarea id="m-sblocco-msg" placeholder="Es. rinegoziazione del compenso concordata con il cliente il ..."></textarea></div>
             <div class="msg-errore hidden" id="m-sblocco-err"></div>
             <div class="modale-azioni">
@@ -5032,7 +5048,7 @@
             Incarichi.scongela(inc.id, Auth.utenteCorrente, msg);
             chiudiModale();
             toast('Calcolo sbloccato. Allerta inviata al titolare.', 'verde');
-            naviga('dettaglio', { id: inc.id });
+            if (onDone) onDone(); else naviga('dettaglio', { id: inc.id });
         });
     }
 
@@ -5678,8 +5694,19 @@
                     <p class="descrizione" style="margin:8px 0;">Il calcolo di questo incarico è stato congelato${cong.il ? ' il ' + fmtDataOra(cong.il) : ''}${cong.da ? ' da ' + htmlTimbro(cong) : ''}. Il compenso concordato non può essere modificato.</p>
                     <div class="calc-riga totale"><span>Compenso concordato (primo esercizio)</span><span class="val">${compenso ? eurFmt.format(compenso) : '-'}</span></div>
                 </div>
-                <p class="descrizione">Per modificare il calcolo occorre prima sbloccarlo dal dettaglio dell'incarico, inviando un messaggio di allerta al titolare.</p>`;
+                <p class="descrizione">Per modificare il calcolo occorre prima sbloccarlo, inviando un messaggio di allerta al titolare: puoi farlo da qui, oppure dall'elenco e dal dettaglio dell'incarico.</p>
+                <button type="button" class="btn btn-secondary" id="c-sblocca">${ICO_LUCCHETTO}Sblocca calcolo</button>`;
             w.compensoModificato = false;
+            // sblocco senza uscire dal wizard: le altre modifiche in corso restano dove sono
+            document.getElementById('c-sblocca').addEventListener('click', () => {
+                const inc = Incarichi.trova(w.idEsistente);
+                if (!inc) return;
+                modaleSblocco(inc, () => {
+                    w.dati.calcoloCongelato = false;
+                    w.dati.congelamento = null;
+                    disegnaWizard();
+                }, 'Sbloccando da qui il calcolo torna modificabile subito, senza uscire dalla modifica in corso.');
+            });
             return;
         }
         corpo.innerHTML = `
