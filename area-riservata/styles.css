@@ -1116,7 +1116,7 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 .calc-comandi {
     display: flex; align-items: center; justify-content: space-between;
     flex-wrap: wrap; gap: 10px 16px;
-    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--grigio-200);
+    margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--grigio-200);
 }
 /* qui il testo NON e' giustificato: in una colonna stretta accanto al pulsante
    la giustificazione apre buchi fra le parole invece di tenere il margine dritto */
