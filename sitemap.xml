@@ -250,6 +250,14 @@
         <priority>0.9</priority>
     </url>
 
+    <!-- Tax Control Framework: ebook gratuito per gli iscritti alla newsletter -->
+    <url>
+        <loc>https://nextgenerationbusiness.it/tax_control_framework/</loc>
+        <lastmod>2026-09-03</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
     <!-- Le interviste di Verona: 20 video dei protagonisti del convegno -->
     <url>
         <loc>https://nextgenerationbusiness.it/interviste_verona_2026/</loc>
