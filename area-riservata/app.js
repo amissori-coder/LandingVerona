@@ -1672,6 +1672,33 @@
             }
         },
 
+        /* Sblocco del calcolo congelato: qui parte solo la RICHIESTA. A decidere e' il
+           responsabile dell'incarico, che riceve una mail con un pulsante e approva (o
+           rifiuta) dalla pagina di conferma; a chi ha chiesto arriva poi la mail con
+           l'esito. Il servizio (email-service/api/sblocco-incarico.js) trova da se'
+           l'indirizzo del responsabile in anagrafica e scrive lui sull'incarico: dal
+           browser non si sblocca nulla.
+           azione: 'richiedi' (con il motivo) oppure 'annulla' (ritira la richiesta in attesa). */
+        async sbloccoIncarico(azione, incaricoId, motivo) {
+            const url = indirizzoSblocco();
+            if (!url) return { ok: false, msg: 'Servizio di sblocco non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, azione, incaricoId, motivo })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Richiesta non riuscita (' + r.status + ').') };
+                return { ok: true, resp: data.resp || null };
+            } catch (e) {
+                return { ok: false, msg: 'Servizio di sblocco non raggiungibile.' };
+            }
+        },
+
         /* Legge un documento dell'archivio DIRETTAMENTE dal server, senza passare dalla
            copia locale: serve alla diagnostica, per capire se un salvataggio e davvero
            arrivato a Firestore oppure e rimasto solo nel browser di chi l'ha fatto. */
@@ -2784,16 +2811,20 @@
             return inc;
         },
 
-        // congela il calcolo del compenso: i valori concordati non cambiano piu
-        congela(id, utente) {
+        // congela il calcolo del compenso: i valori concordati non cambiano piu.
+        // nota: da dove arriva il congelamento (stampa del mandato, oppure la scheda
+        // dell'incarico dopo aver rifatto i conti con il calcolo sbloccato)
+        congela(id, utente, nota) {
             const lista = this.tutti();
             const idx = lista.findIndex(i => i.id === id);
             if (idx < 0) return null;
             lista[idx].calcoloCongelato = true;
             lista[idx].congelamento = timbro(utente);
+            // congelando si chiude anche l'eventuale richiesta di sblocco rimasta appesa
+            delete lista[idx].sbloccoRichiesto;
             this.salva(lista);
             Audit.registra(utente, 'Calcolo congelato', 'incarico', id, lista[idx].cliente,
-                'Compenso e ore bloccati alla stampa del mandato');
+                nota || 'Compenso e ore bloccati alla stampa del mandato');
             return lista[idx];
         },
 
@@ -4449,12 +4480,22 @@
         const puoEliminare = Auth.puoEliminareIncarichi();
         const colAzioni = puoRinnovare || puoEliminare;
         const btnElimina = i => puoEliminare ? ` <button class="btn btn-sm btn-danger" data-elimina="${esc(i.id)}">Elimina</button>` : '';
-        // il calcolo congelato si vede e si sblocca gia' dall'elenco: prima il comando
-        // stava solo dentro il dettaglio dell'incarico e non lo si trovava
-        const btnSblocca = i => (puoRinnovare && i.calcoloCongelato)
-            ? `<button class="btn btn-sm btn-secondary" data-sblocca="${esc(i.id)}">Sblocca calcolo</button>` : '';
-        const badgeCongelato = i => i.calcoloCongelato
-            ? ` <span class="badge ambra" title="Calcolo del compenso congelato: per modificarlo va sbloccato">${ICO_LUCCHETTO}Congelato</span>` : '';
+        // lo stato del calcolo si vede e si governa gia' dall'elenco: prima i comandi
+        // stavano solo dentro il dettaglio dell'incarico e non li si trovava
+        const btnCalcolo = i => {
+            if (!puoRinnovare) return '';
+            if (i.calcoloCongelato) {
+                return i.sbloccoRichiesto
+                    ? `<button class="btn btn-sm btn-secondary" data-annulla-sblocco="${esc(i.id)}">Ritira la richiesta</button>`
+                    : `<button class="btn btn-sm btn-secondary" data-sblocca="${esc(i.id)}">Chiedi lo sblocco</button>`;
+            }
+            // una proposta non si congela mai: deve restare modificabile fino alla conferma
+            return i.stato === 'proposta' ? '' : `<button class="btn btn-sm btn-secondary" data-congela="${esc(i.id)}">Congela calcolo</button>`;
+        };
+        const badgiCalcolo = i => (i.calcoloCongelato
+            ? ` <span class="badge ambra" title="Calcolo del compenso congelato: per modificarlo serve l'approvazione del responsabile">${ICO_LUCCHETTO}Congelato</span>` : '')
+            + (i.sbloccoRichiesto
+                ? ` <span class="badge rosso" title="${esc(testoSbloccoInAttesa(i))}">Sblocco richiesto</span>` : '');
         // modalita compatta: nella riga resta un solo pulsante, le azioni compaiono in un
         // menu a comparsa e la riga resta bassa. I tre puntini da soli non si leggevano
         // come un comando: ci vuole la parola "Azioni" e il bordo del pulsante.
@@ -4491,13 +4532,13 @@
                     const periodo = anniP && anniP.length ? (anniP.length > 1 ? anniP[0] + '-' + anniP[anniP.length - 1] : String(anniP[0])) : '';
                     const compP = anniP && anniP.length ? anniP.reduce((s, a) => s + Incarichi.compensoAnno(i, a), 0) : 0;
                     return `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgeCongelato(i)}</td>
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgiCalcolo(i)}</td>
                     <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                     <td data-label="Periodo proposto">${esc(periodo)}</td>
                     <td class="num" data-label="Compenso proposto">${compP ? eurFmt.format(compP) : ''}</td>
                     <td data-label="Non accettato il">${i.nonAccettato ? esc(fmtDataOra(i.nonAccettato.il)) : ''}</td>
                     <td data-label="Motivo">${esc((i.nonAccettato && i.nonAccettato.nota) || '')}</td>
-                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riproponi="${esc(i.id)}">Riporta in proposta</button>` : '') + btnSblocca(i) + btnElimina(i))}</td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riproponi="${esc(i.id)}">Riporta in proposta</button>` : '') + btnCalcolo(i) + btnElimina(i))}</td>` : ''}
                 </tr>`;
                 }).join('') +
                 `</tbody></table></div></div>`
@@ -4509,13 +4550,13 @@
                     <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Resp. incarico</th><th>Data dimissioni</th><th>Registrate il</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 dismessi.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgeCongelato(i)}</td>
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgiCalcolo(i)}</td>
                     <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                     <td data-label="Regione">${esc(i.regione || '')}</td>
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                     <td data-label="Data dimissioni">${i.dimissioni && i.dimissioni.data ? esc(fmtData(i.dimissioni.data)) : ''}</td>
                     <td data-label="Registrate il">${i.dimissioni ? esc(fmtDataOra(i.dimissioni.il)) : ''}</td>
-                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnSblocca(i) + btnElimina(i))}</td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnCalcolo(i) + btnElimina(i))}</td>` : ''}
                 </tr>`).join('') +
                 `</tbody></table></div></div>`
                 : '<div class="card tabella-vuota">Nessun incarico dismesso.</div>';
@@ -4526,13 +4567,13 @@
                     <th>Cliente</th><th>Tipo</th><th>Regione</th><th>Fine</th><th>Resp. incarico</th><th>Terminato il</th>${colAzioni ? '<th></th>' : ''}
                 </tr></thead><tbody>` +
                 terminati.map(i => `<tr class="cliccabile" data-apri="${esc(i.id)}">
-                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgeCongelato(i)}</td>
+                    <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgiCalcolo(i)}</td>
                     <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                     <td data-label="Regione">${esc(i.regione || '')}</td>
                     <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
                     <td data-label="Resp. incarico">${esc(i.respIncarico || '')}</td>
                     <td data-label="Terminato il">${i.terminato ? esc(fmtDataOra(i.terminato.il)) : ''}</td>
-                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnSblocca(i) + btnElimina(i))}</td>` : ''}
+                    ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((puoRinnovare ? `<button class="btn btn-sm btn-secondary" data-riattiva="${esc(i.id)}">Riattiva</button>` : '') + btnCalcolo(i) + btnElimina(i))}</td>` : ''}
                 </tr>`).join('') +
                 `</tbody></table></div></div>`
                 : '<div class="card tabella-vuota">Nessun incarico terminato.</div>';
@@ -4561,7 +4602,7 @@
                     const s = Incarichi.statoScadenza(i);
                     const prop = inProposta(i);
                     return `<tr class="cliccabile${prop ? ' riga-proposta' : ''}" data-apri="${esc(i.id)}">
-                        <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgeCongelato(i)}</td>
+                        <td class="cliente-cella" data-label="Cliente">${esc(i.cliente)}${badgiCalcolo(i)}</td>
                         <td data-label="Tipo">${badgeTipo(i.tipo)}</td>
                         <td data-label="Inizio">${i.dataInizio ? esc(fmtData(i.dataInizio)) : esc(i.dataInizioNote || '')}</td>
                         <td data-label="Fine">${esc(fmtData(i.rinnovo || i.dataFine))}</td>
@@ -4574,7 +4615,7 @@
                         <td data-label="Stato"><span class="badge ${s.classe}">${esc(s.testo)}</span></td>
                         ${colAzioni ? `<td data-label="" class="td-azioni td-menu">${menuAzioni((!puoRinnovare ? '' : (prop
                         ? `<button class="btn btn-sm btn-primary" data-conferma="${esc(i.id)}">Conferma</button><button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button><button class="btn btn-sm btn-secondary" data-non-accettato="${esc(i.id)}">Non accettato</button>`
-                        : `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button><button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button><button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button>`)) + btnSblocca(i) + btnElimina(i))}</td>` : ''}
+                        : `<button class="btn btn-sm btn-secondary" data-modifica="${esc(i.id)}">Modifica</button><button class="btn btn-sm btn-secondary" data-rinnova="${esc(i.id)}">Rinnova</button><button class="btn btn-sm btn-secondary" data-termina="${esc(i.id)}">Termina</button><button class="btn btn-sm btn-secondary" data-dimetti="${esc(i.id)}">Dimissioni</button>`)) + btnCalcolo(i) + btnElimina(i))}</td>` : ''}
                     </tr>`;
                 }).join('') +
                 `</tbody><tfoot><tr><td colspan="9">Totale (${attivi.length} incarichi${nProposte ? ', ' + nProposte + (nProposte === 1 ? ' in proposta escluso' : ' in proposta esclusi') + ' dal totale' : ''})</td><td class="num">${eurFmt.format(totale)}</td><td></td>${colAzioni ? '<td></td>' : ''}</tr></tfoot></table></div>`
@@ -4609,6 +4650,18 @@
                 e.stopPropagation();
                 const inc = Incarichi.trova(b.dataset.sblocca);
                 if (inc) modaleSblocco(inc, () => disegnaTabellaIncarichi(annoRif));
+            }));
+        cont.querySelectorAll('[data-annulla-sblocco]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.annullaSblocco);
+                if (inc) modaleAnnullaSblocco(inc, () => disegnaTabellaIncarichi(annoRif));
+            }));
+        cont.querySelectorAll('[data-congela]').forEach(b =>
+            b.addEventListener('click', e => {
+                e.stopPropagation();
+                const inc = Incarichi.trova(b.dataset.congela);
+                if (inc) modaleCongela(inc, () => disegnaTabellaIncarichi(annoRif));
             }));
         cont.querySelectorAll('[data-non-accettato]').forEach(b =>
             b.addEventListener('click', e => {
@@ -4726,6 +4779,7 @@
                         <span class="badge ${classeTipo(inc.tipo)}">${esc(nomeTipo(inc.tipo))}</span>
                         <span class="badge ${s.classe}">${esc(s.testo)}</span>
                         ${inc.calcoloCongelato ? '<span class="badge ambra">' + ICO_LUCCHETTO + 'Calcolo congelato</span>' : ''}
+                        ${inc.sbloccoRichiesto ? '<span class="badge rosso">Sblocco richiesto</span>' : ''}
                     </p>
                 </div>
                 <div class="header-azioni">
@@ -4739,7 +4793,11 @@
                         ? '<button class="btn btn-secondary" id="btn-riproponi-inc">Riporta in proposta</button>'
                         : `<button class="btn btn-secondary" id="btn-rinnova">Rinnova</button>
                         ${inc.stato === 'cessato' || inc.stato === 'dimesso' ? '<button class="btn btn-secondary" id="btn-riattiva-inc">Riattiva incarico</button>' : '<button class="btn btn-secondary" id="btn-termina-inc">Termina incarico</button><button class="btn btn-secondary" id="btn-dimetti-inc">Dimissioni</button>'}`}
-                        ${inc.calcoloCongelato ? '<button class="btn btn-secondary" id="btn-sblocca">Sblocca calcolo</button>' : ''}
+                        ${inc.calcoloCongelato
+                    ? (inc.sbloccoRichiesto
+                        ? '<button class="btn btn-secondary" id="btn-annulla-sblocco">Ritira la richiesta</button>'
+                        : '<button class="btn btn-secondary" id="btn-sblocca">Chiedi lo sblocco</button>')
+                    : (inc.stato === 'proposta' ? '' : '<button class="btn btn-secondary" id="btn-congela">Congela calcolo</button>')}
                         ${inc.tipo === 'legale' || inc.tipo === 'volontaria' ? '<button class="btn ' + (inc.stato === 'proposta' ? 'btn-secondary' : 'btn-primary') + '" id="btn-lettera">Lettera di incarico</button>' : ''}
                     ` : ''}
                 </div>
@@ -4753,7 +4811,12 @@
                 ${Auth.puoScrivere('incarichi') ? '<button class="btn btn-sm btn-secondary" id="btn-riproponi-banner">Riporta in proposta</button>' : ''}
             </div>` : ''}
             ${inc.calcoloCongelato ? `<div class="card" style="border-left:4px solid var(--oro);">
-                <p class="descrizione" style="margin:0;">${ICO_LUCCHETTO}Il calcolo del compenso è congelato${inc.congelamento && inc.congelamento.il ? ' dal ' + fmtDataOra(inc.congelamento.il) : ''}. Per modificarlo, usa "Sblocca calcolo": verrà inviato un messaggio di allerta al titolare.</p>
+                <p class="descrizione" style="margin:0;">${ICO_LUCCHETTO}Il calcolo del compenso è congelato${inc.congelamento && inc.congelamento.il ? ' dal ' + fmtDataOra(inc.congelamento.il) : ''}. ${inc.sbloccoRichiesto
+                    ? esc(testoSbloccoInAttesa(inc)) + ' Il calcolo si sblocca quando approva dal pulsante che ha ricevuto per email.'
+                    : (sbloccoPerEmail()
+                        ? 'Per modificarlo usa "Chiedi lo sblocco": parte una email al responsabile dell\'incarico, che approva con un pulsante nel messaggio.'
+                        : 'Per modificarlo, usa "Chiedi lo sblocco": verrà inviato un messaggio di allerta al titolare.')}</p>
+                ${inc.sbloccoRichiesto && inc.sbloccoRichiesto.motivo ? `<p class="descrizione" style="margin:8px 0 0;font-style:italic;">"${esc(inc.sbloccoRichiesto.motivo)}"</p>` : ''}
             </div>` : ''}
             <div class="dettaglio-griglia">
                 <div>
@@ -4862,6 +4925,10 @@
             if (btnLettera) btnLettera.addEventListener('click', () => naviga('lettera', { id: inc.id }));
             const btnSblocca = document.getElementById('btn-sblocca');
             if (btnSblocca) btnSblocca.addEventListener('click', () => modaleSblocco(inc));
+            const btnAnnullaSbl = document.getElementById('btn-annulla-sblocco');
+            if (btnAnnullaSbl) btnAnnullaSbl.addEventListener('click', () => modaleAnnullaSblocco(inc));
+            const btnCongela = document.getElementById('btn-congela');
+            if (btnCongela) btnCongela.addEventListener('click', () => modaleCongela(inc));
             const btnTermina = document.getElementById('btn-termina-inc');
             if (btnTermina) btnTermina.addEventListener('click', () => modaleTerminaIncarico(inc));
             const btnDimetti = document.getElementById('btn-dimetti-inc');
@@ -5026,28 +5093,133 @@
         });
     }
 
-    // sblocco del calcolo: obbliga a comporre un messaggio di allerta.
-    // onDone opzionale: eseguito dopo lo sblocco (dall'elenco ridisegna la tabella;
-    // senza callback si apre il dettaglio dell'incarico). nota opzionale: avviso in piu'
-    // per chi sblocca da dentro il wizard.
+    /* Indirizzo del servizio che gestisce lo sblocco: quello scritto in
+       firebase-config.js oppure, se manca, dedotto da quello delle email. */
+    function indirizzoSblocco() {
+        if (window.RV_SBLOCCO_URL) return window.RV_SBLOCCO_URL;
+        if (window.RV_EMAIL_SERVICE_URL) return window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'sblocco-incarico$1');
+        return '';
+    }
+    /* Lo sblocco passa per la mail al responsabile solo con l'accesso cloud attivo e il
+       servizio configurato. Nel prototipo in locale non c'e' nessun server a cui
+       chiedere: resta la vecchia via (sblocco immediato con allerta al titolare). */
+    function sbloccoPerEmail() { return !!(Cloud.attivo && indirizzoSblocco()); }
+    /* Il responsabile dell'incarico come sta in anagrafica: e' lui che approva lo
+       sblocco, e la mail parte al suo indirizzo. Senza indirizzo non si puo' chiedere. */
+    function responsabileIncarico(inc) {
+        const et = (inc && inc.respIncarico) || '';
+        const p = et ? personaDaEtichetta(et) : null;
+        return { etichetta: et, nome: p ? Persone.nomeCompleto(et) : et, email: (p && p.email) ? String(p.email).trim() : '' };
+    }
+    /* Frase pronta sulla richiesta in attesa: la usano scheda, elenco e wizard. */
+    function testoSbloccoInAttesa(inc) {
+        const r = inc.sbloccoRichiesto || {};
+        return 'Sblocco chiesto' + (r.il ? ' il ' + fmtDataOra(r.il) : '')
+            + (r.da ? ' da ' + nomeDaFirma(r.da) : '')
+            + ': in attesa della risposta di ' + (r.resp || 'il responsabile dell\'incarico') + '.';
+    }
+
+    /* Richiesta di sblocco del calcolo. La decisione NON e' di chi la chiede: parte una
+       mail al RESPONSABILE DELL'INCARICO, che dal pulsante nel messaggio apre la pagina
+       di conferma e approva (o rifiuta). Solo allora il calcolo si sblocca davvero, e a
+       chi l'ha chiesto arriva la mail con l'esito.
+       onDone(sbloccato) opzionale: eseguito dopo l'invio (dall'elenco ridisegna la
+       tabella; senza callback si apre la scheda dell'incarico). Il flag dice se il
+       calcolo e' gia' sbloccato: succede solo nel prototipo senza servizio email.
+       nota opzionale: avviso in piu' per chi chiede lo sblocco da dentro il wizard. */
     function modaleSblocco(inc, onDone, nota) {
-        apriModale(`<h2>Sbloccare il calcolo?</h2>
-            <p class="descrizione" style="margin-bottom:12px;">Il calcolo di <strong>${esc(inc.cliente)}</strong> è congelato. Per sbloccarlo devi inviare un messaggio di allerta al titolare dello studio, spiegando il motivo. Lo sblocco e la motivazione restano nel registro.</p>
+        const resp = responsabileIncarico(inc);
+        const viaEmail = sbloccoPerEmail();
+        // senza indirizzo del responsabile la mail non ha dove andare: il servizio
+        // rifiuterebbe comunque, e qui si dice subito cosa sistemare
+        const senzaIndirizzo = viaEmail && !resp.email;
+        const chiudi = () => { if (onDone) onDone(false); };
+        apriModale(`<h2>${viaEmail ? 'Chiedere lo sblocco del calcolo?' : 'Sbloccare il calcolo?'}</h2>
+            ${viaEmail ? `<p class="descrizione" style="margin-bottom:12px;">Il calcolo di <strong>${esc(inc.cliente)}</strong> è congelato. Per sbloccarlo serve l'approvazione di <strong>${esc(resp.nome || 'il responsabile dell\'incarico')}</strong>, responsabile dell'incarico${resp.email ? ' (' + esc(resp.email) + ')' : ''}: riceve una mail con il motivo che scrivi qui e un pulsante per sbloccare.</p>
+            <p class="descrizione" style="margin-bottom:12px;">Quando decide ti arriva la mail con l'esito: se approva puoi modificare il calcolo e, finite le modifiche, <strong>ricongelarlo</strong> dalla scheda dell'incarico. Richiesta, esito e motivazione restano nel registro; il titolare dello studio viene avvisato dello sblocco.</p>`
+                : `<p class="descrizione" style="margin-bottom:12px;">Il calcolo di <strong>${esc(inc.cliente)}</strong> è congelato. Il servizio di posta non è attivo su questa copia: lo sblocco avviene subito e resta un messaggio di allerta per il titolare dello studio, con il motivo che scrivi qui.</p>`}
             ${nota ? `<p class="descrizione" style="margin-bottom:12px;"><strong>${esc(nota)}</strong></p>` : ''}
-            <div class="campo"><label>Motivo dello sblocco (messaggio di allerta) *</label><textarea id="m-sblocco-msg" placeholder="Es. rinegoziazione del compenso concordata con il cliente il ..."></textarea></div>
+            ${senzaIndirizzo ? `<div class="msg-errore">Il responsabile <strong>${esc(resp.etichetta || 'dell\'incarico')}</strong> non ha un indirizzo email in anagrafica${resp.etichetta ? '' : ' e l\'incarico non ne indica uno'}: senza indirizzo la richiesta non può partire. Aggiungilo nella sezione <strong>Persone</strong> (o indica il responsabile sull'incarico) e riprova.</div>`
+                : `<div class="campo"><label>Motivo dello sblocco *</label><textarea id="m-sblocco-msg" placeholder="Es. rinegoziazione del compenso concordata con il cliente il ..."></textarea></div>`}
             <div class="msg-errore hidden" id="m-sblocco-err"></div>
             <div class="modale-azioni">
-                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
-                <button class="btn btn-danger" id="m-conferma">Invia allerta e sblocca</button>
+                <button class="btn btn-ghost" id="m-annulla">${senzaIndirizzo ? 'Chiudi' : 'Annulla'}</button>
+                ${senzaIndirizzo ? '' : `<button class="btn ${viaEmail ? 'btn-primary' : 'btn-danger'}" id="m-conferma">${viaEmail ? 'Invia la richiesta al responsabile' : 'Invia allerta e sblocca'}</button>`}
             </div>`);
-        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
-        document.getElementById('m-conferma').addEventListener('click', () => {
+        document.getElementById('m-annulla').addEventListener('click', () => { chiudiModale(); chiudi(); });
+        const conferma = document.getElementById('m-conferma');
+        if (!conferma) return;
+        conferma.addEventListener('click', async () => {
             const msg = document.getElementById('m-sblocco-msg').value.trim();
             const err = document.getElementById('m-sblocco-err');
             if (msg.length < 5) { err.textContent = 'Scrivi il motivo dello sblocco (almeno 5 caratteri).'; err.classList.remove('hidden'); return; }
-            Incarichi.scongela(inc.id, Auth.utenteCorrente, msg);
+            // senza servizio (prototipo in locale) resta la vecchia via: sblocco immediato
+            if (!viaEmail) {
+                Incarichi.scongela(inc.id, Auth.utenteCorrente, msg);
+                chiudiModale();
+                toast('Calcolo sbloccato. Allerta inviata al titolare.', 'verde');
+                if (onDone) onDone(true); else naviga('dettaglio', { id: inc.id });
+                return;
+            }
+            err.classList.add('hidden');
+            const etichetta = conferma.textContent;
+            conferma.disabled = true; conferma.textContent = 'Invio...';
+            const esito = await Cloud.sbloccoIncarico('richiedi', inc.id, msg);
+            if (!esito.ok) {
+                conferma.disabled = false; conferma.textContent = etichetta;
+                err.textContent = esito.msg || 'Richiesta non riuscita.'; err.classList.remove('hidden');
+                return;
+            }
             chiudiModale();
-            toast('Calcolo sbloccato. Allerta inviata al titolare.', 'verde');
+            toast('Richiesta inviata a ' + ((esito.resp && esito.resp.nome) || resp.nome || 'il responsabile') + ': il calcolo si sblocca quando approva.', 'verde');
+            if (onDone) onDone(false); else naviga('dettaglio', { id: inc.id });
+        });
+    }
+
+    /* Ritiro della richiesta in attesa: senza questa via un responsabile che non
+       risponde terrebbe l'incarico fermo, senza poterne fare un'altra. */
+    function modaleAnnullaSblocco(inc, onDone) {
+        const r = inc.sbloccoRichiesto || {};
+        apriModale(`<h2>Ritirare la richiesta di sblocco?</h2>
+            <p class="descrizione" style="margin-bottom:12px;">${esc(testoSbloccoInAttesa(inc))} Ritirandola il calcolo di <strong>${esc(inc.cliente)}</strong> resta congelato e il collegamento già inviato${r.resp ? ' a ' + esc(r.resp) : ''} non funziona più. Potrai chiedere di nuovo lo sblocco quando vuoi.</p>
+            <div class="msg-errore hidden" id="m-ann-err"></div>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Lascia la richiesta</button>
+                <button class="btn btn-danger" id="m-conferma">Ritira la richiesta</button>
+            </div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        const conferma = document.getElementById('m-conferma');
+        conferma.addEventListener('click', async () => {
+            const err = document.getElementById('m-ann-err');
+            const etichetta = conferma.textContent;
+            conferma.disabled = true; conferma.textContent = 'Attendi...';
+            const esito = await Cloud.sbloccoIncarico('annulla', inc.id, '');
+            if (!esito.ok) {
+                conferma.disabled = false; conferma.textContent = etichetta;
+                err.textContent = esito.msg || 'Operazione non riuscita.'; err.classList.remove('hidden');
+                return;
+            }
+            chiudiModale();
+            toast('Richiesta ritirata: il calcolo resta congelato.', 'verde');
+            if (onDone) onDone(); else naviga('dettaglio', { id: inc.id });
+        });
+    }
+
+    /* Ricongelamento: finite le modifiche, il compenso concordato torna protetto.
+       E' l'altra meta' dello sblocco, e la si fa da qui senza ristampare il mandato. */
+    function modaleCongela(inc, onDone) {
+        const resp = responsabileIncarico(inc);
+        apriModale(`<h2>Congelare il calcolo?</h2>
+            <p class="descrizione" style="margin-bottom:12px;">Il compenso e le ore concordati di <strong>${esc(inc.cliente)}</strong> vengono bloccati: non si potranno più modificare${sbloccoPerEmail() ? ' finché ' + esc(resp.nome || 'il responsabile dell\'incarico') + ' non approva una nuova richiesta di sblocco' : ' finché il calcolo non viene sbloccato'}.</p>
+            <div class="modale-azioni">
+                <button class="btn btn-ghost" id="m-annulla">Annulla</button>
+                <button class="btn btn-primary" id="m-conferma">Congela il calcolo</button>
+            </div>`);
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
+        document.getElementById('m-conferma').addEventListener('click', () => {
+            Incarichi.congela(inc.id, Auth.utenteCorrente, 'Congelato dalla scheda dell\'incarico');
+            chiudiModale();
+            toast('Calcolo congelato: il compenso concordato è protetto.', 'verde');
             if (onDone) onDone(); else naviga('dettaglio', { id: inc.id });
         });
     }
@@ -5687,6 +5859,11 @@
         if (w.modalita === 'modifica' && w.dati.calcoloCongelato) {
             const cong = w.dati.congelamento || {};
             const compenso = w.dati.compensi && w.dati.compensi[anniEsercizi()[0]];
+            // la richiesta di sblocco la segna il servizio sull'incarico salvato; se e'
+            // appena partita da qui, l'archivio potrebbe non essersi ancora riallineato
+            const incSalvato = w.idEsistente ? Incarichi.trova(w.idEsistente) : null;
+            const inAttesa = (incSalvato && incSalvato.sbloccoRichiesto) ? testoSbloccoInAttesa(incSalvato)
+                : (w.sbloccoChiesto ? 'Richiesta di sblocco inviata al responsabile dell\'incarico.' : '');
             corpo.innerHTML = `
                 <h2>Calcolo del compenso</h2>
                 <div class="calc-riquadro" style="border-color:var(--ambra); background:var(--ambra-bg);">
@@ -5694,18 +5871,23 @@
                     <p class="descrizione" style="margin:8px 0;">Il calcolo di questo incarico è stato congelato${cong.il ? ' il ' + fmtDataOra(cong.il) : ''}${cong.da ? ' da ' + htmlTimbro(cong) : ''}. Il compenso concordato non può essere modificato.</p>
                     <div class="calc-riga totale"><span>Compenso concordato (primo esercizio)</span><span class="val">${compenso ? eurFmt.format(compenso) : '-'}</span></div>
                 </div>
-                <p class="descrizione">Per modificare il calcolo occorre prima sbloccarlo, inviando un messaggio di allerta al titolare: puoi farlo da qui, oppure dall'elenco e dal dettaglio dell'incarico.</p>
-                <button type="button" class="btn btn-secondary" id="c-sblocca">${ICO_LUCCHETTO}Sblocca calcolo</button>`;
+                ${inAttesa
+                    ? `<p class="descrizione">${esc(inAttesa)} Quando approva, il calcolo torna modificabile: riapri l'incarico dopo la mail di conferma.</p>`
+                    : `<p class="descrizione">Per modificare il calcolo occorre prima sbloccarlo, e lo sblocco lo approva il <strong>responsabile dell'incarico</strong> dalla mail che riceve: la richiesta puoi mandarla da qui, oppure dall'elenco e dalla scheda dell'incarico.</p>
+                <button type="button" class="btn btn-secondary" id="c-sblocca">${ICO_LUCCHETTO}Chiedi lo sblocco</button>`}`;
             w.compensoModificato = false;
-            // sblocco senza uscire dal wizard: le altre modifiche in corso restano dove sono
-            document.getElementById('c-sblocca').addEventListener('click', () => {
+            // la richiesta parte senza uscire dal wizard: le modifiche in corso restano dove sono
+            const bottoneSblocco = document.getElementById('c-sblocca');
+            if (bottoneSblocco) bottoneSblocco.addEventListener('click', () => {
                 const inc = Incarichi.trova(w.idEsistente);
                 if (!inc) return;
-                modaleSblocco(inc, () => {
-                    w.dati.calcoloCongelato = false;
-                    w.dati.congelamento = null;
+                modaleSblocco(inc, sbloccato => {
+                    if (sbloccato) { w.dati.calcoloCongelato = false; w.dati.congelamento = null; }
+                    else { w.sbloccoChiesto = true; }
                     disegnaWizard();
-                }, 'Sbloccando da qui il calcolo torna modificabile subito, senza uscire dalla modifica in corso.');
+                }, sbloccoPerEmail()
+                    ? 'Puoi continuare a lavorare sugli altri passi: la richiesta non chiude la modifica in corso.'
+                    : 'Sbloccando da qui il calcolo torna modificabile subito, senza uscire dalla modifica in corso.');
             });
             return;
         }
@@ -25230,8 +25412,8 @@
             ${inc.stato === 'proposta'
                 ? '<p class="descrizione">L\'incarico è in attesa di approvazione del cliente: il calcolo NON viene congelato, così puoi ancora modificare l\'incarico, cambiare la firma e ristampare il mandato. Il congelamento si propone alla stampa dopo la conferma.</p>'
                 : giaCongelato
-                    ? '<p class="descrizione">Il calcolo di questo incarico è già congelato: il compenso non è modificabile finché non viene sbloccato.</p>'
-                    : `<label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="checkbox" id="m-congela" checked style="width:auto; margin-top:3px;"><span>Congela il calcolo del compenso<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Il compenso e le ore concordati vengono bloccati: per modificarli in seguito occorrerà sbloccarli inviando un messaggio di allerta.</span></span></label>`}
+                    ? '<p class="descrizione">Il calcolo di questo incarico è già congelato: il compenso non è modificabile finché il responsabile dell\'incarico non approva una richiesta di sblocco.</p>'
+                    : `<label style="display:flex; gap:8px; align-items:flex-start; font-weight:600;"><input type="checkbox" id="m-congela" checked style="width:auto; margin-top:3px;"><span>Congela il calcolo del compenso<br><span style="font-weight:400; font-size:0.82rem; color:var(--grigio-600);">Il compenso e le ore concordati vengono bloccati: per modificarli in seguito occorrerà chiedere lo sblocco, che approva il responsabile dell\'incarico dalla mail che riceve.</span></span></label>`}
             <div class="modale-azioni">
                 <button class="btn btn-ghost" id="m-annulla">Annulla</button>
                 <button class="btn btn-primary" id="m-conferma">Genera PDF</button>

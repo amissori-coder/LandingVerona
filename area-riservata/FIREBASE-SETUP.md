@@ -180,6 +180,14 @@ sufficiente per questo utilizzo.
    > (`email-service/lib/utente-effettivo.js`) risolve il riferimento allo
    > stesso modo.
 
+   > **Sblocco del calcolo: `sbloccoIncarichi` resta fuori dalle regole.** I
+   > gettoni con cui il responsabile approva lo sblocco di un incarico vivono
+   > nella collezione `sbloccoIncarichi`, e qui sopra NON c'e' un `match` per
+   > essa: senza regola Firestore nega tutto, e quei documenti li vede solo
+   > l'account di servizio (`email-service/api/sblocco-incarico.js`). E' voluto.
+   > Aggiungere un `match` che la apra allo staff vanificherebbe l'approvazione:
+   > chi chiede lo sblocco potrebbe leggersi il gettone e approvarsi da solo.
+
    > **Messaggi tra utenti connessi.** Il blocco `match /messaggi/{email}` serve
    > ai messaggi privati tra colleghi (popup con risposta). Se le regole
    > pubblicate sulla console sono una versione precedente senza quel blocco,
