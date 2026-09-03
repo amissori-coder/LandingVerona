@@ -1094,7 +1094,18 @@ table.dati.compatta th.col-mark, table.dati.compatta td.col-mark { text-align: c
 }
 .wizard-passo:hover { border-color: var(--blu-300, #9cc0e6); color: var(--blu-900); }
 /* barra Indietro/Avanti sopra la scheda: resta ferma mentre il contenuto cambia altezza */
-.wizard-nav { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.wizard-nav { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+/* A destra della barra, oltre al pulsante principale, ci puo' essere un secondo
+   comando: lo sblocco del calcolo (su tutti i passi, se congelato) oppure "Salva e
+   congela" (solo nel riepilogo, se non lo e'); i due si escludono a vicenda. I .btn
+   non si stringono, quindi il gruppo va a capo INTERO invece di sbordare, e il
+   primario resta l'ultimo, dove l'occhio lo cerca. La soglia e' la stessa dei
+   comandi del calcolo nella scheda dell'incarico. */
+.wizard-nav-azioni { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-left: auto; }
+@media (max-width: 640px) {
+    .wizard-nav-azioni { width: 100%; }
+    .wizard-nav-azioni .btn { flex: 1 1 auto; }
+}
 .wizard-passo .n {
     width: 22px; height: 22px; border-radius: 50%; background: var(--grigio-200);
     display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;
