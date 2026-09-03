@@ -108,6 +108,15 @@ ul {
     gap: clamp(16px, 2vw, 40px);
 }
 
+/* Il menu esteso (8 voci, con i Quaderni) non sta nei 1140px del
+   contenuto: sopra la soglia del menu a tendina la barra usa una
+   larghezza maggiore, coerente con il layout full-bleed della pagina. */
+@media (min-width: 1280px) {
+    .navbar .nav-container {
+        max-width: 1400px;
+    }
+}
+
 /* Hamburger: visibile solo su mobile */
 .nav-toggle {
     display: none;
@@ -152,7 +161,7 @@ ul {
 }
 /* Col menu esteso visibile il marchio non si comprime mai: senza questo
    vincolo, quando lo spazio e' giusto le voci finiscono sopra il logo. */
-@media (min-width: 1100px) {
+@media (min-width: 1280px) {
     .nav-container > .brand-logo { flex-shrink: 0; }
 }
 
@@ -4112,9 +4121,9 @@ ul {
     }
 }
 
-/* Menu a tendina fino a 1099px: sotto questa soglia il menu esteso
-   (7 voci, con brochure e area riservata) non sta su una riga sola. */
-@media (max-width: 1099px) {
+/* Menu a tendina fino a 1279px: sotto questa soglia il menu esteso
+   (8 voci, con Quaderni, brochure e area riservata) non sta su una riga sola. */
+@media (max-width: 1279px) {
     .nav-toggle {
         display: flex;
     }
@@ -4166,6 +4175,38 @@ ul {
     .nav-menu > li > a.nav-riservata {
         display: inline-flex;
         margin-top: 4px;
+    }
+
+    /* Submenu nel pannello mobile: sempre aperto e rientrato, senza
+       hover (non disponibile su touch) e senza posizionamento assoluto. */
+    .has-submenu::before {
+        display: none;
+    }
+
+    .has-submenu > a .submenu-caret {
+        display: none;
+    }
+
+    .submenu {
+        position: static;
+        min-width: 0;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        transition: none;
+        margin: 0 0 6px 6px;
+        padding: 2px 0 2px 12px;
+        background: transparent;
+        backdrop-filter: none;
+        border: 0;
+        border-left: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .submenu a {
+        padding: 9px 8px;
+        white-space: normal;
     }
 }
 
