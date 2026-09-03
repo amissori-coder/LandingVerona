@@ -1,9 +1,10 @@
 /* ============================================================
    Download dell'ebook riservato agli iscritti alla newsletter
    ------------------------------------------------------------
-   Lo chiama la pagina pubblica dell'ebook (per ora
-   /responsabilita_amministratori/): il visitatore scrive il suo
-   indirizzo e la pagina chiede qui se puo' scaricare.
+   Lo chiamano le pagine pubbliche degli ebook
+   (/responsabilita_amministratori/, /tax_control_framework/):
+   il visitatore scrive il suo indirizzo e la pagina chiede qui
+   se puo' scaricare.
 
    La regola e' quella chiesta dallo studio: l'ebook si scarica
    solo se l'indirizzo e' GIA' fra gli iscritti alla newsletter.
@@ -131,7 +132,8 @@ async function ultimaIscrizioneFoglio(email) {
 
 // gli ebook scaricabili: la pagina manda una chiave, mai un percorso
 const EBOOK = {
-    'responsabilita-amministratori': 'Ebook - La responsabilita degli amministratori di societa'
+    'responsabilita-amministratori': 'Ebook - La responsabilita degli amministratori di societa',
+    'tax-control-framework': 'Ebook - Tax Control Framework'
 };
 
 module.exports = async (req, res) => {

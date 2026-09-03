@@ -521,8 +521,9 @@ questo indirizzo con lo stesso payload (vedi `napoli_ottobre_2026/script.js`).
 
 ## Download dell'ebook per gli iscritti (`/api/scarica-ebook`)
 
-Endpoint **pubblico**: lo chiama la pagina dell'ebook sul sito (per ora
-`/responsabilita_amministratori/`). Riceve `{ email, ebook }` e risponde solo
+Endpoint **pubblico**: lo chiamano le pagine degli ebook sul sito
+(`/responsabilita_amministratori/`, `/tax_control_framework/`). Riceve
+`{ email, ebook }` e risponde solo
 `{ ok, iscritto: true|false }`: l'ebook si scarica soltanto se l'indirizzo è
 già fra gli iscritti alla newsletter.
 
