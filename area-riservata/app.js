@@ -4495,7 +4495,10 @@
         const badgiCalcolo = i => (i.calcoloCongelato
             ? ` <span class="badge ambra" title="Calcolo del compenso congelato: per modificarlo serve l'approvazione del responsabile">${ICO_LUCCHETTO}Congelato</span>` : '')
             + (i.sbloccoRichiesto
-                ? ` <span class="badge rosso" title="${esc(testoSbloccoInAttesa(i))}">Sblocco richiesto</span>` : '');
+                ? ` <span class="badge rosso" title="${esc(testoSbloccoInAttesa(i))}">Sblocco richiesto</span>` : '')
+            // il guaio si vede quando serve: congelato e senza un indirizzo a cui chiedere
+            + ((i.calcoloCongelato && respSenzaEmail(i))
+                ? ` <span class="badge rosso" title="Il responsabile dell'incarico non ha un indirizzo email in Aderenti Revilaw: la richiesta di sblocco non può partire">Resp. senza email</span>` : '');
         // modalita compatta: nella riga resta un solo pulsante, le azioni compaiono in un
         // menu a comparsa e la riga resta bassa. I tre puntini da soli non si leggevano
         // come un comando: ci vuole la parola "Azioni" e il bordo del pulsante.
@@ -4818,6 +4821,19 @@
                         : 'Per modificarlo, usa "Chiedi lo sblocco": verrà inviato un messaggio di allerta al titolare.')}</p>
                 ${inc.sbloccoRichiesto && inc.sbloccoRichiesto.motivo ? `<p class="descrizione" style="margin:8px 0 0;font-style:italic;">"${esc(inc.sbloccoRichiesto.motivo)}"</p>` : ''}
             </div>` : ''}
+            ${(() => {
+                // chiuso o non accettato: nessuno congelera' piu' nulla, l'avviso sarebbe rumore
+                const fuori = inc.stato === 'cessato' || inc.stato === 'dimesso' || inc.stato === 'nonAccettato';
+                const r = fuori ? null : respSenzaEmail(inc);
+                if (!r) return '';
+                return `<div class="card" style="border-left:4px solid var(--rosso);">
+                    <p class="descrizione" style="margin:0;"><strong>Il responsabile dell'incarico non ha un indirizzo email.</strong>
+                    ${r.etichetta ? esc(r.nome || r.etichetta) + ' non ha un indirizzo' : 'L\'incarico non indica il responsabile, e senza responsabile non c\'è un indirizzo'} in Aderenti Revilaw:
+                    lo sblocco del calcolo si approva per email, quindi ${inc.calcoloCongelato ? 'la richiesta di sblocco non può partire' : 'quando il calcolo verrà congelato non si potrà più sbloccare'}.
+                    ${r.etichetta ? 'Aggiungi l\'indirizzo dalla scheda della persona.' : 'Indica il responsabile con "Modifica".'}</p>
+                    ${Auth.puoVedere('persone') && r.etichetta ? '<button class="btn btn-sm btn-secondary" id="btn-vai-persone" style="margin-top:10px;">Apri Aderenti Revilaw</button>' : ''}
+                </div>`;
+            })()}
             <div class="dettaglio-griglia">
                 <div>
                     <div class="card">
@@ -4916,6 +4932,7 @@
         $vista().querySelectorAll('.p-lettera-storica').forEach(b =>
             b.addEventListener('click', () => naviga('lettera', { id: inc.id, periodo: Number(b.dataset.periodo) })));
         { const bt = document.getElementById('btn-torna-origine'); if (bt) bt.addEventListener('click', () => tornaOrigine()); }
+        { const bp = document.getElementById('btn-vai-persone'); if (bp) bp.addEventListener('click', () => naviga('persone')); }
         // il dato sbagliato si incontra qui: la richiesta parte gia' agganciata a questo incarico
         { const bc = document.getElementById('btn-chiedi-correzione'); if (bc) bc.addEventListener('click', () => modaleNuovaRichiesta({ incaricoId: inc.id })); }
         if (Auth.puoScrivere('incarichi')) {
@@ -5110,6 +5127,15 @@
         const et = (inc && inc.respIncarico) || '';
         const p = et ? personaDaEtichetta(et) : null;
         return { etichetta: et, nome: p ? Persone.nomeCompleto(et) : et, email: (p && p.email) ? String(p.email).trim() : '' };
+    }
+    /* Il responsabile approva lo sblocco dalla mail: senza il suo indirizzo in
+       anagrafica la richiesta non parte. Conviene dirlo prima che qualcuno ci sbatta
+       contro, non solo quando prova a chiedere lo sblocco. Restituisce il responsabile
+       "muto" (senza email) oppure null: senza servizio email il problema non esiste. */
+    function respSenzaEmail(inc) {
+        if (!inc || !sbloccoPerEmail()) return null;
+        const r = responsabileIncarico(inc);
+        return r.email ? null : r;
     }
     /* Frase pronta sulla richiesta in attesa: la usano scheda, elenco e wizard. */
     function testoSbloccoInAttesa(inc) {
@@ -5458,6 +5484,7 @@
                 <div class="griglia-2">
                     <div class="campo"><label>Responsabile incarico *</label>
                         <select id="w-resp"><option value="">Seleziona</option>${opzioni(Persone.attiveEtichette('respIncarico'), d.respIncarico)}</select>
+                        <div class="msg-errore hidden" id="w-resp-avviso"></div>
                     </div>
                     <div class="campo"><label>Responsabile qualità *</label>
                         <select id="w-qualita"><option value="">Seleziona</option>${opzioni(Persone.attiveEtichette('qualita'), d.qualita)}</select>
@@ -5510,6 +5537,21 @@
                 aggiornaTeam();
             }));
             aggiornaTeam();
+            // il responsabile approva lo sblocco del calcolo dalla propria casella: se non
+            // ha un indirizzo conviene accorgersene ora, non quando il calcolo e' congelato
+            const selResp = document.getElementById('w-resp');
+            const avvisoResp = document.getElementById('w-resp-avviso');
+            const aggiornaAvvisoResp = () => {
+                const scelto = selResp.value;
+                const r = (scelto && sbloccoPerEmail()) ? responsabileIncarico({ respIncarico: scelto }) : null;
+                if (!r || r.email) { avvisoResp.classList.add('hidden'); return; }
+                avvisoResp.textContent = (r.nome || scelto) + ' non ha un indirizzo email in Aderenti Revilaw: '
+                    + 'senza indirizzo non potrà approvare lo sblocco del calcolo, e una volta congelato il compenso non si potrà più modificare. '
+                    + 'Aggiungilo dalla sua scheda.';
+                avvisoResp.classList.remove('hidden');
+            };
+            selResp.addEventListener('change', aggiornaAvvisoResp);
+            aggiornaAvvisoResp();
         } else if (w.passo === 5) {
             const pInizio = d.fattInizio ? (d.fattInizio.anno + '-' + String(d.fattInizio.mese).padStart(2, '0')) : '';
             const pFine = d.fattFine ? (d.fattFine.anno + '-' + String(d.fattFine.mese).padStart(2, '0')) : '';
@@ -11891,6 +11933,18 @@
                 <button class="tab-btn ${personeTab === 'disattivate' ? 'attivo' : ''}" data-ptab="disattivate">Disattivate (${disattivate.length})</button>
                 <button class="tab-btn ${personeTab === 'eliminate' ? 'attivo' : ''}" data-ptab="eliminate">Eliminate (${eliminate.length})</button>
             </div>
+            ${(() => {
+                // senza indirizzo non si approva nessuno sblocco: qui si vede a colpo
+                // d'occhio chi va completato, prima che un incarico resti bloccato
+                const muti = attive.filter(x => x.respIncarico && !x.email);
+                if (!muti.length || !sbloccoPerEmail()) return '';
+                return `<div class="card" style="border-left:4px solid var(--rosso);margin-bottom:16px;">
+                    <p class="descrizione" style="margin:0;"><strong>${muti.length === 1 ? 'Un responsabile incarico non ha' : muti.length + ' responsabili incarico non hanno'} un indirizzo email:</strong>
+                    ${muti.map(x => esc(Persone.nomeCompleto(etichettaPersona(x, tutte)))).join(', ')}.
+                    Lo sblocco del calcolo di un incarico congelato si approva per email: sugli incarichi di cui ${muti.length === 1 ? 'è responsabile' : 'sono responsabili'} la richiesta non può partire.
+                    Aggiungi l'indirizzo con <strong>Modifica</strong>.</p>
+                </div>`;
+            })()}
             ${corpo}
             <p class="descrizione" style="margin-top:10px;">Le persone disattivate o eliminate non compaiono più nelle tendine né nelle sezioni Coordinatori e Responsabili, ma restano negli incarichi già registrati. L'eliminazione è reversibile: le persone eliminate si ripristinano dalla scheda "Eliminate".</p>`;
 
