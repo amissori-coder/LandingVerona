@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Il merito creditizio - Guida operativa Revilaw</title>
+<style>
+    @font-face { font-family: 'Instrument Sans'; src: url('fonts/instrument-sans-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-style: normal; }
+    @font-face { font-family: 'Instrument Sans'; src: url('fonts/instrument-sans-latin-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; }
+    @font-face { font-family: 'Instrument Sans'; src: url('fonts/instrument-sans-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-style: normal; }
+    @font-face { font-family: 'Instrument Sans'; src: url('fonts/instrument-sans-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-style: normal; }
+    @font-face { font-family: 'Instrument Sans'; src: url('fonts/instrument-sans-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-style: normal; }
+    @font-face { font-family: 'Instrument Serif'; src: url('fonts/instrument-serif-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-style: normal; }
+    @font-face { font-family: 'Instrument Serif'; src: url('fonts/instrument-serif-latin-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; }
+
+    :root {
+        --navy: #12426C;
+        --blu-medio: #35618D;
+        --celeste: #B9CDDD;
+        --testo: #37434F;
+        --testo-2: #4C5C72;
+        --grigio: #98A1AC;
+        --filo: #DCE2E9;
+        --oro: #B7A36B;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #ffffff; }
+    body { font-family: 'Instrument Sans', sans-serif; color: var(--testo); }
+    @page { size: A4; margin: 0; }
+
+    .page {
+        width: 210mm; height: 297mm;
+        position: relative; overflow: hidden;
+        padding: 24mm 16mm 20mm;
+        page-break-after: always;
+        background: #ffffff;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    /* ---------- testatina e pie' di pagina ---------- */
+    .testa {
+        position: absolute; top: 9mm; left: 16mm; right: 16mm;
+        display: flex; align-items: center; justify-content: space-between;
+        padding-bottom: 3mm; border-bottom: 0.35pt solid var(--filo);
+    }
+    .testa img { height: 5.4mm; opacity: 0.9; }
+    .testa .meta { font-size: 5.6pt; letter-spacing: 1.1px; color: var(--grigio); }
+    .testa .meta b { color: var(--blu-medio); font-weight: 700; }
+    .piede {
+        position: absolute; bottom: 9mm; left: 16mm; right: 16mm;
+        display: flex; align-items: center; justify-content: space-between;
+        padding-top: 2.6mm; border-top: 0.35pt solid var(--filo);
+    }
+    .piede .motto { font-size: 6pt; letter-spacing: 2.2px; color: var(--navy); font-weight: 500; }
+    .piede .num { font-size: 7.4pt; color: var(--navy); font-weight: 700; }
+
+    /* ---------- tipografia ---------- */
+    .occhiello {
+        font-size: 6.8pt; font-weight: 600; letter-spacing: 2.6px;
+        text-transform: uppercase; color: var(--blu-medio); margin-bottom: 3.4mm;
+    }
+    h1.cap-titolo {
+        font-family: 'Instrument Serif', serif; font-weight: 400;
+        font-size: 19.5pt; color: var(--navy); line-height: 1.14; margin-bottom: 3mm;
+        letter-spacing: 0.1px;
+    }
+    .lede {
+        font-family: 'Instrument Serif', serif; font-style: italic;
+        font-size: 12pt; color: var(--testo-2); line-height: 1.42; margin-bottom: 7mm;
+    }
+    .cap-apertura { display: flex; gap: 6mm; margin-bottom: 2mm; }
+    .cap-num {
+        font-family: 'Instrument Serif', serif; font-size: 44pt; line-height: 0.9;
+        color: var(--celeste); min-width: 12mm;
+    }
+    h2 {
+        font-family: 'Instrument Serif', serif; font-weight: 400;
+        font-size: 12.6pt; color: var(--navy); margin: 5.4mm 0 2.4mm; line-height: 1.2;
+    }
+    h2:first-child { margin-top: 0; }
+    p.corpo, li.corpo {
+        font-size: 9.3pt; line-height: 1.6; text-align: justify;
+        color: var(--testo); margin-bottom: 2.6mm;
+        hyphens: auto; -webkit-hyphens: auto;
+    }
+    p.corpo strong { color: #24313d; font-weight: 700; }
+    p.corpo strong.blu, .blu { color: var(--navy); }
+    ul.punti { list-style: none; margin: 0 0 2.6mm; }
+    ul.punti li {
+        font-size: 9.3pt; line-height: 1.55; color: var(--testo); text-align: justify;
+        padding-left: 4.6mm; position: relative; margin-bottom: 1.8mm; hyphens: auto;
+    }
+    ul.punti li::before {
+        content: ''; position: absolute; left: 0.4mm; top: 1.65mm;
+        width: 1.7mm; height: 1.7mm; background: var(--navy);
+    }
+
+    /* ---------- riquadro "il punto" ---------- */
+    .punto {
+        border-top: 1.4pt solid var(--navy); border-bottom: 0.35pt solid var(--filo);
+        padding: 3mm 0 3.2mm; margin: 4.6mm 0;
+    }
+    .punto .occhiello { margin-bottom: 2mm; font-size: 6.4pt; }
+    .punto p { font-size: 8.9pt; line-height: 1.58; color: var(--testo-2); text-align: justify; hyphens: auto; }
+    .punto p strong { color: var(--navy); }
+
+    /* ---------- in sintesi / cosa fare subito ---------- */
+    .duecol { display: grid; grid-template-columns: 1fr 1.12fr; gap: 9mm; margin-top: 5mm; }
+    .sintesi .occhiello, .fare .occhiello {
+        border-bottom: 0.9pt solid var(--navy); display: inline-block; padding-bottom: 1.4mm; margin-bottom: 3.6mm;
+    }
+    .sintesi ul { list-style: none; }
+    .sintesi li {
+        font-size: 8.9pt; line-height: 1.5; color: var(--testo); text-align: justify;
+        padding-left: 4.4mm; position: relative; margin-bottom: 2.6mm; hyphens: auto;
+    }
+    .sintesi li::before {
+        content: ''; position: absolute; left: 0.4mm; top: 1.5mm;
+        width: 1.6mm; height: 1.6mm; background: var(--navy);
+    }
+    .fare ol { list-style: none; counter-reset: fs; }
+    .fare li {
+        font-size: 8.9pt; line-height: 1.5; color: var(--testo); text-align: justify;
+        padding-left: 7mm; position: relative; margin-bottom: 2.6mm; counter-increment: fs; hyphens: auto;
+    }
+    .fare li::before {
+        content: counter(fs, decimal-leading-zero);
+        position: absolute; left: 0; top: 0.2mm; font-size: 7.4pt; font-weight: 700;
+        color: var(--blu-medio); letter-spacing: 0.5px;
+    }
+
+    /* ---------- contributo di revilaw ---------- */
+    .contributo { border-top: 1.4pt solid var(--navy); padding-top: 3mm; margin-top: 5mm; }
+    .contributo .occhiello { font-size: 6.4pt; margin-bottom: 2mm; }
+    .contributo p { font-size: 8.9pt; line-height: 1.58; color: var(--testo); text-align: justify; hyphens: auto; }
+    .contributo p strong { color: var(--navy); }
+
+    /* ---------- tabelle ---------- */
+    table.dati { width: 100%; border-collapse: collapse; margin: 3mm 0 3.4mm; }
+    table.dati th {
+        font-size: 6.3pt; font-weight: 600; letter-spacing: 1.3px; text-transform: uppercase;
+        color: var(--grigio); text-align: left; padding: 0 2.4mm 1.8mm 0;
+        border-bottom: 0.9pt solid var(--navy);
+    }
+    table.dati td {
+        font-size: 8.5pt; line-height: 1.42; color: var(--testo);
+        padding: 2.1mm 2.4mm 2.1mm 0; vertical-align: top;
+        border-bottom: 0.35pt solid var(--filo);
+    }
+    table.dati td:first-child { font-weight: 700; color: var(--navy); }
+    table.dati.compatta td { font-size: 8pt; padding: 1.7mm 2.2mm 1.7mm 0; }
+
+    /* ---------- pagine schema ---------- */
+    .schema-eyebrow { font-size: 6.8pt; font-weight: 600; letter-spacing: 2.6px; text-transform: uppercase; color: var(--blu-medio); margin-bottom: 2.6mm; }
+    h2.schema-titolo { font-family: 'Instrument Serif', serif; font-size: 16.5pt; color: var(--navy); margin: 0 0 5mm; }
+    .flusso { margin: 2mm 0; }
+    .flusso-riga { display: flex; gap: 4mm; align-items: stretch; margin-bottom: 3.4mm; }
+    .fbox {
+        flex: 1; border: 0.5pt solid var(--celeste); border-top: 1.6pt solid var(--navy);
+        padding: 2.6mm 3mm; background: #F7FAFC;
+    }
+    .fbox .ftit { font-size: 6.4pt; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--blu-medio); margin-bottom: 1.4mm; }
+    .fbox p { font-size: 8pt; line-height: 1.5; color: var(--testo); }
+    .fbox p strong { color: var(--navy); }
+    .statri { display: flex; gap: 5mm; margin: 4mm 0 5mm; }
+    .stat { flex: 1; border-top: 1.6pt solid var(--navy); padding-top: 2.4mm; }
+    .stat .valore { font-family: 'Instrument Serif', serif; font-size: 20pt; color: var(--navy); line-height: 1; margin-bottom: 1.6mm; }
+    .stat p { font-size: 7.8pt; line-height: 1.5; color: var(--testo-2); }
+    .passi { list-style: none; counter-reset: pa; margin: 2mm 0; }
+    .passi li {
+        counter-increment: pa; position: relative; padding: 0 0 3.2mm 10mm;
+        font-size: 8.7pt; line-height: 1.55; color: var(--testo); text-align: justify; hyphens: auto;
+    }
+    .passi li::before {
+        content: counter(pa); position: absolute; left: 0; top: 0;
+        width: 6mm; height: 6mm; border-radius: 50%; background: var(--navy); color: #fff;
+        font-size: 8pt; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    }
+    .passi li strong { color: var(--navy); }
+    .nota-schema {
+        border-top: 0.35pt solid var(--filo); margin-top: 3mm; padding-top: 2.6mm;
+        font-size: 8.4pt; line-height: 1.55; color: var(--testo-2); text-align: justify;
+    }
+    .nota-schema strong { color: var(--navy); }
+
+    /* ---------- copertina e retro ---------- */
+    .cover { background: var(--navy); color: #fff; padding: 0; }
+    .cover-inner { position: absolute; inset: 0; padding: 16mm 15mm 14mm; display: flex; flex-direction: column; }
+    .cover-logo { height: 12mm; align-self: flex-start; margin-top: 3mm; }
+    .cover-mezzo { margin-top: auto; margin-bottom: auto; padding-top: 30mm; }
+    .cover-eyebrow { font-size: 7.6pt; font-weight: 600; letter-spacing: 3.4px; color: #E7EEF5; margin-bottom: 3mm; }
+    .cover-tratto { width: 11mm; height: 0.5pt; background: #8FA9C2; margin-bottom: 10mm; }
+    .cover h1 { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 35pt; line-height: 1.16; margin-bottom: 7mm; letter-spacing: 0.2px; }
+    .cover .sotto { font-size: 10pt; line-height: 1.66; color: var(--celeste); max-width: 152mm; text-align: justify; }
+    .cover-piede { border-top: 0.5pt solid rgba(255,255,255,0.28); padding-top: 4mm; display: flex; align-items: flex-start; gap: 10mm; }
+    .cover-piede .payoff { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 9.6pt; color: #DBE6F0; width: 40mm; line-height: 1.35; }
+    .cover-piede .cmeta { font-size: 6.4pt; letter-spacing: 1.8px; color: #A9BFD4; line-height: 1.7; text-transform: uppercase; white-space: nowrap; }
+    .cover-piede .cmeta + .cmeta { margin-left: auto; }
+
+    .retro { background: var(--navy); color: #fff; }
+    .retro-inner { position: absolute; inset: 0; padding: 20mm 18mm; display: flex; flex-direction: column; }
+    .retro .cover-logo { height: 10mm; }
+    .retro-mezzo { margin: auto 0; }
+    .retro .payoff-big { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 21pt; color: #fff; margin-bottom: 6mm; }
+    .retro p { font-size: 8.8pt; line-height: 1.7; color: var(--celeste); text-align: justify; max-width: 150mm; }
+    .retro .fine { border-top: 0.5pt solid rgba(255,255,255,0.28); padding-top: 4mm; font-size: 6.6pt; letter-spacing: 1.6px; color: #A9BFD4; display: flex; justify-content: space-between; text-transform: uppercase; }
+
+    /* ---------- pagina "perché" ---------- */
+    .perche-cols { column-count: 2; column-gap: 8mm; margin-bottom: 4mm; }
+    .perche-cols p { font-size: 9.1pt; line-height: 1.6; text-align: justify; color: var(--testo); margin-bottom: 2.6mm; hyphens: auto; }
+    .perche-cols p strong { color: #24313d; }
+    h1.grande {
+        font-family: 'Instrument Serif', serif; font-weight: 400;
+        font-size: 21pt; color: var(--navy); line-height: 1.18; margin-bottom: 6mm;
+    }
+
+    /* ---------- indice ---------- */
+    .idx { margin-top: 2mm; }
+    .idx-riga { display: flex; gap: 5mm; padding: 3.1mm 0; border-bottom: 0.35pt solid var(--filo); }
+    .idx-num { font-size: 10.5pt; font-weight: 700; color: var(--navy); min-width: 7mm; }
+    .idx-body { flex: 1; }
+    .idx-tit { font-family: 'Instrument Serif', serif; font-size: 11.6pt; color: var(--navy); margin-bottom: 1mm; }
+    .idx-desc { font-size: 8.2pt; color: var(--testo-2); line-height: 1.45; }
+    .idx-pag { font-size: 8.4pt; color: var(--navy); font-weight: 600; }
+    .idx-chiusa { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 10pt; color: var(--testo-2); margin-top: 5mm; }
+
+    /* ---------- chi siamo ---------- */
+    .griglia-servizi { display: grid; grid-template-columns: 1fr 1fr; gap: 3.4mm 6mm; margin-top: 3mm; }
+    .serv { border-top: 0.9pt solid var(--celeste); padding-top: 2mm; }
+    .serv h3 { font-size: 8.8pt; color: var(--navy); font-weight: 700; margin-bottom: 1mm; }
+    .serv p { font-size: 7.8pt; line-height: 1.5; color: var(--testo-2); text-align: justify; }
+
+    /* ---------- autovalutazione ---------- */
+    table.quiz { width: 100%; border-collapse: collapse; margin: 2.4mm 0; }
+    table.quiz th { font-size: 6.3pt; font-weight: 600; letter-spacing: 1.3px; text-transform: uppercase; color: var(--grigio); text-align: left; padding: 0 0 1.6mm; border-bottom: 0.9pt solid var(--navy); }
+    table.quiz th.c, table.quiz td.c { text-align: center; width: 8mm; }
+    table.quiz td { font-size: 8.1pt; line-height: 1.4; color: var(--testo); padding: 1.55mm 2mm 1.55mm 0; border-bottom: 0.35pt solid var(--filo); }
+    table.quiz td.n { font-weight: 700; color: var(--navy); width: 6mm; }
+    table.quiz td.gruppo { font-weight: 700; color: var(--blu-medio); font-size: 7pt; letter-spacing: 1.4px; text-transform: uppercase; padding-top: 2.6mm; border-bottom: none; }
+    table.quiz td.c::before { content: ''; display: inline-block; width: 3mm; height: 3mm; border: 0.6pt solid var(--grigio); }
+    .esiti { display: flex; gap: 5mm; margin-top: 3.6mm; }
+    .esito { flex: 1; border-top: 1.6pt solid var(--navy); padding-top: 2mm; }
+    .esito .fascia-q { font-family: 'Instrument Serif', serif; font-size: 13pt; color: var(--navy); margin-bottom: 1.2mm; }
+    .esito p { font-size: 7.7pt; line-height: 1.5; color: var(--testo-2); text-align: justify; }
+    .esito p strong { color: var(--navy); }
+
+    .avvertenza {
+        margin-top: 4mm; padding-top: 2.6mm; border-top: 0.35pt solid var(--filo);
+        font-size: 7pt; line-height: 1.6; color: var(--grigio); text-align: justify;
+    }
+</style>
+</head>
+<body>
+
+<!-- ==================== COPERTINA ==================== -->
+<div class="page cover">
+    <div class="cover-inner">
+        <img class="cover-logo" src="logo-bianco.png" alt="Revilaw">
+        <div class="cover-mezzo">
+            <div class="cover-eyebrow">G U I D A&nbsp;&nbsp;O P E R A T I V A&nbsp;&nbsp;D I&nbsp;&nbsp;G O V E R N A N C E&nbsp;&nbsp;E&nbsp;&nbsp;C O M P L I A N C E</div>
+            <div class="cover-tratto"></div>
+            <h1>Il merito creditizio</h1>
+            <p class="sotto">
+                Come le banche giudicano l'impresa e come si governa il giudizio. Rating del Fondo di
+                Garanzia, Centrale dei Rischi, capacità di rimborso, presidi qualitativi: le logiche del
+                credito e il metodo Revilaw, dal check-up al percorso di miglioramento.
+            </p>
+        </div>
+        <div class="cover-piede">
+            <div class="payoff">Oltre la verifica, verso il valore.</div>
+            <div class="cmeta">Edizione<br>Settembre 2026</div>
+            <div class="cmeta" style="margin-left:auto;">www.revilaw.it</div>
+            <div class="cmeta" style="margin-left:8mm;">www.nextgenerationbusiness.it</div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== PERCHE QUESTA GUIDA ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="occhiello">Perché questa guida</div>
+    <h1 class="grande">Il credito non si chiede:<br>si prepara.</h1>
+    <div class="perche-cols">
+        <p>
+            Quando un'impresa entra in banca, il giudizio è già in gran parte scritto: sta nei tre
+            bilanci depositati, nei sei mesi di Centrale dei Rischi, nell'uso quotidiano degli
+            affidamenti, nei presidi organizzativi che esistono o non esistono. Il colloquio con il
+            gestore tocca ciò che i modelli hanno già misurato. Eppure il merito creditizio viene ancora
+            trattato come un esito da subire, non come <strong>una grandezza che si conosce in anticipo e si
+            governa</strong>.
+        </p>
+        <p>
+            Questa guida rovescia la prospettiva. Le logiche del credito sono in gran parte
+            conoscibili: il modello del Fondo di Garanzia è pubblico, gli indici della crisi sono
+            pubblicati, la struttura tipica dei rating interni delle banche è nota, le soglie della
+            prassi bancaria sono consolidate. Chi le conosce può misurarsi da solo, prima e meglio
+            di come farebbe la controparte, e presentarsi in banca con i propri numeri già letti,
+            spiegati e, dove serve, corretti.
+        </p>
+        <p>
+            La guida è anche un'altra cosa: <strong>il manuale del nostro metodo</strong>. La verifica del merito
+            creditizio dell'area riservata Revilaw, con i suoi motori di calcolo e il check-up in
+            undici fasi, è descritta qui capitolo per capitolo, con le stesse regole con cui la
+            usiamo ogni giorno. Serve alle imprese per capire come vengono giudicate, e serve a noi
+            per lavorare tutti allo stesso modo: stessi modelli, stesse soglie, stesse parole.
+        </p>
+        <p>
+            Il filo conduttore è quello dell'intera collana: il merito creditizio è un pezzo degli
+            <strong>adeguati assetti</strong> che l'articolo 2086 del Codice civile chiede a chi amministra.
+            Un'impresa che non conosce il proprio DSCR, non legge la propria Centrale dei Rischi e
+            scopre il proprio rating dalla banca non ha un problema bancario: ha un problema
+            organizzativo, e i suoi amministratori ne rispondono. Per questo il credito incontra qui
+            i temi delle guide precedenti: la responsabilità degli amministratori, il Tax Control
+            Framework, i percorsi ESG, il Modello 231 e il rating di legalità, che le banche
+            leggono come indicatori della qualità di chi governa.
+        </p>
+        <p>
+            <strong>A chi si rivolge.</strong> Imprenditori e amministratori; direttori finanziari e responsabili
+            amministrativi; consulenti d'impresa; e i professionisti della rete Revilaw, per i quali
+            è il riferimento operativo del servizio di rating advisory.
+        </p>
+        <p>
+            <strong>Come leggerla.</strong> Ogni capitolo si chiude con tre strumenti: <em>In sintesi</em> (i punti da
+            ricordare), <em>Cosa fare subito</em> (le azioni verificabili) e <em>Il contributo di Revilaw</em>
+            (come possiamo affiancarvi). L'ultimo capitolo propone un'autovalutazione in venti
+            domande per misurare quanto il merito creditizio della vostra impresa è presidiato.
+        </p>
+    </div>
+    <div class="punto">
+        <div class="occhiello">Una premessa di metodo</div>
+        <p>
+            Le indicazioni contenute in questa guida sono aggiornate al 1° settembre 2026 e hanno finalità informativa.
+            I modelli interni delle banche sono proprietari e riservati: la verifica Revilaw replica il modello pubblico del
+            Fondo di Garanzia PMI e lo integra con stime professionali dichiarate, utili per prepararsi, negoziare e
+            migliorare. Il rating effettivo assegnato da ciascuna banca può differire, e nessuna classe qui descritta è una
+            promessa di esito.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">1</div></div>
+</div>
+
+<!-- ==================== INDICE ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="occhiello">Indice</div>
+    <h1 class="grande">Dieci capitoli, un giudizio<br>da governare</h1>
+    <div class="idx">
+        <div class="idx-riga"><div class="idx-num">1</div><div class="idx-body"><div class="idx-tit">Il merito creditizio è un giudizio. E i giudizi si governano</div><div class="idx-desc">Che cosa misura davvero la banca, i tre ingredienti del rating, perché è un tema di adeguati assetti e di responsabilità</div></div><div class="idx-pag">3</div></div>
+        <div class="idx-riga"><div class="idx-num">2</div><div class="idx-body"><div class="idx-tit">Il modello pubblico: il rating del Fondo di Garanzia</div><div class="idx-desc">Il modulo di bilancio, le classi da 1 a 12, fasce e probabilità di inadempimento, l'ammissibilità alla garanzia</div></div><div class="idx-pag">5</div></div>
+        <div class="idx-riga"><div class="idx-num">3</div><div class="idx-body"><div class="idx-tit">La Centrale dei Rischi: il comportamento vale quanto il bilancio</div><div class="idx-desc">Il modulo andamentale, sconfinamenti e utilizzi, la matrice di integrazione, perché nelle PMI pesa più del bilancio</div></div><div class="idx-pag">7</div></div>
+        <div class="idx-riga"><div class="idx-num">4</div><div class="idx-body"><div class="idx-tit">I sei numeri che ogni banca guarda per primi</div><div class="idx-desc">Il cruscotto di bancabilità: DSCR, leva, patrimonializzazione, costo del debito, con le soglie della prassi</div></div><div class="idx-pag">10</div></div>
+        <div class="idx-riga"><div class="idx-num">5</div><div class="idx-body"><div class="idx-tit">Oltre i numeri: le venti domande e i presidi che pagano</div><div class="idx-desc">Il profilo qualitativo: assetti, Modello 231, rating di legalità, ESG, Tax Control Framework, rapporti con le banche</div></div><div class="idx-pag">12</div></div>
+        <div class="idx-riga"><div class="idx-num">6</div><div class="idx-body"><div class="idx-tit">Il bilancio come lo legge la banca: le rettifiche prudenziali</div><div class="idx-desc">Crediti scaduti, magazzino fermo, rivalutazioni, finanziamenti soci, leasing: la distanza tra i due bilanci</div></div><div class="idx-pag">14</div></div>
+        <div class="idx-riga"><div class="idx-num">7</div><div class="idx-body"><div class="idx-tit">Dove il credito incontra il Codice della crisi</div><div class="idx-desc">DSCR sotto 1, indici CNDCEC, Z-Score, segnali dell'art. 3: gli stessi numeri che misurano la responsabilità di chi amministra</div></div><div class="idx-pag">16</div></div>
+        <div class="idx-riga"><div class="idx-num">8</div><div class="idx-body"><div class="idx-tit">Il rating interno simulato e le banche dell'impresa</div><div class="idx-desc">La struttura tipica dei modelli delle banche, le classi da 1 a 10, la solidità degli istituti e la stima per singola banca</div></div><div class="idx-pag">18</div></div>
+        <div class="idx-riga"><div class="idx-num">9</div><div class="idx-body"><div class="idx-tit">Il check-up del merito creditizio: il metodo Revilaw</div><div class="idx-desc">Undici fasi, tredici moduli, la scala di presidio 0-4, le regole di prudenza, le classi diagnostiche da A a E</div></div><div class="idx-pag">21</div></div>
+        <div class="idx-riga"><div class="idx-num">10</div><div class="idx-body"><div class="idx-tit">Dal verdetto al percorso di miglioramento</div><div class="idx-desc">La sintesi in quattro livelli, la classe potenziale, le leve oneste, l'autovalutazione in venti domande</div></div><div class="idx-pag">24</div></div>
+    </div>
+    <p class="idx-chiusa">In chiusura: chi è Revilaw e come lavoriamo con le imprese sull'accesso al credito.</p>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">2</div></div>
+</div>
+
+<!-- ==================== CAP 1 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">1</div>
+        <div>
+            <div class="occhiello">Le logiche del credito</div>
+            <h1 class="cap-titolo">Il merito creditizio è un giudizio. E i giudizi si governano</h1>
+            <p class="lede">Il merito creditizio non è la simpatia del direttore di filiale: è una stima della probabilità
+            che l'impresa non rimborsi. Si costruisce con modelli, e i modelli si possono conoscere, anticipare e migliorare.</p>
+        </div>
+    </div>
+    <h2>1.1 Che cosa misura davvero la banca</h2>
+    <p class="corpo">
+        Ogni affidamento è una scommessa sulla capacità dell'impresa di restituire il denaro. Per deliberarla, la banca
+        traduce l'impresa in una <strong>probabilità di inadempimento</strong> (PD, <em>probability of default</em>): la
+        probabilità, stimata a dodici mesi, che il rapporto finisca in default. Dalla PD discendono quasi tutte le
+        condizioni che l'impresa percepisce come "trattamento": la delibera stessa, l'importo, le garanzie richieste, il
+        prezzo. Un punto di PD in più o in meno vale spread, plafond e velocità di risposta. Il rating è semplicemente la
+        scala in classi con cui quella probabilità viene ordinata.
+    </p>
+    <p class="corpo">
+        I modelli con cui la PD viene stimata si somigliano tutti, perché leggono le stesse tre famiglie di informazioni:
+        il <strong class="blu">bilancio</strong> (quanto margine, quanto debito, quanto patrimonio, quanta liquidità); il
+        <strong class="blu">comportamento</strong> (come l'impresa usa gli affidamenti, mese per mese, nella Centrale dei
+        Rischi e sui conti della banca); il <strong class="blu">profilo qualitativo</strong> (come l'impresa è governata,
+        pianificata, presidiata). Il peso relativo cambia con la dimensione: nelle imprese piccole il comportamento
+        bancario pesa più del bilancio, perché è l'informazione più affidabile che la banca possiede; al crescere della
+        dimensione il bilancio guadagna peso. È una regola che vale la pena imparare subito: <strong>per una PMI, un mese
+        di sconfinamento pesa più di un punto di margine</strong>.
+    </p>
+    <h2>1.2 Perché è un tema di governance, prima che di finanza</h2>
+    <p class="corpo">
+        L'articolo 2086, secondo comma, del Codice civile impone a chi amministra assetti organizzativi, amministrativi e
+        contabili adeguati, anche in funzione della rilevazione tempestiva della crisi e della perdita di continuità. La
+        capacità di accesso al credito vive esattamente lì: il piano di tesoreria a dodici mesi, il DSCR prospettico, la
+        lettura mensile della Centrale dei Rischi, il monitoraggio degli indici di allerta non sono adempimenti bancari,
+        sono <strong>contenuto degli adeguati assetti</strong>. La prima guida di questa collana ha mostrato che
+        l'organizzazione mancante è oggi, di per sé, fonte di responsabilità per gli amministratori; questa guida mostra
+        il caso concreto più frequente: l'impresa che scopre il proprio merito creditizio dalla banca, quando ormai è la
+        banca a dettare le condizioni.
+    </p>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            La domanda giusta non è "che rating ci darà la banca?", ma <strong>"che rating ci daremmo noi, con i loro
+            modelli, e che cosa stiamo facendo per migliorarlo?"</strong>. Se l'impresa non sa rispondere, il tema non è
+            bancario: è organizzativo, e ricade sui doveri di chi amministra.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">3</div></div>
+</div>
+
+<!-- ==================== CAP 1 / B ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2>1.3 La verifica Revilaw: un solo percorso, tutti gli strumenti</h2>
+    <p class="corpo">
+        Il metodo dello studio parte da un'idea semplice: prima di andare in banca, l'impresa deve vedersi con gli occhi
+        di chi delibera. La <strong>verifica del merito creditizio</strong> dell'area riservata Revilaw ricostruisce quel
+        punto di vista con strumenti in sequenza: il modello pubblico del Fondo di Garanzia PMI (capitolo 2), il modulo
+        andamentale dalla Centrale dei Rischi (capitolo 3), il cruscotto di bancabilità con le soglie della prassi
+        (capitolo 4), le venti domande qualitative con il correttivo di classe (capitolo 5), le rettifiche prudenziali da
+        analista fidi (capitolo 6), i segnali della crisi e lo Z-Score (capitolo 7), il rating interno simulato e
+        l'analisi delle banche dell'impresa (capitolo 8). Sopra i numeri lavora il <strong>check-up</strong>, il metodo
+        operativo in undici fasi che misura la qualità dei presidi (capitolo 9). Tutto converge in un verdetto e in un
+        percorso di miglioramento collegato ai servizi dello studio (capitolo 10), dentro un report firmato dal
+        professionista responsabile.
+    </p>
+    <p class="corpo">
+        Ogni strumento ha fonti dichiarate: le Specifiche tecniche del Fondo di Garanzia PMI in vigore dal 15 febbraio
+        2020, il documento del CNDCEC del 20 ottobre 2019 sugli indici della crisi, i modelli di Altman per lo Z-Score,
+        la prassi bancaria e le linee guida EBA per il cruscotto. Dove la verifica aggiunge stime professionali dello
+        studio, lo dice espressamente: è la stessa trasparenza che chiediamo ai bilanci.
+    </p>
+    <div class="duecol">
+        <div class="sintesi">
+            <div class="occhiello">In sintesi</div>
+            <ul>
+                <li>Il merito creditizio è una probabilità di inadempimento stimata: decide delibera, importi, garanzie e prezzo.</li>
+                <li>Tre ingredienti sempre: bilancio, comportamento bancario, profilo qualitativo. Nelle PMI il comportamento pesa di più.</li>
+                <li>Presidiare il proprio merito creditizio è parte degli adeguati assetti ex art. 2086: riguarda gli amministratori, non solo il CFO.</li>
+                <li>I modelli si possono conoscere: quello del Fondo di Garanzia è pubblico, la struttura dei rating interni è nota.</li>
+            </ul>
+        </div>
+        <div class="fare">
+            <div class="occhiello">Cosa fare subito</div>
+            <ol>
+                <li>Portare il merito creditizio in consiglio: una sessione dedicata con rating, affidamenti e utilizzi alla mano.</li>
+                <li>Richiedere la Centrale dei Rischi dell'impresa (è gratuita) e leggerla prima di ogni altra analisi.</li>
+                <li>Calcolare il proprio DSCR a dodici mesi: è il numero che banche e Codice della crisi guardano per primo.</li>
+                <li>Censire per ogni banca accordato, utilizzato, garanzie e anzianità del rapporto: è la mappa su cui si lavora.</li>
+                <li>Fissare un responsabile interno del dossier banche, con il mandato di conoscerlo meglio della banca stessa.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="contributo">
+        <div class="occhiello">Il contributo di Revilaw</div>
+        <p>
+            <strong>Verifica del merito creditizio.</strong> Fotografiamo l'impresa con i modelli con cui la fotografa il
+            sistema: classe del Fondo di Garanzia, cruscotto di bancabilità, profilo qualitativo e rating interno
+            simulato, in un report firmato con metodo e limiti dichiarati. È il punto di partenza di ogni percorso: prima
+            si misura, poi si negozia, poi si migliora.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">4</div></div>
+</div>
+
+<!-- ==================== CAP 2 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">2</div>
+        <div>
+            <div class="occhiello">Il modulo di bilancio</div>
+            <h1 class="cap-titolo">Il modello pubblico: il rating del Fondo di Garanzia</h1>
+            <p class="lede">Il Fondo di Garanzia PMI assegna a ogni impresa una classe di merito con un modello reso
+            pubblico. Chi lo replica sa in anticipo come lo Stato la vede, se la garanzia è ottenibile e da quale classe
+            si parte quando si va in banca.</p>
+        </div>
+    </div>
+    <h2>2.1 Come funziona il modulo economico-finanziario</h2>
+    <p class="corpo">
+        Dal bilancio il modello costruisce una serie di <strong>indicatori</strong>, diversi per settore (industria,
+        edilizia, commercio, immobiliare, servizi): quanto pesano i debiti a breve sul fatturato, quanto gli oneri
+        finanziari assorbono il margine operativo lordo, quanta parte dell'attivo è finanziata con mezzi propri, quanta
+        liquidità copre gli impegni ravvicinati, come cresce o cala il fatturato. Ogni indicatore viene riportato entro
+        limiti minimi e massimi, così un valore estremo non stravolge il risultato, e pesato con il coefficiente previsto
+        per il settore; correzioni dedicate scattano per il margine negativo, il fatturato in calo, il patrimonio netto
+        negativo e per le imprese più piccole (fino a 500.000 euro di ricavi). La somma pesata degli indicatori dà un
+        punteggio complessivo che, confrontato con dieci soglie fisse, produce la <strong class="blu">classe di bilancio
+        da 1 a 11</strong>, dove 1 è la migliore.
+    </p>
+    <p class="corpo">
+        Il punto di forza del modello è la trasparenza: nella verifica Revilaw ogni indicatore è mostrato con il valore
+        di bilancio, il valore trattato, il coefficiente e il contributo al punteggio. Non c'è nulla da credere sulla
+        fiducia: c'è un calcolo da leggere, indicatore per indicatore, e quindi anche <strong>una leva da individuare</strong>:
+        si vede esattamente quale voce di bilancio sta costando classi.
+    </p>
+    <h2>2.2 Classi, fasce e probabilità di inadempimento</h2>
+    <p class="corpo">
+        La classe di bilancio, integrata con il modulo andamentale (capitolo 3), diventa la <strong class="blu">classe
+        integrata da 1 a 12</strong>. Ogni classe appartiene a una fascia da 1 a 5 e porta con sé una probabilità di
+        inadempimento osservata storicamente: dallo <strong>0,12%</strong> della classe migliore al
+        <strong>22,98%</strong> della peggiore. La garanzia pubblica è ammissibile fino alla classe 10; le sofferenze
+        segnalate e le procedure concorsuali la escludono comunque. Gli eventi pregiudizievoli sull'impresa (ipoteche
+        giudiziali, pignoramenti, domande giudiziali) peggiorano la classe di <strong>due gradini</strong>, come previsto
+        dalle regole del Fondo: è spesso la leva più rapida su cui lavorare, perché una cancellazione in conservatoria
+        vale più di un anno di margini.
+    </p>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            La classe del Fondo non è "il rating della banca", ma è il numero con cui ogni interlocutore pubblico guarda
+            l'impresa, ed è calcolabile <strong>prima</strong>, con esattezza. Presentarsi in banca conoscendo la propria
+            classe MCC, e il dettaglio del calcolo, cambia la natura del colloquio: da esaminato a interlocutore.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">5</div></div>
+</div>
+
+<!-- ==================== CAP 2 / B ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2>2.3 Le regole di qualità che la verifica impone</h2>
+    <p class="corpo">
+        Un modello è affidabile quanto i dati che riceve. La verifica Revilaw applica due controlli che nella pratica
+        fanno la differenza. La <strong>quadratura</strong>: se attivo e passivo non coincidono, l'esito è dichiarato non
+        classificabile finché la quadratura non è sanata, perché una classe calcolata su un bilancio che non quadra è un
+        numero a caso con l'aria autorevole. La <strong>data dei dati</strong>: il modello lavora sull'ultimo bilancio,
+        ma la banca guarda anche la situazione infrannuale; una verifica seria dichiara sempre l'esercizio di
+        riferimento e va aggiornata quando cambiano dati o eventi rilevanti.
+    </p>
+    <p class="corpo">
+        C'è poi il perimetro: il modello del Fondo nasce per le società di capitali con bilancio depositato e per le PMI.
+        Per i gruppi, le imprese in contabilità semplificata o le situazioni particolari servono gli aggiustamenti
+        professionali, che la verifica registra come tali. È un confine da rispettare: <strong>usare un modello fuori dal
+        suo perimetro produce numeri precisi e sbagliati</strong>.
+    </p>
+    <div class="duecol">
+        <div class="sintesi">
+            <div class="occhiello">In sintesi</div>
+            <ul>
+                <li>Il modello del Fondo è pubblico: indicatori per settore, punteggio, dieci soglie, classe di bilancio da 1 a 11.</li>
+                <li>La classe integrata da 1 a 12 porta fascia (1-5) e PD empirica: dallo 0,12% al 22,98%.</li>
+                <li>Garanzia ammissibile fino alla classe 10; sofferenze e procedure la precludono sempre.</li>
+                <li>Ipoteche giudiziali, pignoramenti e domande giudiziali costano due classi: le cancellazioni sono una leva rapida.</li>
+                <li>Bilancio che non quadra = esito non classificabile. Prima la qualità del dato, poi il modello.</li>
+            </ul>
+        </div>
+        <div class="fare">
+            <div class="occhiello">Cosa fare subito</div>
+            <ol>
+                <li>Calcolare la classe MCC dell'impresa sull'ultimo bilancio e leggerne il dettaglio indicatore per indicatore.</li>
+                <li>Verificare in conservatoria l'esistenza di pregiudizievoli e programmare le cancellazioni di quelli definiti.</li>
+                <li>Individuare i due indicatori che costano di più e stimare l'effetto delle azioni correttive possibili.</li>
+                <li>Ripetere il calcolo su una situazione infrannuale recente: la classe "di oggi" conta più di quella depositata.</li>
+                <li>Se la garanzia serve nei prossimi mesi, verificare subito l'ammissibilità: scoprirlo in istruttoria è tardi.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="contributo">
+        <div class="occhiello">Il contributo di Revilaw</div>
+        <p>
+            <strong>Replica del modello MCC e presidio dell'ammissibilità.</strong> Calcoliamo la classe del Fondo con le
+            Specifiche tecniche ufficiali, mostriamo il contributo di ogni indicatore e simuliamo l'effetto delle azioni
+            correttive: patrimonializzazione, consolidamento del breve, pulizia dei pregiudizievoli. Così la richiesta di
+            garanzia parte quando l'esito è già noto.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">6</div></div>
+</div>
+
+<!-- ==================== CAP 3 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">3</div>
+        <div>
+            <div class="occhiello">Il modulo andamentale</div>
+            <h1 class="cap-titolo">La Centrale dei Rischi: il comportamento vale quanto il bilancio</h1>
+            <p class="lede">Il bilancio racconta l'anno passato; la Centrale dei Rischi racconta che cosa l'impresa fa con
+            il denaro delle banche, mese per mese. Per chi delibera è l'informazione più fresca e più difficile da
+            truccare: per questo pesa così tanto.</p>
+        </div>
+    </div>
+    <h2>3.1 Che cosa legge il modulo andamentale</h2>
+    <p class="corpo">
+        La Centrale dei Rischi della Banca d'Italia registra, per ogni impresa affidata, accordato e utilizzato di tutte
+        le banche, con sconfinamenti, garanzie e sofferenze. Ogni impresa può richiederla <strong>gratuitamente</strong>,
+        e dovrebbe farlo ogni mese. Il modulo andamentale del Fondo lavora sui <strong>sei mesi più recenti</strong> e
+        misura quattro cose: quanto sono utilizzati gli affidamenti di cassa rispetto all'accordato; in quanti mesi c'è
+        stato uno sconfinamento di cassa; in quanti mesi uno sconfinamento sui rischi a scadenza; se ci sono mesi senza
+        rapporti censiti. Questi valori entrano in una formula pubblica che produce la <strong class="blu">classe
+        andamentale da 1 a 11</strong>.
+    </p>
+    <p class="corpo">
+        Una <strong>matrice di integrazione</strong> incrocia poi classe di bilancio e classe andamentale nella classe
+        integrata da 1 a 12. La matrice non fa medie: un andamentale pessimo trascina in basso anche un buon bilancio, e
+        un andamentale impeccabile risolleva solo in parte un bilancio debole. Senza Centrale dei Rischi la classe
+        integrata coincide con quella di bilancio: il che significa che <strong>chi non porta il proprio andamentale
+        rinuncia alla sua leva migliore</strong>, quando il comportamento è regolare.
+    </p>
+    <h2>3.2 La variabile che pesa più di tutte: lo sconfinamento</h2>
+    <p class="corpo">
+        Nella formula andamentale la variabile con il coefficiente più alto è l'utilizzo rispetto all'accordato, e quella
+        che degrada più in fretta è il numero di mesi con sconfino di cassa. Tradotto in gestione: un fido usato
+        stabilmente oltre l'80-85% viene letto come tensione di liquidità; un utilizzo oltre il 100%, anche di poco e
+        anche per pochi giorni a cavallo di una scadenza, è uno sconfinamento che resta scritto per sei mesi. La cura non
+        è bancaria ma organizzativa: <strong>pianificare i picchi di tesoreria e chiedere fidi adeguati prima di
+        usarli</strong>, invece di sconfinare e poi spiegare. È lo stesso presidio che il Codice della crisi chiama
+        rilevazione tempestiva, e che il capitolo 7 ritroverà tra i segnali dell'articolo 3.
+    </p>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            La Centrale dei Rischi è il biglietto da visita che l'impresa manda a ogni banca senza saperlo, dodici volte
+            l'anno. Leggerla ogni mese serve a tre cose: correggere gli errori di segnalazione (esistono, e restano),
+            anticipare le domande della banca e <strong>vedere il proprio andamentale prima che diventi una classe</strong>.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">7</div></div>
+</div>
+
+<!-- ==================== CAP 3 / B ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2>3.3 Perché nelle PMI l'andamentale comanda</h2>
+    <p class="corpo">
+        Nei sistemi di rating interni delle banche i tre moduli informativi (quantitativo, andamentale, qualitativo)
+        sono pesati per dimensione d'impresa. La struttura tipica, replicata dal rating interno simulato della verifica
+        Revilaw (capitolo 8), assegna a una micro impresa circa il <strong>60% al comportamento bancario</strong>, il 25%
+        al bilancio e il 15% al profilo qualitativo; in una piccola impresa l'andamentale pesa ancora il 55%, e solo
+        nelle imprese grandi il bilancio diventa la componente principale. La ragione è pratica: il bilancio di una
+        piccola impresa arriva tardi, è sintetico e risente delle politiche contabili; l'andamentale è quotidiano,
+        oggettivo e riguarda esattamente il comportamento che la banca teme.
+    </p>
+    <p class="corpo">
+        La conseguenza operativa è una gerarchia delle priorità spesso rovesciata rispetto al senso comune: prima di
+        lavorare sui margini, che richiedono trimestri, si lavora sul comportamento, che si corregge in settimane.
+        Azzerare gli sconfini, riportare gli utilizzi sotto la soglia fisiologica del 60-70%, distribuire meglio gli
+        utilizzi tra le banche: sono interventi rapidi, visibili già nel trimestre successivo, e <strong>sono i primi che
+        il rating registra</strong>.
+    </p>
+    <div class="duecol">
+        <div class="sintesi">
+            <div class="occhiello">In sintesi</div>
+            <ul>
+                <li>Il modulo andamentale legge sei mesi di Centrale dei Rischi: utilizzi, sconfini di cassa e a scadenza, mesi scoperti.</li>
+                <li>La matrice di integrazione non fa medie: l'andamentale debole trascina anche un buon bilancio.</li>
+                <li>Nelle micro e piccole imprese il comportamento bancario pesa il 55-60% del rating interno tipico.</li>
+                <li>Utilizzo sopra l'80-85% = tensione; sconfinamento = macchia che resta scritta sei mesi.</li>
+                <li>Il comportamento si corregge in settimane: è la leva più rapida dell'intero sistema.</li>
+            </ul>
+        </div>
+        <div class="fare">
+            <div class="occhiello">Cosa fare subito</div>
+            <ol>
+                <li>Attivare la richiesta mensile della Centrale dei Rischi e assegnare a una persona la sua lettura.</li>
+                <li>Riconciliare le segnalazioni con la contabilità: gli errori di segnalazione vanno contestati subito.</li>
+                <li>Costruire il calendario dei picchi di tesoreria (stipendi, F24, forniture) e verificare i fidi su quelle date.</li>
+                <li>Riportare gli utilizzi sotto il 70-80% dell'accordato, ampliando i fidi o smobilizzando il circolante.</li>
+                <li>Se uno sconfino è inevitabile, concordarlo prima con la banca: uno sconfino autorizzato è un altro film.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="contributo">
+        <div class="occhiello">Il contributo di Revilaw</div>
+        <p>
+            <strong>Presidio andamentale ed early warning.</strong> Impostiamo la lettura mensile della Centrale dei
+            Rischi dentro gli adeguati assetti, con riconciliazioni, soglie di allerta e piano di tesoreria a dodici
+            mesi: così gli sconfini si prevengono invece di spiegarli, e il modulo andamentale lavora a favore
+            dell'impresa.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">8</div></div>
+</div>
+
+<!-- ==================== SCHEMA: ARCHITETTURA ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="schema-eyebrow">Schema operativo dei capitoli 2 e 3</div>
+    <h2 class="schema-titolo">L'architettura della verifica</h2>
+    <div class="flusso">
+        <div class="flusso-riga">
+            <div class="fbox">
+                <div class="ftit">Bilancio</div>
+                <p>Indicatori per settore, trattati e pesati secondo le Specifiche del Fondo di Garanzia →
+                <strong>classe di bilancio 1-11</strong>.</p>
+            </div>
+            <div class="fbox">
+                <div class="ftit">Centrale dei Rischi</div>
+                <p>Sei mesi di utilizzi, sconfini di cassa e a scadenza, mesi scoperti →
+                <strong>classe andamentale 1-11</strong>.</p>
+            </div>
+        </div>
+        <div class="flusso-riga">
+            <div class="fbox" style="background:#EEF4F9;">
+                <div class="ftit">Matrice di integrazione</div>
+                <p>L'incrocio delle due classi produce la <strong>classe integrata 1-12</strong>, con fascia 1-5 e PD
+                empirica dallo 0,12% al 22,98%. Ammissibile alla garanzia fino alla classe 10; sofferenze e procedure la
+                precludono; i pregiudizievoli di conservatoria costano 2 classi.</p>
+            </div>
+        </div>
+        <div class="flusso-riga">
+            <div class="fbox">
+                <div class="ftit">Correttivo qualitativo</div>
+                <p>Le venti domande (cap. 5): dall'80% in su un gradino a favore, sotto il 40% due a sfavore; più i
+                gradini di amministratori e gruppo → <strong>rating ipotizzato 1-12</strong>.</p>
+            </div>
+            <div class="fbox">
+                <div class="ftit">Rettifiche prudenziali</div>
+                <p>Il bilancio riletto da analista fidi (cap. 6): crediti scaduti e magazzino svalutati, rivalutazioni
+                tolte, leasing emersi → <strong>classe prudenziale</strong> a confronto.</p>
+            </div>
+        </div>
+        <div class="flusso-riga">
+            <div class="fbox">
+                <div class="ftit">Rating interno simulato</div>
+                <p>Tre moduli 0-100 pesati per dimensione, calibrazione score→PD →
+                <strong>classe interna 1-10</strong> e banda PD regolamentare (cap. 8).</p>
+            </div>
+            <div class="fbox">
+                <div class="ftit">Check-up dei presidi</div>
+                <p>Tredici moduli valutati 0-4 con il metodo delle undici fasi →
+                <strong>classe diagnostica A-E</strong> sulla qualità dei presidi (cap. 9).</p>
+            </div>
+        </div>
+        <div class="flusso-riga">
+            <div class="fbox" style="background:#12426C; border-color:#12426C;">
+                <div class="ftit" style="color:#B9CDDD;">Verdetto e percorso</div>
+                <p style="color:#E7EEF5;">Cruscotto, segnali della crisi e scale a confronto convergono nel
+                <strong style="color:#fff;">verdetto</strong> (profilo solido / equilibrio migliorabile / zona di
+                attenzione / area critica) e nel <strong style="color:#fff;">percorso di miglioramento</strong> con la
+                classe potenziale (cap. 10).</p>
+            </div>
+        </div>
+    </div>
+    <p class="nota-schema">
+        <strong>Tre scale, tre significati.</strong> La classe del Fondo (1-12) stima l'ammissibilità alla garanzia
+        pubblica con PD empiriche; la classe interna simulata (1-10) stima come ragionano i modelli delle banche; la
+        classe del check-up (A-E) misura la qualità dei presidi organizzativi, non la solvibilità. Non si confrontano
+        tra loro e non si sommano: si leggono insieme, ed è proprio il confronto tra le tre a dire dove intervenire.
+    </p>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">9</div></div>
+</div>
+
+<!-- ==================== CAP 4 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">4</div>
+        <div>
+            <div class="occhiello">Il cruscotto di bancabilità</div>
+            <h1 class="cap-titolo">I sei numeri che ogni banca guarda per primi</h1>
+            <p class="lede">Prima dei modelli, ogni analista fa sei divisioni. Sono i rapporti della prassi bancaria, con
+            soglie consolidate: conoscerli, e conoscere i propri, è il minimo sindacale di ogni istruttoria.</p>
+        </div>
+    </div>
+    <table class="dati">
+        <thead><tr><th style="width:34mm;">Indicatore</th><th>Che cosa misura e come si legge</th></tr></thead>
+        <tbody>
+            <tr><td>DSCR<br>(12 mesi)</td><td>Se la cassa prodotta in un anno basta a pagare rate e interessi: (MOL meno imposte) diviso (quota capitale più oneri finanziari). Sotto 1 i flussi non coprono il servizio del debito; le banche chiedono di norma almeno 1,1-1,2. È anche il primo indice della crisi: sotto 1 scatta l'allerta.</td></tr>
+            <tr><td>PFN / EBITDA</td><td>In quanti anni di margine si ripagherebbe il debito finanziario netto. Fino a 3 buono, tra 3 e 4 sorveglianza, tra 4 e 6 critico, oltre 6 leva estrema per la vigilanza europea. Negativo = cassa superiore ai debiti.</td></tr>
+            <tr><td>PFN / Patrimonio netto</td><td>Quanto debito c'è per ogni euro di mezzi propri. Fino a 1,5 equilibrato, tra 1,5 e 3 attenzione, oltre 3 squilibrio strutturale. Con patrimonio netto non positivo il rapporto non è significativo: priorità alla ricapitalizzazione.</td></tr>
+            <tr><td>Oneri finanziari / Ricavi</td><td>Quanta parte del fatturato se ne va in interessi. Fino al 3% fisiologico, tra 3% e 5% attenzione, oltre il 5% eccessivo: il costo del debito sta mangiando il conto economico.</td></tr>
+            <tr><td>Copertura interessi<br>(EBITDA / OF)</td><td>Quante volte il margine copre gli oneri finanziari. Oltre 4 solida, tra 2 e 4 da monitorare, sotto 2 fragile: basta un trimestre storto per non pagare gli interessi.</td></tr>
+            <tr><td>Patrimonio netto / Totale attivo</td><td>Quanta parte dell'impresa è finanziata con mezzi propri. Oltre il 35% solida, tra il 20% e il 35% nella media, sotto il 20% sottocapitalizzata: quasi tutti gli indicatori del modello ne risentono.</td></tr>
+        </tbody>
+    </table>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            Il DSCR merita un posto a parte: è l'unico numero che compare <strong>tre volte</strong> nel sistema, come
+            soglia di comfort delle banche (1,2), come segnale di allerta del Codice della crisi (sotto 1) e come primo
+            override del check-up Revilaw (sotto 1 la classe dei presidi non può superare la D). Un'impresa che non sa
+            calcolare il proprio DSCR prospettico non sta violando una prassi bancaria: sta violando l'articolo 2086.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">10</div></div>
+</div>
+
+<!-- ==================== CAP 4 / B ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2>4.1 Come si usano: prima interni, poi negoziali</h2>
+    <p class="corpo">
+        I sei rapporti hanno due vite. La prima è <strong>interna</strong>: sono gli indicatori da mettere nel reporting
+        periodico al consiglio, con le soglie accanto, perché il loro peggioramento è il più affidabile segnale
+        anticipatore di tensione. La seconda è <strong>negoziale</strong>: sono la lingua in cui si parla con la banca.
+        Chi arriva al tavolo dicendo "il nostro PFN/EBITDA è 2,4, la copertura degli interessi è 5, il DSCR prospettico
+        è 1,3 e questo è il piano di tesoreria che lo dimostra" ha già risposto alle domande dell'istruttoria prima che
+        vengano poste, e ha spostato la conversazione sul prezzo.
+    </p>
+    <p class="corpo">
+        Attenzione alla direzione delle azioni: quasi ogni intervento tocca più indicatori insieme. Un aumento di
+        capitale migliora patrimonializzazione, leva e (via oneri) copertura; un consolidamento del breve termine non
+        cambia la PFN ma riduce il rischio di sconfino e allinea le scadenze ai flussi; destinare cassa in eccesso a
+        riduzione del debito migliora la leva ma va pesato contro la liquidità di sicurezza. Per questo la verifica
+        Revilaw genera le <strong>azioni migliorative</strong> direttamente dagli indicatori accesi, in ordine di
+        priorità, ciascuna collegata al servizio che la copre: il cruscotto non è una pagella, è una lista di lavori.
+    </p>
+    <div class="duecol">
+        <div class="sintesi">
+            <div class="occhiello">In sintesi</div>
+            <ul>
+                <li>Sei rapporti, soglie di prassi consolidate: DSCR, PFN/EBITDA, PFN/PN, OF/ricavi, copertura interessi, PN/attivo.</li>
+                <li>Il DSCR è il numero-cerniera: comfort bancario a 1,2, allerta del Codice della crisi sotto 1.</li>
+                <li>Gli stessi numeri servono due volte: reporting interno al consiglio e lingua negoziale con la banca.</li>
+                <li>Ogni azione muove più indicatori: si ragiona per pacchetti, non per singolo rapporto.</li>
+            </ul>
+        </div>
+        <div class="fare">
+            <div class="occhiello">Cosa fare subito</div>
+            <ol>
+                <li>Calcolare i sei rapporti sull'ultimo bilancio e su una situazione infrannuale recente.</li>
+                <li>Inserirli nel reporting periodico al consiglio, con le soglie di prassi accanto ai valori.</li>
+                <li>Indicare la quota capitale in scadenza nei dodici mesi: senza, il DSCR non si calcola.</li>
+                <li>Preparare una pagina di presentazione dei sei numeri da usare a ogni incontro con le banche.</li>
+                <li>Definire le due azioni prioritarie sul rapporto messo peggio, con responsabile e scadenza.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="contributo">
+        <div class="occhiello">Il contributo di Revilaw</div>
+        <p>
+            <strong>Cruscotto e reporting per il consiglio.</strong> Costruiamo il cruscotto di bancabilità dell'impresa,
+            lo colleghiamo al piano di tesoreria e al DSCR prospettico e lo portiamo nel flusso informativo periodico
+            dell'organo amministrativo: gli stessi numeri, per governare e per negoziare.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">11</div></div>
+</div>
+
+<!-- ==================== CAP 5 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">5</div>
+        <div>
+            <div class="occhiello">Il profilo qualitativo</div>
+            <h1 class="cap-titolo">Oltre i numeri: le venti domande e i presidi che pagano</h1>
+            <p class="lede">Le banche non guardano solo i numeri: valutano come l'impresa è governata, quali presidi ha,
+            come si comporta nei rapporti. La verifica riproduce questo giudizio con venti domande in quattro aree, e lo
+            traduce in gradini di classe.</p>
+        </div>
+    </div>
+    <h2>5.1 Le quattro aree e il correttivo</h2>
+    <p class="corpo">
+        Le venti domande coprono <strong>governance e assetti</strong> (adeguati assetti ex art. 2086, controllo di
+        gestione, budget e piano, tesoreria e DSCR prospettico, organo di controllo e revisione), <strong>compliance e
+        presidi premianti</strong> (Modello 231, rating di legalità, percorso ESG, Tax Control Framework,
+        certificazioni), <strong>rapporti con le banche</strong> (numero di istituti, sconfinamenti, lettura della
+        Centrale dei Rischi, puntualità nei pagamenti, comunicazione proattiva) e <strong>struttura e mercato</strong>
+        (anzianità, concentrazione dei clienti, andamento del settore, continuità manageriale, garanzie attivabili).
+        Ogni risposta vale fino a dieci punti; la percentuale complessiva corregge la classe integrata:
+        <strong class="blu">dall'80% in su un gradino a favore, tra il 60% e il 79% nessuna correzione, tra il 40% e il
+        59% un gradino a sfavore, sotto il 40% due gradini</strong>. Al correttivo si sommano un gradino a sfavore se
+        risultano pregiudizievoli a carico degli amministratori, uno a favore se il gruppo sostiene l'impresa con un
+        consolidato documentabile, uno a sfavore se il gruppo assorbe risorse. Il risultato è il rating ipotizzato: la
+        stima di come i giudizi interni correggono la classe di partenza.
+    </p>
+    <h2>5.2 I presidi premianti: dove il credito incontra la compliance</h2>
+    <p class="corpo">
+        La seconda area è il punto in cui questa guida salda le precedenti. Gli <strong>adeguati assetti</strong> sono la
+        domanda con il peso più trasversale: formalizzati e aggiornati valgono il massimo, e sono la leva che tiene sotto
+        controllo tutti gli indicatori del report. Il <strong>Modello 231</strong> con Organismo di Vigilanza attivo
+        qualifica la governance e riduce un rischio sanzionatorio che per la banca è passivo latente. Il
+        <strong>rating di legalità</strong> AGCM ha un effetto diretto e normato: il DM 57/2014 impone alle banche di
+        tenerne conto in istruttoria. Il <strong>percorso ESG</strong> risponde a una raccolta dati che le banche già
+        fanno sulle imprese affidate, e apre i plafond dedicati. Il <strong>Tax Control Framework</strong> riduce il
+        contenzioso fiscale potenziale e disciplina la tesoreria dei versamenti. Le <strong>certificazioni</strong>
+        completano il quadro. Nessuno di questi presidi nasce per la banca; tutti finiscono nel rating.
+    </p>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            Il profilo qualitativo è l'unica parte del rating che l'impresa controlla <strong>per intero</strong>: non
+            dipende dal mercato, non richiede trimestri di margini, non passa dalla banca. Due gradini di classe sono
+            spesso la differenza tra una delibera veloce e una istruttoria infinita: ed è esattamente ciò che un percorso
+            ordinato sui presidi può spostare.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">12</div></div>
+</div>
+
+<!-- ==================== CAP 5 / B ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2>5.3 Soggetti e gruppo: chi c'è dietro l'impresa</h2>
+    <p class="corpo">
+        Prima di deliberare, ogni banca verifica chi c'è dietro: chi sono i titolari effettivi, che storia hanno gli
+        amministratori, se il gruppo di appartenenza aiuta o assorbe. Fiduciarie e soci esteri allungano l'istruttoria
+        sulla titolarità effettiva; protesti, pregiudizievoli o procedure a carico degli amministratori portano il
+        profilo in critico e peggiorano il rating ipotizzato di un gradino: in quei casi si valuta la ricomposizione
+        dell'organo o la regolarizzazione documentata <strong>prima</strong> di nuove richieste di fido. Il gruppo può
+        muovere la classe in entrambe le direzioni: un sostegno documentato con un consolidato la migliora, flussi che
+        drenano risorse la peggiorano, e le garanzie incrociate tra società del gruppo si sommano al rischio complessivo
+        che la banca calcola. Anche qui il presidio è documentale: mappa del gruppo, rapporti infragruppo
+        contrattualizzati a condizioni di mercato, titolarità effettiva pronta da esibire.
+    </p>
+    <div class="duecol">
+        <div class="sintesi">
+            <div class="occhiello">In sintesi</div>
+            <ul>
+                <li>Venti domande, quattro aree: governance, presidi premianti, banche, struttura e mercato.</li>
+                <li>Il correttivo muove la classe: −1 gradino sopra l'80%, +1 tra 40% e 59%, +2 sotto il 40%.</li>
+                <li>Rating di legalità: le banche devono tenerne conto per legge (DM 57/2014).</li>
+                <li>Assetti, 231, ESG, TCF e certificazioni non nascono per la banca, ma finiscono tutti nel rating.</li>
+                <li>Amministratori con pregiudizievoli: un gradino in peggio e istruttorie compromesse. Il gruppo può aiutare o drenare.</li>
+            </ul>
+        </div>
+        <div class="fare">
+            <div class="occhiello">Cosa fare subito</div>
+            <ol>
+                <li>Compilare le venti domande con onestà, in consiglio: la percentuale che esce è già una diagnosi.</li>
+                <li>Richiedere il rating di legalità se ci sono i requisiti: costa poco e vale in ogni pratica di fido.</li>
+                <li>Mettere in calendario i presidi mancanti a maggior resa: assetti formalizzati, tesoreria a 12 mesi, 231.</li>
+                <li>Preparare il fascicolo su titolarità effettiva, gruppo e rapporti infragruppo prima che venga chiesto.</li>
+                <li>Avviare la comunicazione proattiva: bilancio e piani presentati alle banche, non consegnati su richiesta.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="contributo">
+        <div class="occhiello">Il contributo di Revilaw</div>
+        <p>
+            <strong>I presidi premianti, come sistema.</strong> Adeguati assetti, Modello 231, rating di legalità,
+            percorso ESG e Tax Control Framework sono i nostri servizi ricorrenti, e nella verifica sono collegati alle
+            domande che li misurano: per ogni presidio assente il report indica il servizio che lo costruisce e simula
+            l'effetto sulla classe. La compliance smette di essere un costo e diventa spread.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">13</div></div>
+</div>
+
+<!-- ==================== CAP 6 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">6</div>
+        <div>
+            <div class="occhiello">Le rettifiche prudenziali</div>
+            <h1 class="cap-titolo">Il bilancio come lo legge la banca</h1>
+            <p class="lede">Un analista fidi non prende il bilancio alla lettera: sconta ciò che difficilmente si
+            trasformerà in cassa e riclassifica ciò che nasconde debito o capitale. Rifare quel lavoro prima di lui
+            significa conoscere la distanza tra i due bilanci, e decidere chi la spiega.</p>
+        </div>
+    </div>
+    <h2>6.1 Che cosa viene rettificato, e come</h2>
+    <p class="corpo">
+        La verifica costruisce un secondo bilancio con le correzioni tipiche dell'istruttoria: i <strong>crediti scaduti
+        da oltre novanta giorni</strong> e il <strong>magazzino obsoleto</strong> vengono svalutati della metà; le
+        <strong>rivalutazioni contabili</strong> vengono tolte per intero, perché patrimonio scritto non è patrimonio
+        versato; i <strong>finanziamenti dei soci</strong> con clausola di postergazione formale vengono trattati come
+        quasi capitale invece che come debito; i <strong>leasing non iscritti</strong> vengono fatti emergere tra le
+        immobilizzazioni e nel debito finanziario. Su questo bilancio il modello del Fondo viene ricalcolato da capo. Se
+        la classe peggiora di due o più gradini, il messaggio è chiaro: <strong>il bilancio non regge la lettura
+        prudenziale</strong>, e le poste deboli vanno ripulite prima che sia la banca a scontarle, alle sue condizioni.
+    </p>
+    <h2>6.2 I dettagli che non cambiano il bilancio ma cambiano l'istruttoria</h2>
+    <p class="corpo">
+        Due voci non rettificano i numeri ma pesano quanto i numeri. I <strong>debiti fiscali e previdenziali
+        scaduti</strong> senza rateizzazione sono per la banca uno dei segnali peggiori: evocano DURC irregolare,
+        ipoteche di Equitalia, segnalazioni dei creditori pubblici qualificati; la rateizzazione tempestiva e documentata
+        è insieme un presidio fiscale (è materia da Tax Control Framework) e una condizione di bancabilità. Le
+        <strong>fideiussioni prestate</strong> sono impegni fuori bilancio che si sommano al rischio di gruppo calcolato
+        dalla banca: vanno censite, limitate e messe sul tavolo nella negoziazione, prima che le trovi l'istruttoria. La
+        <strong>postergazione dei finanziamenti soci</strong>, infine, è la rettifica a favore più economica che esista:
+        una firma trasforma debito in quasi-capitale e migliora leva e patrimonializzazione in ogni modello.
+    </p>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            La distanza tra la classe "contabile" e la classe "prudenziale" è un'informazione strategica: se è ampia,
+            ogni istruttoria sarà una trattativa sulle svalutazioni; se è nulla, il bilancio è credibile così com'è.
+            <strong>Meglio svalutare in casa, con criterio e una volta, che farsi svalutare fuori, senza criterio e a
+            ogni pratica.</strong>
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">14</div></div>
+</div>
+
+<!-- ==================== CAP 6 / B ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2>6.3 La qualità dell'attivo è un lavoro continuo</h2>
+    <p class="corpo">
+        Le rettifiche fotografano un problema che nasce a monte, nella gestione del circolante: crediti senza ageing né
+        politica di svalutazione, magazzino senza statistiche di rotazione, listini mai riesaminati. Il presidio non è
+        contabile ma operativo: valutazione preventiva della clientela e limiti di fido interni, solleciti con
+        escalation, anticipo fatture selettivo sui crediti buoni, smobilizzo o svalutazione del magazzino fermo,
+        inventari verbalizzati. Un attivo pulito non serve solo alla banca: <strong>accorcia il ciclo monetario</strong>,
+        e ogni giorno di ciclo in meno è cassa che non va chiesta a nessuno.
+    </p>
+    <div class="duecol">
+        <div class="sintesi">
+            <div class="occhiello">In sintesi</div>
+            <ul>
+                <li>La banca rilegge il bilancio: crediti scaduti e magazzino fermo a metà valore, rivalutazioni a zero, leasing emersi.</li>
+                <li>Se la classe prudenziale peggiora di due gradini o più, le poste deboli vanno sistemate in bilancio, prima.</li>
+                <li>Debiti fiscali scaduti senza rateizzazione: il segnale che compromette ogni istruttoria.</li>
+                <li>La postergazione dei finanziamenti soci è la correzione a favore più economica: una firma, non un aumento.</li>
+                <li>Fideiussioni prestate: impegni fuori bilancio che la banca somma comunque. Meglio dichiararli che farli scoprire.</li>
+            </ul>
+        </div>
+        <div class="fare">
+            <div class="occhiello">Cosa fare subito</div>
+            <ol>
+                <li>Produrre l'ageing di crediti e fornitori a tre date e le statistiche di rotazione del magazzino.</li>
+                <li>Rateizzare subito ogni debito fiscale scaduto e conservare la prova della regolarità dei pagamenti.</li>
+                <li>Formalizzare la postergazione dei finanziamenti soci, o valutarne la conversione a capitale.</li>
+                <li>Censire fideiussioni e garanzie prestate, con importi, beneficiari e scadenze.</li>
+                <li>Ricalcolare la classe sul bilancio rettificato: la distanza dalla classe contabile è l'agenda dei lavori.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="contributo">
+        <div class="occhiello">Il contributo di Revilaw</div>
+        <p>
+            <strong>Il bilancio che regge l'istruttoria.</strong> Applichiamo al bilancio le rettifiche da analista fidi
+            e riportiamo la distanza a zero: politiche di svalutazione documentate, circolante rimesso in rotazione,
+            postergazioni formalizzate, debiti fiscali rateizzati dentro il presidio del rischio fiscale. Quando arriva
+            l'analista, trova il lavoro già fatto, e firmato.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">15</div></div>
+</div>
+
+<!-- ==================== CAP 7 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">7</div>
+        <div>
+            <div class="occhiello">Segnali di allerta</div>
+            <h1 class="cap-titolo">Dove il credito incontra il Codice della crisi</h1>
+            <p class="lede">Gli stessi numeri che decidono un fido misurano anche i doveri di chi amministra. Quando i
+            segnali si accendono, il tema smette di essere bancario e diventa di responsabilità: rilevare tempestivamente
+            e attivarsi senza indugio.</p>
+        </div>
+    </div>
+    <h2>7.1 I campanelli, in ordine di gravità</h2>
+    <p class="corpo">
+        La verifica presidia tre livelli di segnali. Il <strong>primo livello</strong>: patrimonio netto negativo e DSCR
+        sotto 1, i due fatti che da soli portano il verdetto in area critica. Il <strong>secondo</strong>: i cinque
+        indici settoriali del documento CNDCEC del 20 ottobre 2019 (oneri finanziari su ricavi, patrimonio su debiti,
+        attivo a breve su passivo a breve, flusso di cassa su attivo, debiti fiscali e previdenziali su attivo),
+        confrontati con le soglie del settore; l'allerta scatta quando si accendono <strong>tutti e cinque
+        insieme</strong>. Il <strong>terzo</strong>: lo Z-Score di Altman, che riassume in un numero la probabilità
+        statistica di insolvenza; la verifica usa la variante per le manifatturiere non quotate (zone di rischio sotto
+        1,23 e di sicurezza sopra 2,90) e quella per le altre imprese (1,10 e 2,60). Nessuno di questi è un rating: sono
+        semafori, e vanno letti insieme agli strumenti dei capitoli precedenti.
+    </p>
+    <h2>7.2 I segnali dell'articolo 3: quando scatta il dovere di attivarsi</h2>
+    <p class="corpo">
+        L'articolo 3, comma 4, del Codice della crisi elenca i segnali che gli adeguati assetti devono intercettare:
+        retribuzioni scadute da almeno trenta giorni oltre la metà del monte mensile; debiti verso fornitori scaduti da
+        almeno novanta giorni superiori ai debiti non scaduti; esposizioni bancarie scadute o sconfinanti da oltre
+        sessanta giorni sopra il 5% del totale; debiti rilevanti verso i creditori pubblici qualificati. Nella verifica
+        Revilaw <strong>un solo segnale acceso porta il verdetto in area critica</strong> e impone di documentare le
+        valutazioni assunte con l'organo di controllo. È qui che il cerchio si chiude con la prima guida della collana:
+        il consigliere che non chiede mai la Centrale dei Rischi, non conosce il DSCR e apprende della tensione di
+        liquidità dalla revoca di un fido è la figura esatta della <em>culpa in non informando</em>. E se la crisi
+        arriva, la gestione dei rapporti bancari degli ultimi mesi viene riletta con la lente dell'articolo 2486: la
+        tempestività documentata è, ancora una volta, la migliore difesa patrimoniale di chi amministra.
+    </p>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            Il credito e la crisi sono lo stesso fenomeno guardato da due lati: la banca misura la probabilità che
+            l'impresa non rimborsi, il Codice chiede all'impresa di misurarla da sola, prima. <strong>Chi presidia il
+            merito creditizio ha già costruito la parte più difficile degli adeguati assetti</strong>; chi non lo
+            presidia scoprirà i segnali quando li avranno già visti gli altri.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">16</div></div>
+</div>
+
+<!-- ==================== CAP 7 / B ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2>7.3 La comunicazione delle criticità: un dovere che il metodo incorpora</h2>
+    <p class="corpo">
+        Il check-up Revilaw (capitolo 9) prevede un passaggio che merita anticipazione: quando nel corso del lavoro
+        emergono criticità rilevanti, lo studio le comunica <strong>subito e per iscritto all'organo
+        amministrativo</strong>, senza attendere il rapporto finale, richiamando espressamente i doveri dell'articolo
+        2086. Non è burocrazia: è la traduzione operativa del principio per cui chi assiste un'impresa sul credito sta
+        maneggiando materia di responsabilità degli amministratori. La comunicazione tempestiva protegge l'impresa (che
+        può attivarsi), gli amministratori (che documentano di essersi attivati) e lo studio (che documenta di aver
+        informato). Tre protezioni con una lettera.
+    </p>
+    <div class="duecol">
+        <div class="sintesi">
+            <div class="occhiello">In sintesi</div>
+            <ul>
+                <li>Primo livello: patrimonio netto negativo e DSCR sotto 1 portano da soli il verdetto in area critica.</li>
+                <li>Indici CNDCEC: allerta solo se tutti e cinque oltre soglia, con soglie diverse per settore.</li>
+                <li>Z-Score: un semaforo statistico, non un rating; zone di rischio, incertezza e sicurezza.</li>
+                <li>Art. 3, comma 4, CCII: un solo segnale acceso impone valutazioni documentate con l'organo di controllo.</li>
+                <li>La tempestività documentata è la difesa patrimoniale degli amministratori: vale per la crisi e per il credito.</li>
+            </ul>
+        </div>
+        <div class="fare">
+            <div class="occhiello">Cosa fare subito</div>
+            <ol>
+                <li>Calcolare i cinque indici CNDCEC del proprio settore e il proprio Z-Score, e archiviare il calcolo.</li>
+                <li>Costruire la checklist dei segnali dell'art. 3 e verificarla a ogni chiusura mensile.</li>
+                <li>Portare l'esito in consiglio e a verbale: la rilevazione senza documentazione non protegge nessuno.</li>
+                <li>Definire chi comunica che cosa all'organo di controllo, ed entro quanti giorni, quando un segnale si accende.</li>
+                <li>Se un segnale è già acceso: valutazioni immediate con sindaci e revisore, e piano di rientro scritto.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="contributo">
+        <div class="occhiello">Il contributo di Revilaw</div>
+        <p>
+            <strong>Assetti ed early warning.</strong> Colleghiamo indici della crisi, segnali dell'art. 3 e DSCR
+            prospettico in un presidio unico dentro gli adeguati assetti, con soglie, responsabilità e flussi verso
+            l'organo di controllo. E quando emergono criticità, la comunicazione formale all'organo amministrativo parte
+            subito: è il metodo, non una cortesia.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">17</div></div>
+</div>
+
+<!-- ==================== CAP 8 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">8</div>
+        <div>
+            <div class="occhiello">Dentro la delibera</div>
+            <h1 class="cap-titolo">Il rating interno simulato e le banche dell'impresa</h1>
+            <p class="lede">I modelli delle banche sono riservati, ma la loro struttura è nota: tre moduli pesati per
+            dimensione, uno score, una probabilità, una classe. Ricostruirla significa vedere l'impresa con gli occhi di
+            chi delibera, prima di sedersi al tavolo.</p>
+        </div>
+    </div>
+    <h2>8.1 Tre moduli, pesati per dimensione</h2>
+    <p class="corpo">
+        Il rating interno simulato della verifica assegna un punteggio da 0 a 100 a tre moduli. Il
+        <strong>quantitativo</strong> legge il bilancio: leva, redditività, patrimonializzazione, DSCR, peso degli
+        interessi, liquidità, crescita. L'<strong>andamentale</strong> legge la Centrale dei Rischi e i rapporti censiti:
+        utilizzo degli affidamenti, sconfini, insoluti, concentrazione tra le banche, anzianità e trend dei rapporti. Il
+        <strong>qualitativo</strong> è la percentuale delle venti domande. I tre punteggi si combinano con pesi che
+        replicano la prassi: in una micro impresa 25-60-15, in una piccola 30-55-15, in una media 40-45-15, in una
+        grande 55-35-10. Lo score complessivo viene tradotto in una <strong class="blu">probabilità di inadempimento a
+        dodici mesi</strong> con una tabella di calibrazione coerente con i tassi osservati, e la probabilità in una
+        <strong class="blu">classe interna da 1 a 10</strong>, con la banda PD regolamentare corrispondente (il modello
+        dei prospetti che le banche pubblicano nei loro Pillar 3).
+    </p>
+    <h2>8.2 Non tutte le banche sono uguali</h2>
+    <p class="corpo">
+        La verifica censisce poi gli istituti con cui l'impresa lavora. Per ciascuno riporta i rating pubblici delle
+        agenzie, convertiti in una scala comune e riassunti in una classe di solidità (da "elevata" a "fragile"), e
+        stima come <strong>quella</strong> banca vede l'impresa: uno sconfinamento sul rapporto o un fido usato quasi per
+        intero peggiorano la stima, una relazione lunga e regolare con una banca del territorio la migliora, un
+        patrimonio sottile pesa di più presso i grandi gruppi, una garanzia pubblica o consortile in delibera migliora
+        la decisione. Ne escono anche le regole di portafoglio: <strong>da tre a cinque banche</strong> è l'assetto che
+        il questionario premia, una sola concentra il rischio di revoca e azzera il potere negoziale, più di cinque
+        disperdono i volumi e rendono l'impresa marginale per tutte.
+    </p>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            Il rating interno simulato è dichiaratamente una <strong>stima professionale di pre-screening</strong>: i
+            modelli veri sono proprietari e il rating effettivo di ciascuna banca può differire. Ma chi arriva in banca
+            conoscendo score, PD stimata e classe attesa scopre raramente sorprese: scopre, semmai, quanto margine di
+            negoziazione aveva sempre avuto senza saperlo.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">18</div></div>
+</div>
+
+<!-- ==================== CAP 8 / B ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2>8.3 Come si usa la stima per istituto</h2>
+    <p class="corpo">
+        La stima per singola banca serve a due decisioni. La prima è <strong>dove chiedere</strong>: a parità di
+        condizioni, la nuova finanza si chiede all'istituto presso cui la stima è migliore e la relazione più solida,
+        presentando lì il dossier più completo. La seconda è <strong>che cosa sistemare prima</strong>: se un rapporto è
+        in tensione (sconfini dichiarati o utilizzo oltre l'85%), è lì che il rating andamentale della singola banca si
+        deteriora per primo, ed è lì che un rientro concordato rende di più. La solidità della controparte completa il
+        quadro: nelle scelte di nuova finanza conviene privilegiare gli istituti più solidi, perché la stabilità della
+        banca è parte della stabilità della provvista.
+    </p>
+    <div class="duecol">
+        <div class="sintesi">
+            <div class="occhiello">In sintesi</div>
+            <ul>
+                <li>Tre moduli 0-100 (bilancio, andamentale, qualitativo) pesati per dimensione: nelle PMI comanda l'andamentale.</li>
+                <li>Score → PD calibrata → classe interna 1-10, con la banda PD regolamentare corrispondente.</li>
+                <li>Ogni banca vede un'impresa diversa: la stima per istituto corregge il rating con ciò che quella banca vede.</li>
+                <li>Portafoglio: da tre a cinque banche, utilizzi distribuiti, controparti solide per la nuova finanza.</li>
+                <li>È una stima dichiarata di pre-screening: serve a prepararsi e negoziare, non sostituisce la delibera.</li>
+            </ul>
+        </div>
+        <div class="fare">
+            <div class="occhiello">Cosa fare subito</div>
+            <ol>
+                <li>Censire tutte le banche con accordato, utilizzato, garanzie, anzianità e condizioni.</li>
+                <li>Verificare la solidità pubblica di ciascun istituto: rating delle agenzie e patrimonializzazione.</li>
+                <li>Individuare i rapporti in tensione e concordare i rientri prima della prossima revisione.</li>
+                <li>Scegliere la banca-obiettivo per la prossima richiesta sulla base della stima, non dell'abitudine.</li>
+                <li>Programmare un incontro annuale con ogni banca, con il dossier aggiornato: la relazione si coltiva prima del bisogno.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="contributo">
+        <div class="occhiello">Il contributo di Revilaw</div>
+        <p>
+            <strong>Rating advisory.</strong> Simuliamo il rating interno dell'impresa e la stima presso ciascun
+            istituto, prepariamo il dossier bancario e affianchiamo la negoziazione: condizioni, garanzie da attivare
+            (Fondo pubblico, Confidi), diversificazione del portafoglio. Il rating non si subisce: si prepara, si
+            spiega e si negozia.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">19</div></div>
+</div>
+
+<!-- ==================== SCHEMA: LE TRE SCALE ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="schema-eyebrow">Schema operativo del capitolo 8</div>
+    <h2 class="schema-titolo">Le tre scale della verifica, una accanto all'altra</h2>
+    <div class="statri">
+        <div class="stat"><div class="valore">1-12</div><p><strong>Classe del Fondo di Garanzia.</strong> Modello pubblico, PD empiriche (0,12%-22,98%), fasce 1-5. Decide l'ammissibilità alla garanzia dello Stato: fino alla classe 10, salvo sofferenze e procedure.</p></div>
+        <div class="stat"><div class="valore">1-10</div><p><strong>Classe interna simulata.</strong> Struttura tipica dei modelli delle banche: tre moduli pesati per dimensione, PD calibrata, bande regolamentari. Stima di pre-screening per prepararsi e negoziare.</p></div>
+        <div class="stat"><div class="valore">A-E</div><p><strong>Classe del check-up.</strong> Qualità dei presidi organizzativi misurata su tredici moduli con scala 0-4. Diagnostica: dice quanto l'impresa governa se stessa, non se rimborserà.</p></div>
+    </div>
+    <div class="flusso">
+        <div class="flusso-riga">
+            <div class="fbox">
+                <div class="ftit">Che cosa hanno in comune</div>
+                <p>Le stesse fonti informative: bilancio, Centrale dei Rischi, venti domande qualitative. Un dato inserito
+                una volta lavora su tutte e tre le scale, e sul percorso di miglioramento.</p>
+            </div>
+            <div class="fbox">
+                <div class="ftit">Perché non si confrontano</div>
+                <p>Numeri di classi, probabilità sottostanti e oggetto misurato sono diversi. "Classe 4 del Fondo" e
+                "classe 4 interna" non sono la stessa cosa; la B del check-up non è un rating.</p>
+            </div>
+        </div>
+        <div class="flusso-riga">
+            <div class="fbox" style="background:#EEF4F9;">
+                <div class="ftit">Come si leggono insieme</div>
+                <p><strong>Numeri buoni e presidi deboli</strong> (classi 1-12 e 1-10 buone, check-up C-D): l'impresa è sana
+                ma fragile, un imprevisto non troverebbe difese; si lavora sui presidi, in fretta e a costo contenuto.
+                <strong>Numeri deboli e presidi buoni</strong>: la struttura c'è, servono capitale, margini o tempo; si
+                lavora su patrimonio e debito, con un piano credibile da presentare. <strong>Tutti deboli</strong>: area
+                critica, percorso di risanamento dentro gli strumenti del Codice della crisi. <strong>Tutti buoni</strong>:
+                si negozia, e si difende la posizione con il monitoraggio.</p>
+            </div>
+        </div>
+    </div>
+    <p class="nota-schema">
+        <strong>La regola d'oro del report Revilaw:</strong> ogni scala compare con la propria etichetta, la propria
+        fonte e i propri limiti, e il rating effettivo assegnato da ciascuna banca può differire. La forza del metodo
+        non sta nel promettere la classe, ma nel mostrare, numero per numero, da dove viene e con quale leva si muove.
+    </p>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">20</div></div>
+</div>
+
+<!-- ==================== CAP 9 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">9</div>
+        <div>
+            <div class="occhiello">Il metodo dello studio</div>
+            <h1 class="cap-titolo">Il check-up del merito creditizio: il metodo Revilaw</h1>
+            <p class="lede">I numeri dicono dove sta l'impresa oggi; il check-up dice quanto sono solidi i presidi con cui
+            l'impresa governa se stessa. È il nostro manuale operativo, portato dentro il programma: undici fasi, tredici
+            moduli, regole di prudenza scritte.</p>
+        </div>
+    </div>
+    <h2>9.1 Un percorso in undici fasi</h2>
+    <p class="corpo">
+        Il check-up segue un processo formalizzato che parte prima dell'incarico e finisce dopo la consegna: pre-qualifica
+        dell'impresa, primo contatto, accettazione e conferimento (con lettera d'incarico, perimetro, tempi e compensi
+        definiti <strong>prima</strong> di iniziare), riunione di avvio verbalizzata, richiesta e raccolta dei documenti
+        sulla check-list master (125 voci, con i documenti essenziali marcati), interviste con tracce predefinite,
+        esecuzione delle verifiche, attribuzione dei punteggi, priorità e roadmap, rapporto con riesame e consegna,
+        follow-up e monitoraggio. I documenti di lavoro si generano dal programma: verbale di avvio, richiesta dei
+        documenti mancanti, comunicazione delle criticità, verbale di consegna. La lettera di attestazione della
+        direzione chiude la raccolta: ciò che l'impresa dichiara, lo firma.
+    </p>
+    <h2>9.2 Tredici moduli, una scala onesta</h2>
+    <p class="corpo">
+        L'analisi copre tredici moduli, dal profilo dell'impresa alla comunicazione finanziaria, passando per gruppo e
+        parti correlate, analisi economico-patrimoniale, capitale circolante, capacità di rimborso, banche e Centrale
+        dei Rischi, pianificazione e tesoreria, adeguati assetti, compliance, fiscalità, ESG, strategia finanziaria. Sei
+        moduli formano il <strong>nucleo che non si può saltare</strong>: analisi economica, circolante, capacità di
+        rimborso, banche, tesoreria, assetti. Ogni modulo riceve un punteggio da <strong class="blu">0 (presidio
+        assente) a 4 (presidio evoluto e integrato nelle decisioni)</strong>, con ancoraggi descrittivi per ogni livello:
+        non "voti", ma descrizioni verificabili di che cosa esiste e che cosa manca. I pesi dei moduli cambiano con la
+        dimensione: nelle piccole imprese contano di più rimborso, bilancio e banche; nelle grandi salgono tesoreria,
+        assetti e compliance.
+    </p>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            Il punteggio di ogni modulo è <strong>suggerito dal programma e deciso dal professionista</strong>: il
+            suggerimento nasce dalle venti domande e viene corretto in senso prudente dai numeri della verifica (fascia
+            del bilancio, DSCR, sconfini, segnali di allerta, debiti fiscali scaduti), dichiarando sempre da dove nasce.
+            Chi valuta conferma o corregge dopo interviste e verifiche: il metodo assiste il giudizio, non lo
+            sostituisce.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">21</div></div>
+</div>
+
+<!-- ==================== CAP 9 / B ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2>9.3 Le regole di prudenza e le classi da A a E</h2>
+    <p class="corpo">
+        La media pesata dei punteggi diventa una <strong class="blu">classe da A a E</strong>: A presidi evoluti (da 3,5),
+        B adeguati (da 2,8), C parziali (da 2,0), D deboli (da 1,2), E critici. Le regole di prudenza sono scritte e non
+        negoziabili: la classe <strong>non può mai migliorare</strong> per effetto di correzioni, solo peggiorare quando
+        i fatti lo impongono. DSCR sotto 1 o patrimonio netto negativo la limitano alla D; debiti rilevanti verso gli
+        enti pubblici, sconfini da oltre sessanta giorni o un modulo del nucleo a zero la limitano alla C; una criticità
+        grave aperta esclude A e B finché non è trattata; un modulo del nucleo non valutabile sospende la classe; un
+        punteggio alto senza i documenti essenziali che lo provano viene segnalato e per prudenza non dovrebbe superare
+        2. I rilievi si classificano <strong>C1</strong> (critici: comunicazione scritta all'organo amministrativo entro
+        cinque giorni lavorativi e riesame obbligatorio), <strong>C2</strong> (significativi: azione entro tre-sei mesi),
+        <strong>C3</strong> (miglioramenti: sei-dodici mesi) e <strong>PF</strong> (punti di forza da mantenere e
+        valorizzare). La roadmap ordina le azioni su quattro orizzonti: 0-30 giorni, 31-90, 3-6 mesi, 6-12.
+    </p>
+    <div class="duecol">
+        <div class="sintesi">
+            <div class="occhiello">In sintesi</div>
+            <ul>
+                <li>Undici fasi dalla pre-qualifica al follow-up, con documenti di lavoro generati dal metodo.</li>
+                <li>Tredici moduli con scala 0-4 ancorata a descrizioni verificabili; sei moduli di nucleo inderogabili.</li>
+                <li>Classi A-E diagnostiche: misurano i presidi, non la solvibilità. Non sono un rating.</li>
+                <li>La prudenza è una regola, non uno stile: gli override peggiorano, mai migliorano.</li>
+                <li>Rilievi C1 comunicati per iscritto entro cinque giorni: il dovere di informare è parte del metodo.</li>
+            </ul>
+        </div>
+        <div class="fare">
+            <div class="occhiello">Cosa fare subito (per chi lavora con il metodo)</div>
+            <ol>
+                <li>Nessun punteggio senza evidenza: il documento essenziale mancante si chiede, non si presume.</li>
+                <li>Il punteggio suggerito si discute in intervista: confermarlo senza verifiche è il contrario del metodo.</li>
+                <li>Ogni criticità C1 genera la comunicazione all'organo amministrativo: subito, per iscritto, a protocollo.</li>
+                <li>La roadmap si costruisce con l'impresa, con responsabili e date: un rilievo senza azione è un rimprovero.</li>
+                <li>Il follow-up si fissa alla consegna, non "quando capita": il check-up è un ciclo, non una fotografia.</li>
+            </ol>
+        </div>
+    </div>
+    <div class="contributo">
+        <div class="occhiello">Il contributo di Revilaw</div>
+        <p>
+            <strong>Check-up del merito creditizio.</strong> È il servizio in cui il metodo di questa guida diventa un
+            incarico: fasi, documenti, punteggi, rilievi e roadmap, dentro un rapporto firmato con limiti dichiarati. La
+            classe da A a E dice all'imprenditore quanto la sua impresa è governata; la roadmap gli dice, voce per voce,
+            come farla salire.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">22</div></div>
+</div>
+
+<!-- ==================== SCHEMA: CHECK-UP ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="schema-eyebrow">Schema operativo del capitolo 9</div>
+    <h2 class="schema-titolo">Il check-up in un colpo d'occhio</h2>
+    <ol class="passi">
+        <li><strong>Pre-qualifica e incarico (fasi 0-2).</strong> Si valuta l'impresa, si definisce il perimetro e si
+        formalizza l'incarico prima di iniziare: oggetto, tempi, compenso, riservatezza, referente designato.</li>
+        <li><strong>Avvio e raccolta (fasi 3-4).</strong> Riunione di avvio verbalizzata; richiesta dei documenti sulla
+        check-list master di 125 voci, con gli essenziali marcati; ciò che manca resta scritto.</li>
+        <li><strong>Interviste e verifiche (fasi 5-6).</strong> Tracce di intervista per area, verifiche documentali sui
+        tredici moduli, con le venti domande qualitative registrate una volta sola dove nascono.</li>
+        <li><strong>Punteggi (fase 7).</strong> Scala 0-4 con ancoraggi descrittivi; suggerimento del programma corretto
+        in prudenza dai numeri; decisione del professionista; override obbligatori applicati.</li>
+        <li><strong>Priorità e roadmap (fase 8).</strong> Rilievi C1/C2/C3/PF; azioni su quattro orizzonti (0-30, 31-90
+        giorni, 3-6, 6-12 mesi) con responsabili, stati e date.</li>
+        <li><strong>Rapporto e follow-up (fasi 9-10).</strong> Riesame, consegna con verbale, monitoraggio delle azioni
+        e aggiornamento del check-up: il ciclo riparte.</li>
+    </ol>
+    <table class="dati compatta">
+        <thead><tr><th style="width:62mm;">I tredici moduli</th><th>Che cosa presidiano</th></tr></thead>
+        <tbody>
+            <tr><td>A1 · Profilo e governance</td><td>Modello di business, concentrazioni, continuità manageriale, decisioni documentate</td></tr>
+            <tr><td>A2 · Gruppo e parti correlate</td><td>Perimetro, rapporti infragruppo a condizioni verificabili, garanzie incrociate</td></tr>
+            <tr><td>A3 · Analisi economico-finanziaria <span style="color:#B7A36B;">●</span></td><td>Dati attendibili e riconciliati, marginalità, struttura patrimoniale, qualità dell'attivo</td></tr>
+            <tr><td>A4 · Circolante e ciclo monetario <span style="color:#B7A36B;">●</span></td><td>Ageing, rotazioni, politiche di fido interno, DSO-DIO-DPO come obiettivi</td></tr>
+            <tr><td>A5 · Capacità di rimborso <span style="color:#B7A36B;">●</span></td><td>DSCR prospettico e scenari, covenant, struttura delle scadenze, garanzie mappate</td></tr>
+            <tr><td>A6 · Banche e Centrale dei Rischi <span style="color:#B7A36B;">●</span></td><td>Andamentale regolare, utilizzi presidiati, CR riconciliata, dialogo programmato</td></tr>
+            <tr><td>A7 · Pianificazione e tesoreria <span style="color:#B7A36B;">●</span></td><td>Reporting mensile riconciliato, budget e scostamenti, tesoreria a tredici settimane</td></tr>
+            <tr><td>A8 · Adeguati assetti e allerta <span style="color:#B7A36B;">●</span></td><td>Assetti proporzionati e documentati, segnali art. 3, flussi verso l'organo di controllo</td></tr>
+            <tr><td>A9 · Legalità e compliance</td><td>Autorizzazioni, contenziosi quantificati, 231, sicurezza, privacy, coperture assicurative</td></tr>
+            <tr><td>A10 · Fiscalità</td><td>Regolarità dei versamenti, scadenzario in tesoreria, decisioni fiscali tracciate (TCF)</td></tr>
+            <tr><td>A11 · Sostenibilità ed ESG</td><td>Fattori rilevanti collegati agli impatti economici, dati tracciabili, richieste di filiera</td></tr>
+            <tr><td>A12 · Strategia finanziaria</td><td>Coerenza fonti-impieghi, finanza agevolata presidiata, operazioni straordinarie pianificate</td></tr>
+            <tr><td>A13 · Comunicazione finanziaria</td><td>Dossier aggiornato, dati riconciliati, comunicazione proattiva anche delle notizie sfavorevoli</td></tr>
+        </tbody>
+    </table>
+    <p class="nota-schema" style="margin-top:1.6mm;"><strong>●</strong> = modulo del nucleo inderogabile. La prova del nove: prendete un modulo qualunque e chiedetevi
+    chi lo presidia, dove sta l'evidenza e quando è stata aggiornata. Se la risposta arriva in dieci minuti, il presidio
+    esiste; se serve una riunione, è ancora un'intenzione.</p>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">23</div></div>
+</div>
+
+<!-- ==================== CAP 10 / A ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="cap-apertura">
+        <div class="cap-num">10</div>
+        <div>
+            <div class="occhiello">La classe potenziale</div>
+            <h1 class="cap-titolo">Dal verdetto al percorso di miglioramento</h1>
+            <p class="lede">La fotografia non è il fine: il fine è il percorso. La verifica chiude con un verdetto in
+            quattro livelli e con la simulazione onesta di quanto il rating può migliorare, con quali leve, in quanto
+            tempo.</p>
+        </div>
+    </div>
+    <h2>10.1 Il verdetto: quattro livelli, criteri scritti</h2>
+    <p class="corpo">
+        <strong class="blu">Area critica</strong> quando c'è almeno un fatto grave: patrimonio netto negativo, DSCR sotto
+        1, tutti gli indici CNDCEC accesi, fascia peggiore del Fondo, sofferenze, o anche un solo segnale dell'articolo
+        3 del Codice della crisi. <strong class="blu">Zona di attenzione</strong> quando la fascia è la quarta, lo
+        Z-Score è in zona di rischio o due indicatori del cruscotto sono critici. <strong class="blu">Equilibrio
+        migliorabile</strong> per le situazioni intermedie. <strong class="blu">Profilo solido</strong> quando tutti gli
+        strumenti concordano: e lì il messaggio del report è esplicito, "ora si negozia", perché un buon rating non
+        usato è uno sconto non chiesto.
+    </p>
+    <h2>10.2 Il percorso: le leve oneste</h2>
+    <p class="corpo">
+        La simulazione della classe potenziale porta al traguardo <strong>solo le risposte che un percorso con lo studio
+        può realisticamente cambiare</strong>: assetti formalizzati, controllo di gestione, pianificazione, organo di
+        controllo, successione pianificata, tesoreria e lettura mensile della Centrale dei Rischi, Modello 231, rating
+        di legalità, percorso ESG, Tax Control Framework, comunicazione proattiva verso le banche, attivazione delle
+        garanzie pubbliche e consortili. Restano fuori, per correttezza, lo storico (sconfini e puntualità passati,
+        anzianità), i fattori di struttura o di mercato e le certificazioni, che sono una scelta dell'impresa: su quelle
+        leve si lavora nel tempo con le azioni, non si simulano. Il ricalcolo avviene <strong>a parità di bilancio e di
+        comportamento bancario</strong>: ciò che la simulazione mostra è l'effetto dei presidi, non una promessa di
+        margini futuri. Le azioni sono raggruppate per servizio che le copre, con gli interventi di gestione e finanza
+        in coda: è l'agenda della prima riunione dopo la consegna.
+    </p>
+    <div class="punto">
+        <div class="occhiello">Il punto</div>
+        <p>
+            L'onestà del percorso è la sua forza commerciale: un report che promettesse due classi simulando margini
+            migliori varrebbe quanto la carta. Un report che mostra un gradino guadagnato con dodici presidi costruibili
+            in sei mesi, a bilancio invariato, è <strong>un piano di lavoro che l'impresa può firmare</strong>, e la
+            banca verificare.
+        </p>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">24</div></div>
+</div>
+
+<!-- ==================== CAP 10 / B: AUTOVALUTAZIONE ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <h2 style="margin-top:0;">10.3 L'autovalutazione in venti domande</h2>
+    <p class="corpo" style="margin-bottom:1.6mm;">
+        Rispondete con sì o no. Ogni "sì, ed è documentato" vale un punto; ogni no indica il punto in cui cominciare.
+    </p>
+    <table class="quiz">
+        <thead><tr><th style="width:6mm;">N.</th><th>Domanda</th><th class="c">Sì</th><th class="c">No</th></tr></thead>
+        <tbody>
+            <tr><td colspan="4" class="gruppo">Numeri e capacità di rimborso</td></tr>
+            <tr><td class="n">1</td><td>Conoscete la vostra classe MCC del Fondo di Garanzia, calcolata sull'ultimo bilancio?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">2</td><td>Il DSCR a dodici mesi è calcolato, aggiornato e superiore a 1,2?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">3</td><td>I sei rapporti del cruscotto di bancabilità entrano nel reporting periodico al consiglio?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">4</td><td>Esiste un piano di tesoreria a dodici mesi, riconciliato con la contabilità?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">5</td><td>Crediti e magazzino hanno ageing, rotazioni e politiche di svalutazione documentate?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td colspan="4" class="gruppo">Banche e andamentale</td></tr>
+            <tr><td class="n">6</td><td>La Centrale dei Rischi viene richiesta e letta ogni mese, con riconciliazione?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">7</td><td>Negli ultimi sei mesi non ci sono stati sconfinamenti, né di cassa né a scadenza?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">8</td><td>Gli utilizzi degli affidamenti stanno stabilmente sotto l'80% dell'accordato?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">9</td><td>L'impresa lavora con almeno due banche, e nessuna supera il 60% degli affidamenti?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">10</td><td>Bilancio e piani vengono presentati alle banche in modo proattivo, con incontri periodici?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td colspan="4" class="gruppo">Presidi e governance</td></tr>
+            <tr><td class="n">11</td><td>Gli adeguati assetti ex art. 2086 sono formalizzati e aggiornati periodicamente?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">12</td><td>I segnali dell'art. 3 del Codice della crisi sono verificati a ogni chiusura mensile?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">13</td><td>I debiti fiscali e previdenziali sono regolari, o rateizzati con pagamenti puntuali?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">14</td><td>Almeno un presidio premiante è attivo (231, rating di legalità, ESG, TCF, certificazioni)?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">15</td><td>I finanziamenti soci sono postergati o convertiti, e le fideiussioni prestate censite?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td colspan="4" class="gruppo">Metodo e comunicazione</td></tr>
+            <tr><td class="n">16</td><td>Sapete quale distanza c'è tra il vostro bilancio e la sua lettura prudenziale da analista?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">17</td><td>Esiste un dossier bancario aggiornato, con gli stessi dati per tutti gli istituti?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">18</td><td>C'è un responsabile del dossier banche, con mandato e riporto all'organo amministrativo?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">19</td><td>Titolarità effettiva, mappa del gruppo e rapporti infragruppo sono pronti da esibire?</td><td class="c"></td><td class="c"></td></tr>
+            <tr><td class="n">20</td><td>Il merito creditizio è stato discusso in consiglio, a verbale, negli ultimi dodici mesi?</td><td class="c"></td><td class="c"></td></tr>
+        </tbody>
+    </table>
+    <div class="esiti">
+        <div class="esito"><div class="fascia-q">17-20</div><p><strong>Presidio maturo.</strong> Il merito creditizio è governato: si negozia dalle posizioni migliori e si difende la classe con il monitoraggio.</p></div>
+        <div class="esito"><div class="fascia-q">12-16</div><p><strong>Presidio parziale.</strong> Buone fondamenta con aree scoperte: un piano a sei mesi sulle domande "no" chiude quasi tutti i varchi.</p></div>
+        <div class="esito"><div class="fascia-q">fino a 11</div><p><strong>Esposizione elevata.</strong> Il giudizio delle banche è subìto, non governato: partire da Centrale dei Rischi, DSCR e tesoreria.</p></div>
+    </div>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">25</div></div>
+</div>
+
+<!-- ==================== CHI SIAMO ==================== -->
+<div class="page">
+    <div class="testa"><img src="logo-navy.png" alt="Revilaw"><div class="meta">Il merito creditizio &nbsp;|&nbsp; Guida operativa <b>2026</b></div></div>
+    <div class="occhiello">Chi siamo</div>
+    <h1 class="grande">Revilaw: la revisione legale come punto di partenza, non di arrivo.</h1>
+    <p class="corpo">
+        Revilaw S.p.A. è una società di revisione legale che opera attraverso una rete nazionale di professionisti:
+        dottori commercialisti, revisori legali, esperti di governance, fiscalità, sostenibilità e finanza d'impresa.
+        Applichiamo i principi di revisione ISA Italia e affianchiamo le imprese nella costruzione dei presidi che la
+        legge oggi richiede a chi le amministra, e che le banche premiano in chi le finanzia.
+    </p>
+    <div class="statri" style="margin-top:6mm;">
+        <div class="stat"><div class="valore">130+</div><p>professionisti nella rete</p></div>
+        <div class="stat"><div class="valore">60</div><p>province presidiate</p></div>
+        <div class="stat"><div class="valore">20</div><p>regioni</p></div>
+    </div>
+    <h2 style="margin-top:4mm;">Come lavoriamo con le imprese sull'accesso al credito</h2>
+    <div class="griglia-servizi">
+        <div class="serv"><h3>Verifica del merito creditizio</h3><p>Classe del Fondo di Garanzia, cruscotto di bancabilità, rating interno simulato e stima per istituto, in un report firmato con metodo e limiti dichiarati.</p></div>
+        <div class="serv"><h3>Check-up e rating advisory</h3><p>Il metodo in undici fasi: presidi misurati da A a E, rilievi, roadmap e affiancamento nella negoziazione con le banche e nell'attivazione delle garanzie.</p></div>
+        <div class="serv"><h3>Adeguati assetti ed early warning</h3><p>Assetti ex art. 2086 proporzionati e documentati, piano di tesoreria, DSCR prospettico, segnali dell'art. 3 e flussi verso l'organo di controllo.</p></div>
+        <div class="serv"><h3>Revisione legale e assurance</h3><p>Bilanci d'esercizio e consolidati, revisione volontaria, attestazioni: la prova documentale di una gestione informata, che le banche leggono.</p></div>
+        <div class="serv"><h3>Tax Control Framework</h3><p>Presidio del rischio fiscale, dalla regolarità dei versamenti al regime opzionale e all'adempimento collaborativo: meno contenzioso latente, più bancabilità.</p></div>
+        <div class="serv"><h3>Modello 231 e rating di legalità</h3><p>Governance qualificata e premialità normate: dal Modello con Organismo di Vigilanza al punteggio AGCM che le banche devono considerare.</p></div>
+        <div class="serv"><h3>Sostenibilità ESG</h3><p>Percorsi e rendicontazione proporzionata (VSME, ESRS): i dati che banche e filiere già chiedono, trasformati in accesso ai plafond dedicati.</p></div>
+        <div class="serv"><h3>Finanza agevolata e crisi d'impresa</h3><p>Bandi, crediti d'imposta e garanzie pubbliche da un lato; diagnosi precoce, composizione negoziata e risanamento dall'altro.</p></div>
+    </div>
+    <p class="avvertenza">
+        Questa guida ha finalità informative ed è aggiornata al 1° settembre 2026. Non costituisce consulenza
+        professionale e non sostituisce l'esame del caso concreto. I modelli interni delle banche sono proprietari e
+        riservati: le classi e le stime descritte replicano il modello pubblico del Fondo di Garanzia PMI e stime
+        professionali dichiarate dello studio, e il rating effettivo assegnato da ciascuna banca può differire. Revilaw
+        S.p.A., sede legale in Verona, Via XX Settembre 9. Tutti i diritti riservati.
+    </p>
+    <div class="piede"><div class="motto">O L T R E&nbsp;&nbsp;L A&nbsp;&nbsp;V E R I F I C A ,&nbsp;&nbsp;V E R S O&nbsp;&nbsp;I L&nbsp;&nbsp;V A L O R E</div><div class="num">26</div></div>
+</div>
+
+<!-- ==================== RETRO ==================== -->
+<div class="page retro">
+    <div class="retro-inner">
+        <img class="cover-logo" src="logo-bianco.png" alt="Revilaw">
+        <div class="retro-mezzo">
+            <div class="payoff-big">Oltre la verifica, verso il valore.</div>
+            <p>
+                Il merito creditizio è la terza guida operativa della collana Revilaw dedicata alla governance e alla
+                compliance d'impresa, dopo "La responsabilità degli amministratori di società" e "Tax Control Framework".
+                Le guide sono disponibili gratuitamente per gli iscritti alla newsletter di Next Generation Business.
+            </p>
+        </div>
+        <div class="fine">
+            <span>Revilaw S.p.A. · Società di revisione legale</span>
+            <span>www.revilaw.it · www.nextgenerationbusiness.it</span>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
