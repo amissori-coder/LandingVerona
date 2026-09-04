@@ -4490,7 +4490,7 @@
                     : `<button class="btn btn-sm btn-secondary" data-sblocca="${esc(i.id)}">Chiedi lo sblocco</button>`;
             }
             // una proposta non si congela mai: deve restare modificabile fino alla conferma
-            return i.stato === 'proposta' ? '' : `<button class="btn btn-sm btn-secondary" data-congela="${esc(i.id)}">Congela calcolo</button>`;
+            return statoCongelabile(i.stato) ? `<button class="btn btn-sm btn-secondary" data-congela="${esc(i.id)}">Congela calcolo</button>` : '';
         };
         const badgiCalcolo = i => (i.calcoloCongelato
             ? ` <span class="badge ambra" title="Calcolo del compenso congelato: per modificarlo serve l'approvazione del responsabile">${ICO_LUCCHETTO}Congelato</span>` : '')
@@ -4800,7 +4800,7 @@
                     ? (inc.sbloccoRichiesto
                         ? '<button class="btn btn-secondary" id="btn-annulla-sblocco">Ritira la richiesta</button>'
                         : '<button class="btn btn-secondary" id="btn-sblocca">Chiedi lo sblocco</button>')
-                    : (inc.stato === 'proposta' ? '' : '<button class="btn btn-secondary" id="btn-congela">Congela calcolo</button>')}
+                    : (statoCongelabile(inc.stato) ? '<button class="btn btn-secondary" id="btn-congela">Congela calcolo</button>' : '')}
                         ${inc.tipo === 'legale' || inc.tipo === 'volontaria' ? '<button class="btn ' + (inc.stato === 'proposta' ? 'btn-secondary' : 'btn-primary') + '" id="btn-lettera">Lettera di incarico</button>' : ''}
                     ` : ''}
                 </div>
@@ -4876,7 +4876,7 @@
                         ? (inc.sbloccoRichiesto
                             ? '<button class="btn btn-sm btn-secondary" id="btn-annulla-sblocco-c">Ritira la richiesta</button>'
                             : '<button class="btn btn-sm btn-secondary" id="btn-sblocca-c">Chiedi lo sblocco</button>')
-                        : (inc.stato === 'proposta' ? '' : '<button class="btn btn-sm btn-secondary" id="btn-congela-c">' + ICO_LUCCHETTO + 'Congela calcolo</button>')}
+                        : (statoCongelabile(inc.stato) ? '<button class="btn btn-sm btn-secondary" id="btn-congela-c">' + ICO_LUCCHETTO + 'Congela calcolo</button>' : '')}
                         </div>` : ''}
                         <p class="descrizione" style="margin-bottom:12px;">Fatturazione: <strong>${esc(descriviFatturazione(inc))}</strong>${inc.gruppoFatturazione ? ' &middot; Gruppo: <strong>' + esc(inc.gruppoFatturazione) + '</strong>' : ''} &middot; Spese generali: <strong>${spesePerc(inc) ? percTesto(spesePerc(inc)) + '% sugli onorari' : 'non addebitate'}</strong></p>
                         ${anni.length ? `<div class="tabella-wrap"><table class="dati"><thead><tr><th>Esercizio</th><th class="num">Compenso annuo</th><th class="num">Scadenze</th><th class="num">Importo scadenza</th></tr></thead><tbody>` +
@@ -5154,12 +5154,19 @@
         const r = responsabileIncarico(inc);
         return r.email ? null : r;
     }
+    /* Regola unica del congelamento: una PROPOSTA non si congela mai, deve restare
+       modificabile fino alla conferma (il congelamento si propone alla stampa del mandato,
+       dopo). La leggono elenco, scheda e passo 6 del wizard: una regola sola, cosi' non se
+       ne inventa una quarta diversa dalle altre tre. */
+    function statoCongelabile(stato) { return (stato || 'attivo') !== 'proposta'; }
+
     /* Frase pronta sulla richiesta in attesa: la usano scheda, elenco e wizard. */
     function testoSbloccoInAttesa(inc) {
         const r = inc.sbloccoRichiesto || {};
         return 'Sblocco chiesto' + (r.il ? ' il ' + fmtDataOra(r.il) : '')
             + (r.da ? ' da ' + nomeDaFirma(r.da) : '')
-            + ': in attesa della risposta di ' + (r.resp || 'il responsabile dell\'incarico') + '.';
+            + (r.resp ? ': in attesa della risposta di ' + r.resp
+                : ': in attesa della risposta del responsabile dell\'incarico') + '.';
     }
 
     /* Richiesta di sblocco del calcolo. La decisione NON e' di chi la chiede: parte una
@@ -5176,7 +5183,7 @@
         // senza indirizzo del responsabile la mail non ha dove andare: il servizio
         // rifiuterebbe comunque, e qui si dice subito cosa sistemare
         const senzaIndirizzo = viaEmail && !resp.email;
-        const chiudi = () => { if (onDone) onDone(false); };
+
         apriModale(`<h2>${viaEmail ? 'Chiedere lo sblocco del calcolo?' : 'Sbloccare il calcolo?'}</h2>
             ${viaEmail ? `<p class="descrizione" style="margin-bottom:12px;">Il calcolo di <strong>${esc(inc.cliente)}</strong> è congelato. Per sbloccarlo serve l'approvazione di <strong>${esc(resp.nome || 'il responsabile dell\'incarico')}</strong>, responsabile dell'incarico${resp.email ? ' (' + esc(resp.email) + ')' : ''}: riceve una mail con il motivo che scrivi qui e un pulsante per sbloccare.</p>
             <p class="descrizione" style="margin-bottom:12px;">Quando decide ti arriva la mail con l'esito: se approva puoi modificare il calcolo e, finite le modifiche, <strong>ricongelarlo</strong> dalla scheda dell'incarico. Richiesta, esito e motivazione restano nel registro; il titolare dello studio viene avvisato dello sblocco.</p>`
@@ -5189,7 +5196,10 @@
                 <button class="btn btn-ghost" id="m-annulla">${senzaIndirizzo ? 'Chiudi' : 'Annulla'}</button>
                 ${senzaIndirizzo ? '' : `<button class="btn ${viaEmail ? 'btn-primary' : 'btn-danger'}" id="m-conferma">${viaEmail ? 'Invia la richiesta al responsabile' : 'Invia allerta e sblocca'}</button>`}
             </div>`);
-        document.getElementById('m-annulla').addEventListener('click', () => { chiudiModale(); chiudi(); });
+        // Annulla chiude e basta: onDone si chiama SOLO quando qualcosa e' successo
+        // davvero (richiesta inviata, o sblocco immediato senza servizio email).
+        // Chiamandolo anche qui, il wizard credeva partita una richiesta mai fatta.
+        document.getElementById('m-annulla').addEventListener('click', chiudiModale);
         const conferma = document.getElementById('m-conferma');
         if (!conferma) return;
         conferma.addEventListener('click', async () => {
@@ -5285,6 +5295,9 @@
         const modalita = (parametriVista && parametriVista.modalita) || 'nuovo';
         const esistente = parametriVista && parametriVista.id ? Incarichi.trova(parametriVista.id) : null;
         if ((modalita === 'modifica' || modalita === 'rinnovo') && !esistente) { naviga('incarichi'); return; }
+        // stesso filtro per regione della scheda e della lettera: da qui si agisce anche
+        // sull'incarico SALVATO (sblocco, ritiro, congelamento), non solo sulla copia
+        if (esistente && !Auth.vedeIncarico(esistente)) { naviga('incarichi'); return; }
         // segnala agli altri connessi che sto modificando questo incarico (naviga lo pubblica in coda)
         if (esistente && (modalita === 'modifica' || modalita === 'rinnovo')) {
             statoModifica = { tipo: 'incarico', id: esistente.id, etichetta: esistente.cliente || '' };
@@ -5303,6 +5316,14 @@
             // piano di fatturazione in lavorazione (solo gli esercizi del periodo corrente):
             // si genera entrando nel passo 5 e si segna "toccato" appena lo si modifica a mano
             piano: null, pianoToccato: false, firmaPiano: '',
+            // quando la richiesta di sblocco e' partita da questa sessione (0 = mai): serve
+            // a mostrare "in attesa" prima che il campo scritto dal servizio arrivi con la
+            // sincronizzazione, e scade da solo (vedi statoSbloccoWizard). Nasce a zero a
+            // ogni apertura, cosi' non si porta dietro lo stato di un incarico aperto prima.
+            sbloccoChiesto: 0,
+            // "Salva e congela" premuto ma rimandato a un passo incompleto: il riepilogo lo
+            // ricorda, cosi' non si finisce per salvare senza congelare credendo il contrario
+            congelaRichiesto: false,
             // su un incarico esistente la fatturazione salvata e una scelta
             // deliberata: il cambio di tipo non deve sovrascriverla
             fatturazioneToccata: modalita !== 'nuovo',
@@ -5361,9 +5382,55 @@
 
     const PASSI_WIZARD = ['Cliente', 'Incarico e durata', 'Compenso', 'Team', 'Fatturazione', 'Riepilogo'];
 
+    /* Stato del lucchetto per il wizard, calcolato in un posto solo: lo leggono la barra dei
+       comandi (su tutti e sei i passi) e il riquadro del passo 3, che cosi' non possono
+       raccontare due cose diverse.
+       Congelamento e richiesta in attesa stanno sull'incarico SALVATO - la richiesta la
+       scrive il servizio, mai il browser - mentre w.dati e' la copia fatta all'apertura del
+       wizard e non si riallinea da sola.
+       Il timbro di sessione copre solo il tempo fra l'invio della richiesta e il suo arrivo
+       in archivio: passato un minuto comanda l'archivio, cosi' una richiesta rifiutata dal
+       responsabile o ritirata da un'altra postazione non lascia il wizard fermo su "in attesa". */
+    function statoSbloccoWizard() {
+        const w = wizard;
+        const rec = w.idEsistente ? Incarichi.trova(w.idEsistente) : null;
+        const recente = !!w.sbloccoChiesto && (Date.now() - w.sbloccoChiesto) < 60000;
+        return {
+            rec: rec,
+            congelato: !!(rec && rec.calcoloCongelato),
+            inAttesa: !!(rec && rec.sbloccoRichiesto) || recente
+        };
+    }
+
     function disegnaWizard() {
         const w = wizard;
         const titoli = { nuovo: 'Nuovo incarico', modifica: 'Modifica incarico', rinnovo: 'Rinnovo incarico' };
+        /* Il calcolo si governa senza uscire dal wizard:
+           - lo SBLOCCO da qualunque passo (1-6), perche' ci si accorge che serve tanto
+             leggendo il compenso quanto rileggendo il riepilogo;
+           - il CONGELAMENTO dal passo 6, accanto a "Salva incarico": congelare vuol dire
+             fissare quello che si sta salvando, quindi ha senso solo li' e solo se i dati
+             sono completi (la stessa validaTutto() del salvataggio).
+           Lo stato del calcolo si legge dal record SALVATO, non da w.dati: la richiesta di
+           sblocco la scrive il servizio e arriva dalla sincronizzazione, mentre w.dati e'
+           la copia fatta all'apertura del wizard. */
+        const sb = statoSbloccoWizard();
+        const congelatoOra = sb.congelato;
+        // se il lucchetto e' cambiato mentre il wizard era aperto (sblocco approvato dal
+        // responsabile, congelamento fatto da un collega) la copia in mano al wizard si
+        // riallinea: la sincronizzazione aggiorna l'archivio ma non tocca il wizard, e senza
+        // questo il passo 3 resterebbe in sola lettura a lucchetto ormai tolto
+        if (sb.rec && !!w.dati.calcoloCongelato !== congelatoOra) {
+            const eraCongelato = !!w.dati.calcoloCongelato;
+            w.dati.calcoloCongelato = congelatoOra;
+            w.dati.congelamento = congelatoOra ? sb.rec.congelamento : null;
+            if (eraCongelato) { w.sbloccoChiesto = 0; toast('Lo sblocco è stato approvato: il calcolo è di nuovo modificabile.', 'verde'); }
+        }
+        const inAttesaOra = sb.inAttesa;
+        // in "nuovo" e in "rinnovo" l'incarico nasce PROPOSTA (lo forza finalizzaWizard), e
+        // una proposta non si congela mai: stessa regola di elenco e scheda
+        const statoFinale = w.modalita === 'modifica' ? (w.dati.stato || 'attivo') : 'proposta';
+        const congelabile = w.modalita === 'modifica' && !congelatoOra && statoCongelabile(statoFinale);
         $vista().innerHTML = `
             <header>
                 <div>
@@ -5377,7 +5444,17 @@
             </div>
             <div class="wizard-nav">
                 <button class="btn btn-secondary" id="btn-passo-prec" ${w.passo === 1 ? 'disabled' : ''}>&larr; Indietro</button>
-                <button class="btn btn-primary" id="btn-passo-succ">${w.passo === 6 ? 'Salva incarico' : 'Avanti →'}</button>
+                <div class="wizard-nav-azioni">
+                    ${congelatoOra
+                    ? (inAttesaOra
+                        ? '<button class="btn btn-secondary" id="btn-ritira-wiz" title="Ritira la richiesta di sblocco in attesa">Ritira la richiesta</button>'
+                        : '<button class="btn btn-secondary" id="btn-sblocco-wiz" title="Il calcolo è congelato: chiedi lo sblocco al responsabile dell\'incarico">Chiedi lo sblocco</button>')
+                    : ''}
+                    ${w.passo === 6 && congelabile
+                    ? '<button class="btn btn-secondary" id="btn-salva-congela" title="Salva l\'incarico e blocca subito il compenso e le ore concordati">' + ICO_LUCCHETTO + 'Salva e congela</button>'
+                    : ''}
+                    <button class="btn btn-primary" id="btn-passo-succ">${w.passo === 6 ? 'Salva incarico' : 'Avanti →'}</button>
+                </div>
             </div>
             <div class="card" id="wizard-corpo"></div>`;
 
@@ -5390,6 +5467,33 @@
             w.passo++;
             disegnaWizard();
         });
+        // "Salva e congela": stessa strada del salvataggio (validazione di tutti i passi
+        // compresa), con il congelamento applicato subito dopo che l'incarico e' salvato
+        { const b = document.getElementById('btn-salva-congela'); if (b) b.addEventListener('click', () => {
+            if (!salvaPassoCorrente(true)) return;
+            concludiWizard(true);
+        }); }
+        // lo sblocco si chiede da qualunque passo: le modifiche in corso restano dove sono.
+        // salvaPassoCorrente(false) mette al riparo quello che c'e' scritto nei campi PRIMA
+        // di ridisegnare il wizard: senza, quanto digitato nel passo aperto andava perso.
+        { const b = document.getElementById('btn-sblocco-wiz'); if (b) b.addEventListener('click', () => {
+            const inc = Incarichi.trova(w.idEsistente);
+            if (!inc) return;
+            salvaPassoCorrente(false);
+            modaleSblocco(inc, sbloccato => {
+                if (sbloccato) { w.dati.calcoloCongelato = false; w.dati.congelamento = null; }
+                else { w.sbloccoChiesto = Date.now(); }
+                disegnaWizard();
+            }, sbloccoPerEmail()
+                ? 'Puoi continuare a lavorare sugli altri passi: la richiesta non chiude la modifica in corso.'
+                : 'Sbloccando da qui il calcolo torna modificabile subito, senza uscire dalla modifica in corso.');
+        }); }
+        { const b = document.getElementById('btn-ritira-wiz'); if (b) b.addEventListener('click', () => {
+            const inc = Incarichi.trova(w.idEsistente);
+            if (!inc) return;
+            salvaPassoCorrente(false);
+            modaleAnnullaSblocco(inc, () => { w.sbloccoChiesto = 0; disegnaWizard(); });
+        }); }
         // i passi in cima sono cliccabili: si salta a quello scelto conservando quanto
         // gia inserito (senza bloccare); la validazione completa scatta al salvataggio finale
         $vista().querySelectorAll('.wizard-passo[data-passo]').forEach(el =>
@@ -5664,6 +5768,21 @@
                     ${rigaRiepilogo('Spese generali', spesePerc(d) ? percTesto(spesePerc(d)) + '% sugli onorari' : 'non addebitate')}
                     ${w.modalita === 'modifica' && !w.compensoModificato ? '<p class="hint" style="font-size:0.78rem; color:var(--grigio-600); margin-top:6px;">Il passo 3 non è stato modificato: i compensi esistenti restano invariati.</p>' : ''}
                 </div>
+                ${(() => {
+                // il riepilogo nomina il calcolo: chi non vede "Salva e congela" deve capire
+                // perche', e chi e' stato rimandato indietro dalla validazione non deve
+                // ritrovarsi a salvare senza congelare credendo il contrario
+                const sb6 = statoSbloccoWizard();
+                if (sb6.congelato) return '<p class="descrizione">' + ICO_LUCCHETTO + '<strong>Calcolo congelato.</strong> Il compenso e le ore concordati restano quelli protetti: per cambiarli serve prima lo sblocco'
+                    + (sb6.inAttesa ? ' (richiesta già in attesa).' : ' (<strong>Chiedi lo sblocco</strong>, qui sopra).') + '</p>';
+                if (!statoCongelabile(w.modalita === 'modifica' ? d.stato : 'proposta'))
+                    return '<p class="descrizione">Il calcolo resta modificabile finché la proposta non è confermata: si congela alla conferma, stampando la lettera di incarico. Per questo qui non c\'è <strong>Salva e congela</strong>.</p>';
+                if (w.modalita !== 'modifica') return '';
+                const muto = respSenzaEmail({ respIncarico: d.respIncarico });
+                return '<p class="descrizione">Con <strong>Salva e congela</strong> l\'incarico viene salvato e subito dopo il calcolo del compenso viene bloccato: per rimetterci mano servirà una richiesta di sblocco approvata dal responsabile dell\'incarico.</p>'
+                    + (muto ? '<div class="msg-errore">' + esc(muto.nome || muto.etichetta || 'Il responsabile dell\'incarico') + ' non ha un indirizzo email in Aderenti Revilaw: congelando, la richiesta di sblocco non potrebbe partire. Aggiungi l\'indirizzo in <strong>Persone</strong>, o cambia responsabile al passo Team.</div>' : '')
+                    + (w.congelaRichiesto ? '<div class="msg-errore"><strong>Avevi scelto "Salva e congela"</strong> ma mancava un dato. Ora che è a posto premi di nuovo <strong>Salva e congela</strong>: con <strong>Salva incarico</strong> il calcolo resterebbe modificabile.</div>' : '');
+            })()}
                 <p class="descrizione">Salvando, la modifica viene registrata nel registro ${Auth.eCollaboratore() ? 'a nome di <strong>' + esc(Auth.utenteCorrente.nome) + '</strong> (di cui sei collaboratore)' : 'con il tuo nome (' + esc(Auth.utenteCorrente.nome) + ')'}.</p>`;
         }
     }
@@ -5918,11 +6037,12 @@
         if (w.modalita === 'modifica' && w.dati.calcoloCongelato) {
             const cong = w.dati.congelamento || {};
             const compenso = w.dati.compensi && w.dati.compensi[anniEsercizi()[0]];
-            // la richiesta di sblocco la segna il servizio sull'incarico salvato; se e'
-            // appena partita da qui, l'archivio potrebbe non essersi ancora riallineato
-            const incSalvato = w.idEsistente ? Incarichi.trova(w.idEsistente) : null;
-            const inAttesa = (incSalvato && incSalvato.sbloccoRichiesto) ? testoSbloccoInAttesa(incSalvato)
-                : (w.sbloccoChiesto ? 'Richiesta di sblocco inviata al responsabile dell\'incarico.' : '');
+            // stesso stato che comanda la barra dei comandi: una lettura sola, cosi' il
+            // riquadro e il pulsante non possono raccontare due cose diverse
+            const sb3 = statoSbloccoWizard();
+            const inAttesa = !sb3.inAttesa ? ''
+                : ((sb3.rec && sb3.rec.sbloccoRichiesto) ? testoSbloccoInAttesa(sb3.rec)
+                    : 'Richiesta di sblocco inviata al responsabile dell\'incarico.');
             corpo.innerHTML = `
                 <h2>Calcolo del compenso</h2>
                 <div class="calc-riquadro" style="border-color:var(--ambra); background:var(--ambra-bg);">
@@ -5931,23 +6051,9 @@
                     <div class="calc-riga totale"><span>Compenso concordato (primo esercizio)</span><span class="val">${compenso ? eurFmt.format(compenso) : '-'}</span></div>
                 </div>
                 ${inAttesa
-                    ? `<p class="descrizione">${esc(inAttesa)} Quando approva, il calcolo torna modificabile: riapri l'incarico dopo la mail di conferma.</p>`
-                    : `<p class="descrizione">Per modificare il calcolo occorre prima sbloccarlo, e lo sblocco lo approva il <strong>responsabile dell'incarico</strong> dalla mail che riceve: la richiesta puoi mandarla da qui, oppure dall'elenco e dalla scheda dell'incarico.</p>
-                <button type="button" class="btn btn-secondary" id="c-sblocca">${ICO_LUCCHETTO}Chiedi lo sblocco</button>`}`;
+                    ? `<p class="descrizione">${esc(inAttesa)} Quando approva, il calcolo torna modificabile: riapri l'incarico dopo la mail di conferma. Se non arriva risposta, con <strong>Ritira la richiesta</strong> qui sopra puoi rifarla.</p>`
+                    : `<p class="descrizione">Per modificare il calcolo occorre prima sbloccarlo, e lo sblocco lo approva il <strong>responsabile dell'incarico</strong> dalla mail che riceve: la richiesta si manda con <strong>Chiedi lo sblocco</strong> qui sopra, che resta a portata di mano su tutti i passi.</p>`}`;
             w.compensoModificato = false;
-            // la richiesta parte senza uscire dal wizard: le modifiche in corso restano dove sono
-            const bottoneSblocco = document.getElementById('c-sblocca');
-            if (bottoneSblocco) bottoneSblocco.addEventListener('click', () => {
-                const inc = Incarichi.trova(w.idEsistente);
-                if (!inc) return;
-                modaleSblocco(inc, sbloccato => {
-                    if (sbloccato) { w.dati.calcoloCongelato = false; w.dati.congelamento = null; }
-                    else { w.sbloccoChiesto = true; }
-                    disegnaWizard();
-                }, sbloccoPerEmail()
-                    ? 'Puoi continuare a lavorare sugli altri passi: la richiesta non chiude la modifica in corso.'
-                    : 'Sbloccando da qui il calcolo torna modificabile subito, senza uscire dalla modifica in corso.');
-            });
             return;
         }
         corpo.innerHTML = `
@@ -6153,6 +6259,23 @@
                 if (totale <= 0) { toast('Il piano di fatturazione è vuoto: aggiungi almeno un periodo con un importo.', 'rosso'); return false; }
                 const aZero = anni.filter(a => totalePiano((w.piano || {})[a]) <= 0);
                 if (aZero.length) toast('Esercizi senza periodi: ' + aZero.join(', ') + '. Il loro compenso sarà zero.', 'ambra');
+                /* Il congelamento protegge il COMPENSO, non solo il passo 3. Qui il piano
+                   comanda sul compenso (finalizzaWizard scrive compensi[anno] = somma delle
+                   scadenze), quindi senza questo controllo a calcolo congelato bastava
+                   cambiare un importo di rata per cambiare il compenso concordato, saltando
+                   del tutto lo sblocco. Le scadenze si spostano e si dividono liberamente:
+                   e' il totale dell'esercizio che deve restare quello concordato. */
+                if (w.modalita === 'modifica' && d.calcoloCongelato) {
+                    const bloccati = compensiRisultanti();
+                    const fuori = anni.filter(a => bloccati[a] != null
+                        && Math.abs(totalePiano((w.piano || {})[a]) - bloccati[a]) > 0.01);
+                    if (fuori.length) {
+                        toast('Calcolo congelato: il totale ' + (fuori.length === 1 ? 'dell\'esercizio ' : 'degli esercizi ')
+                            + fuori.join(', ') + ' deve restare ' + fuori.map(a => eurFmt.format(bloccati[a])).join(' e ')
+                            + '. Le scadenze si possono spostare, il compenso no: per quello serve prima lo sblocco.', 'rosso');
+                        return false;
+                    }
+                }
             }
         }
         return true;
@@ -6216,8 +6339,15 @@
         return null;
     }
 
-    function concludiWizard() {
+    // congela: true quando si arriva dal pulsante "Salva e congela" del riepilogo. Il
+    // congelamento avviene DOPO il salvataggio (vedi finalizzaWizard): prima i compensi
+    // si ricalcolano normalmente, poi il risultato viene bloccato.
+    function concludiWizard(congela) {
         const w = wizard, d = w.dati;
+        // se validaTutto rimanda a un passo incompleto l'intenzione non si perde: il
+        // riepilogo la ricorda al ritorno. Premendo il primario "Salva incarico" si azzera:
+        // e' una scelta esplicita di salvare senza congelare.
+        w.congelaRichiesto = !!congela;
         // coi passi liberi, ricontrolla che non manchi nulla e rimanda al passo giusto
         const mancante = validaTutto();
         if (mancante) {
@@ -6237,15 +6367,22 @@
         const testoConf = w.modalita === 'rinnovo' ? 'Confermi il <strong>rinnovo</strong> di questo incarico?'
             : w.modalita === 'modifica' ? 'Confermi le <strong>modifiche</strong> a questo incarico?'
                 : 'Salvare il <strong>nuovo incarico</strong>?';
-        apriModale(`<h2>Conferma</h2><p>${testoConf}</p>
-            <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-conferma">Conferma</button></div>`);
+        // il responsabile e' quello scelto ORA nel passo 4, non quello salvato: se non ha
+        // un indirizzo, dopo il congelamento non ci sarebbe a chi chiedere lo sblocco
+        const respMuto = congela ? respSenzaEmail({ respIncarico: d.respIncarico }) : null;
+        const testoCongela = congela
+            ? '<p class="descrizione">Subito dopo il salvataggio il <strong>calcolo del compenso viene congelato</strong>: il compenso e le ore concordati non si potranno più modificare finché ' + (sbloccoPerEmail() ? 'il responsabile dell\'incarico non approva una richiesta di sblocco' : 'il calcolo non viene sbloccato') + '.</p>'
+                + (respMuto ? '<div class="msg-errore">' + esc(respMuto.nome || respMuto.etichetta || 'Il responsabile dell\'incarico') + ' non ha un indirizzo email in Aderenti Revilaw: una volta congelato, <strong>la richiesta di sblocco non potrà partire</strong>. Meglio aggiungere prima l\'indirizzo, o scegliere un altro responsabile nel passo Team.</div>' : '')
+            : '';
+        apriModale(`<h2>Conferma</h2><p>${testoConf}</p>${testoCongela}
+            <div class="modale-azioni"><button class="btn btn-ghost" id="m-annulla">Annulla</button><button class="btn btn-primary" id="m-conferma">${congela ? 'Conferma e congela' : 'Conferma'}</button></div>`);
         document.getElementById('m-annulla').addEventListener('click', chiudiModale);
         document.getElementById('m-conferma').addEventListener('click', () => {
             chiudiModale();
             // se qualcuno e uscito dal team, prima si registra la data di fine ruolo, poi si salva
             const rimossi = (w.modalita === 'modifica' || w.modalita === 'rinnovo') ? personeRimosseDalTeam(w.idEsistente, d.team) : [];
-            if (rimossi.length) { modaleUscitaTeam(rimossi, entries => { d.teamStorico = (d.teamStorico || []).concat(entries); finalizzaWizard(); }); return; }
-            finalizzaWizard();
+            if (rimossi.length) { modaleUscitaTeam(rimossi, entries => { d.teamStorico = (d.teamStorico || []).concat(entries); finalizzaWizard(congela); }); return; }
+            finalizzaWizard(congela);
         });
     }
     /* Gli esercizi FUORI dal periodo che si sta modificando/rinnovando vengono fissati
@@ -6267,13 +6404,33 @@
         });
     }
 
-    function finalizzaWizard() {
+    function finalizzaWizard(congela) {
         const w = wizard, d = w.dati;
+        w.congelaRichiesto = false;   // l'intenzione e' arrivata a destinazione
         const anni = anniEsercizi();
         const mappa = compensiRisultanti();
         // l'incarico com'era salvato: serve a congelare gli anni fuori periodo con la
         // loro periodicita di prima (in modifica e in rinnovo)
         const prec = w.idEsistente ? Incarichi.trova(w.idEsistente) : null;
+        /* IL LUCCHETTO NON VIAGGIA DENTRO IL PAYLOAD. w.dati e' la fotografia scattata
+           all'apertura del wizard: mentre era aperto il servizio puo' aver sbloccato
+           l'incarico o chiuso la richiesta, e Incarichi.aggiorna fonde con lo spread (i
+           campi presenti vincono). Salvando la copia si riporterebbe indietro, in silenzio
+           e per tutti, una decisione presa altrove: qui si riprende lo stato VERO
+           dall'archivio, e lo cambiano solo congela/scongela e il servizio di sblocco. */
+        if (prec) {
+            d.calcoloCongelato = !!prec.calcoloCongelato;
+            d.congelamento = prec.congelamento || null;
+            if (prec.sbloccoRichiesto) d.sbloccoRichiesto = prec.sbloccoRichiesto;
+            else delete d.sbloccoRichiesto;
+        }
+        /* Restano le due eccezioni volute di vistaWizard, ma scritte qui apposta invece che
+           per effetto collaterale della copia: il rinnovo e' un accordo nuovo e riparte
+           sbloccato, e una proposta riaperta in modifica torna modificabile fino alla conferma. */
+        if (w.modalita === 'rinnovo' || (w.modalita === 'modifica' && !statoCongelabile(d.stato))) {
+            d.calcoloCongelato = false;
+            d.congelamento = null;
+        }
         if (w.modalita === 'rinnovo') {
             anni.forEach(a => { d.compensi[a] = mappa[a]; });
         } else {
@@ -6331,14 +6488,23 @@
             toast(haLettera ? 'Rinnovo salvato come PROPOSTA. Stampa la nuova lettera; il nuovo periodo entra in fatturazione solo quando confermi l\'incarico.' : 'Rinnovo salvato come PROPOSTA: confermalo per farlo entrare in fatturazione e compensi.', 'ambra');
             naviga(haLettera ? 'lettera' : 'dettaglio', { id: agg.id });
         } else if (w.modalita === 'modifica') {
-            Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Modifica incarico');
+            const agg = Incarichi.aggiorna(w.idEsistente, d, Auth.utenteCorrente, 'Modifica incarico');
+            // il congelamento viene DOPO il salvataggio: i compensi si sono appena
+            // ricalcolati sui dati nuovi, ed e' quel risultato che si blocca. Una proposta
+            // non si congela mai, nemmeno se il pulsante fosse rimasto a video per errore.
+            // la guardia usa la STESSA regola del pulsante: niente casi in cui il comando
+            // compare e poi il congelamento non avviene per un criterio diverso
+            const congelato = !!(congela && agg && statoCongelabile(agg.stato)
+                && Incarichi.congela(w.idEsistente, Auth.utenteCorrente, 'Congelato salvando dal riepilogo della modifica'));
+            // chiesto ma non fatto: non deve passare in silenzio
+            if (congela && !congelato) toast('Incarico salvato, ma il calcolo NON è stato congelato: un incarico in proposta si congela solo dopo la conferma, stampando la lettera.', 'rosso');
             if (haLettera) {
                 // dopo la modifica si va dritti alla pagina del mandato: cosi si
                 // puo ristampare subito il PDF aggiornato (e cambiare la firma)
-                toast('Incarico aggiornato: puoi ristampare il mandato.', 'verde');
+                toast(congelato ? 'Incarico aggiornato e calcolo congelato: puoi ristampare il mandato.' : 'Incarico aggiornato: puoi ristampare il mandato.', 'verde');
                 naviga('lettera', { id: w.idEsistente });
             } else {
-                toast('Incarico aggiornato.', 'verde');
+                toast(congelato ? 'Incarico aggiornato e calcolo congelato.' : 'Incarico aggiornato.', 'verde');
                 // torna alla sezione da cui si era partiti (es. Aderenti Revilaw), altrimenti al dettaglio
                 tornaOrigine(() => naviga('dettaglio', { id: w.idEsistente }));
             }
