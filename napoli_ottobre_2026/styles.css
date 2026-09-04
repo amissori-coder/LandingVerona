@@ -1933,6 +1933,14 @@ ul {
     flex-wrap: wrap;
 }
 
+/* La riga Sponsor porta quattro marchi: con il respiro delle altre righe non
+   starebbe nei 928px utili del palco (960 meno i 16 di padding per lato),
+   quindi lo spazio fra i loghi si stringe quel tanto che basta a tenerli su
+   una riga sola. */
+.partners-logos-sponsor {
+    gap: 48px;
+}
+
 .partner-brand {
     display: inline-flex;
     align-items: center;
@@ -2004,6 +2012,14 @@ ul {
 .partner-brand-img-serviter {
     max-width: 205px;
     max-height: 104px;
+}
+
+/* Il lockup Fineco e' orizzontale e molto largo (4,2:1): pareggiarlo agli
+   altri in altezza lo porterebbe fuori dalla riga, quindi il limite che conta
+   e' la larghezza e l'altezza resta solo da guardia. */
+.partner-brand-img-fineco {
+    max-width: 252px;
+    max-height: 64px;
 }
 
 /* Thin vertical separator between Revilaw and Advant */
@@ -2169,6 +2185,12 @@ ul {
 
     .partners-logos {
         gap: 48px;
+    }
+
+    /* Qui i quattro sponsor non stanno piu' su una riga sola: invece di
+       lasciarli spezzare tre piu' uno, si tengono su due righe da due. */
+    .partners-logos-sponsor {
+        max-width: 520px;
     }
 
     .partners-stage {
@@ -2598,6 +2620,11 @@ ul {
         max-height: 94px;
     }
 
+    .partner-brand-img-fineco {
+        max-width: 236px;
+        max-height: 58px;
+    }
+
     .label-text {
         font-size: 0.64rem;
         letter-spacing: 2.2px;
@@ -2778,6 +2805,11 @@ ul {
         max-height: 86px;
     }
 
+    .partner-brand-img-fineco {
+        max-width: 214px;
+        max-height: 52px;
+    }
+
     .label-text {
         font-size: 0.6rem;
         letter-spacing: 1.8px;
@@ -2841,6 +2873,11 @@ ul {
     .partner-brand-img-apri {
         max-width: 135px;
         max-height: 44px;
+    }
+
+    .partner-brand-img-fineco {
+        max-width: 196px;
+        max-height: 48px;
     }
 }
 
