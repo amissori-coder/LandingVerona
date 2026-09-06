@@ -36,6 +36,7 @@
    ============================================================ */
 
 const nodemailer = require('nodemailer');
+const { nomeMittente } = require('./mittente');
 const { avvolgi, senzaTrattiniLunghi } = require('./mail-layout');
 const CODICI = require('./codici-invito');
 const CAMPAGNE = require('./campagne-invito');
@@ -78,7 +79,7 @@ function trasporto() {
 }
 function mittente() {
     const ind = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-    const nome = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+    const nome = nomeMittente(process.env.SMTP_FROM_NAME);
     return '"' + nome + '" <' + ind + '>';
 }
 function configurato() {

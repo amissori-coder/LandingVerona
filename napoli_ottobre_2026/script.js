@@ -212,7 +212,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 // dev'essere respinto qui, non scoperto il giorno dell'evento
                 body: JSON.stringify({ azione: 'verifica-codice', codice: c, pagina: PAGINA_NGB })
             })
-                .then(function (r) { return r.json(); })
+                .then(function (r) {
+                    /* 429 (troppe richieste dallo stesso indirizzo) o errore del
+                       servizio: non dicono nulla sul codice. Si passa al ramo
+                       "servizio non raggiungibile" qui sotto, invece di far
+                       credere che il codice sia sbagliato. */
+                    if (r.status === 429 || r.status >= 500) throw new Error('servizio ' + r.status);
+                    return r.json();
+                })
                 .then(function (d) {
                     if (d && d.ok) {
                         statoCodice = { valore: c, esito: 'buono', azienda: String(d.azienda || '') };

@@ -21,22 +21,15 @@
    ============================================================ */
 
 const N = require('../lib/newsletter');
+const F = require('../lib/frequenza');
 
-/* --- limite per indirizzo IP: l'endpoint e' pubblico --- */
+/* --- limiti: l'endpoint e' pubblico ---
+   Per indirizzo IP sulle richieste senza una firma valida; per indirizzo
+   email su quelle firmate (vedi nel gestore). */
 const RL_FINESTRA_MS = 10 * 60 * 1000;
-const RL_MAX = 30;
-const colpi = new Map();
-function troppi(ip) {
-    if (!ip) return false;
-    const ora = Date.now();
-    const elenco = (colpi.get(ip) || []).filter(t => ora - t < RL_FINESTRA_MS);
-    if (elenco.length >= RL_MAX) { colpi.set(ip, elenco); return true; }
-    elenco.push(ora); colpi.set(ip, elenco);
-    if (colpi.size > 500) {
-        for (const [k, v] of colpi) { if (!v.length || ora - v[v.length - 1] > RL_FINESTRA_MS) colpi.delete(k); }
-    }
-    return false;
-}
+const RL_MAX = 30;          // richieste non firmate per IP
+const RL_FIRMATE_MAX = 12;  // richieste firmate per indirizzo email
+// il conteggio sta su Firestore, uguale per tutte le istanze: vedi lib/frequenza.js
 
 module.exports = async (req, res) => {
     // pagina pubblica: la puo' chiamare qualunque origine
@@ -63,7 +56,9 @@ module.exports = async (req, res) => {
 
     try {
         const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-        if (troppi(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return; }
+        // admin serve al freno e alla scrittura: pronto una volta per tutte
+        N.initAdmin();
+        const db = N.admin.firestore();
 
         const email = String(corpo.email || corpo.e || q.e || q.email || '').trim().toLowerCase();
         const token = String(corpo.token || corpo.t || q.t || q.token || '').trim();
@@ -71,15 +66,34 @@ module.exports = async (req, res) => {
         const unClic = String(corpo['List-Unsubscribe'] || '') === 'One-Click';
         const azione = unClic ? 'disiscrivi' : (String(corpo.azione || 'disiscrivi') === 'riattiva' ? 'riattiva' : 'disiscrivi');
 
-        if (!N.EMAIL_RE.test(email) || !token) { res.status(400).json({ ok: false, msg: 'Richiesta incompleta.' }); return; }
-        if (!N.firmaValida(email, token)) {
+        /* Il freno per IP (lib/frequenza.js, conteggio su Firestore) vale per le
+           richieste SENZA una firma valida: e' li' che serve, contro chi prova
+           indirizzi o firme a tappeto. Una richiesta con la firma giusta e' gia'
+           autenticata e non va contata: il pulsante "Annulla iscrizione" dei
+           programmi di posta (One-Click, RFC 8058) parte dai server del provider,
+           con un indirizzo IP condiviso fra migliaia di destinatari; contando
+           anche quelle, dopo una newsletter la trentunesima disiscrizione
+           legittima in dieci minuti verrebbe rifiutata senza che nessuno se ne
+           accorga. Le richieste firmate si contano invece per INDIRIZZO EMAIL:
+           chi ha la firma agisce solo sul proprio indirizzo, e dodici cambi
+           d'idea in dieci minuti bastano a chiunque. Senza questo conto, un solo
+           collegamento valido basterebbe per far scrivere il database senza
+           limite alternando disiscrivi e riattiva, e consumare la quota
+           giornaliera che tiene in piedi l'area riservata. */
+        const firmaOk = N.EMAIL_RE.test(email) && !!token && N.firmaValida(email, token);
+        if (!firmaOk) {
+            if (await F.troppeRichieste(db, 'disiscrizione', ip, { finestraMs: RL_FINESTRA_MS, massimo: RL_MAX })) {
+                res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return;
+            }
+            if (!N.EMAIL_RE.test(email) || !token) { res.status(400).json({ ok: false, msg: 'Richiesta incompleta.' }); return; }
             // messaggio unico: non fa capire se l'indirizzo esiste
             res.status(403).json({ ok: false, msg: 'Collegamento non valido o scaduto. Scrivi a info@nextgenerationbusiness.it e provvediamo noi.' });
             return;
         }
+        if (await F.troppeRichieste(db, 'disiscrizione-firmata', email, { finestraMs: RL_FINESTRA_MS, massimo: RL_FIRMATE_MAX })) {
+            res.status(429).json({ ok: false, msg: 'Troppe richieste ravvicinate.' }); return;
+        }
 
-        N.initAdmin();
-        const db = N.admin.firestore();
         const ref = db.collection('newsletterDisiscritti').doc(email);
 
         /* Si LEGGE prima di scrivere. Il collegamento non scade e ce l'ha ogni

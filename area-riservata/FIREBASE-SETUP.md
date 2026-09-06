@@ -188,6 +188,17 @@ sufficiente per questo utilizzo.
    > Aggiungere un `match` che la apra allo staff vanificherebbe l'approvazione:
    > chi chiede lo sblocco potrebbe leggersi il gettone e approvarsi da solo.
 
+   > **Contatori del servizio email: `richieste_throttle` e le altre
+   > `*_throttle` restano fuori dalle regole.** Il servizio email limita le
+   > richieste ripetute (per indirizzo IP sugli endpoint pubblici, per utente
+   > su quelli autenticati) tenendo i conteggi in `richieste_throttle`,
+   > `email_throttle`, `comunicazioni_throttle`, `newsletter_throttle` e
+   > `invito_throttle`. Nessuna ha un `match` qui sopra: senza regola Firestore
+   > nega tutto, e ci scrive solo l'account di servizio (Admin SDK, che le regole
+   > non le applica). E' voluto: aprirle allo staff permetterebbe a un utente di
+   > azzerarsi il contatore. Se vuoi che i documenti vecchi spariscano da soli,
+   > crea dalla console una policy **TTL** su `richieste_throttle`, campo `scade`.
+
    > **Messaggi tra utenti connessi.** Il blocco `match /messaggi/{email}` serve
    > ai messaggi privati tra colleghi (popup con risposta). Se le regole
    > pubblicate sulla console sono una versione precedente senza quel blocco,

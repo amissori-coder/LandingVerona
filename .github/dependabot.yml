@@ -1,0 +1,74 @@
+# Avvisi automatici sulle dipendenze con vulnerabilita' note.
+#
+# Dependabot legge questo file dal ramo predefinito e, una volta alla
+# settimana, apre una pull request per ogni pacchetto da aggiornare: la si
+# legge, si controlla che il servizio continui a funzionare e si unisce.
+# Non tocca nulla da solo: senza una persona che unisce la pull request il
+# sito e il servizio email restano come sono.
+#
+# Tre progetti Node con dipendenze proprie, piu' le azioni dei workflow. Le
+# pull request arrivano con l'etichetta predefinita "dependencies" (Dependabot
+# non ne crea altre).
+# badge-napoli gira solo in locale ma condivide firebase-admin con gli altri:
+# meglio tenerlo allineato che scoprire fra un anno che e' rimasto indietro.
+#
+# firebase-admin: le versioni maggiori NON si prendono da qui. La 14 ha tolto
+# l'oggetto "admin" (admin.firestore(), admin.auth(), admin.credential) su cui
+# si appoggia ogni file del servizio email e del backup: unire quella pull
+# request cosi' com'e' fermerebbe tutto. Il passaggio si fa a mano, riscrivendo
+# le chiamate (vedi email-service/README.md, "Aggiornare le dipendenze").
+# Restano attive le correzioni dentro la 12.x.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /email-service
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "email-service"
+    ignore:
+      - dependency-name: firebase-admin
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /scripts/backup
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "backup"
+    ignore:
+      - dependency-name: firebase-admin
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /badge-napoli
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "badge-napoli"
+    ignore:
+      - dependency-name: firebase-admin
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/Rome
+    commit-message:
+      prefix: "workflow"

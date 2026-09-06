@@ -13,7 +13,9 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const { origineConsentita } = require('../lib/origine');
 const nodemailer = require('nodemailer');
+const { nomeMittente } = require('../lib/mittente');
 
 // Legge la chiave di servizio dalla variabile d'ambiente.
 // Accetta due formati, per comodità di inserimento su Vercel:
@@ -127,7 +129,7 @@ Next Generation Business — nextgenerationbusiness.it`;
 
 module.exports = async (req, res) => {
     // CORS: consenti solo l'origine del sito
-    const origin = process.env.ALLOWED_ORIGIN || '*';
+    const origin = origineConsentita();
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -176,7 +178,7 @@ module.exports = async (req, res) => {
         const link = base + '/area-riservata/reimposta.html?mode=resetPassword&oobCode=' + encodeURIComponent(oob);
 
         const { testo, html } = corpoEmail(link, tipo);
-        const fromName = process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.';
+        const fromName = nomeMittente(process.env.SMTP_FROM_NAME);
         const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
         await trasporto().sendMail({
             from: '"' + fromName + '" <' + fromEmail + '>',

@@ -12,6 +12,8 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const { origineConsentita } = require('../lib/origine');
+const { nomeMittente } = require('../lib/mittente');
 const { utenteEffettivo } = require('../lib/utente-effettivo');
 const nodemailer = require('nodemailer');
 // Impaginazione e firma delle mail: un posto solo, cosi' quello che parte da qui
@@ -110,7 +112,7 @@ function htmlToText(h) {
 
 
 module.exports = async (req, res) => {
-    const origin = process.env.ALLOWED_ORIGIN || '*';
+    const origin = origineConsentita();
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -162,7 +164,7 @@ module.exports = async (req, res) => {
         // 5) invio: mittente autenticato SMTP dello studio, Reply-To = chi scrive.
         // Piu destinatari => in copia nascosta (BCC), per non esporre gli indirizzi.
         const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-        const fromName = String(body.mittenteNome || process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+        const fromName = nomeMittente(body.mittenteNome || process.env.SMTP_FROM_NAME);
         const from = '"' + fromName + '" <' + fromEmail + '>';
         const trans = trasporto();
         // il messaggio puo essere HTML (editor formattato) o testo semplice (vecchi client)

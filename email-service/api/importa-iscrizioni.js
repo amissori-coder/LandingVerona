@@ -18,6 +18,7 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const { origineConsentita } = require('../lib/origine');
 const { utenteEffettivo } = require('../lib/utente-effettivo');
 const { JWT } = require('google-auth-library');
 
@@ -109,7 +110,7 @@ async function segnaCambiamento(db) {
 }
 
 module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
+    res.setHeader('Access-Control-Allow-Origin', origineConsentita());
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }

@@ -30,6 +30,7 @@
    ============================================================ */
 
 const crypto = require('crypto');
+const { nomeMittente } = require('./mittente');
 const nodemailer = require('nodemailer');
 const { avvolgi, senzaTrattiniLunghi } = require('./mail-layout');
 const NL = require('./newsletter');
@@ -48,7 +49,7 @@ function configurazioneEmail() {
         host: host, porta: porta, utente: utente,
         password: String((propria ? process.env.MKT_SMTP_PASS : process.env.SMTP_PASS) || ''),
         mittente: s(process.env.MKT_FROM_EMAIL) || s(process.env.SMTP_FROM_EMAIL) || utente,
-        nome: (s(process.env.MKT_FROM_NAME) || s(process.env.SMTP_FROM_NAME) || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80),
+        nome: nomeMittente(s(process.env.MKT_FROM_NAME) || s(process.env.SMTP_FROM_NAME)),
         rispondiA: s(process.env.MKT_REPLY_TO)
     };
 }
@@ -67,7 +68,7 @@ function configurazionePec() {
         // il mittente di una PEC DEVE essere la casella PEC: il gestore
         // rifiuta qualunque altro indirizzo nel campo From
         mittente: s(process.env.PEC_FROM_EMAIL) || utente,
-        nome: s(process.env.PEC_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80),
+        nome: nomeMittente(s(process.env.PEC_FROM_NAME)),
         /* Rispondere a una PEC da una casella ordinaria spesso non si puo':
            indicare qui la mail normale dello studio evita di costringere
            l'azienda a usare la propria PEC per dire "vengo volentieri". */

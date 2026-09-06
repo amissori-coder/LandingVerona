@@ -20,6 +20,7 @@
    ============================================================ */
 
 const N = require('../lib/newsletter');
+const { origineConsentita } = require('../lib/origine');
 const M = require('../lib/invio-newsletter');
 
 /* Rate limit per mittente: e' un invio di massa, quindi il tetto e' sui LOTTI.
@@ -44,7 +45,7 @@ async function consumaGettone(email) {
 }
 
 module.exports = async (req, res) => {
-    const origin = process.env.ALLOWED_ORIGIN || '*';
+    const origin = origineConsentita();
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

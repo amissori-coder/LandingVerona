@@ -27,6 +27,7 @@
 
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
+const { nomeMittente } = require('../lib/mittente');
 // Impaginazione e firma delle mail: un posto solo, cosi' quello che parte da qui
 // e quello che parte dagli invii programmati e' identico (lib/mail-layout.js)
 const { avvolgi, senzaTrattiniLunghi } = require('../lib/mail-layout');
@@ -233,7 +234,7 @@ async function inviaUna(trans, com, destinatari, avanz) {
     const dd = tutti.filter(d => !avanz.serviti.has(AV.impronta(d.email)));
     if (!dd.length) return { inviati: 0, falliti: [], restanti: false };
     const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-    const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.');
+    const fromName = nomeMittente(process.env.SMTP_FROM_NAME);
     const from = '"' + fromName + '" <' + fromEmail + '>';
     const replyTo = (com.creato && com.creato.da) || fromEmail;
     // periodo di riferimento di QUESTO invio (dalla frequenza + data): sostituisce {periodo}

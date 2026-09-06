@@ -18,6 +18,7 @@
    ============================================================ */
 
 const N = require('../lib/newsletter');
+const { origineConsentita } = require('../lib/origine');
 const { JWT } = require('google-auth-library');
 
 /* --- seconda fonte: il foglio Google ---
@@ -214,7 +215,7 @@ async function leggiIscrizioni(db, forza, rev) {
 }
 
 module.exports = async (req, res) => {
-    const origin = process.env.ALLOWED_ORIGIN || '*';
+    const origin = origineConsentita();
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

@@ -25,6 +25,7 @@
    ============================================================ */
 
 const N = require('../lib/newsletter');
+const { origineConsentita } = require('../lib/origine');
 const M = require('../lib/invio-newsletter');
 const P = require('../lib/programmate');
 const G = require('../lib/giro-newsletter');
@@ -34,7 +35,7 @@ const ORIZZONTE_GIORNI = 60;     // oltre, la fotografia del contenuto invecchia
 const MAX_DESTINATARI = 20000;
 
 module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
+    res.setHeader('Access-Control-Allow-Origin', origineConsentita());
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }

@@ -35,8 +35,11 @@
 'use strict';
 
 const crypto = require('crypto');
+const { origineConsentita } = require('../lib/origine');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
+const F = require('../lib/frequenza');
+const { nomeMittente } = require('../lib/mittente');
 const { utenteEffettivo, firmaCollaboratore } = require('../lib/utente-effettivo');
 const { avvolgi, senzaTrattiniLunghi } = require('../lib/mail-layout');
 
@@ -78,7 +81,7 @@ function trasporto() {
     });
 }
 function mittente() {
-    return '"' + (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.') + '" <' + (process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER) + '>';
+    return '"' + nomeMittente(process.env.SMTP_FROM_NAME) + '" <' + (process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER) + '>';
 }
 function baseApp() {
     return String(process.env.APP_BASE_URL || 'https://nextgenerationbusiness.it').replace(/\/+$/, '');
@@ -87,18 +90,7 @@ function baseApp() {
 /* --- limite per indirizzo IP: 'stato', 'approva' e 'rifiuta' sono pubblici --- */
 const RL_FINESTRA_MS = 10 * 60 * 1000;
 const RL_MAX = 40;
-const colpi = new Map();
-function troppi(ip) {
-    if (!ip) return false;
-    const ora = Date.now();
-    const elenco = (colpi.get(ip) || []).filter(t => ora - t < RL_FINESTRA_MS);
-    if (elenco.length >= RL_MAX) { colpi.set(ip, elenco); return true; }
-    elenco.push(ora); colpi.set(ip, elenco);
-    if (colpi.size > 500) {
-        for (const [k, v] of colpi) { if (!v.length || ora - v[v.length - 1] > RL_FINESTRA_MS) colpi.delete(k); }
-    }
-    return false;
-}
+// il conteggio sta su Firestore, uguale per tutte le istanze: vedi lib/frequenza.js
 
 /* ============================================================
    ARCHIVI CONDIVISI
@@ -463,7 +455,7 @@ async function azioneDecidi(body, res, approva) {
 }
 
 module.exports = async (req, res) => {
-    const origin = process.env.ALLOWED_ORIGIN || '*';
+    const origin = origineConsentita();
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -483,7 +475,9 @@ module.exports = async (req, res) => {
         initAdmin();
         if (azione === 'richiedi') { await azioneRichiedi(body, res); return; }
         if (azione === 'annulla') { await azioneAnnulla(body, res); return; }
-        if (troppi(ip)) { res.status(429).json({ ok: false, msg: 'Troppe richieste: riprova tra qualche minuto.' }); return; }
+        if (await F.troppeRichieste(admin.firestore(), 'sblocco', ip, { finestraMs: RL_FINESTRA_MS, massimo: RL_MAX })) {
+            res.status(429).json({ ok: false, msg: 'Troppe richieste: riprova tra qualche minuto.' }); return;
+        }
         if (azione === 'stato') { await azioneStato(body, res); return; }
         if (azione === 'approva') { await azioneDecidi(body, res, true); return; }
         if (azione === 'rifiuta') { await azioneDecidi(body, res, false); return; }

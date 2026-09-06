@@ -30,6 +30,8 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const { origineConsentita } = require('../lib/origine');
+const { nomeMittente } = require('../lib/mittente');
 const { utenteEffettivo, firmaCollaboratore } = require('../lib/utente-effettivo');
 const nodemailer = require('nodemailer');
 // firma e indirizzo del collegamento "completa i dati" (lib condivisa con la
@@ -213,7 +215,7 @@ function troppiInvii(chi) {
 }
 
 module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
+    res.setHeader('Access-Control-Allow-Origin', origineConsentita());
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -403,7 +405,7 @@ module.exports = async (req, res) => {
                     } else {
                         try {
                             const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-                            const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+                            const fromName = nomeMittente(process.env.SMTP_FROM_NAME);
                             // il segnaposto {{COMPLETA}} diventa il collegamento personale
                             // FIRMATO della scheda appena creata: da li' l'iscritto
                             // modifica i dati o annulla l'iscrizione
@@ -461,7 +463,7 @@ module.exports = async (req, res) => {
             if (!html.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
             try {
                 const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-                const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+                const fromName = nomeMittente(process.env.SMTP_FROM_NAME);
                 const messaggio = {
                     from: '"' + fromName + '" <' + fromEmail + '>',
                     replyTo: email,
@@ -546,7 +548,7 @@ module.exports = async (req, res) => {
                 indirizzo: testo(body.eventoDati.indirizzo, 200)
             } : null;
             const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-            const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+            const fromName = nomeMittente(process.env.SMTP_FROM_NAME);
             const trans = trasporto();
             let inviate = 0, senzaScheda = 0, senzaEmail = 0, giaInvitate = 0;
             const falliti = [];

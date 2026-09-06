@@ -33,6 +33,7 @@
    ============================================================ */
 
 const admin = require('firebase-admin');
+const { origineConsentita } = require('../lib/origine');
 const nodemailer = require('nodemailer');
 // firma del collegamento personale "completa i dati" (stesso segreto della
 // disiscrizione, contesto diverso). Da NL si usano SOLO le funzioni di firma
@@ -54,6 +55,10 @@ const CODICI = require('../lib/codici-invito');
    questo file gia' applica - e riscriverne la guardia altrove vorrebbe dire
    avere due porte aperte da tenere chiuse invece di una. */
 const CONTATTI = require('../lib/richieste-contatto');
+/* Il freno per indirizzo IP e per scheda, con il conteggio su Firestore: una Map in
+   memoria fermava solo chi ricapitava sulla stessa istanza di Vercel. */
+const F = require('../lib/frequenza');
+const { nomeMittente } = require('../lib/mittente');
 
 // stesso trasporto SMTP delle altre mail di servizio
 function trasporto() {
@@ -66,7 +71,7 @@ function trasporto() {
 }
 function mittenteMail() {
     const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-    const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+    const fromName = nomeMittente(process.env.SMTP_FROM_NAME);
     return '"' + fromName + '" <' + fromEmail + '>';
 }
 /* Le conferme automatiche partono SOLO per i moduli degli eventi: su questo
@@ -107,43 +112,22 @@ function initAdmin(cred) {
    che sarebbe una mail dietro l'altra allo stesso indirizzo. */
 const RL_SCHEDA_MS = 10 * 60 * 1000;
 const RL_SCHEDA_MAX = 12;
-const salvataggi = new Map();
-function troppiSalvataggi(idDoc) {
-    if (!idDoc) return false;
-    const ora = Date.now();
-    const elenco = (salvataggi.get(idDoc) || []).filter(t => ora - t < RL_SCHEDA_MS);
-    if (elenco.length >= RL_SCHEDA_MAX) { salvataggi.set(idDoc, elenco); return true; }
-    elenco.push(ora);
-    salvataggi.set(idDoc, elenco);
-    if (salvataggi.size > 500) {
-        for (const [k, v] of salvataggi) {
-            if (!v.length || ora - v[v.length - 1] > RL_SCHEDA_MS) salvataggi.delete(k);
-        }
-    }
-    return false;
-}
+// il conteggio sta su Firestore, uguale per tutte le istanze: vedi lib/frequenza.js
 
 /* --- limite invii per indirizzo IP ---
-   In memoria: su serverless l'istanza puo' cambiare, quindi non e' una
-   difesa assoluta, ma taglia i tentativi ripetuti dalla stessa origine. */
+   Il conteggio sta su Firestore (lib/frequenza.js) e vale per tutte le istanze
+   insieme. Finche' stava in memoria, ogni istanza contava per se' e il tetto di 8
+   mordeva di rado; ora che vale davvero, 8 in dieci minuti dallo stesso indirizzo
+   era poco: un ufficio esce tutto dallo stesso IP, e bastavano cinque colleghi
+   che si iscrivono uno dietro l'altro. Venti lascia passare gli uffici e ferma
+   comunque chi vuole far partire mail a raffica dallo stesso posto.
+   Il controllo del codice invito ha un conto suo: la pagina lo chiede a ogni
+   codice digitato e non deve consumare il posto delle iscrizioni. Con 32^5
+   codici possibili, venti tentativi ogni dieci minuti non portano da nessuna
+   parte. */
 const RL_FINESTRA_MS = 10 * 60 * 1000;
-const RL_MAX = 8;
-const invii = new Map();
-function troppiInvii(ip) {
-    if (!ip) return false;
-    const ora = Date.now();
-    const elenco = (invii.get(ip) || []).filter(t => ora - t < RL_FINESTRA_MS);
-    if (elenco.length >= RL_MAX) { invii.set(ip, elenco); return true; }
-    elenco.push(ora);
-    invii.set(ip, elenco);
-    // pulizia: non lasciamo crescere la mappa all'infinito
-    if (invii.size > 500) {
-        for (const [k, v] of invii) {
-            if (!v.length || ora - v[v.length - 1] > RL_FINESTRA_MS) invii.delete(k);
-        }
-    }
-    return false;
-}
+const RL_MAX = 20;
+const RL_CODICE_MAX = 20;
 
 // testo ripulito e accorciato: niente campi enormi nel database
 function testo(v, max) {
@@ -568,7 +552,7 @@ async function interessiB2B(azione, body, res) {
             return;
         }
     }
-    if (troppiSalvataggi(idDoc)) {
+    if (await F.troppeRichieste(db, 'iscrizione-scheda', idDoc, { finestraMs: RL_SCHEDA_MS, massimo: RL_SCHEDA_MAX })) {
         res.status(429).json({ ok: false, msg: 'Ha cambiato la prenotazione molte volte di seguito: aspetti qualche minuto e riprovi. Vale l\'ultima scelta salvata.' });
         return;
     }
@@ -847,7 +831,7 @@ async function completaIscrizione(azione, body, res) {
 }
 
 module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
+    res.setHeader('Access-Control-Allow-Origin', origineConsentita());
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -859,12 +843,20 @@ module.exports = async (req, res) => {
         /* Il limite per indirizzo IP vale per i moduli APERTI del sito, dove
            chiunque puo' scrivere. Le pagine che si aprono solo dal collegamento
            firmato ne restano fuori: i referenti di un'azienda escono tutti dallo
-           stesso IP dell'ufficio, e otto richieste in dieci minuti se le
-           mangerebbero in due persone, bloccando proprio chi ha il diritto di
-           cambiare idea. Li' il freno e' un altro, per singola scheda. */
+           stesso IP dell'ufficio, e un tetto per indirizzo se lo mangerebbero
+           in pochi referenti, bloccando proprio chi ha il diritto di cambiare
+           idea. Li' il freno e' un altro, per singola scheda. */
         const conFirma = ['completa-leggi', 'completa-salva', 'b2b-leggi', 'b2b-salva']
             .indexOf(String(body.azione || '')) >= 0;
-        if (!conFirma && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
+        if (!conFirma) {
+            // il conteggio sta su Firestore (lib/frequenza.js): admin va pronto prima.
+            // initAdmin e' idempotente, le chiamate successive nell'handler restano innocue.
+            initAdmin(leggiServiceAccount());
+            const troppe = String(body.azione || '') === 'verifica-codice'
+                ? await F.troppeRichieste(admin.firestore(), 'verifica-codice', ip, { finestraMs: RL_FINESTRA_MS, massimo: RL_CODICE_MAX })
+                : await F.troppeRichieste(admin.firestore(), 'iscrizione', ip, { finestraMs: RL_FINESTRA_MS, massimo: RL_MAX });
+            if (troppe) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
+        }
 
         // completamento dei dati (dal collegamento personale nella mail): altra
         // azione, stessa funzione. I form del sito non mandano "azione", quindi
@@ -883,8 +875,8 @@ module.exports = async (req, res) => {
            giorno dell'evento. Si risponde il minimo: se esiste e a che nome.
            E' un endpoint aperto, quindi ogni campo in piu' sarebbe un campo
            leggibile da chiunque provi codici a caso; il freno per indirizzo IP
-           qui sopra vale anche per questa azione, ed e' cio' che rende il
-           tentativo a tappeto impraticabile. */
+           qui sopra (con un conto tutto suo per questa azione) e' cio' che
+           rende il tentativo a tappeto impraticabile. */
         if (azione === 'verifica-codice') {
             const cred0 = leggiServiceAccount();
             initAdmin(cred0);

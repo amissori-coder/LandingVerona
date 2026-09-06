@@ -31,23 +31,14 @@
    ============================================================ */
 
 const N = require('../lib/newsletter');
+const F = require('../lib/frequenza');
+const { origineConsentita } = require('../lib/origine');
 const { JWT } = require('google-auth-library');
 
 /* --- limite per indirizzo IP: l'endpoint e' pubblico --- */
 const RL_FINESTRA_MS = 10 * 60 * 1000;
 const RL_MAX = 12;
-const colpi = new Map();
-function troppi(ip) {
-    if (!ip) return false;
-    const ora = Date.now();
-    const elenco = (colpi.get(ip) || []).filter(t => ora - t < RL_FINESTRA_MS);
-    if (elenco.length >= RL_MAX) { colpi.set(ip, elenco); return true; }
-    elenco.push(ora); colpi.set(ip, elenco);
-    if (colpi.size > 500) {
-        for (const [k, v] of colpi) { if (!v.length || ora - v[v.length - 1] > RL_FINESTRA_MS) colpi.delete(k); }
-    }
-    return false;
-}
+// il conteggio sta su Firestore, uguale per tutte le istanze: vedi lib/frequenza.js
 
 /* "gg/mm/aaaa hh:mm:ss" -> millisecondi (0 se manca o non si legge).
    E' il formato con cui tutti i moduli del sito scrivono il campo `data`. */
@@ -137,7 +128,7 @@ const EBOOK = {
 };
 
 module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
+    res.setHeader('Access-Control-Allow-Origin', origineConsentita());
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -145,7 +136,10 @@ module.exports = async (req, res) => {
 
     try {
         const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-        if (troppi(ip)) {
+        // il freno per IP sta su Firestore (lib/frequenza.js): admin va pronto prima
+        N.initAdmin();
+        const db = N.admin.firestore();
+        if (await F.troppeRichieste(db, 'ebook', ip, { finestraMs: RL_FINESTRA_MS, massimo: RL_MAX })) {
             res.status(429).json({ ok: false, msg: 'Troppi tentativi ravvicinati: attendi qualche minuto e riprova.' });
             return;
         }
@@ -157,9 +151,6 @@ module.exports = async (req, res) => {
         const ebook = String(body.ebook || '').trim();
         if (!N.EMAIL_RE.test(email)) { res.status(400).json({ ok: false, msg: 'Indirizzo email non valido.' }); return; }
         if (!EBOOK[ebook]) { res.status(400).json({ ok: false, msg: 'Ebook non riconosciuto.' }); return; }
-
-        N.initAdmin();
-        const db = N.admin.firestore();
 
         // 1) l'iscrizione piu' recente: prima Firestore, poi (solo se serve) il foglio storico
         let iscrittoIl = await ultimaIscrizioneFirestore(db, email);

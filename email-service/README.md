@@ -365,7 +365,9 @@ Oltre a `invia-email`, il progetto include due funzioni per la sezione
 Quando il calcolo del compenso di un incarico è **congelato**, il compenso
 concordato non si tocca più. Per riaprirlo serve il **responsabile
 dell'incarico**, e il consenso viaggia per posta: chi lavora sull'incarico
-chiede, il responsabile decide.
+chiede, il responsabile decide. Le azioni pubbliche (`stato`, `approva`,
+`rifiuta`) sono limitate a 40 richieste ogni 10 minuti per indirizzo IP (vedi
+"Il freno per indirizzo IP").
 
 1. **`POST {azione:'richiedi', idToken, incaricoId, motivo}`** — dall'area
    riservata. Verifica l'ID token (come `invia-comunicazione`), legge
@@ -575,6 +577,95 @@ invece di un solo giro lungo.
 > perdere l'ultimo lotto oppure lascia entrare due giri insieme: si toccano
 > tutti e tre o nessuno.
 
+## Il freno per indirizzo IP degli endpoint pubblici
+
+Gli endpoint aperti a chiunque accettano un numero massimo di richieste dallo
+stesso indirizzo IP in dieci minuti. **Il conteggio sta su Firestore**, nella
+collezione `richieste_throttle` (`lib/frequenza.js`), e vale per tutte le
+istanze della funzione insieme. Prima stava in memoria: su Vercel ogni istanza
+ha la sua e viene riciclata di continuo, quindi il freno fermava solo chi
+ricapitava sulla stessa macchina, e un tentativo a tappeto passava quasi
+sempre.
+
+Le soglie, ogni dieci minuti per indirizzo IP (le costanti `RL_*` in testa a
+ciascun file):
+
+| Endpoint | Cosa conta | Soglia |
+|---|---|---|
+| `/api/iscrizione-nuova` | moduli aperti del sito e richieste di contatto | 20 |
+| `/api/iscrizione-nuova` | `verifica-codice` (conto separato: la pagina lo chiede a ogni codice digitato) | 20 |
+| `/api/scarica-ebook` | ogni richiesta | 12 |
+| `/api/disiscrizione` | richieste **senza una firma valida**, per IP | 30 |
+| `/api/disiscrizione` | richieste **con firma valida**, per indirizzo email (non per IP) | 12 |
+| `/api/sblocco-incarico` | `stato`, `approva`, `rifiuta` | 40 |
+
+Il tetto dei moduli aperti era 8 finche' il conteggio stava in memoria e mordeva
+di rado; ora che vale davvero, 8 in dieci minuti da un ufficio con un solo IP
+erano pochi. Venti lascia passare gli uffici e ferma comunque chi vuole far
+partire mail a raffica dallo stesso posto.
+
+Come si comporta:
+
+- una richiesta ammessa costa una lettura e una scrittura; una richiesta
+  **bloccata costa una sola lettura** e non scrive nulla, quindi una raffica
+  di richieste ben formate fa lavorare il database meno di prima (le richieste
+  malformate, che prima venivano respinte senza toccarlo, ora costano una
+  lettura);
+- le azioni protette da una firma (`completa-*`, `b2b-*`) o dall'ID token
+  dell'area riservata (`richiedi`/`annulla` dello sblocco) non passano dal freno
+  per IP, come prima; il salvataggio B2B conserva il suo tetto per scheda (12 in
+  dieci minuti), anch'esso su Firestore;
+- la disiscrizione con firma valida si conta per indirizzo email, non per IP:
+  il pulsante "Annulla iscrizione" dei programmi di posta (One-Click) parte dai
+  server del provider, con un IP condiviso fra migliaia di destinatari, e
+  contarlo per IP avrebbe respinto disiscrizioni legittime dopo una newsletter
+  senza che nessuno se ne accorgesse; il conto per indirizzo impedisce invece
+  che un solo collegamento valido, alternando disiscrivi e riattiva, faccia
+  scrivere il database senza limite;
+- la pagina di Napoli tratta un 429 alla verifica del codice come "servizio non
+  raggiungibile": il modulo parte lo stesso e il codice si controlla dall'area
+  riservata, invece di dire a chi si iscrive che il codice e' sbagliato;
+- se Firestore non risponde **si lascia passare** e si scrive nel log: il freno
+  e' un rafforzamento, i confini veri restano le firme HMAC, l'ID token e le
+  risposte minime, e un modulo di iscrizione non deve cadere per il contatore;
+- la collezione **non compare nelle regole Firestore**, ed e' voluto: ci scrive
+  solo l'account di servizio (vedi `area-riservata/FIREBASE-SETUP.md`);
+- i documenti hanno un campo `scade` (Timestamp). Per farli sparire da soli si
+  puo' creare dalla console Firestore una policy **TTL** sulla collection group
+  `richieste_throttle`, campo `scade`: e' facoltativo, senza restano li' senza
+  fare danni.
+
+`ALLOWED_ORIGIN` (passo 4) resta l'origine autorizzata a chiamare il servizio
+dal browser; se la variabile mancasse, il servizio non si apre piu' a qualunque
+sito ma resta chiuso su `https://nextgenerationbusiness.it` (`lib/origine.js`).
+Le risposte portano inoltre le intestazioni `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY` e `Referrer-Policy` (sezione `headers` di `vercel.json`).
+
+## Aggiornare le dipendenze
+
+Le pull request di Dependabot (`.github/dependabot.yml`) arrivano il lunedi'.
+Prima di unirne una: `npm install` dentro `email-service`, poi
+`node prove/cron-comunicazioni.prove.js`, `node prove/frequenza.prove.js` e
+`node prove/mittente.prove.js` devono restare verdi, e `npm audit --omit=dev`
+non deve peggiorare.
+
+- **nodemailer**: dalla 6 alla 9.1.1 (settembre 2026) tutte le forme di
+  messaggio usate qui sono state riprovate una per una. L'unica differenza
+  trovata: il lettore degli indirizzi della 9 non tollera piu' virgolette o
+  barre rovesciate dentro il nome del mittente; per questo il nome passa da
+  `lib/mittente.js`, che le toglie come faceva la 6. La 10 e' una riscrittura
+  recente, da prendere quando avra' qualche mese e dopo aver rilanciato le
+  prove di invio.
+- **firebase-admin**: le versioni maggiori sono escluse da Dependabot. La 14 ha
+  tolto l'oggetto `admin` (`admin.firestore()`, `admin.auth()`,
+  `admin.credential.cert`) usato in ogni file di questo servizio e del backup:
+  per adottarla vanno riscritte quelle chiamate con i moduli
+  `firebase-admin/app`, `firebase-admin/firestore`, `firebase-admin/auth`, e
+  va adattato il finto `firebase-admin` di `prove/cron-comunicazioni.prove.js`.
+  Le segnalazioni "moderate" che `npm audit` mostra oggi riguardano un
+  pacchetto interno (`uuid`) in un uso che questo servizio non fa; nessuna
+  versione pubblicata di firebase-admin le azzera.
+
 ## Nuova iscrizione dal sito (`/api/iscrizione-nuova`)
 
 Endpoint **pubblico**: lo chiama il form dell'evento sul sito, in parallelo al
@@ -584,7 +675,8 @@ sicurezza non entrano in gioco e nessuno puo scrivere sul database dal browser.
 
 Protezioni: accetta solo POST, solo i campi noti e con lunghezza massima, esige
 `pagina` (l'evento) e almeno un recapito, valida l'indirizzo email, limita gli
-invii dallo stesso IP (8 ogni 10 minuti) e non restituisce mai dati.
+invii dallo stesso IP (20 ogni 10 minuti; la verifica del codice invito ha un
+conto suo, 20 ogni 10 minuti) e non restituisce mai dati.
 L'identificativo del documento deriva da email e data, quindi un doppio invio
 aggiorna la stessa scheda invece di creare un duplicato.
 
@@ -679,11 +771,13 @@ NON e una funzione a parte. Il motivo era il tetto di **12 funzioni per deploy**
 del piano Hobby, dove la tredicesima faceva fallire l'intera pubblicazione (il
 servizio restava alla versione precedente senza che nulla lo dicesse). Sul piano
 Pro il tetto non c'e' piu' e resta solo il motivo buono: e' lo stesso tipo di
-endpoint, pubblico e con limite per IP, e cambia solo l'azione nel corpo. Flusso
+endpoint pubblico, e cambia solo l'azione nel corpo. Flusso
 **pubblico** (lo apre l'iscritto dal collegamento nella mail), con
 firma HMAC dell'identificativo del documento: stesso segreto della
 disiscrizione, contesto diverso, quindi un collegamento vale per quella sola
-scheda e nessuno puo fabbricarne per le altre. Rate limit per IP.
+scheda e nessuno puo fabbricarne per le altre. Queste azioni non passano dal
+freno per IP (i referenti di un'azienda escono dallo stesso indirizzo): il
+salvataggio ha un tetto per scheda, 12 ogni 10 minuti.
 
 - `azione: "completa-leggi"`: evento, posti, dati gia noti dell'intestatario
   e dei partecipanti gia scritti (con lo stato di eventuali posti annullati),
@@ -1171,6 +1265,11 @@ risposta e' sempre la stessa).
 Gli indirizzi finiscono nella collezione `newsletterDisiscritti`, scritta solo
 con l'account di servizio: dal browser non ci arriva nessuno.
 
+Le richieste **senza una firma valida** sono limitate a 30 ogni 10 minuti per
+indirizzo IP; quelle con la firma giusta si contano per indirizzo email (12 ogni
+10 minuti), cosi' il pulsante One-Click dei provider di posta, che esce da pochi
+IP condivisi, non viene mai respinto (vedi "Il freno per indirizzo IP").
+
 L'endpoint **legge prima di scrivere** e, se lo stato e' gia quello richiesto,
 non scrive nulla. Serve a proteggere la quota: il collegamento non scade e ce
 l'ha ogni destinatario, quindi senza quel controllo bastava riaprirlo a
@@ -1278,9 +1377,10 @@ Regole che valgono la pena di essere ricordate:
   l'evento solo per nome, quindi la pagina di iscrizione viaggia insieme al
   codice e si confronta con quella. I codici spediti prima di questa regola
   continuano a valere.
-- La verifica dal modulo passa per l'azione `verifica-codice`, che ricade
-  **sotto il limite per indirizzo IP** come tutti i moduli aperti: e' cio' che
-  rende impraticabile provare codici a tappeto.
+- La verifica dal modulo passa per l'azione `verifica-codice`, che ha un
+  **limite per indirizzo IP tutto suo** (20 ogni 10 minuti, separato da quello
+  dei moduli, cosi' i codici digitati non consumano il posto delle iscrizioni):
+  e' cio' che rende impraticabile provare codici a tappeto.
 
 Quando qualcuno si registra con un codice, la scheda dell'iscritto porta
 `invitoCodice`, `invitoAzienda` e `selezionata`, e la scheda dell'azienda passa

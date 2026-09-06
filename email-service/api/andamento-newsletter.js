@@ -31,6 +31,7 @@
    ============================================================ */
 
 const N = require('../lib/newsletter');
+const { origineConsentita } = require('../lib/origine');
 
 const TTL_MS = 10 * 60 * 1000;        // quanto vale una lettura prima di rifarla
 const PAUSA_ERRORE_MS = 60 * 1000;    // dopo un errore, silenzio su quel tag
@@ -84,7 +85,7 @@ async function inFirestore(db, tag, dati) {
 }
 
 module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_ORIGIN || '*');
+    res.setHeader('Access-Control-Allow-Origin', origineConsentita());
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') { res.status(204).end(); return; }
