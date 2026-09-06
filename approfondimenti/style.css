@@ -1,0 +1,794 @@
+/* ============================================
+   Approfondimenti per argomento: la ricerca guidata
+
+   Stili della pagina che porta dall'argomento
+   alla guida in tre passi. Si appoggia a
+   zls_zes/style.css (navbar, hero, footer,
+   variabili) e a assets/content-page.css.
+
+   Quattro blocchi:
+   1. hero compatto con la casella di ricerca
+   2. ingressi rapidi ("parti da una situazione")
+   3. esploratore a tre colonne: area > tema > guida
+   4. mappa completa, l'indice aperto (fonte dei dati)
+   ============================================ */
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Il fade-in della base condivisa è pensato per le card dei
+   contenuti; qui l'unico elemento animato è il fondo dell'hero. */
+.theme-esplora .section-header-sx {
+    text-align: left;
+    margin: 0 0 36px;
+    max-width: 780px;
+}
+
+.theme-esplora .section-header-sx h2 {
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    margin-bottom: 12px;
+}
+
+.theme-esplora .section {
+    padding: 72px 0;
+}
+
+/* ============================================
+   1. HERO COMPATTO + RICERCA
+   ============================================ */
+.hero-esplora {
+    min-height: 0;
+    padding: 140px 0 72px;
+}
+
+.hero-esplora .hero-content {
+    max-width: 820px;
+}
+
+/* La sfumatura verso il bianco in fondo all'hero, ereditata dalla
+   base, e' alta 120px: con l'hero compatto coprirebbe la riga del
+   conteggio. */
+.hero-esplora::after {
+    height: 48px;
+}
+
+.hero-esplora h1 {
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    letter-spacing: -1.5px;
+}
+
+.hero-esplora .hero-subtitle {
+    margin-bottom: 28px;
+}
+
+.hero-esplora .hero-subtitle strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.cerca {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 14px;
+    padding: 0 14px 0 18px;
+    backdrop-filter: blur(6px);
+    transition: var(--transition);
+    animation: fadeInUp 0.8s ease-out 0.3s both;
+}
+
+.cerca:focus-within {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+}
+
+.cerca-icona {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+    color: #8bb8d4;
+}
+
+.cerca-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 1.1rem;
+    padding: 18px 14px;
+}
+
+.cerca-input::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.cerca-input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.cerca-pulisci {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.cerca-pulisci:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.cerca-hint {
+    flex: 0 0 auto;
+    margin-left: 10px;
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+}
+
+.cerca-hint kbd {
+    display: inline-block;
+    min-width: 20px;
+    padding: 1px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 0.75rem;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.hero-conteggio {
+    margin-top: 16px;
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, 0.55);
+    animation: fadeInUp 0.8s ease-out 0.4s both;
+}
+
+@media (max-width: 640px) {
+    .cerca-hint { display: none; }
+    .cerca-input { font-size: 1rem; padding: 15px 10px; }
+}
+
+/* ============================================
+   RISULTATI DELLA RICERCA
+   ============================================ */
+.section-risultati {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.risultati-testa {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px 20px;
+    margin-bottom: 24px;
+}
+
+.risultati-testa .section-tag {
+    margin-bottom: 0;
+}
+
+.risultati-titolo {
+    flex: 1 1 auto;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+}
+
+.risultati-chiudi {
+    background: transparent;
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+    border-radius: 100px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.risultati-chiudi:hover {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+}
+
+.risultati-lista {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+}
+
+.risultati-vuoto {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.risultati-vuoto a {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.risultato-percorso {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+mark.evidenzia {
+    background: rgba(26, 58, 92, 0.12);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 1px;
+}
+
+/* ============================================
+   2. INGRESSI RAPIDI: PARTI DA UNA SITUAZIONE
+   ============================================ */
+.situazioni-griglia {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+}
+
+.situazione {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 14px;
+    row-gap: 2px;
+    align-items: center;
+    text-align: left;
+    padding: 16px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    font-family: inherit;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.situazione:hover,
+.situazione:focus-visible {
+    border-color: var(--accent);
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+    outline: none;
+}
+
+.situazione-icona {
+    grid-row: 1 / span 2;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--accent-bg);
+    color: var(--accent);
+}
+
+.situazione-icona svg {
+    width: 20px;
+    height: 20px;
+}
+
+.situazione-testo {
+    font-size: 0.98rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.situazione-ramo {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    letter-spacing: 0.2px;
+}
+
+/* ============================================
+   3. ESPLORATORE A COLONNE
+   ============================================ */
+.section-esplora {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    scroll-margin-top: 70px;
+}
+
+/* Briciole: il percorso scelto, sempre visibile sopra le colonne */
+.briciole {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 40px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.briciole-indietro {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 12px 7px 8px;
+    border: 1px solid var(--accent-border);
+    border-radius: 100px;
+    background: var(--bg-card);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.briciole-indietro svg { width: 16px; height: 16px; }
+
+.briciole-indietro:hover {
+    background: var(--accent-bg);
+}
+
+.briciole-lista {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+}
+
+.briciole-lista li {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.briciole-lista li + li::before {
+    content: '\203A';
+    color: var(--text-muted);
+    padding: 0 4px;
+    font-size: 1rem;
+}
+
+.briciole-lista button {
+    background: none;
+    border: 0;
+    padding: 4px 6px;
+    border-radius: 6px;
+    color: var(--accent);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.briciole-lista button:hover {
+    background: var(--accent-bg);
+}
+
+.briciole-lista li.corrente span {
+    font-weight: 700;
+    color: var(--text-primary);
+    padding: 4px 6px;
+}
+
+/* Le tre colonne */
+.esplora {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.9fr) minmax(240px, 1fr) minmax(300px, 1.4fr);
+    gap: 14px;
+    align-items: start;
+}
+
+.esplora-colonna {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.esplora-testa {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.esplora-passo {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--accent);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.esplora-corpo {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 auto;
+}
+
+/* Voce di ramo (area o tema): un pulsante che apre la colonna dopo */
+.ramo {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 10px;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    padding: 12px 12px 12px 14px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    font-family: inherit;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+}
+
+.ramo:hover,
+.ramo:focus-visible {
+    background: var(--accent-bg);
+    outline: none;
+}
+
+.ramo.is-attivo {
+    background: var(--accent);
+    color: #ffffff;
+    border-color: var(--accent);
+}
+
+.ramo-nome {
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.ramo-desc {
+    grid-column: 1 / span 2;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--text-secondary);
+    margin-top: 3px;
+}
+
+.ramo.is-attivo .ramo-desc {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.ramo-conta {
+    grid-row: 1;
+    grid-column: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.ramo.is-attivo .ramo-conta {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.ramo-conta svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Voce foglia (la guida): un link in forma di card */
+.guida {
+    display: block;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-card);
+    transition: var(--transition);
+}
+
+.guida:hover,
+.guida:focus-visible {
+    border-color: var(--accent);
+    box-shadow: var(--shadow);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.guida-testa {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.guida-titolo {
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--text-primary);
+}
+
+.guida-desc {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
+.guida-apri {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.guida-apri svg {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.25s ease;
+}
+
+.guida:hover .guida-apri svg {
+    transform: translateX(3px);
+}
+
+.badge {
+    flex: 0 0 auto;
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 100px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.badge-ebook     { background: #fff4e0; border-color: #f2d19a; color: #8a5a0b; }
+.badge-novita    { background: #e8f5ec; border-color: #b7dfc4; color: #1f6b3a; }
+.badge-strumento { background: #ecf0ff; border-color: #c3ceff; color: #2f3fa3; }
+.badge-sentenza  { background: #fdecec; border-color: #f3bcbc; color: #9b2c2c; }
+.badge-video     { background: #f3ecfb; border-color: #d7c3ef; color: #5b2e8f; }
+
+/* Colonna vuota: invito a scegliere nella colonna prima */
+.esplora-vuota {
+    margin: auto;
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+}
+
+.esplora-vuota svg {
+    width: 28px;
+    height: 28px;
+    margin: 0 auto 10px;
+    display: block;
+    opacity: 0.5;
+}
+
+.esplora-nota {
+    margin-top: 16px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+/* Su schermi stretti si vede una colonna alla volta: quella del
+   livello corrente. Le briciole e il tasto Indietro fanno da
+   navigazione. */
+@media (max-width: 900px) {
+    .esplora {
+        grid-template-columns: 1fr;
+    }
+
+    .esplora-colonna {
+        display: none;
+        min-height: 0;
+    }
+
+    .esplora.livello-0 .esplora-colonna[data-livello="0"],
+    .esplora.livello-1 .esplora-colonna[data-livello="1"],
+    .esplora.livello-2 .esplora-colonna[data-livello="2"] {
+        display: flex;
+    }
+}
+
+/* ============================================
+   4. MAPPA COMPLETA (indice aperto)
+   ============================================ */
+.mappa,
+.mappa ul {
+    list-style: none;
+}
+
+.mappa {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+    align-items: start;
+}
+
+/* Livello 1: l'area */
+.mappa > li {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 20px 22px 16px;
+    box-shadow: var(--shadow-sm);
+    scroll-margin-top: 90px;
+}
+
+.mappa > li > .mappa-nodo {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.mappa > li > .mappa-desc {
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-light);
+    text-align: left;
+}
+
+/* Livello 2: il tema */
+.mappa > li > ul > li {
+    margin-bottom: 12px;
+}
+
+.mappa > li > ul > li > .mappa-nodo {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.mappa > li > ul > li > .mappa-desc {
+    display: none;
+}
+
+/* Livello 3 (o 2 diretto): la guida */
+.mappa a {
+    display: block;
+    position: relative;
+    padding: 6px 0 6px 18px;
+    border-left: 2px solid var(--border-color);
+    margin-left: 4px;
+    transition: var(--transition);
+}
+
+.mappa a::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 13px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-color);
+    transition: var(--transition);
+}
+
+.mappa a:hover {
+    border-left-color: var(--accent);
+}
+
+.mappa a:hover::before {
+    background: var(--accent);
+}
+
+.mappa a .mappa-titolo {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.35;
+}
+
+.mappa a:hover .mappa-titolo {
+    color: var(--accent);
+}
+
+.mappa a .mappa-desc {
+    display: block;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+    text-align: left;
+}
+
+/* L'indicazione del tipo (ebook, strumento...) nella mappa */
+.mappa a[data-badge]::after {
+    content: attr(data-badge);
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 100px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    vertical-align: 2px;
+}
+
+/* Le voci della mappa hanno uno stile da elenco, non quello dei
+   rimandi nel corpo del testo definito in content-page.css. */
+.content-page .mappa a {
+    text-decoration: none;
+    font-weight: inherit;
+    background: none;
+    border-radius: 0;
+    padding-right: 0;
+    margin-right: 0;
+}
