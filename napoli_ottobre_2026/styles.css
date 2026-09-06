@@ -1933,12 +1933,14 @@ ul {
     flex-wrap: wrap;
 }
 
-/* La riga Sponsor porta quattro marchi: con il respiro delle altre righe non
-   starebbe nei 928px utili del palco (960 meno i 16 di padding per lato),
-   quindi lo spazio fra i loghi si stringe quel tanto che basta a tenerli su
-   una riga sola. */
+/* La riga Sponsor porta quattro marchi, due dei quali sono lockup orizzontali
+   molto larghi: in fila indiana nei 928px utili del palco (960 meno i 16 di
+   padding per lato) resterebbero cosi' piccoli da non leggersi. Si tengono
+   percio' su due righe da due, i marchi compatti sopra e i due lockup sotto,
+   e ciascuno mantiene una misura leggibile. */
 .partners-logos-sponsor {
     gap: 48px;
+    max-width: 560px;
 }
 
 .partner-brand {
@@ -1993,17 +1995,18 @@ ul {
     max-height: 90px;
 }
 
-/* Sponsor. I due marchi hanno proporzioni opposte: il logotipo Natu' e' largo
-   (2,9:1), il segno Fiscalrevisione e' quasi quadrato. Per pareggiarli a
-   occhio il primo si vincola in larghezza, il secondo in altezza. */
+/* Sponsor. Il logotipo Natu' e' largo (2,9:1) e si vincola in larghezza. */
 .partner-brand-img-natu {
     max-width: 220px;
     max-height: 78px;
 }
 
+/* Fiscalrevisione e' passato dal solo tondo "fr" al lockup orizzontale
+   completo, tondo piu' logotipo piu' indirizzo del sito: da quasi quadrato a
+   5,5:1, quindi ora il limite che conta e' la larghezza. */
 .partner-brand-img-fiscal {
-    max-width: 88px;
-    max-height: 80px;
+    max-width: 230px;
+    max-height: 46px;
 }
 
 /* Serviter e' un lockup impilato, simbolo sopra e logotipo sotto: a parita' di
@@ -2185,12 +2188,6 @@ ul {
 
     .partners-logos {
         gap: 48px;
-    }
-
-    /* Qui i quattro sponsor non stanno piu' su una riga sola: invece di
-       lasciarli spezzare tre piu' uno, si tengono su due righe da due. */
-    .partners-logos-sponsor {
-        max-width: 520px;
     }
 
     .partners-stage {
@@ -2611,8 +2608,8 @@ ul {
     }
 
     .partner-brand-img-fiscal {
-        max-width: 80px;
-        max-height: 72px;
+        max-width: 212px;
+        max-height: 42px;
     }
 
     .partner-brand-img-serviter {
@@ -2796,8 +2793,8 @@ ul {
     }
 
     .partner-brand-img-fiscal {
-        max-width: 74px;
-        max-height: 67px;
+        max-width: 196px;
+        max-height: 38px;
     }
 
     .partner-brand-img-serviter {
@@ -2861,8 +2858,8 @@ ul {
     }
 
     .partner-brand-img-fiscal {
-        max-width: 68px;
-        max-height: 62px;
+        max-width: 180px;
+        max-height: 34px;
     }
 
     .partner-brand-img-serviter {
