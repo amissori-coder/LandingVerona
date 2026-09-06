@@ -1,0 +1,43 @@
+name: Controllo mappa approfondimenti
+
+# Quando cambiano le card della home o la mappa della pagina
+# "Approfondimenti per argomento", verifica che ogni approfondimento in
+# home abbia un posto anche nell'esploratore (approfondimenti/).
+#
+# Non tocca il sito: se manca qualcosa il controllo risulta fallito, GitHub
+# manda l'avviso via mail e nel riepilogo dell'esecuzione c'è l'elenco
+# delle pagine da collocare. Nel frattempo la pagina le mostra comunque
+# nell'area di riserva "Altri approfondimenti".
+
+on:
+  push:
+    paths:
+      - 'index.html'
+      - 'approfondimenti/index.html'
+      - 'scripts/approfondimenti/**'
+      - '.github/workflows/controllo-mappa-approfondimenti.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'approfondimenti/index.html'
+      - 'scripts/approfondimenti/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controllo:
+    name: Home e mappa allineate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scarica il repository
+        uses: actions/checkout@v4
+
+      - name: Prepara Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Confronta le card della home con la mappa
+        run: node scripts/approfondimenti/controlla-mappa.cjs

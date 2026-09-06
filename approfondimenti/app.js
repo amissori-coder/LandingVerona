@@ -64,25 +64,39 @@
         return nodo.figli.reduce(function (n, f) { return n + contaGuide(f); }, 0);
     }
 
-    // Tutte le foglie con il loro percorso, per la ricerca
+    // Tutte le foglie con il loro percorso, per la ricerca. Si ricalcola
+    // quando l'albero cambia (vedi l'integrazione dalla home, in fondo).
     var foglie = [];
-    (function raccogli(nodo, percorso) {
-        if (nodo.foglia) {
-            foglie.push({ nodo: nodo, percorso: percorso });
-            return;
-        }
-        nodo.figli.forEach(function (f) {
-            raccogli(f, nodo === radice ? percorso : percorso.concat([nodo]));
-        });
-    })(radice, []);
+    function indicizza() {
+        foglie = [];
+        (function raccogli(nodo, percorso) {
+            if (nodo.foglia) {
+                foglie.push({ nodo: nodo, percorso: percorso });
+                return;
+            }
+            nodo.figli.forEach(function (f) {
+                raccogli(f, nodo === radice ? percorso : percorso.concat([nodo]));
+            });
+        })(radice, []);
 
-    var pagineDistinte = {};
-    foglie.forEach(function (f) { pagineDistinte[f.nodo.href] = true; });
-    var conteggio = document.getElementById('heroConteggio');
-    if (conteggio) {
-        var nPagine = Object.keys(pagineDistinte).length;
-        conteggio.textContent = radice.figli.length + ' aree, ' + nPagine + ' guide. Tre passi al massimo per arrivarci.';
+        // Per ogni foglia un testo unico su cui cercare: titolo, descrizione,
+        // parole chiave, e i nomi (con parole chiave) dei rami sopra.
+        foglie.forEach(function (f) {
+            var pezzi = [f.nodo.nome, f.nodo.desc, f.nodo.tag];
+            f.percorso.forEach(function (r) { pezzi.push(r.nome, r.tag); });
+            f.indice = normalizza(pezzi.join(' '));
+            f.titoloNorm = normalizza(f.nodo.nome);
+        });
+
+        var pagineDistinte = {};
+        foglie.forEach(function (f) { pagineDistinte[f.nodo.href] = true; });
+        var conteggio = document.getElementById('heroConteggio');
+        if (conteggio) {
+            var nPagine = Object.keys(pagineDistinte).length;
+            conteggio.textContent = radice.figli.length + ' aree, ' + nPagine + ' guide. Tre passi al massimo per arrivarci.';
+        }
     }
+    indicizza();
 
     // ---------- 2. Esploratore a colonne ----------
     var colonne = [
@@ -276,15 +290,6 @@
             .replace(/['’]/g, '');
     }
 
-    // Per ogni foglia un testo unico su cui cercare: titolo, descrizione,
-    // parole chiave, e i nomi (con parole chiave) dei rami sopra.
-    foglie.forEach(function (f) {
-        var pezzi = [f.nodo.nome, f.nodo.desc, f.nodo.tag];
-        f.percorso.forEach(function (r) { pezzi.push(r.nome, r.tag); });
-        f.indice = normalizza(pezzi.join(' '));
-        f.titoloNorm = normalizza(f.nodo.nome);
-    });
-
     function evidenzia(testoOriginale, parole) {
         var html = escape(testoOriginale);
         parole.forEach(function (p) {
@@ -401,4 +406,106 @@
         if (h && document.getElementById(h)) return; // ancora di sezione, non un percorso
         daHash();
     });
+
+    // ---------- 6. Rete di sicurezza: gli articoli della home ----------
+    // La mappa è scritta a mano; un articolo aggiunto alla home potrebbe
+    // non esserci ancora. Si legge la home, si confrontano i collegamenti
+    // e quelli mancanti finiscono in un'area "Altri approfondimenti",
+    // raggruppati per la categoria che hanno in home. Così nessuna guida
+    // resta fuori dall'esploratore; quando la si sistema nella mappa,
+    // sparisce da qui da sola. Se la lettura della home fallisce non
+    // cambia nulla.
+    function assoluto(href, base) {
+        try { return new URL(href, base).href.replace(/#.*$/, '').replace(/index\.html$/, ''); }
+        catch (e) { return ''; }
+    }
+
+    function slugId(s) {
+        return normalizza(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'altro';
+    }
+
+    function integraDallaHome() {
+        if (!window.fetch || !window.DOMParser) return;
+        var urlHome = new URL('../', window.location.href).href;
+        fetch(urlHome, { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.text() : ''; })
+            .then(function (html) {
+                if (!html) return;
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var card = doc.querySelectorAll('#contentsGrid .content-card[href]');
+                if (!card.length) return;
+
+                var presenti = {};
+                foglie.forEach(function (f) { presenti[assoluto(f.nodo.href, window.location.href)] = true; });
+
+                var gruppi = {}, ordine = [];
+                Array.prototype.forEach.call(card, function (c) {
+                    var href = c.getAttribute('href');
+                    if (!href || href.charAt(0) === '#') return;
+                    var abs = assoluto(href, urlHome);
+                    if (!abs || abs.indexOf(window.location.origin) !== 0 || presenti[abs]) return;
+                    presenti[abs] = true;
+
+                    var badgeEl = c.querySelector('.content-badge');
+                    var badge = badgeEl ? testo(badgeEl) : '';
+                    var tagEl = c.querySelector('.content-tag');
+                    var categoria = tagEl ? testo(tagEl).replace(badge, '').trim() : '';
+                    if (!categoria) categoria = (c.dataset.category || 'Altro').replace(/-/g, ' ');
+                    var titolo = testo(c.querySelector('.content-title'));
+                    var parti = titolo.split(/\s+\u00b7\s+/);
+                    var nome = parti.shift() || titolo;
+                    var desc = parti.join(' \u00b7 ');
+
+                    var id = c.dataset.category || slugId(categoria);
+                    if (!gruppi[id]) {
+                        gruppi[id] = { foglia: false, id: id, nome: categoria, desc: 'Come in home, nella categoria ' + categoria + '.', tag: '', figli: [], genitore: null };
+                        ordine.push(id);
+                    }
+                    gruppi[id].figli.push({ foglia: true, href: abs, nome: nome, desc: desc, badge: badge, tag: categoria, genitore: gruppi[id] });
+                });
+                if (!ordine.length) return;
+
+                var area = {
+                    foglia: false, id: 'altri', nome: 'Altri approfondimenti',
+                    desc: 'Pubblicati in home e non ancora collocati nei rami qui sopra.',
+                    tag: 'nuovi recenti ultimi', genitore: radice, figli: []
+                };
+                ordine.forEach(function (id) { gruppi[id].genitore = area; area.figli.push(gruppi[id]); });
+                radice.figli.push(area);
+
+                // La stessa area compare anche nella mappa completa in fondo.
+                var li = creaEl('li');
+                li.dataset.id = 'altri';
+                li.innerHTML = '<span class="mappa-nodo">' + escape(area.nome) + '</span><p class="mappa-desc">' + escape(area.desc) + '</p>';
+                var ul = creaEl('ul');
+                area.figli.forEach(function (g) {
+                    var liG = creaEl('li');
+                    liG.dataset.id = g.id;
+                    liG.innerHTML = '<span class="mappa-nodo">' + escape(g.nome) + '</span><p class="mappa-desc">' + escape(g.desc) + '</p>';
+                    var ulG = creaEl('ul');
+                    g.figli.forEach(function (f) {
+                        var liF = creaEl('li');
+                        liF.innerHTML = '<a href="' + escape(f.href) + '"' + (f.badge ? ' data-badge="' + escape(f.badge) + '"' : '') + '>' +
+                            '<span class="mappa-titolo">' + escape(f.nome) + '</span>' +
+                            (f.desc ? '<span class="mappa-desc">' + escape(f.desc) + '</span>' : '') + '</a>';
+                        ulG.appendChild(liF);
+                    });
+                    liG.appendChild(ulG);
+                    ul.appendChild(liG);
+                });
+                li.appendChild(ul);
+                albero.appendChild(li);
+
+                indicizza();
+                // Se c'era una ricerca in corso, si rifà con l'indice nuovo;
+                // altrimenti si ridisegna l'esploratore (e un eventuale
+                // percorso #altri/... nell'indirizzo ora si può aprire).
+                if (input.value.trim()) cerca(input.value);
+                var h = window.location.hash.replace(/^#/, '');
+                if (h.indexOf('altri') === 0) apriPercorso(h, false);
+                else aggiorna(false);
+            })
+            .catch(function () { /* la home non si legge: si resta con la mappa scritta a mano */ });
+    }
+    integraDallaHome();
 })();
