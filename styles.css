@@ -4625,69 +4625,50 @@ ul {
 }
 
 /* ---------- Rimando alla ricerca guidata per argomento ----------
-   In testa alla colonna Approfondimenti: porta alla pagina
-   approfondimenti/ dove si scende area > tema > guida. */
+   Sta in testa alla barra dei filtri, con la stessa forma delle pillole
+   ma a tutta larghezza e con la freccia: e' la prima scelta della
+   sezione, non un banner. Porta a approfondimenti/ dove si scende
+   area > tema > guida. */
 .contents-explore {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-top: 18px;
-    padding: 12px 12px 12px 14px;
-    background: var(--navy);
-    color: var(--white);
-    border-radius: var(--radius-md);
+    gap: 8px;
+    margin: 4px 0 0;
     text-decoration: none;
-    transition: all 0.3s ease;
 }
 
-.contents-explore:hover {
-    background: var(--navy-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 8px 22px rgba(10, 40, 68, 0.22);
-}
-
-.contents-explore-icon {
-    flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.12);
-}
-
-.contents-explore-icon svg {
-    width: 18px;
-    height: 18px;
-}
-
-.contents-explore-body {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.contents-explore-title {
-    font-family: var(--font-display);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-}
-
-.contents-explore-desc {
-    font-size: 0.72rem;
-    line-height: 1.4;
-    color: rgba(255, 255, 255, 0.72);
-}
-
+.contents-explore-icon,
 .contents-explore-arrow {
     flex: 0 0 auto;
-    transition: transform 0.25s ease;
+    width: 14px;
+    height: 14px;
+    color: var(--navy);
+    transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.contents-explore-label {
+    flex: 1 1 auto;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--navy);
+    line-height: 1;
+}
+
+.contents-explore:hover .contents-explore-label {
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 .contents-explore:hover .contents-explore-arrow {
     transform: translateX(3px);
+}
+
+/* La barra dei filtri che segue si attacca al rimando: un solo blocco. */
+.contents-explore + .contents-toolbar {
+    margin-top: 12px;
+    padding-top: 0;
+    border-top: none;
 }
