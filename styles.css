@@ -4625,50 +4625,78 @@ ul {
 }
 
 /* ---------- Rimando alla ricerca guidata per argomento ----------
-   Sta in testa alla barra dei filtri, con la stessa forma delle pillole
-   ma a tutta larghezza e con la freccia: e' la prima scelta della
-   sezione, non un banner. Porta a approfondimenti/ dove si scende
-   area > tema > guida. */
+   Un pulsante a se', prima dei filtri: e' l'altra strada per trovare
+   un contenuto (approfondimenti/, dove si scende area > tema > guida).
+   La riga "oppure filtra per categoria" sotto lo separa dalle pillole
+   e dice che le due cose sono alternative. */
 .contents-explore {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 4px 0 0;
+    gap: 10px;
+    margin: 20px 0 0;
+    padding: 12px 12px;
+    background: var(--white);
+    border: 1.5px solid var(--navy);
+    border-radius: var(--radius-md);
+    color: var(--navy);
     text-decoration: none;
+    transition: all 0.25s ease;
+}
+
+.contents-explore:hover {
+    background: var(--navy);
+    color: var(--white);
+    box-shadow: 0 6px 18px rgba(10, 40, 68, 0.18);
 }
 
 .contents-explore-icon,
 .contents-explore-arrow {
     flex: 0 0 auto;
-    width: 14px;
-    height: 14px;
-    color: var(--navy);
-    transition: transform 0.25s ease, color 0.25s ease;
+    width: 15px;
+    height: 15px;
+    transition: transform 0.25s ease;
 }
 
 .contents-explore-label {
     flex: 1 1 auto;
     font-family: var(--font-display);
-    font-size: 0.66rem;
+    font-size: 0.62rem;
     font-weight: 700;
-    letter-spacing: 0.6px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
-    color: var(--navy);
     line-height: 1;
-}
-
-.contents-explore:hover .contents-explore-label {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    white-space: nowrap;
 }
 
 .contents-explore:hover .contents-explore-arrow {
     transform: translateX(3px);
 }
 
-/* La barra dei filtri che segue si attacca al rimando: un solo blocco. */
-.contents-explore + .contents-toolbar {
-    margin-top: 12px;
+.contents-or {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0 0;
+    font-family: var(--font-display);
+    font-size: 0.52rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(22, 64, 104, 0.55);
+    white-space: nowrap;
+}
+
+.contents-or::before,
+.contents-or::after {
+    content: '';
+    flex: 1 1 auto;
+    height: 1px;
+    background: rgba(22, 64, 104, 0.16);
+}
+
+/* La barra dei filtri segue la riga "oppure" senza un'altra separazione. */
+.contents-or + .contents-toolbar {
+    margin-top: 10px;
     padding-top: 0;
     border-top: none;
 }
