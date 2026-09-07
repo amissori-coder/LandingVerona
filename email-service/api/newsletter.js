@@ -18,6 +18,8 @@
    ============================================================ */
 
 const N = require('../lib/newsletter');
+// la copia condivisa dell'archivio iscrizioni (lib/copia-iscrizioni.js), la stessa di /api/iscrizioni
+const C = require('../lib/copia-iscrizioni');
 const { JWT } = require('google-auth-library');
 
 /* --- seconda fonte: il foglio Google ---
@@ -142,19 +144,9 @@ async function allineaBloccati(db, nostri, forza) {
     return { uniti: uniti, nuovi: daFare.length };
 }
 
-/* --- memoria di breve durata ---
-   Come per le iscrizioni agli eventi: rileggere centinaia di documenti a
-   ogni apertura della sezione brucia la quota giornaliera di letture.
-   Il numero di revisione (un solo documento) dice se qualcosa e' cambiato. */
-const CACHE_MS = 60 * 1000;
-let _cache = { quando: 0, righe: null, revI: -1 };
-
-async function revisioneIscrizioni(db) {
-    try {
-        const d = await db.collection('meta').doc('iscrizioni').get();
-        return (d.exists && typeof d.data().rev === 'number') ? d.data().rev : 0;
-    } catch (_) { return -1; }
-}
+/* L'archivio delle iscrizioni arriva dalla copia condivisa (lib/copia-iscrizioni.js):
+   rileggere centinaia di documenti a ogni apertura della sezione, da ogni
+   istanza di Vercel, bruciava la quota giornaliera di letture di Firebase. */
 
 /* Consenso alle comunicazioni promozionali di una scheda su Firestore.
    true/false quando il modulo l'ha registrato; null quando non risulta
@@ -184,19 +176,13 @@ function consensoScheda(v) {
     return null;
 }
 
-async function leggiIscrizioni(db, forza, rev) {
-    if (!forza && _cache.righe) {
-        if (rev >= 0) { if (rev === _cache.revI) return _cache.righe; }
-        else if ((Date.now() - _cache.quando) < CACHE_MS) return _cache.righe;
-    }
-    const snap = await db.collection('iscrizioni').get();
+function iscrizioniDaArchivio(arch) {
     const righe = [];
-    snap.forEach(d => {
-        const v = d.data() || {};
+    (arch.iscrizioni || []).forEach(v => {
         const email = String(v.email || '').trim().toLowerCase();
         if (!N.EMAIL_RE.test(email)) return;   // senza indirizzo non e' un destinatario
         righe.push({
-            id: d.id,
+            id: v._doc,
             email: email,
             nome: String(v.nome || ''),
             cognome: String(v.cognome || ''),
@@ -209,7 +195,6 @@ async function leggiIscrizioni(db, forza, rev) {
             marketing: consensoScheda(v)
         });
     });
-    _cache = { quando: Date.now(), righe: righe, revI: rev };
     return righe;
 }
 
@@ -267,16 +252,16 @@ module.exports = async (req, res) => {
         }
 
         // --- elenco ---
-        const revI = await revisioneIscrizioni(db);
-        const [righe, fuori] = await Promise.all([
-            leggiIscrizioni(db, body.forza === true, revI),
+        const [arch, fuori] = await Promise.all([
+            C.archivio(db, { forza: body.forza === true }),
             N.disiscritti(db)
         ]);
+        const righe = iscrizioniDaArchivio(arch);
         /* Il foglio e' la fonte storica: un indirizzo gia' su Firestore vince (e' piu'
            aggiornato). Si tiene il conto di quanti ne arrivano da ciascuna fonte:
            quando in elenco "mancano" dei contatti, la prima cosa da sapere e' se il
            foglio sia stato letto davvero o no. Senza questo numero si tira a indovinare. */
-        let avviso = '';
+        let avviso = arch.avviso || '';
         let daFoglio = [];
         const fonti = { firestore: righe.length, foglio: 0, foglioConfigurato: !!process.env.EVENTI_SHEET_ID, foglioLetto: false };
         try {
@@ -343,6 +328,7 @@ module.exports = async (req, res) => {
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 200);
         console.error('Newsletter: lettura non riuscita:', motivo);
+        if (C.eQuota(e)) { res.status(503).json({ ok: false, quota: true, msg: C.MSG_QUOTA }); return; }
         res.status(500).json({ ok: false, msg: motivo });
     }
 };

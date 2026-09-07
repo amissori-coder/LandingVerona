@@ -1718,7 +1718,7 @@
         /* Iscrizioni a un evento, lette dal foglio Google tramite il servizio (che
            verifica chi chiama e filtra le righe dell'evento). Nessun dato personale
            finisce nel repository: arriva a video e resta su Firestore. */
-        async iscrizioniEvento(evento, idEvento, tutti, forza) {
+        async iscrizioniEvento(evento, idEvento, tutti, forza, rev) {
             let url = window.RV_ISCRIZIONI_URL;
             if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'iscrizioni$1');
             if (!url) return { ok: false, msg: 'Servizio iscrizioni non configurato.' };
@@ -1729,11 +1729,16 @@
             try {
                 const r = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken, evento, idEvento, tutti: !!tutti, filtri: tutti ? FILTRI_EVENTI : [], forza: !!forza })
+                    /* rev: il numero di revisione dell'elenco che si ha gia'. Se sul server
+                       nulla e' cambiato, la risposta e' un semplice "invariato": due letture
+                       sul database invece di tutto l'archivio, e niente elenco da rispedire. */
+                    body: JSON.stringify({ idToken, evento, idEvento, tutti: !!tutti, filtri: tutti ? FILTRI_EVENTI : [], forza: !!forza, rev: (typeof rev === 'number' ? rev : null) })
                 });
                 const data = await r.json().catch(() => ({}));
-                if (!r.ok || !data.ok) return { ok: false, msg: (data && data.msg) || ('Lettura non riuscita (' + r.status + ').') };
-                return { ok: true, iscrizioni: data.iscrizioni || [], presenze: data.presenze || {}, aggiornato: data.aggiornato || Date.now() };
+                // quota: il database ha finito le letture del giorno; chi chiama rallenta i tentativi
+                if (!r.ok || !data.ok) return { ok: false, quota: !!(data && data.quota), msg: (data && data.msg) || ('Lettura non riuscita (' + r.status + ').') };
+                if (data.invariato) return { ok: true, invariato: true, rev: data.rev, aggiornato: data.aggiornato || Date.now() };
+                return { ok: true, iscrizioni: data.iscrizioni || [], presenze: data.presenze || {}, rev: (typeof data.rev === 'number' ? data.rev : null), avviso: data.avviso || '', aggiornato: data.aggiornato || Date.now() };
             } catch (e) {
                 return { ok: false, msg: 'Servizio iscrizioni non raggiungibile.' };
             }
@@ -15447,6 +15452,12 @@
     let _evInFlight = false;
     let _evFirma = '';           // impronta dell'elenco: serve a ridisegnare solo se e cambiato
     let _evAggiornato = 0;       // ora dell'ultima lettura riuscita
+    let _evRev = null;           // numero di revisione dell'elenco a video (lo rimanda al server)
+    /* Quota di Firebase esaurita: si sospende l'aggiornamento automatico per un
+       quarto d'ora. Insistere ogni quattro minuti non cambia niente e consuma le
+       poche letture che tornano disponibili. */
+    let _evPausaFino = 0;
+    const EV_PAUSA_QUOTA_MS = 15 * 60 * 1000;
     let _evTimer = null;
     let _evSel = eventoIniziale();   // evento aperto in questo momento
     let _evReq = 0;                  // numero della lettura in corso: le vecchie si scartano
@@ -15456,6 +15467,19 @@
        Ogni quattro minuti e' piu' che sufficiente: le iscrizioni non arrivano a
        raffica, e chi ha fretta ha il pulsante "Aggiorna adesso". */
     const EV_INTERVALLO = 240000;
+    /* Tempo reale: la sezione ascolta il documento meta/iscrizioni, che il servizio
+       aggiorna a ogni scrittura (stato, nota, iscrizione nuova, cancellazione). E'
+       un solo numero: costa una lettura per cambiamento, non una per utente al
+       minuto. Quando l'ascolto funziona, il ricontrollo a tempo resta solo come
+       rete di sicurezza, ogni quindici minuti. Se le regole di Firestore non lo
+       consentono ancora (FIREBASE-SETUP.md), si resta al ricontrollo ogni quattro. */
+    const EV_INTERVALLO_ASCOLTO = 15 * 60 * 1000;
+    const EV_TICK = 30000;
+    let _evAscolto = null;         // funzione che stacca l'ascolto
+    let _evAscoltoOk = false;      // il primo aggiornamento e' arrivato: l'ascolto funziona
+    let _evRicaricaDopo = false;   // e' cambiato qualcosa mentre una lettura era in corso
+    let _evRevAscolto = null;      // ultimo numero di revisione segnalato dall'ascolto
+    let _evRicaricaTimer = null;
 
     function eventoCorrente() {
         return EVENTI_DEF.find(e => e.id === _evSel) || EVENTI_DEF[0];
@@ -15479,6 +15503,7 @@
         _evPresenze = c ? c.presenze : {};
         _evFirma = c ? c.firma : '';
         _evAggiornato = c ? c.aggiornato : 0;
+        _evRev = c && typeof c.rev === 'number' ? c.rev : null;
         _evMsg = '';
         if (vistaCorrente === 'eventi') vistaEventi();
     }
@@ -15588,23 +15613,42 @@
         const mia = ++_evReq;
         const idEv = ev.id;
         const superata = () => (mia !== _evReq || idEv !== _evSel);
-        Cloud.iscrizioniEvento(ev.filtro, ev.id, !!ev.tutti, !!forza).then(r => {
+        // la revisione si manda solo se l'elenco a video c'e' davvero: senza elenco
+        // una risposta "invariato" lascerebbe la pagina vuota
+        const revNota = (_evIscrizioni && typeof _evRev === 'number' && !forza) ? _evRev : null;
+        Cloud.iscrizioniEvento(ev.filtro, ev.id, !!ev.tutti, !!forza, revNota).then(r => {
             if (superata()) return;
             _evInFlight = false;
             let cambiato = false;
-            if (r && r.ok) {
+            if (r && r.ok && r.invariato) {
+                // nulla e' cambiato sul server: l'elenco a video resta quello che e'
+                cambiato = (_evMsg !== '');
+                _evMsg = ''; _evAggiornato = Date.now();
+                if (_evCache[ev.id]) _evCache[ev.id].aggiornato = _evAggiornato;
+            } else if (r && r.ok) {
                 const nuova = firmaIscr(r.iscrizioni) + '#' + firmaPres(r.presenze);
-                cambiato = (nuova !== _evFirma);
+                // l'avviso (es. dati dall'ultima copia perche' la quota e' finita) conta
+                // come cambiamento: va mostrato, e va tolto quando sparisce
+                cambiato = (nuova !== _evFirma) || ((r.avviso || '') !== _evMsg);
                 _evIscrizioni = r.iscrizioni; _evPresenze = r.presenze || {};
-                _evFirma = nuova; _evMsg = ''; _evAggiornato = Date.now();
+                _evFirma = nuova; _evMsg = r.avviso || ''; _evAggiornato = Date.now();
+                _evRev = (typeof r.rev === 'number') ? r.rev : null;
                 // si tiene in memoria per evento: rientrando, l'elenco e' subito a video
-                _evCache[ev.id] = { iscrizioni: _evIscrizioni, presenze: _evPresenze, firma: nuova, aggiornato: _evAggiornato };
+                _evCache[ev.id] = { iscrizioni: _evIscrizioni, presenze: _evPresenze, firma: nuova, aggiornato: _evAggiornato, rev: _evRev };
             } else {
                 const msg = (r && r.msg) || 'Lettura non riuscita.';
                 cambiato = (msg !== _evMsg);
                 _evIscrizioni = _evIscrizioni || []; _evMsg = msg;
+                if (r && r.quota) _evPausaFino = Date.now() + EV_PAUSA_QUOTA_MS;
             }
             if (poi) poi(cambiato);
+            // l'ascolto ha segnalato una modifica mentre questa lettura era in volo:
+            // la risposta potrebbe non averla vista, si rilegge (con la revisione
+            // nota: se invece l'aveva gia' vista, costa un "invariato")
+            if (_evRicaricaDopo && r && r.ok) {
+                _evRicaricaDopo = false;
+                if (!(typeof _evRev === 'number' && _evRev === _evRevAscolto)) programmaRicaricaEventi();
+            }
         }).catch(() => {
             if (superata()) return;
             _evInFlight = false;
@@ -15615,20 +15659,72 @@
     }
 
     function fermaAutoEventi() { if (_evTimer) { clearInterval(_evTimer); _evTimer = null; } }
+    function fermaAscoltoEventi() {
+        if (_evAscolto) { try { _evAscolto(); } catch (e) { } }
+        _evAscolto = null; _evAscoltoOk = false; _evRicaricaDopo = false; _evRevAscolto = null;
+        if (_evRicaricaTimer) { clearTimeout(_evRicaricaTimer); _evRicaricaTimer = null; }
+    }
+    /* Rilettura dopo un cambiamento segnalato dall'ascolto. Con un piccolo ritardo
+       casuale: quando un collega salva uno stato, tutti gli utenti connessi vengono
+       avvisati nello stesso istante, e se chiamassero il servizio tutti insieme
+       ognuno farebbe rileggere l'archivio per conto suo. Sfalsati di qualche
+       secondo, il primo lo fa rileggere e gli altri trovano la copia pronta. */
+    function programmaRicaricaEventi() {
+        if (_evRicaricaTimer) return;
+        _evRicaricaTimer = setTimeout(() => {
+            _evRicaricaTimer = null;
+            if (vistaCorrente !== 'eventi' || !Auth.utenteCorrente) return;
+            if (Date.now() < _evPausaFino) return;
+            if (_evInFlight) { _evRicaricaDopo = true; return; }
+            const a = document.activeElement;
+            if (a && a.classList && (a.classList.contains('ev-nota') || a.classList.contains('ev-stato'))) { _evRicaricaDopo = true; return; }
+            caricaIscrizioni(eventoCorrente(), cambiato => { if (cambiato && vistaCorrente === 'eventi') vistaEventi(); });
+        }, 300 + Math.floor(Math.random() * 3000));
+    }
+    function avviaAscoltoEventi() {
+        if (_evAscolto || !Cloud.attivo || !Cloud.db || !Cloud.fb || !Cloud.fb.fsMod) return;
+        const { doc, onSnapshot } = Cloud.fb.fsMod;
+        try {
+            _evAscolto = onSnapshot(doc(Cloud.db, 'meta', 'iscrizioni'), snap => {
+                if (vistaCorrente !== 'eventi' || !Auth.utenteCorrente) { fermaAscoltoEventi(); return; }
+                _evAscoltoOk = true;
+                const rev = snap.exists() ? snap.data().rev : null;
+                if (typeof rev !== 'number') return;
+                _evRevAscolto = rev;
+                // stesso numero dell'elenco a video: niente da fare. Numero diverso (o
+                // elenco non ancora letto): si rilegge; se una lettura e' gia' in corso,
+                // se ne fa un'altra appena finisce
+                if (_evIscrizioni && typeof _evRev === 'number' && rev === _evRev) return;
+                if (_evInFlight) { _evRicaricaDopo = true; return; }
+                programmaRicaricaEventi();
+            }, () => {
+                // regole di Firestore non ancora aggiornate (o sessione chiusa): niente
+                // tempo reale, resta il ricontrollo ogni quattro minuti
+                fermaAscoltoEventi();
+            });
+        } catch (e) { fermaAscoltoEventi(); }
+    }
     /* Aggiornamento automatico mentre la sezione e aperta: si spegne da solo quando
-       si cambia vista e salta il giro se stai scrivendo una nota o cambiando uno stato. */
+       si cambia vista e salta il giro se stai scrivendo una nota o cambiando uno stato.
+       Con l'ascolto in tempo reale attivo e' solo una rete di sicurezza. */
     function avviaAutoEventi(ev) {
+        avviaAscoltoEventi();
         if (_evTimer) return;
         _evTimer = setInterval(() => {
-            if (vistaCorrente !== 'eventi') { fermaAutoEventi(); return; }
+            if (vistaCorrente !== 'eventi') { fermaAutoEventi(); fermaAscoltoEventi(); return; }
             if (_evInFlight) return;
             // scheda in secondo piano: nessuno sta guardando, inutile interrogare il
             // server (e consumare letture) finche' non si torna sulla pagina
             if (document.visibilityState === 'hidden') return;
+            // quota del database esaurita poco fa: si aspetta, "Aggiorna adesso" resta disponibile
+            if (Date.now() < _evPausaFino) return;
+            const evOra = eventoCorrente();
+            const intervallo = _evAscoltoOk ? EV_INTERVALLO_ASCOLTO : EV_INTERVALLO;
+            if (Date.now() - (_evUltimoTentativo[evOra.id] || 0) < intervallo) return;
             const a = document.activeElement;
             if (a && a.classList && (a.classList.contains('ev-nota') || a.classList.contains('ev-stato'))) return;
-            caricaIscrizioni(ev, cambiato => { if (cambiato && vistaCorrente === 'eventi') vistaEventi(); });
-        }, EV_INTERVALLO);
+            caricaIscrizioni(evOra, cambiato => { if (cambiato && vistaCorrente === 'eventi') vistaEventi(); });
+        }, EV_TICK);
     }
 
     const NOMI_STATO = { '': '-', confermato: 'Confermato', presente: 'Presente', assente: 'Assente' };
@@ -22318,16 +22414,19 @@
        sezione appartiene alla schermata aperta e non si puo' toccare da
        qui senza mostrare l'evento sbagliato sotto il riquadro sbagliato. */
     const AVV_MEMORIA_MS = 60 * 1000;
-    let _avvEv = { quando: 0, righe: null };
+    let _avvEv = { quando: 0, righe: null, rev: null };
     let _avvInFlight = false;
     function iscrizioniEventiPerAvviso(poi) {
         if (!puoVedereEventi()) { poi([]); return; }
         if (_avvEv.righe && Date.now() - _avvEv.quando < AVV_MEMORIA_MS) { poi(_avvEv.righe); return; }
         if (_avvInFlight) { poi(_avvEv.righe || []); return; }
         _avvInFlight = true;
-        Cloud.iscrizioniEvento('', 'tutti', true, false).then(r => {
+        // con la revisione gia' nota il server risponde "invariato" senza rispedire l'elenco
+        const revNota = (_avvEv.righe && typeof _avvEv.rev === 'number') ? _avvEv.rev : null;
+        Cloud.iscrizioniEvento('', 'tutti', true, false, revNota).then(r => {
             _avvInFlight = false;
-            if (r && r.ok) _avvEv = { quando: Date.now(), righe: r.iscrizioni || [] };
+            if (r && r.ok && r.invariato) _avvEv.quando = Date.now();
+            else if (r && r.ok) _avvEv = { quando: Date.now(), righe: r.iscrizioni || [], rev: (typeof r.rev === 'number' ? r.rev : null) };
             poi(_avvEv.righe || []);
         }).catch(() => { _avvInFlight = false; poi(_avvEv.righe || []); });
     }
@@ -22361,7 +22460,11 @@
     /* Le iscrizioni da mostrare, secondo cio' che la persona puo' vedere. */
     function raccogliNuoviIscritti(vedeEventi, vedeSito, poi) {
         if (!vedeSito) { iscrizioniEventiPerAvviso(ev => poi(unisciIscrizioni([ev]))); return; }
-        caricaDestinatariNewsletter(() => {
+        // l'elenco della newsletter letto da poco vale ancora: una chiamata (e le sue
+        // letture sul database) in meno a ogni giro di controllo
+        const fresco = _nlDati && (Date.now() - _nlAggiornato) < NL_SORVEGLIA_MS;
+        const conNewsletter = fresco ? (f => f()) : caricaDestinatariNewsletter;
+        conNewsletter(() => {
             const sito = (_nlDati && _nlDati.iscritti) || [];
             if (!vedeEventi) { poi(unisciIscrizioni([sito])); return; }
             iscrizioniEventiPerAvviso(ev => poi(unisciIscrizioni([ev, sito])));
@@ -22500,12 +22603,17 @@
        dopo: un avviso che scavalca quello che si sta facendo da' piu' fastidio
        del ritardo con cui arriva. */
     let _nlSorveglia = null;
-    const NL_SORVEGLIA_MS = 3 * 60 * 1000;
+    /* Era ogni tre minuti, con due chiamate al servizio per giro e per persona:
+       sommate a quelle della sezione Eventi bastavano a esaurire la quota
+       giornaliera di letture di Firebase. Dieci minuti, e solo con la scheda in
+       primo piano: un nuovo iscritto non ha fretta di essere annunciato. */
+    const NL_SORVEGLIA_MS = 10 * 60 * 1000;
     function avviaSorveglianzaIscritti() {
         fermaSorveglianzaIscritti();
         if (!Cloud.attivo || (!puoVedereEventi() && !puoVedereNewsletter())) return;
         _nlSorveglia = setInterval(() => {
             if (!Auth.utenteCorrente) { fermaSorveglianzaIscritti(); return; }
+            if (document.visibilityState === 'hidden') return;
             if (document.querySelector('#modale-contenitore .modale')) return;
             avvisaNuoviIscritti();
         }, NL_SORVEGLIA_MS);
