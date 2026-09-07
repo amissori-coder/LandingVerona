@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=11">
+    <link rel="stylesheet" href="styles.css?v=12">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
     <script type="application/ld+json">
@@ -523,14 +523,22 @@
                     </div>
                 </header>
 
-                <a href="approfondimenti/" class="contents-explore">
-                    <svg class="contents-explore-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h5"/><path d="M4 12h5"/><path d="M4 18h5"/><path d="M13 6h7"/><path d="M13 12h7"/><path d="M13 18h7"/><path d="M13 3v18"/></svg>
-                    <span class="contents-explore-label">Esplora per argomento</span>
-                    <svg class="contents-explore-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                <a href="approfondimenti/" class="contents-explore" aria-label="Esplora per argomento: dall'area al tema alla guida">
+                    <span class="contents-explore-body">
+                        <span class="contents-explore-eyebrow">Ricerca guidata</span>
+                        <span class="contents-explore-title">Esplora per argomento</span>
+                        <span class="contents-explore-steps" aria-hidden="true">
+                            <span class="contents-explore-step">Area</span>
+                            <svg class="contents-explore-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                            <span class="contents-explore-step">Tema</span>
+                            <svg class="contents-explore-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                            <span class="contents-explore-step">Guida</span>
+                        </span>
+                    </span>
+                    <span class="contents-explore-cta" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                    </span>
                 </a>
-                <p class="contents-or" aria-hidden="true"><span>oppure filtra per categoria</span></p>
-
-                <div class="contents-toolbar" id="contentsToolbar" role="tablist" aria-label="Filtra per categoria"></div>
 
                 <div class="contents-list is-capped" id="contentsGrid">
                     <a href="responsabilita_amministratori/" class="content-card is-featured" data-category="governance">
@@ -1344,7 +1352,7 @@
         </div>
     </footer>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=2"></script>
     <script src="assets/event-banner.js" defer></script>
     <script src="/assets/bando-tipo-popup.js" defer></script>
     <script src="/assets/fcd-popup.js" defer></script>

@@ -250,7 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const count   = document.getElementById('contentsCount');
     const empty   = document.getElementById('contentsEmpty');
 
-    if (toolbar && grid) {
+    // La barra dei filtri e' facoltativa: senza, restano il conteggio e
+    // il "Mostra tutti" della lista compatta.
+    if (grid) {
         const cards = Array.from(grid.querySelectorAll('.content-card'));
         const total = cards.length;
 
@@ -312,19 +314,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return btn;
         };
 
-        // "Tutti" pill — always first, active by default
-        const allPill = buildPill('all', 'Tutti', total);
-        allPill.classList.add('is-active');
-        allPill.setAttribute('aria-selected', 'true');
-        toolbar.appendChild(allPill);
+        if (toolbar) {
+            // "Tutti" pill — always first, active by default
+            const allPill = buildPill('all', 'Tutti', total);
+            allPill.classList.add('is-active');
+            allPill.setAttribute('aria-selected', 'true');
+            toolbar.appendChild(allPill);
 
-        // One pill per category present in the grid. Adding a new
-        // card with a new data-category automatically creates a new
-        // pill here, with no HTML or script edits required.
-        categories.forEach(cat => {
-            const n = cards.filter(c => c.dataset.category === cat).length;
-            toolbar.appendChild(buildPill(cat, slugToLabel(cat), n));
-        });
+            // One pill per category present in the grid. Adding a new
+            // card with a new data-category automatically creates a new
+            // pill here, with no HTML or script edits required.
+            categories.forEach(cat => {
+                const n = cards.filter(c => c.dataset.category === cat).length;
+                toolbar.appendChild(buildPill(cat, slugToLabel(cat), n));
+            });
+        }
 
         // Update the live count line under the grid
         const updateCount = (visible) => {
@@ -375,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Delegate clicks on the toolbar
-        toolbar.addEventListener('click', (e) => {
+        if (toolbar) toolbar.addEventListener('click', (e) => {
             const btn = e.target.closest('.content-filter');
             if (!btn) return;
             toolbar.querySelectorAll('.content-filter').forEach(b => {

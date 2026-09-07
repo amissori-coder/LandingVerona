@@ -4635,79 +4635,133 @@ ul {
     gap: 16px;
 }
 
-/* ---------- Rimando alla ricerca guidata per argomento ----------
-   Un pulsante a se', prima dei filtri: e' l'altra strada per trovare
-   un contenuto (approfondimenti/, dove si scende area > tema > guida).
-   La riga "oppure filtra per categoria" sotto lo separa dalle pillole
-   e dice che le due cose sono alternative. */
+/* ---------- Esplora per argomento: il pannello in evidenza ----------
+   In testa alla colonna Approfondimenti & Risorse, al posto dei filtri
+   per categoria: un blocco scuro come l'hero, con il titolo grande, i
+   tre passi (area, tema, guida) e il tasto tondo con la freccia.
+   Porta a approfondimenti/. */
 .contents-explore {
-    display: flex;
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 10px;
-    margin: 20px 0 0;
-    padding: 12px 12px;
-    background: var(--white);
-    border: 1.5px solid var(--navy);
-    border-radius: var(--radius-md);
-    color: var(--navy);
+    column-gap: 14px;
+    row-gap: 6px;
+    margin: 22px 0 4px;
+    padding: 18px 16px 16px 18px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 55%, var(--navy-light) 100%);
+    color: var(--white);
     text-decoration: none;
-    transition: all 0.25s ease;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(10, 40, 68, 0.22);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Due aloni chiari sullo sfondo, come nell'hero, per dare profondita'. */
+.contents-explore::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(139, 184, 212, 0.28) 0%, transparent 45%),
+        radial-gradient(circle at 0% 100%, rgba(255, 255, 255, 0.10) 0%, transparent 40%);
+    pointer-events: none;
 }
 
 .contents-explore:hover {
-    background: var(--navy);
-    color: var(--white);
-    box-shadow: 0 6px 18px rgba(10, 40, 68, 0.18);
+    transform: translateY(-3px);
+    box-shadow: 0 16px 36px rgba(10, 40, 68, 0.3);
 }
 
-.contents-explore-icon,
-.contents-explore-arrow {
-    flex: 0 0 auto;
-    width: 15px;
-    height: 15px;
-    transition: transform 0.25s ease;
+/* Il corpo non fa da contenitore: eyebrow, titolo e passi entrano
+   direttamente nella griglia, cosi' la freccia sta accanto al titolo
+   e i tre passi occupano tutta la larghezza sotto. */
+.contents-explore-body {
+    display: contents;
 }
 
-.contents-explore-label {
-    flex: 1 1 auto;
+.contents-explore-eyebrow { grid-column: 1 / -1; position: relative; }
+.contents-explore-title   { grid-column: 1; position: relative; }
+.contents-explore-cta     { grid-column: 2; grid-row: 2; }
+.contents-explore-steps   { grid-column: 1 / -1; position: relative; }
+
+.contents-explore-eyebrow {
     font-family: var(--font-display);
-    font-size: 0.62rem;
+    font-size: 0.56rem;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 2.2px;
     text-transform: uppercase;
-    line-height: 1;
-    white-space: nowrap;
+    color: #8bb8d4;
 }
 
-.contents-explore:hover .contents-explore-arrow {
-    transform: translateX(3px);
+.contents-explore-title {
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    line-height: 1.15;
+    color: var(--white);
 }
 
-.contents-or {
+.contents-explore-steps {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin: 14px 0 0;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 6px;
+}
+
+.contents-explore-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     font-family: var(--font-display);
-    font-size: 0.52rem;
+    font-size: 0.6rem;
     font-weight: 700;
     letter-spacing: 1px;
     text-transform: uppercase;
-    color: rgba(22, 64, 104, 0.55);
+    color: rgba(255, 255, 255, 0.92);
     white-space: nowrap;
 }
 
-.contents-or::before,
-.contents-or::after {
-    content: '';
-    flex: 1 1 auto;
-    height: 1px;
-    background: rgba(22, 64, 104, 0.16);
+.contents-explore-chev {
+    width: 11px;
+    height: 11px;
+    margin: 0 3px;
+    color: rgba(139, 184, 212, 0.9);
+    flex: 0 0 auto;
 }
 
-/* La barra dei filtri segue la riga "oppure" senza un'altra separazione. */
-.contents-or + .contents-toolbar {
-    margin-top: 10px;
-    padding-top: 0;
-    border-top: none;
+.contents-explore-cta {
+    position: relative;
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--white);
+    color: var(--navy);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+    transition: transform 0.3s ease;
+}
+
+.contents-explore-cta svg {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.25s ease;
+}
+
+.contents-explore:hover .contents-explore-cta {
+    transform: scale(1.06);
+}
+
+.contents-explore:hover .contents-explore-cta svg {
+    transform: translateX(3px);
+}
+
+/* Senza la barra dei filtri, la lista comincia subito sotto il pannello. */
+.contents-explore + .contents-list {
+    margin-top: 18px;
 }
