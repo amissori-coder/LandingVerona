@@ -1995,6 +1995,14 @@ ul {
     max-height: 90px;
 }
 
+/* SIMEST (in collaborazione con): marchio compatto (2,2:1) con la scritta
+   "gruppo cdp" sotto; si vincola in altezza perche' la seconda riga resti
+   leggibile. */
+.partner-brand-img-simest {
+    max-width: 230px;
+    max-height: 104px;
+}
+
 /* Sponsor. Il logotipo Natu' e' largo (2,9:1) e si vincola in larghezza. */
 .partner-brand-img-natu {
     max-width: 220px;
@@ -2602,6 +2610,11 @@ ul {
         max-height: 76px;
     }
 
+    .partner-brand-img-simest {
+        max-width: 200px;
+        max-height: 90px;
+    }
+
     .partner-brand-img-natu {
         max-width: 200px;
         max-height: 70px;
@@ -2787,6 +2800,11 @@ ul {
         max-height: 70px;
     }
 
+    .partner-brand-img-simest {
+        max-width: 180px;
+        max-height: 81px;
+    }
+
     .partner-brand-img-natu {
         max-width: 186px;
         max-height: 65px;
@@ -2848,7 +2866,8 @@ ul {
     .partner-brand-img,
     .partner-brand-img-lg,
     .partner-brand-img-advant,
-    .partner-brand-img-cciaa {
+    .partner-brand-img-cciaa,
+    .partner-brand-img-simest {
         max-width: 200px;
     }
 
