@@ -4765,3 +4765,57 @@ ul {
 .contents-explore + .contents-list {
     margin-top: 18px;
 }
+
+/* ---------- Ultimi approfondimenti ----------
+   Sotto il pannello "Esplora per argomento" la colonna mostra solo i
+   cinque contenuti piu' recenti: le altre card restano nel codice (le
+   leggono l'esploratore e il controllo della mappa) ma non si vedono.
+   Il rimando in fondo porta alla mappa completa. */
+.contents-recent-label {
+    margin: 22px 0 0;
+    font-family: var(--font-display);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--navy-light);
+}
+
+.contents-explore + .contents-recent-label {
+    margin-top: 26px;
+}
+
+.contents-recent-label + .contents-list {
+    margin-top: 10px;
+}
+
+.contents-list.is-recent .content-card:nth-child(n + 6) {
+    display: none;
+}
+
+.contents-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 16px;
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--navy);
+    text-decoration: none;
+}
+
+.contents-all svg {
+    transition: transform 0.25s ease;
+}
+
+.contents-all:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.contents-all:hover svg {
+    transform: translateX(3px);
+}
