@@ -15661,8 +15661,25 @@
     function fermaAutoEventi() { if (_evTimer) { clearInterval(_evTimer); _evTimer = null; } }
     function fermaAscoltoEventi() {
         if (_evAscolto) { try { _evAscolto(); } catch (e) { } }
+        const eraOk = _evAscoltoOk;
         _evAscolto = null; _evAscoltoOk = false; _evRicaricaDopo = false; _evRevAscolto = null;
         if (_evRicaricaTimer) { clearTimeout(_evRicaricaTimer); _evRicaricaTimer = null; }
+        // senza tempo reale il pulsante "Aggiorna adesso" torna utile: si ridisegna
+        if (eraOk) ridisegnaEventiSeLibero();
+    }
+    /* "Aggiorna adesso" compare solo quando serve davvero: elenco non ancora letto,
+       lettura non riuscita, pausa dopo la quota esaurita, oppure tempo reale non
+       attivo (regole di Firestore non pubblicate, collegamento perso). Con
+       l'ascolto attivo l'elenco si aggiorna da solo e il pulsante confonderebbe. */
+    function serveAggiornaAdesso() {
+        return !_evAscoltoOk || !!_evMsg || _evIscrizioni === null || Date.now() < _evPausaFino;
+    }
+    // ridisegna la sezione, ma non sotto le dita di chi sta scrivendo una nota
+    function ridisegnaEventiSeLibero() {
+        if (vistaCorrente !== 'eventi') return;
+        const a = document.activeElement;
+        if (a && a.classList && (a.classList.contains('ev-nota') || a.classList.contains('ev-stato'))) return;
+        vistaEventi();
     }
     /* Rilettura dopo un cambiamento segnalato dall'ascolto. Con un piccolo ritardo
        casuale: quando un collega salva uno stato, tutti gli utenti connessi vengono
@@ -15687,7 +15704,8 @@
         try {
             _evAscolto = onSnapshot(doc(Cloud.db, 'meta', 'iscrizioni'), snap => {
                 if (vistaCorrente !== 'eventi' || !Auth.utenteCorrente) { fermaAscoltoEventi(); return; }
-                _evAscoltoOk = true;
+                // primo segnale: il tempo reale funziona, il pulsante puo' sparire
+                if (!_evAscoltoOk) { _evAscoltoOk = true; ridisegnaEventiSeLibero(); }
                 const rev = snap.exists() ? snap.data().rev : null;
                 if (typeof rev !== 'number') return;
                 _evRevAscolto = rev;
@@ -16050,9 +16068,12 @@
 
         $vista().innerHTML = '<header><div><h1>Iscrizioni Eventi NGB</h1>'
             + '<p class="descrizione">Le iscrizioni raccolte dai form del sito. Sezione riservata agli utenti abilitati.</p></div>'
-            + '<div class="header-azioni"><span class="ev-live">' + (_evInFlight ? 'aggiornamento...' : (_evAggiornato ? 'aggiornato alle ' + esc(new Date(_evAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) : 'in attesa')) + '</span>'
-            + '<button class="btn btn-secondary" id="ev-aggiorna"' + (_evInFlight ? ' disabled' : '') + '>'
-            + (_evInFlight ? 'Aggiorno...' : 'Aggiorna adesso') + '</button></div></header>'
+            + '<div class="header-azioni"><span class="ev-live">' + (_evInFlight ? 'aggiornamento...' : (_evAggiornato ? 'aggiornato alle ' + esc(new Date(_evAggiornato).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) + (_evAscoltoOk ? ' · in tempo reale' : '') : 'in attesa')) + '</span>'
+            + (serveAggiornaAdesso()
+                ? '<button class="btn btn-secondary" id="ev-aggiorna"' + (_evInFlight ? ' disabled' : '') + '>'
+                    + (_evInFlight ? 'Aggiorno...' : 'Aggiorna adesso') + '</button>'
+                : '')
+            + '</div></header>'
             + schede
             + '<div class="card ev-testa"><div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
             + '<div class="hint">' + esc(ev.quando) + '</div></div>'
