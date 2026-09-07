@@ -64,6 +64,10 @@ function eQuota(e) {
 
 // ultima copia buona vista da QUESTA istanza: { rev, quando, dati }
 let _mem = null;
+// rilettura delle collezioni in corso in questa istanza: chi arriva nel frattempo
+// aspetta quella invece di farne un'altra (con il tempo reale, dopo una scrittura
+// le richieste arrivano tutte insieme)
+let _rilettura = null;
 
 /* I documenti passano da JSON: i Timestamp di Firestore (che JSON non conosce)
    diventano millisecondi, come tutti gli altri "quando" dell'archivio. */
@@ -176,11 +180,18 @@ async function archivio(db, opz) {
                 return risposta(copia, { daCopia: true });
             }
         }
-        const dati = await leggiCollezioni(db);
-        const m = { rev: rev < 0 ? (copia ? copia.rev : 0) : rev, quando: adesso, dati: dati };
-        _mem = m;
-        try { await scriviCopia(db, m.rev, m.quando, dati); }
-        catch (e) { console.error('Copia iscrizioni non scritta:', String((e && e.message) || e).slice(0, 200)); }
+        if (!_rilettura) {
+            _rilettura = (async () => {
+                const dati = await leggiCollezioni(db);
+                const m = { rev: rev < 0 ? (copia ? copia.rev : 0) : rev, quando: Date.now(), dati: dati };
+                _mem = m;
+                try { await scriviCopia(db, m.rev, m.quando, dati); }
+                catch (e) { console.error('Copia iscrizioni non scritta:', String((e && e.message) || e).slice(0, 200)); }
+                return m;
+            })();
+            _rilettura.finally(() => { _rilettura = null; }).catch(() => { });
+        }
+        const m = await _rilettura;
         return risposta(m, { daMemoria: false });
     } catch (e) {
         if (!eQuota(e)) throw e;

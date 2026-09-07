@@ -986,6 +986,15 @@ Ora:
   ore si rilegge comunque, per non restare fermi se qualcuno ha scritto dalla
   console senza alzare la revisione.
 
+**Tempo reale.** L'area riservata ascolta `meta/iscrizioni` con il proprio
+accesso a Firestore (serve la regola `match /meta/iscrizioni` di
+`area-riservata/FIREBASE-SETUP.md`): quando il numero cambia, chiama
+`/api/iscrizioni` con la revisione nota, sfalsata di qualche secondo fra un
+utente e l'altro cosi che il primo faccia rileggere l'archivio e gli altri
+trovino la copia pronta. Con l'ascolto attivo il ricontrollo a tempo passa da
+quattro a quindici minuti. Senza la regola non compare nessun errore: resta il
+ricontrollo ogni quattro minuti.
+
 Se Firebase rifiuta le letture per quota esaurita, la funzione risponde con
 l'ultima copia in memoria e un `avviso`; se non ha niente in memoria risponde
 **503** con `quota: true` e un messaggio in italiano, e l'area riservata

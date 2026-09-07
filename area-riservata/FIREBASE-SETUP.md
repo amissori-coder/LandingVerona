@@ -160,9 +160,24 @@ esauriscono le 50.000 letture al giorno del piano gratuito (vedi
          allow read: if staff() && request.auth.token.email == email;
          allow write: if staff();
        }
+       // contatore delle modifiche all'archivio iscrizioni: solo un numero e una
+       // data, nessun dato personale. L'area riservata lo ASCOLTA per aggiornare
+       // la sezione Eventi in tempo reale (una lettura per cambiamento, non una
+       // per utente al minuto). Lo scrive solo il servizio email, mai il browser.
+       match /meta/iscrizioni {
+         allow read: if staff();
+         allow write: if false;
+       }
      }
    }
    ```
+
+   > **Sezione Eventi in tempo reale.** Il blocco `match /meta/iscrizioni` e'
+   > quello che permette all'area riservata di accorgersi subito quando un
+   > collega segna una presenza o arriva un'iscrizione. Senza, non compare
+   > nessun errore: la sezione si aggiorna comunque, ma ogni quattro minuti
+   > (o con "Aggiorna adesso"). Se hai gia' pubblicato le regole in passato,
+   > basta aggiungere questo blocco e ripubblicare.
 
    > **Collaboratori.** Il profilo "Collaboratore" (sezione Utenti: ruolo
    > `collaboratore` piu' il campo `collaboratoreDi` con l'email dell'utente di
