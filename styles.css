@@ -1010,6 +1010,13 @@ ul {
     max-width: 100%;
 }
 
+/* SIMEST (in collaborazione con): marchio compatto (2,2:1) con la scritta
+   "gruppo cdp" sotto. Un po' più alto degli altri perché la seconda riga
+   ridurrebbe altrimenti troppo la leggibilità del logotipo. */
+.event-collab--multi .event-collab-logo--simest {
+    height: 46px;
+}
+
 .event-collab-label {
     font-family: var(--font-display);
     font-size: 0.58rem;
@@ -3967,6 +3974,10 @@ ul {
     .event-collab--multi .event-collab-logo--cciaa {
         height: auto;
         width: 138px;
+    }
+
+    .event-collab--multi .event-collab-logo--simest {
+        height: 42px;
     }
 }
 
