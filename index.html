@@ -47,7 +47,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=12">
+    <link rel="stylesheet" href="styles.css?v=13">
 
     <!-- Structured Data (JSON-LD): Organization + WebSite -->
     <script type="application/ld+json">
@@ -540,7 +540,8 @@
                     </span>
                 </a>
 
-                <div class="contents-list is-capped" id="contentsGrid">
+                <p class="contents-recent-label">Ultimi approfondimenti</p>
+                <div class="contents-list is-recent" id="contentsGrid">
                     <a href="responsabilita_amministratori/" class="content-card is-featured" data-category="governance">
                         <div class="content-card-body">
                             <span class="content-tag">Governance<span class="content-badge">Ebook</span></span>
@@ -867,12 +868,10 @@
                     </a>
                 </div>
 
-                <button type="button" class="contents-toggle" id="contentsToggle" hidden>
-                    <span class="contents-toggle-label">Mostra tutti gli approfondimenti</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                </button>
-                <p class="contents-empty" id="contentsEmpty" hidden>Nessun contenuto in questa categoria.</p>
-                <p class="contents-count" id="contentsCount" aria-live="polite"></p>
+                <a href="approfondimenti/#mappa" class="contents-all">
+                    Tutti gli approfondimenti
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+                </a>
             </div>
         </aside>
     </section>
