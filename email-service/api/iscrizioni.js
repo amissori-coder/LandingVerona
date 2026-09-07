@@ -23,6 +23,9 @@ const { JWT } = require('google-auth-library');
 // la frase che racconta uno spostamento di azienda: la stessa che presenze.js
 // restituisce a chi ha appena spostato
 const { tracciaSpostamento } = require('../lib/traccia-azienda');
+// la copia condivisa dell'archivio (lib/copia-iscrizioni.js): due letture a richiesta
+// invece di tutti i documenti, e un messaggio chiaro se la quota di Firebase e' finita
+const C = require('../lib/copia-iscrizioni');
 
 function leggiServiceAccount() {
     const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim();
@@ -166,70 +169,17 @@ function extraMatching(v) {
 /* Unica uscita per le risposte positive: toglie le iscrizioni cancellate
    dall'amministratore (anche se tornassero dal foglio) e allega stati e note,
    cosi' l'area riservata riceve tutto in una volta sola. */
-function rispondi(res, lista, fonti, presenze, cancellate, avviso) {
+function rispondi(res, lista, fonti, presenze, cancellate, avviso, rev) {
     const vive = ordina(lista.filter(x => !cancellate[x.id]));
     const out = { ok: true, iscrizioni: vive, presenze: presenze || {}, aggiornato: Date.now(), fonti: fonti };
+    if (typeof rev === 'number') out.rev = rev;
     if (avviso) out.avviso = avviso;
     res.status(200).json(out);
 }
 
-/* --- memoria di breve durata delle iscrizioni ---
-   Ogni richiesta rileggeva TUTTO l'archivio: con qualche centinaio di iscritti e
-   un aggiornamento automatico frequente si bruciava la quota giornaliera di
-   letture di Firebase, e la sezione smetteva di funzionare per tutti.
-   Qui l'elenco letto resta in memoria per qualche decina di secondi ed e'
-   condiviso da tutte le richieste che arrivano nel frattempo. Il pulsante
-   "Aggiorna adesso" puo' forzare una lettura fresca. */
-const CACHE_MS = 45 * 1000;
-let _cache = { quando: 0, righe: null, rev: -1 };
-/* Numero di revisione dei dati: lo alza di uno chiunque scriva (nuova iscrizione,
-   importazione, stato, nota, cancellazione). Leggerlo costa UN documento: se non e'
-   cambiato non serve rileggere l'intero archivio, che di documenti ne ha centinaia.
-   E' la differenza fra qualche centinaio di letture al giorno e decine di migliaia. */
-async function revisione(db) {
-    try {
-        const d = await db.collection('meta').doc('iscrizioni').get();
-        return (d.exists && typeof d.data().rev === 'number') ? d.data().rev : 0;
-    } catch (_) { return -1; }   // in caso di dubbio si rilegge
-}
-async function leggiTutteLeIscrizioni(db, forza, rev) {
-    if (!forza && _cache.righe) {
-        // se il numero di revisione si legge, decide LUI: uguale = niente e' cambiato,
-        // diverso = si rilegge subito. La scadenza a tempo vale solo quando non si
-        // riesce a leggere la revisione, per non restare fermi su dati vecchi.
-        if (rev >= 0) {
-            if (rev === _cache.rev) return { righe: _cache.righe, daMemoria: true };
-        } else if ((Date.now() - _cache.quando) < CACHE_MS) {
-            return { righe: _cache.righe, daMemoria: true };
-        }
-    }
-    const snap = await db.collection('iscrizioni').get();
-    const righe = [];
-    // il NOME DEL DOCUMENTO viaggia con la riga: per le schede-partecipante
-    // (idDoc~p2...) non si puo' ricavare dai campi, e serve alle azioni che
-    // devono colpire il documento giusto (richiesta dati, invito B2B)
-    snap.forEach(d => righe.push(Object.assign({ _doc: d.id }, d.data() || {})));
-    _cache = { quando: Date.now(), righe: righe, rev: rev };
-    return { righe: righe, daMemoria: false };
-}
-// stesso trattamento per stati/note e cancellazioni, per evento
-const _cacheEv = {};
-async function leggiPerEvento(db, collezione, idEvento, forza, rev) {
-    const k = collezione + '~' + idEvento;
-    const c = _cacheEv[k];
-    if (!forza && c) {
-        if (rev >= 0) {
-            if (c.rev === rev) return c.righe;
-        } else if ((Date.now() - c.quando) < CACHE_MS) {
-            return c.righe;
-        }
-    }
-    const snap = await db.collection(collezione).where('evento', '==', idEvento).get();
-    const righe = [];
-    snap.forEach(d => righe.push(d.data() || {}));
-    _cacheEv[k] = { quando: Date.now(), righe: righe, rev: rev };
-    return righe;
-}
+/* La lettura dell'archivio (iscrizioni, stati e note, cancellazioni) sta in
+   lib/copia-iscrizioni.js, condivisa con /api/newsletter: rileggere tutto a
+   ogni richiesta bruciava la quota giornaliera di letture di Firebase. */
 
 module.exports = async (req, res) => {
     const origin = process.env.ALLOWED_ORIGIN || '*';
@@ -263,21 +213,29 @@ module.exports = async (req, res) => {
         const ruolo = ue.ruolo;
 
         // 3) autorizzazione alla sezione Eventi: admin oppure nell'elenco abilitati
-        let abilitati = [];
-        try {
-            const cfgDoc = await admin.firestore().collection('archivio').doc('eventiConfig').get();
-            if (cfgDoc.exists) {
-                const cfg = JSON.parse(cfgDoc.data().json || '{}');
-                abilitati = Array.isArray(cfg.abilitati) ? cfg.abilitati.map(x => String(x).toLowerCase()) : [];
-            }
-        } catch (_) { abilitati = []; }
         // Il contrassegno "eventi" sulla scheda utente vale QUANTO l'elenco condiviso:
         // e' l'unica strada che funziona per i ruoli "solo sondaggio", ed e' la stessa
         // regola applicata da /api/presenze. Se le due regole divergono si finisce con
         // utenti che possono scrivere ma non leggere.
-        if (ruolo !== 'admin' && uDoc.data().eventi !== true && abilitati.indexOf(email) < 0) {
-            res.status(403).json({ ok: false, msg: 'Non sei abilitato alla sezione Eventi.' });
-            return;
+        // L'elenco condiviso si legge SOLO se serve: per l'amministratore e per chi ha
+        // il contrassegno e' una lettura in meno a ogni richiesta, e le richieste sono
+        // tante (ogni utente interroga la sezione ogni pochi minuti).
+        if (ruolo !== 'admin' && uDoc.data().eventi !== true) {
+            let abilitati = [];
+            try {
+                const cfgDoc = await admin.firestore().collection('archivio').doc('eventiConfig').get();
+                if (cfgDoc.exists) {
+                    const cfg = JSON.parse(cfgDoc.data().json || '{}');
+                    abilitati = Array.isArray(cfg.abilitati) ? cfg.abilitati.map(x => String(x).toLowerCase()) : [];
+                }
+            } catch (e) {
+                if (C.eQuota(e)) { res.status(503).json({ ok: false, quota: true, msg: C.MSG_QUOTA }); return; }
+                abilitati = [];
+            }
+            if (abilitati.indexOf(email) < 0) {
+                res.status(403).json({ ok: false, msg: 'Non sei abilitato alla sezione Eventi.' });
+                return;
+            }
         }
 
         // 4) filtro dell'evento (serve a entrambe le fonti). Con "tutti" non si filtra:
@@ -301,12 +259,22 @@ module.exports = async (req, res) => {
         // 4b) stati, note e cancellazioni stanno sul server: si leggono qui, cosi'
         //     l'area riservata riceve tutto con una sola richiesta e mostra l'elenco
         //     gia' completo, senza secondi giri e senza copie nel browser.
-        const revDati = await revisione(admin.firestore());
+        //     L'archivio arriva dalla copia condivisa: chi ha gia' l'elenco manda il
+        //     numero di revisione che conosce e, se nulla e' cambiato, riceve solo
+        //     "invariato" (due letture, niente elenco da rispedire).
+        const forza = body.forza === true;
+        const arch = await C.archivio(admin.firestore(), { forza: forza });
+        const revDati = arch.rev;
+        const revNota = typeof body.rev === 'number' ? body.rev : null;
+        if (!forza && revNota !== null && revDati >= 0 && revNota === revDati && !arch.avviso) {
+            res.status(200).json({ ok: true, invariato: true, rev: revDati, aggiornato: Date.now() });
+            return;
+        }
         const presenze = {};
         const cancellate = {};
         if (idEvento) {
             try {
-                const sp = await leggiPerEvento(admin.firestore(), 'presenze', idEvento, body.forza === true, revDati);
+                const sp = arch.presenze.filter(v => v && v.evento === idEvento);
                 sp.forEach(v => {
                     if (!v.idIscritto) return;
                     presenze[v.idIscritto] = {
@@ -321,7 +289,7 @@ module.exports = async (req, res) => {
                 console.error('Lettura presenze non riuscita:', String((e && e.message) || e).slice(0, 200));
             }
             try {
-                const sc = await leggiPerEvento(admin.firestore(), 'iscrizioniCancellate', idEvento, body.forza === true, revDati);
+                const sc = arch.cancellate.filter(v => v && v.evento === idEvento);
                 sc.forEach(v => { if (v.idIscritto) cancellate[v.idIscritto] = true; });
             } catch (e) {
                 console.error('Lettura cancellate non riuscita:', String((e && e.message) || e).slice(0, 200));
@@ -331,11 +299,8 @@ module.exports = async (req, res) => {
         // 5) prima fonte: Firestore, dove arrivano le iscrizioni nuove dal form.
         //    Non dipende ne' dall'API Sheets ne' dalla condivisione del foglio.
         const daFirestore = [];
-        let daMemoria = false;
         try {
-            const lette = await leggiTutteLeIscrizioni(admin.firestore(), body.forza === true, revDati);
-            daMemoria = lette.daMemoria;
-            lette.righe.forEach(v => {
+            arch.iscrizioni.forEach(v => {
                 const pag = String(v.pagina || '');
                 if (!tieni(pag)) return;
                 // iscrizione annullata dall'intestatario (dalla pagina "completa
@@ -402,7 +367,7 @@ module.exports = async (req, res) => {
         //    con le sole iscrizioni di Firestore, invece di non mostrare niente.
         const sheetId = process.env.EVENTI_SHEET_ID || '';
         if (!sheetId) {
-            rispondi(res, daFirestore, ['firestore'], presenze, cancellate);
+            rispondi(res, daFirestore, ['firestore'], presenze, cancellate, arch.avviso, revDati);
             return;
         }
         const range = process.env.EVENTI_SHEET_RANGE || 'A:Z';
@@ -419,7 +384,7 @@ module.exports = async (req, res) => {
                 ? 'Il foglio non e condiviso con l\'account di servizio, oppure l\'API Google Sheets non e abilitata.'
                 : (r.status === 404 ? 'Foglio non trovato: controlla EVENTI_SHEET_ID.' : 'Lettura del foglio non riuscita (' + r.status + ').');
             if (daFirestore.length) {
-                rispondi(res, daFirestore, ['firestore'], presenze, cancellate, msg);
+                rispondi(res, daFirestore, ['firestore'], presenze, cancellate, arch.avviso || msg, revDati);
             } else {
                 res.status(502).json({ ok: false, msg: msg });
             }
@@ -428,7 +393,7 @@ module.exports = async (req, res) => {
         const dati = await r.json();
         const righe = Array.isArray(dati.values) ? dati.values : [];
         if (!righe.length) {
-            rispondi(res, daFirestore, ['firestore'], presenze, cancellate);
+            rispondi(res, daFirestore, ['firestore'], presenze, cancellate, arch.avviso, revDati);
             return;
         }
 
@@ -470,10 +435,13 @@ module.exports = async (req, res) => {
         const perId = {};
         iscrizioni.forEach(x => { perId[x.id] = x; });
         daFirestore.forEach(x => { perId[x.id] = x; });
-        rispondi(res, Object.keys(perId).map(k => perId[k]), ['firestore', 'foglio'], presenze, cancellate);
+        rispondi(res, Object.keys(perId).map(k => perId[k]), ['firestore', 'foglio'], presenze, cancellate, arch.avviso, revDati);
     } catch (e) {
         const motivo = String((e && e.message) || 'errore').slice(0, 200);
         console.error('Iscrizioni: lettura non riuscita:', motivo);
+        // quota di Firebase finita: lo si dice in italiano, e l'area riservata rallenta
+        // i tentativi invece di ripresentare "8 RESOURCE_EXHAUSTED: Quota exceeded."
+        if (C.eQuota(e)) { res.status(503).json({ ok: false, quota: true, msg: C.MSG_QUOTA }); return; }
         res.status(500).json({ ok: false, msg: motivo });
     }
 };

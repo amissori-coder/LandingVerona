@@ -6,7 +6,11 @@ utenti abilitati tramite Cloud Firestore. Senza configurazione l'area
 resta in modalita dimostrativa (dati solo nel browser).
 
 Tempo stimato: 15 minuti. Il piano gratuito di Firebase (Spark) e
-sufficiente per questo utilizzo.
+sufficiente per questo utilizzo: il servizio email tiene una copia
+compressa dell'archivio iscrizioni in `meta/iscrizioniCopia`, cosi le
+sezioni Eventi e Newsletter costano due letture a richiesta e non
+esauriscono le 50.000 letture al giorno del piano gratuito (vedi
+`email-service/README.md`, "Quante letture costa").
 
 ## 1. Crea il progetto
 

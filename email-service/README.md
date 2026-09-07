@@ -961,6 +961,36 @@ Cognome, Email, Azienda, Ruolo, Telefono, Messaggio, ...`), quindi l'ordine puo
 cambiare senza rompere nulla. Il filtro dell'evento confronta la colonna
 `Pagina` (senza accenti/maiuscole).
 
+### Quante letture costa (e la copia condivisa)
+
+L'archivio si legge dalla **copia condivisa** di `lib/copia-iscrizioni.js`, la
+stessa che usa `/api/newsletter`. Prima ogni istanza di Vercel rileggeva per
+conto suo tutte le collezioni (`iscrizioni`, `presenze`, `iscrizioniCancellate`)
+appena si accendeva, e con nove persone che interrogano la sezione ogni pochi
+minuti si superavano le 50.000 letture al giorno del piano gratuito di
+Firebase: a tutti compariva `8 RESOURCE_EXHAUSTED: Quota exceeded.`.
+
+Ora:
+
+- `meta/iscrizioni.rev` (lo alza chi scrive) dice se qualcosa e cambiato;
+- `meta/iscrizioniCopia` contiene l'archivio intero, compresso, con il numero di
+  revisione a cui e stato letto (oltre il MiB si spezza in `iscrizioniCopiaParti`);
+- una richiesta costa **due letture** (revisione + copia) e nessuna copia dell'archivio
+  se il numero e uguale a quello gia in memoria; le collezioni si rileggono per
+  intero solo dopo una scrittura, una volta per tutti, e la copia viene riscritta;
+- il corpo puo portare `rev` (il numero ricevuto con l'elenco precedente): se sul
+  server non e cambiato nulla la risposta e `{ ok: true, invariato: true, rev }`,
+  senza elenco. L'area riservata lo fa a ogni aggiornamento automatico;
+- `forza: true` ("Aggiorna adesso") rilegge davvero le collezioni, ma non piu di
+  una volta al minuto per tutte le istanze insieme; una copia piu vecchia di sei
+  ore si rilegge comunque, per non restare fermi se qualcuno ha scritto dalla
+  console senza alzare la revisione.
+
+Se Firebase rifiuta le letture per quota esaurita, la funzione risponde con
+l'ultima copia in memoria e un `avviso`; se non ha niente in memoria risponde
+**503** con `quota: true` e un messaggio in italiano, e l'area riservata
+sospende l'aggiornamento automatico per un quarto d'ora invece di insistere.
+
 ---
 
 ## Newsletter
