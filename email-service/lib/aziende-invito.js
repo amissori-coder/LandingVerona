@@ -80,7 +80,33 @@ function idDoc(evento, contatto, campagna) {
 }
 
 const STATI = ['da-invitare', 'inviata', 'errore', 'esclusa', 'disiscritta', 'risposta', 'iscritta'];
-const MAX_AZIENDE_EVENTO = 5000;
+const MAX_AZIENDE_EVENTO = 50000;
+/* Quante schede per pagina quando si legge l'elenco. Il tetto e' alto, e
+   50.000 schede non stanno ne' in una risposta sola (il corpo ha un tetto
+   di pochi megabyte: oltre, la funzione risponde errore invece
+   dell'elenco) ne' comodamente nei 60 secondi della funzione. Quindi
+   l'elenco si legge a pagine e chi lo mostra le rimette insieme. */
+const PAGINA_ELENCO = 1500;
+/* Un'area riservata vecchia rimasta in cache non sa chiedere le pagine:
+   le si risponde come prima, un blocco solo, invece di lasciarle un
+   elenco tagliato senza dirlo. */
+const PAGINA_INTERA = 5000;
+/* Le letture di servizio (gli esiti delle email) non tornano le schede a
+   chi guarda: leggono pochi campi e contano. Li' la pagina puo' essere
+   larga, perche' non deve entrare in una risposta. */
+const PAGINA_SERVIZIO = 5000;
+
+/* Una pagina di schede dell'evento, in ordine di identificativo: e' l'unico
+   ordine che regge un segnalibro senza un indice nuovo, e le schede scritte
+   prima delle campagne non hanno campi su cui ordinare. In ordine alfabetico
+   ci va chi disegna la tabella, che ha in mano tutte le pagine. */
+function paginaEvento(db, evento, dopo, quante, campi) {
+    let q = db.collection('aziendeInvito').where('evento', '==', evento);
+    if (campi && q.select) q = q.select.apply(q, campi);
+    q = q.orderBy(admin.firestore.FieldPath.documentId()).limit(quante);
+    if (dopo) q = q.startAfter(db.collection('aziendeInvito').doc(dopo));
+    return q.get();
+}
 
 /* Equity o founding partner: stessa regola di api/presenze.js (conta il RUOLO
    DI ACCESSO, non la spunta in anagrafica). In caso di dubbio si risponde no. */
@@ -435,7 +461,14 @@ async function esegui(ctx) {
         if (!evento) { res.status(400).json({ ok: false, msg: 'Evento mancante.' }); return; }
 
         if (azione === 'elenco') {
-            const snap = await db.collection('aziendeInvito').where('evento', '==', evento).limit(MAX_AZIENDE_EVENTO).get();
+            /* UNA PAGINA PER VOLTA. Chi chiede aPagine torna a bussare con il
+               segnalibro dell'ultima scheda ricevuta finche' l'elenco non e'
+               finito; chi non lo chiede e' un'area riservata vecchia, e
+               riceve un blocco solo come prima. */
+            const aPagine = body.aPagine === true;
+            const dopo = testo(body.dopo, 400);
+            const quante = aPagine ? PAGINA_ELENCO : PAGINA_INTERA;
+            const snap = await paginaEvento(db, evento, aPagine ? dopo : '', quante);
             const aziende = [];
             /* Le schede delle ALTRE campagne non si buttano via: servono a
                dire, riga per riga, "questa azienda sta anche nell'altro
@@ -443,11 +476,14 @@ async function esegui(ctx) {
                campagna - quindi costa un giro di ciclo e nessuna lettura in
                piu'. */
             const fuoriCampagna = {};
+            let ultimo = '';
+            let quanteLette = 0;
             /* Il filtro sulla campagna si fa QUI e non nel where(): le schede
                scritte prima delle campagne non hanno il campo, e un
                where('campagna','==','invito') non troverebbe proprio quelle. */
             snap.forEach(d => {
                 const v = d.data() || {};
+                ultimo = d.id; quanteLette++;
                 if (CAMPAGNE.diScheda(v) === campagna) { aziende.push(inChiaro(d.id, v)); return; }
                 const k = chiaveContatto(v);
                 if (k) fuoriCampagna[k] = altrove(v);
@@ -457,7 +493,16 @@ async function esegui(ctx) {
                 if (k && fuoriCampagna[k]) a.anche = fuoriCampagna[k];
             });
             aziende.sort((a, b) => String(a.ragioneSociale).localeCompare(String(b.ragioneSociale), 'it'));
-            res.status(200).json({ ok: true, aziende: aziende, aggiornato: Date.now() });
+            /* L'altra lista viaggia anche a parte: la sovrapposizione fra due
+               schede puo' cadere su due pagine diverse, e chi rimette insieme
+               le pagine e' l'unico che le ha davanti tutte e due. */
+            res.status(200).json({
+                ok: true, aziende: aziende, aggiornato: Date.now(),
+                altre: aPagine ? fuoriCampagna : {},
+                cursore: quanteLette >= quante ? ultimo : '',
+                ancora: quanteLette >= quante,
+                limite: MAX_AZIENDE_EVENTO
+            });
             return;
         }
 
@@ -471,19 +516,28 @@ async function esegui(ctx) {
            esaurirebbe da sola in un pomeriggio. */
         if (azione === 'esiti-email') {
             if (!puoGestire) { negato(); return; }
-            const snap = await db.collection('aziendeInvito').where('evento', '==', evento).limit(MAX_AZIENDE_EVENTO).get();
+            /* Anche questa lettura va a pagine, e chiede i soli tre campi che
+               guarda: con il tetto a 50.000 schede una lettura sola si
+               porterebbe dietro l'intero elenco per contare gli indirizzi. */
             const indirizzi = [];
             let dal = 0;
-            snap.forEach(d => {
-                const v = d.data() || {};
-                if (CAMPAGNE.diScheda(v) !== campagna) return;
-                if (!v.invio || v.invio.canale !== 'email') return;
-                const ind = String(v.invio.destinatario || v.email || '').trim().toLowerCase();
-                if (!ind) return;
-                indirizzi.push(ind);
-                const q = Number(v.invio.quando) || 0;
-                if (q && (!dal || q < dal)) dal = q;
-            });
+            let dopoEsiti = '';
+            for (let pagina = 0; pagina * PAGINA_SERVIZIO < MAX_AZIENDE_EVENTO; pagina++) {
+                const snap = await paginaEvento(db, evento, dopoEsiti, PAGINA_SERVIZIO, ['campagna', 'invio', 'email']);
+                let lette = 0;
+                snap.forEach(d => {
+                    const v = d.data() || {};
+                    dopoEsiti = d.id; lette++;
+                    if (CAMPAGNE.diScheda(v) !== campagna) return;
+                    if (!v.invio || v.invio.canale !== 'email') return;
+                    const ind = String(v.invio.destinatario || v.email || '').trim().toLowerCase();
+                    if (!ind) return;
+                    indirizzi.push(ind);
+                    const q = Number(v.invio.quando) || 0;
+                    if (q && (!dal || q < dal)) dal = q;
+                });
+                if (lette < PAGINA_SERVIZIO) break;
+            }
             if (!indirizzi.length) {
                 res.status(200).json({ ok: true, stato: 'nessuno', esiti: {}, msg: 'Nessun invio via email ordinaria in questa campagna.' });
                 return;
@@ -622,12 +676,15 @@ async function esegui(ctx) {
                e' li' che si misura quanto pesa la lettura dell'elenco, che
                legge tutte le schede dell'evento e filtra dopo. */
 
-            let importate = 0, senzaRecapito = 0, doppie = 0, oltreIlLimite = 0, senzaDenominazione = 0;
+            /* Le righe si preparano TUTTE prima di scrivere. Il tetto vale
+               sulle schede nuove, e quali siano nuove si sa solo dopo aver
+               letto quali esistono gia': ricaricare un elenco su un evento
+               pieno non fa crescere niente, e prima veniva scartato in blocco
+               - "2250 oltre il limite" su 2250 righe che erano gia' li' e
+               chiedevano solo di essere aggiornate. */
+            let senzaRecapito = 0, doppie = 0, oltreIlLimite = 0, senzaDenominazione = 0;
             const viste = {};
-            // i recapiti finiti in questa lista: servono per il controllo incrociato
-            const contattiVisti = [];
-            let batch = db.batch(), nel = 0;
-            const nuoviId = [];
+            const candidate = [];
             for (let r = 1; r < righe.length; r++) {
                 const riga = righe[r];
                 if (!riga || !riga.length) continue;
@@ -643,7 +700,6 @@ async function esegui(ctx) {
                 if (!cella(riga, iRag)) { senzaDenominazione++; continue; }
                 if (viste[contatto]) { doppie++; continue; }
                 viste[contatto] = true;
-                if (gia + importate >= MAX_AZIENDE_EVENTO) { oltreIlLimite++; continue; }
 
                 // colonne non riconosciute: restano con la loro intestazione
                 const extra = {};
@@ -654,42 +710,56 @@ async function esegui(ctx) {
                     if (!et || !val) continue;
                     extra[et.slice(0, 60)] = val.slice(0, 300);
                 }
-                const id = idDoc(evento, contatto, campagna);
-                nuoviId.push(id);
-                contattiVisti.push(contatto);
-                /* merge: ricaricare lo stesso elenco aggiorna i dati anagrafici
-                   e NON tocca stato ed esito dell'invio gia' fatto. Lo stato
-                   iniziale si scrive solo alla creazione della scheda. */
-                batch.set(db.collection('aziendeInvito').doc(id), {
-                    evento: evento, campagna: campagna, pec: pecOk, email: mailOk,
-                    ragioneSociale: cella(riga, iRag) || contatto.split('@')[0],
-                    piva: cella(riga, col('piva')), cf: cella(riga, col('cf')),
-                    referente: cella(riga, col('referente')), citta: cella(riga, col('citta')),
-                    provincia: cella(riga, col('provincia')).slice(0, 4), telefono: cella(riga, col('telefono')),
-                    settore: cella(riga, col('settore')), note: cella(riga, col('note')), extra: extra,
-                    aggiornata: { quando: Date.now(), da: email, collab: collab }
-                }, { merge: true });
+                candidate.push({
+                    id: idDoc(evento, contatto, campagna), contatto: contatto,
+                    dati: {
+                        evento: evento, campagna: campagna, pec: pecOk, email: mailOk,
+                        ragioneSociale: cella(riga, iRag) || contatto.split('@')[0],
+                        piva: cella(riga, col('piva')), cf: cella(riga, col('cf')),
+                        referente: cella(riga, col('referente')), citta: cella(riga, col('citta')),
+                        provincia: cella(riga, col('provincia')).slice(0, 4), telefono: cella(riga, col('telefono')),
+                        settore: cella(riga, col('settore')), note: cella(riga, col('note')), extra: extra,
+                        aggiornata: { quando: Date.now(), da: email, collab: collab }
+                    }
+                });
+            }
+
+            /* Chi c'e' gia' e chi e' nuovo, in una lettura ogni 200 schede:
+               sono le stesse letture che prima servivano, dopo la scrittura, a
+               mettere lo stato iniziale. Farle adesso non costa una lettura in
+               piu' e dice anche quali righe fanno davvero crescere l'elenco. */
+            const presenti = {};
+            for (let i = 0; i < candidate.length; i += 200) {
+                const fetta = candidate.slice(i, i + 200).map(x => db.collection('aziendeInvito').doc(x.id));
+                const doc = await db.getAll.apply(db, fetta);
+                doc.forEach(d => { if (d.exists) presenti[d.id] = (d.data() || {}).stato || ''; });
+            }
+
+            let importate = 0, nuove = 0;
+            // i recapiti finiti in questa lista: servono per il controllo incrociato
+            const contattiVisti = [];
+            let batch = db.batch(), nel = 0;
+            for (let i = 0; i < candidate.length; i++) {
+                const c = candidate[i];
+                const esiste = Object.prototype.hasOwnProperty.call(presenti, c.id);
+                // il tetto ferma solo le schede nuove: un aggiornamento non fa crescere l'elenco
+                if (!esiste && gia + nuove >= MAX_AZIENDE_EVENTO) { oltreIlLimite++; continue; }
+                const dati = c.dati;
+                /* Lo stato iniziale si scrive SOLO alla creazione della scheda
+                   (e a chi era rimasto senza): sulle schede gia' in elenco il
+                   merge aggiorna l'anagrafica e non tocca stato ed esito
+                   dell'invio gia' fatto. */
+                if (!esiste || !presenti[c.id]) {
+                    dati.stato = 'da-invitare';
+                    dati.aggiunta = { quando: Date.now(), da: email, collab: collab };
+                }
+                batch.set(db.collection('aziendeInvito').doc(c.id), dati, { merge: true });
+                contattiVisti.push(c.contatto);
                 nel++; importate++;
+                if (!esiste) nuove++;
                 if (nel >= 300) { await batch.commit(); batch = db.batch(); nel = 0; }
             }
             if (nel) await batch.commit();
-
-            /* Lo stato iniziale va messo SOLO alle schede nuove: si rileggono e
-               si completa chi non ce l'ha, invece di sovrascrivere gli invii. */
-            let nuove = 0;
-            for (let i = 0; i < nuoviId.length; i += 200) {
-                const fetta = nuoviId.slice(i, i + 200).map(x => db.collection('aziendeInvito').doc(x));
-                const doc = await db.getAll.apply(db, fetta);
-                let b = db.batch(), n = 0;
-                doc.forEach(d => {
-                    if (!d.exists) return;
-                    const v = d.data() || {};
-                    if (v.stato) return;
-                    b.set(d.ref, { stato: 'da-invitare', aggiunta: { quando: Date.now(), da: email, collab: collab } }, { merge: true });
-                    n++; nuove++;
-                });
-                if (n) await b.commit();
-            }
 
             /* IL CONTROLLO INCROCIATO. La stessa azienda in tutte e due le
                liste dello stesso evento vuol dire due messaggi diversi allo
@@ -710,6 +780,7 @@ async function esegui(ctx) {
                 ok: true, lette: righe.length - 1, importate: importate, nuove: nuove,
                 aggiornate: importate - nuove, senzaRecapito: senzaRecapito, doppie: doppie,
                 oltreIlLimite: oltreIlLimite, senzaDenominazione: senzaDenominazione,
+                limite: MAX_AZIENDE_EVENTO, inElenco: gia + nuove,
                 sovrapposte: sovrapposte.slice(0, 500),
                 sovrapposteTotali: sovrapposte.length
             });

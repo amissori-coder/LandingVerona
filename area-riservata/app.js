@@ -17752,10 +17752,54 @@
         });
     }
 
+    /* L'ELENCO ARRIVA A PAGINE.
+       Un evento puo' tenere fino a 50.000 aziende, e in una risposta sola non
+       ci starebbero: il servizio ne manda un pezzo per volta con il
+       segnalibro dell'ultima scheda, e qui si rimettono insieme.
+
+       "Anche nell'altro elenco" si applica SOLO alla fine: la scheda gemella
+       di un'azienda puo' cadere su un'altra pagina, e chi ha davanti tutte le
+       pagine e' soltanto questo giro. Per lo stesso motivo l'ordine
+       alfabetico si rifa' qui: ogni pagina arriva ordinata al suo interno, ma
+       messe in fila non lo sarebbero piu'. */
+    const INV_MAX_PAGINE = 60;
+    function leggiElencoInvito(ev, campagna, passo) {
+        const aziende = [];
+        const altre = {};
+        let aggiornato = 0;
+        const giro = (dopo, pagina) => Cloud.aziendeInvito({
+            azione: 'elenco', evento: ev.id, campagna: campagna, aPagine: true, dopo: dopo
+        }).then(r => {
+            if (!r || !r.ok) return r || { ok: false, msg: 'Elenco non disponibile.' };
+            (r.aziende || []).forEach(a => aziende.push(a));
+            Object.assign(altre, r.altre || {});
+            aggiornato = r.aggiornato || aggiornato;
+            if (passo) { try { passo(aziende.length); } catch (e) { } }
+            if (r.ancora && r.cursore && pagina < INV_MAX_PAGINE) return giro(r.cursore, pagina + 1);
+            aziende.forEach(a => {
+                const k = String(a.pec || a.email || '').toLowerCase();
+                if (k && altre[k]) a.anche = altre[k];
+            });
+            const conf = (window.Intl && Intl.Collator) ? new Intl.Collator('it') : null;
+            aziende.sort((x, y) => conf
+                ? conf.compare(String(x.ragioneSociale || ''), String(y.ragioneSociale || ''))
+                : String(x.ragioneSociale || '').localeCompare(String(y.ragioneSociale || ''), 'it'));
+            return { ok: true, aziende: aziende, aggiornato: aggiornato || Date.now() };
+        });
+        return giro('', 1);
+    }
+
     function caricaAziendeInvito(ev, poi) {
         const k = invChiave(ev);
         const prima = _invCache[k] ? contaInviti(_invCache[k].aziende) : null;
-        Cloud.aziendeInvito({ azione: 'elenco', evento: ev.id, campagna: _invCampagna }).then(r => {
+        /* Quante ne sono arrivate finora, mentre arrivano: su un elenco da
+           decine di migliaia le pagine sono parecchie, e "Carico l'elenco..."
+           fermo per venti secondi si legge come una finestra piantata. */
+        const passo = quante => {
+            const p = document.getElementById('inv-carico');
+            if (p && quante) p.textContent = 'Carico l\'elenco... ' + quante.toLocaleString('it-IT') + ' aziende';
+        };
+        leggiElencoInvito(ev, _invCampagna, passo).then(r => {
             if (r.ok) _invCache[k] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now() };
             /* Se nel frattempo qualcuno ha risposto lo si DICE. Senza, la
                riga si sposta nella scheda delle risposte e chi stava
@@ -18056,7 +18100,7 @@
            pixel si lavora di scorrimento orizzontale. La modalita' "finestra"
            esisteva gia' nel resto dell'area riservata (barra del titolo,
            riduci, ingrandisci, piede fisso): questa sezione non la usava. */
-        apriModale('<div id="inv-corpo"><p class="hint">Carico l\'elenco...</p></div>'
+        apriModale('<div id="inv-corpo"><p class="hint" id="inv-carico">Carico l\'elenco...</p></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-chiudi">Chiudi</button></div>',
             {
                 finestra: true, classe: 'inv-finestra',
@@ -19221,6 +19265,29 @@
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
+    /* Le righe di un file CSV, una per elemento, senza interpretarle: serve
+       solo a spedirle a blocchi. Le virgolette si contano, perche' una cella
+       puo' contenere un a capo e li' la riga non e' finita - tagliare sul
+       primo \n spezzerebbe l'indirizzo di una sede in due righe storte. */
+    function spezzaRigheCsv(testo) {
+        const s = String(testo || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const righe = [];
+        let inizio = 0, dentroVirgolette = false;
+        for (let i = 0; i < s.length; i++) {
+            const c = s[i];
+            if (c === '"') {
+                if (dentroVirgolette && s[i + 1] === '"') i++;
+                else dentroVirgolette = !dentroVirgolette;
+            } else if (c === '\n' && !dentroVirgolette) {
+                righe.push(s.slice(inizio, i));
+                inizio = i + 1;
+            }
+        }
+        if (inizio < s.length) righe.push(s.slice(inizio));
+        // le righe vuote non contano: e' la stessa regola che applica il servizio
+        return righe.filter(r => r.trim() !== '');
+    }
+
     /* Dal foglio al formato che il servizio gia' sa leggere. Convertire qui
        invece che sul server evita di portarsi un lettore di zip dentro una
        funzione che ha sessanta secondi e dodici posti liberi. */
@@ -19250,6 +19317,11 @@
             + 'scritte in vari modi; le colonne in più restano sulla scheda.</p>'
             + '<p class="hint">Ricaricare lo stesso elenco aggiorna i dati e <b>non</b> crea doppioni: chi ha già ricevuto '
             + 'l\'invito resta segnato come invitato e non lo riceve una seconda volta.</p>'
+            /* La misura si dice PRIMA di caricare: un elenco grosso ci mette
+               qualche minuto, e chi non sa che sta partendo a blocchi crede
+               che si sia bloccato e chiude la finestra a metà. */
+            + '<p class="hint">Un evento tiene fino a <b>50.000</b> aziende. I file grandi partono a blocchi: '
+            + 'il conteggio qui sotto dice a che punto è.</p>'
             + '<div id="inv-imp-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="inv-imp-chiudi">Chiudi</button></div>', { classe: 'larga' });
         const mostra = (t, ko) => {
@@ -19262,20 +19334,78 @@
             catch (e) { mostra('Non riesco a creare il modello: ' + ((e && e.message) || 'errore'), true); }
         });
 
-        const manda = csv => {
-            mostra('Caricamento in corso...');
-            Cloud.aziendeInvito({ azione: 'importa', evento: ev.id, campagna: _invCampagna, csv: csv }).then(r => {
+        /* IL FILE SI MANDA A BLOCCHI.
+           Un evento tiene fino a 50.000 aziende, e un file di quella misura
+           non entra ne' in una richiesta sola (il corpo ha un tetto di pochi
+           megabyte) ne' nei 60 secondi della funzione. Si spedisce un pezzo
+           per volta, ognuno con la sua riga di intestazioni, e i conti si
+           sommano: per il servizio sono caricamenti normali, quindi non c'e'
+           niente di nuovo da mantenere dall'altra parte.
+
+           Un doppione che cade a cavallo di due blocchi non viene contato fra
+           i doppioni ma fra gli aggiornamenti: e' la stessa scheda scritta due
+           volte con lo stesso contenuto, quindi in elenco non cambia niente. */
+        const BLOCCO_RIGHE = 1000;
+        const manda = righeCsv => {
+            const intest = righeCsv[0];
+            const dati = righeCsv.slice(1);
+            const totale = dati.length;
+            const somma = {
+                ok: true, lette: 0, nuove: 0, aggiornate: 0, senzaRecapito: 0, doppie: 0,
+                oltreIlLimite: 0, senzaDenominazione: 0, sovrapposte: [], sovrapposteTotali: 0,
+                limite: 0, inElenco: 0
+            };
+            const quanti = n => n.toLocaleString('it-IT');
+            const blocco = i => {
+                const fetta = dati.slice(i, i + BLOCCO_RIGHE);
+                mostra(totale > BLOCCO_RIGHE
+                    ? 'Caricamento in corso... righe ' + quanti(i + 1) + '-' + quanti(i + fetta.length)
+                      + ' di ' + quanti(totale)
+                    : 'Caricamento in corso...');
+                return Cloud.aziendeInvito({
+                    azione: 'importa', evento: ev.id, campagna: _invCampagna,
+                    csv: [intest].concat(fetta).join('\n')
+                }).then(r => {
+                    if (!r || !r.ok) {
+                        /* Si dice a che punto si e' fermato: "non riuscito" su un
+                           file spedito a pezzi lascerebbe credere che non sia
+                           entrato niente, e invece i blocchi prima sono passati. */
+                        somma.ok = false;
+                        somma.msg = ((r && r.msg) || 'Caricamento non riuscito.')
+                            + (i > 0 ? ' Le prime ' + quanti(somma.lette) + ' righe erano gia\' state caricate.' : '');
+                        return somma;
+                    }
+                    ['lette', 'nuove', 'aggiornate', 'senzaRecapito', 'doppie', 'oltreIlLimite', 'senzaDenominazione']
+                        .forEach(c => { somma[c] += Number(r[c]) || 0; });
+                    somma.limite = r.limite || somma.limite;
+                    somma.inElenco = r.inElenco || somma.inElenco;
+                    somma.sovrapposteTotali += Number(r.sovrapposteTotali) || 0;
+                    (r.sovrapposte || []).forEach(x => { if (somma.sovrapposte.length < 500) somma.sovrapposte.push(x); });
+                    if (i + BLOCCO_RIGHE < totale) return blocco(i + BLOCCO_RIGHE);
+                    return somma;
+                });
+            };
+            blocco(0).then(r => {
                 if (!r.ok) { mostra(r.msg || 'Caricamento non riuscito.', true); return; }
                 /* Ogni scarto si dice, e si dice PERCHE'. Un elenco che entra a
                    meta' senza spiegazioni e' peggio di uno che non entra: chi
                    carica crede di aver invitato tutti. */
                 const scarti = [];
-                if (r.senzaDenominazione) scarti.push(r.senzaDenominazione + ' senza denominazione');
-                if (r.senzaRecapito) scarti.push(r.senzaRecapito + ' senza una PEC valida');
-                if (r.doppie) scarti.push(r.doppie + ' doppioni nel file');
-                if (r.oltreIlLimite) scarti.push(r.oltreIlLimite + ' oltre il limite dell\'evento');
-                mostra('Lette ' + r.lette + ' righe: ' + r.nuove + ' aziende nuove, ' + r.aggiornate + ' aggiornate'
-                    + (scarti.length ? '. Scartate: ' + scarti.join(', ') : '') + '.',
+                if (r.senzaDenominazione) scarti.push(quanti(r.senzaDenominazione) + ' senza denominazione');
+                if (r.senzaRecapito) scarti.push(quanti(r.senzaRecapito) + ' senza una PEC valida');
+                if (r.doppie) scarti.push(quanti(r.doppie) + ' doppioni nel file');
+                /* Il tetto si dice con il suo numero e con la via d'uscita:
+                   "oltre il limite dell'evento", da solo, non dice ne' quanto
+                   sia il limite ne' che cosa fare del file che e' rimasto
+                   fuori. Il tetto ferma solo le aziende NUOVE: gli
+                   aggiornamenti passano anche a elenco pieno. */
+                if (r.oltreIlLimite) scarti.push(quanti(r.oltreIlLimite) + ' oltre il tetto di ' + quanti(r.limite || 50000) + ' aziende per evento');
+                const pieno = r.oltreIlLimite
+                    ? ' L\'elenco dell\'evento ha raggiunto le ' + quanti(r.inElenco || r.limite || 50000) + ' aziende: per aggiungerne altre '
+                      + 'togli dall\'elenco quelle che non servono più, oppure carica il resto su un altro evento.'
+                    : '';
+                mostra('Lette ' + quanti(r.lette) + ' righe: ' + quanti(r.nuove) + ' aziende nuove, ' + quanti(r.aggiornate) + ' aggiornate'
+                    + (scarti.length ? '. Scartate: ' + scarti.join(', ') : '') + '.' + pieno,
                     scarti.length > 0 && !r.nuove && !r.aggiornate);
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco aziende da invitare caricato', 'sistema', ev.id, null, r.nuove + ' nuove, ' + r.aggiornate + ' aggiornate'); } catch (er) { }
                 /* Le sovrapposizioni con l'altra lista si mostrano SUBITO,
@@ -19303,14 +19433,19 @@
                     .then(buf => xlsxRighe(buf))
                     .then(righe => {
                         if (righe.length < 2) throw new Error('Il foglio non contiene righe oltre alle intestazioni.');
-                        manda(righeInCsv(righe));
+                        // una riga per elemento: e' quello che serve per spedire a blocchi
+                        manda(righe.map(r => righeInCsv([r])));
                     })
                     .catch(err => mostra('Non riesco a leggere il foglio: ' + ((err && err.message) || 'errore') + '.', true));
                 return;
             }
             const lettore = new FileReader();
             lettore.onerror = () => mostra('Non riesco a leggere il file.', true);
-            lettore.onload = () => manda(String(lettore.result || ''));
+            lettore.onload = () => {
+                const righe = spezzaRigheCsv(String(lettore.result || ''));
+                if (righe.length < 2) { mostra('Il file non contiene righe oltre alle intestazioni.', true); return; }
+                manda(righe);
+            };
             lettore.readAsText(f, 'utf-8');
         });
     }
