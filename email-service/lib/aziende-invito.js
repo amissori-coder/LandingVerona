@@ -622,12 +622,15 @@ async function esegui(ctx) {
                e' li' che si misura quanto pesa la lettura dell'elenco, che
                legge tutte le schede dell'evento e filtra dopo. */
 
-            let importate = 0, senzaRecapito = 0, doppie = 0, oltreIlLimite = 0, senzaDenominazione = 0;
+            /* Le righe si preparano TUTTE prima di scrivere. Il tetto vale
+               sulle schede nuove, e quali siano nuove si sa solo dopo aver
+               letto quali esistono gia': ricaricare un elenco su un evento
+               pieno non fa crescere niente, e prima veniva scartato in blocco
+               - "2250 oltre il limite" su 2250 righe che erano gia' li' e
+               chiedevano solo di essere aggiornate. */
+            let senzaRecapito = 0, doppie = 0, oltreIlLimite = 0, senzaDenominazione = 0;
             const viste = {};
-            // i recapiti finiti in questa lista: servono per il controllo incrociato
-            const contattiVisti = [];
-            let batch = db.batch(), nel = 0;
-            const nuoviId = [];
+            const candidate = [];
             for (let r = 1; r < righe.length; r++) {
                 const riga = righe[r];
                 if (!riga || !riga.length) continue;
@@ -643,7 +646,6 @@ async function esegui(ctx) {
                 if (!cella(riga, iRag)) { senzaDenominazione++; continue; }
                 if (viste[contatto]) { doppie++; continue; }
                 viste[contatto] = true;
-                if (gia + importate >= MAX_AZIENDE_EVENTO) { oltreIlLimite++; continue; }
 
                 // colonne non riconosciute: restano con la loro intestazione
                 const extra = {};
@@ -654,42 +656,56 @@ async function esegui(ctx) {
                     if (!et || !val) continue;
                     extra[et.slice(0, 60)] = val.slice(0, 300);
                 }
-                const id = idDoc(evento, contatto, campagna);
-                nuoviId.push(id);
-                contattiVisti.push(contatto);
-                /* merge: ricaricare lo stesso elenco aggiorna i dati anagrafici
-                   e NON tocca stato ed esito dell'invio gia' fatto. Lo stato
-                   iniziale si scrive solo alla creazione della scheda. */
-                batch.set(db.collection('aziendeInvito').doc(id), {
-                    evento: evento, campagna: campagna, pec: pecOk, email: mailOk,
-                    ragioneSociale: cella(riga, iRag) || contatto.split('@')[0],
-                    piva: cella(riga, col('piva')), cf: cella(riga, col('cf')),
-                    referente: cella(riga, col('referente')), citta: cella(riga, col('citta')),
-                    provincia: cella(riga, col('provincia')).slice(0, 4), telefono: cella(riga, col('telefono')),
-                    settore: cella(riga, col('settore')), note: cella(riga, col('note')), extra: extra,
-                    aggiornata: { quando: Date.now(), da: email, collab: collab }
-                }, { merge: true });
+                candidate.push({
+                    id: idDoc(evento, contatto, campagna), contatto: contatto,
+                    dati: {
+                        evento: evento, campagna: campagna, pec: pecOk, email: mailOk,
+                        ragioneSociale: cella(riga, iRag) || contatto.split('@')[0],
+                        piva: cella(riga, col('piva')), cf: cella(riga, col('cf')),
+                        referente: cella(riga, col('referente')), citta: cella(riga, col('citta')),
+                        provincia: cella(riga, col('provincia')).slice(0, 4), telefono: cella(riga, col('telefono')),
+                        settore: cella(riga, col('settore')), note: cella(riga, col('note')), extra: extra,
+                        aggiornata: { quando: Date.now(), da: email, collab: collab }
+                    }
+                });
+            }
+
+            /* Chi c'e' gia' e chi e' nuovo, in una lettura ogni 200 schede:
+               sono le stesse letture che prima servivano, dopo la scrittura, a
+               mettere lo stato iniziale. Farle adesso non costa una lettura in
+               piu' e dice anche quali righe fanno davvero crescere l'elenco. */
+            const presenti = {};
+            for (let i = 0; i < candidate.length; i += 200) {
+                const fetta = candidate.slice(i, i + 200).map(x => db.collection('aziendeInvito').doc(x.id));
+                const doc = await db.getAll.apply(db, fetta);
+                doc.forEach(d => { if (d.exists) presenti[d.id] = (d.data() || {}).stato || ''; });
+            }
+
+            let importate = 0, nuove = 0;
+            // i recapiti finiti in questa lista: servono per il controllo incrociato
+            const contattiVisti = [];
+            let batch = db.batch(), nel = 0;
+            for (let i = 0; i < candidate.length; i++) {
+                const c = candidate[i];
+                const esiste = Object.prototype.hasOwnProperty.call(presenti, c.id);
+                // il tetto ferma solo le schede nuove: un aggiornamento non fa crescere l'elenco
+                if (!esiste && gia + nuove >= MAX_AZIENDE_EVENTO) { oltreIlLimite++; continue; }
+                const dati = c.dati;
+                /* Lo stato iniziale si scrive SOLO alla creazione della scheda
+                   (e a chi era rimasto senza): sulle schede gia' in elenco il
+                   merge aggiorna l'anagrafica e non tocca stato ed esito
+                   dell'invio gia' fatto. */
+                if (!esiste || !presenti[c.id]) {
+                    dati.stato = 'da-invitare';
+                    dati.aggiunta = { quando: Date.now(), da: email, collab: collab };
+                }
+                batch.set(db.collection('aziendeInvito').doc(c.id), dati, { merge: true });
+                contattiVisti.push(c.contatto);
                 nel++; importate++;
+                if (!esiste) nuove++;
                 if (nel >= 300) { await batch.commit(); batch = db.batch(); nel = 0; }
             }
             if (nel) await batch.commit();
-
-            /* Lo stato iniziale va messo SOLO alle schede nuove: si rileggono e
-               si completa chi non ce l'ha, invece di sovrascrivere gli invii. */
-            let nuove = 0;
-            for (let i = 0; i < nuoviId.length; i += 200) {
-                const fetta = nuoviId.slice(i, i + 200).map(x => db.collection('aziendeInvito').doc(x));
-                const doc = await db.getAll.apply(db, fetta);
-                let b = db.batch(), n = 0;
-                doc.forEach(d => {
-                    if (!d.exists) return;
-                    const v = d.data() || {};
-                    if (v.stato) return;
-                    b.set(d.ref, { stato: 'da-invitare', aggiunta: { quando: Date.now(), da: email, collab: collab } }, { merge: true });
-                    n++; nuove++;
-                });
-                if (n) await b.commit();
-            }
 
             /* IL CONTROLLO INCROCIATO. La stessa azienda in tutte e due le
                liste dello stesso evento vuol dire due messaggi diversi allo
@@ -710,6 +726,7 @@ async function esegui(ctx) {
                 ok: true, lette: righe.length - 1, importate: importate, nuove: nuove,
                 aggiornate: importate - nuove, senzaRecapito: senzaRecapito, doppie: doppie,
                 oltreIlLimite: oltreIlLimite, senzaDenominazione: senzaDenominazione,
+                limite: MAX_AZIENDE_EVENTO, inElenco: gia + nuove,
                 sovrapposte: sovrapposte.slice(0, 500),
                 sovrapposteTotali: sovrapposte.length
             });

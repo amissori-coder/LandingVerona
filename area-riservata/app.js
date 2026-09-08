@@ -19273,9 +19273,18 @@
                 if (r.senzaDenominazione) scarti.push(r.senzaDenominazione + ' senza denominazione');
                 if (r.senzaRecapito) scarti.push(r.senzaRecapito + ' senza una PEC valida');
                 if (r.doppie) scarti.push(r.doppie + ' doppioni nel file');
-                if (r.oltreIlLimite) scarti.push(r.oltreIlLimite + ' oltre il limite dell\'evento');
+                /* Il tetto si dice con il suo numero e con la via d'uscita:
+                   "oltre il limite dell'evento", da solo, non dice ne' quanto
+                   sia il limite ne' che cosa fare del file che e' rimasto
+                   fuori. Il tetto ferma solo le aziende NUOVE: gli
+                   aggiornamenti passano anche a elenco pieno. */
+                if (r.oltreIlLimite) scarti.push(r.oltreIlLimite + ' oltre il tetto di ' + (r.limite || 5000) + ' aziende per evento');
+                const pieno = r.oltreIlLimite
+                    ? ' L\'elenco dell\'evento ha raggiunto le ' + (r.inElenco || r.limite || 5000) + ' aziende: per aggiungerne altre '
+                      + 'togli dall\'elenco quelle che non servono più, oppure carica il resto su un altro evento.'
+                    : '';
                 mostra('Lette ' + r.lette + ' righe: ' + r.nuove + ' aziende nuove, ' + r.aggiornate + ' aggiornate'
-                    + (scarti.length ? '. Scartate: ' + scarti.join(', ') : '') + '.',
+                    + (scarti.length ? '. Scartate: ' + scarti.join(', ') : '') + '.' + pieno,
                     scarti.length > 0 && !r.nuove && !r.aggiornate);
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: elenco aziende da invitare caricato', 'sistema', ev.id, null, r.nuove + ' nuove, ' + r.aggiornate + ' aggiornate'); } catch (er) { }
                 /* Le sovrapposizioni con l'altra lista si mostrano SUBITO,
