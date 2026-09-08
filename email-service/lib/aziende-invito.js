@@ -80,7 +80,33 @@ function idDoc(evento, contatto, campagna) {
 }
 
 const STATI = ['da-invitare', 'inviata', 'errore', 'esclusa', 'disiscritta', 'risposta', 'iscritta'];
-const MAX_AZIENDE_EVENTO = 5000;
+const MAX_AZIENDE_EVENTO = 50000;
+/* Quante schede per pagina quando si legge l'elenco. Il tetto e' alto, e
+   50.000 schede non stanno ne' in una risposta sola (il corpo ha un tetto
+   di pochi megabyte: oltre, la funzione risponde errore invece
+   dell'elenco) ne' comodamente nei 60 secondi della funzione. Quindi
+   l'elenco si legge a pagine e chi lo mostra le rimette insieme. */
+const PAGINA_ELENCO = 1500;
+/* Un'area riservata vecchia rimasta in cache non sa chiedere le pagine:
+   le si risponde come prima, un blocco solo, invece di lasciarle un
+   elenco tagliato senza dirlo. */
+const PAGINA_INTERA = 5000;
+/* Le letture di servizio (gli esiti delle email) non tornano le schede a
+   chi guarda: leggono pochi campi e contano. Li' la pagina puo' essere
+   larga, perche' non deve entrare in una risposta. */
+const PAGINA_SERVIZIO = 5000;
+
+/* Una pagina di schede dell'evento, in ordine di identificativo: e' l'unico
+   ordine che regge un segnalibro senza un indice nuovo, e le schede scritte
+   prima delle campagne non hanno campi su cui ordinare. In ordine alfabetico
+   ci va chi disegna la tabella, che ha in mano tutte le pagine. */
+function paginaEvento(db, evento, dopo, quante, campi) {
+    let q = db.collection('aziendeInvito').where('evento', '==', evento);
+    if (campi && q.select) q = q.select.apply(q, campi);
+    q = q.orderBy(admin.firestore.FieldPath.documentId()).limit(quante);
+    if (dopo) q = q.startAfter(db.collection('aziendeInvito').doc(dopo));
+    return q.get();
+}
 
 /* Equity o founding partner: stessa regola di api/presenze.js (conta il RUOLO
    DI ACCESSO, non la spunta in anagrafica). In caso di dubbio si risponde no. */
@@ -435,7 +461,14 @@ async function esegui(ctx) {
         if (!evento) { res.status(400).json({ ok: false, msg: 'Evento mancante.' }); return; }
 
         if (azione === 'elenco') {
-            const snap = await db.collection('aziendeInvito').where('evento', '==', evento).limit(MAX_AZIENDE_EVENTO).get();
+            /* UNA PAGINA PER VOLTA. Chi chiede aPagine torna a bussare con il
+               segnalibro dell'ultima scheda ricevuta finche' l'elenco non e'
+               finito; chi non lo chiede e' un'area riservata vecchia, e
+               riceve un blocco solo come prima. */
+            const aPagine = body.aPagine === true;
+            const dopo = testo(body.dopo, 400);
+            const quante = aPagine ? PAGINA_ELENCO : PAGINA_INTERA;
+            const snap = await paginaEvento(db, evento, aPagine ? dopo : '', quante);
             const aziende = [];
             /* Le schede delle ALTRE campagne non si buttano via: servono a
                dire, riga per riga, "questa azienda sta anche nell'altro
@@ -443,11 +476,14 @@ async function esegui(ctx) {
                campagna - quindi costa un giro di ciclo e nessuna lettura in
                piu'. */
             const fuoriCampagna = {};
+            let ultimo = '';
+            let quanteLette = 0;
             /* Il filtro sulla campagna si fa QUI e non nel where(): le schede
                scritte prima delle campagne non hanno il campo, e un
                where('campagna','==','invito') non troverebbe proprio quelle. */
             snap.forEach(d => {
                 const v = d.data() || {};
+                ultimo = d.id; quanteLette++;
                 if (CAMPAGNE.diScheda(v) === campagna) { aziende.push(inChiaro(d.id, v)); return; }
                 const k = chiaveContatto(v);
                 if (k) fuoriCampagna[k] = altrove(v);
@@ -457,7 +493,16 @@ async function esegui(ctx) {
                 if (k && fuoriCampagna[k]) a.anche = fuoriCampagna[k];
             });
             aziende.sort((a, b) => String(a.ragioneSociale).localeCompare(String(b.ragioneSociale), 'it'));
-            res.status(200).json({ ok: true, aziende: aziende, aggiornato: Date.now() });
+            /* L'altra lista viaggia anche a parte: la sovrapposizione fra due
+               schede puo' cadere su due pagine diverse, e chi rimette insieme
+               le pagine e' l'unico che le ha davanti tutte e due. */
+            res.status(200).json({
+                ok: true, aziende: aziende, aggiornato: Date.now(),
+                altre: aPagine ? fuoriCampagna : {},
+                cursore: quanteLette >= quante ? ultimo : '',
+                ancora: quanteLette >= quante,
+                limite: MAX_AZIENDE_EVENTO
+            });
             return;
         }
 
@@ -471,19 +516,28 @@ async function esegui(ctx) {
            esaurirebbe da sola in un pomeriggio. */
         if (azione === 'esiti-email') {
             if (!puoGestire) { negato(); return; }
-            const snap = await db.collection('aziendeInvito').where('evento', '==', evento).limit(MAX_AZIENDE_EVENTO).get();
+            /* Anche questa lettura va a pagine, e chiede i soli tre campi che
+               guarda: con il tetto a 50.000 schede una lettura sola si
+               porterebbe dietro l'intero elenco per contare gli indirizzi. */
             const indirizzi = [];
             let dal = 0;
-            snap.forEach(d => {
-                const v = d.data() || {};
-                if (CAMPAGNE.diScheda(v) !== campagna) return;
-                if (!v.invio || v.invio.canale !== 'email') return;
-                const ind = String(v.invio.destinatario || v.email || '').trim().toLowerCase();
-                if (!ind) return;
-                indirizzi.push(ind);
-                const q = Number(v.invio.quando) || 0;
-                if (q && (!dal || q < dal)) dal = q;
-            });
+            let dopoEsiti = '';
+            for (let pagina = 0; pagina * PAGINA_SERVIZIO < MAX_AZIENDE_EVENTO; pagina++) {
+                const snap = await paginaEvento(db, evento, dopoEsiti, PAGINA_SERVIZIO, ['campagna', 'invio', 'email']);
+                let lette = 0;
+                snap.forEach(d => {
+                    const v = d.data() || {};
+                    dopoEsiti = d.id; lette++;
+                    if (CAMPAGNE.diScheda(v) !== campagna) return;
+                    if (!v.invio || v.invio.canale !== 'email') return;
+                    const ind = String(v.invio.destinatario || v.email || '').trim().toLowerCase();
+                    if (!ind) return;
+                    indirizzi.push(ind);
+                    const q = Number(v.invio.quando) || 0;
+                    if (q && (!dal || q < dal)) dal = q;
+                });
+                if (lette < PAGINA_SERVIZIO) break;
+            }
             if (!indirizzi.length) {
                 res.status(200).json({ ok: true, stato: 'nessuno', esiti: {}, msg: 'Nessun invio via email ordinaria in questa campagna.' });
                 return;
