@@ -38,10 +38,21 @@
    ogni scheda porta con se' il proprio esito, cosi' una ripresa non
    rispedisce a chi ha gia' ricevuto.
 
+   E CHI NON PUO' TENERE APERTA UNA FINESTRA PER OTTO ORE. Su un
+   elenco da migliaia di aziende l'invio a mano non basta: si
+   PROGRAMMA, e a mandarlo avanti e' il servizio, da solo, a ritmo
+   (250 PEC ogni novanta minuti, 1.000 email ogni ora). Le azioni che
+   lo mettono in piedi stanno qui in fondo; il lavoro vero e' in
+   lib/giro-inviti.js, che gira ogni dieci minuti da
+   api/invii-programmati.js. A spedire, in tutti e due i casi, e' lo
+   stesso motore (lib/invio-inviti.js).
+
    Azioni, tutte con sezione: 'aziende':
      elenco, importa, aggiungi, modifica, cancella, segna, invia,
      configurazione, stato-lettore, ricevute, non-riconosciute,
-     messaggi, leggi-messaggio.
+     messaggi, leggi-messaggio,
+     programmazione, programma, programma-lotto, programma-avvia,
+     programma-sospendi, programma-riprendi, programma-annulla.
    ============================================================ */
 
 const admin = require('firebase-admin');
@@ -52,6 +63,14 @@ const CODICI = require('./codici-invito');
 const CAMPAGNE = require('./campagne-invito');
 const ESITI = require('./esiti-email');
 const CONTATTI = require('./richieste-contatto');
+/* Il motore che spedisce davvero, uno per scheda. Sta fuori perche' lo
+   usa anche il lavoro automatico degli invii programmati: due copie
+   dello stesso ciclo si sarebbero scollate al primo ritocco, e su un
+   invio a freddo a migliaia di aziende quel genere di divergenza non si
+   scopre - si paga. */
+const MOTORE = require('./invio-inviti');
+const PROG = require('./programmazione-inviti');
+const RITMI = require('./ritmi-invito');
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -207,8 +226,36 @@ async function consumaGettoni(db, chi, canale, quanti) {
         const inizio = stessaFinestra ? (d.inizioFinestra || ora) : ora;
         return {
             concessi: concessi, disponibili: disponibili, tetto: tetto,
+            /* L'inizio della finestra torna indietro insieme ai gettoni, e non
+               e' un di piu': serve al rimborso qui sotto per capire se sta
+               ancora parlando della stessa finestra. */
+            inizioFinestra: inizio,
             riprendeAlle: (fatti + concessi) >= tetto ? inizio + ORA_MS : 0
         };
+    });
+}
+
+/* I gettoni prenotati e non usati tornano indietro, ma SOLO se la finestra
+   e' ancora quella in cui erano stati presi.
+
+   Il difetto che questa transazione ripara: il rimborso era un
+   increment(-n) secco. Un invio lungo puo' cominciare a fine finestra e
+   finire dentro quella dopo; li' il decremento si mangiava dei gettoni
+   della finestra NUOVA, che nessuno aveva speso, e il conteggio poteva
+   perfino andare sotto zero - cioe' concedere piu' invii del tetto. Con
+   una persona che preme un pulsante ogni tanto era un caso di scuola; con
+   un lavoro automatico che gira di continuo smette di esserlo. */
+async function restituisciGettoni(db, chi, canale, quanti, inizioFinestra) {
+    if (!(quanti > 0)) return;
+    const rif = db.collection('invito_throttle').doc(chi + '~' + canale);
+    await db.runTransaction(async tx => {
+        const snap = await tx.get(rif);
+        if (!snap.exists) return;
+        const d = snap.data() || {};
+        // finestra cambiata: quei gettoni sono scaduti da soli, non c'e' niente da rendere
+        if (Number(d.inizioFinestra || 0) !== Number(inizioFinestra || 0)) return;
+        const conteggio = Math.max(0, (Number(d.conteggio) || 0) - quanti);
+        tx.set(rif, { conteggio: conteggio }, { merge: true });
     });
 }
 
@@ -386,8 +433,13 @@ async function esegui(ctx) {
 
         /* Chi puo' TOCCARE l'elenco e spedire: amministratore, equity e founding
            partner. Consultarlo lo puo' chiunque veda la sezione Eventi. */
+        /* Le azioni di sola lettura: chiunque veda la sezione Eventi.
+           "programmazione" e' fra queste apposta - nascondere a meta' dello
+           staff che c'e' gia' un invio programmato in corso e' il modo piu'
+           rapido per farne partire un secondo a mano sulle stesse aziende. */
+        const SOLA_LETTURA = ['elenco', 'configurazione', 'programmazione'];
         let puoGestire = eAdmin;
-        if (!puoGestire && azione !== 'elenco' && azione !== 'configurazione') puoGestire = await ePartner(db, ruolo);
+        if (!puoGestire && SOLA_LETTURA.indexOf(azione) < 0) puoGestire = await ePartner(db, ruolo);
         const negato = () => res.status(403).json({ ok: false, msg: 'Possono gestire le aziende da invitare l\'amministratore, gli equity partner e i founding partner.' });
 
         if (azione === 'configurazione') {
@@ -906,7 +958,6 @@ async function esegui(ctx) {
             if (!oggetto) { res.status(400).json({ ok: false, msg: 'Oggetto dell\'invito mancante.' }); return; }
             if (!html.trim()) { res.status(400).json({ ok: false, msg: 'Testo dell\'invito mancante.' }); return; }
             const forza = body.forza === true;
-            const etichettaInvio = CAMPAGNE.etichetta(campagna, evento);
 
             /* Chi ha gia' chiesto di non ricevere piu' nulla non lo si tocca,
                qualunque sia la lista da cui e' rispuntato. Si legge una volta
@@ -929,124 +980,351 @@ async function esegui(ctx) {
             const daFare = ids.slice(0, gettoni.concessi);
             const tettoRaggiunto = gettoni.concessi < ids.length;
 
-            const trans = CANALI.trasporto(canale);
-            const pausa = CANALI.pausaFra(canale);
-            const partite = Date.now();
-            let inviate = 0, saltate = 0, senzaRecapito = 0, disiscritte = 0;
-            const falliti = [];
-            const esiti = {};
-            /* Quando il server di posta rifiuta NOI e non il destinatario
-               (IP bloccato, tetto superato, credenziali), il lotto si ferma
-               qui: le schede rimaste restano "da invitare" e si riprendera'
-               piu' tardi da dove si era arrivati. Insistere non serve a
-               niente e fa due danni - allunga il blocco, e marca "errore"
-               decine di aziende che non hanno nessun problema. */
-            let bloccato = null;
-            let primo = true;
-            for (const id of daFare) {
+            /* Il ciclo vero e' in lib/invio-inviti.js, ed e' lo stesso che usa
+               il lavoro automatico degli invii programmati. Qui restano le due
+               cose che valgono SOLO per l'invio a mano: il tetto orario per
+               utente (un freno contro l'invio partito per sbaglio da una
+               finestra aperta) e il dettaglio degli esiti scheda per scheda,
+               che serve all'area riservata per aggiornare la tabella senza
+               rileggere l'elenco intero. */
+            const r = await MOTORE.inviaSchede(db, {
+                evento: evento, campagna: campagna, canale: canale,
+                ids: daFare, mail: { oggetto: oggetto, html: html }, forza: forza,
+                email: email, collab: collab,
+                /* Il nome della pagina di iscrizione viaggia col codice: e' l'unico
+                   modo che ha il modulo pubblico, che l'evento lo conosce solo per
+                   nome, di accorgersi che gli stanno presentando il codice di un
+                   altro evento. */
+                pagina: testo(body.pagina, 200),
+                rispondiA: email,
                 // oltre i 45 secondi si smette: il resto lo fa la chiamata dopo
-                if (Date.now() - partite > 45000) break;
-                const rif = db.collection('aziendeInvito').doc(id);
-                const snap = await rif.get();
-                if (!snap.exists) { saltate++; continue; }
-                const a = snap.data() || {};
-                if (String(a.evento || '') !== evento) { saltate++; continue; }
-                /* Una scheda dell'altra campagna non parte da qui, nemmeno se
-                   il suo identificativo arriva per sbaglio: riceverebbe il
-                   testo sbagliato, e quello e' un danno che non si ritira. */
-                if (CAMPAGNE.diScheda(a) !== campagna) { saltate++; continue; }
-                if (a.stato === 'esclusa' || a.stato === 'disiscritta') { saltate++; continue; }
-                if (a.invio && a.invio.quando && !forza) { saltate++; continue; }
-                const dest = CANALI.destinatarioDi(canale, a);
-                if (!indirizzoValido(dest)) { senzaRecapito++; continue; }
-                if (fuori[dest.toLowerCase()]) {
-                    await rif.set({ stato: 'disiscritta' }, { merge: true });
-                    esiti[id] = { stato: 'disiscritta' };
-                    disiscritte++;
-                    continue;
-                }
-                /* Il filo per ritrovare le ricevute. Si genera un Message-ID
-                   nostro e lo si annota PRIMA di spedire: se la funzione
-                   morisse fra l'invio e la scrittura dell'esito, la ricevuta
-                   arriverebbe comunque e troverebbe il filo gia' teso. */
-                /* Il codice riservato all'azienda, creato PRIMA di spedire e
-                   subito scritto in archivio. L'ordine conta: se partisse la
-                   mail e poi fallisse la scrittura, l'azienda avrebbe in mano
-                   un codice che qui non risulta, e al momento di registrarsi
-                   si sentirebbe dire di no. Una scheda gia' col suo codice lo
-                   tiene: un secondo invito deve ripetere lo stesso, altrimenti
-                   il primo smette di valere senza che nessuno lo sappia. */
-                let codice = String(a.codice || '');
-                if (!codice) {
-                    try {
-                        codice = await CODICI.assegna(db, {
-                            scheda: id, evento: evento, campagna: campagna,
-                            ragioneSociale: a.ragioneSociale,
-                            pagina: testo(body.pagina, 200)
-                        });
-                        await rif.set({ codice: codice }, { merge: true });
-                        a.codice = codice;
-                    } catch (e) {
-                        const motivo = 'Codice invito non assegnato: ' + String((e && e.message) || e).slice(0, 120);
-                        const errore = { quando: Date.now(), da: email, collab: collab, canale: canale, motivo: motivo };
-                        await rif.set({ stato: 'errore', errore: errore }, { merge: true });
-                        esiti[id] = { stato: 'errore', errore: errore };
-                        falliti.push({ id: id, indirizzo: dest, motivo: motivo });
-                        continue;
-                    }
-                }
-                const riferimento = CANALI.riferimentoNuovo(canale);
-                if (!primo) await CANALI.aspetta(pausa);
-                primo = false;
-                try {
-                    if (canale === 'pec') {
-                        await LETTORE.registraRiferimento(db, riferimento, { scheda: id, evento: evento, destinatario: dest });
-                    }
-                    const info = await trans.sendMail(CANALI.messaggio(canale, a, { oggetto: oggetto, html: html }, {
-                        campagna: etichettaInvio, rispondiA: email, riferimento: riferimento
-                    }));
-                    const invio = {
-                        quando: Date.now(), da: email, collab: collab, canale: canale, destinatario: dest,
-                        codice: codice,
-                        riferimento: riferimento,
-                        oggetto: CANALI.applica(oggetto, a).slice(0, 250),
-                        messageId: String((info && info.messageId) || '').slice(0, 300),
-                        risposta: String((info && info.response) || '').slice(0, 200)
-                    };
-                    await rif.set({ stato: 'inviata', invio: invio, errore: null }, { merge: true });
-                    esiti[id] = { stato: 'inviata', invio: invio, codice: codice };
-                    inviate++;
-                } catch (e) {
-                    const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
-                    const errore = { quando: Date.now(), da: email, collab: collab, canale: canale, motivo: motivo };
-                    await rif.set({ stato: 'errore', errore: errore }, { merge: true });
-                    esiti[id] = { stato: 'errore', errore: errore };
-                    falliti.push({ id: id, indirizzo: dest, motivo: motivo });
-                    if (CANALI.fermaTutto(e)) { bloccato = motivo; break; }
-                }
-            }
-            try { trans.close(); } catch (_) { /* niente da chiudere */ }
+                scadenza: Date.now() + 45000,
+                fuori: fuori
+            });
 
             /* Gettoni prenotati e non usati (tempo scaduto, schede saltate):
                si restituiscono, altrimenti il tetto orario si consumerebbe
                anche per gli invii che non sono mai partiti. */
-            const nonUsati = daFare.length - inviate - falliti.length;
+            const nonUsati = daFare.length - r.trattate;
             if (nonUsati > 0) {
-                try {
-                    await db.collection('invito_throttle').doc(email + '~' + canale)
-                        .set({ conteggio: admin.firestore.FieldValue.increment(-nonUsati) }, { merge: true });
-                } catch (_) { /* il tetto si riazzera comunque a fine finestra */ }
+                try { await restituisciGettoni(db, email, canale, nonUsati, gettoni.inizioFinestra); }
+                catch (_) { /* il tetto si riazzera comunque a fine finestra */ }
             }
 
             res.status(200).json({
-                ok: true, canale: canale, inviate: inviate, saltate: saltate,
-                senzaRecapito: senzaRecapito, disiscritte: disiscritte,
-                falliti: falliti.slice(0, 50), esiti: esiti,
+                ok: true, canale: canale, inviate: r.inviate, saltate: r.saltate,
+                senzaRecapito: r.senzaRecapito, disiscritte: r.disiscritte,
+                falliti: r.falliti.slice(0, 50), esiti: r.esiti,
+                /* Le schede su cui un invio precedente si e' interrotto senza
+                   lasciare un esito: non si ritentano, si mostrano. Vedi
+                   INCERTO_DOPO_MS in lib/invio-inviti.js. */
+                incerte: r.incerte || 0,
                 tettoRaggiunto: tettoRaggiunto, maxLotto: maxLotto,
-                bloccato: bloccato || '',
+                bloccato: r.bloccato || '',
                 // l'ora in cui la finestra si riapre, cosi' non si tira a indovinare
                 riprendeAlle: gettoni.riprendeAlle || 0
             });
+            return;
+        }
+
+
+        /* ============================================================
+           GLI INVII PROGRAMMATI
+           ------------------------------------------------------------
+           L'invio a mano lo guida il browser: si preme Invia e i lotti
+           partono finche' la finestra resta aperta. Su un elenco da
+           cinquemila aziende non funziona - nessuno tiene aperta una
+           finestra per otto ore, e il tetto orario per utente si
+           esaurisce dopo il primo quarto d'ora.
+
+           Un invio programmato lo porta avanti il servizio, da solo, a
+           RITMO: 250 PEC ogni novanta minuti, oppure 1.000 email ogni
+           ora. Qui ci sono solo le azioni che lo mettono in piedi e lo
+           governano; a spedire ci pensa il lavoro automatico
+           (lib/giro-inviti.js, chiamato da api/invii-programmati.js).
+
+           PERCHE' TRE AZIONI PER CREARNE UNA. Perche' l'elenco degli
+           identificativi puo' essere lungo decine di migliaia di voci e
+           non entra in una richiesta sola: si crea il documento
+           (programma), si mandano gli identificativi a blocchi
+           (programma-lotto) e solo alla fine si accende
+           (programma-avvia). Finche' non e' accesa la programmazione
+           sta in stato "preparazione" e non spedisce niente: una
+           programmazione a meta' che partisse scriverebbe alle prime
+           cinquecento aziende e poi si direbbe conclusa. */
+        /* Tutte le azioni della programmazione parlano di UN elenco, e un
+           elenco e' un evento piu' una campagna: senza l'evento
+           l'identificativo del documento sarebbe "~invito", cioe' un
+           contenitore comune a tutti gli eventi. Meglio un no chiaro. */
+        if (azione.indexOf('programma') === 0 && !evento) {
+            res.status(400).json({ ok: false, msg: 'Evento non indicato.' });
+            return;
+        }
+
+        if (azione === 'programmazione') {
+            /* La sola LETTURA: la puo' fare chiunque veda la sezione
+               Eventi, come l'elenco. Serve a disegnare il riquadro
+               dell'avanzamento, e nascondere a meta' dello staff che c'e'
+               un invio in corso e' il modo piu' rapido per farne partire
+               un secondo a mano sulle stesse aziende. */
+            const chieste = Array.isArray(body.campagne) && body.campagne.length
+                ? body.campagne.slice(0, 5).map(c => CAMPAGNE.normalizza(c))
+                : [campagna];
+            const fuori = {};
+            for (const c of chieste) {
+                const id = PROG.idDi(evento, c);
+                try {
+                    const s = await PROG.rif(db, id).get();
+                    fuori[c] = s.exists ? PROG.perVideo(id, s.data() || {}) : null;
+                } catch (_) { fuori[c] = null; }
+            }
+            res.status(200).json({
+                ok: true, programmazioni: fuori,
+                programmazione: fuori[campagna] || null,
+                /* I ritmi proposti e il passo del lavoro automatico li dice il
+                   servizio: sono suoi, e un'area riservata rimasta in cache non
+                   deve poter promettere un ritmo che qui non esiste. */
+                ritmi: RITMI.RITMI, passoMin: RITMI.passoCronMin(),
+                cron: await PROG.leggiBattito(db)
+            });
+            return;
+        }
+
+        if (azione === 'programma') {
+            if (!puoGestire) { negato(); return; }
+            const canale = String(body.canale || 'email') === 'pec' ? 'pec' : 'email';
+            if (!CANALI.configurato(canale)) {
+                res.status(400).json({
+                    ok: false, nonConfigurato: true, canale: canale,
+                    msg: canale === 'pec'
+                        ? 'La casella PEC non e configurata sul servizio: senza quelle credenziali l\'invito non sarebbe una PEC.'
+                        : 'Il server di posta non e configurato sul servizio (variabili SMTP_USER e SMTP_PASS su Vercel).'
+                });
+                return;
+            }
+            const mail = (body.mail && typeof body.mail === 'object') ? body.mail : {};
+            const oggetto = testo(mail.oggetto, 250);
+            const html = String(mail.html || '').slice(0, 300000);
+            if (!oggetto) { res.status(400).json({ ok: false, msg: 'Oggetto dell\'invito mancante.' }); return; }
+            if (!html.trim()) { res.status(400).json({ ok: false, msg: 'Testo dell\'invito mancante.' }); return; }
+
+            const adesso = Date.now();
+            /* Quando parte. Il passato vale come "appena puoi": chi sceglie
+               un'ora gia' passata sta dicendo che vuole cominciare subito, e
+               rispondergli "la data deve essere nel futuro" sarebbe pedanteria
+               su una richiesta chiarissima. In avanti invece un tetto serve: il
+               testo dell'invito e' una fotografia, e a due mesi di distanza
+               parlerebbe di un evento con le date cambiate. */
+            let quando = Number(body.quando) || 0;
+            if (!quando || quando < adesso) quando = adesso;
+            if (quando > adesso + 60 * 24 * 60 * 60 * 1000) {
+                res.status(400).json({ ok: false, msg: 'Non si puo programmare oltre 60 giorni: il testo dell\'invito invecchierebbe.' });
+                return;
+            }
+            const ritmo = RITMI.normalizza(canale, body.ritmo);
+            const id = PROG.idDi(evento, campagna);
+
+            /* Una sola programmazione per elenco, e lo garantisce la
+               transazione: due persone che programmano lo stesso elenco, anche
+               da due browser, finiscono sullo stesso documento e la seconda
+               viene respinta invece di creare un doppione che spedirebbe tutto
+               due volte.
+
+               L'eccezione e' una preparazione abbandonata: se il browser di
+               chi stava caricando gli identificativi e' morto a meta', quella
+               riga resterebbe li' a bloccare l'elenco per sempre. Dopo mezz'ora
+               si considera persa e si puo' ricominciare. */
+            const SCADE_PREPARAZIONE_MS = 30 * 60 * 1000;
+            let conflitto = null;
+            let vecchiaDaPulire = false;
+            await db.runTransaction(async (tx) => {
+                const s = await tx.get(PROG.rif(db, id));
+                if (s.exists) {
+                    const d = s.data() || {};
+                    const preparazionePersa = d.stato === PROG.IN_PREPARAZIONE
+                        && (adesso - Number((d.creato && d.creato.il) || 0)) > SCADE_PREPARAZIONE_MS;
+                    if (PROG.eAttiva(d.stato) && !preparazionePersa) {
+                        conflitto = d.stato;
+                        return;
+                    }
+                    if (preparazionePersa) vecchiaDaPulire = true;
+                }
+                tx.set(PROG.rif(db, id), {
+                    evento: evento, campagna: campagna, canale: canale,
+                    stato: PROG.IN_PREPARAZIONE,
+                    quando: quando, ritmo: ritmo,
+                    mail: { oggetto: oggetto, html: html },
+                    pagina: testo(body.pagina, 200),
+                    forza: body.forza === true,
+                    creato: { da: email, collab: collab, il: adesso },
+                    totale: 0, lotti: 0,
+                    conti: { inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, falliti: 0 },
+                    finestra: { inizio: 0, usati: 0 },
+                    annullaRichiesto: false,
+                    lucchetto: null, avviato: null, concluso: null,
+                    sospesa: null, annullato: null,
+                    ultimoErrore: '', ultimoGiro: 0
+                });
+            });
+            if (conflitto !== null) {
+                res.status(409).json({
+                    ok: false, giaProgrammato: true, stato: conflitto,
+                    msg: conflitto === 'sospesa'
+                        ? 'Su questo elenco c\'e gia un invio programmato, adesso in pausa: riprendilo o annullalo prima di farne un altro.'
+                        : 'Su questo elenco c\'e gia un invio programmato. Annullalo prima di farne un altro, altrimenti le stesse aziende riceverebbero due messaggi.'
+                });
+                return;
+            }
+            // gli identificativi della preparazione persa non devono mescolarsi ai nuovi
+            if (vecchiaDaPulire) await PROG.cancellaLotti(db, id);
+
+            res.status(200).json({
+                ok: true, id: id, perLotto: PROG.PER_LOTTO,
+                ritmo: ritmo, ritmoTesto: RITMI.descrizione(canale, ritmo), quando: quando
+            });
+            return;
+        }
+
+        if (azione === 'programma-lotto') {
+            if (!puoGestire) { negato(); return; }
+            const id = PROG.idDi(evento, campagna);
+            const n = Math.round(Number(body.n) || 0);
+            if (n < 1 || n > 2000) { res.status(400).json({ ok: false, msg: 'Numero del blocco non valido.' }); return; }
+            const ids = (Array.isArray(body.ids) ? body.ids : [])
+                .map(x => testo(x, 400)).filter(Boolean).slice(0, PROG.PER_LOTTO);
+            if (!ids.length) { res.status(400).json({ ok: false, msg: 'Nessuna azienda in questo blocco.' }); return; }
+
+            /* Il conto delle aziende cresce QUI, non alla fine: chi manda i
+               blocchi non deve doverli ricontare, e soprattutto un blocco
+               rispedito dopo un errore di rete non deve contare due volte. Lo
+               garantisce la transazione, che guarda se quel blocco c'era gia'. */
+            let esito = null;
+            await db.runTransaction(async (tx) => {
+                const s = await tx.get(PROG.rif(db, id));
+                if (!s.exists) { esito = { ok: false, msg: 'Programmazione non trovata: ricomincia.' }; return; }
+                const d = s.data() || {};
+                if (d.stato !== PROG.IN_PREPARAZIONE) {
+                    esito = { ok: false, msg: 'Questa programmazione e gia avviata: non si possono aggiungere aziende.' };
+                    return;
+                }
+                const rifLotto = PROG.rifLotti(db, id).doc(PROG.nomeLotto(n));
+                const vecchio = await tx.get(rifLotto);
+                const giaContati = vecchio.exists ? ((vecchio.data() || {}).ids || []).length : 0;
+                tx.set(rifLotto, { n: n, ids: ids, stato: 'attesa', quando: 0 });
+                tx.set(PROG.rif(db, id), {
+                    totale: admin.firestore.FieldValue.increment(ids.length - giaContati),
+                    lotti: admin.firestore.FieldValue.increment(vecchio.exists ? 0 : 1)
+                }, { merge: true });
+                esito = { ok: true, n: n, quanti: ids.length };
+            });
+            if (!esito.ok) { res.status(409).json(esito); return; }
+            res.status(200).json(esito);
+            return;
+        }
+
+        if (azione === 'programma-avvia') {
+            if (!puoGestire) { negato(); return; }
+            const id = PROG.idDi(evento, campagna);
+            let esito = null;
+            await db.runTransaction(async (tx) => {
+                const s = await tx.get(PROG.rif(db, id));
+                if (!s.exists) { esito = { ok: false, msg: 'Programmazione non trovata: ricomincia.' }; return; }
+                const d = s.data() || {};
+                if (d.stato !== PROG.IN_PREPARAZIONE) {
+                    esito = { ok: false, msg: 'Questa programmazione era gia avviata.' };
+                    return;
+                }
+                if (!(Number(d.totale) > 0)) {
+                    esito = { ok: false, msg: 'Nessuna azienda e arrivata: non c\'e niente da programmare.' };
+                    return;
+                }
+                tx.set(PROG.rif(db, id), { stato: 'programmata' }, { merge: true });
+                esito = {
+                    ok: true, id: id, totale: d.totale || 0, lotti: d.lotti || 0,
+                    quando: d.quando || 0, canale: d.canale || 'email',
+                    ritmo: d.ritmo || null,
+                    ritmoTesto: RITMI.descrizione(d.canale, d.ritmo),
+                    passoMin: RITMI.passoCronMin()
+                };
+            });
+            if (!esito.ok) { res.status(409).json(esito); return; }
+            res.status(200).json(esito);
+            return;
+        }
+
+        if (azione === 'programma-sospendi' || azione === 'programma-riprendi') {
+            if (!puoGestire) { negato(); return; }
+            const ferma = azione === 'programma-sospendi';
+            const id = PROG.idDi(evento, campagna);
+            let esito = null;
+            await db.runTransaction(async (tx) => {
+                const s = await tx.get(PROG.rif(db, id));
+                if (!s.exists) { esito = { ok: false, msg: 'Questo elenco non ha un invio programmato.' }; return; }
+                const d = s.data() || {};
+                if (ferma) {
+                    if (!PROG.daLavorare(d.stato)) {
+                        esito = { ok: false, msg: 'Questo invio programmato non e in corso (stato: ' + (d.stato || 'ignoto') + ').' };
+                        return;
+                    }
+                    tx.set(PROG.rif(db, id), {
+                        stato: 'sospesa', sospesa: { da: email, collab: collab, il: Date.now() }
+                    }, { merge: true });
+                    /* Il messaggio dice la verita' scomoda: si ferma quello che
+                       non e' ancora partito. Quello gia' consegnato al server di
+                       posta non si richiama indietro, e chi mette in pausa deve
+                       saperlo prima, non scoprirlo dalle risposte. */
+                    esito = { ok: true, msg: 'Invio programmato in pausa: non parte piu niente. I messaggi gia usciti non si possono richiamare.' };
+                } else {
+                    if (d.stato !== 'sospesa') {
+                        esito = { ok: false, msg: 'Questo invio programmato non e in pausa (stato: ' + (d.stato || 'ignoto') + ').' };
+                        return;
+                    }
+                    tx.set(PROG.rif(db, id), {
+                        stato: 'programmata', sospesa: null, ultimoErrore: '', lucchetto: null
+                    }, { merge: true });
+                    esito = { ok: true, msg: 'Invio programmato ripreso: riparte al prossimo giro, allo stesso ritmo.' };
+                }
+            });
+            if (!esito.ok) { res.status(409).json(esito); return; }
+            res.status(200).json(esito);
+            return;
+        }
+
+        if (azione === 'programma-annulla') {
+            if (!puoGestire) { negato(); return; }
+            const id = PROG.idDi(evento, campagna);
+            let esito = null;
+            await db.runTransaction(async (tx) => {
+                const s = await tx.get(PROG.rif(db, id));
+                if (!s.exists) { esito = { ok: false, msg: 'Questo elenco non ha un invio programmato.' }; return; }
+                const d = s.data() || {};
+                if (!PROG.eAttiva(d.stato)) {
+                    esito = { ok: false, msg: 'Questa programmazione non e piu attiva (stato: ' + (d.stato || 'ignoto') + ').' };
+                    return;
+                }
+                /* Se un giro ci sta lavorando adesso non lo si interrompe da
+                   qui: si lascia il segno e sara' lui a chiudere, dopo il lotto
+                   in corso. Toccare il documento sotto le mani di chi sta
+                   spedendo vorrebbe dire perdere il conto di quello che e'
+                   partito. Il lucchetto dice se qualcuno c'e' davvero: uno
+                   scaduto e' di un giro morto, e non ferma niente. */
+                const inLavorazione = !!(d.lucchetto && Number(d.lucchetto.fino) > Date.now());
+                tx.set(PROG.rif(db, id), {
+                    annullaRichiesto: true,
+                    stato: inLavorazione ? d.stato : 'annullata',
+                    annullato: { da: email, collab: collab, il: Date.now() }
+                }, { merge: true });
+                esito = {
+                    ok: true, inLavorazione: inLavorazione,
+                    msg: inLavorazione
+                        ? 'Un giro sta spedendo proprio adesso: si ferma appena finisce il gruppo in corso. Quello che e gia uscito non si puo richiamare.'
+                        : 'Invio programmato annullato: non partira piu niente.'
+                };
+            });
+            if (!esito.ok) { res.status(409).json(esito); return; }
+            // gli identificativi se ne vanno subito: sono l'unico posto nuovo in cui vivono dei recapiti
+            if (!esito.inLavorazione) await PROG.cancellaLotti(db, id);
+            res.status(200).json(esito);
             return;
         }
 

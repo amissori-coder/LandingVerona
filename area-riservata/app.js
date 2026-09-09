@@ -16100,6 +16100,19 @@
         document.querySelectorAll('.ev-inviti').forEach(b => {
             b.addEventListener('click', () => modaleAziendeInvito(ev, b.dataset.campagna));
         });
+        /* Se su questo evento c'e' un invio programmato in corso, lo si legge
+           SUBITO, senza aspettare che qualcuno apra la finestra delle aziende.
+           E' l'unica riga della pagina che dice "sta gia' partendo qualcosa":
+           chi non la vede rifa' l'invio a mano sulle stesse aziende, e quella
+           e' una PEC pagata due volte. Una sola chiamata, che risponde per
+           tutte e due le campagne. */
+        if (!ev.tutti && puoGestireInviti() && !_invProgChiesta.has(ev.id)) {
+            _invProgChiesta.add(ev.id);
+            caricaProgrammazione(ev, r => {
+                const qualcosa = r && r.ok && INV_CAMPAGNE.some(c => progAttiva(ev, c.id));
+                if (qualcosa && vistaCorrente === 'eventi') vistaEventi();
+            });
+        }
         const bNuova = document.getElementById('ev-nuova');
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
         const bB2b = document.getElementById('ev-b2b');
@@ -17560,6 +17573,46 @@
     function campagnaDef(id) {
         return INV_CAMPAGNE.find(c => c.id === id) || INV_CAMPAGNE[0];
     }
+
+    /* I RITMI DELL'INVIO PROGRAMMATO.
+       Su un elenco da migliaia di aziende l'invio a mano non basta: la
+       finestra del browser dovrebbe restare aperta per ore, e il tetto
+       orario si esaurisce dopo il primo quarto d'ora. Allora si programma,
+       e a mandarlo avanti e' il servizio, da solo, a ritmo.
+
+       I due ritmi in cima sono quelli buoni per il loro canale: 250 PEC ogni
+       novanta minuti, 1.000 email ogni ora. Gli altri servono a chi vuole
+       andare piano - un elenco nuovo, un dominio appena scaldato, un testo
+       su cui non si e' ancora sicuri.
+
+       Come per INV_CAMPAGNE, questo elenco deve restare uguale a quello del
+       servizio (email-service/lib/ritmi-invito.js): il servizio decide e
+       taglia quello che non gli sta bene, qui si decide solo come scriverlo
+       a video. */
+    const INV_RITMI = {
+        pec: [
+            { quanti: 250, ogniMin: 90 },
+            { quanti: 250, ogniMin: 60 },
+            { quanti: 100, ogniMin: 60 },
+            { quanti: 50, ogniMin: 60 }
+        ],
+        email: [
+            { quanti: 1000, ogniMin: 60 },
+            { quanti: 500, ogniMin: 60 },
+            { quanti: 250, ogniMin: 60 },
+            { quanti: 100, ogniMin: 60 }
+        ]
+    };
+    function ritmiDi(canale) { return INV_RITMI[canale === 'pec' ? 'pec' : 'email']; }
+    function ritmoTesto(canale, r) {
+        if (!r) return '';
+        const cosa = canale === 'pec' ? 'PEC' : 'email';
+        const quando = r.ogniMin === 60 ? 'ogni ora'
+            : (r.ogniMin === 1440 ? 'al giorno' : 'ogni ' + r.ogniMin + ' minuti');
+        return Number(r.quanti || 0).toLocaleString('it-IT') + ' ' + cosa + ' ' + quando;
+    }
+    function ritmoChiave(r) { return r ? (r.quanti + 'x' + r.ogniMin) : ''; }
+
     let _invCampagna = 'invito';   // quale delle due si sta guardando
     /* La chiave della cache tiene dentro la campagna: senza, aprire lo
        sponsor dopo l'invito mostrerebbe le aziende dell'altro elenco finche'
@@ -17572,6 +17625,18 @@
     let _invSel = new Set();    // aziende spuntate
     let _invFiltro = { vista: 'da-invitare', testo: '', stato: '', canale: '', pec: '', risposta: '', doppie: false, ordina: 'azienda', verso: 1 };
     let _invCercaTimer = null;
+    /* L'invio programmato in corso, per evento e campagna. Si legge dal
+       servizio insieme all'elenco: e' quello che decide se in cima alla
+       finestra compare il riquadro dell'avanzamento, e se il pulsante
+       "Programma" e' ancora premibile (una sola programmazione per elenco,
+       altrimenti le stesse aziende riceverebbero due messaggi). */
+    let _invProg = {};          // per evento e campagna: la programmazione, o null
+    let _invCron = null;        // ultimo battito del lavoro automatico
+    /* Su quali eventi l'abbiamo gia' chiesta. Serve perche' "nessuna
+       programmazione" e' una risposta valida quanto le altre: senza questo,
+       la pagina degli eventi la richiederebbe a ogni ridisegno - e si
+       ridisegna a ogni presenza segnata. */
+    const _invProgChiesta = new Set();
 
     /* Chi carica l'elenco e spedisce: gli stessi che possono aggiungere
        un'iscrizione (amministratore, equity e founding partner). Il servizio
@@ -17714,8 +17779,19 @@
                 + (n.errori ? ', <span class="ev-ko">' + n.errori + ' con errore</span>' : '')
                 + (n.fuori ? ', ' + n.fuori + ' fuori elenco' : '') + '.'
                 : camp.spiega;
+            /* Un invio programmato si vede DA QUI, senza aprire la finestra.
+               Parte da solo e dura ore: chi passa dalla pagina dell'evento e
+               non lo vede, lo rifa' a mano sulle stesse aziende. */
+            const p = progAttiva(ev, camp.id);
+            const rigaProg = p
+                ? '<div class="hint inv-card-prog' + (p.stato === 'sospesa' ? ' ko' : '') + '">'
+                + (p.stato === 'sospesa' ? 'Invio programmato <b>in pausa</b>' : 'Invio programmato in corso')
+                + ': <b>' + Number((p.conti && p.conti.inviate) || 0).toLocaleString('it-IT') + '</b> '
+                + esc(camp.fatto) + ' su ' + Number(p.totale || 0).toLocaleString('it-IT')
+                + ', ' + esc(ritmoTesto(p.canale, p.ritmo)) + '.</div>'
+                : '';
             return '<div class="card s-admin"><div class="s-admin-txt"><strong>' + esc(camp.nome) + '</strong>'
-                + '<div class="hint">' + riga + '</div></div>'
+                + '<div class="hint">' + riga + '</div>' + rigaProg + '</div>'
                 + '<div class="s-admin-azioni"><button class="btn btn-primary ev-inviti" data-campagna="' + esc(camp.id) + '">'
                 + 'Gestisci le aziende</button></div></div>';
         }).join('');
@@ -17792,6 +17868,15 @@
     function caricaAziendeInvito(ev, poi) {
         const k = invChiave(ev);
         const prima = _invCache[k] ? contaInviti(_invCache[k].aziende) : null;
+        /* La programmazione si rilegge insieme all'elenco, sempre. Passano da
+           qui tutte le riletture - l'apertura, il ritorno sulla scheda del
+           browser, la fine di un invio - ed e' esattamente quando l'invio
+           programmato puo' essere andato avanti da solo. Tenerla ferma
+           vorrebbe dire un riquadro che dice "142 partite" mentre il servizio
+           e' a 400. */
+        caricaProgrammazione(ev, () => {
+            if (document.getElementById('inv-corpo') && _invCache[invChiave(ev)]) disegnaAziendeInvito(ev);
+        });
         /* Quante ne sono arrivate finora, mentre arrivano: su un elenco da
            decine di migliaia le pagine sono parecchie, e "Carico l'elenco..."
            fermo per venti secondi si legge come una finestra piantata. */
@@ -17823,9 +17908,15 @@
     function caricaCfgInvito(poi) {
         if (_invCfg) { if (poi) poi(_invCfg); return; }
         Cloud.aziendeInvito({ azione: 'configurazione' }).then(r => {
+            /* Il freno si tiene, non si butta. Il servizio lo manda da sempre
+               (quanti invii restano in questa finestra oraria, canale per
+               canale) e qui finiva nel nulla: frenoCfg() restava sempre
+               vuoto, e il riquadro che deve dire "tetto esaurito, si riprende
+               fra dodici minuti" non lo diceva mai. Era una riga mancante,
+               non una scelta. */
             _invCfg = (r.ok && r.canali)
-                ? { canali: r.canali, lettore: r.lettore || null }
-                : { canali: { email: { pronto: false }, pec: { pronto: false } }, lettore: null };
+                ? { canali: r.canali, lettore: r.lettore || null, freno: r.freno || null }
+                : { canali: { email: { pronto: false }, pec: { pronto: false } }, lettore: null, freno: null };
             if (poi) poi(_invCfg);
         });
     }
@@ -17854,6 +17945,32 @@
         const min = Math.round(sec / 60);
         if (min < 60) return min + (min === 1 ? ' minuto' : ' minuti');
         return 'circa un\'ora';
+    }
+
+    /* LA PROGRAMMAZIONE IN CORSO. Si chiedono TUTTE E DUE le campagne in una
+       volta sola: la card dell'evento le mostra insieme, e due chiamate per
+       disegnare due righe sarebbero due chiamate per niente. */
+    function progDi(ev, campagna) { return _invProg[invChiave(ev, campagna)] || null; }
+    function caricaProgrammazione(ev, poi) {
+        Cloud.aziendeInvito({
+            azione: 'programmazione', evento: ev.id, campagna: _invCampagna,
+            campagne: INV_CAMPAGNE.map(c => c.id)
+        }).then(r => {
+            if (r.ok) {
+                const p = r.programmazioni || {};
+                INV_CAMPAGNE.forEach(c => { _invProg[invChiave(ev, c.id)] = p[c.id] || null; });
+                _invCron = r.cron || null;
+            }
+            if (poi) poi(r);
+        }).catch(() => { if (poi) poi({ ok: false }); });
+    }
+    /* Una programmazione che occupa il posto: finche' c'e', su quell'elenco
+       non se ne puo' fare un'altra. Lo dice anche il servizio, ma dirlo qui
+       evita di far compilare tutta la finestra per poi rifiutarla. */
+    const INV_PROG_VIVE = ['preparazione', 'programmata', 'in-corso', 'sospesa'];
+    function progAttiva(ev, campagna) {
+        const p = progDi(ev, campagna);
+        return (p && INV_PROG_VIVE.indexOf(p.stato) >= 0) ? p : null;
     }
 
     function aziendeInvitoDi(ev, campagna) { return (_invCache[invChiave(ev, campagna)] || {}).aziende || []; }
@@ -18395,6 +18512,73 @@
             + (vuoto ? 'Indica a chi' : 'Cambia') + '</button></div>';
     }
 
+    /* IL RIQUADRO DELL'INVIO PROGRAMMATO.
+       Sta in cima, sopra le ricevute e sopra la barra dei comandi, e non e'
+       una questione di gusto: mentre un invio parte da solo, "a che punto e'
+       e quando riparte" e' l'unica cosa che si vuole sapere aprendo questa
+       finestra. Se stesse in fondo, chi non lo trova rifarebbe l'invio a
+       mano sulle stesse aziende.
+
+       Mostra tre cose che di solito mancano e costringono a indovinare:
+       quante ne sono partite sulle previste, il ritmo scritto per esteso, e
+       il tempo che manca alla prossima partenza. */
+    function riquadroProgrammazione(ev) {
+        const p = progAttiva(ev, _invCampagna);
+        if (!p) return '';
+        const camp = campagnaDef(_invCampagna);
+        const ferma = p.stato === 'sospesa';
+        const inPreparazione = p.stato === 'preparazione';
+        const c = p.conti || {};
+        const perc = p.totale ? Math.min(100, Math.round((p.fatte || 0) / p.totale * 100)) : 0;
+        const quando = p.finestra && p.finestra.riprendeAlle ? fraQuanto(p.finestra.riprendeAlle) : '';
+
+        /* Una preparazione rimasta a meta' non e' un invio in corso: e' una
+           finestra chiusa mentre caricava. Si dice cosi', con la via d'uscita
+           accanto, invece di lasciare un riquadro che promette un invio che
+           non partira' mai. */
+        if (inPreparazione) {
+            return '<div class="inv-prog ko"><span><b>Programmazione rimasta a metà.</b> '
+                + 'La finestra è stata chiusa mentre caricava l\'elenco, quindi non partirà niente. '
+                + 'Annullala e rifalla.</span>'
+                + '<button class="btn btn-sm btn-danger" id="inv-prog-annulla">Annulla</button></div>';
+        }
+
+        const dettagli = [];
+        if (c.falliti) dettagli.push('<span class="ev-ko">' + c.falliti + ' non riuscite</span>');
+        if (c.incerte) dettagli.push('<span class="ev-ko">' + c.incerte + ' con esito ignoto</span>');
+        if (c.saltate) dettagli.push(c.saltate + ' saltate');
+        if (c.disiscritte) dettagli.push(c.disiscritte + ' disiscritte');
+        if (c.senzaRecapito) dettagli.push(c.senzaRecapito + ' senza recapito');
+
+        return '<div class="inv-prog' + (ferma ? ' ko' : '') + '">'
+            + '<div class="inv-prog-testa">'
+            + '<b>' + (ferma ? 'Invio programmato in pausa' : 'Invio programmato in corso') + '</b>'
+            + '<span class="hint">' + esc(ritmoTesto(p.canale, p.ritmo)) + '</span>'
+            + '</div>'
+            + '<div class="inv-prog-barra"><span style="width:' + perc + '%"></span></div>'
+            + '<div class="inv-prog-numeri">'
+            + '<span><b>' + Number(c.inviate || 0).toLocaleString('it-IT') + '</b> '
+            + esc(camp.fatto) + ' su ' + Number(p.totale || 0).toLocaleString('it-IT') + '</span>'
+            + (dettagli.length ? '<span class="hint">' + dettagli.join(' &middot; ') + '</span>' : '')
+            /* Il tempo che manca, non "più tardi": chi non sa quanto aspettare
+               ricarica la pagina ogni due minuti. */
+            + (!ferma && quando ? '<span class="hint">riparte fra ' + esc(quando) + '</span>' : '')
+            + '</div>'
+            + (p.ultimoErrore ? '<div class="inv-prog-ko">' + esc(p.ultimoErrore) + '</div>' : '')
+            /* Il battito del lavoro automatico. Serve a distinguere "sta
+               andando piano" da "non sta andando affatto": senza, un cron
+               fermo si scopre il giorno dell'evento. */
+            + (_invCron && _invCron.quando && (Date.now() - _invCron.quando) > 45 * 60 * 1000
+                ? '<div class="inv-prog-ko">Il servizio non fa un giro da ' + esc(fmtDataOra(_invCron.quando))
+                + ': l\'invio è fermo, non lento.</div>' : '')
+            + '<div class="inv-prog-azioni">'
+            + (ferma
+                ? '<button class="btn btn-sm btn-primary" id="inv-prog-riprendi">Riprendi</button>'
+                : '<button class="btn btn-sm btn-secondary" id="inv-prog-sospendi">Metti in pausa</button>')
+            + '<button class="btn btn-sm btn-danger" id="inv-prog-annulla">Annulla</button>'
+            + '</div></div>';
+    }
+
     function disegnaAziendeInvito(ev) {
         const corpo = document.getElementById('inv-corpo');
         if (!corpo) return;
@@ -18566,20 +18750,40 @@
                     .map(g => '<button type="button" class="inv-gruppo' + (g[1] ? ' inv-gruppo-tetto' : '') + '"'
                         + (g[1] ? ' title="' + esc(g[1]) + '"' : '')
                         + ' data-quante="' + g[0] + '">le prime ' + g[0] + '</button>').join('')
-                + '<button type="button" class="inv-gruppo" data-quante="tutte">tutte (' + lista.length + ')</button>'
+                /* "tutte" su un elenco grande e' il gesto normale, non
+                   quello temerario: e' quello che si fa per programmare
+                   l'invio a tutta la lista. Il numero va scritto con i
+                   separatori, perche' "tutte (12483)" si legge male proprio
+                   quando conta di piu'. */
+                + '<button type="button" class="inv-gruppo inv-gruppo-tutte" data-quante="tutte">tutte ('
+                + lista.length.toLocaleString('it-IT') + ')</button>'
                 + (_invSel.size ? '<button type="button" class="inv-gruppo inv-gruppo-no" data-quante="0">nessuna</button>' : '')
                 /* "da inviare", non "da invitare": qui il soggetto sono i
                    MESSAGGI ("250 PEC o 500 email"), non le aziende. Nella
                    scheda accanto, dove il soggetto e' l'azienda, resta "da
-                   invitare". */
-                + '<span class="inv-tetti hint">In un\'ora partono al massimo <b>250 PEC</b> o <b>500 email</b>: '
-                + 'quello che avanza resta da inviare e riparte dopo.</span>'
+                   invitare".
+
+                   E si dice subito qual e' la via d'uscita: il tetto orario
+                   vale per l'invio A MANO, quello che si guarda partire. Chi
+                   ha selezionato tremila aziende non deve dedurre da solo che
+                   esiste un altro pulsante - senza questa riga proverebbe a
+                   mandarle a mano e si fermerebbe al primo tetto. */
+                + '<span class="inv-tetti hint">A mano, in un\'ora partono al massimo <b>250 PEC</b> o <b>500 email</b>: '
+                + 'quello che avanza resta da inviare e riparte dopo. '
+                + 'Per un elenco lungo c\'è <b>Programma ' + esc(camp.spedizione) + '</b>, '
+                + 'che va avanti da solo anche a finestra chiusa.</span>'
                 + '</div>' : '');
 
         const azioniSel = '<div class="inv-sel-barra' + (_invSel.size ? '' : ' hidden') + '" id="inv-sel-barra">'
             + '<span id="inv-sel-n">' + _invSel.size + ' selezionate</span>'
             + (_invSel.size ? '<span class="hint">su ' + lista.length + ' in questa scheda</span>' : '')
             + '<button class="btn btn-primary btn-sm" id="inv-invia">Invia ' + esc(camp.spedizione) + '</button>'
+            /* Due pulsanti e non uno con dentro una scelta: sono due lavori
+               diversi. "Invia" vuole la finestra aperta e finisce in minuti;
+               "Programma" se ne va per conto suo e finisce in ore o giorni.
+               Su un elenco lungo il secondo e' l'unico che funziona, e
+               nasconderlo dentro il primo vorrebbe dire che nessuno lo trova. */
+            + '<button class="btn btn-secondary btn-sm" id="inv-programma">Programma ' + esc(camp.spedizione) + '</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-escludi">Escludi</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da ' + esc(camp.azione) + '</button>'
             + '<button class="btn btn-danger btn-sm" id="inv-elimina">Elimina</button></div>';
@@ -18653,7 +18857,13 @@
            elenco da caricare. */
         const intestazioni = '<thead>'
             + '<tr>'
+            /* La spunta in cima riflette lo stato reale della selezione.
+               Prima non lo faceva mai: dopo un ridisegno - e si ridisegna a
+               ogni gruppo scelto, a ogni filtro - tornava vuota anche con
+               tutte le righe selezionate, e sembrava che la selezione fosse
+               andata persa. */
             + '<th class="inv-th-ck"><input type="checkbox" id="inv-tutte" title="Seleziona tutte le righe filtrate"'
+            + ((lista.length && _invSel.size >= lista.length && lista.every(a => _invSel.has(a.id))) ? ' checked' : '')
             + (mostrate.length ? '' : ' disabled') + '></th>'
             + intest(['azienda', 'Azienda'])
             + '<th>Recapiti</th>'
@@ -18697,7 +18907,10 @@
                 + ': restringi la ricerca per vedere le altre. La spunta in cima, i gruppi e le azioni valgono comunque su tutte le '
                 + lista.length + ' righe filtrate.</p>' : '');
 
-        corpo.innerHTML = campagne + schede + riquadroRicevute(ev, tutte) + riquadroEsitiEmail(ev, tutte)
+        /* L'invio programmato sta PRIMA delle ricevute: mentre parte da solo,
+           "a che punto e' e quando riparte" viene prima di tutto il resto. */
+        corpo.innerHTML = campagne + schede + riquadroProgrammazione(ev)
+            + riquadroRicevute(ev, tutte) + riquadroEsitiEmail(ev, tutte)
             + riquadroContatti(ev, tutte) + barra + azioniSel
             + '<div id="inv-esito" class="ev-imp-esito"></div>' + tabella;
 
@@ -18706,6 +18919,39 @@
             const e = document.getElementById('inv-esito');
             if (e) e.innerHTML = t ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(t) + '</span>' : '';
         };
+
+        /* Pausa, ripresa e annullamento dell'invio programmato. Si rilegge
+           SEMPRE dal servizio dopo l'operazione, invece di aggiustare a mano
+           quello che si ha in memoria: fra un clic e l'altro il lavoro
+           automatico puo' aver spedito un altro gruppo, e i numeri scritti a
+           mano sarebbero gia' vecchi. */
+        const comandoProg = (id, azione, conferma) => {
+            const b = document.getElementById(id);
+            if (!b) return;
+            b.addEventListener('click', () => {
+                if (conferma && !confirm(conferma)) return;
+                const testoPrec = b.textContent;
+                b.disabled = true; b.textContent = 'Un momento...';
+                Cloud.aziendeInvito({ azione: azione, evento: ev.id, campagna: _invCampagna }).then(r => {
+                    if (!r.ok) {
+                        b.disabled = false; b.textContent = testoPrec;
+                        esito(r.msg || 'Non riuscito.', true);
+                        return;
+                    }
+                    caricaProgrammazione(ev, () => {
+                        ridisegna();
+                        toast(r.msg || 'Fatto.', 'verde');
+                    });
+                });
+            });
+        };
+        comandoProg('inv-prog-sospendi', 'programma-sospendi', null);
+        comandoProg('inv-prog-riprendi', 'programma-riprendi', null);
+        /* L'annullamento e' l'unico che chiede conferma, e dice la verita'
+           scomoda: si ferma quello che non e' ancora partito. Quello gia'
+           consegnato al server di posta non torna indietro. */
+        comandoProg('inv-prog-annulla', 'programma-annulla',
+            'Annullare l\'invio programmato? Non partirà più niente, ma i messaggi già usciti non si possono richiamare.');
 
         const bCar = document.getElementById('inv-carica');
         if (bCar) bCar.addEventListener('click', () => modaleImportaAziendeInvito(ev));
@@ -18910,14 +19156,46 @@
 
         const selezionate = () => tutte.filter(a => _invSel.has(a.id));
         const bInvia = document.getElementById('inv-invia');
-        if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate()));
+        if (bInvia) bInvia.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'ora'));
+        const bProg = document.getElementById('inv-programma');
+        if (bProg) bProg.addEventListener('click', () => modaleInviaInvito(ev, selezionate(), 'prog'));
+        /* LE AZIONI DI GRUPPO VANNO A BLOCCHI.
+           Il servizio ne accetta al massimo 500 per chiamata, e non e' un
+           capriccio: sono scritture su Firestore, che vanno a lotti. Finche'
+           si spuntavano venti righe a mano non si notava; da quando si
+           seleziona un elenco intero - che e' il gesto per cui questa finestra
+           esiste - "Escludi" su tremila aziende ne segnava 500 e taceva sulle
+           altre 2.500, e "Elimina" rispondeva "troppe aziende in una volta
+           sola" senza dire cosa fare. Si manda un blocco per volta, e se uno
+           fallisce si dice a che punto ci si e' fermati: sapere che le prime
+           mille sono passate e' esattamente cio' che serve per riprendere. */
+        const A_BLOCCHI = 500;
+        const perBlocchi = async (ids, quanti, manda) => {
+            let fatti = 0;
+            for (let i = 0; i < ids.length; i += quanti) {
+                const r = await manda(ids.slice(i, i + quanti));
+                if (!r || !r.ok) {
+                    return { ok: false, fatti: fatti, msg: (r && r.msg) || 'Non riuscito.' };
+                }
+                fatti += Math.min(quanti, ids.length - i);
+            }
+            return { ok: true, fatti: fatti };
+        };
+        const quanti = n => n.toLocaleString('it-IT');
         const cambiaStato = (stato, parola) => {
             const ids = Array.from(_invSel);
             if (!ids.length) return;
-            Cloud.aziendeInvito({ azione: 'segna', evento: ev.id, campagna: _invCampagna, ids: ids, stato: stato }).then(r => {
-                if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
+            perBlocchi(ids, A_BLOCCHI, blocco => Cloud.aziendeInvito({
+                azione: 'segna', evento: ev.id, campagna: _invCampagna, ids: blocco, stato: stato
+            })).then(r => {
+                if (!r.ok) {
+                    esito(r.msg + (r.fatti ? ' Le prime ' + quanti(r.fatti) + ' erano già state segnate.' : ''), true);
+                }
                 _invSel = new Set();
-                caricaAziendeInvito(ev, () => { ridisegna(); toast(ids.length + ' aziende ' + parola + '.', 'verde'); });
+                caricaAziendeInvito(ev, () => {
+                    ridisegna();
+                    if (r.ok) toast(quanti(r.fatti) + ' aziende ' + parola + '.', 'verde');
+                });
             });
         };
         const bEsc = document.getElementById('inv-escludi');
@@ -18928,11 +19206,18 @@
         if (bEli) bEli.addEventListener('click', () => {
             const ids = Array.from(_invSel);
             if (!ids.length) return;
-            if (!confirm('Eliminare ' + ids.length + ' aziende dall\'elenco? Gli esiti degli invii già fatti si perdono.')) return;
-            Cloud.aziendeInvito({ azione: 'cancella', evento: ev.id, campagna: _invCampagna, ids: ids }).then(r => {
-                if (!r.ok) { esito(r.msg || 'Non riuscito.', true); return; }
+            if (!confirm('Eliminare ' + quanti(ids.length) + ' aziende dall\'elenco? Gli esiti degli invii già fatti si perdono.')) return;
+            perBlocchi(ids, A_BLOCCHI, blocco => Cloud.aziendeInvito({
+                azione: 'cancella', evento: ev.id, campagna: _invCampagna, ids: blocco
+            })).then(r => {
+                if (!r.ok) {
+                    esito(r.msg + (r.fatti ? ' Le prime ' + quanti(r.fatti) + ' erano già state eliminate.' : ''), true);
+                }
                 _invSel = new Set();
-                caricaAziendeInvito(ev, () => { ridisegna(); toast(r.tolte + ' aziende eliminate.', 'verde'); });
+                caricaAziendeInvito(ev, () => {
+                    ridisegna();
+                    if (r.ok) toast(quanti(r.fatti) + ' aziende eliminate.', 'verde');
+                });
             });
         });
     }
@@ -19993,7 +20278,7 @@
        sempre quello a video. Si spedisce a LOTTI, cosi' nessuna chiamata sfora
        il tempo massimo del servizio, e a ogni giro l'esito e' gia' scritto sulle
        schede: interrompere e riprendere non fa danni. */
-    function modaleInviaInvito(ev, elenco) {
+    function modaleInviaInvito(ev, elenco, modoIniziale) {
         if (!puoGestireInviti()) return;
         const scelte = (elenco || []).filter(a => a.stato !== 'esclusa' && a.stato !== 'disiscritta');
         if (!scelte.length) { toast('Nessuna azienda selezionata (escluse e disiscritte non contano).', 'rosso'); return; }
@@ -20009,6 +20294,45 @@
             + '<input type="radio" name="inv-canale" id="' + id + '" value="' + nome + '"'
             + (attivo ? ' checked' : '') + (pronto ? '' : ' disabled') + '>'
             + '<span><b>' + etichetta + '</b><br><span class="hint">' + spiega + '</span></span></label>';
+        /* La scelta "adesso o programmato" ha la stessa forma visiva della
+           scelta del canale: sono due domande dello stesso genere, una sotto
+           l'altra, e dargli due aspetti diversi le farebbe leggere come cose
+           di natura diversa. */
+        const modo = (id, nome, etichetta, spiega, attivo, pronto) =>
+            '<label class="inv-canale' + (attivo ? ' attiva' : '') + (pronto ? '' : ' spenta') + '">'
+            + '<input type="radio" name="inv-modo" id="' + id + '" value="' + nome + '"'
+            + (attivo ? ' checked' : '') + (pronto ? '' : ' disabled') + '>'
+            + '<span><b>' + etichetta + '</b><br><span class="hint">' + spiega + '</span></span></label>';
+        /* Una sola programmazione per elenco: lo dice anche il servizio, ma
+           saperlo qui evita di far compilare tutta la finestra per poi
+           sentirsi rispondere di no. L'invio a mano invece resta possibile:
+           serve proprio a mandare qualcosa a due o tre aziende mentre il
+           grosso va avanti per conto suo. */
+        const progInCorso = !!progAttiva(ev, _invCampagna);
+        /* Si arriva qui da due pulsanti diversi, e la finestra si apre gia'
+           sulla domanda giusta: chi ha premuto "Programma" non deve rifare la
+           scelta che ha appena fatto. Se pero' su questo elenco c'e' gia' una
+           programmazione, si ricade su "adesso": la voce programmata e'
+           spenta, e aprirla selezionata mostrerebbe un modulo che non si puo'
+           usare. */
+        let modoInvio = (modoIniziale === 'prog' && !progInCorso) ? 'prog' : 'ora';
+        const opzioniRitmo = c => ritmiDi(c).map((r, i) =>
+            '<option value="' + esc(ritmoChiave(r)) + '"' + (i === 0 ? ' selected' : '') + '>'
+            + esc(ritmoTesto(c, r)) + '</option>').join('');
+        const dueCifre = n => ('0' + n).slice(-2);
+        const oggiIso = () => {
+            const d = new Date();
+            return d.getFullYear() + '-' + dueCifre(d.getMonth() + 1) + '-' + dueCifre(d.getDate());
+        };
+        /* Cinque minuti avanti, non l'ora esatta: il campo si compila da se'
+           con un valore che funziona, e chi vuole partire subito non deve
+           toccare niente. Un'ora gia' passata varrebbe comunque come
+           "appena puoi" (lo dice il servizio), ma leggerla nel campo
+           sembrerebbe un errore. */
+        const oraFraPoco = () => {
+            const d = new Date(Date.now() + 5 * 60 * 1000);
+            return dueCifre(d.getHours()) + ':' + dueCifre(d.getMinutes());
+        };
 
         const campI = campagnaDef(_invCampagna);
         /* Il messaggio porta il pulsante del modulo? Non lo si decide dalla
@@ -20044,6 +20368,46 @@
                     : 'Casella PEC non configurata sul servizio: servono le variabili PEC_SMTP_USER, PEC_SMTP_PASS e PEC_FROM_EMAIL su Vercel.',
                 canale === 'pec', cPec.pronto)
             + '</div>'
+            /* QUANDO FAR PARTIRE. Sta subito sotto il canale e sopra il testo
+               perche' cambia il senso di tutto quello che viene dopo: con
+               "adesso" la finestra deve restare aperta e il tetto orario
+               conta, con "programmato" non conta piu' niente dei due e al
+               posto loro c'e' un ritmo.
+
+               La voce programmata e' quella giusta appena l'elenco supera
+               qualche centinaio di aziende, e lo si dice con il numero
+               davanti invece di lasciarlo capire: chi preme "adesso" su
+               quattromila aziende scopre il problema dopo venti minuti di
+               finestra aperta. */
+            + '<div class="campo"><label>Quando far partire ' + esc(campI.spedizione) + '</label>'
+            + modo('ii-m-ora', 'ora', 'Adesso, da questa finestra',
+                'Parte subito, a gruppi, finché questa finestra resta aperta. '
+                + 'Il tetto è di <b>' + (Number(cPec.maxOra) || 250) + ' PEC</b> o <b>' + (Number(cEmail.maxOra) || 500)
+                + ' email</b> in un\'ora: quello che avanza resta da inviare.', modoInvio === 'ora', true)
+            + modo('ii-m-prog', 'prog', 'Programmato, lo manda avanti il servizio',
+                progInCorso
+                    ? 'Su questo elenco c\'è già un invio programmato: mettilo in pausa o annullalo dalla finestra dell\'elenco prima di farne un altro.'
+                    : 'Parte da solo, a ritmo, anche a finestra chiusa e anche di notte. '
+                    + 'È la strada per un elenco lungo: <b>' + scelte.length.toLocaleString('it-IT')
+                    + '</b> aziende a mano vorrebbero dire tenere aperta questa finestra per ore.',
+                modoInvio === 'prog', !progInCorso)
+            + '<div id="ii-prog" class="ii-prog"' + (modoInvio === 'prog' ? '' : ' hidden') + '>'
+            + '<div class="ii-prog-campi">'
+            + '<label for="ii-ritmo">A che ritmo</label>'
+            + '<select id="ii-ritmo">' + opzioniRitmo(canale) + '</select>'
+            + '<label for="ii-quando-g">Comincia il</label>'
+            + '<input type="date" id="ii-quando-g" value="' + esc(oggiIso()) + '">'
+            + '<input type="time" id="ii-quando-o" value="' + esc(oraFraPoco()) + '">'
+            + '</div>'
+            + '<div class="hint" id="ii-prog-stima"></div>'
+            /* Le due cose che si scoprono dopo, e che vanno dette prima: il
+               testo e' una fotografia, l'elenco pure. Stesse frasi, per lo
+               stesso motivo, gia' collaudate sulla newsletter programmata. */
+            + '<div class="hint">Parte <b>questo</b> testo e partono <b>queste</b> aziende: modifiche fatte dopo, '
+            + 'e aziende caricate dopo, non entrano - si annulla e si riprogramma. '
+            + 'Chi si disiscrive nel frattempo viene tolto lo stesso, perché quel controllo il servizio lo rifà '
+            + 'prima di ogni messaggio.</div>'
+            + '</div></div>'
             + '<div class="campo"><label for="ii-ogg">Oggetto</label>'
             + '<input type="text" id="ii-ogg" maxlength="200" value="' + esc(invOggettoPredefinito(ev)) + '"></div>'
             + '<div class="campo"><label for="ii-testo">Testo ' + esc(campI.id === 'sponsor' ? 'della richiesta' : 'dell\'invito') + '</label>'
@@ -20213,12 +20577,53 @@
 
         // quante ne partono davvero su questo canale: si aggiorna il pulsante
         const daFare = () => scelte.filter(a => recapitoDi(canale, a));
+        /* Il ritmo scelto adesso, letto dalla tendina. Se la tendina non c'e'
+           (modo "adesso") vale il primo del canale, che e' quello buono. */
+        const ritmoScelto = () => {
+            const sel = document.getElementById('ii-ritmo');
+            const lista = ritmiDi(canale);
+            const v = sel ? sel.value : '';
+            return lista.find(r => ritmoChiave(r) === v) || lista[0];
+        };
+        /* QUANTO CI METTE, detto prima di premere. "1.000 email ogni ora" da
+           solo non risponde alla domanda che si sta facendo chi guarda
+           quattromila aziende: quando finisce? Il conto e' banale, ma farlo a
+           mente davanti a una finestra aperta non lo fa nessuno. */
+        const aggiornaStima = () => {
+            const box = document.getElementById('ii-prog-stima');
+            if (!box) return;
+            const n = daFare().length;
+            const r = ritmoScelto();
+            if (!n || !r) { box.textContent = ''; return; }
+            const finestre = Math.ceil(n / r.quanti);
+            const minuti = Math.max(0, (finestre - 1) * r.ogniMin);
+            const durata = minuti < 60
+                ? (minuti <= 1 ? 'meno di un\'ora' : 'circa ' + minuti + ' minuti')
+                : (minuti < 24 * 60
+                    ? 'circa ' + Math.round(minuti / 60) + ' ore'
+                    : 'circa ' + Math.round(minuti / 60 / 24) + ' giorni');
+            box.innerHTML = '<b>' + n.toLocaleString('it-IT') + '</b> '
+                + (canale === 'pec' ? 'PEC' : 'email') + ' a questo ritmo sono '
+                + finestre + (finestre === 1 ? ' gruppo' : ' gruppi') + ': finisce in ' + durata + '.';
+        };
         const aggiornaBottone = () => {
             const b = document.getElementById('ii-si');
             if (!b || stato.inCorso) return;
             const n = daFare().length;
-            b.textContent = n ? ('Invia ' + n + (canale === 'pec' ? ' PEC' : ' email')) : 'Nessun recapito su questo canale';
+            const quale = canale === 'pec' ? ' PEC' : ' email';
+            b.textContent = n
+                ? ((modoInvio === 'prog' ? 'Programma ' : 'Invia ') + n.toLocaleString('it-IT') + quale)
+                : 'Nessun recapito su questo canale';
             b.disabled = !n;
+            aggiornaStima();
+            /* Nel modo programmato il tetto orario non c'entra piu' niente: il
+               freno e' il ritmo, e lasciare li' la frase del tetto direbbe una
+               cosa falsa proprio nel punto in cui si sta scegliendo l'altra. */
+            if (modoInvio === 'prog') {
+                const avviso0 = document.getElementById('ii-tetto');
+                if (avviso0) { avviso0.innerHTML = ''; avviso0.classList.remove('ii-tetto-fermo'); }
+                return;
+            }
             /* Il tetto orario si dice PRIMA, non a meta' invio. Il servizio si
                ferma da solo quando lo raggiunge e riprende dopo, ma scoprirlo
                alla duecentesima PEC, con la barra a meta', sembra un guasto:
@@ -20233,12 +20638,38 @@
                     : '';
             }
         };
+        /* L'evidenziazione si toglie SOLO alle voci del proprio gruppo. Le
+           due domande (canale, e adesso o programmato) hanno la stessa forma
+           visiva e quindi la stessa classe: senza limitarsi al proprio
+           riquadro, scegliere un canale spegnerebbe la voce accesa dell'altra
+           domanda, che resterebbe scelta ma non sembrerebbe piu' scelta. */
+        const soloIlSuo = (r, fn) => {
+            const gruppo = r.closest('.campo') || document;
+            gruppo.querySelectorAll('.inv-canale').forEach(l => l.classList.remove('attiva'));
+            const mia = r.closest('.inv-canale');
+            if (mia) mia.classList.add('attiva');
+            if (fn) fn();
+        };
         document.querySelectorAll('input[name="inv-canale"]').forEach(r => r.addEventListener('change', () => {
             canale = r.value;
-            document.querySelectorAll('.inv-canale').forEach(l => l.classList.remove('attiva'));
-            r.closest('.inv-canale').classList.add('attiva');
+            soloIlSuo(r);
+            /* I ritmi cambiano col canale, e non di poco: 1.000 email ogni ora
+               contro 250 PEC ogni novanta minuti. Senza ricostruire la tendina,
+               chi passa da email a PEC si porterebbe dietro un ritmo che quel
+               canale non regge, e il servizio glielo taglierebbe in silenzio. */
+            const sel = document.getElementById('ii-ritmo');
+            if (sel) sel.innerHTML = opzioniRitmo(canale);
             aggiornaBottone();
         }));
+        document.querySelectorAll('input[name="inv-modo"]').forEach(r => r.addEventListener('change', () => {
+            modoInvio = r.value;
+            soloIlSuo(r);
+            const box = document.getElementById('ii-prog');
+            if (box) box.hidden = (modoInvio !== 'prog');
+            aggiornaBottone();
+        }));
+        const selRitmo = document.getElementById('ii-ritmo');
+        if (selRitmo) selRitmo.addEventListener('change', aggiornaStima);
         aggiornaBottone();
 
         document.getElementById('ii-ant').addEventListener('click', () => {
@@ -20266,6 +20697,135 @@
 
         if (usaModulo) collegaDestinatari('ii');
 
+        /* L'ora scelta per la partenza. Un'ora gia' passata non e' un errore:
+           vuol dire "appena puoi", e il servizio la tratta cosi'. Rifiutarla
+           sarebbe pedanteria su una richiesta chiarissima. */
+        const quandoScelto = () => {
+            const g = ((document.getElementById('ii-quando-g') || {}).value || '').trim();
+            const o = ((document.getElementById('ii-quando-o') || {}).value || '').trim();
+            if (!g) return Date.now();
+            const t = new Date(g + 'T' + (o || '00:00'));
+            const ms = t.getTime();
+            return isNaN(ms) ? Date.now() : ms;
+        };
+
+        /* PROGRAMMARE, invece di spedire adesso.
+           Non spedisce niente: mette in coda e se ne va. Tre passi, e sono
+           tre perche' l'elenco degli identificativi non entra in una
+           richiesta sola - su cinquemila aziende sarebbero centinaia di
+           kilobyte:
+
+             1. si crea la programmazione, che nasce "in preparazione" e
+                ferma;
+             2. si mandano gli identificativi a blocchi, come gia' si fa per
+                il caricamento del file;
+             3. la si accende.
+
+           L'ordine conta: finche' non e' accesa non parte niente, quindi una
+           finestra chiusa a meta' caricamento lascia una programmazione morta
+           e non un invio che scrive alle prime cinquecento aziende e poi si
+           dichiara concluso. */
+        const BLOCCO_IDS = 500;
+        const programmaInvio = async (oggetto, testoInvito, elencoInvio, forza) => {
+            const quale = canale === 'pec' ? 'PEC' : 'email';
+            const r0 = ritmoScelto();
+            const quando = quandoScelto();
+            const totale = elencoInvio.length;
+            const quandoTesto = fmtDataOra(quando);
+            if (!confirm('Programmo ' + totale.toLocaleString('it-IT') + ' ' + quale
+                + ' a ' + ritmoTesto(canale, r0) + ', a partire dal ' + quandoTesto + '.\n\n'
+                + 'Partono da sole, anche a finestra chiusa'
+                + (canale === 'pec' ? ', e ogni PEC ha un costo.' : '.') + ' Procedo?')) return;
+
+            const html = invTestoInHtml(testoInvito);
+            const b = document.getElementById('ii-si');
+            const bAnn = document.getElementById('ii-no');
+            b.disabled = true; b.textContent = 'Preparo...';
+            stato.inCorso = true; stato.fermato = false;
+            bAnn.textContent = 'Ferma la preparazione';
+            const conti = { inviate: 0, saltate: 0, disiscritte: 0, falliti: 0, da: Date.now() };
+            esito('');
+            avanzamento(0, totale, conti, 'Preparo la programmazione...');
+
+            /* Se qualcosa va storto a meta', la programmazione monca non
+               resta li' a occupare il posto dell'elenco: la si toglie. Senza,
+               nessuno potrebbe piu' programmare niente su quella lista finche'
+               non se ne accorge qualcuno. */
+            const disfa = async () => {
+                try { await Cloud.aziendeInvito({ azione: 'programma-annulla', evento: ev.id, campagna: _invCampagna }); }
+                catch (e) { /* al peggio scade da se' dopo mezz'ora */ }
+            };
+            const fallita = async (msg) => {
+                await disfa();
+                stato.inCorso = false;
+                b.disabled = false; b.textContent = 'Programma ' + totale.toLocaleString('it-IT') + ' ' + quale;
+                bAnn.disabled = false; bAnn.textContent = 'Annulla';
+                esito(msg, true);
+            };
+
+            /* I destinatari delle risposte al modulo si salvano PRIMA, come
+               nell'invio a mano e per la stessa ragione: una richiesta
+               arrivata a nessuno non si recupera. */
+            if (usaModulo) {
+                await new Promise(fine => salvaContatti(ev, leggiDestinatari('ii'), r => {
+                    if (!r.ok) esito('I destinatari delle risposte non sono stati salvati (' + (r.msg || 'errore') + '): la programmazione prosegue.', true);
+                    else if (r.avviso) esito(r.avviso, true);
+                    fine();
+                }));
+            }
+
+            const nato = await Cloud.aziendeInvito({
+                azione: 'programma', evento: ev.id, campagna: _invCampagna,
+                canale: canale, ritmo: r0, quando: quando, forza: forza,
+                pagina: ev.pagina || '', mail: { oggetto: oggetto, html: html }
+            });
+            if (!nato.ok) {
+                stato.inCorso = false;
+                b.disabled = false; b.textContent = 'Programma ' + totale.toLocaleString('it-IT') + ' ' + quale;
+                bAnn.disabled = false; bAnn.textContent = 'Annulla';
+                esito(nato.msg || 'Programmazione non riuscita.', true);
+                return;
+            }
+
+            const perBlocco = Math.min(Number(nato.perLotto) || BLOCCO_IDS, BLOCCO_IDS);
+            for (let i = 0, n = 1; i < totale; i += perBlocco, n++) {
+                if (stato.fermato) {
+                    await fallita('Preparazione interrotta: non è stato programmato niente.');
+                    return;
+                }
+                avanzamento(i, totale, conti,
+                    'Preparo l\'elenco: ' + Math.min(totale, i + perBlocco).toLocaleString('it-IT')
+                    + ' di ' + totale.toLocaleString('it-IT') + ' aziende...');
+                const r = await Cloud.aziendeInvito({
+                    azione: 'programma-lotto', evento: ev.id, campagna: _invCampagna,
+                    n: n, ids: elencoInvio.slice(i, i + perBlocco).map(a => a.id)
+                });
+                if (!r.ok) {
+                    await fallita((r.msg || 'Preparazione non riuscita.') + ' Non è stato programmato niente.');
+                    return;
+                }
+            }
+
+            avanzamento(totale, totale, conti, 'Accendo la programmazione...');
+            const acceso = await Cloud.aziendeInvito({ azione: 'programma-avvia', evento: ev.id, campagna: _invCampagna });
+            if (!acceso.ok) {
+                await fallita(acceso.msg || 'Programmazione non avviata.');
+                return;
+            }
+
+            stato.inCorso = false;
+            avanzamento(totale, totale, conti, 'Programmato.');
+            b.disabled = true; b.textContent = 'Programmato';
+            bAnn.disabled = false; bAnn.textContent = 'Chiudi';
+            const riepilogo = totale.toLocaleString('it-IT') + ' ' + quale + ' programmate a '
+                + ritmoTesto(canale, r0) + ', dal ' + quandoTesto
+                + '. Puoi chiudere: da qui in avanti se ne occupa il servizio.';
+            esito(riepilogo, false);
+            try { Audit.registra(Auth.utenteCorrente, 'Evento: invito programmato alle aziende (' + quale + ')', 'sistema', ev.id, null, riepilogo); } catch (e) { }
+            toast('Invio programmato: ' + ritmoTesto(canale, r0) + '.', 'verde');
+            caricaProgrammazione(ev, () => { });
+        };
+
         document.getElementById('ii-si').addEventListener('click', () => {
             const oggetto = ((document.getElementById('ii-ogg') || {}).value || '').trim();
             const testoInvito = ((document.getElementById('ii-testo') || {}).value || '').trim();
@@ -20275,6 +20835,9 @@
             if (!elencoInvio.length) { esito('Nessuna delle aziende scelte ha un recapito su questo canale.', true); return; }
             const forza = !!(document.getElementById('ii-forza') || {}).checked;
             const quale = canale === 'pec' ? 'PEC' : 'email';
+            /* La biforcazione, e da qui in giu' non cambia una riga: il ramo
+               "adesso" e' esattamente quello di sempre. */
+            if (modoInvio === 'prog') { programmaInvio(oggetto, testoInvito, elencoInvio, forza); return; }
             if (!confirm('Partono fino a ' + elencoInvio.length + ' ' + quale + ', una per azienda'
                 + (canale === 'pec' ? '. Ogni PEC ha un costo e non si richiama indietro.' : '.') + ' Procedo?')) return;
             const html = invTestoInHtml(testoInvito);
