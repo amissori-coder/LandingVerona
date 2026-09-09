@@ -18562,7 +18562,7 @@
             + (dettagli.length ? '<span class="hint">' + dettagli.join(' &middot; ') + '</span>' : '')
             /* Il tempo che manca, non "più tardi": chi non sa quanto aspettare
                ricarica la pagina ogni due minuti. */
-            + (!ferma && quando ? '<span class="hint">riparte fra ' + esc(quando) + '</span>' : '')
+            + (!ferma && quando ? '<span class="hint inv-prog-manca">riparte fra ' + esc(quando) + '</span>' : '')
             + '</div>'
             + (p.ultimoErrore ? '<div class="inv-prog-ko">' + esc(p.ultimoErrore) + '</div>' : '')
             /* Il battito del lavoro automatico. Serve a distinguere "sta

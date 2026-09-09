@@ -519,6 +519,53 @@ async function principale() {
         esigi(spediti.length === dopo, 'una programmazione annullata non spedisce piu niente');
     }
 
+    console.log('\nPiu programmazioni attive di quante ne stiano in un giro');
+    {
+        /* IL DIFETTO CHE QUESTA PROVA SORVEGLIA. Un giro ne lavora al massimo
+           tre, e Firestore le restituisce ordinate per "quando", che non cambia
+           mai: con quattro programmazioni attive le stesse tre sarebbero
+           servite per sempre e la quarta non sarebbe partita mai, senza che
+           niente lo dicesse. Ora si sceglie prima chi puo' davvero spedire e
+           poi chi e' stato servito meno di recente.
+
+           Perche' due aziende per elenco e un ritmo da uno all'ora: cosi'
+           dopo il primo giro le prime tre restano ATTIVE con la finestra
+           piena. Se finissero subito, la quarta partirebbe comunque al giro
+           dopo e la prova non dimostrerebbe niente. */
+        dati = {}; spediti = [];
+        const eventi = ['e1', 'e2', 'e3', 'e4'];
+        const chiama4 = (evento, azione, extra) => AZ.esegui({
+            db: db, email: 'chi@studio.it', eAdmin: true,
+            body: Object.assign({ sezione: 'aziende', azione: azione, evento: evento, campagna: 'invito' }, extra || {})
+        }).then(r => r.corpo);
+        for (const e of eventi) {
+            const ids = [];
+            for (let i = 0; i < 2; i++) {
+                const m = 'z' + i + e + '@x.it';
+                dati['aziendeInvito/' + e + '~' + m] = Object.assign(azienda(m), { evento: e });
+                ids.push(e + '~' + m);
+            }
+            const r = await chiama4(e, 'programma', {
+                canale: 'email', ritmo: { quanti: 1, ogniMin: 60 }, mail: MAIL, quando: Date.now()
+            });
+            if (!r.ok) throw new Error('programma ' + e + ': ' + r.msg);
+            await chiama4(e, 'programma-lotto', { n: 1, ids: ids });
+            await chiama4(e, 'programma-avvia', {});
+        }
+        await GIRO.eseguiGiro(db);
+        esigi(spediti.length === 3, 'un giro ne lavora tre, non quattro', 'partite ' + spediti.length);
+        const attive = eventi.filter(e => (dati['invitiProgrammati/' + e + '~invito'] || {}).stato === 'in-corso');
+        esigi(attive.length === 3, 'e le tre servite restano attive, con la finestra piena', attive.join(', '));
+
+        await GIRO.eseguiGiro(db);
+        esigi(spediti.length === 4,
+            'al giro dopo tocca alla quarta, che con le stesse tre in testa non sarebbe partita mai',
+            'partite in tutto ' + spediti.length);
+        esigi((dati['invitiProgrammati/e4~invito'] || {}).stato === 'in-corso',
+            'ed e proprio la quarta ad essere partita',
+            JSON.stringify((dati['invitiProgrammati/e4~invito'] || {}).conti));
+    }
+
     console.log('\nIl canale spento a meta strada');
     {
         scenario({ 'a@x.it': {} });

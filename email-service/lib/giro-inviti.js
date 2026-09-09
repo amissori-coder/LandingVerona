@@ -367,9 +367,23 @@ async function eseguiGiro(db) {
            in memoria, perche' un secondo where() vorrebbe un indice
            composto e questa collezione ne conta poche decine di documenti. */
         const q = await db.collection(P.COLL).where('quando', '<=', Date.now()).limit(50).get();
+        /* CHI SERVIRE PER PRIMO, quando ce n'e' piu' di quante ne stiano in un
+           giro. Non le prime tre che capitano: Firestore le ordina per
+           'quando', che non cambia mai, quindi con quattro programmazioni
+           attive le stesse tre sarebbero servite per sempre e la quarta non
+           partirebbe mai - e nessuno saprebbe perche'.
+
+           Due criteri, in quest'ordine:
+             - prima chi puo' davvero spedire adesso. Una con la finestra
+               piena occuperebbe uno dei tre posti per poi non fare niente;
+             - poi chi e' stato servito meno di recente. E' il giro di
+               rotazione: nessuna resta indietro, anche se sono cinque. */
         const dovute = q.docs
             .filter(d => P.daLavorare((d.data() || {}).stato))
-            .slice(0, MAX_PROGRAMMAZIONI);
+            .map(d => ({ doc: d, puo: P.quantiOra(d.data() || {}) > 0, ultimo: Number((d.data() || {}).ultimoGiro) || 0 }))
+            .sort((x, y) => (y.puo - x.puo) || (x.ultimo - y.ultimo))
+            .slice(0, MAX_PROGRAMMAZIONI)
+            .map(x => x.doc);
 
         const fatte = [];
         for (const doc of dovute) {
