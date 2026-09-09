@@ -18783,7 +18783,17 @@
                "Programma" se ne va per conto suo e finisce in ore o giorni.
                Su un elenco lungo il secondo e' l'unico che funziona, e
                nasconderlo dentro il primo vorrebbe dire che nessuno lo trova. */
-            + '<button class="btn btn-secondary btn-sm" id="inv-programma">Programma ' + esc(camp.spedizione) + '</button>'
+            /* Con una programmazione gia' in piedi il pulsante e' spento, e
+               dice perche' passandoci sopra: lasciarlo premibile per poi far
+               ricadere la finestra su "adesso" sarebbe un pulsante che fa una
+               cosa diversa da quella scritta sopra. "Invia" resta acceso -
+               serve proprio a mandare qualcosa a due o tre aziende mentre il
+               grosso va avanti per conto suo. */
+            + '<button class="btn btn-secondary btn-sm" id="inv-programma"'
+            + (progAttiva(ev, _invCampagna)
+                ? ' disabled title="Su questo elenco c\'è già un invio programmato: mettilo in pausa o annullalo dal riquadro qui sopra."'
+                : '')
+            + '>Programma ' + esc(camp.spedizione) + '</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-escludi">Escludi</button>'
             + '<button class="btn btn-secondary btn-sm" id="inv-ripristina">Rimetti da ' + esc(camp.azione) + '</button>'
             + '<button class="btn btn-danger btn-sm" id="inv-elimina">Elimina</button></div>';
@@ -20320,19 +20330,15 @@
             '<option value="' + esc(ritmoChiave(r)) + '"' + (i === 0 ? ' selected' : '') + '>'
             + esc(ritmoTesto(c, r)) + '</option>').join('');
         const dueCifre = n => ('0' + n).slice(-2);
-        const oggiIso = () => {
-            const d = new Date();
-            return d.getFullYear() + '-' + dueCifre(d.getMonth() + 1) + '-' + dueCifre(d.getDate());
-        };
-        /* Cinque minuti avanti, non l'ora esatta: il campo si compila da se'
-           con un valore che funziona, e chi vuole partire subito non deve
-           toccare niente. Un'ora gia' passata varrebbe comunque come
-           "appena puoi" (lo dice il servizio), ma leggerla nel campo
-           sembrerebbe un errore. */
-        const oraFraPoco = () => {
-            const d = new Date(Date.now() + 5 * 60 * 1000);
-            return dueCifre(d.getHours()) + ':' + dueCifre(d.getMinutes());
-        };
+        /* I due campi si riempiono da soli con "fra cinque minuti", e li
+           riempie lo STESSO istante: prendendo il giorno da adesso e l'ora da
+           fra cinque minuti, alle 23:57 uscirebbe "oggi alle 00:02", cioe'
+           un'ora gia' passata di ventitre ore. Il servizio la tratterebbe come
+           "appena puoi" e partirebbe lo stesso, ma chi legge il campo penserebbe
+           di aver programmato per domani. */
+        const fraPoco = () => new Date(Date.now() + 5 * 60 * 1000);
+        const giornoIso = d => d.getFullYear() + '-' + dueCifre(d.getMonth() + 1) + '-' + dueCifre(d.getDate());
+        const oraIso = d => dueCifre(d.getHours()) + ':' + dueCifre(d.getMinutes());
 
         const campI = campagnaDef(_invCampagna);
         /* Il messaggio porta il pulsante del modulo? Non lo si decide dalla
@@ -20396,8 +20402,8 @@
             + '<label for="ii-ritmo">A che ritmo</label>'
             + '<select id="ii-ritmo">' + opzioniRitmo(canale) + '</select>'
             + '<label for="ii-quando-g">Comincia il</label>'
-            + '<input type="date" id="ii-quando-g" value="' + esc(oggiIso()) + '">'
-            + '<input type="time" id="ii-quando-o" value="' + esc(oraFraPoco()) + '">'
+            + '<input type="date" id="ii-quando-g" value="' + esc(giornoIso(fraPoco())) + '">'
+            + '<input type="time" id="ii-quando-o" value="' + esc(oraIso(fraPoco())) + '">'
             + '</div>'
             + '<div class="hint" id="ii-prog-stima"></div>'
             /* Le due cose che si scoprono dopo, e che vanno dette prima: il

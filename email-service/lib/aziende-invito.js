@@ -59,7 +59,6 @@ const admin = require('firebase-admin');
 const CANALI = require('./canali-invito');
 const NL = require('./newsletter');
 const LETTORE = require('./lettore-pec');
-const CODICI = require('./codici-invito');
 const CAMPAGNE = require('./campagne-invito');
 const ESITI = require('./esiti-email');
 const CONTATTI = require('./richieste-contatto');

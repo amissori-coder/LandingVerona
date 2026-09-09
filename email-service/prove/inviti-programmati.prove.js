@@ -74,11 +74,14 @@ function istantanea(percorso) {
 }
 function rifColl(base) {
     const filtri = [];
-    let ordina = false, tetto = 0;
+    let ordina = '', tetto = 0, daValore = null;
     const q = {
         doc: id => rifDoc(base + '/' + id),
         where(campo, op, val) { filtri.push({ campo, op, val }); return q; },
-        orderBy() { ordina = true; return q; },
+        orderBy(campo) { ordina = campo || ''; return q; },
+        /* startAt su un campo ordinato: e' quello che usa il giro per far
+           avanzare la finestra di lettura dei lotti insieme al lavoro. */
+        startAt(v) { daValore = v; return q; },
         limit(n) { tetto = n; return q; },
         select() { return q; },
         get: async () => {
@@ -93,7 +96,11 @@ function rifColl(base) {
                     return true;
                 });
             });
-            chiavi.sort();
+            if (ordina) chiavi.sort((x, y) => (Number((dati[x] || {})[ordina]) || 0) - (Number((dati[y] || {})[ordina]) || 0));
+            else chiavi.sort();
+            if (daValore !== null && ordina) {
+                chiavi = chiavi.filter(k => (Number((dati[k] || {})[ordina]) || 0) >= Number(daValore));
+            }
             if (tetto) chiavi = chiavi.slice(0, tetto);
             const docs = chiavi.map(istantanea);
             return { size: docs.length, empty: !docs.length, docs: docs, forEach: f => docs.forEach(f) };
@@ -338,6 +345,35 @@ async function principale() {
             'e le schede non toccate restano esattamente com\'erano');
     }
 
+    console.log('\nL\'invio A MANO, che il motore condiviso non deve aver cambiato');
+    {
+        /* Il ciclo per-azienda e' stato tolto da dentro l'azione 'invia' e
+           messo in un file suo, perche' lo usa anche il lavoro automatico.
+           Questa sezione sorveglia proprio quel passaggio: l'invio guidato dal
+           browser deve rispondere esattamente come prima, campo per campo,
+           perche' l'area riservata quei campi li legge. */
+        dati = {}; spediti = [];
+        ['a@x.it', 'b@x.it'].forEach(m => { dati['aziendeInvito/' + idScheda(m)] = azienda(m); });
+        const r = await chiama('invia', { canale: 'pec', ids: [idScheda('a@x.it'), idScheda('b@x.it')], mail: MAIL });
+        esigi(r.ok && r.inviate === 2, 'l\'invio a mano spedisce come prima', JSON.stringify(r.inviate));
+        ['canale', 'inviate', 'saltate', 'senzaRecapito', 'disiscritte', 'falliti', 'esiti', 'tettoRaggiunto', 'maxLotto', 'bloccato', 'riprendeAlle']
+            .forEach(c => esigi(Object.prototype.hasOwnProperty.call(r, c),
+                'la risposta porta ancora il campo "' + c + '", che l\'area riservata legge'));
+        esigi(r.esiti[idScheda('a@x.it')] && r.esiti[idScheda('a@x.it')].stato === 'inviata',
+            'e il dettaglio per scheda, con cui la tabella si aggiorna senza rileggere l\'elenco');
+
+        // il tetto orario per utente vale ancora, e i gettoni non spesi tornano
+        const gett = dati['invito_throttle/chi@studio.it~pec'] || {};
+        esigi(gett.conteggio === 2, 'il tetto orario per utente ha contato i due invii', JSON.stringify(gett.conteggio));
+        spediti = [];
+        const r2 = await chiama('invia', { canale: 'pec', ids: [idScheda('a@x.it')], mail: MAIL });
+        esigi(r2.ok && r2.saltate === 1 && !spediti.length, 'ripremere Invia non rispedisce a chi ha gia ricevuto');
+        const gett2 = dati['invito_throttle/chi@studio.it~pec'] || {};
+        esigi(gett2.conteggio === 2,
+            'e il gettone prenotato per una scheda saltata torna indietro, invece di consumare il tetto',
+            JSON.stringify(gett2.conteggio));
+    }
+
     console.log('\nProgrammare: si crea, si riempie a blocchi, si accende');
     {
         scenario({ 'a@x.it': {}, 'b@x.it': {} });
@@ -417,8 +453,50 @@ async function principale() {
             'per giro ' + RITMI.perGiro({ quanti: 3, ogniMin: 60 }, 10));
     }
 
+    console.log('\nUn elenco lungo: piu lotti di quanti se ne leggano in un giro');
+    {
+        /* IL DIFETTO CHE QUESTA PROVA SORVEGLIA. Il giro leggeva i primi
+           trenta lotti e scartava quelli gia' fatti. Su cinquantamila aziende
+           i lotti sono cento: appena i primi trenta erano finiti, la lettura
+           tornava vuota, il giro concludeva "elenco finito" e trentacinquemila
+           aziende sparivano senza che niente lo dicesse. Qui i lotti sono
+           quaranta, cioe' piu' della finestra di lettura, e alla fine devono
+           aver ricevuto tutte. */
+        const molte = {};
+        for (let i = 0; i < 40; i++) molte['b' + i + '@x.it'] = {};
+        scenario(molte);
+        const ids = Object.keys(molte).map(idScheda);
+        await chiama('programma', { canale: 'email', ritmo: { quanti: 1000, ogniMin: 60 }, mail: MAIL, quando: Date.now() });
+        // un identificativo per lotto: quaranta lotti, oltre i trenta letti per giro
+        for (let i = 0; i < ids.length; i++) await chiama('programma-lotto', { n: i + 1, ids: [ids[i]] });
+        const acceso = await chiama('programma-avvia', {});
+        esigi(acceso.ok && acceso.lotti === 40, 'quaranta lotti, uno per azienda', 'lotti ' + acceso.lotti);
+
+        let giri = 0;
+        while (docProg() && docProg().stato !== 'conclusa' && giri < 10) { await GIRO.eseguiGiro(db); giri++; }
+        esigi(docProg().stato === 'conclusa', 'la programmazione arriva in fondo', 'dopo ' + giri + ' giri');
+        esigi(spediti.length === 40,
+            'e NESSUNA azienda resta indietro oltre la finestra di lettura dei lotti',
+            'spedite ' + spediti.length + ' su 40');
+        esigi(docProg().conti.inviate === 40, 'e il conto lo dice', JSON.stringify(docProg().conti.inviate));
+    }
+
     console.log('\nSospendi, riprendi, annulla');
     {
+        /* Una programmazione tutta sua: appoggiarsi a quella lasciata dalla
+           sezione precedente vuol dire che riordinare le prove le rompe, e
+           una prova che si rompe per un motivo che non c'entra e' peggio di
+           una prova che manca. Il ritmo e' stretto apposta, cosi' dopo il
+           primo giro ne resta ancora da fare. */
+        const molte = {};
+        for (let i = 0; i < 6; i++) molte['c' + i + '@x.it'] = {};
+        scenario(molte);
+        await chiama('programma', { canale: 'pec', ritmo: { quanti: 2, ogniMin: 15 }, mail: MAIL, quando: Date.now() });
+        await chiama('programma-lotto', { n: 1, ids: Object.keys(molte).map(idScheda) });
+        await chiama('programma-avvia', {});
+        await GIRO.eseguiGiro(db);
+        esigi(spediti.length === 2 && docProg().stato === 'in-corso', 'si parte, e resta del lavoro da fare');
+
         let r = await chiama('programma-sospendi', {});
         esigi(r.ok && docProg().stato === 'sospesa', 'si mette in pausa');
         const prima = spediti.length;
@@ -428,6 +506,9 @@ async function principale() {
 
         r = await chiama('programma-riprendi', {});
         esigi(r.ok && docProg().stato === 'programmata', 'si riprende dallo stesso punto');
+        await GIRO.eseguiGiro(db);
+        esigi(spediti.length === prima + 2, 'e riprende da dove era, senza rispedire ai primi due',
+            'partite in tutto ' + spediti.length);
 
         r = await chiama('programma-annulla', {});
         esigi(r.ok && docProg().stato === 'annullata', 'si annulla');

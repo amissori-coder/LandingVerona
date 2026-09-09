@@ -123,13 +123,25 @@ async function restituisci(db, id, quanti, inizio) {
     } catch (_) { /* la finestra si riazzera comunque quando scade */ }
 }
 
-/* I lotti ancora da passare, in ordine. Un lotto e' "fatto" quando lo
-   si e' percorso tutto: non vuol dire che tutte le sue aziende hanno
-   ricevuto (alcune erano escluse, disiscritte, senza recapito), vuol
-   dire che non c'e' piu' niente da chiedersi su quegli identificativi. */
-async function lottiDaFare(db, id, quanti) {
-    const q = await P.rifLotti(db, id).orderBy('n').limit(quanti || 20).get();
-    return q.docs.filter(d => (d.data() || {}).stato !== 'fatto');
+/* I lotti da guardare in questo giro, in ordine e A PARTIRE DAL SEGNALIBRO.
+   Un lotto e' "fatto" quando lo si e' percorso tutto: non vuol dire che
+   tutte le sue aziende hanno ricevuto (alcune erano escluse, disiscritte,
+   senza recapito), vuol dire che non c'e' piu' niente da chiedersi su
+   quegli identificativi.
+
+   IL SEGNALIBRO NON E' UN'OTTIMIZZAZIONE, e' quello che tiene in piedi gli
+   elenchi lunghi. Prima si leggevano i primi trenta lotti e si scartavano
+   quelli gia' fatti: su cinquantamila aziende i lotti sono cento, e appena
+   i primi trenta erano finiti la lettura tornava vuota - il giro concludeva
+   "elenco finito" e le settanta migliaia rimanenti sparivano senza che
+   niente lo dicesse. Con startAt sul numero del lotto la finestra di lettura
+   avanza insieme al lavoro, e "finito" lo decide il conto dei lotti, non
+   l'assenza di risultati. */
+async function lottiDaFare(db, id, quanti, da) {
+    let q = P.rifLotti(db, id).orderBy('n');
+    if (da > 1) q = q.startAt(da);
+    const s = await q.limit(quanti || 20).get();
+    return s.docs;
 }
 
 const CONTI_ZERO = { inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, incerte: 0, falliti: 0 };
@@ -180,7 +192,16 @@ async function lavora(db, id, dati, scadenza) {
         return { attesa: 'ritmo' };
     }
 
-    const lotti = await lottiDaFare(db, id, 30);
+    /* Quanti lotti in tutto, e da quale ripartire. Sono due numeri sul
+       documento, non una deduzione: "finito" deve essere una cosa che si
+       conta, non l'assenza di risultati in una lettura. */
+    const totLotti = Math.max(0, Number(dati.lotti) || 0);
+    let cursore = Math.max(1, Number(dati.daLotto) || 1);
+    if (totLotti && cursore > totLotti) {
+        await concludi(db, id, 'conclusa', dati.conti || {}, 'elenco finito');
+        return { finita: true };
+    }
+    const lotti = await lottiDaFare(db, id, 30, cursore);
     if (!lotti.length) {
         await concludi(db, id, 'conclusa', dati.conti || {}, 'elenco finito');
         return { finita: true };
@@ -211,8 +232,18 @@ async function lavora(db, id, dati, scadenza) {
         if (!P.daLavorare(df.stato)) { fermato = 'non piu attiva'; break; }
 
         const dl = doc.data() || {};
+        const nLotto = Number(dl.n) || 0;
+        // gia' passato in un giro precedente: si sposta solo il segnalibro
+        if (dl.stato === 'fatto') {
+            if (nLotto >= cursore) cursore = nLotto + 1;
+            continue;
+        }
         const ids = (dl.ids || []).slice(0);
-        if (!ids.length) { await doc.ref.set({ stato: 'fatto' }, { merge: true }); continue; }
+        if (!ids.length) {
+            await doc.ref.set({ stato: 'fatto' }, { merge: true });
+            if (nLotto >= cursore) cursore = nLotto + 1;
+            continue;
+        }
 
         /* IL SEGNALIBRO DENTRO IL LOTTO, e perche' non se ne puo' fare a meno.
            Un lotto tiene fino a cinquecento identificativi, il ritmo ne
@@ -277,6 +308,10 @@ async function lavora(db, id, dati, scadenza) {
             if (!r.viste) { fermato = 'nessuna scheda trattata'; break; }
             if (!r.finite) { fermato = 'tempo del giro esaurito'; break; }
         }
+        /* Il segnalibro avanza SOLO su un lotto percorso fino in fondo. Su
+           uno lasciato a meta' (quota finita, tempo finito, blocco) resta
+           dov'e', e il giro dopo riprende da qui. */
+        if (fatti >= ids.length && nLotto >= cursore) cursore = nLotto + 1;
         if (bloccato || fermato) break;
     }
 
@@ -302,15 +337,16 @@ async function lavora(db, id, dati, scadenza) {
         return { annullata: true, conti: conti };
     }
 
-    // e' rimasto qualcosa?
-    const restano = await lottiDaFare(db, id, 1);
-    if (!restano.length) {
+    // e' rimasto qualcosa? Lo dice il conto dei lotti, non una lettura vuota
+    const finiti = totLotti ? (cursore > totLotti) : !(await lottiDaFare(db, id, 1, cursore))
+        .filter(d => (d.data() || {}).stato !== 'fatto').length;
+    if (finiti) {
         await concludi(db, id, 'conclusa', conti, 'elenco finito');
         return { finita: true, conti: conti };
     }
 
     await P.rif(db, id).set({
-        conti: conti, lucchetto: null, ultimoGiro: Date.now(),
+        conti: conti, daLotto: cursore, lucchetto: null, ultimoGiro: Date.now(),
         ultimoErrore: fermato === 'tempo del giro esaurito' ? '' : String(fermato || '').slice(0, 300)
     }, { merge: true });
     return { conti: conti, interrotto: fermato };
