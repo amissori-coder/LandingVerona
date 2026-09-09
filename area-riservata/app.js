@@ -16107,10 +16107,15 @@
            e' una PEC pagata due volte. Una sola chiamata, che risponde per
            tutte e due le campagne. */
         if (!ev.tutti && puoGestireInviti() && !_invProgChiesta.has(ev.id)) {
-            _invProgChiesta.add(ev.id);
             caricaProgrammazione(ev, r => {
-                const qualcosa = r && r.ok && INV_CAMPAGNE.some(c => progAttiva(ev, c.id));
-                if (qualcosa && vistaCorrente === 'eventi') vistaEventi();
+                /* Si segna SOLO se la lettura e' riuscita. Segnandolo prima,
+                   una risposta mancata per un attimo di rete spegneva la riga
+                   per tutta la sessione: quell'evento non veniva piu' chiesto
+                   e la card restava a dire "nessuna programmazione" anche con
+                   un invio in corso. */
+                if (!r || !r.ok) return;
+                _invProgChiesta.add(ev.id);
+                if (INV_CAMPAGNE.some(c => progAttiva(ev, c.id)) && vistaCorrente === 'eventi') vistaEventi();
             });
         }
         const bNuova = document.getElementById('ev-nuova');
@@ -17631,7 +17636,9 @@
        "Programma" e' ancora premibile (una sola programmazione per elenco,
        altrimenti le stesse aziende riceverebbero due messaggi). */
     let _invProg = {};          // per evento e campagna: la programmazione, o null
+    let _invProgTimer = null;   // il rinfresco del riquadro mentre la finestra e' aperta
     let _invCron = null;        // ultimo battito del lavoro automatico
+    let _invPassoCron = 0;      // ogni quanti minuti gira il lavoro automatico, lo dice il servizio
     /* Su quali eventi l'abbiamo gia' chiesta. Serve perche' "nessuna
        programmazione" e' una risposta valida quanto le altre: senza questo,
        la pagina degli eventi la richiederebbe a ogni ridisegno - e si
@@ -17783,13 +17790,19 @@
                Parte da solo e dura ore: chi passa dalla pagina dell'evento e
                non lo vede, lo rifa' a mano sulle stesse aziende. */
             const p = progAttiva(ev, camp.id);
-            const rigaProg = p
-                ? '<div class="hint inv-card-prog' + (p.stato === 'sospesa' ? ' ko' : '') + '">'
-                + (p.stato === 'sospesa' ? 'Invio programmato <b>in pausa</b>' : 'Invio programmato in corso')
-                + ': <b>' + Number((p.conti && p.conti.inviate) || 0).toLocaleString('it-IT') + '</b> '
-                + esc(camp.fatto) + ' su ' + Number(p.totale || 0).toLocaleString('it-IT')
-                + ', ' + esc(ritmoTesto(p.canale, p.ritmo)) + '.</div>'
-                : '';
+            /* Una preparazione rimasta a meta' NON e' un invio in corso: non
+               spedira' mai niente. Annunciarla come "in corso" sulla card, che
+               e' il posto dove la si guarda di sfuggita, vuol dire far credere
+               che stia partendo qualcosa e aspettare invano. */
+            const rigaProg = !p ? ''
+                : (p.stato === 'preparazione'
+                    ? '<div class="hint inv-card-prog ko">Programmazione rimasta a metà, '
+                    + 'non partirà: apri l\'elenco e annullala.</div>'
+                    : '<div class="hint inv-card-prog' + (p.stato === 'sospesa' ? ' ko' : '') + '">'
+                    + (p.stato === 'sospesa' ? 'Invio programmato <b>in pausa</b>' : 'Invio programmato in corso')
+                    + ': <b>' + Number((p.conti && p.conti.inviate) || 0).toLocaleString('it-IT') + '</b> '
+                    + esc(camp.fatto) + ' su ' + Number(p.totale || 0).toLocaleString('it-IT')
+                    + ', ' + esc(ritmoTesto(p.canale, p.ritmo)) + '.</div>');
             return '<div class="card s-admin"><div class="s-admin-txt"><strong>' + esc(camp.nome) + '</strong>'
                 + '<div class="hint">' + riga + '</div>' + rigaProg + '</div>'
                 + '<div class="s-admin-azioni"><button class="btn btn-primary ev-inviti" data-campagna="' + esc(camp.id) + '">'
@@ -17865,16 +17878,30 @@
         return giro('', 1);
     }
 
+    /* Quando l'elenco sta arrivando. Serve a non ridisegnare la finestra da
+       sotto le mani di chi sta aspettando: su ventimila aziende le pagine sono
+       quaranta e ci vogliono decine di secondi. */
+    let _invInCaricamento = false;
     function caricaAziendeInvito(ev, poi) {
         const k = invChiave(ev);
         const prima = _invCache[k] ? contaInviti(_invCache[k].aziende) : null;
+        _invInCaricamento = true;
         /* La programmazione si rilegge insieme all'elenco, sempre. Passano da
            qui tutte le riletture - l'apertura, il ritorno sulla scheda del
            browser, la fine di un invio - ed e' esattamente quando l'invio
            programmato puo' essere andato avanti da solo. Tenerla ferma
            vorrebbe dire un riquadro che dice "142 partite" mentre il servizio
-           e' a 400. */
+           e' a 400.
+
+           Ma NON si ridisegna finche' l'elenco non e' arrivato: la lettura
+           della programmazione e' due documenti e torna in mezzo secondo,
+           l'elenco ci mette decine di secondi. Ridisegnando subito si
+           ricreava il pulsante "Aggiorna l'elenco" abilitato e spariva il
+           contatore "Carico l'elenco... N aziende", mentre le pagine stavano
+           ancora arrivando: chi ripremeva faceva partire un secondo giro di
+           quaranta pagine sopra il primo. */
         caricaProgrammazione(ev, () => {
+            if (_invInCaricamento) return;
             if (document.getElementById('inv-corpo') && _invCache[invChiave(ev)]) disegnaAziendeInvito(ev);
         });
         /* Quante ne sono arrivate finora, mentre arrivano: su un elenco da
@@ -17885,6 +17912,7 @@
             if (p && quante) p.textContent = 'Carico l\'elenco... ' + quante.toLocaleString('it-IT') + ' aziende';
         };
         leggiElencoInvito(ev, _invCampagna, passo).then(r => {
+            _invInCaricamento = false;
             if (r.ok) _invCache[k] = { aziende: r.aziende || [], aggiornato: r.aggiornato || Date.now() };
             /* Se nel frattempo qualcuno ha risposto lo si DICE. Senza, la
                riga si sposta nella scheda delle risposte e chi stava
@@ -17930,6 +17958,17 @@
        conteggio sta su Firestore perche' ogni chiamata puo' finire su una
        macchina diversa, e un conto tenuto nel browser sarebbe sbagliato al
        primo cambio di computer. */
+    /* Il freno si RILEGGE quando serve. Quello in _invCfg e' di quando si e'
+       aperta la sezione, e la sezione resta aperta per ore: nel frattempo un
+       collega puo' aver consumato il tetto, o il tetto puo' essersi
+       riaperto. Una fotografia vecchia, qui, vuol dire promettere invii che
+       non partiranno. */
+    function rileggiFreno(poi) {
+        Cloud.aziendeInvito({ azione: 'configurazione' }).then(r => {
+            if (r.ok && r.freno && _invCfg) _invCfg.freno = r.freno;
+            if (poi) poi();
+        }).catch(() => { if (poi) poi(); });
+    }
     function frenoCfg(nome) {
         const f = _invCfg && _invCfg.freno;
         return (f && f[nome]) ? f[nome] : null;
@@ -17960,6 +17999,7 @@
                 const p = r.programmazioni || {};
                 INV_CAMPAGNE.forEach(c => { _invProg[invChiave(ev, c.id)] = p[c.id] || null; });
                 _invCron = r.cron || null;
+                _invPassoCron = Number(r.passoMin) || _invPassoCron;
             }
             if (poi) poi(r);
         }).catch(() => { if (poi) poi({ ok: false }); });
@@ -18955,6 +18995,28 @@
                 });
             });
         };
+        /* IL RIQUADRO SI RINFRESCA DA SE'.
+           Era una fotografia: "riparte fra 47 minuti" restava scritto anche
+           un'ora dopo, e "142 inviate su 3.000" restava fermo mentre il
+           servizio andava avanti. Chi tiene aperta questa finestra - che e'
+           quello che si fa mentre un invio parte da solo - vedeva sempre lo
+           stesso quadro e concludeva che non stesse succedendo niente.
+
+           Si rilegge dal servizio, non si ricalcola qui: i numeri veri li sa
+           solo lui. Un giro al minuto e' abbastanza (il lavoro automatico ne
+           fa uno ogni dieci) e non pesa: sono due documenti. Il timer si ferma
+           da se' quando la finestra non c'e' piu' o la programmazione e'
+           finita, quindi non c'e' niente da disdire alla chiusura. */
+        clearTimeout(_invProgTimer);
+        if (progAttiva(ev, _invCampagna)) {
+            _invProgTimer = setTimeout(() => {
+                if (!document.getElementById('inv-corpo')) return;
+                caricaProgrammazione(ev, () => {
+                    if (document.getElementById('inv-corpo') && !_invInCaricamento) disegnaAziendeInvito(ev);
+                });
+            }, 60000);
+        }
+
         comandoProg('inv-prog-sospendi', 'programma-sospendi', null);
         comandoProg('inv-prog-riprendi', 'programma-riprendi', null);
         /* L'annullamento e' l'unico che chiede conferma, e dice la verita'
@@ -19192,21 +19254,42 @@
             return { ok: true, fatti: fatti };
         };
         const quanti = n => n.toLocaleString('it-IT');
+        /* QUANDO UN'AZIONE DI GRUPPO SI FERMA A META'.
+           Il messaggio andava scritto in #inv-esito e poi il ridisegno, poche
+           centinaia di millisecondi dopo, ricostruiva il corpo della finestra
+           e se lo portava via: a video restava un elenco ricaricato e basta,
+           con millecinquecento aziende escluse e millecinquecento no, senza
+           una parola. E insieme al messaggio spariva la selezione, quindi non
+           si poteva nemmeno riprendere.
+
+           Ora: la selezione si tiene (tolte quelle gia' andate a buon fine,
+           cosi' ripremendo non si rifa' il lavoro fatto), il messaggio si
+           riscrive DOPO il ridisegno, e c'e' anche un toast rosso - che al
+           ridisegno sopravvive comunque. */
+        const finitaAzione = (r, ids, parola) => {
+            if (r.ok) {
+                _invSel = new Set();
+                caricaAziendeInvito(ev, () => {
+                    ridisegna();
+                    toast(quanti(r.fatti) + ' aziende ' + parola + '.', 'verde');
+                });
+                return;
+            }
+            const fatti = new Set(ids.slice(0, r.fatti));
+            _invSel = new Set(ids.filter(x => !fatti.has(x)));
+            const msg = r.msg + (r.fatti
+                ? ' Le prime ' + quanti(r.fatti) + ' sono passate: le altre ' + quanti(_invSel.size)
+                + ' restano selezionate, puoi ripremere.'
+                : '');
+            toast(msg, 'rosso');
+            caricaAziendeInvito(ev, () => { ridisegna(); esito(msg, true); });
+        };
         const cambiaStato = (stato, parola) => {
             const ids = Array.from(_invSel);
             if (!ids.length) return;
             perBlocchi(ids, A_BLOCCHI, blocco => Cloud.aziendeInvito({
                 azione: 'segna', evento: ev.id, campagna: _invCampagna, ids: blocco, stato: stato
-            })).then(r => {
-                if (!r.ok) {
-                    esito(r.msg + (r.fatti ? ' Le prime ' + quanti(r.fatti) + ' erano già state segnate.' : ''), true);
-                }
-                _invSel = new Set();
-                caricaAziendeInvito(ev, () => {
-                    ridisegna();
-                    if (r.ok) toast(quanti(r.fatti) + ' aziende ' + parola + '.', 'verde');
-                });
-            });
+            })).then(r => finitaAzione(r, ids, parola));
         };
         const bEsc = document.getElementById('inv-escludi');
         if (bEsc) bEsc.addEventListener('click', () => cambiaStato('esclusa', 'escluse dagli invii'));
@@ -19219,16 +19302,7 @@
             if (!confirm('Eliminare ' + quanti(ids.length) + ' aziende dall\'elenco? Gli esiti degli invii già fatti si perdono.')) return;
             perBlocchi(ids, A_BLOCCHI, blocco => Cloud.aziendeInvito({
                 azione: 'cancella', evento: ev.id, campagna: _invCampagna, ids: blocco
-            })).then(r => {
-                if (!r.ok) {
-                    esito(r.msg + (r.fatti ? ' Le prime ' + quanti(r.fatti) + ' erano già state eliminate.' : ''), true);
-                }
-                _invSel = new Set();
-                caricaAziendeInvito(ev, () => {
-                    ridisegna();
-                    if (r.ok) toast(quanti(r.fatti) + ' aziende eliminate.', 'verde');
-                });
-            });
+            })).then(r => finitaAzione(r, ids, 'eliminate'));
         });
     }
 
@@ -20515,8 +20589,9 @@
                 if (c.falliti) pezzi.push(dice(c.falliti, 'non riuscita', 'non riuscite'));
                 if (c.saltate) pezzi.push(dice(c.saltate, 'saltata', 'saltate'));
                 if (c.disiscritte) pezzi.push(dice(c.disiscritte, 'disiscritta', 'disiscritte'));
+                if (c.incerte) pezzi.push(c.incerte + ' con esito ignoto');
                 det.textContent = pezzi.join(' - ');
-                det.classList.toggle('ev-ko', !!c.falliti);
+                det.classList.toggle('ev-ko', !!(c.falliti || c.incerte));
             }
             const man = document.getElementById('ii-manca');
             if (man) {
@@ -20595,6 +20670,15 @@
            solo non risponde alla domanda che si sta facendo chi guarda
            quattromila aziende: quando finisce? Il conto e' banale, ma farlo a
            mente davanti a una finestra aperta non lo fa nessuno. */
+        /* Quanti messaggi escono in UN giro del lavoro automatico. Il servizio
+           spalma il ritmo invece di scaricarlo tutto nei primi minuti: la
+           regola e' la stessa di email-service/lib/ritmi-invito.js, e serve
+           qui per non promettere una fine piu' vicina di quella vera. */
+        const passoMin = () => Number(_invPassoCron) || 10;
+        const perGiro = r => {
+            const passi = Math.max(1, Math.floor(r.ogniMin / passoMin()));
+            return Math.max(1, Math.ceil(r.quanti / passi * 1.5));
+        };
         const aggiornaStima = () => {
             const box = document.getElementById('ii-prog-stima');
             if (!box) return;
@@ -20602,12 +20686,25 @@
             const r = ritmoScelto();
             if (!n || !r) { box.textContent = ''; return; }
             const finestre = Math.ceil(n / r.quanti);
-            const minuti = Math.max(0, (finestre - 1) * r.ogniMin);
+            /* SI CONTA ANCHE LO SVUOTAMENTO DELL'ULTIMA FINESTRA.
+               Prima si contavano solo gli intervalli fra una finestra e
+               l'altra, come se l'ultima uscisse tutta nell'istante in cui si
+               apre: su 4.000 email a 1.000 l'ora, "circa 3 ore" contro quasi
+               quattro reali. Una stima ottimistica del 20-45% su un invio che
+               dura giorni non e' un dettaglio: e' quella su cui si decide se
+               si fa in tempo prima dell'evento. */
+            const ultima = n - (finestre - 1) * r.quanti;
+            const minuti = Math.max(0, (finestre - 1) * r.ogniMin)
+                + Math.ceil(ultima / perGiro(r)) * passoMin();
+            const ore = minuti / 60;
             const durata = minuti < 60
-                ? (minuti <= 1 ? 'meno di un\'ora' : 'circa ' + minuti + ' minuti')
-                : (minuti < 24 * 60
-                    ? 'circa ' + Math.round(minuti / 60) + ' ore'
-                    : 'circa ' + Math.round(minuti / 60 / 24) + ' giorni');
+                ? (minuti <= 1 ? 'meno di un minuto' : 'circa ' + minuti + ' minuti')
+                /* Sotto i due giorni si contano le ore: "circa 1 giorni" -
+                   plurale sbagliato compreso - buttava via mezza giornata
+                   nell'arrotondamento. */
+                : (ore < 48
+                    ? 'circa ' + Math.round(ore) + (Math.round(ore) === 1 ? ' ora' : ' ore')
+                    : 'circa ' + Math.round(ore / 24) + ' giorni');
             box.innerHTML = '<b>' + n.toLocaleString('it-IT') + '</b> '
                 + (canale === 'pec' ? 'PEC' : 'email') + ' a questo ritmo sono '
                 + finestre + (finestre === 1 ? ' gruppo' : ' gruppi') + ': finisce in ' + durata + '.';
@@ -20628,21 +20725,22 @@
             if (modoInvio === 'prog') {
                 const avviso0 = document.getElementById('ii-tetto');
                 if (avviso0) { avviso0.innerHTML = ''; avviso0.classList.remove('ii-tetto-fermo'); }
+                clearTimeout(_tettoTimer);
                 return;
             }
+            /* Il riquadro del tetto ha UN solo autore, ed e' aggiornaTetto:
+               e' l'unico che legge il freno vero dal servizio e sa dire
+               "esaurito, si riprende fra dodici minuti" con il numero che
+               scende da solo. Qui prima c'era una seconda scrittura, che non
+               guardava il freno: con la quota gia' esaurita da un collega
+               prometteva "ne partono 250 adesso" quando ne sarebbero partite
+               zero, e non toglieva mai la classe rossa lasciata da uno stop
+               precedente. */
             /* Il tetto orario si dice PRIMA, non a meta' invio. Il servizio si
                ferma da solo quando lo raggiunge e riprende dopo, ma scoprirlo
                alla duecentesima PEC, con la barra a meta', sembra un guasto:
                detto qui e' una regola, detto li' e' una brutta sorpresa. */
-            const tetto = Number(canaleCfg(canale).maxOra) || 0;
-            const avviso = document.getElementById('ii-tetto');
-            if (avviso) {
-                avviso.innerHTML = (tetto && n > tetto)
-                    ? 'Il tetto e di <b>' + tetto + '</b> ' + (canale === 'pec' ? 'PEC' : 'email')
-                    + ' all\'ora: ne partono ' + tetto + ' adesso, le altre ' + (n - tetto)
-                    + ' restano da inviare e ripartono dopo.'
-                    : '';
-            }
+            aggiornaTetto(n);
         };
         /* L'evidenziazione si toglie SOLO alle voci del proprio gruppo. Le
            due domande (canale, e adesso o programmato) hanno la stessa forma
@@ -20702,6 +20800,10 @@
         });
 
         if (usaModulo) collegaDestinatari('ii');
+        /* Il freno vero, letto adesso: e' quello che fa comparire "il tetto e
+           esaurito, si riprende fra dodici minuti" invece di far scoprire il
+           rifiuto premendo Invia. */
+        rileggiFreno(() => { if (document.getElementById('ii-tetto')) aggiornaBottone(); });
 
         /* L'ora scelta per la partenza. Un'ora gia' passata non e' un errore:
            vuol dire "appena puoi", e il servizio la tratta cosi'. Rifiutarla
@@ -20812,6 +20914,15 @@
                 }
             }
 
+            /* Si ricontrolla PRIMA di accendere, non solo in cima al ciclo.
+               Premendo "Ferma" mentre l'ULTIMO blocco era in volo, il ciclo
+               usciva senza ricontrollare niente e la programmazione partiva
+               lo stesso: su un elenco che sta in un blocco solo - quattrocento
+               aziende - il pulsante di emergenza non funzionava mai. */
+            if (stato.fermato) {
+                await fallita('Preparazione interrotta: non è stato programmato niente.');
+                return;
+            }
             avanzamento(totale, totale, conti, 'Accendo la programmazione...');
             const acceso = await Cloud.aziendeInvito({ azione: 'programma-avvia', evento: ev.id, campagna: _invCampagna });
             if (!acceso.ok) {
@@ -20866,10 +20977,10 @@
                     }));
                 }
                 const lotto = Math.max(1, Number(canaleCfg(canale).maxLotto) || 40);
-                let inviate = 0, saltate = 0, disiscritte = 0, falliti = 0, msgKo = '';
+                let inviate = 0, saltate = 0, disiscritte = 0, falliti = 0, incerte = 0, msgKo = '';
                 const totale = elencoInvio.length;
                 const lotti = Math.ceil(totale / lotto);
-                const conti = { inviate: 0, saltate: 0, disiscritte: 0, falliti: 0, da: Date.now() };
+                const conti = { inviate: 0, saltate: 0, disiscritte: 0, falliti: 0, incerte: 0, da: Date.now() };
                 esito('');
                 avanzamento(0, totale, conti, 'Preparo il primo gruppo...');
                 for (let i = 0; i < elencoInvio.length && !stato.fermato; i += lotto) {
@@ -20910,8 +21021,17 @@
                     saltate += (r.saltate || 0) + (r.senzaRecapito || 0);
                     disiscritte += r.disiscritte || 0;
                     falliti += (r.falliti || []).length;
+                    /* Le schede su cui un invio precedente si e' interrotto senza
+                       lasciare un esito. Il servizio le mette in "Con errore" e
+                       lo dice; qui non si leggeva, quindi la barra si fermava a
+                       12 su 15 con scritto "Finito." e il riepilogo diceva solo
+                       "12 PEC partite". Contarle fra le saltate sarebbe peggio:
+                       una saltata e' una cosa chiusa, questa e' una cosa da
+                       guardare. */
+                    incerte += r.incerte || 0;
                     conti.inviate = inviate; conti.saltate = saltate;
                     conti.disiscritte = disiscritte; conti.falliti = falliti;
+                    conti.incerte = incerte;
                     avanzamento(Math.min(totale, i + inQuesto), totale, conti, '');
                     /* Il gestore ha rifiutato NOI, non un destinatario: continuare
                        con i lotti seguenti li farebbe rifiutare tutti allo stesso
@@ -20942,14 +21062,15 @@
                     }
                 }
                 stato.inCorso = false;
-                avanzamento(Math.min(totale, inviate + falliti + saltate + disiscritte), totale, conti,
+                avanzamento(Math.min(totale, inviate + falliti + saltate + disiscritte + incerte), totale, conti,
                     stato.fermato ? 'Invio fermato: quello che non è partito resta da invitare.' : 'Finito.');
                 b.disabled = false; b.textContent = 'Invia le restanti';
                 bAnn.disabled = false; bAnn.textContent = 'Chiudi';
                 const riepilogo = inviate + ' ' + quale + ' partite'
                     + (saltate ? ', ' + saltate + ' saltate (già invitate o senza recapito)' : '')
                     + (disiscritte ? ', ' + disiscritte + ' disiscritte' : '')
-                    + (falliti ? ', ' + falliti + ' non riuscite' : '') + '.';
+                    + (falliti ? ', ' + falliti + ' non riuscite' : '')
+                    + (incerte ? ', ' + incerte + ' con esito ignoto da guardare in "Con errore"' : '') + '.';
                 esito(riepilogo + (stato.fermato ? ' Invio fermato.' : '') + (msgKo ? ' ' + msgKo : ''), !!(falliti || msgKo));
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: invito alle aziende (' + quale + ')', 'sistema', ev.id, null, riepilogo); } catch (e) { }
                 caricaAziendeInvito(ev, () => { });

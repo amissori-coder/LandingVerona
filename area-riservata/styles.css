@@ -2842,7 +2842,8 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    sola riga della giornata su cui c'e' da richiamare qualcuno. */
 .inv-scheda.ok b { color: var(--verde); }
 
-.inv-finestra .inv-lettore, .inv-finestra .inv-barra, .inv-finestra .inv-sel-barra, .inv-finestra .ev-imp-esito { margin: 12px 18px 0; }
+.inv-finestra .inv-lettore, .inv-finestra .inv-barra, .inv-finestra .inv-sel-barra, .inv-finestra .ev-imp-esito,
+.inv-finestra .inv-prog { margin: 12px 18px 0; }
 .inv-altrove { align-self: center; margin: 0 0 0 4px; }
 /* L'ora dell'ultima lettura, accanto ad "Aggiorna": dice se quello che
    si sta guardando e' di adesso o di venti minuti fa. */
@@ -2932,7 +2933,11 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 #ii-prog-stima { color: var(--blu-900); }
 #ii-prog-stima b { color: inherit; }
 
-.inv-prog { padding: 11px 14px; margin-bottom: 10px; border: 1px solid var(--blu-100); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; line-height: 1.45; color: var(--grigio-600); }
+/* Il margine orizzontale glielo da' la regola di .inv-finestra insieme agli
+   altri riquadri di stato: #inv-corpo non ha padding e ogni figlio se lo mette
+   da se'. Senza, questo riquadro sarebbe l'unico a filo dei bordi, attaccato
+   alle schede sopra e disallineato di 18px da quelli sotto. */
+.inv-prog { padding: 11px 14px; border: 1px solid var(--blu-100); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; line-height: 1.45; color: var(--grigio-600); }
 /* In pausa o rimasta a meta': non e' un guasto ma non e' nemmeno "sta
    andando", e la differenza si deve vedere senza leggere. */
 .inv-prog.ko { border-color: var(--ambra); background: var(--ambra-bg); }
