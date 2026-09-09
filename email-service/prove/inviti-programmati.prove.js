@@ -408,7 +408,7 @@ async function principale() {
             'gli identificativi stanno nella sottocollezione, non nel documento che si legge a video');
         const video = P.perVideo('ev1~invito', docProg());
         esigi(!JSON.stringify(video).includes('a@x.it'),
-            'e quello che si mostra a video non contiene nessun recapito');
+            'e quello che si mostra a video non contiene i recapiti delle aziende');
     }
 
     console.log('\nIl giro automatico');
@@ -490,6 +490,22 @@ async function principale() {
             'e il sollecito parte davvero a tutte e tre, invece di saltarle come "gia servite"',
             'partite ' + spediti.length);
         esigi(docProg().conti.inviate === 3, 'e il conto lo dice', JSON.stringify(docProg().conti));
+
+        /* La chiave della corsa non puo' essere solo l'ora: due programmazioni
+           create nello stesso millisecondo - due schede del browser, un doppio
+           clic - ne avrebbero una identica, e il difetto tornerebbe com'era.
+           Questa e' la prova che l'ha scoperto: le due corse qui sopra sono
+           nate a pochi millisecondi di distanza. */
+        const corse = new Set();
+        for (let i = 0; i < 50; i++) {
+            dati = {};
+            dati['aziendeInvito/' + idScheda('u' + i + '@x.it')] = azienda('u' + i + '@x.it');
+            await chiama('programma', { canale: 'pec', mail: MAIL, quando: Date.now() });
+            corse.add(String(docProg().corsa || ''));
+            await chiama('programma-annulla', {});
+        }
+        esigi(corse.size === 50, 'cinquanta programmazioni di fila hanno cinquanta chiavi diverse',
+            'chiavi distinte: ' + corse.size);
     }
 
     console.log('\nIl giro e l\'invio a mano sulla stessa lista, insieme');

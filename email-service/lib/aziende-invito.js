@@ -1135,7 +1135,6 @@ async function esegui(ctx) {
                si considera persa e si puo' ricominciare. */
             const SCADE_PREPARAZIONE_MS = PROG.SCADE_PREPARAZIONE_MS;
             let conflitto = null;
-            let vecchiaDaPulire = false;
             await db.runTransaction(async (tx) => {
                 const s = await tx.get(PROG.rif(db, id));
                 if (s.exists) {
@@ -1146,7 +1145,6 @@ async function esegui(ctx) {
                         conflitto = d.stato;
                         return;
                     }
-                    if (preparazionePersa) vecchiaDaPulire = true;
                 }
                 tx.set(PROG.rif(db, id), {
                     evento: evento, campagna: campagna, canale: canale,
@@ -1161,8 +1159,15 @@ async function esegui(ctx) {
                        trovava il proprio timbro gia' scritto dalla PRIMA
                        programmazione e saltava tutte le aziende, dichiarandosi
                        conclusa dopo aver spedito zero. Con una chiave nuova a
-                       ogni corsa il timbro identifica l'invio, non l'elenco. */
-                    corsa: adesso.toString(36) + '-' + Math.round(quando % 100000).toString(36),
+                       ogni corsa il timbro identifica l'invio, non l'elenco.
+
+                       L'ora da sola non basta a fare una chiave: due
+                       programmazioni create nello stesso millisecondo - due
+                       schede del browser, un doppio clic - ne avrebbero una
+                       identica, e il difetto tornerebbe esattamente com'era.
+                       Non e' un segreto e non deve esserlo: serve solo a non
+                       somigliare a quella di prima. */
+                    corsa: adesso.toString(36) + '-' + Math.random().toString(36).slice(2, 10),
                     /* Occupa il posto: e' su questo che il lavoro automatico
                        cerca le programmazioni, invece di pescare le piu'
                        vecchie fra tutte quelle mai create. */
@@ -1190,8 +1195,14 @@ async function esegui(ctx) {
                 });
                 return;
             }
-            // gli identificativi della preparazione persa non devono mescolarsi ai nuovi
-            if (vecchiaDaPulire) await PROG.cancellaLotti(db, id);
+            /* Si ripulisce SEMPRE, non solo dopo una preparazione persa.
+               Gli identificativi di una programmazione finita li cancella chi
+               la chiude, ma quella cancellazione puo' non essere riuscita (la
+               si fa in blocchi, e cancellaLotti risponde -1 quando qualcosa va
+               storto) e nessuno la ritenta. Un residuo li' vorrebbe dire che la
+               campagna nuova spedisce anche alle aziende della vecchia, che
+               nessuno ha selezionato. Su un elenco vuoto non costa niente. */
+            await PROG.cancellaLotti(db, id);
 
             res.status(200).json({
                 ok: true, id: id, perLotto: PROG.PER_LOTTO,

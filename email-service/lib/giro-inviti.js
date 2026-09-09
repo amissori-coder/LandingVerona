@@ -413,9 +413,25 @@ async function lavora(db, id, dati, scadenza, fuori) {
         return { finita: true, conti: conti };
     }
 
+    /* IL RITMO SI TIENE DAVVERO? Il ritmo scritto a video e' una promessa che
+       regge finche' il server di posta risponde in fretta. Se una sendMail
+       costa tre secondi invece di uno, in un giro escono venti messaggi invece
+       di quaranta, e in un'ora ne escono molti meno di quelli promessi: il
+       conto non torna piu' e da nessuna parte c'e' scritto perche'.
+
+       Il segno e' semplice: il tempo del giro e' finito mentre la quota era
+       ancora aperta. Una volta ogni tanto non vuol dire niente (un lotto
+       lungo, una rete lenta); scritto nel riquadro, dice a chi guarda che
+       l'invio sta uscendo piu' piano di quanto ha chiesto, invece di lasciarlo
+       contare i giorni sul calendario. */
+    const nonTieneIlRitmo = fermato === 'tempo del giro esaurito' && restaQuota > 0;
     await P.rif(db, id).set({
         conti: conti, daLotto: cursore, lucchetto: null, ultimoGiro: Date.now(),
-        ultimoErrore: fermato === 'tempo del giro esaurito' ? '' : String(fermato || '').slice(0, 300)
+        ultimoErrore: nonTieneIlRitmo
+            ? ('Il server di posta sta rispondendo lentamente: in questo giro sono partiti '
+                + (voluti - restaQuota) + ' messaggi dei ' + voluti + ' che il ritmo concedeva. '
+                + 'L\'invio prosegue, ma piu\' piano del ritmo scelto.')
+            : (fermato === 'tempo del giro esaurito' ? '' : String(fermato || '').slice(0, 300))
     }, { merge: true });
     return { conti: conti, interrotto: fermato };
 }
