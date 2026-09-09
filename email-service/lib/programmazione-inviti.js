@@ -88,6 +88,14 @@ function nomeLotto(i) { return ('0000' + i).slice(-5); }
    costringere a leggerne cento per ogni giro. */
 const PER_LOTTO = 500;
 
+/* Dopo quanto una preparazione mai avviata si considera persa. Serve a due
+   cose che sembrano una sola e non lo sono: permettere a un'altra
+   programmazione di prendere il posto su quell'elenco, e far cancellare al
+   lavoro automatico gli identificativi rimasti - che contengono i recapiti
+   delle aziende, e non devono restare in archivio perche' un browser e'
+   morto a meta' caricamento. */
+const SCADE_PREPARAZIONE_MS = 30 * 60 * 1000;
+
 /* IL RITMO, contato su una finestra scorrevole.
    La finestra si apre al primo messaggio che parte davvero e dura
    quanto dice il ritmo. Dentro ci stanno "quanti" messaggi; finita la
@@ -214,7 +222,7 @@ function perVideo(id, d) {
 }
 
 module.exports = {
-    COLL, META, ATTIVI, DA_LAVORARE, IN_PREPARAZIONE, PER_LOTTO,
+    COLL, META, ATTIVI, DA_LAVORARE, IN_PREPARAZIONE, PER_LOTTO, SCADE_PREPARAZIONE_MS,
     eAttiva, daLavorare, idDi, rif, rifLotti, nomeLotto,
     finestraDi, quantiOra, battito, leggiBattito, cancellaLotti, perVideo
 };

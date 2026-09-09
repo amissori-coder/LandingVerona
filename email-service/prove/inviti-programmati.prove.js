@@ -301,14 +301,21 @@ async function principale() {
             'a invio riuscito il timbro sparisce, altrimenti la scheda resterebbe bloccata per sempre');
 
         // la funzione muore fra il sendMail e la scrittura: resta solo il timbro
-        scenario({ 'a@x.it': {} });
+        scenario({ 'a@x.it': {}, 'b@x.it': {} });
         dati['aziendeInvito/' + idScheda('a@x.it')].tentativo = { quando: Date.now(), canale: 'pec' };
-        let r = await invia(['a@x.it']);
-        esigi(r.inviate === 0 && r.saltate === 1 && !spediti.length,
+        let r = await invia(['a@x.it', 'b@x.it']);
+        esigi(r.inviate === 1 && r.rimandate === 1 && spediti.length === 1,
             'un timbro fresco vuol dire "ci sta lavorando qualcuno": non si spedisce');
+        /* E non e' la stessa cosa di "saltata": su una rimandata si TORNA.
+           Chi chiama deve saperlo, altrimenti fa avanzare il proprio
+           segnalibro anche su di lei e non la riguarda mai piu'. */
+        esigi(r.saltate === 0, 'e non si conta fra le saltate, che sono una cosa chiusa');
+        esigi(r.avanzabili === 0,
+            'e si dice a chi chiama fin dove puo spostare il segnalibro senza scavalcarla',
+            'avanzabili ' + r.avanzabili);
 
         scenario({ 'a@x.it': {} });
-        dati['aziendeInvito/' + idScheda('a@x.it')].tentativo = { quando: Date.now() - 30 * MIN, canale: 'pec' };
+        dati['aziendeInvito/' + idScheda('a@x.it')].tentativo = { quando: Date.now() - 60 * MIN, canale: 'pec' };
         r = await invia(['a@x.it']);
         esigi(r.incerte === 1 && !spediti.length,
             'un timbro vecchio vuol dire "esito ignoto": NON si ritenta, si conta a parte');
@@ -451,6 +458,70 @@ async function principale() {
         esigi(RITMI.perGiro({ quanti: 3, ogniMin: 60 }, 10) === 1,
             'una finestra larga si spalma sui giri invece di svuotarsi subito',
             'per giro ' + RITMI.perGiro({ quanti: 3, ogniMin: 60 }, 10));
+    }
+
+    console.log('\nIl secondo invio della campagna: il sollecito programmato');
+    {
+        /* IL DIFETTO CHE QUESTA PROVA SORVEGLIA, ed e' il secondo invio di ogni
+           campagna, non un caso di nicchia. Il timbro che il motore lascia sulla
+           scheda diceva "servita dalla programmazione ev1~invito"; ma
+           l'identificativo di una programmazione e' evento~campagna, cioe'
+           sempre lo stesso su quell'elenco. Percio' il sollecito - "manda una
+           seconda volta a quelle che l'hanno gia' ricevuto" - trovava il timbro
+           gia' scritto dalla PRIMA campagna e saltava tutte le aziende,
+           dichiarandosi conclusa dopo aver spedito zero. Senza un errore. */
+        const tre = { 'd1@x.it': {}, 'd2@x.it': {}, 'd3@x.it': {} };
+        scenario(tre);
+        const ids = Object.keys(tre).map(idScheda);
+        await chiama('programma', { canale: 'pec', mail: MAIL, quando: Date.now() });
+        await chiama('programma-lotto', { n: 1, ids: ids });
+        await chiama('programma-avvia', {});
+        await GIRO.eseguiGiro(db);
+        esigi(spediti.length === 3 && docProg().stato === 'conclusa', 'la prima campagna parte e si chiude');
+
+        // il sollecito: stesso elenco, stessa campagna, "manda una seconda volta"
+        spediti = [];
+        const r = await chiama('programma', { canale: 'pec', mail: MAIL, quando: Date.now(), forza: true });
+        esigi(r.ok, 'sullo stesso elenco si puo programmare il sollecito, perche la prima e conclusa');
+        await chiama('programma-lotto', { n: 1, ids: ids });
+        await chiama('programma-avvia', {});
+        await GIRO.eseguiGiro(db);
+        esigi(spediti.length === 3,
+            'e il sollecito parte davvero a tutte e tre, invece di saltarle come "gia servite"',
+            'partite ' + spediti.length);
+        esigi(docProg().conti.inviate === 3, 'e il conto lo dice', JSON.stringify(docProg().conti));
+    }
+
+    console.log('\nIl giro e l\'invio a mano sulla stessa lista, insieme');
+    {
+        /* IL DIFETTO CHE QUESTA PROVA SORVEGLIA. L'area riservata lascia "Invia"
+           premibile apposta mentre una programmazione va avanti - serve a
+           mandare qualcosa a due o tre aziende mentre il grosso procede. Ma il
+           lucchetto della programmazione esclude due GIRI fra loro, non un giro
+           e una persona: la scheda si leggeva, si facevano i controlli, e solo
+           decine di millisecondi dopo si scriveva il timbro. In quella finestra
+           passavano tutti e due, e all'azienda arrivavano DUE PEC. */
+        const quattro = {};
+        for (let i = 0; i < 4; i++) quattro['e' + i + '@x.it'] = {};
+        scenario(quattro);
+        const ids = Object.keys(quattro).map(idScheda);
+        await chiama('programma', { canale: 'pec', mail: MAIL, quando: Date.now() });
+        await chiama('programma-lotto', { n: 1, ids: ids });
+        await chiama('programma-avvia', {});
+
+        // partono insieme, come quando si preme Invia nel minuto in cui gira il cron
+        await Promise.all([
+            GIRO.eseguiGiro(db),
+            chiama('invia', { canale: 'pec', ids: ids, mail: MAIL })
+        ]);
+        const perAzienda = {};
+        spediti.forEach(m => { perAzienda[m.to] = (perAzienda[m.to] || 0) + 1; });
+        const doppie = Object.keys(perAzienda).filter(k => perAzienda[k] > 1);
+        esigi(!doppie.length,
+            'nessuna azienda riceve due volte, nemmeno con il giro e l\'invio a mano insieme',
+            doppie.length ? ('doppie: ' + doppie.join(', ')) : ('' + spediti.length + ' messaggi per 4 aziende'));
+        esigi(spediti.length === 4, 'e in tutto partono quattro messaggi, uno per azienda',
+            'partiti ' + spediti.length);
     }
 
     console.log('\nUn elenco lungo: piu lotti di quanti se ne leggano in un giro');

@@ -1133,7 +1133,7 @@ async function esegui(ctx) {
                chi stava caricando gli identificativi e' morto a meta', quella
                riga resterebbe li' a bloccare l'elenco per sempre. Dopo mezz'ora
                si considera persa e si puo' ricominciare. */
-            const SCADE_PREPARAZIONE_MS = 30 * 60 * 1000;
+            const SCADE_PREPARAZIONE_MS = PROG.SCADE_PREPARAZIONE_MS;
             let conflitto = null;
             let vecchiaDaPulire = false;
             await db.runTransaction(async (tx) => {
@@ -1151,6 +1151,22 @@ async function esegui(ctx) {
                 tx.set(PROG.rif(db, id), {
                     evento: evento, campagna: campagna, canale: canale,
                     stato: PROG.IN_PREPARAZIONE,
+                    /* LA CHIAVE DI QUESTA CORSA, e senza non funziona il secondo
+                       invio. Il timbro che il motore lascia sulla scheda serve a
+                       riconoscere "gia' servita da questa programmazione", ma
+                       l'identificativo del documento e' evento~campagna, cioe'
+                       sempre lo stesso su quell'elenco. Cosi' il sollecito -
+                       "manda una seconda volta alle 5.000 che l'hanno gia'
+                       ricevuto", che e' il secondo invio di ogni campagna -
+                       trovava il proprio timbro gia' scritto dalla PRIMA
+                       programmazione e saltava tutte le aziende, dichiarandosi
+                       conclusa dopo aver spedito zero. Con una chiave nuova a
+                       ogni corsa il timbro identifica l'invio, non l'elenco. */
+                    corsa: adesso.toString(36) + '-' + Math.round(quando % 100000).toString(36),
+                    /* Occupa il posto: e' su questo che il lavoro automatico
+                       cerca le programmazioni, invece di pescare le piu'
+                       vecchie fra tutte quelle mai create. */
+                    attiva: true,
                     quando: quando, ritmo: ritmo,
                     mail: { oggetto: oggetto, html: html },
                     pagina: testo(body.pagina, 200),
@@ -1189,9 +1205,24 @@ async function esegui(ctx) {
             const id = PROG.idDi(evento, campagna);
             const n = Math.round(Number(body.n) || 0);
             if (n < 1 || n > 2000) { res.status(400).json({ ok: false, msg: 'Numero del blocco non valido.' }); return; }
-            const ids = (Array.isArray(body.ids) ? body.ids : [])
+            /* Gli identificativi devono essere nomi di documento che Firestore
+               accetti. Uno con una barra dentro non e' una scheda che non
+               esiste: e' un percorso verso un'altra collezione, e Firestore lo
+               rifiuta con un'eccezione. Arrivata dentro il lavoro automatico,
+               quell'eccezione fermerebbe la fetta a ogni giro, per sempre,
+               sulla stessa scheda. Si scartano qui, dove c'e' ancora qualcuno
+               che legge la risposta.
+
+               Il punto invece va bene, ed e' importante non vietarlo: gli
+               identificativi veri lo contengono (nascono da un indirizzo di
+               posta). Illeciti sono solo la barra, i nomi "." e ".." da soli,
+               e la forma __qualcosa__ che Firestore riserva a se'. */
+            const nomeDocValido = x => !/\//.test(x) && x !== '.' && x !== '..' && !/^__.*__$/.test(x);
+            const grezzi = (Array.isArray(body.ids) ? body.ids : [])
                 .map(x => testo(x, 400)).filter(Boolean).slice(0, PROG.PER_LOTTO);
-            if (!ids.length) { res.status(400).json({ ok: false, msg: 'Nessuna azienda in questo blocco.' }); return; }
+            const ids = grezzi.filter(nomeDocValido);
+            const scartati = grezzi.length - ids.length;
+            if (!ids.length) { res.status(400).json({ ok: false, msg: 'Nessuna azienda valida in questo blocco.' }); return; }
 
             /* Il conto delle aziende cresce QUI, non alla fine: chi manda i
                blocchi non deve doverli ricontare, e soprattutto un blocco
@@ -1214,7 +1245,7 @@ async function esegui(ctx) {
                     totale: admin.firestore.FieldValue.increment(ids.length - giaContati),
                     lotti: admin.firestore.FieldValue.increment(vecchio.exists ? 0 : 1)
                 }, { merge: true });
-                esito = { ok: true, n: n, quanti: ids.length };
+                esito = { ok: true, n: n, quanti: ids.length, scartati: scartati };
             });
             if (!esito.ok) { res.status(409).json(esito); return; }
             res.status(200).json(esito);
@@ -1278,8 +1309,14 @@ async function esegui(ctx) {
                         esito = { ok: false, msg: 'Questo invio programmato non e in pausa (stato: ' + (d.stato || 'ignoto') + ').' };
                         return;
                     }
+                    /* annullaRichiesto si azzera qui, e non e' pignoleria: una
+                       programmazione fermata dal servizio mentre un annullamento
+                       era in volo se lo porterebbe dietro, e il primo giro dopo
+                       la ripresa la chiuderebbe come annullata - cioe' "Riprendi"
+                       avrebbe l'effetto opposto a quello scritto sopra. */
                     tx.set(PROG.rif(db, id), {
-                        stato: 'programmata', sospesa: null, ultimoErrore: '', lucchetto: null
+                        stato: 'programmata', sospesa: null, ultimoErrore: '',
+                        lucchetto: null, annullaRichiesto: false, attiva: true
                     }, { merge: true });
                     esito = { ok: true, msg: 'Invio programmato ripreso: riparte al prossimo giro, allo stesso ritmo.' };
                 }
@@ -1311,6 +1348,8 @@ async function esegui(ctx) {
                 tx.set(PROG.rif(db, id), {
                     annullaRichiesto: true,
                     stato: inLavorazione ? d.stato : 'annullata',
+                    // se resta in lavorazione lo spegnera' il giro, chiudendola
+                    attiva: inLavorazione ? true : false,
                     annullato: { da: email, collab: collab, il: Date.now() }
                 }, { merge: true });
                 esito = {

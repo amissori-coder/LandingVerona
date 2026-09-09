@@ -159,6 +159,8 @@ function sommaConti(vecchi, nuovi) {
 async function concludi(db, id, stato, conti, motivo) {
     await P.rif(db, id).set({
         stato: stato, concluso: { il: Date.now(), motivo: String(motivo || '').slice(0, 300) },
+        // fuori scena: il giro non deve piu' nemmeno leggerla
+        attiva: false,
         lucchetto: null, conti: conti
     }, { merge: true });
     /* Gli identificativi se ne vanno con la conclusione: hanno finito il
@@ -168,7 +170,17 @@ async function concludi(db, id, stato, conti, motivo) {
 }
 
 /* Un turno su UNA programmazione: prenota la quota, spedisce, scrive. */
-async function lavora(db, id, dati, scadenza) {
+async function lavora(db, id, dati, scadenza, fuori) {
+    /* L'annullamento si guarda PRIMA di ogni altra cosa. Stava solo dentro il
+       ciclo dei lotti, quindi una programmazione annullata mentre il canale
+       era spento, o mentre la finestra era piena, usciva di qui per l'altra
+       porta e restava aperta per sempre - con i suoi identificativi, cioe' con
+       i recapiti delle aziende, in archivio. */
+    if (dati.annullaRichiesto === true) {
+        await concludi(db, id, 'annullata', dati.conti || {}, 'annullata mentre era in corso');
+        return { annullata: true };
+    }
+
     const canale = String(dati.canale || 'email') === 'pec' ? 'pec' : 'email';
     /* Il canale puo' essere stato spento dopo la programmazione (le
        credenziali PEC tolte da Vercel, per dire). Spedire lo stesso
@@ -201,23 +213,38 @@ async function lavora(db, id, dati, scadenza) {
         await concludi(db, id, 'conclusa', dati.conti || {}, 'elenco finito');
         return { finita: true };
     }
-    const lotti = await lottiDaFare(db, id, 30, cursore);
-    if (!lotti.length) {
+    /* Quanti lotti chiedere per volta: quelli che la quota di questo giro puo'
+       toccare se sono pieni, piu' uno di margine. Trenta fissi volevano dire
+       scaricare fino a trenta documenti da centinaia di kilobyte per usarne
+       uno.
+
+       "Se sono pieni" e' il punto: un lotto puo' contenerne anche uno solo -
+       l'ultimo di un elenco, o uno caricato a pezzetti - e allora questa stima
+       e' troppo bassa. Percio' non e' una stima definitiva: quando i lotti
+       letti finiscono e la quota c'e' ancora, se ne rileggono altri (il ciclo
+       piu' sotto). Cosi' il caso normale costa due letture e quello storto non
+       si blocca a meta'. */
+    const quantiLotti = Math.min(30, Math.ceil(voluti / P.PER_LOTTO) + 1);
+    if (!(await lottiDaFare(db, id, 1, cursore)).length) {
         await concludi(db, id, 'conclusa', dati.conti || {}, 'elenco finito');
         return { finita: true };
     }
-
-    /* I disiscritti si leggono una volta per giro, non una per lotto: e'
-       lo stesso elenco che usa la newsletter e non cambia in due minuti. */
-    let fuori = {};
-    try { fuori = await NL.disiscritti(db); }
-    catch (_) { fuori = {}; }
 
     let conti = Object.assign({}, CONTI_ZERO, dati.conti || {});
     let restaQuota = voluti;
     let bloccato = '';
     let fermato = '';
 
+    /* Si legge un gruppo di lotti, li si lavora, e se la quota non e' finita
+       se ne rilegge un altro dal punto in cui si e' arrivati. Si smette
+       quando il cursore non si muove piu': rileggere gli stessi documenti non
+       produrrebbe niente di nuovo, e senza questa condizione il ciclo
+       girerebbe a vuoto. */
+    let altriLotti = true;
+    while (altriLotti && restaQuota > 0 && !bloccato && !fermato && Date.now() <= scadenza) {
+    const cursorePrima = cursore;
+    const lotti = await lottiDaFare(db, id, quantiLotti, cursore);
+    if (!lotti.length) break;
     for (const doc of lotti) {
         if (restaQuota <= 0) break;
         if (Date.now() > scadenza) { fermato = 'tempo del giro esaurito'; break; }
@@ -234,14 +261,18 @@ async function lavora(db, id, dati, scadenza) {
         const dl = doc.data() || {};
         const nLotto = Number(dl.n) || 0;
         // gia' passato in un giro precedente: si sposta solo il segnalibro
+        /* Il cursore avanza solo di un passo alla volta, dalla testa. Con
+           ">=" un lotto piu' avanti gia' fatto lo avrebbe spinto OLTRE un lotto
+           precedente rimasto aperto, e quello non sarebbe stato riletto mai
+           piu'. */
         if (dl.stato === 'fatto') {
-            if (nLotto >= cursore) cursore = nLotto + 1;
+            if (nLotto === cursore) cursore = nLotto + 1;
             continue;
         }
         const ids = (dl.ids || []).slice(0);
         if (!ids.length) {
             await doc.ref.set({ stato: 'fatto' }, { merge: true });
-            if (nLotto >= cursore) cursore = nLotto + 1;
+            if (nLotto === cursore) cursore = nLotto + 1;
             continue;
         }
 
@@ -271,18 +302,40 @@ async function lavora(db, id, dati, scadenza) {
             if (p.concessi <= 0) { fermato = 'ritmo esaurito'; break; }
             const daFare = fetta.slice(0, p.concessi);
 
-            const r = await MOTORE.inviaSchede(db, {
-                evento: dati.evento, campagna: dati.campagna, canale: canale,
-                ids: daFare,
-                mail: (dati.mail || {}),
-                forza: dati.forza === true, prog: id,
-                email: (dati.creato && dati.creato.da) || '',
-                collab: (dati.creato && dati.creato.collab) || '',
-                pagina: dati.pagina || '',
-                rispondiA: (dati.creato && dati.creato.da) || '',
-                scadenza: Math.min(scadenza, Date.now() + 120000),
-                fuori: fuori, esiti: false
-            });
+            let r;
+            try {
+                r = await MOTORE.inviaSchede(db, {
+                    evento: dati.evento, campagna: dati.campagna, canale: canale,
+                    ids: daFare,
+                    mail: (dati.mail || {}),
+                    /* La chiave della CORSA, non quella dell'elenco: e' cosi'
+                       che un sollecito programmato riconosce il proprio timbro
+                       invece di trovare quello della campagna precedente e
+                       saltare tutte le aziende. Le programmazioni scritte prima
+                       che questa chiave esistesse non ce l'hanno: li' si ricade
+                       sull'identificativo, che e' quello che facevano gia'. */
+                    forza: dati.forza === true, prog: dati.corsa ? (id + '#' + dati.corsa) : id,
+                    email: (dati.creato && dati.creato.da) || '',
+                    collab: (dati.creato && dati.creato.collab) || '',
+                    pagina: dati.pagina || '',
+                    rispondiA: (dati.creato && dati.creato.da) || '',
+                    /* La scadenza della fetta e' quella del giro, non un
+                       numero suo: con due minuti fissi, un server di posta
+                       lento faceva uscire il ciclo al primo finite:false e la
+                       meta' del budget restava inutilizzata - il ritmo reale
+                       scendeva sotto quello promesso senza che si vedesse. */
+                    scadenza: scadenza,
+                    fuori: fuori, esiti: false
+                });
+            } catch (e) {
+                /* Il motore non dovrebbe uscire per eccezione, ma se succede la
+                   quota prenotata non deve restare bruciata: senza questa rete
+                   la finestra risulterebbe consumata da messaggi mai partiti, e
+                   l'ora chiuderebbe molto sotto quanto promesso. */
+                await restituisci(db, id, p.concessi, p.inizio);
+                fermato = String((e && e.message) || e).slice(0, 200);
+                break;
+            }
 
             /* Quello che non e' stato speso torna nella finestra: le schede
                saltate, quelle senza recapito e quelle mai raggiunte perche' il
@@ -293,7 +346,16 @@ async function lavora(db, id, dati, scadenza) {
             await restituisci(db, id, p.concessi - r.trattate, p.inizio);
             restaQuota -= r.trattate;
             conti = sommaConti(conti, r);
-            fatti = Math.min(ids.length, fatti + (r.viste || 0));
+            /* Il segnalibro si sposta solo fin dove le schede sono DEFINITE.
+               Una rimandata - qualcuno ci sta lavorando adesso, o e' appena
+               morto lasciandola a meta' - non lo e': facendola scavalcare, il
+               lotto sarebbe arrivato a "fatto" e quell'azienda non sarebbe
+               stata guardata mai piu', contata fra le saltate insieme alle
+               escluse. Con avanzabili il segnalibro si ferma su di lei e la
+               ritrova al giro dopo, quando il timbro sara' abbastanza vecchio
+               da mandarla in "Con errore", sotto gli occhi di una persona. */
+            const passo = Math.max(0, Math.min(Number(r.avanzabili), Number(r.viste) || 0));
+            fatti = Math.min(ids.length, fatti + passo);
 
             // si scrive DOPO OGNI FETTA: un timeout non deve far perdere il conto
             await doc.ref.set({
@@ -303,16 +365,22 @@ async function lavora(db, id, dati, scadenza) {
             await P.rif(db, id).set({ conti: conti, ultimoGiro: Date.now() }, { merge: true });
 
             if (r.bloccato) { bloccato = r.bloccato; break; }
-            /* Il motore non ha guardato niente: senza questa uscita il ciclo
-               girerebbe a vuoto per sempre, perche' il segnalibro non avanza. */
-            if (!r.viste) { fermato = 'nessuna scheda trattata'; break; }
+            if (r.errore) { fermato = r.errore; break; }
+            /* Il segnalibro non si e' mosso: o non si e' guardato niente, o la
+               prima scheda della fetta e' rimandata. In tutti e due i casi
+               insistere qui vorrebbe dire girare a vuoto per sempre sulla
+               stessa fetta - si passa al lotto seguente e si torna al giro
+               dopo, quando il timbro sara' scaduto. */
+            if (!passo) { fermato = r.rimandate ? 'in attesa di un esito' : 'nessuna scheda trattata'; break; }
             if (!r.finite) { fermato = 'tempo del giro esaurito'; break; }
         }
         /* Il segnalibro avanza SOLO su un lotto percorso fino in fondo. Su
            uno lasciato a meta' (quota finita, tempo finito, blocco) resta
            dov'e', e il giro dopo riprende da qui. */
-        if (fatti >= ids.length && nLotto >= cursore) cursore = nLotto + 1;
+        if (fatti >= ids.length && nLotto === cursore) cursore = nLotto + 1;
         if (bloccato || fermato) break;
+    }
+    altriLotti = cursore > cursorePrima;
     }
 
     /* Il gestore ha rifiutato NOI, non un destinatario: continuare
@@ -363,10 +431,45 @@ async function eseguiGiro(db) {
         await P.battito(db, { inizio: partito, giro: giro, esito: 'in corso' });
         const scadenza = partito + BUDGET_MS;
 
-        /* Le dovute: quelle la cui ora e' passata. Lo stato si filtra dopo,
-           in memoria, perche' un secondo where() vorrebbe un indice
-           composto e questa collezione ne conta poche decine di documenti. */
-        const q = await db.collection(P.COLL).where('quando', '<=', Date.now()).limit(50).get();
+        /* SI CERCA PER "ATTIVA", NON PER DATA, e la differenza e' fra
+           funzionare e smettere in silenzio. La query di prima era
+           where('quando','<=',adesso).limit(50): su Firestore una
+           disuguaglianza impone l'ordinamento crescente su quel campo, quindi
+           tornavano le cinquanta programmazioni piu' VECCHIE. Le concluse e le
+           annullate non si cancellano - i conti servono a chi legge dopo - e
+           conservano il loro "quando" nel passato: dopo una cinquantina di
+           programmazioni nella vita del sito, quella pagina sarebbe stata
+           tutta storia, una programmazione nuova non ci sarebbe piu' entrata,
+           e il giro avrebbe scritto "trattate: 0" per sempre senza che niente
+           lo dicesse.
+
+           Con un contrassegno che si spegne quando la programmazione esce di
+           scena, la pagina contiene solo quelle vive - che sono poche - e la
+           data si guarda in memoria. Nessun indice composto da creare a mano. */
+        const q = await db.collection(P.COLL).where('attiva', '==', true).limit(50).get();
+
+        /* Le preparazioni abbandonate. Se il browser muore fra "programma" e
+           "programma-avvia" nessuno cancella gli identificativi, e quelli
+           contengono i recapiti delle aziende: senza questa spazzata
+           resterebbero in archivio per sempre, su un evento che magari e' gia'
+           passato. Si fa qui perche' il giro questa collezione la legge
+           comunque. */
+        for (const d of q.docs) {
+            const dd = d.data() || {};
+            if (dd.stato !== P.IN_PREPARAZIONE) continue;
+            const nata = Number((dd.creato && dd.creato.il) || 0);
+            if (!nata || (Date.now() - nata) < P.SCADE_PREPARAZIONE_MS) continue;
+            try {
+                await P.cancellaLotti(db, d.id);
+                await P.rif(db, d.id).set({
+                    stato: 'annullata', attiva: false,
+                    concluso: { il: Date.now(), motivo: 'preparazione mai avviata' }
+                }, { merge: true });
+            } catch (e) {
+                console.error('Giro inviti, preparazione abbandonata non ripulita:', d.id,
+                    String((e && e.message) || e).slice(0, 160));
+            }
+        }
         /* CHI SERVIRE PER PRIMO, quando ce n'e' piu' di quante ne stiano in un
            giro. Non le prime tre che capitano: Firestore le ordina per
            'quando', che non cambia mai, quindi con quattro programmazioni
@@ -380,10 +483,22 @@ async function eseguiGiro(db) {
                rotazione: nessuna resta indietro, anche se sono cinque. */
         const dovute = q.docs
             .filter(d => P.daLavorare((d.data() || {}).stato))
+            .filter(d => Number((d.data() || {}).quando || 0) <= Date.now())
             .map(d => ({ doc: d, puo: P.quantiOra(d.data() || {}) > 0, ultimo: Number((d.data() || {}).ultimoGiro) || 0 }))
             .sort((x, y) => (y.puo - x.puo) || (x.ultimo - y.ultimo))
             .slice(0, MAX_PROGRAMMAZIONI)
             .map(x => x.doc);
+
+        /* I DISISCRITTI SI LEGGONO UNA VOLTA PER GIRO, non una per
+           programmazione. E' un .get() sull'intera collezione: con tremila
+           disiscritti e tre programmazioni attive erano novemila letture ogni
+           dieci minuti, cioe' molte piu' letture dell'invio vero. E' lo stesso
+           elenco che usa la newsletter e non cambia in due minuti. */
+        let fuori = {};
+        if (dovute.length) {
+            try { fuori = await NL.disiscritti(db); }
+            catch (_) { fuori = {}; }
+        }
 
         const fatte = [];
         for (const doc of dovute) {
@@ -392,7 +507,7 @@ async function eseguiGiro(db) {
             const dati = await prendiLucchetto(db, id, giro);
             if (!dati) { fatte.push({ id: id, saltata: 'gia in lavorazione o non piu attiva' }); continue; }
             try {
-                const r = await lavora(db, id, dati, Math.min(scadenza, Date.now() + BUDGET_UNA_MS));
+                const r = await lavora(db, id, dati, Math.min(scadenza, Date.now() + BUDGET_UNA_MS), fuori);
                 fatte.push(Object.assign({ id: id }, {
                     finita: !!r.finita, attesa: r.attesa || '', bloccato: r.bloccato || '',
                     interrotto: r.interrotto || '', inviate: (r.conti && r.conti.inviate) || 0

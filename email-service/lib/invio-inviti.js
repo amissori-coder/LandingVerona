@@ -56,6 +56,7 @@ const CANALI = require('./canali-invito');
 const CODICI = require('./codici-invito');
 const LETTORE = require('./lettore-pec');
 const CAMPAGNE = require('./campagne-invito');
+const RITMI = require('./ritmi-invito');
 
 function testo(v, max) {
     return String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max || 200);
@@ -111,7 +112,17 @@ function giaServita(a, forza, prog) {
    Sulla PEC c'e' anche la seconda rete: il riferimento e' registrato
    prima dell'invio, quindi se il messaggio era davvero partito la
    ricevuta del gestore arriva e ritrova la scheda da sola. */
-const INCERTO_DOPO_MS = 10 * 60 * 1000;
+/* Quanto deve essere vecchio un timbro perche' lo si consideri di un
+   invio morto e non di uno in corso. DEVE stare sopra il passo del lavoro
+   automatico, con margine: erano dieci minuti esatti, cioe' proprio il
+   passo del cron, e il giro successivo trovava il timbro sempre piu'
+   giovane di dieci minuti. Risultato: quella scheda veniva rimandata a
+   ogni passaggio e non finiva mai in "Con errore", cioe' non finiva mai
+   sotto gli occhi di nessuno. */
+const INCERTO_DOPO_MS = Math.max(
+    25 * 60 * 1000,
+    Math.round(2.5 * RITMI.passoCronMin() * 60 * 1000)
+);
 
 /* Spedisce l'invito alle schede indicate. Chi chiama decide QUALI
    (gli identificativi) e FINO A QUANDO (la scadenza): questo motore
@@ -156,7 +167,13 @@ async function inviaSchede(db, opz) {
 
     const conti = {
         inviate: 0, saltate: 0, senzaRecapito: 0, disiscritte: 0, incerte: 0,
-        falliti: [], esiti: {}, bloccato: '', trattate: 0, viste: 0, finite: true
+        /* rimandate: schede su cui qualcun altro sta lavorando adesso. Non
+           sono ne' fatte ne' fallite: si torna.
+           avanzabili: quante schede dalla testa dell'elenco sono DEFINITE,
+           cioe' fin dove un segnalibro puo' spostarsi senza scavalcare una
+           rimandata. -1 vuol dire "tutte quelle guardate". */
+        rimandate: 0, avanzabili: -1,
+        falliti: [], esiti: {}, bloccato: '', errore: '', trattate: 0, viste: 0, finite: true
     };
     if (!ids.length) return conti;
 
@@ -172,36 +189,101 @@ async function inviaSchede(db, opz) {
             if (Date.now() > scadenza) { conti.finite = false; break; }
             conti.viste++;
             const rif = db.collection('aziendeInvito').doc(id);
-            const snap = await rif.get();
-            if (!snap.exists) { conti.saltate++; continue; }
-            const a = snap.data() || {};
-            if (String(a.evento || '') !== evento) { conti.saltate++; continue; }
-            if (CAMPAGNE.diScheda(a) !== campagna) { conti.saltate++; continue; }
-            if (a.stato === 'esclusa' || a.stato === 'disiscritta') { conti.saltate++; continue; }
-            if (giaServita(a, forza, prog)) { conti.saltate++; continue; }
-            /* Un tentativo rimasto appeso: vedi il commento su INCERTO_DOPO_MS.
-               Fresco vuol dire "ci sta lavorando qualcuno adesso", vecchio vuol
-               dire "non si sa com'e' finita" - e in nessuno dei due casi si
-               spedisce. */
-            const tent = Number(a.tentativo && a.tentativo.quando) || 0;
-            if (tent) {
-                if (Date.now() - tent < INCERTO_DOPO_MS) { conti.saltate++; continue; }
-                const motivo = 'Esito ignoto: il servizio si e interrotto dopo aver consegnato il messaggio al server '
-                    + 'di posta. Non e stato ritentato per non rischiare un doppione: se serve, rimandalo a mano.';
-                const errore = { quando: Date.now(), da: email, collab: collab, canale: canale, motivo: motivo, incerto: true };
-                await rif.set({ stato: 'errore', errore: errore, tentativo: null }, { merge: true });
-                if (raccogliEsiti) conti.esiti[id] = { stato: 'errore', errore: errore };
-                conti.incerte++;
-                continue;
+
+            /* SI PRENDE LA SCHEDA IN UNA TRANSAZIONE, e non e' un
+               irrigidimento gratuito: e' l'unica cosa che rende il timbro
+               davvero escludente.
+
+               Prima si leggeva la scheda, si facevano i controlli e solo
+               decine di millisecondi dopo si scriveva il timbro. In quella
+               finestra ci sta comodo un secondo chiamante - ed esiste
+               davvero: l'area riservata lascia "Invia" premibile apposta
+               mentre una programmazione va avanti, e il lavoro automatico
+               parte a un orario noto ogni dieci minuti. Tutti e due
+               leggevano una scheda ancora senza timbro, tutti e due
+               passavano i controlli, e all'azienda arrivavano DUE PEC.
+               Il lucchetto della programmazione non c'entra: esclude due
+               giri fra loro, non un giro e una persona.
+
+               Dentro la transazione si fa tutto quello che decide SE
+               spedire, e si esce con un verdetto. Fuori restano solo le
+               cose lente: il codice, l'invio, l'esito. */
+            let verdetto;
+            try {
+                verdetto = await db.runTransaction(async tx => {
+                    const snap = await tx.get(rif);
+                    if (!snap.exists) return { cosa: 'saltata' };
+                    const a = snap.data() || {};
+                    if (String(a.evento || '') !== evento) return { cosa: 'saltata' };
+                    if (CAMPAGNE.diScheda(a) !== campagna) return { cosa: 'saltata' };
+                    if (a.stato === 'esclusa' || a.stato === 'disiscritta') return { cosa: 'saltata' };
+                    if (giaServita(a, forza, prog)) return { cosa: 'saltata' };
+                    /* Un tentativo rimasto appeso: vedi il commento su
+                       INCERTO_DOPO_MS. Fresco vuol dire "ci sta lavorando
+                       qualcun altro proprio adesso"; vecchio vuol dire "non si
+                       sa com'e' finita". In nessuno dei due casi si spedisce,
+                       ma sono due cose diverse e chi chiama deve poterle
+                       distinguere: sulla prima si torna, sulla seconda no. */
+                    const tent = Number(a.tentativo && a.tentativo.quando) || 0;
+                    if (tent) {
+                        if (Date.now() - tent < INCERTO_DOPO_MS) return { cosa: 'rimandata' };
+                        const motivo = 'Esito ignoto: il servizio si e interrotto dopo aver consegnato il messaggio al server '
+                            + 'di posta. Non e stato ritentato per non rischiare un doppione: se serve, rimandalo a mano.';
+                        const errore = { quando: Date.now(), da: email, collab: collab, canale: canale, motivo: motivo, incerto: true };
+                        tx.set(rif, { stato: 'errore', errore: errore, tentativo: null }, { merge: true });
+                        return { cosa: 'incerta', errore: errore };
+                    }
+                    const dest = CANALI.destinatarioDi(canale, a);
+                    if (!indirizzoValido(dest)) return { cosa: 'senza-recapito' };
+                    if (fuori[dest.toLowerCase()]) {
+                        tx.set(rif, { stato: 'disiscritta' }, { merge: true });
+                        return { cosa: 'disiscritta' };
+                    }
+                    /* Il timbro, prima di spedire e nella stessa transazione
+                       della lettura. Se piu' sotto si muore, e' l'unica cosa
+                       che distingue "non e' mai partita" da "non si sa". */
+                    const riferimento = CANALI.riferimentoNuovo(canale);
+                    tx.set(rif, {
+                        tentativo: { quando: Date.now(), da: email, canale: canale, prog: prog, riferimento: riferimento }
+                    }, { merge: true });
+                    return { cosa: 'presa', a: a, dest: dest, riferimento: riferimento };
+                });
+            } catch (e) {
+                /* L'archivio non risponde. Non si spedisce alla cieca: senza
+                   il timbro un'interruzione subito dopo produrrebbe proprio il
+                   doppione che il timbro serve a evitare. Si smette qui e si
+                   dice perche': la fetta non e' finita, quindi chi chiama
+                   restituisce la quota e riprende al giro dopo. */
+                conti.errore = 'Archivio non raggiungibile: ' + String((e && e.message) || e).slice(0, 160);
+                conti.finite = false;
+                break;
             }
-            const dest = CANALI.destinatarioDi(canale, a);
-            if (!indirizzoValido(dest)) { conti.senzaRecapito++; continue; }
-            if (fuori[dest.toLowerCase()]) {
-                await rif.set({ stato: 'disiscritta' }, { merge: true });
+
+            if (verdetto.cosa === 'saltata') { conti.saltate++; continue; }
+            if (verdetto.cosa === 'senza-recapito') { conti.senzaRecapito++; continue; }
+            if (verdetto.cosa === 'disiscritta') {
                 if (raccogliEsiti) conti.esiti[id] = { stato: 'disiscritta' };
                 conti.disiscritte++;
                 continue;
             }
+            if (verdetto.cosa === 'incerta') {
+                if (raccogliEsiti) conti.esiti[id] = { stato: 'errore', errore: verdetto.errore };
+                conti.incerte++;
+                continue;
+            }
+            if (verdetto.cosa === 'rimandata') {
+                /* Su questa si TORNA: qualcuno ci sta lavorando adesso, o e'
+                   appena morto lasciandola a meta'. Va detto a chi chiama, che
+                   altrimenti farebbe avanzare il proprio segnalibro anche su di
+                   lei e non la riguarderebbe mai piu'. */
+                conti.rimandate++;
+                if (conti.avanzabili < 0) conti.avanzabili = conti.viste - 1;
+                continue;
+            }
+
+            const a = verdetto.a;
+            const dest = verdetto.dest;
+            const riferimento = verdetto.riferimento;
 
             /* Il codice riservato all'azienda: si crea PRIMA di spedire e si
                scrive subito. Una scheda che ce l'ha gia' lo tiene - un
@@ -220,7 +302,7 @@ async function inviaSchede(db, opz) {
                 } catch (e) {
                     const motivo = 'Codice invito non assegnato: ' + String((e && e.message) || e).slice(0, 120);
                     const errore = { quando: Date.now(), da: email, collab: collab, canale: canale, motivo: motivo };
-                    await rif.set({ stato: 'errore', errore: errore }, { merge: true });
+                    await rif.set({ stato: 'errore', errore: errore, tentativo: null }, { merge: true });
                     if (raccogliEsiti) conti.esiti[id] = { stato: 'errore', errore: errore };
                     conti.falliti.push({ id: id, indirizzo: dest, motivo: motivo });
                     conti.trattate++;
@@ -228,24 +310,8 @@ async function inviaSchede(db, opz) {
                 }
             }
 
-            const riferimento = CANALI.riferimentoNuovo(canale);
             if (!primo) await CANALI.aspetta(pausa);
             primo = false;
-            /* Il timbro, prima di spedire. Se qui sotto si muore, e' l'unica
-               cosa che distingue "non e' mai partita" da "non si sa". */
-            try {
-                await rif.set({
-                    tentativo: { quando: Date.now(), da: email, canale: canale, prog: prog, riferimento: riferimento }
-                }, { merge: true });
-            } catch (e) {
-                /* Se non si riesce nemmeno a scrivere il timbro, non si spedisce:
-                   senza timbro un'interruzione subito dopo produrrebbe proprio il
-                   doppione che il timbro serve a evitare. */
-                const motivo = 'Archivio non raggiungibile prima dell\'invio: ' + String((e && e.message) || e).slice(0, 120);
-                conti.falliti.push({ id: id, indirizzo: dest, motivo: motivo });
-                conti.trattate++;
-                continue;
-            }
             try {
                 if (canale === 'pec') {
                     await LETTORE.registraRiferimento(db, riferimento, { scheda: id, evento: evento, destinatario: dest });
@@ -288,6 +354,8 @@ async function inviaSchede(db, opz) {
     } finally {
         try { trans.close(); } catch (_) { /* niente da chiudere */ }
     }
+    // nessuna rimandata: tutto quello che si e' guardato e' definito
+    if (conti.avanzabili < 0) conti.avanzabili = conti.viste;
     return conti;
 }
 
