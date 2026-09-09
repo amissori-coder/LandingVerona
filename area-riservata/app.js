@@ -16106,17 +16106,21 @@
            chi non la vede rifa' l'invio a mano sulle stesse aziende, e quella
            e' una PEC pagata due volte. Una sola chiamata, che risponde per
            tutte e due le campagne. */
-        if (!ev.tutti && puoGestireInviti() && !_invProgChiesta.has(ev.id)) {
-            caricaProgrammazione(ev, r => {
-                /* Si segna SOLO se la lettura e' riuscita. Segnandolo prima,
-                   una risposta mancata per un attimo di rete spegneva la riga
-                   per tutta la sessione: quell'evento non veniva piu' chiesto
-                   e la card restava a dire "nessuna programmazione" anche con
-                   un invio in corso. */
-                if (!r || !r.ok) return;
-                _invProgChiesta.add(ev.id);
-                if (INV_CAMPAGNE.some(c => progAttiva(ev, c.id)) && vistaCorrente === 'eventi') vistaEventi();
-            });
+        /* La programmazione si rilegge a ogni apertura della pagina, non una
+           volta per sessione: puo' essere partita, finita o averla creata un
+           collega nel frattempo. Poi resta il rinfresco, che tiene il numero
+           vivo senza ridisegnare niente. */
+        if (!ev.tutti && puoGestireInviti()) {
+            if (Date.now() - (_invProgLetta[ev.id] || 0) < INV_PROG_FRESCA_MS) {
+                // letta da poco: si ridisegna da quello che si ha e si riarma il rinfresco
+                seguiProgrammazione(ev);
+            } else {
+                caricaProgrammazione(ev, r => {
+                    if (!r || !r.ok) return;
+                    _invProgLetta[ev.id] = Date.now();
+                    if (vistaCorrente === 'eventi') seguiProgrammazione(ev);
+                });
+            }
         }
         const bNuova = document.getElementById('ev-nuova');
         if (bNuova) bNuova.addEventListener('click', () => modaleNuovaIscrizione(ev));
@@ -17637,13 +17641,14 @@
        altrimenti le stesse aziende riceverebbero due messaggi). */
     let _invProg = {};          // per evento e campagna: la programmazione, o null
     let _invProgTimer = null;   // il rinfresco del riquadro mentre la finestra e' aperta
+    /* Quando l'abbiamo letta l'ultima volta, per evento. La pagina degli
+       eventi si ridisegna spesso - a ogni presenza segnata, per dire - e senza
+       questo freno ogni ridisegno sarebbe una chiamata in piu'. Mezzo minuto
+       e' abbastanza fresco per un invio che va avanti a gruppi. */
+    const _invProgLetta = {};
+    const INV_PROG_FRESCA_MS = 30000;
     let _invCron = null;        // ultimo battito del lavoro automatico
     let _invPassoCron = 0;      // ogni quanti minuti gira il lavoro automatico, lo dice il servizio
-    /* Su quali eventi l'abbiamo gia' chiesta. Serve perche' "nessuna
-       programmazione" e' una risposta valida quanto le altre: senza questo,
-       la pagina degli eventi la richiederebbe a ogni ridisegno - e si
-       ridisegna a ogni presenza segnata. */
-    const _invProgChiesta = new Set();
 
     /* Chi carica l'elenco e spedisce: gli stessi che possono aggiungere
        un'iscrizione (amministratore, equity e founding partner). Il servizio
@@ -17774,6 +17779,54 @@
     /* Una card per campagna. Non una sola con dentro un commutatore: sono
        due lavori distinti, con due elenchi e due conti, e su una card sola i
        numeri dell'uno si leggerebbero come quelli dell'altro. */
+    /* LA RIGA DELL'INVIO PROGRAMMATO SULLA CARD DELL'EVENTO.
+       Sta in una funzione sua, e non dentro la card, per due ragioni: la
+       riscrive da sola il rinfresco qui sotto senza ridisegnare mezza pagina,
+       e "a che punto e'" e' un testo che va detto bene, non incastrato in una
+       concatenazione.
+
+       Gli stati NON si dicono tutti allo stesso modo, ed e' il difetto che
+       questa funzione ripara: prima qualunque cosa diversa da "preparazione" e
+       "sospesa" diventava "Invio programmato in corso", compresa una
+       programmazione che l'ora di partenza non l'ha ancora raggiunta. Chi
+       leggeva "in corso: 0 su 1.310" concludeva che qualcosa fosse rotto,
+       mentre stava solo aspettando le 15:40. */
+    function rigaProgrammazione(ev, campagna) {
+        const p = progAttiva(ev, campagna);
+        if (!p) return '';
+        const camp = campagnaDef(campagna);
+        const fatte = Number((p.conti && p.conti.inviate) || 0).toLocaleString('it-IT');
+        const totale = Number(p.totale || 0).toLocaleString('it-IT');
+        const ritmo = esc(ritmoTesto(p.canale, p.ritmo));
+
+        if (p.stato === 'preparazione') {
+            return '<span class="ko">Programmazione rimasta a metà, non partirà: '
+                + 'apri l\'elenco e annullala.</span>';
+        }
+        if (p.stato === 'sospesa') {
+            return '<span class="ko">Invio programmato <b>in pausa</b>: <b>' + fatte + '</b> '
+                + esc(camp.fatto) + ' su ' + totale + '.</span>';
+        }
+        /* Programmata ma non ancora avviata: sono due situazioni diverse e
+           vanno dette diverse, perche' la prima e' un'attesa che finisce a
+           un'ora nota e la seconda e' un'attesa di al massimo un giro. */
+        if (p.stato === 'programmata') {
+            const quando = Number(p.quando || 0);
+            if (quando > Date.now()) {
+                return 'Invio programmato: <b>' + totale + '</b> ' + esc(camp.fatto)
+                    + ' a partire dalle <b>' + esc(fmtDataOra(quando).slice(-5)) + '</b>, ' + ritmo + '.';
+            }
+            return 'Invio programmato: <b>' + totale + '</b> da ' + esc(camp.azione)
+                + ', ' + ritmo + '. In attesa del primo giro del servizio'
+                + (_invPassoCron ? ' (entro ' + _invPassoCron + ' minuti)' : '') + '.';
+        }
+        // in corso
+        const manca = p.finestra && p.finestra.riprendeAlle ? fraQuanto(p.finestra.riprendeAlle) : '';
+        return 'Invio programmato in corso: <b>' + fatte + '</b> ' + esc(camp.fatto)
+            + ' su ' + totale + ', ' + ritmo + '.'
+            + (manca ? ' Riparte fra ' + esc(manca) + '.' : '');
+    }
+
     function aziendeInvitoHtml(ev) {
         if (!ev || ev.tutti || !puoGestireInviti()) return '';
         return INV_CAMPAGNE.map(camp => {
@@ -17788,26 +17841,63 @@
                 : camp.spiega;
             /* Un invio programmato si vede DA QUI, senza aprire la finestra.
                Parte da solo e dura ore: chi passa dalla pagina dell'evento e
-               non lo vede, lo rifa' a mano sulle stesse aziende. */
-            const p = progAttiva(ev, camp.id);
-            /* Una preparazione rimasta a meta' NON e' un invio in corso: non
-               spedira' mai niente. Annunciarla come "in corso" sulla card, che
-               e' il posto dove la si guarda di sfuggita, vuol dire far credere
-               che stia partendo qualcosa e aspettare invano. */
-            const rigaProg = !p ? ''
-                : (p.stato === 'preparazione'
-                    ? '<div class="hint inv-card-prog ko">Programmazione rimasta a metà, '
-                    + 'non partirà: apri l\'elenco e annullala.</div>'
-                    : '<div class="hint inv-card-prog' + (p.stato === 'sospesa' ? ' ko' : '') + '">'
-                    + (p.stato === 'sospesa' ? 'Invio programmato <b>in pausa</b>' : 'Invio programmato in corso')
-                    + ': <b>' + Number((p.conti && p.conti.inviate) || 0).toLocaleString('it-IT') + '</b> '
-                    + esc(camp.fatto) + ' su ' + Number(p.totale || 0).toLocaleString('it-IT')
-                    + ', ' + esc(ritmoTesto(p.canale, p.ritmo)) + '.</div>');
+               non lo vede, lo rifa' a mano sulle stesse aziende.
+
+               Il contenitore c'e' SEMPRE, anche vuoto e nascosto: e' il posto
+               in cui il rinfresco scrive senza dover ridisegnare la pagina. */
+            const testo = rigaProgrammazione(ev, camp.id);
             return '<div class="card s-admin"><div class="s-admin-txt"><strong>' + esc(camp.nome) + '</strong>'
-                + '<div class="hint">' + riga + '</div>' + rigaProg + '</div>'
+                + '<div class="hint">' + riga + '</div>'
+                + '<div class="hint inv-card-prog" id="' + esc(idRigaProg(camp.id)) + '"'
+                + (testo ? '' : ' hidden') + '>' + testo + '</div></div>'
                 + '<div class="s-admin-azioni"><button class="btn btn-primary ev-inviti" data-campagna="' + esc(camp.id) + '">'
                 + 'Gestisci le aziende</button></div></div>';
         }).join('');
+    }
+    function idRigaProg(campagna) { return 'ev-prog-' + campagna; }
+
+    /* IL NUMERO CHE SI AGGIORNA DA SOLO, sulla pagina dell'evento.
+       Un invio programmato dura ore: chi lo guarda vuole vedere il contatore
+       salire, non ricaricare la pagina per sapere se sta succedendo qualcosa.
+       Prima la programmazione si leggeva UNA volta per sessione, quindi il
+       numero restava quello del momento in cui si era aperta la pagina - e
+       "0 su 1.310" fermo per un'ora si legge come un guasto.
+
+       Si riscrive solo la riga, non la vista: ridisegnare tutta la pagina
+       degli eventi ogni minuto sposterebbe lo scorrimento sotto le mani di
+       chi sta leggendo. E il timer si spegne da se' quando la pagina non c'e'
+       piu' o non resta niente da seguire, cosi' non c'e' niente da disdire. */
+    let _invCardTimer = null;
+    const INV_CARD_MS = 60000;
+    function seguiProgrammazione(ev) {
+        clearTimeout(_invCardTimer);
+        if (!ev || ev.tutti || !puoGestireInviti()) return;
+        const viva = () => INV_CAMPAGNE.some(c => progAttiva(ev, c.id));
+        const disegna = () => {
+            let qualcosa = false;
+            INV_CAMPAGNE.forEach(c => {
+                const box = document.getElementById(idRigaProg(c.id));
+                if (!box) return;
+                qualcosa = true;
+                const testo = rigaProgrammazione(ev, c.id);
+                box.innerHTML = testo;
+                box.hidden = !testo;
+            });
+            return qualcosa;
+        };
+        disegna();
+        if (!viva()) return;
+        const giro = () => {
+            // la pagina non c'e' piu': niente da aggiornare e niente da riarmare
+            if (vistaCorrente !== 'eventi' || !document.getElementById(idRigaProg(INV_CAMPAGNE[0].id))) return;
+            caricaProgrammazione(ev, r => {
+                if (r && r.ok) _invProgLetta[ev.id] = Date.now();
+                if (vistaCorrente !== 'eventi') return;
+                if (!disegna()) return;
+                if (viva()) _invCardTimer = setTimeout(giro, INV_CARD_MS);
+            });
+        };
+        _invCardTimer = setTimeout(giro, INV_CARD_MS);
     }
 
     /* RILEGGERE L'ELENCO MENTRE LA FINESTRA E' APERTA.
@@ -18562,6 +18652,34 @@
        Mostra tre cose che di solito mancano e costringono a indovinare:
        quante ne sono partite sulle previste, il ritmo scritto per esteso, e
        il tempo che manca alla prossima partenza. */
+    /* Come sta il lavoro automatico, detto in una riga.
+       Il battito lo scrive il servizio a ogni giro (meta/cronInviti): esiste
+       solo dopo il primo giro in assoluto, e da li' in poi dice quando e'
+       passato l'ultima volta.
+
+         - non c'e': il cron non ha ancora girato MAI. Appena distribuito e'
+           normale per qualche minuto; dopo non lo e' piu', ed e' l'unico modo
+           per accorgersi che il lavoro programmato non e' attivo;
+         - vecchio: girava e si e' fermato;
+         - fresco: si dice l'ora e basta, cosi' chi guarda sa che il silenzio
+           non e' il servizio, e' il ritmo.  */
+    function battitoHtml() {
+        const q = _invCron && Number(_invCron.quando) || 0;
+        const passo = _invPassoCron || 10;
+        if (!q) {
+            return '<div class="inv-prog-ko">Il servizio non ha ancora fatto <b>nessun giro</b>. '
+                + 'Nei primi minuti dopo una distribuzione è normale; se resta così, '
+                + 'il lavoro programmato non è attivo (su Vercel: Settings &rsaquo; Cron Jobs).</div>';
+        }
+        // fermo da piu' di quattro giri: non e' lento, e' fermo
+        if (Date.now() - q > Math.max(45, passo * 4) * 60 * 1000) {
+            return '<div class="inv-prog-ko">Il servizio non fa un giro da ' + esc(fmtDataOra(q))
+                + ': l\'invio è fermo, non lento.</div>';
+        }
+        return '<div class="hint inv-prog-battito">Il servizio ha fatto l\'ultimo giro alle '
+            + esc(fmtDataOra(q).slice(-5)) + ', e gira ogni ' + passo + ' minuti.</div>';
+    }
+
     function riquadroProgrammazione(ev) {
         const p = progAttiva(ev, _invCampagna);
         if (!p) return '';
@@ -18590,9 +18708,22 @@
         if (c.disiscritte) dettagli.push(c.disiscritte + ' disiscritte');
         if (c.senzaRecapito) dettagli.push(c.senzaRecapito + ' senza recapito');
 
+        /* IL TITOLO DICE LO STATO VERO. "In corso" su una programmazione che
+           la sua ora non l'ha ancora raggiunta e' falso, e si legge come un
+           guasto: sotto c'e' scritto "0 su 1.310" e nessuno capisce se il
+           servizio non parte o se sta solo aspettando le 15:40. */
+        const attesa = p.stato === 'programmata';
+        const parteAlle = Number(p.quando || 0);
+        const titolo = ferma
+            ? 'Invio programmato in pausa'
+            : (attesa
+                ? (parteAlle > Date.now()
+                    ? 'Invio programmato: parte alle ' + fmtDataOra(parteAlle).slice(-5)
+                    : 'Invio programmato: in attesa del primo giro')
+                : 'Invio programmato in corso');
         return '<div class="inv-prog' + (ferma ? ' ko' : '') + '">'
             + '<div class="inv-prog-testa">'
-            + '<b>' + (ferma ? 'Invio programmato in pausa' : 'Invio programmato in corso') + '</b>'
+            + '<b>' + esc(titolo) + '</b>'
             + '<span class="hint">' + esc(ritmoTesto(p.canale, p.ritmo)) + '</span>'
             + '</div>'
             + '<div class="inv-prog-barra"><span style="width:' + perc + '%"></span></div>'
@@ -18605,12 +18736,12 @@
             + (!ferma && quando ? '<span class="hint inv-prog-manca">riparte fra ' + esc(quando) + '</span>' : '')
             + '</div>'
             + (p.ultimoErrore ? '<div class="inv-prog-ko">' + esc(p.ultimoErrore) + '</div>' : '')
-            /* Il battito del lavoro automatico. Serve a distinguere "sta
-               andando piano" da "non sta andando affatto": senza, un cron
-               fermo si scopre il giorno dell'evento. */
-            + (_invCron && _invCron.quando && (Date.now() - _invCron.quando) > 45 * 60 * 1000
-                ? '<div class="inv-prog-ko">Il servizio non fa un giro da ' + esc(fmtDataOra(_invCron.quando))
-                + ': l\'invio è fermo, non lento.</div>' : '')
+            /* IL BATTITO DEL LAVORO AUTOMATICO, e sono tre casi, non due.
+               Prima l'avviso compariva solo se un battito c'era ED era vecchio:
+               "non ha mai girato" - il caso del giorno in cui si mette in
+               piedi il cron, cioe' proprio quando serve saperlo - si vedeva
+               identico a "ha girato un attimo fa", cioe' non si vedeva. */
+            + battitoHtml()
             + '<div class="inv-prog-azioni">'
             + (ferma
                 ? '<button class="btn btn-sm btn-primary" id="inv-prog-riprendi">Riprendi</button>'
