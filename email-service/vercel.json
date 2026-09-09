@@ -2,7 +2,8 @@
   "crons": [
     { "path": "/api/cron-comunicazioni", "schedule": "0 6-18 * * *" },
     { "path": "/api/programma-newsletter", "schedule": "*/15 * * * *" },
-    { "path": "/api/presenze", "schedule": "*/15 * * * *" }
+    { "path": "/api/presenze", "schedule": "*/15 * * * *" },
+    { "path": "/api/invii-programmati", "schedule": "*/10 * * * *" }
   ],
   "functions": {
     "api/presenze.js": { "maxDuration": 60 },
@@ -14,6 +15,7 @@
     "api/invia-newsletter.js": { "maxDuration": 60 },
     "api/andamento-newsletter.js": { "maxDuration": 30 },
     "api/programma-newsletter.js": { "maxDuration": 60 },
+    "api/invii-programmati.js": { "maxDuration": 300 },
     "api/sblocco-incarico.js": { "maxDuration": 30 }
   }
 }

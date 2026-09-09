@@ -2842,7 +2842,8 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    sola riga della giornata su cui c'e' da richiamare qualcuno. */
 .inv-scheda.ok b { color: var(--verde); }
 
-.inv-finestra .inv-lettore, .inv-finestra .inv-barra, .inv-finestra .inv-sel-barra, .inv-finestra .ev-imp-esito { margin: 12px 18px 0; }
+.inv-finestra .inv-lettore, .inv-finestra .inv-barra, .inv-finestra .inv-sel-barra, .inv-finestra .ev-imp-esito,
+.inv-finestra .inv-prog { margin: 12px 18px 0; }
 .inv-altrove { align-self: center; margin: 0 0 0 4px; }
 /* L'ora dell'ultima lettura, accanto ad "Aggiorna": dice se quello che
    si sta guardando e' di adesso o di venti minuti fa. */
@@ -2907,6 +2908,71 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
 /* Tetto esaurito: non e un avviso, e uno stop. Rosso, e il tempo che manca
    dentro il testo scende da solo. */
 .ii-tetto-fermo { border-left-color: var(--rosso); background: var(--rosso-bg); color: var(--rosso); }
+
+/* ---- invio programmato ---------------------------------------------
+   Due pezzi, e stanno insieme perche' raccontano la stessa cosa da due
+   punti diversi.
+
+   1) .ii-prog e' la parte della finestra dell'invito che compare quando
+      si sceglie "programmato": rientrata e con la stecca a sinistra,
+      cosi' si legge come una conseguenza della voce spuntata sopra e non
+      come una domanda nuova. I campi vanno a capo da soli, perche' sul
+      telefono tre controlli in fila non ci stanno.
+
+   2) .inv-prog e' il riquadro in cima all'elenco, che dice a che punto e'
+      un invio che sta andando avanti da solo. Ha la stessa forma degli
+      altri riquadri di stato della finestra (.inv-lettore) ma con la
+      barra dentro: mentre un invio programmato e' in corso, "quante ne
+      sono partite" e' la prima cosa che si cerca aprendo la sezione. */
+.ii-prog { margin: 8px 0 0 12px; padding: 10px 0 2px 12px; border-left: 2px solid var(--blu-100); }
+.ii-prog[hidden] { display: none; }
+.ii-prog-campi { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ii-prog-campi label { margin: 0; font-size: 0.82rem; font-weight: 600; color: var(--grigio-600); }
+.ii-prog-campi select, .ii-prog-campi input { width: auto; margin: 0; }
+.ii-prog .hint { margin: 6px 0 0; }
+#ii-prog-stima { color: var(--blu-900); }
+#ii-prog-stima b { color: inherit; }
+
+/* Il margine orizzontale glielo da' la regola di .inv-finestra insieme agli
+   altri riquadri di stato: #inv-corpo non ha padding e ogni figlio se lo mette
+   da se'. Senza, questo riquadro sarebbe l'unico a filo dei bordi, attaccato
+   alle schede sopra e disallineato di 18px da quelli sotto. */
+.inv-prog { padding: 11px 14px; border: 1px solid var(--blu-100); border-radius: 6px; background: var(--blu-050); font-size: 0.85rem; line-height: 1.45; color: var(--grigio-600); }
+/* In pausa o rimasta a meta': non e' un guasto ma non e' nemmeno "sta
+   andando", e la differenza si deve vedere senza leggere. */
+.inv-prog.ko { border-color: var(--ambra); background: var(--ambra-bg); }
+.inv-prog-testa { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.inv-prog-testa b { color: var(--blu-900); font-size: 0.92rem; }
+.inv-prog.ko .inv-prog-testa b { color: var(--ambra); }
+.inv-prog-testa .hint { margin: 0; }
+.inv-prog-barra { height: 8px; margin: 8px 0 6px; border-radius: 999px; background: var(--grigio-200); overflow: hidden; }
+.inv-prog-barra span { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--blu-700); transition: width 0.35s ease; }
+.inv-prog.ko .inv-prog-barra span { background: var(--ambra); }
+.inv-prog-numeri { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.inv-prog-numeri b { color: var(--grigio-900); }
+.inv-prog-numeri .hint { margin: 0; }
+/* Il tempo che manca sta a destra, come nell'avanzamento dell'invio a mano:
+   e' lo stesso dato e si cerca nello stesso punto. Ha una classe sua e non
+   :last-child, che quando manca il resto colpirebbe il conteggio e lo
+   spedirebbe a destra da solo. */
+.inv-prog-manca { margin-left: auto; }
+.inv-prog-ko { margin-top: 6px; color: var(--rosso); font-size: 0.82rem; }
+.inv-prog-azioni { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
+/* La riga sulla card dell'evento: si vede senza aprire la finestra, perche'
+   un invio che parte da solo va saputo prima di rifarlo a mano. */
+.inv-card-prog { margin-top: 3px; color: var(--blu-700); }
+.inv-card-prog.ko { color: var(--ambra); }
+.inv-card-prog b { color: inherit; }
+/* "tutte" e' il gesto normale su un elenco lungo, non quello temerario:
+   e' quello con cui si programma l'invio a tutta la lista. */
+.inv-gruppo-tutte { border-color: var(--blu-700); color: var(--blu-900); }
+
+@media (max-width: 600px) {
+    /* Su schermo stretto i tre controlli del ritmo vanno uno per riga:
+       affiancati diventerebbero tre caselle da due centimetri. */
+    .ii-prog-campi { display: grid; grid-template-columns: 1fr; gap: 6px; }
+    .inv-prog-manca { margin-left: 0; }
+}
 
 /* La nota sulle righe non mostrate sta fuori dall area che scorre, quindi
    resta sempre visibile: le servono i suoi margini, altrimenti si appiccica

@@ -120,6 +120,97 @@ spedire**: l'elenco si puo' comunque caricare e preparare.
 | `PEC_MAX_ORA` | tetto di PEC all'ora per utente (predefinito 250, quanto il gruppo piu' grande selezionabile) |
 | `PEC_PAUSA_MS` | pausa fra una PEC e la successiva (predefinito 1500) |
 
+#### Invii programmati: quando l'elenco e' lungo
+
+L'invio a mano lo guida il browser: si preme Invia e i gruppi partono finche'
+la finestra resta aperta. Su qualche centinaio di aziende va benissimo; su
+cinquemila no, perche' nessuno tiene aperta una finestra per otto ore e il
+tetto orario qui sopra si esaurisce nel primo quarto d'ora.
+
+Per quel caso, nella finestra dell'invito c'e' **"Programmato: lo manda avanti
+il servizio"**. Non spedisce niente: mette in coda, e a spedire e' il lavoro
+programmato `/api/invii-programmati`, che gira **ogni dieci minuti** e a ogni
+giro fa partire quanti messaggi il RITMO concede in quel momento.
+
+I ritmi proposti (`lib/ritmi-invito.js`, gemello della costante `INV_RITMI`
+nell'area riservata):
+
+| Canale | Predefinito | Altri |
+|---|---|---|
+| PEC | **250 ogni 90 minuti** | 250/ora, 100/ora, 50/ora |
+| Email ordinaria | **1.000 ogni ora** | 500/ora, 250/ora, 100/ora |
+
+Due cose che vale la pena sapere prima di guardare i numeri.
+
+- **Il ritmo non e' il tetto orario per utente.** `PEC_MAX_ORA` e
+  `MKT_MAX_ORA` frenano l'invio *a mano*: sono la protezione contro l'invio
+  partito per sbaglio da una finestra aperta. Sul programmato non valgono, e
+  non e' una scappatoia: il freno li' e' il ritmo, scritto sulla
+  programmazione e verificato a ogni giro. E' anche il motivo per cui si
+  possono chiedere 1.000 email l'ora mentre `MKT_MAX_ORA` resta 500.
+- **Il ritmo si spalma sui giri, non esce tutto insieme.** Mille email
+  all'ora, con il cron ogni dieci minuti, vogliono dire circa 250 per giro e
+  non mille nei primi quattro minuti seguiti da cinquantasei di silenzio:
+  quel secondo profilo e' esattamente quello che i filtri antispam cercano.
+
+Variabili facoltative:
+
+| Nome | Valore |
+|---|---|
+| `INVITI_PASSO_CRON_MIN` | ogni quanti minuti gira il lavoro (predefinito 10). **Va tenuta uguale alla pianificazione in `vercel.json`**: serve a calcolare quanti messaggi far partire per giro |
+| `PEC_MAX_RITMO` | il massimo accettato per finestra sulla PEC (predefinito 500) |
+| `MKT_MAX_RITMO` | lo stesso sull'email ordinaria (predefinito 2000) |
+
+Una programmazione sola per elenco, garantita dall'identificativo del
+documento (`evento~campagna`): due programmazioni sulla stessa lista
+scriverebbero alle stesse aziende senza saperlo l'una dell'altra. Si mette in
+pausa, si riprende e si annulla dal riquadro in cima all'elenco delle aziende,
+dove si vede anche a che punto e' e fra quanto riparte.
+
+**Tre doppioni che non possono succedere**, ed e' bene sapere perche':
+
+- *ripassare l'elenco* non rispedisce, perche' l'esito vive sulla scheda
+  dell'azienda: chi ha gia' ricevuto viene saltato. Su un rinvio (quello che
+  in finestra si chiede con "manda una seconda volta") il segno e'
+  `invio.prog`, che vale "gia' servita **da questa corsa**". Non "da questo
+  elenco": l'identificativo del documento e' `evento~campagna`, sempre lo
+  stesso, quindi ogni programmazione porta con se' una chiave di corsa e il
+  timbro identifica l'invio. Senza, il secondo invio di ogni campagna - il
+  sollecito - avrebbe trovato il proprio timbro gia' scritto dal primo e
+  sarebbe finito senza spedire a nessuno;
+- *il servizio muore fra la consegna al server di posta e la riga che la
+  registra*: prima di spedire si lascia un timbro sulla scheda e lo si toglie
+  subito dopo. Un timbro sopravvissuto e vecchio vuol dire "esito ignoto", e
+  quella scheda **non si ritenta**: passa in "Con errore" con scritto perche',
+  dove una persona decide. Una copia in meno e' meglio di una in piu' - e su
+  una PEC, che si paga e non si richiama, non e' un modo di dire.
+  `INCERTO_DOPO_MS` sta sempre **sopra** il passo del cron (25 minuti contro
+  10): con i due numeri uguali, il giro seguente trovava il timbro sempre piu'
+  giovane della soglia e quella scheda non finiva mai sotto gli occhi di
+  nessuno;
+- *il lavoro automatico e "Invia" premuto a mano nello stesso minuto*. Il
+  lucchetto della programmazione esclude due giri fra loro, non un giro e una
+  persona - e l'area riservata lascia Invia premibile apposta. Percio' la
+  scheda si prende in una **transazione**: dentro c'e' tutto quello che decide
+  se spedire (compreso il timbro), fuori restano solo le cose lente. Senza,
+  fra la lettura e il timbro passavano decine di millisecondi, e in quella
+  finestra ci passavano tutti e due.
+
+Un'ultima cosa che vale la pena sapere: il ritmo scritto a video e' una
+promessa che regge finche' il server di posta risponde in fretta. Se una
+sendMail comincia a costare tre secondi invece di uno, in un giro escono meta'
+messaggi e in un'ora ne escono molti meno di quelli promessi. Quando succede,
+il servizio lo **scrive nel riquadro** ("il server di posta sta rispondendo
+lentamente: in questo giro sono partiti N messaggi degli M che il ritmo
+concedeva") invece di lasciar contare i giorni sul calendario.
+
+Le prove stanno in `prove/inviti-programmati.prove.js` e si lanciano con
+`node prove/inviti-programmati.prove.js`: non richiedono niente di installato.
+Coprono il ritmo e la finestra scorrevole, i tre doppioni qui sopra (compresi
+il sollecito e i due invii in parallelo), l'elenco piu' lungo della finestra
+di lettura dei lotti, la rotazione fra programmazioni, e l'invio a mano dopo
+l'estrazione del motore.
+
 > **Dipendenza aggiunta: `imapflow`** (licenza MIT, usabile in un prodotto
 > chiuso). Attenzione se un domani si tocca la versione: imapflow e' stato
 > AGPL-3.0 dalla 1.0.28 alla 1.0.63 ed e' MIT dalla 1.0.65 in poi, quindi non
@@ -430,17 +521,20 @@ immediato e la composizione funzionano comunque).
 Stanno tutti in `email-service/vercel.json`. Vercel li fa partire **solo sulla
 Production** e solo dal ramo predefinito, mettendo da se' l'intestazione
 `Authorization: Bearer <CRON_SECRET>`: senza `CRON_SECRET` fra le variabili
-d'ambiente non parte nessuno dei tre.
+d'ambiente non ne parte nessuno.
 
 | Percorso | Quando | Cosa fa |
 |---|---|---|
 | `/api/cron-comunicazioni` | `0 6-18 * * *` — ogni ora, dalle 06:00 alle 18:00 UTC | invia le comunicazioni programmate dovute, riprendendo quelle lasciate a meta' |
 | `/api/programma-newsletter` | `*/15 * * * *` — ogni quarto d'ora | manda avanti le newsletter programmate, un lotto per volta |
 | `/api/presenze` | `*/15 * * * *` — ogni quarto d'ora | legge la casella PEC: ricevute, errori, risposte |
+| `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
 
-Sul piano Hobby i primi due giravano **una volta al giorno** e il terzo non
-esisteva: i cron Hobby sono due in tutto e girano una volta al giorno, a orario
-approssimativo. Il piano Pro toglie il vincolo.
+Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
+esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
+orario approssimativo. Il piano Pro toglie il vincolo, ed e' quello che rende
+possibile un invio a ritmo: 250 PEC ogni novanta minuti hanno bisogno di un
+giro ogni dieci minuti, non di uno al giorno.
 
 ### Le comunicazioni: perche' piu' giri al giorno non rispediscono
 
@@ -553,6 +647,17 @@ Hobby il tetto era **60 secondi**; sul Pro si arriva a 300.
 | `api/cron-comunicazioni.js` | 60 | **300** | un invio personalizzato manda **una mail per destinatario**, in fila |
 | `api/importa-iscrizioni.js` | *(predefinito, ~10 s)* | **300** | importa il foglio intero, a blocchi di 400 scritture |
 | `api/invia-comunicazione.js` | *(predefinito, ~10 s)* | **120** | stesso invio in fila, avviato a mano dall'area riservata |
+| `api/invii-programmati.js` | *(nuova)* | **300** | una PEC ogni secondo e mezzo: quaranta messaggi sono gia' un minuto |
+
+> **E perche' gli invii programmati non entrano da `presenze.js`**, che pure
+> e' la porta di tutta la sezione aziende. Perche' `presenze.js` ha gia' un
+> lavoro programmato suo, il lettore PEC, con la terna qui sopra tarata su di
+> lui: 60 / 40 s / 3 min. Un invio a ritmo ha bisogno di minuti, non di
+> secondi, e infilarlo li' avrebbe voluto dire alzare il `maxDuration` di una
+> funzione che serve anche ogni singolo clic dell'area riservata, e far
+> concorrere due lavori diversi sullo stesso budget. Il tetto delle 12
+> funzioni per rilascio, che a suo tempo aveva costretto a quelle deviazioni,
+> sul piano Pro non c'e' piu'.
 
 **Le altre sono rimaste a 60 apposta.** `api/programma-newsletter.js` e
 `api/presenze.js` hanno un budget interno legato a quel numero (`BUDGET_MS` in
@@ -568,6 +673,7 @@ invece di un solo giro lungo.
 > | `cron-comunicazioni` | 300 | 240 s | 6 min |
 > | `programma-newsletter` | 60 | 45 s (`giro-newsletter`) | 6 min |
 > | `presenze` (lettore PEC) | 60 | 40 s (`lettore-pec`) | 3 min |
+> | `invii-programmati` | 300 | 240 s (`giro-inviti`) | 6 min |
 >
 > Il budget sta **dentro** il `maxDuration`, con margine per scrivere prima di
 > essere interrotti; il lucchetto dura **piu'** del `maxDuration`, o un secondo
