@@ -167,21 +167,49 @@ scriverebbero alle stesse aziende senza saperlo l'una dell'altra. Si mette in
 pausa, si riprende e si annulla dal riquadro in cima all'elenco delle aziende,
 dove si vede anche a che punto e' e fra quanto riparte.
 
-**Due doppioni che non possono succedere**, ed e' bene sapere perche':
+**Tre doppioni che non possono succedere**, ed e' bene sapere perche':
 
 - *ripassare l'elenco* non rispedisce, perche' l'esito vive sulla scheda
   dell'azienda: chi ha gia' ricevuto viene saltato. Su un rinvio (quello che
   in finestra si chiede con "manda una seconda volta") il segno e'
-  `invio.prog`, cioe' "gia' servita **da questa** programmazione";
+  `invio.prog`, che vale "gia' servita **da questa corsa**". Non "da questo
+  elenco": l'identificativo del documento e' `evento~campagna`, sempre lo
+  stesso, quindi ogni programmazione porta con se' una chiave di corsa e il
+  timbro identifica l'invio. Senza, il secondo invio di ogni campagna - il
+  sollecito - avrebbe trovato il proprio timbro gia' scritto dal primo e
+  sarebbe finito senza spedire a nessuno;
 - *il servizio muore fra la consegna al server di posta e la riga che la
   registra*: prima di spedire si lascia un timbro sulla scheda e lo si toglie
   subito dopo. Un timbro sopravvissuto e vecchio vuol dire "esito ignoto", e
   quella scheda **non si ritenta**: passa in "Con errore" con scritto perche',
   dove una persona decide. Una copia in meno e' meglio di una in piu' - e su
   una PEC, che si paga e non si richiama, non e' un modo di dire.
+  `INCERTO_DOPO_MS` sta sempre **sopra** il passo del cron (25 minuti contro
+  10): con i due numeri uguali, il giro seguente trovava il timbro sempre piu'
+  giovane della soglia e quella scheda non finiva mai sotto gli occhi di
+  nessuno;
+- *il lavoro automatico e "Invia" premuto a mano nello stesso minuto*. Il
+  lucchetto della programmazione esclude due giri fra loro, non un giro e una
+  persona - e l'area riservata lascia Invia premibile apposta. Percio' la
+  scheda si prende in una **transazione**: dentro c'e' tutto quello che decide
+  se spedire (compreso il timbro), fuori restano solo le cose lente. Senza,
+  fra la lettura e il timbro passavano decine di millisecondi, e in quella
+  finestra ci passavano tutti e due.
+
+Un'ultima cosa che vale la pena sapere: il ritmo scritto a video e' una
+promessa che regge finche' il server di posta risponde in fretta. Se una
+sendMail comincia a costare tre secondi invece di uno, in un giro escono meta'
+messaggi e in un'ora ne escono molti meno di quelli promessi. Quando succede,
+il servizio lo **scrive nel riquadro** ("il server di posta sta rispondendo
+lentamente: in questo giro sono partiti N messaggi degli M che il ritmo
+concedeva") invece di lasciar contare i giorni sul calendario.
 
 Le prove stanno in `prove/inviti-programmati.prove.js` e si lanciano con
 `node prove/inviti-programmati.prove.js`: non richiedono niente di installato.
+Coprono il ritmo e la finestra scorrevole, i tre doppioni qui sopra (compresi
+il sollecito e i due invii in parallelo), l'elenco piu' lungo della finestra
+di lettura dei lotti, la rotazione fra programmazioni, e l'invio a mano dopo
+l'estrazione del motore.
 
 > **Dipendenza aggiunta: `imapflow`** (licenza MIT, usabile in un prodotto
 > chiuso). Attenzione se un domani si tocca la versione: imapflow e' stato
