@@ -2957,6 +2957,10 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
    spedirebbe a destra da solo. */
 .inv-prog-manca { margin-left: auto; }
 .inv-prog-ko { margin-top: 6px; color: var(--rosso); font-size: 0.82rem; }
+/* Il battito quando e' regolare: e' una rassicurazione, non un avviso, quindi
+   ha il peso di una nota. Serve lo stesso: dice che il silenzio e' il ritmo e
+   non il servizio fermo. */
+.inv-prog-battito { margin: 6px 0 0; font-size: 0.78rem; }
 .inv-prog-azioni { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
 /* La riga sulla card dell'evento: si vede senza aprire la finestra, perche'
    un invio che parte da solo va saputo prima di rifarlo a mano. */
