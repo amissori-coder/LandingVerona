@@ -15818,10 +15818,6 @@
     // chi occupa un posto in sala: ospiti e aderenti insieme. E' il numero che
     // conta per la capienza, e non e' nessuno dei due conteggi presi da solo.
     function inSala(m) { return m === 'presenza' || m === 'aderenti'; }
-    /* Dove finisce il gruppo "in sala": il totale si scrive subito dopo
-       l'ultima sezione che ne fa parte, e si sposta da se' se un giorno le
-       sezioni in sala diventassero tre. */
-    const ULTIMA_IN_SALA = SEZIONI_MODALITA.filter(x => inSala(x.id)).map(x => x.id).pop();
     /* GLI ADERENTI, L'AREA RISERVATA LI CONOSCE GIA': stanno nella sezione
        "Aderenti Revilaw" (Persone), con il loro indirizzo email. Spostarli a
        mano uno per uno, cercandoli a occhio in un elenco di centinaia di righe,
@@ -16260,6 +16256,9 @@
             ? 'In sala ' + nInSala + (nInSala === 1 ? ' persona: ' : ' persone: ')
             + postiSezione.presenza + ' in presenza e ' + postiSezione.aderenti + ' aderenti Revilaw'
             : 'Posti in sala';
+        const riquadroNum = (n, et, titolo, cl) => '<div class="ev-num' + (cl ? ' ' + cl : '') + '"'
+            + (titolo ? ' title="' + esc(titolo) + '"' : '') + '>'
+            + n + '<span>' + esc(et) + '</span></div>';
 
         const gestione = admin
             ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
@@ -16310,22 +16309,24 @@
             + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
             + ((ev.manuale || ev.tutti) ? '<div class="ev-num">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
-            /* un riquadro per sezione, nello stesso ordine del filtro sopra
-               l'elenco: i numeri e le voci su cui si preme devono dirsi le
-               stesse cose, nello stesso ordine, o si contano due volte.
-               Subito dopo le due sezioni che stanno in sala, la loro SOMMA:
-               e' il numero che si confronta con la capienza, e non e' nessuno
-               dei due presi da solo. Prima stava nel solo suggerimento, che e'
-               un posto dove si trova per caso. */
-            + (ev.tutti ? '' : (riquadro => SEZIONI_MODALITA.map(x =>
-                riquadro(conModalita ? postiSezione[x.id] : '-', x.breve, inSala(x.id) ? titoloSala : '')
-                + (x.id === ULTIMA_IN_SALA
-                    ? riquadro(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'somma')
-                    : '')).join(''))(
-                        (n, et, titolo, cl) => '<div class="ev-num' + (cl ? ' ' + cl : '') + '"'
-                            + (titolo ? ' title="' + esc(titolo) + '"' : '') + '>'
-                            + n + '<span>' + esc(et) + '</span></div>'))
-            + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
+            /* LE DUE META' DELLA TESTATA. A sinistra i numeri che DESCRIVONO
+               l'elenco - quante iscrizioni, quante persone, quanti indirizzi,
+               e come si dividono le sezioni in sala. A destra, staccato, il
+               riquadro con i tre numeri su cui si DECIDE: quanti posti in sala
+               servono davvero (la somma delle sezioni in sala), quanti seguono
+               online e quanti hanno confermato. Sono quelli che si guardano
+               dieci volte al giorno mentre la sala si riempie, e in una fila
+               unica di sette numeri tutti uguali si perdevano.
+               Le sezioni restano nell'ordine del filtro sopra l'elenco: i
+               numeri e le voci su cui si preme devono dirsi le stesse cose. */
+            + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
+                .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala)).join(''))
+            + (ev.tutti ? '' : '<div class="ev-num-gruppo">'
+                + riquadroNum(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'forte')
+                + SEZIONI_MODALITA.filter(x => !inSala(x.id))
+                    .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve)).join('')
+                + riquadroNum(conf, 'confermati / presenti', '', 'verde')
+                + '</div>') + '</div>'
             + gestione + aziendeInvitoHtml(ev) + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
