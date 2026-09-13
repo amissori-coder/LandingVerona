@@ -2079,6 +2079,29 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    del vecchio "anywhere", che spezzava sempre e riduceva gli indirizzi email a
    colonne di lettere). */
 .ev-wrap { overflow: visible; }
+/* L'INTESTAZIONE CHE NON BALLA.
+   Le intestazioni di queste tabelle sono appiccicate in alto (position: sticky)
+   e la tabella e' in border-collapse: la coppia e' un guaio noto dei browser -
+   mentre si scorre, la riga appiccicata viene ridisegnata a mezzo pixel di
+   distanza e "farfalla", e i bordi delle celle appiccicate spariscono (per
+   quello il filetto sotto l'intestazione e' gia' un'ombra interna).
+   Qui la tabella passa a border-collapse: separate. I bordi non ne soffrono -
+   le celle disegnano solo il proprio lato destro e inferiore, quindi non si
+   raddoppia niente - e l'intestazione smette di tremare.
+   Il livello proprio (will-change) toglie il resto: la riga appiccicata viene
+   composta a parte invece di essere ridipinta a ogni fotogramma. */
+.ev-wrap table.dati { border-collapse: separate; border-spacing: 0; }
+.ev-wrap table.dati th { will-change: transform; }
+/* Con i bordi separati il filetto in cima alla tabella lo mette l'intestazione,
+   che e' anche quella che resta in vista: senza, scorrendo, la prima riga
+   toccherebbe il bordo del riquadro. */
+.ev-wrap table.dati thead th { border-top: 1px solid var(--grigio-200); }
+
+/* L'elenco prende il fuoco (ci si arriva con il tabulatore, o toccandolo dopo
+   aver scelto in una tendina): da li' le frecce scorrono la pagina. L'anello si
+   vede solo con la tastiera - con il mouse sarebbe rumore. */
+.ev-wrap:focus { outline: none; }
+.ev-wrap:focus-visible { outline: 2px solid var(--blu-700); outline-offset: 2px; }
 /* Il corpo del testo cresce e cala con lo spazio davvero disponibile, che non e'
    la finestra ma la finestra MENO il menu: cosi' ridurre la barra fa guadagnare
    corpo alla tabella, e allargare la finestra pure. Prima erano quattro misure a

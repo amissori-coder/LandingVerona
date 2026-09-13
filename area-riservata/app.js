@@ -15704,12 +15704,71 @@
     function serveAggiornaAdesso() {
         return !_evAscoltoOk || !!_evMsg || _evIscrizioni === null || Date.now() < _evPausaFino;
     }
-    // ridisegna la sezione, ma non sotto le dita di chi sta scrivendo una nota
+    /* IL RIDISEGNO NON DEVE ARRIVARE ADDOSSO A CHI STA GUARDANDO
+       ------------------------------------------------------------
+       Questa sezione si ridisegna da sola: ogni volta che un collega salva
+       qualcosa, l'ascolto in tempo reale porta l'elenco nuovo. Rifare
+       l'elenco vuol dire pero' riscrivere tutta la pagina, e se capita
+       mentre qualcuno sta scorrendo l'elenco balla: la pagina nuova per un
+       istante e' piu' corta, il browser riporta lo scorrimento dentro i
+       limiti, e chi legge si ritrova altrove. Su un elenco lungo, con
+       qualche collega che lavora, succede ogni pochi secondi.
+
+       Tre regole, e sono tutte "aspetta":
+         1. mentre una casella o una tendina dell'elenco ha il fuoco, non si
+            tocca niente (prima valeva solo per la nota e lo stato: la
+            tendina della modalita' non c'era ancora);
+         2. mentre la pagina si sta muovendo, si aspetta che si fermi;
+         3. quando poi si ridisegna, si rimette lo scorrimento dov'era.
+       Quello che si aspetta non si perde: resta in attesa e parte appena la
+       pagina e' ferma. */
+    let _evScorrendoFino = 0;      // fin quando si considera "in movimento"
+    let _evRidisegnoDovuto = false;
+    let _evRidisegnoTimer = null;
+    const EV_QUIETE_MS = 900;      // silenzio dopo l'ultimo movimento
+    function evInMovimento() { return Date.now() < _evScorrendoFino; }
+    /* Un comando dell'elenco con il fuoco: la nota che si sta scrivendo, una
+       tendina aperta, la ricerca della tabella. Si guarda il tipo di elemento e
+       non le classi: le classi cambiano quando si aggiunge una colonna, e una
+       dimenticanza qui si vede solo come "mi spariva la scritta a meta'". */
+    function evQualcunoStaUsando() {
+        const a = document.activeElement;
+        if (!a || a === document.body || !a.closest) return false;
+        // il contenitore della vista e' <main id="vista">: cercarlo per classe
+        // non troverebbe mai niente, e la guardia direbbe sempre "libero"
+        if (!a.closest('#vista')) return false;
+        return /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) || a.isContentEditable === true;
+    }
+    function vistaEventiMantenendoPosto() {
+        const y = window.scrollY || window.pageYOffset || 0;
+        vistaEventi();
+        // il ridisegno puo' aver accorciato la pagina per un istante: se lo
+        // scorrimento e' saltato, lo si rimette dov'era
+        if (y && Math.abs((window.scrollY || window.pageYOffset || 0) - y) > 2) window.scrollTo(0, y);
+    }
+    function rimandaRidisegnoEventi() {
+        _evRidisegnoDovuto = true;
+        if (_evRidisegnoTimer) return;
+        /* Si riprova per un paio di minuti, non all'infinito: chi lascia il
+           fuoco in una casella e va a prendere un caffe' non deve tenere in
+           piedi un timer per il resto della giornata. Scaduti i tentativi il
+           ridisegno resta "dovuto": lo riprende la lettura automatica, che
+           passa ogni quattro minuti. */
+        let tentativi = 0;
+        const fine = () => { clearInterval(_evRidisegnoTimer); _evRidisegnoTimer = null; };
+        _evRidisegnoTimer = setInterval(() => {
+            if (vistaCorrente !== 'eventi') { fine(); _evRidisegnoDovuto = false; return; }
+            if (++tentativi > 170) { fine(); return; }
+            if (evInMovimento() || evQualcunoStaUsando()) return;
+            fine();
+            if (_evRidisegnoDovuto) { _evRidisegnoDovuto = false; vistaEventiMantenendoPosto(); }
+        }, 700);
+    }
+    // ridisegna la sezione, ma non sotto le dita e non mentre la pagina corre
     function ridisegnaEventiSeLibero() {
         if (vistaCorrente !== 'eventi') return;
-        const a = document.activeElement;
-        if (a && a.classList && (a.classList.contains('ev-nota') || a.classList.contains('ev-stato'))) return;
-        vistaEventi();
+        if (evQualcunoStaUsando() || evInMovimento()) { rimandaRidisegnoEventi(); return; }
+        vistaEventiMantenendoPosto();
     }
     /* Rilettura dopo un cambiamento segnalato dall'ascolto. Con un piccolo ritardo
        casuale: quando un collega salva uno stato, tutti gli utenti connessi vengono
@@ -15725,7 +15784,7 @@
             if (_evInFlight) { _evRicaricaDopo = true; return; }
             const a = document.activeElement;
             if (a && a.classList && (a.classList.contains('ev-nota') || a.classList.contains('ev-stato'))) { _evRicaricaDopo = true; return; }
-            caricaIscrizioni(eventoCorrente(), cambiato => { if (cambiato && vistaCorrente === 'eventi') vistaEventi(); });
+            caricaIscrizioni(eventoCorrente(), cambiato => { if (cambiato) ridisegnaEventiSeLibero(); });
         }, 300 + Math.floor(Math.random() * 3000));
     }
     function avviaAscoltoEventi() {
@@ -15771,7 +15830,7 @@
             if (Date.now() - (_evUltimoTentativo[evOra.id] || 0) < intervallo) return;
             const a = document.activeElement;
             if (a && a.classList && (a.classList.contains('ev-nota') || a.classList.contains('ev-stato'))) return;
-            caricaIscrizioni(evOra, cambiato => { if (cambiato && vistaCorrente === 'eventi') vistaEventi(); });
+            caricaIscrizioni(evOra, cambiato => { if (cambiato) ridisegnaEventiSeLibero(); });
         }, EV_TICK);
     }
 
@@ -15957,15 +16016,28 @@
     function filtroSezioniHtml(ev, tutte) {
         if (ev.tutti) return '';   // nel riepilogo le presenze non si leggono
         const scelta = sezioneDi(ev);
-        const conta = id => tutte.filter(r => modalitaDi(ev, r) === id).length;
-        const voce = (id, nome, n) => '<button type="button" class="ev-sez-btn'
-            + (scelta === id ? ' attiva' : '') + (n === 0 && id !== 'tutte' ? ' vuota' : '')
-            + '" data-sez="' + id + '"><span class="ev-sez-nome">' + esc(nome) + '</span>'
-            + '<span class="ev-sez-n">' + n + '</span></button>';
+        /* Il numero sulla voce conta le PERSONE, non le righe: e' lo stesso
+           metro dei riquadri in testa, e un'iscrizione da Eventbrite che copre
+           tre posti vale tre. Due numeri diversi per la stessa sezione - tre
+           qui e cinque sopra - li mette d'accordo solo chi conosce il codice.
+           Quante righe siano lo dice il suggerimento, che e' dove serve: per
+           sapere quanto sara' lungo l'elenco che si sta per aprire. */
+        const dellaSezione = id => id === 'tutte' ? tutte : tutte.filter(r => modalitaDi(ev, r) === id);
+        const voce = (id, nome) => {
+            const righe = dellaSezione(id);
+            const n = righe.reduce((t, r) => t + partecipantiDi(r), 0);
+            const quante = righe.length;
+            return '<button type="button" class="ev-sez-btn'
+                + (scelta === id ? ' attiva' : '') + (n === 0 && id !== 'tutte' ? ' vuota' : '')
+                + '" data-sez="' + id + '" title="' + esc(n + (n === 1 ? ' persona' : ' persone')
+                    + (quante !== n ? ', su ' + quante + (quante === 1 ? ' iscrizione' : ' iscrizioni') : '')) + '">'
+                + '<span class="ev-sez-nome">' + esc(nome) + '</span>'
+                + '<span class="ev-sez-n">' + n + '</span></button>';
+        };
         const daRiconoscere = puoAggiungereIscrizioni() ? righeDaRiconoscere(ev, tutte).length : 0;
         return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
-            + voce('tutte', 'Tutte', tutte.length)
-            + SEZIONI_MODALITA.map(x => voce(x.id, x.nome, conta(x.id))).join('')
+            + voce('tutte', 'Tutte')
+            + SEZIONI_MODALITA.map(x => voce(x.id, x.nome)).join('')
             + (daRiconoscere
                 ? '<button type="button" class="ev-sez-btn ev-trova-aderenti" id="ev-trova-aderenti" '
                 + 'title="Spunta le iscrizioni il cui indirizzo email risulta in Aderenti Revilaw: le sposti poi con il pulsante della barra">'
@@ -16170,7 +16242,13 @@
             // "ev-wrap": questa tabella deve ENTRARE in larghezza, senza barra di
             // scorrimento; ci riesce con le larghezze di colonna del colgroup qui
             // sotto. L'overflow visibile non taglia il menu a tendina delle azioni.
-            + '<div class="tabella-wrap ev-wrap"><table class="dati compatta">'
+            /* tabindex sul contenitore: senza, premendo una freccia dopo aver
+               toccato l'elenco non si muove niente - il fuoco e' su un pezzo di
+               pagina che non lo prende. Con il fuoco qui, frecce, PagSu/PagGiu,
+               Inizio e Fine scorrono come ci si aspetta, e chi naviga con il
+               solo tastierino ci arriva con il tabulatore. */
+            + '<div class="tabella-wrap ev-wrap" tabindex="0" role="region" aria-label="Elenco delle iscrizioni">'
+            + '<table class="dati compatta">'
             /* Le larghezze delle colonne: questa tabella deve stare tutta nella
                pagina, senza barra di scorrimento, e per riuscirci il browser deve
                sapere in anticipo quanto dare a ciascuna (table-layout: fixed nel
@@ -16213,7 +16291,7 @@
         // due tentativi evita raffiche di richieste quando la lettura non riesce.
         if (Cloud.attivo && !_evInFlight
             && (!_evCache[ev.id] || Date.now() - (_evUltimoTentativo[ev.id] || 0) > 15000)) {
-            caricaIscrizioni(ev, cambiato => { if (cambiato && vistaCorrente === 'eventi') vistaEventi(); });
+            caricaIscrizioni(ev, cambiato => { if (cambiato) ridisegnaEventiSeLibero(); });
         }
         if (Cloud.attivo) avviaAutoEventi(ev); else fermaAutoEventi();
         // all'amministratore serve l'elenco utenze per dire, persona per persona, se
@@ -16336,7 +16414,7 @@
             _evMsg = ''; _evIscrizioni = _evIscrizioni || null;
             // richiesta esplicita: si salta la memoria del servizio e si rilegge davvero
             _evUltimoTentativo[ev.id] = 0;
-            caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); }, true);
+            caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
             vistaEventi();
         });
         const bAcc = document.getElementById('ev-accessi');
@@ -16387,6 +16465,19 @@
             // quando sotto), e firmaDueRighe fa gia' l'escape di quello che scrive
             if (f) f.innerHTML = firmaDueRighe(firmaPresenza(EventiPresenze.di(ev.id, id)) || '-');
         };
+        /* Dopo aver scelto con il MOUSE, il fuoco torna all'elenco. Senza, resta
+           sulla tendina: la freccia giu' che uno preme per continuare a scorrere
+           cambierebbe la voce appena scelta - e sulla modalita' vorrebbe dire
+           spostare qualcuno di sezione senza accorgersene. Chi sceglie da
+           tastiera non viene toccato: il fuoco gli serve dov'e'. */
+        const conMouse = el => el.addEventListener('pointerdown', () => { el.dataset.conMouse = '1'; });
+        const restituisciFuoco = el => {
+            if (el.dataset.conMouse !== '1') return;
+            delete el.dataset.conMouse;
+            const elenco = el.closest('.ev-wrap');
+            if (elenco) elenco.focus({ preventScroll: true }); else el.blur();
+        };
+        $vista().querySelectorAll('.ev-modalita, .ev-stato').forEach(conMouse);
         $vista().querySelectorAll('.ev-stato').forEach(s => s.addEventListener('change', () => {
             const id = s.dataset.id;
             EventiPresenze.imposta(ev.id, id, { stato: s.value }, () => {
@@ -16398,6 +16489,7 @@
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
             });
             aggiornaFirma(s, id);
+            restituisciFuoco(s);
             try { Audit.registra(Auth.utenteCorrente, 'Evento: stato iscritto aggiornato', 'sistema', ev.id, null, id + ' -> ' + (s.value || '-')); } catch (e) { }
         }));
         /* La tendina della modalita': cambia la sola modalita', senza avvisare
@@ -16427,6 +16519,7 @@
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
             });
             aggiornaFirma(s, id);
+            restituisciFuoco(s);
             try { Audit.registra(Auth.utenteCorrente, 'Evento: modalità di partecipazione', 'sistema', ev.id, null, id + ' -> ' + scelta); } catch (e) { }
         }));
         $vista().querySelectorAll('.ev-nota').forEach(n => n.addEventListener('change', () => {
@@ -16500,6 +16593,32 @@
             if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); }
         }));
         $vista().querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
+        /* La pagina si sta muovendo: lo si segna e basta. Serve a rimandare i
+           ridisegni automatici, non a fare altro, quindi e' un ascoltatore
+           passivo che scrive un numero - non rallenta lo scorrimento. */
+        if (!document.body.dataset.evScorrimento) {
+            document.body.dataset.evScorrimento = '1';
+            window.addEventListener('scroll', () => { _evScorrendoFino = Date.now() + EV_QUIETE_MS; }, { passive: true });
+        }
+        /* Le frecce sull'elenco. Il browser lo farebbe da se' su un contenitore
+           che scorre; questo invece e' largo quanto la pagina (le colonne sono
+           calcolate per entrarci), quindi a scorrere e' la FINESTRA, e lo si fa
+           qui. Solo quando il tasto arriva sul contenitore: dentro una tendina o
+           una casella di testo le frecce servono a quello che servono. */
+        {
+            const elenco = $vista().querySelector('.ev-wrap');
+            if (elenco) elenco.addEventListener('keydown', e => {
+                if (e.target !== elenco) return;
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
+                const schermata = Math.max(120, window.innerHeight - 120);
+                const quanto = {
+                    ArrowDown: 64, ArrowUp: -64, PageDown: schermata, PageUp: -schermata
+                }[e.key];
+                if (quanto !== undefined) { e.preventDefault(); window.scrollBy({ top: quanto, behavior: 'auto' }); return; }
+                if (e.key === 'Home') { e.preventDefault(); window.scrollTo(0, 0); return; }
+                if (e.key === 'End') { e.preventDefault(); window.scrollTo(0, document.body.scrollHeight); }
+            });
+        }
         // il clic fuori chiude tutti i menu: UN solo ascoltatore sul documento,
         // che a ogni ridisegno ritrova da se' i menu correnti
         if (!document.body.dataset.evMenuDoc) {
@@ -16671,7 +16790,7 @@
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizione modificata', 'sistema', ev.id, null, r.id); } catch (e) { }
                 // si rilegge dal server: cosi' l'identificativo nuovo e l'ordine sono quelli veri
                 _evUltimoTentativo[ev.id] = 0;
-                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
+                caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
                 if (vistaCorrente === 'eventi') vistaEventi();
             });
         });
@@ -16812,7 +16931,7 @@
                 }
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizione inserita a mano', 'sistema', ev.id, null, (campi.email || (campi.nome + ' ' + campi.cognome).trim()) + ' da ' + portale.nome + (mail ? (r.mail && r.mail.inviata ? ', mail inviata' : ', mail non inviata') : '')); } catch (e) { }
                 _evUltimoTentativo[ev.id] = 0;
-                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
+                caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
                 if (vistaCorrente === 'eventi') vistaEventi();
             });
         });
@@ -17536,7 +17655,7 @@
                 } catch (e) { }
                 // e si rilegge dal server, cosi' anche la tabella sotto e' quella vera
                 _evUltimoTentativo[ev.id] = 0;
-                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); }, true);
+                caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
             }).catch(() => { finito(); esito('Servizio non raggiungibile.', true); });
         }
         if (!unica) disegnaAziende();
@@ -17992,7 +18111,7 @@
                 } catch (e) { }
                 // rilettura vera: porta l'avviso registrato e allinea chi guarda da altrove
                 _evUltimoTentativo[ev.id] = 0;
-                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); }, true);
+                caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
                 if (vistaCorrente === 'eventi') vistaEventi();
             });
         });
@@ -18036,7 +18155,7 @@
                 mostra('Importate ' + r.importate + ' iscrizioni su ' + r.lette + ' righe lette'
                     + (r.saltate ? ' (' + r.saltate + ' righe vuote saltate)' : '') + '.');
                 _evIscrizioni = null; _evFirma = '';
-                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); });
+                caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
             });
         };
         document.getElementById('imp-foglio').addEventListener('click', e => esegui('', e.currentTarget));
