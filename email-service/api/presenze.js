@@ -140,6 +140,28 @@ const PORTALI = {
 function emailValida(e) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 }
+/* COPIA NASCOSTA A CHI STA FACENDO L'OPERAZIONE.
+   Ogni mail che parte da un comando dell'area riservata - conferma di una
+   scheda inserita a mano, richiesta dati, invito B2B, avviso di spostamento
+   fra le sezioni - torna in copia nascosta a chi l'ha fatta partire: cosi' ha
+   agli atti che e' partita davvero, e con che testo, senza comparire al
+   destinatario.
+   In copia vanno DUE indirizzi quando servono: l'utente a nome del quale si
+   opera (quello che firma la scheda e riceve le risposte) e, se e' un
+   collaboratore a premere il bottone, anche lui - e' lui "chi sta facendo
+   l'operazione", e la conferma serve prima di tutto a lui.
+   Il destinatario si toglie sempre dalla copia: chi iscrive se stesso
+   riceverebbe altrimenti la stessa mail due volte. */
+function ccnOperatore(emailEffettiva, emailSessione, destinatario) {
+    const fuori = String(destinatario || '').trim().toLowerCase();
+    const lista = [];
+    [emailEffettiva, emailSessione].forEach(x => {
+        const e = String(x || '').trim().toLowerCase();
+        if (!e || e === fuori) return;
+        if (lista.indexOf(e) < 0) lista.push(e);
+    });
+    return lista.length ? lista : undefined;
+}
 // per i valori che entrano nell'HTML della mail (il nome del destinatario)
 function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -439,11 +461,9 @@ module.exports = async (req, res) => {
                                 text: (testoMail ? testoMail.split('{{COMPLETA}}').join(linkGestione) : undefined),
                                 html: html.split('{{COMPLETA}}').join(linkGestione)
                             };
-                            /* copia nascosta a chi ha inserito la scheda: cosi' ha
-                               agli atti la conferma partita, senza comparire
-                               all'iscritto. Se sta iscrivendo se stesso la copia
-                               non serve: riceverebbe la stessa mail due volte. */
-                            if (email !== scheda.email) messaggio.bcc = email;
+                            // copia nascosta a chi ha inserito la scheda (ccnOperatore)
+                            const ccn = ccnOperatore(email, emailSessione, scheda.email);
+                            if (ccn) messaggio.bcc = ccn;
                             await trasporto().sendMail(messaggio);
                             mailEsito = { inviata: true };
                         } catch (e) {
@@ -493,7 +513,8 @@ module.exports = async (req, res) => {
                     text: testoMail || undefined,
                     html: html
                 };
-                if (email !== scheda.email) messaggio.bcc = email;
+                const ccn = ccnOperatore(email, emailSessione, scheda.email);
+                if (ccn) messaggio.bcc = ccn;
                 await trasporto().sendMail(messaggio);
             } catch (e) {
                 const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 200);
@@ -599,6 +620,7 @@ module.exports = async (req, res) => {
                         from: '"' + fromName + '" <' + fromEmail + '>',
                         replyTo: email,
                         to: a,
+                        bcc: ccnOperatore(email, emailSessione, a),
                         subject: oggettoBase,
                         text: testoBase ? conTemi(testoBase, temiAttuali).split('{{NOME}}').join(nomeDest).split('{{B2B}}').join(link) : undefined,
                         html: conTemi(htmlBase, esc(temiAttuali)).split('{{NOME}}').join(esc(nomeDest)).split('{{B2B}}').join(link)
@@ -763,6 +785,11 @@ module.exports = async (req, res) => {
                             from: '"' + fromName + '" <' + fromEmail + '>',
                             replyTo: email,
                             to: a,
+                            /* copia nascosta a chi sta spostando (ccnOperatore): una
+                               per avviso, come per le altre mail dell'area riservata.
+                               Su un elenco lungo sono tante copie, ma sono la prova
+                               di che cosa e' stato scritto a chi, riga per riga. */
+                            bcc: ccnOperatore(email, emailSessione, a),
                             /* i segnaposti si sostituiscono anche nell'OGGETTO:
                                oggi nessun modello ne mette, ma un "{{NOME}}"
                                arrivato fin li' verrebbe spedito tale e quale,

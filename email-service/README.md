@@ -790,9 +790,20 @@ collaboratore, quello del suo utente di riferimento): un
   non e stato avvisato. Un indirizzo riceve una mail sola anche se ha due
   iscrizioni; chi ha annullato nel frattempo non riceve nulla. A invio riuscito
   resta `avvisoModalita` (modalita, da chi, quando) sulla presenza, cosi l'area
-  riservata mostra "avvisato il ...". Risposta: `{ ok, spostate, modalita,
-  mail: { inviate, senzaScheda, senzaEmail, doppie, giaAvvisati, restanti,
-  falliti } }`.
+  riservata mostra "mail inviata il ..." sulla riga. Risposta: `{ ok, spostate,
+  modalita, mail: { inviate, senzaScheda, senzaEmail, doppie, giaAvvisati,
+  restanti, falliti } }`.
+- **Ogni mail che parte da un comando dell'area riservata torna in copia
+  nascosta a chi l'ha fatta partire** (`ccnOperatore` in `api/presenze.js`):
+  conferma dell'inserimento manuale, richiesta dati, invito B2B, avviso di
+  passaggio fra le sezioni. In copia vanno **due** indirizzi quando servono:
+  l'utente a nome del quale si opera e, se a premere e un collaboratore, anche
+  lui - e lui "chi sta facendo l'operazione", e la conferma serve prima di tutto
+  a lui. Il destinatario si toglie sempre dalla copia (chi iscrive se stesso
+  riceverebbe la stessa mail due volte), e la copia e **nascosta**: chi la
+  riceve non vede l'indirizzo di chi lo ha spostato. Su un elenco lungo sono
+  altrettante copie in casella: la finestra dello spostamento lo dice PRIMA di
+  premere, con il numero.
 - **Chi ha gia ricevuto quell'avviso si salta**, salvo `forza: true` (la voce
   "Invia di nuovo l'avviso" della singola riga). Serve a rendere innocuo il
   RILANCIO: le mail partono una per volta e la funzione ha un tetto di durata
