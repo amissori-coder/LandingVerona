@@ -3202,9 +3202,30 @@
         }
     }
 
-    /* Testo pulito di una cella (per filtri ed export). */
+    /* Testo pulito di una cella (per filtri ed export).
+       Quando dentro c'e' un comando - la tendina dello stato o della modalita',
+       la casella della nota - il testo della cella NON e' quello che si vede: di
+       un <select> textContent restituisce tutte le opzioni una dopo l'altra
+       ("In presenzaOnline"), di un <input> non restituisce niente. Cosi' la
+       ricerca non trovava "online" e il CSV esportava l'elenco delle scelte
+       possibili al posto di quella fatta. Qui ogni comando vale per il valore
+       che mostra: si lavora su una copia, quindi la tabella non si tocca. */
     function _testoCella(cella) {
-        return cella ? cella.textContent.trim().replace(/\s+/g, ' ') : '';
+        if (!cella) return '';
+        const campi = cella.querySelectorAll ? cella.querySelectorAll('select, input, textarea') : [];
+        if (!campi.length) return cella.textContent.trim().replace(/\s+/g, ' ');
+        const copia = cella.cloneNode(true);
+        const dentro = copia.querySelectorAll('select, input, textarea');
+        Array.prototype.forEach.call(campi, (c, i) => {
+            let v = '';
+            if (c.tagName === 'SELECT') v = c.options[c.selectedIndex] ? c.options[c.selectedIndex].text : '';
+            // spunte e scelte non hanno un testo da esportare: la colonna della
+            // selezione non finisce ne' nella ricerca ne' nel CSV
+            else if (c.type !== 'checkbox' && c.type !== 'radio') v = c.value || '';
+            const testo = document.createTextNode(' ' + String(v).trim() + ' ');
+            if (dentro[i] && dentro[i].parentNode) dentro[i].parentNode.replaceChild(testo, dentro[i]);
+        });
+        return copia.textContent.trim().replace(/\s+/g, ' ');
     }
 
     /* Esporta in CSV le righe VISIBILI (rispetta i filtri) di una tabella "dati",
@@ -15514,15 +15535,24 @@
        impresa finche' non si cambia vista. */
     function firmaIscr(l) { return (l || []).map(r => r.id + '~' + (r.azienda || '')).join('|'); }
     // anche stati e note entrano nell'impronta: se un collega segna una presenza,
-    // l'aggiornamento automatico se ne accorge e ridisegna
+    // l'aggiornamento automatico se ne accorge e ridisegna. Nell'impronta c'e'
+    // anche la modalita' (e l'avviso che l'accompagna): se un collega sposta
+    // qualcuno online, la tabella lo deve mostrare da sola
     function firmaPres(p) {
         const o = p || {};
-        return Object.keys(o).sort().map(k => k + ':' + (o[k].stato || '') + ':' + (o[k].nota || '')).join('|');
+        return Object.keys(o).sort().map(k => k + ':' + (o[k].stato || '') + ':' + (o[k].nota || '')
+            + ':' + (o[k].modalita || '') + ':' + ((o[k].avvisoModalita && o[k].avvisoModalita.quando) || '')).join('|');
     }
     // elenco gia' letto per ciascun evento: resta in memoria, mai su disco
     let _evCache = {};
     // iscrizioni spuntate per la cancellazione in blocco (solo amministratore)
     let _evSelezionate = new Set();
+    /* La sezione aperta nell'elenco, per evento: 'tutte' oppure una delle tre
+       modalita'. Sta in memoria e non su disco, come tutto il resto di questa
+       vista: sono dati personali, e la scelta di quale sezione guardare non
+       vale la pena di sopravvivere alla sessione. */
+    let _evSezione = {};
+    function sezioneDi(ev) { return _evSezione[ev.id] || 'tutte'; }
     /* I nomi delle colonne aggiuntive che il servizio produce e che qui
        contano davvero. Stanno scritti in un posto solo perche' sbagliarne uno
        non da' errore: da' una colonna vuota, che si scambia per "nessun dato".
@@ -15746,6 +15776,93 @@
     }
 
     const NOMI_STATO = { '': '-', confermato: 'Confermato', presente: 'Presente', assente: 'Assente' };
+    /* MODALITA' DI PARTECIPAZIONE: le tre sezioni dell'elenco.
+         In presenza       gli OSPITI in sala;
+         Aderenti Revilaw  gli aderenti in sala: occupano un posto come gli
+                           altri, ma non sono ospiti da invitare - sono la rete
+                           dello studio, e chi prepara la sala li conta a parte;
+         Online            chi segue da remoto, che in sala non occupa niente.
+       Una persona sta in UNA sezione sola: sono i tre modi di esserci, non
+       etichette che si sommano.
+
+       Il valore vuoto vale IN PRESENZA e non "non si sa": fino a Napoli il
+       modulo non lo chiedeva e in sala ci andavano tutti. Due fonti, in
+       quest'ordine:
+         1. la decisione di chi organizza, che sta con lo stato e la nota
+            (i posti in sala finiscono: chi resta fuori si sposta online; gli
+            aderenti si riconoscono uno per uno, dall'elenco);
+         2. quello che la persona dichiarera' iscrivendosi, che sta sulla scheda,
+            quando il modulo comincera' a chiederlo - e da li' potranno arrivare
+            solo "presenza" e "online": aderenti non ci si dichiara da soli.
+       L'ultima parola e' della prima: in quale sezione si sta lo decide chi
+       organizza. */
+    /* Due etichette per la stessa cosa, e non e' una svista: nella RIGA si
+       parla di una persona sola e la colonna e' stretta ("Aderente"), nel
+       filtro delle sezioni si parla del gruppo e c'e' spazio ("Aderenti
+       Revilaw"). Con il nome lungo dentro la tendina il browser lo taglia a
+       meta' - "Aderente R..." - proprio nella colonna che dice chi entra in
+       sala e in quale sezione. */
+    const NOMI_MODALITA = { presenza: 'In presenza', aderenti: 'Aderente', online: 'Online' };
+    // le tre sezioni in ordine di lettura, con il nome per il filtro sopra
+    // l'elenco e la parola breve per i riquadri dei conteggi
+    const SEZIONI_MODALITA = [
+        { id: 'presenza', nome: 'In presenza', breve: 'in presenza' },
+        { id: 'aderenti', nome: 'Aderenti Revilaw', breve: 'aderenti' },
+        { id: 'online', nome: 'Online', breve: 'online' }
+    ];
+    function modalitaDi(ev, r) {
+        const p = EventiPresenze.di(ev.id, r.id) || {};
+        const scelta = String(p.modalita || (r && r.modalita) || '').toLowerCase();
+        return (scelta === 'online' || scelta === 'aderenti') ? scelta : 'presenza';
+    }
+    // chi occupa un posto in sala: ospiti e aderenti insieme. E' il numero che
+    // conta per la capienza, e non e' nessuno dei due conteggi presi da solo.
+    function inSala(m) { return m === 'presenza' || m === 'aderenti'; }
+    /* Dove finisce il gruppo "in sala": il totale si scrive subito dopo
+       l'ultima sezione che ne fa parte, e si sposta da se' se un giorno le
+       sezioni in sala diventassero tre. */
+    const ULTIMA_IN_SALA = SEZIONI_MODALITA.filter(x => inSala(x.id)).map(x => x.id).pop();
+    /* GLI ADERENTI, L'AREA RISERVATA LI CONOSCE GIA': stanno nella sezione
+       "Aderenti Revilaw" (Persone), con il loro indirizzo email. Spostarli a
+       mano uno per uno, cercandoli a occhio in un elenco di centinaia di righe,
+       e' il genere di lavoro che si sbaglia. Qui si riconoscono per INDIRIZZO -
+       l'unico dato che combacia davvero: i nomi si scrivono in dieci modi - e
+       il riconoscimento si limita a SPUNTARE le righe, non a spostarle: la
+       decisione resta di chi guarda, che potrebbe avere un aderente iscritto
+       come ospite di un'impresa cliente. */
+    function emailAderenti() {
+        try {
+            if (typeof Persone === 'undefined') return null;
+            const fuori = new Set();
+            Persone.tutte().forEach(p => {
+                if (!p || p.eliminato) return;
+                const e = String(p.email || '').trim().toLowerCase();
+                if (e) fuori.add(e);
+            });
+            return fuori.size ? fuori : null;
+        } catch (e) { return null; }
+    }
+    // le iscrizioni che risultano di un aderente e non sono gia' nella sua sezione
+    function righeDaRiconoscere(ev, lista) {
+        const noti = emailAderenti();
+        if (!noti) return [];
+        return (lista || []).filter(r => {
+            const e = String(r.email || '').trim().toLowerCase();
+            return e && noti.has(e) && modalitaDi(ev, r) !== 'aderenti';
+        });
+    }
+    /* L'avviso del passaggio all'online, se e' partito: { modalita, quando,
+       daNome }. Serve a non scrivere due volte alla stessa persona. */
+    function avvisoModalitaDi(ev, r) {
+        const p = EventiPresenze.di(ev.id, r.id) || {};
+        return (p.avvisoModalita && p.avvisoModalita.quando) ? p.avvisoModalita : null;
+    }
+    /* "avvisato il 12/09": la data basta, l'ora in tabella non serve a nessuno. */
+    function avvisoBreve(a) {
+        if (!a || !a.quando) return '';
+        const d = new Date(a.quando);
+        return 'avvisato il ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+    }
     // colonne aggiuntive scelte dall'utente, per evento: gli elenchi hanno colonne
     // diverse fra loro (citta, partita IVA, fatturato...) e si mostrano su richiesta
     let _evColonne = {};
@@ -15832,7 +15949,43 @@
         return i < 0 ? e : e.slice(0, i + 1) + '<wbr>' + e.slice(i + 1);
     }
 
+    /* LE SEZIONI SOPRA L'ELENCO. Non e' un filtro qualunque: e' il modo in cui
+       si guarda una cosa per volta - la sala, gli aderenti, chi segue online -
+       senza perdere di vista il totale. Ogni voce porta il suo numero, cosi' si
+       legge come un riepilogo anche senza premerla, e la voce vuota resta
+       visibile (spenta): "nessun aderente" e' un'informazione, una voce che
+       sparisce e' un dubbio.
+       Cambiando sezione la selezione si azzera: le spunte di una sezione non
+       devono restare attive mentre se ne guarda un'altra, o un'azione in blocco
+       colpirebbe righe che non si hanno davanti. */
+    function filtroSezioniHtml(ev, tutte) {
+        if (ev.tutti) return '';   // nel riepilogo le presenze non si leggono
+        const scelta = sezioneDi(ev);
+        const conta = id => tutte.filter(r => modalitaDi(ev, r) === id).length;
+        const voce = (id, nome, n) => '<button type="button" class="ev-sez-btn'
+            + (scelta === id ? ' attiva' : '') + (n === 0 && id !== 'tutte' ? ' vuota' : '')
+            + '" data-sez="' + id + '"><span class="ev-sez-nome">' + esc(nome) + '</span>'
+            + '<span class="ev-sez-n">' + n + '</span></button>';
+        const daRiconoscere = puoAggiungereIscrizioni() ? righeDaRiconoscere(ev, tutte).length : 0;
+        return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
+            + voce('tutte', 'Tutte', tutte.length)
+            + SEZIONI_MODALITA.map(x => voce(x.id, x.nome, conta(x.id))).join('')
+            + (daRiconoscere
+                ? '<button type="button" class="ev-sez-btn ev-trova-aderenti" id="ev-trova-aderenti" '
+                + 'title="Spunta le iscrizioni il cui indirizzo email risulta in Aderenti Revilaw: le sposti poi con il pulsante della barra">'
+                + '<span class="ev-sez-nome">Riconosci aderenti</span><span class="ev-sez-n">' + daRiconoscere + '</span></button>'
+                : '')
+            + '</div>';
+    }
+
     function tabellaIscrizioni(ev, lista) {
+        /* La sezione scelta filtra le RIGHE, non i conteggi in testa alla
+           pagina, che restano quelli dell'evento intero. Il filtro di ricerca e
+           l'esportazione in CSV lavorano su quello che resta, quindi "esporta
+           gli aderenti" si fa scegliendo la sezione e premendo Esporta. */
+        const tutte = lista;
+        const sezione = sezioneDi(ev);
+        if (!ev.tutti && sezione !== 'tutte') lista = lista.filter(r => modalitaDi(ev, r) === sezione);
         const segna = puoSegnarePresenze() && !ev.tutti;   // nel riepilogo le presenze non servono
         const adminEv = Auth.eAdmin() || Auth.eProprietario();
         // gli equity e founding partner non modificano ne' cancellano, ma dalle
@@ -15866,6 +16019,22 @@
             const cellaNota = segna
                 ? '<td data-label="Nota"><input type="text" class="ev-nota" data-id="' + esc(r.id) + '" value="' + esc(p.nota || '') + '" placeholder="nota"></td>'
                 : '<td data-label="Nota">' + esc(p.nota || '-') + '</td>';
+            /* In sala o online: e' la colonna che dice chi occupa un posto
+               davvero, quindi sta accanto allo stato e non fra le aggiuntive.
+               Sotto la tendina, quando l'avviso del passaggio e' partito, la
+               data: e' l'unico modo per sapere a chi si e' gia' scritto. */
+            const md = modalitaDi(ev, r);
+            const avvisato = avvisoBreve(avvisoModalitaDi(ev, r));
+            const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
+            const cellaModalita = segna
+                ? '<td data-label="Modalità"><select class="ev-modalita ' + md + '" data-id="' + esc(r.id) + '">'
+                + SEZIONI_MODALITA.map(x => opzM(x.id, NOMI_MODALITA[x.id])).join('')
+                + '</select>' + (avvisato ? '<div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '') + '</td>'
+                : '<td data-label="Modalità"><span class="ev-sez-' + md + '">' + esc(NOMI_MODALITA[md]) + '</span>'
+                /* lo spazio prima del riquadro non e' decorativo: senza, nella
+                   ricerca e nel CSV le due parti si attaccano ("Onlineavvisato
+                   il 12/09"), perche' li' si legge il testo, non l'impaginato */
+                + (avvisato ? ' <div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '') + '</td>';
             return '<tr>'
                 + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
                     + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
@@ -15918,7 +16087,7 @@
                    modulo "completa i dati" (l'intestatario, marcato "dal modulo");
                    per ultima la firma di chi ha inserito la scheda a mano. Tutte
                    hanno la forma di una presenza, quindi si scrivono uguali. */
-                + (ev.tutti ? '' : cellaStato + cellaNota
+                + (ev.tutti ? '' : cellaModalita + cellaStato + cellaNota
                     + '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(firmaPresenza(p)
                         || (r.compilato && r.compilato.daNome ? firmaPresenza({ daNome: r.compilato.daNome + ' (dal modulo)', quando: r.compilato.quando }) : '')
                         || firmaPresenza(r.inserito) || '-') + '</span></td>')
@@ -15940,6 +16109,28 @@
                         + (puoRichiedere && ev.manuale && r.email
                             ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '">Invita agli incontri B2B</button>'
                             : '')
+                        /* Una persona alla volta: le sezioni in cui NON e'
+                           gia', piu' - per chi e' gia' online - il reinvio
+                           dell'avviso. Nel riepilogo no: li' le presenze non si
+                           leggono, e la modalita' e' una di quelle.
+                           L'avviso lo porta con se' il solo passaggio
+                           all'online: e' l'unico che toglie qualcosa a chi lo
+                           riceve, e va spiegato. Diventare aderente in elenco o
+                           tornare in sala non si annuncia per posta. */
+                        + (puoRichiedere && !ev.tutti
+                            ? (mdR => SEZIONI_MODALITA.filter(x => x.id !== mdR).map(x =>
+                                '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
+                                + '" data-verso="' + x.id + '">'
+                                + (x.id === 'online' ? 'Sposta online e avvisa'
+                                    : x.id === 'aderenti' ? 'Sposta fra gli aderenti Revilaw'
+                                        : 'Riporta in presenza')
+                                + '</button>').join('')
+                                + (mdR === 'online' && r.email
+                                    ? '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
+                                    + '" data-verso="online" data-rinvia="1">'
+                                    + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online' : 'Avvisa del passaggio online') + '</button>'
+                                    : ''))(modalitaDi(ev, r))
+                            : '')
                         + (adminEv
                             ? '<button type="button" class="ev-menu-voce ev-canc" data-id="'
                             + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
@@ -15953,12 +16144,29 @@
         const nSel = lista.filter(r => _evSelezionate.has(r.id)).length;
         const barra = adminEv
             ? '<div class="ev-barra' + (nSel ? '' : ' vuota') + '">'
-            + '<span><b>' + nSel + '</b> iscrizioni selezionate</span>'
+            + '<span><b>' + nSel + '</b> ' + (nSel === 1 ? 'iscrizione selezionata' : 'iscrizioni selezionate') + '</span>'
             + '<button class="btn btn-sm btn-secondary" id="ev-sel-nessuna">Deseleziona</button>'
+            /* Lo spostamento in blocco sta qui e non fra le azioni della riga:
+               i posti in sala finiscono per tutti insieme, e gli aderenti si
+               riconoscono guardando l'elenco, non una riga per volta. */
+            + (ev.tutti ? '' : '<button class="btn btn-sm btn-secondary" id="ev-online-multi">Sposta online</button>'
+                + '<button class="btn btn-sm btn-secondary" id="ev-aderenti-multi">Sposta fra gli aderenti</button>'
+                + '<button class="btn btn-sm btn-secondary" id="ev-presenza-multi">Riporta in presenza</button>')
             + '<button class="btn btn-sm btn-danger" id="ev-canc-multi">'
             + (ev.tutti ? 'Togli le selezionate da questo elenco' : 'Cancella le selezionate') + '</button></div>'
             : '';
-        return barra + sceltaColonneHtml(ev, lista)
+        const filtro = filtroSezioniHtml(ev, tutte);
+        // sezione senza righe: lo si scrive, invece di mostrare una tabella con
+        // le sole intestazioni, che sembra un errore di caricamento
+        if (!lista.length) {
+            return filtro + '<div class="card tabella-vuota">Nessuna iscrizione in questa sezione.'
+                + '<br><span class="hint">Le altre sezioni sono qui sopra, con il loro numero.</span></div>';
+        }
+        /* Le colonne aggiuntive si calcolano su TUTTO l'evento, non sulla sezione
+           aperta: altrimenti guardando gli aderenti sparirebbero dall'elenco le
+           colonne che solo gli ospiti hanno, e chi le cerca penserebbe di averle
+           perse. */
+        return filtro + barra + sceltaColonneHtml(ev, tutte)
             // su schermo piccolo l'intestazione della tabella e nascosta (le righe
             // diventano schede), quindi la casella "tutte" che sta li dentro sparirebbe:
             // questa la ripropone sopra l'elenco. A video largo resta nascosta.
@@ -15982,7 +16190,7 @@
             + (fisse ? '<col class="c-portale"><col class="c-part"><col class="c-b2b"><col class="c-pref">' : '')
             + (ev.tutti ? '<col>' : '')
             + extra.map(() => '<col>').join('')
-            + (ev.tutti ? '' : '<col class="c-stato"><col><col class="c-agg">')
+            + (ev.tutti ? '' : '<col class="c-modalita"><col class="c-stato"><col><col class="c-agg">')
             + (azioniEv ? '<col class="c-azioni">' : '')
             + '</colgroup>'
             + '<thead><tr>'
@@ -15993,7 +16201,8 @@
                 + '<th title="I temi indicati al momento dell\'iscrizione: preferenze, non prenotazioni">Preferenze iscrizione</th>' : '')
             + (ev.tutti ? '<th>Evento</th>' : '')
             + extra.map(c => '<th>' + esc(c) + '</th>').join('')
-            + (ev.tutti ? '' : '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
+            + (ev.tutti ? '' : '<th title="In sala oppure online: quando i posti in presenza finiscono, chi resta fuori si sposta all\'online">Modalità</th>'
+                + '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
             + (azioniEv ? '<th></th>' : '')
             + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
     }
@@ -16030,6 +16239,27 @@
             ? new Set(_evIscrizioni.map(r => String(r.email || '').toLowerCase()).filter(Boolean)).size
             : null;
         const conf = _evIscrizioni ? _evIscrizioni.filter(r => { const p = EventiPresenze.di(ev.id, r.id); return p && (p.stato === 'confermato' || p.stato === 'presente'); }).length : 0;
+        /* I posti, sezione per sezione: sono i numeri con cui si decide quando la
+           sala e' piena. Si contano le PERSONE (un'iscrizione manuale copre piu'
+           posti), come il totale dei partecipanti qui sopra, e non compaiono nel
+           riepilogo, dove la modalita' non si legge.
+           In sala ci sono ospiti E aderenti: nessuno dei due numeri, da solo,
+           dice quanti posti servono, e la somma va scritta da qualche parte -
+           qui sta nel suggerimento dei due riquadri. */
+        const conModalita = !!(_evIscrizioni && !ev.tutti);
+        const postiSezione = {};
+        if (conModalita) SEZIONI_MODALITA.forEach(x => {
+            postiSezione[x.id] = _evIscrizioni.filter(r => modalitaDi(ev, r) === x.id).reduce((t, r) => t + partecipantiDi(r), 0);
+        });
+        const nInSala = conModalita
+            ? SEZIONI_MODALITA.filter(x => inSala(x.id)).reduce((t, x) => t + postiSezione[x.id], 0) : null;
+        /* La somma va scritta da qualche parte, e il posto giusto e' il
+           suggerimento dei riquadri che la compongono: "4 in presenza" e "1
+           aderenti" non dicono da soli quanti posti servono. */
+        const titoloSala = conModalita
+            ? 'In sala ' + nInSala + (nInSala === 1 ? ' persona: ' : ' persone: ')
+            + postiSezione.presenza + ' in presenza e ' + postiSezione.aderenti + ' aderenti Revilaw'
+            : 'Posti in sala';
 
         const gestione = admin
             ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
@@ -16080,6 +16310,21 @@
             + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
             + ((ev.manuale || ev.tutti) ? '<div class="ev-num">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
+            /* un riquadro per sezione, nello stesso ordine del filtro sopra
+               l'elenco: i numeri e le voci su cui si preme devono dirsi le
+               stesse cose, nello stesso ordine, o si contano due volte.
+               Subito dopo le due sezioni che stanno in sala, la loro SOMMA:
+               e' il numero che si confronta con la capienza, e non e' nessuno
+               dei due presi da solo. Prima stava nel solo suggerimento, che e'
+               un posto dove si trova per caso. */
+            + (ev.tutti ? '' : (riquadro => SEZIONI_MODALITA.map(x =>
+                riquadro(conModalita ? postiSezione[x.id] : '-', x.breve, inSala(x.id) ? titoloSala : '')
+                + (x.id === ULTIMA_IN_SALA
+                    ? riquadro(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'somma')
+                    : '')).join(''))(
+                        (n, et, titolo, cl) => '<div class="ev-num' + (cl ? ' ' + cl : '') + '"'
+                            + (titolo ? ' title="' + esc(titolo) + '"' : '') + '>'
+                            + n + '<span>' + esc(et) + '</span></div>'))
             + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
             + gestione + aziendeInvitoHtml(ev) + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
@@ -16154,6 +16399,35 @@
             aggiornaFirma(s, id);
             try { Audit.registra(Auth.utenteCorrente, 'Evento: stato iscritto aggiornato', 'sistema', ev.id, null, id + ' -> ' + (s.value || '-')); } catch (e) { }
         }));
+        /* La tendina della modalita': cambia la sola modalita', senza avvisare
+           nessuno. L'avviso e' un'altra cosa, e si manda dal menu della riga o
+           dalla barra della selezione: cambiando la tendina per sbaglio non deve
+           partire una mail. */
+        const tingiModalita = (el, v) => SEZIONI_MODALITA.forEach(x => el.classList.toggle(x.id, x.id === v));
+        $vista().querySelectorAll('.ev-modalita').forEach(s => s.addEventListener('change', () => {
+            const id = s.dataset.id;
+            const scelta = SEZIONI_MODALITA.some(x => x.id === s.value) ? s.value : 'presenza';
+            tingiModalita(s, scelta);
+            EventiPresenze.imposta(ev.id, id, { modalita: scelta }, () => {
+                if (vistaCorrente !== 'eventi') return;
+                const p = EventiPresenze.di(ev.id, id) || {};
+                const vero = (p.modalita || 'presenza');
+                if (s.value !== vero) { s.value = vero; tingiModalita(s, vero); }
+                /* Cambiando sezione l'avviso della sezione lasciata decade (lo
+                   fa il servizio, e la risposta lo dice): il "avvisato il ..."
+                   sotto la tendina va via subito. Aspettare il prossimo
+                   ridisegno non basterebbe - dopo questo salvataggio l'impronta
+                   dell'elenco combacia di nuovo, quindi un ridisegno non
+                   arriverebbe affatto, e resterebbe a video una cosa non vera. */
+                const riga = s.closest('tr');
+                const nota = riga ? riga.querySelector('.ev-avvisato') : null;
+                if (nota && !(p.avvisoModalita && p.avvisoModalita.quando)) nota.remove();
+                aggiornaFirma(s, id);
+                _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+            });
+            aggiornaFirma(s, id);
+            try { Audit.registra(Auth.utenteCorrente, 'Evento: modalità di partecipazione', 'sistema', ev.id, null, id + ' -> ' + scelta); } catch (e) { }
+        }));
         $vista().querySelectorAll('.ev-nota').forEach(n => n.addEventListener('change', () => {
             const id = n.dataset.id;
             EventiPresenze.imposta(ev.id, id, { nota: n.value.trim() }, () => {
@@ -16179,6 +16453,37 @@
         $vista().querySelectorAll('.ev-b2bi').forEach(b => b.addEventListener('click', () => {
             const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
             if (r) modaleInvitoB2B(ev, r);
+        }));
+        $vista().querySelectorAll('.ev-sposta').forEach(b => b.addEventListener('click', () => {
+            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+            // "Invia di nuovo l'avviso" e' l'unico caso in cui si riscrive a chi
+            // l'ha gia' ricevuto: dappertutto altrove chi e' a posto si salta
+            if (r) modaleSpostaModalita(ev, [r], b.dataset.verso, { rinvia: b.dataset.rinvia === '1' });
+        }));
+        /* "Riconosci aderenti": spunta, non sposta. Si apre la sezione "Tutte" -
+           le righe da spuntare possono stare in sezioni diverse, e una spunta su
+           una riga che non e' a video sarebbe una scelta fatta al buio - e poi
+           si lascia la parola a chi guarda. */
+        {
+            const bTrova = document.getElementById('ev-trova-aderenti');
+            if (bTrova) bTrova.addEventListener('click', () => {
+                const righe = righeDaRiconoscere(ev, _evIscrizioni || []);
+                if (!righe.length) { toast('Nessuna iscrizione da riconoscere: gli aderenti in elenco sono già nella loro sezione.', 'verde'); return; }
+                _evSezione[ev.id] = 'tutte';
+                _evSelezionate = new Set(righe.map(r => r.id));
+                if (vistaCorrente === 'eventi') vistaEventi();
+                toast(righe.length + (righe.length === 1 ? ' iscrizione risulta' : ' iscrizioni risultano')
+                    + ' di aderenti Revilaw: controlla le righe spuntate e premi "Sposta fra gli aderenti".', 'verde');
+            });
+        }
+        // le sezioni sopra l'elenco: cambiarle azzera la selezione, cosi' le
+        // spunte di una sezione non restano attive mentre se ne guarda un'altra
+        $vista().querySelectorAll('.ev-sez-btn[data-sez]').forEach(b => b.addEventListener('click', () => {
+            const sez = b.dataset.sez;
+            if (sezioneDi(ev) === sez) return;
+            _evSezione[ev.id] = sez;
+            _evSelezionate = new Set();
+            if (vistaCorrente === 'eventi') vistaEventi();
         }));
         // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
         const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
@@ -16218,7 +16523,10 @@
             if (!barra) return;
             const n = $vista().querySelectorAll('.ev-sel:checked').length;
             barra.classList.toggle('vuota', n === 0);
-            const b = barra.querySelector('span b'); if (b) b.textContent = n;
+            // numero E parola: cambiando solo il numero, "1 iscrizioni
+            // selezionate" resterebbe li' fino al prossimo ridisegno
+            const s = barra.querySelector('span');
+            if (s) s.innerHTML = '<b>' + n + '</b> ' + (n === 1 ? 'iscrizione selezionata' : 'iscrizioni selezionate');
         };
         $vista().querySelectorAll('.ev-sel').forEach(c => c.addEventListener('change', () => {
             if (c.checked) _evSelezionate.add(c.value); else _evSelezionate.delete(c.value);
@@ -16257,6 +16565,20 @@
             if (!ids.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
             confermaCancellaIscrizione(ev, ids, null);
         });
+        [['ev-online-multi', 'online'], ['ev-aderenti-multi', 'aderenti'], ['ev-presenza-multi', 'presenza']]
+            .forEach(([idBtn, verso]) => {
+                const b = document.getElementById(idBtn);
+                if (!b) return;
+                b.addEventListener('click', () => {
+                    // solo le righe SPUNTATE E VISIBILI: con una sezione aperta,
+                    // le altre non sono davanti a chi preme
+                    const ids = Array.from($vista().querySelectorAll('.ev-sel:checked')).map(c => c.value);
+                    if (!ids.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
+                    const righe = (_evIscrizioni || []).filter(r => ids.indexOf(r.id) >= 0);
+                    if (!righe.length) { toast('Aggiorna l\'elenco e riprova.', 'rosso'); return; }
+                    modaleSpostaModalita(ev, righe, verso);
+                });
+            });
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
     }
@@ -17477,6 +17799,200 @@
                 chiudiModale();
                 toast('Richiesta dati inviata a ' + r.email + '.', 'verde');
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: richiesta dati partecipanti', 'sistema', ev.id, null, r.email + ' (' + nPart + ' posti)'); } catch (e) { }
+            });
+        });
+    }
+
+    /* =========================================================
+       SPOSTARE LE ISCRIZIONI FRA SALA E ONLINE
+       ---------------------------------------------------------
+       Quando i posti in presenza finiscono, chi resta fuori non si
+       cancella: si sposta all'online e lo si avvisa. La mail (formato
+       NGB) dice che i posti in sala sono esauriti, che l'iscrizione
+       resta valida e che il collegamento arrivera' qualche giorno
+       prima. Parte all'indirizzo indicato iscrivendosi - lo legge il
+       servizio dalla scheda, non lo scegliamo da qui.
+
+       La stessa finestra serve anche per il ritorno in sala, dove la
+       mail non c'e': "ti ho rimesso dentro" e' una notizia che si da'
+       a voce, e un avviso automatico in senso opposto confonderebbe.
+    ========================================================= */
+    function modaleSpostaModalita(ev, righe, verso, opz) {
+        const rinvia = !!(opz && opz.rinvia);
+        if (!puoAggiungereIscrizioni()) return;
+        if (!ev || ev.tutti) return;
+        const elenco = (righe || []).filter(Boolean);
+        if (!elenco.length) return;
+        if (!SEZIONI_MODALITA.some(x => x.id === verso)) return;
+        const online = verso === 'online';
+        const uno = elenco.length === 1;
+        // quante delle righe scelte sono gia' dove le si sta mandando: non e'
+        // un errore (si sposta lo stesso, e il servizio riscrive lo stesso
+        // valore), ma chi preme deve sapere che su quelle non cambia niente
+        const giaLi = elenco.filter(r => modalitaDi(ev, r) === verso).length;
+        const nomeDi = r => (r.nome + ' ' + r.cognome).trim() || r.email || r.id;
+        // i posti veri che si spostano: un'iscrizione manuale ne copre piu' di uno
+        const nPosti = elenco.reduce((t, r) => t + partecipantiDi(r), 0);
+        /* I destinatari della mail: uno per INDIRIZZO, perche' chi risulta
+           iscritto due volte deve ricevere una mail sola (il servizio scarta i
+           doppioni allo stesso modo, ma il numero scritto qui dev'essere quello
+           che partira' davvero). */
+        const indirizzi = [];
+        elenco.forEach(r => {
+            const e = String(r.email || '').toLowerCase();
+            if (e && indirizzi.indexOf(e) < 0) indirizzi.push(e);
+        });
+        const senzaMail = elenco.filter(r => !String(r.email || '').trim()).length;
+        // gia' avvisati PER QUESTA sezione: l'avviso di un'altra non conta,
+        // perche' decade nel momento in cui si cambia (lo fa il servizio)
+        const giaAvvisati = elenco.filter(r => {
+            const a = avvisoModalitaDi(ev, r);
+            return a && a.modalita === verso;
+        }).length;
+        const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.passaggioOnline({
+            evento: {
+                titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
+                luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
+            }
+        }) : null;
+
+        const chi = uno ? '<strong>' + esc(nomeDi(elenco[0])) + '</strong>'
+            : '<strong>' + elenco.length + ' iscrizioni</strong>' + (nPosti !== elenco.length ? ' (' + nPosti + ' posti)' : '');
+        /* Un titolo e una spiegazione per destinazione. Sono tre spostamenti
+           diversi e vanno raccontati per quello che sono: l'online toglie il
+           posto in sala (e si annuncia), gli aderenti sono una sezione a parte
+           della stessa sala (e non si annuncia), il ritorno in presenza rimette
+           dentro chi era uscito. */
+        const NOTA_GIA_LI = giaLi
+            ? ' <b>' + giaLi + '</b> ' + (giaLi === 1 ? 'è già in questa sezione: per quella riga non cambia nulla.'
+                : 'sono già in questa sezione: per quelle righe non cambia nulla.')
+            : '';
+        const titolo = verso === 'online' ? (uno ? 'Sposta all\'online' : 'Sposta all\'online ' + elenco.length + ' iscrizioni')
+            : verso === 'aderenti' ? (uno ? 'Sposta fra gli aderenti Revilaw' : 'Sposta fra gli aderenti Revilaw ' + elenco.length + ' iscrizioni')
+                : (uno ? 'Riporta in presenza' : 'Riporta in presenza ' + elenco.length + ' iscrizioni');
+        const spiega = verso === 'online'
+            ? chi + ' ' + (uno ? 'passa' : 'passano')
+            + ' alla partecipazione online: ' + (uno ? 'il suo posto in sala si libera' : 'i loro posti in sala si liberano')
+            + ', l\'iscrizione resta valida e i conteggi delle sezioni si aggiornano da soli. '
+            + 'La mail avvisa che i posti in sala sono esauriti e che il collegamento arriverà pochi giorni prima dell\'evento.'
+            : verso === 'aderenti'
+                ? chi + ' ' + (uno ? 'passa' : 'passano') + ' nella sezione <b>Aderenti Revilaw</b>: '
+                + (uno ? 'resta in sala, ma il suo posto si conta' : 'restano in sala, ma i loro posti si contano')
+                + ' a parte, non fra quelli degli ospiti. '
+                + 'Nessuna mail parte: è una classificazione interna, e chi la riceve non deve fare niente di diverso.'
+                : chi + ' ' + (uno ? 'torna' : 'tornano')
+                + ' fra gli ospiti in sala. Nessuna mail parte: se '
+                + (uno ? 'aveva' : 'avevano') + ' già ricevuto l\'avviso del passaggio online, va detto a voce.';
+        const testa = '<h2>' + titolo + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">' + spiega + NOTA_GIA_LI + '</p>';
+        const scelteMail = online
+            ? '<label class="ev-imp-passo" style="display:block;">'
+            + '<input type="checkbox" id="sm-avvisa" checked> <strong>Invia anche l\'avviso</strong>'
+            + '<div class="hint" style="margin-top:4px;">'
+            + (indirizzi.length
+                ? 'Parte una mail a <b>' + indirizzi.length + '</b> ' + (indirizzi.length === 1 ? 'indirizzo' : 'indirizzi diversi')
+                + ', quello indicato iscrivendosi.'
+                : 'Nessuna delle iscrizioni selezionate ha un indirizzo email: lo spostamento si fa comunque, l\'avviso no.')
+            + (senzaMail ? ' <b>' + senzaMail + '</b> ' + (senzaMail === 1 ? 'iscrizione è senza email' : 'iscrizioni sono senza email') + ': ' + (senzaMail === 1 ? 'va avvisata' : 'vanno avvisate') + ' a mano.' : '')
+            /* Chi ha gia' ricevuto l'avviso si salta, e lo si dice qui: e'
+               cio' che rende innocuo ripremere il pulsante per completare un
+               invio rimasto a meta'. Il reinvio vero si chiede dalla voce
+               "Invia di nuovo l'avviso" della singola riga. */
+            + (giaAvvisati
+                ? ' <b>' + giaAvvisati + '</b> ' + (giaAvvisati === 1 ? 'ha' : 'hanno') + ' già ricevuto questo avviso'
+                + (rinvia ? ': lo ' + (giaAvvisati === 1 ? 'riceverà' : 'riceveranno') + ' di nuovo.'
+                    : ' e ' + (giaAvvisati === 1 ? 'viene saltato' : 'vengono saltati')
+                    + ': per riscrivere a qualcuno usa "Invia di nuovo l\'avviso" dal menu della sua riga.')
+                : '')
+            + '</div></label>'
+            : '';
+        apriModale(testa + scelteMail
+            + (online
+                ? '<div id="sm-anteprima" style="display:none;margin-top:10px;">'
+                + '<iframe id="sm-frame" title="Anteprima della mail di passaggio online" sandbox="allow-same-origin" '
+                + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+                : '')
+            + '<div id="sm-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="sm-no">Annulla</button>'
+            + (online ? '<button class="btn btn-secondary" id="sm-ant">Anteprima mail</button>' : '')
+            + '<button class="btn btn-primary" id="sm-si">'
+            + (verso === 'online' ? 'Sposta online' : verso === 'aderenti' ? 'Sposta fra gli aderenti' : 'Riporta in presenza')
+            + '</button></div>',
+            { classe: 'larga' });
+        const esito = (testo, ko) => {
+            const e = document.getElementById('sm-esito');
+            if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+        };
+        document.getElementById('sm-no').addEventListener('click', chiudiModale);
+        const bAnt = document.getElementById('sm-ant');
+        if (bAnt) bAnt.addEventListener('click', () => {
+            const m = mailDi();
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return; }
+            const cont = document.getElementById('sm-anteprima');
+            const chiusa = cont.style.display === 'none';
+            cont.style.display = chiusa ? '' : 'none';
+            bAnt.textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
+            /* Nell'anteprima i segnaposti diventano un nome di esempio e
+               l'indirizzo della pagina senza firma: i valori veri li mette il
+               servizio, uno per destinatario. */
+            if (chiusa) document.getElementById('sm-frame').srcdoc = m.html
+                .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(nomeDi(elenco[0])))
+                .split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
+        });
+        document.getElementById('sm-si').addEventListener('click', () => {
+            const avvisa = online && !!(document.getElementById('sm-avvisa') || {}).checked && indirizzi.length > 0;
+            const m = avvisa ? mailDi() : null;
+            if (avvisa && !m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
+            const b = document.getElementById('sm-si');
+            b.disabled = true; b.textContent = avvisa ? 'Sposto e avviso...' : 'Sposto...';
+            Cloud.operaPresenza({
+                azione: 'sposta-modalita', evento: ev.id, modalita: verso, forza: rinvia,
+                destinatari: elenco.map(r => ({ id: r.id, doc: r.doc || '' })),
+                mail: m ? { oggetto: m.oggetto, html: m.html, testo: m.testo } : null
+            }).then(res => {
+                if (!res.ok) {
+                    b.disabled = false;
+                    b.textContent = verso === 'online' ? 'Sposta online' : verso === 'aderenti' ? 'Sposta fra gli aderenti' : 'Riporta in presenza';
+                    esito(res.msg || 'Spostamento non riuscito.', true);
+                    return;
+                }
+                /* A video subito, poi la verita' dal server: la modalita' si
+                   aggiorna qui, l'avviso ("avvisato il ...") arriva con la
+                   rilettura, che sa a chi la mail e' partita davvero. */
+                const u = Auth.utenteCorrente;
+                elenco.forEach(r => {
+                    _evPresenze[r.id] = {
+                        ...(_evPresenze[r.id] || {}), modalita: verso,
+                        da: u ? String(u.email).toLowerCase() : '', daNome: u ? (u.nome || u.email || '') : '',
+                        quando: Date.now()
+                    };
+                });
+                _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+                chiudiModale();
+                const esMail = res.mail || null;
+                const dove = verso === 'online' ? ' all\'online' : verso === 'aderenti' ? ' fra gli aderenti Revilaw' : ' in presenza';
+                const parti = [(res.spostate || elenco.length) + (res.spostate === 1 ? ' iscrizione spostata' : ' iscrizioni spostate') + dove];
+                if (esMail) {
+                    parti.push(esMail.inviate + (esMail.inviate === 1 ? ' avviso inviato' : ' avvisi inviati'));
+                    if (esMail.giaAvvisati) parti.push(esMail.giaAvvisati + ' già avvisati, saltati');
+                    if (esMail.senzaEmail) parti.push(esMail.senzaEmail + ' senza email');
+                    if (esMail.senzaScheda) parti.push(esMail.senzaScheda + ' senza scheda sul database');
+                    if (esMail.falliti && esMail.falliti.length) parti.push(esMail.falliti.length + ' non consegnati');
+                    /* Il tempo della funzione e' finito prima dell'elenco: chi
+                       resta non e' perso, basta ripremere - e chi ha gia'
+                       ricevuto viene saltato, quindi nessuno prende due mail. */
+                    if (esMail.restanti) parti.push(esMail.restanti + ' ancora da avvisare: ripremi "Sposta online" sulle stesse righe');
+                }
+                const ko = !!(esMail && ((esMail.falliti && esMail.falliti.length) || esMail.senzaScheda || esMail.restanti));
+                toast(parti.join(' · ') + '.', ko ? 'rosso' : 'verde');
+                try {
+                    Audit.registra(Auth.utenteCorrente, 'Evento: iscrizioni spostate' + dove,
+                        'sistema', ev.id, null, elenco.length + ' iscrizioni' + (esMail ? ', ' + esMail.inviate + ' avvisi' : ', nessun avviso'));
+                } catch (e) { }
+                // rilettura vera: porta l'avviso registrato e allinea chi guarda da altrove
+                _evUltimoTentativo[ev.id] = 0;
+                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); }, true);
+                if (vistaCorrente === 'eventi') vistaEventi();
             });
         });
     }
