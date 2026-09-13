@@ -16026,6 +16026,104 @@
        Cambiando sezione la selezione si azzera: le spunte di una sezione non
        devono restare attive mentre se ne guarda un'altra, o un'azione in blocco
        colpirebbe righe che non si hanno davanti. */
+    /* I CONTI DELL'EVENTO, IN UN POSTO SOLO.
+       Li leggono in due: la testata, quando si disegna la pagina, e
+       l'aggiornamento al volo, quando si sposta un iscritto di sezione e i
+       numeri devono muoversi senza rifare tutto. Due calcoli separati si
+       sarebbero messi d'accordo il primo giorno e discordati il secondo.
+
+       Qui si contano ISCRIZIONI (righe) e PERSONE (posti), e sono due cose
+       diverse: chi si iscrive due volte vale due righe, e un'iscrizione da
+       Eventbrite puo' coprire piu' posti. Per la sala contano le persone.
+       In sala ci sono ospiti E aderenti: nessuno dei due numeri, da solo, dice
+       quanti posti servono. */
+    function contiEvento(ev) {
+        const lista = _evIscrizioni;
+        const conModalita = !!(lista && !ev.tutti);
+        const postiSezione = {};
+        if (conModalita) SEZIONI_MODALITA.forEach(x => {
+            postiSezione[x.id] = lista.filter(r => modalitaDi(ev, r) === x.id).reduce((t, r) => t + partecipantiDi(r), 0);
+        });
+        return {
+            nIsc: lista ? lista.length : null,
+            nPart: lista ? lista.reduce((t, r) => t + partecipantiDi(r), 0) : null,
+            nIndir: lista ? new Set(lista.map(r => String(r.email || '').toLowerCase()).filter(Boolean)).size : null,
+            conf: lista ? lista.filter(r => {
+                const p = EventiPresenze.di(ev.id, r.id);
+                return p && (p.stato === 'confermato' || p.stato === 'presente');
+            }).length : 0,
+            conModalita: conModalita,
+            postiSezione: postiSezione,
+            nInSala: conModalita
+                ? SEZIONI_MODALITA.filter(x => inSala(x.id)).reduce((t, x) => t + postiSezione[x.id], 0) : null
+        };
+    }
+    /* La frase che spiega la somma, la stessa nel suggerimento dei riquadri in
+       sala: "4 in presenza" e "1 aderenti" non dicono da soli quanti posti
+       servono. */
+    function fraseSala(c) {
+        return c.conModalita
+            ? 'In sala ' + c.nInSala + (c.nInSala === 1 ? ' persona: ' : ' persone: ')
+            + c.postiSezione.presenza + ' in presenza e ' + c.postiSezione.aderenti + ' aderenti Revilaw'
+            : 'Posti in sala';
+    }
+
+    /* I NUMERI SI MUOVONO CON LA RIGA
+       ---------------------------------------------------------
+       Spostare un iscritto fra le sezioni cambia i conteggi in testa, i numeri
+       delle voci sopra l'elenco e quello di "Riconosci aderenti". Rifare tutta
+       la pagina sarebbe il modo semplice, ma e' proprio quello che si e' tolto:
+       si perderebbe il fuoco, lo scorrimento tornerebbe a ballare, e chi ha
+       appena scelto in una tendina si ritroverebbe altrove. Qui si riscrivono
+       i soli numeri, dove sono.
+       Il numero e' il primo pezzo di testo del riquadro ("5<span>...</span>"),
+       quindi si cambia quel nodo e basta: le etichette, i suggerimenti e tutto
+       il resto restano dove sono. */
+    function scriviNumero(el, n) {
+        if (!el) return;
+        if (el.firstChild && el.firstChild.nodeType === 3) el.firstChild.nodeValue = String(n);
+        else el.insertBefore(document.createTextNode(String(n)), el.firstChild || null);
+    }
+    function aggiornaNumeriEventi(ev) {
+        if (!ev || ev.tutti || vistaCorrente !== 'eventi') return;
+        const vista = $vista();
+        if (!vista || !vista.querySelector('.ev-testa')) return;
+        const c = contiEvento(ev);
+        const frase = fraseSala(c);
+        const num = q => vista.querySelector('.ev-num[data-num="' + q + '"]');
+        SEZIONI_MODALITA.forEach(x => {
+            const el = num(x.id);
+            scriviNumero(el, c.conModalita ? c.postiSezione[x.id] : '-');
+            if (el && inSala(x.id)) el.setAttribute('title', frase);
+        });
+        { const el = num('sala'); scriviNumero(el, c.conModalita ? c.nInSala : '-'); if (el) el.setAttribute('title', frase); }
+        scriviNumero(num('conf'), c.conf);
+        scriviNumero(num('iscrizioni'), c.nIsc === null ? '-' : c.nIsc);
+        scriviNumero(num('partecipanti'), c.nPart === null ? '-' : c.nPart);
+        scriviNumero(num('indirizzi'), c.nIndir === null ? '-' : c.nIndir);
+        // le voci sopra l'elenco: numero, suggerimento e la veste "sezione vuota"
+        const tutte = _evIscrizioni || [];
+        vista.querySelectorAll('.ev-sez-btn[data-sez]').forEach(b => {
+            const id = b.dataset.sez;
+            const righe = id === 'tutte' ? tutte : tutte.filter(r => modalitaDi(ev, r) === id);
+            const n = righe.reduce((t, r) => t + partecipantiDi(r), 0);
+            const v = b.querySelector('.ev-sez-n');
+            if (v) v.textContent = n;
+            b.classList.toggle('vuota', n === 0 && id !== 'tutte');
+            b.setAttribute('title', n + (n === 1 ? ' persona' : ' persone')
+                + (righe.length !== n ? ', su ' + righe.length + (righe.length === 1 ? ' iscrizione' : ' iscrizioni') : ''));
+        });
+        /* "Riconosci aderenti" conta chi risulta aderente e non e' ancora nella
+           sua sezione: spostandone uno, quel numero cala - e quando arriva a
+           zero il pulsante non ha piu' niente da dire e se ne va. */
+        const bTrova = vista.querySelector('#ev-trova-aderenti');
+        if (bTrova) {
+            const quanti = puoAggiungereIscrizioni() ? righeDaRiconoscere(ev, tutte).length : 0;
+            if (!quanti) bTrova.remove();
+            else { const v = bTrova.querySelector('.ev-sez-n'); if (v) v.textContent = quanti; }
+        }
+    }
+
     function filtroSezioniHtml(ev, tutte) {
         if (ev.tutti) return '';   // nel riepilogo le presenze non si leggono
         const scelta = sezioneDi(ev);
@@ -16310,44 +16408,15 @@
         // all'amministratore serve l'elenco utenze per dire, persona per persona, se
         // l'abilitazione puo' davvero funzionare (ruolo, utenza attiva)
         if (admin && _sondUtenti === null) utentiSond(() => { if (vistaCorrente === 'eventi') vistaEventi(); });
-        const nIsc = _evIscrizioni ? _evIscrizioni.length : null;
-        /* Qui si contano ISCRIZIONI, cioe' righe: chi si iscrive a due convegni,
-           o due volte allo stesso, vale due. La Newsletter conta invece indirizzi
-           diversi, e vale uno. Sono due numeri giusti che non si possono sommare
-           fra loro, e finche' questo diceva solo "iscritti" sembrava che uno dei
-           due fosse sbagliato. */
-        /* Il conteggio che conta davvero per la sala e' quello delle PERSONE:
-           un'iscrizione manuale puo' coprire piu' posti (ordine Eventbrite),
-           quindi il totale somma i partecipanti riga per riga (le iscrizioni
-           dai form valgono 1). Si mostra dove le iscrizioni manuali esistono:
-           eventi con "manuale" e riepilogo. */
-        const nPart = _evIscrizioni ? _evIscrizioni.reduce((t, r) => t + partecipantiDi(r), 0) : null;
-        const nIndir = _evIscrizioni
-            ? new Set(_evIscrizioni.map(r => String(r.email || '').toLowerCase()).filter(Boolean)).size
-            : null;
-        const conf = _evIscrizioni ? _evIscrizioni.filter(r => { const p = EventiPresenze.di(ev.id, r.id); return p && (p.stato === 'confermato' || p.stato === 'presente'); }).length : 0;
-        /* I posti, sezione per sezione: sono i numeri con cui si decide quando la
-           sala e' piena. Si contano le PERSONE (un'iscrizione manuale copre piu'
-           posti), come il totale dei partecipanti qui sopra, e non compaiono nel
-           riepilogo, dove la modalita' non si legge.
-           In sala ci sono ospiti E aderenti: nessuno dei due numeri, da solo,
-           dice quanti posti servono, e la somma va scritta da qualche parte -
-           qui sta nel suggerimento dei due riquadri. */
-        const conModalita = !!(_evIscrizioni && !ev.tutti);
-        const postiSezione = {};
-        if (conModalita) SEZIONI_MODALITA.forEach(x => {
-            postiSezione[x.id] = _evIscrizioni.filter(r => modalitaDi(ev, r) === x.id).reduce((t, r) => t + partecipantiDi(r), 0);
-        });
-        const nInSala = conModalita
-            ? SEZIONI_MODALITA.filter(x => inSala(x.id)).reduce((t, x) => t + postiSezione[x.id], 0) : null;
+        const { nIsc, nPart, nIndir, conf, conModalita, postiSezione, nInSala } = contiEvento(ev);
         /* La somma va scritta da qualche parte, e il posto giusto e' il
            suggerimento dei riquadri che la compongono: "4 in presenza" e "1
            aderenti" non dicono da soli quanti posti servono. */
-        const titoloSala = conModalita
-            ? 'In sala ' + nInSala + (nInSala === 1 ? ' persona: ' : ' persone: ')
-            + postiSezione.presenza + ' in presenza e ' + postiSezione.aderenti + ' aderenti Revilaw'
-            : 'Posti in sala';
-        const riquadroNum = (n, et, titolo, cl) => '<div class="ev-num' + (cl ? ' ' + cl : '') + '"'
+        const titoloSala = fraseSala({ conModalita: conModalita, nInSala: nInSala, postiSezione: postiSezione });
+        /* "data-num" e' l'appiglio per riscrivere il solo numero quando un
+           iscritto cambia sezione, senza rifare tutta la pagina. */
+        const riquadroNum = (n, et, titolo, cl, quale) => '<div class="ev-num' + (cl ? ' ' + cl : '') + '"'
+            + (quale ? ' data-num="' + quale + '"' : '')
             + (titolo ? ' title="' + esc(titolo) + '"' : '') + '>'
             + n + '<span>' + esc(et) + '</span></div>';
 
@@ -16397,9 +16466,9 @@
             + schede
             + '<div class="card ev-testa"><div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
             + '<div class="hint">' + esc(ev.quando) + '</div></div>'
-            + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
-            + ((ev.manuale || ev.tutti) ? '<div class="ev-num">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
-            + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
+            + '<div class="ev-num" data-num="iscrizioni">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
+            + ((ev.manuale || ev.tutti) ? '<div class="ev-num" data-num="partecipanti">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
+            + '<div class="ev-num" data-num="indirizzi">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             /* LE DUE META' DELLA TESTATA. A sinistra i numeri che DESCRIVONO
                l'elenco - quante iscrizioni, quante persone, quanti indirizzi,
                e come si dividono le sezioni in sala. A destra, staccato, il
@@ -16411,12 +16480,12 @@
                Le sezioni restano nell'ordine del filtro sopra l'elenco: i
                numeri e le voci su cui si preme devono dirsi le stesse cose. */
             + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
-                .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala)).join(''))
+                .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala, '', x.id)).join(''))
             + (ev.tutti ? '' : '<div class="ev-num-gruppo">'
-                + riquadroNum(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'forte')
+                + riquadroNum(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'forte', 'sala')
                 + SEZIONI_MODALITA.filter(x => !inSala(x.id))
-                    .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve)).join('')
-                + riquadroNum(conf, 'confermati / presenti', '', 'verde')
+                    .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, '', '', x.id)).join('')
+                + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
                 + '</div>') + '</div>'
             + gestione + aziendeInvitoHtml(ev) + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
@@ -16499,6 +16568,8 @@
                 const p = EventiPresenze.di(ev.id, id) || {};
                 if (s.value !== (p.stato || '')) s.value = p.stato || '';
                 aggiornaFirma(s, id);
+                // cambia anche il riquadro "confermati / presenti"
+                aggiornaNumeriEventi(ev);
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
             });
             aggiornaFirma(s, id);
@@ -16530,6 +16601,23 @@
                 if (nota && !(p.avvisoModalita && p.avvisoModalita.quando)) nota.remove();
                 aggiornaFirma(s, id);
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+                /* I NUMERI SI MUOVONO CON LA RIGA: conteggi in testa, voci delle
+                   sezioni, "Riconosci aderenti". Subito, e senza rifare la
+                   pagina sotto le mani di chi ha appena scelto. */
+                aggiornaNumeriEventi(ev);
+                /* E se si sta guardando una sezione sola, la riga appena
+                   spostata non ne fa piu' parte: se ne va. Restare sarebbe
+                   peggio che sparire - l'elenco direbbe il falso sul filtro che
+                   si ha davanti. Quando esce l'ultima si ridisegna: li' non c'e'
+                   piu' niente da conservare, e serve il riquadro che dice
+                   "nessuna iscrizione in questa sezione". */
+                const sez = sezioneDi(ev);
+                if (riga && sez !== 'tutte' && vero !== sez) {
+                    _evSelezionate.delete(id);
+                    const corpo = riga.parentNode;
+                    riga.remove();
+                    if (corpo && !corpo.rows.length) vistaEventiMantenendoPosto();
+                }
             });
             aggiornaFirma(s, id);
             restituisciFuoco(s);
