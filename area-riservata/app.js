@@ -17932,6 +17932,65 @@
         });
     }
 
+    /* LO SPOSTAMENTO VERO E PROPRIO
+       ---------------------------------------------------------
+       La chiamata al servizio, l'elenco aggiornato a video e il riassunto di
+       com'e' andata. Sta qui, fuori dalle finestre che lo chiedono, perche' le
+       finestre sono due - quella degli spostamenti e quella degli aderenti
+       riconosciuti - e una cosa che scrive sul database non va scritta due
+       volte: il giorno che cambia il riassunto, o il modo di aggiornare
+       l'elenco, deve cambiare in un posto solo.
+       Restituisce la risposta del servizio: chi ha aperto la finestra decide
+       cosa farne (riaccendere il pulsante, scrivere l'errore, chiudersi). */
+    function eseguiSpostaModalita(ev, elenco, verso, opz) {
+        opz = opz || {};
+        const m = opz.mail || null;
+        return Cloud.operaPresenza({
+            azione: 'sposta-modalita', evento: ev.id, modalita: verso, forza: !!opz.rinvia,
+            destinatari: elenco.map(r => ({ id: r.id, doc: r.doc || '' })),
+            mail: m ? { oggetto: m.oggetto, html: m.html, testo: m.testo } : null
+        }).then(res => {
+            if (!res.ok) return res;
+            /* A video subito, poi la verita' dal server: la modalita' si
+               aggiorna qui, l'avviso ("avvisato il ...") arriva con la
+               rilettura, che sa a chi la mail e' partita davvero. */
+            const u = Auth.utenteCorrente;
+            elenco.forEach(r => {
+                _evPresenze[r.id] = {
+                    ...(_evPresenze[r.id] || {}), modalita: verso,
+                    da: u ? String(u.email).toLowerCase() : '', daNome: u ? (u.nome || u.email || '') : '',
+                    quando: Date.now()
+                };
+            });
+            _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+            const esMail = res.mail || null;
+            const dove = verso === 'online' ? ' all\'online' : verso === 'aderenti' ? ' fra gli aderenti Revilaw' : ' in presenza';
+            const parti = [(res.spostate || elenco.length) + (res.spostate === 1 ? ' iscrizione spostata' : ' iscrizioni spostate') + dove];
+            if (esMail) {
+                parti.push(esMail.inviate + (esMail.inviate === 1 ? ' avviso inviato' : ' avvisi inviati'));
+                if (esMail.giaAvvisati) parti.push(esMail.giaAvvisati + ' già avvisati, saltati');
+                if (esMail.senzaEmail) parti.push(esMail.senzaEmail + ' senza email');
+                if (esMail.senzaScheda) parti.push(esMail.senzaScheda + ' senza scheda sul database');
+                if (esMail.falliti && esMail.falliti.length) parti.push(esMail.falliti.length + ' non consegnati');
+                /* Il tempo della funzione e' finito prima dell'elenco: chi
+                   resta non e' perso, basta ripremere - e chi ha gia'
+                   ricevuto viene saltato, quindi nessuno prende due mail. */
+                if (esMail.restanti) parti.push(esMail.restanti + ' ancora da avvisare: ripremi "Sposta online" sulle stesse righe');
+            }
+            const ko = !!(esMail && ((esMail.falliti && esMail.falliti.length) || esMail.senzaScheda || esMail.restanti));
+            toast(parti.join(' · ') + '.', ko ? 'rosso' : 'verde');
+            try {
+                Audit.registra(Auth.utenteCorrente, 'Evento: iscrizioni spostate' + dove,
+                    'sistema', ev.id, null, elenco.length + ' iscrizioni' + (esMail ? ', ' + esMail.inviate + ' avvisi' : ', nessun avviso'));
+            } catch (e) { }
+            // rilettura vera: porta l'avviso registrato e allinea chi guarda da altrove
+            _evUltimoTentativo[ev.id] = 0;
+            caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
+            if (vistaCorrente === 'eventi') vistaEventi();
+            return res;
+        });
+    }
+
     /* =========================================================
        GLI ADERENTI RICONOSCIUTI NELL'ELENCO
        ---------------------------------------------------------
@@ -17954,39 +18013,91 @@
         // indirizzi diversi: due iscrizioni dello stesso aderente sono una persona sola
         const indirizzi = [];
         elenco.forEach(t => { if (indirizzi.indexOf(t.email) < 0) indirizzi.push(t.email); });
-        const voce = t => {
+        /* Una casella per riga, tutte spuntate all'ingresso: il caso normale e'
+           che si vogliano spostare tutte, e chi ne trova una che non va - un
+           aderente iscritto come ospite di un cliente, una casella di studio
+           usata da due persone - la toglie. Togliere e' piu' facile che
+           mettere, quando l'elenco lo ha proposto il programma. */
+        const voce = (t, i) => {
             const nome = nomeDi(t.riga);
             // il nome dell'anagrafica si mostra solo se dice qualcosa di diverso
             const altroNome = t.scheda && t.scheda.toLowerCase() !== nome.toLowerCase() ? t.scheda : '';
-            return '<li>'
+            return '<li><label>'
+                + '<input type="checkbox" class="ra-scelta" value="' + i + '" checked>'
+                + '<span class="ra-testo">'
                 + '<span class="ra-mail">' + esc(t.email) + '</span>'
                 + '<span class="ra-chi">' + esc(nome)
                 + (t.riga.azienda ? ' &middot; ' + esc(t.riga.azienda) : '') + '</span>'
                 + '<span class="ra-dove">' + esc(NOMI_MODALITA[t.sezione] || t.sezione)
                 + (altroNome ? ' &middot; in anagrafica: ' + esc(altroNome) : '') + '</span>'
-                + '</li>';
+                + '</span></label></li>';
         };
         apriModale('<h2>' + (uno ? 'Un\'iscrizione risulta di un aderente' : elenco.length + ' iscrizioni risultano di aderenti') + '</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">Riconosciute dall\'<b>indirizzo email</b>, l\'unico dato che combacia con le schede di '
             + '<b>Aderenti Revilaw</b>: i nomi si scrivono in dieci modi. '
             + (indirizzi.length !== elenco.length
                 ? 'Sono <b>' + indirizzi.length + '</b> ' + (indirizzi.length === 1 ? 'persona' : 'persone diverse') + '. ' : '')
-            + 'Controlla l\'elenco: qui non si sposta nessuno, si spuntano soltanto le righe.</p>'
+            + 'Togli la spunta a chi non deve passare fra gli aderenti. Nessuna mail parte.</p>'
+            + (uno ? '' : '<label class="ra-tutte"><input type="checkbox" id="ra-tutte" checked> Tutte</label>')
             + '<ul class="ra-elenco">' + elenco.map(voce).join('') + '</ul>'
+            + '<div id="ra-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ra-no">Annulla</button>'
-            + '<button class="btn btn-primary" id="ra-si">' + (uno ? 'Spunta la riga' : 'Spunta le ' + elenco.length + ' righe') + '</button></div>',
+            + '<button class="btn btn-secondary" id="ra-spunta">Spunta in elenco</button>'
+            + '<button class="btn btn-primary" id="ra-si">Sposta fra gli aderenti</button></div>',
             { classe: 'larga' });
+        const esito = (testo, ko) => {
+            const e = document.getElementById('ra-esito');
+            if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+        };
+        const scelte = () => Array.from(document.querySelectorAll('.ra-scelta:checked')).map(c => elenco[Number(c.value)]).filter(Boolean);
+        const bSi = document.getElementById('ra-si');
+        const bSpunta = document.getElementById('ra-spunta');
+        const aggiornaPulsanti = () => {
+            const n = scelte().length;
+            bSi.disabled = n === 0;
+            bSpunta.disabled = n === 0;
+            bSi.textContent = n === 0 ? 'Sposta fra gli aderenti'
+                : 'Sposta fra gli aderenti' + (n === elenco.length && uno ? '' : ' (' + n + ')');
+            const tutte = document.getElementById('ra-tutte');
+            if (tutte) { tutte.checked = n === elenco.length; tutte.indeterminate = n > 0 && n < elenco.length; }
+        };
+        document.querySelectorAll('.ra-scelta').forEach(c => c.addEventListener('change', aggiornaPulsanti));
+        { const t = document.getElementById('ra-tutte');
+          if (t) t.addEventListener('change', () => {
+              document.querySelectorAll('.ra-scelta').forEach(c => { c.checked = t.checked; });
+              aggiornaPulsanti();
+          }); }
+        aggiornaPulsanti();
         document.getElementById('ra-no').addEventListener('click', chiudiModale);
-        document.getElementById('ra-si').addEventListener('click', () => {
+        /* La via lunga, per chi vuole prima vederle nell'elenco vero, con
+           accanto tutto il resto della riga. Si apre "Tutte": le righe possono
+           stare in sezioni diverse, e una spunta su una riga che non e' a video
+           sarebbe una scelta fatta al buio. */
+        bSpunta.addEventListener('click', () => {
+            const s = scelte();
+            if (!s.length) return;
             chiudiModale();
-            /* Si apre "Tutte": le righe da spuntare possono stare in sezioni
-               diverse, e una spunta su una riga che non e' a video sarebbe una
-               scelta fatta al buio. */
             _evSezione[ev.id] = 'tutte';
-            _evSelezionate = new Set(elenco.map(t => t.riga.id));
+            _evSelezionate = new Set(s.map(t => t.riga.id));
             if (vistaCorrente === 'eventi') vistaEventi();
-            toast(elenco.length + (uno ? ' riga spuntata' : ' righe spuntate')
+            toast(s.length + (s.length === 1 ? ' riga spuntata' : ' righe spuntate')
                 + ': controllale e premi "Sposta fra gli aderenti".', 'verde');
+        });
+        // la via breve: si spostano da qui, senza passare dall'elenco
+        bSi.addEventListener('click', () => {
+            const s = scelte();
+            if (!s.length) return;
+            bSi.disabled = true; bSpunta.disabled = true;
+            bSi.textContent = 'Sposto...';
+            eseguiSpostaModalita(ev, s.map(t => t.riga), 'aderenti', {}).then(res => {
+                if (!res.ok) {
+                    bSi.disabled = false; bSpunta.disabled = false;
+                    aggiornaPulsanti();
+                    esito(res.msg || 'Spostamento non riuscito.', true);
+                    return;
+                }
+                chiudiModale();
+            });
         });
     }
 
@@ -18132,54 +18243,14 @@
             if (avvisa && !m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
             const b = document.getElementById('sm-si');
             b.disabled = true; b.textContent = avvisa ? 'Sposto e avviso...' : 'Sposto...';
-            Cloud.operaPresenza({
-                azione: 'sposta-modalita', evento: ev.id, modalita: verso, forza: rinvia,
-                destinatari: elenco.map(r => ({ id: r.id, doc: r.doc || '' })),
-                mail: m ? { oggetto: m.oggetto, html: m.html, testo: m.testo } : null
-            }).then(res => {
+            eseguiSpostaModalita(ev, elenco, verso, { rinvia: rinvia, mail: m }).then(res => {
                 if (!res.ok) {
                     b.disabled = false;
                     b.textContent = verso === 'online' ? 'Sposta online' : verso === 'aderenti' ? 'Sposta fra gli aderenti' : 'Riporta in presenza';
                     esito(res.msg || 'Spostamento non riuscito.', true);
                     return;
                 }
-                /* A video subito, poi la verita' dal server: la modalita' si
-                   aggiorna qui, l'avviso ("avvisato il ...") arriva con la
-                   rilettura, che sa a chi la mail e' partita davvero. */
-                const u = Auth.utenteCorrente;
-                elenco.forEach(r => {
-                    _evPresenze[r.id] = {
-                        ...(_evPresenze[r.id] || {}), modalita: verso,
-                        da: u ? String(u.email).toLowerCase() : '', daNome: u ? (u.nome || u.email || '') : '',
-                        quando: Date.now()
-                    };
-                });
-                _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
                 chiudiModale();
-                const esMail = res.mail || null;
-                const dove = verso === 'online' ? ' all\'online' : verso === 'aderenti' ? ' fra gli aderenti Revilaw' : ' in presenza';
-                const parti = [(res.spostate || elenco.length) + (res.spostate === 1 ? ' iscrizione spostata' : ' iscrizioni spostate') + dove];
-                if (esMail) {
-                    parti.push(esMail.inviate + (esMail.inviate === 1 ? ' avviso inviato' : ' avvisi inviati'));
-                    if (esMail.giaAvvisati) parti.push(esMail.giaAvvisati + ' già avvisati, saltati');
-                    if (esMail.senzaEmail) parti.push(esMail.senzaEmail + ' senza email');
-                    if (esMail.senzaScheda) parti.push(esMail.senzaScheda + ' senza scheda sul database');
-                    if (esMail.falliti && esMail.falliti.length) parti.push(esMail.falliti.length + ' non consegnati');
-                    /* Il tempo della funzione e' finito prima dell'elenco: chi
-                       resta non e' perso, basta ripremere - e chi ha gia'
-                       ricevuto viene saltato, quindi nessuno prende due mail. */
-                    if (esMail.restanti) parti.push(esMail.restanti + ' ancora da avvisare: ripremi "Sposta online" sulle stesse righe');
-                }
-                const ko = !!(esMail && ((esMail.falliti && esMail.falliti.length) || esMail.senzaScheda || esMail.restanti));
-                toast(parti.join(' · ') + '.', ko ? 'rosso' : 'verde');
-                try {
-                    Audit.registra(Auth.utenteCorrente, 'Evento: iscrizioni spostate' + dove,
-                        'sistema', ev.id, null, elenco.length + ' iscrizioni' + (esMail ? ', ' + esMail.inviate + ' avvisi' : ', nessun avviso'));
-                } catch (e) { }
-                // rilettura vera: porta l'avviso registrato e allinea chi guarda da altrove
-                _evUltimoTentativo[ev.id] = 0;
-                caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
-                if (vistaCorrente === 'eventi') vistaEventi();
             });
         });
     }

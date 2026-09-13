@@ -1621,9 +1621,16 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    si trova adesso. Se sono tanti l'elenco scorre invece di allungare la
    finestra oltre lo schermo. */
 .ra-elenco { list-style: none; margin: 0 0 4px; padding: 0; max-height: 46vh; overflow-y: auto; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
-.ra-elenco li { display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; border-bottom: 1px solid var(--grigio-100); }
+.ra-elenco li { border-bottom: 1px solid var(--grigio-100); }
 .ra-elenco li:last-child { border-bottom: 0; }
 .ra-elenco li:nth-child(odd) { background: var(--grigio-050); }
+/* Tutta la riga e' l'etichetta della casella: si spunta anche premendo sul
+   nome o sull'indirizzo, che e' il punto in cui va il dito. */
+.ra-elenco label { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; cursor: pointer; }
+.ra-elenco input[type="checkbox"] { margin-top: 3px; flex: none; }
+.ra-testo { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ra-tutte { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 0.86rem; color: var(--grigio-600); cursor: pointer; }
+.ra-elenco li:has(.ra-scelta:not(:checked)) .ra-testo { opacity: 0.5; }
 .ra-mail { font-weight: 600; color: var(--blu-900); overflow-wrap: anywhere; }
 .ra-chi { font-size: 0.86rem; color: var(--grigio-900); }
 .ra-dove { font-size: 0.78rem; color: var(--grigio-600); }
