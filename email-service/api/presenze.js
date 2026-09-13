@@ -107,25 +107,32 @@ function idIscrizione(idIscritto) {
 const STATI = ['', 'confermato', 'presente', 'assente'];
 /* MODALITA' DI PARTECIPAZIONE (le sezioni dell'elenco)
    ------------------------------------------------------------
-   Tre sezioni, e una persona sta in una sola:
+   Quattro sezioni, e una persona sta in una sola. Tre sono IN SALA e i loro
+   posti si sommano nel totale; solo l'online non occupa niente:
      'presenza'  gli ospiti in sala (vuoto vale questo: fino a Napoli il
                  modulo non chiedeva niente e in sala ci andavano tutti);
      'aderenti'  gli aderenti Revilaw in sala - occupano un posto come gli
                  altri, ma non sono ospiti da invitare: sono la rete dello
                  studio, e chi prepara la sala li conta a parte;
+     'sponsor'   sponsor e relatori, in sala anche loro. E' una divisione a
+                 USO INTERNO di chi organizza: serve a sapere quali posti
+                 sono gia' impegnati da chi l'evento lo fa, non a cambiare
+                 qualcosa per la persona. I loro posti restano contati fra
+                 quelli in sala, sempre, e nessuna mail parte;
      'online'    chi segue da remoto, che in sala non occupa niente.
 
    La modalita' vive QUI, con lo stato e la nota, e non sulla scheda
    dell'iscritto: e' una decisione di chi organizza, non un dato dichiarato.
    Quando il modulo comincera' a chiederla, il valore dichiarato arrivera'
    sulla scheda e questo restera' l'ultima parola (chi entra in sala, e in
-   quale sezione, lo decide chi organizza). 'aderenti' in particolare NON
-   puo' arrivare dal modulo pubblico: nessuno si dichiara aderente da se',
-   e infatti iscrizione-nuova accetta solo 'presenza' e 'online'. */
-const MODALITA = ['', 'presenza', 'aderenti', 'online'];
+   quale sezione, lo decide chi organizza). 'aderenti' e 'sponsor' in
+   particolare NON possono arrivare dal modulo pubblico: nessuno si dichiara
+   aderente o relatore da se', e infatti iscrizione-nuova accetta solo
+   'presenza' e 'online'. */
+const MODALITA = ['', 'presenza', 'aderenti', 'sponsor', 'online'];
 // le sezioni in cui si puo' SPOSTARE qualcuno (il vuoto non e' una scelta:
 // e' solo com'e' scritta un'iscrizione che nessuno ha ancora toccato)
-const MODALITA_SCELTE = ['presenza', 'aderenti', 'online'];
+const MODALITA_SCELTE = ['presenza', 'aderenti', 'sponsor', 'online'];
 /* Portali da cui puo' arrivare un'iscrizione inserita a mano. Per le voci
    fisse l'etichetta la decide il servizio, non chi chiama: cosi' la colonna
    "Portale" resta confrontabile. Con "altro" il nome della piattaforma lo

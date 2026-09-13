@@ -818,20 +818,28 @@ collaboratore, quello del suo utente di riferimento): un
   e poi rispostato online resterebbe muto (marcato "gia avvisato") e si
   presenterebbe a una sala piena.
 
-## Le tre sezioni: in presenza, aderenti Revilaw, online
+## Le quattro sezioni: in presenza, aderenti Revilaw, sponsor e relatori, online
 
-Un'iscrizione sta in **una** sezione sola:
+Un'iscrizione sta in **una** sezione sola. Tre sono in sala, e solo l'online no:
 
-| Sezione | Valore | Cosa vuol dire |
-|---|---|---|
-| In presenza | `presenza` (o vuoto) | gli **ospiti** in sala |
-| Aderenti Revilaw | `aderenti` | gli **aderenti** in sala: occupano un posto come gli altri, ma si contano a parte - sono la rete dello studio, non ospiti da invitare |
-| Online | `online` | chi segue **da remoto**, che in sala non occupa niente |
+| Sezione | Valore | In sala | Cosa vuol dire |
+|---|---|---|---|
+| In presenza | `presenza` (o vuoto) | si | gli **ospiti** in sala |
+| Aderenti Revilaw | `aderenti` | si | gli **aderenti** in sala: occupano un posto come gli altri, ma si contano a parte - sono la rete dello studio, non ospiti da invitare |
+| Sponsor e relatori | `sponsor` | si | chi l'evento lo **fa**: occupa un posto come gli altri e va sempre contato fra quelli in sala. E' una divisione a **uso interno** di chi organizza - serve a sapere quali posti sono gia impegnati - e per la persona non cambia niente: nessuna mail parte |
+| Online | `online` | no | chi segue **da remoto**, che in sala non occupa niente |
 
 Fino all'evento di Napoli il modulo non chiedeva nulla e le iscrizioni erano
 tutte in presenza: per questo **il valore vuoto vale "in presenza"**, non "non
-si sa". I posti in sala sono la somma delle prime due sezioni: nessuno dei due
-numeri, da solo, dice quanti posti servono.
+si sa". I posti in sala (`totale in sala` nella testata) sono la somma delle
+tre sezioni in sala: nessuno dei tre numeri, da solo, dice quanti posti servono.
+
+**Gli incontri B2B si fanno in sala, e sono per gli ospiti.** Nell'elenco la
+voce "Invita agli incontri B2B" compare solo sulle righe `presenza` e
+`sponsor`: chi segue online a un tavolo non ci si siede, e un aderente Revilaw
+non e un'azienda da abbinare a un'altra. Il menu della riga si rifa a ogni
+cambio di sezione, quindi la voce sparisce nel momento in cui si sposta
+qualcuno, non al ridisegno successivo.
 
 La sezione si legge da due posti, in quest'ordine:
 
@@ -845,8 +853,9 @@ La sezione si legge da due posti, in quest'ordine:
    non serve toccare il servizio; la conferma automatica (`lib/mail-ngb.js`,
    `confermaSito`) sa gia dirlo, e a chi si iscrive online non promette un posto
    in sala. Dal modulo pubblico si accettano **solo `presenza` e `online`**:
-   nella sezione degli aderenti non ci si mette da soli, e infatti un
-   `modalita: "aderenti"` arrivato da li viene semplicemente ignorato.
+   nelle sezioni degli aderenti e di sponsor e relatori non ci si mette da
+   soli, e infatti un `modalita: "aderenti"` o `"sponsor"` arrivato da li viene
+   semplicemente ignorato.
 
 **La casella "Sono un aderente Revilaw"** del modulo di Napoli fa due cose:
 spuntandola l'iscrizione chiede **solo nome, cognome ed email** - la scheda
@@ -870,13 +879,14 @@ riga c'e scritto da dove viene il riconoscimento.
 
 L'ultima parola e della prima: in quale sezione si sta lo decide chi organizza.
 `/api/iscrizioni` restituisce entrambe (`modalita` sulla riga e dentro
-`presenze`, con `avvisoModalita`) e l'area riservata conta le tre sezioni
+`presenze`, con `avvisoModalita`) e l'area riservata conta le quattro sezioni
 separatamente, con il filtro sopra l'elenco per guardarne una alla volta.
 
 **L'avviso per posta lo porta con se' il solo passaggio all'online**: e' l'unico
 che toglie qualcosa a chi lo riceve (il posto in sala) e va spiegato. Entrare
-fra gli aderenti o tornare in presenza non si annuncia: sono classificazioni
-interne, e chi le riceve non deve fare niente di diverso.
+fra gli aderenti, passare fra sponsor e relatori o tornare in presenza non si
+annunciano: sono classificazioni interne, e chi le riceve non deve fare niente
+di diverso.
 
 ## Completamento dati partecipanti (dentro `/api/iscrizione-nuova`)
 

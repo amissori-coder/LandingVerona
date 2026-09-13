@@ -7,9 +7,9 @@
    posta sono finti e stanno qui dentro. Esce con 1 se qualcosa e'
    rosso, cosi' si puo' appendere a un controllo automatico.
 
-   COSA DIMOSTRANO. L'elenco di un evento ha TRE sezioni - ospiti in
-   sala, aderenti Revilaw in sala, online - e una persona sta in una
-   sola. Quando i posti in sala finiscono, chi resta fuori non si
+   COSA DIMOSTRANO. L'elenco di un evento ha QUATTRO sezioni - ospiti in
+   sala, aderenti Revilaw in sala, sponsor e relatori in sala, online - e
+   una persona sta in una sola. Quando i posti in sala finiscono, chi resta fuori non si
    cancella: si sposta all'online e lo si avvisa. E' un'azione
    che fa due cose insieme - scrive su tante schede e spedisce tante
    mail - e sono proprio le due cose che, se vanno a meta', lasciano
@@ -27,10 +27,12 @@
      - "avvisato" resti scritto solo su chi ha ricevuto davvero;
      - senza `mail` lo spostamento si faccia in silenzio;
      - la modalita' sbagliata e chi non ha il ruolo vengano respinti;
-     - la terza sezione (aderenti Revilaw) si comporti come le altre
-       DOVE deve - stesso spostamento, stessi permessi - e diversamente
-       dove deve: nessun avviso automatico, perche' entrare fra gli
-       aderenti non toglie niente a nessuno e non va annunciato.
+     - le sezioni in sala (aderenti Revilaw, sponsor e relatori) si
+       comportino come le altre DOVE devono - stesso spostamento, stessi
+       permessi - e diversamente dove devono: nessun avviso automatico,
+       perche' entrarci non toglie niente a nessuno e non va annunciato;
+     - la copia nascosta a chi sta facendo l'operazione parta su OGNI
+       mail, mai in chiaro, e mai al destinatario stesso.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -445,6 +447,56 @@ prova('Dal modulo la sezione non si sceglie scrivendo un campo', async () => {
     const riga = (src.match(/if \(modalita === [^\n]*\) scheda\.modalita = modalita;/) || [''])[0];
     esigi(/'presenza'/.test(riga) && /'online'/.test(riga) && !/aderenti/.test(riga),
         'il campo "modalita" accetta solo presenza e online', riga);
+});
+
+prova('Sponsor e relatori: una quarta sezione, in sala e senza mail', async () => {
+    /* Sponsor e relatori occupano un posto come tutti gli altri: la sezione
+       serve a chi organizza per sapere quali posti sono gia' impegnati da chi
+       l'evento lo fa. Per la persona non cambia niente, e infatti non parte
+       nessuna mail - annunciare "ti ho messo fra i relatori" a chi relatore
+       lo e' gia' non direbbe niente a nessuno. */
+    scenario();
+    const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'sponsor', destinatari: [TUTTI[2]] });
+    esigi(r.stato === 200 && r.corpo.ok === true && r.corpo.modalita === 'sponsor',
+        'la quarta sezione si accetta', JSON.stringify(r.corpo).slice(0, 160));
+    esigi((presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).modalita === 'sponsor', 'la sezione e scritta sulle presenze');
+    esigi(spedite.length === 0, 'nessuna mail parte: e una divisione a uso interno');
+    esigi(!(presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).avvisoModalita, 'e non resta nessun avviso registrato');
+});
+
+prova('Da sponsor si esce come da qualunque altra sezione', async () => {
+    scenario();
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'sponsor', destinatari: [TUTTI[2]] });
+    for (const verso of ['aderenti', 'presenza', 'sponsor']) {
+        const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: verso, destinatari: [TUTTI[2]] });
+        esigi(r.corpo.ok === true && (presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).modalita === verso,
+            'da sponsor si passa a "' + verso + '"');
+    }
+    // e da sponsor all'online l'avviso parte come per chiunque altro
+    const online = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL });
+    esigi((online.corpo.mail || {}).inviate === 1, 'e passando all\'online l\'avviso parte lo stesso');
+});
+
+prova('La tendina della riga accetta anche sponsor', async () => {
+    scenario();
+    sessione = 'desk@esempio.it';   // chi e' abilitato agli Eventi puo' cambiarla
+    const r = await chiama({ azione: 'imposta', evento: 'napoli-2026-10-02', idIscritto: TUTTI[2].id, modalita: 'sponsor' });
+    esigi(r.corpo.ok === true && (r.corpo.presenza || {}).modalita === 'sponsor',
+        'la quarta sezione passa anche dalla tendina', JSON.stringify(r.corpo).slice(0, 160));
+    esigi(spedite.length === 0, 'e non parte nessuna mail');
+});
+
+prova('Dal modulo pubblico non ci si mette fra sponsor e relatori', async () => {
+    /* Stessa regola degli aderenti: nella sezione di chi l'evento lo fa non ci
+       si mette da soli. La riga di codice che fa da confine sta in un altro
+       endpoint, e qui la si tiene ferma. */
+    scenario();
+    const fs = require('fs');
+    const src = fs.readFileSync(path.join(RADICE, 'api/iscrizione-nuova.js'), 'utf8');
+    const riga = (src.match(/if \(modalita === [^\n]*\) scheda\.modalita = modalita;/) || [''])[0];
+    esigi(!/sponsor/.test(riga), 'il campo "modalita" del modulo non accetta sponsor', riga);
+    const no = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'sponsorizzato', destinatari: [TUTTI[0]] });
+    esigi(no.stato === 400, 'e una sezione inventata resta respinta', JSON.stringify(no.corpo));
 });
 
 prova('Ogni avviso torna in copia nascosta a chi lo manda', async () => {
