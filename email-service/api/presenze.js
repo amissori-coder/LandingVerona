@@ -105,16 +105,27 @@ function idIscrizione(idIscritto) {
     return String(idIscritto).replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300) || 'senza-identificativo';
 }
 const STATI = ['', 'confermato', 'presente', 'assente'];
-/* MODALITA' DI PARTECIPAZIONE (in sala o online)
+/* MODALITA' DI PARTECIPAZIONE (le sezioni dell'elenco)
    ------------------------------------------------------------
-   Fino a Napoli il modulo non la chiedeva: tutte le iscrizioni erano in
-   presenza. Per questo il valore vuoto vale "in presenza" e non "non si sa",
-   e per questo la modalita' vive QUI, con lo stato e la nota, e non sulla
-   scheda dell'iscritto: finche' il modulo non la chiede e' una decisione di
-   chi organizza, non un dato dichiarato. Quando il modulo la chiedera', il
-   valore dichiarato arrivera' sulla scheda e questo restera' l'ultima parola
-   (chi organizza decide chi entra in sala). */
-const MODALITA = ['', 'presenza', 'online'];
+   Tre sezioni, e una persona sta in una sola:
+     'presenza'  gli ospiti in sala (vuoto vale questo: fino a Napoli il
+                 modulo non chiedeva niente e in sala ci andavano tutti);
+     'aderenti'  gli aderenti Revilaw in sala - occupano un posto come gli
+                 altri, ma non sono ospiti da invitare: sono la rete dello
+                 studio, e chi prepara la sala li conta a parte;
+     'online'    chi segue da remoto, che in sala non occupa niente.
+
+   La modalita' vive QUI, con lo stato e la nota, e non sulla scheda
+   dell'iscritto: e' una decisione di chi organizza, non un dato dichiarato.
+   Quando il modulo comincera' a chiederla, il valore dichiarato arrivera'
+   sulla scheda e questo restera' l'ultima parola (chi entra in sala, e in
+   quale sezione, lo decide chi organizza). 'aderenti' in particolare NON
+   puo' arrivare dal modulo pubblico: nessuno si dichiara aderente da se',
+   e infatti iscrizione-nuova accetta solo 'presenza' e 'online'. */
+const MODALITA = ['', 'presenza', 'aderenti', 'online'];
+// le sezioni in cui si puo' SPOSTARE qualcuno (il vuoto non e' una scelta:
+// e' solo com'e' scritta un'iscrizione che nessuno ha ancora toccato)
+const MODALITA_SCELTE = ['presenza', 'aderenti', 'online'];
 /* Portali da cui puo' arrivare un'iscrizione inserita a mano. Per le voci
    fisse l'etichetta la decide il servizio, non chi chiama: cosi' la colonna
    "Portale" resta confrontabile. Con "altro" il nome della piattaforma lo
@@ -609,9 +620,11 @@ module.exports = async (req, res) => {
             return;
         }
 
-        /* Spostare le iscrizioni fra SALA e ONLINE, e avvisare chi e' stato
-           spostato. Serve quando i posti in presenza finiscono: chi resta
-           fuori non va cancellato - va spostato all'online, e deve saperlo.
+        /* Spostare le iscrizioni FRA LE SEZIONI (ospiti in sala, aderenti
+           Revilaw in sala, online), e avvisare chi e' stato spostato.
+           Serve quando i posti in presenza finiscono - chi resta fuori non va
+           cancellato, va spostato all'online e deve saperlo - e serve a tenere
+           gli aderenti Revilaw contati a parte da chi e' ospite.
 
            La modalita' si scrive dove stanno stato e nota (collezione
            "presenze"): cosi' funziona anche per le iscrizioni che su Firestore
@@ -631,12 +644,20 @@ module.exports = async (req, res) => {
            non e' il gesto di chi segna le presenze al desk. */
         if (azione === 'sposta-modalita') {
             if (!eAdmin && !(await ePartner(db, ruolo))) {
-                res.status(403).json({ ok: false, msg: 'Possono spostare un\'iscrizione fra sala e online l\'amministratore, gli equity partner e i founding partner.' });
+                res.status(403).json({ ok: false, msg: 'Possono spostare un\'iscrizione fra le sezioni l\'amministratore, gli equity partner e i founding partner.' });
                 return;
             }
             const nuova = testo(body.modalita, 20).toLowerCase();
-            if (nuova !== 'presenza' && nuova !== 'online') {
-                res.status(400).json({ ok: false, msg: 'Indica la modalita: "presenza" oppure "online".' }); return;
+            if (MODALITA_SCELTE.indexOf(nuova) < 0) {
+                res.status(400).json({ ok: false, msg: 'Indica la sezione: "presenza", "aderenti" oppure "online".' }); return;
+            }
+            /* Il riepilogo non e' un evento: le presenze - e con loro la sezione -
+               sono per evento, e scriverle sotto 'tutti' creerebbe documenti che
+               non si vedranno mai da nessuna parte. L'area riservata non lo
+               propone nemmeno; qui si chiude la porta anche a una richiesta
+               costruita a mano. */
+            if (evento === 'tutti') {
+                res.status(400).json({ ok: false, msg: 'Apri l\'evento: dal riepilogo non si sposta nessuno.' }); return;
             }
             /* I destinatari: l'elenco spuntato nella tabella, oppure il solo
                iscritto della riga. Il nome del documento arriva con la riga
@@ -650,11 +671,31 @@ module.exports = async (req, res) => {
                 .filter(x => x.id);
             if (!dest.length) { res.status(400).json({ ok: false, msg: 'Nessuna iscrizione indicata.' }); return; }
             const m = body.mail && typeof body.mail === 'object' ? body.mail : null;
+            // reinvio esplicito: riscrive anche a chi l'avviso l'ha gia' avuto
+            const forzaAvviso = body.forza === true;
             const oggettoBase = m ? (testo(m.oggetto, 250) || 'Partecipazione online - Next Generation Business').replace(/[\r\n]/g, ' ') : '';
             const htmlBase = m ? String(m.html || '').slice(0, 300000) : '';
             const testoBase = m ? String(m.testo || '').slice(0, 20000) : '';
             if (m && !htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
             const firma = { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() };
+            /* COM'ERANO PRIMA DELLA MOSSA. Una lettura sola, che serve a due
+               cose tenute insieme apposta:
+                 1. l'avviso vale per la sezione in cui uno si TROVA. Chi e'
+                    stato avvisato del passaggio online, poi riportato in sala
+                    perche' un posto si era liberato, e poi rispostato online
+                    deve essere avvisato di nuovo: la notizia e' cambiata due
+                    volte. Senza cancellare l'avviso vecchio resterebbe muto,
+                    marcato "gia' avvisato", e si presenterebbe a una sala
+                    piena;
+                 2. e' la stessa lettura con cui piu' sotto si salta chi
+                    l'avviso lo ha gia' ricevuto per QUESTA sezione. */
+            const primaDi = {};
+            for (let i = 0; i < dest.length; i += 300) {
+                const fetta = dest.slice(i, i + 300);
+                const rif = fetta.map(d => db.collection('presenze').doc(idDoc(evento, d.id)));
+                const letti = await db.getAll.apply(db, rif);
+                letti.forEach((doc, k) => { primaDi[fetta[k].id] = (doc && doc.exists) ? (doc.data() || {}) : {}; });
+            }
             /* Prima lo spostamento, poi le mail: se il server di posta si
                ferma a meta' strada, chi e' stato spostato risulta spostato -
                e l'elenco dice chi non e' stato avvisato, che si rimedia con
@@ -662,9 +703,13 @@ module.exports = async (req, res) => {
                sarebbe una bugia scritta in un posto solo. */
             let batch = db.batch(), nel = 0;
             for (const d of dest) {
-                batch.set(db.collection('presenze').doc(idDoc(evento, d.id)), {
-                    evento: evento, idIscritto: d.id, modalita: nuova, ...firma
-                }, { merge: true });
+                const patch = { evento: evento, idIscritto: d.id, modalita: nuova, ...firma };
+                const avPrima = (primaDi[d.id] || {}).avvisoModalita;
+                // l'avviso di un'altra sezione decade insieme allo spostamento
+                if (avPrima && avPrima.modalita && avPrima.modalita !== nuova) {
+                    patch.avvisoModalita = admin.firestore.FieldValue.delete();
+                }
+                batch.set(db.collection('presenze').doc(idDoc(evento, d.id)), patch, { merge: true });
                 nel++;
                 if (nel >= 400) { await batch.commit(); batch = db.batch(); nel = 0; }
             }
@@ -676,10 +721,25 @@ module.exports = async (req, res) => {
                 const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
                 const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
                 const trans = trasporto();
-                let inviate = 0, senzaScheda = 0, senzaEmail = 0, doppie = 0;
+                let inviate = 0, senzaScheda = 0, senzaEmail = 0, doppie = 0, giaAvvisati = 0, restanti = 0;
                 const falliti = [];
                 const visti = {};   // un indirizzo, una mail: due iscrizioni non fanno due avvisi
+                /* CHI HA GIA' RICEVUTO QUESTO AVVISO SI SALTA, salvo richiesta
+                   esplicita di reinvio (`forza`, che manda la voce "Invia di
+                   nuovo l'avviso" della singola riga). E' la stessa regola
+                   dell'invito B2B, e qui serve a una cosa precisa: rende il
+                   RILANCIO innocuo. Le mail partono una per volta e questa
+                   funzione ha un tetto di durata (60 s in vercel.json): su un
+                   elenco lungo la si puo' vedere finire il tempo a meta' strada.
+                   Se il secondo giro rispedisse a tutti, completare un invio
+                   interrotto costerebbe una mail doppia a chi era gia' a posto.
+                   Cosi' invece basta ripremere sullo stesso elenco. */
+                const scadenza = Date.now() + 45 * 1000;
                 for (const d of dest) {
+                    /* Tempo finito: il resto non si prova nemmeno. Meglio dirlo
+                       - "ne restano N" - che essere interrotti a meta' di una
+                       spedizione e lasciare chi guarda senza risposta. */
+                    if (Date.now() > scadenza) { restanti++; continue; }
                     const docId = d.doc || idIscrizione(d.id);
                     const rif = db.collection('iscrizioni').doc(docId);
                     const snap = await rif.get();
@@ -691,6 +751,10 @@ module.exports = async (req, res) => {
                     const a = String(s.email || '').toLowerCase();
                     if (!a || !emailValida(a)) { senzaEmail++; continue; }
                     if (visti[a]) { doppie++; continue; }
+                    if (!forzaAvviso) {
+                        const av = (primaDi[d.id] || {}).avvisoModalita;
+                        if (av && av.modalita === nuova && av.quando) { giaAvvisati++; visti[a] = true; continue; }
+                    }
                     visti[a] = true;
                     const nomeDest = ((String(s.nome || '') + ' ' + String(s.cognome || '')).trim()) || 'ospite';
                     const link = NL.linkCompleta(docId);
@@ -699,7 +763,11 @@ module.exports = async (req, res) => {
                             from: '"' + fromName + '" <' + fromEmail + '>',
                             replyTo: email,
                             to: a,
-                            subject: oggettoBase,
+                            /* i segnaposti si sostituiscono anche nell'OGGETTO:
+                               oggi nessun modello ne mette, ma un "{{NOME}}"
+                               arrivato fin li' verrebbe spedito tale e quale,
+                               ed e' la prima riga che il destinatario legge */
+                            subject: oggettoBase.split('{{NOME}}').join(nomeDest),
                             text: testoBase ? testoBase.split('{{NOME}}').join(nomeDest).split('{{COMPLETA}}').join(link) : undefined,
                             html: htmlBase.split('{{NOME}}').join(esc(nomeDest)).split('{{COMPLETA}}').join(link)
                         });
@@ -715,7 +783,10 @@ module.exports = async (req, res) => {
                     }
                 }
                 if (inviate) await segnaCambiamento(db);
-                mailEsito = { inviate: inviate, senzaScheda: senzaScheda, senzaEmail: senzaEmail, doppie: doppie, falliti: falliti.slice(0, 50) };
+                mailEsito = {
+                    inviate: inviate, senzaScheda: senzaScheda, senzaEmail: senzaEmail, doppie: doppie,
+                    giaAvvisati: giaAvvisati, restanti: restanti, falliti: falliti.slice(0, 50)
+                };
             }
             res.status(200).json({ ok: true, spostate: dest.length, modalita: nuova, mail: mailEsito });
             return;
@@ -913,6 +984,18 @@ module.exports = async (req, res) => {
             res.status(400).json({ ok: false, msg: 'Niente da salvare.' });
             return;
         }
+        /* Anche da qui si cambia sezione, e l'avviso vale per la sezione in cui
+           uno si trova: cambiandola, quello vecchio decade. Senza questa riga
+           basterebbe passare dalla tendina invece che dallo spostamento per
+           lasciare in giro un "gia' avvisato" che non e' piu' vero, e il
+           passaggio online successivo resterebbe muto. */
+        if (patch.modalita !== undefined) {
+            const prima = await db.collection('presenze').doc(idDoc(evento, idIscritto)).get();
+            const av = prima.exists ? (prima.data() || {}).avvisoModalita : null;
+            if (av && av.modalita && av.modalita !== patch.modalita) {
+                patch.avvisoModalita = admin.firestore.FieldValue.delete();
+            }
+        }
         await db.collection('presenze').doc(idDoc(evento, idIscritto)).set(patch, { merge: true });
         // si risponde con cio' che risulta ORA sul server, non con la sola modifica:
         // altrimenti chi ha salvato la sola nota si vedrebbe azzerare lo stato
@@ -924,6 +1007,14 @@ module.exports = async (req, res) => {
             presenza: {
                 stato: String(v.stato || ''), nota: String(v.nota || ''),
                 modalita: String(v.modalita || ''),
+                /* null quando non c'e' (anche perche' l'ha appena fatto decadere
+                   un cambio di sezione): l'area riservata lo copia com'e', e la
+                   riga smette subito di dire "avvisato il ..." */
+                avvisoModalita: (v.avvisoModalita && v.avvisoModalita.quando) ? {
+                    modalita: String(v.avvisoModalita.modalita || ''),
+                    daNome: String(v.avvisoModalita.daNome || ''),
+                    quando: v.avvisoModalita.quando
+                } : null,
                 da: String(v.da || ''), daNome: String(v.daNome || ''),
                 collab: String(v.collab || ''),
                 quando: typeof v.quando === 'number' ? v.quando : Date.now()

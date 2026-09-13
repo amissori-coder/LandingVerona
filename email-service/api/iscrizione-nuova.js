@@ -978,11 +978,14 @@ module.exports = async (req, res) => {
         }
 
         /* Modalita' di partecipazione, quando il modulo la chiede: "presenza"
-           oppure "online". Si scrive SOLO se arriva: l'assenza del campo vale
-           in presenza, com'erano tutte le iscrizioni fino a Napoli, e un campo
-           vuoto su ogni iscrizione di ogni altro modulo sarebbe rumore.
-           Chi organizza puo' comunque spostare in online chi resta fuori dalla
-           sala: quella decisione vive fra le presenze, non qui. */
+           oppure "online", e SOLO queste due. La terza sezione dell'elenco -
+           gli aderenti Revilaw - non si dichiara da se': la decide chi
+           organizza, dall'area riservata, e un "modalita": "aderenti" spedito
+           a questo endpoint pubblico viene ignorato come qualsiasi altro
+           valore inventato.
+           Si scrive SOLO se arriva: l'assenza del campo vale in presenza,
+           com'erano tutte le iscrizioni fino a Napoli, e un campo vuoto su ogni
+           iscrizione di ogni altro modulo del sito sarebbe rumore. */
         const modalita = testo(body.modalita, 20).toLowerCase();
         if (modalita === 'presenza' || modalita === 'online') scheda.modalita = modalita;
 

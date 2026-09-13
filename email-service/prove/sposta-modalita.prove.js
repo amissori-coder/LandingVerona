@@ -7,8 +7,10 @@
    posta sono finti e stanno qui dentro. Esce con 1 se qualcosa e'
    rosso, cosi' si puo' appendere a un controllo automatico.
 
-   COSA DIMOSTRANO. Quando i posti in sala finiscono, chi resta fuori
-   non si cancella: si sposta all'online e lo si avvisa. E' un'azione
+   COSA DIMOSTRANO. L'elenco di un evento ha TRE sezioni - ospiti in
+   sala, aderenti Revilaw in sala, online - e una persona sta in una
+   sola. Quando i posti in sala finiscono, chi resta fuori non si
+   cancella: si sposta all'online e lo si avvisa. E' un'azione
    che fa due cose insieme - scrive su tante schede e spedisce tante
    mail - e sono proprio le due cose che, se vanno a meta', lasciano
    l'elenco a raccontare una bugia. Qui si verifica che:
@@ -24,7 +26,11 @@
        collegamento DIVERSO per ciascuno (e' firmato sulla sua scheda);
      - "avvisato" resti scritto solo su chi ha ricevuto davvero;
      - senza `mail` lo spostamento si faccia in silenzio;
-     - la modalita' sbagliata e chi non ha il ruolo vengano respinti.
+     - la modalita' sbagliata e chi non ha il ruolo vengano respinti;
+     - la terza sezione (aderenti Revilaw) si comporti come le altre
+       DOVE deve - stesso spostamento, stessi permessi - e diversamente
+       dove deve: nessun avviso automatico, perche' entrare fra gli
+       aderenti non toglie niente a nessuno e non va annunciato.
    ============================================================ */
 'use strict';
 const Module = require('module');
@@ -40,7 +46,10 @@ const ordine = [];
 function chiave(coll, id) { return coll + '/' + id; }
 function fondi(coll, id, patch) {
     const k = chiave(coll, id);
-    dati[k] = Object.assign({}, dati[k] || {}, patch);
+    const fuso = Object.assign({}, dati[k] || {}, patch);
+    // la sentinella di cancellazione toglie il campo, come fa Firestore
+    Object.keys(fuso).forEach(c => { if (fuso[c] && fuso[c].__cancella) delete fuso[c]; });
+    dati[k] = fuso;
     ordine.push({ tipo: 'scrittura', coll: coll, id: id });
 }
 const admin = {
@@ -73,6 +82,14 @@ const db = {
                 };
             }
         };
+    },
+    // lettura in blocco, come quella che serve a conoscere lo stato di partenza
+    async getAll() {
+        return Array.prototype.slice.call(arguments).map(r => ({
+            id: r.id,
+            exists: Object.prototype.hasOwnProperty.call(dati, chiave(r._coll, r.id)),
+            data: () => dati[chiave(r._coll, r.id)] || {}
+        }));
     },
     batch() {
         const ops = [];
@@ -289,6 +306,12 @@ prova('Richieste malfatte', async () => {
     const senzaHtml = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[0]], mail: { oggetto: 'x', html: '  ' } });
     esigi(senzaHtml.stato === 400, 'una mail senza contenuto viene respinta prima di spostare', JSON.stringify(senzaHtml.corpo));
     esigi(!presenzaDi('napoli-2026-10-02', TUTTI[0].id), 'e nessuno viene spostato');
+    /* Il riepilogo "Tutte" non e' un evento: le presenze stanno per evento, e
+       una sezione scritta sotto 'tutti' sarebbe un documento che non si vede da
+       nessuna parte. */
+    const dalRiepilogo = await chiama({ azione: 'sposta-modalita', evento: 'tutti', modalita: 'aderenti', destinatari: [TUTTI[0]] });
+    esigi(dalRiepilogo.stato === 400, 'dal riepilogo non si sposta nessuno', JSON.stringify(dalRiepilogo.corpo));
+    esigi(!presenzaDi('tutti', TUTTI[0].id), 'e non resta nessuna presenza orfana');
 });
 
 prova('La tendina della riga: modalita da sola, senza mail', async () => {
@@ -303,6 +326,119 @@ prova('La tendina della riga: modalita da sola, senza mail', async () => {
     const vuota = await chiama({ azione: 'imposta', evento: 'napoli-2026-10-02', idIscritto: TUTTI[2].id, modalita: '' });
     esigi(vuota.corpo.ok === true && (vuota.corpo.presenza || {}).modalita === '',
         'il valore vuoto e ammesso: vale "in presenza"');
+});
+
+prova('Chi ha gia ricevuto l\'avviso viene saltato, e il rilancio non duplica', async () => {
+    scenario();
+    const primo = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: TUTTI, mail: MAIL });
+    esigi((primo.corpo.mail || {}).inviate === 2, 'il primo giro avvisa i due indirizzi');
+    spedite = [];
+    // stesso elenco, stesso comando: e' il gesto di chi completa un invio
+    // rimasto a meta', e non deve costare una mail doppia a chi era gia' a posto
+    const secondo = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: TUTTI, mail: MAIL });
+    esigi((secondo.corpo.mail || {}).inviate === 0, 'il secondo giro non manda niente', JSON.stringify(secondo.corpo.mail));
+    esigi((secondo.corpo.mail || {}).giaAvvisati === 2, 'e li conta fra i gia avvisati');
+    esigi(spedite.length === 0, 'nessuna mail doppia');
+    // il reinvio esplicito, invece, riscrive
+    const terzo = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL, forza: true });
+    esigi((terzo.corpo.mail || {}).inviate === 1 && spedite.length === 1, 'con "forza" l\'avviso riparte', JSON.stringify(terzo.corpo.mail));
+});
+
+prova('Chi rientra in sala e riesce va avvisato di nuovo', async () => {
+    scenario();
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL });
+    esigi(spedite.length === 1, 'il primo avviso parte');
+    /* Si libera un posto e lo si riporta in sala: l'avviso di prima non vale
+       piu', perche' parlava di una sezione in cui non sta piu'. */
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'presenza', destinatari: [TUTTI[2]] });
+    esigi(!(presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).avvisoModalita,
+        'lo spostamento cancella l\'avviso della sezione lasciata');
+    // la sala si riempie di nuovo: deve ricevere l'avviso una seconda volta,
+    // o si presenterebbe a un evento in cui non ha piu' un posto
+    spedite = [];
+    const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL });
+    esigi((r.corpo.mail || {}).inviate === 1 && spedite.length === 1,
+        'e il secondo passaggio online lo avvisa di nuovo', JSON.stringify(r.corpo.mail));
+    esigi((r.corpo.mail || {}).giaAvvisati === 0, 'senza contarlo fra i gia avvisati');
+});
+
+prova('Anche la tendina fa decadere l\'avviso della sezione lasciata', async () => {
+    scenario();
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL });
+    esigi(!!(presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).avvisoModalita, 'l\'avviso c\'e');
+    sessione = 'desk@esempio.it';
+    const r = await chiama({ azione: 'imposta', evento: 'napoli-2026-10-02', idIscritto: TUTTI[2].id, modalita: 'presenza' });
+    esigi(!(presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).avvisoModalita,
+        'cambiando sezione dalla tendina, l\'avviso vecchio sparisce');
+    esigi((r.corpo.presenza || {}).avvisoModalita === null, 'e la risposta lo dice a chi guarda', JSON.stringify(r.corpo.presenza));
+    // la nota, che con la sezione non c'entra, non deve toccare l'avviso
+    sessione = 'admin@esempio.it';
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL });
+    await chiama({ azione: 'imposta', evento: 'napoli-2026-10-02', idIscritto: TUTTI[2].id, nota: 'richiamare' });
+    esigi(!!(presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).avvisoModalita, 'scrivere una nota non cancella l\'avviso');
+});
+
+prova('Passare fra le sezioni non lascia avvisi vecchi in giro', async () => {
+    scenario();
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL });
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'aderenti', destinatari: [TUTTI[2]] });
+    const p = presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {};
+    esigi(p.modalita === 'aderenti' && !p.avvisoModalita,
+        'fra gli aderenti non resta scritto un avviso che parlava dell\'online', JSON.stringify(p));
+});
+
+prova('La terza sezione: aderenti Revilaw', async () => {
+    scenario();
+    const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'aderenti', destinatari: [TUTTI[0], TUTTI[2]] });
+    esigi(r.stato === 200 && r.corpo.ok === true && r.corpo.modalita === 'aderenti',
+        'gli aderenti sono una destinazione valida', JSON.stringify(r.corpo).slice(0, 160));
+    esigi((presenzaDi('napoli-2026-10-02', TUTTI[0].id) || {}).modalita === 'aderenti'
+        && (presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).modalita === 'aderenti',
+        'la sezione e scritta sulle presenze');
+    esigi(spedite.length === 0, 'nessun avviso parte: entrare fra gli aderenti non si annuncia');
+    esigi(!(presenzaDi('napoli-2026-10-02', TUTTI[0].id) || {}).avvisoModalita, 'e non resta nessun avviso registrato');
+});
+
+prova('Si passa da una sezione all\'altra senza scale', async () => {
+    scenario();
+    const dove = ['online', 'aderenti', 'presenza', 'online'];
+    for (const verso of dove) {
+        const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: verso, destinatari: [TUTTI[2]] });
+        esigi(r.corpo.ok === true && (presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {}).modalita === verso,
+            'da qualunque sezione si arriva a "' + verso + '"');
+    }
+    // l'ultimo passaggio all'online, con avviso: la sezione di partenza non conta
+    const conMail = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL });
+    esigi((conMail.corpo.mail || {}).inviate === 1, 'l\'avviso parte anche a chi era gia online');
+});
+
+prova('Un aderente che passa online viene avvisato come tutti', async () => {
+    scenario();
+    await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'aderenti', destinatari: [TUTTI[2]] });
+    const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL });
+    esigi((r.corpo.mail || {}).inviate === 1 && spedite[0].to === 'lucia@beta.it', 'la mail arriva al suo indirizzo');
+    const p = presenzaDi('napoli-2026-10-02', TUTTI[2].id) || {};
+    esigi(p.modalita === 'online' && p.avvisoModalita && p.avvisoModalita.modalita === 'online',
+        'la sezione e l\'avviso dicono la stessa cosa');
+});
+
+prova('La tendina della riga accetta la terza sezione', async () => {
+    scenario();
+    sessione = 'desk@esempio.it';
+    const r = await chiama({ azione: 'imposta', evento: 'napoli-2026-10-02', idIscritto: TUTTI[2].id, modalita: 'aderenti' });
+    esigi(r.corpo.ok === true && (r.corpo.presenza || {}).modalita === 'aderenti',
+        'chi e abilitato agli Eventi puo classificare un aderente', JSON.stringify(r.corpo).slice(0, 160));
+    esigi(spedite.length === 0, 'e non parte nessuna mail');
+});
+
+prova('Il modulo pubblico non puo dichiarare nessuno aderente', async () => {
+    // non passa da qui (e un altro endpoint): si verifica la regola scritta nel
+    // codice, cosi' se qualcuno la allarga per sbaglio la prova lo dice
+    const fs = require('fs');
+    const src = fs.readFileSync(path.join(RADICE, 'api/iscrizione-nuova.js'), 'utf8');
+    const riga = (src.match(/if \(modalita === [^\n]*\) scheda\.modalita = modalita;/) || [''])[0];
+    esigi(/'presenza'/.test(riga) && /'online'/.test(riga) && !/aderenti/.test(riga),
+        'iscrizione-nuova accetta solo presenza e online', riga);
 });
 
 (async () => {

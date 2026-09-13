@@ -744,7 +744,7 @@ al minuto per utente.
 - `azione: "imposta"` con `stato`, `nota` e/o `modalita`: aggiorna una sola scheda
   (merge) e registra chi ha fatto la modifica e quando. Risponde con lo stato
   **completo** dopo la modifica, cosi salvare la sola nota non azzera lo stato.
-  `modalita` vale `presenza`, `online` o vuoto (= in presenza).
+  `modalita` vale `presenza`, `aderenti`, `online` o vuoto (= in presenza).
 - `azione: "cancella"`: **solo amministratore**. Cancella l'iscrizione e la sua
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
@@ -778,10 +778,10 @@ collaboratore, quello del suo utente di riferimento): un
   con il collegamento personale FIRMATO verso `/completa_iscrizione/`: il
   segnaposto `{{COMPLETA}}` viene sostituito qui, con copia nascosta a chi
   chiede. Sulla scheda resta `datiRichiesti` (da chi e quando).
-- `azione: "sposta-modalita"`: stessi permessi di `aggiungi`. Sposta fra **sala e
-  online** le iscrizioni indicate (`destinatari`: `[{ id, doc }]`, fino a 300, o
+- `azione: "sposta-modalita"`: stessi permessi di `aggiungi`. Sposta **fra le tre
+  sezioni** le iscrizioni indicate (`destinatari`: `[{ id, doc }]`, fino a 300, o
   il solo `idIscritto`) e, se richiesto, manda l'avviso. Nel corpo: `modalita`
-  (`presenza` o `online`) e, facoltativa, `mail` `{ oggetto, html, testo }` gia
+  (`presenza`, `aderenti` o `online`) e, facoltativa, `mail` `{ oggetto, html, testo }` gia
   composta in formato NGB con i segnaposti `{{NOME}}` e `{{COMPLETA}}`,
   sostituiti qui per destinatario. Il destinatario lo decide il servizio
   leggendo l'email dalla scheda: da qui non si spedisce ad altri. Prima si
@@ -790,30 +790,62 @@ collaboratore, quello del suo utente di riferimento): un
   non e stato avvisato. Un indirizzo riceve una mail sola anche se ha due
   iscrizioni; chi ha annullato nel frattempo non riceve nulla. A invio riuscito
   resta `avvisoModalita` (modalita, da chi, quando) sulla presenza, cosi l'area
-  riservata mostra "avvisato il ..." e non si scrive due volte alla stessa
-  persona. Risposta: `{ ok, spostate, modalita, mail: { inviate, senzaScheda,
-  senzaEmail, doppie, falliti } }`.
+  riservata mostra "avvisato il ...". Risposta: `{ ok, spostate, modalita,
+  mail: { inviate, senzaScheda, senzaEmail, doppie, giaAvvisati, restanti,
+  falliti } }`.
+- **Chi ha gia ricevuto quell'avviso si salta**, salvo `forza: true` (la voce
+  "Invia di nuovo l'avviso" della singola riga). Serve a rendere innocuo il
+  RILANCIO: le mail partono una per volta e la funzione ha un tetto di durata
+  (60 s in `vercel.json`), quindi su un elenco lungo il tempo puo finire a meta
+  strada. Un budget interno di 45 s ferma il giro prima di essere uccisi e
+  risponde `restanti: n`; si ripreme sullo stesso elenco e parte solo cio che
+  manca, senza mail doppie.
+- **L'avviso vale per la sezione in cui uno si trova.** Spostando qualcuno in
+  un'altra sezione - da `sposta-modalita` o dalla tendina della riga
+  (`imposta`) - `avvisoModalita` viene cancellato. Senza, chi e stato avvisato
+  del passaggio online, poi riportato in sala perche un posto si era liberato,
+  e poi rispostato online resterebbe muto (marcato "gia avvisato") e si
+  presenterebbe a una sala piena.
 
-## Modalita di partecipazione: in sala o online
+## Le tre sezioni: in presenza, aderenti Revilaw, online
 
-Fino all'evento di Napoli il modulo non la chiedeva e le iscrizioni erano tutte
-in presenza: per questo **il valore vuoto vale "in presenza"**, non "non si sa".
-La modalita si legge da due posti, in quest'ordine:
+Un'iscrizione sta in **una** sezione sola:
+
+| Sezione | Valore | Cosa vuol dire |
+|---|---|---|
+| In presenza | `presenza` (o vuoto) | gli **ospiti** in sala |
+| Aderenti Revilaw | `aderenti` | gli **aderenti** in sala: occupano un posto come gli altri, ma si contano a parte - sono la rete dello studio, non ospiti da invitare |
+| Online | `online` | chi segue **da remoto**, che in sala non occupa niente |
+
+Fino all'evento di Napoli il modulo non chiedeva nulla e le iscrizioni erano
+tutte in presenza: per questo **il valore vuoto vale "in presenza"**, non "non
+si sa". I posti in sala sono la somma delle prime due sezioni: nessuno dei due
+numeri, da solo, dice quanti posti servono.
+
+La sezione si legge da due posti, in quest'ordine:
 
 1. `presenze.<evento~iscritto>.modalita` — la decisione di **chi organizza**
    (`sposta-modalita`, oppure la tendina della colonna "Modalita"). Quando i
    posti in sala finiscono, chi resta fuori si sposta online: non si cancella.
+   Gli aderenti si riconoscono uno per uno, dall'elenco.
 2. `iscrizioni.<scheda>.modalita` — quello che la persona **dichiara**
-   iscrivendosi. `/api/iscrizione-nuova` accetta gia il campo `modalita`
-   (`presenza` o `online`) e lo scrive solo se arriva davvero, quindi quando il
-   modulo comincera a chiederlo non serve toccare il servizio; la conferma
-   automatica (`lib/mail-ngb.js`, `confermaSito`) sa gia dirlo, e a chi si
-   iscrive online non promette un posto in sala.
+   iscrivendosi. `/api/iscrizione-nuova` accetta gia il campo `modalita` e lo
+   scrive solo se arriva davvero, quindi quando il modulo comincera a chiederlo
+   non serve toccare il servizio; la conferma automatica (`lib/mail-ngb.js`,
+   `confermaSito`) sa gia dirlo, e a chi si iscrive online non promette un posto
+   in sala. Dal modulo pubblico si accettano **solo `presenza` e `online`**:
+   aderenti non ci si dichiara da soli, e infatti un `modalita: "aderenti"`
+   arrivato da li viene semplicemente ignorato.
 
-L'ultima parola e della prima: chi entra in sala lo decide chi organizza.
+L'ultima parola e della prima: in quale sezione si sta lo decide chi organizza.
 `/api/iscrizioni` restituisce entrambe (`modalita` sulla riga e dentro
-`presenze`, con `avvisoModalita`) e l'area riservata conta i posti in presenza e
-gli online separatamente.
+`presenze`, con `avvisoModalita`) e l'area riservata conta le tre sezioni
+separatamente, con il filtro sopra l'elenco per guardarne una alla volta.
+
+**L'avviso per posta lo porta con se' il solo passaggio all'online**: e' l'unico
+che toglie qualcosa a chi lo riceve (il posto in sala) e va spiegato. Entrare
+fra gli aderenti o tornare in presenza non si annuncia: sono classificazioni
+interne, e chi le riceve non deve fare niente di diverso.
 
 ## Completamento dati partecipanti (dentro `/api/iscrizione-nuova`)
 
