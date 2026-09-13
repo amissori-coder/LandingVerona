@@ -837,18 +837,25 @@ La sezione si legge da due posti, in quest'ordine:
    nella sezione degli aderenti non ci si mette da soli, e infatti un
    `modalita: "aderenti"` arrivato da li viene semplicemente ignorato.
 
-**La dichiarazione "sono un aderente Revilaw"** e un'altra cosa dalla sezione, e
-sta su un altro campo: `iscrizioni.<scheda>.aderente` (vero/assente). Il modulo
-di Napoli ha la casella in cima: spuntandola l'iscrizione chiede **solo nome,
-cognome ed email** - la scheda lunga (azienda, ruolo, settore, fatturato,
-incontri B2B, interessi) serve ad abbinare fra loro gli ospiti, e un aderente
-non e un ospite da abbinare. `/api/iscrizione-nuova` scrive `aderente: true`
-solo quando arriva davvero.
+**La casella "Sono un aderente Revilaw"** del modulo di Napoli fa due cose:
+spuntandola l'iscrizione chiede **solo nome, cognome ed email** - la scheda
+lunga (azienda, ruolo, settore, fatturato, incontri B2B, interessi) serve ad
+abbinare fra loro gli ospiti, e un aderente non e un ospite da abbinare - e la
+persona finisce **direttamente nella sezione degli aderenti**:
+`/api/iscrizione-nuova` scrive `aderente: true` (la dichiarazione, che resta) e
+`modalita: 'aderenti'` (la sezione). Chi organizza non rifa a mano una
+classificazione gia fatta, e i posti in sala si contano giusti dal primo minuto.
 
-Quella dichiarazione **non sposta nessuno**: l'area riservata la raccoglie in
-"Riconosci aderenti" insieme a chi combacia per indirizzo con una scheda di
-Aderenti Revilaw, e sotto ogni riga scrive da dove viene il riconoscimento
-(l'anagrafica, o la casella spuntata iscrivendosi). Sposta chi guarda.
+Il confine resta: **la casella e l'unica strada**. Un `modalita: "aderenti"`
+spedito a mano a quell'endpoint pubblico continua a essere ignorato, e la
+decisione di chi organizza - che vive fra le presenze - vince comunque su quella
+dichiarata. Nell'elenco, sotto la modalita, chi ci e finito cosi porta scritto
+"dal modulo" finche nessuno lo sposta: senza, la prima domanda davanti alla
+tabella sarebbe "chi lo ha messo li?".
+
+"Riconosci aderenti" continua a servire per gli ALTRI: chi non ha spuntato la
+casella ma combacia per indirizzo con una scheda di Aderenti Revilaw. Sotto ogni
+riga c'e scritto da dove viene il riconoscimento.
 
 L'ultima parola e della prima: in quale sezione si sta lo decide chi organizza.
 `/api/iscrizioni` restituisce entrambe (`modalita` sulla riga e dentro

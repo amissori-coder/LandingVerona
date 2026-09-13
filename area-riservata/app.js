@@ -16217,16 +16217,25 @@
                data: e' l'unico modo per sapere a chi si e' gia' scritto. */
             const md = modalitaDi(ev, r);
             const avvisato = avvisoBreve(avvisoModalitaDi(ev, r));
+            /* Chi sta fra gli aderenti perche' lo ha dichiarato ISCRIVENDOSI, e
+               non perche' ce lo ha messo qualcuno di qui: senza dirlo, la prima
+               domanda davanti all'elenco sarebbe "chi lo ha spostato?". Appena
+               chi organizza tocca la sua sezione la scritta sparisce, perche' da
+               quel momento la decisione e' sua. */
+            const dalModulo = r.aderente === true && md === 'aderenti' && !p.modalita;
             const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
             const cellaModalita = segna
                 ? '<td data-label="Modalità"><select class="ev-modalita ' + md + '" data-id="' + esc(r.id) + '">'
                 + SEZIONI_MODALITA.map(x => opzM(x.id, NOMI_MODALITA[x.id])).join('')
-                + '</select>' + (avvisato ? '<div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '') + '</td>'
+                + '</select>'
+                + (avvisato ? '<div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '')
+                + (dalModulo ? '<div class="hint ev-dal-modulo">dal modulo</div>' : '') + '</td>'
                 : '<td data-label="Modalità"><span class="ev-sez-' + md + '">' + esc(NOMI_MODALITA[md]) + '</span>'
                 /* lo spazio prima del riquadro non e' decorativo: senza, nella
                    ricerca e nel CSV le due parti si attaccano ("Onlineavvisato
                    il 12/09"), perche' li' si legge il testo, non l'impaginato */
-                + (avvisato ? ' <div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '') + '</td>';
+                + (avvisato ? ' <div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '')
+                + (dalModulo ? ' <div class="hint ev-dal-modulo">dal modulo</div>' : '') + '</td>';
             return '<tr>'
                 + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
                     + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
