@@ -15938,11 +15938,61 @@
         const p = EventiPresenze.di(ev.id, r.id) || {};
         return (p.avvisoModalita && p.avvisoModalita.quando) ? p.avvisoModalita : null;
     }
-    /* "avvisato il 12/09": la data basta, l'ora in tabella non serve a nessuno. */
+    /* "mail inviata il 12/09": la data basta, l'ora sta nel suggerimento.
+       Lo spazio prima della data e' UNITO (\u00a0): la colonna e' stretta e la
+       scritta va a capo, ma "il" e il giorno devono restare insieme - "...il"
+       da solo in fondo alla riga sembra una frase troncata. */
     function avvisoBreve(a) {
         if (!a || !a.quando) return '';
         const d = new Date(a.quando);
-        return 'avvisato il ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+        return 'mail inviata il\u00a0' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+    /* Il suggerimento della conferma: giorno, ora e chi l'ha mandata. In
+       tabella non ci sta, ma e' quello che si cerca quando qualcuno dice "a me
+       non e' arrivato niente". */
+    function avvisoTitolo(a) {
+        if (!a || !a.quando) return '';
+        const d = new Date(a.quando);
+        const due = n => String(n).padStart(2, '0');
+        let t = 'Avviso inviato il ' + due(d.getDate()) + '/' + due(d.getMonth() + 1) + '/' + d.getFullYear()
+            + ' alle ' + due(d.getHours()) + ':' + due(d.getMinutes());
+        const chi = a.daNome || a.da || '';
+        if (chi) t += ' da ' + chi;
+        return t;
+    }
+    /* A CHE PUNTO STA LA POSTA, riga per riga. Nella sezione online conta piu'
+       che altrove: lo spostamento all'online toglie il posto in sala, e chi lo
+       subisce deve averlo saputo - quindi la riga non si limita a dire "Online",
+       dice anche se la mail e' partita, quando, o che deve ancora partire.
+       Chi non ha un indirizzo e' un caso a parte: scrivere "mail da inviare"
+       sarebbe una promessa che nessuno puo' mantenere. */
+    function hintMailModalita(ev, r, md) {
+        const a = avvisoModalitaDi(ev, r);
+        if (a && a.modalita === md) {
+            return '<div class="hint ev-avvisato" title="' + esc(avvisoTitolo(a)) + '">\u2713 '
+                + esc(avvisoBreve(a)) + '</div>';
+        }
+        /* Solo l'online si annuncia: diventare aderente in elenco o tornare in
+           sala non porta con se' nessuna mail, e una riga "da inviare" li'
+           chiederebbe di fare una cosa che non va fatta. */
+        if (md !== 'online') return '';
+        if (!String(r.email || '').trim()) {
+            return '<div class="hint ev-senza-mail" title="Nessun indirizzo email sulla scheda: il passaggio all\'online non si puo\' comunicare.">nessuna email</div>';
+        }
+        return '<div class="hint ev-da-avvisare" title="Passaggio all\'online ancora da comunicare: «Avvisa del passaggio online» nel menu della riga.">mail da inviare</div>';
+    }
+    /* Tutto quello che sta SOTTO la tendina della modalita': la posta e, per chi
+       sta fra gli aderenti perche' lo ha dichiarato ISCRIVENDOSI e non perche'
+       ce lo ha messo qualcuno di qui, da dove viene quella sezione - senza
+       dirlo, la prima domanda davanti all'elenco sarebbe "chi lo ha spostato?".
+       Appena chi organizza tocca la sua sezione la scritta sparisce, perche' da
+       quel momento la decisione e' sua.
+       Si rigenera tutto insieme, perche' cambiando sezione cambiano insieme. */
+    function hintModalitaHtml(ev, r, md) {
+        const p = EventiPresenze.di(ev.id, r.id) || {};
+        const dalModulo = r.aderente === true && md === 'aderenti' && !p.modalita;
+        return [hintMailModalita(ev, r, md), dalModulo ? '<div class="hint ev-dal-modulo">dal modulo</div>' : '']
+            .filter(Boolean).join(' ');
     }
     // colonne aggiuntive scelte dall'utente, per evento: gli elenchi hanno colonne
     // diverse fra loro (citta, partita IVA, fatturato...) e si mostrano su richiesta
@@ -16213,29 +16263,20 @@
                 : '<td data-label="Nota">' + esc(p.nota || '-') + '</td>';
             /* In sala o online: e' la colonna che dice chi occupa un posto
                davvero, quindi sta accanto allo stato e non fra le aggiuntive.
-               Sotto la tendina, quando l'avviso del passaggio e' partito, la
-               data: e' l'unico modo per sapere a chi si e' gia' scritto. */
+               Sotto la tendina, la posta: la conferma che l'avviso e' partito e
+               quando, oppure che deve ancora partire (hintModalitaHtml). */
             const md = modalitaDi(ev, r);
-            const avvisato = avvisoBreve(avvisoModalitaDi(ev, r));
-            /* Chi sta fra gli aderenti perche' lo ha dichiarato ISCRIVENDOSI, e
-               non perche' ce lo ha messo qualcuno di qui: senza dirlo, la prima
-               domanda davanti all'elenco sarebbe "chi lo ha spostato?". Appena
-               chi organizza tocca la sua sezione la scritta sparisce, perche' da
-               quel momento la decisione e' sua. */
-            const dalModulo = r.aderente === true && md === 'aderenti' && !p.modalita;
+            const hintM = hintModalitaHtml(ev, r, md);
             const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
             const cellaModalita = segna
                 ? '<td data-label="Modalità"><select class="ev-modalita ' + md + '" data-id="' + esc(r.id) + '">'
                 + SEZIONI_MODALITA.map(x => opzM(x.id, NOMI_MODALITA[x.id])).join('')
-                + '</select>'
-                + (avvisato ? '<div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '')
-                + (dalModulo ? '<div class="hint ev-dal-modulo">dal modulo</div>' : '') + '</td>'
+                + '</select>' + hintM + '</td>'
                 : '<td data-label="Modalità"><span class="ev-sez-' + md + '">' + esc(NOMI_MODALITA[md]) + '</span>'
                 /* lo spazio prima del riquadro non e' decorativo: senza, nella
-                   ricerca e nel CSV le due parti si attaccano ("Onlineavvisato
-                   il 12/09"), perche' li' si legge il testo, non l'impaginato */
-                + (avvisato ? ' <div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '')
-                + (dalModulo ? ' <div class="hint ev-dal-modulo">dal modulo</div>' : '') + '</td>';
+                   ricerca e nel CSV le due parti si attaccano ("Online✓ mail
+                   inviata il 12/09"), perche' li' si legge il testo, non l'impaginato */
+                + (hintM ? ' ' + hintM : '') + '</td>';
             return '<tr>'
                 + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
                     + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
@@ -16612,15 +16653,22 @@
                 const p = EventiPresenze.di(ev.id, id) || {};
                 const vero = (p.modalita || 'presenza');
                 if (s.value !== vero) { s.value = vero; tingiModalita(s, vero); }
-                /* Cambiando sezione l'avviso della sezione lasciata decade (lo
-                   fa il servizio, e la risposta lo dice): il "avvisato il ..."
-                   sotto la tendina va via subito. Aspettare il prossimo
-                   ridisegno non basterebbe - dopo questo salvataggio l'impronta
-                   dell'elenco combacia di nuovo, quindi un ridisegno non
-                   arriverebbe affatto, e resterebbe a video una cosa non vera. */
+                /* La posta sotto la tendina si rifa' SUBITO. Cambiando sezione
+                   l'avviso della sezione lasciata decade (lo fa il servizio, e
+                   la risposta lo dice), e chi entra nell'online ha una mail
+                   ancora da mandare: sono le due cose che la riga deve dire, e
+                   dirle un momento dopo non basta. Aspettare il prossimo
+                   ridisegno non funzionerebbe affatto - dopo questo salvataggio
+                   l'impronta dell'elenco combacia di nuovo, quindi un ridisegno
+                   non arriverebbe, e resterebbe a video una cosa non vera. */
                 const riga = s.closest('tr');
-                const nota = riga ? riga.querySelector('.ev-avvisato') : null;
-                if (nota && !(p.avvisoModalita && p.avvisoModalita.quando)) nota.remove();
+                const cella = s.parentNode;
+                if (cella) {
+                    const rr = (_evIscrizioni || []).find(x => x.id === id);
+                    cella.querySelectorAll('.hint').forEach(x => x.remove());
+                    const h = rr ? hintModalitaHtml(ev, rr, vero) : '';
+                    if (h) s.insertAdjacentHTML('afterend', h);
+                }
                 aggiornaFirma(s, id);
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
                 /* I NUMERI SI MUOVONO CON LA RIGA: conteggi in testa, voci delle
@@ -17484,11 +17532,12 @@
         }) : null;
         const nomeUnica = unica ? ((unica.nome + ' ' + unica.cognome).trim() || unica.email) : '';
         const testaHint = unica
-            ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') riceverà la mail con il suo collegamento personale alla pagina di prenotazione. '
+            ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') riceverà la mail con il suo collegamento personale alla pagina di prenotazione, e una copia nascosta torna a te. '
             + 'Gli incontri già scelti compaiono nella mail e nella pagina, pronti da confermare o cambiare.'
             : 'Scegli gli orari dei tavoli e le aziende da invitare: parte una mail personale a <b>ogni</b> referente iscritto delle aziende spuntate '
             + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento alla pagina dove sceglie a quali incontri partecipare. '
             + 'Chi l\'ha già ricevuta la riceve di nuovo, con la sua scelta attuale scritta dentro. '
+            + 'Ogni invito torna in copia nascosta anche a te. '
             + 'Le prenotazioni compaiono nell\'elenco (colonna "B2B prenotati") e nel riepilogo per argomento; i temi indicati iscrivendosi restano a parte, nella colonna "Preferenze iscrizione".';
         /* Un campo per argomento, testo libero: la fascia si scrive come la si
            dice ("dalle 14:30 alle 15:15", "subito dopo il coffee break"), ed e'
@@ -18347,6 +18396,11 @@
             + (indirizzi.length
                 ? 'Parte una mail a <b>' + indirizzi.length + '</b> ' + (indirizzi.length === 1 ? 'indirizzo' : 'indirizzi diversi')
                 + ', quello indicato iscrivendosi.'
+                /* La copia nascosta si dice PRIMA di premere, non dopo: su un
+                   elenco lungo sono altrettante copie in casella, e una cosa
+                   del genere non deve essere una sorpresa. */
+                + ' Ogni avviso torna in copia nascosta anche a te'
+                + (indirizzi.length > 1 ? ': sono ' + indirizzi.length + ' copie nella tua casella.' : '.')
                 : 'Nessuna delle iscrizioni selezionate ha un indirizzo email: lo spostamento si fa comunque, l\'avviso no.')
             + (senzaMail ? ' <b>' + senzaMail + '</b> ' + (senzaMail === 1 ? 'iscrizione è senza email' : 'iscrizioni sono senza email') + ': ' + (senzaMail === 1 ? 'va avvisata' : 'vanno avvisate') + ' a mano.' : '')
             /* Chi ha gia' ricevuto l'avviso si salta, e lo si dice qui: e'

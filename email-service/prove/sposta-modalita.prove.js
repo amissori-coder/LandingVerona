@@ -182,7 +182,9 @@ function scenario() {
     dati = {
         'utenti/admin@esempio.it': { nome: 'Anna Admin', ruolo: 'admin', attivo: true, eventi: true },
         'utenti/socio@esempio.it': { nome: 'Enzo Equity', ruolo: 'equity-partner', attivo: true, eventi: true },
-        'utenti/desk@esempio.it': { nome: 'Dina Desk', ruolo: 'staff', attivo: true, eventi: true }
+        'utenti/desk@esempio.it': { nome: 'Dina Desk', ruolo: 'staff', attivo: true, eventi: true },
+        // un collaboratore dell'equity partner: opera a nome suo, ma chi preme e lui
+        'utenti/aiuto@esempio.it': { nome: 'Ada Aiuto', ruolo: 'collaboratore', attivo: true, collaboratoreDi: 'socio@esempio.it' }
     };
     dati[chiave('iscrizioni', idScheda('mario@alfa.it|01/09/2026 10:00'))] = { nome: 'Mario', cognome: 'Rossi', email: 'mario@alfa.it' };
     dati[chiave('iscrizioni', idScheda('mario@alfa.it|02/09/2026 11:00'))] = { nome: 'Mario', cognome: 'Rossi', email: 'mario@alfa.it' };
@@ -443,6 +445,81 @@ prova('Dal modulo la sezione non si sceglie scrivendo un campo', async () => {
     const riga = (src.match(/if \(modalita === [^\n]*\) scheda\.modalita = modalita;/) || [''])[0];
     esigi(/'presenza'/.test(riga) && /'online'/.test(riga) && !/aderenti/.test(riga),
         'il campo "modalita" accetta solo presenza e online', riga);
+});
+
+prova('Ogni avviso torna in copia nascosta a chi lo manda', async () => {
+    /* La copia nascosta e' la PROVA che la mail e' partita, e con che testo: chi
+       sposta cinquanta persone deve poterlo dimostrare senza chiedere niente a
+       nessuno. Va su ogni avviso, non su uno solo, e non deve mai comparire al
+       destinatario (che leggerebbe l'indirizzo di chi lo ha spostato). */
+    scenario();
+    const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: TUTTI, mail: MAIL });
+    esigi((r.corpo.mail || {}).inviate === 2, 'partono i due avvisi dello scenario', JSON.stringify(r.corpo.mail));
+    esigi(spedite.length === 2 && spedite.every(m => Array.isArray(m.bcc) && m.bcc.length === 1 && m.bcc[0] === 'admin@esempio.it'),
+        'su ogni avviso c\'e la copia nascosta a chi sposta', JSON.stringify(spedite.map(m => m.bcc)));
+    esigi(spedite.every(m => !m.cc), 'e non e una copia in chiaro: il destinatario non la vede');
+});
+
+prova('Con un collaboratore la copia va a lui e al suo riferimento', async () => {
+    /* "Chi sta facendo l'operazione" sono due persone insieme: il collaboratore
+       che premi, e l'utente a nome del quale opera - quello che firma la scheda
+       e a cui tornano le risposte. La conferma serve a entrambi, e servono
+       entrambi gli indirizzi perche' nessuno dei due la cerchi nella casella
+       dell'altro. */
+    scenario();
+    sessione = 'aiuto@esempio.it';
+    const r = await chiama({ azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online', destinatari: [TUTTI[2]], mail: MAIL });
+    esigi((r.corpo.mail || {}).inviate === 1, 'il collaboratore sposta e avvisa come il suo riferimento', JSON.stringify(r.corpo));
+    const bcc = (spedite[0] || {}).bcc || [];
+    esigi(bcc.length === 2 && bcc.indexOf('socio@esempio.it') >= 0 && bcc.indexOf('aiuto@esempio.it') >= 0,
+        'in copia nascosta ci sono il riferimento e il collaboratore', JSON.stringify(bcc));
+});
+
+prova('Chi sposta se stesso non riceve la mail due volte', async () => {
+    /* Un indirizzo che e' insieme destinatario e operatore: la copia nascosta
+       gli farebbe arrivare la stessa mail due volte, e la seconda non
+       dimostrerebbe niente che non dica la prima. */
+    scenario();
+    dati[chiave('iscrizioni', idScheda('admin@esempio.it|07/09/2026 09:00'))] = { nome: 'Anna', cognome: 'Admin', email: 'admin@esempio.it' };
+    const r = await chiama({
+        azione: 'sposta-modalita', evento: 'napoli-2026-10-02', modalita: 'online',
+        destinatari: [{ id: 'admin@esempio.it|07/09/2026 09:00' }], mail: MAIL
+    });
+    esigi((r.corpo.mail || {}).inviate === 1 && spedite[0].to === 'admin@esempio.it', 'la mail parte al suo indirizzo');
+    esigi(spedite[0].bcc === undefined, 'e senza copia nascosta, che sarebbe la stessa mail due volte', JSON.stringify(spedite[0].bcc));
+});
+
+prova('Anche la conferma a mano e la richiesta dati tornano in copia', async () => {
+    /* Le due mail che partono UNA alla volta la copia nascosta ce l'avevano gia'
+       da prima: qui si tiene ferma, perche' ora la compone la stessa funzione
+       degli invii in blocco e una svista la toglierebbe a tutt'e quattro. */
+    scenario();
+    const agg = await chiama({
+        azione: 'aggiungi', evento: 'napoli-2026-10-02', pagina: 'Napoli 2 Ottobre 2026',
+        portale: { id: 'eventbrite' }, campi: { nome: 'Furio', cognome: 'Fuori', email: 'furio@eta.it' },
+        mail: { oggetto: 'Iscrizione registrata', html: '<p>Gentile Furio, <a href="{{COMPLETA}}">modifica</a></p>' }
+    });
+    esigi(agg.corpo.ok === true && (agg.corpo.mail || {}).inviata === true, 'la conferma parte', JSON.stringify(agg.corpo).slice(0, 160));
+    esigi(JSON.stringify((spedite[0] || {}).bcc) === '["admin@esempio.it"]', 'con la copia a chi ha inserito la scheda', JSON.stringify((spedite[0] || {}).bcc));
+
+    spedite = [];
+    const req = await chiama({
+        azione: 'richiedi-dati', evento: 'napoli-2026-10-02', idIscritto: TUTTI[2].id,
+        mail: { oggetto: 'Completa l\'iscrizione', html: '<p><a href="{{COMPLETA}}">completa</a></p>' }
+    });
+    esigi(req.corpo.ok === true, 'la richiesta dati parte', JSON.stringify(req.corpo).slice(0, 160));
+    esigi(JSON.stringify((spedite[0] || {}).bcc) === '["admin@esempio.it"]', 'con la copia a chi chiede', JSON.stringify((spedite[0] || {}).bcc));
+});
+
+prova('Anche l\'invito B2B torna in copia a chi lo manda', async () => {
+    scenario();
+    const r = await chiama({
+        azione: 'invita-b2b', evento: 'napoli-2026-10-02', destinatari: [TUTTI[2]],
+        mail: { oggetto: 'Incontri B2B', html: '<p>Gentile {{NOME}}, <a href="{{B2B}}">prenota</a></p>' }
+    });
+    esigi(r.corpo.ok === true && r.corpo.inviate === 1, 'l\'invito parte', JSON.stringify(r.corpo).slice(0, 160));
+    const bcc = (spedite[0] || {}).bcc || [];
+    esigi(bcc.length === 1 && bcc[0] === 'admin@esempio.it', 'con la copia nascosta a chi invita', JSON.stringify(bcc));
 });
 
 (async () => {
