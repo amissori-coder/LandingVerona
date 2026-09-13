@@ -1055,7 +1055,16 @@
         const ev = dati.evento || {};
         const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
         const nPart = Math.floor(Number(dati.partecipanti)) || 0;
-        const dove = [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
+        /* ONLINE O IN SALA, e nient'altro. Chi inserisce l'iscrizione sceglie
+           anche la sezione, ma le sezioni sono quattro e questa mail ne
+           distingue due: chi segue da remoto non ha un posto riservato e la
+           mail non deve dirgli il contrario. Aderenti Revilaw e sponsor in
+           sala ci vanno come tutti gli altri, e quelle due sezioni sono
+           divisioni interne di chi organizza: scriverle a chi si iscrive non
+           direbbe niente di utile e prometterebbe un ruolo che non e' stato
+           concordato in questa mail. */
+        const online = String(dati.modalita || '').toLowerCase() === 'online';
+        const dove = online ? '' : [ev.luogo, ev.indirizzo].filter(Boolean).join(' - ');
         const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
         const oggetto = 'Iscrizione confermata - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
         const urlEvento = ev.url ? urlSicuro(ev.url) : '';
@@ -1064,7 +1073,8 @@
         /* Testata: identica a quella della newsletter (marchio bianco sul blu),
            con l'esito al posto del titolo editoriale. */
         const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
-        const sommario = 'la tua iscrizione' + (quandoEv ? ' al convegno Next Generation Business di ' + quandoEv : '') + ' è stata registrata.';
+        const sommario = 'la tua iscrizione' + (quandoEv ? ' al convegno Next Generation Business di ' + quandoEv : '') + ' è stata registrata'
+            + (online ? ' per la partecipazione online' : '') + '.';
         const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
             + tabellaInterna(
                 '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
@@ -1094,6 +1104,7 @@
         const righe = riga('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business')
             + riga('Data', ev.quando)
             + riga('Sede', dove)
+            + riga('Partecipazione', online ? 'Online' : '')
             + riga('Iscritto', nomeCompleto)
             + riga('Partecipanti', nPart > 1 ? String(nPart) : '')
             + riga('Iscrizione da', dati.portale)
@@ -1103,9 +1114,13 @@
             + '<tr><td style="padding:16px 22px;">' + tabellaInterna(righe) + '</td></tr></table>';
 
         const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
-        const posto = nPart > 1
-            ? 'I tuoi ' + nPart + ' posti sono riservati.'
-            : 'Il tuo posto è riservato.';
+        const posto = online
+            ? (nPart > 1
+                ? 'Le tue ' + nPart + ' partecipazioni online sono registrate. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.'
+                : 'La tua partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo.')
+            : (nPart > 1
+                ? 'I tuoi ' + nPart + ' posti sono riservati.'
+                : 'Il tuo posto è riservato.');
         const corpo = cella(tabellaInterna(
             spazio(30)
             + par(posto + ' Qui sotto trovi il riepilogo della tua iscrizione: se qualcosa non è corretto, rispondi a questa email e lo sistemiamo noi.')
@@ -1119,7 +1134,7 @@
                 + '</td></tr></table></td></tr>'
                 : '')
             + spazio(28)
-            + par('Ti aspettiamo' + (ev.titolo ? ' a ' + ev.titolo : '') + '.')
+            + par(online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo' + (ev.titolo ? ' a ' + ev.titolo : '') + '.')
             /* Il collegamento personale per modificare o annullare: qui resta il
                segnaposto {{COMPLETA}}, che il servizio sostituisce con
                l'indirizzo firmato al momento dell'invio. */
@@ -1152,7 +1167,8 @@
         const rt = (et, val) => val ? et + ': ' + val : '';
         parti.push([
             rt('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business'),
-            rt('Data', ev.quando), rt('Sede', dove), rt('Iscritto', nomeCompleto),
+            rt('Data', ev.quando), rt('Sede', dove),
+            rt('Partecipazione', online ? 'Online' : ''), rt('Iscritto', nomeCompleto),
             rt('Partecipanti', nPart > 1 ? String(nPart) : ''),
             rt('Iscrizione da', dati.portale), rt('Registrata il', dati.dataIscrizione)
         ].filter(Boolean).join('\n'));

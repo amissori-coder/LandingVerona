@@ -499,6 +499,95 @@ prova('Dal modulo pubblico non ci si mette fra sponsor e relatori', async () => 
     esigi(no.stato === 400, 'e una sezione inventata resta respinta', JSON.stringify(no.corpo));
 });
 
+prova('Inserendo a mano si sceglie anche la sezione', async () => {
+    /* Chi riporta un'iscrizione da Eventbrite o dal telefono sa gia' se quella
+       persona viene in sala, e' un aderente, e' uno sponsor o seguira' da
+       remoto: la sezione si sceglie li', e finisce dove finiscono tutte le
+       decisioni di chi organizza (la collezione "presenze"), non sulla scheda -
+       la scheda dice quello che la persona ha dichiarato, e qui non ha
+       dichiarato niente. */
+    scenario();
+    const r = await chiama({
+        azione: 'aggiungi', evento: 'napoli-2026-10-02', pagina: 'Napoli 2 Ottobre 2026',
+        portale: { id: 'eventbrite' }, modalita: 'sponsor',
+        campi: { nome: 'Sonia', cognome: 'Sponsor', email: 'sonia@zeta.it', data: '07/09/2026 09:00' }
+    });
+    esigi(r.corpo.ok === true && r.corpo.modalita === 'sponsor', 'la sezione torna nella risposta', JSON.stringify(r.corpo).slice(0, 160));
+    esigi((presenzaDi('napoli-2026-10-02', r.corpo.id) || {}).modalita === 'sponsor',
+        'ed e scritta sulle presenze, non sulla scheda');
+    const scheda = dati[chiave('iscrizioni', idScheda(r.corpo.id))] || {};
+    esigi(scheda.modalita === undefined, 'la scheda non porta nessuna modalita dichiarata');
+});
+
+prova('"In presenza" non lascia documenti inutili', async () => {
+    /* Il documento che dice "presenza" e il documento che non c'e' raccontano
+       la stessa cosa: il secondo non va scritto. Serve anche a non far
+       sembrare "gia' deciso da qualcuno" cio' che e' solo il caso normale. */
+    scenario();
+    const r = await chiama({
+        azione: 'aggiungi', evento: 'napoli-2026-10-02', pagina: 'Napoli 2 Ottobre 2026',
+        portale: { id: 'telefono' }, modalita: 'presenza',
+        campi: { nome: 'Piero', cognome: 'Presenza', email: 'piero@eta.it', data: '08/09/2026 09:00' }
+    });
+    esigi(r.corpo.ok === true && r.corpo.modalita === 'presenza', 'la risposta dice "presenza"', JSON.stringify(r.corpo).slice(0, 160));
+    esigi(presenzaDi('napoli-2026-10-02', r.corpo.id) === null, 'e nessuna presenza viene scritta');
+    // e senza indicarla proprio, si comporta come prima
+    const senza = await chiama({
+        azione: 'aggiungi', evento: 'napoli-2026-10-02', pagina: 'Napoli 2 Ottobre 2026',
+        portale: { id: 'telefono' }, campi: { nome: 'Vuota', cognome: 'Modalita', email: 'vuota@eta.it', data: '09/09/2026 09:00' }
+    });
+    esigi(senza.corpo.ok === true && senza.corpo.modalita === 'presenza' && presenzaDi('napoli-2026-10-02', senza.corpo.id) === null,
+        'anche senza indicarla: vale "in presenza"', JSON.stringify(senza.corpo).slice(0, 160));
+});
+
+prova('Inserendo a mano una sezione inventata si viene respinti', async () => {
+    /* Prima si controlla, poi si scrive: una sezione sbagliata non deve
+       lasciare in giro la scheda senza la sua presenza (o viceversa). */
+    scenario();
+    const r = await chiama({
+        azione: 'aggiungi', evento: 'napoli-2026-10-02', pagina: 'Napoli 2 Ottobre 2026',
+        portale: { id: 'eventbrite' }, modalita: 'vip',
+        campi: { nome: 'Vito', cognome: 'Vip', email: 'vito@theta.it', data: '10/09/2026 09:00' }
+    });
+    esigi(r.stato === 400 && !r.corpo.ok, 'la richiesta viene respinta', JSON.stringify(r.corpo));
+    esigi(!dati[chiave('iscrizioni', idScheda('vito@theta.it|10/09/2026 09:00'))], 'e nessuna scheda resta scritta a meta');
+});
+
+prova('La conferma dell\'inserimento a mano cambia SOLO per l\'online', async () => {
+    /* Le sezioni sono quattro, ma questa mail ne distingue due: chi segue da
+       remoto non ha un posto riservato e la mail non deve dirgli il contrario;
+       aderenti Revilaw e sponsor in sala ci vanno come gli ospiti, e quelle
+       due sezioni sono divisioni interne di chi organizza - scriverle a chi si
+       iscrive non direbbe niente di utile.
+       Il formato vive nel browser (area-riservata/newsletter-format.js) ma si
+       lascia caricare anche qui: e' la stessa funzione che compone la mail
+       vera, quindi si prova quella e non una copia. */
+    const NF = require(path.join(RADICE, '..', 'area-riservata', 'newsletter-format.js'));
+    const base = {
+        nome: 'Sonia', cognome: 'Sponsor', portale: 'Eventbrite', partecipanti: 1,
+        dataIscrizione: '12/09/2026 16:40',
+        evento: { titolo: 'Napoli', quando: '2 ottobre 2026', luogo: 'Hotel Excelsior', indirizzo: 'Via Partenope 48' }
+    };
+    const inSala = NF.confermaEvento(base);
+    esigi(NF.confermaEvento(Object.assign({}, base, { modalita: 'presenza' })).html === inSala.html,
+        '"presenza" e la mail di sempre');
+    esigi(NF.confermaEvento(Object.assign({}, base, { modalita: 'aderenti' })).html === inSala.html,
+        'e "aderenti" non cambia una virgola');
+    esigi(NF.confermaEvento(Object.assign({}, base, { modalita: 'sponsor' })).html === inSala.html,
+        'e nemmeno "sponsor"');
+    esigi(/Il tuo posto è riservato/.test(inSala.testo) && /Sede: /.test(inSala.testo),
+        'in sala si promette il posto, e si dice dove');
+
+    const online = NF.confermaEvento(Object.assign({}, base, { modalita: 'online' }));
+    esigi(!/posto è riservato/.test(online.testo), 'online NON promette nessun posto in sala');
+    esigi(/partecipazione online è registrata/.test(online.testo) && /Partecipazione: Online/.test(online.testo),
+        'lo dice nel testo e nel riepilogo');
+    esigi(!/Sede: /.test(online.testo), 'e non elenca la sede, che a chi segue da casa non serve');
+    esigi(/Le tue 3 partecipazioni online sono registrate/.test(
+        NF.confermaEvento(Object.assign({}, base, { modalita: 'online', partecipanti: 3 })).testo),
+        'e al plurale regge anche piu di una partecipazione');
+});
+
 prova('Ogni avviso torna in copia nascosta a chi lo manda', async () => {
     /* La copia nascosta e' la PROVA che la mail e' partita, e con che testo: chi
        sposta cinquanta persone deve poterlo dimostrare senza chiedere niente a

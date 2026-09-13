@@ -430,10 +430,31 @@ module.exports = async (req, res) => {
             if (scheda.email && !emailValida(scheda.email)) {
                 res.status(400).json({ ok: false, msg: 'Indirizzo email non valido.' }); return;
             }
+            /* IN QUALE SEZIONE ENTRA, se chi inserisce l'ha detto. E' una
+               decisione di CHI ORGANIZZA - la stessa che prende spostando una
+               riga - quindi va dove stanno stato e nota (collezione
+               "presenze"), non sulla scheda: la scheda dice quello che la
+               persona ha dichiarato, e qui non ha dichiarato niente.
+               Assente vale "in presenza", come qualunque iscrizione che
+               nessuno ha ancora toccato, e in quel caso non si scrive nulla:
+               un documento che dice "presenza" e il documento che non c'e'
+               raccontano la stessa cosa, e il primo non vale la scrittura.
+               Dal riepilogo di tutti gli eventi non si scrive: li' le presenze
+               non si leggono, e "tutti" non e' un evento. */
+            const mdNuova = testo(body.modalita, 20).toLowerCase();
+            if (mdNuova && MODALITA_SCELTE.indexOf(mdNuova) < 0) {
+                res.status(400).json({ ok: false, msg: 'Modalita di partecipazione non valida.' }); return;
+            }
             // stesso identificativo del form del sito: un doppio salvataggio della
             // stessa persona nello stesso istante aggiorna la scheda, non la duplica
             const idNuovo = (scheda.email || (chiaveTesto(scheda.nome) + '.' + chiaveTesto(scheda.cognome))) + '|' + scheda.data;
             await db.collection('iscrizioni').doc(idIscrizione(idNuovo)).set(scheda, { merge: true });
+            if (mdNuova && mdNuova !== 'presenza' && evento !== 'tutti') {
+                await db.collection('presenze').doc(idDoc(evento, idNuovo)).set({
+                    evento: evento, idIscritto: idNuovo, modalita: mdNuova,
+                    da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now()
+                }, { merge: true });
+            }
             await segnaCambiamento(db);
 
             /* Mail di conferma: arriva GIA' COMPOSTA dall'area riservata (formato
@@ -481,7 +502,7 @@ module.exports = async (req, res) => {
                     }
                 }
             }
-            res.status(200).json({ ok: true, id: idNuovo, mail: mailEsito });
+            res.status(200).json({ ok: true, id: idNuovo, modalita: mdNuova || 'presenza', mail: mailEsito });
             return;
         }
 
