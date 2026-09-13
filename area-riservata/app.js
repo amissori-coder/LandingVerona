@@ -16955,12 +16955,12 @@
             + '<div class="campo"><label class="mi-flag" style="margin:0;"><input type="checkbox" id="ni-mail" checked> '
             + 'Invia subito la mail di conferma in formato NGB</label>'
             + '<div class="hint">La riceve l\'iscritto all\'indirizzo indicato sopra, con una copia nascosta a te che la inserisci. Con "Anteprima mail" la vedi prima di salvare.</div></div>'
-            + '<div id="ni-anteprima" style="display:none;margin-top:10px;">'
+            + '<div id="ni-anteprima" style="margin-top:10px;">'
             + '<iframe id="ni-frame" title="Anteprima della mail di conferma" sandbox="allow-same-origin" '
-            + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + 'style="width:100%;height:min(440px, 48vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
             + '<div id="ni-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ni-no">Annulla</button>'
-            + '<button class="btn btn-secondary" id="ni-ant">Anteprima mail</button>'
+            + '<button class="btn btn-secondary" id="ni-ant">Nascondi anteprima</button>'
             + '<button class="btn btn-primary" id="ni-si">Salva</button></div>', { classe: 'larga' });
 
         const v = id => ((document.getElementById(id) || {}).value || '').trim();
@@ -17000,20 +17000,16 @@
         selPortale.addEventListener('change', () => {
             document.getElementById('ni-portale-altro').style.display = selPortale.value === 'altro' ? '' : 'none';
         });
-        // anteprima nella finestra stessa: si aggiorna a ogni pressione, cosi'
-        // rispecchia sempre i campi come sono in quel momento
-        document.getElementById('ni-ant').addEventListener('click', () => {
+        /* Anteprima aperta da subito e viva mentre si compila: qui il testo della
+           mail porta il nome, il portale e i posti che si stanno scrivendo, e
+           una fotografia vecchia sarebbe peggio di nessuna fotografia. */
+        anteprimaSegueCampi(anteprimaMail('ni', () => {
             const m = mailDi();
-            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return; }
-            const cont = document.getElementById('ni-anteprima');
-            const frame = document.getElementById('ni-frame');
-            const chiusa = cont.style.display === 'none';
-            cont.style.display = chiusa ? '' : 'none';
-            document.getElementById('ni-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
             // nell'anteprima il segnaposto del collegamento personale diventa
             // l'indirizzo della pagina (senza firma): quello vero lo mette il servizio
-            if (chiusa) frame.srcdoc = m.html.split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
-        });
+            return m.html.split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
+        }));
         document.getElementById('ni-si').addEventListener('click', () => {
             const campi = {
                 nome: v('ni-nome'), cognome: v('ni-cognome'),
@@ -17544,12 +17540,12 @@
             + '<p class="hint" style="margin:-4px 0 12px;">' + testaHint + '</p>'
             + campoOrari
             + campoAziende
-            + '<div id="ib-anteprima" style="display:none;margin-top:10px;">'
+            + '<div id="ib-anteprima" style="margin-top:10px;">'
             + '<iframe id="ib-frame" title="Anteprima della mail di invito" sandbox="allow-same-origin" '
-            + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + 'style="width:100%;height:min(440px, 48vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
             + '<div id="ib-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ib-no">Annulla</button>'
-            + '<button class="btn btn-secondary" id="ib-ant">Anteprima mail</button>'
+            + '<button class="btn btn-secondary" id="ib-ant">Nascondi anteprima</button>'
             + '<button class="btn btn-primary" id="ib-si">Invia l\'invito</button></div>', { classe: 'larga' });
         const esito = (testo, ko) => {
             const e = document.getElementById('ib-esito');
@@ -17872,24 +17868,22 @@
         });
         aggiornaAvvisoOrari();
         document.getElementById('ib-no').addEventListener('click', chiudiModale);
-        document.getElementById('ib-ant').addEventListener('click', () => {
+        /* Anteprima aperta da subito, e che segue gli orari mentre si scrivono:
+           sono proprio loro il pezzo che si sbaglia, e vederli nella mail
+           mentre li si digita e' l'unico controllo che funziona. */
+        anteprimaSegueCampi(anteprimaMail('ib', () => {
             const m = mailDi();
-            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return; }
-            const cont = document.getElementById('ib-anteprima');
-            const chiusa = cont.style.display === 'none';
-            cont.style.display = chiusa ? '' : 'none';
-            document.getElementById('ib-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
             // per una persona sola l'anteprima e' la SUA mail (nome e scelte
             // vere); per l'invio a piu' aziende un esempio, con il riquadro della
             // scelta mostrato per far vedere come appare a chi ha gia' prenotato
             const temiAnt = unica
                 ? String((unica.extra && unica.extra[COL_B2B_PRENOTATI]) || '').split(',').map(s => s.trim()).filter(Boolean).join(', ')
                 : 'Merito creditizio, Finanza agevolata (esempio: ognuno vede la propria)';
-            if (chiusa) document.getElementById('ib-frame').srcdoc =
-                RV_NEWSLETTER.conTemiB2B(m.html, temiAnt ? esc(temiAnt) : '')
-                    .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(unica ? nomeUnica : 'Mario Rossi'))
-                    .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
-        });
+            return RV_NEWSLETTER.conTemiB2B(m.html, temiAnt ? esc(temiAnt) : '')
+                .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(unica ? nomeUnica : 'Mario Rossi'))
+                .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
+        }));
         document.getElementById('ib-si').addEventListener('click', () => {
             if (!unica) {
                 const controllo = leggiOrari();
@@ -17997,29 +17991,24 @@
             + '<p class="hint" style="margin:-4px 0 12px;"><b>' + esc(nome) + '</b> riceverà una mail in formato NGB con un collegamento personale: '
             + 'da lì completa i suoi dati' + (nPart > 1 ? ' e indica nome, cognome ed email di ciascuno dei <b>' + nPart + ' partecipanti</b>' : '') + '. '
             + 'Al salvataggio l\'elenco si aggiorna da solo e il totale dei partecipanti resta lo stesso: i posti si ripartiscono, non si sommano.</p>'
-            + '<div id="rd-anteprima" style="display:none;margin-top:10px;">'
+            + '<div id="rd-anteprima" style="margin-top:10px;">'
             + '<iframe id="rd-frame" title="Anteprima della mail di richiesta dati" sandbox="allow-same-origin" '
-            + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + 'style="width:100%;height:min(440px, 48vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
             + '<div id="rd-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="rd-no">Annulla</button>'
-            + '<button class="btn btn-secondary" id="rd-ant">Anteprima mail</button>'
+            + '<button class="btn btn-secondary" id="rd-ant">Nascondi anteprima</button>'
             + '<button class="btn btn-primary" id="rd-si">Invia la richiesta</button></div>', { classe: 'larga' });
         const esito = (testo, ko) => {
             const e = document.getElementById('rd-esito');
             if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
         };
         document.getElementById('rd-no').addEventListener('click', chiudiModale);
-        document.getElementById('rd-ant').addEventListener('click', () => {
+        anteprimaMail('rd', () => {
             const m = mailDi();
-            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return; }
-            const cont = document.getElementById('rd-anteprima');
-            const chiusa = cont.style.display === 'none';
-            cont.style.display = chiusa ? '' : 'none';
-            document.getElementById('rd-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
             // nell'anteprima il segnaposto diventa l'indirizzo della pagina (senza
             // firma): il collegamento vero lo genera il servizio all'invio
-            if (chiusa) document.getElementById('rd-frame').srcdoc =
-                m.html.split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
+            return m.html.split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
         });
         document.getElementById('rd-si').addEventListener('click', () => {
             const m = mailDi();
@@ -18040,6 +18029,58 @@
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: richiesta dati partecipanti', 'sistema', ev.id, null, r.email + ' (' + nPart + ' posti)'); } catch (e) { }
             });
         });
+    }
+
+    /* L'ANTEPRIMA DELLA MAIL E' SEMPRE APERTA
+       ---------------------------------------------------------
+       Stava dietro un pulsante, e chi non lo premeva spediva senza aver letto.
+       La mail e' la cosa che esce di casa - va agli iscritti, con il nome dello
+       studio sopra - e si guarda prima, non su richiesta: l'anteprima si apre
+       da sola insieme alla finestra.
+       Il pulsante resta, per chiuderla quando da' fastidio (schermi piccoli,
+       dieci invii di fila). E dove il testo dipende da cio' che si sta
+       scrivendo - i campi di una nuova iscrizione, gli orari dei tavoli - si
+       ridisegna mentre si scrive, con un respiro di un quarto di secondo: a
+       ogni tasto sarebbe un'altra pagina ricostruita per niente.
+
+       `dove` e' il prefisso degli identificativi (dove-anteprima, dove-frame,
+       dove-ant); `componi` restituisce l'HTML da mostrare, o null se la mail
+       non e' componibile (e in quel caso ci pensa gia' chi chiama a dirlo). */
+    function anteprimaMail(dove, componi) {
+        const cont = document.getElementById(dove + '-anteprima');
+        const frame = document.getElementById(dove + '-frame');
+        const btn = document.getElementById(dove + '-ant');
+        if (!cont || !frame) return { apri() { }, aggiorna() { } };
+        let timer = null;
+        const disegna = () => {
+            const html = componi();
+            if (typeof html === 'string' && html) frame.srcdoc = html;
+        };
+        const apri = si => {
+            cont.style.display = si ? '' : 'none';
+            if (btn) btn.textContent = si ? 'Nascondi anteprima' : 'Mostra anteprima';
+            if (si) disegna();
+        };
+        if (btn) btn.addEventListener('click', () => apri(cont.style.display === 'none'));
+        apri(true);
+        return {
+            apri: apri,
+            // ridisegna solo se e' a video, e non a ogni tasto premuto
+            aggiorna() {
+                if (cont.style.display === 'none') return;
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(disegna, 250);
+            }
+        };
+    }
+    /* Le finestre in cui il testo della mail cambia con quello che si scrive:
+       si riascolta tutto il corpo della finestra, cosi' non serve elencare i
+       campi uno per uno - e chi ne aggiunge uno domani non deve ricordarsene. */
+    function anteprimaSegueCampi(ant) {
+        const corpo = document.querySelector('#modale-contenitore .modale-corpo');
+        if (!corpo) return;
+        corpo.addEventListener('input', () => ant.aggiorna());
+        corpo.addEventListener('change', () => ant.aggiorna());
     }
 
     /* LO SPOSTAMENTO VERO E PROPRIO
@@ -18322,13 +18363,13 @@
             : '';
         apriModale(testa + scelteMail
             + (online
-                ? '<div id="sm-anteprima" style="display:none;margin-top:10px;">'
+                ? '<div id="sm-anteprima" style="margin-top:10px;">'
                 + '<iframe id="sm-frame" title="Anteprima della mail di passaggio online" sandbox="allow-same-origin" '
-                + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+                + 'style="width:100%;height:min(440px, 48vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
                 : '')
             + '<div id="sm-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="sm-no">Annulla</button>'
-            + (online ? '<button class="btn btn-secondary" id="sm-ant">Anteprima mail</button>' : '')
+            + (online ? '<button class="btn btn-secondary" id="sm-ant">Nascondi anteprima</button>' : '')
             + '<button class="btn btn-primary" id="sm-si">'
             + (verso === 'online' ? 'Sposta online' : verso === 'aderenti' ? 'Sposta fra gli aderenti' : 'Riporta in presenza')
             + '</button></div>',
@@ -18338,18 +18379,13 @@
             if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
         };
         document.getElementById('sm-no').addEventListener('click', chiudiModale);
-        const bAnt = document.getElementById('sm-ant');
-        if (bAnt) bAnt.addEventListener('click', () => {
+        if (online) anteprimaMail('sm', () => {
             const m = mailDi();
-            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return; }
-            const cont = document.getElementById('sm-anteprima');
-            const chiusa = cont.style.display === 'none';
-            cont.style.display = chiusa ? '' : 'none';
-            bAnt.textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
             /* Nell'anteprima i segnaposti diventano un nome di esempio e
                l'indirizzo della pagina senza firma: i valori veri li mette il
                servizio, uno per destinatario. */
-            if (chiusa) document.getElementById('sm-frame').srcdoc = m.html
+            return m.html
                 .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(nomeDi(elenco[0])))
                 .split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
         });
@@ -21560,7 +21596,7 @@
                     : '<div class="ev-ko hint">Adesso non c\'è nessuno: le richieste verrebbero registrate nell\'area riservata, ma nessuno le riceverebbe per email.</div>')
                 + '</div>'
                 : '')
-            + '<div id="ii-anteprima" style="display:none;margin-top:10px;">'
+            + '<div id="ii-anteprima" style="margin-top:10px;">'
             + '<iframe id="ii-frame" title="Anteprima dell\'invito" sandbox="allow-same-origin" '
             + 'style="width:100%;height:360px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
             /* L'avanzamento. Prima c'era una riga di testo che cambiava a ogni
@@ -21577,7 +21613,7 @@
             + '</div><div id="ii-passo" class="hint"></div></div>'
             + '<div id="ii-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="ii-no">Annulla</button>'
-            + '<button class="btn btn-secondary" id="ii-ant">Anteprima</button>'
+            + '<button class="btn btn-secondary" id="ii-ant">Nascondi anteprima</button>'
             + '<button class="btn btn-primary" id="ii-si"' + ((cEmail.pronto || cPec.pronto) ? '' : ' disabled') + '>Invia</button></div>',
             { classe: 'larga', bloccante: true });
 
@@ -21797,28 +21833,27 @@
         if (selRitmo) selRitmo.addEventListener('change', aggiornaStima);
         aggiornaBottone();
 
-        document.getElementById('ii-ant').addEventListener('click', () => {
-            const cont = document.getElementById('ii-anteprima');
-            const chiusa = cont.style.display === 'none';
-            cont.style.display = chiusa ? '' : 'none';
-            document.getElementById('ii-ant').textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima';
-            if (!chiusa) return;
-            // esempio con i dati della prima azienda selezionata, cosi' si vede
-            // davvero come vengono sostituiti i segnaposto
+        /* Qui il testo lo si scrive nella finestra stessa: l'anteprima e' aperta
+           da subito e segue quello che si digita, con i segnaposto sostituiti
+           dai dati della prima azienda scelta - e' l'unico modo per accorgersi
+           che "{ragione_sociale}" e' rimasto scritto tale e quale, o che il
+           testo dice "Gentile" a un'azienda che referente non ce l'ha. */
+        anteprimaSegueCampi(anteprimaMail('ii', () => {
             const a = daFare()[0] || scelte[0];
+            if (!a) return null;
             const html = invTestoInHtml((document.getElementById('ii-testo') || {}).value || '')
                 .split('{ragione_sociale}').join(esc(a.ragioneSociale || ''))
                 .split('{referente}').join(esc(a.referente || ''))
                 .split('{citta}').join(esc(a.citta || ''))
                 .split('{provincia}').join(esc(a.provincia || ''))
                 .split('{piva}').join(esc(a.piva || ''));
-            document.getElementById('ii-frame').srcdoc =
-                '<!doctype html><html lang="it"><head><meta charset="utf-8"></head>'
+            return '<!doctype html><html lang="it"><head><meta charset="utf-8"></head>'
                 + '<body style="margin:0;padding:24px;font-family:Arial,Helvetica,sans-serif;font-size:14px;'
                 + 'line-height:1.6;color:#1E293B;text-align:justify;background:#fff;">'
-                + '<p style="margin:0 0 14px;color:#64748B;font-size:12px;">Anteprima del solo testo: '
-                + 'intestazione, firma e piede con la disiscrizione le aggiunge il servizio.</p>' + html + '</body></html>';
-        });
+                + '<p style="margin:0 0 14px;color:#64748B;font-size:12px;">Anteprima del solo testo, con i dati di '
+                + esc(a.ragioneSociale || 'una delle aziende scelte') + ': intestazione, firma e piede con la '
+                + 'disiscrizione le aggiunge il servizio.</p>' + html + '</body></html>';
+        }));
 
         if (usaModulo) collegaDestinatari('ii');
         /* Il freno vero, letto adesso: e' quello che fa comparire "il tetto e
