@@ -282,6 +282,11 @@ module.exports = async (req, res) => {
                         /* In sala o online. Vuoto vale IN PRESENZA: fino a Napoli
                            il modulo non lo chiedeva e in sala ci andavano tutti. */
                         modalita: String(v.modalita || ''),
+                    /* "Sono un aderente Revilaw", spuntato iscrivendosi. La
+                       lettura e' una whitelist campo per campo: senza questa
+                       riga la dichiarazione resterebbe sul database e non la
+                       vedrebbe nessuno. */
+                    aderente: v.aderente === true,
                         /* Quando gli e' stato detto che seguira' online, e da chi:
                            serve a non scrivere due volte alla stessa persona. */
                         avvisoModalita: (v.avvisoModalita && typeof v.avvisoModalita === 'object') ? {
