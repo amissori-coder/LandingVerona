@@ -1596,7 +1596,10 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    e' l'unico modo per sapere chi e' ancora da avvisare. */
 .ev-modalita.online, .ev-sez-online { color: var(--blu-900); font-weight: 600; }
 .ev-modalita.aderenti, .ev-sez-aderenti { color: #0f766e; font-weight: 600; }
-.ev-avvisato { margin-top: 2px; font-size: 0.72rem; line-height: 1.3; color: var(--grigio-600); }
+/* le due righine sotto la modalita': quando e' partito l'avviso, e quando a
+   mettere qualcuno fra gli aderenti e' stata l'iscrizione e non chi organizza */
+.ev-avvisato, .ev-dal-modulo { margin-top: 2px; font-size: 0.72rem; line-height: 1.3; color: var(--grigio-600); }
+.ev-dal-modulo { color: #0f766e; }
 
 /* Le sezioni sopra l'elenco: una riga di voci con il proprio numero, che si
    legge come un riepilogo anche senza premerle. La voce vuota resta visibile,

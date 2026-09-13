@@ -431,14 +431,18 @@ prova('La tendina della riga accetta la terza sezione', async () => {
     esigi(spedite.length === 0, 'e non parte nessuna mail');
 });
 
-prova('Il modulo pubblico non puo dichiarare nessuno aderente', async () => {
-    // non passa da qui (e un altro endpoint): si verifica la regola scritta nel
-    // codice, cosi' se qualcuno la allarga per sbaglio la prova lo dice
+prova('Dal modulo la sezione non si sceglie scrivendo un campo', async () => {
+    /* Le iscrizioni dal sito non passano da qui (e' un altro endpoint, con le
+       sue prove in iscrizione-aderente.prove.js): qui si tiene ferma la riga di
+       codice che fa da confine, cosi' se qualcuno la allarga per sbaglio se ne
+       accorge. La CASELLA "sono un aderente" mette nella sezione - quella e' una
+       dichiarazione consapevole - ma un "modalita" spedito a mano no: le sole
+       che il modulo puo' dichiarare restano presenza e online. */
     const fs = require('fs');
     const src = fs.readFileSync(path.join(RADICE, 'api/iscrizione-nuova.js'), 'utf8');
     const riga = (src.match(/if \(modalita === [^\n]*\) scheda\.modalita = modalita;/) || [''])[0];
     esigi(/'presenza'/.test(riga) && /'online'/.test(riga) && !/aderenti/.test(riga),
-        'iscrizione-nuova accetta solo presenza e online', riga);
+        'il campo "modalita" accetta solo presenza e online', riga);
 });
 
 (async () => {

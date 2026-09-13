@@ -989,16 +989,24 @@ module.exports = async (req, res) => {
         const modalita = testo(body.modalita, 20).toLowerCase();
         if (modalita === 'presenza' || modalita === 'online') scheda.modalita = modalita;
 
-        /* "Sono un aderente Revilaw", spuntato nel modulo. E' una DICHIARAZIONE,
-           non una sezione: in quale sezione dell'elenco finisce lo decide chi
-           organizza, dall'area riservata, che la propone insieme agli aderenti
-           riconosciuti dall'indirizzo. Un modulo pubblico non puo' spostare
-           nessuno da solo - basterebbe spuntare una casella per entrare in una
-           sezione riservata alla rete dello studio.
+        /* "Sono un aderente Revilaw", spuntato nel modulo: la persona finisce
+           DIRETTAMENTE nella sezione degli aderenti, senza passare da una
+           conferma. Chi organizza non deve rifare a mano una classificazione
+           che l'interessato ha gia' fatto, e la sezione si legge giusta dal
+           primo minuto: i posti in sala si contano da soli.
+           Restano due cose a fare da freno, e bastano:
+             - la casella e' l'UNICA strada. Un `modalita: "aderenti"` spedito a
+               mano a questo endpoint continua a essere ignorato (vedi sopra):
+               la sezione non si sceglie scrivendo un campo qualsiasi;
+             - la dichiarazione resta scritta (`aderente`), distinta dalla
+               sezione: nell'elenco si vede che e' stata l'iscrizione a metterlo
+               li', e chi organizza puo' spostarlo altrove in un clic - la sua
+               scelta, che vive fra le presenze, vince comunque su questa.
            Si scrive solo quando e' vera: il campo assente vale "no", e mettere
            un false su ogni iscrizione di ogni altro modulo sarebbe rumore. */
         if (body.aderente === true || /^(si|s|true|vero|1|on)$/i.test(String(body.aderente || '').trim())) {
             scheda.aderente = true;
+            scheda.modalita = 'aderenti';
         }
 
         const idDoc = idDocumento(email, data, nome, cognome);
