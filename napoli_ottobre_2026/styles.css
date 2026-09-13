@@ -2074,6 +2074,14 @@ ul {
     max-height: 104px;
 }
 
+/* Anche Space Up e' un lockup impilato e quasi quadrato (1,1:1), con il
+   pianeta sopra e le due righe di logotipo sotto: stessa altezza di Petti&co
+   perche' i due marchi della terza riga si pareggino. */
+.partner-brand-img-spaceup {
+    max-width: 130px;
+    max-height: 104px;
+}
+
 /* Thin vertical separator between Revilaw and Advant */
 .partner-sep {
     width: 1px;
@@ -2681,6 +2689,11 @@ ul {
         max-height: 94px;
     }
 
+    .partner-brand-img-spaceup {
+        max-width: 118px;
+        max-height: 94px;
+    }
+
     .label-text {
         font-size: 0.64rem;
         letter-spacing: 2.2px;
@@ -2873,6 +2886,11 @@ ul {
 
     .partner-brand-img-petti {
         max-width: 124px;
+        max-height: 86px;
+    }
+
+    .partner-brand-img-spaceup {
+        max-width: 108px;
         max-height: 86px;
     }
 
