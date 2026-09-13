@@ -2082,20 +2082,33 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ev-azioni .btn + .btn { margin-left: 6px; }
 /* Modifica e Cancella in un menu a tre puntini: due pulsanti per riga
    allargavano la tabella. Il menu si apre sotto il pulsante e si chiude
-   cliccando fuori (ci pensa app.js). */
+   cliccando fuori (ci pensa app.js).
+   LARGO QUANTO SERVE, non 130px: con una misura fissa "Sposta fra gli aderenti
+   Revilaw" andava a capo su tre righe e il menu diventava una colonna di testo
+   alta mezzo schermo, in cui le voci non si distinguevano piu' una dall'altra.
+   Con width:max-content il riquadro prende la misura della voce piu' lunga e
+   ogni comando sta su una riga sola; il tetto serve solo se un domani una voce
+   diventasse lunghissima - li' torna ad andare a capo, invece di sfondare lo
+   schermo del telefono. */
 .ev-menu { position: relative; display: inline-block; }
 .ev-menu-btn { min-width: 34px; font-size: 1.15em; line-height: 1; }
 .ev-menu-lista {
     position: absolute; right: 0; top: calc(100% + 4px); z-index: 40;
-    min-width: 130px; overflow: hidden;
-    background: #fff; border: 1px solid var(--grigio-200); border-radius: 8px; box-shadow: var(--ombra);
+    width: max-content; min-width: 160px; max-width: min(280px, calc(100vw - 24px));
+    padding: 4px 0; overflow: hidden;
+    background: #fff; border: 1px solid var(--grigio-200); border-radius: 8px; box-shadow: var(--ombra-lg);
 }
 .ev-menu-voce {
     display: block; width: 100%; text-align: left; background: none; border: none; cursor: pointer;
-    padding: 9px 14px; font-family: inherit; font-size: 0.85rem; color: var(--grigio-900);
+    padding: 6px 14px; font-family: inherit; font-size: 0.82rem; line-height: 1.35; color: var(--grigio-900);
 }
 .ev-menu-voce:hover { background: var(--blu-050); }
+.ev-menu-voce:focus-visible { background: var(--blu-050); outline: 2px solid var(--blu-700); outline-offset: -2px; }
 .ev-menu-voce.ev-canc { color: var(--rosso); }
+.ev-menu-voce.ev-canc:hover { background: var(--rosso-bg); }
+/* La riga fra un gruppo e l'altro: sottile e stretta di margini, per dividere
+   senza pesare quanto una voce. */
+.ev-menu-riga { height: 1px; margin: 4px 0; background: var(--grigio-200); }
 /* La tabella degli iscritti sta tutta nella pagina, SENZA barra di scorrimento,
    e senza spezzare le parole a meta'. Le due cose insieme si tengono solo
    decidendo in anticipo la larghezza delle colonne: con table-layout:fixed il
@@ -2713,6 +2726,12 @@ button.inv-risposto { background: none; border: none; padding: 0; text-align: le
         font-size: 0.88rem; color: var(--grigio-900);
     }
     .ev-sel-mobile input { width: 20px; height: 20px; flex: 0 0 auto; margin: 0; accent-color: var(--blu-700); }
+    /* Il menu dei tre puntini si apre verso DESTRA. Nella tabella il pulsante e'
+       l'ultima cosa a destra della riga, e il menu va allineato al suo bordo
+       destro; qui la riga e' diventata una scheda e il pulsante sta in basso a
+       SINISTRA, quindi lo stesso allineamento spingeva il menu fuori dallo
+       schermo: si vedeva la coda di due parole e basta. */
+    table.dati tbody .ev-menu-lista { right: auto; left: 0; }
 }
 
 /* =========================================================
