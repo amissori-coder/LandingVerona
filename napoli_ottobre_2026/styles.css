@@ -2066,6 +2066,14 @@ ul {
     max-height: 64px;
 }
 
+/* Come Serviter, Petti&co e' un lockup impilato (monogramma sopra, logotipo e
+   payoff sotto) e quasi quadrato (1,4:1): il limite che conta e' l'altezza,
+   altrimenti la riga "consulenza imprenditoriale" diventa illeggibile. */
+.partner-brand-img-petti {
+    max-width: 150px;
+    max-height: 104px;
+}
+
 /* Thin vertical separator between Revilaw and Advant */
 .partner-sep {
     width: 1px;
@@ -2668,6 +2676,11 @@ ul {
         max-height: 58px;
     }
 
+    .partner-brand-img-petti {
+        max-width: 136px;
+        max-height: 94px;
+    }
+
     .label-text {
         font-size: 0.64rem;
         letter-spacing: 2.2px;
@@ -2856,6 +2869,11 @@ ul {
     .partner-brand-img-fineco {
         max-width: 214px;
         max-height: 52px;
+    }
+
+    .partner-brand-img-petti {
+        max-width: 124px;
+        max-height: 86px;
     }
 
     .label-text {
