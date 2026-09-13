@@ -17092,6 +17092,19 @@
             + '<div class="campo"><label for="ni-part">Numero di partecipanti</label>'
             + '<input type="number" id="ni-part" value="1" min="1" max="99" step="1"></div>'
             + '</div>'
+            /* IN QUALE SEZIONE ENTRA. Si sceglie qui e non dopo, dall'elenco:
+               chi riporta un'iscrizione da Eventbrite o dal telefono sa gia' se
+               quella persona viene in sala, e' un aderente Revilaw, e' uno
+               sponsor o seguira' da remoto - e ricordarselo per dopo e' il
+               genere di cosa che si dimentica.
+               La scelta conta anche per la mail: le tre sezioni in sala sono
+               divisioni interne e la conferma non cambia di una virgola,
+               l'online invece non ha un posto riservato e la mail lo dice. */
+            + '<div class="campo"><label for="ni-modalita">Partecipazione</label>'
+            + '<select id="ni-modalita">'
+            + SEZIONI_MODALITA.map(x => '<option value="' + x.id + '">' + esc(x.nome) + '</option>').join('')
+            + '</select>'
+            + '<div class="hint" id="ni-modalita-nota"></div></div>'
             // il nome della piattaforma non in elenco: compare scegliendo "Altra
             // piattaforma" e finisce in colonna e nella mail al posto dell'etichetta
             + '<div class="campo" id="ni-portale-altro" style="display:none;"><label for="ni-portale-nome">Quale piattaforma</label>'
@@ -17127,8 +17140,11 @@
         const d0 = new Date();
         const dataIscrizione = p2(d0.getDate()) + '/' + p2(d0.getMonth() + 1) + '/' + d0.getFullYear()
             + ' ' + p2(d0.getHours()) + ':' + p2(d0.getMinutes()) + ':' + p2(d0.getSeconds());
+        // la sezione scelta; un valore inatteso vale "in presenza", come dappertutto
+        const modalitaScelta = () => SEZIONI_MODALITA.some(x => x.id === v('ni-modalita')) ? v('ni-modalita') : 'presenza';
         const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.confermaEvento({
             nome: v('ni-nome'), cognome: v('ni-cognome'),
+            modalita: modalitaScelta(),
             evento: {
                 titolo: ev.titolo, quando: ev.quando, luogo: ev.luogo || '', indirizzo: ev.indirizzo || '',
                 url: ev.urlPagina ? SITO_PUBBLICO + ev.urlPagina : ''
@@ -17139,6 +17155,22 @@
         }) : null;
 
         document.getElementById('ni-no').addEventListener('click', chiudiModale);
+        /* Sotto la tendina, che cosa comporta la scelta: e' l'unica di questa
+           finestra che cambia il TESTO della mail, e chi la usa deve saperlo
+           prima di premere Salva, non scoprirlo dall'anteprima. */
+        const selModalita = document.getElementById('ni-modalita');
+        const notaModalita = () => {
+            const n = document.getElementById('ni-modalita-nota');
+            if (!n) return;
+            const m = modalitaScelta();
+            n.textContent = m === 'online'
+                ? 'Nessun posto in sala: la mail di conferma dice che il collegamento arriverà pochi giorni prima dell\'evento.'
+                : m === 'presenza'
+                    ? 'Un posto in sala, fra gli ospiti.'
+                    : 'Un posto in sala. La sezione è una divisione interna: la mail di conferma è la stessa degli ospiti.';
+        };
+        notaModalita();
+        selModalita.addEventListener('change', notaModalita);
         // il campo "Quale piattaforma" compare solo quando serve
         const selPortale = document.getElementById('ni-portale');
         selPortale.addEventListener('change', () => {
@@ -17169,11 +17201,17 @@
             const mail = vuoleMail ? mailDi() : null;
             if (vuoleMail && !mail) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
             const portale = portaleScelto();
+            /* La sezione si legge ORA, non dopo la risposta: quando la risposta
+               arriva la finestra e' gia' chiusa, la tendina non esiste piu' e
+               rileggerla darebbe "in presenza" a chiunque - anche a chi si e'
+               appena messo online. Vale per il messaggio e per il registro. */
+            const sezione = modalitaScelta();
             const b = document.getElementById('ni-si');
             b.disabled = true; b.textContent = 'Salvo...';
             Cloud.operaPresenza({
                 azione: 'aggiungi', evento: ev.id, pagina: ev.pagina, campi: campi,
-                portale: portale, mail: mail ? { oggetto: mail.oggetto, html: mail.html, testo: mail.testo } : null
+                portale: portale, modalita: sezione,
+                mail: mail ? { oggetto: mail.oggetto, html: mail.html, testo: mail.testo } : null
             }).then(r => {
                 if (!r.ok) {
                     b.disabled = false; b.textContent = 'Salva';
@@ -17181,14 +17219,15 @@
                     return;
                 }
                 chiudiModale();
-                toast('Iscrizione registrata' + (campi.nome || campi.cognome ? ' per ' + ((campi.nome + ' ' + campi.cognome).trim()) : '') + '.', 'verde');
+                toast('Iscrizione registrata' + (campi.nome || campi.cognome ? ' per ' + ((campi.nome + ' ' + campi.cognome).trim()) : '')
+                    + ' ' + sezioneDef(sezione).dove + '.', 'verde');
                 // l'esito della mail si dice A PARTE: la scheda e' salvata comunque,
                 // e una conferma non partita non deve sembrare un'iscrizione persa
                 if (mail) {
                     if (r.mail && r.mail.inviata) toast('Mail di conferma inviata a ' + campi.email + '.', 'verde');
                     else toast('Mail di conferma NON inviata' + (r.mail && r.mail.msg ? ': ' + r.mail.msg : '.') + ' La scheda è salvata: puoi riprovare dall\'evento.', 'rosso');
                 }
-                try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizione inserita a mano', 'sistema', ev.id, null, (campi.email || (campi.nome + ' ' + campi.cognome).trim()) + ' da ' + portale.nome + (mail ? (r.mail && r.mail.inviata ? ', mail inviata' : ', mail non inviata') : '')); } catch (e) { }
+                try { Audit.registra(Auth.utenteCorrente, 'Evento: iscrizione inserita a mano', 'sistema', ev.id, null, (campi.email || (campi.nome + ' ' + campi.cognome).trim()) + ' da ' + portale.nome + ', ' + sezioneDef(sezione).dove + (mail ? (r.mail && r.mail.inviata ? ', mail inviata' : ', mail non inviata') : '')); } catch (e) { }
                 _evUltimoTentativo[ev.id] = 0;
                 caricaIscrizioni(ev, () => ridisegnaEventiSeLibero());
                 if (vistaCorrente === 'eventi') vistaEventi();

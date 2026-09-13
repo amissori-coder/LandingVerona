@@ -763,13 +763,31 @@ collaboratore, quello del suo utente di riferimento): un
   `email`, `telefono`, `altro`; per le voci fisse l'etichetta la mette il
   servizio, con `altro` vale il `nome` scritto a mano - LinkedIn, Meetup... -
   ripulito e accorciato a 40 caratteri; finisce nella colonna aggiuntiva
-  "Portale" e nella mail) e, facoltativa, `mail` `{ oggetto, html,
-  testo }`: la conferma in formato NGB gia composta dall'area riservata
-  (stesso schema della newsletter), spedita SOLO all'indirizzo dell'iscritto
-  appena registrato, con copia nascosta a chi la inserisce (salvo che stia
-  iscrivendo se stesso). L'identificativo della scheda e lo stesso del form del
-  sito. Risposta: `{ ok, id, mail: { inviata, msg } }`; se la mail non parte
-  l'iscrizione resta comunque registrata.
+  "Portale" e nella mail), `modalita` (facoltativa: in quale delle quattro
+  sezioni entra - `presenza`, `aderenti`, `sponsor`, `online`) e, facoltativa,
+  `mail` `{ oggetto, html, testo }`: la conferma in formato NGB gia composta
+  dall'area riservata (stesso schema della newsletter), spedita SOLO
+  all'indirizzo dell'iscritto appena registrato, con copia nascosta a chi la
+  inserisce (salvo che stia iscrivendo se stesso). L'identificativo della
+  scheda e lo stesso del form del sito. Risposta: `{ ok, id, modalita, mail: {
+  inviata, msg } }`; se la mail non parte l'iscrizione resta comunque
+  registrata.
+- **La sezione scelta inserendo a mano finisce in `presenze`, non sulla
+  scheda**: e' una decisione di chi organizza, la stessa che prende spostando
+  una riga, e la scheda dice invece quello che la persona ha dichiarato (qui
+  non ha dichiarato niente). `presenza` e l'assenza del campo non scrivono
+  niente: il documento che dice "presenza" e il documento che non c'e'
+  raccontano la stessa cosa. Una modalita non riconosciuta fa fallire la
+  chiamata **prima** di scrivere la scheda, cosi non resta un'iscrizione a
+  meta. Dal riepilogo di tutti gli eventi (`evento: "tutti"`) la sezione non si
+  scrive: li' le presenze non si leggono.
+- **La mail di conferma cambia solo per l'online.** Il formato
+  (`area-riservata/newsletter-format.js`, `confermaEvento`) accetta
+  `modalita`: con `online` non promette nessun posto in sala, aggiunge la riga
+  "Partecipazione: Online", toglie la sede e chiude con "Ci colleghiamo
+  insieme"; con `presenza`, `aderenti` e `sponsor` e' la mail di sempre, parola
+  per parola - quelle due sezioni sono divisioni interne di chi organizza e
+  scriverle a chi si iscrive non direbbe niente di utile.
 - La mail di conferma dell'inserimento manuale porta anche il collegamento
   personale firmato per **modificare o annullare** l'iscrizione (segnaposto
   `{{COMPLETA}}` sostituito qui).
