@@ -16333,24 +16333,36 @@
                     + '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(firmaPresenza(p)
                         || (r.compilato && r.compilato.daNome ? firmaPresenza({ daNome: r.compilato.daNome + ' (dal modulo)', quando: r.compilato.quando }) : '')
                         || firmaPresenza(r.inserito) || '-') + '</span></td>')
-                // Modifica e Cancella stanno in un menu a tre puntini: due pulsanti
-                // per riga allargavano la tabella senza dire niente di nuovo.
-                // "Chiedi dati partecipanti" compare sulle righe MANUALI con email:
-                // manda all'intestatario il collegamento per completare i dati.
+                /* Modifica e Cancella stanno in un menu a tre puntini: due pulsanti
+                   per riga allargavano la tabella senza dire niente di nuovo.
+                   Le voci sono A GRUPPI, separati da una riga sottile: la scheda,
+                   le mail da mandare a questa persona, la sezione in cui sta,
+                   e in fondo, staccata, quella che cancella. Sono mestieri
+                   diversi, e sette voci di fila tutte uguali si rileggono ogni
+                   volta da capo. I gruppi vuoti - e i loro separatori - non
+                   compaiono: chi non puo' mandare mail vede quattro voci, non
+                   quattro voci e due righe in mezzo al nulla. */
                 + (azioniEv
                     ? '<td data-label="" class="ev-azioni">'
-                    + (voci => voci ? '<div class="ev-menu">'
-                        + '<button type="button" class="btn btn-sm btn-secondary ev-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Azioni">&#8942;</button>'
-                        + '<div class="ev-menu-lista hidden">' + voci + '</div></div>' : '')(
+                    + (gruppi => {
+                        const voci = gruppi.filter(g => g).join('<div class="ev-menu-riga"></div>');
+                        return voci ? '<div class="ev-menu">'
+                            + '<button type="button" class="btn btn-sm btn-secondary ev-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Azioni">&#8942;</button>'
+                            + '<div class="ev-menu-lista hidden">' + voci + '</div></div>' : '';
+                    })([
                         (adminEv
                             ? '<button type="button" class="ev-menu-voce ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
-                            : '')
-                        + (puoRichiedere && ev.manuale && r.email && r.extra && r.extra.Portale
+                            : ''),
+                        /* Le mail che si mandano a QUESTA persona. "Chiedi dati
+                           partecipanti" compare sulle righe MANUALI con email:
+                           manda all'intestatario il collegamento per completare
+                           i dati. */
+                        (puoRichiedere && ev.manuale && r.email && r.extra && r.extra.Portale
                             ? '<button type="button" class="ev-menu-voce ev-req" data-id="' + esc(r.id) + '">Chiedi dati partecipanti</button>'
                             : '')
                         + (puoRichiedere && ev.manuale && r.email
                             ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '">Invita agli incontri B2B</button>'
-                            : '')
+                            : ''),
                         /* Una persona alla volta: le sezioni in cui NON e'
                            gia', piu' - per chi e' gia' online - il reinvio
                            dell'avviso. Nel riepilogo no: li' le presenze non si
@@ -16359,7 +16371,7 @@
                            all'online: e' l'unico che toglie qualcosa a chi lo
                            riceve, e va spiegato. Diventare aderente in elenco o
                            tornare in sala non si annuncia per posta. */
-                        + (puoRichiedere && !ev.tutti
+                        (puoRichiedere && !ev.tutti
                             ? (mdR => SEZIONI_MODALITA.filter(x => x.id !== mdR).map(x =>
                                 '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
                                 + '" data-verso="' + x.id + '">'
@@ -16372,12 +16384,13 @@
                                     + '" data-verso="online" data-rinvia="1">'
                                     + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online' : 'Avvisa del passaggio online') + '</button>'
                                     : ''))(modalitaDi(ev, r))
-                            : '')
-                        + (adminEv
+                            : ''),
+                        (adminEv
                             ? '<button type="button" class="ev-menu-voce ev-canc" data-id="'
                             + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
                             + (ev.tutti ? 'Togli' : 'Cancella') + '</button>'
-                            : ''))
+                            : '')
+                    ])
                     + '</td>'
                     : '')
                 + '</tr>';
