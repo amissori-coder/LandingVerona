@@ -748,6 +748,17 @@ al minuto per utente.
 - `azione: "cancella"`: **solo amministratore**. Cancella l'iscrizione e la sua
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
+- **Gli indirizzi doppi** (stesso indirizzo su piu iscrizioni dello stesso
+  evento) non sono un caso del servizio ma dell'area riservata, e vale la pena
+  saperlo qui perche' toccano gli invii: gli invii scartano i doppioni PER
+  INDIRIZZO (una mail sola anche con due iscrizioni), quindi di due righe una
+  resta senza `avvisoModalita` e sembra non avvisata; e per la sala due righe
+  sono due posti contati. Sopra l'elenco compare il pulsante "Indirizzi doppi"
+  con quanti indirizzi sono: la finestra li raggruppa, propone quale riga
+  tenere (quella con stato, nota, sezione o avviso decisi da chi organizza;
+  poi quella con incontri B2B prenotati o dati completati; poi la piu
+  completa; a parita, la prima arrivata) e cancella le altre con la stessa
+  `azione: "cancella"` e la stessa domanda di conferma.
 - `azione: "aggiungi"`: **amministratore, equity partner e founding partner**.
   Conta **solo il ruolo di accesso** dell'utente (`utenti/<email>.ruolo`; per un
 collaboratore, quello del suo utente di riferimento): un
