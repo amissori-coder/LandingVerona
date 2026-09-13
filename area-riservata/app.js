@@ -15856,27 +15856,53 @@
        L'ultima parola e' della prima: in quale sezione si sta lo decide chi
        organizza. */
     /* Due etichette per la stessa cosa, e non e' una svista: nella RIGA si
-       parla di una persona sola e la colonna e' stretta ("Aderente"), nel
-       filtro delle sezioni si parla del gruppo e c'e' spazio ("Aderenti
-       Revilaw"). Con il nome lungo dentro la tendina il browser lo taglia a
-       meta' - "Aderente R..." - proprio nella colonna che dice chi entra in
-       sala e in quale sezione. */
-    const NOMI_MODALITA = { presenza: 'In presenza', aderenti: 'Aderente', online: 'Online' };
-    // le tre sezioni in ordine di lettura, con il nome per il filtro sopra
-    // l'elenco e la parola breve per i riquadri dei conteggi
+       parla di una persona sola e la colonna e' stretta ("Aderente",
+       "Sponsor"), nel filtro delle sezioni si parla del gruppo e c'e' spazio
+       ("Aderenti Revilaw", "Sponsor e relatori"). Con il nome lungo dentro la
+       tendina il browser lo taglia a meta' - "Aderente R...", "Sponsor/re..." -
+       proprio nella colonna che dice chi entra in sala e in quale sezione. */
+    const NOMI_MODALITA = { presenza: 'In presenza', aderenti: 'Aderente', online: 'Online', sponsor: 'Sponsor' };
+    /* LE SEZIONI DELL'ELENCO, in ordine di lettura. Prima quelle che occupano un
+       posto in sala (`sala: true`), poi l'online: e' l'ordine dei riquadri in
+       testa e delle voci sopra l'elenco, che devono dirsi la stessa cosa.
+       Ogni voce porta con se' anche le parole con cui si nomina altrove, cosi'
+       non ci sono quattro elenchi di nomi da tenere allineati a mano:
+         nome  - il filtro sopra l'elenco e i titoli, dove c'e' spazio
+         breve - l'etichetta sotto il numero nei riquadri dei conteggi
+         dove  - "...in presenza", "...all'online": la coda delle frasi
+         vai   - la voce del menu della riga, che e' un comando e quindi un verbo
+       Il nome CORTO della riga sta in NOMI_MODALITA: nella colonna "Modalita",
+       larga un dito, "Aderenti Revilaw" il browser lo taglierebbe a meta'. */
     const SEZIONI_MODALITA = [
-        { id: 'presenza', nome: 'In presenza', breve: 'in presenza' },
-        { id: 'aderenti', nome: 'Aderenti Revilaw', breve: 'aderenti' },
-        { id: 'online', nome: 'Online', breve: 'online' }
+        { id: 'presenza', nome: 'In presenza', breve: 'in presenza', sala: true, dove: 'in presenza', vai: 'Riporta in presenza' },
+        { id: 'aderenti', nome: 'Aderenti Revilaw', breve: 'aderenti', sala: true, dove: 'fra gli aderenti Revilaw', vai: 'Sposta fra gli aderenti Revilaw' },
+        { id: 'sponsor', nome: 'Sponsor e relatori', breve: 'sponsor e relatori', sala: true, dove: 'fra sponsor e relatori', vai: 'Sposta fra sponsor e relatori' },
+        { id: 'online', nome: 'Online', breve: 'online', sala: false, dove: 'all\'online', vai: 'Sposta online e avvisa' }
     ];
+    function sezioneDef(id) { return SEZIONI_MODALITA.find(x => x.id === id) || SEZIONI_MODALITA[0]; }
     function modalitaDi(ev, r) {
         const p = EventiPresenze.di(ev.id, r.id) || {};
         const scelta = String(p.modalita || (r && r.modalita) || '').toLowerCase();
-        return (scelta === 'online' || scelta === 'aderenti') ? scelta : 'presenza';
+        /* Il valore vuoto, e qualunque valore che non sia una sezione vera,
+           valgono "in presenza": fino all'evento di Napoli il modulo non
+           chiedeva nulla e le iscrizioni erano tutte in sala. */
+        return SEZIONI_MODALITA.some(x => x.id === scelta) ? scelta : 'presenza';
     }
-    // chi occupa un posto in sala: ospiti e aderenti insieme. E' il numero che
-    // conta per la capienza, e non e' nessuno dei due conteggi presi da solo.
-    function inSala(m) { return m === 'presenza' || m === 'aderenti'; }
+    /* Chi occupa un posto in sala. Sono TRE sezioni su quattro - ospiti,
+       aderenti Revilaw, sponsor e relatori - e nessuno dei tre conteggi, preso
+       da solo, dice quanti posti servono: quello e' "totale in sala".
+       Sponsor e relatori stanno a parte solo per comodita' di chi organizza:
+       in sala ci sono, e nel totale ci vanno sempre. */
+    function inSala(m) { return !!(SEZIONI_MODALITA.find(x => x.id === m) || {}).sala; }
+    /* A CHI SI MANDANO GLI INVITI AGLI INCONTRI B2B. Gli incontri si fanno in
+       sala, e sono fra IMPRESE OSPITI da abbinare l'una all'altra: chi segue
+       online a un tavolo non ci si siede, e un aderente Revilaw non e'
+       un'impresa da abbinare - e' la rete dello studio. Sponsor e relatori in
+       sala ci sono, e agli incontri ci tengono piu' di tutti.
+       La regola sta qui e non in due posti: vale per la voce del menu della
+       riga e per l'invito a tutte le aziende, e due copie che si allontanano
+       fanno esattamente il danno che questa regola vuole evitare. */
+    function daInvitareB2B(m) { return m === 'presenza' || m === 'sponsor'; }
     /* GLI ADERENTI, L'AREA RISERVATA LI CONOSCE GIA': stanno nella sezione
        "Aderenti Revilaw" (Persone), con il loro indirizzo email. Spostarli a
        mano uno per uno, cercandoli a occhio in un elenco di centinaia di righe,
@@ -15919,7 +15945,12 @@
         const noti = emailAderenti();
         const fuori = [];
         (lista || []).forEach(r => {
-            if (modalitaDi(ev, r) === 'aderenti') return;
+            /* Chi e' gia' fra gli aderenti non si propone (c'e' gia'), e
+               nemmeno chi sta fra sponsor e relatori: quella sezione ce lo ha
+               messo qualcuno a mano, apposta, e spostarlo fra gli aderenti gli
+               toglierebbe l'etichetta piu' precisa delle due. */
+            const sez = modalitaDi(ev, r);
+            if (sez === 'aderenti' || sez === 'sponsor') return;
             const e = String(r.email || '').trim().toLowerCase();
             const inAnagrafica = !!(noti && e && noti.has(e));
             if (!inAnagrafica && r.aderente !== true) return;
@@ -15927,7 +15958,7 @@
                 riga: r, email: e,
                 scheda: inAnagrafica ? (noti.get(e) || '') : '',
                 motivo: inAnagrafica ? 'anagrafica' : 'dichiarato',
-                sezione: modalitaDi(ev, r)
+                sezione: sez
             });
         });
         return fuori;
@@ -15993,6 +16024,79 @@
         const dalModulo = r.aderente === true && md === 'aderenti' && !p.modalita;
         return [hintMailModalita(ev, r, md), dalModulo ? '<div class="hint ev-dal-modulo">dal modulo</div>' : '']
             .filter(Boolean).join(' ');
+    }
+    /* LA CELLA DELLE AZIONI: il menu dei tre puntini della riga.
+       Sta in una funzione sua, e non dentro il modello della riga, perche' si
+       RIFA' DA SOLA quando la persona cambia sezione: quali voci ci siano
+       dipende da dove si trova - le sezioni in cui non e' gia', l'avviso che
+       riguarda il solo online, l'invito B2B che vale solo per chi in sala ci
+       va - e un menu rimasto quello di prima offrirebbe comandi che non
+       valgono piu'.
+       Modifica e Cancella stanno qui dentro e non in due pulsanti per riga:
+       allargavano la tabella senza dire niente di nuovo.
+       Le voci sono A GRUPPI, separati da una riga sottile: la scheda, le mail
+       da mandare a questa persona, la sezione in cui sta, e in fondo,
+       staccata, quella che cancella. Sono mestieri diversi, e sette voci di
+       fila tutte uguali si rileggono ogni volta da capo. I gruppi vuoti - e i
+       loro separatori - non compaiono: chi non puo' mandare mail vede quattro
+       voci, non quattro voci e due righe in mezzo al nulla. */
+    function cellaAzioniHtml(ev, r, md) {
+        const adminEv = Auth.eAdmin() || Auth.eProprietario();
+        // gli equity e founding partner non modificano ne' cancellano, ma dalle
+        // righe manuali possono CHIEDERE i dati mancanti: a loro la colonna
+        // delle azioni compare con quella sola voce
+        const puoRichiedere = puoAggiungereIscrizioni();
+        if (!adminEv && !puoRichiedere) return '';
+        const gruppi = [
+            (adminEv
+                ? '<button type="button" class="ev-menu-voce ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
+                : ''),
+            /* Le mail che si mandano a QUESTA persona. "Chiedi dati
+               partecipanti" compare sulle righe MANUALI con email: manda
+               all'intestatario il collegamento per completare i dati. */
+            (puoRichiedere && ev.manuale && r.email && r.extra && r.extra.Portale
+                ? '<button type="button" class="ev-menu-voce ev-req" data-id="' + esc(r.id) + '">Chiedi dati partecipanti</button>'
+                : '')
+            /* GLI INCONTRI B2B SI FANNO IN SALA, e sono per gli ospiti. Chi
+               segue online a un tavolo non ci si siede, e chi e' aderente
+               Revilaw non e' un'azienda da abbinare a un'altra: e' la rete
+               dello studio. Per loro la voce non compare - un invito che non
+               si puo' onorare e' peggio di un invito mancato. Sponsor e
+               relatori invece in sala ci sono, e agli incontri ci tengono piu'
+               di tutti: per loro resta. */
+            + (puoRichiedere && ev.manuale && r.email && daInvitareB2B(md)
+                ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '">Invita agli incontri B2B</button>'
+                : ''),
+            /* Una persona alla volta: le sezioni in cui NON e' gia', piu' -
+               per chi e' gia' online - il reinvio dell'avviso. Nel riepilogo
+               no: li' le presenze non si leggono, e la modalita' e' una di
+               quelle.
+               L'avviso lo porta con se' il solo passaggio all'online: e'
+               l'unico che toglie qualcosa a chi lo riceve, e va spiegato.
+               Diventare aderente in elenco, passare fra sponsor e relatori o
+               tornare in sala non si annunciano per posta. */
+            (puoRichiedere && !ev.tutti
+                ? SEZIONI_MODALITA.filter(x => x.id !== md).map(x =>
+                    '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
+                    + '" data-verso="' + x.id + '">' + esc(x.vai) + '</button>').join('')
+                + (md === 'online' && r.email
+                    ? '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
+                    + '" data-verso="online" data-rinvia="1">'
+                    + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online' : 'Avvisa del passaggio online') + '</button>'
+                    : '')
+                : ''),
+            (adminEv
+                ? '<button type="button" class="ev-menu-voce ev-canc" data-id="'
+                + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
+                + (ev.tutti ? 'Togli' : 'Cancella') + '</button>'
+                : '')
+        ];
+        const voci = gruppi.filter(g => g).join('<div class="ev-menu-riga"></div>');
+        return '<td data-label="" class="ev-azioni">'
+            + (voci ? '<div class="ev-menu">'
+                + '<button type="button" class="btn btn-sm btn-secondary ev-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Azioni">&#8942;</button>'
+                + '<div class="ev-menu-lista hidden">' + voci + '</div></div>' : '')
+            + '</td>';
     }
     // colonne aggiuntive scelte dall'utente, per evento: gli elenchi hanno colonne
     // diverse fra loro (citta, partita IVA, fatturato...) e si mostrano su richiesta
@@ -16123,12 +16227,19 @@
     }
     /* La frase che spiega la somma, la stessa nel suggerimento dei riquadri in
        sala: "4 in presenza" e "1 aderenti" non dicono da soli quanti posti
-       servono. */
+       servono. La frase si scrive DALLE SEZIONI, non a mano: quelle in sala
+       oggi sono tre, ed erano due fino a ieri. */
     function fraseSala(c) {
-        return c.conModalita
-            ? 'In sala ' + c.nInSala + (c.nInSala === 1 ? ' persona: ' : ' persone: ')
-            + c.postiSezione.presenza + ' in presenza e ' + c.postiSezione.aderenti + ' aderenti Revilaw'
-            : 'Posti in sala';
+        if (!c.conModalita) return 'Posti in sala';
+        /* Solo le sezioni in cui c'e' qualcuno: "0 sponsor e relatori" non
+           spiega niente, allunga e basta. E se in sala c'e' una sezione sola,
+           la somma non ha bisogno di essere spiegata. */
+        const pezzi = SEZIONI_MODALITA.filter(x => x.sala && c.postiSezione[x.id])
+            .map(x => c.postiSezione[x.id] + ' ' + x.nome.charAt(0).toLowerCase() + x.nome.slice(1));
+        const quante = 'In sala ' + c.nInSala + (c.nInSala === 1 ? ' persona' : ' persone');
+        return pezzi.length > 1
+            ? quante + ': ' + pezzi.slice(0, -1).join(', ') + ' e ' + pezzi[pezzi.length - 1]
+            : quante;
     }
 
     /* I NUMERI SI MUOVONO CON LA RIGA
@@ -16333,66 +16444,7 @@
                     + '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(firmaPresenza(p)
                         || (r.compilato && r.compilato.daNome ? firmaPresenza({ daNome: r.compilato.daNome + ' (dal modulo)', quando: r.compilato.quando }) : '')
                         || firmaPresenza(r.inserito) || '-') + '</span></td>')
-                /* Modifica e Cancella stanno in un menu a tre puntini: due pulsanti
-                   per riga allargavano la tabella senza dire niente di nuovo.
-                   Le voci sono A GRUPPI, separati da una riga sottile: la scheda,
-                   le mail da mandare a questa persona, la sezione in cui sta,
-                   e in fondo, staccata, quella che cancella. Sono mestieri
-                   diversi, e sette voci di fila tutte uguali si rileggono ogni
-                   volta da capo. I gruppi vuoti - e i loro separatori - non
-                   compaiono: chi non puo' mandare mail vede quattro voci, non
-                   quattro voci e due righe in mezzo al nulla. */
-                + (azioniEv
-                    ? '<td data-label="" class="ev-azioni">'
-                    + (gruppi => {
-                        const voci = gruppi.filter(g => g).join('<div class="ev-menu-riga"></div>');
-                        return voci ? '<div class="ev-menu">'
-                            + '<button type="button" class="btn btn-sm btn-secondary ev-menu-btn" aria-haspopup="true" aria-expanded="false" aria-label="Azioni">&#8942;</button>'
-                            + '<div class="ev-menu-lista hidden">' + voci + '</div></div>' : '';
-                    })([
-                        (adminEv
-                            ? '<button type="button" class="ev-menu-voce ev-mod" data-id="' + esc(r.id) + '">Modifica</button>'
-                            : ''),
-                        /* Le mail che si mandano a QUESTA persona. "Chiedi dati
-                           partecipanti" compare sulle righe MANUALI con email:
-                           manda all'intestatario il collegamento per completare
-                           i dati. */
-                        (puoRichiedere && ev.manuale && r.email && r.extra && r.extra.Portale
-                            ? '<button type="button" class="ev-menu-voce ev-req" data-id="' + esc(r.id) + '">Chiedi dati partecipanti</button>'
-                            : '')
-                        + (puoRichiedere && ev.manuale && r.email
-                            ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '">Invita agli incontri B2B</button>'
-                            : ''),
-                        /* Una persona alla volta: le sezioni in cui NON e'
-                           gia', piu' - per chi e' gia' online - il reinvio
-                           dell'avviso. Nel riepilogo no: li' le presenze non si
-                           leggono, e la modalita' e' una di quelle.
-                           L'avviso lo porta con se' il solo passaggio
-                           all'online: e' l'unico che toglie qualcosa a chi lo
-                           riceve, e va spiegato. Diventare aderente in elenco o
-                           tornare in sala non si annuncia per posta. */
-                        (puoRichiedere && !ev.tutti
-                            ? (mdR => SEZIONI_MODALITA.filter(x => x.id !== mdR).map(x =>
-                                '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
-                                + '" data-verso="' + x.id + '">'
-                                + (x.id === 'online' ? 'Sposta online e avvisa'
-                                    : x.id === 'aderenti' ? 'Sposta fra gli aderenti Revilaw'
-                                        : 'Riporta in presenza')
-                                + '</button>').join('')
-                                + (mdR === 'online' && r.email
-                                    ? '<button type="button" class="ev-menu-voce ev-sposta" data-id="' + esc(r.id)
-                                    + '" data-verso="online" data-rinvia="1">'
-                                    + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online' : 'Avvisa del passaggio online') + '</button>'
-                                    : ''))(modalitaDi(ev, r))
-                            : ''),
-                        (adminEv
-                            ? '<button type="button" class="ev-menu-voce ev-canc" data-id="'
-                            + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
-                            + (ev.tutti ? 'Togli' : 'Cancella') + '</button>'
-                            : '')
-                    ])
-                    + '</td>'
-                    : '')
+                + cellaAzioniHtml(ev, r, md)
                 + '</tr>';
         }).join('');
         // barra della selezione multipla: compare solo quando c'e' qualcosa di spuntato
@@ -16404,9 +16456,14 @@
             /* Lo spostamento in blocco sta qui e non fra le azioni della riga:
                i posti in sala finiscono per tutti insieme, e gli aderenti si
                riconoscono guardando l'elenco, non una riga per volta. */
-            + (ev.tutti ? '' : '<button class="btn btn-sm btn-secondary" id="ev-online-multi">Sposta online</button>'
-                + '<button class="btn btn-sm btn-secondary" id="ev-aderenti-multi">Sposta fra gli aderenti</button>'
-                + '<button class="btn btn-sm btn-secondary" id="ev-presenza-multi">Riporta in presenza</button>')
+            /* Un pulsante per sezione, con le STESSE parole del menu della
+               riga: e' lo stesso comando, e chiamarlo in due modi diversi
+               obbliga a ricontrollare ogni volta che cosa fa. Nascono
+               dall'elenco delle sezioni, cosi' aggiungerne una non lascia
+               indietro la barra. */
+            + (ev.tutti ? '' : SEZIONI_MODALITA.map(x =>
+                '<button class="btn btn-sm btn-secondary ev-multi" data-verso="' + x.id + '">'
+                + esc(x.vai) + '</button>').join(''))
             + '<button class="btn btn-sm btn-danger" id="ev-canc-multi">'
             + (ev.tutti ? 'Togli le selezionate da questo elenco' : 'Cancella le selezionate') + '</button></div>'
             : '';
@@ -16540,11 +16597,6 @@
                 : '')
             + '</div></header>'
             + schede
-            + '<div class="card ev-testa"><div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
-            + '<div class="hint">' + esc(ev.quando) + '</div></div>'
-            + '<div class="ev-num" data-num="iscrizioni">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
-            + ((ev.manuale || ev.tutti) ? '<div class="ev-num" data-num="partecipanti">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
-            + '<div class="ev-num" data-num="indirizzi">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             /* LE DUE META' DELLA TESTATA. A sinistra i numeri che DESCRIVONO
                l'elenco - quante iscrizioni, quante persone, quanti indirizzi,
                e come si dividono le sezioni in sala. A destra, staccato, il
@@ -16554,9 +16606,20 @@
                dieci volte al giorno mentre la sala si riempie, e in una fila
                unica di sette numeri tutti uguali si perdevano.
                Le sezioni restano nell'ordine del filtro sopra l'elenco: i
-               numeri e le voci su cui si preme devono dirsi le stesse cose. */
+               numeri e le voci su cui si preme devono dirsi le stesse cose.
+               La meta' di sinistra sta in una fila sua: con le sezioni diventate
+               quattro la testata va a capo su schermi normali, e senza la fila
+               i numeri di sinistra si spargerebbero per tutta la larghezza
+               (e' "spazio fra le due meta'", e le due meta' devono essere due). */
+            + '<div class="card ev-testa"><div class="ev-num-fila">'
+            + '<div><div class="ev-nome">' + esc(ev.titolo) + '</div>'
+            + '<div class="hint">' + esc(ev.quando) + '</div></div>'
+            + '<div class="ev-num" data-num="iscrizioni">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
+            + ((ev.manuale || ev.tutti) ? '<div class="ev-num" data-num="partecipanti">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
+            + '<div class="ev-num" data-num="indirizzi">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             + (ev.tutti ? '' : SEZIONI_MODALITA.filter(x => inSala(x.id))
                 .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, titoloSala, '', x.id)).join(''))
+            + '</div>'
             + (ev.tutti ? '' : '<div class="ev-num-gruppo">'
                 + riquadroNum(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'forte', 'sala')
                 + SEZIONI_MODALITA.filter(x => !inSala(x.id))
@@ -16675,12 +16738,28 @@
                    l'impronta dell'elenco combacia di nuovo, quindi un ridisegno
                    non arriverebbe, e resterebbe a video una cosa non vera. */
                 const riga = s.closest('tr');
+                const rr = (_evIscrizioni || []).find(x => x.id === id);
                 const cella = s.parentNode;
                 if (cella) {
-                    const rr = (_evIscrizioni || []).find(x => x.id === id);
                     cella.querySelectorAll('.hint').forEach(x => x.remove());
                     const h = rr ? hintModalitaHtml(ev, rr, vero) : '';
                     if (h) s.insertAdjacentHTML('afterend', h);
+                }
+                /* E SI RIFA' ANCHE IL MENU DELLA RIGA: le sue voci dipendono
+                   dalla sezione - dove si puo' ancora spostare, se c'e' un
+                   avviso da mandare, se l'invito agli incontri B2B ha senso -
+                   e lasciarlo com'era offrirebbe comandi che non valgono piu'.
+                   Nuovo pezzo di pagina, quindi i comandi si ricollegano: si
+                   ricollegano su quella cella sola, non su tutta la vista, per
+                   non attaccare due volte gli ascoltatori alle altre righe. */
+                const azioni = riga ? riga.querySelector('.ev-azioni') : null;
+                if (azioni && rr) {
+                    const nuova = cellaAzioniHtml(ev, rr, vero);
+                    if (nuova) {
+                        azioni.outerHTML = nuova;
+                        const rifatta = riga.querySelector('.ev-azioni');
+                        if (rifatta) collegaAzioniRiga(rifatta);
+                    }
                 }
                 aggiornaFirma(s, id);
                 _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
@@ -16717,27 +16796,47 @@
             });
             aggiornaFirma(n, id);
         }));
-        $vista().querySelectorAll('.ev-canc').forEach(b => b.addEventListener('click', () => {
-            confermaCancellaIscrizione(ev, [b.dataset.id], b.dataset.nome);
-        }));
-        $vista().querySelectorAll('.ev-mod').forEach(b => b.addEventListener('click', () => {
-            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
-            if (r) modaleModificaIscrizione(ev, r);
-        }));
-        $vista().querySelectorAll('.ev-req').forEach(b => b.addEventListener('click', () => {
-            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
-            if (r) modaleRichiediDati(ev, r);
-        }));
-        $vista().querySelectorAll('.ev-b2bi').forEach(b => b.addEventListener('click', () => {
-            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
-            if (r) modaleInvitoB2B(ev, r);
-        }));
-        $vista().querySelectorAll('.ev-sposta').forEach(b => b.addEventListener('click', () => {
-            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
-            // "Invia di nuovo l'avviso" e' l'unico caso in cui si riscrive a chi
-            // l'ha gia' ricevuto: dappertutto altrove chi e' a posto si salta
-            if (r) modaleSpostaModalita(ev, [r], b.dataset.verso, { rinvia: b.dataset.rinvia === '1' });
-        }));
+        // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
+        const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
+            l.classList.add('hidden');
+            const b = l.previousElementSibling;
+            if (b) b.setAttribute('aria-expanded', 'false');
+        });
+        /* I COMANDI DEL MENU DELLA RIGA, collegati su una RADICE qualunque:
+           all'inizio e' tutta la vista, ma quando una persona cambia sezione la
+           sua cella delle azioni si rifa' da capo (le voci dipendono da dove si
+           trova) e allora si richiama qui, sulla sola cella rifatta. */
+        const collegaAzioniRiga = radice => {
+            radice.querySelectorAll('.ev-canc').forEach(b => b.addEventListener('click', () => {
+                confermaCancellaIscrizione(ev, [b.dataset.id], b.dataset.nome);
+            }));
+            radice.querySelectorAll('.ev-mod').forEach(b => b.addEventListener('click', () => {
+                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+                if (r) modaleModificaIscrizione(ev, r);
+            }));
+            radice.querySelectorAll('.ev-req').forEach(b => b.addEventListener('click', () => {
+                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+                if (r) modaleRichiediDati(ev, r);
+            }));
+            radice.querySelectorAll('.ev-b2bi').forEach(b => b.addEventListener('click', () => {
+                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+                if (r) modaleInvitoB2B(ev, r);
+            }));
+            radice.querySelectorAll('.ev-sposta').forEach(b => b.addEventListener('click', () => {
+                const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+                // "Invia di nuovo l'avviso" e' l'unico caso in cui si riscrive a chi
+                // e' gia' stato avvisato: il resto salta chi ha gia' ricevuto
+                if (r) modaleSpostaModalita(ev, [r], b.dataset.verso, { rinvia: b.dataset.rinvia === '1' });
+            }));
+            radice.querySelectorAll('.ev-menu-btn').forEach(b => b.addEventListener('click', e => {
+                e.stopPropagation();
+                const lista = b.nextElementSibling;
+                const eraChiuso = lista.classList.contains('hidden');
+                chiudiMenuEv();
+                if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); }
+            }));
+            radice.querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
+        };
         /* "Riconosci aderenti": spunta, non sposta. Si apre la sezione "Tutte" -
            le righe da spuntare possono stare in sezioni diverse, e una spunta su
            una riga che non e' a video sarebbe una scelta fatta al buio - e poi
@@ -16759,20 +16858,7 @@
             _evSelezionate = new Set();
             if (vistaCorrente === 'eventi') vistaEventi();
         }));
-        // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
-        const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
-            l.classList.add('hidden');
-            const b = l.previousElementSibling;
-            if (b) b.setAttribute('aria-expanded', 'false');
-        });
-        $vista().querySelectorAll('.ev-menu-btn').forEach(b => b.addEventListener('click', e => {
-            e.stopPropagation();
-            const lista = b.nextElementSibling;
-            const eraChiuso = lista.classList.contains('hidden');
-            chiudiMenuEv();
-            if (eraChiuso) { lista.classList.remove('hidden'); b.setAttribute('aria-expanded', 'true'); }
-        }));
-        $vista().querySelectorAll('.ev-menu-voce').forEach(vce => vce.addEventListener('click', chiudiMenuEv));
+        collegaAzioniRiga($vista());
         /* La pagina si sta muovendo: lo si segna e basta. Serve a rimandare i
            ridisegni automatici, non a fare altro, quindi e' un ascoltatore
            passivo che scrive un numero - non rallenta lo scorrimento. */
@@ -16865,20 +16951,17 @@
             if (!ids.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
             confermaCancellaIscrizione(ev, ids, null);
         });
-        [['ev-online-multi', 'online'], ['ev-aderenti-multi', 'aderenti'], ['ev-presenza-multi', 'presenza']]
-            .forEach(([idBtn, verso]) => {
-                const b = document.getElementById(idBtn);
-                if (!b) return;
-                b.addEventListener('click', () => {
-                    // solo le righe SPUNTATE E VISIBILI: con una sezione aperta,
-                    // le altre non sono davanti a chi preme
-                    const ids = Array.from($vista().querySelectorAll('.ev-sel:checked')).map(c => c.value);
-                    if (!ids.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
-                    const righe = (_evIscrizioni || []).filter(r => ids.indexOf(r.id) >= 0);
-                    if (!righe.length) { toast('Aggiorna l\'elenco e riprova.', 'rosso'); return; }
-                    modaleSpostaModalita(ev, righe, verso);
-                });
-            });
+        $vista().querySelectorAll('.ev-multi').forEach(b => b.addEventListener('click', () => {
+            const verso = b.dataset.verso;
+            if (!SEZIONI_MODALITA.some(x => x.id === verso)) return;
+            // solo le righe SPUNTATE E VISIBILI: con una sezione aperta,
+            // le altre non sono davanti a chi preme
+            const ids = Array.from($vista().querySelectorAll('.ev-sel:checked')).map(c => c.value);
+            if (!ids.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
+            const righe = (_evIscrizioni || []).filter(r => ids.indexOf(r.id) >= 0);
+            if (!righe.length) { toast('Aggiorna l\'elenco e riprova.', 'rosso'); return; }
+            modaleSpostaModalita(ev, righe, verso);
+        }));
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
     }
@@ -17462,6 +17545,12 @@
             (unica ? [unica] : (_evIscrizioni || [])).forEach(r => {
                 const e = String(r.email || '').toLowerCase();
                 if (!e) return;
+                /* Stessa regola della voce nel menu della riga: chi segue
+                   online e gli aderenti Revilaw restano fuori dall'elenco delle
+                   aziende da invitare. Qui conta piu' che nella riga - di la'
+                   si sbaglia una persona alla volta, di qua se ne invitano
+                   duecento in un colpo. */
+                if (!unica && !daInvitareB2B(modalitaDi(ev, r))) return;
                 if (perEmail[e]) { perEmail[e].docs.push(r.doc || ''); perEmail[e].righe.push(r); return; }
                 const c = {
                     id: r.id, doc: r.doc || '', docs: [r.doc || ''], righe: [r], riga: r, email: e,
@@ -17549,6 +17638,7 @@
             + 'Gli incontri già scelti compaiono nella mail e nella pagina, pronti da confermare o cambiare.'
             : 'Scegli gli orari dei tavoli e le aziende da invitare: parte una mail personale a <b>ogni</b> referente iscritto delle aziende spuntate '
             + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento alla pagina dove sceglie a quali incontri partecipare. '
+            + 'Nell\'elenco ci sono solo gli iscritti <b>in sala</b>, ospiti e sponsor: gli incontri si fanno di persona, e chi segue online o è aderente Revilaw resta fuori. '
             + 'Chi l\'ha già ricevuta la riceve di nuovo, con la sua scelta attuale scritta dentro. '
             + 'Ogni invito torna in copia nascosta anche a te. '
             + 'Le prenotazioni compaiono nell\'elenco (colonna "B2B prenotati") e nel riepilogo per argomento; i temi indicati iscrivendosi restano a parte, nella colonna "Preferenze iscrizione".';
@@ -18177,7 +18267,7 @@
             });
             _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
             const esMail = res.mail || null;
-            const dove = verso === 'online' ? ' all\'online' : verso === 'aderenti' ? ' fra gli aderenti Revilaw' : ' in presenza';
+            const dove = ' ' + sezioneDef(verso).dove;
             const parti = [(res.spostate || elenco.length) + (res.spostate === 1 ? ' iscrizione spostata' : ' iscrizioni spostate') + dove];
             if (esMail) {
                 parti.push(esMail.inviate + (esMail.inviate === 1 ? ' avviso inviato' : ' avvisi inviati'));
@@ -18375,18 +18465,21 @@
 
         const chi = uno ? '<strong>' + esc(nomeDi(elenco[0])) + '</strong>'
             : '<strong>' + elenco.length + ' iscrizioni</strong>' + (nPosti !== elenco.length ? ' (' + nPosti + ' posti)' : '');
-        /* Un titolo e una spiegazione per destinazione. Sono tre spostamenti
-           diversi e vanno raccontati per quello che sono: l'online toglie il
-           posto in sala (e si annuncia), gli aderenti sono una sezione a parte
-           della stessa sala (e non si annuncia), il ritorno in presenza rimette
-           dentro chi era uscito. */
         const NOTA_GIA_LI = giaLi
             ? ' <b>' + giaLi + '</b> ' + (giaLi === 1 ? 'è già in questa sezione: per quella riga non cambia nulla.'
                 : 'sono già in questa sezione: per quelle righe non cambia nulla.')
             : '';
-        const titolo = verso === 'online' ? (uno ? 'Sposta all\'online' : 'Sposta all\'online ' + elenco.length + ' iscrizioni')
-            : verso === 'aderenti' ? (uno ? 'Sposta fra gli aderenti Revilaw' : 'Sposta fra gli aderenti Revilaw ' + elenco.length + ' iscrizioni')
-                : (uno ? 'Riporta in presenza' : 'Riporta in presenza ' + elenco.length + ' iscrizioni');
+        /* Il titolo: lo stesso comando del menu della riga ("Sposta fra sponsor
+           e relatori"), piu' quante righe si stanno spostando quando sono
+           tante. La coda la porta la sezione, cosi' non ci sono due elenchi di
+           nomi da tenere allineati. */
+        const comando = (verso === 'presenza' ? 'Riporta ' : 'Sposta ') + sezioneDef(verso).dove;
+        const titolo = comando + (uno ? '' : ' ' + elenco.length + ' iscrizioni');
+        /* Una spiegazione per destinazione. Sono quattro spostamenti diversi e
+           vanno raccontati per quello che sono: l'online toglie il posto in
+           sala (e si annuncia), gli aderenti e gli sponsor sono due sezioni a
+           parte della stessa sala (e non si annunciano), il ritorno in presenza
+           rimette dentro chi era uscito. */
         const spiega = verso === 'online'
             ? chi + ' ' + (uno ? 'passa' : 'passano')
             + ' alla partecipazione online: ' + (uno ? 'il suo posto in sala si libera' : 'i loro posti in sala si liberano')
@@ -18397,9 +18490,15 @@
                 + (uno ? 'resta in sala, ma il suo posto si conta' : 'restano in sala, ma i loro posti si contano')
                 + ' a parte, non fra quelli degli ospiti. '
                 + 'Nessuna mail parte: è una classificazione interna, e chi la riceve non deve fare niente di diverso.'
-                : chi + ' ' + (uno ? 'torna' : 'tornano')
-                + ' fra gli ospiti in sala. Nessuna mail parte: se '
-                + (uno ? 'aveva' : 'avevano') + ' già ricevuto l\'avviso del passaggio online, va detto a voce.';
+                : verso === 'sponsor'
+                    ? chi + ' ' + (uno ? 'passa' : 'passano') + ' nella sezione <b>Sponsor e relatori</b>. '
+                    + 'È una divisione <b>solo per uso interno</b>: ' + (uno ? 'resta' : 'restano')
+                    + ' in sala e ' + (uno ? 'il suo posto continua a contare' : 'i loro posti continuano a contare')
+                    + ' nel totale in sala, come prima. '
+                    + 'Nessuna mail parte, e per chi si sposta non cambia niente.'
+                    : chi + ' ' + (uno ? 'torna' : 'tornano')
+                    + ' fra gli ospiti in sala. Nessuna mail parte: se '
+                    + (uno ? 'aveva' : 'avevano') + ' già ricevuto l\'avviso del passaggio online, va detto a voce.';
         const testa = '<h2>' + titolo + '</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">' + spiega + NOTA_GIA_LI + '</p>';
         const scelteMail = online
@@ -18438,7 +18537,7 @@
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="sm-no">Annulla</button>'
             + (online ? '<button class="btn btn-secondary" id="sm-ant">Nascondi anteprima</button>' : '')
             + '<button class="btn btn-primary" id="sm-si">'
-            + (verso === 'online' ? 'Sposta online' : verso === 'aderenti' ? 'Sposta fra gli aderenti' : 'Riporta in presenza')
+            + esc(comando)
             + '</button></div>',
             { classe: 'larga' });
         const esito = (testo, ko) => {
@@ -18465,7 +18564,7 @@
             eseguiSpostaModalita(ev, elenco, verso, { rinvia: rinvia, mail: m }).then(res => {
                 if (!res.ok) {
                     b.disabled = false;
-                    b.textContent = verso === 'online' ? 'Sposta online' : verso === 'aderenti' ? 'Sposta fra gli aderenti' : 'Riporta in presenza';
+                    b.textContent = comando;
                     esito(res.msg || 'Spostamento non riuscito.', true);
                     return;
                 }

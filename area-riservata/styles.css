@@ -1595,6 +1595,10 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
    colorare tutto non distingue niente. Sotto, a che punto sta la posta. */
 .ev-modalita.online, .ev-sez-online { color: var(--blu-900); font-weight: 600; }
 .ev-modalita.aderenti, .ev-sez-aderenti { color: #0f766e; font-weight: 600; }
+/* Sponsor e relatori: una tinta che non somigli ne' al verde degli aderenti ne'
+   al blu dell'online, perche' e' la terza sezione della sala e si legge nella
+   stessa colonna delle altre due. */
+.ev-modalita.sponsor, .ev-sez-sponsor { color: #7E22CE; font-weight: 600; }
 /* Le righine sotto la tendina della modalita': A CHE PUNTO STA LA POSTA, piu'
    la provenienza di chi sta fra gli aderenti per sua dichiarazione e non per
    decisione di chi organizza. I tre stati della posta si distinguono a colpo
@@ -2039,6 +2043,9 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .mi-lista-top .btn { flex: 0 0 auto; }
 /* sezione Eventi: testata dell'evento e campi della tabella iscrizioni */
 .ev-testa { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; }
+/* la meta' di sinistra della testata: una fila sua, cosi' i suoi numeri
+   restano a passo fisso anche quando il riquadro di destra va a capo */
+.ev-num-fila { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .ev-nome { font-weight: 800; font-size: 1.1rem; color: var(--blu-900); }
 .ev-num { font-weight: 800; font-size: 1.6rem; color: var(--blu-700); line-height: 1; display: flex; align-items: baseline; gap: 7px; }
 .ev-num span { font-size: 0.76rem; font-weight: 600; color: var(--grigio-600); }
