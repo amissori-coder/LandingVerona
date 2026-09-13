@@ -1560,6 +1560,39 @@ ul {
     font-weight: 600;
 }
 
+/* ADERENTI REVILAW
+   La scelta sta in cima al modulo e cambia quello che il modulo chiede: si
+   stacca dal resto con un fondo e un filetto, o in mezzo a quindici campi
+   sembrerebbe l'ennesima casella da spuntare. La spiegazione compare solo
+   quando si spunta - a chi non c'entra non serve - e dice chi e' un aderente
+   prima che vada avanti. */
+/* Il modulo sta su fondo scuro: il riquadro si stacca schiarendo appena il
+   fondo, come fanno le caselle, non con un pannello chiaro - li' sopra il testo
+   bianco delle etichette sparirebbe. */
+.aderente-scelta {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+}
+.aderente-spiega {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.78);
+}
+.aderente-spiega p { margin: 0 0 7px; }
+.aderente-spiega p:last-child { margin-bottom: 0; }
+.aderente-spiega strong { color: var(--white); }
+.aderente-nota { color: var(--white); font-weight: 600; }
+.aderente-spiega[hidden] { display: none; }
+/* i blocchi che l'iscrizione da aderente non chiede spariscono davvero:
+   "hidden" da solo perde contro il display della griglia del modulo */
+.accreditation-form .form-group[hidden] { display: none; }
+
 /* Checkbox */
 .checkbox-label {
     display: flex;

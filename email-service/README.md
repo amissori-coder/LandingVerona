@@ -834,8 +834,21 @@ La sezione si legge da due posti, in quest'ordine:
    non serve toccare il servizio; la conferma automatica (`lib/mail-ngb.js`,
    `confermaSito`) sa gia dirlo, e a chi si iscrive online non promette un posto
    in sala. Dal modulo pubblico si accettano **solo `presenza` e `online`**:
-   aderenti non ci si dichiara da soli, e infatti un `modalita: "aderenti"`
-   arrivato da li viene semplicemente ignorato.
+   nella sezione degli aderenti non ci si mette da soli, e infatti un
+   `modalita: "aderenti"` arrivato da li viene semplicemente ignorato.
+
+**La dichiarazione "sono un aderente Revilaw"** e un'altra cosa dalla sezione, e
+sta su un altro campo: `iscrizioni.<scheda>.aderente` (vero/assente). Il modulo
+di Napoli ha la casella in cima: spuntandola l'iscrizione chiede **solo nome,
+cognome ed email** - la scheda lunga (azienda, ruolo, settore, fatturato,
+incontri B2B, interessi) serve ad abbinare fra loro gli ospiti, e un aderente
+non e un ospite da abbinare. `/api/iscrizione-nuova` scrive `aderente: true`
+solo quando arriva davvero.
+
+Quella dichiarazione **non sposta nessuno**: l'area riservata la raccoglie in
+"Riconosci aderenti" insieme a chi combacia per indirizzo con una scheda di
+Aderenti Revilaw, e sotto ogni riga scrive da dove viene il riconoscimento
+(l'anagrafica, o la casella spuntata iscrivendosi). Sposta chi guarda.
 
 L'ultima parola e della prima: in quale sezione si sta lo decide chi organizza.
 `/api/iscrizioni` restituisce entrambe (`modalita` sulla riga e dentro

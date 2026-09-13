@@ -989,6 +989,18 @@ module.exports = async (req, res) => {
         const modalita = testo(body.modalita, 20).toLowerCase();
         if (modalita === 'presenza' || modalita === 'online') scheda.modalita = modalita;
 
+        /* "Sono un aderente Revilaw", spuntato nel modulo. E' una DICHIARAZIONE,
+           non una sezione: in quale sezione dell'elenco finisce lo decide chi
+           organizza, dall'area riservata, che la propone insieme agli aderenti
+           riconosciuti dall'indirizzo. Un modulo pubblico non puo' spostare
+           nessuno da solo - basterebbe spuntare una casella per entrare in una
+           sezione riservata alla rete dello studio.
+           Si scrive solo quando e' vera: il campo assente vale "no", e mettere
+           un false su ogni iscrizione di ogni altro modulo sarebbe rumore. */
+        if (body.aderente === true || /^(si|s|true|vero|1|on)$/i.test(String(body.aderente || '').trim())) {
+            scheda.aderente = true;
+        }
+
         const idDoc = idDocumento(email, data, nome, cognome);
         await admin.firestore().collection('iscrizioni')
             .doc(idDoc)

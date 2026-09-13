@@ -242,6 +242,42 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        /* ---- Aderenti Revilaw ----
+           Chi fa parte della rete dello studio si iscrive con il minimo: nome,
+           cognome, email. La scheda lunga - azienda, ruolo, settore, fatturato,
+           incontri B2B, aree di interesse - serve ad abbinare fra loro gli
+           OSPITI prima dell'evento, e un aderente non e' un ospite da abbinare:
+           chiedergliela sarebbe far compilare quindici campi per buttarli via.
+           I blocchi si nascondono E perdono l'obbligo: nascondere e basta
+           lascerebbe un modulo che si rifiuta di partire indicando un campo che
+           non si vede. */
+        const campoAderente = document.getElementById('aderente');
+        const spiegaAderente = document.getElementById('aderenteSpiega');
+        const GRUPPI_OSPITE = ['gruppoAzienda', 'gruppoRuolo', 'gruppoCodice', 'gruppoProfilo',
+            'gruppoSettore', 'gruppoDimensione', 'gruppoIncontro', 'gruppoInteressi'];
+        function applicaAderente() {
+            const si = !!(campoAderente && campoAderente.checked);
+            if (spiegaAderente) spiegaAderente.hidden = !si;
+            GRUPPI_OSPITE.forEach(id => {
+                const g = document.getElementById(id);
+                if (!g) return;
+                g.hidden = si;
+                Array.prototype.forEach.call(g.querySelectorAll('input, select'), c => {
+                    if (si) {
+                        if (c.hasAttribute('required')) { c.dataset.eraRichiesto = '1'; c.removeAttribute('required'); }
+                        c.classList.remove('error');
+                    } else if (c.dataset.eraRichiesto === '1') {
+                        c.setAttribute('required', '');
+                    }
+                });
+                Array.prototype.forEach.call(g.querySelectorAll('.form-error'), e => { e.textContent = ''; });
+            });
+        }
+        if (campoAderente) {
+            campoAderente.addEventListener('change', applicaAderente);
+            applicaAderente();   // il modulo puo' tornare a video con la casella gia' spuntata
+        }
+
         requiredFields.forEach(field => {
             if (field.type !== 'checkbox') {
                 field.addEventListener('blur', () => validateField(field));
@@ -259,6 +295,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let isValid = true;
 
             requiredFields.forEach(field => {
+                /* I campi che l'iscrizione da aderente non chiede sono nascosti e
+                   non piu' obbligatori: chiederne il contenuto fermerebbe l'invio
+                   indicando un errore su qualcosa che non si vede. */
+                const gruppo = field.closest ? field.closest('.form-group') : null;
+                if (!field.hasAttribute('required') || (gruppo && gruppo.hidden)) return;
                 if (!validateField(field)) {
                     isValid = false;
                 }
@@ -343,6 +384,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // il codice riservato all'azienda invitata, se ne ha uno: e' cio'
                 // che lega questa iscrizione all'elenco delle aziende selezionate
                 codiceInvito: campoCodice ? ripulisci(campoCodice.value) : '',
+                /* La dichiarazione di essere aderente: e' quello che dice chi si
+                   iscrive, non la sezione in cui finira'. In quale sezione sta lo
+                   decide chi organizza, dall'area riservata: qui si registra la
+                   dichiarazione, e l'elenco la propone. */
+                aderente: !!(campoAderente && campoAderente.checked),
                 privacy:   !!(form.querySelector('#privacy')   && form.querySelector('#privacy').checked),
                 marketing: !!(form.querySelector('#marketing') && form.querySelector('#marketing').checked)
             };

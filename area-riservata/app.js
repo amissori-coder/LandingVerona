@@ -15905,17 +15905,30 @@
         } catch (e) { return null; }
     }
     /* Le iscrizioni che risultano di un aderente e non sono gia' nella sua
-       sezione. Ogni voce porta con se' l'indirizzo con cui e' stata riconosciuta
-       e il nome della scheda: sono le due cose che si guardano prima di dire di
-       si', e vanno mostrate, non solo contate. */
+       sezione. Due strade, e si guardano insieme:
+         - l'INDIRIZZO combacia con una scheda di Aderenti Revilaw: lo dice
+           l'anagrafica, che non si sbaglia sui nomi;
+         - chi si e' iscritto ha spuntato "Sono un aderente Revilaw" nel modulo:
+           lo dice la persona, e vale come segnalazione, non come permesso -
+           dal modulo pubblico nessuno entra da solo in una sezione riservata
+           alla rete dello studio, e infatti finisce qui, in una proposta.
+       Ogni voce porta con se' il PERCHE': indirizzo e nome della scheda quando
+       viene dall'anagrafica, "dichiarato" quando lo ha detto l'iscritto. Sono
+       le cose che si guardano prima di dire di si', e vanno mostrate. */
     function righeDaRiconoscere(ev, lista) {
         const noti = emailAderenti();
-        if (!noti) return [];
         const fuori = [];
         (lista || []).forEach(r => {
+            if (modalitaDi(ev, r) === 'aderenti') return;
             const e = String(r.email || '').trim().toLowerCase();
-            if (!e || !noti.has(e) || modalitaDi(ev, r) === 'aderenti') return;
-            fuori.push({ riga: r, email: e, scheda: noti.get(e) || '', sezione: modalitaDi(ev, r) });
+            const inAnagrafica = !!(noti && e && noti.has(e));
+            if (!inAnagrafica && r.aderente !== true) return;
+            fuori.push({
+                riga: r, email: e,
+                scheda: inAnagrafica ? (noti.get(e) || '') : '',
+                motivo: inAnagrafica ? 'anagrafica' : 'dichiarato',
+                sezione: modalitaDi(ev, r)
+            });
         });
         return fuori;
     }
@@ -18110,6 +18123,11 @@
             const nome = nomeDi(t.riga);
             // il nome dell'anagrafica si mostra solo se dice qualcosa di diverso
             const altroNome = t.scheda && t.scheda.toLowerCase() !== nome.toLowerCase() ? t.scheda : '';
+            /* Da dove viene il riconoscimento. Non e' un dettaglio: "lo dice
+               l'anagrafica" e "lo ha detto lui iscrivendosi" si controllano in
+               due modi diversi, e il secondo va guardato meglio. */
+            const perche = t.motivo === 'dichiarato' ? 'si è dichiarato aderente iscrivendosi'
+                : (altroNome ? 'in anagrafica: ' + altroNome : 'indirizzo in anagrafica');
             return '<li><label>'
                 + '<input type="checkbox" class="ra-scelta" value="' + i + '" checked>'
                 + '<span class="ra-testo">'
@@ -18117,12 +18135,13 @@
                 + '<span class="ra-chi">' + esc(nome)
                 + (t.riga.azienda ? ' &middot; ' + esc(t.riga.azienda) : '') + '</span>'
                 + '<span class="ra-dove">' + esc(NOMI_MODALITA[t.sezione] || t.sezione)
-                + (altroNome ? ' &middot; in anagrafica: ' + esc(altroNome) : '') + '</span>'
+                + ' &middot; ' + esc(perche) + '</span>'
                 + '</span></label></li>';
         };
         apriModale('<h2>' + (uno ? 'Un\'iscrizione risulta di un aderente' : elenco.length + ' iscrizioni risultano di aderenti') + '</h2>'
-            + '<p class="hint" style="margin:-4px 0 12px;">Riconosciute dall\'<b>indirizzo email</b>, l\'unico dato che combacia con le schede di '
-            + '<b>Aderenti Revilaw</b>: i nomi si scrivono in dieci modi. '
+            + '<p class="hint" style="margin:-4px 0 12px;">Riconosciute dall\'<b>indirizzo email</b> - l\'unico dato che combacia con le schede di '
+            + '<b>Aderenti Revilaw</b>, i nomi si scrivono in dieci modi - oppure perché <b>si sono dichiarate tali</b> nel modulo. '
+            + 'Sotto ognuna c\'è scritto quale delle due. '
             + (indirizzi.length !== elenco.length
                 ? 'Sono <b>' + indirizzi.length + '</b> ' + (indirizzi.length === 1 ? 'persona' : 'persone diverse') + '. ' : '')
             + 'Togli la spunta a chi non deve passare fra gli aderenti. Nessuna mail parte.</p>'

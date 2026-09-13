@@ -730,6 +730,28 @@
 
             <div class="form-wrapper">
                 <form id="accreditationForm" class="accreditation-form" novalidate>
+                    <!-- ADERENTI REVILAW. Sta in cima perche' cambia quello che il
+                         modulo chiede: a un aderente non si domandano settore,
+                         fatturato e incontri B2B, che servono ad abbinare fra loro
+                         gli OSPITI. La spiegazione compare solo quando si spunta:
+                         a chi non c'entra non dice niente, e chi la spunta deve
+                         sapere esattamente chi e' un aderente prima di andare
+                         avanti. -->
+                    <div class="form-group full-width aderente-scelta">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="aderente" name="aderente">
+                            <span class="checkmark"></span>
+                            <span>Sono un <strong>Aderente Revilaw</strong></span>
+                        </label>
+                        <div class="aderente-spiega" id="aderenteSpiega" hidden>
+                            <p><strong>Chi &egrave; un Aderente Revilaw.</strong> I professionisti e gli studi che fanno parte
+                            della rete Revilaw: chi ha sottoscritto l&rsquo;adesione e compare nell&rsquo;elenco degli Aderenti.</p>
+                            <p>Non lo sono i <strong>clienti</strong> dello studio n&eacute; gli <strong>ospiti</strong> invitati al convegno.
+                            Se hai un dubbio lascia la casella vuota e iscriviti come ospite: ti bastano due minuti in pi&ugrave;,
+                            e ci pensiamo noi a sistemare.</p>
+                            <p class="aderente-nota">Come aderente ti chiediamo solo <strong>nome, cognome ed email</strong>.</p>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label for="nome">Nome *</label>
                         <input type="text" id="nome" name="nome" required placeholder="Il tuo nome" autocomplete="given-name">
@@ -750,12 +772,12 @@
                         <input type="tel" id="telefono" name="telefono" placeholder="+39 000 000 0000" autocomplete="tel">
                         <span class="form-error" id="telefonoError"></span>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="gruppoAzienda">
                         <label for="azienda">Azienda / Studio *</label>
                         <input type="text" id="azienda" name="azienda" required placeholder="Denominazione" autocomplete="organization">
                         <span class="form-error" id="aziendaError"></span>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="gruppoRuolo">
                         <label for="ruolo">Ruolo *</label>
                         <input type="text" id="ruolo" name="ruolo" required placeholder="La tua qualifica" autocomplete="organization-title">
                         <span class="form-error" id="ruoloError"></span>
@@ -768,7 +790,7 @@
                          puo' mettersi da solo. La verifica avviene PRIMA di
                          spedire il modulo, cosi' chi lo ha trascritto male se ne
                          accorge subito. -->
-                    <div class="form-group full-width">
+                    <div class="form-group full-width" id="gruppoCodice">
                         <label for="codiceInvito">Codice invito <span class="field-optional">(solo se hai ricevuto l'invito riservato alla tua azienda)</span></label>
                         <input type="text" id="codiceInvito" name="codiceInvito" placeholder="5 caratteri, per esempio A7K2M" maxlength="12" autocomplete="off" spellcheck="false" style="text-transform:uppercase;letter-spacing:0.12em;">
                         <span class="form-hint" id="codiceInvitoOk"></span>
@@ -780,7 +802,7 @@
                          incontri senza abbinamenti diventano networking casuale.
                          Tutti a scelta guidata, cosi' l'iscrizione non si
                          allunga e i dati arrivano confrontabili. -->
-                    <div class="form-group">
+                    <div class="form-group" id="gruppoProfilo">
                         <label for="profilo">Ti presenti come *</label>
                         <select id="profilo" name="profilo" required>
                             <option value="">Scegli...</option>
@@ -791,7 +813,7 @@
                         </select>
                         <span class="form-error" id="profiloError"></span>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="gruppoSettore">
                         <label for="settore">Settore *</label>
                         <select id="settore" name="settore" required>
                             <option value="">Scegli...</option>
@@ -808,7 +830,7 @@
                         </select>
                         <span class="form-error" id="settoreError"></span>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="gruppoDimensione">
                         <label for="dimensione">Fatturato annuo *</label>
                         <select id="dimensione" name="dimensione" required>
                             <option value="">Scegli...</option>
@@ -821,7 +843,7 @@
                         </select>
                         <span class="form-error" id="dimensioneError"></span>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="gruppoIncontro">
                         <label for="incontro">Incontri B2B del pomeriggio *</label>
                         <select id="incontro" name="incontro" required>
                             <option value="">Scegli...</option>
@@ -831,7 +853,7 @@
                         </select>
                         <span class="form-error" id="incontroError"></span>
                     </div>
-                    <div class="form-group full-width">
+                    <div class="form-group full-width" id="gruppoInteressi">
                         <label id="interessiLabel">Di cosa hai bisogno <span class="field-optional">(scegli quello che ti serve, anche pi&ugrave; di uno)</span></label>
                         <div class="interessi-griglia" role="group" aria-labelledby="interessiLabel">
                             <label class="checkbox-label">
