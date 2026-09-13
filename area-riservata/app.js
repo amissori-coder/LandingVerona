@@ -15885,26 +15885,39 @@
        il riconoscimento si limita a SPUNTARE le righe, non a spostarle: la
        decisione resta di chi guarda, che potrebbe avere un aderente iscritto
        come ospite di un'impresa cliente. */
+    /* Indirizzo -> nome della scheda in anagrafica. Non basta sapere CHE
+       combacia: chi guarda deve poter dire "questo indirizzo e' di Mario
+       Rossi", e il nome sulla scheda a volte non e' quello scritto nel modulo
+       di iscrizione (ci si iscrive con la segretaria, o con il nome puntato).
+       Nulla (non una mappa vuota) quando l'anagrafica non e' leggibile o non
+       ha indirizzi: il pulsante allora non compare affatto. */
     function emailAderenti() {
         try {
             if (typeof Persone === 'undefined') return null;
-            const fuori = new Set();
+            const fuori = new Map();
             Persone.tutte().forEach(p => {
                 if (!p || p.eliminato) return;
                 const e = String(p.email || '').trim().toLowerCase();
-                if (e) fuori.add(e);
+                if (!e || fuori.has(e)) return;
+                fuori.set(e, ((p.nomeProprio ? p.nomeProprio + ' ' : '') + (p.nome || '')).trim());
             });
             return fuori.size ? fuori : null;
         } catch (e) { return null; }
     }
-    // le iscrizioni che risultano di un aderente e non sono gia' nella sua sezione
+    /* Le iscrizioni che risultano di un aderente e non sono gia' nella sua
+       sezione. Ogni voce porta con se' l'indirizzo con cui e' stata riconosciuta
+       e il nome della scheda: sono le due cose che si guardano prima di dire di
+       si', e vanno mostrate, non solo contate. */
     function righeDaRiconoscere(ev, lista) {
         const noti = emailAderenti();
         if (!noti) return [];
-        return (lista || []).filter(r => {
+        const fuori = [];
+        (lista || []).forEach(r => {
             const e = String(r.email || '').trim().toLowerCase();
-            return e && noti.has(e) && modalitaDi(ev, r) !== 'aderenti';
+            if (!e || !noti.has(e) || modalitaDi(ev, r) === 'aderenti') return;
+            fuori.push({ riga: r, email: e, scheda: noti.get(e) || '', sezione: modalitaDi(ev, r) });
         });
+        return fuori;
     }
     /* L'avviso del passaggio all'online, se e' partito: { modalita, quando,
        daNome }. Serve a non scrivere due volte alla stessa persona. */
@@ -16040,7 +16053,7 @@
             + SEZIONI_MODALITA.map(x => voce(x.id, x.nome)).join('')
             + (daRiconoscere
                 ? '<button type="button" class="ev-sez-btn ev-trova-aderenti" id="ev-trova-aderenti" '
-                + 'title="Spunta le iscrizioni il cui indirizzo email risulta in Aderenti Revilaw: le sposti poi con il pulsante della barra">'
+                + 'title="Mostra le iscrizioni il cui indirizzo email risulta in Aderenti Revilaw: le spunta se confermi, e le sposti poi con il pulsante della barra">'
                 + '<span class="ev-sez-nome">Riconosci aderenti</span><span class="ev-sez-n">' + daRiconoscere + '</span></button>'
                 : '')
             + '</div>';
@@ -16561,13 +16574,9 @@
         {
             const bTrova = document.getElementById('ev-trova-aderenti');
             if (bTrova) bTrova.addEventListener('click', () => {
-                const righe = righeDaRiconoscere(ev, _evIscrizioni || []);
-                if (!righe.length) { toast('Nessuna iscrizione da riconoscere: gli aderenti in elenco sono già nella loro sezione.', 'verde'); return; }
-                _evSezione[ev.id] = 'tutte';
-                _evSelezionate = new Set(righe.map(r => r.id));
-                if (vistaCorrente === 'eventi') vistaEventi();
-                toast(righe.length + (righe.length === 1 ? ' iscrizione risulta' : ' iscrizioni risultano')
-                    + ' di aderenti Revilaw: controlla le righe spuntate e premi "Sposta fra gli aderenti".', 'verde');
+                const trovati = righeDaRiconoscere(ev, _evIscrizioni || []);
+                if (!trovati.length) { toast('Nessuna iscrizione da riconoscere: gli aderenti in elenco sono già nella loro sezione.', 'verde'); return; }
+                modaleRiconosciAderenti(ev, trovati);
             });
         }
         // le sezioni sopra l'elenco: cambiarle azzera la selezione, cosi' le
@@ -17920,6 +17929,64 @@
                 toast('Richiesta dati inviata a ' + r.email + '.', 'verde');
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: richiesta dati partecipanti', 'sistema', ev.id, null, r.email + ' (' + nPart + ' posti)'); } catch (e) { }
             });
+        });
+    }
+
+    /* =========================================================
+       GLI ADERENTI RICONOSCIUTI NELL'ELENCO
+       ---------------------------------------------------------
+       Il riconoscimento e' per INDIRIZZO: e' l'unico dato che combacia
+       davvero fra l'anagrafica e un modulo compilato a mano. Prima di
+       spuntare qualcosa, pero', gli indirizzi vanno MOSTRATI: "tre
+       iscrizioni risultano di aderenti" e' una cosa che si prende per
+       buona, "queste tre, con questi indirizzi" e' una cosa che si
+       controlla - e chi guarda sa cose che l'elenco non sa (un aderente
+       iscritto come ospite di un cliente, una casella condivisa).
+       Da qui non si sposta nessuno: si spuntano le righe, e lo
+       spostamento resta un secondo gesto, dalla barra dell'elenco.
+    ========================================================= */
+    function modaleRiconosciAderenti(ev, trovati) {
+        if (!puoAggiungereIscrizioni() || !ev || ev.tutti) return;
+        const elenco = (trovati || []).filter(Boolean);
+        if (!elenco.length) return;
+        const uno = elenco.length === 1;
+        const nomeDi = r => (r.nome + ' ' + r.cognome).trim() || r.email || r.id;
+        // indirizzi diversi: due iscrizioni dello stesso aderente sono una persona sola
+        const indirizzi = [];
+        elenco.forEach(t => { if (indirizzi.indexOf(t.email) < 0) indirizzi.push(t.email); });
+        const voce = t => {
+            const nome = nomeDi(t.riga);
+            // il nome dell'anagrafica si mostra solo se dice qualcosa di diverso
+            const altroNome = t.scheda && t.scheda.toLowerCase() !== nome.toLowerCase() ? t.scheda : '';
+            return '<li>'
+                + '<span class="ra-mail">' + esc(t.email) + '</span>'
+                + '<span class="ra-chi">' + esc(nome)
+                + (t.riga.azienda ? ' &middot; ' + esc(t.riga.azienda) : '') + '</span>'
+                + '<span class="ra-dove">' + esc(NOMI_MODALITA[t.sezione] || t.sezione)
+                + (altroNome ? ' &middot; in anagrafica: ' + esc(altroNome) : '') + '</span>'
+                + '</li>';
+        };
+        apriModale('<h2>' + (uno ? 'Un\'iscrizione risulta di un aderente' : elenco.length + ' iscrizioni risultano di aderenti') + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">Riconosciute dall\'<b>indirizzo email</b>, l\'unico dato che combacia con le schede di '
+            + '<b>Aderenti Revilaw</b>: i nomi si scrivono in dieci modi. '
+            + (indirizzi.length !== elenco.length
+                ? 'Sono <b>' + indirizzi.length + '</b> ' + (indirizzi.length === 1 ? 'persona' : 'persone diverse') + '. ' : '')
+            + 'Controlla l\'elenco: qui non si sposta nessuno, si spuntano soltanto le righe.</p>'
+            + '<ul class="ra-elenco">' + elenco.map(voce).join('') + '</ul>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="ra-no">Annulla</button>'
+            + '<button class="btn btn-primary" id="ra-si">' + (uno ? 'Spunta la riga' : 'Spunta le ' + elenco.length + ' righe') + '</button></div>',
+            { classe: 'larga' });
+        document.getElementById('ra-no').addEventListener('click', chiudiModale);
+        document.getElementById('ra-si').addEventListener('click', () => {
+            chiudiModale();
+            /* Si apre "Tutte": le righe da spuntare possono stare in sezioni
+               diverse, e una spunta su una riga che non e' a video sarebbe una
+               scelta fatta al buio. */
+            _evSezione[ev.id] = 'tutte';
+            _evSelezionate = new Set(elenco.map(t => t.riga.id));
+            if (vistaCorrente === 'eventi') vistaEventi();
+            toast(elenco.length + (uno ? ' riga spuntata' : ' righe spuntate')
+                + ': controllale e premi "Sposta fra gli aderenti".', 'verde');
         });
     }
 
