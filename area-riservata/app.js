@@ -15818,6 +15818,10 @@
     // chi occupa un posto in sala: ospiti e aderenti insieme. E' il numero che
     // conta per la capienza, e non e' nessuno dei due conteggi presi da solo.
     function inSala(m) { return m === 'presenza' || m === 'aderenti'; }
+    /* Dove finisce il gruppo "in sala": il totale si scrive subito dopo
+       l'ultima sezione che ne fa parte, e si sposta da se' se un giorno le
+       sezioni in sala diventassero tre. */
+    const ULTIMA_IN_SALA = SEZIONI_MODALITA.filter(x => inSala(x.id)).map(x => x.id).pop();
     /* GLI ADERENTI, L'AREA RISERVATA LI CONOSCE GIA': stanno nella sezione
        "Aderenti Revilaw" (Persone), con il loro indirizzo email. Spostarli a
        mano uno per uno, cercandoli a occhio in un elenco di centinaia di righe,
@@ -16308,10 +16312,19 @@
             + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
             /* un riquadro per sezione, nello stesso ordine del filtro sopra
                l'elenco: i numeri e le voci su cui si preme devono dirsi le
-               stesse cose, nello stesso ordine, o si contano due volte */
-            + (ev.tutti ? '' : SEZIONI_MODALITA.map(x => '<div class="ev-num"'
-                + (inSala(x.id) ? ' title="' + esc(titoloSala) + '"' : '') + '>'
-                + (conModalita ? postiSezione[x.id] : '-') + '<span>' + esc(x.breve) + '</span></div>').join(''))
+               stesse cose, nello stesso ordine, o si contano due volte.
+               Subito dopo le due sezioni che stanno in sala, la loro SOMMA:
+               e' il numero che si confronta con la capienza, e non e' nessuno
+               dei due presi da solo. Prima stava nel solo suggerimento, che e'
+               un posto dove si trova per caso. */
+            + (ev.tutti ? '' : (riquadro => SEZIONI_MODALITA.map(x =>
+                riquadro(conModalita ? postiSezione[x.id] : '-', x.breve, inSala(x.id) ? titoloSala : '')
+                + (x.id === ULTIMA_IN_SALA
+                    ? riquadro(conModalita ? nInSala : '-', 'totale in sala', titoloSala, 'somma')
+                    : '')).join(''))(
+                        (n, et, titolo, cl) => '<div class="ev-num' + (cl ? ' ' + cl : '') + '"'
+                            + (titolo ? ' title="' + esc(titolo) + '"' : '') + '>'
+                            + n + '<span>' + esc(et) + '</span></div>'))
             + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
             + gestione + aziendeInvitoHtml(ev) + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
