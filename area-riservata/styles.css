@@ -1651,8 +1651,41 @@ label.ib-az-spunta input:checked + .ib-az-nome { font-weight: 600; color: var(--
 .ra-chi { font-size: 0.86rem; color: var(--grigio-900); }
 .ra-dove { font-size: 0.78rem; color: var(--grigio-600); }
 
-.ev-sez-btn.ev-trova-aderenti { margin-left: auto; border-style: dashed; color: #0f766e; }
+/* GLI INDIRIZZI DOPPI: un blocco per indirizzo, con dentro le sue iscrizioni.
+   Qui la spunta vuol dire CANCELLA - il contrario di "Riconosci aderenti" -
+   quindi si sbiadisce e si barra la riga SPUNTATA, che e' quella che sparisce:
+   la lista si legge come sara' l'elenco dopo, non prima. */
+.dp-elenco { list-style: none; margin: 0 0 4px; padding: 0; max-height: 52vh; overflow-y: auto; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); }
+.dp-gruppo { border-bottom: 1px solid var(--grigio-200); }
+.dp-gruppo:last-child { border-bottom: 0; }
+.dp-mail {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    padding: 8px 12px; background: var(--grigio-050);
+    font-weight: 700; color: var(--blu-900); overflow-wrap: anywhere;
+}
+.dp-quante { font-size: 0.78rem; font-weight: 600; color: var(--ambra); white-space: nowrap; }
+.dp-righe { list-style: none; margin: 0; padding: 0; }
+.dp-righe li { border-top: 1px solid var(--grigio-100); }
+.dp-righe label { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px 8px 22px; cursor: pointer; }
+.dp-righe input[type="checkbox"] { margin-top: 3px; flex: none; accent-color: var(--rosso); }
+.dp-righe li:has(.dp-scelta:checked) .ra-chi { text-decoration: line-through; text-decoration-color: var(--rosso); }
+.dp-righe li:has(.dp-scelta:checked) .ra-testo { opacity: 0.55; }
+/* quella che resta: un filo verde sul fianco, e il perche' scritto accanto */
+.dp-righe li.dp-tenuta { border-left: 3px solid var(--verde); background: var(--verde-bg); }
+.dp-badge { font-size: 0.72rem; font-weight: 600; color: var(--verde); white-space: nowrap; }
+
+/* I pulsanti IN CODA alle sezioni ("Riconosci aderenti", "Indirizzi doppi"):
+   non filtrano l'elenco, aprono una finestra, e il bordo tratteggiato lo dice
+   senza scriverlo. Stanno a destra, staccati: il primo dei due si prende lo
+   spazio, il secondo lo segue - cosi' restano insieme anche quando ce n'e' uno
+   solo, e quale sia non si sa in anticipo. */
+.ev-sez-btn[data-sez] + .ev-sez-btn:not([data-sez]) { margin-left: auto; }
+.ev-sez-btn.ev-trova-aderenti { border-style: dashed; color: #0f766e; }
 .ev-sez-btn.ev-trova-aderenti:hover { border-color: #0f766e; background: #f0fdfa; }
+/* Gli indirizzi doppi sono una cosa da sistemare, non una sezione da guardare:
+   ambra, la stessa tinta con cui l'elenco segna le mail ancora da mandare. */
+.ev-sez-btn.ev-doppi { border-style: dashed; color: var(--ambra); }
+.ev-sez-btn.ev-doppi:hover { border-color: var(--ambra); background: var(--ambra-bg); }
 .ev-sez-n { font-variant-numeric: tabular-nums; font-weight: 700; }
 @media print { .ev-sezioni { display: none !important; } }
 .nl-esito { font-size: 0.88rem; margin: 8px 0 0; }

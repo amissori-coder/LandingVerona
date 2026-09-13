@@ -15963,6 +15963,76 @@
         });
         return fuori;
     }
+    /* =========================================================
+       LO STESSO INDIRIZZO SU PIU' ISCRIZIONI
+       ---------------------------------------------------------
+       Capita spesso e non e' sempre un errore: chi si iscrive due volte
+       perche' la prima non e' sicuro sia andata a buon fine, chi si
+       reiscrive per correggere un dato, una casella di studio con cui si
+       iscrivono due colleghi diversi. Ma per la sala fa differenza - due
+       righe sono due posti - e per la posta pure: gli invii scartano i
+       doppioni per INDIRIZZO, quindi di due righe una resta muta e
+       sembra non avvisata.
+       Qui si mettono in fila i gruppi, con dentro le righe in ordine di
+       arrivo, e si PROPONE quale tenere. La proposta non e' un
+       indovinello: segue una regola sola, scritta accanto alla riga
+       scelta, cosi' chi guarda sa se fidarsi o cambiare.
+    ========================================================= */
+    /* Quanto "vale" un'iscrizione, e perche'. Vince chi ha addosso il
+       lavoro di qualcuno: una decisione di chi organizza (stato, nota,
+       sezione, avviso partito), una prenotazione agli incontri, i dati
+       completati dall'intestatario. A parita' vince la piu' completa, e
+       in ultimo la prima arrivata - quella che gli altri hanno visto. */
+    function pesoIscrizione(ev, r) {
+        const p = EventiPresenze.di(ev.id, r.id) || {};
+        if (p.stato || p.nota || p.modalita || (p.avvisoModalita && p.avvisoModalita.quando)) {
+            return { punti: 400, perche: 'ha stato, nota o sezione decisi da voi' };
+        }
+        if (String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim()) {
+            return { punti: 300, perche: 'ha prenotato gli incontri B2B' };
+        }
+        if (r.compilato || r.invito) {
+            return { punti: 200, perche: r.invito ? 'arrivata con il codice di un\'azienda invitata' : 'dati completati dall\'intestatario' };
+        }
+        const pieni = ['nome', 'cognome', 'azienda', 'ruolo', 'telefono', 'messaggio']
+            .filter(k => String(r[k] || '').trim()).length
+            + Object.keys(r.extra || {}).filter(k => String(r.extra[k] || '').trim()).length;
+        const posti = partecipantiDi(r);
+        return { punti: pieni + posti, perche: posti > 1 ? 'copre ' + posti + ' posti' : 'la più completa' };
+    }
+    /* I gruppi di righe che condividono un indirizzo, dal piu' numeroso in
+       giu'. Chi non ha email non entra: senza indirizzo non c'e' doppione
+       da riconoscere, e due righe senza nome non sono la stessa persona. */
+    function gruppiDoppi(ev, lista) {
+        const per = new Map();
+        (lista || []).forEach(r => {
+            const e = String(r.email || '').trim().toLowerCase();
+            if (!e) return;
+            if (!per.has(e)) per.set(e, []);
+            per.get(e).push(r);
+        });
+        const fuori = [];
+        per.forEach((righe, email) => {
+            if (righe.length < 2) return;
+            // in ordine di arrivo: la prima iscrizione in cima, come nell'elenco
+            const ord = righe.slice().sort((a, b) => dataIscrizioneMs(a.data) - dataIscrizioneMs(b.data));
+            let tieni = ord[0], meglio = pesoIscrizione(ev, ord[0]);
+            ord.slice(1).forEach(r => {
+                const q = pesoIscrizione(ev, r);
+                // a parita' di punti resta la prima arrivata: il > e' voluto
+                if (q.punti > meglio.punti) { tieni = r; meglio = q; }
+            });
+            const prima = tieni === ord[0];
+            fuori.push({
+                email: email, righe: ord, tieni: tieni,
+                perche: (prima && meglio.punti < 200) ? 'la prima arrivata' : meglio.perche,
+                posti: ord.reduce((t, r) => t + partecipantiDi(r), 0)
+            });
+        });
+        // prima i gruppi piu' numerosi, poi in ordine di indirizzo: chi apre
+        // l'elenco vuole vedere per primo il caso che pesa di piu'
+        return fuori.sort((a, b) => (b.righe.length - a.righe.length) || a.email.localeCompare(b.email));
+    }
     /* L'avviso del passaggio all'online, se e' partito: { modalita, quando,
        daNome }. Serve a non scrivere due volte alla stessa persona. */
     function avvisoModalitaDi(ev, r) {
@@ -16296,6 +16366,13 @@
             if (!quanti) bTrova.remove();
             else { const v = bTrova.querySelector('.ev-sez-n'); if (v) v.textContent = quanti; }
         }
+        // e cosi' "Indirizzi doppi": cancellata l'ultima riga in piu', sparisce
+        const bDoppi = vista.querySelector('#ev-doppi');
+        if (bDoppi) {
+            const quanti = puoAggiungereIscrizioni() ? gruppiDoppi(ev, tutte).length : 0;
+            if (!quanti) bDoppi.remove();
+            else { const v = bDoppi.querySelector('.ev-sez-n'); if (v) v.textContent = quanti; }
+        }
     }
 
     function filtroSezioniHtml(ev, tutte) {
@@ -16320,6 +16397,12 @@
                 + '<span class="ev-sez-n">' + n + '</span></button>';
         };
         const daRiconoscere = puoAggiungereIscrizioni() ? righeDaRiconoscere(ev, tutte).length : 0;
+        /* GLI INDIRIZZI DOPPI si dicono qui, accanto alle sezioni, perche' e'
+           qui che si guarda quante persone ci sono: due righe con lo stesso
+           indirizzo sono due posti contati e una mail sola spedita, e finche'
+           nessuno lo dice il numero in testa alla pagina e' semplicemente
+           sbagliato. Il pulsante compare solo quando ce ne sono. */
+        const doppi = puoAggiungereIscrizioni() ? gruppiDoppi(ev, tutte).length : 0;
         return '<div class="ev-sezioni" role="group" aria-label="Sezioni dell\'elenco">'
             + voce('tutte', 'Tutte')
             + SEZIONI_MODALITA.map(x => voce(x.id, x.nome)).join('')
@@ -16327,6 +16410,11 @@
                 ? '<button type="button" class="ev-sez-btn ev-trova-aderenti" id="ev-trova-aderenti" '
                 + 'title="Mostra le iscrizioni il cui indirizzo email risulta in Aderenti Revilaw: le spunta se confermi, e le sposti poi con il pulsante della barra">'
                 + '<span class="ev-sez-nome">Riconosci aderenti</span><span class="ev-sez-n">' + daRiconoscere + '</span></button>'
+                : '')
+            + (doppi
+                ? '<button type="button" class="ev-sez-btn ev-doppi" id="ev-doppi" '
+                + 'title="Indirizzi email presenti su più iscrizioni: li elenca uno per uno e lascia cancellare le righe in più">'
+                + '<span class="ev-sez-nome">Indirizzi doppi</span><span class="ev-sez-n">' + doppi + '</span></button>'
                 : '')
             + '</div>';
     }
@@ -16849,6 +16937,15 @@
                 modaleRiconosciAderenti(ev, trovati);
             });
         }
+        // "Indirizzi doppi": elenca i gruppi e lascia cancellare le righe in piu'
+        {
+            const bDoppi = document.getElementById('ev-doppi');
+            if (bDoppi) bDoppi.addEventListener('click', () => {
+                const g = gruppiDoppi(ev, _evIscrizioni || []);
+                if (!g.length) { toast('Nessun indirizzo doppio: ogni iscrizione ha il suo.', 'verde'); return; }
+                modaleIndirizziDoppi(ev, g);
+            });
+        }
         // le sezioni sopra l'elenco: cambiarle azzera la selezione, cosi' le
         // spunte di una sezione non restano attive mentre se ne guarda un'altra
         $vista().querySelectorAll('.ev-sez-btn[data-sez]').forEach(b => b.addEventListener('click', () => {
@@ -16974,7 +17071,12 @@
         const elenco = (ids || []).filter(Boolean);
         if (!elenco.length) return;
         const uno = elenco.length === 1;
-        const chi = uno ? '<strong>' + esc(nome || elenco[0]) + '</strong>' : '<strong>' + elenco.length + ' persone</strong>';
+        const chi = uno ? '<strong>' + esc(nome || elenco[0]) + '</strong>'
+            /* "iscrizioni", non "persone": cancellando i doppioni di un
+               indirizzo si tolgono piu' righe della STESSA persona, e il
+               numero direbbe il falso. Cosi' combacia anche con il titolo
+               della domanda, che gia' conta iscrizioni. */
+            : '<strong>' + elenco.length + ' iscrizioni</strong>';
         // Dal riepilogo si toglie SOLO dal riepilogo: la scheda resta nel suo evento.
         const testa = ev.tutti
             ? '<h2>' + (uno ? 'Togliere dal riepilogo?' : 'Togliere ' + elenco.length + ' righe dal riepilogo?') + '</h2>'
@@ -18330,6 +18432,139 @@
             caricaIscrizioni(ev, () => ridisegnaEventiSeLibero(), true);
             if (vistaCorrente === 'eventi') vistaEventi();
             return res;
+        });
+    }
+
+    /* =========================================================
+       GLI INDIRIZZI DOPPI, UNO PER UNO
+       ---------------------------------------------------------
+       Un gruppo per indirizzo, con dentro le sue righe in ordine di
+       arrivo. Una casella per riga, e la casella vuol dire CANCELLA:
+       quella proposta da tenere parte senza spunta, le altre spuntate -
+       il caso normale e' che le copie siano di troppo, e togliere una
+       spunta e' piu' facile che metterne cinque.
+       Niente si cancella finche' non si preme il pulsante rosso, e li'
+       c'e' ancora la domanda di conferma di sempre.
+    ========================================================= */
+    function modaleIndirizziDoppi(ev, gruppi) {
+        if (!puoAggiungereIscrizioni() || !ev) return;
+        const elenco = (gruppi || []).filter(g => g && g.righe && g.righe.length > 1);
+        if (!elenco.length) return;
+        const puoCancellare = Auth.eAdmin() || Auth.eProprietario();
+        const nRighe = elenco.reduce((t, g) => t + g.righe.length, 0);
+        const inPiu = nRighe - elenco.length;   // le righe oltre la prima di ogni gruppo
+        const nomeDi = r => (r.nome + ' ' + r.cognome).trim() || '(senza nome)';
+        /* Che cosa c'e' su questa riga, in poche parole: serve a decidere
+           quale tenere senza aprire niente. Solo le cose che ci sono. */
+        const dettagli = r => {
+            const p = EventiPresenze.di(ev.id, r.id) || {};
+            const d = [];
+            const posti = partecipantiDi(r);
+            if (posti > 1) d.push(posti + ' posti');
+            d.push(NOMI_MODALITA[modalitaDi(ev, r)] || '');
+            if (p.stato) d.push((NOMI_STATO[p.stato] || p.stato).toLowerCase());
+            if (p.nota) d.push('con nota');
+            if (p.avvisoModalita && p.avvisoModalita.quando) d.push('avvisata');
+            if (String((r.extra || {})[COL_B2B_PRENOTATI] || '').trim()) d.push('B2B prenotati');
+            if (r.compilato) d.push('dati completati');
+            if (r.invito) d.push('codice azienda');
+            if (r.azienda) d.push(r.azienda);
+            if ((r.extra || {}).Portale) d.push(r.extra.Portale);
+            return d.filter(Boolean).join(' · ');
+        };
+        let i = 0;
+        const indice = new Map();    // dalla casella alla riga vera
+        const gruppoHtml = g => {
+            const voci = g.righe.map(r => {
+                const n = i++;
+                indice.set(String(n), r);
+                const tenuta = r === g.tieni;
+                return '<li' + (tenuta ? ' class="dp-tenuta"' : '') + '><label>'
+                    /* Le caselle restano vive anche per chi non puo' cancellare:
+                       spuntare non cancella niente, e con "Spunta in elenco"
+                       chi ha trovato i doppioni li mette sotto gli occhi di chi
+                       li cancellera'. A mancare, per lui, e' il solo pulsante
+                       rosso. */
+                    + '<input type="checkbox" class="dp-scelta" value="' + n + '"'
+                    + (tenuta ? '' : ' checked') + '>'
+                    + '<span class="ra-testo">'
+                    + '<span class="ra-chi">' + esc(r.data || '(senza data)') + ' · ' + esc(nomeDi(r))
+                    + (tenuta ? ' <span class="dp-badge">da tenere: ' + esc(g.perche) + '</span>' : '') + '</span>'
+                    + '<span class="ra-dove">' + esc(dettagli(r)) + '</span>'
+                    + '</span></label></li>';
+            }).join('');
+            return '<li class="dp-gruppo"><div class="dp-mail">' + emailInterrompibile(g.email)
+                + '<span class="dp-quante">' + g.righe.length + ' iscrizioni'
+                + (g.posti !== g.righe.length ? ', ' + g.posti + ' posti' : '') + '</span></div>'
+                + '<ul class="dp-righe">' + voci + '</ul></li>';
+        };
+        const corpo = elenco.map(gruppoHtml).join('');
+        apriModale('<h2>' + (elenco.length === 1 ? 'Un indirizzo su più iscrizioni' : elenco.length + ' indirizzi su più iscrizioni') + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">'
+            + 'Sono <b>' + nRighe + '</b> iscrizioni per <b>' + elenco.length + '</b> '
+            + (elenco.length === 1 ? 'indirizzo' : 'indirizzi') + ': '
+            + '<b>' + inPiu + '</b> ' + (inPiu === 1 ? 'riga in più' : 'righe in più') + ' che contano posti in sala e che la posta salta '
+            + '(gli invii scartano i doppioni per indirizzo, quindi di due righe una resta muta e sembra non avvisata). '
+            + 'Non sempre sono un errore: una casella di studio può essere usata da due colleghi. '
+            + (puoCancellare
+                ? 'La spunta vuol dire <b>cancella</b>: è già messa sulle copie, e tolta su quella che vi proponiamo di tenere - accanto c\'è scritto perché.'
+                : 'Le copie sono già spuntate, e quella che vi proponiamo di tenere no - accanto c\'è scritto perché. '
+                + 'Cancellarle spetta all\'<b>amministratore</b>: con "Spunta in elenco" le trovate spuntate nella tabella, pronte da mostrargli.')
+            + '</p>'
+            + '<ul class="dp-elenco">' + corpo + '</ul>'
+            + '<div id="dp-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="dp-no">Chiudi</button>'
+            + '<button class="btn btn-secondary" id="dp-spunta">Spunta in elenco</button>'
+            + (puoCancellare ? '<button class="btn btn-danger" id="dp-si">Cancella le spuntate</button>' : '')
+            + '</div>', { classe: 'larga' });
+
+        const esito = (testo, ko) => {
+            const e = document.getElementById('dp-esito');
+            if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+        };
+        const scelte = () => Array.from(document.querySelectorAll('.dp-scelta:checked'))
+            .map(c => indice.get(c.value)).filter(Boolean);
+        const bSi = document.getElementById('dp-si');
+        const bSpunta = document.getElementById('dp-spunta');
+        /* L'AVVISO CHE CONTA: se di un indirizzo si spuntano TUTTE le righe,
+           di quella persona non resta nessuna iscrizione. Puo' essere quello
+           che si vuole - due righe sbagliate capitano - ma non deve succedere
+           per distrazione, e va detto prima di premere, non dopo. */
+        const aggiorna = () => {
+            const s = scelte();
+            const svuotati = elenco.filter(g => g.righe.every(r => s.indexOf(r) >= 0));
+            if (bSi) {
+                bSi.disabled = s.length === 0;
+                bSi.textContent = s.length ? 'Cancella le spuntate (' + s.length + ')' : 'Cancella le spuntate';
+            }
+            bSpunta.disabled = s.length === 0;
+            esito(svuotati.length
+                ? 'Attenzione: di ' + (svuotati.length === 1 ? 'un indirizzo' : svuotati.length + ' indirizzi')
+                + ' sono spuntate tutte le righe (' + svuotati.map(g => g.email).join(', ')
+                + '): di ' + (svuotati.length === 1 ? 'quella persona' : 'quelle persone') + ' non resterebbe nessuna iscrizione.'
+                : '', true);
+        };
+        document.querySelectorAll('.dp-scelta').forEach(c => c.addEventListener('change', aggiorna));
+        aggiorna();
+        document.getElementById('dp-no').addEventListener('click', chiudiModale);
+        /* La via lunga: le righe scelte si spuntano nell'elenco vero, dove
+           accanto c'e' tutto il resto della scheda. Si apre "Tutte", perche'
+           le copie possono stare in sezioni diverse. */
+        bSpunta.addEventListener('click', () => {
+            const s = scelte();
+            if (!s.length) return;
+            chiudiModale();
+            _evSezione[ev.id] = 'tutte';
+            _evSelezionate = new Set(s.map(r => r.id));
+            if (vistaCorrente === 'eventi') vistaEventi();
+            toast(s.length + (s.length === 1 ? ' riga spuntata' : ' righe spuntate') + ': controllale nell\'elenco.', 'verde');
+        });
+        // la via breve: si cancellano da qui, con la conferma di sempre
+        if (bSi) bSi.addEventListener('click', () => {
+            const s = scelte();
+            if (!s.length) return;
+            confermaCancellaIscrizione(ev, s.map(r => r.id),
+                s.length === 1 ? ((s[0].nome + ' ' + s[0].cognome).trim() || s[0].email) : '');
         });
     }
 
