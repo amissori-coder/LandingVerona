@@ -741,9 +741,10 @@ Le due condizioni vanno tenute allineate: se divergono si ottengono utenti che
 possono scrivere ma non leggere, o viceversa. C'e anche un limite di 60 modifiche
 al minuto per utente.
 
-- `azione: "imposta"` con `stato` e/o `nota`: aggiorna una sola scheda (merge) e
-  registra chi ha fatto la modifica e quando. Risponde con lo stato **completo**
-  dopo la modifica, cosi salvare la sola nota non azzera lo stato.
+- `azione: "imposta"` con `stato`, `nota` e/o `modalita`: aggiorna una sola scheda
+  (merge) e registra chi ha fatto la modifica e quando. Risponde con lo stato
+  **completo** dopo la modifica, cosi salvare la sola nota non azzera lo stato.
+  `modalita` vale `presenza`, `online` o vuoto (= in presenza).
 - `azione: "cancella"`: **solo amministratore**. Cancella l'iscrizione e la sua
   presenza, e scrive una traccia in `iscrizioniCancellate` cosi la persona non
   ricompare se la sua riga esiste ancora sul foglio.
@@ -777,6 +778,42 @@ collaboratore, quello del suo utente di riferimento): un
   con il collegamento personale FIRMATO verso `/completa_iscrizione/`: il
   segnaposto `{{COMPLETA}}` viene sostituito qui, con copia nascosta a chi
   chiede. Sulla scheda resta `datiRichiesti` (da chi e quando).
+- `azione: "sposta-modalita"`: stessi permessi di `aggiungi`. Sposta fra **sala e
+  online** le iscrizioni indicate (`destinatari`: `[{ id, doc }]`, fino a 300, o
+  il solo `idIscritto`) e, se richiesto, manda l'avviso. Nel corpo: `modalita`
+  (`presenza` o `online`) e, facoltativa, `mail` `{ oggetto, html, testo }` gia
+  composta in formato NGB con i segnaposti `{{NOME}}` e `{{COMPLETA}}`,
+  sostituiti qui per destinatario. Il destinatario lo decide il servizio
+  leggendo l'email dalla scheda: da qui non si spedisce ad altri. Prima si
+  sposta (scrittura in blocco su `presenze`), poi si spedisce: se la posta si
+  ferma a meta strada, chi risulta spostato lo e per davvero e l'esito dice chi
+  non e stato avvisato. Un indirizzo riceve una mail sola anche se ha due
+  iscrizioni; chi ha annullato nel frattempo non riceve nulla. A invio riuscito
+  resta `avvisoModalita` (modalita, da chi, quando) sulla presenza, cosi l'area
+  riservata mostra "avvisato il ..." e non si scrive due volte alla stessa
+  persona. Risposta: `{ ok, spostate, modalita, mail: { inviate, senzaScheda,
+  senzaEmail, doppie, falliti } }`.
+
+## Modalita di partecipazione: in sala o online
+
+Fino all'evento di Napoli il modulo non la chiedeva e le iscrizioni erano tutte
+in presenza: per questo **il valore vuoto vale "in presenza"**, non "non si sa".
+La modalita si legge da due posti, in quest'ordine:
+
+1. `presenze.<evento~iscritto>.modalita` — la decisione di **chi organizza**
+   (`sposta-modalita`, oppure la tendina della colonna "Modalita"). Quando i
+   posti in sala finiscono, chi resta fuori si sposta online: non si cancella.
+2. `iscrizioni.<scheda>.modalita` — quello che la persona **dichiara**
+   iscrivendosi. `/api/iscrizione-nuova` accetta gia il campo `modalita`
+   (`presenza` o `online`) e lo scrive solo se arriva davvero, quindi quando il
+   modulo comincera a chiederlo non serve toccare il servizio; la conferma
+   automatica (`lib/mail-ngb.js`, `confermaSito`) sa gia dirlo, e a chi si
+   iscrive online non promette un posto in sala.
+
+L'ultima parola e della prima: chi entra in sala lo decide chi organizza.
+`/api/iscrizioni` restituisce entrambe (`modalita` sulla riga e dentro
+`presenze`, con `avvisoModalita`) e l'area riservata conta i posti in presenza e
+gli online separatamente.
 
 ## Completamento dati partecipanti (dentro `/api/iscrizione-nuova`)
 

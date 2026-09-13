@@ -105,6 +105,16 @@ function idIscrizione(idIscritto) {
     return String(idIscritto).replace(/[\/\\.#$\[\]]/g, '-').slice(0, 300) || 'senza-identificativo';
 }
 const STATI = ['', 'confermato', 'presente', 'assente'];
+/* MODALITA' DI PARTECIPAZIONE (in sala o online)
+   ------------------------------------------------------------
+   Fino a Napoli il modulo non la chiedeva: tutte le iscrizioni erano in
+   presenza. Per questo il valore vuoto vale "in presenza" e non "non si sa",
+   e per questo la modalita' vive QUI, con lo stato e la nota, e non sulla
+   scheda dell'iscritto: finche' il modulo non la chiede e' una decisione di
+   chi organizza, non un dato dichiarato. Quando il modulo la chiedera', il
+   valore dichiarato arrivera' sulla scheda e questo restera' l'ultima parola
+   (chi organizza decide chi entra in sala). */
+const MODALITA = ['', 'presenza', 'online'];
 /* Portali da cui puo' arrivare un'iscrizione inserita a mano. Per le voci
    fisse l'etichetta la decide il servizio, non chi chiama: cosi' la colonna
    "Portale" resta confrontabile. Con "altro" il nome della piattaforma lo
@@ -328,9 +338,11 @@ module.exports = async (req, res) => {
             : [];
         const idIscritto = testo(body.idIscritto, 300);
         if (!evento) { res.status(400).json({ ok: false, msg: 'Evento mancante.' }); return; }
-        // "aggiungi" crea la scheda e "invita-b2b" porta il proprio elenco di
-        // destinatari: sono le sole azioni senza un iscritto da indicare qui
-        if (azione !== 'aggiungi' && azione !== 'invita-b2b' && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
+        // "aggiungi" crea la scheda; "invita-b2b" e "sposta-modalita" portano il
+        // proprio elenco di destinatari: sono le sole azioni senza un iscritto da
+        // indicare qui
+        const CON_ELENCO_PROPRIO = ['aggiungi', 'invita-b2b', 'sposta-modalita'];
+        if (CON_ELENCO_PROPRIO.indexOf(azione) < 0 && !idIscritto && !elencoId.length) { res.status(400).json({ ok: false, msg: 'Nessun iscritto indicato.' }); return; }
 
         if (azione === 'aggiungi') {
             // oltre all'amministratore, TUTTI gli equity e founding partner:
@@ -597,6 +609,118 @@ module.exports = async (req, res) => {
             return;
         }
 
+        /* Spostare le iscrizioni fra SALA e ONLINE, e avvisare chi e' stato
+           spostato. Serve quando i posti in presenza finiscono: chi resta
+           fuori non va cancellato - va spostato all'online, e deve saperlo.
+
+           La modalita' si scrive dove stanno stato e nota (collezione
+           "presenze"): cosi' funziona anche per le iscrizioni che su Firestore
+           non hanno una scheda propria (quelle raccolte sul foglio), e non
+           riscrive quello che la persona ha dichiarato iscrivendosi.
+
+           La mail, se richiesta, arriva GIA' COMPOSTA dall'area riservata
+           (formato NGB) con due segnaposti: {{NOME}}, il destinatario, e
+           {{COMPLETA}}, il suo collegamento personale firmato, da cui puo'
+           correggere i dati o rinunciare. Il destinatario lo decide il
+           servizio leggendo la scheda, MAI chi chiama: da qui non si spedisce
+           ad altri. Chi non ha scheda su Firestore viene spostato comunque e
+           si conta fra quelli da avvisare a mano.
+
+           Permessi: come l'inserimento a mano (amministratore, equity e
+           founding partner). Spostare qualcuno fuori dalla sala e scrivergli
+           non e' il gesto di chi segna le presenze al desk. */
+        if (azione === 'sposta-modalita') {
+            if (!eAdmin && !(await ePartner(db, ruolo))) {
+                res.status(403).json({ ok: false, msg: 'Possono spostare un\'iscrizione fra sala e online l\'amministratore, gli equity partner e i founding partner.' });
+                return;
+            }
+            const nuova = testo(body.modalita, 20).toLowerCase();
+            if (nuova !== 'presenza' && nuova !== 'online') {
+                res.status(400).json({ ok: false, msg: 'Indica la modalita: "presenza" oppure "online".' }); return;
+            }
+            /* I destinatari: l'elenco spuntato nella tabella, oppure il solo
+               iscritto della riga. Il nome del documento arriva con la riga
+               quando c'e': serve alla mail (collegamento personale) e non si
+               ricava dai campi per le schede-partecipante. */
+            const dest = (Array.isArray(body.destinatari) ? body.destinatari : (idIscritto ? [{ id: idIscritto, doc: testo(body.doc, 400) }] : []))
+                .slice(0, 300)
+                .map(x => (x && typeof x === 'object')
+                    ? { id: testo(x.id, 300), doc: testo(x.doc, 400) }
+                    : { id: testo(x, 300), doc: '' })
+                .filter(x => x.id);
+            if (!dest.length) { res.status(400).json({ ok: false, msg: 'Nessuna iscrizione indicata.' }); return; }
+            const m = body.mail && typeof body.mail === 'object' ? body.mail : null;
+            const oggettoBase = m ? (testo(m.oggetto, 250) || 'Partecipazione online - Next Generation Business').replace(/[\r\n]/g, ' ') : '';
+            const htmlBase = m ? String(m.html || '').slice(0, 300000) : '';
+            const testoBase = m ? String(m.testo || '').slice(0, 20000) : '';
+            if (m && !htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
+            const firma = { da: email, daNome: testo(dati.nome, 120) || email, collab: collab, quando: Date.now() };
+            /* Prima lo spostamento, poi le mail: se il server di posta si
+               ferma a meta' strada, chi e' stato spostato risulta spostato -
+               e l'elenco dice chi non e' stato avvisato, che si rimedia con
+               un secondo invio. Il contrario (avvisati ma ancora in sala)
+               sarebbe una bugia scritta in un posto solo. */
+            let batch = db.batch(), nel = 0;
+            for (const d of dest) {
+                batch.set(db.collection('presenze').doc(idDoc(evento, d.id)), {
+                    evento: evento, idIscritto: d.id, modalita: nuova, ...firma
+                }, { merge: true });
+                nel++;
+                if (nel >= 400) { await batch.commit(); batch = db.batch(); nel = 0; }
+            }
+            if (nel) await batch.commit();
+            await segnaCambiamento(db);
+
+            let mailEsito = null;
+            if (m) {
+                const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+                const fromName = (process.env.SMTP_FROM_NAME || 'Revilaw S.p.A.').replace(/[\r\n]/g, ' ').slice(0, 80);
+                const trans = trasporto();
+                let inviate = 0, senzaScheda = 0, senzaEmail = 0, doppie = 0;
+                const falliti = [];
+                const visti = {};   // un indirizzo, una mail: due iscrizioni non fanno due avvisi
+                for (const d of dest) {
+                    const docId = d.doc || idIscrizione(d.id);
+                    const rif = db.collection('iscrizioni').doc(docId);
+                    const snap = await rif.get();
+                    if (!snap.exists) { senzaScheda++; continue; }
+                    const s = snap.data() || {};
+                    // chi ha annullato nel frattempo non deve ricevere l'avviso:
+                    // per lui non c'e' nessuna partecipazione da spostare
+                    if (s.annullato) { senzaScheda++; continue; }
+                    const a = String(s.email || '').toLowerCase();
+                    if (!a || !emailValida(a)) { senzaEmail++; continue; }
+                    if (visti[a]) { doppie++; continue; }
+                    visti[a] = true;
+                    const nomeDest = ((String(s.nome || '') + ' ' + String(s.cognome || '')).trim()) || 'ospite';
+                    const link = NL.linkCompleta(docId);
+                    try {
+                        await trans.sendMail({
+                            from: '"' + fromName + '" <' + fromEmail + '>',
+                            replyTo: email,
+                            to: a,
+                            subject: oggettoBase,
+                            text: testoBase ? testoBase.split('{{NOME}}').join(nomeDest).split('{{COMPLETA}}').join(link) : undefined,
+                            html: htmlBase.split('{{NOME}}').join(esc(nomeDest)).split('{{COMPLETA}}').join(link)
+                        });
+                        inviate++;
+                        // sulla presenza resta scritto che l'avviso e' partito: senza,
+                        // al secondo giro non si saprebbe a chi si e' gia' scritto
+                        await db.collection('presenze').doc(idDoc(evento, d.id)).set({
+                            avvisoModalita: { modalita: nuova, quando: Date.now(), da: email, daNome: firma.daNome, collab: collab }
+                        }, { merge: true });
+                    } catch (e) {
+                        const motivo = String((e && e.message) || 'errore del server di posta').slice(0, 150);
+                        falliti.push({ email: a, motivo: motivo });
+                    }
+                }
+                if (inviate) await segnaCambiamento(db);
+                mailEsito = { inviate: inviate, senzaScheda: senzaScheda, senzaEmail: senzaEmail, doppie: doppie, falliti: falliti.slice(0, 50) };
+            }
+            res.status(200).json({ ok: true, spostate: dest.length, modalita: nuova, mail: mailEsito });
+            return;
+        }
+
         /* Spostare un referente da un'azienda a un'altra. Serve perche' chi
            organizza gli incontri sa cose che l'iscritto non ha scritto: che
            "Mario di Alfa" lavora per la controllata, che due ragioni sociali
@@ -776,7 +900,16 @@ module.exports = async (req, res) => {
             patch.stato = st;
         }
         if (Object.prototype.hasOwnProperty.call(body, 'nota')) patch.nota = testo(body.nota, 500);
-        if (patch.stato === undefined && patch.nota === undefined) {
+        /* La modalita' dalla tendina della riga: la cambia chiunque sia
+           abilitato alla sezione, come lo stato. Lo spostamento in blocco CON
+           l'avviso e' un'altra azione ("sposta-modalita"), riservata a chi puo'
+           scrivere agli iscritti. */
+        if (Object.prototype.hasOwnProperty.call(body, 'modalita')) {
+            const md = testo(body.modalita, 20).toLowerCase();
+            if (MODALITA.indexOf(md) < 0) { res.status(400).json({ ok: false, msg: 'Modalita non valida.' }); return; }
+            patch.modalita = md;
+        }
+        if (patch.stato === undefined && patch.nota === undefined && patch.modalita === undefined) {
             res.status(400).json({ ok: false, msg: 'Niente da salvare.' });
             return;
         }
@@ -790,6 +923,7 @@ module.exports = async (req, res) => {
             ok: true,
             presenza: {
                 stato: String(v.stato || ''), nota: String(v.nota || ''),
+                modalita: String(v.modalita || ''),
                 da: String(v.da || ''), daNome: String(v.daNome || ''),
                 collab: String(v.collab || ''),
                 quando: typeof v.quando === 'number' ? v.quando : Date.now()

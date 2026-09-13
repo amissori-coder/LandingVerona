@@ -977,6 +977,15 @@ module.exports = async (req, res) => {
             if (valore) scheda[campo] = valore;
         }
 
+        /* Modalita' di partecipazione, quando il modulo la chiede: "presenza"
+           oppure "online". Si scrive SOLO se arriva: l'assenza del campo vale
+           in presenza, com'erano tutte le iscrizioni fino a Napoli, e un campo
+           vuoto su ogni iscrizione di ogni altro modulo sarebbe rumore.
+           Chi organizza puo' comunque spostare in online chi resta fuori dalla
+           sala: quella decisione vive fra le presenze, non qui. */
+        const modalita = testo(body.modalita, 20).toLowerCase();
+        if (modalita === 'presenza' || modalita === 'online') scheda.modalita = modalita;
+
         const idDoc = idDocumento(email, data, nome, cognome);
         await admin.firestore().collection('iscrizioni')
             .doc(idDoc)
@@ -1015,7 +1024,10 @@ module.exports = async (req, res) => {
         if (email && RE_PAGINA_EVENTO.test(pagina)) {
             try {
                 const m = MNGB.confermaSito(
-                    { nome: nome, cognome: cognome, email: email, azienda: scheda.azienda, pagina: pagina, data: data },
+                    {
+                        nome: nome, cognome: cognome, email: email, azienda: scheda.azienda,
+                        pagina: pagina, data: data, modalita: scheda.modalita || ''
+                    },
                     NL.linkCompleta(idDoc));
                 await trasporto().sendMail({
                     from: mittenteMail(), to: email,

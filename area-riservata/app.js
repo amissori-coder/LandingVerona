@@ -3202,9 +3202,30 @@
         }
     }
 
-    /* Testo pulito di una cella (per filtri ed export). */
+    /* Testo pulito di una cella (per filtri ed export).
+       Quando dentro c'e' un comando - la tendina dello stato o della modalita',
+       la casella della nota - il testo della cella NON e' quello che si vede: di
+       un <select> textContent restituisce tutte le opzioni una dopo l'altra
+       ("In presenzaOnline"), di un <input> non restituisce niente. Cosi' la
+       ricerca non trovava "online" e il CSV esportava l'elenco delle scelte
+       possibili al posto di quella fatta. Qui ogni comando vale per il valore
+       che mostra: si lavora su una copia, quindi la tabella non si tocca. */
     function _testoCella(cella) {
-        return cella ? cella.textContent.trim().replace(/\s+/g, ' ') : '';
+        if (!cella) return '';
+        const campi = cella.querySelectorAll ? cella.querySelectorAll('select, input, textarea') : [];
+        if (!campi.length) return cella.textContent.trim().replace(/\s+/g, ' ');
+        const copia = cella.cloneNode(true);
+        const dentro = copia.querySelectorAll('select, input, textarea');
+        Array.prototype.forEach.call(campi, (c, i) => {
+            let v = '';
+            if (c.tagName === 'SELECT') v = c.options[c.selectedIndex] ? c.options[c.selectedIndex].text : '';
+            // spunte e scelte non hanno un testo da esportare: la colonna della
+            // selezione non finisce ne' nella ricerca ne' nel CSV
+            else if (c.type !== 'checkbox' && c.type !== 'radio') v = c.value || '';
+            const testo = document.createTextNode(' ' + String(v).trim() + ' ');
+            if (dentro[i] && dentro[i].parentNode) dentro[i].parentNode.replaceChild(testo, dentro[i]);
+        });
+        return copia.textContent.trim().replace(/\s+/g, ' ');
     }
 
     /* Esporta in CSV le righe VISIBILI (rispetta i filtri) di una tabella "dati",
@@ -15514,10 +15535,13 @@
        impresa finche' non si cambia vista. */
     function firmaIscr(l) { return (l || []).map(r => r.id + '~' + (r.azienda || '')).join('|'); }
     // anche stati e note entrano nell'impronta: se un collega segna una presenza,
-    // l'aggiornamento automatico se ne accorge e ridisegna
+    // l'aggiornamento automatico se ne accorge e ridisegna. Nell'impronta c'e'
+    // anche la modalita' (e l'avviso che l'accompagna): se un collega sposta
+    // qualcuno online, la tabella lo deve mostrare da sola
     function firmaPres(p) {
         const o = p || {};
-        return Object.keys(o).sort().map(k => k + ':' + (o[k].stato || '') + ':' + (o[k].nota || '')).join('|');
+        return Object.keys(o).sort().map(k => k + ':' + (o[k].stato || '') + ':' + (o[k].nota || '')
+            + ':' + (o[k].modalita || '') + ':' + ((o[k].avvisoModalita && o[k].avvisoModalita.quando) || '')).join('|');
     }
     // elenco gia' letto per ciascun evento: resta in memoria, mai su disco
     let _evCache = {};
@@ -15746,6 +15770,33 @@
     }
 
     const NOMI_STATO = { '': '-', confermato: 'Confermato', presente: 'Presente', assente: 'Assente' };
+    /* MODALITA' DI PARTECIPAZIONE: in sala oppure online.
+       Il valore vuoto vale IN PRESENZA e non "non si sa": fino a Napoli il
+       modulo non lo chiedeva e in sala ci andavano tutti. Due fonti, in
+       quest'ordine:
+         1. la decisione di chi organizza, che sta con lo stato e la nota
+            (quando i posti in sala finiscono, chi resta fuori si sposta online);
+         2. quello che la persona dichiarera' iscrivendosi, che sta sulla scheda,
+            quando il modulo comincera' a chiederlo.
+       L'ultima parola e' della prima: chi entra in sala lo decide chi organizza. */
+    const NOMI_MODALITA = { presenza: 'In presenza', online: 'Online' };
+    function modalitaDi(ev, r) {
+        const p = EventiPresenze.di(ev.id, r.id) || {};
+        const scelta = String(p.modalita || (r && r.modalita) || '').toLowerCase();
+        return scelta === 'online' ? 'online' : 'presenza';
+    }
+    /* L'avviso del passaggio all'online, se e' partito: { modalita, quando,
+       daNome }. Serve a non scrivere due volte alla stessa persona. */
+    function avvisoModalitaDi(ev, r) {
+        const p = EventiPresenze.di(ev.id, r.id) || {};
+        return (p.avvisoModalita && p.avvisoModalita.quando) ? p.avvisoModalita : null;
+    }
+    /* "avvisato il 12/09": la data basta, l'ora in tabella non serve a nessuno. */
+    function avvisoBreve(a) {
+        if (!a || !a.quando) return '';
+        const d = new Date(a.quando);
+        return 'avvisato il ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+    }
     // colonne aggiuntive scelte dall'utente, per evento: gli elenchi hanno colonne
     // diverse fra loro (citta, partita IVA, fatturato...) e si mostrano su richiesta
     let _evColonne = {};
@@ -15866,6 +15917,19 @@
             const cellaNota = segna
                 ? '<td data-label="Nota"><input type="text" class="ev-nota" data-id="' + esc(r.id) + '" value="' + esc(p.nota || '') + '" placeholder="nota"></td>'
                 : '<td data-label="Nota">' + esc(p.nota || '-') + '</td>';
+            /* In sala o online: e' la colonna che dice chi occupa un posto
+               davvero, quindi sta accanto allo stato e non fra le aggiuntive.
+               Sotto la tendina, quando l'avviso del passaggio e' partito, la
+               data: e' l'unico modo per sapere a chi si e' gia' scritto. */
+            const md = modalitaDi(ev, r);
+            const avvisato = avvisoBreve(avvisoModalitaDi(ev, r));
+            const opzM = (v, t) => '<option value="' + v + '"' + (md === v ? ' selected' : '') + '>' + t + '</option>';
+            const cellaModalita = segna
+                ? '<td data-label="Modalità"><select class="ev-modalita' + (md === 'online' ? ' online' : '') + '" data-id="' + esc(r.id) + '">'
+                + opzM('presenza', NOMI_MODALITA.presenza) + opzM('online', NOMI_MODALITA.online)
+                + '</select>' + (avvisato ? '<div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '') + '</td>'
+                : '<td data-label="Modalità">' + esc(NOMI_MODALITA[md])
+                + (avvisato ? '<div class="hint ev-avvisato">' + esc(avvisato) + '</div>' : '') + '</td>';
             return '<tr>'
                 + (adminEv ? '<td data-label=""><input type="checkbox" class="ev-sel" value="' + esc(r.id) + '"'
                     + (_evSelezionate.has(r.id) ? ' checked' : '') + ' aria-label="Seleziona"></td>' : '')
@@ -15918,7 +15982,7 @@
                    modulo "completa i dati" (l'intestatario, marcato "dal modulo");
                    per ultima la firma di chi ha inserito la scheda a mano. Tutte
                    hanno la forma di una presenza, quindi si scrivono uguali. */
-                + (ev.tutti ? '' : cellaStato + cellaNota
+                + (ev.tutti ? '' : cellaModalita + cellaStato + cellaNota
                     + '<td data-label="Aggiornato da"><span class="ev-firma">' + firmaDueRighe(firmaPresenza(p)
                         || (r.compilato && r.compilato.daNome ? firmaPresenza({ daNome: r.compilato.daNome + ' (dal modulo)', quando: r.compilato.quando }) : '')
                         || firmaPresenza(r.inserito) || '-') + '</span></td>')
@@ -15940,6 +16004,17 @@
                         + (puoRichiedere && ev.manuale && r.email
                             ? '<button type="button" class="ev-menu-voce ev-b2bi" data-id="' + esc(r.id) + '">Invita agli incontri B2B</button>'
                             : '')
+                        /* Una persona alla volta, con l'avviso: serve per chi
+                           arriva dopo che la sala e' piena. Nel riepilogo no:
+                           li' le presenze non si leggono, e la modalita' e' una
+                           di quelle. */
+                        + (puoRichiedere && !ev.tutti
+                            ? (modalitaDi(ev, r) === 'online'
+                                ? '<button type="button" class="ev-menu-voce ev-inpresenza" data-id="' + esc(r.id) + '">Riporta in presenza</button>'
+                                + (r.email ? '<button type="button" class="ev-menu-voce ev-online" data-id="' + esc(r.id) + '">'
+                                    + (avvisoModalitaDi(ev, r) ? 'Invia di nuovo l\'avviso online' : 'Avvisa del passaggio online') + '</button>' : '')
+                                : '<button type="button" class="ev-menu-voce ev-online" data-id="' + esc(r.id) + '">Sposta online e avvisa</button>')
+                            : '')
                         + (adminEv
                             ? '<button type="button" class="ev-menu-voce ev-canc" data-id="'
                             + esc(r.id) + '" data-nome="' + esc((r.nome + ' ' + r.cognome).trim() || r.email) + '">'
@@ -15955,6 +16030,10 @@
             ? '<div class="ev-barra' + (nSel ? '' : ' vuota') + '">'
             + '<span><b>' + nSel + '</b> iscrizioni selezionate</span>'
             + '<button class="btn btn-sm btn-secondary" id="ev-sel-nessuna">Deseleziona</button>'
+            /* Lo spostamento in blocco sta qui e non fra le azioni della riga:
+               i posti in sala finiscono per tutti insieme, e chi resta fuori si
+               sposta in un colpo solo, con un avviso solo. */
+            + (ev.tutti ? '' : '<button class="btn btn-sm btn-secondary" id="ev-online-multi">Sposta online le selezionate</button>')
             + '<button class="btn btn-sm btn-danger" id="ev-canc-multi">'
             + (ev.tutti ? 'Togli le selezionate da questo elenco' : 'Cancella le selezionate') + '</button></div>'
             : '';
@@ -15982,7 +16061,7 @@
             + (fisse ? '<col class="c-portale"><col class="c-part"><col class="c-b2b"><col class="c-pref">' : '')
             + (ev.tutti ? '<col>' : '')
             + extra.map(() => '<col>').join('')
-            + (ev.tutti ? '' : '<col class="c-stato"><col><col class="c-agg">')
+            + (ev.tutti ? '' : '<col class="c-modalita"><col class="c-stato"><col><col class="c-agg">')
             + (azioniEv ? '<col class="c-azioni">' : '')
             + '</colgroup>'
             + '<thead><tr>'
@@ -15993,7 +16072,8 @@
                 + '<th title="I temi indicati al momento dell\'iscrizione: preferenze, non prenotazioni">Preferenze iscrizione</th>' : '')
             + (ev.tutti ? '<th>Evento</th>' : '')
             + extra.map(c => '<th>' + esc(c) + '</th>').join('')
-            + (ev.tutti ? '' : '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
+            + (ev.tutti ? '' : '<th title="In sala oppure online: quando i posti in presenza finiscono, chi resta fuori si sposta all\'online">Modalità</th>'
+                + '<th>Stato</th><th>Nota</th><th>Aggiornato da</th>')
             + (azioniEv ? '<th></th>' : '')
             + '</tr></thead><tbody>' + righe + '</tbody></table></div>';
     }
@@ -16030,6 +16110,14 @@
             ? new Set(_evIscrizioni.map(r => String(r.email || '').toLowerCase()).filter(Boolean)).size
             : null;
         const conf = _evIscrizioni ? _evIscrizioni.filter(r => { const p = EventiPresenze.di(ev.id, r.id); return p && (p.stato === 'confermato' || p.stato === 'presente'); }).length : 0;
+        /* Quanti posti in sala servono davvero e quanti seguono online: sono i
+           due numeri con cui si decide quando la sala e' piena. Si contano le
+           PERSONE (un'iscrizione manuale copre piu' posti), come il totale dei
+           partecipanti qui sopra, e non compaiono nel riepilogo, dove la
+           modalita' non si legge. */
+        const nOnline = _evIscrizioni && !ev.tutti
+            ? _evIscrizioni.filter(r => modalitaDi(ev, r) === 'online').reduce((t, r) => t + partecipantiDi(r), 0) : null;
+        const nSala = (_evIscrizioni && !ev.tutti) ? (nPart - nOnline) : null;
 
         const gestione = admin
             ? '<div class="card s-admin"><div class="s-admin-txt"><strong>Accesso alla sezione</strong>'
@@ -16080,6 +16168,8 @@
             + '<div class="ev-num">' + (nIsc === null ? '-' : nIsc) + '<span>iscrizioni</span></div>'
             + ((ev.manuale || ev.tutti) ? '<div class="ev-num">' + (nPart === null ? '-' : nPart) + '<span>partecipanti</span></div>' : '')
             + '<div class="ev-num">' + (nIndir === null ? '-' : nIndir) + '<span>indirizzi diversi</span></div>'
+            + (ev.tutti ? '' : '<div class="ev-num">' + (nSala === null ? '-' : nSala) + '<span>in presenza</span></div>'
+                + '<div class="ev-num">' + (nOnline === null ? '-' : nOnline) + '<span>online</span></div>')
             + (ev.tutti ? '' : '<div class="ev-num verde">' + conf + '<span>confermati / presenti</span></div>') + '</div>'
             + gestione + aziendeInvitoHtml(ev) + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
@@ -16154,6 +16244,25 @@
             aggiornaFirma(s, id);
             try { Audit.registra(Auth.utenteCorrente, 'Evento: stato iscritto aggiornato', 'sistema', ev.id, null, id + ' -> ' + (s.value || '-')); } catch (e) { }
         }));
+        /* La tendina della modalita': cambia la sola modalita', senza avvisare
+           nessuno. L'avviso e' un'altra cosa, e si manda dal menu della riga o
+           dalla barra della selezione: cambiando la tendina per sbaglio non deve
+           partire una mail. */
+        $vista().querySelectorAll('.ev-modalita').forEach(s => s.addEventListener('change', () => {
+            const id = s.dataset.id;
+            const scelta = s.value === 'online' ? 'online' : 'presenza';
+            s.classList.toggle('online', scelta === 'online');
+            EventiPresenze.imposta(ev.id, id, { modalita: scelta }, () => {
+                if (vistaCorrente !== 'eventi') return;
+                const p = EventiPresenze.di(ev.id, id) || {};
+                const vero = (p.modalita || 'presenza');
+                if (s.value !== vero) { s.value = vero; s.classList.toggle('online', vero === 'online'); }
+                aggiornaFirma(s, id);
+                _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+            });
+            aggiornaFirma(s, id);
+            try { Audit.registra(Auth.utenteCorrente, 'Evento: modalità di partecipazione', 'sistema', ev.id, null, id + ' -> ' + scelta); } catch (e) { }
+        }));
         $vista().querySelectorAll('.ev-nota').forEach(n => n.addEventListener('change', () => {
             const id = n.dataset.id;
             EventiPresenze.imposta(ev.id, id, { nota: n.value.trim() }, () => {
@@ -16179,6 +16288,14 @@
         $vista().querySelectorAll('.ev-b2bi').forEach(b => b.addEventListener('click', () => {
             const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
             if (r) modaleInvitoB2B(ev, r);
+        }));
+        $vista().querySelectorAll('.ev-online').forEach(b => b.addEventListener('click', () => {
+            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+            if (r) modaleSpostaModalita(ev, [r], 'online');
+        }));
+        $vista().querySelectorAll('.ev-inpresenza').forEach(b => b.addEventListener('click', () => {
+            const r = (_evIscrizioni || []).find(x => x.id === b.dataset.id);
+            if (r) modaleSpostaModalita(ev, [r], 'presenza');
         }));
         // menu a tre puntini: uno aperto alla volta; scegliendo una voce si chiude
         const chiudiMenuEv = () => $vista().querySelectorAll('.ev-menu-lista').forEach(l => {
@@ -16256,6 +16373,14 @@
             const ids = Array.from($vista().querySelectorAll('.ev-sel:checked')).map(c => c.value);
             if (!ids.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
             confermaCancellaIscrizione(ev, ids, null);
+        });
+        const bOnlineMulti = document.getElementById('ev-online-multi');
+        if (bOnlineMulti) bOnlineMulti.addEventListener('click', () => {
+            const ids = Array.from($vista().querySelectorAll('.ev-sel:checked')).map(c => c.value);
+            if (!ids.length) { toast('Nessuna iscrizione selezionata.', 'rosso'); return; }
+            const righe = (_evIscrizioni || []).filter(r => ids.indexOf(r.id) >= 0);
+            if (!righe.length) { toast('Aggiorna l\'elenco e riprova.', 'rosso'); return; }
+            modaleSpostaModalita(ev, righe, 'online');
         });
         const tab = $vista().querySelector('table.dati');
         if (tab) attrezzaTabella(tab, { ricerca: true, nomeFile: 'iscrizioni-' + ev.id });
@@ -17477,6 +17602,155 @@
                 chiudiModale();
                 toast('Richiesta dati inviata a ' + r.email + '.', 'verde');
                 try { Audit.registra(Auth.utenteCorrente, 'Evento: richiesta dati partecipanti', 'sistema', ev.id, null, r.email + ' (' + nPart + ' posti)'); } catch (e) { }
+            });
+        });
+    }
+
+    /* =========================================================
+       SPOSTARE LE ISCRIZIONI FRA SALA E ONLINE
+       ---------------------------------------------------------
+       Quando i posti in presenza finiscono, chi resta fuori non si
+       cancella: si sposta all'online e lo si avvisa. La mail (formato
+       NGB) dice che i posti in sala sono esauriti, che l'iscrizione
+       resta valida e che il collegamento arrivera' qualche giorno
+       prima. Parte all'indirizzo indicato iscrivendosi - lo legge il
+       servizio dalla scheda, non lo scegliamo da qui.
+
+       La stessa finestra serve anche per il ritorno in sala, dove la
+       mail non c'e': "ti ho rimesso dentro" e' una notizia che si da'
+       a voce, e un avviso automatico in senso opposto confonderebbe.
+    ========================================================= */
+    function modaleSpostaModalita(ev, righe, verso) {
+        if (!puoAggiungereIscrizioni()) return;
+        if (!ev || ev.tutti) return;
+        const elenco = (righe || []).filter(Boolean);
+        if (!elenco.length) return;
+        const online = verso === 'online';
+        const uno = elenco.length === 1;
+        const nomeDi = r => (r.nome + ' ' + r.cognome).trim() || r.email || r.id;
+        // i posti veri che si spostano: un'iscrizione manuale ne copre piu' di uno
+        const nPosti = elenco.reduce((t, r) => t + partecipantiDi(r), 0);
+        /* I destinatari della mail: uno per INDIRIZZO, perche' chi risulta
+           iscritto due volte deve ricevere una mail sola (il servizio scarta i
+           doppioni allo stesso modo, ma il numero scritto qui dev'essere quello
+           che partira' davvero). */
+        const indirizzi = [];
+        elenco.forEach(r => {
+            const e = String(r.email || '').toLowerCase();
+            if (e && indirizzi.indexOf(e) < 0) indirizzi.push(e);
+        });
+        const senzaMail = elenco.filter(r => !String(r.email || '').trim()).length;
+        const giaAvvisati = elenco.filter(r => avvisoModalitaDi(ev, r)).length;
+        const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.passaggioOnline({
+            evento: {
+                titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
+                luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
+            }
+        }) : null;
+
+        const chi = uno ? '<strong>' + esc(nomeDi(elenco[0])) + '</strong>'
+            : '<strong>' + elenco.length + ' iscrizioni</strong>' + (nPosti !== elenco.length ? ' (' + nPosti + ' posti)' : '');
+        const testa = online
+            ? '<h2>' + (uno ? 'Sposta all\'online' : 'Sposta all\'online ' + elenco.length + ' iscrizioni') + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">' + chi + ' ' + (uno ? 'passa' : 'passano')
+            + ' alla partecipazione online: ' + (uno ? 'il suo posto in sala si libera' : 'i loro posti in sala si liberano')
+            + ', l\'iscrizione resta valida e i conteggi "in presenza" e "online" si aggiornano da soli. '
+            + 'La mail avvisa che i posti in sala sono esauriti e che il collegamento arriverà pochi giorni prima dell\'evento.</p>'
+            : '<h2>' + (uno ? 'Riporta in presenza' : 'Riporta in presenza ' + elenco.length + ' iscrizioni') + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;">' + chi + ' ' + (uno ? 'torna' : 'tornano')
+            + ' fra i partecipanti in sala. Nessuna mail parte: se ' + (uno ? 'era stato avvisato' : 'erano stati avvisati')
+            + ' del passaggio online, ' + (uno ? 'va avvertito' : 'vanno avvertiti') + ' a voce.</p>';
+        const scelteMail = online
+            ? '<label class="ev-imp-passo" style="display:block;">'
+            + '<input type="checkbox" id="sm-avvisa" checked> <strong>Invia anche l\'avviso</strong>'
+            + '<div class="hint" style="margin-top:4px;">'
+            + (indirizzi.length
+                ? 'Parte una mail a <b>' + indirizzi.length + '</b> ' + (indirizzi.length === 1 ? 'indirizzo' : 'indirizzi diversi')
+                + ', quello indicato iscrivendosi.'
+                : 'Nessuna delle iscrizioni selezionate ha un indirizzo email: lo spostamento si fa comunque, l\'avviso no.')
+            + (senzaMail ? ' <b>' + senzaMail + '</b> ' + (senzaMail === 1 ? 'iscrizione è senza email' : 'iscrizioni sono senza email') + ': ' + (senzaMail === 1 ? 'va avvisata' : 'vanno avvisate') + ' a mano.' : '')
+            + (giaAvvisati ? ' <b>' + giaAvvisati + '</b> ' + (giaAvvisati === 1 ? 'ha già ricevuto questo avviso: lo riceverà di nuovo.' : 'hanno già ricevuto questo avviso: lo riceveranno di nuovo.') : '')
+            + '</div></label>'
+            : '';
+        apriModale(testa + scelteMail
+            + (online
+                ? '<div id="sm-anteprima" style="display:none;margin-top:10px;">'
+                + '<iframe id="sm-frame" title="Anteprima della mail di passaggio online" sandbox="allow-same-origin" '
+                + 'style="width:100%;height:440px;border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+                : '')
+            + '<div id="sm-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="sm-no">Annulla</button>'
+            + (online ? '<button class="btn btn-secondary" id="sm-ant">Anteprima mail</button>' : '')
+            + '<button class="btn btn-primary" id="sm-si">' + (online ? 'Sposta online' : 'Riporta in presenza') + '</button></div>',
+            { classe: 'larga' });
+        const esito = (testo, ko) => {
+            const e = document.getElementById('sm-esito');
+            if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+        };
+        document.getElementById('sm-no').addEventListener('click', chiudiModale);
+        const bAnt = document.getElementById('sm-ant');
+        if (bAnt) bAnt.addEventListener('click', () => {
+            const m = mailDi();
+            if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return; }
+            const cont = document.getElementById('sm-anteprima');
+            const chiusa = cont.style.display === 'none';
+            cont.style.display = chiusa ? '' : 'none';
+            bAnt.textContent = chiusa ? 'Nascondi anteprima' : 'Anteprima mail';
+            /* Nell'anteprima i segnaposti diventano un nome di esempio e
+               l'indirizzo della pagina senza firma: i valori veri li mette il
+               servizio, uno per destinatario. */
+            if (chiusa) document.getElementById('sm-frame').srcdoc = m.html
+                .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(nomeDi(elenco[0])))
+                .split(RV_NEWSLETTER.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
+        });
+        document.getElementById('sm-si').addEventListener('click', () => {
+            const avvisa = online && !!(document.getElementById('sm-avvisa') || {}).checked && indirizzi.length > 0;
+            const m = avvisa ? mailDi() : null;
+            if (avvisa && !m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
+            const b = document.getElementById('sm-si');
+            b.disabled = true; b.textContent = avvisa ? 'Sposto e avviso...' : 'Sposto...';
+            Cloud.operaPresenza({
+                azione: 'sposta-modalita', evento: ev.id, modalita: verso,
+                destinatari: elenco.map(r => ({ id: r.id, doc: r.doc || '' })),
+                mail: m ? { oggetto: m.oggetto, html: m.html, testo: m.testo } : null
+            }).then(res => {
+                if (!res.ok) {
+                    b.disabled = false; b.textContent = online ? 'Sposta online' : 'Riporta in presenza';
+                    esito(res.msg || 'Spostamento non riuscito.', true);
+                    return;
+                }
+                /* A video subito, poi la verita' dal server: la modalita' si
+                   aggiorna qui, l'avviso ("avvisato il ...") arriva con la
+                   rilettura, che sa a chi la mail e' partita davvero. */
+                const u = Auth.utenteCorrente;
+                elenco.forEach(r => {
+                    _evPresenze[r.id] = {
+                        ...(_evPresenze[r.id] || {}), modalita: verso,
+                        da: u ? String(u.email).toLowerCase() : '', daNome: u ? (u.nome || u.email || '') : '',
+                        quando: Date.now()
+                    };
+                });
+                _evFirma = firmaIscr(_evIscrizioni) + '#' + firmaPres(_evPresenze);
+                chiudiModale();
+                const esMail = res.mail || null;
+                const parti = [(res.spostate || elenco.length) + (res.spostate === 1 ? ' iscrizione spostata' : ' iscrizioni spostate')
+                    + (online ? ' all\'online' : ' in presenza')];
+                if (esMail) {
+                    parti.push(esMail.inviate + (esMail.inviate === 1 ? ' avviso inviato' : ' avvisi inviati'));
+                    if (esMail.senzaEmail) parti.push(esMail.senzaEmail + ' senza email');
+                    if (esMail.senzaScheda) parti.push(esMail.senzaScheda + ' senza scheda sul database');
+                    if (esMail.falliti && esMail.falliti.length) parti.push(esMail.falliti.length + ' non consegnati');
+                }
+                const ko = !!(esMail && ((esMail.falliti && esMail.falliti.length) || esMail.senzaScheda));
+                toast(parti.join(' · ') + '.', ko ? 'rosso' : 'verde');
+                try {
+                    Audit.registra(Auth.utenteCorrente, 'Evento: iscrizioni spostate ' + (online ? 'online' : 'in presenza'),
+                        'sistema', ev.id, null, elenco.length + ' iscrizioni' + (esMail ? ', ' + esMail.inviate + ' avvisi' : ', nessun avviso'));
+                } catch (e) { }
+                // rilettura vera: porta l'avviso registrato e allinea chi guarda da altrove
+                _evUltimoTentativo[ev.id] = 0;
+                caricaIscrizioni(ev, () => { if (vistaCorrente === 'eventi') vistaEventi(); }, true);
+                if (vistaCorrente === 'eventi') vistaEventi();
             });
         });
     }

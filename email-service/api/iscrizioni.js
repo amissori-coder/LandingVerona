@@ -279,6 +279,18 @@ module.exports = async (req, res) => {
                     if (!v.idIscritto) return;
                     presenze[v.idIscritto] = {
                         stato: String(v.stato || ''), nota: String(v.nota || ''),
+                        /* In sala o online. Vuoto vale IN PRESENZA: fino a Napoli
+                           il modulo non lo chiedeva e in sala ci andavano tutti. */
+                        modalita: String(v.modalita || ''),
+                        /* Quando gli e' stato detto che seguira' online, e da chi:
+                           serve a non scrivere due volte alla stessa persona. */
+                        avvisoModalita: (v.avvisoModalita && typeof v.avvisoModalita === 'object') ? {
+                            modalita: String(v.avvisoModalita.modalita || ''),
+                            da: String(v.avvisoModalita.da || ''),
+                            daNome: String(v.avvisoModalita.daNome || ''),
+                            collab: String(v.avvisoModalita.collab || ''),
+                            quando: typeof v.avvisoModalita.quando === 'number' ? v.avvisoModalita.quando : 0
+                        } : null,
                         da: String(v.da || ''), daNome: String(v.daNome || ''),
                         // il collaboratore reale, se c'e': l'area lo mostra solo al suo riferimento
                         collab: String(v.collab || ''),
@@ -314,6 +326,12 @@ module.exports = async (req, res) => {
                     nome: String(v.nome || ''), cognome: String(v.cognome || ''), email: em,
                     azienda: String(v.azienda || ''), ruolo: String(v.ruolo || ''),
                     telefono: String(v.telefono || ''), messaggio: String(v.messaggio || ''),
+                    /* La modalita' DICHIARATA iscrivendosi, quando il modulo la
+                       chiede: "presenza" o "online". Vuota sulle iscrizioni
+                       raccolte finora, che erano tutte in sala. Non e' l'ultima
+                       parola: chi organizza puo' spostare in online chi resta
+                       fuori dalla sala, e quella decisione sta fra le presenze. */
+                    modalita: String(v.modalita || ''),
                     /* chi ha inserito la scheda a mano (equity o amministratore):
                        l'area riservata lo mostra in "Aggiornato da" finche' non
                        ci sono presenze. Le iscrizioni dai form non ce l'hanno. */

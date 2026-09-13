@@ -1504,6 +1504,124 @@
         return temi ? pre + dentro.split('{{TEMI}}').join(temi) + dopo : pre + dopo;
     }
 
+    /* =========================================================
+       MAIL "POSTI IN SALA ESAURITI: SI SEGUE ONLINE"
+       ---------------------------------------------------------
+       Parte a chi si era iscritto in presenza e viene spostato alla
+       partecipazione online perche' i posti in sala sono finiti.
+       Dice tre cose, nell'ordine in cui servono a chi legge:
+         1. i posti in sala sono esauriti;
+         2. l'iscrizione NON e' persa: resta valida per l'online;
+         3. il collegamento e le istruzioni arrivano qualche giorno
+            prima dell'evento (cioe': adesso non deve fare niente).
+       Registro formale come l'invito B2B: e' una comunicazione
+       personale, e non e' una bella notizia - darla col "tu" della
+       conferma automatica suonerebbe sbrigativa.
+       Due segnaposti, sostituiti dal servizio PER DESTINATARIO:
+         {{NOME}}     - nome e cognome dell'iscritto;
+         {{COMPLETA}} - il suo collegamento personale firmato, da cui
+                        puo' correggere i dati o rinunciare.
+       `dati.evento`: titolo, quando, sottotitolo, luogo, indirizzo.
+    ========================================================= */
+    const MOTIVO_ONLINE = 'Ricevi questa email perché risulti iscritto a questo evento: non è una comunicazione promozionale.';
+    function passaggioOnline(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const nomeConvegno = 'Next Generation Business' + (ev.sottotitolo ? ' - ' + ev.sottotitolo : '');
+        const oggetto = 'Posti in sala esauriti: potrà seguire online - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '');
+        const anteprima = 'La Sua iscrizione resta valida: seguirà i lavori online. Le istruzioni arrivano pochi giorni prima.';
+
+        const sommario = 'Gentile ' + SEGNAPOSTO_NOME + ', La ringraziamo per essersi iscritto al convegno "' + nomeConvegno + '"'
+            + (quandoEv ? ' di ' + quandoEv : '') + '. I posti disponibili in sala sono esauriti: la Sua iscrizione resta valida '
+            + 'e Le riserviamo la partecipazione online.';
+        const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
+            + tabellaInterna(
+                '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
+                + '</a></td></tr>'
+                + spazio(24)
+                + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
+                + spazio(12)
+                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">La seguiremo online</td></tr>'
+                + spazio(16)
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(sommario) + '</td></tr>'
+            )
+            + '</td></tr>';
+        const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
+            + '</td></tr>';
+
+        const riga = (et, val) => val
+            ? '<tr><td width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>'
+            : '';
+        /* Nel riepilogo NON c'e' la sede: chi legge questa mail non deve
+           raggiungere un indirizzo, e scriverglielo sarebbe una beffa. */
+        const box = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
+            + '<tr><td style="padding:16px 22px;">' + tabellaInterna(
+                riga('Evento', ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business')
+                + riga('Data', ev.quando)
+                + riga('Partecipazione', 'Online, da collegamento')
+                + riga('Iscrizione', 'Valida, nessuna azione richiesta')
+            ) + '</td></tr></table>';
+
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        const corpo = cella(tabellaInterna(
+            spazio(30)
+            + par('L\'interesse verso l\'iniziativa è stato superiore alla capienza della sala e le adesioni in presenza hanno esaurito i posti '
+                + 'disponibili. Ci dispiace non poterLa accogliere di persona: perché non perda i lavori, la Sua iscrizione è stata confermata '
+                + 'per la partecipazione online.')
+            + spazio(22)
+            + '<tr><td>' + box + '</td></tr>'
+            + spazio(26)
+            + par('Pochi giorni prima dell\'evento riceverà a questo stesso indirizzo il collegamento e le istruzioni per seguire i lavori online. '
+                + 'Da adesso a quel momento non deve fare nulla: pensiamo noi a scriverLe.')
+            + spazio(24)
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">'
+            + 'Se preferisce rinunciare, o se i Suoi dati sono da correggere, può farlo dal '
+            + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">Suo collegamento personale</a>. '
+            + 'Il collegamento vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.</td></tr>'
+        ));
+
+        const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
+        const linkPiede = 'color:' + C.tenue + ';text-decoration:underline;';
+        const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
+            + tabellaInterna(
+                rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
+                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + spazio(10)
+                + rigaPiede('color:' + C.tenue + ';',
+                    '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
+                    + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
+                + spazio(8)
+                + rigaPiede('color:#94A3B8;', esc(MOTIVO_ONLINE) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+            )
+            + '</td></tr>';
+
+        const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piede);
+
+        const testo = ['LA SEGUIREMO ONLINE', sommario,
+            'L\'interesse verso l\'iniziativa è stato superiore alla capienza della sala e le adesioni in presenza hanno esaurito i posti disponibili. '
+            + 'Ci dispiace non poterLa accogliere di persona: perché non perda i lavori, la Sua iscrizione è stata confermata per la partecipazione online.',
+            ['Evento: ' + (ev.titolo ? 'Next Generation Business - ' + ev.titolo : 'Next Generation Business'),
+                ev.quando ? 'Data: ' + ev.quando : '',
+                'Partecipazione: Online, da collegamento',
+                'Iscrizione: Valida, nessuna azione richiesta'].filter(Boolean).join('\n'),
+            'Pochi giorni prima dell\'evento riceverà a questo stesso indirizzo il collegamento e le istruzioni per seguire i lavori online. '
+            + 'Da adesso a quel momento non deve fare nulla: pensiamo noi a scriverLe.',
+            'Per rinunciare o correggere i Suoi dati: ' + SEGNAPOSTO_COMPLETA,
+            'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
+            '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_ONLINE,
+            'Informativa privacy: ' + PRIVACY].filter(Boolean).join('\n\n');
+
+        return { oggetto: oggetto, html: html, testo: testo };
+    }
+
 
     /* =========================================================
        DALLA PAGINA DEL SITO ALLA NEWSLETTER
@@ -1618,7 +1736,8 @@
         COLORI: C, LARGHEZZA: LARGHEZZA, TIPI_BLOCCO: TIPI_BLOCCO, FASI: FASI, ORDINE_FASI: ORDINE_FASI,
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA,
         SEGNAPOSTO_B2B: SEGNAPOSTO_B2B, SEGNAPOSTO_NOME: SEGNAPOSTO_NOME, TEMI_B2B: TEMI_B2B,
-        costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati, invitoB2B: invitoB2B, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
+        costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati, invitoB2B: invitoB2B,
+        passaggioOnline: passaggioOnline, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
     };

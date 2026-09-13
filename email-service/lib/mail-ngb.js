@@ -173,21 +173,31 @@ function piede(motivo) {
 const MOTIVO = 'Ricevi questa email come conferma della tua iscrizione all\'evento: non è una comunicazione promozionale.';
 
 /* --- Conferma di un'iscrizione arrivata dal form del sito ---
-   `dati`: { nome, cognome, email, azienda, pagina, data }; `link` e' il
-   collegamento personale firmato per modificare o annullare. */
+   `dati`: { nome, cognome, email, azienda, pagina, data, modalita }; `link` e'
+   il collegamento personale firmato per modificare o annullare.
+   `modalita` vale 'online' quando il modulo la chiede e la persona ha scelto
+   di seguire da remoto: allora non c'e' nessun posto in sala da riservare, e
+   la mail non deve dire il contrario. Assente o 'presenza' = in sala, com'era
+   ogni iscrizione fino a Napoli. */
 function confermaSito(dati, link) {
     const evento = nomeEvento(dati.pagina);
     const nomeCompleto = ((dati.nome || '') + ' ' + (dati.cognome || '')).trim();
+    const online = String((dati && dati.modalita) || '').toLowerCase() === 'online';
     const oggetto = 'Iscrizione ricevuta - Next Generation Business, ' + evento;
     const saluto = 'Gentile ' + (nomeCompleto || 'ospite') + ',';
-    const sommario = saluto + ' la tua iscrizione al convegno Next Generation Business di ' + evento + ' è stata registrata.';
+    const sommario = saluto + ' la tua iscrizione al convegno Next Generation Business di ' + evento + ' è stata registrata'
+        + (online ? ' per la partecipazione online' : '') + '.';
+    const apertura = online
+        ? 'La tua partecipazione online è registrata. Qualche giorno prima dell\'evento ti invieremo il collegamento e le istruzioni per seguirlo. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.'
+        : 'Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.';
     const html = involucro(oggetto, 'La tua iscrizione a ' + evento + ' è registrata: ecco il riepilogo.',
         testata('Iscrizione ricevuta', sommario)
         + corpo(
-            paragrafo('Il tuo posto è riservato. Qui sotto trovi il riepilogo: se qualcosa cambia, dal pulsante puoi correggere i tuoi dati o annullare l\'iscrizione, senza scriverci.')
+            paragrafo(apertura)
             + spazio(22)
             + '<tr><td>' + box(
                 rigaBox('Evento', 'Next Generation Business - ' + evento)
+                + rigaBox('Partecipazione', online ? 'Online' : '')
                 + rigaBox('Iscritto', nomeCompleto)
                 + rigaBox('Azienda', dati.azienda)
                 + rigaBox('Registrata il', String(dati.data || '').slice(0, 16))
@@ -195,11 +205,13 @@ function confermaSito(dati, link) {
             + spazio(28)
             + bottone('Modifica o annulla l\'iscrizione', link)
             + spazio(24)
-            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.</td></tr>'
+            + '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">Il collegamento è personale e vale solo per questa iscrizione: ti chiediamo di non inoltrarlo. '
+            + (online ? 'Ci colleghiamo insieme.' : 'Ti aspettiamo a ' + esc(evento.split(' ')[0]) + '.') + '</td></tr>'
         )
         + piede(MOTIVO));
-    const testo = ['ISCRIZIONE RICEVUTA', sommario,
+    const testo = ['ISCRIZIONE RICEVUTA', sommario, apertura,
         'Evento: Next Generation Business - ' + evento
+        + (online ? '\nPartecipazione: Online' : '')
         + (nomeCompleto ? '\nIscritto: ' + nomeCompleto : '')
         + (dati.azienda ? '\nAzienda: ' + dati.azienda : ''),
         'Modifica o annulla l\'iscrizione: ' + link,
