@@ -12,8 +12,8 @@
  * restituisce per ogni file: nessun file di versione da mantenere.
  *
  * ATTIVAZIONE: aprire una pagina con ?dev=1 -- resta attivo per tutta la
- * scheda, anche navigando fra le pagine. Si spegne con ?dev=0, cliccando
- * l'indicatore in basso a sinistra, o semplicemente chiudendo la scheda.
+ * scheda, anche navigando fra le pagine. Si spegne con ?dev=0 o chiudendo
+ * la scheda. Non aggiunge nessun elemento visibile alla pagina.
  *
  * In produzione questo file non viene mai scaricato: analytics.js lo
  * carica solo quando la modalita' dev e' attiva.
@@ -119,36 +119,10 @@
         target.el = next;
     }
 
-    /* ---- Indicatore in basso a sinistra ---- */
-    var badge;
-    function ui() {
-        if (badge) return badge;
-        badge = document.createElement('div');
-        badge.setAttribute('title', 'Live reload attivo — clicca per disattivarlo');
-        badge.style.cssText = [
-            'position:fixed', 'left:12px', 'bottom:12px', 'z-index:2147483647',
-            'padding:6px 10px', 'border-radius:999px', 'cursor:pointer',
-            'font:12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace',
-            'background:rgba(26,35,50,.88)', 'color:#fff', 'opacity:.75',
-            'box-shadow:0 2px 8px rgba(0,0,0,.25)', 'user-select:none',
-            'transition:opacity .2s,background .2s'
-        ].join(';');
-        badge.addEventListener('mouseenter', function () { badge.style.opacity = '1'; });
-        badge.addEventListener('mouseleave', function () { badge.style.opacity = '.75'; });
-        badge.addEventListener('click', function () {
-            try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignora */ }
-            clearInterval(timer);
-            badge.textContent = '⏻ live reload disattivato';
-            setTimeout(function () { if (badge.parentNode) badge.parentNode.removeChild(badge); }, 1500);
-        });
-        (document.body || document.documentElement).appendChild(badge);
-        return badge;
-    }
-
-    function say(text, color) {
-        var b = ui();
-        b.textContent = text;
-        b.style.background = color || 'rgba(26,35,50,.88)';
+    /* ---- Nessun elemento aggiunto alla pagina: quello che succede si
+       legge solo nella console del browser. ---- */
+    function say(text) {
+        if (window.console && console.info) console.info('[NGB] ' + text);
     }
 
     /* ---- Ciclo di controllo ---- */
@@ -170,7 +144,7 @@
             var ok = results.filter(function (r) { return r.sig !== null; });
             if (!ok.length) {
                 failures++;
-                if (failures >= 2) say('⚠ live reload — server non raggiungibile', 'rgba(140,60,20,.9)');
+                if (failures >= 2) say('server non raggiungibile, riprovo');
                 return;
             }
             failures = 0;
@@ -193,34 +167,30 @@
             });
 
             if (reload) {
-                say('↻ aggiornamento trovato — ricarico…', 'rgba(20,90,60,.92)');
+                say('aggiornamento trovato, ricarico la pagina');
                 setTimeout(function () { window.location.reload(); }, 150);
                 return;
             }
 
             if (changedCss.length) {
                 changedCss.forEach(swapCss);
-                say('✓ CSS aggiornato — ' + new Date().toLocaleTimeString('it-IT'), 'rgba(20,90,60,.92)');
-                setTimeout(function () { say('⟳ live reload attivo'); }, 4000);
+                say('CSS aggiornato alle ' + new Date().toLocaleTimeString('it-IT'));
                 return;
             }
-
-            if (first) say('⟳ live reload attivo');
         });
     }
 
-    var timer = setInterval(check, INTERVAL);
+    setInterval(check, INTERVAL);
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden) check();                    // controllo subito al rientro sulla scheda
     });
 
     function start() {
-        say('⟳ live reload attivo');
         check(true);
     }
     if (document.body) start();
     else document.addEventListener('DOMContentLoaded', start);
 
     console.info('[NGB] Live reload attivo su ' + targets.length + ' risorse, controllo ogni ' +
-        (INTERVAL / 1000) + 's. Per disattivarlo: ?dev=0 oppure clicca l\'indicatore in basso a sinistra.');
+        (INTERVAL / 1000) + 's. Per disattivarlo: ?dev=0');
 })();
