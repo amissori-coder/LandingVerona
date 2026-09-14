@@ -26,8 +26,13 @@
    destinatario; {{LINK_DIRETTA}} lo sostituisce l'area riservata
    con il collegamento scritto da chi programma (campo "linkDiretta").
 
+   Il servizio spedisce UNA VOLTA AL GIORNO, alle 8 del mattino: di una
+   proposta si sceglie il giorno, non l'ora. La vigilia si scrive la
+   mattina della vigilia, il giorno stesso alle 8, un'ora prima della
+   registrazione.
+
    Ogni proposta: { id, nome, sezioni: 'sala'|'online', giorniPrima,
-   ora, campi: ['linkDiretta'], mail: { oggetto, anteprima, titolo,
+   campi: ['linkDiretta'], mail: { oggetto, anteprima, titolo,
    sommario, paragrafi, righe, programma, pulsante, nota,
    linkPersonale } } - la parte `mail` e' quella che promemoriaEvento
    riceve, gia' con i segnaposti al loro posto.
@@ -105,7 +110,7 @@
         'napoli-2026-10-02': [
             /* ------------------------- IN SALA ------------------------- */
             {
-                id: 's1', serie: 'sala', giorniPrima: 15, ora: '10:00',
+                id: 's1', serie: 'sala', giorniPrima: 15,
                 nome: 'Due settimane prima: il percorso della giornata',
                 mail: {
                     oggetto: 'Mancano due settimane a Napoli: ecco il percorso della giornata',
@@ -124,7 +129,7 @@
                 }
             },
             {
-                id: 's2', serie: 'sala', giorniPrima: 8, ora: '10:00',
+                id: 's2', serie: 'sala', giorniPrima: 8,
                 nome: 'Una settimana prima: come arrivare e orari',
                 mail: {
                     oggetto: 'Una settimana a Napoli: come arrivare, orari e cosa aspettarti',
@@ -151,7 +156,7 @@
                 }
             },
             {
-                id: 's3', serie: 'sala', giorniPrima: 3, ora: '10:00',
+                id: 's3', serie: 'sala', giorniPrima: 3,
                 nome: 'Tre giorni prima: il posto ti aspetta (o liberalo)',
                 mail: {
                     oggetto: 'Tre giorni a Napoli: il tuo posto ti aspetta',
@@ -176,7 +181,7 @@
                 }
             },
             {
-                id: 's4', serie: 'sala', giorniPrima: 1, ora: '17:30',
+                id: 's4', serie: 'sala', giorniPrima: 1,
                 nome: 'La sera prima: a domani',
                 mail: {
                     oggetto: 'A domani! Ci vediamo alle 9.00 all\'Excelsior',
@@ -194,7 +199,7 @@
                 }
             },
             {
-                id: 's5', serie: 'sala', giorniPrima: 0, ora: '07:30',
+                id: 's5', serie: 'sala', giorniPrima: 0,
                 nome: 'La mattina stessa: oggi si comincia',
                 mail: {
                     oggetto: 'Buongiorno! Oggi si comincia: Via Partenope 48, dalle 9.00',
@@ -213,7 +218,7 @@
 
             /* -------------------------- ONLINE ------------------------- */
             {
-                id: 'o1', serie: 'online', giorniPrima: 15, ora: '10:30',
+                id: 'o1', serie: 'online', giorniPrima: 15,
                 nome: 'Due settimane prima: il percorso che seguirai online',
                 mail: {
                     oggetto: 'Mancano due settimane: il percorso che seguirai online',
@@ -232,7 +237,7 @@
                 }
             },
             {
-                id: 'o2', serie: 'online', giorniPrima: 8, ora: '10:30',
+                id: 'o2', serie: 'online', giorniPrima: 8,
                 nome: 'Una settimana prima: come funzionerà la diretta',
                 mail: {
                     oggetto: 'Una settimana all\'evento: come funzionerà la diretta',
@@ -257,7 +262,7 @@
                 }
             },
             {
-                id: 'o3', serie: 'online', giorniPrima: 2, ora: '10:00', campi: ['linkDiretta'],
+                id: 'o3', serie: 'online', giorniPrima: 2, campi: ['linkDiretta'],
                 nome: 'Due giorni prima: il collegamento alla diretta',
                 mail: {
                     oggetto: 'Il tuo collegamento per seguire Next Generation Business Napoli',
@@ -277,7 +282,7 @@
                 }
             },
             {
-                id: 'o4', serie: 'online', giorniPrima: 1, ora: '17:30', campi: ['linkDiretta'],
+                id: 'o4', serie: 'online', giorniPrima: 1, campi: ['linkDiretta'],
                 nome: 'La sera prima: a domani, con il collegamento',
                 mail: {
                     oggetto: 'A domani! Tieni a portata di mano il collegamento',
@@ -295,7 +300,7 @@
                 }
             },
             {
-                id: 'o5', serie: 'online', giorniPrima: 0, ora: '08:00', campi: ['linkDiretta'],
+                id: 'o5', serie: 'online', giorniPrima: 0, campi: ['linkDiretta'],
                 nome: 'La mattina stessa: oggi si comincia, con il collegamento',
                 mail: {
                     oggetto: 'Buongiorno! Oggi si comincia: ecco il collegamento alla diretta',
@@ -326,13 +331,13 @@
     }
     function serieDi(id) { return SERIE[id] || SERIE.sala; }
 
-    /* Quando spedire, in millisecondi, nell'ora locale di chi programma:
-       il giorno dell'evento meno `giorniPrima`, all'ora indicata. */
+    /* Il giorno in cui spedire, in millisecondi, a mezzanotte nell'ora di
+       chi programma: il giorno dell'evento meno `giorniPrima`. L'ora non si
+       sceglie: il servizio passa alle 8 del mattino. */
     function quandoProposto(prop, giornoEvento) {
         const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(giornoEvento || ''));
         if (!m || !prop) return 0;
-        const hm = /^(\d{1,2}):(\d{2})$/.exec(String(prop.ora || '10:00')) || [0, 10, 0];
-        const d = new Date(+m[1], +m[2] - 1, +m[3] - (Number(prop.giorniPrima) || 0), +hm[1], +hm[2], 0, 0);
+        const d = new Date(+m[1], +m[2] - 1, +m[3] - (Number(prop.giorniPrima) || 0), 0, 0, 0, 0);
         return d.getTime();
     }
 

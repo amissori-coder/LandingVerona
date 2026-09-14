@@ -19218,14 +19218,16 @@
        servizio (api/promemoria-eventi.js, ogni quarto d'ora) legge
        l'archivio, e per ogni promemoria dovuto risolve GLI ISCRITTI DI
        QUEL MOMENTO nelle sezioni scelte, personalizza e spedisce, poi
-       scrive l'esito sul record. Chi si iscrive DOPO l'invio non resta
-       senza: lo stesso lavoro gli manda, entro poche ore, l'ultimo
-       promemoria gia' partito per la sua serie - quello giusto per il
-       momento in cui si e' iscritto, non tutti quelli vecchi.
+       scrive l'esito sul record. Il servizio passa UNA VOLTA AL GIORNO,
+       alle 8 del mattino: di un promemoria si sceglie il giorno, non
+       l'ora. Chi si iscrive DOPO l'invio non resta senza: la mattina dopo
+       lo stesso lavoro gli manda l'ultimo promemoria gia' partito per la
+       sua serie - quello giusto per il momento in cui si e' iscritto,
+       non tutti quelli vecchi.
 
        Record: { id: '<evento>~<proposta>', evento, filtro, proposta, nome,
                  sezioni: ['presenza','aderenti','sponsor'] | ['online'],
-                 quando: ms, stato: 'programmato'|'sospeso'|'inviato'|'scaduto',
+                 quando: ms (il giorno, a mezzanotte), stato: 'programmato'|'sospeso'|'inviato'|'scaduto',
                  mail: { oggetto, html, testo },      // quello che parte
                  testi: { ...la parte mail della proposta, corretta },
                  campi: { linkDiretta },
@@ -19261,14 +19263,19 @@
         inviato: { nome: 'Inviato', classe: 'verde' },
         scaduto: { nome: 'Non partito', classe: 'rosso' }
     };
-    /* "gio 17/09 alle 10:00": giorno della settimana, data e ora, che e' come
-       si legge un calendario di invii. */
+    /* "gio 17/09": giorno della settimana e data. L'ora non c'e' perche'
+       non si sceglie: il servizio passa alle 8 del mattino. */
     function quandoPromemoria(ts) {
         if (!ts) return '';
         const d = new Date(ts);
         const g = d.toLocaleDateString('it-IT', { weekday: 'short' }).replace('.', '');
-        return g + ' ' + fmtDataOra(ts).replace(/\/\d{4} /, ' alle ');
+        return g + ' ' + fmtGiorno(ts).slice(0, 5);
     }
+    /* Il giro delle 8 di oggi e' gia' passato? Un promemoria confermato per
+       oggi dopo le 8 non partirebbe piu': si dice prima. */
+    const ORA_GIRO = 8;
+    function giroDiOggiPassato() { return new Date().getHours() >= ORA_GIRO; }
+    function inizioGiorno(ts) { const d = new Date(ts); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime(); }
     function serieDiSezioni(sezioni) {
         return (sezioni || []).indexOf('online') >= 0 ? 'online' : 'sala';
     }
@@ -19302,7 +19309,8 @@
         record.filter(r => !proposte.some(p => p.id === r.proposta)).forEach(r => {
             righe.push({ rec: r, prop: null, stato: r.stato, quando: r.quando, sezioni: r.sezioni, nome: r.nome || '', oggetto: (r.mail && r.mail.oggetto) || '' });
         });
-        return righe.sort((a, b) => (a.quando || 0) - (b.quando || 0));
+        // stesso giorno: prima la serie in sala, poi l'online
+        return righe.sort((a, b) => ((a.quando || 0) - (b.quando || 0)) || (serieDiSezioni(a.sezioni) === 'online' ? 1 : 0) - (serieDiSezioni(b.sezioni) === 'online' ? 1 : 0));
     }
     /* LA SCHEDA SULLA PAGINA: una riga di riassunto e il pulsante. */
     function promemoriaEventiHtml(ev) {
@@ -19317,17 +19325,17 @@
         if (n.sospeso) parti.push('<b>' + n.sospeso + '</b> sospes' + (n.sospeso === 1 ? 'o' : 'i'));
         if (n.scaduto) parti.push('<span class="ev-ko"><b>' + n.scaduto + '</b> non partit' + (n.scaduto === 1 ? 'o' : 'i') + '</span>');
         if (n.proposta) parti.push('<b>' + n.proposta + '</b> da confermare');
-        const prossimo = righe.find(r => r.stato === 'programmato' && r.quando >= Date.now());
+        const prossimo = righe.find(r => r.stato === 'programmato' && r.quando >= inizioGiorno(Date.now()));
         const inCorso = righe.find(r => r.rec && r.rec.invio && r.rec.invio.inCorso);
         let riga;
         if (!n.programmato && !n.inviato && !n.sospeso && !n.scaduto) {
             riga = '<b>' + righe.length + '</b> mail già scritte, in sala e online, dal 17 settembre alla mattina dell\'evento. '
-                + 'Si confermano una per una, con giorno e ora: finché non confermi non parte niente.';
+                + 'Si confermano una per una, scegliendo il giorno: partono alle 8 del mattino, e finché non confermi non parte niente.';
         } else {
             riga = parti.join(', ') + '.'
                 + (inCorso ? ' <b>Invio in corso</b>: ' + (inCorso.rec.invio.inviate || 0) + ' mail partite.' : '')
-                + (prossimo ? ' Prossimo: <b>' + esc(quandoPromemoria(prossimo.quando)) + '</b>, ' + esc(etichettaSezioniPromemoria(prossimo.sezioni).toLowerCase()) + '.' : '')
-                + (n.inviato ? ' Chi si iscrive dopo un invio riceve da solo l\'ultimo promemoria della sua serie.' : '');
+                + (prossimo ? ' Prossimo: <b>' + esc(quandoPromemoria(prossimo.quando)) + '</b> alle 8, ' + esc(etichettaSezioniPromemoria(prossimo.sezioni).toLowerCase()) + '.' : '')
+                + (n.inviato ? ' Chi si iscrive dopo un invio riceve la mattina dopo l\'ultimo promemoria della sua serie.' : '');
         }
         return '<div class="card s-admin"><div class="s-admin-txt"><strong>Promemoria agli iscritti</strong>'
             + '<div class="hint">' + riga + '</div></div>'
@@ -19348,7 +19356,8 @@
             let stato = '<span class="badge ' + st.classe + '">' + esc(st.nome) + '</span>';
             if (r.stato === 'inviato' && inv) stato += '<div class="hint">' + esitoPromemoriaBreve(inv) + '</div>';
             else if (inv && inv.inCorso) stato += '<div class="hint">in corso: <b>' + (inv.inviate || 0) + '</b> inviate</div>';
-            else if (r.stato === 'programmato' && passato(r.quando)) stato += '<div class="hint">parte al primo giro utile</div>';
+            else if (r.stato === 'programmato' && inizioGiorno(r.quando) === inizioGiorno(Date.now())) stato += '<div class="hint">' + (giroDiOggiPassato() ? 'il giro delle 8 di oggi è già passato: riprogrammalo' : 'parte stamattina alle 8') + '</div>';
+            else if (r.stato === 'programmato' && passato(r.quando)) stato += '<div class="hint">giorno passato: verrà segnato non partito</div>';
             else if (r.stato === 'proposta') stato += '<div class="hint">non parte finché non confermi</div>';
             else if (r.stato === 'scaduto') stato += '<div class="hint">' + esc((inv && inv.motivo) || 'la data era già passata quando il servizio è passato') + '</div>';
             const chiave = r.rec ? r.rec.id : idPromemoria(ev, r.prop.id);
@@ -19377,8 +19386,8 @@
         if (!window.RV_PROMEMORIA) return;
         apriModale('<h2>Promemoria agli iscritti</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;max-width:none;">Due serie, <b>in sala</b> (ospiti, aderenti Revilaw, sponsor e relatori) e <b>online</b>. '
-            + 'Apri una riga: vedi la mail com\'è davvero, correggi quello che vuoi, scegli giorno, ora e sezioni, e conferma. Parte <b>solo</b> quello che confermi, all\'ora scelta, '
-            + 'a chi risulta iscritto in quel momento (il servizio passa ogni quarto d\'ora). Chi si iscrive <b>dopo</b> un invio riceve da solo, entro poche ore, l\'ultimo promemoria già partito per la sua serie.</p>'
+            + 'Apri una riga: vedi la mail com\'è davvero, correggi quello che vuoi, scegli il giorno e le sezioni, e conferma. Parte <b>solo</b> quello che confermi, '
+            + '<b>alle 8 del mattino</b> del giorno scelto (il servizio passa una volta al giorno), a chi risulta iscritto in quel momento. Chi si iscrive <b>dopo</b> un invio riceve la mattina dopo, alle 8, l\'ultimo promemoria già partito per la sua serie.</p>'
             + tabellaPromemoriaHtml(ev)
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="pm-el-chiudi">Chiudi</button></div>',
             { classe: 'larga' });
@@ -19405,11 +19414,11 @@
                 torna();
             } else if (az === 'riprendi') {
                 // a data gia' passata si riapre la finestra per sceglierne una nuova
-                if (!r.quando || r.quando < Date.now()) { modalePromemoria(ev, prop, id, { torna: torna }); return; }
+                if (!r.quando || inizioGiorno(r.quando) < inizioGiorno(Date.now()) || (inizioGiorno(r.quando) === inizioGiorno(Date.now()) && giroDiOggiPassato())) { modalePromemoria(ev, prop, id, { torna: torna }); return; }
                 r.stato = 'programmato'; r.aggiornato = firmaPromemoria(u);
                 PromemoriaEventi.salvaUna(r);
                 Audit.registra(u, 'Evento: promemoria ripreso', 'sistema', ev.id, null, r.nome || r.id);
-                toast('Promemoria di nuovo programmato per ' + quandoPromemoria(r.quando) + '.', 'verde');
+                toast('Promemoria di nuovo programmato per ' + quandoPromemoria(r.quando) + ', alle 8.', 'verde');
                 torna();
             } else if (az === 'elimina') {
                 apriModale('<h2>Togliere la programmazione?</h2>'
@@ -19483,7 +19492,6 @@
         const serie = serieDiSezioni(sezioni0);
         const nome = (rec && rec.nome) || (prop && prop.nome) || '';
         const isoData = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
-        const isoOra = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
         const dis = soloLettura ? ' disabled' : '';
 
         const sezioniHtml = '<div class="pm-sezioni">' + RV_PROMEMORIA.SERIE[serie].sezioni.map(id => {
@@ -19510,11 +19518,8 @@
             : (inCorso ? '<div class="card" style="margin:0 0 14px;padding:12px 14px;"><strong>Invio in corso</strong><div class="hint">' + (rec.invio.inviate || 0) + ' mail già partite: il servizio continua al prossimo giro.</div></div>' : '');
 
         const colonnaForm = esitoInvio
-            + '<div class="griglia-2">'
-            + '<div class="campo"><label>Giorno</label><input type="date" id="pm-data" value="' + esc(isoData(quando0)) + '"' + dis + '></div>'
-            + '<div class="campo"><label>Ora</label><input type="time" id="pm-ora" step="60" value="' + esc(isoOra(quando0)) + '"' + dis + '></div>'
-            + '</div>'
-            + '<div class="hint" style="margin:-8px 0 14px;">Il servizio passa ogni quarto d\'ora: parte al primo giro dopo quest\'ora, a chi risulta iscritto in quel momento. Chi si iscrive dopo lo riceve da solo, entro poche ore, finché non parte il promemoria successivo.</div>'
+            + '<div class="campo"><label>Giorno</label><input type="date" id="pm-data" value="' + esc(isoData(quando0)) + '"' + (soloLettura ? '' : ' min="' + esc(isoData(Date.now())) + '"') + dis + '>'
+            + '<div class="hint">Parte <b>alle 8 del mattino</b> di questo giorno, a chi risulta iscritto in quel momento: il servizio passa una volta al giorno. Chi si iscrive dopo lo riceve la mattina seguente, finché non parte il promemoria successivo.</div></div>'
             + '<div class="campo"><label>A chi</label>' + sezioniHtml
             + '<div class="hint" id="pm-conta"></div></div>'
             + campiHtml
@@ -19581,10 +19586,13 @@
             if (!sez.length) { esito('Scegli almeno una sezione.', true); return; }
             const mancanti = RV_PROMEMORIA.campiMancanti({ campi: campiRichiesti }, valori());
             if (mancanti.length) { esito('Manca: ' + mancanti.map(k => RV_PROMEMORIA.CAMPI[k].etichetta).join(', ') + '.', true); return; }
-            const dataV = $id('pm-data').value, oraV = $id('pm-ora').value || '10:00';
-            const md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dataV), mo = /^(\d{1,2}):(\d{2})$/.exec(oraV);
-            if (!md || !mo) { esito('Indica giorno e ora.', true); return; }
-            const quando = new Date(+md[1], +md[2] - 1, +md[3], +mo[1], +mo[2], 0, 0).getTime();
+            const dataV = $id('pm-data').value;
+            const md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dataV);
+            if (!md) { esito('Indica il giorno.', true); return; }
+            const quando = new Date(+md[1], +md[2] - 1, +md[3], 0, 0, 0, 0).getTime();
+            const oggi0 = inizioGiorno(Date.now());
+            if (quando < oggi0) { esito('Quel giorno è passato: scegline uno da oggi in poi.', true); return; }
+            if (quando === oggi0 && giroDiOggiPassato()) { esito('Il giro delle 8 di oggi è già passato: scegli da domani in poi.', true); return; }
             const t = testiCorrenti();
             if (!t.oggetto) { esito('L\'oggetto non può essere vuoto.', true); return; }
             const mail = RV_PROMEMORIA.componi(t, evDef, valori(), RV_NEWSLETTER);
@@ -19604,7 +19612,7 @@
             Audit.registra(u, rec ? 'Evento: promemoria modificato' : 'Evento: promemoria programmato', 'sistema', ev.id, null,
                 nome + ' - ' + quandoTxt + ' - ' + etichettaSezioniPromemoria(sez));
             chiudiModale();
-            toast((quando < Date.now() ? 'Programmato: parte al primo giro utile, entro un quarto d\'ora.' : 'Programmato per ' + quandoTxt + '.'), 'verde');
+            toast((quando === oggi0 ? 'Programmato: parte stamattina alle 8.' : 'Programmato per ' + quandoTxt + ', alle 8 del mattino.'), 'verde');
             torna();
         });
     }

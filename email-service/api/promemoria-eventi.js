@@ -1,10 +1,15 @@
 /* ============================================================
    Cron: i promemoria agli iscritti di un evento (sezione Eventi)
    ------------------------------------------------------------
-   Vercel richiama questo endpoint ogni quarto d'ora (vedi vercel.json).
+   Vercel richiama questo endpoint UNA VOLTA AL GIORNO, alle 8 del
+   mattino di Roma (vedi vercel.json: 6 UTC, che con l'ora solare
+   diventano le 7). Un giro solo, per scelta di chi organizza: i
+   promemoria sono posta del mattino, e chi si iscrive nel pomeriggio
+   riceve il suo la mattina dopo, entro le ventiquattro ore.
+
    Legge archivio/promemoriaEventi - i promemoria che chi organizza ha
    CONFERMATO dall'area riservata, con la mail gia' composta - e per
-   ognuno la cui ora e' arrivata:
+   ognuno previsto per OGGI (o per un giorno gia' passato):
 
      1. risolve GLI ISCRITTI DI ADESSO dell'evento, nelle sezioni scelte
         (in sala: presenza, aderenti, sponsor; oppure online), dalla
@@ -33,20 +38,26 @@
    iscritto dopo, chi e' stato spostato in quella serie dopo. Solo
    l'ultimo, non tutti quelli vecchi: chi si iscrive a una settimana
    dall'evento riceve "manca una settimana", non anche "mancano due".
-   Si spedisce fra le 8 e le 20 ora di Roma - un promemoria alle tre di
-   notte sembra spedito da una macchina - e fino al giorno dell'evento
-   compreso: e' comunque entro poche ore, mai piu' di una notte.
+   Si recupera fino al giorno dell'evento compreso: chi si iscrive oggi
+   riceve domattina alle 8, entro le ventiquattro ore.
    Un record spedito dal servizio PRIMA che questa memoria esistesse
    non ha l'elenco di chi ha ricevuto: al primo passaggio lo si
    ricostruisce con gli iscritti di adesso (senza spedire), e da li' in
    poi entrano solo i nuovi. Meglio un nuovo iscritto in meno che
    trecento mail doppie.
 
-   UN PROMEMORIA VECCHIO NON PARTE. "A domani" spedito tre giorni dopo e'
-   peggio di niente: se all'arrivo del giro l'ora scelta e' passata da
-   piu' di un giorno (il servizio era fermo, il cron non era attivo) il
-   record viene segnato "scaduto" e non si spedisce; dall'area
-   riservata lo si riprogramma con un clic.
+   UN PROMEMORIA VECCHIO NON PARTE. Un promemoria appartiene al SUO
+   giorno: "a domani" spedito il giorno dopo e' peggio di niente. Se il
+   giro trova un record previsto per un giorno gia' passato (il servizio
+   era fermo, il cron non era attivo, il giorno era gia' finito quando lo
+   si e' confermato) lo segna "scaduto" e non lo spedisce; dall'area
+   riservata lo si riprogramma con un clic. L'unica eccezione e' un invio
+   rimasto a meta' il giorno prima, che si completa.
+
+   UN GIRO AL GIORNO VUOL DIRE CHE DEVE BASTARE. Le mail partono a
+   quattro alla volta invece che una dietro l'altra: trecento iscritti
+   sono un paio di minuti, dentro il budget del giro. Se il tempo finisse
+   lo stesso, il resto partirebbe la mattina dopo.
 
    Protezione: solo Vercel puo' chiamarlo, con l'intestazione
    Authorization e il segreto CRON_SECRET. Nessuna credenziale nel
@@ -65,11 +76,9 @@ const AV = require('../lib/comunicazioni-avanzamento');
 const BUDGET_MS = 240 * 1000;
 const LUCCHETTO_MS = 6 * 60 * 1000;
 const PASSO_SALVATAGGIO = 20;
-// oltre questo ritardo un promemoria non ha piu' senso: si segna scaduto
-const RITARDO_MAX_MS = 24 * 60 * 60 * 1000;
 const SEZIONI = ['presenza', 'aderenti', 'sponsor', 'online'];
-// i recuperi (chi si e' iscritto dopo l'invio) partono solo di giorno, ora di Roma
-const RECUPERI_DALLE = 8, RECUPERI_ALLE = 20;
+// quante mail in volo insieme: con un giro al giorno il tempo del giro deve bastare
+const IN_PARALLELO = 4;
 const DOC = 'promemoriaEventi';
 const BASE = String(process.env.APP_BASE_URL || 'https://nextgenerationbusiness.it').replace(/\/+$/, '');
 
@@ -156,11 +165,11 @@ function risolviDestinatari(arch, rec) {
     return out;
 }
 
-/* L'ora di Roma di un istante: usata per la finestra dei recuperi. Si parte
-   da Date.now() e non da new Date() perche' l'orologio delle prove
-   sostituisce il primo, non il secondo. */
-function oraRoma(ts) {
-    return Number(new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', hour12: false }).format(new Date(ts)));
+/* Il giorno di Roma di un istante ("2026-09-17"): e' l'unita' con cui si
+   ragiona, perche' il giro e' uno al giorno. Si parte da un istante e non
+   da new Date() perche' l'orologio delle prove sostituisce Date.now(). */
+function giornoRoma(ts) {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ts));
 }
 /* La fine del giorno dell'evento (ora di Roma), oltre la quale un recupero
    non ha piu' senso. Il giorno sta sul record se l'area riservata ce l'ha
@@ -211,21 +220,31 @@ async function inviaUno(trans, rec, destinatari, avanz, opz) {
             await trans.sendMail({ from: from, replyTo: replyTo, to: creatoDa, subject: '[Copia per te] ' + copia.subject, text: copia.text, html: copia.html });
         } catch (e) { console.error('Promemoria, copia a chi ha programmato non partita:', String((e && e.message) || e).slice(0, 150)); }
     }
-    for (const d of dd) {
-        if (Date.now() > avanz.scadenza) { restanti = true; break; }
+    /* A gruppetti di IN_PARALLELO: il tempo si guarda PRIMA di ogni
+       gruppetto, mai in mezzo - una mail partita e non registrata e'
+       esattamente il caso che tutto questo serve a evitare. */
+    const unaMail = async (d) => {
         const msg = personalizza(rec, d);
-        tentati++;
         try {
             await trans.sendMail({ from: from, replyTo: replyTo, to: d.email, subject: msg.subject, text: msg.text, html: msg.html });
-            inviati++; delta.inviati++;
+            return { d: d, ok: true };
         } catch (e) {
             const motivo = String((e && e.message) || 'errore sconosciuto').slice(0, 200);
             console.error('Promemoria a', d.email, 'non riuscito:', motivo);
-            falliti.push({ email: d.email, motivo: motivo });
-            delta.falliti.push({ email: d.email, motivo: motivo });
+            return { d: d, ok: false, motivo: motivo };
         }
-        // servito vuol dire TENTATO: un indirizzo che da' errore non si ritenta per sempre
-        impronte.push(AV.impronta(d.email));
+    };
+    for (let i = 0; i < dd.length; i += IN_PARALLELO) {
+        if (Date.now() > avanz.scadenza) { restanti = true; break; }
+        const gruppo = dd.slice(i, i + IN_PARALLELO);
+        tentati += gruppo.length;
+        const esiti = await Promise.all(gruppo.map(unaMail));
+        esiti.forEach(x => {
+            if (x.ok) { inviati++; delta.inviati++; }
+            else { falliti.push({ email: x.d.email, motivo: x.motivo }); delta.falliti.push({ email: x.d.email, motivo: x.motivo }); }
+            // servito vuol dire TENTATO: un indirizzo che da' errore non si ritenta per sempre
+            impronte.push(AV.impronta(x.d.email));
+        });
         if (impronte.length >= PASSO_SALVATAGGIO) await scarica();
     }
     await scarica();
@@ -260,8 +279,6 @@ async function applicaPatch(db, id, patch) {
    loro non c'e' niente da recuperare). Restituisce { recuperi: n }. */
 async function giroRecuperi(db, scadenza, giro, trasportoDi) {
     const ora = Date.now();
-    const h = oraRoma(ora);
-    if (h < RECUPERI_DALLE || h >= RECUPERI_ALLE) return { recuperi: 0, fuoriOrario: true };
     const snap = await db.collection('archivio').doc(DOC).get();
     let lista = [];
     if (snap.exists && typeof snap.data().json === 'string') { try { lista = JSON.parse(snap.data().json) || []; } catch (_) { lista = []; } }
@@ -336,17 +353,19 @@ module.exports = async (req, res) => {
         let lista = [];
         if (snap.exists && typeof snap.data().json === 'string') { try { lista = JSON.parse(snap.data().json) || []; } catch (_) { lista = []; } }
         const ora = Date.now();
-        const dovuti = lista.filter(r => r && r.stato === 'programmato' && Number(r.quando) > 0 && Number(r.quando) <= ora && r.mail && r.mail.html);
+        const oggi = giornoRoma(ora);
+        // dovuto = previsto per oggi, o per un giorno gia' passato (che sotto diventa scaduto)
+        const dovuti = lista.filter(r => r && r.stato === 'programmato' && Number(r.quando) > 0 && giornoRoma(Number(r.quando)) <= oggi && r.mail && r.mail.html);
         let arch = null;
         let trans = null;
         let inviatiTot = 0, sospesi = 0, scaduti = 0;
         for (const rec of dovuti) {
             if (Date.now() > scadenza) { sospesi++; continue; }
             try {
-                if (ora - Number(rec.quando) > RITARDO_MAX_MS && !(rec.invio && rec.invio.inCorso)) {
+                if (giornoRoma(Number(rec.quando)) < oggi && !(rec.invio && rec.invio.inCorso)) {
                     await applicaPatch(db, rec.id, {
                         stato: 'scaduto',
-                        invio: { il: ora, inviate: 0, motivo: 'L\'ora scelta era passata da più di un giorno quando il servizio è passato: non è partito niente. Riprogrammalo con una data nuova.' }
+                        invio: { il: ora, inviate: 0, motivo: 'Il giorno scelto era già passato quando il servizio è passato (gira una volta al giorno, alle 8): non è partito niente. Riprogrammalo con un giorno nuovo.' }
                     });
                     scaduti++;
                     continue;
@@ -410,4 +429,4 @@ module.exports = async (req, res) => {
 };
 
 // esposti per le prove (prove/promemoria-eventi.prove.js)
-module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, idRiga, fineEvento, oraRoma, serieDi };
+module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, idRiga, fineEvento, giornoRoma, serieDi };

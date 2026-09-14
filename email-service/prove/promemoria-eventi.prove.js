@@ -21,7 +21,7 @@ const path = require('path');
 const zlib = require('zlib');
 
 // ---------- orologio ----------
-let orologio = Date.parse('2026-09-17T08:05:00Z');
+let orologio = Date.parse('2026-09-17T06:05:00Z');
 Date.now = () => orologio;
 
 // ---------- Firestore finto ----------
@@ -127,7 +127,7 @@ const cron = require(path.join(RADICE, 'api/promemoria-eventi.js'));
 // ---------- utilita' ----------
 function azzera() {
     dati.clear(); posta.length = 0; rifiutati.clear(); passoMs = 1000;
-    orologio = Date.parse('2026-09-17T08:05:00Z');
+    orologio = Date.parse('2026-09-17T06:05:00Z');
 }
 /* L'archivio delle iscrizioni, nella forma in cui lo legge
    lib/copia-iscrizioni.js: le collezioni vere, con la revisione a zero
@@ -163,7 +163,7 @@ const idDi = v => (v.email.toLowerCase()) + '|' + v.data;
 function recBase(extra) {
     return Object.assign({
         id: 'napoli-2026-10-02~s1', evento: 'napoli-2026-10-02', filtro: 'napoli', proposta: 's1', nome: 'Due settimane prima',
-        sezioni: ['presenza', 'aderenti', 'sponsor'], quando: Date.parse('2026-09-17T08:00:00Z'), stato: 'programmato',
+        sezioni: ['presenza', 'aderenti', 'sponsor'], quando: Date.parse('2026-09-16T22:00:00Z'), stato: 'programmato',
         mail: { oggetto: 'Ciao {{NOME}}, ci vediamo a Napoli', html: '<p>Ciao {{NOME}}</p><a href="{{COMPLETA}}">link</a>', testo: 'Ciao {{NOME}}\n{{COMPLETA}}' },
         creato: { da: 'a.missori@emvas.tax', daNome: 'Alessandro Missori', il: 1 }
     }, extra || {});
@@ -233,7 +233,7 @@ await prova('3) Tempo finito a meta\': si ferma, resta programmato "in corso", i
     mettiPromemoria([recBase()]);
     const r1 = await giro();
     const prima = posta.filter(m => !/^\[Copia/.test(m.subject)).length;
-    esigi(r1.sospesi === 1 && prima > 0 && prima < 12, 'primo giro: sospeso, ' + prima + ' mail su 12');
+    esigi(r1.sospesi === 1 && prima > 0 && prima < 12, 'primo giro: sospeso, ' + prima + ' mail su 12 (a quattro alla volta)');
     let rec = leggiPromemoria('napoli-2026-10-02~s1');
     esigi(rec.stato === 'programmato' && rec.invio && rec.invio.inCorso === true && rec.invio.inviate === prima, 'record ancora programmato, "in corso" con il conteggio');
     passoMs = 1000;
@@ -246,10 +246,11 @@ await prova('3) Tempo finito a meta\': si ferma, resta programmato "in corso", i
     esigi(rec.stato === 'inviato' && rec.invio.inviate === 12 && rec.invio.inCorso === false, 'record inviato a 12');
 });
 
-await prova('4) Un promemoria vecchio di piu\' di un giorno non parte: segnato scaduto', async () => {
+await prova('4) Un promemoria previsto per un giorno gia\' passato non parte: segnato scaduto', async () => {
     azzera();
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
-    mettiPromemoria([recBase({ quando: Date.parse('2026-09-15T08:00:00Z') })]);
+    // previsto per il 16 (mezzanotte di Roma), il giro e' quello del 17
+    mettiPromemoria([recBase({ quando: Date.parse('2026-09-15T22:00:00Z') })]);
     const r = await giro();
     esigi(r.scaduti === 1 && posta.length === 0, 'nessuna mail, 1 scaduto');
     const rec = leggiPromemoria('napoli-2026-10-02~s1');
@@ -260,7 +261,7 @@ await prova('5) Non dovuti: futuro, sospeso, inviato, senza mail restano fermi; 
     azzera();
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
     mettiPromemoria([
-        recBase({ id: 'f', quando: Date.parse('2026-09-24T08:00:00Z') }),
+        recBase({ id: 'f', quando: Date.parse('2026-09-23T22:00:00Z') }),   // previsto per il 24
         recBase({ id: 's', stato: 'sospeso' }),
         recBase({ id: 'i', stato: 'inviato', invio: { il: 1, inviate: 1 } }),   // senza memoria: si ricostruisce, non si rispedisce
         recBase({ id: 'm', mail: null }),
@@ -301,13 +302,13 @@ await prova('9) Con due promemoria gia\' partiti, il nuovo iscritto riceve SOLO 
     azzera();
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('zoe@esempio.it', 'Zoe', 'Blu', { modalita: 'online' })], []);
     mettiPromemoria([
-        recBase({ id: 'n~s1', proposta: 's1', quando: Date.parse('2026-09-10T08:00:00Z'), mail: { oggetto: 'Due settimane {{NOME}}', html: '<p>s1</p>' } }),
-        recBase({ id: 'n~s2', proposta: 's2', quando: Date.parse('2026-09-16T08:00:00Z'), mail: { oggetto: 'Una settimana {{NOME}}', html: '<p>s2</p>' } }),
-        recBase({ id: 'n~o1', proposta: 'o1', sezioni: ['online'], quando: Date.parse('2026-09-10T08:30:00Z'), mail: { oggetto: 'Online {{NOME}}', html: '<p>o1</p>' } })
+        recBase({ id: 'n~s1', proposta: 's1', quando: Date.parse('2026-09-09T22:00:00Z'), mail: { oggetto: 'Due settimane {{NOME}}', html: '<p>s1</p>' } }),
+        recBase({ id: 'n~s2', proposta: 's2', quando: Date.parse('2026-09-15T22:00:00Z'), mail: { oggetto: 'Una settimana {{NOME}}', html: '<p>s2</p>' } }),
+        recBase({ id: 'n~o1', proposta: 'o1', sezioni: ['online'], quando: Date.parse('2026-09-09T22:00:00Z'), mail: { oggetto: 'Online {{NOME}}', html: '<p>o1</p>' } })
     ]);
-    orologio = Date.parse('2026-09-10T08:35:00Z');   // il 10: partono s1 (anna) e o1 (zoe)
+    orologio = Date.parse('2026-09-10T06:05:00Z');   // il 10 alle 8: partono s1 (anna) e o1 (zoe)
     await giro();
-    orologio = Date.parse('2026-09-16T08:05:00Z');   // il 16: parte s2 (anna)
+    orologio = Date.parse('2026-09-16T06:05:00Z');   // il 16 alle 8: parte s2 (anna)
     await giro();
     esigi(posta.filter(m => !/^\[Copia/.test(m.subject)).length === 3, 'i tre promemoria partono, ciascuno alla sua ora');
     orologio += 60 * 60 * 1000;
@@ -322,19 +323,16 @@ await prova('9) Con due promemoria gia\' partiti, il nuovo iscritto riceve SOLO 
     esigi(leggiPromemoria('n~s1').invio.recuperi === undefined && leggiPromemoria('n~s2').invio.recuperi === 1, 'il recupero e\' contato sul solo ultimo');
 });
 
-await prova('10) I recuperi partono solo di giorno (8-20 ora di Roma) e non oltre il giorno dell\'evento', async () => {
+await prova('10) Chi si iscrive nel pomeriggio riceve la mattina dopo; non oltre il giorno dell\'evento', async () => {
     azzera();
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi')], []);
     mettiPromemoria([recBase()]);
     await giro();
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('notte@esempio.it', 'Notte', 'Buia')], []);
     posta.length = 0;
-    orologio = Date.parse('2026-09-18T21:30:00Z');   // 23:30 a Roma
+    orologio = Date.parse('2026-09-18T06:05:00Z');   // il giro delle 8 del giorno dopo
     let r = await giro();
-    esigi(r.recuperi === 0 && posta.length === 0, 'alle 23:30 di Roma non parte niente');
-    orologio = Date.parse('2026-09-19T06:15:00Z');   // 08:15 a Roma
-    r = await giro();
-    esigi(r.recuperi === 1 && posta.length === 1 && posta[0].to === 'notte@esempio.it', 'alle 8:15 parte, entro una notte');
+    esigi(r.recuperi === 1 && posta.length === 1 && posta[0].to === 'notte@esempio.it', 'la mattina dopo parte, entro le ventiquattro ore');
     // dopo il giorno dell'evento (2 ottobre) non si recupera piu'
     mettiIscrizioni([iscr('anna@esempio.it', 'Anna', 'Verdi'), iscr('notte@esempio.it', 'Notte', 'Buia'), iscr('tardi@esempio.it', 'Tardi', 'Vero')], []);
     posta.length = 0;
@@ -343,6 +341,7 @@ await prova('10) I recuperi partono solo di giorno (8-20 ora di Roma) e non oltr
     esigi(r.recuperi === 0 && posta.length === 0, 'il 3 ottobre nessun recupero');
     const I = cron._interni;
     esigi(I.fineEvento({ evento: 'napoli-2026-10-02' }) === Date.parse('2026-10-02T23:59:59+02:00') && I.fineEvento({ evento: 'tutti' }) === 0, 'la fine dell\'evento si legge dall\'identificativo; senza data niente');
+    esigi(I.giornoRoma(Date.parse('2026-09-16T22:30:00Z')) === '2026-09-17' && I.giornoRoma(Date.parse('2026-09-17T06:05:00Z')) === '2026-09-17', 'il giorno si conta a Roma, non in UTC');
 });
 
 await prova('11) Un promemoria spedito PRIMA della memoria: al primo passaggio si ricostruisce, senza rispedire', async () => {
