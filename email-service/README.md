@@ -529,7 +529,7 @@ d'ambiente non ne parte nessuno.
 | `/api/programma-newsletter` | `*/15 * * * *` — ogni quarto d'ora | manda avanti le newsletter programmate, un lotto per volta |
 | `/api/presenze` | `*/15 * * * *` — ogni quarto d'ora | legge la casella PEC: ricevute, errori, risposte |
 | `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
-| `/api/promemoria-eventi` | `*/15 * * * *` — ogni quarto d'ora | spedisce i promemoria agli iscritti confermati dall'area riservata, alle sezioni scelte, all'ora scelta |
+| `/api/promemoria-eventi` | `0 6 * * *` — una volta al giorno, alle 8 del mattino di Roma (le 7 con l'ora solare) | spedisce i promemoria agli iscritti previsti per oggi, e recupera chi si e' iscritto dopo un invio |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -649,7 +649,7 @@ Hobby il tetto era **60 secondi**; sul Pro si arriva a 300.
 | `api/importa-iscrizioni.js` | *(predefinito, ~10 s)* | **300** | importa il foglio intero, a blocchi di 400 scritture |
 | `api/invia-comunicazione.js` | *(predefinito, ~10 s)* | **120** | stesso invio in fila, avviato a mano dall'area riservata |
 | `api/invii-programmati.js` | *(nuova)* | **300** | una PEC ogni secondo e mezzo: quaranta messaggi sono gia' un minuto |
-| `api/promemoria-eventi.js` | *(nuova)* | **300** | una mail per iscritto, in fila: centinaia di destinatari sono minuti, e il giro riprende da chi manca |
+| `api/promemoria-eventi.js` | *(nuova)* | **300** | una mail per iscritto, a quattro alla volta: con un giro al giorno il tempo deve bastare, e se non basta il resto parte domattina |
 
 > **E perche' gli invii programmati non entrano da `presenze.js`**, che pure
 > e' la porta di tutta la sezione aziende. Perche' `presenze.js` ha gia' un
@@ -937,13 +937,17 @@ calendario stanno in `area-riservata/promemoria-eventi.js`, evento per evento
 `newsletter-format.js` (`promemoriaEvento`). Nella pagina dell'evento
 (sezione Eventi) la scheda **"Promemoria agli iscritti"** li mostra come
 proposte: chi organizza le apre, corregge quello che vuole, sceglie giorno e
-ora, le sezioni, e conferma. **Finche' non conferma non parte niente.** La
+le sezioni, e conferma. **Finche' non conferma non parte niente.** La
 conferma scrive in `archivio/promemoriaEventi` un record con la mail **gia'
 composta** (formato NGB, con i segnaposti `{{NOME}}` e `{{COMPLETA}}` ancora al
-loro posto), la data, le sezioni, chi l'ha programmata.
+loro posto), il giorno (a mezzanotte, ora di chi programma), le sezioni, chi
+l'ha programmata.
 
-Il lavoro programmato passa **ogni quarto d'ora** (`vercel.json`) e, per ogni
-record `programmato` la cui ora e' arrivata:
+Il lavoro programmato passa **una volta al giorno, alle 8 del mattino** di
+Roma (`vercel.json`: `0 6 * * *`, che con l'ora solare diventano le 7). Un
+giro solo, per scelta di chi organizza: di un promemoria si sceglie **il
+giorno**, non l'ora, e l'area riservata non lascia confermare per oggi dopo
+le 8. Per ogni record `programmato` previsto per oggi:
 
 1. risolve **gli iscritti di quel momento** dalla copia condivisa
    dell'archivio (`lib/copia-iscrizioni.js`): le iscrizioni la cui pagina
@@ -971,8 +975,11 @@ comunicazioni programmate. L'avanzamento si scrive **durante** l'invio in
 con l'impronta di chi ha gia' ricevuto; un lucchetto tiene fuori un secondo
 giro mentre il primo spedisce. Se il budget (240 s dentro i 300 di
 `maxDuration`) finisce a meta', il record resta `programmato` con
-`invio.inCorso` e il conteggio, e il giro dopo riprende da chi manca. La copia
-a chi ha programmato parte solo al primo giro.
+`invio.inCorso` e il conteggio, e il giro dopo riprende da chi manca. Con un
+giro al giorno "il giro dopo" e' domattina: per questo le mail partono **a
+quattro alla volta** (`IN_PARALLELO`) invece che una dietro l'altra, e
+trecento iscritti stanno in un paio di minuti. La copia a chi ha programmato
+parte solo al primo giro.
 
 **Chi si iscrive dopo l'invio non resta senza.** A differenza delle
 comunicazioni, l'avanzamento **non si cancella** a fine invio: da li' in poi
@@ -982,19 +989,20 @@ promemoria gia' partito** e lo manda a chi, fra gli iscritti di adesso, non
 l'ha ricevuto: chi si e' iscritto dopo, chi e' stato spostato in quella serie
 dopo. Solo l'ultimo, non tutti quelli vecchi: chi si iscrive a una settimana
 dall'evento riceve "manca una settimana", non anche "mancano due". I recuperi
-partono **fra le 8 e le 20** ora di Roma (un promemoria alle tre di notte
-sembra spedito da una macchina) e fino al giorno dell'evento compreso: quindi
-entro poche ore, mai piu' di una notte. Sul record restano `invio.recuperi`
+partono con il giro delle 8 e fino al giorno dell'evento compreso: chi si
+iscrive oggi riceve domattina, entro le ventiquattro ore. Sul record restano `invio.recuperi`
 (quanti) e `invio.ultimoRecupero`; per un recupero non parte la copia a chi ha
 programmato. Un record spedito **prima** che questa memoria esistesse non ha
 l'elenco di chi ha ricevuto: al primo passaggio lo si ricostruisce con gli
 iscritti di adesso, senza spedire, e da li' in poi entrano solo i nuovi.
 
-**Un promemoria vecchio non parte.** "A domani" spedito tre giorni dopo e'
-peggio di niente: se all'arrivo del giro l'ora scelta e' passata da **piu' di
-un giorno** (servizio fermo, cron non attivo) il record viene segnato
-`scaduto`, con il motivo, e non si spedisce. Dall'area riservata compare "Non
-partito" con il pulsante per riprogrammarlo.
+**Un promemoria vecchio non parte.** Un promemoria appartiene al suo giorno:
+"a domani" spedito il giorno dopo e' peggio di niente. Se il giro trova un
+record previsto per un giorno **gia' passato** (servizio fermo, cron non
+attivo, giorno gia' finito quando lo si e' confermato) lo segna `scaduto`, con
+il motivo, e non lo spedisce; l'unica eccezione e' un invio rimasto a meta' il
+giorno prima, che si completa. Dall'area riservata compare "Non partito" con
+il pulsante per riprogrammarlo. I giorni si contano nell'ora di Roma.
 
 **Il record si tocca per campo, in transazione** (`applicaPatch`): l'area
 riservata riscrive il documento intero quando qualcuno programma o sospende, e
@@ -1013,7 +1021,7 @@ dall'account di servizio) gia' configurati. Le prove stanno in
 `prove/promemoria-eventi.prove.js` (`node prove/promemoria-eventi.prove.js`,
 niente da installare): a chi parte e a chi no, la personalizzazione, il tempo
 finito a meta', lo scaduto, i record non dovuti, i recuperi di chi si iscrive
-dopo (solo l'ultimo della serie, solo di giorno, non oltre l'evento, e la
+dopo (solo l'ultimo della serie, la mattina dopo, non oltre l'evento, e la
 ricostruzione della memoria per i record spediti prima).
 
 ## Completamento dati partecipanti (dentro `/api/iscrizione-nuova`)
