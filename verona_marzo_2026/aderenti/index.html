@@ -2075,6 +2075,9 @@ s.parentNode.insertBefore(b, s);})(window.lintrk);
 
        <script type="text/javascript" src="https://embeds.iubenda.com/widgets/85ae3ae2-e22a-437d-b459-6ca9e25b4ec5.js"></script>
 
+    <!-- Live reload di sviluppo: si attiva solo aprendo la pagina con ?dev=1,
+         in produzione non carica e non esegue nulla. Vedi assets/dev-reload.js -->
+    <script>try{var d=/[?&]dev=([01])/.exec(location.search);if(d){d[1]==='1'?sessionStorage.setItem('ngbDevReload','1'):sessionStorage.removeItem('ngbDevReload');}if(sessionStorage.getItem('ngbDevReload')==='1'){var s=document.createElement('script');s.src='/assets/dev-reload.js';s.defer=true;document.head.appendChild(s);}}catch(e){}</script>
 </head>
 
 <body>
