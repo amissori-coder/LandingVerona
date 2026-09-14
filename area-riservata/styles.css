@@ -3356,3 +3356,6 @@ table.dati.cq-elenco .cq-agg { white-space: nowrap; }
     .pm-griglia { grid-template-columns: 1fr; }
     .pm-colonna-anteprima { position: static; margin-top: 8px; }
 }
+/* la riga dell'ultimo promemoria aperto: si ritrova a colpo d'occhio tornando dalla finestra */
+table.dati tbody tr.pm-evidenziata > td { background: var(--blu-100); }
+table.dati tbody tr.pm-evidenziata > td:first-child { box-shadow: inset 3px 0 0 var(--blu-700); }

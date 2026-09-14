@@ -19256,6 +19256,9 @@
         elimina(id) { this.salva(this.tutte().filter(r => r && r.id !== id)); }
     };
     function idPromemoria(ev, idProposta) { return ev.id + '~' + idProposta; }
+    /* L'ultima riga su cui si e' lavorato, per evento: nell'elenco resta
+       evidenziata, cosi' tornando dalla finestra si ritrova dov'era. */
+    const _pmEvidenziata = {};
     const STATI_PROMEMORIA = {
         proposta: { nome: 'Da confermare', classe: 'neutro' },
         programmato: { nome: 'Programmato', classe: 'legale' },
@@ -19337,13 +19340,22 @@
                 + (prossimo ? ' Prossimo: <b>' + esc(quandoPromemoria(prossimo.quando)) + '</b> alle 8, ' + esc(etichettaSezioniPromemoria(prossimo.sezioni).toLowerCase()) + '.' : '')
                 + (n.inviato ? ' Chi si iscrive dopo un invio riceve la mattina dopo l\'ultimo promemoria della sua serie.' : '');
         }
-        return '<div class="card s-admin"><div class="s-admin-txt"><strong>Promemoria agli iscritti</strong>'
+        return '<div class="card s-admin" id="ev-promemoria-scheda"><div class="s-admin-txt"><strong>Promemoria agli iscritti</strong>'
             + '<div class="hint">' + riga + '</div></div>'
             + '<div class="s-admin-azioni"><button class="btn ' + (n.proposta && !n.programmato && !n.inviato ? 'btn-primary' : 'btn-secondary') + '" id="ev-promemoria">Gestisci i promemoria</button></div></div>';
     }
     function collegaPromemoria(ev) {
         const b = document.getElementById('ev-promemoria');
         if (b) b.addEventListener('click', () => modaleElencoPromemoria(ev));
+    }
+    /* Ridisegna la sola scheda del riassunto, non tutta la pagina: rifare
+       la tabella degli iscritti ogni volta che si chiude una finestra e'
+       quello che faceva aspettare prima di rivedere l'elenco. */
+    function aggiornaSchedaPromemoria(ev) {
+        const el = document.getElementById('ev-promemoria-scheda');
+        if (!el) return;
+        el.outerHTML = promemoriaEventiHtml(ev);
+        collegaPromemoria(ev);
     }
     /* L'ELENCO, in una finestra: una riga per promemoria, con stato e azioni. */
     function tabellaPromemoriaHtml(ev) {
@@ -19371,7 +19383,7 @@
                 else if (r.stato === 'scaduto') azioni = btn('btn-primary', 'apri', 'Riprogramma') + btn('btn-ghost', 'elimina', 'Elimina');
                 else azioni = btn('btn-secondary', 'apri', 'Apri');
             } else if (r.rec) azioni = btn('btn-secondary', 'apri', 'Apri');
-            return '<tr>'
+            return '<tr data-riga="' + esc(chiave) + '"' + (_pmEvidenziata[ev.id] === chiave ? ' class="pm-evidenziata"' : '') + '>'
                 + '<td style="white-space:nowrap;">' + esc(quandoPromemoria(r.quando)) + '</td>'
                 + '<td style="white-space:nowrap;">' + esc(etichettaSezioniPromemoria(r.sezioni)) + '</td>'
                 + '<td><b>' + esc(r.nome) + '</b><div class="hint">' + esc(r.oggetto) + '</div></td>'
@@ -19392,15 +19404,22 @@
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="pm-el-chiudi">Chiudi</button></div>',
             { classe: 'larga' });
         document.getElementById('pm-el-chiudi').addEventListener('click', chiudiModale);
-        collegaAzioniPromemoria(ev, document.getElementById('modale-contenitore'));
+        const cont = document.getElementById('modale-contenitore');
+        collegaAzioniPromemoria(ev, cont);
+        // la riga su cui si stava lavorando torna sotto gli occhi
+        const ev_ = cont.querySelector('tr.pm-evidenziata');
+        if (ev_ && ev_.scrollIntoView) ev_.scrollIntoView({ block: 'center' });
     }
     /* Le azioni delle righe. Dopo ognuna si ridisegna la pagina (la scheda
        con il riassunto) e si riapre l'elenco: la finestra sta in un
        contenitore suo, e ridisegnare la pagina non la tocca. */
     function collegaAzioniPromemoria(ev, radice) {
-        const torna = () => { vistaEventi(); modaleElencoPromemoria(ev); };
+        /* Si riapre SUBITO l'elenco; la scheda sulla pagina si aggiorna solo
+           se qualcosa e' cambiato, e senza rifare il resto della pagina. */
+        const torna = cambiato => { modaleElencoPromemoria(ev); if (cambiato) aggiornaSchedaPromemoria(ev); };
         radice.querySelectorAll('.pm-az').forEach(b => b.addEventListener('click', () => {
             const az = b.dataset.az, id = b.dataset.id, prop = b.dataset.prop;
+            _pmEvidenziata[ev.id] = id;
             if (az === 'apri') { modalePromemoria(ev, prop, id, { torna: torna }); return; }
             if (!puoGestireInviti()) return;
             const r = PromemoriaEventi.trova(id);
@@ -19411,7 +19430,7 @@
                 PromemoriaEventi.salvaUna(r);
                 Audit.registra(u, 'Evento: promemoria sospeso', 'sistema', ev.id, null, r.nome || r.id);
                 toast('Promemoria sospeso: non partirà finché non lo riprendi.', 'verde');
-                torna();
+                torna(true);
             } else if (az === 'riprendi') {
                 // a data gia' passata si riapre la finestra per sceglierne una nuova
                 if (!r.quando || inizioGiorno(r.quando) < inizioGiorno(Date.now()) || (inizioGiorno(r.quando) === inizioGiorno(Date.now()) && giroDiOggiPassato())) { modalePromemoria(ev, prop, id, { torna: torna }); return; }
@@ -19419,7 +19438,7 @@
                 PromemoriaEventi.salvaUna(r);
                 Audit.registra(u, 'Evento: promemoria ripreso', 'sistema', ev.id, null, r.nome || r.id);
                 toast('Promemoria di nuovo programmato per ' + quandoPromemoria(r.quando) + ', alle 8.', 'verde');
-                torna();
+                torna(true);
             } else if (az === 'elimina') {
                 apriModale('<h2>Togliere la programmazione?</h2>'
                     + '<p>"' + esc(r.nome || r.id) + '" non partirà più. La proposta resta in elenco, e la puoi programmare di nuovo quando vuoi.</p>'
@@ -19428,7 +19447,7 @@
                 document.getElementById('pm-el-si').addEventListener('click', () => {
                     PromemoriaEventi.elimina(id);
                     Audit.registra(u, 'Evento: promemoria tolto', 'sistema', ev.id, null, r.nome || r.id);
-                    chiudiModale(); toast('Programmazione tolta.', 'verde'); torna();
+                    chiudiModale(); toast('Programmazione tolta.', 'verde'); torna(true);
                 });
             }
         }));
@@ -19468,7 +19487,7 @@
        `opz.torna`: cosa fare alla chiusura (riaprire l'elenco). */
     function modalePromemoria(ev, idProposta, idRecord, opz) {
         opz = opz || {};
-        const torna = typeof opz.torna === 'function' ? opz.torna : () => { };
+        const torna = typeof opz.torna === 'function' ? opz.torna : function () { };
         if (!window.RV_PROMEMORIA || !window.RV_NEWSLETTER) { toast('Formato dei promemoria non caricato: ricarica la pagina.', 'rosso'); return; }
         const rec = idRecord ? PromemoriaEventi.trova(idRecord) : null;
         const prop = idProposta ? RV_PROMEMORIA.proposta(ev.id, idProposta) : null;
@@ -19578,8 +19597,8 @@
         anteprimaSegueCampi(ant);
         // la X della barra chiude e basta: si torna all'elenco anche da li'
         const x = document.querySelector('#modale-contenitore .mw-close');
-        if (x) x.addEventListener('click', () => setTimeout(torna, 0));
-        $id('pm-no').addEventListener('click', () => { chiudiModale(); torna(); });
+        if (x) x.addEventListener('click', () => setTimeout(() => torna(false), 0));
+        $id('pm-no').addEventListener('click', () => { chiudiModale(); torna(false); });
         if (soloLettura) return;
         $id('pm-si').addEventListener('click', () => {
             const sez = sezioniScelte();
@@ -19613,7 +19632,7 @@
                 nome + ' - ' + quandoTxt + ' - ' + etichettaSezioniPromemoria(sez));
             chiudiModale();
             toast((quando === oggi0 ? 'Programmato: parte stamattina alle 8.' : 'Programmato per ' + quandoTxt + ', alle 8 del mattino.'), 'verde');
-            torna();
+            torna(true);
         });
     }
 
