@@ -47,6 +47,22 @@
         }
     } catch (e) { /* storage non disponibile */ }
 
+    /* Live reload di sviluppo: aprendo una pagina con ?dev=1 il sito si
+       aggiorna da solo quando i file cambiano sul server (CSS sostituito
+       a caldo, HTML e JS con ricarica). Resta attivo per tutta la scheda;
+       si spegne con ?dev=0. In produzione non viene caricato nulla. */
+    try {
+        var devFlag = /[?&]dev=([01])/.exec(window.location.search);
+        if (devFlag && devFlag[1] === '1') sessionStorage.setItem('ngbDevReload', '1');
+        if (devFlag && devFlag[1] === '0') sessionStorage.removeItem('ngbDevReload');
+        if (sessionStorage.getItem('ngbDevReload') === '1') {
+            var devScript = document.createElement('script');
+            devScript.src = '/assets/dev-reload.js';
+            devScript.defer = true;
+            document.head.appendChild(devScript);
+        }
+    } catch (e) { /* storage non disponibile: nessun live reload */ }
+
     var gaLoaded = false;
     function loadGA() {
         if (gaLoaded || !NGB_GA_ID) return;

@@ -62,6 +62,9 @@
         .piede { max-width: 680px; margin: 0 auto; padding: 0 20px 40px; text-align: center; font-size: 0.8rem; color: #94A3B8; }
         .piede a { color: var(--tenue); }
     </style>
+    <!-- Live reload di sviluppo: si attiva solo aprendo la pagina con ?dev=1,
+         in produzione non carica e non esegue nulla. Vedi assets/dev-reload.js -->
+    <script>try{var d=/[?&]dev=([01])/.exec(location.search);if(d){d[1]==='1'?sessionStorage.setItem('ngbDevReload','1'):sessionStorage.removeItem('ngbDevReload');}if(sessionStorage.getItem('ngbDevReload')==='1'){var s=document.createElement('script');s.src='/assets/dev-reload.js';s.defer=true;document.head.appendChild(s);}}catch(e){}</script>
 </head>
 <body>
     <header class="testata">
