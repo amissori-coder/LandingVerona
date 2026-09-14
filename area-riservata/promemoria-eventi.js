@@ -120,7 +120,7 @@
                     paragrafi: [
                         PERCORSO,
                         { titolo: 'Le otto tappe', elenco: NAPOLI.tappe },
-                        'In chiusura, dalle 16.30, la sessione di incontri B2B: due ore di confronti riservati fra imprese, professionisti, banche e sponsor, per trasformare le idee della giornata in relazioni concrete.'
+                        'Per tutta la giornata, in parallelo ai lavori, gli incontri B2B: confronti riservati fra imprese, professionisti, banche e sponsor, per trasformare le idee della giornata in relazioni concrete.'
                     ],
                     righe: [['Quando', NAPOLI.quando], ['Dove', NAPOLI.dove], ['Partecipazione', 'Gratuita, con il posto riservato in sala']],
                     pulsante: { testo: 'Scarica il programma', url: NAPOLI.programmaPdf },
@@ -137,14 +137,14 @@
                     titolo: 'Manca una settimana',
                     sommario: 'Ciao ' + NOME + ', venerdì prossimo ci vediamo a Napoli. Qui trovi le informazioni pratiche per arrivare con calma e goderti la giornata.',
                     paragrafi: [
-                        { titolo: 'Dove e quando', testo: 'L\'Hotel Eurostars Excelsior è in Via Partenope 48, sul lungomare, a due passi da Castel dell\'Ovo. La registrazione apre alle 9.00 con il welcome coffee, i lavori cominciano alle 9.30 e la giornata si chiude alle 18.30 con gli incontri B2B.' },
-                        { titolo: 'Come arrivare', testo: 'In auto: l\'hotel non ha un parcheggio riservato ai partecipanti, ma nella zona di Santa Lucia e Chiaia ci sono diversi garage a pagamento. In treno: da Napoli Centrale bastano circa quindici minuti di taxi. In aereo: da Capodichino l\'autobus Alibus arriva fino al Molo Beverello, a un quarto d\'ora a piedi dall\'hotel. Se hai bisogno di indicazioni, rispondi a questa mail.' },
+                        { titolo: 'Dove e quando', testo: 'L\'Hotel Eurostars Excelsior è in Via Partenope 48, sul lungomare, a due passi da Castel dell\'Ovo. La registrazione apre alle 9.00 con il welcome coffee, i lavori cominciano alle 9.30 e la giornata si chiude alle 18.30. Gli incontri B2B si tengono per tutta la giornata, in parallelo ai lavori.' },
+                        { titolo: 'Come arrivare', testo: 'In auto: l\'hotel non ha un parcheggio riservato ai partecipanti, ma nella zona di Santa Lucia e Chiaia ci sono diversi garage a pagamento. In treno: da Napoli Centrale bastano circa quindici minuti di taxi. In aereo: da Capodichino l\'autobus Alibus arriva fino al Molo Beverello, a un quarto d\'ora a piedi dall\'hotel.' },
                         {
                             titolo: 'Cosa aspettarti', elenco: [
                                 'Welcome coffee alle 9.00, coffee break a metà mattina e nel pomeriggio',
                                 'Lunch buffet alle 13.30, compreso nella partecipazione',
                                 'Otto interventi in sequenza e una tavola rotonda con banche e imprese',
-                                'Dalle 16.30 gli incontri B2B, per chi si è prenotato'
+                                'Gli incontri B2B durante tutta la giornata, per chi si è prenotato: ognuno al suo orario'
                             ]
                         },
                         'Il convegno è in corso di accreditamento presso l\'Ordine dei Dottori Commercialisti e degli Esperti Contabili di Napoli per i crediti formativi: se sei iscritto all\'Ordine, segnalalo al desk quando ti registri.'
@@ -165,7 +165,7 @@
                     sommario: 'Ciao ' + NOME + ', venerdì è il grande giorno. Stiamo preparando la sala e i badge, e vorremmo essere sicuri di averti con noi.',
                     paragrafi: [
                         'Se i tuoi programmi sono cambiati e non potrai venire, non serve scriverci: basta un clic dal tuo collegamento personale, in fondo a questa mail. È un gesto che conta, perché le richieste sono più dei posti e ogni sedia libera andrà a qualcuno che la sta aspettando.',
-                        { titolo: 'Gli incontri B2B del pomeriggio', testo: 'Dalle 16.30 imprese, professionisti, banche e sponsor si incontrano ai tavoli tematici: assetti, governance, 231 e Tax Control Framework, Rating di Legalità, ESG, finanza agevolata, merito creditizio, Bagnoli e America\'s Cup. Se ti sei prenotato, porta il foglio della prenotazione (stampato o sul telefono) e presentalo al desk "Incontri B2B". Se non l\'hai ancora fatto e ti interessa, rispondi a questa mail.' },
+                        { titolo: 'Gli incontri B2B', testo: 'Durante tutta la giornata, in parallelo ai lavori, imprese, professionisti, banche e sponsor si incontrano ai tavoli tematici: assetti, governance, 231 e Tax Control Framework, Rating di Legalità, ESG, finanza agevolata, merito creditizio, Bagnoli e America\'s Cup. Se ti sei prenotato, porta il foglio della prenotazione con gli orari dei tuoi incontri (stampato o sul telefono) e presentalo al desk "Incontri B2B". Se non l\'hai ancora fatto e ti interessa, rispondi a questa mail.' },
                         {
                             titolo: 'Da portare con te', elenco: [
                                 'I biglietti da visita: al desk basta il tuo nome, ma agli incontri B2B servono davvero',
@@ -189,7 +189,7 @@
                     titolo: 'A domani',
                     sommario: 'Ciao ' + NOME + ', è tutto pronto: domani mattina ti aspettiamo a Napoli per Next Generation Business. Qui sotto i tre dati che servono.',
                     paragrafi: [
-                        'Arriva con calma: la registrazione apre alle 9.00 con il welcome coffee e i lavori iniziano alle 9.30. Al desk basta il tuo nome, il badge è già pronto. Se hai prenotato gli incontri B2B, ricordati il foglio della prenotazione.',
+                        'Arriva con calma: la registrazione apre alle 9.00 con il welcome coffee e i lavori iniziano alle 9.30. Al desk basta il tuo nome, il badge è già pronto. Se hai prenotato gli incontri B2B, ricordati il foglio della prenotazione con i tuoi orari.',
                         'Porta con te curiosità e domande: il percorso della giornata è pensato per essere applicato in azienda da lunedì, non per restare sulla carta.'
                     ],
                     righe: [['Quando', 'Domani, venerdì 2 ottobre, dalle 9.00 alle 18.30'], ['Dove', NAPOLI.dove], ['Registrazione', 'Dalle 9.00, con il welcome coffee']],
@@ -252,7 +252,7 @@
                                 'Il collegamento, che ti manderemo per email nei giorni prima dell\'evento'
                             ]
                         },
-                        { titolo: 'A che ora collegarti', testo: 'I lavori cominciano alle 9.30: collegati qualche minuto prima, così hai il tempo di sistemare audio e video. La diretta segue tutta la giornata di lavori, dalla mattina alla tavola rotonda del pomeriggio. Gli incontri B2B delle 16.30 si svolgono in sala e non vengono trasmessi.' },
+                        { titolo: 'A che ora collegarti', testo: 'I lavori cominciano alle 9.30: collegati qualche minuto prima, così hai il tempo di sistemare audio e video. La diretta segue tutta la giornata di lavori, dalla mattina al pomeriggio. Gli incontri B2B si svolgono in sala, durante la giornata, e non vengono trasmessi.' },
                         'Se nel frattempo preferisci venire di persona, rispondi a questa mail: se in sala si è liberato un posto, te lo diamo volentieri.'
                     ],
                     righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.30'], ['Partecipazione', 'Online, in diretta'], ['Collegamento', 'Arriva per email nei giorni prima']],
@@ -272,7 +272,7 @@
                     paragrafi: [
                         'Venerdì apri il pulsante qui sotto qualche minuto prima delle 9.30. Il collegamento è lo stesso per tutta la giornata: se la connessione cade, basta riaprirlo.',
                         { titolo: 'Se il pulsante non funziona', testo: 'Copia e incolla questo indirizzo nel browser: ' + LINK_DIRETTA },
-                        'Gli orari sono indicativi e possono scorrere di qualche minuto. Gli incontri B2B delle 16.30 si svolgono in sala e non fanno parte della diretta.'
+                        'Gli orari sono indicativi e possono scorrere di qualche minuto. Gli incontri B2B si svolgono in sala, durante la giornata, e non fanno parte della diretta.'
                     ],
                     righe: [['Quando', 'Venerdì 2 ottobre 2026, dalle 9.30'], ['Partecipazione', 'Online, in diretta']],
                     programma: NAPOLI.programmaDiretta,
