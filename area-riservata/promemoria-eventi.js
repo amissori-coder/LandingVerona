@@ -147,7 +147,7 @@
                                 'Gli incontri B2B durante tutta la giornata, per chi si è prenotato: ognuno al suo orario'
                             ]
                         },
-                        'Il convegno è in corso di accreditamento presso l\'Ordine dei Dottori Commercialisti e degli Esperti Contabili di Napoli per i crediti formativi: se sei iscritto all\'Ordine, segnalalo al desk quando ti registri.'
+                        'Per i professionisti presenti in sala: il convegno è in corso di accreditamento presso l\'Ordine dei Dottori Commercialisti e degli Esperti Contabili di Napoli per i crediti formativi. Se sei iscritto all\'Ordine, segnalalo al desk quando ti registri.'
                     ],
                     righe: RIGHE_SALA,
                     pulsante: { testo: 'Apri la mappa', url: NAPOLI.mappa },
@@ -170,7 +170,7 @@
                             titolo: 'Da portare con te', elenco: [
                                 'I biglietti da visita: al desk basta il tuo nome, ma agli incontri B2B servono davvero',
                                 'Le domande che vuoi fare ai relatori: c\'è spazio per il confronto',
-                                'Se sei iscritto all\'Ordine dei Commercialisti di Napoli, segnalalo al desk per i crediti formativi'
+                                'Se sei un professionista iscritto all\'Ordine dei Commercialisti di Napoli, segnalalo al desk: i crediti formativi sono per chi è presente in sala'
                             ]
                         }
                     ],
