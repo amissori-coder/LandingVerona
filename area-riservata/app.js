@@ -19207,23 +19207,30 @@
        apre, corregge quello che vuole, sceglie giorno e ora e
        CONFERMA: finche' non conferma non parte niente.
 
+       Sulla pagina dell'evento sta una scheda di una riga con il
+       riassunto e un pulsante: l'elenco vero si apre in una finestra,
+       perche' dieci righe sopra la tabella degli iscritti spingevano
+       giu' quello che si guarda dieci volte al giorno.
+
        Quello che si conferma finisce in archivio/promemoriaEventi con
        la mail GIA' COMPOSTA (formato NGB, con i segnaposti {{NOME}} e
        {{COMPLETA}} ancora al loro posto). Il lavoro programmato del
        servizio (api/promemoria-eventi.js, ogni quarto d'ora) legge
        l'archivio, e per ogni promemoria dovuto risolve GLI ISCRITTI DI
        QUEL MOMENTO nelle sezioni scelte, personalizza e spedisce, poi
-       scrive l'esito sul record. E' la stessa strada delle
-       comunicazioni programmate: qui si decide, li' si spedisce.
+       scrive l'esito sul record. Chi si iscrive DOPO l'invio non resta
+       senza: lo stesso lavoro gli manda, entro poche ore, l'ultimo
+       promemoria gia' partito per la sua serie - quello giusto per il
+       momento in cui si e' iscritto, non tutti quelli vecchi.
 
-       Record: { id: '<evento>~<proposta>', evento, proposta, nome,
+       Record: { id: '<evento>~<proposta>', evento, filtro, proposta, nome,
                  sezioni: ['presenza','aderenti','sponsor'] | ['online'],
-                 quando: ms, stato: 'programmato'|'sospeso'|'inviato',
+                 quando: ms, stato: 'programmato'|'sospeso'|'inviato'|'scaduto',
                  mail: { oggetto, html, testo },      // quello che parte
                  testi: { ...la parte mail della proposta, corretta },
                  campi: { linkDiretta },
                  creato: { da, daNome, collab, il }, aggiornato: {...},
-                 invio: { il, inviate, falliti, ... }  // lo scrive il servizio }
+                 invio: { il, inviate, falliti, recuperi, ... }  // lo scrive il servizio }
     ========================================================= */
     const PromemoriaEventi = {
         tutte() { return Store.leggi(CHIAVI.promemoriaEventi, []); },
@@ -19263,17 +19270,23 @@
         return g + ' ' + fmtDataOra(ts).replace(/\/\d{4} /, ' alle ');
     }
     function serieDiSezioni(sezioni) {
-        const s = (sezioni || []).slice().sort().join(',');
-        const online = RV_PROMEMORIA.SERIE.online.sezioni.slice().sort().join(',');
-        return s === online ? 'online' : 'sala';
+        return (sezioni || []).indexOf('online') >= 0 ? 'online' : 'sala';
     }
     function etichettaSezioniPromemoria(sezioni) {
-        const tutte = RV_PROMEMORIA.SERIE[serieDiSezioni(sezioni)].sezioni;
-        const nomi = (sezioni || []).map(id => sezioneDef(id).breve);
-        if (tutte.length === (sezioni || []).length) return serieDiSezioni(sezioni) === 'online' ? 'Online' : 'In sala';
-        return 'In sala: ' + nomi.join(', ');
+        const serie = serieDiSezioni(sezioni);
+        const tutte = RV_PROMEMORIA.SERIE[serie].sezioni;
+        if (tutte.length === (sezioni || []).length) return serie === 'online' ? 'Online' : 'In sala';
+        return 'In sala: ' + (sezioni || []).map(id => sezioneDef(id).breve).join(', ');
     }
-    /* Le righe della scheda: le proposte non ancora confermate, e i record
+    /* "a 320, poi a 4 iscritti dopo": l'esito di un invio, in una riga. */
+    function esitoPromemoriaBreve(inv) {
+        if (!inv) return '';
+        let t = 'il ' + esc(fmtDataOra(inv.il)) + ' a <b>' + (inv.inviate || 0) + '</b>';
+        if (inv.recuperi) t += ', poi a <b>' + inv.recuperi + '</b> iscritt' + (inv.recuperi === 1 ? 'o' : 'i') + ' dopo';
+        if (inv.falliti) t += ', <span class="ev-ko">' + inv.falliti + ' fallit' + (inv.falliti === 1 ? 'a' : 'e') + '</span>';
+        return t;
+    }
+    /* Le righe dell'elenco: le proposte non ancora confermate, e i record
        confermati (con la proposta da cui vengono). In ordine di data. */
     function righePromemoria(ev) {
         if (!window.RV_PROMEMORIA || !ev || ev.tutti) return [];
@@ -19291,35 +19304,53 @@
         });
         return righe.sort((a, b) => (a.quando || 0) - (b.quando || 0));
     }
+    /* LA SCHEDA SULLA PAGINA: una riga di riassunto e il pulsante. */
     function promemoriaEventiHtml(ev) {
         if (!ev || ev.tutti || !window.RV_PROMEMORIA) return '';
         const righe = righePromemoria(ev);
         if (!righe.length) return '';
-        const puo = puoGestireInviti();
-        const n = { proposta: 0, programmato: 0, sospeso: 0, inviato: 0 };
+        const n = { proposta: 0, programmato: 0, sospeso: 0, inviato: 0, scaduto: 0 };
         righe.forEach(r => { n[r.stato] = (n[r.stato] || 0) + 1; });
-        const conta = [];
-        if (n.programmato) conta.push('<b>' + n.programmato + '</b> programmat' + (n.programmato === 1 ? 'o' : 'i'));
-        if (n.inviato) conta.push('<b>' + n.inviato + '</b> inviat' + (n.inviato === 1 ? 'o' : 'i'));
-        if (n.sospeso) conta.push('<b>' + n.sospeso + '</b> sospes' + (n.sospeso === 1 ? 'o' : 'i'));
-        if (n.proposta) conta.push('<b>' + n.proposta + '</b> da confermare');
+        const parti = [];
+        if (n.programmato) parti.push('<b>' + n.programmato + '</b> programmat' + (n.programmato === 1 ? 'o' : 'i'));
+        if (n.inviato) parti.push('<b>' + n.inviato + '</b> inviat' + (n.inviato === 1 ? 'o' : 'i'));
+        if (n.sospeso) parti.push('<b>' + n.sospeso + '</b> sospes' + (n.sospeso === 1 ? 'o' : 'i'));
+        if (n.scaduto) parti.push('<span class="ev-ko"><b>' + n.scaduto + '</b> non partit' + (n.scaduto === 1 ? 'o' : 'i') + '</span>');
+        if (n.proposta) parti.push('<b>' + n.proposta + '</b> da confermare');
+        const prossimo = righe.find(r => r.stato === 'programmato' && r.quando >= Date.now());
+        const inCorso = righe.find(r => r.rec && r.rec.invio && r.rec.invio.inCorso);
+        let riga;
+        if (!n.programmato && !n.inviato && !n.sospeso && !n.scaduto) {
+            riga = '<b>' + righe.length + '</b> mail già scritte, in sala e online, dal 17 settembre alla mattina dell\'evento. '
+                + 'Si confermano una per una, con giorno e ora: finché non confermi non parte niente.';
+        } else {
+            riga = parti.join(', ') + '.'
+                + (inCorso ? ' <b>Invio in corso</b>: ' + (inCorso.rec.invio.inviate || 0) + ' mail partite.' : '')
+                + (prossimo ? ' Prossimo: <b>' + esc(quandoPromemoria(prossimo.quando)) + '</b>, ' + esc(etichettaSezioniPromemoria(prossimo.sezioni).toLowerCase()) + '.' : '')
+                + (n.inviato ? ' Chi si iscrive dopo un invio riceve da solo l\'ultimo promemoria della sua serie.' : '');
+        }
+        return '<div class="card s-admin"><div class="s-admin-txt"><strong>Promemoria agli iscritti</strong>'
+            + '<div class="hint">' + riga + '</div></div>'
+            + '<div class="s-admin-azioni"><button class="btn ' + (n.proposta && !n.programmato && !n.inviato ? 'btn-primary' : 'btn-secondary') + '" id="ev-promemoria">Gestisci i promemoria</button></div></div>';
+    }
+    function collegaPromemoria(ev) {
+        const b = document.getElementById('ev-promemoria');
+        if (b) b.addEventListener('click', () => modaleElencoPromemoria(ev));
+    }
+    /* L'ELENCO, in una finestra: una riga per promemoria, con stato e azioni. */
+    function tabellaPromemoriaHtml(ev) {
+        const righe = righePromemoria(ev);
+        const puo = puoGestireInviti();
         const passato = ts => ts && ts < Date.now();
         const rigaHtml = r => {
             const st = STATI_PROMEMORIA[r.stato] || STATI_PROMEMORIA.proposta;
             const inv = r.rec && r.rec.invio;
             let stato = '<span class="badge ' + st.classe + '">' + esc(st.nome) + '</span>';
-            if (r.stato === 'inviato' && inv) {
-                stato += '<div class="hint">il ' + esc(fmtDataOra(inv.il)) + ' a <b>' + (inv.inviate || 0) + '</b>'
-                    + (inv.falliti ? ', <span class="ev-ko">' + inv.falliti + ' fallit' + (inv.falliti === 1 ? 'a' : 'e') + '</span>' : '') + '</div>';
-            } else if (inv && inv.inCorso) {
-                stato += '<div class="hint">in corso: <b>' + (inv.inviate || 0) + '</b> inviate</div>';
-            } else if (r.stato === 'programmato' && passato(r.quando)) {
-                stato += '<div class="hint">parte al primo giro utile</div>';
-            } else if (r.stato === 'proposta') {
-                stato += '<div class="hint">non parte finché non confermi</div>';
-            } else if (r.stato === 'scaduto') {
-                stato += '<div class="hint">' + esc((inv && inv.motivo) || 'la data era già passata quando il servizio è passato') + '</div>';
-            }
+            if (r.stato === 'inviato' && inv) stato += '<div class="hint">' + esitoPromemoriaBreve(inv) + '</div>';
+            else if (inv && inv.inCorso) stato += '<div class="hint">in corso: <b>' + (inv.inviate || 0) + '</b> inviate</div>';
+            else if (r.stato === 'programmato' && passato(r.quando)) stato += '<div class="hint">parte al primo giro utile</div>';
+            else if (r.stato === 'proposta') stato += '<div class="hint">non parte finché non confermi</div>';
+            else if (r.stato === 'scaduto') stato += '<div class="hint">' + esc((inv && inv.motivo) || 'la data era già passata quando il servizio è passato') + '</div>';
             const chiave = r.rec ? r.rec.id : idPromemoria(ev, r.prop.id);
             const idProp = r.prop ? r.prop.id : (r.rec ? r.rec.proposta : '');
             const btn = (cl, az, testo) => '<button class="btn btn-sm ' + cl + ' pm-az" data-az="' + az + '" data-id="' + esc(chiave) + '" data-prop="' + esc(idProp) + '">' + testo + '</button>';
@@ -19338,19 +19369,30 @@
                 + '<td>' + stato + '</td>'
                 + '<td style="white-space:nowrap;text-align:right;">' + azioni + '</td></tr>';
         };
-        return '<div class="card"><div class="s-admin" style="padding:0;border:none;box-shadow:none;background:none;">'
-            + '<div class="s-admin-txt"><strong>Promemoria agli iscritti</strong>'
-            + '<div class="hint">Le mail che ricordano l\'evento a chi si è già iscritto, in due serie: <b>in sala</b> (ospiti, aderenti Revilaw, sponsor e relatori) e <b>online</b>. '
-            + 'Sono proposte già scritte: aprile, correggi quello che vuoi, scegli giorno e ora e conferma. Parte <b>solo</b> quello che confermi, all\'ora scelta, a chi risulta iscritto in quel momento nelle sezioni indicate (il servizio passa ogni quarto d\'ora).'
-            + (conta.length ? '<br>' + conta.join(', ') + '.' : '') + '</div></div></div>'
-            + '<div class="tabella-wrap" style="margin-top:12px;box-shadow:none;"><table class="dati"><thead><tr>'
+        return '<div class="tabella-wrap" style="box-shadow:none;"><table class="dati"><thead><tr>'
             + '<th>Quando</th><th>A chi</th><th>Promemoria</th><th>Stato</th><th></th></tr></thead><tbody>'
-            + righe.map(rigaHtml).join('') + '</tbody></table></div></div>';
+            + righe.map(rigaHtml).join('') + '</tbody></table></div>';
     }
-    function collegaPromemoria(ev) {
-        $vista().querySelectorAll('.pm-az').forEach(b => b.addEventListener('click', () => {
+    function modaleElencoPromemoria(ev) {
+        if (!window.RV_PROMEMORIA) return;
+        apriModale('<h2>Promemoria agli iscritti</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;max-width:none;">Due serie, <b>in sala</b> (ospiti, aderenti Revilaw, sponsor e relatori) e <b>online</b>. '
+            + 'Apri una riga: vedi la mail com\'è davvero, correggi quello che vuoi, scegli giorno, ora e sezioni, e conferma. Parte <b>solo</b> quello che confermi, all\'ora scelta, '
+            + 'a chi risulta iscritto in quel momento (il servizio passa ogni quarto d\'ora). Chi si iscrive <b>dopo</b> un invio riceve da solo, entro poche ore, l\'ultimo promemoria già partito per la sua serie.</p>'
+            + tabellaPromemoriaHtml(ev)
+            + '<div class="modale-azioni"><button class="btn btn-secondary" id="pm-el-chiudi">Chiudi</button></div>',
+            { classe: 'larga' });
+        document.getElementById('pm-el-chiudi').addEventListener('click', chiudiModale);
+        collegaAzioniPromemoria(ev, document.getElementById('modale-contenitore'));
+    }
+    /* Le azioni delle righe. Dopo ognuna si ridisegna la pagina (la scheda
+       con il riassunto) e si riapre l'elenco: la finestra sta in un
+       contenitore suo, e ridisegnare la pagina non la tocca. */
+    function collegaAzioniPromemoria(ev, radice) {
+        const torna = () => { vistaEventi(); modaleElencoPromemoria(ev); };
+        radice.querySelectorAll('.pm-az').forEach(b => b.addEventListener('click', () => {
             const az = b.dataset.az, id = b.dataset.id, prop = b.dataset.prop;
-            if (az === 'apri') { modalePromemoria(ev, prop, id); return; }
+            if (az === 'apri') { modalePromemoria(ev, prop, id, { torna: torna }); return; }
             if (!puoGestireInviti()) return;
             const r = PromemoriaEventi.trova(id);
             if (!r) return;
@@ -19360,24 +19402,24 @@
                 PromemoriaEventi.salvaUna(r);
                 Audit.registra(u, 'Evento: promemoria sospeso', 'sistema', ev.id, null, r.nome || r.id);
                 toast('Promemoria sospeso: non partirà finché non lo riprendi.', 'verde');
-                vistaEventi();
+                torna();
             } else if (az === 'riprendi') {
                 // a data gia' passata si riapre la finestra per sceglierne una nuova
-                if (!r.quando || r.quando < Date.now()) { modalePromemoria(ev, prop, id); return; }
+                if (!r.quando || r.quando < Date.now()) { modalePromemoria(ev, prop, id, { torna: torna }); return; }
                 r.stato = 'programmato'; r.aggiornato = firmaPromemoria(u);
                 PromemoriaEventi.salvaUna(r);
                 Audit.registra(u, 'Evento: promemoria ripreso', 'sistema', ev.id, null, r.nome || r.id);
                 toast('Promemoria di nuovo programmato per ' + quandoPromemoria(r.quando) + '.', 'verde');
-                vistaEventi();
+                torna();
             } else if (az === 'elimina') {
                 apriModale('<h2>Togliere la programmazione?</h2>'
                     + '<p>"' + esc(r.nome || r.id) + '" non partirà più. La proposta resta in elenco, e la puoi programmare di nuovo quando vuoi.</p>'
                     + '<div class="modale-azioni"><button class="btn btn-secondary" id="pm-el-no">Annulla</button><button class="btn btn-danger" id="pm-el-si">Togli</button></div>');
-                document.getElementById('pm-el-no').addEventListener('click', chiudiModale);
+                document.getElementById('pm-el-no').addEventListener('click', () => { chiudiModale(); modaleElencoPromemoria(ev); });
                 document.getElementById('pm-el-si').addEventListener('click', () => {
                     PromemoriaEventi.elimina(id);
                     Audit.registra(u, 'Evento: promemoria tolto', 'sistema', ev.id, null, r.nome || r.id);
-                    chiudiModale(); toast('Programmazione tolta.', 'verde'); vistaEventi();
+                    chiudiModale(); toast('Programmazione tolta.', 'verde'); torna();
                 });
             }
         }));
@@ -19409,11 +19451,15 @@
         });
         return out;
     }
-    /* LA FINESTRA: data e ora, a chi, i campi da riempire, i testi da
-       correggere e l'anteprima della mail com'e' davvero. Un record gia'
-       confermato si riapre da qui per cambiare data, sezioni o testo;
-       un inviato si riapre in sola lettura, con l'esito. */
-    function modalePromemoria(ev, idProposta, idRecord) {
+    /* LA FINESTRA DI UN PROMEMORIA: a sinistra data e ora, a chi, i campi
+       da riempire e i testi da correggere; a destra l'anteprima della mail
+       com'e' davvero, che segue quello che si scrive. Un record gia'
+       confermato si riapre da qui per cambiare data, sezioni o testo; un
+       inviato si riapre in sola lettura, con l'esito.
+       `opz.torna`: cosa fare alla chiusura (riaprire l'elenco). */
+    function modalePromemoria(ev, idProposta, idRecord, opz) {
+        opz = opz || {};
+        const torna = typeof opz.torna === 'function' ? opz.torna : () => { };
         if (!window.RV_PROMEMORIA || !window.RV_NEWSLETTER) { toast('Formato dei promemoria non caricato: ricarica la pagina.', 'rosso'); return; }
         const rec = idRecord ? PromemoriaEventi.trova(idRecord) : null;
         const prop = idProposta ? RV_PROMEMORIA.proposta(ev.id, idProposta) : null;
@@ -19440,50 +19486,52 @@
         const isoOra = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
         const dis = soloLettura ? ' disabled' : '';
 
-        const sezioniHtml = RV_PROMEMORIA.SERIE[serie].sezioni.map(id => {
+        const sezioniHtml = '<div class="pm-sezioni">' + RV_PROMEMORIA.SERIE[serie].sezioni.map(id => {
             const d = destinatariPromemoria(ev, [id]);
-            return '<label style="display:inline-flex;align-items:center;gap:6px;margin:0 14px 6px 0;">'
-                + '<input type="checkbox" class="pm-sez" value="' + esc(id) + '"' + (sezioni0.indexOf(id) >= 0 ? ' checked' : '') + dis + '> '
-                + esc(sezioneDef(id).nome) + ' <span class="hint">(' + d.totale + ')</span></label>';
-        }).join('');
+            return '<label><input type="checkbox" class="pm-sez" value="' + esc(id) + '"' + (sezioni0.indexOf(id) >= 0 ? ' checked' : '') + dis + '>'
+                + esc(sezioneDef(id).nome) + ' <span class="pm-n">' + (_evIscrizioni ? d.totale : '-') + '</span></label>';
+        }).join('') + '</div>';
         const campiHtml = campiRichiesti.map(k => {
             const c = RV_PROMEMORIA.CAMPI[k];
             if (!c) return '';
             return '<div class="campo"><label>' + esc(c.etichetta) + ' *</label>'
-                + '<input type="' + esc(c.tipo || 'text') + '" id="pm-campo-' + esc(k) + '" value="' + esc(valoriCampi[k] || '') + '" placeholder="' + esc(c.esempio || '') + '"' + dis + '>'
+                + '<input type="' + esc(c.tipo || 'text') + '" id="pm-campo-' + esc(k) + '" value="' + esc(valoriCampi[k] || '') + '" placeholder="' + esc(c.esempio || '') + '"' + dis + ' style="max-width:none;">'
                 + '<div class="hint">' + esc(c.aiuto || '') + '</div></div>';
         }).join('');
         const esitoInvio = inviato && rec.invio
-            ? '<div class="card" style="margin:0 0 12px;padding:12px 14px;"><strong>Inviato il ' + esc(fmtDataOra(rec.invio.il)) + '</strong>'
+            ? '<div class="card" style="margin:0 0 14px;padding:12px 14px;"><strong>Inviato il ' + esc(fmtDataOra(rec.invio.il)) + '</strong>'
             + '<div class="hint"><b>' + (rec.invio.inviate || 0) + '</b> mail partite'
+            + (rec.invio.recuperi ? ', poi <b>' + rec.invio.recuperi + '</b> a chi si è iscritto dopo' + (rec.invio.ultimoRecupero ? ' (l\'ultima il ' + esc(fmtDataOra(rec.invio.ultimoRecupero)) + ')' : '') : '')
             + (rec.invio.doppie ? ', ' + rec.invio.doppie + ' indirizzi doppi saltati' : '')
             + (rec.invio.senzaEmail ? ', ' + rec.invio.senzaEmail + ' iscrizioni senza email' : '')
             + (rec.invio.falliti ? ', <span class="ev-ko"><b>' + rec.invio.falliti + '</b> fallite</span>' : '') + '.'
             + ((rec.invio.dettaglioFalliti || []).length ? '<br>' + rec.invio.dettaglioFalliti.map(f => esc(f.email) + ': ' + esc(f.motivo || '')).join('<br>') : '')
             + '</div></div>'
-            : (inCorso ? '<div class="card" style="margin:0 0 12px;padding:12px 14px;"><strong>Invio in corso</strong><div class="hint">' + (rec.invio.inviate || 0) + ' mail già partite: il servizio continua al prossimo giro.</div></div>' : '');
+            : (inCorso ? '<div class="card" style="margin:0 0 14px;padding:12px 14px;"><strong>Invio in corso</strong><div class="hint">' + (rec.invio.inviate || 0) + ' mail già partite: il servizio continua al prossimo giro.</div></div>' : '');
 
-        apriModale('<h2>' + esc(nome || 'Promemoria') + '</h2>'
-            + esitoInvio
+        const colonnaForm = esitoInvio
             + '<div class="griglia-2">'
             + '<div class="campo"><label>Giorno</label><input type="date" id="pm-data" value="' + esc(isoData(quando0)) + '"' + dis + '></div>'
-            + '<div class="campo"><label>Ora</label><input type="time" id="pm-ora" step="60" value="' + esc(isoOra(quando0)) + '"' + dis + '>'
-            + '<div class="hint">Il servizio passa ogni quarto d\'ora: parte al primo giro dopo quest\'ora.</div></div>'
+            + '<div class="campo"><label>Ora</label><input type="time" id="pm-ora" step="60" value="' + esc(isoOra(quando0)) + '"' + dis + '></div>'
             + '</div>'
-            + '<div class="campo"><label>A chi</label><div>' + sezioniHtml + '</div>'
+            + '<div class="hint" style="margin:-8px 0 14px;">Il servizio passa ogni quarto d\'ora: parte al primo giro dopo quest\'ora, a chi risulta iscritto in quel momento. Chi si iscrive dopo lo riceve da solo, entro poche ore, finché non parte il promemoria successivo.</div>'
+            + '<div class="campo"><label>A chi</label>' + sezioniHtml
             + '<div class="hint" id="pm-conta"></div></div>'
             + campiHtml
             + '<details class="ev-colonne" style="margin:4px 0 12px;"' + (rec && rec.testi ? ' open' : '') + '><summary>Correggi i testi</summary><div style="margin-top:8px;">'
             + '<div class="campo"><label>Oggetto</label><input id="pm-oggetto" value="' + esc(testi.oggetto || '') + '"' + dis + ' style="max-width:none;"></div>'
-            + '<div class="campo"><label>Titolo</label><input id="pm-titolo" value="' + esc(testi.titolo || '') + '"' + dis + '></div>'
+            + '<div class="campo"><label>Titolo</label><input id="pm-titolo" value="' + esc(testi.titolo || '') + '"' + dis + ' style="max-width:none;"></div>'
             + '<div class="campo"><label>Apertura</label><textarea id="pm-sommario" rows="3"' + dis + ' style="max-width:none;">' + esc(testi.sommario || '') + '</textarea>'
             + '<div class="hint">{{NOME}} diventa il nome di chi legge.</div></div>'
             + '<div class="campo"><label>Testo</label><textarea id="pm-corpo" rows="14"' + dis + ' style="max-width:none;font-family:inherit;">' + esc(RV_PROMEMORIA.aTesto(testi.paragrafi || [])) + '</textarea>'
             + '<div class="hint">Un paragrafo per blocco, separati da una riga vuota. Una riga che comincia con <code>## </code> è un sopratitolo; le righe che cominciano con <code>- </code> sono i punti di un elenco.</div></div>'
             + '<div class="campo"><label>Nota in piccolo</label><input id="pm-nota" value="' + esc(testi.nota || '') + '"' + dis + ' style="max-width:none;"></div>'
-            + '</div></details>'
-            + '<div id="pm-anteprima"><iframe id="pm-frame" title="Anteprima del promemoria" sandbox="allow-same-origin" '
-            + 'style="width:100%;height:min(520px, 56vh);border:1px solid #E2E8F0;border-radius:8px;background:#fff;"></iframe></div>'
+            + '</div></details>';
+        const colonnaAnteprima = '<div class="pm-colonna-anteprima"><div class="hint" style="margin:0 0 6px;">Anteprima: com\'è davvero, con un nome di esempio.</div>'
+            + '<div id="pm-anteprima"><iframe id="pm-frame" class="pm-frame" title="Anteprima del promemoria" sandbox="allow-same-origin"></iframe></div></div>';
+
+        apriModale('<h2>' + esc(nome || 'Promemoria') + '</h2>'
+            + '<div class="pm-griglia"><div>' + colonnaForm + '</div>' + colonnaAnteprima + '</div>'
             + '<div id="pm-esito" class="ev-imp-esito"></div>'
             + '<div class="modale-azioni"><button class="btn btn-secondary" id="pm-no">' + (soloLettura ? 'Chiudi' : 'Annulla') + '</button>'
             + '<button class="btn btn-secondary" id="pm-ant">Nascondi anteprima</button>'
@@ -19506,8 +19554,7 @@
             if (!el) return;
             el.innerHTML = _evIscrizioni
                 ? 'Oggi partirebbe a <b>' + d.totale + '</b> ' + (d.totale === 1 ? 'indirizzo' : 'indirizzi diversi')
-                + (d.senzaEmail ? ' (' + d.senzaEmail + ' senza email, da avvisare a mano)' : '')
-                + '. Il conteggio è di adesso: il servizio rilegge l\'elenco al momento dell\'invio.'
+                + (d.senzaEmail ? ' (' + d.senzaEmail + ' senza email, da avvisare a mano)' : '') + '.'
                 : 'Elenco non ancora caricato: il servizio leggerà gli iscritti al momento dell\'invio.';
         };
         aggiornaConta();
@@ -19524,7 +19571,10 @@
                 .split(RV_PROMEMORIA.SEGNAPOSTO_COMPLETA).join(SITO_PUBBLICO + '/completa_iscrizione/');
         });
         anteprimaSegueCampi(ant);
-        $id('pm-no').addEventListener('click', chiudiModale);
+        // la X della barra chiude e basta: si torna all'elenco anche da li'
+        const x = document.querySelector('#modale-contenitore .mw-close');
+        if (x) x.addEventListener('click', () => setTimeout(torna, 0));
+        $id('pm-no').addEventListener('click', () => { chiudiModale(); torna(); });
         if (soloLettura) return;
         $id('pm-si').addEventListener('click', () => {
             const sez = sezioniScelte();
@@ -19542,7 +19592,7 @@
             const u = Auth.utenteCorrente;
             const nuovo = {
                 id: rec ? rec.id : idPromemoria(ev, prop.id),
-                evento: ev.id, filtro: ev.filtro || '', proposta: rec ? rec.proposta : prop.id, nome: nome,
+                evento: ev.id, filtro: ev.filtro || '', giornoEvento: ev.giorno || '', proposta: rec ? rec.proposta : prop.id, nome: nome,
                 sezioni: sez, quando: quando, stato: 'programmato',
                 mail: { oggetto: mail.oggetto, html: mail.html, testo: mail.testo },
                 testi: t, campi: valori(), campiRichiesti: campiRichiesti.slice(),
@@ -19555,7 +19605,7 @@
                 nome + ' - ' + quandoTxt + ' - ' + etichettaSezioniPromemoria(sez));
             chiudiModale();
             toast((quando < Date.now() ? 'Programmato: parte al primo giro utile, entro un quarto d\'ora.' : 'Programmato per ' + quandoTxt + '.'), 'verde');
-            vistaEventi();
+            torna();
         });
     }
 

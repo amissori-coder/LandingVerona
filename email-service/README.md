@@ -974,6 +974,22 @@ giro mentre il primo spedisce. Se il budget (240 s dentro i 300 di
 `invio.inCorso` e il conteggio, e il giro dopo riprende da chi manca. La copia
 a chi ha programmato parte solo al primo giro.
 
+**Chi si iscrive dopo l'invio non resta senza.** A differenza delle
+comunicazioni, l'avanzamento **non si cancella** a fine invio: da li' in poi
+e' la memoria di chi ha ricevuto quel promemoria. A ogni giro, per ogni
+evento e per ogni serie (in sala, online), il servizio prende **l'ultimo
+promemoria gia' partito** e lo manda a chi, fra gli iscritti di adesso, non
+l'ha ricevuto: chi si e' iscritto dopo, chi e' stato spostato in quella serie
+dopo. Solo l'ultimo, non tutti quelli vecchi: chi si iscrive a una settimana
+dall'evento riceve "manca una settimana", non anche "mancano due". I recuperi
+partono **fra le 8 e le 20** ora di Roma (un promemoria alle tre di notte
+sembra spedito da una macchina) e fino al giorno dell'evento compreso: quindi
+entro poche ore, mai piu' di una notte. Sul record restano `invio.recuperi`
+(quanti) e `invio.ultimoRecupero`; per un recupero non parte la copia a chi ha
+programmato. Un record spedito **prima** che questa memoria esistesse non ha
+l'elenco di chi ha ricevuto: al primo passaggio lo si ricostruisce con gli
+iscritti di adesso, senza spedire, e da li' in poi entrano solo i nuovi.
+
 **Un promemoria vecchio non parte.** "A domani" spedito tre giorni dopo e'
 peggio di niente: se all'arrivo del giro l'ora scelta e' passata da **piu' di
 un giorno** (servizio fermo, cron non attivo) il record viene segnato
@@ -987,7 +1003,8 @@ browser, `PromemoriaEventi.salvaUna` non riporta mai indietro un record che il
 servizio ha gia' segnato inviato.
 
 Stati del record: `programmato` (parte all'ora scelta), `sospeso` (fermo
-finche' non lo si riprende), `inviato`, `scaduto`. Una proposta senza record
+finche' non lo si riprende), `inviato` (e da allora recupera chi arriva dopo),
+`scaduto`. Una proposta senza record
 non e' niente: e' solo un testo pronto nell'elenco.
 
 Nessuna variabile nuova: usa `CRON_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `SMTP_*`,
@@ -995,7 +1012,9 @@ Nessuna variabile nuova: usa `CRON_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `SMTP_*`
 dall'account di servizio) gia' configurati. Le prove stanno in
 `prove/promemoria-eventi.prove.js` (`node prove/promemoria-eventi.prove.js`,
 niente da installare): a chi parte e a chi no, la personalizzazione, il tempo
-finito a meta', lo scaduto, i record non dovuti.
+finito a meta', lo scaduto, i record non dovuti, i recuperi di chi si iscrive
+dopo (solo l'ultimo della serie, solo di giorno, non oltre l'evento, e la
+ricostruzione della memoria per i record spediti prima).
 
 ## Completamento dati partecipanti (dentro `/api/iscrizione-nuova`)
 
