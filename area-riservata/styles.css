@@ -3339,3 +3339,20 @@ table.dati.cq-elenco .cq-agg { white-space: nowrap; }
 .u-collab-di { margin-top: 4px; font-size: 0.8rem; color: var(--grigio-600); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .avviso-collab { margin: 10px 0; padding: 10px 12px; border-radius: 6px; background: var(--ambra-bg); color: var(--ambra); font-size: 0.88rem; line-height: 1.45; }
 .ruolo-card-collab { border-left: 4px solid var(--ambra); }
+
+/* ---- Promemoria agli iscritti (sezione Eventi): la finestra di un
+   promemoria e l'elenco. A sinistra i campi, a destra l'anteprima che segue
+   quello che si scrive; sotto gli 860px le due colonne si impilano. ---- */
+.pm-griglia { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 0 24px; align-items: start; }
+.pm-colonna-anteprima { position: sticky; top: 0; }
+.pm-frame { display: block; width: 100%; height: min(680px, 64vh); border: 1px solid var(--grigio-200); border-radius: 8px; background: #fff; }
+/* le sezioni in una riga sola, ognuna con il suo numero: un'etichetta che va
+   a capo a meta' parola non si legge */
+.pm-sezioni { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 2px 0 8px; }
+.pm-sezioni label { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; margin: 0; font-size: 0.92rem; font-weight: 500; color: var(--blu-900); cursor: pointer; }
+.pm-sezioni input[type="checkbox"] { width: 16px; height: 16px; margin: 0; flex: 0 0 auto; }
+.pm-sezioni .pm-n { color: var(--grigio-600); font-weight: 400; font-variant-numeric: tabular-nums; }
+@media (max-width: 860px) {
+    .pm-griglia { grid-template-columns: 1fr; }
+    .pm-colonna-anteprima { position: static; margin-top: 8px; }
+}

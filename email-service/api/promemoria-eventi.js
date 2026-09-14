@@ -24,6 +24,24 @@
    mentre il primo sta spedendo. Se il tempo finisce a meta', il record
    resta dovuto e il giro dopo riprende da chi manca.
 
+   CHI SI ISCRIVE DOPO L'INVIO NON RESTA SENZA. Un promemoria inviato
+   e' la memoria di chi l'ha ricevuto (il documento dell'avanzamento
+   NON si cancella a fine invio, come per le comunicazioni: qui serve
+   dopo). A ogni giro, per ogni evento e per ogni serie - in sala,
+   online - si prende l'ULTIMO promemoria gia' partito e lo si manda a
+   chi, fra gli iscritti di adesso, non l'ha ricevuto: chi si e'
+   iscritto dopo, chi e' stato spostato in quella serie dopo. Solo
+   l'ultimo, non tutti quelli vecchi: chi si iscrive a una settimana
+   dall'evento riceve "manca una settimana", non anche "mancano due".
+   Si spedisce fra le 8 e le 20 ora di Roma - un promemoria alle tre di
+   notte sembra spedito da una macchina - e fino al giorno dell'evento
+   compreso: e' comunque entro poche ore, mai piu' di una notte.
+   Un record spedito dal servizio PRIMA che questa memoria esistesse
+   non ha l'elenco di chi ha ricevuto: al primo passaggio lo si
+   ricostruisce con gli iscritti di adesso (senza spedire), e da li' in
+   poi entrano solo i nuovi. Meglio un nuovo iscritto in meno che
+   trecento mail doppie.
+
    UN PROMEMORIA VECCHIO NON PARTE. "A domani" spedito tre giorni dopo e'
    peggio di niente: se all'arrivo del giro l'ora scelta e' passata da
    piu' di un giorno (il servizio era fermo, il cron non era attivo) il
@@ -50,6 +68,8 @@ const PASSO_SALVATAGGIO = 20;
 // oltre questo ritardo un promemoria non ha piu' senso: si segna scaduto
 const RITARDO_MAX_MS = 24 * 60 * 60 * 1000;
 const SEZIONI = ['presenza', 'aderenti', 'sponsor', 'online'];
+// i recuperi (chi si e' iscritto dopo l'invio) partono solo di giorno, ora di Roma
+const RECUPERI_DALLE = 8, RECUPERI_ALLE = 20;
 const DOC = 'promemoriaEventi';
 const BASE = String(process.env.APP_BASE_URL || 'https://nextgenerationbusiness.it').replace(/\/+$/, '');
 
@@ -136,6 +156,24 @@ function risolviDestinatari(arch, rec) {
     return out;
 }
 
+/* L'ora di Roma di un istante: usata per la finestra dei recuperi. Si parte
+   da Date.now() e non da new Date() perche' l'orologio delle prove
+   sostituisce il primo, non il secondo. */
+function oraRoma(ts) {
+    return Number(new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', hour12: false }).format(new Date(ts)));
+}
+/* La fine del giorno dell'evento (ora di Roma), oltre la quale un recupero
+   non ha piu' senso. Il giorno sta sul record se l'area riservata ce l'ha
+   scritto, altrimenti si legge dalla coda dell'identificativo dell'evento
+   ("napoli-2026-10-02"). Senza data non si recupera: nel dubbio, niente. */
+function fineEvento(rec) {
+    const g = String(rec.giornoEvento || '') || ((/(\d{4}-\d{2}-\d{2})$/.exec(String(rec.evento || '')) || [])[1] || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(g)) return 0;
+    const t = Date.parse(g + 'T23:59:59+02:00');
+    return isNaN(t) ? 0 : t;
+}
+function serieDi(rec) { return (Array.isArray(rec.sezioni) ? rec.sezioni : []).indexOf('online') >= 0 ? 'online' : 'sala'; }
+
 function personalizza(rec, d) {
     const m = rec.mail || {};
     const link = d.doc ? NL.linkCompleta(d.doc) : (BASE + '/');
@@ -216,6 +254,73 @@ async function applicaPatch(db, id, patch) {
     });
 }
 
+/* I RECUPERI: l'ultimo promemoria gia' partito di ogni serie, a chi non
+   l'ha ricevuto. Rilegge l'archivio fresco (i dovuti appena spediti in
+   questo giro sono gia' "inviato", e la loro memoria e' completa: per
+   loro non c'e' niente da recuperare). Restituisce { recuperi: n }. */
+async function giroRecuperi(db, scadenza, giro, trasportoDi) {
+    const ora = Date.now();
+    const h = oraRoma(ora);
+    if (h < RECUPERI_DALLE || h >= RECUPERI_ALLE) return { recuperi: 0, fuoriOrario: true };
+    const snap = await db.collection('archivio').doc(DOC).get();
+    let lista = [];
+    if (snap.exists && typeof snap.data().json === 'string') { try { lista = JSON.parse(snap.data().json) || []; } catch (_) { lista = []; } }
+    const inviati = lista.filter(r => r && r.stato === 'inviato' && r.mail && r.mail.html && Number(r.quando) > 0 && Number(r.quando) <= ora
+        && fineEvento(r) && ora <= fineEvento(r));
+    // per evento e serie, il piu' recente
+    const ultimi = {};
+    inviati.forEach(r => {
+        const k = String(r.evento || '') + '|' + serieDi(r);
+        if (!ultimi[k] || Number(r.quando) > Number(ultimi[k].quando)) ultimi[k] = r;
+    });
+    let recuperi = 0;
+    let arch = null;
+    for (const k of Object.keys(ultimi)) {
+        if (Date.now() > scadenza) break;
+        const rec = ultimi[k];
+        try {
+            if (!arch) arch = await C.archivio(db);
+            const r = risolviDestinatari(arch, rec);
+            if (!r.destinatari.length) continue;
+            const chiaveAv = 'promemoria~' + rec.id;
+            const preso = await AV.prendiLucchetto(db, chiaveAv, giro, LUCCHETTO_MS);
+            if (!preso) continue;
+            try {
+                const stato = await AV.apri(db, chiaveAv, rec.quando);
+                const segna = (impronte, delta) => AV.segna(db, chiaveAv, rec.quando, impronte, delta);
+                /* Senza memoria di chi ha ricevuto (record spedito prima che la
+                   memoria esistesse) la si ricostruisce con gli iscritti di
+                   adesso, senza spedire: non si sa chi manca, e rispedire a
+                   tutti e' peggio. */
+                if (!stato.serviti.size && Number((rec.invio || {}).inviate || 0) > 0) {
+                    await segna(r.destinatari.map(d => AV.impronta(d.email)), { inviati: 0, falliti: [] });
+                    continue;
+                }
+                const mancanti = r.destinatari.filter(d => !stato.serviti.has(AV.impronta(d.email)));
+                if (!mancanti.length) continue;
+                const esito = await inviaUno(trasportoDi(), rec, mancanti, { serviti: stato.serviti, scadenza: scadenza, segna: segna }, { primoGiro: false });
+                if (!esito.inviati && !esito.falliti.length) continue;
+                recuperi += esito.inviati;
+                const prima = rec.invio || {};
+                const dettaglio = (prima.dettaglioFalliti || []).concat(esito.falliti || []).slice(0, 100);
+                await applicaPatch(db, rec.id, {
+                    invio: Object.assign({}, prima, {
+                        recuperi: Number(prima.recuperi || 0) + esito.inviati,
+                        ultimoRecupero: Date.now(),
+                        falliti: Number(prima.falliti || 0) + (esito.falliti || []).length,
+                        dettaglioFalliti: dettaglio
+                    })
+                });
+            } finally {
+                await AV.mollaLucchetto(db, chiaveAv);
+            }
+        } catch (e) {
+            console.error('Recupero promemoria non riuscito (' + (rec.id || '?') + '):', String((e && e.message) || e).slice(0, 300));
+        }
+    }
+    return { recuperi: recuperi };
+}
+
 module.exports = async (req, res) => {
     const segreto = String(process.env.CRON_SECRET || '').trim();
     const auth = String((req.headers || {})['authorization'] || '');
@@ -232,8 +337,6 @@ module.exports = async (req, res) => {
         if (snap.exists && typeof snap.data().json === 'string') { try { lista = JSON.parse(snap.data().json) || []; } catch (_) { lista = []; } }
         const ora = Date.now();
         const dovuti = lista.filter(r => r && r.stato === 'programmato' && Number(r.quando) > 0 && Number(r.quando) <= ora && r.mail && r.mail.html);
-        if (!dovuti.length) { res.status(200).json({ ok: true, inviati: 0, sospesi: 0, scaduti: 0 }); return; }
-
         let arch = null;
         let trans = null;
         let inviatiTot = 0, sospesi = 0, scaduti = 0;
@@ -282,9 +385,9 @@ module.exports = async (req, res) => {
                         il: Date.now(), inviate: n, falliti: falliti.length, dettaglioFalliti: falliti.slice(0, 100),
                         senzaEmail: r.senzaEmail, doppie: r.doppie, destinatari: r.destinatari.length, inCorso: false
                     };
-                    // PRIMA l'esito sul record, POI la pulizia dell'avanzamento (come le comunicazioni)
+                    /* L'esito sul record. L'avanzamento NON si cancella: da qui in
+                       poi e' la memoria di chi ha ricevuto, e serve ai recuperi. */
                     await applicaPatch(db, rec.id, { stato: 'inviato', invio: invio });
-                    await AV.chiudi(db, chiaveAv);
                 } finally {
                     await AV.mollaLucchetto(db, chiaveAv);
                 }
@@ -292,7 +395,14 @@ module.exports = async (req, res) => {
                 console.error('Promemoria non inviato (' + (rec.id || '?') + '):', String((e && e.message) || e).slice(0, 300));
             }
         }
-        res.status(200).json({ ok: true, inviati: inviatiTot, sospesi: sospesi, scaduti: scaduti });
+        let recuperi = 0;
+        try {
+            const r = await giroRecuperi(db, scadenza, giro, () => { if (!trans) trans = trasporto(); return trans; });
+            recuperi = r.recuperi;
+        } catch (e) {
+            console.error('Cron promemoria, recuperi:', String((e && e.message) || e).slice(0, 300));
+        }
+        res.status(200).json({ ok: true, inviati: inviatiTot, sospesi: sospesi, scaduti: scaduti, recuperi: recuperi });
     } catch (e) {
         console.error('Cron promemoria: errore', String((e && e.message) || e).slice(0, 300));
         res.status(500).json({ ok: false, msg: 'Errore interno' });
@@ -300,4 +410,4 @@ module.exports = async (req, res) => {
 };
 
 // esposti per le prove (prove/promemoria-eventi.prove.js)
-module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, idRiga };
+module.exports._interni = { risolviDestinatari, personalizza, nomeSaluto, idRiga, fineEvento, oraRoma, serieDi };
