@@ -1640,6 +1640,196 @@
 
 
     /* =========================================================
+       PROMEMORIA AGLI ISCRITTI DI UN EVENTO
+       ---------------------------------------------------------
+       La mail che ricorda l'evento a chi si e' GIA' iscritto: parte
+       dalla scheda "Promemoria agli iscritti" della sezione Eventi, a
+       una data scelta, alle sezioni scelte (in sala oppure online).
+       I TESTI stanno in promemoria-eventi.js, evento per evento; qui
+       c'e' solo la forma, che e' quella di tutte le mail NGB (testata
+       blu con il marchio, fascia, riquadro dei dati, piede).
+
+       Due segnaposti, che il servizio sostituisce per destinatario:
+       {{NOME}} (il nome di chi legge) e {{COMPLETA}} (il collegamento
+       personale firmato, per correggere i dati o rinunciare).
+
+       `dati`: { evento: {titolo, quando, sottotitolo, luogo, indirizzo},
+                 oggetto, anteprima, titolo, sommario,
+                 paragrafi: [ testo | {titolo, testo} | {titolo, elenco:[...]} ],
+                 righe: [[etichetta, valore], ...],
+                 programma: [{ora, nome}, ...],
+                 pulsante: {testo, url}, nota, linkPersonale: true|false }
+    ========================================================= */
+    function promemoriaEvento(dati) {
+        dati = dati || {};
+        const ev = dati.evento || {};
+        const quandoEv = [ev.titolo, ev.quando].filter(Boolean).join(', ');
+        const oggetto = String(dati.oggetto || ('Promemoria - Next Generation Business' + (quandoEv ? ', ' + quandoEv : '')))
+            .replace(/[\r\n]+/g, ' ').trim();
+        const anteprima = String(dati.anteprima || '');
+        const titolo = String(dati.titolo || ('Ci vediamo a ' + (ev.titolo || 'Napoli')));
+        const sommario = String(dati.sommario || ('Ciao ' + SEGNAPOSTO_NOME + ', ti scriviamo per ricordarti il convegno'
+            + (quandoEv ? ' di ' + quandoEv : '') + '.'));
+        /* Un paragrafo puo' essere una stringa, oppure {titolo, testo} o
+           {titolo, elenco}: il titolo e' un sopratitolo di sezione, l'elenco
+           una lista di punti brevi. Ogni voce vuota si salta. */
+        const paragrafi = (dati.paragrafi || []).map(p => {
+            if (p == null) return null;
+            if (typeof p === 'string') return p.trim() ? { titolo: '', testo: p.trim(), elenco: [] } : null;
+            const t = String(p.titolo || '').trim();
+            const x = String(p.testo || '').trim();
+            const el = Array.isArray(p.elenco) ? p.elenco.map(v => String(v || '').trim()).filter(Boolean) : [];
+            return (t || x || el.length) ? { titolo: t, testo: x, elenco: el } : null;
+        }).filter(Boolean);
+        const righe = (dati.righe || []).filter(r => Array.isArray(r) && r[0] && r[1]);
+        const programma = (dati.programma || []).filter(v => v && v.nome);
+        const btn = (dati.pulsante && dati.pulsante.testo && dati.pulsante.url) ? dati.pulsante : null;
+        const nota = String(dati.nota || '').trim();
+        const linkPersonale = dati.linkPersonale !== false;
+
+        const testa = '<tr><td bgcolor="' + C.scuro + '" class="px" style="background-color:' + C.scuro + ';padding:30px ' + LATO + 'px 30px;">'
+            + tabellaInterna(
+                '<tr><td><a href="' + esc(SITO) + '" style="text-decoration:none;">'
+                + '<img src="' + esc(LOGO_BIANCO) + '" width="150" alt="Revilaw - Revisione legale" '
+                + 'style="display:block;width:150px;max-width:150px;height:auto;border:0;outline:none;text-decoration:none;'
+                + 'font-family:' + FONT + ';font-size:18px;line-height:24px;font-weight:bold;color:' + C.bianco + ';">'
+                + '</a></td></tr>'
+                + spazio(24)
+                + '<tr><td style="' + FONTE + SCALA.occhiello + 'color:' + C.chiaroBlu + ';font-weight:bold;">Next Generation Business</td></tr>'
+                + spazio(12)
+                + '<tr><td class="h1" style="' + FONTE + SCALA.titolo + 'color:' + C.bianco + ';font-weight:bold;letter-spacing:-0.3px;">' + testoHtml(titolo) + '</td></tr>'
+                + spazio(16)
+                + '<tr><td class="lead par" style="' + FONTE + SCALA.sommario + 'color:' + C.suScuro + ';text-align:justify;">' + testoHtml(sommario) + '</td></tr>'
+            )
+            + '</td></tr>';
+        const copertina = '<tr><td bgcolor="' + C.scuro + '" style="background-color:' + C.scuro + ';font-size:0;line-height:0;">'
+            + '<img src="' + esc(FASCIA) + '" width="' + LARGHEZZA + '" alt="" '
+            + 'style="display:block;width:100%;max-width:' + LARGHEZZA + 'px;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">'
+            + '</td></tr>';
+
+        const par = t => '<tr><td class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';text-align:justify;">' + testoHtml(t) + '</td></tr>';
+        /* Sopratitolo di sezione: piccolo, maiuscolo, con il filetto sotto,
+           lo stesso "occhiello" delle altre mail NGB. Serve a far scorrere
+           l'occhio: un promemoria si legge in dieci secondi, sul telefono. */
+        const sopratitolo = t => '<tr><td style="' + FONTE + SCALA.etichetta + 'color:' + C.accento + ';font-weight:bold;padding-bottom:8px;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(t) + '</td></tr>';
+        /* Elenco puntato a tabelle: i <ul> in Outlook rientrano a caso. */
+        const elenco = voci => '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+            + voci.map(v => '<tr>'
+                + '<td width="18" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.accento + ';font-weight:bold;padding:2px 0;">&bull;</td>'
+                + '<td valign="top" class="par" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:2px 0;text-align:justify;">' + testoHtml(v) + '</td></tr>').join('')
+            + '</table></td></tr>';
+        const corpoParagrafi = paragrafi.map((p, i) => {
+            let h = i ? spazio(p.titolo ? 26 : 18) : '';
+            if (p.titolo) h += sopratitolo(p.titolo) + spazio(10);
+            if (p.testo) h += par(p.testo);
+            if (p.elenco.length) h += (p.testo ? spazio(8) : '') + elenco(p.elenco);
+            return h;
+        }).join('');
+
+        const riga = (et, val) => '<tr><td class="bxet" width="150" valign="top" style="' + FONTE + 'font-size:12px;line-height:24px;letter-spacing:1px;text-transform:uppercase;color:' + C.blu + ';font-weight:bold;padding:5px 12px 5px 0;">' + testoHtml(et) + '</td>'
+            + '<td class="bxv" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.testo + ';padding:5px 0;">' + testoHtml(val) + '</td></tr>';
+        const box = righe.length
+            ? '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            + 'style="border-collapse:collapse;background-color:' + C.chiaro + ';border:1px solid ' + C.bordo + ';border-left:3px solid ' + C.accento + ';">'
+            + '<tr><td style="padding:16px 22px;">' + tabellaInterna(righe.map(r => riga(r[0], r[1])).join('')) + '</td></tr></table></td></tr>'
+            : '';
+        /* Il programma come un orario: a sinistra l'ora, a destra la voce. E'
+           la forma in cui si legge un programma, la stessa della mail di
+           prenotazione B2B. */
+        const tabellaProgramma = programma.length
+            ? spazio(26) + sopratitolo('Il programma') + spazio(4)
+            + '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+            + programma.map(v => '<tr>'
+                + '<td width="70" valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.blu + ';font-weight:bold;white-space:nowrap;padding:6px 14px 6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.ora || '') + '</td>'
+                + '<td valign="top" style="' + FONTE + SCALA.corpo + 'color:' + C.scuro + ';padding:6px 0;border-bottom:1px solid ' + C.bordo + ';">' + testoHtml(v.nome) + '</td></tr>').join('')
+            + '</table></td></tr>'
+            : '';
+        /* Il pulsante. Se l'indirizzo e' il segnaposto del collegamento
+           personale non passa da pulsante(), che lo ripulirebbe: stessa
+           struttura a prova di Outlook, con il segnaposto scritto tale e
+           quale (come nella richiesta dati). */
+        let bottone = '';
+        if (btn) {
+            if (String(btn.url) === SEGNAPOSTO_COMPLETA) {
+                bottone = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">'
+                    + '<tr><td align="center" bgcolor="' + C.blu + '" style="background-color:' + C.blu + ';">'
+                    + '<!--[if mso]>'
+                    + '<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="' + SEGNAPOSTO_COMPLETA + '" '
+                    + 'style="height:46px;v-text-anchor:middle;width:260px;" arcsize="0%" stroke="f" fillcolor="' + C.blu + '">'
+                    + '<w:anchorlock/><center style="color:#ffffff;font-family:' + FONT + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;">' + esc(btn.testo) + '</center>'
+                    + '</v:roundrect>'
+                    + '<![endif]-->'
+                    + '<!--[if !mso]><!-- -->'
+                    + '<a href="' + SEGNAPOSTO_COMPLETA + '" class="btnlink" style="display:inline-block;padding:14px 30px;font-family:' + FONT
+                    + ';font-size:16px;font-weight:bold;letter-spacing:0.3px;color:#ffffff;text-decoration:none;background-color:' + C.blu + ';mso-hide:all;">' + esc(btn.testo) + '</a>'
+                    + '<!--<![endif]-->'
+                    + '</td></tr></table>';
+            } else {
+                bottone = pulsante(btn.testo, btn.url, { colore: C.blu });
+            }
+        }
+        const rigaBottone = bottone ? spazio(28) + '<tr><td align="center" style="text-align:center;">'
+            + '<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr><td>' + bottone + '</td></tr></table>'
+            + '</td></tr>' : '';
+        const piccolo = t => '<tr><td class="par" style="' + FONTE + 'font-size:13px;line-height:21px;color:' + C.tenue + ';text-align:justify;">' + t + '</td></tr>';
+        const fraseLink = 'Se non puoi più partecipare, o se i tuoi dati sono da correggere, puoi farlo dal '
+            + '<a href="' + SEGNAPOSTO_COMPLETA + '" style="color:' + C.blu + ';text-decoration:underline;">tuo collegamento personale</a>. '
+            + 'Vale solo per la tua iscrizione: ti chiediamo di non inoltrarlo.';
+        const fraseLinkTesto = 'Se non puoi più partecipare, o se i tuoi dati sono da correggere, puoi farlo dal tuo collegamento personale: '
+            + SEGNAPOSTO_COMPLETA + ' (vale solo per la tua iscrizione: ti chiediamo di non inoltrarlo).';
+        const code = (nota || linkPersonale)
+            ? spazio(24) + piccolo((nota ? testoHtml(nota) : '') + (nota && linkPersonale ? '<br><br>' : '') + (linkPersonale ? fraseLink : ''))
+            : '';
+
+        const corpo = cella(tabellaInterna(
+            spazio(30)
+            + corpoParagrafi
+            + (box ? spazio(26) + box : '')
+            + tabellaProgramma
+            + rigaBottone
+            + code
+        ));
+
+        const rigaPiede = (stile, dentro) => '<tr><td align="center" style="' + FONTE + SCALA.piede + stile + 'text-align:center;">' + dentro + '</td></tr>';
+        const linkPiede = 'color:' + C.tenue + ';text-decoration:underline;';
+        const piede = '<tr><td class="px" bgcolor="' + C.sfondo + '" align="center" style="background-color:' + C.sfondo + ';padding:24px ' + LATO + 'px 26px;border-top:1px solid ' + C.bordo + ';text-align:center;">'
+            + tabellaInterna(
+                rigaPiede('color:' + C.scuro + ';font-weight:bold;', esc(MITTENTE.nome))
+                + rigaPiede('color:' + C.tenue + ';', esc(MITTENTE.indirizzo) + ' &middot; ' + esc(MITTENTE.cf))
+                + spazio(10)
+                + rigaPiede('color:' + C.tenue + ';',
+                    '<a href="' + esc(PRIVACY) + '" style="' + linkPiede + '">Informativa privacy</a>'
+                    + ' &nbsp;&middot;&nbsp; <a href="' + esc(SITO) + '" style="' + linkPiede + '">nextgenerationbusiness.it</a>')
+                + spazio(8)
+                + rigaPiede('color:#94A3B8;', esc(MOTIVO_ONLINE) + ' &nbsp;&middot;&nbsp; &copy; ' + new Date().getFullYear())
+            )
+            + '</td></tr>';
+
+        const html = involucro(oggetto, anteprima, testa + copertina + corpo + spazio(36) + piede);
+
+        /* La versione in solo testo, per i lettori che l'HTML non lo
+           mostrano: stesse parole, nello stesso ordine. */
+        const parti = [titolo.toUpperCase(), sommario];
+        paragrafi.forEach(p => {
+            const pezzi = [];
+            if (p.titolo) pezzi.push(p.titolo.toUpperCase());
+            if (p.testo) pezzi.push(p.testo);
+            if (p.elenco.length) pezzi.push(p.elenco.map(v => '- ' + v).join('\n'));
+            parti.push(pezzi.join('\n'));
+        });
+        if (righe.length) parti.push(righe.map(r => r[0] + ': ' + r[1]).join('\n'));
+        if (programma.length) parti.push('IL PROGRAMMA\n' + programma.map(v => (v.ora ? v.ora + '  ' : '') + v.nome).join('\n'));
+        if (btn) parti.push(btn.testo + ': ' + btn.url);
+        if (nota) parti.push(nota);
+        if (linkPersonale) parti.push(fraseLinkTesto);
+        parti.push('--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO_ONLINE, 'Informativa privacy: ' + PRIVACY);
+        const testo = parti.filter(Boolean).join('\n\n');
+
+        return { oggetto: oggetto, html: html, testo: testo };
+    }
+
+
+    /* =========================================================
        DALLA PAGINA DEL SITO ALLA NEWSLETTER
        ---------------------------------------------------------
        Riceve il documento gia' letto (DOMParser) e ne ricava titolo,
@@ -1753,7 +1943,7 @@
         SEGNAPOSTO_DISISCRIVI: SEGNAPOSTO_DISISCRIVI, SEGNAPOSTO_WEB: SEGNAPOSTO_WEB, SEGNAPOSTO_COMPLETA: SEGNAPOSTO_COMPLETA,
         SEGNAPOSTO_B2B: SEGNAPOSTO_B2B, SEGNAPOSTO_NOME: SEGNAPOSTO_NOME, TEMI_B2B: TEMI_B2B,
         costruisci: costruisci, confermaEvento: confermaEvento, richiestaDati: richiestaDati, invitoB2B: invitoB2B,
-        passaggioOnline: passaggioOnline, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
+        passaggioOnline: passaggioOnline, promemoriaEvento: promemoriaEvento, conTemiB2B: conTemiB2B, estraiDaPagina: estraiDaPagina,
         ripulisci: ripulisci, stilizza: stilizza, testoDaHtml: testoDaHtml, formatta: formatta, sformatta: sformatta,
         urlSicuro: urlSicuro, esc: esc, pulsante: pulsante
     };

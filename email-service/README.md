@@ -529,6 +529,7 @@ d'ambiente non ne parte nessuno.
 | `/api/programma-newsletter` | `*/15 * * * *` — ogni quarto d'ora | manda avanti le newsletter programmate, un lotto per volta |
 | `/api/presenze` | `*/15 * * * *` — ogni quarto d'ora | legge la casella PEC: ricevute, errori, risposte |
 | `/api/invii-programmati` | `*/10 * * * *` — ogni dieci minuti | manda avanti gli inviti programmati alle aziende, quanti il ritmo concede |
+| `/api/promemoria-eventi` | `*/15 * * * *` — ogni quarto d'ora | spedisce i promemoria agli iscritti confermati dall'area riservata, alle sezioni scelte, all'ora scelta |
 
 Sul piano Hobby i primi due giravano **una volta al giorno** e gli altri non
 esistevano: i cron Hobby sono due in tutto e girano una volta al giorno, a
@@ -648,6 +649,7 @@ Hobby il tetto era **60 secondi**; sul Pro si arriva a 300.
 | `api/importa-iscrizioni.js` | *(predefinito, ~10 s)* | **300** | importa il foglio intero, a blocchi di 400 scritture |
 | `api/invia-comunicazione.js` | *(predefinito, ~10 s)* | **120** | stesso invio in fila, avviato a mano dall'area riservata |
 | `api/invii-programmati.js` | *(nuova)* | **300** | una PEC ogni secondo e mezzo: quaranta messaggi sono gia' un minuto |
+| `api/promemoria-eventi.js` | *(nuova)* | **300** | una mail per iscritto, in fila: centinaia di destinatari sono minuti, e il giro riprende da chi manca |
 
 > **E perche' gli invii programmati non entrano da `presenze.js`**, che pure
 > e' la porta di tutta la sezione aziende. Perche' `presenze.js` ha gia' un
@@ -916,6 +918,84 @@ che toglie qualcosa a chi lo riceve (il posto in sala) e va spiegato. Entrare
 fra gli aderenti, passare fra sponsor e relatori o tornare in presenza non si
 annunciano: sono classificazioni interne, e chi le riceve non deve fare niente
 di diverso.
+
+## Promemoria agli iscritti (`/api/promemoria-eventi`)
+
+Le mail che ricordano l'evento a chi si e' **gia' iscritto**, nei giorni
+prima: "mancano due settimane", "come arrivare", "a domani", "ecco il
+collegamento alla diretta". Due serie, perche' a chi viene in sala e a chi
+segue online servono cose diverse:
+
+| Serie | Sezioni | Cosa dice |
+|---|---|---|
+| In sala | `presenza`, `aderenti`, `sponsor` | indirizzo, orari, come arrivare, badge, incontri B2B, e il posto da liberare se non si viene piu' |
+| Online | `online` | cosa serve per seguire, a che ora collegarsi, il collegamento alla diretta (scritto da chi programma) |
+
+**Chi decide sta nell'area riservata, chi spedisce sta qui.** I testi e il
+calendario stanno in `area-riservata/promemoria-eventi.js`, evento per evento
+(oggi: Napoli, 2 ottobre 2026); la forma della mail in
+`newsletter-format.js` (`promemoriaEvento`). Nella pagina dell'evento
+(sezione Eventi) la scheda **"Promemoria agli iscritti"** li mostra come
+proposte: chi organizza le apre, corregge quello che vuole, sceglie giorno e
+ora, le sezioni, e conferma. **Finche' non conferma non parte niente.** La
+conferma scrive in `archivio/promemoriaEventi` un record con la mail **gia'
+composta** (formato NGB, con i segnaposti `{{NOME}}` e `{{COMPLETA}}` ancora al
+loro posto), la data, le sezioni, chi l'ha programmata.
+
+Il lavoro programmato passa **ogni quarto d'ora** (`vercel.json`) e, per ogni
+record `programmato` la cui ora e' arrivata:
+
+1. risolve **gli iscritti di quel momento** dalla copia condivisa
+   dell'archivio (`lib/copia-iscrizioni.js`): le iscrizioni la cui pagina
+   contiene il filtro dell'evento (`napoli`), nelle sezioni scelte. La sezione
+   e' quella decisa da chi organizza (`presenze.modalita`), altrimenti quella
+   dichiarata iscrivendosi, altrimenti in presenza: la stessa regola
+   dell'area riservata. Restano fuori chi ha annullato, chi e' stato
+   cancellato, chi e' segnato **assente**, chi non ha un indirizzo valido; un
+   indirizzo riceve **una** mail anche se ha due iscrizioni;
+2. personalizza: `{{NOME}}` diventa il **nome di battesimo** ("Ciao Maria",
+   non "Ciao Maria Rossi"), `{{COMPLETA}}` il collegamento personale firmato
+   della scheda (`lib/newsletter.js`, `linkCompleta`), da cui si correggono i
+   dati o si rinuncia;
+3. spedisce **una mail per destinatario**, con Reply-To a chi ha programmato,
+   e a chi ha programmato manda **una** copia (oggetto "[Copia per te] ...")
+   all'inizio del primo giro: e' la prova di cosa e' partito e con che testo,
+   senza una copia nascosta per ogni destinatario;
+4. scrive l'esito sul record (`stato: 'inviato'`, `invio: { il, inviate,
+   falliti, dettaglioFalliti, senzaEmail, doppie, destinatari }`), che l'area
+   riservata mostra sulla riga e nella finestra.
+
+**Perche' piu' giri non rispediscono**: e' la stessa strada delle
+comunicazioni programmate. L'avanzamento si scrive **durante** l'invio in
+`comunicazioniInvio/promemoria~<id>` (`lib/comunicazioni-avanzamento.js`),
+con l'impronta di chi ha gia' ricevuto; un lucchetto tiene fuori un secondo
+giro mentre il primo spedisce. Se il budget (240 s dentro i 300 di
+`maxDuration`) finisce a meta', il record resta `programmato` con
+`invio.inCorso` e il conteggio, e il giro dopo riprende da chi manca. La copia
+a chi ha programmato parte solo al primo giro.
+
+**Un promemoria vecchio non parte.** "A domani" spedito tre giorni dopo e'
+peggio di niente: se all'arrivo del giro l'ora scelta e' passata da **piu' di
+un giorno** (servizio fermo, cron non attivo) il record viene segnato
+`scaduto`, con il motivo, e non si spedisce. Dall'area riservata compare "Non
+partito" con il pulsante per riprogrammarlo.
+
+**Il record si tocca per campo, in transazione** (`applicaPatch`): l'area
+riservata riscrive il documento intero quando qualcuno programma o sospende, e
+il servizio cambia solo `stato` e `invio` del record che ha lavorato. Dal
+browser, `PromemoriaEventi.salvaUna` non riporta mai indietro un record che il
+servizio ha gia' segnato inviato.
+
+Stati del record: `programmato` (parte all'ora scelta), `sospeso` (fermo
+finche' non lo si riprende), `inviato`, `scaduto`. Una proposta senza record
+non e' niente: e' solo un testo pronto nell'elenco.
+
+Nessuna variabile nuova: usa `CRON_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `SMTP_*`,
+`APP_BASE_URL` e il segreto delle firme (`NEWSLETTER_SECRET` o quello ricavato
+dall'account di servizio) gia' configurati. Le prove stanno in
+`prove/promemoria-eventi.prove.js` (`node prove/promemoria-eventi.prove.js`,
+niente da installare): a chi parte e a chi no, la personalizzazione, il tempo
+finito a meta', lo scaduto, i record non dovuti.
 
 ## Completamento dati partecipanti (dentro `/api/iscrizione-nuova`)
 
