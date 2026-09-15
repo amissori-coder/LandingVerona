@@ -145,10 +145,16 @@ function occhiello(t) {
 function tabellaIncontri(voci) {
     const riga = v => '<tr>'
         + '<td width="110" valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.blu
-        + ';font-weight:bold;white-space:nowrap;padding:7px 14px 7px 0;border-bottom:1px solid ' + C.bordo + ';">'
+        + ';white-space:nowrap;font-weight:bold;padding:7px 14px 7px 0;border-bottom:1px solid ' + C.bordo + ';">'
         + esc(v.ora || '&nbsp;').replace('&amp;nbsp;', '&nbsp;') + '</td>'
         + '<td valign="top" style="' + FONTE + 'font-size:16px;line-height:26px;color:' + C.scuro
-        + ';font-weight:bold;padding:7px 0;border-bottom:1px solid ' + C.bordo + ';">' + esc(v.nome) + '</td></tr>';
+        + ';font-weight:bold;padding:7px 0;border-bottom:1px solid ' + C.bordo + ';">' + esc(v.nome)
+        // chi tiene il tavolo, quando lo sappiamo: e' la persona che l'ospite
+        // trovera' seduta di la', e cercarla per nome e' piu' facile che
+        // cercare "il tavolo del merito creditizio"
+        + (v.con ? '<br><span style="' + FONTE + 'font-size:14px;line-height:22px;color:' + C.tenue
+            + ';font-weight:normal;">con ' + esc(v.con) + '</span>' : '')
+        + '</td></tr>';
     return '<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         + 'style="border-collapse:collapse;">' + voci.map(riga).join('') + '</table></td></tr>';
 }
@@ -284,9 +290,19 @@ function confermaB2B(dati, link) {
         const ore = ORARI.oreDaFrase(t.orario);
         // con un'ora vera si scrive prima l'ora, come su un programma; con una
         // frase scritta a mano si scrive prima l'incontro, e la frase di seguito
-        if (ore.inizio && ore.fine) return ore.inizio + ' - ' + ore.fine + ', ' + t.nome;
-        return t.nome + (t.orario ? ' - ' + t.orario : '');
+        const chi = t.con ? ' (con ' + t.con + ')' : '';
+        if (ore.inizio && ore.fine) return ore.inizio + ' - ' + ore.fine + ', ' + t.nome + chi;
+        return t.nome + (t.orario ? ' - ' + t.orario : '') + chi;
     };
+    /* Se sappiamo gia' chi tiene il tavolo, non si puo' continuare a
+       promettere che "Le saranno confermati sul posto": il nome e' scritto
+       due righe sopra. */
+    const conReferente = tavoli.some(t => t.con);
+    const fraseDesk = 'In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk '
+        + '"Incontri B2B" all\'ingresso, stampato oppure dal telefono. '
+        + (conReferente
+            ? 'Al tavolo La attende il professionista indicato qui sopra.'
+            : 'Gli specialisti a Sua disposizione Le saranno confermati sul posto.');
     const oggetto = 'Prenotazione confermata - Incontri B2B, Next Generation Business' + (evNome ? ', ' + evNome : '');
     const saluto = 'Gentile ' + (d.nome || 'ospite') + ',';
     const sommario = saluto + ' la Sua prenotazione agli incontri B2B'
@@ -300,7 +316,8 @@ function confermaB2B(dati, link) {
         const ore = ORARI.oreDaFrase(t.orario);
         return {
             ora: (ore.inizio && ore.fine) ? ore.inizio + ' - ' + ore.fine : '',
-            nome: t.nome + ((!ore.inizio && t.orario) ? ' - ' + t.orario : '')
+            nome: t.nome + ((!ore.inizio && t.orario) ? ' - ' + t.orario : ''),
+            con: t.con || ''
         };
     });
     const html = involucro(oggetto, 'La Sua prenotazione agli incontri B2B è registrata: in allegato il foglio per il desk.',
@@ -319,8 +336,7 @@ function confermaB2B(dati, link) {
             + spazio(4)
             + tabellaIncontri(vociIncontri)
             + spazio(28)
-            + paragrafo('In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk '
-                + '"Incontri B2B" all\'ingresso, stampato oppure dal telefono. Gli specialisti a Sua disposizione Le saranno confermati sul posto.')
+            + paragrafo(fraseDesk)
             + spazio(22)
             + paragrafo('Se cambia idea può modificare la scelta quando vuole, dal pulsante qui sotto: '
                 + 'riceverà subito una nuova mail con il foglio aggiornato, e vale sempre l\'ultimo emesso.')
@@ -336,7 +352,7 @@ function confermaB2B(dati, link) {
         + (dove ? '\nDove: ' + dove : '')
         + ([d.nome, d.azienda].filter(Boolean).length ? '\nPartecipante: ' + [d.nome, d.azienda].filter(Boolean).join(' - ') : ''),
         (quanti === 1 ? 'Il Suo incontro:' : 'I Suoi incontri:') + '\n' + tavoli.map(t => '- ' + conOrario(t)).join('\n'),
-        'In allegato trova il foglio della prenotazione, con gli orari di ciascun incontro: lo presenti al desk "Incontri B2B" all\'ingresso, stampato oppure dal telefono.',
+        fraseDesk,
         'Modifica la prenotazione: ' + link,
         'Il collegamento è personale e vale solo per la Sua iscrizione: Le chiediamo di non inoltrarlo.',
         '--', MITTENTE.nome + ' - ' + MITTENTE.indirizzo + ' - ' + MITTENTE.cf, MOTIVO,

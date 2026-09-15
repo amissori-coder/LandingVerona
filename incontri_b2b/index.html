@@ -59,6 +59,27 @@
         .scelti-elenco { margin: 10px 0 0; padding-left: 20px; text-align: left; display: inline-block; }
         .rifai { font: inherit; font-size: 0.95rem; color: var(--navy); background: none; border: none; text-decoration: underline; cursor: pointer; padding: 0; margin-top: 14px; }
         .avviso-mail { color: var(--rosso); }
+        /* --- la scelta dell'orario (invito a slot) --- */
+        .area { margin-top: 18px; border: 1px solid var(--bordo); border-radius: 8px; padding: 14px 16px; background: #fff; }
+        .area + .area { margin-top: 12px; }
+        .area h2 { font-size: 1.05rem; color: var(--navy-dark); }
+        .area-con { font-size: 0.9rem; color: var(--tenue); margin-top: 3px; }
+        .area-con b { color: var(--testo); }
+        .area-nota { font-size: 0.88rem; color: var(--tenue); margin-top: 3px; font-style: italic; }
+        .griglia { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+        .slot { font: inherit; font-size: 0.95rem; color: var(--testo); background: #fff; border: 1px solid var(--bordo); border-radius: 8px; padding: 9px 4px; cursor: pointer; text-align: center; line-height: 1.25; }
+        .slot:hover:not(:disabled) { border-color: var(--navy-light); background: var(--chiaro); }
+        .slot .et { display: block; font-size: 0.72rem; color: var(--tenue); margin-top: 2px; }
+        .slot.scelto { background: var(--navy); border-color: var(--navy); color: #fff; font-weight: bold; }
+        .slot.scelto .et { color: #C8DAEA; }
+        .slot.mio { border-color: var(--verde); background: #EAF6F0; color: var(--verde); font-weight: bold; }
+        .slot.mio .et { color: var(--verde); }
+        .slot[disabled]:not(.mio) { cursor: default; background: var(--sfondo); border-style: dashed; color: #94A3B8; }
+        .confermato { border: 1px solid #b7dfc9; border-left: 3px solid var(--verde); background: #EAF6F0; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.95rem; }
+        .confermato b { color: var(--verde); }
+        .esaurito { border: 1px solid #f3d4b5; border-left: 3px solid #c46a1e; background: #fdeedd; border-radius: 6px; padding: 12px 16px; margin-top: 16px; font-size: 0.93rem; }
+        .esaurito b { color: #8a4a12; }
+        .legenda { margin-top: 10px; font-size: 0.82rem; color: var(--tenue); }
         .piede { max-width: 680px; margin: 0 auto; padding: 0 20px 40px; text-align: center; font-size: 0.8rem; color: #94A3B8; }
         .piede a { color: var(--tenue); }
     </style>
@@ -112,7 +133,9 @@
                 'finanza agevolata e sostegno agli investimenti',
                 'Tax Control Framework',
                 'opportunità connesse allo sviluppo di Bagnoli e all\'America\'s Cup',
-                'altre esigenze specifiche della Sua impresa'
+                'altre esigenze specifiche della Sua impresa',
+                'il desk Revilaw: chi siamo e come lavoriamo con le imprese',
+                'revisione legale dei conti e collegio sindacale'
             ];
             function esc(s) {
                 return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -295,10 +318,211 @@
                     + '<button type="button" class="rifai" id="rifai">Cambia la scelta o rimanda la mail</button></div>';
                 document.getElementById('rifai').addEventListener('click', apri);
             }
+            /* ========================================================
+               LA SCELTA DELL'ORARIO (invito a slot)
+               --------------------------------------------------------
+               L'invito nuovo convoca a UN tavolo e la giornata di quel
+               tavolo e' divisa in appuntamenti: qui si sceglie QUANDO,
+               non "a quali". Gli orari gia' presi si vedono occupati,
+               senza nomi - l'agenda degli altri non e' affare di chi
+               prenota - e il proprio si riconosce, cosi' chi torna
+               sulla pagina ritrova il suo posto invece di credere che
+               gliel'abbia soffiato uno sconosciuto.
+               Si prenota UN solo orario: sceglierne un altro sposta la
+               prenotazione, non ne aggiunge una seconda.
+            ======================================================== */
+            var sceltaArea = '', sceltaOra = '';
+            function minuti(g) {
+                var d = parseInt(String(g && g.durata || 30), 10);
+                return d > 0 ? d : 30;
+            }
+            function referentiTesto(a) {
+                var chi = (a.referenti || []).map(function (r) {
+                    return r.nome + (r.ruolo ? ' - ' + r.ruolo : '') + (r.azienda ? ' (' + r.azienda + ')' : '');
+                });
+                return chi.length ? chi.join(', ') : '';
+            }
+            function htmlSlot(a, s) {
+                var mio = s.stato === 'mio';
+                var libero = s.stato === 'libero' || mio;
+                var scelto = (sceltaArea === a.id && sceltaOra === s.ora);
+                var et = mio ? 'il Suo orario'
+                    : (s.stato === 'occupato' ? 'gia prenotato'
+                        : (s.stato === 'chiuso' ? 'non disponibile' : s.fine));
+                return '<button type="button" class="slot' + (scelto ? ' scelto' : '') + (mio ? ' mio' : '') + '"'
+                    + (libero ? '' : ' disabled')
+                    + ' data-area="' + esc(a.id) + '" data-ora="' + esc(s.ora) + '">'
+                    + esc(s.ora) + '<span class="et">' + esc(et) + '</span></button>';
+            }
+            function htmlArea(a) {
+                var chi = referentiTesto(a);
+                return '<div class="area"><h2>' + esc(a.nome) + '</h2>'
+                    + (chi ? '<div class="area-con">Con <b>' + esc(chi) + '</b></div>'
+                        : '<div class="area-con">Le confermeremo il professionista che La accogliera al tavolo.</div>')
+                    + (a.nota ? '<div class="area-nota">' + esc(a.nota) + '</div>' : '')
+                    + '<div class="griglia">' + a.slot.map(function (s) { return htmlSlot(a, s); }).join('') + '</div>'
+                    + '<div class="legenda">' + (a.liberi
+                        ? a.liberi + (a.liberi === 1 ? ' orario ancora libero' : ' orari ancora liberi')
+                        : 'Nessun orario libero a questo tavolo') + '</div></div>';
+            }
+            function moduloSlot(r) {
+                var ev = r.evento || {};
+                document.getElementById('sotto-titolo').textContent = 'Next Generation Business'
+                    + (ev.titolo ? ' - ' + ev.titolo : ' - ' + nomeEvento(r.pagina));
+                var g = r.giornata || {};
+                var aree = r.aree || [];
+                if (!aree.length) {
+                    errore('Il Suo invito non risulta collegato a nessun tavolo attivo. Scriva a info@nextgenerationbusiness.it e sistemiamo noi.');
+                    return;
+                }
+                // l'orario gia' prenotato resta selezionato: chi conferma senza
+                // toccare niente riceve di nuovo il suo foglio, e non un errore
+                if (r.mio) { sceltaArea = r.mio.area; sceltaOra = r.mio.ora; }
+                var conferma = r.mio
+                    ? '<div class="confermato"><b>Il Suo incontro e confermato:</b> ' + esc(r.mio.areaNome)
+                    + ', <b>' + esc(r.mio.ora) + (r.mio.fine ? ' - ' + esc(r.mio.fine) : '') + '</b>.'
+                    + ' Se le serve un altro orario lo scelga qui sotto: la prenotazione si sposta, e le arriva un foglio nuovo.</div>'
+                    : '';
+                /* Tutto esaurito: non si lascia l'ospite davanti a un muro. Puo'
+                   chiedere l'incontro lo stesso, e la richiesta arriva a chi
+                   organizza. Si dice chiaro che non e' una prenotazione: e' la
+                   differenza fra un posto e una speranza. */
+                var esaurito = (r.esaurito && !r.mio)
+                    ? '<div class="esaurito"><b>Gli orari disponibili sono esauriti.</b> '
+                    + (r.richiesta
+                        ? 'Abbiamo gia ricevuto la Sua richiesta di un incontro fuori orario: La ricontattiamo noi per fissarlo.'
+                        : 'Puo comunque chiederci un incontro: non e una prenotazione, ma la Sua richiesta arriva a chi organizza la giornata, '
+                        + 'che cerchera di aggiungere un posto e La ricontattera.')
+                    + '</div>'
+                    : '';
+                var azione = (r.esaurito && !r.mio && !r.richiesta)
+                    ? '<button type="button" class="invia" id="chiedi">Chiedo un incontro comunque</button>'
+                    : (r.esaurito && !r.mio && r.richiesta ? ''
+                        : '<button type="button" class="invia" id="prenota">'
+                        + (r.mio ? 'Confermo questo orario' : 'Prenota il mio incontro') + '</button>');
+                box.innerHTML =
+                    '<div class="riepilogo">' + (r.nome ? 'Gentile <b>' + esc(r.nome) + '</b>, l' : 'L')
+                    + 'a invitiamo a un incontro B2B riservato'
+                    + (aree.length === 1 ? ' su <b>' + esc(aree[0].nome) + '</b>' : '')
+                    + (ev.quando ? ', ' + esc(ev.quando) : '')
+                    + (ev.luogo ? ' - ' + esc(ev.luogo) : '') + '. '
+                    + 'Gli incontri durano <b>' + minuti(g) + ' minuti</b> e si tengono dalle ' + esc(g.inizio || '10:00')
+                    + ' alle ' + esc(g.fine || '18:00')
+                    + (g.pranzoDa ? ', con la pausa pranzo dalle ' + esc(g.pranzoDa) + ' alle ' + esc(g.pranzoA) : '')
+                    + '. Scelga l\'orario che preferisce: ne puo prenotare <b>uno</b>.</div>'
+                    + conferma + esaurito
+                    + aree.map(htmlArea).join('')
+                    + '<div class="campo"><label for="nota">Il progetto o l\'esigenza su cui vorrebbe confrontarsi (facoltativo)</label>'
+                    + '<textarea id="nota" maxlength="800" placeholder="Qualche riga basta: ci aiuta a preparare l\'incontro.">' + esc(r.nota || '') + '</textarea></div>'
+                    + '<div class="azioni">' + azione + '<div class="esito" id="esito"></div></div>';
+                box.querySelectorAll('.slot').forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        sceltaArea = b.dataset.area; sceltaOra = b.dataset.ora;
+                        box.querySelectorAll('.slot').forEach(function (x) { x.classList.remove('scelto'); });
+                        b.classList.add('scelto');
+                        var e = document.getElementById('esito');
+                        if (e) { e.className = 'esito'; e.textContent = ''; }
+                    });
+                });
+                var bp = document.getElementById('prenota');
+                if (bp) bp.addEventListener('click', function () { prenotaSlot(r); });
+                var bc = document.getElementById('chiedi');
+                if (bc) bc.addEventListener('click', function () { chiediFuoriOrario(r); });
+            }
+            /* Uno solo puo' avere quell'orario: se qualcuno e' arrivato un
+               attimo prima, il servizio risponde "occupato" e qui si RILEGGE
+               la pagina. Lasciare a video una griglia che mostra libero un
+               posto che non c'e' piu' sarebbe il modo migliore per far
+               premere il pulsante altre tre volte. */
+            function prenotaSlot(r) {
+                var esito = document.getElementById('esito');
+                if (!sceltaOra) {
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Scelga un orario fra quelli liberi.';
+                    return;
+                }
+                var nota = document.getElementById('nota').value.trim();
+                var b = document.getElementById('prenota');
+                var etichetta = b.textContent;
+                b.disabled = true; b.textContent = 'Prenotazione in corso…';
+                esito.className = 'esito'; esito.textContent = '';
+                chiama({ azione: 'b2b-slot-prenota', area: sceltaArea, ora: sceltaOra, nota: nota }).then(function (e) {
+                    if (!e || !e.ok) {
+                        b.disabled = false; b.textContent = etichetta;
+                        esito.className = 'esito ko';
+                        esito.textContent = (e && e.msg) || 'Prenotazione non riuscita: riprovi fra un momento.';
+                        if (e && (e.motivo === 'occupato' || e.motivo === 'orario' || e.motivo === 'chiuso')) {
+                            setTimeout(apri, 1200);
+                        }
+                        return;
+                    }
+                    fattoSlot(r, e);
+                }).catch(function () {
+                    b.disabled = false; b.textContent = etichetta;
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Servizio non raggiungibile: riprovi fra un momento.';
+                });
+            }
+            function chiediFuoriOrario(r) {
+                var esito = document.getElementById('esito');
+                var nota = document.getElementById('nota').value.trim();
+                var b = document.getElementById('chiedi');
+                var etichetta = b.textContent;
+                b.disabled = true; b.textContent = 'Invio in corso…';
+                esito.className = 'esito'; esito.textContent = '';
+                var area = sceltaArea || ((r.aree || [])[0] || {}).id || '';
+                chiama({ azione: 'b2b-slot-richiedi', area: area, nota: nota }).then(function (e) {
+                    if (!e || !e.ok) {
+                        b.disabled = false; b.textContent = etichetta;
+                        esito.className = 'esito ko';
+                        esito.textContent = (e && e.msg) || 'Richiesta non riuscita: riprovi fra un momento.';
+                        return;
+                    }
+                    box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
+                        + '<h2>Richiesta ricevuta</h2>'
+                        + '<p>Gli orari erano esauriti e abbiamo preso nota della Sua richiesta: '
+                        + 'chi organizza la giornata La ricontattera per fissare l\'incontro.</p>'
+                        + '<p style="margin-top:10px;">Non e una prenotazione: finche non la confermiamo noi, al desk non risulta nessun orario a Suo nome.</p>'
+                        + '<button type="button" class="rifai" id="rifai">Torna agli orari</button></div>';
+                    document.getElementById('rifai').addEventListener('click', apri);
+                }).catch(function () {
+                    b.disabled = false; b.textContent = etichetta;
+                    esito.className = 'esito ko';
+                    esito.textContent = 'Servizio non raggiungibile: riprovi fra un momento.';
+                });
+            }
+            /* Prenotazione presa: si ripete l'orario, perche' la conferma di
+               una scelta senza la scelta scritta accanto non conferma niente.
+               E si dice che la mail con il foglio per il desk e' partita: e'
+               quella la cosa da cercare in casella. */
+            function fattoSlot(r, e) {
+                var area = (r.aree || []).filter(function (a) { return a.id === e.area; })[0] || {};
+                var chi = referentiTesto(area);
+                box.innerHTML = '<div class="fatto"><div class="segno">&#10003;</div>'
+                    + '<h2>Incontro prenotato</h2>'
+                    + '<p>La aspettiamo al tavolo <b>' + esc(e.areaNome || area.nome || '') + '</b>'
+                    + '<br>dalle <b>' + esc(e.ora) + '</b> alle <b>' + esc(e.fine) + '</b>'
+                    + (chi ? '<br>con ' + esc(chi) : '') + '</p>'
+                    + (e.mailInviata
+                        ? '<p style="margin-top:12px;">Le abbiamo mandato una mail di conferma con il <b>foglio da presentare al desk</b> in allegato: '
+                        + 'lo porti stampato o sul telefono.</p>'
+                        : '<p style="margin-top:12px;" class="avviso-mail">L\'incontro &egrave; prenotato, ma la mail di conferma con il foglio per il desk non &egrave; partita. '
+                        + 'Riprovi fra qualche minuto con il pulsante qui sotto, oppure scriva a info@nextgenerationbusiness.it: al desk basta il Suo nome.</p>')
+                    + '<p style="margin-top:10px;">Pu&ograve; cambiare orario quando vuole: la prenotazione si sposta e riceve subito un foglio aggiornato.</p>'
+                    + '<button type="button" class="rifai" id="rifai">Cambia orario o rimanda la mail</button></div>';
+                document.getElementById('rifai').addEventListener('click', apri);
+            }
+
             function apri() {
                 box.innerHTML = '<div class="avviso">Un momento: recupero la Sua iscrizione&hellip;</div>';
                 chiama({ azione: 'b2b-leggi' }).then(function (r) {
                     if (!r || !r.ok) { errore((r && r.msg) || 'Collegamento non valido o scaduto. Scriva a info@nextgenerationbusiness.it e provvediamo noi.'); return; }
+                    /* Due inviti, due pagine. Chi e' stato convocato a un tavolo
+                       con la sua agenda sceglie l'ORARIO; chi ha ricevuto
+                       l'invito di prima continua a vedere i tavoli a caselle,
+                       come dice la mail che ha in casella. Lo decide il
+                       servizio, che sa com'e' partito quell'invito. */
+                    if (r.modo === 'slot') { moduloSlot(r); return; }
                     modulo(r);
                 }).catch(function () {
                     errore('Servizio non raggiungibile in questo momento: riprovi fra qualche minuto.');

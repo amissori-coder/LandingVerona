@@ -1506,37 +1506,73 @@ summary.ni-testa::before {
 .nl-dest-riga input { width: auto; margin: 0; }
 .nl-dest-riga.escluso { color: var(--grigio-400); text-decoration: line-through; }
 
-/* invito B2B: gli orari, un tavolo per riga, con le due caselle dell'ora
-   (inizio e fine) invece di una frase da scrivere a mano. */
-.ib-ora-tutti {
-    display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;
-    padding: 8px 10px; background: #f8fafc; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm);
-}
-.ib-ora-et { font-size: 0.8rem; color: var(--grigio-600); }
-.ib-ora-tutti input { flex: none; margin: 0; padding: 4px 8px; font-size: 0.85rem; width: auto; }
-.ib-ora-tutti input[type="time"] { width: 7.5em; }
-.ib-ora-tutti input[type="number"] { width: 4.5em; }
-.ib-ora-tutti .btn { margin-left: 2px; }
-.ib-ora-griglia { border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; }
-.ib-ora-riga {
-    display: flex; align-items: center; gap: 10px; padding: 5px 10px;
-    font-size: 0.85rem; color: var(--grigio-900);
-    border-bottom: 1px solid var(--grigio-100);
-}
-.ib-ora-riga:last-child { border-bottom: none; }
-.ib-ora-nome { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ib-ora-caselle { display: flex; align-items: center; gap: 6px; flex: none; }
-label.ib-ora-mini { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.78rem; font-weight: 400; color: var(--grigio-600); }
-label.ib-ora-mini input { margin: 0; padding: 4px 8px; font-size: 0.85rem; width: 7.5em; }
-/* la crocetta che toglie un tavolo dal programma: si vede solo quando serve */
-.ib-ora-vuota { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.8rem; padding: 2px 4px; line-height: 1; }
-.ib-ora-vuota:hover { color: var(--rosso); }
-.ib-ora-sovrapposti { color: #9a3412; }
+/* AGENDA DEGLI INCONTRI B2B: la giornata, i tavoli, gli orari.
+   Ogni tavolo e' una riga che si apre; dentro, chi lo tiene e la griglia
+   degli appuntamenti. Gli stati di un orario sono tre e si distinguono a
+   colpo d'occhio, perche' e' questa la griglia che si guarda il giorno
+   prima del convegno: verde libero, grigio chiuso, blu gia' preso. */
+.ag-giornata { border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #f8fafc; padding: 10px 12px; }
+.ag-titolo { font-weight: 700; color: var(--blu-900); font-size: 0.9rem; margin-bottom: 8px; }
+.ag-fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+label.ag-mini { display: flex; align-items: center; gap: 5px; margin: 0; font-size: 0.78rem; font-weight: 400; color: var(--grigio-600); }
+label.ag-mini input[type="time"] { margin: 0; padding: 4px 8px; font-size: 0.85rem; width: 7.5em; }
+label.ag-mini input[type="number"] { margin: 0; padding: 4px 8px; font-size: 0.85rem; width: 4.5em; }
+label.ag-attiva { font-weight: 600; color: var(--grigio-900); }
+label.ag-attiva input { width: auto; margin: 0; }
+.ag-aree { margin-top: 12px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; }
+.ag-area { border-bottom: 1px solid var(--grigio-100); }
+.ag-area:last-child { border-bottom: none; }
+.ag-area.aperta { background: #f8fafc; }
+.ag-testa { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; font-size: 0.86rem; }
+.ag-testa:hover { background: var(--grigio-100); }
+.ag-nome { font-weight: 700; color: var(--blu-900); flex: 0 0 auto; }
+.ag-chi { flex: 1 1 auto; min-width: 0; color: var(--grigio-600); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-freccia { color: var(--grigio-400); font-size: 0.7rem; flex: none; }
+.ag-dentro { padding: 4px 12px 14px; }
+.ag-et { font-size: 0.72rem; letter-spacing: 0.6px; text-transform: uppercase; color: var(--blu-700); font-weight: 700; margin: 10px 0 5px; }
+.ag-ref { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.ag-chip { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--grigio-200); border-left: 3px solid var(--blu-700); border-radius: var(--raggio-sm); padding: 4px 8px; font-size: 0.82rem; font-weight: 600; color: var(--grigio-900); }
+.ag-chip-ruolo { font-weight: 400; color: var(--grigio-600); }
+.ag-togli { background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.78rem; padding: 0 2px; line-height: 1; }
+.ag-togli:hover { color: var(--rosso); }
+.ag-slot-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.ag-slot { position: relative; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; padding: 6px 4px; font: inherit; font-size: 0.8rem; text-align: center; line-height: 1.25; color: var(--grigio-900); }
+button.ag-slot { cursor: pointer; }
+.ag-slot b { display: block; font-size: 0.86rem; }
+.ag-slot-et { font-size: 0.7rem; color: var(--grigio-400); }
+.ag-slot.libero { border-color: #bfe3cd; background: #f2fbf6; }
+.ag-slot.libero:hover { border-color: var(--verde); }
+.ag-slot.chiuso { background: var(--grigio-100); border-style: dashed; color: var(--grigio-400); }
+.ag-slot.preso { border-color: var(--blu-700); background: #eef4fa; text-align: left; padding: 6px 20px 6px 8px; }
+.ag-slot-chi { display: block; font-size: 0.72rem; color: var(--grigio-600); overflow: hidden; }
+.ag-libera { position: absolute; top: 2px; right: 3px; background: none; border: none; cursor: pointer; color: var(--grigio-400); font-size: 0.72rem; line-height: 1; padding: 2px; }
+.ag-libera:hover { color: var(--rosso); }
+.ag-comandi { margin-top: 12px; }
+.ag-nota { flex: 1 1 220px; min-width: 0; margin: 0; padding: 5px 8px; font-size: 0.83rem; }
+.ag-richieste { margin-top: 14px; border: 1px solid #f3d4b5; border-radius: var(--raggio-sm); background: #fffaf3; padding: 10px 12px; }
+.ag-richiesta { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f3e2cd; font-size: 0.85rem; }
+.ag-richiesta:last-child { border-bottom: none; }
+.ag-richiesta.gestita { opacity: 0.6; }
+.ag-richiesta-az { display: flex; gap: 6px; flex: none; }
+.ag-nota-testo { margin-top: 3px; color: var(--grigio-600); font-style: italic; }
 @media (max-width: 720px) {
-    .ib-ora-riga { flex-direction: column; align-items: stretch; gap: 5px; }
-    .ib-ora-nome { flex: none; font-weight: 600; white-space: normal; }
-    .ib-ora-caselle { justify-content: flex-start; }
+    .ag-testa { flex-wrap: wrap; }
+    .ag-chi { flex: 1 1 100%; white-space: normal; }
+    .ag-richiesta { flex-direction: column; }
 }
+
+/* invito B2B: il tavolo a cui si invita. Un riquadro per tavolo, con chi lo
+   tiene e quanti orari restano: sono le due cose da sapere prima di premere
+   Invia, e dentro una tendina non si vedrebbero. */
+.ib-aree { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+label.ib-area { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 9px 11px; border: 1px solid var(--grigio-200); border-radius: var(--raggio-sm); background: #fff; cursor: pointer; font-weight: 400; }
+label.ib-area:hover { border-color: var(--blu-700); background: #f8fafc; }
+label.ib-area.scelta { border-color: var(--blu-700); background: #eef4fa; box-shadow: inset 0 0 0 1px var(--blu-700); }
+label.ib-area input { width: auto; margin: 2px 0 0; flex: none; }
+.ib-area-dentro { min-width: 0; }
+.ib-area-nome { display: block; font-weight: 700; color: var(--blu-900); font-size: 0.86rem; }
+.ib-area-chi { display: block; font-size: 0.78rem; color: var(--grigio-600); margin-top: 1px; }
+.ib-area-posti { display: block; font-size: 0.76rem; color: var(--grigio-400); margin-top: 2px; }
 
 /* invito B2B: l'elenco delle aziende da invitare (stessa cassetta dei
    destinatari newsletter, ma la riga qui e' un'impresa con i suoi referenti).

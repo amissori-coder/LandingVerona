@@ -1867,6 +1867,32 @@
             }
         },
 
+        /* Agenda degli incontri B2B: tavoli, referenti, orari chiusi,
+           prenotazioni e richieste. Stesso indirizzo delle presenze e delle
+           aziende - il servizio smista in base alla sezione - perche' e' la
+           stessa sezione Eventi con gli stessi permessi, e un indirizzo in
+           piu' sarebbe un indirizzo in piu' da tenere allineato. */
+        async agendaB2B(corpo) {
+            let url = window.RV_PRESENZE_URL;
+            if (!url && window.RV_EMAIL_SERVICE_URL) url = window.RV_EMAIL_SERVICE_URL.replace(/invia-email(\/?)$/, 'presenze$1');
+            if (!url) return { ok: false, msg: 'Servizio non configurato.' };
+            if (!this.auth || !this.auth.currentUser) return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' };
+            let idToken;
+            try { idToken = await this.auth.currentUser.getIdToken(); }
+            catch (e) { return { ok: false, msg: 'Sessione scaduta: rientra e riprova.' }; }
+            try {
+                const r = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken, sezione: 'b2b', ...corpo })
+                });
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.ok) return { ...data, ok: false, msg: (data && data.msg) || ('Operazione non riuscita (' + r.status + ').') };
+                return { ...data, ok: true };
+            } catch (e) {
+                return { ok: false, msg: await this._perche(url, e) };
+            }
+        },
+
         /* --- NEWSLETTER ---
            Un unico servizio per l'elenco dei destinatari raccolti dal sito
            (tutte le pagine, non solo gli eventi) e per le disiscrizioni. */
@@ -16716,7 +16742,7 @@
                     .map(x => riquadroNum(conModalita ? postiSezione[x.id] : '-', x.breve, '', '', x.id)).join('')
                 + riquadroNum(conf, 'confermati / presenti', '', 'verde', 'conf')
                 + '</div>') + '</div>'
-            + gestione + aziendeInvitoHtml(ev) + promemoriaEventiHtml(ev) + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
+            + gestione + aziendeInvitoHtml(ev) + agendaB2BHtml(ev) + promemoriaEventiHtml(ev) + riepilogoPrenotazioniHtml(ev, _evIscrizioni) + (admin ? diagnosticaEventiHtml() : '') + avviso + corpo;
 
         $vista().querySelectorAll('.ev-scheda').forEach(b =>
             b.addEventListener('click', () => apriEvento(b.dataset.ev)));
@@ -16736,6 +16762,14 @@
             b.addEventListener('click', () => modaleAziendeInvito(ev, b.dataset.campagna));
         });
         collegaPromemoria(ev);
+        collegaAgendaB2B(ev);
+        /* L'agenda degli incontri si legge entrando: la scheda in pagina deve
+           poter dire quanti orari restano e se c'e' una richiesta da guardare,
+           senza che nessuno debba aprire la finestra per scoprirlo. Una
+           lettura sola, non a ogni ridisegno (vedi AG_FRESCA_MS). */
+        if (ev.manuale) {
+            caricaAgendaB2B(ev, r => { if (r && vistaCorrente === 'eventi') aggiornaSchedaAgenda(ev); });
+        }
         /* Se su questo evento c'e' un invio programmato in corso, lo si legge
            SUBITO, senza aspettare che qualcuno apra la finestra delle aziende.
            E' l'unica riga della pagina che dice "sta gia' partendo qualcosa":
@@ -17415,40 +17449,49 @@
             + '</tbody></table></section>').join('');
         const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
             + '<title>Incontri B2B per argomento - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
-            + '<style>'
-            + '*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
-            + 'body{font-family:Arial,\'Helvetica Neue\',Helvetica,sans-serif;color:#1E293B;margin:28px;font-size:12px;line-height:1.45;}'
-            + 'header{border-bottom:3px solid #0A2844;padding-bottom:12px;margin-bottom:6px;}'
-            + 'h1{color:#0A2844;font-size:21px;letter-spacing:-0.2px;}'
-            + '.sotto{color:#475569;margin-top:4px;font-size:12.5px;}'
-            + '.meta{color:#94A3B8;margin-top:3px;font-size:10.5px;}'
-            + '.tema{margin-top:20px;}'
-            + 'h2{color:#0A2844;font-size:14.5px;border-left:4px solid #2A5A85;padding-left:9px;margin-bottom:7px;page-break-after:avoid;break-after:avoid;}'
-            + 'h2 .conta{color:#475569;font-weight:normal;font-size:11.5px;}'
-            + 'table{width:100%;border-collapse:collapse;}'
-            + 'thead{display:table-header-group;}'
-            + 'th{background:#0A2844;color:#fff;text-align:left;padding:5px 7px;font-size:9.5px;letter-spacing:0.4px;text-transform:uppercase;}'
-            + 'td{border-bottom:1px solid #E2E8F0;padding:5px 7px;vertical-align:top;}'
-            + 'tr{page-break-inside:avoid;break-inside:avoid;}'
-            + 'tbody tr:nth-child(even) td{background:#F4F8FB;}'
-            + '.forte{font-weight:bold;color:#0A2844;white-space:nowrap;}'
-            + '.nota{color:#475569;}'
-            + 'footer{margin-top:26px;padding-top:10px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;text-align:center;}'
-            + '@page{margin:14mm 12mm;}'
-            + '</style></head><body>'
+            + '<style>' + STAMPA_B2B_CSS + '</style></head><body>'
             + '<header><h1>Incontri B2B: prenotati per argomento</h1>'
             + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.sottotitolo ? ' &middot; ' + esc(ev.sottotitolo) : '') + '</div>'
             + '<div class="meta">' + temi.length + ' tavoli &middot; ' + persone.size + ' persone &middot; ' + scelte + ' prenotazioni (solo risposte all\'invito B2B) &middot; stampato il ' + esc(quando) + ' &middot; documento riservato</div></header>'
             + sezioni
             + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
             + '</body></html>';
+        apriStampa(pagina);
+    }
+    /* Lo stile dei fogli stampabili degli incontri B2B - l'elenco per
+       argomento e l'agenda della giornata. Uno solo per tutti e due: sono
+       due fogli che finiscono sullo stesso tavolo, lo stesso giorno, e due
+       stili che si allontanano si vedono subito. */
+    const STAMPA_B2B_CSS = '*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+        + 'body{font-family:Arial,\'Helvetica Neue\',Helvetica,sans-serif;color:#1E293B;margin:28px;font-size:12px;line-height:1.45;}'
+        + 'header{border-bottom:3px solid #0A2844;padding-bottom:12px;margin-bottom:6px;}'
+        + 'h1{color:#0A2844;font-size:21px;letter-spacing:-0.2px;}'
+        + '.sotto{color:#475569;margin-top:4px;font-size:12.5px;}'
+        + '.meta{color:#94A3B8;margin-top:3px;font-size:10.5px;}'
+        + '.tema{margin-top:20px;}'
+        + 'h2{color:#0A2844;font-size:14.5px;border-left:4px solid #2A5A85;padding-left:9px;margin-bottom:7px;page-break-after:avoid;break-after:avoid;}'
+        + 'h2 .conta{color:#475569;font-weight:normal;font-size:11.5px;}'
+        + 'section .sotto{margin:0 0 7px 13px;font-size:11.5px;}'
+        + 'table{width:100%;border-collapse:collapse;}'
+        + 'thead{display:table-header-group;}'
+        + 'th{background:#0A2844;color:#fff;text-align:left;padding:5px 7px;font-size:9.5px;letter-spacing:0.4px;text-transform:uppercase;}'
+        + 'td{border-bottom:1px solid #E2E8F0;padding:5px 7px;vertical-align:top;}'
+        + 'tr{page-break-inside:avoid;break-inside:avoid;}'
+        + 'tbody tr:nth-child(even) td{background:#F4F8FB;}'
+        + 'tr.vuoto td{color:#94A3B8;}'
+        + '.forte{font-weight:bold;color:#0A2844;white-space:nowrap;}'
+        + '.nota{color:#475569;}'
+        + 'footer{margin-top:26px;padding-top:10px;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:10px;text-align:center;}'
+        + '@page{margin:14mm 12mm;}';
+    /* La finestra di stampa: si scrive la pagina e si chiama print(), da cui
+       "Salva come PDF" fa il resto. Niente librerie. */
+    function apriStampa(pagina) {
         const finestra = window.open('', '_blank');
         if (!finestra) { toast('Il browser ha bloccato la finestra di stampa: consenti i pop-up per questo sito.', 'rosso'); return; }
         finestra.document.open();
         finestra.document.write(pagina);
         finestra.document.close();
-        // un attimo perche' la pagina si impagini, poi la finestra di stampa:
-        // da li' "Salva come PDF" fa il resto
+        // un attimo perche' la pagina si impagini, poi la finestra di stampa
         finestra.focus();
         setTimeout(() => { try { finestra.print(); } catch (e) { } }, 300);
     }
@@ -17576,30 +17619,12 @@
         return gruppi;
     }
 
-    /* Gli orari degli incontri B2B, per evento e per argomento, ricordati nel
-       browser. Restano qui e non sul server perche' sono un appunto di chi
-       prepara l'invio: sulle schede ci finiscono comunque, con l'invito. Senza
-       questa memoria andrebbero riscritti tutti e nove a ogni giro di invii, ed
-       e' riscrivendoli che si sbaglia un orario. */
-    const CHIAVE_ORARI_B2B = 'rvArea.orariB2B';
-    function orariB2BSalvati(idEvento) {
-        try {
-            const tutti = JSON.parse(localStorage.getItem(CHIAVE_ORARI_B2B) || '{}');
-            const o = tutti[idEvento];
-            return (o && typeof o === 'object') ? o : {};
-        } catch (e) { return {}; }
-    }
-    /* --- l'orario di un tavolo: due caselle, non una frase ---
-       Un orario scritto a mano ("dalle 14.30 alle 15,15", "14:30-15:15",
-       "pomeriggio") e' quattro modi diversi di dire la stessa cosa, e nessuno
-       che il programma possa confrontare: senza due orari confrontabili non si
-       puo' dire se due tavoli si sovrappongono, ne' ordinare gli incontri sul
-       foglio del desk. Quindi si scrivono in due caselle dell'ora (inizio e
-       fine) e da li' si compone la frase "dalle HH:MM alle HH:MM", che e' la
-       forma con cui l'orario viaggia ovunque: nella mail, sulla scheda, sulla
-       pagina di prenotazione, sul foglio.
-       All'apertura la frase si rilegge nelle due caselle - anche quella scritta
-       a mano dalla versione precedente, se contiene due ore riconoscibili. */
+    /* --- le ore, in forma confrontabile ---
+       Un'ora scritta a mano ("14.30", "14,30", "primo pomeriggio") e' tre
+       modi diversi di dire la stessa cosa, e nessuno che il programma possa
+       confrontare. Qui dentro un'ora e' sempre "HH:MM" - la forma delle
+       caselle <input type="time"> - com'e' nel servizio (lib/agenda-b2b.js),
+       che con quelle ore compone gli appuntamenti della giornata. */
     function oraValida(v) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || '')); }
     function minutiOra(v) {
         if (!oraValida(v)) return -1;
@@ -17610,56 +17635,547 @@
         const m = ((n % 1440) + 1440) % 1440;
         return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
     }
-    function fraseOrario(inizio, fine) { return 'dalle ' + inizio + ' alle ' + fine; }
-    /* Dalla frase alle due ore, e SOLO dalla forma che le caselle compongono.
-       Pescare due ore da una frase qualunque sembra generoso e invece inventa:
-       da "sala 2.30, dalle 14:00 alle 15:00" verrebbero fuori le 02:30 come
-       inizio - il numero della sala - e riscrivendo la frase l'orario vero
-       sarebbe perso per sempre. Quello che non ha questa forma non si rilegge
-       nelle caselle: si dice a chi sta invitando, che lo riscrive.
-       Stessa regola nel servizio (`lib/orari-b2b.js`), e deve restare tale. */
-    const FRASE_ORARIO = /^dalle ([01]\d|2[0-3]):[0-5]\d alle ([01]\d|2[0-3]):[0-5]\d$/;
-    function oreDaFrase(frase) {
-        const t = String(frase || '').trim();
-        if (!FRASE_ORARIO.test(t)) return { inizio: '', fine: '' };
-        const ore = t.match(/([01]\d|2[0-3]):[0-5]\d/g);
-        return { inizio: ore[0], fine: ore[1] };
+
+    /* =========================================================
+       INCONTRI B2B: L'AGENDA DELLA GIORNATA
+       ---------------------------------------------------------
+       Gli incontri non sono piu' "un tavolo per argomento a
+       quell'ora", ma APPUNTAMENTI: la giornata di ciascun tavolo
+       (i nove argomenti del convegno piu' il desk Revilaw e la
+       revisione legale) e' divisa in slot, e ogni ospite invitato
+       ne prenota uno.
+
+       Qui si organizza tutto quello che viene PRIMA dell'invito:
+         - gli orari della giornata, uguali per tutti i tavoli:
+           da che ora a che ora, quanto dura un incontro, quando si
+           pranza (in pausa pranzo non si fissa niente);
+         - per ogni tavolo, CHI lo tiene: si sceglie fra gli
+           aderenti Revilaw e fra sponsor e relatori iscritti a
+           questo evento, che sono le persone che quel giorno in
+           sala ci sono davvero;
+         - gli orari in cui il tavolo NON riceve: quasi sempre
+           perche' chi lo tiene in quel momento e' sul palco. Uno
+           slot chiuso non si puo' prenotare e la pagina lo mostra
+           come non disponibile, non come gia' preso: sono due cose
+           diverse per chi guarda.
+       Poi si invita, un tavolo per volta (vedi modaleInvitoB2B), e
+       chi riceve la mail sceglie l'orario.
+
+       PERCHE' STA SUL SERVIZIO E NON QUI. Gli slot sono una risorsa
+       contesa: due ospiti che aprono la pagina nello stesso momento
+       vedono lo stesso orario libero, e uno solo puo' averlo. Il
+       conto lo tiene il servizio, dentro una transazione; l'area
+       riservata legge e scrive, ma non decide. Di conseguenza
+       quello che si vede qui e' l'ultima copia letta, non la
+       verita' del momento: si rilegge aprendo la finestra e dopo
+       ogni modifica.
+    ========================================================= */
+    let _agB2B = null;          // l'ultima agenda letta: { giornata, aree: [...], richieste: [...] }
+    let _agB2BEv = '';          // di quale evento e'
+    let _agB2BQuando = 0;       // quando e' stata letta
+    let _agB2BInFlight = false;
+    let _agB2BMsg = '';
+    const AG_FRESCA_MS = 20000;
+    // il tavolo aperto nella finestra: sopravvive al ridisegno
+    let _agAperta = '';
+
+    function agendaDi(ev) { return (ev && _agB2B && _agB2BEv === ev.id) ? _agB2B : null; }
+    /* Chi sta aspettando questa lettura. Non e' un dettaglio: la pagina ne
+       chiede una entrando, e se un attimo dopo si apre la finestra, la
+       seconda richiesta troverebbe la prima ancora in volo. Senza questa
+       coda la finestra resterebbe per sempre su "Carico l'agenda...", perche'
+       la sua risposta non arriverebbe mai - e a guardarla sembrerebbe rotta. */
+    let _agB2BAttese = [];
+    function caricaAgendaB2B(ev, poi, forza) {
+        if (!ev || !ev.manuale) { if (poi) poi(null); return; }
+        if (!Cloud.attivo) {
+            _agB2BMsg = 'Accesso al database non attivo: l\'agenda degli incontri non si puo\' leggere.';
+            if (poi) poi(null);
+            return;
+        }
+        if (_agB2BInFlight) { if (poi) _agB2BAttese.push(poi); return; }
+        if (!forza && _agB2BEv === ev.id && Date.now() - _agB2BQuando < AG_FRESCA_MS) { if (poi) poi(_agB2B); return; }
+        _agB2BInFlight = true;
+        if (poi) _agB2BAttese.push(poi);
+        const finito = r => {
+            _agB2BInFlight = false;
+            const attese = _agB2BAttese;
+            _agB2BAttese = [];
+            attese.forEach(f => { try { f(r); } catch (e) { } });
+        };
+        Cloud.agendaB2B({ azione: 'agenda', evento: ev.id }).then(r => {
+            if (!r || !r.ok) {
+                _agB2BMsg = (r && r.msg) || 'Agenda degli incontri non leggibile.';
+                finito(null);
+                return;
+            }
+            _agB2BMsg = '';
+            _agB2B = r; _agB2BEv = ev.id; _agB2BQuando = Date.now();
+            finito(r);
+        }).catch(() => {
+            _agB2BMsg = 'Servizio non raggiungibile: agenda degli incontri non letta.';
+            finito(null);
+        });
+    }
+    // le richieste ancora da guardare: sono il motivo per cui questa scheda
+    // deve saltare all'occhio anche quando tutto il resto e' a posto
+    function richiesteAperte(a) { return ((a && a.richieste) || []).filter(r => String(r.stato || 'aperta') !== 'gestita'); }
+
+    /* CHI PUO' TENERE UN TAVOLO: gli aderenti Revilaw e gli sponsor e
+       relatori iscritti a questo evento. Non tutta l'anagrafica dello
+       studio: al tavolo ci si siede di persona, e chi quel giorno non c'e'
+       non e' un candidato. Un indirizzo compare una volta sola. */
+    function candidatiB2B(ev) {
+        const visti = {}, fuori = [];
+        (_evIscrizioni || []).forEach(r => {
+            const m = modalitaDi(ev, r);
+            if (m !== 'aderenti' && m !== 'sponsor') return;
+            const nome = ((r.nome || '') + ' ' + (r.cognome || '')).trim() || String(r.email || '');
+            if (!nome) return;
+            const k = String(r.email || '').toLowerCase() || nome.toLowerCase();
+            if (visti[k]) return;
+            visti[k] = true;
+            fuori.push({
+                doc: r.doc || '', id: r.id || '', nome: nome,
+                ruolo: String(r.ruolo || ''), azienda: String(r.azienda || ''),
+                email: String(r.email || '').toLowerCase(), sezione: m
+            });
+        });
+        return fuori.sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
     }
 
-    /* Gli orari con cui le schede di questo evento sono gia' state invitate: li
-       restituisce il servizio insieme all'elenco (b2bInvito.orari). Servono
-       quando la finestra si apre da un ALTRO computer, dove il ricordo locale
-       non c'e': senza, l'invito a una sola persona resterebbe bloccato e non ci
-       sarebbe modo di sbloccarlo se non rifacendo l'invio a tutti. */
-    function orariB2BDalleSchede(lista) {
-        const righe = lista || [];
-        for (let i = 0; i < righe.length; i++) {
-            const o = righe[i] && righe[i].orariB2B;
-            if (o && typeof o === 'object' && Object.keys(o).length) return o;
+    /* LA SCHEDA SULLA PAGINA: come sta la giornata, in una riga. */
+    function agendaB2BHtml(ev) {
+        if (!ev || !ev.manuale) return '';
+        const a = agendaDi(ev);
+        let riga;
+        if (!a) {
+            riga = _agB2BMsg
+                ? esc(_agB2BMsg)
+                : 'Un tavolo per area (i nove argomenti del convegno, il desk Revilaw e la revisione legale), '
+                + 'con chi lo tiene e gli orari in cui riceve. È da qui che si prepara la giornata degli incontri.';
+        } else {
+            const attive = a.aree.filter(x => x.attiva);
+            const occupati = a.aree.reduce((t, x) => t + x.occupati, 0);
+            const liberi = attive.reduce((t, x) => t + x.liberi, 0);
+            const senzaChi = attive.filter(x => !x.referenti.length).length;
+            const aperte = richiesteAperte(a).length;
+            const g = a.giornata || {};
+            riga = attive.length
+                ? '<b>' + attive.length + '</b> tavol' + (attive.length === 1 ? 'o attivo' : 'i attivi')
+                + ' dalle ' + esc(g.inizio) + ' alle ' + esc(g.fine)
+                + ', incontri da <b>' + (g.durata || 30) + ' minuti</b>'
+                + (g.pranzoDa ? ' (pausa pranzo ' + esc(g.pranzoDa) + '-' + esc(g.pranzoA) + ')' : '')
+                + '. <b>' + occupati + '</b> prenotat' + (occupati === 1 ? 'o' : 'i')
+                + ', <b>' + liberi + '</b> orar' + (liberi === 1 ? 'io libero' : 'i liberi') + '.'
+                + (senzaChi ? ' <span class="ev-ko">' + senzaChi + (senzaChi === 1 ? ' tavolo attivo è senza referente' : ' tavoli attivi sono senza referente') + '.</span>' : '')
+                + (aperte ? ' <span class="ev-ko"><b>' + aperte + '</b> richiest' + (aperte === 1 ? 'a' : 'e') + ' di incontro a orari esauriti da guardare.</span>' : '')
+                : 'Nessun tavolo attivo: finché non se ne attiva almeno uno, l\'invito agli incontri non si può mandare.';
         }
-        return {};
+        return '<div class="card s-admin" id="ev-agenda-scheda"><div class="s-admin-txt"><strong>Incontri B2B: tavoli, referenti e orari</strong>'
+            + '<div class="hint">' + riga + '</div></div>'
+            + '<div class="s-admin-azioni">'
+            + '<button class="btn ' + (a && richiesteAperte(a).length ? 'btn-primary' : 'btn-secondary') + '" id="ev-agenda">Organizza gli incontri</button>'
+            + '</div></div>';
     }
-    function salvaOrariB2B(idEvento, orari) {
-        try {
-            const tutti = JSON.parse(localStorage.getItem(CHIAVE_ORARI_B2B) || '{}');
-            tutti[idEvento] = orari;
-            localStorage.setItem(CHIAVE_ORARI_B2B, JSON.stringify(tutti));
-        } catch (e) { }
+    function collegaAgendaB2B(ev) {
+        const b = document.getElementById('ev-agenda');
+        if (b) b.addEventListener('click', () => modaleAgendaB2B(ev));
     }
+    function aggiornaSchedaAgenda(ev) {
+        const el = document.getElementById('ev-agenda-scheda');
+        if (!el) return;
+        el.outerHTML = agendaB2BHtml(ev);
+        collegaAgendaB2B(ev);
+    }
+
+    /* LA FINESTRA: la giornata in alto, i tavoli sotto, le richieste in
+       fondo. Si apre sempre rileggendo dal servizio: una copia vecchia di
+       dieci minuti mostrerebbe liberi degli orari che nel frattempo qualcuno
+       ha preso, e si finirebbe per assegnarli due volte. */
+    function modaleAgendaB2B(ev) {
+        if (!ev || !ev.manuale) return;
+        const puo = puoGestireInviti();
+        apriModale('<h2>Incontri B2B - ' + esc(ev.titolo + ', ' + ev.quando) + '</h2>'
+            + '<p class="hint" style="margin:-4px 0 12px;max-width:none;">'
+            + 'Ogni tavolo ha <b>chi lo tiene</b> e i suoi <b>orari</b>: la giornata si divide in appuntamenti, e ogni ospite invitato ne prenota <b>uno</b>. '
+            + 'Chiudi gli orari in cui il referente non può ricevere (per esempio mentre è sul palco): restano fuori dalla pagina di prenotazione. '
+            + 'Un tavolo <b>non attivo</b> non si può né invitare né prenotare.'
+            + (puo ? '' : ' Da qui puoi guardare: per modificare servono i permessi di chi manda gli inviti.')
+            + '</p>'
+            + '<div id="ag-corpo"><div class="tabella-vuota">Carico l\'agenda degli incontri...</div></div>'
+            + '<div id="ag-esito" class="ev-imp-esito"></div>'
+            + '<div class="modale-azioni">'
+            + '<button class="btn btn-secondary" id="ag-stampa">Stampa l\'agenda</button>'
+            + '<button class="btn btn-secondary" id="ag-chiudi">Chiudi</button></div>', { classe: 'larga' });
+        document.getElementById('ag-chiudi').addEventListener('click', () => { chiudiModale(); aggiornaSchedaAgenda(ev); });
+        document.getElementById('ag-stampa').addEventListener('click', () => stampaAgendaB2B(ev));
+        caricaAgendaB2B(ev, () => disegnaAgenda(ev), true);
+    }
+    function esitoAgenda(testo, ko) {
+        const e = document.getElementById('ag-esito');
+        if (e) e.innerHTML = testo ? '<span class="' + (ko ? 'ev-ko' : 'ev-ok') + '">' + esc(testo) + '</span>' : '';
+    }
+    function disegnaAgenda(ev) {
+        const box = document.getElementById('ag-corpo');
+        if (!box) return;
+        const a = agendaDi(ev);
+        if (!a) {
+            box.innerHTML = '<div class="tabella-vuota">' + esc(_agB2BMsg || 'Agenda non disponibile.') + '</div>';
+            return;
+        }
+        const puo = puoGestireInviti();
+        const g = a.giornata || {};
+        const campoOra = (id, et, val) => '<label class="ag-mini"><span>' + esc(et) + '</span>'
+            + '<input type="time" step="60" id="' + id + '" value="' + esc(val || '') + '"' + (puo ? '' : ' disabled') + '></label>';
+        const giornata = '<div class="ag-giornata">'
+            + '<div class="ag-titolo">La giornata degli incontri</div>'
+            + '<div class="ag-fila">'
+            + campoOra('ag-da', 'dalle', g.inizio)
+            + campoOra('ag-a', 'alle', g.fine)
+            + '<label class="ag-mini"><span>durata</span><input type="number" id="ag-durata" min="10" max="240" step="5" value="'
+            + (g.durata || 30) + '"' + (puo ? '' : ' disabled') + '><span>min</span></label>'
+            + campoOra('ag-pda', 'pausa dalle', g.pranzoDa)
+            + campoOra('ag-pa', 'alle', g.pranzoA)
+            + (puo ? '<button class="btn btn-sm btn-secondary" id="ag-salva-g">Salva la giornata</button>' : '')
+            + '</div>'
+            + '<div class="hint">Vale per tutti i tavoli. Gli appuntamenti che cadono nella pausa pranzo non esistono: '
+            + 'nessuno li vede e nessuno li può prenotare. Cambiando durata o orari, gli appuntamenti già presi restano dove sono'
+            + ' solo se quell\'ora esiste ancora: guarda i tavoli qui sotto prima di confermare un cambio a inviti già partiti.</div>'
+            + '</div>';
+        box.innerHTML = giornata
+            + '<div class="ag-aree">' + a.aree.map(x => areaHtml(ev, x, puo)).join('') + '</div>'
+            + richiesteHtml(a, puo);
+        collegaAgenda(ev, box, puo);
+    }
+    /* Un tavolo: la riga che si apre. Chiusa dice le tre cose che si
+       guardano da fuori (se e' attivo, chi lo tiene, quanti posti restano);
+       aperta ha i comandi. */
+    function areaHtml(ev, x, puo) {
+        const chi = x.referenti.map(r => r.nome).join(', ');
+        const aperta = _agAperta === x.id;
+        const stato = x.attiva
+            ? '<span class="badge verde">attivo</span>'
+            : '<span class="badge neutro">non attivo</span>';
+        const conta = x.attiva
+            ? '<span class="hint">' + x.occupati + ' prenotati &middot; ' + x.liberi + ' liberi</span>'
+            : '';
+        /* "Nessun referente" in rosso vale per i tavoli ATTIVI, dove e' una cosa
+           da sistemare prima di invitare; su un tavolo spento e' solo il suo
+           stato normale, e undici righe rosse non fanno guardare quella che
+           conta. */
+        const testa = '<div class="ag-testa" data-apri="' + esc(x.id) + '">'
+            + '<span class="ag-nome">' + esc(x.nome) + '</span>' + stato
+            + '<span class="ag-chi">' + (chi ? esc(chi)
+                : (x.attiva ? '<span class="ev-ko">nessun referente</span>' : '<span class="hint">da organizzare</span>')) + '</span>'
+            + conta
+            + '<span class="ag-freccia">' + (aperta ? '&#9650;' : '&#9660;') + '</span></div>';
+        if (!aperta) return '<div class="ag-area">' + testa + '</div>';
+        const candidati = candidatiB2B(ev);
+        const gia = x.referenti.map(r => r.email || r.nome);
+        const opzioni = candidati.filter(c => gia.indexOf(c.email || c.nome) < 0)
+            .map(c => '<option value="' + esc(c.email || c.nome) + '">' + esc(c.nome)
+                + (c.ruolo ? ' - ' + esc(c.ruolo) : '')
+                + ' (' + (c.sezione === 'aderenti' ? 'aderente Revilaw' : 'sponsor e relatori') + ')</option>').join('');
+        const referenti = '<div class="ag-ref">'
+            + (x.referenti.length
+                ? x.referenti.map(r => '<span class="ag-chip">' + esc(r.nome)
+                    + (r.ruolo ? ' <span class="ag-chip-ruolo">' + esc(r.ruolo) + '</span>' : '')
+                    + (puo ? '<button type="button" class="ag-togli" data-area="' + esc(x.id) + '" data-ref="' + esc(r.email || r.nome) + '" title="Togli">&#10005;</button>' : '')
+                    + '</span>').join('')
+                : '<span class="hint">Nessuno: finché non lo indichi, chi prenota non sa chi troverà al tavolo.</span>')
+            + '</div>'
+            + (puo ? '<div class="ag-fila"><select class="ag-aggiungi" data-area="' + esc(x.id) + '">'
+                + '<option value="">Aggiungi chi tiene il tavolo...</option>' + opzioni + '</select>'
+                /* Elenco vuoto: due motivi diversi, e dirne uno per l'altro manda
+                   a spostare gente che e' gia' al posto giusto. */
+                + (candidati.length ? ''
+                    : (_evIscrizioni === null
+                        ? '<span class="hint">Sto ancora caricando gli iscritti: fra un momento compaiono qui.</span>'
+                        : '<span class="hint">Nessun aderente Revilaw né sponsor fra gli iscritti a questo evento: '
+                        + 'spostali nelle loro sezioni dall\'elenco qui sotto, e compariranno qui.</span>'))
+                + '</div>' : '');
+        /* Gli orari: uno per slot. Verde libero, grigio chiuso, blu preso -
+           e chi l'ha preso si legge, perche' e' la domanda che si fa chi
+           guarda questa griglia il giorno prima del convegno. */
+        const slot = '<div class="ag-slot-griglia">' + x.slot.map(s => {
+            if (s.stato === 'occupato') {
+                const p = s.chi || {};
+                return '<div class="ag-slot preso" title="' + esc((p.nome || '') + (p.azienda ? ' - ' + p.azienda : '')) + '">'
+                    + '<b>' + esc(s.ora) + '</b>'
+                    + '<span class="ag-slot-chi">' + esc(p.nome || 'prenotato') + (p.azienda ? '<br>' + esc(p.azienda) : '') + '</span>'
+                    + (puo ? '<button type="button" class="ag-libera" data-doc="' + esc(p.doc || '') + '" title="Libera questo orario">&#10005;</button>' : '')
+                    + '</div>';
+            }
+            const chiuso = s.stato === 'chiuso';
+            return '<button type="button" class="ag-slot ' + (chiuso ? 'chiuso' : 'libero') + '"'
+                + (puo ? ' data-chiudi="' + esc(x.id) + '" data-ora="' + esc(s.chiave) + '"' : ' disabled')
+                + ' title="' + (chiuso ? 'Chiuso: premi per riaprirlo' : 'Libero: premi per chiuderlo') + '">'
+                + '<b>' + esc(s.ora) + '</b><span class="ag-slot-et">' + (chiuso ? 'chiuso' : 'libero') + '</span></button>';
+        }).join('') + '</div>';
+        const comandi = puo
+            ? '<div class="ag-fila ag-comandi">'
+            + '<label class="ag-mini ag-attiva"><input type="checkbox" class="ag-attiva-c" data-area="' + esc(x.id) + '"'
+            + (x.attiva ? ' checked' : '') + '><span>Tavolo attivo</span></label>'
+            + '<input type="text" class="ag-nota" data-area="' + esc(x.id) + '" maxlength="300" placeholder="Nota per chi prenota (sala, indicazioni)" value="' + esc(x.nota || '') + '">'
+            + '<button class="btn btn-sm btn-primary ag-salva" data-area="' + esc(x.id) + '">Salva questo tavolo</button>'
+            + '</div>'
+            : '';
+        return '<div class="ag-area aperta">' + testa
+            + '<div class="ag-dentro">'
+            + '<div class="ag-et">Chi tiene il tavolo</div>' + referenti
+            + '<div class="ag-et">Orari</div>'
+            + '<div class="hint" style="margin:-2px 0 6px;">Premi un orario per chiuderlo o riaprirlo. '
+            + 'Gli orari chiusi non si possono prenotare: usali quando chi tiene il tavolo è sul palco o non c\'è.</div>'
+            + slot
+            + comandi
+            + '</div></div>';
+    }
+    /* LE RICHIESTE A ORARI ESAURITI: chi ha aperto la pagina e non ha
+       trovato piu' niente, e ha chiesto un incontro lo stesso. Non e' una
+       prenotazione e non impegna nessun orario: sta qui perche' qualcuno
+       decida se aprirgli un posto. */
+    function richiesteHtml(a, puo) {
+        const lista = (a.richieste || []).slice().sort((x, y) => (y.quando || 0) - (x.quando || 0));
+        if (!lista.length) return '';
+        const aperte = richiesteAperte(a).length;
+        return '<div class="ag-richieste"><div class="ag-titolo">Richieste a orari esauriti'
+            + (aperte ? ' <span class="badge ambra">' + aperte + ' da guardare</span>' : '') + '</div>'
+            + '<div class="hint">Hanno trovato tutto prenotato e hanno chiesto un incontro lo stesso: non hanno nessun orario. '
+            + 'Per dargliene uno apri un orario chiuso nel tavolo giusto e assegnaglielo, oppure segna la richiesta come gestita dopo averli sentiti.</div>'
+            + lista.map(r => '<div class="ag-richiesta' + (String(r.stato || 'aperta') === 'gestita' ? ' gestita' : '') + '">'
+                + '<div><b>' + esc(r.nome || r.email || '') + '</b>' + (r.azienda ? ' - ' + esc(r.azienda) : '')
+                + '<div class="hint">' + esc(r.email || '') + (r.telefono ? ' &middot; ' + esc(r.telefono) : '')
+                + (r.area ? ' &middot; tavolo: ' + esc(nomeAreaB2B(r.area)) : '')
+                + ' &middot; ' + esc(fmtDataOra(r.quando || 0)) + '</div>'
+                + (r.nota ? '<div class="ag-nota-testo">' + esc(r.nota) + '</div>' : '') + '</div>'
+                + '<div class="ag-richiesta-az">'
+                + (String(r.stato || 'aperta') === 'gestita'
+                    ? '<span class="badge verde">gestita</span>'
+                    : (puo ? '<button class="btn btn-sm btn-secondary ag-rich" data-doc="' + esc(r.doc) + '" data-stato="gestita">Segna gestita</button>' : ''))
+                + (puo ? '<button class="btn btn-sm btn-ghost ag-rich" data-doc="' + esc(r.doc) + '" data-stato="tolta">Togli</button>' : '')
+                + '</div></div>').join('')
+            + '</div>';
+    }
+    function nomeAreaB2B(id) {
+        const a = areeB2BDef().filter(x => x.id === id)[0];
+        return a ? a.nome : String(id || '');
+    }
+    function areeB2BDef() { return (window.RV_NEWSLETTER && RV_NEWSLETTER.AREE_B2B) || []; }
+    // il tavolo nella copia locale: le modifiche si scrivono li' e partono
+    // con il "Salva questo tavolo", non una per volta
+    function areaLocale(id) { return ((_agB2B && _agB2B.aree) || []).filter(x => x.id === id)[0] || null; }
+
+    function collegaAgenda(ev, radice, puo) {
+        radice.querySelectorAll('.ag-testa').forEach(t => t.addEventListener('click', () => {
+            _agAperta = (_agAperta === t.dataset.apri) ? '' : t.dataset.apri;
+            disegnaAgenda(ev);
+        }));
+        if (!puo) return;
+        const sg = document.getElementById('ag-salva-g');
+        if (sg) sg.addEventListener('click', () => salvaGiornata(ev));
+        radice.querySelectorAll('.ag-aggiungi').forEach(s => s.addEventListener('change', () => {
+            const area = areaLocale(s.dataset.area);
+            const c = candidatiB2B(ev).filter(x => (x.email || x.nome) === s.value)[0];
+            if (!area || !c) return;
+            area.referenti = area.referenti.concat([c]);
+            /* Un tavolo con un referente e' un tavolo che si vuole tenere:
+               si attiva da se'. Dimenticare la spunta e' il modo piu' facile
+               per preparare tutto e poi non riuscire a invitare nessuno. */
+            area.attiva = true;
+            disegnaAgenda(ev);
+        }));
+        radice.querySelectorAll('.ag-togli').forEach(b => b.addEventListener('click', e => {
+            e.stopPropagation();
+            const area = areaLocale(b.dataset.area);
+            if (!area) return;
+            area.referenti = area.referenti.filter(r => (r.email || r.nome) !== b.dataset.ref);
+            disegnaAgenda(ev);
+        }));
+        radice.querySelectorAll('[data-chiudi]').forEach(b => b.addEventListener('click', () => {
+            const area = areaLocale(b.dataset.chiudi);
+            if (!area) return;
+            const k = b.dataset.ora;
+            const i = area.chiusi.indexOf(k);
+            if (i >= 0) area.chiusi.splice(i, 1); else area.chiusi.push(k);
+            // lo stato mostrato segue subito la spunta, il salvataggio lo conferma
+            (area.slot.filter(s => s.chiave === k)[0] || {}).stato = i >= 0 ? 'libero' : 'chiuso';
+            disegnaAgenda(ev);
+        }));
+        radice.querySelectorAll('.ag-attiva-c').forEach(c => c.addEventListener('change', () => {
+            const area = areaLocale(c.dataset.area);
+            if (area) area.attiva = c.checked;
+        }));
+        radice.querySelectorAll('.ag-nota').forEach(t => t.addEventListener('input', () => {
+            const area = areaLocale(t.dataset.area);
+            if (area) area.nota = t.value;
+        }));
+        radice.querySelectorAll('.ag-salva').forEach(b => b.addEventListener('click', () => salvaAreaB2B(ev, b.dataset.area, b)));
+        radice.querySelectorAll('.ag-libera').forEach(b => b.addEventListener('click', e => {
+            e.stopPropagation();
+            liberaSlotB2B(ev, b.dataset.doc);
+        }));
+        radice.querySelectorAll('.ag-rich').forEach(b => b.addEventListener('click', () => segnaRichiestaB2B(ev, b.dataset.doc, b.dataset.stato)));
+    }
+    function salvaGiornata(ev) {
+        const val = id => String((document.getElementById(id) || {}).value || '').trim();
+        const da = val('ag-da'), a = val('ag-a'), pda = val('ag-pda'), pa = val('ag-pa');
+        const durata = parseInt(val('ag-durata'), 10);
+        if (!oraValida(da) || !oraValida(a) || minutiOra(a) <= minutiOra(da)) {
+            esitoAgenda('Gli orari della giornata non tornano: controlla inizio e fine.', true); return;
+        }
+        if (!(durata >= 10 && durata <= 240)) { esitoAgenda('La durata di un incontro va da 10 a 240 minuti.', true); return; }
+        if ((pda || pa) && (!oraValida(pda) || !oraValida(pa) || minutiOra(pa) <= minutiOra(pda))) {
+            esitoAgenda('La pausa pranzo va indicata con tutte e due le ore, la seconda dopo la prima.', true); return;
+        }
+        const giornata = { inizio: da, fine: a, pranzoDa: pda, pranzoA: pa, durata: durata };
+        esitoAgenda('Salvo la giornata...');
+        Cloud.agendaB2B({
+            azione: 'agenda-salva', evento: ev.id, giornata: giornata,
+            eventoDati: datiEventoB2B(ev)
+        }).then(r => {
+            if (!r || !r.ok) { esitoAgenda((r && r.msg) || 'Salvataggio non riuscito.', true); return; }
+            aggiornaDopoSalvataggio(ev, r);
+            esitoAgenda('Giornata salvata: ' + (r.aree[0] ? r.aree[0].slot.length : 0) + ' appuntamenti per tavolo.');
+        }).catch(() => esitoAgenda('Servizio non raggiungibile.', true));
+    }
+    function datiEventoB2B(ev) {
+        return {
+            titolo: ev.titolo, quando: ev.quando, luogo: ev.luogo || '',
+            indirizzo: ev.indirizzo || '', pagina: ev.pagina || ''
+        };
+    }
+    function aggiornaDopoSalvataggio(ev, r) {
+        if (!_agB2B || _agB2BEv !== ev.id) return;
+        if (r.giornata) _agB2B.giornata = r.giornata;
+        if (r.aree) _agB2B.aree = r.aree;
+        if (r.richieste) _agB2B.richieste = r.richieste;
+        _agB2BQuando = Date.now();
+        disegnaAgenda(ev);
+    }
+    function salvaAreaB2B(ev, id, bottone) {
+        const area = areaLocale(id);
+        if (!area) return;
+        if (area.attiva && !area.referenti.length
+            && !confirm('Questo tavolo non ha nessun referente: chi prenota non saprà chi troverà. Lo salvo lo stesso?')) return;
+        if (bottone) { bottone.disabled = true; bottone.textContent = 'Salvo...'; }
+        const aree = {};
+        aree[id] = {
+            attiva: area.attiva, nota: area.nota || '', chiusi: area.chiusi || [],
+            referenti: area.referenti.map(r => ({
+                doc: r.doc || '', id: r.id || '', nome: r.nome, ruolo: r.ruolo || '',
+                azienda: r.azienda || '', email: r.email || '', sezione: r.sezione || ''
+            }))
+        };
+        Cloud.agendaB2B({ azione: 'agenda-salva', evento: ev.id, aree: aree, eventoDati: datiEventoB2B(ev) })
+            .then(r => {
+                if (!r || !r.ok) {
+                    if (bottone) { bottone.disabled = false; bottone.textContent = 'Salva questo tavolo'; }
+                    esitoAgenda((r && r.msg) || 'Salvataggio non riuscito.', true);
+                    return;
+                }
+                aggiornaDopoSalvataggio(ev, r);
+                esitoAgenda('Tavolo salvato: ' + nomeAreaB2B(id) + '.');
+                try {
+                    Audit.registra(Auth.utenteCorrente, 'Evento: tavolo B2B aggiornato', 'sistema', ev.id, null,
+                        nomeAreaB2B(id) + (area.attiva ? ' attivo' : ' non attivo')
+                        + ', ' + area.referenti.length + ' referenti, ' + (area.chiusi || []).length + ' orari chiusi');
+                } catch (e) { }
+            })
+            .catch(() => {
+                if (bottone) { bottone.disabled = false; bottone.textContent = 'Salva questo tavolo'; }
+                esitoAgenda('Servizio non raggiungibile.', true);
+            });
+    }
+    /* Liberare un orario preso: si chiede conferma, perche' dall'altra parte
+       c'e' un'impresa che ha ricevuto un foglio con quell'ora sopra e non
+       sapra' mai che gliel'abbiamo tolto - non parte nessuna mail, ed e'
+       voluto: e' un gesto che si fa DOPO aver parlato con loro. */
+    function liberaSlotB2B(ev, doc) {
+        if (!doc) return;
+        if (!confirm('Libero questo orario? La prenotazione sparisce e l\'impresa non riceve nessun avviso: avvisala tu.')) return;
+        esitoAgenda('Libero l\'orario...');
+        Cloud.agendaB2B({ azione: 'agenda-libera', evento: ev.id, doc: doc }).then(r => {
+            if (!r || !r.ok) { esitoAgenda((r && r.msg) || 'Operazione non riuscita.', true); return; }
+            esitoAgenda('Orario liberato: ' + (r.areaNome || '') + ' ' + (r.ora || '') + '.');
+            caricaAgendaB2B(ev, () => disegnaAgenda(ev), true);
+        }).catch(() => esitoAgenda('Servizio non raggiungibile.', true));
+    }
+    function segnaRichiestaB2B(ev, doc, stato) {
+        if (!doc) return;
+        if (stato === 'tolta' && !confirm('Tolgo la richiesta dall\'elenco?')) return;
+        Cloud.agendaB2B({ azione: 'agenda-richiesta', evento: ev.id, doc: doc, stato: stato }).then(r => {
+            if (!r || !r.ok) { esitoAgenda((r && r.msg) || 'Operazione non riuscita.', true); return; }
+            caricaAgendaB2B(ev, () => disegnaAgenda(ev), true);
+        }).catch(() => esitoAgenda('Servizio non raggiungibile.', true));
+    }
+
+    /* LA STAMPA DELL'AGENDA: un capitolo per tavolo, gli appuntamenti in
+       ordine di orario con chi arriva. E' il foglio che sta sul tavolo del
+       referente e al desk la mattina del convegno, dove non c'e' un'area
+       riservata da aprire. */
+    function stampaAgendaB2B(ev) {
+        const a = agendaDi(ev);
+        if (!a) { toast('Agenda non ancora caricata: riprova fra un momento.', 'rosso'); return; }
+        const attive = a.aree.filter(x => x.attiva || x.occupati);
+        if (!attive.length) { toast('Nessun tavolo attivo da stampare.', 'rosso'); return; }
+        const quando = new Date().toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const prenotati = a.aree.reduce((t, x) => t + x.occupati, 0);
+        const sezioni = attive.map(x => {
+            const chi = x.referenti.map(r => r.nome + (r.ruolo ? ' (' + r.ruolo + ')' : '')).join(', ');
+            return '<section class="tema"><h2>' + esc(x.nome)
+                + ' <span class="conta">' + x.occupati + ' prenotati &middot; ' + x.liberi + ' liberi</span></h2>'
+                + '<div class="sotto">' + (chi ? 'Con ' + esc(chi) : '<b>Nessun referente indicato</b>')
+                + (x.nota ? ' &middot; ' + esc(x.nota) : '') + '</div>'
+                + '<table><thead><tr><th>Orario</th><th>Chi</th><th>Azienda</th><th>Ruolo</th><th>Contatti</th><th>Progetto / esigenza</th></tr></thead><tbody>'
+                + x.slot.map(s => {
+                    const p = s.chi || {};
+                    const stato = s.stato === 'occupato' ? '' : (s.stato === 'chiuso' ? 'chiuso' : 'libero');
+                    return '<tr' + (stato ? ' class="vuoto"' : '') + '>'
+                        + '<td class="forte">' + esc(s.ora) + ' - ' + esc(s.fine) + '</td>'
+                        + (stato
+                            ? '<td colspan="5" class="nota">' + (stato === 'chiuso' ? 'orario chiuso' : 'libero') + '</td>'
+                            : '<td class="forte">' + esc(p.nome || '') + '</td>'
+                            + '<td>' + esc(p.azienda || '-') + '</td>'
+                            + '<td>' + esc(p.ruolo || '-') + '</td>'
+                            + '<td>' + esc(p.email || '-') + (p.telefono ? '<br>' + esc(p.telefono) : '') + '</td>'
+                            + '<td class="nota">' + esc(p.nota || '-') + '</td>')
+                        + '</tr>';
+                }).join('')
+                + '</tbody></table></section>';
+        }).join('');
+        const g = a.giornata || {};
+        const pagina = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8">'
+            + '<title>Agenda incontri B2B - ' + esc(ev.titolo + ' ' + ev.quando) + '</title>'
+            + '<style>' + STAMPA_B2B_CSS + '</style></head><body>'
+            + '<header><h1>Agenda degli incontri B2B</h1>'
+            + '<div class="sotto">Next Generation Business - ' + esc(ev.titolo + ', ' + ev.quando) + (ev.luogo ? ' &middot; ' + esc(ev.luogo) : '') + '</div>'
+            + '<div class="meta">' + attive.length + ' tavoli &middot; ' + prenotati + ' appuntamenti &middot; '
+            + 'dalle ' + esc(g.inizio) + ' alle ' + esc(g.fine) + ', ' + (g.durata || 30) + ' minuti ciascuno'
+            + (g.pranzoDa ? ' (pausa ' + esc(g.pranzoDa) + '-' + esc(g.pranzoA) + ')' : '')
+            + ' &middot; stampata il ' + esc(quando) + ' &middot; documento riservato</div></header>'
+            + sezioni
+            + '<footer>Revilaw S.p.A. &middot; Via XX Settembre 9 - 37129 Verona &middot; C.F. 04641610235 &middot; nextgenerationbusiness.it</footer>'
+            + '</body></html>';
+        apriStampa(pagina);
+    }
+
 
     /* Invito agli incontri B2B: una mail personale (formato NGB) con il
        collegamento firmato alla pagina di PRENOTAZIONE. Non e' un sondaggio di
-       interessi: e' Revilaw che convoca le aziende agli incontri, e chi riceve
-       la mail sceglie da li' a quali tavoli sedersi (uno per argomento del
-       convegno). La scelta torna nell'elenco e nel riepilogo per argomento.
+       interessi: e' Revilaw che convoca le imprese a un incontro, e chi riceve
+       la mail sceglie da li' l'ORARIO in cui vuole venire.
        La mail parte a TUTTI i referenti delle aziende scelte, anche a chi
        l'aveva gia' ricevuta: saltare qualcuno vorrebbe dire non convocarlo.
        Prima dell'invio si decidono due cose, in questa finestra:
-       - GLI ORARI, uno per argomento: i tavoli non si tengono tutti insieme, e
-         l'unico modo perche' chi sceglie sappia se due si sovrappongono e' che
-         ogni argomento porti il suo orario. Un argomento lasciato in bianco non
-         e' in programma a questo evento: non compare nella mail e non si puo'
-         prenotare.
+       - IL TAVOLO, uno solo: si invita un'area per volta, perche' l'invito e'
+         una convocazione a quel tavolo e la mail deve poter dire quale
+         argomento e chi lo tiene. Chi va invitato a due tavoli riceve due
+         inviti, e dalla pagina sceglie un orario solo: gli incontri non si
+         sovrappongono perche' se ne prenota UNO.
+         Gli orari, la durata e i referenti non si scrivono qui: stanno
+         nell'agenda della giornata ("Organizza gli incontri"), che e' anche
+         l'unico posto dove il conto degli slot liberi torna.
        - LE AZIENDE da invitare: l'invito si ragiona per impresa, non per
          persona, quindi si spunta l'azienda e la mail parte a tutti i suoi
          referenti iscritti. Di partenza sono spuntate tutte; per l'invio mirato
@@ -17668,15 +18184,32 @@
          si puo' SPOSTARE in un'altra azienda: chi prepara l'invito e' l'unico
          che sa che "Mario di Alfa" in realta' lavora per la controllata.
        A UNA SOLA persona si arriva dal menu della riga (`unica`): li' l'elenco
-       delle aziende non serve. Chi ha gia' scelto i suoi incontri se li ritrova
-       scritti nella mail, con l'invito a confermarli o cambiarli. */
+       delle aziende non serve, il tavolo si sceglie lo stesso. */
     function modaleInvitoB2B(ev, unica) {
         if (!puoAggiungereIscrizioni()) return;
         if (!ev || !ev.manuale) return;
         if (unica && !unica.email) return;
         if (!unica && _evIscrizioni === null) { toast('Aspetta il caricamento delle iscrizioni e riprova.', 'rosso'); return; }
-        const TEMI = (window.RV_NEWSLETTER && RV_NEWSLETTER.TEMI_B2B) || [];
-        if (!TEMI.length) { toast('Formato newsletter non caricato: ricarica la pagina.', 'rosso'); return; }
+        // senza il formato della newsletter non c'e' mail da comporre: e' li'
+        // che vivono i testi dell'invito e le descrizioni dei tavoli
+        if (!window.RV_NEWSLETTER || !areeB2BDef().length) {
+            toast('Formato newsletter non caricato: ricarica la pagina.', 'rosso');
+            return;
+        }
+        /* SENZA AGENDA NON SI INVITA. La mail promette orari da scegliere: se
+           la giornata non e' stata organizzata, chi apre la pagina non trova
+           niente da prenotare. Meglio fermarsi qui, dicendo dove si fa. */
+        const agenda = agendaDi(ev);
+        if (!agenda) {
+            toast('Prima apri "Organizza gli incontri": l\'invito parte da lì, con il tavolo e gli orari della giornata.', 'rosso');
+            caricaAgendaB2B(ev, () => { if (vistaCorrente === 'eventi') aggiornaSchedaAgenda(ev); }, true);
+            return;
+        }
+        const attive = agenda.aree.filter(x => x.attiva);
+        if (!attive.length) {
+            toast('Nessun tavolo attivo: aprine almeno uno da "Organizza gli incontri" e riprova.', 'rosso');
+            return;
+        }
         /* I destinatari: uno per INDIRIZZO, perche' chi risulta iscritto due
            volte deve ricevere una mail sola. Le schede pero' si tengono tutte
            (`docs`): spostare un referente vuol dire spostare tutte le sue
@@ -17731,110 +18264,63 @@
         let spostaNuova = '';         // ...la ragione sociale scritta a mano: sopravvivono al ridisegno
         const destinatari = () => aziende.filter(a => scelte.has(a.chiave))
             .reduce((tot, a) => tot.concat(a.persone), []);
-        /* Gli orari scritti nelle caselle, per etichetta corta del tavolo, piu'
-           quello che non torna. Un tavolo con una sola delle due ore, o con la
-           fine prima dell'inizio, non e' un orario: fermarsi qui e' meglio che
-           spedirlo a duecento persone. Le sovrapposizioni invece si segnalano
-           soltanto: due tavoli in parallelo, in sale diverse, sono legittimi. */
-        const leggiOrari = () => {
-            const valore = id => String((document.getElementById(id) || {}).value || '').trim();
-            const orari = {}, errori = [], fasce = [];
-            TEMI.forEach((t, i) => {
-                const da = valore('ib-ora-da-' + i), a = valore('ib-ora-a-' + i);
-                if (!da && !a) return;
-                if (!da || !a) { errori.push(t.nome + ': manca l\'ora di ' + (da ? 'fine' : 'inizio')); return; }
-                if (!oraValida(da) || !oraValida(a)) { errori.push(t.nome + ': ora non valida'); return; }
-                if (minutiOra(a) <= minutiOra(da)) { errori.push(t.nome + ': finisce prima di cominciare'); return; }
-                orari[t.nome] = fraseOrario(da, a);
-                fasce.push({ nome: t.nome, da: minutiOra(da), a: minutiOra(a) });
+        /* IL TAVOLO A CUI SI INVITA. Uno per invio: la mail dice l'argomento,
+           chi lo tiene e in che fascia della giornata si sta, e chi apre la
+           pagina trova gli orari di quel tavolo. Di partenza si propone quello
+           con piu' posti liberi - e' l'invito che conviene mandare - ma la
+           scelta resta di chi manda. I tavoli senza referente si possono
+           invitare lo stesso e la finestra lo segnala: alle volte il nome si
+           decide dopo, e non e' il caso di bloccare l'invio per questo. */
+        let areaScelta = attive.slice().sort((a, b) => b.liberi - a.liberi)[0].id;
+        const areaCorrente = () => attive.filter(a => a.id === areaScelta)[0] || attive[0];
+        const defArea = id => areeB2BDef().filter(a => a.id === id)[0] || { id: id, nome: nomeAreaB2B(id), descrizione: '' };
+        const mailDi = () => {
+            if (!window.RV_NEWSLETTER) return null;
+            const a = areaCorrente();
+            return RV_NEWSLETTER.invitoB2BArea({
+                evento: {
+                    titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
+                    luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
+                },
+                area: defArea(a.id),
+                referenti: a.referenti,
+                giornata: agenda.giornata
             });
-            const sovrapposti = [];
-            fasce.forEach((x, i) => fasce.slice(i + 1).forEach(y => {
-                if (x.da < y.a && y.da < x.a) sovrapposti.push(x.nome + ' e ' + y.nome);
-            }));
-            return { orari: orari, errori: errori, sovrapposti: sovrapposti, quanti: fasce.length };
         };
-        const orariScritti = () => leggiOrari().orari;
-        /* Gli orari validi in questo momento. Nell'invito a UNA sola persona i nove
-           campi non ci sono (la finestra e' ridotta): valgono quelli ricordati per
-           l'evento, gli stessi che sono partiti con l'invito a tutti. Senza questo,
-           la mail di uno solo elencherebbe i tavoli senza orario mentre il resto
-           dell'invio li ha: due mail diverse per lo stesso evento. */
-        const orariCorrenti = () => {
-            if (!unica) return orariScritti();
-            const locali = orariB2BSalvati(ev.id);
-            if (Object.keys(locali).length) return locali;
-            // gli orari con cui QUESTA persona e' stata invitata, se c'e' gia' stato
-            // un invito: sono i suoi, e sono quelli giusti da ripeterle
-            const suoi = (unica.orariB2B && typeof unica.orariB2B === 'object') ? unica.orariB2B : null;
-            return (suoi && Object.keys(suoi).length) ? suoi : orariB2BDalleSchede(_evIscrizioni);
-        };
-        const mailDi = () => window.RV_NEWSLETTER ? RV_NEWSLETTER.invitoB2B({
-            evento: {
-                titolo: ev.titolo, quando: ev.quando, sottotitolo: ev.sottotitolo || '',
-                luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
-            },
-            orari: orariCorrenti()
-        }) : null;
         const nomeUnica = unica ? ((unica.nome + ' ' + unica.cognome).trim() || unica.email) : '';
         const testaHint = unica
             ? '<b>' + esc(nomeUnica) + '</b> (' + esc(unica.email) + ') riceverà la mail con il suo collegamento personale alla pagina di prenotazione, e una copia nascosta torna a te. '
-            + 'Gli incontri già scelti compaiono nella mail e nella pagina, pronti da confermare o cambiare.'
-            : 'Scegli gli orari dei tavoli e le aziende da invitare: parte una mail personale a <b>ogni</b> referente iscritto delle aziende spuntate '
-            + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento alla pagina dove sceglie a quali incontri partecipare. '
+            + 'Dalla pagina sceglie <b>un orario</b> fra quelli ancora liberi del tavolo che scegli qui sotto.'
+            : 'Scegli il tavolo e le aziende da invitare: parte una mail personale a <b>ogni</b> referente iscritto delle aziende spuntate '
+            + '(uno per indirizzo, doppioni esclusi), con il proprio collegamento alla pagina dove sceglie <b>un orario</b> fra quelli liberi. '
             + 'Nell\'elenco ci sono solo gli iscritti <b>in sala</b>, ospiti e sponsor: gli incontri si fanno di persona, e chi segue online o è aderente Revilaw resta fuori. '
-            + 'Chi l\'ha già ricevuta la riceve di nuovo, con la sua scelta attuale scritta dentro. '
-            + 'Ogni invito torna in copia nascosta anche a te. '
-            + 'Le prenotazioni compaiono nell\'elenco (colonna "B2B prenotati") e nel riepilogo per argomento; i temi indicati iscrivendosi restano a parte, nella colonna "Preferenze iscrizione".';
-        /* Un campo per argomento, testo libero: la fascia si scrive come la si
-           dice ("dalle 14:30 alle 15:15", "subito dopo il coffee break"), ed e'
-           quella la frase che finisce nella mail e sul foglio del desk. */
-        const ricordati = (o => Object.keys(o).length ? o : orariB2BDalleSchede(_evIscrizioni))(orariB2BSalvati(ev.id));
-        const oreRicordate = TEMI.map(t => oreDaFrase(ricordati[t.nome]));
-        /* Gli orari gia' salvati che le caselle non sanno rileggere (scritti a
-           mano prima che le caselle esistessero). Non spariscono in silenzio:
-           finche' non li si riscrive, quei tavoli restano fuori programma, e
-           mandare l'invito cosi' li cancellerebbe da tutte le schede. */
-        const daRiscrivere = TEMI.filter((t, i) =>
-            String(ricordati[t.nome] || '').trim() && !oreRicordate[i].inizio).map(t => t.nome);
-        /* Due caselle dell'ora per tavolo, non una frase da scrivere: cosi' gli
-           orari si possono confrontare (sovrapposizioni) e ordinare (il foglio
-           del desk), e nessuno scrive "14.30" dove serve "14:30".
-           Sopra, i comandi per riempirli in fretta: nove tavoli scritti a mano
-           uno per uno sono nove occasioni di sbagliare un'ora. */
-        const campoOrari = unica ? '' : '<div class="campo"><label>Orario di ogni incontro</label>'
-            + '<div class="hint" style="margin:-2px 0 8px;">Ogni argomento è un tavolo a sé, con la sua ora di inizio e di fine: '
-            + 'è così che chi prenota capisce se due incontri si sovrappongono. '
-            + 'Un argomento lasciato <b>in bianco non è in programma</b>: non compare nella mail e non si può prenotare. '
-            + 'Almeno un tavolo deve avere un orario.</div>'
-            + '<div class="ib-ora-tutti">'
-            + '<span class="ib-ora-et">Dalle</span><input type="time" id="ib-ora-primo" value="14:30" step="60">'
-            + '<span class="ib-ora-et">durata</span><input type="number" id="ib-ora-durata" value="45" min="5" max="480" step="5">'
-            + '<span class="ib-ora-et">min &middot; pausa</span><input type="number" id="ib-ora-pausa" value="10" min="0" max="120" step="5">'
-            + '<span class="ib-ora-et">min</span>'
-            + '<button type="button" class="btn btn-sm btn-secondary" id="ib-ora-sequenza">Riempi in sequenza</button>'
-            + '<button type="button" class="btn btn-sm btn-ghost" id="ib-ora-copia">Stesso orario per tutti</button>'
-            + '<button type="button" class="btn btn-sm btn-ghost" id="ib-ora-pulisci">Svuota tutti</button></div>'
-            + '<div class="ib-ora-griglia">'
-            + TEMI.map((t, i) => '<div class="ib-ora-riga"><span class="ib-ora-nome">' + esc(t.nome) + '</span>'
-                + '<span class="ib-ora-caselle">'
-                + '<label class="ib-ora-mini"><span>dalle</span>'
-                + '<input type="time" step="60" id="ib-ora-da-' + i + '" value="' + esc(oreRicordate[i].inizio) + '" '
-                + 'aria-label="Ora di inizio: ' + esc(t.nome) + '"></label>'
-                + '<label class="ib-ora-mini"><span>alle</span>'
-                + '<input type="time" step="60" id="ib-ora-a-' + i + '" value="' + esc(oreRicordate[i].fine) + '" '
-                + 'aria-label="Ora di fine: ' + esc(t.nome) + '"></label>'
-                + '<button type="button" class="ib-ora-vuota" data-vuota="' + i + '" title="Togli dal programma" '
-                + 'aria-label="Togli dal programma: ' + esc(t.nome) + '">&#10005;</button>'
-                + '</span></div>').join('')
-            + '</div><div id="ib-ora-avviso" class="hint"></div></div>';
+            + 'Chi l\'ha già ricevuta la riceve di nuovo. Ogni invito torna in copia nascosta anche a te. '
+            + 'Gli orari prenotati compaiono nell\'elenco (colonne "B2B prenotati" e "Orario B2B") e nell\'agenda della giornata.';
+        /* Il tavolo si sceglie da un elenco di riquadri e non da una tendina:
+           quello che serve sapere prima di premere Invia - quanti posti restano
+           e chi tiene il tavolo - deve stare davanti agli occhi, non dentro una
+           voce da aprire. */
+        const rigaArea = a => '<label class="ib-area' + (a.id === areaScelta ? ' scelta' : '') + '">'
+            + '<input type="radio" name="ib-area" value="' + esc(a.id) + '"' + (a.id === areaScelta ? ' checked' : '') + '>'
+            + '<span class="ib-area-dentro"><span class="ib-area-nome">' + esc(a.nome) + '</span>'
+            + '<span class="ib-area-chi">' + (a.referenti.length
+                ? esc(a.referenti.map(r => r.nome).join(', '))
+                : '<span class="ev-ko">nessun referente</span>') + '</span>'
+            + '<span class="ib-area-posti">' + a.liberi + (a.liberi === 1 ? ' orario libero' : ' orari liberi')
+            + ' &middot; ' + a.occupati + ' prenotati</span></span></label>';
+        const campoArea = '<div class="campo"><label>Tavolo a cui invitare</label>'
+            + '<div class="hint" style="margin:-2px 0 8px;">Un invito, un tavolo: la mail parla di quell\'argomento e porta agli orari di quel tavolo. '
+            + 'Per convocare le stesse aziende a due tavoli si fanno due invii. '
+            + 'Orari, durata e referenti si cambiano da <b>Organizza gli incontri</b>.</div>'
+            + '<div class="ib-aree">' + attive.map(rigaArea).join('') + '</div>'
+            + '<div id="ib-area-avviso" class="hint"></div></div>';
         const campoAziende = unica
             ? '<div class="campo"><label>Azienda</label><div class="hint" style="margin-top:0;">'
             + esc(unica.azienda ? String(unica.azienda).trim() : 'Non indicata') + '</div></div>'
             : '<div class="campo"><label>Aziende da invitare</label><div id="ib-aziende"></div></div>';
         apriModale('<h2>Invito agli incontri B2B - ' + esc(unica ? nomeUnica : (ev.titolo + ', ' + ev.quando)) + '</h2>'
             + '<p class="hint" style="margin:-4px 0 12px;">' + testaHint + '</p>'
-            + campoOrari
+            + campoArea
             + campoAziende
             + '<div id="ib-anteprima" style="margin-top:10px;">'
             + '<iframe id="ib-frame" title="Anteprima della mail di invito" sandbox="allow-same-origin" '
@@ -18071,142 +18557,63 @@
         }
         if (!unica) disegnaAziende();
         aggiornaInvio();
-        /* Sotto la griglia si racconta sempre come sta messo il programma: quanti
-           tavoli, cosa non torna, quali si sovrappongono. Scoprirlo al momento
-           dell'invio, con il dito sul pulsante, e' tardi. */
-        function aggiornaAvvisoOrari() {
-            const box = document.getElementById('ib-ora-avviso');
+        /* Sotto i riquadri si dice sempre come sta il tavolo scelto: quanti
+           orari restano e chi lo tiene. Scoprire al momento dell'invio che
+           quel tavolo e' pieno, o che non ha un referente, e' tardi. */
+        function aggiornaAvvisoArea() {
+            const box = document.getElementById('ib-area-avviso');
             if (!box) return;
-            const r = leggiOrari();
+            const a = areaCorrente();
             const pezzi = [];
-            if (r.errori.length) pezzi.push('<span class="ev-ko">Da sistemare: ' + r.errori.map(esc).join('; ') + '.</span>');
-            /* Quelli scritti a mano che nessuno ha ancora riscritto: si ricorda
-               finche' restano vuoti, e sparisce da se' appena si compilano. */
-            const persi = daRiscrivere.filter((nome, k) => {
-                const i = TEMI.map(t => t.nome).indexOf(nome);
-                return i >= 0 && !String((document.getElementById('ib-ora-da-' + i) || {}).value || '').trim();
-            });
-            if (persi.length) pezzi.push('<span class="ib-ora-sovrapposti">Erano scritti a mano e non si rileggono nelle caselle: '
-                + persi.map(esc).join('; ') + '. Riscrivili, o quei tavoli restano fuori programma.</span>');
-            if (r.sovrapposti.length) pezzi.push('<span class="ib-ora-sovrapposti">Si sovrappongono: '
-                + r.sovrapposti.map(esc).join('; ') + '. Va bene se si tengono in sale diverse; '
-                + 'chi prenota vedrà gli orari e potrà scegliere.</span>');
-            pezzi.push(r.quanti
-                ? '<b>' + r.quanti + '</b> ' + (r.quanti === 1 ? 'tavolo in programma' : 'tavoli in programma')
-                + ' &middot; gli altri non compaiono nella mail'
-                : 'Nessun tavolo in programma: scrivi l\'orario di almeno uno.');
+            if (!a.referenti.length) pezzi.push('<span class="ev-ko">Questo tavolo non ha un referente: '
+                + 'la mail non potrà dire chi accoglierà l\'ospite. Puoi indicarlo da "Organizza gli incontri".</span>');
+            if (!a.liberi) pezzi.push('<span class="ev-ko">Nessun orario libero: chi riceve l\'invito troverà tutto prenotato '
+                + 'e potrà solo chiedere un incontro fuori orario. Apri qualche orario chiuso prima di invitare.</span>');
+            else pezzi.push('<b>' + a.liberi + '</b> ' + (a.liberi === 1 ? 'orario libero' : 'orari liberi')
+                + ' &middot; ' + a.occupati + ' già prenotati'
+                + (a.liberi < 5 ? ' &middot; restano pochi posti: invita poche aziende per volta' : ''));
             box.innerHTML = pezzi.join('<br>');
         }
-        // un solo ascoltatore per la griglia: nove tavoli, diciotto caselle, e
-        // altrettanti modi di dimenticarne una
-        const griglia = document.querySelector('.ib-ora-griglia');
-        if (griglia) {
-            griglia.addEventListener('input', () => { esito(''); aggiornaAvvisoOrari(); });
-            griglia.querySelectorAll('[data-vuota]').forEach(b => b.addEventListener('click', () => {
-                const i = b.getAttribute('data-vuota');
-                ['ib-ora-da-' + i, 'ib-ora-a-' + i].forEach(id => {
-                    const c = document.getElementById(id); if (c) c.value = '';
-                });
-                esito(''); aggiornaAvvisoOrari();
-            }));
-        }
-        const scriviOra = (i, da, a) => {
-            const c1 = document.getElementById('ib-ora-da-' + i), c2 = document.getElementById('ib-ora-a-' + i);
-            if (c1) c1.value = da;
-            if (c2) c2.value = a;
-        };
-        const numero = (id, minimo, massimo) => {
-            const n = parseInt(String((document.getElementById(id) || {}).value || ''), 10);
-            return isNaN(n) ? minimo : Math.min(massimo, Math.max(minimo, n));
-        };
-        /* Riempie i nove tavoli uno dopo l'altro a partire dall'ora indicata.
-           Li riempie TUTTI, non solo i vuoti: e' l'unico comportamento che si
-           possa prevedere guardando il pulsante. I tavoli che non si tengono si
-           svuotano dopo, con la crocetta della riga. */
-        const sequenza = document.getElementById('ib-ora-sequenza');
-        if (sequenza) sequenza.addEventListener('click', () => {
-            const primo = String((document.getElementById('ib-ora-primo') || {}).value || '');
-            if (!oraValida(primo)) { esito('Indica l\'ora del primo incontro.', true); return; }
-            const durata = numero('ib-ora-durata', 5, 480), pausa = numero('ib-ora-pausa', 0, 120);
-            let quando = minutiOra(primo);
-            let entrati = 0;
-            TEMI.forEach((t, i) => {
-                /* La giornata finisce a mezzanotte: oltre, gli orari
-                   ricomincerebbero da 00:xx e ogni tavolo risulterebbe finito
-                   prima di cominciare. Meglio fermarsi e dirlo. */
-                if (quando + durata > 24 * 60 - 1) { scriviOra(i, '', ''); return; }
-                scriviOra(i, oraDaMinuti(quando), oraDaMinuti(quando + durata));
-                quando += durata + pausa;
-                entrati++;
+        /* L'anteprima della mail non si ridisegna qui: la finestra ascolta gia'
+           i "change" di tutto il suo corpo (anteprimaSegueCampi), e cambiare
+           tavolo e' uno di quelli. */
+        document.querySelectorAll('input[name="ib-area"]').forEach(r => r.addEventListener('change', () => {
+            if (!r.checked) return;
+            areaScelta = r.value;
+            document.querySelectorAll('.ib-area').forEach(l => {
+                const inp = l.querySelector('input');
+                l.classList.toggle('scelta', !!(inp && inp.checked));
             });
-            esito(entrati < TEMI.length
-                ? 'Nella giornata ci stanno ' + entrati + ' incontri: gli altri restano fuori programma. '
-                + 'Accorcia la durata o la pausa, o comincia prima.'
-                : '');
-            aggiornaAvvisoOrari();
-        });
-        // stesso orario su tutti: i tavoli in parallelo, in sale diverse
-        const copia = document.getElementById('ib-ora-copia');
-        if (copia) copia.addEventListener('click', () => {
-            const primo = String((document.getElementById('ib-ora-primo') || {}).value || '');
-            if (!oraValida(primo)) { esito('Indica l\'ora da mettere su tutti i tavoli.', true); return; }
-            const durata = numero('ib-ora-durata', 5, 480);
-            const fineMin = minutiOra(primo) + durata;
-            if (fineMin > 24 * 60 - 1) { esito('Con questa durata l\'incontro finirebbe dopo mezzanotte.', true); return; }
-            const fine = oraDaMinuti(fineMin);
-            TEMI.forEach((t, i) => scriviOra(i, primo, fine));
-            esito(''); aggiornaAvvisoOrari();
-        });
-        const pulisci = document.getElementById('ib-ora-pulisci');
-        if (pulisci) pulisci.addEventListener('click', () => {
-            TEMI.forEach((t, i) => scriviOra(i, '', ''));
-            esito(''); aggiornaAvvisoOrari();
-        });
-        aggiornaAvvisoOrari();
+            esito('');
+            aggiornaAvvisoArea();
+        }));
+        aggiornaAvvisoArea();
         document.getElementById('ib-no').addEventListener('click', chiudiModale);
-        /* Anteprima aperta da subito, e che segue gli orari mentre si scrivono:
-           sono proprio loro il pezzo che si sbaglia, e vederli nella mail
-           mentre li si digita e' l'unico controllo che funziona. */
+        /* Anteprima aperta da subito, e che segue il tavolo scelto: la mail
+           cambia con l'argomento e con chi lo tiene, ed e' l'unico modo di
+           accorgersi che si sta per convocare duecento imprese al tavolo
+           sbagliato. */
         anteprimaSegueCampi(anteprimaMail('ib', () => {
             const m = mailDi();
             if (!m) { esito('Anteprima non disponibile: formato newsletter non caricato.', true); return null; }
-            // per una persona sola l'anteprima e' la SUA mail (nome e scelte
-            // vere); per l'invio a piu' aziende un esempio, con il riquadro della
-            // scelta mostrato per far vedere come appare a chi ha gia' prenotato
-            const temiAnt = unica
-                ? String((unica.extra && unica.extra[COL_B2B_PRENOTATI]) || '').split(',').map(s => s.trim()).filter(Boolean).join(', ')
-                : 'Merito creditizio, Finanza agevolata (esempio: ognuno vede la propria)';
-            return RV_NEWSLETTER.conTemiB2B(m.html, temiAnt ? esc(temiAnt) : '')
+            return m.html
                 .split(RV_NEWSLETTER.SEGNAPOSTO_NOME).join(esc(unica ? nomeUnica : 'Mario Rossi'))
                 .split(RV_NEWSLETTER.SEGNAPOSTO_B2B).join(SITO_PUBBLICO + '/incontri_b2b/');
         }));
         document.getElementById('ib-si').addEventListener('click', () => {
-            if (!unica) {
-                const controllo = leggiOrari();
-                if (controllo.errori.length) {
-                    esito('Controlla gli orari: ' + controllo.errori.join('; ') + '.', true);
-                    aggiornaAvvisoOrari();
-                    return;
-                }
-            }
-            const orari = orariCorrenti();
-            if (!Object.keys(orari).length) {
-                esito(unica
-                    ? 'Nessun orario risulta impostato per questo evento: aprilo dall\'invito a tutte le aziende, scrivi gli orari dei tavoli e riprova.'
-                    : 'Scrivi l\'orario di almeno un tavolo: senza, chi riceve la mail non ha niente da prenotare.', true);
-                const c = document.getElementById('ib-ora-da-0');
-                if (c) {
-                    if (c.scrollIntoView) c.scrollIntoView({ block: 'center' });
-                    c.focus();
-                }
-                return;
-            }
+            const area = areaCorrente();
             const scelti = destinatari();
             if (!scelti.length) { esito('Nessuna azienda spuntata: scegli almeno un\'azienda da invitare.', true); return; }
+            /* Piu' inviti che orari liberi: non e' un errore da impedire - una
+               parte delle aziende non risponde mai - ma va detto prima, perche'
+               chi resta fuori vede "tutto esaurito" e puo' solo chiedere un
+               incontro fuori orario. */
+            if (scelti.length > area.liberi
+                && !confirm('Stai invitando ' + scelti.length + ' referenti al tavolo "' + area.nome + '", che ha '
+                    + area.liberi + (area.liberi === 1 ? ' orario libero' : ' orari liberi')
+                    + '.\n\nChi non trova posto potrà solo chiedere un incontro fuori orario. Mando lo stesso?')) return;
             const m = mailDi();
             if (!m) { esito('Mail non componibile: formato newsletter non caricato. Ricarica la pagina.', true); return; }
-            // gli orari restano pronti per il prossimo invio dello stesso evento
-            if (!unica) salvaOrariB2B(ev.id, orari);
             const dest = scelti.map(c => ({ id: c.id, doc: c.doc }));
             const nAziende = aziende.filter(a => scelte.has(a.chiave)).length;
             const b = document.getElementById('ib-si');
@@ -18227,12 +18634,14 @@
                                lo riceve di nuovo, con la scelta aggiornata scritta dentro.
                                Saltarlo lascerebbe fuori proprio i referenti gia' contattati. */
                             azione: 'invita-b2b', evento: ev.id, destinatari: dest.slice(i, i + 40), forza: true,
-                            /* Orari e dati dell'evento viaggiano con l'invito e restano
-                               scritti sulla scheda: la mail di conferma e il foglio da
-                               presentare al desk partono DOPO, quando l'ospite prenota,
-                               e il servizio non ha una tabella degli eventi da cui
-                               ricavarli. */
-                            orari: orari,
+                            /* Il TAVOLO viaggia con l'invito e resta scritto sulla
+                               scheda: e' cosi' che la pagina di prenotazione sa quali
+                               orari proporre, e non ci sta nel collegamento, dove
+                               chiunque potrebbe cambiarlo. I dati dell'evento servono
+                               alla mail di conferma e al foglio del desk, che partono
+                               DOPO, quando l'ospite prenota: il servizio non ha una
+                               tabella degli eventi da cui ricavarli. */
+                            area: area.id,
                             eventoDati: {
                                 titolo: ev.titolo, quando: ev.quando,
                                 luogo: ev.luogo || '', indirizzo: ev.indirizzo || ''
@@ -18250,15 +18659,18 @@
                     falliti += (r.falliti || []).length;
                 }
                 chiudiModale();
-                toast('Invito B2B: ' + inviate + ' mail inviate'
+                toast('Invito B2B (' + area.nome + '): ' + inviate + ' mail inviate'
                     + (unica ? '' : ' a ' + nAziende + (nAziende === 1 ? ' azienda' : ' aziende'))
                     + (gia ? ', ' + gia + ' doppioni di indirizzo saltati' : '')
                     + (saltate ? ', ' + saltate + ' senza scheda o email' : '')
                     + (falliti ? ', ' + falliti + ' non riuscite' : '') + '.', falliti ? 'rosso' : 'verde');
+                // l'agenda cambia da sola mentre gli invitati prenotano: si
+                // rilegge, cosi' la scheda in pagina dice quanti posti restano
+                caricaAgendaB2B(ev, () => { if (vistaCorrente === 'eventi') aggiornaSchedaAgenda(ev); }, true);
                 try {
                     Audit.registra(Auth.utenteCorrente, 'Evento: invito B2B inviato', 'sistema', ev.id, null,
                         inviate + ' su ' + dest.length + (unica ? '' : ' (' + nAziende + ' aziende)')
-                        + ', ' + Object.keys(orari).length + ' tavoli con orario');
+                        + ', tavolo ' + area.nome);
                 } catch (e) { }
             })();
         });

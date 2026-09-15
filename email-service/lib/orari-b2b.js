@@ -53,13 +53,17 @@ function ordinaPerOrario(tavoli) {
         .map(x => x.t);
 }
 
-/* Un tavolo normalizzato a { nome, orario }: si accettano anche le stringhe,
-   per non rompersi se un chiamante vecchio resta in giro. */
+/* Un tavolo normalizzato a { nome, orario, con }: si accettano anche le
+   stringhe, per non rompersi se un chiamante vecchio resta in giro.
+   `con` e' chi tiene il tavolo, quando lo sappiamo: con l'agenda a slot il
+   referente e' deciso prima dell'invito, e scriverlo sul foglio del desk
+   risparmia all'ospite la domanda "chi devo cercare?". Sui tavoli della
+   prenotazione a caselle resta vuoto, come e' sempre stato. */
 function normalizzaTavoli(tavoli) {
     return (tavoli || []).filter(Boolean)
         .map(t => (typeof t === 'string'
-            ? { nome: t, orario: '' }
-            : { nome: String(t.nome || ''), orario: String(t.orario || '') }))
+            ? { nome: t, orario: '', con: '' }
+            : { nome: String(t.nome || ''), orario: String(t.orario || ''), con: String(t.con || '') }))
         .filter(t => t.nome);
 }
 

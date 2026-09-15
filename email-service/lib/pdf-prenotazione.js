@@ -241,7 +241,15 @@ function contenutoPagina(dati) {
             const righeOra = oraVera ? [ore.inizio + ' - ' + ore.fine] : [];
             const testoNome = (!oraVera && t.orario) ? (t.nome + ' - ' + t.orario) : t.nome;
             const righeNome = aCapo(testoNome, corpoNome, DENTRO - LARGA_ORA - 8);
-            const altezza = Math.max(righeOra.length, righeNome.length) * passoNome + (stretti ? 8 : 12);
+            /* Chi tiene il tavolo, sotto il nome dell'incontro e in tono
+               minore: e' la persona da cercare al desk, non il titolo
+               dell'incontro, e stampandola sulla stessa riga la riga
+               diventerebbe due e l'occhio non troverebbe piu' l'argomento. */
+            const corpoCon = corpoNome - 1.5;
+            const passoCon = passoNome - 2;
+            const righeCon = t.con ? aCapo('con ' + t.con, corpoCon, DENTRO - LARGA_ORA - 8) : [];
+            const altezza = Math.max(righeOra.length, righeNome.length) * passoNome
+                + righeCon.length * passoCon + (stretti ? 8 : 12);
             if (f.y + altezza > limiteElenco) { saltati++; return; }
             const alto = f.y;
             if (n && !saltati) f.linea(LATO + 4, alto - 10, A4.larghezza - LATO, C.bordo, 0.6);
@@ -250,6 +258,12 @@ function contenutoPagina(dati) {
             });
             righeNome.forEach((riga, i) => {
                 f.testo(riga, { alto: alto + i * passoNome, x: LATO + LARGA_ORA, corpo: corpoNome, grassetto: true, colore: C.scuro });
+            });
+            righeCon.forEach((riga, i) => {
+                f.testo(riga, {
+                    alto: alto + righeNome.length * passoNome + i * passoCon,
+                    x: LATO + LARGA_ORA, corpo: corpoCon, colore: C.tenue
+                });
             });
             f.scendi(altezza);
         });

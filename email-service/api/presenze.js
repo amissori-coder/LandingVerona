@@ -54,9 +54,14 @@ function moduloInviti() { return require('../lib/aziende-invito'); }
 /* La stessa domanda che fa aziende-invito.gestisce(), scritta qui perche'
    chiedere "e' roba tua?" non deve costare il caricamento del modulo. */
 function sezioneAziende(body) { return !!(body && String(body.sezione || '') === 'aziende'); }
-// i nove argomenti degli incontri B2B: servono a validare gli orari per tavolo
-// che arrivano con l'invito (le etichette sconosciute si scartano)
-const { TEMI_B2B } = require('../lib/temi-b2b');
+// le undici aree degli incontri B2B: servono a validare l'area e gli orari
+// per tavolo che arrivano con l'invito (le etichette sconosciute si scartano)
+const { TEMI_B2B, areaDa } = require('../lib/temi-b2b');
+/* L'agenda degli incontri B2B (aree, referenti, slot, prenotazioni): sta in
+   lib/ per la stessa ragione delle aziende da invitare, e le richieste con
+   sezione: 'b2b' si deviano li'. Si carica solo quando ne arriva una. */
+function moduloAgenda() { return require('../lib/agenda-b2b'); }
+function sezioneB2B(body) { return !!(body && String(body.sezione || '') === 'b2b'); }
 // la frase che racconta uno spostamento di azienda: la scrivono in due
 // (qui e in iscrizioni.js), quindi sta in un modulo solo
 const { tracciaSpostamento } = require('../lib/traccia-azienda');
@@ -370,6 +375,29 @@ module.exports = async (req, res) => {
             return;
         }
 
+        /* Agenda degli incontri B2B: stessa sezione Eventi, altro archivio
+           (aree, referenti, orari chiusi, prenotazioni). Si devia qui per lo
+           stesso motivo delle aziende - i nomi delle azioni si somigliano e
+           queste richieste non hanno un iscritto da indicare - e il permesso
+           di SCRIVERE si calcola qui, dove la funzione che lo sa gia' vive:
+           una terza copia di ePartner era proprio quello che non serviva. */
+        if (sezioneB2B(body)) {
+            let AGENDA;
+            try { AGENDA = moduloAgenda(); }
+            catch (e) {
+                console.error('Agenda B2B non caricata:', String((e && e.message) || e).slice(0, 300));
+                res.status(500).json({ ok: false, msg: 'Agenda B2B non disponibile sul servizio: ' + String((e && e.message) || e).slice(0, 160) });
+                return;
+            }
+            const r = await AGENDA.esegui({
+                db: db, body: body, email: email, collab: collab, eAdmin: eAdmin,
+                ePartner: eAdmin || await ePartner(db, ruolo),
+                segnaCambiamento: segnaCambiamento
+            });
+            res.status(r.stato).json(r.corpo);
+            return;
+        }
+
         const evento = testo(body.evento, 80);
         const azione = String(body.azione || 'imposta');
         // una sola persona o piu' insieme: la cancellazione accetta entrambe le forme
@@ -579,6 +607,18 @@ module.exports = async (req, res) => {
             const testoBase = String(m.testo || '').slice(0, 20000);
             if (!htmlBase.trim()) { res.status(400).json({ ok: false, msg: 'Contenuto della mail mancante.' }); return; }
             const forza = body.forza === true;
+            /* L'AREA a cui si sta invitando (il tavolo). Viaggia sulla scheda e
+               non nel collegamento: cosi' chi riceve la mail non puo' cambiarla
+               ritoccando l'indirizzo, e la pagina di prenotazione sa da sola
+               quali orari proporgli. Si AGGIUNGE a quelle gia' ricevute - due
+               inviti sono due convocazioni - e porta con se' l'identificativo
+               dell'evento, che e' la chiave dell'agenda: senza, il servizio
+               saprebbe il tavolo ma non la giornata. */
+            const areaInvito = (areaDa(body.area) || {}).id || '';
+            /* Gli ORARI PER TAVOLO sono il modo PRECEDENTE di invitare, quello a
+               caselle: restano qui perche' un invito partito cosi' deve poter
+               ripartire uguale. Gli inviti nuovi portano l'area qui sopra e gli
+               orari li tiene l'agenda (lib/agenda-b2b.js). */
             /* Orari e dati dell'evento arrivano con l'invito e restano scritti
                sulla scheda: servono alla mail di conferma e al foglio da
                presentare al desk, che partono dopo, quando l'ospite prenota.
@@ -654,9 +694,18 @@ module.exports = async (req, res) => {
                         html: conTemi(htmlBase, esc(temiAttuali)).split('{{NOME}}').join(esc(nomeDest)).split('{{B2B}}').join(link)
                     });
                     inviate++;
+                    // le aree a cui questa persona risulta gia' invitata, piu' quella
+                    // di adesso: si invita un tavolo per volta, ma chi ne ha ricevuti
+                    // due deve poter scegliere fra tutti e due
+                    const inv = (s.b2bInvito && typeof s.b2bInvito === 'object') ? s.b2bInvito : {};
+                    const areeGia = (Array.isArray(inv.aree) ? inv.aree : [])
+                        .map(x => (areaDa(x) || {}).id || '').filter(Boolean);
+                    const aree = areaInvito && areeGia.indexOf(areaInvito) < 0
+                        ? areeGia.concat([areaInvito]) : areeGia;
                     await rif.set({
                         b2bInvito: Object.assign(
                             { quando: Date.now(), da: email, collab: collab },
+                            areaInvito ? { eventoId: evento, aree: aree, area: areaInvito } : {},
                             orariB2B ? { orari: orariB2B } : {},
                             evB2B ? { evento: evB2B } : {}
                         )

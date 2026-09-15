@@ -44,6 +44,12 @@ const NL = require('../lib/newsletter');
 const MNGB = require('../lib/mail-ngb');
 // il foglio della prenotazione B2B, allegato alla mail di conferma
 const PDF = require('../lib/pdf-prenotazione');
+/* L'agenda degli incontri B2B: aree, referenti, slot e prenotazioni. Qui
+   serve la meta' pubblica - quello che vede e prenota chi ha ricevuto
+   l'invito - mentre l'altra meta' la usa l'area riservata passando da
+   api/presenze.js. E' un modulo solo perche' gli orari liberi e quelli
+   occupati devono essere gli stessi da tutte e due le parti. */
+const AGENDA = require('../lib/agenda-b2b');
 /* I codici riservati alle aziende invitate: nascono nella PEC di invito e
    tornano qui scritti nel modulo. Sono il filo che lega l'elenco delle
    aziende selezionate a quello degli iscritti. */
@@ -508,6 +514,22 @@ async function interessiB2B(azione, body, res) {
     if (!snap.exists) { res.status(403).json({ ok: false, msg: MSG_LINK }); return; }
     const scheda = snap.data() || {};
 
+    /* --- DUE MODI DI PRENOTARE, e a decidere e' l'INVITO ---
+       Chi e' stato invitato con l'agenda nuova (un tavolo, un orario) prenota
+       uno SLOT; chi ha ricevuto l'invito di prima, a caselle, continua a
+       vedere i tavoli come li ha visti nella sua mail. E' la stessa pagina e
+       lo stesso collegamento: cambiare le regole sotto i piedi di chi ha gia'
+       una mail in casella vorrebbe dire dargli una pagina che non parla piu'
+       della convocazione che ha ricevuto. */
+    if (AGENDA.invitoASlot(scheda)) {
+        await prenotazioneASlot(azione, body, res, { db: db, rif: rif, scheda: scheda, idDoc: idDoc });
+        return;
+    }
+    if (azione === 'b2b-slot-prenota' || azione === 'b2b-slot-richiedi') {
+        res.status(400).json({ ok: false, msg: 'Questo invito non prevede la scelta di un orario: ricarichi la pagina.' });
+        return;
+    }
+
     if (azione === 'b2b-leggi') {
         let colleghi = [];
         // i colleghi sono un di piu': se la lettura non riesce, la prenotazione
@@ -599,6 +621,128 @@ async function interessiB2B(azione, body, res) {
     res.status(200).json({ ok: true, temi: scelti.length, mailInviata: mailInviata });
 }
 
+/* ============================================================
+   PRENOTAZIONE A SLOT (azioni "b2b-leggi", "b2b-slot-prenota",
+   "b2b-slot-richiedi")
+   ------------------------------------------------------------
+   Chi riceve l'invito nuovo non sceglie piu' "a quali tavoli":
+   sceglie QUANDO. La giornata del suo tavolo e' divisa in
+   appuntamenti - dalle 10 alle 18, pausa pranzo esclusa - e lui ne
+   prende UNO. Gli orari gia' presi li vede occupati, senza nomi:
+   chi viene a un incontro non deve poter leggere l'agenda degli
+   altri.
+
+   Quando non resta piu' niente, la pagina non si limita a dire
+   "esaurito": lascia CHIEDERE un incontro lo stesso. Non impegna
+   nessuno slot (e lo dice), ma la richiesta arriva a chi ha
+   mandato l'invito, che puo' aprire un orario chiuso o spostare
+   qualcosa. Un ospite che ha ricevuto una convocazione e trova la
+   porta chiusa, senza nemmeno un modo per bussare, e' il modo
+   piu' rapido per perdere un cliente.
+   ============================================================ */
+async function prenotazioneASlot(azione, body, res, ctx) {
+    const db = ctx.db, scheda = ctx.scheda, idDoc = ctx.idDoc;
+    const evento = AGENDA.eventoInvito(scheda);
+    const invitate = AGENDA.areeInvitate(scheda);
+
+    if (azione === 'b2b-leggi') {
+        const dati = await AGENDA.letturaOspite(db, scheda, idDoc);
+        res.status(200).json(Object.assign({ ok: true }, dati, {
+            pagina: String(scheda.pagina || ''),
+            nome: ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()),
+            azienda: String(scheda.azienda || '')
+        }));
+        return;
+    }
+    if (azione === 'b2b-salva') {
+        // pagina vecchia rimasta aperta mentre l'invito e' diventato a slot
+        res.status(409).json({ ok: false, msg: 'Il Suo invito ora prevede la scelta di un orario: ricarichi la pagina.' });
+        return;
+    }
+
+    /* Il tavolo deve essere uno di quelli a cui e' stato invitato. La firma
+       sul collegamento dice chi e', non gli da' il permesso di sedersi dove
+       vuole: senza questo controllo, chi conosce il nome di un'area potrebbe
+       prenotare al tavolo di un altro. */
+    const area = String(body.area || '').trim().toLowerCase();
+    if (invitate.indexOf(area) < 0) {
+        res.status(400).json({ ok: false, msg: 'Quel tavolo non e fra quelli del Suo invito: ricarichi la pagina.' });
+        return;
+    }
+    const nota = testo(body.nota, 800);
+    const persona = {
+        doc: idDoc, id: testo(scheda.idIscritto, 300),
+        nome: ((String(scheda.nome || '') + ' ' + String(scheda.cognome || '')).trim()),
+        azienda: String(scheda.azienda || ''), ruolo: String(scheda.ruolo || ''),
+        email: String(scheda.email || ''), telefono: String(scheda.telefono || ''),
+        nota: nota
+    };
+
+    if (azione === 'b2b-slot-richiedi') {
+        /* Si chiede un incontro fuori orario SOLO quando davvero non c'e'
+           piu' posto: se un orario libero c'e', va prenotato: una richiesta
+           che si poteva evitare e' lavoro a mano per chi organizza. */
+        const stato = await AGENDA.letturaOspite(db, scheda, idDoc);
+        if (!stato.esaurito) {
+            res.status(409).json({ ok: false, msg: 'C\'e ancora qualche orario libero: ricarichi la pagina e scelga il Suo.' });
+            return;
+        }
+        if (troppiSalvataggi(idDoc)) {
+            res.status(429).json({ ok: false, msg: 'Ha gia mandato la richiesta poco fa: la stiamo guardando, non serve rimandarla.' });
+            return;
+        }
+        const r = await AGENDA.chiediFuoriSlot(db, { evento: evento, area: area, nota: nota, persona: persona });
+        if (!r.ok) { res.status(500).json(r); return; }
+        if (nota) {
+            // la nota vale anche sulla scheda: e' quello che l'impresa vuole
+            // discutere, e serve a chi la richiamera'
+            try { await ctx.rif.set({ extra: { 'Nota B2B': nota } }, { merge: true }); } catch (_) { /* la richiesta e' registrata */ }
+        }
+        let avvisato = false;
+        try {
+            const agenda = await AGENDA.leggiAgenda(db, evento);
+            avvisato = await AGENDA.avvisaRichiesta(scheda, agenda, area, nota);
+        } catch (e) {
+            console.error('Avviso richiesta B2B non partito:', String((e && e.message) || e).slice(0, 200));
+        }
+        res.status(200).json({ ok: true, avvisato: avvisato });
+        return;
+    }
+
+    // b2b-slot-prenota: l'orario scelto. La presa dello slot e' una
+    // transazione dentro l'agenda: se qualcuno e' arrivato un attimo prima,
+    // di qui torna "occupato" e la pagina lo dice, con l'elenco aggiornato.
+    if (troppiSalvataggi(idDoc)) {
+        res.status(429).json({ ok: false, msg: 'Ha cambiato la prenotazione molte volte di seguito: aspetti qualche minuto e riprovi. Vale l\'ultimo orario salvato.' });
+        return;
+    }
+    const preso = await AGENDA.prendiSlot(db, {
+        evento: evento, area: area, ora: testo(body.ora, 5), chiave: testo(body.chiave, 8),
+        persona: persona, da: persona.email
+    });
+    if (!preso.ok) { res.status(409).json(preso); return; }
+    /* L'appuntamento si scrive anche sulla scheda: e' quello che l'area
+       riservata mostra in elenco. Se questa scrittura non riuscisse, lo slot
+       resterebbe comunque preso - ed e' l'ordine giusto: perdere il posto
+       varrebbe molto piu' di una colonna non aggiornata. */
+    try { await AGENDA.scriviAppuntamento(db, idDoc, Object.assign({ evento: evento }, preso), nota); }
+    catch (e) { console.error('Appuntamento B2B non scritto sulla scheda:', String((e && e.message) || e).slice(0, 200)); }
+    scordaEvento(scheda.pagina);
+    await segnaCambiamento(db);
+    /* La ricevuta: mail di conferma con in allegato il foglio da presentare
+       al desk. Riparte a ogni cambio di orario, perche' vale sempre l'ultimo
+       foglio emesso. Se la posta non risponde la prenotazione resta comunque
+       registrata, e la pagina lo dice a chi ha appena prenotato. */
+    let mailInviata = false;
+    try {
+        const agenda = await AGENDA.leggiAgenda(db, evento);
+        mailInviata = await AGENDA.inviaConferma(scheda, idDoc, agenda, preso);
+    } catch (e) {
+        console.error('Conferma appuntamento B2B non inviata:', String((e && e.message) || e).slice(0, 200));
+    }
+    res.status(200).json(Object.assign({}, preso, { mailInviata: mailInviata }));
+}
+
 /* Mail di conferma della prenotazione, con il PDF in allegato. Data, orario e
    luogo degli incontri arrivano da `b2bInvito`, dove li ha scritti l'invito:
    il servizio non ha una tabella degli eventi, e chiederglielo di nuovo
@@ -639,22 +783,13 @@ async function confermaPrenotazione(idDoc, scheda, tavoli) {
     });
     return true;
 }
-/* Data e ora in Italia, per il "emessa il" stampato sul foglio: e' l'unico
-   modo per capire quale di due fogli e' il piu' recente. */
-function quandoInItalia() {
-    try {
-        return new Date().toLocaleString('it-IT', {
-            timeZone: 'Europe/Rome', day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit'
-        }).replace(',', ' alle');
-    } catch (e) { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
-}
-// il nome del file lo legge chi lo salva sul telefono: niente accenti ne' spazi
-function nomeFileFoglio(nome) {
-    const pulito = PDF.inLatin1(nome).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-    return 'Incontri-B2B-prenotazione' + (pulito ? '-' + pulito : '') + '.pdf';
-}
+/* La data di emissione stampata sul foglio e il nome del file allegato
+   stanno in lib/agenda-b2b.js, che spedisce lo stesso foglio per gli
+   appuntamenti a slot: due copie si sarebbero allontanate al primo
+   ritocco, e chi riceve le due mail non deve accorgersi che le ha
+   scritte codice diverso. */
+const quandoInItalia = AGENDA.quandoInItalia;
+const nomeFileFoglio = AGENDA.nomeFileFoglio;
 
 async function completaIscrizione(azione, body, res) {
     const idDoc = String(body.d || '').slice(0, 400);
@@ -862,7 +997,8 @@ module.exports = async (req, res) => {
            stesso IP dell'ufficio, e otto richieste in dieci minuti se le
            mangerebbero in due persone, bloccando proprio chi ha il diritto di
            cambiare idea. Li' il freno e' un altro, per singola scheda. */
-        const conFirma = ['completa-leggi', 'completa-salva', 'b2b-leggi', 'b2b-salva']
+        const conFirma = ['completa-leggi', 'completa-salva', 'b2b-leggi', 'b2b-salva',
+            'b2b-slot-prenota', 'b2b-slot-richiedi']
             .indexOf(String(body.azione || '')) >= 0;
         if (!conFirma && troppiInvii(ip)) { res.status(429).json({ ok: false, msg: 'Troppi invii ravvicinati.' }); return; }
 
@@ -874,7 +1010,8 @@ module.exports = async (req, res) => {
             await completaIscrizione(azione, body, res);
             return;
         }
-        if (azione === 'b2b-leggi' || azione === 'b2b-salva') {
+        if (azione === 'b2b-leggi' || azione === 'b2b-salva'
+            || azione === 'b2b-slot-prenota' || azione === 'b2b-slot-richiedi') {
             await interessiB2B(azione, body, res);
             return;
         }
