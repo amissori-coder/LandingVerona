@@ -136,16 +136,32 @@ const CAMPI_MATCHING = {
    `b2bScelte`: prima di questo invito nessun modulo di prenotazione era mai
    partito, quindi `interessi` sono sempre e soltanto preferenze. */
 const COLONNA_B2B = 'B2B prenotati';
+/* L'ORA dell'appuntamento, quando l'incontro e' stato preso sull'agenda a
+   slot: la colonna accanto dice a quale tavolo, questa dice quando. Sono due
+   colonne e non una perche' chi prepara il desk legge i tavoli, e chi sta al
+   desk la mattina legge gli orari. */
+const COLONNA_ORA_B2B = 'Orario B2B';
 const COLONNA_SPOSTATO = 'Spostamento azienda';
 function prenotatiB2B(v) {
     if (!Array.isArray(v.b2bScelte)) return [];
     return v.b2bScelte.map(x => String(x || '').trim()).filter(Boolean);
+}
+function appuntamentoB2B(v) {
+    const a = (v && v.b2bAppuntamento && typeof v.b2bAppuntamento === 'object') ? v.b2bAppuntamento : null;
+    if (!a || !String(a.ora || '').trim()) return null;
+    return {
+        area: String(a.area || ''), areaNome: String(a.areaNome || ''),
+        ora: String(a.ora || ''), fine: String(a.fine || ''),
+        quando: typeof a.quando === 'number' ? a.quando : 0
+    };
 }
 
 function extraMatching(v) {
     const fuori = {};
     const prenotati = prenotatiB2B(v);
     if (prenotati.length) fuori[COLONNA_B2B] = prenotati.join(',');
+    const app = appuntamentoB2B(v);
+    if (app) fuori[COLONNA_ORA_B2B] = app.ora + (app.fine ? ' - ' + app.fine : '');
     /* Chi e' stato spostato d'azienda a mano se lo porta scritto dietro: la
        lettura dell'elenco e' una whitelist campo per campo, quindi senza questa
        riga la traccia resterebbe sul database e non si vedrebbe mai. Vale anche
@@ -371,6 +387,14 @@ module.exports = async (req, res) => {
                     orariB2B: (v.b2bInvito && typeof v.b2bInvito === 'object'
                         && v.b2bInvito.orari && typeof v.b2bInvito.orari === 'object')
                         ? v.b2bInvito.orari : null,
+                    /* I tavoli a cui questa persona e' gia' stata convocata, e
+                       l'appuntamento che ha preso. Servono a chi manda gli
+                       inviti - per non convocare due volte la stessa impresa
+                       allo stesso tavolo - e all'elenco, che accanto al nome
+                       mostra ora e tavolo. */
+                    areeB2B: (v.b2bInvito && typeof v.b2bInvito === 'object' && Array.isArray(v.b2bInvito.aree))
+                        ? v.b2bInvito.aree.map(x => String(x || '')).filter(Boolean) : null,
+                    appuntamentoB2B: appuntamentoB2B(v),
                     /* Colonne aggiuntive: quelle dell'elenco importato piu' i campi
                        del business matching. Si costruisce una copia nuova, cosi'
                        l'oggetto letto dal database resta com'e'. */

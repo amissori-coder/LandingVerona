@@ -1066,7 +1066,98 @@ riservata riceve tutto con una sola richiesta e mostra l'elenco gia completo.
 
 L'invito B2B non e un sondaggio di gradimento: e la convocazione con cui
 Revilaw chiama le aziende agli incontri. Ogni argomento del convegno e un
-tavolo; chi riceve la mail sceglie a quali sedersi.
+tavolo, piu il desk Revilaw e la revisione legale: undici tavoli in tutto
+(`lib/temi-b2b.js`, `AREE_B2B`).
+
+Chi riceve la mail sceglie **l'ORARIO** del suo incontro: la giornata di ogni
+tavolo e divisa in appuntamenti e se ne prenota **uno** (vedi "L'agenda a
+slot" qui sotto). Prima c'era un modo diverso - si spuntavano i tavoli a cui
+sedersi, ognuno con la sua fascia oraria - e resta vivo per gli inviti gia
+partiti cosi ("Un orario per ogni tavolo", piu avanti): a decidere quale
+pagina vede l'ospite e il SUO invito, non la versione del programma.
+
+### L'agenda a slot: tavoli, referenti, orari (`lib/agenda-b2b.js`)
+
+Due documenti per evento, e non uno, perche si scrivono in momenti diversi e
+da mani diverse: chi configura non deve poter sovrascrivere una prenotazione
+presa un attimo prima.
+
+- `b2bAgenda/{evento}` - **la configurazione**, scritta dall'area riservata
+  (sezione Eventi, scheda "Incontri B2B: tavoli, referenti e orari"):
+  `giornata` (`inizio`, `fine`, `durata` in minuti, `pranzoDa`/`pranzoA`) e,
+  per ciascuna delle undici aree, `attiva`, `referenti` (chi tiene il tavolo),
+  `chiusi` (gli orari in cui non riceve) e `nota`. Di partenza: dalle 10:00
+  alle 18:00, mezz'ora per incontro, pausa 13:00-14:00 - quattordici
+  appuntamenti per tavolo.
+- `b2bPrenotazioni/{evento}` - **chi ha preso cosa**: `aree[area][chiave
+  oraria]` con la scheda del prenotato, e `richieste`, quelle di chi ha
+  trovato tutto esaurito. La chiave oraria e `"1030"` e non `"10:30"`: e il
+  nome di un campo dentro una mappa di Firestore, e li i due punti sono un
+  carattere da evitare.
+
+Le regole, tutte dentro una **transazione**, perche e qui che due ospiti si
+incontrano:
+
+- **un orario, una persona**: chi arriva secondo si sente rispondere
+  `motivo: "occupato"` e la pagina si ricarica da sola con la griglia
+  aggiornata. Se a decidere fosse il browser, si prenoterebbero tutti e due e
+  uno dei due lo scoprirebbe il giorno del convegno;
+- **un solo orario a testa** (per evento): chi cambia idea SPOSTA la sua
+  prenotazione - il posto vecchio si libera nello stesso passaggio - invece di
+  tenerne impegnati due;
+- **la pausa pranzo non produce appuntamenti**: uno slot che si sovrappone
+  anche solo in parte alla pausa non esiste. Meglio un buco di venti minuti
+  che un ospite convocato mentre la sala mangia;
+- **un orario chiuso non e un orario occupato**, e la pagina lo dice con
+  parole diverse: il primo non c'e mai stato (il referente e sul palco), il
+  secondo l'ha preso qualcun altro;
+- **gli orari chiusi si ripuliscono da soli**: cambiando durata o orari della
+  giornata, una chiusura che non corrisponde piu a nessuno slot sparisce,
+  altrimenti toglierebbe un posto senza che si veda dove.
+
+**L'area invitata sta sulla SCHEDA, non nel collegamento**
+(`b2bInvito.aree` + `b2bInvito.eventoId`, scritti da `invita-b2b` con
+`body.area`): cosi chi riceve la mail non puo cambiarla ritoccando
+l'indirizzo, e `b2b-slot-prenota` rifiuta un tavolo fuori invito anche a chi
+ha in mano il collegamento firmato. Due inviti a due tavoli si sommano - sono
+due convocazioni - e restano un solo orario da prenotare.
+
+**Azioni pubbliche** (`/api/iscrizione-nuova`, stessa firma della scheda):
+
+- `b2b-leggi` risponde `modo: "slot"` quando l'invito e quello nuovo: aree
+  invitate e attive, referenti (nome e ruolo, non l'email), orari con stato
+  `libero` / `occupato` / `chiuso` / `mio`, `esaurito`, l'appuntamento gia
+  preso. **Gli orari presi non portano mai il nome di chi li ha presi**: chi
+  viene a un incontro non deve poter leggere l'agenda degli altri; il proprio
+  invece si riconosce, altrimenti sembrerebbe di uno sconosciuto;
+- `b2b-slot-prenota` (`area`, `ora`, `nota`) prende lo slot, scrive
+  l'appuntamento sulla scheda (`b2bAppuntamento`, piu `b2bScelte` allineato
+  per la colonna "B2B prenotati" che c'era gia) e manda la conferma con il
+  foglio per il desk. Se la posta non risponde, la prenotazione resta e la
+  pagina lo dice: perdere il posto varrebbe molto piu di una mail;
+- `b2b-slot-richiedi` (`area`, `nota`) e la richiesta **fuori orario**, quella
+  del pulsante che compare a orari esauriti. Non impegna nessuno slot, e il
+  servizio la accetta SOLO se davvero non c'e piu posto (se un orario libero
+  c'e, si prenota). Avvisa per mail chi ha mandato l'invito (`b2bInvito.da`) e
+  compare nell'area riservata; si chiude da se quando quella persona ottiene
+  un orario.
+
+**Azioni dell'area riservata** (`/api/presenze`, `sezione: "b2b"`): `agenda`
+(sola lettura: la vede chiunque veda gli Eventi), `agenda-salva` (giornata e
+aree, una alla volta, cosi due persone su due tavoli diversi non si
+sovrascrivono), `agenda-assegna` (assegna un orario a una persona, anche
+chiuso o su un tavolo spento: e la risposta alle richieste fuori orario, e
+manda la stessa mail con il foglio), `agenda-libera` (libera un orario; non
+avvisa nessuno, perche e un gesto che si fa DOPO aver parlato con l'impresa) e
+`agenda-richiesta` (segna una richiesta gestita, la riapre o la toglie). Le
+tre che scrivono sono per amministratore, equity e founding partner, come gli
+inviti: chiudere uno slot o liberare un posto disfa una convocazione gia
+partita.
+
+Provato da `prove/agenda-b2b.prove.js` (`node prove/agenda-b2b.prove.js`,
+niente da installare): due ospiti sullo stesso orario, il cambio di orario,
+gli orari chiusi, il tavolo fuori invito, l'esaurito con la richiesta, la mail
+che non parte, e l'invito vecchio che continua a funzionare.
 
 - **Invito massivo** (`/api/presenze`, `azione: "invita-b2b"`; amministratore,
   equity e founding partner): riceve `destinatari` (fino a 50 per chiamata,
@@ -1165,7 +1256,13 @@ fondo al foglio c'e la data di emissione, perche vale sempre l'ultimo.
   servizio non ha una tabella degli eventi - sta nell'area riservata - e tenerne
   una seconda qui vorrebbe dire vederle divergere.
 
-### Un orario per ogni tavolo
+### Un orario per ogni tavolo (il modo PRECEDENTE, ancora vivo)
+
+Come funzionavano gli inviti prima dell'agenda a slot. Non si mandano piu cosi
+- l'area riservata invita un tavolo per volta, con gli orari da scegliere - ma
+chi ha ricevuto QUELLA mail continua a vedere QUELLA pagina: cambiare le regole
+sotto i piedi di chi ha gia una convocazione in casella vorrebbe dire dargli una
+pagina che non parla piu di quello che gli abbiamo scritto.
 
 Gli incontri non si tengono tutti insieme: ogni argomento e un tavolo con il suo
 orario, ed e l'unico modo perche chi prenota sappia se due si sovrappongono.
@@ -1210,13 +1307,18 @@ orario, ed e l'unico modo perche chi prenota sappia se due si sovrappongono.
 - Se all'invito non erano stati dati orari per tavolo ma il vecchio `orario`
   unico - inviti partiti con la versione precedente - vale quello per tutti i
   tavoli: e quello che quella mail diceva davvero.
-- I nove argomenti stanno in `lib/temi-b2b.js`, condiviso fra `presenze.js` e
-  `iscrizione-nuova.js`: finche erano due copie bastava una virgola di
-  differenza perche un orario arrivasse su un tavolo e la prenotazione su un
-  altro. Le stesse etichette, nello stesso ordine, vivono anche in
-  `area-riservata/newsletter-format.js` (con le descrizioni lunghe) e in
-  `incontri_b2b/index.html`: sono altri pezzi del sistema, senza moduli in
-  comune con il servizio.
+- Gli undici tavoli stanno in `lib/temi-b2b.js`, condiviso fra `presenze.js`,
+  `iscrizione-nuova.js` e `agenda-b2b.js`: finche erano due copie bastava una
+  virgola di differenza perche un orario arrivasse su un tavolo e la
+  prenotazione su un altro. Ogni area ha un `id` STABILE (`merito-creditizio`,
+  `desk-revilaw`...), con cui viaggia fra invito, prenotazione e agenda, e un
+  `nome`, che e l'etichetta che si legge: cosi riscrivere un'etichetta non
+  stacca le prenotazioni gia prese dal loro tavolo. L'ordine non si cambia e le
+  voci non si tolgono - la prenotazione a caselle viaggia per INDICE - e le
+  aggiunte vanno in fondo. Le stesse etichette, nello stesso ordine, vivono
+  anche in `area-riservata/newsletter-format.js` (con le descrizioni lunghe e
+  gli id) e in `incontri_b2b/index.html`: sono altri pezzi del sistema, senza
+  moduli in comune con il servizio.
 
 ### Spostare un referente da un'azienda a un'altra
 
