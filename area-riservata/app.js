@@ -16730,7 +16730,7 @@
         const cruscotto = '<div class="ev-cruscotto">'
             + gruppoEv('Iscrizioni', 'l\'elenco qui sotto', riquadriIscrizioni)
             + gruppoEv('Invii alle aziende', 'clienti e sponsor da portare in sala', [aziendeInvitoHtml(ev)])
-            + gruppoEv('Comunicazioni periodiche', 'a chi e già iscritto', [promemoriaEventiHtml(ev)])
+            + gruppoEv('Comunicazioni periodiche', 'a chi è già iscritto', [promemoriaEventiHtml(ev)])
             + gruppoEv('Incontri B2B', 'tavoli, orari e prenotazioni', [agendaB2BHtml(ev), riepilogoPrenotazioniHtml(ev, _evIscrizioni)])
             + gruppoEv('Programma della giornata', 'la scaletta dei lavori', [programmaHtml(ev)])
             + '</div>';
